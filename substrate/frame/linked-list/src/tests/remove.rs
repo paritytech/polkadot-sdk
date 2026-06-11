@@ -27,7 +27,7 @@ fn remove_only_item_clears_head_tail_size() {
 		assert!(LinkedList::tail(1).is_none());
 		assert_eq!(LinkedList::count(1), 0);
 		assert!(!ListMetas::<Test>::contains_key(1));
-		System::assert_has_event(Event::ItemRemoved { list_id: 1, item: 100 }.into());
+		System::assert_has_event(Event::ItemRemoved { list_id: 1, item: 100, priority: 50 }.into());
 		System::assert_last_event(Event::ListRemoved { list_id: 1 }.into());
 	});
 }
@@ -38,7 +38,7 @@ fn pop_tail_emptying_list_emits_list_removed() {
 		insert(1, 100, 50);
 		// Popping the only item empties the list and tears down its metadata.
 		assert_eq!(LinkedList::pop_tail(&1).unwrap(), Some((100, 50)));
-		System::assert_has_event(Event::ItemRemoved { list_id: 1, item: 100 }.into());
+		System::assert_has_event(Event::ItemRemoved { list_id: 1, item: 100, priority: 50 }.into());
 		System::assert_last_event(Event::ListRemoved { list_id: 1 }.into());
 	});
 }
@@ -102,7 +102,9 @@ fn pop_tail_removes_lowest_priority_tail() {
 
 		assert_eq!(LinkedList::pop_tail(&1).unwrap(), Some((300, 10)));
 		assert_eq!(dump(1), vec![(100, 90), (200, 50)]);
-		System::assert_last_event(Event::ItemRemoved { list_id: 1, item: 300 }.into());
+		System::assert_last_event(
+			Event::ItemRemoved { list_id: 1, item: 300, priority: 10 }.into(),
+		);
 
 		// Continuing to drain leaves the list empty and tears down all metadata.
 		hypothetically!({

@@ -187,8 +187,12 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 	}
 
 	fn remove(list_id: &T::ListId, item: &T::ItemId) -> Result<(), ListError> {
-		let (_, list_removed) = list::remove_at::<T>(list_id, item)?;
-		Self::deposit_event(Event::ItemRemoved { list_id: list_id.clone(), item: item.clone() });
+		let (priority, list_removed) = list::remove_at::<T>(list_id, item)?;
+		Self::deposit_event(Event::ItemRemoved {
+			list_id: list_id.clone(),
+			item: item.clone(),
+			priority,
+		});
 		if list_removed {
 			Self::deposit_event(Event::ListRemoved { list_id: list_id.clone() });
 		}
@@ -207,7 +211,11 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 				},
 				other => other,
 			})?;
-		Self::deposit_event(Event::ItemRemoved { list_id: list_id.clone(), item: item.clone() });
+		Self::deposit_event(Event::ItemRemoved {
+			list_id: list_id.clone(),
+			item: item.clone(),
+			priority,
+		});
 		if list_removed {
 			Self::deposit_event(Event::ListRemoved { list_id: list_id.clone() });
 		}
@@ -230,7 +238,13 @@ impl<T: Config> SortedListInterface<T::ListId, T::ItemId> for Pallet<T> {
 
 		// Fast path: existing neighbors still admit the new priority, mutate in place.
 		let existing_position = existing.into_position();
-		if list::neighbor_priorities_admit::<T>(&list_id, &new_priority, &existing_position) {
+		let (prev_node, next_node) = list::neighbor_nodes::<T>(&list_id, &existing_position);
+		if list::neighbor_priorities_admit(
+			&new_priority,
+			&existing_position,
+			prev_node.as_ref(),
+			next_node.as_ref(),
+		) {
 			ListNodes::<T>::mutate(&list_id, &item, |maybe| {
 				if let Some(n) = maybe {
 					n.priority = new_priority;

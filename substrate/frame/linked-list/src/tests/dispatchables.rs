@@ -76,7 +76,7 @@ fn reprioritize_removes_existing_item_when_priority_disappears() {
 		));
 
 		assert_eq!(dump(1), vec![(1, 90), (3, 10)]);
-		System::assert_has_event(Event::ItemRemoved { list_id: 1, item: 2 }.into());
+		System::assert_has_event(Event::ItemRemoved { list_id: 1, item: 2, priority: 50 }.into());
 	});
 }
 

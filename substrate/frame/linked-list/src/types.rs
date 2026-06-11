@@ -22,9 +22,6 @@
 //! tuple. It SCALE-encodes identically to `(Option<ItemId>, Option<ItemId>)`,
 //! so callers see only a metadata-level change.
 //!
-//! [`Side`] names the two ends of the list (head, tail) and is used by
-//! [`Position::is_endpoint`].
-//!
 //! [`ListMeta`] bundles the head pointer, tail pointer, and item count of a
 //! single list into one storage row so they can be read/written together.
 //!
@@ -63,19 +60,22 @@ pub struct ListMeta<ItemId> {
 /// at the head of a non-empty list has `prev = None` and `next = Some(head)`;
 /// a position past the tail has `prev = Some(tail)` and `next = None`.
 #[derive(
-	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+	Debug,
+	DefaultNoBound,
 )]
 pub struct Position<ItemId> {
 	/// Item immediately on the head side, or `None` if the position is at the head end.
 	pub prev: Option<ItemId>,
 	/// Item immediately on the tail side, or `None` if the position is at the tail end.
 	pub next: Option<ItemId>,
-}
-
-impl<ItemId> Default for Position<ItemId> {
-	fn default() -> Self {
-		Self::endpoints_only()
-	}
 }
 
 impl<ItemId> Position<ItemId> {
@@ -102,40 +102,6 @@ impl<ItemId> Position<ItemId> {
 	/// list.
 	pub const fn between(prev: ItemId, next: ItemId) -> Self {
 		Self { prev: Some(prev), next: Some(next) }
-	}
-
-	/// Whether this position sits at the named end of the list.
-	///
-	/// `is_endpoint(Side::Head)` is true iff `prev` is `None` (the position is
-	/// at the head end); `is_endpoint(Side::Tail)` is true iff `next` is
-	/// `None`.
-	pub const fn is_endpoint(&self, side: Side) -> bool {
-		match side {
-			Side::Head => self.prev.is_none(),
-			Side::Tail => self.next.is_none(),
-		}
-	}
-}
-
-/// The two ends of a list.
-///
-/// Used by [`Position::is_endpoint`] and internally to label walk directions
-/// in the hint-repair routine.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Side {
-	/// Head end (highest priority).
-	Head,
-	/// Tail end (lowest priority).
-	Tail,
-}
-
-impl Side {
-	/// The opposite end.
-	pub const fn other(self) -> Self {
-		match self {
-			Self::Head => Self::Tail,
-			Self::Tail => Self::Head,
-		}
 	}
 }
 

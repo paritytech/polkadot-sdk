@@ -51,7 +51,7 @@ use frame::prelude::*;
 pub use list::Node;
 pub use pallet::*;
 pub use sorted_list_interface::{PriorityProvider, SortedListInterface};
-pub use types::{ListError, ListMeta, Outcome, Position, Side};
+pub use types::{ListError, ListMeta, Outcome, Position};
 
 mod dispatchables;
 mod list;
@@ -170,7 +170,7 @@ pub mod pallet {
 		/// An item was inserted into a list.
 		ItemInserted { list_id: T::ListId, item: T::ItemId, priority: T::Priority },
 		/// An item was removed from a list.
-		ItemRemoved { list_id: T::ListId, item: T::ItemId },
+		ItemRemoved { list_id: T::ListId, item: T::ItemId, priority: T::Priority },
 		/// An item's priority was changed.
 		ItemReinserted {
 			list_id: T::ListId,

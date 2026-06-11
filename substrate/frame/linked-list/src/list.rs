@@ -60,6 +60,19 @@ impl<ItemId, Priority> Node<ItemId, Priority> {
 	}
 }
 
+/// Fetch the stored nodes flanking `pos`: `(prev, next)`, each `None` for an
+/// endpoint or a missing row. Feeds the pure position predicates and repair
+/// steps, which never read storage themselves.
+pub fn neighbor_nodes<T: Config>(
+	list_id: &T::ListId,
+	pos: &Position<T::ItemId>,
+) -> (Option<Node<T::ItemId, T::Priority>>, Option<Node<T::ItemId, T::Priority>>) {
+	(
+		pos.prev.as_ref().and_then(|p| ListNodes::<T>::get(list_id, p)),
+		pos.next.as_ref().and_then(|n| ListNodes::<T>::get(list_id, n)),
+	)
+}
+
 /// Whether `pos` is a valid insert position for `priority`.
 ///
 /// Valid means the neighbor links are consistent with the gap (endpoints
@@ -93,21 +106,28 @@ pub fn is_position_valid<ItemId: PartialEq, Priority: Ord>(
 	}
 }
 
-/// Priority-only half of [`is_position_valid`]. Skips the link-consistency check
-/// and is used by `re_insert`'s in-place fast path, where the existing links
-/// are valid by construction.
-pub fn neighbor_priorities_admit<T: Config>(
-	list_id: &T::ListId,
-	priority: &T::Priority,
-	pos: &Position<T::ItemId>,
+/// Priority-only half of [`is_position_valid`]. Skips the link-consistency
+/// check and is used by `re_insert`'s in-place fast path, where the existing
+/// links are valid by construction.
+///
+/// `prev_node`/`next_node` are the stored nodes for `pos.prev`/`pos.next`,
+/// `None` for an endpoint or a missing row.
+pub fn neighbor_priorities_admit<ItemId, Priority: Ord>(
+	priority: &Priority,
+	pos: &Position<ItemId>,
+	prev_node: Option<&Node<ItemId, Priority>>,
+	next_node: Option<&Node<ItemId, Priority>>,
 ) -> bool {
-	let prev_ok = pos
-		.prev
-		.as_ref()
-		.is_none_or(|p| ListNodes::<T>::get(list_id, p).is_some_and(|n| n.priority >= *priority));
-	let next_ok = pos.next.as_ref().is_none_or(|n| {
-		ListNodes::<T>::get(list_id, n).is_some_and(|node| *priority > node.priority)
-	});
+	let prev_ok = match (&pos.prev, prev_node) {
+		(None, _) => true,
+		(Some(_), Some(node)) => node.priority >= *priority,
+		(Some(_), None) => false,
+	};
+	let next_ok = match (&pos.next, next_node) {
+		(None, _) => true,
+		(Some(_), Some(node)) => *priority > node.priority,
+		(Some(_), None) => false,
+	};
 	prev_ok && next_ok
 }
 
@@ -222,8 +242,7 @@ pub fn walk_repair<T: Config>(
 	// `steps` counts mutations applied so far; the range is inclusive so the
 	// `budget`-th mutation still gets its validation pass.
 	for steps in 0..=budget {
-		let prev_node = current.prev.as_ref().and_then(|p| ListNodes::<T>::get(list_id, p));
-		let next_node = current.next.as_ref().and_then(|n| ListNodes::<T>::get(list_id, n));
+		let (prev_node, next_node) = neighbor_nodes::<T>(list_id, &current);
 		let (pn, nn) = (prev_node.as_ref(), next_node.as_ref());
 		if is_position_valid(priority, &current, pn, nn, meta.as_ref()) {
 			return Ok((current, steps));
@@ -239,8 +258,10 @@ pub fn walk_repair<T: Config>(
 			// yet `is_position_valid` rejects us. Reset to the head so the
 			// loop still terminates within the budget.
 			defensive!("walk_repair: no repair step applicable, resetting to head");
-			current.prev = None;
-			current.next = meta.as_ref().and_then(|m| m.head.clone());
+			current = meta
+				.as_ref()
+				.and_then(|m| m.head.clone())
+				.map_or(Position::endpoints_only(), Position::at_head);
 		}
 	}
 
@@ -377,8 +398,14 @@ fn debug_assert_insert_post_condition<T: Config>(list_id: &T::ListId, item: &T::
 
 	// Priority ordering: reuse the production priority-only predicate rather than
 	// re-spelling the `>=`/`>` asymmetry.
+	let (prev_node, next_node) = neighbor_nodes::<T>(list_id, &position);
 	debug_assert!(
-		neighbor_priorities_admit::<T>(list_id, &node.priority, &position),
+		neighbor_priorities_admit(
+			&node.priority,
+			&position,
+			prev_node.as_ref(),
+			next_node.as_ref()
+		),
 		"neighbor priorities reject item",
 	);
 
@@ -406,6 +433,50 @@ fn debug_assert_insert_post_condition<T: Config>(list_id: &T::ListId, item: &T::
 			"tail-side insert must own the tail pointer",
 		),
 	}
+}
+
+/// Apply the head/tail/len bookkeeping for removing `item`, whose stored
+/// links were `removed_prev`/`removed_next`, folding the endpoint cross-check
+/// into one `ListMetas` row update. On any error the row is left untouched.
+/// The row is dropped once the list empties.
+///
+/// Returns `true` if this remove emptied the list (the `ListMetas` row was dropped).
+fn update_meta_for_remove<T: Config>(
+	list_id: &T::ListId,
+	item: &T::ItemId,
+	removed_prev: &Option<T::ItemId>,
+	removed_next: &Option<T::ItemId>,
+) -> Result<bool, ListError> {
+	ListMetas::<T>::try_mutate_exists(list_id, |slot| -> Result<bool, ListError> {
+		// Defensive: by the all-or-nothing invariant a present node implies a
+		// present meta row with `len >= 1`.
+		let mut meta = slot.take().defensive_ok_or(ListError::CorruptList)?;
+		// Endpoint cross-check: a `None`-side neighbor link means `item` must
+		// be the stored head/tail; otherwise storage is internally inconsistent.
+		if removed_prev.is_none() && meta.head.as_ref() != Some(item) {
+			defensive!("remove_at: head pointer disagrees with removed head node");
+			return Err(ListError::CorruptList);
+		}
+		if removed_next.is_none() && meta.tail.as_ref() != Some(item) {
+			defensive!("remove_at: tail pointer disagrees with removed tail node");
+			return Err(ListError::CorruptList);
+		}
+		meta.len = meta.len.checked_sub(1).defensive_ok_or(ListError::CorruptList)?;
+		// We removed the head iff the removed node had no `prev`; the new head
+		// is then the removed item's `next` (`None` once the list empties).
+		if removed_prev.is_none() {
+			meta.head = removed_next.clone();
+		}
+		// Symmetric for the tail.
+		if removed_next.is_none() {
+			meta.tail = removed_prev.clone();
+		}
+		let list_emptied = meta.len == 0;
+		if !list_emptied {
+			*slot = Some(meta);
+		}
+		Ok(list_emptied)
+	})
 }
 
 /// Remove `item` from `list_id`. Drops the [`ListMetas`] row when the list
@@ -439,38 +510,7 @@ pub fn remove_at<T: Config>(
 
 	// Validate endpoints and update the meta row first so that any cross-check
 	// failure surfaces as `CorruptList` before any node-row mutation happens.
-	// The row vanishes once the list empties.
-	let list_removed =
-		ListMetas::<T>::try_mutate_exists(list_id, |slot| -> Result<bool, ListError> {
-			// Defensive: by the all-or-nothing invariant a present node implies a
-			// present meta row with `len >= 1`.
-			let mut meta = slot.take().defensive_ok_or(ListError::CorruptList)?;
-			// Endpoint cross-check: a `None`-side neighbor link means `item` must
-			// be the stored head/tail; otherwise storage is internally inconsistent.
-			if removed_prev.is_none() && meta.head.as_ref() != Some(item) {
-				defensive!("remove_at: head pointer disagrees with removed head node");
-				return Err(ListError::CorruptList);
-			}
-			if removed_next.is_none() && meta.tail.as_ref() != Some(item) {
-				defensive!("remove_at: tail pointer disagrees with removed tail node");
-				return Err(ListError::CorruptList);
-			}
-			meta.len = meta.len.checked_sub(1).defensive_ok_or(ListError::CorruptList)?;
-			// We removed the head iff the removed node had no `prev`; the new head is
-			// then the removed item's `next` (`None` once the list empties).
-			if removed_prev.is_none() {
-				meta.head = removed_next.clone();
-			}
-			// Symmetric for the tail.
-			if removed_next.is_none() {
-				meta.tail = removed_prev.clone();
-			}
-			let list_emptied = meta.len == 0;
-			if !list_emptied {
-				*slot = Some(meta);
-			}
-			Ok(list_emptied)
-		})?;
+	let list_removed = update_meta_for_remove::<T>(list_id, item, &removed_prev, &removed_next)?;
 
 	ListNodes::<T>::remove(list_id, item);
 
