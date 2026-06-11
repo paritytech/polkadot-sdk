@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD013 MD001 -->
+
 ### Changelog for `Node Dev`
 
 **ℹ️ These changes are relevant to:**  Those who build around the client side code. Alternative client builders, SMOLDOT, those who consume RPCs. These are people who are oblivious to the runtime changes. They only care about the meta-protocol, not the protocol itself.
