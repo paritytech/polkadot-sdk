@@ -47,7 +47,6 @@ assert_matches = { workspace = true }
 wat = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
-rusty-fork = { workspace = true, default-features = true }
 tempfile = { workspace = true }
 
 [features]

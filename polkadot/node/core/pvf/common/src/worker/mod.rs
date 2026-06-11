@@ -920,18 +920,17 @@ mod tests {
 		let missing_dir = std::env::temp_dir().join("pvf-common-tests-nonexistent-worker-dir");
 		assert!(!check_security_status(WorkerKind::Execute, &missing_dir));
 	}
-}
 
-#[cfg(all(test, target_os = "linux"))]
-mod security_status_tests {
-	use super::*;
-	use rusty_fork::rusty_fork_test;
-
-	rusty_fork_test! {
-		#[test]
-		fn check_security_status_passes_for_existing_worker_dir() {
-			assert!(check_security_status(WorkerKind::Execute, &std::env::temp_dir()));
-			assert!(check_security_status(WorkerKind::Prepare, &std::env::temp_dir()));
-		}
+	#[test]
+	fn check_security_status_passes_for_existing_worker_dir() {
+		std::thread::Builder::new()
+			.stack_size(16 * 1024 * 1024)
+			.spawn(|| {
+				assert!(check_security_status(WorkerKind::Execute, &std::env::temp_dir()));
+				assert!(check_security_status(WorkerKind::Prepare, &std::env::temp_dir()));
+			})
+			.unwrap()
+			.join()
+			.unwrap();
 	}
 }
