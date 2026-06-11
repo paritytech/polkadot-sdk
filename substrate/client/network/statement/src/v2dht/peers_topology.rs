@@ -49,7 +49,7 @@ impl Default for PeersTopologyConfig {
 
 #[derive(Debug, Clone)]
 struct PeerInfo {
-	supports: bool,
+	supports_protocol: bool,
 	/// Cached `peer_key`; the peer id never changes and hashing is costly.
 	key: [u8; 32],
 }
@@ -83,27 +83,31 @@ impl PeersTopology {
 		}
 	}
 
-	/// Record that a litep2p routing-table update saw `peer`.
+	/// Record that a litep2p routing-table update saw `peers`.
 	///
 	/// `RoutingTableUpdate` is used as the discovery source because litep2p's internal
 	/// Kademlia table is bucket-limited and may discard many discovered peers.
-	pub fn note_discovered(&mut self, peer: PeerId) {
-		self.peer_info_mut(peer);
+	pub fn on_peers_discovered(&mut self, peers: impl IntoIterator<Item = PeerId>) {
+		for peer in peers {
+			self.discovered
+				.entry(peer)
+				.or_insert_with(|| PeerInfo { supports_protocol: false, key: peer_key(&peer) });
+		}
 	}
 
 	/// Record statement-protocol support from identify protocol metadata.
 	///
 	/// Peers that do not support the statement protocol remain known but are excluded from DHT
 	/// storage and forwarding decisions.
-	pub fn note_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
-		self.peer_info_mut(peer).supports = supports_statement_protocol;
+	pub fn on_peer_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
+		self.peer_info_mut(peer).supports_protocol = supports_statement_protocol;
 	}
 
 	/// Record that the statement notification substream opened.
 	///
 	/// An open substream implies statement-protocol support.
 	pub fn on_substream_opened(&mut self, peer: PeerId) {
-		self.peer_info_mut(peer).supports = true;
+		self.peer_info_mut(peer).supports_protocol = true;
 		self.connected.insert(peer);
 	}
 
@@ -125,14 +129,19 @@ impl PeersTopology {
 	///
 	/// "Closest" is computed over the locally learned statement-protocol peers, not by querying
 	/// the network for the true global closest peers.
-	pub fn closest_known(&self, topic: Topic, n: usize) -> Vec<PeerId> {
-		self.closest_known_keyed(topic, n).into_iter().map(|(peer, _)| peer).collect()
+	pub fn closest_known(&self, topic: Topic, limit: usize) -> Vec<PeerId> {
+		self.closest_known_keyed(topic, limit)
+			.into_iter()
+			.map(|(peer, _)| peer)
+			.collect()
 	}
 
 	/// Returns whether the local node is one of the closest DHT storage replicas for `topic`.
 	///
 	/// This answers whether this node should store statements for `topic` according to DHT
 	/// affinity over the locally learned statement-store peers.
+	///
+	/// TODO: Performance is very bad, we should optimise this before any production deployment.
 	pub fn is_dht_affine(&self, topic: Topic) -> bool {
 		let mut candidates = self.dht_candidates().collect::<Vec<_>>();
 		candidates.push((self.local_peer, self.local_key));
@@ -143,21 +152,23 @@ impl PeersTopology {
 			.any(|(peer, _)| peer == self.local_peer)
 	}
 
-	/// Closest connected statement-protocol peers for `topic`.
+	/// Connected peers closer to `topic` than the local node, capped at `gossip_target`.
 	///
-	/// This chooses connected statement-store peers by topic distance and caps the result at
-	/// `gossip_target`.
+	/// Use these for forwarding decisions: each hop moves the statement towards the peers
+	/// responsible for storing it.
 	pub fn routing_targets(&self, topic: Topic) -> Vec<PeerId> {
+		let local_distance = xor_distance(*topic, self.local_key);
 		let mut peers = self
 			.connected
 			.iter()
 			.filter_map(|peer| {
 				let info = self.discovered.get(peer)?;
-				info.supports.then_some((*peer, info.key))
+				let distance = xor_distance(*topic, info.key);
+				(distance < local_distance).then_some((*peer, distance))
 			})
 			.collect::<Vec<_>>();
 
-		peers.sort_by_cached_key(|(peer, key)| (xor_distance(*topic, *key), *peer));
+		peers.sort_unstable_by_key(|&(peer, distance)| (distance, peer));
 		peers.truncate(self.config.gossip_target.get());
 		peers.into_iter().map(|(peer, _)| peer).collect()
 	}
@@ -187,25 +198,17 @@ impl PeersTopology {
 			})
 			.collect::<HashSet<_>>();
 
-		let pools = closest_pools
-			.into_iter()
-			.map(|pool| {
-				pool.into_iter()
-					.filter(|(peer, _)| *peer != self.local_peer && !self.is_connected(peer))
-					.collect::<Vec<_>>()
-			})
-			.collect::<Vec<_>>();
-
 		let mut selected = Vec::new();
 		let limit = topics.len();
 
 		while !uncovered.is_empty() && selected.len() < limit {
-			let Some(best_peer) = best_candidate(topics, &pools, &uncovered, &selected) else {
+			let Some(best_peer) = best_candidate(topics, &closest_pools, &uncovered, &selected)
+			else {
 				break;
 			};
 
 			selected.push(best_peer);
-			uncovered.retain(|topic_idx| !pool_contains(&pools[*topic_idx], &best_peer));
+			uncovered.retain(|topic_idx| !pool_contains(&closest_pools[*topic_idx], &best_peer));
 		}
 
 		selected
@@ -214,22 +217,22 @@ impl PeersTopology {
 	fn peer_info_mut(&mut self, peer: PeerId) -> &mut PeerInfo {
 		self.discovered
 			.entry(peer)
-			.or_insert_with(|| PeerInfo { supports: false, key: peer_key(&peer) })
+			.or_insert_with(|| PeerInfo { supports_protocol: false, key: peer_key(&peer) })
 	}
 
 	/// `closest_known` paired with each peer's cached key, so callers that compute further
 	/// distances reuse the key instead of looking it up again.
-	fn closest_known_keyed(&self, topic: Topic, n: usize) -> Vec<(PeerId, [u8; 32])> {
+	fn closest_known_keyed(&self, topic: Topic, limit: usize) -> Vec<(PeerId, [u8; 32])> {
 		let mut peers = self.dht_candidates().collect::<Vec<_>>();
 		peers.sort_by_cached_key(|(peer, key)| (xor_distance(*topic, *key), *peer));
-		peers.truncate(n);
+		peers.truncate(limit);
 		peers
 	}
 
 	fn dht_candidates(&self) -> impl Iterator<Item = (PeerId, [u8; 32])> + '_ {
 		self.discovered
 			.iter()
-			.filter(|(_, peer_info)| peer_info.supports)
+			.filter(|(_, peer_info)| peer_info.supports_protocol)
 			.map(|(peer, peer_info)| (*peer, peer_info.key))
 	}
 }
@@ -321,8 +324,8 @@ mod tests {
 	}
 
 	fn dht_peer(topology: &mut PeersTopology, peer: PeerId) {
-		topology.note_discovered(peer);
-		topology.note_identified(peer, true);
+		topology.on_peers_discovered([peer]);
+		topology.on_peer_identified(peer, true);
 	}
 
 	fn known_dht_peers(topology: &PeersTopology, topic: Topic) -> Vec<PeerId> {
@@ -346,8 +349,8 @@ mod tests {
 
 		dht_peer(&mut topology, supported);
 		dht_peer(&mut topology, supported);
-		topology.note_discovered(unsupported);
-		topology.note_identified(unsupported, false);
+		topology.on_peers_discovered([unsupported]);
+		topology.on_peer_identified(unsupported, false);
 
 		assert_eq!(topology.known_peers_count(), 2);
 		assert_eq!(known_dht_peers(&topology, topic(9)), vec![supported]);
@@ -355,7 +358,7 @@ mod tests {
 		topology.on_substream_opened(supported);
 		assert!(topology.is_connected(&supported));
 
-		topology.note_identified(supported, false);
+		topology.on_peer_identified(supported, false);
 		assert!(known_dht_peers(&topology, topic(9)).is_empty());
 
 		topology.on_substream_closed(supported);
@@ -366,11 +369,15 @@ mod tests {
 	#[test]
 	fn substream_lifecycle_drives_routing_targets() {
 		let mut topology = topology(1);
-		let peer = peer(2);
 		let topic = topic(1);
+		let self_distance = distance_to(topic, &peer(1));
+		let peer = (2..=80)
+			.map(peer)
+			.find(|candidate| distance_to(topic, candidate) < self_distance)
+			.expect("test peer fixture must include a peer closer than self");
 
-		topology.note_discovered(peer);
-		topology.note_identified(peer, true);
+		topology.on_peers_discovered([peer]);
+		topology.on_peer_identified(peer, true);
 
 		assert_eq!(topology.known_peers_count(), 1);
 		assert_eq!(topology.closest_known(topic, 1), vec![peer]);
@@ -420,30 +427,32 @@ mod tests {
 	}
 
 	#[test]
-	fn routing_targets_are_closest_connected_dht_peers_even_when_farther_than_self() {
+	fn routing_targets_are_closest_connected_peers_closer_to_topic_than_self() {
 		let mut topology = topology(1);
 		let topic = topic(7);
 		let self_distance = distance_to(topic, &peer(1));
+		let mut closer = Vec::new();
 		let mut farther = Vec::new();
 
 		for seed in 2..=80 {
 			let candidate = peer(seed);
-			if distance_to(topic, &candidate) > self_distance {
+			let distance = distance_to(topic, &candidate);
+			if distance < self_distance && closer.len() < 3 {
+				closer.push(candidate);
+			} else if distance > self_distance && farther.len() < 3 {
 				farther.push(candidate);
 			}
-			if farther.len() == 3 {
-				break;
-			}
 		}
-		assert!(farther.len() >= 3, "test peer fixture must include peers farther than self");
+		assert_eq!(closer.len(), 3, "test peer fixture must include peers closer than self");
+		assert_eq!(farther.len(), 3, "test peer fixture must include peers farther than self");
 
-		for peer in &farther {
+		for peer in closer.iter().chain(&farther) {
 			dht_peer(&mut topology, *peer);
 			topology.on_substream_opened(*peer);
 		}
 
 		let expected = {
-			let mut peers = farther.clone();
+			let mut peers = closer;
 			peers.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
 			peers.truncate(2);
 			peers

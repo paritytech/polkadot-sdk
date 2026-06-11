@@ -30,7 +30,7 @@ use sp_statement_store::SubmitResult;
 /// Coordinates the v2 DHT-affinity statement gossip path.
 #[allow(dead_code)]
 pub(crate) struct V2DhtOrchestrator {
-	/// Local view of statement-store peers known through network topology events.
+	/// Local view of statement-store peers known and connected through network topology events.
 	peers_topology: PeersTopology,
 	/// Tracks the local node's topic affinity and the filters peers advertise.
 	explicit_affinity: ExplicitAffinity,
@@ -46,13 +46,11 @@ impl V2DhtOrchestrator {
 	}
 
 	pub(crate) fn on_peers_discovered(&mut self, peers: impl IntoIterator<Item = PeerId>) {
-		for peer in peers {
-			self.peers_topology.note_discovered(peer);
-		}
+		self.peers_topology.on_peers_discovered(peers);
 	}
 
 	pub(crate) fn on_peer_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
-		self.peers_topology.note_identified(peer, supports_statement_protocol);
+		self.peers_topology.on_peer_identified(peer, supports_statement_protocol);
 	}
 
 	// === Peer-set events ===
