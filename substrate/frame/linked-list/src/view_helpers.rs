@@ -30,13 +30,12 @@ pub fn iter_from_tail<T: Config>(list_id: &T::ListId, n: u32) -> Vec<T::ItemId> 
 	}
 	let meta = ListMetas::<T>::get(list_id);
 	let mut out = Vec::with_capacity(n.min(meta.as_ref().map_or(0, |m| m.len)) as usize);
-	let mut cursor = meta.and_then(|m| m.tail);
-	for _ in 0..n {
-		let Some(item) = cursor else { break };
-		let prev = ListNodes::<T>::get(list_id, &item).and_then(|node| node.prev);
-		out.push(item);
-		cursor = prev;
-	}
+	out.extend(
+		core::iter::successors(meta.and_then(|m| m.tail), |item| {
+			ListNodes::<T>::get(list_id, item).and_then(|node| node.prev)
+		})
+		.take(n as usize),
+	);
 	out
 }
 
