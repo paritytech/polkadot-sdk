@@ -63,6 +63,29 @@ pub trait TracingExecuteBlock<Block: BlockT>: Send + Sync {
 	/// The execution should be done sync on the same thread, because the caller will register
 	/// special tracing collectors.
 	fn execute_block(&self, orig_hash: Block::Hash, block: Block) -> sp_blockchain::Result<()>;
+
+	/// Call the runtime API method `method` by name, replaying `block`, with a proof-size
+	/// recorder registered for the duration of the call. Returns the SCALE-encoded result.
+	///
+	/// `block` is SCALE-encoded and prepended to `extra_args` to form the call arguments, so this
+	/// serves runtime APIs whose first argument is the block being replayed (e.g. pallet-revive's
+	/// `trace_block` / `trace_tx`). The recorder is what lets `StorageWeightReclaim` reclaim
+	/// proof size during replay exactly as it did at authoring; without it the replay
+	/// over-accounts proof size and the block tail spuriously hits `ExhaustsResources`.
+	///
+	/// The default implementation returns an error: nodes that do not record proof size (e.g.
+	/// solochains, which have no PoV) do not need this and should fall back to a plain call.
+	fn call_recorded(
+		&self,
+		_orig_hash: Block::Hash,
+		_block: Block,
+		_method: &str,
+		_extra_args: Vec<u8>,
+	) -> sp_blockchain::Result<Vec<u8>> { // TODO Vec<u8> maybe can be replaced?
+		Err(sp_blockchain::Error::Backend(
+			"recorded runtime calls are not supported by this node".into(),
+		))
+	}
 }
 
 /// Default implementation of [`ExecuteBlock`].
@@ -244,12 +267,7 @@ where
 		}
 	}
 
-	/// Execute block, record all spans and events belonging to `Self::targets`
-	/// and filter out events which do not have keys starting with one of the
-	/// prefixes in `Self::storage_keys`.
-	pub fn trace_block(&self) -> TraceBlockResult<TraceBlockResponse> {
-		tracing::debug!(target: "state_tracing", "Tracing block: {}", self.block);
-		// Prepare the block
+	fn prepared_block(&self) -> TraceBlockResult<Block> {
 		let mut header = self
 			.client
 			.header(self.block)
@@ -261,11 +279,19 @@ where
 			.map_err(Error::InvalidBlockId)?
 			.ok_or_else(|| Error::MissingBlockComponent("Extrinsics not found".to_string()))?;
 		tracing::debug!(target: "state_tracing", "Found {} extrinsics", extrinsics.len());
-		let parent_hash = *header.parent_hash();
-		// Remove all `Seal`s as they are added by the consensus engines after building the block.
-		// On import they are normally removed by the consensus engine.
+
 		header.digest_mut().logs.retain(|d| d.as_seal().is_none());
-		let block = Block::new(header, extrinsics);
+		Ok(Block::new(header, extrinsics))
+	}
+
+	/// Execute block, record all spans and events belonging to `Self::targets`
+	/// and filter out events which do not have keys starting with one of the
+	/// prefixes in `Self::storage_keys`.
+	pub fn trace_block(&self) -> TraceBlockResult<TraceBlockResponse> {
+		tracing::debug!(target: "state_tracing", "Tracing block: {}", self.block);
+		// Prepare the block
+		let block = self.prepared_block()?;
+		let parent_hash = *block.header().parent_hash();
 
 		let targets = if let Some(t) = &self.targets { t } else { DEFAULT_TARGETS };
 		let block_subscriber = BlockSubscriber::new(targets);
@@ -331,6 +357,21 @@ where
 			spans,
 			events,
 		}))
+	}
+
+	/// Re-execute the block by calling the runtime API method `method` (by name), with a
+	/// proof-size recorder registered for the duration of the call, and return the SCALE-encoded
+	/// result. `extra_args` is appended after the (node-sourced) block to form the call arguments.
+	///
+	/// Unlike [`Self::trace_block`], no tracing subscriber is installed: this serves runtime-API
+	/// tracers (e.g. pallet-revive's `trace_block`/`trace_tx`) whose trace *is* the call's return
+	/// value. The recorder is what keeps proof-size reclaim faithful during replay.
+	pub fn call_recorded(&self, method: &str, extra_args: Vec<u8>) -> TraceBlockResult<Vec<u8>> {
+		tracing::debug!(target: "state_tracing", "Recorded call `{method}` on block: {}", self.block);
+		let block = self.prepared_block()?;
+		self.execute_block
+			.call_recorded(self.block, block, method, extra_args)
+			.map_err(|e| Error::Dispatch(format!("Failed recorded call `{method}`: {e:?}")))
 	}
 }
 
