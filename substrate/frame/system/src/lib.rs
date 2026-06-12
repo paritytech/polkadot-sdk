@@ -623,7 +623,7 @@ pub mod pallet {
 		///
 		/// This has no default on purpose: defaulting it to `()` (the Substrate reference weights)
 		/// silently applies weights benchmarked for a different runtime, which is almost never
-		/// correct. Runtime developers must therefore set it explicitly. See issue #10758.
+		/// correct. Runtime developers must therefore set it explicitly.
 		#[pallet::no_default]
 		type SystemWeightInfo: WeightInfo;
 
