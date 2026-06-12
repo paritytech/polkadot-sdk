@@ -32,13 +32,13 @@ fn main() {
 		.build();
 
 	WasmBuilder::init_with_defaults()
-		.enable_feature("increment-spec-version")
+		.enable_feature("spec-version-3")
 		.set_file_name(spec_version_incremented::WASM_FILE_NAME)
 		.build();
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("velocity-3")
-		.enable_feature("increment-spec-version")
+		.enable_feature("spec-version-3")
 		.set_file_name(elastic_scaling::WASM_FILE_NAME)
 		.build();
 
@@ -65,7 +65,7 @@ fn main() {
 	WasmBuilder::init_with_defaults()
 		.enable_feature("12s-slot")
 		.enable_feature("velocity-3")
-		.enable_feature("increment-spec-version")
+		.enable_feature("spec-version-3")
 		.set_file_name(elastic_scaling_12s_slot::WASM_FILE_NAME)
 		.build();
 
@@ -113,13 +113,14 @@ fn main() {
 	// A runtime with 18s slot duration with increased spec version for runtime upgrade testing.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("18s-slot")
-		.enable_feature("increment-spec-version")
+		.enable_feature("spec-version-3")
 		.set_file_name(slot_duration_18s::WASM_FILE_NAME)
 		.build();
 
 	WasmBuilder::new()
 		.with_current_project()
 		.enable_feature("with-authority-discovery")
+		.enable_feature("spec-version-4")
 		.enable_feature("relay-parent-offset-2")
 		.set_file_name(with_authority_discovery::WASM_FILE_NAME)
 		.build();

@@ -107,7 +107,11 @@ std = [
 	"tracing/std",
 ]
 
-increment-spec-version = []
+# The default spec version is 2. The following features can be used to change this value:
+# Change the spec version to 3
+spec-version-3 = []
+# Change the spec version to 4
+spec-version-4 = []
 
 # The default parachain slot duration is 6s. The following features can be used to change this value:
 # Change the parachain slot duration to 12s

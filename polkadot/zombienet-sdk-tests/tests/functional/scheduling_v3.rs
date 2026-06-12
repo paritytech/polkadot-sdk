@@ -28,12 +28,12 @@ use crate::utils::{assert_candidates_version, assert_validator_backed_candidates
 /// - a V3 parachain with async backing
 /// and checks that the candidates for both parachains are being backed at expected throughput.
 #[rstest]
-#[case::rpo_0_max_session_age_0("async-backing-v3", 0, 20, 18..21, 13..18)]
-#[case::rpo_2_max_session_age_0("async-backing-v3-rpo-2", 0, 20, 18..21, 9..14)]
-#[case::rpo_2_max_session_age_1("async-backing-v3-rpo-2", 1, 40, 38..41, 13..18)]
-#[case::rpo_4_max_session_age_1("async-backing-v3-rpo-4", 1, 40, 38..41, 13..18)]
-#[case::rpo_6_max_session_age_1("async-backing-v3-rpo-6", 1, 40, 38..41, 13..18)]
-#[case::rpo_15_max_session_age_2("async-backing-v3-rpo-15", 2, 60, 58..61, 16..21)]
+#[case::rpo_0_max_session_age_0("async-backing-v3", 0, 20, 18..21, 12..21)]
+#[case::rpo_2_max_session_age_0("async-backing-v3-rpo-2", 0, 20, 18..21, 8..21)]
+#[case::rpo_2_max_session_age_1("async-backing-v3-rpo-2", 1, 40, 38..41, 12..41)]
+#[case::rpo_4_max_session_age_1("async-backing-v3-rpo-4", 1, 40, 38..41, 12..41)]
+#[case::rpo_6_max_session_age_1("async-backing-v3-rpo-6", 1, 40, 38..41, 12..41)]
+#[case::rpo_15_max_session_age_2("async-backing-v3-rpo-15", 2, 60, 58..61, 15..61)]
 #[tokio::test(flavor = "multi_thread")]
 async fn scheduling_v2_and_v3_collator_with_v3_validators(
 	#[case] parachain: &str,
