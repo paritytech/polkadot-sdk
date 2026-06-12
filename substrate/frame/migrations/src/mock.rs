@@ -117,7 +117,7 @@ pub mod runtime_a {
 	pub fn glutton_storage_exists() -> bool {
 		use frame_support::traits::PalletInfoAccess;
 
-		let storage_key = sp_core::twox_128(Glutton::name().as_bytes()).to_vec();
+		let storage_key = sp_io::hashing::twox_128(Glutton::name().as_bytes()).to_vec();
 
 		sp_io::storage::next_key(&storage_key).is_some()
 	}
