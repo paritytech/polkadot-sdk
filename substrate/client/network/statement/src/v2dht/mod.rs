@@ -38,7 +38,11 @@ pub(crate) struct V2DhtOrchestrator {
 
 #[allow(dead_code)]
 impl V2DhtOrchestrator {
-	pub(crate) fn new(configured_topics: &[Topic], local_peer: PeerId, peers_topology_config: PeersTopologyConfig) -> Self {
+	pub(crate) fn new(
+		configured_topics: &[Topic],
+		local_peer: PeerId,
+		peers_topology_config: PeersTopologyConfig,
+	) -> Self {
 		Self {
 			peers_topology: PeersTopology::new(local_peer, peers_topology_config),
 			explicit_affinity: ExplicitAffinity::new(configured_topics),

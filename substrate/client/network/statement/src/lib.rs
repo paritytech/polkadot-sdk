@@ -455,7 +455,11 @@ impl StatementHandlerPrototype {
 		} else {
 			futures::stream::pending::<Event>().boxed()
 		};
-		let v2dht = V2DhtOrchestrator::new(configured_topics, network.local_peer_id(), PeersTopologyConfig::default());
+		let v2dht = V2DhtOrchestrator::new(
+			configured_topics,
+			network.local_peer_id(),
+			PeersTopologyConfig::default(),
+		);
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
 			notification_service: self.notification_service,
@@ -2093,7 +2097,11 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-			v2dht: V2DhtOrchestrator::new(&[], network.local_peer_id(), PeersTopologyConfig::default()),
+			v2dht: V2DhtOrchestrator::new(
+				&[],
+				network.local_peer_id(),
+				PeersTopologyConfig::default(),
+			),
 		};
 		(handler, statement_store, network, notification_service, queue_receiver, peer_ids)
 	}
@@ -2332,7 +2340,11 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-			v2dht: V2DhtOrchestrator::new(&[], network.local_peer_id(), PeersTopologyConfig::default()),
+			v2dht: V2DhtOrchestrator::new(
+				&[],
+				network.local_peer_id(),
+				PeersTopologyConfig::default(),
+			),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -2379,7 +2391,11 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-			v2dht: V2DhtOrchestrator::new(&[], network.local_peer_id(), PeersTopologyConfig::default()),
+			v2dht: V2DhtOrchestrator::new(
+				&[],
+				network.local_peer_id(),
+				PeersTopologyConfig::default(),
+			),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -3800,7 +3816,11 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-			v2dht: V2DhtOrchestrator::new(&[], network.local_peer_id(), PeersTopologyConfig::default()),
+			v2dht: V2DhtOrchestrator::new(
+				&[],
+				network.local_peer_id(),
+				PeersTopologyConfig::default(),
+			),
 		};
 
 		// Add a statement so there's something to sync.
@@ -4159,7 +4179,11 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
-			v2dht: V2DhtOrchestrator::new(&[], network.local_peer_id(), PeersTopologyConfig::default()),
+			v2dht: V2DhtOrchestrator::new(
+				&[],
+				network.local_peer_id(),
+				PeersTopologyConfig::default(),
+			),
 		};
 
 		let peer1 = PeerId::random();
@@ -4228,7 +4252,11 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
-			v2dht: V2DhtOrchestrator::new(&[], network.local_peer_id(), PeersTopologyConfig::default()),
+			v2dht: V2DhtOrchestrator::new(
+				&[],
+				network.local_peer_id(),
+				PeersTopologyConfig::default(),
+			),
 		};
 
 		flag.store(false, std::sync::atomic::Ordering::Relaxed);
@@ -4309,7 +4337,11 @@ mod tests {
 			dropped_statements_during_sync: true,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-			v2dht: V2DhtOrchestrator::new(&[], network.local_peer_id(), PeersTopologyConfig::default()),
+			v2dht: V2DhtOrchestrator::new(
+				&[],
+				network.local_peer_id(),
+				PeersTopologyConfig::default(),
+			),
 		};
 
 		handler.start_sync_recovery();
