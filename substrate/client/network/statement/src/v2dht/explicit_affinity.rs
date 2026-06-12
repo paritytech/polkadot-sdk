@@ -45,9 +45,9 @@
 //!    ([#12316]). (Optional: take the advertised-filter seed from config to match the light client
 //!    — correctness already holds, since the seed travels on the wire.)
 //! 5. [x] **RPC-subscription source.** Poll the statement store's live subscription topics on the
-//!    affinity tick and reconcile them into the `RpcSubscription` source (`set_source_topics`). The
-//!    store owns the subscription set, so the poll cannot drift and the RPC layer stays untouched.
-//!    Needs step 3. Closes "track affinity from active subscriptions" ([#12339]).
+//!    affinity tick and reconcile them into the `RpcSubscription` source (`replace_source_topics`).
+//!    The store owns the subscription set, so the poll cannot drift and the RPC layer stays
+//!    untouched. Needs step 3. Closes "track affinity from active subscriptions" ([#12339]).
 //! 6. [x] **Local queries.** Over the fed topic set, implement `local_filter()` (advertised
 //!    [`AffinityFilter`] built from the topics) and `local_has_explicit_affinity(stmt)` (does any
 //!    of the statement's topics sit in the set). Configured and subscribed topics start being
