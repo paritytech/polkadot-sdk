@@ -3033,6 +3033,8 @@ mod admin {
 			assert_ok!(Psm::create_psm(
 				RuntimeOrigin::signed(ALICE),
 				NEW_INTERNAL,
+				Box::new(signed_origin(ALICE)),
+				Box::new(signed_origin(ALICE)),
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
 				DEFAULT_MIN_SWAP,
@@ -3076,6 +3078,8 @@ mod admin {
 				Psm::create_psm(
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
+					Box::new(signed_origin(ALICE)),
+					Box::new(signed_origin(ALICE)),
 					INSURANCE_FUND,
 					DEFAULT_MAX_DEBT,
 					DEFAULT_MIN_SWAP,
@@ -3092,6 +3096,8 @@ mod admin {
 				Psm::create_psm(
 					RuntimeOrigin::signed(ALICE),
 					4242u32,
+					Box::new(signed_origin(ALICE)),
+					Box::new(signed_origin(ALICE)),
 					INSURANCE_FUND,
 					DEFAULT_MAX_DEBT,
 					DEFAULT_MIN_SWAP,
@@ -3109,6 +3115,8 @@ mod admin {
 				Psm::create_psm(
 					RuntimeOrigin::signed(ALICE),
 					NEW_INTERNAL,
+					Box::new(signed_origin(ALICE)),
+					Box::new(signed_origin(ALICE)),
 					INSURANCE_FUND,
 					DEFAULT_MAX_DEBT,
 					0,
@@ -3129,6 +3137,8 @@ mod admin {
 				Psm::create_psm(
 					RuntimeOrigin::signed(BOB),
 					NEW_INTERNAL,
+					Box::new(signed_origin(BOB)),
+					Box::new(signed_origin(BOB)),
 					INSURANCE_FUND,
 					DEFAULT_MAX_DEBT,
 					DEFAULT_MIN_SWAP,
@@ -3151,6 +3161,8 @@ mod admin {
 				Psm::create_psm(
 					RuntimeOrigin::signed(POOR),
 					NEW_INTERNAL,
+					Box::new(signed_origin(POOR)),
+					Box::new(signed_origin(POOR)),
 					INSURANCE_FUND,
 					DEFAULT_MAX_DEBT,
 					DEFAULT_MIN_SWAP,
@@ -3170,6 +3182,8 @@ mod admin {
 			assert_ok!(Psm::create_psm(
 				RuntimeOrigin::signed(ALICE),
 				NEW_INTERNAL,
+				Box::new(signed_origin(ALICE)),
+				Box::new(signed_origin(ALICE)),
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
 				DEFAULT_MIN_SWAP,
@@ -3199,6 +3213,8 @@ mod admin {
 			assert_ok!(Psm::create_psm(
 				RuntimeOrigin::signed(ALICE),
 				NEW_INTERNAL,
+				Box::new(signed_origin(ALICE)),
+				Box::new(signed_origin(ALICE)),
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
 				DEFAULT_MIN_SWAP,
@@ -3226,6 +3242,8 @@ mod admin {
 			assert_ok!(Psm::create_psm(
 				RuntimeOrigin::signed(ALICE),
 				NEW_INTERNAL,
+				Box::new(signed_origin(ALICE)),
+				Box::new(signed_origin(ALICE)),
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
 				DEFAULT_MIN_SWAP,
@@ -3262,6 +3280,8 @@ mod admin {
 			assert_ok!(Psm::create_psm(
 				RuntimeOrigin::signed(ALICE),
 				NEW_INTERNAL,
+				Box::new(signed_origin(ALICE)),
+				Box::new(signed_origin(ALICE)),
 				INSURANCE_FUND,
 				DEFAULT_MAX_DEBT,
 				DEFAULT_MIN_SWAP,

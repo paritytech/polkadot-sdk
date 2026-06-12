@@ -231,6 +231,11 @@ pub mod pallet {
 		pub const fn can_manage_assets(&self) -> bool {
 			matches!(self, PsmManagerLevel::Full)
 		}
+
+		/// Whether this level allows reassigning the PSM's `full_admin` / `emergency_admin`.
+		pub const fn can_manage_admins(&self) -> bool {
+			matches!(self, PsmManagerLevel::Full)
+		}
 	}
 
 	pub(crate) type BalanceOf<T> = <<T as Config>::Fungibles as FungiblesInspect<
@@ -708,8 +713,8 @@ pub mod pallet {
 		///
 		/// ## Details
 		///
-		/// Burns `amount` of `internal_asset` from the caller minus fee (transferred to
-		/// the instance's [`PsmInfo::fee_destination`]), then transfers the resulting
+		/// Burns `internal_amount` of `internal_asset` from the caller minus fee (transferred
+		/// to the instance's [`PsmInfo::fee_destination`]), then transfers the resulting
 		/// amount in `external_asset` from the PSM reserve to the caller. The fee is
 		/// calculated using ceiling rounding (`mul_ceil`), ensuring the protocol never
 		/// undercharges.
@@ -719,14 +724,15 @@ pub mod pallet {
 		/// - `internal_asset`: The internal stablecoin that identifies the PSM instance.
 		/// - `external_asset`: The external stablecoin to receive (must be approved on
 		///   `internal_asset`).
-		/// - `amount`: Amount of `internal_asset` to redeem.
+		/// - `internal_amount`: Amount of `internal_asset` to redeem.
 		///
 		/// ## Errors
 		///
 		/// - [`Error::PsmNotFound`]: If no PSM is registered for `internal_asset`.
 		/// - [`Error::UnsupportedAsset`]: If `external_asset` is not approved on this PSM.
 		/// - [`Error::AllSwapsStopped`]: If the per-external circuit breaker is at `AllDisabled`.
-		/// - [`Error::BelowMinimumSwap`]: If `amount` is below the instance's `min_swap_amount`.
+		/// - [`Error::BelowMinimumSwap`]: If `internal_amount` is below the instance's
+		///   `min_swap_amount`.
 		/// - [`Error::InsufficientReserve`]: If the PSM holds less of `external_asset` than the
 		///   redemption requires.
 		/// - [`Error::DecimalsMismatch`]: If live decimals diverged from the snapshot taken at
@@ -743,7 +749,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			internal_asset: T::AssetId,
 			external_asset: T::AssetId,
-			amount: BalanceOf<T>,
+			internal_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let info = Psm::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
@@ -755,10 +761,11 @@ pub mod pallet {
 			let (ext_decimals, internal_decimals) =
 				Self::ensure_decimals_match(&info, &internal_asset, &external_asset, &external)?;
 
-			ensure!(amount >= info.min_swap_amount, Error::<T>::BelowMinimumSwap);
+			ensure!(internal_amount >= info.min_swap_amount, Error::<T>::BelowMinimumSwap);
 
-			let fee = RedemptionFee::<T>::get(&internal_asset, &external_asset).mul_ceil(amount);
-			let internal_net = amount.saturating_sub(fee);
+			let fee =
+				RedemptionFee::<T>::get(&internal_asset, &external_asset).mul_ceil(internal_amount);
+			let internal_net = internal_amount.saturating_sub(fee);
 
 			let external_out =
 				Self::internal_to_external(internal_net, ext_decimals, internal_decimals)?;
@@ -913,7 +920,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set the absolute PSM debt ceiling of a specific PSM instance.
+		/// Set the PSM debt ceiling per internal asset, shared across all approved external
+		/// assets.
 		///
 		/// ## Dispatch Origin
 		///
@@ -945,20 +953,20 @@ pub mod pallet {
 			// normalised ceiling below its outstanding debt. To halt minting / wind a
 			// PSM down, use the per-asset circuit breaker (`set_asset_status`) instead.
 			Self::ensure_ceilings_cover_debt(&internal_asset, value, None)?;
-			Psm::<T>::try_mutate(&internal_asset, |maybe| -> DispatchResult {
-				let info = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
-				let old_value = info.max_debt;
-				info.max_debt = value;
-				Self::deposit_event(Event::MaxDebtUpdated {
-					internal_asset: internal_asset.clone(),
-					old_value,
-					new_value: value,
-				});
-				Ok(())
-			})
+			let old_value =
+				Psm::<T>::try_mutate(&internal_asset, |maybe| -> Result<_, DispatchError> {
+					let info = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
+					Ok(core::mem::replace(&mut info.max_debt, value))
+				})?;
+			Self::deposit_event(Event::MaxDebtUpdated {
+				internal_asset,
+				old_value,
+				new_value: value,
+			});
+			Ok(())
 		}
 
-		/// Set the per-external circuit breaker on a PSM instance.
+		/// Set the circuit breaker per external asset on a PSM instance.
 		///
 		/// ## Dispatch Origin
 		///
@@ -1004,7 +1012,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set the per-external ceiling weight on a PSM instance.
+		/// Set the ceiling weight per external asset on a PSM instance.
 		///
 		/// Weights are normalised against the sum of weights within the same instance:
 		/// `max_asset_debt = (weight / sum_of_weights) * info.max_debt`.
@@ -1060,7 +1068,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Approve an external stablecoin on a PSM instance.
+		/// Approve an external stablecoin for a given internal asset.
 		///
 		/// Snapshots the external asset's live decimals at registration time and
 		/// increments [`PsmInfo::external_count`].
@@ -1098,43 +1106,40 @@ pub mod pallet {
 			external_asset: T::AssetId,
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_assets())?;
-			Psm::<T>::try_mutate(&internal_asset, |maybe| -> DispatchResult {
-				let info = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
-				ensure!(
-					!ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
-					Error::<T>::AssetAlreadyApproved
-				);
-				ensure!(info.external_count < T::MaxExternals::get(), Error::<T>::TooManyAssets);
-				ensure!(
-					T::Fungibles::asset_exists(external_asset.clone()),
-					Error::<T>::AssetDoesNotExist
-				);
+			let mut info = Psm::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
+			ensure!(
+				!ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
+				Error::<T>::AssetAlreadyApproved
+			);
+			ensure!(info.external_count < T::MaxExternals::get(), Error::<T>::TooManyAssets);
+			ensure!(
+				T::Fungibles::asset_exists(external_asset.clone()),
+				Error::<T>::AssetDoesNotExist
+			);
 
-				let asset_decimals = T::Fungibles::decimals(external_asset.clone());
-				ensure!(
-					T::Fungibles::decimals(internal_asset.clone()) == info.internal_decimals,
-					Error::<T>::DecimalsMismatch
-				);
-				ensure!(
-					(asset_decimals.abs_diff(info.internal_decimals) as u32) <= MAX_DECIMALS_DIFF,
-					Error::<T>::DecimalsRangeExceeded
-				);
+			let asset_decimals = T::Fungibles::decimals(external_asset.clone());
+			ensure!(
+				T::Fungibles::decimals(internal_asset.clone()) == info.internal_decimals,
+				Error::<T>::DecimalsMismatch
+			);
+			ensure!(
+				(asset_decimals.abs_diff(info.internal_decimals) as u32) <= MAX_DECIMALS_DIFF,
+				Error::<T>::DecimalsRangeExceeded
+			);
 
-				ExternalAssets::<T>::insert(
-					&internal_asset,
-					&external_asset,
-					ExternalAssetInfo {
-						status: CircuitBreakerLevel::AllEnabled,
-						decimals: asset_decimals,
-					},
-				);
-				info.external_count = info.external_count.saturating_add(1);
-				Self::deposit_event(Event::ExternalAssetAdded {
-					internal_asset: internal_asset.clone(),
-					external_asset,
-				});
-				Ok(())
-			})
+			ExternalAssets::<T>::insert(
+				&internal_asset,
+				&external_asset,
+				ExternalAssetInfo {
+					status: CircuitBreakerLevel::AllEnabled,
+					decimals: asset_decimals,
+				},
+			);
+			info.external_count = info.external_count.saturating_add(1);
+			Psm::<T>::insert(&internal_asset, info);
+
+			Self::deposit_event(Event::ExternalAssetAdded { internal_asset, external_asset });
+			Ok(())
 		}
 
 		/// Remove an external stablecoin from a PSM instance.
@@ -1170,35 +1175,32 @@ pub mod pallet {
 			external_asset: T::AssetId,
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_assets())?;
-			Psm::<T>::try_mutate(&internal_asset, |maybe| -> DispatchResult {
-				let info = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
-				ensure!(
-					ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
-					Error::<T>::AssetNotApproved
-				);
-				ensure!(
-					PsmDebt::<T>::get(&internal_asset, &external_asset).is_zero(),
-					Error::<T>::AssetHasDebt
-				);
-				ExternalAssets::<T>::remove(&internal_asset, &external_asset);
-				MintingFee::<T>::remove(&internal_asset, &external_asset);
-				RedemptionFee::<T>::remove(&internal_asset, &external_asset);
-				AssetCeilingWeight::<T>::remove(&internal_asset, &external_asset);
-				PsmDebt::<T>::remove(&internal_asset, &external_asset);
-				info.external_count = info.external_count.saturating_sub(1);
-				Self::deposit_event(Event::ExternalAssetRemoved {
-					internal_asset: internal_asset.clone(),
-					external_asset,
-				});
-				Ok(())
-			})
+			let mut info = Psm::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
+			ensure!(
+				ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
+				Error::<T>::AssetNotApproved
+			);
+			ensure!(
+				PsmDebt::<T>::get(&internal_asset, &external_asset).is_zero(),
+				Error::<T>::AssetHasDebt
+			);
+			ExternalAssets::<T>::remove(&internal_asset, &external_asset);
+			MintingFee::<T>::remove(&internal_asset, &external_asset);
+			RedemptionFee::<T>::remove(&internal_asset, &external_asset);
+			AssetCeilingWeight::<T>::remove(&internal_asset, &external_asset);
+			PsmDebt::<T>::remove(&internal_asset, &external_asset);
+			info.external_count = info.external_count.saturating_sub(1);
+			Psm::<T>::insert(&internal_asset, info);
+
+			Self::deposit_event(Event::ExternalAssetRemoved { internal_asset, external_asset });
+			Ok(())
 		}
 
-		/// Permissionlessly create a PSM.
+		/// Create a PSM for a given internal asset.
 		///
 		/// Takes a [`Config::Consideration`] deposit from the signer for the instance's
-		/// footprint (refunded on `remove_psm`). Both `full_admin` and `emergency_admin` are
-		/// initialised to the signer's `Signed` origin and may later be reassigned via
+		/// footprint (refunded on `remove_psm`). The `full_admin` and `emergency_admin` origins
+		/// are set from the provided arguments and may later be reassigned via
 		/// [`Pallet::set_full_admin`] / [`Pallet::set_emergency_admin`].
 		///
 		/// The caller must be the owner of `internal_asset`. The PSM mints/burns the internal
@@ -1215,6 +1217,8 @@ pub mod pallet {
 		///
 		/// - `internal_asset`: The internal stablecoin keying the new PSM. Must exist in the
 		///   fungibles backend and be owned by the caller; must not already have a PSM registered.
+		/// - `full_admin`: Origin granted full management of the new PSM.
+		/// - `emergency_admin`: Origin granted emergency management of the new PSM.
 		/// - `fee_destination`: Account that will receive mint/redeem fees.
 		/// - `max_debt`: Initial absolute internal-asset debt ceiling.
 		/// - `min_swap_amount`: Minimum swap amount for this instance, in internal-asset units.
@@ -1237,6 +1241,8 @@ pub mod pallet {
 		pub fn create_psm(
 			origin: OriginFor<T>,
 			internal_asset: T::AssetId,
+			full_admin: Box<T::PalletsOrigin>,
+			emergency_admin: Box<T::PalletsOrigin>,
 			fee_destination: T::AccountId,
 			max_debt: BalanceOf<T>,
 			min_swap_amount: BalanceOf<T>,
@@ -1261,8 +1267,8 @@ pub mod pallet {
 			// the signer. A PSM is a single fixed record, hence a footprint of `(1, 0)`.
 			let ticket = T::Consideration::new(&who, Footprint::from_parts(1, 0))?;
 
-			let signer_origin: T::PalletsOrigin =
-				frame_system::RawOrigin::Signed(who.clone()).into();
+			let full_admin = *full_admin;
+			let emergency_admin = *emergency_admin;
 			let internal_decimals = T::Fungibles::decimals(internal_asset.clone());
 			Psm::<T>::insert(
 				&internal_asset,
@@ -1277,8 +1283,8 @@ pub mod pallet {
 			PsmAdmin::<T>::insert(
 				&internal_asset,
 				PsmAdminInfo::<T> {
-					full_admin: signer_origin.clone(),
-					emergency_admin: signer_origin.clone(),
+					full_admin: full_admin.clone(),
+					emergency_admin: emergency_admin.clone(),
 					depositor: who,
 					ticket,
 				},
@@ -1293,8 +1299,8 @@ pub mod pallet {
 
 			Self::deposit_event(Event::PsmCreated {
 				internal_asset,
-				full_admin: Box::new(signer_origin.clone()),
-				emergency_admin: Box::new(signer_origin),
+				full_admin: Box::new(full_admin),
+				emergency_admin: Box::new(emergency_admin),
 				fee_destination,
 				max_debt,
 			});
@@ -1375,7 +1381,7 @@ pub mod pallet {
 			internal_asset: T::AssetId,
 			new_admin: Box<T::PalletsOrigin>,
 		) -> DispatchResult {
-			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_assets())?;
+			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_admins())?;
 			let new_admin = *new_admin;
 			let old_admin = PsmAdmin::<T>::try_mutate(
 				&internal_asset,
@@ -1418,7 +1424,7 @@ pub mod pallet {
 			internal_asset: T::AssetId,
 			new_admin: Box<T::PalletsOrigin>,
 		) -> DispatchResult {
-			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_assets())?;
+			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_admins())?;
 			let new_admin = *new_admin;
 			let old_admin = PsmAdmin::<T>::try_mutate(
 				&internal_asset,
