@@ -38,13 +38,4 @@ contract OriginIsRoot {
 		require(ok, "delegate originIsRoot failed");
 		return abi.decode(ret, (bool));
 	}
-
-	/// Delegate-call into `impl.callerIsRoot()`, used to prove that `callerIsRoot` does
-	/// *not* propagate root authority across regular call frames.
-	function delegateCallerIsRoot(address _impl) external returns (bool) {
-		(bool ok, bytes memory ret) =
-			_impl.delegatecall(abi.encodeWithSelector(this.callerIsRoot.selector));
-		require(ok, "delegate callerIsRoot failed");
-		return abi.decode(ret, (bool));
-	}
 }
