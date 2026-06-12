@@ -81,7 +81,8 @@ pub trait TracingExecuteBlock<Block: BlockT>: Send + Sync {
 		_block: Block,
 		_method: &str,
 		_extra_args: Vec<u8>,
-	) -> sp_blockchain::Result<Vec<u8>> { // TODO Vec<u8> maybe can be replaced?
+	) -> sp_blockchain::Result<Vec<u8>> {
+		// TODO Vec<u8> maybe can be replaced?
 		Err(sp_blockchain::Error::Backend(
 			"recorded runtime calls are not supported by this node".into(),
 		))

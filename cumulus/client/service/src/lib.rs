@@ -32,8 +32,8 @@ use futures::{channel::mpsc, StreamExt};
 use polkadot_primitives::{CandidateEvent, CollatorPair, OccupiedCoreAssumption};
 use prometheus::{Histogram, HistogramOpts, Registry};
 use sc_client_api::{
-	AuxStore, Backend as BackendT, BlockBackend, BlockchainEvents, CallExecutor, ExecutorProvider, Finalizer, ProofProvider,
-	UsageProvider,
+	AuxStore, Backend as BackendT, BlockBackend, BlockchainEvents, CallExecutor, ExecutorProvider,
+	Finalizer, ProofProvider, UsageProvider,
 };
 use sc_consensus::{
 	import_queue::{ImportQueue, ImportQueueService},
@@ -53,7 +53,7 @@ use sc_tracing::block::TracingExecuteBlock;
 use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
-use sp_core::{traits::CallContext,Decode};
+use sp_core::{traits::CallContext, Decode};
 use sp_runtime::{
 	traits::{Block as BlockT, BlockIdTo, HashingFor, Header},
 	SaturatedConversion, Saturating,
@@ -626,7 +626,12 @@ impl<Client> ParachainTracingExecuteBlock<Client> {
 impl<Block, Client> TracingExecuteBlock<Block> for ParachainTracingExecuteBlock<Client>
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + ExecutorProvider<Block> + HeaderBackend<Block> + AuxStore + Send + Sync,
+	Client: ProvideRuntimeApi<Block>
+		+ ExecutorProvider<Block>
+		+ HeaderBackend<Block>
+		+ AuxStore
+		+ Send
+		+ Sync,
 	Client::Api: Core<Block>,
 {
 	fn execute_block(&self, orig_hash: Block::Hash, block: Block) -> sp_blockchain::Result<()> {
@@ -646,16 +651,26 @@ where
 			.map_err(Into::into)
 	}
 
-	fn call_recorded(&self, orig_hash: Block::Hash, block: Block, method: &str, extra_args: Vec<u8>) -> sp_blockchain::Result<Vec<u8>> {
+	fn call_recorded(
+		&self,
+		orig_hash: Block::Hash,
+		block: Block,
+		method: &str,
+		extra_args: Vec<u8>,
+	) -> sp_blockchain::Result<Vec<u8>> {
 		let parent_hash = *block.header().parent_hash();
-		let parent_number = self.client.number(parent_hash)?.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{parent_hash:?}")))?;
+		let parent_number = self
+			.client
+			.number(parent_hash)?
+			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{parent_hash:?}")))?;
 		let storage_proof_recorder = ProofRecorder::<Block>::default();
 		let proof_size_ext = load_proof_size_recording(&*self.client, orig_hash)?.map_or_else(
 			|| ProofSizeExt::new(storage_proof_recorder.clone()),
 			|recordings| ProofSizeExt::new(ReplayProofSizeProvider::from(recordings)),
 		);
 
-		let mut extensions = self.client.execution_extensions().extensions(parent_hash, parent_number);
+		let mut extensions =
+			self.client.execution_extensions().extensions(parent_hash, parent_number);
 		extensions.register(proof_size_ext);
 
 		let mut arguments = block.encode();
