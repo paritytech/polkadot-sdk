@@ -25705,6 +25705,7 @@ name = "sp-statement-store"
 version = "10.0.0"
 dependencies = [
  "aes-gcm",
+ "array-bytes 6.2.2",
  "curve25519-dalek",
  "ed25519-dalek",
  "frame-support",
