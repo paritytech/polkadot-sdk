@@ -18,12 +18,18 @@
 #![allow(missing_docs)]
 
 use super::{TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy, byte::*};
-use alloc::vec::Vec;
+use alloc::{
+	boxed::Box,
+	collections::{BTreeMap, BTreeSet},
+	vec::Vec,
+};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Deserializer, Serialize, de::Error};
+use sp_core::ConstU32;
+use sp_runtime::BoundedVec;
 
 /// Input of a `GenericTransaction`
 #[derive(
@@ -140,8 +146,63 @@ pub struct Block {
 	pub withdrawals_root: H256,
 }
 
+/// Block header object returned by `newHeads` subscriptions.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockHeader {
+	/// Number
+	pub number: U256,
+	/// Hash
+	pub hash: H256,
+	/// Parent block hash
+	pub parent_hash: H256,
+	/// Nonce
+	pub nonce: Bytes8,
+	/// Ommers hash
+	pub sha_3_uncles: H256,
+	/// Bloom filter
+	pub logs_bloom: Bytes256,
+	/// Transactions root
+	pub transactions_root: H256,
+	/// State root
+	pub state_root: H256,
+	/// Receipts root
+	pub receipts_root: H256,
+	/// Coinbase
+	pub miner: Address,
+	/// Extra data
+	pub extra_data: Bytes,
+	/// Gas limit
+	pub gas_limit: U256,
+	/// Gas used
+	pub gas_used: U256,
+	/// Timestamp
+	pub timestamp: U256,
+}
+
+impl From<Block> for BlockHeader {
+	fn from(block: Block) -> Self {
+		Self {
+			number: block.number,
+			hash: block.hash,
+			parent_hash: block.parent_hash,
+			nonce: block.nonce,
+			sha_3_uncles: block.sha_3_uncles,
+			logs_bloom: block.logs_bloom,
+			transactions_root: block.transactions_root,
+			state_root: block.state_root,
+			receipts_root: block.receipts_root,
+			miner: block.miner,
+			extra_data: block.extra_data,
+			gas_limit: block.gas_limit,
+			gas_used: block.gas_used,
+			timestamp: block.timestamp,
+		}
+	}
+}
+
 /// Block number or tag
-#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum BlockNumberOrTag {
 	/// Block number
@@ -498,7 +559,7 @@ pub type Addresses = Vec<Address>;
 /// and containing the set of transactions usually taken from local mempool. Before the merge
 /// transition is finalized, any call querying for `finalized` or `safe` block MUST be responded to
 /// with `-39001: Unknown block` error
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Copy, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum BlockTag {
 	Earliest,
@@ -1104,6 +1165,236 @@ pub struct FeeHistoryResult {
 	/// ascending order, weighted by gas used. Zeroes are returned if the block is empty.
 	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub reward: Vec<Vec<U256>>,
+}
+
+/// The kind of subscription the user is requesting from the eth-rpc.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum SubscriptionKind {
+	NewBlockHeaders,
+	Logs,
+}
+
+/// Options passed by the user for their subscription to make it more specific.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum SubscriptionOptions {
+	/// Options passed when subscribing for logs.
+	LogsOptions {
+		/// An optional address to use to filter the logs.
+		///
+		/// If specified, then only logs where this address is the emitter will be returned in the
+		/// subscription. If not specified, then it means that there's no filtering based on the
+		/// address of the emitter.
+		///
+		/// If it's specified as a vector of addresses then all of the addresses specified in the
+		/// vector pass the filter.
+		#[serde(default, skip_serializing_if = "Option::is_none")]
+		address: Option<BoundedOneOrMany<Address, 1000>>,
+
+		/// An optional set of topics to filter the logs by.
+		///
+		/// If not specified, then logs with any topic would match the filter. If specified, then
+		/// only logs which match the specified topics pass the filter.
+		#[serde(default, skip_serializing_if = "Option::is_none")]
+		topics: Option<BoundedVec<Option<BoundedOneOrMany<H256, 1000>>, ConstU32<4>>>,
+	},
+}
+
+/// A type used as a filter for logs in subscriptions.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LogsSubscriptionFilter {
+	/// Defines if the filter is configured to make use of addresses or not.
+	addresses: Option<BTreeSet<H160>>,
+
+	/// Defines if the filter is configured to filter based on the topics.
+	topics: Option<[Option<BTreeSet<H256>>; 4]>,
+}
+
+impl LogsSubscriptionFilter {
+	/// Constructs a new logs filter.
+	pub fn new(
+		address: Option<BoundedOneOrMany<Address, 1000>>,
+		topics: Option<BoundedVec<Option<BoundedOneOrMany<H256, 1000>>, ConstU32<4>>>,
+	) -> Self {
+		Self {
+			addresses: address.map(|addresses| addresses.into_iter().collect()),
+			topics: topics.map(|topics| {
+				let mut resolved_topics = [None, None, None, None];
+				for (index, topic) in topics.into_iter().enumerate() {
+					resolved_topics[index] =
+						topic.map(|topic_filter| topic_filter.into_iter().collect());
+				}
+				resolved_topics
+			}),
+		}
+	}
+
+	/// Checks if a certain log matches this filter.
+	pub fn matches(&self, log: &Log) -> bool {
+		// Check the emitter address. If it doesn't match, then we return.
+		if let Some(ref address_filter) = self.addresses &&
+			!address_filter.contains(&log.address) &&
+			!address_filter.is_empty()
+		{
+			return false;
+		}
+
+		// Check the topics filter to ensure that the log matches the topics filter.
+		if let Some(ref topics_filters) = self.topics {
+			let mut event_topics = log.topics.iter();
+			for topics_filter in topics_filters {
+				let event_topic = event_topics.next();
+
+				match (topics_filter, event_topic) {
+					// Wildcard filters.
+					(None, _) => {},
+					(Some(topic_filters), _) if topic_filters.is_empty() => {},
+					// There's a filter but there's no topic at this index, return false at this
+					// point.
+					(Some(..), None) => return false,
+					// There's a filter and there's also a topic at this index. So filter based on
+					// it.
+					(Some(topics_filter), Some(topic)) => {
+						if !topics_filter.contains(topic) {
+							return false;
+						}
+					},
+				}
+			}
+		}
+
+		true
+	}
+}
+
+/// Resolved parameters for the subscription request which contains both the request type and the
+/// options.
+#[derive(Clone, Debug)]
+pub enum SubscriptionParameters {
+	NewBlockHeaders,
+	Logs(LogsSubscriptionFilter),
+}
+
+impl SubscriptionParameters {
+	pub fn new(
+		subscription_kind: SubscriptionKind,
+		subscription_options: Option<SubscriptionOptions>,
+	) -> Option<Self> {
+		match (subscription_kind, subscription_options) {
+			(SubscriptionKind::Logs, None) => {
+				Some(Self::Logs(LogsSubscriptionFilter::new(None, None)))
+			},
+			(
+				SubscriptionKind::Logs,
+				Some(SubscriptionOptions::LogsOptions { address, topics }),
+			) => Some(Self::Logs(LogsSubscriptionFilter::new(address, topics))),
+			(SubscriptionKind::NewBlockHeaders, None) => Some(Self::NewBlockHeaders),
+			_ => None,
+		}
+	}
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SubscriptionItem {
+	BlockHeader(BlockHeader),
+	Log(Log),
+}
+
+/// A helper type used when a type can be serialized and deserialized as either being one or as an
+/// array.
+#[derive(
+	Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo,
+)]
+#[serde(untagged)]
+pub enum BoundedOneOrMany<T, const BOUND: u32> {
+	One(T),
+	Many(BoundedVec<T, ConstU32<BOUND>>),
+}
+
+impl<T: 'static, const BOUND: u32> IntoIterator for BoundedOneOrMany<T, BOUND> {
+	type IntoIter = Box<dyn Iterator<Item = T>>;
+	type Item = T;
+
+	fn into_iter(self) -> Self::IntoIter {
+		match self {
+			BoundedOneOrMany::One(item) => Box::new(core::iter::once(item)) as _,
+			BoundedOneOrMany::Many(bounded_vec) => Box::new(bounded_vec.into_iter()) as _,
+		}
+	}
+}
+
+/// A mapping from account addresses to their state overrides, used to temporarily modify account
+/// state during `eth_call` and similar simulation methods without affecting on-chain data.
+///
+/// Each entry maps an [`Address`] to a [`StateOverride`] that specifies which parts of the
+/// account's state to replace for the duration of the call.
+///
+/// Conforms to the [Geth state override set specification](https://geth.ethereum.org/docs/interacting-with-geth/rpc/objects#state-override-set).
+#[derive(
+	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+)]
+pub struct StateOverrideSet(pub BTreeMap<Address, StateOverride>);
+
+impl core::ops::Deref for StateOverrideSet {
+	type Target = BTreeMap<Address, StateOverride>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl core::ops::DerefMut for StateOverrideSet {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
+}
+
+/// Specifies how an account's storage should be overridden during a simulated call.
+///
+/// The Geth state override specification mandates that `state` and `stateDiff` are mutually
+/// exclusive. This enum encodes that constraint at the type level.
+#[derive(Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum StorageOverride {
+	/// Completely replaces the account's storage with the provided mapping. Any existing slots
+	/// not present in the mapping are effectively zeroed out.
+	State(BTreeMap<H256, H256>),
+	/// Patches individual storage slots without affecting the rest of the account's storage.
+	/// Only the specified slots are modified; all other existing slots remain unchanged.
+	StateDiff(BTreeMap<H256, H256>),
+}
+
+/// Per-account state overrides applied during `eth_call` and similar simulation methods.
+///
+/// All fields are optional. Only the fields that are set will be overridden; the rest of the
+/// account's state is read from the chain as normal.
+///
+/// Conforms to the [Geth state override object specification](https://geth.ethereum.org/docs/interacting-with-geth/rpc/objects#state-override-set).
+#[derive(
+	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct StateOverride {
+	/// Fake balance to set for the account before executing the call.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub balance: Option<U256>,
+	/// Fake nonce to set for the account before executing the call.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub nonce: Option<U256>,
+	/// Fake EVM bytecode to inject into the account before executing the call.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub code: Option<Bytes>,
+	/// Storage override specifying either a full replacement or a partial diff. These two modes
+	/// are mutually exclusive per the Geth specification.
+	#[serde(flatten)]
+	pub storage: Option<StorageOverride>,
+	/// Moves the precompile at the account's address to the specified address. Useful for
+	/// overriding a precompile's code with custom logic while still being able to invoke the
+	/// original precompile at a different address.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub move_precompile_to_address: Option<Address>,
 }
 
 #[cfg(test)]

@@ -41,8 +41,8 @@ fn convert_to_free_balance(total_balance: u128) -> U256 {
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn balance_works(fixture_type: FixtureType) {
-	let bobs_balance = 123_456_789_000u64;
-	let expected_balance = convert_to_free_balance(bobs_balance as u128);
+	let bobs_balance = 123_456_789_000u128;
+	let expected_balance = convert_to_free_balance(bobs_balance);
 	let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {

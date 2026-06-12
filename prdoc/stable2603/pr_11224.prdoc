@@ -1,0 +1,7 @@
+title: 'Prometheus: Bind external address to IPv6'
+doc:
+- audience: Node Operator
+  description: Binds the prometheus external interface to `::`, so that the service is also reachable via IPv6.
+crates:
+- name: sc-cli
+  bump: patch

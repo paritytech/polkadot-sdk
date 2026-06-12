@@ -18,6 +18,7 @@ futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
 
 codec = { features = ["bit-vec", "derive"], workspace = true }
+schnellru = { workspace = true }
 sp-application-crypto = { workspace = true }
 sp-keystore = { workspace = true }
 
@@ -31,6 +32,7 @@ polkadot-primitives = { workspace = true, default-features = true }
 
 [target.'cfg(not(any(target_os = "android", target_os = "unknown")))'.dependencies]
 polkadot-node-core-pvf = { workspace = true, default-features = true }
+polkadot-node-core-pvf-common = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

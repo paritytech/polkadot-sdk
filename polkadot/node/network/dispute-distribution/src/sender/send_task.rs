@@ -59,6 +59,10 @@ pub struct SendTask<M> {
 
 	/// Sender to be cloned for tasks.
 	tx: NestingSender<M, TaskFinish>,
+
+	/// Whether the V3 candidate descriptor feature has been observed.
+	/// Used for transition-safe scheduling parent extraction.
+	v3_ever_seen: bool,
 }
 
 /// Status of a particular vote/statement delivery to a particular validator.
@@ -113,9 +117,10 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 		tx: NestingSender<M, TaskFinish>,
 		request: DisputeRequest,
 		metrics: &Metrics,
+		v3_ever_seen: bool,
 	) -> Result<Self> {
 		let mut send_task =
-			Self { request, deliveries: HashMap::new(), has_failed_sends: false, tx };
+			Self { request, deliveries: HashMap::new(), has_failed_sends: false, tx, v3_ever_seen };
 		send_task.refresh_sends(ctx, runtime, active_sessions, metrics).await?;
 		Ok(send_task)
 	}
@@ -234,11 +239,23 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 		runtime: &mut RuntimeInfo,
 		active_sessions: &HashMap<SessionIndex, Hash>,
 	) -> Result<HashSet<AuthorityDiscoveryId>> {
-		let ref_head = self.request.0.candidate_receipt.descriptor.relay_parent();
+		// For disputes, we need session info from the scheduling context.
+		// Use the transition-safe method to match old backer semantics before V3 is confirmed.
+		let scheduling_parent = self
+			.request
+			.0
+			.candidate_receipt
+			.descriptor
+			.scheduling_parent_for_candidate_validation(self.v3_ever_seen);
+
 		// Retrieve all authorities which participated in the parachain consensus of the session
-		// in which the candidate was backed.
+		// in which the candidate was backed (scheduling session).
 		let info = runtime
-			.get_session_info_by_index(ctx.sender(), ref_head, self.request.0.session_index)
+			.get_session_info_by_index(
+				ctx.sender(),
+				scheduling_parent,
+				self.request.0.session_index,
+			)
 			.await?;
 		let session_info = &info.session_info;
 		let validator_count = session_info.validators.len();

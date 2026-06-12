@@ -301,11 +301,14 @@ where
 			}
 
 			runner.run_node_until_exit(|config| async move {
+				let node_extra_args = cli.node_extra_args();
 				let node_spec =
-					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
+					new_node_spec(&config, &cmd_config.runtime_resolver, &node_extra_args)?;
 
 				if let Some(dev_mode) = cli.dev_mode() {
-					return node_spec.start_dev_node(config, dev_mode).map_err(Into::into);
+					return node_spec
+						.start_dev_node(config, dev_mode, node_extra_args)
+						.map_err(Into::into);
 				}
 
 				// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the

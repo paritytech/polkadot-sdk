@@ -1,0 +1,6 @@
+title: 'cargo: Update litep2p to v0.13.3'
+doc:
+- audience: Node Dev
+  description: |-
+    Update litep2p to latest 0.13.3 version
+crates: []

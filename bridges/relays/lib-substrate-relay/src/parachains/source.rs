@@ -20,7 +20,6 @@ use crate::{
 	parachains::{ParachainsPipelineAdapter, SubstrateParachainsPipeline},
 	proofs::to_raw_storage_proof,
 };
-use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use bp_parachains::parachain_head_storage_key_at_source;
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
@@ -32,6 +31,8 @@ use relay_substrate_client::{
 	RelayChain,
 };
 use relay_utils::relay_loop::Client as RelayClient;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// Shared updatable reference to the maximal parachain header id that we want to sync from the
 /// source.

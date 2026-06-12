@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Refactor XCM executor, introduce process_holding_transaction macro.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The xcm executor's code is now cleaner in how it handles origin manipulation and transactionality.
+
+crates:
+  - name: staging-xcm-executor
+    bump: patch

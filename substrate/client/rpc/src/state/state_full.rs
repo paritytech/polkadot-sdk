@@ -333,7 +333,9 @@ where
 		block: Option<Block::Hash>,
 	) -> std::result::Result<RuntimeVersion, Error> {
 		self.block_or_best(block).map_err(client_err).and_then(|block| {
-			self.client.runtime_version_at(block).map_err(|e| Error::Client(Box::new(e)))
+			self.client
+				.runtime_version_at(block, CallContext::Offchain)
+				.map_err(|e| Error::Client(Box::new(e)))
 		})
 	}
 
@@ -380,7 +382,9 @@ where
 	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink) {
 		let initial = match self
 			.block_or_best(None)
-			.and_then(|block| self.client.runtime_version_at(block).map_err(Into::into))
+			.and_then(|block| {
+				self.client.runtime_version_at(block, CallContext::Offchain).map_err(Into::into)
+			})
 			.map_err(|e| Error::Client(Box::new(e)))
 		{
 			Ok(initial) => initial,
@@ -398,8 +402,9 @@ where
 			.import_notification_stream()
 			.filter(|n| future::ready(n.is_new_best))
 			.filter_map(move |n| {
-				let version =
-					client.runtime_version_at(n.hash).map_err(|e| Error::Client(Box::new(e)));
+				let version = client
+					.runtime_version_at(n.hash, CallContext::Offchain)
+					.map_err(|e| Error::Client(Box::new(e)));
 
 				match version {
 					Ok(version) if version != previous_version => {

@@ -46,8 +46,7 @@ fn register_penpal_a_asset_from_penpal_b_will_fail() {
 			},
 		],
 	);
-	let asset_location_on_penpal =
-		PenpalB::execute_with(|| PenpalLocalTeleportableToAssetHub::get());
+	let asset_location_on_penpal = PenpalB::execute_with(|| PenpalLocalPen2Asset::get());
 	let penpal_a_asset_at_asset_hub =
 		Location::new(1, [Junction::Parachain(PenpalA::para_id().into())])
 			.appended_with(asset_location_on_penpal)
@@ -56,7 +55,7 @@ fn register_penpal_a_asset_from_penpal_b_will_fail() {
 		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
 
 		let local_fee_asset_on_penpal =
-			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+			Asset { id: AssetId(Location::here()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_PAL) };
 
 		let remote_fee_asset_on_ah =
 			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
@@ -236,7 +235,7 @@ pub const INSUFFICIENT_REMOTE_FEE_AMOUNT: u128 = 1_000_000_000;
 #[test]
 fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 	create_pools_on_ah();
-	register_pal_on_ah();
+	mint_pal_on_ah();
 	register_pal_on_bh();
 	fund_on_ah();
 	// penpal
@@ -260,7 +259,7 @@ fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
 
 		let local_fee_asset_on_penpal =
-			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+			Asset { id: AssetId(Location::here()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_PAL) };
 
 		let remote_fee_asset_on_ah =
 			Asset { id: AssetId(ethereum()), fun: Fungible(INSUFFICIENT_REMOTE_FEE_AMOUNT) };
@@ -336,7 +335,7 @@ fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
 
 		let local_fee_asset_on_penpal =
-			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+			Asset { id: AssetId(Location::here()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_PAL) };
 
 		let remote_fee_asset_on_ah =
 			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };

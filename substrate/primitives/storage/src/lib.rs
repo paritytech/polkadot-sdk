@@ -52,12 +52,19 @@ pub struct TrackedStorageKey {
 	pub reads: u32,
 	pub writes: u32,
 	pub whitelisted: bool,
+	/// If set, this key belongs to a child trie identified by this storage key.
+	pub child_trie_key: Option<Vec<u8>>,
 }
 
 impl TrackedStorageKey {
-	/// Create a default `TrackedStorageKey`
+	/// Create a default `TrackedStorageKey` for main storage.
 	pub fn new(key: Vec<u8>) -> Self {
-		Self { key, reads: 0, writes: 0, whitelisted: false }
+		Self { key, reads: 0, writes: 0, whitelisted: false, child_trie_key: None }
+	}
+
+	/// Create a `TrackedStorageKey` for a child trie.
+	pub fn new_child(child_trie_key: Vec<u8>, key: Vec<u8>) -> Self {
+		Self { key, reads: 0, writes: 0, whitelisted: false, child_trie_key: Some(child_trie_key) }
 	}
 	/// Check if this key has been "read", i.e. it exists in the memory overlay.
 	///
@@ -89,7 +96,7 @@ impl TrackedStorageKey {
 // Easily convert a key to a `TrackedStorageKey` that has been whitelisted.
 impl From<Vec<u8>> for TrackedStorageKey {
 	fn from(key: Vec<u8>) -> Self {
-		Self { key, reads: 0, writes: 0, whitelisted: true }
+		Self { key, reads: 0, writes: 0, whitelisted: true, child_trie_key: None }
 	}
 }
 
@@ -191,6 +198,13 @@ pub mod well_known_keys {
 	///
 	/// Encodes to `0x3A636F6465`.
 	pub const CODE: &[u8] = b":code";
+
+	/// New wasm code of the runtime.
+	///
+	/// To be applied in the next block.
+	///
+	/// Stored as a raw byte vector. Required by substrate.
+	pub const PENDING_CODE: &[u8] = b":pending_code";
 
 	/// Number of wasm linear memory pages required for execution of the runtime.
 	///

@@ -1,0 +1,18 @@
+title: 'Warp sync: Warp proof block import should not mark as leaf'
+doc:
+- audience: Node Dev
+  description: |-
+    While warp syncing a node, I saw some huge stalls. What happens:
+
+    - During warp sync we store warp proofs
+    - After warp sync we start gap sync
+    - Problem: Once gap sync finishes, node starts looking for displaced leaves from all the warp proof blocks, which was over 2500 in my observed case. This led to a 30minutes stall.
+
+    In this PR I propose to import the blocks during warp sync with a Disconnected state, which does not add them as leaves. This fixes the downtime.
+crates:
+- name: sc-client-api
+  bump: major
+- name: sc-client-db
+  bump: major
+- name: sc-service
+  bump: major

@@ -579,7 +579,8 @@ pub mod derive {
 ///
 /// This is already part of the main [`prelude`].
 pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
+	pub use sp_core::{H160, H256, H512, U256, U512};
+	pub use sp_crypto_hashing::*;
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
 

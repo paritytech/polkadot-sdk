@@ -120,6 +120,12 @@ mod custom {
 			sp_io::storage::set("storage_root".as_bytes(), &root);
 			Ok(())
 		}
+
+		pub fn schedule_code_upgrade(origin: OriginFor<T>) -> DispatchResult {
+			frame_system::ensure_signed(origin)?;
+			frame_system::Pallet::<T>::update_code_in_storage(b"new_code");
+			Ok(())
+		}
 	}
 
 	#[pallet::inherent]
@@ -139,6 +145,7 @@ mod custom {
 		}
 	}
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
@@ -261,6 +268,7 @@ mod custom2 {
 		}
 	}
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
@@ -487,7 +495,7 @@ impl OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
 		sp_io::storage::set(TEST_KEY, "custom_upgrade".as_bytes());
 		sp_io::storage::set(TEST_KEY_2, "try_runtime_upgrade_works".as_bytes());
 		sp_io::storage::set(CUSTOM_ON_RUNTIME_KEY, &true.encode());
-		System::deposit_event(frame_system::Event::CodeUpdated);
+		System::deposit_event(frame_system::Event::CodeUpdated { hash: H256::repeat_byte(123) });
 
 		assert_eq!(0, System::last_runtime_upgrade_spec_version());
 
@@ -1028,7 +1036,9 @@ fn event_from_runtime_upgrade_is_included() {
 		System::set_block_number(1);
 
 		Executive::initialize_block(&Header::new_from_number(2));
-		System::assert_last_event(frame_system::Event::<Runtime>::CodeUpdated.into());
+		System::assert_last_event(
+			frame_system::Event::<Runtime>::CodeUpdated { hash: H256::repeat_byte(123) }.into(),
+		);
 	});
 }
 
@@ -1678,4 +1688,55 @@ fn max_transaction_depth_is_respected() {
 
 	// Import works
 	block_on(client.import(BlockOrigin::Own, block)).unwrap();
+}
+
+#[test]
+fn pending_code_upgrade_build_execute_consistency() {
+	// Ensure that building a block and executing the same block
+	// produce the same storage root when a pending code upgrade is
+	// in progress.
+	let xt = UncheckedXt::new_signed(
+		RuntimeCall::Custom(custom::Call::schedule_code_upgrade {}),
+		1,
+		1.into(),
+		tx_ext(0, 0),
+	);
+
+	let (header, build_pending_code, build_code) = new_test_ext(1).execute_with(|| {
+		RuntimeVersionTestValues::mutate(|v| {
+			v.system_version = 3;
+		});
+
+		Executive::initialize_block(&Header::new_from_number(1));
+		Executive::apply_extrinsic(xt.clone()).unwrap().unwrap();
+		let header = Executive::finalize_block();
+
+		let pending_code = sp_io::storage::get(sp_core::storage::well_known_keys::PENDING_CODE);
+		let code = sp_io::storage::get(sp_core::storage::well_known_keys::CODE);
+
+		(header, pending_code, code)
+	});
+
+	// Verify that finalize_block path scheduled the upgrade via :pending_code,
+	// not directly into :code.
+	assert!(build_pending_code.is_some(), "finalize_block must write :pending_code");
+
+	new_test_ext(1).execute_with(|| {
+		RuntimeVersionTestValues::mutate(|v| {
+			v.system_version = 3;
+		});
+
+		// execute_block internally calls final_checks which asserts that the storage
+		// root matches the one in the header produced by finalize_block.
+		Executive::execute_block(Block::new(header, vec![xt]).into());
+
+		// Explicitly verify that execute_block produced the same :pending_code and :code
+		// state as finalize_block.
+		let exec_pending_code =
+			sp_io::storage::get(sp_core::storage::well_known_keys::PENDING_CODE);
+		let exec_code = sp_io::storage::get(sp_core::storage::well_known_keys::CODE);
+
+		assert_eq!(exec_pending_code, build_pending_code, ":pending_code must match");
+		assert_eq!(exec_code, build_code, ":code must match");
+	});
 }

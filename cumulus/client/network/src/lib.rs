@@ -184,7 +184,7 @@ impl TryFrom<&'_ CollationSecondedSignal> for BlockAnnounceData {
 		Ok(BlockAnnounceData {
 			receipt,
 			statement: signal.statement.convert_payload().into(),
-			relay_parent: signal.relay_parent,
+			relay_parent: signal.scheduling_parent,
 		})
 	}
 }
