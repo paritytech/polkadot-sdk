@@ -932,6 +932,53 @@ fn delegation_chain_does_not_execute() {
 	});
 }
 
+/// Delegation to a precompile address: the indicator is set and surfaces via
+/// `eth_getCode`, but calls into the authority currently no-op rather than
+/// dispatching the precompile.
+///
+/// Spec-correct behavior is to execute the precompile (in the authority's
+/// context, with the call's input/value). We don't do that today because
+/// `set_delegation` snapshots the target's `code_hash` — precompiles have no
+/// stored code, so the snapshot is zero and call dispatch falls through to the
+/// EOA-transfer path. Same root cause as the other snapshot-vs-call-time
+/// deviations; fixed wholesale by call-time resolution (tracked as follow-up).
+///
+/// When call-time resolution lands, this test should flip to assert the
+/// identity precompile actually echoes the input.
+#[test]
+fn delegation_to_precompile_is_noop() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+
+		// 0x0000...0004 is the identity precompile (ECHOes input bytes).
+		let identity_precompile = H160::from_low_u64_be(0x04);
+
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, identity_precompile).unwrap();
+		assert!(AccountInfo::<Test>::is_delegated(&ALICE_ADDR));
+		assert_eq!(
+			AccountInfo::<Test>::get_delegation_target(&ALICE_ADDR),
+			Some(identity_precompile),
+		);
+
+		// eth_getCode returns the indicator pointing at the precompile address.
+		let mut expected_code = vec![0xef, 0x01, 0x00];
+		expected_code.extend_from_slice(identity_precompile.as_bytes());
+		assert_eq!(crate::Pallet::<Test>::code(&ALICE_ADDR), expected_code);
+
+		// Current (deviant) behavior: the call is a no-op. Spec-correct behavior
+		// would echo the input bytes via the identity precompile.
+		let input = vec![0xDE, 0xAD, 0xBE, 0xEF];
+		let result = builder::bare_call(ALICE_ADDR).data(input.clone()).build_and_unwrap_result();
+		assert!(!result.did_revert(), "call should not revert under current impl");
+		assert!(
+			result.data.is_empty(),
+			"under current impl no precompile dispatch happens; data is empty. \
+			 With call-time resolution this assertion should flip to: \
+			 assert_eq!(result.data, input)"
+		);
+	});
+}
+
 /// Delegation to a nonexistent address (no deployed code) results in a no-op call.
 /// The authority is treated as an EOA with no executable code.
 #[test]
