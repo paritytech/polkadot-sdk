@@ -302,8 +302,8 @@
 //! ```
 //!
 //! For scalability, a bound is maintained on the number of unbonding sub pools (see
-//! [`PostUnbondingPoolsWindow`]). An unbonding pool is removed (merged into the unbonded pool)
-//! once it is older than `current_era - (PostUnbondingPoolsWindow - bonding_duration)`. An
+//! [`MaxUnbondingPools`]). An unbonding pool is removed (merged into the unbonded pool)
+//! once it is older than `current_era - (MaxUnbondingPools - bonding_duration)`. An
 //! unbonding pool is merged into the unbonded pool with
 //!
 //! ```text
@@ -573,7 +573,7 @@ impl<T: Config> PoolMember<T> {
 	/// Total balance of the member, both active and unbonding.
 	/// Doesn't mutate state.
 	///
-	/// Worst case, iterates over [`Config::PostUnbondingPoolsWindow`] member unbonding pools to
+	/// Worst case, iterates over [`Config::MaxUnbondingPools`] member unbonding pools to
 	/// calculate member balance.
 	pub fn total_balance(&self) -> BalanceOf<T> {
 		let pool = match BondedPool::<T>::get(self.pool_id) {
@@ -1597,7 +1597,7 @@ pub struct SubPools<T: Config> {
 	/// older than the effective post-unbonding window (see [`SubPools::maybe_merge_pools`]).
 	pub no_era: UnbondPool<T>,
 	/// Map of era in which a pool becomes unbonded in => unbond pools.
-	pub with_era: BoundedBTreeMap<EraIndex, UnbondPool<T>, T::PostUnbondingPoolsWindow>,
+	pub with_era: BoundedBTreeMap<EraIndex, UnbondPool<T>, T::MaxUnbondingPools>,
 }
 
 impl<T: Config> SubPools<T> {
@@ -1606,10 +1606,10 @@ impl<T: Config> SubPools<T> {
 	/// This is often used whilst getting the sub-pool from storage, thus it consumes and returns
 	/// `Self` for ergonomic purposes.
 	fn maybe_merge_pools(mut self, current_era: EraIndex) -> Self {
-		// Retain `with_era` pools for ~`PostUnbondingPoolsWindow` eras after unlock.
+		// Retain `with_era` pools for ~`MaxUnbondingPools` eras after unlock.
 		// E.g., if window is 2 and current era is 10, retain pools 9..=10.
 		let effective_post_unbonding_window =
-			T::PostUnbondingPoolsWindow::get().saturating_sub(T::StakeAdapter::bonding_duration());
+			T::MaxUnbondingPools::get().saturating_sub(T::StakeAdapter::bonding_duration());
 		if let Some(newest_era_to_remove) = current_era.checked_sub(effective_post_unbonding_window)
 		{
 			self.with_era.retain(|k, v| {
@@ -1722,11 +1722,11 @@ pub mod pallet {
 		/// The maximum number of distinct era-keyed unbonding sub-pools ([`SubPools::with_era`])
 		/// that may exist at once. This is also the basis for how long each sub-pool is kept on
 		/// its own (correct) points-to-balance ratio: a sub-pool is merged into the era-agnostic
-		/// [`SubPools::no_era`] pool only after `PostUnbondingPoolsWindow - bonding_duration` eras
+		/// [`SubPools::no_era`] pool only after `MaxUnbondingPools - bonding_duration` eras
 		/// have passed since its unlock era (see [`SubPools::maybe_merge_pools`]). Once merged
 		/// the ratio can become skewed due to some slashed ratio getting merged in at some point.
 		#[pallet::constant]
-		type PostUnbondingPoolsWindow: Get<u32>;
+		type MaxUnbondingPools: Get<u32>;
 
 		/// The maximum length, in bytes, that a pools metadata maybe.
 		type MaxMetadataLen: Get<u32>;
@@ -3255,7 +3255,7 @@ pub mod pallet {
 				"Minimum points to balance ratio must be greater than 0"
 			);
 			assert!(
-				T::StakeAdapter::bonding_duration() < T::PostUnbondingPoolsWindow::get(),
+				T::StakeAdapter::bonding_duration() < T::MaxUnbondingPools::get(),
 				"There must be more unbonding pools then the bonding duration /
 				so a slash can be applied to relevant unbonding pools. (We assume /
 				the bonding duration > slash deffer duration.",

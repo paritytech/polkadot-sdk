@@ -986,7 +986,7 @@ impl pallet_delegated_staking::Config for Runtime {
 }
 
 parameter_types! {
-	pub const PostUnbondingPoolsWindow: u32 = 32;
+	pub const MaxUnbondingPools: u32 = 32;
 	pub const NominationPoolsPalletId: PalletId = PalletId(*b"py/nopls");
 	pub const MaxPointsToBalance: u8 = 10;
 }
@@ -1015,7 +1015,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type U256ToBalance = U256ToBalance;
 	type StakeAdapter =
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
-	type PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
+	type MaxUnbondingPools = MaxUnbondingPools;
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = ConstU32<8>;
 	type PalletId = NominationPoolsPalletId;
