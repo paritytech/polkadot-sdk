@@ -300,4 +300,19 @@ pub trait StateApi<Hash> {
 		storage_keys: Option<String>,
 		methods: Option<String>,
 	) -> Result<sp_rpc::tracing::TraceBlockResponse, Error>;
+
+	/// Re-execute `block` by calling the runtime API method `method` (by name), with a proof-size
+	/// recorder registered for the call, and return the SCALE-encoded result.
+	///
+	/// This is `state_call` performed in a proof-recording execution context: runtime APIs that
+	/// replay a block (e.g. pallet-revive's `trace_block` / `trace_tx`) then get faithful
+	/// proof-size reclaim and do not spuriously hit `ExhaustsResources` on the block tail. The
+	/// block is loaded from the node by its `block` hash (not supplied by the caller); `extra_args`
+	/// is the SCALE-encoded tail of the method's arguments, with the block prepended node-side.
+	///
+	/// **Unsafe**: re-executes arbitrary historical blocks and is only available on nodes that
+	/// register a proof-recording execution hook (parachains); it errors otherwise.
+	#[method(name = "state_callRecorded", blocking, with_extensions)]
+	fn call_recorded(&self, block: Hash, method: String, extra_args: Bytes)
+		-> Result<Bytes, Error>;
 }

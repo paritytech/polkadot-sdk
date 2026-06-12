@@ -37,6 +37,7 @@ use pallet_revive::{
 		decode_revert_reason,
 	},
 };
+use codec::{Decode, Encode};
 use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
@@ -1000,8 +1001,10 @@ impl Client {
 		if parent_hash == Default::default() {
 			return Ok(vec![]);
 		}
-		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(parent_hash));
-		let traces = runtime_api.trace_block(block, config.clone()).await?;
+
+		let traces: Vec<(u32, Trace)> = self
+			.state_call_recorded(block_hash, "ReviveApi_trace_block", config.encode())
+			.await?;
 
 		let mut hashes = self
 			.receipt_provider
@@ -1028,11 +1031,34 @@ impl Client {
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		let block = self.tracing_block(block_hash).await?;
-		let parent_hash = block.header.parent_hash;
-		let runtime_api = self.runtime_api(parent_hash);
+		let trace: Option<Trace> = self
+			.state_call_recorded(
+				block_hash,
+				"ReviveApi_trace_tx",
+				(transaction_index as u32, config).encode(),
+			)
+			.await?;
 
-		runtime_api.trace_tx(block, transaction_index as u32, config).await
+		trace.ok_or(ClientError::EthExtrinsicNotFound)
+	}
+
+	/// Invoke the node's `state_callRecorded` RPC: re-execute the block at `block_hash` through
+	/// the runtime API `method`, with a proof-size recorder registered, and decode the SCALE
+	/// result. The block is sourced node-side and prepended to `extra_args`.
+	async fn state_call_recorded<R: Decode>(
+		&self,
+		block_hash: H256,
+		method: &str,
+		extra_args: Vec<u8>,
+	) -> Result<R, ClientError> {
+		let result: sp_core::Bytes = self
+			.rpc_client
+			.request(
+				"state_callRecorded",
+				rpc_params![block_hash, method, sp_core::Bytes(extra_args)],
+			)
+			.await?;
+		Ok(R::decode(&mut &result.0[..])?)
 	}
 
 	/// Get the transaction traces for the given block.
