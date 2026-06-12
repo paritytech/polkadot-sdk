@@ -92,3 +92,77 @@ where
 		Ok(block_params)
 	}
 }
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use cumulus_test_client::{runtime::Block as TestBlock, Client, TestClientBuilder, TestClientBuilderExt};
+	use futures::FutureExt;
+	use sc_client_api::HeaderBackend;
+	use sc_consensus::{ForkChoiceStrategy, StateAction};
+	use std::sync::Arc;
+
+	fn new_verifier_and_header(
+	) -> (Verifier<Client, TestBlock, impl CreateInherentDataProviders<TestBlock, ()>>, <TestBlock as BlockT>::Header)
+	{
+		let client = Arc::new(TestClientBuilder::default().build());
+		let header = client.header(client.info().best_hash).unwrap().unwrap();
+
+		let verifier = Verifier::new(client, |_, _| async move {
+			Ok(sp_timestamp::InherentDataProvider::from_system_time())
+		});
+
+		(verifier, header)
+	}
+
+	#[test]
+	fn sync_origins_use_custom_fork_choice() {
+		let (verifier, header) = new_verifier_and_header();
+
+		// These origins indicate that the imported block was chosen by a sync strategy
+		// (warp/state/gap sync, or initial sync) and should become the new best block
+		// without going through the normal longest-chain fork choice.
+		for origin in [
+			BlockOrigin::NetworkInitialSync,
+			BlockOrigin::WarpSync,
+			BlockOrigin::StateSync { is_verified: false },
+			BlockOrigin::StateSync { is_verified: true },
+			BlockOrigin::GapSync,
+		] {
+			let mut params = BlockImportParams::new(origin, header.clone());
+			// Force the early-return path so this test only exercises the fork choice
+			// selection, without requiring a full block body and valid inherents.
+			params.state_action = StateAction::Skip;
+
+			let params = verifier.verify(params).now_or_never().unwrap().unwrap();
+			assert_eq!(
+				params.fork_choice,
+				Some(ForkChoiceStrategy::Custom(true)),
+				"expected custom (sync) fork choice for {origin:?}",
+			);
+		}
+	}
+
+	#[test]
+	fn non_sync_origins_do_not_use_custom_fork_choice() {
+		let (verifier, header) = new_verifier_and_header();
+
+		for origin in [
+			BlockOrigin::Genesis,
+			BlockOrigin::Own,
+			BlockOrigin::NetworkBroadcast,
+			BlockOrigin::ConsensusBroadcast,
+			BlockOrigin::File,
+		] {
+			let mut params = BlockImportParams::new(origin, header.clone());
+			params.state_action = StateAction::Skip;
+
+			let params = verifier.verify(params).now_or_never().unwrap().unwrap();
+			assert_eq!(
+				params.fork_choice,
+				Some(ForkChoiceStrategy::Custom(false)),
+				"expected non-sync fork choice for {origin:?}",
+			);
+		}
+	}
+}
