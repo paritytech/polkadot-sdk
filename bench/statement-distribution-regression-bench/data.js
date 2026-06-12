@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781294413341,
+  "lastUpdate": 1781301047954,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "326b298c22245db223be65b7ced66fbb92f1db5b",
-          "message": "Introduce `unapplied_slashes_v2` Runtime API (#9798)\n\nThis PR deprecates the `unapplied_slashes` Runtime API. It was broken in\nhttps://github.com/paritytech/polkadot-sdk/pull/9443#issuecomment-3326683056.\nWe need do fix it by using the legacy `PendingSlashes` primitive so we\ndon't break older nodes.\n\nAlso introduce the new `unapplied_slashes_v2` API that makes use of the\nnew primitive.\n\nStill TODO:\n- [x] switch `dispute-coordinator` to use `unapplied_slashes_v2`\n- [x] cumulus compatibility fix\n- [x] fix tests\n- [x] locally double check old nodes still work\n- [x] prdoc\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: Overkillus <maciej.zyszkiewicz@parity.io>",
-          "timestamp": "2025-10-24T15:18:37Z",
-          "tree_id": "2159351e1e493a1f18bf58c9cc307de458b3c1cd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/326b298c22245db223be65b7ced66fbb92f1db5b"
-        },
-        "date": 1761326425957,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94799999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04465076683199991,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035461914905999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08436838354999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8ae2e6a47aef16e392b4a951b7165c87d9f1e75b",
+          "message": "Bump litep2p to 0.14.2 (#12358)\n\nBump litep2p to get latest [bitswap\nfixes](https://github.com/paritytech/litep2p/releases/tag/v0.14.2).",
+          "timestamp": "2026-06-12T19:51:10Z",
+          "tree_id": "b0a894727df7f6b92ddafe6ddc6fa4a932f2cb64",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8ae2e6a47aef16e392b4a951b7165c87d9f1e75b"
+        },
+        "date": 1781301021874,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12800000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.083432343616,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03858682509199999,
             "unit": "seconds"
           }
         ]
