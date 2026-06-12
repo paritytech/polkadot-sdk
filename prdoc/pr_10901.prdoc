@@ -28,3 +28,363 @@ doc:
 crates:
   - name: frame-system
     bump: major
+  - name: bridge-runtime-common
+    bump: none
+  - name: chain-spec-guide-runtime
+    bump: none
+  - name: cumulus-pallet-aura-ext
+    bump: none
+  - name: cumulus-pallet-dmp-queue
+    bump: none
+  - name: cumulus-pallet-parachain-system
+    bump: none
+  - name: cumulus-pallet-weight-reclaim
+    bump: none
+  - name: cumulus-pallet-xcmp-queue
+    bump: none
+  - name: cumulus-test-runtime
+    bump: none
+  - name: frame-benchmarking
+    bump: none
+  - name: frame-benchmarking-pallet-pov
+    bump: none
+  - name: frame-election-provider-support
+    bump: none
+  - name: frame-executive
+    bump: none
+  - name: frame-metadata-hash-extension
+    bump: none
+  - name: frame-support
+    bump: none
+  - name: frame-support-procedural
+    bump: none
+  - name: frame-support-test
+    bump: none
+  - name: frame-support-test-compile-pass
+    bump: none
+  - name: frame-support-test-stg-frame-crate
+    bump: none
+  - name: frame-system-benchmarking
+    bump: none
+  - name: glutton-westend-runtime
+    bump: none
+  - name: kitchensink-runtime
+    bump: none
+  - name: minimal-template-runtime
+    bump: none
+  - name: pallet-accumulate-and-forward
+    bump: none
+  - name: pallet-ah-ops
+    bump: none
+  - name: pallet-ahm-test
+    bump: none
+  - name: pallet-alliance
+    bump: none
+  - name: pallet-asset-conversion
+    bump: none
+  - name: pallet-asset-conversion-ops
+    bump: none
+  - name: pallet-asset-conversion-precompiles
+    bump: none
+  - name: pallet-asset-conversion-tx-payment
+    bump: none
+  - name: pallet-asset-rate
+    bump: none
+  - name: pallet-asset-rewards
+    bump: none
+  - name: pallet-asset-tx-payment
+    bump: none
+  - name: pallet-assets
+    bump: none
+  - name: pallet-assets-freezer
+    bump: none
+  - name: pallet-assets-holder
+    bump: none
+  - name: pallet-assets-precompiles
+    bump: none
+  - name: pallet-atomic-swap
+    bump: none
+  - name: pallet-aura
+    bump: none
+  - name: pallet-authority-discovery
+    bump: none
+  - name: pallet-authorship
+    bump: none
+  - name: pallet-babe
+    bump: none
+  - name: pallet-bags-list
+    bump: none
+  - name: pallet-balances
+    bump: none
+  - name: pallet-beefy
+    bump: none
+  - name: pallet-beefy-mmr
+    bump: none
+  - name: pallet-bounties
+    bump: none
+  - name: pallet-bridge-beefy
+    bump: none
+  - name: pallet-bridge-grandpa
+    bump: none
+  - name: pallet-bridge-messages
+    bump: none
+  - name: pallet-bridge-parachains
+    bump: none
+  - name: pallet-bridge-relayers
+    bump: none
+  - name: pallet-broker
+    bump: none
+  - name: pallet-child-bounties
+    bump: none
+  - name: pallet-collective
+    bump: none
+  - name: pallet-collective-content
+    bump: none
+  - name: pallet-contracts
+    bump: none
+  - name: pallet-contracts-mock-network
+    bump: none
+  - name: pallet-conviction-voting
+    bump: none
+  - name: pallet-core-fellowship
+    bump: none
+  - name: pallet-dap
+    bump: none
+  - name: pallet-default-config-example
+    bump: none
+  - name: pallet-delegated-staking
+    bump: none
+  - name: pallet-democracy
+    bump: none
+  - name: pallet-derivatives
+    bump: none
+  - name: pallet-dev-mode
+    bump: none
+  - name: pallet-dummy-dim
+    bump: none
+  - name: pallet-election-provider-e2e-test
+    bump: none
+  - name: pallet-election-provider-multi-block
+    bump: none
+  - name: pallet-election-provider-multi-phase
+    bump: none
+  - name: pallet-elections-phragmen
+    bump: none
+  - name: pallet-example-authorization-tx-extension
+    bump: none
+  - name: pallet-example-basic
+    bump: none
+  - name: pallet-example-frame-crate
+    bump: none
+  - name: pallet-example-kitchensink
+    bump: none
+  - name: pallet-example-mbm
+    bump: none
+  - name: pallet-example-offchain-worker
+    bump: none
+  - name: pallet-example-single-block-migrations
+    bump: none
+  - name: pallet-example-split
+    bump: none
+  - name: pallet-example-tasks
+    bump: none
+  - name: pallet-example-view-functions
+    bump: none
+  - name: pallet-fast-unstake
+    bump: none
+  - name: pallet-glutton
+    bump: none
+  - name: pallet-grandpa
+    bump: none
+  - name: pallet-identity
+    bump: none
+  - name: pallet-im-online
+    bump: none
+  - name: pallet-indices
+    bump: none
+  - name: pallet-insecure-randomness-collective-flip
+    bump: none
+  - name: pallet-lottery
+    bump: none
+  - name: pallet-membership
+    bump: none
+  - name: pallet-message-queue
+    bump: none
+  - name: pallet-meta-tx
+    bump: none
+  - name: pallet-migrations
+    bump: none
+  - name: pallet-mmr
+    bump: none
+  - name: pallet-multi-asset-bounties
+    bump: none
+  - name: pallet-multisig
+    bump: none
+  - name: pallet-nft-fractionalization
+    bump: none
+  - name: pallet-nfts
+    bump: none
+  - name: pallet-nis
+    bump: none
+  - name: pallet-node-authorization
+    bump: none
+  - name: pallet-nomination-pools
+    bump: none
+  - name: pallet-nomination-pools-benchmarking
+    bump: none
+  - name: pallet-nomination-pools-test-delegate-stake
+    bump: none
+  - name: pallet-offences
+    bump: none
+  - name: pallet-offences-benchmarking
+    bump: none
+  - name: pallet-oracle
+    bump: none
+  - name: pallet-origin-restriction
+    bump: none
+  - name: pallet-paged-list
+    bump: none
+  - name: pallet-parachain-template
+    bump: none
+  - name: pallet-parameters
+    bump: none
+  - name: pallet-people
+    bump: none
+  - name: pallet-pgas-allowance
+    bump: none
+  - name: pallet-preimage
+    bump: none
+  - name: pallet-proxy
+    bump: none
+  - name: pallet-psm
+    bump: none
+  - name: pallet-ranked-collective
+    bump: none
+  - name: pallet-recovery
+    bump: none
+  - name: pallet-referenda
+    bump: none
+  - name: pallet-remark
+    bump: none
+  - name: pallet-revive
+    bump: none
+  - name: pallet-revive-ui-tests
+    bump: none
+  - name: pallet-root-offences
+    bump: none
+  - name: pallet-safe-mode
+    bump: none
+  - name: pallet-salary
+    bump: none
+  - name: pallet-sassafras
+    bump: none
+  - name: pallet-scored-pool
+    bump: none
+  - name: pallet-session
+    bump: none
+  - name: pallet-session-benchmarking
+    bump: none
+  - name: pallet-skip-feeless-payment
+    bump: none
+  - name: pallet-society
+    bump: none
+  - name: pallet-staking
+    bump: none
+  - name: pallet-staking-async
+    bump: none
+  - name: pallet-staking-async-ah-client
+    bump: none
+  - name: pallet-state-trie-migration
+    bump: none
+  - name: pallet-sudo
+    bump: none
+  - name: pallet-template
+    bump: none
+  - name: pallet-timestamp
+    bump: none
+  - name: pallet-tips
+    bump: none
+  - name: pallet-transaction-payment
+    bump: none
+  - name: pallet-transaction-storage
+    bump: none
+  - name: pallet-treasury
+    bump: none
+  - name: pallet-tx-pause
+    bump: none
+  - name: pallet-uniques
+    bump: none
+  - name: pallet-utility
+    bump: none
+  - name: pallet-verify-signature
+    bump: none
+  - name: pallet-vesting
+    bump: none
+  - name: pallet-vesting-precompiles
+    bump: none
+  - name: pallet-whitelist
+    bump: none
+  - name: pallet-xcm
+    bump: none
+  - name: pallet-xcm-benchmarks
+    bump: none
+  - name: pallet-xcm-bridge-hub
+    bump: none
+  - name: pallet-xcm-bridge-hub-router
+    bump: none
+  - name: pallet-xcm-precompiles
+    bump: none
+  - name: parachain-template-runtime
+    bump: none
+  - name: parachains-common
+    bump: none
+  - name: penpal-runtime
+    bump: none
+  - name: polkadot-runtime-common
+    bump: none
+  - name: polkadot-runtime-parachains
+    bump: none
+  - name: polkadot-sdk-docs
+    bump: none
+  - name: polkadot-sdk-docs-first-pallet
+    bump: none
+  - name: polkadot-sdk-docs-first-runtime
+    bump: none
+  - name: polkadot-test-runtime
+    bump: none
+  - name: revive-dev-runtime
+    bump: none
+  - name: snowbridge-pallet-ethereum-client
+    bump: none
+  - name: snowbridge-pallet-inbound-queue
+    bump: none
+  - name: snowbridge-pallet-inbound-queue-v2
+    bump: none
+  - name: snowbridge-pallet-outbound-queue
+    bump: none
+  - name: snowbridge-pallet-outbound-queue-v2
+    bump: none
+  - name: snowbridge-pallet-system
+    bump: none
+  - name: snowbridge-pallet-system-frontend
+    bump: none
+  - name: snowbridge-pallet-system-v2
+    bump: none
+  - name: solochain-template-runtime
+    bump: none
+  - name: staging-xcm-builder
+    bump: none
+  - name: substrate-frame-rpc-support
+    bump: none
+  - name: substrate-relay-helper
+    bump: none
+  - name: substrate-test-runtime
+    bump: none
+  - name: xcm-docs
+    bump: none
+  - name: xcm-runtime-apis
+    bump: none
+  - name: xcm-simulator-example
+    bump: none
+  - name: xcm-simulator-fuzzer
+    bump: none

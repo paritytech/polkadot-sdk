@@ -1385,8 +1385,6 @@ mod extension_weight_tests {
 	);
 
 	impl frame_system::Config for ExtRuntime {
-		type SystemWeightInfo = ();
-		type ExtensionsWeightInfo = ();
 		type Block = Block;
 		type AccountId = AccountId;
 		type Balance = Balance;

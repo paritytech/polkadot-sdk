@@ -141,6 +141,8 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type BaseCallFilter = BaseFilter;
 	type Block = Block;
 	type BlockWeights = BlockWeights;
