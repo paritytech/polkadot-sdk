@@ -64,6 +64,7 @@ members = [
 	"cumulus/client/bootnodes",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
+	"cumulus/client/collator-discovery",
 	"cumulus/client/consensus/aura",
 	"cumulus/client/consensus/common",
 	"cumulus/client/consensus/relay-chain",
@@ -767,6 +768,7 @@ criterion = { version = "0.5.1", default-features = false }
 cumulus-client-bootnodes = { path = "cumulus/client/bootnodes", default-features = false }
 cumulus-client-cli = { path = "cumulus/client/cli", default-features = false }
 cumulus-client-collator = { path = "cumulus/client/collator", default-features = false }
+cumulus-client-collator-discovery = { path = "cumulus/client/collator-discovery", default-features = false }
 cumulus-client-consensus-aura = { path = "cumulus/client/consensus/aura", default-features = false }
 cumulus-client-consensus-common = { path = "cumulus/client/consensus/common", default-features = false }
 cumulus-client-consensus-relay-chain = { path = "cumulus/client/consensus/relay-chain", default-features = false }

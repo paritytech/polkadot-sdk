@@ -4889,6 +4889,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-client-collator-discovery"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "futures-timer",
+ "log",
+ "sc-authority-discovery",
+ "sc-network 0.34.0",
+ "sc-network-sync",
+ "sc-service",
+ "sp-api 26.0.0",
+ "sp-authority-discovery",
+ "sp-blockchain 28.0.0",
+ "sp-core 28.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "substrate-prometheus-endpoint 0.17.0",
+]
+
+[[package]]
 name = "cumulus-client-consensus-aura"
 version = "0.7.0"
 dependencies = [
@@ -5522,7 +5542,6 @@ dependencies = [
 name = "cumulus-relay-chain-minimal-node"
 version = "0.7.0"
 dependencies = [
- "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "async-trait",
  "cumulus-client-bootnodes",
@@ -5541,6 +5560,7 @@ dependencies = [
  "sc-client-api 28.0.0",
  "sc-network 0.34.0",
  "sc-network-common 0.33.0",
+ "sc-network-sync",
  "sc-service",
  "sc-tracing",
  "sc-utils 14.0.0",
@@ -5671,6 +5691,7 @@ dependencies = [
  "frame-system",
  "frame-system-rpc-runtime-api",
  "pallet-aura",
+ "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-balances",
  "pallet-glutton",
@@ -5685,6 +5706,7 @@ dependencies = [
  "scale-info",
  "serde_json",
  "sp-api 26.0.0",
+ "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 28.0.0",
@@ -5711,6 +5733,7 @@ dependencies = [
  "criterion",
  "cumulus-client-cli",
  "cumulus-client-collator",
+ "cumulus-client-collator-discovery",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
  "cumulus-client-parachain-inherent",
@@ -5829,6 +5852,7 @@ dependencies = [
  "sp-version 29.0.0",
  "subxt 0.44.2",
  "subxt 0.50.0",
+ "subxt-signer 0.44.2",
  "subxt-signer 0.50.0",
  "tokio",
  "verifiable",
@@ -17085,6 +17109,7 @@ dependencies = [
  "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
+ "cumulus-client-collator-discovery",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-relay-chain",
@@ -17113,6 +17138,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-cli",
  "polkadot-primitives",
+ "sc-authority-discovery",
  "sc-basic-authorship",
  "sc-chain-spec 28.0.0",
  "sc-cli",
@@ -17142,6 +17168,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api 26.0.0",
+ "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus 0.32.0",
  "sp-consensus-aura",
@@ -17466,6 +17493,7 @@ dependencies = [
  "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
+ "cumulus-client-collator-discovery",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-relay-chain",
