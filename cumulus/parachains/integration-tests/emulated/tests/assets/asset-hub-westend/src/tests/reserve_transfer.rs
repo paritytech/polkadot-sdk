@@ -303,9 +303,9 @@ fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 				),
 				amount: *amount == t.args.amount,
 			},
-			// Native asset to pay for fees is transferred to Parachain's Sovereign account
+			// Delivery fees are deposited to the DAP buffer account.
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
-				who: *who == TreasuryAccount::get(),
+				who: *who == DapBufferAccount::get(),
 			},
 			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(
@@ -1487,15 +1487,12 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	);
 
 	let usdt_from_asset_hub = PenpalUsdtFromAssetHub::get();
-	PenpalA::execute_with(|| {
-		use frame_support::traits::tokens::fungibles::Mutate;
-		type Assets = <PenpalA as PenpalAPallet>::Assets;
-		assert_ok!(<Assets as Mutate<_>>::mint_into(
-			usdt_from_asset_hub.clone(),
-			&sender,
-			asset_amount_to_send + fee_amount_to_send,
-		));
-	});
+	PenpalA::mint_foreign_asset(
+		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		usdt_from_asset_hub.clone(),
+		sender.clone(),
+		asset_amount_to_send + fee_amount_to_send,
+	);
 
 	// Prepare assets to transfer.
 	let assets: Assets =

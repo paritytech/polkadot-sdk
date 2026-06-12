@@ -44,7 +44,8 @@ pub struct ParentSearchParams {
 	pub ancestry_lookback: usize,
 }
 
-/// Result of the parent search, containing the included block and the best parent to build on.
+/// A potential parent block returned from [`find_parent_for_building`]
+#[derive(PartialEq, Clone)]
 pub struct ParentSearchResult<B: BlockT> {
 	/// The header of the included block (confirmed on relay chain).
 	pub included_header: B::Header,
@@ -275,10 +276,12 @@ fn is_relay_parent_in_ancestry<Block: BlockT>(
 	let relay_parent = cumulus_primitives_core::extract_relay_parent(digest);
 	let storage_root =
 		cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(digest)
-			.map(|(r, _)| r);
+			.map(|(storage_root, _)| storage_root);
+	if relay_parent.is_none() && storage_root.is_none() {
+		return false;
+	}
 
 	rp_ancestry.iter().any(|(rp_hash, rp_storage_root)| {
-		relay_parent.map_or(false, |rp| *rp_hash == rp) ||
-			storage_root.map_or(false, |sr| *rp_storage_root == sr)
+		Some(*rp_hash) == relay_parent || Some(*rp_storage_root) == storage_root
 	})
 }

@@ -27,6 +27,7 @@ use crate::{
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 	},
 	tracing::trace,
+	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{
@@ -169,6 +170,72 @@ fn basic_evm_flow_tracing_works() {
 				gas_used: call_trace.gas_used,
 				..Default::default()
 			},
+		);
+	});
+}
+
+/// Regression test for paritytech/contract-issues#278 — nested-call variant.
+///
+/// `Stack::call`'s no-code branch (the path taken when a running contract
+/// makes an external call into an account with no code, e.g.
+/// `payable(addr).transfer(...)` or `addr.call{value: ...}("")` to an EOA)
+/// invokes `exit_child_span` with `Default::default()` for both `gas_used`
+/// and `weight_consumed`. The frame meter does charge an existential
+/// deposit when the destination is fresh, so the inner `CallTrace` should
+/// report non-zero `gas_used`, but today it reports zero. The top-level
+/// `Stack::run_call` no-code branch has the same shape and is fixed
+/// separately; this test pins down the nested case.
+#[test]
+fn call_tracing_records_consumption_for_nested_transfer_to_eoa() {
+	use crate::evm::{CallTracer, CallType};
+	use pallet_revive_fixtures::Caller;
+	use sp_core::H160;
+
+	let (caller_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: caller, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		// Pre-fund the caller contract so it has enough balance for the
+		// inner value transfer. Pre-funding directly (rather than via
+		// `evm_value` on `bare_call`) avoids dust/conversion complications.
+		let _ = Pallet::<Test>::set_evm_balance(&caller, 100_000_000_000u128.into());
+
+		// A fresh EOA with no code. The contract's sub-call into this address
+		// hits the no-code branch in `Stack::call`, which charges an
+		// existential deposit through the frame meter.
+		let eoa = H160::from([0xfe; 20]);
+
+		let mut tracer = CallTracer::new(Default::default());
+		trace(&mut tracer, || {
+			builder::bare_call(caller)
+				.data(
+					Caller::normalCall {
+						_callee: eoa.0.into(),
+						_value: 1_000_000,
+						_data: Vec::<u8>::new().into(),
+						_gas: u64::MAX,
+					}
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+		});
+
+		// Sanity: the value actually arrived.
+		assert!(Pallet::<Test>::evm_balance(&eoa) >= 1_000_000.into());
+
+		let trace = tracer.collect_trace().unwrap();
+		let inner =
+			trace.calls.first().expect("CallTrace must contain the contract → EOA sub-call");
+		assert_eq!(inner.to, eoa, "sub-call destination must be the EOA");
+		assert_eq!(inner.call_type, CallType::Call, "sub-call must be a regular CALL");
+		assert!(
+			inner.gas_used > 0,
+			"inner call to a fresh EOA must report non-zero gas_used; got {} — see issue #278",
+			inner.gas_used,
 		);
 	});
 }
@@ -574,7 +641,7 @@ fn eth_substrate_call_tracks_weight_correctly() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
 
 		let inner_call = frame_system::Call::remark { remark: vec![0u8; 100] };
-		let transaction_encoded = vec![];
+		let transaction_encoded = vec![0u8; 200];
 		let transaction_encoded_len = transaction_encoded.len() as u32;
 
 		let result = Pallet::<Test>::eth_substrate_call(
@@ -586,7 +653,10 @@ fn eth_substrate_call_tracks_weight_correctly() {
 		assert_ok!(result);
 		let post_info = result.unwrap();
 
-		let overhead = <Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded_len);
+		let overhead = <Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded_len)
+			.saturating_add(<Test as Config>::WeightInfo::on_finalize_block_per_tx(
+				transaction_encoded_len,
+			));
 		let expected_weight = overhead.saturating_add(inner_call.get_dispatch_info().call_weight);
 		assert!(
 			expected_weight == post_info.actual_weight.unwrap(),
