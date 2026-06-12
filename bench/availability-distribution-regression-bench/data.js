@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781280074254,
+  "lastUpdate": 1781286067053,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2c23b906995e452389ca82de989babd0321955fc",
-          "message": "[Release|CI/CD] Fix release draft creation in the Combined build release flow (#10122)\n\nCloses: https://github.com/paritytech/release-engineering/issues/277",
-          "timestamp": "2025-10-27T11:02:34Z",
-          "tree_id": "2e8dd8249b56c2caad9f370f243ef1dcc84aa0b9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2c23b906995e452389ca82de989babd0321955fc"
-        },
-        "date": 1761567016632,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022668644526666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007297102186666671,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013293509160000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15990382474666673,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010495327113333303,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "50ba9b430d435a064a29a8a9a26c90f04b788445",
+          "message": "ci: fix zombienet logging (#12344)\n\ncc https://github.com/paritytech/devops/issues/5376\n\n---------\n\nCo-authored-by: Javier Viola <javier@parity.io>",
+          "timestamp": "2026-06-12T16:06:36Z",
+          "tree_id": "3397561f0775d85d83edaf1a1ab642c47a49a71e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/50ba9b430d435a064a29a8a9a26c90f04b788445"
+        },
+        "date": 1781286040144,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007859713679999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010777191453333317,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02368243776666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14869440229333333,
             "unit": "seconds"
           }
         ]
