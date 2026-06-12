@@ -137,6 +137,9 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 	HardCapSelfStake::<T>::put(BalanceOf::<T>::from(100_000u64));
 	SelfStakeSlopeFactor::<T>::put(Perbill::from_percent(50));
 
+	// Seed VestingEpochStart so that the `add_to_vesting` path is exercised.
+	VestingEpochStart::<T>::put(frame_system::Pallet::<T>::block_number());
+
 	let incentive_payout = total_payout / 10u32.into(); // 10% of total as incentive budget
 	let incentive_pot =
 		crate::reward::EraRewardManager::<T>::create(planned_era, RewardKind::ValidatorSelfStake);
