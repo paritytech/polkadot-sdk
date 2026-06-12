@@ -694,8 +694,11 @@ pub mod pallet {
 		/// - `bounty_id`: Bounty ID to award.
 		/// - `beneficiary`: The beneficiary account whom will receive the payout.
 		///
+		/// Any active child bounties are closed as part of this call.
+		///
 		/// ## Complexity
-		/// - O(1).
+		/// - O(C) where C is the number of active child bounties (bounded by
+		///   `MaxActiveChildBountyCount`).
 		#[pallet::call_index(5)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::award_bounty()
 			.saturating_add(T::ChildBountyManager::close_child_bounties_max_weight()))]
@@ -805,8 +808,11 @@ pub mod pallet {
 		///
 		/// - `bounty_id`: Bounty ID to cancel.
 		///
+		/// Any active child bounties are closed as part of this call.
+		///
 		/// ## Complexity
-		/// - O(1).
+		/// - O(C) where C is the number of active child bounties (bounded by
+		///   `MaxActiveChildBountyCount`).
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::close_bounty_proposed()
 			.max(<T as Config<I>>::WeightInfo::close_bounty_active())
