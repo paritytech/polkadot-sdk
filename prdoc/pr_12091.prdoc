@@ -6,8 +6,7 @@ doc:
     parablock the data needed to resubmit it without relying on the relay parent still being
     available in the blockchain state: the storage proof, capture time, relay-parent session,
     and the core (resolved index plus selector) it was submitted on. Entries are pruned on
-    finality. Session-age based pruning (`ResubmissionStore::prune_old_sessions`) is
-    implemented but not yet wired into the node.
+    finality. 
 crates:
 - name: cumulus-client-resubmission-store
   bump: minor
