@@ -56,8 +56,6 @@ crates:
     bump: none
   - name: frame-support
     bump: none
-  - name: frame-support-procedural
-    bump: none
   - name: frame-support-test
     bump: none
   - name: frame-support-test-compile-pass
@@ -135,6 +133,8 @@ crates:
   - name: pallet-broker
     bump: none
   - name: pallet-child-bounties
+    bump: none
+  - name: pallet-collator-selection
     bump: none
   - name: pallet-collective
     bump: none
@@ -277,6 +277,8 @@ crates:
   - name: pallet-salary
     bump: none
   - name: pallet-sassafras
+    bump: none
+  - name: pallet-scheduler
     bump: none
   - name: pallet-scored-pool
     bump: none
