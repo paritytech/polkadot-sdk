@@ -65,7 +65,7 @@ use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
-	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
+	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult, Topic,
 };
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
@@ -387,6 +387,7 @@ impl StatementHandlerPrototype {
 		executor: impl Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send,
 		mut num_submission_workers: usize,
 		statements_per_second: u32,
+		configured_topics: &[Topic],
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
 		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
@@ -441,7 +442,7 @@ impl StatementHandlerPrototype {
 			);
 		}
 
-		let v2dht = V2DhtOrchestrator::new();
+		let v2dht = V2DhtOrchestrator::new(configured_topics);
 
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
@@ -717,7 +718,7 @@ where
 		queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
 		statements_per_second: NonZeroU32,
 	) -> Self {
-		let v2dht = V2DhtOrchestrator::new();
+		let v2dht = V2DhtOrchestrator::new(&[]);
 		Self {
 			protocol_name,
 			notification_service,
@@ -2029,7 +2030,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-			v2dht: V2DhtOrchestrator::new(),
+			v2dht: V2DhtOrchestrator::new(&[]),
 		};
 		(handler, statement_store, network, notification_service, queue_receiver, peer_ids)
 	}
@@ -2265,7 +2266,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-			v2dht: V2DhtOrchestrator::new(),
+			v2dht: V2DhtOrchestrator::new(&[]),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -2309,7 +2310,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-			v2dht: V2DhtOrchestrator::new(),
+			v2dht: V2DhtOrchestrator::new(&[]),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -3727,7 +3728,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-			v2dht: V2DhtOrchestrator::new(),
+			v2dht: V2DhtOrchestrator::new(&[]),
 		};
 
 		// Add a statement so there's something to sync.
@@ -4083,7 +4084,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
-			v2dht: V2DhtOrchestrator::new(),
+			v2dht: V2DhtOrchestrator::new(&[]),
 		};
 
 		let peer1 = PeerId::random();
@@ -4149,7 +4150,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
-			v2dht: V2DhtOrchestrator::new(),
+			v2dht: V2DhtOrchestrator::new(&[]),
 		};
 
 		flag.store(false, std::sync::atomic::Ordering::Relaxed);
@@ -4227,7 +4228,7 @@ mod tests {
 			dropped_statements_during_sync: true,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-			v2dht: V2DhtOrchestrator::new(),
+			v2dht: V2DhtOrchestrator::new(&[]),
 		};
 
 		handler.start_sync_recovery();
@@ -4328,7 +4329,7 @@ mod tests {
 					dropped_statements_during_sync: dropped,
 					sync_recovery_peer: None,
 					sync_recovery_readd_timeout: Box::pin(pending().fuse()),
-					v2dht: V2DhtOrchestrator::new(),
+					v2dht: V2DhtOrchestrator::new(&[]),
 				}
 			};
 

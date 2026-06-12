@@ -23,7 +23,7 @@ mod explicit_affinity;
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use explicit_affinity::ExplicitAffinity;
 use sc_network_types::PeerId;
-use sp_statement_store::SubmitResult;
+use sp_statement_store::{SubmitResult, Topic};
 
 /// Coordinates the v2 DHT-affinity statement gossip path.
 #[allow(dead_code)]
@@ -34,8 +34,8 @@ pub(crate) struct V2DhtOrchestrator {
 
 #[allow(dead_code)]
 impl V2DhtOrchestrator {
-	pub(crate) fn new() -> Self {
-		Self { explicit_affinity: ExplicitAffinity::new() }
+	pub(crate) fn new(configured_topics: &[Topic]) -> Self {
+		Self { explicit_affinity: ExplicitAffinity::new(configured_topics) }
 	}
 
 	// === Peer-set events ===

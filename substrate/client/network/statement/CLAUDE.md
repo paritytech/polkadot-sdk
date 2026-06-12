@@ -65,7 +65,9 @@ Applies to all prose for humans — comments, doc comments, commit messages, PR 
 chat replies. Follow Strunk's *Elements of Style*:
 
 - **Omit needless words.** Cut anything that does not change the meaning. Shorter is the default.
-- **Use the active voice.** "The node advertises the filter," not "the filter is advertised."
+- **Prefer the active voice.** "The node advertises the filter," not "the filter is advertised."
+  Not absolute: a noun-phrase label may take a participle ("topics advertised by this node") when
+  it reads tighter than the active clause ("topics this node advertises").
 - **State it positively.** Say what is, not what is not. "Empty sets match nothing," not "does not
   match anything."
 - **Be concrete and specific.** Name the function, the field, the bound. Avoid "handle", "process",
@@ -75,5 +77,7 @@ chat replies. Follow Strunk's *Elements of Style*:
 - **Put the emphatic word last.** End the sentence on what matters.
 - **Keep related words together** so the sentence reads in one pass.
 - **One topic per paragraph**, opening with its point.
+
+These rules serve clarity; when two of them conflict, clarity wins.
 
 When you write or edit prose, apply these rules before you finish — do not leave a first draft.

@@ -69,9 +69,9 @@ use sp_statement_store::{
 	runtime_api::{StatementSource, StatementStoreExt},
 	AccountId, BlockHash, Channel, DecryptionKey, FilterDecision, Hash, InvalidReason,
 	OptimizedTopicFilter, RejectionReason, Result, SignatureVerificationResult, Statement,
-	StatementAllowance, StatementEvent, SubmitResult, Topic,
+	StatementAllowance, StatementEvent, SubmitResult,
 };
-pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
+pub use sp_statement_store::{Error, StatementStore, Topic, MAX_TOPICS};
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap, HashSet},
 	sync::Arc,
@@ -194,7 +194,7 @@ pub const DEFAULT_NETWORK_WORKERS: usize = 1;
 pub use sc_network_statement::config::DEFAULT_STATEMENTS_PER_SECOND as DEFAULT_RATE_LIMIT;
 
 /// Statement store and network handler configuration.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Config {
 	/// Maximum statements allowed in the store. Once this limit is reached lower-priority
 	/// statements may be evicted.
@@ -208,6 +208,8 @@ pub struct Config {
 	pub network_workers: usize,
 	/// Maximum statements per second per peer before rate limiting kicks in.
 	pub rate_limit: u32,
+	/// Topics this node advertises affinity for, so peers route matching statements to it.
+	pub affinity_topics: Vec<sp_statement_store::Topic>,
 }
 
 impl Config {
@@ -236,6 +238,7 @@ impl Default for Config {
 			purge_after_sec: DEFAULT_PURGE_AFTER_SEC,
 			network_workers: DEFAULT_NETWORK_WORKERS,
 			rate_limit: DEFAULT_RATE_LIMIT,
+			affinity_topics: Vec::new(),
 		}
 	}
 }
