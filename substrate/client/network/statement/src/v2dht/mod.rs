@@ -22,10 +22,11 @@ mod explicit_affinity;
 pub mod peers_topology;
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
-use explicit_affinity::ExplicitAffinity;
+use explicit_affinity::{AffinitySource, ExplicitAffinity};
 use peers_topology::{PeersTopology, PeersTopologyConfig};
 use sc_network_types::PeerId;
 use sp_statement_store::{SubmitResult, Topic};
+use std::collections::HashSet;
 
 /// Coordinates the v2 DHT-affinity statement gossip path.
 #[allow(dead_code)]
@@ -55,6 +56,20 @@ impl V2DhtOrchestrator {
 
 	pub(crate) fn on_peer_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
 		self.peers_topology.on_peer_identified(peer, supports_statement_protocol);
+	}
+
+	// === RPC-subscription source ===
+
+	/// Refresh the topics the node has affinity for through its active RPC subscriptions.
+	pub(crate) fn set_rpc_subscription_topics(&mut self, topics: &HashSet<Topic>) {
+		self.explicit_affinity
+			.replace_source_topics(AffinitySource::RpcSubscription, topics);
+	}
+
+	/// The topics this node currently has affinity for.
+	#[cfg(test)]
+	pub(crate) fn topics(&self) -> Vec<Topic> {
+		self.explicit_affinity.topics()
 	}
 
 	// === Peer-set events ===

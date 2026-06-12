@@ -1616,6 +1616,10 @@ impl StatementStore for Store {
 		}
 		Ok(())
 	}
+
+	fn subscription_topics(&self) -> HashSet<Topic> {
+		self.subscription_manager.subscription_topics()
+	}
 }
 
 impl StatementStoreSubscriptionApi for Store {

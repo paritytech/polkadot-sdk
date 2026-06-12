@@ -831,6 +831,8 @@ where
 				},
 				_ = &mut self.pending_affinities_timeout => {
 					if v2dht_enabled() {
+						let topics = self.statement_store.subscription_topics();
+						self.v2dht.set_rpc_subscription_topics(&topics);
 						self.v2dht.on_pending_affinities();
 					}
 					self.process_pending_affinities();
@@ -1889,11 +1891,16 @@ mod tests {
 		statements: Arc<Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>>,
 		recent_statements:
 			Arc<Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>>,
+		subscription_topics: Arc<Mutex<Vec<Topic>>>,
 	}
 
 	impl TestStatementStore {
 		fn new() -> Self {
-			Self { statements: Default::default(), recent_statements: Default::default() }
+			Self {
+				statements: Default::default(),
+				recent_statements: Default::default(),
+				subscription_topics: Default::default(),
+			}
 		}
 	}
 
@@ -1927,6 +1934,10 @@ mod tests {
 
 		fn statement_hashes(&self) -> Vec<sp_statement_store::Hash> {
 			self.statements.lock().unwrap().keys().cloned().collect()
+		}
+
+		fn subscription_topics(&self) -> HashSet<Topic> {
+			self.subscription_topics.lock().unwrap().iter().copied().collect()
 		}
 
 		fn statements_by_hashes(

@@ -44,10 +44,10 @@
 //!    at step 6. First cross-crate step; needs step 3. Closes "CLI and configuration inputs"
 //!    ([#12316]). (Optional: take the advertised-filter seed from config to match the light client
 //!    — correctness already holds, since the seed travels on the wire.)
-//! 5. [ ] **RPC-subscription source.** Plumb the statement RPC layer so opening a subscription
-//!    calls `add_topics(RpcSubscription, …)` and dropping it calls `remove_topics`. Dynamic
-//!    add/remove over the subscription lifecycle; the caller must balance each add with one remove
-//!    (see `remove_topics`). Needs step 3. Closes "track affinity from active subscriptions."
+//! 5. [x] **RPC-subscription source.** Poll the statement store's live subscription topics on the
+//!    affinity tick and reconcile them into the `RpcSubscription` source (`replace_source_topics`).
+//!    The store owns the subscription set, so the poll cannot drift and the RPC layer stays
+//!    untouched. Needs step 3. Closes "track affinity from active subscriptions" ([#12339]).
 //! 6. [ ] **Local queries.** Over the fed topic set, implement `local_filter()` (advertised
 //!    [`AffinityFilter`] built from the topics) and `local_has_explicit_affinity(stmt)` (does any
 //!    of the statement's topics sit in the set). Configured and subscribed topics start being
@@ -69,11 +69,12 @@
 //! [#12276]: https://github.com/paritytech/polkadot-sdk/pull/12276
 //! [#12278]: https://github.com/paritytech/polkadot-sdk/pull/12278
 //! [#12316]: https://github.com/paritytech/polkadot-sdk/pull/12316
+//! [#12339]: https://github.com/paritytech/polkadot-sdk/pull/12339
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use sc_network_types::PeerId;
 use sp_statement_store::{Statement, Topic};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// The source of this node's affinity for a topic.
 ///
@@ -103,12 +104,15 @@ pub(crate) struct ExplicitAffinity {
 	/// Local topics, each mapped to its per-source reference counts. A topic stays in the map only
 	/// while some source references it.
 	local: HashMap<Topic, HashMap<AffinitySource, u32>>,
+	/// Marks the advertised affinity filter stale
+	// TODO: clear this once the rebuilt affinity filter has been advertised to peers.
+	local_changed: bool,
 }
 
 #[allow(dead_code)]
 impl ExplicitAffinity {
 	pub(crate) fn new(configured_topics: &[Topic]) -> Self {
-		let mut this = Self { seed: rand::random(), local: HashMap::new() };
+		let mut this = Self { seed: rand::random(), local: HashMap::new(), local_changed: false };
 		// Configured adds are never balanced by removes, so collapse duplicate CLI values to one
 		// reference per topic.
 		let mut topics = configured_topics.to_vec();
@@ -126,6 +130,9 @@ impl ExplicitAffinity {
 		for &topic in topics {
 			let count = self.local.entry(topic).or_default().entry(source).or_insert(0);
 			*count = count.saturating_add(1);
+			if *count == 1 {
+				self.local_changed = true;
+			}
 		}
 	}
 
@@ -142,8 +149,28 @@ impl ExplicitAffinity {
 			}
 			if sources.is_empty() {
 				self.local.remove(topic);
+				self.local_changed = true;
 			}
 		}
+	}
+
+	/// Replaces topics with exact source.
+	pub(crate) fn replace_source_topics(
+		&mut self,
+		source: AffinitySource,
+		desired: &HashSet<Topic>,
+	) {
+		let current: HashSet<Topic> = self
+			.local
+			.iter()
+			.filter(|(_, sources)| sources.contains_key(&source))
+			.map(|(topic, _)| *topic)
+			.collect();
+
+		let to_remove: Vec<Topic> = current.difference(desired).copied().collect();
+		let to_add: Vec<Topic> = desired.difference(&current).copied().collect();
+		self.remove_topics(source, &to_remove);
+		self.add_topics(source, &to_add);
 	}
 
 	/// The topics this node currently has affinity for
@@ -189,7 +216,6 @@ impl ExplicitAffinity {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::collections::HashSet;
 
 	fn topic(n: u8) -> Topic {
 		Topic([n; 32])
@@ -205,6 +231,63 @@ mod tests {
 		assert_eq!(topic_set(&affinity), HashSet::from([topic(1), topic(2)]));
 
 		assert!(ExplicitAffinity::new(&[]).topics().is_empty());
+	}
+
+	#[test]
+	fn replace_source_topics_reconciles_membership() {
+		let mut affinity = ExplicitAffinity::new(&[]);
+
+		affinity.replace_source_topics(
+			AffinitySource::RpcSubscription,
+			&HashSet::from([topic(1), topic(2)]),
+		);
+		assert_eq!(topic_set(&affinity), HashSet::from([topic(1), topic(2)]));
+
+		// topic(2) drops, topic(3) joins, topic(1) stays.
+		affinity.replace_source_topics(
+			AffinitySource::RpcSubscription,
+			&HashSet::from([topic(1), topic(3)]),
+		);
+		assert_eq!(topic_set(&affinity), HashSet::from([topic(1), topic(3)]));
+
+		affinity.replace_source_topics(AffinitySource::RpcSubscription, &HashSet::new());
+		assert!(affinity.topics().is_empty());
+	}
+
+	#[test]
+	fn replace_source_topics_leaves_other_sources_intact() {
+		// topic(1) is configured; the subscription source also wants it plus topic(2).
+		let mut affinity = ExplicitAffinity::new(&[topic(1)]);
+		affinity.replace_source_topics(
+			AffinitySource::RpcSubscription,
+			&HashSet::from([topic(1), topic(2)]),
+		);
+		assert_eq!(topic_set(&affinity), HashSet::from([topic(1), topic(2)]));
+
+		// Clearing the subscription source leaves topic(1), still held by the configured source.
+		affinity.replace_source_topics(AffinitySource::RpcSubscription, &HashSet::new());
+		assert_eq!(topic_set(&affinity), HashSet::from([topic(1)]));
+	}
+
+	#[test]
+	fn replace_source_topics_changes_local() {
+		let mut affinity = ExplicitAffinity::new(&[]);
+		assert!(!affinity.local_changed);
+
+		// Change the local set
+		affinity.replace_source_topics(
+			AffinitySource::RpcSubscription,
+			&HashSet::from([topic(1), topic(2)]),
+		);
+		assert!(affinity.local_changed);
+
+		affinity.local_changed = false;
+		// Keep the local set same
+		affinity.replace_source_topics(
+			AffinitySource::RpcSubscription,
+			&HashSet::from([topic(1), topic(2)]),
+		);
+		assert!(!affinity.local_changed);
 	}
 
 	#[test]
