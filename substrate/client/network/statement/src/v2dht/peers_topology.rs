@@ -89,7 +89,7 @@ impl PeersTopology {
 	/// Kademlia table is bucket-limited and may discard many discovered peers.
 	pub fn on_peers_discovered(&mut self, peers: impl IntoIterator<Item = PeerId>) {
 		for peer in peers {
-			self.discover_peer(peer);
+			self.get_or_insert_peer(peer);
 		}
 	}
 
@@ -98,14 +98,14 @@ impl PeersTopology {
 	/// Peers that do not support the statement protocol remain known but are excluded from DHT
 	/// storage and forwarding decisions.
 	pub fn on_peer_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
-		self.discover_peer(peer).supports_protocol = supports_statement_protocol;
+		self.get_or_insert_peer(peer).supports_protocol = supports_statement_protocol;
 	}
 
 	/// Record that the statement notification substream opened.
 	///
 	/// An open substream implies statement-protocol support.
 	pub fn on_substream_opened(&mut self, peer: PeerId) {
-		self.discover_peer(peer).supports_protocol = true;
+		self.get_or_insert_peer(peer).supports_protocol = true;
 		self.connected.insert(peer);
 	}
 
@@ -213,7 +213,7 @@ impl PeersTopology {
 	}
 
 	/// Insert `peer` into the discovered set if absent and return its record.
-	fn discover_peer(&mut self, peer: PeerId) -> &mut PeerInfo {
+	fn get_or_insert_peer(&mut self, peer: PeerId) -> &mut PeerInfo {
 		self.discovered
 			.entry(peer)
 			.or_insert_with(|| PeerInfo { supports_protocol: false, key: peer_key(&peer) })
