@@ -265,6 +265,9 @@ pub struct Cli<Config: CliConfig> {
 	/// Affinity topic advertised by this node. Repeatable; each value is a 32-byte hex
 	/// hash.
 	///
+	/// Makes the node responsible for finding and storing all statements with topics in this
+	/// list.
+	///
 	/// Only relevant when `--enable-statement-store` is used.
 	#[arg(long = "statement-affinity-topic", value_name = "TOPIC")]
 	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
