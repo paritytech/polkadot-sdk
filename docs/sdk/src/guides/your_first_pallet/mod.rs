@@ -450,6 +450,8 @@ pub mod pallet {
 
 			#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 			impl frame_system::Config for Runtime {
+				type SystemWeightInfo = ();
+				type ExtensionsWeightInfo = ();
 				type Block = MockBlock<Runtime>;
 				// within pallet we just said `<T as frame_system::Config>::AccountId`, now we
 				// finally specified it.
@@ -730,6 +732,8 @@ pub mod pallet_v2 {
 
 			#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 			impl frame_system::Config for Runtime {
+				type SystemWeightInfo = ();
+				type ExtensionsWeightInfo = ();
 				type Block = MockBlock<Runtime>;
 				type AccountId = u64;
 			}

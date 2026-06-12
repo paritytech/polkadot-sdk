@@ -73,6 +73,7 @@ impl frame_system::ExtensionsWeightInfo for MockWeights {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
+	type SystemWeightInfo = ();
 	type Block = Block;
 	type ExtensionsWeightInfo = MockWeights;
 }

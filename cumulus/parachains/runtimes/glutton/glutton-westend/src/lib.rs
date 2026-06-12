@@ -156,6 +156,8 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type AccountId = AccountId;
 	type Nonce = Nonce;
 	type Hash = Hash;

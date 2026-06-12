@@ -46,6 +46,8 @@ pub const GENESIS_NOMINATOR_TWO: AccountId = 102;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type AccountId = AccountId;

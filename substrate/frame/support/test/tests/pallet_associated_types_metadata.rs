@@ -142,6 +142,7 @@ impl pallet3::Config for Runtime {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type ExtensionsWeightInfo = ();
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();

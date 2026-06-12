@@ -389,6 +389,8 @@ mod tests {
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
+		type SystemWeightInfo = ();
+		type ExtensionsWeightInfo = ();
 		type Block = Block;
 	}
 

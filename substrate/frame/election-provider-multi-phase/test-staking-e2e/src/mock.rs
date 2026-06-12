@@ -88,6 +88,8 @@ pub(crate) type Moment = u32;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type AccountId = AccountId;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;

@@ -1,0 +1,30 @@
+title: "frame-system: require explicit weight info in default configs"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `frame_system::Config::SystemWeightInfo` and
+      `frame_system::Config::ExtensionsWeightInfo` no longer have a default in
+      the `DefaultConfig` provided by `TestDefaultConfig`, `SolochainDefaultConfig`
+      and `ParaChainDefaultConfig` (they are now marked `#[pallet::no_default]`).
+
+      Previously these types silently defaulted to `()`, which resolves to the
+      Substrate reference weights benchmarked for a different runtime. This is
+      almost never correct outside of testing and was an error-prone default
+      (see issue #10758).
+
+      Runtimes deriving their `frame_system::Config` via `#[derive_impl(...)]`
+      from one of these default configs must now set both types explicitly, e.g.:
+
+      ```rust
+      impl frame_system::Config for Runtime {
+          // Use the weights benchmarked for your runtime instead of `()` where possible.
+          type SystemWeightInfo = ();
+          type ExtensionsWeightInfo = ();
+          // ...
+      }
+      ```
+
+crates:
+  - name: frame-system
+    bump: major

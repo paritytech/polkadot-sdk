@@ -25,6 +25,8 @@ use frame::testing_prelude::*;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type BaseCallFilter = InsideBoth<Everything, TxPause>;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;

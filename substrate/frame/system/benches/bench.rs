@@ -62,6 +62,8 @@ frame_support::parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type Nonce = u64;
 	type Block = Block;
 }

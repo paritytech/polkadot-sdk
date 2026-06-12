@@ -173,6 +173,7 @@ impl crate::WeightInfo for MockWeightInfo {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
+	type SystemWeightInfo = ();
 	type Block = Block;
 	type AccountData = ();
 	type MaxConsumers = frame_support::traits::ConstU32<3>;

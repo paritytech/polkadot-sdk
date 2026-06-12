@@ -4,29 +4,29 @@ error: `Pallet` does not have #[pallet::inherent] defined, perhaps you should re
 22 |   #[frame_support::pallet]
    |   ^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-66 | / construct_runtime! {
-67 | |     pub struct Runtime
-68 | |     {
-69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+67 | / construct_runtime! {
+68 | |     pub struct Runtime
+69 | |     {
+70 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
 ...  |
-72 | | }
+73 | | }
    | |_- in this macro invocation
    |
    = note: this error originates in the macro `pallet::__substrate_inherent_check::is_inherent_part_defined` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: no function or associated item named `create_inherent` found for struct `pallet::Pallet<T>` in the current scope
-  --> tests/construct_runtime_ui/undefined_inherent_part.rs:66:1
+  --> tests/construct_runtime_ui/undefined_inherent_part.rs:67:1
    |
 28 |       pub struct Pallet<T>(_);
    |       -------------------- function or associated item `create_inherent` not found for this struct
 ...
-66 |   construct_runtime! {
+67 |   construct_runtime! {
    |  _^
-67 | |     pub struct Runtime
-68 | |     {
-69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+68 | |     pub struct Runtime
+69 | |     {
+70 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
 ...  |
-72 | | }
+73 | | }
    | |_^ function or associated item not found in `pallet::Pallet<Runtime>`
    |
    = help: items from traits can only be used if the trait is implemented and in scope
@@ -36,31 +36,31 @@ error[E0599]: no function or associated item named `create_inherent` found for s
    = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0282]: type annotations needed
-  --> tests/construct_runtime_ui/undefined_inherent_part.rs:66:1
+  --> tests/construct_runtime_ui/undefined_inherent_part.rs:67:1
    |
-66 | / construct_runtime! {
-67 | |     pub struct Runtime
-68 | |     {
-69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+67 | / construct_runtime! {
+68 | |     pub struct Runtime
+69 | |     {
+70 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
 ...  |
-72 | | }
+73 | | }
    | |_^ cannot infer type
    |
    = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: no function or associated item named `is_inherent` found for struct `pallet::Pallet<T>` in the current scope
-  --> tests/construct_runtime_ui/undefined_inherent_part.rs:66:1
+  --> tests/construct_runtime_ui/undefined_inherent_part.rs:67:1
    |
 28 |       pub struct Pallet<T>(_);
    |       -------------------- function or associated item `is_inherent` not found for this struct
 ...
-66 |   construct_runtime! {
+67 |   construct_runtime! {
    |  _^
-67 | |     pub struct Runtime
-68 | |     {
-69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+68 | |     pub struct Runtime
+69 | |     {
+70 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
 ...  |
-72 | | }
+73 | | }
    | |_^ function or associated item not found in `pallet::Pallet<Runtime>`
    |
    = help: items from traits can only be used if the trait is implemented and in scope
@@ -70,18 +70,18 @@ error[E0599]: no function or associated item named `is_inherent` found for struc
    = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: no function or associated item named `check_inherent` found for struct `pallet::Pallet<T>` in the current scope
-  --> tests/construct_runtime_ui/undefined_inherent_part.rs:66:1
+  --> tests/construct_runtime_ui/undefined_inherent_part.rs:67:1
    |
 28 |       pub struct Pallet<T>(_);
    |       -------------------- function or associated item `check_inherent` not found for this struct
 ...
-66 |   construct_runtime! {
+67 |   construct_runtime! {
    |  _^
-67 | |     pub struct Runtime
-68 | |     {
-69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+68 | |     pub struct Runtime
+69 | |     {
+70 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
 ...  |
-72 | | }
+73 | | }
    | |_^ function or associated item not found in `pallet::Pallet<Runtime>`
    |
    = help: items from traits can only be used if the trait is implemented and in scope
@@ -90,18 +90,18 @@ error[E0599]: no function or associated item named `check_inherent` found for st
    = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: no associated item named `INHERENT_IDENTIFIER` found for struct `pallet::Pallet<T>` in the current scope
-  --> tests/construct_runtime_ui/undefined_inherent_part.rs:66:1
+  --> tests/construct_runtime_ui/undefined_inherent_part.rs:67:1
    |
 28 |       pub struct Pallet<T>(_);
    |       -------------------- associated item `INHERENT_IDENTIFIER` not found for this struct
 ...
-66 |   construct_runtime! {
+67 |   construct_runtime! {
    |  _^
-67 | |     pub struct Runtime
-68 | |     {
-69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+68 | |     pub struct Runtime
+69 | |     {
+70 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
 ...  |
-72 | | }
+73 | | }
    | |_^ associated item not found in `pallet::Pallet<Runtime>`
    |
    = help: items from traits can only be used if the trait is implemented and in scope
@@ -110,18 +110,18 @@ error[E0599]: no associated item named `INHERENT_IDENTIFIER` found for struct `p
    = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: no function or associated item named `is_inherent_required` found for struct `pallet::Pallet<T>` in the current scope
-  --> tests/construct_runtime_ui/undefined_inherent_part.rs:66:1
+  --> tests/construct_runtime_ui/undefined_inherent_part.rs:67:1
    |
 28 |       pub struct Pallet<T>(_);
    |       -------------------- function or associated item `is_inherent_required` not found for this struct
 ...
-66 |   construct_runtime! {
+67 |   construct_runtime! {
    |  _^
-67 | |     pub struct Runtime
-68 | |     {
-69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+68 | |     pub struct Runtime
+69 | |     {
+70 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
 ...  |
-72 | | }
+73 | | }
    | |_^ function or associated item not found in `pallet::Pallet<Runtime>`
    |
    = help: items from traits can only be used if the trait is implemented and in scope
@@ -130,9 +130,9 @@ error[E0599]: no function or associated item named `is_inherent_required` found 
    = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `pallet::Pallet<Runtime>: ProvideInherent` is not satisfied
-  --> tests/construct_runtime_ui/undefined_inherent_part.rs:70:3
+  --> tests/construct_runtime_ui/undefined_inherent_part.rs:71:3
    |
-70 |         Pallet: pallet expanded::{}::{Pallet, Inherent},
+71 |         Pallet: pallet expanded::{}::{Pallet, Inherent},
    |         ^^^^^^ unsatisfied trait bound
    |
 help: the trait `ProvideInherent` is not implemented for `pallet::Pallet<Runtime>`
@@ -142,14 +142,14 @@ help: the trait `ProvideInherent` is not implemented for `pallet::Pallet<Runtime
    |     ^^^^^^^^^^^^^^^^^^^^
 
 error[E0277]: the trait bound `pallet::Pallet<Runtime>: ProvideInherent` is not satisfied
-  --> tests/construct_runtime_ui/undefined_inherent_part.rs:66:1
+  --> tests/construct_runtime_ui/undefined_inherent_part.rs:67:1
    |
-66 | / construct_runtime! {
-67 | |     pub struct Runtime
-68 | |     {
-69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
+67 | / construct_runtime! {
+68 | |     pub struct Runtime
+69 | |     {
+70 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
 ...  |
-72 | | }
+73 | | }
    | |_^ unsatisfied trait bound
    |
 help: the trait `ProvideInherent` is not implemented for `pallet::Pallet<Runtime>`

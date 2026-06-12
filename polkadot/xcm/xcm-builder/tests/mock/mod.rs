@@ -76,6 +76,7 @@ pub const CENTS: Balance = UNITS / 30_000;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type ExtensionsWeightInfo = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type Nonce = u64;

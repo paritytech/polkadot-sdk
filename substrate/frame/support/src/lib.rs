@@ -1713,6 +1713,8 @@ pub mod pallet_macros {
 	/// #    impl custom_pallet::Config for Runtime {}
 	/// #    #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	/// #    impl frame_system::Config for Runtime {
+	/// #        type SystemWeightInfo = ();
+	/// #        type ExtensionsWeightInfo = ();
 	/// #        type Block = frame_system::mocking::MockBlock<Self>;
 	/// #    }
 	///     construct_runtime! {

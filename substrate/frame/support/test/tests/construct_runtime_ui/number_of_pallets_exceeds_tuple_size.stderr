@@ -1,18 +1,18 @@
 error: The number of pallets exceeds the maximum number of tuple elements. To increase this limit, enable the tuples-96 feature of [frame_support].
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:67:2
+  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:68:2
    |
-67 |     pub struct Runtime
+68 |     pub struct Runtime
    |     ^^^
 
 error: recursion limit reached while expanding `frame_support::__private::tt_return!`
- --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:66:1
+ --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:67:1
   |
- 66 | / construct_runtime! {
- 67 | |     pub struct Runtime
- 68 | |     {
- 69 | |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
+ 67 | / construct_runtime! {
+ 68 | |     pub struct Runtime
+ 69 | |     {
+ 70 | |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
 ...   |
-181 | | }
+182 | | }
     | |_^
     |
     = help: consider increasing the recursion limit by adding a `#![recursion_limit = "256"]` attribute to your crate (`$CRATE`)

@@ -350,6 +350,7 @@ impl frame_system::ExtensionsWeightInfo for MockExtensionsWeights {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type SystemWeightInfo = ();
 	type BlockWeights = BlockWeights;
 	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;

@@ -81,6 +81,8 @@ impl pallet_with_instance::Config<pallet_with_instance::Instance2> for Runtime {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type Block = Block;
 }
 

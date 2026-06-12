@@ -229,6 +229,8 @@ pub mod runtime {
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
+		type SystemWeightInfo = ();
+		type ExtensionsWeightInfo = ();
 		type Block = MockBlock<Self>;
 	}
 
@@ -294,6 +296,8 @@ pub mod runtime_with_specific_runtime_call {
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
+		type SystemWeightInfo = ();
+		type ExtensionsWeightInfo = ();
 		type Block = MockBlock<Self>;
 	}
 

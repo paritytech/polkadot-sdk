@@ -109,6 +109,8 @@ pub type BlockNumber = BlockNumberFor<Runtime>;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type Block = MockBlock<Self>;
 	type AccountData = pallet_balances::AccountData<u128>;
 }

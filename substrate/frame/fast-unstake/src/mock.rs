@@ -42,6 +42,8 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	// we use U128 account id in order to get a better iteration order out of a map.

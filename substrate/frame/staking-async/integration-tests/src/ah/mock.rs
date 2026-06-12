@@ -289,6 +289,8 @@ pub type BlockWeights = <Runtime as frame_system::Config>::BlockWeights;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type Block = MockBlock<Self>;
 	type AccountData = pallet_balances::AccountData<Balance>;
 }

@@ -47,6 +47,8 @@ pub type AccountId = <AccountPublic as IdentifyAccount>::AccountId;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;

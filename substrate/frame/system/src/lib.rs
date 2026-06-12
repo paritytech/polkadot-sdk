@@ -339,8 +339,6 @@ pub mod pallet {
 			type AccountData = ();
 			type OnNewAccount = ();
 			type OnKilledAccount = ();
-			type SystemWeightInfo = ();
-			type ExtensionsWeightInfo = ();
 			type SS58Prefix = ();
 			type Version = ();
 			type BlockWeights = ();
@@ -409,12 +407,6 @@ pub mod pallet {
 
 			/// What to do if an account is fully reaped from the system.
 			type OnKilledAccount = ();
-
-			/// Weight information for the extrinsics of this pallet.
-			type SystemWeightInfo = ();
-
-			/// Weight information for the extensions of this pallet.
-			type ExtensionsWeightInfo = ();
 
 			/// This is used as an identifier of the chain.
 			type SS58Prefix = ();
@@ -628,11 +620,18 @@ pub mod pallet {
 		type OnKilledAccount: OnKilledAccount<Self::AccountId>;
 
 		/// Weight information for the extrinsics of this pallet.
-		#[pallet::no_default_bounds]
+		///
+		/// This has no default on purpose: defaulting it to `()` (the Substrate reference weights)
+		/// silently applies weights benchmarked for a different runtime, which is almost never
+		/// correct. Runtime developers must therefore set it explicitly. See issue #10758.
+		#[pallet::no_default]
 		type SystemWeightInfo: WeightInfo;
 
 		/// Weight information for the transaction extensions of this pallet.
-		#[pallet::no_default_bounds]
+		///
+		/// This has no default on purpose, for the same reason as
+		/// [`Config::SystemWeightInfo`]. Runtime developers must set it explicitly.
+		#[pallet::no_default]
 		type ExtensionsWeightInfo: extensions::WeightInfo;
 
 		/// The designated SS58 prefix of this chain.

@@ -100,6 +100,8 @@ pub type MockPalletCall = mock_pallet::Call<Test>;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
