@@ -495,6 +495,25 @@ where
 		.trace_block()
 		.map_err(|e| invalid_block::<Block>(block, None, e.to_string()))
 	}
+
+	fn call_recorded(
+		&self,
+		block: Block::Hash,
+		method: String,
+		extra_args: Bytes,
+	) -> std::result::Result<Bytes, Error> {
+		sc_tracing::block::BlockExecutor::new(
+			self.client.clone(),
+			block,
+			None,
+			None,
+			None,
+			self.execute_block.clone(),
+		)
+		.call_recorded(&method, extra_args.0)
+		.map(Into::into)
+		.map_err(|e| invalid_block::<Block>(block, None, e.to_string()))
+	}
 }
 
 impl<BE, Block, Client> ChildStateBackend<Block, Client> for FullState<BE, Block, Client>

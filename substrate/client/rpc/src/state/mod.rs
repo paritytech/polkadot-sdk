@@ -149,6 +149,14 @@ where
 		methods: Option<String>,
 	) -> Result<sp_rpc::tracing::TraceBlockResponse, Error>;
 
+	/// Re-execute a block through a named runtime API call with a proof-size recorder registered.
+	fn call_recorded(
+		&self,
+		block: Block::Hash,
+		method: String,
+		extra_args: Bytes,
+	) -> Result<Bytes, Error>;
+
 	/// New runtime version subscription
 	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink);
 
@@ -329,6 +337,17 @@ where
 		self.backend
 			.trace_block(block, targets, storage_keys, methods)
 			.map_err(Into::into)
+	}
+
+	fn call_recorded(
+		&self,
+		ext: &Extensions,
+		block: Block::Hash,
+		method: String,
+		extra_args: Bytes,
+	) -> Result<Bytes, Error> {
+		check_if_safe(ext)?;
+		self.backend.call_recorded(block, method, extra_args).map_err(Into::into)
 	}
 
 	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink) {
