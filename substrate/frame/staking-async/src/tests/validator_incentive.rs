@@ -608,87 +608,89 @@ fn missing_payee_emits_unexpected_and_skips_payout() {
 
 // ===== Defensive path tests =====
 
-// ===== VestingEpochStart snapshot tests =====
+// ===== VestingEpochStartBlocks snapshot tests =====
 
 #[test]
-fn vesting_epoch_start_never_set_in_liquid_mode() {
-	// In liquid mode (VestingBondingPeriods = 0), VestingEpochStart must never be set,
+fn vesting_epoch_start_blocks_never_set_in_liquid_mode() {
+	// In liquid mode (VestingBondingPeriods = 0), VestingEpochStartBlocks must remain empty
 	// regardless of how many eras or bonding boundaries are crossed.
 	ExtBuilder::default().build_and_execute(|| {
-		assert!(VestingEpochStart::<Test>::get().is_none());
+		assert!(VestingEpochStartBlocks::<Test>::iter().next().is_none());
 
 		Session::roll_until_active_era(1);
-		assert!(VestingEpochStart::<Test>::get().is_none());
+		assert!(VestingEpochStartBlocks::<Test>::iter().next().is_none());
 
 		Session::roll_until_active_era(3); // first boundary
-		assert!(VestingEpochStart::<Test>::get().is_none());
+		assert!(VestingEpochStartBlocks::<Test>::iter().next().is_none());
 
 		Session::roll_until_active_era(6); // second boundary
-		assert!(VestingEpochStart::<Test>::get().is_none());
+		assert!(VestingEpochStartBlocks::<Test>::iter().next().is_none());
 	});
 }
 
 #[test]
-fn vesting_epoch_start_seeded_on_first_era_in_vesting_mode() {
-	// With VestingBondingPeriods > 0, VestingEpochStart is seeded on the very first era
-	// rotation, well before the first bonding-duration boundary (era 3 in the mock).
+fn vesting_epoch_start_blocks_seeded_on_first_era_in_vesting_mode() {
+	// With VestingBondingPeriods > 0, an entry for the current bonding window is seeded on
+	// the very first era rotation, well before the first bonding-duration boundary (era 3
+	// in the mock). Era 1 belongs to bonding period 0.
 	ExtBuilder::default().build_and_execute(|| {
 		VestingBondingPeriods::set(1);
-		assert!(VestingEpochStart::<Test>::get().is_none());
+		assert!(VestingEpochStartBlocks::<Test>::iter().next().is_none());
 
 		// Advance one era (BondingDuration = 3, so no boundary yet — the seeding fires because
-		// VestingEpochStart is None, not because of a boundary crossing).
+		// the map is empty, not because of a boundary crossing).
 		Session::roll_until_active_era(2);
-		assert!(VestingEpochStart::<Test>::get().is_some(), "should be seeded on first era");
+		assert!(VestingEpochStartBlocks::<Test>::get(0).is_some(), "period 0 should be seeded");
 	});
 }
 
 #[test]
-fn vesting_epoch_start_snapshotted_at_bonding_duration_boundary() {
-	// VestingEpochStart is refreshed at each bonding-duration boundary (era % 3 == 0).
+fn vesting_epoch_start_blocks_snapshotted_at_bonding_duration_boundary() {
+	// A new entry is inserted at each bonding-duration boundary (era % 3 == 0).
 	ExtBuilder::default().build_and_execute(|| {
 		VestingBondingPeriods::set(1);
 
 		let block_before = System::block_number();
 		Session::roll_until_active_era(3);
 
-		let snapshot = VestingEpochStart::<Test>::get();
-		assert!(snapshot.is_some(), "VestingEpochStart should be set after first boundary");
+		let snapshot = VestingEpochStartBlocks::<Test>::get(1);
+		assert!(snapshot.is_some(), "period 1 should be set after first boundary");
 		assert!(snapshot.unwrap() >= block_before);
 	});
 }
 
 #[test]
-fn vesting_epoch_start_updated_on_next_boundary() {
+fn vesting_epoch_start_blocks_recorded_per_bonding_period() {
+	// Each bonding-duration boundary records a fresh entry, keyed by the new period index.
 	ExtBuilder::default().build_and_execute(|| {
 		VestingBondingPeriods::set(1);
 
 		Session::roll_until_active_era(3);
-		let first_snapshot = VestingEpochStart::<Test>::get().unwrap();
+		let first_snapshot = VestingEpochStartBlocks::<Test>::get(1).unwrap();
 
 		Session::roll_until_active_era(6);
-		let second_snapshot = VestingEpochStart::<Test>::get().unwrap();
+		let second_snapshot = VestingEpochStartBlocks::<Test>::get(2).unwrap();
 
 		assert!(
 			second_snapshot > first_snapshot,
-			"second snapshot ({second_snapshot}) should be after first ({first_snapshot})"
+			"period 2 ({second_snapshot}) should start after period 1 ({first_snapshot})"
 		);
 	});
 }
 
 #[test]
-fn vesting_epoch_start_unchanged_between_boundaries() {
+fn vesting_epoch_start_blocks_unchanged_between_boundaries() {
 	ExtBuilder::default().build_and_execute(|| {
 		VestingBondingPeriods::set(1);
 
 		Session::roll_until_active_era(3);
-		let snapshot_at_3 = VestingEpochStart::<Test>::get().unwrap();
+		let snapshot_at_3 = VestingEpochStartBlocks::<Test>::get(1).unwrap();
 
-		// Era 4 and 5 should not change the snapshot.
+		// Era 4 and 5 are still in period 1; the entry must not be touched.
 		Session::roll_until_active_era(4);
-		assert_eq!(VestingEpochStart::<Test>::get().unwrap(), snapshot_at_3);
+		assert_eq!(VestingEpochStartBlocks::<Test>::get(1).unwrap(), snapshot_at_3);
 		Session::roll_until_active_era(5);
-		assert_eq!(VestingEpochStart::<Test>::get().unwrap(), snapshot_at_3);
+		assert_eq!(VestingEpochStartBlocks::<Test>::get(1).unwrap(), snapshot_at_3);
 	});
 }
 
@@ -721,48 +723,47 @@ fn incentive_creates_vesting_schedule_end_to_end() {
 		assert!(!events.iter().any(|e| matches!(e, Event::ValidatorIncentiveDropped { .. })));
 
 		// THEN: a single vesting schedule exists for alice with the full incentive locked
-		// and starting at the current VestingEpochStart.
+		// and starting at the epoch start for era 2's bonding window (period 0, eras 0..2).
 		let schedules =
 			pallet_vesting::Vesting::<Test>::get(alice).expect("vesting schedule expected");
 		assert_eq!(schedules.len(), 1);
 		assert_eq!(schedules[0].locked(), incentive);
-		assert_eq!(schedules[0].starting_block(), VestingEpochStart::<Test>::get().unwrap());
+		let bonding_period = 2 / BondingDuration::get();
+		assert_eq!(
+			schedules[0].starting_block(),
+			VestingEpochStartBlocks::<Test>::get(bonding_period).unwrap(),
+		);
 	});
 }
 
 #[test]
 fn incentive_merges_into_existing_vesting_schedule_within_epoch() {
-	// E2E: two consecutive payouts inside the same bonding-duration epoch must
-	// merge into the same vesting schedule - the `add_to_vesting_merge` path.
+	// Two payouts whose eras belong to the same bonding-duration window must merge
+	// into the same vesting schedule — the `add_to_vesting_merge` path.
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11;
 
 		VestingBondingPeriods::set(1);
 		setup_incentive_with_budget(45, 5);
 
-		// First payout: creates the schedule.
-		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		// Reward era 3 and claim it from era 4.
 		Session::roll_until_active_era(3);
-		let _ = staking_events_since_last_call();
-
-		make_all_reward_payment(2);
-		let first_events = staking_events_since_last_call();
-		assert!(incentive_paid_for(alice, &first_events).unwrap() > 0);
-		let epoch_start = VestingEpochStart::<Test>::get().unwrap();
-
-		// Second payout for an era within the same epoch (BondingDuration = 3, so eras 3-5
-		// share an epoch — no boundary crossing yet).
 		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
 		Session::roll_until_active_era(4);
 		let _ = staking_events_since_last_call();
-		assert_eq!(
-			VestingEpochStart::<Test>::get().unwrap(),
-			epoch_start,
-			"epoch start must be unchanged within the same bonding window"
-		);
 
 		make_all_reward_payment(3);
+		let first_events = staking_events_since_last_call();
+		assert!(incentive_paid_for(alice, &first_events).unwrap() > 0);
+		let bonding_period = 3 / BondingDuration::get();
+		let epoch_start = VestingEpochStartBlocks::<Test>::get(bonding_period).unwrap();
+
+		// Reward era 4 (same bonding period as era 3) and claim it from era 5.
+		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		Session::roll_until_active_era(5);
+		let _ = staking_events_since_last_call();
+
+		make_all_reward_payment(4);
 		let second_events = staking_events_since_last_call();
 		let second_incentive = incentive_paid_for(alice, &second_events).unwrap();
 		assert!(second_incentive > 0);
@@ -846,70 +847,131 @@ fn vested_incentive_is_locked_immediately_after_payout() {
 		assert_eq!(schedules.len(), 1);
 		assert_eq!(schedules[0].locked(), incentive);
 
-		// Free balance grew by both rewards; usable balance only by the liquid staker portion
-		// (the incentive is locked by the vesting schedule).
+		// The schedule starts at era 2's bonding window — which began before the payout was
+		// claimed — so by `now` some of the incentive has already vested. The usable balance
+		// must equal `free - still_locked_now`.
+		let still_locked = schedules[0].locked_at::<sp_runtime::traits::ConvertInto>(
+			System::block_number(),
+		);
+		let unlocked_so_far = incentive.saturating_sub(still_locked);
+		assert!(still_locked > 0, "the incentive must not be fully unlocked yet");
 		assert_eq!(Balances::free_balance(&recipient), free_before + staker_reward + incentive);
-		assert_eq!(Balances::usable_balance(&recipient), usable_before + staker_reward);
+		assert_eq!(
+			Balances::usable_balance(&recipient),
+			usable_before + staker_reward + unlocked_so_far,
+		);
 
-		// Transferring more than the unlocked portion must fail — the vesting lock prevents
-		// the incentive from being spent before it vests.
+		// Transferring more than what's currently usable must fail — the vesting lock keeps
+		// the still-locked portion of the incentive from being spent.
+		let usable_now = Balances::usable_balance(&recipient);
 		assert!(
-			Balances::transfer_allow_death(
-				RuntimeOrigin::signed(recipient),
-				alice,
-				usable_before + staker_reward + 1,
-			)
-			.is_err(),
-			"transfer exceeding the unlocked portion should fail due to the vesting lock"
+			Balances::transfer_allow_death(RuntimeOrigin::signed(recipient), alice, usable_now + 1)
+				.is_err(),
+			"transfer exceeding the usable balance should fail due to the vesting lock",
 		);
 	});
 }
 
 #[test]
 fn cross_epoch_payouts_create_distinct_vesting_schedules() {
-	// Per-epoch design check: payouts that span a bonding-duration boundary must land in
-	// distinct schedules, given that`VestingEpochStart` advances after crossing the boundary.
+	// Per-epoch design check: payouts for eras in different bonding-duration windows must
+	// land in distinct schedules, because each era's payout merges into its own window's slot.
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11;
-		// Use 2 bonding periods so the schedule outlives the first boundary crossing
-		// (with 1 the schedule fully vests within one bonding window and gets pruned).
-		// This also mirrors production, where vesting duration spans many bonding windows.
+		// Use 2 bonding periods so neither schedule fully vests before the second payout is
+		// claimed. This also mirrors production, where vesting duration spans many bonding windows.
 		VestingBondingPeriods::set(2);
 		setup_incentive_with_budget(45, 5);
 
-		// Reward eras 2 and 3 — both need to be claimable later.
+		// Reward eras 2 and 3.
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
 		Session::roll_until_active_era(3);
 		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
 		let _ = staking_events_since_last_call();
 
-		let epoch1_start = VestingEpochStart::<Test>::get().unwrap();
+		let period0_start = VestingEpochStartBlocks::<Test>::get(0).unwrap();
+		let period1_start = VestingEpochStartBlocks::<Test>::get(1).unwrap();
+		assert!(
+			period1_start > period0_start,
+			"period 1 should start after period 0 (crossed the boundary at era 3)"
+		);
 
-		// First payout creates the era-3-epoch schedule.
+		// Pay era 2 (period 0) first.
 		make_all_reward_payment(2);
 		let _ = staking_events_since_last_call();
 		let after_first = pallet_vesting::Vesting::<Test>::get(alice).unwrap();
 		assert_eq!(after_first.len(), 1);
-		assert_eq!(after_first[0].starting_block(), epoch1_start);
+		assert_eq!(after_first[0].starting_block(), period0_start);
 
-		// Cross the next bonding-duration boundary (era 6 in the mock, BondingDuration = 3).
-		Session::roll_until_active_era(6);
+		// Advance one era so era 3 is claimable, then pay era 3 (period 1) — its lookup
+		// returns a *different* epoch start, so a second schedule is created.
+		Session::roll_until_active_era(4);
 		let _ = staking_events_since_last_call();
-		let epoch2_start = VestingEpochStart::<Test>::get().unwrap();
-		assert!(epoch2_start > epoch1_start, "VestingEpochStart should advance across boundary");
-
-		// Second payout uses the new VestingEpochStart → create, not merge.
 		make_all_reward_payment(3);
 		let _ = staking_events_since_last_call();
+
 		let after_second = pallet_vesting::Vesting::<Test>::get(alice).unwrap();
 		assert_eq!(
 			after_second.len(),
 			2,
-			"crossing the bonding-duration boundary should produce a distinct schedule"
+			"different bonding periods should produce distinct schedules"
 		);
-		assert!(after_second.iter().any(|s| s.starting_block() == epoch1_start));
-		assert!(after_second.iter().any(|s| s.starting_block() == epoch2_start));
+		assert!(after_second.iter().any(|s| s.starting_block() == period0_start));
+		assert!(after_second.iter().any(|s| s.starting_block() == period1_start));
+	});
+}
+
+#[test]
+fn fallback_materializes_so_pre_upgrade_claims_merge() {
+	// When a bonding period has no entry (its era predates the pallet upgrade), the first
+	// claim records `now` into the map for that period. A later claim from a different
+	// block for *the same* pre-upgrade period must then merge into the same schedule.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+
+		VestingBondingPeriods::set(1);
+		setup_incentive_with_budget(45, 5);
+
+		// Reward eras 3 and 4 — both in bonding period 1 (with BondingDuration = 3).
+		Session::roll_until_active_era(3);
+		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		Session::roll_until_active_era(4);
+		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		Session::roll_until_active_era(5);
+		let _ = staking_events_since_last_call();
+
+		// Simulate a pre-upgrade window: wipe the entry that the snapshot logic produced
+		// for period 1. From the payout path's perspective, eras 3 and 4 now look like
+		// eras whose epoch was never recorded.
+		VestingEpochStartBlocks::<Test>::remove(1);
+		assert!(VestingEpochStartBlocks::<Test>::get(1).is_none());
+
+		// First fallback claim: era 3 → no entry → materializes period 1 = current block.
+		make_all_reward_payment(3);
+		let _ = staking_events_since_last_call();
+		let materialized = VestingEpochStartBlocks::<Test>::get(1)
+			.expect("fallback must have materialized an entry");
+		let after_first = pallet_vesting::Vesting::<Test>::get(alice).expect("schedule");
+		assert_eq!(after_first.len(), 1);
+		assert_eq!(after_first[0].starting_block(), materialized);
+
+		// Advance the block number so a re-fallback would pick a *different* `now`.
+		System::set_block_number(System::block_number() + 50);
+
+		// Second claim for the same pre-upgrade period must merge, not create.
+		make_all_reward_payment(4);
+		let _ = staking_events_since_last_call();
+		let after_second = pallet_vesting::Vesting::<Test>::get(alice).unwrap();
+		assert_eq!(
+			after_second.len(),
+			1,
+			"second claim in the same pre-upgrade window must merge into the materialized schedule",
+		);
+		assert_eq!(after_second[0].starting_block(), materialized);
+
+		// The materialized entry itself must not have been rewritten by the second claim.
+		assert_eq!(VestingEpochStartBlocks::<Test>::get(1).unwrap(), materialized);
 	});
 }
 

@@ -437,7 +437,7 @@ pub mod pallet {
 		#[pallet::no_default]
 		type BlocksPerSession: Get<BlockNumberFor<Self>>;
 
-		/// Block number provider used to snapshot [`VestingEpochStart`].
+		/// Block number provider used to snapshot [`VestingEpochStartBlocks`].
 		///
 		/// Must use the **same** block-number space as `pallet_vesting`'s
 		/// `BlockNumberProvider` so that `start_at` keys round-trip correctly.
@@ -616,17 +616,18 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// The block number at which the current vesting window started.
+	/// Mapping between bonding periods and epoch start blocks.
 	///
-	/// Snapshotted on the first era after a runtime upgrade (when `None`) and updated at each
-	/// subsequent [`Config::BondingDuration`]-era boundary. Used as the `starting_block` merge
-	/// key in [`crate::VestedIncentivePayout`] so all incentive payouts within the same window
-	/// accumulate into a single vesting schedule slot.
-	///
-	/// - Defaults to `None` until the first era rotation after `VestingBondingPeriods` is set
-	/// - If set to `None`, incentive payouts will be dropped.
+	/// The index of each [`Config::BondingDuration`]-era window is mapped to the block
+	/// number of the window's first block. That block number is used as the merge key
+	/// for [`crate::VestedIncentivePayout`], so all incentive payouts for a given era
+	/// accumulate into the vesting schedule slot of *that era's* bonding window.
+	/// Old entries are pruned to keep at most `ceil(HistoryDepth / BondingDuration) + 1`
+	/// windows in storage. If a payout looks up an era whose window predates the upgrade
+	/// (no entry exists), the current block is assigned as that era's epoch start.
 	#[pallet::storage]
-	pub type VestingEpochStart<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
+	pub type VestingEpochStartBlocks<T: Config> =
+		StorageMap<_, Twox64Concat, u32, BlockNumberFor<T>, OptionQuery>;
 
 	/// Whether nominators are slashable or not.
 	///

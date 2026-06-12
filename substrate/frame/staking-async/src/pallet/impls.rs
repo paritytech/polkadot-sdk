@@ -47,7 +47,7 @@ use frame_support::{
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_runtime::{
-	traits::{CheckedAdd, Saturating, StaticLookup, Zero},
+	traits::{BlockNumberProvider, CheckedAdd, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchResult, Perbill,
 };
 use sp_staking::{
@@ -747,18 +747,22 @@ impl<T: Config> Pallet<T> {
 		));
 
 		// In liquid mode (VestingBondingPeriods = 0) the start and duration values are not used.
-		// In vesting mode, VestingEpochStart must be set, otherwise the incentive is dropped.
+		// In vesting mode, look up the epoch-start block for the bonding window that contains
+		// `era`, so the payout merges into that era's own vesting schedule slot. If no entry
+		// exists (era predates the pallet upgrade), use the current block as the epoch
+		// start for that window.
 		let (start_at, duration) = if T::VestingBondingPeriods::get() == 0 {
 			(BlockNumberFor::<T>::zero(), BlockNumberFor::<T>::zero())
 		} else {
-			let Some(start) = VestingEpochStart::<T>::get() else {
-				log!(warn, "Incentive for era {:?} dropped: VestingEpochStart not yet set", era);
-				Self::deposit_event(Event::<T>::ValidatorIncentiveDropped {
-					era,
-					validator_stash: stash.clone(),
-					amount,
-				});
-				return;
+			let bonding_duration = T::BondingDuration::get();
+			let bonding_period = era / bonding_duration;
+			let start = match VestingEpochStartBlocks::<T>::get(bonding_period) {
+				Some(s) => s,
+				None => {
+					let now = T::VestingBlockNumberProvider::current_block_number();
+					VestingEpochStartBlocks::<T>::insert(bonding_period, now);
+					now
+				},
 			};
 			let duration = T::BlocksPerSession::get()
 				.saturating_mul(T::SessionsPerEra::get().into())
