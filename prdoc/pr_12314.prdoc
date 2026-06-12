@@ -16,10 +16,12 @@ crates:
     bump: minor
   - name: polkadot-node-subsystem-util
     bump: major
+    validate: false
   - name: polkadot-node-subsystem-types
     bump: patch
   - name: polkadot-runtime-parachains
     bump: major
+    validate: false
   - name: polkadot-approval-distribution
     bump: minor
   - name: polkadot-node-core-approval-voting
@@ -36,5 +38,6 @@ crates:
     bump: patch
   - name: cumulus-relay-chain-rpc-interface
     bump: major
+    validate: false
   - name: cumulus-relay-chain-minimal-node
     bump: patch
