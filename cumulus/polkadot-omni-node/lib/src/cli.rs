@@ -262,7 +262,9 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, default_value_t = sc_statement_store::DEFAULT_PURGE_AFTER_SEC)]
 	pub statement_store_purge_after_sec: u64,
 
-	/// Affinity topic advertised by this node. Repeatable; each value is a 32-byte hex
+	/// Affinity topic of this node. Repeatable; each value is a 32-byte hex
+	///
+	/// Make the node responsible for finding and storing all statements with topics in this list.
 	/// hash.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
