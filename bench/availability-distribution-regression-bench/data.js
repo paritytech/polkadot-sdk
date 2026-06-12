@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781286067053,
+  "lastUpdate": 1781294341157,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "Denzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f6858bfe4fe556e8d2a07bd2d7523e641ca95da2",
-          "message": "Check changes detection to run tests when is needed (#10012)\n\n# Description\nCheck changes detection to run tests when is needed (we should not run\nin cases like\nhttps://github.com/paritytech/polkadot-sdk/pull/9915/files)\n\n---------\n\nCo-authored-by: Javier Viola <javier@parity.io>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-10-27T11:57:37Z",
-          "tree_id": "bf3a2e730ced40496d276cabe48d5895c2b119e6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6858bfe4fe556e8d2a07bd2d7523e641ca95da2"
-        },
-        "date": 1761570426512,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013131832306666669,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007437787979999976,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15945917582000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022602986833333342,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14869440229333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f8d8077162583e5c7c422fd9db997b035b8796aa",
+          "message": "statement-store: log account when statements get rejected (#12357)\n\n... to make debugging easier\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-06-12T18:09:45Z",
+          "tree_id": "4a2ea8619305e706e24116d4391e6ac9bcebc76e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f8d8077162583e5c7c422fd9db997b035b8796aa"
+        },
+        "date": 1781294314116,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14881901180666676,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023783585099999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009999688566666652,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007558685120000002,
             "unit": "seconds"
           }
         ]
