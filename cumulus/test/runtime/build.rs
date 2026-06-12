@@ -116,6 +116,13 @@ fn main() {
 		.enable_feature("increment-spec-version")
 		.set_file_name(slot_duration_18s::WASM_FILE_NAME)
 		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("with-authority-discovery")
+		.enable_feature("relay-parent-offset-2")
+		.set_file_name(with_authority_discovery::WASM_FILE_NAME)
+		.build();
 }
 
 #[cfg(not(feature = "std"))]

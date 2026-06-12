@@ -1775,7 +1775,7 @@ fn block_has_correct_stagnant_at() {
 		)
 		.await;
 
-		clock.inc_secs(1);
+		clock.advance_secs(1);
 
 		import_blocks_into(&mut virtual_overseer, &backend, None, chain_a_ext.clone()).await;
 
@@ -1812,7 +1812,7 @@ fn detects_stagnant() {
 
 		{
 			let (_, write_rx) = backend.await_next_write();
-			clock.inc_secs(STAGNANT_TIMEOUT);
+			clock.advance_secs(STAGNANT_TIMEOUT);
 
 			write_rx.await.unwrap();
 		}
@@ -1856,13 +1856,13 @@ fn finalize_stagnant_unlocks_subtree() {
 		)
 		.await;
 
-		clock.inc_secs(1);
+		clock.advance_secs(1);
 
 		import_blocks_into(&mut virtual_overseer, &backend, None, chain_a_ext.clone()).await;
 
 		{
 			let (_, write_rx) = backend.await_next_write();
-			clock.inc_secs(STAGNANT_TIMEOUT - 1);
+			clock.advance_secs(STAGNANT_TIMEOUT - 1);
 
 			write_rx.await.unwrap();
 		}
@@ -1910,13 +1910,13 @@ fn approval_undoes_stagnant_unlocking_subtree() {
 		)
 		.await;
 
-		clock.inc_secs(1);
+		clock.advance_secs(1);
 
 		import_blocks_into(&mut virtual_overseer, &backend, None, chain_a_ext.clone()).await;
 
 		{
 			let (_, write_rx) = backend.await_next_write();
-			clock.inc_secs(STAGNANT_TIMEOUT - 1);
+			clock.advance_secs(STAGNANT_TIMEOUT - 1);
 
 			write_rx.await.unwrap();
 		}
@@ -1972,7 +1972,7 @@ fn stagnant_preserves_parents_children() {
 
 		{
 			let (_, write_rx) = backend.await_next_write();
-			clock.inc_secs(STAGNANT_TIMEOUT);
+			clock.advance_secs(STAGNANT_TIMEOUT);
 
 			write_rx.await.unwrap();
 		}
@@ -2014,7 +2014,7 @@ fn stagnant_makes_childless_parent_leaf() {
 
 		{
 			let (_, write_rx) = backend.await_next_write();
-			clock.inc_secs(STAGNANT_TIMEOUT);
+			clock.advance_secs(STAGNANT_TIMEOUT);
 
 			write_rx.await.unwrap();
 		}

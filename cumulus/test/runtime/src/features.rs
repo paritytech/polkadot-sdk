@@ -73,8 +73,9 @@ pub(crate) const fn unincluded_segment_capacity() -> u32 {
 	// - The collator sends the collation to the relay chain, and it gets backed on chain in relay
 	//   block `X + 2`
 	// - The collation then gets included on chain in relay block `X + 3`
-	// - As we are building on `RELAY_PARENT_OFFSET` old relay parents, the included block from the
-	//   parachain is also `RELAY_PARENT_OFFSET` relay blocks older (one relay block may contains
-	//   multiple parachain blocks).
+	//
+	// With `relay_parent_offset() = N`, the collator builds on relay tip `R - N` while the
+	// chain is at `R`, so the buffer must additionally absorb `N * velocity` parablocks worth
+	// of in-flight blocks between the relay parent and the relay tip.
 	block_processing_velocity() * (3 + relay_parent_offset())
 }
