@@ -20,6 +20,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-aura = { workspace = true }
+pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-glutton = { workspace = true }
@@ -30,6 +31,7 @@ pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-utility = { workspace = true }
 sp-api = { workspace = true }
+sp-authority-discovery = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
@@ -73,6 +75,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"pallet-aura/std",
+	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-glutton/std",
@@ -87,6 +90,7 @@ std = [
 	"scale-info/std",
 	"serde_json/std",
 	"sp-api/std",
+	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
@@ -130,3 +134,6 @@ relay-parent-offset-2 = []
 
 # Configure the runtime to use scheduling V3
 v3-descriptor = []
+# A runtime variant that enables pallet_session + pallet_authority_discovery and bumps
+# spec_version so that a set_code upgrade from the default runtime triggers migrations.
+with-authority-discovery = []
