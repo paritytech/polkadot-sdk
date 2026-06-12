@@ -185,14 +185,26 @@ pub fn process_authorizations<T: Config>(
 		result.deposit = result.deposit.saturating_sub(delta.refunded);
 	}
 
+	// Weight accounting: skipped tuples still incurred their signature recovery (and
+	// chain_id / nonce / contract checks) before bailing. Treating them as no-cost when
+	// computing the refund would give back weight we actually spent. We bill them at the
+	// existing-account weight — which bundles `sig_recovery + existing_account_update` —
+	// as the closest already-benchmarked upper bound. This over-charges skipped tuples
+	// by the (small) `existing_account_update` portion but never undercharges. A proper
+	// fix is to add a `process_invalid_authorization` benchmark and treat skipped tuples
+	// explicitly; tracked as a follow-up.
+	let total = authorization_list.len() as u32;
+	let invalid = total
+		.saturating_sub(result.new_accounts)
+		.saturating_sub(result.existing_accounts);
 	let worst_case_weight =
 		<RuntimeCosts as metering::Token<T>>::weight(&RuntimeCosts::Delegations {
-			new_accounts: authorization_list.len() as u32,
+			new_accounts: total,
 			existing_accounts: 0,
 		});
 	let actual_weight = <RuntimeCosts as metering::Token<T>>::weight(&RuntimeCosts::Delegations {
 		new_accounts: result.new_accounts,
-		existing_accounts: result.existing_accounts,
+		existing_accounts: result.existing_accounts.saturating_add(invalid),
 	});
 	result.weight_refund = worst_case_weight.saturating_sub(actual_weight);
 
