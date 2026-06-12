@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781210621374,
+  "lastUpdate": 1781280074254,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8ab9a68e4f1185685206d581bd018bd7d0d7f051",
-          "message": "Change bahaviour of contract termination in accordance with EIP-6780 (#9699)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/9621\n\nBehavior of `terminate` is changed in accordance with EIP-6780 (and EVM\nin general):\n- `terminate` only deletes the code from storage if it is called in the\nsame transaction the contract was created.\n- `terminate` does not destroy the contract instantly. The contract is\nregistered for destruction, which happens at the end of the transaction.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nSigned-off-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nCo-authored-by: Robert van Eerdewijk <robert@Roberts-MacBook-Pro.local>\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: Sebastian Miasojed <sebastian.miasojed@parity.io>\nCo-authored-by: Sebastian Miasojed <s.miasojed@gmail.com>\nCo-authored-by: xermicus <cyrill@parity.io>\nCo-authored-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-24T16:48:13Z",
-          "tree_id": "df6ab0114b29c3a8e616dcf9ed2789cff97753fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8ab9a68e4f1185685206d581bd018bd7d0d7f051"
-        },
-        "date": 1761329158063,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007253548739999977,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013327685953333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16016098808666676,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022626645493333326,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010118720053333316,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1527017+eskimor@users.noreply.github.com",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "968eaa447002e599ee1c9deac6d41eca230204ae",
+          "message": "Move storage design to web3-storage repo (#12355)\n\nThe design should live along-side its implementation. A bit dumb, that I\nrealize this after the merge, but anyways. Here we go. The design was\nalready copied to the implementation repo and this is also where it\nshould belong. Removing it here.\n\nhttps://github.com/paritytech/web3-storage/pull/170",
+          "timestamp": "2026-06-12T14:22:44Z",
+          "tree_id": "e41a81390ff4e6d2439bafa13a093082b5ff44c4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/968eaa447002e599ee1c9deac6d41eca230204ae"
+        },
+        "date": 1781280046786,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024107940293333324,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007287229439999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1503359714866667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010495327113333303,
             "unit": "seconds"
           }
         ]
