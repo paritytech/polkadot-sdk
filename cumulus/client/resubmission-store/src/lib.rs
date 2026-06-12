@@ -19,8 +19,7 @@
 //!
 //! Persists a [`StoredEntry`] (capture time, relay-parent session and storage proof) per
 //! imported parablock, keyed by parablock hash. Data is pruned on parachain finality (via
-//! [`register_resubmission_cleanup`]) and, once a relay-chain session ages out, by
-//! relay-parent session (via [`ResubmissionStore::prune_old_sessions`]).
+//! [`register_resubmission_cleanup`]).
 
 use codec::{Decode, Encode};
 use cumulus_client_consensus_common::old_finalized_hash;
@@ -122,51 +121,6 @@ impl<Block: BlockT, B: AuxStore> ResubmissionStore<Block, B> {
 				other
 			))),
 		}
-	}
-
-	/// Delete entries whose relay-parent session is more than `max_session_age` behind
-	/// `current_session`, committing the deletes to aux storage.
-	///
-	/// `hashes` is the live unincluded-segment set; each entry's session is read back from its
-	/// stored [`StoredEntry::relay_parent_session`]. Entries with an unknown session are left for
-	/// finality cleanup.
-	pub fn prune_old_sessions(
-		&self,
-		hashes: impl IntoIterator<Item = Block::Hash>,
-		current_session: SessionIndex,
-		max_session_age: SessionIndex,
-	) -> ClientResult<()> {
-		match self.decode_aux::<u32>(STORE_VERSION_KEY)? {
-			None => return Ok(()),
-			Some(STORE_CURRENT_VERSION) => {},
-			Some(other) => {
-				return Err(ClientError::Backend(format!(
-					"Unsupported resubmission store DB version: {:?}",
-					other
-				)))
-			},
-		}
-
-		let mut delete_keys = Vec::new();
-		for hash in hashes {
-			let Some(session) = self
-				.decode_aux::<StoredEntry>(entry_key(hash).as_slice())?
-				.and_then(|entry| entry.relay_parent_session)
-			else {
-				continue;
-			};
-
-			if current_session.saturating_sub(session) > max_session_age {
-				delete_keys.push(entry_key(hash));
-			}
-		}
-
-		if delete_keys.is_empty() {
-			return Ok(());
-		}
-
-		let delete: Vec<&[u8]> = delete_keys.iter().map(|key| key.as_slice()).collect();
-		self.backend.insert_aux(&[], &delete)
 	}
 
 	fn decode_aux<T: Decode>(&self, key: &[u8]) -> ClientResult<Option<T>> {
@@ -362,83 +316,6 @@ mod tests {
 
 		assert_eq!(ops.len(), 2);
 		assert!(ops.iter().all(|(_, v)| v.is_none()));
-	}
-
-	#[test]
-	fn prune_old_sessions_deletes_and_commits() {
-		let (backend, store) = new_store();
-
-		let too_old = Hash::repeat_byte(0x01); // session 1, age 4 > 2 => pruned
-		let boundary = Hash::repeat_byte(0x02); // session 3, age 2 == max => kept
-		let recent = Hash::repeat_byte(0x03); // session 5, age 0 => kept
-		let unknown = Hash::repeat_byte(0x04); // unknown session => kept
-
-		let write = |hash: Hash, session: Option<SessionIndex>| {
-			let proof = Arc::new(StorageProof::new(vec![vec![1, 2, 3]]));
-			let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
-				hash,
-				1_000,
-				session,
-				None,
-				CoreSelector(0),
-				proof,
-			)
-			.collect();
-			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
-			AuxStore::insert_aux(&*backend, &refs, &[]).expect("insert");
-		};
-		write(too_old, Some(1));
-		write(boundary, Some(3));
-		write(recent, Some(5));
-		write(unknown, None);
-
-		// Sessions are read back from the stored entries; the caller passes only hashes.
-		store
-			.prune_old_sessions(
-				[too_old, boundary, recent, unknown],
-				5, // current session
-				2, // max session age
-			)
-			.expect("prune should commit");
-
-		assert_eq!(store.load(too_old).expect("load"), None, "too-old entry must be deleted");
-		assert!(
-			store.load(boundary).expect("load").is_some(),
-			"boundary (age == max) must survive"
-		);
-		assert!(store.load(recent).expect("load").is_some(), "recent entry must survive");
-		assert!(store.load(unknown).expect("load").is_some(), "unknown-session entry must survive");
-	}
-
-	#[test]
-	fn prune_old_sessions_keeps_recent_and_handles_missing_and_empty() {
-		let (backend, store) = new_store();
-
-		let recent = Hash::repeat_byte(0x09);
-		let proof = Arc::new(StorageProof::new(vec![vec![1, 2, 3]]));
-		let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
-			recent,
-			1_000,
-			Some(10),
-			None,
-			CoreSelector(0),
-			proof,
-		)
-		.collect();
-		let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
-		AuxStore::insert_aux(&*backend, &refs, &[]).expect("insert");
-
-		// Empty input is a no-op.
-		store
-			.prune_old_sessions(std::iter::empty::<Hash>(), 10, 2)
-			.expect("empty prune should succeed");
-
-		// `recent` is current; `missing` was never stored. Neither should be deleted, no error.
-		store
-			.prune_old_sessions([recent, Hash::repeat_byte(0xEE)], 10, 2)
-			.expect("no-op prune should succeed");
-
-		assert!(store.load(recent).expect("load").is_some(), "recent entry must survive");
 	}
 
 	#[test]
