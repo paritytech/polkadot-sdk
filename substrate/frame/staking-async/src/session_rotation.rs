@@ -780,7 +780,9 @@ impl<T: Config> Rotator<T> {
 		let bonding_duration = T::BondingDuration::get();
 		if bonding_duration != 0 && T::VestingBondingPeriods::get() > 0 {
 			let now = T::VestingBlockNumberProvider::current_block_number();
-			if VestingEpochStart::<T>::get().is_none() || starting_era % bonding_duration == 0 {
+			if VestingEpochStart::<T>::get().is_none() ||
+				starting_era.is_multiple_of(bonding_duration)
+			{
 				VestingEpochStart::<T>::put(now);
 			}
 		}
