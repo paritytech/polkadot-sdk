@@ -208,8 +208,8 @@ pub mod pallet {
 		///
 		/// This is the total storage cap. Trusted programmatic callers (via the
 		/// [`VestedPayout`](frame_support::traits::tokens::VestedPayout) and
-		/// [`VestedTransfer`](frame_support::traits::tokens::currency::VestedTransfer) traits, and
-		/// the root-only `force_vested_transfer` extrinsic) may fill schedules up to this limit.
+		/// [`VestedTransfer`] traits, and the root-only `force_vested_transfer` extrinsic) may
+		/// fill schedules up to this limit.
 		const MAX_VESTING_SCHEDULES: u32;
 
 		/// Maximum number of vesting schedules an account may have from the permissionless

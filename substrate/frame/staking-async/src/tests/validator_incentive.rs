@@ -850,9 +850,8 @@ fn vested_incentive_is_locked_immediately_after_payout() {
 		// The schedule starts at era 2's bonding window — which began before the payout was
 		// claimed — so by `now` some of the incentive has already vested. The usable balance
 		// must equal `free - still_locked_now`.
-		let still_locked = schedules[0].locked_at::<sp_runtime::traits::ConvertInto>(
-			System::block_number(),
-		);
+		let still_locked =
+			schedules[0].locked_at::<sp_runtime::traits::ConvertInto>(System::block_number());
 		let unlocked_so_far = incentive.saturating_sub(still_locked);
 		assert!(still_locked > 0, "the incentive must not be fully unlocked yet");
 		assert_eq!(Balances::free_balance(&recipient), free_before + staker_reward + incentive);
