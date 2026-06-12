@@ -387,15 +387,16 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			);
 
-			let statement_handler_proto = node_extra_args.statement_store_config.map(|config| {
-				let proto = new_statement_handler_proto(
-					&*client,
-					&parachain_config,
-					&metrics,
-					&mut net_config,
-				);
-				(proto, config)
-			});
+			let statement_handler_proto =
+				node_extra_args.statement_store_config.clone().map(|config| {
+					let proto = new_statement_handler_proto(
+						&*client,
+						&parachain_config,
+						&metrics,
+						&mut net_config,
+					);
+					(proto, config)
+				});
 
 			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 				build_network(BuildNetworkParams {

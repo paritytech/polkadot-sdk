@@ -25,7 +25,7 @@ use crate::{affinity::AffinityFilter, LOG_TARGET};
 use explicit_affinity::ExplicitAffinity;
 use peers_topology::{PeersTopology, PeersTopologyConfig};
 use sc_network_types::PeerId;
-use sp_statement_store::SubmitResult;
+use sp_statement_store::{SubmitResult, Topic};
 
 /// Coordinates the v2 DHT-affinity statement gossip path.
 #[allow(dead_code)]
@@ -38,10 +38,10 @@ pub(crate) struct V2DhtOrchestrator {
 
 #[allow(dead_code)]
 impl V2DhtOrchestrator {
-	pub(crate) fn new(local_peer: PeerId, peers_topology_config: PeersTopologyConfig) -> Self {
+	pub(crate) fn new(configured_topics: &[Topic], local_peer: PeerId, peers_topology_config: PeersTopologyConfig) -> Self {
 		Self {
 			peers_topology: PeersTopology::new(local_peer, peers_topology_config),
-			explicit_affinity: ExplicitAffinity::new(),
+			explicit_affinity: ExplicitAffinity::new(configured_topics),
 		}
 	}
 
