@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781286138082,
+  "lastUpdate": 1781294413341,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "70446df574b18ad1cddd672f1c2cd86f6408a300",
-          "message": "rpc-v2/archive: Remove unused structs and align with 1.90 rust (#10103)\n\nThis PR removes unused structures from the RPC V2 archive.\n\nWhile at it, remove unnecessary parentheses to make clippy happy. \n\ncc @paritytech/subxt-team\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-24T15:04:22Z",
-          "tree_id": "ed18d345038980d0a6dcdf6e4950815ba8b9c6fa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/70446df574b18ad1cddd672f1c2cd86f6408a300"
-        },
-        "date": 1761323149202,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.93799999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03507573005200002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0440892960259999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08610241969799994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f8d8077162583e5c7c422fd9db997b035b8796aa",
+          "message": "statement-store: log account when statements get rejected (#12357)\n\n... to make debugging easier\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-06-12T18:09:45Z",
+          "tree_id": "4a2ea8619305e706e24116d4391e6ac9bcebc76e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f8d8077162583e5c7c422fd9db997b035b8796aa"
+        },
+        "date": 1781294386695,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.10999999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03828925591200001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08436838354999994,
             "unit": "seconds"
           }
         ]
