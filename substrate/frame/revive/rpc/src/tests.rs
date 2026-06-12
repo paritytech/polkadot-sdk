@@ -385,6 +385,8 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_state_override_code_evm_to_evm,
 		test_state_override_code_evm_to_pvm,
 		test_state_override_code_pvm_to_evm,
+		test_state_override_delegation_indicator_to_evm,
+		test_state_override_delegation_indicator_to_pvm,
 		test_state_override_storage_state_diff,
 		test_state_override_storage_full_replacement,
 		test_state_override_storage_full_clears_unspecified,
@@ -1242,6 +1244,70 @@ async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
 	assert!(result.is_empty(), "call to cleared delegation should return empty data");
 
 	Ok(())
+}
+
+/// Shared body for `test_state_override_delegation_indicator_to_evm` and `_to_pvm`.
+///
+/// Overrides `eve` with code = `0xef0100 || target` (a delegation indicator) and a storage
+/// diff that sets the target's slot-0 to 42. A spec-correct read of `Counter::number()`
+/// against `eve` returns 42 only if the indicator was honored (Counter's code runs in eve's
+/// storage namespace); otherwise the call reverts on the invalid `0xef` opcode and decoding
+/// empty returndata fails.
+async fn state_override_delegation_indicator_routes(
+	fixture_type: pallet_revive_fixtures::FixtureType,
+	eve: AlloyAddress,
+	context: &str,
+) -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Counter;
+
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+
+	let counter_addr = deploy_contract(&provider, "Counter", fixture_type, &[]).await?;
+
+	let mut indicator = vec![0xefu8, 0x01, 0x00];
+	indicator.extend_from_slice(counter_addr.as_slice());
+
+	let storage_diff = [(B256::ZERO, B256::from(AlloyU256::from(42u64)))];
+	let overrides = StateOverride::from_iter([(
+		eve,
+		AccountOverride::default()
+			.with_code(AlloyBytes::from(indicator))
+			.with_state_diff(storage_diff),
+	)]);
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(eve)
+		.input(AlloyBytes::from(Counter::numberCall {}.abi_encode()).into());
+
+	let result = provider.call(tx).overrides(overrides).await?;
+	let number = Counter::numberCall::abi_decode_returns(&result)?;
+	assert_eq!(
+		number, 42u64,
+		"{context}: code override of 0xef0100||target must route to target's code in target's storage",
+	);
+
+	Ok(())
+}
+
+async fn test_state_override_delegation_indicator_to_evm() -> anyhow::Result<()> {
+	state_override_delegation_indicator_routes(
+		pallet_revive_fixtures::FixtureType::Solc,
+		AlloyAddress::from([0xEE; 20]),
+		"EVM",
+	)
+	.await
+}
+
+async fn test_state_override_delegation_indicator_to_pvm() -> anyhow::Result<()> {
+	state_override_delegation_indicator_routes(
+		pallet_revive_fixtures::FixtureType::Resolc,
+		AlloyAddress::from([0xEF; 20]),
+		"PVM",
+	)
+	.await
 }
 
 /// Verify that subscribing to `newHeads` delivers a block header matching the
