@@ -983,6 +983,19 @@ mod test {
 		);
 	}
 
+	/// EIP-7702 spec: a type-0x04 transaction with an empty `authorization_list` is
+	/// invalid. This is the boundary case opposite to `invalid_authorization_is_skipped`:
+	/// empty list → entire transaction invalidated at validation; individual bad
+	/// signature → per-tuple skip (transaction itself still valid).
+	#[test]
+	fn check_eth_transact_7702_rejects_empty_auth_list() {
+		let dest = H160::from([1u8; 20]);
+		assert_eq!(
+			UncheckedExtrinsicBuilder::call_with_authorization(dest, vec![]).check(),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+		);
+	}
+
 	/// An EIP-7702 transaction targeting `RUNTIME_PALLETS_ADDR` should be rejected
 	/// at validation time: that dispatch path resolves to `eth_substrate_call`,
 	/// which has no `authorization_list` field, so the auths would otherwise be

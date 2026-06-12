@@ -35,7 +35,10 @@ use frame_support::{
 	traits::fungible::{Balanced, Inspect, Mutate},
 	weights::Weight,
 };
-use pallet_revive_fixtures::{Caller, Counter, FixtureType, Terminate, compile_module_with_type};
+use pallet_revive_fixtures::{
+	Caller, Counter, FixtureType, Host, System as SystemFixture, Terminate,
+	compile_module_with_type,
+};
 use sp_core::{H160, H256, U256};
 
 /// Compute the expected weight refund for a given mix of new/existing processed accounts.
@@ -1446,5 +1449,317 @@ fn multiple_delegations_each_have_own_deposit() {
 		assert_eq!(ci_a.storage_base_deposit(), ci_b.storage_base_deposit());
 		// But different trie_ids (storage is per-delegator)
 		assert_ne!(ci_a.child_trie_info(), ci_b.child_trie_info());
+	});
+}
+
+/// Self-sponsored authorization: tx signer and auth signer are the same account.
+///
+/// Per EIP-7702 spec: the tx-level nonce bump happens before authorization processing,
+/// so when authority == tx_signer the auth's nonce field must already account for that
+/// bump (i.e. `auth.nonce = pre_tx_nonce + 1`).
+#[test]
+fn self_sponsored_authorization_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		let setup = DelegationTestSetup::new([0xAB; 32]);
+		let target = H160::from([0x42; 20]);
+
+		// Simulate the tx nonce bump that would happen before auth processing
+		// when the auth signer is also the tx signer.
+		frame_system::Pallet::<Test>::inc_account_nonce(&setup.authority_id);
+		let bumped_nonce = setup.nonce();
+		assert_eq!(bumped_nonce, U256::one());
+
+		// Sign with the bumped nonce.
+		let auth = setup.signer.sign_authorization(setup.chain_id, target, bumped_nonce);
+
+		// Process using the authority itself as the origin (self-sponsored).
+		let result = crate::evm::eip7702::process_authorizations::<Test>(
+			&[auth],
+			&setup.authority_id,
+			&setup.exec_config,
+		)
+		.expect("self-sponsored auth must process");
+
+		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), Some(target));
+		// Auth processing bumps the nonce again: pre-tx 0 → after-tx-bump 1 → after-auth 2.
+		assert_eq!(frame_system::Pallet::<Test>::account_nonce(&setup.authority_id), 2);
+		assert_eq!(result.existing_accounts, 1);
+	});
+}
+
+/// Refcount overflow in `increment_refcount` is a post-validation failure: per spec the
+/// individual auth must be skipped while the rest of the list (and the transaction
+/// itself) continues. Engineered by force-setting the target's `CodeInfo::refcount`
+/// to `u64::MAX` so the next bump overflows.
+#[test]
+fn refcount_overflow_skips_auth_without_aborting() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+
+		let bad_target = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+			.build_and_unwrap_contract();
+		let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+		let good_target =
+			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
+
+		// Force the bad target's code refcount to u64::MAX so increment_refcount overflows.
+		let bad_hash = get_contract(&bad_target.addr).code_hash;
+		CodeInfoOf::<Test>::mutate(bad_hash, |maybe| {
+			maybe.as_mut().unwrap().set_refcount(u64::MAX);
+		});
+
+		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let setup_bad = DelegationTestSetup::new([0xA1; 32]);
+		let setup_good = DelegationTestSetup::new([0xA2; 32]);
+		let auth_bad = setup_bad.sign_authorization(bad_target.addr);
+		let auth_good =
+			setup_good.signer.sign_authorization(chain_id, good_target.addr, U256::zero());
+
+		// Mustn't propagate the refcount error — it's a per-auth skip.
+		let result = setup_bad.process(&[auth_bad, auth_good]);
+
+		// Bad auth: not applied, nonce not bumped (rolled back by per-auth with_transaction).
+		assert!(!AccountInfo::<Test>::is_delegated(&setup_bad.signer.address));
+		assert_eq!(frame_system::Pallet::<Test>::account_nonce(&setup_bad.authority_id), 0);
+
+		// Good auth: applied.
+		assert!(AccountInfo::<Test>::is_delegated(&setup_good.signer.address));
+		assert_eq!(frame_system::Pallet::<Test>::account_nonce(&setup_good.authority_id), 1);
+
+		assert_eq!(result.existing_accounts, 1);
+		assert_eq!(result.new_accounts, 0);
+	});
+}
+
+/// EIP-7702 spec step 3 second-half (low-s enforcement) is intentionally NOT enforced
+/// on revive.
+/// This test asserts the current deviation: an authorization with high-s recovers to
+/// the same address and is processed normally (delegation applied, nonce bumped),
+/// instead of being skipped or invalidating the whole transaction.
+#[test]
+fn high_s_authorization_is_not_rejected() {
+	ExtBuilder::default().build().execute_with(|| {
+		let setup = DelegationTestSetup::new([0xCC; 32]);
+		let target = H160::from([0x42; 20]);
+
+		let auth = setup.sign_authorization(target);
+
+		// secp256k1 group order N.
+		let secp256k1_n = U256::from_str_radix(
+			"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141",
+			16,
+		)
+		.unwrap();
+
+		// Map (r, s, y_parity) → (r, N - s, !y_parity) — the high-s twin that recovers
+		// to the same address. The library produces low-s by convention, so this is the
+		// non-canonical form a spec-compliant client would reject.
+		let high_s_auth = AuthorizationListEntry {
+			s: secp256k1_n - auth.s,
+			y_parity: if auth.y_parity.is_zero() { U256::one() } else { U256::zero() },
+			..auth
+		};
+		assert!(high_s_auth.s > secp256k1_n / 2, "manipulated s must actually be high-s");
+
+		let result = setup.process(&[high_s_auth]);
+
+		// Current behavior: high-s sig is accepted, delegation applied.
+		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), Some(target));
+		assert_eq!(result.existing_accounts, 1);
+	});
+}
+
+/// Spec-compliant behavior for an EIP-7702 transaction whose destination is the
+/// `RUNTIME_PALLETS_ADDR` substrate-dispatch routing address: the auths must still be
+/// processed before the substrate call dispatches.
+///
+/// Currently we reject this combination at validation time (see
+/// `check_eth_transact_7702_rejects_runtime_pallets_addr`) because `eth_substrate_call`
+/// has no `authorization_list` field. Activating this test requires:
+///  1. Dropping that rejection check.
+///  2. Plumbing the auth list through `eth_substrate_call` and processing it before dispatching the
+///     inner pallet call.
+#[test]
+#[ignore = "spec-compliant EIP-7702 + RUNTIME_PALLETS_ADDR requires plumbing the auth list through eth_substrate_call"]
+fn runtime_pallet_call_still_processes_authorizations() {
+	// Placeholder for the spec-compliant test:
+	// 1. Build an EIP-7702 tx with `to = RUNTIME_PALLETS_ADDR`, data = encoded
+	//    `frame_system::Call::remark { remark }`, and a valid authorization_list.
+	// 2. Submit via eth_transact.
+	// 3. Assert the auth signer ends up delegated to the auth's target.
+	// 4. Assert the remark event was emitted (substrate call also dispatched).
+}
+
+/// Snapshot-vs-call-time deviation: if code is deployed at the delegation target *after*
+/// the authorization is processed, spec-compliant clients resolve the new code at call
+/// time. Our snapshot-at-delegation model misses it. Same root cause as the chained-
+/// delegation and precompile-target deviations; the proper fix is call-time resolution.
+#[test]
+#[ignore = "snapshot-vs-call-time deviation; fix is call-time resolution"]
+fn late_deploy_to_delegation_target_resolves_code() {
+	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+
+		// Pre-compute the CREATE2 address where Counter *will* be deployed.
+		let setup = DelegationTestSetup::new([0xDD; 32]);
+		let salt = [0xEE; 32];
+		let target = crate::address::create2(&ALICE_ADDR, &counter_code, &[], &salt);
+
+		// Alice delegates to `target` while it still has no code.
+		setup.authorize(target);
+		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
+
+		// Deploy Counter at the pre-computed address.
+		let deployed = builder::bare_instantiate(Code::Upload(counter_code))
+			.salt(Some(salt))
+			.build_and_unwrap_contract();
+		assert_eq!(deployed.addr, target);
+
+		// Spec-correct: calling the authority should now execute Counter's code.
+		let result = builder::bare_call(setup.signer.address)
+			.data(Counter::setNumberCall { newNumber: 99u64 }.abi_encode())
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "spec-correct: late-deployed target should execute");
+
+		let read = builder::bare_call(setup.signer.address)
+			.data(Counter::numberCall {}.abi_encode())
+			.build_and_unwrap_result();
+		assert_eq!(Counter::numberCall::abi_decode_returns(&read.data).unwrap(), 99u64);
+	});
+}
+
+/// EIP-7702 op-code coverage on a delegated EOA, Solc execution path.
+///
+/// Two families:
+/// - **EXT*** (external introspection of `delegated_eoa.code`): must surface the 23-byte indicator
+///   `0xef0100 || target` — length 23, hash `keccak256(indicator)`.
+/// - **CODE*** (self introspection from inside the delegated EOA's execution): must surface the
+///   *target's* code, not the indicator.
+///
+/// The Resolc/PVM analogue of this test for the CODE* family is `delegated_eoa_pvm_*`
+/// below, which is `#[ignore]`'d because resolc currently lowers both opcode families
+/// through the same address-keyed host functions.
+#[test]
+fn delegated_eoa_opcodes_return_correct_data_solc() {
+	let (host_code, _) = compile_module_with_type("Host", FixtureType::Solc).unwrap();
+	let (system_code, _) = compile_module_with_type("System", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000_000);
+
+		// Host is the external probe (EXTCODESIZE / EXTCODEHASH). System is the
+		// delegation target (its CODESIZE returns the executing code's size).
+		let host = builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
+		let system = builder::bare_instantiate(Code::Upload(system_code))
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.build_and_unwrap_contract();
+
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, system.addr).unwrap();
+
+		// ---- EXT* family ----
+
+		// EXTCODESIZE(alice) == 23 (length of `0xef0100 || target`).
+		let result = builder::bare_call(host.addr)
+			.data(Host::extcodesizeOpCall { account: ALICE_ADDR.0.into() }.abi_encode())
+			.build_and_unwrap_result();
+		assert!(!result.did_revert());
+		assert_eq!(Host::extcodesizeOpCall::abi_decode_returns(&result.data).unwrap(), 23);
+
+		// EXTCODEHASH(alice) == keccak256(indicator).
+		let mut indicator = vec![0xefu8, 0x01, 0x00];
+		indicator.extend_from_slice(system.addr.as_bytes());
+		let expected_hash = sp_io::hashing::keccak_256(&indicator);
+		let result = builder::bare_call(host.addr)
+			.data(Host::extcodehashOpCall { account: ALICE_ADDR.0.into() }.abi_encode())
+			.build_and_unwrap_result();
+		assert!(!result.did_revert());
+		assert_eq!(
+			Host::extcodehashOpCall::abi_decode_returns(&result.data).unwrap().0,
+			expected_hash,
+		);
+
+		// ---- CODE* family inside the delegated EOA's execution context ----
+
+		// CODESIZE inside Alice's execution must equal the target's CODESIZE.
+		// (EVM's native CODESIZE sees the executing bytecode, which is System's.)
+		let alice_codesize = {
+			let r = builder::bare_call(ALICE_ADDR)
+				.data(SystemFixture::codesizeCall {}.abi_encode())
+				.build_and_unwrap_result();
+			assert!(!r.did_revert());
+			SystemFixture::codesizeCall::abi_decode_returns(&r.data).unwrap()
+		};
+		let system_codesize = {
+			let r = builder::bare_call(system.addr)
+				.data(SystemFixture::codesizeCall {}.abi_encode())
+				.build_and_unwrap_result();
+			assert!(!r.did_revert());
+			SystemFixture::codesizeCall::abi_decode_returns(&r.data).unwrap()
+		};
+		assert_eq!(
+			alice_codesize, system_codesize,
+			"CODESIZE inside delegated EOA must match the target's CODESIZE",
+		);
+		assert_ne!(alice_codesize, 23, "CODESIZE must not be the indicator length");
+	});
+}
+
+/// Resolc/PVM analogue of `delegated_eoa_opcodes_return_correct_data_solc` for the
+/// CODE* family. Currently `#[ignore]`'d: resolc lowers `CODESIZE` (and `CODECOPY`)
+/// through the address-keyed `code_size`/`copy_code_slice` host functions, which
+/// surface the indicator for delegated EOAs instead of the target's bytecode.
+/// Will pass once `own_code_size`/`own_code_copy` host fns land and resolc routes
+/// CODESIZE/CODECOPY through them.
+#[test]
+#[ignore = "PVM CODE* family currently conflates self/external code paths"]
+fn delegated_eoa_codesize_inside_execution_resolc() {
+	let (system_code, _) = compile_module_with_type("System", FixtureType::Resolc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000_000);
+		let system = builder::bare_instantiate(Code::Upload(system_code))
+			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
+			.build_and_unwrap_contract();
+
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, system.addr).unwrap();
+
+		let alice_codesize = {
+			let r = builder::bare_call(ALICE_ADDR)
+				.data(SystemFixture::codesizeCall {}.abi_encode())
+				.build_and_unwrap_result();
+			SystemFixture::codesizeCall::abi_decode_returns(&r.data).unwrap()
+		};
+		let system_codesize = {
+			let r = builder::bare_call(system.addr)
+				.data(SystemFixture::codesizeCall {}.abi_encode())
+				.build_and_unwrap_result();
+			SystemFixture::codesizeCall::abi_decode_returns(&r.data).unwrap()
+		};
+		assert_eq!(alice_codesize, system_codesize, "spec-correct: CODESIZE returns target size");
+		assert_ne!(alice_codesize, 23, "CODESIZE must not be the indicator length");
+	});
+}
+
+/// An EOA that delegates to itself forms a one-element cycle. The same chain-detection
+/// logic that catches `bob -> alice -> alice` catches this: the authority's delegation
+/// target is itself a delegated EOA, so the call reverts on the indicator `0xef` byte
+/// rather than executing endlessly or no-op'ing.
+#[test]
+fn self_delegation_reverts_on_call() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, ALICE_ADDR).unwrap();
+		assert!(AccountInfo::<Test>::is_delegated(&ALICE_ADDR));
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&ALICE_ADDR), Some(ALICE_ADDR));
+
+		let result = builder::bare_call(ALICE_ADDR)
+			.data(vec![0xDE, 0xAD, 0xBE, 0xEF])
+			.build_and_unwrap_result();
+		assert!(result.did_revert(), "self-delegation should revert (chain cycle, 0xef trap)");
 	});
 }
