@@ -74,11 +74,15 @@ pub struct AuthorizationResult<Balance: Default> {
 ///
 /// Note: We process authorizations OUTSIDE the transaction context so delegation changes persist
 /// even if the call fails.
+///
+/// Returns the aggregated `AuthorizationResult` directly — every per-auth failure (spec
+/// validation step or post-validation rollback) is handled by `continue` inside the loop,
+/// so this function is structurally infallible from the caller's perspective.
 pub fn process_authorizations<T: Config>(
 	authorization_list: &[AuthorizationListEntry],
 	origin: &T::AccountId,
 	exec_config: &ExecConfig<T>,
-) -> Result<AuthorizationResult<BalanceOf<T>>, sp_runtime::DispatchError> {
+) -> AuthorizationResult<BalanceOf<T>> {
 	let chain_id = U256::from(T::ChainId::get());
 	let ed = <T::Currency as Inspect<T::AccountId>>::minimum_balance();
 	let mut result: AuthorizationResult<BalanceOf<T>> = Default::default();
@@ -208,7 +212,7 @@ pub fn process_authorizations<T: Config>(
 	});
 	result.weight_refund = worst_case_weight.saturating_sub(actual_weight);
 
-	Ok(result)
+	result
 }
 
 /// Build the EIP-7702 signing message: `MAGIC || rlp([chain_id, address, nonce])`

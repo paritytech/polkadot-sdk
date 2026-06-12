@@ -1453,10 +1453,7 @@ pub mod pallet {
 				&authorization_list,
 				&signer,
 				&exec_config,
-			)
-			.inspect_err(|e| {
-				log::error!(target: LOG_TARGET, "process_authorizations failed: {e:?}. This is a bug: the transaction should have failed validation.");
-			})?;
+			);
 			let extra_weight = base_info.total_weight().saturating_sub(auth_result.weight_refund);
 			let base_call_weight = base_info.call_weight.saturating_sub(auth_result.weight_refund);
 
@@ -2246,7 +2243,6 @@ impl<T: Config> Pallet<T> {
 			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight);
 		let auth_result = if !authorization_list.is_empty() {
 			evm::eip7702::process_authorizations::<T>(&authorization_list, &origin, &exec_config)
-				.map_err(|err| extract_error(err).unwrap_err())?
 		} else {
 			Default::default()
 		};

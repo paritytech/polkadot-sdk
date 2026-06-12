@@ -100,7 +100,6 @@ impl DelegationTestSetup {
 		auths: &[AuthorizationListEntry],
 	) -> AuthorizationResult<crate::BalanceOf<Test>> {
 		crate::evm::eip7702::process_authorizations::<Test>(auths, &self.origin, &self.exec_config)
-			.expect("process_authorizations failed")
 	}
 
 	pub fn nonce(&self) -> U256 {
@@ -482,9 +481,9 @@ fn auth_failing_post_validation_skips_without_aborting_list() {
 		let auth_bad = setup.sign_authorization(target_bad.addr);
 		let auth_good = good_signer.sign_authorization(chain_id, target_good.addr, U256::zero());
 
-		// `setup.process` calls `process_authorizations(...).expect(...)`. Without the
-		// per-auth `with_transaction` skip, the bad auth's error propagates out and this
-		// panics; with the skip, it returns Ok and we can inspect the result.
+		// Without the per-auth `with_transaction` skip, the bad auth's error would propagate
+		// out and abort the whole list. With the skip, this returns normally and we can
+		// inspect the per-auth outcome via the returned counts.
 		let result = setup.process(&[auth_bad, auth_good]);
 
 		// Bad auth: silently dropped — no delegation, no nonce bump for its authority.
@@ -1479,8 +1478,7 @@ fn self_sponsored_authorization_works() {
 			&[auth],
 			&setup.authority_id,
 			&setup.exec_config,
-		)
-		.expect("self-sponsored auth must process");
+		);
 
 		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), Some(target));
