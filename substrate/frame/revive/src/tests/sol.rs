@@ -213,6 +213,109 @@ fn delegated_eoa_call_tracing_works() {
 	});
 }
 
+/// Prestate-tracer (prestate mode) must surface a delegated EOA's `code` as the
+/// 23-byte EIP-7702 indicator `0xef0100 || target`. This is the channel most users
+/// (foundry / hardhat traces, Tenderly, etc.) inspect to confirm a delegation
+/// took effect.
+#[test]
+fn delegated_eoa_prestate_tracing_returns_indicator() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
+		tests::{dummy_evm_contract, eip7702::DelegationTestSetup},
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+
+		let setup = DelegationTestSetup::default();
+		setup.authorize(target_addr);
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: false,
+			disable_storage: true,
+			disable_code: false,
+		});
+		let _ = trace(&mut tracer, || {
+			builder::bare_call(setup.signer.address).build_and_unwrap_result()
+		});
+
+		let mut indicator = vec![0xefu8, 0x01, 0x00];
+		indicator.extend_from_slice(target_addr.as_bytes());
+
+		match tracer.collect_trace() {
+			PrestateTrace::Prestate(accounts) => {
+				let info = accounts
+					.get(&setup.signer.address)
+					.expect("delegated EOA should be in prestate trace");
+				let code = info.code.as_ref().expect("delegated EOA should report code");
+				assert_eq!(
+					code.0, indicator,
+					"prestate trace code should be the 23-byte delegation indicator",
+				);
+			},
+			other => panic!("expected Prestate mode, got {:?}", other),
+		}
+	});
+}
+
+/// Prestate-tracer (diff mode) must surface the indicator in the pre-state when
+/// the traced call mutates the delegated EOA (otherwise diff mode correctly
+/// filters unchanged addresses out). Uses a Counter target + setNumber so the
+/// authority's storage changes, forcing the address to appear in both halves.
+#[test]
+fn delegated_eoa_prestate_diff_tracing_includes_indicator() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
+		precompiles::alloy::sol_types::SolCall,
+		tests::eip7702::DelegationTestSetup,
+	};
+	use pallet_revive_fixtures::{Counter, FixtureType, compile_module_with_type};
+
+	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
+
+		let setup = DelegationTestSetup::default();
+		setup.authorize(target_addr);
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: true,
+			disable_storage: false,
+			disable_code: false,
+		});
+		let _ = trace(&mut tracer, || {
+			builder::bare_call(setup.signer.address)
+				.data(Counter::setNumberCall { newNumber: 42u64 }.abi_encode())
+				.build_and_unwrap_result()
+		});
+
+		let mut indicator = vec![0xefu8, 0x01, 0x00];
+		indicator.extend_from_slice(target_addr.as_bytes());
+
+		match tracer.collect_trace() {
+			PrestateTrace::DiffMode { pre, post: _ } => {
+				let pre_info = pre
+					.get(&setup.signer.address)
+					.expect("delegated EOA whose storage changed should be in pre-state diff");
+				let pre_code = pre_info.code.as_ref().expect("pre-state should include code");
+				assert_eq!(
+					pre_code.0, indicator,
+					"diff pre-state code must be the delegation indicator",
+				);
+			},
+			other => panic!("expected DiffMode, got {:?}", other),
+		}
+	});
+}
+
 /// Regression test for paritytech/contract-issues#278 — nested-call variant.
 ///
 /// `Stack::call`'s no-code branch (the path taken when a running contract

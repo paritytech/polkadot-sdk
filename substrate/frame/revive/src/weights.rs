@@ -73,6 +73,7 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn process_new_account_authorization(n: u32, ) -> Weight;
 	fn process_existing_account_authorization(n: u32, ) -> Weight;
+	fn process_invalid_authorization(n: u32, ) -> Weight;
 	fn deletion_queue_batch() -> Weight;
 	fn deletion_queue_per_entry() -> Weight;
 	fn deletion_queue_per_trie_key(k: u32, ) -> Weight;
@@ -199,6 +200,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(10_000_000, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+	}
+	// TODO: regenerate via `/cmd bench`. Placeholder: signature recovery + chain_id /
+	// nonce / contract checks, but no account creation/update.
+	fn process_invalid_authorization(n: u32, ) -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(Weight::from_parts(8_000_000, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
 	}
 	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
 	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
@@ -1636,6 +1644,13 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(10_000_000, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(n.into())))
+	}
+	// TODO: regenerate via `/cmd bench`. Placeholder: signature recovery + chain_id /
+	// nonce / contract checks, but no account creation/update.
+	fn process_invalid_authorization(n: u32, ) -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(Weight::from_parts(8_000_000, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
 	}
 	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:0)
 	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)

@@ -206,6 +206,45 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// Measures the per-tuple cost of an authorization that runs through chain_id check
+	// and ecdsa_recover but then fails validation (here: nonce mismatch) — captures the
+	// sig-recovery cost without any account creation/update work.
+	#[benchmark(pov_mode = Measured)]
+	fn process_invalid_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+		use sp_io::hashing::keccak_256;
+
+		let chain_id = U256::from(T::ChainId::get());
+		let target_contract = Contract::<T>::with_index(0, VmBinaryModule::dummy(), vec![])?;
+		let target = target_contract.address;
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
+
+		let mut authorization_list = vec![];
+		for i in 0..n {
+			let key_material = keccak_256(&(i as u32).to_le_bytes());
+			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
+			// Force nonce mismatch: signer's nonce is 0, but we sign nonce=1.
+			let signed_auth = eip7702::sign_authorization(&key, chain_id, target, U256::one());
+			authorization_list.push(signed_auth);
+		}
+
+		let auth_result;
+		#[block]
+		{
+			auth_result =
+				eip7702::process_authorizations::<T>(&authorization_list, &caller, &exec_config);
+		}
+
+		assert_eq!(auth_result.new_accounts, 0u32);
+		assert_eq!(auth_result.existing_accounts, 0u32);
+		Ok(())
+	}
+
 	/// Measures the per-entry cost of `process_deletion_queue_batch`: one `DeletionQueue` read
 	/// plus the `DeletionQueue` + `DeletionQueueCounter` writes done by `entry.remove()`.
 	#[benchmark(pov_mode = Measured)]

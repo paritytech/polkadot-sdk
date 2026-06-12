@@ -179,7 +179,12 @@ pub enum RuntimeCosts {
 	/// Weight of calling `Modexp` precompile
 	Modexp(u64),
 	/// Weight of processing EIP-7702 authorization tuples.
-	Delegations { new_accounts: u32, existing_accounts: u32 },
+	///
+	/// `invalid_accounts` covers tuples that pass the chain-id check and run
+	/// `ecdsa_recover` but then fail validation (bad nonce, non-EOA authority,
+	/// etc.) or fail post-validation (set_delegation error). They incur the
+	/// signature recovery cost but no account creation/update work.
+	Delegations { new_accounts: u32, existing_accounts: u32, invalid_accounts: u32 },
 }
 
 /// For functions that modify storage, benchmarks are performed with one item in the
@@ -342,10 +347,12 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Identity(len) => T::WeightInfo::identity(len),
 			Blake2F(rounds) => T::WeightInfo::blake2f(rounds),
 			Modexp(gas) => Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), 0),
-			Delegations { new_accounts, existing_accounts } => {
-				T::WeightInfo::process_new_account_authorization(new_accounts).saturating_add(
-					T::WeightInfo::process_existing_account_authorization(existing_accounts),
-				)
+			Delegations { new_accounts, existing_accounts, invalid_accounts } => {
+				T::WeightInfo::process_new_account_authorization(new_accounts)
+					.saturating_add(T::WeightInfo::process_existing_account_authorization(
+						existing_accounts,
+					))
+					.saturating_add(T::WeightInfo::process_invalid_authorization(invalid_accounts))
 			},
 		}
 	}
