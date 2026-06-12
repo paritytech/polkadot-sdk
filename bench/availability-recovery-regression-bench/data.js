@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781286031484,
+  "lastUpdate": 1781294304977,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1e3082252cf6914dfa2b5183a0179588c9c748a1",
-          "message": "pallet_revive: Only enforce EIP-3607 for dispatchables (#10100)\n\nThe EIP states that contract addresses cannot be the origin of a\ntransaction. However, we are enforcing this rule for all contract\nexecution (i.e all public function on the pallet). This is a problem for\ncode that uses `pallet_revive` and explicitly wants to allow this.\n\nThis PR now only enforces this check for dispatchables so that all the\n`bare_*` functions are unaffected.\n\nAs a drive-by a regrouped the functions on the `Pallet` so that the\npublic functions are no longer interleaved with the private ones. This\ngot mixed up when we resolved some merge conflicts.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-28T09:47:52Z",
-          "tree_id": "7dc492341b3a3482de0ba2acd50b128bef2f5561",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1e3082252cf6914dfa2b5183a0179588c9c748a1"
-        },
-        "date": 1761649366807,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.6147253522,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20019412453333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.960727801899997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f8d8077162583e5c7c422fd9db997b035b8796aa",
+          "message": "statement-store: log account when statements get rejected (#12357)\n\n... to make debugging easier\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-06-12T18:09:45Z",
+          "tree_id": "4a2ea8619305e706e24116d4391e6ac9bcebc76e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f8d8077162583e5c7c422fd9db997b035b8796aa"
+        },
+        "date": 1781294278483,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.030166817966663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13673998786666666,
             "unit": "seconds"
           }
         ]
