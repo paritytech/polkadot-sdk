@@ -2588,7 +2588,8 @@ impl<T: Config> Pallet<T> {
 				"trace replay: extrinsic #{index} NOT applied: {err:?} \
 				 (consumed block_weight={consumed:?}, max={max:?}, traced={traced})",
 			),
-			// Applied, but the dispatch itself errored (e.g. contract reverted) — normal, still traced.
+			// Applied, but the dispatch itself errored (e.g. contract reverted) — normal, still
+			// traced.
 			Ok(Err(err)) => log::debug!(
 				target: LOG_TARGET,
 				"trace replay: extrinsic #{index} dispatch error: {err:?} \

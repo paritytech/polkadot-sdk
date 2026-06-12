@@ -27,6 +27,7 @@ use crate::{
 	block_sync::SyncCheckpoint,
 	subxt_client::{self, SrcChainConfig, revive::calls::EthTransact},
 };
+use codec::{Decode, Encode};
 use futures::TryStreamExt;
 use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
 use pallet_revive::{
@@ -36,7 +37,6 @@ use pallet_revive::{
 		TransactionSigned, U256, decode_revert_reason,
 	},
 };
-use codec::{Decode, Encode};
 use pallet_revive_types::runtime_api::*;
 use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
