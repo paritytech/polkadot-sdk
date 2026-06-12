@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781280184018,
+  "lastUpdate": 1781286173454,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0bde5c88f6d5570610018e6d3b6ff3d74604b34f",
-          "message": "Version bumps and prdocs reordering from stable2509-1 (#10110)\n\nThis PR backports regular version bumps and prdoc reordering from the\nrelease branch back to master",
-          "timestamp": "2025-10-24T13:17:22Z",
-          "tree_id": "8afd14bf694b4b653f703345e148de94972b3283",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0bde5c88f6d5570610018e6d3b6ff3d74604b34f"
-        },
-        "date": 1761316318920,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008729732889999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026928398899999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005154433309999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.002644638,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "50ba9b430d435a064a29a8a9a26c90f04b788445",
+          "message": "ci: fix zombienet logging (#12344)\n\ncc https://github.com/paritytech/devops/issues/5376\n\n---------\n\nCo-authored-by: Javier Viola <javier@parity.io>",
+          "timestamp": "2026-06-12T16:06:36Z",
+          "tree_id": "3397561f0775d85d83edaf1a1ab642c47a49a71e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/50ba9b430d435a064a29a8a9a26c90f04b788445"
+        },
+        "date": 1781286147309,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010983412909999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002535945729999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009491591209999982,
             "unit": "seconds"
           }
         ]
