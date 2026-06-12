@@ -288,13 +288,13 @@ impl SubstrateCli for TestCollatorCli {
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(Box::new(match id {
-			// "" => {
-			// 	tracing::info!("Using default test service chain spec.");
-			// 	cumulus_test_service::get_chain_spec(
-			// 		cumulus_test_runtime::WASM_BINARY,
-			// 		Some(ParaId::from(2000)),
-			// 	)
-			// },
+			"" => {
+				tracing::info!("Using default test service chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::WASM_BINARY,
+					Some(ParaId::from(2000)),
+				)
+			},
 			"elastic-scaling-mvp" => {
 				tracing::info!("Using elastic-scaling mvp chain spec.");
 				cumulus_test_service::get_chain_spec(
