@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781294341157,
+  "lastUpdate": 1781300978396,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "diego2737@gmail.com",
-            "name": "Diego",
-            "username": "dimartiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "51cf7d605f93fb047f25b9270df66244cb7bfc87",
-          "message": "Snowbridge V2: Add generic AggregateMessageOrigin (#8106)\n\n# Description\n\nThis PR introduces a generic `AggregateMessageOrigin` in Snowbridge V2\nto provide a more flexible mechanism for message-queue origin\nrecognition and handling. This approach aims to support broader use\ncases beyond parachains. By enabling custom origins, scenarios like solo\nchains, can build specialized message routing and processing making use\nof this configuration.\n\n## Motivation\n\n- **Enhanced Integration**: While Snowbridge traditionally focuses on\nbridging parachains, there is also a need to send messages from various\nsubstrate-based chains (e.g., solo chains) and in different contexts.\nThis change expands the protocol's ability to handle multiple, distinct\norigin types.\n\n- **Custom Command Structures**: Some projects need to incorporate\ncustom Snowbridge commands or message structures, which cannot be\nprocessed by the default outbound queue. By introducing a more generic\norigin, these commands can be cleanly differentiated and securely\nprocessed.\n\n- **Flexibility**: Parachains, solo chains, or any environment running\nSnowbridge benefit from a uniform pattern to handle both common and\ncustom message processing.\n\n## Use Case\n\nConsider a scenario where you need to send messages to Ethereum directly\nfrom your runtime:\n\n- You have your own set of commands or data structures different from\nthose provided by the traditional Snowbridge outbound queue.\n- You want to introduce a custom message processor that specifically\nhandles your commands.\n- You need a distinct origin to differentiate your messages from\nstandard Snowbridge traffic.\n\nBy using the `AggregateMessageOrigin`, you can verify whether a message\ncomes from a parachain, from Snowbridge itself, or from a custom origin.\nThis is especially relevant in solo chain contexts, where you might not\nrely on the parachain assumptions but still want to leverage a robust\nbridging framework.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-10-27T14:19:17Z",
-          "tree_id": "b1c6a130b7f949e8e9cd69a20f2fc3c48bbca09c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/51cf7d605f93fb047f25b9270df66244cb7bfc87"
-        },
-        "date": 1761578874225,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007455848313333323,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013476272553333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16110431584666662,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022685764120000007,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007558685120000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8ae2e6a47aef16e392b4a951b7165c87d9f1e75b",
+          "message": "Bump litep2p to 0.14.2 (#12358)\n\nBump litep2p to get latest [bitswap\nfixes](https://github.com/paritytech/litep2p/releases/tag/v0.14.2).",
+          "timestamp": "2026-06-12T19:51:10Z",
+          "tree_id": "b0a894727df7f6b92ddafe6ddc6fa4a932f2cb64",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8ae2e6a47aef16e392b4a951b7165c87d9f1e75b"
+        },
+        "date": 1781300952115,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024033501633333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007303771313333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14788304776666678,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010190042106666646,
             "unit": "seconds"
           }
         ]
