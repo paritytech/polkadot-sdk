@@ -1200,7 +1200,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn rc_on_session_report(
-		v: Linear<1, { T::MaxValidatorSet::get() }>,
+		v: Linear<1, { T::MaximumValidatorsWithPoints::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let initial_planned_era = Rotator::<T>::planned_era();
 		let initial_active_era = Rotator::<T>::active_era();

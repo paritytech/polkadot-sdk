@@ -245,14 +245,18 @@ impl<T: Config> OnRuntimeUpgrade for SetWeightedPointsFormulaStartEra<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		use codec::Encode;
-		Ok(WeightedPointsFormulaStartEra::<T>::get().encode())
+		// Capture `active_era` here, before the upgrade runs, so `post_upgrade` can derive the
+		// expected cutoff without re-reading it — `active_era` may otherwise differ if any era
+		// rotation occurs between the two hooks.
+		let active_era = crate::session_rotation::Rotator::<T>::active_era();
+		Ok((WeightedPointsFormulaStartEra::<T>::get(), active_era).encode())
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		use codec::Decode;
 
-		let pre: Option<EraIndex> =
+		let (pre, pre_active_era): (Option<EraIndex>, EraIndex) =
 			Decode::decode(&mut &state[..]).map_err(|_| "decode pre_upgrade state")?;
 		let post = WeightedPointsFormulaStartEra::<T>::get();
 
@@ -261,13 +265,10 @@ impl<T: Config> OnRuntimeUpgrade for SetWeightedPointsFormulaStartEra<T> {
 				p == q,
 				"SetWeightedPointsFormulaStartEra must be idempotent when already set"
 			),
-			(None, Some(q)) => {
-				let active = crate::session_rotation::Rotator::<T>::active_era();
-				frame_support::ensure!(
-					q == active.saturating_add(1),
-					"cutoff must be active_era + 1 after a fresh migration"
-				);
-			},
+			(None, Some(q)) => frame_support::ensure!(
+				q == pre_active_era.saturating_add(1),
+				"cutoff must be active_era + 1 after a fresh migration"
+			),
 			(_, None) => {
 				return Err("WeightedPointsFormulaStartEra was not set by the migration".into())
 			},

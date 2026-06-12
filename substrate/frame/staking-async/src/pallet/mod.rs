@@ -604,9 +604,13 @@ pub mod pallet {
 	/// - `Some(e)`: set once by the upgrade migration to `active_era + 1`. Eras
 	///   `< e` use the legacy formula, eras `>= e` use the weighted-points formula.
 	///
-	/// The legacy branch (and this storage item) can be removed once
-	/// [`Config::HistoryDepth`] eras have elapsed since the upgrade, at which point
-	/// no pre-cutoff era remains claimable.
+	/// TODO(staking-async): remove this storage item, the legacy stake-only branch in
+	/// [`crate::Pallet::calculate_validator_incentive_for_page`], the
+	/// [`session_rotation::Eras::uses_weighted_points`] cutoff helper, and the
+	/// [`crate::migrations::SetWeightedPointsFormulaStartEra`] migration once
+	/// [`Config::HistoryDepth`] eras have elapsed since the upgrade — i.e. once the cutoff
+	/// satisfies `cutoff <= active_era - HistoryDepth`, at which point no pre-cutoff era
+	/// remains claimable and every live era uses the weighted-points formula.
 	#[pallet::storage]
 	pub type WeightedPointsFormulaStartEra<T: Config> = StorageValue<_, EraIndex, OptionQuery>;
 

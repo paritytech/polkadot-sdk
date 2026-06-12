@@ -706,38 +706,15 @@ impl<T: Config> Pallet<T> {
 			return None;
 		}
 
-		let (validator_weight, total_weight) = match (
-			ErasValidatorIncentiveWeight::<T>::get(era, stash),
-			ErasSumValidatorIncentiveWeight::<T>::get(era),
-		) {
-			(Some(w), t) => (w, t),
+		let validator_weight = match ErasValidatorIncentiveWeight::<T>::get(era, stash) {
+			// No incentive weight (e.g. own-stake was zero at election) means no share.
+			Some(w) if !w.is_zero() => w,
 			_ => return None,
 		};
 
-		if total_weight.is_zero() {
-			log!(
-				warn,
-				"Total validator incentive weight is zero but budget exists for era {}",
-				era
-			);
-			Self::deposit_event(Event::<T>::Unexpected(
-				UnexpectedKind::ValidatorIncentiveWeightMismatch { era },
-			));
-			return None;
-		}
-
-		if validator_weight.is_zero() {
-			return None;
-		}
-
 		// Branch on the cutoff: legacy formula for eras whose denominator was never
 		// maintained, new weighted-points formula otherwise.
-		let use_weighted_points = match WeightedPointsFormulaStartEra::<T>::get() {
-			Some(start) => era >= start,
-			None => true,
-		};
-
-		let share_part = if use_weighted_points {
+		let share_part = if Eras::<T>::uses_weighted_points(era) {
 			let sum_weighted_points = ErasSumWeightedPoints::<T>::get(era);
 			if sum_weighted_points.is_zero() {
 				return None;
@@ -748,8 +725,22 @@ impl<T: Config> Pallet<T> {
 				validator_weight.saturating_mul(BalanceOf::<T>::from(validator_points));
 			Perbill::from_rational(numerator, sum_weighted_points)
 		} else {
-			// Legacy formula: every validator with non-zero reward points (the caller
-			// already gates `validator_reward_points == 0`) gets a stake-only share.
+			// Legacy formula: stake-only share. `ErasSumValidatorIncentiveWeight` is the
+			// denominator only on this path, so it is read (and validated) here rather than
+			// unconditionally — the weighted-points branch above does not use it. The caller
+			// already gates `validator_reward_points == 0`.
+			let total_weight = ErasSumValidatorIncentiveWeight::<T>::get(era);
+			if total_weight.is_zero() {
+				log!(
+					warn,
+					"Total validator incentive weight is zero but budget exists for era {}",
+					era
+				);
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorIncentiveWeightMismatch { era },
+				));
+				return None;
+			}
 			Perbill::from_rational(validator_weight, total_weight)
 		};
 

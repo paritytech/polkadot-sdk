@@ -416,20 +416,29 @@ impl<T: Config> Eras<T> {
 					let weight =
 						ErasValidatorIncentiveWeight::<T>::get(active_era.index, &validator)
 							.unwrap_or_else(Zero::zero);
-					if !weight.is_zero() {
-						sum_weighted_points_delta = sum_weighted_points_delta.saturating_add(
-							weight.saturating_mul(IncentiveWeight::<T>::from(points)),
-						);
-					}
-					match era_rewards.individual.get_mut(&validator) {
-						Some(individual) => individual.saturating_accrue(points),
+
+					let recorded = match era_rewards.individual.get_mut(&validator) {
+						Some(individual) => {
+							individual.saturating_accrue(points);
+							true
+						},
 						None => {
 							// not much we can do -- validators should always be less than
 							// `MaxValidatorSet`.
-							let _ =
-								era_rewards.individual.try_insert(validator, points).defensive();
+							era_rewards.individual.try_insert(validator, points).defensive().is_ok()
 						},
+					};
+
+					// Only fold the validator into the weighted-points denominator if it was
+					// actually recorded in `individual`. If the bounded map overflowed and
+					// dropped the entry, accumulating it here would leave `ErasSumWeightedPoints`
+					// counting a validator that neither the payout path nor the try-state
+					// recompute (both of which iterate `individual`) can ever see.
+					if recorded && !weight.is_zero() {
+						sum_weighted_points_delta = sum_weighted_points_delta
+							.saturating_add(weight.saturating_mul(IncentiveWeight::<T>::from(points)));
 					}
+
 					era_rewards.total.saturating_accrue(points);
 				}
 			});
@@ -532,18 +541,14 @@ impl<T: Config> Eras<T> {
 		// of the maps populated.
 		let oldest_present_era = active_era.saturating_sub(T::HistoryDepth::get()).max(1);
 
-		// Eras strictly older than `weighted_points_start` were paid out under the
-		// legacy stake-only formula and never had `ErasSumWeightedPoints` populated,
-		// so skip the denominator consistency check for them. See
-		// [`crate::migrations::SetWeightedPointsFormulaStartEra`].
-		let weighted_points_start = crate::WeightedPointsFormulaStartEra::<T>::get();
-
 		for e in oldest_present_era..=active_era {
 			Self::era_fully_present(e)?;
 			Self::check_validator_incentive_weight_consistency(e)?;
-			let use_weighted_points =
-				weighted_points_start.map_or(true, |start| e >= start);
-			if use_weighted_points {
+			// Eras strictly older than the cutoff were paid out under the legacy
+			// stake-only formula and never had `ErasSumWeightedPoints` populated, so skip
+			// the denominator consistency check for them. See
+			// [`crate::migrations::SetWeightedPointsFormulaStartEra`].
+			if Self::uses_weighted_points(e) {
 				Self::check_sum_weighted_points_consistency(e)?;
 			}
 		}
@@ -575,6 +580,20 @@ impl<T: Config> Eras<T> {
 		);
 
 		Ok(())
+	}
+
+	/// Whether era `era` uses the weighted-points incentive-share formula
+	/// `share_i = (w_i · ep_i) / Σ_j(w_j · ep_j)`.
+	///
+	/// Returns `true` for eras at or after [`crate::WeightedPointsFormulaStartEra`], and for
+	/// every era when the cutoff is unset (e.g. a chain that activated the formula at genesis).
+	/// Returns `false` for pre-cutoff eras, which fall back to the legacy stake-only share. See
+	/// [`crate::migrations::SetWeightedPointsFormulaStartEra`].
+	///
+	/// Single source of truth for the cutoff decision, shared by the payout path
+	/// ([`crate::Pallet::calculate_validator_incentive_for_page`]) and [`Self::do_try_state`].
+	pub(crate) fn uses_weighted_points(era: EraIndex) -> bool {
+		crate::WeightedPointsFormulaStartEra::<T>::get().map_or(true, |start| era >= start)
 	}
 
 	/// Verify that the incrementally maintained [`ErasSumWeightedPoints`] matches the
