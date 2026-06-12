@@ -93,6 +93,8 @@ impl Get<u64> for DefaultNonceProvider {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl Config for Test {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
 	type Block = Block;
