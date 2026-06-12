@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781210707479,
+  "lastUpdate": 1781280147835,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "93065bfb1e54ac7a841142d5f457c50ebac95e1c",
-          "message": "revive-dev-node enforce --dev (#10109)\n\nenforce --dev and default --log in revive-dev-node\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-24T10:09:01Z",
-          "tree_id": "10a06f6303f8b1aca8bdc6ea64e329ba10441ddc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/93065bfb1e54ac7a841142d5f457c50ebac95e1c"
-        },
-        "date": 1761305162992,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.95399999999992,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035024777405999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04401095923999991,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03832317926199999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1527017+eskimor@users.noreply.github.com",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "968eaa447002e599ee1c9deac6d41eca230204ae",
+          "message": "Move storage design to web3-storage repo (#12355)\n\nThe design should live along-side its implementation. A bit dumb, that I\nrealize this after the merge, but anyways. Here we go. The design was\nalready copied to the implementation repo and this is also where it\nshould belong. Removing it here.\n\nhttps://github.com/paritytech/web3-storage/pull/170",
+          "timestamp": "2026-06-12T14:22:44Z",
+          "tree_id": "e41a81390ff4e6d2439bafa13a093082b5ff44c4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/968eaa447002e599ee1c9deac6d41eca230204ae"
+        },
+        "date": 1781280120446,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.13599999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08921194379599992,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039281140782,
             "unit": "seconds"
           }
         ]
