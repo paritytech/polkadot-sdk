@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781294304977,
+  "lastUpdate": 1781300943445,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c483327ef1ef99340c3cd564fb43ce625a011934",
-          "message": "fix zombienet ci, remove merge_group listener (#10133)\n\nRemove `merge_group` listener since the zombienet workflows are\ncurrently _call_ from the `build` job.\nThis was causing failures like:\n\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/18858082286/job/53810567441\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/18786371402/job/53605598204\n\nThx!",
-          "timestamp": "2025-10-28T10:43:15Z",
-          "tree_id": "cb0bb8ef401c47d53816af0ad49c1b083abe874b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c483327ef1ef99340c3cd564fb43ce625a011934"
-        },
-        "date": 1761655460877,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.731218884499999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2059208574333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13673998786666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8ae2e6a47aef16e392b4a951b7165c87d9f1e75b",
+          "message": "Bump litep2p to 0.14.2 (#12358)\n\nBump litep2p to get latest [bitswap\nfixes](https://github.com/paritytech/litep2p/releases/tag/v0.14.2).",
+          "timestamp": "2026-06-12T19:51:10Z",
+          "tree_id": "b0a894727df7f6b92ddafe6ddc6fa4a932f2cb64",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8ae2e6a47aef16e392b4a951b7165c87d9f1e75b"
+        },
+        "date": 1781300917037,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.832861491433329,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13560670083333332,
             "unit": "seconds"
           }
         ]
