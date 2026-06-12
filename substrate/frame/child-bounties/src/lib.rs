@@ -809,7 +809,7 @@ pub mod pallet {
 
 			ensure!(maybe_sender.map_or(true, |sender| parent_curator == sender), BadOrigin);
 
-			Self::impl_close_child_bounty(parent_bounty_id, child_bounty_id)?;
+			Self::impl_close_child_bounty(parent_bounty_id, child_bounty_id, false)?;
 			Ok(())
 		}
 	}
@@ -891,9 +891,21 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// The worst-case weight of closing a single child-bounty via
+	/// [`Self::impl_close_child_bounty`].
+	fn close_one_child_bounty_weight() -> Weight {
+		<T as Config>::WeightInfo::close_child_bounty_active()
+			.max(<T as Config>::WeightInfo::close_child_bounty_added())
+	}
+
+	/// Close a single child-bounty, returning its funds to the parent account and clearing storage.
+	///
+	/// With `force` (parent bounty being awarded/closed) a `PendingPayout` child is also closed,
+	/// refunding its curator deposit; otherwise closing a `PendingPayout` child errors.
 	fn impl_close_child_bounty(
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: BountyIndex,
+		force: bool,
 	) -> DispatchResult {
 		ChildBounties::<T>::try_mutate_exists(
 			parent_bounty_id,
@@ -912,13 +924,14 @@ impl<T: Config> Pallet<T> {
 						let _ = T::Currency::unreserve(curator, child_bounty.curator_deposit);
 						// Then execute removal of the child-bounty below.
 					},
-					ChildBountyStatus::PendingPayout { .. } => {
-						// Child-bounty is already in pending payout. If parent
-						// curator or RejectOrigin wants to close this
-						// child-bounty, it should mean the child-bounty curator
-						// was acting maliciously. So first unassign the
-						// child-bounty curator, slashing their deposit.
-						return Err(BountiesError::<T>::PendingPayout.into());
+					ChildBountyStatus::PendingPayout { curator, .. } => {
+						// Normally pending payout must be unassigned first. When forced (parent
+						// being awarded/closed), refund the curator deposit and reclaim the funds.
+						if force {
+							let _ = T::Currency::unreserve(curator, child_bounty.curator_deposit);
+						} else {
+							return Err(BountiesError::<T>::PendingPayout.into());
+						}
 					},
 				}
 
@@ -994,16 +1007,25 @@ impl<T: Config> pallet_bounties::ChildBountyManager<BalanceOf<T>> for Pallet<T> 
 		ParentTotalChildBounties::<T>::remove(bounty_id);
 	}
 
-	/// Close all active child bounties for a parent bounty.
-	/// This is called when the parent bounty is being closed to ensure
-	/// no orphaned child bounties remain.
-	fn close_child_bounties(bounty_id: BountyIndex) -> DispatchResult {
-		// Check if there are any active child bounties
-		if ParentChildBounties::<T>::get(bounty_id) > 0 {
-			return Err(pallet_bounties::Error::<T>::HasActiveChildBounty.into());
+	/// Close every child-bounty of a parent bounty (forced, so `PendingPayout` children are closed
+	/// too), returning the actual weight consumed.
+	fn close_child_bounties(bounty_id: BountyIndex) -> Result<Weight, DispatchError> {
+		// Collect the ids first to avoid mutating the map while iterating it.
+		let child_bounty_ids: Vec<BountyIndex> =
+			ChildBounties::<T>::iter_key_prefix(bounty_id).collect();
+
+		let mut closed: u32 = 0;
+		for child_bounty_id in child_bounty_ids {
+			Self::impl_close_child_bounty(bounty_id, child_bounty_id, true)?;
+			closed = closed.saturating_add(1);
 		}
 
-		// No active child bounties, so nothing to close
-		Ok(())
+		Ok(Self::close_one_child_bounty_weight().saturating_mul(closed.into()))
+	}
+
+	/// Worst case of [`Self::close_child_bounties`]: closing `MaxActiveChildBountyCount` children.
+	fn close_child_bounties_max_weight() -> Weight {
+		Self::close_one_child_bounty_weight()
+			.saturating_mul(T::MaxActiveChildBountyCount::get().into())
 	}
 }

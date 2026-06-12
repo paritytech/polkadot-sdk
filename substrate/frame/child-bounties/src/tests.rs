@@ -1305,25 +1305,144 @@ fn close_parent_with_child_bounty() {
 
 		go_to_block(4);
 
-		// Try close parent-bounty.
-		// Child bounty active, can't close parent.
-		assert_noop!(
-			Bounties::close_bounty(RuntimeOrigin::root(), 0),
-			BountiesError::HasActiveChildBounty
-		);
-
-		// Close child-bounty.
-		assert_ok!(ChildBounties::close_child_bounty(RuntimeOrigin::root(), 0, 0));
-
-		// Check the child-bounty count.
-		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
-		assert_eq!(pallet_child_bounties::ParentTotalChildBounties::<Test>::get(0), 1);
-
-		// Try close parent-bounty again.
-		// Should pass this time.
+		// Closing the parent bounty now also closes its active child bounties instead of being
+		// blocked by them, so a curator can no longer prevent governance from closing the bounty.
 		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
 
-		// Check the total count is removed after the parent bounty removal.
+		// The child-bounty has been closed and removed.
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
+		assert!(pallet_child_bounties::ChildBounties::<Test>::get(0, 0).is_none());
+
+		// All child-bounty bookkeeping is removed after the parent bounty removal.
+		assert_eq!(pallet_child_bounties::ParentTotalChildBounties::<Test>::get(0), 0);
+		assert_eq!(pallet_child_bounties::ChildrenCuratorFees::<Test>::get(0), 0);
+	});
+}
+
+#[test]
+fn close_parent_with_active_child_bounty_refunds_child_curator() {
+	new_test_ext().execute_with(|| {
+		// Make the parent bounty.
+		go_to_block(1);
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+
+		// Bounty curators initial balance.
+		Balances::make_free_balance_be(&account_id(4), 101); // Parent-bounty curator.
+		Balances::make_free_balance_be(&account_id(8), 101); // Child-bounty curator.
+
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(account_id(0)),
+			50,
+			b"12345".to_vec()
+		));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+
+		go_to_block(2);
+
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+
+		// Add a child-bounty and bring it to the `Active` state with an accepted curator, so a
+		// curator deposit is reserved.
+		assert_ok!(ChildBounties::add_child_bounty(
+			RuntimeOrigin::signed(account_id(4)),
+			0,
+			10,
+			b"12345-p1".to_vec()
+		));
+		assert_ok!(ChildBounties::propose_curator(
+			RuntimeOrigin::signed(account_id(4)),
+			0,
+			0,
+			account_id(8),
+			2
+		));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(8)), 0, 0));
+
+		// Child curator deposit is reserved and the child-bounty is tracked.
+		let expected_child_deposit = CuratorDepositMin::get();
+		assert_eq!(Balances::reserved_balance(account_id(8)), expected_child_deposit);
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 1);
+		assert_eq!(pallet_child_bounties::ChildrenCuratorFees::<Test>::get(0), 2);
+
+		go_to_block(4);
+
+		// Governance closes the parent bounty. The active child-bounty is closed as part of the
+		// operation instead of blocking it, so a curator can no longer hold governance hostage.
+		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+
+		// Child curator deposit is refunded.
+		assert_eq!(Balances::reserved_balance(account_id(8)), 0);
+		assert_eq!(Balances::free_balance(account_id(8)), 101);
+
+		// The child-bounty and all of its bookkeeping are removed.
+		assert!(pallet_child_bounties::ChildBounties::<Test>::get(0, 0).is_none());
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
+		assert_eq!(pallet_child_bounties::ParentTotalChildBounties::<Test>::get(0), 0);
+		assert_eq!(pallet_child_bounties::ChildrenCuratorFees::<Test>::get(0), 0);
+
+		// The parent bounty is removed.
+		assert!(pallet_bounties::Bounties::<Test>::get(0).is_none());
+	});
+}
+
+#[test]
+fn award_parent_with_active_child_bounty_closes_children() {
+	new_test_ext().execute_with(|| {
+		// Make the parent bounty.
+		go_to_block(1);
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+
+		Balances::make_free_balance_be(&account_id(4), 101); // Parent-bounty curator.
+		Balances::make_free_balance_be(&account_id(8), 101); // Child-bounty curator.
+
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(account_id(0)),
+			50,
+			b"12345".to_vec()
+		));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+
+		go_to_block(2);
+
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+
+		// Add an active child-bounty with an accepted curator.
+		assert_ok!(ChildBounties::add_child_bounty(
+			RuntimeOrigin::signed(account_id(4)),
+			0,
+			10,
+			b"12345-p1".to_vec()
+		));
+		assert_ok!(ChildBounties::propose_curator(
+			RuntimeOrigin::signed(account_id(4)),
+			0,
+			0,
+			account_id(8),
+			2
+		));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(8)), 0, 0));
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 1);
+
+		go_to_block(4);
+
+		// The parent curator awards the parent bounty. The active child-bounty is closed instead
+		// of blocking the award, refunding the child curator deposit and returning its funds to
+		// the parent bounty account.
+		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(account_id(4)), 0, account_id(9)));
+
+		// Child-bounty closed and child curator deposit refunded.
+		assert_eq!(Balances::reserved_balance(account_id(8)), 0);
+		assert!(pallet_child_bounties::ChildBounties::<Test>::get(0, 0).is_none());
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
+		// The reclaimed child fee no longer reduces the parent curator fee on claim.
+		assert_eq!(pallet_child_bounties::ChildrenCuratorFees::<Test>::get(0), 0);
+
+		// The parent bounty is now pending payout and can be claimed after the delay.
+		go_to_block(9);
+		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(account_id(9)), 0));
+		assert!(pallet_bounties::Bounties::<Test>::get(0).is_none());
 		assert_eq!(pallet_child_bounties::ParentTotalChildBounties::<Test>::get(0), 0);
 	});
 }
@@ -1538,7 +1657,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 
 		// Case 3: Upper Limit
 		// Close a child bounty to make room for the next one (MaxActiveChildBountyCount = 2)
-		assert_ok!(ChildBounties::impl_close_child_bounty(parent_index, 0));
+		assert_ok!(ChildBounties::impl_close_child_bounty(parent_index, 0, false));
 
 		let child_index = 2;
 		let child_curator = account_id(2);
@@ -1571,7 +1690,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 		assert_eq!(Balances::reserved_balance(child_curator), expected_deposit);
 
 		// There is a max number of child bounties at a time.
-		assert_ok!(ChildBounties::impl_close_child_bounty(parent_index, child_index));
+		assert_ok!(ChildBounties::impl_close_child_bounty(parent_index, child_index, false));
 
 		// Case 4: Lower Limit
 
