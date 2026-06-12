@@ -19,23 +19,42 @@
 //! DHT-targeted gossip path for the statement protocol.
 
 mod explicit_affinity;
+pub mod peers_topology;
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use explicit_affinity::ExplicitAffinity;
+use peers_topology::{PeersTopology, PeersTopologyConfig};
 use sc_network_types::PeerId;
 use sp_statement_store::{SubmitResult, Topic};
 
 /// Coordinates the v2 DHT-affinity statement gossip path.
 #[allow(dead_code)]
 pub(crate) struct V2DhtOrchestrator {
+	/// Local view of statement-store peers known and connected through network topology events.
+	peers_topology: PeersTopology,
 	/// Tracks the local node's topic affinity and the filters peers advertise.
 	explicit_affinity: ExplicitAffinity,
 }
 
 #[allow(dead_code)]
 impl V2DhtOrchestrator {
-	pub(crate) fn new(configured_topics: &[Topic]) -> Self {
-		Self { explicit_affinity: ExplicitAffinity::new(configured_topics) }
+	pub(crate) fn new(
+		configured_topics: &[Topic],
+		local_peer: PeerId,
+		peers_topology_config: PeersTopologyConfig,
+	) -> Self {
+		Self {
+			peers_topology: PeersTopology::new(local_peer, peers_topology_config),
+			explicit_affinity: ExplicitAffinity::new(configured_topics),
+		}
+	}
+
+	pub(crate) fn on_peers_discovered(&mut self, peers: impl IntoIterator<Item = PeerId>) {
+		self.peers_topology.on_peers_discovered(peers);
+	}
+
+	pub(crate) fn on_peer_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
+		self.peers_topology.on_peer_identified(peer, supports_statement_protocol);
 	}
 
 	// === Peer-set events ===
@@ -58,13 +77,13 @@ impl V2DhtOrchestrator {
 	}
 
 	pub(crate) fn on_substream_opened(&mut self, peer: PeerId) {
-		// TODO: we may need it for the topology or explicit affinity, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_substream_opened {peer} (stub)");
+		self.peers_topology.on_substream_opened(peer);
+		log::trace!(target: LOG_TARGET, "v2dht: on_substream_opened {peer}");
 	}
 
 	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
-		// TODO: we may need it for the topology or explicit affinity, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_substream_closed {peer} (stub)");
+		self.peers_topology.on_substream_closed(peer);
+		log::trace!(target: LOG_TARGET, "v2dht: on_substream_closed {peer}");
 	}
 
 	pub(crate) fn on_peer_filter_update(&mut self, peer: PeerId, _filter: AffinityFilter) {
