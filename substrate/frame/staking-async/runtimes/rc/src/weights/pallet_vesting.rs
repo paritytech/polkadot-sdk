@@ -259,4 +259,72 @@ impl<T: frame_system::Config> pallet_vesting::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+	/// Storage: `Vesting::Vesting` (r:1 w:1)
+	/// Proof: `Vesting::Vesting` (`max_values`: None, `max_size`: Some(1057), added: 3532, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Locks` (r:1 w:1)
+	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Freezes` (r:1 w:0)
+	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
+	/// The range of component `l` is `[0, 49]`.
+	/// The range of component `s` is `[0, 27]`.
+	/// Storage: `Vesting::Vesting` (r:1 w:1)
+	/// Proof: `Vesting::Vesting` (`max_values`: None, `max_size`: Some(1057), added: 3532, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Locks` (r:1 w:1)
+	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Freezes` (r:1 w:0)
+	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
+	/// The range of component `l` is `[0, 49]`.
+	/// The range of component `s` is `[0, 27]`.
+	fn add_to_vesting_create(l: u32, s: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `622 + l * (25 ±0) + s * (36 ±0)`
+		//  Estimated: `6196`
+		// Minimum execution time: 79_181_000 picoseconds.
+		Weight::from_parts(80_987_537, 0)
+			.saturating_add(Weight::from_parts(0, 6196))
+			// Standard Error: 1_071
+			.saturating_add(Weight::from_parts(36_318, 0).saturating_mul(l.into()))
+			// Standard Error: 1_905
+			.saturating_add(Weight::from_parts(93_931, 0).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(4))
+	}
+	/// Storage: `Vesting::Vesting` (r:1 w:1)
+	/// Proof: `Vesting::Vesting` (`max_values`: None, `max_size`: Some(1057), added: 3532, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Locks` (r:1 w:1)
+	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Freezes` (r:1 w:0)
+	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
+	/// The range of component `l` is `[0, 49]`.
+	/// The range of component `s` is `[1, 28]`.
+	/// Storage: `Vesting::Vesting` (r:1 w:1)
+	/// Proof: `Vesting::Vesting` (`max_values`: None, `max_size`: Some(1057), added: 3532, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Locks` (r:1 w:1)
+	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Freezes` (r:1 w:0)
+	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
+	/// The range of component `l` is `[0, 49]`.
+	/// The range of component `s` is `[1, 28]`.
+	fn add_to_vesting_merge(l: u32, s: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `622 + l * (25 ±0) + s * (36 ±0)`
+		//  Estimated: `6196`
+		// Minimum execution time: 74_699_000 picoseconds.
+		Weight::from_parts(75_019_617, 0)
+			.saturating_add(Weight::from_parts(0, 6196))
+			// Standard Error: 919
+			.saturating_add(Weight::from_parts(38_529, 0).saturating_mul(l.into()))
+			// Standard Error: 1_636
+			.saturating_add(Weight::from_parts(69_985, 0).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(4))
+	}
 }

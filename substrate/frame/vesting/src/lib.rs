@@ -64,7 +64,7 @@ use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
-	storage::bounded_vec::BoundedVec,
+	storage::{bounded_vec::BoundedVec, with_storage_layer},
 	traits::{
 		Currency, ExistenceRequirement, Get, LockIdentifier, LockableCurrency, VestedTransfer,
 		VestingSchedule, WithdrawReasons,
@@ -832,20 +832,23 @@ where
 		if let Some(idx) = schedules.iter().position(|s| s.starting_block() == start_at) {
 			// A schedule exists for "start_at", so we merge the incoming schedule with the existing
 			// one, while intentionally not enforcing "MinVestedTransfer" since per-era amounts
-			// may be sub-minimum.
-			T::Currency::transfer(source, dest, amount, ExistenceRequirement::AllowDeath)?;
+			// may be sub-minimum. A storage layer is used to treat the whole set of operations
+			// as a single transaction, that gets rolled back atomically in case of errors.
+			with_storage_layer(|| {
+				T::Currency::transfer(source, dest, amount, ExistenceRequirement::AllowDeath)?;
 
-			// Merge the incoming schedule with the existing one.
-			let mut schedules = schedules.to_vec();
-			schedules[idx] =
-				Self::merge_vesting_info_preserving_start(now, schedules[idx], incoming);
+				// Merge the incoming schedule with the existing one.
+				let mut schedules = schedules.to_vec();
+				schedules[idx] =
+					Self::merge_vesting_info_preserving_start(now, schedules[idx], incoming);
 
-			// Clean up.
-			let (schedules, locked_now) = Self::exec_action(schedules, VestingAction::Passive)?;
-			Self::write_vesting(dest, schedules)?;
-			Self::write_lock(dest, locked_now);
+				// Clean up.
+				let (schedules, locked_now) = Self::exec_action(schedules, VestingAction::Passive)?;
+				Self::write_vesting(dest, schedules)?;
+				Self::write_lock(dest, locked_now);
 
-			Ok(())
+				Ok(())
+			})
 		} else {
 			// No schedule exists for "start_at", so we create a new one.
 			Self::do_vested_transfer(source, dest, incoming, T::MAX_VESTING_SCHEDULES)

@@ -273,6 +273,18 @@ impl<T: frame_system::Config> pallet_vesting::WeightInfo for WeightInfo<T> {
 	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(103), added: 2578, mode: `MaxEncodedLen`)
 	/// The range of component `l` is `[0, 49]`.
 	/// The range of component `s` is `[0, 99]`.
+	/// Storage: `ParachainSystem::ValidationData` (r:1 w:0)
+	/// Proof: `ParachainSystem::ValidationData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Vesting::Vesting` (r:1 w:1)
+	/// Proof: `Vesting::Vesting` (`max_values`: None, `max_size`: Some(3650), added: 6125, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Locks` (r:1 w:1)
+	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Freezes` (r:1 w:0)
+	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(103), added: 2578, mode: `MaxEncodedLen`)
+	/// The range of component `l` is `[0, 49]`.
+	/// The range of component `s` is `[0, 99]`.
 	fn add_to_vesting_create(l: u32, s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `3090 + l * (25 ±0) + s * (36 ±0)`
@@ -289,6 +301,18 @@ impl<T: frame_system::Config> pallet_vesting::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 25).saturating_mul(l.into()))
 			.saturating_add(Weight::from_parts(0, 36).saturating_mul(s.into()))
 	}
+	/// Storage: `ParachainSystem::ValidationData` (r:1 w:0)
+	/// Proof: `ParachainSystem::ValidationData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Vesting::Vesting` (r:1 w:1)
+	/// Proof: `Vesting::Vesting` (`max_values`: None, `max_size`: Some(3650), added: 6125, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Locks` (r:1 w:1)
+	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Freezes` (r:1 w:0)
+	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(103), added: 2578, mode: `MaxEncodedLen`)
+	/// The range of component `l` is `[0, 49]`.
+	/// The range of component `s` is `[1, 100]`.
 	/// Storage: `ParachainSystem::ValidationData` (r:1 w:0)
 	/// Proof: `ParachainSystem::ValidationData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Vesting::Vesting` (r:1 w:1)
