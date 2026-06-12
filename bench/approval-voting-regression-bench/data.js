@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781210664313,
+  "lastUpdate": 1781280111095,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "326b298c22245db223be65b7ced66fbb92f1db5b",
-          "message": "Introduce `unapplied_slashes_v2` Runtime API (#9798)\n\nThis PR deprecates the `unapplied_slashes` Runtime API. It was broken in\nhttps://github.com/paritytech/polkadot-sdk/pull/9443#issuecomment-3326683056.\nWe need do fix it by using the legacy `PendingSlashes` primitive so we\ndon't break older nodes.\n\nAlso introduce the new `unapplied_slashes_v2` API that makes use of the\nnew primitive.\n\nStill TODO:\n- [x] switch `dispute-coordinator` to use `unapplied_slashes_v2`\n- [x] cumulus compatibility fix\n- [x] fix tests\n- [x] locally double check old nodes still work\n- [x] prdoc\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: Overkillus <maciej.zyszkiewicz@parity.io>",
-          "timestamp": "2025-10-24T15:18:37Z",
-          "tree_id": "2159351e1e493a1f18bf58c9cc307de458b3c1cd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/326b298c22245db223be65b7ced66fbb92f1db5b"
-        },
-        "date": 1761326392605,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63629.9,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52940.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.0000197418,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.43151459218,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.456260361120002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7206889809108867,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001954656,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.0000197418,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.415434840100002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001954656,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005658804900000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.119662890590007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4214136569400027,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9468868560699992,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4424937792800021,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution/test-environment",
             "value": 0.00002103407,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1527017+eskimor@users.noreply.github.com",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "968eaa447002e599ee1c9deac6d41eca230204ae",
+          "message": "Move storage design to web3-storage repo (#12355)\n\nThe design should live along-side its implementation. A bit dumb, that I\nrealize this after the merge, but anyways. Here we go. The design was\nalready copied to the implementation repo and this is also where it\nshould belong. Removing it here.\n\nhttps://github.com/paritytech/web3-storage/pull/170",
+          "timestamp": "2026-06-12T14:22:44Z",
+          "tree_id": "e41a81390ff4e6d2439bafa13a093082b5ff44c4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/968eaa447002e599ee1c9deac6d41eca230204ae"
+        },
+        "date": 1781280083717,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63598.69,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.38508591394274,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.79718340465,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002240374,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7188961124599986,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.201503231819938,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000022086830000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000022086830000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002240374,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005360735140000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.790007022820001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7573555371199996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4050229661400016,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7276774534899404,
             "unit": "seconds"
           }
         ]
