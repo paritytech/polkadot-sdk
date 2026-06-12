@@ -93,6 +93,12 @@ jobs:
         run: |
           echo '${{ toJson(matrix.test.additional-env) }}' | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
 
+      - name: Download old release binaries
+        if: ${{ matrix.test.download-old-binaries }}
+        uses: ./.github/actions/download-old-release-binaries
+        with:
+          release-version: ${{ matrix.test.download-old-binaries }}
+
       - name: Additional setup
         if: ${{ matrix.test.additional-setup }}
         shell: bash

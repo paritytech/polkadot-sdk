@@ -37,25 +37,7 @@
   test-filter: "functional::chunk_fetching_network_compatibility::chunk_fetching_network_compatibility_test"
   runner-type: "default"
 
-  additional-setup: |
-    BIN_DIR="$(pwd)/bin_old"
-    mkdir -p $BIN_DIR
-    for bin in polkadot polkadot-parachain; do
-      OLD_NAME="$bin-old"
-      echo "downloading $bin as $OLD_NAME in $BIN_DIR";
-      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-v1.7.0/$bin
-      chmod 755 $BIN_DIR/$OLD_NAME;
-    done
-    for bin in polkadot-execute-worker polkadot-prepare-worker; do
-      OLD_NAME="$bin"
-      echo "downloading $bin as $OLD_NAME in $BIN_DIR";
-      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-v1.7.0/$bin
-      chmod 755 $BIN_DIR/$OLD_NAME;
-    done
-    ls -ltr $BIN_DIR
-    export PATH=$BIN_DIR:$PATH
-    echo "PATH=$PATH" >> $GITHUB_ENV
-    echo "OLD_SUFFIX=-old" >> $GITHUB_ENV
+  download-old-binaries: "polkadot-v1.7.0"
   additional-env:
     OLD_SUFFIX: "-old"
 
@@ -172,24 +154,7 @@
 - job-name: "zombienet-polkadot-approved-peer-mixed-validators"
   test-filter: "functional::approved_peer_mixed_validators::approved_peer_mixed_validators_test"
   cumulus-image: "colander"
-  additional-setup: |
-    BIN_DIR="$(pwd)/bin_old"
-    mkdir -p $BIN_DIR
-    for bin in polkadot polkadot-parachain; do
-      OLD_NAME="$bin-old"
-      echo "downloading $bin as $OLD_NAME in $BIN_DIR";
-      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2503/$bin
-      chmod 755 $BIN_DIR/$OLD_NAME;
-    done
-    for bin in polkadot-execute-worker polkadot-prepare-worker; do
-      OLD_NAME="$bin"
-      echo "downloading $bin as $OLD_NAME in $BIN_DIR";
-      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2503/$bin
-      chmod 755 $BIN_DIR/$OLD_NAME;
-    done
-    ls -ltr $BIN_DIR
-    export PATH=$BIN_DIR:$PATH
-    echo "PATH=$PATH" >> $GITHUB_ENV
+  download-old-binaries: "polkadot-stable2503"
   additional-env:
     OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
     OLD_POLKADOT_COMMAND: "polkadot-old"

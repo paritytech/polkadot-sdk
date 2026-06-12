@@ -1,0 +1,36 @@
+name: "Download old release binaries"
+description: "Downloads polkadot, polkadot-parachain, polkadot-execute-worker, and polkadot-prepare-worker from a specific release"
+
+inputs:
+  release-version:
+    description: "Release version to download from (tag name)"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Download binaries
+      shell: bash
+      run: |
+        BIN_DIR="$(pwd)/bin_old"
+        mkdir -p "$BIN_DIR"
+
+        echo "Downloading binaries from release ${{ inputs.release-version }} into $BIN_DIR"
+
+        # Download and rename with -old suffix
+        for bin in polkadot polkadot-parachain; do
+          OLD_NAME="$bin-old"
+          echo "downloading $bin as $OLD_NAME in $BIN_DIR";
+          curl --retry 3 -fL -o "$BIN_DIR/$OLD_NAME" "https://github.com/paritytech/polkadot-sdk/releases/download/${{ inputs.release-version }}/$bin"
+          chmod 755 "$BIN_DIR/$OLD_NAME";
+        done
+
+        # Download without renaming
+        for bin in polkadot-execute-worker polkadot-prepare-worker; do
+          echo "downloading $bin in $BIN_DIR";
+          curl --retry 3 -fL -o "$BIN_DIR/$bin" "https://github.com/paritytech/polkadot-sdk/releases/download/${{ inputs.release-version }}/$bin"
+          chmod 755 "$BIN_DIR/$bin";
+        done
+
+        ls -ltr "$BIN_DIR"
+        echo "$BIN_DIR" >> $GITHUB_PATH
