@@ -1465,7 +1465,7 @@ fn add_to_vesting_merge_path_preserves_starting_block_and_accumulates() {
 		assert_eq!(schedules[0].starting_block(), start_at);
 
 		// Calculate the expected locked amount after the merge.
-		let per_block = (amount1 + duration - 1) / duration;
+		let per_block = amount1.div_ceil(duration);
 		let expected_locked_now = (amount1 - (schedule2_block - start_at) * per_block) + amount2;
 
 		assert_eq!(

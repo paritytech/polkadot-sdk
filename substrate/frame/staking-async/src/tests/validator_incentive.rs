@@ -693,6 +693,227 @@ fn vesting_epoch_start_unchanged_between_boundaries() {
 }
 
 #[test]
+fn incentive_creates_vesting_schedule_end_to_end() {
+	// E2E: with VestingBondingPeriods > 0, paying out an era must create a vesting
+	// schedule on the validator's stash with the full incentive amount locked.
+	// This test exercises the `add_to_vesting_create` path.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+
+		VestingBondingPeriods::set(1);
+		setup_incentive_with_budget(45, 5);
+
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		// GIVEN: alice has no vesting schedule yet.
+		assert!(pallet_vesting::Vesting::<Test>::get(alice).is_none());
+
+		// WHEN: payout era 2.
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// THEN: incentive was paid (not dropped).
+		let incentive = incentive_paid_for(alice, &events).expect("incentive should be paid");
+		assert!(incentive > 0);
+		assert!(!events.iter().any(|e| matches!(e, Event::ValidatorIncentiveDropped { .. })));
+
+		// THEN: a single vesting schedule exists for alice with the full incentive locked
+		// and starting at the current VestingEpochStart.
+		let schedules =
+			pallet_vesting::Vesting::<Test>::get(alice).expect("vesting schedule expected");
+		assert_eq!(schedules.len(), 1);
+		assert_eq!(schedules[0].locked(), incentive);
+		assert_eq!(schedules[0].starting_block(), VestingEpochStart::<Test>::get().unwrap());
+	});
+}
+
+#[test]
+fn incentive_merges_into_existing_vesting_schedule_within_epoch() {
+	// E2E: two consecutive payouts inside the same bonding-duration epoch must
+	// merge into the same vesting schedule - the `add_to_vesting_merge` path.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+
+		VestingBondingPeriods::set(1);
+		setup_incentive_with_budget(45, 5);
+
+		// First payout: creates the schedule.
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		make_all_reward_payment(2);
+		let first_events = staking_events_since_last_call();
+		assert!(incentive_paid_for(alice, &first_events).unwrap() > 0);
+		let epoch_start = VestingEpochStart::<Test>::get().unwrap();
+
+		// Second payout for an era within the same epoch (BondingDuration = 3, so eras 3-5
+		// share an epoch — no boundary crossing yet).
+		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		Session::roll_until_active_era(4);
+		let _ = staking_events_since_last_call();
+		assert_eq!(
+			VestingEpochStart::<Test>::get().unwrap(),
+			epoch_start,
+			"epoch start must be unchanged within the same bonding window"
+		);
+
+		make_all_reward_payment(3);
+		let second_events = staking_events_since_last_call();
+		let second_incentive = incentive_paid_for(alice, &second_events).unwrap();
+		assert!(second_incentive > 0);
+
+		// THEN: still one schedule (merge path was taken, not create) and its
+		// starting_block is unchanged. The `locked` field is intentionally not asserted
+		// because `merge_vesting_info_preserving_start` back-calculates it from
+		// `target_locked_now + per_block * elapsed`, which differs from the simple sum.
+		let schedules = pallet_vesting::Vesting::<Test>::get(alice).unwrap();
+		assert_eq!(schedules.len(), 1, "second payout should merge, not create");
+		assert_eq!(schedules[0].starting_block(), epoch_start);
+	});
+}
+
+#[test]
+fn incentive_dropped_at_max_vesting_schedules() {
+	// Vesting schedule cap test: when an account is already at MAX_VESTING_SCHEDULES, a
+	// payout that would create a new schedule instead drops the incentive completely.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+		VestingBondingPeriods::set(1);
+		setup_incentive_with_budget(45, 5);
+
+		// Pre-populate alice with MAX_VESTING_SCHEDULES schedules. Starting blocks are unique
+		// and in the past so the upcoming payout takes the create path (not merge) and trips
+		// the cap check.
+		let max = <Test as pallet_vesting::Config>::MAX_VESTING_SCHEDULES;
+		let existing: Vec<_> = (0..max)
+			.map(|i| pallet_vesting::VestingInfo::new(1u128, 1u128, (i + 1) as BlockNumber))
+			.collect();
+		let bounded: frame_support::BoundedVec<_, _> = existing.try_into().unwrap();
+		pallet_vesting::Vesting::<Test>::insert(alice, bounded);
+
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// THEN: incentive dropped, no Paid event, schedule count unchanged.
+		assert!(events.iter().any(|e| matches!(e, Event::ValidatorIncentiveDropped { .. })));
+		assert!(!events.iter().any(|e| matches!(e, Event::ValidatorIncentivePaid { .. })));
+		assert_eq!(pallet_vesting::Vesting::<Test>::get(alice).unwrap().len(), max as usize);
+	});
+}
+
+#[test]
+fn vested_incentive_is_locked_immediately_after_payout() {
+	// Core security guarantee: after a vested payout, the incentive is locked
+	// by the vesting schedule and not spendable. A custom destination is used
+	// so no staking lock interferes with the assertion.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+		let recipient = 999;
+
+		assert_ok!(Staking::set_payee(
+			RuntimeOrigin::signed(alice),
+			RewardDestination::Account(recipient)
+		));
+
+		VestingBondingPeriods::set(1);
+		setup_incentive_with_budget(45, 5);
+
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		let free_before = Balances::free_balance(&recipient);
+		let usable_before = Balances::usable_balance(&recipient);
+
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+		let incentive = incentive_paid_for(alice, &events).expect("incentive");
+		let staker_reward = staker_reward_for(alice, &events).expect("staker reward");
+
+		// Schedule landed on recipient with the full incentive locked.
+		let schedules = pallet_vesting::Vesting::<Test>::get(recipient).expect("schedule");
+		assert_eq!(schedules.len(), 1);
+		assert_eq!(schedules[0].locked(), incentive);
+
+		// Free balance grew by both rewards; usable balance only by the liquid staker portion
+		// (the incentive is locked by the vesting schedule).
+		assert_eq!(Balances::free_balance(&recipient), free_before + staker_reward + incentive);
+		assert_eq!(Balances::usable_balance(&recipient), usable_before + staker_reward);
+
+		// Transferring more than the unlocked portion must fail — the vesting lock prevents
+		// the incentive from being spent before it vests.
+		assert!(
+			Balances::transfer_allow_death(
+				RuntimeOrigin::signed(recipient),
+				alice,
+				usable_before + staker_reward + 1,
+			)
+			.is_err(),
+			"transfer exceeding the unlocked portion should fail due to the vesting lock"
+		);
+	});
+}
+
+#[test]
+fn cross_epoch_payouts_create_distinct_vesting_schedules() {
+	// Per-epoch design check: payouts that span a bonding-duration boundary must land in
+	// distinct schedules, given that`VestingEpochStart` advances after crossing the boundary.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+		// Use 2 bonding periods so the schedule outlives the first boundary crossing
+		// (with 1 the schedule fully vests within one bonding window and gets pruned).
+		// This also mirrors production, where vesting duration spans many bonding windows.
+		VestingBondingPeriods::set(2);
+		setup_incentive_with_budget(45, 5);
+
+		// Reward eras 2 and 3 — both need to be claimable later.
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		Session::roll_until_active_era(3);
+		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		let _ = staking_events_since_last_call();
+
+		let epoch1_start = VestingEpochStart::<Test>::get().unwrap();
+
+		// First payout creates the era-3-epoch schedule.
+		make_all_reward_payment(2);
+		let _ = staking_events_since_last_call();
+		let after_first = pallet_vesting::Vesting::<Test>::get(alice).unwrap();
+		assert_eq!(after_first.len(), 1);
+		assert_eq!(after_first[0].starting_block(), epoch1_start);
+
+		// Cross the next bonding-duration boundary (era 6 in the mock, BondingDuration = 3).
+		Session::roll_until_active_era(6);
+		let _ = staking_events_since_last_call();
+		let epoch2_start = VestingEpochStart::<Test>::get().unwrap();
+		assert!(epoch2_start > epoch1_start, "VestingEpochStart should advance across boundary");
+
+		// Second payout uses the new VestingEpochStart → create, not merge.
+		make_all_reward_payment(3);
+		let _ = staking_events_since_last_call();
+		let after_second = pallet_vesting::Vesting::<Test>::get(alice).unwrap();
+		assert_eq!(
+			after_second.len(),
+			2,
+			"crossing the bonding-duration boundary should produce a distinct schedule"
+		);
+		assert!(after_second.iter().any(|s| s.starting_block() == epoch1_start));
+		assert!(after_second.iter().any(|s| s.starting_block() == epoch2_start));
+	});
+}
+
+#[test]
 fn incentive_dropped_event_not_emitted_on_success() {
 	// On a successful payout, ValidatorIncentiveDropped must NOT be emitted.
 	ExtBuilder::default().build_and_execute(|| {

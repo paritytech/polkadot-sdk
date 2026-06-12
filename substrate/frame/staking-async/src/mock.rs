@@ -55,6 +55,7 @@ frame_support::construct_runtime!(
 		Dap: pallet_dap,
 		Staking: pallet_staking_async,
 		VoterBagsList: pallet_bags_list::<Instance1>,
+		Vesting: pallet_vesting,
 	}
 );
 
@@ -113,6 +114,46 @@ impl pallet_balances::Config for Test {
 	type Balance = u128;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+}
+
+parameter_types! {
+	pub const MinVestedTransfer: Balance = 1;
+	pub UnvestedFundsAllowedWithdrawReasons: frame_support::traits::WithdrawReasons =
+		frame_support::traits::WithdrawReasons::except(
+			frame_support::traits::WithdrawReasons::TRANSFER |
+				frame_support::traits::WithdrawReasons::RESERVE,
+		);
+}
+
+impl pallet_vesting::Config for Test {
+	type BlockNumberToBalance = sp_runtime::traits::ConvertInto;
+	type Currency = Balances;
+	type RuntimeEvent = RuntimeEvent;
+	const MAX_VESTING_SCHEDULES: u32 = 28;
+	type MinVestedTransfer = MinVestedTransfer;
+	type WeightInfo = ();
+	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type BlockNumberProvider = System;
+}
+
+/// Test adapter that picks the liquid or vested incentive payout path based on `duration`.
+pub struct MockIncentivePayout;
+impl ValidatorIncentivePayout<AccountId, Balance, BlockNumber> for MockIncentivePayout {
+	fn pay(
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Balance,
+		start_at: BlockNumber,
+		duration: BlockNumber,
+	) -> sp_runtime::DispatchResult {
+		if duration.is_zero() {
+			LiquidIncentivePayout::<Balances>::pay(source, dest, amount, start_at, duration)
+		} else {
+			VestedIncentivePayout::<Balances, Vesting>::pay(
+				source, dest, amount, start_at, duration,
+			)
+		}
+	}
 }
 
 parameter_types! {
@@ -564,7 +605,7 @@ impl Config for Test {
 	type VestingBondingPeriods = VestingBondingPeriods;
 	type BlocksPerSession = Period;
 	type VestingBlockNumberProvider = frame_system::Pallet<Test>;
-	type ValidatorIncentivePayout = LiquidIncentivePayout<Balances>;
+	type ValidatorIncentivePayout = MockIncentivePayout;
 	type WeightInfo = ();
 }
 
