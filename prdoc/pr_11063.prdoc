@@ -1,0 +1,16 @@
+title: 'fix(pallet-broker): Make benchmarks PriceAdapter-agnostic'
+doc:
+- audience: Runtime Dev
+  description: |
+    The `pallet-broker` benchmarks previously hard-coded the price computation of
+    the `Linear` price adapter (via a `get_start_end_price` helper that called
+    `leadin_factor_at` and `adapt_price` directly). This caused the benchmark
+    assertions to fail for runtimes configured with a different `PriceAdapter`
+    implementation. The benchmarks now derive the expected sale prices from the
+    actual `SaleInfo` produced by `do_start_sales`, using `Pallet::sale_price`,
+    so they are correct for any `PriceAdapter`. This only touches benchmarking
+    code gated behind the `runtime-benchmarks` feature; runtime behaviour is
+    unchanged.
+crates:
+- name: pallet-broker
+  bump: none
