@@ -31,10 +31,7 @@ mod benchmarks {
 	#[benchmark]
 	fn request_revenue_at() {
 		// Ensure broker parachain is reachable for XCM delivery
-		<T as Config>::SendXcm::ensure_successful_delivery(Some(Location::new(
-			0,
-			[Junction::Parachain(T::BrokerId::get())],
-		)));
+		Pallet::<T>::ensure_broker_parachain_reachable();
 
 		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
 		let mhr = <T as on_demand::Config>::MaxHistoricalRevenue::get();
@@ -63,10 +60,7 @@ mod benchmarks {
 	#[benchmark]
 	fn request_core_count() {
 		// Ensure broker parachain is reachable for XCM delivery
-		<T as Config>::SendXcm::ensure_successful_delivery(Some(Location::new(
-			0,
-			[Junction::Parachain(T::BrokerId::get())],
-		)));
+		Pallet::<T>::ensure_broker_parachain_reachable();
 
 		// Setup
 		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
@@ -82,10 +76,7 @@ mod benchmarks {
 	#[benchmark]
 	fn assign_core(s: Linear<1, 100>) {
 		// Ensure broker parachain is reachable for XCM delivery
-		<T as Config>::SendXcm::ensure_successful_delivery(Some(Location::new(
-			0,
-			[Junction::Parachain(T::BrokerId::get())],
-		)));
+		Pallet::<T>::ensure_broker_parachain_reachable();
 
 		// Setup
 		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
@@ -118,10 +109,7 @@ mod benchmarks {
 	#[benchmark]
 	fn credit_account() {
 		// Ensure broker parachain is reachable for XCM delivery
-		<T as Config>::SendXcm::ensure_successful_delivery(Some(Location::new(
-			0,
-			[Junction::Parachain(T::BrokerId::get())],
-		)));
+		Pallet::<T>::ensure_broker_parachain_reachable();
 
 		// Setup
 		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
