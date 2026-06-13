@@ -136,7 +136,7 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 		&relay_client,
 		relay_blocks_count,
 		HashMap::from([
-			(para_v2, relay_blocks_count * 0.9..relay_blocks_count + 1),
+			(para_v2, relay_blocks_count * 9 / 10..relay_blocks_count + 1),
 			(para_v3, expected_throughput_v3),
 		]),
 		|receipt| {
