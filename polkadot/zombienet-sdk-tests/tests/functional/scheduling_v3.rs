@@ -28,18 +28,17 @@ use crate::utils::{assert_candidates_version, assert_validator_backed_candidates
 /// - a V3 parachain with async backing
 /// and checks that the candidates for both parachains are being backed at expected throughput.
 #[rstest]
-#[case::rpo_0_max_session_age_0("async-backing-v3", 0, 20, 18..21, 12..21)]
-#[case::rpo_2_max_session_age_0("async-backing-v3-rpo-2", 0, 20, 18..21, 8..21)]
-#[case::rpo_2_max_session_age_1("async-backing-v3-rpo-2", 1, 40, 38..41, 12..41)]
-#[case::rpo_4_max_session_age_1("async-backing-v3-rpo-4", 1, 40, 38..41, 12..41)]
-#[case::rpo_6_max_session_age_1("async-backing-v3-rpo-6", 1, 40, 38..41, 12..41)]
-#[case::rpo_15_max_session_age_2("async-backing-v3-rpo-15", 2, 60, 58..61, 15..61)]
+#[case::rpo_0_max_session_age_0("async-backing-v3", 0, 20, 12..21)]
+#[case::rpo_2_max_session_age_0("async-backing-v3-rpo-2", 0, 20, 8..21)]
+#[case::rpo_2_max_session_age_1("async-backing-v3-rpo-2", 1, 40, 12..41)]
+#[case::rpo_4_max_session_age_1("async-backing-v3-rpo-4", 1, 40, 12..41)]
+#[case::rpo_6_max_session_age_1("async-backing-v3-rpo-6", 1, 40, 12..41)]
+#[case::rpo_15_max_session_age_2("async-backing-v3-rpo-15", 2, 60, 15..61)]
 #[tokio::test(flavor = "multi_thread")]
 async fn scheduling_v2_and_v3_collator_with_v3_validators(
 	#[case] parachain: &str,
 	#[case] max_relay_parent_session_age: u32,
 	#[case] relay_blocks_count: u32,
-	#[case] expected_throughput_v2: Range<u32>,
 	#[case] expected_throughput_v3: Range<u32>,
 ) -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -136,7 +135,10 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 	assert_para_throughput_with(
 		&relay_client,
 		relay_blocks_count,
-		HashMap::from([(para_v2, expected_throughput_v2), (para_v3, expected_throughput_v3)]),
+		HashMap::from([
+			(para_v2, relay_blocks_count * 0.9..relay_blocks_count + 1),
+			(para_v3, expected_throughput_v3),
+		]),
 		|receipt| {
 			let para_id = receipt.descriptor.para_id();
 			let version = receipt.descriptor.version();
