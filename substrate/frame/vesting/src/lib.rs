@@ -383,7 +383,7 @@ pub mod pallet {
 		/// - `O(1)`.
 		#[pallet::call_index(2)]
 		#[pallet::weight(
-			T::WeightInfo::vested_transfer(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
+			T::WeightInfo::vested_transfer(MaxLocksOf::<T>::get(), T::MAX_PUBLIC_VESTING_SCHEDULES)
 		)]
 		pub fn vested_transfer(
 			origin: OriginFor<T>,

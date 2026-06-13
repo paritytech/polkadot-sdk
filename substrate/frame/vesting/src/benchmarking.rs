@@ -207,7 +207,7 @@ mod benchmarks {
 	#[benchmark]
 	fn vested_transfer(
 		l: Linear<0, { MaxLocksOf::<T>::get() - 1 }>,
-		s: Linear<0, { T::MAX_VESTING_SCHEDULES - 1 }>,
+		s: Linear<0, { T::MAX_PUBLIC_VESTING_SCHEDULES - 1 }>,
 	) -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
