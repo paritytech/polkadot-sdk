@@ -1,0 +1,39 @@
+title: 'Fold extrinsic length into the `proof_size` weight dimension before the extension pipeline'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The FRAME `Executive` now adds the encoded extrinsic length to the `proof_size` dimension of
+      `dispatch_info.call_weight` before running the transaction-extension pipeline. As a result
+      `DispatchInfo::total_weight()` already accounts for the extrinsic length as part of the
+      storage proof, and transaction extensions no longer need to add the length manually for
+      `proof_size` accounting (`CheckWeight` no longer does so either).
+
+      Block length enforcement (`CheckWeight::check_block_length`) is unchanged and still uses the
+      raw extrinsic length. The storage-weight-reclaim logic (both
+      `cumulus-pallet-weight-reclaim` and `cumulus-primitives-storage-weight-reclaim`) treats the
+      extrinsic length as non-reclaimable proof size, so it is always kept in the block weight and
+      never reclaimed.
+
+      `frame_system::Pallet::reclaim_weight` gained an `extrinsic_len` parameter; callers that used
+      the deprecated `CheckWeight::do_post_dispatch` are unaffected.
+
+      Closes https://github.com/paritytech/polkadot-sdk/issues/9410.
+  - audience: Runtime User
+    description: |
+      The extrinsic length is now part of the `proof_size` weight dimension. On runtimes whose
+      `pallet_transaction_payment::Config::WeightToFee` prices the `proof_size` dimension (for
+      example `pallet_revive::evm::fees::BlockRatioFee`, used by Asset Hub), the extrinsic length
+      now contributes to the weight-based fee in addition to the existing `LengthToFee` charge.
+      Runtimes that do not price `proof_size` in `WeightToFee` (the common `ref_time`-only case)
+      are unaffected.
+
+crates:
+  - name: frame-executive
+    bump: patch
+  - name: frame-system
+    bump: minor
+  - name: cumulus-pallet-weight-reclaim
+    bump: patch
+  - name: cumulus-primitives-storage-weight-reclaim
+    bump: patch

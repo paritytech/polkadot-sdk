@@ -230,7 +230,14 @@ where
 			);
 		}
 
-		let accurate_weight = benchmarked_actual_weight.set_proof_size(measured_proof_size);
+		// The executive folds the encoded extrinsic length into `info.call_weight.proof_size`, so
+		// it is part of `info.total_weight()` (reduced from / subtracted against `BlockWeight`
+		// below). The length is genuinely part of the storage proof but is *not* reclaimable, so it
+		// must be kept in the accurate weight. Otherwise `reduce(info.total_weight())` would remove
+		// it from `BlockWeight` without `accrue(accurate_weight)` adding it back, and it would be
+		// over-reclaimed into `accurate_unspent` below.
+		let accurate_weight = benchmarked_actual_weight
+			.set_proof_size(measured_proof_size.saturating_add(len as u64));
 
 		let pov_size_missing_from_node = frame_system::BlockWeight::<T>::mutate(|current_weight| {
 			let already_reclaimed = frame_system::ExtrinsicWeightReclaimed::<T>::get();
@@ -241,9 +248,13 @@ where
 			// If we encounter a situation where the node-side proof size is already higher than
 			// what we have in the runtime bookkeeping, we add the difference to the `BlockWeight`.
 			// This prevents that the proof size grows faster than the runtime proof size.
-			let block_size = frame_system::BlockSize::<T>::get()
-				.unwrap_or(0)
-				.saturating_sub(len as u32);
+			// The node-side PoV always contains the full block body (the encoded bytes of every
+			// extrinsic), which the storage-proof recorder does not measure. So the full
+			// `BlockSize` must be added to reconcile against the node-side proof size. The current
+			// extrinsic's length is already part of the runtime bookkeeping (via `accurate_weight`
+			// above), so the reconciliation only adds genuine node-side excess, not the length
+			// twice.
+			let block_size = frame_system::BlockSize::<T>::get().unwrap_or(0);
 			let node_side_pov_size = proof_size_after_dispatch.saturating_add(block_size.into());
 			let block_weight_proof_size = current_weight.total().proof_size();
 			let pov_size_missing_from_node =
