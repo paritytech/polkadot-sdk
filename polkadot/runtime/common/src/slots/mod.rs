@@ -704,7 +704,6 @@ mod tests {
 			assert_eq!(Balances::reserved_balance(1), 0);
 			assert_eq!(Slots::deposit_held(1.into(), &2), 0);
 			assert_eq!(Balances::reserved_balance(2), 0);
-
 		});
 	}
 
@@ -735,7 +734,6 @@ mod tests {
 			System::run_to_block::<AllPalletsWithSystem>(30);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
-
 		});
 	}
 
@@ -774,7 +772,6 @@ mod tests {
 			System::run_to_block::<AllPalletsWithSystem>(30);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
-
 		});
 	}
 

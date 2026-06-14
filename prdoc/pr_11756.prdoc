@@ -1,0 +1,38 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove parathread lifecycle variants; all registered paras are parachains
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Removes the `Parathread`, `UpgradingParathread`, `DowngradingParachain` and
+      `OffboardingParathread` variants from `ParaLifecycle` in `pallet-paras`. Every registered
+      para now onboards directly as a `Parachain`, reflecting that the legacy on-demand/lease
+      lifecycle distinction is obsolete in the coretime model (fixes #3402).
+
+      As a consequence:
+      - `ParaKind::Parathread` is removed; `ParaKind` only has `Parachain`. Legacy genesis/encoded
+        `false` values still decode as `Parachain` for backwards compatibility.
+      - The `paras` pallet functions `schedule_parathread_upgrade` and
+        `schedule_parachain_downgrade`, the `is_parathread` helpers, and the `CannotDowngrade`
+        error are removed.
+      - In `polkadot-runtime-common`, the `Registrar::is_parathread` trait method and the
+        `paras-sudo-wrapper` extrinsics `sudo_schedule_parathread_upgrade` (index 2) and
+        `sudo_schedule_parachain_downgrade` (index 3) are removed. `make_parachain` and
+        `make_parathread` are now no-ops. Slot leasing no longer up/downgrades a para's lifecycle.
+      - A new storage version (v1) and a `MigrateToV1` migration convert any existing parathread
+        lifecycle entries to their parachain equivalents: `Parathread` and `UpgradingParathread`
+        become `Parachain` (and are added to the `Parachains` list), `OffboardingParathread`
+        becomes `OffboardingParachain`, and `DowngradingParachain` becomes `Parachain` (downgrade
+        cancelled). The migration is included in the Rococo and Westend runtimes.
+
+crates:
+  - name: polkadot-runtime-parachains
+    bump: major
+  - name: polkadot-runtime-common
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
