@@ -14,11 +14,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::vec::Vec;
 use polkadot_core_primitives::Hash;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
 
+/// Canonical set ensuring collator / pvf / relay cannot disagree on the shape.
 #[derive(
 	Clone,
 	codec::Encode,
@@ -30,8 +32,6 @@ use sp_runtime::BoundedVec;
 	PartialEq,
 	scale_info::TypeInfo,
 )]
-
-/// Canonical set ensuring collator / pvf / relay cannot disagree on the shape.
 pub struct CommitmentSet<const N: u32>(BoundedVec<(ParaId, Hash), ConstU32<N>>);
 
 /// Decode is manually implemented to ensure that ParaID is sorted in increasing order.
@@ -75,15 +75,15 @@ impl<const N: u32> CommitmentSet<N> {
 	/// sorting entries by `ParaId` to produce the encoding.
 	pub fn try_from_iter(
 		it: impl IntoIterator<Item = (ParaId, Hash)>,
-	) -> Result<Self, Error> {
+	) -> Result<Self, CommitmentError> {
 		let mut entries: Vec<(ParaId, Hash)> = it.into_iter().collect();
 		entries.sort_by_key(|(para_id, _)| *para_id);
 
 		if entries.windows(2).any(|w| w[0].0 == w[1].0) {
-			return Err(Error::DuplicateParaId);
+			return Err(CommitmentError::DuplicateParaId);
 		}
 
-		let inner = BoundedVec::try_from(entries).map_err(|_| Error::TooManyEntries)?;
+		let inner = BoundedVec::try_from(entries).map_err(|_| CommitmentError::TooManyEntries)?;
 
 		Ok(Self(inner))
 	}
@@ -98,9 +98,9 @@ impl<'a, const N: u32> IntoIterator for &'a CommitmentSet<N> {
 	}
 }
 
-/// Errors that can occur when constructing a [`CommitmentSet']
+/// Errors that can occur when constructing a [`CommitmentSet`]
 #[derive(Debug, PartialEq, Eq)]
-pub enum Error {
+pub enum CommitmentError {
 	/// The same `ParaId` appears more than once.
 	DuplicateParaId,
 	/// More entries were provided than the bound `N` allows.
