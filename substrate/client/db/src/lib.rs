@@ -4152,8 +4152,6 @@ pub(crate) mod tests {
 
 	#[test]
 	fn finalize_block_does_not_leave_best_behind_finalized() {
-		use sc_client_api::blockchain::Backend as BlockChainBackend;
-
 		let backend = Backend::<Block>::new_test(10, 10);
 
 		let block0 = insert_header(&backend, 0, Default::default(), None, Default::default());
