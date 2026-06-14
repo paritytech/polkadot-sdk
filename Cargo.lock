@@ -21977,6 +21977,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "async-trait",
+ "bitvec",
  "criterion",
  "fastbloom",
  "futures",
