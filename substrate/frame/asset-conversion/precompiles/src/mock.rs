@@ -119,6 +119,7 @@ impl pallet_asset_conversion::Config for Test {
 	type PalletId = AssetConversionPalletId;
 	type WeightInfo = ();
 	type LPFee = LpFee;
+	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type MaxSwapPathLength = ConstU32<4>;
 	type MintMinLiquidity = ConstU64<100>;

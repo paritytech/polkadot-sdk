@@ -72,6 +72,8 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_asset_conversion`.
 pub trait WeightInfo {
 	fn create_pool() -> Weight;
+	fn create_pool_with_fee() -> Weight;
+	fn set_pool_fee() -> Weight;
 	fn add_liquidity() -> Weight;
 	fn remove_liquidity() -> Weight;
 	fn swap_exact_tokens_for_tokens(n: u32, ) -> Weight;
@@ -105,6 +107,23 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(107_814_000, 6360)
 			.saturating_add(T::DbWeight::get().reads(9_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
+	}
+	/// Same as [`Self::create_pool`] plus one extra write to `AssetConversion::PoolFees`.
+	///
+	/// NOTE: hand-written estimate; regenerate with the benchmark CLI.
+	fn create_pool_with_fee() -> Weight {
+		Self::create_pool().saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `AssetConversion::Pools` (r:1 w:0)
+	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
+	/// Storage: `AssetConversion::PoolFees` (r:0 w:1)
+	/// Proof: `AssetConversion::PoolFees` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
+	///
+	/// NOTE: hand-written estimate; regenerate with the benchmark CLI.
+	fn set_pool_fee() -> Weight {
+		Weight::from_parts(15_000_000, 3495)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `AssetConversion::Pools` (r:1 w:0)
 	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
@@ -242,6 +261,23 @@ impl WeightInfo for () {
 		Weight::from_parts(107_814_000, 6360)
 			.saturating_add(RocksDbWeight::get().reads(9_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
+	}
+	/// Same as [`Self::create_pool`] plus one extra write to `AssetConversion::PoolFees`.
+	///
+	/// NOTE: hand-written estimate; regenerate with the benchmark CLI.
+	fn create_pool_with_fee() -> Weight {
+		Self::create_pool().saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `AssetConversion::Pools` (r:1 w:0)
+	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
+	/// Storage: `AssetConversion::PoolFees` (r:0 w:1)
+	/// Proof: `AssetConversion::PoolFees` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
+	///
+	/// NOTE: hand-written estimate; regenerate with the benchmark CLI.
+	fn set_pool_fee() -> Weight {
+		Weight::from_parts(15_000_000, 3495)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `AssetConversion::Pools` (r:1 w:0)
 	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
