@@ -30,8 +30,11 @@ use sp_runtime::BoundedVec;
 	PartialEq,
 	scale_info::TypeInfo,
 )]
+
+/// Canonical set ensuring collator / pvf / relay cannot disagree on the shape.
 pub struct CommitmentSet<const N: u32>(BoundedVec<(ParaId, Hash), ConstU32<N>>);
 
+/// Decode is manually implemented to ensure that ParaID is sorted in increasing order.
 impl<const N: u32> codec::Decode for CommitmentSet<N> {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let inner = BoundedVec::<(ParaId, Hash), ConstU32<N>>::decode(input)?;
@@ -72,15 +75,15 @@ impl<const N: u32> CommitmentSet<N> {
 	/// sorting entries by `ParaId` to produce the encoding.
 	pub fn try_from_iter(
 		it: impl IntoIterator<Item = (ParaId, Hash)>,
-	) -> Result<Self, CommitmentError> {
+	) -> Result<Self, Error> {
 		let mut entries: Vec<(ParaId, Hash)> = it.into_iter().collect();
 		entries.sort_by_key(|(para_id, _)| *para_id);
 
 		if entries.windows(2).any(|w| w[0].0 == w[1].0) {
-			return Err(CommitmentError::DuplicateParaId);
+			return Err(Error::DuplicateParaId);
 		}
 
-		let inner = BoundedVec::try_from(entries).map_err(|_| CommitmentError::TooManyEntries)?;
+		let inner = BoundedVec::try_from(entries).map_err(|_| Error::TooManyEntries)?;
 
 		Ok(Self(inner))
 	}
@@ -97,7 +100,7 @@ impl<'a, const N: u32> IntoIterator for &'a CommitmentSet<N> {
 
 /// Errors that can occur when constructing a [`CommitmentSet']
 #[derive(Debug, PartialEq, Eq)]
-pub enum CommitmentError {
+pub enum Error {
 	/// The same `ParaId` appears more than once.
 	DuplicateParaId,
 	/// More entries were provided than the bound `N` allows.
