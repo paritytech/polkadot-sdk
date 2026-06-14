@@ -229,7 +229,7 @@ pub fn set_glutton_parameters(
 
 	let mut last_nonce = client
 		.runtime_api()
-		.account_nonce(parent_hash, Alice.into())
+		.account_nonce(parent_hash, Alice.to_account_id())
 		.expect("Fetching account nonce works; qed");
 
 	let mut extrinsics = vec![];

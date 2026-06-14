@@ -99,7 +99,9 @@ fn benchmark_block_import(c: &mut Criterion) {
 						benchmark_block.block.clone()
 					},
 					|block| {
-						client.runtime_api().execute_block(parent_hash, block.into()).unwrap();
+						let block: <cumulus_test_runtime::NodeBlock as sp_runtime::traits::Block>::LazyBlock =
+							block.into();
+						client.runtime_api().execute_block(parent_hash, block).unwrap();
 					},
 					BatchSize::SmallInput,
 				)

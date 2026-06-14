@@ -36,7 +36,9 @@ use sp_core::{
 	offchain::{storage::OffchainDb, OffchainDbExt, OffchainStorage},
 	Bytes,
 };
-use sp_mmr_primitives::{AncestryProof as MmrAncestryProof, Error as MmrError, LeafProof};
+use sp_mmr_primitives::{
+	AncestryProof as MmrAncestryProof, EncodableOpaqueLeaf, Error as MmrError, LeafProof,
+};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 pub use sp_mmr_primitives::MmrApi as MmrRuntimeApi;
@@ -236,9 +238,11 @@ where
 	fn verify_proof(&self, proof: LeavesProof<<Block as BlockT>::Hash>) -> RpcResult<bool> {
 		let mut api = self.client.runtime_api();
 
-		let leaves = Decode::decode(&mut &proof.leaves.0[..]).map_err(invalid_params)?;
+		let leaves: Vec<EncodableOpaqueLeaf> =
+			Decode::decode(&mut &proof.leaves.0[..]).map_err(invalid_params)?;
 
-		let decoded_proof = Decode::decode(&mut &proof.proof.0[..]).map_err(invalid_params)?;
+		let decoded_proof: LeafProof<MmrHash> =
+			Decode::decode(&mut &proof.proof.0[..]).map_err(invalid_params)?;
 
 		api.register_extension(OffchainDbExt::new(self.offchain_db.clone()));
 
@@ -256,9 +260,11 @@ where
 	) -> RpcResult<bool> {
 		let api = self.client.runtime_api();
 
-		let leaves = Decode::decode(&mut &proof.leaves.0[..]).map_err(invalid_params)?;
+		let leaves: Vec<EncodableOpaqueLeaf> =
+			Decode::decode(&mut &proof.leaves.0[..]).map_err(invalid_params)?;
 
-		let decoded_proof = Decode::decode(&mut &proof.proof.0[..]).map_err(invalid_params)?;
+		let decoded_proof: LeafProof<MmrHash> =
+			Decode::decode(&mut &proof.proof.0[..]).map_err(invalid_params)?;
 
 		api.verify_proof_stateless(proof.block_hash, mmr_root, leaves, decoded_proof)
 			.map_err(runtime_error_into_rpc_error)?

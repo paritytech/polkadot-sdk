@@ -231,14 +231,14 @@ fn client_initializes_from_genesis_ok() {
 	assert_eq!(
 		client
 			.runtime_api()
-			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Alice.into())
+			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Alice.public())
 			.unwrap(),
 		1000 * DOLLARS
 	);
 	assert_eq!(
 		client
 			.runtime_api()
-			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Ferdie.into())
+			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Ferdie.public())
 			.unwrap(),
 		0 * DOLLARS
 	);
@@ -309,14 +309,14 @@ fn block_builder_works_with_transactions() {
 	assert_eq!(
 		client
 			.runtime_api()
-			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Alice.into())
+			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Alice.public())
 			.unwrap(),
 		958 * DOLLARS
 	);
 	assert_eq!(
 		client
 			.runtime_api()
-			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Ferdie.into())
+			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Ferdie.public())
 			.unwrap(),
 		42 * DOLLARS
 	);
@@ -1425,7 +1425,7 @@ fn state_reverted_on_reorg() {
 	let current_balance = |client: &substrate_test_runtime_client::TestClient| {
 		client
 			.runtime_api()
-			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Alice.into())
+			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Alice.public())
 			.unwrap()
 	};
 
