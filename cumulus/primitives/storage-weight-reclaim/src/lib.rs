@@ -178,13 +178,10 @@ where
 			);
 			return Ok(Weight::zero());
 		};
-		// The executive folds the encoded extrinsic length into `info.call_weight.proof_size`. The
-		// length is genuinely part of the storage proof but is *not* reclaimable, and the
-		// node-side measured proof size (`consumed_weight` below) does not include it (the
-		// extrinsic bytes are part of the PoV both before and after dispatch, so they cancel in
-		// the `post - pre` delta). It must therefore be excluded from both the unspent
-		// (reclaimable) weight and the benchmarked storage weight, otherwise the length would be
-		// reclaimed from the block weight.
+		// The folded-in extrinsic length is part of `info.total_weight()` but is not reclaimable,
+		// and the node-measured `consumed_weight` does not include it (the extrinsic bytes cancel
+		// in the `post - pre` delta). Exclude it from the unspent and benchmarked weight so it is
+		// not reclaimed from the block weight.
 		let unspent = post_info.calc_unspent(info).proof_size().saturating_sub(len as u64);
 		let benchmarked_weight = info
 			.total_weight()
