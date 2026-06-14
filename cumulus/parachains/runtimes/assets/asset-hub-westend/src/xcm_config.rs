@@ -46,9 +46,10 @@ use parachains_common::xcm_config::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
-use sp_dap::DAP_SATELLITE_PALLET_ID;
 use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
-use testnet_parachains_constants::westend::locations::AssetHubParaId;
+use testnet_parachains_constants::westend::{
+	accumulate_forward::AccumulateForwardPalletId, locations::AssetHubParaId,
+};
 use westend_runtime_constants::system_parachain::{
 	BRIDGE_HUB_ID, BROKER_ID, COLLECTIVES_ID, PEOPLE_ID,
 };
@@ -306,18 +307,19 @@ impl Contains<Location> for SecretaryEntities {
 	}
 }
 
-pub struct SystemChainDapSatelliteAccounts;
-impl Contains<Location> for SystemChainDapSatelliteAccounts {
+pub struct SystemChainAccumulationAccounts;
+impl Contains<Location> for SystemChainAccumulationAccounts {
 	fn contains(location: &Location) -> bool {
-		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
+		let accumulation_account: [u8; 32] =
+			AccumulateForwardPalletId::get().into_account_truncating();
 		match location.unpack() {
-			// Relay chain (parent) DAP satellite account.
-			(1, [AccountId32 { id, .. }]) => *id == satellite_account,
-			// Sibling system parachain DAP satellite account.
+			// Relay chain (parent) accumulation account.
+			(1, [AccountId32 { id, .. }]) => *id == accumulation_account,
+			// Sibling system parachain accumulation account.
 			(1, [Parachain(id), AccountId32 { id: account_id, .. }]) => {
 				ParaId::from(*id).is_system() &&
 					matches!(*id, BRIDGE_HUB_ID | BROKER_ID | COLLECTIVES_ID | PEOPLE_ID) &&
-					*account_id == satellite_account
+					*account_id == accumulation_account
 			},
 			_ => false,
 		}
@@ -345,10 +347,10 @@ pub type Barrier = TrailingSetTopicAsId<
 						AmbassadorEntities,
 						SecretaryEntities,
 					)>,
-					// DAP satellite accounts get free execution, while aliasing allows the chain
-					// (as the XCM sending origin) to claim the identity of its satellite account.
+					// Accumulation accounts get free execution, while aliasing allows the chain
+					// (as the XCM sending origin) to claim the identity of these accounts.
 					AllowExplicitUnpaidExecutionFrom<
-						SystemChainDapSatelliteAccounts,
+						SystemChainAccumulationAccounts,
 						AliasChildLocation,
 					>,
 					// Subscriptions for version tracking are OK.
@@ -793,56 +795,60 @@ mod tests {
 	use sp_runtime::traits::AccountIdConversion;
 
 	#[test]
-	fn system_chain_dap_satellite_accounts_allows_sibling_system_parachain() {
-		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
-		// A sibling system parachain with the DAP satellite account — use BridgeHub (1002).
+	fn system_chain_accumulation_accounts_allows_sibling_system_parachain() {
+		let accumulation_account: [u8; 32] =
+			AccumulateForwardPalletId::get().into_account_truncating();
+		// A sibling system parachain with the accumulation account — use BridgeHub (1002).
 		let location = Location::new(
 			1,
-			[Parachain(BRIDGE_HUB_ID), AccountId32 { network: None, id: satellite_account }],
+			[Parachain(BRIDGE_HUB_ID), AccountId32 { network: None, id: accumulation_account }],
 		);
-		assert!(SystemChainDapSatelliteAccounts::contains(&location));
+		assert!(SystemChainAccumulationAccounts::contains(&location));
 	}
 
 	#[test]
-	fn system_chain_dap_satellite_accounts_allows_relay_chain_parent() {
-		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
-		// Relay chain (parent) with the DAP satellite account.
-		let location = Location::new(1, [AccountId32 { network: None, id: satellite_account }]);
-		assert!(SystemChainDapSatelliteAccounts::contains(&location));
+	fn system_chain_accumulation_accounts_allows_relay_chain_parent() {
+		let accumulation_account: [u8; 32] =
+			AccumulateForwardPalletId::get().into_account_truncating();
+		// Relay chain (parent) with the accumulation account.
+		let location = Location::new(1, [AccountId32 { network: None, id: accumulation_account }]);
+		assert!(SystemChainAccumulationAccounts::contains(&location));
 	}
 
 	#[test]
-	fn system_chain_dap_satellite_accounts_rejects_wrong_account() {
+	fn system_chain_accumulation_accounts_rejects_wrong_account() {
 		let wrong_account = [0u8; 32];
 		// Correct sibling system parachain, but wrong account.
 		let location =
 			Location::new(1, [Parachain(1000), AccountId32 { network: None, id: wrong_account }]);
-		assert!(!SystemChainDapSatelliteAccounts::contains(&location));
+		assert!(!SystemChainAccumulationAccounts::contains(&location));
 	}
 
 	#[test]
-	fn system_chain_dap_satellite_accounts_rejects_non_system_parachain() {
-		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
+	fn system_chain_accumulation_accounts_rejects_non_system_parachain() {
+		let accumulation_account: [u8; 32] =
+			AccumulateForwardPalletId::get().into_account_truncating();
 		// Non-system parachain (id=2000, the lowest public parachain id).
 		let location = Location::new(
 			1,
-			[Parachain(2000), AccountId32 { network: None, id: satellite_account }],
+			[Parachain(2000), AccountId32 { network: None, id: accumulation_account }],
 		);
-		assert!(!SystemChainDapSatelliteAccounts::contains(&location));
+		assert!(!SystemChainAccumulationAccounts::contains(&location));
 	}
 
 	#[test]
-	fn system_chain_dap_satellite_accounts_rejects_local_account() {
-		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
+	fn system_chain_accumulation_accounts_rejects_local_account() {
+		let accumulation_account: [u8; 32] =
+			AccumulateForwardPalletId::get().into_account_truncating();
 		// Local account (parents=0) — not a system chain origin.
-		let location = Location::new(0, [AccountId32 { network: None, id: satellite_account }]);
-		assert!(!SystemChainDapSatelliteAccounts::contains(&location));
+		let location = Location::new(0, [AccountId32 { network: None, id: accumulation_account }]);
+		assert!(!SystemChainAccumulationAccounts::contains(&location));
 	}
 
 	#[test]
-	fn system_chain_dap_satellite_accounts_rejects_parachain_without_account() {
+	fn system_chain_accumulation_accounts_rejects_parachain_without_account() {
 		// Sibling system parachain with no account junction.
 		let location = Location::new(1, [Parachain(1000)]);
-		assert!(!SystemChainDapSatelliteAccounts::contains(&location));
+		assert!(!SystemChainAccumulationAccounts::contains(&location));
 	}
 }

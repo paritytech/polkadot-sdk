@@ -70,7 +70,7 @@ parameter_types! {
 	pub AmbassadorSalaryLocation: Location =
 		PalletInstance(<crate::AmbassadorSalary as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-	pub DapSatelliteAccount: AccountId = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	pub AccumulateAccount: AccountId = pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account();
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(xcm_constants::body::FELLOWSHIP_ADMIN_INDEX);
 	pub AssetHub: Location = (Parent, Parachain(ASSET_HUB_ID)).into();
 	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
@@ -83,9 +83,9 @@ parameter_types! {
 		location: AssetHub::get(),
 		asset_id: WndLocation::get().into(),
 	};
-	/// The DAP satellite account on this chain.
-	pub DapSatelliteLocation: Location = {
-		AccountId32 { network: None, id: DapSatelliteAccount::get().into() }.into()
+	/// The accumulation account on this chain.
+	pub AccumulateForwardLocation: Location = {
+		AccountId32 { network: None, id: AccumulateAccount::get().into() }.into()
 	};
 }
 
@@ -200,7 +200,7 @@ pub type WaivedLocations = (
 	Equals<AmbassadorSalaryLocation>,
 	Equals<RootLocation>,
 	LocalPlurality,
-	Equals<DapSatelliteLocation>,
+	Equals<AccumulateForwardLocation>,
 );
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
@@ -238,8 +238,9 @@ impl xcm_executor::Config for XcmConfig {
 		RuntimeCall,
 		MaxInstructions,
 	>;
-	// TODO: once DAP allocates collator budgets, redirect XCM execution fees to DAP satellite
-	// instead of StakingPot (use crate::DealWithFeesSatellite as the OnUnbalanced handler).
+	// TODO: once DAP allocates collator budgets, redirect XCM execution fees to the accumulation
+	// account instead of StakingPot (use crate::DealWithFeesAccumulate as the OnUnbalanced
+	// handler).
 	type Trader = UsingComponents<
 		WeightToFee,
 		WndLocation,
@@ -256,7 +257,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetExchanger = ();
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		SendXcmFeeToAccount<Self::AssetTransactor, DapSatelliteAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, AccumulateAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;

@@ -911,8 +911,8 @@ pub mod pallet {
 		ExtrinsicSuccess { dispatch_info: DispatchEventInfo },
 		/// An extrinsic failed.
 		ExtrinsicFailed { dispatch_error: DispatchError, dispatch_info: DispatchEventInfo },
-		/// `:code` was updated.
-		CodeUpdated,
+		/// `:code` was updated to the code with the given hash.
+		CodeUpdated { hash: T::Hash },
 		/// A new account was created.
 		NewAccount { account: T::AccountId },
 		/// An account was reaped.
@@ -1602,8 +1602,10 @@ impl<T: Config> Pallet<T> {
 				storage::unhashed::put_raw(well_known_keys::PENDING_CODE, code);
 			},
 		}
+		let hash = T::Hashing::hash(code);
+
 		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
-		Self::deposit_event(Event::CodeUpdated);
+		Self::deposit_event(Event::CodeUpdated { hash });
 	}
 
 	/// Replace code with pending code if scheduled to enact in this block and in that case emit

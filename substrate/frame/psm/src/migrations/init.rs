@@ -48,8 +48,8 @@ use sp_runtime::Permill;
 
 use crate::{
 	pallet::{
-		AssetCeilingWeight, CircuitBreakerLevel, ExternalAssets, MaxPsmDebtOfTotal, MintingFee,
-		RedemptionFee,
+		AssetCeilingWeight, CircuitBreakerLevel, ExternalAssets, ExternalDecimals,
+		InternalDecimals, MaxPsmDebtOfTotal, MintingFee, RedemptionFee, MAX_DECIMALS_DIFF,
 	},
 	Config, Pallet,
 };
@@ -108,7 +108,16 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 			writes += 1;
 		}
 
-		let stable_decimals = T::StableAsset::decimals();
+		// Internal decimals snapshot: populate from live metadata if not yet set.
+		// Per-asset snapshots for pre-existing approved assets are owned by
+		// `super::decimals::PopulateDecimals` — this migration only touches `ExternalDecimals` for
+		// assets it adds as new below.
+		let internal_decimals = T::InternalAsset::decimals();
+		reads += 1;
+		if !InternalDecimals::<T>::exists() {
+			InternalDecimals::<T>::put(internal_decimals);
+			writes += 1;
+		}
 		for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in &asset_configs {
 			reads += 1;
 			// Skip assets that are already configured.
@@ -121,24 +130,31 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 				continue;
 			}
 
-			if T::Fungibles::decimals(*asset_id) != stable_decimals {
+			let asset_decimals = T::Fungibles::decimals(asset_id.clone());
+			let diff = asset_decimals.abs_diff(internal_decimals) as u32;
+			if diff > MAX_DECIMALS_DIFF {
 				log::error!(
 					target: LOG_TARGET,
-					"Asset {:?} decimals do not match stable asset decimals, skipping",
+					"Asset {:?} decimals diff ({}) exceeds MAX_DECIMALS_DIFF ({}), skipping",
 					asset_id,
+					diff,
+					MAX_DECIMALS_DIFF,
 				);
 				continue;
 			}
+
 			ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllEnabled);
+			ExternalDecimals::<T>::insert(asset_id, asset_decimals);
 			MintingFee::<T>::insert(asset_id, minting_fee);
 			RedemptionFee::<T>::insert(asset_id, redemption_fee);
 			AssetCeilingWeight::<T>::insert(asset_id, ceiling_weight);
-			writes += 4;
+			writes += 5;
 
 			log::info!(
 				target: LOG_TARGET,
-				"Configured external asset {:?}",
+				"Configured external asset {:?} (decimals={})",
 				asset_id,
+				asset_decimals,
 			);
 		}
 
@@ -168,19 +184,19 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 
 		for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in I::asset_configs() {
 			ensure!(
-				ExternalAssets::<T>::get(asset_id) == Some(CircuitBreakerLevel::AllEnabled),
+				ExternalAssets::<T>::get(&asset_id) == Some(CircuitBreakerLevel::AllEnabled),
 				"External asset missing or not AllEnabled after migration"
 			);
 			ensure!(
-				MintingFee::<T>::get(asset_id) == minting_fee,
+				MintingFee::<T>::get(&asset_id) == minting_fee,
 				"MintingFee mismatch after migration"
 			);
 			ensure!(
-				RedemptionFee::<T>::get(asset_id) == redemption_fee,
+				RedemptionFee::<T>::get(&asset_id) == redemption_fee,
 				"RedemptionFee mismatch after migration"
 			);
 			ensure!(
-				AssetCeilingWeight::<T>::get(asset_id) == ceiling_weight,
+				AssetCeilingWeight::<T>::get(&asset_id) == ceiling_weight,
 				"AssetCeilingWeight mismatch after migration"
 			);
 		}
@@ -232,25 +248,37 @@ mod tests {
 		}
 	}
 
+	fn clear_all_psm_state() {
+		MaxPsmDebtOfTotal::<Test>::kill();
+		InternalDecimals::<Test>::kill();
+		ExternalAssets::<Test>::remove(USDC_ASSET_ID);
+		ExternalAssets::<Test>::remove(USDT_ASSET_ID);
+		MintingFee::<Test>::remove(USDC_ASSET_ID);
+		MintingFee::<Test>::remove(USDT_ASSET_ID);
+		RedemptionFee::<Test>::remove(USDC_ASSET_ID);
+		RedemptionFee::<Test>::remove(USDT_ASSET_ID);
+		AssetCeilingWeight::<Test>::remove(USDC_ASSET_ID);
+		AssetCeilingWeight::<Test>::remove(USDT_ASSET_ID);
+		ExternalDecimals::<Test>::remove(USDC_ASSET_ID);
+		ExternalDecimals::<Test>::remove(USDT_ASSET_ID);
+	}
+
 	#[test]
 	fn initialize_psm_configures_new_assets() {
-		use frame_support::traits::OnRuntimeUpgrade;
+		use frame_support::traits::{
+			fungible::metadata::Inspect as _, fungibles::metadata::Inspect as _, OnRuntimeUpgrade,
+		};
 
 		new_test_ext().execute_with(|| {
-			// Clear all PSM state.
-			MaxPsmDebtOfTotal::<Test>::kill();
-			ExternalAssets::<Test>::remove(USDC_ASSET_ID);
-			ExternalAssets::<Test>::remove(USDT_ASSET_ID);
-			MintingFee::<Test>::remove(USDC_ASSET_ID);
-			MintingFee::<Test>::remove(USDT_ASSET_ID);
-			RedemptionFee::<Test>::remove(USDC_ASSET_ID);
-			RedemptionFee::<Test>::remove(USDT_ASSET_ID);
-			AssetCeilingWeight::<Test>::remove(USDC_ASSET_ID);
-			AssetCeilingWeight::<Test>::remove(USDT_ASSET_ID);
+			clear_all_psm_state();
 
 			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();
 
 			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), TestPsmConfig::max_psm_debt_of_total());
+			assert_eq!(
+				InternalDecimals::<Test>::get(),
+				Some(<Test as Config>::InternalAsset::decimals())
+			);
 
 			for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in
 				TestPsmConfig::asset_configs()
@@ -258,6 +286,11 @@ mod tests {
 				assert_eq!(
 					ExternalAssets::<Test>::get(asset_id),
 					Some(CircuitBreakerLevel::AllEnabled)
+				);
+				// New assets get their decimals snapshot.
+				assert_eq!(
+					ExternalDecimals::<Test>::get(asset_id),
+					Some(<Test as Config>::Fungibles::decimals(asset_id))
 				);
 				assert_eq!(MintingFee::<Test>::get(asset_id), minting_fee);
 				assert_eq!(RedemptionFee::<Test>::get(asset_id), redemption_fee);
@@ -267,30 +300,67 @@ mod tests {
 	}
 
 	#[test]
+	fn initialize_psm_populates_internal_decimals_when_missing() {
+		use frame_support::traits::{fungible::metadata::Inspect as _, OnRuntimeUpgrade};
+
+		new_test_ext().execute_with(|| {
+			// InternalDecimals was populated by genesis; clear it to simulate a
+			// pre-decimal-snapshot deployment where the migration must seed it.
+			InternalDecimals::<Test>::kill();
+
+			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();
+
+			assert_eq!(
+				InternalDecimals::<Test>::get(),
+				Some(<Test as Config>::InternalAsset::decimals())
+			);
+		});
+	}
+
+	#[test]
+	fn initialize_psm_preserves_existing_internal_decimals() {
+		use frame_support::traits::OnRuntimeUpgrade;
+
+		new_test_ext().execute_with(|| {
+			// Plant a sentinel (non-live) value. The migration must not overwrite.
+			InternalDecimals::<Test>::put(42u8);
+
+			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();
+
+			assert_eq!(InternalDecimals::<Test>::get(), Some(42));
+		});
+	}
+
+	#[test]
 	fn initialize_psm_skips_existing_assets() {
 		use frame_support::traits::OnRuntimeUpgrade;
 
 		new_test_ext().execute_with(|| {
-			// Pre-configure USDC with custom values.
+			// Pre-configure USDC with custom values; drop its decimals snapshot to simulate a
+			// pre-migration partial state. This migration must not touch USDC's snapshot (that is
+			// `PopulateDecimals`'s job).
 			ExternalAssets::<Test>::insert(USDC_ASSET_ID, CircuitBreakerLevel::MintingDisabled);
 			MintingFee::<Test>::insert(USDC_ASSET_ID, Permill::from_percent(10));
+			ExternalDecimals::<Test>::remove(USDC_ASSET_ID);
 
 			// Remove USDT so it gets configured.
 			ExternalAssets::<Test>::remove(USDT_ASSET_ID);
 			MintingFee::<Test>::remove(USDT_ASSET_ID);
 			RedemptionFee::<Test>::remove(USDT_ASSET_ID);
 			AssetCeilingWeight::<Test>::remove(USDT_ASSET_ID);
+			ExternalDecimals::<Test>::remove(USDT_ASSET_ID);
 
 			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();
 
-			// USDC was not overwritten — keeps its custom values.
+			// USDC was not overwritten — including its missing decimals snapshot.
 			assert_eq!(
 				ExternalAssets::<Test>::get(USDC_ASSET_ID),
 				Some(CircuitBreakerLevel::MintingDisabled)
 			);
 			assert_eq!(MintingFee::<Test>::get(USDC_ASSET_ID), Permill::from_percent(10));
+			assert_eq!(ExternalDecimals::<Test>::get(USDC_ASSET_ID), None);
 
-			// USDT was newly configured.
+			// USDT was newly configured; its decimals snapshot is populated.
 			let (_, (minting_fee, redemption_fee, ceiling_weight)) = TestPsmConfig::asset_configs()
 				.into_iter()
 				.find(|(id, _)| *id == USDT_ASSET_ID)
@@ -299,6 +369,7 @@ mod tests {
 				ExternalAssets::<Test>::get(USDT_ASSET_ID),
 				Some(CircuitBreakerLevel::AllEnabled)
 			);
+			assert!(ExternalDecimals::<Test>::get(USDT_ASSET_ID).is_some());
 			assert_eq!(MintingFee::<Test>::get(USDT_ASSET_ID), minting_fee);
 			assert_eq!(RedemptionFee::<Test>::get(USDT_ASSET_ID), redemption_fee);
 			assert_eq!(AssetCeilingWeight::<Test>::get(USDT_ASSET_ID), ceiling_weight);
@@ -315,14 +386,14 @@ mod tests {
 		const WRONG_DECIMALS_ID: u32 = 99;
 
 		new_test_ext().execute_with(|| {
-			// Create an asset with 8 decimals (stable asset has 6).
+			// Create an asset with 8 decimals (internal asset has 6).
 			assert_ok!(<Assets as FungiblesCreate<u64>>::create(WRONG_DECIMALS_ID, ALICE, true, 1));
 			assert_ok!(<Assets as MetadataMutate<u64>>::set(
 				WRONG_DECIMALS_ID,
 				&ALICE,
 				b"Wrong".to_vec(),
 				b"WRG".to_vec(),
-				8, // mismatched decimals
+				(MAX_DECIMALS_DIFF + 6 + 1).try_into().unwrap(), // exceeds MAX_DECIMALS_DIFF
 			));
 
 			struct MixedDecimalsConfig;
@@ -337,7 +408,7 @@ mod tests {
 							(Permill::zero(), Permill::zero(), Permill::from_percent(50)),
 						),
 						(
-							USDC_ASSET_ID, // 6 decimals — matches stable asset
+							USDC_ASSET_ID, // 6 decimals — matches internal asset
 							(Permill::zero(), Permill::zero(), Permill::from_percent(50)),
 						),
 					]
@@ -367,9 +438,7 @@ mod tests {
 		use frame_support::traits::OnRuntimeUpgrade;
 
 		new_test_ext().execute_with(|| {
-			MaxPsmDebtOfTotal::<Test>::kill();
-			ExternalAssets::<Test>::remove(USDC_ASSET_ID);
-			ExternalAssets::<Test>::remove(USDT_ASSET_ID);
+			clear_all_psm_state();
 
 			// Run twice.
 			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();
@@ -382,6 +451,7 @@ mod tests {
 					ExternalAssets::<Test>::get(asset_id),
 					Some(CircuitBreakerLevel::AllEnabled)
 				);
+				assert!(ExternalDecimals::<Test>::get(asset_id).is_some());
 			}
 		});
 	}

@@ -521,7 +521,7 @@ impl<T: Config> Ext<T> for ReservingExt {
 			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => (),
 			Deposit::Charge(amount) => {
 				<Pallet<T>>::charge_deposit(
-					Some(HoldReason::StorageDepositReserve),
+					HoldReason::StorageDepositReserve,
 					origin,
 					contract,
 					*amount,
@@ -532,9 +532,8 @@ impl<T: Config> Ext<T> for ReservingExt {
 				<Pallet<T>>::refund_deposit(
 					HoldReason::StorageDepositReserve,
 					contract,
-					origin,
+					exec_config.funds(origin),
 					*amount,
-					Some(exec_config),
 				)?;
 			},
 		}
