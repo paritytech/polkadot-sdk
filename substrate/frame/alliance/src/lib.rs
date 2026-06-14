@@ -329,6 +329,8 @@ pub mod pallet {
 		NoVotingRights,
 		/// Account is already an elevated (fellow) member.
 		AlreadyElevated,
+		/// Account cannot be listed as both a Fellow and an Ally.
+		FellowAndAllyOverlap,
 		/// Item is already listed as unscrupulous.
 		AlreadyUnscrupulous,
 		/// Account has been deemed unscrupulous by the Alliance and is not welcome to join or be
@@ -572,7 +574,7 @@ pub mod pallet {
 
 			// The Fellow and Ally member sets must be mutually exclusive.
 			for ally in allies.iter() {
-				ensure!(fellows.binary_search(ally).is_err(), Error::<T, I>::AlreadyMember);
+				ensure!(fellows.binary_search(ally).is_err(), Error::<T, I>::FellowAndAllyOverlap);
 			}
 
 			Members::<T, I>::insert(&MemberRole::Fellow, fellows.clone());

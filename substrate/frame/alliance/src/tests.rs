@@ -112,7 +112,7 @@ fn init_members_fails_with_overlapping_roles() {
 		// account 5 cannot be both a Fellow and an Ally
 		assert_noop!(
 			Alliance::init_members(RuntimeOrigin::root(), vec![8, 5], vec![5, 2]),
-			Error::<Test, ()>::AlreadyMember,
+			Error::<Test, ()>::FellowAndAllyOverlap,
 		);
 
 		// the Alliance remains uninitialized after the failed call
