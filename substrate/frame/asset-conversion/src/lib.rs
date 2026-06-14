@@ -103,7 +103,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{pallet_prelude::*, traits::fungibles::Refund};
 	use frame_system::pallet_prelude::*;
-	use sp_arithmetic::{traits::Unsigned, Permill};
+	use sp_arithmetic::{traits::Unsigned, PerThing, Permill};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -157,9 +157,9 @@ pub mod pallet {
 			+ AccountTouch<Self::PoolAssetId, Self::AccountId, Balance = Self::Balance>
 			+ Refund<Self::AccountId, AssetId = Self::PoolAssetId>;
 
-		/// A % the liquidity providers will take of every swap. Represents 10ths of a percent.
+		/// The fraction of every swap that the liquidity providers take as a fee.
 		#[pallet::constant]
-		type LPFee: Get<u32>;
+		type LPFee: Get<Permill>;
 
 		/// A one-time fee to setup the pool.
 		#[pallet::constant]
@@ -379,6 +379,8 @@ pub mod pallet {
 		IncorrectPoolAssetId,
 		/// The destination account cannot exist with the swapped funds.
 		BelowMinimum,
+		/// The pool exists but has no liquidity (at least one of the reserves is zero).
+		PoolEmpty,
 	}
 
 	#[pallet::hooks]
@@ -1287,15 +1289,16 @@ pub mod pallet {
 				return Err(Error::<T>::ZeroLiquidity);
 			}
 
+			let fee_complement = T::LPFee::get().left_from_one().deconstruct();
 			let amount_in_with_fee = amount_in
-				.checked_mul(&(T::HigherPrecisionBalance::from(1000u32) - (T::LPFee::get().into())))
+				.checked_mul(&T::HigherPrecisionBalance::from(fee_complement))
 				.ok_or(Error::<T>::Overflow)?;
 
 			let numerator =
 				amount_in_with_fee.checked_mul(&reserve_out).ok_or(Error::<T>::Overflow)?;
 
 			let denominator = reserve_in
-				.checked_mul(&1000u32.into())
+				.checked_mul(&T::HigherPrecisionBalance::from(Permill::ACCURACY))
 				.ok_or(Error::<T>::Overflow)?
 				.checked_add(&amount_in_with_fee)
 				.ok_or(Error::<T>::Overflow)?;
@@ -1326,16 +1329,17 @@ pub mod pallet {
 				Err(Error::<T>::AmountOutTooHigh)?
 			}
 
+			let fee_complement = T::LPFee::get().left_from_one().deconstruct();
 			let numerator = reserve_in
 				.checked_mul(&amount_out)
 				.ok_or(Error::<T>::Overflow)?
-				.checked_mul(&1000u32.into())
+				.checked_mul(&T::HigherPrecisionBalance::from(Permill::ACCURACY))
 				.ok_or(Error::<T>::Overflow)?;
 
 			let denominator = reserve_out
 				.checked_sub(&amount_out)
 				.ok_or(Error::<T>::Overflow)?
-				.checked_mul(&(T::HigherPrecisionBalance::from(1000u32) - T::LPFee::get().into()))
+				.checked_mul(&T::HigherPrecisionBalance::from(fee_complement))
 				.ok_or(Error::<T>::Overflow)?;
 
 			let result = numerator
@@ -1392,7 +1396,7 @@ pub mod pallet {
 			let balance2 = Self::get_balance(&pool_account, asset2);
 
 			if balance1.is_zero() || balance2.is_zero() {
-				Err(Error::<T>::PoolNotFound)?;
+				Err(Error::<T>::PoolEmpty)?;
 			}
 
 			Ok((balance1, balance2))
@@ -1411,19 +1415,39 @@ pub mod pallet {
 			amount: T::Balance,
 			include_fee: bool,
 		) -> Option<T::Balance> {
+			// Swaps reject zero amounts, match that behavior.
+			if amount.is_zero() {
+				return None;
+			}
+
 			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
 
 			let balance1 = Self::get_balance(&pool_account, asset1);
-			let balance2 = Self::get_balance(&pool_account, asset2);
-			if !balance1.is_zero() {
-				if include_fee {
-					Self::get_amount_out(&amount, &balance1, &balance2).ok()
-				} else {
-					Self::quote(&amount, &balance1, &balance2).ok()
-				}
-			} else {
-				None
+			let balance2 = Self::get_balance(&pool_account, asset2.clone());
+
+			if balance1.is_zero() {
+				return None;
 			}
+
+			let amount_out = if include_fee {
+				Self::get_amount_out(&amount, &balance1, &balance2).ok()?
+			} else {
+				Self::quote(&amount, &balance1, &balance2).ok()?
+			};
+
+			// Small inputs can round output to zero due to integer division.
+			if amount_out.is_zero() {
+				return None;
+			}
+
+			// Swap withdrawals from pools use `keep_alive=true` (Preserve). Use the same
+			// preservation level to determine the actual withdrawable amount.
+			let max_output = T::Assets::reducible_balance(asset2, &pool_account, Preserve, Polite);
+			if amount_out > max_output {
+				return None;
+			}
+
+			Some(amount_out)
 		}
 
 		/// Gets a quote for swapping `amount` of `asset1` for an exact amount of `asset2`.
@@ -1439,18 +1463,30 @@ pub mod pallet {
 			amount: T::Balance,
 			include_fee: bool,
 		) -> Option<T::Balance> {
+			// Swaps reject zero amounts, match that behavior.
+			if amount.is_zero() {
+				return None;
+			}
 			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
 
 			let balance1 = Self::get_balance(&pool_account, asset1);
-			let balance2 = Self::get_balance(&pool_account, asset2);
-			if !balance1.is_zero() {
-				if include_fee {
-					Self::get_amount_in(&amount, &balance1, &balance2).ok()
-				} else {
-					Self::quote(&amount, &balance2, &balance1).ok()
-				}
+			let balance2 = Self::get_balance(&pool_account, asset2.clone());
+
+			if balance1.is_zero() {
+				return None;
+			}
+
+			// Swap withdrawals from pools use `keep_alive=true` (Preserve). Use the same
+			// preservation level to determine the actual withdrawable amount.
+			let max_output = T::Assets::reducible_balance(asset2, &pool_account, Preserve, Polite);
+			if amount > max_output {
+				return None;
+			}
+
+			if include_fee {
+				Self::get_amount_in(&amount, &balance1, &balance2).ok()
 			} else {
-				None
+				Self::quote(&amount, &balance2, &balance1).ok()
 			}
 		}
 	}

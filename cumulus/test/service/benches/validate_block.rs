@@ -22,7 +22,7 @@ use cumulus_primitives_core::{
 	relay_chain::AccountId, ParaId, PersistedValidationData, ValidationParams,
 };
 use cumulus_test_client::{
-	generate_extrinsic_with_pair, BuildParachainBlockData, InitBlockBuilder, TestClientBuilder,
+	generate_extrinsic_with_pair, BuildBlockBuilder, BuildParachainBlockData, TestClientBuilder,
 	ValidationResult,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
@@ -111,8 +111,11 @@ fn benchmark_block_validation(c: &mut Criterion) {
 		..Default::default()
 	};
 
-	let cumulus_test_client::BlockBuilderAndSupportData { mut block_builder, .. } =
-		client.init_block_builder(Some(validation_data), sproof_builder.clone());
+	let cumulus_test_client::BlockBuilderAndSupportData { mut block_builder, .. } = client
+		.init_block_builder_builder()
+		.with_validation_data(validation_data)
+		.with_relay_sproof_builder(sproof_builder.clone())
+		.build();
 
 	for extrinsic in extrinsics {
 		block_builder.push(extrinsic).unwrap();
