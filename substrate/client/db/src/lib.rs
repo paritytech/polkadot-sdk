@@ -4172,6 +4172,9 @@ pub(crate) mod tests {
 		assert_eq!(backend.blockchain().info().best_number, 3);
 
 		// Finalizing block 4 must not leave `best_number` behind `finalized_number`.
+		backend.finalize_block(block1, None).unwrap();
+		backend.finalize_block(block2, None).unwrap();
+		backend.finalize_block(block3, None).unwrap();
 		backend.finalize_block(block4, None).unwrap();
 
 		let info = backend.blockchain().info();
