@@ -3019,7 +3019,7 @@ type Migrations = (
 	pallet_alliance::migration::Migration<Runtime>,
 	pallet_contracts::Migration<Runtime>,
 	pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
-	// Wrap stored scheduler/collective calls in `VersionedCall` (#1138).
+	// Wrap stored scheduler/collective calls in `VersionedCall`.
 	pallet_scheduler::migration::v5::MigrateV4ToV5<Runtime>,
 	pallet_collective::migrations::v5::MigrateToV5<Runtime, CouncilCollective>,
 	pallet_collective::migrations::v5::MigrateToV5<Runtime, TechnicalCollective>,

@@ -864,7 +864,7 @@ type Migrations = (
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
 	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
-	// Wrap stored scheduler/collective calls in `VersionedCall` (#1138).
+	// Wrap stored scheduler/collective calls in `VersionedCall`.
 	pallet_scheduler::migration::v5::MigrateV4ToV5<Runtime>,
 	pallet_collective::migrations::v5::MigrateToV5<Runtime, AllianceCollective>,
 );

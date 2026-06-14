@@ -1780,7 +1780,7 @@ pub mod migrations {
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
         parachains_inclusion::migration::MigrateToV1<Runtime>,
 
-        // Wrap stored scheduler calls in `VersionedCall` (#1138).
+        // Wrap stored scheduler calls in `VersionedCall`.
         pallet_scheduler::migration::v5::MigrateV4ToV5<Runtime>,
     );
 }
