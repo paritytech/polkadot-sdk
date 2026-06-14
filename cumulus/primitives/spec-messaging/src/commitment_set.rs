@@ -25,6 +25,7 @@ use sp_runtime::BoundedVec;
 	codec::MaxEncodedLen,
 	codec::DecodeWithMemTracking,
 	Debug,
+	Default,
 	Eq,
 	PartialEq,
 	scale_info::TypeInfo,
@@ -48,6 +49,25 @@ impl<const N: u32> codec::Decode for CommitmentSet<N> {
 }
 
 impl<const N: u32> CommitmentSet<N> {
+	pub fn get(&self, para_id: ParaId) -> Option<&Hash> {
+		self.0
+			.binary_search_by_key(&para_id, |(id, _)| *id)
+			.ok()
+			.map(|idx| &self.0[idx].1)
+	}
+
+	pub fn len(&self) -> usize {
+		self.0.len()
+	}
+
+	pub fn is_empty(&self) -> bool {
+		self.0.is_empty()
+	}
+
+	pub fn iter(&self) -> impl Iterator<Item = &(ParaId, Hash)> {
+		self.0.iter()
+	}
+
 	/// Builds a [`CommitmentSet`] from an arbitrary (possibly unordered) iterator,
 	/// sorting entries by `ParaId` to produce the encoding.
 	pub fn try_from_iter(
@@ -63,6 +83,15 @@ impl<const N: u32> CommitmentSet<N> {
 		let inner = BoundedVec::try_from(entries).map_err(|_| CommitmentError::TooManyEntries)?;
 
 		Ok(Self(inner))
+	}
+}
+
+impl<'a, const N: u32> IntoIterator for &'a CommitmentSet<N> {
+	type Item = &'a (ParaId, Hash);
+	type IntoIter = core::slice::Iter<'a, (ParaId, Hash)>;
+
+	fn into_iter(self) -> Self::IntoIter {
+		self.0.iter()
 	}
 }
 
