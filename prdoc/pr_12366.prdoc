@@ -11,4 +11,4 @@ doc:
     reduce the offending locks/freezes and retry.
 crates:
 - name: pallet-assets
-  bump: minor
+  bump: major
