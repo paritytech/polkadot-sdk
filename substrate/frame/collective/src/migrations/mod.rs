@@ -18,4 +18,5 @@
 /// Version 4.
 pub mod v4;
 
+/// Version 5: wrap stored proposals in `VersionedCall`.
 pub mod v5;

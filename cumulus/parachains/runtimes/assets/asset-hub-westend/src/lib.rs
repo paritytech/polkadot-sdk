@@ -686,12 +686,6 @@ impl pallet_multisig::Config for Runtime {
 	type BlockNumberProvider = System;
 }
 
-impl MaxEncodedLen for RuntimeCall {
-	fn max_encoded_len() -> usize {
-		16 * 1024
-	}
-}
-
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -2033,6 +2027,8 @@ pub type Migrations = (
 		staking::StakingPotsPalletId,
 		staking::StakingStakerRewardKind,
 	>,
+	// Wrap stored scheduler calls in `VersionedCall` (#1138).
+	pallet_scheduler::migration::v5::MigrateV4ToV5<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.

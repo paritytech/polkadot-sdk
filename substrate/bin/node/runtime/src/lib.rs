@@ -407,12 +407,6 @@ impl pallet_multisig::Config for Runtime {
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
-impl MaxEncodedLen for RuntimeCall {
-	fn max_encoded_len() -> usize {
-		16 * 1024
-	}
-}
-
 parameter_types! {
 	// One storage item; key size 32, value size 8; .
 	pub const ProxyDepositBase: Balance = deposit(1, 8);
@@ -3025,6 +3019,11 @@ type Migrations = (
 	pallet_alliance::migration::Migration<Runtime>,
 	pallet_contracts::Migration<Runtime>,
 	pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
+	// Wrap stored scheduler/collective calls in `VersionedCall` (#1138).
+	pallet_scheduler::migration::v5::MigrateV4ToV5<Runtime>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, CouncilCollective>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, TechnicalCollective>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, AllianceCollective>,
 );
 
 type EventRecord = frame_system::EventRecord<

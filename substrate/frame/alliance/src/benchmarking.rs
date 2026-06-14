@@ -20,10 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use core::{cmp, mem::size_of};
-use sp_runtime::{
-	traits::{Bounded, Hash, StaticLookup},
-	VersionedCall,
-};
+use sp_runtime::traits::{Bounded, Hash, StaticLookup};
 
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable};
@@ -72,12 +69,6 @@ fn outsider<T: Config<I>, I: 'static>(index: u32) -> T::AccountId {
 
 fn generate_unscrupulous_account<T: Config<I>, I: 'static>(index: u32) -> T::AccountId {
 	funded_account::<T, I>("unscrupulous", index)
-}
-
-/// Compute the proposal hash as stored by the ProposalProvider.
-fn versioned_proposal_hash<T: Config<I>, I: 'static>(proposal: &T::Proposal) -> T::Hash {
-	let current_version = frame_system::Pallet::<T>::runtime_version().transaction_version;
-	T::Hashing::hash_of(&VersionedCall::new(proposal.clone(), current_version))
 }
 
 fn set_members<T: Config<I>, I: 'static>() {
@@ -144,7 +135,7 @@ mod benchmarks {
 			bytes_in_storage,
 		);
 
-		let proposal_hash = versioned_proposal_hash::<T, I>(&proposal);
+		let proposal_hash = T::Hashing::hash_of(&proposal);
 		assert_eq!(T::ProposalProvider::proposal_of(proposal_hash), Some(proposal));
 		Ok(())
 	}
@@ -178,7 +169,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				b,
 			)?;
-			last_hash = versioned_proposal_hash::<T, I>(&proposal);
+			last_hash = T::Hashing::hash_of(&proposal);
 		}
 
 		let index = p - 1;
@@ -244,7 +235,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = versioned_proposal_hash::<T, I>(&proposal);
+			last_hash = T::Hashing::hash_of(&proposal);
 			assert_eq!(T::ProposalProvider::proposal_of(last_hash), Some(proposal));
 		}
 
@@ -315,7 +306,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = versioned_proposal_hash::<T, I>(&proposal);
+			last_hash = T::Hashing::hash_of(&proposal);
 			assert_eq!(T::ProposalProvider::proposal_of(last_hash), Some(proposal));
 		}
 
@@ -392,7 +383,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = versioned_proposal_hash::<T, I>(&proposal);
+			last_hash = T::Hashing::hash_of(&proposal);
 			assert_eq!(T::ProposalProvider::proposal_of(last_hash), Some(proposal));
 		}
 
@@ -459,7 +450,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = versioned_proposal_hash::<T, I>(&proposal);
+			last_hash = T::Hashing::hash_of(&proposal);
 			assert_eq!(T::ProposalProvider::proposal_of(last_hash), Some(proposal));
 		}
 

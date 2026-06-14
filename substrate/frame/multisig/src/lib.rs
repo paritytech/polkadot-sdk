@@ -55,7 +55,6 @@ use frame::{
 	traits::{Currency, ReservableCurrency},
 };
 use frame_system::RawOrigin;
-use sp_runtime::VersionedCall;
 pub use weights::WeightInfo;
 
 /// Re-export all pallet items.
@@ -135,7 +134,7 @@ where
 type CallHash = [u8; 32];
 
 enum CallOrHash<T: Config> {
-	Call(VersionedCall<<T as Config>::RuntimeCall>),
+	Call(<T as Config>::RuntimeCall),
 	Hash([u8; 32]),
 }
 
@@ -153,8 +152,7 @@ pub mod pallet {
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
-			+ From<frame_system::Call<Self>>
-			+ MaxEncodedLen;
+			+ From<frame_system::Call<Self>>;
 
 		/// The currency mechanism.
 		type Currency: ReservableCurrency<Self::AccountId>;
@@ -207,7 +205,7 @@ pub mod pallet {
 	}
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -222,16 +220,6 @@ pub mod pallet {
 		Blake2_128Concat,
 		[u8; 32],
 		Multisig<BlockNumberFor<T>, BalanceOf<T>, T::AccountId, T::MaxSignatories>,
-	>;
-
-	#[pallet::storage]
-	pub type Calls<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		T::AccountId,
-		Blake2_128Concat,
-		[u8; 32],
-		VersionedCall<<T as Config>::RuntimeCall>,
 	>;
 
 	#[pallet::error]
@@ -265,8 +253,6 @@ pub mod pallet {
 		MaxWeightTooLow,
 		/// The data to be stored is already stored.
 		AlreadyStored,
-		/// The call's transaction version doesn't match the current runtime version.
-		CallVersionMismatch,
 	}
 
 	#[pallet::event]
@@ -440,15 +426,12 @@ pub mod pallet {
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			// Wrap the call with version information
-			let versioned_call = Self::create_versioned_call(*call);
-
 			Self::operate(
 				who,
 				threshold,
 				other_signatories,
 				maybe_timepoint,
-				CallOrHash::Call(versioned_call),
+				CallOrHash::Call(*call),
 				max_weight,
 			)
 		}
@@ -563,9 +546,7 @@ pub mod pallet {
 
 			let err_amount = T::Currency::unreserve(&m.depositor, m.deposit);
 			debug_assert!(err_amount.is_zero());
-
 			<Multisigs<T>>::remove(&id, &call_hash);
-			Calls::<T>::remove(&id, &call_hash); // Clean up stored call
 
 			Self::deposit_event(Event::MultisigCancelled {
 				cancelling: who,
@@ -667,34 +648,6 @@ impl<T: Config> Pallet<T> {
 			.expect("infinite length input; no invalid inputs for type; qed")
 	}
 
-	/// Helper to create a versioned call
-	fn create_versioned_call(
-		call: <T as Config>::RuntimeCall,
-	) -> VersionedCall<<T as Config>::RuntimeCall> {
-		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
-		VersionedCall::new(call, current_version)
-	}
-
-	/// Validate and extract call from VersionedCall
-	fn validate_and_extract_call(
-		versioned_call: &VersionedCall<<T as Config>::RuntimeCall>,
-	) -> Result<<T as Config>::RuntimeCall, DispatchError> {
-		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
-
-		match versioned_call.validate_version(current_version) {
-			Ok(()) => Ok(versioned_call.call_ref().clone()),
-			Err(err) => {
-				log::warn!(
-					target: "runtime::multisig",
-					"Multisig call version mismatch: stored={}, current={}",
-					err.stored,
-					err.current
-				);
-				Err(Error::<T>::CallVersionMismatch.into())
-			},
-		}
-	}
-
 	fn operate(
 		who: T::AccountId,
 		threshold: u16,
@@ -712,16 +665,11 @@ impl<T: Config> Pallet<T> {
 
 		let id = Self::multi_account_id(&signatories, threshold);
 
-		// Extract call hash and length, wrapping in VersionedCall if it's a Call.
-		let (call_hash, call_len, maybe_call_data) = match call_or_hash {
-			CallOrHash::Call(versioned_call) => {
-				// Validate the version before proceeding
-				let call = Self::validate_and_extract_call(&versioned_call)?;
-
-				let call_encoded = call.encode();
-				let call_hash = blake2_256(&call_encoded);
-				let call_len = call_encoded.len();
-				(call_hash, call_len, Some((call, versioned_call)))
+		// Threshold > 1; this means it's a multi-step operation. We extract the `call_hash`.
+		let (call_hash, call_len, maybe_call) = match call_or_hash {
+			CallOrHash::Call(call) => {
+				let (call_hash, call_len) = call.using_encoded(|d| (blake2_256(d), d.len()));
+				(call_hash, call_len, Some(call))
 			},
 			CallOrHash::Hash(h) => (h, 0, None),
 		};
@@ -741,23 +689,17 @@ impl<T: Config> Pallet<T> {
 				approvals += 1;
 			}
 
-			// Try to fetch and execute the call if we have threshold
-			if let Some((call, _versioned_call)) =
-				maybe_call_data.filter(|_| approvals >= threshold)
-			{
-				if let Some(stored) = Calls::<T>::get(&id, call_hash) {
-					Self::validate_and_extract_call(&stored)?;
-				}
-
-				// Verify weight
+			// We only bother fetching/decoding call if we know that we're ready to execute.
+			if let Some(call) = maybe_call.filter(|_| approvals >= threshold) {
+				// verify weight
 				ensure!(
 					call.get_dispatch_info().call_weight.all_lte(max_weight),
 					Error::<T>::MaxWeightTooLow
 				);
 
-				// Clean up storage before executing
+				// Clean up storage before executing call to avoid an possibility of reentrancy
+				// attack.
 				<Multisigs<T>>::remove(&id, call_hash);
-				Calls::<T>::remove(&id, call_hash);
 				T::Currency::unreserve(&m.depositor, m.deposit);
 
 				let result = call.dispatch(RawOrigin::Signed(id.clone()).into());
@@ -768,7 +710,6 @@ impl<T: Config> Pallet<T> {
 					call_hash,
 					result: result.map(|_| ()).map_err(|e| e.error),
 				});
-
 				Ok(get_result_weight(result)
 					.map(|actual_weight| {
 						T::WeightInfo::as_multi_complete(
@@ -779,7 +720,9 @@ impl<T: Config> Pallet<T> {
 					})
 					.into())
 			} else {
-				// Record approval or return error if already approved
+				// We cannot dispatch the call now; either it isn't available, or it is, but we
+				// don't have threshold approvals even with our signature.
+
 				if let Some(pos) = maybe_pos {
 					// Record approval.
 					m.approvals
@@ -804,7 +747,7 @@ impl<T: Config> Pallet<T> {
 				Ok(Some(final_weight).into())
 			}
 		} else {
-			// New multisig operation
+			// Not yet started; there should be no timepoint given.
 			ensure!(maybe_timepoint.is_none(), Error::<T>::UnexpectedTimepoint);
 
 			// Just start the operation by recording it in storage.
@@ -825,12 +768,6 @@ impl<T: Config> Pallet<T> {
 					approvals: initial_approvals,
 				},
 			);
-
-			// Store the versioned call if provided
-			if let Some((_call, versioned_call)) = maybe_call_data {
-				Calls::<T>::insert(&id, call_hash, versioned_call);
-			}
-
 			Self::deposit_event(Event::NewMultisig { approving: who, multisig: id, call_hash });
 
 			let final_weight =

@@ -1144,11 +1144,8 @@ impl OpaqueValue {
 	}
 }
 
-/// A call wrapper that includes the transaction version at which it was created.
-///
-/// This prevents issues when a runtime upgrade occurs between when a call is stored
-/// and when it is executed. The version check ensures that calls are only executed
-/// if they match the current transaction version.
+/// A call bundled with the `transaction_version` at which it was created, so a stored call is only
+/// executed if its version still matches the runtime's current `transaction_version`.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 #[scale_info(skip_type_params(Call))]
 pub struct VersionedCall<Call> {
@@ -1179,10 +1176,7 @@ impl<Call> VersionedCall<Call> {
 		Ok(self.call)
 	}
 
-	/// Get a reference to the inner call without version validation
-	///
-	/// # Note
-	/// This should only be used for inspection purposes, not execution
+	/// Reference to the inner call without version validation (for inspection, not execution).
 	pub fn call_ref(&self) -> &Call {
 		&self.call
 	}

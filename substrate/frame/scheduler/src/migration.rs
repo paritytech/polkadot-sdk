@@ -79,7 +79,7 @@ pub mod v3 {
 	pub(crate) type Lookup<T: Config> =
 		StorageMap<Pallet<T>, Twox64Concat, Vec<u8>, TaskAddress<BlockNumberFor<T>>>;
 
-	/// Migrate the scheduler pallet from V3 to V4 with VersionedCall support.
+	/// Migrate the scheduler pallet from V3 to V4.
 	pub struct MigrateToV4<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV4<T> {
@@ -121,11 +121,7 @@ pub mod v3 {
 				for schedule in agenda.iter().cloned().flatten() {
 					match schedule.call {
 						frame_support::traits::schedule::MaybeHashed::Value(call) => {
-							// Get current transaction version for creating VersionedCall
-							let current_version =
-								<frame_system::Pallet<T>>::runtime_version().transaction_version;
-							let versioned_call = VersionedCall::new(call, current_version);
-							let l = versioned_call.encode().len();
+							let l = call.using_encoded(|c| c.len());
 							if l > max_length {
 								log::error!(
 									target: TARGET,
@@ -303,6 +299,123 @@ pub mod v4 {
 	}
 }
 
+/// Migrate the scheduler from V4 to V5: add `maybe_transaction_version` (`None`) to every task,
+/// preserving existing behaviour (existing tasks stay unchecked).
+pub mod v5 {
+	use super::*;
+	use frame_support::{
+		migrations::VersionedMigration,
+		pallet_prelude::*,
+		traits::UncheckedOnRuntimeUpgrade,
+	};
+
+	/// The V4 `Scheduled` layout (without `maybe_transaction_version`).
+	#[derive(Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	pub struct OldScheduled<Name, Call, BlockNumber, PalletsOrigin, AccountId> {
+		pub maybe_id: Option<Name>,
+		pub priority: schedule::Priority,
+		pub call: Call,
+		pub maybe_periodic: Option<schedule::Period<BlockNumber>>,
+		pub origin: PalletsOrigin,
+		pub _phantom: PhantomData<AccountId>,
+	}
+
+	pub type OldScheduledOf<T> = OldScheduled<
+		TaskName,
+		BoundedCallOf<T>,
+		BlockNumberFor<T>,
+		<T as Config>::PalletsOrigin,
+		<T as frame_system::Config>::AccountId,
+	>;
+
+	/// `Agenda` viewed with the V4 value type, for reading pre-migration state.
+	#[cfg(feature = "try-runtime")]
+	pub(crate) mod v4_storage {
+		use super::*;
+
+		#[frame_support::storage_alias]
+		pub type Agenda<T: Config> = StorageMap<
+			crate::Pallet<T>,
+			Twox64Concat,
+			BlockNumberFor<T>,
+			BoundedVec<Option<OldScheduledOf<T>>, <T as Config>::MaxScheduledPerBlock>,
+			ValueQuery,
+		>;
+	}
+
+	/// The raw, version-unchecked migration logic. Prefer [`MigrateV4ToV5`].
+	pub struct InnerMigrateToV5<T>(core::marker::PhantomData<T>);
+
+	impl<T: Config> UncheckedOnRuntimeUpgrade for InnerMigrateToV5<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			// Read with the V4 value type (storage not yet migrated).
+			let task_count = v4_storage::Agenda::<T>::iter_values()
+				.map(|agenda| agenda.iter().filter(|s| s.is_some()).count() as u32)
+				.sum::<u32>();
+			log::info!(target: TARGET, "pre_upgrade: {} scheduled tasks", task_count);
+			Ok(task_count.encode())
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			let mut count = 0u64;
+			Agenda::<T>::translate::<
+				BoundedVec<Option<OldScheduledOf<T>>, T::MaxScheduledPerBlock>,
+				_,
+			>(|_when, agenda| {
+				count.saturating_inc();
+				let new_agenda = agenda
+					.into_iter()
+					.map(|maybe_scheduled| {
+						maybe_scheduled.map(|s| Scheduled {
+							maybe_id: s.maybe_id,
+							priority: s.priority,
+							call: s.call,
+							maybe_periodic: s.maybe_periodic,
+							origin: s.origin,
+							maybe_transaction_version: None,
+							_phantom: PhantomData,
+						})
+					})
+					.collect::<Vec<_>>();
+				// 1:1 mapping; length is preserved, so the bound always holds.
+				Some(BoundedVec::<_, T::MaxScheduledPerBlock>::truncate_from(new_agenda))
+			});
+
+			log::info!(target: TARGET, "Migrated {} agendas to V5", count);
+			// One read + one write per agenda, plus one read for the storage version.
+			T::DbWeight::get().reads_writes(count.saturating_add(1), count)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let old_task_count: u32 =
+				Decode::decode(&mut state.as_ref()).expect("pre_upgrade provides a valid u32; qed");
+			let mut new_task_count = 0u32;
+			for agenda in Agenda::<T>::iter_values() {
+				for scheduled in agenda.into_iter().flatten() {
+					new_task_count.saturating_inc();
+					ensure!(
+						scheduled.maybe_transaction_version.is_none(),
+						"Migrated tasks must not be version-checked"
+					);
+				}
+			}
+			ensure!(old_task_count == new_task_count, "Task count must be preserved");
+			Ok(())
+		}
+	}
+
+	/// Version-checked migration from V4 to V5. Add this to a runtime's `Migrations` tuple.
+	pub type MigrateV4ToV5<T> = VersionedMigration<
+		4,
+		5,
+		InnerMigrateToV5<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
+
 #[cfg(test)]
 #[cfg(feature = "try-runtime")]
 mod test {
@@ -343,6 +456,7 @@ mod test {
 						call: small_call.clone().into(),
 						maybe_periodic: None, // 1
 						origin: root(),
+						maybe_transaction_version: None,
 						_phantom: PhantomData::<u64>::default(),
 					}),
 					None,
@@ -352,6 +466,7 @@ mod test {
 						call: large_call.clone().into(),
 						maybe_periodic: Some((4u64, 20)),
 						origin: signed(i),
+						maybe_transaction_version: None,
 						_phantom: PhantomData::<u64>::default(),
 					}),
 					Some(ScheduledV3Of::<Test> {
@@ -360,6 +475,7 @@ mod test {
 						call: MaybeHashed::Hash(bound_hashed_call.hash()),
 						maybe_periodic: Some((8u64, 10)),
 						origin: signed(i),
+						maybe_transaction_version: None,
 						_phantom: PhantomData::<u64>::default(),
 					}),
 					Some(ScheduledV3Of::<Test> {
@@ -368,6 +484,7 @@ mod test {
 						call: MaybeHashed::Hash(undecodable_hash),
 						maybe_periodic: Some((4u64, 20)),
 						origin: root(),
+						maybe_transaction_version: None,
 						_phantom: PhantomData::<u64>::default(),
 					}),
 				];
@@ -381,17 +498,10 @@ mod test {
 			let mut x = Agenda::<Test>::iter().map(|x| (x.0, x.1.into_inner())).collect::<Vec<_>>();
 			x.sort_by_key(|x| x.0);
 
-			let current_version =
-				<frame_system::Pallet<Test>>::runtime_version().transaction_version;
-			let bound_large_call =
-				Preimage::bound(VersionedCall::new(large_call, current_version)).unwrap();
+			let bound_large_call = Preimage::bound(large_call).unwrap();
 			assert!(bound_large_call.lookup_needed());
-			let bound_small_call =
-				Preimage::bound(VersionedCall::new(small_call, current_version)).unwrap();
+			let bound_small_call = Preimage::bound(small_call).unwrap();
 			assert!(!bound_small_call.lookup_needed());
-			let bound_hashed_call_versioned =
-				Preimage::bound(VersionedCall::new(hashed_call, current_version)).unwrap();
-			assert!(bound_hashed_call_versioned.lookup_needed());
 
 			let expected = vec![
 				(
@@ -403,6 +513,7 @@ mod test {
 							call: bound_small_call.clone(),
 							maybe_periodic: None,
 							origin: root(),
+							maybe_transaction_version: None,
 							_phantom: PhantomData::<u64>::default(),
 						}),
 						None,
@@ -412,14 +523,16 @@ mod test {
 							call: bound_large_call.clone(),
 							maybe_periodic: Some((4u64, 20)),
 							origin: signed(0),
+							maybe_transaction_version: None,
 							_phantom: PhantomData::<u64>::default(),
 						}),
 						Some(ScheduledOf::<Test> {
 							maybe_id: Some(blake2_256(&[255u8; 320])),
 							priority: 123,
-							call: bound_hashed_call_versioned.clone(),
+							call: Bounded::from_legacy_hash(bound_hashed_call.hash()),
 							maybe_periodic: Some((8u64, 10)),
 							origin: signed(0),
+							maybe_transaction_version: None,
 							_phantom: PhantomData::<u64>::default(),
 						}),
 						None,
@@ -434,6 +547,7 @@ mod test {
 							call: bound_small_call.clone(),
 							maybe_periodic: None,
 							origin: root(),
+							maybe_transaction_version: None,
 							_phantom: PhantomData::<u64>::default(),
 						}),
 						None,
@@ -443,14 +557,16 @@ mod test {
 							call: bound_large_call.clone(),
 							maybe_periodic: Some((4u64, 20)),
 							origin: signed(1),
+							maybe_transaction_version: None,
 							_phantom: PhantomData::<u64>::default(),
 						}),
 						Some(ScheduledOf::<Test> {
 							maybe_id: Some(blake2_256(&[254u8; 320])),
 							priority: 123,
-							call: bound_hashed_call_versioned.clone(),
+							call: Bounded::from_legacy_hash(bound_hashed_call.hash()),
 							maybe_periodic: Some((8u64, 10)),
 							origin: signed(1),
+							maybe_transaction_version: None,
 							_phantom: PhantomData::<u64>::default(),
 						}),
 						None,
@@ -488,6 +604,7 @@ mod test {
 				call: too_large_call.clone().into(),
 				maybe_periodic: None,
 				origin: root(),
+				maybe_transaction_version: None,
 				_phantom: PhantomData::<u64>::default(),
 			})];
 			frame_support::migration::put_storage_value(b"Scheduler", b"Agenda", &k, old);
@@ -515,15 +632,14 @@ mod test {
 			StorageVersion::new(4).put::<Scheduler>();
 
 			let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
-			let current_version =
-				<frame_system::Pallet<Test>>::runtime_version().transaction_version;
-			let bounded_call = Preimage::bound(VersionedCall::new(call, current_version)).unwrap();
+			let bounded_call = Preimage::bound(call).unwrap();
 			let some = Some(ScheduledOf::<Test> {
 				maybe_id: None,
 				priority: 1,
 				call: bounded_call,
 				maybe_periodic: None,
 				origin: root(),
+				maybe_transaction_version: None,
 				_phantom: Default::default(),
 			});
 
@@ -566,6 +682,51 @@ mod test {
 					},
 				}
 			}
+		});
+	}
+
+	#[test]
+	fn migration_v4_to_v5_works() {
+		new_test_ext().execute_with(|| {
+			// Assume that we are at V4.
+			StorageVersion::new(4).put::<Scheduler>();
+
+			let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![0; 10] });
+			let bounded: BoundedCallOf<Test> = Preimage::bound(call).unwrap();
+
+			// Write a V4-format agenda: `OldScheduled` has no `maybe_transaction_version` field.
+			let old_agenda: BoundedVec<
+				Option<v5::OldScheduledOf<Test>>,
+				<Test as Config>::MaxScheduledPerBlock,
+			> = BoundedVec::truncate_from(vec![
+				Some(v5::OldScheduled {
+					maybe_id: None,
+					priority: 42,
+					call: bounded.clone(),
+					maybe_periodic: Some((10u64, 3)),
+					origin: root(),
+					_phantom: PhantomData::<u64>::default(),
+				}),
+				None,
+			]);
+			let k = 4u64.twox_64_concat();
+			frame_support::migration::put_storage_value(b"Scheduler", b"Agenda", &k, old_agenda);
+
+			// Run the version-checked migration.
+			let state = v5::MigrateV4ToV5::<Test>::pre_upgrade().unwrap();
+			let _w = v5::MigrateV4ToV5::<Test>::on_runtime_upgrade();
+			v5::MigrateV4ToV5::<Test>::post_upgrade(state).unwrap();
+
+			// Storage version bumped, content preserved, and tasks default to no version check.
+			assert_eq!(StorageVersion::get::<Scheduler>(), 5);
+			let migrated = Agenda::<Test>::get(4u64);
+			assert_eq!(migrated.len(), 2);
+			let task = migrated[0].as_ref().expect("first slot is Some");
+			assert_eq!(task.maybe_transaction_version, None);
+			assert_eq!(task.priority, 42);
+			assert_eq!(task.call, bounded);
+			assert_eq!(task.maybe_periodic, Some((10u64, 3)));
+			assert!(migrated[1].is_none());
 		});
 	}
 

@@ -412,10 +412,8 @@ pub fn make_kick_member_proposal(who: AccountId) -> (RuntimeCall, u32, H256) {
 }
 
 pub fn make_proposal(proposal: RuntimeCall) -> (RuntimeCall, u32, H256) {
-	let versioned =
-		pallet_collective::Pallet::<Test, Instance1>::create_versioned_proposal(proposal.clone());
-	let len = versioned.encode().len() as u32;
-	let hash = BlakeTwo256::hash_of(&versioned);
+	let len: u32 = proposal.using_encoded(|p| p.len() as u32);
+	let hash = BlakeTwo256::hash_of(&proposal);
 	(proposal, len, hash)
 }
 

@@ -39,7 +39,6 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 	// This pallet wishes to overwrite this.
 	type BaseCallFilter = TestBaseCallFilter;
-	type Version = MockVersion;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -65,27 +64,6 @@ parameter_types! {
 	pub static MultisigDepositFactor: u64 = 1;
 }
 
-thread_local! {
-	static TRANSACTION_VERSION: core::cell::Cell<u32> = const { core::cell::Cell::new(1) };
-}
-
-/// A mock runtime version whose `transaction_version` can be changed in tests to simulate a
-/// runtime upgrade occurring between when a multisig call is stored and when it is executed.
-pub struct MockVersion;
-impl Get<RuntimeVersion> for MockVersion {
-	fn get() -> RuntimeVersion {
-		RuntimeVersion {
-			transaction_version: TRANSACTION_VERSION.with(|v| v.get()),
-			..Default::default()
-		}
-	}
-}
-
-/// Simulate bumping the `transaction_version` (e.g. after a runtime upgrade).
-fn set_transaction_version(v: u32) {
-	TRANSACTION_VERSION.with(|c| c.set(v));
-}
-
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -95,12 +73,6 @@ impl Config for Test {
 	type MaxSignatories = ConstU32<3>;
 	type WeightInfo = ();
 	type BlockNumberProvider = frame_system::Pallet<Test>;
-}
-
-impl MaxEncodedLen for RuntimeCall {
-	fn max_encoded_len() -> usize {
-		4096
-	}
 }
 
 use pallet_balances::{Call as BalancesCall, Error as BalancesError};
@@ -220,7 +192,6 @@ fn timepoint_checking_works() {
 			hash,
 			Weight::zero()
 		));
-		let timepoint = now();
 
 		assert_noop!(
 			Multisig::as_multi(
@@ -233,7 +204,7 @@ fn timepoint_checking_works() {
 			),
 			Error::<Test>::NoTimepoint,
 		);
-		let later = Timepoint { index: 1, ..timepoint };
+		let later = Timepoint { index: 1, ..now() };
 		assert_noop!(
 			Multisig::as_multi(
 				RuntimeOrigin::signed(2),
@@ -308,7 +279,6 @@ fn multisig_2_of_3_works() {
 			hash,
 			Weight::zero()
 		));
-		let timepoint = now();
 		assert_eq!(Balances::free_balance(6), 0);
 
 		// Verify that approve_as_multi does not execute even when threshold is reached
@@ -327,7 +297,7 @@ fn multisig_2_of_3_works() {
 			RuntimeOrigin::signed(2),
 			2,
 			vec![1, 3],
-			Some(timepoint),
+			Some(now()),
 			call,
 			call_weight
 		));
@@ -354,12 +324,11 @@ fn multisig_3_of_3_works() {
 			hash,
 			Weight::zero()
 		));
-		let timepoint = now();
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(2),
 			3,
 			vec![1, 3],
-			Some(timepoint),
+			Some(now()),
 			hash,
 			Weight::zero()
 		));
@@ -369,7 +338,7 @@ fn multisig_3_of_3_works() {
 			RuntimeOrigin::signed(3),
 			3,
 			vec![1, 2],
-			Some(timepoint),
+			Some(now()),
 			call,
 			call_weight
 		));
@@ -703,12 +672,11 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 			call.clone(),
 			Weight::zero()
 		));
-		let timepoint1 = now();
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(2),
 			2,
 			vec![1, 3],
-			Some(timepoint1),
+			Some(now()),
 			call.clone(),
 			call_weight
 		));
@@ -722,12 +690,11 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 			call.clone(),
 			Weight::zero()
 		));
-		let timepoint2 = now();
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(3),
 			2,
 			vec![1, 2],
-			Some(timepoint2),
+			Some(now()),
 			call.clone(),
 			call_weight
 		));
@@ -735,7 +702,7 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 		System::assert_last_event(
 			pallet_multisig::Event::MultisigExecuted {
 				approving: 3,
-				timepoint: timepoint2,
+				timepoint: now(),
 				multisig: multi,
 				call_hash: hash,
 				result: Err(TokenError::FundsUnavailable.into()),
@@ -1119,12 +1086,11 @@ fn multisig_handles_no_preimage_after_all_approve() {
 			hash,
 			Weight::zero()
 		));
-		let timepoint = now();
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(2),
 			3,
 			vec![1, 3],
-			Some(timepoint),
+			Some(now()),
 			hash,
 			Weight::zero()
 		));
@@ -1132,7 +1098,7 @@ fn multisig_handles_no_preimage_after_all_approve() {
 			RuntimeOrigin::signed(3),
 			3,
 			vec![1, 2],
-			Some(timepoint),
+			Some(now()),
 			hash,
 			Weight::zero()
 		));
@@ -1142,7 +1108,7 @@ fn multisig_handles_no_preimage_after_all_approve() {
 			RuntimeOrigin::signed(3),
 			3,
 			vec![1, 2],
-			Some(timepoint),
+			Some(now()),
 			call,
 			call_weight
 		));
@@ -1458,158 +1424,5 @@ fn poke_deposit_handles_insufficient_balance() {
 			Multisig::poke_deposit(RuntimeOrigin::signed(4), threshold, other_signatories, hash),
 			BalancesError::<Test, _>::InsufficientBalance
 		);
-	});
-}
-
-#[test]
-fn as_multi_rejects_stored_call_after_runtime_upgrade() {
-	new_test_ext().execute_with(|| {
-		set_transaction_version(1);
-		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
-		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
-		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), multi, 5));
-
-		let call = call_transfer(6, 10);
-		let call_weight = call.get_dispatch_info().call_weight;
-
-		// Signatory 1 submits the first approval with the full call
-		assert_ok!(Multisig::as_multi(
-			RuntimeOrigin::signed(1),
-			2,
-			vec![2, 3],
-			None,
-			call.clone(),
-			Weight::zero()
-		));
-		let timepoint = now();
-
-		// Simulate a runtime upgrade by bumping the transaction_version.
-		set_transaction_version(2);
-
-		// Signatory 2 attempts to execute: the submitted call is at version 2, but the
-		// previously stored call has version 1 — execution must be rejected.
-		assert_noop!(
-			Multisig::as_multi(
-				RuntimeOrigin::signed(2),
-				2,
-				vec![1, 3],
-				Some(timepoint),
-				call,
-				call_weight
-			),
-			Error::<Test>::CallVersionMismatch
-		);
-		// No funds were transferred; the call never executed.
-		assert_eq!(Balances::free_balance(6), 0);
-	});
-}
-
-#[test]
-fn approve_as_multi_not_blocked_by_runtime_upgrade() {
-	new_test_ext().execute_with(|| {
-		set_transaction_version(1);
-		let call = call_transfer(6, 15);
-
-		// Signatory 1 submits first approval with the full call (stores VersionedCall at v=1).
-		assert_ok!(Multisig::as_multi(
-			RuntimeOrigin::signed(1),
-			2,
-			vec![2, 3],
-			None,
-			call.clone(),
-			Weight::zero()
-		));
-		let timepoint = now();
-
-		// Simulate a runtime upgrade.
-		set_transaction_version(2);
-
-		// Signatory 2 approves using only the call hash — must succeed even though the stored
-		// call has version 1 and the current version is 2.
-		let hash = blake2_256(&call.encode());
-		assert_ok!(Multisig::approve_as_multi(
-			RuntimeOrigin::signed(2),
-			2,
-			vec![1, 3],
-			Some(timepoint),
-			hash,
-			Weight::zero()
-		));
-	});
-}
-
-#[test]
-fn as_multi_executes_when_no_call_stored_despite_version_change() {
-	new_test_ext().execute_with(|| {
-		set_transaction_version(1);
-		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
-		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
-		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), multi, 5));
-
-		let call = call_transfer(6, 10);
-		let call_weight = call.get_dispatch_info().call_weight;
-		let hash = blake2_256(&call.encode());
-
-		// Signatory 1 approves with hash only — no VersionedCall is stored.
-		assert_ok!(Multisig::approve_as_multi(
-			RuntimeOrigin::signed(1),
-			2,
-			vec![2, 3],
-			None,
-			hash,
-			Weight::zero()
-		));
-		let timepoint = now();
-
-		// Simulate a runtime upgrade.
-		set_transaction_version(2);
-
-		// Signatory 2 provides the full call to execute. With no stored call to validate,
-		// execution should proceed normally.
-		assert_ok!(Multisig::as_multi(
-			RuntimeOrigin::signed(2),
-			2,
-			vec![1, 3],
-			Some(timepoint),
-			call,
-			call_weight
-		));
-		assert_eq!(Balances::free_balance(6), 10);
-	});
-}
-
-#[test]
-fn as_multi_executes_when_stored_version_matches_current() {
-	new_test_ext().execute_with(|| {
-		set_transaction_version(1);
-		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
-		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
-		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), multi, 5));
-
-		let call = call_transfer(6, 10);
-		let call_weight = call.get_dispatch_info().call_weight;
-
-		// Signatory 1 stores the call at version 1.
-		assert_ok!(Multisig::as_multi(
-			RuntimeOrigin::signed(1),
-			2,
-			vec![2, 3],
-			None,
-			call.clone(),
-			Weight::zero()
-		));
-		let timepoint = now();
-
-		// No runtime upgrade — version remains 1.
-		// Signatory 2 executes: stored version (1) == current version (1) → success.
-		assert_ok!(Multisig::as_multi(
-			RuntimeOrigin::signed(2),
-			2,
-			vec![1, 3],
-			Some(timepoint),
-			call,
-			call_weight
-		));
-		assert_eq!(Balances::free_balance(6), 10);
 	});
 }

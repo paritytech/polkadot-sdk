@@ -816,11 +816,9 @@ fn batch_works_with_council_origin() {
 		let proposal = RuntimeCall::Utility(UtilityCall::batch {
 			calls: vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})],
 		});
-		let current_tx_version = System::runtime_version().transaction_version;
-		let versioned = sp_runtime::VersionedCall::new(proposal.clone(), current_tx_version);
-		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32) + 4;
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
-		let hash = BlakeTwo256::hash_of(&versioned);
+		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Council::propose(
 			RuntimeOrigin::signed(1),
@@ -855,11 +853,9 @@ fn force_batch_works_with_council_origin() {
 		let proposal = RuntimeCall::Utility(UtilityCall::force_batch {
 			calls: vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})],
 		});
-		let current_tx_version = System::runtime_version().transaction_version;
-		let versioned = sp_runtime::VersionedCall::new(proposal.clone(), current_tx_version);
-		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32) + 4;
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
-		let hash = BlakeTwo256::hash_of(&versioned);
+		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Council::propose(
 			RuntimeOrigin::signed(1),

@@ -118,7 +118,7 @@ pub type CallOrHashOf<T> =
 	MaybeHashed<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hash>;
 
 pub type BoundedCallOf<T> =
-	Bounded<VersionedCall<<T as Config>::RuntimeCall>, <T as frame_system::Config>::Hashing>;
+	Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
 
 pub type BlockNumberFor<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
@@ -169,6 +169,9 @@ pub struct Scheduled<Name, Call, BlockNumber, PalletsOrigin, AccountId> {
 	pub maybe_periodic: Option<schedule::Period<BlockNumber>>,
 	/// The origin with which to dispatch the call.
 	pub origin: PalletsOrigin,
+	/// If `Some`, the task is dropped (with a [`Event::CallVersionMismatch`]) unless this matches
+	/// the runtime's current `transaction_version` at dispatch. `None` for internal tasks.
+	pub maybe_transaction_version: Option<u32>,
 	#[doc(hidden)]
 	pub _phantom: PhantomData<AccountId>,
 }
@@ -188,6 +191,7 @@ where
 			call: self.call.clone(),
 			maybe_periodic: None,
 			origin: self.origin.clone(),
+			maybe_transaction_version: self.maybe_transaction_version,
 			_phantom: Default::default(),
 		}
 	}
@@ -244,7 +248,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::{BlockNumberFor as SystemBlockNumberFor, OriginFor};
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -401,7 +405,8 @@ pub mod pallet {
 		PermanentlyOverweight { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// Agenda is incomplete from `when`.
 		AgendaIncomplete { when: BlockNumberFor<T> },
-		/// A call's transaction version doesn't match the current runtime version.
+		/// The task was dropped because the runtime `transaction_version` changed since it was
+		/// scheduled, so its semantics may have changed.
 		CallVersionMismatch {
 			task: TaskAddress<BlockNumberFor<T>>,
 			id: Option<TaskName>,
@@ -471,16 +476,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-
-			// Create versioned call first, then bound it
-			let bounded_call = Self::create_versioned_call(*call)?;
-
-			Self::do_schedule(
+			Self::do_schedule_versioned(
 				DispatchTime::At(when),
 				maybe_periodic,
 				priority,
 				origin.caller().clone(),
-				bounded_call,
+				T::Preimages::bound(*call)?,
+				Some(Self::current_transaction_version()),
 			)?;
 			Ok(())
 		}
@@ -511,14 +513,14 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			let bounded_call = Self::create_versioned_call(*call)?;
-			Self::do_schedule_named(
+			Self::do_schedule_named_versioned(
 				id,
 				DispatchTime::At(when),
 				maybe_periodic,
 				priority,
 				origin.caller().clone(),
-				bounded_call,
+				T::Preimages::bound(*call)?,
+				Some(Self::current_transaction_version()),
 			)?;
 			Ok(())
 		}
@@ -545,13 +547,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			let bounded_call = Self::create_versioned_call(*call)?;
-			Self::do_schedule(
+			Self::do_schedule_versioned(
 				DispatchTime::After(after),
 				maybe_periodic,
 				priority,
 				origin.caller().clone(),
-				bounded_call,
+				T::Preimages::bound(*call)?,
+				Some(Self::current_transaction_version()),
 			)?;
 			Ok(())
 		}
@@ -569,14 +571,14 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			let bounded_call = Self::create_versioned_call(*call)?;
-			Self::do_schedule_named(
+			Self::do_schedule_named_versioned(
 				id,
 				DispatchTime::After(after),
 				maybe_periodic,
 				priority,
 				origin.caller().clone(),
-				bounded_call,
+				T::Preimages::bound(*call)?,
+				Some(Self::current_transaction_version()),
 			)?;
 			Ok(())
 		}
@@ -731,20 +733,24 @@ impl<T: Config> Pallet<T> {
 								weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 							}
 
-							// Create VersionedCall and bound it; drop if call is too large.
-							let bounded_call = Self::create_versioned_call(schedule.call).ok()?;
+							let call = T::Preimages::bound(schedule.call).ok()?;
+
+							if call.lookup_needed() {
+								weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
+							}
 
 							Some(Scheduled {
 								maybe_id: schedule.maybe_id.map(|x| blake2_256(&x[..])),
 								priority: schedule.priority,
-								call: bounded_call,
+								call,
 								maybe_periodic: schedule.maybe_periodic,
 								origin: system::RawOrigin::Root.into(),
+								maybe_transaction_version: None,
 								_phantom: Default::default(),
 							})
 						})
 					})
-					.collect::<Vec<Option<ScheduledOf<T>>>>(),
+					.collect::<Vec<_>>(),
 			))
 		});
 
@@ -794,15 +800,18 @@ impl<T: Config> Pallet<T> {
 								weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 							}
 
-							// Create bounded call with VersionedCall wrapper
-							let bounded_call = Self::create_versioned_call(schedule.call).ok()?;
+							let call = T::Preimages::bound(schedule.call).ok()?;
+							if call.lookup_needed() {
+								weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
+							}
 
 							Some(Scheduled {
 								maybe_id: schedule.maybe_id.map(|x| blake2_256(&x[..])),
 								priority: schedule.priority,
-								call: bounded_call,
+								call,
 								maybe_periodic: schedule.maybe_periodic,
 								origin: schedule.origin,
+								maybe_transaction_version: None,
 								_phantom: Default::default(),
 							})
 						})
@@ -865,7 +874,7 @@ impl<T: Config> Pallet<T> {
 									log::info!("Schedule is unnamed");
 								}
 
-								let bounded_call = match schedule.call {
+								let call = match schedule.call {
 									MaybeHashed::Hash(h) => {
 										let bounded = Bounded::from_legacy_hash(h);
 										// Check that the call can be decoded in the new runtime.
@@ -882,30 +891,34 @@ impl<T: Config> Pallet<T> {
 										}
 										weight.saturating_accrue(T::DbWeight::get().reads(1));
 										log::info!("Migrated call by hash, hash: {:?}", h);
-
-										// Convert to versioned bounded call; drop entry if call is
-										// unavailable.
-										match Self::convert_to_versioned_bounded_call(bounded) {
-											Some(b) => b,
-											None => return None,
-										}
+										bounded
 									},
 									MaybeHashed::Value(v) => {
-										// Create bounded call with VersionedCall wrapper; drop if
-										// the call is too large to be stored inline.
-										match Self::create_versioned_call(v) {
-											Ok(b) => b,
-											Err(_) => return None,
+										let call = T::Preimages::bound(v)
+											.map_err(|e| {
+												log::error!("Could not bound Call: {:?}", e)
+											})
+											.ok()?;
+										if call.lookup_needed() {
+											weight.saturating_accrue(
+												T::DbWeight::get().reads_writes(0, 1),
+											);
 										}
+										log::info!(
+											"Migrated call by value, hash: {:?}",
+											call.hash()
+										);
+										call
 									},
 								};
 
 								Some(Scheduled {
 									maybe_id: schedule.maybe_id.map(|x| blake2_256(&x[..])),
 									priority: schedule.priority,
-									call: bounded_call,
+									call,
 									maybe_periodic: schedule.maybe_periodic,
 									origin: schedule.origin,
+									maybe_transaction_version: None,
 									_phantom: Default::default(),
 								})
 							})
@@ -958,6 +971,7 @@ impl<T: Config> Pallet<T> {
 							call: schedule.call,
 							maybe_periodic: schedule.maybe_periodic,
 							origin: schedule.origin.into(),
+							maybe_transaction_version: None,
 							_phantom: Default::default(),
 						})
 					})
@@ -1040,20 +1054,29 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	fn create_versioned_call(
-		call: <T as Config>::RuntimeCall,
-	) -> Result<BoundedCallOf<T>, DispatchError> {
-		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
-		let versioned_call = VersionedCall::new(call, current_version);
-		T::Preimages::bound(versioned_call).map_err(|_| DispatchError::Exhausted)
+	fn current_transaction_version() -> u32 {
+		<frame_system::Pallet<T>>::runtime_version().transaction_version
 	}
 
+	/// Schedule a task without version checking (internal tasks).
 	fn do_schedule(
 		when: DispatchTime<BlockNumberFor<T>>,
 		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: BoundedCallOf<T>,
+	) -> Result<TaskAddress<BlockNumberFor<T>>, DispatchError> {
+		Self::do_schedule_versioned(when, maybe_periodic, priority, origin, call, None)
+	}
+
+	/// As [`Self::do_schedule`], optionally recording a `transaction_version` to check at dispatch.
+	fn do_schedule_versioned(
+		when: DispatchTime<BlockNumberFor<T>>,
+		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
+		priority: schedule::Priority,
+		origin: T::PalletsOrigin,
+		call: BoundedCallOf<T>,
+		maybe_transaction_version: Option<u32>,
 	) -> Result<TaskAddress<BlockNumberFor<T>>, DispatchError> {
 		let when = Self::resolve_time(when)?;
 
@@ -1064,13 +1087,13 @@ impl<T: Config> Pallet<T> {
 			.filter(|p| p.1 > 1 && !p.0.is_zero())
 			// Remove one from the number of repetitions since we will schedule one now.
 			.map(|(p, c)| (p, c - 1));
-
 		let task = Scheduled {
 			maybe_id: None,
 			priority,
 			call,
 			maybe_periodic,
 			origin,
+			maybe_transaction_version,
 			_phantom: PhantomData,
 		};
 		let res = Self::place_task(when, task).map_err(|x| x.0)?;
@@ -1090,7 +1113,7 @@ impl<T: Config> Pallet<T> {
 		let scheduled = Agenda::<T>::try_mutate(when, |agenda| {
 			agenda.get_mut(index as usize).map_or(
 				Ok(None),
-				|s| -> Result<Option<ScheduledOf<T>>, DispatchError> {
+				|s| -> Result<Option<Scheduled<_, _, _, _, _>>, DispatchError> {
 					if let (Some(ref o), Some(ref s)) = (origin, s.borrow()) {
 						Self::ensure_privilege(o, &s.origin)?;
 					};
@@ -1133,6 +1156,7 @@ impl<T: Config> Pallet<T> {
 		Self::place_task(new_time, task).map_err(|x| x.0)
 	}
 
+	/// Schedule a named task without version checking (internal tasks).
 	fn do_schedule_named(
 		id: TaskName,
 		when: DispatchTime<BlockNumberFor<T>>,
@@ -1140,6 +1164,19 @@ impl<T: Config> Pallet<T> {
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: BoundedCallOf<T>,
+	) -> Result<TaskAddress<BlockNumberFor<T>>, DispatchError> {
+		Self::do_schedule_named_versioned(id, when, maybe_periodic, priority, origin, call, None)
+	}
+
+	/// As [`Self::do_schedule_named`], optionally recording a `transaction_version` to check.
+	fn do_schedule_named_versioned(
+		id: TaskName,
+		when: DispatchTime<BlockNumberFor<T>>,
+		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
+		priority: schedule::Priority,
+		origin: T::PalletsOrigin,
+		call: BoundedCallOf<T>,
+		maybe_transaction_version: Option<u32>,
 	) -> Result<TaskAddress<BlockNumberFor<T>>, DispatchError> {
 		// ensure id it is unique
 		if Lookup::<T>::contains_key(&id) {
@@ -1162,6 +1199,7 @@ impl<T: Config> Pallet<T> {
 			call,
 			maybe_periodic,
 			origin,
+			maybe_transaction_version,
 			_phantom: Default::default(),
 		};
 		let res = Self::place_task(when, task).map_err(|x| x.0)?;
@@ -1232,40 +1270,6 @@ impl<T: Config> Pallet<T> {
 		Self::ensure_privilege(origin, &scheduled.origin)?;
 		Retries::<T>::remove((when, index));
 		Ok(())
-	}
-
-	/// Convert a legacy bounded call to a versioned bounded call.
-	///
-	/// Returns `None` if the call cannot be fetched from the preimage store, in which case
-	/// the caller should drop the scheduled entry rather than storing a replacement.
-	fn convert_to_versioned_bounded_call(
-		bounded: Bounded<<T as pallet::Config>::RuntimeCall, T::Hashing>,
-	) -> Option<BoundedCallOf<T>> {
-		// Get current transaction version
-		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
-
-		// Fetch the actual call
-		match T::Preimages::peek::<<T as pallet::Config>::RuntimeCall>(&bounded) {
-			Ok((call, _)) => {
-				let versioned_call = VersionedCall::new(call, current_version);
-				match T::Preimages::bound(versioned_call) {
-					Ok(new_bounded) => Some(new_bounded),
-					Err(_) => {
-						log::error!(
-							"Dropping scheduled entry: call is too large to store after migration"
-						);
-						None
-					},
-				}
-			},
-			Err(e) => {
-				log::error!(
-					"Dropping scheduled entry: could not fetch call from preimage during migration: {:?}",
-					e
-				);
-				None
-			},
-		}
 	}
 }
 
@@ -1395,8 +1399,7 @@ impl<T: Config> Pallet<T> {
 			Lookup::<T>::remove(id);
 		}
 
-		// Peek the bounded call to get the versioned call
-		let (versioned_call, lookup_len) = match T::Preimages::peek(&task.call) {
+		let (call, lookup_len) = match T::Preimages::peek(&task.call) {
 			Ok(c) => c,
 			Err(_) => {
 				Self::deposit_event(Event::CallUnavailable {
@@ -1425,91 +1428,80 @@ impl<T: Config> Pallet<T> {
 			task.maybe_periodic.is_some(),
 		));
 
-		// Validate the transaction version and extract the call
-		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+		// If the task opted into version checking, drop it on a `transaction_version` mismatch.
+		let call = if let Some(stored_version) = task.maybe_transaction_version {
+			match VersionedCall::new(call, stored_version)
+				.into_inner(Self::current_transaction_version())
+			{
+				Ok(call) => call,
+				Err(version_error) => {
+					Self::deposit_event(Event::CallVersionMismatch {
+						task: (when, agenda_index),
+						id: task.maybe_id,
+						stored_version: version_error.stored,
+						current_version: version_error.current,
+					});
+					T::Preimages::drop(&task.call);
+					return Err((Unavailable, Some(task)));
+				},
+			}
+		} else {
+			call
+		};
 
-		match versioned_call.into_inner(current_version) {
-			Ok(call) => {
-				// Proceed with execution
-				match Self::execute_dispatch(weight, task.origin.clone(), call) {
-					Err(()) if is_first => {
-						T::Preimages::drop(&task.call);
-						Self::deposit_event(Event::PermanentlyOverweight {
-							task: (when, agenda_index),
-							id: task.maybe_id,
-						});
-						Err((Unavailable, Some(task)))
-					},
-					Err(()) => Err((Overweight, Some(task))),
-					Ok(result) => {
-						let failed = result.is_err();
-						let maybe_retry_config = Retries::<T>::take((when, agenda_index));
-						Self::deposit_event(Event::Dispatched {
-							task: (when, agenda_index),
-							id: task.maybe_id,
-							result,
-						});
-
-						match maybe_retry_config {
-							Some(retry_config) if failed => {
-								Self::schedule_retry(
-									weight,
-									now,
-									when,
-									agenda_index,
-									&task,
-									retry_config,
-								);
-							},
-							_ => {},
-						}
-
-						if let &Some((period, count)) = &task.maybe_periodic {
-							if count > 1 {
-								task.maybe_periodic = Some((period, count - 1));
-							} else {
-								task.maybe_periodic = None;
-							}
-							let wake = now.saturating_add(period);
-							match Self::place_task(wake, task) {
-								Ok(new_address) => {
-									if let Some(retry_config) = maybe_retry_config {
-										Retries::<T>::insert(new_address, retry_config);
-									}
-								},
-								Err((_, task)) => {
-									// TODO: Leave task in storage somewhere for it to be
-									// rescheduled manually.
-									T::Preimages::drop(&task.call);
-									Self::deposit_event(Event::PeriodicFailed {
-										task: (when, agenda_index),
-										id: task.maybe_id,
-									});
-								},
-							}
-						} else {
-							T::Preimages::drop(&task.call);
-						}
-						Ok(())
-					},
-				}
-			},
-			Err(version_error) => {
-				Self::deposit_event(Event::CallVersionMismatch {
+		match Self::execute_dispatch(weight, task.origin.clone(), call) {
+			Err(()) if is_first => {
+				T::Preimages::drop(&task.call);
+				Self::deposit_event(Event::PermanentlyOverweight {
 					task: (when, agenda_index),
 					id: task.maybe_id,
-					stored_version: version_error.stored,
-					current_version: version_error.current,
 				});
-				T::Preimages::drop(&task.call);
-				log::warn!(
-					target: "runtime::scheduler",
-					"Task {:?} has version mismatch: stored={}, current={}",
-					task.maybe_id,
-					version_error.stored,
-					version_error.current
-				);
 				Err((Unavailable, Some(task)))
+			},
+			Err(()) => Err((Overweight, Some(task))),
+			Ok(result) => {
+				let failed = result.is_err();
+				let maybe_retry_config = Retries::<T>::take((when, agenda_index));
+				Self::deposit_event(Event::Dispatched {
+					task: (when, agenda_index),
+					id: task.maybe_id,
+					result,
+				});
+
+				match maybe_retry_config {
+					Some(retry_config) if failed => {
+						Self::schedule_retry(weight, now, when, agenda_index, &task, retry_config);
+					},
+					_ => {},
+				}
+
+				if let &Some((period, count)) = &task.maybe_periodic {
+					if count > 1 {
+						task.maybe_periodic = Some((period, count - 1));
+					} else {
+						task.maybe_periodic = None;
+					}
+					let wake = now.saturating_add(period);
+					match Self::place_task(wake, task) {
+						Ok(new_address) => {
+							if let Some(retry_config) = maybe_retry_config {
+								Retries::<T>::insert(new_address, retry_config);
+							}
+						},
+						Err((_, task)) => {
+							// TODO: Leave task in storage somewhere for it to be rescheduled
+							// manually.
+							T::Preimages::drop(&task.call);
+							Self::deposit_event(Event::PeriodicFailed {
+								task: (when, agenda_index),
+								id: task.maybe_id,
+							});
+						},
+					}
+				} else {
+					T::Preimages::drop(&task.call);
+				}
+				Ok(())
 			},
 		}
 	}
@@ -1632,8 +1624,8 @@ impl<T: Config> schedule::v2::Anon<BlockNumberFor<T>, <T as Config>::RuntimeCall
 		call: CallOrHashOf<T>,
 	) -> Result<Self::Address, DispatchError> {
 		let call = call.as_value().ok_or(DispatchError::CannotLookup)?;
-		let bounded_call = Self::create_versioned_call(call.clone())?;
-		Self::do_schedule(when, maybe_periodic, priority, origin, bounded_call)
+		let call = T::Preimages::bound(call)?.transmute();
+		Self::do_schedule(when, maybe_periodic, priority, origin, call)
 	}
 
 	fn cancel((when, index): Self::Address) -> Result<(), ()> {
@@ -1669,10 +1661,9 @@ impl<T: Config> schedule::v2::Named<BlockNumberFor<T>, <T as Config>::RuntimeCal
 		call: CallOrHashOf<T>,
 	) -> Result<Self::Address, ()> {
 		let call = call.as_value().ok_or(())?;
+		let call = T::Preimages::bound(call).map_err(|_| ())?.transmute();
 		let name = blake2_256(&id[..]);
-		let bounded_call = Self::create_versioned_call(call.clone()).map_err(|_| ())?;
-		Self::do_schedule_named(name, when, maybe_periodic, priority, origin, bounded_call)
-			.map_err(|_| ())
+		Self::do_schedule_named(name, when, maybe_periodic, priority, origin, call).map_err(|_| ())
 	}
 
 	fn cancel_named(id: Vec<u8>) -> Result<(), ()> {
@@ -1696,12 +1687,8 @@ impl<T: Config> schedule::v2::Named<BlockNumberFor<T>, <T as Config>::RuntimeCal
 	}
 }
 
-impl<T: Config>
-	schedule::v3::Anon<
-		BlockNumberFor<T>,
-		VersionedCall<<T as Config>::RuntimeCall>,
-		T::PalletsOrigin,
-	> for Pallet<T>
+impl<T: Config> schedule::v3::Anon<BlockNumberFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
+	for Pallet<T>
 {
 	type Address = TaskAddress<BlockNumberFor<T>>;
 	type Hasher = T::Hashing;
@@ -1711,7 +1698,7 @@ impl<T: Config>
 		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
-		call: Bounded<VersionedCall<<T as Config>::RuntimeCall>, T::Hashing>,
+		call: BoundedCallOf<T>,
 	) -> Result<Self::Address, DispatchError> {
 		Self::do_schedule(when, maybe_periodic, priority, origin, call)
 	}
@@ -1739,12 +1726,8 @@ impl<T: Config>
 
 use schedule::v3::TaskName;
 
-impl<T: Config>
-	schedule::v3::Named<
-		BlockNumberFor<T>,
-		VersionedCall<<T as Config>::RuntimeCall>,
-		T::PalletsOrigin,
-	> for Pallet<T>
+impl<T: Config> schedule::v3::Named<BlockNumberFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
+	for Pallet<T>
 {
 	type Address = TaskAddress<BlockNumberFor<T>>;
 	type Hasher = T::Hashing;
@@ -1755,9 +1738,28 @@ impl<T: Config>
 		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
-		call: Bounded<VersionedCall<<T as Config>::RuntimeCall>, T::Hashing>,
+		call: BoundedCallOf<T>,
 	) -> Result<Self::Address, DispatchError> {
 		Self::do_schedule_named(id, when, maybe_periodic, priority, origin, call)
+	}
+
+	fn schedule_named_versioned(
+		id: TaskName,
+		when: DispatchTime<BlockNumberFor<T>>,
+		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
+		priority: schedule::Priority,
+		origin: T::PalletsOrigin,
+		call: BoundedCallOf<T>,
+	) -> Result<Self::Address, DispatchError> {
+		Self::do_schedule_named_versioned(
+			id,
+			when,
+			maybe_periodic,
+			priority,
+			origin,
+			call,
+			Some(Self::current_transaction_version()),
+		)
 	}
 
 	fn cancel_named(id: TaskName) -> Result<(), DispatchError> {

@@ -89,12 +89,9 @@ pub mod v1 {
 					log::info!(target: TARGET, "migrating referendum #{:?}", &index);
 					Some(match old {
 						ReferendumInfo::Ongoing(status) => {
-							// Create VersionedCall from legacy hash
-							let bounded_call = Bounded::from_legacy_hash(status.proposal);
-
 							ReferendumInfo::Ongoing(ReferendumStatus {
 								end: status.end,
-								proposal: bounded_call,
+								proposal: Bounded::from_legacy_hash(status.proposal),
 								threshold: status.threshold,
 								delay: status.delay,
 								tally: status.tally,

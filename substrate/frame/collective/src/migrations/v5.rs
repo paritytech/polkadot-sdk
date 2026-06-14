@@ -15,114 +15,77 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::super::LOG_TARGET;
+//! Migrate `ProposalOf` to store a [`VersionedCall`], wrapping existing proposals with the current
+//! `transaction_version` (so they stay executable now and are checked against future upgrades).
+
+use crate::{Config, Pallet, ProposalOf};
 use frame_support::{
-	traits::{OnRuntimeUpgrade, StorageVersion},
+	migrations::VersionedMigration, pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade,
 	weights::Weight,
 };
+use sp_runtime::VersionedCall;
 
-pub mod v5 {
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
+
+/// The log target.
+const TARGET: &str = "runtime::collective::migration::v5";
+
+/// `ProposalOf` viewed with the pre-V5 (bare proposal) value type, for reading pre-migration state.
+#[cfg(feature = "try-runtime")]
+pub mod v4_storage {
 	use super::*;
-	use crate::Pallet;
-	use alloc::vec::Vec;
-	#[cfg(feature = "try-runtime")]
-	use codec::Encode;
-	use frame_support::{pallet_prelude::*, storage_alias};
-	use sp_runtime::VersionedCall;
 
-	// The old storage type - this stores raw Proposal
-	#[storage_alias]
-	type OldProposalOf<T: crate::Config<I>, I: 'static> = StorageMap<
+	#[frame_support::storage_alias]
+	pub type ProposalOf<T: Config<I>, I: 'static> = StorageMap<
 		Pallet<T, I>,
 		Identity,
 		<T as frame_system::Config>::Hash,
-		<T as crate::Config<I>>::Proposal,
+		<T as Config<I>>::Proposal,
 		OptionQuery,
 	>;
+}
 
-	pub struct MigrateToVersionedCall<T, I = ()>(core::marker::PhantomData<(T, I)>);
+/// The raw, version-unchecked migration logic. Prefer [`MigrateToV5`].
+pub struct InnerMigrateToV5<T, I = ()>(core::marker::PhantomData<(T, I)>);
 
-	impl<T: crate::Config<I> + frame_system::Config, I: 'static> OnRuntimeUpgrade
-		for MigrateToVersionedCall<T, I>
-	{
-		fn on_runtime_upgrade() -> Weight {
-			let current_version = StorageVersion::get::<Pallet<T, I>>();
-			let mut weight = T::DbWeight::get().reads(1);
+impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for InnerMigrateToV5<T, I> {
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+		let count = v4_storage::ProposalOf::<T, I>::iter_keys().count() as u32;
+		log::info!(target: TARGET, "pre_upgrade: {} proposals", count);
+		Ok(count.encode())
+	}
 
-			if current_version < 5 {
-				log::info!(
-					target: LOG_TARGET,
-					"Migrating collective proposals to VersionedCall"
-				);
+	fn on_runtime_upgrade() -> Weight {
+		let current_version =
+			<frame_system::Pallet<T>>::runtime_version().transaction_version;
+		let mut count = 0u64;
+		ProposalOf::<T, I>::translate::<<T as Config<I>>::Proposal, _>(|_hash, proposal| {
+			count = count.saturating_add(1);
+			Some(VersionedCall::new(proposal, current_version))
+		});
+		log::info!(target: TARGET, "Migrated {} proposals to V5", count);
+		T::DbWeight::get().reads_writes(count.saturating_add(1), count)
+	}
 
-				// Get all old proposals
-				let old_proposals: Vec<_> = OldProposalOf::<T, I>::iter().collect();
-				let count = old_proposals.len() as u64;
-
-				// Clear old storage - handle the result
-				let _ = OldProposalOf::<T, I>::clear(u32::MAX, None);
-				weight.saturating_accrue(T::DbWeight::get().reads_writes(count, count));
-
-				// Get current transaction version
-				let current_tx_version =
-					<frame_system::Pallet<T>>::runtime_version().transaction_version;
-
-				// Insert migrated proposals into new storage
-				for (hash, old_proposal) in old_proposals {
-					let versioned_proposal = VersionedCall::new(old_proposal, current_tx_version);
-
-					// Use the new ProposalOf storage directly
-					crate::ProposalOf::<T, I>::insert(hash, versioned_proposal);
-					weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
-				}
-
-				StorageVersion::new(5).put::<Pallet<T, I>>();
-				weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-				log::info!(
-					target: LOG_TARGET,
-					"Migrated {} proposals to VersionedCall",
-					count
-				);
-
-				weight
-			} else {
-				log::info!(
-					target: LOG_TARGET,
-					"Migration to VersionedCall already applied"
-				);
-				weight
-			}
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			let count = OldProposalOf::<T, I>::iter_keys().count();
-			// Encode the count as a u32
-			Ok((count as u32).encode())
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			use codec::Decode;
-
-			// Decode as u32 instead of usize
-			let old_count = u32::decode(&mut &state[..])
-				.map_err(|_| sp_runtime::TryRuntimeError::Other("Failed to decode old count"))?
-				as usize;
-
-			let new_count = crate::ProposalOf::<T, I>::iter_keys().count();
-
-			assert_eq!(old_count, new_count, "All proposals should be migrated");
-			assert_eq!(StorageVersion::get::<Pallet<T, I>>(), 5);
-
-			log::info!(
-				target: LOG_TARGET,
-				"Successfully migrated {} proposals to VersionedCall",
-				new_count
-			);
-
-			Ok(())
-		}
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		let old_count: u32 =
+			Decode::decode(&mut state.as_ref()).expect("pre_upgrade provides a valid u32; qed");
+		let new_count = ProposalOf::<T, I>::iter_keys().count() as u32;
+		ensure!(old_count == new_count, "Proposal count must be preserved");
+		Ok(())
 	}
 }
+
+/// Version-checked migration from V4 to V5. Add this to a runtime's `Migrations` tuple.
+pub type MigrateToV5<T, I = ()> = VersionedMigration<
+	4,
+	5,
+	InnerMigrateToV5<T, I>,
+	Pallet<T, I>,
+	<T as frame_system::Config>::DbWeight,
+>;

@@ -282,12 +282,6 @@ impl pallet_multisig::Config for Runtime {
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
-impl MaxEncodedLen for RuntimeCall {
-	fn max_encoded_len() -> usize {
-		16 * 1024
-	}
-}
-
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -870,6 +864,9 @@ type Migrations = (
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
 	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
+	// Wrap stored scheduler/collective calls in `VersionedCall` (#1138).
+	pallet_scheduler::migration::v5::MigrateV4ToV5<Runtime>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, AllianceCollective>,
 );
 
 /// Executive: handles dispatch to the various modules.

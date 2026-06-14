@@ -25,6 +25,7 @@ use frame_support::{
 		fungible::{HoldConsideration, Inspect, Mutate},
 		ConstU32, ConstU64, StorageVersion,
 	},
+	Hashable,
 };
 use frame_system::{EnsureRoot, EventRecord, Phase};
 use sp_core::{ConstU128, H256};
@@ -95,10 +96,28 @@ parameter_types! {
 	pub static MaxProposalWeight: Weight = default_max_proposal_weight();
 }
 
+parameter_types! {
+	/// The runtime `transaction_version` reported to the pallet, settable from tests via
+	/// `CurrentTransactionVersion::set(&v)` to simulate a runtime upgrade.
+	pub storage CurrentTransactionVersion: u32 = 0;
+}
+
+/// A [`Get<RuntimeVersion>`] whose `transaction_version` can be changed at runtime in tests.
+pub struct TestVersion;
+impl frame_support::traits::Get<sp_version::RuntimeVersion> for TestVersion {
+	fn get() -> sp_version::RuntimeVersion {
+		sp_version::RuntimeVersion {
+			transaction_version: CurrentTransactionVersion::get(),
+			..Default::default()
+		}
+	}
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type Version = TestVersion;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
@@ -246,16 +265,6 @@ fn default_max_proposal_weight() -> Weight {
 	sp_runtime::Perbill::from_percent(80) * BlockWeights::get().max_block
 }
 
-fn proposal_len(proposal: &RuntimeCall) -> u32 {
-	let versioned = Collective::create_versioned_proposal(proposal.clone());
-	versioned.using_encoded(|p| p.len() as u32)
-}
-
-fn proposal_hash(proposal: &RuntimeCall) -> H256 {
-	let versioned = Collective::create_versioned_proposal(proposal.clone());
-	BlakeTwo256::hash_of(&versioned)
-}
-
 #[test]
 fn motions_basic_environment_works() {
 	ExtBuilder::default().build_and_execute(|| {
@@ -298,7 +307,7 @@ fn set_members_with_prime_works() {
 fn proposal_weight_limit_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
@@ -328,9 +337,9 @@ fn proposal_weight_limit_works() {
 fn close_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
-		let hash = proposal_hash(&proposal);
+		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
@@ -407,9 +416,9 @@ fn proposal_weight_limit_works_on_approve() {
 			prime: None,
 			old_count: MaxMembers::get(),
 		});
-		let proposal_len: u32 = proposal_len(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
-		let hash = proposal_hash(&proposal);
+		let hash = BlakeTwo256::hash_of(&proposal);
 		// Set 1 as prime voter
 		Prime::<Test, Instance1>::set(Some(1));
 		assert_ok!(Collective::propose(
@@ -449,9 +458,9 @@ fn proposal_weight_limit_ignored_on_disapprove() {
 			prime: None,
 			old_count: MaxMembers::get(),
 		});
-		let proposal_len: u32 = proposal_len(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
-		let hash = proposal_hash(&proposal);
+		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
@@ -475,9 +484,9 @@ fn proposal_weight_limit_ignored_on_disapprove() {
 fn close_with_prime_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
-		let hash = proposal_hash(&proposal);
+		let hash = BlakeTwo256::hash_of(&proposal);
 		assert_ok!(Collective::set_members(
 			RuntimeOrigin::root(),
 			vec![1, 2, 3],
@@ -550,9 +559,9 @@ fn close_with_prime_works() {
 fn close_with_voting_prime_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
-		let hash = proposal_hash(&proposal);
+		let hash = BlakeTwo256::hash_of(&proposal);
 		assert_ok!(Collective::set_members(
 			RuntimeOrigin::root(),
 			vec![1, 2, 3],
@@ -627,9 +636,9 @@ fn close_with_voting_prime_works() {
 fn close_with_no_prime_but_majority_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
-		let hash = proposal_hash(&proposal);
+		let hash = BlakeTwo256::hash_of(&proposal);
 		assert_ok!(CollectiveMajority::set_members(
 			RuntimeOrigin::root(),
 			vec![1, 2, 3, 4, 5],
@@ -740,14 +749,14 @@ fn close_with_no_prime_but_majority_works() {
 fn removal_of_old_voters_votes_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_length: u32 = proposal_len(&proposal);
-		let hash = proposal_hash(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let hash = BlakeTwo256::hash_of(&proposal);
 		let end = 4;
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			3,
 			Box::new(proposal.clone()),
-			proposal_length
+			proposal_len
 		));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
@@ -762,8 +771,8 @@ fn removal_of_old_voters_votes_works() {
 		);
 
 		let proposal = make_proposal(69);
-		let proposal_len: u32 = proposal_len(&proposal);
-		let hash = proposal_hash(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let hash = BlakeTwo256::hash_of(&proposal);
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(2),
 			2,
@@ -788,14 +797,14 @@ fn removal_of_old_voters_votes_works() {
 fn removal_of_old_voters_votes_works_with_set_members() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_length: u32 = proposal_len(&proposal);
-		let hash = proposal_hash(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let hash = BlakeTwo256::hash_of(&proposal);
 		let end = 4;
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			3,
 			Box::new(proposal.clone()),
-			proposal_length
+			proposal_len
 		));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
@@ -815,8 +824,8 @@ fn removal_of_old_voters_votes_works_with_set_members() {
 		);
 
 		let proposal = make_proposal(69);
-		let proposal_len: u32 = proposal_len(&proposal);
-		let hash = proposal_hash(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let hash = BlakeTwo256::hash_of(&proposal);
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(2),
 			2,
@@ -846,8 +855,8 @@ fn removal_of_old_voters_votes_works_with_set_members() {
 fn propose_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
-		let hash = proposal_hash(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let hash = proposal.blake2_256().into();
 		let end = 4;
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
@@ -857,8 +866,8 @@ fn propose_works() {
 		));
 		assert_eq!(*Proposals::<Test, Instance1>::get(), vec![hash]);
 		assert_eq!(
-			ProposalOf::<Test, Instance1>::get(&hash),
-			Some(Pallet::<Test, Instance1>::create_versioned_proposal(proposal))
+			ProposalOf::<Test, Instance1>::get(&hash).map(|v| v.call_ref().clone()),
+			Some(proposal)
 		);
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
@@ -893,7 +902,7 @@ fn limit_active_proposals() {
 		assert_ok!(Balances::mint_into(&1, ed));
 		for i in 0..MaxProposals::get() {
 			let proposal = make_proposal(i as u64);
-			let proposal_len: u32 = proposal_len(&proposal);
+			let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 			let deposit = <CollectiveMajorityDeposit as Convert<u32, u64>>::convert(0);
 			assert_ok!(Balances::mint_into(&1, deposit));
 			assert_ok!(Collective::propose(
@@ -904,7 +913,7 @@ fn limit_active_proposals() {
 			));
 		}
 		let proposal = make_proposal(MaxProposals::get() as u64 + 1);
-		let proposal_len: u32 = proposal_len(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		assert_noop!(
 			Collective::propose(
 				RuntimeOrigin::signed(1),
@@ -925,7 +934,7 @@ fn correct_validate_and_get_proposal() {
 			prime: None,
 			old_count: MaxMembers::get(),
 		});
-		let length = proposal_len(&proposal);
+		let length = proposal.encode().len() as u32;
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			3,
@@ -933,7 +942,7 @@ fn correct_validate_and_get_proposal() {
 			length
 		));
 
-		let hash = proposal_hash(&proposal);
+		let hash = BlakeTwo256::hash_of(&proposal);
 		let weight = proposal.get_dispatch_info().call_weight;
 		assert_noop!(
 			Collective::validate_and_get_proposal(
@@ -957,12 +966,9 @@ fn correct_validate_and_get_proposal() {
 		);
 		let res = Collective::validate_and_get_proposal(&hash, length, weight);
 		assert_ok!(res.clone());
-		let (retrieved_versioned_proposal, len) = res.unwrap();
+		let (retrieved_proposal, len) = res.unwrap();
 		assert_eq!(length as usize, len);
-		let retrieved_proposal =
-			Collective::validate_and_extract_proposal(&retrieved_versioned_proposal)
-				.expect("Should extract proposal from VersionedCall");
-		assert_eq!(proposal, retrieved_proposal);
+		assert_eq!(&proposal, retrieved_proposal.call_ref());
 	})
 }
 
@@ -970,7 +976,7 @@ fn correct_validate_and_get_proposal() {
 fn motions_ignoring_non_collective_proposals_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		assert_noop!(
 			Collective::propose(
 				RuntimeOrigin::signed(42),
@@ -987,8 +993,8 @@ fn motions_ignoring_non_collective_proposals_works() {
 fn motions_ignoring_non_collective_votes_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
-		let hash = proposal_hash(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			3,
@@ -1007,8 +1013,8 @@ fn motions_ignoring_bad_index_collective_vote_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(3);
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
-		let hash = proposal_hash(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			3,
@@ -1026,8 +1032,8 @@ fn motions_ignoring_bad_index_collective_vote_works() {
 fn motions_vote_after_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
-		let hash = proposal_hash(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let hash: H256 = proposal.blake2_256().into();
 		let end = 4;
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
@@ -1102,8 +1108,8 @@ fn motions_vote_after_works() {
 fn motions_all_first_vote_free_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
-		let hash = proposal_hash(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let hash: H256 = proposal.blake2_256().into();
 		let end = 4;
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
@@ -1160,9 +1166,9 @@ fn motions_all_first_vote_free_works() {
 fn motions_reproposing_disapproved_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
-		let hash = proposal_hash(&proposal);
+		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			3,
@@ -1192,9 +1198,9 @@ fn motions_reproposing_disapproved_works() {
 fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {});
-		let proposal_len: u32 = proposal_len(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
-		let hash = proposal_hash(&proposal);
+		let hash: H256 = proposal.blake2_256().into();
 		// The voting threshold is 2, but the required votes for `ExternalMajorityOrigin` is 3.
 		// The proposal will be executed regardless of the voting threshold
 		// as long as we have enough yes votes.
@@ -1336,9 +1342,9 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 fn motions_disapproval_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
-		let hash = proposal_hash(&proposal);
+		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			3,
@@ -1402,9 +1408,9 @@ fn motions_disapproval_works() {
 fn motions_approval_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
-		let hash = proposal_hash(&proposal);
+		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			2,
@@ -1467,12 +1473,125 @@ fn motions_approval_works() {
 }
 
 #[test]
+fn proposal_dropped_on_transaction_version_mismatch() {
+	ExtBuilder::default().build_and_execute(|| {
+		let proposal = make_proposal(42);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
+		let hash: H256 = proposal.blake2_256().into();
+		// Proposed at `transaction_version` 0.
+		assert_ok!(Collective::propose(
+			RuntimeOrigin::signed(1),
+			2,
+			Box::new(proposal.clone()),
+			proposal_len
+		));
+		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
+		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
+
+		// Simulate a runtime upgrade that bumps the `transaction_version` before closing.
+		CurrentTransactionVersion::set(&1);
+		assert_ok!(Collective::close(
+			RuntimeOrigin::signed(2),
+			hash,
+			0,
+			proposal_weight,
+			proposal_len
+		));
+
+		// The proposal is dropped with a mismatch event and is NOT executed.
+		assert!(System::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Collective(CollectiveEvent::ProposalVersionMismatch {
+				stored_version: 0,
+				current_version: 1,
+				..
+			})
+		)));
+		assert!(!System::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Collective(CollectiveEvent::Executed { .. })
+		)));
+		// And it is cleaned up from storage.
+		assert!(ProposalOf::<Test, Instance1>::get(&hash).is_none());
+		assert_eq!(*Proposals::<Test, Instance1>::get(), vec![]);
+	});
+}
+
+#[test]
+fn proposal_executes_when_transaction_version_matches() {
+	ExtBuilder::default().build_and_execute(|| {
+		let proposal = make_proposal(42);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
+		let hash: H256 = proposal.blake2_256().into();
+		assert_ok!(Collective::propose(
+			RuntimeOrigin::signed(1),
+			2,
+			Box::new(proposal.clone()),
+			proposal_len
+		));
+		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
+		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
+		// `transaction_version` unchanged, so the proposal is executed (here, with a `BadOrigin`
+		// result, as in `motions_approval_works`).
+		assert_ok!(Collective::close(
+			RuntimeOrigin::signed(2),
+			hash,
+			0,
+			proposal_weight,
+			proposal_len
+		));
+		assert!(System::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Collective(CollectiveEvent::Executed { .. })
+		)));
+		assert!(!System::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Collective(CollectiveEvent::ProposalVersionMismatch { .. })
+		)));
+	});
+}
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn migration_v4_to_v5_works() {
+	use crate::migrations::v5;
+	use frame_support::traits::OnRuntimeUpgrade;
+	ExtBuilder::default().build_and_execute(|| {
+		let proposal = make_proposal(42);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let hash: H256 = proposal.blake2_256().into();
+		// Build a consistent state via a real proposal, then downgrade only `ProposalOf` to the
+		// pre-V5 (bare proposal) format and roll the storage version back to 4.
+		assert_ok!(Collective::propose(
+			RuntimeOrigin::signed(1),
+			2,
+			Box::new(proposal.clone()),
+			proposal_len
+		));
+		v5::v4_storage::ProposalOf::<Test, Instance1>::insert(hash, proposal.clone());
+		StorageVersion::new(4).put::<Collective>();
+
+		let state = v5::MigrateToV5::<Test, Instance1>::pre_upgrade().unwrap();
+		let _w = v5::MigrateToV5::<Test, Instance1>::on_runtime_upgrade();
+		v5::MigrateToV5::<Test, Instance1>::post_upgrade(state).unwrap();
+
+		assert_eq!(StorageVersion::get::<Collective>(), 5);
+		let migrated = ProposalOf::<Test, Instance1>::get(&hash).expect("proposal migrated");
+		assert_eq!(migrated.call_ref(), &proposal);
+		// Existing proposals are wrapped with the current `transaction_version` (0 in the mock).
+		assert_eq!(migrated.version(), 0);
+	});
+}
+
+#[test]
 fn motion_with_no_votes_closes_with_disapproval() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
-		let hash = proposal_hash(&proposal);
+		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			3,
@@ -1541,8 +1660,8 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
 	// not be read from storage or executed.
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
-		let hash = proposal_hash(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			2,
@@ -1573,8 +1692,8 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
 fn disapprove_proposal_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
-		let proposal_len: u32 = proposal_len(&proposal);
-		let hash = proposal_hash(&proposal);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			2,
@@ -1700,8 +1819,8 @@ fn kill_proposal_with_deposit() {
 		let mut last_hash = None;
 		for i in 0..=ProposalDepositDelay::get() {
 			let proposal = make_proposal(i as u64);
-			let proposal_len: u32 = proposal_len(&proposal);
-			last_hash = Some(proposal_hash(&proposal));
+			let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+			last_hash = Some(BlakeTwo256::hash_of(&proposal));
 			let deposit = <CollectiveDeposit as Convert<u32, u64>>::convert(i);
 			assert_ok!(Balances::mint_into(&1, deposit));
 			last_deposit = Some(deposit);
@@ -1722,7 +1841,7 @@ fn kill_proposal_with_deposit() {
 
 		let unpublished = make_proposal((ProposalDepositDelay::get() + 1).into());
 		assert_noop!(
-			Collective::kill(RuntimeOrigin::root(), proposal_hash(&unpublished)),
+			Collective::kill(RuntimeOrigin::root(), BlakeTwo256::hash_of(&unpublished)),
 			Error::<Test, Instance1>::ProposalMissing
 		);
 

@@ -82,8 +82,8 @@ where
 	}
 
 	fn proposal_of(proposal_hash: HashOf<T>) -> Option<ProposalOf<T, I>> {
-		let versioned_proposal = pallet_collective::ProposalOf::<T, I>::get(proposal_hash)?;
-		Some(versioned_proposal.call_ref().clone())
+		pallet_collective::ProposalOf::<T, I>::get(proposal_hash)
+			.map(|versioned| versioned.call_ref().clone())
 	}
 }
 

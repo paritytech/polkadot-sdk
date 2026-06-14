@@ -822,12 +822,6 @@ impl pallet_multisig::Config for Runtime {
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
-impl MaxEncodedLen for RuntimeCall {
-	fn max_encoded_len() -> usize {
-		16 * 1024
-	}
-}
-
 parameter_types! {
 	pub const ConfigDepositBase: Balance = 500 * CENTS;
 	pub const FriendDepositFactor: Balance = 50 * CENTS;
@@ -1785,6 +1779,9 @@ pub mod migrations {
         // permanent
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
         parachains_inclusion::migration::MigrateToV1<Runtime>,
+
+        // Wrap stored scheduler calls in `VersionedCall` (#1138).
+        pallet_scheduler::migration::v5::MigrateV4ToV5<Runtime>,
     );
 }
 

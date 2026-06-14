@@ -12947,6 +12947,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+ "sp-version 29.0.0",
 ]
 
 [[package]]
@@ -13172,6 +13173,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+ "sp-version 29.0.0",
 ]
 
 [[package]]
@@ -13648,7 +13650,6 @@ dependencies = [
  "frame-support",
  "frame-support-test",
  "frame-system",
- "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -13802,7 +13803,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -14234,6 +14234,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+ "sp-version 29.0.0",
 ]
 
 [[package]]
@@ -14513,6 +14514,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+ "sp-version 29.0.0",
  "sp-weights 27.0.0",
  "substrate-test-utils",
 ]
@@ -22577,6 +22579,7 @@ dependencies = [
  "serde_json",
  "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
+ "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
 

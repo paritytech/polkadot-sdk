@@ -90,9 +90,7 @@ mod benchmarks {
 					Box::new(proposal.clone()),
 					MAX_BYTES,
 				)?;
-				let hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
-					proposal.clone(),
-				));
+				let hash = T::Hashing::hash_of(&proposal);
 				// Vote on the proposal to increase state relevant for `set_members`.
 				// Not voting for last old member because they proposed and not voting for the first
 				// member to keep the proposal from passing.
@@ -171,7 +169,7 @@ mod benchmarks {
 		b: Linear<2, MAX_BYTES>,
 		m: Linear<1, { T::MaxMembers::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
+		let bytes_in_storage = b + size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -202,8 +200,7 @@ mod benchmarks {
 			bytes_in_storage,
 		);
 
-		let proposal_hash =
-			T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(proposal.clone()));
+		let proposal_hash = T::Hashing::hash_of(&proposal);
 		// Note that execution fails due to mis-matched origin
 		assert_last_event::<T, I>(Event::Executed { proposal_hash, result: Ok(()) }.into());
 		Ok(())
@@ -216,7 +213,7 @@ mod benchmarks {
 		m: Linear<2, { T::MaxMembers::get() }>,
 		p: Linear<1, { T::MaxProposals::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
+		let bytes_in_storage = b + size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -264,8 +261,7 @@ mod benchmarks {
 
 		// New proposal is recorded
 		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
-		let proposal_hash =
-			T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(proposal.clone()));
+		let proposal_hash = T::Hashing::hash_of(&proposal);
 		assert_last_event::<T, I>(
 			Event::Proposed { account: caller, proposal_index: p - 1, proposal_hash, threshold }
 				.into(),
@@ -278,7 +274,7 @@ mod benchmarks {
 	fn vote(m: Linear<5, { T::MaxMembers::get() }>) -> Result<(), BenchmarkError> {
 		let p = T::MaxProposals::get();
 		let b = MAX_BYTES;
-		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
+		let bytes_in_storage = b + size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -313,9 +309,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
-				proposal.clone(),
-			));
+			last_hash = T::Hashing::hash_of(&proposal);
 		}
 
 		let index = p - 1;
@@ -366,7 +360,7 @@ mod benchmarks {
 		p: Linear<1, { T::MaxProposals::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let bytes = 100;
-		let bytes_in_storage = bytes + 2 * size_of::<u32>() as u32;
+		let bytes_in_storage = bytes + size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -401,9 +395,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
-				proposal.clone(),
-			));
+			last_hash = T::Hashing::hash_of(&proposal);
 		}
 
 		let index = p - 1;
@@ -458,7 +450,7 @@ mod benchmarks {
 		m: Linear<4, { T::MaxMembers::get() }>,
 		p: Linear<1, { T::MaxProposals::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
+		let bytes_in_storage = b + size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -491,9 +483,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
-				proposal.clone(),
-			));
+			last_hash = T::Hashing::hash_of(&proposal);
 		}
 
 		// Caller switches vote to nay on their own proposal, allowing them to be the deciding
@@ -555,7 +545,7 @@ mod benchmarks {
 		p: Linear<1, { T::MaxProposals::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let bytes = 100;
-		let bytes_in_storage = bytes + 2 * size_of::<u32>() as u32;
+		let bytes_in_storage = bytes + size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -588,9 +578,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
-				proposal.clone(),
-			));
+			last_hash = T::Hashing::hash_of(&proposal);
 		}
 
 		let index = p - 1;
@@ -645,7 +633,7 @@ mod benchmarks {
 		m: Linear<4, { T::MaxMembers::get() }>,
 		p: Linear<1, { T::MaxProposals::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
+		let bytes_in_storage = b + size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -678,9 +666,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
-				proposal.clone(),
-			));
+			last_hash = T::Hashing::hash_of(&proposal);
 		}
 
 		// The prime member votes aye, so abstentions default to aye.
@@ -723,7 +709,7 @@ mod benchmarks {
 	fn disapprove_proposal(p: Linear<1, { T::MaxProposals::get() }>) -> Result<(), BenchmarkError> {
 		let m = 3;
 		let b = MAX_BYTES;
-		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
+		let bytes_in_storage = b + size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -756,9 +742,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
-				proposal.clone(),
-			));
+			last_hash = T::Hashing::hash_of(&proposal);
 		}
 
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
@@ -783,7 +767,7 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let m = 3;
 		let b = MAX_BYTES;
-		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
+		let bytes_in_storage = b + size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -817,9 +801,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
-				proposal.clone(),
-			));
+			last_hash = T::Hashing::hash_of(&proposal);
 		}
 
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
@@ -851,7 +833,7 @@ mod benchmarks {
 		let m = 3;
 		let p = T::MaxProposals::get();
 		let b = MAX_BYTES;
-		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
+		let bytes_in_storage = b + size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -883,9 +865,7 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
-				proposal.clone(),
-			));
+			last_hash = T::Hashing::hash_of(&proposal);
 		}
 
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());

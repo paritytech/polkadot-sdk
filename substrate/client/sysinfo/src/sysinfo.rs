@@ -20,6 +20,7 @@ use crate::{ExecutionLimit, HwBench};
 
 use sc_telemetry::SysInfo;
 use sp_core::{sr25519, Pair};
+use sp_io::crypto::sr25519_verify;
 
 use core::f64;
 use derive_more::From;
@@ -645,7 +646,7 @@ pub fn benchmark_sr25519_verify(limit: ExecutionLimit) -> Throughput {
 
 	let run = || -> Result<(), String> {
 		for (sig, msg) in sigs.iter().zip(msgs.iter()) {
-			let mut ok = sr25519::Pair::verify(sig, &msg[..], &pair.public());
+			let mut ok = sr25519_verify(&sig, &msg[..], &pair.public());
 			clobber_value(&mut ok);
 		}
 		Ok(())
