@@ -47,8 +47,30 @@ impl<const N: u32> codec::Decode for CommitmentSet<N> {
 	}
 }
 
-// impl<const N: u32> CommitmentSet<N> {
-//     pub fn try_from_iter(it: impl IntoIterator<Item= (ParaId, Hash)>) -> Result<Self,
-// SpecMsgError> {         Ok(())
-//     }
-// }
+impl<const N: u32> CommitmentSet<N> {
+	/// Builds a [`CommitmentSet`] from an arbitrary (possibly unordered) iterator,
+	/// sorting entries by `ParaId` to produce the encoding.
+	pub fn try_from_iter(
+		it: impl IntoIterator<Item = (ParaId, Hash)>,
+	) -> Result<Self, CommitmentError> {
+		let mut entries: Vec<(ParaId, Hash)> = it.into_iter().collect();
+		entries.sort_by_key(|(para_id, _)| *para_id);
+
+		if entries.windows(2).any(|w| w[0].0 == w[1].0) {
+			return Err(CommitmentError::DuplicateParaId);
+		}
+
+		let inner = BoundedVec::try_from(entries).map_err(|_| CommitmentError::TooManyEntries)?;
+
+		Ok(Self(inner))
+	}
+}
+
+/// Errors that can occur when constructing a [`CommitmentSet']
+#[derive(Debug, PartialEq, Eq)]
+pub enum CommitmentError {
+	/// The same `ParaId` appears more than once.
+	DuplicateParaId,
+	/// More entries were provided than the bound `N` allows.
+	TooManyEntries,
+}
