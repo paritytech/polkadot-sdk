@@ -191,6 +191,8 @@ impl TypeId for PalletId {
 #[doc = docify::embed!("src/tests/storage_alias.rs", storage_alias_guess)]
 pub use frame_support_procedural::storage_alias;
 
+pub use frame_support_procedural::stored;
+
 pub use frame_support_procedural::derive_impl;
 
 /// Experimental macros for defining dynamic params that can be used in pallet configs.
@@ -399,6 +401,8 @@ pub use serde::{Deserialize, Serialize};
 
 #[doc(hidden)]
 pub use macro_magic;
+
+pub use derive_where;
 
 /// Prelude to be used for pallet testing, for ease of use.
 #[cfg(feature = "std")]
@@ -2276,12 +2280,6 @@ pub mod pallet_macros {
 	/// Read more about origins at the [Origin Reference
 	/// Docs](../../polkadot_sdk_docs/reference_docs/frame_origin/index.html).
 	pub use frame_support_procedural::origin;
-}
-
-#[deprecated(note = "Will be removed after July 2023; Use `sp_runtime::traits` directly instead.")]
-pub mod error {
-	#[doc(hidden)]
-	pub use sp_runtime::traits::{BadOrigin, LookupError};
 }
 
 #[doc(inline)]

@@ -1273,8 +1273,14 @@ impl<T: Config> BondedPool<T> {
 				)
 			},
 			(false, true) => {
-				// the depositor can simply not be unbonded permissionlessly, period.
-				return Err(Error::<T>::DoesNotHavePermission.into());
+				// Permissionless depositor unbond is only allowed for a full unbond, and only when
+				// destroying with the depositor as sole remaining member. `is_full_unbond` is
+				// already guaranteed by the outer `ensure!` above.
+				debug_assert!(is_full_unbond);
+				ensure!(
+					self.is_destroying_and_only_depositor(target_member.active_points()),
+					Error::<T>::DoesNotHavePermission
+				);
 			},
 		};
 
@@ -4008,7 +4014,13 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		let mut expected_tvl: BalanceOf<T> = Default::default();
+		let mut depositor_undermin: Vec<(PoolId, T::AccountId)> = Vec::new();
+		let mut depositor_undermin_total: u32 = 0;
+		let mut total_pools: u32 = 0;
+		const MAX_EXAMPLES: usize = 10;
+
 		BondedPools::<T>::iter().try_for_each(|(id, inner)| -> Result<(), TryRuntimeError> {
+			total_pools += 1;
 			let bonded_pool = BondedPool { id, inner };
 			ensure!(
 				pools_members.get(&id).copied().unwrap_or_default() ==
@@ -4026,8 +4038,12 @@ impl<T: Config> Pallet<T> {
 				.is_destroying_and_only_depositor(depositor.active_points()) ||
 				depositor.active_points() >= MinCreateBond::<T>::get();
 			if !depositor_has_enough_stake {
+				depositor_undermin_total += 1;
+				if depositor_undermin.len() < MAX_EXAMPLES {
+					depositor_undermin.push((id, bonded_pool.roles.depositor.clone()));
+				}
 				log!(
-					warn,
+					trace,
 					"pool {:?} has depositor {:?} with insufficient stake {:?}, minimum required is {:?}",
 					id,
 					bonded_pool.roles.depositor,
@@ -4045,6 +4061,17 @@ impl<T: Config> Pallet<T> {
 
 			Ok(())
 		})?;
+
+		if depositor_undermin_total > 0 {
+			log!(
+				warn,
+				"{}/{} pools have depositor with insufficient stake, minimum required is {:?}. Examples: {:?}",
+				depositor_undermin_total,
+				total_pools,
+				MinCreateBond::<T>::get(),
+				depositor_undermin,
+			);
+		}
 
 		ensure!(
 			MaxPoolMembers::<T>::get().map_or(true, |max| all_members <= max),
@@ -4108,8 +4135,13 @@ impl<T: Config> Pallet<T> {
 		debug_assertions
 	))]
 	pub fn check_ed_imbalance() -> Result<u32, DispatchError> {
-		let mut needs_adjust = 0;
+		let mut needs_adjust: u32 = 0;
+		let mut total_pools: u32 = 0;
+		let mut ed_examples: Vec<PoolId> = Vec::new();
+		const MAX_EXAMPLES: usize = 10;
+
 		BondedPools::<T>::iter_keys().for_each(|id| {
+			total_pools += 1;
 			let reward_acc = Self::generate_reward_account(id);
 			let frozen_balance =
 				T::Currency::balance_frozen(&FreezeReason::PoolMinBalance.into(), &reward_acc);
@@ -4117,8 +4149,11 @@ impl<T: Config> Pallet<T> {
 			let expected_frozen_balance = T::Currency::minimum_balance();
 			if frozen_balance != expected_frozen_balance {
 				needs_adjust += 1;
+				if ed_examples.len() < MAX_EXAMPLES {
+					ed_examples.push(id);
+				}
 				log!(
-					warn,
+					trace,
 					"pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}. Use `adjust_pool_deposit` to fix it",
 					id,
 					expected_frozen_balance,
@@ -4126,6 +4161,17 @@ impl<T: Config> Pallet<T> {
 				);
 			}
 		});
+
+		if needs_adjust > 0 {
+			log!(
+				warn,
+				"{}/{} pools have incorrect ED frozen (expected {:?}). Use `adjust_pool_deposit` to fix. Examples: {:?}",
+				needs_adjust,
+				total_pools,
+				T::Currency::minimum_balance(),
+				ed_examples,
+			);
+		}
 
 		Ok(needs_adjust)
 	}

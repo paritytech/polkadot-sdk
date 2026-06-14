@@ -23,6 +23,7 @@
 use crate::bitswap::{api::BitswapApiServer, error::Error};
 use cid::Cid;
 use jsonrpsee::core::RpcResult;
+use multihash_codetable::Code;
 use sc_client_api::BlockBackend;
 use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
@@ -30,11 +31,6 @@ use std::sync::Arc;
 
 /// Log target for this file.
 const LOG_TARGET: &str = "rpc-spec-v2";
-
-// Standard multihash codes.
-// See <https://github.com/multiformats/multicodec/blob/master/table.csv>
-const SHA2_256: u64 = 0x12;
-const BLAKE2B_256: u64 = 0xb220;
 
 /// Bitswap RPC implementation.
 pub struct Bitswap<Block, Client> {
@@ -68,10 +64,14 @@ where
 
 		let hash = cid.hash();
 
-		// Only sha2-256 & blake2b-256 hash functions are supported according to the spec.
-		if hash.code() != SHA2_256 && hash.code() != BLAKE2B_256 {
+		// Only sha2-256, blake2b-256 & keccak-256 hash functions are supported according to the
+		// spec.
+		if hash.code() != u64::from(Code::Sha2_256) &&
+			hash.code() != u64::from(Code::Blake2b256) &&
+			hash.code() != u64::from(Code::Keccak256)
+		{
 			return Err(Error::InvalidCid(
-				"Only sha2-256 & blake2b-256 hash functions are supported".into(),
+				"Only sha2-256, blake2b-256 & keccak-256 hash functions are supported".into(),
 			)
 			.into());
 		}

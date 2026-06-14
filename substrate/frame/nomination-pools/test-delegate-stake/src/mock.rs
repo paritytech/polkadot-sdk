@@ -23,7 +23,7 @@ use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, ConstU8, Nothing, VariantCountOf},
+	traits::{ConstBool, ConstU64, ConstU8, Nothing, VariantCountOf},
 	PalletId,
 };
 use frame_system::EnsureRoot;
@@ -125,8 +125,10 @@ impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type BondingDuration = BondingDuration;
 	type EraPayout = TestEraPayout;
+	type DisableMinting = ConstBool<false>;
+	type BondingDuration = BondingDuration;
+	type RewardPots = pallet_staking_async::SequentialTest;
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
 	type VoterList = VoterList;

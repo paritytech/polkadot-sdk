@@ -208,6 +208,67 @@ impl<
 }
 
 impl<
+		Left: fungible::Inspect<AccountId> + fungible::metadata::Inspect<AccountId>,
+		Right: fungibles::Inspect<AccountId, Balance = Left::Balance>
+			+ fungibles::metadata::Inspect<AccountId>,
+		Criterion: Convert<AssetKind, Either<(), Right::AssetId>>,
+		AssetKind: AssetId,
+		AccountId,
+	> fungibles::metadata::Inspect<AccountId>
+	for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
+	fn name(asset: Self::AssetId) -> alloc::vec::Vec<u8> {
+		match Criterion::convert(asset) {
+			Left(()) => <Left as fungible::metadata::Inspect<AccountId>>::name(),
+			Right(a) => <Right as fungibles::metadata::Inspect<AccountId>>::name(a),
+		}
+	}
+	fn symbol(asset: Self::AssetId) -> alloc::vec::Vec<u8> {
+		match Criterion::convert(asset) {
+			Left(()) => <Left as fungible::metadata::Inspect<AccountId>>::symbol(),
+			Right(a) => <Right as fungibles::metadata::Inspect<AccountId>>::symbol(a),
+		}
+	}
+	fn decimals(asset: Self::AssetId) -> u8 {
+		match Criterion::convert(asset) {
+			Left(()) => <Left as fungible::metadata::Inspect<AccountId>>::decimals(),
+			Right(a) => <Right as fungibles::metadata::Inspect<AccountId>>::decimals(a),
+		}
+	}
+}
+
+impl<
+		Left: fungible::Inspect<AccountId>
+			+ fungible::metadata::Inspect<AccountId>
+			+ fungible::metadata::Mutate<AccountId>,
+		Right: fungibles::Inspect<AccountId, Balance = Left::Balance>
+			+ fungibles::metadata::Inspect<AccountId>
+			+ fungibles::metadata::Mutate<AccountId>,
+		Criterion: Convert<AssetKind, Either<(), Right::AssetId>>,
+		AssetKind: AssetId,
+		AccountId,
+	> fungibles::metadata::Mutate<AccountId>
+	for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
+	fn set(
+		asset: Self::AssetId,
+		from: &AccountId,
+		name: alloc::vec::Vec<u8>,
+		symbol: alloc::vec::Vec<u8>,
+		decimals: u8,
+	) -> DispatchResult {
+		match Criterion::convert(asset) {
+			Left(()) => {
+				<Left as fungible::metadata::Mutate<AccountId>>::set(from, name, symbol, decimals)
+			},
+			Right(a) => <Right as fungibles::metadata::Mutate<AccountId>>::set(
+				a, from, name, symbol, decimals,
+			),
+		}
+	}
+}
+
+impl<
 		Left: fungible::InspectHold<AccountId>,
 		Right: fungibles::InspectHold<AccountId, Balance = Left::Balance, Reason = Left::Reason>,
 		Criterion: Convert<AssetKind, Either<(), Right::AssetId>>,

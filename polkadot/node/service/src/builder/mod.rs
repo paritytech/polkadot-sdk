@@ -685,13 +685,16 @@ where
 		};
 
 		if role.is_authority() {
-			let proposer = sc_basic_authorship::ProposerFactory::new(
+			let mut proposer = sc_basic_authorship::ProposerFactory::new(
 				task_manager.spawn_handle(),
 				client.clone(),
 				transaction_pool.clone(),
 				prometheus_registry.as_ref(),
 				telemetry.as_ref().map(|x| x.handle()),
 			);
+			// We allow `15MiB` on the node side, but the actual block size limit is defined by the
+			// runtime.
+			proposer.set_default_block_size_limit(15 * 1024 * 1024);
 
 			let client_clone = client.clone();
 			let overseer_handle =
