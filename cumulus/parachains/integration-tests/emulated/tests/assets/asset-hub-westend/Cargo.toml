@@ -29,6 +29,7 @@ sp-runtime = { workspace = true }
 # Polkadot
 pallet-xcm = { workspace = true }
 polkadot-runtime-common = { workspace = true, default-features = true }
+westend-runtime = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }

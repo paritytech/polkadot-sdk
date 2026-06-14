@@ -65,6 +65,7 @@ async fn parachains_max_tranche0_test() -> Result<(), anyhow::Error> {
 			(ParaId::from(2003u32), 5..100),
 			(ParaId::from(2004u32), 5..100),
 		],
+		[],
 	)
 	.await?;
 	log::info!("All parachains producing blocks");
