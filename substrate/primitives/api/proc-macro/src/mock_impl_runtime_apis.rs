@@ -289,8 +289,7 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 				},
 			};
 
-			let mut param_names: Vec<Pat> =
-				extracted_params.iter().map(|v| v.0.clone()).collect();
+			let mut param_names: Vec<Pat> = extracted_params.iter().map(|v| v.0.clone()).collect();
 			let mut param_types_and_borrows: Vec<(TokenStream, bool)> = extracted_params
 				.iter()
 				.map(|v| {
@@ -360,7 +359,10 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 				.zip(tmp_param_names.iter())
 				.zip(generic_names.iter())
 				.map(
-					|(((((raw_name, param_name), inner_type), is_borrow), tmp_name), generic_name)| {
+					|(
+						((((raw_name, param_name), inner_type), is_borrow), tmp_name),
+						generic_name,
+					)| {
 						if *is_borrow {
 							// Original was a reference: decode to the inner type, then reborrow.
 							quote! {

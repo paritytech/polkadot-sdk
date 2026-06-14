@@ -355,16 +355,17 @@ impl<'a> ToClientSideDecl<'a> {
 		mut method: TraitItemFn,
 		trait_generics_num: usize,
 	) -> TraitItemFn {
-		let (params, param_types): (Vec<_>, Vec<_>) = match extract_parameter_names_types_and_borrows(
-			&method.sig,
-			AllowSelfRefInParameters::No,
-		) {
-			Ok(res) => res.into_iter().map(|v| (v.0, v.1)).unzip(),
-			Err(e) => {
-				self.errors.push(e.to_compile_error());
-				(Vec::new(), Vec::new())
-			},
-		};
+		let (params, param_types): (Vec<_>, Vec<_>) =
+			match extract_parameter_names_types_and_borrows(
+				&method.sig,
+				AllowSelfRefInParameters::No,
+			) {
+				Ok(res) => res.into_iter().map(|v| (v.0, v.1)).unzip(),
+				Err(e) => {
+					self.errors.push(e.to_compile_error());
+					(Vec::new(), Vec::new())
+				},
+			};
 		let ret_type = return_type_extract_type(&method.sig.output);
 
 		let crate_ = self.crate_;
