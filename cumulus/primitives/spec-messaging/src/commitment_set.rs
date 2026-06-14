@@ -106,3 +106,114 @@ pub enum CommitmentError {
 	/// More entries were provided than the bound `N` allows.
 	TooManyEntries,
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use codec::{Decode, Encode};
+
+	fn h(byte: u8) -> Hash {
+		Hash::repeat_byte(byte)
+	}
+
+	#[test]
+	fn try_from_iter_sorts_entries() {
+		let set = CommitmentSet::<4>::try_from_iter([
+			(ParaId::from(3), h(3)),
+			(ParaId::from(1), h(1)),
+			(ParaId::from(2), h(2)),
+		])
+		.unwrap();
+
+		let ids: Vec<ParaId> = set.iter().map(|(id, _)| *id).collect();
+		assert_eq!(ids, vec![ParaId::from(1), ParaId::from(2), ParaId::from(3)]);
+	}
+
+	#[test]
+	fn try_from_iter_rejects_duplicate_para_id() {
+		let result =
+			CommitmentSet::<4>::try_from_iter([(ParaId::from(1), h(1)), (ParaId::from(1), h(2))]);
+
+		assert_eq!(result, Err(CommitmentError::DuplicateParaId));
+	}
+
+	#[test]
+	fn try_from_iter_rejects_too_many_entries() {
+		let result = CommitmentSet::<2>::try_from_iter([
+			(ParaId::from(1), h(1)),
+			(ParaId::from(2), h(2)),
+			(ParaId::from(3), h(3)),
+		]);
+
+		assert_eq!(result, Err(CommitmentError::TooManyEntries));
+	}
+
+	#[test]
+	fn encode_decode_round_trip_works() {
+		let set =
+			CommitmentSet::<4>::try_from_iter([(ParaId::from(1), h(1)), (ParaId::from(2), h(2))])
+				.unwrap();
+
+		let encoded = set.encode();
+		let decoded = CommitmentSet::<4>::decode(&mut &encoded[..]).unwrap();
+
+		assert_eq!(set, decoded);
+	}
+
+	#[test]
+	fn decode_rejects_out_of_order_para_ids() {
+		let bad: Vec<(ParaId, Hash)> = vec![(ParaId::from(2), h(2)), (ParaId::from(1), h(1))];
+		let encoded = bad.encode();
+
+		assert!(CommitmentSet::<4>::decode(&mut &encoded[..]).is_err());
+	}
+
+	#[test]
+	fn decode_rejects_duplicate_para_ids() {
+		let bad: Vec<(ParaId, Hash)> = vec![(ParaId::from(1), h(1)), (ParaId::from(1), h(2))];
+		let encoded = bad.encode();
+
+		assert!(CommitmentSet::<4>::decode(&mut &encoded[..]).is_err());
+	}
+
+	#[test]
+	fn decode_rejects_too_many_entries() {
+		let bad: Vec<(ParaId, Hash)> =
+			vec![(ParaId::from(1), h(1)), (ParaId::from(2), h(2)), (ParaId::from(3), h(3))];
+		let encoded = bad.encode();
+
+		assert!(CommitmentSet::<2>::decode(&mut &encoded[..]).is_err());
+	}
+
+	#[test]
+	fn get_finds_existing_and_missing_entries() {
+		let set =
+			CommitmentSet::<4>::try_from_iter([(ParaId::from(1), h(1)), (ParaId::from(3), h(3))])
+				.unwrap();
+
+		assert_eq!(set.get(ParaId::from(1)), Some(&h(1)));
+		assert_eq!(set.get(ParaId::from(3)), Some(&h(3)));
+		assert_eq!(set.get(ParaId::from(2)), None);
+	}
+
+	#[test]
+	fn len_and_is_empty() {
+		let empty = CommitmentSet::<4>::default();
+		assert!(empty.is_empty());
+		assert_eq!(empty.len(), 0);
+
+		let set = CommitmentSet::<4>::try_from_iter([(ParaId::from(1), h(1))]).unwrap();
+		assert!(!set.is_empty());
+		assert_eq!(set.len(), 1);
+	}
+
+	#[test]
+	fn into_iter_yields_sorted_entries() {
+		let set =
+			CommitmentSet::<4>::try_from_iter([(ParaId::from(2), h(2)), (ParaId::from(1), h(1))])
+				.unwrap();
+
+		let collected: Vec<_> = (&set).into_iter().collect();
+		assert_eq!(collected, vec![&(ParaId::from(1), h(1)), &(ParaId::from(2), h(2))]);
+	}
+}
