@@ -88,6 +88,7 @@ use pallet_staking_async_rc_client::RcClientInterface;
 use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
+	StakerRewardCalculator,
 };
 
 /// A handler for all era-based storage items.
@@ -370,6 +371,23 @@ impl<T: Config> Eras<T> {
 		ErasValidatorReward::<T>::get(era)
 	}
 
+	pub(crate) fn set_validator_incentive_budget(era: EraIndex, amount: BalanceOf<T>) {
+		ErasValidatorIncentiveBudget::<T>::insert(era, amount);
+	}
+
+	pub(crate) fn get_validator_incentive_budget(era: EraIndex) -> BalanceOf<T> {
+		ErasValidatorIncentiveBudget::<T>::get(era)
+	}
+
+	pub(crate) fn add_sum_validator_incentive_weight(
+		era: EraIndex,
+		incentive_weight: BalanceOf<T>,
+	) {
+		<ErasSumValidatorIncentiveWeight<T>>::mutate(era, |sum| {
+			*sum = sum.saturating_add(incentive_weight);
+		});
+	}
+
 	/// Update the total exposure for all the elected validators in the era.
 	pub(crate) fn add_total_stake(era: EraIndex, stake: BalanceOf<T>) {
 		<ErasTotalStake<T>>::mutate(era, |total_stake| {
@@ -496,7 +514,8 @@ impl<T: Config> Eras<T> {
 		let oldest_present_era = active_era.saturating_sub(T::HistoryDepth::get()).max(1);
 
 		for e in oldest_present_era..=active_era {
-			Self::era_fully_present(e)?
+			Self::era_fully_present(e)?;
+			Self::check_validator_incentive_weight_consistency(e)?;
 		}
 
 		// Ensure all eras older than oldest_present_era are either fully pruned or marked for
@@ -504,6 +523,25 @@ impl<T: Config> Eras<T> {
 		ensure!(
 			(1..oldest_present_era).all(|e| Self::era_absent_or_pruning(e).is_ok()),
 			"All old eras must be either fully pruned or marked for pruning"
+		);
+
+		Ok(())
+	}
+
+	/// Verify that the sum of individual validator incentive weights matches the stored total.
+	fn check_validator_incentive_weight_consistency(
+		era: EraIndex,
+	) -> Result<(), sp_runtime::TryRuntimeError> {
+		use sp_runtime::traits::Zero;
+
+		let stored_total = ErasSumValidatorIncentiveWeight::<T>::get(era);
+		let computed_total: BalanceOf<T> = ErasValidatorIncentiveWeight::<T>::iter_prefix(era)
+			.fold(BalanceOf::<T>::zero(), |acc, (_, w)| acc.saturating_add(w));
+
+		ensure!(
+			stored_total == computed_total,
+			"ErasSumValidatorIncentiveWeight mismatch: \
+			 stored vs computed individual weights do not match"
 		);
 
 		Ok(())
@@ -846,31 +884,31 @@ impl<T: Config> Rotator<T> {
 		T::RewardRemainder::on_unbalanced(asset::issue::<T>(remainder));
 	}
 
-	/// DAP end-era: snapshot from general reward pot into era-specific pot.
+	/// DAP end-era: snapshot from general reward pots into era-specific pots.
 	///
-	/// The snapshotted amount is stored in `ErasValidatorReward` — this represents the total
-	/// reward budget for the era before any payouts. Individual payouts draw from the era pot.
+	/// The snapshotted amounts are stored in `ErasValidatorReward` (staker rewards) and
+	/// `ErasValidatorIncentiveBudget` (incentive). Individual payouts draw from the era pots.
 	fn end_era_dap(ending_era: &ActiveEraInfo) {
-		let staker_rewards = reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
+		let allocation = reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
 
-		if staker_rewards.is_zero() {
+		if allocation.staker_rewards.is_zero() {
 			log!(warn, "Era {:?} has zero staker rewards in general pot", ending_era.index);
 		}
 
-		Eras::<T>::set_stakers_reward(ending_era.index, staker_rewards);
+		Eras::<T>::set_stakers_reward(ending_era.index, allocation.staker_rewards);
+		Eras::<T>::set_validator_incentive_budget(ending_era.index, allocation.validator_incentive);
 
+		// Include both staker rewards and validator incentive in the event
 		Pallet::<T>::deposit_event(Event::<T>::EraPaid {
 			era_index: ending_era.index,
-			validator_payout: staker_rewards,
+			validator_payout: allocation
+				.staker_rewards
+				.saturating_add(allocation.validator_incentive),
 			remainder: Zero::zero(),
 		});
 
-		if !staker_rewards.is_zero() {
-			DisableMintingGuard::<T>::mutate(|maybe_era| {
-				if maybe_era.is_none() || maybe_era.is_some_and(|e| ending_era.index < e) {
-					*maybe_era = Some(ending_era.index);
-				}
-			});
+		if DisableMintingGuard::<T>::get().is_none() {
+			DisableMintingGuard::<T>::put(ending_era.index);
 		}
 	}
 
@@ -1110,6 +1148,8 @@ impl<T: Config> EraElectionPlanner<T> {
 		let mut elected_stashes_page = Vec::with_capacity(exposures.len());
 		let mut total_backers = 0u32;
 
+		let mut total_incentive_weight_page: BalanceOf<T> = Zero::zero();
+
 		exposures.into_iter().for_each(|(stash, exposure)| {
 			log!(
 				trace,
@@ -1123,8 +1163,31 @@ impl<T: Config> EraElectionPlanner<T> {
 			// accumulate total stake and backer count for bookkeeping.
 			total_stake_page = total_stake_page.saturating_add(exposure.total);
 			total_backers += exposure.others.len() as u32;
-			// set or update staker exposure for this era.
+			let own = exposure.own;
 			Eras::<T>::upsert_exposure(new_planned_era, &stash, exposure);
+
+			// Calculate incentive weight from own-stake. Own-stake appears only on the
+			// first page of a multi-page exposure, so if the key already exists with a
+			// non-zero own, something is wrong upstream.
+			if !own.is_zero() {
+				if ErasValidatorIncentiveWeight::<T>::contains_key(new_planned_era, &stash) {
+					defensive!(
+						"validator own-stake seen twice in the same era across election pages"
+					);
+				} else {
+					let incentive_weight =
+						T::StakerRewardCalculator::calculate_validator_incentive_weight(own);
+					if !incentive_weight.is_zero() {
+						total_incentive_weight_page =
+							total_incentive_weight_page.saturating_add(incentive_weight);
+						ErasValidatorIncentiveWeight::<T>::insert(
+							new_planned_era,
+							&stash,
+							incentive_weight,
+						);
+					}
+				}
+			}
 		});
 
 		let elected_stashes: BoundedVec<_, MaxWinnersPerPageOf<T::ElectionProvider>> =
@@ -1134,6 +1197,9 @@ impl<T: Config> EraElectionPlanner<T> {
 
 		// adds to total stake in this era.
 		Eras::<T>::add_total_stake(new_planned_era, total_stake_page);
+
+		// adds to total validator self-stake weight for incentive distribution.
+		Eras::<T>::add_sum_validator_incentive_weight(new_planned_era, total_incentive_weight_page);
 
 		// collect or update the pref of all winners.
 		// TODO: rather inefficient, we can do this once at the last page across all entries in

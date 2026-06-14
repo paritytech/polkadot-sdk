@@ -18,8 +18,8 @@
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
 use crate::{
-	BalanceOf, Config, H160, Time, U256, evm::DryRunConfig, mock::MockHandler,
-	storage::WriteOutcome, transient_storage::TransientStorage,
+	BalanceOf, Config, H160, Time, U256, deposit_payment::Funds, evm::DryRunConfig,
+	mock::MockHandler, storage::WriteOutcome, transient_storage::TransientStorage,
 };
 use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -441,6 +441,17 @@ impl<T: Config> ExecConfig<T> {
 	) -> Self {
 		self.is_dry_run = Some(dry_run_config);
 		self
+	}
+
+	/// Classify `account` as a deposit source or refund destination based on
+	/// [`Self::collect_deposit_from_hold`]: [`Funds::TxFee`] under eth-tx dispatch (where
+	/// deposits flow through the tx fee pool), otherwise [`Funds::Balance`].
+	pub fn funds<'a>(&self, account: &'a T::AccountId) -> Funds<'a, T::AccountId> {
+		if self.collect_deposit_from_hold.is_some() {
+			Funds::TxFee(account)
+		} else {
+			Funds::Balance(account)
+		}
 	}
 
 	/// Almost clone for testing (does not clone mock_handler)

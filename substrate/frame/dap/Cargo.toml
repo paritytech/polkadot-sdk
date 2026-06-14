@@ -22,6 +22,7 @@ frame-system = { workspace = true }
 log = { workspace = true }
 pallet-timestamp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+sp-dap = { workspace = true }
 sp-runtime = { workspace = true }
 sp-staking = { workspace = true }
 
@@ -41,6 +42,7 @@ std = [
 	"pallet-timestamp/std",
 	"scale-info/std",
 	"sp-core/std",
+	"sp-dap/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",

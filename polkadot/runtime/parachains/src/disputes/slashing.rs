@@ -91,6 +91,9 @@ const DEFENSIVE_PROOF: &'static str = "disputes module should bail on old sessio
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+#[cfg(test)]
+mod tests;
+
 /// The benchmarking configuration.
 pub trait BenchmarkingConfiguration {
 	const MAX_VALIDATORS: u32;
@@ -478,13 +481,18 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 			let validator_set_count = key_owner_proof.validator_count() as ValidatorSetCount;
-			// check the membership proof to extract the offender's id
+			let session_index = dispute_proof.time_slot.session_index;
+
+			// The membership proof must be for the same session as the dispute.
+			ensure!(
+				key_owner_proof.session() == session_index,
+				Error::<T>::InvalidKeyOwnershipProof,
+			);
+
 			let key =
 				(polkadot_primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
 			let offender = T::KeyOwnerProofSystem::check_proof(key, key_owner_proof)
 				.ok_or(Error::<T>::InvalidKeyOwnershipProof)?;
-
-			let session_index = dispute_proof.time_slot.session_index;
 
 			// check that there is a pending slash for the given
 			// validator index and candidate hash
@@ -641,7 +649,11 @@ fn is_known_offence<T: Config>(
 	dispute_proof: &DisputeProof,
 	key_owner_proof: &T::KeyOwnerProof,
 ) -> Result<(), TransactionValidityError> {
-	// check the membership proof to extract the offender's id
+	// The membership proof must be for the same session as the dispute.
+	if key_owner_proof.session() != dispute_proof.time_slot.session_index {
+		return Err(InvalidTransaction::BadProof.into());
+	}
+
 	let key = (polkadot_primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
 
 	let offender = T::KeyOwnerProofSystem::check_proof(key, key_owner_proof.clone())
