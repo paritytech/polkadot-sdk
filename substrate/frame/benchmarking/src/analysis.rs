@@ -198,10 +198,6 @@ fn linear_regression(
 impl Analysis {
 	// Useful for when there are no components, and we just need a median value of the benchmark
 	// results. Note: We choose the median value because it is more robust to outliers.
-	fn median_value(r: &[BenchmarkResult], selector: BenchmarkSelector) -> Option<Self> {
-		if r.is_empty() {
-			return None;
-		}
 	fn median_value(
 		r: &Vec<BenchmarkResult>,
 		selector: BenchmarkSelector,
@@ -224,7 +220,6 @@ impl Analysis {
 		})
 	}
 
-	pub fn median_slopes(r: &[BenchmarkResult], selector: BenchmarkSelector) -> Option<Self> {
 	pub fn median_slopes(
 		r: &Vec<BenchmarkResult>,
 		selector: BenchmarkSelector,
@@ -333,8 +328,6 @@ impl Analysis {
 		})
 	}
 
-	pub fn min_squares_iqr(r: &[BenchmarkResult], selector: BenchmarkSelector) -> Option<Self> {
-		if r[0].components.is_empty() || r.len() <= 2 {
 	pub fn min_squares_iqr(
 		r: &Vec<BenchmarkResult>,
 		selector: BenchmarkSelector,
@@ -417,7 +410,6 @@ impl Analysis {
 		})
 	}
 
-	pub fn max(r: &[BenchmarkResult], selector: BenchmarkSelector) -> Option<Self> {
 	pub fn max(
 		r: &Vec<BenchmarkResult>,
 		selector: BenchmarkSelector,

@@ -33,18 +33,18 @@ pub mod baseline;
 
 /// Legacy v1 benchmarking macros.
 ///
-/// # Deprecation notice
+/// # Soft-deprecation notice
 ///
-/// The v1 macro syntax is **deprecated** and will be removed in a future release.
-/// Migrate to [`v2`] — see the module-level documentation for a step-by-step guide.
+/// The v1 macro syntax is soft-deprecated in favor of [`v2`] and will eventually be removed.
+/// New benchmarks should be written using [`v2`]; existing v1 benchmarks should be migrated
+/// when convenient. See the [`v2`] module documentation for a step-by-step migration guide.
 ///
 /// In short, replace `benchmarks! { ... }` with a `#[benchmarks]` module and annotate
 /// each benchmark function with `#[benchmark]`.
-#[deprecated(
-	since = "0.0.0",
-	note = "Use `frame_benchmarking::v2` instead. \
-	        See the `v2` module docs for a migration guide."
-)]
+///
+/// Note: this is intentionally a documentation-only deprecation. A `#[deprecated]` attribute
+/// is not used here because the v1 macros are still in widespread use across the workspace and,
+/// combined with `-D warnings`, the resulting deprecation warnings would break the build.
 pub mod v1;
 
 /// Private exports that are being used by macros.
@@ -66,7 +66,6 @@ pub mod __private {
 #[cfg(feature = "std")]
 pub use analysis::{Analysis, AnalysisChoice, BenchmarkSelector};
 pub use utils::*;
-#[allow(deprecated)]
 pub use v1::*;
 
 /// Contains macros, structs, and traits associated with v2 of the pallet benchmarking syntax.
