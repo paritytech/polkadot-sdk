@@ -350,6 +350,23 @@ impl<AccountId, Balance: FixedPointOperand + Saturating, Moment>
 			.saturating_sub(rate.saturating_mul_int(old_stake))
 			.saturating_add(rate.saturating_mul_int(new_stake));
 	}
+
+	/// True when no debt-bearing or stake-bearing row remains attached.
+	pub fn is_empty_of_liability(&self) -> bool {
+		self.debt.principal.is_zero() &&
+			self.stakes.total.is_zero() &&
+			self.debt.pending_redist_principal.is_zero()
+	}
+
+	/// Sweep the orphan debt counters into `bad_debt`, returning the swept
+	/// amount.
+	pub fn sweep_orphan_debt(&mut self) -> Balance {
+		let orphan = self.debt.minted_interest.saturating_add(self.rounding.ownerless_pusd_debt);
+		self.debt.minted_interest = Balance::zero();
+		self.rounding.ownerless_pusd_debt = Balance::zero();
+		self.debt.bad_debt = self.debt.bad_debt.saturating_add(orphan);
+		orphan
+	}
 }
 
 impl<AccountId, Balance: Ord + Saturating + Copy, Moment> BranchState<AccountId, Balance, Moment> {

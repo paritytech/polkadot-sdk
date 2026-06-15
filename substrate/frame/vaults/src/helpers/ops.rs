@@ -349,6 +349,8 @@ pub fn repay_for<T: Config>(
 	)?;
 
 	let payment = vault.debt.cancel(repay);
+	// `repay` was capped at `vault.debt.total()`, so `cancel` returns it in
+	// full; debug-only because runtime dispatch must not panic.
 	debug_assert_eq!(payment.total(), repay);
 
 	// User repayments must leave `Debt == 0` (and close in
@@ -506,18 +508,11 @@ fn close_inner<T: Config>(
 		bs_after.last_dormant_vault_owner = None;
 	}
 
-	let branch_empties = bs_after.debt.principal.is_zero() &&
-		bs_after.stakes.total.is_zero() &&
-		bs_after.debt.pending_redist_principal.is_zero();
+	// Closing the last debt-bearing vault settles the branch.
+	let branch_empties = bs_after.is_empty_of_liability();
 	if branch_empties {
-		let orphan = bs_after
-			.debt
-			.minted_interest
-			.saturating_add(bs_after.rounding.ownerless_pusd_debt);
+		let orphan = bs_after.sweep_orphan_debt();
 		if !orphan.is_zero() {
-			bs_after.debt.minted_interest = BalanceOf::<T>::zero();
-			bs_after.rounding.ownerless_pusd_debt = BalanceOf::<T>::zero();
-			bs_after.debt.bad_debt = bs_after.debt.bad_debt.saturating_add(orphan);
 			Pallet::<T>::deposit_event(Event::BadDebtRecorded {
 				collateral_id: collateral_id.clone(),
 				amount: orphan,
