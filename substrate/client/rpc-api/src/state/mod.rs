@@ -304,11 +304,15 @@ pub trait StateApi<Hash> {
 	/// Re-execute `block` by calling the runtime API method `method` (by name), with a proof-size
 	/// recorder registered for the call, and return the SCALE-encoded result.
 	///
-	/// This is `state_call` performed in a proof-recording execution context: runtime APIs that
-	/// replay a block (e.g. pallet-revive's `trace_block` / `trace_tx`) then get faithful
-	/// proof-size reclaim and do not spuriously hit `ExhaustsResources` on the block tail. The
-	/// block is loaded from the node by its `block` hash (not supplied by the caller); `extra_args`
-	/// is the SCALE-encoded tail of the method's arguments, with the block prepended node-side.
+	/// This is the recorded-replay sibling of [`Self::trace_block`]: like `state_traceBlock` it
+	/// loads `block` from the node by hash and re-executes it from the parent state, but instead of
+	/// installing a tracing subscriber it returns the named runtime API's own return value. The
+	/// recorder lets block-replaying runtime APIs reclaim proof size during replay exactly as the
+	/// authoring node did, so they do not spuriously hit `ExhaustsResources` on the block tail.
+	///
+	/// `method` must name a runtime API whose first argument is the block being replayed: the block
+	/// is sourced node-side and SCALE-prepended to `extra_args` (the encoded tail of the remaining
+	/// arguments) to form the call data.
 	///
 	/// **Unsafe**: re-executes arbitrary historical blocks and is only available on nodes that
 	/// register a proof-recording execution hook (parachains); it errors otherwise.

@@ -68,10 +68,10 @@ pub trait TracingExecuteBlock<Block: BlockT>: Send + Sync {
 	/// recorder registered for the duration of the call. Returns the SCALE-encoded result.
 	///
 	/// `block` is SCALE-encoded and prepended to `extra_args` to form the call arguments, so this
-	/// serves runtime APIs whose first argument is the block being replayed (e.g. pallet-revive's
-	/// `trace_block` / `trace_tx`). The recorder is what lets `StorageWeightReclaim` reclaim
-	/// proof size during replay exactly as it did at authoring; without it the replay
-	/// over-accounts proof size and the block tail spuriously hits `ExhaustsResources`.
+	/// serves runtime APIs whose first argument is the block being replayed. The recorder is what
+	/// lets `StorageWeightReclaim` reclaim proof size during replay exactly as it did at authoring;
+	/// without it the replay over-accounts proof size and the block tail spuriously hits
+	/// `ExhaustsResources`.
 	///
 	/// The default implementation returns an error: nodes that do not record proof size (e.g.
 	/// solochains, which have no PoV) do not need this and should fall back to a plain call.
@@ -80,9 +80,8 @@ pub trait TracingExecuteBlock<Block: BlockT>: Send + Sync {
 		_orig_hash: Block::Hash,
 		_block: Block,
 		_method: &str,
-		_extra_args: Vec<u8>,
+		_extra_args: &[u8],
 	) -> sp_blockchain::Result<Vec<u8>> {
-		// TODO Vec<u8> maybe can be replaced?
 		Err(sp_blockchain::Error::Backend(
 			"recorded runtime calls are not supported by this node".into(),
 		))
@@ -364,10 +363,10 @@ where
 	/// proof-size recorder registered for the duration of the call, and return the SCALE-encoded
 	/// result. `extra_args` is appended after the (node-sourced) block to form the call arguments.
 	///
-	/// Unlike [`Self::trace_block`], no tracing subscriber is installed: this serves runtime-API
-	/// tracers (e.g. pallet-revive's `trace_block`/`trace_tx`) whose trace *is* the call's return
-	/// value. The recorder is what keeps proof-size reclaim faithful during replay.
-	pub fn call_recorded(&self, method: &str, extra_args: Vec<u8>) -> TraceBlockResult<Vec<u8>> {
+	/// Unlike [`Self::trace_block`], no tracing subscriber is installed: this serves runtime APIs
+	/// whose return value *is* the result of interest (e.g. block-replaying tracers). The recorder
+	/// is what keeps proof-size reclaim faithful during replay.
+	pub fn call_recorded(&self, method: &str, extra_args: &[u8]) -> TraceBlockResult<Vec<u8>> {
 		tracing::debug!(target: "state_tracing", "Recorded call `{method}` on block: {}", self.block);
 		let block = self.prepared_block()?;
 		self.execute_block
