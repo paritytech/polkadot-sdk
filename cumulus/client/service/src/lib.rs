@@ -656,7 +656,7 @@ where
 		orig_hash: Block::Hash,
 		block: Block,
 		method: &str,
-		extra_args: Vec<u8>,
+		extra_args: &[u8],
 	) -> sp_blockchain::Result<Vec<u8>> {
 		let parent_hash = *block.header().parent_hash();
 		let parent_number = self
@@ -674,7 +674,7 @@ where
 		extensions.register(proof_size_ext);
 
 		let mut arguments = block.encode();
-		arguments.extend_from_slice(&extra_args);
+		arguments.extend_from_slice(extra_args);
 
 		self.client.executor().contextual_call(
 			parent_hash,

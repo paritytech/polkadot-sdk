@@ -510,7 +510,7 @@ where
 			None,
 			self.execute_block.clone(),
 		)
-		.call_recorded(&method, extra_args.0)
+		.call_recorded(&method, &extra_args.0)
 		.map(Into::into)
 		.map_err(|e| invalid_block::<Block>(block, None, e.to_string()))
 	}
