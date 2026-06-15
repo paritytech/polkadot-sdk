@@ -16,19 +16,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use bitvec::{order::Msb0, view::BitView};
+use super::peers_index::{Key, PeersIndex};
 use sc_network_types::PeerId;
 pub use sp_statement_store::Topic;
 use std::{
 	cmp::Reverse,
-	collections::{BTreeMap, HashMap, HashSet},
+	collections::{HashMap, HashSet},
 	num::NonZeroUsize,
-	ops::Bound,
 };
-
-/// A point in the 32-byte key space shared by topics and hashed peer ids.
-type Key = [u8; 32];
-type KeyRange = (Bound<Key>, Bound<Key>);
 
 #[derive(Debug, Clone)]
 pub struct PeersTopologyConfig {
@@ -68,8 +63,8 @@ struct PeerInfo {
 /// statement notification connections. It computes XOR distances locally over that learned peer
 /// set; it does not issue topic-specific Kademlia lookups.
 ///
-/// Topic queries traverse the sorted key indexes as an implicit binary trie (see [`closest`]),
-/// so peers arrive in increasing XOR distance without sorting the full peer set.
+/// Topic queries walk the sorted key indexes in increasing XOR distance, without sorting the full
+/// peer set.
 #[derive(Debug, Clone)]
 pub struct PeersTopology {
 	local_peer: PeerId,
@@ -79,15 +74,10 @@ pub struct PeersTopology {
 	// A follow-up should evict peers that leave the network entirely or become unresponsive.
 	discovered: HashMap<PeerId, PeerInfo>,
 	/// XOR-ordered index of the statement-protocol peers: the candidates for DHT storage,
-	/// affinity and forwarding decisions. Buckets are ordered by peer id.
-	candidates: PeersIndex,
+	/// affinity and forwarding decisions.
+	discovered_index: PeersIndex,
 	/// XOR-ordered index of the connected peers, i.e. those with an open statement notification
 	/// substream.
-	///
-	/// Kept separately from `candidates` rather than as a flag: the implicit-trie descent prunes
-	/// by range emptiness and cannot see per-entry flags. Also not a subset of `candidates`: a
-	/// connected peer stays a forwarding candidate even after identify metadata withdraws
-	/// statement-protocol support.
 	connected: PeersIndex,
 }
 
@@ -99,7 +89,7 @@ impl PeersTopology {
 			local_key: peer_key(&local_peer),
 			config,
 			discovered: HashMap::new(),
-			candidates: PeersIndex::default(),
+			discovered_index: PeersIndex::default(),
 			connected: PeersIndex::default(),
 		}
 	}
@@ -121,12 +111,11 @@ impl PeersTopology {
 	pub fn on_peer_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
 		let info = self.get_or_insert_peer(peer);
 		let key = info.key;
-		let was_supported = info.supports_protocol;
 		info.supports_protocol = supports_statement_protocol;
-		match (was_supported, supports_statement_protocol) {
-			(false, true) => self.candidates.insert(key, peer),
-			(true, false) => self.candidates.remove(key, &peer),
-			_ => (),
+		if supports_statement_protocol {
+			self.discovered_index.insert(key, peer);
+		} else {
+			self.discovered_index.remove(key, &peer);
 		}
 	}
 
@@ -136,27 +125,18 @@ impl PeersTopology {
 	pub fn on_substream_opened(&mut self, peer: PeerId) {
 		let info = self.get_or_insert_peer(peer);
 		let key = info.key;
-		let was_supported = info.supports_protocol;
-		let was_connected = info.connected;
 		info.supports_protocol = true;
 		info.connected = true;
-		if !was_supported {
-			self.candidates.insert(key, peer);
-		}
-		if !was_connected {
-			self.connected.insert(key, peer);
-		}
+		self.discovered_index.insert(key, peer);
+		self.connected.insert(key, peer);
 	}
 
 	/// Record that the statement notification substream closed.
 	pub fn on_substream_closed(&mut self, peer: PeerId) {
 		let Some(info) = self.discovered.get_mut(&peer) else { return };
 		let key = info.key;
-		let was_connected = info.connected;
 		info.connected = false;
-		if was_connected {
-			self.connected.remove(key, &peer);
-		}
+		self.connected.remove(key, &peer);
 	}
 
 	fn is_connected(&self, peer: &PeerId) -> bool {
@@ -190,7 +170,7 @@ impl PeersTopology {
 		// before the local node form a prefix; the local node is a replica when that prefix is
 		// shorter than the replication factor.
 		let closer_count = self
-			.candidates
+			.discovered_index
 			.closest(*topic)
 			.take_while(|(peer, key)| {
 				(xor_distance(*topic, *key), *peer) < (local_distance, self.local_peer)
@@ -267,145 +247,8 @@ impl PeersTopology {
 	/// `closest_known` paired with each peer's key, so callers that compute further distances
 	/// reuse the key instead of looking it up again.
 	fn closest_known_keyed(&self, topic: Topic, limit: usize) -> Vec<(PeerId, Key)> {
-		self.candidates.closest(*topic).take(limit).collect()
+		self.discovered_index.closest(*topic).take(limit).collect()
 	}
-}
-
-#[derive(Debug, Clone, Default)]
-struct PeersIndex {
-	/// Buckets are ordered by key; peers within each bucket are ordered by peer id.
-	buckets: BTreeMap<Key, Vec<PeerId>>,
-}
-
-impl PeersIndex {
-	fn insert(&mut self, key: Key, peer: PeerId) {
-		let bucket = self.buckets.entry(key).or_default();
-		if let Err(position) = bucket.binary_search(&peer) {
-			bucket.insert(position, peer);
-		}
-	}
-
-	fn remove(&mut self, key: Key, peer: &PeerId) {
-		if let Some(bucket) = self.buckets.get_mut(&key) {
-			if let Ok(position) = bucket.binary_search(peer) {
-				bucket.remove(position);
-			}
-			if bucket.is_empty() {
-				self.buckets.remove(&key);
-			}
-		}
-	}
-
-	fn closest(&self, target: Key) -> Closest<'_> {
-		closest(&self.buckets, target)
-	}
-}
-
-/// Peers of `index` in increasing `(xor_distance(target, key), peer)` order.
-///
-/// The sorted key set is traversed as an implicit binary trie: a trie node is a contiguous key
-/// range sharing a prefix, split at the first bit where the range's outermost keys differ, and
-/// the half whose bit matches the target is exhausted first. Equal distance means equal key, so
-/// the in-bucket peer-id order completes the `(distance, peer)` order. Visiting a node costs one
-/// range lookup; taking `k` peers costs `O((k + depth) · log n)` instead of an `O(n log n)` sort.
-fn closest(index: &BTreeMap<Key, Vec<PeerId>>, target: Key) -> Closest<'_> {
-	Closest { index, target, stack: vec![(Bound::Unbounded, Bound::Unbounded)], bucket: None }
-}
-
-/// See [`closest`].
-struct Closest<'a> {
-	index: &'a BTreeMap<Key, Vec<PeerId>>,
-	target: Key,
-	/// Pending key ranges, the range nearest to `target` on top.
-	stack: Vec<KeyRange>,
-	/// Key and remaining peers of the bucket currently being yielded.
-	bucket: Option<(Key, std::slice::Iter<'a, PeerId>)>,
-}
-
-impl<'a> Iterator for Closest<'a> {
-	type Item = (PeerId, Key);
-
-	fn next(&mut self) -> Option<Self::Item> {
-		loop {
-			if let Some((key, mut peers)) = self.bucket.take() {
-				if let Some(peer) = peers.next() {
-					self.bucket = Some((key, peers));
-					return Some((*peer, key));
-				}
-			}
-			let range = self.stack.pop()?;
-			match self.range_keys(range) {
-				RangeKeys::Empty => continue,
-				RangeKeys::Single { key, peers } => self.bucket = Some((key, peers)),
-				RangeKeys::Multiple { first, last } => {
-					let (lo, hi) = split_range(&first, &last, &self.target);
-					// Both halves hold a key (`first` and `last` respectively), so every
-					// pushed range is non-empty and strictly smaller: the descent terminates.
-					self.stack.push(hi);
-					self.stack.push(lo);
-				},
-			}
-		}
-	}
-}
-
-impl<'a> Closest<'a> {
-	fn range_keys(&self, range: KeyRange) -> RangeKeys<'a> {
-		let mut keys = self.index.range(range);
-		let Some((first, peers)) = keys.next() else { return RangeKeys::Empty };
-
-		match keys.next_back() {
-			None => RangeKeys::Single { key: *first, peers: peers.iter() },
-			Some((last, _)) => RangeKeys::Multiple { first: *first, last: *last },
-		}
-	}
-}
-
-enum RangeKeys<'a> {
-	Empty,
-	Single { key: Key, peers: std::slice::Iter<'a, PeerId> },
-	Multiple { first: Key, last: Key },
-}
-
-fn split_range(lo: &Key, hi: &Key, target: &Key) -> (KeyRange, KeyRange) {
-	let bit = divergence_bit(lo, hi);
-	let split = split_key(lo, bit);
-	let lower = (Bound::Included(*lo), Bound::Excluded(split));
-	let upper = (Bound::Included(split), Bound::Included(*hi));
-
-	if target.view_bits::<Msb0>()[usize::from(bit)] {
-		(upper, lower)
-	} else {
-		(lower, upper)
-	}
-}
-
-/// First bit where `a` and `b` differ; the keys must differ.
-fn divergence_bit(a: &Key, b: &Key) -> u16 {
-	a.iter()
-		.zip(b)
-		.enumerate()
-		.find_map(|(byte, (a, b))| {
-			let diff = a ^ b;
-			(diff != 0).then(|| byte as u16 * 8 + diff.leading_zeros() as u16)
-		})
-		.expect("the keys differ; qed")
-}
-
-/// `key` with bit `bit` set and every following bit cleared: the lower bound of the upper half
-/// of a key range splitting at `bit`.
-fn split_key(key: &Key, bit: u16) -> Key {
-	let bit = usize::from(bit);
-	let mut split = [0; 32];
-
-	let source = key.view_bits::<Msb0>();
-	let target = split.view_bits_mut::<Msb0>();
-	for prefix_bit in 0..bit {
-		target.set(prefix_bit, source[prefix_bit]);
-	}
-	target.set(bit, true);
-
-	split
 }
 
 /// The peer covering the most uncovered topics, breaking ties by the smallest distance to a
@@ -684,59 +527,6 @@ mod tests {
 			})
 			.collect::<Vec<u8>>();
 		assert_eq!(selected_seeds, vec![13]);
-	}
-
-	#[test]
-	fn closest_yields_keys_in_xor_order_with_peer_tiebreak() {
-		let mut index = PeersIndex::default();
-		let mut records = Vec::new();
-
-		// Uniformly hashed keys.
-		for seed in 2..=120 {
-			let peer = peer(seed);
-			let key = peer_key(&peer);
-			index.insert(key, peer);
-			records.push((peer, key));
-		}
-		// Adversarial keys sharing a 248-bit prefix.
-		for seed in 0..8 {
-			let mut key = [0xAB; 32];
-			key[31] = seed;
-			let peer = peer(130 + seed);
-			index.insert(key, peer);
-			records.push((peer, key));
-		}
-		// One key shared by several peers, as after a hash collision.
-		let shared = [0xCD; 32];
-		for seed in [202, 200, 201] {
-			let peer = peer(seed);
-			index.insert(shared, peer);
-			records.push((peer, shared));
-		}
-
-		for target in [[0; 32], [0xAB; 32], [0xCD; 32], [0xFF; 32], peer_key(&peer(7))] {
-			let mut expected = records.clone();
-			expected.sort_by_key(|(peer, key)| (xor_distance(target, *key), *peer));
-			assert_eq!(index.closest(target).collect::<Vec<_>>(), expected);
-		}
-	}
-
-	#[test]
-	fn index_mutations_keep_buckets_ordered_and_pruned() {
-		let mut index = PeersIndex::default();
-		let key = [7; 32];
-
-		index.insert(key, peer(3));
-		index.insert(key, peer(2));
-		index.insert(key, peer(2));
-		assert_eq!(index.buckets[&key], vec![peer(2), peer(3)]);
-
-		index.remove(key, &peer(2));
-		index.remove(key, &peer(2));
-		assert_eq!(index.buckets[&key], vec![peer(3)]);
-
-		index.remove(key, &peer(3));
-		assert!(index.buckets.is_empty());
 	}
 
 	#[test]
