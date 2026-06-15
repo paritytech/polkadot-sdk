@@ -21,3 +21,4 @@
 extern crate alloc;
 
 pub mod commitment_set;
+pub mod hash;
