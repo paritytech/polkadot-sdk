@@ -1,0 +1,44 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: 'pallet-asset-conversion: support per-pair swap fee (fallback to global LPFee)'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      `pallet-asset-conversion` now supports an optional per-pool swap fee that overrides the
+      global `Config::LPFee`. The change is additive and requires no storage migration: a new
+      `PoolFees` storage map holds per-pool overrides, and when a pool has no entry the global
+      `LPFee` continues to apply. Existing pools and runtimes are unaffected.
+
+      New items:
+      - `Config::AdminOrigin`: the origin permitted to change a pool's fee after creation.
+      - `PoolFees` storage map (`PoolId -> Permill`).
+      - `create_pool_with_fee` extrinsic: like `create_pool`, but lets the creator set an initial
+        per-pool fee. `create_pool` is unchanged.
+      - `set_pool_fee` extrinsic: sets the fee of an existing pool, gated by `AdminOrigin`.
+      - `PoolFeeSet` event.
+      - `Pallet::pool_fee` / `get_amount_out_with_fee` / `get_amount_in_with_fee` helpers. The
+        existing `get_amount_out` / `get_amount_in` keep their signatures and use the global
+        `LPFee`.
+
+      Integration: runtimes implementing `pallet_asset_conversion::Config` must now provide an
+      `AdminOrigin` (e.g. `EnsureRoot`).
+
+  - audience: Runtime User
+    description: |-
+      Liquidity pools on asset-conversion can now charge a swap fee that differs from the global
+      default, set at pool creation via `create_pool_with_fee` or afterwards by governance via
+      `set_pool_fee`. Pools without an explicit fee behave exactly as before.
+
+crates:
+  - name: pallet-asset-conversion
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: pallet-staking-async-parachain-runtime
+    bump: minor
+  - name: kitchensink-runtime
+    bump: minor
