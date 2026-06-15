@@ -293,8 +293,9 @@ where
 			match transact {
 				ContractCall::V1 { target, calldata, gas, value } => commands
 					.push(Command::CallContract { target: target.into(), calldata, gas, value }),
-				ContractCall::V2 { calls, gas } =>
-					commands.push(Command::CallContracts { calls, gas }),
+				ContractCall::V2 { calls, gas } => {
+					commands.push(Command::CallContracts { calls, gas })
+				},
 			}
 		}
 
