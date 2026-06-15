@@ -41,7 +41,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::{
-	messages::{CanSecondRequest, CandidateBackingMessage},
+	messages::{CanSecondRequest, CandidateBackingMessage, ProspectiveParachainsMessage},
 	ActivatedLeaf, CollatorProtocolSenderTrait,
 };
 use polkadot_node_subsystem_util::{
@@ -59,7 +59,7 @@ use schnellru::{ByLength, LruMap};
 use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
-	collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
+	collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -363,8 +363,20 @@ impl CollationManager {
 		scheduling_parent: Hash,
 		fingerprints: Vec<SegmentFingerprint>,
 	) -> std::result::Result<(), AdvertisementError> {
-		if !is_scheduling_parent_valid(&*self.clock, &scheduling_parent, &self.leaf_scheduling_info)
-		{
+		let should_check_scheduling_parent = match fingerprints.len() {
+			// This can not happen
+			0 => false,
+			1 if fingerprints[0].candidate_descriptor_version != CandidateDescriptorVersion::V3 => {
+				false
+			},
+			_ => true,
+		};
+		if should_check_scheduling_parent &&
+			!is_scheduling_parent_valid(
+				&*self.clock,
+				&scheduling_parent,
+				&self.leaf_scheduling_info,
+			) {
 			return Err(AdvertisementError::SchedulingParentNotValid);
 		}
 
@@ -429,11 +441,13 @@ impl CollationManager {
 			.unwrap_or_default()
 	}
 
-	pub fn try_make_new_fetch_requests<
+	pub async fn try_make_new_fetch_requests<
 		RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>,
 		TimerFn: FnMut() -> Option<HistogramTimer>,
+		Sender: CollatorProtocolSenderTrait,
 	>(
 		&mut self,
+		sender: &mut Sender,
 		connected_rep_query_fn: RepQueryFn,
 		max_scores: HashMap<ParaId, Score>,
 		mut create_timer_fn: TimerFn,
@@ -447,6 +461,21 @@ impl CollationManager {
 		// this core's CQ at this leaf?".
 		let mut leaf_core_cqs = self.build_leaf_core_cqs();
 
+		let segment_paras: BTreeSet<ParaId> = self
+			.per_scheduling_parent
+			.values()
+			.flat_map(|scheduling_parent| scheduling_parent.peer_advertisements.values())
+			.flat_map(|peer_state| peer_state.segments.iter().map(|segment| segment.para_id))
+			.collect();
+		let mut known_heads = HashMap::new();
+		for para in segment_paras {
+			let (tx, rx) = oneshot::channel();
+			sender
+				.send_message(ProspectiveParachainsMessage::GetKnownOutputHeads(para, tx))
+				.await;
+			known_heads.insert(para, rx.await.unwrap_or_default());
+		}
+
 		// Fill claim queue positions for each (leaf, core), starting at the back for best
 		// utilization.
 		for lc_idx in 0..leaf_core_cqs.len() {
@@ -457,16 +486,20 @@ impl CollationManager {
 				let candidate_sps = leaf_core_cqs[lc_idx].sps_reaching(idx);
 				let highest_rep_of_para = max_scores.get(&para_id).copied().unwrap_or_default();
 
-				let outcome = self.pick_best_advertisement(
-					now,
-					para_id,
-					candidate_sps,
-					highest_rep_of_para,
-					&connected_rep_query_fn,
-				);
+				let outcome = self
+					.pick_best_advertisement(
+						sender,
+						now,
+						para_id,
+						candidate_sps,
+						highest_rep_of_para,
+						&connected_rep_query_fn,
+						&known_heads,
+					)
+					.await;
 
-				let advertisement = match outcome {
-					Either::Left(Some(adv)) => adv,
+				let planned_fetch = match outcome {
+					Either::Left(Some(planned_fetch)) => planned_fetch,
 					Either::Left(None) => continue,
 					Either::Right(delay) => {
 						maybe_min_delay = Some(
@@ -477,24 +510,29 @@ impl CollationManager {
 					},
 				};
 
+				let fetch_target = planned_fetch.target;
 				gum::trace!(
 					target: LOG_TARGET,
-					peer_id = ?advertisement.peer_id,
+					peer_id = ?fetch_target.peer_id,
 					?para_id,
-					scheduling_parent = ?advertisement.scheduling_parent,
-					maybe_candidate_hash = ?advertisement.candidate_hash,
+					scheduling_parent = ?fetch_target.scheduling_parent,
+					maybe_candidate_hash = ?fetch_target.candidate_hash,
 					"Requesting collation",
 				);
-				let req = self.fetching.launch(
-					&FetchTarget::from_advertisement(&advertisement.to_advertisement()),
-					create_timer_fn(),
-				);
+				let req = self.fetching.launch(&fetch_target, create_timer_fn());
 				requests.push(req);
 
 				// Reserve on _all_ reachable leaf-core views. `reserve_slot` is a no-op for views
 				// whose `path` doesn't contain this SP — including cross-core views.
 				for lc in leaf_core_cqs.iter_mut() {
-					lc.reserve_slot(&advertisement.scheduling_parent, para_id);
+					lc.reserve_slot(&fetch_target.scheduling_parent, para_id);
+				}
+				if let Some(index) = planned_fetch.segment_to_drop {
+					if let Some(per_scheduling_parent) =
+						self.per_scheduling_parent.get_mut(&fetch_target.scheduling_parent)
+					{
+						per_scheduling_parent.remove_segment_at(fetch_target.peer_id, index);
+					}
 				}
 			}
 		}
@@ -652,7 +690,7 @@ impl CollationManager {
 					Some(fetched_collation.candidate_receipt.descriptor.para_head());
 
 				// Some initial sanity checks on the fetched collation, based on the advertisement.
-				if let Err(err) = fetched_collation.ensure_matches_advertisement(&fetch_target) {
+				if let Err(err) = fetched_collation.ensure_matches_target(&fetch_target) {
 					gum::warn!(
 						target: LOG_TARGET,
 						?fetch_target,
@@ -838,6 +876,57 @@ impl CollationManager {
 		}))
 	}
 
+	/// Segments at `sp` for `para_id` that are considered *fetchable right now*. The
+	/// segment might fail to resolve
+	fn eligible_segments<'a>(
+		&'a self,
+		scheduling_parent: Hash,
+		para_id: ParaId,
+	) -> impl Iterator<Item = (usize, PeerId, Instant)> + 'a {
+		self.per_scheduling_parent.get(&scheduling_parent).into_iter().flat_map(
+			move |per_scheduling_parent| {
+				per_scheduling_parent.peer_advertisements.iter().flat_map(
+					move |(peer_id, peer_state)| {
+						peer_state.segments.iter().enumerate().filter_map(
+							move |(index, segment)| {
+								(segment.para_id == para_id).then_some((
+									index,
+									*peer_id,
+									segment.received_at,
+								))
+							},
+						)
+					},
+				)
+			},
+		)
+	}
+
+	fn reduce_segment(
+		&self,
+		scheduling_parent: Hash,
+		peer_id: PeerId,
+		index: usize,
+		known_heads: &HashSet<Hash>,
+	) -> Option<&SegmentFingerprint> {
+		let per_scheduling_parent = self.per_scheduling_parent.get(&scheduling_parent)?;
+		let segment =
+			per_scheduling_parent.peer_advertisements.get(&peer_id)?.segments.get(index)?;
+		segment.fingerprints.iter().find(|fingerprint| {
+			let known =
+				self.fetching.contains_key(&FetchKey::Candidate(fingerprint.candidate_hash)) ||
+					self.fetching.contains_output_head(&fingerprint.output_head_data_hash) ||
+					per_scheduling_parent
+						.fetched_collations
+						.contains_candidate(&fingerprint.candidate_hash) ||
+					per_scheduling_parent
+						.fetched_collations
+						.contains_output_head_hash(&fingerprint.output_head_data_hash) ||
+					known_heads.contains(&fingerprint.output_head_data_hash);
+			!known
+		})
+	}
+
 	/// Picks the best (= highest-scored, earliest, in that order) advertisement for `para_id`
 	/// among `candidate_sps`, with delay arithmetic relative to each SP's activation.
 	///
@@ -846,19 +935,25 @@ impl CollationManager {
 	/// - `Either::Left(None)` if there are no eligible advertisements,
 	/// - `Either::Right(delay)` if the best advertisement still has remaining fetch delay relative
 	///   to its scheduling parent's activation time.
-	fn pick_best_advertisement<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
-		&self,
+	async fn pick_best_advertisement<
+		RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>,
+		Sender: CollatorProtocolSenderTrait,
+	>(
+		&mut self,
+		sender: &mut Sender,
 		now: Instant,
 		para_id: ParaId,
 		candidate_sps: impl Iterator<Item = Hash>,
 		highest_rep_of_para: Score,
 		connected_rep_query_fn: &RepQueryFn,
-	) -> Either<Option<FetchTarget>, Duration> {
+		known_heads: &HashMap<ParaId, HashSet<Hash>>,
+	) -> Either<Option<PlannedFetch>, Duration> {
 		let ranked: BTreeSet<RankedAd> = candidate_sps
 			.filter_map(|scheduling_parent| {
 				let activated_at = self.per_scheduling_parent.get(&scheduling_parent)?.activated_at;
-				Some(self.eligible_advertisements(scheduling_parent, para_id).filter_map(
-					move |(adv, timestamp)| {
+				let advertisements = self
+					.eligible_advertisements(scheduling_parent, para_id)
+					.filter_map(move |(adv, timestamp)| {
 						Some(RankedAd {
 							score: connected_rep_query_fn(&adv.peer_id, &adv.para_id)?,
 							timestamp: *timestamp,
@@ -866,8 +961,19 @@ impl CollationManager {
 							peer_id: adv.peer_id,
 							source: AdSource::Single(*adv),
 						})
+					});
+				let segments = self.eligible_segments(scheduling_parent, para_id).filter_map(
+					move |(idx, peer_id, timestamp)| {
+						Some(RankedAd {
+							score: connected_rep_query_fn(&peer_id, &para_id)?,
+							timestamp,
+							activated_at,
+							peer_id,
+							source: AdSource::Segment { scheduling_parent, idx },
+						})
 					},
-				))
+				);
+				Some(advertisements.chain(segments))
 			})
 			.flatten()
 			.collect();
@@ -876,13 +982,10 @@ impl CollationManager {
 			// Walk the ranking best-first.
 			//
 			// Delay not yet elapsed → return the remaining time; the planner re-runs
-			// when it elapses. (4.5 relaxes this to fold-and-continue so open windows
-			// don't block elapsed entries — see the delay-window policy section in
-			// V4_SEGMENTS_PLAN.md.)
+			// when it elapses.
 			//
 			// Delay elapsed → resolve. Single-candidate ads always resolve, so today
-			// the first elapsed entry launches and returns; fall-through on failed
-			// resolution arrives with segments at 4.5.
+			// the first elapsed entry launches and returns.
 			//
 			// Exhausted → `Left(None)`: anything that changes eligibility arrives as
 			// an event and re-runs the planner, so there is nothing to schedule.
@@ -907,7 +1010,36 @@ impl CollationManager {
 						?delay,
 						"Delay elapsed; initiating fetch."
 					);
-					return Either::Left(Some(FetchTarget::from_advertisement(&adv)));
+					return Either::Left(Some(PlannedFetch {
+						target: FetchTarget::from_advertisement(&adv),
+						segment_to_drop: None,
+					}));
+				},
+				AdSource::Segment { scheduling_parent, idx } => {
+					let x = HashSet::default();
+					let known_heads_for_para = known_heads.get(&para_id).unwrap_or(&x);
+					let Some(chosen) = self.reduce_segment(
+						scheduling_parent,
+						entry.peer_id,
+						idx,
+						&known_heads_for_para,
+					) else {
+						// all in flights, fetched or known by prospective parachains
+						// fall through to the next ranked
+						continue;
+					};
+
+					let target = FetchTarget::from_fingerprint(
+						entry.peer_id,
+						para_id,
+						scheduling_parent,
+						&chosen,
+					);
+					if !backing_allows_seconding(sender, &target.to_advertisement()).await {
+						// CanSecond::No → segment stays parked
+						continue;
+					}
+					return Either::Left(Some(PlannedFetch { target, segment_to_drop: Some(idx) }));
 				},
 			}
 		}
@@ -1081,7 +1213,7 @@ impl CollationManager {
 
 /// Fetched collation data.
 #[derive(Debug, Clone)]
-struct FetchedCollation {
+pub struct FetchedCollation {
 	/// Candidate receipt.
 	pub candidate_receipt: CandidateReceipt,
 	/// Proof of validity.
@@ -1117,7 +1249,7 @@ impl FetchedCollation {
 	}
 
 	/// Performs a sanity check between advertised and fetched collations.
-	fn ensure_matches_advertisement(
+	fn ensure_matches_target(
 		&self,
 		target: &FetchTarget,
 	) -> std::result::Result<(), SecondingError> {
@@ -1151,36 +1283,19 @@ impl FetchedCollation {
 			}
 		}
 
+		// Segment fetches commit to an output head
+		if let Some(expected) = target.output_head_data_hash {
+			if expected != candidate_receipt.descriptor().para_head() {
+				return Err(SecondingError::OutputHeadMismatch);
+			}
+		}
+
+		if let Some(expected) = target.relay_parent {
+			if expected != candidate_receipt.descriptor().relay_parent() {
+				return Err(SecondingError::RelayParentMismatch);
+			}
+		}
 		Ok(())
-	}
-}
-
-/// Represents an advertisement which we have accepted. Supports ordering of the advertisements.
-///
-/// Ordering priority: score (descending), then timestamp (ascending), then advertisement as
-/// tiebreaker. Higher scores come first so that `BTreeSet::first()` returns the best advertisement.
-#[derive(PartialEq, Eq)]
-struct AcceptedAdvertisement<'a> {
-	adv: &'a Advertisement,
-	score: Score,
-	timestamp: &'a Instant,
-	/// The time at which the scheduling parent was activated
-	activated_at: Instant,
-}
-
-impl<'a> Ord for AcceptedAdvertisement<'a> {
-	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		other
-			.score
-			.cmp(&self.score) // Descending: higher score comes first
-			.then_with(|| self.timestamp.cmp(other.timestamp)) // Ascending: earlier timestamp comes first
-			.then_with(|| self.adv.cmp(other.adv))
-	}
-}
-
-impl<'a> PartialOrd for AcceptedAdvertisement<'a> {
-	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-		Some(self.cmp(other))
 	}
 }
 
@@ -1199,6 +1314,7 @@ struct RankedAd {
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 enum AdSource {
 	Single(Advertisement),
+	Segment { scheduling_parent: Hash, idx: usize },
 }
 
 impl Ord for RankedAd {
@@ -1208,6 +1324,7 @@ impl Ord for RankedAd {
 			.cmp(&self.score)
 			.then_with(|| self.timestamp.cmp(&other.timestamp))
 			.then_with(|| self.source.cmp(&other.source))
+			.then_with(|| self.peer_id.cmp(&other.peer_id))
 	}
 }
 
@@ -1228,6 +1345,14 @@ struct FetchedCollationInfo {
 	peer_id: PeerId,
 	para_id: ParaId,
 	candidate_hash: CandidateHash,
+}
+
+/// What the planner chose to fetch this slot
+#[derive(Debug, PartialEq, Eq)]
+struct PlannedFetch {
+	target: FetchTarget,
+	/// Segment to drop on launch.
+	segment_to_drop: Option<usize>,
 }
 
 /// Per-(leaf, core) capacity view used by the fetch planner.
@@ -1396,7 +1521,7 @@ impl PerSchedulingParent {
 	}
 
 	/// Whether `advertisement` may be kept; pair with `add_advertisement` after the caller's
-	/// async backing check. Bumps the rate-limit counter (`PeerAdvertisements::total`) even
+	/// async backing check. Bumps the rate-limit counter (`PerPeerState::total`) even
 	/// on rejection — by design, so a peer can't spam past their cap with bad advertisements.
 	fn can_keep_advertisement(
 		&mut self,
@@ -1472,14 +1597,14 @@ impl PerSchedulingParent {
 	fn remove_peer_advertisements(&mut self, peer_id: &PeerId) {
 		self.peer_advertisements.remove(peer_id);
 	}
-}
 
-#[derive(Default)]
-struct PeerAdvertisements {
-	advertisements: HashMap<Advertisement, Instant>,
-	// We increment this even for advertisements that we don't end up accepting, so that we take
-	// these into account when rate limiting.
-	total: usize,
+	fn remove_segment_at(&mut self, peer_id: PeerId, index: usize) {
+		if let Some(peer_state) = self.peer_advertisements.get_mut(&peer_id) {
+			if index < peer_state.segments.len() {
+				peer_state.segments.remove(index);
+			}
+		}
+	}
 }
 
 struct PerSessionInfo {
@@ -1658,9 +1783,13 @@ fn process_collation_fetch_result(
 
 #[cfg(test)]
 mod tests {
+	use polkadot_node_primitives::BlockData;
+	use polkadot_primitives_test_helpers::dummy_committed_candidate_receipt_v2;
+
 	use crate::validator_side_experimental::common::MAX_SCORE;
 
 	use super::*;
+	use polkadot_node_subsystem_test_helpers::sender_receiver;
 	use std::sync::Arc;
 
 	#[test]
@@ -1719,17 +1848,19 @@ mod tests {
 
 		// Different scores - higher score comes first (is "less").
 		{
-			let high_score = AcceptedAdvertisement {
-				adv: &adv_1,
+			let high_score = RankedAd {
 				score: score(100),
-				timestamp: &now,
+				timestamp: now,
 				activated_at: now,
+				peer_id: peer_1,
+				source: AdSource::Single(adv_1),
 			};
-			let low_score = AcceptedAdvertisement {
-				adv: &adv_2,
+			let low_score = RankedAd {
 				score: score(50),
-				timestamp: &now,
+				timestamp: now,
 				activated_at: now,
+				peer_id: peer_2,
+				source: AdSource::Single(adv_2),
 			};
 
 			assert_eq!(high_score.cmp(&low_score), Ordering::Less,);
@@ -1738,17 +1869,19 @@ mod tests {
 
 		// Same score, different timestamps - earlier timestamp comes first.
 		{
-			let earlier = AcceptedAdvertisement {
-				adv: &adv_1,
+			let earlier = RankedAd {
+				source: AdSource::Single(adv_1),
 				score: score(100),
-				timestamp: &now,
+				timestamp: now,
 				activated_at: now,
+				peer_id: peer_1,
 			};
-			let later = AcceptedAdvertisement {
-				adv: &adv_2,
+			let later = RankedAd {
+				source: AdSource::Single(adv_2),
 				score: score(100),
-				timestamp: &later,
+				timestamp: later,
 				activated_at: now,
+				peer_id: peer_2,
 			};
 
 			assert_eq!(earlier.cmp(&later), Ordering::Less);
@@ -1757,17 +1890,19 @@ mod tests {
 
 		// Same score, same timestamp - falls back to advertisement comparison.
 		{
-			let acc_1 = AcceptedAdvertisement {
-				adv: &adv_1,
+			let acc_1 = RankedAd {
+				source: AdSource::Single(adv_1),
 				score: score(100),
-				timestamp: &now,
+				timestamp: now,
 				activated_at: now,
+				peer_id: peer_1,
 			};
-			let acc_2 = AcceptedAdvertisement {
-				adv: &adv_2,
+			let acc_2 = RankedAd {
+				source: AdSource::Single(adv_2),
 				score: score(100),
-				timestamp: &now,
+				timestamp: now,
 				activated_at: now,
+				peer_id: peer_2,
 			};
 
 			// Result depends on advertisement Ord, but must be consistent and not Equal.
@@ -1778,17 +1913,19 @@ mod tests {
 
 		// Same advertisement, same score, same timestamp - should be Equal.
 		{
-			let acc_1 = AcceptedAdvertisement {
-				adv: &adv_1,
+			let acc_1 = RankedAd {
+				source: AdSource::Single(adv_1),
 				score: score(100),
-				timestamp: &now,
+				timestamp: now,
 				activated_at: now,
+				peer_id: peer_1,
 			};
-			let acc_2 = AcceptedAdvertisement {
-				adv: &adv_1,
+			let acc_2 = RankedAd {
+				source: AdSource::Single(adv_1),
 				score: score(100),
-				timestamp: &now,
+				timestamp: now,
 				activated_at: now,
+				peer_id: peer_1,
 			};
 
 			assert_eq!(acc_1.cmp(&acc_2), Ordering::Equal);
@@ -1796,33 +1933,39 @@ mod tests {
 
 		// BTreeSet ordering - first() should return highest score.
 		{
-			let adv_3 = make_adv(PeerId::random());
-			let adv_4 = make_adv(PeerId::random());
+			let peer_3 = PeerId::random();
+			let peer_4 = PeerId::random();
+			let adv_3 = make_adv(peer_3);
+			let adv_4 = make_adv(peer_4);
 
 			let advertisements = [
-				AcceptedAdvertisement {
-					adv: &adv_1,
+				RankedAd {
+					source: AdSource::Single(adv_1),
 					score: score(50),
-					timestamp: &now,
+					timestamp: now,
 					activated_at: now,
+					peer_id: peer_1,
 				},
-				AcceptedAdvertisement {
-					adv: &adv_2,
+				RankedAd {
+					source: AdSource::Single(adv_2),
 					score: score(200),
-					timestamp: &now,
+					timestamp: now,
 					activated_at: now,
+					peer_id: peer_2,
 				},
-				AcceptedAdvertisement {
-					adv: &adv_3,
+				RankedAd {
+					source: AdSource::Single(adv_3),
 					score: score(100),
-					timestamp: &now,
+					timestamp: now,
 					activated_at: now,
+					peer_id: peer_3,
 				},
-				AcceptedAdvertisement {
-					adv: &adv_4,
+				RankedAd {
+					source: AdSource::Single(adv_4),
 					score: score(150),
-					timestamp: &later,
+					timestamp: later,
 					activated_at: now,
+					peer_id: peer_4,
 				},
 			]
 			.into_iter()
@@ -1834,26 +1977,30 @@ mod tests {
 
 		// BTreeSet with same scores - first() returns earliest timestamp.
 		{
-			let adv_3 = make_adv(PeerId::random());
+			let peer_3 = PeerId::random();
+			let adv_3 = make_adv(peer_3);
 
 			let advertisements: BTreeSet<_> = [
-				AcceptedAdvertisement {
-					adv: &adv_1,
+				RankedAd {
+					source: AdSource::Single(adv_1),
 					score: score(100),
-					timestamp: &later,
+					timestamp: later,
 					activated_at: now,
+					peer_id: peer_1,
 				},
-				AcceptedAdvertisement {
-					adv: &adv_2,
+				RankedAd {
+					source: AdSource::Single(adv_2),
 					score: score(100),
-					timestamp: &now,
+					timestamp: now,
 					activated_at: now,
+					peer_id: peer_2,
 				},
-				AcceptedAdvertisement {
-					adv: &adv_3,
+				RankedAd {
+					source: AdSource::Single(adv_3),
 					score: score(50),
-					timestamp: &now,
+					timestamp: now,
 					activated_at: now,
+					peer_id: peer_3,
 				},
 			]
 			.into_iter()
@@ -1861,12 +2008,21 @@ mod tests {
 
 			let first = advertisements.first().unwrap();
 			assert_eq!(first.score, score(100), "First should have score 100");
-			assert_eq!(first.timestamp, &now, "First should have earlier timestamp");
+			assert_eq!(first.timestamp, now, "First should have earlier timestamp");
 		}
 	}
 
 	#[test]
 	fn pick_best_advertisement_works() {
+		futures::executor::block_on(pick_best_advertisement_works_impl());
+	}
+
+	async fn pick_best_advertisement_works_impl() {
+		// Single-ad cases only never reach the segment arm, so this `sender` is never used at
+		// runtime; it exists to satisfy `pick_best_advertisement`'s signature.
+		let (mut sender, _receiver) = sender_receiver();
+		// Single-ad cases never enter the segment arm, so PP's known heads are never consulted.
+		let known_heads: HashMap<ParaId, HashSet<Hash>> = HashMap::new();
 		let scheduling_parent = Hash::random();
 		let para_id = ParaId::new(1);
 		let score = |val: u16| Score::new(val);
@@ -1912,17 +2068,21 @@ mod tests {
 
 		// No advertisements - returns Left(None).
 		{
-			let collation_manager = new_collation_manager_instance();
+			let mut collation_manager = new_collation_manager_instance();
 			let get_rep = |_: &PeerId, _: &ParaId| Some(score(100));
 
 			assert_eq!(
-				collation_manager.pick_best_advertisement(
-					now,
-					para_id,
-					std::iter::once(scheduling_parent),
-					score(100),
-					&get_rep,
-				),
+				collation_manager
+					.pick_best_advertisement(
+						&mut sender,
+						now,
+						para_id,
+						std::iter::once(scheduling_parent),
+						score(100),
+						&get_rep,
+						&known_heads,
+					)
+					.await,
 				Either::Left(None)
 			);
 		}
@@ -1939,14 +2099,21 @@ mod tests {
 				.add_advertisement(make_adv(peer_a), old_timestamp);
 
 			assert_eq!(
-				collation_manager.pick_best_advertisement(
-					now,
-					para_id,
-					std::iter::once(scheduling_parent),
-					score(100), // highest_rep == peer's score, so delay = 0
-					&get_rep,
-				),
-				Either::Left(Some(FetchTarget::from_advertisement(&make_adv(peer_a))))
+				collation_manager
+					.pick_best_advertisement(
+						&mut sender,
+						now,
+						para_id,
+						std::iter::once(scheduling_parent),
+						score(100), // highest_rep == peer's score, so delay = 0
+						&get_rep,
+						&known_heads,
+					)
+					.await,
+				Either::Left(Some(PlannedFetch {
+					target: FetchTarget::from_advertisement(&make_adv(peer_a)),
+					segment_to_drop: None
+				}))
 			);
 		}
 
@@ -1963,13 +2130,17 @@ mod tests {
 
 			// highest_rep = 100, peer's score = 0 (< INSTANT_FETCH_REP_THRESHOLD), so delay =
 			// MAX_FETCH_DELAY
-			let result = collation_manager.pick_best_advertisement(
-				now,
-				para_id,
-				std::iter::once(scheduling_parent),
-				score(100),
-				&get_rep,
-			);
+			let result = collation_manager
+				.pick_best_advertisement(
+					&mut sender,
+					now,
+					para_id,
+					std::iter::once(scheduling_parent),
+					score(100),
+					&get_rep,
+					&known_heads,
+				)
+				.await;
 
 			assert_eq!(result, Either::Right(MAX_FETCH_DELAY));
 		}
@@ -2000,14 +2171,21 @@ mod tests {
 
 			// All have old timestamps, so delay has passed. Should pick peer_b (highest score).
 			assert_eq!(
-				collation_manager.pick_best_advertisement(
-					now,
-					para_id,
-					std::iter::once(scheduling_parent),
-					score(100),
-					&get_rep,
-				),
-				Either::Left(Some(FetchTarget::from_advertisement(&make_adv(peer_b))))
+				collation_manager
+					.pick_best_advertisement(
+						&mut sender,
+						now,
+						para_id,
+						std::iter::once(scheduling_parent),
+						score(100),
+						&get_rep,
+						&known_heads,
+					)
+					.await,
+				Either::Left(Some(PlannedFetch {
+					target: FetchTarget::from_advertisement(&make_adv(peer_b)),
+					segment_to_drop: None
+				}))
 			);
 		}
 
@@ -2026,14 +2204,21 @@ mod tests {
 
 			// Same score, peer_b has earlier timestamp.
 			assert_eq!(
-				collation_manager.pick_best_advertisement(
-					now,
-					para_id,
-					std::iter::once(scheduling_parent),
-					score(100),
-					&get_rep,
-				),
-				Either::Left(Some(FetchTarget::from_advertisement(&make_adv(peer_b))))
+				collation_manager
+					.pick_best_advertisement(
+						&mut sender,
+						now,
+						para_id,
+						std::iter::once(scheduling_parent),
+						score(100),
+						&get_rep,
+						&known_heads,
+					)
+					.await,
+				Either::Left(Some(PlannedFetch {
+					target: FetchTarget::from_advertisement(&make_adv(peer_b)),
+					segment_to_drop: None
+				}))
 			);
 		}
 
@@ -2049,31 +2234,39 @@ mod tests {
 				.add_advertisement(make_adv(peer_a), old_timestamp);
 
 			assert_eq!(
-				collation_manager.pick_best_advertisement(
-					now,
-					para_id,
-					std::iter::once(scheduling_parent),
-					score(100),
-					&get_rep,
-				),
+				collation_manager
+					.pick_best_advertisement(
+						&mut sender,
+						now,
+						para_id,
+						std::iter::once(scheduling_parent),
+						score(100),
+						&get_rep,
+						&known_heads,
+					)
+					.await,
 				Either::Left(None)
 			);
 		}
 
 		// Unknown scheduling parent - returns Left(None).
 		{
-			let collation_manager = new_collation_manager_instance();
+			let mut collation_manager = new_collation_manager_instance();
 			let get_rep = |_: &PeerId, _: &ParaId| Some(score(100));
 			let unknown_scheduling_parent = Hash::random();
 
 			assert_eq!(
-				collation_manager.pick_best_advertisement(
-					now,
-					para_id,
-					std::iter::once(unknown_scheduling_parent),
-					score(100),
-					&get_rep,
-				),
+				collation_manager
+					.pick_best_advertisement(
+						&mut sender,
+						now,
+						para_id,
+						std::iter::once(unknown_scheduling_parent),
+						score(100),
+						&get_rep,
+						&known_heads,
+					)
+					.await,
 				Either::Left(None)
 			);
 		}
@@ -2098,14 +2291,21 @@ mod tests {
 			// highest_rep = 100, peer's score = 0 (< INSTANT_FETCH_REP_THRESHOLD), so delay =
 			// MAX_FETCH_DELAY. But activated_at is 2*MAX_FETCH_DELAY ago, so remaining_delay = 0.
 			assert_eq!(
-				collation_manager.pick_best_advertisement(
-					now,
-					para_id,
-					std::iter::once(scheduling_parent),
-					score(100),
-					&get_rep,
-				),
-				Either::Left(Some(FetchTarget::from_advertisement(&make_adv(peer_a))))
+				collation_manager
+					.pick_best_advertisement(
+						&mut sender,
+						now,
+						para_id,
+						std::iter::once(scheduling_parent),
+						score(100),
+						&get_rep,
+						&known_heads,
+					)
+					.await,
+				Either::Left(Some(PlannedFetch {
+					target: FetchTarget::from_advertisement(&make_adv(peer_a)),
+					segment_to_drop: None
+				}))
 			);
 		}
 
@@ -2123,13 +2323,17 @@ mod tests {
 
 			per_sp.add_advertisement(make_adv(peer_a), recent_timestamp);
 
-			let result = collation_manager.pick_best_advertisement(
-				now,
-				para_id,
-				std::iter::once(scheduling_parent),
-				score(100),
-				&get_rep,
-			);
+			let result = collation_manager
+				.pick_best_advertisement(
+					&mut sender,
+					now,
+					para_id,
+					std::iter::once(scheduling_parent),
+					score(100),
+					&get_rep,
+					&known_heads,
+				)
+				.await;
 
 			assert_eq!(result, Either::Right(MAX_FETCH_DELAY / 4 * 3));
 		}
@@ -2168,5 +2372,64 @@ mod tests {
 		assert_eq!(fetched.remove_by_candidate(&first_hash).map(|i| i.peer_id), Some(peer_first));
 		assert!(!fetched.contains_candidate(&first_hash));
 		assert!(!fetched.contains_output_head_hash(&output_head));
+	}
+
+	#[test]
+	fn ensure_matches_advertisement_enforces_segment_commitments() {
+		let receipt = dummy_committed_candidate_receipt_v2(Hash::repeat_byte(0x42)).to_plain();
+		// Read the receipt's actual fields so every *earlier* check passes and we reach the new
+		// ones.
+		let (cand, sp, rp, out, ver, para) = {
+			let d = receipt.descriptor();
+			(
+				receipt.hash(),
+				d.scheduling_parent(),
+				d.relay_parent(),
+				d.para_head(),
+				d.version(),
+				d.para_id(),
+			)
+		};
+		let peer_id = PeerId::random();
+		let fetched = FetchedCollation::new(
+			receipt,
+			PoV { block_data: BlockData(vec![]) },
+			None,
+			None,
+			peer_id,
+		);
+
+		// Honest segment target: commits to candidate hash, sp, version, output head, relay parent.
+		let seg_target = FetchTarget {
+			peer_id,
+			para_id: para,
+			scheduling_parent: sp,
+			candidate_hash: Some(cand),
+			parent_head_data_hash: Some(Hash::repeat_byte(0xaa)), // not checked here
+			descriptor_version: Some(ver),
+			output_head_data_hash: Some(out),
+			relay_parent: Some(rp),
+		};
+		assert!(fetched.ensure_matches_target(&seg_target).is_ok());
+
+		// Wrong committed output head → slashable mismatch.
+		let bad_output =
+			FetchTarget { output_head_data_hash: Some(Hash::repeat_byte(0xee)), ..seg_target };
+		assert!(matches!(
+			fetched.ensure_matches_target(&bad_output),
+			Err(SecondingError::OutputHeadMismatch)
+		));
+
+		// Wrong committed relay parent → slashable mismatch.
+		let bad_rp = FetchTarget { relay_parent: Some(Hash::repeat_byte(0xee)), ..seg_target };
+		assert!(matches!(
+			fetched.ensure_matches_target(&bad_rp),
+			Err(SecondingError::RelayParentMismatch)
+		));
+
+		// v1–v3 ad target: both commitments `None` → the new checks are skipped entirely (Ok).
+		let ad_target =
+			FetchTarget { output_head_data_hash: None, relay_parent: None, ..seg_target };
+		assert!(fetched.ensure_matches_target(&ad_target).is_ok());
 	}
 }

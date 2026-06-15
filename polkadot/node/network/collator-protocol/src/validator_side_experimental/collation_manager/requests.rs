@@ -17,7 +17,6 @@
 use crate::{
 	validator_side_experimental::common::{
 		Advertisement, CollationFetchError, CollationFetchResponse, FetchKey, FetchTarget,
-		ProspectiveCandidate,
 	},
 	LOG_TARGET,
 };

@@ -66,7 +66,7 @@ use sp_consensus_babe::digests::{PreDigest, SecondaryPlainPreDigest};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
 use std::{
-	collections::{BTreeMap, BTreeSet, HashMap},
+	collections::{BTreeMap, BTreeSet, HashMap, HashSet},
 	ops::DerefMut,
 	sync::{Arc, Mutex},
 	time::Duration,
@@ -856,6 +856,18 @@ impl TestState {
 				assert_eq!(pov, expected_pov);
 			}
 		);
+	}
+
+	async fn assert_known_output_heads(&mut self, para_id: ParaId, response: HashSet<Hash>) {
+		let msg = match self.buffered_msg.take() {
+			Some(msg) => msg,
+			None => self.timeout_recv().await,
+		};
+
+		assert_matches!(msg, AllMessages::ProspectiveParachains(ProspectiveParachainsMessage::GetKnownOutputHeads(para, tx)) => {
+			assert_eq!(para_id, para);
+			tx.send(response).unwrap();
+		});
 	}
 
 	async fn handle_fetched_collation<B: Backend>(
@@ -3315,20 +3327,21 @@ async fn v4_advertise_segment_len_one_is_accepted() {
 	}]
 	.try_into()
 	.unwrap();
-	futures::join!(
-		process_incoming_peer_message(
-			&mut sender,
-			&mut state,
-			peer_id,
-			CollationProtocols::V4(protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
-				scheduling_parent,
-				candidates
-			})
-		),
-		test_state.assert_can_second_request(adv, true),
-	);
+	process_incoming_peer_message(
+		&mut sender,
+		&mut state,
+		peer_id,
+		CollationProtocols::V4(protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
+			scheduling_parent,
+			candidates,
+		}),
+	)
+	.await;
 
-	state.try_launch_new_fetch_requests(&mut sender).await;
+	futures::join!(state.try_launch_new_fetch_requests(&mut sender), async {
+		test_state.assert_known_output_heads(adv.para_id, HashSet::new()).await;
+		test_state.assert_can_second_request(adv, true).await;
+	});
 	test_state.assert_collation_request(adv).await;
 
 	test_state
@@ -4460,13 +4473,10 @@ async fn segment_and_ad_share_budget() {
 	test_state.handle_advertisement(&mut state, adv).await;
 	let segment = vec![dummy_fingerprint(11, Hash::repeat_byte(0xaa))];
 
-	state.handle_segment(&mut sender, peer_a, active_leaf, segment.clone());
-	state.handle_segment(
-		&mut sender,
-		peer_a,
-		active_leaf,
-		vec![dummy_fingerprint(12, Hash::repeat_byte(0xab))],
-	);
+	state.handle_segment(peer_a, active_leaf, segment.clone()).await;
+	state
+		.handle_segment(peer_a, active_leaf, vec![dummy_fingerprint(12, Hash::repeat_byte(0xab))])
+		.await;
 
 	assert_eq!(state.advertisements(), [adv].into());
 	assert_eq!(state.segments(), vec![(active_leaf, peer_a, para_id, segment.clone())]);
@@ -4478,8 +4488,8 @@ async fn segment_and_ad_share_budget() {
 
 	let segment_2 = vec![dummy_fingerprint(21, Hash::repeat_byte(0xba))];
 	let segment_3 = vec![dummy_fingerprint(22, Hash::repeat_byte(0xbb))];
-	state.handle_segment(&mut sender, peer_b, active_leaf, segment_2.clone()); // total = 1
-	state.handle_segment(&mut sender, peer_b, active_leaf, segment_3.clone()); // total = 2
+	state.handle_segment(peer_b, active_leaf, segment_2.clone()).await; // total = 1
+	state.handle_segment(peer_b, active_leaf, segment_3.clone()).await; // total = 2
 
 	// Over-budget ad: rejected BEFORE the backing round-trip — no CanSecond may
 	// appear, hence the direct call instead of the TestState helper (which would
@@ -4530,7 +4540,7 @@ async fn rejected_segments_burn_budget() {
 
 	let segment = vec![
 		dummy_fingerprint(5, Hash::repeat_byte(0xa)),
-		dummy_fingerprint(11, Hash::repeat_byte(0xb)),
+		dummy_fingerprint(11, Hash::repeat_byte(0xc)),
 	];
 
 	assert_eq!(
@@ -4573,7 +4583,7 @@ async fn test_segment_rejections() {
 
 	state.handle_peer_connected(&mut sender, peer_a, CollationVersion::V4).await;
 	// Drop segment from undeclared peer
-	state.handle_segment(&mut sender, peer_a, active_leaf, segment.clone());
+	state.handle_segment(peer_a, active_leaf, segment.clone()).await;
 	assert_eq!(state.segments(), vec![]);
 	state.handle_declare(&mut sender, peer_a, para_id).await;
 
@@ -4585,9 +4595,253 @@ async fn test_segment_rejections() {
 	);
 
 	// Empty segment is dropped.
-	state.handle_segment(&mut sender, peer_a, active_leaf, vec![]);
+	state.handle_segment(peer_a, active_leaf, vec![]).await;
 	assert_eq!(state.segments(), vec![]);
 }
+
+#[tokio::test]
+async fn test_resubmitted_candidate_deduped_by_output_head() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	make_sp_slot_valid(&mut test_state, active_leaf);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+	let para_id: ParaId = 100.into();
+	let peer = PeerId::random();
+
+	state.handle_peer_connected(&mut sender, peer, CollationVersion::V4).await;
+	state.handle_declare(&mut sender, peer, para_id).await;
+	let shared_output = Hash::repeat_byte(0xff);
+	let fp = |cand: u8| SegmentFingerprint {
+		candidate_hash: CandidateHash(Hash::repeat_byte(cand)),
+		output_head_data_hash: shared_output,
+		parent_head_data_hash: Hash::repeat_byte(0xaa),
+		candidate_descriptor_version: CandidateDescriptorVersion::V3,
+		relay_parent: Hash::repeat_byte(cand),
+	};
+	let first = fp(0x11);
+	let tip_ad = Advertisement {
+		peer_id: peer,
+		para_id,
+		scheduling_parent: active_leaf,
+		prospective_candidate: Some(ProspectiveCandidate {
+			candidate_hash: first.candidate_hash,
+			parent_head_data_hash: first.parent_head_data_hash,
+		}),
+		advertised_descriptor_version: Some(first.candidate_descriptor_version),
+	};
+
+	// Accept + launch the first candidate; hold the sender so its output head stays in-flight.
+	state
+		.collation_manager()
+		.try_accept_segment(peer, para_id, active_leaf, vec![first])
+		.unwrap();
+	futures::join!(state.try_launch_new_fetch_requests(&mut sender), async {
+		test_state.assert_known_output_heads(para_id, HashSet::new()).await;
+		test_state.assert_can_second_request(tip_ad, true).await;
+	});
+	let _in_flight = test_state.assert_collation_request(tip_ad).await;
+
+	// Resubmission: new candidate hash, SAME output head.
+	state
+		.collation_manager()
+		.try_accept_segment(peer, para_id, active_leaf, vec![fp(0x22)])
+		.unwrap();
+
+	// Deduped by output head => no fetch.
+	futures::join!(state.try_launch_new_fetch_requests(&mut sender), async {
+		test_state.assert_known_output_heads(para_id, HashSet::new()).await;
+	});
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+async fn segment_spent_on_launch() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	make_sp_slot_valid(&mut test_state, active_leaf);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+	let para_id: ParaId = 100.into();
+	let peer = PeerId::random();
+
+	state.handle_peer_connected(&mut sender, peer, CollationVersion::V4).await;
+	state.handle_declare(&mut sender, peer, para_id).await;
+
+	let segment = vec![dummy_fingerprint(0x11, Hash::repeat_byte(0xaa))];
+	let tip = segment.last().unwrap();
+	let tip_ad = Advertisement {
+		peer_id: peer,
+		para_id,
+		scheduling_parent: active_leaf,
+		prospective_candidate: Some(ProspectiveCandidate {
+			candidate_hash: tip.candidate_hash,
+			parent_head_data_hash: tip.parent_head_data_hash,
+		}),
+		advertised_descriptor_version: Some(tip.candidate_descriptor_version),
+	};
+
+	state
+		.collation_manager()
+		.try_accept_segment(peer, para_id, active_leaf, segment.clone())
+		.unwrap();
+	assert_eq!(state.segments().len(), 1);
+
+	// Launch: one fetch, segment spent (removed) on launch.
+	futures::join!(state.try_launch_new_fetch_requests(&mut sender), async {
+		test_state.assert_known_output_heads(para_id, HashSet::new()).await;
+		test_state.assert_can_second_request(tip_ad, true).await;
+	});
+	let _fetch = test_state.assert_collation_request(tip_ad).await;
+	assert_eq!(state.segments(), vec![]);
+
+	// Second pass: nothing to re-launch.
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+async fn multi_carrier_segment_fall_through_and_failover() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	make_sp_slot_valid(&mut test_state, active_leaf);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+	let para_id: ParaId = 100.into();
+	let m1 = Multihash::wrap(0x0, &[0xaa; 32]).unwrap();
+	let m2 = Multihash::wrap(0x0, &[0xbb; 32]).unwrap();
+	let peer_a = PeerId::from_multihash(m1).unwrap();
+	let peer_b = PeerId::from_multihash(m2).unwrap();
+
+	for peer in [peer_a, peer_b] {
+		state.handle_peer_connected(&mut sender, peer, CollationVersion::V4).await;
+		state.handle_declare(&mut sender, peer, para_id).await;
+	}
+
+	// Identical segment from both carriers; peer_a accepted first => earlier received_at => wins.
+	let segment = vec![dummy_fingerprint(0x11, Hash::repeat_byte(0xaa))];
+	let tip = segment.last().unwrap();
+	let tip_ad = |peer| Advertisement {
+		peer_id: peer,
+		para_id,
+		scheduling_parent: active_leaf,
+		prospective_candidate: Some(ProspectiveCandidate {
+			candidate_hash: tip.candidate_hash,
+			parent_head_data_hash: tip.parent_head_data_hash,
+		}),
+		advertised_descriptor_version: Some(tip.candidate_descriptor_version),
+	};
+
+	state
+		.collation_manager()
+		.try_accept_segment(peer_a, para_id, active_leaf, segment.clone())
+		.unwrap();
+	state
+		.collation_manager()
+		.try_accept_segment(peer_b, para_id, active_leaf, segment.clone())
+		.unwrap();
+	assert_eq!(state.segments().len(), 2);
+
+	// ACT 1 — one pass, exactly one fetch (peer_b's tip is now in-flight => it falls through).
+	// Hold the sender so peer_a's fetch stays in-flight through act 2 (else the entry is racily
+	// torn down).
+	futures::join!(state.try_launch_new_fetch_requests(&mut sender), async {
+		test_state.assert_known_output_heads(para_id, HashSet::new()).await;
+		test_state.assert_can_second_request(tip_ad(peer_a), true).await;
+	});
+	let _peer_a_fetch = test_state.assert_collation_request(tip_ad(peer_a)).await;
+	test_state.assert_no_messages().await;
+
+	// ACT 2 — re-pass while in-flight: no new request; take-at-launch removed peer_a, peer_b
+	// parked.
+	futures::join!(state.try_launch_new_fetch_requests(&mut sender), async {
+		test_state.assert_known_output_heads(para_id, HashSet::new()).await;
+	});
+	test_state.assert_no_messages().await;
+	assert_eq!(state.segments(), vec![(active_leaf, peer_b, para_id, segment.clone())]);
+
+	// ACT 3 — fail peer_a's in-flight fetch (Cancelled => no slash).
+	state
+		.handle_fetched_collation(
+			&mut sender,
+			(
+				FetchTarget::from_fingerprint(peer_a, para_id, active_leaf, tip),
+				Err(CollationFetchError::Cancelled),
+			),
+		)
+		.await;
+
+	// ACT 4 — failover: peer_b's tip is free again => fetch goes to peer_b; segment then spent.
+	futures::join!(state.try_launch_new_fetch_requests(&mut sender), async {
+		test_state.assert_known_output_heads(para_id, HashSet::new()).await;
+		test_state.assert_can_second_request(tip_ad(peer_b), true).await;
+	});
+	let _peer_b_fetch = test_state.assert_collation_request(tip_ad(peer_b)).await;
+	assert_eq!(state.segments(), vec![]);
+}
+
+#[tokio::test]
+async fn segment_frontier_skips_pp_known_prefix() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	make_sp_slot_valid(&mut test_state, active_leaf);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+	let para_id: ParaId = 100.into();
+	let peer = PeerId::random();
+
+	state.handle_peer_connected(&mut sender, peer, CollationVersion::V4).await;
+	state.handle_declare(&mut sender, peer, para_id).await;
+
+	// Segment [A, B, C] with distinct output heads. A and B are already known to PP.
+	let fp = |cand: u8, head: u8| SegmentFingerprint {
+		candidate_hash: CandidateHash(Hash::repeat_byte(cand)),
+		output_head_data_hash: Hash::repeat_byte(head),
+		parent_head_data_hash: Hash::repeat_byte(0x01),
+		candidate_descriptor_version: CandidateDescriptorVersion::V3,
+		relay_parent: Hash::repeat_byte(cand),
+	};
+	let a = fp(0x0a, 0xaa);
+	let b = fp(0x0b, 0xbb);
+	let c = fp(0x0c, 0xcc);
+
+	state
+		.collation_manager()
+		.try_accept_segment(peer, para_id, active_leaf, vec![a.clone(), b.clone(), c.clone()])
+		.unwrap();
+
+	// The frontier must be C: the sweep skips A and B because PP knows their output heads.
+	let c_ad = Advertisement {
+		peer_id: peer,
+		para_id,
+		scheduling_parent: active_leaf,
+		prospective_candidate: Some(ProspectiveCandidate {
+			candidate_hash: c.candidate_hash,
+			parent_head_data_hash: c.parent_head_data_hash,
+		}),
+		advertised_descriptor_version: Some(c.candidate_descriptor_version),
+	};
+
+	futures::join!(state.try_launch_new_fetch_requests(&mut sender), async {
+		// PP reports A's and B's output heads as known → first unknown is C.
+		test_state
+			.assert_known_output_heads(
+				para_id,
+				[a.output_head_data_hash, b.output_head_data_hash].into_iter().collect(),
+			)
+			.await;
+		test_state.assert_can_second_request(c_ad, true).await;
+	});
+
+	// Proves we chose C, not A or B (a fetch for A/B wouldn't match `c_ad`).
+	test_state.assert_collation_request(c_ad).await;
+	assert_eq!(state.segments(), vec![]); // spent on launch
+}
+
 // TODO:
 // - Test subsystem startup: make sure we are properly populating the db.
 // - Test a change in the registered paras on finalized block notification.
