@@ -58,7 +58,7 @@ fn final_recovery_queue_is_fifo_across_multiple_vaults() {
 		assert_eq!(crate::Pallet::<Test>::final_recovery_queue_head(DOT, 10), alloc::vec![1, 2, 3]);
 		assert_eq!(
 			<crate::Pallet<Test> as VaultRedemptionInterface<AccountId, AssetId, Balance>>::next_redemption_target(
-				DOT, None,
+				DOT,
 			),
 			Some(1)
 		);

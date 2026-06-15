@@ -101,13 +101,6 @@ pub fn update_branch_config<T: Config>(
 	Ok(())
 }
 
-/// Convenience: read a branch's current config (or error `UnknownCollateral`).
-pub fn current_branch_config<T: Config>(
-	collateral_id: &T::AssetId,
-) -> Result<BranchConfig<BalanceOf<T>, MomentOf<T>>, DispatchError> {
-	BranchConfigs::<T>::get(collateral_id).ok_or_else(|| Error::<T>::UnknownCollateral.into())
-}
-
 #[require_transactional]
 pub fn enable_frozen_mode<T: Config>(collateral_id: &T::AssetId) -> Result<(), DispatchError> {
 	BranchStates::<T>::try_mutate(collateral_id, |maybe| -> Result<_, DispatchError> {

@@ -112,7 +112,7 @@ struct RateBounds {
 }
 
 fn rate_bounds<T: Config>(asset: &T::AssetId) -> Result<RateBounds, BenchmarkError> {
-	let cfg = helpers::current_branch_config::<T>(asset)
+	let cfg = helpers::branch_cfg_of::<T>(asset)
 		.map_err(|_| BenchmarkError::Stop("missing branch config"))?;
 	let count = T::VaultLists::repair_budget().saturating_add(2);
 	let safety_floor =

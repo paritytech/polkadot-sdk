@@ -16,7 +16,6 @@ use crate::{
 	},
 	weights::WeightInfo,
 };
-use alloc::vec::Vec;
 use frame::{
 	deps::{
 		frame_support::{
@@ -78,6 +77,50 @@ pub(crate) fn branch_cfg_of<T: Config>(
 	BranchConfigs::<T>::get(collateral_id).ok_or_else(|| Error::<T>::UnknownCollateral.into())
 }
 
+/// Ensure a vault's collateralization ratio is at or above the branch ICR.
+/// Used by the open/borrow/withdraw safety gates. A `None` ratio (zero debt)
+/// and a below-ICR ratio both surface as `UnsafeCollateralizationRatio`.
+pub(crate) fn ensure_above_icr<T: Config>(
+	collateral: BalanceOf<T>,
+	debt: BalanceOf<T>,
+	price: FixedU128,
+	cfg: &BranchConfig<BalanceOf<T>, MomentOf<T>>,
+) -> Result<(), DispatchError> {
+	let cr = math::collateralization_ratio::<BalanceOf<T>>(collateral, debt, price)
+		.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
+	ensure!(cr >= cfg.initial_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
+	Ok(())
+}
+
+/// Ensure a vault's fully-accrued collateralization ratio is strictly below the
+/// branch MCR. Used by the liquidation-eligibility and enter-final-recovery
+/// gates.
+pub(crate) fn ensure_below_mcr<T: Config>(
+	collateral: BalanceOf<T>,
+	debt: BalanceOf<T>,
+	price: FixedU128,
+	cfg: &BranchConfig<BalanceOf<T>, MomentOf<T>>,
+) -> Result<(), DispatchError> {
+	let cr = math::collateralization_ratio::<BalanceOf<T>>(collateral, debt, price)
+		.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
+	ensure!(cr < cfg.minimum_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
+	Ok(())
+}
+
+/// Ensure a vault's fully-accrued collateralization ratio is at or above the
+/// branch MCR. Used by the exit-final-recovery gate.
+pub(crate) fn ensure_at_or_above_mcr<T: Config>(
+	collateral: BalanceOf<T>,
+	debt: BalanceOf<T>,
+	price: FixedU128,
+	cfg: &BranchConfig<BalanceOf<T>, MomentOf<T>>,
+) -> Result<(), DispatchError> {
+	let cr = math::collateralization_ratio::<BalanceOf<T>>(collateral, debt, price)
+		.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
+	ensure!(cr >= cfg.minimum_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
+	Ok(())
+}
+
 /// Read a vault row, returning `VaultNotFound` when missing.
 pub(crate) fn vault_of<T: Config>(
 	collateral_id: &T::AssetId,
@@ -117,9 +160,8 @@ pub(crate) use accounting::{
 	compute_tcr, open_upfront_fee, pending_touch_for, touch_vault, update_aggregate_interest,
 };
 pub(crate) use branch::{
-	clear_governance_frozen_mode, current_branch_config, current_mode, enable_frozen_mode,
-	enforce_mode_rules, ensure_not_frozen, refresh_branch, register_branch, update_branch_config,
-	validate_rate,
+	clear_governance_frozen_mode, current_mode, enable_frozen_mode, enforce_mode_rules,
+	ensure_not_frozen, refresh_branch, register_branch, update_branch_config, validate_rate,
 };
 pub(crate) use ops::{
 	borrow, change_rate, close_vault, deposit_collateral_for, enter_final_recovery,
@@ -127,6 +169,5 @@ pub(crate) use ops::{
 };
 pub(crate) use views::{
 	predict_upfront_fee_borrow, predict_upfront_fee_open, predict_upfront_fee_rate_change,
-	view_branch_tcr, view_debt_in_front, view_redemption_queue_head, view_vault_cr,
-	view_vault_status,
+	redemption_targets, view_branch_tcr, view_debt_in_front, view_vault_cr, view_vault_status,
 };

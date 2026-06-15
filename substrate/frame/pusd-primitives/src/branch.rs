@@ -1,6 +1,5 @@
 //! Branch-mode types and a read-only mode hook.
 
-
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 

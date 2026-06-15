@@ -38,9 +38,7 @@ pub fn open_vault<T: Config>(
 	};
 
 	let total_debt = initial_debt.saturating_add(upfront_fee);
-	let cr = math::collateralization_ratio::<BalanceOf<T>>(initial_collateral, total_debt, price)
-		.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
-	ensure!(cr >= cfg.initial_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
+	ensure_above_icr::<T>(initial_collateral, total_debt, price, &cfg)?;
 
 	let pre_tcr = compute_tcr::<T>(&bs_before, price, now)?;
 	let mut bs_after = bs_before.clone();
@@ -169,12 +167,7 @@ pub fn withdraw_collateral<T: Config>(
 	let total_debt = vault.debt.total();
 	let new_coll = coll.saturating_sub(amount);
 	if !total_debt.is_zero() {
-		let cr = math::collateralization_ratio::<BalanceOf<T>>(new_coll, total_debt, price)
-			.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
-		ensure!(
-			cr >= cfg.initial_collateralization_ratio,
-			Error::<T>::UnsafeCollateralizationRatio
-		);
+		ensure_above_icr::<T>(new_coll, total_debt, price, &cfg)?;
 	}
 
 	let pre_tcr = compute_tcr::<T>(&bs_before, price, now)?;
@@ -265,9 +258,7 @@ pub fn borrow<T: Config>(
 		&owner,
 	);
 	let total_debt = vault.debt.total();
-	let cr = math::collateralization_ratio::<BalanceOf<T>>(coll, total_debt, price)
-		.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
-	ensure!(cr >= cfg.initial_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
+	ensure_above_icr::<T>(coll, total_debt, price, &cfg)?;
 
 	let pre_tcr = compute_tcr::<T>(&bs_before, price, now)?;
 	let post_tcr = compute_tcr::<T>(&bs_after, price, now)?;
@@ -593,9 +584,7 @@ pub fn enter_final_recovery<T: Config>(
 		&owner,
 	);
 	let total_debt = vault.debt.total();
-	let cr = math::collateralization_ratio::<BalanceOf<T>>(coll, total_debt, price)
-		.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
-	ensure!(cr < cfg.minimum_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
+	ensure_below_mcr::<T>(coll, total_debt, price, &cfg)?;
 
 	// Last eligible redistribution recipient: the candidate is the only
 	// stake-bearer left, so `bs.stakes.total == vault.redistribution_stake`.
@@ -658,9 +647,7 @@ pub fn exit_final_recovery<T: Config>(
 		&owner,
 	);
 	let total_debt = vault.debt.total();
-	let cr = math::collateralization_ratio::<BalanceOf<T>>(coll, total_debt, price)
-		.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
-	ensure!(cr >= cfg.minimum_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
+	ensure_at_or_above_mcr::<T>(coll, total_debt, price, &cfg)?;
 
 	let rejoin_active = total_debt >= cfg.minimum_debt;
 	let new_status = if rejoin_active { VaultStatus::Active } else { VaultStatus::Dormant };

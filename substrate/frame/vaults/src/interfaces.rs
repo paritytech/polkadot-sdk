@@ -65,9 +65,7 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 			&HoldReason::VaultCollateral.into(),
 			&owner,
 		);
-		let cr = math::collateralization_ratio::<BalanceOf<T>>(held, post_touch_debt, price)
-			.ok_or(Error::<T>::UnsafeCollateralizationRatio)?;
-		ensure!(cr < cfg.minimum_collateralization_ratio, Error::<T>::UnsafeCollateralizationRatio);
+		helpers::ensure_below_mcr::<T>(held, post_touch_debt, price, &cfg)?;
 		BranchStates::<T>::try_mutate(&collateral_id, |maybe| -> Result<_, DispatchError> {
 			let bs = maybe.as_mut().ok_or(Error::<T>::UnknownCollateral)?;
 			ensure!(
@@ -244,19 +242,8 @@ impl<T: Config> VaultLiquidationInterface<T::AccountId, T::AssetId, BalanceOf<T>
 impl<T: Config> VaultRedemptionInterface<T::AccountId, T::AssetId, BalanceOf<T>> for Pallet<T> {
 	/// Priority order: `FinalRecovery` FIFO head, then `last_dormant_vault_owner`,
 	/// then the rate-index tail.
-	fn next_redemption_target(
-		collateral_id: T::AssetId,
-		_cursor: Option<T::AccountId>,
-	) -> Option<T::AccountId> {
-		if let Some(o) = recovery::next_target::<T>(&collateral_id) {
-			return Some(o);
-		}
-		if let Some(bs) = BranchStates::<T>::get(&collateral_id) {
-			if let Some(o) = bs.last_dormant_vault_owner {
-				return Some(o);
-			}
-		}
-		T::VaultLists::tail(&VaultListId::Rate(collateral_id))
+	fn next_redemption_target(collateral_id: T::AssetId) -> Option<T::AccountId> {
+		helpers::redemption_targets::<T>(&collateral_id).next()
 	}
 
 	#[transactional]

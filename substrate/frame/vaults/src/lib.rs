@@ -450,7 +450,7 @@ pub mod pallet {
 			collateral_id: T::AssetId,
 			n: u32,
 		) -> alloc::vec::Vec<T::AccountId> {
-			helpers::view_redemption_queue_head::<T>(&collateral_id, n)
+			helpers::redemption_targets::<T>(&collateral_id).take(n as usize).collect()
 		}
 
 		/// First `n` `FinalRecovery` owners in FIFO order.
@@ -717,7 +717,7 @@ pub mod pallet {
 			value: FixedU128,
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			let cfg = helpers::current_branch_config::<T>(&collateral_id)?;
+			let cfg = helpers::branch_cfg_of::<T>(&collateral_id)?;
 			ensure!(
 				matches!(level, VaultsManagerLevel::Full) ||
 					value >= cfg.minimum_collateralization_ratio,
@@ -737,7 +737,7 @@ pub mod pallet {
 			value: FixedU128,
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			let cfg = helpers::current_branch_config::<T>(&collateral_id)?;
+			let cfg = helpers::branch_cfg_of::<T>(&collateral_id)?;
 			ensure!(
 				matches!(level, VaultsManagerLevel::Full) ||
 					value >= cfg.initial_collateralization_ratio,
@@ -757,7 +757,7 @@ pub mod pallet {
 			value: FixedU128,
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			let cfg = helpers::current_branch_config::<T>(&collateral_id)?;
+			let cfg = helpers::branch_cfg_of::<T>(&collateral_id)?;
 			ensure!(
 				matches!(level, VaultsManagerLevel::Full) ||
 					value >= cfg.safety_collateralization_ratio,
@@ -777,7 +777,7 @@ pub mod pallet {
 			value: BalanceOf<T>,
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			let cfg = helpers::current_branch_config::<T>(&collateral_id)?;
+			let cfg = helpers::branch_cfg_of::<T>(&collateral_id)?;
 			ensure!(
 				matches!(level, VaultsManagerLevel::Full) || value <= cfg.debt_ceiling,
 				Error::<T>::DefensiveActionNotDefensive
@@ -827,7 +827,7 @@ pub mod pallet {
 			max_rate: FixedU128,
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			let cfg = helpers::current_branch_config::<T>(&collateral_id)?;
+			let cfg = helpers::branch_cfg_of::<T>(&collateral_id)?;
 			ensure!(
 				matches!(level, VaultsManagerLevel::Full) ||
 					(max_rate <= cfg.maximum_borrow_rate && min_rate >= cfg.minimum_borrow_rate),

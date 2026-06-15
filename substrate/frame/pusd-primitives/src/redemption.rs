@@ -17,20 +17,19 @@ pub struct RedemptionAllocation<Balance> {
 	pub fee_collateral_retained: Balance,
 }
 
-/// Three-call redemption hook. The orchestrator iterates `next_redemption_target`,
-/// touches each candidate, sizes the allocation against the post-touch debt
-/// and the held collateral, then applies it.
+/// Three-call redemption hook. The orchestrator repeatedly reads
+/// `next_redemption_target`, touches that candidate, sizes the allocation
+/// against the post-touch debt and the held collateral, then applies it; each
+/// applied redemption re-shapes the priority queue, so the next read returns the
+/// new head.
 pub trait VaultRedemptionInterface<AccountId, AssetId, Balance> {
-	/// Next vault owner to redeem against on `collateral_id`, walking from
-	/// `cursor` if supplied. Returns `None` when there are no further targets.
+	/// Highest-priority vault owner to redeem against on `collateral_id`, or
+	/// `None` when the branch has no redeemable vaults.
 	///
 	/// The vault pallet's authoritative redemption order is: `FinalRecovery`
 	/// FIFO first, then `last_dormant_vault_owner`, then the rate index
-	/// tail-first.
-	fn next_redemption_target(
-		collateral_id: AssetId,
-		cursor: Option<AccountId>,
-	) -> Option<AccountId>;
+	/// tail-first. Redemption always targets the current head.
+	fn next_redemption_target(collateral_id: AssetId) -> Option<AccountId>;
 
 	/// Touch the vault, apply pending interest and redistribution, and return
 	/// the post-touch debt the orchestrator must cap `debt_to_cancel` against.

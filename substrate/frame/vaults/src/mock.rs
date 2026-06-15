@@ -484,7 +484,7 @@ pub fn redeem(
 	amount: Balance,
 ) -> Result<AccountId, DispatchError> {
 	let target = <Pallet<Test> as VaultRedemptionInterface<AccountId, AssetId, Balance>>::next_redemption_target(
-		asset.clone(), None,
+		asset.clone(),
 	)
 	.ok_or(DispatchError::Other("no redemption target"))?;
 	let post_touch = <Pallet<Test> as VaultRedemptionInterface<AccountId, AssetId, Balance>>::touch_for_redemption(

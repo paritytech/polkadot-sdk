@@ -37,28 +37,39 @@ pub fn view_branch_tcr<T: Config>(collateral_id: &T::AssetId) -> Option<FixedU12
 	compute_tcr::<T>(&bs, price, now).ok()
 }
 
-pub fn view_redemption_queue_head<T: Config>(
-	collateral_id: &T::AssetId,
-	n: u32,
-) -> Vec<T::AccountId> {
-	let mut out: Vec<T::AccountId> = Vec::with_capacity(n as usize);
-	out.extend(recovery::queue_head::<T>(collateral_id, n));
-	if out.len() as u32 >= n {
-		return out;
-	}
-	if let Some(bs) = BranchStates::<T>::get(collateral_id) {
-		if let Some(owner) = bs.last_dormant_vault_owner {
-			out.push(owner);
+/// Lazily walk a vault list from its tail, following `prev` pointers — the same
+/// order as [`SortedListInterface::iter_from_tail`], but every storage read is
+/// deferred until the iterator advances, so a caller taking only the head pays
+/// for only the tail read.
+fn list_from_tail<T: Config>(list: VaultListId<T::AssetId>) -> impl Iterator<Item = T::AccountId> {
+	let mut started = false;
+	let mut cursor: Option<T::AccountId> = None;
+	core::iter::from_fn(move || {
+		if !started {
+			started = true;
+			cursor = T::VaultLists::tail(&list);
+		} else if let Some(current) = &cursor {
+			cursor = T::VaultLists::neighbors(&list, current).and_then(|p| p.prev);
 		}
-	}
-	let remaining = n.saturating_sub(out.len() as u32);
-	if remaining > 0 {
-		out.extend(T::VaultLists::iter_from_tail(
-			&VaultListId::Rate(collateral_id.clone()),
-			remaining,
-		));
-	}
-	out
+		cursor.clone()
+	})
+}
+
+/// The source of a branch's redemption-order priority, riskiest first:
+/// `FinalRecovery` FIFO (oldest first) → `last_dormant_vault_owner` → rate index
+/// (tail-first). Lazy and allocation-free: consumers `take(n)` for the queue
+/// view or `.next()` for the next target, and only the tiers they reach are
+/// read from storage.
+pub(crate) fn redemption_targets<T: Config>(
+	collateral_id: &T::AssetId,
+) -> impl Iterator<Item = T::AccountId> {
+	let fifo = list_from_tail::<T>(VaultListId::FinalRecovery(collateral_id.clone()));
+	let dormant_branch = collateral_id.clone();
+	let dormant = core::iter::once(()).flat_map(move |()| {
+		BranchStates::<T>::get(&dormant_branch).and_then(|bs| bs.last_dormant_vault_owner)
+	});
+	let rate = list_from_tail::<T>(VaultListId::Rate(collateral_id.clone()));
+	fifo.chain(dormant).chain(rate)
 }
 
 /// Walk the rate index tail-first, summing active-vault principal while the
