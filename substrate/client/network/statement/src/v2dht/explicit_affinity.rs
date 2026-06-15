@@ -204,7 +204,7 @@ impl ExplicitAffinity {
 	// === Peer filters ===
 
 	/// Store the filter a peer advertises, replacing any earlier one.
-	pub(crate) fn update_peer_filter(&mut self, peer: PeerId, filter: AffinityFilter) {
+	pub(crate) fn on_peer_filter_update(&mut self, peer: PeerId, filter: AffinityFilter) {
 		self.peers.insert(peer, filter);
 	}
 
@@ -418,7 +418,7 @@ mod tests {
 	fn peer_has_explicit_affinity_reads_the_stored_filter() {
 		let mut affinity = ExplicitAffinity::new(&[]);
 		let peer = PeerId::random();
-		affinity.update_peer_filter(peer, filter_over(&[topic(1)]));
+		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
 		assert!(affinity.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
 		assert!(!affinity.peer_has_explicit_affinity(peer, &statement_on(topic(2))));
@@ -435,8 +435,8 @@ mod tests {
 		let mut affinity = ExplicitAffinity::new(&[]);
 		let peer = PeerId::random();
 
-		affinity.update_peer_filter(peer, filter_over(&[topic(1)]));
-		affinity.update_peer_filter(peer, filter_over(&[topic(2)]));
+		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
+		affinity.on_peer_filter_update(peer, filter_over(&[topic(2)]));
 
 		assert!(!affinity.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
 		assert!(affinity.peer_has_explicit_affinity(peer, &statement_on(topic(2))));
@@ -446,7 +446,7 @@ mod tests {
 	fn on_peer_disconnected_drops_the_filter() {
 		let mut affinity = ExplicitAffinity::new(&[]);
 		let peer = PeerId::random();
-		affinity.update_peer_filter(peer, filter_over(&[topic(1)]));
+		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
 		affinity.on_peer_disconnected(peer);
 		assert!(!affinity.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
@@ -456,7 +456,7 @@ mod tests {
 	fn peer_with_a_filter_accepts_broadcast_statements() {
 		let mut affinity = ExplicitAffinity::new(&[]);
 		let peer = PeerId::random();
-		affinity.update_peer_filter(peer, filter_over(&[topic(1)]));
+		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
 		let mut broadcast = Statement::new();
 		broadcast.set_plain_data(b"broadcast".to_vec());

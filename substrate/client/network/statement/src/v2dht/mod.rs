@@ -25,7 +25,7 @@ use crate::{affinity::AffinityFilter, LOG_TARGET};
 use explicit_affinity::{AffinitySource, ExplicitAffinity};
 use peers_topology::{PeersTopology, PeersTopologyConfig};
 use sc_network_types::PeerId;
-use sp_statement_store::{SubmitResult, Topic};
+use sp_statement_store::{Statement, SubmitResult, Topic};
 use std::collections::HashSet;
 
 /// Coordinates the v2 DHT-affinity statement gossip path.
@@ -72,6 +72,18 @@ impl V2DhtOrchestrator {
 		self.explicit_affinity.topics()
 	}
 
+	// === Advertise own filter ===
+
+	/// The [`AffinityFilter`] this node advertises, built from its current topics.
+	pub(crate) fn local_filter(&self) -> AffinityFilter {
+		self.explicit_affinity.local_filter()
+	}
+
+	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
+	pub(crate) fn local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
+		self.explicit_affinity.local_filter_if_changed()
+	}
+
 	// === Peer-set events ===
 
 	pub(crate) fn on_peer_connected(&mut self, peer: PeerId) {
@@ -80,8 +92,7 @@ impl V2DhtOrchestrator {
 	}
 
 	pub(crate) fn on_peer_disconnected(&mut self, peer: PeerId) {
-		// TODO: we may need it for the topology, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_peer_disconnected {peer} (stub)");
+		self.explicit_affinity.on_peer_disconnected(peer);
 	}
 
 	// === Notification-substream events ===
@@ -101,9 +112,15 @@ impl V2DhtOrchestrator {
 		log::trace!(target: LOG_TARGET, "v2dht: on_substream_closed {peer}");
 	}
 
-	pub(crate) fn on_peer_filter_update(&mut self, peer: PeerId, _filter: AffinityFilter) {
-		// TODO: we may need it for the topology or explicit affinity, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_peer_filter_update {peer} (stub)");
+	pub(crate) fn on_peer_filter_update(&mut self, peer: PeerId, filter: AffinityFilter) {
+		self.explicit_affinity.on_peer_filter_update(peer, filter);
+	}
+
+	// === Forward decision ===
+
+	/// Whether the peer's advertised filter accepts the statement.
+	pub(crate) fn peer_has_explicit_affinity(&self, peer: PeerId, stmt: &Statement) -> bool {
+		self.explicit_affinity.peer_has_explicit_affinity(peer, stmt)
 	}
 
 	// === Post-submit hook ===
@@ -133,5 +150,50 @@ impl V2DhtOrchestrator {
 	pub(crate) fn on_major_sync_end(&mut self) {
 		// TODO: The major sync processing may be different
 		log::trace!(target: LOG_TARGET, "v2dht: on_major_sync_end (stub)");
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::test_helpers::{filter_over, statement_on, topic};
+
+	fn orchestrator() -> V2DhtOrchestrator {
+		V2DhtOrchestrator::new(&[], PeerId::random(), PeersTopologyConfig::default())
+	}
+
+	#[test]
+	fn on_peer_filter_update_stores_the_filter() {
+		let mut orchestrator = orchestrator();
+		let peer = PeerId::random();
+
+		orchestrator.on_peer_filter_update(peer, filter_over(&[topic(1)]));
+
+		assert!(orchestrator.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
+		assert!(!orchestrator.peer_has_explicit_affinity(peer, &statement_on(topic(2))));
+	}
+
+	#[test]
+	fn on_peer_disconnected_drops_the_filter() {
+		let mut orchestrator = orchestrator();
+		let peer = PeerId::random();
+		orchestrator.on_peer_filter_update(peer, filter_over(&[topic(1)]));
+
+		orchestrator.on_peer_disconnected(peer);
+
+		assert!(!orchestrator.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
+	}
+
+	#[test]
+	fn take_local_filter_if_changed_reflects_subscription_topics() {
+		let mut orchestrator = orchestrator();
+		assert!(orchestrator.local_filter_if_changed().is_none());
+
+		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1)]));
+		let filter = orchestrator
+			.local_filter_if_changed()
+			.expect("a subscription topic marks the filter changed");
+		assert!(filter.contains(&topic(1)));
+		assert!(orchestrator.local_filter_if_changed().is_none());
 	}
 }

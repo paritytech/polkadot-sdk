@@ -856,8 +856,22 @@ where
 				},
 				_ = &mut self.pending_affinities_timeout => {
 					if v2dht_enabled() {
+						// Advertise the own changes first
 						let topics = self.statement_store.subscription_topics();
 						self.v2dht.set_rpc_subscription_topics(&topics);
+						if let Some(filter) = self.v2dht.local_filter_if_changed() {
+							self.broadcast_local_filter(filter).await;
+						}
+
+						// TODO: serve the backlog of stored statements here.
+						//
+						// When a peer advertises new topics, `on_peer_filter_update` records its
+						// filter in the orchestrator, but nothing sends it the statements we
+						// already hold — so a fresh v2 subscriber receives only statements that
+						// arrive after it subscribed, never the backlog. `on_pending_affinities`
+						// should close that gap: for each peer whose advertised topics changed,
+						// send the matching stored statements. This is the v2 counterpart of v1's
+						// `process_pending_affinities` -> `schedule_initial_sync_for_peer`.
 						self.v2dht.on_pending_affinities();
 					}
 					self.process_pending_affinities();
@@ -921,26 +935,19 @@ where
 					PeerProtocolVersion::V1 => chunk.encode(),
 					PeerProtocolVersion::V2 => StatementMessage::encode_statement_refs(chunk),
 				};
-				let bytes_to_send = encoded.len() as u64;
 
 				let sent_latency_timer =
 					self.metrics.as_ref().map(|m| m.sent_latency_seconds.start_timer());
-				let send_result = timeout(
-					SEND_TIMEOUT,
-					self.notification_service.send_async_notification(peer, encoded),
-				)
-				.await;
+				let sent = self.send_notification(peer, encoded).await;
 				drop(sent_latency_timer);
 
-				if let Err(e) = send_result {
-					log::debug!(target: LOG_TARGET, "Failed to send notification to {peer}: {e:?}");
+				if !sent {
 					return SendChunkResult::Failed;
 				}
 
 				log::trace!(target: LOG_TARGET, "Sent {} statements to {}", chunk.len(), peer);
 				self.metrics.as_ref().map(|metrics| {
 					metrics.propagated_statements.inc_by(chunk.len() as u64);
-					metrics.bytes_sent_total.inc_by(bytes_to_send);
 					metrics.propagated_statements_chunks.observe(chunk.len() as f64);
 				});
 				SendChunkResult::Sent(chunk_end)
@@ -951,6 +958,58 @@ where
 					metrics.skipped_oversized_statements.inc();
 				});
 				SendChunkResult::Skipped
+			},
+		}
+	}
+
+	/// Advertise a changed affinity filter to every connected V2 peer.
+	async fn broadcast_local_filter(&mut self, filter: AffinityFilter) {
+		let encoded = StatementMessage::ExplicitTopicAffinity(filter).encode();
+		let peers: Vec<PeerId> = self
+			.peers
+			.iter()
+			.filter(|(_, peer)| peer.protocol_version == PeerProtocolVersion::V2)
+			.map(|(peer_id, _)| *peer_id)
+			.collect();
+		for peer in peers {
+			self.send_notification(&peer, encoded.clone()).await;
+		}
+	}
+
+	/// Send this node's affinity filter to a newly connected peer.
+	async fn send_local_filter(&mut self, peer: &PeerId) {
+		if self.peers.get(peer).map(|p| p.protocol_version) != Some(PeerProtocolVersion::V2) {
+			return;
+		}
+		let encoded = StatementMessage::ExplicitTopicAffinity(self.v2dht.local_filter()).encode();
+		self.send_notification(peer, encoded).await;
+	}
+
+	/// Send `notification` to `peer`, bounded by [`SEND_TIMEOUT`], counting the bytes sent.
+	///
+	/// Returns `true` once the network accepts the notification; `false` on a send error or
+	/// timeout, both logged at debug.
+	async fn send_notification(&mut self, peer: &PeerId, notification: Vec<u8>) -> bool {
+		let bytes_to_send = notification.len() as u64;
+		match timeout(
+			SEND_TIMEOUT,
+			self.notification_service.send_async_notification(peer, notification),
+		)
+		.await
+		{
+			Ok(Ok(())) => {
+				self.metrics.as_ref().map(|metrics| {
+					metrics.bytes_sent_total.inc_by(bytes_to_send);
+				});
+				true
+			},
+			Ok(Err(e)) => {
+				log::debug!(target: LOG_TARGET, "Failed to send notification to {peer}: {e:?}");
+				false
+			},
+			Err(e) => {
+				log::debug!(target: LOG_TARGET, "Timed out sending notification to {peer}: {e:?}");
+				false
 			},
 		}
 	}
@@ -1095,9 +1154,6 @@ where
 				handshake,
 				..
 			} => {
-				if v2dht_enabled() {
-					self.v2dht.on_substream_opened(peer);
-				}
 				// If negotiated_fallback is Some, the peer connected on a fallback protocol
 				// (v1). If None, the peer connected on the main protocol (v2).
 				let protocol_version = if negotiated_fallback.is_some() {
@@ -1144,6 +1200,14 @@ where
 						metrics.peers_connected.with_label_values(&[peer.kind()]).inc();
 					}
 				});
+
+				if v2dht_enabled() {
+					if !is_light {
+						// TODO: Do we need to pass light nodes to the Orchestrator?
+						self.v2dht.on_substream_opened(peer);
+					}
+					self.send_local_filter(&peer).await;
+				}
 
 				// Light V2 peers must set topic affinity before receiving statements.
 				// All other peers get initial sync immediately.
