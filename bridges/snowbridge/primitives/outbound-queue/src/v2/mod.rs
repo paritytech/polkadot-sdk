@@ -9,7 +9,7 @@ pub use converter::*;
 pub use delivery_receipt::*;
 pub use message::*;
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
 use Debug;
@@ -29,4 +29,23 @@ pub enum ContractCall {
 		/// Maximum gas to forward to target contract
 		gas: u64,
 	},
+	/// Call multiple contracts atomically. The sub-calls are executed in order and the whole
+	/// command reverts on the first failure.
+	V2 {
+		/// Sub-calls to execute, in order
+		calls: Vec<ContractCallEntry>,
+		/// Maximum gas to forward to the target contracts
+		gas: u64,
+	},
+}
+
+/// A single sub-call within a [`ContractCall::V2`] batch.
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo)]
+pub struct ContractCallEntry {
+	/// Target contract address
+	pub target: [u8; 20],
+	/// ABI-encoded calldata
+	pub calldata: Vec<u8>,
+	/// Include ether held by the agent contract
+	pub value: u128,
 }

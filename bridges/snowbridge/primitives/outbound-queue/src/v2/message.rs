@@ -8,10 +8,10 @@ use scale_info::TypeInfo;
 use sp_core::{H160, H256};
 use sp_std::vec::Vec;
 
-use crate::{OperatingMode, SendError};
+use crate::{v2::ContractCallEntry, OperatingMode, SendError};
 use abi::{
-	CallContractParams, MintForeignTokenParams, RegisterForeignTokenParams, SetOperatingModeParams,
-	UnlockNativeTokenParams, UpgradeParams,
+	CallContractParams, CallContractsParams, MintForeignTokenParams, RegisterForeignTokenParams,
+	SetOperatingModeParams, UnlockNativeTokenParams, UpgradeParams,
 };
 use alloy_core::{
 	primitives::{Address, Bytes, FixedBytes, U256},
@@ -95,6 +95,12 @@ pub mod abi {
 			bytes data;
 			// Ether value
 			uint256 value;
+		}
+
+		// Payload for CallContracts. Reverts on the first sub-call failure.
+		struct CallContractsParams {
+			// Sub-calls to execute, in order
+			CallContractParams[] calls;
 		}
 	}
 }
@@ -190,6 +196,14 @@ pub enum Command {
 		/// Include ether held by agent contract
 		value: u128,
 	},
+	/// Call multiple contracts on Ethereum atomically. The sub-calls are executed in order and
+	/// the whole command reverts on the first failure.
+	CallContracts {
+		/// Sub-calls to execute, in order
+		calls: Vec<ContractCallEntry>,
+		/// Maximum gas to forward to the target contracts
+		gas: u64,
+	},
 }
 
 impl Command {
@@ -202,6 +216,7 @@ impl Command {
 			Command::RegisterForeignToken { .. } => 3,
 			Command::MintForeignToken { .. } => 4,
 			Command::CallContract { .. } => 5,
+			Command::CallContracts { .. } => 6,
 		}
 	}
 
@@ -244,6 +259,17 @@ impl Command {
 				target: Address::from(target.as_fixed_bytes()),
 				data: Bytes::from(data.to_vec()),
 				value: U256::try_from(*value).unwrap(),
+			}
+			.abi_encode(),
+			Command::CallContracts { calls, .. } => CallContractsParams {
+				calls: calls
+					.iter()
+					.map(|call| CallContractParams {
+						target: Address::from(call.target),
+						data: Bytes::from(call.calldata.clone()),
+						value: U256::try_from(call.value).unwrap(),
+					})
+					.collect(),
 			}
 			.abi_encode(),
 		}
@@ -301,6 +327,7 @@ impl GasMeter for ConstantGasMeter {
 			Command::RegisterForeignToken { .. } => 1_200_000,
 			Command::MintForeignToken { .. } => 100_000,
 			Command::CallContract { gas: gas_limit, .. } => *gas_limit,
+			Command::CallContracts { gas: gas_limit, .. } => *gas_limit,
 		}
 	}
 }
@@ -308,5 +335,40 @@ impl GasMeter for ConstantGasMeter {
 impl GasMeter for () {
 	fn maximum_dispatch_gas_used_at_most(_: &Command) -> u64 {
 		1
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::v2::ContractCallEntry;
+
+	#[test]
+	fn call_contracts_command_abi_encodes_into_call_contracts_params() {
+		let target_1 = [0x11u8; 20];
+		let target_2 = [0x22u8; 20];
+
+		let command = Command::CallContracts {
+			calls: vec![
+				ContractCallEntry { target: target_1, calldata: vec![0xde, 0xad], value: 7 },
+				ContractCallEntry { target: target_2, calldata: vec![], value: 0 },
+			],
+			gas: 500_000,
+		};
+
+		// `kind` must match `CommandKind.CallContracts` on the Gateway contract.
+		assert_eq!(command.index(), 6);
+
+		// The payload must ABI-decode into `CallContractsParams` with the same fields.
+		let decoded = CallContractsParams::abi_decode_validate(&command.abi_encode())
+			.expect("payload decodes into CallContractsParams");
+
+		assert_eq!(decoded.calls.len(), 2);
+		assert_eq!(decoded.calls[0].target, Address::from(target_1));
+		assert_eq!(decoded.calls[0].data, Bytes::from(vec![0xde, 0xad]));
+		assert_eq!(decoded.calls[0].value, U256::from(7));
+		assert_eq!(decoded.calls[1].target, Address::from(target_2));
+		assert!(decoded.calls[1].data.is_empty());
+		assert_eq!(decoded.calls[1].value, U256::ZERO);
 	}
 }

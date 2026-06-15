@@ -1,8 +1,9 @@
 use super::*;
 use crate::{
-	v2::{convert::XcmConverterError, Command, Message},
+	v2::{convert::XcmConverterError, Command, ContractCall, ContractCallEntry, Message},
 	SendError, SendMessageFeeProvider,
 };
+use codec::Encode;
 use frame_support::{parameter_types, BoundedVec};
 use hex_literal::hex;
 use snowbridge_core::{AgentIdOf, TokenIdOf};
@@ -535,6 +536,76 @@ fn xcm_converter_convert_success() {
 	let mut converter = XcmConverter::<MockTokenIdConvert, ()>::new(&message, network);
 	let result = converter.convert();
 	assert!(result.is_ok());
+}
+
+#[test]
+fn xcm_converter_convert_with_transact_call_contracts_succeeds() {
+	let network = BridgedNetwork::get();
+
+	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+	let target_1: [u8; 20] = hex!("3000000000000000000000000000000000000000");
+	let target_2: [u8; 20] = hex!("4000000000000000000000000000000000000000");
+
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
+		fun: Fungible(1000),
+	}]
+	.into();
+	let filter: AssetFilter = assets.clone().into();
+
+	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
+
+	let contract_call = ContractCall::V2 {
+		calls: vec![
+			ContractCallEntry { target: target_1, calldata: hex!("deadbeef").to_vec(), value: 1 },
+			ContractCallEntry { target: target_2, calldata: vec![], value: 0 },
+		],
+		gas: 500_000,
+	};
+
+	let message: Xcm<()> = vec![
+		WithdrawAsset(fee_asset.clone().into()),
+		PayFees { asset: fee_asset },
+		WithdrawAsset(assets.clone()),
+		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		Transact {
+			origin_kind: OriginKind::SovereignAccount,
+			fallback_max_weight: None,
+			call: contract_call.encode().into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+	let mut converter = XcmConverter::<MockTokenIdConvert, ()>::new(&message, network);
+	let result = converter.convert();
+	assert!(result.is_ok());
+
+	let message = result.unwrap();
+	let call_contracts = message
+		.commands
+		.iter()
+		.find(|command| matches!(command, Command::CallContracts { .. }))
+		.expect("CallContracts command should be present");
+
+	assert_eq!(
+		*call_contracts,
+		Command::CallContracts {
+			calls: vec![
+				ContractCallEntry {
+					target: target_1,
+					calldata: hex!("deadbeef").to_vec(),
+					value: 1
+				},
+				ContractCallEntry { target: target_2, calldata: vec![], value: 0 },
+			],
+			gas: 500_000,
+		}
+	);
 }
 
 #[test]
