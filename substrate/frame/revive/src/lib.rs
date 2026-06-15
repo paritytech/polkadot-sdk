@@ -2558,35 +2558,6 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Log, per replayed extrinsic, whether it applied and the accumulated block weight, so a
-	/// trace dropped to `ExhaustsResources` (missing or phantom entry) can be diagnosed. Observes
-	/// only; does not change behaviour.
-	pub fn log_trace_replay_outcome(
-		index: usize,
-		result: &sp_runtime::ApplyExtrinsicResult,
-		traced: bool,
-	) {
-		let consumed = <frame_system::BlockWeight<T>>::get().total();
-		let max = <T as frame_system::Config>::BlockWeights::get().max_block;
-		match result {
-			Err(err) => log::warn!(
-				target: LOG_TARGET,
-				"trace replay: extrinsic #{index} NOT applied: {err:?} \
-				 (consumed block_weight={consumed:?}, max={max:?}, traced={traced})",
-			),
-			Ok(Err(err)) => log::debug!(
-				target: LOG_TARGET,
-				"trace replay: extrinsic #{index} dispatch error: {err:?} \
-				 (consumed block_weight={consumed:?}, max={max:?}, traced={traced})",
-			),
-			Ok(Ok(_)) => log::trace!(
-				target: LOG_TARGET,
-				"trace replay: extrinsic #{index} applied ok \
-				 (consumed block_weight={consumed:?}, max={max:?}, traced={traced})",
-			),
-		}
-	}
-
 	/// A generalized version of [`Self::upload_code`].
 	///
 	/// It is identical to [`Self::upload_code`] and only differs in the information it returns.
@@ -4086,15 +4057,9 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						let mut tracer = $crate::Pallet::<Self>::evm_tracer(input.config.clone());
 						let t = tracer.as_tracing();
-						let apply_result = trace(t, || <$Executive>::apply_extrinsic(ext));
+						let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
 
-						let collected = tracer.collect_trace();
-						$crate::Pallet::<Self>::log_trace_replay_outcome(
-							index,
-							&apply_result,
-							collected.is_some(),
-						);
-						if let Some(tx_trace) = collected {
+						if let Some(tx_trace) = tracer.collect_trace() {
 							traces.push((index as u32, tx_trace));
 						}
 					}
