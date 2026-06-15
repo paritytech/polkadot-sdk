@@ -106,7 +106,6 @@ pub(crate) struct ExplicitAffinity {
 	/// while some source references it.
 	local: HashMap<Topic, HashMap<AffinitySource, u32>>,
 	/// Marks the advertised affinity filter stale
-	// TODO: clear this once the rebuilt affinity filter has been advertised to peers.
 	local_changed: bool,
 	/// The filter each connected peer advertises.
 	peers: HashMap<PeerId, AffinityFilter>,
@@ -191,6 +190,15 @@ impl ExplicitAffinity {
 	/// The [`AffinityFilter`] this node advertises, built from its current topics.
 	pub(crate) fn local_filter(&self) -> AffinityFilter {
 		AffinityFilter::from_topics(self.local.keys().map(|topic| topic.as_ref()), self.seed)
+	}
+
+	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
+	pub(crate) fn local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
+		if !self.local_changed {
+			return None;
+		}
+		self.local_changed = false;
+		Some(self.local_filter())
 	}
 
 	// === Peer filters ===
@@ -381,6 +389,23 @@ mod tests {
 	fn local_filter_empty_set_matches_nothing_concrete() {
 		let affinity = ExplicitAffinity::new(&[]);
 		assert!(!affinity.local_filter().matches_statement(&statement_on(topic(1))));
+	}
+
+	#[test]
+	fn local_filter_if_changed_yields_once_per_change() {
+		let mut affinity = ExplicitAffinity::new(&[topic(1)]);
+		let filter = affinity.local_filter_if_changed().expect("construction marks a change");
+		assert!(filter.contains(&topic(1)));
+
+		// No further change, no filter.
+		assert!(affinity.local_filter_if_changed().is_none());
+
+		// A new topic marks the set changed again; the filter carries it.
+		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(2)]);
+		let filter = affinity.local_filter_if_changed().expect("add marks a change");
+		assert!(filter.contains(&topic(1)));
+		assert!(filter.contains(&topic(2)));
+		assert!(affinity.local_filter_if_changed().is_none());
 	}
 
 	#[test]
