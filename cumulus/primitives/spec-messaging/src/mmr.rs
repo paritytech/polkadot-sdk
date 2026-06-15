@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::vec::Vec;
 use polkadot_core_primitives::Hash;
 use sp_core::Get;
 use sp_io::hashing::blake2_256;
@@ -40,6 +41,7 @@ pub trait MmrAccumulator {
 	}
 }
 
+#[derive(Default)]
 pub struct Mmr<MaxPeaks: Get<u32>> {
 	peaks: BoundedVec<Hash, MaxPeaks>,
 	size: u64,
@@ -103,4 +105,111 @@ pub fn merge_peaks(peaks: &[Hash]) -> Hash {
 pub fn empty_root() -> Hash {
 	let preimage = [EMPTY_TAG];
 	blake2_256(&preimage).into()
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_core::ConstU32;
+
+	type TestMmr = Mmr<ConstU32<64>>;
+
+	#[test]
+	fn empty_mmr_has_zero_size_and_empty_root() {
+		let mmr = TestMmr::default();
+
+		assert_eq!(mmr.size(), 0);
+		assert_eq!(mmr.root(), empty_root());
+	}
+
+	#[test]
+	fn peak_count_matches_leaf_count_population() {
+		let mut mmr = TestMmr::default();
+
+		for expected_size in 1..=16u64 {
+			mmr.append(Hash::repeat_byte(expected_size as u8));
+
+			assert_eq!(mmr.size(), expected_size);
+			assert_eq!(mmr.peaks.len() as u32, mmr.size().count_ones());
+		}
+	}
+
+	#[test]
+	fn single_leaf_root_is_its_peak_bagged_alone() {
+		let mut mmr = TestMmr::default();
+		let leaf = Hash::repeat_byte(7);
+
+		mmr.append(leaf);
+
+		assert_eq!(mmr.root(), merge_peaks(&[leaf]));
+	}
+
+	#[test]
+	fn root_is_deterministic_for_the_same_sequence() {
+		let mut a = TestMmr::default();
+		let mut b = TestMmr::default();
+
+		for i in 0..5u8 {
+			a.append(Hash::repeat_byte(i));
+			b.append(Hash::repeat_byte(i));
+		}
+
+		assert_eq!(a.root(), b.root());
+	}
+
+	#[test]
+	fn root_changes_after_each_append() {
+		let mut mmr = TestMmr::default();
+		let mut roots = Vec::new();
+
+		for i in 0..8u8 {
+			mmr.append(Hash::repeat_byte(i));
+			roots.push(mmr.root());
+		}
+
+		for (i, a) in roots.iter().enumerate() {
+			for (j, b) in roots.iter().enumerate() {
+				if i != j {
+					assert_ne!(a, b, "roots at {i} and {j} should differ");
+				}
+			}
+		}
+	}
+
+	#[test]
+	fn merge_inner_is_order_sensitive() {
+		let a = Hash::repeat_byte(1);
+		let b = Hash::repeat_byte(2);
+
+		assert_ne!(merge_inner(a, b), merge_inner(b, a));
+	}
+
+	#[test]
+	fn merge_peaks_is_order_sensitive() {
+		let a = Hash::repeat_byte(1);
+		let b = Hash::repeat_byte(2);
+
+		assert_ne!(merge_peaks(&[a, b]), merge_peaks(&[b, a]));
+	}
+
+	#[test]
+	fn domain_tags_isolate_inner_peak_and_empty_hashes() {
+		let a = Hash::repeat_byte(1);
+		let b = Hash::repeat_byte(2);
+
+		let inner = merge_inner(a, b);
+		let peaks = merge_peaks(&[a, b]);
+		let empty = empty_root();
+
+		assert_ne!(inner, peaks);
+		assert_ne!(inner, empty);
+		assert_ne!(peaks, empty);
+	}
+
+	#[test]
+	fn extension_proof_is_unsupported_by_default() {
+		let mmr = TestMmr::default();
+
+		assert!(mmr.extension_proof().is_err());
+	}
 }
