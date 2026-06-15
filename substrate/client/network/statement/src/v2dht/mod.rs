@@ -185,7 +185,7 @@ mod tests {
 	}
 
 	#[test]
-	fn take_local_filter_if_changed_reflects_subscription_topics() {
+	fn local_filter_if_changed_reflects_subscription_topics() {
 		let mut orchestrator = orchestrator();
 		assert!(orchestrator.local_filter_if_changed().is_none());
 

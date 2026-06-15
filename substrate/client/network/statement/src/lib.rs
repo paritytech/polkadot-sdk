@@ -856,7 +856,7 @@ where
 				},
 				_ = &mut self.pending_affinities_timeout => {
 					if v2dht_enabled() {
-						// Advertise the own changes first
+						// Advertise this node's filter changes before serving peers their backlog.
 						let topics = self.statement_store.subscription_topics();
 						self.v2dht.set_rpc_subscription_topics(&topics);
 						if let Some(filter) = self.v2dht.local_filter_if_changed() {
