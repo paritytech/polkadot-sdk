@@ -236,6 +236,11 @@ pub mod pallet {
 		pub const fn can_manage_admins(&self) -> bool {
 			matches!(self, PsmManagerLevel::Full)
 		}
+
+		/// Whether this level allows removing the PSM instance.
+		pub const fn can_remove_psm(&self) -> bool {
+			matches!(self, PsmManagerLevel::Full)
+		}
 	}
 
 	pub(crate) type BalanceOf<T> = <<T as Config>::Fungibles as FungiblesInspect<
@@ -377,6 +382,20 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			// Reserve accounts are `PalletId ++ blake2_256(asset)` truncated to `T::AccountId`;
+			// guard against an `AccountId` too small to retain enough of the hash.
+			const PALLET_ID_BYTES: usize = 8;
+			const MIN_SEED_BYTES: usize = 8;
+			let account_bytes = <T::AccountId as MaxEncodedLen>::max_encoded_len();
+			let seed_bytes = account_bytes.saturating_sub(PALLET_ID_BYTES);
+			assert!(
+				seed_bytes >= MIN_SEED_BYTES,
+				"T::AccountId is too small: only {seed_bytes} asset-id hash byte(s) survive in \
+				 PSM reserve sub-accounts (need >= {MIN_SEED_BYTES}); risk of reserve collisions",
+			);
+		}
+
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
@@ -1333,7 +1352,7 @@ pub mod pallet {
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::remove_psm())]
 		pub fn remove_psm(origin: OriginFor<T>, internal_asset: T::AssetId) -> DispatchResult {
-			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_assets())?;
+			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_remove_psm())?;
 			let info = Psm::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
 			ensure!(info.external_count == 0, Error::<T>::PsmHasApprovedExternals);
 			ensure!(Self::total_psm_debt(&internal_asset).is_zero(), Error::<T>::PsmHasDebt);
@@ -1444,13 +1463,8 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Derive the reserve account for a PSM instance.
-		///
-		/// The encoded `internal_asset` is first hashed with `blake2_256` to produce a
-		/// fixed-size 32-byte seed. This avoids the collision hazard of feeding an
-		/// arbitrarily-long encoded asset id (e.g. an XCM `Location`) into
-		/// `into_sub_account_truncating`, which would otherwise discard the tail and
-		/// collapse different assets onto the same reserve account.
+		/// Derive the reserve account for a PSM instance: a `PalletId` sub-account seeded with
+		/// `blake2_256(internal_asset)`.
 		pub fn psm_account(internal_asset: &T::AssetId) -> T::AccountId {
 			let seed = sp_io::hashing::blake2_256(&internal_asset.encode());
 			T::PalletId::get().into_sub_account_truncating(seed)

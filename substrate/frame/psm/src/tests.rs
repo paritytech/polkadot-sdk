@@ -1051,7 +1051,7 @@ mod governance {
 		new_test_ext().execute_with(|| {
 			// 12345 is not created in the fungibles pallet and not approved in PSM.
 			let ghost: u32 = 12345;
-			assert!(!<Assets as frame_support::traits::fungibles::Inspect<u64>>::asset_exists(
+			assert!(!<Assets as frame_support::traits::fungibles::Inspect<u128>>::asset_exists(
 				ghost
 			));
 			assert!(!crate::Pallet::<Test>::is_approved_asset(&INTERNAL_ASSET_ID, &ghost));
@@ -3017,11 +3017,11 @@ mod admin {
 	const DEFAULT_MIN_SWAP: u128 = 100 * INTERNAL_UNIT;
 
 	fn root_origin() -> OriginCaller {
-		frame_system::RawOrigin::<u64>::Root.into()
+		frame_system::RawOrigin::<u128>::Root.into()
 	}
 
-	fn signed_origin(who: u64) -> OriginCaller {
-		frame_system::RawOrigin::<u64>::Signed(who).into()
+	fn signed_origin(who: u128) -> OriginCaller {
+		frame_system::RawOrigin::<u128>::Signed(who).into()
 	}
 
 	#[test]
@@ -3153,7 +3153,7 @@ mod admin {
 		new_test_ext().execute_with(|| {
 			// An account that owns the internal asset but has no native balance to cover the
 			// creation deposit. The consideration must reject it.
-			const POOR: u64 = 7;
+			const POOR: u128 = 7;
 			assert_ok!(Assets::force_create(RuntimeOrigin::root(), NEW_INTERNAL, POOR, true, 1));
 			assert_eq!(Balances::free_balance(POOR), 0);
 
