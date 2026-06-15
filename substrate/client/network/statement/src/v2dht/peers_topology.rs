@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use super::peers_index::{Key, PeersIndex};
 use sc_network_types::PeerId;
 pub use sp_statement_store::Topic;
 use std::{
@@ -50,8 +51,10 @@ impl Default for PeersTopologyConfig {
 #[derive(Debug, Clone)]
 struct PeerInfo {
 	supports_protocol: bool,
+	/// The statement notification substream to the peer is open.
+	connected: bool,
 	/// Cached `peer_key`; the peer id never changes and hashing is costly.
-	key: [u8; 32],
+	key: Key,
 }
 
 /// Pure, event-fed local view of statement-store peers.
@@ -59,16 +62,23 @@ struct PeerInfo {
 /// The topology is built from peers learned through routing-table updates, identify metadata and
 /// statement notification connections. It computes XOR distances locally over that learned peer
 /// set; it does not issue topic-specific Kademlia lookups.
+///
+/// Topic queries walk the sorted key indexes in increasing XOR distance, without sorting the full
+/// peer set.
 #[derive(Debug, Clone)]
 pub struct PeersTopology {
 	local_peer: PeerId,
-	local_key: [u8; 32],
+	local_key: Key,
 	config: PeersTopologyConfig,
 	// TODO: add an eviction mechanism; this map grows unbounded as peers are discovered.
-	// This scaffold only records the event-fed view. A follow-up should evict peers that
-	// leave the network entirely or become unresponsive + optimize time complexity(Binary Trie).
+	// A follow-up should evict peers that leave the network entirely or become unresponsive.
 	discovered: HashMap<PeerId, PeerInfo>,
-	connected: HashSet<PeerId>,
+	/// XOR-ordered index of the statement-protocol peers: the candidates for DHT storage,
+	/// affinity and forwarding decisions.
+	discovered_index: PeersIndex,
+	/// XOR-ordered index of the connected peers, i.e. those with an open statement notification
+	/// substream.
+	connected: PeersIndex,
 }
 
 #[allow(dead_code)]
@@ -79,7 +89,8 @@ impl PeersTopology {
 			local_key: peer_key(&local_peer),
 			config,
 			discovered: HashMap::new(),
-			connected: HashSet::new(),
+			discovered_index: PeersIndex::default(),
+			connected: PeersIndex::default(),
 		}
 	}
 
@@ -98,24 +109,38 @@ impl PeersTopology {
 	/// Peers that do not support the statement protocol remain known but are excluded from DHT
 	/// storage and forwarding decisions.
 	pub fn on_peer_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
-		self.get_or_insert_peer(peer).supports_protocol = supports_statement_protocol;
+		let info = self.get_or_insert_peer(peer);
+		let key = info.key;
+		info.supports_protocol = supports_statement_protocol;
+		if supports_statement_protocol {
+			self.discovered_index.insert(key, peer);
+		} else {
+			self.discovered_index.remove(key, &peer);
+		}
 	}
 
 	/// Record that the statement notification substream opened.
 	///
 	/// An open substream implies statement-protocol support.
 	pub fn on_substream_opened(&mut self, peer: PeerId) {
-		self.get_or_insert_peer(peer).supports_protocol = true;
-		self.connected.insert(peer);
+		let info = self.get_or_insert_peer(peer);
+		let key = info.key;
+		info.supports_protocol = true;
+		info.connected = true;
+		self.discovered_index.insert(key, peer);
+		self.connected.insert(key, peer);
 	}
 
 	/// Record that the statement notification substream closed.
 	pub fn on_substream_closed(&mut self, peer: PeerId) {
-		self.connected.remove(&peer);
+		let Some(info) = self.discovered.get_mut(&peer) else { return };
+		let key = info.key;
+		info.connected = false;
+		self.connected.remove(key, &peer);
 	}
 
 	fn is_connected(&self, peer: &PeerId) -> bool {
-		self.connected.contains(peer)
+		self.discovered.get(peer).is_some_and(|info| info.connected)
 	}
 
 	/// Number of known remote peers, including peers without confirmed statement-protocol support.
@@ -138,16 +163,21 @@ impl PeersTopology {
 	///
 	/// This answers whether this node should store statements for `topic` according to DHT
 	/// affinity over the locally learned statement-store peers.
-	///
-	/// TODO: Performance is very bad, we should optimise this before any production deployment.
 	pub fn is_dht_affine(&self, topic: Topic) -> bool {
-		let mut candidates = self.dht_candidates().collect::<Vec<_>>();
-		candidates.push((self.local_peer, self.local_key));
-		candidates.sort_by_cached_key(|(peer, key)| (xor_distance(*topic, *key), *peer));
-		candidates
-			.into_iter()
-			.take(self.config.replication_factor.get())
-			.any(|(peer, _)| peer == self.local_peer)
+		let local_distance = xor_distance(*topic, self.local_key);
+		let replication_factor = self.config.replication_factor.get();
+		// The descent yields candidates in `(distance, peer)` order, so the candidates ranked
+		// before the local node form a prefix; the local node is a replica when that prefix is
+		// shorter than the replication factor.
+		let closer_count = self
+			.discovered_index
+			.closest(*topic)
+			.take_while(|(peer, key)| {
+				(xor_distance(*topic, *key), *peer) < (local_distance, self.local_peer)
+			})
+			.take(replication_factor)
+			.count();
+		closer_count < replication_factor
 	}
 
 	/// Connected peers closer to `topic` than the local node, capped at `gossip_target`.
@@ -156,19 +186,12 @@ impl PeersTopology {
 	/// responsible for storing it.
 	pub fn routing_targets(&self, topic: Topic) -> Vec<PeerId> {
 		let local_distance = xor_distance(*topic, self.local_key);
-		let mut peers = self
-			.connected
-			.iter()
-			.filter_map(|peer| {
-				let info = self.discovered.get(peer)?;
-				let distance = xor_distance(*topic, info.key);
-				(distance < local_distance).then_some((*peer, distance))
-			})
-			.collect::<Vec<_>>();
-
-		peers.sort_unstable_by_key(|&(peer, distance)| (distance, peer));
-		peers.truncate(self.config.gossip_target.get());
-		peers.into_iter().map(|(peer, _)| peer).collect()
+		self.connected
+			.closest(*topic)
+			.take_while(|(_, key)| xor_distance(*topic, *key) < local_distance)
+			.take(self.config.gossip_target.get())
+			.map(|(peer, _)| peer)
+			.collect()
 	}
 
 	/// Local-only explicit-affinity connection candidates for `topics`.
@@ -214,25 +237,17 @@ impl PeersTopology {
 
 	/// Insert `peer` into the discovered set if absent and return its record.
 	fn get_or_insert_peer(&mut self, peer: PeerId) -> &mut PeerInfo {
-		self.discovered
-			.entry(peer)
-			.or_insert_with(|| PeerInfo { supports_protocol: false, key: peer_key(&peer) })
+		self.discovered.entry(peer).or_insert_with(|| PeerInfo {
+			supports_protocol: false,
+			connected: false,
+			key: peer_key(&peer),
+		})
 	}
 
-	/// `closest_known` paired with each peer's cached key, so callers that compute further
-	/// distances reuse the key instead of looking it up again.
-	fn closest_known_keyed(&self, topic: Topic, limit: usize) -> Vec<(PeerId, [u8; 32])> {
-		let mut peers = self.dht_candidates().collect::<Vec<_>>();
-		peers.sort_by_cached_key(|(peer, key)| (xor_distance(*topic, *key), *peer));
-		peers.truncate(limit);
-		peers
-	}
-
-	fn dht_candidates(&self) -> impl Iterator<Item = (PeerId, [u8; 32])> + '_ {
-		self.discovered
-			.iter()
-			.filter(|(_, peer_info)| peer_info.supports_protocol)
-			.map(|(peer, peer_info)| (*peer, peer_info.key))
+	/// `closest_known` paired with each peer's key, so callers that compute further distances
+	/// reuse the key instead of looking it up again.
+	fn closest_known_keyed(&self, topic: Topic, limit: usize) -> Vec<(PeerId, Key)> {
+		self.discovered_index.closest(*topic).take(limit).collect()
 	}
 }
 
@@ -240,7 +255,7 @@ impl PeersTopology {
 /// covered topic, then by the smallest peer id.
 fn best_candidate(
 	topics: &[Topic],
-	pools: &[Vec<(PeerId, [u8; 32])>],
+	pools: &[Vec<(PeerId, Key)>],
 	uncovered: &HashSet<usize>,
 	selected: &[PeerId],
 ) -> Option<PeerId> {
@@ -266,7 +281,7 @@ fn best_candidate(
 		.map(|(peer, ..)| peer)
 }
 
-fn pool_contains(pool: &[(PeerId, [u8; 32])], peer: &PeerId) -> bool {
+fn pool_contains(pool: &[(PeerId, Key)], peer: &PeerId) -> bool {
 	pool.iter().any(|(candidate, _)| candidate == peer)
 }
 
@@ -275,11 +290,11 @@ fn pool_contains(pool: &[(PeerId, [u8; 32])], peer: &PeerId) -> bool {
 /// Blake2b-256 spreads peer ids uniformly over the key space. The keys only need to be
 /// consistent across statement-store nodes, which all derive them here; they need not match
 /// litep2p's SHA-256 Kademlia keys because the topology never queries Kademlia by topic.
-fn peer_key(peer: &PeerId) -> [u8; 32] {
+fn peer_key(peer: &PeerId) -> Key {
 	sp_crypto_hashing::blake2_256(&peer.to_bytes())
 }
 
-fn xor_distance(a: [u8; 32], b: [u8; 32]) -> [u8; 32] {
+fn xor_distance(a: Key, b: Key) -> Key {
 	let mut distance = [0; 32];
 	for ((distance, a), b) in distance.iter_mut().zip(a).zip(b) {
 		*distance = a ^ b;
@@ -512,5 +527,58 @@ mod tests {
 			})
 			.collect::<Vec<u8>>();
 		assert_eq!(selected_seeds, vec![13]);
+	}
+
+	#[test]
+	fn queries_match_naive_recomputation() {
+		let local = peer(1);
+		let mut topology = PeersTopology::new(local, config(5, 3));
+		let mut records = Vec::new();
+
+		for seed in 2..=220 {
+			let peer = peer(seed);
+			let supports = seed % 3 != 0;
+			let connected = seed % 4 == 0;
+			topology.on_peers_discovered([peer]);
+			if connected {
+				topology.on_substream_opened(peer);
+			}
+			// Identify after the substream opens: a connected peer may withdraw protocol
+			// support yet must remain a routing candidate.
+			topology.on_peer_identified(peer, supports);
+			records.push((peer, supports, connected));
+		}
+
+		for topic_seed in 0..32 {
+			let topic = topic(topic_seed);
+
+			let mut candidates = records
+				.iter()
+				.filter(|(_, supports, _)| *supports)
+				.map(|(peer, ..)| *peer)
+				.collect::<Vec<_>>();
+			candidates.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
+			assert_eq!(
+				topology.closest_known(topic, 7),
+				candidates.iter().copied().take(7).collect::<Vec<_>>()
+			);
+
+			let mut with_local = candidates.clone();
+			with_local.push(local);
+			with_local.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
+			let expected_affine = with_local.iter().take(5).any(|peer| *peer == local);
+			assert_eq!(topology.is_dht_affine(topic), expected_affine);
+
+			let local_distance = distance_to(topic, &local);
+			let mut connected = records
+				.iter()
+				.filter(|(_, _, connected)| *connected)
+				.map(|(peer, ..)| *peer)
+				.filter(|peer| distance_to(topic, peer) < local_distance)
+				.collect::<Vec<_>>();
+			connected.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
+			connected.truncate(3);
+			assert_eq!(topology.routing_targets(topic), connected);
+		}
 	}
 }

@@ -19,6 +19,7 @@
 //! DHT-targeted gossip path for the statement protocol.
 
 mod explicit_affinity;
+mod peers_index;
 pub mod peers_topology;
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
