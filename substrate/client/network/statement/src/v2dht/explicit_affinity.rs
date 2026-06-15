@@ -17,60 +17,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! Explicit topic affinity for the v2 DHT gossip path.
-//!
-//! Implements [#11934](https://github.com/paritytech/polkadot-sdk/issues/11934): the module that
-//! tracks which topics this node cares about, advertises a filter for them, and decides storage
-//! and forwarding from that affinity.
-//!
-//! # Implementation plan
-//!
-//! Each step is gated behind `v2dht_enabled`, self-contained, and unit-tested; a single PR may
-//! bundle several. After the data model (step 3), the real topic sources come next so production
-//! topics flow into the set; the local readers that advertise and query them, then the peer side,
-//! follow.
-//!
-//! 1. [x] **Bloom constructors.** Build the node-side [`AffinityFilter`] from a topic list,
-//!    mirroring smoldot ([#12276]). Everything below advertises and queries through this type.
-//! 2. [x] **Stub API.** Scaffold the method surface behind the v2dht gate so the orchestrator can
-//!    own the module while the bodies stay no-ops ([#12278]).
-//! 3. [x] **Source-aware topic set.** Replace the stub state with a per-topic, per-source refcount
-//!    map and an `AffinitySource` enum (configured, RPC subscription, …). `add_topics(source, …)`
-//!    and `remove_topics(source, …)` adjust the counts; a topic stays present until its last source
-//!    drops. Expose `topics()` to read the current set. Source-keying can't be retrofitted cheaply,
-//!    so it comes first; the enum is the extension point for future sources; `topics()` also feeds
-//!    the peers-topology module (#11933).
-//! 4. [x] **Configured source.** Read topics from CLI at construction and `add_topics(Configured,
-//!    …)`. A static, one-time input; validated through `topics()` now, with advertising following
-//!    at step 6. First cross-crate step; needs step 3. Closes "CLI and configuration inputs"
-//!    ([#12316]). (Optional: take the advertised-filter seed from config to match the light client
-//!    — correctness already holds, since the seed travels on the wire.)
-//! 5. [x] **RPC-subscription source.** Poll the statement store's live subscription topics on the
-//!    affinity tick and reconcile them into the `RpcSubscription` source (`replace_source_topics`).
-//!    The store owns the subscription set, so the poll cannot drift and the RPC layer stays
-//!    untouched. Needs step 3. Closes "track affinity from active subscriptions" ([#12339]).
-//! 6. [x] **Local queries.** Over the fed topic set, implement `local_filter()` (advertised
-//!    [`AffinityFilter`] built from the topics) and `local_has_explicit_affinity(stmt)` (does any
-//!    of the statement's topics sit in the set). Configured and subscribed topics start being
-//!    advertised here. Tests: filter contents and membership ([#12340]).
-//! 7. [x] **Peer filters.** `update_peer_filter`/`on_peer_disconnected` maintain a `HashMap<PeerId,
-//!    AffinityFilter>`; `peer_has_explicit_affinity(peer, stmt)` reads it for the forward decision.
-//!    Independent of the local side. The overlapping `Peer::topic_affinity` in `lib.rs` stays until
-//!    the orchestrator cutover (#11937) — v1 still reads it. Tests: store, query, drop on
-//!    disconnect ([#12342]).
-//!
-//! After step 7 the module is complete. The store and forward decisions live in the orchestrator
-//! (#11937), not here. For storage it stores a statement permanently when affinity holds —
-//! `local_has_explicit_affinity` from this module OR the DHT-closeness half from peers-topology
-//! (#11933) — and otherwise keeps it only until the next propagation, the retention the store
-//! enforces (#11936). It feeds `peer_has_explicit_affinity` into the forward decision and retires
-//! `Peer::topic_affinity`.
-//!
-//! [#12276]: https://github.com/paritytech/polkadot-sdk/pull/12276
-//! [#12278]: https://github.com/paritytech/polkadot-sdk/pull/12278
-//! [#12316]: https://github.com/paritytech/polkadot-sdk/pull/12316
-//! [#12339]: https://github.com/paritytech/polkadot-sdk/pull/12339
-//! [#12340]: https://github.com/paritytech/polkadot-sdk/pull/12340
-//! [#12342]: https://github.com/paritytech/polkadot-sdk/pull/12342
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use sc_network_types::PeerId;
