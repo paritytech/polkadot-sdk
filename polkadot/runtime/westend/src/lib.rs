@@ -166,7 +166,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_022_003,
+	spec_version: 1_022_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 27,
@@ -1973,6 +1973,22 @@ pub type Migrations = migrations::Unreleased;
 #[allow(deprecated, missing_docs)]
 pub mod migrations {
 	use super::*;
+	use frame_support::{
+		traits::{
+			fungible::{Balanced, Inspect},
+			tokens::{Fortitude, Precision, Preservation},
+			OnRuntimeUpgrade, OnUnbalanced,
+		},
+		weights::Weight,
+	};
+	use polkadot_primitives::AccountId;
+	use sp_runtime::traits::Zero;
+	#[cfg(feature = "try-runtime")]
+	use {
+		alloc::vec::Vec,
+		codec::{Decode, Encode},
+		polkadot_primitives::Balance,
+	};
 
 	parameter_types! {
 		pub const TreasuryPalletStr: &'static str = "Treasury";
@@ -1980,6 +1996,118 @@ pub mod migrations {
 		pub const ReferendaPalletStr: &'static str = "Referenda";
 		pub const OriginsPalletStr: &'static str = "Origins";
 		pub const WhitelistPalletStr: &'static str = "Whitelist";
+	}
+
+	/// Legacy treasury `PalletId` (`py/trsry`).
+	const LEGACY_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
+	const DRAIN_LOG_TARGET: &str = "runtime::westend::drain-legacy-treasury";
+
+	/// One-shot migration that drains the reducible balance of the legacy
+	/// `py/trsry`-derived account into the [`pallet_accumulate_and_forward`] accumulation
+	/// account. The runtime's `Forwarder` then teleports the funds to AssetHub's central DAP
+	/// on the next forwarding interval.
+	///
+	/// Runtime-local (not part of the generic ACF pallet).
+	/// Idempotent: a zero reducible balance is a no-op.
+	pub struct DrainLegacyTreasuryToAccumulationAccount;
+
+	impl OnRuntimeUpgrade for DrainLegacyTreasuryToAccumulationAccount {
+		fn on_runtime_upgrade() -> Weight {
+			let source: AccountId = LEGACY_TREASURY_PALLET_ID.into_account_truncating();
+			// No further inflows expected, but `Preserve` is used as a safeguard since this
+			// migration runs on every runtime upgrade until removed. Worst case: ED stays
+			// behind on a dead account.
+			let amount = <Balances as Inspect<AccountId>>::reducible_balance(
+				&source,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+			if amount.is_zero() {
+				log::info!(
+					target: DRAIN_LOG_TARGET,
+					"nothing to withdraw (reducible balance is zero)."
+				);
+				return <Runtime as frame_system::Config>::DbWeight::get().reads(1);
+			}
+
+			match <Balances as Balanced<AccountId>>::withdraw(
+				&source,
+				amount,
+				Precision::Exact,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			) {
+				Ok(credit) => {
+					<AccumulateForward as OnUnbalanced<_>>::on_unbalanced(credit);
+					log::info!(
+						target: DRAIN_LOG_TARGET,
+						"swept {amount:?} to accumulation account."
+					);
+				},
+				Err(_) => {
+					frame_support::defensive!(
+						"DrainLegacyTreasuryToAccumulationAccount: failed to withdraw from legacy treasury account"
+					);
+				},
+			}
+
+			// Distinct storage keys touched: source Account (balances + system),
+			// accumulation Account (balances + system) = 4 reads and 4 writes.
+			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(4, 4)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let source: AccountId = LEGACY_TREASURY_PALLET_ID.into_account_truncating();
+			let legacy_pre = <Balances as Inspect<AccountId>>::reducible_balance(
+				&source,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+			let accum_pre = <Balances as Inspect<AccountId>>::reducible_balance(
+				&pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account(),
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+			log::info!(
+				target: DRAIN_LOG_TARGET,
+				"pre-upgrade legacy reducible = {legacy_pre:?}, accumulation reducible = {accum_pre:?}"
+			);
+			Ok((legacy_pre, accum_pre).encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let (legacy_pre, accum_pre): (Balance, Balance) = Decode::decode(&mut &state[..])
+				.expect("pre_upgrade encoded (legacy_pre, accum_pre)");
+
+			let source: AccountId = LEGACY_TREASURY_PALLET_ID.into_account_truncating();
+			let legacy_post = <Balances as Inspect<AccountId>>::reducible_balance(
+				&source,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+			frame_support::ensure!(
+				legacy_post.is_zero(),
+				"Legacy treasury reducible balance should be zero after migration"
+			);
+
+			let accum_post = <Balances as Inspect<AccountId>>::reducible_balance(
+				&pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account(),
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+			frame_support::ensure!(
+				Some(accum_post) == accum_pre.checked_add(legacy_pre),
+				"Accumulation account balance should have increased by exactly the drained amount"
+			);
+
+			log::info!(
+				target: DRAIN_LOG_TARGET,
+				"post-upgrade OK. Legacy reducible: {legacy_post:?}, accumulation reducible: {accum_post:?}"
+			);
+			Ok(())
+		}
 	}
 
 	/// Unreleased migrations. Add new ones here:
@@ -1999,12 +2127,11 @@ pub mod migrations {
 		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
 		parachains_configuration::migration::v13::MigrateToV13<Runtime>,
 		parachains_shared::migration::MigrateToV2<Runtime>,
-		// #11705: drain residual relay-treasury balance into the accumulation account, then
-		// clear orphaned storage. Idempotent. No further activity on the legacy `py/trsry`
-		// account is expected. Safe to remove once confirmed.
-		pallet_accumulate_and_forward::migrations::DrainLegacyTreasuryToAccumulationAccount<
-			Runtime,
-		>,
+		// #11705: drain residual legacy `py/trsry` balance into the ACF accumulation
+		// account.
+		// Idempotent. No further activity on the legacy `py/trsry`
+		// account is expected. Safe to remove after the next runtime upgrade once confirmed.
+		DrainLegacyTreasuryToAccumulationAccount,
 		frame_support::migrations::RemovePallet<
 			TreasuryPalletStr,
 			<Runtime as frame_system::Config>::DbWeight,
