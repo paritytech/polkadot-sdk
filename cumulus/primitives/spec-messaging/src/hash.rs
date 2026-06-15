@@ -77,8 +77,95 @@ impl<MaxMsgLen: Get<u32>> OutgoingMessage<MaxMsgLen> {
 		preimage.extend_from_slice(&self.source.encode());
 		preimage.extend_from_slice(&self.destination.encode());
 		preimage.extend_from_slice(&self.position.to_le_bytes());
-		preimage.extend_from_slice(&self.payload.len().to_le_bytes());
+		preimage.extend_from_slice(&(self.payload.len() as u32).to_le_bytes());
 		preimage.extend_from_slice(&self.payload);
 		blake2_256(&preimage).into()
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_core::ConstU32;
+
+	type MaxLen = ConstU32<32>;
+
+	fn message(
+		source: u32,
+		destination: u32,
+		position: u64,
+		payload: Vec<u8>,
+	) -> OutgoingMessage<MaxLen> {
+		OutgoingMessage::new(
+			ParaId::from(source),
+			ParaId::from(destination),
+			position,
+			BoundedVec::try_from(payload).unwrap(),
+		)
+	}
+
+	#[test]
+	fn new_sets_fields() {
+		let msg = message(1, 2, 3, vec![1, 2, 3]);
+
+		assert_eq!(msg.source, ParaId::from(1));
+		assert_eq!(msg.destination, ParaId::from(2));
+		assert_eq!(msg.position, 3);
+		assert_eq!(msg.payload.to_vec(), vec![1, 2, 3]);
+	}
+
+	#[test]
+	fn hash_leaf_is_deterministic() {
+		let msg = message(1, 2, 3, vec![1, 2, 3]);
+
+		assert_eq!(msg.hash_leaf(), msg.hash_leaf());
+	}
+
+	#[test]
+	fn hash_leaf_matches_expected_preimage() {
+		let msg = message(1, 2, 3, vec![1, 2, 3]);
+
+		let mut expected_preimage = Vec::new();
+		expected_preimage.extend_from_slice(&LEAF_TAG.to_le_bytes());
+		expected_preimage.extend_from_slice(&LEAF_VERSION.to_le_bytes());
+		expected_preimage.extend_from_slice(&ParaId::from(1).encode());
+		expected_preimage.extend_from_slice(&ParaId::from(2).encode());
+		expected_preimage.extend_from_slice(&3u64.to_le_bytes());
+		expected_preimage.extend_from_slice(&3u32.to_le_bytes());
+		expected_preimage.extend_from_slice(&[1, 2, 3]);
+
+		assert_eq!(msg.hash_leaf(), Hash::from(blake2_256(&expected_preimage)));
+	}
+
+	#[test]
+	fn hash_leaf_differs_for_different_source() {
+		let a = message(1, 2, 3, vec![1, 2, 3]);
+		let b = message(9, 2, 3, vec![1, 2, 3]);
+
+		assert_ne!(a.hash_leaf(), b.hash_leaf());
+	}
+
+	#[test]
+	fn hash_leaf_differs_for_different_destination() {
+		let a = message(1, 2, 3, vec![1, 2, 3]);
+		let b = message(1, 9, 3, vec![1, 2, 3]);
+
+		assert_ne!(a.hash_leaf(), b.hash_leaf());
+	}
+
+	#[test]
+	fn hash_leaf_differs_for_different_position() {
+		let a = message(1, 2, 3, vec![1, 2, 3]);
+		let b = message(1, 2, 9, vec![1, 2, 3]);
+
+		assert_ne!(a.hash_leaf(), b.hash_leaf());
+	}
+
+	#[test]
+	fn hash_leaf_differs_for_different_payload() {
+		let a = message(1, 2, 3, vec![1, 2, 3]);
+		let b = message(1, 2, 3, vec![9, 9, 9]);
+
+		assert_ne!(a.hash_leaf(), b.hash_leaf());
 	}
 }
