@@ -848,6 +848,7 @@ mod benchmarks {
 			ConfigOp::Set(Perbill::max_value()),
 			ConfigOp::Set(Percent::max_value()),
 			ConfigOp::Set(false),
+			ConfigOp::Set(10),
 		);
 
 		assert_eq!(MinNominatorBond::<T>::get(), BalanceOf::<T>::max_value());
@@ -858,6 +859,7 @@ mod benchmarks {
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 		assert_eq!(MaxStakedRewards::<T>::get(), Some(Percent::from_percent(100)));
 		assert_eq!(AreNominatorsSlashable::<T>::get(), false);
+		assert_eq!(ChillInactiveThreshold::<T>::get(), 10);
 	}
 
 	#[benchmark]
@@ -865,6 +867,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		set_staking_configs(
 			RawOrigin::Root,
+			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
@@ -906,6 +909,7 @@ mod benchmarks {
 			ConfigOp::Set(0),
 			ConfigOp::Set(Percent::from_percent(0)),
 			ConfigOp::Set(Zero::zero()),
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 		)?;
@@ -1530,6 +1534,54 @@ mod benchmarks {
 		}
 
 		validate_pruning_weight::<T>(&result, "ErasValidatorIncentiveWeight", v);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
+	fn chill_inactive(
+		l: Linear<2, { ChillInactiveThreshold::<T>::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let (stash, _, _) =
+			create_validator_with_nominators::<T>(0, 0, false, true, RewardDestination::Staked)?;
+		assert!(T::VoterList::contains(&stash));
+
+		Staking::<T>::set_staking_configs(
+			RawOrigin::Root.into(),
+			ConfigOp::Set(BalanceOf::<T>::max_value()),
+			ConfigOp::Set(BalanceOf::<T>::max_value()),
+			ConfigOp::Set(0),
+			ConfigOp::Set(0),
+			ConfigOp::Set(Percent::from_percent(0)),
+			ConfigOp::Set(Zero::zero()),
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Set(l),
+		)?;
+
+		let caller = whitelisted_caller();
+		// Set the validator has been inactive for `l` eras.
+		let mut inactive = BoundedBTreeMap::new();
+		inactive.try_insert(stash.clone(), 0).unwrap();
+		let proof = (0..l)
+			.map(|era| {
+				ErasRewardPoints::<T>::insert(
+					era,
+					EraRewardPoints { total: 0, individual: inactive.clone() },
+				);
+
+				era
+			})
+			.collect::<Vec<_>>();
+		let proof = BoundedVec::truncate_from(proof);
+
+		assert!(Validators::<T>::contains_key(&stash));
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), stash.clone(), proof);
+
+		assert!(!Validators::<T>::contains_key(&stash));
 
 		Ok(())
 	}

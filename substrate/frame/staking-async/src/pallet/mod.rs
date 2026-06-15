@@ -712,10 +712,10 @@ pub mod pallet {
 		fn get() -> u32 {
 			let bonding_duration = T::BondingDuration::get();
 			bonding_duration.saturating_add(OFFENCE_QUEUE_ERAS_BOUND) // adding OFFENCE_QUEUE_ERAS_BOUND eras
-			                                                 // to add headroom to
-			                                                 // the bound for runtime upgrades that
-			                                                 // lower BondingDuration so we avoid
-			                                                 // the try_into trap.
+			                                              // to add headroom to
+			                                              // the bound for runtime upgrades that
+			                                              // lower BondingDuration so we avoid
+			                                              // the try_into trap.
 		}
 	}
 
@@ -1035,6 +1035,14 @@ pub mod pallet {
 	/// Tracks the current step of era pruning process for each era being lazily pruned.
 	#[pallet::storage]
 	pub type EraPruningState<T: Config> = StorageMap<_, Twox64Concat, EraIndex, PruningStep>;
+
+	/// The number of eras a validator can remain inactive during the last
+	/// [`Config::HistoryDepth`] before being subject to chilling because of inactivity.
+	///
+	/// This must be less than or equal [`Config::HistoryDepth`] and bigger than 1.
+	#[pallet::storage]
+	pub(crate) type ChillInactiveThreshold<T: Config> =
+		StorageValue<_, u32, ValueQuery, T::HistoryDepth>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
@@ -1518,6 +1526,12 @@ pub mod pallet {
 		CommissionTooHigh,
 		/// Optimum self-stake cannot be greater than hard cap.
 		OptimumGreaterThanCap,
+		/// Cannot find the specified validator.
+		NotValidator,
+		/// Validator inactivity proof is invalid.
+		InvalidInactivityProof,
+		/// Cannot set [`ChillInactiveThreshold`] to the provided value.
+		InvalidChillInactiveThreshold,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -2538,6 +2552,9 @@ pub mod pallet {
 		///   should be filled in order for the `chill_other` transaction to work.
 		/// * `min_commission`: The minimum amount of commission that each validators must maintain.
 		///   This is checked only upon calling `validate`. Existing validators are not affected.
+		/// * `chill_inactive_threshold`: The number of eras a validator can remain inactive during
+		///   the last [`Config::HistoryDepth`] eras before being subject to chilling becuase of
+		///   inactivity.
 		///
 		/// RuntimeOrigin must be Root to call this function.
 		///
@@ -2560,8 +2577,16 @@ pub mod pallet {
 			min_commission: ConfigOp<Perbill>,
 			max_staked_rewards: ConfigOp<Percent>,
 			are_nominators_slashable: ConfigOp<bool>,
+			chill_inactive_threshold: ConfigOp<u32>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+
+			if let ConfigOp::Set(threshold) = chill_inactive_threshold {
+				ensure!(
+					threshold > 1 && threshold <= T::HistoryDepth::get(),
+					Error::<T>::InvalidChillInactiveThreshold
+				);
+			}
 
 			macro_rules! config_op_exp {
 				($storage:ty, $op:ident) => {
@@ -2581,6 +2606,8 @@ pub mod pallet {
 			config_op_exp!(MinCommission<T>, min_commission);
 			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
 			config_op_exp!(AreNominatorsSlashable<T>, are_nominators_slashable);
+			config_op_exp!(ChillInactiveThreshold<T>, chill_inactive_threshold);
+
 			Ok(())
 		}
 		/// Declare a `controller` to stop participating as either a validator or nominator.
@@ -3110,6 +3137,54 @@ pub mod pallet {
 			}
 
 			Ok(())
+		}
+
+		/// Chill an inactive validator.
+		///
+		/// This extrinsic can be called by anyone, given that the valid inactivity proof is
+		/// provided. Inactivity proof is a vector of eras where the given validator was inactive.
+		///
+		/// Requirements for the inactivity proof:
+		/// - The length must be at least [`ChillInactiveThreshold`].
+		/// - It must be sorted in ascending order.
+		/// - It must not contain duplicate entries.
+		/// - Every item must correspond to the era for which the given validator was inactive.
+		#[pallet::call_index(35)]
+		#[pallet::weight(T::WeightInfo::chill_inactive(proof.len() as _))]
+		pub fn chill_inactive(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+			proof: BoundedVec<EraIndex, T::HistoryDepth>,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+
+			ensure!(Validators::<T>::contains_key(&stash), Error::<T>::NotValidator);
+
+			let threshold = ChillInactiveThreshold::<T>::get();
+			ensure!(proof.len() as EraIndex >= threshold, Error::<T>::InvalidInactivityProof);
+			ensure!(proof.is_sorted_by(|a, b| a < b), Error::<T>::InvalidInactivityProof);
+
+			for era in proof {
+				ensure!(
+					ErasRewardPoints::<T>::contains_key(era),
+					Error::<T>::InvalidInactivityProof
+				);
+
+				let Some(points) = ErasRewardPoints::<T>::get(era).individual.get(&stash).cloned()
+				else {
+					return Err(Error::<T>::InvalidInactivityProof.into());
+				};
+
+				ensure!(points == 0, Error::<T>::InvalidInactivityProof);
+			}
+
+			if Self::do_remove_validator(&stash) {
+				Self::deposit_event(Event::<T>::Chilled { stash });
+			} else {
+				return Err(Error::<T>::NotValidator.into());
+			}
+
+			Ok(Pays::No.into())
 		}
 	}
 

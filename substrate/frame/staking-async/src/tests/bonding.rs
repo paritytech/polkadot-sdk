@@ -1561,6 +1561,7 @@ mod reap {
 							ConfigOp::Noop,
 							ConfigOp::Noop,
 							ConfigOp::Noop,
+							ConfigOp::Noop,
 						));
 
 						// THEN the stash is still NOT reapable — ledger.total (100) >= ED (10).
@@ -1592,6 +1593,7 @@ mod reap {
 					RuntimeOrigin::root(),
 					ConfigOp::Noop,
 					ConfigOp::Set(10_000),
+					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
@@ -1819,6 +1821,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Remove,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
+					ConfigOp::Noop,
 				));
 
 				// Can't chill these users
@@ -1836,6 +1839,7 @@ mod staking_bounds_chill_other {
 					RuntimeOrigin::root(),
 					ConfigOp::Set(1_500),
 					ConfigOp::Set(2_000),
+					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
@@ -1865,6 +1869,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
+					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1885,6 +1890,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Remove,
 					ConfigOp::Remove,
 					ConfigOp::Set(Percent::from_percent(75)),
+					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
@@ -1911,6 +1917,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Remove,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
+					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1931,6 +1938,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Remove,
 					ConfigOp::Remove,
 					ConfigOp::Set(Percent::from_percent(75)),
+					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
@@ -1957,6 +1965,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
+					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1977,6 +1986,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Set(10),
 					ConfigOp::Set(10),
 					ConfigOp::Set(Percent::from_percent(75)),
+					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
@@ -2010,6 +2020,99 @@ mod staking_bounds_chill_other {
 	}
 
 	#[test]
+	fn chill_inactive_works() {
+		const NOT_VALIDATOR: AccountId = 10;
+		const VALIDATOR: AccountId = 11;
+
+		ExtBuilder::default().build_and_execute(|| {
+			let history_depth = HistoryDepth::get();
+			let inactive_threshold = history_depth / 2;
+
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Set(inactive_threshold)
+			));
+
+			let mut inactive = BoundedBTreeMap::new();
+			inactive.try_insert(VALIDATOR, 0).unwrap();
+			for era in 0..inactive_threshold {
+				ErasRewardPoints::<Test>::insert(
+					era,
+					EraRewardPoints { total: 0, individual: inactive.clone() },
+				)
+			}
+			let mut active = BoundedBTreeMap::new();
+			active.try_insert(VALIDATOR, 100).unwrap();
+			for era in inactive_threshold..history_depth {
+				ErasRewardPoints::<Test>::insert(
+					era,
+					EraRewardPoints { total: 100, individual: active.clone() },
+				)
+			}
+
+			let valid_proof = BoundedVec::truncate_from((0..inactive_threshold).collect());
+
+			assert_noop!(
+				Staking::chill_inactive(
+					RuntimeOrigin::signed(NOT_VALIDATOR),
+					NOT_VALIDATOR,
+					valid_proof.clone()
+				),
+				Error::<Test>::NotValidator
+			);
+
+			let mut too_short_proof = valid_proof.clone();
+			too_short_proof.remove(0);
+			assert_noop!(
+				Staking::chill_inactive(
+					RuntimeOrigin::signed(NOT_VALIDATOR),
+					VALIDATOR,
+					too_short_proof
+				),
+				Error::<Test>::InvalidInactivityProof
+			);
+
+			let proof_where_one_era_contains_reward_points =
+				BoundedVec::truncate_from((1..(history_depth / 2 + 1)).collect());
+			assert_noop!(
+				Staking::chill_inactive(
+					RuntimeOrigin::signed(NOT_VALIDATOR),
+					VALIDATOR,
+					proof_where_one_era_contains_reward_points
+				),
+				Error::<Test>::InvalidInactivityProof
+			);
+
+			let not_sorted_proof =
+				BoundedVec::truncate_from(valid_proof.iter().copied().rev().collect());
+			assert_noop!(
+				Staking::chill_inactive(
+					RuntimeOrigin::signed(NOT_VALIDATOR),
+					VALIDATOR,
+					not_sorted_proof
+				),
+				Error::<Test>::InvalidInactivityProof
+			);
+
+			assert_ok!(Staking::chill_inactive(
+				RuntimeOrigin::signed(NOT_VALIDATOR),
+				VALIDATOR,
+				valid_proof
+			));
+
+			System::assert_last_event(Event::<Test>::Chilled { stash: VALIDATOR }.into());
+		});
+	}
+
+	#[test]
 	fn capped_stakers_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			let validator_count = Validators::<Test>::count();
@@ -2029,6 +2132,7 @@ mod staking_bounds_chill_other {
 				ConfigOp::Remove,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
+				ConfigOp::Noop
 			));
 
 			// can create `max - validator_count` validators
@@ -2101,6 +2205,7 @@ mod staking_bounds_chill_other {
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
+				ConfigOp::Noop
 			));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(last_nominator), vec![11]));
 			assert_ok!(Staking::validate(
