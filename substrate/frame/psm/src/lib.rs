@@ -608,10 +608,6 @@ pub mod pallet {
 		InsufficientReserve,
 		/// Swap would exceed PSM debt ceiling.
 		ExceedsMaxPsmDebt,
-		/// A `max_debt` or ceiling-weight change would leave some external's outstanding debt
-		/// above its normalised ceiling. Ceilings are hard caps and may not be set beneath
-		/// outstanding debt.
-		CeilingBelowOutstandingDebt,
 		/// Swap amount below the instance's minimum threshold.
 		BelowMinimumSwap,
 		/// `create_psm` was called with a zero `min_swap_amount`.
@@ -1155,10 +1151,9 @@ pub mod pallet {
 			value: BalanceOf<T>,
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_set_max_debt())?;
-			// `max_debt` is a hard cap: reject any value that would push an external's
-			// normalised ceiling below its outstanding debt. To halt minting / wind a
-			// PSM down, use the per-asset circuit breaker (`set_asset_status`) instead.
-			Self::ensure_ceilings_cover_debt(&internal_asset, value, None)?;
+			// `max_debt` only gates minting: lowering it below outstanding debt does not claw
+			// anything back, it just pauses minting until redemptions bring the debt back under
+			// the new ceiling.
 			let old_value =
 				Psm::<T>::try_mutate(&internal_asset, |maybe| -> Result<_, DispatchError> {
 					let info = maybe.as_mut().ok_or(Error::<T>::PsmNotFound)?;
@@ -1255,14 +1250,8 @@ pub mod pallet {
 				ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
 				Error::<T>::AssetNotApproved
 			);
-			// Reweighting renormalises every external's ceiling, so reject the change if it
-			// would leave any approved external's debt above its new ceiling.
-			let info = Psm::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
-			Self::ensure_ceilings_cover_debt(
-				&internal_asset,
-				info.max_debt,
-				Some((&external_asset, weight)),
-			)?;
+			// Reweighting renormalises every external's ceiling; an external left below its new
+			// ceiling simply can't be minted until redemptions bring its debt back down.
 			let old_value = AssetCeilingWeight::<T>::get(&internal_asset, &external_asset);
 			AssetCeilingWeight::<T>::insert(&internal_asset, &external_asset, weight);
 			Self::deposit_event(Event::AssetCeilingWeightUpdated {
@@ -1540,44 +1529,6 @@ pub mod pallet {
 			Perbill::from_rational(weight, total_weight).mul_floor(max_debt)
 		}
 
-		/// Ensure that, at the given `max_debt` and with the optional per-asset
-		/// `weight_override` applied, every approved external's outstanding debt still fits
-		/// within its normalised ceiling. Used by `set_max_debt` and `set_asset_ceiling_weight`
-		/// to keep `debt <= ceiling` a true state invariant (asserted in `do_try_state`):
-		/// because ceilings are weight-normalised, changing `max_debt` or any single weight
-		/// renormalises *every* external's ceiling, so each such change must re-validate them
-		/// all.
-		fn ensure_ceilings_cover_debt(
-			internal_asset: &T::AssetId,
-			max_debt: BalanceOf<T>,
-			weight_override: Option<(&T::AssetId, Permill)>,
-		) -> DispatchResult {
-			let total_weight = match weight_override {
-				Some((external_asset, new_weight)) => {
-					let old_weight =
-						AssetCeilingWeight::<T>::get(internal_asset, external_asset).deconstruct();
-					Self::total_ceiling_weight(internal_asset)
-						.saturating_sub(old_weight)
-						.saturating_add(new_weight.deconstruct())
-				},
-				None => Self::total_ceiling_weight(internal_asset),
-			};
-			for (external_asset, debt) in PsmDebt::<T>::iter_prefix(internal_asset) {
-				if debt.is_zero() {
-					continue;
-				}
-				let weight = match weight_override {
-					Some((overridden, new_weight)) if *overridden == external_asset => new_weight,
-					_ => AssetCeilingWeight::<T>::get(internal_asset, &external_asset),
-				};
-				ensure!(
-					debt <= Self::normalised_ceiling(weight, total_weight, max_debt),
-					Error::<T>::CeilingBelowOutstandingDebt
-				);
-			}
-			Ok(())
-		}
-
 		/// Total internal-asset debt minted through a PSM instance.
 		pub(crate) fn total_psm_debt(internal_asset: &T::AssetId) -> BalanceOf<T> {
 			PsmDebt::<T>::iter_prefix_values(internal_asset)
@@ -1757,19 +1708,6 @@ pub mod pallet {
 					"sum of per-asset debts disagrees with total_psm_debt"
 				);
 
-				// 5. Aggregate debt within the configured ceiling. `set_max_debt` rejects a new
-				// ceiling below outstanding debt, so this holds as a true state invariant.
-				ensure!(sum <= info.max_debt, "Aggregate PSM debt exceeds the instance's max_debt");
-
-				// 6. Per-asset debt within its normalised ceiling for every approved external,
-				// `mint` enforces it on the way up, and `set_max_debt`/`set_asset_ceiling_weight`
-				// reject any change that would push any external's ceiling below its debt, so
-				// it holds universally.
-				for (external_asset, _) in ExternalAssets::<T>::iter_prefix(&internal_asset) {
-					let debt = PsmDebt::<T>::get(&internal_asset, &external_asset);
-					let ceiling = Self::max_asset_debt(&internal_asset, &external_asset, &info);
-					ensure!(debt <= ceiling, "Per-asset PSM debt exceeds its ceiling");
-				}
 			}
 
 			// 7. No orphaned per-asset state outside registered PSMs.
