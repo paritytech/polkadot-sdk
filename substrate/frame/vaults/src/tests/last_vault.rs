@@ -11,7 +11,7 @@ use pusd_primitives::{
 fn liquidate_only_vault_returns_last_vault_error() {
 	build_and_execute(|| {
 		register_default_branch();
-		assert_ok_open(1, DOT, 1_000, 500, rate_pct(5, 100));
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
 		// Drop the price so the vault is severely undercollateralized — but
 		// the trait-level `prepare_liquidation` still rejects on the
 		// last-vault rule before any solvency check.
@@ -24,8 +24,8 @@ fn liquidate_only_vault_returns_last_vault_error() {
 fn liquidate_succeeds_when_a_second_vault_exists() {
 	build_and_execute(|| {
 		register_default_branch();
-		assert_ok_open(1, DOT, 1_000, 500, rate_pct(5, 100));
-		assert_ok_open(2, DOT, 1_000, 500, rate_pct(5, 100));
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
 		set_price(DOT, FixedU128::from_rational(5u128, 100u128));
 		// Now the last-vault guard doesn't trip — vault 2 remains as a
 		// redistribution recipient.
@@ -37,10 +37,44 @@ fn liquidate_succeeds_when_a_second_vault_exists() {
 fn prepare_liquidation_rejects_healthy_vault() {
 	build_and_execute(|| {
 		register_default_branch();
-		assert_ok_open(1, DOT, 1_000, 500, rate_pct(5, 100));
-		assert_ok_open(2, DOT, 1_000, 500, rate_pct(5, 100));
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
 		// Price 10 → CR = 1000 * 10 / 500 = 20 ≫ MCR 1.1.
 		assert_noop!(liquidate(DOT, 1), crate::Error::<Test>::UnsafeCollateralizationRatio);
+	});
+}
+
+#[test]
+fn prepare_liquidation_rejects_final_recovery_vault() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		set_price(DOT, FixedU128::from_rational(5u128, 100u128));
+		assert_ok!(crate::Pallet::<Test>::enter_final_recovery(RuntimeOrigin::signed(99), 1, DOT));
+
+		assert_noop!(
+			<crate::Pallet<Test> as VaultLiquidationInterface<AccountId, AssetId, Balance>>::prepare_liquidation(
+				DOT, 1,
+			),
+			crate::Error::<Test>::VaultInFinalRecovery
+		);
+	});
+}
+
+#[test]
+fn prepare_liquidation_rejects_frozen_branch() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(crate::Pallet::<Test>::enable_frozen_mode(RuntimeOrigin::root(), DOT));
+
+		assert_noop!(
+			<crate::Pallet<Test> as VaultLiquidationInterface<AccountId, AssetId, Balance>>::prepare_liquidation(
+				DOT, 1,
+			),
+			crate::Error::<Test>::BranchFrozen
+		);
 	});
 }
 
@@ -51,8 +85,8 @@ fn prepare_liquidation_rejects_healthy_vault() {
 fn finalize_without_prepare_is_rejected() {
 	build_and_execute(|| {
 		register_default_branch();
-		assert_ok_open(1, DOT, 1_000, 500, rate_pct(5, 100));
-		assert_ok_open(2, DOT, 1_000, 500, rate_pct(5, 100));
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
 		// Vault 1 is still Active (in the rate index): finalize must refuse.
 		let alloc = LiquidationAllocation {
 			offset: OffsetAllocation { recipient: 1, debt: 0, collateral: 0 },
@@ -68,14 +102,84 @@ fn finalize_without_prepare_is_rejected() {
 	});
 }
 
+#[test]
+fn finalize_liquidation_rejects_offset_debt_above_post_touch_debt() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
+		set_price(DOT, FixedU128::from_rational(5u128, 100u128));
+		let post_touch = <crate::Pallet<Test> as VaultLiquidationInterface<
+			AccountId,
+			AssetId,
+			Balance,
+		>>::prepare_liquidation(DOT, 1)
+		.expect("prepare succeeds");
+
+		let alloc = LiquidationAllocation {
+			offset: OffsetAllocation { recipient: 10, debt: post_touch + 1, collateral: 0 },
+			redistribution_collateral: 0,
+			keeper: KeeperCompensation { recipient: 10, collateral: 0 },
+		};
+		assert_noop!(
+			<crate::Pallet<Test> as VaultLiquidationInterface<AccountId, AssetId, Balance>>::finalize_liquidation(
+				DOT, 1, alloc,
+			),
+			crate::Error::<Test>::InvalidLiquidationAllocation
+		);
+		assert!(crate::pallet::Vaults::<Test>::contains_key(DOT, 1));
+
+		let valid = LiquidationAllocation {
+			offset: OffsetAllocation { recipient: 10, debt: post_touch, collateral: 0 },
+			redistribution_collateral: 0,
+			keeper: KeeperCompensation { recipient: 10, collateral: 0 },
+		};
+		assert_ok!(<crate::Pallet<Test> as VaultLiquidationInterface<
+			AccountId,
+			AssetId,
+			Balance,
+		>>::finalize_liquidation(DOT, 1, valid,));
+	});
+}
+
+#[test]
+fn finalize_liquidation_rejects_collateral_payout_above_held() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
+		set_price(DOT, FixedU128::from_rational(5u128, 100u128));
+		let _ = <crate::Pallet<Test> as VaultLiquidationInterface<
+			AccountId,
+			AssetId,
+			Balance,
+		>>::prepare_liquidation(DOT, 1)
+		.expect("prepare succeeds");
+		let held = held(DOT, 1);
+
+		let alloc = LiquidationAllocation {
+			offset: OffsetAllocation { recipient: 10, debt: 0, collateral: held + 1 },
+			redistribution_collateral: 0,
+			keeper: KeeperCompensation { recipient: 10, collateral: 0 },
+		};
+		assert_noop!(
+			<crate::Pallet<Test> as VaultLiquidationInterface<AccountId, AssetId, Balance>>::finalize_liquidation(
+				DOT, 1, alloc,
+			),
+			crate::Error::<Test>::InvalidLiquidationAllocation
+		);
+		assert!(crate::pallet::Vaults::<Test>::contains_key(DOT, 1));
+	});
+}
+
 // Liquidating the vault parked as `last_dormant_vault_owner` must clear the
 // pointer along with the row, or it dangles at a missing vault.
 #[test]
 fn liquidating_parked_dormant_owner_clears_pointer() {
 	build_and_execute(|| {
 		register_default_branch();
-		assert_ok_open(1, DOT, 1_000, 500, rate_pct(1, 100));
-		assert_ok_open(2, DOT, 1_000, 500, rate_pct(2, 100));
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 100)));
+		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
 		// Partial redemption drains vault 1 below MinimumDebt → Dormant, and
 		// parks it as the next redemption target.
 		assert_ok!(redeem(DOT, 3, 350));
@@ -90,8 +194,4 @@ fn liquidating_parked_dormant_owner_clears_pointer() {
 		let bs = crate::pallet::BranchStates::<Test>::get(DOT).expect("branch state");
 		assert_eq!(bs.last_dormant_vault_owner, None, "pointer cleared with the row");
 	});
-}
-
-fn assert_ok_open(who: AccountId, asset: AssetId, coll: Balance, debt: Balance, rate: FixedU128) {
-	assert_ok!(open(who, asset, coll, debt, rate));
 }

@@ -1,9 +1,5 @@
-//! Bug-revealing tests for the redistribution / aggregate-interest accounting
-//! and FinalRecovery exit / orchestrator-trust hot spots.
-//!
-//! Each test names the bucket (`A1` … `A5`) from the deep-analysis report and
-//! is calibrated to fail on the current `master` and pass after the matching
-//! fix in Phase 1 of the plan.
+//! Tests for the redistribution / aggregate-interest accounting identities and
+//! the FinalRecovery exit / orchestrator-trust hot spots after liquidations.
 //!
 //! Conventions:
 //! - Vaults are opened with `stake == collateral`; `vault.redistribution_stake` mirrors the live
@@ -29,11 +25,9 @@ fn weighted(x: Balance, rate: FixedU128) -> Balance {
 }
 
 // After a redistribute-everything liquidation with recipients all at 5%, the
-// branch's `debt.weighted_principal_sum` should reflect the economic
-// debt at the recipient rate, not the redistributed principal at rate=1.0.
-//
-// Current implementation increments by `redistributed_debt * 1.0`, so the
-// post-liquidation weighted sum is ~20× the correct value.
+// branch's `debt.weighted_principal_sum` must reflect the economic debt at the
+// recipients' actual rate: ≈ avg recipient rate × total economic debt, not the
+// redistributed principal carried at rate=1.0.
 #[test]
 fn weighted_sum_after_redistribution_matches_avg_recipient_rate() {
 	build_and_execute(|| {
@@ -54,7 +48,7 @@ fn weighted_sum_after_redistribution_matches_avg_recipient_rate() {
 
 		let bs = BranchStates::<Test>::get(DOT).expect("branch state");
 		let total_econ = bs.debt.principal.saturating_add(bs.debt.pending_redist_principal);
-		// Post-fix: weighted_sum ≈ total_econ * 0.05 (B's rate, the only recipient).
+		// weighted_sum ≈ total_econ * 0.05 (B's rate, the only recipient).
 		let expected = weighted(total_econ, rate_pct(5, 100));
 		let actual = bs.debt.weighted_principal_sum;
 		// Tolerance: a couple of dust units from ceil/floor mismatches.
@@ -70,11 +64,8 @@ fn weighted_sum_after_redistribution_matches_avg_recipient_rate() {
 
 // Post-liquidation: advance one year, force a poke so `update_aggregate_interest`
 // runs against the redistributed share, and check that the minted aggregate
-// interest is bounded by the recipient rate (5%/yr), not by ~100%/yr.
-//
-// Under the bug, weighted_sum carries the redistributed principal at 1.0, so
-// minted interest after 1y is roughly the entire redistributed_debt — ~20×
-// what recipients owe.
+// interest after 1y is bounded by the recipient rates (≈ 5%/yr on the total
+// economic debt), reflecting what recipients actually owe.
 #[test]
 fn aggregate_interest_post_redistribution_bounded_by_recipient_rates() {
 	build_and_execute(|| {
@@ -119,13 +110,10 @@ fn aggregate_interest_post_redistribution_bounded_by_recipient_rates() {
 }
 
 // Setup three vaults at different rates; liquidate one with full
-// redistribution. After both surviving recipients touch, the branch
-// `debt.weighted_principal_sum` should equal the sum of each
-// recipient's post-touch contribution at its **own** rate, within a small
-// rounding tolerance.
-//
-// Pre-fix this is wildly off because the rate=1.0 fold at liquidation time is
-// never reconciled per-vault on touch.
+// redistribution. Each per-vault touch reconciles the redistributed principal
+// to that vault's own rate, so after both surviving recipients touch the branch
+// `debt.weighted_principal_sum` equals the sum of each recipient's post-touch
+// contribution at its **own** rate, within a small rounding tolerance.
 #[test]
 fn mixed_rate_recipients_reconcile_on_touch() {
 	build_and_execute(|| {
@@ -165,11 +153,10 @@ fn mixed_rate_recipients_reconcile_on_touch() {
 	});
 }
 
-// A3: a follow-on `borrow` against a recipient must keep the branch
-// weighted_sum consistent with each vault's own-rate contribution. Pre-fix,
-// borrow recomputes `weighted_old = post_touch_ib_debt * old_rate` while the
-// post-touch weighted_sum carries the redistributed share at an unrelated
-// rate, so the subtract over-/under-shoots.
+// A follow-on `borrow` against a recipient must keep the branch weighted_sum
+// consistent with each vault's own-rate contribution: the borrow first touches
+// the vault to fold in its redistribution share, then updates the weighted-sum
+// bookkeeping so the aggregate still equals Σ (own ib_debt × own rate).
 #[test]
 fn borrow_after_redistribution_keeps_weighted_sum_consistent() {
 	build_and_execute(|| {
@@ -217,10 +204,10 @@ fn borrow_after_redistribution_keeps_weighted_sum_consistent() {
 }
 
 // Push a vault into FinalRecovery, raise the price so the fully-accrued CR
-// goes above MCR, and `poke` it. Pre-fix, `touch_vault` auto-exits via an
-// unhinted `find_position` (O(n)) — the test asserts the new behavior: poke
-// leaves the vault in FinalRecovery and a dedicated `exit_final_recovery`
-// extrinsic does the index re-insert with caller-supplied hints.
+// goes above MCR, and `poke` it. Exit from FinalRecovery requires an explicit
+// hint and is NOT automatic on poke: poke leaves the vault in FinalRecovery,
+// and a dedicated `exit_final_recovery` extrinsic does the index re-insert with
+// caller-supplied hints.
 #[test]
 fn final_recovery_exit_requires_explicit_hint() {
 	build_and_execute(|| {
@@ -238,7 +225,7 @@ fn final_recovery_exit_requires_explicit_hint() {
 		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(99), 1, DOT));
 		assert!(
 			matches!(vault_status(DOT, 1), crate::types::VaultStatus::FinalRecovery),
-			"poke should not auto-exit FinalRecovery; current code does via unhinted find_position",
+			"poke must not auto-exit FinalRecovery; exit requires an explicit hint",
 		);
 		// Explicit `exit_final_recovery` does.
 		assert_ok!(crate::Pallet::<Test>::exit_final_recovery(
@@ -251,10 +238,9 @@ fn final_recovery_exit_requires_explicit_hint() {
 	});
 }
 
-// Test asserts the post-fix API: `OffsetAllocation` carries a `recipient`
-// AccountId and `finalize_liquidation` moves `offset.collateral` to it.
-// This test will fail to compile on `master` (no `recipient` field) — that
-// compile error is the bug signal. Post-fix it compiles and passes.
+// `OffsetAllocation` carries a `recipient` AccountId, and `finalize_liquidation`
+// moves `offset.collateral` to that recipient rather than leaking it back to the
+// liquidatee.
 #[test]
 fn finalize_liquidation_doesnt_leak_offset_collateral_to_liquidatee() {
 	build_and_execute(|| {
@@ -279,16 +265,6 @@ fn finalize_liquidation_doesnt_leak_offset_collateral_to_liquidatee() {
 			"offset.collateral should land on the offset recipient, not the liquidatee",
 		);
 	});
-}
-
-#[test]
-fn redist_per_stake_overflow_unit_check_for_completeness() {
-	// num/denom = u128::MAX/2 / 1 → quotient * 1e18 > u128::MAX.
-	let got = crate::math::redist_per_stake::<Balance>(u128::MAX / 2, 1);
-	assert!(got.is_none(), "overflow must surface as None, never silently zero");
-	// Boundary safety: just below the overflow threshold survives.
-	let safe = crate::math::redist_per_stake::<Balance>(u128::MAX / (FixedU128::DIV * 2), 1);
-	assert!(safe.is_some());
 }
 
 #[test]
@@ -411,7 +387,7 @@ fn touch_does_not_revive_dormant_when_interest_lifts_above_min_debt() {
 		// Dormant status is sticky: passive accrual never re-indexes a vault.
 		// Even though the debt has crossed MinimumDebt again, the vault stays
 		// Dormant until an explicit, hint-bearing activation (`borrow` /
-		// `activate_dormant`). See FINDINGS.md §7.
+		// `activate_dormant`).
 		assert!(
 			Vaults::<Test>::get(DOT, 2).unwrap().debt.total() >= 200,
 			"sanity: accrual should have lifted residual debt back over MinimumDebt",

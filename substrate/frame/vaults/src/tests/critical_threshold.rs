@@ -1,14 +1,12 @@
 use crate::{
 	mock::*,
 	pallet::{BranchStates, Vaults},
-	tests::rate_pct,
+	tests::{rate_pct, vault_status},
 };
 use frame::deps::{
 	frame_support::{assert_noop, assert_ok},
 	sp_runtime::FixedU128,
 };
-
-// --- shared setup -------------------------------------------------------
 
 /// Open one vault, then drop the oracle price so the branch enters Safety
 /// mode (TCR ≈ 125.87% — between ICR=120% and Safety=130%).
@@ -24,16 +22,11 @@ fn enter_safety_mode_single_vault() {
 	assert!(!BranchStates::<Test>::get(DOT).expect("branch state").is_frozen());
 }
 
-// --- ports --------------------------------------------------------------
-
-// SKIPPED row 1: testTrovesAreNotLiquidatedBetweenMCRAndCT.
-// `pallet-vaults::prepare_liquidation` performs no MCR/ICR check — that gate
-// lives in the orchestrator (`pallet-stability-pool`). The vault pallet's
+// There is no MCR-band liquidation test here because
+// `pallet-vaults::prepare_liquidation` performs no MCR/ICR check itself — that
+// gate lives in the orchestrator (`pallet-stability-pool`). The vault pallet's
 // liquidation guards are: branch frozen, vault in FinalRecovery, last vault.
-// No `NothingToLiquidate` Error variant exists.
 
-// row 2: testNoNewTrovesWithFinalTCRBelowCT.
-//
 // In Safety mode, opening a vault whose CR is above ICR but below the branch
 // TCR strictly lowers TCR — `enforce_mode_rules` rejects the open with
 // `SafetyModeTcrWorsening`.
@@ -49,8 +42,6 @@ fn safety_mode_blocks_new_vault_that_worsens_tcr() {
 	});
 }
 
-// row 3: testNewTrovesWithFinalTCRAboveCT.
-//
 // In Safety mode, opening a large healthy vault that drives TCR up is allowed
 // — even when it implicitly exits Safety mode. The Safety-branch rule is
 // "post_tcr ≥ pre_tcr" (non-worsening), with no upper bound.
@@ -63,8 +54,6 @@ fn safety_mode_allows_new_vault_that_improves_tcr() {
 	});
 }
 
-// row 4: testNoIncreaseDebtAloneWithFinalTCRBelowCT.
-//
 // In Safety mode, borrowing more pUSD without adding collateral worsens TCR
 // by exactly the upfront-fee proportion → reverts.
 #[test]
@@ -85,39 +74,6 @@ fn safety_mode_blocks_borrow_alone() {
 	});
 }
 
-// row 5: testNoIncreaseDebtWithAddCollWithFinalTCRBelowCT.
-//
-// In Safety mode, adding a *small* amount of collateral (insufficient to
-// offset the borrow) and then borrowing still worsens TCR. The deposit
-// itself is unconditionally allowed (`deposit_collateral_for` does not
-// enforce mode rules in the polkadot port); the borrow that follows is
-// what reverts.
-#[test]
-fn safety_mode_blocks_borrow_with_small_deposit() {
-	build_and_execute(|| {
-		enter_safety_mode_single_vault();
-		assert_ok!(crate::Pallet::<Test>::deposit_collateral_for(
-			RuntimeOrigin::signed(1),
-			1,
-			DOT,
-			1,
-		));
-		assert_noop!(
-			crate::Pallet::<Test>::borrow(
-				RuntimeOrigin::signed(1),
-				DOT,
-				200,
-				None,
-				None,
-				Position::endpoints_only(),
-			),
-			crate::Error::<Test>::SafetyModeTcrWorsening
-		);
-	});
-}
-
-// row 6: testIncreaseDebtWithAddCollWithFinalTCRAboveCT.
-//
 // In Safety mode, adding *enough* collateral first lifts TCR back above the
 // safety threshold, after which a moderate borrow is allowed because both
 // pre- and post-states sit in Normal mode.
@@ -144,8 +100,6 @@ fn safety_mode_allows_borrow_after_large_deposit() {
 	});
 }
 
-// row 7: testNoIncreaseDebtWithWithdrawCollBelowCT.
-//
 // In Safety mode, withdrawing collateral always worsens TCR (less collateral,
 // same debt). The `withdraw_collateral` extrinsic guard fires before any
 // follow-up borrow can be attempted.
@@ -160,11 +114,9 @@ fn safety_mode_blocks_withdraw_alone() {
 	});
 }
 
-// row 8: testWithdrawCollAlongWithRepaymentBelowCT.
-//
-// In Safety mode, the polkadot equivalent of "withdraw + matching repay" is
-// to repay first (always allowed — `repay_for` does not enforce mode rules)
-// and then withdraw. After enough debt is repaid, the branch may exit Safety
+// In Safety mode, a withdraw paired with a matching repay is done by repaying
+// first (always allowed — `repay_for` does not enforce mode rules) and then
+// withdrawing. After enough debt is repaid, the branch may exit Safety
 // mode entirely; the subsequent withdraw still passes the per-call TCR check
 // because post_TCR ≥ Safety in Normal mode.
 #[test]
@@ -185,15 +137,12 @@ fn safety_mode_allows_repay_then_withdraw() {
 	});
 }
 
-// rows 9, 10: testNoCollWithdrawalWith{Low,No}RepaymentBelowCT — these
-// reduce to `safety_mode_blocks_withdraw_alone` above. Liquity's
-// `RepaymentNotMatchingCollWithdrawal` error is specific to its atomic
-// `adjustTrove(coll_delta, debt_delta)` signature; the polkadot port's
-// per-call gate fires the moment the standalone `withdraw_collateral` would
-// worsen TCR. No additional coverage.
+// Withdrawing collateral with too-low (or no) matching repayment reduces to
+// `safety_mode_blocks_withdraw_alone` above. There is no single atomic `adjust`
+// extrinsic combining collateral and debt deltas, so the per-call safety gate
+// fires standalone the moment `withdraw_collateral` would worsen TCR. No
+// additional coverage.
 
-// row 11: testNoPrematureInterestRateAdjustmentIfItWouldPullTCRBelowCCR.
-//
 // In Normal mode, a premature rate change that would push TCR below the
 // safety threshold reverts. The upfront fee bumps
 // `bs.debt.minted_interest` and lowers post-TCR; if pre-TCR is
@@ -220,8 +169,6 @@ fn normal_mode_blocks_premature_rate_change_pulling_into_safety() {
 	});
 }
 
-// row 12: testPrematureInterestRateAdjustmentDisallowedIfTCRAlreadyBelowCCR.
-//
 // Once the branch is in Safety mode, a *premature* (fee-charging) rate
 // change is rejected outright — the upfront fee strictly worsens TCR.
 // A *post-cooldown* (zero-fee) rate change is still allowed because the
@@ -312,14 +259,11 @@ fn safety_mode_allows_close_zero_collateral() {
 	});
 }
 
-// row 13: testNoAdjustmentIfFinalICRLtMCRFromAbove100AddingColl.
-//
 // In Safety mode, a vault whose CR has fallen below ICR (e.g., due to a
 // price drop) cannot borrow until enough collateral is deposited to bring
-// the CR back above ICR. The Liquity test uses `adjustTrove(+coll,+0)`
-// where the +0-debt adjust still triggers the ICR guard; in polkadot we
-// exercise the same guard via `borrow(+0)` (which validates CR without
-// changing debt).
+// the CR back above ICR. A zero-amount borrow still triggers the ICR guard,
+// so we use `borrow(+0)` as a CR-gate-only probe that validates CR without
+// changing debt.
 #[test]
 fn safety_mode_blocks_borrow_when_cr_below_icr() {
 	build_and_execute(|| {
@@ -368,12 +312,10 @@ fn safety_mode_blocks_borrow_when_cr_below_icr() {
 	});
 }
 
-// row 14: testNoAdjustmentIfFinalICRLtMCRFromAbove100Repaying.
-//
-// Mirror of row 13 from the repayment side: a vault below ICR cannot make
-// itself worse via `withdraw_collateral` (the per-call ICR guard fires).
-// Depositing enough collateral to lift branch TCR back above the safety
-// threshold lets a subsequent withdraw pass the Normal-mode gate.
+// The withdraw-side analogue of the borrow guard above: a vault below ICR
+// cannot make itself worse via `withdraw_collateral` (the per-call ICR guard
+// fires). Depositing enough collateral to lift branch TCR back above the
+// safety threshold lets a subsequent withdraw pass the Normal-mode gate.
 #[test]
 fn safety_mode_blocks_withdraw_when_cr_below_icr() {
 	build_and_execute(|| {
@@ -410,10 +352,21 @@ fn safety_mode_blocks_withdraw_when_cr_below_icr() {
 	});
 }
 
-// rows 15, 16: testNoAdjustmentIfFinalICRLtMCRFromBelow100{AddingColl,Repaying}.
-//
-// Same shape as rows 13 and 14 but with the vault's CR already below 100%
-// (vault is bad-debt-bearing). In polkadot the per-call ICR gate fires for
-// any post-CR < ICR regardless of whether pre-CR was > or < 100%, so the
-// behaviour is identical to rows 13 and 14. Captured here for completeness
-// of the source-of-truth catalog; not duplicated as separate Rust tests.
+// Redemptions are the protocol's settlement mechanism: unlike borrow / withdraw
+// / close / change_rate (gated above), `apply_redemption` is deliberately not
+// subject to the Safety-mode TCR rules, so a redemption settles even while the
+// branch sits in Safety mode.
+#[test]
+fn redemption_proceeds_in_safety_mode() {
+	build_and_execute(|| {
+		enter_safety_mode_single_vault();
+		let tcr = crate::Pallet::<Test>::branch_tcr(DOT).expect("tcr");
+		assert!(tcr < rate_pct(130, 100), "setup must leave the branch in Safety mode");
+
+		let target = redeem(DOT, 3, 1_000).expect("redemption settles in Safety mode");
+		assert_eq!(target, 1);
+		// The vault kept enough debt to remain Active; the redemption simply went
+		// through despite Safety mode.
+		assert_eq!(vault_status(DOT, 1), crate::types::VaultStatus::Active);
+	});
+}

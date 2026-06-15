@@ -1,12 +1,14 @@
+//! Rate-index (`VaultListId::Rate`) ordering: insertion, removal, and
+//! re-insertion of vaults keyed by their annual borrow rate.
+
 use crate::{mock::*, tests::rate_pct};
 use frame::deps::frame_support::assert_ok;
 use pallet_linked_list::SortedListInterface;
 
 const ONE_DAY_MS: Moment = 24 * 3_600 * 1_000;
 
-// row 1: test_SortsIndividualTrovesByAnnualInterestRate — open vaults in
-// arbitrary order, walk tail-first (lowest score → highest), expect ascending
-// order.
+// Open vaults in arbitrary order; walking the rate index tail-first (lowest
+// rate → highest) yields ascending order.
 #[test]
 fn open_orders_dll_by_annual_interest_rate() {
 	build_and_execute(|| {
@@ -24,8 +26,7 @@ fn open_orders_dll_by_annual_interest_rate() {
 	});
 }
 
-// row 3: test_FindsValidInsertPosition — `find_rate_position` returns valid
-// neighbors for any new score.
+// `find_rate_position` returns valid neighbors for any new score.
 #[test]
 fn find_rate_position_returns_valid_neighbors() {
 	build_and_execute(|| {
@@ -52,8 +53,7 @@ fn find_rate_position_returns_valid_neighbors() {
 	});
 }
 
-// row 4: test_CanRemoveIndividualTroves — closing a vault removes it from
-// the rate index.
+// Closing a vault removes it from the rate index.
 #[test]
 fn close_vault_removes_from_rate_index() {
 	build_and_execute(|| {
@@ -70,8 +70,8 @@ fn close_vault_removes_from_rate_index() {
 			v.debt.interest,
 			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
 		);
-		// repay-to-zero auto-closes (DESIGN.md §8.1), which also removes
-		// the vault from the rate index.
+		// repay-to-zero auto-closes, which also removes the vault from the
+		// rate index.
 		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(3), 3, DOT, total));
 		assert!(!<LinkedList as SortedListInterface<VaultList, u64>>::contains(
 			&rate_list(DOT),
@@ -86,9 +86,9 @@ fn close_vault_removes_from_rate_index() {
 	});
 }
 
-// row 6: test_CanReInsert — `change_rate` re-inserts the vault at its new
-// rate position. We walk through several adjustments and assert the final
-// ordering matches the expected ascending-by-rate sequence.
+// `change_rate` re-inserts the vault at its new rate position. Walk through
+// several adjustments and assert the final ordering matches the expected
+// ascending-by-rate sequence.
 #[test]
 fn change_rate_re_inserts_in_correct_position() {
 	build_and_execute(|| {
@@ -122,21 +122,55 @@ fn change_rate_re_inserts_in_correct_position() {
 	});
 }
 
-// Polkadot-specific: same-rate insertion lands at the tail of the same-rate
-// run (LIFO). Already covered in `lifecycle::same_rate_lifo_redemption_order`,
-// re-asserted here with five vaults to confirm the pattern doesn't degrade.
+// `find_re_insert_position` returns where a listed vault would land at a new
+// rate (skipping its own node), and `None` for a vault that is not listed.
 #[test]
-fn same_rate_insertion_lands_at_tail_of_run() {
+fn find_re_insert_position_locates_target_and_none_for_unlisted() {
 	build_and_execute(|| {
 		register_default_branch();
-		for who in 1u64..=5 {
-			assert_ok!(open(who, DOT, 1_000, 500, rate_pct(5, 100)));
+		for (who, pct) in [(1u64, 5), (2, 10), (3, 20), (4, 30), (5, 50)] {
+			assert_ok!(open(who, DOT, 1_000, 500, rate_pct(pct, 100)));
 		}
-		// Tail-first iteration of a same-rate run is reverse insertion order.
-		let order = <LinkedList as SortedListInterface<VaultList, u64>>::iter_from_tail(
-			&rate_list(DOT),
-			10,
+		// Move vault 3 (currently 20%) to 25%: its own node is skipped, so among
+		// the remaining {5, 10, 30, 50} the new rate sits between 10% (vault 2,
+		// tail side) and 30% (vault 4, head side).
+		let pos = crate::Pallet::<Test>::find_re_insert_position(DOT, 3, rate_pct(25, 100))
+			.expect("vault 3 is listed");
+		assert_eq!(pos.prev, Some(4));
+		assert_eq!(pos.next, Some(2));
+		// A never-opened owner is not in the rate index.
+		assert_eq!(
+			crate::Pallet::<Test>::find_re_insert_position(DOT, 99, rate_pct(25, 100)),
+			None
 		);
-		assert_eq!(order, alloc::vec![5, 4, 3, 2, 1]);
+	});
+}
+
+// `vault_rate_index_neighbors` reports a listed vault's live neighbors (`None`
+// at the head/tail ends) and `None` for a vault outside the index.
+#[test]
+fn vault_rate_index_neighbors_reports_ends_and_none_when_unlisted() {
+	build_and_execute(|| {
+		register_default_branch();
+		for (who, pct) in [(1u64, 5), (2, 10), (3, 20), (4, 30), (5, 50)] {
+			assert_ok!(open(who, DOT, 1_000, 500, rate_pct(pct, 100)));
+		}
+		// Tail = lowest rate (vault 1, 5%): no lower (tail-side) neighbor.
+		let tail = crate::Pallet::<Test>::vault_rate_index_neighbors(DOT, 1).expect("listed");
+		assert_eq!(tail.next, None);
+		assert_eq!(tail.prev, Some(2));
+		// Head = highest rate (vault 5, 50%): no higher (head-side) neighbor.
+		let head = crate::Pallet::<Test>::vault_rate_index_neighbors(DOT, 5).expect("listed");
+		assert_eq!(head.prev, None);
+		assert_eq!(head.next, Some(4));
+		// Middle vault has both neighbors.
+		let mid = crate::Pallet::<Test>::vault_rate_index_neighbors(DOT, 3).expect("listed");
+		assert_eq!(mid.prev, Some(4));
+		assert_eq!(mid.next, Some(2));
+		// A never-opened owner is not in the index.
+		assert_eq!(crate::Pallet::<Test>::vault_rate_index_neighbors(DOT, 99), None);
+		// Redeeming the tail vault to zero drops it from the index → no neighbors.
+		assert_ok!(redeem(DOT, 6, 600));
+		assert_eq!(crate::Pallet::<Test>::vault_rate_index_neighbors(DOT, 1), None);
 	});
 }

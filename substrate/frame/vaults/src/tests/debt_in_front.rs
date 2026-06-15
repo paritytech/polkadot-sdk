@@ -1,11 +1,9 @@
 use crate::{mock::*, tests::rate_pct};
 use frame::deps::frame_support::assert_ok;
 
-// row 1: test_GetDebtBetweenInterestRates (reformulated as
-// "debt-in-front-of-rate", since polkadot doesn't have the
-// `getDebtBetweenInterestRates(low, high, …)` Liquity helper — it has the
-// simpler `view_debt_in_front` from which the Liquity range can be derived
-// as `view_debt_in_front(high) - view_debt_in_front(low)`).
+// `view_debt_in_front` returns the total debt at rates strictly below a given
+// rate. A debt-between-two-rates range is derivable from two calls:
+// `debt_in_front(high) - debt_in_front(low)`.
 #[test]
 fn debt_in_front_sums_lower_rate_vaults_only() {
 	build_and_execute(|| {
@@ -44,8 +42,54 @@ fn debt_in_front_sums_lower_rate_vaults_only() {
 	});
 }
 
-// row 2: test_GetDebtBetweenInterestRateAndTrove. Polkadot's
-// `view_debt_in_front` doesn't take a stop-at-vault id directly. Frontends
-// would compose it: query `debt_in_front(target_rate)`, then query the
-// target vault's specific debt and subtract any portion not yet in front.
-// Captured here for completeness; no separate Rust test required.
+// The walk sums recorded *principal*, never the accrued interest folded into a
+// vault's stored debt on touch.
+#[test]
+fn debt_in_front_counts_principal_not_total_debt() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 5_000, 500, rate_pct(5, 1000))); // 0.5%
+		assert_ok!(open(2, DOT, 5_000, 700, rate_pct(6, 1000))); // 0.6%
+														   // Accrue a year of interest and materialise it into stored debt.
+		advance_time(365 * 24 * 3_600 * 1_000);
+		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(9), 1, DOT));
+		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(9), 2, DOT));
+		let v1 = crate::pallet::Vaults::<Test>::get(DOT, 1).expect("v1");
+		assert!(v1.debt.interest > 0, "interest must have materialised on top of principal");
+		// Still just the principals: 500 + 700.
+		let in_front = crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(1, 100), u32::MAX);
+		assert_eq!(in_front, 1_200);
+	});
+}
+
+// A vault redeemed out of the rate index (to Dormant) is no longer walked, so
+// its principal leaves the debt-in-front total.
+#[test]
+fn debt_in_front_excludes_dormant_vaults() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 5_000, 500, rate_pct(5, 1000))); // 0.5%, tail
+		assert_ok!(open(2, DOT, 5_000, 700, rate_pct(6, 1000))); // 0.6%
+		assert_eq!(crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(1, 100), u32::MAX), 1_200);
+		// Fully redeem the tail vault (acct 1) → Dormant, out of the rate index.
+		assert_ok!(redeem(DOT, 3, 600));
+		assert_eq!(
+			crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(1, 100), u32::MAX),
+			700,
+			"dormant vault's principal is no longer counted"
+		);
+	});
+}
+
+// A zero step budget and an empty rate index both return zero.
+#[test]
+fn debt_in_front_zero_for_no_steps_or_empty_index() {
+	build_and_execute(|| {
+		register_default_branch();
+		// Empty rate index → nothing in front.
+		assert_eq!(crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(1, 100), u32::MAX), 0);
+		assert_ok!(open(1, DOT, 5_000, 500, rate_pct(5, 1000)));
+		// A zero step budget visits no vaults.
+		assert_eq!(crate::Pallet::<Test>::debt_in_front(DOT, rate_pct(1, 100), 0), 0);
+	});
+}

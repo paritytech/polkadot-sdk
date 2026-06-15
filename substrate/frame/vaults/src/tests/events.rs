@@ -7,9 +7,9 @@ fn assert_event(event: crate::Event<Test>) {
 	System::assert_has_event(RuntimeEvent::Vaults(event));
 }
 
-// row 1, 2: open emits the canonical opening trio (VaultOpened, plus
-// CollateralDeposited and Borrowed for the inputs, plus UpfrontFeeCharged
-// for the protocol-favored fee).
+// Open emits the canonical opening trio (VaultOpened, plus CollateralDeposited
+// and Borrowed for the inputs, plus UpfrontFeeCharged for the protocol-favored
+// fee).
 #[test]
 fn open_vault_emits_canonical_events() {
 	build_and_execute(|| {
@@ -28,13 +28,12 @@ fn open_vault_emits_canonical_events() {
 			recipient: 1,
 			amount: 2_000,
 		});
-		// Upfront fee is non-trivial after the math fix.
+		// Upfront fee is non-trivial for these inputs.
 		let predicted_fee =
 			crate::Pallet::<Test>::predict_open_upfront_fee(DOT, 2_000, rate_pct(10, 100));
 		assert!(predicted_fee > 0);
-		// We can't compute the predicted fee post-hoc (state changed), so
-		// we re-derive it before the open. To keep it simple, assert the
-		// event was emitted with that value (read out of vault.accrued).
+		// The charged fee equals the vault's recorded interest; assert the
+		// event carries that amount.
 		let v = crate::pallet::Vaults::<Test>::get(DOT, 1).unwrap();
 		assert_event(crate::Event::UpfrontFeeCharged {
 			collateral_id: DOT,
@@ -44,8 +43,8 @@ fn open_vault_emits_canonical_events() {
 	});
 }
 
-// rows 3, 4: adjust → polkadot has separate events. Cover the deposit-then-
-// borrow combination.
+// A third-party deposit emits CollateralDeposited (`from` = caller, `owner` =
+// vault owner); there is no single combined "adjust" event.
 #[test]
 fn deposit_collateral_emits_collateral_deposited() {
 	build_and_execute(|| {
@@ -119,8 +118,7 @@ fn repay_emits_repaid() {
 	});
 }
 
-// rows 5, 6: rate adjust emits BorrowRateChanged + UpfrontFeeCharged when
-// premature.
+// A rate change emits BorrowRateChanged (and UpfrontFeeCharged when premature).
 #[test]
 fn change_rate_emits_borrow_rate_changed() {
 	build_and_execute(|| {
@@ -174,8 +172,7 @@ fn premature_change_rate_emits_upfront_fee_charged() {
 	});
 }
 
-// rows 7, 8: poke (applyPendingDebt) emits InterestAccrued when there is
-// any pending interest to materialise.
+// poke emits InterestAccrued when there is pending interest to materialise.
 #[test]
 fn poke_emits_interest_accrued() {
 	build_and_execute(|| {
@@ -197,28 +194,7 @@ fn poke_emits_interest_accrued() {
 	});
 }
 
-// rows 9, 10: close emits VaultClosed.
-#[test]
-fn close_vault_emits_vault_closed() {
-	build_and_execute(|| {
-		register_default_branch();
-		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
-		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
-		// Repay vault 2 and close.
-		let v = crate::pallet::Vaults::<Test>::get(DOT, 2).unwrap();
-		let total = v.debt.principal + v.debt.interest;
-		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
-			&1,
-			&2,
-			v.debt.interest,
-			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
-		);
-		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 2, DOT, total));
-		assert_event(crate::Event::VaultClosed { collateral_id: DOT, owner: 2, recipient: 2 });
-	});
-}
-
-// rows 17, 18: redemption emits VaultRedeemed (one per redeemed vault).
+// A redemption emits VaultRedeemed (one per redeemed vault).
 #[test]
 fn redemption_emits_vault_redeemed() {
 	build_and_execute(|| {

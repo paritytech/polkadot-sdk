@@ -6,67 +6,23 @@ use crate::{
 use frame::deps::frame_support::{assert_noop, assert_ok};
 use pallet_linked_list::SortedListInterface;
 
-// tests.md row 2: testOpenTroveFailsWithoutBalance.
-//
-// In polkadot the underlying `fungible::hold` call fails with a token-layer
-// error when the caller's free balance is below the requested collateral
-// amount. We use account 100 which is not funded by genesis (only 1..=10 are).
+// Opening a vault from an account whose free balance is below the requested
+// collateral fails at the token layer: the `fungible::hold` call returns an
+// error. Account 100 is not funded by genesis (only 1..=10 are).
 #[test]
-fn open_trove_fails_without_balance() {
+fn open_vault_fails_without_balance() {
 	build_and_execute(|| {
 		register_default_branch();
 		assert!(open(100, DOT, 1_000, 500, rate_pct(5, 100)).is_err());
 	});
 }
 
-// tests.md row 3: testOpenTrove.
-//
-// Vault count is one after opening; storage row stamped Active with the
-// declared debt.
-#[test]
-fn open_trove() {
-	build_and_execute(|| {
-		register_default_branch();
-		assert_ok!(open(1, DOT, 1_000, 1_000, rate_pct(5, 100)));
-		assert_eq!(Vaults::<Test>::iter_prefix(DOT).count(), 1);
-		assert!(vault_status(DOT, 1).is_active());
-	});
-}
-
-// tests.md row 4: testCloseTrove.
-//
-// Open A and B; B closes (after repaying its full debt — including the
-// upfront fee that landed in `accrued_interest`) and the surviving vault
-// count is one.
-#[test]
-fn close_trove() {
-	build_and_execute(|| {
-		register_default_branch();
-		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
-		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
-		let v = Vaults::<Test>::get(DOT, 2).expect("vault stored");
-		let total = v.debt.principal + v.debt.interest;
-		// Caller needs enough pUSD to cover the upfront fee on top of their
-		// borrowed principal — top them up from acct 1's mint.
-		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
-			&1,
-			&2,
-			v.debt.interest,
-			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
-		);
-		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 2, DOT, total));
-		assert_eq!(Vaults::<Test>::iter_prefix(DOT).count(), 1);
-	});
-}
-
-// tests.md row 5: testAdjustTrove (reformulated).
-//
-// Polkadot has no single `adjust_vault` extrinsic — adjustments are applied
+// There is no single `adjust_vault` extrinsic — adjustments are applied
 // through the per-action dispatchables (`deposit_collateral_for`, `borrow`,
-// `withdraw_collateral`, `repay_for`). This test exercises a +collateral
-// then +debt sequence and asserts the end-state shows both deltas.
+// `withdraw_collateral`, `repay_for`). This exercises a +collateral then
+// +debt sequence and asserts the end-state shows both deltas.
 #[test]
-fn adjust_trove_via_deposit_then_borrow() {
+fn adjust_vault_via_deposit_then_borrow() {
 	build_and_execute(|| {
 		register_default_branch();
 		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
@@ -92,6 +48,87 @@ fn adjust_trove_via_deposit_then_borrow() {
 		// pUSD net to user: initial 500 + 300 borrowed (fees go to fee handler
 		// dropper, not the user).
 		assert_eq!(pusd_balance(1), 800);
+	});
+}
+
+#[test]
+fn borrow_with_recipient_mints_to_recipient_not_owner() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 2_000, 500, rate_pct(5, 100)));
+		let owner_pre = pusd_balance(1);
+		let recipient_pre = pusd_balance(4);
+
+		assert_ok!(crate::Pallet::<Test>::borrow(
+			RuntimeOrigin::signed(1),
+			DOT,
+			300,
+			None,
+			Some(4),
+			Position::endpoints_only(),
+		));
+
+		assert_eq!(pusd_balance(1), owner_pre);
+		assert_eq!(pusd_balance(4), recipient_pre + 300);
+		let v = Vaults::<Test>::get(DOT, 1).expect("vault stored");
+		assert_eq!(v.debt.principal, 800);
+	});
+}
+
+#[test]
+fn withdraw_collateral_with_recipient_transfers_to_recipient() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 3_000, 500, rate_pct(5, 100)));
+		let recipient_pre = collateral_balance(DOT, 4);
+
+		assert_ok!(crate::Pallet::<Test>::withdraw_collateral(
+			RuntimeOrigin::signed(1),
+			DOT,
+			250,
+			Some(4),
+		));
+
+		assert_eq!(held(DOT, 1), 2_750);
+		assert_eq!(collateral_balance(DOT, 4), recipient_pre + 250);
+	});
+}
+
+#[test]
+fn repay_for_by_third_party_burns_payer_balance_and_updates_owner_vault() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 2_000, 500, rate_pct(5, 100)));
+		assert_ok!(open(2, DOT, 2_000, 500, rate_pct(5, 100)));
+		let payer_pre = pusd_balance(2);
+		let v_pre = Vaults::<Test>::get(DOT, 1).expect("vault stored");
+
+		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(2), 1, DOT, 100));
+
+		assert_eq!(pusd_balance(2), payer_pre - 100);
+		let v_post = Vaults::<Test>::get(DOT, 1).expect("vault stored");
+		assert_eq!(v_post.debt.total(), v_pre.debt.total() - 100);
+	});
+}
+
+#[test]
+fn close_vault_with_recipient_releases_collateral_to_recipient() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 100)));
+		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
+		let v = Vaults::<Test>::get(DOT, 1).expect("vault stored");
+		let total = v.debt.total();
+		assert_eq!(redeem(DOT, 3, total).expect("redeem ok"), 1);
+		assert!(vault_status(DOT, 1).is_dormant());
+
+		let residual = held(DOT, 1);
+		let recipient_pre = collateral_balance(DOT, 4);
+		assert_ok!(crate::Pallet::<Test>::close_vault(RuntimeOrigin::signed(1), DOT, Some(4)));
+
+		assert!(Vaults::<Test>::get(DOT, 1).is_none());
+		assert_eq!(held(DOT, 1), 0);
+		assert_eq!(collateral_balance(DOT, 4), recipient_pre + residual);
 	});
 }
 

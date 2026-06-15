@@ -11,9 +11,9 @@ mod hint_helpers;
 mod interest_rate;
 mod last_vault;
 mod lifecycle;
+mod rate_index;
 mod redemptions;
 mod redistribution_accounting;
-mod sorted_troves;
 
 use frame::deps::sp_runtime::FixedU128;
 

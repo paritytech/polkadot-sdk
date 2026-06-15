@@ -8,15 +8,14 @@ use frame::deps::{
 	sp_runtime::FixedU128,
 };
 use pallet_linked_list::SortedListInterface;
+use pusd_primitives::{RedemptionAllocation, VaultRedemptionInterface};
 
 const ONE_DAY_MS: Moment = 24 * 3_600 * 1_000;
 
-// =====================================================================
-// §A: Active → Dormant transitions on redemption
-// =====================================================================
+// Behavior note: Dormant vaults can still be the target of `withdraw` and
+// `repay` operations. The carve-outs are `change_rate` and collateral-only
+// deposits that cannot revive the vault to `Debt >= MinimumDebt`.
 
-// row 11: testFullyRedeemedTroveBecomesZombieTrove.
-// row 14: testZombieTrovesRemovedFromSortedList — rolled in.
 #[test]
 fn fully_redeemed_vault_becomes_dormant_and_leaves_rate_index() {
 	build_and_execute(|| {
@@ -35,6 +34,8 @@ fn fully_redeemed_vault_becomes_dormant_and_leaves_rate_index() {
 		let v = Vaults::<Test>::get(DOT, 1).unwrap();
 		assert!(vault_status(DOT, 1).is_dormant());
 		assert_eq!(v.debt.principal + v.debt.interest, 0);
+		let bs = BranchStates::<Test>::get(DOT).unwrap();
+		assert_eq!(bs.last_dormant_vault_owner, None);
 		// Rate index no longer contains acct 1.
 		assert!(!<LinkedList as SortedListInterface<VaultList, u64>>::contains(
 			&rate_list(DOT),
@@ -43,7 +44,6 @@ fn fully_redeemed_vault_becomes_dormant_and_leaves_rate_index() {
 	});
 }
 
-// row 12: testTroveRedeemedToBelowMIN_DEBTBecomesZombieTrove.
 #[test]
 fn redeemed_below_min_debt_becomes_dormant() {
 	build_and_execute(|| {
@@ -58,6 +58,8 @@ fn redeemed_below_min_debt_becomes_dormant() {
 		let total = v.debt.principal + v.debt.interest;
 		assert!(total > 0 && total < 200, "got total = {}", total);
 		assert!(vault_status(DOT, 1).is_dormant());
+		let bs = BranchStates::<Test>::get(DOT).unwrap();
+		assert_eq!(bs.last_dormant_vault_owner, Some(1));
 		assert!(!<LinkedList as SortedListInterface<VaultList, u64>>::contains(
 			&rate_list(DOT),
 			&1
@@ -65,7 +67,6 @@ fn redeemed_below_min_debt_becomes_dormant() {
 	});
 }
 
-// row 13: testTroveRedeemedToAboveMIN_DEBTDoesNotBecomesZombieTrove.
 #[test]
 fn redeemed_above_min_debt_stays_active() {
 	build_and_execute(|| {
@@ -80,44 +81,97 @@ fn redeemed_above_min_debt_stays_active() {
 	});
 }
 
-// =====================================================================
-// §B: last_dormant_vault_owner pointer (rows 16, 17)
-// =====================================================================
-
-// row 16: testRedemptionsWithNoPartialLeaveNoPointerToZombieTroves.
-//
-// When all redeemed vaults are fully cleared (no residual), the
-// `last_dormant_vault_owner` pointer ends up `None` — no in-flight Dormant
-// to track.
 #[test]
-fn full_redemption_leaves_no_dormant_pointer() {
+fn touch_for_redemption_rejects_frozen_branch_and_missing_vault() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_noop!(
+			<crate::Pallet<Test> as VaultRedemptionInterface<AccountId, AssetId, Balance>>::touch_for_redemption(
+				DOT, 99,
+			),
+			crate::Error::<Test>::VaultNotFound
+		);
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 100)));
+		assert_ok!(crate::Pallet::<Test>::enable_frozen_mode(RuntimeOrigin::root(), DOT));
+		assert_noop!(
+			<crate::Pallet<Test> as VaultRedemptionInterface<AccountId, AssetId, Balance>>::touch_for_redemption(
+				DOT, 1,
+			),
+			crate::Error::<Test>::BranchFrozen
+		);
+	});
+}
+
+#[test]
+fn apply_redemption_rejects_invalid_allocations_without_state_change() {
 	build_and_execute(|| {
 		register_default_branch();
 		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 100)));
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
-		// Fully redeem acct 1.
-		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		let total = v.debt.principal + v.debt.interest;
-		assert_ok!(redeem(DOT, 3, total));
-		let bs = BranchStates::<Test>::get(DOT).unwrap();
-		assert_eq!(bs.last_dormant_vault_owner, None);
+		let vault_pre = Vaults::<Test>::get(DOT, 1).expect("vault stored");
+		let held_pre = held(DOT, 1);
+
+		assert_noop!(
+			<crate::Pallet<Test> as VaultRedemptionInterface<AccountId, AssetId, Balance>>::apply_redemption(
+				DOT,
+				1,
+				3,
+				RedemptionAllocation {
+					debt_to_cancel: vault_pre.debt.total() + 1,
+					collateral_to_redeemer: 0,
+					fee_collateral_retained: 0,
+				},
+			),
+			crate::Error::<Test>::InvalidRedemptionAllocation
+		);
+		assert_noop!(
+			<crate::Pallet<Test> as VaultRedemptionInterface<AccountId, AssetId, Balance>>::apply_redemption(
+				DOT,
+				1,
+				3,
+				RedemptionAllocation {
+					debt_to_cancel: 0,
+					collateral_to_redeemer: held_pre + 1,
+					fee_collateral_retained: 0,
+				},
+			),
+			crate::Error::<Test>::InvalidRedemptionAllocation
+		);
+
+		assert_eq!(Vaults::<Test>::get(DOT, 1).unwrap(), vault_pre);
+		assert_eq!(held(DOT, 1), held_pre);
 	});
 }
 
-// row 12 (companion): partial-to-Dormant sets the pointer.
 #[test]
-fn partial_below_min_debt_sets_dormant_pointer() {
+fn redemption_with_retained_fee_leaves_fee_collateral_on_vault() {
 	build_and_execute(|| {
 		register_default_branch();
 		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 100)));
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
-		assert_ok!(redeem(DOT, 3, 350));
-		let bs = BranchStates::<Test>::get(DOT).unwrap();
-		assert_eq!(bs.last_dormant_vault_owner, Some(1));
+		let held_pre = held(DOT, 1);
+		let redeemer_pre = collateral_balance(DOT, 3);
+
+		assert_ok!(<crate::Pallet<Test> as VaultRedemptionInterface<
+			AccountId,
+			AssetId,
+			Balance,
+		>>::apply_redemption(
+			DOT,
+			1,
+			3,
+			RedemptionAllocation {
+				debt_to_cancel: 100,
+				collateral_to_redeemer: 10,
+				fee_collateral_retained: 5,
+			},
+		));
+
+		assert_eq!(held(DOT, 1), held_pre - 10);
+		assert_eq!(collateral_balance(DOT, 3), redeemer_pre + 10);
 	});
 }
 
-// row 17: testZombieTrovePointerGetsResetIfLastOneIsFullyRedemeed.
 #[test]
 fn dormant_pointer_clears_when_last_dormant_fully_redeemed() {
 	build_and_execute(|| {
@@ -139,26 +193,23 @@ fn dormant_pointer_clears_when_last_dormant_fully_redeemed() {
 	});
 }
 
-// row 15: testZombieTroveCanStillBeRedeemedFrom — covered by the
-// `dormant_pointer_clears_when_last_dormant_fully_redeemed` flow above
-// (the second redemption reaches acct 1 even though it's Dormant).
-
-// =====================================================================
-// §C: Dormant resuscitation (rows 18, 19, 20)
-// =====================================================================
-
-// row 18: testZombieTrovePointerGetsResetIfTroveIsResuscitatedManuallyByOwner.
 #[test]
-fn dormant_pointer_clears_when_owner_revives_via_borrow() {
+fn dormant_owner_borrowing_above_min_debt_revives_to_active() {
 	build_and_execute(|| {
 		register_default_branch();
 		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 100)));
 		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
 		assert_ok!(redeem(DOT, 3, 350));
+		assert!(vault_status(DOT, 1).is_dormant());
+		assert!(!<LinkedList as SortedListInterface<VaultList, u64>>::contains(
+			&rate_list(DOT),
+			&1
+		));
 		let bs = BranchStates::<Test>::get(DOT).unwrap();
 		assert_eq!(bs.last_dormant_vault_owner, Some(1));
 
 		// Owner borrows enough to push debt above MinimumDebt → revives.
+		// Vault debt jumps from ~150 to ~650, well above MinimumDebt 200.
 		assert_ok!(crate::Pallet::<Test>::borrow(
 			RuntimeOrigin::signed(1),
 			DOT,
@@ -168,67 +219,13 @@ fn dormant_pointer_clears_when_owner_revives_via_borrow() {
 			Position::endpoints_only(),
 		));
 		assert!(vault_status(DOT, 1).is_active());
+		// Re-inserted into the rate index at the new (or unchanged) rate.
 		assert!(<LinkedList as SortedListInterface<VaultList, u64>>::contains(&rate_list(DOT), &1));
 		let bs = BranchStates::<Test>::get(DOT).unwrap();
 		assert_eq!(bs.last_dormant_vault_owner, None);
 	});
 }
 
-// row 19: testZombieTrovePointerGetsResetIfTroveIsResuscitatedViaInterest.
-//
-// Divergence from passive Liquity behavior (see FINDINGS.md §7): under the
-// sticky-Dormant model a zombie is NOT resuscitated by interest accrual. `poke`
-// accrues but never re-indexes, so the vault stays Dormant; resuscitation
-// requires an explicit `activate_dormant` / `borrow` with a position hint.
-#[test]
-fn dormant_does_not_auto_revive_via_interest_accrual() {
-	build_and_execute(|| {
-		register_default_branch();
-		// Acct 1 at lower rate so it's the deterministic redemption target.
-		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(50, 100)));
-		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(60, 100)));
-		assert_ok!(redeem(DOT, 3, 350));
-
-		advance_time(3650 * ONE_DAY_MS);
-		assert_ok!(crate::Pallet::<Test>::poke(RuntimeOrigin::signed(2), 1, DOT));
-		assert!(
-			vault_status(DOT, 1).is_dormant(),
-			"interest accrual must not auto-revive a zombie; activation requires an explicit hint",
-		);
-	});
-}
-
-// row 20: testZombieTrovePointerGetsResetIfTroveIsClosed.
-#[test]
-fn dormant_pointer_clears_when_owner_closes_dormant() {
-	build_and_execute(|| {
-		register_default_branch();
-		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 100)));
-		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
-		assert_ok!(redeem(DOT, 3, 350));
-		// Acct 1 is Dormant with residual debt. Repay all of it, top up
-		// from acct 2 to cover any accrued interest residual.
-		let v = Vaults::<Test>::get(DOT, 1).unwrap();
-		let total = v.debt.principal + v.debt.interest;
-		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
-			&2,
-			&1,
-			v.debt.interest,
-			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
-		);
-		// repay-to-zero on a Dormant vault auto-closes (DESIGN.md §8.1) and
-		// clears `last_dormant_vault_owner` in the same op.
-		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(1), 1, DOT, total));
-		let bs = BranchStates::<Test>::get(DOT).unwrap();
-		assert_eq!(bs.last_dormant_vault_owner, None);
-	});
-}
-
-// =====================================================================
-// §D: Dormant vaults still earn redistribution / interest (rows 24, 25)
-// =====================================================================
-
-// row 25: testZombieTrovesAccrueInterest.
 #[test]
 fn dormant_vault_with_residual_accrues_interest() {
 	build_and_execute(|| {
@@ -248,10 +245,8 @@ fn dormant_vault_with_residual_accrues_interest() {
 	});
 }
 
-// row 24: testZombieTrovesCanReceiveRedistGains.
-//
 // A liquidation distributes its debt and collateral to the remaining stake
-// pool. Dormant vaults keep their stake (compute_stake at open) and so
+// pool. Dormant vaults keep their stake (compute_stake at open) and so still
 // receive redistribution gains when `touch_vault` reconciles the epoch lag.
 #[test]
 fn dormant_vault_receives_redistribution_gains_on_touch() {
@@ -265,10 +260,10 @@ fn dormant_vault_receives_redistribution_gains_on_touch() {
 		assert_ok!(open(3, DOT, 200, 200, rate_pct(5, 100)));
 		assert_ok!(redeem(DOT, 4, 700)); // pushes acct 1 to Dormant
 
-		// Drop the price so acct 3's CR falls below MCR (DESIGN.md §9.1:
-		// vault pallet refuses liquidation otherwise). 1.0 puts vault 3
-		// (200 coll, ~200 debt) under the 110% MCR while leaving vaults 1
-		// and 2 above it.
+		// Drop the price so acct 3's CR falls below MCR — the vault pallet
+		// refuses liquidation of a vault whose CR is at/above MCR. 1.0 puts
+		// vault 3 (200 coll, ~200 debt) under the 110% MCR while leaving vaults
+		// 1 and 2 above it.
 		let v_dormant_pre = Vaults::<Test>::get(DOT, 1).unwrap();
 		set_price(DOT, FixedU128::from_rational(1u128, 1u128));
 		assert_ok!(liquidate(DOT, 3));
@@ -283,49 +278,9 @@ fn dormant_vault_receives_redistribution_gains_on_touch() {
 	});
 }
 
-// =====================================================================
-// §E: Drawing fresh debt on Dormant (rows 29-33)
-// =====================================================================
-
-// rows 29, 30, 31: testZombieBorrowerCanDrawFreshDebtToAboveMIN_DEBT,
-// status changes to Active, inserted to sorted list.
-#[test]
-fn dormant_owner_borrowing_above_min_debt_revives_to_active() {
-	build_and_execute(|| {
-		register_default_branch();
-		// Distinct rates so the rate-index tail is deterministic — acct 1 at
-		// the lower rate sits at the tail, where the redemption helper picks
-		// it first.
-		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(1, 100)));
-		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(2, 100)));
-		assert_ok!(redeem(DOT, 3, 350));
-		assert!(vault_status(DOT, 1).is_dormant());
-		assert!(!<LinkedList as SortedListInterface<VaultList, u64>>::contains(
-			&rate_list(DOT),
-			&1
-		));
-
-		// Borrow 500 more — vault debt jumps from ~150 to ~650, well above
-		// MinimumDebt 200.
-		assert_ok!(crate::Pallet::<Test>::borrow(
-			RuntimeOrigin::signed(1),
-			DOT,
-			500,
-			None,
-			None,
-			Position::endpoints_only(),
-		));
-		assert!(vault_status(DOT, 1).is_active());
-		// row 31: re-inserted into the rate index at the new (or unchanged) rate.
-		assert!(<LinkedList as SortedListInterface<VaultList, u64>>::contains(&rate_list(DOT), &1));
-	});
-}
-
-// row 33: testZombieTroveBorrowerCanNotDrawFreshDebtToBelowMIN_DEBT.
-//
-// `borrow` requires `vault.debt.principal >= cfg.minimum_debt` after
-// the operation (helpers.rs:835). Borrowing on a Dormant vault that doesn't
-// reach the threshold reverts.
+// `borrow` requires `vault.debt.principal >= cfg.minimum_debt` after the
+// operation. Borrowing on a Dormant vault that doesn't reach the threshold
+// reverts.
 #[test]
 fn dormant_borrow_below_min_debt_reverts() {
 	build_and_execute(|| {
@@ -351,9 +306,9 @@ fn dormant_borrow_below_min_debt_reverts() {
 	});
 }
 
-// DESIGN.md §4.3: depositing collateral into a Dormant vault is rejected
-// because the call cannot revive the vault to `Debt >= MinimumDebt` in the
-// same op (deposits don't change debt). Owners must use `borrow` to revive.
+// Depositing collateral into a Dormant vault is rejected because the call
+// cannot revive the vault to `Debt >= MinimumDebt` in the same op (deposits
+// don't change debt). Owners must use `borrow` to revive.
 #[test]
 fn deposit_to_dormant_without_revival_errors() {
 	build_and_execute(|| {
@@ -369,11 +324,6 @@ fn deposit_to_dormant_without_revival_errors() {
 	});
 }
 
-// =====================================================================
-// §F: Dormant blocks change_rate (row 38)
-// =====================================================================
-
-// row 38: testZombieTroveBorrowerCanNotChangeInterestRate.
 #[test]
 fn dormant_vault_cannot_change_rate() {
 	build_and_execute(|| {
@@ -395,34 +345,3 @@ fn dormant_vault_cannot_change_rate() {
 		);
 	});
 }
-
-// =====================================================================
-// SKIPPED rows 21, 34, 35, 36, 37, 39-43:
-// =====================================================================
-//
-// row 21: `testZombieTrovePointerGetsResetIfTroveIsClosedFromABatch` — batch
-//         managers are out of scope in v1.
-//
-// rows 34, 35, 36, 37: Liquity rejects normal `repayBold`, `withdrawBold`,
-//         `adjustTrove` and `addColl` on Dormant vaults. The polkadot port
-//         (helpers.rs) only gates on FinalRecovery and (for change_rate) on
-//         Active. Dormant vaults can be deposited into / withdrawn from /
-//         repaid in polkadot. This is a divergence from DESIGN.md §4.3
-//         "Deposit to dormant vault: Only if revived to ≥MinDebt in same
-//         operation" — it's not currently enforced at the call site.
-//
-//         Worth raising as a design follow-up: should the polkadot port
-//         add `ensure!(matches!(status, Active), InvalidVaultStatus)` to
-//         deposit_collateral_for / withdraw_collateral / repay_for?
-//
-// row 39: `testZombieTroveAccruedInterestCanBePermissionlesslyAppliedButStaysZombie`
-//         — covered by `dormant_does_not_auto_revive_via_interest_accrual`
-//         (Polkadot's poke leaves Dormant status unchanged).
-// row 40: `testZombieTroveAccruedInterestCanBePermissionlesslyAppliedAndResuscitated`
-//         — Liquity auto-revives via interest; polkadot does NOT (already
-//         pinned in §C row 19 above).
-// row 41: liquidation of Dormant — ownership flagged as `pallet-stability-pool`.
-// row 42: `testZombieTroveCanActAsLastTrove` — covered by the existing
-//         `last_vault::liquidate_succeeds_when_a_second_vault_exists` and
-//         `last_vault::liquidate_only_vault_returns_last_vault_error`.
-// row 43: batch-manager redemption — out of scope in v1.

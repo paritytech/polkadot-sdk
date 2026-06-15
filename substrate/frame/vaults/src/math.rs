@@ -240,9 +240,11 @@ mod tests {
 
 	#[test]
 	fn redist_per_stake_overflow_returns_none() {
-		// num/denom = 2^127. Multiplied by 1e18 overflows u128.
 		let got = redist_per_stake::<u128>(u128::MAX / 2, 1);
 		assert!(got.is_none());
+		// Just below the overflow threshold still fits.
+		let safe = redist_per_stake::<u128>(u128::MAX / (FixedU128::DIV * 2), 1);
+		assert!(safe.is_some());
 	}
 
 	#[test]

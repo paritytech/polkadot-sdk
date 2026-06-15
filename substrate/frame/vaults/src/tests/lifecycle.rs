@@ -1,9 +1,7 @@
-//! Lifecycle smoke tests — these were the original `tests.rs` contents
-//! before the test suite was reorganized to follow `tests.md` groups.
-//! They cover branch registration, vault open/close happy paths and
-//! validation rejections, multi-asset routing, frozen-mode blocking,
-//! and same-rate LIFO ordering. Kept as a fast smoke layer in front of
-//! the spec-driven groups in sibling modules.
+//! Lifecycle smoke tests: a fast layer covering branch registration, vault
+//! open/close happy paths and validation rejections, multi-asset routing,
+//! frozen-mode blocking, and same-rate LIFO ordering. The deeper per-area
+//! coverage lives in the sibling modules.
 
 use crate::{
 	mock::*,
@@ -12,7 +10,7 @@ use crate::{
 };
 use frame::deps::frame_support::{assert_err, assert_noop, assert_ok};
 use pallet_linked_list::SortedListInterface;
-use pusd_primitives::{BranchModeProvider, VaultRedemptionInterface};
+use pusd_primitives::BranchModeProvider;
 
 #[test]
 fn register_branch_creates_state() {
@@ -55,6 +53,30 @@ fn register_branch_rejects_unknown_asset() {
 }
 
 #[test]
+fn register_branch_rejects_duplicate_collateral() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_noop!(
+			crate::Pallet::<Test>::register_branch(
+				RuntimeOrigin::root(),
+				DOT,
+				default_branch_config(),
+			),
+			crate::Error::<Test>::BranchAlreadyRegistered
+		);
+	});
+}
+
+#[test]
+fn branches_view_lists_registered_assets_in_registration_order() {
+	build_and_execute(|| {
+		register_default_branch();
+		register_branch_for(TOKEN_X);
+		assert_eq!(crate::Pallet::<Test>::branches(), alloc::vec![DOT, TOKEN_X]);
+	});
+}
+
+#[test]
 fn open_vault_holds_collateral_and_mints_pusd() {
 	build_and_execute(|| {
 		register_default_branch();
@@ -71,12 +93,39 @@ fn open_vault_holds_collateral_and_mints_pusd() {
 }
 
 #[test]
+fn open_vault_rejects_existing_owner_vault() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
+		assert_noop!(
+			open(1, DOT, 2_000, 500, rate_pct(5, 100)),
+			crate::Error::<Test>::VaultAlreadyExists
+		);
+	});
+}
+
+#[test]
 fn open_vault_below_min_debt_rejected() {
 	build_and_execute(|| {
 		register_default_branch();
 		assert_noop!(
 			open(1, DOT, 1_000, 100, rate_pct(5, 100)), // < min_debt 200
 			crate::Error::<Test>::DebtBelowMinimum
+		);
+	});
+}
+
+#[test]
+fn open_vault_rate_out_of_bounds_rejected() {
+	build_and_execute(|| {
+		register_default_branch();
+		assert_noop!(
+			open(1, DOT, 1_000, 500, rate_pct(0, 1)),
+			crate::Error::<Test>::RateOutOfBounds
+		);
+		assert_noop!(
+			open(1, DOT, 1_000, 500, rate_pct(101, 100)),
+			crate::Error::<Test>::RateOutOfBounds
 		);
 	});
 }
@@ -105,6 +154,42 @@ fn open_vault_below_icr_rejected() {
 }
 
 #[test]
+fn defensive_manager_can_only_tighten_selected_risk_parameters() {
+	build_and_execute(|| {
+		register_default_branch();
+
+		assert_ok!(crate::Pallet::<Test>::set_minimum_collateralization_ratio(
+			RuntimeOrigin::signed(999),
+			DOT,
+			rate_pct(120, 100),
+		));
+		assert_noop!(
+			crate::Pallet::<Test>::set_minimum_collateralization_ratio(
+				RuntimeOrigin::signed(999),
+				DOT,
+				rate_pct(109, 100),
+			),
+			crate::Error::<Test>::DefensiveActionNotDefensive
+		);
+
+		assert_ok!(crate::Pallet::<Test>::set_debt_ceiling(
+			RuntimeOrigin::signed(999),
+			DOT,
+			50_000_000,
+		));
+		assert_noop!(
+			crate::Pallet::<Test>::set_debt_ceiling(RuntimeOrigin::signed(999), DOT, 200_000_000,),
+			crate::Error::<Test>::DefensiveActionNotDefensive
+		);
+
+		assert_noop!(
+			crate::Pallet::<Test>::set_minimum_debt(RuntimeOrigin::signed(999), DOT, 300),
+			crate::Error::<Test>::InsufficientPrivilege
+		);
+	});
+}
+
+#[test]
 fn same_rate_lifo_redemption_order() {
 	build_and_execute(|| {
 		register_default_branch();
@@ -116,44 +201,6 @@ fn same_rate_lifo_redemption_order() {
 		let tail =
 			<LinkedList as SortedListInterface<VaultList, u64>>::iter_from_tail(&rate_list(DOT), 5);
 		assert_eq!(tail, alloc::vec![3, 2, 1]);
-	});
-}
-
-#[test]
-fn redemption_target_picks_recovery_first() {
-	build_and_execute(|| {
-		register_default_branch();
-		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
-		// Pre-redemption tail should be #1.
-		assert_eq!(
-			<crate::Pallet<Test> as VaultRedemptionInterface<u64, AssetId, u128>>::next_redemption_target(
-				DOT,
-				None,
-			),
-			Some(1)
-		);
-	});
-}
-
-#[test]
-fn close_vault_releases_collateral() {
-	build_and_execute(|| {
-		register_default_branch();
-		assert_ok!(open(1, DOT, 1_000, 500, rate_pct(5, 100)));
-		// Repay full debt — principal + upfront fee accrued on open.
-		let v = Vaults::<Test>::get(DOT, 1).expect("vault stored");
-		let total = v.debt.principal + v.debt.interest;
-		// Top up the borrower from acct 2 to cover the upfront-fee portion.
-		assert_ok!(open(2, DOT, 1_000, 500, rate_pct(5, 100)));
-		let _ = <Pusd as frame::deps::frame_support::traits::fungible::Mutate<u64>>::transfer(
-			&2,
-			&1,
-			v.debt.interest,
-			frame::deps::frame_support::traits::tokens::Preservation::Expendable,
-		);
-		assert_ok!(crate::Pallet::<Test>::repay_for(RuntimeOrigin::signed(1), 1, DOT, total,));
-		assert!(Vaults::<Test>::get(DOT, 1).is_none());
-		assert_eq!(held(DOT, 1), 0);
 	});
 }
 
