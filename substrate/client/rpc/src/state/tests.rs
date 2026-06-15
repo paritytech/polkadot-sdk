@@ -208,6 +208,38 @@ async fn should_call_contract() {
 }
 
 #[tokio::test]
+async fn call_recorded_is_unsupported_without_recorder() {
+	let client = Arc::new(substrate_test_runtime_client::new());
+
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().best_hash)
+		.with_parent_block_number(client.chain_info().best_number)
+		.build()
+		.unwrap();
+	builder
+		.push_transfer(Transfer {
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
+			amount: 42,
+			nonce: 0,
+		})
+		.unwrap();
+	let block = builder.build().unwrap().block;
+	client.import(BlockOrigin::Own, block).await.unwrap();
+	let block_hash = client.chain_info().best_hash;
+
+	let (state, _child) = new_full(client, test_executor(), None);
+
+	// No proof-size recorder is wired (`execute_block` is `None`, so the default
+	// `TracingExecuteBlock::call_recorded` hook runs), as on a solochain. The call is reported as
+	// unsupported.
+	assert_matches!(
+		state.call_recorded(&allow_unsafe(), block_hash, "Core_version".into(), Bytes(vec![])),
+		Err(Error::CallRecordedUnsupported)
+	);
+}
+
+#[tokio::test]
 async fn should_notify_about_storage_changes() {
 	let mut sub = {
 		let client = Arc::new(substrate_test_runtime_client::new());
