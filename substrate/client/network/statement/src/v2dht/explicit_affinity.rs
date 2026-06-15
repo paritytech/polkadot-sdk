@@ -231,10 +231,7 @@ impl ExplicitAffinity {
 #[cfg(test)]
 mod tests {
 	use super::*;
-
-	fn topic(n: u8) -> Topic {
-		Topic([n; 32])
-	}
+	use crate::test_helpers::{filter_over, statement_on, topic};
 
 	fn topic_set(affinity: &ExplicitAffinity) -> HashSet<Topic> {
 		affinity.topics().into_iter().collect()
@@ -366,14 +363,6 @@ mod tests {
 		assert_eq!(topic_set(&affinity), HashSet::from([topic(1), topic(2), topic(3)]));
 	}
 
-	/// A statement carrying the single `topic`.
-	fn statement_on(topic: Topic) -> Statement {
-		let mut stmt = Statement::new();
-		stmt.set_plain_data(b"data".to_vec());
-		stmt.set_topic(0, topic);
-		stmt
-	}
-
 	#[test]
 	fn local_filter_advertises_every_followed_topic() {
 		let mut affinity = ExplicitAffinity::new(&[topic(1)]);
@@ -423,11 +412,6 @@ mod tests {
 		let mut broadcast = Statement::new();
 		broadcast.set_plain_data(b"broadcast".to_vec());
 		assert!(!affinity.local_has_explicit_affinity(&broadcast));
-	}
-
-	/// A filter advertising the given `topics`.
-	fn filter_over(topics: &[Topic]) -> AffinityFilter {
-		AffinityFilter::from_topics(topics.iter().map(|topic| topic.as_ref()), 0)
 	}
 
 	#[test]

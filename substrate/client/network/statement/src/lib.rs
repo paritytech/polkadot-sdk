@@ -79,6 +79,31 @@ use tokio::time::timeout;
 use v2dht::V2DhtOrchestrator;
 pub mod config;
 
+/// Fixtures shared across the crate's test modules.
+#[cfg(test)]
+mod test_helpers {
+	use crate::affinity::AffinityFilter;
+	use sp_statement_store::{Statement, Topic};
+
+	/// A topic whose 32 bytes are all `n`.
+	pub(crate) fn topic(n: u8) -> Topic {
+		Topic([n; 32])
+	}
+
+	/// A statement carrying the single `topic`.
+	pub(crate) fn statement_on(topic: Topic) -> Statement {
+		let mut stmt = Statement::new();
+		stmt.set_plain_data(b"data".to_vec());
+		stmt.set_topic(0, topic);
+		stmt
+	}
+
+	/// A filter advertising the given `topics`.
+	pub(crate) fn filter_over(topics: &[Topic]) -> AffinityFilter {
+		AffinityFilter::from_topics(topics.iter().map(|topic| topic.as_ref()), 0)
+	}
+}
+
 /// A set of statements.
 pub type Statements = Vec<Statement>;
 
