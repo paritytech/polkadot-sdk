@@ -22,23 +22,7 @@ use sp_core::Get;
 use sp_io::hashing::blake2_256;
 use sp_runtime::BoundedVec;
 
-// Domain Tags to ensure that the same message structure used in different
-// contexts (e.g. leaf vs inner node) do not collide on the same hash.
-
-/// Tag for an empty MMR.
-pub const EMPTY_TAG: u8 = 0x1;
-/// Tag for a leaf node.
-pub const LEAF_TAG: u8 = 0x2;
-/// Tag for an inner node.
-pub const INNER_TAG: u8 = 0x3;
-/// Tag for a peak.
-pub const PEAK_TAG: u8 = 0x4;
-
-// Leaf versioning to allow for future changes to the leaf structure without
-// breaking compatibility with old messages.
-
-/// Leaf Version.
-pub const LEAF_VERSION: u8 = 0x0;
+use crate::{LEAF_TAG, LEAF_VERSION};
 
 /// Outgoing message structure.
 #[derive(
