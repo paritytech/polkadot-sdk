@@ -3127,24 +3127,30 @@ mod admin {
 	}
 
 	#[test]
-	fn create_psm_fails_if_caller_not_asset_owner() {
+	fn ensure_asset_owner_admits_only_the_owner() {
+		// Exercises the pallet-provided `EnsureAssetOwner` directly (the mock's `CreateOrigin`
+		// is plain signed). Only the asset owner's signed origin passes.
+		use frame_support::traits::EnsureOriginWithArg;
 		new_test_ext().execute_with(|| {
-			// The asset is owned by ALICE; BOB does not control it and must not be able to
-			// wrap it in a PSM — otherwise anyone could create a PSM over an asset they don't
-			// own and mint it against worthless collateral.
 			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
-			assert_noop!(
-				Psm::create_psm(
-					RuntimeOrigin::signed(BOB),
-					NEW_INTERNAL,
-					Box::new(signed_origin(BOB)),
-					Box::new(signed_origin(BOB)),
-					INSURANCE_FUND,
-					DEFAULT_MAX_DEBT,
-					DEFAULT_MIN_SWAP,
-				),
-				Error::<Test>::NotAssetOwner
+			assert_eq!(
+				crate::EnsureAssetOwner::<Test>::try_origin(
+					RuntimeOrigin::signed(ALICE),
+					&NEW_INTERNAL,
+				)
+				.ok(),
+				Some(ALICE),
 			);
+			assert!(crate::EnsureAssetOwner::<Test>::try_origin(
+				RuntimeOrigin::signed(BOB),
+				&NEW_INTERNAL,
+			)
+			.is_err());
+			assert!(crate::EnsureAssetOwner::<Test>::try_origin(
+				RuntimeOrigin::root(),
+				&NEW_INTERNAL,
+			)
+			.is_err());
 		});
 	}
 

@@ -153,6 +153,7 @@ impl crate::Config for Test {
 		PsmHoldReason,
 		LinearStoragePrice<PsmCreationDeposit, PsmDepositSlope, u128>,
 	>;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<u128>>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type PalletsOrigin = OriginCaller;
 	type AssetId = u32;

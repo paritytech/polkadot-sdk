@@ -3145,6 +3145,7 @@ impl pallet_psm::Config for Runtime {
 		PsmHoldReason,
 		LinearStoragePrice<PsmCreationDeposit, PsmDepositSlope, Balance>,
 	>;
+	type CreateOrigin = pallet_psm::EnsureAssetOwner<Runtime>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type PalletsOrigin = OriginCaller;
 	type AssetId = u32;

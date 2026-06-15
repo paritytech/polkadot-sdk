@@ -126,7 +126,7 @@ pub mod pallet {
 				Mutate as FungiblesMutate,
 			},
 			tokens::{Fortitude, Precision, Preservation},
-			CallerTrait, Consideration, Footprint, OriginTrait,
+			CallerTrait, Consideration, EnsureOriginWithArg, Footprint, OriginTrait,
 		},
 		PalletId,
 	};
@@ -333,6 +333,15 @@ pub mod pallet {
 		/// Established on `create_psm` and dropped on `remove_psm`.
 		type Consideration: Consideration<Self::AccountId, Footprint>;
 
+		/// Origin permitted to create a PSM for a given internal asset; succeeds with the
+		/// account that pays the deposit and becomes the `depositor`. See [`EnsureAssetOwner`]
+		/// for the recommended policy.
+		type CreateOrigin: EnsureOriginWithArg<
+			<Self as frame_system::Config>::RuntimeOrigin,
+			Self::AssetId,
+			Success = Self::AccountId,
+		>;
+
 		/// The aggregated origin, tying the runtime origin to [`Config::PalletsOrigin`] so PSM
 		/// admins can be matched against incoming origins.
 		type RuntimeOrigin: OriginTrait<PalletsOrigin = Self::PalletsOrigin>
@@ -363,6 +372,38 @@ pub mod pallet {
 		/// Helper for benchmarks to create an external asset with correct metadata.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: crate::BenchmarkHelper<Self::AssetId, Self::AccountId>;
+	}
+
+	/// [`Config::CreateOrigin`] admitting a signed origin only when it owns the internal asset.
+	/// Prevents creating a PSM over an asset you don't control (PSM mint/burn bypasses the
+	/// asset's issuer checks).
+	pub struct EnsureAssetOwner<T>(core::marker::PhantomData<T>);
+
+	impl<T: Config> EnsureOriginWithArg<<T as frame_system::Config>::RuntimeOrigin, T::AssetId>
+		for EnsureAssetOwner<T>
+	{
+		type Success = T::AccountId;
+
+		fn try_origin(
+			origin: <T as frame_system::Config>::RuntimeOrigin,
+			internal_asset: &T::AssetId,
+		) -> Result<Self::Success, <T as frame_system::Config>::RuntimeOrigin> {
+			match ensure_signed(origin.clone()) {
+				Ok(who) if T::Fungibles::owner(internal_asset.clone()) == Some(who.clone()) => {
+					Ok(who)
+				},
+				_ => Err(origin),
+			}
+		}
+
+		#[cfg(feature = "runtime-benchmarks")]
+		fn try_successful_origin(
+			internal_asset: &T::AssetId,
+		) -> Result<<T as frame_system::Config>::RuntimeOrigin, ()> {
+			// A signed origin of the asset's current owner satisfies the owner check.
+			let owner = T::Fungibles::owner(internal_asset.clone()).ok_or(())?;
+			Ok(frame_system::RawOrigin::Signed(owner).into())
+		}
 	}
 
 	/// The in-code storage version.
@@ -587,8 +628,6 @@ pub mod pallet {
 		AssetAlreadyApproved,
 		/// Asset does not exist.
 		AssetDoesNotExist,
-		/// The caller is not the owner of the internal asset, so it cannot create a PSM over it.
-		NotAssetOwner,
 		/// Cannot remove asset: not in approved list.
 		AssetNotApproved,
 		/// Cannot remove asset: has non-zero PSM debt.
@@ -853,25 +892,21 @@ pub mod pallet {
 
 		/// Create a PSM for a given internal asset.
 		///
-		/// Takes a [`Config::Consideration`] deposit from the signer for the instance's
-		/// footprint (refunded on `remove_psm`). The `full_admin` and `emergency_admin` origins
-		/// are set from the provided arguments and may later be reassigned via
+		/// Takes a [`Config::Consideration`] deposit from the account resolved by
+		/// [`Config::CreateOrigin`] for the instance's footprint (refunded on `remove_psm`); that
+		/// account is also recorded as the `depositor`. The `full_admin` and `emergency_admin`
+		/// origins are set from the provided arguments and may later be reassigned via
 		/// [`Pallet::set_full_admin`] / [`Pallet::set_emergency_admin`].
-		///
-		/// The caller must be the owner of `internal_asset`. The PSM mints/burns the internal
-		/// asset through the privileged `fungibles` trait path, so restricting creation to the
-		/// asset's owner is what prevents wrapping an asset you don't control and minting it
-		/// against worthless collateral. The owner keeps ownership and may run other minters
-		/// (e.g. a vault) over the same asset; its holders trust its owner regardless.
 		///
 		/// ## Dispatch Origin
 		///
-		/// Signed by the owner of `internal_asset`.
+		/// [`Config::CreateOrigin`], parameterised by `internal_asset`. With the recommended
+		/// [`EnsureAssetOwner`] this is a signed origin that owns `internal_asset`.
 		///
 		/// ## Parameters
 		///
 		/// - `internal_asset`: The internal stablecoin keying the new PSM. Must exist in the
-		///   fungibles backend and be owned by the caller; must not already have a PSM registered.
+		///   fungibles backend; must not already have a PSM registered.
 		/// - `full_admin`: Origin granted full management of the new PSM.
 		/// - `emergency_admin`: Origin granted emergency management of the new PSM.
 		/// - `fee_destination`: Account that will receive mint/redeem fees.
@@ -881,11 +916,11 @@ pub mod pallet {
 		///
 		/// ## Errors
 		///
+		/// - [`DispatchError::BadOrigin`]: The origin is not permitted by [`Config::CreateOrigin`].
 		/// - [`Error::PsmAlreadyExists`]: A PSM is already registered for `internal_asset`.
 		/// - [`Error::ZeroMinSwapAmount`]: `min_swap_amount` is zero.
 		/// - [`Error::AssetDoesNotExist`]: The internal asset does not exist.
-		/// - [`Error::NotAssetOwner`]: The caller is not the owner of `internal_asset`.
-		/// - Any error from establishing the [`Config::Consideration`] deposit (e.g. the signer
+		/// - Any error from establishing the [`Config::Consideration`] deposit (e.g. the account
 		///   cannot afford it).
 		///
 		/// ## Events
@@ -902,20 +937,12 @@ pub mod pallet {
 			max_debt: BalanceOf<T>,
 			min_swap_amount: BalanceOf<T>,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			let who = T::CreateOrigin::ensure_origin(origin, &internal_asset)?;
 			ensure!(!Psm::<T>::contains_key(&internal_asset), Error::<T>::PsmAlreadyExists);
 			ensure!(!min_swap_amount.is_zero(), Error::<T>::ZeroMinSwapAmount);
 			ensure!(
 				T::Fungibles::asset_exists(internal_asset.clone()),
 				Error::<T>::AssetDoesNotExist
-			);
-			// The PSM mints and burns the internal asset through the privileged `fungibles`
-			// trait path, which bypasses pallet-assets' issuer check. Require the caller to be
-			// the asset's owner so a PSM can only be created by the party that controls the
-			// asset.
-			ensure!(
-				T::Fungibles::owner(internal_asset.clone()) == Some(who.clone()),
-				Error::<T>::NotAssetOwner
 			);
 
 			// Establish the creation-deposit ticket for this instance's footprint, charged to
