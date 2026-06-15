@@ -18,6 +18,7 @@ use codec::{Decode, Encode};
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
 	request_response::{outgoing::RequestError, v2 as request_v2},
+	v4_collation::SegmentFingerprint,
 	PeerId,
 };
 use polkadot_node_primitives::PoV;
@@ -302,6 +303,24 @@ impl FetchTarget {
 			descriptor_version: advertisement.advertised_descriptor_version,
 			output_head_data_hash: None,
 			relay_parent: None,
+		}
+	}
+
+	pub fn from_fingerprint(
+		peer_id: PeerId,
+		para_id: ParaId,
+		scheduling_parent: Hash,
+		fingerprint: &SegmentFingerprint,
+	) -> FetchTarget {
+		FetchTarget {
+			peer_id,
+			para_id,
+			scheduling_parent,
+			candidate_hash: Some(fingerprint.candidate_hash),
+			parent_head_data_hash: Some(fingerprint.parent_head_data_hash),
+			descriptor_version: Some(fingerprint.candidate_descriptor_version),
+			output_head_data_hash: Some(fingerprint.output_head_data_hash),
+			relay_parent: Some(fingerprint.relay_parent),
 		}
 	}
 }

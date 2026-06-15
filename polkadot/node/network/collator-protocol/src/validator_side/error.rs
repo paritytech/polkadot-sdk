@@ -99,6 +99,9 @@ pub enum SecondingError {
 
 	#[error("Collation seconding blocked on parent being seconded: {0}")]
 	BlockedOnParent(Hash),
+
+	#[error("Output head data hash doesn't match the advertised fingerprint")]
+	OutputHeadMismatch,
 }
 
 impl SecondingError {
@@ -115,7 +118,8 @@ impl SecondingError {
 			InvalidSessionIndex(_, _) |
 			InvalidReceiptVersion(_) |
 			DescriptorVersionMismatch(_, _) |
-			ParaIdMismatch => true,
+			ParaIdMismatch |
+			OutputHeadMismatch => true,
 			_ => false,
 		}
 	}

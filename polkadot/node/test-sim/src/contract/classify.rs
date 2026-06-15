@@ -318,9 +318,8 @@ fn wire_kind_from_collation_protocol(
 				scheduling_parent,
 				candidates,
 			} => {
-				// Summarized by the last fingerprint, mirroring the validator's current
-				// collapse of segment advertisements. Needs a dedicated segment summary
-				// once full segment handling lands (V4_SEGMENTS_PLAN.md, Task 8).
+				// len-1 segments only: summarize by the sole fingerprint. Wrong for len>1
+				// (validator fetches first-unknown, not tip).
 				let tip = candidates
 					.last()
 					.expect("subsystem never emits an empty segment advertisement");

@@ -307,9 +307,8 @@ impl<B: Backend> State<B> {
 	}
 
 	/// Handle a new segment.
-	pub fn handle_segment<Sender: CollatorProtocolSenderTrait>(
+	pub async fn handle_segment(
 		&mut self,
-		_sender: &mut Sender,
 		peer_id: PeerId,
 		scheduling_parent: Hash,
 		segment: Vec<SegmentFingerprint>,
@@ -317,18 +316,18 @@ impl<B: Backend> State<B> {
 		gum::debug!(target: LOG_TARGET, ?scheduling_parent,?peer_id, ?segment, "Received segment advertisement");
 
 		let Some(PeerInfo { state, .. }) = self.peer_manager.peer_info(&peer_id) else {
-			gum::warn!(target: LOG_TARGET, ?scheduling_parent, ?peer_id, ?segment, "Received an segment advertisement from an unconnected peer");
+			gum::warn!(target: LOG_TARGET, ?scheduling_parent, ?peer_id, ?segment, "Received segment advertisement from an unconnected peer");
 			return;
 		};
 
 		// Advertised without being declared. Not a big waste of our time, so ignore it.
 		let PeerState::Collating(para_id) = state else {
-			gum::debug!(target: LOG_TARGET, ?scheduling_parent, ?peer_id, ?segment, "Received an segment advertisement for undeclared peer");
+			gum::debug!(target: LOG_TARGET, ?scheduling_parent, ?peer_id, ?segment, "Received segment advertisement for undeclared peer");
 			return;
 		};
 
 		if segment.is_empty() {
-			gum::warn!(target: LOG_TARGET, ?scheduling_parent, ?peer_id, "Received and empty segment advertisement");
+			gum::warn!(target: LOG_TARGET, ?scheduling_parent, ?peer_id, "Received an empty segment advertisement");
 			return;
 		}
 		let num_fingerprints = segment.len();
@@ -595,11 +594,10 @@ impl<B: Backend> State<B> {
 		let metrics = &self.metrics;
 		let create_timer_fn = || metrics.time_collation_request_duration();
 
-		let (requests, maybe_delay) = self.collation_manager.try_make_new_fetch_requests(
-			connected_rep_query_fn,
-			max_reps,
-			create_timer_fn,
-		);
+		let (requests, maybe_delay) = self
+			.collation_manager
+			.try_make_new_fetch_requests(sender, connected_rep_query_fn, max_reps, create_timer_fn)
+			.await;
 
 		if !requests.is_empty() {
 			gum::debug!(
