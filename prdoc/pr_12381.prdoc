@@ -1,0 +1,12 @@
+title: Introduce `chill_inactive` extrinsic to the `pallet-staking-async`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `chill_inactive` extrinsic can be used to chill the validators that were inactive too much and can be called by anyone if the 
+      validator meets the criterias for chilling.
+
+      Validator can be chilled if if has zero era points for at least ChillInactiveThreshold (configurable) eras among the last HistoryDepth eras.  
+crates:
+  - name: pallet-staking-async
+    bump: minor
