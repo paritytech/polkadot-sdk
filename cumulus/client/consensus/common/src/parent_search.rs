@@ -45,34 +45,18 @@ fn get_para_header<Block: BlockT>(
 	Some(header)
 }
 
-pub struct PvdHeader<Block: BlockT> {
-	header: Block::Header,
-}
+async fn fetch_pvd_header<Block: BlockT>(
+	relay_client: &impl RelayChainInterface,
+	at: RelayHash,
+	para_id: ParaId,
+	occupied_core_assumption: OccupiedCoreAssumption,
+) -> RelayChainResult<Option<Block::Header>> {
+	let maybe_header = relay_client
+		.persisted_validation_data(at, para_id, occupied_core_assumption)
+		.await?
+		.and_then(|pvd| Block::Header::decode(&mut &pvd.parent_head.0[..]).ok());
 
-impl<Block: BlockT> PvdHeader<Block> {
-	async fn fetch(
-		relay_client: &impl RelayChainInterface,
-		at: RelayHash,
-		para_id: ParaId,
-		occupied_core_assumption: OccupiedCoreAssumption,
-	) -> RelayChainResult<Option<Self>> {
-		let maybe_header = relay_client
-			.persisted_validation_data(at, para_id, occupied_core_assumption)
-			.await?
-			.and_then(|pvd| Block::Header::decode(&mut &pvd.parent_head.0[..]).ok());
-		let Some(header) = maybe_header else {
-			return Ok(None);
-		};
-
-		Ok(Some(PvdHeader { header }))
-	}
-
-	fn try_unwrap(self, backend: &impl Backend<Block>) -> Option<(Block::Hash, Block::Header)> {
-		let hash = self.header.hash();
-		// If the included block is not locally known, we can't do anything.
-		let _ = get_para_header(backend, hash)?;
-		Some((hash, self.header))
-	}
+	Ok(maybe_header)
 }
 
 /// Fetch the included block from the relay chain.
@@ -86,11 +70,17 @@ pub async fn fetch_included_from_pvd<B: BlockT>(
 	// Fetch the pending header from the relay chain. We use `OccupiedCoreAssumption::TimedOut`
 	// so that even if there is a pending candidate, we assume it is timed out, and we get the
 	// included head.
-	let Some(included_header) = PvdHeader::fetch(relay_client, at, para_id, TimedOut).await? else {
+	let Some(included_header) = fetch_pvd_header::<B>(relay_client, at, para_id, TimedOut).await?
+	else {
 		return Ok(None);
 	};
 
-	Ok(included_header.try_unwrap(backend))
+	let included_hash = included_header.hash();
+	// If the included block is not locally known, we can't do anything.
+	let Some(included_header) = get_para_header(backend, included_hash) else {
+		return Ok(None);
+	};
+	Ok(Some((included_hash, included_header)))
 }
 
 /// Build an ancestry of relay parents that are acceptable.
@@ -349,15 +339,17 @@ pub async fn find_parent_for_building<Block: BlockT>(
 		// Fetch the most recent pending header from the relay chain. We use
 		// `OccupiedCoreAssumption::Included` so the candidate pending availability gets enacted
 		// before being returned to us.
-		let maybe_pvd_header =
-			PvdHeader::<Block>::fetch(relay_client, scheduling_parent, para_id, Included)
+		let maybe_header =
+			fetch_pvd_header::<Block>(relay_client, scheduling_parent, para_id, Included)
 				.await?
-				.filter(|pvd_header| pvd_header.header.hash() != included_hash);
-		let Some(pvd_header) = maybe_pvd_header else {
+				.filter(|pvd_header| pvd_header.hash() != included_hash);
+		let Some(header) = maybe_header else {
 			break 'fetch_pending None;
 		};
-		match pvd_header.try_unwrap(backend) {
-			Some(pending) => Some(pending),
+		let hash = header.hash();
+		// If the included block is not locally known, we can't do anything.
+		match get_para_header(backend, hash) {
+			Some(header) => Some((hash, header)),
 			None => {
 				return Ok(None);
 			},
