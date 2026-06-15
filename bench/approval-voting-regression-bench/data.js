@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781301012902,
+  "lastUpdate": 1781533502173,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "diego2737@gmail.com",
-            "name": "Diego",
-            "username": "dimartiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "51cf7d605f93fb047f25b9270df66244cb7bfc87",
-          "message": "Snowbridge V2: Add generic AggregateMessageOrigin (#8106)\n\n# Description\n\nThis PR introduces a generic `AggregateMessageOrigin` in Snowbridge V2\nto provide a more flexible mechanism for message-queue origin\nrecognition and handling. This approach aims to support broader use\ncases beyond parachains. By enabling custom origins, scenarios like solo\nchains, can build specialized message routing and processing making use\nof this configuration.\n\n## Motivation\n\n- **Enhanced Integration**: While Snowbridge traditionally focuses on\nbridging parachains, there is also a need to send messages from various\nsubstrate-based chains (e.g., solo chains) and in different contexts.\nThis change expands the protocol's ability to handle multiple, distinct\norigin types.\n\n- **Custom Command Structures**: Some projects need to incorporate\ncustom Snowbridge commands or message structures, which cannot be\nprocessed by the default outbound queue. By introducing a more generic\norigin, these commands can be cleanly differentiated and securely\nprocessed.\n\n- **Flexibility**: Parachains, solo chains, or any environment running\nSnowbridge benefit from a uniform pattern to handle both common and\ncustom message processing.\n\n## Use Case\n\nConsider a scenario where you need to send messages to Ethereum directly\nfrom your runtime:\n\n- You have your own set of commands or data structures different from\nthose provided by the traditional Snowbridge outbound queue.\n- You want to introduce a custom message processor that specifically\nhandles your commands.\n- You need a distinct origin to differentiate your messages from\nstandard Snowbridge traffic.\n\nBy using the `AggregateMessageOrigin`, you can verify whether a message\ncomes from a parachain, from Snowbridge itself, or from a custom origin.\nThis is especially relevant in solo chain contexts, where you might not\nrely on the parachain assumptions but still want to leverage a robust\nbridging framework.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-10-27T14:19:17Z",
-          "tree_id": "b1c6a130b7f949e8e9cd69a20f2fc3c48bbca09c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/51cf7d605f93fb047f25b9270df66244cb7bfc87"
-        },
-        "date": 1761578906906,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52938.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63624.52999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000018602829999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.486181411210001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4468812369299995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000022218340000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4400646591399977,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.727846388181047,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.44002778443,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9472084769100018,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.20380884372,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000018602829999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005564979750000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000022218340000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.43788029535,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.8224722353999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "81e6d5ac17544a9b11a177e5e16c8ca5c3887a6f",
+          "message": "Logging improvements for the collator revamp (#12282)\n\nSome logging updates:\n\n- Decrease log levels in `wait_for_first_leaf` to DEBUG, to avoid\nstartup spam\n- Use `warn_if_frequent` for fetch errors\n- Log assignment changes on view change\n- pick_best_advertisement: trace logs for each outcome\n- update_view: log scheduling parent <-> assigned core mapping\n- update_view: log sp removal\n- handle_seconded_collation: logs for each error case\n- PeerManager: log reputation updates\n\nPartially addresses\nhttps://github.com/paritytech/polkadot-sdk/issues/10402\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-15T12:53:09Z",
+          "tree_id": "556214ed9b85c112876cb7a4238f6be37b5641fb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/81e6d5ac17544a9b11a177e5e16c8ca5c3887a6f"
+        },
+        "date": 1781533475964,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52934.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63581.630000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005333664299999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000026513109999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.744480957090001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4339081634899955,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.0000343512,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7975356634500015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8154500919400007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8013191405899514,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000026513109999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.0000343512,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.34540167733995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.747373996480001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.577198279502625,
             "unit": "seconds"
           }
         ]
