@@ -531,8 +531,8 @@ mod tests {
 	use super::*;
 	use crate::client::SubscriptionGapQueue;
 	use std::sync::{
-		atomic::{AtomicUsize, Ordering},
 		Mutex,
+		atomic::{AtomicUsize, Ordering},
 	};
 
 	// Deterministic, reversible number<->hash mapping (offset by 1 to avoid the zero hash).
