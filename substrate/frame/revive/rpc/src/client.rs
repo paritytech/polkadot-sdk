@@ -28,6 +28,7 @@ use crate::{
 	subxt_client::{self, SrcChainConfig, revive::calls::EthTransact},
 };
 use codec::{Decode, Encode};
+use core::future::Future;
 use futures::TryStreamExt;
 use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
 use pallet_revive::{
@@ -198,6 +199,32 @@ impl ClientError {
 	pub(crate) fn is_chain_validation_error(&self) -> bool {
 		matches!(self, Self::ChainMismatch | Self::SyncBoundaryMismatch)
 	}
+
+	/// Why the node cannot service `state_callRecorded`, if it can't; `None` for any genuine
+	/// failure that must propagate rather than fall back to a recorder-less replay.
+	pub(crate) fn recorded_unavailable_reason(&self) -> Option<RecordedUnavailable> {
+		const METHOD_NOT_FOUND: i32 = -32601;
+
+		let ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(e)) = self else {
+			return None;
+		};
+		match e.code {
+			METHOD_NOT_FOUND => Some(RecordedUnavailable::MethodMissing),
+			c if c == sc_rpc_api::state::error::CALL_RECORDED_UNSUPPORTED_ERROR_CODE => {
+				Some(RecordedUnavailable::NoRecorder)
+			},
+			_ => None,
+		}
+	}
+}
+
+/// Why a node cannot service `state_callRecorded`; the variants differ in fallback log severity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RecordedUnavailable {
+	/// The node binary predates `state_callRecorded` (JSON-RPC method not found).
+	MethodMissing,
+	/// The node registers no proof-size recorder (e.g. a solochain).
+	NoRecorder,
 }
 
 // Direct `From` impls so `?` can lift sub-error variants without an explicit `subxt::Error::from`.
@@ -1033,9 +1060,12 @@ impl Client {
 			return Ok(vec![]);
 		}
 
-		let traces: Vec<(u32, Trace)> = self
-			.state_call_recorded(block_hash, "ReviveApi_trace_block", config.encode())
-			.await?;
+		let traces: Vec<(u32, TraceV1)> = Self::recorded_or_fallback(
+			"trace_block",
+			self.state_call_recorded(block_hash, "ReviveApi_trace_block", config.encode()),
+			|| async { self.runtime_api(parent_hash).trace_block(block, config).await },
+		)
+		.await?;
 
 		let mut hashes = self
 			.receipt_provider
@@ -1062,13 +1092,23 @@ impl Client {
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		let trace: Option<Trace> = self
-			.state_call_recorded(
+		let trace: Option<TraceV1> = Self::recorded_or_fallback(
+			"trace_tx",
+			self.state_call_recorded(
 				block_hash,
 				"ReviveApi_trace_tx",
-				(transaction_index as u32, config).encode(),
-			)
-			.await?;
+				(transaction_index as u32, config.clone()).encode(),
+			),
+			|| async {
+				let block = self.tracing_block(block_hash).await?;
+				let parent_hash = block.header.parent_hash;
+				self.runtime_api(parent_hash)
+					.trace_tx(block, transaction_index as u32, config)
+					.await
+					.map(Some)
+			},
+		)
+		.await?;
 
 		trace.ok_or(ClientError::EthExtrinsicNotFound)
 	}
@@ -1090,6 +1130,42 @@ impl Client {
 			)
 			.await?;
 		Ok(R::decode(&mut &result.0[..])?)
+	}
+
+	/// Run `recorded`; on a node that cannot service it (see
+	/// [`ClientError::recorded_unavailable_reason`]) run `fallback` instead, otherwise propagate.
+	/// `method` is used only for logging.
+	async fn recorded_or_fallback<R, Fb, Fut>(
+		method: &str,
+		recorded: impl Future<Output = Result<R, ClientError>>,
+		fallback: Fb,
+	) -> Result<R, ClientError>
+	where
+		Fb: FnOnce() -> Fut,
+		Fut: Future<Output = Result<R, ClientError>>,
+	{
+		match recorded.await {
+			Ok(result) => Ok(result),
+			Err(e) => match e.recorded_unavailable_reason() {
+				Some(RecordedUnavailable::MethodMissing) => {
+					log::warn!(
+						target: LOG_TARGET,
+						"{method}: node lacks `state_callRecorded` (version skew); falling back to \
+						 recorder-less replay — traces may be INCOMPLETE on PoV/parachain chains",
+					);
+					fallback().await
+				},
+				Some(RecordedUnavailable::NoRecorder) => {
+					log::debug!(
+						target: LOG_TARGET,
+						"{method}: node registers no proof-size recorder; using plain replay \
+						 (correct, no reclaim to honour)",
+					);
+					fallback().await
+				},
+				None => Err(e),
+			},
+		}
 	}
 
 	/// Get the transaction traces for the given block.
@@ -1226,4 +1302,56 @@ impl Client {
 
 fn to_hex(bytes: impl AsRef<[u8]>) -> String {
 	format!("0x{}", hex::encode(bytes.as_ref()))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sc_rpc_api::state::error::CALL_RECORDED_UNSUPPORTED_ERROR_CODE;
+	use subxt::ext::subxt_rpcs::UserError;
+
+	fn rpc_user_error(code: i32) -> ClientError {
+		ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(UserError {
+			code,
+			message: "..".to_string(),
+			data: None,
+		}))
+	}
+
+	#[test]
+	fn missing_method_is_version_skew() {
+		assert_eq!(
+			rpc_user_error(-32601).recorded_unavailable_reason(),
+			Some(RecordedUnavailable::MethodMissing),
+		);
+	}
+
+	#[test]
+	fn no_recorder_code_is_expected() {
+		assert_eq!(
+			rpc_user_error(CALL_RECORDED_UNSUPPORTED_ERROR_CODE).recorded_unavailable_reason(),
+			Some(RecordedUnavailable::NoRecorder),
+		);
+	}
+
+	#[test]
+	fn genuine_errors_do_not_trigger_fallback() {
+		assert!(rpc_user_error(-32000).recorded_unavailable_reason().is_none());
+		assert!(rpc_user_error(-32602).recorded_unavailable_reason().is_none());
+		assert!(ClientError::EthExtrinsicNotFound.recorded_unavailable_reason().is_none());
+		assert!(ClientError::BlockNotFound.recorded_unavailable_reason().is_none());
+	}
+
+	#[tokio::test]
+	async fn recorded_or_fallback_propagates_genuine_errors() {
+		let fell_back = std::cell::Cell::new(false);
+		let out: Result<u32, ClientError> =
+			Client::recorded_or_fallback("test", async { Err(rpc_user_error(-32000)) }, || async {
+				fell_back.set(true);
+				Ok(2)
+			})
+			.await;
+		assert!(matches!(out, Err(ClientError::RpcError(_))), "genuine error must propagate");
+		assert!(!fell_back.get(), "fallback must not run for a genuine failure");
+	}
 }

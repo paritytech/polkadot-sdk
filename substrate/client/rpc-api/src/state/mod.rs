@@ -301,21 +301,16 @@ pub trait StateApi<Hash> {
 		methods: Option<String>,
 	) -> Result<sp_rpc::tracing::TraceBlockResponse, Error>;
 
-	/// Re-execute `block` by calling the runtime API method `method` (by name), with a proof-size
-	/// recorder registered for the call, and return the SCALE-encoded result.
+	/// Recorded-replay sibling of [`Self::trace_block`]: loads `block` by hash and re-executes it
+	/// from the parent state through the runtime API `method`, with a proof-size recorder
+	/// registered, returning the method's SCALE-encoded result. The recorder keeps proof-size
+	/// reclaim faithful so block-replaying APIs do not spuriously hit `ExhaustsResources`.
 	///
-	/// This is the recorded-replay sibling of [`Self::trace_block`]: like `state_traceBlock` it
-	/// loads `block` from the node by hash and re-executes it from the parent state, but instead of
-	/// installing a tracing subscriber it returns the named runtime API's own return value. The
-	/// recorder lets block-replaying runtime APIs reclaim proof size during replay exactly as the
-	/// authoring node did, so they do not spuriously hit `ExhaustsResources` on the block tail.
+	/// `method`'s first argument must be the replayed block: it is sourced node-side and
+	/// SCALE-prepended to `extra_args` (the encoded tail of the arguments).
 	///
-	/// `method` must name a runtime API whose first argument is the block being replayed: the block
-	/// is sourced node-side and SCALE-prepended to `extra_args` (the encoded tail of the remaining
-	/// arguments) to form the call data.
-	///
-	/// **Unsafe**: re-executes arbitrary historical blocks and is only available on nodes that
-	/// register a proof-recording execution hook (parachains); it errors otherwise.
+	/// **Unsafe**: re-executes arbitrary historical blocks; only available on nodes that register a
+	/// proof-recording execution hook (parachains), and errors otherwise.
 	#[method(name = "state_callRecorded", blocking, with_extensions)]
 	fn call_recorded(&self, block: Hash, method: String, extra_args: Bytes)
 		-> Result<Bytes, Error>;

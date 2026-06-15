@@ -2558,21 +2558,9 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Diagnostic instrumentation for `trace_block` / `trace_tx` replay.
-	///
-	/// Tracing re-applies the extrinsics of an already-validated historical block. A faithful
-	/// replay should never *reject* a transaction, yet `CheckWeight` can return
-	/// `ExhaustsResources` for the tail extrinsics: eth transactions reserve their worst-case
-	/// (gas-derived) weight at pre-dispatch and only refund the unused part at post-dispatch, so
-	/// the accumulated *declared* weight can exceed the block limit even though the *actual*
-	/// (refunded) weight fit when the block was authored.
-	///
-	/// When that happens the extrinsic is never dispatched, so no trace is produced — surfacing
-	/// as a missing entry (`CallTracer`) or an all-zero phantom entry (`ExecutionTracer`).
-	///
-	/// This logs, per replayed extrinsic, whether it applied and the accumulated block weight vs
-	/// the limit, so the root cause can be confirmed against a real block. It intentionally does
-	/// not change behaviour — it only observes.
+	/// Log, per replayed extrinsic, whether it applied and the accumulated block weight, so a
+	/// trace dropped to `ExhaustsResources` (missing or phantom entry) can be diagnosed. Observes
+	/// only; does not change behaviour.
 	pub fn log_trace_replay_outcome(
 		index: usize,
 		result: &sp_runtime::ApplyExtrinsicResult,
@@ -2581,15 +2569,11 @@ impl<T: Config> Pallet<T> {
 		let consumed = <frame_system::BlockWeight<T>>::get().total();
 		let max = <T as frame_system::Config>::BlockWeights::get().max_block;
 		match result {
-			// Rejected before dispatch (this is where `ExhaustsResources` lands): the tx never
-			// executed, so the trace for this index is missing or a phantom.
 			Err(err) => log::warn!(
 				target: LOG_TARGET,
 				"trace replay: extrinsic #{index} NOT applied: {err:?} \
 				 (consumed block_weight={consumed:?}, max={max:?}, traced={traced})",
 			),
-			// Applied, but the dispatch itself errored (e.g. contract reverted) — normal, still
-			// traced.
 			Ok(Err(err)) => log::debug!(
 				target: LOG_TARGET,
 				"trace replay: extrinsic #{index} dispatch error: {err:?} \
@@ -4096,12 +4080,9 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let mut traces = vec![];
 					let (header, extrinsics) = input.block.deconstruct();
 					<$Executive>::initialize_block(&header);
-					// NB: faithful proof-size accounting during replay requires the caller to
-					// execute this API with a PoV recorder registered (e.g. via the node's
-					// `state_callRecorded` RPC). Invoked through a plain `state_call` (no recorder),
-					// `StorageWeightReclaim` cannot reclaim and the block tail may hit
-					// `ExhaustsResources`; the `log_trace_replay_outcome` instrumentation surfaces
-					// any such dropped extrinsic.
+					// Faithful proof-size accounting needs a PoV recorder registered for this call
+					// (e.g. the node's `state_callRecorded` RPC); without one the block tail may hit
+					// `ExhaustsResources` and drop a trace.
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						let mut tracer = $crate::Pallet::<Self>::evm_tracer(input.config.clone());
 						let t = tracer.as_tracing();

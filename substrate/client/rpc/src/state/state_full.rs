@@ -512,7 +512,10 @@ where
 		)
 		.call_recorded(&method, &extra_args.0)
 		.map(Into::into)
-		.map_err(|e| invalid_block::<Block>(block, None, e.to_string()))
+		.map_err(|e| match e {
+			sc_tracing::block::Error::CallRecordedUnsupported => Error::CallRecordedUnsupported,
+			e => invalid_block::<Block>(block, None, e.to_string()),
+		})
 	}
 }
 
