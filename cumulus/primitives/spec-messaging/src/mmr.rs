@@ -17,23 +17,27 @@
 use polkadot_core_primitives::Hash;
 use sp_io::hashing::blake2_256;
 
-use crate::{INNER_TAG, PEAK_TAG};
+use crate::{EMPTY_TAG, INNER_TAG, PEAK_TAG};
 
 pub fn merge_inner(left: Hash, right: Hash) -> Hash {
-    let mut preimage = Vec::with_capacity(1 + 32 + 32);
-    preimage.push(INNER_TAG);
-    preimage.extend_from_slice(left.as_bytes());
-    preimage.extend_from_slice(right.as_bytes());
-    blake2_256(&preimage).into()
+	let mut preimage = Vec::with_capacity(1 + 32 + 32);
+	preimage.push(INNER_TAG);
+	preimage.extend_from_slice(left.as_bytes());
+	preimage.extend_from_slice(right.as_bytes());
+	blake2_256(&preimage).into()
 }
 
 pub fn merge_peaks(peaks: &[Hash]) -> Hash {
-    let mut preimage = Vec::with_capacity(1 + 32 * peaks.len());
-    preimage.push(PEAK_TAG);
-    for peak in peaks {
-        preimage.extend_from_slice(peak.as_bytes());
-    }
+	let mut preimage = Vec::with_capacity(1 + 32 * peaks.len());
+	preimage.push(PEAK_TAG);
+	for peak in peaks {
+		preimage.extend_from_slice(peak.as_bytes());
+	}
 
-    blake2_256(&preimage).into()
+	blake2_256(&preimage).into()
 }
 
+pub fn empty_root() -> Hash {
+	let preimage = [EMPTY_TAG];
+	blake2_256(&preimage).into()
+}

@@ -29,10 +29,13 @@ pub mod outgoing_message;
 
 /// Tag for an empty MMR.
 pub const EMPTY_TAG: u8 = 0x1;
+
 /// Tag for a leaf node.
 pub const LEAF_TAG: u8 = 0x2;
+
 /// Tag for an inner node.
 pub const INNER_TAG: u8 = 0x3;
+
 /// Tag for a peak.
 pub const PEAK_TAG: u8 = 0x4;
 
