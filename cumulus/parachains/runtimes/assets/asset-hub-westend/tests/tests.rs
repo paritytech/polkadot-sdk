@@ -2772,3 +2772,147 @@ mod pgas_allowance {
 		});
 	}
 }
+
+// Regression tests for the revive trace-replay proof-size reclaim fix: replaying a block via
+// `trace_block`/`trace_tx` registers a proof recorder so the accumulated worst-case `proof_size` is
+// reclaimed instead of tripping `ExhaustsResources` and dropping the tail's traces.
+mod revive_trace_reclaim {
+	use super::*;
+	use frame_support::dispatch::DispatchClass;
+	use frame_system::pallet_prelude::HeaderFor;
+	use pallet_revive::{evm::TracerType, runtime_decl_for_revive_api::ReviveApiV1};
+	use pallet_revive_fixtures::compile_module;
+	use sp_core::H160;
+	use sp_runtime::{traits::Header as _, BuildStorage};
+	use sp_trie::{proof_size_extension::ProofSizeExt, ProofSizeProvider};
+
+	const SENDER: Sr25519Keyring = Sr25519Keyring::Bob;
+	// Enough reads that each call meters ~the per-call proof_size limit.
+	const ROUNDS: u32 = 100_000;
+
+	// Reports a constant size, so the per-extrinsic proof diff is zero: models a recorder being
+	// present, letting reclaim refund the full over-charge.
+	struct ConstantRecorder;
+	impl ProofSizeProvider for ConstantRecorder {
+		fn estimate_encoded_size(&self) -> usize {
+			0
+		}
+	}
+
+	fn setup_ext() -> sp_io::TestExternalities {
+		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+		pallet_balances::GenesisConfig::<Runtime> {
+			balances: vec![
+				(SENDER.to_account_id(), 1_000_000_000 * UNITS),
+				(pallet_revive::Pallet::<Runtime>::account_id(), 1_000_000 * UNITS),
+			],
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+		let mut ext: sp_io::TestExternalities = t.into();
+		ext.execute_with(|| System::set_block_number(1));
+		ext
+	}
+
+	// Like `construct_extrinsic` but with an explicit nonce, so a whole block can be built up-front.
+	fn signed_revive_call(addr: H160, nonce: u32, weight_limit: Weight) -> UncheckedExtrinsic {
+		let call = RuntimeCall::Revive(pallet_revive::Call::call {
+			dest: addr,
+			value: 0,
+			weight_limit,
+			storage_deposit_limit: 0,
+			data: ROUNDS.to_le_bytes().to_vec(),
+		});
+		let tx_ext: TxExtension = (
+			frame_system::AuthorizeCall::<Runtime>::new(),
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(Era::immortal()),
+			frame_system::CheckNonce::<Runtime>::from(nonce),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_pgas_allowance::ChargePGAS::<
+				Runtime,
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+			>::from(pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+				0, None,
+			)),
+			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			Default::default(),
+		)
+			.into();
+		let payload =
+			sp_runtime::generic::SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
+		let signature = payload.using_encoded(|e| SENDER.sign(e));
+		UncheckedExtrinsic::new_signed_transaction(
+			call,
+			AccountId::from(SENDER.public()).into(),
+			MultiSignature::Sr25519(signature),
+			tx_ext,
+		)
+	}
+
+	// Deploy the repeated-read contract, build a block of two calls, and replay it through `f`
+	// (`trace_block` or `trace_tx`), registering the proof recorder when `with_recorder`.
+	fn with_block<R>(with_recorder: bool, f: impl FnOnce(Block) -> R) -> R {
+		let code = compile_module("repeated_storage_read").unwrap().0;
+		let mut ext = setup_ext();
+		if with_recorder {
+			ext.register_extension(ProofSizeExt::new(ConstantRecorder));
+		}
+		ext.execute_with(|| {
+			let budget = <Runtime as frame_system::Config>::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.max_total
+				.expect("normal class has a max_total; qed")
+				.proof_size();
+			// ~60% of the budget each, so the two calls only both fit when reclaim is in effect.
+			let weight_limit = Weight::from_parts(500_000_000_000, budget * 3 / 5);
+
+			let contract = bare_instantiate(&SENDER.to_account_id(), code)
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: Weight::from_parts(500_000_000_000, 10 * 1024 * 1024),
+					deposit_limit: Balance::MAX,
+				})
+				.build_and_unwrap_contract();
+
+			// deploying bumped the sender's nonce
+			let base = frame_system::Pallet::<Runtime>::account(&SENDER.to_account_id()).nonce;
+			let extrinsics = vec![
+				signed_revive_call(contract.addr, base, weight_limit),
+				signed_revive_call(contract.addr, base + 1, weight_limit),
+			];
+			let header = <HeaderFor<Runtime>>::new(
+				frame_system::Pallet::<Runtime>::block_number() + 1,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+			);
+
+			f(Block { header, extrinsics })
+		})
+	}
+
+	fn tracer() -> TracerType {
+		TracerType::CallTracer(None)
+	}
+
+	#[test]
+	fn trace_block_drops_tail_trace_without_proof_recorder() {
+		let with_recorder = with_block(true, |b| Runtime::trace_block(b, tracer()).len());
+		let without = with_block(false, |b| Runtime::trace_block(b, tracer()).len());
+		assert_eq!(with_recorder, 2, "both calls traced with a recorder");
+		assert!(without < with_recorder, "tail trace dropped without a recorder");
+	}
+
+	#[test]
+	fn trace_tx_drops_tail_trace_without_proof_recorder() {
+		let with_recorder = with_block(true, |b| Runtime::trace_tx(b, 1, tracer()));
+		let without = with_block(false, |b| Runtime::trace_tx(b, 1, tracer()));
+		assert!(with_recorder.is_some(), "tail tx traced with a recorder");
+		assert!(without.is_none(), "tail tx trace dropped without a recorder");
+	}
+}
