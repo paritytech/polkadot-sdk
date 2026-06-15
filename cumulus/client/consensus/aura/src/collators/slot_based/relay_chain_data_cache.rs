@@ -33,8 +33,6 @@ pub struct RelayChainData {
 	pub relay_header: RelayHeader,
 	/// The claim queue at the relay parent.
 	pub claim_queue: ClaimQueueSnapshot,
-	/// Maximum configured PoV size on the relay chain.
-	pub max_pov_size: u32,
 	/// The session index this relay block belongs to.
 	pub session_index: SessionIndex,
 }
@@ -48,6 +46,8 @@ pub struct SessionData {
 	pub max_relay_parent_session_age: u32,
 	/// The node features for this session.
 	pub node_features: NodeFeatures,
+	/// Maximum configured PoV size on the relay chain.
+	pub max_pov_size: u32,
 }
 
 impl SessionData {
@@ -143,6 +143,23 @@ where
 			.expect("There is space for at least one element; qed"))
 	}
 
+	/// Whether V3 scheduling is active for the session that `relay_hash` belongs to.
+	///
+	/// V3 is active if it is enabled on the parachain runtime (`v3_enabled_on_para`) *and* the
+	/// relay chain has the `CandidateReceiptV3` node feature set for this session. Defaults to
+	/// `false` if the session data cannot be fetched.
+	pub async fn v3_scheduling_active(
+		&mut self,
+		relay_hash: RelayHash,
+		v3_enabled_on_para: bool,
+	) -> bool {
+		v3_enabled_on_para &&
+			self.get_session_data(relay_hash)
+				.await
+				.map(|data| data.is_v3_enabled())
+				.unwrap_or(false)
+	}
+
 	/// Fetch fresh session-scoped configuration from the relay chain.
 	async fn fetch_session_data(&self, relay_hash: RelayHash) -> Result<SessionData, ()> {
 		let scheduling_lookahead =
@@ -175,7 +192,30 @@ where
 			);
 		})?;
 
-		Ok(SessionData { scheduling_lookahead, max_relay_parent_session_age, node_features })
+		let max_pov_size = match self
+			.relay_client
+			.persisted_validation_data(relay_hash, self.para_id, OccupiedCoreAssumption::Included)
+			.await
+		{
+			Ok(Some(pvd)) => pvd.max_pov_size,
+			Ok(None) => return Err(()),
+			Err(err) => {
+				tracing::error!(
+					target: crate::LOG_TARGET,
+					?relay_hash,
+					?err,
+					"Failed to fetch pvd from relay-client."
+				);
+				return Err(());
+			},
+		};
+
+		Ok(SessionData {
+			scheduling_lookahead,
+			max_relay_parent_session_age,
+			node_features,
+			max_pov_size,
+		})
 	}
 
 	/// Fetch fresh data from the relay chain for the given relay parent.
@@ -189,24 +229,6 @@ where
 		);
 
 		let claim_queue = claim_queue_at(relay_hash, &self.relay_client).await;
-
-		let max_pov_size = match self
-			.relay_client
-			.persisted_validation_data(relay_hash, self.para_id, OccupiedCoreAssumption::Included)
-			.await
-		{
-			Ok(None) => return Err(()),
-			Ok(Some(pvd)) => pvd.max_pov_size,
-			Err(err) => {
-				tracing::error!(
-					target: crate::LOG_TARGET,
-					?relay_hash,
-					?err,
-					"Failed to fetch pvd from relay-client."
-				);
-				return Err(());
-			},
-		};
 
 		let session_index =
 			match self.relay_client.session_index_for_child(*relay_header.parent_hash()).await {
@@ -222,7 +244,7 @@ where
 				},
 			};
 
-		Ok(RelayChainData { relay_header, claim_queue, max_pov_size, session_index })
+		Ok(RelayChainData { relay_header, claim_queue, session_index })
 	}
 
 	#[cfg(test)]

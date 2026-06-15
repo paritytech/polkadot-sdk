@@ -161,10 +161,6 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		Some(best_relay_block_data)
 	}
 
-	pub fn is_v3_enabled(v3_enabled_on_para: bool, v3_enabled_on_relay: bool) -> bool {
-		v3_enabled_on_para && v3_enabled_on_relay
-	}
-
 	/// Pick a scheduling parent under the policy described on [`SchedulingInfo`],
 	/// blocking on the notification stream until one is available.
 	///
@@ -199,12 +195,9 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 			let best_relay_slot = get_relay_slot(&best_relay_header)?;
 			let best_relay_hash = best_relay_header.hash();
 
-			let v3_enabled_on_relay = relay_chain_data_cache
-				.get_session_data(best_relay_hash)
-				.await
-				.map(|data| data.is_v3_enabled())
-				.unwrap_or(false);
-			let v3_enabled = Self::is_v3_enabled(v3_enabled_on_para, v3_enabled_on_relay);
+			let v3_enabled = relay_chain_data_cache
+				.v3_scheduling_active(best_relay_hash, v3_enabled_on_para)
+				.await;
 			if v3_enabled {
 				// For scheduling v3 we don't need to loop since we need to return a
 				// scheduling parent associated with a finished slot.

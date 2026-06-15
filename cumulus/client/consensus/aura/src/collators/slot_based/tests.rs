@@ -292,6 +292,7 @@ pub struct TestRelayClient {
 	scheduling_lookahead_calls: Arc<AtomicU32>,
 	max_relay_parent_session_age_calls: Arc<AtomicU32>,
 	node_features_calls: Arc<AtomicU32>,
+	persisted_validation_data_calls: Arc<AtomicU32>,
 	/// Maps the hash passed to `session_index_for_child` to the session index it returns.
 	/// Hashes that are not present default to session `0`.
 	session_indices: Arc<Mutex<HashMap<RelayHash, SessionIndex>>>,
@@ -306,6 +307,7 @@ impl TestRelayClient {
 			scheduling_lookahead_calls: Arc::new(AtomicU32::new(0)),
 			max_relay_parent_session_age_calls: Arc::new(AtomicU32::new(0)),
 			node_features_calls: Arc::new(AtomicU32::new(0)),
+			persisted_validation_data_calls: Arc::new(AtomicU32::new(0)),
 			session_indices: Default::default(),
 		}
 	}
@@ -326,6 +328,10 @@ impl TestRelayClient {
 
 	pub fn node_features_calls(&self) -> u32 {
 		self.node_features_calls.load(Ordering::Relaxed)
+	}
+
+	pub fn persisted_validation_data_calls(&self) -> u32 {
+		self.persisted_validation_data_calls.load(Ordering::Relaxed)
 	}
 
 	/// Configure the session index returned by `session_index_for_child` for the given hash.
@@ -384,6 +390,8 @@ impl RelayChainInterface for TestRelayClient {
 		_: OccupiedCoreAssumption,
 	) -> RelayChainResult<Option<PersistedValidationData>> {
 		use cumulus_primitives_core::PersistedValidationData;
+
+		self.persisted_validation_data_calls.fetch_add(1, Ordering::Relaxed);
 
 		if self.headers.get(&hash).is_none() {
 			return Ok(None);
@@ -657,7 +665,6 @@ impl RelayChainDataCache<TestRelayClient> {
 		let data = RelayChainData {
 			relay_header: relay_parent_header,
 			claim_queue: claim_queue_snapshot,
-			max_pov_size: 1024 * 1024,
 			session_index,
 		};
 
@@ -668,6 +675,7 @@ impl RelayChainDataCache<TestRelayClient> {
 				scheduling_lookahead: DEFAULT_SCHEDULING_LOOKAHEAD,
 				max_relay_parent_session_age: 7,
 				node_features,
+				max_pov_size: 1024 * 1024,
 			},
 		);
 	}
@@ -724,12 +732,14 @@ async fn session_data_is_cached_per_session() {
 			scheduling_lookahead: 5,
 			max_relay_parent_session_age: 7,
 			node_features: NodeFeatures::default(),
+			max_pov_size: 1024 * 1024,
 		}),
 		"get_session_data should return values from TestRelayClient"
 	);
 	assert_eq!(client.scheduling_lookahead_calls(), 1);
 	assert_eq!(client.max_relay_parent_session_age_calls(), 1);
 	assert_eq!(client.node_features_calls(), 1);
+	assert_eq!(client.persisted_validation_data_calls(), 1);
 
 	// Second call for the same session (header_a again) and a different block in the same session
 	// (header_b): must reuse the cached entry, no new queries.
@@ -742,6 +752,7 @@ async fn session_data_is_cached_per_session() {
 		"no re-query within the same session"
 	);
 	assert_eq!(client.node_features_calls(), 1, "no re-query within the same session");
+	assert_eq!(client.persisted_validation_data_calls(), 1, "no re-query within the same session");
 
 	// Crossing into session 1 (header_c) triggers exactly one additional fetch of each item.
 	let _ = cache
@@ -755,4 +766,5 @@ async fn session_data_is_cached_per_session() {
 		"one extra query for the new session"
 	);
 	assert_eq!(client.node_features_calls(), 2, "one extra query for the new session");
+	assert_eq!(client.persisted_validation_data_calls(), 2, "one extra query for the new session");
 }

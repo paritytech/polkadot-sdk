@@ -230,16 +230,14 @@ where
 			.map(|data| data.relay_header.hash());
 
 		let (_para_best_hash, v3_enabled_on_para) = get_best_hash_and_v3_status(&para_client);
-		let v3_enabled_on_relay = match maybe_best_relay_hash {
-			Some(best_relay_hash) => relay_chain_data_cache
-				.get_session_data(best_relay_hash)
-				.await
-				.map(|data| data.is_v3_enabled())
-				.unwrap_or(false),
+		let v3_enabled = match maybe_best_relay_hash {
+			Some(best_relay_hash) => {
+				relay_chain_data_cache
+					.v3_scheduling_active(best_relay_hash, v3_enabled_on_para)
+					.await
+			},
 			None => false,
 		};
-		let v3_enabled =
-			SchedulingInfo::<RelayClient>::is_v3_enabled(v3_enabled_on_para, v3_enabled_on_relay);
 		slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
 
 		loop {
@@ -348,7 +346,7 @@ where
 			};
 
 			let Ok(max_pov_size) = relay_chain_data_cache
-				.get_by_hash(relay_parent_hash)
+				.get_session_data(relay_parent_hash)
 				.await
 				.map(|d| d.max_pov_size)
 			else {
