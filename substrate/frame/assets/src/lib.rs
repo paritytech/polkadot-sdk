@@ -228,21 +228,85 @@ impl<AssetId, AccountId> AssetsCallback<AssetId, AccountId> for Tuple {
 	}
 }
 
-/// Auto-increment the [`NextAssetId`] when an asset is created.
+/// Manages the auto-incrementing asset id sequence backing [`NextAssetId`].
 ///
-/// This has not effect if the [`NextAssetId`] value is not present.
+/// This is the mechanism that explicitly enables or disables auto-increment for an instance of
+/// the pallet. Configure [`Config::AssetIdSequencer`] with:
+/// - [`AutoIncAssetId`] to enable auto-increment (requires `AssetId: Incrementable + PartialOrd`),
+///   or
+/// - `()` to disable it.
+///
+/// When enabled, the sequence is only *active* while [`NextAssetId`] holds a value; that value is
+/// initialized through one of the supported paths — genesis build, a migration, or `force_create`
+/// (see [`crate::migration::next_asset_id::SetNextAssetId`]). While inactive, this behaves as if
+/// auto-increment were disabled.
+pub trait AssetIdSequencer<AssetId> {
+	/// The id that the next sequential asset creation must use, or `None` when auto-increment is
+	/// disabled or not yet active.
+	fn next() -> Option<AssetId>;
+
+	/// Advance the sequence by one, to be called after a successful sequential creation.
+	///
+	/// Returns `Err` if the sequence is active but cannot be advanced (id space exhausted).
+	/// No-op when auto-increment is disabled or not yet active.
+	fn increment() -> Result<(), ()>;
+
+	/// Ensure the sequence will never later produce an id less than or equal to `id`.
+	///
+	/// Called when an asset is created with a caller-chosen (forced) id, so that the
+	/// auto-increment sequence never collides with it. If `id` is below the current next id it is
+	/// left untouched (the lower range can be partitioned for deliberate assignment). Returns `Err`
+	/// if the sequence would have to advance past the end of the id space. No-op when
+	/// auto-increment is disabled or not yet active.
+	fn advance_past(id: &AssetId) -> Result<(), ()>;
+}
+
+/// Auto-increment is disabled: the [`NextAssetId`] storage value, if any, has no effect.
+impl<AssetId> AssetIdSequencer<AssetId> for () {
+	fn next() -> Option<AssetId> {
+		None
+	}
+	fn increment() -> Result<(), ()> {
+		Ok(())
+	}
+	fn advance_past(_: &AssetId) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
+/// Auto-increment the [`NextAssetId`] as assets are created.
+///
+/// This has no effect while the [`NextAssetId`] value is not present.
 pub struct AutoIncAssetId<T, I = ()>(PhantomData<(T, I)>);
-impl<T: Config<I>, I> AssetsCallback<T::AssetId, T::AccountId> for AutoIncAssetId<T, I>
+impl<T: Config<I>, I: 'static> AssetIdSequencer<T::AssetId> for AutoIncAssetId<T, I>
 where
-	T::AssetId: Incrementable,
+	T::AssetId: Incrementable + PartialOrd,
 {
-	fn created(_: &T::AssetId, _: &T::AccountId) -> Result<(), ()> {
+	fn next() -> Option<T::AssetId> {
+		NextAssetId::<T, I>::get()
+	}
+
+	fn increment() -> Result<(), ()> {
 		let Some(next_id) = NextAssetId::<T, I>::get() else {
-			// Auto increment for the asset id is not enabled.
+			// Auto increment for the asset id is not active.
 			return Ok(());
 		};
 		let next_id = next_id.increment().ok_or(())?;
 		NextAssetId::<T, I>::put(next_id);
+		Ok(())
+	}
+
+	fn advance_past(id: &T::AssetId) -> Result<(), ()> {
+		let Some(next_id) = NextAssetId::<T, I>::get() else {
+			// Auto increment for the asset id is not active.
+			return Ok(());
+		};
+		// Only advance when the forced id is at or beyond the sequence; ids below `next_id` belong
+		// to a range that can be reserved for deliberate, forced assignment.
+		if *id >= next_id {
+			let next_id = id.increment().ok_or(())?;
+			NextAssetId::<T, I>::put(next_id);
+		}
 		Ok(())
 	}
 }
@@ -310,6 +374,7 @@ pub mod pallet {
 			type Holder = ();
 			type Extra = ();
 			type CallbackHandle = ();
+			type AssetIdSequencer = ();
 			type WeightInfo = ();
 			#[cfg(feature = "runtime-benchmarks")]
 			type BenchmarkHelper = ();
@@ -421,9 +486,14 @@ pub mod pallet {
 		///
 		/// Types implementing the [`AssetsCallback`] can be chained when listed together as a
 		/// tuple.
-		/// The [`AutoIncAssetId`] callback, in conjunction with the [`NextAssetId`], can be
-		/// used to set up auto-incrementing asset IDs for this collection.
 		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId>;
+
+		/// Manages the auto-incrementing asset id sequence backing [`NextAssetId`].
+		///
+		/// Set to [`AutoIncAssetId`] (in conjunction with an initialized [`NextAssetId`]) to enable
+		/// auto-incrementing asset ids for this instance, or to `()` to disable it. See
+		/// [`AssetIdSequencer`] for details.
+		type AssetIdSequencer: AssetIdSequencer<Self::AssetId>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -737,7 +807,9 @@ pub mod pallet {
 		NotFrozen,
 		/// Callback action resulted in error
 		CallbackFailed,
-		/// The asset ID must be equal to the [`NextAssetId`].
+		/// The asset id is not valid for the auto-increment sequence: either it must be equal to
+		/// the [`NextAssetId`] (for `create`), or maintaining the sequence past it would overflow
+		/// the id space.
 		BadAssetId,
 		/// The asset cannot be destroyed because some accounts for this asset contain freezes.
 		ContainsFreezes,
@@ -790,7 +862,7 @@ pub mod pallet {
 			ensure!(!Asset::<T, I>::contains_key(&id), Error::<T, I>::InUse);
 			ensure!(!min_balance.is_zero(), Error::<T, I>::MinBalanceZero);
 
-			if let Some(next_id) = NextAssetId::<T, I>::get() {
+			if let Some(next_id) = T::AssetIdSequencer::next() {
 				ensure!(id == next_id, Error::<T, I>::BadAssetId);
 			}
 
@@ -815,6 +887,8 @@ pub mod pallet {
 				},
 			);
 			ensure!(T::CallbackHandle::created(&id, &owner).is_ok(), Error::<T, I>::CallbackFailed);
+			// Advance the auto-increment sequence past the just-created sequential id.
+			T::AssetIdSequencer::increment().map_err(|_| Error::<T, I>::BadAssetId)?;
 			Self::deposit_event(Event::Created {
 				asset_id: id,
 				creator: owner.clone(),
@@ -832,8 +906,23 @@ pub mod pallet {
 		///
 		/// Unlike `create`, no funds are reserved.
 		///
+		/// Unlike `create`, the `id` does not have to equal [`NextAssetId`]: a privileged origin
+		/// may pick an arbitrary `id`. When the auto-increment sequence is active (see
+		/// [`AssetIdSequencer`]) and the chosen `id` is at or beyond the current [`NextAssetId`],
+		/// the sequence is advanced past it so it never later collides; ids below [`NextAssetId`]
+		/// can be used to partition the lower id range for deliberate, governance assignment.
+		///
+		/// ## ⚠️ Warning
+		///
+		/// Forcing an arbitrary `id` is dangerous. The chosen `id` MUST NOT be one that was ever
+		/// previously in use — the pallet can only check that it is not *currently* in use.
+		/// Reusing an id can cause state inconsistencies, and is especially severe for assets that
+		/// were bridged to external consensus systems, where an id collision can break the mapping
+		/// between the local and remote representations of an asset and corrupt cross-chain
+		/// accounting.
+		///
 		/// - `id`: The identifier of the new asset. This must not be currently in use to identify
-		/// an existing asset. If [`NextAssetId`] is set, then this must be equal to it.
+		/// an existing asset, and must never have been in use previously (see warning above).
 		/// - `owner`: The owner of this class of assets. The owner has full superuser permissions
 		/// over this asset, but may later change and configure the permissions using
 		/// `transfer_ownership` and `set_team`.

@@ -763,9 +763,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> DispatchResult {
 		ensure!(!Asset::<T, I>::contains_key(&id), Error::<T, I>::InUse);
 		ensure!(!min_balance.is_zero(), Error::<T, I>::MinBalanceZero);
-		if let Some(next_id) = NextAssetId::<T, I>::get() {
-			ensure!(id == next_id, Error::<T, I>::BadAssetId);
-		}
 
 		Asset::<T, I>::insert(
 			&id,
@@ -785,6 +782,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			},
 		);
 		ensure!(T::CallbackHandle::created(&id, &owner).is_ok(), Error::<T, I>::CallbackFailed);
+		// Keep the auto-increment sequence consistent with this forced id, so it never later
+		// collides. No-op when auto-increment is disabled or the id is below the current next id.
+		T::AssetIdSequencer::advance_past(&id).map_err(|_| Error::<T, I>::BadAssetId)?;
 		Self::deposit_event(Event::ForceCreated { asset_id: id, owner: owner.clone() });
 		Ok(())
 	}
