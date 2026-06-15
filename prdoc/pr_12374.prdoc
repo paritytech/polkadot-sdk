@@ -1,0 +1,68 @@
+title: Fix resource exhaustion when replaying finalized-block transactions
+doc:
+- audience:
+  - Node Dev
+  - Runtime Dev
+  description: "# Description\n\nRe-applying the transactions of a finalized block\
+    \ can yield different results than the original execution: transactions that originally\
+    \ succeeded are rejected with `ExhaustsResources`. This affects runtime APIs that\
+    \ replay a block (`pallet-revive`'s `trace_block` / `trace_tx`), where the rejected\
+    \ tail transactions then produce no trace (a missing or zero-value phantom entry,\
+    \ depending on the tracer).\n\n**The cause.** Each extrinsic is charged its declared\
+    \ (worst-case) `proof_size`; `StorageWeightReclaim` then refunds the difference\
+    \ between that and the actual proof size, which it reads from a proof-size recorder.\
+    \ The original execution (at authoring) has a recorder registered, so the over-charge\
+    \ is reclaimed and the block fits. The replay registers no recorder, so the proof-size\
+    \ lookup returns nothing and reclaim is skipped. The declared `proof_size` accumulates\
+    \ past the block limit and `CheckWeight` rejects the tail extrinsics. Reproduced\
+    \ in an Asset Hub Westend integration test.\n\n**The fix.** Replay the block through\
+    \ the runtime API with a proof-size recorder registered, so replay reproduces\
+    \ the original execution and the whole block is processed.\n\n# Integration\n\n\
+    - New **unsafe-gated** RPC `state_callRecorded` on `StateApi`, the recorded-replay\
+    \ sibling of `state_traceBlock`.\n- New `TracingExecuteBlock::call_recorded` trait\
+    \ method with a default impl that errors (non-breaking); implemented for parachains\
+    \ in `cumulus-client-service`.\n- New `Error::CallRecordedUnsupported` and wire\
+    \ code `CALL_RECORDED_UNSUPPORTED_ERROR_CODE` in `sc-rpc-api`.\n\n# Review Notes\n\
+    \n**Approach.** `state_callRecorded` loads the block by hash, replays it from\
+    \ parent state through a named runtime API with a proof-size recorder registered,\
+    \ and returns the API's SCALE-encoded result (no tracing subscriber). The API's\
+    \ first argument must be the replayed block; the node sources it and SCALE-prepends\
+    \ it to `extra_args`.\n\n**Why a new RPC, not the existing call path.** `pallet-revive-eth-rpc`\
+    \ talks to the node remotely, so its typed `runtime_api.trace_block()` already\
+    \ crosses the wire as a `state_call`; the recorder can only be injected node-side.\
+    \ `state_call` registers no recorder and offers no per-call hook to opt one in,\
+    \ and registering a recorder on every `state_call` would change behaviour for\
+    \ all callers. So we add one scoped, unsafe-gated method. When the node has the\
+    \ authoring-time proof-size recording in its aux DB it is replayed for fidelity;\
+    \ otherwise a fresh recorder is used.\n\n**Alternative approaches welcome.** This\
+    \ is one way to give trace replay a recorder; suggestions for a different mechanism\
+    \ or a smaller API surface are very welcome.\n\n**Client fallback.** When a node\
+    \ cannot service `state_callRecorded` (method absent, or no recorder \u2014 e.g.\
+    \ a solochain), eth-rpc falls back to the plain typed `trace_block`/`trace_tx`.\
+    \ The fallback is not silent: version skew warns (the recorder-less replay can\
+    \ still drop the tail on PoV chains), the expected recorder-less case logs at\
+    \ debug.\n\n**Tests.** Integration tests in `asset-hub-westend` reproduce the\
+    \ bug and confirm the fix. A block of two storage-heavy revive calls is replayed,\
+    \ and the tail is traced only with a recorder registered:\n- `trace_block_drops_tail_trace_without_proof_recorder`\
+    \ traces both calls with a recorder and fewer without;\n- `trace_tx_drops_tail_trace_without_proof_recorder`\
+    \ traces the tail tx with a recorder and not without.\nA new `repeated_storage_read`\
+    \ fixture creates the `proof_size` over-charge that triggers the drop.\nUnit tests\
+    \ in `pallet-revive-eth-rpc` cover the fallback (which errors downgrade to a recorder-less\
+    \ replay vs. propagate)."
+crates:
+- name: sc-tracing
+  bump: major
+- name: cumulus-client-service
+  bump: major
+- name: sc-rpc-api
+  bump: major
+- name: sc-rpc
+  bump: major
+- name: pallet-revive-eth-rpc
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
