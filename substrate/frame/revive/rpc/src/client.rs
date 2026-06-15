@@ -304,9 +304,15 @@ impl SubscriptionGapQueue {
 					"🔄 Subscription gap queue: queued #{from_inclusive} down to #{to_inclusive} ({gap_len} blocks)");
 			},
 			Err(err) => {
-				self.pending.fetch_sub(1, Ordering::Release);
-				log::warn!(target: LOG_TARGET,
-					"🔄 Subscription gap queue error, dropping #{from_inclusive}..#{to_inclusive} ({gap_len} blocks): {err}");
+				// The queue is full: this gap fill could not be scheduled. Deliberately
+				// keep the pending count incremented (do NOT decrement) so
+				// `advance_sync_head` will not advance the head past this un-indexed range
+				// — dropping it here is what previously allowed a silent hole. The gap is
+				// recovered on the next restart's backward sync. (A follow-up could apply
+				// backpressure instead of relying on the bounded channel.)
+				log::error!(target: LOG_TARGET,
+					"🔄 Subscription gap queue full, could not schedule #{from_inclusive}..#{to_inclusive} ({gap_len} blocks): {err}; \
+					 keeping it pending so the sync head cannot advance over un-indexed blocks");
 			},
 		}
 	}
@@ -326,6 +332,68 @@ impl SubscriptionGapQueue {
 	/// Returns `true` if there are pending gap-fill requests.
 	pub fn has_pending(&self) -> bool {
 		self.pending.load(Ordering::Acquire) > 0
+	}
+}
+
+impl crate::block_sync::SyncBlock for Arc<SubstrateBlock> {
+	fn number(&self) -> SubstrateBlockNumber {
+		(**self).number()
+	}
+	fn hash(&self) -> H256 {
+		(**self).hash()
+	}
+	fn parent_hash(&self) -> H256 {
+		self.header().parent_hash
+	}
+}
+
+#[jsonrpsee::core::async_trait]
+impl crate::block_sync::SyncChainClient for Client {
+	type Block = Arc<SubstrateBlock>;
+
+	async fn block_by_number(
+		&self,
+		number: SubstrateBlockNumber,
+	) -> Result<Option<Self::Block>, ClientError> {
+		self.block_provider.block_by_number(number).await
+	}
+
+	async fn block_by_hash(&self, hash: H256) -> Result<Option<Self::Block>, ClientError> {
+		self.block_provider.block_by_hash(&hash).await
+	}
+
+	async fn eth_block_hash(&self, block: &Self::Block) -> Result<Option<H256>, ClientError> {
+		self.runtime_api(block.hash())
+			.eth_block_hash(pallet_revive::evm::U256::from(block.number()))
+			.await
+	}
+
+	async fn insert_block_receipts(
+		&self,
+		block: &Self::Block,
+		ethereum_hash: &H256,
+	) -> Result<(), ClientError> {
+		self.receipt_provider.insert_block_receipts_past(block, ethereum_hash).await
+	}
+
+	async fn set_first_evm_block(&self, number: SubstrateBlockNumber) -> Result<(), ClientError> {
+		self.receipt_provider.set_first_evm_block(number).await
+	}
+
+	async fn checkpoint_sync_label(
+		&self,
+		label: SyncLabel,
+		number: SubstrateBlockNumber,
+		hash: H256,
+	) {
+		let cp = SyncCheckpoint::new(number, hash);
+		let result = match label {
+			SyncLabel::Head => self.receipt_provider.advance_sync_label(label, cp).await,
+			SyncLabel::Tail => self.receipt_provider.recede_sync_label(label, cp).await,
+		};
+		if let Err(err) = result {
+			log::warn!(target: LOG_TARGET, "Failed to update sync_label[{label}]: {err:?}");
+		}
 	}
 }
 
