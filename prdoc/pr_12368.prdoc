@@ -1,0 +1,41 @@
+title: 'spec-msg/primitives: Implement Speculative Messaging primitives'
+doc:
+- audience: Runtime Dev
+  description: "Closes #12346\n\n- New `cumulus-primitives-spec-messaging` crate (`cumulus/primitives/spec-messaging/`),\
+    \ `no_std`-compatible, added to workspace members.\n\n- **`CommitmentSet<const\
+    \ N: u32>`**: canonical, bounded set of `(ParaId, Hash)` entries (`BoundedVec<(ParaId,\
+    \ Hash), ConstU32<N>>`) for `provides`/`requires` commitments.\n  - Manual `Decode`\
+    \ rejects input whose `ParaId`s aren't strictly increasing (sorted + unique),\
+    \ preventing collator/PVF encoding disagreements.\n  - `try_from_iter`: builds\
+    \ from an unordered iterator, sorting by `ParaId`, rejecting duplicates (`CommitmentError::DuplicateParaId`)\
+    \ or over-capacity input (`CommitmentError::TooManyEntries`).\n  - Accessors:\
+    \ `get`, `len`, `is_empty`, `iter`, `IntoIterator`.\n  - Full derive set (`Encode,\
+    \ Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, ...`).\n  - 10 unit\
+    \ tests: sorted construction, duplicate/overflow rejection, encode/decode round-trip,\
+    \ decode rejection (out-of-order/duplicate/over-capacity), lookup, iteration,\
+    \ default.\n\n- **Domain-separated hashing constants** (`outgoing_message.rs`):\
+    \ `LEAF_TAG`/`INNER_TAG`/`PEAK_TAG`/`EMPTY_TAG` + `LEAF_VERSION`, preventing hash\
+    \ collisions across node types and protocol versions.\n\n- **`OutgoingMessage<MaxMsgLen:\
+    \ Get<u32>>`**: `source`, `destination`, `position`, bounded `payload: BoundedVec<u8,\
+    \ MaxMsgLen>`, full derive set for storage/`UMPSignal` embedding.\n  - `hash_leaf()`:\
+    \ `LEAF_TAG ++ LEAF_VERSION ++ source ++ destination ++ position.to_le_bytes()\
+    \ ++ (payload.len() as u32).to_le_bytes() ++ payload`, hashed via `blake2_256`\
+    \ \u2014 matches the issue's specified preimage format exactly.\n  - 7 unit tests:\
+    \ constructor, determinism, exact preimage (known-answer test), per-field hash\
+    \ sensitivity (source/destination/position/payload).\n\n- **MMR operations** (`mmr.rs`):\n\
+    \  - `merge_inner`, `merge_peaks`, `empty_root` \u2014 free functions tagged with\
+    \ `INNER_TAG`/`PEAK_TAG`/`EMPTY_TAG`, reusable by both pallets and receiver-side\
+    \ (p2p, post-MVP) proof verification.\n  - `MmrAccumulator` trait \u2014 `append`/`root`/`size`\
+    \ (MVP) plus `extension_proof` (post-MVP, defaults to `Err(\"Not implemented yet\"\
+    )`), allowing a future MMR\u2192MMB transition without breaking callers.\n  -\
+    \ `Mmr<MaxPeaks: Get<u32>>` \u2014 concrete peaks-based implementation using binary-counter\
+    \ carry propagation on `append`.\n  - 9 unit tests: empty root/size, `peaks.len()\
+    \ == size.count_ones()` invariant across 16 appends, root determinism & per-append\
+    \ change, merge order-sensitivity, cross-domain isolation (leaf/inner/peak/empty),\
+    \ `extension_proof` defaulting to unsupported.\n\n### Additions from issue pseudocode\n\
+    - `OutgoingMessage` includes a `source: ParaId` field not present in the issue's\
+    \ struct sketch \u2014 required because the issue's own leaf-preimage format includes\
+    \ `source_parachain`, which the struct must carry to compute `hash_leaf()`."
+crates:
+- name: cumulus-primitives-spec-messaging
+  bump: major
