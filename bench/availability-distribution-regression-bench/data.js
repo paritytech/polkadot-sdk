@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781300978396,
+  "lastUpdate": 1781533467481,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1e3082252cf6914dfa2b5183a0179588c9c748a1",
-          "message": "pallet_revive: Only enforce EIP-3607 for dispatchables (#10100)\n\nThe EIP states that contract addresses cannot be the origin of a\ntransaction. However, we are enforcing this rule for all contract\nexecution (i.e all public function on the pallet). This is a problem for\ncode that uses `pallet_revive` and explicitly wants to allow this.\n\nThis PR now only enforces this check for dispatchables so that all the\n`bare_*` functions are unaffected.\n\nAs a drive-by a regrouped the functions on the `Pallet` so that the\npublic functions are no longer interleaved with the private ones. This\ngot mixed up when we resolved some merge conflicts.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-28T09:47:52Z",
-          "tree_id": "7dc492341b3a3482de0ba2acd50b128bef2f5561",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1e3082252cf6914dfa2b5183a0179588c9c748a1"
-        },
-        "date": 1761649400406,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022534568773333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1602855599533334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007441352313333339,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013092337286666662,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010190042106666646,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "81e6d5ac17544a9b11a177e5e16c8ca5c3887a6f",
+          "message": "Logging improvements for the collator revamp (#12282)\n\nSome logging updates:\n\n- Decrease log levels in `wait_for_first_leaf` to DEBUG, to avoid\nstartup spam\n- Use `warn_if_frequent` for fetch errors\n- Log assignment changes on view change\n- pick_best_advertisement: trace logs for each outcome\n- update_view: log scheduling parent <-> assigned core mapping\n- update_view: log sp removal\n- handle_seconded_collation: logs for each error case\n- PeerManager: log reputation updates\n\nPartially addresses\nhttps://github.com/paritytech/polkadot-sdk/issues/10402\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-15T12:53:09Z",
+          "tree_id": "556214ed9b85c112876cb7a4238f6be37b5641fb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/81e6d5ac17544a9b11a177e5e16c8ca5c3887a6f"
+        },
+        "date": 1781533441478,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007446584813333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1467609813666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010053637333333316,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023862194946666665,
             "unit": "seconds"
           }
         ]
