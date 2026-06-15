@@ -1,25 +1,11 @@
 title: 'fatxpool: preserve order of same-priority transactions on re-orgs'
 doc:
 - audience: Node Dev
-  description: "This PR improves handling the order of transactions during re-orgs.\
-    \ Previously transactions from retracted blocks were resubmitted in reverse order\
-    \ (old best \u2192 common ancestor); now they are resubmitted in execution order\
-    \ (common ancestor \u2192 old best), so equal-priority transactions keep their\
-    \ original order via the pool's FIFO tie-break.\n\nThe original order is not always\
-    \ preserved (and also is not guaranteed, this implementation is just best-effort\
-    \ approach that will work well for most typical forks), but only in some cases\
-    \ when possible:\n\n#### Works \u2014 equal priority (e.g. same call, no tips)\n\
-    \n```\nretracted:           B1[TA0]  B2[TB0]  B3[TA1]  B4[TB1]\nresubmitted order:\
-    \   B'x[TA0, TB0, TA1, TB1]\n```\n\nBoth per-account nonce order **and** the cross-account\
-    \ interleaving are preserved.\n\n#### Doesn't work \u2014 different priority (tips\
-    \ / different weights)\n\nPriority wins over original order. With `TA1` boosted\
-    \ (lower weight or higher tip):\n\n```\nretracted:           B1[TA0]  B2[TB0]\
-    \  B3[TA1]  B4[TB1]\nresubmitted order:   B'x[TA0, TA1, TB0, TB1]\n```\n\nPer-account\
-    \ nonce order is still safe (`TA1` never beats `TA0`), but the cross-account order\
-    \ follows priority, not the blocks.\n\n#### Note: Where does priority come from?\n\
-    For a signed transaction, priority is set by `ChargeTransactionPayment` based\
-    \ on the tip per unit of the scarcer resource (weight or length):\n```\npriority\
-    \ = (tip + 1) * max_tx_per_block\n```\nFor more details refer to [`get_priority`](https://github.com/paritytech/polkadot-sdk/blob/968eaa447002e599ee1c9deac6d41eca230204ae/substrate/frame/transaction-payment/src/lib.rs#L871)"
+  description: |-
+    On a re-org, transactions from retracted blocks are now resubmitted in execution order
+    (common ancestor → old best) instead of reverse order. This is a best-effort
+    improvement: per-account nonce ordering is always kept, but cross-account ordering is only
+    preserved when priorities are equal (otherwise priority decides).
 crates:
 - name: sc-transaction-pool
   bump: minor

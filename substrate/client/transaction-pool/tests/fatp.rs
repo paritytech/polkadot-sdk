@@ -588,8 +588,7 @@ fn fatp_fork_reorg() {
 ///   retracted:  G - R1[ta0] - R2[tb0] - R3[ta1] - R4[tb1]
 ///   enacted:    G - E1 - E2 - E3 - E4
 ///
-/// Stale-check is enabled so that the validity tags are per-account (`[account, nonce]`);
-/// without it the nonce-only tags would collide across Alice and Bob.
+/// Stale-check is enabled in TestApi.
 fn fork_with_interleaved_retracted_txs() -> (Arc<TestApi>, [Extrinsic; 4], Hash, Hash) {
 	let api = Arc::from(TestApi::empty().enable_stale_check());
 	let genesis = api.genesis_hash();
