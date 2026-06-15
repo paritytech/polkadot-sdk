@@ -888,6 +888,7 @@ node = [
 	"cumulus-client-bootnodes",
 	"cumulus-client-cli",
 	"cumulus-client-collator",
+	"cumulus-client-collator-discovery",
 	"cumulus-client-consensus-aura",
 	"cumulus-client-consensus-common",
 	"cumulus-client-consensus-relay-chain",
@@ -2285,6 +2286,11 @@ path = "../cumulus/client/cli"
 default-features = false
 optional = true
 path = "../cumulus/client/collator"
+
+[dependencies.cumulus-client-collator-discovery]
+default-features = false
+optional = true
+path = "../cumulus/client/collator-discovery"
 
 [dependencies.cumulus-client-consensus-aura]
 default-features = false
