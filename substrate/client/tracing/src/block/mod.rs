@@ -64,17 +64,14 @@ pub trait TracingExecuteBlock<Block: BlockT>: Send + Sync {
 	/// special tracing collectors.
 	fn execute_block(&self, orig_hash: Block::Hash, block: Block) -> sp_blockchain::Result<()>;
 
-	/// Call the runtime API method `method` by name, replaying `block`, with a proof-size
-	/// recorder registered for the duration of the call. Returns the SCALE-encoded result.
-	///
-	/// `block` is SCALE-encoded and prepended to `extra_args` to form the call arguments, so this
-	/// serves runtime APIs whose first argument is the block being replayed. The recorder is what
-	/// lets `StorageWeightReclaim` reclaim proof size during replay exactly as it did at authoring;
-	/// without it the replay over-accounts proof size and the block tail spuriously hits
+	/// Replay `block` by calling the runtime API `method`, with a proof-size recorder registered,
+	/// and return the SCALE-encoded result. `block` is SCALE-encoded and prepended to `extra_args`,
+	/// so `method`'s first argument must be the block being replayed. The recorder keeps
+	/// `StorageWeightReclaim` faithful during replay; without it the block tail spuriously hits
 	/// `ExhaustsResources`.
 	///
-	/// The default implementation returns an error: nodes that do not record proof size (e.g.
-	/// solochains, which have no PoV) do not need this and should fall back to a plain call.
+	/// The default implementation errors: nodes that do not record proof size (e.g. solochains) do
+	/// not need it.
 	fn call_recorded(
 		&self,
 		_orig_hash: Block::Hash,
@@ -82,9 +79,7 @@ pub trait TracingExecuteBlock<Block: BlockT>: Send + Sync {
 		_method: &str,
 		_extra_args: &[u8],
 	) -> sp_blockchain::Result<Vec<u8>> {
-		Err(sp_blockchain::Error::Backend(
-			"recorded runtime calls are not supported by this node".into(),
-		))
+		Err(sp_blockchain::Error::Application(Box::new(CallRecordedUnsupported)))
 	}
 }
 
@@ -119,6 +114,12 @@ where
 /// Tracing Block Result type alias
 pub type TraceBlockResult<T> = Result<T, Error>;
 
+/// Typed marker so [`BlockExecutor::call_recorded`] can recognise the "no recorder" default by type
+/// and map it to [`Error::CallRecordedUnsupported`].
+#[derive(Debug, thiserror::Error)]
+#[error("Recorded runtime calls are not supported by this node")]
+struct CallRecordedUnsupported;
+
 /// Tracing Block error
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
@@ -130,6 +131,8 @@ pub enum Error {
 	MissingBlockComponent(String),
 	#[error("Dispatch error: {0}")]
 	Dispatch(String),
+	#[error("Recorded runtime calls are not supported by this node")]
+	CallRecordedUnsupported,
 }
 
 struct BlockSubscriber {
@@ -289,7 +292,6 @@ where
 	/// prefixes in `Self::storage_keys`.
 	pub fn trace_block(&self) -> TraceBlockResult<TraceBlockResponse> {
 		tracing::debug!(target: "state_tracing", "Tracing block: {}", self.block);
-		// Prepare the block
 		let block = self.prepared_block()?;
 		let parent_hash = *block.header().parent_hash();
 
@@ -359,19 +361,22 @@ where
 		}))
 	}
 
-	/// Re-execute the block by calling the runtime API method `method` (by name), with a
-	/// proof-size recorder registered for the duration of the call, and return the SCALE-encoded
-	/// result. `extra_args` is appended after the (node-sourced) block to form the call arguments.
-	///
-	/// Unlike [`Self::trace_block`], no tracing subscriber is installed: this serves runtime APIs
-	/// whose return value *is* the result of interest (e.g. block-replaying tracers). The recorder
-	/// is what keeps proof-size reclaim faithful during replay.
+	/// Replay the block through runtime API `method` with a proof-size recorder registered, and
+	/// return the SCALE-encoded result. Unlike [`Self::trace_block`] no tracing subscriber is
+	/// installed; `extra_args` is appended after the node-sourced block to form the call arguments.
 	pub fn call_recorded(&self, method: &str, extra_args: &[u8]) -> TraceBlockResult<Vec<u8>> {
 		tracing::debug!(target: "state_tracing", "Recorded call `{method}` on block: {}", self.block);
 		let block = self.prepared_block()?;
-		self.execute_block
-			.call_recorded(self.block, block, method, extra_args)
-			.map_err(|e| Error::Dispatch(format!("Failed recorded call `{method}`: {e:?}")))
+		self.execute_block.call_recorded(self.block, block, method, extra_args).map_err(
+			|e| match &e {
+				sp_blockchain::Error::Application(inner)
+					if inner.downcast_ref::<CallRecordedUnsupported>().is_some() =>
+				{
+					Error::CallRecordedUnsupported
+				},
+				_ => Error::Dispatch(format!("Failed recorded call `{method}`: {e:?}")),
+			},
+		)
 	}
 }
 

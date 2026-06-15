@@ -130,6 +130,15 @@ fn bare_instantiate(origin: &AccountId, code: Vec<u8>) -> BareInstantiateBuilder
 }
 
 fn construct_extrinsic(sender: Sr25519Keyring, call: RuntimeCall) -> UncheckedExtrinsic {
+	let nonce = frame_system::Pallet::<Runtime>::account(&AccountId::from(sender.public())).nonce;
+	construct_extrinsic_with_nonce(sender, call, nonce)
+}
+
+fn construct_extrinsic_with_nonce(
+	sender: Sr25519Keyring,
+	call: RuntimeCall,
+	nonce: u32,
+) -> UncheckedExtrinsic {
 	let account_id = AccountId::from(sender.public());
 	let tx_ext: TxExtension = (
 		frame_system::AuthorizeCall::<Runtime>::new(),
@@ -138,9 +147,7 @@ fn construct_extrinsic(sender: Sr25519Keyring, call: RuntimeCall) -> UncheckedEx
 		frame_system::CheckTxVersion::<Runtime>::new(),
 		frame_system::CheckGenesis::<Runtime>::new(),
 		frame_system::CheckEra::<Runtime>::from(Era::immortal()),
-		frame_system::CheckNonce::<Runtime>::from(
-			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
-		),
+		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_pgas_allowance::ChargePGAS::<
 			Runtime,
@@ -2815,7 +2822,6 @@ mod revive_trace_reclaim {
 		ext
 	}
 
-	// Like `construct_extrinsic` but with an explicit nonce, so a whole block can be built up-front.
 	fn signed_revive_call(addr: H160, nonce: u32, weight_limit: Weight) -> UncheckedExtrinsic {
 		let call = RuntimeCall::Revive(pallet_revive::Call::call {
 			dest: addr,
@@ -2824,34 +2830,7 @@ mod revive_trace_reclaim {
 			storage_deposit_limit: 0,
 			data: ROUNDS.to_le_bytes().to_vec(),
 		});
-		let tx_ext: TxExtension = (
-			frame_system::AuthorizeCall::<Runtime>::new(),
-			frame_system::CheckNonZeroSender::<Runtime>::new(),
-			frame_system::CheckSpecVersion::<Runtime>::new(),
-			frame_system::CheckTxVersion::<Runtime>::new(),
-			frame_system::CheckGenesis::<Runtime>::new(),
-			frame_system::CheckEra::<Runtime>::from(Era::immortal()),
-			frame_system::CheckNonce::<Runtime>::from(nonce),
-			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_pgas_allowance::ChargePGAS::<
-				Runtime,
-				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
-			>::from(pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
-				0, None,
-			)),
-			frame_metadata_hash_extension::CheckMetadataHash::new(false),
-			Default::default(),
-		)
-			.into();
-		let payload =
-			sp_runtime::generic::SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
-		let signature = payload.using_encoded(|e| SENDER.sign(e));
-		UncheckedExtrinsic::new_signed_transaction(
-			call,
-			AccountId::from(SENDER.public()).into(),
-			MultiSignature::Sr25519(signature),
-			tx_ext,
-		)
+		construct_extrinsic_with_nonce(SENDER, call, nonce)
 	}
 
 	// Deploy the repeated-read contract, build a block of two calls, and replay it through `f`
