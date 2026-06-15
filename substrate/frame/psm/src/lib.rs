@@ -827,6 +827,10 @@ pub mod pallet {
 				internal_net.is_zero() || !external_out.is_zero(),
 				Error::<T>::AmountTooSmallAfterConversion
 			);
+			// `effective_internal_net` is the internal value that round-trips to `external_out`;
+			// it is what we actually burn and what the tracked debt decreases by. Any truncation
+			// dust stays in the caller's internal balance, symmetric with `mint`, which takes
+			// only the round-tripped share of the external amount.
 			let effective_internal_net =
 				Self::external_to_internal(external_out, ext_decimals, internal_decimals)?;
 
@@ -1707,7 +1711,6 @@ pub mod pallet {
 					sum == Self::total_psm_debt(&internal_asset),
 					"sum of per-asset debts disagrees with total_psm_debt"
 				);
-
 			}
 
 			// 7. No orphaned per-asset state outside registered PSMs.
