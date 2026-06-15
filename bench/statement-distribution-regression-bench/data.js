@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781301047954,
+  "lastUpdate": 1781533537293,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8ab9a68e4f1185685206d581bd018bd7d0d7f051",
-          "message": "Change bahaviour of contract termination in accordance with EIP-6780 (#9699)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/9621\n\nBehavior of `terminate` is changed in accordance with EIP-6780 (and EVM\nin general):\n- `terminate` only deletes the code from storage if it is called in the\nsame transaction the contract was created.\n- `terminate` does not destroy the contract instantly. The contract is\nregistered for destruction, which happens at the end of the transaction.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nSigned-off-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nCo-authored-by: Robert van Eerdewijk <robert@Roberts-MacBook-Pro.local>\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: Sebastian Miasojed <sebastian.miasojed@parity.io>\nCo-authored-by: Sebastian Miasojed <s.miasojed@gmail.com>\nCo-authored-by: xermicus <cyrill@parity.io>\nCo-authored-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-24T16:48:13Z",
-          "tree_id": "df6ab0114b29c3a8e616dcf9ed2789cff97753fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8ab9a68e4f1185685206d581bd018bd7d0d7f051"
-        },
-        "date": 1761329224197,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.94599999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035413659757999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044533195049999946,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03858682509199999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "81e6d5ac17544a9b11a177e5e16c8ca5c3887a6f",
+          "message": "Logging improvements for the collator revamp (#12282)\n\nSome logging updates:\n\n- Decrease log levels in `wait_for_first_leaf` to DEBUG, to avoid\nstartup spam\n- Use `warn_if_frequent` for fetch errors\n- Log assignment changes on view change\n- pick_best_advertisement: trace logs for each outcome\n- update_view: log scheduling parent <-> assigned core mapping\n- update_view: log sp removal\n- handle_seconded_collation: logs for each error case\n- PeerManager: log reputation updates\n\nPartially addresses\nhttps://github.com/paritytech/polkadot-sdk/issues/10402\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-15T12:53:09Z",
+          "tree_id": "556214ed9b85c112876cb7a4238f6be37b5641fb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/81e6d5ac17544a9b11a177e5e16c8ca5c3887a6f"
+        },
+        "date": 1781533511405,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.10999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038442605180000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08118913747999992,
             "unit": "seconds"
           }
         ]
