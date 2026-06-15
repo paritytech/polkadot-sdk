@@ -546,11 +546,7 @@ fn incentive_sum_across_multiple_exposure_pages_equals_share_times_budget() {
 
 			// THEN: sum across pages equals share × budget within Perbill rounding dust.
 			let total_paid: Balance = alice_amounts.iter().sum();
-			assert_eq_error_rate!(
-				total_paid,
-				expected_total,
-				4
-			);
+			assert_eq_error_rate!(total_paid, expected_total, 4);
 		});
 }
 
@@ -1166,10 +1162,8 @@ fn legacy_formula_used_for_eras_before_cutoff() {
 
 		// THEN: split follows the legacy formula — equal weights ⇒ equal shares,
 		// regardless of the 10:1 points imbalance.
-		let alice_expected =
-			Perbill::from_rational(alice_weight, sum_weight).mul_floor(budget);
-		let bob_expected =
-			Perbill::from_rational(bob_weight, sum_weight).mul_floor(budget);
+		let alice_expected = Perbill::from_rational(alice_weight, sum_weight).mul_floor(budget);
+		let bob_expected = Perbill::from_rational(bob_weight, sum_weight).mul_floor(budget);
 		assert_eq!(incentive_paid_for(alice, &events), Some(alice_expected));
 		assert_eq!(incentive_paid_for(bob, &events), Some(bob_expected));
 	});

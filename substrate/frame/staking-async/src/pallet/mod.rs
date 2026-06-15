@@ -599,10 +599,10 @@ pub mod pallet {
 	/// expensive.
 	///
 	/// Semantics:
-	/// - `None`: the chain started with the weighted-points formula already in place
-	///   (e.g. genesis), so every era uses the new formula.
-	/// - `Some(e)`: set once by the upgrade migration to `active_era + 1`. Eras
-	///   `< e` use the legacy formula, eras `>= e` use the weighted-points formula.
+	/// - `None`: the chain started with the weighted-points formula already in place (e.g.
+	///   genesis), so every era uses the new formula.
+	/// - `Some(e)`: set once by the upgrade migration to `active_era + 1`. Eras `< e` use the
+	///   legacy formula, eras `>= e` use the weighted-points formula.
 	///
 	/// TODO(staking-async): remove this storage item, the legacy stake-only branch in
 	/// [`crate::Pallet::calculate_validator_incentive_for_page`], the

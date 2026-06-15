@@ -682,15 +682,13 @@ impl<T: Config> Pallet<T> {
 	///
 	/// The share formula depends on [`WeightedPointsFormulaStartEra`]:
 	///
-	/// - For eras `>= start` (or all eras when the storage is unset, e.g. on a chain
-	///   that activated the weighted-points formula at genesis), the new
-	///   weighted-points share is used:
-	///   `share = (weight_stash · ep_stash) / Σ_v(weight_v · ep_v)` with the denominator
-	///   read from [`ErasSumWeightedPoints`] (maintained incrementally on every session
-	///   report).
-	/// - For eras `< start`, the legacy stake-only share `share = weight_stash / Σ weight`
-	///   is used, because the new denominator was never accumulated for those eras and
-	///   a backfill migration would cost `HistoryDepth × MaxValidatorSet` reads. See
+	/// - For eras `>= start` (or all eras when the storage is unset, e.g. on a chain that activated
+	///   the weighted-points formula at genesis), the new weighted-points share is used: `share =
+	///   (weight_stash · ep_stash) / Σ_v(weight_v · ep_v)` with the denominator read from
+	///   [`ErasSumWeightedPoints`] (maintained incrementally on every session report).
+	/// - For eras `< start`, the legacy stake-only share `share = weight_stash / Σ weight` is used,
+	///   because the new denominator was never accumulated for those eras and a backfill migration
+	///   would cost `HistoryDepth × MaxValidatorSet` reads. See
 	///   [`crate::migrations::SetWeightedPointsFormulaStartEra`].
 	///
 	/// Returns `None` if the validator has no incentive weight, no era points, or the
@@ -721,8 +719,7 @@ impl<T: Config> Pallet<T> {
 			}
 			let validator_points: RewardPoint =
 				era_reward_points.individual.get(stash).copied().unwrap_or(0);
-			let numerator =
-				validator_weight.saturating_mul(BalanceOf::<T>::from(validator_points));
+			let numerator = validator_weight.saturating_mul(BalanceOf::<T>::from(validator_points));
 			Perbill::from_rational(numerator, sum_weighted_points)
 		} else {
 			// Legacy formula: stake-only share. `ErasSumValidatorIncentiveWeight` is the

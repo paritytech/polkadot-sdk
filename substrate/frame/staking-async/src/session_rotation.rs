@@ -435,8 +435,9 @@ impl<T: Config> Eras<T> {
 					// counting a validator that neither the payout path nor the try-state
 					// recompute (both of which iterate `individual`) can ever see.
 					if recorded && !weight.is_zero() {
-						sum_weighted_points_delta = sum_weighted_points_delta
-							.saturating_add(weight.saturating_mul(IncentiveWeight::<T>::from(points)));
+						sum_weighted_points_delta = sum_weighted_points_delta.saturating_add(
+							weight.saturating_mul(IncentiveWeight::<T>::from(points)),
+						);
 					}
 
 					era_rewards.total.saturating_accrue(points);
