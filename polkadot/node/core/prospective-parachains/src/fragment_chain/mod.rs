@@ -1530,4 +1530,13 @@ impl FragmentChain {
 		}
 		true
 	}
+
+	pub fn known_output_heads(&self) -> HashSet<Hash> {
+		self.chain
+			.by_output_head
+			.keys()
+			.chain(self.unconnected.by_output_head.keys())
+			.copied()
+			.collect()
+	}
 }
