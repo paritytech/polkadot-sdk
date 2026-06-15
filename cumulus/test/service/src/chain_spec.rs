@@ -171,3 +171,18 @@ pub fn get_async_backing_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 			.expect("WASM binary was not built, please build it!"),
 	)
 }
+
+/// Get the chain spec for the authority-discovery collator-discovery test.
+///
+/// Uses the `with-authority-discovery` variant WASM which includes `pallet_session` +
+/// `pallet_authority_discovery` and carries a higher `spec_version` (4 vs 2) so that
+/// a `set_code` upgrade from the default WASM triggers the `EnableAuthorityDiscovery`
+/// migration.
+pub fn get_with_authority_discovery_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
+	get_chain_spec_with_extra_endowed(
+		id,
+		Default::default(),
+		cumulus_test_runtime::with_authority_discovery::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
+	)
+}

@@ -74,10 +74,19 @@ pub mod slot_duration_18s {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_slot_duration_18s.rs"));
 }
 
+pub mod with_authority_discovery {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_with_authority_discovery.rs"));
+}
+
 pub(crate) const SCHEDULING_V3_ENABLED: bool = cfg!(feature = "v3-descriptor");
 
 pub(crate) const fn relay_parent_offset() -> u32 {
 	if cfg!(feature = "relay-parent-offset-2") {
+		return 2;
+	}
+
+	if cfg!(feature = "with-authority-discovery") {
 		return 2;
 	}
 
@@ -124,5 +133,9 @@ pub(crate) const fn unincluded_segment_capacity() -> u32 {
 	// - The collator sends the collation to the relay chain, and it gets backed on chain in relay
 	//   block `X + 2`
 	// - The collation then gets included on chain in relay block `X + 3`
-	block_processing_velocity() * 3
+	//
+	// With `relay_parent_offset() = N`, the collator builds on relay tip `R - N` while the
+	// chain is at `R`, so the buffer must additionally absorb `N * velocity` parablocks worth
+	// of in-flight blocks between the relay parent and the relay tip.
+	block_processing_velocity() * (3 + relay_parent_offset())
 }
