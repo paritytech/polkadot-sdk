@@ -21,16 +21,15 @@
 //! Implements [#11935](https://github.com/paritytech/polkadot-sdk/issues/11935): the module that
 //! keeps the node connected to the peers it needs to cover its subscriptions.
 //!
-//! It tracks the currently connected peers and the peers needed for coverage, then
-//! [`PeerSteering::refresh_connections`] aligns the former with the latter through a
-//! [`PeerSetHandle`]: it opens connections to desired peers that are not connected and closes
-//! connections to connected peers that are no longer desired. Each refresh closes at most
-//! [`MAX_DISCONNECT_PERCENT`] of the connected peers, so the set converges over several refreshes
-//! rather than churning at once. The orchestrator supplies the coverage set via
+//! It tracks the connected peers and the peers needed for coverage.
+//! [`PeerSteering::peers_to_connect`] and [`PeerSteering::peers_to_disconnect`] decide how to align
+//! the former with the latter — the desired peers that are not connected and the connected peers no
+//! longer desired — closing at most [`MAX_DISCONNECT_PERCENT`] of the connected peers per refresh
+//! so the set converges over several refreshes rather than churning at once.
+//! [`PeerSteering::refresh_connections`] applies that decision by editing the statement protocol's
+//! reserved set: adding a peer dials it and keeps the notification substream open, removing one
+//! drops it. The orchestrator supplies the coverage set via
 //! [`PeerSteering::update_peers_needing_connections`].
-//!
-//! [`ReservedPeerSet`] is the production handle: it opens and closes connections by editing the
-//! statement protocol's reserved set.
 
 use crate::LOG_TARGET;
 use sc_network::{multiaddr, types::ProtocolName, NetworkPeers};
@@ -41,55 +40,6 @@ use std::collections::HashSet;
 /// closes. Capping the churn lets the connected set converge toward the desired one step by step
 /// instead of dropping every undesired connection at once.
 const MAX_DISCONNECT_PERCENT: usize = 20;
-
-/// Opens and closes statement-protocol connections for [`PeerSteering`].
-///
-/// Abstracts the network's reserved-peer control so the steering logic stays pure and testable; see
-/// [`ReservedPeerSet`] for the production implementation.
-pub(crate) trait PeerSetHandle: Send {
-	/// Open a connection to `peer`.
-	fn connect(&self, peer: PeerId);
-	/// Close the connection to `peer`.
-	fn disconnect(&self, peer: PeerId);
-}
-
-/// [`PeerSetHandle`] backed by the statement protocol's reserved set.
-///
-/// `connect` adds the peer to the reserved set, so the network dials it and keeps the statement
-/// notification substream open; `disconnect` removes it.
-#[allow(dead_code)]
-pub(crate) struct ReservedPeerSet<N> {
-	network: N,
-	protocol: ProtocolName,
-}
-
-#[allow(dead_code)]
-impl<N> ReservedPeerSet<N> {
-	pub(crate) fn new(network: N, protocol: ProtocolName) -> Self {
-		Self { network, protocol }
-	}
-}
-
-impl<N: NetworkPeers + Send> PeerSetHandle for ReservedPeerSet<N> {
-	fn connect(&self, peer: PeerId) {
-		let addr = std::iter::once(multiaddr::Protocol::P2p(peer.into()))
-			.collect::<multiaddr::Multiaddr>();
-		if let Err(err) = self
-			.network
-			.add_peers_to_reserved_set(self.protocol.clone(), std::iter::once(addr).collect())
-		{
-			log::error!(target: LOG_TARGET, "peer_steering: connect {peer} failed: {err}");
-		}
-	}
-
-	fn disconnect(&self, peer: PeerId) {
-		if let Err(err) =
-			self.network.remove_peers_from_reserved_set(self.protocol.clone(), vec![peer])
-		{
-			log::error!(target: LOG_TARGET, "peer_steering: disconnect {peer} failed: {err}");
-		}
-	}
-}
 
 /// Keeps the connected peer set aligned with the peers needed to cover the node's subscriptions.
 ///
@@ -134,22 +84,35 @@ impl PeerSteering {
 
 	// === Reconciliation ===
 
-	/// Align the connected set with the desired set through `handle`.
-	///
-	/// Opens a connection to every uncovered desired peer, and closes connections to undesired
-	/// peers — at most [`MAX_DISCONNECT_PERCENT`] of the connected peers per refresh (always at
-	/// least one while any remain) so the set converges step by step. The connected set tracks open
-	/// substreams, so it updates through the substream events as the changes take effect, not here.
-	pub(crate) fn refresh_connections(&self, handle: &dyn PeerSetHandle) {
-		let disconnect_limit = (self.connected.len() * MAX_DISCONNECT_PERCENT / 100).max(1);
-		let mut disconnect: Vec<PeerId> =
-			self.connected.difference(&self.desired).copied().collect();
+	/// Desired peers without an open connection.
+	pub(crate) fn peers_to_connect(&self) -> Vec<PeerId> {
+		self.desired.difference(&self.connected).copied().collect()
+	}
+
+	/// Connected peers no longer desired, capped at [`MAX_DISCONNECT_PERCENT`] of the connected
+	/// peers (at least one while any remain) so the set converges step by step.
+	pub(crate) fn peers_to_disconnect(&self) -> Vec<PeerId> {
+		let limit = (self.connected.len() * MAX_DISCONNECT_PERCENT / 100).max(1);
+		let mut peers: Vec<PeerId> = self.connected.difference(&self.desired).copied().collect();
 		// No score yet to rank by, so drop the lowest peer ids; the order only needs to be stable
 		// and the cap honored.
-		disconnect.sort();
-		disconnect.truncate(disconnect_limit);
+		peers.sort();
+		peers.truncate(limit);
+		peers
+	}
 
-		let connect: Vec<PeerId> = self.desired.difference(&self.connected).copied().collect();
+	/// Align the connected set with the desired set by editing `network`'s reserved set for
+	/// `protocol`.
+	///
+	/// The connected set tracks open substreams, so it updates through the substream events as the
+	/// changes take effect, not here.
+	pub(crate) fn refresh_connections<N: NetworkPeers>(
+		&self,
+		network: &N,
+		protocol: &ProtocolName,
+	) {
+		let connect = self.peers_to_connect();
+		let disconnect = self.peers_to_disconnect();
 
 		log::trace!(
 			target: LOG_TARGET,
@@ -159,10 +122,18 @@ impl PeerSteering {
 		);
 
 		for peer in disconnect {
-			handle.disconnect(peer);
+			if let Err(err) = network.remove_peers_from_reserved_set(protocol.clone(), vec![peer]) {
+				log::error!(target: LOG_TARGET, "peer_steering: disconnect {peer} failed: {err}");
+			}
 		}
 		for peer in connect {
-			handle.connect(peer);
+			let addr = std::iter::once(multiaddr::Protocol::P2p(peer.into()))
+				.collect::<multiaddr::Multiaddr>();
+			if let Err(err) =
+				network.add_peers_to_reserved_set(protocol.clone(), std::iter::once(addr).collect())
+			{
+				log::error!(target: LOG_TARGET, "peer_steering: connect {peer} failed: {err}");
+			}
 		}
 	}
 }
@@ -170,40 +141,16 @@ impl PeerSteering {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::cell::RefCell;
-
-	/// A [`PeerSetHandle`] that records the connect and disconnect calls it receives.
-	#[derive(Default)]
-	struct RecordingHandle {
-		connected: RefCell<Vec<PeerId>>,
-		disconnected: RefCell<Vec<PeerId>>,
-	}
-
-	impl RecordingHandle {
-		fn connects(&self) -> HashSet<PeerId> {
-			self.connected.borrow().iter().copied().collect()
-		}
-
-		fn disconnects(&self) -> Vec<PeerId> {
-			self.disconnected.borrow().clone()
-		}
-	}
-
-	impl PeerSetHandle for RecordingHandle {
-		fn connect(&self, peer: PeerId) {
-			self.connected.borrow_mut().push(peer);
-		}
-
-		fn disconnect(&self, peer: PeerId) {
-			self.disconnected.borrow_mut().push(peer);
-		}
-	}
 
 	fn peer(seed: u8) -> PeerId {
 		let mut bytes = [seed; 34];
 		bytes[0] = 0;
 		bytes[1] = 32;
 		PeerId::from_bytes(&bytes).expect("identity multihash peer id")
+	}
+
+	fn as_set(peers: Vec<PeerId>) -> HashSet<PeerId> {
+		peers.into_iter().collect()
 	}
 
 	#[test]
@@ -219,7 +166,7 @@ mod tests {
 	}
 
 	#[test]
-	fn refresh_connects_desired_and_disconnects_undesired() {
+	fn connects_desired_and_disconnects_undesired() {
 		let mut steering = PeerSteering::new();
 		// peer(1) is connected and desired; peer(2) is connected but undesired; peer(3) is desired
 		// but not connected.
@@ -227,52 +174,40 @@ mod tests {
 		steering.on_substream_opened(peer(2));
 		steering.update_peers_needing_connections([peer(1), peer(3)]);
 
-		let handle = RecordingHandle::default();
-		steering.refresh_connections(&handle);
-
-		assert_eq!(handle.connects(), HashSet::from([peer(3)]));
-		assert_eq!(handle.disconnects(), vec![peer(2)]);
+		assert_eq!(steering.peers_to_connect(), vec![peer(3)]);
+		assert_eq!(steering.peers_to_disconnect(), vec![peer(2)]);
 	}
 
 	#[test]
-	fn converged_set_issues_no_calls() {
+	fn converged_set_has_no_work() {
 		let mut steering = PeerSteering::new();
 		steering.on_substream_opened(peer(1));
 		steering.on_substream_opened(peer(2));
 		steering.update_peers_needing_connections([peer(1), peer(2)]);
 
-		let handle = RecordingHandle::default();
-		steering.refresh_connections(&handle);
-
-		assert!(handle.connects().is_empty());
-		assert!(handle.disconnects().is_empty());
+		assert!(steering.peers_to_connect().is_empty());
+		assert!(steering.peers_to_disconnect().is_empty());
 	}
 
 	#[test]
-	fn refresh_without_connected_peers_only_connects() {
+	fn without_connected_peers_only_connects() {
 		let mut steering = PeerSteering::new();
 		steering.update_peers_needing_connections([peer(1), peer(2)]);
 
-		let handle = RecordingHandle::default();
-		steering.refresh_connections(&handle);
-
-		assert_eq!(handle.connects(), HashSet::from([peer(1), peer(2)]));
-		assert!(handle.disconnects().is_empty());
+		assert_eq!(as_set(steering.peers_to_connect()), HashSet::from([peer(1), peer(2)]));
+		assert!(steering.peers_to_disconnect().is_empty());
 	}
 
 	#[test]
-	fn refresh_caps_disconnects_at_twenty_percent() {
+	fn disconnects_are_capped_at_twenty_percent() {
 		let mut steering = PeerSteering::new();
 		for seed in 1..=10 {
 			steering.on_substream_opened(peer(seed));
 		}
 
-		let handle = RecordingHandle::default();
-		steering.refresh_connections(&handle);
-
-		assert!(handle.connects().is_empty());
+		assert!(steering.peers_to_connect().is_empty());
 		// Two of ten connected peers, the lowest peer ids, with none desired.
-		assert_eq!(handle.disconnects(), vec![peer(1), peer(2)]);
+		assert_eq!(steering.peers_to_disconnect(), vec![peer(1), peer(2)]);
 	}
 
 	#[test]
@@ -284,11 +219,9 @@ mod tests {
 
 		let mut dropped = HashSet::new();
 		while !steering.connected.is_empty() {
-			let handle = RecordingHandle::default();
-			steering.refresh_connections(&handle);
-			let disconnected = handle.disconnects();
-			assert!(disconnected.len() <= 2, "each refresh drops at most a fifth");
-			for peer in disconnected {
+			let disconnect = steering.peers_to_disconnect();
+			assert!(disconnect.len() <= 2, "each refresh drops at most a fifth");
+			for peer in disconnect {
 				assert!(dropped.insert(peer), "no peer dropped twice");
 				steering.on_substream_closed(peer);
 			}
@@ -298,13 +231,9 @@ mod tests {
 	}
 
 	#[test]
-	fn empty_refresh_issues_no_calls() {
+	fn empty_steering_has_no_work() {
 		let steering = PeerSteering::new();
-
-		let handle = RecordingHandle::default();
-		steering.refresh_connections(&handle);
-
-		assert!(handle.connects().is_empty());
-		assert!(handle.disconnects().is_empty());
+		assert!(steering.peers_to_connect().is_empty());
+		assert!(steering.peers_to_disconnect().is_empty());
 	}
 }

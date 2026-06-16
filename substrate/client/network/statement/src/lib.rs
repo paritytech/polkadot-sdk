@@ -834,6 +834,7 @@ where
 						let topics = self.statement_store.subscription_topics();
 						self.v2dht.set_rpc_subscription_topics(&topics);
 						self.v2dht.on_pending_affinities();
+						self.v2dht.refresh_connections(&self.network, &self.protocol_name);
 					}
 					self.process_pending_affinities();
 					self.pending_affinities_timeout =

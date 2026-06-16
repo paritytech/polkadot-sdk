@@ -25,8 +25,9 @@ pub mod peers_topology;
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use explicit_affinity::{AffinitySource, ExplicitAffinity};
-use peer_steering::{PeerSetHandle, PeerSteering};
+use peer_steering::PeerSteering;
 use peers_topology::{PeersTopology, PeersTopologyConfig};
+use sc_network::{types::ProtocolName, NetworkPeers};
 use sc_network_types::PeerId;
 use sp_statement_store::{SubmitResult, Topic};
 use std::collections::HashSet;
@@ -133,19 +134,61 @@ impl V2DhtOrchestrator {
 		log::trace!(target: LOG_TARGET, "v2dht: on_initial_sync (stub)");
 	}
 
+	/// Recompute the peers needed to cover the node's topics and hand them to peer steering.
+	// TODO: `peers_for_topics` returns gaps only — it omits topics already served by a connected
+	// peer and never lists connected peers. Peer steering reconciles toward this set and
+	// disconnects connected peers absent from it, so a peer that starts covering its topic drops
+	// out of the next result and gets disconnected, then reconnected — it flaps. A stable,
+	// connection-independent coverage target (e.g. the closest known peers per topic) must replace
+	// this before steering is enabled.
 	pub(crate) fn on_pending_affinities(&mut self) {
-		// TODO: We need to know what to propagate
-		log::trace!(target: LOG_TARGET, "v2dht: on_pending_affinities (stub)");
+		let topics = self.explicit_affinity.topics();
+		let desired = self.peers_topology.peers_for_topics(&topics);
+		self.peer_steering.update_peers_needing_connections(desired);
 	}
 
 	/// Align the connected peers with the peers needed to cover the node's subscriptions, opening
-	/// and closing connections through `peer_set`.
-	pub(crate) fn refresh_connections(&self, peer_set: &dyn PeerSetHandle) {
-		self.peer_steering.refresh_connections(peer_set);
+	/// and closing connections through `network`'s reserved set for `protocol`.
+	pub(crate) fn refresh_connections<N: NetworkPeers>(
+		&self,
+		network: &N,
+		protocol: &ProtocolName,
+	) {
+		self.peer_steering.refresh_connections(network, protocol);
 	}
 
 	pub(crate) fn on_major_sync_end(&mut self) {
 		// TODO: The major sync processing may be different
 		log::trace!(target: LOG_TARGET, "v2dht: on_major_sync_end (stub)");
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn topic(n: u8) -> Topic {
+		Topic([n; 32])
+	}
+
+	#[test]
+	fn affinity_tick_marks_coverage_peers_for_connection() {
+		let mut orchestrator =
+			V2DhtOrchestrator::new(&[topic(1)], PeerId::random(), PeersTopologyConfig::default());
+
+		let peers: Vec<PeerId> = (0..5).map(|_| PeerId::random()).collect();
+		orchestrator.on_peers_discovered(peers.clone());
+		for peer in &peers {
+			orchestrator.on_peer_identified(*peer, true);
+		}
+
+		// The tick turns the configured topic into a coverage target.
+		orchestrator.on_pending_affinities();
+		let desired = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		assert!(!desired.is_empty());
+
+		// Every coverage peer is queued for a connection, since none are connected yet.
+		let connect = orchestrator.peer_steering.peers_to_connect();
+		assert!(desired.iter().all(|peer| connect.contains(peer)));
 	}
 }
