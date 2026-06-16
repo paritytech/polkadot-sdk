@@ -112,8 +112,9 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
 	// Storage values can exceed 32 bytes when written by a PVM contract sharing this
 	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
-	let charged =
-		interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage(limits::STORAGE_BYTES))?;
+	let charged = interpreter
+		.ext
+		.charge_or_halt(RuntimeCosts::GetStorage(limits::STORAGE_BYTES))?;
 	let key = Key::Fix(index.to_big_endian());
 	let value = interpreter.ext.get_storage(&key);
 

@@ -212,9 +212,7 @@ fn sload_charges_for_actual_storage_value_size() {
 
 			// Counter::number() compiles to SLOAD(0). For len != 32 it traps with
 			// ContractTrapped after the read; we still observe the gas consumed.
-			let result = builder::bare_call(addr)
-				.data(Counter::numberCall {}.abi_encode())
-				.build();
+			let result = builder::bare_call(addr).data(Counter::numberCall {}.abi_encode()).build();
 			result.gas_consumed
 		})
 	};
