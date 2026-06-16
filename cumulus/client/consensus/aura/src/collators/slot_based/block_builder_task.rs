@@ -880,17 +880,20 @@ where
 
 		let time_ms = now_unix_ms();
 		let proof = Arc::new(built_block.proof);
-		prepare_resubmission_aux_data::<Block>(
-			parent_hash,
-			time_ms,
-			relay_parent_session,
-			Some(core_index),
-			core_info.selector,
-			proof.clone(),
-		)
-		.for_each(|(k, v)| {
-			import_block.auxiliary.push((k, Some(v)));
-		});
+		if let Some(relay_parent_session) = relay_parent_session {
+			prepare_resubmission_aux_data::<Block>(
+				parent_hash,
+				time_ms,
+				proof.clone(),
+				relay_parent_header.clone(),
+				relay_parent_session,
+				validation_data.clone(),
+				core_info.selector,
+			)
+			.for_each(|(k, v)| {
+				import_block.auxiliary.push((k, Some(v)));
+			});
+		}
 
 		if let Err(error) = collator.import_block(import_block).await {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to import built block.");

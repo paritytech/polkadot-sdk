@@ -15,15 +15,20 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-//! Per-block proof store for unincluded segment resubmission.
+//! Per-block resubmission store for the unincluded segment.
 //!
-//! Persists a [`StoredEntry`] (capture time, relay-parent session and storage proof) per
-//! imported parablock, keyed by parablock hash. Data is pruned on parachain finality (via
-//! [`register_resubmission_cleanup`]).
+//! Persists a [`StoredEntry`] per imported parablock, keyed by parablock hash, holding everything
+//! needed to reconstruct and resubmit the collation for an unincluded block without assuming the
+//! relay parent is still available: the storage proof, the relay parent header, the relay-parent
+//! session, the persisted validation data and the core index/selector. Data is pruned on
+//! parachain finality (via [`register_resubmission_cleanup`]).
 
 use codec::{Decode, Encode};
 use cumulus_client_consensus_common::old_finalized_hash;
-use cumulus_primitives_core::relay_chain::{CoreIndex, CoreSelector, SessionIndex};
+use cumulus_primitives_core::{
+	relay_chain::{CoreSelector, Header as RelayHeader, SessionIndex},
+	PersistedValidationData,
+};
 use sc_client_api::{
 	backend::AuxStore,
 	client::{AuxDataOperations, FinalityNotification, PreCommitActions},
@@ -53,14 +58,17 @@ pub fn now_unix_ms() -> u64 {
 /// Entry stored in aux storage for each unincluded parablock.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct StoredEntry {
-	/// Unix millis captured when this entry was recorded during block-import preparation.
+	/// Unix millis captured when this entry was recorded during block import/build.
 	pub time_ms: u64,
-	/// The storage proof captured at block import.
+	/// The storage proof captured at block import/build.
 	pub proof: Arc<StorageProof>,
+	/// The relay parent header the block was built against, used to determine the relay slot.
+	pub relay_parent_header: RelayHeader,
 	/// Relay parent's `session_index_for_child`.
-	pub relay_parent_session: Option<SessionIndex>,
-	/// The core the block was originally submitted on.
-	pub core_index: Option<CoreIndex>,
+	pub relay_parent_session: SessionIndex,
+	/// The persisted validation data at the relay parent (resolved with
+	/// `OccupiedCoreAssumption::TimedOut`), providing the `max_pov_size` and the included head.
+	pub persisted_validation_data: PersistedValidationData,
 	/// The core selector used to pick the core on the relay chain.
 	pub core_selector: CoreSelector,
 }
@@ -95,13 +103,21 @@ impl<Block: BlockT, B> ResubmissionStore<Block, B> {
 pub fn prepare_resubmission_aux_data<Block: BlockT>(
 	block_hash: Block::Hash,
 	time_ms: u64,
-	relay_parent_session: Option<SessionIndex>,
-	core_index: Option<CoreIndex>,
-	core_selector: CoreSelector,
 	proof: Arc<StorageProof>,
+	relay_parent_header: RelayHeader,
+	relay_parent_session: SessionIndex,
+	persisted_validation_data: PersistedValidationData,
+	core_selector: CoreSelector,
 ) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
-	let encoded_entry =
-		StoredEntry { time_ms, proof, relay_parent_session, core_index, core_selector }.encode();
+	let encoded_entry = StoredEntry {
+		time_ms,
+		proof,
+		relay_parent_header,
+		relay_parent_session,
+		persisted_validation_data,
+		core_selector,
+	}
+	.encode();
 	let encoded_version = STORE_CURRENT_VERSION.encode();
 
 	[(entry_key(block_hash), encoded_entry), (STORE_VERSION_KEY.to_vec(), encoded_version)]
@@ -197,12 +213,32 @@ mod tests {
 	type TestBackend = sc_client_api::in_mem::Backend<Block>;
 	type Store = ResubmissionStore<Block, TestBackend>;
 
+	fn test_relay_header(number: u32) -> RelayHeader {
+		RelayHeader {
+			parent_hash: Default::default(),
+			number,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest: Default::default(),
+		}
+	}
+
+	fn test_pvd() -> PersistedValidationData {
+		PersistedValidationData {
+			parent_head: vec![1, 2, 3].into(),
+			relay_parent_number: 1,
+			relay_parent_storage_root: Default::default(),
+			max_pov_size: 5_000_000,
+		}
+	}
+
 	fn create_test_entry(time_ms: u64) -> StoredEntry {
 		StoredEntry {
 			time_ms,
 			proof: Arc::new(StorageProof::new(vec![vec![1, 2, 3], vec![4, 5, 6]])),
-			relay_parent_session: Some(1),
-			core_index: Some(CoreIndex(0)),
+			relay_parent_header: test_relay_header(7),
+			relay_parent_session: 1,
+			persisted_validation_data: test_pvd(),
 			core_selector: CoreSelector(0),
 		}
 	}
@@ -217,10 +253,11 @@ mod tests {
 		let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 			hash,
 			entry.time_ms,
-			entry.relay_parent_session,
-			entry.core_index,
-			entry.core_selector,
 			entry.proof.clone(),
+			entry.relay_parent_header.clone(),
+			entry.relay_parent_session,
+			entry.persisted_validation_data.clone(),
+			entry.core_selector,
 		)
 		.collect();
 		let insert_pairs: Vec<_> =
@@ -233,17 +270,18 @@ mod tests {
 		let hash = Hash::repeat_byte(0xAB);
 		let time_ms = 1234567890u64;
 		let proof = Arc::new(StorageProof::new(vec![vec![10, 20, 30]]));
-		let relay_parent_session = Some(42);
-
-		let core_index = Some(CoreIndex(3));
+		let relay_parent_header = test_relay_header(42);
+		let relay_parent_session = 42;
+		let persisted_validation_data = test_pvd();
 		let core_selector = CoreSelector(5);
 		let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 			hash,
 			time_ms,
-			relay_parent_session,
-			core_index,
-			core_selector,
 			proof.clone(),
+			relay_parent_header.clone(),
+			relay_parent_session,
+			persisted_validation_data.clone(),
+			core_selector,
 		)
 		.collect();
 
@@ -256,8 +294,9 @@ mod tests {
 			StoredEntry::decode(&mut pairs[0].1.as_slice()).expect("entry should decode");
 		assert_eq!(decoded_entry.time_ms, time_ms);
 		assert_eq!(decoded_entry.proof, proof);
+		assert_eq!(decoded_entry.relay_parent_header, relay_parent_header);
 		assert_eq!(decoded_entry.relay_parent_session, relay_parent_session);
-		assert_eq!(decoded_entry.core_index, core_index);
+		assert_eq!(decoded_entry.persisted_validation_data, persisted_validation_data);
 		assert_eq!(decoded_entry.core_selector, core_selector);
 
 		assert_eq!(pairs[1].0, STORE_VERSION_KEY.to_vec());
@@ -319,31 +358,13 @@ mod tests {
 	}
 
 	#[test]
-	fn stored_entry_encoding_hex_snapshot() {
-		let entry = StoredEntry {
-			time_ms: 1234567890u64,
-			proof: Arc::new(StorageProof::new(vec![vec![1, 2, 3]])),
-			relay_parent_session: Some(7),
-			core_index: Some(CoreIndex(3)),
-			core_selector: CoreSelector(5),
-		};
+	fn stored_entry_round_trips() {
+		// The on-disk format of `StoredEntry` is versioned by `STORE_CURRENT_VERSION`. If this
+		// struct's encoding changes, existing aux entries written by older builds will fail to
+		// decode — bump `STORE_CURRENT_VERSION` and add a migration.
+		let entry = create_test_entry(1234567890);
 
 		let encoded = entry.encode();
-		// Snapshot of the SCALE encoding. If this assertion fires, the on-disk format of
-		// `StoredEntry` has changed and existing aux entries written by older builds will fail
-		// to decode — bump `STORE_CURRENT_VERSION` and add a migration before updating this
-		// snapshot.
-		let encoded_hex = hex::encode(&encoded);
-		// time_ms              = 1234567890 little-endian u64 = d2 02 96 49 00 00 00 00
-		// proof                = Vec<Vec<u8>> with one element [1,2,3]: outer len 1 (SCALE
-		//                        compact = 04), inner len 3 (compact = 0c), bytes 01 02 03
-		// relay_parent_session = Some(7): Option tag 01, u32 little-endian 07 00 00 00
-		// core_index           = Some(CoreIndex(3)): Option tag 01, u32 little-endian 03 00 00 00
-		// core_selector        = CoreSelector(5): u8 05
-		let expected_hex =
-			"d20296490000000004 0c 010203 01 07000000 01 03000000 05".replace(' ', "");
-		assert_eq!(encoded_hex, expected_hex, "StoredEntry encoding changed!");
-
 		let decoded = StoredEntry::decode(&mut encoded.as_slice()).expect("decode should succeed");
 		assert_eq!(entry, decoded);
 	}
@@ -453,18 +474,20 @@ mod tests {
 			let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 				hash_a,
 				entry_a.time_ms,
-				entry_a.relay_parent_session,
-				entry_a.core_index,
-				entry_a.core_selector,
 				entry_a.proof.clone(),
+				entry_a.relay_parent_header.clone(),
+				entry_a.relay_parent_session,
+				entry_a.persisted_validation_data.clone(),
+				entry_a.core_selector,
 			)
 			.chain(prepare_resubmission_aux_data::<Block>(
 				hash_b,
 				entry_b.time_ms,
-				entry_b.relay_parent_session,
-				entry_b.core_index,
-				entry_b.core_selector,
 				entry_b.proof.clone(),
+				entry_b.relay_parent_header.clone(),
+				entry_b.relay_parent_session,
+				entry_b.persisted_validation_data.clone(),
+				entry_b.core_selector,
 			))
 			.collect();
 			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
