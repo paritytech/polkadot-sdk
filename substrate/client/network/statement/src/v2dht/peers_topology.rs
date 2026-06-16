@@ -305,6 +305,7 @@ fn xor_distance(a: Key, b: Key) -> Key {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::test_helpers::topic;
 	use std::{cmp::Ordering, num::NonZeroUsize};
 
 	fn distance_to(topic: Topic, peer: &PeerId) -> [u8; 32] {
@@ -331,10 +332,6 @@ mod tests {
 
 	fn topology(local_seed: u8) -> PeersTopology {
 		PeersTopology::new(peer(local_seed), config(2, 2))
-	}
-
-	fn topic(seed: u8) -> Topic {
-		Topic([seed; 32])
 	}
 
 	fn dht_peer(topology: &mut PeersTopology, peer: PeerId) {
