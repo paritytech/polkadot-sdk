@@ -264,6 +264,25 @@ impl<Id: Clone> PaymentState<Id> {
 	}
 }
 
+/// One asset held by a child-/bounty: its committed `value` and the state of the payment
+/// settling that value (funding into, or refund/payout out of, the child-/bounty account).
+///
+/// A child-/bounty holds one `AssetEntry` per `asset_kind`, tracked independently so that the
+/// funding/refund/payout of one asset can succeed, fail, and be retried without affecting the
+/// others. The shared child-/bounty lifecycle ([`BountyStatus`]) only advances once *every*
+/// `AssetEntry` has reached the relevant terminal payment state.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct AssetEntry<Balance, PaymentId> {
+	/// The amount of this asset committed to the child-/bounty.
+	pub value: Balance,
+	/// The state of the in-flight payment settling this asset.
+	pub payment_state: PaymentState<PaymentId>,
+}
+
+/// Convenience alias for [`AssetEntry`].
+pub type AssetEntryOf<T, I> =
+	AssetEntry<<T as Config<I>>::Balance, PaymentIdOf<T, I>>;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -307,6 +326,13 @@ pub mod pallet {
 		/// Maximum number of child bounties that can be added to a parent bounty.
 		#[pallet::constant]
 		type MaxActiveChildBountyCount: Get<u32>;
+
+		/// Maximum number of distinct asset kinds a single child-/bounty may hold.
+		///
+		/// Bounds the basket size accepted by `fund_bounty`/`fund_child_bounty` and the
+		/// per-asset iteration performed by `award_bounty`/`close_bounty`.
+		#[pallet::constant]
+		type MaxAssetsPerBounty: Get<u32>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -419,6 +445,14 @@ pub mod pallet {
 		InsufficientBountyValue,
 		/// The preimage does not exist.
 		PreimageNotExist,
+		/// The funding basket is empty; at least one asset must be provided.
+		EmptyBasket,
+		/// The funding basket contains more than [`Config::MaxAssetsPerBounty`] assets.
+		TooManyAssets,
+		/// The funding basket lists the same `asset_kind` more than once.
+		DuplicateAsset,
+		/// The child-bounty references an `asset_kind` that the parent bounty does not hold.
+		AssetNotInBounty,
 	}
 
 	#[pallet::event]
@@ -525,6 +559,57 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ChildBountiesValuePerParent<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, BountyIndex, T::Balance, ValueQuery>;
+
+	/// The per-asset ledger of a bounty: the value committed in each `asset_kind` and the state
+	/// of the payment settling it.
+	///
+	/// One row per `(bounty_id, asset_kind)`. `asset_kind` is hashed with `Blake2_128Concat`
+	/// because it is caller-influenced.
+	///
+	/// Indexed by `(bounty_id, asset_kind)`.
+	#[pallet::storage]
+	pub type BountyAssets<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		BountyIndex,
+		Blake2_128Concat,
+		T::AssetKind,
+		AssetEntryOf<T, I>,
+	>;
+
+	/// The per-asset ledger of a child-bounty.
+	///
+	/// One row per `((parent_bounty_id, child_bounty_id), asset_kind)`.
+	///
+	/// Indexed by `((parent_bounty_id, child_bounty_id), asset_kind)`.
+	#[pallet::storage]
+	pub type ChildBountyAssets<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		(BountyIndex, BountyIndex),
+		Blake2_128Concat,
+		T::AssetKind,
+		AssetEntryOf<T, I>,
+	>;
+
+	/// The cumulative value allocated to child bounties for each `(parent_bounty_id, asset_kind)`.
+	/// Subtracted, per asset, from the parent bounty payout when awarding.
+	///
+	/// This is the per-asset replacement for [`ChildBountiesValuePerParent`] and is the storage
+	/// backing the over-allocation invariant: for each asset `a`,
+	/// `sum(child value in a) <= parent value in a`.
+	///
+	/// Indexed by `(parent_bounty_id, asset_kind)`.
+	#[pallet::storage]
+	pub type ChildValuePerParentAsset<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		BountyIndex,
+		Blake2_128Concat,
+		T::AssetKind,
+		T::Balance,
+		ValueQuery,
+	>;
 
 	/// The consideration cost incurred by the child-/bounty curator for committing to the role.
 	///

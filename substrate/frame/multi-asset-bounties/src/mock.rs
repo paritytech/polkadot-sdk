@@ -29,7 +29,7 @@ use frame_support::{
 	traits::{
 		fungible::{HoldConsideration, Mutate},
 		tokens::UnityAssetBalanceConversion,
-		ConstU64, Currency,
+		ConstU32, ConstU64, Currency,
 	},
 	weights::constants::ParityDbWeight,
 	PalletId,
@@ -207,6 +207,7 @@ impl Config for Test {
 	type BountyValueMinimum = ConstU64<2>;
 	type ChildBountyValueMinimum = ConstU64<1>;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
+	type MaxAssetsPerBounty = ConstU32<5>;
 	type WeightInfo = ();
 	type FundingSource = PalletIdAsFundingSource<BountyPalletId, Test, Identity, ()>;
 	type BountySource =
@@ -243,6 +244,7 @@ impl Config<Instance1> for Test {
 	type BountyValueMinimum = ConstU64<2>;
 	type ChildBountyValueMinimum = ConstU64<1>;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
+	type MaxAssetsPerBounty = ConstU32<5>;
 	type WeightInfo = ();
 	type FundingSource = PalletIdAsFundingSource<BountyPalletId2, Test, Identity, Instance1>;
 	type BountySource =
