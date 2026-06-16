@@ -2282,12 +2282,6 @@ pub mod pallet_macros {
 	pub use frame_support_procedural::origin;
 }
 
-#[deprecated(note = "Will be removed after July 2023; Use `sp_runtime::traits` directly instead.")]
-pub mod error {
-	#[doc(hidden)]
-	pub use sp_runtime::traits::{BadOrigin, LookupError};
-}
-
 #[doc(inline)]
 pub use frame_support_procedural::register_default_impl;
 

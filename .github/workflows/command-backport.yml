@@ -66,10 +66,11 @@ jobs:
 
       - name: Get branches to backport to
         id: branches
+        env:
+          LABELS: ${{ needs.check-labels.outputs.LABELS }}
         run: |
           . ./.github/scripts/common/lib.sh
 
-          LABELS="${{ needs.check-labels.outputs.LABELS }}"
           BACKPORT_BRANCHES=$(parse_branch_names_from_backport_labels "$LABELS")
           echo "BACKPORT_BRANCHES=${BACKPORT_BRANCHES}" >> $GITHUB_OUTPUT
 

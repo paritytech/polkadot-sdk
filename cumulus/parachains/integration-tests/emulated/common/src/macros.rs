@@ -1161,3 +1161,81 @@ macro_rules! assert_whitelisted {
 		);
     };
 }
+
+/// Read the balance of the `Assets`-pallet asset `$id` for `$who` on `$chain`.
+#[macro_export]
+macro_rules! assets_balance_on {
+	( $chain:ident, $id:expr, $who:expr ) => {
+		$crate::macros::paste::paste! {
+			<$chain as $crate::macros::TestExt>::ext_wrapper(|| {
+				type Assets = <$chain as [<$chain Pallet>]>::Assets;
+				<Assets as frame_support::traits::fungibles::Inspect<_>>::balance($id, $who)
+			})
+		}
+	};
+}
+
+/// Read the balance of the `ForeignAssets`-pallet asset `$id` for `$who` on `$chain`.
+#[macro_export]
+macro_rules! foreign_balance_on {
+	( $chain:ident, $id:expr, $who:expr ) => {
+		$crate::macros::paste::paste! {
+			<$chain as $crate::macros::TestExt>::ext_wrapper(|| {
+				type ForeignAssets = <$chain as [<$chain Pallet>]>::ForeignAssets;
+				<ForeignAssets as frame_support::traits::fungibles::Inspect<_>>::balance($id, $who)
+			})
+		}
+	};
+}
+
+/// Read the total issuance of the `Assets`-pallet asset `$id` on `$chain`.
+#[macro_export]
+macro_rules! assets_issuance_on {
+	( $chain:ident, $id:expr ) => {
+		$crate::macros::paste::paste! {
+			<$chain as $crate::macros::TestExt>::ext_wrapper(|| {
+				type Assets = <$chain as [<$chain Pallet>]>::Assets;
+				<Assets as frame_support::traits::fungibles::Inspect<_>>::total_issuance($id)
+			})
+		}
+	};
+}
+
+/// Read the total issuance of the `ForeignAssets`-pallet asset `$id` on `$chain`.
+#[macro_export]
+macro_rules! foreign_issuance_on {
+	( $chain:ident, $id:expr ) => {
+		$crate::macros::paste::paste! {
+			<$chain as $crate::macros::TestExt>::ext_wrapper(|| {
+				type ForeignAssets = <$chain as [<$chain Pallet>]>::ForeignAssets;
+				<ForeignAssets as frame_support::traits::fungibles::Inspect<_>>::total_issuance($id)
+			})
+		}
+	};
+}
+
+/// Read the total native-balance issuance on `$chain`.
+#[macro_export]
+macro_rules! balances_issuance_on {
+	( $chain:ident ) => {
+		$crate::macros::paste::paste! {
+			<$chain as $crate::macros::TestExt>::ext_wrapper(|| {
+				type Balances = <$chain as [<$chain Pallet>]>::Balances;
+				<Balances as frame_support::traits::fungible::Inspect<_>>::total_issuance()
+			})
+		}
+	};
+}
+
+/// Whether the `Assets`-pallet asset `$id` exists on `$chain`.
+#[macro_export]
+macro_rules! asset_exists_on {
+	( $chain:ident, $id:expr ) => {
+		$crate::macros::paste::paste! {
+			<$chain as $crate::macros::TestExt>::ext_wrapper(|| {
+				type Assets = <$chain as [<$chain Pallet>]>::Assets;
+				<Assets as frame_support::traits::fungibles::Inspect<_>>::asset_exists($id)
+			})
+		}
+	};
+}

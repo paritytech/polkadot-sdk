@@ -603,13 +603,18 @@ pub struct ExtBuilder {
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
+		// Default both min bonds strictly above ED — and to different values — to
+		// 1. mimic the situation we live in (ED < MinNominatorBond < MinValidatorBond on Polkadot /
+		//    Kusama / Westend AH).
+		// 2. avoid tests from accidentally passing because `min_chilled_bond` happens to
+		// collapse to ED when all three are equal.
 		Self {
 			nominate: true,
 			validator_count: 2,
 			balance_factor: 1,
 			has_stakers: true,
-			min_nominator_bond: ExistentialDeposit::get(),
-			min_validator_bond: ExistentialDeposit::get(),
+			min_nominator_bond: ExistentialDeposit::get() + 1,
+			min_validator_bond: ExistentialDeposit::get() + 2,
 			status: Default::default(),
 			stakes: Default::default(),
 			stakers: Default::default(),

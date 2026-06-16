@@ -29,7 +29,7 @@ use cumulus_primitives_core::{
 	relay_chain::Header as RelayHeader, BlockT, KeyToIncludeInRelayProof, RelayProofRequest,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use polkadot_node_subsystem::messages::{CollatorProtocolMessage, RuntimeApiRequest};
+use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	Hash as RelayHash, Id as ParaId, OccupiedCoreAssumption, ValidationCodeHash,
@@ -37,7 +37,7 @@ use polkadot_primitives::{
 };
 use sc_client_api::HeaderBackend;
 use sc_consensus_aura::{standalone as aura_internal, AuraApi};
-use sp_api::{ApiExt, ProvideRuntimeApi, RuntimeApiInfo};
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_core::Pair;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Header;
@@ -152,49 +152,6 @@ async fn check_validation_code_or_log(
 	}
 }
 
-/// Fetch scheduling lookahead at given relay parent.
-async fn scheduling_lookahead(
-	relay_parent: RelayHash,
-	relay_client: &impl RelayChainInterface,
-) -> Option<u32> {
-	let runtime_api_version = relay_client
-		.version(relay_parent)
-		.await
-		.map_err(|e| {
-			tracing::error!(
-				target: super::LOG_TARGET,
-				error = ?e,
-				"Failed to fetch relay chain runtime version.",
-			)
-		})
-		.ok()?;
-
-	let parachain_host_runtime_api_version = runtime_api_version
-		.api_version(
-			&<dyn polkadot_primitives::runtime_api::ParachainHost<polkadot_primitives::Block>>::ID,
-		)
-		.unwrap_or_default();
-
-	if parachain_host_runtime_api_version <
-		RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT
-	{
-		return None;
-	}
-
-	match relay_client.scheduling_lookahead(relay_parent).await {
-		Ok(scheduling_lookahead) => Some(scheduling_lookahead),
-		Err(err) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				?err,
-				?relay_parent,
-				"Failed to fetch scheduling lookahead from relay chain",
-			);
-			None
-		},
-	}
-}
-
 // Returns the claim queue at the given relay parent.
 async fn claim_queue_at(
 	relay_parent: RelayHash,
@@ -290,14 +247,12 @@ async fn find_parent<Block>(
 where
 	Block: BlockT,
 {
-	let parent_search_params = ParentSearchParams {
-		relay_parent,
-		para_id,
-		ancestry_lookback: scheduling_lookahead(relay_parent, relay_client)
-			.await
-			.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
-			.saturating_sub(1) as usize,
-	};
+	let ancestry_lookback = relay_client
+		.scheduling_lookahead(relay_parent)
+		.await
+		.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
+		.saturating_sub(1) as usize;
+	let parent_search_params = ParentSearchParams { relay_parent, para_id, ancestry_lookback };
 
 	let mut result = match cumulus_client_consensus_common::find_parent_for_building::<Block>(
 		parent_search_params,
@@ -741,6 +696,13 @@ impl RelayParentData {
 	/// Returns a reference to the relay parent header.
 	pub fn relay_parent(&self) -> &RelayHeader {
 		&self.relay_parent
+	}
+
+	/// Takes the descendants list.
+	///
+	/// List is ordered from oldest to newest.
+	pub fn take_descendants(&mut self) -> Vec<RelayHeader> {
+		std::mem::take(&mut self.descendants)
 	}
 
 	/// Returns the number of descendants.
