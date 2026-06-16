@@ -134,7 +134,7 @@ impl<T: frame_system::Config> snowbridge_pallet_outbound_queue_v2::WeightInfo fo
 		//  Measured:  `247`
 		//  Estimated: `3712`
 		// Minimum execution time: 134_000_000 picoseconds.
-		Weight::from_parts(102_060_037, 0)
+		Weight::from_parts(126_967_376, 0)
 			.saturating_add(Weight::from_parts(0, 3712))
 			// Standard Error: 43_307
 			.saturating_add(Weight::from_parts(5_874_864, 0).saturating_mul(n.into()))
