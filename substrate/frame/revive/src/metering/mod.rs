@@ -114,7 +114,12 @@ pub struct ResourceMeter<T: Config, S: State> {
 	_phantom: PhantomData<S>,
 }
 
-/// Transaction-wide resource limit configuration.
+/// Parameters required to construct a root [`TransactionMeter`].
+///
+/// Despite the name, the `EthereumGas` variant carries more than just limits: it also bundles
+/// the gas-conversion context (`eth_tx_info`) and any deposit already consumed before contract
+/// execution (`authorization_deposit`). It is the full set of inputs needed to build the root
+/// meter for an ethereum-style transaction, not a pure cap descriptor.
 ///
 /// Represents the two supported resource accounting modes:
 /// - EthereumGas: Single gas limit
@@ -131,8 +136,9 @@ pub enum TransactionLimits<T: Config> {
 		weight_limit: Weight,
 		/// Some extra information about the transaction that is required to calculate gas usage.
 		eth_tx_info: EthTxInfo<T>,
-		/// Deposit consumed by EIP-7702 authorization processing before contract execution.
-		/// Recorded on the meter at creation to correctly reduce the available deposit budget.
+		/// Deposit already consumed by EIP-7702 authorization processing before contract execution
+		/// begins. Not a cap: recorded on the meter at creation to correctly reduce the available
+		/// deposit budget. Only relevant at root meter construction; nested frames do not see it.
 		authorization_deposit: BalanceOf<T>,
 	},
 	/// Substrate execution mode: the transaction specifies a weight limit and a storage deposit
