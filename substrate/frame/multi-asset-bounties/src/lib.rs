@@ -82,7 +82,7 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 extern crate alloc;
-use alloc::{boxed::Box, collections::btree_map::BTreeMap};
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	dispatch_context::with_context,
@@ -119,73 +119,63 @@ pub type PaymentIdOf<T, I = ()> = <<T as crate::Config<I>>::Paymaster as PayWith
 /// Convenience alias for `Bounty`.
 pub type BountyOf<T, I> = Bounty<
 	<T as frame_system::Config>::AccountId,
-	<T as Config<I>>::Balance,
-	<T as Config<I>>::AssetKind,
 	<T as frame_system::Config>::Hash,
-	PaymentIdOf<T, I>,
 	<T as Config<I>>::Beneficiary,
 >;
 /// Convenience alias for `ChildBounty`.
 pub type ChildBountyOf<T, I> = ChildBounty<
 	<T as frame_system::Config>::AccountId,
-	<T as Config<I>>::Balance,
 	<T as frame_system::Config>::Hash,
-	PaymentIdOf<T, I>,
 	<T as Config<I>>::Beneficiary,
 >;
 
 /// A funded bounty.
+///
+/// The assets committed to the bounty live in per-asset rows in `BountyAssets`, keyed by
+/// `(bounty_id, asset_kind)`.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub struct Bounty<AccountId, Balance, AssetKind, Hash, PaymentId, Beneficiary> {
-	/// The kind of asset this bounty is rewarded in.
-	pub asset_kind: AssetKind,
-	/// The amount that should be paid if the bounty is rewarded, including
-	/// beneficiary payout and possible child bounties.
-	///
-	/// The asset class determined by `asset_kind`.
-	pub value: Balance,
+pub struct Bounty<AccountId, Hash, Beneficiary> {
 	/// The metadata concerning the bounty.
 	///
 	/// The `Hash` refers to the preimage of the `Preimages` provider which can be a JSON
 	/// dump or IPFS hash of a JSON file.
 	pub metadata: Hash,
 	/// The status of this bounty.
-	pub status: BountyStatus<AccountId, PaymentId, Beneficiary>,
+	pub status: BountyStatus<AccountId, Beneficiary>,
 }
 
 /// A funded child-bounty.
+///
+/// The assets committed to the child-bounty live in per-asset rows in `ChildBountyAssets`, keyed
+/// by `((parent_bounty_id, child_bounty_id), asset_kind)`.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub struct ChildBounty<AccountId, Balance, Hash, PaymentId, Beneficiary> {
+pub struct ChildBounty<AccountId, Hash, Beneficiary> {
 	/// The parent bounty index of this child-bounty.
 	pub parent_bounty: BountyIndex,
-	/// The amount that should be paid if the child-bounty is rewarded.
-	///
-	/// The asset class determined by the parent bounty `asset_kind`.
-	pub value: Balance,
 	/// The metadata concerning the child-bounty.
 	///
 	/// The `Hash` refers to the preimage of the `Preimages` provider which can be a JSON
 	/// dump or IPFS hash of a JSON file.
 	pub metadata: Hash,
 	/// The status of this child-bounty.
-	pub status: BountyStatus<AccountId, PaymentId, Beneficiary>,
+	pub status: BountyStatus<AccountId, Beneficiary>,
 }
 
 /// The status of a child-/bounty proposal.
+///
+/// The per-asset payment progress is tracked separately in each asset's
+/// [`AssetEntry::payment_state`]; this status only advances once *every* asset in the basket has
+/// reached the relevant terminal payment state.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub enum BountyStatus<AccountId, PaymentId, Beneficiary> {
-	/// The child-/bounty funding has been attempted and is waiting to confirm the funds
-	/// allocation.
+pub enum BountyStatus<AccountId, Beneficiary> {
+	/// Funding initiated for every asset in the basket; advances to `Funded` once all asset
+	/// funding payments succeed.
 	///
-	/// Call `check_status` to confirm whether the funding payment succeeded. If successful, the
-	/// child-/bounty transitions to [`BountyStatus::Funded`]. Otherwise, use `retry_payment` to
-	/// reinitiate the funding payment.
-	FundingAttempted {
+	/// Call `check_status` to advance once all funding payments succeed. Use `retry_payment` to
+	/// reinitiate failed funding payments.
+	Funding {
 		/// The proposed curator of this child-/bounty.
 		curator: AccountId,
-		/// The funding payment status from the source (e.g. Treasury, parent bounty) to
-		/// the child-/bounty account/location.
-		payment_status: PaymentState<PaymentId>,
 	},
 	/// The child-/bounty is funded and waiting for curator to accept role.
 	Funded {
@@ -204,31 +194,19 @@ pub enum BountyStatus<AccountId, PaymentId, Beneficiary> {
 		/// The curator of this child-/bounty.
 		curator: AccountId,
 	},
-	/// The child-/bounty is closed, and the funds are being refunded to the original source (e.g.,
-	/// Treasury). Once `check_status` confirms the payment succeeded, the child-/bounty is
-	/// finalized and removed from storage. Otherwise, use `retry_payment` to reinitiate the refund
-	/// payment.
-	RefundAttempted {
-		/// The curator of this child-/bounty.
-		///
-		/// If `None`, it means the child-/bounty curator was unassigned.
-		curator: Option<AccountId>,
-		/// The refund payment status from the child-/bounty account/location to the source (e.g.
-		/// Treasury, parent bounty).
-		payment_status: PaymentState<PaymentId>,
-	},
-	/// The child-/bounty payout to a beneficiary has been attempted.
-	///
-	/// Call `check_status` to confirm whether the payout payment succeeded. If successful, the
-	/// child-/bounty is finalized and removed from storage. Otherwise, use `retry_payment` to
-	/// reinitiate the payout payment.
-	PayoutAttempted {
+	/// Payout to the beneficiary initiated for every asset; bounty removed once all succeed.
+	Awarding {
 		/// The curator of this child-/bounty.
 		curator: AccountId,
 		/// The beneficiary stash account/location.
 		beneficiary: Beneficiary,
-		/// The payout payment status from the child-/bounty account/location to the beneficiary.
-		payment_status: PaymentState<PaymentId>,
+	},
+	/// Refund to source initiated for every asset; bounty removed once all succeed.
+	Closing {
+		/// The curator of this child-/bounty.
+		///
+		/// If `None`, it means the child-/bounty curator was unassigned.
+		curator: Option<AccountId>,
 	},
 }
 
@@ -483,9 +461,17 @@ pub mod pallet {
 			beneficiary: T::Beneficiary,
 		},
 		/// Funding payment has concluded successfully.
-		BountyFundingProcessed { index: BountyIndex, child_index: Option<BountyIndex> },
+		BountyFundingProcessed {
+			index: BountyIndex,
+			child_index: Option<BountyIndex>,
+			asset_kind: T::AssetKind,
+		},
 		/// Refund payment has concluded successfully.
-		BountyRefundProcessed { index: BountyIndex, child_index: Option<BountyIndex> },
+		BountyRefundProcessed {
+			index: BountyIndex,
+			child_index: Option<BountyIndex>,
+			asset_kind: T::AssetKind,
+		},
 		/// A child-/bounty was cancelled.
 		BountyCanceled { index: BountyIndex, child_index: Option<BountyIndex> },
 		/// A child-/bounty curator was unassigned.
@@ -504,8 +490,13 @@ pub mod pallet {
 		},
 		/// A payment happened and can be checked.
 		Paid { index: BountyIndex, child_index: Option<BountyIndex>, payment_id: PaymentIdOf<T, I> },
-		/// A bounty's value was increased by its curator.
-		BountyValueIncreased { index: BountyIndex, old_value: T::Balance, new_value: T::Balance },
+		/// A bounty's value in one asset was increased by its curator.
+		BountyValueIncreased {
+			index: BountyIndex,
+			asset_kind: T::AssetKind,
+			old_value: T::Balance,
+			new_value: T::Balance,
+		},
 	}
 
 	/// A reason for this pallet placing a hold on funds.
@@ -552,14 +543,6 @@ pub mod pallet {
 	pub type TotalChildBountiesPerParent<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, BountyIndex, u32, ValueQuery>;
 
-	/// The cumulative child-bounty value for each parent bounty. To be subtracted from the parent
-	/// bounty payout and refund.
-	///
-	/// Indexed by `parent_bounty_id`.
-	#[pallet::storage]
-	pub type ChildBountiesValuePerParent<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Twox64Concat, BountyIndex, T::Balance, ValueQuery>;
-
 	/// The per-asset ledger of a bounty: the value committed in each `asset_kind` and the state
 	/// of the payment settling it.
 	///
@@ -593,9 +576,9 @@ pub mod pallet {
 	>;
 
 	/// The cumulative value allocated to child bounties for each `(parent_bounty_id, asset_kind)`.
-	/// Subtracted, per asset, from the parent bounty payout when awarding.
+	/// Subtracted, per asset, from the parent bounty payout and refund.
 	///
-	/// This is the per-asset replacement for [`ChildBountiesValuePerParent`] and is the storage
+	/// This is the per-asset over-allocation guard and is the storage
 	/// backing the over-allocation invariant: for each asset `a`,
 	/// `sum(child value in a) <= parent value in a`.
 	///
@@ -658,8 +641,9 @@ pub mod pallet {
 		///   `check_status` call before retrying with `retry_payment` call.
 		///
 		/// ### Parameters
-		/// - `asset_kind`: An indicator of the specific asset class to be funded.
-		/// - `value`: The total payment amount of this bounty.
+		/// - `assets`: The basket of `(asset_kind, value)` pairs to fund this bounty with. Must be
+		///   non-empty, contain no duplicate `asset_kind`, and hold at most
+		///   [`Config::MaxAssetsPerBounty`] entries.
 		/// - `curator`: Address of bounty curator.
 		/// - `metadata`: The hash of an on-chain stored preimage with bounty metadata.
 		///
@@ -670,8 +654,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_bounty())]
 		pub fn fund_bounty(
 			origin: OriginFor<T>,
-			asset_kind: Box<T::AssetKind>,
-			#[pallet::compact] value: T::Balance,
+			assets: BoundedVec<(T::AssetKind, T::Balance), T::MaxAssetsPerBounty>,
 			curator: AccountIdLookupOf<T>,
 			metadata: T::Hash,
 		) -> DispatchResult {
@@ -679,33 +662,58 @@ pub mod pallet {
 			let curator = T::Lookup::lookup(curator)?;
 			ensure!(T::Preimages::len(&metadata).is_some(), Error::<T, I>::PreimageNotExist);
 
-			let native_amount = T::BalanceConverter::from_asset_balance(value, *asset_kind.clone())
-				.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
-			ensure!(native_amount >= T::BountyValueMinimum::get(), Error::<T, I>::InvalidValue);
-			ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
+			ensure!(!assets.is_empty(), Error::<T, I>::EmptyBasket);
+			// Ensure there are no duplicate asset kinds in the basket.
+			for i in 0..assets.len() {
+				for j in (i + 1)..assets.len() {
+					ensure!(assets[i].0 != assets[j].0, Error::<T, I>::DuplicateAsset);
+				}
+			}
+
+			// Compute the total native amount across the basket and validate against the origin's
+			// maximum spendable amount.
+			let mut total_native = T::Balance::zero();
+			for (asset_kind, value) in assets.iter() {
+				let native = T::BalanceConverter::from_asset_balance(*value, asset_kind.clone())
+					.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+				total_native = total_native.saturating_add(native);
+			}
+			ensure!(total_native >= T::BountyValueMinimum::get(), Error::<T, I>::InvalidValue);
+			ensure!(total_native <= max_amount, Error::<T, I>::InsufficientPermission);
 
 			with_context::<SpendContext<T::Balance>, _>(|v| {
 				let context = v.or_default();
 				let funding = context.spend_in_context.entry(max_amount).or_default();
 
-				if funding.checked_add(&native_amount).map(|s| s > max_amount).unwrap_or(true) {
+				if funding.checked_add(&total_native).map(|s| s > max_amount).unwrap_or(true) {
 					Err(Error::<T, I>::InsufficientPermission)
 				} else {
-					*funding = funding.saturating_add(native_amount);
+					*funding = funding.saturating_add(total_native);
 					Ok(())
 				}
 			})
 			.unwrap_or(Ok(()))?;
 
 			let index = BountyCount::<T, I>::get();
-			let payment_status =
-				Self::do_process_funding_payment(index, None, *asset_kind.clone(), value, None)?;
+			for (asset_kind, value) in assets.iter() {
+				let payment_state = Self::do_process_funding_payment(
+					index,
+					None,
+					asset_kind.clone(),
+					*value,
+					None,
+				)?;
+				Self::put_asset_entry(
+					index,
+					None,
+					asset_kind.clone(),
+					AssetEntry { value: *value, payment_state },
+				);
+			}
 
 			let bounty = BountyOf::<T, I> {
-				asset_kind: *asset_kind,
-				value,
 				metadata,
-				status: BountyStatus::FundingAttempted { curator, payment_status },
+				status: BountyStatus::Funding { curator },
 			};
 			Bounties::<T, I>::insert(index, &bounty);
 			T::Preimages::request(&metadata);
@@ -733,7 +741,9 @@ pub mod pallet {
 		///
 		/// ### Parameters
 		/// - `parent_bounty_id`: Index of parent bounty for which child-bounty is being added.
-		/// - `value`: The payment amount of this child-bounty.
+		/// - `assets`: The basket of `(asset_kind, value)` pairs to fund this child-bounty with.
+		///   Must be non-empty, contain no duplicate `asset_kind`, and every `asset_kind` must be
+		///   held by the parent bounty.
 		/// - `metadata`: The hash of an on-chain stored preimage with child-bounty metadata.
 		/// - `curator`: Address of child-bounty curator.
 		///
@@ -745,28 +755,23 @@ pub mod pallet {
 		pub fn fund_child_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
-			#[pallet::compact] value: T::Balance,
+			assets: BoundedVec<(T::AssetKind, T::Balance), T::MaxAssetsPerBounty>,
 			metadata: T::Hash,
 			curator: Option<AccountIdLookupOf<T>>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
 			ensure!(T::Preimages::len(&metadata).is_some(), Error::<T, I>::PreimageNotExist);
 
-			let (asset_kind, parent_value, _, _, parent_curator) =
-				Self::get_bounty_details(parent_bounty_id, None)
-					.map_err(|_| Error::<T, I>::InvalidIndex)?;
-			let native_amount = T::BalanceConverter::from_asset_balance(value, asset_kind.clone())
-				.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+			ensure!(!assets.is_empty(), Error::<T, I>::EmptyBasket);
+			// Ensure there are no duplicate asset kinds in the basket.
+			for i in 0..assets.len() {
+				for j in (i + 1)..assets.len() {
+					ensure!(assets[i].0 != assets[j].0, Error::<T, I>::DuplicateAsset);
+				}
+			}
 
-			ensure!(
-				native_amount >= T::ChildBountyValueMinimum::get(),
-				Error::<T, I>::InvalidValue
-			);
-			ensure!(
-				ChildBountiesPerParent::<T, I>::get(parent_bounty_id) <
-					T::MaxActiveChildBountyCount::get(),
-				Error::<T, I>::TooManyChildBounties,
-			);
+			let (_, _, parent_curator) = Self::get_bounty_details(parent_bounty_id, None)
+				.map_err(|_| Error::<T, I>::InvalidIndex)?;
 
 			// Parent bounty must be `Active` with a curator assigned.
 			let parent_curator = parent_curator.ok_or(Error::<T, I>::UnexpectedStatus)?;
@@ -776,41 +781,59 @@ pub mod pallet {
 			};
 			ensure!(signer == parent_curator, Error::<T, I>::RequireCurator);
 
-			// Check value
-			let child_bounties_value = ChildBountiesValuePerParent::<T, I>::get(parent_bounty_id);
-			let remaining_parent_value = parent_value.saturating_sub(child_bounties_value);
-			ensure!(remaining_parent_value >= value, Error::<T, I>::InsufficientBountyValue);
+			ensure!(
+				ChildBountiesPerParent::<T, I>::get(parent_bounty_id) <
+					T::MaxActiveChildBountyCount::get(),
+				Error::<T, I>::TooManyChildBounties,
+			);
+
+			// Validate, per asset, that the parent holds the asset, has enough remaining value,
+			// and that the child value meets the per-asset minimum.
+			for (asset_kind, value) in assets.iter() {
+				let parent_entry = BountyAssets::<T, I>::get(parent_bounty_id, asset_kind)
+					.ok_or(Error::<T, I>::AssetNotInBounty)?;
+				let allocated =
+					ChildValuePerParentAsset::<T, I>::get(parent_bounty_id, asset_kind);
+				let remaining = parent_entry.value.saturating_sub(allocated);
+				ensure!(remaining >= *value, Error::<T, I>::InsufficientBountyValue);
+
+				let native = T::BalanceConverter::from_asset_balance(*value, asset_kind.clone())
+					.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+				ensure!(native >= T::ChildBountyValueMinimum::get(), Error::<T, I>::InvalidValue);
+			}
 
 			// Get child-bounty ID.
 			let child_bounty_id = TotalChildBountiesPerParent::<T, I>::get(parent_bounty_id);
 
-			// Initiate funding payment
-			let payment_status = Self::do_process_funding_payment(
-				parent_bounty_id,
-				Some(child_bounty_id),
-				asset_kind,
-				value,
-				None,
-			)?;
+			// Initiate funding payment for every asset and record per-asset allocation.
+			for (asset_kind, value) in assets.iter() {
+				let payment_state = Self::do_process_funding_payment(
+					parent_bounty_id,
+					Some(child_bounty_id),
+					asset_kind.clone(),
+					*value,
+					None,
+				)?;
+				Self::put_asset_entry(
+					parent_bounty_id,
+					Some(child_bounty_id),
+					asset_kind.clone(),
+					AssetEntry { value: *value, payment_state },
+				);
+				ChildValuePerParentAsset::<T, I>::mutate(
+					parent_bounty_id,
+					asset_kind,
+					|v| *v = v.saturating_add(*value),
+				);
+			}
 
 			let child_bounty = ChildBounty {
 				parent_bounty: parent_bounty_id,
-				value,
 				metadata,
-				status: BountyStatus::FundingAttempted {
-					curator: final_curator,
-					payment_status: payment_status.clone(),
-				},
+				status: BountyStatus::Funding { curator: final_curator },
 			};
 			ChildBounties::<T, I>::insert(parent_bounty_id, child_bounty_id, child_bounty);
 			T::Preimages::request(&metadata);
-
-			// Add child-bounty value to the cumulative value sum. To be
-			// subtracted from the parent bounty payout when awarding
-			// bounty.
-			ChildBountiesValuePerParent::<T, I>::mutate(parent_bounty_id, |children_value| {
-				*children_value = children_value.saturating_add(value)
-			});
 
 			// Increment the active child-bounty count.
 			ChildBountiesPerParent::<T, I>::mutate(parent_bounty_id, |count| {
@@ -866,7 +889,7 @@ pub mod pallet {
 				.or_else(|_| T::SpendOrigin::ensure_origin(origin.clone()).map(|_| None))?;
 			let curator = T::Lookup::lookup(curator)?;
 
-			let (asset_kind, value, _, status, parent_curator) =
+			let (status, _, parent_curator) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 			ensure!(status == BountyStatus::CuratorUnassigned, Error::<T, I>::UnexpectedStatus);
 
@@ -875,9 +898,14 @@ pub mod pallet {
 				None => {
 					ensure!(maybe_sender.is_none(), BadOrigin);
 					let max_amount = T::SpendOrigin::ensure_origin(origin)?;
-					let native_amount = T::BalanceConverter::from_asset_balance(value, asset_kind)
-						.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
-					ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
+					let mut total_native = T::Balance::zero();
+					for (asset_kind, entry) in Self::asset_entries(parent_bounty_id, None) {
+						let native =
+							T::BalanceConverter::from_asset_balance(entry.value, asset_kind)
+								.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+						total_native = total_native.saturating_add(native);
+					}
+					ensure!(total_native <= max_amount, Error::<T, I>::InsufficientPermission);
 				},
 				// Only parent curator can propose curator for child-bounty
 				Some(_) => {
@@ -927,7 +955,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
 
-			let (asset_kind, value, _, status, _) =
+			let (status, _, _) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let BountyStatus::Funded { ref curator } = status else {
@@ -935,8 +963,12 @@ pub mod pallet {
 			};
 			ensure!(signer == *curator, Error::<T, I>::RequireCurator);
 
-			let native_amount = T::BalanceConverter::from_asset_balance(value, asset_kind)
-				.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+			let mut native_amount = T::Balance::zero();
+			for (asset_kind, entry) in Self::asset_entries(parent_bounty_id, child_bounty_id) {
+				let native = T::BalanceConverter::from_asset_balance(entry.value, asset_kind)
+					.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+				native_amount = native_amount.saturating_add(native);
+			}
 			let curator_deposit = T::Consideration::new(&curator, native_amount)?;
 			CuratorDeposit::<T, I>::insert(parent_bounty_id, child_bounty_id, curator_deposit);
 
@@ -988,7 +1020,7 @@ pub mod pallet {
 				.map(Some)
 				.or_else(|_| T::RejectOrigin::ensure_origin(origin).map(|_| None))?;
 
-			let (_, _, _, status, parent_curator) =
+			let (status, _, parent_curator) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			match status {
@@ -1093,7 +1125,7 @@ pub mod pallet {
 			let signer = ensure_signed(origin)?;
 			let beneficiary = T::BeneficiaryLookup::lookup(beneficiary)?;
 
-			let (asset_kind, value, _, status, _) =
+			let (status, _, _) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			if child_bounty_id.is_none() {
@@ -1108,19 +1140,27 @@ pub mod pallet {
 			};
 			ensure!(signer == *curator, Error::<T, I>::RequireCurator);
 
-			let beneficiary_payment_status = Self::do_process_payout_payment(
-				parent_bounty_id,
-				child_bounty_id,
-				asset_kind,
-				value,
-				beneficiary.clone(),
-				None,
-			)?;
+			// Initiate the payout payment for every asset in the basket.
+			for (asset_kind, entry) in Self::asset_entries(parent_bounty_id, child_bounty_id) {
+				let payment_state = Self::do_process_payout_payment(
+					parent_bounty_id,
+					child_bounty_id,
+					asset_kind.clone(),
+					entry.value,
+					beneficiary.clone(),
+					None,
+				)?;
+				Self::put_asset_entry(
+					parent_bounty_id,
+					child_bounty_id,
+					asset_kind,
+					AssetEntry { value: entry.value, payment_state },
+				);
+			}
 
-			let new_status = BountyStatus::PayoutAttempted {
+			let new_status = BountyStatus::Awarding {
 				curator: curator.clone(),
 				beneficiary: beneficiary.clone(),
-				payment_status: beneficiary_payment_status.clone(),
 			};
 			Self::update_bounty_status(parent_bounty_id, child_bounty_id, new_status)?;
 
@@ -1170,7 +1210,7 @@ pub mod pallet {
 				.map(Some)
 				.or_else(|_| T::RejectOrigin::ensure_origin(origin).map(|_| None))?;
 
-			let (asset_kind, value, _, status, parent_curator) =
+			let (status, _, parent_curator) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let maybe_curator = match status {
@@ -1208,17 +1248,23 @@ pub mod pallet {
 				},
 			};
 
-			let payment_status = Self::do_process_refund_payment(
-				parent_bounty_id,
-				child_bounty_id,
-				asset_kind,
-				value,
-				None,
-			)?;
-			let new_status = BountyStatus::RefundAttempted {
-				payment_status: payment_status.clone(),
-				curator: maybe_curator.clone(),
-			};
+			// Initiate the refund payment for every asset in the basket.
+			for (asset_kind, entry) in Self::asset_entries(parent_bounty_id, child_bounty_id) {
+				let payment_state = Self::do_process_refund_payment(
+					parent_bounty_id,
+					child_bounty_id,
+					asset_kind.clone(),
+					entry.value,
+					None,
+				)?;
+				Self::put_asset_entry(
+					parent_bounty_id,
+					child_bounty_id,
+					asset_kind,
+					AssetEntry { value: entry.value, payment_state },
+				);
+			}
+			let new_status = BountyStatus::Closing { curator: maybe_curator.clone() };
 			Self::update_bounty_status(parent_bounty_id, child_bounty_id, new_status)?;
 
 			Self::deposit_event(Event::<T, I>::BountyCanceled {
@@ -1266,114 +1312,136 @@ pub mod pallet {
 			use BountyStatus::*;
 
 			ensure_signed(origin)?;
-			let (asset_kind, value, metadata, status, parent_curator) =
+			let (status, metadata, parent_curator) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let (new_status, weight) = match status {
-				FundingAttempted { ref payment_status, curator } => {
-					let new_payment_status = Self::do_check_funding_payment_status(
-						parent_bounty_id,
-						child_bounty_id,
-						payment_status.clone(),
-					)?;
+				Funding { curator } => {
+					// Advance every in-flight funding payment; succeeded/failed rows are left
+					// untouched.
+					for (asset_kind, entry) in Self::asset_entries(parent_bounty_id, child_bounty_id)
+					{
+						if let PaymentState::Attempted { .. } = entry.payment_state {
+							let payment_state = Self::do_check_funding_payment_status(
+								parent_bounty_id,
+								child_bounty_id,
+								asset_kind.clone(),
+								entry.payment_state,
+							)?;
+							Self::put_asset_entry(
+								parent_bounty_id,
+								child_bounty_id,
+								asset_kind,
+								AssetEntry { value: entry.value, payment_state },
+							);
+						}
+					}
 
-					let new_status = match new_payment_status {
-						PaymentState::Succeeded => match (child_bounty_id, parent_curator) {
+					let new_status = if Self::all_assets_succeeded(parent_bounty_id, child_bounty_id)
+					{
+						match (child_bounty_id, parent_curator) {
 							(Some(_), Some(parent_curator)) if curator == parent_curator => {
 								BountyStatus::Active { curator }
 							},
 							_ => BountyStatus::Funded { curator },
-						},
-						PaymentState::Pending |
-						PaymentState::Failed |
-						PaymentState::Attempted { .. } => BountyStatus::FundingAttempted {
-							payment_status: new_payment_status,
-							curator,
-						},
+						}
+					} else {
+						BountyStatus::Funding { curator }
 					};
 
 					let weight = <T as Config<I>>::WeightInfo::check_status_funding();
 
 					(new_status, weight)
 				},
-				RefundAttempted { ref payment_status, ref curator } => {
-					let new_payment_status = Self::do_check_refund_payment_status(
-						parent_bounty_id,
-						child_bounty_id,
-						payment_status.clone(),
-					)?;
+				Closing { curator } => {
+					for (asset_kind, entry) in Self::asset_entries(parent_bounty_id, child_bounty_id)
+					{
+						if let PaymentState::Attempted { .. } = entry.payment_state {
+							let payment_state = Self::do_check_refund_payment_status(
+								parent_bounty_id,
+								child_bounty_id,
+								asset_kind.clone(),
+								entry.payment_state,
+							)?;
+							Self::put_asset_entry(
+								parent_bounty_id,
+								child_bounty_id,
+								asset_kind,
+								AssetEntry { value: entry.value, payment_state },
+							);
+						}
+					}
 
-					let new_status = match new_payment_status {
-						PaymentState::Succeeded => {
-							if let Some(curator) = curator {
-								// Drop the curator deposit when payment succeeds
-								// If the parent curator is also the child curator, there
-								// is no deposit
-								if let Some(curator_deposit) =
-									CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)
-								{
-									T::Consideration::drop(curator_deposit, curator)?;
-								}
-							}
-							if let Some(_) = child_bounty_id {
-								// Revert the value back to parent bounty
-								ChildBountiesValuePerParent::<T, I>::mutate(
-									parent_bounty_id,
-									|total_value| *total_value = total_value.saturating_sub(value),
-								);
-							}
-							// refund succeeded, cleanup the bounty
-							Self::remove_bounty(parent_bounty_id, child_bounty_id, metadata);
-							return Ok(Pays::No.into());
-						},
-						PaymentState::Pending |
-						PaymentState::Failed |
-						PaymentState::Attempted { .. } => BountyStatus::RefundAttempted {
-							payment_status: new_payment_status,
-							curator: curator.clone(),
-						},
-					};
-
-					let weight = <T as Config<I>>::WeightInfo::check_status_refund();
-
-					(new_status, weight)
-				},
-				PayoutAttempted { ref curator, ref beneficiary, ref payment_status } => {
-					let new_payment_status = Self::do_check_payout_payment_status(
-						parent_bounty_id,
-						child_bounty_id,
-						asset_kind,
-						value,
-						beneficiary.clone(),
-						payment_status.clone(),
-					)?;
-
-					let new_status = match new_payment_status {
-						PaymentState::Succeeded => {
+					if Self::all_assets_succeeded(parent_bounty_id, child_bounty_id) {
+						if let Some(curator) = curator.as_ref() {
+							// Drop the curator deposit when refund succeeds.
+							// If the parent curator is also the child curator, there is no deposit.
 							if let Some(curator_deposit) =
 								CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)
 							{
-								// Drop the curator deposit when both payments succeed
-								// If the child curator is the parent curator, the
-								// deposit is 0
 								T::Consideration::drop(curator_deposit, curator)?;
 							}
-							// payout succeeded, cleanup the bounty
-							Self::remove_bounty(parent_bounty_id, child_bounty_id, metadata);
-							return Ok(Pays::No.into());
-						},
-						PaymentState::Pending |
-						PaymentState::Failed |
-						PaymentState::Attempted { .. } => BountyStatus::PayoutAttempted {
-							curator: curator.clone(),
-							beneficiary: beneficiary.clone(),
-							payment_status: new_payment_status.clone(),
-						},
-					};
+						}
+						if child_bounty_id.is_some() {
+							// Revert each asset's value back to the parent bounty.
+							for (asset_kind, entry) in
+								Self::asset_entries(parent_bounty_id, child_bounty_id)
+							{
+								ChildValuePerParentAsset::<T, I>::mutate(
+									parent_bounty_id,
+									&asset_kind,
+									|total_value| {
+										*total_value = total_value.saturating_sub(entry.value)
+									},
+								);
+							}
+						}
+						// refund succeeded, cleanup the bounty
+						Self::remove_bounty(parent_bounty_id, child_bounty_id, metadata);
+						return Ok(Pays::No.into());
+					}
+
+					let weight = <T as Config<I>>::WeightInfo::check_status_refund();
+
+					(BountyStatus::Closing { curator }, weight)
+				},
+				Awarding { curator, beneficiary } => {
+					for (asset_kind, entry) in Self::asset_entries(parent_bounty_id, child_bounty_id)
+					{
+						if let PaymentState::Attempted { .. } = entry.payment_state {
+							let payment_state = Self::do_check_payout_payment_status(
+								parent_bounty_id,
+								child_bounty_id,
+								asset_kind.clone(),
+								entry.value,
+								beneficiary.clone(),
+								entry.payment_state,
+							)?;
+							Self::put_asset_entry(
+								parent_bounty_id,
+								child_bounty_id,
+								asset_kind,
+								AssetEntry { value: entry.value, payment_state },
+							);
+						}
+					}
+
+					if Self::all_assets_succeeded(parent_bounty_id, child_bounty_id) {
+						if let Some(curator_deposit) =
+							CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)
+						{
+							// Drop the curator deposit when all payouts succeed.
+							// If the child curator is the parent curator, the deposit is 0.
+							T::Consideration::drop(curator_deposit, &curator)?;
+						}
+						// payout succeeded, cleanup the bounty
+						Self::remove_bounty(parent_bounty_id, child_bounty_id, metadata);
+						return Ok(Pays::No.into());
+					}
 
 					let weight = <T as Config<I>>::WeightInfo::check_status_payout();
 
-					(new_status, weight)
+					(BountyStatus::Awarding { curator, beneficiary }, weight)
 				},
 				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 			};
@@ -1417,58 +1485,83 @@ pub mod pallet {
 			use BountyStatus::*;
 
 			ensure_signed(origin)?;
-			let (asset_kind, value, _, status, _) =
+			let (status, _, _) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let (new_status, weight) = match status {
-				FundingAttempted { ref payment_status, ref curator } => {
-					let new_payment_status = Self::do_process_funding_payment(
-						parent_bounty_id,
-						child_bounty_id,
-						asset_kind,
-						value,
-						Some(payment_status.clone()),
-					)?;
+				Funding { curator } => {
+					for (asset_kind, entry) in Self::asset_entries(parent_bounty_id, child_bounty_id)
+					{
+						if entry.payment_state.is_pending_or_failed() {
+							let payment_state = Self::do_process_funding_payment(
+								parent_bounty_id,
+								child_bounty_id,
+								asset_kind.clone(),
+								entry.value,
+								Some(entry.payment_state),
+							)?;
+							Self::put_asset_entry(
+								parent_bounty_id,
+								child_bounty_id,
+								asset_kind,
+								AssetEntry { value: entry.value, payment_state },
+							);
+						}
+					}
 
 					(
-						FundingAttempted {
-							payment_status: new_payment_status,
-							curator: curator.clone(),
-						},
+						Funding { curator },
 						<T as Config<I>>::WeightInfo::retry_payment_funding(),
 					)
 				},
-				RefundAttempted { ref curator, ref payment_status } => {
-					let new_payment_status = Self::do_process_refund_payment(
-						parent_bounty_id,
-						child_bounty_id,
-						asset_kind,
-						value,
-						Some(payment_status.clone()),
-					)?;
+				Closing { curator } => {
+					for (asset_kind, entry) in Self::asset_entries(parent_bounty_id, child_bounty_id)
+					{
+						if entry.payment_state.is_pending_or_failed() {
+							let payment_state = Self::do_process_refund_payment(
+								parent_bounty_id,
+								child_bounty_id,
+								asset_kind.clone(),
+								entry.value,
+								Some(entry.payment_state),
+							)?;
+							Self::put_asset_entry(
+								parent_bounty_id,
+								child_bounty_id,
+								asset_kind,
+								AssetEntry { value: entry.value, payment_state },
+							);
+						}
+					}
+
 					(
-						RefundAttempted {
-							curator: curator.clone(),
-							payment_status: new_payment_status,
-						},
+						Closing { curator },
 						<T as Config<I>>::WeightInfo::retry_payment_refund(),
 					)
 				},
-				PayoutAttempted { ref curator, ref beneficiary, ref payment_status } => {
-					let new_payment_status = Self::do_process_payout_payment(
-						parent_bounty_id,
-						child_bounty_id,
-						asset_kind,
-						value,
-						beneficiary.clone(),
-						Some(payment_status.clone()),
-					)?;
+				Awarding { curator, beneficiary } => {
+					for (asset_kind, entry) in Self::asset_entries(parent_bounty_id, child_bounty_id)
+					{
+						if entry.payment_state.is_pending_or_failed() {
+							let payment_state = Self::do_process_payout_payment(
+								parent_bounty_id,
+								child_bounty_id,
+								asset_kind.clone(),
+								entry.value,
+								beneficiary.clone(),
+								Some(entry.payment_state),
+							)?;
+							Self::put_asset_entry(
+								parent_bounty_id,
+								child_bounty_id,
+								asset_kind,
+								AssetEntry { value: entry.value, payment_state },
+							);
+						}
+					}
+
 					(
-						PayoutAttempted {
-							curator: curator.clone(),
-							beneficiary: beneficiary.clone(),
-							payment_status: new_payment_status,
-						},
+						Awarding { curator, beneficiary },
 						<T as Config<I>>::WeightInfo::retry_payment_payout(),
 					)
 				},
@@ -1480,7 +1573,7 @@ pub mod pallet {
 			Ok(Some(weight).into())
 		}
 
-		/// Increase the value of an active bounty by `amount`.
+		/// Increase the value of an active bounty in one asset by `amount`.
 		///
 		/// ## Dispatch Origin
 		///
@@ -1488,16 +1581,17 @@ pub mod pallet {
 		///
 		/// ## Details
 		///
-		/// - The bounty must be in the `Active` state.
-		/// - Raises the recorded `value` by `amount`. This is used to register funds that were
-		///   transferred into the bounty account out-of-band (e.g. recurring external top-ups), so
-		///   they become available to award or to allocate to child bounties. It must be greater
-		///   than 0.
-		/// - The curator deposit is re-evaluated for the new value and any additional deposit is
-		///   collected from the curator.
-		/// - The value can only be increased, never decreased, so the invariant that the sum of
-		///   child-bounty values never exceeds the parent value is preserved.
-		/// - This call does **not** check that the bounty account holds `new_value`; it only
+		/// - The bounty must be in the `Active` state and must already hold `asset_kind`; assets
+		///   cannot be added to the basket after funding.
+		/// - Raises the recorded `value` of that asset row by `amount`. This is used to register
+		///   funds that were transferred into the bounty account out-of-band (e.g. recurring
+		///   external top-ups), so they become available to award or to allocate to child
+		///   bounties. It must be greater than 0.
+		/// - The curator deposit is re-evaluated for the new summed native value of the whole
+		///   basket and any additional deposit is collected from the curator.
+		/// - The value can only be increased, never decreased, so the per-asset invariant that the
+		///   sum of child-bounty values never exceeds the parent value is preserved.
+		/// - This call does **not** check that the bounty account holds the new value; it only
 		///   updates the recorded value. Payouts stay bounded by the account's real balance at
 		///   settlement, so increasing the value beyond the available funds simply makes a later
 		///   payout fail — no funds are moved by this call.
@@ -1505,7 +1599,8 @@ pub mod pallet {
 		///
 		/// ### Parameters
 		/// - `parent_bounty_id`: Index of the bounty whose value is increased.
-		/// - `amount`: The amount to add to the bounty value.
+		/// - `asset_kind`: The asset whose committed value is increased; must be in the basket.
+		/// - `amount`: The amount to add to the bounty value in `asset_kind`.
 		///
 		/// ## Events
 		///
@@ -1515,50 +1610,52 @@ pub mod pallet {
 		pub fn increase_value(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
+			asset_kind: Box<T::AssetKind>,
 			#[pallet::compact] amount: T::Balance,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
 			ensure!(!amount.is_zero(), Error::<T, I>::InvalidValue);
+			let asset_kind = *asset_kind;
 
-			let (old_value, new_value) = Bounties::<T, I>::try_mutate(
-				parent_bounty_id,
-				|maybe_bounty| -> Result<(T::Balance, T::Balance), DispatchError> {
-					let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+			let bounty =
+				Bounties::<T, I>::get(parent_bounty_id).ok_or(Error::<T, I>::InvalidIndex)?;
+			// Only an `Active` bounty has a committed curator who can authorize and collateralize
+			// the increase.
+			let curator = match bounty.status {
+				BountyStatus::Active { curator } => curator,
+				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
+			};
+			ensure!(signer == curator, Error::<T, I>::RequireCurator);
 
-					// Only an `Active` bounty has a committed curator who can authorize and
-					// collateralize the increase.
-					let curator = match &bounty.status {
-						BountyStatus::Active { curator } => curator.clone(),
-						_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
-					};
-					ensure!(signer == curator, Error::<T, I>::RequireCurator);
+			// The asset must already be part of the basket.
+			let mut entry = BountyAssets::<T, I>::get(parent_bounty_id, &asset_kind)
+				.ok_or(Error::<T, I>::AssetNotInBounty)?;
+			// Reject an overflowing increase rather than silently saturating to a nonsensical
+			// value.
+			let old_value = entry.value;
+			let new_value = old_value.checked_add(&amount).ok_or(Error::<T, I>::InvalidValue)?;
+			entry.value = new_value;
 
-					// Reject an overflowing increase rather than silently saturating to a
-					// nonsensical value.
-					let old_value = bounty.value;
-					let new_value =
-						old_value.checked_add(&amount).ok_or(Error::<T, I>::InvalidValue)?;
-
-					// Re-evaluate the curator deposit for the new value, collecting any additional
-					// hold from the curator. The deposit always exists for an `Active` bounty.
-					let native_amount = T::BalanceConverter::from_asset_balance(
-						new_value,
-						bounty.asset_kind.clone(),
-					)
+			// Re-evaluate the curator deposit for the new summed native value of the basket,
+			// collecting any additional hold from the curator. The deposit always exists for an
+			// `Active` parent bounty.
+			let mut native_amount = T::Balance::zero();
+			for (kind, other) in Self::asset_entries(parent_bounty_id, None) {
+				let value = if kind == asset_kind { new_value } else { other.value };
+				let native = T::BalanceConverter::from_asset_balance(value, kind)
 					.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
-					let deposit =
-						CuratorDeposit::<T, I>::take(parent_bounty_id, None::<BountyIndex>)
-							.ok_or(Error::<T, I>::UnexpectedStatus)?;
-					let deposit = deposit.update(&curator, native_amount)?;
-					CuratorDeposit::<T, I>::insert(parent_bounty_id, None::<BountyIndex>, deposit);
+				native_amount = native_amount.saturating_add(native);
+			}
+			let deposit = CuratorDeposit::<T, I>::take(parent_bounty_id, None::<BountyIndex>)
+				.ok_or(Error::<T, I>::UnexpectedStatus)?;
+			let deposit = deposit.update(&curator, native_amount)?;
+			CuratorDeposit::<T, I>::insert(parent_bounty_id, None::<BountyIndex>, deposit);
 
-					bounty.value = new_value;
-					Ok((old_value, new_value))
-				},
-			)?;
+			BountyAssets::<T, I>::insert(parent_bounty_id, &asset_kind, entry);
 
 			Self::deposit_event(Event::<T, I>::BountyValueIncreased {
 				index: parent_bounty_id,
+				asset_kind,
 				old_value,
 				new_value,
 			});
@@ -1586,6 +1683,25 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		for parent_bounty_id in Bounties::<T, I>::iter_keys() {
 			Self::try_state_child_bounties_count(parent_bounty_id)?;
+			Self::try_state_child_value_per_asset(parent_bounty_id)?;
+		}
+
+		Ok(())
+	}
+
+	/// # Per-asset over-allocation invariant for a given parent bounty
+	///
+	/// For each asset held by the parent bounty, the cumulative value allocated to its child
+	/// bounties must not exceed the parent bounty's committed value in that asset.
+	fn try_state_child_value_per_asset(
+		parent_bounty_id: BountyIndex,
+	) -> Result<(), sp_runtime::TryRuntimeError> {
+		for (asset_kind, entry) in BountyAssets::<T, I>::iter_prefix(parent_bounty_id) {
+			let allocated = ChildValuePerParentAsset::<T, I>::get(parent_bounty_id, &asset_kind);
+			ensure!(
+				allocated <= entry.value,
+				"`ChildValuePerParentAsset` must not exceed the parent bounty asset value"
+			);
 		}
 
 		Ok(())
@@ -1653,21 +1769,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.map_err(|_| Error::<T, I>::FailedToConvertSource.into())
 	}
 
-	/// Returns the asset kind, value, status and parent curator (if parent bounty
-	/// active) of a child-/bounty.
+	/// Returns the status, metadata and parent curator (if parent bounty active) of a
+	/// child-/bounty.
 	///
-	/// The asset kind derives from the parent bounty.
+	/// The committed assets live in the per-asset rows; use [`Self::asset_entries`] to read them.
 	pub fn get_bounty_details(
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
 	) -> Result<
-		(
-			T::AssetKind,
-			T::Balance,
-			T::Hash,
-			BountyStatus<T::AccountId, PaymentIdOf<T, I>, T::Beneficiary>,
-			Option<T::AccountId>,
-		),
+		(BountyStatus<T::AccountId, T::Beneficiary>, T::Hash, Option<T::AccountId>),
 		DispatchError,
 	> {
 		let parent_bounty =
@@ -1681,32 +1791,94 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		};
 
 		match child_bounty_id {
-			None => Ok((
-				parent_bounty.asset_kind,
-				parent_bounty.value,
-				parent_bounty.metadata,
-				parent_bounty.status,
-				parent_curator,
-			)),
+			None => Ok((parent_bounty.status, parent_bounty.metadata, parent_curator)),
 			Some(child_bounty_id) => {
 				let child_bounty = ChildBounties::<T, I>::get(parent_bounty_id, child_bounty_id)
 					.ok_or(Error::<T, I>::InvalidIndex)?;
-				Ok((
-					parent_bounty.asset_kind,
-					child_bounty.value,
-					child_bounty.metadata,
-					child_bounty.status,
-					parent_curator,
-				))
+				Ok((child_bounty.status, child_bounty.metadata, parent_curator))
 			},
 		}
+	}
+
+	/// Iterates the per-asset rows of a child-/bounty as `(asset_kind, AssetEntry)`.
+	fn asset_entries(
+		parent_bounty_id: BountyIndex,
+		child_bounty_id: Option<BountyIndex>,
+	) -> Vec<(T::AssetKind, AssetEntryOf<T, I>)> {
+		match child_bounty_id {
+			None => BountyAssets::<T, I>::iter_prefix(parent_bounty_id).collect(),
+			Some(child_bounty_id) =>
+				ChildBountyAssets::<T, I>::iter_prefix((parent_bounty_id, child_bounty_id))
+					.collect(),
+		}
+	}
+
+	/// Reads a single per-asset row of a child-/bounty.
+	#[allow(dead_code)]
+	fn get_asset_entry(
+		parent_bounty_id: BountyIndex,
+		child_bounty_id: Option<BountyIndex>,
+		asset_kind: T::AssetKind,
+	) -> Option<AssetEntryOf<T, I>> {
+		match child_bounty_id {
+			None => BountyAssets::<T, I>::get(parent_bounty_id, asset_kind),
+			Some(child_bounty_id) =>
+				ChildBountyAssets::<T, I>::get((parent_bounty_id, child_bounty_id), asset_kind),
+		}
+	}
+
+	/// Writes a single per-asset row of a child-/bounty.
+	fn put_asset_entry(
+		parent_bounty_id: BountyIndex,
+		child_bounty_id: Option<BountyIndex>,
+		asset_kind: T::AssetKind,
+		entry: AssetEntryOf<T, I>,
+	) {
+		match child_bounty_id {
+			None => BountyAssets::<T, I>::insert(parent_bounty_id, asset_kind, entry),
+			Some(child_bounty_id) => ChildBountyAssets::<T, I>::insert(
+				(parent_bounty_id, child_bounty_id),
+				asset_kind,
+				entry,
+			),
+		}
+	}
+
+	/// Removes all per-asset rows of a child-/bounty.
+	fn remove_asset_entries(
+		parent_bounty_id: BountyIndex,
+		child_bounty_id: Option<BountyIndex>,
+	) {
+		match child_bounty_id {
+			None => {
+				let _ = BountyAssets::<T, I>::clear_prefix(parent_bounty_id, u32::MAX, None);
+			},
+			Some(child_bounty_id) => {
+				let _ = ChildBountyAssets::<T, I>::clear_prefix(
+					(parent_bounty_id, child_bounty_id),
+					u32::MAX,
+					None,
+				);
+			},
+		}
+	}
+
+	/// Returns `true` if every per-asset row of the child-/bounty has reached
+	/// [`PaymentState::Succeeded`].
+	fn all_assets_succeeded(
+		parent_bounty_id: BountyIndex,
+		child_bounty_id: Option<BountyIndex>,
+	) -> bool {
+		Self::asset_entries(parent_bounty_id, child_bounty_id)
+			.into_iter()
+			.all(|(_, entry)| matches!(entry.payment_state, PaymentState::Succeeded))
 	}
 
 	/// Updates the status of a child-/bounty.
 	pub fn update_bounty_status(
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
-		new_status: BountyStatus<T::AccountId, PaymentIdOf<T, I>, T::Beneficiary>,
+		new_status: BountyStatus<T::AccountId, T::Beneficiary>,
 	) -> Result<(), DispatchError> {
 		match child_bounty_id {
 			None => {
@@ -1726,20 +1898,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
-	/// Calculates the amount the child-/bounty account holds, i.e. what it can pay out or refund.
+	/// Calculates the amount the child-/bounty account holds in a single asset, i.e. what it can
+	/// pay out or refund in that asset.
 	fn calculate_payout(
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
+		asset_kind: T::AssetKind,
 		value: T::Balance,
 	) -> T::Balance {
 		match child_bounty_id {
 			None => {
-				// Get total child bounties value, and subtract it from the parent
+				// Subtract the value allocated to child bounties for this asset from the parent
 				// value.
-				let children_value = ChildBountiesValuePerParent::<T, I>::get(parent_bounty_id);
+				let children_value =
+					ChildValuePerParentAsset::<T, I>::get(parent_bounty_id, &asset_kind);
 				debug_assert!(children_value <= value);
-				let payout = value.saturating_sub(children_value);
-				payout
+				value.saturating_sub(children_value)
 			},
 			Some(_) => value,
 		}
@@ -1751,12 +1925,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		child_bounty_id: Option<BountyIndex>,
 		metadata: T::Hash,
 	) {
+		Self::remove_asset_entries(parent_bounty_id, child_bounty_id);
 		match child_bounty_id {
 			None => {
 				Bounties::<T, I>::remove(parent_bounty_id);
 				ChildBountiesPerParent::<T, I>::remove(parent_bounty_id);
 				TotalChildBountiesPerParent::<T, I>::remove(parent_bounty_id);
-				ChildBountiesValuePerParent::<T, I>::remove(parent_bounty_id);
+				let _ = ChildValuePerParentAsset::<T, I>::clear_prefix(
+					parent_bounty_id,
+					u32::MAX,
+					None,
+				);
 			},
 			Some(child_bounty_id) => {
 				ChildBounties::<T, I>::remove(parent_bounty_id, child_bounty_id);
@@ -1809,28 +1988,31 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn do_check_funding_payment_status(
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
+		asset_kind: T::AssetKind,
 		payment_status: PaymentState<PaymentIdOf<T, I>>,
 	) -> Result<PaymentState<PaymentIdOf<T, I>>, DispatchError> {
-		let payment_id = payment_status.get_attempt_id().ok_or(Error::<T, I>::UnexpectedStatus)?;
+		let payment_id =
+			payment_status.get_attempt_id().ok_or(Error::<T, I>::UnexpectedStatus)?;
 
 		match <T as Config<I>>::Paymaster::check_payment(payment_id) {
 			PaymentStatus::Success => {
 				Self::deposit_event(Event::<T, I>::BountyFundingProcessed {
 					index: parent_bounty_id,
 					child_index: child_bounty_id,
+					asset_kind,
 				});
 				Ok(PaymentState::Succeeded)
 			},
-			PaymentStatus::InProgress | PaymentStatus::Unknown => {
-				return Err(Error::<T, I>::FundingInconclusive.into())
-			},
+			// Still in flight: leave the per-asset state unchanged so whole-bounty iteration does
+			// not abort.
+			PaymentStatus::InProgress | PaymentStatus::Unknown => Ok(payment_status),
 			PaymentStatus::Failure => {
 				Self::deposit_event(Event::<T, I>::PaymentFailed {
 					index: parent_bounty_id,
 					child_index: child_bounty_id,
 					payment_id,
 				});
-				return Ok(PaymentState::Failed);
+				Ok(PaymentState::Failed)
 			},
 		}
 	}
@@ -1848,9 +2030,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(payment_status.is_pending_or_failed(), Error::<T, I>::UnexpectedStatus);
 		}
 
-		// Refund only what the account holds, net of child-bounty value, which paid-out children
-		// never return.
-		let refund = Self::calculate_payout(parent_bounty_id, child_bounty_id, value);
+		// Refund only what the account holds in this asset, net of child-bounty value, which
+		// paid-out children never return.
+		let refund =
+			Self::calculate_payout(parent_bounty_id, child_bounty_id, asset_kind.clone(), value);
 
 		let (source, beneficiary) = match child_bounty_id {
 			None => (
@@ -1880,23 +2063,23 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn do_check_refund_payment_status(
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
+		asset_kind: T::AssetKind,
 		payment_status: PaymentState<PaymentIdOf<T, I>>,
 	) -> Result<PaymentState<PaymentIdOf<T, I>>, DispatchError> {
-		let payment_id = payment_status.get_attempt_id().ok_or(Error::<T, I>::UnexpectedStatus)?;
+		let payment_id =
+			payment_status.get_attempt_id().ok_or(Error::<T, I>::UnexpectedStatus)?;
 
 		match <T as pallet::Config<I>>::Paymaster::check_payment(payment_id) {
 			PaymentStatus::Success => {
 				Self::deposit_event(Event::<T, I>::BountyRefundProcessed {
 					index: parent_bounty_id,
 					child_index: child_bounty_id,
+					asset_kind,
 				});
 				Ok(PaymentState::Succeeded)
 			},
-			PaymentStatus::InProgress | PaymentStatus::Unknown =>
-			// nothing new to report
-			{
-				Err(Error::<T, I>::RefundInconclusive.into())
-			},
+			// Still in flight: leave the per-asset state unchanged.
+			PaymentStatus::InProgress | PaymentStatus::Unknown => Ok(payment_status),
 			PaymentStatus::Failure => {
 				// assume payment has failed, allow user to retry
 				Self::deposit_event(Event::<T, I>::PaymentFailed {
@@ -1922,7 +2105,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(payment_status.is_pending_or_failed(), Error::<T, I>::UnexpectedStatus);
 		}
 
-		let payout = Self::calculate_payout(parent_bounty_id, child_bounty_id, value);
+		let payout =
+			Self::calculate_payout(parent_bounty_id, child_bounty_id, asset_kind.clone(), value);
 
 		let source = match child_bounty_id {
 			None => Self::bounty_account(parent_bounty_id, asset_kind.clone())?,
@@ -1957,7 +2141,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		match <T as pallet::Config<I>>::Paymaster::check_payment(payment_id) {
 			PaymentStatus::Success => {
-				let payout = Self::calculate_payout(parent_bounty_id, child_bounty_id, value);
+				let payout = Self::calculate_payout(
+					parent_bounty_id,
+					child_bounty_id,
+					asset_kind.clone(),
+					value,
+				);
 
 				Self::deposit_event(Event::<T, I>::BountyPayoutProcessed {
 					index: parent_bounty_id,
@@ -1969,11 +2158,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 				Ok(PaymentState::Succeeded)
 			},
-			PaymentStatus::InProgress | PaymentStatus::Unknown =>
-			// nothing new to report
-			{
-				Err(Error::<T, I>::PayoutInconclusive.into())
-			},
+			// Still in flight: leave the per-asset state unchanged.
+			PaymentStatus::InProgress | PaymentStatus::Unknown => Ok(payment_status),
 			PaymentStatus::Failure => {
 				// assume payment has failed, allow user to retry
 				Self::deposit_event(Event::<T, I>::PaymentFailed {
