@@ -41,6 +41,11 @@ pub trait MmrAccumulator {
 	}
 }
 
+/// Concrete MMR accumulator bounded by `MaxPeaks`.
+///
+/// The number of peaks at any point equals `size.count_ones()`, so
+/// `MaxPeaks` must be at least `⌊log₂(max_leaves)⌋ + 1` to avoid
+/// panicking on `try_push`.
 #[derive(Default)]
 pub struct Mmr<MaxPeaks: Get<u32>> {
 	peaks: BoundedVec<Hash, MaxPeaks>,

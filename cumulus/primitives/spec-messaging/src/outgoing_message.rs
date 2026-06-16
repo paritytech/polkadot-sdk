@@ -24,7 +24,12 @@ use sp_runtime::BoundedVec;
 
 use crate::{LEAF_TAG, LEAF_VERSION};
 
-/// Outgoing message structure.
+/// A single message sent from one parachain to another.
+///
+/// Each message is uniquely identified by `(source, destination, position)`.
+/// `position` is a monotonically increasing sequence number scoped to the
+/// `(source, destination)` pair; it lets the receiver detect gaps or replays
+/// without inspecting the payload.
 #[derive(
 	Clone,
 	codec::Encode,
@@ -38,13 +43,18 @@ use crate::{LEAF_TAG, LEAF_VERSION};
 	scale_info::TypeInfo,
 )]
 pub struct OutgoingMessage<MaxMsgLen: Get<u32>> {
+	/// The parachain that sent this message.
 	pub source: ParaId,
+	/// The parachain this message is addressed to.
 	pub destination: ParaId,
+	/// Sequence number within the `(source, destination)` channel, starting at 0.
 	pub position: u64,
+	/// Opaque message body, bounded to `MaxMsgLen` bytes.
 	pub payload: BoundedVec<u8, MaxMsgLen>,
 }
 
 impl<MaxMsgLen: Get<u32>> OutgoingMessage<MaxMsgLen> {
+	/// Constructs a new [`OutgoingMessage`].
 	pub fn new(
 		source: ParaId,
 		destination: ParaId,
@@ -54,6 +64,14 @@ impl<MaxMsgLen: Get<u32>> OutgoingMessage<MaxMsgLen> {
 		Self { source, destination, position, payload }
 	}
 
+	/// Hashes this message into an MMR leaf.
+	///
+	/// The preimage is:
+	/// ```text
+	/// LEAF_TAG | LEAF_VERSION | source | destination | position (le64) | len (le32) | payload
+	/// ```
+	/// Domain tags and a version prefix prevent collisions with inner/peak nodes
+	/// and allow the leaf format to evolve without breaking existing commitments.
 	pub fn hash_leaf(&self) -> Hash {
 		let mut preimage = Vec::new();
 		preimage.extend_from_slice(&LEAF_TAG.to_le_bytes());

@@ -20,7 +20,12 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
 
-/// Canonical set ensuring collator / pvf / relay cannot disagree on the shape.
+/// A block's outgoing MMR commitments, keyed by destination [`ParaId`].
+///
+/// Each entry maps a destination parachain to the root of the MMR built over
+/// all messages sent to it in this block. Entries are kept sorted by `ParaId`
+/// so that the encoded form is canonical — collators, PVF, and the relay chain
+/// all produce the same bytes for the same set of commitments.
 #[derive(
 	Clone,
 	codec::Encode,
