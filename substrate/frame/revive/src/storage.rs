@@ -329,12 +329,11 @@ impl<T: Config> AccountInfo<T> {
 								*slot =
 									Some(AccountInfo { account_type: fresh_delegated(), dust: 0 })
 							},
-							Some(account)
-								if !matches!(
-									account.account_type,
-									AccountType::DelegatedEOA { .. }
-								) =>
-							{
+							Some(AccountInfo {
+								account_type: AccountType::DelegatedEOA { .. },
+								..
+							}) => {},
+							Some(account) => {
 								debug_assert!(
 									!matches!(account.account_type, AccountType::Contract(_)),
 									"set_delegation must not be called on contract accounts"
@@ -342,7 +341,6 @@ impl<T: Config> AccountInfo<T> {
 								// Preserve `dust`; only swap `account_type`.
 								account.account_type = fresh_delegated();
 							},
-							Some(_) => {},
 						}
 
 						let Some(AccountInfo {
