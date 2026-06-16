@@ -220,15 +220,23 @@ struct AccumulateLogEntry {
     entries: BoundedVec<AccumulateLog, 30>,
 }
 
+/// Why a state-balance reservation failed (see §6.1).
+enum InsufficientBalanceReason {
+    /// A `solicit` (or code-upgrade solicit) of the preimage with `hash`.
+    Solicit { hash: Hash },
+    /// A `set_validator_keys` chunk append.
+    SetValidatorKeys,
+}
+
 enum AccumulateLog {
     /// The work result's `validation_code_hash` matches neither
     /// `ParaInfo.validation_code.hash` nor the pending upgrade's code hash.
     /// This is the authoritative validation-code check (Refine does not
     /// perform it). See §5.1 step 3.
     InvalidCodeHash { hash: ValidationCodeHash },
-    /// Available state balance insufficient to cover the preimage at
-    /// `hash`. See §6.1.
-    InsufficientStateBalance { hash: Hash },
+    /// Available state balance insufficient for the operation described by
+    /// `reason`. See §6.1.
+    InsufficientStateBalance { reason: InsufficientBalanceReason },
     /// `parachain_set_state_balance(para_id, attempted)` was rejected
     /// because `attempted < current_used`. See §6.1.
     StateBalanceUpdateRejected {
@@ -236,6 +244,9 @@ enum AccumulateLog {
         current_total: Balance,
         current_used: Balance,
     },
+    /// JAM `designate` rejected the assembled validator-key set because its
+    /// `len` is not in `valcount`. The staging buffer is cleared regardless. See §5.3.
+    DesignateRejected { len: u32 },
 }
 
 struct PreimageEntry {
@@ -670,17 +681,22 @@ Asset Hub signals completion via `is_last`.
 When Accumulate replays a `SetValidatorKeys { keys, is_last }` upward message
 it:
 
-1. Appends `keys` to `staged_validator_keys`, increasing Asset Hub's
-   `used_state_balance` by `336 * keys.len()`. If this would exceed Asset
-   Hub's `total_state_balance`, the append is rejected with
+1. If `is_last == false`, appends `keys` to `staged_validator_keys`,
+   increasing Asset Hub's `used_state_balance` by `336 * keys.len()` — the
+   chunk persists in the buffer until finalization. If this would exceed
+   Asset Hub's `total_state_balance`, the append is rejected with
    `AccumulateLog::InsufficientStateBalance` and the buffer is unchanged
    (see §6.1).
-2. If `is_last == true`, calls JAM `designate` with the assembled vector and
-   clears the buffer. If `designate` rejects the call (e.g. length not in
-   `valcount`), the buffer is still cleared and an `AccumulateLog` entry is
-   recorded against the Asset Hub `ParaId`. This also gives Asset Hub the abort
-   path: `set_validator_keys(vec![], true)` flushes a length-zero buffer,
-   which `designate` rejects, clearing the staging area.
+2. If `is_last == true`, assembles the full set (prior buffer + `keys`),
+   calls JAM `designate` with it, and clears the buffer — releasing the
+   prior buffer's footprint. The final chunk goes straight to `designate`
+   and never persists in storage, so it needs no headroom check or balance
+   charge. If `designate` rejects the call (length not in `valcount`),
+   the buffer is still cleared and `AccumulateLog::DesignateRejected` is
+   recorded against the Asset Hub `ParaId`. This also gives Asset Hub the
+   abort path:
+   `set_validator_keys(vec![], true)` flushes a length-zero buffer, which
+   `designate` rejects, clearing the staging area.
 
 Asset Hub's `total_state_balance` must include enough headroom for the
 worst-case staging footprint (up to `1023 * 336 B ≈ 336 KiB`), provisioned
