@@ -255,7 +255,8 @@ async fn find_deepest_valid_parent_v3<Block: BlockT>(
 	let mut current_hash = best_hash;
 	loop {
 		let Some(current_header) = get_para_header(backend, current_hash) else {
-			return Ok(best_parent);
+			unincluded_segment_newest_first.reverse();
+			return Ok((best_parent, unincluded_segment_newest_first));
 		};
 
 		if current_hash == start_hash {
@@ -265,7 +266,8 @@ async fn find_deepest_valid_parent_v3<Block: BlockT>(
 		unincluded_segment_newest_first.push(current_header.clone());
 
 		if *current_header.number() <= start_number {
-			return Ok(best_parent);
+			unincluded_segment_newest_first.reverse();
+			return Ok((best_parent, unincluded_segment_newest_first));
 		}
 
 		current_hash = *current_header.parent_hash();
@@ -281,8 +283,8 @@ async fn find_deepest_valid_parent_v3<Block: BlockT>(
 			break;
 		}
 	}
-	let unincluded_segment = unincluded_segment_newest_first.reverse();
-	Ok((best_parent, unincluded_segment))
+	unincluded_segment_newest_first.reverse();
+	Ok((best_parent, unincluded_segment_newest_first))
 }
 
 #[derive(Clone, Debug)]
@@ -475,7 +477,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 
 			Ok(Some(ParentSearchResult::V3 {
 				included_header,
-				best_parent_header: best_parent_header.unwrap_or(start_header),
+				best_parent_header: best_parent,
 				unincluded_segment,
 			}))
 		},

@@ -114,7 +114,7 @@ fn main() {
 		.enable_feature("v3-descriptor")
 		.enable_feature("velocity-3")
 		.enable_feature("relay-parent-offset-2")
-		.set_file_name("wasm_binary_elastic_scaling_v3_rpo.rs")
+		.set_file_name(elastic_scaling_v3_rpo::WASM_FILE_NAME)
 		.build();
 
 	// A runtime with 18s slot duration with increased spec version for runtime upgrade testing.

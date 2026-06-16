@@ -78,6 +78,12 @@ use std::{
 	time::{Duration, Instant},
 };
 
+/// Toggle for shipping the prior-slots' unincluded segment on the first-core V3 send
+/// (and for firing the `ResubmitOnly` fallback when the first core fails to build a
+/// fresh bundle). Set to `false` to disable resubmission entirely — every core then
+/// ships only its freshly built bundle.
+const RESUBMIT_UNINCLUDED_SEGMENT: bool = true;
+
 /// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<
 	Block: BlockT,
@@ -337,7 +343,7 @@ where
 			// Corresponding checks related to the unincluded segment len are also done by the
 			// runtime in the `set_validation_data` inherent, using the relay parent context.
 			let included_header_at_execution = match v3_enabled {
-				false => parent_search_result.included_at_scheduling,
+				false => parent_search_result.included_header().clone(),
 				true => {
 					let Ok(Some((_, included_header))) = fetch_included_from_pvd(
 						&relay_client,
@@ -357,8 +363,13 @@ where
 			let unincluded_segment_len = initial_parent_header
 				.number()
 				.saturating_sub(*included_header_at_execution.number());
-			let unincluded_segment_len =
-				initial_parent_header.number().saturating_sub(*included_header.number());
+			// V3 carries the locally-walked unincluded segment to the collation task; V2
+			// sends don't go through `CollatorResubmitSegment` so the default-empty `unwrap`
+			// is just defensive.
+			let unincluded_segment: Vec<Block::Header> = parent_search_result
+				.unincluded_segment()
+				.map(|s| s.to_vec())
+				.unwrap_or_default();
 
 			let Ok(para_slot_duration) =
 				crate::slot_duration_at(&*para_client, initial_parent_hash)
@@ -561,7 +572,7 @@ where
 			let mut pov_parent_hash = initial_parent_hash;
 			let block_time = relay_chain_slot_duration / number_of_blocks;
 
-			for (_core_iter_index, blocks_per_core) in blocks_per_cores.into_iter().enumerate() {
+			for blocks_per_core in blocks_per_cores.into_iter() {
 				let time_for_core = slot_time.time_left() / cores.cores_left();
 				let this_core_index = cores.core_index();
 				let core_info = cores.core_info();
@@ -627,8 +638,16 @@ where
 					para_slot: para_slot.slot,
 					para_client: &*para_client,
 					scheduling_proof: scheduling_proof.clone(),
-					// Resubmission disabled: every core ships only its freshly built bundle.
-					unincluded_segment: Vec::new(),
+					// Only the first core carries the unincluded segment so the historical
+					// (resubmission) workload lands on a single, well-known core. Other cores
+					// in the elastic-scaled set ship only their freshly built bundle.
+					// Gated by `RESUBMIT_UNINCLUDED_SEGMENT`; disabling sends an empty
+					// segment from every core.
+					unincluded_segment: if RESUBMIT_UNINCLUDED_SEGMENT && cores.is_first_core() {
+						unincluded_segment.clone()
+					} else {
+						Vec::new()
+					},
 				})
 				.await
 				{
@@ -636,7 +655,32 @@ where
 						pov_parent_header = header;
 						pov_parent_hash = pov_parent_header.hash();
 					},
-					Ok(None) => break,
+					Ok(None) => {
+						// First-core failed to build a fresh bundle: still ship the held prior
+						// unincluded segment via `ResubmitOnly`. Reuses the complete per-core
+						// proof we already assembled above. Gated by
+						// `RESUBMIT_UNINCLUDED_SEGMENT` so resubmission can be disabled wholesale.
+						if RESUBMIT_UNINCLUDED_SEGMENT && cores.is_first_core() {
+							if let Some(proof) = scheduling_proof {
+								tracing::info!(
+									target: LOG_TARGET,
+									?this_core_index,
+									segment_len = unincluded_segment.len(),
+									segment = ?unincluded_segment
+										.iter()
+										.map(|h| (*h.number(), h.hash()))
+										.collect::<Vec<_>>(),
+									"Sending ResubmitOnly segment.",
+								);
+								let _ = resubmit_sender.unbounded_send(CollatorResubmitSegment {
+									scheduling_proof: proof,
+									kind: SegmentKind::ResubmitOnly { core_index: this_core_index },
+									unincluded_segment: unincluded_segment.clone(),
+								});
+							}
+						}
+						break;
+					},
 					Err(()) => return,
 				}
 
@@ -1274,6 +1318,11 @@ impl Cores {
 	/// Returns if the current core is the last core.
 	fn is_last_core(&self) -> bool {
 		self.cores_left() == 1
+	}
+
+	/// Returns if the current core is the first core (lowest-indexed assigned core).
+	pub fn is_first_core(&self) -> bool {
+		self.selector.0 == 0
 	}
 }
 
