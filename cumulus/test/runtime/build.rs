@@ -94,6 +94,12 @@ fn main() {
 		.enable_feature("increment-spec-version")
 		.set_file_name("wasm_binary_slot_duration_18s.rs")
 		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("with-authority-discovery")
+		.set_file_name("wasm_binary_with_authority_discovery.rs")
+		.build();
 }
 
 #[cfg(not(feature = "std"))]

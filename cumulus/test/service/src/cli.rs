@@ -54,6 +54,10 @@ pub struct TestCollatorCli {
 	/// Authoring style to use.
 	#[arg(long, default_value_t = AuthoringPolicy::Lookahead)]
 	pub authoring: AuthoringPolicy,
+
+	/// Upper bound on collator reserved-peer mesh slots. `0` disables the mesh.
+	#[arg(long, value_name = "N", default_value_t = 32)]
+	pub collator_reserved_slots: usize,
 }
 
 /// Collator implementation to use.
@@ -327,6 +331,16 @@ impl SubstrateCli for TestCollatorCli {
 			"relay-parent-offset" => Box::new(
 				cumulus_test_service::get_relay_parent_offset_chain_spec(Some(ParaId::from(2600))),
 			) as Box<_>,
+			"default-test" => {
+				tracing::info!("Using default test chain spec (no authority-discovery).");
+				Box::new(cumulus_test_service::get_chain_spec(Some(ParaId::from(1000)))) as Box<_>
+			},
+			"with-authority-discovery" => {
+				tracing::info!("Using with-authority-discovery chain spec.");
+				Box::new(cumulus_test_service::get_with_authority_discovery_chain_spec(Some(
+					ParaId::from(1000),
+				))) as Box<_>
+			},
 			"async-backing-v3" => {
 				tracing::info!("Using async backing V3 chain spec.");
 				Box::new(cumulus_test_service::get_async_backing_v3_chain_spec(Some(ParaId::from(
