@@ -1140,6 +1140,12 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 /// 7702 transactions are constructed via alloy's `Authorization`/`SignedAuthorization` +
 /// `TransactionRequest::with_authorization_list` and submitted through the alloy provider on
 /// `SharedResources`, exercising the same RPC entry point external tooling uses.
+///
+/// TODO(follow-up): this test is the reference pattern for retiring the bespoke 7702 path on
+/// `crate::example::TransactionBuilder::send_with_type(Eip7702)`. Once that branch — plus
+/// `Transaction7702Unsigned`, `AuthorizationListEntry`, and the pallet-side
+/// `pallet_revive::evm::eip7702::sign_authorization` helper — is removed, the steps below
+/// are how every 7702 caller should construct and submit transactions.
 async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
 	use alloy_network::{TransactionBuilder as _, TransactionBuilder7702 as _};
 	use alloy_primitives::U256 as AU256;
