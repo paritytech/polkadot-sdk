@@ -7776,7 +7776,6 @@ mod slash {
 					Event::PoolSlashed { pool_id: 1, balance: 0 },
 				]
 			);
-
 		});
 	}
 }
