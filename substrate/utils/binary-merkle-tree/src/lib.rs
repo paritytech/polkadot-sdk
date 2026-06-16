@@ -326,29 +326,52 @@ where
 	let mut combined = vec![0_u8; hash_len * 2];
 	let mut position = leaf_index;
 	let mut width = number_of_leaves;
-	let computed = proof.into_iter().fold(leaf_hash, |a, b| {
-		if position % 2 == 1 || position + 1 == width {
-			combined[..hash_len].copy_from_slice(&b.as_ref());
-			combined[hash_len..].copy_from_slice(&a.as_ref());
-		} else {
-			combined[..hash_len].copy_from_slice(&a.as_ref());
-			combined[hash_len..].copy_from_slice(&b.as_ref());
+	let mut node = leaf_hash;
+	let mut proof = proof.into_iter();
+
+	// Walk the tree by its geometry (driven by `width`, not by `proof.len()`), so that both the
+	// path length *and* the left/right decision at every level are bound to `leaf_index`. A lone
+	// trailing node of an odd-width layer is promoted up unchanged and consumes no proof element,
+	// mirroring `merkelize_row`. Without this, a short, promotion-bearing proof verifies at every
+	// `leaf_index` sharing its leading decision bits, which lets one leaf be claimed at many
+	// positions (see `short_proof_does_not_alias_to_multiple_leaf_indices`).
+	while width > 1 {
+		let promoted = position + 1 == width && width % 2 == 1;
+		if !promoted {
+			// A sibling is required at this level; a proof that runs out here is too short.
+			let sibling = match proof.next() {
+				Some(sibling) => sibling,
+				None => return false,
+			};
+			if position % 2 == 1 {
+				combined[..hash_len].copy_from_slice(sibling.as_ref());
+				combined[hash_len..].copy_from_slice(node.as_ref());
+			} else {
+				combined[..hash_len].copy_from_slice(node.as_ref());
+				combined[hash_len..].copy_from_slice(sibling.as_ref());
+			}
+			let hash = <H as Hasher>::hash(&combined);
+			#[cfg(feature = "debug")]
+			log::debug!(
+				"[verify_proof]: (node, sibling) {:?}, {:?} => {:?} ({:?}) hash",
+				array_bytes::bytes2hex("", node),
+				array_bytes::bytes2hex("", sibling),
+				array_bytes::bytes2hex("", hash),
+				array_bytes::bytes2hex("", &combined)
+			);
+			node = hash;
 		}
-		let hash = <H as Hasher>::hash(&combined);
-		#[cfg(feature = "debug")]
-		log::debug!(
-			"[verify_proof]: (a, b) {:?}, {:?} => {:?} ({:?}) hash",
-			array_bytes::bytes2hex("", a),
-			array_bytes::bytes2hex("", b),
-			array_bytes::bytes2hex("", hash),
-			array_bytes::bytes2hex("", &combined)
-		);
 		position /= 2;
 		width = ((width - 1) / 2) + 1;
-		hash
-	});
+	}
 
-	root == &computed
+	// Require the proof to be consumed exactly: no missing and no extra siblings. This binds the
+	// proof to a single canonical path and rejects over-long (malleable) proofs.
+	if proof.next().is_some() {
+		return false;
+	}
+
+	root == &node
 }
 
 /// Processes a single row (layer) of a tree by taking pairs of elements,
@@ -862,5 +885,94 @@ mod tests {
 				.to_vec(),
 			}
 		);
+	}
+
+	/// Regression test for the "short proof" / index-aliasing weakness in `verify_proof`.
+	///
+	/// BEEFY commits to its validator set as `merkle_root(validator_eth_addresses)` (see
+	/// `pallet-beefy-mmr::compute_authority_set`). Ethereum light clients prove validator
+	/// membership with `isValidatorInSet(address, index, proof)`, which is exactly
+	/// `verify_proof(root, proof, set_len, index, address)`.
+	///
+	/// Because `binary-merkle-tree` builds an *unbalanced* tree (a lone trailing node of an
+	/// odd-width layer is promoted up unchanged), a validator whose path passes through such a
+	/// promotion has a *short* proof. A `proof.len()`-driven verifier accepts that single
+	/// `(address, proof)` pair at every `index` sharing its leading decision bits, letting one
+	/// validator occupy multiple quorum-bitfield slots. The hardened `verify_proof` walks the
+	/// tree by geometry and requires exact proof consumption, so each `(leaf, proof)` verifies
+	/// at exactly one position.
+	#[test]
+	fn short_proof_does_not_alias_to_multiple_leaf_indices() {
+		// A realistic BEEFY validator set size; 600 leaves form an unbalanced tree of height 10
+		// with promotions at rows 75, 19, 5 and 3.
+		let n: u32 = 600;
+		let data: Vec<[u8; 20]> = (0..n)
+			.map(|i| {
+				let mut addr = [0u8; 20];
+				addr[..4].copy_from_slice(&i.to_be_bytes());
+				addr
+			})
+			.collect();
+
+		// The keyset commitment the light client would be configured with.
+		let root = merkle_root::<Keccak256, _>(data.clone());
+
+		// Pick the validator with the shortest (most-promoted) proof — a right-edge leaf.
+		let victim_index = (0..n)
+			.min_by_key(|&i| merkle_proof::<Keccak256, _, _>(data.clone(), i).proof.len())
+			.unwrap();
+		let victim = merkle_proof::<Keccak256, _, _>(data.clone(), victim_index);
+		assert_eq!(root, victim.root);
+		// It really is a short proof: fewer siblings than the full tree height (10).
+		assert!(
+			victim.proof.len() < 10,
+			"expected a promotion-bearing short proof, got length {}",
+			victim.proof.len()
+		);
+
+		// The attack: replay this single `(address, proof)` at *every* index and record where
+		// `verify_proof` accepts it.
+		let accepting: Vec<u32> = (0..n)
+			.filter(|&index| {
+				verify_proof::<Keccak256, _, _>(
+					&victim.root,
+					victim.proof.clone(),
+					n,
+					index,
+					&victim.leaf,
+				)
+			})
+			.collect();
+
+		// The proof is bound to a single canonical position: it verifies only at the validator's
+		// real index, nowhere else. (Pre-fix it also aliased to indices 56, 120, ..., 568.)
+		assert_eq!(
+			accepting,
+			vec![victim_index],
+			"short proof must verify at exactly its own index, got {:?}",
+			accepting
+		);
+
+		// And every validator's canonical proof verifies at exactly its own index.
+		for index in 0..n {
+			let proof = merkle_proof::<Keccak256, _, _>(data.clone(), index);
+			assert!(verify_proof::<Keccak256, _, _>(
+				&proof.root,
+				proof.proof.clone(),
+				n,
+				index,
+				&proof.leaf
+			));
+			// An over-long proof (extra trailing sibling) is rejected — no malleability.
+			let mut long_proof = proof.proof.clone();
+			long_proof.push(Default::default());
+			assert!(!verify_proof::<Keccak256, _, _>(
+				&proof.root,
+				long_proof,
+				n,
+				index,
+				&proof.leaf
+			));
+		}
 	}
 }
