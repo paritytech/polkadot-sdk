@@ -143,6 +143,11 @@ impl PeersTopology {
 		self.discovered.get(peer).is_some_and(|info| info.connected)
 	}
 
+	/// The connected statement-protocol peers, those with an open notification substream.
+	pub fn connected_peers(&self) -> impl Iterator<Item = PeerId> + '_ {
+		self.connected.peers()
+	}
+
 	/// Number of known remote peers, including peers without confirmed statement-protocol support.
 	pub fn known_peers_count(&self) -> usize {
 		self.discovered.len()
