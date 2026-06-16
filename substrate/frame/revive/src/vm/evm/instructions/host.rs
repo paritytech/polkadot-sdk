@@ -197,10 +197,20 @@ pub fn tstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Load value from transient storage
 pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
-	interpreter.ext.charge_or_halt(RuntimeCosts::GetTransientStorage(32))?;
+	// Transient values can exceed 32 bytes when written by a PVM contract sharing this
+	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
+	let charged = interpreter
+		.ext
+		.charge_or_halt(RuntimeCosts::GetTransientStorage(limits::TRANSIENT_STORAGE_BYTES))?;
 
 	let key = Key::Fix(index.to_big_endian());
 	let bytes = interpreter.ext.get_transient_storage(&key);
+
+	let actual_len = bytes.as_ref().map(|v| v.len() as u32).unwrap_or(0);
+	interpreter
+		.ext
+		.frame_meter_mut()
+		.adjust_weight(charged, RuntimeCosts::GetTransientStorage(actual_len));
 
 	*index = if let Some(storage_value) = bytes {
 		if storage_value.len() != 32 {
