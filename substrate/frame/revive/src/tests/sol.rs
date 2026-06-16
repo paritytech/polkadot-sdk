@@ -384,6 +384,67 @@ fn prestate_diff_includes_authority_when_eip7702_revokes_delegation() {
 	});
 }
 
+/// Symmetric to [`prestate_diff_includes_authority_when_eip7702_revokes_delegation`] but for the
+/// set direction: an EIP-7702 tx that creates a fresh delegation on an authority without prior
+/// code must surface `pre.code == None` and `post.code == Some(0xef0100 || target)`. Without the
+/// fix in `process_authorizations`, the authority is missing from the trace entirely.
+#[test]
+fn prestate_diff_includes_authority_when_eip7702_sets_delegation() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
+		tests::{dummy_evm_contract, eip7702::DelegationTestSetup},
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+
+		// Fresh authority — funded, but no existing delegation.
+		let setup = DelegationTestSetup::default();
+		assert!(!crate::AccountInfo::<Test>::is_delegated(&setup.signer.address));
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: true,
+			disable_storage: true,
+			disable_code: false,
+		});
+
+		let _ = trace(&mut tracer, || {
+			let auth = setup.sign_authorization(target_addr);
+			setup.process(&[auth]);
+		});
+
+		match tracer.collect_trace() {
+			PrestateTrace::DiffMode { pre, post } => {
+				let pre_info = pre
+					.get(&setup.signer.address)
+					.expect("authority must appear in pre-state diff before delegation is set");
+				assert!(
+					pre_info.code.is_none(),
+					"pre.code must be None (no prior delegation), got {:?}",
+					pre_info.code,
+				);
+
+				let post_info = post
+					.get(&setup.signer.address)
+					.expect("authority must appear in post-state diff after delegation is set");
+				let post_code =
+					post_info.code.as_ref().expect("post.code must carry the indicator");
+				let mut indicator = vec![0xefu8, 0x01, 0x00];
+				indicator.extend_from_slice(target_addr.as_bytes());
+				assert_eq!(
+					post_code.0, indicator,
+					"post.code must be the 23-byte delegation indicator pointing at target",
+				);
+			},
+			other => panic!("expected DiffMode, got {:?}", other),
+		}
+	});
+}
+
 /// Regression test for paritytech/contract-issues#278 — nested-call variant.
 ///
 /// `Stack::call`'s no-code branch (the path taken when a running contract
