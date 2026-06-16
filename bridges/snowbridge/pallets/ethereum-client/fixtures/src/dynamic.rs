@@ -77,8 +77,13 @@ pub const MIN_RECEIPT_SIZE: u32 = 320;
 ///
 /// `0x00FF_FFFF_FFFF_FFFF` is a 7-byte value, so its RLP key is `0x87` followed by seven
 /// `0xff` bytes = 8 bytes = 16 nibbles, supporting proof paths of up to 17 nodes — one above
-/// the current `MaxProofNodes` of 16. (The `target_nibbles.len() >= n - 1` debug-assert in
-/// `build_receipts_trie` guards against this being set too small.)
+/// the current `MaxProofNodes` of 16.
+///
+/// This couples the constant to `MaxProofNodes`: a runtime that raises `MaxProofNodes` above 17
+/// MUST widen `BENCH_TARGET_TX_INDEX` to carry at least `MaxProofNodes - 1` nibbles, otherwise
+/// `build_receipts_trie` cannot synthesize a proof that deep. The `target_nibbles.len() >= n - 1`
+/// debug-assert in `build_receipts_trie` catches that — but only in debug builds, so treat this
+/// constant as the hard cap on the benchmarked `n` range.
 const BENCH_TARGET_TX_INDEX: u64 = 0x00FF_FFFF_FFFF_FFFF;
 
 /// Output of [`build_dynamic_fixture_with_log`].
@@ -204,6 +209,13 @@ pub fn build_dynamic_fixture_with_log(n: u32, s: u32, log: LogTemplate) -> Dynam
 /// benchmark's `n` component must equal the produced proof length AND each proof node must be
 /// the realistic worst case, otherwise the fitted per-node slope undercharges real proofs.
 ///
+/// Note the `s` axis and the runtime charge use slightly different quantities: the benchmark
+/// sizes `s` to the encoded *receipt envelope* length, whereas dispatch charges
+/// `receipt_proof.last().len()` — the *trie leaf node*, i.e. the envelope wrapped in the leaf's
+/// RLP path/value framing, so `leaf.len() >= s`. Charging the (larger) leaf length against a
+/// per-byte slope fitted on envelope length therefore overcharges by the leaf framing overhead
+/// and is conservative; it never undercharges.
+///
 /// A naive trie of `n` sequential `rlp(0..n)` leaves achieves neither: sequential RLP indices
 /// diverge at the first nibble, leaving a shallow ~2-node path regardless of `n`. Instead we
 /// keep a single target key and force a *full-width* branch node at every depth along its path:
@@ -246,7 +258,10 @@ fn build_receipts_trie(n: u32, s: u32, log: &LogTemplate) -> (H256, Vec<Vec<u8>>
 	// is full-width (16 children) — the verifier's per-node worst case.
 	let target_key = rlp_index_nibbles(BENCH_TARGET_TX_INDEX);
 	let target_nibbles: Vec<u8> = target_key.to_vec();
-	debug_assert!(
+	// `assert!` (not `debug_assert!`): benchmarks may run in release, and a too-short target key
+	// would silently produce a shallower-than-`n` proof and miscalibrate the per-node slope. See
+	// [`BENCH_TARGET_TX_INDEX`] for the coupling to `MaxProofNodes`.
+	assert!(
 		target_nibbles.len() >= n - 1,
 		"target key has too few nibbles to force an {n}-node proof path",
 	);
@@ -281,7 +296,10 @@ fn build_receipts_trie(n: u32, s: u32, log: &LogTemplate) -> (H256, Vec<Vec<u8>>
 		.into_iter()
 		.map(|(_, bytes)| bytes.to_vec())
 		.collect();
-	debug_assert_eq!(proof.len(), n, "receipt proof should have exactly n nodes");
+	// `assert_eq!` (not `debug_assert_eq!`): the produced proof length is exactly the `n` the
+	// weight is charged against, so a release benchmark must fail loudly rather than fit a slope
+	// against the wrong node count.
+	assert_eq!(proof.len(), n, "receipt proof should have exactly n nodes");
 
 	(root.0.into(), proof, receipt_log)
 }
