@@ -310,7 +310,8 @@ fn xor_distance(a: Key, b: Key) -> Key {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::{cmp::Ordering, num::NonZeroUsize};
+	use crate::test_helpers::{config, peer, topic};
+	use std::cmp::Ordering;
 
 	fn distance_to(topic: Topic, peer: &PeerId) -> [u8; 32] {
 		xor_distance(*topic, peer_key(peer))
@@ -320,26 +321,8 @@ mod tests {
 		distance_to(topic, a).cmp(&distance_to(topic, b)).then_with(|| a.cmp(b))
 	}
 
-	fn config(replication_factor: usize, gossip_target: usize) -> PeersTopologyConfig {
-		PeersTopologyConfig {
-			replication_factor: NonZeroUsize::new(replication_factor).expect("non-zero"),
-			gossip_target: NonZeroUsize::new(gossip_target).expect("non-zero"),
-		}
-	}
-
-	fn peer(seed: u8) -> PeerId {
-		let mut bytes = [seed; 34];
-		bytes[0] = 0;
-		bytes[1] = 32;
-		PeerId::from_bytes(&bytes).expect("identity multihash peer id")
-	}
-
 	fn topology(local_seed: u8) -> PeersTopology {
 		PeersTopology::new(peer(local_seed), config(2, 2))
-	}
-
-	fn topic(seed: u8) -> Topic {
-		Topic([seed; 32])
 	}
 
 	fn dht_peer(topology: &mut PeersTopology, peer: PeerId) {

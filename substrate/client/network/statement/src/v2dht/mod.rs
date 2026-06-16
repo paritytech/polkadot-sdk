@@ -73,6 +73,18 @@ impl V2DhtOrchestrator {
 		self.explicit_affinity.topics()
 	}
 
+	// === Advertise own filter ===
+
+	/// The [`AffinityFilter`] this node advertises, built from its current topics.
+	pub(crate) fn local_filter(&self) -> AffinityFilter {
+		self.explicit_affinity.local_filter()
+	}
+
+	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
+	pub(crate) fn take_local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
+		self.explicit_affinity.take_local_filter_if_changed()
+	}
+
 	// === Peer-set events ===
 
 	pub(crate) fn on_peer_connected(&mut self, peer: PeerId) {
@@ -81,8 +93,7 @@ impl V2DhtOrchestrator {
 	}
 
 	pub(crate) fn on_peer_disconnected(&mut self, peer: PeerId) {
-		// TODO: we may need it for the topology, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_peer_disconnected {peer} (stub)");
+		self.explicit_affinity.on_peer_disconnected(peer);
 	}
 
 	// === Notification-substream events ===
@@ -102,9 +113,15 @@ impl V2DhtOrchestrator {
 		log::trace!(target: LOG_TARGET, "v2dht: on_substream_closed {peer}");
 	}
 
-	pub(crate) fn on_peer_filter_update(&mut self, peer: PeerId, _filter: AffinityFilter) {
-		// TODO: we may need it for the topology or explicit affinity, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_peer_filter_update {peer} (stub)");
+	pub(crate) fn on_peer_filter_update(&mut self, peer: PeerId, filter: AffinityFilter) {
+		self.explicit_affinity.on_peer_filter_update(peer, filter);
+	}
+
+	// === Forward decision ===
+
+	/// Whether the peer's advertised filter accepts the statement.
+	pub(crate) fn peer_has_explicit_affinity(&self, peer: PeerId, stmt: &Statement) -> bool {
+		self.explicit_affinity.peer_has_explicit_affinity(peer, stmt)
 	}
 
 	// === Post-submit hook ===
@@ -166,30 +183,16 @@ impl V2DhtOrchestrator {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::num::NonZeroUsize;
+	use crate::test_helpers::{config, filter_over, peer, statement_on, topic};
 
-	fn peer(seed: u8) -> PeerId {
-		let mut bytes = [seed; 34];
-		bytes[0] = 0;
-		bytes[1] = 32;
-		PeerId::from_bytes(&bytes).expect("identity multihash peer id")
+	fn orchestrator() -> V2DhtOrchestrator {
+		V2DhtOrchestrator::new(&[], PeerId::random(), PeersTopologyConfig::default())
 	}
 
-	fn config(replication_factor: usize, gossip_target: usize) -> PeersTopologyConfig {
-		PeersTopologyConfig {
-			replication_factor: NonZeroUsize::new(replication_factor).expect("non-zero"),
-			gossip_target: NonZeroUsize::new(gossip_target).expect("non-zero"),
-		}
-	}
-
-	fn orchestrator(local_seed: u8, config: PeersTopologyConfig) -> V2DhtOrchestrator {
+	/// Like [`orchestrator`] but with a deterministic local identity, so the XOR routing
+	/// distances the propagation tests assert on stay reproducible across runs.
+	fn orchestrator_with(local_seed: u8, config: PeersTopologyConfig) -> V2DhtOrchestrator {
 		V2DhtOrchestrator::new(&[], peer(local_seed), config)
-	}
-
-	fn connect(orchestrator: &mut V2DhtOrchestrator, peer: PeerId) {
-		orchestrator.on_peers_discovered([peer]);
-		orchestrator.on_peer_identified(peer, true);
-		orchestrator.on_substream_opened(peer);
 	}
 
 	fn statement(seed: u8, topics: &[Topic]) -> (Hash, Statement) {
@@ -215,9 +218,12 @@ mod tests {
 
 	#[test]
 	fn routes_a_statement_to_the_union_of_its_topics_routing_targets_once() {
-		let mut orchestrator = orchestrator(1, config(20, 3));
+		let mut orchestrator = orchestrator_with(1, config(20, 3));
 		for seed in 2u8..=60 {
-			connect(&mut orchestrator, peer(seed));
+			let peer = peer(seed);
+			orchestrator.on_peers_discovered([peer]);
+			orchestrator.on_peer_identified(peer, /* supports_statement_protocol */ true);
+			orchestrator.on_substream_opened(peer);
 		}
 		let topics = [Topic([7; 32]), Topic([42; 32])];
 		let expected = routing_targets(&orchestrator, &topics);
@@ -236,17 +242,19 @@ mod tests {
 
 	#[test]
 	fn batches_statements_bound_for_the_same_peer() {
-		let mut orchestrator = orchestrator(1, config(20, 3));
+		let mut orchestrator = orchestrator_with(1, config(20, 3));
 		for seed in 2u8..=60 {
-			connect(&mut orchestrator, peer(seed));
+			let peer = peer(seed);
+			orchestrator.on_peers_discovered([peer]);
+			orchestrator.on_peer_identified(peer, /* supports_statement_protocol */ true);
+			orchestrator.on_substream_opened(peer);
 		}
 		let topic = Topic([7; 32]);
 		let target = *routing_targets(&orchestrator, &[topic])
 			.first()
 			.expect("fixture must yield a routing target");
 
-		let plan =
-			orchestrator.propagation_plan(&[statement(1, &[topic]), statement(2, &[topic])]);
+		let plan = orchestrator.propagation_plan(&[statement(1, &[topic]), statement(2, &[topic])]);
 
 		let batch = plan
 			.iter()
@@ -254,5 +262,40 @@ mod tests {
 			.map(|(_, indices)| indices.clone())
 			.expect("the shared target must be planned");
 		assert_eq!(batch, vec![0, 1]);
+	}
+
+	#[test]
+	fn on_peer_filter_update_stores_the_filter() {
+		let mut orchestrator = orchestrator();
+		let peer = PeerId::random();
+
+		orchestrator.on_peer_filter_update(peer, filter_over(&[topic(1)]));
+
+		assert!(orchestrator.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
+		assert!(!orchestrator.peer_has_explicit_affinity(peer, &statement_on(topic(2))));
+	}
+
+	#[test]
+	fn on_peer_disconnected_drops_the_filter() {
+		let mut orchestrator = orchestrator();
+		let peer = PeerId::random();
+		orchestrator.on_peer_filter_update(peer, filter_over(&[topic(1)]));
+
+		orchestrator.on_peer_disconnected(peer);
+
+		assert!(!orchestrator.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
+	}
+
+	#[test]
+	fn take_local_filter_if_changed_reflects_subscription_topics() {
+		let mut orchestrator = orchestrator();
+		assert!(orchestrator.take_local_filter_if_changed().is_none());
+
+		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1)]));
+		let filter = orchestrator
+			.take_local_filter_if_changed()
+			.expect("a subscription topic marks the filter changed");
+		assert!(filter.contains(&topic(1)));
+		assert!(orchestrator.take_local_filter_if_changed().is_none());
 	}
 }
