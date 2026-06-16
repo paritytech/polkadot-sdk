@@ -66,7 +66,7 @@ pub mod pallet {
 	use core::ops::Deref;
 
 	use super::*;
-	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus};
+	use crate::{session_rotation, IsValidatorInactive, PagedExposureMetadata, SnapshotStatus};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 	use frame_support::{traits::ConstBool, weights::WeightMeter, DefaultNoBound};
@@ -424,6 +424,12 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Check if validator was inactive at some era.
+		///
+		/// This check is used by `chill_inactive` extrinsic to check which
+		/// validators can be chilled.
+		type IsValidatorInactive: IsValidatorInactive<Self::AccountId>;
 	}
 
 	/// A reason for placing a hold on funds.
@@ -478,6 +484,7 @@ pub mod pallet {
 			type EventListeners = ();
 			type Filter = Nothing;
 			type WeightInfo = ();
+			type IsValidatorInactive = ();
 		}
 	}
 
@@ -1041,8 +1048,7 @@ pub mod pallet {
 	///
 	/// This must be less than or equal [`Config::HistoryDepth`] and bigger than 1.
 	#[pallet::storage]
-	pub(crate) type ChillInactiveThreshold<T: Config> =
-		StorageValue<_, u32, ValueQuery, T::HistoryDepth>;
+	pub type ChillInactiveThreshold<T: Config> = StorageValue<_, u32, ValueQuery, T::HistoryDepth>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
@@ -3148,7 +3154,7 @@ pub mod pallet {
 		/// - The length must be at least [`ChillInactiveThreshold`].
 		/// - It must be sorted in ascending order.
 		/// - It must not contain duplicate entries.
-		/// - Every item must correspond to the era for which the given validator was inactive.
+		/// - Every item must pass the check provided by [`Config::IsValidatorInactive`].
 		#[pallet::call_index(35)]
 		#[pallet::weight(T::WeightInfo::chill_inactive(proof.len() as _))]
 		pub fn chill_inactive(
@@ -3175,7 +3181,10 @@ pub mod pallet {
 					return Err(Error::<T>::InvalidInactivityProof.into());
 				};
 
-				ensure!(points == 0, Error::<T>::InvalidInactivityProof);
+				ensure!(
+					T::IsValidatorInactive::is_inactive(era, &stash, points),
+					Error::<T>::InvalidInactivityProof
+				);
 			}
 
 			if Self::do_remove_validator(&stash) {

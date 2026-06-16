@@ -6,7 +6,10 @@ doc:
       `chill_inactive` extrinsic can be used to chill the validators that were inactive too much and can be called by anyone if the 
       validator meets the criterias for chilling.
 
-      Validator can be chilled if if has zero era points for at least ChillInactiveThreshold (configurable) eras among the last HistoryDepth eras.  
+      Validator can be chilled if if has zero era points for at least ChillInactiveThreshold (configurable) eras among the last HistoryDepth eras.
+      The check of the inactivity can be adjusted using newly introduced config item `IsValidatorInactive`.
 crates:
   - name: pallet-staking-async
-    bump: minor
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major

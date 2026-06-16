@@ -561,6 +561,7 @@ impl Config for Test {
 	type Slash = Dap;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type WeightInfo = ();
+	type IsValidatorInactive = ();
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
