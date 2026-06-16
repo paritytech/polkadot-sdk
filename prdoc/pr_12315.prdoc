@@ -1,4 +1,4 @@
-title: '[WIP] feat(webrtc): add experimental WebRTC transport to litep2p backend'
+title: 'feat(webrtc): add experimental WebRTC transport to litep2p backend'
 doc:
 - audience: Node Dev
   description: |-
@@ -23,6 +23,6 @@ crates:
 - name: sc-cli
   bump: patch
 - name: sc-network
-  bump: patch
+  bump: major
 - name: sc-network-types
   bump: patch
