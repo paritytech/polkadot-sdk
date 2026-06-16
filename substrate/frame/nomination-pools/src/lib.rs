@@ -302,7 +302,7 @@
 //! ```
 //!
 //! For scalability, a bound is maintained on the number of unbonding sub pools (see
-//! [`MaxUnbondingPools`]). An unbonding pool is removed (merged into the unbonded pool)
+//! [`Config::MaxUnbondingPools`]). An unbonding pool is removed (merged into the unbonded pool)
 //! once it is older than `current_era - (MaxUnbondingPools - bonding_duration)`. An
 //! unbonding pool is merged into the unbonded pool with
 //!
