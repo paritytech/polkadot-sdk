@@ -26,8 +26,8 @@
 //!
 //! Each step is gated behind `v2dht_enabled`, self-contained, and unit-tested; a single PR may
 //! bundle several. After the data model (step 3), the real topic sources come next so production
-//! topics flow into the set; the local readers that advertise and query them, the storage
-//! obligation, and the peer side follow.
+//! topics flow into the set; the local readers that advertise and query them, then the peer side,
+//! follow.
 //!
 //! 1. [x] **Bloom constructors.** Build the node-side [`AffinityFilter`] from a topic list,
 //!    mirroring smoldot ([#12276]). Everything below advertises and queries through this type.
@@ -52,26 +52,25 @@
 //!    [`AffinityFilter`] built from the topics) and `local_has_explicit_affinity(stmt)` (does any
 //!    of the statement's topics sit in the set). Configured and subscribed topics start being
 //!    advertised here. Tests: filter contents and membership ([#12340]).
-//! 7. [ ] **Storage obligation.** Add a query that derives this node's store decision for a
-//!    statement from the sources whose topics it matches: a configured topic obliges permanent
-//!    storage, a transient subscription only retention until the next propagation. The orchestrator
-//!    feeds this into `submit_with_category_mask` (#11937); store-limitations (#11936) firms up the
-//!    return shape. Tests: obligation per source mix.
-//! 8. [ ] **Peer filters.** `update_peer_filter`/`on_peer_disconnected` maintain a `HashMap<PeerId,
+//! 7. [x] **Peer filters.** `update_peer_filter`/`on_peer_disconnected` maintain a `HashMap<PeerId,
 //!    AffinityFilter>`; `peer_has_explicit_affinity(peer, stmt)` reads it for the forward decision.
 //!    Independent of the local side. The overlapping `Peer::topic_affinity` in `lib.rs` stays until
 //!    the orchestrator cutover (#11937) — v1 still reads it. Tests: store, query, drop on
-//!    disconnect.
+//!    disconnect ([#12342]).
 //!
-//! After step 8 the module is complete; the orchestrator (#11937) wires
-//! `local_has_explicit_affinity` into the store decision and `peer_has_explicit_affinity` into the
-//! forward decision, and retires `Peer::topic_affinity`.
+//! After step 7 the module is complete. The store and forward decisions live in the orchestrator
+//! (#11937), not here. For storage it stores a statement permanently when affinity holds —
+//! `local_has_explicit_affinity` from this module OR the DHT-closeness half from peers-topology
+//! (#11933) — and otherwise keeps it only until the next propagation, the retention the store
+//! enforces (#11936). It feeds `peer_has_explicit_affinity` into the forward decision and retires
+//! `Peer::topic_affinity`.
 //!
 //! [#12276]: https://github.com/paritytech/polkadot-sdk/pull/12276
 //! [#12278]: https://github.com/paritytech/polkadot-sdk/pull/12278
 //! [#12316]: https://github.com/paritytech/polkadot-sdk/pull/12316
 //! [#12339]: https://github.com/paritytech/polkadot-sdk/pull/12339
 //! [#12340]: https://github.com/paritytech/polkadot-sdk/pull/12340
+//! [#12342]: https://github.com/paritytech/polkadot-sdk/pull/12342
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use sc_network_types::PeerId;
@@ -109,12 +108,19 @@ pub(crate) struct ExplicitAffinity {
 	/// Marks the advertised affinity filter stale
 	// TODO: clear this once the rebuilt affinity filter has been advertised to peers.
 	local_changed: bool,
+	/// The filter each connected peer advertises.
+	peers: HashMap<PeerId, AffinityFilter>,
 }
 
 #[allow(dead_code)]
 impl ExplicitAffinity {
 	pub(crate) fn new(configured_topics: &[Topic]) -> Self {
-		let mut this = Self { seed: rand::random(), local: HashMap::new(), local_changed: false };
+		let mut this = Self {
+			seed: rand::random(),
+			local: HashMap::new(),
+			local_changed: false,
+			peers: HashMap::new(),
+		};
 		// Configured adds are never balanced by removes, so collapse duplicate CLI values to one
 		// reference per topic.
 		let mut topics = configured_topics.to_vec();
@@ -189,14 +195,14 @@ impl ExplicitAffinity {
 
 	// === Peer filters ===
 
-	pub(crate) fn update_peer_filter(&mut self, peer: PeerId, _filter: AffinityFilter) {
-		// TODO: store the peer's advertised filter; subsumes the per-peer affinity state in lib.rs.
-		log::trace!(target: LOG_TARGET, "explicit_affinity: update_peer_filter {peer} (stub)");
+	/// Store the filter a peer advertises, replacing any earlier one.
+	pub(crate) fn update_peer_filter(&mut self, peer: PeerId, filter: AffinityFilter) {
+		self.peers.insert(peer, filter);
 	}
 
+	/// Drop a peer's stored filter once it disconnects.
 	pub(crate) fn on_peer_disconnected(&mut self, peer: PeerId) {
-		// TODO: drop the peer's stored filter.
-		log::trace!(target: LOG_TARGET, "explicit_affinity: on_peer_disconnected {peer} (stub)");
+		self.peers.remove(&peer);
 	}
 
 	// === Queries ===
@@ -208,10 +214,9 @@ impl ExplicitAffinity {
 		stmt.topics().iter().any(|topic| self.local.contains_key(topic))
 	}
 
-	pub(crate) fn peer_has_explicit_affinity(&self, peer: PeerId, _stmt: &Statement) -> bool {
-		// TODO: true if the peer's stored filter matches any of the statement's topics.
-		log::trace!(target: LOG_TARGET, "explicit_affinity: peer_has_explicit_affinity {peer} (stub)");
-		false
+	/// Whether the peer's advertised filter accepts the statement.
+	pub(crate) fn peer_has_explicit_affinity(&self, peer: PeerId, stmt: &Statement) -> bool {
+		self.peers.get(&peer).is_some_and(|filter| filter.matches_statement(stmt))
 	}
 }
 
@@ -393,5 +398,59 @@ mod tests {
 		let mut broadcast = Statement::new();
 		broadcast.set_plain_data(b"broadcast".to_vec());
 		assert!(!affinity.local_has_explicit_affinity(&broadcast));
+	}
+
+	/// A filter advertising the given `topics`.
+	fn filter_over(topics: &[Topic]) -> AffinityFilter {
+		AffinityFilter::from_topics(topics.iter().map(|topic| topic.as_ref()), 0)
+	}
+
+	#[test]
+	fn peer_has_explicit_affinity_reads_the_stored_filter() {
+		let mut affinity = ExplicitAffinity::new(&[]);
+		let peer = PeerId::random();
+		affinity.update_peer_filter(peer, filter_over(&[topic(1)]));
+
+		assert!(affinity.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
+		assert!(!affinity.peer_has_explicit_affinity(peer, &statement_on(topic(2))));
+	}
+
+	#[test]
+	fn unknown_peer_has_no_affinity() {
+		let affinity = ExplicitAffinity::new(&[]);
+		assert!(!affinity.peer_has_explicit_affinity(PeerId::random(), &statement_on(topic(1))));
+	}
+
+	#[test]
+	fn update_peer_filter_replaces_the_previous_one() {
+		let mut affinity = ExplicitAffinity::new(&[]);
+		let peer = PeerId::random();
+
+		affinity.update_peer_filter(peer, filter_over(&[topic(1)]));
+		affinity.update_peer_filter(peer, filter_over(&[topic(2)]));
+
+		assert!(!affinity.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
+		assert!(affinity.peer_has_explicit_affinity(peer, &statement_on(topic(2))));
+	}
+
+	#[test]
+	fn on_peer_disconnected_drops_the_filter() {
+		let mut affinity = ExplicitAffinity::new(&[]);
+		let peer = PeerId::random();
+		affinity.update_peer_filter(peer, filter_over(&[topic(1)]));
+
+		affinity.on_peer_disconnected(peer);
+		assert!(!affinity.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
+	}
+
+	#[test]
+	fn peer_with_a_filter_accepts_broadcast_statements() {
+		let mut affinity = ExplicitAffinity::new(&[]);
+		let peer = PeerId::random();
+		affinity.update_peer_filter(peer, filter_over(&[topic(1)]));
+
+		let mut broadcast = Statement::new();
+		broadcast.set_plain_data(b"broadcast".to_vec());
+		assert!(affinity.peer_has_explicit_affinity(peer, &broadcast));
 	}
 }
