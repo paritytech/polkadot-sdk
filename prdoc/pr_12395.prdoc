@@ -1,0 +1,9 @@
+title: Cumulus v3 add more test cases + cosmetics
+doc:
+- audience: Runtime Dev
+  description: Related to https://github.com/paritytech/polkadot-sdk/issues/11624
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-client-consensus-common
+  bump: patch
