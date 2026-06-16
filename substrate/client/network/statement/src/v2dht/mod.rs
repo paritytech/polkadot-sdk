@@ -49,11 +49,12 @@ impl V2DhtOrchestrator {
 		configured_topics: &[Topic],
 		local_peer: PeerId,
 		peers_topology_config: PeersTopologyConfig,
+		protocol: ProtocolName,
 	) -> Self {
 		Self {
 			peers_topology: PeersTopology::new(local_peer, peers_topology_config),
 			explicit_affinity: ExplicitAffinity::new(configured_topics),
-			peer_steering: PeerSteering::new(),
+			peer_steering: PeerSteering::new(protocol),
 		}
 	}
 
@@ -148,13 +149,9 @@ impl V2DhtOrchestrator {
 	}
 
 	/// Align the connected peers with the peers needed to cover the node's subscriptions, opening
-	/// and closing connections through `network`'s reserved set for `protocol`.
-	pub(crate) fn refresh_connections<N: NetworkPeers>(
-		&self,
-		network: &N,
-		protocol: &ProtocolName,
-	) {
-		self.peer_steering.refresh_connections(network, protocol);
+	/// and closing connections through the statement protocol's reserved set on `network`.
+	pub(crate) fn refresh_connections<N: NetworkPeers>(&self, network: &N) {
+		self.peer_steering.refresh_connections(network);
 	}
 
 	pub(crate) fn on_major_sync_end(&mut self) {
@@ -173,8 +170,12 @@ mod tests {
 
 	#[test]
 	fn affinity_tick_marks_coverage_peers_for_connection() {
-		let mut orchestrator =
-			V2DhtOrchestrator::new(&[topic(1)], PeerId::random(), PeersTopologyConfig::default());
+		let mut orchestrator = V2DhtOrchestrator::new(
+			&[topic(1)],
+			PeerId::random(),
+			PeersTopologyConfig::default(),
+			"/statement/test".into(),
+		);
 
 		let peers: Vec<PeerId> = (0..5).map(|_| PeerId::random()).collect();
 		orchestrator.on_peers_discovered(peers.clone());

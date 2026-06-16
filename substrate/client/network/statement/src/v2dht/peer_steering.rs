@@ -34,7 +34,7 @@
 use crate::LOG_TARGET;
 use sc_network::{multiaddr, types::ProtocolName, NetworkPeers};
 use sc_network_types::PeerId;
-use std::collections::HashSet;
+use std::{collections::HashSet, iter};
 
 /// Upper bound, as a percent of the connected peers, on how many connections a single refresh
 /// closes. Capping the churn lets the connected set converge toward the desired one step by step
@@ -46,8 +46,10 @@ const MAX_DISCONNECT_PERCENT: usize = 20;
 /// The connected set is fed by statement notification substream events; the desired set is supplied
 /// by the orchestrator. [`Self::refresh_connections`] drives the two together.
 #[allow(dead_code)]
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(crate) struct PeerSteering {
+	/// Statement protocol whose reserved set the connections are steered through.
+	protocol: ProtocolName,
 	/// Peers with an open statement notification substream.
 	connected: HashSet<PeerId>,
 	/// Peers needed to cover the node's subscriptions.
@@ -56,8 +58,8 @@ pub(crate) struct PeerSteering {
 
 #[allow(dead_code)]
 impl PeerSteering {
-	pub(crate) fn new() -> Self {
-		Self::default()
+	pub(crate) fn new(protocol: ProtocolName) -> Self {
+		Self { protocol, connected: HashSet::new(), desired: HashSet::new() }
 	}
 
 	// === Connection events ===
@@ -101,16 +103,12 @@ impl PeerSteering {
 		peers
 	}
 
-	/// Align the connected set with the desired set by editing `network`'s reserved set for
-	/// `protocol`.
+	/// Align the connected set with the desired set by editing the statement protocol's reserved
+	/// set on `network`.
 	///
 	/// The connected set tracks open substreams, so it updates through the substream events as the
 	/// changes take effect, not here.
-	pub(crate) fn refresh_connections<N: NetworkPeers>(
-		&self,
-		network: &N,
-		protocol: &ProtocolName,
-	) {
+	pub(crate) fn refresh_connections<N: NetworkPeers>(&self, network: &N) {
 		let connect = self.peers_to_connect();
 		let disconnect = self.peers_to_disconnect();
 
@@ -122,15 +120,17 @@ impl PeerSteering {
 		);
 
 		for peer in disconnect {
-			if let Err(err) = network.remove_peers_from_reserved_set(protocol.clone(), vec![peer]) {
+			if let Err(err) =
+				network.remove_peers_from_reserved_set(self.protocol.clone(), vec![peer])
+			{
 				log::warn!(target: LOG_TARGET, "peer_steering: disconnect {peer} failed: {err}");
 			}
 		}
 		for peer in connect {
-			let addr = std::iter::once(multiaddr::Protocol::P2p(peer.into()))
-				.collect::<multiaddr::Multiaddr>();
+			let addr =
+				iter::once(multiaddr::Protocol::P2p(peer.into())).collect::<multiaddr::Multiaddr>();
 			if let Err(err) =
-				network.add_peers_to_reserved_set(protocol.clone(), std::iter::once(addr).collect())
+				network.add_peers_to_reserved_set(self.protocol.clone(), iter::once(addr).collect())
 			{
 				log::warn!(target: LOG_TARGET, "peer_steering: connect {peer} failed: {err}");
 			}
@@ -151,7 +151,7 @@ mod tests {
 
 	#[test]
 	fn substream_events_maintain_the_connected_set() {
-		let mut steering = PeerSteering::new();
+		let mut steering = PeerSteering::new("/statement/test".into());
 
 		steering.on_substream_opened(peer(1));
 		steering.on_substream_opened(peer(2));
@@ -163,7 +163,7 @@ mod tests {
 
 	#[test]
 	fn connects_desired_and_disconnects_undesired() {
-		let mut steering = PeerSteering::new();
+		let mut steering = PeerSteering::new("/statement/test".into());
 		// peer(1) is connected and desired; peer(2) is connected but undesired; peer(3) is desired
 		// but not connected.
 		steering.on_substream_opened(peer(1));
@@ -176,7 +176,7 @@ mod tests {
 
 	#[test]
 	fn converged_set_has_no_work() {
-		let mut steering = PeerSteering::new();
+		let mut steering = PeerSteering::new("/statement/test".into());
 		steering.on_substream_opened(peer(1));
 		steering.on_substream_opened(peer(2));
 		steering.update_peers_needing_connections([peer(1), peer(2)]);
@@ -187,7 +187,7 @@ mod tests {
 
 	#[test]
 	fn disconnects_are_capped_at_twenty_percent() {
-		let mut steering = PeerSteering::new();
+		let mut steering = PeerSteering::new("/statement/test".into());
 		for seed in 1..=10 {
 			steering.on_substream_opened(peer(seed));
 		}
@@ -199,7 +199,7 @@ mod tests {
 
 	#[test]
 	fn capped_disconnects_drain_over_successive_refreshes() {
-		let mut steering = PeerSteering::new();
+		let mut steering = PeerSteering::new("/statement/test".into());
 		for seed in 1..=10 {
 			steering.on_substream_opened(peer(seed));
 		}
