@@ -90,7 +90,8 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			let call = Tracer::<Test>::CallTracer(CallTracer::new(Default::default()));
 			let prestate = Tracer::<Test>::PrestateTracer(PrestateTracer::new(Default::default()));
-			let execution = Tracer::<Test>::ExecutionTracer(ExecutionTracer::new(Default::default()));
+			let execution =
+				Tracer::<Test>::ExecutionTracer(ExecutionTracer::new(Default::default()));
 
 			assert_eq!(call.collect_trace(), None);
 			assert_eq!(prestate.collect_trace(), None);
