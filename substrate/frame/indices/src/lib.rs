@@ -28,7 +28,7 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::Codec;
+use codec::{Codec, DecodeWithMemTracking, HasCompact};
 use frame_support::traits::{BalanceStatus::Reserved, Currency, ReservableCurrency};
 use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
@@ -59,6 +59,7 @@ pub mod pallet {
 			+ Codec
 			+ Default
 			+ AtLeast32Bit
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Copy
 			+ MaxEncodedLen;
 
