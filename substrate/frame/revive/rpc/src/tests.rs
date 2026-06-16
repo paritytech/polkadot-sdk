@@ -1136,12 +1136,20 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 /// 4. Read number() from Alice → returns 42
 /// 5. Clear delegation (authorization with zero address)
 /// 6. Read from Alice → returns empty (no code)
+///
+/// 7702 transactions are constructed via alloy's `Authorization`/`SignedAuthorization` +
+/// `TransactionRequest::with_authorization_list` and submitted through the alloy provider on
+/// `SharedResources`, exercising the same RPC entry point external tooling uses.
 async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
-	use crate::example::TransactionType;
+	use alloy_network::{TransactionBuilder as _, TransactionBuilder7702 as _};
+	use alloy_primitives::U256 as AU256;
+	use alloy_rpc_types::{Authorization, SignedAuthorization};
+	use k256::ecdsa::signature::hazmat::PrehashSigner as _;
 	use pallet_revive::{evm::Account, precompiles::alloy::sol_types::SolCall};
 	use pallet_revive_fixtures::Counter;
 
 	let client = Arc::new(SharedResources::client().await);
+	let provider = SharedResources::provider();
 	let alith = Account::default();
 
 	// Deploy Counter contract
@@ -1171,24 +1179,35 @@ async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
 	tx.wait_for_receipt().await?;
 
 	let chain_id = client.chain_id().await?;
+	let chain_id_alloy = AU256::from_be_bytes::<32>(chain_id.to_big_endian());
+	let alith_alloy = AlloyAddress::from_slice(alith.address().as_bytes());
+	let counter_alloy = AlloyAddress::from_slice(counter_addr.as_bytes());
+
+	// Build a signed EIP-7702 authorization tuple using alloy types. Signing goes through k256
+	// directly (already a dep) so we don't have to pull in `alloy-signer` just for the trait.
+	let sign_auth = |target_alloy: AlloyAddress, auth_nonce: u64| -> SignedAuthorization {
+		let auth =
+			Authorization { chain_id: chain_id_alloy, address: target_alloy, nonce: auth_nonce };
+		let hash = auth.signature_hash();
+		let (sig, recid): (k256::ecdsa::Signature, k256::ecdsa::RecoveryId) =
+			authority_key.sign_prehash(hash.as_ref()).expect("k256 signing succeeds");
+		let bytes = sig.to_bytes();
+		let r = AU256::from_be_slice(&bytes[..32]);
+		let s = AU256::from_be_slice(&bytes[32..]);
+		SignedAuthorization::new_unchecked(auth, recid.to_byte(), r, s)
+	};
 
 	// --- Step 1: Delegate authority → Counter via 7702 tx ---
-	let auth_nonce = client
+	let auth_nonce: u64 = client
 		.get_transaction_count(authority.address(), BlockTag::Latest.into())
-		.await?;
-	let auth = pallet_revive::evm::eip7702::sign_authorization(
-		&authority_key,
-		chain_id,
-		counter_addr,
-		auth_nonce,
-	);
-	TransactionBuilder::new(client.clone())
-		.to(alith.address())
-		.authorization_list(vec![auth])
-		.send_with_type(TransactionType::Eip7702)
 		.await?
-		.wait_for_receipt()
-		.await?;
+		.try_into()
+		.expect("nonce fits u64");
+	let signed = sign_auth(counter_alloy, auth_nonce);
+	let req = TransactionRequest::default()
+		.with_to(alith_alloy)
+		.with_authorization_list(vec![signed]);
+	provider.send_transaction(req).await?.get_receipt().await?;
 
 	// Verify delegation is active: eth_getCode should return the delegation indicator
 	let code = client.get_code(authority.address(), BlockTag::Latest.into()).await?;
@@ -1214,22 +1233,16 @@ async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
 	assert_eq!(number, 42u64, "number() should return 42 after setNumber");
 
 	// --- Step 4: Clear delegation via 7702 tx with zero address ---
-	let auth_nonce = client
+	let auth_nonce: u64 = client
 		.get_transaction_count(authority.address(), BlockTag::Latest.into())
-		.await?;
-	let clear_auth = pallet_revive::evm::eip7702::sign_authorization(
-		&authority_key,
-		chain_id,
-		pallet_revive::evm::Address::zero(),
-		auth_nonce,
-	);
-	TransactionBuilder::new(client.clone())
-		.to(alith.address())
-		.authorization_list(vec![clear_auth])
-		.send_with_type(TransactionType::Eip7702)
 		.await?
-		.wait_for_receipt()
-		.await?;
+		.try_into()
+		.expect("nonce fits u64");
+	let signed = sign_auth(AlloyAddress::ZERO, auth_nonce);
+	let req = TransactionRequest::default()
+		.with_to(alith_alloy)
+		.with_authorization_list(vec![signed]);
+	provider.send_transaction(req).await?.get_receipt().await?;
 
 	// --- Step 5: Verify delegation is cleared ---
 	let code = client.get_code(authority.address(), BlockTag::Latest.into()).await?;
