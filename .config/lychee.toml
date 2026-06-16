@@ -56,9 +56,9 @@ exclude = [
 	# removed at some point.
 	"statement.polkadot.network",
 	# Behind a captcha (code 403):
-	"https://eprint.iacr.org/2022/1611",
 	"https://chainlist.org/chain/*",
 	"https://dl.acm.org",
+	"https://eprint.iacr.org/2022/1611",
 	"https://iohk.io/en/blog/posts/2023/11/03/partner-chains-are-coming-to-cardano/",
 	"https://medium.com/wicketh/mathemagic-512-bit-division-in-solidity-afa55870a65",
 	"https://polymesh.network",
