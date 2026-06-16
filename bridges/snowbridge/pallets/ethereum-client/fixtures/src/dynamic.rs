@@ -215,6 +215,12 @@ pub fn build_dynamic_fixture_with_log(n: u32, s: u32, log: LogTemplate) -> Dynam
 ///   children), so the target path crosses `n - 1` ~530-byte branch nodes plus the terminal leaf =
 ///   `n` nodes. A full branch is the worst case the verifier can encounter, so the per-node slope
 ///   is a safe upper bound: a caller cannot make any proof node more expensive to hash.
+///
+/// This upper-bound property still holds when the runtime extrapolates past the benchmarked
+/// `n`/`s` range: the `receipts_root` is consensus-committed (verified through the execution +
+/// ancestry proof before the receipt proof is checked), so a caller cannot craft pathological
+/// trie nodes — real receipts-trie nodes are bounded by the full-width branch calibrated here —
+/// and the receipt decode is linear in `s`, so the fitted slopes never undercharge out of range.
 /// - Sibling values are 32 zero bytes, large enough that each sibling leaf is referenced by hash in
 ///   its parent branch (as in a real receipts trie) rather than inlined, which is what makes the
 ///   branch full-width. The sibling leaves never appear in the retained proof themselves.
