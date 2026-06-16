@@ -2468,6 +2468,7 @@ impl MaybeConvert<TaskId, AccountId> for SovereignAccountOf {
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntumeHoldReason;
 	type OnRevenue = IntoAuthor;
 	type TimeslicePeriod = ConstU32<2>;
 	type MaxLeasedCores = ConstU32<5>;
@@ -2481,6 +2482,57 @@ impl pallet_broker::Config for Runtime {
 	type MaxAutoRenewals = ConstU32<10>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
+}
+
+/// Stub providers for pallet-coretime-market.
+pub struct CoretimeMarketProviders;
+impl pallet_broker::market::CoreRangeProvider for CoretimeMarketProviders {
+	fn core_range() -> Option<pallet_broker::market::SoldCoresRange> {
+		Some(pallet_broker::market::SoldCoresRange { from: 0, to: 10 })
+	}
+}
+impl pallet_broker::market::TimesliceProvider for CoretimeMarketProviders {
+	fn next_timeslice_to_commit() -> Option<pallet_broker::Timeslice> {
+		None
+	}
+	fn latest_timeslice_ready_to_commit() -> Option<pallet_broker::Timeslice> {
+		None
+	}
+}
+impl pallet_coretime_market::RenewalRightsProvider<AccountId> for CoretimeMarketProviders {
+	fn renewal_rights_count(who: &AccountId, when: pallet_broker::Timeslice) -> u32 {
+		#[cfg(feature = "runtime-benchmarks")]
+		{
+			use codec::Encode;
+			let key = (b"coretime-market/bench-rights", who, when).encode();
+			return sp_io::storage::get(&key)
+				.and_then(|v| u32::decode(&mut &v[..]).ok())
+				.unwrap_or(0);
+		}
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		{
+			let _ = (who, when);
+			0
+		}
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_rights_count(who: &AccountId, when: pallet_broker::Timeslice, count: u32) {
+		use codec::Encode;
+		let key = (b"coretime-market/bench-rights", who, when).encode();
+		sp_io::storage::set(&key, &count.encode());
+	}
+}
+
+impl pallet_coretime_market::Config for Runtime {
+	type Balance = Balance;
+	type RelayBlockNumber = BlockNumber;
+	type WeightInfo = ();
+	type CoreRangeProvider = CoretimeMarketProviders;
+	type TimesliceProvider = CoretimeMarketProviders;
+	type RenewalRights = CoretimeMarketProviders;
+	type TimeslicePeriod = ConstU32<2>;
+	type MaxBids = ConstU32<100>;
+	type Randomness = RandomnessCollectiveFlip;
 }
 
 parameter_types! {
@@ -2927,6 +2979,9 @@ mod runtime {
 
 	#[runtime::pallet_index(94)]
 	pub type Dap = pallet_dap::Pallet<Runtime>;
+
+	#[runtime::pallet_index(95)]
+	pub type CoretimeMarket = pallet_coretime_market::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3262,6 +3317,7 @@ mod benches {
 		[pallet_beefy_mmr, MmrLeaf]
 		[pallet_bounties, Bounties]
 		[pallet_broker, Broker]
+		[pallet_coretime_market, CoretimeMarket]
 		[pallet_child_bounties, ChildBounties]
 		[pallet_collective, Council]
 		[pallet_conviction_voting, ConvictionVoting]

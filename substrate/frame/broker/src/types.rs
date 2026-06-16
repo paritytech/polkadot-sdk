@@ -17,13 +17,13 @@
 
 use crate::{
 	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, RCBlockNumberOf, TaskId,
-	CORE_MASK_BITS,
+	Timeslice, CORE_MASK_BITS,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use fp_coretime::{market::Market, RegionId};
 use frame_support::traits::fungible::Inspect;
-use frame_system::Config as SConfig;
+use frame_system::{pallet_prelude::AccountIdFor, Config as SConfig};
 use scale_info::TypeInfo;
-use sp_arithmetic::Perbill;
 use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
 
@@ -32,14 +32,48 @@ pub type RelayBalanceOf<T> = <<T as Config>::Coretime as CoretimeInterface>::Bal
 pub type RelayBlockNumberOf<T> = RCBlockNumberOf<<T as Config>::Coretime>;
 pub type RelayAccountIdOf<T> = <<T as Config>::Coretime as CoretimeInterface>::AccountId;
 
-/// Relay-chain block number with a fixed divisor of Config::TimeslicePeriod.
-pub type Timeslice = u32;
+pub type MarketInitDataOf<T> = <<T as Config>::CoretimeMarket as Market<
+	RelayBlockNumberOf<T>,
+	BalanceOf<T>,
+	AccountIdFor<T>,
+>>::InitData;
+
+pub type MarketConfigOf<T> = <<T as Config>::CoretimeMarket as Market<
+	RelayBlockNumberOf<T>,
+	BalanceOf<T>,
+	AccountIdFor<T>,
+>>::Configuration;
+
+pub type MarketBidIdOf<T> = <<T as Config>::CoretimeMarket as Market<
+	RelayBlockNumberOf<T>,
+	BalanceOf<T>,
+	AccountIdFor<T>,
+>>::BidId;
+
+pub type MarketWeightsOf<T> = <<T as Config>::CoretimeMarket as Market<
+	RelayBlockNumberOf<T>,
+	BalanceOf<T>,
+	AccountIdFor<T>,
+>>::Weights;
+
 /// Counter for the total number of set bits over every core's `CoreMask`. `u32` so we don't
 /// ever get an overflow. This is 1/80th of a Polkadot Core per timeslice. Assuming timeslices are
 /// 80 blocks, then this indicates usage of a single core one time over a timeslice.
 pub type CoreMaskBitCount = u32;
 /// The same as `CoreMaskBitCount` but signed.
 pub type SignedCoreMaskBitCount = i32;
+/// Count of the renewal rights one has.
+pub type RenewalRightsCount = u32;
+
+/// Identifier of the renewal rights for some account at some timeslice.
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct RenewalRightsId<AccountId> {
+	/// Who holds the renewal rights.
+	pub owner: AccountId,
+	/// When the renewal rights are valid.
+	pub when: Timeslice,
+}
+pub type RenewalRightsIdOf<T> = RenewalRightsId<AccountIdFor<T>>;
 
 /// Whether a core assignment is revokable or not.
 #[derive(
@@ -59,45 +93,6 @@ pub enum Finality {
 	Provisional,
 	/// The region is removed; the assignment may be eligible for renewal.
 	Final,
-}
-
-/// Self-describing identity for a Region of Bulk Coretime.
-#[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Copy,
-	Clone,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
-)]
-pub struct RegionId {
-	/// The timeslice at which this Region begins.
-	pub begin: Timeslice,
-	/// The index of the Polkadot Core on which this Region will be scheduled.
-	pub core: CoreIndex,
-	/// The regularity parts in which this Region will be scheduled.
-	pub mask: CoreMask,
-}
-impl From<u128> for RegionId {
-	fn from(x: u128) -> Self {
-		Self { begin: (x >> 96) as u32, core: (x >> 80) as u16, mask: x.into() }
-	}
-}
-impl From<RegionId> for u128 {
-	fn from(x: RegionId) -> Self {
-		((x.begin as u128) << 96) | ((x.core as u128) << 80) | u128::from(x.mask)
-	}
-}
-#[test]
-fn region_id_converts_u128() {
-	let r = RegionId { begin: 0x12345678u32, core: 0xabcdu16, mask: 0xdeadbeefcafef00d0123.into() };
-	let u = 0x12345678_abcd_deadbeefcafef00d0123u128;
-	assert_eq!(RegionId::from(u), r);
-	assert_eq!(u128::from(r), u);
 }
 
 /// The rest of the information describing a Region.
@@ -176,28 +171,16 @@ impl CompletionStatus {
 	}
 }
 
-/// The identity of a possibly renewable Core workload.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub struct PotentialRenewalId {
-	/// The core whose workload at the sale ending with `when` may be renewed to begin at `when`.
-	pub core: CoreIndex,
-	/// The point in time that the renewable workload on `core` ends and a fresh renewal may begin.
-	pub when: Timeslice,
-}
-
 /// A record of a potential renewal.
 ///
 /// The renewal will only actually be allowed if `CompletionStatus` is `Complete` at the time of
 /// renewal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub struct PotentialRenewalRecord<Balance> {
-	/// The price for which the next renewal can be made.
-	pub price: Balance,
+pub struct PotentialRenewalRecord {
 	/// The workload which will be scheduled on the Core in the case a renewal is made, or if
 	/// incomplete, then the parts of the core which have been scheduled.
 	pub completion: CompletionStatus,
 }
-pub type PotentialRenewalRecordOf<T> = PotentialRenewalRecord<BalanceOf<T>>;
 
 /// General status of the system.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
@@ -227,37 +210,6 @@ pub struct PoolIoRecord {
 	/// Core Mask Bits.
 	pub system: SignedCoreMaskBitCount,
 }
-
-/// The status of a Bulk Coretime Sale.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub struct SaleInfoRecord<Balance, RelayBlockNumber> {
-	/// The relay block number at which the sale will/did start.
-	pub sale_start: RelayBlockNumber,
-	/// The length in blocks of the Leadin Period (where the price is decreasing).
-	pub leadin_length: RelayBlockNumber,
-	/// The price of Bulk Coretime after the Leadin Period.
-	pub end_price: Balance,
-	/// The first timeslice of the Regions which are being sold in this sale.
-	pub region_begin: Timeslice,
-	/// The timeslice on which the Regions which are being sold in the sale terminate. (i.e. One
-	/// after the last timeslice which the Regions control.)
-	pub region_end: Timeslice,
-	/// The number of cores we want to sell, ideally. Selling this amount would result in no
-	/// change to the price for the next sale.
-	pub ideal_cores_sold: CoreIndex,
-	/// Number of cores which are/have been offered for sale.
-	pub cores_offered: CoreIndex,
-	/// The index of the first core which is for sale. Core of Regions which are sold have
-	/// incrementing indices from this.
-	pub first_core: CoreIndex,
-	/// The price at which cores have been sold out.
-	///
-	/// Will only be `None` if no core was offered for sale.
-	pub sellout_price: Option<Balance>,
-	/// Number of cores which have been sold; never more than cores_offered.
-	pub cores_sold: CoreIndex,
-}
-pub type SaleInfoRecordOf<T> = SaleInfoRecord<BalanceOf<T>, RelayBlockNumberOf<T>>;
 
 /// Record for Polkadot Core reservations (generally tasked with the maintenance of System
 /// Chains).
@@ -302,41 +254,12 @@ pub struct ConfigRecord<RelayBlockNumber> {
 	/// The number of Relay-chain blocks in advance which scheduling should be fixed and the
 	/// `Coretime::assign` API used to inform the Relay-chain.
 	pub advance_notice: RelayBlockNumber,
-	/// The length in blocks of the Interlude Period for forthcoming sales.
-	pub interlude_length: RelayBlockNumber,
-	/// The length in blocks of the Leadin Period for forthcoming sales.
-	pub leadin_length: RelayBlockNumber,
 	/// The length in timeslices of Regions which are up for sale in forthcoming sales.
 	pub region_length: Timeslice,
-	/// The proportion of cores available for sale which should be sold.
-	///
-	/// If more cores are sold than this, then further sales will no longer be considered in
-	/// determining the sellout price. In other words the sellout price will be the last price
-	/// paid, without going over this limit.
-	pub ideal_bulk_proportion: Perbill,
-	/// An artificial limit to the number of cores which are allowed to be sold. If `Some` then
-	/// no more cores will be sold than this.
-	pub limit_cores_offered: Option<CoreIndex>,
-	/// The amount by which the renewal price increases each sale period.
-	pub renewal_bump: Perbill,
 	/// The duration by which rewards for contributions to the InstaPool must be collected.
 	pub contribution_timeout: Timeslice,
 }
 pub type ConfigRecordOf<T> = ConfigRecord<RelayBlockNumberOf<T>>;
-
-impl<RelayBlockNumber> ConfigRecord<RelayBlockNumber>
-where
-	RelayBlockNumber: sp_arithmetic::traits::Zero,
-{
-	/// Check the config for basic validity constraints.
-	pub(crate) fn validate(&self) -> Result<(), ()> {
-		if self.leadin_length.is_zero() {
-			return Err(());
-		}
-
-		Ok(())
-	}
-}
 
 /// A record containing information regarding auto-renewal for a specific core.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
@@ -350,3 +273,41 @@ pub struct AutoRenewalRecord {
 	/// tasks to ensure that the renewal process does not begin until the lease expires.
 	pub next_renewal: Timeslice,
 }
+
+/// A result of the `purchase` exectution.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+pub(crate) enum PurchaseResult<Balance, BidId> {
+	/// The core was purchased right away.
+	Purchased {
+		/// Id of the region that was sold.
+		region_id: RegionId,
+		/// Price that was paid for the purchased region.
+		price: Balance,
+		/// Validity period for the purchased region.
+		duration: Timeslice,
+	},
+	/// A bid for purchase was placed.
+	BidPlaced {
+		/// Id of the bid that was placed.
+		id: BidId,
+	},
+}
+pub(crate) type PurchaseResultOf<T> = PurchaseResult<BalanceOf<T>, MarketBidIdOf<T>>;
+
+/// A result of the `renew` exectution.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+pub(crate) enum RenewResult<BidId> {
+	/// The core was renewed right away.
+	Renewed {
+		/// Id of the region that the renewer received.
+		new_region_id: RegionId,
+		/// End of the new region.
+		region_end: Timeslice,
+	},
+	/// A bid for core renewal was placed.
+	BidPlaced {
+		/// Id of the bid that was placed.
+		id: BidId,
+	},
+}
+pub(crate) type RenewResultOf<T> = RenewResult<MarketBidIdOf<T>>;

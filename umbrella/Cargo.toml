@@ -40,6 +40,7 @@ std = [
 	"cumulus-primitives-timestamp?/std",
 	"cumulus-primitives-utility?/std",
 	"cumulus-test-relay-sproof-builder?/std",
+	"fp-coretime?/std",
 	"frame-benchmarking-pallet-pov?/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support?/std",
@@ -87,6 +88,7 @@ std = [
 	"pallet-contracts?/std",
 	"pallet-conviction-voting?/std",
 	"pallet-core-fellowship?/std",
+	"pallet-coretime-market?/std",
 	"pallet-dap?/std",
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
@@ -291,6 +293,7 @@ runtime-benchmarks = [
 	"pallet-contracts?/runtime-benchmarks",
 	"pallet-conviction-voting?/runtime-benchmarks",
 	"pallet-core-fellowship?/runtime-benchmarks",
+	"pallet-coretime-market?/runtime-benchmarks",
 	"pallet-dap?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
@@ -437,6 +440,7 @@ try-runtime = [
 	"pallet-contracts?/try-runtime",
 	"pallet-conviction-voting?/try-runtime",
 	"pallet-core-fellowship?/try-runtime",
+	"pallet-coretime-market?/try-runtime",
 	"pallet-dap?/try-runtime",
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
@@ -604,6 +608,7 @@ runtime-full = [
 	"cumulus-primitives-timestamp",
 	"cumulus-primitives-utility",
 	"ethereum-standards",
+	"fp-coretime",
 	"frame-benchmarking",
 	"frame-benchmarking-pallet-pov",
 	"frame-election-provider-solution-type",
@@ -654,6 +659,7 @@ runtime-full = [
 	"pallet-contracts-uapi",
 	"pallet-conviction-voting",
 	"pallet-core-fellowship",
+	"pallet-coretime-market",
 	"pallet-dap",
 	"pallet-delegated-staking",
 	"pallet-democracy",
@@ -817,6 +823,7 @@ runtime-full = [
 	"xcm-runtime-apis",
 ]
 runtime = [
+	"fp-coretime",
 	"frame-benchmarking",
 	"frame-benchmarking-pallet-pov",
 	"frame-election-provider-solution-type",
@@ -1035,10 +1042,7 @@ node = [
 	"xcm-emulator",
 	"xcm-simulator",
 ]
-tuples-96 = [
-	"frame-support-procedural?/tuples-96",
-	"frame-support?/tuples-96",
-]
+tuples-96 = ["frame-support-procedural?/tuples-96", "frame-support?/tuples-96"]
 
 [package.edition]
 workspace = true
@@ -1206,6 +1210,11 @@ path = "../cumulus/primitives/utility"
 default-features = false
 optional = true
 path = "../substrate/primitives/ethereum-standards"
+
+[dependencies.fp-coretime]
+default-features = false
+optional = true
+path = "../substrate/frame/primitives/coretime"
 
 [dependencies.frame-benchmarking]
 default-features = false
@@ -1411,6 +1420,11 @@ path = "../bridges/modules/relayers"
 default-features = false
 optional = true
 path = "../substrate/frame/broker"
+
+[dependencies.pallet-coretime-market]
+default-features = false
+optional = true
+path = "../substrate/frame/coretime-market"
 
 [dependencies.pallet-child-bounties]
 default-features = false

@@ -228,6 +228,10 @@ pub use ethereum_standards;
 #[cfg(feature = "fork-tree")]
 pub use fork_tree;
 
+/// Primitives for Polkadot Coretime.
+#[cfg(feature = "fp-coretime")]
+pub use fp_coretime;
+
 /// Macro for benchmarking a FRAME runtime.
 #[cfg(feature = "frame-benchmarking")]
 pub use frame_benchmarking;
@@ -418,6 +422,10 @@ pub use pallet_bridge_relayers;
 /// Brokerage tool for managing Polkadot Core scheduling.
 #[cfg(feature = "pallet-broker")]
 pub use pallet_broker;
+
+/// RFC-17 market mechanism for Polkadot Coretime sales.
+#[cfg(feature = "pallet-coretime-market")]
+pub use pallet_coretime_market;
 
 /// FRAME pallet to manage child bounties.
 #[cfg(feature = "pallet-child-bounties")]

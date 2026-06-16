@@ -358,6 +358,7 @@ members = [
 	"substrate/frame/contracts/uapi",
 	"substrate/frame/conviction-voting",
 	"substrate/frame/core-fellowship",
+	"substrate/frame/coretime-market",
 	"substrate/frame/dap",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
@@ -422,6 +423,7 @@ members = [
 	"substrate/frame/parameters",
 	"substrate/frame/people",
 	"substrate/frame/preimage",
+	"substrate/frame/primitives/coretime",
 	"substrate/frame/proxy",
 	"substrate/frame/psm",
 	"substrate/frame/psm/remote-tests",
@@ -838,6 +840,7 @@ fnv = { version = "1.0.6" }
 foldhash = { version = "0.1.5", default-features = false }
 fork-tree = { path = "substrate/utils/fork-tree", default-features = false }
 forwarded-header-value = { version = "0.1.1" }
+fp-coretime = { path = "substrate/frame/primitives/coretime", default-features = false }
 fraction = { version = "0.13.1" }
 frame = { path = "substrate/frame", default-features = false, package = "polkadot-sdk-frame" }
 frame-benchmarking = { path = "substrate/frame/benchmarking", default-features = false }
@@ -1001,6 +1004,7 @@ pallet-contracts-proc-macro = { path = "substrate/frame/contracts/proc-macro", d
 pallet-contracts-uapi = { path = "substrate/frame/contracts/uapi", default-features = false }
 pallet-conviction-voting = { path = "substrate/frame/conviction-voting", default-features = false }
 pallet-core-fellowship = { path = "substrate/frame/core-fellowship", default-features = false }
+pallet-coretime-market = { path = "substrate/frame/coretime-market", default-features = false }
 pallet-dap = { path = "substrate/frame/dap", default-features = false }
 pallet-default-config-example = { path = "substrate/frame/examples/default-config", default-features = false }
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
