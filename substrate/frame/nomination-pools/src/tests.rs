@@ -6913,6 +6913,50 @@ mod commission {
 	}
 
 	#[test]
+	fn set_commission_max_snapshots_rewards_before_lowering_current() {
+		// `set_commission_max` force-lowers `current` when the new max is below it. Rewards that
+		// accrued at the higher rate since the last snapshot must stay owed to the payee at that
+		// higher rate, not be re-rated at the new lower rate and leaked to members.
+		ExtBuilder::default().build_and_execute(|| {
+			let pool_id = 1;
+			let payee = 900;
+			let _ = Currency::set_balance(&payee, 5);
+
+			// GIVEN: commission is 50% (this snapshots the still-empty reward pool)...
+			assert_ok!(Pools::set_commission(
+				RuntimeOrigin::signed(900),
+				pool_id,
+				Some((Perbill::from_percent(50), payee))
+			));
+			// ...and 100 of rewards accrue with no intervening snapshot (no claim/bond happens).
+			deposit_rewards(100);
+			assert_eq!(RewardPool::<Runtime>::current_balance(pool_id), 100);
+			assert_eq!(RewardPools::<Runtime>::get(pool_id).unwrap().total_commission_pending, 0);
+
+			// WHEN: root force-lowers max commission to 20%, cutting `current` from 50% to 20%.
+			assert_ok!(Pools::set_commission_max(
+				RuntimeOrigin::signed(900),
+				pool_id,
+				Perbill::from_percent(20)
+			));
+
+			// THEN: the 100 that accrued at 50% was snapshotted before the cut, so 50 is owed to
+			// the payee. Without the pre-cut snapshot this would be 20% * 100 = 20.
+			assert_eq!(RewardPools::<Runtime>::get(pool_id).unwrap().total_commission_pending, 50);
+
+			// AND: claiming commission pays the payee the pre-cut 50, not the post-cut 20.
+			let _ = pool_events_since_last_call();
+			assert_ok!(Pools::claim_commission(RuntimeOrigin::signed(payee), pool_id));
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![Event::PoolCommissionClaimed { pool_id, commission: 50 }]
+			);
+			assert_eq!(Currency::free_balance(&payee), 5 + 50);
+			assert_eq!(RewardPools::<Runtime>::get(pool_id).unwrap().total_commission_claimed, 50);
+		})
+	}
+
+	#[test]
 	fn set_commission_change_rate_zero_max_increase_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			// set commission change rate to 0% per 10 blocks
