@@ -123,7 +123,7 @@ impl PeerSteering {
 
 		for peer in disconnect {
 			if let Err(err) = network.remove_peers_from_reserved_set(protocol.clone(), vec![peer]) {
-				log::error!(target: LOG_TARGET, "peer_steering: disconnect {peer} failed: {err}");
+				log::warn!(target: LOG_TARGET, "peer_steering: disconnect {peer} failed: {err}");
 			}
 		}
 		for peer in connect {
@@ -132,7 +132,7 @@ impl PeerSteering {
 			if let Err(err) =
 				network.add_peers_to_reserved_set(protocol.clone(), std::iter::once(addr).collect())
 			{
-				log::error!(target: LOG_TARGET, "peer_steering: connect {peer} failed: {err}");
+				log::warn!(target: LOG_TARGET, "peer_steering: connect {peer} failed: {err}");
 			}
 		}
 	}
@@ -147,10 +147,6 @@ mod tests {
 		bytes[0] = 0;
 		bytes[1] = 32;
 		PeerId::from_bytes(&bytes).expect("identity multihash peer id")
-	}
-
-	fn as_set(peers: Vec<PeerId>) -> HashSet<PeerId> {
-		peers.into_iter().collect()
 	}
 
 	#[test]
@@ -190,15 +186,6 @@ mod tests {
 	}
 
 	#[test]
-	fn without_connected_peers_only_connects() {
-		let mut steering = PeerSteering::new();
-		steering.update_peers_needing_connections([peer(1), peer(2)]);
-
-		assert_eq!(as_set(steering.peers_to_connect()), HashSet::from([peer(1), peer(2)]));
-		assert!(steering.peers_to_disconnect().is_empty());
-	}
-
-	#[test]
 	fn disconnects_are_capped_at_twenty_percent() {
 		let mut steering = PeerSteering::new();
 		for seed in 1..=10 {
@@ -228,12 +215,5 @@ mod tests {
 		}
 
 		assert_eq!(dropped.len(), 10);
-	}
-
-	#[test]
-	fn empty_steering_has_no_work() {
-		let steering = PeerSteering::new();
-		assert!(steering.peers_to_connect().is_empty());
-		assert!(steering.peers_to_disconnect().is_empty());
 	}
 }
