@@ -185,7 +185,6 @@ impl PersistentDb {
 				update_type = ?log_info,
 				update_count = updates.len(),
 				"Received PersistenceRequest"
-
 			);
 
 			let mut db_transaction = DBTransaction::new();
