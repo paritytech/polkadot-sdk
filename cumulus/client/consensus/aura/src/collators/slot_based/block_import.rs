@@ -20,8 +20,15 @@ use codec::{Decode, Encode};
 use cumulus_client_consensus_common::old_finalized_hash;
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_client_resubmission_store::{now_unix_ms, prepare_resubmission_aux_data};
-use cumulus_primitives_core::{BlockBundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
+use cumulus_primitives_core::{
+	relay_chain::BlockId, BlockBundleInfo, CoreInfo, CumulusDigestItem, PersistedValidationData,
+	RelayBlockIdentifier,
+};
+use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::{stream::FusedStream, StreamExt};
+use polkadot_primitives::{
+	Header as RelayHeader, Id as ParaId, OccupiedCoreAssumption, SessionIndex,
+};
 use sc_client_api::{
 	backend::AuxStore,
 	client::{AuxDataOperations, FinalityNotification, PreCommitActions},
@@ -37,7 +44,10 @@ use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_consensus::BlockOrigin;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as _};
 use sp_trie::proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
+
+/// Late-bound relay client + para id used to fill resubmission entries for *imported* blocks.
+type SharedRelayDataSource = Arc<OnceLock<(Arc<dyn RelayChainInterface>, ParaId)>>;
 
 /// The aux storage key used to store the ignored nodes for the given block hash.
 fn ignored_nodes_key<H: Encode>(block_hash: H) -> Vec<u8> {
@@ -76,9 +86,21 @@ fn load_ignored_nodes<Block: BlockT, B: AuxStore>(
 /// not running as collator.
 pub struct SlotBasedBlockImportHandle<Block> {
 	receiver: TracingUnboundedReceiver<(Block, StorageProof)>,
+	relay_data_source: SharedRelayDataSource,
 }
 
 impl<Block> SlotBasedBlockImportHandle<Block> {
+	/// Install the relay client used to record resubmission entries for *imported* blocks.
+	pub fn install_relay_data_source(
+		&self,
+		relay_client: Arc<dyn RelayChainInterface>,
+		para_id: ParaId,
+	) {
+		if self.relay_data_source.set((relay_client, para_id)).is_err() {
+			tracing::debug!(target: LOG_TARGET, "Relay data source already installed; ignoring.");
+		}
+	}
+
 	/// Returns the next item.
 	///
 	/// The future will never return when the internal channel is closed.
@@ -136,6 +158,7 @@ pub struct SlotBasedBlockImport<Block: BlockT, BI, Client> {
 	inner: BI,
 	client: Arc<Client>,
 	sender: TracingUnboundedSender<(Block, StorageProof)>,
+	relay_data_source: SharedRelayDataSource,
 }
 
 impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
@@ -152,7 +175,12 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 
 		register_ignored_nodes_cleanup(client.clone());
 
-		(Self { sender, client, inner }, SlotBasedBlockImportHandle { receiver })
+		let relay_data_source = SharedRelayDataSource::default();
+
+		(
+			Self { sender, client, inner, relay_data_source: relay_data_source.clone() },
+			SlotBasedBlockImportHandle { receiver, relay_data_source },
+		)
 	}
 
 	/// Get the [`ProofRecorderIgnoredNodes`] for `parent`.
@@ -199,6 +227,105 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 		}
 	}
 
+	/// Resolve, from the relay chain, the data needed to record a resubmission entry for an
+	/// imported block built against the relay parent in `relay_block_identifier`, on top of the
+	/// parablock `parent_hash`.
+	async fn resolve_resubmission_data(
+		&self,
+		relay_block_identifier: &RelayBlockIdentifier,
+		parent_hash: Block::Hash,
+	) -> Option<(RelayHeader, SessionIndex, PersistedValidationData)>
+	where
+		Client: HeaderBackend<Block>,
+	{
+		let RelayBlockIdentifier::ByHash(relay_parent) = relay_block_identifier else {
+			return None;
+		};
+		let relay_parent = *relay_parent;
+
+		let (relay_client, para_id) = self.relay_data_source.get()?;
+		let para_id = *para_id;
+
+		let relay_parent_header = match relay_client.header(BlockId::Hash(relay_parent)).await {
+			Ok(Some(header)) => header,
+			Ok(None) => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					"Relay parent header unavailable; skipping resubmission entry.",
+				);
+				return None;
+			},
+			Err(err) => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?err,
+					"Failed to fetch relay parent header; skipping resubmission entry.",
+				);
+				return None;
+			},
+		};
+
+		let relay_parent_session = match relay_client.session_index_for_child(relay_parent).await {
+			Ok(session) => session,
+			Err(err) => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?err,
+					"Failed to fetch relay parent session; skipping resubmission entry.",
+				);
+				return None;
+			},
+		};
+
+		let max_pov_size = match relay_client
+			.persisted_validation_data(relay_parent, para_id, OccupiedCoreAssumption::TimedOut)
+			.await
+		{
+			Ok(Some(pvd)) => pvd.max_pov_size,
+			Ok(None) => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					"No persisted validation data; skipping resubmission entry.",
+				);
+				return None;
+			},
+			Err(err) => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?err,
+					"Failed to fetch persisted validation data; skipping resubmission entry.",
+				);
+				return None;
+			},
+		};
+
+		let parent_header = match self.client.header(parent_hash) {
+			Ok(Some(header)) => header,
+			_ => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?parent_hash,
+					"Parent header unavailable; skipping resubmission entry.",
+				);
+				return None;
+			},
+		};
+
+		let persisted_validation_data = PersistedValidationData {
+			parent_head: parent_header.encode().into(),
+			relay_parent_number: *relay_parent_header.number(),
+			relay_parent_storage_root: *relay_parent_header.state_root(),
+			max_pov_size,
+		};
+
+		Some((relay_parent_header, relay_parent_session, persisted_validation_data))
+	}
+
 	/// Execute the given block and collect the storage proof.
 	///
 	/// We need to execute the block on this level here, because we are collecting the storage
@@ -208,7 +335,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 	/// The proof must be recorded in exactly the same manner as during block building, because the
 	/// proof size is tracked via `ProofSizeExt` and affects runtime state. Without identical proof
 	/// recording, the computed state root would differ and block import would fail.
-	fn execute_block_and_collect_storage_proof(
+	async fn execute_block_and_collect_storage_proof(
 		&self,
 		params: &mut sc_consensus::BlockImportParams<Block>,
 		time_ms: u64,
@@ -315,17 +442,28 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 			});
 		}
 
-		prepare_resubmission_aux_data::<Block>(
-			block_hash,
-			time_ms,
-			None,
-			None,
-			core_info.selector,
-			Arc::new(storage_proof),
-		)
-		.for_each(|(k, v)| {
-			params.auxiliary.push((k, Some(v)));
-		});
+		if let Some((relay_parent_header, relay_parent_session, persisted_validation_data)) =
+			self.resolve_resubmission_data(&relay_block_identifier, parent_hash).await
+		{
+			prepare_resubmission_aux_data::<Block>(
+				block_hash,
+				time_ms,
+				Arc::new(storage_proof),
+				relay_parent_header,
+				relay_parent_session,
+				persisted_validation_data,
+				core_info.selector,
+			)
+			.for_each(|(k, v)| {
+				params.auxiliary.push((k, Some(v)));
+			});
+		} else {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?block_hash,
+				"Skipping resubmission entry for imported block: relay data could not be resolved.",
+			);
+		}
 
 		params.state_action =
 			StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(gen_storage_changes));
@@ -336,7 +474,12 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 
 impl<Block: BlockT, BI: Clone, Client> Clone for SlotBasedBlockImport<Block, BI, Client> {
 	fn clone(&self) -> Self {
-		Self { inner: self.inner.clone(), client: self.client.clone(), sender: self.sender.clone() }
+		Self {
+			inner: self.inner.clone(),
+			client: self.client.clone(),
+			sender: self.sender.clone(),
+			relay_data_source: self.relay_data_source.clone(),
+		}
 	}
 }
 
@@ -370,7 +513,7 @@ where
 			params.with_state() ||
 			params.state_action.skip_execution_checks())
 		{
-			self.execute_block_and_collect_storage_proof(&mut params, time_ms)?;
+			self.execute_block_and_collect_storage_proof(&mut params, time_ms).await?;
 		}
 
 		self.inner.import_block(params).await.map_err(Into::into)
