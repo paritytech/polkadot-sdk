@@ -67,9 +67,9 @@ use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed,
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	runtime_api::{StatementSource, StatementStoreExt},
-	AccountId, BlockHash, Channel, DecryptionKey, FilterDecision, Hash, InvalidReason,
-	OptimizedTopicFilter, RejectionReason, Result, SignatureVerificationResult, Statement,
-	StatementAllowance, StatementEvent, SubmitResult,
+	AccountId, BlockHash, CategoryMask, Channel, DecryptionKey, FilterDecision, Hash,
+	InvalidReason, OptimizedTopicFilter, RejectionReason, Result, SignatureVerificationResult,
+	Statement, StatementAllowance, StatementEvent, SubmitResult,
 };
 pub use sp_statement_store::{Error, StatementStore, Topic, MAX_TOPICS};
 use std::{
@@ -294,6 +294,9 @@ struct QueryIndex {
 	by_dec_key: HashMap<Option<DecryptionKey>, HashSet<Hash>>,
 	topics_and_keys: HashMap<Hash, ([Option<Topic>; MAX_TOPICS], Option<DecryptionKey>)>,
 	recent: HashSet<Hash>,
+	/// Statements held only until the next propagation.
+	// TODO: temporary PoC solution for the DHT-affinity work (#11932).
+	transient: HashMap<Hash, Statement>,
 }
 
 /// Index for submit operations (constraint checking, entries, accounts).
@@ -1216,10 +1219,16 @@ impl StatementStore for Store {
 	}
 
 	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>> {
-		let mut query_index = self.query_index.write();
-		let recent = query_index.take_recent();
+		let (recent, mut transient) = {
+			let mut query_index = self.query_index.write();
+			(query_index.take_recent(), std::mem::take(&mut query_index.transient))
+		};
 		let mut result = Vec::with_capacity(recent.len());
 		for hash in recent {
+			if let Some(statement) = transient.remove(&hash) {
+				result.push((hash, statement));
+				continue;
+			}
 			let Some(encoded) =
 				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
 			else {
@@ -1365,8 +1374,18 @@ impl StatementStore for Store {
 		})
 	}
 
-	/// Submit a statement to the store. Validates the statement and returns validation result.
+	/// Submit a persistent statement to the store.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
+		self.submit_with_category_mask(statement, source, CategoryMask::persistent())
+	}
+
+	/// Submit a statement to the store. Validates the statement and returns validation result.
+	fn submit_with_category_mask(
+		&self,
+		statement: Statement,
+		source: StatementSource,
+		mask: CategoryMask,
+	) -> SubmitResult {
 		let _histogram_submit_start_timer = self.metrics.start_submit_timer();
 		let hash = statement.hash();
 		// Get unix timestamp
@@ -1494,6 +1513,27 @@ impl StatementStore for Store {
 				return SubmitResult::InternalError(e);
 			},
 		};
+
+		// A transient statement passes the same validation as a persistent one, including the
+		// allowance check above, but skips the quota accounting and is never written to the DB.
+		if !mask.is_persistent() {
+			let mut query_index = self.query_index.write();
+			if query_index.transient.contains_key(&hash) {
+				self.metrics.report(|metrics| {
+					metrics.known_statements.with_label_values(&["known"]).inc();
+				});
+				return SubmitResult::Known;
+			}
+			query_index.transient.insert(hash, statement);
+			query_index.recent.insert(hash);
+			self.metrics.report(|metrics| metrics.submitted_statements.inc());
+			log::trace!(
+				target: LOG_TARGET,
+				"Transient statement stored: {:?}",
+				HexDisplay::from(&hash)
+			);
+			return SubmitResult::New;
+		}
 
 		let current_time = self.timestamp();
 		let evicted = {
@@ -1660,8 +1700,8 @@ mod tests {
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
-		AccountId, Channel, DecryptionKey, InvalidReason, Proof, RejectionReason, Statement,
-		StatementSource, StatementStore, SubmitResult, Topic,
+		AccountId, CategoryMask, Channel, DecryptionKey, InvalidReason, Proof, RejectionReason,
+		Statement, StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
@@ -2029,6 +2069,60 @@ mod tests {
 
 		// Recent statements are cleared, but statements remain in the store.
 		assert_eq!(store.statements().unwrap().len(), 4);
+	}
+
+	#[test]
+	fn transient_statement_is_served_once_then_dropped() {
+		let (store, _temp) = test_store();
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+
+		assert_eq!(
+			store.submit_with_category_mask(
+				statement.clone(),
+				StatementSource::Network,
+				CategoryMask::TRANSIENT,
+			),
+			SubmitResult::New,
+		);
+
+		// Invisible to the query API: the store behaves as if it holds no transient statement.
+		assert!(!store.has_statement(&hash));
+		assert_eq!(store.statement(&hash).unwrap(), None);
+		assert!(store.statements().unwrap().is_empty());
+
+		// Yet the first propagation pull forwards it once.
+		let recent = store.take_recent_statements().unwrap();
+		assert_eq!(recent, vec![(hash, statement)]);
+
+		// And after that it is gone: not pulled again, never persisted.
+		assert!(!store.has_statement(&hash));
+		assert_eq!(store.statement(&hash).unwrap(), None);
+		assert!(store.take_recent_statements().unwrap().is_empty());
+		assert!(store.statements().unwrap().is_empty());
+	}
+
+	#[test]
+	fn resubmitting_transient_statement_reports_known() {
+		let (store, _temp) = test_store();
+		let statement = signed_statement(0);
+
+		assert_eq!(
+			store.submit_with_category_mask(
+				statement.clone(),
+				StatementSource::Network,
+				CategoryMask::TRANSIENT,
+			),
+			SubmitResult::New,
+		);
+		assert_eq!(
+			store.submit_with_category_mask(
+				statement,
+				StatementSource::Network,
+				CategoryMask::TRANSIENT,
+			),
+			SubmitResult::Known,
+		);
 	}
 
 	#[test]
