@@ -71,6 +71,7 @@ impl<MaxPeaks: Get<u32>> MmrAccumulator for Mmr<MaxPeaks> {
 		self.size += 1;
 	}
 
+	/// Get the root hash of the MMR.
 	fn root(&self) -> Hash {
 		if self.size == 0 {
 			empty_root()
@@ -79,11 +80,14 @@ impl<MaxPeaks: Get<u32>> MmrAccumulator for Mmr<MaxPeaks> {
 		}
 	}
 
+	/// Get the size of the MMR.
 	fn size(&self) -> u64 {
 		self.size
 	}
 }
 
+
+/// Merges two sibling nodes into a parent by hashing `[INNER_TAG, left, right]`.
 pub fn merge_inner(left: Hash, right: Hash) -> Hash {
 	let mut preimage = Vec::with_capacity(1 + 32 + 32);
 	preimage.push(INNER_TAG);
@@ -92,6 +96,7 @@ pub fn merge_inner(left: Hash, right: Hash) -> Hash {
 	blake2_256(&preimage).into()
 }
 
+/// Bags all peaks into a single root by hashing `[PEAK_TAG, peak_0, peak_1, ...]`.
 pub fn merge_peaks(peaks: &[Hash]) -> Hash {
 	let mut preimage = Vec::with_capacity(1 + 32 * peaks.len());
 	preimage.push(PEAK_TAG);
@@ -102,6 +107,7 @@ pub fn merge_peaks(peaks: &[Hash]) -> Hash {
 	blake2_256(&preimage).into()
 }
 
+/// Returns the canonical root of an MMR with no leaves, hashed as `[EMPTY_TAG]`.
 pub fn empty_root() -> Hash {
 	let preimage = [EMPTY_TAG];
 	blake2_256(&preimage).into()
