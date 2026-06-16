@@ -807,10 +807,11 @@ pub mod pallet {
 		NotFrozen,
 		/// Callback action resulted in error
 		CallbackFailed,
-		/// The asset id is not valid for the auto-increment sequence: either it must be equal to
-		/// the [`NextAssetId`] (for `create`), or maintaining the sequence past it would overflow
-		/// the id space.
+		/// The asset ID must be equal to the [`NextAssetId`].
 		BadAssetId,
+		/// The auto-increment sequence cannot be advanced past the requested id without
+		/// overflowing the id space.
+		NextAssetIdOverflow,
 		/// The asset cannot be destroyed because some accounts for this asset contain freezes.
 		ContainsFreezes,
 		/// The asset cannot be destroyed because some accounts for this asset contain holds.
@@ -888,7 +889,7 @@ pub mod pallet {
 			);
 			ensure!(T::CallbackHandle::created(&id, &owner).is_ok(), Error::<T, I>::CallbackFailed);
 			// Advance the auto-increment sequence past the just-created sequential id.
-			T::AssetIdSequencer::increment().map_err(|_| Error::<T, I>::BadAssetId)?;
+			T::AssetIdSequencer::increment().map_err(|_| Error::<T, I>::NextAssetIdOverflow)?;
 			Self::deposit_event(Event::Created {
 				asset_id: id,
 				creator: owner.clone(),
