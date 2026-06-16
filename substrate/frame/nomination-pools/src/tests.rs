@@ -7717,6 +7717,68 @@ mod slash {
 			assert_eq!(BondedPool::<Runtime>::get(1).unwrap(), bonded(12 + 24, 3));
 		});
 	}
+
+	// A slash that targets an unbonding era must be applied to that era's own `with_era` bucket.
+	// When the effective post-unbonding window widens (e.g. the bonding duration is lowered), eras
+	// that a narrower window would have merged into `no_era` are instead retained, so the slash is
+	// routed to the correct per-era bucket rather than being dropped or applied to the wrong pool.
+	#[test]
+	fn slash_lands_in_correct_bucket_after_window_widens() {
+		use sp_staking::OnStakingUpdate;
+
+		// We hand-craft `SubPoolsStorage` to exercise the slash-routing logic in isolation, which
+		// would otherwise desync the TVL bookkeeping that `do_try_state` validates.
+		ExtBuilder::default().with_check(0).build_and_execute(|| {
+			assert_eq!(<Runtime as Config>::MaxUnbondingPools::get(), 5);
+
+			// Unbonding sub-pools spanning eras 1..=4, each with a 10/10 points-to-balance ratio.
+			let new_pools = || SubPools::<Runtime> {
+				no_era: UnbondPool::<Runtime>::default(),
+				with_era: unbonding_pools_with_era! {
+					1 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+					2 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+					3 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+					4 => UnbondPool::<Runtime> { points: 10, balance: 10 },
+				},
+			};
+
+			// With bonding duration 3 the effective window is `5 - 3 = 2`: at era 4, eras <= 2 are
+			// merged into `no_era`, so era 1 no longer has its own bucket...
+			BondingDuration::set(3);
+			assert!(new_pools().maybe_merge_pools(4).with_era.get(&1).is_none());
+
+			// ...but lowering the bonding duration to 1 widens the window to `5 - 1 = 4`: at era 4
+			// only era <= 0 is merged, so era 1 keeps its own bucket.
+			BondingDuration::set(1);
+			let widened = new_pools().maybe_merge_pools(4);
+			assert_eq!(widened.with_era.keys().copied().collect::<Vec<_>>(), vec![1, 2, 3, 4]);
+			SubPoolsStorage::<Runtime>::insert(1, widened);
+
+			let _ = pool_events_since_last_call();
+
+			// A slash that targets era 1 lands in era 1's bucket (reducing 10 -> 4), leaving the
+			// other era buckets and `no_era` untouched.
+			let slashed_unlocking: BTreeMap<EraIndex, Balance> = [(1, 4)].into_iter().collect();
+			Pools::on_slash(&default_bonded_account(), 0, &slashed_unlocking, 6);
+
+			let after = SubPoolsStorage::<Runtime>::get(1).unwrap();
+			assert_eq!(after.with_era.get(&1).unwrap().balance, 4);
+			assert_eq!(after.with_era.get(&2).unwrap().balance, 10);
+			assert_eq!(after.with_era.get(&3).unwrap().balance, 10);
+			assert_eq!(after.with_era.get(&4).unwrap().balance, 10);
+			assert_eq!(after.no_era.balance, 0);
+			assert_eq!(after.no_era.points, 0);
+
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::UnbondingPoolSlashed { pool_id: 1, era: 1, balance: 4 },
+					Event::PoolSlashed { pool_id: 1, balance: 0 },
+				]
+			);
+
+		});
+	}
 }
 
 mod chill {
