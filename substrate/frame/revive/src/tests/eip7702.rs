@@ -190,7 +190,7 @@ fn authorization_happy_path() {
 		let existing_one = AuthorizationResult {
 			existing_accounts: 1,
 			new_accounts: 0,
-			deposit: 0,
+			deposit: crate::StorageDeposit::Charge(0),
 			weight_refund: expected_weight_refund(0, 1),
 		};
 
@@ -222,7 +222,7 @@ fn invalid_authorization_is_skipped() {
 		let skipped = AuthorizationResult {
 			existing_accounts: 0,
 			new_accounts: 0,
-			deposit: 0,
+			deposit: crate::StorageDeposit::Charge(0),
 			weight_refund: expected_weight_refund_for(1, 0, 0),
 		};
 
@@ -287,7 +287,7 @@ fn contract_account_rejects_authorization() {
 			AuthorizationResult {
 				existing_accounts: 0,
 				new_accounts: 0,
-				deposit: 0,
+				deposit: crate::StorageDeposit::Charge(0),
 				weight_refund: expected_weight_refund_for(1, 0, 0)
 			}
 		);
@@ -320,7 +320,7 @@ fn multiple_authorizations_with_same_nonce_first_wins() {
 			AuthorizationResult {
 				existing_accounts: 1,
 				new_accounts: 0,
-				deposit: 0,
+				deposit: crate::StorageDeposit::Charge(0),
 				weight_refund: expected_weight_refund_for(3, 0, 1)
 			},
 		);
@@ -346,7 +346,7 @@ fn new_account_sets_delegation() {
 			AuthorizationResult {
 				existing_accounts: 0,
 				new_accounts: 1,
-				deposit: 1,
+				deposit: crate::StorageDeposit::Charge(1),
 				weight_refund: expected_weight_refund(1, 0)
 			},
 		);
@@ -371,7 +371,7 @@ fn clearing_delegation_with_zero_address() {
 			AuthorizationResult {
 				existing_accounts: 1,
 				new_accounts: 0,
-				deposit: 0,
+				deposit: crate::StorageDeposit::Charge(0),
 				weight_refund: expected_weight_refund(0, 1)
 			},
 		);
@@ -384,7 +384,7 @@ fn clearing_delegation_with_zero_address() {
 			AuthorizationResult {
 				existing_accounts: 1,
 				new_accounts: 0,
-				deposit: 0,
+				deposit: crate::StorageDeposit::Charge(0),
 				weight_refund: expected_weight_refund(0, 1)
 			},
 		);
@@ -439,7 +439,7 @@ fn process_multiple_authorizations_from_different_signers() {
 			AuthorizationResult {
 				existing_accounts: 2,
 				new_accounts: 1,
-				deposit: 1,
+				deposit: crate::StorageDeposit::Charge(1),
 				weight_refund: expected_weight_refund(1, 2)
 			},
 		);
@@ -1157,6 +1157,37 @@ fn delegation_deposit_lifecycle() {
 			"hold should be fully released after clearing delegation"
 		);
 		assert!(get_contract_checked(&setup.signer.address).is_none());
+	});
+}
+
+/// Regression: an EIP-7702 transaction that revokes more delegation deposit than it charges must
+/// surface a `Refund(N)` from `process_authorizations`, not a clamped `Charge(0)`. The previous
+/// implementation aggregated on `BalanceOf<T>` (unsigned) and silently lost the net refund.
+#[test]
+fn pure_revoke_authorization_yields_net_refund() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+
+		let target = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+			.build_and_unwrap_contract();
+		let expected_deposit = get_contract(&target.addr).storage_base_deposit();
+		assert!(expected_deposit > 0, "real contract must carry a non-zero code deposit");
+
+		let setup = DelegationTestSetup::new([0xAB; 32]);
+		let charge_result = setup.authorize(target.addr);
+		assert_eq!(
+			charge_result.deposit,
+			crate::StorageDeposit::Charge(expected_deposit),
+			"set_delegation to a real contract must produce a positive net charge",
+		);
+
+		let revoke_auth = setup.sign_authorization(H160::zero());
+		let revoke_result = setup.process(&[revoke_auth]);
+		assert_eq!(
+			revoke_result.deposit,
+			crate::StorageDeposit::Refund(expected_deposit),
+			"pure-revoke authorization must propagate as Refund, not be clamped to zero",
+		);
 	});
 }
 

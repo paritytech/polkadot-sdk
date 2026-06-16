@@ -39,29 +39,35 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_core::{Get, H160, U256};
-use sp_runtime::{SaturatedConversion, Saturating};
+use sp_runtime::SaturatedConversion;
 
 /// EIP-7702: Magic value for authorization signature message
 const EIP7702_MAGIC: u8 = 0x05;
 
 /// Per-authorization storage-change delta, returned from the inner `with_transaction` block so
 /// `result` is only updated when the auth committed.
-#[derive(Default)]
-struct AuthDelta<Balance: Default> {
+struct AuthDelta<Balance> {
 	is_new_account: bool,
-	charged: Balance,
-	refunded: Balance,
+	deposit: StorageDeposit<Balance>,
+}
+
+impl<Balance: sp_runtime::traits::Zero> Default for AuthDelta<Balance> {
+	fn default() -> Self {
+		Self { is_new_account: false, deposit: StorageDeposit::default() }
+	}
 }
 
 /// Result of processing EIP-7702 authorization tuples.
 #[derive(Default, Debug, PartialEq, Eq)]
-pub struct AuthorizationResult<Balance: Default> {
+pub struct AuthorizationResult<Balance: sp_runtime::traits::Zero> {
 	/// Number of authorizations that created new accounts.
 	pub new_accounts: u32,
 	/// Number of authorizations that applied to existing accounts.
 	pub existing_accounts: u32,
-	/// Total deposit charged from the origin during authorization processing.
-	pub deposit: Balance,
+	/// Net deposit movement caused by authorization processing. `Charge` if more was charged than
+	/// refunded (e.g. new-account ED + delegation deposits), `Refund` if revokes outweighed new
+	/// charges (e.g. clearing delegations on existing accounts).
+	pub deposit: StorageDeposit<Balance>,
 	/// Weight to refund for authorizations that hit existing accounts.
 	pub weight_refund: Weight,
 }
@@ -150,7 +156,7 @@ pub fn process_authorizations<T: Config>(
 								amount,
 								exec_config,
 							)?;
-							delta.charged = amount;
+							delta.deposit = StorageDeposit::Charge(amount);
 						},
 						StorageDeposit::Refund(amount) => {
 							Pallet::<T>::refund_deposit(
@@ -159,7 +165,7 @@ pub fn process_authorizations<T: Config>(
 								exec_config.funds(origin),
 								amount,
 							)?;
-							delta.refunded = amount;
+							delta.deposit = StorageDeposit::Refund(amount);
 						},
 					}
 
@@ -180,13 +186,12 @@ pub fn process_authorizations<T: Config>(
 		};
 
 		if delta.is_new_account {
-			result.deposit.saturating_accrue(ed);
+			result.deposit = result.deposit.saturating_add(&StorageDeposit::Charge(ed));
 			result.new_accounts += 1;
 		} else {
 			result.existing_accounts += 1;
 		}
-		result.deposit.saturating_accrue(delta.charged);
-		result.deposit = result.deposit.saturating_sub(delta.refunded);
+		result.deposit = result.deposit.saturating_add(&delta.deposit);
 	}
 
 	// Weight accounting:
