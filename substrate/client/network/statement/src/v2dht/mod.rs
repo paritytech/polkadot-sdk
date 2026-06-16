@@ -171,23 +171,16 @@ impl V2DhtOrchestrator {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::test_helpers::{filter_over, statement_on, topic};
-	use std::num::NonZeroUsize;
+	use crate::test_helpers::{filter_over, statement_on, topic, topology_config};
 
 	fn orchestrator() -> V2DhtOrchestrator {
 		V2DhtOrchestrator::new(&[], PeerId::random(), PeersTopologyConfig::default())
 	}
 
-	fn config(replication_factor: usize) -> PeersTopologyConfig {
-		PeersTopologyConfig {
-			replication_factor: NonZeroUsize::new(replication_factor).expect("non-zero"),
-			gossip_target: NonZeroUsize::new(1).expect("non-zero"),
-		}
-	}
-
 	#[test]
 	fn category_for_marks_explicit_affinity() {
-		let orchestrator = V2DhtOrchestrator::new(&[topic(1)], PeerId::random(), config(20));
+		let orchestrator =
+			V2DhtOrchestrator::new(&[topic(1)], PeerId::random(), topology_config(20, 1));
 
 		let mask = orchestrator.category_for(&statement_on(topic(1)));
 
@@ -198,7 +191,7 @@ mod tests {
 	#[test]
 	fn category_for_marks_dht_affinity_when_local_is_a_replica() {
 		// An empty topology makes the local node a replica for every topic.
-		let orchestrator = V2DhtOrchestrator::new(&[], PeerId::random(), config(20));
+		let orchestrator = V2DhtOrchestrator::new(&[], PeerId::random(), topology_config(20, 1));
 
 		let mask = orchestrator.category_for(&statement_on(topic(9)));
 
@@ -209,7 +202,7 @@ mod tests {
 	#[test]
 	fn category_for_is_transient_without_any_affinity() {
 		// One replica per topic, so a single closer peer displaces the local node.
-		let mut orchestrator = V2DhtOrchestrator::new(&[], PeerId::random(), config(1));
+		let mut orchestrator = V2DhtOrchestrator::new(&[], PeerId::random(), topology_config(1, 1));
 		let peers = (0..32).map(|_| PeerId::random()).collect::<Vec<_>>();
 		orchestrator.on_peers_discovered(peers.clone());
 		for peer in &peers {
