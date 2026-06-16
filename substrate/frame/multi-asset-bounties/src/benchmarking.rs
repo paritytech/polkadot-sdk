@@ -579,9 +579,12 @@ mod benchmarks {
 			}
 			.into(),
 		);
-		let payment_id =
-			get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id), s.asset_kind.clone())
-				.expect("no payment attempt");
+		let payment_id = get_payment_id::<T, I>(
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+			s.asset_kind.clone(),
+		)
+		.expect("no payment attempt");
 		assert_has_event::<T, I>(
 			Event::Paid {
 				index: s.parent_bounty_id,
@@ -609,9 +612,12 @@ mod benchmarks {
 		let s = create_child_bounty::<T, I>()?;
 		let caller = s.curator.clone();
 
-		let payment_id =
-			get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id), s.asset_kind.clone())
-				.expect("no payment attempt");
+		let payment_id = get_payment_id::<T, I>(
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+			s.asset_kind.clone(),
+		)
+		.expect("no payment attempt");
 		<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
 
 		#[block]
@@ -649,9 +655,12 @@ mod benchmarks {
 			s.parent_bounty_id,
 			Some(s.child_bounty_id),
 		)?;
-		let payment_id =
-			get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id), s.asset_kind.clone())
-				.expect("no payment attempt");
+		let payment_id = get_payment_id::<T, I>(
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+			s.asset_kind.clone(),
+		)
+		.expect("no payment attempt");
 		<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
 
 		#[block]
@@ -684,9 +693,12 @@ mod benchmarks {
 		let s = create_awarded_child_bounty::<T, I>()?;
 		let caller = s.child_curator.clone();
 
-		let payment_id =
-			get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id), s.asset_kind.clone())
-				.expect("no payment attempt");
+		let payment_id = get_payment_id::<T, I>(
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+			s.asset_kind.clone(),
+		)
+		.expect("no payment attempt");
 		<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
 
 		#[block]
@@ -721,9 +733,12 @@ mod benchmarks {
 		let s = create_child_bounty::<T, I>()?;
 		let caller = s.curator.clone();
 
-		let payment_id =
-			get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id), s.asset_kind.clone())
-				.expect("no payment attempt");
+		let payment_id = get_payment_id::<T, I>(
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+			s.asset_kind.clone(),
+		)
+		.expect("no payment attempt");
 		<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
 		// Put the single asset row into the "funding failed" state. The bounty status remains
 		// `Funding` (set by `create_child_bounty`), which is what `retry_payment` matches on to
@@ -744,9 +759,12 @@ mod benchmarks {
 			));
 		}
 
-		let payment_id =
-			get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id), s.asset_kind.clone())
-				.expect("no payment attempt");
+		let payment_id = get_payment_id::<T, I>(
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+			s.asset_kind.clone(),
+		)
+		.expect("no payment attempt");
 		assert_last_event::<T, I>(
 			Event::Paid {
 				index: s.parent_bounty_id,
@@ -767,7 +785,11 @@ mod benchmarks {
 			Some(s.child_bounty_id),
 		));
 		assert_eq!(
-			get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id), s.asset_kind.clone()),
+			get_payment_id::<T, I>(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id),
+				s.asset_kind.clone()
+			),
 			Some(payment_id)
 		);
 
@@ -803,9 +825,12 @@ mod benchmarks {
 			));
 		}
 
-		let payment_id =
-			get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id), s.asset_kind.clone())
-				.expect("no payment attempt");
+		let payment_id = get_payment_id::<T, I>(
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+			s.asset_kind.clone(),
+		)
+		.expect("no payment attempt");
 		assert_last_event::<T, I>(
 			Event::Paid {
 				index: s.parent_bounty_id,
@@ -826,7 +851,11 @@ mod benchmarks {
 			Some(s.child_bounty_id),
 		));
 		assert_eq!(
-			get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id), s.asset_kind.clone()),
+			get_payment_id::<T, I>(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id),
+				s.asset_kind.clone()
+			),
 			Some(payment_id)
 		);
 
@@ -865,9 +894,12 @@ mod benchmarks {
 			));
 		}
 
-		let payment_id =
-			get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id), s.asset_kind.clone())
-				.expect("no payment attempt");
+		let payment_id = get_payment_id::<T, I>(
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+			s.asset_kind.clone(),
+		)
+		.expect("no payment attempt");
 		assert_last_event::<T, I>(
 			Event::Paid {
 				index: s.parent_bounty_id,
@@ -888,7 +920,11 @@ mod benchmarks {
 			Some(s.child_bounty_id),
 		));
 		assert_eq!(
-			get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id), s.asset_kind.clone()),
+			get_payment_id::<T, I>(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id),
+				s.asset_kind.clone()
+			),
 			Some(payment_id)
 		);
 

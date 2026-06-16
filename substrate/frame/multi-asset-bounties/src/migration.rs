@@ -173,8 +173,9 @@ fn map_status<AccountId, PaymentId, Beneficiary>(
 		v1::BountyStatus::CuratorUnassigned => BountyStatus::CuratorUnassigned,
 		v1::BountyStatus::Active { curator } => BountyStatus::Active { curator },
 		v1::BountyStatus::RefundAttempted { curator, .. } => BountyStatus::Closing { curator },
-		v1::BountyStatus::PayoutAttempted { curator, beneficiary, .. } =>
-			BountyStatus::Awarding { curator, beneficiary },
+		v1::BountyStatus::PayoutAttempted { curator, beneficiary, .. } => {
+			BountyStatus::Awarding { curator, beneficiary }
+		},
 	}
 }
 
@@ -456,8 +457,8 @@ mod tests {
 			assert_eq!(crate::ChildValuePerParentAsset::<Test, ()>::get(0, 7), 0);
 
 			// Child asset row inherits parent's asset kind.
-			let child_asset = crate::ChildBountyAssets::<Test, ()>::get((1, 0), 9)
-				.expect("child asset row");
+			let child_asset =
+				crate::ChildBountyAssets::<Test, ()>::get((1, 0), 9).expect("child asset row");
 			assert_eq!(child_asset.value, 20);
 			assert_eq!(child_asset.payment_state, PaymentState::Succeeded);
 

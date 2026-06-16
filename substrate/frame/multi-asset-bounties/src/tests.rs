@@ -85,7 +85,8 @@ fn fund_bounty_works() {
 
 		// Then
 		let index = 0;
-		let bounty_account = Bounties::bounty_account(index, asset_kind).expect("conversion failed");
+		let bounty_account =
+			Bounties::bounty_account(index, asset_kind).expect("conversion failed");
 		let payment_id = get_payment_id(index, None, asset_kind).expect("no payment attempt");
 		// The funding payment landed in the bounty account for this asset.
 		assert_eq!(paid(bounty_account, asset_kind), value);
@@ -141,10 +142,7 @@ fn fund_bounty_multi_asset_works() {
 		approve_all_payments(index, None, &payment_ids[..2]);
 		assert_eq!(status(index), BountyStatus::Funding { curator });
 		// The two approved rows succeeded, the third remains attempted.
-		assert!(matches!(
-			bounty_asset(index, 1).unwrap().payment_state,
-			PaymentState::Succeeded
-		));
+		assert!(matches!(bounty_asset(index, 1).unwrap().payment_state, PaymentState::Succeeded));
 		assert!(matches!(
 			bounty_asset(index, 3).unwrap().payment_state,
 			PaymentState::Attempted { .. }
@@ -267,7 +265,10 @@ fn active_multi_asset_parent() -> (BountyIndex, u128, <Test as frame_system::Con
 	let metadata = note_preimage(1);
 	// Curator deposit covers total native value (90 -> 50% = 45).
 	let total = 50 + 40;
-	let _ = Balances::mint_into(&curator, Balances::minimum_balance() + CuratorDepositCalc::convert(total));
+	let _ = Balances::mint_into(
+		&curator,
+		Balances::minimum_balance() + CuratorDepositCalc::convert(total),
+	);
 	assert_ok!(Bounties::fund_bounty(
 		RuntimeOrigin::root(),
 		basket(vec![(1, 50), (2, 40)]),
@@ -473,11 +474,7 @@ fn award_parent_subtracts_child_allocation() {
 		// Scenario 2: close the child (refund its allocation back), then award the parent for the
 		// full value. The over-allocation guard `ChildValuePerParentAsset` is reverted on close, so
 		// the parent payout for asset 1 equals the full 50 again.
-		assert_ok!(Bounties::close_bounty(
-			RuntimeOrigin::signed(curator),
-			parent,
-			Some(child),
-		));
+		assert_ok!(Bounties::close_bounty(RuntimeOrigin::signed(curator), parent, Some(child),));
 		let refund_id = get_payment_id(parent, Some(child), 1).unwrap();
 		approve_all_payments(parent, Some(child), &[(1, refund_id)]);
 		assert_eq!(pallet_bounties::ChildBountiesPerParent::<Test>::get(parent), 0);
@@ -586,10 +583,7 @@ fn close_bounty_refunds_every_asset() {
 		// When: close.
 		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), index, None));
 		assert_eq!(status(index), BountyStatus::Closing { curator: Some(curator) });
-		assert_eq!(
-			last_event(),
-			BountiesEvent::BountyCanceled { index, child_index: None }
-		);
+		assert_eq!(last_event(), BountiesEvent::BountyCanceled { index, child_index: None });
 
 		// Approve both refunds.
 		let rid1 = get_payment_id(index, None, 1).unwrap();
@@ -678,10 +672,7 @@ fn unassign_curator_burns_or_returns_deposit() {
 		// Burned: reserved gone and NOT returned to free balance.
 		assert_eq!(Balances::reserved_balance(curator), 0);
 		assert_eq!(Balances::free_balance(curator), free_before);
-		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(parent, None::<BountyIndex>),
-			None
-		);
+		assert_eq!(pallet_bounties::CuratorDeposit::<Test>::get(parent, None::<BountyIndex>), None);
 
 		// Case 2: curator self-unassigns an active multi-asset bounty -> deposit returned.
 		let (parent2, curator2, _metadata2) = active_multi_asset_parent_at(1, 6);
@@ -705,7 +696,10 @@ fn active_multi_asset_parent_at(
 ) -> (BountyIndex, u128, <Test as frame_system::Config>::Hash) {
 	let metadata = note_preimage(preimage_seed);
 	let total = 50 + 40;
-	let _ = Balances::mint_into(&curator, Balances::minimum_balance() + CuratorDepositCalc::convert(total));
+	let _ = Balances::mint_into(
+		&curator,
+		Balances::minimum_balance() + CuratorDepositCalc::convert(total),
+	);
 	assert_ok!(Bounties::fund_bounty(
 		RuntimeOrigin::root(),
 		basket(vec![(1, 50), (2, 40)]),
@@ -864,7 +858,10 @@ fn close_parent_refunds_only_remaining_value_after_child_payout() {
 			Some(s.child_bounty_id)
 		));
 		assert_eq!(
-			pallet_bounties::ChildValuePerParentAsset::<Test>::get(s.parent_bounty_id, s.asset_kind),
+			pallet_bounties::ChildValuePerParentAsset::<Test>::get(
+				s.parent_bounty_id,
+				s.asset_kind
+			),
 			s.child_value
 		);
 		let funding_source =
@@ -906,7 +903,10 @@ fn close_parent_bounty_after_child_payout_refunds_remaining_value() {
 		);
 		assert_eq!(pallet_bounties::ChildBountiesPerParent::<Test>::get(s.parent_bounty_id), 0);
 		assert_eq!(
-			pallet_bounties::ChildValuePerParentAsset::<Test>::get(s.parent_bounty_id, s.asset_kind),
+			pallet_bounties::ChildValuePerParentAsset::<Test>::get(
+				s.parent_bounty_id,
+				s.asset_kind
+			),
 			s.child_value
 		);
 		let remaining = s.value - s.child_value;
@@ -927,7 +927,10 @@ fn close_parent_bounty_after_child_payout_refunds_remaining_value() {
 		approve_payment(funding_source_account, s.parent_bounty_id, None, s.asset_kind, remaining);
 		assert_eq!(pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id), None);
 		assert_eq!(
-			pallet_bounties::ChildValuePerParentAsset::<Test>::get(s.parent_bounty_id, s.asset_kind),
+			pallet_bounties::ChildValuePerParentAsset::<Test>::get(
+				s.parent_bounty_id,
+				s.asset_kind
+			),
 			0
 		);
 		expect_events(vec![
@@ -1111,7 +1114,10 @@ fn increase_value_creates_child_bounty_headroom() {
 			None,
 		));
 		assert_eq!(
-			pallet_bounties::ChildValuePerParentAsset::<Test>::get(s.parent_bounty_id, s.asset_kind),
+			pallet_bounties::ChildValuePerParentAsset::<Test>::get(
+				s.parent_bounty_id,
+				s.asset_kind
+			),
 			s.value
 		);
 
@@ -1150,7 +1156,10 @@ fn increase_value_creates_child_bounty_headroom() {
 			None,
 		));
 		assert_eq!(
-			pallet_bounties::ChildValuePerParentAsset::<Test>::get(s.parent_bounty_id, s.asset_kind),
+			pallet_bounties::ChildValuePerParentAsset::<Test>::get(
+				s.parent_bounty_id,
+				s.asset_kind
+			),
 			s.value + increase, // 80
 		);
 	});
