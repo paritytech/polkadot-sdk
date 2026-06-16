@@ -1,0 +1,12 @@
+title: Fix `AllowedSchedulingParents` off by one error
+doc:
+- audience: Runtime Dev
+  description: |-
+    Related to https://github.com/paritytech/polkadot-sdk/issues/11624
+
+    As far as i understand `initializer_on_new_session()` is called after `new_block()`. So for the first block in each session, the pruning wasn't happening.
+
+    Therefore I moved the prunning inside `initializer_on_new_session()`
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch
