@@ -1403,7 +1403,7 @@ where
 
 	/// Send the `indices` of `statements` to `peer`, batched.
 	///
-	/// The v2 DHT path's [`V2DhtOrchestrator::propagate_statements`] already decided that `peer`
+	/// The v2 DHT path's [`V2DhtOrchestrator::propagation_plan`] already decided that `peer`
 	/// should receive these statements, so this skips the explicit-affinity bloom filter that
 	/// [`Self::send_statements_to_peer`] applies and only drops statements the peer already knows.
 	async fn send_targeted_statements_to_peer(
@@ -1478,7 +1478,7 @@ where
 		}
 
 		if v2dht_enabled() {
-			for (who, indices) in self.v2dht.propagate_statements(&statements) {
+			for (who, indices) in self.v2dht.propagation_plan(&statements) {
 				self.send_targeted_statements_to_peer(&who, &statements, &indices).await;
 			}
 		} else {
@@ -2284,6 +2284,51 @@ mod tests {
 		notification_service.clear_sent_notifications();
 		handler.send_targeted_statements_to_peer(&peer_id, &statements, &[0]).await;
 		assert!(notification_service.get_sent_notifications().is_empty());
+	}
+
+	#[tokio::test]
+	async fn send_targeted_statements_ignores_a_disconnected_peer() {
+		let (mut handler, _store, _network, notification_service, _, _) = build_handler(0);
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"orphan".to_vec());
+		let hash = statement.hash();
+		let statements = vec![(hash, statement)];
+
+		handler
+			.send_targeted_statements_to_peer(&PeerId::random(), &statements, &[0])
+			.await;
+		assert!(notification_service.get_sent_notifications().is_empty());
+	}
+
+	#[tokio::test]
+	async fn send_targeted_statements_delivers_only_indexed_unknown_statements() {
+		let (mut handler, _store, _network, notification_service, _, _) = build_handler(0);
+
+		let make = |seed: u8| {
+			let mut statement = Statement::new();
+			statement.set_plain_data(vec![seed]);
+			(statement.hash(), statement)
+		};
+		let statements = vec![make(1), make(2), make(3)];
+
+		let peer_id = PeerId::random();
+		let mut peer = Peer::new_for_testing(
+			LruHashSet::new(NonZeroUsize::new(1000).unwrap()),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT)
+				.expect("nonzero"),
+		);
+		// The peer already holds the statement at index 1.
+		peer.known_statements.insert(statements[1].0);
+		handler.peers.insert(peer_id, peer);
+
+		// The plan names indices 0 and 1: index 1 drops as already known, index 2 is never offered.
+		handler.send_targeted_statements_to_peer(&peer_id, &statements, &[0, 1]).await;
+		assert_eq!(
+			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id),
+			vec![statements[0].0]
+		);
 	}
 
 	#[tokio::test]

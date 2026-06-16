@@ -121,7 +121,7 @@ impl V2DhtOrchestrator {
 	/// A peer is a target for a statement when it is a DHT routing target for one of the
 	/// statement's topics ([`PeersTopology::routing_targets`]) or its advertised filter matches the
 	/// statement ([`ExplicitAffinity::peer_has_explicit_affinity`]).
-	pub(crate) fn propagate_statements(
+	pub(crate) fn propagation_plan(
 		&self,
 		statements: &[(Hash, Statement)],
 	) -> Vec<(PeerId, Vec<usize>)> {
@@ -201,7 +201,7 @@ mod tests {
 		(statement.hash(), statement)
 	}
 
-	/// Routing targets `propagate_statements` is expected to reach for `topics`, taken from the
+	/// Routing targets `propagation_plan` is expected to reach for `topics`, taken from the
 	/// already-tested [`PeersTopology::routing_targets`] rather than recomputed from XOR distances.
 	fn routing_targets(orchestrator: &V2DhtOrchestrator, topics: &[Topic]) -> Vec<PeerId> {
 		let mut targets: Vec<PeerId> = topics
@@ -223,7 +223,7 @@ mod tests {
 		let expected = routing_targets(&orchestrator, &topics);
 		assert!(!expected.is_empty(), "fixture must yield routing targets");
 
-		let plan = orchestrator.propagate_statements(&[statement(1, &topics)]);
+		let plan = orchestrator.propagation_plan(&[statement(1, &topics)]);
 
 		let mut planned: Vec<PeerId> = plan.iter().map(|(peer, _)| *peer).collect();
 		planned.sort();
@@ -246,7 +246,7 @@ mod tests {
 			.expect("fixture must yield a routing target");
 
 		let plan =
-			orchestrator.propagate_statements(&[statement(1, &[topic]), statement(2, &[topic])]);
+			orchestrator.propagation_plan(&[statement(1, &[topic]), statement(2, &[topic])]);
 
 		let batch = plan
 			.iter()
