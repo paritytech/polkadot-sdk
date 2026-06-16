@@ -139,7 +139,7 @@ impl ExplicitAffinity {
 	}
 
 	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
-	pub(crate) fn local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
+	pub(crate) fn take_local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
 		if !self.local_changed {
 			return None;
 		}
@@ -327,20 +327,20 @@ mod tests {
 	}
 
 	#[test]
-	fn local_filter_if_changed_yields_once_per_change() {
+	fn take_local_filter_if_changed_yields_once_per_change() {
 		let mut affinity = ExplicitAffinity::new(&[topic(1)]);
-		let filter = affinity.local_filter_if_changed().expect("construction marks a change");
+		let filter = affinity.take_local_filter_if_changed().expect("construction marks a change");
 		assert!(filter.contains(&topic(1)));
 
 		// No further change, no filter.
-		assert!(affinity.local_filter_if_changed().is_none());
+		assert!(affinity.take_local_filter_if_changed().is_none());
 
 		// A new topic marks the set changed again; the filter carries it.
 		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(2)]);
-		let filter = affinity.local_filter_if_changed().expect("add marks a change");
+		let filter = affinity.take_local_filter_if_changed().expect("add marks a change");
 		assert!(filter.contains(&topic(1)));
 		assert!(filter.contains(&topic(2)));
-		assert!(affinity.local_filter_if_changed().is_none());
+		assert!(affinity.take_local_filter_if_changed().is_none());
 	}
 
 	#[test]

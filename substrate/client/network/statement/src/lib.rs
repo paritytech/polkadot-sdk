@@ -78,31 +78,8 @@ use std::{
 use tokio::time::timeout;
 use v2dht::V2DhtOrchestrator;
 pub mod config;
-
-/// Fixtures shared across the crate's test modules.
 #[cfg(test)]
-mod test_helpers {
-	use crate::affinity::AffinityFilter;
-	use sp_statement_store::{Statement, Topic};
-
-	/// A topic whose 32 bytes are all `n`.
-	pub(crate) fn topic(n: u8) -> Topic {
-		Topic([n; 32])
-	}
-
-	/// A statement carrying the single `topic`.
-	pub(crate) fn statement_on(topic: Topic) -> Statement {
-		let mut stmt = Statement::new();
-		stmt.set_plain_data(b"data".to_vec());
-		stmt.set_topic(0, topic);
-		stmt
-	}
-
-	/// A filter advertising the given `topics`.
-	pub(crate) fn filter_over(topics: &[Topic]) -> AffinityFilter {
-		AffinityFilter::from_topics(topics.iter().map(|topic| topic.as_ref()), 0)
-	}
-}
+mod test_helpers;
 
 /// A set of statements.
 pub type Statements = Vec<Statement>;
@@ -859,7 +836,7 @@ where
 						// Advertise this node's filter changes before serving peers their backlog.
 						let topics = self.statement_store.subscription_topics();
 						self.v2dht.set_rpc_subscription_topics(&topics);
-						if let Some(filter) = self.v2dht.local_filter_if_changed() {
+						if let Some(filter) = self.v2dht.take_local_filter_if_changed() {
 							self.broadcast_local_filter(filter).await;
 						}
 
@@ -962,13 +939,13 @@ where
 		}
 	}
 
-	/// Advertise a changed affinity filter to every connected V2 peer.
+	/// Advertise a changed affinity filter to every connected peer past V1.
 	async fn broadcast_local_filter(&mut self, filter: AffinityFilter) {
 		let encoded = StatementMessage::ExplicitTopicAffinity(filter).encode();
 		let peers: Vec<PeerId> = self
 			.peers
 			.iter()
-			.filter(|(_, peer)| peer.protocol_version == PeerProtocolVersion::V2)
+			.filter(|(_, peer)| peer.protocol_version != PeerProtocolVersion::V1)
 			.map(|(peer_id, _)| *peer_id)
 			.collect();
 		for peer in peers {
@@ -978,7 +955,7 @@ where
 
 	/// Send this node's affinity filter to a newly connected peer.
 	async fn send_local_filter(&mut self, peer: &PeerId) {
-		if self.peers.get(peer).map(|p| p.protocol_version) != Some(PeerProtocolVersion::V2) {
+		if self.peers.get(peer).map(|p| p.protocol_version) == Some(PeerProtocolVersion::V1) {
 			return;
 		}
 		let encoded = StatementMessage::ExplicitTopicAffinity(self.v2dht.local_filter()).encode();

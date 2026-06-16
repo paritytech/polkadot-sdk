@@ -81,8 +81,8 @@ impl V2DhtOrchestrator {
 	}
 
 	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
-	pub(crate) fn local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
-		self.explicit_affinity.local_filter_if_changed()
+	pub(crate) fn take_local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
+		self.explicit_affinity.take_local_filter_if_changed()
 	}
 
 	// === Peer-set events ===
@@ -186,15 +186,15 @@ mod tests {
 	}
 
 	#[test]
-	fn local_filter_if_changed_reflects_subscription_topics() {
+	fn take_local_filter_if_changed_reflects_subscription_topics() {
 		let mut orchestrator = orchestrator();
-		assert!(orchestrator.local_filter_if_changed().is_none());
+		assert!(orchestrator.take_local_filter_if_changed().is_none());
 
 		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1)]));
 		let filter = orchestrator
-			.local_filter_if_changed()
+			.take_local_filter_if_changed()
 			.expect("a subscription topic marks the filter changed");
 		assert!(filter.contains(&topic(1)));
-		assert!(orchestrator.local_filter_if_changed().is_none());
+		assert!(orchestrator.take_local_filter_if_changed().is_none());
 	}
 }
