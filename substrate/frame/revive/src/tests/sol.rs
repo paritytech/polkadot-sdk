@@ -174,6 +174,62 @@ fn basic_evm_flow_tracing_works() {
 	});
 }
 
+/// EVM `sload` must charge proportionally to the actual byte size of the storage
+/// value, not just the EVM word size of 32. The trie's storage values can exceed
+/// 32 bytes when a PVM contract sharing the same namespace (via delegatecall) wrote
+/// them — a fixed 32-byte charge would undercharge the proof space consumed by the
+/// read. The fix charges `STORAGE_BYTES` upfront and refunds the unused portion
+/// based on the actual length read (mirroring `get_storage` in PVM).
+///
+/// Setup: deploy Solc-compiled `Counter`, then directly inject values of different
+/// sizes into its storage at slot 0 (simulating a PVM contract writing there via
+/// shared namespace). Calling `number()` compiles down to `SLOAD(0)`; the 256-byte
+/// read traps (length mismatch) but the gas consumed up to that point reflects the
+/// actual read size.
+///
+/// Without the fix, both 32-byte and 256-byte cases would consume the same gas.
+/// With the fix, the 256-byte case consumes strictly more.
+#[test]
+fn sload_charges_for_actual_storage_value_size() {
+	use crate::exec::Key;
+	use pallet_revive_fixtures::Counter;
+
+	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
+	let measure_with_value_len = |len: usize| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(counter_code.clone()))
+					.build_and_unwrap_contract();
+
+			// Inject a value of the requested length directly into the contract's
+			// storage trie at slot 0 — simulates a PVM contract writing there via
+			// shared namespace (delegatecall).
+			let info = get_contract(&addr);
+			info.write(&Key::Fix([0u8; 32]), Some(vec![0xAAu8; len]), None, false).unwrap();
+
+			// Counter::number() compiles to SLOAD(0). For len != 32 it traps with
+			// ContractTrapped after the read; we still observe the gas consumed.
+			let result = builder::bare_call(addr)
+				.data(Counter::numberCall {}.abi_encode())
+				.build();
+			result.gas_consumed
+		})
+	};
+
+	let gas_32: u128 = measure_with_value_len(32);
+	let gas_256: u128 = measure_with_value_len(256);
+
+	// With the fix, the 256-byte read costs strictly more than the 32-byte read.
+	// Without the fix (legacy `GetStorage(32)`), the two would be equal.
+	assert!(
+		gas_256 > gas_32,
+		"sload must charge more for larger storage values: gas_256={gas_256}, gas_32={gas_32}",
+	);
+}
+
 /// Regression test for paritytech/contract-issues#278 — nested-call variant.
 ///
 /// `Stack::call`'s no-code branch (the path taken when a running contract
