@@ -26,7 +26,7 @@ use crate::{affinity::AffinityFilter, LOG_TARGET};
 use explicit_affinity::{AffinitySource, ExplicitAffinity};
 use peers_topology::{PeersTopology, PeersTopologyConfig};
 use sc_network_types::PeerId;
-use sp_statement_store::{SubmitResult, Topic};
+use sp_statement_store::{CategoryMask, Statement, SubmitResult, Topic};
 use std::collections::HashSet;
 
 /// Coordinates the v2 DHT-affinity statement gossip path.
@@ -107,6 +107,21 @@ impl V2DhtOrchestrator {
 		log::trace!(target: LOG_TARGET, "v2dht: on_peer_filter_update {peer} (stub)");
 	}
 
+	// === Receive decision ===
+
+	/// The reasons this node should store the statement.
+	pub(crate) fn category_for(&self, stmt: &Statement) -> CategoryMask {
+		let mut mask = CategoryMask::TRANSIENT;
+		// TODO: can we pass the statement instead of topics to the `is_dht_affine`?
+		if stmt.topics().iter().any(|topic| self.peers_topology.is_dht_affine(*topic)) {
+			mask.insert(CategoryMask::DHT_AFFINITY);
+		}
+		if self.explicit_affinity.local_has_explicit_affinity(stmt) {
+			mask.insert(CategoryMask::EXPLICIT_AFFINITY);
+		}
+		mask
+	}
+
 	// === Post-submit hook ===
 
 	pub(crate) fn on_statement_imported(&mut self, peer: PeerId, _result: &SubmitResult) {
@@ -134,5 +149,72 @@ impl V2DhtOrchestrator {
 	pub(crate) fn on_major_sync_end(&mut self) {
 		// TODO: The major sync processing may be different
 		log::trace!(target: LOG_TARGET, "v2dht: on_major_sync_end (stub)");
+	}
+}
+
+// TODO: test_helpers are defined in a parallel PR, I'll clean these after the other PR is merged.
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use std::num::NonZeroUsize;
+
+	fn topic(n: u8) -> Topic {
+		Topic([n; 32])
+	}
+
+	fn statement_on(topic: Topic) -> Statement {
+		let mut stmt = Statement::new();
+		stmt.set_plain_data(b"data".to_vec());
+		stmt.set_topic(0, topic);
+		stmt
+	}
+
+	fn config(replication_factor: usize) -> PeersTopologyConfig {
+		PeersTopologyConfig {
+			replication_factor: NonZeroUsize::new(replication_factor).expect("non-zero"),
+			gossip_target: NonZeroUsize::new(1).expect("non-zero"),
+		}
+	}
+
+	#[test]
+	fn category_for_marks_explicit_affinity() {
+		let orchestrator = V2DhtOrchestrator::new(&[topic(1)], PeerId::random(), config(20));
+
+		let mask = orchestrator.category_for(&statement_on(topic(1)));
+
+		assert!(mask.contains(CategoryMask::EXPLICIT_AFFINITY));
+		assert!(mask.is_persistent());
+	}
+
+	#[test]
+	fn category_for_marks_dht_affinity_when_local_is_a_replica() {
+		// An empty topology makes the local node a replica for every topic.
+		let orchestrator = V2DhtOrchestrator::new(&[], PeerId::random(), config(20));
+
+		let mask = orchestrator.category_for(&statement_on(topic(9)));
+
+		assert!(mask.contains(CategoryMask::DHT_AFFINITY));
+		assert!(!mask.contains(CategoryMask::EXPLICIT_AFFINITY));
+	}
+
+	#[test]
+	fn category_for_is_transient_without_any_affinity() {
+		// One replica per topic, so a single closer peer displaces the local node.
+		let mut orchestrator = V2DhtOrchestrator::new(&[], PeerId::random(), config(1));
+		let peers = (0..32).map(|_| PeerId::random()).collect::<Vec<_>>();
+		orchestrator.on_peers_discovered(peers.clone());
+		for peer in &peers {
+			orchestrator.on_peer_identified(*peer, true);
+		}
+
+		// A topic the local node is not the closest replica for, so DHT affinity does not hold.
+		let topic = (0u8..=255)
+			.map(topic)
+			.find(|topic| !orchestrator.peers_topology.is_dht_affine(*topic))
+			.expect("32 peers leave some topic without local DHT affinity");
+
+		let mask = orchestrator.category_for(&statement_on(topic));
+
+		assert!(!mask.is_persistent());
 	}
 }
