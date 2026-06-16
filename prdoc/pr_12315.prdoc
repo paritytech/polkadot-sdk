@@ -21,8 +21,8 @@ doc:
 
 crates:
 - name: sc-cli
-  bump: patch
+  bump: major
 - name: sc-network
   bump: major
 - name: sc-network-types
-  bump: patch
+  bump: major
