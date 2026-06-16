@@ -363,28 +363,26 @@ pub fn consideration(amount: u64) -> <Test as Config>::Consideration {
 	<Test as Config>::Consideration::new(&0, amount).unwrap()
 }
 
+/// Read the per-asset payment id of a single asset row of a child-/bounty.
+///
+/// Returns `Some(id)` only when that asset's `payment_state` is `Attempted { id }`.
 pub fn get_payment_id(
 	parent_bounty_id: BountyIndex,
 	child_bounty_id: Option<BountyIndex>,
+	asset_kind: u32,
 ) -> Option<u64> {
-	let bounty =
-		pallet_bounties::Pallet::<Test>::get_bounty_details(parent_bounty_id, child_bounty_id)
-			.expect("no bounty");
+	let entry = match child_bounty_id {
+		None => pallet_bounties::BountyAssets::<Test>::get(parent_bounty_id, asset_kind),
+		Some(child_bounty_id) => pallet_bounties::ChildBountyAssets::<Test>::get(
+			(parent_bounty_id, child_bounty_id),
+			asset_kind,
+		),
+	}?;
 
-	match bounty.3 {
-		BountyStatus::FundingAttempted {
-			payment_status: PaymentState::Attempted { id }, ..
-		} => Some(id),
-		BountyStatus::RefundAttempted {
-			payment_status: PaymentState::Attempted { id }, ..
-		} => Some(id),
-		BountyStatus::PayoutAttempted {
-			payment_status: PaymentState::Attempted { id }, ..
-		} => Some(id),
-		_ => None,
-	}
+	entry.payment_state.get_attempt_id()
 }
 
+/// Approve (mark successful) the in-flight payment of a *single* asset and advance the lifecycle.
 pub fn approve_payment(
 	dest: u128,
 	parent_bounty_id: BountyIndex,
@@ -393,11 +391,28 @@ pub fn approve_payment(
 	amount: u64,
 ) {
 	assert_eq!(paid(dest, asset_kind), amount);
-	let payment_id = get_payment_id(parent_bounty_id, child_bounty_id).expect("no payment attempt");
+	let payment_id =
+		get_payment_id(parent_bounty_id, child_bounty_id, asset_kind).expect("no payment attempt");
 	set_status(payment_id, PaymentStatus::Success);
 	assert_ok!(Bounties::check_status(RuntimeOrigin::signed(0), parent_bounty_id, child_bounty_id));
 }
 
+/// Approve (mark successful) every asset in `basket` and call `check_status` exactly once so the
+/// whole-bounty lifecycle advances only after all rows are `Succeeded`.
+///
+/// `basket` is a slice of `(asset_kind, payment_id)` pairs.
+pub fn approve_all_payments(
+	parent_bounty_id: BountyIndex,
+	child_bounty_id: Option<BountyIndex>,
+	basket: &[(u32, u64)],
+) {
+	for (_asset_kind, payment_id) in basket {
+		set_status(*payment_id, PaymentStatus::Success);
+	}
+	assert_ok!(Bounties::check_status(RuntimeOrigin::signed(0), parent_bounty_id, child_bounty_id));
+}
+
+/// Reject (mark failed) the in-flight payment of a *single* asset and advance the lifecycle.
 pub fn reject_payment(
 	dest: u128,
 	parent_bounty_id: BountyIndex,
@@ -406,7 +421,8 @@ pub fn reject_payment(
 	amount: u64,
 ) {
 	unpay(dest, asset_kind, amount);
-	let payment_id = get_payment_id(parent_bounty_id, child_bounty_id).expect("no payment attempt");
+	let payment_id =
+		get_payment_id(parent_bounty_id, child_bounty_id, asset_kind).expect("no payment attempt");
 	// The transfer never happened: return the funds to the source.
 	let (source, source_asset, source_amount) =
 		SOURCES.with(|s| s.borrow().get(&payment_id).cloned()).expect("unknown payment");
@@ -468,8 +484,7 @@ pub fn create_parent_bounty() -> TestBounty {
 
 	assert_ok!(Bounties::fund_bounty(
 		RuntimeOrigin::root(),
-		Box::new(s.asset_kind),
-		s.value,
+		BoundedVec::try_from(vec![(s.asset_kind, s.value)]).unwrap(),
 		s.curator,
 		s.metadata
 	));
@@ -540,7 +555,7 @@ pub fn create_child_bounty_with_curator() -> TestBounty {
 	assert_ok!(Bounties::fund_child_bounty(
 		RuntimeOrigin::signed(s.curator),
 		s.parent_bounty_id,
-		s.child_value,
+		BoundedVec::try_from(vec![(s.asset_kind, s.child_value)]).unwrap(),
 		s.metadata,
 		Some(s.child_curator),
 	));
