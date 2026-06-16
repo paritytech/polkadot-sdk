@@ -19,11 +19,13 @@
 //! DHT-targeted gossip path for the statement protocol.
 
 mod explicit_affinity;
+mod peer_steering;
 mod peers_index;
 pub mod peers_topology;
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use explicit_affinity::{AffinitySource, ExplicitAffinity};
+use peer_steering::{PeerSetHandle, PeerSteering};
 use peers_topology::{PeersTopology, PeersTopologyConfig};
 use sc_network_types::PeerId;
 use sp_statement_store::{SubmitResult, Topic};
@@ -36,6 +38,8 @@ pub(crate) struct V2DhtOrchestrator {
 	peers_topology: PeersTopology,
 	/// Tracks the local node's topic affinity and the filters peers advertise.
 	explicit_affinity: ExplicitAffinity,
+	/// Keeps the connected peer set aligned with the peers needed to cover subscriptions.
+	peer_steering: PeerSteering,
 }
 
 #[allow(dead_code)]
@@ -48,6 +52,7 @@ impl V2DhtOrchestrator {
 		Self {
 			peers_topology: PeersTopology::new(local_peer, peers_topology_config),
 			explicit_affinity: ExplicitAffinity::new(configured_topics),
+			peer_steering: PeerSteering::new(),
 		}
 	}
 
@@ -94,11 +99,13 @@ impl V2DhtOrchestrator {
 
 	pub(crate) fn on_substream_opened(&mut self, peer: PeerId) {
 		self.peers_topology.on_substream_opened(peer);
+		self.peer_steering.on_substream_opened(peer);
 		log::trace!(target: LOG_TARGET, "v2dht: on_substream_opened {peer}");
 	}
 
 	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
 		self.peers_topology.on_substream_closed(peer);
+		self.peer_steering.on_substream_closed(peer);
 		log::trace!(target: LOG_TARGET, "v2dht: on_substream_closed {peer}");
 	}
 
@@ -129,6 +136,12 @@ impl V2DhtOrchestrator {
 	pub(crate) fn on_pending_affinities(&mut self) {
 		// TODO: We need to know what to propagate
 		log::trace!(target: LOG_TARGET, "v2dht: on_pending_affinities (stub)");
+	}
+
+	/// Align the connected peers with the peers needed to cover the node's subscriptions, opening
+	/// and closing connections through `peer_set`.
+	pub(crate) fn refresh_connections(&self, peer_set: &dyn PeerSetHandle) {
+		self.peer_steering.refresh_connections(peer_set);
 	}
 
 	pub(crate) fn on_major_sync_end(&mut self) {
