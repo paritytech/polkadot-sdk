@@ -79,7 +79,9 @@ pub const MAX_ACCESS_LIST_BYTES: u32 =
 pub enum Slot {
 	/// Fixed 32-byte storage key.
 	Fix([u8; 32]),
-	/// Variable-length key up to [`MAX_INLINE_KEY_LEN`].
+	/// Variable-length key up to [`MAX_INLINE_KEY_LEN`], stored inline to
+	/// avoid the per-entry heap allocation `VarLong` requires, while keeping
+	/// `Slot` size bounded.
 	VarInline { bytes: [u8; MAX_INLINE_KEY_LEN], len: u8 },
 	/// Variable-length key longer than [`MAX_INLINE_KEY_LEN`], up to
 	/// `limits::STORAGE_KEY_BYTES`.
@@ -114,14 +116,16 @@ pub enum StorageAccessKind {
 	Transient,
 }
 
-/// Warmth of a persistent storage access.
+/// Warmth of a persistent storage access. Describes the slot's state
+/// **before** the access.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Warmth {
-	/// Slot already in the access list.
+	/// Slot was already in the access list before this access.
 	Hot,
-	/// First access for the slot this transaction. `revertible` is true only
-	/// when the entry was journaled under an open frame, so a `rollback_frame`
-	/// can drop it.
+	/// Slot was not in the access list before this access; the touch adds
+	/// it (so the next access to the same slot returns `Hot`). `revertible`
+	/// is true when the entry was journaled under an open frame, so a
+	/// `rollback_frame` can drop it and the slot becomes cold again.
 	Cold { revertible: bool },
 }
 
@@ -160,6 +164,12 @@ pub struct AccessEntry {
 /// Per-transaction access list with per-frame rollback support. Layout
 /// follows [`crate::transient_storage::TransientStorage`]: a current-state
 /// set, a flat journal of insertions, and journal-index checkpoints.
+///
+/// # Safety invariant
+///
+/// Callers touch the `AccessList` before charging gas, so reverts must roll back the touches
+/// they made. Without that, an out-of-gas at the cold charge after the touch would leave the slot
+/// warm without the cold charge being paid, and a later access would then be billed hot.
 #[derive(Default)]
 pub struct AccessList {
 	/// All currently-hot entries.

@@ -3,7 +3,7 @@ doc:
 - audience: Runtime Dev
   description: |-
     ### Summary
-    EIP-2929-style cold/hot(warm) pricing for persistent storage access in pallet-revive. The first access to a `(contract, slot)` pair within a transaction is billed "cold" (higher weight); any later access to the same slot is "hot" (cheaper).
+    EIP-2929-style cold/hot(warm) pricing for persistent storage access in pallet-revive. The first non-reverted access to a `(contract, slot)` pair within a transaction is billed "cold" (higher weight); any later access to the same slot is "hot" (cheaper).
 
     ### Description
     #### Covered operations

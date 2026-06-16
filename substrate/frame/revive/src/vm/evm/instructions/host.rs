@@ -138,7 +138,7 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 fn store_helper<'ext, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 	transient: bool,
-	set_function: fn(&mut E, &Key, Option<Vec<u8>>, bool) -> Result<WriteOutcome, DispatchError>,
+	set_function: fn(&mut E, &Key, Option<Vec<u8>>) -> Result<WriteOutcome, DispatchError>,
 ) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
@@ -156,8 +156,7 @@ fn store_helper<'ext, E: Ext>(
 
 	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
 	let new_bytes = value_to_store.as_ref().map(|v| v.len() as u32).unwrap_or(0);
-	let take_old = false;
-	let Ok(write_outcome) = set_function(interpreter.ext, &key, value_to_store, take_old) else {
+	let Ok(write_outcome) = set_function(interpreter.ext, &key, value_to_store) else {
 		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 	};
 
@@ -176,7 +175,8 @@ fn store_helper<'ext, E: Ext>(
 ///
 /// Stores a word to storage.
 pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	store_helper(interpreter, false, |ext, key, value, take_old| {
+	store_helper(interpreter, false, |ext, key, value| {
+		let take_old = false;
 		ext.set_storage(key, value, take_old)
 	})
 }
@@ -184,7 +184,8 @@ pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// EIP-1153: Transient storage opcodes
 /// Store value to transient storage
 pub fn tstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	store_helper(interpreter, true, |ext, key, value, take_old| {
+	store_helper(interpreter, true, |ext, key, value| {
+		let take_old = false;
 		ext.set_transient_storage(key, value, take_old)
 	})
 }
