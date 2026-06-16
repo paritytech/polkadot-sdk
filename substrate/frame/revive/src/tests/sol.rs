@@ -228,6 +228,67 @@ fn sload_charges_for_actual_storage_value_size() {
 	);
 }
 
+/// Regression: EVM TLOAD must charge gas proportional to the actual length of the transient
+/// value it reads. The companion `tload_undercharge_writer` fixture writes a non-32-byte value
+/// at the EVM-visible `Key::Fix(...)` slot via the raw `set_storage` syscall (the safe uapi
+/// can't reach that slot with a non-32-byte value), then delegate-calls an EVM TLOAD reader.
+///
+/// We need both a TLOAD reader and a noop EVM callee because the writer's `set_storage` cost
+/// dominates the total (~485K gas) and swamps the TLOAD scaling signal (~974 gas). Subtracting
+/// the noop run from the TLOAD run isolates the EVM-side cost. `value_len ∈ {0, 32}` keeps
+/// both runs on the non-trap path so EVM execution is identical except for TLOAD's
+/// `adjust_weight`. Final assertion is on the difference of those two TLOAD-only deltas:
+/// ~974 gas with the fix, ~1 gas without.
+#[test]
+fn tload_charges_for_actual_transient_value_size() {
+	use pallet_revive_fixtures::compile_module;
+
+	// EVM runtime that reads transient slot 0 and returns it as a 32-byte response:
+	//   PUSH0 TLOAD PUSH0 MSTORE PUSH1 0x20 PUSH0 RETURN
+	let tload_runtime: Vec<u8> = vec![PUSH0, TLOAD, PUSH0, MSTORE, PUSH1, 0x20, PUSH0, RETURN];
+	let tload_code = make_initcode_from_runtime_code(&tload_runtime);
+	// Noop EVM runtime (baseline for the writer's write-cost delta): PUSH0 PUSH0 RETURN.
+	let noop_code = make_initcode_from_runtime_code(&vec![PUSH0, PUSH0, RETURN]);
+
+	let (writer_code, _) = compile_module("tload_undercharge_writer").unwrap();
+
+	let measure = |callee_code: &Vec<u8>, value_len: u32| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr: callee_addr, .. } =
+				builder::bare_instantiate(Code::Upload(callee_code.clone()))
+					.build_and_unwrap_contract();
+
+			let Contract { addr: writer_addr, .. } =
+				builder::bare_instantiate(Code::Upload(writer_code.clone()))
+					.build_and_unwrap_contract();
+
+			let mut input = Vec::with_capacity(24);
+			input.extend_from_slice(callee_addr.as_bytes());
+			input.extend_from_slice(&value_len.to_le_bytes());
+
+			let result = builder::bare_call(writer_addr).data(input).build();
+			result.result.as_ref().unwrap_or_else(|err| {
+				panic!("writer call failed for value_len={value_len}: {err:?}")
+			});
+			result.gas_consumed
+		})
+	};
+
+	let evm_cost = |value_len: u32| -> u128 {
+		measure(&tload_code, value_len).saturating_sub(measure(&noop_code, value_len))
+	};
+
+	let delta = evm_cost(32).saturating_sub(evm_cost(0));
+
+	assert!(
+		delta >= 100,
+		"TLOAD must charge more for a 32-byte read than for a None read: delta={delta} \
+		 (expected ~974 with fix, ~1 without)",
+	);
+}
+
 /// Regression test for paritytech/contract-issues#278 — nested-call variant.
 ///
 /// `Stack::call`'s no-code branch (the path taken when a running contract
