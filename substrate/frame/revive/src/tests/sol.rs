@@ -316,6 +316,74 @@ fn delegated_eoa_prestate_diff_tracing_includes_indicator() {
 	});
 }
 
+/// Regression: EIP-7702 authority state changes must be visible to the prestate diff tracer.
+///
+/// `process_authorizations` mutates account state (code, nonce, deposit) without going through
+/// any of the EVM hooks (`enter_child_span`, `read_account`, `balance_read`, ...). Without an
+/// explicit notification, the tracer never sees the authority address, so a revoke of an existing
+/// delegation is invisible to clients consuming the diff — the post block lacks the `code: null`
+/// entry that Geth produces for the same transaction.
+///
+/// This test triggers an authority-only state change inside the trace scope (revoke, no further
+/// EVM call) and asserts the authority appears in `post` with cleared code. Without the fix, the
+/// authority is missing from the diff entirely.
+#[test]
+fn prestate_diff_includes_authority_when_eip7702_revokes_delegation() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
+		tests::{dummy_evm_contract, eip7702::DelegationTestSetup},
+	};
+	use sp_core::H160;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+
+		let setup = DelegationTestSetup::default();
+		setup.authorize(target_addr);
+		assert!(crate::AccountInfo::<Test>::is_delegated(&setup.signer.address));
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: true,
+			disable_storage: true,
+			disable_code: false,
+		});
+
+		let _ = trace(&mut tracer, || {
+			let revoke_auth = setup.sign_authorization(H160::zero());
+			setup.process(&[revoke_auth]);
+		});
+
+		match tracer.collect_trace() {
+			PrestateTrace::DiffMode { pre, post } => {
+				let pre_info = pre.get(&setup.signer.address).expect(
+					"authority must appear in pre-state diff with its pre-revoke delegation indicator",
+				);
+				let pre_code = pre_info.code.as_ref().expect("pre.code must capture the indicator");
+				let mut indicator = vec![0xefu8, 0x01, 0x00];
+				indicator.extend_from_slice(target_addr.as_bytes());
+				assert_eq!(
+					pre_code.0, indicator,
+					"pre.code must be the pre-revoke delegation indicator, not the post-revoke (empty) state",
+				);
+
+				let post_info = post.get(&setup.signer.address).expect(
+					"authority must appear in post-state diff after revoke (code cleared, nonce bumped)",
+				);
+				assert!(
+					post_info.code.is_none(),
+					"post.code must be None (delegation cleared), got {:?}",
+					post_info.code,
+				);
+			},
+			other => panic!("expected DiffMode, got {:?}", other),
+		}
+	});
+}
+
 /// Regression test for paritytech/contract-issues#278 — nested-call variant.
 ///
 /// `Stack::call`'s no-code branch (the path taken when a running contract

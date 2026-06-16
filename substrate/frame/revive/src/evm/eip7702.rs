@@ -124,6 +124,12 @@ pub fn process_authorizations<T: Config>(
 
 		let account_exists = frame_system::Account::<T>::contains_key(&account_id);
 
+		// Notify any active tracer about this authority before its state is mutated, so
+		// prestate-diff consumers see the pre-revocation/pre-delegation code and nonce. Without
+		// this, an authority that isn't otherwise referenced by the EVM call would either be
+		// missing from the trace entirely or have its "pre" captured post-mutation.
+		crate::tracing::if_tracing(|t| t.watch_address(&authority));
+
 		// EIP-7702 spec: "If any step above fails, immediately stop processing the tuple and
 		// continue to the next tuple." Step 8 (set code) is one such step, so wrap the whole
 		// per-auth state-changing block in a transaction and skip the tuple on any error —
