@@ -119,7 +119,7 @@ async fn v4_resubmit_first_core_across_sessions() -> Result<(), anyhow::Error> {
 	// `assign_cores`/PVF warm-up window; the rest of the window then exercises the
 	// resubmit-on-first-core path across validator-set rotations. With 3 cores at the
 	// elastic-scaling-v3 throughput target, ~3 backed candidates per relay block.
-	assert_para_throughput(&relay_client, 40, [(ParaId::from(2900), 60..91)], []).await?;
+	assert_para_throughput(&relay_client, 100, [(ParaId::from(2900), 150..160)], []).await?;
 
 	// Finality must keep up — a stalled parachain would lag finality unboundedly.
 	let collator_client: OnlineClient<PolkadotConfig> = collator_node.wait_client().await?;
