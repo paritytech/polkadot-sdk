@@ -211,7 +211,13 @@ fn apply_code_override<T: Config>(address: &H160, code: Vec<u8>) -> Result<(), E
 
 /// Parse an EIP-7702 delegation indicator (`0xef0100 || target`, exactly 23 bytes).
 fn parse_delegation_indicator(code: &[u8]) -> Option<H160> {
-	(code.len() == 23 && code[..3] == [0xef, 0x01, 0x00]).then(|| H160::from_slice(&code[3..23]))
+	if let [0xef, 0x01, 0x00, target @ ..] = code &&
+		target.len() == 20
+	{
+		Some(H160::from_slice(target))
+	} else {
+		None
+	}
 }
 
 /// Install an EIP-7702 delegation indicator on `address` pointing at `target`.
