@@ -9,4 +9,4 @@ doc:
     Therefore I moved the prunning inside `initializer_on_new_session()`
 crates:
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: major
