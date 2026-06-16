@@ -983,7 +983,8 @@ pub mod pallet {
 			let max_runtime_mem: u64 = T::RuntimeMemory::get().into();
 
 			// Contracts call stack gets 4/7 of runtime memory; the rest is reserved for
-			// PoV and other facilities. Revisit when `MEMORY_REQUIRED` stabilises.
+			// PoV and other facilities.
+			// TODO: revisit the 4/7 split.
 			const CONTRACTS_MEMORY_NUM: u64 = 4;
 			const CONTRACTS_MEMORY_DEN: u64 = 7;
 

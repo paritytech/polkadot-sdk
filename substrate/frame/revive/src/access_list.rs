@@ -21,8 +21,8 @@
 //! `enter_frame` / `commit_frame` / `rollback_frame` wired into `Stack::run`)
 //! mirrors [`crate::transient_storage::TransientStorage`].
 
-use alloc::{collections::BTreeSet, vec::Vec};
-use frame_support::BoundedVec;
+use alloc::vec::Vec;
+use frame_support::{BoundedBTreeSet, BoundedVec};
 use sp_core::{ConstU32, H160};
 
 use crate::{exec::Key, limits};
@@ -64,7 +64,7 @@ pub const MAX_INLINE_KEY_LEN: usize = 36;
 /// |  16 384 |   ~6 MB   |    ~8 MB   |         34.4 M gas |
 pub const MAX_ACCESS_LIST_ENTRIES: usize = 16_384;
 
-/// Worst-case per-entry memory in the `BTreeSet` + journal, measured against
+/// Worst-case per-entry memory in the `BoundedBTreeSet` + journal, measured against
 /// sc-allocator (8-byte headers, power-of-2 buckets). `Slot::Fix` and
 /// `Slot::VarInline` measure ~366 B; `Slot::VarLong` ~502 B. Rounded up to 512
 /// for headroom.
@@ -170,13 +170,14 @@ pub struct AccessEntry {
 /// Callers touch the `AccessList` before charging gas, so reverts must roll back the touches
 /// they made. Without that, an out-of-gas at the cold charge after the touch would leave the slot
 /// warm without the cold charge being paid, and a later access would then be billed hot.
+
 #[derive(Default)]
 pub struct AccessList {
 	/// All currently-hot entries.
-	accessed: BTreeSet<AccessEntry>,
+	accessed: BoundedBTreeSet<AccessEntry, ConstU32<{ MAX_ACCESS_LIST_ENTRIES as u32 }>>,
 	/// Flat journal of insertions (in order). Each entry was added by exactly
-	/// one frame; `checkpoints` marks the frame boundaries inside this `Vec`.
-	journal: Vec<AccessEntry>,
+	/// one frame; `checkpoints` marks the frame boundaries inside this journal.
+	journal: BoundedVec<AccessEntry, ConstU32<{ MAX_ACCESS_LIST_ENTRIES as u32 }>>,
 	/// Stack of journal indices. `checkpoints.last()` is the index at which
 	/// the current frame started inserting; rolling back means draining
 	/// `journal` from that index and removing those entries from `accessed`.
@@ -254,9 +255,15 @@ impl AccessList {
 		let kind = if self.is_full() {
 			// Past the cap: bill by membership, but never journal.
 			self.peek(&entry)
-		} else if self.accessed.insert(entry.clone()) {
+		} else if self
+			.accessed
+			.try_insert(entry.clone())
+			.expect("under cap; checked is_full above; qed")
+		{
 			// Newly inserted: journal it so the owning frame's rollback can drop it.
-			self.journal.push(entry);
+			self.journal
+				.try_push(entry)
+				.expect("journal grows in lockstep with accessed and shares its bound; qed");
 			Warmth::Cold { revertible: self.in_nested_frame() }
 		} else {
 			Warmth::Hot
