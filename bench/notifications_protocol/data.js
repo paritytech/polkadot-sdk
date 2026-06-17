@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781688325266,
+  "lastUpdate": 1781697832707,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -177791,6 +177791,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2383244742,
             "range": "± 48053816",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "831741222650ee43920cc3564deff0f47a524a47",
+          "message": "fatxpool: preserve order of same-priority transactions on re-orgs (#12362)\n\nThis PR improves handling the order of transactions during re-orgs.\nPreviously transactions from retracted blocks were resubmitted in\nreverse order (old best → common ancestor); now they are resubmitted in\nexecution order (common ancestor → old best), so equal-priority\ntransactions keep their original order via the pool's FIFO tie-break.\n\nThe original order is not always preserved; this is a best-effort\napproach (not a guarantee) that works well for most typical forks,\npreserving order where possible:\n\n#### Works — equal priority (e.g. same call, no tips)\n\n```\nretracted:           B1[TA0]  B2[TB0]  B3[TA1]  B4[TB1]\nresubmitted order:   B'x[TA0, TB0, TA1, TB1]\n```\n\nBoth per-account nonce order **and** the cross-account interleaving are\npreserved.\n\n#### Doesn't work — different priority (tips / different weights)\n\nPriority wins over original order. With `TA1` boosted (lower weight or\nhigher tip):\n\n```\nretracted:           B1[TA0]  B2[TB0]  B3[TA1]  B4[TB1]\nresubmitted order:   B'x[TA0, TA1, TB0, TB1]\n```\n\nPer-account nonce order is still safe (`TA1` never beats `TA0`), but the\ncross-account order follows priority, not the blocks.\n\n#### Note: Where does priority come from?\nFor a signed transaction, priority is set by `ChargeTransactionPayment`\nbased on the tip per unit of the scarcer resource (weight or length):\n```\npriority = (tip + 1) * max_tx_per_block      \n```\nFor more details refer to\n[`get_priority`](https://github.com/paritytech/polkadot-sdk/blob/968eaa447002e599ee1c9deac6d41eca230204ae/substrate/frame/transaction-payment/src/lib.rs#L871)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-17T10:38:15Z",
+          "tree_id": "d91a7d80f61b59fc5b6eeb99f2a9fffe86029ff2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/831741222650ee43920cc3564deff0f47a524a47"
+        },
+        "date": 1781697807571,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4411041,
+            "range": "± 25709",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 297112,
+            "range": "± 2277",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4744750,
+            "range": "± 41926",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 374623,
+            "range": "± 3512",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5597749,
+            "range": "± 88623",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 910590,
+            "range": "± 7186",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11150913,
+            "range": "± 108774",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4934722,
+            "range": "± 121746",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 47184575,
+            "range": "± 613547",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40018203,
+            "range": "± 314792",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 389756472,
+            "range": "± 7414101",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 318857898,
+            "range": "± 1482241",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2717812161,
+            "range": "± 22182374",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2438793085,
+            "range": "± 16625781",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3375876,
+            "range": "± 36466",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1834911,
+            "range": "± 6715",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3449785,
+            "range": "± 25648",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1905928,
+            "range": "± 14250",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3987275,
+            "range": "± 46852",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2225886,
+            "range": "± 23590",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8314422,
+            "range": "± 77253",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5409377,
+            "range": "± 53123",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38520824,
+            "range": "± 409670",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37390460,
+            "range": "± 630593",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 334884254,
+            "range": "± 3076440",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 285238025,
+            "range": "± 2396345",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2502737250,
+            "range": "± 20556003",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2316243267,
+            "range": "± 41237693",
             "unit": "ns/iter"
           }
         ]
