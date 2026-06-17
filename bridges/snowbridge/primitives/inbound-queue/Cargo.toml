@@ -36,7 +36,7 @@ xcm-executor.workspace = true
 hex-literal = { workspace = true, default-features = true }
 
 [dev-dependencies]
-snowbridge-test-utils = { workspace = true }
+snowbridge-test-utils = { path = "../../test-utils" }
 
 [features]
 default = ["std"]
@@ -64,7 +64,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
-	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

@@ -19,22 +19,22 @@ codec = { features = ["derive"], workspace = true }
 derive_more = { workspace = true, default-features = true }
 fatality = { workspace = true }
 futures = { workspace = true }
-gum.default-features = true
 gum.workspace = true
+gum.default-features = true
 hex = { workspace = true, default-features = true }
-polkadot-node-primitives.default-features = true
 polkadot-node-primitives.workspace = true
-polkadot-primitives.default-features = true
+polkadot-node-primitives.default-features = true
 polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 rand = { workspace = true, default-features = true }
-sc-authority-discovery.default-features = true
 sc-authority-discovery.workspace = true
-sc-network.default-features = true
+sc-authority-discovery.default-features = true
 sc-network.workspace = true
-sc-network-types.default-features = true
+sc-network.default-features = true
 sc-network-types.workspace = true
-sp-runtime.default-features = true
+sc-network-types.default-features = true
 sp-runtime.workspace = true
+sp-runtime.default-features = true
 strum = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
 

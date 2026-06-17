@@ -24,20 +24,20 @@ codec = { features = ["bit-vec", "derive"], workspace = true }
 derive_more = { workspace = true, default-features = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum.default-features = true
 gum.workspace = true
+gum.default-features = true
 itertools = { workspace = true }
 merlin = { workspace = true, default-features = true }
-polkadot-node-primitives.default-features = true
 polkadot-node-primitives.workspace = true
-polkadot-node-subsystem.default-features = true
+polkadot-node-primitives.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-node-subsystem-util.workspace = true
-polkadot-overseer.default-features = true
+polkadot-node-subsystem-util.default-features = true
 polkadot-overseer.workspace = true
-polkadot-primitives.default-features = true
+polkadot-overseer.default-features = true
 polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 schnellru = { workspace = true }
 schnorrkel = { workspace = true, default-features = true }
 thiserror = { workspace = true }
@@ -56,16 +56,16 @@ sp-runtime.workspace = true
 assert_matches = { workspace = true }
 kvdb-memorydb = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
-polkadot-primitives-test-helpers = { workspace = true }
-sp-consensus-babe = { default-features = true, workspace = true }
-sp-core = { default-features = true, workspace = true }
-sp-keyring = { default-features = true, workspace = true }
-sp-keystore = { default-features = true, workspace = true }
-sp-tracing = { workspace = true, default-features = false }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-primitives = { features = ["test"], default-features = false, path = "../../../primitives" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+sp-consensus-babe = { default-features = true, path = "../../../../substrate/primitives/consensus/babe" }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+sp-keystore = { default-features = true, path = "../../../../substrate/primitives/keystore" }
+sp-tracing = { default-features = false, path = "../../../../substrate/primitives/tracing" }
 
-polkadot-subsystem-bench = { workspace = true }
+polkadot-subsystem-bench = { path = "../../subsystem-bench" }
 
 [features]
 subsystem-benchmarks = []

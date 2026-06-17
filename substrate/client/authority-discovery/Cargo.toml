@@ -24,39 +24,39 @@ futures-timer = { workspace = true }
 ip_network = { workspace = true }
 linked_hash_set = { workspace = true }
 log = { workspace = true, default-features = true }
-prometheus-endpoint.default-features = true
 prometheus-endpoint.workspace = true
+prometheus-endpoint.default-features = true
 prost = { workspace = true }
 rand = { workspace = true, default-features = true }
-sc-client-api.default-features = true
 sc-client-api.workspace = true
-sc-network.default-features = true
+sc-client-api.default-features = true
 sc-network.workspace = true
-sc-network-types.default-features = true
+sc-network.default-features = true
 sc-network-types.workspace = true
+sc-network-types.default-features = true
 sc-service.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-sp-api.default-features = true
 sp-api.workspace = true
-sp-authority-discovery.default-features = true
+sp-api.default-features = true
 sp-authority-discovery.workspace = true
-sp-blockchain.default-features = true
+sp-authority-discovery.default-features = true
 sp-blockchain.workspace = true
-sp-core.default-features = true
+sp-blockchain.default-features = true
 sp-core.workspace = true
-sp-keystore.default-features = true
+sp-core.default-features = true
 sp-keystore.workspace = true
-sp-runtime.default-features = true
+sp-keystore.default-features = true
 sp-runtime.workspace = true
+sp-runtime.default-features = true
 thiserror = { workspace = true }
 tokio.workspace = true
 
 [dev-dependencies]
 hex.workspace = true
 quickcheck = { workspace = true }
-sp-tracing = { default-features = true, workspace = true }
-substrate-test-runtime-client = { workspace = true }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 tempfile.workspace = true
 
 [build-dependencies]
