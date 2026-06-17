@@ -15,6 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
+use super::resubmission::resolve_session_and_pvd;
 use crate::LOG_TARGET;
 use codec::{Decode, Encode};
 use cumulus_client_consensus_common::old_finalized_hash;
@@ -26,9 +27,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::{stream::FusedStream, StreamExt};
-use polkadot_primitives::{
-	Header as RelayHeader, Id as ParaId, OccupiedCoreAssumption, SessionIndex,
-};
+use polkadot_primitives::{Header as RelayHeader, Id as ParaId, SessionIndex};
 use sc_client_api::{
 	backend::AuxStore,
 	client::{AuxDataOperations, FinalityNotification, PreCommitActions},
@@ -97,7 +96,7 @@ impl<Block> SlotBasedBlockImportHandle<Block> {
 		para_id: ParaId,
 	) {
 		if self.relay_data_source.set((relay_client, para_id)).is_err() {
-			tracing::debug!(target: LOG_TARGET, "Relay data source already installed; ignoring.");
+			tracing::warn!(target: LOG_TARGET, "Relay data source already installed; ignoring second install.");
 		}
 	}
 
@@ -228,16 +227,11 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 	}
 
 	/// Resolve, from the relay chain, the data needed to record a resubmission entry for an
-	/// imported block built against the relay parent in `relay_block_identifier`, on top of the
-	/// parablock `parent_hash`.
+	/// imported block built against the relay parent in `relay_block_identifier`.
 	async fn resolve_resubmission_data(
 		&self,
 		relay_block_identifier: &RelayBlockIdentifier,
-		parent_hash: Block::Hash,
-	) -> Option<(RelayHeader, SessionIndex, PersistedValidationData)>
-	where
-		Client: HeaderBackend<Block>,
-	{
+	) -> Option<(RelayHeader, SessionIndex, PersistedValidationData)> {
 		let RelayBlockIdentifier::ByHash(relay_parent) = relay_block_identifier else {
 			return None;
 		};
@@ -267,61 +261,8 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 			},
 		};
 
-		let relay_parent_session = match relay_client.session_index_for_child(relay_parent).await {
-			Ok(session) => session,
-			Err(err) => {
-				tracing::debug!(
-					target: LOG_TARGET,
-					?relay_parent,
-					?err,
-					"Failed to fetch relay parent session; skipping resubmission entry.",
-				);
-				return None;
-			},
-		};
-
-		let max_pov_size = match relay_client
-			.persisted_validation_data(relay_parent, para_id, OccupiedCoreAssumption::TimedOut)
-			.await
-		{
-			Ok(Some(pvd)) => pvd.max_pov_size,
-			Ok(None) => {
-				tracing::debug!(
-					target: LOG_TARGET,
-					?relay_parent,
-					"No persisted validation data; skipping resubmission entry.",
-				);
-				return None;
-			},
-			Err(err) => {
-				tracing::debug!(
-					target: LOG_TARGET,
-					?relay_parent,
-					?err,
-					"Failed to fetch persisted validation data; skipping resubmission entry.",
-				);
-				return None;
-			},
-		};
-
-		let parent_header = match self.client.header(parent_hash) {
-			Ok(Some(header)) => header,
-			_ => {
-				tracing::debug!(
-					target: LOG_TARGET,
-					?parent_hash,
-					"Parent header unavailable; skipping resubmission entry.",
-				);
-				return None;
-			},
-		};
-
-		let persisted_validation_data = PersistedValidationData {
-			parent_head: parent_header.encode().into(),
-			relay_parent_number: *relay_parent_header.number(),
-			relay_parent_storage_root: *relay_parent_header.state_root(),
-			max_pov_size,
-		};
+		let (relay_parent_session, persisted_validation_data) =
+			resolve_session_and_pvd(&**relay_client, relay_parent, para_id).await?;
 
 		Some((relay_parent_header, relay_parent_session, persisted_validation_data))
 	}
@@ -338,7 +279,6 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 	async fn execute_block_and_collect_storage_proof(
 		&self,
 		params: &mut sc_consensus::BlockImportParams<Block>,
-		time_ms: u64,
 	) -> Result<(), sp_consensus::Error>
 	where
 		Client: ProvideRuntimeApi<Block>
@@ -443,8 +383,9 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 		}
 
 		if let Some((relay_parent_header, relay_parent_session, persisted_validation_data)) =
-			self.resolve_resubmission_data(&relay_block_identifier, parent_hash).await
+			self.resolve_resubmission_data(&relay_block_identifier).await
 		{
+			let time_ms = now_unix_ms();
 			prepare_resubmission_aux_data::<Block>(
 				block_hash,
 				time_ms,
@@ -507,13 +448,11 @@ where
 		&self,
 		mut params: sc_consensus::BlockImportParams<Block>,
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
-		let time_ms = now_unix_ms();
-
 		if !(params.origin == BlockOrigin::Own ||
 			params.with_state() ||
 			params.state_action.skip_execution_checks())
 		{
-			self.execute_block_and_collect_storage_proof(&mut params, time_ms).await?;
+			self.execute_block_and_collect_storage_proof(&mut params).await?;
 		}
 
 		self.inner.import_block(params).await.map_err(Into::into)
