@@ -714,11 +714,7 @@ impl<T: Config> Pallet<T> {
 			// inconsistency and is surfaced rather than silently paying nothing.
 			let sum_weighted_points = ErasSumWeightedPoints::<T>::get(era);
 			if sum_weighted_points.is_zero() {
-				log!(
-					warn,
-					"Sum of weighted points is zero but budget exists for era {}",
-					era
-				);
+				log!(warn, "Sum of weighted points is zero but budget exists for era {}", era);
 				Self::deposit_event(Event::<T>::Unexpected(
 					UnexpectedKind::ValidatorIncentiveWeightMismatch { era },
 				));

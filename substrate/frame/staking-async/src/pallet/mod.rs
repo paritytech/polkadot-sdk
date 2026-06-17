@@ -589,13 +589,6 @@ pub mod pallet {
 	pub type ErasSumWeightedPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, IncentiveWeight<T>, ValueQuery>;
 
-	/// Cutoff era from which the validator self-stake incentive switches to the
-	/// weighted-points formula. `None` means every era uses it (e.g. a chain that
-	/// activated it at genesis). Set once by the upgrade migration.
-	///
-	/// See [`session_rotation::Eras::uses_weighted_points`] for the exact semantics and
-	/// the rationale for the cutoff.
-	///
 	/// TODO(staking-async): remove this storage item, the legacy stake-only branch in
 	/// [`crate::Pallet::calculate_validator_incentive_for_page`], the
 	/// [`session_rotation::Eras::uses_weighted_points`] cutoff helper, and the

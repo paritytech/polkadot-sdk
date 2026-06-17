@@ -743,8 +743,10 @@ mod benchmarks {
 		// Incentive pot is funded in the setup; track it to ensure the worst-case payout
 		// actually performs the validator-incentive transfer (and so the benchmark weight
 		// covers it).
-		let incentive_pot =
-			crate::reward::EraRewardManager::<T>::create(current_era, RewardKind::ValidatorSelfStake);
+		let incentive_pot = crate::reward::EraRewardManager::<T>::create(
+			current_era,
+			RewardKind::ValidatorSelfStake,
+		);
 		let incentive_pot_before = asset::stakeable_balance::<T>(&incentive_pot);
 		let mut nominator_balances_before = Vec::new();
 		for (stash, _) in &nominators {
