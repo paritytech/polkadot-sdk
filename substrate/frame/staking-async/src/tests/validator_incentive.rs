@@ -1205,7 +1205,7 @@ fn new_formula_zero_denominator_emits_unexpected_and_skips_payout() {
 	// A post-cutoff era whose `ErasSumWeightedPoints` is zero despite a live budget and a
 	// validator with points/weight is a storage inconsistency: the payout must skip the
 	// incentive and surface an `Unexpected` event rather than silently pay nothing.
-	ExtBuilder::default().try_state(false).build_and_execute(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11; // validator
 
 		setup_incentive_with_budget(45, 5);
@@ -1214,6 +1214,7 @@ fn new_formula_zero_denominator_emits_unexpected_and_skips_payout() {
 		Session::roll_until_active_era(3);
 
 		// WHEN: corrupt the denominator to zero on a post-cutoff era (no cutoff ⇒ new formula).
+		let valid_sum = ErasSumWeightedPoints::<Test>::get(2);
 		ErasSumWeightedPoints::<Test>::remove(2);
 		let _ = staking_events_since_last_call();
 
@@ -1225,6 +1226,9 @@ fn new_formula_zero_denominator_emits_unexpected_and_skips_payout() {
 		assert!(events.contains(&Event::Unexpected(
 			UnexpectedKind::ValidatorIncentiveWeightMismatch { era: 2 }
 		)));
+
+		// Restore valid state so the post-test try-state hook still runs and passes.
+		ErasSumWeightedPoints::<Test>::insert(2, valid_sum);
 	});
 }
 
@@ -1264,7 +1268,7 @@ fn legacy_era_pays_out_even_without_weighted_points_storage() {
 fn try_state_skips_weighted_points_check_for_pre_cutoff_eras() {
 	use crate::session_rotation::Eras as ErasMod;
 
-	ExtBuilder::default().try_state(false).build_and_execute(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(11, 1), (21, 1)]);
