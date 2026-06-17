@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781533467481,
+  "lastUpdate": 1781689565594,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c483327ef1ef99340c3cd564fb43ce625a011934",
-          "message": "fix zombienet ci, remove merge_group listener (#10133)\n\nRemove `merge_group` listener since the zombienet workflows are\ncurrently _call_ from the `build` job.\nThis was causing failures like:\n\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/18858082286/job/53810567441\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/18786371402/job/53605598204\n\nThx!",
-          "timestamp": "2025-10-28T10:43:15Z",
-          "tree_id": "cb0bb8ef401c47d53816af0ad49c1b083abe874b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c483327ef1ef99340c3cd564fb43ce625a011934"
-        },
-        "date": 1761655494616,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16240213830666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007553976759999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013517930860000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02293964784,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.023862194946666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4beb26c386f2a0ab3023574a9ef019bfec7d82f1",
+          "message": "nomination-pools: snapshot rewards before set_commission_max lowers current commission (#12397)\n\n`set_commission_max` force-lowers `commission.current` (via\n`try_update_max`) when the new max is below the active rate, but did not\nfirst call `update_records`. Rewards accrued at the higher rate since\nthe last snapshot were therefore re-rated at the new lower rate on the\nnext `update_records`, crediting the differential `(old_current -\nnew_max) * accrued` to members instead of the commission payee.\n\nThe fix snapshots the reward pool at the current commission before the\ncut, mirroring the ordering already used in `set_commission`.",
+          "timestamp": "2026-06-17T08:12:31Z",
+          "tree_id": "8b868908a0a9cf5c16d9a9cfe4001ddfa52b2605",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4beb26c386f2a0ab3023574a9ef019bfec7d82f1"
+        },
+        "date": 1781689539938,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007755635186666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009963398886666641,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1447222523533334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02360039348666667,
             "unit": "seconds"
           }
         ]
