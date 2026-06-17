@@ -19,7 +19,7 @@
 
 mod changeset;
 mod offchain;
-pub mod storage_key_delta_tracker;
+mod storage_key_delta_tracker;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
