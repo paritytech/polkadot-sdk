@@ -21,6 +21,10 @@ use sp_mmr_primitives::mmr_lib;
 
 use crate::{INNER_TAG, PEAK_TAG};
 
+/// [`mmr_lib::Merge`] adapter that wires domain-tagged blake2_256 hashing into the MMR library.
+///
+/// Pass this as the `M` type parameter when constructing an
+/// `mmr_lib::MMR<Hash, SpecMerge, S>` accumulator.
 pub struct SpecMerge;
 impl mmr_lib::Merge for SpecMerge {
 	type Item = Hash;
