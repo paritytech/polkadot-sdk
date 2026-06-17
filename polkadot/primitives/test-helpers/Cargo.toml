@@ -18,10 +18,10 @@ rand = { workspace = true, default-features = true }
 scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
 sp-application-crypto.workspace = true
 sp-core = { features = ["std"], workspace = true, default-features = true }
-sp-keyring.workspace = true
 sp-keyring.default-features = true
-sp-runtime.workspace = true
+sp-keyring.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 
 [dev-dependencies]
 bitvec = { features = ["alloc", "serde"], workspace = true }

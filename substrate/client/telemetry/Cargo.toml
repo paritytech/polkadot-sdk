@@ -24,8 +24,8 @@ log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 pin-project = { workspace = true }
 rand = { workspace = true, default-features = true }
-sc-utils.workspace = true
 sc-utils.default-features = true
+sc-utils.workspace = true
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
