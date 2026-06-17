@@ -1467,6 +1467,47 @@ where
 		self.send_statements_in_chunks(who, &to_send).await;
 	}
 
+	/// Send the `indices` of `statements` to `peer`, batched.
+	///
+	/// The v2 DHT path's [`V2DhtOrchestrator::propagation_plan`] already decided that `peer`
+	/// should receive these statements, so this skips the explicit-affinity bloom filter that
+	/// [`Self::send_statements_to_peer`] applies and only drops statements the peer already knows.
+	async fn send_targeted_statements_to_peer(
+		&mut self,
+		who: &PeerId,
+		statements: &[(Hash, Statement)],
+		indices: &[usize],
+	) {
+		let Some(peer) = self.peers.get_mut(who) else {
+			return;
+		};
+
+		// TODO(#11288): light peers may need different gating on the v2 DHT path. The
+		// orchestrator already chose this peer, so blocking it until it advertises a filter
+		// may be redundant here.
+		if !peer.can_receive() {
+			return;
+		}
+
+		let to_send: Vec<_> = indices
+			.iter()
+			.filter_map(|&index| {
+				let (hash, stmt) = &statements[index];
+				if peer.known_statements.contains(hash) {
+					return None;
+				}
+				peer.known_statements.insert(*hash);
+				Some(stmt)
+			})
+			.collect();
+
+		if to_send.is_empty() {
+			return;
+		}
+
+		self.send_statements_in_chunks(who, &to_send).await;
+	}
+
 	/// Send statements to a peer in chunks, respecting the maximum notification size.
 	async fn send_statements_in_chunks(&mut self, who: &PeerId, statements: &[&Statement]) {
 		let mut offset = 0;
@@ -1501,10 +1542,15 @@ where
 		}
 
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
-		if !statements.is_empty() {
-			if v2dht_enabled() {
-				self.v2dht.propagate_statements().await;
+		if statements.is_empty() {
+			return;
+		}
+
+		if v2dht_enabled() {
+			for (who, indices) in self.v2dht.propagation_plan(&statements) {
+				self.send_targeted_statements_to_peer(&who, &statements, &indices).await;
 			}
+		} else {
 			self.do_propagate_statements(&statements).await;
 		}
 	}
@@ -2262,6 +2308,95 @@ mod tests {
 			],
 			"Expected ANY_STATEMENT, ANY_STATEMENT_REFUND, DUPLICATE_STATEMENT reputation change, but got: {:?}",
 			reports
+		);
+	}
+
+	#[tokio::test]
+	async fn send_targeted_statements_skips_affinity_filter_then_dedups() {
+		let (mut handler, _store, _network, notification_service, _, _) = build_handler(0);
+
+		// A peer whose advertised filter matches no topic; the v2 send must ignore it because the
+		// orchestrator already chose this peer.
+		let peer_id = PeerId::random();
+		handler.peers.insert(
+			peer_id,
+			Peer {
+				known_statements: LruHashSet::new(NonZeroUsize::new(1000).unwrap()),
+				rate_limiter: PeerRateLimiter::new(
+					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
+					NonZeroU32::new(
+						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+					)
+					.expect("nonzero"),
+				),
+				protocol_version: PeerProtocolVersion::V1,
+				topic_affinity: Some(AffinityFilter::new(BLOOM_SEED, 0.01, 10)),
+				is_light: false,
+				pending_topic_affinity: None,
+			},
+		);
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"targeted".to_vec());
+		statement.set_topic(0, Topic([7u8; 32]));
+		let hash = statement.hash();
+		let statements = vec![(hash, statement)];
+
+		handler.send_targeted_statements_to_peer(&peer_id, &statements, &[0]).await;
+		assert_eq!(
+			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id),
+			vec![hash],
+			"targeted send must deliver the statement despite the non-matching filter"
+		);
+
+		// The peer now knows the statement, so a second send delivers nothing.
+		notification_service.clear_sent_notifications();
+		handler.send_targeted_statements_to_peer(&peer_id, &statements, &[0]).await;
+		assert!(notification_service.get_sent_notifications().is_empty());
+	}
+
+	#[tokio::test]
+	async fn send_targeted_statements_ignores_a_disconnected_peer() {
+		let (mut handler, _store, _network, notification_service, _, _) = build_handler(0);
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"orphan".to_vec());
+		let hash = statement.hash();
+		let statements = vec![(hash, statement)];
+
+		handler
+			.send_targeted_statements_to_peer(&PeerId::random(), &statements, &[0])
+			.await;
+		assert!(notification_service.get_sent_notifications().is_empty());
+	}
+
+	#[tokio::test]
+	async fn send_targeted_statements_delivers_only_indexed_unknown_statements() {
+		let (mut handler, _store, _network, notification_service, _, _) = build_handler(0);
+
+		let make = |seed: u8| {
+			let mut statement = Statement::new();
+			statement.set_plain_data(vec![seed]);
+			(statement.hash(), statement)
+		};
+		let statements = vec![make(1), make(2), make(3)];
+
+		let peer_id = PeerId::random();
+		let mut peer = Peer::new_for_testing(
+			LruHashSet::new(NonZeroUsize::new(1000).unwrap()),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT)
+				.expect("nonzero"),
+		);
+		// The peer already holds the statement at index 1.
+		peer.known_statements.insert(statements[1].0);
+		handler.peers.insert(peer_id, peer);
+
+		// The plan names indices 0 and 1: index 1 drops as already known, index 2 is never offered.
+		handler.send_targeted_statements_to_peer(&peer_id, &statements, &[0, 1]).await;
+		assert_eq!(
+			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id),
+			vec![statements[0].0]
 		);
 	}
 

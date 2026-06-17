@@ -18,8 +18,10 @@
 
 //! Fixtures shared across the crate's test modules.
 
-use crate::affinity::AffinityFilter;
+use crate::{affinity::AffinityFilter, v2dht::peers_topology::PeersTopologyConfig};
+use sc_network_types::PeerId;
 use sp_statement_store::{Statement, Topic};
+use std::num::NonZeroUsize;
 
 /// A topic whose 32 bytes are all `n`.
 pub(crate) fn topic(n: u8) -> Topic {
@@ -37,4 +39,20 @@ pub(crate) fn statement_on(topic: Topic) -> Statement {
 /// A filter advertising the given `topics`.
 pub(crate) fn filter_over(topics: &[Topic]) -> AffinityFilter {
 	AffinityFilter::from_topics(topics.iter().map(|topic| topic.as_ref()), 0)
+}
+
+/// A peer with a deterministic identity-multihash `PeerId` derived from `seed`.
+pub(crate) fn peer(seed: u8) -> PeerId {
+	let mut bytes = [seed; 34];
+	bytes[0] = 0;
+	bytes[1] = 32;
+	PeerId::from_bytes(&bytes).expect("identity multihash peer id")
+}
+
+/// A topology config with the given `replication_factor` and `gossip_target`.
+pub(crate) fn config(replication_factor: usize, gossip_target: usize) -> PeersTopologyConfig {
+	PeersTopologyConfig {
+		replication_factor: NonZeroUsize::new(replication_factor).expect("non-zero"),
+		gossip_target: NonZeroUsize::new(gossip_target).expect("non-zero"),
+	}
 }
