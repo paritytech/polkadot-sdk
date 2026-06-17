@@ -118,7 +118,8 @@ where
 		// during validation we skip block limit check. Since the `validate_transaction`
 		// call runs on an empty block anyway, by this we prevent `on_initialize` weight
 		// consumption from causing false negatives.
-		// Note: the extrinsic length is already included in `info.call_weight.proof_size`.
+		// Note: the extrinsic length weight is already part of `info.total_weight()` (see
+		// `DispatchInfo::length_weight`).
 		Self::check_extrinsic_weight(info)?;
 
 		Ok((Default::default(), next_len))
@@ -129,13 +130,12 @@ where
 	/// It checks and notes the new weight and length.
 	pub fn do_prepare(
 		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
 		next_len: u32,
 	) -> Result<(), TransactionValidityError> {
 		let all_weight = Pallet::<T>::block_weight();
 		let maximum_weight = T::BlockWeights::get();
 		let next_weight =
-			calculate_consumed_weight::<T::RuntimeCall>(&maximum_weight, all_weight, info, len)?;
+			calculate_consumed_weight::<T::RuntimeCall>(&maximum_weight, all_weight, info)?;
 		// Extrinsic weight already checked in `validate`.
 
 		crate::BlockSize::<T>::put(next_len);
@@ -148,24 +148,24 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 	) -> Result<(), TransactionValidityError> {
-		// Pass 0 for extrinsic_len: callers of this deprecated API do not have access to len.
-		// Prefer calling `frame_system::Pallet::reclaim_weight` with the correct len directly.
-		crate::Pallet::<T>::reclaim_weight(info, post_info, 0)
+		crate::Pallet::<T>::reclaim_weight(info, post_info)
 	}
 }
 
 /// Returns the weight that `CheckWeight` books for an extrinsic before dispatch.
+///
+/// The extrinsic length weight (the `proof_size` contribution of the encoded extrinsic) is expected
+/// to already be part of `info` via [`DispatchInfo::length_weight`], so it is reflected in
+/// [`DispatchInfo::total_weight`].
 pub fn calculate_consumed_extrinsic_weight<Call>(
 	maximum_weight: &BlockWeights,
 	info: &DispatchInfoOf<Call>,
-	len: usize,
 ) -> Weight
 where
 	Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
 	info.total_weight()
 		.saturating_add(maximum_weight.get(info.class).base_extrinsic)
-		.saturating_add_proof_size(len as u64)
 }
 
 /// Checks if the current extrinsic can fit into the block with respect to block weight limits.
@@ -175,16 +175,13 @@ pub fn calculate_consumed_weight<Call>(
 	maximum_weight: &BlockWeights,
 	mut all_weight: crate::ConsumedWeight,
 	info: &DispatchInfoOf<Call>,
-	_len: usize,
 ) -> Result<crate::ConsumedWeight, TransactionValidityError>
 where
 	Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	// The extrinsic length is already reflected in info.total_weight() (via
-	// call_weight.proof_size).
-	let extrinsic_weight = info
-		.total_weight()
-		.saturating_add(maximum_weight.get(info.class).base_extrinsic);
+	// The extrinsic length weight is already reflected in `info.total_weight()` (via
+	// `DispatchInfo::length_weight`).
+	let extrinsic_weight = calculate_consumed_extrinsic_weight::<Call>(maximum_weight, info);
 	let limit_per_class = maximum_weight.get(info.class);
 
 	// add the weight. If class is unlimited, use saturating add instead of checked one.
@@ -273,19 +270,19 @@ where
 		_origin: &T::RuntimeOrigin,
 		_call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
+		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		Self::do_prepare(info, len, val)
+		Self::do_prepare(info, val)
 	}
 
 	fn post_dispatch_details(
 		_pre: Self::Pre,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
-		len: usize,
+		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		crate::Pallet::<T>::reclaim_weight(info, post_info, len).map(|()| Weight::zero())
+		crate::Pallet::<T>::reclaim_weight(info, post_info).map(|()| Weight::zero())
 	}
 
 	fn bare_validate(
@@ -302,16 +299,16 @@ where
 		len: usize,
 	) -> Result<(), TransactionValidityError> {
 		let (_, next_len) = Self::do_validate(info, len)?;
-		Self::do_prepare(info, len, next_len)
+		Self::do_prepare(info, next_len)
 	}
 
 	fn bare_post_dispatch(
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &mut PostDispatchInfoOf<T::RuntimeCall>,
-		len: usize,
+		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		crate::Pallet::<T>::reclaim_weight(info, post_info, len)
+		crate::Pallet::<T>::reclaim_weight(info, post_info)
 	}
 }
 
@@ -374,7 +371,7 @@ mod tests {
 
 		check(|max, len| {
 			let next_len = CheckWeight::<Test>::check_block_length(max, len).unwrap();
-			assert_ok!(CheckWeight::<Test>::do_prepare(max, len, next_len));
+			assert_ok!(CheckWeight::<Test>::do_prepare(max, next_len));
 			assert_eq!(System::block_weight().total(), Weight::MAX);
 			assert!(System::block_weight().total().ref_time() > block_weight_limit().ref_time());
 		});
@@ -459,10 +456,10 @@ mod tests {
 			let len = 0_usize;
 
 			let next_len = CheckWeight::<Test>::check_block_length(&max_normal, len).unwrap();
-			assert_ok!(CheckWeight::<Test>::do_prepare(&max_normal, len, next_len));
+			assert_ok!(CheckWeight::<Test>::do_prepare(&max_normal, next_len));
 			assert_eq!(System::block_weight().total(), Weight::from_parts(768, 0));
 			let next_len = CheckWeight::<Test>::check_block_length(&rest_operational, len).unwrap();
-			assert_ok!(CheckWeight::<Test>::do_prepare(&rest_operational, len, next_len));
+			assert_ok!(CheckWeight::<Test>::do_prepare(&rest_operational, next_len));
 			assert_eq!(block_weight_limit(), Weight::from_parts(1024, u64::MAX));
 			assert_eq!(System::block_weight().total(), block_weight_limit().set_proof_size(0));
 			// Checking single extrinsic should not take current block weight into account.
@@ -485,11 +482,11 @@ mod tests {
 			let len = 0_usize;
 
 			let next_len = CheckWeight::<Test>::check_block_length(&rest_operational, len).unwrap();
-			assert_ok!(CheckWeight::<Test>::do_prepare(&rest_operational, len, next_len));
+			assert_ok!(CheckWeight::<Test>::do_prepare(&rest_operational, next_len));
 			// Extra 20 here from block execution + base extrinsic weight
 			assert_eq!(System::block_weight().total(), Weight::from_parts(266, 0));
 			let next_len = CheckWeight::<Test>::check_block_length(&max_normal, len).unwrap();
-			assert_ok!(CheckWeight::<Test>::do_prepare(&max_normal, len, next_len));
+			assert_ok!(CheckWeight::<Test>::do_prepare(&max_normal, next_len));
 			assert_eq!(block_weight_limit(), Weight::from_parts(1024, u64::MAX));
 			assert_eq!(System::block_weight().total(), block_weight_limit().set_proof_size(0));
 		});
@@ -514,17 +511,17 @@ mod tests {
 
 			let next_len = CheckWeight::<Test>::check_block_length(&dispatch_normal, len).unwrap();
 			assert_err!(
-				CheckWeight::<Test>::do_prepare(&dispatch_normal, len, next_len),
+				CheckWeight::<Test>::do_prepare(&dispatch_normal, next_len),
 				InvalidTransaction::ExhaustsResources
 			);
 			let next_len =
 				CheckWeight::<Test>::check_block_length(&dispatch_operational, len).unwrap();
 			// Thank goodness we can still do an operational transaction to possibly save the
 			// blockchain.
-			assert_ok!(CheckWeight::<Test>::do_prepare(&dispatch_operational, len, next_len));
+			assert_ok!(CheckWeight::<Test>::do_prepare(&dispatch_operational, next_len));
 			// Not too much though
 			assert_err!(
-				CheckWeight::<Test>::do_prepare(&dispatch_operational, len, next_len),
+				CheckWeight::<Test>::do_prepare(&dispatch_operational, next_len),
 				InvalidTransaction::ExhaustsResources
 			);
 			// Even with full block, validity of single transaction should be correct.
@@ -540,6 +537,7 @@ mod tests {
 			let op = DispatchInfo {
 				call_weight: Weight::from_parts(100, 0),
 				extension_weight: Weight::zero(),
+				length_weight: Weight::zero(),
 				class: DispatchClass::Operational,
 				pays_fee: Pays::Yes,
 			};
@@ -614,6 +612,7 @@ mod tests {
 			let op = DispatchInfo {
 				call_weight: Weight::zero(),
 				extension_weight: Weight::zero(),
+				length_weight: Weight::zero(),
 				class: DispatchClass::Operational,
 				pays_fee: Pays::Yes,
 			};
@@ -910,10 +909,10 @@ mod tests {
 			let len = 0_usize;
 
 			let next_len = CheckWeight::<Test>::check_block_length(&max_normal, len).unwrap();
-			assert_ok!(CheckWeight::<Test>::do_prepare(&max_normal, len, next_len));
+			assert_ok!(CheckWeight::<Test>::do_prepare(&max_normal, next_len));
 			assert_eq!(System::block_weight().total(), Weight::from_parts(768, 0));
 			let next_len = CheckWeight::<Test>::check_block_length(&mandatory, len).unwrap();
-			assert_ok!(CheckWeight::<Test>::do_prepare(&mandatory, len, next_len));
+			assert_ok!(CheckWeight::<Test>::do_prepare(&mandatory, next_len));
 			assert_eq!(block_weight_limit(), Weight::from_parts(1024, u64::MAX));
 			assert_eq!(System::block_weight().total(), Weight::from_parts(1024 + 768, 0));
 			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&mandatory), Ok(()));
@@ -960,14 +959,12 @@ mod tests {
 			&maximum_weight,
 			all_weight.clone(),
 			&mandatory1,
-			0
 		));
 		assert_err!(
 			calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
 				&maximum_weight,
 				all_weight,
 				&mandatory2,
-				0
 			),
 			InvalidTransaction::ExhaustsResources
 		);
@@ -977,7 +974,8 @@ mod tests {
 	fn check_extrinsic_proof_weight_includes_length() {
 		new_test_ext().execute_with(|| {
 			let with_len = |base_call_weight: Weight, len: usize| DispatchInfo {
-				call_weight: base_call_weight.saturating_add_proof_size(len as u64),
+				call_weight: base_call_weight,
+				length_weight: Weight::from_parts(0, len as u64),
 				class: DispatchClass::Normal,
 				..Default::default()
 			};
@@ -1052,8 +1050,9 @@ mod tests {
 			DispatchClass::Mandatory => Weight::from_parts(0, 0),
 		});
 
-		// The executive pre-adds the extrinsic length to call_weight.proof_size before calling
-		// into the extension pipeline. Tests must replicate this to get realistic dispatch infos.
+		// The executive records the extrinsic length in `DispatchInfo::length_weight` before
+		// calling into the extension pipeline. Tests must replicate this to get realistic
+		// dispatch infos.
 		let normal_base = DispatchInfo {
 			call_weight: Weight::from_parts(5, 0),
 			class: DispatchClass::Normal,
@@ -1065,7 +1064,7 @@ mod tests {
 			..Default::default()
 		};
 		let with_len = |base: &DispatchInfo, len: u64| DispatchInfo {
-			call_weight: base.call_weight.saturating_add_proof_size(len),
+			length_weight: Weight::from_parts(0, len),
 			..*base
 		};
 
@@ -1074,7 +1073,6 @@ mod tests {
 			&maximum_weight,
 			all_weight.clone(),
 			&normal_base,
-			0,
 		)
 		.unwrap();
 		assert_eq!(consumed.total().saturating_sub(all_weight.total()), normal_base.total_weight());
@@ -1083,7 +1081,6 @@ mod tests {
 			&maximum_weight,
 			all_weight.clone(),
 			&mandatory_base,
-			0,
 		)
 		.unwrap();
 		assert_eq!(
@@ -1091,13 +1088,12 @@ mod tests {
 			mandatory_base.total_weight()
 		);
 
-		// Non-zero length: executive adds len to call_weight.proof_size before this call.
+		// Non-zero length: executive records len in `length_weight` before this call.
 		let normal_100 = with_len(&normal_base, 100);
 		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
 			&maximum_weight,
 			all_weight.clone(),
 			&normal_100,
-			100,
 		)
 		.unwrap();
 		// The proof_size in normal_100.total_weight() already includes the 100-byte contribution.
@@ -1108,7 +1104,6 @@ mod tests {
 			&maximum_weight,
 			all_weight.clone(),
 			&mandatory_100,
-			100,
 		)
 		.unwrap();
 		// Must account for the len in the proof size
@@ -1123,7 +1118,6 @@ mod tests {
 			&maximum_weight,
 			all_weight.clone(),
 			&normal_oversized,
-			2000,
 		);
 		// errors out
 		assert_eq!(consumed, Err(InvalidTransaction::ExhaustsResources.into()));
@@ -1133,7 +1127,6 @@ mod tests {
 			&maximum_weight,
 			all_weight.clone(),
 			&mandatory_oversized,
-			2000,
 		);
 		// errors out
 		assert_eq!(consumed, Err(InvalidTransaction::ExhaustsResources.into()));

@@ -758,11 +758,11 @@ mod test {
 			let reported =
 				Pallet::<Test>::eth_pre_dispatch_weight(signed_transaction.signed_payload())
 					.unwrap();
-			let info = <Test as Config>::FeeInfo::dispatch_info(&call);
+			let mut info = <Test as Config>::FeeInfo::dispatch_info(&call);
+			info.length_weight = Weight::from_parts(0, encoded_len as u64);
 			let expected = frame_system::calculate_consumed_extrinsic_weight::<CallOf<Test>>(
 				&<Test as frame_system::Config>::BlockWeights::get(),
 				&info,
-				encoded_len as usize,
 			);
 
 			assert_eq!(reported, expected);

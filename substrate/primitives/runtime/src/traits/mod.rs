@@ -1577,10 +1577,11 @@ pub trait RefundWeight {
 	fn refund(&mut self, weight: sp_weights::Weight);
 }
 
-/// A type that can handle weight refunds and incorporate extension weights into the call weight
-/// after dispatch.
+/// A type that can handle weight refunds and incorporate extension and length weights into the
+/// call weight after dispatch.
 pub trait ExtensionPostDispatchWeightHandler<DispatchInfo>: RefundWeight {
-	/// Accrue some weight pertaining to the extension.
+	/// Accrue the non-reclaimable weight known from the dispatch info (extension and length weight)
+	/// onto the post-dispatch actual weight.
 	fn set_extension_weight(&mut self, info: &DispatchInfo);
 }
 

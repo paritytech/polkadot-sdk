@@ -48,6 +48,7 @@ mod benchmarks {
 		let inner = frame_system::Call::remark { remark: alloc::vec![] };
 		let call = T::RuntimeCall::from(inner);
 		let info = DispatchInfo {
+			length_weight: Default::default(),
 			call_weight: Weight::zero(),
 			extension_weight: Weight::zero(),
 			class: DispatchClass::Normal,
@@ -72,6 +73,7 @@ mod benchmarks {
 		let inner = frame_system::Call::remark { remark: alloc::vec![] };
 		let call = T::RuntimeCall::from(inner);
 		let info = DispatchInfo {
+			length_weight: Default::default(),
 			call_weight: Weight::from_parts(10, 0),
 			extension_weight: Weight::zero(),
 			class: DispatchClass::Operational,
@@ -101,6 +103,7 @@ mod benchmarks {
 		let inner = frame_system::Call::remark { remark: alloc::vec![] };
 		let call = T::RuntimeCall::from(inner);
 		let info = DispatchInfo {
+			length_weight: Default::default(),
 			call_weight: Weight::from_parts(10, 0),
 			extension_weight: Weight::zero(),
 			class: DispatchClass::Operational,

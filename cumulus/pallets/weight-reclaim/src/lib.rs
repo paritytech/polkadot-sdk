@@ -230,10 +230,14 @@ where
 			);
 		}
 
-		// The folded-in extrinsic length is part of `info.total_weight()` but is not reclaimable,
-		// so keep it in the accurate weight (otherwise it gets reclaimed from `BlockWeight`).
+		// The host-measured `measured_proof_size` only covers the storage proof accessed during
+		// dispatch; it does not include the encoded extrinsic bytes. Those bytes are part of the
+		// PoV too and are accounted for in `info.total_weight()` via `DispatchInfo::length_weight`.
+		// Since the extrinsic length weight is never reclaimable, we add it back to the measured
+		// proof size here so that the block weight bookkeeping stays balanced when we
+		// `reduce(info.total_weight())` and `accrue(accurate_weight)` below.
 		let accurate_weight = benchmarked_actual_weight
-			.set_proof_size(measured_proof_size.saturating_add(len as u64));
+			.set_proof_size(measured_proof_size.saturating_add(info.length_weight.proof_size()));
 
 		let pov_size_missing_from_node = frame_system::BlockWeight::<T>::mutate(|current_weight| {
 			let already_reclaimed = frame_system::ExtrinsicWeightReclaimed::<T>::get();
@@ -241,11 +245,12 @@ where
 			current_weight.reduce(info.total_weight(), info.class);
 			current_weight.accrue(accurate_weight, info.class);
 
-			// If the node-side proof size is already higher than the runtime bookkeeping, add the
-			// difference to `BlockWeight` so the proof size does not grow faster than expected.
-			// Use the full `BlockSize`: the node PoV contains the whole block body, which the proof
-			// recorder does not measure. This extrinsic's length is already booked (via
-			// `accurate_weight`), so reconciliation only adds genuine node-side excess.
+			// If we encounter a situation where the node-side proof size is already higher than
+			// what we have in the runtime bookkeeping, we add the difference to the `BlockWeight`.
+			// This prevents that the proof size grows faster than the runtime proof size.
+			// `block_size` (the total encoded length of the block's extrinsics) is comparable to
+			// the runtime `BlockWeight` proof size since the latter now includes the extrinsic
+			// length weight of every extrinsic.
 			let block_size = frame_system::BlockSize::<T>::get().unwrap_or(0);
 			let node_side_pov_size = proof_size_after_dispatch.saturating_add(block_size.into());
 			let block_weight_proof_size = current_weight.total().proof_size();
@@ -305,6 +310,6 @@ where
 	) -> Result<(), TransactionValidityError> {
 		S::bare_post_dispatch(info, post_info, len, result)?;
 
-		frame_system::Pallet::<T>::reclaim_weight(info, post_info, len)
+		frame_system::Pallet::<T>::reclaim_weight(info, post_info)
 	}
 }

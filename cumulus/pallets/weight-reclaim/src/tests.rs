@@ -269,12 +269,16 @@ fn basic_refund_no_post_info() {
 		set_current_storage_weight(1000);
 
 		// Benchmarked storage weight: 500
-		let info = DispatchInfo { call_weight: Weight::from_parts(0, 500), ..Default::default() };
+		let info = DispatchInfo {
+			call_weight: Weight::from_parts(0, 500),
+			length_weight: Weight::from_parts(0, LEN as u64),
+			..Default::default()
+		};
 		let mut post_info = PostDispatchInfo::default();
 
 		let tx_ext = new_tx_ext();
 
-		// Check weight should add 500 to weight.
+		// Check weight should add 500 + 150 (len) to weight.
 		let (pre, _) = tx_ext
 			.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN, 0)
 			.unwrap();
@@ -297,13 +301,17 @@ fn basic_refund_some_post_info() {
 		set_current_storage_weight(1000);
 
 		// Benchmarked storage weight: 500
-		let info = DispatchInfo { call_weight: Weight::from_parts(0, 500), ..Default::default() };
+		let info = DispatchInfo {
+			call_weight: Weight::from_parts(0, 500),
+			length_weight: Weight::from_parts(0, LEN as u64),
+			..Default::default()
+		};
 		let mut post_info = PostDispatchInfo::default();
 		post_info.actual_weight = Some(info.total_weight());
 
 		let tx_ext = new_tx_ext();
 
-		// Check weight should add 500 to weight.
+		// Check weight should add 500 + 150 (len) to weight.
 		let (pre, _) = tx_ext
 			.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN, 0)
 			.unwrap();
@@ -312,8 +320,7 @@ fn basic_refund_some_post_info() {
 
 		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
-		// The folded extrinsic length is non-reclaimable, so the `LEN` proof size stays in the
-		// post info actual weight (master's 100 + LEN).
+		// Actual weight now includes the non-reclaimable extrinsic length: measured 100 + LEN.
 		assert_eq!(post_info.actual_weight.unwrap(), Weight::from_parts(0, 100 + LEN as u64));
 		assert_eq!(get_storage_weight().proof_size(), 1250);
 	});
@@ -328,9 +335,9 @@ fn does_nothing_without_extension() {
 		set_current_storage_weight(1000);
 
 		// Benchmarked storage weight: 500
-		// The executive folds the extrinsic length into the call weight proof size, mirror that.
 		let info = DispatchInfo {
-			call_weight: Weight::from_parts(0, 500).saturating_add_proof_size(LEN as u64),
+			call_weight: Weight::from_parts(0, 500),
+			length_weight: Weight::from_parts(0, LEN as u64),
 			..Default::default()
 		};
 		let mut post_info = PostDispatchInfo::default();
@@ -359,13 +366,17 @@ fn negative_refund_is_added_to_weight() {
 	test_ext.execute_with(|| {
 		set_current_storage_weight(1000);
 		// Benchmarked storage weight: 100
-		let info = DispatchInfo { call_weight: Weight::from_parts(0, 100), ..Default::default() };
+		let info = DispatchInfo {
+			call_weight: Weight::from_parts(0, 100),
+			length_weight: Weight::from_parts(0, LEN as u64),
+			..Default::default()
+		};
 		let mut post_info = PostDispatchInfo::default();
 		post_info.actual_weight = Some(info.total_weight());
 
 		let tx_ext = new_tx_ext();
 
-		// Weight added should be 100
+		// Weight added should be 100 + 150 (len)
 		let (pre, _) = tx_ext
 			.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN, 0)
 			.unwrap();
@@ -376,10 +387,8 @@ fn negative_refund_is_added_to_weight() {
 		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
 		assert_eq!(post_info.actual_weight.unwrap(), info.total_weight());
-		assert_eq!(
-			get_storage_weight().proof_size(),
-			1100 + LEN as u64 + info.total_weight().proof_size()
-		);
+		// `info.total_weight()` already includes the extrinsic length weight.
+		assert_eq!(get_storage_weight().proof_size(), 1100 + info.total_weight().proof_size());
 	})
 }
 
@@ -388,7 +397,11 @@ fn test_zero_proof_size() {
 	let mut test_ext = setup_test_externalities(&[0, 0]);
 
 	test_ext.execute_with(|| {
-		let info = DispatchInfo { call_weight: Weight::from_parts(0, 500), ..Default::default() };
+		let info = DispatchInfo {
+			call_weight: Weight::from_parts(0, 500),
+			length_weight: Weight::from_parts(0, LEN as u64),
+			..Default::default()
+		};
 		let mut post_info = PostDispatchInfo::default();
 		post_info.actual_weight = Some(info.total_weight());
 
@@ -402,8 +415,7 @@ fn test_zero_proof_size() {
 
 		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
-		// `reclaim_weight` no longer reclaims the extrinsic length (the non-reclaimable
-		// extrinsic bytes), so the `LEN` proof size remains in the post info actual weight.
+		// Storage usage is zero, so the actual weight is just the non-reclaimable extrinsic length.
 		assert_eq!(post_info.actual_weight.unwrap(), Weight::from_parts(0, LEN as u64));
 		// Proof size should be exactly equal to extrinsic length
 		assert_eq!(get_storage_weight().proof_size(), LEN as u64);
@@ -417,13 +429,17 @@ fn test_larger_pre_dispatch_proof_size() {
 	test_ext.execute_with(|| {
 		set_current_storage_weight(1300);
 
-		let info = DispatchInfo { call_weight: Weight::from_parts(0, 500), ..Default::default() };
+		let info = DispatchInfo {
+			call_weight: Weight::from_parts(0, 500),
+			length_weight: Weight::from_parts(0, LEN as u64),
+			..Default::default()
+		};
 		let mut post_info = PostDispatchInfo::default();
 		post_info.actual_weight = Some(info.total_weight());
 
 		let tx_ext = new_tx_ext();
 
-		// Adds 500 weight, total weight is 1800
+		// Adds 500 + 150 (len) weight, total weight is 1950
 		let (pre, _) = tx_ext
 			.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN, 0)
 			.unwrap();
@@ -437,8 +453,7 @@ fn test_larger_pre_dispatch_proof_size() {
 		// Recorded proof size is negative -200, total weight is now 1450
 		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
-		// The folded extrinsic length is non-reclaimable, so the `LEN` proof size stays in the
-		// post info actual weight.
+		// Storage usage reclaims down to zero, leaving only the non-reclaimable extrinsic length.
 		assert_eq!(post_info.actual_weight.unwrap(), Weight::from_parts(0, LEN as u64));
 		assert_eq!(get_storage_weight().proof_size(), 1450);
 	});
@@ -452,7 +467,11 @@ fn test_incorporates_check_weight_unspent_weight() {
 		set_current_storage_weight(1000);
 
 		// Benchmarked storage weight: 300
-		let info = DispatchInfo { call_weight: Weight::from_parts(100, 300), ..Default::default() };
+		let info = DispatchInfo {
+			call_weight: Weight::from_parts(100, 300),
+			length_weight: Weight::from_parts(0, LEN as u64),
+			..Default::default()
+		};
 
 		// Actual weight is 50
 		let mut post_info = PostDispatchInfo {
@@ -462,7 +481,7 @@ fn test_incorporates_check_weight_unspent_weight() {
 
 		let tx_ext = new_tx_ext();
 
-		// Check weight should add 300 of weight
+		// Check weight should add 300 + 150 (len) of weight
 		let (pre, _) = tx_ext
 			.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN, 0)
 			.unwrap();
@@ -473,9 +492,7 @@ fn test_incorporates_check_weight_unspent_weight() {
 		// we always need to call `post_dispatch` to verify that they interoperate correctly.
 		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
-		// Master reclaimed the extrinsic length from the actual weight (`350 - LEN` == 200).
-		// The length is no longer reclaimed, so the unspent proof saturates to 0 and the post info
-		// actual weight keeps its original 250 proof size.
+		// Actual weight keeps the non-reclaimable extrinsic length, so nothing is refunded from it.
 		assert_eq!(post_info.actual_weight.unwrap(), Weight::from_parts(50, 250));
 		// Reclaimed 100
 		assert_eq!(get_storage_weight().proof_size(), 1350);
@@ -489,7 +506,11 @@ fn test_incorporates_check_weight_unspent_weight_on_negative() {
 	test_ext.execute_with(|| {
 		set_current_storage_weight(1000);
 		// Benchmarked storage weight: 50
-		let info = DispatchInfo { call_weight: Weight::from_parts(100, 50), ..Default::default() };
+		let info = DispatchInfo {
+			call_weight: Weight::from_parts(100, 50),
+			length_weight: Weight::from_parts(0, LEN as u64),
+			..Default::default()
+		};
 
 		// Actual weight is 25
 		let mut post_info = PostDispatchInfo {
@@ -499,7 +520,7 @@ fn test_incorporates_check_weight_unspent_weight_on_negative() {
 
 		let tx_ext = new_tx_ext();
 
-		// Adds 50 weight, total weight 1050
+		// Adds 50 + 150 (len) weight, total weight 1200
 		let (pre, _) = tx_ext
 			.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN, 0)
 			.unwrap();
@@ -524,9 +545,9 @@ fn test_nothing_reclaimed() {
 	test_ext.execute_with(|| {
 		set_current_storage_weight(0);
 		// Benchmarked storage weight: 100
-		// The executive folds the extrinsic length into the call weight proof size, mirror that.
 		let info = DispatchInfo {
-			call_weight: Weight::from_parts(100, 100).saturating_add_proof_size(LEN as u64),
+			call_weight: Weight::from_parts(100, 100),
+			length_weight: Weight::from_parts(0, LEN as u64),
 			..Default::default()
 		};
 
@@ -651,8 +672,6 @@ fn test_series() {
 			post_info_actual_weight: Some(Weight::from_parts(60, 200)),
 			block_weight_pre_dispatch: Weight::from_parts(1000, 1000),
 			mock_ext_refund: Weight::from_parts(20, 20),
-			// Master refunded down to (40, 150); the non-reclaimable extrinsic length stays in the
-			// actual weight now, so it is master's 150 + the previously-reclaimed length portion.
 			assert_post_info_weight: Some(Weight::from_parts(40, 200)),
 			assert_block_weight_post_dispatch: base_extrinsic +
 				Weight::from_parts(1040, 1150 + LEN as u64),
@@ -667,8 +686,6 @@ fn test_series() {
 			post_info_actual_weight: Some(Weight::from_parts(60, 200)),
 			block_weight_pre_dispatch: Weight::from_parts(1000, 1000),
 			mock_ext_refund: Weight::from_parts(20, 300),
-			// Master refunded down to (40, 150); the non-reclaimable extrinsic length stays in the
-			// actual weight now, so it is master's 150 + the previously-reclaimed length portion.
 			assert_post_info_weight: Some(Weight::from_parts(40, 200)),
 			assert_block_weight_post_dispatch: base_extrinsic +
 				Weight::from_parts(1040, 1150 + LEN as u64),
@@ -691,6 +708,7 @@ fn test_series() {
 			let info = DispatchInfo {
 				call_weight: test.info_call_weight,
 				extension_weight: test.info_extension_weight,
+				length_weight: Weight::from_parts(0, LEN as u64),
 				..Default::default()
 			};
 			let mut post_info = PostDispatchInfo {
@@ -768,9 +786,8 @@ fn full_basic_refund() {
 		let extrinsic = new_extrinsic();
 		let call_info = extrinsic.function.get_dispatch_info();
 
-		// The executive folds the extrinsic length into the call weight proof size, mirror that.
 		let mut info = extrinsic.get_dispatch_info();
-		info.call_weight = info.call_weight.saturating_add_proof_size(LEN as u64);
+		info.length_weight = Weight::from_parts(0, LEN as u64);
 		let post_info = extrinsic.apply::<Test>(&info, LEN).unwrap().unwrap();
 
 		// Assertions:
@@ -780,8 +797,7 @@ fn full_basic_refund() {
 		);
 		assert_eq!(
 			post_info.actual_weight.unwrap().proof_size(),
-			// The folded extrinsic length is non-reclaimable (`reclaim_weight` subtracts `len`
-			// from the unspent proof size), so it stays in the post info actual weight.
+			// The extrinsic length is non-reclaimable and is now part of the actual weight.
 			actual_used_proof_size as u64 + LEN as u64,
 		);
 		assert_eq!(
@@ -820,9 +836,8 @@ fn full_accrue() {
 		let extrinsic = new_extrinsic();
 		let call_info = extrinsic.function.get_dispatch_info();
 
-		// The executive folds the extrinsic length into the call weight proof size, mirror that.
 		let mut info = extrinsic.get_dispatch_info();
-		info.call_weight = info.call_weight.saturating_add_proof_size(LEN as u64);
+		info.length_weight = Weight::from_parts(0, LEN as u64);
 		let post_info = extrinsic.apply::<Test>(&info, LEN).unwrap().unwrap();
 
 		// Assertions:
@@ -848,6 +863,7 @@ fn bare_is_reclaimed() {
 		let info = DispatchInfo {
 			call_weight: Weight::from_parts(100, 100),
 			extension_weight: Weight::from_parts(100, 100),
+			length_weight: Default::default(),
 			class: DispatchClass::Normal,
 			pays_fee: Default::default(),
 		};
@@ -934,10 +950,8 @@ fn sets_to_node_storage_proof_if_higher() {
 			let call_info = extrinsic.function.get_dispatch_info();
 			assert_eq!(call_info.call_weight.proof_size(), 0);
 
-			// The executive folds the extrinsic length into the call weight proof size, mirror
-			// that.
 			let mut info = extrinsic.get_dispatch_info();
-			info.call_weight = info.call_weight.saturating_add_proof_size(LEN as u64);
+			info.length_weight = Weight::from_parts(0, LEN as u64);
 			let _post_info = extrinsic.apply::<Test>(&info, LEN).unwrap().unwrap();
 
 			assert_eq!(get_storage_weight().proof_size(), test.assert_final_block_proof_size);
@@ -968,11 +982,10 @@ fn test_pov_missing_from_node_reclaim() {
 
 	test_ext.execute_with(|| {
 		set_current_storage_weight(block_pre_dispatch);
-		// The executive folds the extrinsic length into the call weight proof size, mirror that.
 		let info = DispatchInfo {
-			call_weight: Weight::from_parts(0, bench_pre_dispatch_call)
-				.saturating_add_proof_size(len as u64),
+			call_weight: Weight::from_parts(0, bench_pre_dispatch_call),
 			extension_weight: Weight::from_parts(0, 0),
+			length_weight: Weight::from_parts(0, len as u64),
 			..Default::default()
 		};
 		let post_info = PostDispatchInfo {
@@ -1038,6 +1051,7 @@ fn test_ref_time_weight_reclaim() {
 		let info = DispatchInfo {
 			call_weight: Weight::from_parts(bench_pre_dispatch_call, 0),
 			extension_weight: Weight::from_parts(bench_mock_ext_weight, 0),
+			length_weight: Weight::from_parts(0, len as u64),
 			..Default::default()
 		};
 		let post_info = PostDispatchInfo {

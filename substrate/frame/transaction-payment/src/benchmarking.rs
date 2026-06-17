@@ -74,6 +74,7 @@ mod benchmarks {
 		let call = T::RuntimeCall::from(inner);
 		let extension_weight = ext.weight(&call);
 		let info = DispatchInfo {
+			length_weight: Default::default(),
 			call_weight: Weight::from_parts(100, 0),
 			extension_weight,
 			class: DispatchClass::Operational,

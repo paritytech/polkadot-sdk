@@ -164,7 +164,7 @@ where
 		pre: Self::Pre,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
-		len: usize,
+		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
 		let Some(pre_dispatch_proof_size) = pre else {
@@ -178,16 +178,11 @@ where
 			);
 			return Ok(Weight::zero());
 		};
-		// The folded-in extrinsic length is part of `info.total_weight()` but is not reclaimable,
-		// and the node-measured `consumed_weight` does not include it (the extrinsic bytes cancel
-		// in the `post - pre` delta). Exclude it from the unspent and benchmarked weight so it is
-		// not reclaimed from the block weight.
-		let unspent = post_info.calc_unspent(info).proof_size().saturating_sub(len as u64);
-		let benchmarked_weight = info
-			.total_weight()
-			.proof_size()
-			.saturating_sub(len as u64)
-			.saturating_sub(unspent);
+		// Unspent weight according to the `actual_weight` from `PostDispatchInfo`
+		// This unspent weight will be refunded by the `CheckWeight` extension, so we need to
+		// account for that.
+		let unspent = post_info.calc_unspent(info).proof_size();
+		let benchmarked_weight = info.total_weight().proof_size().saturating_sub(unspent);
 		let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
 
 		let storage_size_diff = benchmarked_weight.abs_diff(consumed_weight as u64);
