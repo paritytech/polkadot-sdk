@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781689599044,
+  "lastUpdate": 1781699175977,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c483327ef1ef99340c3cd564fb43ce625a011934",
-          "message": "fix zombienet ci, remove merge_group listener (#10133)\n\nRemove `merge_group` listener since the zombienet workflows are\ncurrently _call_ from the `build` job.\nThis was causing failures like:\n\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/18858082286/job/53810567441\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/18786371402/job/53605598204\n\nThx!",
-          "timestamp": "2025-10-28T10:43:15Z",
-          "tree_id": "cb0bb8ef401c47d53816af0ad49c1b083abe874b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c483327ef1ef99340c3cd564fb43ce625a011934"
-        },
-        "date": 1761655528619,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63633.55,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52938.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4171014074200015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4591324090100004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000019874929999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000019874929999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001902592,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005849204480000011,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9316742523399928,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.422458170540002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.708946950060943,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4357588079500016,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.44671536416,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.1186896159,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001902592,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.4491236100299956,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "831741222650ee43920cc3564deff0f47a524a47",
+          "message": "fatxpool: preserve order of same-priority transactions on re-orgs (#12362)\n\nThis PR improves handling the order of transactions during re-orgs.\nPreviously transactions from retracted blocks were resubmitted in\nreverse order (old best → common ancestor); now they are resubmitted in\nexecution order (common ancestor → old best), so equal-priority\ntransactions keep their original order via the pool's FIFO tie-break.\n\nThe original order is not always preserved; this is a best-effort\napproach (not a guarantee) that works well for most typical forks,\npreserving order where possible:\n\n#### Works — equal priority (e.g. same call, no tips)\n\n```\nretracted:           B1[TA0]  B2[TB0]  B3[TA1]  B4[TB1]\nresubmitted order:   B'x[TA0, TB0, TA1, TB1]\n```\n\nBoth per-account nonce order **and** the cross-account interleaving are\npreserved.\n\n#### Doesn't work — different priority (tips / different weights)\n\nPriority wins over original order. With `TA1` boosted (lower weight or\nhigher tip):\n\n```\nretracted:           B1[TA0]  B2[TB0]  B3[TA1]  B4[TB1]\nresubmitted order:   B'x[TA0, TA1, TB0, TB1]\n```\n\nPer-account nonce order is still safe (`TA1` never beats `TA0`), but the\ncross-account order follows priority, not the blocks.\n\n#### Note: Where does priority come from?\nFor a signed transaction, priority is set by `ChargeTransactionPayment`\nbased on the tip per unit of the scarcer resource (weight or length):\n```\npriority = (tip + 1) * max_tx_per_block      \n```\nFor more details refer to\n[`get_priority`](https://github.com/paritytech/polkadot-sdk/blob/968eaa447002e599ee1c9deac6d41eca230204ae/substrate/frame/transaction-payment/src/lib.rs#L871)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-17T10:38:15Z",
+          "tree_id": "d91a7d80f61b59fc5b6eeb99f2a9fffe86029ff2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/831741222650ee43920cc3564deff0f47a524a47"
+        },
+        "date": 1781699149637,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63594.130000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020107319999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.004956277510000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4381945775799956,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.757031445979999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020107319999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.78523600643,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002023287,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8007257762999128,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7439268660800002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8018129191400005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002023287,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.331883869019908,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.4429565727527915,
             "unit": "seconds"
           }
         ]
