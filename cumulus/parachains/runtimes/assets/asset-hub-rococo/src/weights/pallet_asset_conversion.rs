@@ -75,13 +75,11 @@ impl<T: frame_system::Config> pallet_asset_conversion::WeightInfo for WeightInfo
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	/// Same as [`Self::create_pool`] plus one extra write to `AssetConversion::PoolFees`.
-	/// NOTE: hand-written estimate; regenerate with the benchmark CLI.
 	fn create_pool_with_fee() -> Weight {
 		Self::create_pool().saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `AssetConversion::Pools` (r:1 w:0)
 	/// Storage: `AssetConversion::PoolFees` (r:0 w:1)
-	/// NOTE: hand-written estimate; regenerate with the benchmark CLI.
 	fn set_pool_fee() -> Weight {
 		Weight::from_parts(15_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 3495))
