@@ -1450,11 +1450,19 @@ fn same_contract_reentry_does_not_double_count_storage() {
 			&ExecConfig::new_substrate_tx(),
 		));
 
+		// Two 3-byte values under 32-byte keys → 2 items / 2*(32+3) = 70 bytes. The
+		// double-apply bug inflates every field (e.g. items 3, bytes 105), so assert the
+		// full set, not just `storage_items`, to catch a partial regression.
+		let info = get_contract(&BOB_ADDR);
+		let per_byte = <Test as Config>::DepositPerByte::get();
+		let per_item = <Test as Config>::DepositPerChildTrieItem::get();
 		assert_eq!(
-			get_contract(&BOB_ADDR).storage_items,
-			2,
+			info.storage_items, 2,
 			"storage_items inflated by double-applied pending diff under same-contract reentry",
 		);
+		assert_eq!(info.storage_bytes, 70, "storage_bytes inflated by double-applied pending diff");
+		assert_eq!(info.storage_item_deposit, per_item.saturating_mul(2), "storage_item_deposit");
+		assert_eq!(info.storage_byte_deposit, per_byte.saturating_mul(70), "storage_byte_deposit");
 	});
 }
 
@@ -1506,11 +1514,18 @@ fn transitive_reentry_does_not_double_count_storage() {
 			vec![0],
 			&ExecConfig::new_substrate_tx(),
 		));
+		// Same shape as the direct case: 2 items / 2*(32+3) = 70 bytes. Assert the full set
+		// so a regression that fixes item counting but not byte/deposit counting still fails.
+		let info = get_contract(&BOB_ADDR);
+		let per_byte = <Test as Config>::DepositPerByte::get();
+		let per_item = <Test as Config>::DepositPerChildTrieItem::get();
 		assert_eq!(
-			get_contract(&BOB_ADDR).storage_items,
-			2,
+			info.storage_items, 2,
 			"storage_items inflated by double-applied diff under transitive reentry",
 		);
+		assert_eq!(info.storage_bytes, 70, "storage_bytes inflated by double-applied diff");
+		assert_eq!(info.storage_item_deposit, per_item.saturating_mul(2), "storage_item_deposit");
+		assert_eq!(info.storage_byte_deposit, per_byte.saturating_mul(70), "storage_byte_deposit");
 	});
 }
 
