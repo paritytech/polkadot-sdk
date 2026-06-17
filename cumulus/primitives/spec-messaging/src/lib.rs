@@ -23,16 +23,19 @@
 //! commitments against receiver expectations, allowing both sides to process
 //! messages speculatively and confirm them after the fact.
 //!
-//! # Key types
+//! # What this crate provides
 //!
+//! - [`outgoing_message::OutgoingMessage`] — the message type; call
+//!   [`outgoing_message::OutgoingMessage::hash_leaf`] to produce the MMR leaf hash.
 //! - [`commitment_set::CommitmentSet`] — a sorted, bounded map from [`ParaId`] to MMR-root
-//!   [`Hash`], representing one block's worth of outgoing commitments.
-//! - [`outgoing_message::OutgoingMessage`] — a single outgoing message; call
-//!   [`outgoing_message::OutgoingMessage::hash_leaf`] to obtain the leaf hash to feed into the
-//!   accumulator.
-//! - [`mmr::MmrAccumulator`] — trait for appending leaves and reading the current root;
-//!   [`mmr::Mmr`] is the concrete implementation.
+//!   [`Hash`], representing one block's outgoing commitments.
+//! - [`mmr::SpecMerge`] — a [`mmr_lib::Merge`] adapter that plugs domain-tagged blake2_256
+//!   hashing into the MMR library. Callers construct an accumulator directly with
+//!   `mmr_lib::MMR<Hash, SpecMerge, S>`.
+//! - Domain separation tags ([`LEAF_TAG`], [`INNER_TAG`], [`PEAK_TAG`]) and
+//!   [`LEAF_VERSION`] — used in leaf and node hashing to prevent cross-context collisions.
 //!
+//! [`mmr_lib`]: sp_mmr_primitives::mmr_lib
 //! [`ParaId`]: polkadot_parachain_primitives::primitives::Id
 //! [`Hash`]: polkadot_core_primitives::Hash
 
@@ -47,17 +50,14 @@ pub mod outgoing_message;
 // Domain Tags to ensure that the same message structure used in different
 // contexts (e.g. leaf vs inner node) do not collide on the same hash.
 
-/// Tag for an empty MMR.
-pub const EMPTY_TAG: u8 = 0x1;
-
 /// Tag for a leaf node.
-pub const LEAF_TAG: u8 = 0x2;
+pub const LEAF_TAG: u8 = 0x1;
 
 /// Tag for an inner node.
-pub const INNER_TAG: u8 = 0x3;
+pub const INNER_TAG: u8 = 0x2;
 
 /// Tag for a peak.
-pub const PEAK_TAG: u8 = 0x4;
+pub const PEAK_TAG: u8 = 0x3;
 
 // Leaf versioning to allow for future changes to the leaf structure without
 // breaking compatibility with old messages.
