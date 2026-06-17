@@ -1877,7 +1877,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#1727 id=1727 data-nosnippet>1727</a>		</span>{
 <a href=#1728 id=1728 data-nosnippet>1728</a>			<span class="kw">let </span><span class="kw-2">mut </span>resubmit_transactions = Vec::new();
 <a href=#1729 id=1729 data-nosnippet>1729</a>
-<a href=#1730 id=1730 data-nosnippet>1730</a>			<span class="kw">for </span>retracted <span class="kw">in </span>tree_route.retracted() {
+<a href=#1730 id=1730 data-nosnippet>1730</a>			<span class="kw">for </span>retracted <span class="kw">in </span>tree_route.retracted().iter().rev() {
 <a href=#1731 id=1731 data-nosnippet>1731</a>				<span class="kw">let </span>hash = retracted.hash;
 <a href=#1732 id=1732 data-nosnippet>1732</a>
 <a href=#1733 id=1733 data-nosnippet>1733</a>				<span class="kw">let </span>block_transactions = api
