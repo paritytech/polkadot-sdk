@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781699140737,
+  "lastUpdate": 1781701405894,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1c29484b6878c915dff83f7e27ab7ff0110bfd12",
-          "message": "[revive] Receipts should include failed tx (#10120)\n\nThe current implementation incorrectly accumulates receipts in storage\nto compute the `receipts_root`.\nHowever, when an extrinsic fails, all storage changes are reverted\ncausing the receipts to be lost.\n\nThis PR updates the handling of Ethereum transactions so that they\nalways succeed. The transaction logic is now wrapped in a top-level\nstorage transaction that rolls back all state changes on failure while\nstill producing a valid receipt.\n\nA new event `EthExtrinsicRevert` is emitted when an eth transaction\nreverts.\neth-rpc uses this event to set the correct receipt status.\n\nThis event also serves as a replacement for ExtrinsicFailed to make\ndebugging failed Ethereum transactions easier in tools like Polkadot.js.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-28T13:48:56Z",
-          "tree_id": "f4b49bafb4ad8768d76300f0f8b59abe1cff77ef",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1c29484b6878c915dff83f7e27ab7ff0110bfd12"
-        },
-        "date": 1761664209492,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15997865768000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02249699179333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013245258879999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007419098813333343,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.023568694360000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fc2028840cf2a2dc2d44f41f099492797269c63d",
+          "message": "Decouple unbonding pool bound from bonding duration (#12323)\n\nThe with_era map is now bounded by the fixed MaxUnbondingPools, and the\nmerge cutoff uses an effective window of MaxUnbondingPools -\nbonding_duration. This prevents a lowered bonding duration from\nshrinking the bound and making stored state undecodable.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Ankan <ankan.anurag@gmail.com>",
+          "timestamp": "2026-06-17T10:54:30Z",
+          "tree_id": "e6f09cad55565dee7111bfcdebe0eadedf3956b1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fc2028840cf2a2dc2d44f41f099492797269c63d"
+        },
+        "date": 1781701379406,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007883389593333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010550774426666645,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023793872819999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14645942475333343,
             "unit": "seconds"
           }
         ]
