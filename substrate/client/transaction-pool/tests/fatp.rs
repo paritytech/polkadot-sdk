@@ -2846,8 +2846,9 @@ fn fatp_watcher_replaced_tx_not_reported_as_inblock() {
 		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt_replacement.clone())).unwrap();
 
 	// Verify original was usurped.
-	let xt_original_events =
-		futures::executor::block_on_stream(xt_original_watcher).take(2).collect::<Vec<_>>();
+	let xt_original_events = futures::executor::block_on_stream(xt_original_watcher)
+		.take(2)
+		.collect::<Vec<_>>();
 	assert_eq!(
 		xt_original_events,
 		vec![
@@ -2877,8 +2878,5 @@ fn fatp_watcher_replaced_tx_not_reported_as_inblock() {
 	// The replacement tx was never in any block. It must NOT get InBlock or Finalized.
 	// It should only get Ready, then Invalid (purged as stale on finalization).
 	let xt_replacement_events = block_on(xt_replacement_watcher.collect::<Vec<_>>());
-	assert_eq!(
-		xt_replacement_events,
-		vec![TransactionStatus::Ready, TransactionStatus::Invalid,]
-	);
+	assert_eq!(xt_replacement_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid,]);
 }
