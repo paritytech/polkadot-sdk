@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781689666591,
+  "lastUpdate": 1781701513343,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "Denzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f6858bfe4fe556e8d2a07bd2d7523e641ca95da2",
-          "message": "Check changes detection to run tests when is needed (#10012)\n\n# Description\nCheck changes detection to run tests when is needed (we should not run\nin cases like\nhttps://github.com/paritytech/polkadot-sdk/pull/9915/files)\n\n---------\n\nCo-authored-by: Javier Viola <javier@parity.io>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-10-27T11:57:37Z",
-          "tree_id": "bf3a2e730ced40496d276cabe48d5895c2b119e6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6858bfe4fe556e8d2a07bd2d7523e641ca95da2"
-        },
-        "date": 1761570527600,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027169350699999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008838016459999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005321330359999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009253413119999984,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fc2028840cf2a2dc2d44f41f099492797269c63d",
+          "message": "Decouple unbonding pool bound from bonding duration (#12323)\n\nThe with_era map is now bounded by the fixed MaxUnbondingPools, and the\nmerge cutoff uses an effective window of MaxUnbondingPools -\nbonding_duration. This prevents a lowered bonding duration from\nshrinking the bound and making stored state undecodable.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Ankan <ankan.anurag@gmail.com>",
+          "timestamp": "2026-06-17T10:54:30Z",
+          "tree_id": "e6f09cad55565dee7111bfcdebe0eadedf3956b1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fc2028840cf2a2dc2d44f41f099492797269c63d"
+        },
+        "date": 1781701486553,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00257859117,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009878289749999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00927085803999999,
             "unit": "seconds"
           }
         ]
