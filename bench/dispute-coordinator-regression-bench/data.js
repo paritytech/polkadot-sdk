@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781533572474,
+  "lastUpdate": 1781689666591,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2c23b906995e452389ca82de989babd0321955fc",
-          "message": "[Release|CI/CD] Fix release draft creation in the Combined build release flow (#10122)\n\nCloses: https://github.com/paritytech/release-engineering/issues/277",
-          "timestamp": "2025-10-27T11:02:34Z",
-          "tree_id": "2e8dd8249b56c2caad9f370f243ef1dcc84aa0b9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2c23b906995e452389ca82de989babd0321955fc"
-        },
-        "date": 1761567115748,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009068143909999977,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0028393181999999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0054158393999999875,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009796878979999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4beb26c386f2a0ab3023574a9ef019bfec7d82f1",
+          "message": "nomination-pools: snapshot rewards before set_commission_max lowers current commission (#12397)\n\n`set_commission_max` force-lowers `commission.current` (via\n`try_update_max`) when the new max is below the active rate, but did not\nfirst call `update_records`. Rewards accrued at the higher rate since\nthe last snapshot were therefore re-rated at the new lower rate on the\nnext `update_records`, crediting the differential `(old_current -\nnew_max) * accrued` to members instead of the commission payee.\n\nThe fix snapshots the reward pool at the current commission before the\ncut, mirroring the ordering already used in `set_commission`.",
+          "timestamp": "2026-06-17T08:12:31Z",
+          "tree_id": "8b868908a0a9cf5c16d9a9cfe4001ddfa52b2605",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4beb26c386f2a0ab3023574a9ef019bfec7d82f1"
+        },
+        "date": 1781689641759,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011112053790000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002575622429999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009253413119999984,
             "unit": "seconds"
           }
         ]
