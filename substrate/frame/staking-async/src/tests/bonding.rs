@@ -1704,6 +1704,8 @@ mod nominate {
 }
 
 mod staking_bounds_chill_other {
+	use crate::session_rotation::Eras;
+
 	use super::*;
 
 	#[test]
@@ -2041,13 +2043,12 @@ mod staking_bounds_chill_other {
 				ConfigOp::Set(inactive_threshold)
 			));
 
-			let mut inactive = BoundedBTreeMap::new();
-			inactive.try_insert(VALIDATOR, 0).unwrap();
 			for era in 0..inactive_threshold {
 				ErasRewardPoints::<Test>::insert(
 					era,
-					EraRewardPoints { total: 0, individual: inactive.clone() },
-				)
+					EraRewardPoints { total: 0, individual: BoundedBTreeMap::new() },
+				);
+				Eras::<Test>::upsert_exposure(era, &VALIDATOR, Exposure::default());
 			}
 			let mut active = BoundedBTreeMap::new();
 			active.try_insert(VALIDATOR, 100).unwrap();
@@ -2055,7 +2056,8 @@ mod staking_bounds_chill_other {
 				ErasRewardPoints::<Test>::insert(
 					era,
 					EraRewardPoints { total: 100, individual: active.clone() },
-				)
+				);
+				Eras::<Test>::upsert_exposure(era, &VALIDATOR, Exposure::default());
 			}
 
 			let valid_proof = BoundedVec::truncate_from((0..inactive_threshold).collect());
@@ -2066,7 +2068,7 @@ mod staking_bounds_chill_other {
 					NOT_VALIDATOR,
 					valid_proof.clone()
 				),
-				Error::<Test>::NotValidator
+				Error::<Test>::InvalidInactivityProof
 			);
 
 			let mut too_short_proof = valid_proof.clone();

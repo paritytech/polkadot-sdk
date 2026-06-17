@@ -1562,14 +1562,13 @@ mod benchmarks {
 
 		let caller = whitelisted_caller();
 		// Set the validator has been inactive for `l` eras.
-		let mut inactive = BoundedBTreeMap::new();
-		inactive.try_insert(stash.clone(), 0).unwrap();
 		let proof = (0..l)
 			.map(|era| {
 				ErasRewardPoints::<T>::insert(
 					era,
-					EraRewardPoints { total: 0, individual: inactive.clone() },
+					EraRewardPoints { total: 0, individual: BoundedBTreeMap::new() },
 				);
+				Eras::<T>::upsert_exposure(era, &stash, Exposure::default());
 
 				era
 			})
