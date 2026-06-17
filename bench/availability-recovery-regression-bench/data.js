@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781533432779,
+  "lastUpdate": 1781689531079,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1c29484b6878c915dff83f7e27ab7ff0110bfd12",
-          "message": "[revive] Receipts should include failed tx (#10120)\n\nThe current implementation incorrectly accumulates receipts in storage\nto compute the `receipts_root`.\nHowever, when an extrinsic fails, all storage changes are reverted\ncausing the receipts to be lost.\n\nThis PR updates the handling of Ethereum transactions so that they\nalways succeed. The transaction logic is now wrapped in a top-level\nstorage transaction that rolls back all state changes on failure while\nstill producing a valid receipt.\n\nA new event `EthExtrinsicRevert` is emitted when an eth transaction\nreverts.\neth-rpc uses this event to set the correct receipt status.\n\nThis event also serves as a replacement for ExtrinsicFailed to make\ndebugging failed Ethereum transactions easier in tools like Polkadot.js.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-28T13:48:56Z",
-          "tree_id": "f4b49bafb4ad8768d76300f0f8b59abe1cff77ef",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1c29484b6878c915dff83f7e27ab7ff0110bfd12"
-        },
-        "date": 1761664181722,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.659704429233335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20107413489999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.681101861433334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4beb26c386f2a0ab3023574a9ef019bfec7d82f1",
+          "message": "nomination-pools: snapshot rewards before set_commission_max lowers current commission (#12397)\n\n`set_commission_max` force-lowers `commission.current` (via\n`try_update_max`) when the new max is below the active rate, but did not\nfirst call `update_records`. Rewards accrued at the higher rate since\nthe last snapshot were therefore re-rated at the new lower rate on the\nnext `update_records`, crediting the differential `(old_current -\nnew_max) * accrued` to members instead of the commission payee.\n\nThe fix snapshots the reward pool at the current commission before the\ncut, mirroring the ordering already used in `set_commission`.",
+          "timestamp": "2026-06-17T08:12:31Z",
+          "tree_id": "8b868908a0a9cf5c16d9a9cfe4001ddfa52b2605",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4beb26c386f2a0ab3023574a9ef019bfec7d82f1"
+        },
+        "date": 1781689505798,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13286295860000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.8910150936,
             "unit": "seconds"
           }
         ]
