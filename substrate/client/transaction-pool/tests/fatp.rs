@@ -30,8 +30,11 @@ use sc_transaction_pool_api::{
 };
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::{sync::Arc, time::Duration};
-use substrate_test_runtime_client::Sr25519Keyring::*;
-use substrate_test_runtime_transaction_pool::uxt;
+use substrate_test_runtime_client::{
+	runtime::{Extrinsic, Hash},
+	Sr25519Keyring::*,
+};
+use substrate_test_runtime_transaction_pool::{uxt, TestApi};
 use tracing::debug;
 
 pub mod fatp_common;
@@ -573,6 +576,95 @@ fn fatp_fork_reorg() {
 		assert!(ready_f13.iter().any(|v| *v.data == *e));
 	});
 	assert_eq!(expected.len(), ready_f13.len());
+}
+
+/// Builds two competing forks rooted at genesis and returns
+/// `(api, [ta0, tb0, ta1, tb1], retracted_tip, enacted_tip)`.
+///
+/// The fork that will be retracted interleaves Alice's and Bob's transactions, in
+/// execution order: ta0, tb0, ta1, tb1. The competing (enacted) fork is empty, so both
+/// accounts' nonces remain at 200 on it and all four transactions are valid to resubmit:
+///
+///   retracted:  G - R1[ta0] - R2[tb0] - R3[ta1] - R4[tb1]
+///   enacted:    G - E1 - E2 - E3 - E4
+///
+/// Stale-check is enabled in TestApi.
+fn fork_with_interleaved_retracted_txs() -> (Arc<TestApi>, [Extrinsic; 4], Hash, Hash) {
+	let api = Arc::from(TestApi::empty().enable_stale_check());
+	let genesis = api.genesis_hash();
+	api.set_nonce(genesis, Alice.into(), 200);
+	api.set_nonce(genesis, Bob.into(), 200);
+
+	let ta0 = uxt(Alice, 200);
+	let tb0 = uxt(Bob, 200);
+	let ta1 = uxt(Alice, 201);
+	let tb1 = uxt(Bob, 201);
+
+	// fork that will be retracted (execution order: ta0, tb0, ta1, tb1)
+	let r1 = api.push_block_with_parent(genesis, vec![ta0.clone()], true);
+	api.set_nonce(r1.hash(), Alice.into(), 201);
+	let r2 = api.push_block_with_parent(r1.hash(), vec![tb0.clone()], true);
+	api.set_nonce(r2.hash(), Bob.into(), 201);
+	let r3 = api.push_block_with_parent(r2.hash(), vec![ta1.clone()], true);
+	api.set_nonce(r3.hash(), Alice.into(), 202);
+	let r4 = api.push_block_with_parent(r3.hash(), vec![tb1.clone()], true);
+	api.set_nonce(r4.hash(), Bob.into(), 202);
+
+	// competing empty fork; nonces stay at 200 for both accounts (inherited from parent)
+	let e1 = api.push_block_with_parent(genesis, vec![], true);
+	let e2 = api.push_block_with_parent(e1.hash(), vec![], true);
+	let e3 = api.push_block_with_parent(e2.hash(), vec![], true);
+	let e4 = api.push_block_with_parent(e3.hash(), vec![], true);
+
+	(api, [ta0, tb0, ta1, tb1], r4.hash(), e4.hash())
+}
+
+#[test]
+fn fatp_fork_reorg_preserves_retracted_tx_order() {
+	sp_tracing::try_init_simple();
+
+	// On a re-org, transactions from retracted blocks are resubmitted in execution order
+	// (common ancestor -> old best). With equal priority and longevity the ready queue's
+	// FIFO tie-break then preserves the original on-chain ordering, even when nonces from
+	// different accounts are interleaved across the retracted blocks.
+	let (api, [ta0, tb0, ta1, tb1], retracted_tip, enacted_tip) =
+		fork_with_interleaved_retracted_txs();
+	let (pool, _) = pool_with_api(api.clone());
+
+	// establish the retracted fork as the current best
+	block_on(pool.maintain(new_best_block_event(&pool, None, retracted_tip)));
+
+	// re-org onto the empty fork: ta0, tb0, ta1, tb1 are resubmitted from retracted blocks
+	block_on(pool.maintain(new_best_block_event(&pool, Some(retracted_tip), enacted_tip)));
+
+	assert_pool_status!(enacted_tip, &pool, 4, 0);
+	// execution order is preserved (without the fix the order would be [tb0, tb1, ta0, ta1])
+	assert_ready_iterator!(enacted_tip, &pool, [ta0, tb0, ta1, tb1]);
+}
+
+#[test]
+fn fatp_fork_reorg_respects_priority_over_order() {
+	sp_tracing::try_init_simple();
+
+	// Order preservation on re-org only holds while priorities are equal: priority is the
+	// dominant ready-queue ordering key. Here distinct priorities reshuffle the inter-account
+	// interleaving (ta1 overtakes tb0), while the nonce dependency still forces ta1 after its
+	// parent ta0 despite ta1 having the highest priority.
+	let (api, [ta0, tb0, ta1, tb1], retracted_tip, enacted_tip) =
+		fork_with_interleaved_retracted_txs();
+	let (pool, _) = pool_with_api(api.clone());
+
+	api.set_priority(&ta0, 10);
+	api.set_priority(&tb0, 10);
+	api.set_priority(&ta1, 20);
+	api.set_priority(&tb1, 1);
+
+	block_on(pool.maintain(new_best_block_event(&pool, None, retracted_tip)));
+	block_on(pool.maintain(new_best_block_event(&pool, Some(retracted_tip), enacted_tip)));
+
+	assert_pool_status!(enacted_tip, &pool, 4, 0);
+	// chain order is [ta0, tb0, ta1, tb1]; priority reorders it to:
+	assert_ready_iterator!(enacted_tip, &pool, [ta0, ta1, tb0, tb1]);
 }
 
 #[test]

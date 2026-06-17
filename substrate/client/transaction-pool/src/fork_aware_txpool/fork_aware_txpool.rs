@@ -1727,7 +1727,7 @@ where
 		{
 			let mut resubmit_transactions = Vec::new();
 
-			for retracted in tree_route.retracted() {
+			for retracted in tree_route.retracted().iter().rev() {
 				let hash = retracted.hash;
 
 				let block_transactions = api
