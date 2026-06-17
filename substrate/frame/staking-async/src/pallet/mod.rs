@@ -72,7 +72,7 @@ pub mod pallet {
 	};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
-	use frame_support::{traits::ConstBool, weights::WeightMeter, DefaultNoBound};
+	use frame_support::{traits::ConstBool, weights::WeightMeter, DefaultNoBound, PalletError};
 
 	/// Dimensionless weight from the validator self-stake incentive curve. Same underlying type as
 	/// `BalanceOf<T>` for arithmetic compatibility, but represents the output of the sqrt weight
@@ -1536,9 +1536,21 @@ pub mod pallet {
 		/// Optimum self-stake cannot be greater than hard cap.
 		OptimumGreaterThanCap,
 		/// Validator inactivity proof is invalid.
-		InvalidInactivityProof,
+		InvalidInactivityProof(InvalidInactivityProofError),
 		/// Cannot set [`ChillInactiveThreshold`] to the provided value.
 		InvalidChillInactiveThreshold,
+	}
+
+	#[derive(Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo, PalletError)]
+	pub enum InvalidInactivityProofError {
+		/// Invalid proof lenght.
+		InvalidLen,
+		/// Eras in proof are not sorted.
+		NotSorted,
+		/// Validator wasn't expected to validate at some era.
+		ValidatorNotExposed,
+		/// Validator wasn't inactive at some era.
+		ValidatorActive,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -3169,25 +3181,30 @@ pub mod pallet {
 			ensure_signed(origin)?;
 
 			let threshold = ChillInactiveThreshold::<T>::get();
-			ensure!(proof.len() as EraIndex == threshold, Error::<T>::InvalidInactivityProof);
-			ensure!(proof.is_sorted_by(|a, b| a < b), Error::<T>::InvalidInactivityProof);
+			ensure!(
+				proof.len() as EraIndex == threshold,
+				Error::<T>::InvalidInactivityProof(InvalidInactivityProofError::InvalidLen)
+			);
+			ensure!(
+				proof.is_sorted_by(|a, b| a < b),
+				Error::<T>::InvalidInactivityProof(InvalidInactivityProofError::NotSorted)
+			);
 
 			for era in proof {
 				ensure!(
 					Eras::<T>::was_validator_exposed(era, &stash),
-					Error::<T>::InvalidInactivityProof
-				);
-
-				ensure!(
-					ErasRewardPoints::<T>::contains_key(era),
-					Error::<T>::InvalidInactivityProof
+					Error::<T>::InvalidInactivityProof(
+						InvalidInactivityProofError::ValidatorNotExposed
+					)
 				);
 
 				let points = Eras::<T>::get_reward_points_for_validator(era, &stash);
 
 				ensure!(
 					T::IsValidatorInactive::is_inactive(era, &stash, points),
-					Error::<T>::InvalidInactivityProof
+					Error::<T>::InvalidInactivityProof(
+						InvalidInactivityProofError::ValidatorActive
+					)
 				);
 			}
 

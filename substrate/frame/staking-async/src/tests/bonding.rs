@@ -2043,24 +2043,18 @@ mod staking_bounds_chill_other {
 				ConfigOp::Set(inactive_threshold)
 			));
 
-			for era in 0..inactive_threshold {
-				ErasRewardPoints::<Test>::insert(
-					era,
-					EraRewardPoints { total: 0, individual: BoundedBTreeMap::new() },
-				);
-				Eras::<Test>::upsert_exposure(era, &VALIDATOR, Exposure::default());
-			}
+			Session::roll_until_active_era(history_depth);
+
 			let mut active = BoundedBTreeMap::new();
 			active.try_insert(VALIDATOR, 100).unwrap();
-			for era in inactive_threshold..history_depth {
+			for era in inactive_threshold + 1..history_depth {
 				ErasRewardPoints::<Test>::insert(
 					era,
 					EraRewardPoints { total: 100, individual: active.clone() },
 				);
-				Eras::<Test>::upsert_exposure(era, &VALIDATOR, Exposure::default());
 			}
 
-			let valid_proof = BoundedVec::truncate_from((0..inactive_threshold).collect());
+			let valid_proof = BoundedVec::truncate_from((1..=inactive_threshold).collect());
 
 			assert_noop!(
 				Staking::chill_inactive(
@@ -2068,7 +2062,9 @@ mod staking_bounds_chill_other {
 					NOT_VALIDATOR,
 					valid_proof.clone()
 				),
-				Error::<Test>::InvalidInactivityProof
+				Error::<Test>::InvalidInactivityProof(
+					InvalidInactivityProofError::ValidatorNotExposed
+				)
 			);
 
 			let mut too_short_proof = valid_proof.clone();
@@ -2079,18 +2075,18 @@ mod staking_bounds_chill_other {
 					VALIDATOR,
 					too_short_proof
 				),
-				Error::<Test>::InvalidInactivityProof
+				Error::<Test>::InvalidInactivityProof(InvalidInactivityProofError::InvalidLen)
 			);
 
 			let proof_where_one_era_contains_reward_points =
-				BoundedVec::truncate_from((1..(history_depth / 2 + 1)).collect());
+				BoundedVec::truncate_from((2..(history_depth / 2 + 2)).collect());
 			assert_noop!(
 				Staking::chill_inactive(
 					RuntimeOrigin::signed(NOT_VALIDATOR),
 					VALIDATOR,
 					proof_where_one_era_contains_reward_points
 				),
-				Error::<Test>::InvalidInactivityProof
+				Error::<Test>::InvalidInactivityProof(InvalidInactivityProofError::ValidatorActive)
 			);
 
 			let not_sorted_proof =
@@ -2101,7 +2097,7 @@ mod staking_bounds_chill_other {
 					VALIDATOR,
 					not_sorted_proof
 				),
-				Error::<Test>::InvalidInactivityProof
+				Error::<Test>::InvalidInactivityProof(InvalidInactivityProofError::NotSorted)
 			);
 
 			assert_ok!(Staking::chill_inactive(
