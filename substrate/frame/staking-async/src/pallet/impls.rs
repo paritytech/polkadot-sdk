@@ -680,16 +680,11 @@ impl<T: Config> Pallet<T> {
 	/// Computes the validator's slice of the era incentive budget for one payout page:
 	/// `share × budget × page_stake_part`.
 	///
-	/// The share formula depends on [`WeightedPointsFormulaStartEra`]:
-	///
-	/// - For eras `>= start` (or all eras when the storage is unset, e.g. on a chain that activated
-	///   the weighted-points formula at genesis), the new weighted-points share is used: `share =
-	///   (weight_stash · ep_stash) / Σ_v(weight_v · ep_v)` with the denominator read from
-	///   [`ErasSumWeightedPoints`] (maintained incrementally on every session report).
-	/// - For eras `< start`, the legacy stake-only share `share = weight_stash / Σ weight` is used,
-	///   because the new denominator was never accumulated for those eras and a backfill migration
-	///   would cost `HistoryDepth × MaxValidatorSet` reads. See
-	///   [`crate::migrations::SetWeightedPointsFormulaStartEra`].
+	/// The share formula is the weighted-points share
+	/// `(weight_stash · ep_stash) / Σ_v(weight_v · ep_v)`, with the denominator read from
+	/// [`ErasSumWeightedPoints`]. Pre-cutoff eras instead use the legacy stake-only share
+	/// `weight_stash / Σ weight`; see [`Eras::uses_weighted_points`] for which eras fall on
+	/// which side and why.
 	///
 	/// Returns `None` if the validator has no incentive weight, no era points, or the
 	/// computed amount rounds to zero.
@@ -713,8 +708,20 @@ impl<T: Config> Pallet<T> {
 		// Branch on the cutoff: legacy formula for eras whose denominator was never
 		// maintained, new weighted-points formula otherwise.
 		let share_part = if Eras::<T>::uses_weighted_points(era) {
+			// This validator has non-zero weight (checked above) and reached this point only
+			// with non-zero reward points (gated by the caller), so it must have contributed
+			// to the denominator. A zero denominator with a live budget is therefore a storage
+			// inconsistency and is surfaced rather than silently paying nothing.
 			let sum_weighted_points = ErasSumWeightedPoints::<T>::get(era);
 			if sum_weighted_points.is_zero() {
+				log!(
+					warn,
+					"Sum of weighted points is zero but budget exists for era {}",
+					era
+				);
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorIncentiveWeightMismatch { era },
+				));
 				return None;
 			}
 			let validator_points: RewardPoint =
@@ -722,10 +729,9 @@ impl<T: Config> Pallet<T> {
 			let numerator = validator_weight.saturating_mul(BalanceOf::<T>::from(validator_points));
 			Perbill::from_rational(numerator, sum_weighted_points)
 		} else {
-			// Legacy formula: stake-only share. `ErasSumValidatorIncentiveWeight` is the
-			// denominator only on this path, so it is read (and validated) here rather than
-			// unconditionally — the weighted-points branch above does not use it. The caller
-			// already gates `validator_reward_points == 0`.
+			// Legacy stake-only share, denominated by the total incentive weight across all
+			// elected validators. A zero denominator with a non-zero budget is a storage
+			// inconsistency, so it is surfaced rather than silently paying nothing.
 			let total_weight = ErasSumValidatorIncentiveWeight::<T>::get(era);
 			if total_weight.is_zero() {
 				log!(

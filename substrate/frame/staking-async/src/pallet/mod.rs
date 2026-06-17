@@ -589,20 +589,12 @@ pub mod pallet {
 	pub type ErasSumWeightedPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, IncentiveWeight<T>, ValueQuery>;
 
-	/// First era for which the validator self-stake incentive uses the weighted-points
-	/// formula `share_i = (w_i · ep_i) / Σ_j(w_j · ep_j)`.
+	/// Cutoff era from which the validator self-stake incentive switches to the
+	/// weighted-points formula. `None` means every era uses it (e.g. a chain that
+	/// activated it at genesis). Set once by the upgrade migration.
 	///
-	/// Eras strictly older than this value are paid out with the pre-existing
-	/// stake-only formula `share_i = w_i / Σ_j w_j`, because their
-	/// [`ErasSumWeightedPoints`] denominator was never accumulated and recomputing it
-	/// for the full [`Config::HistoryDepth`] window on a runtime upgrade would be
-	/// expensive.
-	///
-	/// Semantics:
-	/// - `None`: the chain started with the weighted-points formula already in place (e.g.
-	///   genesis), so every era uses the new formula.
-	/// - `Some(e)`: set once by the upgrade migration to `active_era + 1`. Eras `< e` use the
-	///   legacy formula, eras `>= e` use the weighted-points formula.
+	/// See [`session_rotation::Eras::uses_weighted_points`] for the exact semantics and
+	/// the rationale for the cutoff.
 	///
 	/// TODO(staking-async): remove this storage item, the legacy stake-only branch in
 	/// [`crate::Pallet::calculate_validator_incentive_for_page`], the

@@ -1201,6 +1201,34 @@ fn new_formula_used_for_eras_at_and_after_cutoff() {
 }
 
 #[test]
+fn new_formula_zero_denominator_emits_unexpected_and_skips_payout() {
+	// A post-cutoff era whose `ErasSumWeightedPoints` is zero despite a live budget and a
+	// validator with points/weight is a storage inconsistency: the payout must skip the
+	// incentive and surface an `Unexpected` event rather than silently pay nothing.
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
+		let alice = 11; // validator
+
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		Session::roll_until_active_era(3);
+
+		// WHEN: corrupt the denominator to zero on a post-cutoff era (no cutoff ⇒ new formula).
+		ErasSumWeightedPoints::<Test>::remove(2);
+		let _ = staking_events_since_last_call();
+
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// THEN: no incentive paid, and the inconsistency is reported.
+		assert_eq!(incentive_paid_for(alice, &events), None);
+		assert!(events.contains(&Event::Unexpected(
+			UnexpectedKind::ValidatorIncentiveWeightMismatch { era: 2 }
+		)));
+	});
+}
+
+#[test]
 fn legacy_era_pays_out_even_without_weighted_points_storage() {
 	// Regression for the original bug: under the new formula, era 2 would pay
 	// zero because `ErasSumWeightedPoints[2] == 0` (was never accumulated for

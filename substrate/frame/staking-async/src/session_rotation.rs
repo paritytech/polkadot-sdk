@@ -454,6 +454,25 @@ impl<T: Config> Eras<T> {
 	pub(crate) fn get_reward_points(era: EraIndex) -> EraRewardPoints<T> {
 		ErasRewardPoints::<T>::get(era)
 	}
+
+	/// Whether era `era` uses the weighted-points incentive-share formula
+	/// `share_i = (w_i · ep_i) / Σ_j(w_j · ep_j)`.
+	///
+	/// Returns `true` for eras at or after [`crate::WeightedPointsFormulaStartEra`], and for
+	/// every era when the cutoff is unset (e.g. a chain that activated the formula at genesis).
+	///
+	/// Returns `false` for pre-cutoff eras, which fall back to the legacy stake-only share
+	/// `share_i = w_i / Σ_j w_j`. Those eras predate this code, so their
+	/// [`crate::ErasSumWeightedPoints`] denominator was never accumulated; recomputing it for the
+	/// full [`Config::HistoryDepth`] window on upgrade would cost `HistoryDepth × MaxValidatorSet`
+	/// reads, so the migration sets the cutoff to `active_era + 1` instead. See
+	/// [`crate::migrations::SetWeightedPointsFormulaStartEra`].
+	///
+	/// Single source of truth for the cutoff decision, shared by the payout path
+	/// ([`crate::Pallet::calculate_validator_incentive_for_page`]) and [`Self::do_try_state`].
+	pub(crate) fn uses_weighted_points(era: EraIndex) -> bool {
+		crate::WeightedPointsFormulaStartEra::<T>::get().map_or(true, |start| era >= start)
+	}
 }
 
 #[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
@@ -581,20 +600,6 @@ impl<T: Config> Eras<T> {
 		);
 
 		Ok(())
-	}
-
-	/// Whether era `era` uses the weighted-points incentive-share formula
-	/// `share_i = (w_i · ep_i) / Σ_j(w_j · ep_j)`.
-	///
-	/// Returns `true` for eras at or after [`crate::WeightedPointsFormulaStartEra`], and for
-	/// every era when the cutoff is unset (e.g. a chain that activated the formula at genesis).
-	/// Returns `false` for pre-cutoff eras, which fall back to the legacy stake-only share. See
-	/// [`crate::migrations::SetWeightedPointsFormulaStartEra`].
-	///
-	/// Single source of truth for the cutoff decision, shared by the payout path
-	/// ([`crate::Pallet::calculate_validator_incentive_for_page`]) and [`Self::do_try_state`].
-	pub(crate) fn uses_weighted_points(era: EraIndex) -> bool {
-		crate::WeightedPointsFormulaStartEra::<T>::get().map_or(true, |start| era >= start)
 	}
 
 	/// Verify that the incrementally maintained [`ErasSumWeightedPoints`] matches the
