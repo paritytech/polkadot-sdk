@@ -303,7 +303,7 @@
 //!
 //! For scalability, a bound is maintained on the number of unbonding sub pools (see
 //! [`Config::MaxUnbondingPools`]). An unbonding pool is removed (merged into the unbonded pool)
-//! once it is older than `current_era - (MaxUnbondingPools - bonding_duration)`. An
+//! once it is older than `active_era - (MaxUnbondingPools - bonding_duration)`. An
 //! unbonding pool is merged into the unbonded pool with
 //!
 //! ```text
@@ -313,7 +313,7 @@
 //!
 //! This scheme "averages" out the points value in the unbonded pool.
 //!
-//! Once a members `unbonding_era` is older than `current_era -
+//! Once a members `unbonding_era` is older than `active_era -
 //! [sp_staking::StakingInterface::bonding_duration]`, it can can cash it's points out of the
 //! corresponding unbonding pool. If it's `unbonding_era` is older than the effective
 //! post-unbonding window, it can cash it's points from the unbonded pool.
@@ -667,13 +667,13 @@ impl<T: Config> PoolMember<T> {
 	/// Infallible, noop if no unbonding eras exist.
 	fn withdraw_unlocked(
 		&mut self,
-		current_era: EraIndex,
+		active_era: EraIndex,
 	) -> BoundedBTreeMap<EraIndex, BalanceOf<T>, T::MaxUnbonding> {
 		// NOTE: if only drain-filter was stable..
 		let mut removed_points =
 			BoundedBTreeMap::<EraIndex, BalanceOf<T>, T::MaxUnbonding>::default();
 		self.unbonding_eras.retain(|e, p| {
-			if *e > current_era {
+			if *e > active_era {
 				true
 			} else {
 				removed_points
@@ -1605,12 +1605,12 @@ impl<T: Config> SubPools<T> {
 	///
 	/// This is often used whilst getting the sub-pool from storage, thus it consumes and returns
 	/// `Self` for ergonomic purposes.
-	fn maybe_merge_pools(mut self, current_era: EraIndex) -> Self {
+	fn maybe_merge_pools(mut self, active_era: EraIndex) -> Self {
 		// Retain `with_era` pools for ~`MaxUnbondingPools` eras after unlock.
-		// E.g., if window is 2 and current era is 10, retain pools 9..=10.
+		// E.g., if window is 2 and active era is 10, retain pools 9..=10.
 		let effective_post_unbonding_window =
 			T::MaxUnbondingPools::get().saturating_sub(T::StakeAdapter::bonding_duration());
-		if let Some(newest_era_to_remove) = current_era.checked_sub(effective_post_unbonding_window)
+		if let Some(newest_era_to_remove) = active_era.checked_sub(effective_post_unbonding_window)
 		{
 			self.with_era.retain(|k, v| {
 				if *k > newest_era_to_remove {
