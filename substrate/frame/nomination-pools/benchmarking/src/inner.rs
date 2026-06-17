@@ -329,6 +329,12 @@ mod benchmarks {
 		let scenario = ListScenario::<T>::new(origin_weight, true).unwrap();
 		let extra = scenario.dest_weight - origin_weight;
 
+		// The creator bonds `extra` from free balance. Let's top it up first.
+		let _ = CurrencyOf::<T>::mint_into(
+			&scenario.creator1,
+			extra + CurrencyOf::<T>::minimum_balance(),
+		);
+
 		// creator of the src pool will bond-extra, bumping itself to dest bag.
 
 		#[extrinsic_call]
