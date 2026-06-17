@@ -29,11 +29,11 @@
 //!   [`outgoing_message::OutgoingMessage::hash_leaf`] to produce the MMR leaf hash.
 //! - [`commitment_set::CommitmentSet`] — a sorted, bounded map from [`ParaId`] to MMR-root
 //!   [`Hash`], representing one block's outgoing commitments.
-//! - [`mmr::SpecMerge`] — a [`mmr_lib::Merge`] adapter that plugs domain-tagged blake2_256
-//!   hashing into the MMR library. Callers construct an accumulator directly with
-//!   `mmr_lib::MMR<Hash, SpecMerge, S>`.
-//! - Domain separation tags ([`LEAF_TAG`], [`INNER_TAG`], [`PEAK_TAG`]) and
-//!   [`LEAF_VERSION`] — used in leaf and node hashing to prevent cross-context collisions.
+//! - [`mmr::SpecMerge`] — a [`mmr_lib::Merge`] adapter that plugs domain-tagged blake2_256 hashing
+//!   into the MMR library. Callers construct an accumulator directly with `mmr_lib::MMR<Hash,
+//!   SpecMerge, S>`.
+//! - Domain separation tags ([`LEAF_TAG`], [`INNER_TAG`], [`PEAK_TAG`]) and [`LEAF_VERSION`] — used
+//!   in leaf and node hashing to prevent cross-context collisions.
 //!
 //! [`mmr_lib`]: sp_mmr_primitives::mmr_lib
 //! [`ParaId`]: polkadot_parachain_primitives::primitives::Id
