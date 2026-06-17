@@ -329,10 +329,7 @@ impl StorageCmd {
 
 				match child_info {
 					Some(info) => {
-						let _ = trie.record_proof_for_child_dirty_keys(
-							info,
-							trigger_delta,
-						);
+						let _ = trie.record_proof_for_child_dirty_keys(info, trigger_delta);
 					},
 					None => {
 						let _ = trie.record_proof_for_dirty_keys(trigger_delta);

@@ -530,10 +530,8 @@ where
 		self.essence.child_storage_root(child_info, delta, state_version)
 	}
 
-	fn record_proof_for_dirty_keys<'a>(
-		&self,
-		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-	) where
+	fn record_proof_for_dirty_keys<'a>(&self, delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>)
+	where
 		H::Out: Ord,
 	{
 		self.essence.record_proof_for_dirty_keys(delta)

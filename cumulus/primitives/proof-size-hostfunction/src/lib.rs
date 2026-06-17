@@ -116,20 +116,11 @@ mod tests {
 		let (mut ext, _) = get_prepared_test_externalities();
 
 		ext.execute_with(|| {
-			assert_eq!(
-				storage_proof_size::storage_proof_size(),
-				PROOF_RECORDING_DISABLED
-			);
+			assert_eq!(storage_proof_size::storage_proof_size(), PROOF_RECORDING_DISABLED);
 			sp_io::storage::get(b"key1");
-			assert_eq!(
-				storage_proof_size::storage_proof_size(),
-				PROOF_RECORDING_DISABLED
-			);
+			assert_eq!(storage_proof_size::storage_proof_size(), PROOF_RECORDING_DISABLED);
 			sp_io::storage::get(b"key2");
-			assert_eq!(
-				storage_proof_size::storage_proof_size(),
-				PROOF_RECORDING_DISABLED
-			);
+			assert_eq!(storage_proof_size::storage_proof_size(), PROOF_RECORDING_DISABLED);
 		});
 	}
 }

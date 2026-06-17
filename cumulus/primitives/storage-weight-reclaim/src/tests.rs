@@ -634,8 +634,7 @@ fn test_reclaim_helper() {
 
 	test_ext.execute_with(|| {
 		let mut remaining_weight_meter = WeightMeter::with_limit(Weight::from_parts(0, 2000));
-		let mut reclaim_helper =
-			StorageWeightReclaimer::new(&remaining_weight_meter);
+		let mut reclaim_helper = StorageWeightReclaimer::new(&remaining_weight_meter);
 		remaining_weight_meter.consume(Weight::from_parts(0, 500));
 		let reclaimed = reclaim_helper.reclaim_with_meter(&mut remaining_weight_meter);
 
@@ -656,8 +655,7 @@ fn test_reclaim_helper_does_not_reclaim_negative() {
 
 	test_ext.execute_with(|| {
 		let mut remaining_weight_meter = WeightMeter::with_limit(Weight::from_parts(0, 1000));
-		let mut reclaim_helper =
-			StorageWeightReclaimer::new(&remaining_weight_meter);
+		let mut reclaim_helper = StorageWeightReclaimer::new(&remaining_weight_meter);
 		let reclaimed = reclaim_helper.reclaim_with_meter(&mut remaining_weight_meter);
 
 		assert_eq!(reclaimed, Some(Weight::from_parts(0, 0)));
@@ -669,8 +667,7 @@ fn test_reclaim_helper_does_not_reclaim_negative() {
 
 	test_ext.execute_with(|| {
 		let mut remaining_weight_meter = WeightMeter::with_limit(Weight::from_parts(0, 1000));
-		let mut reclaim_helper =
-			StorageWeightReclaimer::new(&remaining_weight_meter);
+		let mut reclaim_helper = StorageWeightReclaimer::new(&remaining_weight_meter);
 		remaining_weight_meter.consume(Weight::from_parts(0, 0));
 		let reclaimed = reclaim_helper.reclaim_with_meter(&mut remaining_weight_meter);
 

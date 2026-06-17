@@ -682,10 +682,8 @@ impl<H: Hasher> OverlayedChanges<H> {
 
 	/// Updates the recorder's proof size by recording trie nodes using `backend` and all changes
 	/// as seen by the current transaction.
-	pub fn record_proof_for_dirty_keys<B: Backend<H>>(
-		&mut self,
-		backend: &B,
-	) where
+	pub fn record_proof_for_dirty_keys<B: Backend<H>>(&mut self, backend: &B)
+	where
 		H::Out: Ord + Encode + codec::Codec,
 	{
 		let snapshot = self.top.take_delta();

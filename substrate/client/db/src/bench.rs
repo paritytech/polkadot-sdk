@@ -471,13 +471,11 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 			.map_or(Default::default(), |s| s.child_storage_root(child_info, delta, state_version))
 	}
 
-	fn record_proof_for_dirty_keys<'a>(
-		&self,
-		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-	) {
-		self.state.borrow().as_ref().map_or(Default::default(), |s| {
-			s.record_proof_for_dirty_keys(delta)
-		})
+	fn record_proof_for_dirty_keys<'a>(&self, delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>) {
+		self.state
+			.borrow()
+			.as_ref()
+			.map_or(Default::default(), |s| s.record_proof_for_dirty_keys(delta))
 	}
 
 	fn record_proof_for_child_dirty_keys<'a>(
@@ -485,9 +483,10 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 	) {
-		self.state.borrow().as_ref().map_or(Default::default(), |s| {
-			s.record_proof_for_child_dirty_keys(child_info, delta)
-		})
+		self.state
+			.borrow()
+			.as_ref()
+			.map_or(Default::default(), |s| s.record_proof_for_child_dirty_keys(child_info, delta))
 	}
 
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {

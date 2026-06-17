@@ -269,10 +269,8 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	/// Updates the recorder's proof size by recording trie nodes for a given delta.
 	///
 	/// Does not include child storage updates.
-	fn record_proof_for_dirty_keys<'a>(
-		&self,
-		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-	) where
+	fn record_proof_for_dirty_keys<'a>(&self, delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>)
+	where
 		H::Out: Ord;
 
 	/// Updates the recorder's proof size by recording child trie nodes for a given delta.
