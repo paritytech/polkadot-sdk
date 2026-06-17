@@ -43,7 +43,7 @@ async fn chunk_fetching_network_compatibility_test() -> Result<(), anyhow::Error
 	let relay_client = validator_nodes[0].wait_client().await?;
 	log::info!("Checking parachain block production (all paras registered at genesis)");
 	let para_throughput: [(ParaId, Range<u32>); 2] = PARAS.map(|id| (ParaId::from(id), 2..6));
-	assert_para_throughput(&relay_client, 5, para_throughput).await?;
+	assert_para_throughput(&relay_client, 5, para_throughput, []).await?;
 	log::info!("All parachains producing blocks");
 
 	log::info!("Ensure approval checking works.");

@@ -120,6 +120,7 @@ async fn coretime_collation_fetching_fairness_test() -> Result<(), anyhow::Error
 		&relay_client,
 		12,
 		[(ParaId::from(2000), 6..10), (ParaId::from(2001), 2..5)],
+		[],
 	)
 	.await?;
 
@@ -166,10 +167,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	});
 
 	builder = PARAS.into_iter().fold(builder, |acc, (para_id, debug_args)| {
-		let mut args: Vec<Arg> = vec![debug_args.into()];
-		if para_id == 2000 {
-			args.push("--authoring=slot-based".into());
-		}
+		let args: Vec<Arg> = vec![debug_args.into(), "--authoring=slot-based".into()];
 
 		acc.with_parachain(|p| {
 			p.with_id(para_id)

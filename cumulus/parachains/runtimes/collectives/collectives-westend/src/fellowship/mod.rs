@@ -46,7 +46,7 @@ use polkadot_runtime_common::impls::{
 use sp_arithmetic::Permill;
 use sp_core::{ConstU128, ConstU32, ConstU8};
 use sp_runtime::traits::{ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst};
-use testnet_parachains_constants::westend::{account, currency::GRAND};
+use testnet_parachains_constants::westend::currency::GRAND;
 use westend_runtime_constants::time::HOURS;
 use xcm::prelude::*;
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
@@ -95,7 +95,7 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	>;
 	type CancelOrigin = Architects;
 	type KillOrigin = Masters;
-	type Slash = pallet_dap_satellite::DapSatelliteLegacyAdapter<Runtime, Balances>;
+	type Slash = pallet_accumulate_and_forward::LegacyAdapter<Runtime, Balances>;
 	type Votes = pallet_ranked_collective::Votes;
 	type Tally = pallet_ranked_collective::TallyOf<Runtime, FellowshipCollectiveInstance>;
 	type SubmissionDeposit = ConstU128<0>;
@@ -259,7 +259,8 @@ impl pallet_salary::Config<FellowshipSalaryInstance> for Runtime {
 }
 
 parameter_types! {
-	pub const FellowshipTreasuryPalletId: PalletId = account::FELLOWSHIP_TREASURY_PALLET_ID;
+	pub const FellowshipTreasuryPalletId: PalletId =
+		testnet_parachains_constants::westend::account::FELLOWSHIP_TREASURY_PALLET_ID;
 	pub const HundredPercent: Permill = Permill::from_percent(100);
 	pub const Burn: Permill = Permill::from_percent(0);
 	pub const MaxBalance: Balance = Balance::max_value();
@@ -295,9 +296,10 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type SpendPeriod = ConstU32<{ 7 * DAYS }>;
 	type Burn = Burn;
 	// NOTE: Treasury burn is currently disabled (`Burn = 0`). If ever enabled, wire
-	// `BurnDestination` to a DAP satellite `OnUnbalanced<NegativeImbalance>` impl so burned funds
-	// flow to the satellite instead of being destroyed. Currently, the satellite only implements
-	// `OnUnbalanced<Credit>`.
+	// `BurnDestination` to `pallet_accumulate_and_forward::LegacyAdapter` so burned funds
+	// flow to the accumulation account instead of being destroyed. Note: `Pallet<T>` only
+	// implements `OnUnbalanced<Credit>`; use `LegacyAdapter` for the legacy `NegativeImbalance`
+	// path.
 	type BurnDestination = ();
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;

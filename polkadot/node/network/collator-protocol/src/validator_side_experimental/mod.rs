@@ -30,7 +30,7 @@ use collation_manager::CollationManager;
 use common::{ProspectiveCandidate, MAX_STORED_SCORES_PER_PARA};
 use error::{log_error, FatalError, FatalResult, Result};
 use futures::{future::Fuse, select, FutureExt, StreamExt};
-use futures_timer::Delay;
+use polkadot_node_clock::Clock;
 use polkadot_node_network_protocol::{
 	self as net_protocol, peer_set::PeerSet, v1 as protocol_v1, v2 as protocol_v2,
 	v3_collation as protocol_v3, CollationProtocols, PeerId,
@@ -72,6 +72,7 @@ pub(crate) async fn run<Context>(
 	metrics: Metrics,
 	db: Arc<dyn Database>,
 	reputation_config: ReputationConfig,
+	clock: Arc<dyn Clock>,
 ) -> FatalResult<()> {
 	let persist_interval = reputation_config
 		.persist_interval
@@ -81,8 +82,10 @@ pub(crate) async fn run<Context>(
 		persist_interval_secs = persist_interval.as_secs(),
 		"Running experimental collator protocol"
 	);
-	if let Some(state) = initialize(&mut ctx, keystore, metrics, db, reputation_config).await? {
-		run_inner(ctx, state, persist_interval).await?;
+	if let Some(state) =
+		initialize(&mut ctx, keystore, metrics, db, reputation_config, clock.clone()).await?
+	{
+		run_inner(ctx, state, persist_interval, clock).await?;
 	}
 
 	Ok(())
@@ -95,6 +98,7 @@ async fn initialize<Context>(
 	metrics: Metrics,
 	db: Arc<dyn Database>,
 	reputation_config: ReputationConfig,
+	clock: Arc<dyn Clock>,
 ) -> FatalResult<Option<State<PersistentDb>>> {
 	loop {
 		let first_leaf = match wait_for_first_leaf(ctx).await? {
@@ -111,9 +115,16 @@ async fn initialize<Context>(
 		};
 
 		let collation_manager =
-			CollationManager::new(ctx.sender(), keystore.clone(), first_leaf).await?;
+			CollationManager::new(ctx.sender(), keystore.clone(), first_leaf, clock.clone())
+				.await?;
 
 		let scheduled_paras = collation_manager.assignments();
+
+		gum::debug!(
+			target: LOG_TARGET,
+			?scheduled_paras,
+			"Collator protocol initial assignments",
+		);
 
 		// Create PersistentDb with disk persistence
 		let (backend, task) = match PersistentDb::new(
@@ -140,8 +151,13 @@ async fn initialize<Context>(
 
 		gum::trace!(target: LOG_TARGET, "Spawned background reputation persistence task");
 
-		match PeerManager::startup(backend, ctx.sender(), scheduled_paras.into_iter().collect())
-			.await
+		match PeerManager::startup(
+			backend,
+			ctx.sender(),
+			scheduled_paras.into_iter().collect(),
+			clock.clone(),
+		)
+		.await
 		{
 			Ok(peer_manager) => {
 				return Ok(Some(State::new(peer_manager, collation_manager, metrics)))
@@ -173,7 +189,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 					CollatorProtocolMessage::NetworkBridgeUpdate(
 						NetworkBridgeEvent::PeerConnected(peer_id, ..),
 					) => {
-						gum::info!(
+						gum::debug!(
 							target: LOG_TARGET,
 							?peer_id,
 							"Disconnecting peer that connected before subsystem initialization",
@@ -187,7 +203,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 					CollatorProtocolMessage::NetworkBridgeUpdate(
 						NetworkBridgeEvent::PeerMessage(peer_id, ..),
 					) => {
-						gum::info!(
+						gum::debug!(
 							target: LOG_TARGET,
 							?peer_id,
 							"Disconnecting peer that sent message before subsystem initialization",
@@ -211,9 +227,12 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 	}
 }
 
-fn create_timer(maybe_delay: Option<Duration>) -> Fuse<Pin<Box<dyn Future<Output = ()> + Send>>> {
+fn create_timer(
+	clock: &dyn Clock,
+	maybe_delay: Option<Duration>,
+) -> Fuse<Pin<Box<dyn Future<Output = ()> + Send>>> {
 	let timer: Pin<Box<dyn Future<Output = ()> + Send>> = match maybe_delay {
-		Some(delay) => Box::pin(Delay::new(delay)),
+		Some(delay) => clock.delay(delay),
 		None => Box::pin(future::pending::<()>()),
 	};
 
@@ -221,9 +240,11 @@ fn create_timer(maybe_delay: Option<Duration>) -> Fuse<Pin<Box<dyn Future<Output
 }
 
 /// Create the persistence timer that fires after the given interval.
-fn create_persistence_timer(interval: Duration) -> Fuse<Pin<Box<dyn Future<Output = ()> + Send>>> {
-	let delay: Pin<Box<dyn Future<Output = ()> + Send>> = Box::pin(Delay::new(interval));
-	delay.fuse()
+fn create_persistence_timer(
+	clock: &dyn Clock,
+	interval: Duration,
+) -> Fuse<Pin<Box<dyn Future<Output = ()> + Send>>> {
+	clock.delay(interval).fuse()
 }
 
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
@@ -231,9 +252,10 @@ async fn run_inner<Context>(
 	mut ctx: Context,
 	mut state: State<PersistentDb>,
 	persist_interval: Duration,
+	clock: Arc<dyn Clock>,
 ) -> FatalResult<()> {
-	let mut timer = create_timer(None);
-	let mut persistence_timer = create_persistence_timer(persist_interval);
+	let mut timer = create_timer(&*clock, None);
+	let mut persistence_timer = create_persistence_timer(&*clock, persist_interval);
 
 	loop {
 		select! {
@@ -274,7 +296,7 @@ async fn run_inner<Context>(
 				// Periodic persistence - write reputation DB to disk
 				state.background_persist_reputations();
 				// Reset the timer for the next interval
-				persistence_timer = create_persistence_timer(persist_interval);
+				persistence_timer = create_persistence_timer(&*clock, persist_interval);
 			},
 		}
 
@@ -286,7 +308,10 @@ async fn run_inner<Context>(
 		// Also, it takes constant time to run because we only try launching new requests for
 		// unfulfilled claims. It's probably not worth optimising.
 		let maybe_delay = state.try_launch_new_fetch_requests(ctx.sender()).await;
-		timer = create_timer(maybe_delay.map(|delay| std::cmp::max(delay, MIN_FETCH_TIMER_DELAY)));
+		timer = create_timer(
+			&*clock,
+			maybe_delay.map(|delay| std::cmp::max(delay, MIN_FETCH_TIMER_DELAY)),
+		);
 	}
 
 	Ok(())
