@@ -752,18 +752,18 @@ fn validate_complete_response(
 			return invalid_candidate_output(COST_INVALID_UMP_SIGNALS);
 		}
 
-		// Check if `session_index` of relay parent matches candidate descriptor
-		// `session_index`.
-		if let Some(candidate_session_index) = response.candidate_receipt.descriptor.session_index()
+		// Check if `session_index` of scheduling parent matches candidate descriptor
+		// `scheduling_session`.
+		if let Some(scheduling_session) = response.candidate_receipt.descriptor.scheduling_session()
 		{
-			if candidate_session_index != session {
+			if scheduling_session != session {
 				gum::debug!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					peer = ?requested_peer,
 					session_index = session,
-					candidate_session_index,
-					"Received candidate has invalid session index"
+					scheduling_session,
+					"Received candidate has invalid scheduling session index"
 				);
 				return invalid_candidate_output(COST_INVALID_SESSION_INDEX);
 			}

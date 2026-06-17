@@ -578,11 +578,8 @@ fn all_validators_zero_points_no_incentive_paid() {
 	});
 }
 
-// ===== Defensive path tests =====
-
 #[test]
-#[should_panic(expected = "Validator missing payee")]
-fn defensive_panic_on_missing_payee() {
+fn missing_payee_emits_unexpected_and_skips_payout() {
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11; // validator
 
@@ -592,13 +589,24 @@ fn defensive_panic_on_missing_payee() {
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
 		Session::roll_until_active_era(3);
 
-		// WHEN: missing payee for alice.
+		// WHEN: alice's payee is missing at payout time.
 		Payee::<Test>::remove(&alice);
-
-		// THEN: payout panics on defensive.
+		let _ = staking_events_since_last_call();
 		make_all_reward_payment(2);
+
+		// THEN: alice's incentive is skipped with an Unexpected event; other validators still paid.
+		let events = staking_events_since_last_call();
+		assert!(events
+			.contains(&Event::Unexpected(UnexpectedKind::MissingPayee { era: 2, stash: alice })));
+		assert!(incentive_paid_for(alice, &events).is_none());
+		assert!(incentive_paid_for(21, &events).is_some());
+
+		// Restore payee so post-test try_state passes.
+		Payee::<Test>::insert(alice, RewardDestination::Staked);
 	});
 }
+
+// ===== Defensive path tests =====
 
 #[test]
 #[should_panic(expected = "Validator incentive liquid transfer failed")]

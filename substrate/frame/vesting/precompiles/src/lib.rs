@@ -22,11 +22,13 @@ extern crate alloc;
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
 use core::{marker::PhantomData, num::NonZero};
-use frame_support::{dispatch::GetDispatchInfo, traits::VestingSchedule};
+use frame_support::traits::{Get, LockableCurrency, VestingSchedule};
+use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_revive::{
 	Config,
 	precompiles::{AddressMatcher, Error, Ext, H160, Precompile, RuntimeCosts, U256},
 };
+use pallet_vesting::{VestingInfo, WeightInfo as _};
 use sp_runtime::traits::StaticLookup;
 
 alloy_core::sol!("IVesting.sol");
@@ -88,6 +90,11 @@ type VestingBalance<T> =
 		<T as frame_system::Config>::AccountId,
 	>>::Balance;
 
+/// Mirror of `pallet_vesting::MaxLocksOf` (which is crate-private).
+type MaxLocksOf<T> = <<T as pallet_vesting::Config>::Currency as LockableCurrency<
+	<T as frame_system::Config>::AccountId,
+>>::MaxLocks;
+
 impl<T: Config + pallet_vesting::Config + pallet::Config> Precompile for Vesting<T>
 where
 	VestingBalance<T>: Into<U256>,
@@ -107,35 +114,50 @@ where
 		use IVesting::IVestingCalls;
 		match input {
 			IVestingCalls::vest(IVesting::vestCall {}) => {
-				ensure_mutable::<T>(env)?;
-				// Derive the beneficiary from the immediate caller (not the tx origin).
-				let account_id = caller_account_id(env, "vest")?;
-
-				// Charge the pallet's own benchmarked dispatch weight.
-				let dispatch_weight =
-					pallet_vesting::Call::<T>::vest {}.get_dispatch_info().call_weight;
+				// TODO: pallet_vesting::vest returns DispatchResult, not
+				// DispatchResultWithPostInfo, so we can't refund the difference
+				// between vest_locked and vest_unlocked. Once the pallet is
+				// updated to return actual weight, use adjust_gas here.
+				let max_locks = MaxLocksOf::<T>::get();
+				let dispatch_weight = <T as pallet_vesting::Config>::WeightInfo::vest_locked(
+					max_locks,
+					T::MAX_VESTING_SCHEDULES,
+				)
+				.max(<T as pallet_vesting::Config>::WeightInfo::vest_unlocked(
+					max_locks,
+					T::MAX_VESTING_SCHEDULES,
+				));
 				env.frame_meter_mut()
 					.charge_weight_token(RuntimeCosts::Precompile(dispatch_weight))?;
 
-				// Construct a signed RuntimeOrigin and dispatch vest().
+				ensure_mutable::<T>(env)?;
+
+				let account_id = caller_account_id(env, "vest")?;
 				let origin = frame_system::RawOrigin::Signed(account_id).into();
 				pallet_vesting::Pallet::<T>::vest(origin)
 					.map_err(|e| Error::Revert(alloc::format!("vest failed: {:?}", e).into()))?;
 				Ok(Vec::new())
 			},
 			IVestingCalls::vestOther(IVesting::vestOtherCall { target }) => {
-				ensure_mutable::<T>(env)?;
-				let caller_account = caller_account_id(env, "vestOther")?;
-
-				let target_account = env.to_account_id(&H160::from_slice(target.as_slice()));
-				let target_lookup = T::Lookup::unlookup(target_account);
-
-				let dispatch_weight =
-					pallet_vesting::Call::<T>::vest_other { target: target_lookup.clone() }
-						.get_dispatch_info()
-						.call_weight;
+				// TODO: same as vest — pallet returns DispatchResult so we
+				// can't refund the locked vs unlocked weight difference.
+				let max_locks = MaxLocksOf::<T>::get();
+				let dispatch_weight = <T as pallet_vesting::Config>::WeightInfo::vest_other_locked(
+					max_locks,
+					T::MAX_VESTING_SCHEDULES,
+				)
+				.max(<T as pallet_vesting::Config>::WeightInfo::vest_other_unlocked(
+					max_locks,
+					T::MAX_VESTING_SCHEDULES,
+				));
 				env.frame_meter_mut()
 					.charge_weight_token(RuntimeCosts::Precompile(dispatch_weight))?;
+
+				ensure_mutable::<T>(env)?;
+
+				let caller_account = caller_account_id(env, "vestOther")?;
+				let target_account = env.to_account_id(&H160::from_slice(target.as_slice()));
+				let target_lookup = T::Lookup::unlookup(target_account);
 
 				let origin = frame_system::RawOrigin::Signed(caller_account).into();
 				pallet_vesting::Pallet::<T>::vest_other(origin, target_lookup).map_err(|e| {
@@ -143,16 +165,65 @@ where
 				})?;
 				Ok(Vec::new())
 			},
+			IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
+				target,
+				locked,
+				perBlock,
+				startingBlock,
+			}) => {
+				// Charge weight upfront before any conversion work. The pallet weight
+				// is constant (depends only on MaxLocks and MAX_VESTING_SCHEDULES).
+				let max_locks = MaxLocksOf::<T>::get();
+				let dispatch_weight = <T as pallet_vesting::Config>::WeightInfo::vested_transfer(
+					max_locks,
+					T::MAX_VESTING_SCHEDULES,
+				);
+				env.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::Precompile(dispatch_weight))?;
+
+				ensure_mutable::<T>(env)?;
+
+				let caller_account = caller_account_id(env, "vestedTransfer")?;
+				let target_account = env.to_account_id(&H160::from_slice(target.as_slice()));
+				let target_lookup = T::Lookup::unlookup(target_account);
+
+				let locked: VestingBalance<T> = {
+					let balance: <T as Config>::Balance =
+						U256::from_big_endian(&locked.to_be_bytes::<32>())
+							.try_into()
+							.map_err(|_| Error::Revert("vestedTransfer: locked overflow".into()))?;
+					<VestingBalance<T> as From<<T as Config>::Balance>>::from(balance)
+				};
+				let per_block: VestingBalance<T> = {
+					let balance: <T as Config>::Balance =
+						U256::from_big_endian(&perBlock.to_be_bytes::<32>()).try_into().map_err(
+							|_| Error::Revert("vestedTransfer: perBlock overflow".into()),
+						)?;
+					<VestingBalance<T> as From<<T as Config>::Balance>>::from(balance)
+				};
+				let starting_block: BlockNumberFor<T> =
+					U256::from_big_endian(&startingBlock.to_be_bytes::<32>()).try_into().map_err(
+						|_| Error::Revert("vestedTransfer: startingBlock overflow".into()),
+					)?;
+
+				let schedule = VestingInfo::new(locked, per_block, starting_block);
+				let origin = frame_system::RawOrigin::Signed(caller_account).into();
+				pallet_vesting::Pallet::<T>::vested_transfer(origin, target_lookup, schedule)
+					.map_err(|e| {
+						Error::Revert(alloc::format!("vestedTransfer failed: {:?}", e).into())
+					})?;
+				Ok(Vec::new())
+			},
 			// View function to query the currently locked (unvested) balance for the caller.
 			// vesting_balance() returns Option<Balance>: None means no schedule exists,
 			// Some(0) means a schedule exists but all funds are already unlocked. Both
 			// collapse to 0 here — in either case there is nothing left to vest.
 			IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {}) => {
-				let account_id = caller_account_id(env, "vestingBalance")?;
-
 				env.frame_meter_mut().charge_weight_token(RuntimeCosts::Precompile(
 					<<T as pallet::Config>::WeightInfo as weights::WeightInfo>::vesting_balance(),
 				))?;
+
+				let account_id = caller_account_id(env, "vestingBalance")?;
 
 				let maybe_locked =
 					<pallet_vesting::Pallet<T> as VestingSchedule<T::AccountId>>::vesting_balance(
@@ -163,12 +234,12 @@ where
 				Ok(U256::from(locked.into()).to_big_endian().abi_encode())
 			},
 			IVestingCalls::vestingBalanceOf(IVesting::vestingBalanceOfCall { target }) => {
-				let account_id = env.to_account_id(&H160::from_slice(target.as_slice()));
-
 				env.frame_meter_mut().charge_weight_token(RuntimeCosts::Precompile(
 					<<T as pallet::Config>::WeightInfo as weights::WeightInfo>::vesting_balance_of(
 					),
 				))?;
+
+				let account_id = env.to_account_id(&H160::from_slice(target.as_slice()));
 
 				let maybe_locked =
 					<pallet_vesting::Pallet<T> as VestingSchedule<T::AccountId>>::vesting_balance(

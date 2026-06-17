@@ -21,12 +21,13 @@ use crate::{
 };
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
-use frame_support::build_struct_json_patch;
+use frame_support::{build_struct_json_patch, PalletId};
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
 use sp_core::crypto::UncheckedInto;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
+use sp_runtime::traits::AccountIdConversion;
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
 };
@@ -97,7 +98,16 @@ fn asset_hub_westend_genesis(
 				.map(|asset| (asset.0.try_into().unwrap(), asset.1, asset.2))
 				.collect(),
 			..Default::default()
-		}
+		},
+		assets: AssetsConfig {
+			assets: vec![(
+				PGASAssetId::get(),
+				PalletId(*b"py/pgasa").into_account_truncating(),
+				true,
+				1,
+			)],
+			..Default::default()
+		},
 	})
 }
 

@@ -41,7 +41,10 @@ fn bridge_hub_westend_genesis(
 				.iter()
 				.cloned()
 				.map(|k| (k, 1u128 << 60))
-				.chain(core::iter::once((DapSatellite::satellite_account(), BRIDGE_HUB_WESTEND_ED)))
+				.chain(core::iter::once((
+					AccumulateForward::accumulation_account(),
+					BRIDGE_HUB_WESTEND_ED
+				)))
 				.collect::<Vec<_>>(),
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },
