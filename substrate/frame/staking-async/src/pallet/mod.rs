@@ -3172,7 +3172,7 @@ pub mod pallet {
 		///
 		/// On a successfull execution, caller doesn't pay fees.
 		#[pallet::call_index(35)]
-		#[pallet::weight(T::WeightInfo::chill_inactive(proof.len() as _))]
+		#[pallet::weight(T::WeightInfo::chill_inactive(proof.len() as _) + T::IsValidatorInactive::weight())]
 		pub fn chill_inactive(
 			origin: OriginFor<T>,
 			stash: T::AccountId,

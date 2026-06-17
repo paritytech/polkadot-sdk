@@ -1131,7 +1131,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(0, 254).saturating_mul(v.into()))
 	}
 
-	fn chill_inactive(v: u32, ) -> Weight {
+	fn chill_inactive(_v: u32, ) -> Weight {
 		Weight::zero()
 	}
 }
@@ -2162,7 +2162,7 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(0, 254).saturating_mul(v.into()))
 	}
 
-	fn chill_inactive(v: u32, ) -> Weight {
+	fn chill_inactive(_v: u32, ) -> Weight {
 		Weight::zero()
 	}
 }

@@ -1704,8 +1704,6 @@ mod nominate {
 }
 
 mod staking_bounds_chill_other {
-	use crate::session_rotation::Eras;
-
 	use super::*;
 
 	#[test]
