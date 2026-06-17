@@ -66,7 +66,10 @@ pub mod pallet {
 	use core::ops::Deref;
 
 	use super::*;
-	use crate::{session_rotation, IsValidatorInactive, PagedExposureMetadata, SnapshotStatus};
+	use crate::{
+		session_rotation::{self, Eras},
+		IsValidatorInactive, PagedExposureMetadata, SnapshotStatus,
+	};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 	use frame_support::{traits::ConstBool, weights::WeightMeter, DefaultNoBound};
@@ -719,10 +722,10 @@ pub mod pallet {
 		fn get() -> u32 {
 			let bonding_duration = T::BondingDuration::get();
 			bonding_duration.saturating_add(OFFENCE_QUEUE_ERAS_BOUND) // adding OFFENCE_QUEUE_ERAS_BOUND eras
-			                                                 // to add headroom to
-			                                                 // the bound for runtime upgrades that
-			                                                 // lower BondingDuration so we avoid
-			                                                 // the try_into trap.
+			                                              // to add headroom to
+			                                              // the bound for runtime upgrades that
+			                                              // lower BondingDuration so we avoid
+			                                              // the try_into trap.
 		}
 	}
 
@@ -1532,8 +1535,6 @@ pub mod pallet {
 		CommissionTooHigh,
 		/// Optimum self-stake cannot be greater than hard cap.
 		OptimumGreaterThanCap,
-		/// Cannot find the specified validator.
-		NotValidator,
 		/// Validator inactivity proof is invalid.
 		InvalidInactivityProof,
 		/// Cannot set [`ChillInactiveThreshold`] to the provided value.
@@ -3151,10 +3152,13 @@ pub mod pallet {
 		/// provided. Inactivity proof is a vector of eras where the given validator was inactive.
 		///
 		/// Requirements for the inactivity proof:
-		/// - The length must be at least [`ChillInactiveThreshold`].
+		/// - The length must be equal to [`ChillInactiveThreshold`].
 		/// - It must be sorted in ascending order.
 		/// - It must not contain duplicate entries.
+		/// - For every era the `stash` account must be exposed.
 		/// - Every item must pass the check provided by [`Config::IsValidatorInactive`].
+		///
+		/// On a successfull execution, caller doesn't pay fees.
 		#[pallet::call_index(35)]
 		#[pallet::weight(T::WeightInfo::chill_inactive(proof.len() as _))]
 		pub fn chill_inactive(
@@ -3164,22 +3168,22 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 
-			ensure!(Validators::<T>::contains_key(&stash), Error::<T>::NotValidator);
-
 			let threshold = ChillInactiveThreshold::<T>::get();
-			ensure!(proof.len() as EraIndex >= threshold, Error::<T>::InvalidInactivityProof);
+			ensure!(proof.len() as EraIndex == threshold, Error::<T>::InvalidInactivityProof);
 			ensure!(proof.is_sorted_by(|a, b| a < b), Error::<T>::InvalidInactivityProof);
 
 			for era in proof {
+				ensure!(
+					Eras::<T>::was_validator_exposed(era, &stash),
+					Error::<T>::InvalidInactivityProof
+				);
+
 				ensure!(
 					ErasRewardPoints::<T>::contains_key(era),
 					Error::<T>::InvalidInactivityProof
 				);
 
-				let Some(points) = ErasRewardPoints::<T>::get(era).individual.get(&stash).cloned()
-				else {
-					return Err(Error::<T>::InvalidInactivityProof.into());
-				};
+				let points = Eras::<T>::get_reward_points_for_validator(era, &stash);
 
 				ensure!(
 					T::IsValidatorInactive::is_inactive(era, &stash, points),
@@ -3187,11 +3191,9 @@ pub mod pallet {
 				);
 			}
 
-			if Self::do_remove_validator(&stash) {
-				Self::deposit_event(Event::<T>::Chilled { stash });
-			} else {
-				return Err(Error::<T>::NotValidator.into());
-			}
+			Self::do_remove_validator(&stash);
+
+			Self::deposit_event(Event::<T>::Chilled { stash });
 
 			Ok(Pays::No.into())
 		}
