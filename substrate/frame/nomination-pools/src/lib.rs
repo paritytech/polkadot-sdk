@@ -1594,7 +1594,7 @@ impl<T: Config> UnbondPool<T> {
 pub struct SubPools<T: Config> {
 	/// A general, era agnostic pool of funds that have fully unbonded. The pools
 	/// of `Self::with_era` will lazily be merged into into this pool if they are
-	/// older than the effective post-unbonding window (see [`SubPools::maybe_merge_pools`]).
+	/// older than the effective post-unbonding window (see `SubPools::maybe_merge_pools`).
 	pub no_era: UnbondPool<T>,
 	/// Map of era in which a pool becomes unbonded in => unbond pools.
 	pub with_era: BoundedBTreeMap<EraIndex, UnbondPool<T>, T::MaxUnbondingPools>,
@@ -1723,7 +1723,7 @@ pub mod pallet {
 		/// that may exist at once. This is also the basis for how long each sub-pool is kept on
 		/// its own (correct) points-to-balance ratio: a sub-pool is merged into the era-agnostic
 		/// [`SubPools::no_era`] pool only after `MaxUnbondingPools - bonding_duration` eras
-		/// have passed since its unlock era (see [`SubPools::maybe_merge_pools`]). Once merged
+		/// have passed since its unlock era (see `SubPools::maybe_merge_pools`). Once merged
 		/// the ratio can become skewed due to some slashed ratio getting merged in at some point.
 		#[pallet::constant]
 		type MaxUnbondingPools: Get<u32>;

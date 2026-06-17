@@ -4,7 +4,9 @@ doc:
   description: The with_era map is now bounded by the fixed MaxUnbondingPools,
     and the merge cutoff uses an effective window of MaxUnbondingPools - bonding_duration.
     This prevents a lowered bonding duration from shrinking the bound and making stored
-    state undecodable.
+    state undecodable. This is a breaking change - the `Config::PostUnbondingPoolsWindow`
+    associated type is renamed to `MaxUnbondingPools`; runtimes must set it to their previous
+    `bonding_duration + PostUnbondingPoolsWindow` to preserve the storage bound.
 crates:
 - name: asset-hub-westend-runtime
   bump: minor
@@ -15,4 +17,4 @@ crates:
 - name: pallet-nomination-pools-benchmarking
   bump: minor
 - name: pallet-nomination-pools
-  bump: minor
+  bump: major
