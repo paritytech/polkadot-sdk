@@ -1273,8 +1273,14 @@ impl<T: Config> BondedPool<T> {
 				)
 			},
 			(false, true) => {
-				// the depositor can simply not be unbonded permissionlessly, period.
-				return Err(Error::<T>::DoesNotHavePermission.into());
+				// Permissionless depositor unbond is only allowed for a full unbond, and only when
+				// destroying with the depositor as sole remaining member. `is_full_unbond` is
+				// already guaranteed by the outer `ensure!` above.
+				debug_assert!(is_full_unbond);
+				ensure!(
+					self.is_destroying_and_only_depositor(target_member.active_points()),
+					Error::<T>::DoesNotHavePermission
+				);
 			},
 		};
 
@@ -3017,6 +3023,19 @@ pub mod pallet {
 			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
 
 			ensure!(bonded_pool.can_manage_commission(&who), Error::<T>::DoesNotHavePermission);
+
+			let mut reward_pool = RewardPools::<T>::get(pool_id)
+				.defensive_ok_or::<Error<T>>(DefensiveError::RewardPoolNotFound.into())?;
+			// IMPORTANT: snapshot rewards accrued at the current commission before `try_update_max`
+			// can force-lower it. Otherwise rewards accrued since the last snapshot would be
+			// re-rated at the new (lower) rate and the differential credited to members instead
+			// of the commission payee. Mirrors the ordering in `set_commission`.
+			reward_pool.update_records(
+				pool_id,
+				bonded_pool.points,
+				bonded_pool.commission.current(),
+			)?;
+			RewardPools::insert(pool_id, reward_pool);
 
 			bonded_pool.commission.try_update_max(pool_id, max_commission)?;
 			bonded_pool.put();

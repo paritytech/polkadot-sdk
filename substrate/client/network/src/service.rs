@@ -199,6 +199,7 @@ where
 
 	fn bitswap_server(
 		client: Arc<dyn BlockBackend<B> + Send + Sync>,
+		_metrics_registry: Option<Registry>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig) {
 		let (handler, protocol_config) = BitswapRequestHandler::new(client.clone());
 
@@ -1566,6 +1567,7 @@ where
 							let reason = match err {
 								RequestFailure::NotConnected => "not-connected",
 								RequestFailure::UnknownProtocol => "unknown-protocol",
+								RequestFailure::InvalidRequest => "invalid-request",
 								RequestFailure::Refused => "refused",
 								RequestFailure::Obsolete => "obsolete",
 								RequestFailure::Network(OutboundFailure::DialFailure) => {

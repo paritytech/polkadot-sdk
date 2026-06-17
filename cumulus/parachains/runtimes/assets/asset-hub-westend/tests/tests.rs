@@ -22,17 +22,17 @@ use alloy_core::{
 	sol_types::{sol_data, SolType},
 };
 use asset_hub_westend_runtime::{
-	governance, xcm_config,
+	xcm_config,
 	xcm_config::{
 		bridging, CheckingAccount, LocationToAccountId, StakingPot,
 		TrustBackedAssetsPalletLocation, UniquesConvertedConcreteId, UniquesPalletLocation,
 		WestendLocation, XcmConfig,
 	},
-	AllPalletsWithoutSystem, Assets, Balances, Block, Executive, ExistentialDeposit, ForeignAssets,
-	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
-	PolkadotXcm, Proxy, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, TxExtension, UncheckedExtrinsic, Uniques,
-	WeightToFee, XcmpQueue,
+	AllPalletsWithoutSystem, AssetRewards, Assets, Balances, Block, Executive, ExistentialDeposit,
+	ForeignAssets, ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte,
+	ParachainSystem, PolkadotXcm, Proxy, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+	SessionKeys, ToRococoXcmRouterInstance, TrustBackedAssetsInstance, TxExtension,
+	UncheckedExtrinsic, Uniques, WeightToFee, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
@@ -52,7 +52,7 @@ use frame_support::{
 			common_strategies::{Bytes, Owner},
 			Inspect as InspectUniqueAsset,
 		},
-		ContainsPair, SignedTransactionBuilder,
+		ContainsPair, Hooks, SignedTransactionBuilder,
 	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
@@ -142,7 +142,12 @@ fn construct_extrinsic(sender: Sr25519Keyring, call: RuntimeCall) -> UncheckedEx
 			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
 		),
 		frame_system::CheckWeight::<Runtime>::new(),
-		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None),
+		pallet_pgas_allowance::ChargePGAS::<
+			Runtime,
+			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+		>::from(pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+			0, None,
+		)),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 		Default::default(),
 	)
@@ -922,27 +927,33 @@ fn test_assets_balances_api_works() {
 			assert_eq!(result.len(), 3);
 
 			// check currency
-			assert!(result.inner().iter().any(|asset| asset.eq(
+			assert!(result.inner().iter().any(|asset| {
+				asset.eq(
 				&assets_common::fungible_conversion::convert_balance::<WestendLocation, Balance>(
 					some_currency
 				)
 				.unwrap()
-			)));
+			)
+			}));
 			// check trusted asset
-			assert!(result.inner().iter().any(|asset| asset.eq(&(
-				AssetIdForTrustBackedAssetsConvert::convert_back(&local_asset_id).unwrap(),
-				minimum_asset_balance
-			)
-				.into())));
-			// check foreign asset
-			assert!(result.inner().iter().any(|asset| asset.eq(&(
-				WithLatestLocationConverter::<xcm::v5::Location>::convert_back(
-					&foreign_asset_id_location
+			assert!(result.inner().iter().any(|asset| {
+				asset.eq(&(
+					AssetIdForTrustBackedAssetsConvert::convert_back(&local_asset_id).unwrap(),
+					minimum_asset_balance,
 				)
-				.unwrap(),
-				6 * foreign_asset_minimum_asset_balance
-			)
-				.into())));
+					.into())
+			}));
+			// check foreign asset
+			assert!(result.inner().iter().any(|asset| {
+				asset.eq(&(
+					WithLatestLocationConverter::<xcm::v5::Location>::convert_back(
+						&foreign_asset_id_location,
+					)
+					.unwrap(),
+					6 * foreign_asset_minimum_asset_balance,
+				)
+					.into())
+			}));
 		});
 }
 
@@ -1205,7 +1216,7 @@ fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_rococo_works() 
 		bridging_to_asset_hub_rococo,
 		WeightLimit::Unlimited,
 		None,
-		Some(governance::TreasuryAccount::get()),
+		Some(xcm_config::DapBufferAccount::get()),
 	)
 }
 
@@ -2490,6 +2501,33 @@ mod remote_test {
 	}
 }
 
+#[test]
+fn ah_treasury_creates_asset_reward_pool() {
+	use frame_support::traits::schedule::DispatchTime;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let treasury_account: AccountId =
+			asset_hub_westend_runtime::governance::TreasuryAccount::get();
+
+		// Fund the treasury account so it exists and can hold the pool-creation deposit.
+		assert_ok!(Balances::mint_into(&treasury_account, 100 * UNITS));
+
+		let native = WestendLocation::get();
+		let reward_rate_per_block = 1_000_000_000;
+
+		assert_ok!(AssetRewards::create_pool(
+			RuntimeOrigin::signed(treasury_account.clone()),
+			Box::new(native.clone()),
+			Box::new(native),
+			reward_rate_per_block,
+			DispatchTime::After(1_000_000),
+			None,
+		));
+
+		assert_eq!(pallet_asset_rewards::Pools::<Runtime>::iter().count(), 1);
+	});
+}
+
 mod dap {
 	use super::*;
 
@@ -2499,6 +2537,7 @@ mod dap {
 		let buffer = <pallet_dap::Pallet<Runtime> as sp_staking::budget::BudgetRecipient<
 			AccountId,
 		>>::pot_account();
+		let staging = pallet_dap::Pallet::<Runtime>::staging_account();
 		let ed = ExistentialDeposit::get();
 
 		ExtBuilder::<Runtime>::default()
@@ -2508,12 +2547,17 @@ mod dap {
 				alice.clone(),
 				SessionKeys { aura: AuraId::from(Sr25519Keyring::Alice.public()) },
 			)])
-			.with_balances(vec![(alice.clone(), 100 * ed), (buffer.clone(), ed)])
+			.with_balances(vec![
+				(alice.clone(), 100 * ed),
+				(buffer.clone(), ed),
+				(staging.clone(), ed),
+			])
 			.with_para_id(ASSET_HUB_ID.into())
 			.build()
 			.execute_with(|| {
 				let alice_before = <Balances as Inspect<AccountId>>::balance(&alice);
 				let buffer_before = <Balances as Inspect<AccountId>>::balance(&buffer);
+				let staging_before = <Balances as Inspect<AccountId>>::balance(&staging);
 				let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
 
 				let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
@@ -2524,11 +2568,22 @@ mod dap {
 				let fee_paid = alice_before - alice_after;
 				assert!(fee_paid > 0, "a fee should have been paid");
 
-				let buffer_after = <Balances as Inspect<AccountId>>::balance(&buffer);
-				let issuance_after = <Balances as Inspect<AccountId>>::total_issuance();
+				// Fees land in staging first, not directly in the buffer.
+				assert_eq!(
+					<Balances as Inspect<AccountId>>::balance(&staging),
+					staging_before + fee_paid
+				);
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&buffer), buffer_before);
 
-				assert_eq!(buffer_after, buffer_before + fee_paid);
-				assert_eq!(issuance_before, issuance_after);
+				// on_idle drains staging into buffer and deactivates.
+				pallet_dap::Pallet::<Runtime>::on_idle(1, Weight::MAX);
+
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&staging), staging_before);
+				assert_eq!(
+					<Balances as Inspect<AccountId>>::balance(&buffer),
+					buffer_before + fee_paid
+				);
+				assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance_before);
 			});
 	}
 
@@ -2539,6 +2594,7 @@ mod dap {
 		let buffer = <pallet_dap::Pallet<Runtime> as sp_staking::budget::BudgetRecipient<
 			AccountId,
 		>>::pot_account();
+		let staging = pallet_dap::Pallet::<Runtime>::staging_account();
 		let ed = ExistentialDeposit::get();
 		let dust = ed / 2;
 
@@ -2554,8 +2610,12 @@ mod dap {
 				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&bob, ed + dust));
 				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&alice, 100 * ed));
 				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&buffer, ed));
+				// Pre-fund staging so dust (< ED) can be deposited without creating a new account.
+				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&staging, ed));
 
 				let buffer_before = <Balances as Inspect<AccountId>>::balance(&buffer);
+				let staging_before = <Balances as Inspect<AccountId>>::balance(&staging);
+				let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
 
 				// Transfer ED away from bob, leaving dust < ED → account reaped.
 				assert_ok!(Balances::transfer_allow_death(
@@ -2564,9 +2624,151 @@ mod dap {
 					ed,
 				));
 
-				let buffer_after = <Balances as Inspect<AccountId>>::balance(&buffer);
-				assert_eq!(buffer_after, buffer_before + dust);
+				// Dust lands in staging first (two-phase deactivation).
+				assert_eq!(
+					<Balances as Inspect<AccountId>>::balance(&staging),
+					staging_before + dust
+				);
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&buffer), buffer_before);
 				assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
+
+				// After on_idle: staging drains into buffer and deactivates.
+				pallet_dap::Pallet::<Runtime>::on_idle(1, Weight::MAX);
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&staging), staging_before);
+				assert_eq!(
+					<Balances as Inspect<AccountId>>::balance(&buffer),
+					buffer_before + dust
+				);
+				assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance_before);
 			});
+	}
+}
+
+// Exercises the real `ChargePGAS` extension pipeline via `Executive::apply_extrinsic`. The runtime
+// overrides `CallFilter` to `Everything` under `runtime-benchmarks`, so these tests only make sense
+// without that feature.
+#[cfg(not(feature = "runtime-benchmarks"))]
+mod pgas_allowance {
+	use super::*;
+	use asset_hub_westend_runtime::PGASAssetId;
+	use sp_core::H160;
+	use sp_runtime::BuildStorage;
+
+	const SENDER: Sr25519Keyring = Sr25519Keyring::Bob;
+
+	fn revive_call() -> RuntimeCall {
+		RuntimeCall::Revive(pallet_revive::Call::call {
+			dest: H160::default(),
+			value: 0,
+			weight_limit: Weight::zero(),
+			storage_deposit_limit: 0,
+			data: vec![],
+		})
+	}
+
+	fn setup_ext(funded_accounts: Vec<(AccountId, Balance)>) -> sp_io::TestExternalities {
+		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+		pallet_balances::GenesisConfig::<Runtime> {
+			balances: funded_accounts,
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+		pallet_assets::GenesisConfig::<Runtime, pallet_assets::Instance1> {
+			assets: vec![(PGASAssetId::get(), AccountId::from(ALICE), true, 1)],
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+		let mut ext: sp_io::TestExternalities = t.into();
+		ext.execute_with(|| System::set_block_number(1));
+		ext
+	}
+
+	fn mint_pgas(to: &AccountId, amount: Balance) {
+		assert_ok!(<Assets as FungiblesMutate<_>>::mint_into(PGASAssetId::get(), to, amount));
+	}
+
+	fn pgas_balance(who: &AccountId) -> Balance {
+		<Assets as FungiblesInspect<_>>::balance(PGASAssetId::get(), who)
+	}
+
+	fn pgas_fee_paid_event(who: &AccountId) -> Option<Balance> {
+		System::events().into_iter().find_map(|e| match e.event {
+			RuntimeEvent::PgasAllowance(pallet_pgas_allowance::Event::PGASFeePaid {
+				who: w,
+				actual_fee,
+			}) if &w == who => Some(actual_fee),
+			_ => None,
+		})
+	}
+
+	/// Caller holds PGAS and dispatches a Revive call: fee is charged in PGAS and native is
+	/// untouched.
+	#[test]
+	fn pgas_pays_for_revive_call() {
+		let sender = SENDER.to_account_id();
+		let initial_native = 10 * UNITS;
+		let initial_pgas = 100 * UNITS;
+		setup_ext(vec![(sender.clone(), initial_native)]).execute_with(|| {
+			mint_pgas(&sender, initial_pgas);
+
+			let native_before = <Balances as Inspect<_>>::balance(&sender);
+			let pgas_before = pgas_balance(&sender);
+
+			let xt = construct_extrinsic(SENDER, revive_call());
+			assert_ok!(Executive::apply_extrinsic(xt).unwrap());
+
+			let native_after = <Balances as Inspect<_>>::balance(&sender);
+			let pgas_after = pgas_balance(&sender);
+
+			assert_eq!(native_before, native_after, "native untouched on PGAS path");
+			let fee = pgas_before.checked_sub(pgas_after).expect("PGAS charged");
+			assert!(fee > 0);
+			assert_eq!(pgas_fee_paid_event(&sender), Some(fee));
+		});
+	}
+
+	/// Caller holds no PGAS: the extension falls through to the inner tx-payment and native is
+	/// charged; no `PGASFeePaid` event is emitted.
+	#[test]
+	fn falls_back_to_native_when_caller_has_no_pgas() {
+		let sender = SENDER.to_account_id();
+		let initial_native = 10 * UNITS;
+		setup_ext(vec![(sender.clone(), initial_native)]).execute_with(|| {
+			let native_before = <Balances as Inspect<_>>::balance(&sender);
+
+			let xt = construct_extrinsic(SENDER, revive_call());
+			assert_ok!(Executive::apply_extrinsic(xt).unwrap());
+
+			let native_after = <Balances as Inspect<_>>::balance(&sender);
+			assert!(native_after < native_before, "native should have been charged");
+			assert_eq!(pgas_balance(&sender), 0);
+			assert_eq!(pgas_fee_paid_event(&sender), None);
+		});
+	}
+
+	/// Caller holds PGAS but dispatches a non-Revive call: the filter misses, PGAS is not
+	/// touched, and native pays the fee.
+	#[test]
+	fn filter_miss_uses_native_even_with_pgas() {
+		let sender = SENDER.to_account_id();
+		let initial_native = 10 * UNITS;
+		let initial_pgas = 100 * UNITS;
+		setup_ext(vec![(sender.clone(), initial_native)]).execute_with(|| {
+			mint_pgas(&sender, initial_pgas);
+
+			let pgas_before = pgas_balance(&sender);
+			let native_before = <Balances as Inspect<_>>::balance(&sender);
+
+			let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+			let xt = construct_extrinsic(SENDER, call);
+			assert_ok!(Executive::apply_extrinsic(xt).unwrap());
+
+			assert_eq!(pgas_balance(&sender), pgas_before, "PGAS untouched on filter miss");
+			let native_after = <Balances as Inspect<_>>::balance(&sender);
+			assert!(native_after < native_before, "native charged");
+			assert_eq!(pgas_fee_paid_event(&sender), None);
+		});
 	}
 }

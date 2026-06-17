@@ -27,6 +27,7 @@ frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
+pallet-accumulate-and-forward = { workspace = true }
 pallet-alliance = { workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-aura = { workspace = true }
@@ -34,7 +35,6 @@ pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-collective = { workspace = true }
 pallet-core-fellowship = { workspace = true }
-pallet-dap-satellite = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
@@ -55,6 +55,7 @@ sp-arithmetic = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
+sp-dap = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-keyring = { workspace = true }
@@ -116,6 +117,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-accumulate-and-forward/runtime-benchmarks",
 	"pallet-alliance/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
@@ -123,7 +125,6 @@ runtime-benchmarks = [
 	"pallet-collective-content/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-core-fellowship/runtime-benchmarks",
-	"pallet-dap-satellite/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-meta-tx/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -162,6 +163,7 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-accumulate-and-forward/try-runtime",
 	"pallet-alliance/try-runtime",
 	"pallet-asset-rate/try-runtime",
 	"pallet-aura/try-runtime",
@@ -171,7 +173,6 @@ try-runtime = [
 	"pallet-collective-content/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-core-fellowship/try-runtime",
-	"pallet-dap-satellite/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-meta-tx/try-runtime",
 	"pallet-multisig/try-runtime",
@@ -213,6 +214,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime?/std",
+	"pallet-accumulate-and-forward/std",
 	"pallet-alliance/std",
 	"pallet-asset-rate/std",
 	"pallet-aura/std",
@@ -222,7 +224,6 @@ std = [
 	"pallet-collective-content/std",
 	"pallet-collective/std",
 	"pallet-core-fellowship/std",
-	"pallet-dap-satellite/std",
 	"pallet-message-queue/std",
 	"pallet-meta-tx/std",
 	"pallet-multisig/std",
@@ -253,6 +254,7 @@ std = [
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
+	"sp-dap/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-keyring/std",

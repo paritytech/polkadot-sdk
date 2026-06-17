@@ -205,9 +205,9 @@ type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 /// This is used to limit the maximal weight of a single extrinsic.
 const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
-/// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
+/// We allow `Normal` extrinsics to fill up the block up to 95%, the rest can be used
 /// by  Operational  extrinsics.
-const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
+const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(95);
 /// We allow for 2 seconds of compute with a 6 second average block time, with maximum proof size.
 const MAXIMUM_BLOCK_WEIGHT: Weight =
 	Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2), u64::MAX);
@@ -216,7 +216,7 @@ parameter_types! {
 	pub const BlockHashCount: BlockNumber = 2400;
 	pub const Version: RuntimeVersion = VERSION;
 	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
-		.max_length(5 * 1024 * 1024)
+		.max_length(15 * 1024 * 1024)
 		.modify_max_length_for_class(DispatchClass::Normal, |m| {
 			*m = NORMAL_DISPATCH_RATIO * *m
 		})
@@ -770,6 +770,24 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type Filter = Nothing;
 	type MaxValidatorSet = ConstU32<1000>;
+}
+
+parameter_types! {
+	pub const DapPalletId: PalletId = pallet_dap::DAP_PALLET_ID;
+	pub const DapIssuanceCadence: u64 = 0; // drip every block
+	pub const DapMaxElapsedPerDrip: u64 = 600_000;
+}
+
+impl pallet_dap::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = DapPalletId;
+	type IssuanceCurve = ();
+	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);
+	type Time = Timestamp;
+	type IssuanceCadence = DapIssuanceCadence;
+	type MaxElapsedPerDrip = DapMaxElapsedPerDrip;
+	type BudgetOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -1575,6 +1593,7 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<false>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = ();
+	type Deposit = ();
 }
 
 impl pallet_vesting_precompiles::pallet::Config for Runtime {
@@ -1782,23 +1801,18 @@ impl pallet_identity::Config for Runtime {
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-	pub const ConfigDepositBase: Balance = 5 * DOLLARS;
-	pub const FriendDepositFactor: Balance = 50 * CENTS;
-	pub const MaxFriends: u16 = 9;
-	pub const RecoveryDeposit: Balance = 5 * DOLLARS;
-}
-
 impl pallet_recovery::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Runtime>;
 	type RuntimeCall = RuntimeCall;
-	type BlockNumberProvider = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 	type Currency = Balances;
-	type ConfigDepositBase = ConfigDepositBase;
-	type FriendDepositFactor = FriendDepositFactor;
-	type MaxFriends = MaxFriends;
-	type RecoveryDeposit = RecoveryDeposit;
+	type FriendGroupsConsideration = ();
+	type AttemptConsideration = ();
+	type InheritorConsideration = ();
+	type SecurityDeposit = ();
+	type MaxFriendsPerConfig = ConstU32<100>;
+	type WeightInfo = ();
+	type Slash = (); // burn
 }
 
 parameter_types! {
@@ -1959,6 +1973,7 @@ parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
 	pub const PoolSetupFee: Balance = 1 * DOLLARS; // should be more or equal to the existential deposit
 	pub const MintMinLiquidity: Balance = 100;  // 100 is good enough when the main currency has 10-12 decimals.
+	pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
 }
@@ -1992,7 +2007,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeAsset = Native;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type PalletId = AssetConversionPalletId;
-	type LPFee = ConstU32<3>; // means 0.3%
+	type LPFee = LpFee;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type WeightInfo = pallet_asset_conversion::weights::SubstrateWeight<Runtime>;
 	type MaxSwapPathLength = ConstU32<4>;
@@ -2909,6 +2924,9 @@ mod runtime {
 
 	#[runtime::pallet_index(93)]
 	pub type VestingPrecompiles = pallet_vesting_precompiles::pallet::Pallet<Runtime>;
+
+	#[runtime::pallet_index(94)]
+	pub type Dap = pallet_dap::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3094,7 +3112,7 @@ parameter_types! {
 		);
 }
 
-type PsmStableAsset = ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
+type PsmInternalAsset = ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
 
 parameter_types! {
 	/// No debt ceiling: maximum possible issuance.
@@ -3125,6 +3143,9 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
 pub struct PsmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_psm::BenchmarkHelper<u32, AccountId> for PsmBenchmarkHelper {
+	fn get_asset_id(asset_index: u32) -> u32 {
+		asset_index
+	}
 	fn create_asset(asset_id: u32, owner: &AccountId, decimals: u8) {
 		use frame_support::traits::fungibles::{metadata::Mutate as MetadataMutate, Create};
 		if !<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::asset_exists(asset_id)
@@ -3153,7 +3174,7 @@ impl pallet_psm::Config for Runtime {
 	type MaximumIssuance = NoVaultsCeiling;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;
-	type StableAsset = PsmStableAsset;
+	type InternalAsset = PsmInternalAsset;
 	type FeeDestination = PsmInsuranceFundAccount;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = PsmMinSwapAmount;
@@ -3286,6 +3307,7 @@ mod benches {
 		[pallet_glutton, Glutton]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_society, Society]
+		[pallet_dap, Dap]
 		[pallet_staking, Staking]
 		[pallet_state_trie_migration, StateTrieMigration]
 		[pallet_sudo, Sudo]
@@ -3895,6 +3917,12 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 	impl sp_transaction_storage_proof::runtime_api::TransactionStorageApi<Block> for Runtime {
 		fn retention_period() -> NumberFor<Block> {
 			TransactionStorage::retention_period()
+		}
+
+		fn indexed_transactions(
+			block: NumberFor<Block>,
+		) -> Vec<sp_transaction_storage_proof::IndexedTransactionInfo> {
+			TransactionStorage::indexed_transactions(block)
 		}
 	}
 
