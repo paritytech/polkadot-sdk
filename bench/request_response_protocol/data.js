@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781532317539,
+  "lastUpdate": 1781688360865,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -99251,6 +99251,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2610663769,
             "range": "± 7784842",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4beb26c386f2a0ab3023574a9ef019bfec7d82f1",
+          "message": "nomination-pools: snapshot rewards before set_commission_max lowers current commission (#12397)\n\n`set_commission_max` force-lowers `commission.current` (via\n`try_update_max`) when the new max is below the active rate, but did not\nfirst call `update_records`. Rewards accrued at the higher rate since\nthe last snapshot were therefore re-rated at the new lower rate on the\nnext `update_records`, crediting the differential `(old_current -\nnew_max) * accrued` to members instead of the commission payee.\n\nThe fix snapshots the reward pool at the current commission before the\ncut, mirroring the ordering already used in `set_commission`.",
+          "timestamp": "2026-06-17T08:12:31Z",
+          "tree_id": "8b868908a0a9cf5c16d9a9cfe4001ddfa52b2605",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4beb26c386f2a0ab3023574a9ef019bfec7d82f1"
+        },
+        "date": 1781688335416,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19207077,
+            "range": "± 95712",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19649392,
+            "range": "± 174098",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21075140,
+            "range": "± 157464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26119756,
+            "range": "± 401077",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61805667,
+            "range": "± 940178",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 363556778,
+            "range": "± 4830562",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2775083292,
+            "range": "± 169720354",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16964356,
+            "range": "± 220578",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17150366,
+            "range": "± 162704",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17704211,
+            "range": "± 246764",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22282309,
+            "range": "± 202275",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64159531,
+            "range": "± 697764",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 373461886,
+            "range": "± 3419091",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2712368861,
+            "range": "± 20101401",
             "unit": "ns/iter"
           }
         ]
