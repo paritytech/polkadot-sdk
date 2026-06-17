@@ -89,6 +89,7 @@ impl Config for Test {
 	type RegistrationPeriod = ConstU64<2>;
 	type PayoutPeriod = ConstU64<2>;
 	type Budget = Budget;
+	type BlockNumberProvider = System;
 }
 
 pub struct FixedSalary;
@@ -125,7 +126,7 @@ impl pallet_ranked_collective::Config for Test {
 		// Members can exchange up to the rank of 2 below them.
 		MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
 	>;
-	type Polls = NoOpPoll<BlockNumberFor<Test>>;
+	type Polls = NoOpPoll<frame::prelude::BlockNumberFor<Test>>;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type MemberSwappedHandler = Salary;
 	type VoteWeight = Geometric;
