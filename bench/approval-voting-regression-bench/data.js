@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781533502173,
+  "lastUpdate": 1781689599044,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1e3082252cf6914dfa2b5183a0179588c9c748a1",
-          "message": "pallet_revive: Only enforce EIP-3607 for dispatchables (#10100)\n\nThe EIP states that contract addresses cannot be the origin of a\ntransaction. However, we are enforcing this rule for all contract\nexecution (i.e all public function on the pallet). This is a problem for\ncode that uses `pallet_revive` and explicitly wants to allow this.\n\nThis PR now only enforces this check for dispatchables so that all the\n`bare_*` functions are unaffected.\n\nAs a drive-by a regrouped the functions on the `Pallet` so that the\npublic functions are no longer interleaved with the private ones. This\ngot mixed up when we resolved some merge conflicts.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-28T09:47:52Z",
-          "tree_id": "7dc492341b3a3482de0ba2acd50b128bef2f5561",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1e3082252cf6914dfa2b5183a0179588c9c748a1"
-        },
-        "date": 1761649433877,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63629.67,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5019768867399987,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000021562250000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000021562250000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002085933,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.44047446327001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0061664186300000035,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.44713029941000404,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.482046097270002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9729911283400074,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002085933,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5349720265999975,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.89508208141081,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4951916062800015,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.577198279502625,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4beb26c386f2a0ab3023574a9ef019bfec7d82f1",
+          "message": "nomination-pools: snapshot rewards before set_commission_max lowers current commission (#12397)\n\n`set_commission_max` force-lowers `commission.current` (via\n`try_update_max`) when the new max is below the active rate, but did not\nfirst call `update_records`. Rewards accrued at the higher rate since\nthe last snapshot were therefore re-rated at the new lower rate on the\nnext `update_records`, crediting the differential `(old_current -\nnew_max) * accrued` to members instead of the commission payee.\n\nThe fix snapshots the reward pool at the current commission before the\ncut, mirroring the ordering already used in `set_commission`.",
+          "timestamp": "2026-06-17T08:12:31Z",
+          "tree_id": "8b868908a0a9cf5c16d9a9cfe4001ddfa52b2605",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4beb26c386f2a0ab3023574a9ef019bfec7d82f1"
+        },
+        "date": 1781689573713,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63601.81,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020386539999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7347404642699381,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7420659224499992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7700790000800013,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.394109116682778,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000022002260000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.197531146829935,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000022002260000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020386539999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005825912850000009,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.788730112649999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7069661244999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4491236100299956,
             "unit": "seconds"
           }
         ]
