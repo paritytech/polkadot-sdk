@@ -25,13 +25,13 @@
 //!
 //! # Key types
 //!
-//! - [`commitment_set::CommitmentSet`] — a sorted, bounded map from [`ParaId`] to
-//!   MMR-root [`Hash`], representing one block's worth of outgoing commitments.
+//! - [`commitment_set::CommitmentSet`] — a sorted, bounded map from [`ParaId`] to MMR-root
+//!   [`Hash`], representing one block's worth of outgoing commitments.
 //! - [`outgoing_message::OutgoingMessage`] — a single outgoing message; call
-//!   [`outgoing_message::OutgoingMessage::hash_leaf`] to obtain the leaf hash to
-//!   feed into the accumulator.
-//! - [`mmr::MmrAccumulator`] — trait for appending leaves and reading the current
-//!   root; [`mmr::Mmr`] is the concrete implementation.
+//!   [`outgoing_message::OutgoingMessage::hash_leaf`] to obtain the leaf hash to feed into the
+//!   accumulator.
+//! - [`mmr::MmrAccumulator`] — trait for appending leaves and reading the current root;
+//!   [`mmr::Mmr`] is the concrete implementation.
 //!
 //! [`ParaId`]: polkadot_parachain_primitives::primitives::Id
 //! [`Hash`]: polkadot_core_primitives::Hash
