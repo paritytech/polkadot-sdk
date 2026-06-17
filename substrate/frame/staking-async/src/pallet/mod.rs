@@ -1539,6 +1539,8 @@ pub mod pallet {
 		InvalidInactivityProof(InvalidInactivityProofError),
 		/// Cannot set [`ChillInactiveThreshold`] to the provided value.
 		InvalidChillInactiveThreshold,
+		/// Provided account doesn't correspond to any validator.
+		NotValidator,
 	}
 
 	#[derive(Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo, PalletError)]
@@ -3208,11 +3210,13 @@ pub mod pallet {
 				);
 			}
 
-			Self::do_remove_validator(&stash);
+			if Self::do_remove_validator(&stash) {
+				Self::deposit_event(Event::<T>::Chilled { stash });
 
-			Self::deposit_event(Event::<T>::Chilled { stash });
-
-			Ok(Pays::No.into())
+				Ok(Pays::No.into())
+			} else {
+				Err(Error::<T>::NotValidator.into())
+			}
 		}
 	}
 
