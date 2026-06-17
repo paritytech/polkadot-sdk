@@ -51,7 +51,7 @@ impl mmr_lib::Merge for SpecMerge {
 mod tests {
 	use super::*;
 	use alloc::vec::Vec;
-	use mmr_lib::util::{MemMMR, MemStore};
+	use mmr_lib::{Merge, util::{MemMMR, MemStore}};
 
 	fn new_mmr(store: &MemStore<Hash>) -> MemMMR<'_, Hash, SpecMerge> {
 		MemMMR::<Hash, SpecMerge>::new(0, store)
