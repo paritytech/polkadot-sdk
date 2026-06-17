@@ -21,11 +21,11 @@ use frame_support::{
 	derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, Nothing, VariantCountOf},
+	traits::{ConstBool, ConstU64, Nothing, VariantCountOf},
 	PalletId,
 };
 use sp_runtime::{
-	traits::{Convert, IdentityLookup},
+	traits::{BlockNumberProvider, Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,
 };
 
@@ -75,21 +75,50 @@ pallet_staking_reward_curve::build! {
 }
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
+	pub static BondingDuration: u32 = 3;
+	pub static EraPayout: (Balance, Balance) = (1000, 100);
 }
-#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
-impl pallet_staking::Config for Runtime {
+
+/// A simple `EraPayout` implementation for benchmarks that returns fixed values.
+pub struct TestEraPayout;
+impl pallet_staking_async::EraPayout<Balance> for TestEraPayout {
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		_era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		EraPayout::get()
+	}
+}
+
+/// A mock `RcClientInterface` for benchmarks that don't need session/validator-set management.
+pub struct MockRcClient;
+impl pallet_staking_async_rc_client::RcClientInterface for MockRcClient {
+	type AccountId = AccountId;
+
+	fn validator_set(
+		_new_validator_set: Vec<Self::AccountId>,
+		_id: u32,
+		_prune_up_to: Option<u32>,
+	) {
+	}
+}
+
+#[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
+impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
-	type CurrencyBalance = Balance;
-	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type EraPayout = TestEraPayout;
+	type DisableMinting = ConstBool<false>;
+	type BondingDuration = BondingDuration;
+	type RewardPots = pallet_staking_async::SequentialTest;
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
-	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = VoterList;
-	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
+	type RcClientInterface = MockRcClient;
 }
 
 parameter_types! {
@@ -119,6 +148,17 @@ impl Convert<sp_core::U256, Balance> for U256ToBalance {
 	}
 }
 
+/// Always reports block 0 so commission `throttle_from` is deterministic and matches AHW, whose
+/// nom-pools `BlockNumberProvider` is `RelaychainDataProvider` (relay block 0 at benchmark
+/// genesis).
+pub struct BenchmarkBlockNumberProvider;
+impl BlockNumberProvider for BenchmarkBlockNumberProvider {
+	type BlockNumber = BlockNumber;
+	fn current_block_number() -> Self::BlockNumber {
+		0
+	}
+}
+
 parameter_types! {
 	pub static PostUnbondingPoolsWindow: u32 = 10;
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
@@ -141,7 +181,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type BlockNumberProvider = System;
+	type BlockNumberProvider = BenchmarkBlockNumberProvider;
 	type Filter = Nothing;
 }
 
@@ -168,7 +208,7 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
-		Staking: pallet_staking,
+		Staking: pallet_staking_async,
 		VoterList: pallet_bags_list::<Instance1>,
 		Pools: pallet_nomination_pools,
 		DelegatedStaking: pallet_delegated_staking,
