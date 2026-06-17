@@ -54,6 +54,11 @@ impl PeersIndex {
 	pub(crate) fn closest(&self, target: Key) -> Closest<'_> {
 		closest(&self.peers_by_key, target)
 	}
+
+	/// All peers in the index, in `(key, peer)` order.
+	pub(crate) fn peers(&self) -> impl Iterator<Item = PeerId> + '_ {
+		self.peers_by_key.values().flatten().copied()
+	}
 }
 
 /// Peers of `index` in increasing `(xor_distance(target, key), peer)` order, without sorting the
