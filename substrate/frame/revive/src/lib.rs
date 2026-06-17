@@ -1359,7 +1359,10 @@ pub mod pallet {
 				encoded_len,
 			}
 			.into();
-			let info = T::FeeInfo::dispatch_info(&call);
+			let mut info = T::FeeInfo::dispatch_info(&call);
+			// Mirror the executive: the encoded extrinsic length contributes to the proof_size
+			// weight, so account for it here too to keep the receipt gas consistent with the fee.
+			info.length_weight = Weight::from_parts(0, encoded_len as u64);
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
 
@@ -1438,7 +1441,10 @@ pub mod pallet {
 				encoded_len,
 			}
 			.into();
-			let info = T::FeeInfo::dispatch_info(&call);
+			let mut info = T::FeeInfo::dispatch_info(&call);
+			// Mirror the executive: the encoded extrinsic length contributes to the proof_size
+			// weight, so account for it here too to keep the receipt gas consistent with the fee.
+			info.length_weight = Weight::from_parts(0, encoded_len as u64);
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
 
@@ -2332,7 +2338,12 @@ impl<T: Config> Pallet<T> {
 		call_info.call.set_weight_limit(dry_run.weight_required);
 
 		// we notify the wallet that the tx would not fit
-		let total_weight = T::FeeInfo::dispatch_info(&call_info.call).total_weight();
+		// Mirror the executive: account for the encoded extrinsic length in the proof_size weight.
+		let total_weight = {
+			let mut info = T::FeeInfo::dispatch_info(&call_info.call);
+			info.length_weight = Weight::from_parts(0, call_info.encoded_len as u64);
+			info.total_weight()
+		};
 		let max_weight = Self::evm_max_extrinsic_weight();
 		if total_weight.any_gt(max_weight) {
 			log::debug!(target: LOG_TARGET, "Transaction weight estimate exceeds extrinsic maximum: \

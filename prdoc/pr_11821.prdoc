@@ -52,3 +52,13 @@ crates:
   bump: patch
 - name: cumulus-primitives-storage-weight-reclaim
   bump: patch
+# The following crates only construct `DispatchInfo` in tests/benchmarks; they gain the new
+# `length_weight` field with its default value and have no functional change.
+- name: pallet-transaction-payment
+  bump: none
+- name: pallet-asset-tx-payment
+  bump: none
+- name: pallet-asset-conversion-tx-payment
+  bump: none
+- name: pallet-bridge-relayers
+  bump: none

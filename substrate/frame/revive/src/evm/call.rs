@@ -202,7 +202,10 @@ impl GenericTransaction {
 
 		let weight_limit = {
 			let fixed_fee = <T as Config>::FeeInfo::fixed_fee(encoded_len as u32);
-			let info = <T as Config>::FeeInfo::dispatch_info(&call);
+			let mut info = <T as Config>::FeeInfo::dispatch_info(&call);
+			// Mirror the executive: the encoded extrinsic length contributes to the proof_size
+			// weight, so reserve it from the fee budget alongside the call and extension weight.
+			info.length_weight = Weight::from_parts(0, encoded_len as u64);
 
 			let remaining_fee = {
 				let adjusted = eth_fee.checked_sub(fixed_fee.into()).ok_or_else(|| {
@@ -228,7 +231,8 @@ impl GenericTransaction {
 
 			if !is_dry_run {
 				let max_weight = <Pallet<T>>::evm_max_extrinsic_weight();
-				let info = <T as Config>::FeeInfo::dispatch_info(&call);
+				let mut info = <T as Config>::FeeInfo::dispatch_info(&call);
+				info.length_weight = Weight::from_parts(0, encoded_len as u64);
 				let overweight_by = info.total_weight().saturating_sub(max_weight);
 				let capped_weight = weight_limit.saturating_sub(overweight_by);
 				call.set_weight_limit(capped_weight);

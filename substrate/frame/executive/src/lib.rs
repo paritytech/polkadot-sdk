@@ -881,8 +881,8 @@ where
 
 		let dispatch_info = {
 			let mut info = xt.get_dispatch_info();
-			// Record the extrinsic length as `proof_size` weight so extensions get the correct total
-			// via `info.total_weight()` and need not handle the length separately.
+			// Record the extrinsic length as `proof_size` weight so extensions get the correct
+			// total via `info.total_weight()` and need not handle the length separately.
 			info.length_weight = Weight::from_parts(0, encoded_len as u64);
 			info
 		};
