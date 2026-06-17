@@ -1,0 +1,23 @@
+title: 'binary-merkle-tree: bind verify_proof to a canonical leaf position'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Hardens `binary_merkle_tree::verify_proof` against a short-proof / index-aliasing
+    weakness. The previous implementation folded exactly `proof.len()` siblings and never
+    bound the proof to a canonical leaf position. Because the tree is unbalanced (a lone
+    trailing node of an odd-width layer is promoted up unchanged), a leaf reached through a
+    promotion has a short proof, and that single `(leaf, proof)` pair verified at every
+    `leaf_index` sharing its leading decision bits. Any consumer that treats `leaf_index` as
+    an authorization slot (e.g. an Ethereum light client calling `isValidatorInSet` against
+    the BEEFY keyset commitment) could thus claim one leaf at multiple positions.
+
+    `verify_proof` now walks the tree by its geometry instead of by `proof.len()`: it promotes
+    lone trailing nodes (consuming no proof element), consumes a sibling only where one exists,
+    fails closed on a too-short proof, and requires the proof to be consumed exactly (rejecting
+    over-long, malleable proofs). Canonical proofs produced by `merkle_proof` continue to verify
+    unchanged; the function signature is unchanged.
+
+crates:
+- name: binary-merkle-tree
+  bump: patch
