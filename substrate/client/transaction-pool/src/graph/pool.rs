@@ -1001,7 +1001,7 @@ mod tests {
 		use super::*;
 
 		#[test]
-		fn should_trigger_ready_and_finalized_when_pruning_via_hash() {
+		fn should_trigger_ready_and_in_block_when_pruning_via_hash() {
 			// given
 			let (pool, api) = pool();
 			let watcher = block_on(
