@@ -63,6 +63,11 @@ impl Client {
 			.map_err(|e| format!("{e:?}"))
 	}
 
+	/// The endpoint URI this client connects to.
+	pub(crate) fn uri(&self) -> &str {
+		&self.uri
+	}
+
 	/// Create a new Client from a URI.
 	///
 	/// Returns `None` if the initial connection fails or times out.
@@ -109,9 +114,12 @@ impl Client {
 }
 
 /// Manages WebSocket client connections for parallel workers.
+///
+/// The client pool is shared across all worker clones (`Arc`) so that dropping a provider on one
+/// worker (see [`Self::remove_client`]) is visible to every other worker.
 #[derive(Clone)]
 pub(crate) struct ConnectionManager {
-	clients: Vec<Arc<tokio::sync::Mutex<Client>>>,
+	clients: Arc<tokio::sync::RwLock<Vec<Arc<tokio::sync::Mutex<Client>>>>>,
 }
 
 impl ConnectionManager {
@@ -120,52 +128,70 @@ impl ConnectionManager {
 			return Err("At least one client must be provided");
 		}
 
-		Ok(Self { clients })
+		Ok(Self { clients: Arc::new(tokio::sync::RwLock::new(clients)) })
 	}
 
-	pub(crate) fn num_clients(&self) -> usize {
-		self.clients.len()
+	pub(crate) async fn num_clients(&self) -> usize {
+		self.clients.read().await.len()
 	}
 
-	/// Drop the clients for which `is_available` returns `false`.
+	/// Drop the `failed` provider from the pool (matched by URI), e.g. because it lacks the target
+	/// block.
 	///
-	/// Used to exclude providers that lack the target block. Returns the number of clients removed,
-	/// or an error if no client would remain.
-	pub(crate) async fn retain_available<F, Fut>(&mut self, mut is_available: F) -> Result<usize>
-	where
-		F: FnMut(Client) -> Fut,
-		Fut: Future<Output = bool>,
-	{
-		let mut kept = Vec::with_capacity(self.clients.len());
-		for client_arc in self.clients.iter() {
-			let client = client_arc.lock().await.clone();
-			if is_available(client).await {
-				kept.push(client_arc.clone());
+	/// Returns `true` if the client was removed. The last remaining client is never removed, so
+	/// that the pool is never emptied; in that case `false` is returned and the caller keeps
+	/// retrying it.
+	pub(crate) async fn remove_client(&self, failed: &Client) -> bool {
+		let mut clients = self.clients.write().await;
+		if clients.len() <= 1 {
+			return false;
+		}
+
+		// Identify the slot by URI: several workers may share one provider, so the `failed` clone
+		// may already have been removed by another worker.
+		let mut index = None;
+		for (i, client_arc) in clients.iter().enumerate() {
+			if client_arc.lock().await.uri() == failed.uri() {
+				index = Some(i);
+				break;
 			}
 		}
 
-		if kept.is_empty() {
-			return Err("No RPC provider has the target block");
+		match index {
+			Some(i) => {
+				let removed = clients.remove(i);
+				warn!(
+					target: LOG_TARGET,
+					"⚠️ dropping RPC provider `{}` ({} provider(s) left)",
+					removed.lock().await.uri(),
+					clients.len(),
+				);
+				true
+			},
+			None => false,
 		}
-
-		let removed = self.clients.len() - kept.len();
-		self.clients = kept;
-		Ok(removed)
 	}
 
 	/// Get a usable client for a specific worker.
 	/// Distributes workers across available clients.
 	pub(crate) async fn get(&self, worker_index: usize) -> Client {
-		let client_index = worker_index % self.clients.len();
-		let client = self.clients[client_index].lock().await;
-		client.clone()
+		let client_arc = {
+			let clients = self.clients.read().await;
+			let client_index = worker_index % clients.len();
+			clients[client_index].clone()
+		};
+		let client = client_arc.lock().await.clone();
+		client
 	}
 
 	/// Called when a request fails. Triggers client recreation if version matches.
 	pub(crate) async fn recreate_client(&self, worker_index: usize, failed: Client) {
-		let client_index = worker_index % self.clients.len();
-		let mut client = self.clients[client_index].lock().await;
-		client.recreate(failed.version).await;
+		let client_arc = {
+			let clients = self.clients.read().await;
+			let client_index = worker_index % clients.len();
+			clients[client_index].clone()
+		};
+		client_arc.lock().await.recreate(failed.version).await;
 	}
 }
 

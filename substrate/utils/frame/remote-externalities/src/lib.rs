@@ -72,6 +72,14 @@ type ChildKeyValues = Vec<(ChildInfo, Vec<KeyValue>)>;
 
 const LOG_TARGET: &str = "remote-ext";
 
+/// Whether a stringified RPC error reports that the provider does not have the requested block.
+///
+/// Such a provider is lagging or pruning and should be dropped rather than retried (see the
+/// `UnknownBlock` error in `sp_blockchain`).
+fn is_unknown_block_error(error: &str) -> bool {
+	error.contains("UnknownBlock")
+}
+
 /// An externalities that acts exactly the same as [`sp_io::TestExternalities`] but has a few extra
 /// bits and pieces to it, and can be loaded remotely.
 pub struct RemoteExternalities<B: BlockT> {
@@ -165,11 +173,9 @@ where
 {
 	const PARALLEL_REQUESTS_PER_CLIENT: usize = 4;
 
-	fn parallel_requests(&self) -> usize {
-		self.conn_manager
-			.as_ref()
-			.map(|cm| cm.num_clients() * Self::PARALLEL_REQUESTS_PER_CLIENT)
-			.expect("connection manager must be initialized; qed")
+	async fn parallel_requests(&self) -> usize {
+		let cm = self.conn_manager().expect("connection manager must be initialized; qed");
+		cm.num_clients().await * Self::PARALLEL_REQUESTS_PER_CLIENT
 	}
 
 	/// Execute an RPC call on any available client. Tries each client until one succeeds.
@@ -182,7 +188,7 @@ where
 		E: std::fmt::Debug,
 	{
 		let conn_manager = self.conn_manager().map_err(|_| ())?;
-		let num_clients = conn_manager.num_clients();
+		let num_clients = conn_manager.num_clients().await;
 		let start_offset: usize = rand::random();
 		for j in 0..num_clients {
 			let i = (start_offset + j) % num_clients;
@@ -220,7 +226,8 @@ where
 	async fn fetch_state_version(&self) -> Result<StateVersion> {
 		let conn_manager = self.conn_manager()?;
 
-		for i in 0..conn_manager.num_clients() {
+		let num_clients = conn_manager.num_clients().await;
+		for i in 0..num_clients {
 			let client = conn_manager.get(i).await;
 			let result = with_timeout(
 				StateApi::<B::Hash>::runtime_version(client.ws_client.as_ref(), None),
@@ -252,36 +259,6 @@ where
 		.map_err(|_| "rpc finalized_head failed on all clients")
 	}
 
-	/// Drop any RPC provider that does not have block `at`.
-	async fn retain_providers_with_block(&mut self, at: B::Hash) -> Result<()> {
-		let conn_manager = self
-			.conn_manager
-			.as_mut()
-			.ok_or("connection manager must be initialized; qed")?;
-		let removed = conn_manager
-			.retain_available(move |client| async move {
-				matches!(
-					with_timeout(
-						ChainApi::<(), _, B::Header, ()>::header(
-							client.ws_client.as_ref(),
-							Some(at)
-						),
-						RPC_TIMEOUT,
-					)
-					.await,
-					Ok(Ok(Some(_)))
-				)
-			})
-			.await?;
-		if removed > 0 {
-			warn!(
-				target: LOG_TARGET,
-				"⚠️ excluded {removed} RPC provider(s) that do not have the target block {at:?}",
-			);
-		}
-		Ok(())
-	}
-
 	/// Get keys with `prefix` at `block` using parallel workers.
 	async fn rpc_get_keys_parallel(
 		&self,
@@ -294,7 +271,7 @@ where
 		info!(target: LOG_TARGET, "🔧 Initialized work queue with {initial_ranges} ranges");
 
 		let conn_manager = self.conn_manager()?;
-		info!(target: LOG_TARGET, "🌐 Using {} RPC provider(s)", conn_manager.num_clients());
+		info!(target: LOG_TARGET, "🌐 Using {} RPC provider(s)", conn_manager.num_clients().await);
 		info!(target: LOG_TARGET, "🚀 Spawning {parallel} parallel workers for key fetching");
 
 		let all_keys: Arc<Mutex<BTreeSet<StorageKey>>> = Arc::new(Mutex::new(BTreeSet::new()));
@@ -329,10 +306,13 @@ where
 					Ok(Ok(p)) => p,
 					Ok(Err(e)) => {
 						debug!(target: LOG_TARGET, "Worker {worker_index}: RPC error: {e:?}");
+						// A provider that lacks the block is dropped instead of recreated.
+						let remove_client = is_unknown_block_error(&format!("{e:?}"));
 						return ProcessResult::Retry {
 							work: range.with_halved_page_size(),
 							sleep_duration: Duration::from_secs(15),
-							recreate_client: true,
+							recreate_client: !remove_client,
+							remove_client,
 						};
 					},
 					Err(()) => {
@@ -341,6 +321,7 @@ where
 							work: range.with_halved_page_size(),
 							sleep_duration: Duration::from_secs(5),
 							recreate_client: true,
+							remove_client: false,
 						};
 					},
 				};
@@ -513,7 +494,7 @@ where
 		at: B::Hash,
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
 	) -> Result<Vec<KeyValue>> {
-		let parallel = self.parallel_requests();
+		let parallel = self.parallel_requests().await;
 		let keys = logging::with_elapsed_async(
 			|| async { self.rpc_get_keys_parallel(&prefix, at, parallel).await },
 			"Scraping keys...",
@@ -593,11 +574,14 @@ where
 						},
 						Err(e) => {
 							debug!(target: LOG_TARGET, "Value worker {worker_index}: failed: {e:?}");
+							// A provider that lacks the block is dropped instead of recreated.
+							let remove_client = is_unknown_block_error(&e);
 							let new_batch_size = (batch_size / 2).max(10);
 							ProcessResult::Retry {
 								work: (start_index, batch, new_batch_size),
 								sleep_duration: Duration::from_secs(15),
-								recreate_client: true,
+								recreate_client: !remove_client,
+								remove_client,
 							}
 						},
 					}
@@ -649,7 +633,7 @@ where
 		prefixed_top_key: &StorageKey,
 		child_keys: Vec<StorageKey>,
 		at: B::Hash,
-	) -> Result<Vec<KeyValue>> {
+	) -> Result<Vec<KeyValue>, String> {
 		let payloads: Vec<_> = child_keys
 			.iter()
 			.map(|key| {
@@ -666,9 +650,7 @@ where
 
 		let bar = ProgressBar::new(payloads.len() as u64);
 		let storage_data =
-			Self::get_storage_data_dynamic_batch_size(client, 0, &payloads, &bar, 1000)
-				.await
-				.map_err(|_| "rpc child_get_storage failed")?;
+			Self::get_storage_data_dynamic_batch_size(client, 0, &payloads, &bar, 1000).await?;
 
 		// Filter out None values
 		Ok(child_keys
@@ -689,7 +671,7 @@ where
 		client: &Client,
 		prefixed_top_key: &StorageKey,
 		at: B::Hash,
-	) -> Result<(ChildInfo, Vec<KeyValue>)> {
+	) -> Result<(ChildInfo, Vec<KeyValue>), String> {
 		let top_key = PrefixedStorageKey::new(prefixed_top_key.0.clone());
 		let page_size = 1000u32;
 
@@ -721,11 +703,11 @@ where
 				Ok(Ok(p)) => p,
 				Ok(Err(e)) => {
 					debug!(target: LOG_TARGET, "Child trie RPC error: {e:?}");
-					return Err("rpc child_get_keys failed");
+					return Err(format!("rpc child_get_keys failed: {e:?}"));
 				},
 				Err(()) => {
 					debug!(target: LOG_TARGET, "Child trie RPC timeout");
-					return Err("rpc child_get_keys timeout");
+					return Err("rpc child_get_keys timeout".to_string());
 				},
 			};
 
@@ -745,7 +727,7 @@ where
 		// Parse the child info
 		let un_prefixed = match ChildType::from_prefixed_key(&top_key) {
 			Some((ChildType::ParentKeyId, storage_key)) => storage_key,
-			None => return Err("invalid child key"),
+			None => return Err("invalid child key".to_string()),
 		};
 
 		Ok((ChildInfo::new_default(un_prefixed), child_kv))
@@ -783,7 +765,7 @@ where
 
 		let at = self.as_online().at_expected();
 		let conn_manager = self.conn_manager()?;
-		let parallel = self.parallel_requests();
+		let parallel = self.parallel_requests().await;
 
 		let results: Arc<Mutex<Vec<(ChildInfo, Vec<KeyValue>)>>> = Arc::new(Mutex::new(Vec::new()));
 		let results_for_extraction = results.clone();
@@ -816,10 +798,13 @@ where
 						},
 						Err(e) => {
 							error!(target: LOG_TARGET, "Worker {worker_index}: Failed: {e:?}");
+							// A provider that lacks the block is dropped instead of recreated.
+							let remove_client = is_unknown_block_error(&e);
 							ProcessResult::Retry {
 								work: prefixed_top_key,
 								sleep_duration: Duration::from_secs(5),
-								recreate_client: true,
+								recreate_client: !remove_client,
+								remove_client,
 							}
 						},
 					}
@@ -929,11 +914,6 @@ where
 			self.as_online_mut().at = Some(at);
 		}
 
-		// Drop any provider that does not have the target block. A lagging provider would otherwise
-		// return `UnknownBlock` for every request, dropping keys or causing endless retries.
-		let at = self.as_online().at_expected();
-		self.retain_providers_with_block(at).await?;
-
 		// Then, a few transformation that we want to perform in the online config:
 		let online_config = self.as_online_mut();
 		online_config.pallets.iter().for_each(|p| {
@@ -969,7 +949,8 @@ where
 		let conn_manager = self.conn_manager()?;
 		let at = self.as_online().at_expected();
 
-		for i in 0..conn_manager.num_clients() {
+		let num_clients = conn_manager.num_clients().await;
+		for i in 0..num_clients {
 			let client = conn_manager.get(i).await;
 			let result = with_timeout(
 				ChainApi::<(), _, B::Header, ()>::header(client.ws_client.as_ref(), Some(at)),
@@ -1013,31 +994,31 @@ where
 		let header = self.load_header().await?;
 		let (raw_storage, computed_root) = pending_ext.into_raw_snapshot();
 
-		// Verify the downloaded state against the header's state root.
-		let version_matches_chain =
-			self.overwrite_state_version.map_or(true, |v| v == state_version);
-		if self.is_complete_scrape() && version_matches_chain {
+		// Verify the downloaded state against the header's state root. Only a complete scrape can
+		// reproduce it, so partial scrapes are exempt. An overwritten state version is *not*
+		// exempt: a mismatch then means the overwrite is wrong, which callers opt out of via
+		// `disable_root_check`.
+		if self.as_online().disable_root_check {
+			warn!(
+				target: LOG_TARGET,
+				"⚠️ skipping storage root verification (disable_root_check is set)",
+			);
+		} else if self.is_complete_scrape() {
 			let expected_root = *header.state_root();
 			if computed_root != expected_root {
 				error!(
 					target: LOG_TARGET,
 					"❌ storage root mismatch: computed {computed_root:?}, expected {expected_root:?} \
-					(from header). The downloaded state is incomplete or corrupted.",
+					(from header). The downloaded state is incomplete or corrupted. If you are \
+					overwriting the state version, set `disable_root_check` to bypass this check.",
 				);
 				return Err("storage root mismatch: downloaded state is incomplete or corrupted");
 			}
 			info!(target: LOG_TARGET, "✅ storage root verified against header: {computed_root:?}");
-		} else if !self.is_complete_scrape() {
-			debug!(
-				target: LOG_TARGET,
-				"skipping storage root verification for partial scrape (no full-state prefix)",
-			);
 		} else {
 			debug!(
 				target: LOG_TARGET,
-				"skipping storage root verification: state version overwritten to {:?} \
-				(chain uses {state_version:?})",
-				self.overwrite_state_version,
+				"skipping storage root verification for partial scrape (no full-state prefix)",
 			);
 		}
 
@@ -1646,9 +1627,9 @@ mod remote_tests {
 	async fn asset_hub_polkadot_storage_root_matches() {
 		init_logger();
 
-		// Asset Hub carries the largest state of the system parachains (accounts, assets, NFTs and
-		// their child tries), so a full scrape here is the strongest end-to-end check that the
-		// downloaded state is complete and matches the on-chain storage root.
+		// Asset Hub carries the largest system-parachain state (incl. child tries), so a full
+		// scrape is the strongest end-to-end check that the download matches the on-chain storage
+		// root.
 		let endpoints = vec![
 			"wss://asset-hub-polkadot-rpc.dwellir.com",
 			"wss://sys.ibp.network/asset-hub-polkadot",
@@ -1658,9 +1639,7 @@ mod remote_tests {
 
 		info!(target: LOG_TARGET, "Connecting to Asset Hub Polkadot using {} RPC providers", endpoints.len());
 
-		// `build()` performs the storage-root verification internally for a complete scrape, so a
-		// successful build already proves the downloaded state matches the header. We additionally
-		// assert it explicitly below.
+		// `build()` already verifies the storage root for a complete scrape; we re-assert below.
 		let mut ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
 				transport_uris: endpoints.into_iter().map(|e| e.to_owned()).collect(),
@@ -1671,17 +1650,14 @@ mod remote_tests {
 			.await
 			.expect("Failed to build remote externalities");
 
-		// Get the computed storage root from our downloaded state.
 		let backend = ext.as_backend();
 		let computed_root = *backend.root();
-		// Get the expected storage root from the block header.
 		let expected_root = ext.header.state_root;
 
 		info!(target: LOG_TARGET, "Computed storage root: {:?}", computed_root);
 		info!(target: LOG_TARGET, "Expected storage root (from header): {:?}", expected_root);
 
-		// The storage roots must match exactly - this proves we downloaded all keys (including
-		// every child trie) correctly.
+		// Exact match proves every key (including all child tries) was downloaded.
 		assert_eq!(
 			computed_root, expected_root,
 			"Storage root mismatch! Computed: {:?}, Expected: {:?}. \

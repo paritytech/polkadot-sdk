@@ -41,6 +41,9 @@ pub(crate) enum ProcessResult<W> {
 		sleep_duration: Duration,
 		/// Whether to recreate the client connection.
 		recreate_client: bool,
+		/// Whether to drop this client from the pool (e.g. it lacks the target block). Takes
+		/// precedence over `recreate_client`.
+		remove_client: bool,
 	},
 }
 
@@ -127,12 +130,19 @@ pub(crate) async fn run_workers<W, F, Fut>(
 							work_queue.lock().unwrap().extend(new_work);
 						}
 					},
-					ProcessResult::Retry { work, sleep_duration, recreate_client } => {
+					ProcessResult::Retry {
+						work,
+						sleep_duration,
+						recreate_client,
+						remove_client,
+					} => {
 						work_queue.lock().unwrap().push_back(work);
 
 						sleep(sleep_duration).await;
 
-						if recreate_client {
+						if remove_client {
+							conn_manager.remove_client(&client).await;
+						} else if recreate_client {
 							conn_manager.recreate_client(worker_index, client).await;
 						}
 					},
