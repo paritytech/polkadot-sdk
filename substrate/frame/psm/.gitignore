@@ -1,0 +1,5 @@
+corpus/
+coverage/
+crash-*
+*.log
+replay.rs
