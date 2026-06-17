@@ -4,7 +4,7 @@
 title: 'binary-merkle-tree: preallocate proof vector to avoid reallocations'
 
 doc:
-  - audience: Node Devs
+  - audience: Node Dev
     description: |
       `ProofCollection` now preallocates the proof `Vec` to `ceil(log2(number_of_leaves))`,
       the most nodes a single-leaf proof can hold, so `merkle_proof` and `merkle_proof_raw`
