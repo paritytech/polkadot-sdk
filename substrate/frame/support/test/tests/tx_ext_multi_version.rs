@@ -151,8 +151,6 @@ mod runtime {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	type AccountId = AccountId;
 	type Lookup = sp_runtime::traits::IdentityLookup<AccountId>;
 	type BaseCallFilter = frame_support::traits::Everything;

@@ -115,8 +115,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	type AccountData = pallet_balances::AccountData<u64>;
 	type Block = Block;
 }

@@ -29,7 +29,6 @@ use frame::{
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type ExtensionsWeightInfo = ();
 	type BaseCallFilter = InsideBoth<Everything, SafeMode>;
 	type BlockWeights = ();
 	type BlockLength = ();

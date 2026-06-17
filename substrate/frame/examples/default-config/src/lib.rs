@@ -156,8 +156,6 @@ pub mod tests {
 	impl frame_system::Config for Runtime {
 		// these items are defined by frame-system as `no_default`, so we must specify them here.
 		type Block = Block;
-		type SystemWeightInfo = ();
-		type ExtensionsWeightInfo = ();
 
 		// all of this is coming from `frame_system::config_preludes::TestDefaultConfig`.
 
@@ -172,6 +170,7 @@ pub mod tests {
 		// type AccountData = ();
 		// type OnNewAccount = ();
 		// type OnKilledAccount = ();
+		// type SystemWeightInfo = ();
 		// type SS58Prefix = ();
 		// type Version = ();
 		// type BlockWeights = ();

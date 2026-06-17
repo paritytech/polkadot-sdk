@@ -57,8 +57,6 @@ ord_parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	type AccountId = u128;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;

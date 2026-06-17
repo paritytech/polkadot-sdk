@@ -92,8 +92,6 @@ frame_support::construct_runtime!(
 use frame_support::derive_impl;
 #[frame_support::derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	type Block = Block;
 	type AccountId = AccountId;
 }

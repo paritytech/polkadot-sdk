@@ -33,8 +33,6 @@ use RuntimeParametersRenamed::*;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	type Block = frame_system::mocking::MockBlock<Runtime>;
 	type AccountData = pallet_balances::AccountData<<Self as pallet_balances::Config>::Balance>;
 }

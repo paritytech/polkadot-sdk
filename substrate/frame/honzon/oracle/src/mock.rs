@@ -31,8 +31,6 @@ type Value = u32;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;

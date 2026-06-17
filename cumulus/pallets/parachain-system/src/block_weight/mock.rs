@@ -213,8 +213,6 @@ pub mod test_pallet {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 #[docify::export(pre_inherents_setup)]
 impl frame_system::Config for Runtime {
-	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	// Setup the block weight.
 	type BlockWeights = max_block_weight_setup::RuntimeBlockWeights;
 	// Set the `PreInherents` hook.
@@ -281,8 +279,6 @@ pub mod only_operational_runtime {
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for RuntimeOnlyOperational {
-		type SystemWeightInfo = ();
-		type ExtensionsWeightInfo = ();
 		type BlockWeights = super::max_block_weight_setup::RuntimeBlockWeights;
 		type PreInherents =
 			DynamicMaxBlockWeightHooks<Self, ConstU32<{ super::TARGET_BLOCK_RATE }>>;

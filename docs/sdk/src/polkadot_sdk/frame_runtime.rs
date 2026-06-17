@@ -161,8 +161,6 @@ pub mod runtime {
 	// These `impl` blocks specify the parameters of each pallet's `trait Config`.
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
-		type SystemWeightInfo = ();
-		type ExtensionsWeightInfo = ();
 		type Block = MockBlock<Self>;
 	}
 

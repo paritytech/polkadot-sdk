@@ -1,12 +1,12 @@
 error[E0080]: evaluation panicked: The maximum encoded size of the error type in the `Pallet` pallet exceeds `MAX_MODULE_ERROR_ENCODED_SIZE`
-   --> tests/construct_runtime_ui/pallet_error_too_large.rs:116:1
+   --> tests/construct_runtime_ui/pallet_error_too_large.rs:115:1
     |
-116 | / construct_runtime! {
-117 | |     pub struct Runtime
-118 | |     {
-119 | |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
+115 | / construct_runtime! {
+116 | |     pub struct Runtime
+117 | |     {
+118 | |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
 ...   |
-122 | | }
+121 | | }
     | |_^ evaluation of `_` failed here
     |
     = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)

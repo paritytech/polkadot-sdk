@@ -58,8 +58,6 @@ impl pallet_migrations::Config for Runtime {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	type Block = Block;
 	type MultiBlockMigrator = Migrator;
 }

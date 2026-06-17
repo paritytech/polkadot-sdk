@@ -31,7 +31,6 @@ pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, Runti
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type ExtensionsWeightInfo = ();
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();

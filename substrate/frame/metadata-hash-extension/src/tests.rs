@@ -45,8 +45,6 @@ frame_support::construct_runtime! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	type Block = Block;
 }
 
@@ -163,8 +161,6 @@ mod docs {
 	// Put here to not have it in the docs as well.
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for add_metadata_hash_extension::Runtime {
-		type SystemWeightInfo = ();
-		type ExtensionsWeightInfo = ();
 		type Block = Block;
 		type RuntimeEvent = add_metadata_hash_extension::RuntimeEvent;
 		type RuntimeOrigin = add_metadata_hash_extension::RuntimeOrigin;

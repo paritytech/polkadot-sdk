@@ -41,8 +41,6 @@ construct_runtime!(
 
 #[derive_impl(TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	type Block = Block;
 }
 

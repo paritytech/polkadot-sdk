@@ -789,14 +789,40 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 	// ensure this is a impl statement
 	let item_impl = syn::parse_macro_input!(tokens as ItemImpl);
 
-	// internally wrap macro_magic's `#[export_tokens]` macro
+	// Local copy with `#[pallet::no_default]` markers removed so it compiles as a normal impl. The
+	// markers are only read by `derive_impl` from the exported tokens to skip those items.
+	let mut local_impl = item_impl.clone();
+	for item in &mut local_impl.items {
+		let attrs = match item {
+			syn::ImplItem::Const(item) => &mut item.attrs,
+			syn::ImplItem::Fn(item) => &mut item.attrs,
+			syn::ImplItem::Type(item) => &mut item.attrs,
+			syn::ImplItem::Macro(item) => &mut item.attrs,
+			_ => continue,
+		};
+		attrs.retain(|attr| {
+			let segments = &attr.path().segments;
+			!(segments.len() == 2 &&
+				segments[0].ident == "pallet" &&
+				segments[1].ident == "no_default")
+		});
+	}
+
+	// Export the original impl (markers preserved, for `derive_impl`) but don't let `export_tokens`
+	// emit it (`emit = false`); emit the marker-free `local_impl` ourselves instead.
 	match macro_magic::mm_core::export_tokens_internal(
 		attrs,
 		item_impl.to_token_stream(),
-		true,
+		false,
 		false,
 	) {
-		Ok(tokens) => tokens.into(),
+		Ok(export) => quote! {
+			#export
+
+			#[allow(unused)]
+			#local_impl
+		}
+		.into(),
 		Err(err) => err.to_compile_error().into(),
 	}
 }

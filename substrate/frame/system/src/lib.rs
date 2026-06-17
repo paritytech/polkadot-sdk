@@ -339,6 +339,8 @@ pub mod pallet {
 			type AccountData = ();
 			type OnNewAccount = ();
 			type OnKilledAccount = ();
+			type SystemWeightInfo = ();
+			type ExtensionsWeightInfo = ();
 			type SS58Prefix = ();
 			type Version = ();
 			type BlockWeights = ();
@@ -408,6 +410,19 @@ pub mod pallet {
 			/// What to do if an account is fully reaped from the system.
 			type OnKilledAccount = ();
 
+			/// Weight information for the extrinsics of this pallet.
+			///
+			/// `#[pallet::no_default]`: not copied into deriving runtimes, so production runtimes
+			/// must set their own weights instead of inheriting the Substrate reference weights.
+			#[pallet::no_default]
+			type SystemWeightInfo = ();
+
+			/// Weight information for the transaction extensions of this pallet.
+			///
+			/// Not copied into deriving runtimes, like [`Self::SystemWeightInfo`].
+			#[pallet::no_default]
+			type ExtensionsWeightInfo = ();
+
 			/// This is used as an identifier of the chain.
 			type SS58Prefix = ();
 
@@ -466,7 +481,13 @@ pub mod pallet {
 		/// It currently uses the same configuration as `SolochainDefaultConfig`.
 		#[derive_impl(SolochainDefaultConfig as DefaultConfig, no_aggregated_types)]
 		#[frame_support::register_default_impl(RelayChainDefaultConfig)]
-		impl DefaultConfig for RelayChainDefaultConfig {}
+		impl DefaultConfig for RelayChainDefaultConfig {
+			// No weight defaults for production, like `SolochainDefaultConfig`.
+			#[pallet::no_default]
+			type SystemWeightInfo = ();
+			#[pallet::no_default]
+			type ExtensionsWeightInfo = ();
+		}
 
 		/// Default configurations of this pallet in a parachain environment.
 		pub struct ParaChainDefaultConfig;
@@ -474,7 +495,13 @@ pub mod pallet {
 		/// It currently uses the same configuration as `SolochainDefaultConfig`.
 		#[derive_impl(SolochainDefaultConfig as DefaultConfig, no_aggregated_types)]
 		#[frame_support::register_default_impl(ParaChainDefaultConfig)]
-		impl DefaultConfig for ParaChainDefaultConfig {}
+		impl DefaultConfig for ParaChainDefaultConfig {
+			// No weight defaults for production, like `SolochainDefaultConfig`.
+			#[pallet::no_default]
+			type SystemWeightInfo = ();
+			#[pallet::no_default]
+			type ExtensionsWeightInfo = ();
+		}
 	}
 
 	/// System configuration trait. Implemented by runtime.
@@ -621,17 +648,15 @@ pub mod pallet {
 
 		/// Weight information for the extrinsics of this pallet.
 		///
-		/// This has no default on purpose: defaulting it to `()` (the Substrate reference weights)
-		/// silently applies weights benchmarked for a different runtime, which is almost never
-		/// correct. Runtime developers must therefore set it explicitly.
-		#[pallet::no_default]
+		/// The `()` default resolves to the Substrate reference weights, which are benchmarked for
+		/// a different runtime and almost never correct in production. The production presets
+		/// (`Solochain`/`ParaChain`/`RelayChain`DefaultConfig) therefore do *not* default it, while
+		/// `TestDefaultConfig` keeps the `()` default for tests. See issue #10758.
 		type SystemWeightInfo: WeightInfo;
 
 		/// Weight information for the transaction extensions of this pallet.
 		///
-		/// This has no default on purpose, for the same reason as
-		/// [`Config::SystemWeightInfo`]. Runtime developers must set it explicitly.
-		#[pallet::no_default]
+		/// Same default policy as [`Config::SystemWeightInfo`].
 		type ExtensionsWeightInfo: extensions::WeightInfo;
 
 		/// The designated SS58 prefix of this chain.

@@ -95,8 +95,6 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	type Block = Block;
 	type Version = Version;
 	type OnSetCode = ParachainSetCode<Test>;
@@ -558,8 +556,6 @@ mod scheduling_verifier_tests {
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Ed25519Test {
-		type SystemWeightInfo = ();
-		type ExtensionsWeightInfo = ();
 		type Block = Ed25519Block;
 		type RuntimeEvent = ();
 	}

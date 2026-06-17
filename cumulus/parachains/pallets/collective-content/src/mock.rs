@@ -55,7 +55,6 @@ impl pallet_collective_content::Config for Test {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type ExtensionsWeightInfo = ();
 	type BaseCallFilter = ();
 	type BlockWeights = ();
 	type BlockLength = ();

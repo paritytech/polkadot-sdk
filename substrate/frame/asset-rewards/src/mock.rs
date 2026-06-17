@@ -51,8 +51,6 @@ construct_runtime!(
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for MockRuntime {
-	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	type AccountId = u128;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;

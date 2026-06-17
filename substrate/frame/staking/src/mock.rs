@@ -122,8 +122,6 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	type DbWeight = RocksDbWeight;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;

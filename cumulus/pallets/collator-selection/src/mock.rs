@@ -46,8 +46,6 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
-	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
 	type SS58Prefix = SS58Prefix;

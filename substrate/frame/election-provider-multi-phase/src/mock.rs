@@ -210,7 +210,6 @@ pub fn witness() -> SolutionOrSnapshotSize {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type ExtensionsWeightInfo = ();
 	type SS58Prefix = ();
 	type BaseCallFilter = frame_support::traits::Everything;
 	type RuntimeOrigin = RuntimeOrigin;

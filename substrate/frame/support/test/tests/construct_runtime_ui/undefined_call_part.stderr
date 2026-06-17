@@ -4,12 +4,12 @@ error: `Pallet` does not have #[pallet::call] defined, perhaps you should remove
 22 |   #[frame_support::pallet]
    |   ^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-67 | / construct_runtime! {
-68 | |     pub struct Runtime
-69 | |     {
-70 | |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
+66 | / construct_runtime! {
+67 | |     pub struct Runtime
+68 | |     {
+69 | |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
 ...  |
-73 | | }
+72 | | }
    | |_- in this macro invocation
    |
    = note: this error originates in the macro `pallet::__substrate_call_check::is_call_part_defined` which comes from the expansion of the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
