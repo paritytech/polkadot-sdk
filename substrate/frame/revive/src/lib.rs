@@ -2111,8 +2111,7 @@ impl<T: Config> Pallet<T> {
 			.into_call::<T>(CreateCallMode::ExtrinsicExecution(encoded_len, transaction_encoded))
 			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
 		let mut info = T::FeeInfo::dispatch_info(&call_info.call);
-		// Account for the encoded extrinsic length in the `proof_size` weight dimension, mirroring
-		// what the FRAME executive does before the extension pipeline runs.
+		// Record the extrinsic length as `proof_size` weight, mirroring the FRAME executive.
 		info.length_weight = Weight::from_parts(0, call_info.encoded_len as u64);
 
 		Ok(frame_system::calculate_consumed_extrinsic_weight::<CallOf<T>>(

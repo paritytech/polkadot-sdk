@@ -256,12 +256,10 @@ pub struct DispatchInfo {
 	pub call_weight: Weight,
 	/// Weight of this transaction's extension.
 	pub extension_weight: Weight,
-	/// Weight accounting for the encoded length of this transaction.
+	/// Weight of this transaction's encoded length (its `proof_size` contribution).
 	///
-	/// The encoded extrinsic bytes are part of the storage proof and therefore contribute to the
-	/// `proof_size` dimension. This is filled in by the outer block-execution machinery (the FRAME
-	/// executive) once the extrinsic length is known; the static `#[pallet::weight]` information
-	/// leaves it at its default (zero) value.
+	/// Filled in by the FRAME executive before the extension pipeline; the static
+	/// `#[pallet::weight]` info leaves it at zero.
 	pub length_weight: Weight,
 	/// Class of this transaction.
 	pub class: DispatchClass,
@@ -270,8 +268,7 @@ pub struct DispatchInfo {
 }
 
 impl DispatchInfo {
-	/// Returns the total weight of this extrinsic: the sum of its call, extension and length
-	/// weights.
+	/// Returns the total weight: call + extension + length weight.
 	pub fn total_weight(&self) -> Weight {
 		self.call_weight
 			.saturating_add(self.extension_weight)
@@ -633,12 +630,9 @@ impl RefundWeight for PostDispatchInfo {
 
 impl ExtensionPostDispatchWeightHandler<DispatchInfo> for PostDispatchInfo {
 	fn set_extension_weight(&mut self, info: &DispatchInfo) {
-		// The post-dispatch `actual_weight` returned by a call only reflects the call itself. Here
-		// we re-add the parts of the weight that the call cannot know about and that are never
-		// reclaimable: the extension weight and the length weight (the `proof_size` contribution of
-		// the encoded extrinsic). Doing so keeps `actual_weight` comparable to
-		// `info.total_weight()` so that unspent-weight reclaim only ever reclaims unused call
-		// weight.
+		// Re-add the parts the call can't know about and that are never reclaimable: the extension
+		// and length weight. Keeps `actual_weight` comparable to `total_weight()` so reclaim only
+		// returns unused call weight.
 		let actual_weight = self
 			.actual_weight
 			.unwrap_or(info.call_weight)

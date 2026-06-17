@@ -230,12 +230,9 @@ where
 			);
 		}
 
-		// The host-measured `measured_proof_size` only covers the storage proof accessed during
-		// dispatch; it does not include the encoded extrinsic bytes. Those bytes are part of the
-		// PoV too and are accounted for in `info.total_weight()` via `DispatchInfo::length_weight`.
-		// Since the extrinsic length weight is never reclaimable, we add it back to the measured
-		// proof size here so that the block weight bookkeeping stays balanced when we
-		// `reduce(info.total_weight())` and `accrue(accurate_weight)` below.
+		// `measured_proof_size` excludes the encoded extrinsic bytes, but those are part of the PoV
+		// and of `info.total_weight()` (via `length_weight`) and are never reclaimable. Add the
+		// length back so the `reduce(total_weight)`/`accrue(accurate_weight)` below stays balanced.
 		let accurate_weight = benchmarked_actual_weight
 			.set_proof_size(measured_proof_size.saturating_add(info.length_weight.proof_size()));
 
@@ -245,12 +242,9 @@ where
 			current_weight.reduce(info.total_weight(), info.class);
 			current_weight.accrue(accurate_weight, info.class);
 
-			// If we encounter a situation where the node-side proof size is already higher than
-			// what we have in the runtime bookkeeping, we add the difference to the `BlockWeight`.
-			// This prevents that the proof size grows faster than the runtime proof size.
-			// `block_size` (the total encoded length of the block's extrinsics) is comparable to
-			// the runtime `BlockWeight` proof size since the latter now includes the extrinsic
-			// length weight of every extrinsic.
+			// If the node-side proof size exceeds the runtime bookkeeping, add the difference to
+			// `BlockWeight` so it does not grow faster than the runtime proof size. `block_size` is
+			// comparable since `BlockWeight` now includes every extrinsic's length weight.
 			let block_size = frame_system::BlockSize::<T>::get().unwrap_or(0);
 			let node_side_pov_size = proof_size_after_dispatch.saturating_add(block_size.into());
 			let block_weight_proof_size = current_weight.total().proof_size();

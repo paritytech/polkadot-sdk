@@ -118,8 +118,7 @@ where
 		// during validation we skip block limit check. Since the `validate_transaction`
 		// call runs on an empty block anyway, by this we prevent `on_initialize` weight
 		// consumption from causing false negatives.
-		// Note: the extrinsic length weight is already part of `info.total_weight()` (see
-		// `DispatchInfo::length_weight`).
+		// Note: the extrinsic length weight is already part of `info.total_weight()`.
 		Self::check_extrinsic_weight(info)?;
 
 		Ok((Default::default(), next_len))
@@ -154,9 +153,7 @@ where
 
 /// Returns the weight that `CheckWeight` books for an extrinsic before dispatch.
 ///
-/// The extrinsic length weight (the `proof_size` contribution of the encoded extrinsic) is expected
-/// to already be part of `info` via [`DispatchInfo::length_weight`], so it is reflected in
-/// [`DispatchInfo::total_weight`].
+/// The extrinsic length must already be part of `info` via [`DispatchInfo::length_weight`].
 pub fn calculate_consumed_extrinsic_weight<Call>(
 	maximum_weight: &BlockWeights,
 	info: &DispatchInfoOf<Call>,
@@ -179,8 +176,7 @@ pub fn calculate_consumed_weight<Call>(
 where
 	Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	// The extrinsic length weight is already reflected in `info.total_weight()` (via
-	// `DispatchInfo::length_weight`).
+	// Extrinsic length is already in `info.total_weight()` via `DispatchInfo::length_weight`.
 	let extrinsic_weight = calculate_consumed_extrinsic_weight::<Call>(maximum_weight, info);
 	let limit_per_class = maximum_weight.get(info.class);
 
