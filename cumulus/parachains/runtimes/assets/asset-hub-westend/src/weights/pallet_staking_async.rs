@@ -50,6 +50,9 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_staking_async`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T> {
+	fn chill_inactive(_v: u32, ) -> Weight {
+		Weight::zero()
+	}
 	/// Storage: `Staking::Bonded` (r:1 w:1)
 	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::Ledger` (r:1 w:1)
