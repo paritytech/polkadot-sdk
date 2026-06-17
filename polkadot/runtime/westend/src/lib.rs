@@ -1630,7 +1630,6 @@ impl pallet_nomination_pools::Config for Runtime {
 	type U256ToBalance = U256ToBalance;
 	type StakeAdapter =
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
-
 	// Buffer (30) + bonding duration (2).
 	type MaxUnbondingPools = ConstU32<32>;
 	type MaxMetadataLen = ConstU32<256>;
