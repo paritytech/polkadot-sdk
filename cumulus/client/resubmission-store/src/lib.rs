@@ -20,7 +20,7 @@
 //! Persists a [`StoredEntry`] per imported parablock, keyed by parablock hash, holding everything
 //! needed to reconstruct and resubmit the collation for an unincluded block without assuming the
 //! relay parent is still available: the storage proof, the relay parent header, the relay-parent
-//! session, the persisted validation data and the core index/selector. Data is pruned on
+//! session, the persisted validation data and the core selector. Data is pruned on
 //! parachain finality (via [`register_resubmission_cleanup`]).
 
 use codec::{Decode, Encode};
@@ -58,7 +58,7 @@ pub fn now_unix_ms() -> u64 {
 /// Entry stored in aux storage for each unincluded parablock.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct StoredEntry {
-	/// Unix millis captured when this entry was recorded during block import/build.
+	/// Unix millis captured when this entry is recorded, on both the build and import paths.
 	pub time_ms: u64,
 	/// The storage proof captured at block import/build.
 	pub proof: Arc<StorageProof>,
@@ -66,8 +66,7 @@ pub struct StoredEntry {
 	pub relay_parent_header: RelayHeader,
 	/// Relay parent's `session_index_for_child`.
 	pub relay_parent_session: SessionIndex,
-	/// The persisted validation data at the relay parent (resolved with
-	/// `OccupiedCoreAssumption::TimedOut`), providing the `max_pov_size` and the included head.
+	/// Persisted validation data at the relay parent, resolved with the `TimedOut` assumption.
 	pub persisted_validation_data: PersistedValidationData,
 	/// The core selector used to pick the core on the relay chain.
 	pub core_selector: CoreSelector,
@@ -188,7 +187,7 @@ where
 /// unincluded segment, so its proof entry is dead weight.
 fn finality_cleanup_ops<Block: BlockT>(
 	just_finalized_hash: Block::Hash,
-	old_finalized_hash: Block::Hash,
+	old_finalized: Block::Hash,
 	tree_route: &[Block::Hash],
 	stale_block_hashes: impl IntoIterator<Item = Block::Hash>,
 ) -> AuxDataOperations {
@@ -197,7 +196,7 @@ fn finality_cleanup_ops<Block: BlockT>(
 	let mut ops = Vec::with_capacity(stale_iter.size_hint().0 + tree_route.len() + 2);
 	ops.extend(stale_iter.map(|hash| (entry_key(hash), None)));
 	ops.extend(tree_route.iter().map(|hash| (entry_key(hash), None)));
-	ops.push((entry_key(old_finalized_hash), None));
+	ops.push((entry_key(old_finalized), None));
 	ops.push((entry_key(just_finalized_hash), None));
 
 	ops
@@ -206,6 +205,7 @@ fn finality_cleanup_ops<Block: BlockT>(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use cumulus_primitives_core::relay_chain::CoreSelector;
 	use sc_client_api::backend::AuxStore;
 
 	type Block = substrate_test_runtime::Block;
@@ -519,5 +519,26 @@ mod tests {
 		});
 
 		// `tmp` drops here, recursively removing the parity-db directory.
+	}
+
+	#[test]
+	fn load_returns_error_on_unsupported_version() {
+		let (backend, store) = new_store();
+		let hash = Hash::repeat_byte(0xAB);
+
+		// Write an unsupported version number to the version key.
+		let unsupported_version = 99u32;
+		let encoded_version = unsupported_version.encode();
+		AuxStore::insert_aux(&*backend, &[(STORE_VERSION_KEY, encoded_version.as_slice())], &[])
+			.expect("aux insert should succeed");
+
+		let result = store.load(hash);
+		assert!(result.is_err());
+		let err_msg = result.unwrap_err().to_string();
+		assert!(
+			err_msg.contains("Unsupported") && err_msg.contains("version"),
+			"unexpected error: {}",
+			err_msg
+		);
 	}
 }

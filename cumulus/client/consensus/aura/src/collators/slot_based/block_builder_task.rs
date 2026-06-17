@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use super::CollatorMessage;
+use super::{resubmission::resolve_session_and_pvd, CollatorMessage};
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
 	collators::{
@@ -719,20 +719,7 @@ where
 	check_validation_code_or_log(&validation_code_hash, para_id, relay_client, relay_parent_hash)
 		.await;
 
-	// TODO(#12057): route this through `RelayChainDataCache`
-	let relay_parent_session = match relay_client.session_index_for_child(relay_parent_hash).await {
-		Ok(session) => Some(session),
-		Err(err) => {
-			tracing::warn!(
-				target: LOG_TARGET,
-				?relay_parent_hash,
-				?err,
-				"Failed to fetch relay-parent session; resubmission entries for this relay parent \
-				 won't be session-pruned",
-			);
-			None
-		},
-	};
+	let session_and_pvd = resolve_session_and_pvd(relay_client, relay_parent_hash, para_id).await;
 
 	let mut blocks = Vec::new();
 	let mut proofs = Vec::new();
@@ -880,14 +867,14 @@ where
 
 		let time_ms = now_unix_ms();
 		let proof = Arc::new(built_block.proof);
-		if let Some(relay_parent_session) = relay_parent_session {
+		if let Some((relay_parent_session, pvd)) = session_and_pvd.clone() {
 			prepare_resubmission_aux_data::<Block>(
 				parent_hash,
 				time_ms,
 				proof.clone(),
 				relay_parent_header.clone(),
 				relay_parent_session,
-				validation_data.clone(),
+				pvd,
 				core_info.selector,
 			)
 			.for_each(|(k, v)| {

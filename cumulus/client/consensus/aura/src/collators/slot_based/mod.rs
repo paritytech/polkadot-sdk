@@ -108,6 +108,7 @@ mod block_builder_task;
 mod block_import;
 mod collation_task;
 mod relay_chain_data_cache;
+mod resubmission;
 mod scheduling;
 mod slot_timer;
 
