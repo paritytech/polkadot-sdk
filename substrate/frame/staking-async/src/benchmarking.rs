@@ -1538,7 +1538,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
 	#[benchmark(pov_mode = Measured)]
 	fn chill_inactive(
 		l: Linear<2, { ChillInactiveThreshold::<T>::get() }>,
