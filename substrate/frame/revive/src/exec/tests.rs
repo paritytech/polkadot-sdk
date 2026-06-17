@@ -1589,7 +1589,14 @@ fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
 	// Self-reentry, then a removal-bearing `charge_storage` (which does not reload the
 	// cache), then self-reentry again: the second bank fires on a still-invalidated frame.
 	// Without the `load()` before bank, `update_contract(None)` drops the refund pro-rata
-	// and trips the `debug_assert!` in `bank_pending_changes`.
+	// and trips the `debug_assert!` in `bank_pending_changes`. But `debug_assert!` is a
+	// no-op in the release/production profiles, so this test also asserts the resulting
+	// deposit charged to the origin: dropping the refund silently over-charges, which the
+	// balance assertion below catches in every build profile.
+	//
+	// The removal is 30 bytes (not 1): the refund is pro-rated as
+	// `floor(bytes_removed / storage_bytes * storage_byte_deposit)`, so a 1-byte removal
+	// against 35 stored bytes rounds to a 0-unit refund and would hide the bug.
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		if ctx.input_data[0] == 0 {
 			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false).unwrap();
@@ -1602,7 +1609,7 @@ fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
 				false,
 			));
 			ctx.ext
-				.charge_storage(&Diff { bytes_removed: 1, ..Default::default() })
+				.charge_storage(&Diff { bytes_removed: 30, ..Default::default() })
 				.unwrap();
 			assert_ok!(ctx.ext.call(
 				&Default::default(),
@@ -1623,14 +1630,29 @@ fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
 		let mut meter =
 			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
 				.unwrap();
+		let origin = Origin::from_account_id(ALICE);
+		let exec_config = ExecConfig::new_substrate_tx();
 		assert_ok!(MockStack::run_call(
-			Origin::from_account_id(ALICE),
+			origin.clone(),
 			BOB_ADDR,
 			&mut meter,
 			U256::zero(),
 			vec![0],
-			&ExecConfig::new_substrate_tx(),
+			&exec_config,
 		));
+		meter.execute_postponed_deposits(&origin, &exec_config).unwrap();
+
+		// `K1` persists 1 item / 35 bytes (32-byte key + 3-byte value) → item_deposit 2
+		// (1 * DepositPerItem) + byte_deposit 35 (35 * DepositPerByte). The 30-byte removal
+		// refunds floor(30/35 * 35) = 29 bytes' worth, leaving a net 8 charged to the origin.
+		// If the refund is dropped (no `load()` before bank → `update_contract(None)`), the
+		// origin is over-charged the full 37 instead.
+		let charged = min_balance * 1000 - get_balance(&ALICE);
+		assert_eq!(
+			charged, 8,
+			"origin over-charged: the pro-rata removal refund was dropped (banked against a \
+			 None ContractInfo). Expected net deposit 8, the buggy path charges 37",
+		);
 	});
 }
 
