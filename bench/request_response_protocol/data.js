@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781688360865,
+  "lastUpdate": 1781697863991,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -99359,6 +99359,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2712368861,
             "range": "± 20101401",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "831741222650ee43920cc3564deff0f47a524a47",
+          "message": "fatxpool: preserve order of same-priority transactions on re-orgs (#12362)\n\nThis PR improves handling the order of transactions during re-orgs.\nPreviously transactions from retracted blocks were resubmitted in\nreverse order (old best → common ancestor); now they are resubmitted in\nexecution order (common ancestor → old best), so equal-priority\ntransactions keep their original order via the pool's FIFO tie-break.\n\nThe original order is not always preserved; this is a best-effort\napproach (not a guarantee) that works well for most typical forks,\npreserving order where possible:\n\n#### Works — equal priority (e.g. same call, no tips)\n\n```\nretracted:           B1[TA0]  B2[TB0]  B3[TA1]  B4[TB1]\nresubmitted order:   B'x[TA0, TB0, TA1, TB1]\n```\n\nBoth per-account nonce order **and** the cross-account interleaving are\npreserved.\n\n#### Doesn't work — different priority (tips / different weights)\n\nPriority wins over original order. With `TA1` boosted (lower weight or\nhigher tip):\n\n```\nretracted:           B1[TA0]  B2[TB0]  B3[TA1]  B4[TB1]\nresubmitted order:   B'x[TA0, TA1, TB0, TB1]\n```\n\nPer-account nonce order is still safe (`TA1` never beats `TA0`), but the\ncross-account order follows priority, not the blocks.\n\n#### Note: Where does priority come from?\nFor a signed transaction, priority is set by `ChargeTransactionPayment`\nbased on the tip per unit of the scarcer resource (weight or length):\n```\npriority = (tip + 1) * max_tx_per_block      \n```\nFor more details refer to\n[`get_priority`](https://github.com/paritytech/polkadot-sdk/blob/968eaa447002e599ee1c9deac6d41eca230204ae/substrate/frame/transaction-payment/src/lib.rs#L871)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-17T10:38:15Z",
+          "tree_id": "d91a7d80f61b59fc5b6eeb99f2a9fffe86029ff2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/831741222650ee43920cc3564deff0f47a524a47"
+        },
+        "date": 1781697839154,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18523375,
+            "range": "± 162491",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 18912673,
+            "range": "± 108351",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20477301,
+            "range": "± 165379",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25300102,
+            "range": "± 168897",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57340330,
+            "range": "± 413821",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 340119056,
+            "range": "± 5008179",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2518387454,
+            "range": "± 31669357",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16513183,
+            "range": "± 252181",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16448836,
+            "range": "± 159795",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16947333,
+            "range": "± 192492",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21366095,
+            "range": "± 121280",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 56988164,
+            "range": "± 590800",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 337833780,
+            "range": "± 2771926",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2504574233,
+            "range": "± 20022003",
             "unit": "ns/iter"
           }
         ]
