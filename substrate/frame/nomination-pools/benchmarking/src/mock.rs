@@ -120,7 +120,7 @@ impl Convert<sp_core::U256, Balance> for U256ToBalance {
 }
 
 parameter_types! {
-	pub static PostUnbondingPoolsWindow: u32 = 10;
+	pub static MaxUnbondingPools: u32 = 13;
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
 	pub const MaxPointsToBalance: u8 = 10;
 }
@@ -135,7 +135,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type U256ToBalance = U256ToBalance;
 	type StakeAdapter =
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
-	type PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
+	type MaxUnbondingPools = MaxUnbondingPools;
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = ConstU32<8>;
 	type PalletId = PoolsPalletId;
