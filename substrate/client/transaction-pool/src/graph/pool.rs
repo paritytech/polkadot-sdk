@@ -701,7 +701,11 @@ mod tests {
 		});
 
 		// when
-		pool.validated_pool.ban(&Instant::now(), vec![pool.hash_of(&uxt)], crate::graph::rotator::BanReason::Validation);
+		pool.validated_pool.ban(
+			&Instant::now(),
+			vec![pool.hash_of(&uxt)],
+			crate::graph::rotator::BanReason::Validation,
+		);
 		let res = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.into()))
 			.map(|o| o.hash());
 		assert_eq!(pool.validated_pool().status().ready, 0);

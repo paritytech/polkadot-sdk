@@ -360,9 +360,7 @@ where
 	/// These are ready transactions that lost all referencing views. They are not dropped
 	/// from the mempool — instead a [`DroppedReason::Viewless`] event is emitted so the
 	/// `dropped_monitor_task` can mark them for unbanning.
-	fn get_pending_viewless_transaction(
-		&mut self,
-	) -> Option<DroppedTransaction<ExtrinsicHash<C>>> {
+	fn get_pending_viewless_transaction(&mut self) -> Option<DroppedTransaction<ExtrinsicHash<C>>> {
 		while let Some(tx_hash) = self.pending_viewless_transactions.pop() {
 			// Only emit Viewless if the tx is still tracked as ready and still has no views.
 			if let Some(views) = self.ready_transaction_views.get(&tx_hash) {

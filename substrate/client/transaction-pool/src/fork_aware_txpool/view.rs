@@ -681,10 +681,7 @@ where
 	}
 
 	/// Checks if the transaction with given hash is already known to the view.
-	pub(super) fn imported_status(
-		&self,
-		tx_hash: &ExtrinsicHash<ChainApi>,
-	) -> ImportedStatus {
+	pub(super) fn imported_status(&self, tx_hash: &ExtrinsicHash<ChainApi>) -> ImportedStatus {
 		const IGNORE_BANNED: bool = false;
 		match self.pool.validated_pool().check_is_known(tx_hash, IGNORE_BANNED) {
 			Ok(()) => ImportedStatus::NotImported,

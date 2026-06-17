@@ -723,7 +723,6 @@ where
 		}
 	}
 
-	///
 	/// For every transaction removed from the view_store (excluding descendants) an Invalid event
 	/// is triggered.
 	///

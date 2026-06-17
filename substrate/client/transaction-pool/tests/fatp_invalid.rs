@@ -25,13 +25,13 @@ use fatp_common::{
 	SOURCE,
 };
 use futures::{executor::block_on, FutureExt};
-use std::pin::Pin;
 use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::{
 	error::{Error as TxPoolError, IntoPoolError},
 	MaintainedTransactionPool, TransactionPool, TransactionStatus,
 };
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityError};
+use std::pin::Pin;
 use substrate_test_runtime_client::{
 	runtime::{Block, Hash},
 	Sr25519Keyring::*,
@@ -682,10 +682,10 @@ fn fatp_invalid_tx_is_removed_from_the_pool2() {
 /// 1. Create view at block 1. Submit tx — Ready.
 /// 2. Fork: create views at block 2a and 2b (from block 1). Tx is Ready in both.
 /// 3. Mark tx invalid (`add_invalid`).
-/// 4. Create block 3 (child of 2a) → view cloned from 2a, view revalidation finds tx
-///    invalid → banned in the rotator.
-/// 5. Finalize block 3 → views at 2a and 2b (number < 3) are dropped →
-///    ready_transaction_views becomes empty → Viewless event → needs_unban is set.
+/// 4. Create block 3 (child of 2a) → view cloned from 2a, view revalidation finds tx invalid →
+///    banned in the rotator.
+/// 5. Finalize block 3 → views at 2a and 2b (number < 3) are dropped → ready_transaction_views
+///    becomes empty → Viewless event → needs_unban is set.
 ///
 /// Returns (pool, api, last_finalized_hash, xt, watcher, executor) with the tx in mempool,
 /// banned, and viewless.
@@ -709,15 +709,11 @@ fn setup_viewless_banned_tx() -> (
 
 	// Fork: block 2a and 2b from block 1. Tx is Ready in both views.
 	let header02a = api.push_block_with_parent(header01.hash(), vec![], true);
-	block_on(
-		pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02a.hash())),
-	);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02a.hash())));
 	assert_pool_status!(header02a.hash(), &pool, 1, 0);
 
 	let header02b = api.push_block_with_parent(header01.hash(), vec![], true);
-	block_on(
-		pool.maintain(new_best_block_event(&pool, Some(header02a.hash()), header02b.hash())),
-	);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header02a.hash()), header02b.hash())));
 	assert_pool_status!(header02b.hash(), &pool, 1, 0);
 
 	// Mark tx invalid — view revalidation on new views will ban it.
@@ -726,9 +722,7 @@ fn setup_viewless_banned_tx() -> (
 	// Block 3: child of 2a. View cloned from 2a (tx in pool). View revalidation finds tx
 	// invalid → removed from view + banned in the rotator.
 	let header03 = api.push_block_with_parent(header02a.hash(), vec![], true);
-	block_on(
-		pool.maintain(new_best_block_event(&pool, Some(header02b.hash()), header03.hash())),
-	);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header02b.hash()), header03.hash())));
 
 	// Make tx valid again before finalization. The ban is already in the rotator from
 	// view revalidation above. We need the tx to be valid at the finalized block so
@@ -775,9 +769,7 @@ fn fatp_viewless_tx_unbanned_after_mempool_revalidation() {
 	let mut prev = last_finalized;
 	for n in 4..=14 {
 		let header = api.push_block(n, vec![], true);
-		block_on(
-			pool.maintain(new_best_block_event(&pool, Some(prev), header.hash())),
-		);
+		block_on(pool.maintain(new_best_block_event(&pool, Some(prev), header.hash())));
 		prev = header.hash();
 	}
 

@@ -103,12 +103,7 @@ impl<Hash: hash::Hash + Eq + Clone> PoolRotator<Hash> {
 	}
 
 	/// Bans given set of hashes with the specified reason.
-	pub fn ban(
-		&self,
-		now: &Instant,
-		hashes: impl IntoIterator<Item = Hash>,
-		reason: BanReason,
-	) {
+	pub fn ban(&self, now: &Instant, hashes: impl IntoIterator<Item = Hash>, reason: BanReason) {
 		let mut banned = self.banned_until.write();
 
 		for hash in hashes {
