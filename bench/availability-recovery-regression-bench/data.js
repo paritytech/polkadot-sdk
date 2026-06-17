@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781699105179,
+  "lastUpdate": 1781701370574,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0a85c328bfd04309433036a19da1b589cbb24185",
-          "message": "anvil / eth-rpc - fix subscription race (#10146)\n\nfix\nhttps://github.com/paritytech/polkadot-sdk/issues/10139#issuecomment-3456077366\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alin Dima <alin@parity.io>",
-          "timestamp": "2025-10-29T10:13:05Z",
-          "tree_id": "cf88f469cc442592dc8412d79d2ab41387f79f7f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0a85c328bfd04309433036a19da1b589cbb24185"
-        },
-        "date": 1761736702029,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.652931264833336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20509072269999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.755491423500002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fc2028840cf2a2dc2d44f41f099492797269c63d",
+          "message": "Decouple unbonding pool bound from bonding duration (#12323)\n\nThe with_era map is now bounded by the fixed MaxUnbondingPools, and the\nmerge cutoff uses an effective window of MaxUnbondingPools -\nbonding_duration. This prevents a lowered bonding duration from\nshrinking the bound and making stored state undecodable.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Ankan <ankan.anurag@gmail.com>",
+          "timestamp": "2026-06-17T10:54:30Z",
+          "tree_id": "e6f09cad55565dee7111bfcdebe0eadedf3956b1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fc2028840cf2a2dc2d44f41f099492797269c63d"
+        },
+        "date": 1781701343822,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13922492749999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.571641446400003,
             "unit": "seconds"
           }
         ]
