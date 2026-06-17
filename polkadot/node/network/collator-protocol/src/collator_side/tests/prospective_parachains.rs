@@ -223,6 +223,12 @@ pub(super) async fn update_view(
 						_,
 						RuntimeApiRequest::SessionIndexForChild(_),
 					))
+				) && !matches!(
+					&msg,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::NodeFeatures(_, _),
+					))
 				) {
 					break;
 				}
@@ -259,6 +265,12 @@ pub(super) async fn update_view(
 						RuntimeApiRequest::CandidateEvents(tx),
 					)) => {
 						tx.send(Ok(vec![])).unwrap();
+					},
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::NodeFeatures(_, tx),
+					)) => {
+						tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 					},
 					_ => {
 						unimplemented!()
@@ -721,7 +733,7 @@ fn send_parent_head_data_for_elastic_scaling() {
 				.send(RawIncomingRequest {
 					peer,
 					payload: CollationFetchingRequest {
-						relay_parent: head_b,
+						scheduling_parent: head_b,
 						para_id: test_state.para_id,
 						candidate_hash: candidate.hash(),
 					}
@@ -856,7 +868,7 @@ fn advertise_and_send_collation_by_hash() {
 					.send(RawIncomingRequest {
 						peer,
 						payload: CollationFetchingRequest {
-							relay_parent: head_b,
+							scheduling_parent: head_b,
 							para_id: test_state.para_id,
 							candidate_hash: candidate.hash(),
 						}

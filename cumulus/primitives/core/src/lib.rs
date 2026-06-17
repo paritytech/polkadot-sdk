@@ -32,6 +32,7 @@ use Debug;
 pub const REF_TIME_PER_CORE_IN_SECS: u64 = 2;
 
 pub mod parachain_block_data;
+pub mod scheduling;
 
 pub use parachain_block_data::ParachainBlockData;
 pub use polkadot_core_primitives::InboundDownwardMessage;
@@ -42,6 +43,9 @@ pub use polkadot_parachain_primitives::primitives::{
 pub use polkadot_primitives::{
 	AbridgedHostConfiguration, AbridgedHrmpChannel, ClaimQueueOffset, CoreSelector,
 	PersistedValidationData,
+};
+pub use scheduling::{
+	SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo, VerifySchedulingSignature,
 };
 pub use sp_runtime::{
 	generic::{Digest, DigestItem},
@@ -194,12 +198,20 @@ pub enum ChannelStatus {
 
 /// A means of figuring out what outbound XCMP messages should be being sent.
 pub trait XcmpMessageSource {
-	/// Take a single XCMP message from the queue for the given `dest`, if one exists.
-	fn take_outbound_messages(maximum_channels: usize) -> Vec<(ParaId, Vec<u8>)>;
+	/// Take outbound XCMP messages from the queue.
+	///
+	/// `excluded_recipients` contains para IDs that must be skipped.
+	fn take_outbound_messages(
+		maximum_channels: usize,
+		excluded_recipients: &[ParaId],
+	) -> Vec<(ParaId, Vec<u8>)>;
 }
 
 impl XcmpMessageSource for () {
-	fn take_outbound_messages(_maximum_channels: usize) -> Vec<(ParaId, Vec<u8>)> {
+	fn take_outbound_messages(
+		_maximum_channels: usize,
+		_excluded_recipients: &[ParaId],
+	) -> Vec<(ParaId, Vec<u8>)> {
 		Vec::new()
 	}
 }
@@ -228,6 +240,43 @@ pub struct CoreInfo {
 	pub claim_queue_offset: ClaimQueueOffset,
 	/// The number of cores assigned to the parachain at `claim_queue_offset`.
 	pub number_of_cores: Compact<u16>,
+}
+
+impl core::hash::Hash for CoreInfo {
+	fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+		state.write_u8(self.selector.0);
+		state.write_u8(self.claim_queue_offset.0);
+		state.write_u16(self.number_of_cores.0);
+	}
+}
+
+impl CoreInfo {
+	/// Puts this into a [`CumulusDigestItem::CoreInfo`] and then encodes it as a Substrate
+	/// [`DigestItem`].
+	pub fn to_digest_item(&self) -> DigestItem {
+		CumulusDigestItem::CoreInfo(self.clone()).to_digest_item()
+	}
+}
+
+/// Information about a block that is part of a PoV bundle.
+#[derive(Clone, Debug, Decode, Encode, PartialEq)]
+pub struct BlockBundleInfo {
+	/// The index of the block in the bundle.
+	pub index: u8,
+	/// Is this the last block in the bundle from the point of view of the node?
+	///
+	/// It is possible that the runtime outputs the
+	/// [`CumulusDigestItem::UseFullCore`] to inform the node to use an entire for one block
+	/// only.
+	pub is_last: bool,
+}
+
+impl BlockBundleInfo {
+	/// Puts this into a [`CumulusDigestItem::BlockBundleInfo`] and then encodes it as a Substrate
+	/// [`DigestItem`].
+	pub fn to_digest_item(&self) -> DigestItem {
+		CumulusDigestItem::BlockBundleInfo(self.clone()).to_digest_item()
+	}
 }
 
 /// Return value of [`CumulusDigestItem::core_info_exists_at_max_once`]
@@ -260,14 +309,30 @@ pub enum CumulusDigestItem {
 	/// block.
 	#[codec(index = 1)]
 	CoreInfo(CoreInfo),
+	/// A digest item providing information about the position of the block in the bundle.
+	#[codec(index = 2)]
+	BlockBundleInfo(BlockBundleInfo),
+	/// A digest item informing the node that this block should be put alone onto a core.
+	///
+	/// In other words, the core should not be shared with other blocks.
+	///
+	/// Under certain conditions (mainly runtime misconfigurations) the digest is still set when
+	/// there are muliple blocks per core. This is done to communicate to the collator that block
+	/// production for this core should be stopped.
+	#[codec(index = 3)]
+	UseFullCore,
 }
 
 impl CumulusDigestItem {
 	/// Encode this as a Substrate [`DigestItem`].
 	pub fn to_digest_item(&self) -> DigestItem {
+		let encoded = self.encode();
+
 		match self {
-			Self::RelayParent(_) => DigestItem::Consensus(CUMULUS_CONSENSUS_ID, self.encode()),
-			Self::CoreInfo(_) => DigestItem::PreRuntime(CUMULUS_CONSENSUS_ID, self.encode()),
+			Self::RelayParent(_) | Self::UseFullCore => {
+				DigestItem::Consensus(CUMULUS_CONSENSUS_ID, encoded)
+			},
+			_ => DigestItem::PreRuntime(CUMULUS_CONSENSUS_ID, encoded),
 		}
 	}
 
@@ -345,6 +410,62 @@ impl CumulusDigestItem {
 			},
 			_ => None,
 		})
+	}
+
+	/// Returns the [`BlockBundleInfo`] from the given `digest`.
+	pub fn find_block_bundle_info(digest: &Digest) -> Option<BlockBundleInfo> {
+		digest.convert_first(|d| match d {
+			DigestItem::PreRuntime(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+				let Ok(CumulusDigestItem::BlockBundleInfo(bundle_info)) =
+					CumulusDigestItem::decode_all(&mut &val[..])
+				else {
+					return None;
+				};
+
+				Some(bundle_info)
+			},
+			_ => None,
+		})
+	}
+
+	/// Returns `true` if the given `digest` contains the [`Self::UseFullCore`] item.
+	pub fn contains_use_full_core(digest: &Digest) -> bool {
+		digest
+			.convert_first(|d| match d {
+				DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+					let Ok(CumulusDigestItem::UseFullCore) =
+						CumulusDigestItem::decode_all(&mut &val[..])
+					else {
+						return None;
+					};
+
+					Some(true)
+				},
+				_ => None,
+			})
+			.unwrap_or_default()
+	}
+
+	/// Returns `true` if the given `digest` is from a block that is the last block in a core.
+	///
+	/// Checks the following conditions:
+	///
+	/// - Is [`BlockBundleInfo::is_last`] set to true?
+	/// - Or is [`Self::UseFullCore`] digest present?
+	/// - Or is [`DigestItem::RuntimeEnvironmentUpdated`] digest present?
+	///
+	/// If any of these conditions is `true`, this function will return `true`.
+	///
+	/// Returns `None` if the `BlockBundleInfo` digest is not present, which is interpreted as the
+	/// associated block is not using block bundling.
+	pub fn is_last_block_in_core(digest: &Digest) -> Option<bool> {
+		let bundle_info = Self::find_block_bundle_info(digest)?;
+
+		Some(
+			bundle_info.is_last ||
+				Self::contains_use_full_core(digest) ||
+				digest.logs.iter().any(|l| matches!(l, DigestItem::RuntimeEnvironmentUpdated)),
+		)
 	}
 }
 
@@ -517,13 +638,78 @@ sp_api::decl_runtime_apis! {
 		fn parachain_id() -> ParaId;
   }
 
-	/// API to tell the node side how the relay parent should be chosen.
+	/// API to tell the node side how the relay parent should be chosen and how claim queue
+	/// offsets are determined.
 	///
-	/// A larger offset indicates that the relay parent should not be the tip of the relay chain,
-	/// but `N` blocks behind the tip. This offset is then enforced by the runtime.
+	/// A larger relay parent offset indicates that the relay parent should not be the tip of
+	/// the relay chain, but `N` blocks behind the tip. This offset is then enforced by the
+	/// runtime.
+	///
+	/// The max claim queue offset determines how far "into the future" collators target when
+	/// selecting cores from the claim queue. This provides async backing flexibility while
+	/// preventing collators from skipping slots.
+	/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
+	///
+	/// Version history:
+	/// - Version 1: Initial version with `relay_parent_offset` only
+	/// - Version 2: Added `max_claim_queue_offset` method
+	#[api_version(2)]
 	pub trait RelayParentOffsetApi {
-		/// Fetch the slot offset that is expected from the relay chain.
+		/// Fetch the relay parent offset that is expected from the relay chain.
+		///
+		/// This determines how many blocks behind the relay chain tip the relay parent should be.
 		fn relay_parent_offset() -> u32;
+
+		/// Maximum claim queue offset for async backing flexibility.
+		///
+		/// Bounds how far "into the future" a candidate may look in the claim queue when
+		/// selecting a core. The effective claim queue depth depends on the candidate version:
+		///
+		/// - **V1/V2 candidates**: the claim queue is looked up at the candidate's `relay_parent`,
+		///   which is `relay_parent_offset` blocks behind the relay-chain tip. The effective
+		///   depth is `relay_parent_offset + max_claim_queue_offset`.
+		///
+		/// - **V3 candidates**: the claim queue is looked up at the candidate's
+		///   `scheduling_parent` — the relay-chain block of the *last finished* slot, decoupled
+		///   from the execution-context `relay_parent`. The effective depth is just
+		///   `max_claim_queue_offset`.
+		///
+		/// Collators select a core via an offset in `[0, max_claim_queue_offset]`.
+		///
+		/// - **V2 candidates**: `max_claim_queue_offset = 1` is sufficient. The claim queue is
+		///   looked up at `relay_parent`, which sits behind the tip. Offset 0 covers synchronous
+		///   backing in the next relay block; offset 1 covers asynchronous backing in the relay
+		///   block after that.
+		///
+		/// - **V3 candidates**: offset 0 is not reachable — the `scheduling_parent`
+		///   is usually the leaf when picked, but its child is already being built, so there is
+		///   no opportunity to land in the next relay block. Offset 1 is reachable under
+		///   synchronous-backing semantics. For elastic scaling the last block in the bundle is
+		///   built near the end of the current slot, which makes offset 1 too tight —
+		///   `max_claim_queue_offset = 2` is the minimum cap that keeps elastic scaling viable.
+		///
+		/// Note: this method was added in `api_version = 2`. Collators calling on runtimes that
+		/// only implement `api_version = 1` of [`RelayParentOffsetApi`] will receive an error
+		/// and should fall back to a sensible default (current collator defaults: `1` on the
+		/// V3 path, `0` on the V1/V2 path).
+		///
+		/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
+		#[api_version(2)]
+		fn max_claim_queue_offset() -> u8;
+	}
+
+	/// API to tell the node side whether V3 scheduling is enabled.
+	///
+	/// When enabled, collators must produce V3 candidates with:
+	/// - ParachainBlockData::V2 containing the scheduling proof
+	/// - CandidateDescriptorV3 with scheduling_parent
+	///
+	/// This is mutually exclusive with relay parent offset (building on older
+	/// relay parents). A parachain enables V3 when it wants low-latency block
+	/// production with the dual-parent model.
+	pub trait SchedulingV3EnabledApi {
+		/// Returns true if V3 scheduling is enabled for this parachain.
+		fn scheduling_v3_enabled() -> bool;
 	}
 
 	/// API for parachain target block rate.

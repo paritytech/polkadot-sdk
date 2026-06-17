@@ -23,7 +23,7 @@ use assigner_coretime::PartsOf57600;
 use frame_support::assert_ok;
 use pallet_broker::CoreAssignment;
 use polkadot_primitives::{
-	BlockNumber, SchedulerParams, SessionIndex, ValidationCode, ValidatorId,
+	vstaging::SchedulerParams, BlockNumber, SessionIndex, ValidationCode, ValidatorId,
 };
 use sp_keyring::Sr25519Keyring;
 
@@ -96,15 +96,14 @@ fn default_config() -> HostConfiguration<BlockNumber> {
 		// `minimum_validation_upgrade_delay` is greater than `chain_availability_period` and
 		// `thread_availability_period`.
 		minimum_validation_upgrade_delay: 6,
-		#[allow(deprecated)]
 		scheduler_params: SchedulerParams {
 			group_rotation_frequency: 10,
 			paras_availability_period: 3,
 			lookahead: 2,
 			num_cores: 3,
-			max_availability_timeouts: 1,
 			..Default::default()
 		},
+		max_relay_parent_session_age: 3,
 		..Default::default()
 	}
 }

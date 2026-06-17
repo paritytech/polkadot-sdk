@@ -27,7 +27,8 @@ use polkadot_node_core_pvf::{
 	InternalValidationError, InvalidCandidate as WasmInvalidCandidate, PossiblyInvalidError,
 	PrepareError, PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
 };
-use polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult};
+use polkadot_node_core_pvf_common::execute::ValidationContext;
+use polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult, DISPUTE_WINDOW};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{
@@ -38,7 +39,7 @@ use polkadot_node_subsystem::{
 	SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	self as util,
+	self as util, request_node_features, request_session_executor_params,
 	runtime::{fetch_scheduling_lookahead, ClaimQueueSnapshot},
 };
 use polkadot_overseer::{ActivatedLeaf, ActiveLeavesUpdate};
@@ -48,6 +49,7 @@ use polkadot_primitives::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
+	node_features::FeatureIndex,
 	transpose_claim_queue, AuthorityDiscoveryId, CandidateCommitments,
 	CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
 	CandidateReceiptV2 as CandidateReceipt,
@@ -61,6 +63,8 @@ use sp_keystore::KeystorePtr;
 use codec::Encode;
 
 use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered};
+
+use schnellru::{ByLength, LruMap};
 
 use std::{
 	collections::HashSet,
@@ -169,14 +173,232 @@ where
 	}
 }
 
-fn handle_validation_message<S>(
+/// Session-scoped parameters needed for candidate validation.
+///
+/// Each field may come from a different session for V3+ descriptors:
+/// - `executor_params`: relay-parent (execution) session.
+/// - `validation_code_bomb_limit`: scheduling session
+///
+/// For V1 descriptors both sessions are identical.
+#[derive(Clone)]
+struct SessionParams {
+	/// Fetched for the relay-parent (execution) session.
+	executor_params: ExecutorParams,
+	/// Fetched for the scheduling session.
+	validation_code_bomb_limit: u32,
+}
+
+/// Per-session cache for parameters needed during candidate validation.
+struct SessionCache {
+	/// Cached executor parameters, keyed by session index.
+	executor_params: LruMap<SessionIndex, ExecutorParams>,
+	/// Cached validation code bomb limits, keyed by session index.
+	bomb_limit: LruMap<SessionIndex, u32>,
+}
+
+impl SessionCache {
+	fn new() -> Self {
+		Self {
+			executor_params: LruMap::new(ByLength::new(DISPUTE_WINDOW.get())),
+			bomb_limit: LruMap::new(ByLength::new(DISPUTE_WINDOW.get())),
+		}
+	}
+
+	/// Fetch session-scoped parameters for a candidate.
+	///
+	/// For V2+ descriptors the sessions come from the descriptor itself. For V1
+	/// descriptors `scheduling_session_index` is used as fallback for both
+	/// execution and scheduling session (they are identical in V1). Results are
+	/// cached per session.
+	async fn fetch_params<Sender>(
+		&mut self,
+		recent_leaf: Hash,
+		scheduling_session_index: SessionIndex,
+		candidate_descriptor: &CandidateDescriptor,
+		v3_ever_seen: bool,
+		sender: &mut Sender,
+	) -> Result<SessionParams, String>
+	where
+		Sender: SubsystemSender<RuntimeApiMessage>,
+	{
+		// Executor params: relay-parent (execution) session.
+		// V2+ has this in the descriptor, V1 falls back to scheduling_session_index.
+		let execution_session = candidate_descriptor
+			.session_index_for_candidate_validation(v3_ever_seen)
+			.unwrap_or(scheduling_session_index);
+
+		let executor_params = match self.executor_params.get(&execution_session) {
+			Some(cached) => cached.clone(),
+			None => {
+				let params =
+					request_session_executor_params(recent_leaf, execution_session, sender)
+						.await
+						.await
+						.map_err(|e| format!("Cannot fetch executor params: channel error: {e:?}"))?
+						.map_err(|e| format!("Cannot fetch executor params: runtime error: {e:?}"))?
+						.ok_or_else(|| "Executor params not found for session".to_string())?;
+				let _ = self.executor_params.insert(execution_session, params.clone());
+				params
+			},
+		};
+
+		// Bomb limit uses the scheduling session. Both scheduling and execution
+		// session would be sensible, what matters is that validators agree.
+		let scheduling_session = candidate_descriptor
+			.scheduling_session_for_candidate_validation(v3_ever_seen)
+			.unwrap_or(scheduling_session_index);
+
+		let validation_code_bomb_limit = match self.bomb_limit.get(&scheduling_session) {
+			Some(cached) => *cached,
+			None => {
+				let limit = util::runtime::fetch_validation_code_bomb_limit(
+					recent_leaf,
+					scheduling_session,
+					sender,
+				)
+				.await
+				.map_err(|_| {
+					"Cannot fetch validation code bomb limit from the runtime".to_string()
+				})?;
+				let _ = self.bomb_limit.insert(scheduling_session, limit);
+				limit
+			},
+		};
+
+		Ok(SessionParams { executor_params, validation_code_bomb_limit })
+	}
+}
+
+/// Output of [`pre_validate_candidate`]: data needed by PVF execution and
+/// post-validation.
+struct PreValidationOutput {
+	/// Validation code bomb limit for PVF preparation.
+	validation_code_bomb_limit: u32,
+	/// Claim queue for backing-only UMP signal post-validation. `None` for
+	/// approval/dispute.
+	claim_queue: Option<ClaimQueueSnapshot>,
+}
+
+/// Errors from [`pre_validate_candidate`].
+enum PreValidationError {
+	/// The candidate is definitively invalid.
+	Invalid(InvalidCandidate),
+	/// A runtime API call failed — cannot determine validity.
+	RuntimeError(String),
+}
+
+/// Pre-validate a candidate before PVF execution.
+///
+/// Performs all checks that don't require running the PVF:
+/// - Basic checks: PoV hash, code hash, PoV size
+/// - Backing-only: scheduling session matches runtime, relay parent valid in claimed session, claim
+///   queue fetch
+///
+/// Backing-only checks are skipped for approval/dispute because the runtime
+/// validates them at backing time and the chain state they depend on may not
+/// be available in disputes.
+async fn pre_validate_candidate<Sender>(
+	sender: &mut Sender,
+	candidate_receipt: &CandidateReceipt,
+	validation_data: &PersistedValidationData,
+	pov: &PoV,
+	validation_code_hash: &ValidationCodeHash,
+	validation_code_bomb_limit: u32,
+	exec_kind: PvfExecKind,
+	v3_ever_seen: bool,
+) -> Result<PreValidationOutput, PreValidationError>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	if let Err(e) = perform_basic_checks(
+		&candidate_receipt.descriptor,
+		validation_data.max_pov_size,
+		pov,
+		validation_code_hash,
+	) {
+		return Err(PreValidationError::Invalid(e));
+	}
+
+	let claim_queue = match exec_kind {
+		PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_) => {
+			let scheduling_parent = candidate_receipt
+				.descriptor
+				.scheduling_parent_for_candidate_validation(v3_ever_seen);
+
+			// Verify scheduling session.
+			let expected_scheduling_session =
+				get_session_index(sender, scheduling_parent).await.ok_or_else(|| {
+					PreValidationError::RuntimeError(
+						"Scheduling session index not found".to_string(),
+					)
+				})?;
+
+			if let Some(scheduling_session) = candidate_receipt
+				.descriptor
+				.scheduling_session_for_candidate_validation(v3_ever_seen)
+			{
+				if scheduling_session != expected_scheduling_session {
+					return Err(PreValidationError::Invalid(
+						InvalidCandidate::InvalidSchedulingSession,
+					));
+				}
+			}
+
+			// Verify relay parent is valid in the claimed session.
+			// Uses the node-side utility which handles both the self-query case
+			// (scheduling_parent == relay_parent, V2) and ancestor queries (V3).
+			if let Some(session_index) = candidate_receipt
+				.descriptor
+				.session_index_for_candidate_validation(v3_ever_seen)
+			{
+				let relay_parent = candidate_receipt.descriptor.relay_parent();
+				match util::check_relay_parent_session(
+					sender,
+					scheduling_parent,
+					session_index,
+					relay_parent,
+				)
+				.await
+				{
+					util::CheckRelayParentSessionResult::Valid => {},
+					// Safe to skip: on old runtimes cross-session relay parents don't
+					// exist, and the scheduling session check above already covers the
+					// relay parent session (scheduling_parent == relay_parent).
+					util::CheckRelayParentSessionResult::NotSupported => {},
+					util::CheckRelayParentSessionResult::NotFound => {
+						return Err(PreValidationError::Invalid(
+							InvalidCandidate::InvalidRelayParentSession,
+						))
+					},
+					util::CheckRelayParentSessionResult::RuntimeError(err) => {
+						return Err(PreValidationError::RuntimeError(err))
+					},
+				}
+			}
+
+			let cq = claim_queue(scheduling_parent, sender).await.ok_or_else(|| {
+				PreValidationError::RuntimeError("Claim queue not available".to_string())
+			})?;
+
+			Some(cq)
+		},
+		_ => None,
+	};
+
+	Ok(PreValidationOutput { validation_code_bomb_limit, claim_queue })
+}
+
+fn handle_validation_message<S, V>(
 	mut sender: S,
-	validation_host: ValidationHost,
+	validation_host: V,
 	metrics: Metrics,
+	v3_ever_seen: bool,
 	msg: CandidateValidationMessage,
+	session_params: Option<SessionParams>,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>>
 where
 	S: SubsystemSender<RuntimeApiMessage>,
+	V: ValidationBackend + Clone + Send + 'static,
 {
 	match msg {
 		CandidateValidationMessage::ValidateFromExhaustive {
@@ -184,62 +406,61 @@ where
 			validation_code,
 			candidate_receipt,
 			pov,
-			executor_params,
 			exec_kind,
 			response_sender,
 			..
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();
-			let relay_parent = candidate_receipt.descriptor.relay_parent();
 
-			let maybe_claim_queue = claim_queue(relay_parent, &mut sender).await;
-			let Some(session_index) = get_session_index(&mut sender, relay_parent).await else {
-				let error = "cannot fetch session index from the runtime";
-				gum::warn!(
-					target: LOG_TARGET,
-					?relay_parent,
-					error,
-				);
-
-				let _ = response_sender
-					.send(Err(ValidationFailed("Session index not found".to_string())));
-				return;
+			// Session params were resolved by the run loop (cached, fetched at a
+			// recent leaf). If resolution failed (e.g. no active leaf yet), the
+			// task cannot proceed.
+			let session_params = match session_params {
+				Some(params) => params,
+				None => {
+					let _ = response_sender.send(Err(ValidationFailed(
+						"Session params unavailable (no active leaf?)".to_string(),
+					)));
+					return;
+				},
 			};
 
-			// This will return a default value for the limit if runtime API is not available.
-			// however we still error out if there is a weird runtime API error.
-			let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(
-				relay_parent,
-				session_index,
+			// Phase 1: Pre-validation — basic checks + backing-specific checks.
+			let pre = match pre_validate_candidate(
 				&mut sender,
+				&candidate_receipt,
+				&validation_data,
+				&pov,
+				&validation_code.hash(),
+				session_params.validation_code_bomb_limit,
+				exec_kind,
+				v3_ever_seen,
 			)
 			.await
-			else {
-				let error = "cannot fetch validation code bomb limit from the runtime";
-				gum::warn!(
-					target: LOG_TARGET,
-					?relay_parent,
-					error,
-				);
-
-				let _ = response_sender.send(Err(ValidationFailed(
-					"Validation code bomb limit not available".to_string(),
-				)));
-				return;
+			{
+				Ok(pre) => pre,
+				Err(PreValidationError::Invalid(e)) => {
+					let _ = response_sender.send(Ok(ValidationResult::Invalid(e)));
+					return;
+				},
+				Err(PreValidationError::RuntimeError(err)) => {
+					let _ = response_sender.send(Err(ValidationFailed(err)));
+					return;
+				},
 			};
 
-			let res = validate_candidate_exhaustive(
-				session_index,
+			// Phase 2: PVF execution + output validation.
+			let res = validate_candidate(
 				validation_host,
 				validation_data,
 				validation_code,
 				candidate_receipt,
 				pov,
-				executor_params,
+				session_params.executor_params,
 				exec_kind,
 				&metrics,
-				maybe_claim_queue,
-				validation_code_bomb_limit,
+				v3_ever_seen,
+				pre,
 			)
 			.await;
 
@@ -334,7 +555,7 @@ async fn run<Context>(
 	ctx.spawn_blocking("pvf-validation-host", task.boxed())?;
 
 	let mut tasks = FuturesUnordered::new();
-	let mut prepare_state = PrepareValidationState::default();
+	let mut state = State::default();
 
 	loop {
 		loop {
@@ -347,13 +568,52 @@ async fn run<Context>(
 								keystore.clone(),
 								&mut validation_host,
 								update,
-								&mut prepare_state,
+								&mut state,
 							).await
 						},
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
 						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
 						Ok(FromOrchestra::Communication { msg }) => {
-							let task = handle_validation_message(ctx.sender().clone(), validation_host.clone(), metrics.clone(), msg);
+								let session_params = match &msg {
+								CandidateValidationMessage::ValidateFromExhaustive {
+									scheduling_session_index,
+									candidate_receipt,
+									..
+								} => {
+									if let Some(recent_leaf) = state.last_active_leaf {
+										match state.session_cache.fetch_params(
+											recent_leaf,
+											*scheduling_session_index,
+											&candidate_receipt.descriptor,
+											state.v3_ever_seen,
+											ctx.sender(),
+										)
+										.await
+										{
+											Ok(params) => Some(params),
+											Err(err) => {
+												gum::warn!(
+													target: LOG_TARGET,
+													?err,
+													"Failed to fetch session params",
+												);
+												None
+											},
+										}
+									} else {
+										None
+									}
+								},
+								_ => None,
+							};
+							let task = handle_validation_message(
+								ctx.sender().clone(),
+								validation_host.clone(),
+								metrics.clone(),
+								state.v3_ever_seen,
+								msg,
+								session_params,
+							);
 							tasks.push(task);
 							if tasks.len() >= TASK_LIMIT {
 								break
@@ -388,8 +648,42 @@ async fn run<Context>(
 	}
 }
 
-struct PrepareValidationState {
+/// Top-level subsystem state, owning session tracking, V3 transition detection,
+/// and PVF preparation bookkeeping.
+struct State {
+	/// Current session index, tracked across active leaf updates.
 	session_index: Option<SessionIndex>,
+	/// Most recent active leaf.
+	last_active_leaf: Option<Hash>,
+	/// Monotonic flag: set to `true` once any activated leaf has the V3 candidate
+	/// descriptor node feature enabled. Once set, never unset.
+	/// Used to determine whether approval/dispute validation should trust
+	/// `version()` (V3-capable) or fall back to `version_old_rules()`.
+	/// See `CandidateDescriptorV2::version_for_candidate_validation` for the safety argument.
+	v3_ever_seen: bool,
+	/// Per-session cache for session-scoped validation parameters.
+	session_cache: SessionCache,
+	/// PVF preparation state (proactive pre-compilation for next session).
+	pvf_prep: PvfPrepState,
+}
+
+impl Default for State {
+	fn default() -> Self {
+		Self {
+			session_index: None,
+			last_active_leaf: None,
+			v3_ever_seen: false,
+			session_cache: SessionCache::new(),
+			pvf_prep: PvfPrepState::default(),
+		}
+	}
+}
+
+/// State for proactive PVF preparation.
+///
+/// Tracks whether we're a next-session authority and which code hashes we've already
+/// sent to the PVF host.
+struct PvfPrepState {
 	is_next_session_authority: bool,
 	// PVF host won't prepare the same code hash twice, so here we just avoid extra communication
 	already_prepared_code_hashes: HashSet<ValidationCodeHash>,
@@ -397,10 +691,9 @@ struct PrepareValidationState {
 	per_block_limit: usize,
 }
 
-impl Default for PrepareValidationState {
+impl Default for PvfPrepState {
 	fn default() -> Self {
 		Self {
-			session_index: None,
 			is_next_session_authority: false,
 			already_prepared_code_hashes: HashSet::new(),
 			per_block_limit: 1,
@@ -408,35 +701,72 @@ impl Default for PrepareValidationState {
 	}
 }
 
+/// Check if the V3 candidate descriptor node feature is enabled at the given
+/// session. Returns `true` if the feature is set.
+async fn check_v3_feature<Sender>(
+	sender: &mut Sender,
+	relay_parent: Hash,
+	session_index: SessionIndex,
+) -> bool
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	if let Ok(Ok(features)) = request_node_features(relay_parent, session_index, sender).await.await
+	{
+		if FeatureIndex::CandidateReceiptV3.is_set(&features) {
+			gum::info!(
+				target: LOG_TARGET,
+				?session_index,
+				"CandidateReceiptV3 node feature detected, \
+				 switching to V3-aware approval/dispute validation",
+			);
+			return true;
+		}
+	}
+	false
+}
+
 async fn handle_active_leaves_update<Sender>(
 	sender: &mut Sender,
 	keystore: KeystorePtr,
 	validation_host: &mut impl ValidationBackend,
 	update: ActiveLeavesUpdate,
-	prepare_state: &mut PrepareValidationState,
+	state: &mut State,
 ) where
 	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
 {
-	let maybe_session_index = update_active_leaves(sender, validation_host, update.clone()).await;
+	update_active_leaves_validation_backend(sender, validation_host, update.clone()).await;
 
-	if let Some(activated) = update.activated {
-		let maybe_new_session_index = match (prepare_state.session_index, maybe_session_index) {
-			(Some(existing_index), Some(new_index)) => {
-				(new_index > existing_index).then_some(new_index)
-			},
-			(None, Some(new_index)) => Some(new_index),
-			_ => None,
-		};
-		maybe_prepare_validation(
-			sender,
-			keystore.clone(),
-			validation_host,
-			activated,
-			prepare_state,
-			maybe_new_session_index,
-		)
-		.await;
+	let Some(activated) = update.activated else { return };
+	state.last_active_leaf = Some(activated.hash);
+	let maybe_session_index = get_session_index(sender, activated.hash).await;
+
+	// Detect session change
+	let new_session = match (state.session_index, maybe_session_index) {
+		(Some(old), Some(new)) => (new > old).then_some(new),
+		(None, Some(new)) => Some(new),
+		_ => None,
+	};
+
+	state.session_index = new_session.or(state.session_index);
+
+	// V3 feature detection on session change
+	if !state.v3_ever_seen {
+		if let Some(session_index) = new_session {
+			state.v3_ever_seen = check_v3_feature(sender, activated.hash, session_index).await;
+		}
 	}
+
+	// Proactive PVF preparation
+	maybe_prepare_validation(
+		sender,
+		keystore.clone(),
+		validation_host,
+		activated,
+		&mut state.pvf_prep,
+		new_session,
+	)
+	.await;
 }
 
 async fn maybe_prepare_validation<Sender>(
@@ -444,34 +774,28 @@ async fn maybe_prepare_validation<Sender>(
 	keystore: KeystorePtr,
 	validation_backend: &mut impl ValidationBackend,
 	leaf: ActivatedLeaf,
-	state: &mut PrepareValidationState,
-	new_session_index: Option<SessionIndex>,
+	pvf_prep: &mut PvfPrepState,
+	new_session: Option<SessionIndex>,
 ) where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	if new_session_index.is_some() {
-		state.session_index = new_session_index;
-		state.already_prepared_code_hashes.clear();
-		state.is_next_session_authority = check_next_session_authority(
-			sender,
-			keystore,
-			leaf.hash,
-			state.session_index.expect("qed: just checked above"),
-		)
-		.await;
+	if let Some(new_session_index) = new_session {
+		pvf_prep.already_prepared_code_hashes.clear();
+		pvf_prep.is_next_session_authority =
+			check_next_session_authority(sender, keystore, leaf.hash, new_session_index).await;
 	}
 
 	// On every active leaf check candidates and prepare PVFs our node doesn't have yet.
-	if state.is_next_session_authority {
+	if pvf_prep.is_next_session_authority {
 		let code_hashes = prepare_pvfs_for_backed_candidates(
 			sender,
 			validation_backend,
 			leaf.hash,
-			&state.already_prepared_code_hashes,
-			state.per_block_limit,
+			&pvf_prep.already_prepared_code_hashes,
+			pvf_prep.per_block_limit,
 		)
 		.await;
-		state.already_prepared_code_hashes.extend(code_hashes.unwrap_or_default());
+		pvf_prep.already_prepared_code_hashes.extend(code_hashes.unwrap_or_default());
 	}
 }
 
@@ -661,23 +985,18 @@ where
 	Some(processed_code_hashes)
 }
 
-async fn update_active_leaves<Sender>(
+async fn update_active_leaves_validation_backend<Sender>(
 	sender: &mut Sender,
 	validation_backend: &mut impl ValidationBackend,
 	update: ActiveLeavesUpdate,
-) -> Option<SessionIndex>
-where
+) where
 	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
 {
-	let maybe_new_leaf = if let Some(activated) = &update.activated {
-		get_session_index(sender, activated.hash)
-			.await
-			.map(|index| (activated.hash, index))
+	let ancestors = if let Some(ref activated) = update.activated {
+		get_block_ancestors(sender, activated.hash).await
 	} else {
-		None
+		vec![]
 	};
-
-	let ancestors = get_block_ancestors(sender, maybe_new_leaf).await;
 	if let Err(err) = validation_backend.update_active_leaves(update, ancestors).await {
 		gum::warn!(
 			target: LOG_TARGET,
@@ -685,32 +1004,33 @@ where
 			"cannot update active leaves in validation backend",
 		);
 	};
-
-	maybe_new_leaf.map(|l| l.1)
 }
 
-async fn get_block_ancestors<Sender>(
-	sender: &mut Sender,
-	maybe_new_leaf: Option<(Hash, SessionIndex)>,
-) -> Vec<Hash>
+/// Get list of still valid scheduling parents for the given leaf.
+///
+/// TODO: This function does not take into account session boundaries, which leads to wasted effort:
+/// https://github.com/paritytech/polkadot-sdk/issues/11301
+async fn get_block_ancestors<Sender>(sender: &mut Sender, leaf: Hash) -> Vec<Hash>
 where
 	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
 {
-	let Some((relay_parent, session_index)) = maybe_new_leaf else { return vec![] };
-	let scheduling_lookahead =
-		match fetch_scheduling_lookahead(relay_parent, session_index, sender).await {
-			Ok(scheduling_lookahead) => scheduling_lookahead,
-			res => {
-				gum::warn!(target: LOG_TARGET, ?res, "Failed to request scheduling lookahead");
-				return vec![];
-			},
-		};
+	let Some(session_index) = get_session_index(sender, leaf).await else {
+		gum::warn!(target: LOG_TARGET, ?leaf, "Failed to request session index for leaf.");
+		return vec![];
+	};
+	let scheduling_lookahead = match fetch_scheduling_lookahead(leaf, session_index, sender).await {
+		Ok(scheduling_lookahead) => scheduling_lookahead,
+		res => {
+			gum::warn!(target: LOG_TARGET, ?res, "Failed to request scheduling lookahead");
+			return vec![];
+		},
+	};
 
 	let (tx, rx) = oneshot::channel();
 	sender
 		.send_message(ChainApiMessage::Ancestors {
-			hash: relay_parent,
-			// Subtract 1 from the claim queue length, as it includes current `relay_parent`.
+			hash: leaf,
+			// Subtract 1 from the claim queue length, as it includes current `scheduling_parent`.
 			k: scheduling_lookahead.saturating_sub(1) as usize,
 			response_channel: tx,
 		})
@@ -848,8 +1168,14 @@ where
 	}
 }
 
-async fn validate_candidate_exhaustive(
-	expected_session_index: SessionIndex,
+/// Execute a PVF and validate the candidate's output.
+///
+/// Assumes all pre-validation ([`pre_validate_candidate`]) has already passed.
+/// Handles:
+/// 1. PVF execution (backing: single attempt; approval/dispute: with retry)
+/// 2. Post-validation: para_head hash, commitments hash
+/// 3. Backing-only post-validation: UMP signal validation against claim queue
+async fn validate_candidate(
 	mut validation_backend: impl ValidationBackend + Send,
 	persisted_validation_data: PersistedValidationData,
 	validation_code: ValidationCode,
@@ -858,81 +1184,55 @@ async fn validate_candidate_exhaustive(
 	executor_params: ExecutorParams,
 	exec_kind: PvfExecKind,
 	metrics: &Metrics,
-	maybe_claim_queue: Option<ClaimQueueSnapshot>,
-	validation_code_bomb_limit: u32,
+	v3_seen: bool,
+	pre: PreValidationOutput,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
-	let validation_code_hash = validation_code.hash();
-	let relay_parent = candidate_receipt.descriptor.relay_parent();
 	let para_id = candidate_receipt.descriptor.para_id();
 	let candidate_hash = candidate_receipt.hash();
 
 	gum::debug!(
 		target: LOG_TARGET,
-		?validation_code_hash,
 		?candidate_hash,
 		?para_id,
 		"About to validate a candidate.",
 	);
 
-	// We only check the session index for backing.
-	match (exec_kind, candidate_receipt.descriptor.session_index()) {
-		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) => {
-			if session_index != expected_session_index {
-				return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
-			}
-		},
-		(_, _) => {},
+	let persisted_validation_data = Arc::new(persisted_validation_data);
+
+	// Create the validation context shared by both backing and approval/dispute paths
+	let validation_context = ValidationContext {
+		candidate_receipt: candidate_receipt.clone(),
+		pvd: persisted_validation_data.clone(),
+		pov: pov.clone(),
+		executor_params: executor_params.clone(),
+		exec_timeout: pvf_exec_timeout(&executor_params, exec_kind.into()),
+		v3_seen,
 	};
 
-	if let Err(e) = perform_basic_checks(
-		&candidate_receipt.descriptor,
-		persisted_validation_data.max_pov_size,
-		&pov,
-		&validation_code_hash,
-	) {
-		gum::debug!(target: LOG_TARGET, ?para_id, ?candidate_hash, "Invalid candidate (basic checks)");
-		return Ok(ValidationResult::Invalid(e));
-	}
-
-	let persisted_validation_data = Arc::new(persisted_validation_data);
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
 		// honest backers getting slashed.
 		PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_) => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
-			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
 			let pvf = PvfPrepData::from_code(
 				validation_code.0,
 				executor_params,
 				prep_timeout,
 				PrepareJobKind::Compilation,
-				validation_code_bomb_limit,
+				pre.validation_code_bomb_limit,
 			);
 
-			validation_backend
-				.validate_candidate(
-					pvf,
-					exec_timeout,
-					persisted_validation_data.clone(),
-					pov,
-					exec_kind.into(),
-					exec_kind,
-				)
-				.await
+			validation_backend.validate_candidate(pvf, validation_context, exec_kind).await
 		},
 		PvfExecKind::Approval | PvfExecKind::Dispute => {
 			validation_backend
 				.validate_candidate_with_retry(
 					validation_code.0,
-					pvf_exec_timeout(&executor_params, exec_kind.into()),
-					persisted_validation_data.clone(),
-					pov,
-					executor_params,
+					validation_context,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
-					exec_kind.into(),
 					exec_kind,
-					validation_code_bomb_limit,
+					pre.validation_code_bomb_limit,
 				)
 				.await
 		},
@@ -1039,37 +1339,21 @@ async fn validate_candidate_exhaustive(
 					// invalid.
 					Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))
 				} else {
-					match exec_kind {
-						// Core selectors are optional for V2 descriptors, but we still check the
-						// descriptor core index.
-						PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_) => {
-							let Some(claim_queue) = maybe_claim_queue else {
-								let error = "cannot fetch the claim queue from the runtime";
-								gum::warn!(
-									target: LOG_TARGET,
-									?relay_parent,
-									error
-								);
-
-								return Err(ValidationFailed(error.into()));
-							};
-
-							if let Err(err) = committed_candidate_receipt
-								.parse_ump_signals(&transpose_claim_queue(claim_queue.0))
-							{
-								gum::warn!(
-									target: LOG_TARGET,
-									candidate_hash = ?candidate_receipt.hash(),
-									"Invalid UMP signals: {}",
-									err
-								);
-								return Ok(ValidationResult::Invalid(
-									InvalidCandidate::InvalidUMPSignals(err),
-								));
-							}
-						},
-						// No checks for approvals and disputes
-						_ => {},
+					// Backing-only: validate UMP signals against the claim queue.
+					if let Some(claim_queue) = &pre.claim_queue {
+						if let Err(err) = committed_candidate_receipt
+							.parse_ump_signals(&transpose_claim_queue(claim_queue.0.clone()))
+						{
+							gum::warn!(
+								target: LOG_TARGET,
+								candidate_hash = ?candidate_receipt.hash(),
+								"Invalid UMP signals: {}",
+								err
+							);
+							return Ok(ValidationResult::Invalid(
+								InvalidCandidate::InvalidUMPSignals(err),
+							));
+						}
 					}
 
 					Ok(ValidationResult::Valid(
@@ -1088,37 +1372,25 @@ trait ValidationBackend {
 	async fn validate_candidate(
 		&mut self,
 		pvf: PvfPrepData,
-		exec_timeout: Duration,
-		pvd: Arc<PersistedValidationData>,
-		pov: Arc<PoV>,
-		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The kind for the execution job.
+		validation_context: ValidationContext,
 		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError>;
 
 	/// Tries executing a PVF. Will retry once if an error is encountered that may have
 	/// been transient.
 	///
-	/// The `prepare_priority` is relevant in the context of the caller. Currently we expect
-	/// that `approval` context has priority over `backing` context.
-	///
 	/// NOTE: Should retry only on errors that are a result of execution itself, and not of
 	/// preparation.
 	async fn validate_candidate_with_retry(
 		&mut self,
 		code: Vec<u8>,
-		exec_timeout: Duration,
-		pvd: Arc<PersistedValidationData>,
-		pov: Arc<PoV>,
-		executor_params: ExecutorParams,
+		validation_context: ValidationContext,
 		retry_delay: Duration,
-		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The kind for the execution job.
 		exec_kind: PvfExecKind,
 		validation_code_bomb_limit: u32,
 	) -> Result<WasmValidationResult, ValidationError> {
+		let exec_timeout = validation_context.exec_timeout;
+		let executor_params = validation_context.executor_params.clone();
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
 		let pvf = PvfPrepData::from_code(
@@ -1132,16 +1404,8 @@ trait ValidationBackend {
 		// long.
 		let total_time_start = Instant::now();
 
-		// Use `Priority::Critical` as finality trumps parachain liveliness.
 		let mut validation_result = self
-			.validate_candidate(
-				pvf.clone(),
-				exec_timeout,
-				pvd.clone(),
-				pov.clone(),
-				prepare_priority,
-				exec_kind,
-			)
+			.validate_candidate(pvf.clone(), validation_context.clone(), exec_kind)
 			.await;
 		if validation_result.is_ok() {
 			return validation_result;
@@ -1222,16 +1486,12 @@ trait ValidationBackend {
 					validation_result
 				);
 
-				validation_result = self
-					.validate_candidate(
-						pvf.clone(),
-						new_timeout,
-						pvd.clone(),
-						pov.clone(),
-						prepare_priority,
-						exec_kind,
-					)
-					.await;
+				// Update the validation context with the new timeout
+				let mut retry_context = validation_context.clone();
+				retry_context.exec_timeout = new_timeout;
+
+				validation_result =
+					self.validate_candidate(pvf.clone(), retry_context, exec_kind).await;
 			}
 		}
 
@@ -1242,6 +1502,10 @@ trait ValidationBackend {
 
 	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String>;
 
+	/// Inform the backend about active leaf changes
+	///
+	/// Ancestors provided should match the still valid scheduling parents (implicit view) as of the
+	/// activated leaf. This is used for pruning queued jobs which became obsolete.
 	async fn update_active_leaves(
 		&mut self,
 		update: ActiveLeavesUpdate,
@@ -1255,18 +1519,12 @@ impl ValidationBackend for ValidationHost {
 	async fn validate_candidate(
 		&mut self,
 		pvf: PvfPrepData,
-		exec_timeout: Duration,
-		pvd: Arc<PersistedValidationData>,
-		pov: Arc<PoV>,
-		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The kind for the execution job.
+		validation_context: ValidationContext,
 		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let (tx, rx) = oneshot::channel();
-		if let Err(err) = self
-			.execute_pvf(pvf, exec_timeout, pvd, pov, prepare_priority, exec_kind, tx)
-			.await
+		if let Err(err) =
+			self.execute_pvf(pvf, validation_context, exec_kind.into(), exec_kind, tx).await
 		{
 			return Err(InternalValidationError::HostCommunication(format!(
 				"cannot send pvf to the validation host, it might have shut down: {:?}",

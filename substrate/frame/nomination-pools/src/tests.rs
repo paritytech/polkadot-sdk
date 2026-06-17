@@ -2785,37 +2785,61 @@ mod unbond {
 
 	#[test]
 	fn depositor_unbond_destroying_permissionless() {
-		// depositor can never be permissionlessly unbonded.
-		ExtBuilder::default().min_join_bond(10).build_and_execute(|| {
-			// give the depositor some extra funds.
-			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(10), BondExtra::FreeBalance(10)));
-			assert_eq!(PoolMembers::<T>::get(10).unwrap().points, 20);
+		// depositor can be permissionlessly fully unbonded in destroying state when sole member.
+		ExtBuilder::default()
+			.min_join_bond(10)
+			.add_members(vec![(20, 20)])
+			.build_and_execute(|| {
+				// give the depositor some extra funds.
+				assert_ok!(Pools::bond_extra(
+					RuntimeOrigin::signed(10),
+					BondExtra::FreeBalance(10)
+				));
+				assert_eq!(PoolMembers::<T>::get(10).unwrap().points, 20);
 
-			// set the stage
-			unsafe_set_state(1, PoolState::Destroying);
-			let random = 123;
+				// set the stage
+				unsafe_set_state(1, PoolState::Destroying);
+				let random = 123;
 
-			// cannot be kicked to above limit.
-			assert_noop!(
-				Pools::unbond(RuntimeOrigin::signed(random), 10, 5),
-				Error::<T>::PartialUnbondNotAllowedPermissionlessly
-			);
+				// partial permissionless unbonds are always rejected.
+				assert_noop!(
+					Pools::unbond(RuntimeOrigin::signed(random), 10, 5),
+					Error::<T>::PartialUnbondNotAllowedPermissionlessly
+				);
+				assert_noop!(
+					Pools::unbond(RuntimeOrigin::signed(random), 10, 15),
+					Error::<T>::PartialUnbondNotAllowedPermissionlessly
+				);
 
-			// or below the limit
-			assert_noop!(
-				Pools::unbond(RuntimeOrigin::signed(random), 10, 15),
-				Error::<T>::PartialUnbondNotAllowedPermissionlessly
-			);
+				// full permissionless unbond is rejected while member 20 is still in the pool
+				// (depositor is not the sole member).
+				assert_noop!(
+					Pools::unbond(RuntimeOrigin::signed(random), 10, 20),
+					Error::<T>::DoesNotHavePermission
+				);
 
-			// or 0.
-			assert_noop!(
-				Pools::unbond(RuntimeOrigin::signed(random), 10, 20),
-				Error::<T>::DoesNotHavePermission
-			);
+				// remove member 20 so the depositor becomes the sole remaining member.
+				assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(random), 20));
+				CurrentEra::set(3);
+				assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(random), 20, 0));
 
-			// they themselves can do it in this case though.
-			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 20));
-		})
+				// even as sole member, partial permissionless unbond of the depositor is still
+				// rejected.
+				assert_noop!(
+					Pools::unbond(RuntimeOrigin::signed(random), 10, 5),
+					Error::<T>::PartialUnbondNotAllowedPermissionlessly
+				);
+
+				// now the depositor is the sole member: full permissionless unbond is allowed.
+				assert_ok!(Pools::unbond(RuntimeOrigin::signed(random), 10, 20));
+
+				// repeated full unbond attempts now fail because balance_after_unbond <
+				// depositor_min_bond.
+				assert_noop!(
+					Pools::unbond(RuntimeOrigin::signed(10), 10, 20),
+					Error::<T>::MinimumBondNotMet
+				);
+			})
 	}
 
 	#[test]
@@ -3268,13 +3292,8 @@ mod unbond {
 				Error::<Runtime>::PartialUnbondNotAllowedPermissionlessly,
 			);
 
-			// depositor can never be unbonded permissionlessly .
-			assert_noop!(
-				Pools::fully_unbond(RuntimeOrigin::signed(420), 10),
-				Error::<T>::DoesNotHavePermission
-			);
-			// but depositor itself can do it.
-			assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(10), 10));
+			// when destroying and sole member, depositor can be unbonded permissionlessly.
+			assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(420), 10));
 
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 0);
 			assert_eq!(
@@ -6894,6 +6913,50 @@ mod commission {
 	}
 
 	#[test]
+	fn set_commission_max_snapshots_rewards_before_lowering_current() {
+		// `set_commission_max` force-lowers `current` when the new max is below it. Rewards that
+		// accrued at the higher rate since the last snapshot must stay owed to the payee at that
+		// higher rate, not be re-rated at the new lower rate and leaked to members.
+		ExtBuilder::default().build_and_execute(|| {
+			let pool_id = 1;
+			let payee = 900;
+			let _ = Currency::set_balance(&payee, 5);
+
+			// GIVEN: commission is 50% (this snapshots the still-empty reward pool)...
+			assert_ok!(Pools::set_commission(
+				RuntimeOrigin::signed(900),
+				pool_id,
+				Some((Perbill::from_percent(50), payee))
+			));
+			// ...and 100 of rewards accrue with no intervening snapshot (no claim/bond happens).
+			deposit_rewards(100);
+			assert_eq!(RewardPool::<Runtime>::current_balance(pool_id), 100);
+			assert_eq!(RewardPools::<Runtime>::get(pool_id).unwrap().total_commission_pending, 0);
+
+			// WHEN: root force-lowers max commission to 20%, cutting `current` from 50% to 20%.
+			assert_ok!(Pools::set_commission_max(
+				RuntimeOrigin::signed(900),
+				pool_id,
+				Perbill::from_percent(20)
+			));
+
+			// THEN: the 100 that accrued at 50% was snapshotted before the cut, so 50 is owed to
+			// the payee. Without the pre-cut snapshot this would be 20% * 100 = 20.
+			assert_eq!(RewardPools::<Runtime>::get(pool_id).unwrap().total_commission_pending, 50);
+
+			// AND: claiming commission pays the payee the pre-cut 50, not the post-cut 20.
+			let _ = pool_events_since_last_call();
+			assert_ok!(Pools::claim_commission(RuntimeOrigin::signed(payee), pool_id));
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![Event::PoolCommissionClaimed { pool_id, commission: 50 }]
+			);
+			assert_eq!(Currency::free_balance(&payee), 5 + 50);
+			assert_eq!(RewardPools::<Runtime>::get(pool_id).unwrap().total_commission_claimed, 50);
+		})
+	}
+
+	#[test]
 	fn set_commission_change_rate_zero_max_increase_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			// set commission change rate to 0% per 10 blocks
@@ -7738,6 +7801,63 @@ mod filter {
 			// THEN she can bond extra funds to the pool
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(alice), BondExtra::FreeBalance(10)));
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(alice), BondExtra::Rewards));
+		});
+	}
+}
+
+mod claim_trapped_balance_migration {
+	use super::*;
+	use sp_staking::Delegator;
+
+	/// Test that do_claim_trapped_balance successfully recovers trapped funds.
+	#[test]
+	fn migration_recovers_trapped_funds() {
+		ExtBuilder::default().build_and_execute(|| {
+			let member = 20;
+
+			// Member joins with 100
+			assert_ok!(Pools::join(RuntimeOrigin::signed(member), 100, 1));
+
+			let member_data = PoolMembers::<Runtime>::get(member).unwrap();
+			assert_eq!(member_data.total_balance(), 100);
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(100));
+
+			// Simulate trapped funds: delegator_balance > points
+			let pool_account = BondedPool::<Runtime>::get(1).unwrap().bonded_account();
+			DelegateMock::set_delegator_balance(member, 150);
+			DelegateMock::set_agent_balance_full(pool_account, 100, 50, 0);
+
+			let member_data = PoolMembers::<Runtime>::get(member).unwrap();
+			assert_eq!(member_data.total_balance(), 100);
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(150));
+
+			// Call the helper directly
+			assert_ok!(Pools::do_claim_trapped_balance(&member));
+
+			// Verify balance corrected: delegator_balance should now match points (100)
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(100));
+
+			// Calling again is a no-op (no state change)
+			assert_ok!(Pools::do_claim_trapped_balance(&member));
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(100));
+		});
+	}
+
+	/// Test that do_claim_trapped_balance is a no-op when no trapped balance.
+	#[test]
+	fn migration_no_op_when_no_trapped_balance() {
+		ExtBuilder::default().build_and_execute(|| {
+			let member = 20;
+			assert_ok!(Pools::join(RuntimeOrigin::signed(member), 100, 1));
+
+			let balance_before = DelegateMock::delegator_balance(Delegator::from(member));
+			let member_before = PoolMembers::<Runtime>::get(member).unwrap();
+
+			assert_ok!(Pools::do_claim_trapped_balance(&member));
+
+			// Verify no state changed
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), balance_before);
+			assert_eq!(PoolMembers::<Runtime>::get(member).unwrap(), member_before);
 		});
 	}
 }

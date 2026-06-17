@@ -185,7 +185,7 @@ fn unincluded_segment_works() {
 }
 
 #[test]
-#[should_panic = "no space left for the block in the unincluded segment"]
+#[should_panic = "No space left for the block in the unincluded segment: new_len(1) < capacity(1)"]
 fn unincluded_segment_is_limited() {
 	CONSENSUS_HOOK.with(|c| {
 		*c.borrow_mut() = Box::new(|_| (Weight::zero(), NonZeroU32::new(1).unwrap().into()))
@@ -897,7 +897,10 @@ fn runtime_upgrade_events() {
 
 				// system_version 1: update_code_in_storage writes :code directly,
 				// emitting both the digest and CodeUpdated event in the same block.
-				assert_eq!(events[0].event, RuntimeEvent::System(frame_system::Event::CodeUpdated));
+				assert!(matches!(
+					events[0].event,
+					RuntimeEvent::System(frame_system::Event::CodeUpdated { .. })
+				));
 				assert_eq!(
 					events[1].event,
 					RuntimeEvent::ParachainSystem(crate::Event::ValidationFunctionApplied {
@@ -1790,9 +1793,9 @@ fn ump_signals_are_sent_correctly() {
 			vec![
 				b"Test".to_vec(),
 				UMP_SEPARATOR,
+				UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset).encode(),
 				UMPSignal::ApprovedPeer(ApprovedPeerId::try_from(b"12345".to_vec()).unwrap())
 					.encode(),
-				UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset).encode(),
 			],
 		),
 	]);

@@ -28,7 +28,7 @@ use frame_support::{
 	},
 };
 use sp_arithmetic::Permill;
-use sp_runtime::{DispatchError, TokenError};
+use sp_runtime::{BuildStorage, DispatchError, TokenError};
 
 fn events() -> Vec<Event<Test>> {
 	let result = System::events()
@@ -644,6 +644,108 @@ fn can_not_redeem_more_lp_tokens_than_were_minted() {
 }
 
 #[test]
+fn quote_price_returns_none_for_zero_amount() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+
+		create_tokens(user, vec![token_2.clone()]);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 100000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			10000,
+			200,
+			1,
+			1,
+			user,
+		));
+
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				0,
+				true,
+			),
+			None
+		);
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				0,
+				true,
+			),
+			None
+		);
+	});
+}
+
+#[test]
+fn quote_price_returns_none_for_zero_output() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+
+		create_tokens(user, vec![token_2.clone()]);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10_000_000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+
+		// Create a heavily skewed pool: lots of asset1, very little asset2.
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			1_000_000,
+			200,
+			1,
+			1,
+			user,
+		));
+
+		// Tiny input into a skewed pool rounds output to zero.
+		// get_amount_out(1, 1_000_000, 200) = 1*997*200 / (1_000_000*1000 + 997) = 0
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				1,
+				true,
+			),
+			None
+		);
+		// Without fees: quote(1, 1_000_000, 200) = 1*200/1_000_000 = 0
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				1,
+				false,
+			),
+			None
+		);
+	});
+}
+
+#[test]
 fn can_quote_price() {
 	new_test_ext().execute_with(|| {
 		let user = 1;
@@ -983,6 +1085,163 @@ fn quote_price_tokens_for_exact_tokens_matches_execution() {
 }
 
 #[test]
+fn quote_price_returns_none_when_output_exceeds_pool_withdrawable() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let ed = 1000;
+
+		create_tokens_with_ed(user, vec![token_2.clone()], ed);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10_000_000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 10_000));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			1_000_000,
+			2_000,
+			1,
+			1,
+			user,
+		));
+		// Pool has 1_000_000 native and 2_000 of asset2 (min_balance=1000).
+		// Pool can only send out up to 2_000 - 1_000 = 1_000 of asset2 while staying alive.
+
+		// quote_price_tokens_for_exact_tokens: requesting exact output.
+		// Requesting 1001 of asset2 exceeds available (1000), must return None.
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				1001,
+				true,
+			),
+			None
+		);
+		// Also without fees.
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				1001,
+				false,
+			),
+			None
+		);
+		// Requesting exactly 1000 should succeed (at the boundary).
+		assert!(AssetConversion::quote_price_tokens_for_exact_tokens(
+			token_1.clone(),
+			token_2.clone(),
+			1000,
+			true,
+		)
+		.is_some());
+
+		// quote_price_exact_tokens_for_tokens: given input, computed output must fit.
+		// With reserves (1_000_000, 2_000), fee=0.3%, and max_output=1000:
+		// input=1_005_018, output=1001 > 1000, must return None.
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				1_005_018,
+				true,
+			),
+			None
+		);
+		// Also without fees.
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				1_005_018,
+				false,
+			),
+			None
+		);
+		// input=1_005_017, output=1000 ≤ 1000, must return Some.
+		assert!(AssetConversion::quote_price_exact_tokens_for_tokens(
+			token_1.clone(),
+			token_2.clone(),
+			1_005_017,
+			true,
+		)
+		.is_some());
+	});
+}
+
+#[test]
+fn quote_price_returns_none_swap_fails() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let ed = 1000;
+
+		create_tokens_with_ed(user, vec![token_2.clone()], ed);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10_000_000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 10_000));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			1_000_000,
+			2_000,
+			1,
+			1,
+			user,
+		));
+
+		// The AMM formula can compute a price for 1001 output (it's below reserve of 2000),
+		// but the pool can only deliver 1000 (2000 - 1000 min_balance).
+		// Verify the raw AMM math would produce a result...
+		let (reserve_in, reserve_out) =
+			AssetConversion::get_reserves(token_1.clone(), token_2.clone()).unwrap();
+		assert!(Pallet::<Test>::get_amount_in(&1001, &reserve_in, &reserve_out).is_ok());
+		// ...but the quote correctly returns None.
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				1001,
+				true,
+			),
+			None
+		);
+
+		// And verify the actual swap would indeed fail.
+		let swapper = 3;
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), swapper, 10_000_000));
+		assert_noop!(
+			AssetConversion::swap_tokens_for_exact_tokens(
+				RuntimeOrigin::signed(swapper),
+				bvec![token_1.clone(), token_2.clone()],
+				1001,
+				10_000_000,
+				swapper,
+				false,
+			),
+			TokenError::NotExpendable
+		);
+	});
+}
+
+#[test]
 fn can_swap_with_native() {
 	new_test_ext().execute_with(|| {
 		let user = 1;
@@ -1114,7 +1373,7 @@ fn can_not_swap_in_pool_with_no_liquidity_added_yet() {
 				user,
 				false,
 			),
-			Error::<Test>::PoolNotFound
+			Error::<Test>::PoolEmpty
 		);
 	});
 }
@@ -2490,4 +2749,76 @@ fn swap_credit_invalid_path() {
 				.unwrap_err();
 		assert_eq!(error, (expected_credit_in, Error::<Test>::InvalidPath.into()));
 	});
+}
+
+fn new_test_ext_with_genesis_pools(
+	pools: Vec<(NativeOrWithId<u32>, NativeOrWithId<u32>, u128, u128, u128)>,
+) -> sp_io::TestExternalities {
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+
+	pallet_balances::GenesisConfig::<Test> {
+		balances: vec![(1, 10000), (2, 20000)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+
+	pallet_assets::GenesisConfig::<Test, Instance1> {
+		assets: vec![(1, 0, true, 1)],
+		accounts: vec![(1, 1, 10000), (1, 2, 10000)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+
+	crate::GenesisConfig::<Test> { pools }.assimilate_storage(&mut t).unwrap();
+
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
+}
+
+#[test]
+fn genesis_pool_with_liquidity() {
+	use NativeOrWithId::{Native, WithId};
+	new_test_ext_with_genesis_pools(vec![(Native, WithId(1), 1, 1000, 2000)]).execute_with(|| {
+		assert_eq!(pools(), vec![(Native, WithId(1))]);
+		assert_eq!(pool_assets(), vec![0]);
+		// Provider's native balance decreased by pool contribution.
+		assert_eq!(balance(1, Native), 10000 - 1000);
+		// Provider's asset balance decreased by pool contribution.
+		assert_eq!(balance(1, WithId(1)), 10000 - 2000);
+		// Provider received LP tokens.
+		assert!(pool_balance(1, 0) > 0);
+		// No pool setup fee charged (balance is exactly 10000 - 1000).
+	});
+}
+
+#[test]
+fn genesis_pool_without_liquidity() {
+	use NativeOrWithId::{Native, WithId};
+	new_test_ext_with_genesis_pools(vec![(Native, WithId(1), 1, 0, 0)]).execute_with(|| {
+		assert_eq!(pools(), vec![(Native, WithId(1))]);
+		assert_eq!(pool_assets(), vec![0]);
+		assert_eq!(balance(1, Native), 10000);
+		assert_eq!(balance(1, WithId(1)), 10000);
+		assert_eq!(pool_balance(1, 0), 0);
+	});
+}
+
+#[test]
+#[should_panic(expected = "PoolExists")]
+fn genesis_duplicate_pool_panics() {
+	use NativeOrWithId::{Native, WithId};
+	new_test_ext_with_genesis_pools(vec![
+		(Native, WithId(1), 1, 1000, 2000),
+		(Native, WithId(1), 1, 1000, 2000),
+	]);
+}
+
+#[test]
+#[should_panic(expected = "InvalidAssetPair")]
+fn genesis_same_assets_panics() {
+	use NativeOrWithId::WithId;
+	new_test_ext_with_genesis_pools(vec![(WithId(1), WithId(1), 1, 1000, 2000)]);
 }

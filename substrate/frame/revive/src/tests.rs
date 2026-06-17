@@ -16,6 +16,7 @@
 // limitations under the License.
 
 mod block_hash;
+mod deposit_payment;
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
@@ -28,6 +29,7 @@ use crate::{
 	self as pallet_revive, AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call,
 	CodeInfoOf, Config, DelegateInfo, ExecOrigin as Origin, ExecReturnValue, GenesisConfig,
 	OriginFor, Pallet, PristineCode,
+	deposit_payment::PGasDeposit,
 	evm::{
 		fees::{BlockRatioFee, Info as FeeInfo},
 		runtime::{EthExtra, SetWeightLimit},
@@ -40,7 +42,10 @@ use frame_support::{
 	DefaultNoBound, assert_ok, derive_impl,
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
-	traits::{ConstU32, ConstU64, FindAuthor, OriginTrait, StorageVersion},
+	traits::{
+		AsEnsureOriginWithArg, ConstU32, ConstU128, FindAuthor, OriginTrait, StorageVersion,
+		tokens::imbalance::ResolveTo,
+	},
 	weights::{FixedFee, Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
 };
 use pallet_revive_fixtures::compile_module;
@@ -69,9 +74,10 @@ pub struct EthExtraImpl;
 
 impl EthExtra for EthExtraImpl {
 	type Config = Test;
-	type Extension = SignedExtra;
+	type ExtensionV0 = SignedExtra;
+	type ExtensionOtherVersions = sp_runtime::traits::InvalidVersion;
 
-	fn get_eth_extension(nonce: u32, tip: BalanceOf<Test>) -> Self::Extension {
+	fn get_eth_extension(nonce: u32, tip: BalanceOf<Test>) -> Self::ExtensionV0 {
 		(
 			frame_system::CheckNonce::from(nonce),
 			ChargeTransactionPayment::from(tip),
@@ -90,6 +96,9 @@ frame_support::construct_runtime!(
 		Contracts: pallet_revive,
 		Proxy: pallet_proxy,
 		TransactionPayment: pallet_transaction_payment,
+		Assets: pallet_assets,
+		AssetsHolder: pallet_assets_holder,
+		AssetsFreezer: pallet_assets_freezer,
 		Dummy: pallet_dummy
 	}
 );
@@ -130,16 +139,16 @@ pub mod test_utils {
 		let contract = <ContractInfo<Test>>::new(&address, 0, code_hash).unwrap();
 		AccountInfo::<Test>::insert_contract(&address, contract);
 	}
-	pub fn set_balance(who: &AccountIdOf<Test>, amount: u64) {
+	pub fn set_balance(who: &AccountIdOf<Test>, amount: u128) {
 		let _ = <Test as Config>::Currency::set_balance(who, amount);
 	}
-	pub fn get_balance(who: &AccountIdOf<Test>) -> u64 {
+	pub fn get_balance(who: &AccountIdOf<Test>) -> u128 {
 		<Test as Config>::Currency::free_balance(who)
 	}
 	pub fn get_balance_on_hold(
 		reason: &<Test as Config>::RuntimeHoldReason,
 		who: &AccountIdOf<Test>,
-	) -> u64 {
+	) -> u128 {
 		<Test as Config>::Currency::balance_on_hold(reason.into(), who)
 	}
 	pub fn get_contract(addr: &H160) -> ContractInfo<Test> {
@@ -156,14 +165,14 @@ pub mod test_utils {
 	}
 	pub fn contract_base_deposit(addr: &H160) -> BalanceOf<Test> {
 		let contract_info = self::get_contract(&addr);
-		let info_size = contract_info.encoded_size() as u64;
+		let info_size = contract_info.encoded_size() as u128;
 		let code_deposit = CodeHashLockupDepositPercent::get()
 			.mul_ceil(get_code_deposit(&contract_info.code_hash));
 		let deposit = DepositPerByte::get()
 			.saturating_mul(info_size)
 			.saturating_add(DepositPerItem::get())
 			.saturating_add(code_deposit);
-		let immutable_size = contract_info.immutable_data_len() as u64;
+		let immutable_size = contract_info.immutable_data_len() as u128;
 		if immutable_size > 0 {
 			let immutable_deposit = DepositPerByte::get()
 				.saturating_mul(immutable_size)
@@ -173,12 +182,12 @@ pub mod test_utils {
 			deposit
 		}
 	}
-	pub fn expected_deposit(code_len: usize) -> u64 {
+	pub fn expected_deposit(code_len: usize) -> u128 {
 		// For code_info, the deposit for max_encoded_len is taken.
-		let code_info_len = CodeInfo::<Test>::max_encoded_len() as u64;
+		let code_info_len = CodeInfo::<Test>::max_encoded_len() as u128;
 		// Calculate deposit to be reserved.
 		// We add 2 storage items: one for code, other for code_info
-		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len) +
+		DepositPerByte::get().saturating_mul(code_len as u128 + code_info_len) +
 			DepositPerItem::get().saturating_mul(2)
 	}
 	pub fn ensure_stored(code_hash: sp_core::H256) -> usize {
@@ -267,7 +276,7 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(2 * WEIGHT_REF_TIME_PER_SECOND, 10 * 1024 * 1024),
 		);
-	pub static ExistentialDeposit: u64 = 1;
+	pub static ExistentialDeposit: u128 = 1;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -276,14 +285,21 @@ impl frame_system::Config for Test {
 	type BlockWeights = BlockWeights;
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type AccountData = pallet_balances::AccountData<u64>;
+	type AccountData = pallet_balances::AccountData<u128>;
+	type OnNewAccount = crate::AutoMapper<Test>;
+	type OnKilledAccount = crate::AutoMapper<Test>;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
+	type Balance = u128;
 	type ExistentialDeposit = ExistentialDeposit;
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 }
 
 #[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
@@ -301,14 +317,14 @@ impl pallet_proxy::Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type ProxyType = ();
-	type ProxyDepositBase = ConstU64<1>;
-	type ProxyDepositFactor = ConstU64<1>;
+	type ProxyDepositBase = ConstU128<1>;
+	type ProxyDepositFactor = ConstU128<1>;
 	type MaxProxies = ConstU32<32>;
 	type WeightInfo = ();
 	type MaxPending = ConstU32<32>;
 	type CallHasher = BlakeTwo256;
-	type AnnouncementDepositBase = ConstU64<1>;
-	type AnnouncementDepositFactor = ConstU64<1>;
+	type AnnouncementDepositBase = ConstU128<1>;
+	type AnnouncementDepositFactor = ConstU128<1>;
 	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
@@ -319,9 +335,39 @@ parameter_types! {
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Test {
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
-	type WeightToFee = BlockRatioFee<2, 1, Self, u64>;
+	type WeightToFee = BlockRatioFee<2, 1, Self, u128>;
 	type LengthToFee = FixedFee<100, <Self as pallet_balances::Config>::Balance>;
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
+}
+
+#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
+impl pallet_assets::Config for Test {
+	type Balance = u128;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId32>>;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId32>;
+	type Holder = AssetsHolder;
+	type Freezer = AssetsFreezer;
+}
+
+impl pallet_assets_holder::Config for Test {
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeEvent = RuntimeEvent;
+}
+
+impl pallet_assets_freezer::Config for Test {
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeEvent = RuntimeEvent;
+}
+
+/// The PGAS asset id used by the test runtime.
+pub const PGAS_ASSET_ID: u32 = 42;
+
+parameter_types! {
+	pub const PGasAssetId: u32 = PGAS_ASSET_ID;
+	/// 10% of PGAS storage deposits are refunded, the rest is burned so users can't harvest
+	/// free PGAS allowance from storage churn.
+	pub const PGasRefundPercent: Perbill = Perbill::from_percent(10);
 }
 
 impl pallet_dummy::Config for Test {}
@@ -335,7 +381,7 @@ parameter_types! {
 
 impl Convert<Weight, BalanceOf<Self>> for Test {
 	fn convert(w: Weight) -> BalanceOf<Self> {
-		w.ref_time()
+		w.ref_time().into()
 	}
 }
 
@@ -369,7 +415,9 @@ where
 parameter_types! {
 	pub static AllowEvmBytecode: bool = true;
 	pub CheckingAccount: AccountId32 = BOB.clone();
+	pub BurnDestination: AccountId32 = AccountId32::new([42u8; 32]);
 	pub static DebugFlag: bool = false;
+	pub static AutoMapFlag: bool = false;
 }
 
 impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
@@ -385,7 +433,7 @@ impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
 impl Config for Test {
 	type Time = Timestamp;
 	type AddressMapper = AccountId32Mapper<Self>;
-	type Balance = u64;
+	type Balance = u128;
 	type Currency = Balances;
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
@@ -398,7 +446,11 @@ impl Config for Test {
 	type FindAuthor = Test;
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
+	type Deposit =
+		PGasDeposit<Test, Assets, AssetsHolder, AssetsFreezer, PGasAssetId, PGasRefundPercent>;
 	type DebugEnabled = DebugFlag;
+	type AutoMap = AutoMapFlag;
+	type OnBurn = ResolveTo<BurnDestination, Balances>;
 }
 
 impl TryFrom<RuntimeCall> for Call<Test> {
@@ -429,12 +481,14 @@ impl SetWeightLimit for RuntimeCall {
 }
 
 pub struct ExtBuilder {
-	existential_deposit: u64,
+	existential_deposit: u128,
 	storage_version: Option<StorageVersion>,
 	code_hashes: Vec<sp_core::H256>,
 	genesis_config: Option<crate::GenesisConfig<Test>>,
 	genesis_state_overrides: Option<Storage>,
 	next_fee_multiplier: Option<FixedU128>,
+	pgas_balances: Vec<(AccountId32, u128)>,
+	pgas_min_balance: u128,
 }
 
 impl Default for ExtBuilder {
@@ -446,6 +500,8 @@ impl Default for ExtBuilder {
 			genesis_config: Some(crate::GenesisConfig::<Test>::default()),
 			genesis_state_overrides: None,
 			next_fee_multiplier: None,
+			pgas_balances: vec![],
+			pgas_min_balance: 1,
 		}
 	}
 }
@@ -456,7 +512,7 @@ impl ExtBuilder {
 		self.genesis_config = config;
 		self
 	}
-	pub fn existential_deposit(mut self, existential_deposit: u64) -> Self {
+	pub fn existential_deposit(mut self, existential_deposit: u128) -> Self {
 		self.existential_deposit = existential_deposit;
 		self
 	}
@@ -466,6 +522,17 @@ impl ExtBuilder {
 	}
 	pub fn with_next_fee_multiplier(mut self, next_fee_multiplier: FixedU128) -> Self {
 		self.next_fee_multiplier = Some(next_fee_multiplier);
+		self
+	}
+	/// Endow the given accounts with PGAS at genesis. The PGAS asset is always
+	/// created; this just seeds initial balances.
+	pub fn with_pgas_balances(mut self, balances: Vec<(AccountId32, u128)>) -> Self {
+		self.pgas_balances = balances;
+		self
+	}
+	/// Override the PGAS asset's `min_balance` (existential deposit).
+	pub fn with_pgas_min_balance(mut self, min_balance: u128) -> Self {
+		self.pgas_min_balance = min_balance;
 		self
 	}
 	pub fn set_associated_consts(&self) {
@@ -488,6 +555,18 @@ impl ExtBuilder {
 
 		pallet_balances::GenesisConfig::<Test> {
 			balances: vec![(checking_account.clone(), 1_000_000_000_000)],
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+		pallet_assets::GenesisConfig::<Test> {
+			assets: vec![(PGAS_ASSET_ID, ALICE, true, self.pgas_min_balance)],
+			accounts: self
+				.pgas_balances
+				.iter()
+				.map(|(who, bal)| (PGAS_ASSET_ID, who.clone(), *bal))
+				.collect(),
 			..Default::default()
 		}
 		.assimilate_storage(&mut t)

@@ -32,7 +32,6 @@ use crate::{
 	TransactionParams,
 };
 
-use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof, storage_keys::inbound_lane_data_key,
@@ -49,7 +48,7 @@ use relay_substrate_client::{
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
-use std::{collections::VecDeque, convert::TryFrom, ops::RangeInclusive};
+use std::{collections::VecDeque, convert::TryFrom, ops::RangeInclusive, sync::Arc};
 
 /// Message receiving proof returned by the target Substrate node.
 pub type SubstrateMessagesDeliveryProof<C, L> =

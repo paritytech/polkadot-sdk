@@ -1,0 +1,54 @@
+title: "runtime: Allow cross-session relay parents for parachain candidates"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Modifies relay chain runtime to allow V3 parachain candidates referencing relay parents from older sessions, as long as
+      the session age does not exceed `max_relay_parent_session_age`.
+
+      Previously, relay parents were tracked in a flat buffer that was cleared on every session
+      change, meaning candidates could only reference relay parents from the current session.
+      This was a limitation for cross-session block production scenarios.
+
+      Key changes:
+      - `AllowedRelayParents` is now a `StorageDoubleMap` keyed by `(SessionIndex, Hash)`,
+        preserving relay parent info across session boundaries.
+      - Old sessions are pruned based on `max_relay_parent_session_age` on each new block.
+      - The scheduling parent tracker (`AllowedSchedulingParentsTracker`) remains session-local
+        and is cleared on session change as before.
+      - `paras_inherent` sanitization and `inclusion::process_candidates` now look up relay
+        parents across sessions using the candidate's `session_index` field (V3 descriptors).
+      - Includes a storage migration from the old `AllowedRelayParents` `StorageValue` to the
+        new `StorageDoubleMap` layout.
+
+migrations:
+  runtime:
+  - reference: polkadot-runtime-parachains
+    description: |
+      Migrates `AllowedRelayParents` from a `StorageValue<AllowedRelayParentsTracker>` to a
+      `StorageDoubleMap<SessionIndex, Hash, RelayParentInfo>`, and introduces
+      `AllowedSchedulingParents`, `OldestRelayParentSession` and `MinimumRelayParentNumber` storage items.
+
+crates:
+- name: polkadot-node-core-prospective-parachains
+  bump: patch
+- name: polkadot-node-core-runtime-api
+  bump: minor
+- name: polkadot-node-subsystem-types
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: major
+- name: cumulus-relay-chain-rpc-interface
+  bump: minor
+- name: cumulus-relay-chain-minimal-node
+  bump: minor
+- name: polkadot-primitives
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: polkadot-test-runtime
+  bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: minor

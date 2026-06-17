@@ -63,11 +63,11 @@ impl IsRequest for AttestedCandidateRequest {
 /// Responses as sent by collators.
 pub type CollationFetchingResponse = super::v1::CollationFetchingResponse;
 
-/// Request the advertised collation at that relay-parent.
+/// Request the advertised collation at that scheduling-parent.
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct CollationFetchingRequest {
 	/// Relay parent collation is built on top of.
-	pub relay_parent: Hash,
+	pub scheduling_parent: Hash,
 	/// The `ParaId` of the collation.
 	pub para_id: ParaId,
 	/// Candidate hash.

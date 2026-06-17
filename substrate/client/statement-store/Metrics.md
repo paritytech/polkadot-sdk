@@ -73,7 +73,7 @@ of statements in the database
 #### Submission Rate (Successful)
 - **Metric:** `rate(substrate_sub_statement_store_submitted_statements[$__rate_interval])`
 - **Type:** Counter (displayed as rate)
-- **What it measures:** Successful statement submissions per second.
+- **What it measures:** Successful new statement submissions per second.
 - **Why it matters:** Throughput metric it tells you how fast the system
   is processing valid work. Drops indicate upstream issues (fewer clients, network problems);
   spikes indicate bursts of activity.
@@ -84,8 +84,8 @@ of statements in the database
 #### Throughput vs Errors
 - **Metrics:**
   - `rate(submitted_statements)` (green = successful)
-  - `rate(validations_invalid)` (red = invalid)
-  - `rate(rejections_total)` (orange = rejected)
+  - `sum(rate(validations_invalid))` (red = invalid, summed over `reason` label)
+  - `sum(rate(rejections_total))` (orange = rejected, summed over `reason` label)
 - **What it measures:** Comparison of successful vs failed operations.
 - **Why it matters:** A healthy system shows green >> red + orange.
 - **How to read:** Overlapping lines ratio of green to red/orange is the key signal.
@@ -98,18 +98,25 @@ of statements in the database
 ### Errors & Rejections
 
 #### Invalid Validations Rate
-- **Metric:** `rate(substrate_sub_statement_store_validations_invalid[$__rate_interval])`
-- **Type:** Counter (displayed as rate)
-- **What it measures:** Statements that failed proof verification (BadProof, NoProof)
-  or exceeded encoding size limits during submission.
+- **Metric:** `rate(substrate_sub_statement_store_validations_invalid[$__rate_interval])` with label `reason`
+- **Type:** CounterVec (displayed as rate; use `sum by (reason)` for breakdown)
+- **Labels:** `reason` = `no_proof` | `bad_proof` | `encoding_too_large` | `already_expired`
+- **What it measures:** Statements that failed validation during submission, broken down by reason:
+  - **`no_proof`**: Statement has no account / missing proof so it cannot be attributed.
+  - **`bad_proof`**: Signature verification failed — tampered or malformed proof.
+  - **`encoding_too_large`**: Encoded statement exceeds `MAX_STATEMENT_SIZE`.
+  - **`already_expired`**: Statement's expiration timestamp was already in the past at submission time.
 - **Why it matters:** Invalid statements consume validation resources
   (CPU for signature verification) without producing useful work. High rates indicate
-  malicious actors submitting garbage, network corruption, or client bugs.
-- **How to read:** Line chart Any sustained rate above 0 warrants investigation.
+  malicious actors submitting garbage, network corruption, or client bugs. Breakdown by
+  reason tells you which class dominates.
+- **How to read:** Line chart. Any sustained rate above 0 warrants investigation. Use
+  `sum by (reason)` to identify the dominant failure mode.
 - **Problems it solves:**
-  - Detect ongoing attacks
-  - Detect client bugs
+  - Detect ongoing attacks (high `bad_proof`)
+  - Detect client bugs (high `encoding_too_large` or `no_proof`)
   - Detect network corruption
+  - Detect misconfigured clients submitting already-expired statements
 
 #### Rejection Reasons Breakdown
 - **Metric:** `rate(substrate_sub_statement_store_rejections_total[$__rate_interval])` with label `reason`
