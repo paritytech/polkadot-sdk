@@ -27,11 +27,12 @@ use frame_support::{
 	pallet_prelude::Weight,
 	parameter_types,
 	traits::{
-		tokens::GetSalary, ConstU16, ConstU32, IsInVec, TryMapSuccess, UncheckedOnRuntimeUpgrade,
+		ConstU16, ConstU32, Get, IsInVec, TryMapSuccess, UncheckedOnRuntimeUpgrade,
+		tokens::GetSalary,
 	},
 };
 use frame_system::EnsureSignedBy;
-use sp_runtime::{bounded_vec, traits::TryMorphInto, BuildStorage, DispatchError, DispatchResult};
+use sp_runtime::{BuildStorage, DispatchError, DispatchResult, bounded_vec, traits::TryMorphInto};
 
 use crate as pallet_core_fellowship;
 use crate::*;
@@ -549,9 +550,9 @@ fn active_changing_get_salary_works() {
 	});
 }
 
-struct DoubleBlockNumberConverter;
+struct TestBlockNumberConverter;
 impl pallet_core_fellowship::migration::v2::ConvertBlockNumber<u64, u64>
-	for DoubleBlockNumberConverter
+	for TestBlockNumberConverter
 {
 	fn equivalent_moment_in_time(local_moment: u64) -> u64 {
 		local_moment.saturating_add(1_000)
@@ -560,6 +561,14 @@ impl pallet_core_fellowship::migration::v2::ConvertBlockNumber<u64, u64>
 	fn equivalent_block_duration(local_duration: u64) -> u64 {
 		local_duration.saturating_mul(2)
 	}
+}
+
+type MigrateToV2 =
+	pallet_core_fellowship::migration::v2::MigrateToV2<Test, TestBlockNumberConverter>;
+
+fn db_weight(reads: u64, writes: u64) -> Weight {
+	<<Test as frame_system::Config>::DbWeight as Get<frame_support::weights::RuntimeDbWeight>>::get()
+		.reads_writes(reads, writes)
 }
 
 #[test]
@@ -576,11 +585,15 @@ fn migrate_v1_to_v2_converts_block_numbers() {
 			42,
 			MemberStatus { is_active: false, last_promotion: 12, last_proof: 34 },
 		);
+		pallet_core_fellowship::migration::v1::Member::<Test, ()>::insert(
+			43,
+			MemberStatus { is_active: true, last_promotion: 0, last_proof: 1 },
+		);
 
-		<pallet_core_fellowship::migration::v2::MigrateToV2<
-			Test,
-			DoubleBlockNumberConverter,
-		> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade();
+		assert_eq!(
+			<MigrateToV2 as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade(),
+			db_weight(4, 4)
+		);
 
 		let params = Params::<Test>::get();
 		assert_eq!(params.demotion_period.to_vec(), vec![2, 4, 6, 8, 10, 12, 14, 16, 18]);
@@ -590,6 +603,32 @@ fn migrate_v1_to_v2_converts_block_numbers() {
 		);
 		assert_eq!(params.offboard_timeout, 200);
 
+		assert_eq!(
+			Member::<Test>::get(42),
+			Some(MemberStatus { is_active: false, last_promotion: 1_012, last_proof: 1_034 })
+		);
+		assert_eq!(
+			Member::<Test>::get(43),
+			Some(MemberStatus { is_active: true, last_promotion: 1_000, last_proof: 1_001 })
+		);
+	});
+}
+
+#[test]
+fn migrate_v1_to_v2_without_params_only_converts_members() {
+	new_test_ext().execute_with(|| {
+		pallet_core_fellowship::migration::v1::Params::<Test, ()>::kill();
+		pallet_core_fellowship::migration::v1::Member::<Test, ()>::insert(
+			42,
+			MemberStatus { is_active: false, last_promotion: 12, last_proof: 34 },
+		);
+
+		assert_eq!(
+			<MigrateToV2 as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade(),
+			db_weight(2, 1)
+		);
+
+		assert!(!Params::<Test>::exists());
 		assert_eq!(
 			Member::<Test>::get(42),
 			Some(MemberStatus { is_active: false, last_promotion: 1_012, last_proof: 1_034 })
