@@ -19,7 +19,7 @@
 //! Speculative Messaging lets parachains exchange messages without waiting for
 //! full relay-chain confirmation. Each sender parachain accumulates its outgoing
 //! messages per destination into a Merkle Mountain Range (MMR) and commits the
-//! resulting root into a [`CommitmentSet`]. The relay chain then matches sender
+//! resulting root into a [`commitment_set::CommitmentSet`]. The relay chain then matches sender
 //! commitments against receiver expectations, allowing both sides to process
 //! messages speculatively and confirm them after the fact.
 //!
@@ -29,7 +29,7 @@
 //!   [`outgoing_message::OutgoingMessage::hash_leaf`] to produce the MMR leaf hash.
 //! - [`commitment_set::CommitmentSet`] — a sorted, bounded map from [`ParaId`] to MMR-root
 //!   [`Hash`], representing one block's outgoing commitments.
-//! - [`mmr::SpecMerge`] — a [`mmr_lib::Merge`] adapter that plugs domain-tagged blake2_256 hashing
+//! - [`mmr::SpecMerge`] — a `mmr_lib::Merge` adapter that plugs domain-tagged blake2_256 hashing
 //!   into the MMR library. Callers construct an accumulator directly with `mmr_lib::MMR<Hash,
 //!   SpecMerge, S>`.
 //! - Domain separation tags ([`LEAF_TAG`], [`INNER_TAG`], [`PEAK_TAG`]) and [`LEAF_VERSION`] — used
