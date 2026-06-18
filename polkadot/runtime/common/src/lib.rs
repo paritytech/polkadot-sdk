@@ -31,6 +31,7 @@ pub mod purchase;
 pub mod slot_range;
 pub mod slots;
 pub mod traits;
+pub mod xcm_weights;
 
 #[cfg(feature = "try-runtime")]
 pub mod try_runtime;
