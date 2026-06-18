@@ -29,9 +29,9 @@ std = [
 	"codec/std",
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
+	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-mmr-primitives/std",
 	"sp-runtime/std",
-	"scale-info/std",
 ]
