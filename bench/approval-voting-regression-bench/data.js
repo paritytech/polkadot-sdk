@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781701441877,
+  "lastUpdate": 1781804591451,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1c29484b6878c915dff83f7e27ab7ff0110bfd12",
-          "message": "[revive] Receipts should include failed tx (#10120)\n\nThe current implementation incorrectly accumulates receipts in storage\nto compute the `receipts_root`.\nHowever, when an extrinsic fails, all storage changes are reverted\ncausing the receipts to be lost.\n\nThis PR updates the handling of Ethereum transactions so that they\nalways succeed. The transaction logic is now wrapped in a top-level\nstorage transaction that rolls back all state changes on failure while\nstill producing a valid receipt.\n\nA new event `EthExtrinsicRevert` is emitted when an eth transaction\nreverts.\neth-rpc uses this event to set the correct receipt status.\n\nThis event also serves as a replacement for ExtrinsicFailed to make\ndebugging failed Ethereum transactions easier in tools like Polkadot.js.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-28T13:48:56Z",
-          "tree_id": "f4b49bafb4ad8768d76300f0f8b59abe1cff77ef",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1c29484b6878c915dff83f7e27ab7ff0110bfd12"
-        },
-        "date": 1761664238329,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63621.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52942.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.443171033730002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.719146158820908,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005987635840000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001861649,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4902005900400006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4871154975099996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.281381264610003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4554275421299994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9530586892799977,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4464202760800033,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001955851,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001861649,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001955851,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.5104233804425595,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "937316cac406ee38a91cde16d300075595f0b2b7",
+          "message": "changes to use zombie-bite (#12247)\n\nIn order to use [zombie-bite](https://github.com/paritytech/zombie-bite)\n(to fork and spawn a live network with the _state_) with the same client\nbinaries (for testing releases), we need to allow to set this value\n`DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION` to __1__. I think the\nbest approach here is to use an _env var_, since we _only_ need it for\nour use case. Cc @eskimor wdyt?\n\nThx!\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-18T16:07:10Z",
+          "tree_id": "e4da49aaa10cf6fa1b1532b045f59c33ea1652f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/937316cac406ee38a91cde16d300075595f0b2b7"
+        },
+        "date": 1781804565640,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63596.530000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7847737518799973,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7128874000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.193364901909916,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7943359165499262,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.378732544902724,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000021488869999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.415811139059991,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7103065232600008,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7698561711700007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000021535810000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000021535810000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000021488869999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00539399999,
             "unit": "seconds"
           }
         ]
