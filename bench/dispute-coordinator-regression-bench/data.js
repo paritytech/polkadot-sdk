@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781804662421,
+  "lastUpdate": 1781817569761,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1e3082252cf6914dfa2b5183a0179588c9c748a1",
-          "message": "pallet_revive: Only enforce EIP-3607 for dispatchables (#10100)\n\nThe EIP states that contract addresses cannot be the origin of a\ntransaction. However, we are enforcing this rule for all contract\nexecution (i.e all public function on the pallet). This is a problem for\ncode that uses `pallet_revive` and explicitly wants to allow this.\n\nThis PR now only enforces this check for dispatchables so that all the\n`bare_*` functions are unaffected.\n\nAs a drive-by a regrouped the functions on the `Pallet` so that the\npublic functions are no longer interleaved with the private ones. This\ngot mixed up when we resolved some merge conflicts.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-28T09:47:52Z",
-          "tree_id": "7dc492341b3a3482de0ba2acd50b128bef2f5561",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1e3082252cf6914dfa2b5183a0179588c9c748a1"
-        },
-        "date": 1761649501945,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026626999500000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008650474689999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005106190729999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009417116229999986,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bcafdb3d87eb3756f64bd1e830b0785d17a86812",
+          "message": "fix: expose try-runtime feature in bridge-hub-test-utils (#11211)\n\n# Description\n\nFixes and should probably close #10962\n\nWhen running `cargo test --features try-runtime` (or `--all-features`)\non BridgeHub runtimes, compilation failed with:\n\n```\nerror[E0046]: not all trait items implemented, missing: `try_successful_origin`\n  --> .../assets-common-0.27.1/src/foreign_creators.rs:29:1\n```\n\nThis happened because `bridge-hub-test-utils` did not declare a\n`try-runtime` feature, so the flag never propagated to\n`asset-test-utils` → `assets-common`.\nAs a result, `assets-common` was compiled without `try-runtime`, while\n`frame-support` had it enabled → the `try_successful_origin` method\n(guarded by `#[cfg(feature = \"try-runtime\")]`) was missing, causing the\ntrait implementation error.\n\n**Changes:**\n- Added a `try-runtime` feature to `bridge-hub-test-utils/Cargo.toml`\nthat forwards the flag **only** to the 16 dependencies that actually\ndeclare/support it.\n- Activated the new feature in the two test runtimes that depend on it:\n- `cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo/Cargo.toml`\n-\n`cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend/Cargo.toml`\n\nAfter these changes, `cargo check --features try-runtime` and `cargo\ntest --release --locked --all-features` (with\n`SKIP_PALLET_REVIVE_FIXTURES=1`) pass cleanly on both rococo and westend\nruntimes.\n\nThe real BridgeHub Kusama & Polkadot runtimes ([in\npolkadot-fellows/runtimes)](https://github.com/polkadot-fellows/runtimes/tree/main/system-parachains/bridge-hubs)\nwill need the same one-line activation in their `try-runtime` feature\nlists as seen in this\n[error](https://github.com/polkadot-fellows/runtimes/actions/runs/21582236468/job/62239467989?pr=1065#step:10:21)\n(planned as a follow-up PR).\n\n## Integration\n\nDownstream projects / other runtimes that depend on\n`bridge-hub-test-utils` as a dev-dependency and want to use\n`try-runtime` tests should add:\n\n```toml\ntry-runtime = [\n    # ... existing entries ...\n    \"bridge-hub-test-utils/try-runtime\",\n    # ...\n]\n```\n\nin their runtime `Cargo.toml`.  \nThis is the same pattern already used by `asset-test-utils`,\n`parachains-common`, etc.\n\nNo crate publish is required this is only a feature addition in a\ntest-utils crate.\n\n## Review Notes\n\n- The list of crates that receive `try-runtime` forwarding matches\nexactly the crates in polkadot-sdk that declare the feature (verified\nagainst your earlier table: 16 crates with, 9 without).\n- No new dependencies or breaking changes introduced.\n- Tests were verified locally with:\n  ```bash\nSKIP_PALLET_REVIVE_FIXTURES=1 cargo test -p bridge-hub-rococo-runtime\n--release --locked -q --all-features\nSKIP_PALLET_REVIVE_FIXTURES=1 cargo test -p bridge-hub-westend-runtime\n--release --locked -q --all-features\n  ```\n→ all suites pass (some expected ERROR logs from bridge/XCM simulation\ntests are normal in emulated environment).\n\nNo leftover TODOs.\n\n# Checklist\n\n- [x] My PR includes a detailed description as outlined above.\n- [x] My PR follows the labeling requirements (suggest: `T6-XCM`,\n`D2-trivial`, `I5-enhancement` or similar)\n- [ ] I have made corresponding changes to the documentation (none\nneeded — this is test-utils internal)\n- [x] I have added / verified tests that prove my fix is effective\n(local test runs pass)\n\n## Bot Commands\n\nYou can use the following bot commands in comments to help manage your\nPR:\n\n**Labeling (Self-service for contributors):**\n* `/cmd label T1-FRAME` - Add a single label\n* `/cmd label T1-FRAME R0-no-crate-publish-required` - Add multiple\nlabels\n* `/cmd label T6-XCM D2-substantial I5-enhancement` - Add multiple\nlabels at once\n* See [label\ndocumentation](https://paritytech.github.io/labels/doc_polkadot-sdk.html)\nfor all available labels\n\n**Other useful commands:**\n* `/cmd fmt` - Format code (cargo +nightly fmt and taplo)\n* `/cmd prdoc` - Generate PR documentation\n* `/cmd bench` - Run benchmarks\n* `/cmd update-ui` - Update UI tests\n* `/cmd --help` - Show help for all available commands\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: Michal Kucharczyk <1728078+michalkucharczyk@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-06-18T19:19:23Z",
+          "tree_id": "5f305309ac889de4afb3061a9dcc8f0661641b12",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bcafdb3d87eb3756f64bd1e830b0785d17a86812"
+        },
+        "date": 1781817544453,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010334687969999989,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009254162879999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00257354459,
             "unit": "seconds"
           }
         ]
