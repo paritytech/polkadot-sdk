@@ -2580,8 +2580,11 @@ where
 
 		let contract_address = T::AddressMapper::to_address(&parent.account_id);
 
-		// EIP-7702: delegated EOAs cannot be destroyed via the system precompile
-		ensure!(!AccountInfo::<T>::is_delegated(&contract_address), Error::<T>::ContractNotFound);
+		// EIP-7702: delegated EOAs cannot be destroyed via the system precompile.
+		ensure!(
+			!AccountInfo::<T>::is_delegated(&contract_address),
+			Error::<T>::CannotTerminateDelegatedAccount,
+		);
 
 		let info = parent.contract_info();
 		let trie_id = info.trie_id.clone();

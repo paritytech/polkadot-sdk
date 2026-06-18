@@ -654,6 +654,9 @@ pub mod pallet {
 		/// [`NativeDepositOf`] entries from a previously terminated contract that the deletion
 		/// queue has not yet drained.
 		PendingDepositCleanup = 0x43,
+		/// `seal_terminate` was invoked on an EIP-7702 delegated EOA. Delegated accounts
+		/// cannot be torn down via the contract-termination path.
+		CannotTerminateDelegatedAccount = 0x44,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,

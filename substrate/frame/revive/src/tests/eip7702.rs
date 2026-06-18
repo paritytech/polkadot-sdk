@@ -1166,6 +1166,102 @@ fn selfdestruct_on_delegated_account() {
 	});
 }
 
+/// Calling the system precompile's `terminate` on an EIP-7702 delegated EOA must revert.
+/// Distinct from `selfdestruct_on_delegated_account`, which covers the EVM `SELFDESTRUCT`
+/// opcode path (`terminate_if_same_tx`); this exercises the system precompile path
+/// (`terminate_caller`).
+///
+/// Note: only the `METHOD_PRECOMPILE` (direct call) case specifically validates the new
+/// `CannotTerminateDelegatedAccount` guard. `METHOD_DELEGATE_CALL` short-circuits earlier on
+/// the pre-existing `PrecompileDelegateDenied` guard (the precompile-itself-being-
+/// delegate-called check). Both cases revert; only one is load-bearing for this fix.
+fn assert_system_terminate_on_delegated_reverts(method: u8, ctx: &str) {
+	let (code, _) = compile_module_with_type("Terminate", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+
+		// Deploy with skip=true so the constructor doesn't selfdestruct.
+		let contract = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(
+				Terminate::constructorCall {
+					skip: true,
+					method: 0,
+					beneficiary: H160::zero().0.into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_contract();
+
+		// Fund Alice and delegate her to the Terminate contract.
+		let alice_balance = 5_000_000u128;
+		let alice_id = <Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&alice_id, alice_balance);
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, contract.addr).unwrap();
+		assert!(AccountInfo::<Test>::is_delegated(&ALICE_ADDR));
+
+		let beneficiary = DJANGO_ADDR;
+		let beneficiary_id = <Test as Config>::AddressMapper::to_account_id(&beneficiary);
+		let min_balance = Contracts::min_balance();
+		let _ =
+			<<Test as Config>::Currency as Mutate<_>>::set_balance(&beneficiary_id, min_balance);
+
+		let alice_balance_before = <Test as Config>::Currency::free_balance(&alice_id);
+		let beneficiary_balance_before = <Test as Config>::Currency::free_balance(&beneficiary_id);
+
+		// Both METHOD_PRECOMPILE (0) and METHOD_DELEGATE_CALL (1) end up in
+		// `terminate_caller` where the `is_delegated` guard fires.
+		let result = builder::bare_call(ALICE_ADDR)
+			.data(
+				Terminate::terminateCall { method, beneficiary: beneficiary.0.into() }.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(
+			result.did_revert(),
+			"system-precompile terminate on a delegated EOA must revert ({ctx})",
+		);
+		// Decode the revert string. `try_to_revert` maps each rejected case to a specific
+		// message; matching the exact string nails down *which* guard fired.
+		let revert_msg = crate::evm::decode_revert_reason(&result.data)
+			.unwrap_or_else(|| panic!("expected an ABI-encoded Error(string) revert ({ctx})"));
+		let expected_msg = if method == 0 {
+			// METHOD_PRECOMPILE: our new `CannotTerminateDelegatedAccount` guard.
+			"revert: cannot terminate an EIP-7702 delegated account via the terminate pre-compile"
+		} else {
+			// METHOD_DELEGATE_CALL: short-circuits on the pre-existing
+			// `PrecompileDelegateDenied` guard before reaching our new one.
+			"revert: illegal to call this pre-compile via delegate call"
+		};
+		assert_eq!(revert_msg, expected_msg, "wrong revert reason ({ctx})");
+
+		// Side effects must not have happened: no balance moved, delegation intact.
+		assert_eq!(
+			<Test as Config>::Currency::free_balance(&alice_id),
+			alice_balance_before,
+			"Alice's balance must be unchanged after the reverted terminate ({ctx})",
+		);
+		assert_eq!(
+			<Test as Config>::Currency::free_balance(&beneficiary_id),
+			beneficiary_balance_before,
+			"beneficiary's balance must be unchanged after the reverted terminate ({ctx})",
+		);
+		assert!(
+			AccountInfo::<Test>::is_delegated(&ALICE_ADDR),
+			"delegation must survive the failed terminate ({ctx})",
+		);
+	});
+}
+
+#[test]
+fn system_terminate_via_precompile_on_delegated_account_reverts() {
+	assert_system_terminate_on_delegated_reverts(0, "METHOD_PRECOMPILE direct call");
+}
+
+#[test]
+fn system_terminate_via_delegatecall_on_delegated_account_reverts() {
+	assert_system_terminate_on_delegated_reverts(1, "METHOD_DELEGATE_CALL via delegatecall");
+}
+
 /// Delegating to a contract charges a storage deposit; clearing refunds it.
 #[test]
 fn delegation_deposit_lifecycle() {
