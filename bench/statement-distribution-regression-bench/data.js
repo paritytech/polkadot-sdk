@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781701477773,
+  "lastUpdate": 1781804627041,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "diego2737@gmail.com",
-            "name": "Diego",
-            "username": "dimartiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "51cf7d605f93fb047f25b9270df66244cb7bfc87",
-          "message": "Snowbridge V2: Add generic AggregateMessageOrigin (#8106)\n\n# Description\n\nThis PR introduces a generic `AggregateMessageOrigin` in Snowbridge V2\nto provide a more flexible mechanism for message-queue origin\nrecognition and handling. This approach aims to support broader use\ncases beyond parachains. By enabling custom origins, scenarios like solo\nchains, can build specialized message routing and processing making use\nof this configuration.\n\n## Motivation\n\n- **Enhanced Integration**: While Snowbridge traditionally focuses on\nbridging parachains, there is also a need to send messages from various\nsubstrate-based chains (e.g., solo chains) and in different contexts.\nThis change expands the protocol's ability to handle multiple, distinct\norigin types.\n\n- **Custom Command Structures**: Some projects need to incorporate\ncustom Snowbridge commands or message structures, which cannot be\nprocessed by the default outbound queue. By introducing a more generic\norigin, these commands can be cleanly differentiated and securely\nprocessed.\n\n- **Flexibility**: Parachains, solo chains, or any environment running\nSnowbridge benefit from a uniform pattern to handle both common and\ncustom message processing.\n\n## Use Case\n\nConsider a scenario where you need to send messages to Ethereum directly\nfrom your runtime:\n\n- You have your own set of commands or data structures different from\nthose provided by the traditional Snowbridge outbound queue.\n- You want to introduce a custom message processor that specifically\nhandles your commands.\n- You need a distinct origin to differentiate your messages from\nstandard Snowbridge traffic.\n\nBy using the `AggregateMessageOrigin`, you can verify whether a message\ncomes from a parachain, from Snowbridge itself, or from a custom origin.\nThis is especially relevant in solo chain contexts, where you might not\nrely on the parachain assumptions but still want to leverage a robust\nbridging framework.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-10-27T14:19:17Z",
-          "tree_id": "b1c6a130b7f949e8e9cd69a20f2fc3c48bbca09c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/51cf7d605f93fb047f25b9270df66244cb7bfc87"
-        },
-        "date": 1761578940475,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.94999999999993,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04414707947799996,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03487939203,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038873817878000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "937316cac406ee38a91cde16d300075595f0b2b7",
+          "message": "changes to use zombie-bite (#12247)\n\nIn order to use [zombie-bite](https://github.com/paritytech/zombie-bite)\n(to fork and spawn a live network with the _state_) with the same client\nbinaries (for testing releases), we need to allow to set this value\n`DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION` to __1__. I think the\nbest approach here is to use an _env var_, since we _only_ need it for\nour use case. Cc @eskimor wdyt?\n\nThx!\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-18T16:07:10Z",
+          "tree_id": "e4da49aaa10cf6fa1b1532b045f59c33ea1652f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/937316cac406ee38a91cde16d300075595f0b2b7"
+        },
+        "date": 1781804601350,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.13,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03855830699999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08322398322199996,
             "unit": "seconds"
           }
         ]
