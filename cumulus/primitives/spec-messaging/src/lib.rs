@@ -19,25 +19,23 @@
 //! Speculative Messaging lets parachains exchange messages without waiting for
 //! full relay-chain confirmation. Each sender parachain accumulates its outgoing
 //! messages per destination into a Merkle Mountain Range (MMR) and commits the
-//! resulting root into a [`commitment_set::CommitmentSet`]. The relay chain then matches sender
-//! commitments against receiver expectations, allowing both sides to process
+//! resulting root into a `CommitmentSet` (defined in `polkadot-primitives`). The relay chain
+//! then matches sender commitments against receiver expectations, allowing both sides to process
 //! messages speculatively and confirm them after the fact.
 //!
 //! # What this crate provides
 //!
 //! - [`outgoing_message::OutgoingMessage`] — the message type; call
 //!   [`outgoing_message::OutgoingMessage::hash_leaf`] to produce the MMR leaf hash.
-//! - [`commitment_set::CommitmentSet`] — a sorted, bounded map from [`ParaId`] to MMR-root
-//!   [`Hash`], representing one block's outgoing commitments.
-//! - [`mmr::SpecMerge`] — a `mmr_lib::Merge` adapter that plugs domain-tagged blake2_256 hashing
-//!   into the MMR library. Callers construct an accumulator directly with `mmr_lib::MMR<Hash,
-//!   SpecMerge, S>`.
-//! - Domain separation tags ([`LEAF_TAG`], [`INNER_TAG`], [`PEAK_TAG`]) and [`LEAF_VERSION`] — used
-//!   in leaf and node hashing to prevent cross-context collisions.
+//! - [`mmr::SpecMerge`] — a `mmr_lib::Merge` adapter that plugs domain-tagged hashing into
+//!   the MMR library. Callers construct an accumulator directly with
+//!   `mmr_lib::MMR<Hash, SpecMerge<SpecHasher>, S>`.
+//! - [`mmr::SpecHasher`] — the canonical hasher alias (`BlakeTwo256`); swap in one place to
+//!   change the hash function across the entire protocol.
+//! - Domain separation tags ([`LEAF_TAG`], [`INNER_TAG`], [`PEAK_TAG`]) and [`LEAF_VERSION`] —
+//!   used in leaf and node hashing to prevent cross-context collisions.
 //!
 //! [`mmr_lib`]: sp_mmr_primitives::mmr_lib
-//! [`ParaId`]: polkadot_parachain_primitives::primitives::Id
-//! [`Hash`]: polkadot_core_primitives::Hash
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
