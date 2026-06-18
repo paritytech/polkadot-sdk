@@ -2200,6 +2200,7 @@ impl pallet_core_fellowship::Config for Runtime {
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<16_384>;
 	type MaxRank = ConstU16<9>;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {

@@ -26,7 +26,9 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically, ord_parameter_types,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{tokens::GetSalary, ConstU16, ConstU32, IsInVec, TryMapSuccess},
+	traits::{
+		tokens::GetSalary, ConstU16, ConstU32, IsInVec, TryMapSuccess, UncheckedOnRuntimeUpgrade,
+	},
 };
 use frame_system::EnsureSignedBy;
 use sp_runtime::{bounded_vec, traits::TryMorphInto, BuildStorage, DispatchError, DispatchResult};
@@ -120,6 +122,7 @@ impl Config for Test {
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<1024>;
 	type MaxRank = ConstU16<9>;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -543,5 +546,53 @@ fn active_changing_get_salary_works() {
 			assert_ok!(CoreFellowship::set_active(signed(10 + i), true));
 			assert_eq!(CoreFellowship::get_salary(i as u16, &(10 + i)), i * 10);
 		}
+	});
+}
+
+struct DoubleBlockNumberConverter;
+impl pallet_core_fellowship::migration::v2::ConvertBlockNumber<u64, u64>
+	for DoubleBlockNumberConverter
+{
+	fn equivalent_moment_in_time(local_moment: u64) -> u64 {
+		local_moment.saturating_add(1_000)
+	}
+
+	fn equivalent_block_duration(local_duration: u64) -> u64 {
+		local_duration.saturating_mul(2)
+	}
+}
+
+#[test]
+fn migrate_v1_to_v2_converts_block_numbers() {
+	new_test_ext().execute_with(|| {
+		pallet_core_fellowship::migration::v1::Params::<Test, ()>::put(ParamsType {
+			active_salary: bounded_vec![10, 20, 30, 40, 50, 60, 70, 80, 90],
+			passive_salary: bounded_vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+			demotion_period: bounded_vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+			min_promotion_period: bounded_vec![10, 20, 30, 40, 50, 60, 70, 80, 90],
+			offboard_timeout: 100,
+		});
+		pallet_core_fellowship::migration::v1::Member::<Test, ()>::insert(
+			42,
+			MemberStatus { is_active: false, last_promotion: 12, last_proof: 34 },
+		);
+
+		<pallet_core_fellowship::migration::v2::MigrateToV2<
+			Test,
+			DoubleBlockNumberConverter,
+		> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade();
+
+		let params = Params::<Test>::get();
+		assert_eq!(params.demotion_period.to_vec(), vec![2, 4, 6, 8, 10, 12, 14, 16, 18]);
+		assert_eq!(
+			params.min_promotion_period.to_vec(),
+			vec![20, 40, 60, 80, 100, 120, 140, 160, 180]
+		);
+		assert_eq!(params.offboard_timeout, 200);
+
+		assert_eq!(
+			Member::<Test>::get(42),
+			Some(MemberStatus { is_active: false, last_promotion: 1_012, last_proof: 1_034 })
+		);
 	});
 }
