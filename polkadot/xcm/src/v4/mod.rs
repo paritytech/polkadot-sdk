@@ -1381,10 +1381,10 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 				weight_limit,
 				check_origin: check_origin.map(|origin| origin.try_into()).transpose()?,
 			},
-			InitiateTransfer { .. }
-			| PayFees { .. }
-			| SetHints { .. }
-			| ExecuteWithOrigin { .. } => {
+			InitiateTransfer { .. } |
+			PayFees { .. } |
+			SetHints { .. } |
+			ExecuteWithOrigin { .. } => {
 				tracing::debug!(target: "xcm::versions::v5tov4", ?new_instruction, "not supported by v4");
 				return Err(());
 			},

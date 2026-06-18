@@ -105,19 +105,19 @@ impl Dispatchable for TestCall {
 	fn dispatch(self, origin: Self::RuntimeOrigin) -> DispatchResultWithPostInfo {
 		let mut post_info = PostDispatchInfo::default();
 		let maybe_actual = match self {
-			TestCall::OnlyRoot(_, maybe_actual)
-			| TestCall::OnlySigned(_, maybe_actual, _)
-			| TestCall::OnlyParachain(_, maybe_actual, _)
-			| TestCall::Any(_, maybe_actual) => maybe_actual,
+			TestCall::OnlyRoot(_, maybe_actual) |
+			TestCall::OnlySigned(_, maybe_actual, _) |
+			TestCall::OnlyParachain(_, maybe_actual, _) |
+			TestCall::Any(_, maybe_actual) => maybe_actual,
 		};
 		post_info.actual_weight = maybe_actual;
 		if match (&origin, &self) {
 			(TestOrigin::Parachain(i), TestCall::OnlyParachain(_, _, Some(j))) => i == j,
 			(TestOrigin::Signed(i), TestCall::OnlySigned(_, _, Some(j))) => i == j,
-			(TestOrigin::Root, TestCall::OnlyRoot(..))
-			| (TestOrigin::Parachain(_), TestCall::OnlyParachain(_, _, None))
-			| (TestOrigin::Signed(_), TestCall::OnlySigned(_, _, None))
-			| (_, TestCall::Any(..)) => true,
+			(TestOrigin::Root, TestCall::OnlyRoot(..)) |
+			(TestOrigin::Parachain(_), TestCall::OnlyParachain(_, _, None)) |
+			(TestOrigin::Signed(_), TestCall::OnlySigned(_, _, None)) |
+			(_, TestCall::Any(..)) => true,
 			_ => false,
 		} {
 			Ok(post_info)
@@ -130,10 +130,10 @@ impl Dispatchable for TestCall {
 impl GetDispatchInfo for TestCall {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		let call_weight = *match self {
-			TestCall::OnlyRoot(estimate, ..)
-			| TestCall::OnlyParachain(estimate, ..)
-			| TestCall::OnlySigned(estimate, ..)
-			| TestCall::Any(estimate, ..) => estimate,
+			TestCall::OnlyRoot(estimate, ..) |
+			TestCall::OnlyParachain(estimate, ..) |
+			TestCall::OnlySigned(estimate, ..) |
+			TestCall::Any(estimate, ..) => estimate,
 		};
 		DispatchInfo { call_weight, ..Default::default() }
 	}
@@ -779,15 +779,15 @@ impl AssetLock for TestAssetLock {
 		let owner_assets = assets(owner.clone());
 		let has_asset = match &asset.fun {
 			Fungibility::Fungible(amount) => owner_assets.iter().any(|a| {
-				a.id == asset.id
-					&& match a.fun {
+				a.id == asset.id &&
+					match a.fun {
 						Fungibility::Fungible(have) => have >= *amount,
 						_ => false,
 					}
 			}),
 			Fungibility::NonFungible(instance) => owner_assets.iter().any(|a| {
-				a.id == asset.id
-					&& match &a.fun {
+				a.id == asset.id &&
+					match &a.fun {
 						Fungibility::NonFungible(have_instance) => have_instance == instance,
 						_ => false,
 					}
@@ -856,8 +856,8 @@ impl AssetExchange for TestAssetExchange {
 		let want_vec: Vec<Asset> = want.clone().into_inner();
 		for want_asset in &want_vec {
 			let found = have_vec.iter().any(|a| {
-				a.id == want_asset.id
-					&& match (&a.fun, &want_asset.fun) {
+				a.id == want_asset.id &&
+					match (&a.fun, &want_asset.fun) {
 						(Fungibility::Fungible(have_amt), Fungibility::Fungible(want_amt)) => {
 							have_amt >= want_amt
 						},
@@ -910,8 +910,8 @@ impl AssetExchange for TestAssetExchange {
 					Fungibility::NonFungible(instance) => {
 						// Remove the exact non-fungible
 						have_vec.retain(|a| {
-							!(a.id == get_asset.id
-								&& matches!(&a.fun, Fungibility::NonFungible(inst) if inst == instance))
+							!(a.id == get_asset.id &&
+								matches!(&a.fun, Fungibility::NonFungible(inst) if inst == instance))
 						});
 					},
 				}
@@ -955,8 +955,8 @@ impl AssetExchange for TestAssetExchange {
 		// Check if we have what they want
 		for want_asset in &want_vec {
 			let found = have_vec.iter().any(|a| {
-				a.id == want_asset.id
-					&& match (&a.fun, &want_asset.fun) {
+				a.id == want_asset.id &&
+					match (&a.fun, &want_asset.fun) {
 						(Fungibility::Fungible(have_amt), Fungibility::Fungible(want_amt)) => {
 							have_amt >= want_amt
 						},
@@ -1038,39 +1038,6 @@ impl Config for TestConfig {
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
 	type XcmRecorder = ();
-}
-
-#[derive(xcm_procedural::XcmWeightInfoTrait)]
-pub enum MacroTestInstruction<Call> {
-	ClearOrigin,
-	WithdrawAsset(Assets),
-	TransferAsset { assets: Assets, beneficiary: Location },
-	SetAppendix(Xcm<Call>),
-}
-
-pub struct MacroTestWeightInfo;
-
-impl<Call> XcmWeightInfo<Call> for MacroTestWeightInfo {
-	fn clear_origin() -> Weight {
-		Weight::from_parts(11, 11)
-	}
-
-	fn withdraw_asset(assets: &Assets) -> Weight {
-		let id = if assets.len() == 0 { 101 } else { 102 };
-		Weight::from_parts(id, id)
-	}
-
-	fn transfer_asset(assets: &Assets, beneficiary: &Location) -> Weight {
-		let assets_tag = if assets.len() == 0 { 0 } else { 10 };
-		let beneficiary_tag = if beneficiary == &Here.into() { 1 } else { 2 };
-		let id = 200 + assets_tag + beneficiary_tag;
-		Weight::from_parts(id, id)
-	}
-
-	fn set_appendix(xcm: &Xcm<Call>) -> Weight {
-		let id = 300 + xcm.0.len() as u64;
-		Weight::from_parts(id, id)
-	}
 }
 
 pub fn fungible_multi_asset(location: Location, amount: u128) -> Asset {

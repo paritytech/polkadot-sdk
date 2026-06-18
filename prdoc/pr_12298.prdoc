@@ -1,10 +1,11 @@
-title: Autogenerate GetWeight impl for SCM Instruction
+title: Autogenerate GetWeight impl for XCM Instruction
 doc:
-  - audience: [Tuntime User, Runtime Dev]
+  - audience: [Runtime Dev]
     description: |
-      XCMWeightInfo impl block can be reudndant to update, 
-      include a macro to generate impl block alongisde Trait definitions.
+      XCMWeightInfo impl block can be reudndant to update, include a macro to generate impl block alongisde Trait definitions.
 
 crates:
-  - name: staging-xcm-builder
+  - name: xcm-procedural
+    bump: minor
+  - name: staging-xcm
     bump: minor

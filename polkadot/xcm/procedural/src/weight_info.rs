@@ -17,6 +17,30 @@
 use inflector::Inflector;
 use quote::format_ident;
 
+fn generic_ident_is_taken(generics: &syn::Generics, ident: &syn::Ident) -> bool {
+	generics.params.iter().any(|param| match param {
+		syn::GenericParam::Type(ty) => ty.ident == *ident,
+		syn::GenericParam::Const(c) => c.ident == *ident,
+		syn::GenericParam::Lifetime(_) => false,
+	})
+}
+
+fn pick_weight_info_provider_ident(generics: &syn::Generics) -> syn::Ident {
+	let preferred = format_ident!("W");
+	if !generic_ident_is_taken(generics, &preferred) {
+		return preferred;
+	}
+
+	let mut idx = 1usize;
+	loop {
+		let candidate = format_ident!("W{}", idx);
+		if !generic_ident_is_taken(generics, &candidate) {
+			return candidate;
+		}
+		idx = idx.saturating_add(1);
+	}
+}
+
 pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let input: syn::DeriveInput = match syn::parse(item) {
 		Ok(input) => input,
@@ -25,17 +49,20 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 	let syn::DeriveInput { generics, data, ident, .. } = input;
 	let trait_generics = generics.clone();
+	let weight_info_provider_ident = pick_weight_info_provider_ident(&trait_generics);
 	let enum_ty_generics = {
 		let (_, ty_generics, _) = trait_generics.split_for_impl();
 		quote::quote!(#ty_generics)
 	};
 	let (impl_generics, where_clause) = {
 		let mut impl_source_generics = trait_generics.clone();
-		impl_source_generics.params.push(syn::parse_quote!(W));
+		impl_source_generics.params.push(syn::parse_quote!(#weight_info_provider_ident));
 		impl_source_generics
 			.make_where_clause()
 			.predicates
-			.push(syn::parse_quote!(W: XcmWeightInfo #enum_ty_generics));
+			.push(syn::parse_quote!(
+				#weight_info_provider_ident: XcmWeightInfo #enum_ty_generics
+			));
 		let (impl_generics, _, where_clause) = impl_source_generics.split_for_impl();
 		(quote::quote!(#impl_generics), quote::quote!(#where_clause))
 	};
@@ -46,37 +73,37 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 			let methods = variants
 				.iter()
 				.map(|syn::Variant { ident, fields, .. }| {
-				let snake_cased_ident = format_ident!("{}", ident.to_string().to_snake_case());
-				let ref_fields =
-					fields.iter().enumerate().map(|(idx, syn::Field { ident, ty, .. })| {
-						let field_name = ident.clone().unwrap_or_else(|| format_ident!("_{}", idx));
-						let field_ty = match ty.clone() {
-							syn::Type::Reference(r) => {
-								// If the type is already a reference, do nothing
-								quote::quote!(#r)
-							},
-							t => {
-								// Otherwise, make it a reference
-								quote::quote!(&#t)
-							},
-						};
+					let snake_cased_ident = format_ident!("{}", ident.to_string().to_snake_case());
+					let ref_fields =
+						fields.iter().enumerate().map(|(idx, syn::Field { ident, ty, .. })| {
+							let field_name =
+								ident.clone().unwrap_or_else(|| format_ident!("_{}", idx));
+							let field_ty = match ty.clone() {
+								syn::Type::Reference(r) => {
+									// If the type is already a reference, do nothing
+									quote::quote!(#r)
+								},
+								t => {
+									// Otherwise, make it a reference
+									quote::quote!(&#t)
+								},
+							};
 
-						quote::quote!(#field_name: #field_ty,)
-					});
-				quote::quote!(fn #snake_cased_ident( #(#ref_fields)* ) -> Weight;)
+							quote::quote!(#field_name: #field_ty,)
+						});
+					quote::quote!(fn #snake_cased_ident( #(#ref_fields)* ) -> Weight;)
 				})
 				.collect::<Vec<_>>();
 			let match_arms = variants.into_iter().map(
-				|syn::Variant {
-					 ident: variant_ident,
-					 fields,
-					 ..
-				 }| {
+				|syn::Variant { ident: variant_ident, fields, .. }| {
 					let snake_cased_ident =
 						format_ident!("{}", variant_ident.to_string().to_snake_case());
 					match fields {
 						syn::Fields::Unit => {
-							quote::quote!(#ident::#variant_ident => W::#snake_cased_ident(),)
+							quote::quote!(
+								#ident::#variant_ident =>
+									#weight_info_provider_ident::#snake_cased_ident(),
+							)
 						},
 						syn::Fields::Unnamed(fields_unnamed) => {
 							let field_names = (0..fields_unnamed.unnamed.len())
@@ -84,7 +111,7 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 								.collect::<Vec<_>>();
 							quote::quote!(
 								#ident::#variant_ident( #(#field_names),* ) =>
-									W::#snake_cased_ident( #(#field_names),* ),
+									#weight_info_provider_ident::#snake_cased_ident( #(#field_names),* ),
 							)
 						},
 						syn::Fields::Named(fields_named) => {
@@ -95,7 +122,7 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 								.collect::<Vec<_>>();
 							quote::quote!(
 								#ident::#variant_ident { #(#field_names),* } =>
-									W::#snake_cased_ident( #(#field_names),* ),
+									#weight_info_provider_ident::#snake_cased_ident( #(#field_names),* ),
 							)
 						},
 					}
@@ -107,7 +134,7 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 					#(#methods)*
 				}
 
-				impl #impl_generics GetWeight<W> for #ident #enum_ty_generics #where_clause {
+				impl #impl_generics GetWeight<#weight_info_provider_ident> for #ident #enum_ty_generics #where_clause {
 					fn weight(&self) -> Weight {
 						match self {
 							#(#match_arms)*
