@@ -27,13 +27,13 @@
 //!
 //! - [`outgoing_message::OutgoingMessage`] — the message type; call
 //!   [`outgoing_message::OutgoingMessage::hash_leaf`] to produce the MMR leaf hash.
-//! - [`mmr::SpecMerge`] — a `mmr_lib::Merge` adapter that plugs domain-tagged hashing into
-//!   the MMR library. Callers construct an accumulator directly with
-//!   `mmr_lib::MMR<Hash, SpecMerge<SpecHasher>, S>`.
-//! - [`mmr::SpecHasher`] — the canonical hasher alias (`BlakeTwo256`); swap in one place to
-//!   change the hash function across the entire protocol.
-//! - Domain separation tags ([`LEAF_TAG`], [`INNER_TAG`], [`PEAK_TAG`]) and [`LEAF_VERSION`] —
-//!   used in leaf and node hashing to prevent cross-context collisions.
+//! - [`mmr::SpecMerge`] — a `mmr_lib::Merge` adapter that plugs domain-tagged hashing into the MMR
+//!   library. Callers construct an accumulator directly with `mmr_lib::MMR<Hash,
+//!   SpecMerge<SpecHasher>, S>`.
+//! - [`mmr::SpecHasher`] — the canonical hasher alias (`BlakeTwo256`); swap in one place to change
+//!   the hash function across the entire protocol.
+//! - Domain separation tags ([`LEAF_TAG`], [`INNER_TAG`], [`PEAK_TAG`]) and [`LEAF_VERSION`] — used
+//!   in leaf and node hashing to prevent cross-context collisions.
 //!
 //! [`mmr_lib`]: sp_mmr_primitives::mmr_lib
 
