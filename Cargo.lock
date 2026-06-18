@@ -17537,6 +17537,7 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
  "cumulus-primitives-proof-size-hostfunction",
+ "cumulus-primitives-spec-messaging",
  "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-timestamp",
  "cumulus-primitives-utility",
