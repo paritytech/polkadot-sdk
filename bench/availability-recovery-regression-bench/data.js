@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781701370574,
+  "lastUpdate": 1781804522710,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "920dd6dce169bae2b70c81f74b00643b7a8ef55a",
-          "message": "pallet_revive: Improve logging (#10157)\n\nJust added some more information to the log output during dry_run and\ntransaction creation. This was helpful when debugging if the correct gas\nwas passed in by the client.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-29T22:18:44Z",
-          "tree_id": "09fef4f6d7e42d438697564c39be6b546e066991",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/920dd6dce169bae2b70c81f74b00643b7a8ef55a"
-        },
-        "date": 1761780914111,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.570635314333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2015682551666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.571641446400003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "937316cac406ee38a91cde16d300075595f0b2b7",
+          "message": "changes to use zombie-bite (#12247)\n\nIn order to use [zombie-bite](https://github.com/paritytech/zombie-bite)\n(to fork and spawn a live network with the _state_) with the same client\nbinaries (for testing releases), we need to allow to set this value\n`DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION` to __1__. I think the\nbest approach here is to use an _env var_, since we _only_ need it for\nour use case. Cc @eskimor wdyt?\n\nThx!\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-18T16:07:10Z",
+          "tree_id": "e4da49aaa10cf6fa1b1532b045f59c33ea1652f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/937316cac406ee38a91cde16d300075595f0b2b7"
+        },
+        "date": 1781804496575,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.283204362,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1321131541333333,
             "unit": "seconds"
           }
         ]
