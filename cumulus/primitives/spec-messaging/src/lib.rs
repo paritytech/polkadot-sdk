@@ -39,12 +39,14 @@
 //! [`ParaId`]: polkadot_parachain_primitives::primitives::Id
 //! [`Hash`]: polkadot_core_primitives::Hash
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
-pub mod commitment_set;
+/// MMR merge adapter ([`mmr::SpecMerge`]) for use with `mmr_lib::MMR`.
 pub mod mmr;
+/// Outgoing message type and leaf hashing.
 pub mod outgoing_message;
 
 // Domain Tags to ensure that the same message structure used in different

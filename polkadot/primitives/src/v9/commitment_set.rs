@@ -57,6 +57,7 @@ impl<const N: u32> codec::Decode for CommitmentSet<N> {
 }
 
 impl<const N: u32> CommitmentSet<N> {
+	/// Returns the MMR root committed to by `para_id`, or `None` if not present.
 	pub fn get(&self, para_id: ParaId) -> Option<&Hash> {
 		self.0
 			.binary_search_by_key(&para_id, |(id, _)| *id)
@@ -64,14 +65,17 @@ impl<const N: u32> CommitmentSet<N> {
 			.map(|idx| &self.0[idx].1)
 	}
 
+	/// Returns the number of entries in the set.
 	pub fn len(&self) -> usize {
 		self.0.len()
 	}
 
+	/// Returns `true` if the set contains no entries.
 	pub fn is_empty(&self) -> bool {
 		self.0.is_empty()
 	}
 
+	/// Iterates over all `(ParaId, Hash)` entries in sorted order.
 	pub fn iter(&self) -> impl Iterator<Item = &(ParaId, Hash)> {
 		self.0.iter()
 	}
