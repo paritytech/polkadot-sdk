@@ -18,8 +18,7 @@
 //! Tests directly on the actual Xcm struct and Instruction enum.
 
 use frame_support::BoundedVec;
-use xcm::latest::prelude::*;
-use xcm::latest::GetWeight;
+use xcm::latest::{prelude::*, GetWeight};
 
 #[derive(xcm_procedural::XcmWeightInfoTrait)]
 pub enum MacroTestInstruction<Call> {
@@ -55,8 +54,7 @@ impl<Call> XcmWeightInfo<Call> for MacroTestWeightInfo {
 }
 
 mod generic_w_name_collision {
-	use xcm::latest::prelude::*;
-	use xcm::latest::GetWeight;
+	use xcm::latest::{prelude::*, GetWeight};
 
 	#[derive(xcm_procedural::XcmWeightInfoTrait)]
 	pub enum GenericWInstruction<W> {
@@ -268,4 +266,3 @@ fn generated_dispatch_covers_representative_variant_shapes() {
 		Weight::from_parts(301, 301)
 	);
 }
-

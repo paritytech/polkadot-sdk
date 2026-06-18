@@ -57,12 +57,9 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let (impl_generics, where_clause) = {
 		let mut impl_source_generics = trait_generics.clone();
 		impl_source_generics.params.push(syn::parse_quote!(#weight_info_provider_ident));
-		impl_source_generics
-			.make_where_clause()
-			.predicates
-			.push(syn::parse_quote!(
-				#weight_info_provider_ident: XcmWeightInfo #enum_ty_generics
-			));
+		impl_source_generics.make_where_clause().predicates.push(syn::parse_quote!(
+			#weight_info_provider_ident: XcmWeightInfo #enum_ty_generics
+		));
 		let (impl_generics, _, where_clause) = impl_source_generics.split_for_impl();
 		(quote::quote!(#impl_generics), quote::quote!(#where_clause))
 	};
