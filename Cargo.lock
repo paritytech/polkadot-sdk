@@ -27153,7 +27153,6 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "tracing",
- "xcm-procedural",
  "xcm-simulator",
 ]
 
