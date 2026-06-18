@@ -1562,14 +1562,12 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		// Set the validator has been inactive for `l` eras.
 		let proof = (0..l)
-			.map(|era| {
+			.inspect(|&era| {
 				ErasRewardPoints::<T>::insert(
 					era,
 					EraRewardPoints { total: 0, individual: BoundedBTreeMap::new() },
 				);
 				Eras::<T>::upsert_exposure(era, &stash, Exposure::default());
-
-				era
 			})
 			.collect::<Vec<_>>();
 		let proof = BoundedVec::truncate_from(proof);
