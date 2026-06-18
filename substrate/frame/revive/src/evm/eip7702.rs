@@ -44,19 +44,6 @@ use sp_runtime::SaturatedConversion;
 /// EIP-7702: Magic value for authorization signature message
 const EIP7702_MAGIC: u8 = 0x05;
 
-/// Per-authorization storage-change delta, returned from the inner `with_transaction` block so
-/// `result` is only updated when the auth committed.
-struct AuthDelta<Balance> {
-	is_new_account: bool,
-	deposit: StorageDeposit<Balance>,
-}
-
-impl<Balance: sp_runtime::traits::Zero> Default for AuthDelta<Balance> {
-	fn default() -> Self {
-		Self { is_new_account: false, deposit: StorageDeposit::default() }
-	}
-}
-
 /// Result of processing EIP-7702 authorization tuples.
 #[derive(Default, Debug, PartialEq, Eq)]
 pub struct AuthorizationResult<Balance: sp_runtime::traits::Zero> {
@@ -135,16 +122,13 @@ pub fn process_authorizations<T: Config>(
 		// per-auth state-changing block in a transaction and skip the tuple on any error —
 		// ED transfer, delegation, deposit, and nonce bump all commit together or not at all.
 		let outcome = with_transaction(
-			|| -> TransactionOutcome<Result<AuthDelta<BalanceOf<T>>, sp_runtime::DispatchError>> {
-				let inner = (|| -> Result<AuthDelta<BalanceOf<T>>, sp_runtime::DispatchError> {
-					let mut delta = AuthDelta::<BalanceOf<T>>::default();
-
+			|| -> TransactionOutcome<Result<StorageDeposit<BalanceOf<T>>, sp_runtime::DispatchError>> {
+				let inner = (|| -> Result<StorageDeposit<BalanceOf<T>>, sp_runtime::DispatchError> {
 					if !account_exists {
 						let credit = <T as Config>::FeeInfo::withdraw_txfee(ed)
 							.ok_or(Error::<T>::StorageDepositNotEnoughFunds)?;
 						<T as Config>::Currency::resolve(&account_id, credit)
 							.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
-						delta.is_new_account = true;
 					}
 
 					let deposit = if auth.address.is_zero() {
@@ -162,7 +146,6 @@ pub fn process_authorizations<T: Config>(
 								amount,
 								exec_config,
 							)?;
-							delta.deposit = StorageDeposit::Charge(amount);
 						},
 						StorageDeposit::Refund(amount) => {
 							Pallet::<T>::refund_deposit(
@@ -171,12 +154,11 @@ pub fn process_authorizations<T: Config>(
 								exec_config.funds(origin),
 								amount,
 							)?;
-							delta.deposit = StorageDeposit::Refund(amount);
 						},
 					}
 
 					frame_system::Pallet::<T>::inc_account_nonce(&account_id);
-					Ok(delta)
+					Ok(deposit)
 				})();
 
 				match inner {
@@ -186,18 +168,20 @@ pub fn process_authorizations<T: Config>(
 			},
 		);
 
-		let Ok(delta) = outcome else {
+		let Ok(deposit) = outcome else {
 			log::debug!(target: LOG_TARGET, "Authorization for {authority:?} failed post-validation, skipping");
 			continue;
 		};
 
-		if delta.is_new_account {
+		// `account_exists` is captured pre-transaction. If the auth committed and the account
+		// didn't exist before, it was just created here — count it as new.
+		if !account_exists {
 			result.deposit = result.deposit.saturating_add(&StorageDeposit::Charge(ed));
 			result.new_accounts += 1;
 		} else {
 			result.existing_accounts += 1;
 		}
-		result.deposit = result.deposit.saturating_add(&delta.deposit);
+		result.deposit = result.deposit.saturating_add(&deposit);
 	}
 
 	// Weight accounting:
