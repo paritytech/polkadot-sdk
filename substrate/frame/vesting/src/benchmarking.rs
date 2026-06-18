@@ -60,12 +60,9 @@ fn add_vesting_schedules<T: Config>(
 		total_locked += locked;
 
 		let schedule = VestingInfo::new(locked, per_block, starting_block.into());
-		assert_ok!(Pallet::<T>::do_vested_transfer(
-			&source,
-			target,
-			schedule,
-			T::MAX_VESTING_SCHEDULES,
-		));
+
+		// Use `None` (root / unrestricted) to populate up to MAX_VESTING_SCHEDULES.
+		assert_ok!(Pallet::<T>::do_vested_transfer(&source, target, schedule, None));
 
 		// Top up to guarantee we can always transfer another schedule.
 		T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
@@ -207,7 +204,7 @@ mod benchmarks {
 	#[benchmark]
 	fn vested_transfer(
 		l: Linear<0, { MaxLocksOf::<T>::get() - 1 }>,
-		s: Linear<0, { T::MAX_PUBLIC_VESTING_SCHEDULES - 1 }>,
+		s: Linear<0, { T::slot_cap(VestingKind::Public) - 1 }>,
 	) -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
@@ -319,7 +316,7 @@ mod benchmarks {
 			1_u32.into(),
 		);
 		let expected_index = (s - 2) as usize;
-		assert_eq!(Vesting::<T>::get(&caller).unwrap()[expected_index], expected_schedule);
+		assert_eq!(Vesting::<T>::get(&caller).unwrap()[expected_index].0, expected_schedule);
 		assert_eq!(
 			Pallet::<T>::vesting_balance(&caller),
 			Some(expected_balance),
@@ -384,7 +381,7 @@ mod benchmarks {
 		);
 		let expected_index = (s - 2) as usize;
 		assert_eq!(
-			Vesting::<T>::get(&caller).unwrap()[expected_index],
+			Vesting::<T>::get(&caller).unwrap()[expected_index].0,
 			expected_schedule,
 			"New schedule is properly created and placed"
 		);
@@ -466,7 +463,7 @@ mod benchmarks {
 			<Pallet<T> as frame_support::traits::tokens::VestedPayout<
 				T::AccountId,
 				BalanceOf<T>,
-			>>::add_to_vesting(&source, &dest, amount, duration, start_at)
+			>>::add_to_vesting(&source, &dest, amount, duration, start_at, VestingKind::Public)
 			.unwrap();
 		}
 
@@ -504,7 +501,7 @@ mod benchmarks {
 		<Pallet<T> as frame_support::traits::tokens::VestedPayout<
 			T::AccountId,
 			BalanceOf<T>,
-		>>::add_to_vesting(&source, &dest, amount, duration, start_at)
+		>>::add_to_vesting(&source, &dest, amount, duration, start_at, VestingKind::Public)
 		.unwrap();
 		T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
 
@@ -515,7 +512,7 @@ mod benchmarks {
 			<Pallet<T> as frame_support::traits::tokens::VestedPayout<
 				T::AccountId,
 				BalanceOf<T>,
-			>>::add_to_vesting(&source, &dest, amount, duration, start_at)
+			>>::add_to_vesting(&source, &dest, amount, duration, start_at, VestingKind::Public)
 			.unwrap();
 		}
 

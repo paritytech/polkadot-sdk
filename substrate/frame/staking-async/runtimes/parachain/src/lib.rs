@@ -488,6 +488,7 @@ parameter_types! {
 impl pallet_vesting::Config for Runtime {
 	const MAX_VESTING_SCHEDULES: u32 = 56;
 	const MAX_PUBLIC_VESTING_SCHEDULES: u32 = 28;
+	const MAX_STAKING_VESTING_SCHEDULES: u32 = 28;
 	type BlockNumberProvider = RelayChainBlockNumberProvider;
 	type BlockNumberToBalance = ConvertInto;
 	type Currency = Balances;
@@ -1250,6 +1251,7 @@ pub type UncheckedExtrinsic =
 pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	pallet_vesting::migrations::v2::Migration<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.

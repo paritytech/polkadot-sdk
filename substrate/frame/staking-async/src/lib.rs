@@ -226,7 +226,7 @@ use frame_support::{
 	traits::{
 		tokens::{
 			fungible::{Credit, Debt, Mutate as FunMutate},
-			Preservation, VestedPayout,
+			Preservation, VestedPayout, VestingKind,
 		},
 		ConstU32, Contains, Get, LockIdentifier,
 	},
@@ -768,7 +768,7 @@ where
 			));
 		}
 
-		V::add_to_vesting(source, dest, amount, duration, start_at)
+		V::add_to_vesting(source, dest, amount, duration, start_at, VestingKind::Staking)
 	}
 }
 

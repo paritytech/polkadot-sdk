@@ -129,7 +129,9 @@ impl pallet_vesting::Config for Test {
 	type BlockNumberToBalance = sp_runtime::traits::ConvertInto;
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
-	const MAX_VESTING_SCHEDULES: u32 = 28;
+	const MAX_VESTING_SCHEDULES: u32 = 56;
+	const MAX_PUBLIC_VESTING_SCHEDULES: u32 = 28;
+	const MAX_STAKING_VESTING_SCHEDULES: u32 = 28;
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;

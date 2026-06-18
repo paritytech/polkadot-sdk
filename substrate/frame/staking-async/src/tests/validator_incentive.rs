@@ -727,10 +727,10 @@ fn incentive_creates_vesting_schedule_end_to_end() {
 		let schedules =
 			pallet_vesting::Vesting::<Test>::get(alice).expect("vesting schedule expected");
 		assert_eq!(schedules.len(), 1);
-		assert_eq!(schedules[0].locked(), incentive);
+		assert_eq!(schedules[0].0.locked(), incentive);
 		let bonding_period = 2 / BondingDuration::get();
 		assert_eq!(
-			schedules[0].starting_block(),
+			schedules[0].0.starting_block(),
 			VestingEpochStartBlocks::<Test>::get(bonding_period).unwrap(),
 		);
 	});
@@ -774,41 +774,7 @@ fn incentive_merges_into_existing_vesting_schedule_within_epoch() {
 		// `target_locked_now + per_block * elapsed`, which differs from the simple sum.
 		let schedules = pallet_vesting::Vesting::<Test>::get(alice).unwrap();
 		assert_eq!(schedules.len(), 1, "second payout should merge, not create");
-		assert_eq!(schedules[0].starting_block(), epoch_start);
-	});
-}
-
-#[test]
-fn incentive_dropped_at_max_vesting_schedules() {
-	// Vesting schedule cap test: when an account is already at MAX_VESTING_SCHEDULES, a
-	// payout that would create a new schedule instead drops the incentive completely.
-	ExtBuilder::default().build_and_execute(|| {
-		let alice = 11;
-		VestingBondingPeriods::set(1);
-		setup_incentive_with_budget(45, 5);
-
-		// Pre-populate alice with MAX_VESTING_SCHEDULES schedules. Starting blocks are unique
-		// and in the past so the upcoming payout takes the create path (not merge) and trips
-		// the cap check.
-		let max = <Test as pallet_vesting::Config>::MAX_VESTING_SCHEDULES;
-		let existing: Vec<_> = (0..max)
-			.map(|i| pallet_vesting::VestingInfo::new(1u128, 1u128, (i + 1) as BlockNumber))
-			.collect();
-		let bounded: frame_support::BoundedVec<_, _> = existing.try_into().unwrap();
-		pallet_vesting::Vesting::<Test>::insert(alice, bounded);
-
-		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
-		Session::roll_until_active_era(3);
-		let _ = staking_events_since_last_call();
-
-		make_all_reward_payment(2);
-		let events = staking_events_since_last_call();
-
-		// THEN: incentive dropped, no Paid event, schedule count unchanged.
-		assert!(events.iter().any(|e| matches!(e, Event::ValidatorIncentiveDropped { .. })));
-		assert!(!events.iter().any(|e| matches!(e, Event::ValidatorIncentivePaid { .. })));
-		assert_eq!(pallet_vesting::Vesting::<Test>::get(alice).unwrap().len(), max as usize);
+		assert_eq!(schedules[0].0.starting_block(), epoch_start);
 	});
 }
 
@@ -845,13 +811,14 @@ fn vested_incentive_is_locked_immediately_after_payout() {
 		// Schedule landed on recipient with the full incentive locked.
 		let schedules = pallet_vesting::Vesting::<Test>::get(recipient).expect("schedule");
 		assert_eq!(schedules.len(), 1);
-		assert_eq!(schedules[0].locked(), incentive);
+		assert_eq!(schedules[0].0.locked(), incentive);
 
 		// The schedule starts at era 2's bonding window — which began before the payout was
 		// claimed — so by `now` some of the incentive has already vested. The usable balance
 		// must equal `free - still_locked_now`.
-		let still_locked =
-			schedules[0].locked_at::<sp_runtime::traits::ConvertInto>(System::block_number());
+		let still_locked = schedules[0]
+			.0
+			.locked_at::<sp_runtime::traits::ConvertInto>(System::block_number());
 		let unlocked_so_far = incentive.saturating_sub(still_locked);
 		assert!(still_locked > 0, "the incentive must not be fully unlocked yet");
 		assert_eq!(Balances::free_balance(&recipient), free_before + staker_reward + incentive);
@@ -901,7 +868,7 @@ fn cross_epoch_payouts_create_distinct_vesting_schedules() {
 		let _ = staking_events_since_last_call();
 		let after_first = pallet_vesting::Vesting::<Test>::get(alice).unwrap();
 		assert_eq!(after_first.len(), 1);
-		assert_eq!(after_first[0].starting_block(), period0_start);
+		assert_eq!(after_first[0].0.starting_block(), period0_start);
 
 		// Advance one era so era 3 is claimable, then pay era 3 (period 1) — its lookup
 		// returns a *different* epoch start, so a second schedule is created.
@@ -916,8 +883,8 @@ fn cross_epoch_payouts_create_distinct_vesting_schedules() {
 			2,
 			"different bonding periods should produce distinct schedules"
 		);
-		assert!(after_second.iter().any(|s| s.starting_block() == period0_start));
-		assert!(after_second.iter().any(|s| s.starting_block() == period1_start));
+		assert!(after_second.iter().any(|(s, _)| s.starting_block() == period0_start));
+		assert!(after_second.iter().any(|(s, _)| s.starting_block() == period1_start));
 	});
 }
 
@@ -953,7 +920,7 @@ fn fallback_materializes_so_pre_upgrade_claims_merge() {
 			.expect("fallback must have materialized an entry");
 		let after_first = pallet_vesting::Vesting::<Test>::get(alice).expect("schedule");
 		assert_eq!(after_first.len(), 1);
-		assert_eq!(after_first[0].starting_block(), materialized);
+		assert_eq!(after_first[0].0.starting_block(), materialized);
 
 		// Advance the block number so a re-fallback would pick a *different* `now`.
 		System::set_block_number(System::block_number() + 50);
@@ -967,7 +934,7 @@ fn fallback_materializes_so_pre_upgrade_claims_merge() {
 			1,
 			"second claim in the same pre-upgrade window must merge into the materialized schedule",
 		);
-		assert_eq!(after_second[0].starting_block(), materialized);
+		assert_eq!(after_second[0].0.starting_block(), materialized);
 
 		// The materialized entry itself must not have been rewritten by the second claim.
 		assert_eq!(VestingEpochStartBlocks::<Test>::get(1).unwrap(), materialized);

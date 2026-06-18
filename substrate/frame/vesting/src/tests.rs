@@ -16,7 +16,10 @@
 // limitations under the License.
 
 use codec::EncodeLike;
-use frame_support::{assert_noop, assert_ok, assert_storage_noop, traits::tokens::VestedPayout};
+use frame_support::{
+	assert_noop, assert_ok, assert_storage_noop,
+	traits::{tokens::VestedPayout, VestingSchedule},
+};
 use frame_system::RawOrigin;
 use sp_runtime::{
 	traits::{BadOrigin, Identity},
@@ -28,6 +31,16 @@ use crate::mock::{vesting_events_since_last_call, Balances, ExtBuilder, System, 
 
 /// A default existential deposit.
 const ED: u64 = 256;
+
+/// Wraps a VestingInfo as a Public-tagged entry for storage comparison.
+fn pub_vi(vi: VestingInfo<u64, u64>) -> (VestingInfo<u64, u64>, Option<VestingKind>) {
+	(vi, Some(VestingKind::Public))
+}
+
+/// Wraps a VestingInfo as a root-tagged (None) entry for storage comparison.
+fn root_vi(vi: VestingInfo<u64, u64>) -> (VestingInfo<u64, u64>, Option<VestingKind>) {
+	(vi, None)
+}
 
 /// Calls vest, and asserts that there is no entry for `account`
 /// in the `Vesting` storage item.
@@ -65,9 +78,12 @@ fn check_vesting_status() {
 			64, // Vesting over 20 blocks
 			10,
 		);
-		assert_eq!(VestingStorage::<Test>::get(&1).unwrap(), vec![user1_vesting_schedule]); // Account 1 has a vesting schedule
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![user2_vesting_schedule]); // Account 2 has a vesting schedule
-		assert_eq!(VestingStorage::<Test>::get(&12).unwrap(), vec![user12_vesting_schedule]); // Account 12 has a vesting schedule
+		assert_eq!(VestingStorage::<Test>::get(&1).unwrap(), vec![pub_vi(user1_vesting_schedule)]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(user2_vesting_schedule)]);
+		assert_eq!(
+			VestingStorage::<Test>::get(&12).unwrap(),
+			vec![pub_vi(user12_vesting_schedule)]
+		);
 
 		// Account 1 has only 128 units vested from their illiquid ED * 5 units at block 1
 		assert_eq!(Vesting::vesting_balance(&1), Some(128 * 9));
@@ -110,7 +126,7 @@ fn check_vesting_status_for_multi_schedule_account() {
 			10,
 		);
 		// Account 2 already has a vesting schedule.
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched0)]);
 
 		// Account 2's free balance is from sched0.
 		let free_balance = Balances::free_balance(&2);
@@ -128,7 +144,7 @@ fn check_vesting_status_for_multi_schedule_account() {
 		let free_balance = Balances::free_balance(&2);
 		assert_eq!(free_balance, ED * (10 + 20));
 		// The most recently added schedule exists.
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0, sched1]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched0), pub_vi(sched1)]);
 		// sched1 has free funds at block #1, but nothing else.
 		assert_eq!(Vesting::vesting_balance(&2), Some(free_balance - sched1.per_block()));
 
@@ -171,7 +187,10 @@ fn check_vesting_status_for_multi_schedule_account() {
 		assert_eq!(Vesting::vesting_balance(&2), Some(0));
 		// Since we have not called any extrinsics that would unlock funds the schedules
 		// are still in storage,
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0, sched1, sched2]);
+		assert_eq!(
+			VestingStorage::<Test>::get(&2).unwrap(),
+			vec![pub_vi(sched0), pub_vi(sched1), pub_vi(sched2)]
+		);
 		// but once we unlock the funds, they are removed from storage.
 		vest_and_assert_no_vesting::<Test>(2);
 	});
@@ -207,7 +226,7 @@ fn vested_balance_should_transfer_with_multi_sched() {
 		let sched0 = VestingInfo::new(5 * ED, 128, 0);
 		assert_ok!(Vesting::vested_transfer(Some(13).into(), 1, sched0));
 		// Total 10*ED locked for all the schedules.
-		assert_eq!(VestingStorage::<Test>::get(&1).unwrap(), vec![sched0, sched0]);
+		assert_eq!(VestingStorage::<Test>::get(&1).unwrap(), vec![pub_vi(sched0), pub_vi(sched0)]);
 
 		let user1_free_balance = Balances::free_balance(&1);
 		assert_eq!(user1_free_balance, 3840); // Account 1 has free balance
@@ -245,7 +264,7 @@ fn vested_balance_should_transfer_using_vest_other_with_multi_sched() {
 		let sched0 = VestingInfo::new(5 * ED, 128, 0);
 		assert_ok!(Vesting::vested_transfer(Some(13).into(), 1, sched0));
 		// Total of 10*ED of locked for all the schedules.
-		assert_eq!(VestingStorage::<Test>::get(&1).unwrap(), vec![sched0, sched0]);
+		assert_eq!(VestingStorage::<Test>::get(&1).unwrap(), vec![pub_vi(sched0), pub_vi(sched0)]);
 
 		let user1_free_balance = Balances::free_balance(&1);
 		assert_eq!(user1_free_balance, 3840); // Account 1 has free balance
@@ -308,7 +327,10 @@ fn liquid_funds_should_transfer_with_delayed_vesting() {
 			64,
 			10,
 		);
-		assert_eq!(VestingStorage::<Test>::get(&12).unwrap(), vec![user12_vesting_schedule]);
+		assert_eq!(
+			VestingStorage::<Test>::get(&12).unwrap(),
+			vec![pub_vi(user12_vesting_schedule)]
+		);
 
 		// Account 12 can still send liquid funds
 		assert_ok!(Balances::transfer_allow_death(Some(12).into(), 3, 256 * 5));
@@ -340,7 +362,7 @@ fn vested_transfer_works() {
 			]
 		);
 		// Now account 4 should have vesting.
-		assert_eq!(VestingStorage::<Test>::get(&4).unwrap(), vec![new_vesting_schedule]);
+		assert_eq!(VestingStorage::<Test>::get(&4).unwrap(), vec![pub_vi(new_vesting_schedule)]);
 		// Ensure the transfer happened correctly.
 		let user3_free_balance_updated = Balances::free_balance(&3);
 		assert_eq!(user3_free_balance_updated, 256 * 25);
@@ -379,7 +401,7 @@ fn vested_transfer_correctly_fails() {
 			ED, // Vesting over 20 blocks
 			10,
 		);
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![user2_vesting_schedule]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(user2_vesting_schedule)]);
 
 		// Fails due to too low transfer amount.
 		let new_vesting_schedule_too_low =
@@ -416,26 +438,26 @@ fn vested_transfer_correctly_fails() {
 fn vested_transfer_allows_max_schedules() {
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 		let mut user_4_free_balance = Balances::free_balance(&4);
-		let max_schedules = <Test as Config>::MAX_VESTING_SCHEDULES;
+		let max_public = <Test as Config>::slot_cap(VestingKind::Public);
 		let sched = VestingInfo::new(
 			<Test as Config>::MinVestedTransfer::get(),
 			1, // Vest over 2 * 256 blocks.
 			10,
 		);
 
-		// Add max amount schedules to user 4.
-		for _ in 0..max_schedules {
+		// Add max public amount of schedules to user 4.
+		for _ in 0..max_public {
 			assert_ok!(Vesting::vested_transfer(Some(13).into(), 4, sched));
 		}
 
 		// The schedules count towards vesting balance
-		let transferred_amount = <Test as Config>::MinVestedTransfer::get() * max_schedules as u64;
+		let transferred_amount = <Test as Config>::MinVestedTransfer::get() * max_public as u64;
 		assert_eq!(Vesting::vesting_balance(&4), Some(transferred_amount));
 		// and free balance.
 		user_4_free_balance += transferred_amount;
 		assert_eq!(Balances::free_balance(&4), user_4_free_balance);
 
-		// Cannot insert a 4th vesting schedule when `MaxVestingSchedules` === 3,
+		// Cannot insert another public vesting schedule when the public cap is reached.
 		assert_noop!(
 			Vesting::vested_transfer(Some(3).into(), 4, sched),
 			Error::<Test>::AtMaxVestingSchedules,
@@ -488,8 +510,8 @@ fn force_vested_transfer_works() {
 				Event::VestingUpdated { account: 4, unvested: 1280 },
 			]
 		);
-		// Now account 4 should have vesting.
-		assert_eq!(VestingStorage::<Test>::get(&4).unwrap()[0], new_vesting_schedule);
+		// Now account 4 should have vesting. force_vested_transfer stores None-tagged schedules.
+		assert_eq!(VestingStorage::<Test>::get(&4).unwrap()[0], root_vi(new_vesting_schedule));
 		assert_eq!(VestingStorage::<Test>::get(&4).unwrap().len(), 1);
 		// Ensure the transfer happened correctly.
 		let user3_free_balance_updated = Balances::free_balance(&3);
@@ -528,7 +550,7 @@ fn force_vested_transfer_correctly_fails() {
 			ED, // Vesting over 20 blocks
 			10,
 		);
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![user2_vesting_schedule]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(user2_vesting_schedule)]);
 
 		// Too low transfer amount.
 		let new_vesting_schedule_too_low =
@@ -589,7 +611,7 @@ fn force_vested_transfer_allows_max_schedules() {
 		user_4_free_balance += transferred_amount;
 		assert_eq!(Balances::free_balance(&4), user_4_free_balance);
 
-		// Cannot insert a 4th vesting schedule when `MaxVestingSchedules` === 3
+		// Cannot insert another schedule when `MAX_VESTING_SCHEDULES` is reached.
 		assert_noop!(
 			Vesting::force_vested_transfer(RawOrigin::Root.into(), 3, 4, sched),
 			Error::<Test>::AtMaxVestingSchedules,
@@ -614,12 +636,12 @@ fn merge_schedules_that_have_not_started() {
 			ED, // Vest over 20 blocks.
 			10,
 		);
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched0)]);
 		assert_eq!(Balances::usable_balance(&2), 0);
 
 		// Add a schedule that is identical to the one that already exists.
 		assert_ok!(Vesting::vested_transfer(Some(3).into(), 2, sched0));
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0, sched0]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched0), pub_vi(sched0)]);
 		assert_eq!(Balances::usable_balance(&2), 0);
 		assert_ok!(Vesting::merge_schedules(Some(2).into(), 0, 1));
 
@@ -630,7 +652,7 @@ fn merge_schedules_that_have_not_started() {
 			sched0.per_block() * 2,
 			10, // Starts at the block the schedules are merged/
 		);
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched1]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched1)]);
 
 		assert_eq!(Balances::usable_balance(&2), 0);
 	});
@@ -646,7 +668,7 @@ fn merge_ongoing_schedules() {
 			ED, // Vest over 20 blocks.
 			10,
 		);
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched0)]);
 
 		let sched1 = VestingInfo::new(
 			ED * 10,
@@ -656,7 +678,7 @@ fn merge_ongoing_schedules() {
 			sched0.starting_block() + 5,
 		);
 		assert_ok!(Vesting::vested_transfer(Some(4).into(), 2, sched1));
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0, sched1]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched0), pub_vi(sched1)]);
 
 		// Got to half way through the second schedule where both schedules are actively vesting.
 		let cur_block = 20;
@@ -688,7 +710,7 @@ fn merge_ongoing_schedules() {
 		let sched2_per_block = sched2_locked / sched2_duration;
 
 		let sched2 = VestingInfo::new(sched2_locked, sched2_per_block, cur_block);
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched2]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched2)]);
 
 		// And just to double check, we assert the new merged schedule we be cleaned up as expected.
 		System::set_block_number(30);
@@ -732,7 +754,10 @@ fn merging_shifts_other_schedules_index() {
 		assert_ok!(Vesting::vested_transfer(Some(4).into(), 3, sched2));
 
 		// With no schedules vested or merged they are in the order they are created
-		assert_eq!(VestingStorage::<Test>::get(&3).unwrap(), vec![sched0, sched1, sched2]);
+		assert_eq!(
+			VestingStorage::<Test>::get(&3).unwrap(),
+			vec![pub_vi(sched0), pub_vi(sched1), pub_vi(sched2)]
+		);
 		// and the usable balance has not changed.
 		assert_eq!(usable_balance, Balances::usable_balance(&3));
 
@@ -753,7 +778,7 @@ fn merging_shifts_other_schedules_index() {
 		let sched3 = VestingInfo::new(sched3_locked, sched3_per_block, sched3_start);
 
 		// The not touched schedule moves left and the new merged schedule is appended.
-		assert_eq!(VestingStorage::<Test>::get(&3).unwrap(), vec![sched1, sched3]);
+		assert_eq!(VestingStorage::<Test>::get(&3).unwrap(), vec![pub_vi(sched1), pub_vi(sched3)]);
 		// The usable balance hasn't changed since none of the schedules have started.
 		assert_eq!(Balances::usable_balance(&3), usable_balance);
 	});
@@ -770,7 +795,7 @@ fn merge_ongoing_and_yet_to_be_started_schedules() {
 			ED, // Vesting over 20 blocks
 			10,
 		);
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched0)]);
 
 		// Fast forward to half way through the life of sched1.
 		let mut cur_block =
@@ -822,7 +847,7 @@ fn merge_ongoing_and_yet_to_be_started_schedules() {
 		let sched2_per_block = sched2_locked / sched2_duration;
 
 		let sched2 = VestingInfo::new(sched2_locked, sched2_per_block, sched2_start);
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched2]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched2)]);
 	});
 }
 
@@ -837,7 +862,7 @@ fn merge_finished_and_ongoing_schedules() {
 			ED, // Vesting over 20 blocks.
 			10,
 		);
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched0)]);
 
 		let sched1 = VestingInfo::new(
 			ED * 40,
@@ -856,7 +881,10 @@ fn merge_finished_and_ongoing_schedules() {
 		assert_ok!(Vesting::vested_transfer(Some(3).into(), 2, sched2));
 
 		// The schedules are in expected order prior to merging.
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0, sched1, sched2]);
+		assert_eq!(
+			VestingStorage::<Test>::get(&2).unwrap(),
+			vec![pub_vi(sched0), pub_vi(sched1), pub_vi(sched2)]
+		);
 
 		// Fast forward to sched0's end block.
 		let cur_block = sched0.ending_block_as_balance::<Identity>();
@@ -871,7 +899,7 @@ fn merge_finished_and_ongoing_schedules() {
 		// sched2 is now the first, since sched0 & sched1 get filtered out while "merging".
 		// sched1 gets treated like the new merged schedule by getting pushed onto back
 		// of the vesting schedules vec. Note: sched0 finished at the current block.
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched2, sched1]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched2), pub_vi(sched1)]);
 
 		// sched0 has finished, so its funds are fully unlocked.
 		let sched0_unlocked_now = sched0.locked();
@@ -899,7 +927,7 @@ fn merge_finishing_schedules_does_not_create_a_new_one() {
 			ED, // 20 block duration.
 			10,
 		);
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched0)]);
 
 		// Create sched1 and transfer it to account 2.
 		let sched1 = VestingInfo::new(
@@ -908,7 +936,7 @@ fn merge_finishing_schedules_does_not_create_a_new_one() {
 			10,
 		);
 		assert_ok!(Vesting::vested_transfer(Some(3).into(), 2, sched1));
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0, sched1]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched0), pub_vi(sched1)]);
 
 		let all_scheds_end = sched0
 			.ending_block_as_balance::<Identity>()
@@ -941,7 +969,7 @@ fn merge_finished_and_yet_to_be_started_schedules() {
 			ED, // 20 block duration.
 			10, // Ends at block 30
 		);
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched0)]);
 
 		let sched1 = VestingInfo::new(
 			ED * 30,
@@ -949,7 +977,7 @@ fn merge_finished_and_yet_to_be_started_schedules() {
 			35,
 		);
 		assert_ok!(Vesting::vested_transfer(Some(13).into(), 2, sched1));
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0, sched1]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched0), pub_vi(sched1)]);
 
 		let sched2 = VestingInfo::new(
 			ED * 40,
@@ -958,7 +986,10 @@ fn merge_finished_and_yet_to_be_started_schedules() {
 		);
 		// Add a 3rd schedule to demonstrate how sched1 shifts.
 		assert_ok!(Vesting::vested_transfer(Some(13).into(), 2, sched2));
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0, sched1, sched2]);
+		assert_eq!(
+			VestingStorage::<Test>::get(&2).unwrap(),
+			vec![pub_vi(sched0), pub_vi(sched1), pub_vi(sched2)]
+		);
 
 		System::set_block_number(30);
 
@@ -973,7 +1004,7 @@ fn merge_finished_and_yet_to_be_started_schedules() {
 
 		// sched0 is removed since it finished, and sched1 is removed and then pushed on the back
 		// because it is treated as the merged schedule
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched2, sched1]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched2), pub_vi(sched1)]);
 
 		// The usable balance is updated because merging fully unlocked sched0.
 		assert_eq!(Balances::usable_balance(&2), sched0.locked());
@@ -989,7 +1020,7 @@ fn merge_schedules_throws_proper_errors() {
 			ED, // 20 block duration.
 			10,
 		);
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched0)]);
 
 		// Account 2 only has 1 vesting schedule.
 		assert_noop!(
@@ -1003,7 +1034,7 @@ fn merge_schedules_throws_proper_errors() {
 
 		// There are enough schedules to merge but an index is non-existent.
 		Vesting::vested_transfer(Some(3).into(), 2, sched0).unwrap();
-		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0, sched0]);
+		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(sched0), pub_vi(sched0)]);
 		assert_noop!(
 			Vesting::merge_schedules(Some(2).into(), 0, 2),
 			Error::<Test>::ScheduleIndexOutOfBounds
@@ -1036,18 +1067,21 @@ fn generates_multiple_schedules_from_genesis_config() {
 		.build()
 		.execute_with(|| {
 			let user1_sched1 = VestingInfo::new(5 * ED, 128, 0u64);
-			assert_eq!(VestingStorage::<Test>::get(&1).unwrap(), vec![user1_sched1]);
+			assert_eq!(VestingStorage::<Test>::get(&1).unwrap(), vec![pub_vi(user1_sched1)]);
 
 			let user2_sched1 = VestingInfo::new(1 * ED, 12, 10u64);
 			let user2_sched2 = VestingInfo::new(2 * ED, 25, 10u64);
-			assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![user2_sched1, user2_sched2]);
+			assert_eq!(
+				VestingStorage::<Test>::get(&2).unwrap(),
+				vec![pub_vi(user2_sched1), pub_vi(user2_sched2)]
+			);
 
 			let user12_sched1 = VestingInfo::new(1 * ED, 12, 10u64);
 			let user12_sched2 = VestingInfo::new(2 * ED, 25, 10u64);
 			let user12_sched3 = VestingInfo::new(3 * ED, 38, 10u64);
 			assert_eq!(
 				VestingStorage::<Test>::get(&12).unwrap(),
-				vec![user12_sched1, user12_sched2, user12_sched3]
+				vec![pub_vi(user12_sched1), pub_vi(user12_sched2), pub_vi(user12_sched3)]
 			);
 		});
 }
@@ -1055,10 +1089,15 @@ fn generates_multiple_schedules_from_genesis_config() {
 #[test]
 #[should_panic]
 fn multiple_schedules_from_genesis_config_errors() {
-	// MaxVestingSchedules is 3, but this config has 4 for account 12 so we panic when building
+	// MAX_VESTING_SCHEDULES is 4, but this config has 5 for account 12 so we panic when building
 	// from genesis.
-	let vesting_config =
-		vec![(12, 10, 20, ED), (12, 10, 20, ED), (12, 10, 20, ED), (12, 10, 20, ED)];
+	let vesting_config = vec![
+		(12, 10, 20, ED),
+		(12, 10, 20, ED),
+		(12, 10, 20, ED),
+		(12, 10, 20, ED),
+		(12, 10, 20, ED),
+	];
 	ExtBuilder::default()
 		.existential_deposit(ED)
 		.vesting_genesis_config(vesting_config)
@@ -1066,9 +1105,9 @@ fn multiple_schedules_from_genesis_config_errors() {
 }
 
 #[test]
-fn build_genesis_has_storage_version_v1() {
+fn build_genesis_has_storage_version_v2() {
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
-		assert_eq!(StorageVersion::<Test>::get(), Releases::V1);
+		assert_eq!(StorageVersion::<Test>::get(), Releases::V2);
 	});
 }
 
@@ -1202,7 +1241,7 @@ fn remove_vesting_schedule() {
 		);
 
 		// Now account 4 should have vesting.
-		assert_eq!(VestingStorage::<Test>::get(&4).unwrap(), vec![new_vesting_schedule]);
+		assert_eq!(VestingStorage::<Test>::get(&4).unwrap(), vec![pub_vi(new_vesting_schedule)]);
 		// Account 4 has 5 * 256 locked.
 		assert_eq!(Vesting::vesting_balance(&4), Some(256 * 5));
 		// Verify only root can call.
@@ -1245,7 +1284,7 @@ fn vested_transfer_impl_works() {
 			(ED * 5) / 20, // Vesting over 20 blocks
 			10,
 		);
-		assert_eq!(VestingStorage::<Test>::get(&4).unwrap(), vec![new_vesting_schedule]);
+		assert_eq!(VestingStorage::<Test>::get(&4).unwrap(), vec![pub_vi(new_vesting_schedule)]);
 		// Account 4 has 5 * 256 locked.
 		assert_eq!(Vesting::vesting_balance(&4), Some(256 * 5));
 
@@ -1306,8 +1345,8 @@ fn vested_payout_edge_cases() {
 			));
 			let schedule = VestingStorage::<Test>::get(&bob).unwrap();
 			assert_eq!(schedule.len(), 1);
-			assert_eq!(schedule[0].starting_block(), future_block);
-			assert_eq!(schedule[0].locked(), amount);
+			assert_eq!(schedule[0].0.starting_block(), future_block);
+			assert_eq!(schedule[0].0.locked(), amount);
 
 			// Before start_at: nothing has vested yet, full amount is still locked.
 			System::set_block_number(future_block - 1);
@@ -1319,7 +1358,7 @@ fn vested_payout_edge_cases() {
 
 			// A few blocks after start_at: partial vesting.
 			System::set_block_number(future_block + 5);
-			let per_block = schedule[0].per_block();
+			let per_block = schedule[0].0.per_block();
 			assert_eq!(Vesting::vesting_balance(&bob), Some(amount - per_block * 5));
 
 			// After start_at + duration: fully vested.
@@ -1349,12 +1388,12 @@ fn vested_payout_creates_schedule() {
 		// THEN: per_block is rounded up to 35, not floored to 34.
 		let schedule = VestingStorage::<Test>::get(&bob).unwrap();
 		assert_eq!(schedule.len(), 1);
-		assert_eq!(schedule[0].locked(), amount);
-		assert_eq!(schedule[0].per_block(), 35);
+		assert_eq!(schedule[0].0.locked(), amount);
+		assert_eq!(schedule[0].0.per_block(), 35);
 
 		// Vesting completes within duration: ceil(1024/35) = 30 blocks <= 30.
-		let ending = schedule[0].ending_block_as_balance::<Identity>();
-		assert!(ending <= schedule[0].starting_block() + duration);
+		let ending = schedule[0].0.ending_block_as_balance::<Identity>();
+		assert!(ending <= schedule[0].0.starting_block() + duration);
 	});
 }
 
@@ -1375,7 +1414,7 @@ fn vested_payout_self_transfer_creates_schedule() {
 		assert_eq!(Balances::free_balance(&alice), balance_before);
 		let schedule = VestingStorage::<Test>::get(&alice).unwrap();
 		assert_eq!(schedule.len(), 1);
-		assert_eq!(schedule[0].locked(), amount);
+		assert_eq!(schedule[0].0.locked(), amount);
 	});
 }
 
@@ -1386,11 +1425,25 @@ fn add_to_vesting_zero_shortcuts() {
 		let dest = 4u64;
 
 		// Zero amount: no-op, no schedule created.
-		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(&source, &dest, 0, 10, 1));
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source,
+			&dest,
+			0,
+			10,
+			1,
+			VestingKind::Public
+		));
 		assert!(VestingStorage::<Test>::get(&dest).is_none());
 
 		// Zero duration: no-op, no schedule created.
-		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(&source, &dest, 100, 0, 1));
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source,
+			&dest,
+			100,
+			0,
+			1,
+			VestingKind::Public
+		));
 		assert!(VestingStorage::<Test>::get(&dest).is_none());
 	});
 }
@@ -1405,15 +1458,21 @@ fn add_to_vesting_create_path() {
 		let start_at = 1u64;
 
 		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
-			&source, &dest, amount, duration, start_at
+			&source,
+			&dest,
+			amount,
+			duration,
+			start_at,
+			VestingKind::Public
 		));
 
 		let schedules = VestingStorage::<Test>::get(&dest).unwrap();
 		assert_eq!(schedules.len(), 1);
-		assert_eq!(schedules[0].locked(), amount);
-		assert_eq!(schedules[0].starting_block(), start_at);
+		assert_eq!(schedules[0].0.locked(), amount);
+		assert_eq!(schedules[0].0.starting_block(), start_at);
 		// per_block = ceil(1024/20) = 52
-		assert_eq!(schedules[0].per_block(), 52);
+		assert_eq!(schedules[0].0.per_block(), 52);
+		assert_eq!(schedules[0].1, Some(VestingKind::Public));
 	});
 }
 
@@ -1426,7 +1485,14 @@ fn add_to_vesting_create_rejects_sub_min() {
 		assert!(amount < <Test as Config>::MinVestedTransfer::get());
 
 		assert_noop!(
-			<Vesting as VestedPayout<_, _>>::add_to_vesting(&source, &dest, amount, 20, 1),
+			<Vesting as VestedPayout<_, _>>::add_to_vesting(
+				&source,
+				&dest,
+				amount,
+				20,
+				1,
+				VestingKind::Public
+			),
 			Error::<Test>::AmountLow
 		);
 	});
@@ -1445,31 +1511,41 @@ fn add_to_vesting_merge_path_preserves_starting_block_and_accumulates() {
 
 		// First call: create path at block 1.
 		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
-			&source, &dest, amount1, duration, start_at
+			&source,
+			&dest,
+			amount1,
+			duration,
+			start_at,
+			VestingKind::Public
 		));
 
 		// Verify that the schedule was created.
 		let schedules = VestingStorage::<Test>::get(&dest).unwrap();
 		assert_eq!(schedules.len(), 1);
-		assert_eq!(schedules[0].starting_block(), start_at);
+		assert_eq!(schedules[0].0.starting_block(), start_at);
 
 		// Advance to second schedule's block, then merge a second payout.
 		System::set_block_number(schedule2_block);
 		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
-			&source, &dest, amount2, duration, start_at
+			&source,
+			&dest,
+			amount2,
+			duration,
+			start_at,
+			VestingKind::Public
 		));
 
 		// Ensure there is still only one schedule and the starting block was preserved.
 		let schedules = VestingStorage::<Test>::get(&dest).unwrap();
 		assert_eq!(schedules.len(), 1);
-		assert_eq!(schedules[0].starting_block(), start_at);
+		assert_eq!(schedules[0].0.starting_block(), start_at);
 
 		// Calculate the expected locked amount after the merge.
 		let per_block = amount1.div_ceil(duration);
 		let expected_locked_now = (amount1 - (schedule2_block - start_at) * per_block) + amount2;
 
 		assert_eq!(
-			schedules[0].locked_at::<sp_runtime::traits::Identity>(schedule2_block),
+			schedules[0].0.locked_at::<sp_runtime::traits::Identity>(schedule2_block),
 			expected_locked_now
 		);
 
@@ -1491,7 +1567,8 @@ fn add_to_vesting_merge_bypasses_min_vested_transfer() {
 			&dest,
 			ED * 4,
 			20,
-			start_at
+			start_at,
+			VestingKind::Public
 		));
 
 		// Merge path with a sub-minimum amount — ensure MinVestedTransfer is not enforced on merge.
@@ -1502,7 +1579,8 @@ fn add_to_vesting_merge_bypasses_min_vested_transfer() {
 			&dest,
 			sub_min_amount,
 			20,
-			start_at
+			start_at,
+			VestingKind::Public
 		));
 
 		// Schedule count unchanged; merge succeeded.
@@ -1510,26 +1588,212 @@ fn add_to_vesting_merge_bypasses_min_vested_transfer() {
 	});
 }
 
+/// Fills `cap` schedules of `kind` and asserts that one more of the same kind hits the cap.
+fn assert_at_max_per_kind_returns_error(kind: VestingKind, cap: u32) {
+	let source = 3u64;
+	let dest = 4u64;
+	let amount = ED * 4;
+
+	for i in 0..cap {
+		<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source,
+			&dest,
+			amount,
+			20,
+			(i + 1) as u64,
+			kind,
+		)
+		.unwrap_or_else(|e| panic!("{:?}: fill #{i} failed: {:?}", kind, e));
+	}
+
+	let next = (cap + 1) as u64;
+	assert_noop!(
+		<Vesting as VestedPayout<_, _>>::add_to_vesting(&source, &dest, amount, 20, next, kind),
+		Error::<Test>::AtMaxVestingSchedules,
+	);
+}
+
 #[test]
-fn add_to_vesting_at_max_schedules_returns_error() {
+fn add_to_vesting_at_per_kind_max_returns_error() {
+	for kind in [VestingKind::Public, VestingKind::Staking] {
+		ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+			assert_at_max_per_kind_returns_error(kind, <Test as Config>::slot_cap(kind));
+		});
+	}
+}
+
+/// The partition's central property: filling one kind's quota does not block another kind.
+#[test]
+fn add_to_vesting_quotas_are_partitioned() {
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 		let source = 3u64;
 		let dest = 4u64;
 		let amount = ED * 4;
+		let max_public = <Test as Config>::slot_cap(VestingKind::Public);
 
-		// Mock sets MAX_VESTING_SCHEDULES to 3 and we now fill all 3 slots with distinct
-		// "start_at" values, so we are at maximum schedule capacity.
-		for start_at in [1u64, 2u64, 3u64] {
+		// Fill the entire Public quota.
+		for i in 0..max_public {
 			assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
-				&source, &dest, amount, 20, start_at
+				&source,
+				&dest,
+				amount,
+				20,
+				(i + 1) as u64,
+				VestingKind::Public,
 			));
 		}
-		assert_eq!(VestingStorage::<Test>::get(&dest).unwrap().len(), 3);
 
-		// Ensure a created path with a new "start_at" hits the cap.
+		// Public quota is hit, but Staking can still create — the partition is honoured.
+		let next = (max_public + 1) as u64;
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source,
+			&dest,
+			amount,
+			20,
+			next,
+			VestingKind::Staking,
+		));
+	});
+}
+
+/// Test that two `add_to_vesting*` calls that share the same `starting_block` merge
+/// only if they also share the same `kind`. This prevents an attacker that pushes
+/// an extremely long vesting schedule from prolonging the staking-related schedules.
+#[test]
+fn add_to_vesting_only_merges_within_same_kind() {
+	let kinds: [Option<VestingKind>; 3] =
+		[Some(VestingKind::Public), Some(VestingKind::Staking), None];
+	let source = 13u64;
+	let dest = 4u64;
+	let start_at = 50u64;
+	let amount = ED * 4;
+
+	for &existing in &kinds {
+		for &incoming in &kinds {
+			ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+				// SETUP: insert one schedule of `existing` kind at `start_at` directly into
+				// storage (bypasses caps so we can construct any starting state cleanly).
+				let vi = VestingInfo::new(amount, 1, start_at);
+				let bounded: frame_support::BoundedVec<_, _> =
+					vec![(vi, existing)].try_into().unwrap();
+				VestingStorage::<Test>::insert(dest, bounded);
+
+				// ACTION: add a schedule of `incoming` kind at the same `start_at`.
+				let res = match incoming {
+					Some(k) => <Vesting as VestedPayout<_, _>>::add_to_vesting(
+						&source, &dest, amount, 20, start_at, k,
+					),
+					None => <Vesting as VestedPayout<_, _>>::add_to_vesting_unrestricted(
+						&source, &dest, amount, 20, start_at,
+					),
+				};
+				assert_ok!(res);
+
+				// ASSERT: merged iff kinds match.
+				let len = VestingStorage::<Test>::get(&dest).unwrap().len();
+				let expected = if existing == incoming { 1 } else { 2 };
+				assert_eq!(
+					len, expected,
+					"existing={:?}, incoming={:?}: expected {} schedule(s), got {}",
+					existing, incoming, expected, len,
+				);
+			});
+		}
+	}
+}
+
+/// Check that attempting to create a schedule fails when the global capacity is full, even
+/// if the per-kind capacity is not yet reached. This happens when sufficient root entries
+/// are pushed so as to fill all slots (which non-root counters are not aware of).
+#[test]
+fn do_vested_transfer_total_cap_guard_prevents_silent_failure() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 13u64; // rich account from the mock
+		let target = 4u64; // starts with no schedules
+		let min = <Test as Config>::MinVestedTransfer::get();
+
+		// Fill the BoundedVec to MAX_VESTING_SCHEDULES (4) with a mix of kinds:
+		// 2 Public + 1 Staking + 1 None. Mock caps: MAX_PUBLIC=3, MAX_STAKING=1.
+		assert_ok!(Vesting::vested_transfer(
+			Some(source).into(),
+			target,
+			VestingInfo::new(min, 1, 10),
+		));
+		assert_ok!(Vesting::vested_transfer(
+			Some(source).into(),
+			target,
+			VestingInfo::new(min, 1, 11),
+		));
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source,
+			&target,
+			min,
+			20,
+			12,
+			VestingKind::Staking,
+		));
+		assert_ok!(Vesting::force_vested_transfer(
+			RawOrigin::Root.into(),
+			source,
+			target,
+			VestingInfo::new(min, 1, 13),
+		));
+
+		// Sanity: vec is full, Public count is below its per-kind cap.
+		let schedules = VestingStorage::<Test>::get(&target).unwrap();
+		assert_eq!(schedules.len(), 4);
+		assert_eq!(schedules.iter().filter(|(_, k)| *k == Some(VestingKind::Public)).count(), 2,);
+		assert!(2 < <Test as Config>::slot_cap(VestingKind::Public));
+
+		// A new Public vested_transfer would pass the per-kind check (2 < 3) but the vec
+		// is already at capacity. `assert_noop!` also verifies no balance/storage moved.
 		assert_noop!(
-			<Vesting as VestedPayout<_, _>>::add_to_vesting(&source, &dest, amount, 20, 4),
-			Error::<Test>::AtMaxVestingSchedules
+			Vesting::vested_transfer(Some(source).into(), target, VestingInfo::new(min, 1, 14),),
+			Error::<Test>::AtMaxVestingSchedules,
+		);
+	});
+}
+
+/// The `VestingSchedule::add_vesting_schedule` calls are now tagged as public, so the public
+/// capacity limit must be observed and `can_add_vesting_schedule` must agree to the limit.
+#[test]
+fn vesting_schedule_trait_enforces_public_per_kind_cap() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let target = 4u64;
+		let max_public = <Test as Config>::slot_cap(VestingKind::Public);
+		let locked = 100u64; // sub-min is fine; `add_vesting_schedule` does not gate on it.
+
+		// Fill the Public quota via the `VestingSchedule` trait.
+		for i in 0..max_public {
+			let starting_block = 10 + i as u64; // distinct so we exercise create-path each time
+			assert_ok!(<Vesting as VestingSchedule<_>>::can_add_vesting_schedule(
+				&target,
+				locked,
+				1,
+				starting_block,
+			));
+			assert_ok!(<Vesting as VestingSchedule<_>>::add_vesting_schedule(
+				&target,
+				locked,
+				1,
+				starting_block,
+			));
+		}
+
+		// We have not exceeded the BoundedVec, but we have hit the Public quota.
+		assert_eq!(VestingStorage::<Test>::get(&target).unwrap().len() as u32, max_public,);
+		assert!(max_public < <Test as Config>::MAX_VESTING_SCHEDULES);
+
+		// Adding one more via the trait must fail — even though `MAX_VESTING_SCHEDULES`
+		// still has headroom — because the Public bucket is at quota.
+		assert_noop!(
+			<Vesting as VestingSchedule<_>>::add_vesting_schedule(&target, locked, 1, 99),
+			Error::<Test>::AtMaxVestingSchedules,
+		);
+		// And `can_add_vesting_schedule` must agree (no false positives).
+		assert_noop!(
+			<Vesting as VestingSchedule<_>>::can_add_vesting_schedule(&target, locked, 1, 99),
+			Error::<Test>::AtMaxVestingSchedules,
 		);
 	});
 }

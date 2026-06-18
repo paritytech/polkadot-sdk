@@ -435,6 +435,17 @@ pub struct IdAmount<Id, Balance> {
 	pub amount: Balance,
 }
 
+/// The kind (which indicates the origin) of a vesting schedule.
+#[derive(
+	Copy, Clone, PartialEq, Debug, codec::Encode, codec::Decode, MaxEncodedLen, scale_info::TypeInfo,
+)]
+pub enum VestingKind {
+	/// The permissionless `vested_transfer` extrinsic.
+	Public,
+	/// Validator self-stake incentives.
+	Staking,
+}
+
 /// Transfer `amount` from `source` to `dest` and apply a linear vesting schedule that completes
 /// within at most `duration` blocks starting from the current block.
 ///
@@ -454,11 +465,10 @@ pub struct IdAmount<Id, Balance> {
 /// The `vested_transfer` extrinsic from `pallet_vesting` is permissionless, so an external actor
 /// can fill a target's vesting schedule slots and cause subsequent *create* calls from
 /// [`add_to_vesting`](Self::add_to_vesting) to fail with `AtMaxVestingSchedules`.
-/// To mitigate this, `pallet-vesting` enforces two limits: the permissionless extrinsic is
-/// capped at `MAX_PUBLIC_VESTING_SCHEDULES`, while trait callers (including this one) may fill
-/// schedules up to the higher `MAX_VESTING_SCHEDULES`. Consumers must configure the runtime
-/// so the gap `MAX_VESTING_SCHEDULES − MAX_PUBLIC_VESTING_SCHEDULES` is large enough to absorb
-/// the maximum number of schedules the consumer can create.
+/// To mitigate this, `pallet-vesting` partitions vesting schedule slots into multiple kinds.
+/// The permissionless `vested_transfer` extrinsic can only fill the allocated Public slots, the
+/// more generic `add_to_vesting` can select any non-root kind, while the privileged
+/// `add_to_vesting_unrestricted` can fill any remaining empty slot.
 pub trait VestedPayout<AccountId, Balance> {
 	/// The block number type used to express vesting duration.
 	type BlockNumber;
@@ -476,14 +486,21 @@ pub trait VestedPayout<AccountId, Balance> {
 		start_at: Option<Self::BlockNumber>,
 	) -> sp_runtime::DispatchResult;
 
-	/// Transfer `amount` from `source` to `dest`, merging with the existing vesting schedule
-	/// whose `starting_block` equals `start_at`, or creating a new schedule if none exists.
-	/// On the merge path `MinVestedTransfer` is not enforced, allowing sub-minimum era payouts
-	/// to accumulate into the epoch's schedule. This removes a protection that normally keeps
-	/// every vesting schedule above a meaningful size, and is safe **only** because callers of
-	/// this trait are trusted, internal paths — do not expose `add_to_vesting` to untrusted
-	/// callers.
+	/// Transfer `amount` from `source` to `dest`, merging with the same-kind schedule
+	/// whose `starting_block` equals `start_at`, or creating a new one. The merge path
+	/// bypasses `MinVestedTransfer` — safe only because trait callers are trusted.
 	fn add_to_vesting(
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Balance,
+		duration: Self::BlockNumber,
+		start_at: Self::BlockNumber,
+		kind: VestingKind,
+	) -> sp_runtime::DispatchResult;
+
+	/// Root-only counterpart to `add_to_vesting`, which bypasses all per-kind caps and
+	/// only merges with other root schedules.
+	fn add_to_vesting_unrestricted(
 		source: &AccountId,
 		dest: &AccountId,
 		amount: Balance,

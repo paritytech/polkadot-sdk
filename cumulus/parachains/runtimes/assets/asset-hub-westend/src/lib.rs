@@ -545,6 +545,7 @@ parameter_types! {
 impl pallet_vesting::Config for Runtime {
 	const MAX_VESTING_SCHEDULES: u32 = 56;
 	const MAX_PUBLIC_VESTING_SCHEDULES: u32 = 28;
+	const MAX_STAKING_VESTING_SCHEDULES: u32 = 28;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type BlockNumberToBalance = ConvertInto;
 	type Currency = Balances;
@@ -2028,6 +2029,7 @@ pub type Migrations = (
 		staking::StakingPotsPalletId,
 		staking::StakingStakerRewardKind,
 	>,
+	pallet_vesting::migrations::v2::Migration<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.

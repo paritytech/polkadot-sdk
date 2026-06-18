@@ -53,11 +53,13 @@ impl Config for Test {
 	type BlockNumberToBalance = Identity;
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
-	const MAX_VESTING_SCHEDULES: u32 = 3;
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
+	const MAX_VESTING_SCHEDULES: u32 = 4;
+	const MAX_PUBLIC_VESTING_SCHEDULES: u32 = 3;
+	const MAX_STAKING_VESTING_SCHEDULES: u32 = 1;
 }
 
 pub struct ExtBuilder {
