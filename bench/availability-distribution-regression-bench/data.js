@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781701405894,
+  "lastUpdate": 1781804557005,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "Denzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "227c73b5c8810c0f34e87447f00e96743234fa52",
-          "message": "feat: add validation for zombienet flaky tests (#10034)\n\n# Description\nAdd some check in CI that would verify if test has a corresponding issue\nand if that issue exists. That verification could happen whenever some\nflaky test is added to the zombienet-flaky-tests.\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-10-28T16:36:35Z",
-          "tree_id": "ca1f1dd81ed644f6ab46edec993d107da1722ee9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/227c73b5c8810c0f34e87447f00e96743234fa52"
-        },
-        "date": 1761673688684,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022740762680000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007571973353333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013316133726666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16151715143999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14645942475333343,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "937316cac406ee38a91cde16d300075595f0b2b7",
+          "message": "changes to use zombie-bite (#12247)\n\nIn order to use [zombie-bite](https://github.com/paritytech/zombie-bite)\n(to fork and spawn a live network with the _state_) with the same client\nbinaries (for testing releases), we need to allow to set this value\n`DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION` to __1__. I think the\nbest approach here is to use an _env var_, since we _only_ need it for\nour use case. Cc @eskimor wdyt?\n\nThx!\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-18T16:07:10Z",
+          "tree_id": "e4da49aaa10cf6fa1b1532b045f59c33ea1652f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/937316cac406ee38a91cde16d300075595f0b2b7"
+        },
+        "date": 1781804531206,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02389814466666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00743706010666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14997977810000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010327503166666646,
             "unit": "seconds"
           }
         ]
