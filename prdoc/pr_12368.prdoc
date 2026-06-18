@@ -39,6 +39,7 @@ doc:
     ### Notes
 
     - Adds new `cumulus-primitives-spec-messaging` crate in `polkadot-sdk` (umbrella) crate.
+crates:
 - name: cumulus-primitives-spec-messaging
   bump: patch
 - name: polkadot-primitives
