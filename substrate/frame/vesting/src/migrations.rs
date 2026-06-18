@@ -137,13 +137,20 @@ pub mod v2 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
-			assert_eq!(StorageVersion::<T>::get(), Releases::V1, "Storage version must be V1");
+			// Mirror the `on_runtime_upgrade` guard: when not at V1 the migration is a no-op.
+			if StorageVersion::<T>::get() != Releases::V1 {
+				return Ok(alloc::vec::Vec::new());
+			}
 			let count = Vesting::<T>::iter().count() as u64;
 			Ok(count.encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			// Empty state occurs if the chain was not at V1 before the upgrade.
+			if state.is_empty() {
+				return Ok(());
+			}
 			assert_eq!(StorageVersion::<T>::get(), Releases::V2, "Storage version must be V2");
 			let pre_count = u64::decode(&mut &state[..]).expect("pre_upgrade encoded a u64; qed");
 			let post_count = Vesting::<T>::iter().count() as u64;
