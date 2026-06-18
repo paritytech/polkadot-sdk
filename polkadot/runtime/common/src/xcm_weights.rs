@@ -29,6 +29,10 @@ pub trait AssetMatcher {
 	fn max_assets() -> u64;
 }
 
+pub trait WeighAssets {
+	fn weigh_assets<M: AssetMatcher>(&self, known_weight: Weight) -> Weight;
+}
+
 pub fn weigh_assets_list<M: AssetMatcher>(assets: &Assets, known_weight: Weight) -> Weight {
 	assets
 		.inner()
@@ -57,6 +61,18 @@ pub fn weigh_assets_filter<M: AssetMatcher>(assets: &AssetFilter, known_weight: 
 			known_weight.saturating_mul(M::max_assets().min(*count as u64))
 		},
 		AssetFilter::Wild(All) => known_weight.saturating_mul(M::max_assets()),
+	}
+}
+
+impl WeighAssets for AssetFilter {
+	fn weigh_assets<M: AssetMatcher>(&self, known_weight: Weight) -> Weight {
+		weigh_assets_filter::<M>(self, known_weight)
+	}
+}
+
+impl WeighAssets for Assets {
+	fn weigh_assets<M: AssetMatcher>(&self, known_weight: Weight) -> Weight {
+		weigh_assets_list::<M>(self, known_weight)
 	}
 }
 
