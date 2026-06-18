@@ -1,0 +1,27 @@
+title: 'fix(asset-conversion): use full balances for pool prices'
+doc:
+- audience: Runtime Dev
+  description: "# Description\n\nFixes asset-conversion pool price and liquidity calculations\
+    \ to use the full pool balances instead of reducible balances.\n\nThe previous\
+    \ logic could calculate reserves from reducible balances, which can exclude protected\
+    \ funds and understate the amount held by the pool account. This PR routes the\
+    \ relevant calculations through the pallet reserve helper and updates the shared\
+    \ balance helper to return the full asset balance.\n\nAn example of a problem\
+    \ is found on Polkadot Asset Hub (address `163CRvzDQ8JHZfmufa86zA7BfDY7NToUSqmWbpDq5kwDYSmH`,\
+    \ DOT <> USDC pool). Someone transferred a WUD to the account, and now the reducible\
+    \ balance substracts the ED, giving a wrong quote.\n\n## Integration\n\nDownstream\
+    \ runtimes using `pallet-asset-conversion` should receive this as a patch-level\
+    \ bug fix. No migration or configuration change is required.\n\n## Review Notes\n\
+    \nThe change affects reserve reads used by:\n\n* liquidity deposit calculations\n\
+    * liquidity withdrawal calculations\n* buy/sell price estimations\n\nThe modified\
+    \ paths now use the same reserve source as swap execution. `get_balance` now returns\
+    \ `T::Assets::balance(...)` so callers that need the owner\u2019s total balance\
+    \ do not receive reducible-balance semantics.\n\n# Checklist\n\n* [x] My PR includes\
+    \ a detailed description as outlined in the \"Description\" and its two subsections\
+    \ above.\n* [x] My PR follows the labeling requirements of this project (at minimum\
+    \ one label for `T` required)\n* [x] I have made corresponding changes to the\
+    \ documentation (if applicable)\n* [x] I have added tests that prove my fix is\
+    \ effective or that my feature works (if applicable)"
+crates:
+- name: pallet-asset-conversion
+  bump: patch
