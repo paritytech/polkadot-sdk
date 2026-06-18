@@ -465,7 +465,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#315 id=315 data-nosnippet>315</a>	</span><span class="kw">pub fn </span>process_finalized_block(<span class="kw-2">&amp;mut </span><span class="self">self</span>, finalized_block_number: <span class="kw-2">&amp;</span>BlockNumber) {
 <a href=#316 id=316 data-nosnippet>316</a>		<span class="comment">// `DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION - 1` because
 <a href=#317 id=317 data-nosnippet>317</a>		// `finalized_block_number`counts to the candidate lifetime.
-<a href=#318 id=318 data-nosnippet>318</a>		</span><span class="kw">match </span>finalized_block_number.checked_sub(DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION - <span class="number">1</span>)
+<a href=#318 id=318 data-nosnippet>318</a>		</span><span class="kw">match </span>finalized_block_number.checked_sub(<span class="kw-2">*</span>DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION - <span class="number">1</span>)
 <a href=#319 id=319 data-nosnippet>319</a>		{
 <a href=#320 id=320 data-nosnippet>320</a>			<span class="prelude-val">Some</span>(key_to_prune) =&gt; {
 <a href=#321 id=321 data-nosnippet>321</a>				<span class="self">self</span>.backed_candidates.remove_up_to_height(<span class="kw-2">&amp;</span>key_to_prune);
@@ -543,7 +543,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#393 id=393 data-nosnippet>393</a>	{
 <a href=#394 id=394 data-nosnippet>394</a>		<span class="kw">let </span>target_ancestor = get_finalized_block_number(sender)
 <a href=#395 id=395 data-nosnippet>395</a>			.<span class="kw">await</span><span class="question-mark">?
-<a href=#396 id=396 data-nosnippet>396</a>			</span>.saturating_sub(DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION);
+<a href=#396 id=396 data-nosnippet>396</a>			</span>.saturating_sub(<span class="kw-2">*</span>DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION);
 <a href=#397 id=397 data-nosnippet>397</a>
 <a href=#398 id=398 data-nosnippet>398</a>		<span class="kw">let </span><span class="kw-2">mut </span>ancestors = Vec::new();
 <a href=#399 id=399 data-nosnippet>399</a>
