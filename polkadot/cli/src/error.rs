@@ -59,7 +59,9 @@ pub enum Error {
 	#[error("Execute worker binary failed security checks, binary path: {worker_path:?}, directory path: {worker_dir_path:?}")]
 	ExecuteWorkerFailedSecurityChecks { worker_path: PathBuf, worker_dir_path: PathBuf },
 
-	#[error("Failed to spawn execute worker binary at {worker_path:?} for security checks: {source}")]
+	#[error(
+		"Failed to spawn execute worker binary at {worker_path:?} for security checks: {source}"
+	)]
 	ExecuteWorkerSpawnFailed {
 		worker_path: PathBuf,
 		#[source]

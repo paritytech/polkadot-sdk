@@ -330,7 +330,7 @@ pub fn check_security_status(worker_kind: WorkerKind, worker_dir_path: &Path) ->
 			"could not read worker dir: {}",
 			err,
 		);
-		return false
+		return false;
 	}
 
 	#[cfg(target_os = "linux")]
