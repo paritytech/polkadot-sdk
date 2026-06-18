@@ -2141,6 +2141,23 @@ where
 		// This is for example the case for balance transfers or when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
+		// EIP-7702: clients follow the delegation indicator exactly one hop. If the called
+		// address is delegated to a target that is itself a delegated EOA, the spec says the
+		// indicator bytes `0xef0100||...` are executed as raw bytecode and trap on the
+		// designated invalid opcode `0xef`. Surface this as an EVM revert (empty data) rather
+		// than synthesizing the bytes — and crucially do this *before* the value-transfer
+		// fallthrough so a chain call doesn't silently succeed as a plain EOA transfer.
+		// Mirrors the same guard in `Stack::run_call` for the top-level entry.
+		if let Some(target) = AccountInfo::<T>::get_delegation_target(dest_addr) &&
+			AccountInfo::<T>::is_delegated(&target)
+		{
+			*self.last_frame_output_mut() = ExecReturnValue {
+				flags: pallet_revive_uapi::ReturnFlags::REVERT,
+				data: Vec::new(),
+			};
+			return Ok(());
+		}
+
 		let try_call = || {
 			// Enable read-only access if requested; cannot disable it if already set.
 			let is_read_only = read_only || self.is_read_only();

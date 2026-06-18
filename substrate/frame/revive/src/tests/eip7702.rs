@@ -935,6 +935,46 @@ fn delegation_chain_does_not_execute() {
 			ALICE_INITIAL,
 			"Alice's storage must be unchanged after chain attempt"
 		);
+
+		// Case 4: nested-call variant. A contract calling Bob (chain-delegated) must see the
+		// same revert semantics. Without the chain guard mirrored on the nested
+		// `PrecompileExt::call` path, the call would fall through to the value-transfer path
+		// and silently succeed as a plain EOA transfer — a different observable outcome from
+		// the top-level call in Case 3.
+		let value_before_caller =
+			<<Test as Config>::Currency as Inspect<_>>::balance(&caller_contract.account_id);
+		let value_before_bob = <<Test as Config>::Currency as Inspect<_>>::balance(&BOB);
+
+		let result = builder::bare_call(caller_contract.addr)
+			.data(
+				Caller::normalCall {
+					_callee: BOB_ADDR.0.into(),
+					_value: 0,
+					_data: Counter::setNumberCall { newNumber: CHAINED_ATTEMPT }
+						.abi_encode()
+						.into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "outer contract call itself shouldn't trap");
+		let decoded = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
+		assert!(
+			!decoded.success,
+			"nested call into chain-delegated Bob must report failure, not silently succeed as an EOA transfer",
+		);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&BOB),
+			value_before_bob,
+			"value must not have moved to Bob via the nested chain call",
+		);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&caller_contract.account_id),
+			value_before_caller,
+			"caller contract's balance must be unchanged after the failed nested chain call",
+		);
+		assert_eq!(read_number(), ALICE_INITIAL, "Alice's storage must still be untouched");
 	});
 }
 
