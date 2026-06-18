@@ -69,6 +69,9 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 }
 
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig as pallet_assets::DefaultConfig)]

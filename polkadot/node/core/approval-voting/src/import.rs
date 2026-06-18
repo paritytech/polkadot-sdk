@@ -627,8 +627,8 @@ pub(crate) mod tests {
 	use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 	use polkadot_node_subsystem_util::database::Database;
 	use polkadot_primitives::{
-		node_features::FeatureIndex, Id as ParaId, IndexedVec, MutateDescriptorV2, NodeFeatures,
-		SessionInfo, ValidatorId, ValidatorIndex,
+		node_features::FeatureIndex, ApprovalVotingParams, Id as ParaId, IndexedVec,
+		MutateDescriptorV2, NodeFeatures, SessionInfo, ValidatorId, ValidatorIndex,
 	};
 	use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2, dummy_hash};
 	use schnellru::{ByLength, LruMap};
@@ -887,6 +887,15 @@ pub(crate) mod tests {
 						si_tx.send(Ok(NodeFeatures::repeat(enable_v2, FeatureIndex::EnableAssignmentsV2 as usize + 1))).unwrap();
 					}
 				);
+
+				assert_matches!(
+					handle.recv().await,
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, si_tx), )
+					) => {
+						si_tx.send(Ok(ApprovalVotingParams::default())).unwrap();
+					}
+				);
 			});
 
 			futures::executor::block_on(futures::future::join(test_fut, aux_fut));
@@ -1012,6 +1021,15 @@ pub(crate) mod tests {
 					RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 				) => {
 					si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+				}
+			);
+
+			assert_matches!(
+				handle.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, si_tx), )
+				) => {
+					si_tx.send(Ok(ApprovalVotingParams::default())).unwrap();
 				}
 			);
 		});
@@ -1244,6 +1262,15 @@ pub(crate) mod tests {
 					si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 				}
 			);
+
+			assert_matches!(
+				handle.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, si_tx), )
+				) => {
+					si_tx.send(Ok(ApprovalVotingParams::default())).unwrap();
+				}
+			);
 		});
 
 		futures::executor::block_on(futures::future::join(test_fut, aux_fut));
@@ -1456,6 +1483,15 @@ pub(crate) mod tests {
 					RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 				) => {
 					si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+				}
+			);
+
+			assert_matches!(
+				handle.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, si_tx), )
+				) => {
+					si_tx.send(Ok(ApprovalVotingParams::default())).unwrap();
 				}
 			);
 

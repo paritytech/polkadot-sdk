@@ -277,15 +277,6 @@ pub enum Proof {
 		/// Public key.
 		signer: [u8; 33],
 	},
-	/// On-chain event proof.
-	OnChain {
-		/// Account identifier associated with the event.
-		who: AccountId,
-		/// Hash of block that contains the event.
-		block_hash: BlockHash,
-		/// Index of the event in the event list.
-		event_index: u64,
-	},
 }
 
 impl Proof {
@@ -297,7 +288,6 @@ impl Proof {
 			Proof::Secp256k1Ecdsa { signer, .. } => {
 				<sp_runtime::traits::BlakeTwo256 as sp_core::Hasher>::hash(signer).into()
 			},
-			Proof::OnChain { who, .. } => *who,
 		}
 	}
 }
@@ -548,7 +538,7 @@ impl Statement {
 		use sp_runtime::traits::Verify;
 
 		match self.proof() {
-			Some(Proof::OnChain { .. }) | None => SignatureVerificationResult::NoSignature,
+			None => SignatureVerificationResult::NoSignature,
 			Some(Proof::Sr25519 { signature, signer }) => {
 				let to_sign = self.signature_material();
 				let signature = sp_core::sr25519::Signature::from(*signature);
@@ -808,7 +798,7 @@ mod test {
 	use crate::{
 		hash_encoded, Field, Proof, SignatureVerificationResult, Statement, Topic, MAX_TOPICS,
 	};
-	use codec::{Decode, Encode};
+	use codec::{Decode, Encode, MaxEncodedLen};
 	use scale_info::{MetaType, TypeInfo};
 	use sp_application_crypto::Pair;
 	use sp_core::sr25519;
@@ -817,7 +807,7 @@ mod test {
 	fn statement_encoding_matches_vec() {
 		let mut statement = Statement::new();
 		assert!(statement.proof().is_none());
-		let proof = Proof::OnChain { who: [42u8; 32], block_hash: [24u8; 32], event_index: 66 };
+		let proof = Proof::Sr25519 { signature: [42u8; 64], signer: [24u8; 32] };
 
 		let decryption_key = [0xde; 32];
 		let topic1: Topic = [0x01; 32].into();
@@ -916,11 +906,7 @@ mod test {
 
 		// Encode a statement with Proof, then corrupt the Proof variant
 		let with_proof = vec![
-			Field::AuthenticityProof(Proof::OnChain {
-				who: [0u8; 32],
-				block_hash: [0u8; 32],
-				event_index: 0,
-			}),
+			Field::AuthenticityProof(Proof::Sr25519 { signature: [0u8; 64], signer: [0u8; 32] }),
 			Field::Expiry(42),
 		]
 		.encode();
@@ -1083,7 +1069,8 @@ mod test {
 		// Allow some overhead due to using max_encoded_len() approximations.
 		const MAX_ACCEPTED_OVERHEAD: usize = 33;
 
-		let proof = Proof::OnChain { who: [42u8; 32], block_hash: [24u8; 32], event_index: 66 };
+		// Use Secp256k1Ecdsa: with sig=65 + signer=33 bytes, it is the worst-case proof payload
+		let proof = Proof::Secp256k1Ecdsa { signature: [42u8; 65], signer: [24u8; 33] };
 		let decryption_key = [0xde; 32];
 		let data = vec![55; 1000];
 		let expiry = 999;
@@ -1152,6 +1139,111 @@ mod test {
 			empty_overhead,
 			empty_estimated,
 			empty_encoded.len()
+		);
+	}
+
+	// Wire-format regression tests.
+	//
+	// `Proof::OnChain` was removed in favour of cryptographic-only proofs.
+	// These tests pin the SCALE encoding of the surviving variants so that any future reordering,
+	// renaming, or payload change is caught immediately.
+
+	/// Canonical fixture: a `Statement` with three topics, a channel, an expiry,
+	/// and a 4-byte payload. Used by every wire-format test in this section.
+	fn populate_canonical_fixture(stmt: &mut Statement) {
+		stmt.set_topic(0, [0x01; 32].into());
+		stmt.set_topic(1, [0x02; 32].into());
+		stmt.set_topic(2, [0x03; 32].into());
+		stmt.set_channel([0xcc; 32]);
+		stmt.set_expiry_from_parts(0x7fff_ffff, 0xabcd_1234);
+		stmt.set_plain_data(vec![0xde, 0xad, 0xbe, 0xef]);
+	}
+
+	/// The "tail" of every canonical fixture: everything after the optional
+	/// `AuthenticityProof` field. Pulled out so each variant fixture is one
+	/// short, reviewable block.
+	fn canonical_tail() -> Vec<u8> {
+		let mut v = Vec::new();
+		v.push(0x02); // Field::Expiry discriminant
+		v.extend_from_slice(&[0x34, 0x12, 0xcd, 0xab, 0xff, 0xff, 0xff, 0x7f]); // u64 LE
+		v.push(0x03); // Field::Channel discriminant
+		v.extend_from_slice(&[0xcc; 32]);
+		v.push(0x04); // Field::Topic1 discriminant
+		v.extend_from_slice(&[0x01; 32]);
+		v.push(0x05); // Field::Topic2 discriminant
+		v.extend_from_slice(&[0x02; 32]);
+		v.push(0x06); // Field::Topic3 discriminant
+		v.extend_from_slice(&[0x03; 32]);
+		v.push(0x08); // Field::Data discriminant
+		v.push(0x10); // Compact<u32> = 4
+		v.extend_from_slice(&[0xde, 0xad, 0xbe, 0xef]);
+		v
+	}
+
+	/// Pinned byte fixture for `Proof::Sr25519` statements.
+	#[test]
+	fn wire_format_sr25519_pinned() {
+		let mut stmt = Statement::new();
+		populate_canonical_fixture(&mut stmt);
+		stmt.set_proof(Proof::Sr25519 { signature: [0x11; 64], signer: [0xAA; 32] });
+
+		let mut expected = Vec::new();
+		expected.push(0x1c); // Compact<u32> = 7 fields (7 << 2)
+		expected.push(0x00); // Field::AuthenticityProof discriminant
+		expected.push(0x00); // Proof::Sr25519 discriminant
+		expected.extend_from_slice(&[0x11; 64]); // signature
+		expected.extend_from_slice(&[0xAA; 32]); // signer
+		expected.extend(canonical_tail());
+
+		assert_eq!(stmt.encode(), expected, "Sr25519 wire format drifted");
+		assert_eq!(expected.len(), 246);
+		// Round-trip
+		assert_eq!(Statement::decode(&mut expected.as_slice()).unwrap(), stmt);
+	}
+
+	/// `Proof::OnChain` byte sequences are rejected on decode.
+	#[test]
+	fn wire_format_legacy_onchain_proof_is_rejected() {
+		// Hand-crafted SCALE: 2 fields = [AuthenticityProof(OnChain { ... }), Expiry].
+		let mut legacy = Vec::new();
+		legacy.push(0x08); // Compact<u32> = 2 fields
+		legacy.push(0x00); // Field::AuthenticityProof discriminant
+		legacy.push(0x03); // Proof variant discriminant 3 (the old OnChain slot)
+		legacy.extend_from_slice(&[0xdd; 32]); // who
+		legacy.extend_from_slice(&[0xee; 32]); // block_hash
+		legacy.extend_from_slice(&[0xbe, 0xba, 0xfe, 0xca, 0xef, 0xbe, 0xad, 0xde]); // event_index
+		legacy.push(0x02); // Field::Expiry
+		legacy.extend_from_slice(&[0x2a, 0, 0, 0, 0, 0, 0, 0]); // 42 as u64 LE
+
+		assert!(
+			Statement::decode(&mut legacy.as_slice()).is_err(),
+			"legacy OnChain bytes must no longer decode into a Statement",
+		);
+
+		// And the same payload with the discriminant moved into the survivor
+		// range still works — proving the rejection is specifically about the
+		// removed slot, not a wholesale break of the codec.
+		let mut survivor = Vec::new();
+		survivor.push(0x08);
+		survivor.push(0x00);
+		survivor.push(0x00); // Proof::Sr25519 — survivor variant
+		survivor.extend_from_slice(&[0xdd; 64]);
+		survivor.extend_from_slice(&[0xee; 32]);
+		survivor.push(0x02);
+		survivor.extend_from_slice(&[0x2a, 0, 0, 0, 0, 0, 0, 0]);
+		assert!(
+			Statement::decode(&mut survivor.as_slice()).is_ok(),
+			"surviving variant in the same byte layout must still decode",
+		);
+	}
+
+	/// `Proof::max_encoded_len()` reflects the three-variant enum.
+	#[test]
+	fn proof_max_encoded_len_after_onchain_removal() {
+		assert_eq!(
+			Proof::max_encoded_len(),
+			1 + 65 + 33,
+			"max_encoded_len must equal Secp256k1Ecdsa's payload + 1-byte discriminant",
 		);
 	}
 }

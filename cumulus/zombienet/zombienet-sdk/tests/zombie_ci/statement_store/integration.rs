@@ -2,26 +2,36 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::common::{
-	assert_no_more_statements, assert_statements_match, base_dir, collator_default_args,
+	assert_no_more_statements, assert_statements_match, base_dir, collator_args,
 	create_chain_spec_with_allowances, expect_one_statement, expect_statements_unordered,
-	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
-	subscribe_topic_filter,
+	online_client_from_node, spawn_network, spawn_network_sudo,
+	spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
+	subscribe_topic_filter, wait_for_first_block, COLLATOR_INFO_LOG_FILTER,
+	COLLATOR_TRACE_LOG_FILTER,
 };
 use codec::Encode;
 use futures::future::join_all;
 use log::{debug, info};
 use sc_network_statement::config::STATEMENTS_BURST_COEFFICIENT;
-use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
-use sp_core::Bytes;
+use sc_statement_store::{
+	subxt_client::{
+		create_attest_call, create_consumer_registration_params, create_increase_allowance_call,
+		submit_extrinsic, CustomConfig, MSG_PREFIX,
+	},
+	test_utils::{create_allowance_items, create_test_statement, get_keypair},
+};
+use sp_core::{sr25519, Bytes, Pair};
 use sp_statement_store::{
 	RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
 };
+use statement_store_subxt::transactions::Signer;
 use std::{
 	cell::Cell,
 	collections::HashSet,
 	sync::Arc,
 	time::{Duration, SystemTime, UNIX_EPOCH},
 };
+use verifiable::{ring_vrf_impl::BandersnatchVrfVerifiable as Crypto, GenerateVerifiable};
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
 /// Verifies basic statement propagation and data integrity across two nodes
@@ -77,7 +87,9 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 	}
 	let items = create_allowance_items(&entries);
 
-	let network = spawn_network_sudo(&["alice", "bob", "charlie", "dave"], items).await?;
+	let network =
+		spawn_network_sudo(&["alice", "bob", "charlie", "dave"], items, COLLATOR_INFO_LOG_FILTER)
+			.await?;
 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
@@ -213,7 +225,7 @@ async fn spawn_flooding_network(
 	let base_dir = base_dir()?;
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
 
-	let default_args = collator_default_args(participant_count);
+	let default_args = collator_args(participant_count, COLLATOR_TRACE_LOG_FILTER);
 	let mut bob_args = default_args.clone();
 	bob_args.push(format!("--statement-rate-limit={rate_limit}").as_str().into());
 
@@ -269,14 +281,7 @@ async fn statement_store_sustained_rate_flooding() -> Result<(), anyhow::Error> 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
 
-	for node in [alice, bob] {
-		node.wait_metric_with_timeout(
-			"block_height{status=\"best\"}",
-			|height| height >= 1.0,
-			300u64,
-		)
-		.await?;
-	}
+	wait_for_first_block(&[alice, bob], 300).await?;
 
 	let bob_peers_before = Cell::new(0.0f64);
 	bob.wait_metric_with_timeout(
@@ -376,14 +381,7 @@ async fn statement_store_burst_flooding() -> Result<(), anyhow::Error> {
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
 
-	for node in [alice, bob] {
-		node.wait_metric_with_timeout(
-			"block_height{status=\"best\"}",
-			|height| height >= 1.0,
-			300u64,
-		)
-		.await?;
-	}
+	wait_for_first_block(&[alice, bob], 300).await?;
 
 	let bob_peers_before = Cell::new(0.0f64);
 	bob.wait_metric_with_timeout(
@@ -628,6 +626,93 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
+/// Tests statement store submit+propagate using a lite person registered via extrinsics
+///
+/// Unlike the basic tests that use genesis-baked allowances, this test registers a lite person
+/// via real extrinsics (increase_attestation_allowance + attest), and then verifies the registered
+/// candidate can submit and propagate statements
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_lite_person_submit_and_propagate() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	let network = spawn_network(&["alice", "bob"], COLLATOR_INFO_LOG_FILTER).await?;
+
+	let alice_node = network.get_node("alice")?;
+	let bob_node = network.get_node("bob")?;
+	let para_client = online_client_from_node(alice_node).await?;
+
+	let alice = statement_store_subxt_signer::sr25519::dev::alice();
+	let alice_account_id = <statement_store_subxt_signer::sr25519::Keypair as Signer<
+		CustomConfig,
+	>>::account_id(&alice);
+
+	info!("Granting attestation allowance to Alice...");
+	let increase_call = create_increase_allowance_call(alice_account_id.0.to_vec(), 1);
+	let mut nonce = para_client.tx().await?.account_nonce(&alice_account_id).await?;
+	info!("Alice nonce before increase_allowance: {nonce}");
+	let _block_hash = submit_extrinsic(&para_client, &increase_call, &alice, nonce).await?;
+	nonce += 1;
+	info!("Attestation allowance granted");
+
+	let candidate_pair = sr25519::Pair::from_seed(&[77u8; 32]);
+	let candidate_account: [u8; 32] = candidate_pair.public().0;
+
+	// Generate ring-VRF keypair
+	let ring_secret = Crypto::new_secret([42u8; 32]);
+	let ring_member = Crypto::member_from_secret(&ring_secret);
+	let msg = {
+		let candidate_encoded = candidate_account.encode();
+		let ring_member_encoded = ring_member.encode();
+		[MSG_PREFIX.as_slice(), &candidate_encoded, &ring_member_encoded].concat()
+	};
+	let candidate_sig = candidate_pair.sign(&msg);
+
+	let proof_of_ownership =
+		Crypto::sign(&ring_secret, &msg).expect("ring VRF signing should succeed");
+
+	// Consumer registration: Alice registers herself as consumer.
+	// The consumer signs the payload; verifier is Alice (the attest origin)
+	let alice_sp_pair =
+		sr25519::Pair::from_string("//Alice", None).expect("Alice dev key should be valid");
+	let consumer_registration = create_consumer_registration_params(
+		&alice_sp_pair,
+		&alice_account_id.0,
+		&alice_account_id.0,
+	);
+
+	info!("Submitting PeopleLite::attest call with nonce {nonce}...");
+	let attest_call = create_attest_call(
+		candidate_account.to_vec(),
+		candidate_sig.0.to_vec(),
+		ring_member.0.to_vec(),
+		proof_of_ownership.to_vec(),
+		Some(consumer_registration),
+	);
+	submit_extrinsic(&para_client, &attest_call, &alice, nonce).await?;
+	info!("Attest call succeeded — lite person registered with consumer allowance");
+
+	let bob_rpc = bob_node.rpc().await?;
+	let topic: Topic = [0u8; 32].into();
+	let mut bob_sub = subscribe_topic(&bob_rpc, topic).await?;
+
+	// Statement must be signed by Alice (the consumer) who has the statement store allowance
+	let statement =
+		create_test_statement(&alice_sp_pair, &[topic], None, vec![1, 2, 3], u32::MAX, 0);
+	let expected: Bytes = statement.encode().into();
+
+	let alice_rpc = alice_node.rpc().await?;
+	let result = submit_statement(&alice_rpc, &statement).await?;
+	assert_eq!(result, SubmitResult::New);
+
+	let received = expect_one_statement(&mut bob_sub, 20).await?;
+	assert_eq!(received, expected);
+	assert_no_more_statements(&mut bob_sub, 20).await?;
+
+	Ok(())
+}
+
 /// Verifies the `deferred_peers` buffer delivers statements to a late-joining node.
 ///
 /// Dave joins after charlie has produced ~10 blocks and enters major sync. While syncing,
@@ -648,7 +733,8 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 		0,
 		StatementAllowance { max_count: TOTAL as u32, max_size: 1_000_000 },
 	)]);
-	let mut network = spawn_network_sudo(&["charlie", "alice"], items).await?;
+	let mut network =
+		spawn_network_sudo(&["charlie", "alice"], items, COLLATOR_TRACE_LOG_FILTER).await?;
 
 	let charlie = network.get_node("charlie")?;
 	let charlie_rpc = charlie.rpc().await?;

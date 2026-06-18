@@ -147,6 +147,9 @@ impl EnsureOrigin<RuntimeOrigin> for MockManagerOrigin {
 pub struct PsmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl crate::BenchmarkHelper<u32, u64> for PsmBenchmarkHelper {
+	fn get_asset_id(asset_index: u32) -> u32 {
+		asset_index
+	}
 	fn create_asset(asset_id: u32, owner: &u64, decimals: u8) {
 		use frame_support::traits::fungibles::{metadata::Mutate as MetadataMutate, Create};
 		if !<Assets as frame_support::traits::fungibles::Inspect<u64>>::asset_exists(asset_id) {

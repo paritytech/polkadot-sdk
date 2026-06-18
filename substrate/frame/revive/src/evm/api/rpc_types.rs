@@ -20,6 +20,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::{H160, U256};
+use sp_crypto_hashing::keccak_256;
 
 /// Configuration specific to a dry-run execution.
 ///
@@ -300,7 +301,7 @@ impl ReceiptInfo {
 ///
 /// [ref]: https://ethereum.github.io/yellowpaper/paper.pdf
 fn m3_2048(bloom: &mut [u8; 256], bytes: &[u8]) {
-	let hash = sp_core::keccak_256(bytes);
+	let hash = keccak_256(bytes);
 	for i in [0, 2, 4] {
 		let bit = (hash[i + 1] as usize + ((hash[i] as usize) << 8)) & 0x7FF;
 		bloom[256 - 1 - bit / 8] |= 1 << (bit % 8);

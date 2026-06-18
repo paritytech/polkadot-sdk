@@ -830,15 +830,17 @@ parameter_types! {
 }
 
 impl pallet_recovery::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
 	type RuntimeCall = RuntimeCall;
-	type BlockNumberProvider = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 	type Currency = Balances;
-	type ConfigDepositBase = ConfigDepositBase;
-	type FriendDepositFactor = FriendDepositFactor;
-	type MaxFriends = MaxFriends;
-	type RecoveryDeposit = RecoveryDeposit;
+	type FriendGroupsConsideration = ();
+	type AttemptConsideration = ();
+	type InheritorConsideration = ();
+	type SecurityDeposit = ();
+	type MaxFriendsPerConfig = ConstU32<100>;
+	type WeightInfo = ();
+	type Slash = (); // burn
 }
 
 parameter_types! {
@@ -949,13 +951,13 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::Utility(..) |
 				RuntimeCall::Identity(..) |
 				RuntimeCall::Society(..) |
-				RuntimeCall::Recovery(pallet_recovery::Call::as_recovered {..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::vouch_recovery {..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::claim_recovery {..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::close_recovery {..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::remove_recovery {..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::cancel_recovered {..}) |
-				// Specifically omitting Recovery `create_recovery`, `initiate_recovery`
+				RuntimeCall::Recovery(pallet_recovery::Call::set_friend_groups {..}) |
+				RuntimeCall::Recovery(pallet_recovery::Call::initiate_attempt {..}) |
+				RuntimeCall::Recovery(pallet_recovery::Call::approve_attempt {..}) |
+				RuntimeCall::Recovery(pallet_recovery::Call::finish_attempt {..}) |
+				RuntimeCall::Recovery(pallet_recovery::Call::cancel_attempt {..}) |
+				RuntimeCall::Recovery(pallet_recovery::Call::slash_attempt {..}) |
+				// Specifically omitting Recovery `control_inherited_account`
 				RuntimeCall::Vesting(pallet_vesting::Call::vest {..}) |
 				RuntimeCall::Vesting(pallet_vesting::Call::vest_other {..}) |
 				// Specifically omitting Vesting `vested_transfer`, and `force_vested_transfer`
