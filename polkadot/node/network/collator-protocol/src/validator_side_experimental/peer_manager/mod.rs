@@ -172,7 +172,24 @@ impl<B: Backend> PeerManager<B> {
 			.db
 			.process_bumps(finalized_block_number, bumps, Some(Score::new(INACTIVITY_DECAY)), now)
 			.await;
+
+		if !updates.is_empty() {
+			gum::debug!(
+				target: LOG_TARGET,
+				finalized_block_number,
+				?finalized_block_hash,
+				num_updates = updates.len(),
+				"Applying reputation updates on new finalized block",
+			);
+		}
+
 		for update in updates {
+			gum::trace!(
+				target: LOG_TARGET,
+				finalized_block_number,
+				?update,
+				"Applying reputation update",
+			);
 			self.connected.update_reputation(update);
 		}
 
