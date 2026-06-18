@@ -35,7 +35,8 @@ impl<H: sp_runtime::traits::Hash<Output = Hash>> mmr_lib::Merge for SpecMerge<H>
 	type Item = Hash;
 
 	fn merge(left: &Self::Item, right: &Self::Item) -> mmr_lib::Result<Self::Item> {
-		let mut preimage = Vec::with_capacity(1 + 32 + 32);
+		let len = <SpecHasher as sp_core::Hasher>::LENGTH;
+		let mut preimage = Vec::with_capacity(1 + len + len);
 		preimage.push(INNER_TAG);
 		preimage.extend_from_slice(left.as_bytes());
 		preimage.extend_from_slice(right.as_bytes());
@@ -43,7 +44,8 @@ impl<H: sp_runtime::traits::Hash<Output = Hash>> mmr_lib::Merge for SpecMerge<H>
 	}
 
 	fn merge_peaks(peak1: &Self::Item, peak2: &Self::Item) -> mmr_lib::Result<Self::Item> {
-		let mut preimage = Vec::with_capacity(1 + 32 + 32);
+		let len = <SpecHasher as sp_core::Hasher>::LENGTH;
+		let mut preimage = Vec::with_capacity(1 + len + len);
 		preimage.push(PEAK_TAG);
 		preimage.extend_from_slice(peak1.as_bytes());
 		preimage.extend_from_slice(peak2.as_bytes());
