@@ -134,20 +134,25 @@ mod benchmarks {
 		use crate::evm::eip7702;
 		use sp_io::hashing::keccak_256;
 
-		let chain_id = U256::from(T::ChainId::get());
-		// Delegate to a deployed contract so ContractInfo is created (worst case)
-		let target_contract = Contract::<T>::with_index(0, VmBinaryModule::dummy(), vec![])?;
-		let target = target_contract.address;
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		<T as Config>::FeeInfo::deposit_txfee(
 			<T as Config>::Currency::issue(caller_funding::<T>()),
 		);
+		let chain_id = U256::from(T::ChainId::get());
 		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
 
+		// Worst case: every authorization targets a *distinct* contract with *distinct* code
+		// so neither `AccountInfoOf<target>` nor `CodeInfoOf<code_hash>` reads can be cached
+		// across the loop. `dummy_unique(i)` produces a unique blob per index; the contract is
+		// deployed at a unique salt-index so addresses also differ.
 		let mut authorization_list = vec![];
 		for i in 0..n {
-			let key_material = keccak_256(&(i as u32).to_le_bytes());
+			let target_contract =
+				Contract::<T>::with_index(i + 1, VmBinaryModule::dummy_unique(i), vec![])?;
+			let target = target_contract.address;
+
+			let key_material = keccak_256(&i.to_le_bytes());
 			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
 			let signed_auth = eip7702::sign_authorization(&key, chain_id, target, U256::zero());
 			authorization_list.push(signed_auth);
@@ -171,20 +176,23 @@ mod benchmarks {
 		use crate::evm::eip7702;
 		use sp_io::hashing::keccak_256;
 
-		let chain_id = U256::from(T::ChainId::get());
-		// Delegate to a deployed contract so ContractInfo is created (worst case)
-		let target_contract = Contract::<T>::with_index(0, VmBinaryModule::dummy(), vec![])?;
-		let target = target_contract.address;
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		<T as Config>::FeeInfo::deposit_txfee(
 			<T as Config>::Currency::issue(caller_funding::<T>()),
 		);
+		let chain_id = U256::from(T::ChainId::get());
 		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
 
+		// Worst case: each auth has a distinct target with distinct code (see comment on
+		// `process_new_account_authorization` above).
 		let mut authorization_list = vec![];
 		for i in 0..n {
-			let key_material = keccak_256(&(i as u32).to_le_bytes());
+			let target_contract =
+				Contract::<T>::with_index(i + 1, VmBinaryModule::dummy_unique(i), vec![])?;
+			let target = target_contract.address;
+
+			let key_material = keccak_256(&i.to_le_bytes());
 			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
 
 			let eth_address = eip7702::eth_address(&key);
