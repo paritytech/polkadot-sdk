@@ -20,6 +20,10 @@ mod pallet_xcm_benchmarks_generic;
 use crate::Runtime;
 use alloc::vec::Vec;
 use frame_support::weights::Weight;
+use polkadot_runtime_common::xcm_weights::{
+	weigh_assets_filter, weigh_assets_list, weigh_hints, weigh_initiate_transfer, AssetMatcher,
+	AssetTypes,
+};
 use xcm::{latest::prelude::*, DoubleEncoded};
 
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmBalancesWeight;
@@ -27,16 +31,12 @@ use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
 use sp_runtime::BoundedVec;
 use xcm::latest::AssetTransferFilter;
 
-/// Types of asset supported by the Rococo runtime.
-pub enum AssetTypes {
-	/// An asset backed by `pallet-balances`.
-	Balances,
-	/// Unknown asset.
-	Unknown,
-}
+// Rococo only knows about one asset, the balances pallet.
+const MAX_ASSETS: u64 = 1;
 
-impl From<&Asset> for AssetTypes {
-	fn from(asset: &Asset) -> Self {
+pub struct RococoAssetMatcher;
+impl AssetMatcher for RococoAssetMatcher {
+	fn classify(asset: &Asset) -> AssetTypes {
 		match asset {
 			Asset { id: AssetId(Location { parents: 0, interior: Here }), .. } => {
 				AssetTypes::Balances
@@ -44,48 +44,25 @@ impl From<&Asset> for AssetTypes {
 			_ => AssetTypes::Unknown,
 		}
 	}
+
+	fn max_assets() -> u64 {
+		MAX_ASSETS
+	}
 }
 
 trait WeighAssets {
 	fn weigh_assets(&self, balances_weight: Weight) -> Weight;
 }
 
-// Rococo only knows about one asset, the balances pallet.
-const MAX_ASSETS: u64 = 1;
-
 impl WeighAssets for AssetFilter {
 	fn weigh_assets(&self, balances_weight: Weight) -> Weight {
-		match self {
-			Self::Definite(assets) => assets
-				.inner()
-				.into_iter()
-				.map(From::from)
-				.map(|t| match t {
-					AssetTypes::Balances => balances_weight,
-					AssetTypes::Unknown => Weight::MAX,
-				})
-				.fold(Weight::zero(), |acc, x| acc.saturating_add(x)),
-			// We don't support any NFTs on Rococo, so these two variants will always match
-			// only 1 kind of fungible asset.
-			Self::Wild(AllOf { .. } | AllOfCounted { .. }) => balances_weight,
-			Self::Wild(AllCounted(count)) => {
-				balances_weight.saturating_mul(MAX_ASSETS.min(*count as u64))
-			},
-			Self::Wild(All) => balances_weight.saturating_mul(MAX_ASSETS),
-		}
+		weigh_assets_filter::<RococoAssetMatcher>(self, balances_weight)
 	}
 }
 
 impl WeighAssets for Assets {
 	fn weigh_assets(&self, balances_weight: Weight) -> Weight {
-		self.inner()
-			.into_iter()
-			.map(|m| <AssetTypes as From<&Asset>>::from(m))
-			.map(|t| match t {
-				AssetTypes::Balances => balances_weight,
-				AssetTypes::Unknown => Weight::MAX,
-			})
-			.fold(Weight::zero(), |acc, x| acc.saturating_add(x))
+		weigh_assets_list::<RococoAssetMatcher>(self, balances_weight)
 	}
 }
 
@@ -174,18 +151,12 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 		assets: &BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
 		_xcm: &Xcm<()>,
 	) -> Weight {
-		let mut weight = if let Some(remote_fees) = remote_fees {
-			let fees = remote_fees.inner();
-			fees.weigh_assets(XcmBalancesWeight::<Runtime>::initiate_transfer())
-		} else {
-			Weight::zero()
-		};
-		for asset_filter in assets {
-			let assets = asset_filter.inner();
-			let extra = assets.weigh_assets(XcmBalancesWeight::<Runtime>::initiate_transfer());
-			weight = weight.saturating_add(extra);
-		}
-		weight
+		weigh_initiate_transfer(
+			remote_fees,
+			assets,
+			XcmBalancesWeight::<Runtime>::initiate_transfer(),
+			|asset_filter, weight| asset_filter.weigh_assets(weight),
+		)
 	}
 	fn report_holding(_response_info: &QueryResponseInfo, _assets: &AssetFilter) -> Weight {
 		XcmGeneric::<Runtime>::report_holding()
@@ -294,15 +265,7 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 		XcmGeneric::<Runtime>::unpaid_execution()
 	}
 	fn set_hints(hints: &BoundedVec<Hint, HintNumVariants>) -> Weight {
-		let mut weight = Weight::zero();
-		for hint in hints {
-			match hint {
-				AssetClaimer { .. } => {
-					weight = weight.saturating_add(XcmGeneric::<Runtime>::asset_claimer());
-				},
-			}
-		}
-		weight
+		weigh_hints(hints, XcmGeneric::<Runtime>::asset_claimer())
 	}
 	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<RuntimeCall>) -> Weight {
 		XcmGeneric::<Runtime>::execute_with_origin()
