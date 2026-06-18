@@ -38,11 +38,10 @@ doc:
 
     ### Notes
 
-    - `OutgoingMessage` includes a `source: ParaId` field not present in the issue's struct sketch — required because the issue's own leaf-preimage format includes `source_parachain`, which the struct must carry to compute `hash_leaf()`.
-    - `mmr_lib` bags peaks pairwise right-to-left via `merge_peaks(right, left)`, whereas a naive single-call implementation would hash all peaks together. The roots differ for 3+ peaks; this is a deliberate protocol decision (no deployed state to migrate).
-    - `CommitmentSet` lives in `polkadot/primitives/src/v9/` rather than the spec-messaging crate, as it is a relay-chain primitive.
-crates:
+    - Adds new `cumulus-primitives-spec-messaging` crate in `polkadot-sdk` (umbrella) crate.
 - name: cumulus-primitives-spec-messaging
-  bump: major
+  bump: patch
 - name: polkadot-primitives
+  bump: minor
+- name: polkadot-sdk
   bump: minor
