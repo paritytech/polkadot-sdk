@@ -4,8 +4,7 @@ doc:
   description: |
     Closes #12346
 
-    New `cumulus-primitives-spec-messaging` crate (`cumulus/primitives/spec-messaging/`),
-    `no_std`-compatible, added to workspace members.
+    New `cumulus-primitives-spec-messaging` crate (`cumulus/primitives/spec-messaging/`), `no_std`-compatible, added to workspace members.
 
     ### `CommitmentSet<const N: u32>` (`polkadot/primitives/src/v9/`)
 
@@ -35,19 +34,13 @@ doc:
 
     Callers build an accumulator directly with `mmr_lib::MMR<Hash, SpecMerge<SpecHasher>, S>`, gaining multi-leaf inclusion proofs (`gen_proof` / `MerkleProof::verify`) and append-only extension proofs (`gen_ancestry_proof` / `verify_incremental`) from the library at no extra implementation cost.
 
-    - 6 unit tests: empty MMR, root determinism, per-append root change, `merge` order
-      sensitivity, `merge_peaks` order sensitivity, domain tag isolation (inner vs peak).
+    - 6 unit tests: empty MMR, root determinism, per-append root change, `merge` order sensitivity, `merge_peaks` order sensitivity, domain tag isolation (inner vs peak).
 
     ### Notes
 
-    - `OutgoingMessage` includes a `source: ParaId` field not present in the issue's struct
-      sketch — required because the issue's own leaf-preimage format includes
-      `source_parachain`, which the struct must carry to compute `hash_leaf()`.
-    - `mmr_lib` bags peaks pairwise right-to-left via `merge_peaks(right, left)`, whereas a
-      naive single-call implementation would hash all peaks together. The roots differ for
-      3+ peaks; this is a deliberate protocol decision (no deployed state to migrate).
-    - `CommitmentSet` lives in `polkadot/primitives/src/v9/` rather than the spec-messaging
-      crate, as it is a relay-chain primitive.
+    - `OutgoingMessage` includes a `source: ParaId` field not present in the issue's struct sketch — required because the issue's own leaf-preimage format includes `source_parachain`, which the struct must carry to compute `hash_leaf()`.
+    - `mmr_lib` bags peaks pairwise right-to-left via `merge_peaks(right, left)`, whereas a naive single-call implementation would hash all peaks together. The roots differ for 3+ peaks; this is a deliberate protocol decision (no deployed state to migrate).
+    - `CommitmentSet` lives in `polkadot/primitives/src/v9/` rather than the spec-messaging crate, as it is a relay-chain primitive.
 crates:
 - name: cumulus-primitives-spec-messaging
   bump: major
