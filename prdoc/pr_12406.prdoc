@@ -1,0 +1,44 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: 'core-fellowship: add configurable block number provider'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `pallet-core-fellowship` now has a configurable `BlockNumberProvider` instead of always using
+      the local `frame_system` block number. The pallet's timing storage and checks for promotion,
+      demotion, proof, and offboarding periods now use the configured provider's block-number type.
+
+      Runtimes that need the previous behavior can set `BlockNumberProvider` to
+      `frame_system::Pallet`. Runtimes that change provider domains should include the provided
+      `MigrateV1ToV2` migration with a `ConvertBlockNumber` implementation to translate stored
+      local block numbers into the new provider's block-number domain.
+
+      Collectives Westend now configures the Fellowship and Ambassador core-fellowship instances to
+      use `cumulus_pallet_parachain_system::RelaychainDataProvider`, with a runtime migration that
+      translates existing timing storage from local parachain block numbers to relay-chain block
+      numbers.
+
+  - audience: Runtime User
+    description: |
+      Collectives Westend Fellowship and Ambassador promotion, demotion, proof, and offboarding
+      timing is now evaluated using relay-chain block numbers. Existing timing-related storage is
+      translated during the runtime upgrade.
+
+migrations:
+  runtime:
+    - reference: pallet_core_fellowship::migration::MigrateV1ToV2
+      description: |
+        Converts `pallet-core-fellowship` `Params` duration fields and `Member` timestamp fields
+        from the previous local `frame_system` block-number domain into the configured
+        `BlockNumberProvider` domain. Collectives Westend applies this to both Fellowship and
+        Ambassador core-fellowship instances.
+
+crates:
+  - name: pallet-core-fellowship
+    bump: major
+  - name: collectives-westend-runtime
+    bump: minor
+  - name: kitchensink-runtime
+    bump: patch
