@@ -16,17 +16,22 @@
 
 use alloc::vec::Vec;
 use polkadot_core_primitives::Hash;
-use sp_io::hashing::blake2_256;
 use sp_mmr_primitives::mmr_lib;
 
 use crate::{INNER_TAG, PEAK_TAG};
 
-/// [`mmr_lib::Merge`] adapter that wires domain-tagged blake2_256 hashing into the MMR library.
+/// The canonical hasher for Speculative Messaging —
+/// [`BlakeTwo256`](sp_runtime::traits::BlakeTwo256).
 ///
-/// Pass this as the `M` type parameter when constructing an
-/// `mmr_lib::MMR<Hash, SpecMerge, S>` accumulator.
-pub struct SpecMerge;
-impl mmr_lib::Merge for SpecMerge {
+/// Swap this alias to change the hash function across the entire protocol in one edit.
+pub type SpecHasher = sp_runtime::traits::BlakeTwo256;
+
+/// [`mmr_lib::Merge`] adapter that wires domain-tagged hashing into the MMR library.
+///
+/// `H` must implement [`sp_runtime::traits::Hash`] with `Output = Hash`. Pass this as the `M`
+/// type parameter when constructing an `mmr_lib::MMR<Hash, SpecMerge<H>, S>` accumulator.
+pub struct SpecMerge<H>(core::marker::PhantomData<H>);
+impl<H: sp_runtime::traits::Hash<Output = Hash>> mmr_lib::Merge for SpecMerge<H> {
 	type Item = Hash;
 
 	fn merge(left: &Self::Item, right: &Self::Item) -> mmr_lib::Result<Self::Item> {
@@ -34,7 +39,7 @@ impl mmr_lib::Merge for SpecMerge {
 		preimage.push(INNER_TAG);
 		preimage.extend_from_slice(left.as_bytes());
 		preimage.extend_from_slice(right.as_bytes());
-		Ok(blake2_256(&preimage).into())
+		Ok(<H as sp_runtime::traits::Hash>::hash(&preimage))
 	}
 
 	fn merge_peaks(peak1: &Self::Item, peak2: &Self::Item) -> mmr_lib::Result<Self::Item> {
@@ -42,8 +47,7 @@ impl mmr_lib::Merge for SpecMerge {
 		preimage.push(PEAK_TAG);
 		preimage.extend_from_slice(peak1.as_bytes());
 		preimage.extend_from_slice(peak2.as_bytes());
-
-		Ok(blake2_256(&preimage).into())
+		Ok(<H as sp_runtime::traits::Hash>::hash(&preimage))
 	}
 }
 
@@ -56,16 +60,18 @@ mod tests {
 		Merge,
 	};
 
-	fn new_mmr(store: &MemStore<Hash>) -> MemMMR<'_, Hash, SpecMerge> {
-		MemMMR::<Hash, SpecMerge>::new(0, store)
+	type TestMerge = SpecMerge<SpecHasher>;
+
+	fn new_mmr(store: &MemStore<Hash>) -> MemMMR<'_, Hash, TestMerge> {
+		MemMMR::<Hash, TestMerge>::new(0, store)
 	}
 
 	fn merge(l: Hash, r: Hash) -> Hash {
-		SpecMerge::merge(&l, &r).expect("merge is infallible; qed")
+		TestMerge::merge(&l, &r).expect("merge is infallible; qed")
 	}
 
 	fn merge_peaks(l: Hash, r: Hash) -> Hash {
-		SpecMerge::merge_peaks(&l, &r).expect("merge_peaks is infallible; qed")
+		TestMerge::merge_peaks(&l, &r).expect("merge_peaks is infallible; qed")
 	}
 
 	#[test]

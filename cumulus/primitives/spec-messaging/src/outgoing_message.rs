@@ -19,7 +19,6 @@ use codec::Encode;
 use polkadot_core_primitives::Hash;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_core::Get;
-use sp_io::hashing::blake2_256;
 use sp_runtime::BoundedVec;
 
 use crate::{LEAF_TAG, LEAF_VERSION};
@@ -72,7 +71,7 @@ impl<MaxMsgLen: Get<u32>> OutgoingMessage<MaxMsgLen> {
 	/// ```
 	/// Domain tags and a version prefix prevent collisions with inner/peak nodes
 	/// and allow the leaf format to evolve without breaking existing commitments.
-	pub fn hash_leaf(&self) -> Hash {
+	pub fn hash_leaf<H: sp_runtime::traits::Hash<Output = Hash>>(&self) -> Hash {
 		let mut preimage = Vec::new();
 		preimage.extend_from_slice(&LEAF_TAG.to_le_bytes());
 		preimage.extend_from_slice(&LEAF_VERSION.to_le_bytes());
@@ -81,14 +80,15 @@ impl<MaxMsgLen: Get<u32>> OutgoingMessage<MaxMsgLen> {
 		preimage.extend_from_slice(&self.position.to_le_bytes());
 		preimage.extend_from_slice(&(self.payload.len() as u32).to_le_bytes());
 		preimage.extend_from_slice(&self.payload);
-		blake2_256(&preimage).into()
+		<H as sp_runtime::traits::Hash>::hash(&preimage)
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_core::ConstU32;
+	use sp_core::{ConstU32, Hasher};
+	use sp_runtime::traits::BlakeTwo256;
 
 	type MaxLen = ConstU32<32>;
 
@@ -120,7 +120,7 @@ mod tests {
 	fn hash_leaf_is_deterministic() {
 		let msg = message(1, 2, 3, vec![1, 2, 3]);
 
-		assert_eq!(msg.hash_leaf(), msg.hash_leaf());
+		assert_eq!(msg.hash_leaf::<BlakeTwo256>(), msg.hash_leaf::<BlakeTwo256>());
 	}
 
 	#[test]
@@ -136,7 +136,10 @@ mod tests {
 		expected_preimage.extend_from_slice(&3u32.to_le_bytes());
 		expected_preimage.extend_from_slice(&[1, 2, 3]);
 
-		assert_eq!(msg.hash_leaf(), Hash::from(blake2_256(&expected_preimage)));
+		assert_eq!(
+			msg.hash_leaf::<BlakeTwo256>(),
+			Hash::from(BlakeTwo256::hash(&expected_preimage))
+		);
 	}
 
 	#[test]
@@ -144,7 +147,7 @@ mod tests {
 		let a = message(1, 2, 3, vec![1, 2, 3]);
 		let b = message(9, 2, 3, vec![1, 2, 3]);
 
-		assert_ne!(a.hash_leaf(), b.hash_leaf());
+		assert_ne!(a.hash_leaf::<BlakeTwo256>(), b.hash_leaf::<BlakeTwo256>());
 	}
 
 	#[test]
@@ -152,7 +155,7 @@ mod tests {
 		let a = message(1, 2, 3, vec![1, 2, 3]);
 		let b = message(1, 9, 3, vec![1, 2, 3]);
 
-		assert_ne!(a.hash_leaf(), b.hash_leaf());
+		assert_ne!(a.hash_leaf::<BlakeTwo256>(), b.hash_leaf::<BlakeTwo256>());
 	}
 
 	#[test]
@@ -160,7 +163,7 @@ mod tests {
 		let a = message(1, 2, 3, vec![1, 2, 3]);
 		let b = message(1, 2, 9, vec![1, 2, 3]);
 
-		assert_ne!(a.hash_leaf(), b.hash_leaf());
+		assert_ne!(a.hash_leaf::<BlakeTwo256>(), b.hash_leaf::<BlakeTwo256>());
 	}
 
 	#[test]
@@ -168,6 +171,6 @@ mod tests {
 		let a = message(1, 2, 3, vec![1, 2, 3]);
 		let b = message(1, 2, 3, vec![9, 9, 9]);
 
-		assert_ne!(a.hash_leaf(), b.hash_leaf());
+		assert_ne!(a.hash_leaf::<BlakeTwo256>(), b.hash_leaf::<BlakeTwo256>());
 	}
 }
