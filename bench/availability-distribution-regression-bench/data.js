@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781817467113,
+  "lastUpdate": 1781900768430,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "920dd6dce169bae2b70c81f74b00643b7a8ef55a",
-          "message": "pallet_revive: Improve logging (#10157)\n\nJust added some more information to the log output during dry_run and\ntransaction creation. This was helpful when debugging if the correct gas\nwas passed in by the client.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-29T22:18:44Z",
-          "tree_id": "09fef4f6d7e42d438697564c39be6b546e066991",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/920dd6dce169bae2b70c81f74b00643b7a8ef55a"
-        },
-        "date": 1761780946360,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013081514700000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15989763280000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022529998406666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007498280346666645,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.023631880193333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9144026267b5af450ce7cd8ddf72b38d1c84b3d5",
+          "message": "Zombienet CI improvements (#12372)\n\n- Fix loki url\n- Add debug for sending logs to loki\n- Add retries for additional setup.",
+          "timestamp": "2026-06-19T18:40:06Z",
+          "tree_id": "cd4811a247a4dd30ddcf75c979baf5a0d0441d6e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9144026267b5af450ce7cd8ddf72b38d1c84b3d5"
+        },
+        "date": 1781900743512,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007860757113333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023827291793333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010441485893333319,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14916107556000008,
             "unit": "seconds"
           }
         ]
