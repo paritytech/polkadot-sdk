@@ -34,6 +34,7 @@ use pallet_revive::evm::{
 };
 use sp_core::{H160, crypto::AccountId32};
 use sp_crypto_hashing::{blake2_128, keccak_256, twox_128};
+use sp_runtime::MultiAddress;
 
 /// topic0 of an ERC-20 `Transfer` — sourced from the same `IERC20` ABI the assets precompile
 /// uses to emit the event, so the two cannot drift.
@@ -338,20 +339,31 @@ pub fn synthetic_tx_hash(block_hash: H256, extrinsic_index: usize) -> H256 {
 	H256(keccak_256(&buf))
 }
 
-/// Decode the signer (origin) `AccountId32` from a subxt extrinsic `address_bytes()`.
-/// The bytes are a SCALE-encoded `MultiAddress`; we only handle the `Id` (0x00) variant,
-/// which is what signed transfer extrinsics use.
+/// Decode the signer (origin) into an `H160` from a subxt extrinsic `address_bytes()`.
+/// The bytes are a SCALE-encoded `MultiAddress`; we map the address-bearing variants that carry
+/// a recoverable sender (`Id`, `Address32`, `Address20`), and fall back to a bare `AccountId32`
+/// for configs whose `Address` is `AccountId32` rather than a `MultiAddress`.
 pub fn signer_h160_from_address_bytes(address_bytes: Option<&[u8]>) -> Option<H160> {
 	let bytes = address_bytes?;
-	// MultiAddress::Id == variant 0, followed by 32 account bytes.
-	if bytes.len() == 33 && bytes[0] == 0x00 {
-		Some(account_h160_from_slice(&bytes[1..]))
-	} else if bytes.len() == 32 {
-		// Some configs encode the bare AccountId32.
-		Some(account_h160_from_slice(bytes))
-	} else {
-		None
+
+	// Let `MultiAddress`'s own codec impl parse the discriminant + payload (the `AccountIndex`
+	// type is irrelevant to the variants we use). Require all bytes to be consumed so a bare
+	// `AccountId32` can't be mis-parsed as a short `MultiAddress`.
+	let mut cursor = bytes;
+	if let Ok(addr) = MultiAddress::<AccountId32, u32>::decode(&mut cursor) {
+		if cursor.is_empty() {
+			return match addr {
+				MultiAddress::Id(id) => Some(account_to_h160(&id)),
+				MultiAddress::Address32(raw) => Some(account_to_h160(&AccountId32::new(raw))),
+				// A 20-byte address already is the eth address.
+				MultiAddress::Address20(raw) => Some(H160::from(raw)),
+				MultiAddress::Index(_) | MultiAddress::Raw(_) => None,
+			};
+		}
 	}
+
+	// Fallback: `Address = AccountId32` (no `MultiAddress` wrapper) -> a bare 32-byte account.
+	(bytes.len() == 32).then(|| account_h160_from_slice(bytes))
 }
 
 #[cfg(test)]
@@ -502,5 +514,54 @@ mod tests {
 		assert_eq!(&input[4 + 12..4 + 32], &[0x33; 20]); // to, left-padded
 		assert_eq!(U256::from_big_endian(&input[36..68]), U256::from(5u64));
 		assert_eq!(tx.transaction_legacy_unsigned.to, Some(t.token));
+	}
+
+	#[test]
+	fn signer_decodes_id_and_bare_account() {
+		// These already work today; guard against regressions while extending the decoder.
+		// MultiAddress::Id == variant 0, then 32 account bytes.
+		let mut id = vec![0x00u8];
+		id.extend_from_slice(&[0x42; 32]);
+		assert_eq!(
+			signer_h160_from_address_bytes(Some(&id)),
+			Some(account_to_h160(&AccountId32::new([0x42; 32]))),
+		);
+		// Bare AccountId32.
+		assert_eq!(
+			signer_h160_from_address_bytes(Some(&[0x42; 32])),
+			Some(account_to_h160(&AccountId32::new([0x42; 32]))),
+		);
+		// Unsigned extrinsic: genuinely no sender -> None (caller renders 0x0). This is correct.
+		assert_eq!(signer_h160_from_address_bytes(None), None);
+	}
+
+	#[test]
+	fn signer_decodes_address20_origin() {
+		// MultiAddress::Address20 == variant 4, then 20 bytes. The 20 bytes ARE the eth address,
+		// so the signer must resolve to exactly those bytes. Currently dropped -> None (the bug).
+		//
+		// FAILS before the fix (returns None), PASSES once Address20 is decoded.
+		let mut address20 = vec![0x04u8];
+		address20.extend_from_slice(&[0x42; 20]);
+		assert_eq!(
+			signer_h160_from_address_bytes(Some(&address20)),
+			Some(H160::from([0x42; 20])),
+			"Address20 origin is already an eth address and must resolve to it, not 0x0"
+		);
+	}
+
+	#[test]
+	fn signer_decodes_address32_origin() {
+		// MultiAddress::Address32 == variant 3, then 32 bytes. Map via the AccountId32 rule, like
+		// the `Id` variant. Currently dropped -> None (the bug).
+		//
+		// FAILS before the fix (returns None), PASSES once Address32 is decoded.
+		let mut address32 = vec![0x03u8];
+		address32.extend_from_slice(&[0xAB; 32]);
+		assert_eq!(
+			signer_h160_from_address_bytes(Some(&address32)),
+			Some(account_to_h160(&AccountId32::new([0xAB; 32]))),
+			"Address32 origin must map via the AccountId32 rule, not 0x0"
+		);
 	}
 }
