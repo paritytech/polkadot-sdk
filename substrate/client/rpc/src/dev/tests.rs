@@ -42,8 +42,7 @@ async fn block_stats_work() {
 		let genesis_hash = client.chain_info().genesis_hash;
 		let mut runtime_api = client.runtime_api();
 		runtime_api.record_proof();
-		let lazy_block: <Block as sp_runtime::traits::Block>::LazyBlock = block.clone().into();
-		runtime_api.execute_block(genesis_hash, lazy_block).unwrap();
+		runtime_api.execute_block(genesis_hash, block.clone()).unwrap();
 		let witness = runtime_api.extract_proof().unwrap();
 		let pre_root = *client.header(genesis_hash).unwrap().unwrap().state_root();
 

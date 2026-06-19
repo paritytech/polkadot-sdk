@@ -290,6 +290,7 @@ where
 impl<
 		Xt: 'static
 			+ Codec
+			+ EncodeLike
 			+ DecodeWithMemTracking
 			+ Sized
 			+ Send

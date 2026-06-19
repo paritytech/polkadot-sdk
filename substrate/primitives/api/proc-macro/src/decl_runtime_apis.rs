@@ -376,7 +376,7 @@ impl<'a> ToClientSideDecl<'a> {
 
 		for (generic_name, param_type) in generic_names.iter().zip(param_types.iter()) {
 			method.sig.generics.params.push(parse_quote!(
-				#generic_name: #crate_::EncodeAs<#param_type>
+				#generic_name: #crate_::EncodeLike<#param_type>
 			));
 		}
 
@@ -459,9 +459,9 @@ impl<'a> ToClientSideDecl<'a> {
 				let __runtime_api_impl_params_encoded__ = {
 					let mut __params__ = std::vec::Vec::new();
 					#(
-						__params__.extend(
-							<#generic_names as #crate_::EncodeAs<#param_types>>::encode_as(&#params)
-						);
+						// `#params` is bound by `EncodeLike<#param_types>`, so encoding it
+						// directly yields the same bytes as the declared parameter type.
+						#crate_::Encode::encode_to(&#params, &mut __params__);
 					)*
 					__params__
 				};

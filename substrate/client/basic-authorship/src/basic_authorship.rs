@@ -755,8 +755,7 @@ mod tests {
 		assert_eq!(proposal.block.extrinsics().len(), 1);
 
 		let api = client.runtime_api();
-		let block: <TestBlock as BlockT>::LazyBlock = proposal.block.into();
-		api.execute_block(genesis_hash, block).unwrap();
+		api.execute_block(genesis_hash, proposal.block).unwrap();
 
 		let state = backend.state_at(genesis_hash, TrieCacheContext::Untrusted).unwrap();
 

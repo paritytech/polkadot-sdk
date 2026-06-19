@@ -154,7 +154,7 @@ fn implement_common_api_traits(block_type: TypePath, self_ty: Type) -> Result<To
 				unimplemented!("`Core::version` not implemented for runtime api mocks")
 			}
 
-			fn execute_block<__SrApiParam0__: #crate_::EncodeAs<
+			fn execute_block<__SrApiParam0__: #crate_::EncodeLike<
 				<#block_type as #crate_::BlockT>::LazyBlock,
 			>>(
 				&self,
@@ -165,7 +165,7 @@ fn implement_common_api_traits(block_type: TypePath, self_ty: Type) -> Result<To
 				unimplemented!("`Core::execute_block` not implemented for runtime api mocks")
 			}
 
-			fn initialize_block<__SrApiParam0__: #crate_::EncodeAs<
+			fn initialize_block<__SrApiParam0__: #crate_::EncodeLike<
 				<#block_type as #crate_::BlockT>::Header,
 			>>(
 				&self,
@@ -298,7 +298,7 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 					(quote_spanned!(ty.span() => #borrow #ty), v.2.is_some())
 				})
 				.collect();
-			// Inner types (without borrow) and borrow flags, used for EncodeAs bounds/decoding.
+			// Inner types (without borrow) and borrow flags, used for EncodeLike bounds/decoding.
 			let mut param_inner_types: Vec<Type> =
 				extracted_params.iter().map(|v| v.1.clone()).collect();
 			let mut param_is_borrow: Vec<bool> =
@@ -337,10 +337,10 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 			let tmp_param_names: Vec<Ident> =
 				(0..param_count).map(|i| format_ident!("__mock_api_decoded_{}__", i)).collect();
 
-			// Add `EncodeAs` bounds to the method generics for each parameter.
+			// Add `EncodeLike` bounds to the method generics for each parameter.
 			for (generic_name, inner_type) in generic_names.iter().zip(param_inner_types.iter()) {
 				input.sig.generics.params.push(parse_quote!(
-					#generic_name: #crate_::EncodeAs<#inner_type>
+					#generic_name: #crate_::EncodeLike<#inner_type>
 				));
 			}
 
@@ -357,33 +357,23 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 				.zip(param_inner_types.iter())
 				.zip(param_is_borrow.iter())
 				.zip(tmp_param_names.iter())
-				.zip(generic_names.iter())
-				.map(
-					|(
-						((((raw_name, param_name), inner_type), is_borrow), tmp_name),
-						generic_name,
-					)| {
-						if *is_borrow {
-							// Original was a reference: decode to the inner type, then reborrow.
-							quote! {
-								let #tmp_name: #inner_type = #crate_::Decode::decode(
-									&mut &<#generic_name as #crate_::EncodeAs<#inner_type>>::encode_as(
-										&#raw_name
-									)[..]
-								).expect("Parameters are encoded with the matching type; qed");
-								let #param_name = &#tmp_name;
-							}
-						} else {
-							quote! {
-								let #param_name: #inner_type = #crate_::Decode::decode(
-									&mut &<#generic_name as #crate_::EncodeAs<#inner_type>>::encode_as(
-										&#raw_name
-									)[..]
-								).expect("Parameters are encoded with the matching type; qed");
-							}
+				.map(|((((raw_name, param_name), inner_type), is_borrow), tmp_name)| {
+					if *is_borrow {
+						// Original was a reference: decode to the inner type, then reborrow.
+						quote! {
+							let #tmp_name: #inner_type = #crate_::Decode::decode(
+								&mut &#crate_::Encode::encode(&#raw_name)[..]
+							).expect("Parameters are encoded with the matching type; qed");
+							let #param_name = &#tmp_name;
 						}
-					},
-				)
+					} else {
+						quote! {
+							let #param_name: #inner_type = #crate_::Decode::decode(
+								&mut &#crate_::Encode::encode(&#raw_name)[..]
+							).expect("Parameters are encoded with the matching type; qed");
+						}
+					}
+				})
 				.collect();
 
 			// When using advanced, the user needs to declare the correct return type on its own,

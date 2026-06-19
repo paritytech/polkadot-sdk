@@ -72,24 +72,6 @@ extern crate self as sp_api;
 
 extern crate alloc;
 
-/// Trait to encode a value as another type's SCALE encoding.
-pub trait EncodeAs<T> {
-	/// Encode `self` as if it were `T`.
-	fn encode_as(&self) -> alloc::vec::Vec<u8>;
-}
-
-impl<T: codec::Encode> EncodeAs<T> for T {
-	fn encode_as(&self) -> alloc::vec::Vec<u8> {
-		codec::Encode::encode(self)
-	}
-}
-
-impl<T: codec::Encode> EncodeAs<T> for &T {
-	fn encode_as(&self) -> alloc::vec::Vec<u8> {
-		codec::Encode::encode(*self)
-	}
-}
-
 /// Private exports used by the macros.
 ///
 /// This is seen as internal API and can change at any point.
@@ -111,7 +93,7 @@ pub mod __private {
 
 	pub use crate::*;
 	pub use alloc::vec;
-	pub use codec::{self, Decode, DecodeLimit, Encode};
+	pub use codec::{self, Decode, DecodeLimit, Encode, EncodeLike};
 	pub use core::{mem, slice};
 	pub use scale_info;
 	pub use sp_core::offchain;

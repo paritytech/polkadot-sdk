@@ -1242,6 +1242,7 @@ pub trait Header:
 	+ Send
 	+ Sync
 	+ Codec
+	+ EncodeLike
 	+ DecodeWithMemTracking
 	+ Eq
 	+ MaybeSerialize
@@ -1371,7 +1372,12 @@ pub trait Block:
 	+ 'static
 {
 	/// Type for extrinsics.
-	type Extrinsic: Member + Codec + ExtrinsicLike + MaybeSerialize + Into<OpaqueExtrinsic>;
+	type Extrinsic: Member
+		+ Codec
+		+ EncodeLike
+		+ ExtrinsicLike
+		+ MaybeSerialize
+		+ Into<OpaqueExtrinsic>;
 	/// Header type.
 	type Header: Header<Hash = Self::Hash> + MaybeSerializeDeserialize;
 	/// Block hash type.

@@ -178,7 +178,7 @@ where
 	Block: BlockT,
 	Client: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	Client::Api: MmrRuntimeApi<Block, MmrHash, NumberFor<Block>>,
-	MmrHash: Codec + Send + Sync + 'static,
+	MmrHash: Codec + codec::EncodeLike + Send + Sync + 'static,
 	S: OffchainStorage + 'static,
 {
 	fn mmr_root(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<MmrHash> {
