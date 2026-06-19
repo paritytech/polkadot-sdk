@@ -156,8 +156,15 @@ fn extract_revive_events(
 	(reverted_extrinsics, logs_by_extrinsic)
 }
 
-/// Append `transfers`' ERC-20 logs to `logs`, re-sorting by `log_index`: an asset event can
-/// precede a contract log in the same extrinsic, so appending alone would be non-monotonic.
+/// Merge `transfers`' ERC-20 logs into an `eth_transact` extrinsic's `logs`, re-sorting by
+/// `log_index`: an asset event can precede a contract log in the same extrinsic, so appending
+/// alone would be non-monotonic.
+///
+/// A contract can only reach `pallet-assets` through the assets precompile, which already emits
+/// the canonical ERC-20 `Transfer` log (surfaced via `ContractEmitted` in
+/// [`extract_revive_events`]). The matching `pallet_assets::Transferred` event would synthesize a
+/// byte-identical log, so an asset log is appended only when no existing log already carries the
+/// same `(address, topics, data)` — otherwise the same transfer would be counted twice.
 fn merge_asset_logs(
 	logs: &mut Vec<Log>,
 	transfers: &[(AssetTransfer, u32)],
@@ -166,13 +173,23 @@ fn merge_asset_logs(
 	transaction_hash: H256,
 	transaction_index: usize,
 ) {
-	logs.extend(asset_transfer_logs(
+	let asset_logs = asset_transfer_logs(
 		transfers,
 		eth_block_number,
 		eth_block_hash,
 		transaction_hash,
 		transaction_index,
-	));
+	);
+	for log in asset_logs {
+		let already_emitted = logs.iter().any(|existing| {
+			existing.address == log.address &&
+				existing.topics == log.topics &&
+				existing.data == log.data
+		});
+		if !already_emitted {
+			logs.push(log);
+		}
+	}
 	logs.sort_by_key(|log| log.log_index);
 }
 
@@ -928,6 +945,60 @@ mod tests {
 			panic!("expected legacy")
 		};
 		assert_eq!(tx.transaction_legacy_unsigned.to, receipt.to);
+	}
+
+	// Regression test for the duplicate-log bug: when a contract transfers via the assets
+	// precompile, the SAME extrinsic emits both a `pallet_revive::ContractEmitted` event
+	// (which `extract_revive_events` already turns into the canonical ERC-20 `Transfer` log,
+	// present in `logs` below) AND a `pallet_assets::Transferred` event (decoded into this
+	// `AssetTransfer`). The precompile-emitted log and the synthesized asset log are
+	// byte-identical (same address/topics/data), so merging them into one receipt must not
+	// double-count the transfer.
+	//
+	// FAILS before the fix (`merge_asset_logs` blindly appends -> two identical Transfer logs),
+	// PASSES once the merge de-duplicates / the caller skips already-logged transfers.
+	#[test]
+	fn merge_asset_logs_does_not_duplicate_precompile_emitted_transfer() {
+		let transfer = AssetTransfer {
+			token: H160::from([0x12; 20]),
+			from: H160::from([0x34; 20]),
+			to: H160::from([0x56; 20]),
+			amount: 999,
+		};
+		let eth_block_number = U256::from(10);
+		let eth_block_hash = H256::from([0xAB; 32]);
+		let tx_hash = H256::from([0xEF; 32]);
+		let tx_index = 4;
+
+		// The log the revive path already produced from the precompile's `ContractEmitted`
+		// event (block-wide event index 8). Byte-identical to `transfer.to_log(..)` because the
+		// precompile emits the very same ERC-20 `Transfer(address,address,uint256)`.
+		let precompile_log = transfer.to_log(eth_block_number, eth_block_hash, tx_hash, tx_index, 8);
+		let mut logs = vec![precompile_log.clone()];
+
+		// The `pallet_assets::Transferred` event for the SAME transfer (event index 7).
+		merge_asset_logs(
+			&mut logs,
+			&[(transfer, 7)],
+			eth_block_number,
+			eth_block_hash,
+			tx_hash,
+			tx_index,
+		);
+
+		// Exactly one Transfer log for this transfer should survive — not two.
+		let duplicates = logs
+			.iter()
+			.filter(|log| {
+				log.address == precompile_log.address &&
+					log.topics == precompile_log.topics &&
+					log.data == precompile_log.data
+			})
+			.count();
+		assert_eq!(
+			duplicates, 1,
+			"contract->precompile transfer must not yield duplicate ERC-20 Transfer logs (got {duplicates})"
+		);
 	}
 
 	#[test]
