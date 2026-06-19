@@ -1939,19 +1939,13 @@ impl<T: Config> Pallet<T> {
 	/// amount of storage deposits needed without any kind of caching from the previous dry runs.
 	pub fn eth_estimate_gas(
 		tx: GenericTransaction,
-		mut config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
+		config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
 	) -> Result<U256, EthTransactError>
 	where
 		T::Nonce: Into<U256> + TryFrom<U256>,
 		CallOf<T>: SetWeightLimit,
 	{
 		log::debug!(target: LOG_TARGET, "eth_estimate_gas: {tx:?}");
-
-		// Apply state overrides once so `is_simple_transfer` and the dry runs all observe them,
-		// without re-applying per iteration.
-		if let Some(overrides) = config.state_overrides.take() {
-			state_overrides::apply_state_overrides::<T>(overrides)?;
-		}
 
 		let mut low = U256::zero();
 		let mut high = Self::evm_block_gas_limit();
@@ -1986,17 +1980,36 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		if Self::is_simple_transfer(&tx) {
+		// Run one gas probe in a rolled-back transaction. Overrides ride along in `config` so
+		// `dry_run_eth_transact` applies them *after* `prepare_dry_run` bumps the nonce, keeping a
+		// nonce override at the exact value it sets.
+		let dry_run_at = |gas: U256| {
 			let mut transaction = tx.clone();
-			transaction.gas = Some(high);
-			let dry_run_config = config.with_perform_balance_checks(perform_balance_checks);
-			let dry_run_result = with_transaction(|| {
+			transaction.gas = Some(gas);
+			let dry_run_config = config.clone().with_perform_balance_checks(perform_balance_checks);
+			with_transaction(|| {
 				TransactionOutcome::Rollback(Ok::<_, DispatchError>(Self::dry_run_eth_transact(
 					transaction,
 					dry_run_config,
 				)))
 			})
-			.expect("Rollback shouldn't error out")?;
+			.expect("Rollback shouldn't error out")
+		};
+
+		// Classify against post-override state (a code override can make the destination a
+		// contract) in a rolled-back probe, so the overrides don't leak into the dry runs.
+		let is_simple_transfer = with_transaction(|| {
+			let probe = config
+				.state_overrides
+				.clone()
+				.map_or(Ok(()), state_overrides::apply_state_overrides::<T>)
+				.map(|()| Self::is_simple_transfer(&tx));
+			TransactionOutcome::Rollback(Ok::<_, DispatchError>(probe))
+		})
+		.expect("Rollback shouldn't error out")?;
+
+		if is_simple_transfer {
+			let dry_run_result = dry_run_at(high)?;
 			log::trace!(
 				target: LOG_TARGET,
 				"eth_estimate_gas short-circuited simple transfer to {:?} with eth_gas={}",
@@ -2010,19 +2023,8 @@ impl<T: Config> Pallet<T> {
 		// fails then we attempt again with the max extrinsic weight in gas which we do since some
 		// transactions fail the dry run with the highest gas limit. If both of these fail then we
 		// return early as it means that the transaction simply can't succeed.
-		let dry_run_results = [high, Self::evm_max_extrinsic_weight_in_gas()].map(|gas_limit| {
-			let mut transaction = tx.clone();
-			transaction.gas = Some(gas_limit);
-			let dry_run_config = config.clone().with_perform_balance_checks(perform_balance_checks);
-			let eth_transact_result = with_transaction(|| {
-				TransactionOutcome::Rollback(Ok::<_, DispatchError>(Self::dry_run_eth_transact(
-					transaction,
-					dry_run_config,
-				)))
-			})
-			.expect("Rollback shouldn't error out");
-			(gas_limit, eth_transact_result)
-		});
+		let dry_run_results = [high, Self::evm_max_extrinsic_weight_in_gas()]
+			.map(|gas_limit| (gas_limit, dry_run_at(gas_limit)));
 		let (gas_limit, first_dry_run_result) = match dry_run_results {
 			[(gas_limit1, Ok(dry_run_result1)), (gas_limit2, Ok(dry_run_result2))] => {
 				if dry_run_result2.eth_gas >= gas_limit2 {
@@ -2080,16 +2082,7 @@ impl<T: Config> Pallet<T> {
 				}
 			};
 
-			let mut transaction = tx.clone();
-			transaction.gas = Some(midpoint);
-			let dry_run_config = config.clone().with_perform_balance_checks(perform_balance_checks);
-			let dry_run_result = with_transaction(|| {
-				TransactionOutcome::Rollback(Ok::<_, DispatchError>(Self::dry_run_eth_transact(
-					transaction,
-					dry_run_config,
-				)))
-			})
-			.expect("Rollback shouldn't error out");
+			let dry_run_result = dry_run_at(midpoint);
 			log::trace!(target: LOG_TARGET, "eth_estimate_gas dry run result with midpoint={midpoint} is dry_run_result={dry_run_result:?}");
 			match dry_run_result {
 				Ok(..) => {
@@ -2107,18 +2100,21 @@ impl<T: Config> Pallet<T> {
 		Ok(high)
 	}
 
-	/// Returns true when `tx` is a "simple" EOA-to-EOA value transfer whose gas cost is
-	/// deterministic, so [`Pallet::eth_estimate_gas`] can settle it with a single dry-run
-	/// instead of a binary search. Assumes any caller-supplied state overrides are already
-	/// applied, so the contract/precompile checks read post-override state.
+	/// Returns true when `tx` is a plain value transfer that executes no code at its destination.
 	pub(crate) fn is_simple_transfer(tx: &GenericTransaction) -> bool {
 		tx.to
-			.map(|to| {
-				tx.has_simple_transfer_fields() &&
-					!exec::is_precompile::<T, ContractBlob<T>>(&to) &&
-					!<AccountInfo<T>>::is_contract(&to)
-			})
+			.map(|to| tx.has_simple_transfer_fields() && Self::address_runs_no_code(&to))
 			.unwrap_or(false)
+	}
+
+	/// Returns true when a value transfer can target `address` without triggering any code
+	/// execution: it is neither the runtime pallets address, a precompile, nor a contract.
+	fn address_runs_no_code(address: &H160) -> bool {
+		// TODO(eip-7702): also reject delegated (authorized) destinations once EIP-7702
+		// delegations land, since a transfer to one executes the delegate's code.
+		*address != RUNTIME_PALLETS_ADDR &&
+			!exec::is_precompile::<T, ContractBlob<T>>(address) &&
+			!<AccountInfo<T>>::is_contract(address)
 	}
 
 	/// Return the pre-dispatch weight booked for the signed Ethereum transaction payload.

@@ -41,104 +41,81 @@ fn simple_transfer_tx() -> GenericTransaction {
 }
 
 #[test]
-fn is_simple_transfer_eoa_to_eoa_with_empty_input() {
+fn is_simple_transfer_classifies_fields() {
+	let cases: &[(&str, GenericTransaction, bool)] = &[
+		("eoa-to-eoa, empty input", simple_transfer_tx(), true),
+		(
+			"contract creation (to = None)",
+			GenericTransaction { to: None, ..simple_transfer_tx() },
+			false,
+		),
+		(
+			"runtime pallets address",
+			GenericTransaction { to: Some(RUNTIME_PALLETS_ADDR), ..simple_transfer_tx() },
+			false,
+		),
+		(
+			"non-empty input",
+			GenericTransaction { input: vec![0x01].into(), ..simple_transfer_tx() },
+			false,
+		),
+		(
+			"access list",
+			GenericTransaction {
+				access_list: Some(vec![AccessListEntry {
+					address: BOB_ADDR,
+					storage_keys: vec![H256::zero()],
+				}]),
+				..simple_transfer_tx()
+			},
+			false,
+		),
+		(
+			"empty access list",
+			GenericTransaction { access_list: Some(vec![]), ..simple_transfer_tx() },
+			true,
+		),
+		(
+			"authorization list",
+			GenericTransaction {
+				authorization_list: vec![AuthorizationListEntry {
+					chain_id: U256::zero(),
+					address: BOB_ADDR,
+					nonce: U256::zero(),
+					y_parity: U256::zero(),
+					r: U256::zero(),
+					s: U256::zero(),
+				}],
+				..simple_transfer_tx()
+			},
+			false,
+		),
+		(
+			"blob hashes",
+			GenericTransaction {
+				blob_versioned_hashes: vec![H256::zero()],
+				..simple_transfer_tx()
+			},
+			false,
+		),
+		(
+			"blobs",
+			GenericTransaction { blobs: vec![Bytes::from(vec![0u8; 32])], ..simple_transfer_tx() },
+			false,
+		),
+		(
+			"max fee per blob gas",
+			GenericTransaction {
+				max_fee_per_blob_gas: Some(U256::from(1)),
+				..simple_transfer_tx()
+			},
+			false,
+		),
+	];
 	ExtBuilder::default().build().execute_with(|| {
-		assert!(Pallet::<Test>::is_simple_transfer(&simple_transfer_tx()));
-	});
-}
-
-#[test]
-fn is_simple_transfer_rejects_contract_creation() {
-	ExtBuilder::default().build().execute_with(|| {
-		let tx = GenericTransaction { to: None, ..simple_transfer_tx() };
-		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
-	});
-}
-
-#[test]
-fn is_simple_transfer_rejects_runtime_pallets_address() {
-	ExtBuilder::default().build().execute_with(|| {
-		let tx = GenericTransaction { to: Some(RUNTIME_PALLETS_ADDR), ..simple_transfer_tx() };
-		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
-	});
-}
-
-#[test]
-fn is_simple_transfer_rejects_non_empty_input() {
-	ExtBuilder::default().build().execute_with(|| {
-		let tx = GenericTransaction { input: vec![0x01].into(), ..simple_transfer_tx() };
-		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
-	});
-}
-
-#[test]
-fn is_simple_transfer_rejects_access_list() {
-	ExtBuilder::default().build().execute_with(|| {
-		let tx = GenericTransaction {
-			access_list: Some(vec![AccessListEntry {
-				address: BOB_ADDR,
-				storage_keys: vec![H256::zero()],
-			}]),
-			..simple_transfer_tx()
-		};
-		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
-	});
-}
-
-#[test]
-fn is_simple_transfer_accepts_empty_access_list() {
-	ExtBuilder::default().build().execute_with(|| {
-		let tx = GenericTransaction { access_list: Some(vec![]), ..simple_transfer_tx() };
-		assert!(Pallet::<Test>::is_simple_transfer(&tx));
-	});
-}
-
-#[test]
-fn is_simple_transfer_rejects_authorization_list() {
-	ExtBuilder::default().build().execute_with(|| {
-		let tx = GenericTransaction {
-			authorization_list: vec![AuthorizationListEntry {
-				chain_id: U256::zero(),
-				address: BOB_ADDR,
-				nonce: U256::zero(),
-				y_parity: U256::zero(),
-				r: U256::zero(),
-				s: U256::zero(),
-			}],
-			..simple_transfer_tx()
-		};
-		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
-	});
-}
-
-#[test]
-fn is_simple_transfer_rejects_blob_payload() {
-	ExtBuilder::default().build().execute_with(|| {
-		let tx = GenericTransaction {
-			blob_versioned_hashes: vec![H256::zero()],
-			..simple_transfer_tx()
-		};
-		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
-	});
-}
-
-#[test]
-fn is_simple_transfer_rejects_blobs() {
-	ExtBuilder::default().build().execute_with(|| {
-		let tx =
-			GenericTransaction { blobs: vec![Bytes::from(vec![0u8; 32])], ..simple_transfer_tx() };
-		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
-	});
-}
-
-#[test]
-fn is_simple_transfer_rejects_max_fee_per_blob_gas() {
-	ExtBuilder::default().build().execute_with(|| {
-		let tx = GenericTransaction {
-			max_fee_per_blob_gas: Some(U256::from(1)),
-			..simple_transfer_tx()
-		};
-		assert!(!Pallet::<Test>::is_simple_transfer(&tx));
+		for (name, tx, expected) in cases {
+			assert_eq!(Pallet::<Test>::is_simple_transfer(tx), *expected, "case: {name}");
+		}
 	});
 }
 
@@ -192,5 +169,45 @@ fn eth_estimate_gas_short_circuit_errors_when_value_exceeds_balance() {
 			},
 			other => panic!("expected EthTransactError::Message, got {other:?}"),
 		}
+	});
+}
+
+#[test]
+fn eth_estimate_gas_does_not_leak_state_overrides() {
+	ExtBuilder::default().build().execute_with(|| {
+		let alice = <Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR);
+		let _ = <Test as Config>::Currency::set_balance(&alice, u64::MAX as u128);
+
+		// Override uninvolved accounts so the estimate still succeeds: BOB's balance and CHARLIE's
+		// nonce. Both are applied inside rolled-back transactions (the classification probe and the
+		// dry runs), so neither must survive the call in committed storage.
+		let bob_balance_before = Pallet::<Test>::evm_balance(&BOB_ADDR);
+		let charlie = <Test as Config>::AddressMapper::to_account_id(&CHARLIE_ADDR);
+		let charlie_nonce_before = frame_system::Pallet::<Test>::account_nonce(&charlie);
+
+		let mut overrides = StateOverrideSet::default();
+		overrides.0.insert(
+			BOB_ADDR,
+			StateOverride { balance: Some(U256::from(u64::MAX)), ..Default::default() },
+		);
+		overrides.0.insert(
+			CHARLIE_ADDR,
+			StateOverride { nonce: Some(U256::from(99u8)), ..Default::default() },
+		);
+		let config = DryRunConfig::default().with_state_overrides(overrides);
+
+		Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), config)
+			.expect("simple transfer should be estimable");
+
+		assert_eq!(
+			Pallet::<Test>::evm_balance(&BOB_ADDR),
+			bob_balance_before,
+			"balance override must not leak into committed state",
+		);
+		assert_eq!(
+			frame_system::Pallet::<Test>::account_nonce(&charlie),
+			charlie_nonce_before,
+			"nonce override must not leak into committed state",
+		);
 	});
 }
