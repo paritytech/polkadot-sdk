@@ -53,5 +53,9 @@ doc:
     \ (if applicable)\n* [x] I have added tests that prove my fix is effective or\
     \ that my feature works (if applicable)"
 crates:
+- name: polkadot
+  bump: minor
+- name: polkadot-cli
+  bump: patch
 - name: polkadot-node-core-pvf-common
   bump: minor
