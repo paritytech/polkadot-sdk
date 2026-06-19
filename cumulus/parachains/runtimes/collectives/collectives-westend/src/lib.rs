@@ -77,8 +77,8 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse,
-		InstanceFilter, LinearStoragePrice, TransformOrigin,
+		fungible::HoldConsideration, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8,
+		EitherOfDiverse, InstanceFilter, LinearStoragePrice, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
@@ -607,6 +607,8 @@ parameter_types! {
 	// The number of blocks a member must wait between giving a retirement notice and retiring.
 	// Supposed to be greater than time required to `kick_member` with alliance motion.
 	pub const AllianceRetirementPeriod: BlockNumber = (90 * DAYS) + ALLIANCE_MOTION_DURATION;
+	pub const AllianceHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Alliance(pallet_alliance::HoldReason::AllianceDeposit);
 }
 
 impl pallet_alliance::Config for Runtime {
@@ -615,8 +617,15 @@ impl pallet_alliance::Config for Runtime {
 	type AdminOrigin = RootOrAllianceTwoThirdsMajority;
 	type MembershipManager = RootOrAllianceTwoThirdsMajority;
 	type AnnouncementOrigin = RootOrAllianceTwoThirdsMajority;
-	type Currency = Balances;
-	type Slashed = pallet_accumulate_and_forward::LegacyAdapter<Runtime, Balances>;
+	type OldCurrency = Balances;
+	// A flat `AllyDeposit` candidacy bond (zero per-byte slope), held under the alliance hold
+	// reason. Note: kicking a member now burns the deposit rather than forwarding it.
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		AllianceHoldReason,
+		LinearStoragePrice<AllyDeposit, ConstU128<0>, Balance>,
+	>;
 	type InitializeMembers = AllianceMotion;
 	type MembershipChanged = AllianceMotion;
 	type RetirementPeriod = AllianceRetirementPeriod;
@@ -629,7 +638,6 @@ impl pallet_alliance::Config for Runtime {
 	type MaxWebsiteUrlLength = ConstU32<255>;
 	type MaxAnnouncementsCount = ConstU32<100>;
 	type MaxMembersCount = ConstU32<ALLIANCE_MAX_MEMBERS>;
-	type AllyDeposit = AllyDeposit;
 	type WeightInfo = weights::pallet_alliance::WeightInfo<Runtime>;
 }
 
@@ -864,6 +872,8 @@ type Migrations = (
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
 	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
+	// unreleased: migrate Alliance candidacy deposits from reserves to holds.
+	pallet_alliance::migration::Migration<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
