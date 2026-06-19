@@ -25,7 +25,6 @@ use polkadot_service::{
 	benchmarking::{benchmark_inherent_data, TransferKeepAliveBuilder},
 	HeaderBackend, IdentifyVariant,
 };
-
 #[cfg(feature = "pyroscope")]
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use sc_cli::SubstrateCli;
