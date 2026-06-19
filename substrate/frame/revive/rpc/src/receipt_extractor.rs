@@ -973,7 +973,8 @@ mod tests {
 		// The log the revive path already produced from the precompile's `ContractEmitted`
 		// event (block-wide event index 8). Byte-identical to `transfer.to_log(..)` because the
 		// precompile emits the very same ERC-20 `Transfer(address,address,uint256)`.
-		let precompile_log = transfer.to_log(eth_block_number, eth_block_hash, tx_hash, tx_index, 8);
+		let precompile_log =
+			transfer.to_log(eth_block_number, eth_block_hash, tx_hash, tx_index, 8);
 		let mut logs = vec![precompile_log.clone()];
 
 		// The `pallet_assets::Transferred` event for the SAME transfer (event index 7).
