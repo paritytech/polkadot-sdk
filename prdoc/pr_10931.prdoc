@@ -11,21 +11,27 @@ doc:
     change the effect of an already-stored call.
 
     pallet-scheduler:
-    - Tasks created through the user-facing extrinsics record the runtime's `transaction_version`.
-      At dispatch, a version mismatch drops the task with a `CallVersionMismatch` event instead of
-      executing it. This is opt-in per task (stored as `Scheduled::maybe_transaction_version`):
-      tasks scheduled via the internal `schedule::v2`/`v3` traits record no version and are
-      unaffected, preserving existing behaviour for pallet bookkeeping (e.g. referenda alarms).
+    - One-shot tasks created through the user-facing extrinsics record the runtime's
+      `transaction_version`. At dispatch, a version mismatch drops the task with a
+      `CallVersionMismatch` event instead of executing it. This is opt-in per task (stored as
+      `Scheduled::maybe_transaction_version`): tasks scheduled via the internal `schedule::v2`/`v3`
+      traits record no version and are unaffected, preserving existing behaviour for pallet
+      bookkeeping (e.g. referenda alarms). Periodic tasks are also left unversioned, so a periodic
+      schedule keeps running across upgrades rather than being dropped on a `transaction_version`
+      change; a runtime upgrade that breaks such a call should re-stamp or reschedule it via a
+      migration.
     - Migration `migration::v5::MigrateV4ToV5` upgrades existing agendas (existing tasks unchecked).
 
     frame-support: adds a non-breaking `schedule_named_versioned` method to the `schedule::v3::Named`
     trait (default implementation delegates to `schedule_named`), so callers can opt a deferred call
     into version-checking. The scheduler overrides it to record the current `transaction_version`.
 
-    pallet-collective: `ProposalOf` now stores the proposal wrapped in a `VersionedCall` (keyed by
-    the hash of the bare proposal, so identity/voting are unchanged). On approval, a version mismatch
-    drops the proposal with a `ProposalVersionMismatch` event instead of executing it. Migration
-    `migrations::v5::MigrateToV5` wraps existing proposals.
+    pallet-collective: the `transaction_version` at proposal time is recorded in a new
+    `ProposalVersionOf` storage map. `ProposalOf` keeps its existing value type and encoding, so
+    tooling that decodes it is unaffected. On approval, a version mismatch drops the proposal with a
+    `ProposalVersionMismatch` event (returning zero dispatch weight, since nothing is executed)
+    instead of executing it. Migration `migrations::v5::MigrateToV5` records the current
+    `transaction_version` for every already-stored proposal.
 
     pallet-democracy / pallet-referenda: route referendum enactment through
     `schedule_named_versioned`, so an enactment whose `transaction_version` changed before it runs is

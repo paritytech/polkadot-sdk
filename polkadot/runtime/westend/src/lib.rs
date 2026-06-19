@@ -2160,8 +2160,7 @@ pub mod migrations {
 		>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
-
-		// Wrap stored scheduler calls in `VersionedCall`.
+		// Record `transaction_version` for stored scheduler tasks.
 		pallet_scheduler::migration::v5::MigrateV4ToV5<Runtime>,
 	);
 }

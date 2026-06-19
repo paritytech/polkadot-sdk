@@ -865,10 +865,9 @@ fn propose_works() {
 			proposal_len
 		));
 		assert_eq!(*Proposals::<Test, Instance1>::get(), vec![hash]);
-		assert_eq!(
-			ProposalOf::<Test, Instance1>::get(&hash).map(|v| v.call_ref().clone()),
-			Some(proposal)
-		);
+		assert_eq!(ProposalOf::<Test, Instance1>::get(&hash), Some(proposal));
+		// The proposal's `transaction_version` (0 in the mock) is recorded separately.
+		assert_eq!(ProposalVersionOf::<Test, Instance1>::get(&hash), Some(0));
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
 			Some(Votes { index: 0, threshold: 3, ayes: vec![], nays: vec![], end })
@@ -968,7 +967,7 @@ fn correct_validate_and_get_proposal() {
 		assert_ok!(res.clone());
 		let (retrieved_proposal, len) = res.unwrap();
 		assert_eq!(length as usize, len);
-		assert_eq!(&proposal, retrieved_proposal.call_ref());
+		assert_eq!(proposal, retrieved_proposal);
 	})
 }
 
@@ -1512,8 +1511,9 @@ fn proposal_dropped_on_transaction_version_mismatch() {
 			r.event,
 			RuntimeEvent::Collective(CollectiveEvent::Executed { .. })
 		)));
-		// And it is cleaned up from storage.
+		// And it is cleaned up from storage, including its recorded version.
 		assert!(ProposalOf::<Test, Instance1>::get(&hash).is_none());
+		assert!(ProposalVersionOf::<Test, Instance1>::get(&hash).is_none());
 		assert_eq!(*Proposals::<Test, Instance1>::get(), vec![]);
 	});
 }
@@ -1562,15 +1562,15 @@ fn migration_v4_to_v5_works() {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let hash: H256 = proposal.blake2_256().into();
-		// Build a consistent state via a real proposal, then downgrade only `ProposalOf` to the
-		// pre-V5 (bare proposal) format and roll the storage version back to 4.
+		// Build a V4-like state: a proposal stored in `ProposalOf` with no recorded version, and
+		// roll the storage version back to 4.
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			2,
 			Box::new(proposal.clone()),
 			proposal_len
 		));
-		v5::v4_storage::ProposalOf::<Test, Instance1>::insert(hash, proposal.clone());
+		ProposalVersionOf::<Test, Instance1>::remove(&hash);
 		StorageVersion::new(4).put::<Collective>();
 
 		let state = v5::MigrateToV5::<Test, Instance1>::pre_upgrade().unwrap();
@@ -1578,10 +1578,10 @@ fn migration_v4_to_v5_works() {
 		v5::MigrateToV5::<Test, Instance1>::post_upgrade(state).unwrap();
 
 		assert_eq!(StorageVersion::get::<Collective>(), 5);
-		let migrated = ProposalOf::<Test, Instance1>::get(&hash).expect("proposal migrated");
-		assert_eq!(migrated.call_ref(), &proposal);
-		// Existing proposals are wrapped with the current `transaction_version` (0 in the mock).
-		assert_eq!(migrated.version(), 0);
+		// `ProposalOf` is untouched, and every existing proposal now has its `transaction_version`
+		// recorded (0 in the mock).
+		assert_eq!(ProposalOf::<Test, Instance1>::get(&hash), Some(proposal));
+		assert_eq!(ProposalVersionOf::<Test, Instance1>::get(&hash), Some(0));
 	});
 }
 

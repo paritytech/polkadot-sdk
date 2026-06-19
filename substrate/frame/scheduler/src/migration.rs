@@ -304,9 +304,7 @@ pub mod v4 {
 pub mod v5 {
 	use super::*;
 	use frame_support::{
-		migrations::VersionedMigration,
-		pallet_prelude::*,
-		traits::UncheckedOnRuntimeUpgrade,
+		migrations::VersionedMigration, pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade,
 	};
 
 	/// The V4 `Scheduled` layout (without `maybe_transaction_version`).

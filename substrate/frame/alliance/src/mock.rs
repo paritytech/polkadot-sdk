@@ -212,7 +212,6 @@ impl ProposalProvider<AccountId, H256, RuntimeCall> for AllianceProposalProvider
 
 	fn proposal_of(proposal_hash: H256) -> Option<RuntimeCall> {
 		pallet_collective::ProposalOf::<Test, Instance1>::get(proposal_hash)
-			.map(|versioned| versioned.call_ref().clone())
 	}
 }
 

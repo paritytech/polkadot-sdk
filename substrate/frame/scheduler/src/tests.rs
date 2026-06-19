@@ -68,8 +68,10 @@ fn basic_scheduling_works() {
 fn versioned_call_executes_when_transaction_version_matches() {
 	new_test_ext().execute_with(|| {
 		CurrentTransactionVersion::set(&7);
-		let call =
-			Box::new(RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) }));
+		let call = Box::new(RuntimeCall::Logger(LoggerCall::log {
+			i: 42,
+			weight: Weight::from_parts(10, 0),
+		}));
 		// Scheduling via the extrinsic records the current `transaction_version` (7).
 		assert_ok!(Scheduler::schedule(RuntimeOrigin::root(), 4, None, 127, call));
 
@@ -83,8 +85,10 @@ fn versioned_call_executes_when_transaction_version_matches() {
 fn versioned_call_dropped_on_transaction_version_mismatch() {
 	new_test_ext().execute_with(|| {
 		CurrentTransactionVersion::set(&7);
-		let call =
-			Box::new(RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) }));
+		let call = Box::new(RuntimeCall::Logger(LoggerCall::log {
+			i: 42,
+			weight: Weight::from_parts(10, 0),
+		}));
 		// Scheduling via the extrinsic records the current `transaction_version` (7).
 		assert_ok!(Scheduler::schedule(RuntimeOrigin::root(), 4, None, 127, call));
 
@@ -132,6 +136,33 @@ fn internally_scheduled_calls_are_not_version_checked() {
 		System::run_to_block::<AllPalletsWithSystem>(4);
 		// Executes despite the version bump.
 		assert_eq!(logger::log(), vec![(root(), 42u32)]);
+	});
+}
+
+#[test]
+fn periodic_calls_are_not_version_checked() {
+	new_test_ext().execute_with(|| {
+		CurrentTransactionVersion::set(&7);
+		let call = Box::new(RuntimeCall::Logger(LoggerCall::log {
+			i: 42,
+			weight: Weight::from_parts(10, 0),
+		}));
+		// A periodic task scheduled via the extrinsic records no version, so it keeps running
+		// across a `transaction_version` change (it is meant to survive upgrades).
+		assert_ok!(Scheduler::schedule(RuntimeOrigin::root(), 4, Some((3, 3)), 127, call));
+		assert!(Agenda::<Test>::get(4)[0].as_ref().unwrap().maybe_transaction_version.is_none());
+
+		System::run_to_block::<AllPalletsWithSystem>(4);
+		assert_eq!(logger::log(), vec![(root(), 42u32)]);
+
+		// Bump the `transaction_version`; the periodic task must keep firing, not be dropped.
+		CurrentTransactionVersion::set(&8);
+		System::run_to_block::<AllPalletsWithSystem>(7);
+		assert_eq!(logger::log(), vec![(root(), 42u32), (root(), 42u32)]);
+		assert!(!System::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Scheduler(crate::Event::CallVersionMismatch { .. })
+		)));
 	});
 }
 

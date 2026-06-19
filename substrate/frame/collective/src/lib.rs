@@ -50,7 +50,7 @@ use scale_info::TypeInfo;
 use sp_io::storage;
 use sp_runtime::{
 	traits::{Dispatchable, Hash},
-	Debug, DispatchError, VersionedCall,
+	Debug, DispatchError,
 };
 
 use frame_support::{
@@ -427,12 +427,16 @@ pub mod pallet {
 		StorageValue<_, BoundedVec<T::Hash, T::MaxProposals>, ValueQuery>;
 
 	/// Actual proposal for a given hash, if it's current.
-	///
-	/// Wrapped in a [`VersionedCall`] for version-checking before execution. Still keyed by the
-	/// hash of the bare proposal, so proposal identity is unchanged.
 	#[pallet::storage]
 	pub type ProposalOf<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, T::Hash, VersionedCall<<T as Config<I>>::Proposal>, OptionQuery>;
+		StorageMap<_, Identity, T::Hash, <T as Config<I>>::Proposal, OptionQuery>;
+
+	/// The `transaction_version` recorded when each proposal was made, used to drop a proposal if
+	/// the version changed before closing. A separate map so [`ProposalOf`]'s encoding is
+	/// unchanged.
+	#[pallet::storage]
+	pub type ProposalVersionOf<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::Hash, u32, OptionQuery>;
 
 	/// Consideration cost created for publishing and storing a proposal.
 	///
@@ -496,9 +500,12 @@ pub mod pallet {
 		ProposalCostBurned { proposal_hash: T::Hash, who: T::AccountId },
 		/// Some cost for storing a proposal was released.
 		ProposalCostReleased { proposal_hash: T::Hash, who: T::AccountId },
-		/// A proposal was dropped instead of executed because the runtime `transaction_version`
-		/// changed since it was proposed, so its semantics may have changed.
-		ProposalVersionMismatch { proposal_hash: T::Hash, stored_version: u32, current_version: u32 },
+		/// A proposal was dropped instead of executed because its `transaction_version` changed.
+		ProposalVersionMismatch {
+			proposal_hash: T::Hash,
+			stored_version: u32,
+			current_version: u32,
+		},
 	}
 
 	#[pallet::error]
@@ -976,11 +983,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let index = ProposalCount::<T, I>::get();
 
 		<ProposalCount<T, I>>::mutate(|i| *i += 1);
-		// Wrap with the current `transaction_version`; key stays the hash of the bare proposal.
-		<ProposalOf<T, I>>::insert(
-			proposal_hash,
-			VersionedCall::new(*proposal, Self::current_transaction_version()),
-		);
+		<ProposalOf<T, I>>::insert(proposal_hash, proposal);
+		// Record the `transaction_version` so the proposal is dropped if it changes before closing.
+		<ProposalVersionOf<T, I>>::insert(proposal_hash, Self::current_transaction_version());
 		let votes = {
 			let end = frame_system::Pallet::<T>::block_number() + T::MotionDuration::get();
 			Votes { index, threshold, ayes: vec![], nays: vec![], end }
@@ -1138,16 +1143,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		hash: &T::Hash,
 		length_bound: u32,
 		weight_bound: Weight,
-	) -> Result<(VersionedCall<<T as Config<I>>::Proposal>, usize), DispatchError> {
+	) -> Result<(<T as Config<I>>::Proposal, usize), DispatchError> {
 		let key = ProposalOf::<T, I>::hashed_key_for(hash);
 		// read the length of the proposal storage entry directly
-		let stored_len =
+		let proposal_len =
 			storage::read(&key, &mut [0; 0], 0).ok_or(Error::<T, I>::ProposalMissing)?;
-		// Discount the 4-byte `VersionedCall` version: `length_bound` refers to the bare proposal.
-		let proposal_len = stored_len.saturating_sub(core::mem::size_of::<u32>() as u32);
 		ensure!(proposal_len <= length_bound, Error::<T, I>::WrongProposalLength);
 		let proposal = ProposalOf::<T, I>::get(hash).ok_or(Error::<T, I>::ProposalMissing)?;
-		let proposal_weight = proposal.call_ref().get_dispatch_info().call_weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		ensure!(proposal_weight.all_lte(weight_bound), Error::<T, I>::WrongProposalWeight);
 		Ok((proposal, proposal_len as usize))
 	}
@@ -1170,29 +1173,27 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		seats: MemberCount,
 		yes_votes: MemberCount,
 		proposal_hash: T::Hash,
-		versioned_proposal: VersionedCall<<T as Config<I>>::Proposal>,
+		proposal: <T as Config<I>>::Proposal,
 	) -> (Weight, u32) {
 		Self::deposit_event(Event::Approved { proposal_hash });
 
-		let dispatch_weight = versioned_proposal.call_ref().get_dispatch_info().call_weight;
-
-		// Drop the proposal on a `transaction_version` mismatch instead of executing it.
+		// Drop instead of executing if the `transaction_version` changed since proposing.
 		let current_version = Self::current_transaction_version();
-		let proposal = match versioned_proposal.into_inner(current_version) {
-			Ok(proposal) => proposal,
-			Err(version_error) => {
+		if let Some(stored_version) = ProposalVersionOf::<T, I>::get(proposal_hash) {
+			if stored_version != current_version {
 				Self::deposit_event(Event::ProposalVersionMismatch {
 					proposal_hash,
-					stored_version: version_error.stored,
-					current_version: version_error.current,
+					stored_version,
+					current_version,
 				});
-				// Clean up as on normal execution; any cost is still reclaimable via
-				// `release_proposal_cost`.
+				// Clean up as on execution; cost is still reclaimable via `release_proposal_cost`.
 				let proposal_count = Self::remove_proposal(proposal_hash);
-				return (dispatch_weight, proposal_count);
-			},
-		};
+				// Not dispatched, so no dispatch weight.
+				return (Weight::zero(), proposal_count);
+			}
+		}
 
+		let dispatch_weight = proposal.get_dispatch_info().call_weight;
 		let origin = RawOrigin::Members(yes_votes, seats).into();
 		let result = proposal.dispatch(origin);
 		Self::deposit_event(Event::Executed {
@@ -1217,6 +1218,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn remove_proposal(proposal_hash: T::Hash) -> u32 {
 		// remove proposal and vote
 		ProposalOf::<T, I>::remove(&proposal_hash);
+		ProposalVersionOf::<T, I>::remove(&proposal_hash);
 		Voting::<T, I>::remove(&proposal_hash);
 		let num_proposals = Proposals::<T, I>::mutate(|proposals| {
 			proposals.retain(|h| h != &proposal_hash);
@@ -1261,6 +1263,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					ProposalOf::<T, I>::get(proposal).is_some(),
 					"Proposal hash from `Proposals` is not found inside the `ProposalOf` mapping."
 				);
+				ensure!(
+					ProposalVersionOf::<T, I>::get(proposal).is_some(),
+					"Proposal hash from `Proposals` has no recorded `transaction_version`."
+				);
 				Ok(())
 			},
 		)?;
@@ -1272,6 +1278,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(
 			Proposals::<T, I>::get().into_iter().count() == <ProposalOf<T, I>>::iter_keys().count(),
 			"Proposal count inside `Proposals` is not equal to the proposal count in `ProposalOf`"
+		);
+		ensure!(
+			<ProposalOf<T, I>>::iter_keys().count() ==
+				<ProposalVersionOf<T, I>>::iter_keys().count(),
+			"`ProposalOf` and `ProposalVersionOf` must hold the same set of proposals"
 		);
 
 		Proposals::<T, I>::get().into_iter().try_for_each(
