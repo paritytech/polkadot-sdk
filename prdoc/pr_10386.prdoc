@@ -54,8 +54,10 @@ doc:
     \ that my feature works (if applicable)"
 crates:
 - name: polkadot
-  bump: minor
+  bump: patch
 - name: polkadot-cli
+  bump: major
+- name: polkadot-node-core-pvf
   bump: patch
 - name: polkadot-node-core-pvf-common
-  bump: minor
+  bump: patch

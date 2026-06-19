@@ -919,7 +919,14 @@ mod tests {
 	fn check_security_status_fails_for_missing_worker_dir() {
 		let missing_dir = std::env::temp_dir().join("pvf-common-tests-nonexistent-worker-dir");
 		let _ = std::fs::remove_dir_all(&missing_dir);
-		assert!(!check_security_status(WorkerKind::Execute, &missing_dir));
+		std::thread::Builder::new()
+			.stack_size(16 * 1024 * 1024)
+			.spawn(move || {
+				assert!(!check_security_status(WorkerKind::Execute, &missing_dir));
+			})
+			.unwrap()
+			.join()
+			.unwrap();
 	}
 
 	#[test]
