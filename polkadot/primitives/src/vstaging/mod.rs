@@ -30,6 +30,10 @@ use crate::v9::ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE;
 /// `session_info` pallet so that validators can look up the configuration
 /// that was active when a candidate was produced, rather than using the
 /// current configuration.
+///
+/// All fields mirror their `HostConfiguration` counterparts; see
+/// `polkadot_runtime_parachains::configuration::HostConfiguration` for the
+/// authoritative semantics.
 #[derive(Copy, Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Default, PartialEq))]
 pub struct SessionExecutionConfig {
@@ -37,6 +41,16 @@ pub struct SessionExecutionConfig {
 	pub max_pov_size: u32,
 	/// The maximum uncompressed validation code size, in bytes.
 	pub validation_code_bomb_limit: u32,
+	/// The maximum compressed validation code size, in bytes.
+	pub max_code_size: u32,
+	/// The maximum head-data size, in bytes.
+	pub max_head_data_size: u32,
+	/// The maximum number of upward messages a candidate may send.
+	pub max_upward_message_num_per_candidate: u32,
+	/// The maximum size of an individual upward message, in bytes.
+	pub max_upward_message_size: u32,
+	/// The maximum number of outbound HRMP messages a candidate may send.
+	pub hrmp_max_message_num_per_candidate: u32,
 }
 
 /// Information about a relay parent.

@@ -587,6 +587,7 @@ async fn verify_relay_parent_within_scope<Context>(
 	leaf_session_index: SessionIndex,
 	candidate: &CommittedCandidateReceipt,
 	pvd: &PersistedValidationData,
+	scheduling_session_max_pov_size: u32,
 ) -> JfyiErrorResult<()> {
 	// For V1 descriptors `session_index()` is None; relay_parent == scheduling_parent for V1, so
 	// the leaf's session applies. For V2/V3 the descriptor carries the session of its relay parent.
@@ -609,7 +610,7 @@ async fn verify_relay_parent_within_scope<Context>(
 		_ => return Err(JfyiError::RelayParentOutOfScope),
 	}
 
-	if let Some(rt_max) = fetch_session_execution_config_max_pov_size(
+	match fetch_session_execution_config_max_pov_size(
 		ctx,
 		max_pov_size_cache,
 		query_at,
@@ -617,9 +618,22 @@ async fn verify_relay_parent_within_scope<Context>(
 	)
 	.await
 	{
-		if rt_max != pvd.max_pov_size {
-			return Err(JfyiError::MaxPovSizeMismatch { expected: rt_max, got: pvd.max_pov_size });
-		}
+		Some(rt_max) => {
+			if rt_max != pvd.max_pov_size {
+				return Err(JfyiError::MaxPovSizeMismatch {
+					expected: rt_max,
+					got: pvd.max_pov_size,
+				});
+			}
+		},
+		None => {
+			if pvd.max_pov_size != scheduling_session_max_pov_size {
+				return Err(JfyiError::MaxPovSizeMismatch {
+					expected: scheduling_session_max_pov_size,
+					got: pvd.max_pov_size,
+				});
+			}
+		},
 	}
 
 	Ok(())
@@ -678,6 +692,7 @@ async fn handle_introduce_seconded_candidate<Context>(
 			sp_data.session_index,
 			&candidate,
 			&pvd,
+			chain.scope().base_constraints().max_pov_size as u32,
 		)
 		.await
 		{
@@ -952,6 +967,7 @@ async fn answer_hypothetical_membership_request<Context>(
 						leaf_view.session_index,
 						receipt.as_ref(),
 						persisted_validation_data,
+						fragment_chain.scope().base_constraints().max_pov_size as u32,
 					)
 					.await
 					{
