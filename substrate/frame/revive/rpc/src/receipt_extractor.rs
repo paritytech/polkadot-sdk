@@ -568,8 +568,9 @@ impl ReceiptExtractor {
 	/// [`Self::extract_from_block_with_eth_hash`] and [`Self::extract_from_transaction`].
 	/// `eth_transact` extrinsics get real receipts (merging same-extrinsic asset logs);
 	/// plain `assets.transfer` extrinsics get synthesized stand-ins. `only_index` restricts
-	/// to one extrinsic. A `get_block_extrinsics` error propagates only when there are no
-	/// asset transfers to surface, so asset-only blocks survive missing EVM data.
+	/// to one extrinsic. A `get_block_extrinsics` error is swallowed only when indexing a
+	/// whole asset-bearing block (so asset-only blocks survive missing EVM data); a
+	/// single-extrinsic query (`only_index.is_some()`) always propagates it (see below).
 	async fn build_receipts(
 		&self,
 		block: &SubstrateBlock,
@@ -594,7 +595,10 @@ impl ReceiptExtractor {
 					(extrinsic_index, (call, hash, receipt_gas_info))
 				})
 				.collect(),
-			Err(err) if asset_transfers.is_empty() => return Err(err),
+			// A single-extrinsic query can't tell a plain `assets.transfer` from an
+			// `eth_transact` that also moved assets once this fetch failed, so it must
+			// propagate rather than synthesize a stand-in for what may be a real EVM tx.
+			Err(err) if only_index.is_some() || asset_transfers.is_empty() => return Err(err),
 			Err(err) => {
 				log::debug!(
 					target: LOG_TARGET,
