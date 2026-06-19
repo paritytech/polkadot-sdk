@@ -1594,7 +1594,8 @@ fn pool_no_dangling_delegation() {
 			]
 		);
 
-		// go forward to an era after PostUnbondingPoolsWindow = 10 ends for era 5.
+		// go forward to an era after the effective post-unbonding window
+		// (MaxUnbondingPools(13) - bonding_duration(3) = 10) ends for era 5.
 		Staking::set_era(15);
 		// At this point subpools will all be merged in no-era causing Bob to lose some value while
 		// Alice and Charlie will gain some value.
