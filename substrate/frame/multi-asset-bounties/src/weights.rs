@@ -86,6 +86,7 @@ pub trait WeightInfo {
 	fn retry_payment_funding() -> Weight;
 	fn retry_payment_refund() -> Weight;
 	fn retry_payment_payout() -> Weight;
+	fn increase_value() -> Weight;
 }
 
 /// Weights for `pallet_multi_asset_bounties` using the Substrate node and recommended hardware.
@@ -392,6 +393,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
+	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:1)
+	/// Storage: `MultiAssetBounties::CuratorDeposit` (r:1 w:1)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Storage: `Balances::Holds` (r:1 w:1)
+	fn increase_value() -> Weight {
+		// Placeholder modeled on `accept_curator` (same read/adjust-hold/write shape).
+		// Replace with a generated value via `/cmd bench`.
+		Weight::from_parts(78_025_000, 3928)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -696,5 +708,16 @@ impl WeightInfo for () {
 		Weight::from_parts(81_758_000, 6208)
 			.saturating_add(RocksDbWeight::get().reads(7_u64))
 			.saturating_add(RocksDbWeight::get().writes(6_u64))
+	}
+	/// Storage: `MultiAssetBounties::Bounties` (r:1 w:1)
+	/// Storage: `MultiAssetBounties::CuratorDeposit` (r:1 w:1)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Storage: `Balances::Holds` (r:1 w:1)
+	fn increase_value() -> Weight {
+		// Placeholder modeled on `accept_curator` (same read/adjust-hold/write shape).
+		// Replace with a generated value via `/cmd bench`.
+		Weight::from_parts(78_025_000, 3928)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 }
