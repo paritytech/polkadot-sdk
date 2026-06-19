@@ -174,6 +174,46 @@ fn basic_evm_flow_tracing_works() {
 	});
 }
 
+/// `extcodecopy` loads the whole code blob into PoV regardless of copy length, so its gas must
+/// scale with the target's code size, not the copy length.
+#[test]
+fn extcodecopy_charges_for_actual_code_size() {
+	// Reader runtime: copy 1 byte of code from the address in calldata.
+	let reader_runtime: Vec<u8> =
+		vec![PUSH1, 0x01, PUSH0, PUSH0, PUSH0, CALLDATALOAD, EXTCODECOPY, STOP];
+	let reader_code = make_initcode_from_runtime_code(&reader_runtime);
+
+	// Gas of `extcodecopy(target, 0, 0, 1)` where `target` has `code_size` bytes of runtime code.
+	let measure = |code_size: u32| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let target_code = VmBinaryModule::evm_init_code_for_runtime_size(code_size).code;
+			let Contract { addr: target_addr, .. } =
+				builder::bare_instantiate(Code::Upload(target_code)).build_and_unwrap_contract();
+
+			let Contract { addr: reader_addr, .. } =
+				builder::bare_instantiate(Code::Upload(reader_code.clone()))
+					.build_and_unwrap_contract();
+
+			// 32-byte word: 12 zero bytes + the 20-byte address (right-aligned, as EVM expects).
+			let mut input = vec![0u8; 12];
+			input.extend_from_slice(target_addr.as_bytes());
+
+			builder::bare_call(reader_addr).data(input).build().gas_consumed
+		})
+	};
+
+	let gas_small = measure(64);
+	let gas_large = measure(20_000);
+
+	assert!(
+		gas_large > gas_small,
+		"extcodecopy must charge more for a larger target contract: \
+		 gas_large={gas_large}, gas_small={gas_small}",
+	);
+}
+
 /// Regression test for paritytech/contract-issues#278 — nested-call variant.
 ///
 /// `Stack::call`'s no-code branch (the path taken when a running contract

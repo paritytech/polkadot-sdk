@@ -72,10 +72,15 @@ pub fn extcodehash<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 pub fn extcodecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let [address, memory_offset, code_offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt::<E::T>(len)?;
-	interpreter.ext.charge_or_halt(RuntimeCosts::ExtCodeCopy(len as u32))?;
 	if len == 0 {
+		interpreter.ext.charge_or_halt(RuntimeCosts::ExtCodeCopy(0))?;
 		return ControlFlow::Continue(());
 	}
+
+	// The whole blob is loaded regardless of `len`: charge the max, then refund to actual size.
+	let charged = interpreter
+		.ext
+		.charge_or_halt(RuntimeCosts::ExtCodeCopy(limits::code::BLOB_BYTES))?;
 
 	let address = address.into_address();
 	let memory_offset = as_usize_or_halt::<E::T>(memory_offset)?;
@@ -85,7 +90,13 @@ pub fn extcodecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 
 	let mut buf = interpreter.memory.slice_mut(memory_offset, len);
 	// Note: This can't panic because we resized memory to fit.
-	interpreter.ext.copy_code_slice(&mut buf, &address, code_offset);
+	let code_size = interpreter.ext.copy_code_slice(&mut buf, &address, code_offset);
+
+	// `len` memory bytes are written regardless, so the refund can't go below `len`.
+	interpreter
+		.ext
+		.frame_meter_mut()
+		.adjust_weight(charged, RuntimeCosts::ExtCodeCopy(code_size.max(len as u32)));
 	ControlFlow::Continue(())
 }
 

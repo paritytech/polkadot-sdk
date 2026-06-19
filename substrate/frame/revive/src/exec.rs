@@ -504,7 +504,9 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// - If `code_offset` >= code size: `len` bytes of zero are written to memory
 	/// - If `code_offset + buf.len()` extends beyond code: Available code copied, remaining bytes
 	///   are filled with zeros
-	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
+	///
+	/// Returns the total size in bytes of the code stored at `address`.
+	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize) -> u32;
 
 	/// Register the caller of the current contract for destruction.
 	/// Destruction happens at the end of the call stack.
@@ -2464,14 +2466,15 @@ where
 		&mut self.top_frame_mut().last_frame_output
 	}
 
-	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize) {
+	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize) -> u32 {
 		let len = buf.len();
 		if len == 0 {
-			return;
+			return 0;
 		}
 
 		let code_hash = self.code_hash(address);
 		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
+		let code_size = code.len() as u32;
 
 		let len = len.min(code.len().saturating_sub(code_offset));
 		if len > 0 {
@@ -2479,6 +2482,8 @@ where
 		}
 
 		buf[len..].fill(0);
+
+		code_size
 	}
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
