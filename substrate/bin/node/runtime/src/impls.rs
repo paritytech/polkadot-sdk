@@ -110,7 +110,6 @@ impl ProposalProvider<AccountId, Hash, RuntimeCall> for AllianceProposalProvider
 
 	fn proposal_of(proposal_hash: Hash) -> Option<RuntimeCall> {
 		pallet_collective::ProposalOf::<Runtime, AllianceCollective>::get(proposal_hash)
-			.map(|versioned| versioned.call_ref().clone())
 	}
 }
 

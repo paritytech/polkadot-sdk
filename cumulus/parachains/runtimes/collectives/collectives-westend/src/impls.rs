@@ -83,7 +83,6 @@ where
 
 	fn proposal_of(proposal_hash: HashOf<T>) -> Option<ProposalOf<T, I>> {
 		pallet_collective::ProposalOf::<T, I>::get(proposal_hash)
-			.map(|versioned| versioned.call_ref().clone())
 	}
 }
 
