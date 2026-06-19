@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781817569761,
+  "lastUpdate": 1781900861409,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c483327ef1ef99340c3cd564fb43ce625a011934",
-          "message": "fix zombienet ci, remove merge_group listener (#10133)\n\nRemove `merge_group` listener since the zombienet workflows are\ncurrently _call_ from the `build` job.\nThis was causing failures like:\n\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/18858082286/job/53810567441\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/18786371402/job/53605598204\n\nThx!",
-          "timestamp": "2025-10-28T10:43:15Z",
-          "tree_id": "cb0bb8ef401c47d53816af0ad49c1b083abe874b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c483327ef1ef99340c3cd564fb43ce625a011934"
-        },
-        "date": 1761655595326,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008786802179999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00269229266,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00520204005999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00257354459,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9144026267b5af450ce7cd8ddf72b38d1c84b3d5",
+          "message": "Zombienet CI improvements (#12372)\n\n- Fix loki url\n- Add debug for sending logs to loki\n- Add retries for additional setup.",
+          "timestamp": "2026-06-19T18:40:06Z",
+          "tree_id": "cd4811a247a4dd30ddcf75c979baf5a0d0441d6e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9144026267b5af450ce7cd8ddf72b38d1c84b3d5"
+        },
+        "date": 1781900836063,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026916464800000013,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009701823399999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01185328803000001,
             "unit": "seconds"
           }
         ]
