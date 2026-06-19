@@ -1,26 +1,8 @@
 title: Avoid RocksDB dependency in subkey build
 doc:
 - audience: Node Dev
-  description: "## Summary\n\nThis changes `subkey` to depend on `sc-cli` without\
-    \ default features.\n\n`subkey` reuses the key-related `sc-cli` commands, but\
-    \ does not need the default `rocksdb` feature. Keeping that default enabled pulls\
-    \ in `librocksdb-sys`, which means a direct `subkey` build can fail on machines\
-    \ where the RocksDB build script cannot load `libclang.dylib`.\n\n## Root Cause\n\
-    \nThe failing dependency path was:\n\n```text\nsubkey\n\u2514\u2500\u2500 sc-cli\
-    \ default feature\n    \u2514\u2500\u2500 sc-cli rocksdb feature\n        \u2514\
-    \u2500\u2500 sc-client-db/rocksdb\n            \u2514\u2500\u2500 kvdb-rocksdb\n\
-    \                \u2514\u2500\u2500 rocksdb\n                    \u2514\u2500\u2500\
-    \ librocksdb-sys\n```\n\nThe observed local failure was:\n\n```text\nerror: failed\
-    \ to run custom build command for `librocksdb-sys v0.17.3+10.4.2`\n\ndyld: Library\
-    \ not loaded: @rpath/libclang.dylib\n```\n\n## Change\n\nUse:\n\n```toml\nsc-cli\
-    \ = { workspace = true, default-features = false }\n```\n\nfor `subkey`, avoiding\
-    \ the unnecessary RocksDB/native build dependency.\n\n## Validation\n\n```bash\n\
-    SKIP_WASM_BUILD=1 cargo build -p subkey --locked\ncargo tree -p subkey --locked\
-    \ -i librocksdb-sys\n```\n\nThe build succeeds, and `librocksdb-sys` is no longer\
-    \ present in `subkey`'s dependency graph.\n\n## Release Notes\n\nNo prdoc is included\
-    \ because this only narrows an internal build-time dependency for `subkey` and\
-    \ should not require crate publication. Please apply `R0-no-crate-publish-required`\
-    \ if appropriate."
+  description: |-
+    Disables `sc-cli` default features for `subkey`, removing its unused RocksDB/`librocksdb-sys` dependency and avoiding native RocksDB build failures during direct `subkey` builds.
 crates:
 - name: subkey
   bump: patch
