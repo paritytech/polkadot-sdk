@@ -59,11 +59,35 @@ pub struct AuthorizationResult<Balance: sp_runtime::traits::Zero> {
 	pub weight_refund: Weight,
 }
 
+/// Pre-dispatch worst-case weight for processing `n` EIP-7702 authorizations.
+///
+/// Must be used as the reservation in `#[pallet::weight(...)]` and as the baseline against
+/// which the post-dispatch refund is computed, so that both expressions agree and the
+/// refund accounting balances out to the actual cost.
+///
+/// Takes a component-wise `max` of the all-new and all-existing aggregations: on at least one
+/// asset-hub runtime `process_existing_account_authorization` has a larger per-auth `proof_size`
+/// than `process_new_account_authorization` (the populated trie node carries more witness data),
+/// so neither dimension uniformly dominates.
+pub fn worst_case_authorization_weight<T: Config>(n: u32) -> Weight {
+	let all_new = <RuntimeCosts as metering::Token<T>>::weight(&RuntimeCosts::Delegations {
+		new_accounts: n,
+		existing_accounts: 0,
+		invalid_accounts: 0,
+	});
+	let all_existing = <RuntimeCosts as metering::Token<T>>::weight(&RuntimeCosts::Delegations {
+		new_accounts: 0,
+		existing_accounts: n,
+		invalid_accounts: 0,
+	});
+	all_new.max(all_existing)
+}
+
 /// Process a list of EIP-7702 authorization tuples.
 ///
 /// For new accounts the ED is charged from `origin` via [`Pallet::charge_deposit`].
-/// The pre-dispatch weight assumes all authorizations create new accounts (worst case).
-/// The returned `weight_refund` accounts for authorizations that hit existing accounts.
+/// The pre-dispatch weight reservation comes from [`worst_case_authorization_weight`]; the
+/// returned `weight_refund` is the gap between that baseline and the actual cost incurred.
 ///
 /// Note: We process authorizations OUTSIDE the transaction context so delegation changes persist
 /// even if the call fails.
@@ -196,12 +220,7 @@ pub fn process_authorizations<T: Config>(
 	let invalid = total
 		.saturating_sub(result.new_accounts)
 		.saturating_sub(result.existing_accounts);
-	let worst_case_weight =
-		<RuntimeCosts as metering::Token<T>>::weight(&RuntimeCosts::Delegations {
-			new_accounts: total,
-			existing_accounts: 0,
-			invalid_accounts: 0,
-		});
+	let worst_case_weight = worst_case_authorization_weight::<T>(total);
 	let actual_weight = <RuntimeCosts as metering::Token<T>>::weight(&RuntimeCosts::Delegations {
 		new_accounts: result.new_accounts,
 		existing_accounts: result.existing_accounts,

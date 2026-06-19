@@ -46,9 +46,7 @@ use sp_core::{H160, H256, U256};
 /// signature recovery they incurred via `process_invalid_authorization`.
 fn expected_weight_refund_for(total: u32, new_accounts: u32, existing_accounts: u32) -> Weight {
 	let invalid = total.saturating_sub(new_accounts).saturating_sub(existing_accounts);
-	let worst = <Test as Config>::WeightInfo::process_new_account_authorization(total)
-		.saturating_add(<Test as Config>::WeightInfo::process_existing_account_authorization(0))
-		.saturating_add(<Test as Config>::WeightInfo::process_invalid_authorization(0));
+	let worst = crate::evm::eip7702::worst_case_authorization_weight::<Test>(total);
 	let actual = <Test as Config>::WeightInfo::process_new_account_authorization(new_accounts)
 		.saturating_add(<Test as Config>::WeightInfo::process_existing_account_authorization(
 			existing_accounts,

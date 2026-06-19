@@ -1416,7 +1416,7 @@ pub mod pallet {
 			T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into())
 			.saturating_add(*weight_limit)
 			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
-			.saturating_add(T::WeightInfo::process_new_account_authorization(authorization_list.len() as u32))
+			.saturating_add(evm::eip7702::worst_case_authorization_weight::<T>(authorization_list.len() as u32))
 		)]
 		pub fn eth_call(
 			origin: OriginFor<T>,
