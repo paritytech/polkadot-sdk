@@ -21,7 +21,7 @@ use super::*;
 use migrations::v0;
 use mock::*;
 
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, traits::Currency};
 use sp_crypto_hashing::blake2_256;
 use sp_runtime::traits::BadOrigin;
 use BidKind::*;
@@ -1462,11 +1462,58 @@ fn poke_deposit_handles_insufficient_balance() {
 		// Change parameters to require higher deposit
 		assert_ok!(Society::set_parameters(Origin::signed(10), 10, 8, 3, initial_deposit + 50,));
 
-		// Should fail due to insufficient balance
+		// Should fail due to insufficient balance to extend the hold.
 		assert_noop!(
 			Society::poke_deposit(Origin::signed(20)),
-			pallet_balances::Error::<Test>::InsufficientBalance
+			sp_runtime::TokenError::FundsUnavailable
 		);
+	});
+}
+
+#[test]
+fn migrate_to_v3_converts_reserves_to_holds() {
+	use crate::migrations::MigrateToV3;
+	use frame_support::traits::{
+		fungible::InspectHold, OnRuntimeUpgrade, ReservableCurrency, StorageVersion,
+	};
+
+	EnvBuilder::new().execute(|| {
+		// Pretend we are on storage version 2.
+		StorageVersion::new(2).put::<Society>();
+
+		let reason = RuntimeHoldReason::Society(crate::HoldReason::BidDeposit);
+		let deposit = 25u64;
+
+		// A legacy deposit-backed bid (account 60) and candidacy (account 70): funds are
+		// *reserved* (the v2 representation) and recorded with `BidKind::Deposit`.
+		assert_ok!(<Balances as ReservableCurrency<_>>::reserve(&60, deposit));
+		Bids::<Test>::put(
+			BoundedVec::try_from(vec![Bid { who: 60, kind: BidKind::Deposit(deposit), value: 0 }])
+				.unwrap(),
+		);
+
+		assert_ok!(<Balances as ReservableCurrency<_>>::reserve(&70, deposit));
+		Candidates::<Test>::insert(
+			70,
+			Candidacy {
+				round: 0,
+				kind: BidKind::Deposit(deposit),
+				bid: 0,
+				tally: Default::default(),
+				skeptic_struck: false,
+			},
+		);
+
+		// Before: reserved, nothing held.
+		assert_eq!(Balances::balance_on_hold(&reason, &60), 0);
+		assert_eq!(Balances::balance_on_hold(&reason, &70), 0);
+
+		MigrateToV3::<Test, ()>::on_runtime_upgrade();
+
+		// After: the reserves became holds of the same amount.
+		assert_eq!(Balances::balance_on_hold(&reason, &60), deposit);
+		assert_eq!(Balances::balance_on_hold(&reason, &70), deposit);
+		assert_eq!(Society::on_chain_storage_version(), 3);
 	});
 }
 

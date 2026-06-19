@@ -67,12 +67,15 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = SocietyPalletId;
 	type Currency = pallet_balances::Pallet<Self>;
+	type OldCurrency = pallet_balances::Pallet<Self>;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Randomness = TestRandomness<Self>;
 	type GraceStrikes = ConstU32<1>;
 	type PeriodSpend = ConstU64<1000>;

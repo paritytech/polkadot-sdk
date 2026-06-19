@@ -22,6 +22,7 @@
 use super::*;
 
 use frame_benchmarking::v2::*;
+use frame_support::traits::fungible::{InspectHold, Mutate, MutateHold};
 use frame_system::RawOrigin;
 
 use alloc::vec;
@@ -40,10 +41,11 @@ fn mock_balance_deposit<T: Config<I>, I: 'static>() -> BalanceOf<T, I> {
 fn make_deposit<T: Config<I>, I: 'static>(who: &T::AccountId) -> BalanceOf<T, I> {
 	let amount = mock_balance_deposit::<T, I>();
 	let required = amount.saturating_add(T::Currency::minimum_balance());
-	if T::Currency::free_balance(who) < required {
-		T::Currency::make_free_balance_be(who, required);
+	if T::Currency::balance(who) < required {
+		let _ = T::Currency::set_balance(who, required);
 	}
-	T::Currency::reserve(who, amount).expect("Pre-funded account; qed");
+	T::Currency::hold(&Society::<T, I>::deposit_reason(), who, amount)
+		.expect("Pre-funded account; qed");
 	amount
 }
 
@@ -54,10 +56,8 @@ fn make_bid<T: Config<I>, I: 'static>(
 }
 
 fn fund_society<T: Config<I>, I: 'static>() {
-	T::Currency::make_free_balance_be(
-		&Society::<T, I>::account_id(),
-		BalanceOf::<T, I>::max_value(),
-	);
+	let _ =
+		T::Currency::set_balance(&Society::<T, I>::account_id(), BalanceOf::<T, I>::max_value());
 	Pot::<T, I>::put(&BalanceOf::<T, I>::max_value());
 }
 
@@ -78,11 +78,9 @@ fn setup_society<T: Config<I>, I: 'static>() -> Result<T::AccountId, &'static st
 		mock_balance_deposit::<T, I>(),
 		b"benchmarking-society".to_vec(),
 	)?;
-	T::Currency::make_free_balance_be(
-		&Society::<T, I>::account_id(),
-		T::Currency::minimum_balance(),
-	);
-	T::Currency::make_free_balance_be(&Society::<T, I>::payouts(), T::Currency::minimum_balance());
+	let _ =
+		T::Currency::set_balance(&Society::<T, I>::account_id(), T::Currency::minimum_balance());
+	let _ = T::Currency::set_balance(&Society::<T, I>::payouts(), T::Currency::minimum_balance());
 	Ok(founder)
 }
 
@@ -123,7 +121,7 @@ mod benchmarks {
 	fn bid() -> Result<(), BenchmarkError> {
 		setup_society::<T, I>()?;
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T, I>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), 10u32.into());
@@ -141,7 +139,7 @@ mod benchmarks {
 	fn unbid() -> Result<(), BenchmarkError> {
 		setup_society::<T, I>()?;
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T, I>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
 		let mut bids = Bids::<T, I>::get();
 		Society::<T, I>::insert_bid(&mut bids, &caller, 10u32.into(), make_bid::<T, I>(&caller));
 		Bids::<T, I>::put(bids);
@@ -158,7 +156,7 @@ mod benchmarks {
 		setup_society::<T, I>()?;
 		let caller: T::AccountId = whitelisted_caller();
 		let vouched: T::AccountId = account("vouched", 0, 0);
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T, I>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
 		let _ = Society::<T, I>::insert_member(&caller, 1u32.into());
 		let vouched_lookup: <T::Lookup as StaticLookup>::Source =
 			T::Lookup::unlookup(vouched.clone());
@@ -180,7 +178,7 @@ mod benchmarks {
 	fn unvouch() -> Result<(), BenchmarkError> {
 		setup_society::<T, I>()?;
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T, I>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
 		let mut bids = Bids::<T, I>::get();
 		Society::<T, I>::insert_bid(
 			&mut bids,
@@ -201,7 +199,7 @@ mod benchmarks {
 	fn vote() -> Result<(), BenchmarkError> {
 		setup_society::<T, I>()?;
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T, I>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
 		let _ = Society::<T, I>::insert_member(&caller, 1u32.into());
 		let candidate = add_candidate::<T, I>("candidate", Default::default(), false);
 		let candidate_lookup: <T::Lookup as StaticLookup>::Source =
@@ -219,7 +217,7 @@ mod benchmarks {
 	fn defender_vote() -> Result<(), BenchmarkError> {
 		setup_society::<T, I>()?;
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T, I>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
 		let _ = Society::<T, I>::insert_member(&caller, 1u32.into());
 		let defender: T::AccountId = account("defender", 0, 0);
 		Defending::<T, I>::put((defender, caller.clone(), Tally::default()));
@@ -238,7 +236,7 @@ mod benchmarks {
 		setup_funded_society::<T, I>()?;
 		// Payee's account already exists and is a member.
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, mock_balance_deposit::<T, I>());
+		let _ = T::Currency::set_balance(&caller, mock_balance_deposit::<T, I>());
 		let _ = Society::<T, I>::insert_member(&caller, 0u32.into());
 		// Introduce payout.
 		Society::<T, I>::bump_payout(&caller, 0u32.into(), 1u32.into());
@@ -255,7 +253,7 @@ mod benchmarks {
 	fn waive_repay() -> Result<(), BenchmarkError> {
 		setup_funded_society::<T, I>()?;
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T, I>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
 		let _ = Society::<T, I>::insert_member(&caller, 0u32.into());
 		Society::<T, I>::bump_payout(&caller, 0u32.into(), 1u32.into());
 
@@ -515,19 +513,20 @@ mod benchmarks {
 		// Set up society
 		setup_society::<T, I>()?;
 		let bidder: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&bidder, BalanceOf::<T, I>::max_value());
+		let _ = T::Currency::set_balance(&bidder, BalanceOf::<T, I>::max_value());
 
 		// Make initial bid
 		let initial_deposit = mock_balance_deposit::<T, I>();
 		Society::<T, I>::bid(RawOrigin::Signed(bidder.clone()).into(), 0u32.into())?;
 
 		// Verify initial state
-		assert_eq!(T::Currency::reserved_balance(&bidder), initial_deposit);
+		let reason = Society::<T, I>::deposit_reason();
+		assert_eq!(T::Currency::balance_on_hold(&reason, &bidder), initial_deposit);
 		let bids = Bids::<T, I>::get();
 		let existing_bid = bids.iter().find(|b| b.who == bidder).expect("Bid should exist");
 		assert_eq!(existing_bid.kind, BidKind::Deposit(initial_deposit));
 
-		// Artificially increase deposit in storage and reserve extra balance
+		// Artificially increase deposit in storage and hold extra balance
 		let extra_amount = 2u32.into();
 		let increased_deposit = initial_deposit.saturating_add(extra_amount);
 		Bids::<T, I>::try_mutate(|bids| -> Result<(), BenchmarkError> {
@@ -538,10 +537,10 @@ mod benchmarks {
 				Err(BenchmarkError::Stop("Bid not found"))
 			}
 		})?;
-		T::Currency::reserve(&bidder, extra_amount)?;
+		T::Currency::hold(&reason, &bidder, extra_amount)?;
 
 		// Verify increased state
-		assert_eq!(T::Currency::reserved_balance(&bidder), increased_deposit);
+		assert_eq!(T::Currency::balance_on_hold(&reason, &bidder), increased_deposit);
 		let bids = Bids::<T, I>::get();
 		let existing_bid = bids.iter().find(|b| b.who == bidder).expect("Bid should exist");
 		assert_eq!(existing_bid.kind, BidKind::Deposit(increased_deposit));
@@ -550,7 +549,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(bidder.clone()));
 
 		// Verify final state returned to initial deposit
-		assert_eq!(T::Currency::reserved_balance(&bidder), initial_deposit);
+		assert_eq!(T::Currency::balance_on_hold(&reason, &bidder), initial_deposit);
 		let bids = Bids::<T, I>::get();
 		let existing_bid = bids.iter().find(|b| b.who == bidder).expect("Bid should exist");
 		assert_eq!(existing_bid.kind, BidKind::Deposit(initial_deposit));
