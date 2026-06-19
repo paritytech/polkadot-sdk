@@ -291,10 +291,10 @@ where
 				ContractCall::decode_all(&mut transact_call.clone().into_encoded().as_slice())
 					.map_err(|_| TransactDecodeFailed)?;
 			match transact {
-				ContractCall::V1 { target, calldata, gas, value } => commands
+				ContractCall::Single { target, calldata, gas, value } => commands
 					.push(Command::CallContract { target: target.into(), calldata, gas, value }),
-				ContractCall::V2 { calls, gas } => {
-					commands.push(Command::CallContracts { calls, gas })
+				ContractCall::Multi { calls, gas } => {
+					commands.push(Command::MultiCall { calls, gas })
 				},
 			}
 		}

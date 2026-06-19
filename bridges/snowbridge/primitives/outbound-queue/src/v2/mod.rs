@@ -19,7 +19,8 @@ use Debug;
 /// for the XCM origin.
 #[derive(Clone, Encode, Decode, PartialEq, Debug, TypeInfo)]
 pub enum ContractCall {
-	V1 {
+	/// Call a single contract.
+	Single {
 		/// Target contract address
 		target: [u8; 20],
 		/// ABI-encoded calldata
@@ -31,7 +32,7 @@ pub enum ContractCall {
 	},
 	/// Call multiple contracts atomically. The sub-calls are executed in order and the whole
 	/// command reverts on the first failure.
-	V2 {
+	Multi {
 		/// Sub-calls to execute, in order
 		calls: Vec<ContractCallEntry>,
 		/// Maximum gas to forward to the target contracts
@@ -39,7 +40,7 @@ pub enum ContractCall {
 	},
 }
 
-/// A single sub-call within a [`ContractCall::V2`] batch.
+/// A single sub-call within a [`ContractCall::Multi`] batch.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo)]
 pub struct ContractCallEntry {
 	/// Target contract address

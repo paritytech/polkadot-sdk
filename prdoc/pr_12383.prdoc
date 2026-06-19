@@ -1,14 +1,14 @@
-title: 'Snowbridge: support the CallContracts command for atomic multi-contract calls'
+title: 'Snowbridge: support the MultiCall command for atomic multi-contract calls'
 doc:
 - audience: Runtime Dev
   description: |-
-    Adds support for the new `CallContracts` Gateway command (companion to Snowfork/snowbridge#1702),
+    Adds support for the new `MultiCall` Gateway command (companion to Snowfork/snowbridge#1702),
     which executes multiple Ethereum contract calls atomically: the sub-calls run in order and the
     whole command reverts on the first failure.
 
-    On the outbound path this introduces a `ContractCall::V2 { calls, gas }` payload variant for
-    `XCM::Transact`, a matching `Command::CallContracts` variant (kind `6`, ABI-encoded as
-    `CallContractsParams`), and the converter pattern that maps the former to the latter.
+    On the outbound path this introduces a `ContractCall::Multi { calls, gas }` payload variant for
+    `XCM::Transact`, a matching `Command::MultiCall` variant (kind `6`, ABI-encoded as
+    `MultiCallParams`), and the converter pattern that maps the former to the latter.
 crates:
 - name: snowbridge-outbound-queue-primitives
   bump: minor

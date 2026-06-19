@@ -539,7 +539,7 @@ fn xcm_converter_convert_success() {
 }
 
 #[test]
-fn xcm_converter_convert_with_transact_call_contracts_succeeds() {
+fn xcm_converter_convert_with_transact_multi_call_succeeds() {
 	let network = BridgedNetwork::get();
 
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
@@ -556,7 +556,7 @@ fn xcm_converter_convert_with_transact_call_contracts_succeeds() {
 
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
 
-	let contract_call = ContractCall::V2 {
+	let contract_call = ContractCall::Multi {
 		calls: vec![
 			ContractCallEntry { target: target_1, calldata: hex!("deadbeef").to_vec(), value: 1 },
 			ContractCallEntry { target: target_2, calldata: vec![], value: 0 },
@@ -586,15 +586,15 @@ fn xcm_converter_convert_with_transact_call_contracts_succeeds() {
 	assert!(result.is_ok());
 
 	let message = result.unwrap();
-	let call_contracts = message
+	let multi_call = message
 		.commands
 		.iter()
-		.find(|command| matches!(command, Command::CallContracts { .. }))
-		.expect("CallContracts command should be present");
+		.find(|command| matches!(command, Command::MultiCall { .. }))
+		.expect("MultiCall command should be present");
 
 	assert_eq!(
-		*call_contracts,
-		Command::CallContracts {
+		*multi_call,
+		Command::MultiCall {
 			calls: vec![
 				ContractCallEntry {
 					target: target_1,

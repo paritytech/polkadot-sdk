@@ -540,7 +540,7 @@ fn transact_with_agent_from_asset_hub() {
 		let beneficiary =
 			Location::new(0, [AccountKey20 { network: None, key: AGENT_ADDRESS.into() }]);
 
-		let transact_info = ContractCall::V1 {
+		let transact_info = ContractCall::Single {
 			target: Default::default(),
 			calldata: vec![],
 			gas: 40000,
@@ -631,8 +631,12 @@ fn transact_with_agent_from_asset_hub_without_any_asset_transfer() {
 		let beneficiary =
 			Location::new(0, [AccountKey20 { network: None, key: AGENT_ADDRESS.into() }]);
 
-		let transact_info =
-			ContractCall::V1 { target: Default::default(), calldata: vec![], gas: 40000, value: 0 };
+		let transact_info = ContractCall::Single {
+			target: Default::default(),
+			calldata: vec![],
+			gas: 40000,
+			value: 0,
+		};
 
 		let xcms = VersionedXcm::from(Xcm(vec![
 			WithdrawAsset(assets.clone().into()),
@@ -852,8 +856,12 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 			ena.clone(),
 		];
 
-		let transact_info =
-			ContractCall::V1 { target: Default::default(), calldata: vec![], gas: 40000, value: 0 };
+		let transact_info = ContractCall::Single {
+			target: Default::default(),
+			calldata: vec![],
+			gas: 40000,
+			value: 0,
+		};
 
 		let xcm = VersionedXcm::from(Xcm(vec![
 			WithdrawAsset(assets.clone().into()),
