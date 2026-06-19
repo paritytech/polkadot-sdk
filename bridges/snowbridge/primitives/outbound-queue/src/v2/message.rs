@@ -10,7 +10,7 @@ use sp_std::vec::Vec;
 
 use crate::{v2::ContractCallEntry, OperatingMode, SendError};
 use abi::{
-	CallContractParams, CallContractsParams, MintForeignTokenParams, RegisterForeignTokenParams,
+	CallContractParams, MintForeignTokenParams, MultiCallParams, RegisterForeignTokenParams,
 	SetOperatingModeParams, UnlockNativeTokenParams, UpgradeParams,
 };
 use alloy_core::{
@@ -97,8 +97,8 @@ pub mod abi {
 			uint256 value;
 		}
 
-		// Payload for CallContracts. Reverts on the first sub-call failure.
-		struct CallContractsParams {
+		// Payload for MultiCall. Reverts on the first sub-call failure.
+		struct MultiCallParams {
 			// Sub-calls to execute, in order
 			CallContractParams[] calls;
 		}
@@ -198,7 +198,7 @@ pub enum Command {
 	},
 	/// Call multiple contracts on Ethereum atomically. The sub-calls are executed in order and
 	/// the whole command reverts on the first failure.
-	CallContracts {
+	MultiCall {
 		/// Sub-calls to execute, in order
 		calls: Vec<ContractCallEntry>,
 		/// Maximum gas to forward to the target contracts
@@ -216,7 +216,7 @@ impl Command {
 			Command::RegisterForeignToken { .. } => 3,
 			Command::MintForeignToken { .. } => 4,
 			Command::CallContract { .. } => 5,
-			Command::CallContracts { .. } => 6,
+			Command::MultiCall { .. } => 6,
 		}
 	}
 
@@ -261,7 +261,7 @@ impl Command {
 				value: U256::try_from(*value).unwrap(),
 			}
 			.abi_encode(),
-			Command::CallContracts { calls, .. } => CallContractsParams {
+			Command::MultiCall { calls, .. } => MultiCallParams {
 				calls: calls
 					.iter()
 					.map(|call| CallContractParams {
@@ -327,7 +327,7 @@ impl GasMeter for ConstantGasMeter {
 			Command::RegisterForeignToken { .. } => 1_200_000,
 			Command::MintForeignToken { .. } => 100_000,
 			Command::CallContract { gas: gas_limit, .. } => *gas_limit,
-			Command::CallContracts { gas: gas_limit, .. } => *gas_limit,
+			Command::MultiCall { gas: gas_limit, .. } => *gas_limit,
 		}
 	}
 }
@@ -344,11 +344,11 @@ mod tests {
 	use crate::v2::ContractCallEntry;
 
 	#[test]
-	fn call_contracts_command_abi_encodes_into_call_contracts_params() {
+	fn multi_call_command_abi_encodes_into_multi_call_params() {
 		let target_1 = [0x11u8; 20];
 		let target_2 = [0x22u8; 20];
 
-		let command = Command::CallContracts {
+		let command = Command::MultiCall {
 			calls: vec![
 				ContractCallEntry { target: target_1, calldata: vec![0xde, 0xad], value: 7 },
 				ContractCallEntry { target: target_2, calldata: vec![], value: 0 },
@@ -356,12 +356,12 @@ mod tests {
 			gas: 500_000,
 		};
 
-		// `kind` must match `CommandKind.CallContracts` on the Gateway contract.
+		// `kind` must match `CommandKind.MultiCall` on the Gateway contract.
 		assert_eq!(command.index(), 6);
 
-		// The payload must ABI-decode into `CallContractsParams` with the same fields.
-		let decoded = CallContractsParams::abi_decode_validate(&command.abi_encode())
-			.expect("payload decodes into CallContractsParams");
+		// The payload must ABI-decode into `MultiCallParams` with the same fields.
+		let decoded = MultiCallParams::abi_decode_validate(&command.abi_encode())
+			.expect("payload decodes into MultiCallParams");
 
 		assert_eq!(decoded.calls.len(), 2);
 		assert_eq!(decoded.calls[0].target, Address::from(target_1));
