@@ -101,7 +101,10 @@ use frame_system::pallet_prelude::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{AccountIdConversion, BadOrigin, Convert, Saturating, StaticLookup, TryConvert, Zero},
+	traits::{
+		AccountIdConversion, BadOrigin, CheckedAdd, Convert, Saturating, StaticLookup, TryConvert,
+		Zero,
+	},
 	Debug, Permill,
 };
 
@@ -1403,8 +1406,8 @@ pub mod pallet {
 		/// - The bounty must be in the `Active` state.
 		/// - Raises the recorded `value` by `amount`. This is used to register funds that were
 		///   transferred into the bounty account out-of-band (e.g. recurring external top-ups), so
-		///   they become available to award or to allocate to child bounties. 
-		///   It must be greater than 0.
+		///   they become available to award or to allocate to child bounties. It must be greater
+		///   than 0.
 		/// - The curator deposit is re-evaluated for the new value and any additional deposit is
 		///   collected from the curator.
 		/// - The value can only be increased, never decreased, so the invariant that the sum of
@@ -1438,7 +1441,9 @@ pub mod pallet {
 			ensure!(signer == *curator, Error::<T, I>::RequireCurator);
 
 			ensure!(!amount.is_zero(), Error::<T, I>::InvalidValue);
-			let new_value = value.saturating_add(amount);
+			// Reject an overflowing increase rather than silently saturating to a nonsensical
+			// value.
+			let new_value = value.checked_add(&amount).ok_or(Error::<T, I>::InvalidValue)?;
 
 			// Re-evaluate the curator deposit for the new value, collecting any additional hold
 			// from the curator. The deposit always exists for an `Active` parent bounty.

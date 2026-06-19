@@ -2841,3 +2841,33 @@ fn increase_value_creates_child_bounty_headroom() {
 		);
 	});
 }
+
+#[test]
+fn increase_value_reverts_when_curator_cannot_fund_deposit() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: an active parent bounty. The curator's free balance is only the existential
+		// deposit (their 25 deposit is already held), so they cannot fund a larger hold.
+		let s = create_active_parent_bounty();
+		assert_eq!(Balances::reserved_balance(s.curator), s.curator_deposit);
+
+		// When/Then: the increase requires a larger deposit (50% * 70 = 35, i.e. +10) the curator
+		// cannot afford, so the call fails.
+		assert_noop!(
+			Bounties::increase_value(RuntimeOrigin::signed(s.curator), s.parent_bounty_id, 20),
+			TokenError::FundsUnavailable
+		);
+
+		// And: the whole call is rolled back — the deposit was NOT orphaned by the earlier `take`,
+		// and the value is unchanged.
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap().value,
+			s.value
+		);
+		assert_eq!(
+			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>)
+				.unwrap(),
+			consideration(s.value)
+		);
+		assert_eq!(Balances::reserved_balance(s.curator), s.curator_deposit);
+	});
+}
