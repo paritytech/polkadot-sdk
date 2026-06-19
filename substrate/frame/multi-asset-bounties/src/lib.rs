@@ -101,7 +101,7 @@ use frame_system::pallet_prelude::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{AccountIdConversion, BadOrigin, Convert, Saturating, StaticLookup, TryConvert},
+	traits::{AccountIdConversion, BadOrigin, Convert, Saturating, StaticLookup, TryConvert, Zero},
 	Debug, Permill,
 };
 
@@ -467,6 +467,8 @@ pub mod pallet {
 		},
 		/// A payment happened and can be checked.
 		Paid { index: BountyIndex, child_index: Option<BountyIndex>, payment_id: PaymentIdOf<T, I> },
+		/// A bounty's value was increased by its curator.
+		BountyValueIncreased { index: BountyIndex, old_value: T::Balance, new_value: T::Balance },
 	}
 
 	/// A reason for this pallet placing a hold on funds.
@@ -1388,6 +1390,80 @@ pub mod pallet {
 			Self::update_bounty_status(parent_bounty_id, child_bounty_id, new_status)?;
 
 			Ok(Some(weight).into())
+		}
+
+		/// Increase the value of an active bounty by `amount`.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be signed by the bounty curator.
+		///
+		/// ## Details
+		///
+		/// - The bounty must be in the `Active` state.
+		/// - Raises the recorded `value` by `amount`. This is used to register funds that were
+		///   transferred into the bounty account out-of-band (e.g. recurring external top-ups), so
+		///   they become available to award or to allocate to child bounties. 
+		///   It must be greater than 0.
+		/// - The curator deposit is re-evaluated for the new value and any additional deposit is
+		///   collected from the curator.
+		/// - The value can only be increased, never decreased, so the invariant that the sum of
+		///   child-bounty values never exceeds the parent value is preserved.
+		/// - Only parent bounties value can be increased via this call.
+		///
+		/// ### Parameters
+		/// - `parent_bounty_id`: Index of the bounty whose value is increased.
+		/// - `amount`: The amount to add to the bounty value.
+		///
+		/// ## Events
+		///
+		/// Emits [`Event::BountyValueIncreased`] if successful.
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::increase_value())]
+		pub fn increase_value(
+			origin: OriginFor<T>,
+			#[pallet::compact] parent_bounty_id: BountyIndex,
+			#[pallet::compact] amount: T::Balance,
+		) -> DispatchResult {
+			let signer = ensure_signed(origin)?;
+
+			let (asset_kind, value, _, status, _) =
+				Self::get_bounty_details(parent_bounty_id, None)?;
+
+			// Only an `Active` bounty has a committed curator who can authorize and collateralize
+			// the increase.
+			let BountyStatus::Active { ref curator } = status else {
+				return Err(Error::<T, I>::UnexpectedStatus.into());
+			};
+			ensure!(signer == *curator, Error::<T, I>::RequireCurator);
+
+			ensure!(!amount.is_zero(), Error::<T, I>::InvalidValue);
+			let new_value = value.saturating_add(amount);
+
+			// Re-evaluate the curator deposit for the new value, collecting any additional hold
+			// from the curator. The deposit always exists for an `Active` parent bounty.
+			let native_amount = T::BalanceConverter::from_asset_balance(new_value, asset_kind)
+				.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+			let curator_deposit =
+				CuratorDeposit::<T, I>::take(parent_bounty_id, None::<BountyIndex>)
+					.ok_or(Error::<T, I>::UnexpectedStatus)?;
+			let curator_deposit = curator_deposit.update(curator, native_amount)?;
+			CuratorDeposit::<T, I>::insert(parent_bounty_id, None::<BountyIndex>, curator_deposit);
+
+			// Write the new value.
+			Bounties::<T, I>::try_mutate(parent_bounty_id, |maybe_bounty| -> DispatchResult {
+				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+				bounty.value = new_value;
+				Ok(())
+			})?;
+
+			Self::deposit_event(Event::<T, I>::BountyValueIncreased {
+				index: parent_bounty_id,
+				old_value: value,
+				new_value,
+			});
+
+			Ok(())
 		}
 	}
 
