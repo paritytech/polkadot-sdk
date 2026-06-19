@@ -20,6 +20,7 @@
 use super::*;
 use alloc::vec;
 use frame_support::{defensive, traits::Get, BoundedVec};
+use sp_runtime::traits::ConstU32;
 
 #[must_use]
 pub(super) enum DeadConsequence {
@@ -87,7 +88,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			// allow accidental usage of all consumer references which could cause grief.
 			if !frame_system::Pallet::<T>::can_inc_consumer(who) {
 				frame_system::Pallet::<T>::dec_consumers(who);
-				return Err(Error::<T, I>::UnavailableConsumer.into())
+				return Err(Error::<T, I>::UnavailableConsumer.into());
 			}
 			ExistenceReason::Consumer
 		};
@@ -151,27 +152,27 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			None => return DepositConsequence::UnknownAsset,
 		};
 		if details.status == AssetStatus::Destroying {
-			return DepositConsequence::UnknownAsset
+			return DepositConsequence::UnknownAsset;
 		}
 		if increase_supply && details.supply.checked_add(&amount).is_none() {
-			return DepositConsequence::Overflow
+			return DepositConsequence::Overflow;
 		}
 		if let Some(account) = Account::<T, I>::get(id, who) {
 			if account.status.is_blocked() {
-				return DepositConsequence::Blocked
+				return DepositConsequence::Blocked;
 			}
 			if account.balance.checked_add(&amount).is_none() {
-				return DepositConsequence::Overflow
+				return DepositConsequence::Overflow;
 			}
 		} else {
 			if amount < details.min_balance {
-				return DepositConsequence::BelowMinimum
+				return DepositConsequence::BelowMinimum;
 			}
 			if !details.is_sufficient && !frame_system::Pallet::<T>::can_accrue_consumers(who, 2) {
-				return DepositConsequence::CannotCreate
+				return DepositConsequence::CannotCreate;
 			}
 			if details.is_sufficient && details.sufficients.checked_add(1).is_none() {
-				return DepositConsequence::Overflow
+				return DepositConsequence::Overflow;
 			}
 		}
 
@@ -191,23 +192,23 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			None => return UnknownAsset,
 		};
 		if details.supply.checked_sub(&amount).is_none() {
-			return Underflow
+			return Underflow;
 		}
 		if details.status == AssetStatus::Frozen {
-			return Frozen
+			return Frozen;
 		}
 		if details.status == AssetStatus::Destroying {
-			return UnknownAsset
+			return UnknownAsset;
 		}
 		if amount.is_zero() {
-			return Success
+			return Success;
 		}
 		let account = match Account::<T, I>::get(&id, who) {
 			Some(a) => a,
 			None => return BalanceLow,
 		};
 		if account.status.is_frozen() {
-			return Frozen
+			return Frozen;
 		}
 		// Persistent accounts exist independent of the existential deposit, so the minimum balance
 		// is not enforced against them.
@@ -218,7 +219,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				T::Holder::balance_on_hold(id.clone(), who),
 				T::Freezer::frozen_balance(id.clone(), who),
 			) {
-				(None, None) =>
+				(None, None) => {
 					if rest < min_balance {
 						if keep_alive {
 							WouldDie
@@ -227,7 +228,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						}
 					} else {
 						Success
-					},
+					}
+				},
 				(maybe_held, maybe_frozen) => {
 					let frozen = maybe_frozen.unwrap_or_default();
 					let held = maybe_held.unwrap_or_default();
@@ -315,7 +317,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Ok(dust) => actual.saturating_add(dust), //< guaranteed by reducible_balance
 			Err(e) => {
 				debug_assert!(false, "passed from reducible_balance; qed");
-				return Err(e)
+				return Err(e);
 			},
 		};
 
@@ -353,23 +355,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Creates an account for `who` to hold asset `id` with a zero balance and takes a deposit.
-	///
-	/// When `check_depositor` is set to true, the depositor must be either the asset's Admin or
-	/// Freezer, otherwise the depositor can be any account.
 	pub(super) fn do_touch(
 		id: T::AssetId,
 		who: T::AccountId,
 		depositor: T::AccountId,
-		check_depositor: bool,
 	) -> DispatchResult {
 		ensure!(!Account::<T, I>::contains_key(&id, &who), Error::<T, I>::AlreadyExists);
 		let deposit = T::AssetAccountDeposit::get();
 		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
-		ensure!(
-			!check_depositor || &depositor == &details.admin || &depositor == &details.freezer,
-			Error::<T, I>::NoPermission
-		);
 		let reason = Self::new_account(&who, &mut details, Some((&depositor, deposit)))?;
 		T::Currency::reserve(&depositor, deposit)?;
 		Asset::<T, I>::insert(&id, details);
@@ -405,12 +399,24 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		if let Remove = Self::dead_account(&who, &mut details, &account.reason, false) {
+			if !account.balance.is_zero() {
+				debug_assert!(details.supply >= account.balance, "supply < balance; qed");
+				details.supply = details.supply.saturating_sub(account.balance);
+			}
 			Account::<T, I>::remove(&id, &who);
 		} else {
 			debug_assert!(false, "refund did not result in dead account?!");
 			// deposit may have been refunded, need to update `Account`
 			Account::<T, I>::insert(id, &who, account);
-			return Ok(())
+			return Ok(());
+		}
+
+		if !account.balance.is_zero() {
+			Self::deposit_event(Event::Burned {
+				asset_id: id.clone(),
+				owner: who.clone(),
+				balance: account.balance,
+			});
 		}
 
 		Asset::<T, I>::insert(&id, details);
@@ -449,13 +455,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			debug_assert!(false, "refund did not result in dead account?!");
 			// deposit may have been refunded, need to update `Account`
 			Account::<T, I>::insert(&id, &who, account);
-			return Ok(())
+			return Ok(());
 		}
 		Asset::<T, I>::insert(&id, details);
 		// Executing a hook here is safe, since it is not in a `mutate`.
 		T::Freezer::died(id.clone(), who);
 		T::Holder::died(id, &who);
-		return Ok(())
+		return Ok(());
 	}
 
 	/// Marks an asset-account as [`ExistenceReason::Persistent`], creating it if needed.
@@ -554,7 +560,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// re-acquiring the reference here cannot exhaust the account's consumer refs.
 				if !frame_system::Pallet::<T>::can_inc_consumer(who) {
 					frame_system::Pallet::<T>::dec_consumers(who);
-					return Err(Error::<T, I>::UnavailableConsumer.into())
+					return Err(Error::<T, I>::UnavailableConsumer.into());
 				}
 				ExistenceReason::Consumer
 			};
@@ -608,7 +614,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		) -> DispatchResult,
 	) -> DispatchResult {
 		if amount.is_zero() {
-			return Ok(())
+			return Ok(());
 		}
 
 		Self::can_increase(id.clone(), beneficiary, amount, true).into_result()?;
@@ -695,7 +701,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		) -> DispatchResult,
 	) -> Result<T::Balance, DispatchError> {
 		if amount.is_zero() {
-			return Ok(amount)
+			return Ok(amount);
 		}
 
 		let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
@@ -723,7 +729,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Self::ensure_account_can_die(id.clone(), target)?;
 					target_died = Some(Self::dead_account(target, details, &account.reason, false));
 					if let Some(Remove) = target_died {
-						return Ok(())
+						return Ok(());
 					}
 				};
 				*maybe_account = Some(account);
@@ -749,7 +755,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// Will fail if the amount transferred is so small that it cannot create the destination due
 	/// to minimum balance requirements.
-	pub(super) fn do_transfer(
+	pub fn do_transfer(
 		id: T::AssetId,
 		source: &T::AccountId,
 		dest: &T::AccountId,
@@ -778,7 +784,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Result<(T::Balance, Option<DeadConsequence>), DispatchError> {
 		// Early exit if no-op.
 		if amount.is_zero() {
-			return Ok((amount, None))
+			return Ok((amount, None));
 		}
 		let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
@@ -801,7 +807,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 			// Skip if source == dest
 			if source == dest {
-				return Ok(())
+				return Ok(());
 			}
 
 			// Burn any dust if needed.
@@ -859,7 +865,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Some(Self::dead_account(source, details, &source_account.reason, false));
 				if let Some(Remove) = source_died {
 					Account::<T, I>::remove(&id, &source);
-					return Ok(())
+					return Ok(());
 				}
 			}
 			Account::<T, I>::insert(&id, &source, &source_account);
@@ -956,7 +962,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 			for (i, (who, mut v)) in Account::<T, I>::iter_prefix(&id).enumerate() {
 				if Self::ensure_account_can_die(id.clone(), &who).is_err() {
-					continue
+					continue;
 				}
 				// unreserve the existence deposit if any
 				if let Some((depositor, deposit)) = v.reason.take_deposit_from() {
@@ -973,7 +979,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					defensive!("destroy did not result in dead account?!");
 				}
 				if i + 1 >= (max_items as usize) {
-					break
+					break;
 				}
 			}
 			remaining_accounts = details.accounts;
@@ -1015,7 +1021,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					removed_approvals = removed_approvals.saturating_add(1);
 					details.approvals = details.approvals.saturating_sub(1);
 					if removed_approvals >= max_items {
-						break
+						break;
 					}
 				}
 				Self::deposit_event(Event::ApprovalsDestroyed {
@@ -1045,6 +1051,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				&details.owner,
 				details.deposit.saturating_add(metadata.deposit),
 			);
+			Reserves::<T, I>::remove(&id);
 			Self::deposit_event(Event::Destroyed { asset_id: id });
 
 			Ok(())
@@ -1055,7 +1062,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// while reserving `T::ApprovalDeposit` from owner
 	///
 	/// If an approval already exists, the new amount is added to such existing approval
-	pub(super) fn do_approve_transfer(
+	pub fn do_approve_transfer(
 		id: T::AssetId,
 		owner: &T::AccountId,
 		delegate: &T::AccountId,
@@ -1096,6 +1103,32 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
+	/// Cancels an existing approval from `owner` to `delegate` for asset `id`.
+	///
+	/// Removes the approval entry and unreserves the deposit. Emits `ApprovalCancelled`.
+	pub fn do_cancel_approval(
+		id: &T::AssetId,
+		owner: &T::AccountId,
+		delegate: &T::AccountId,
+	) -> DispatchResult {
+		let mut asset_details = Asset::<T, I>::get(id).ok_or(Error::<T, I>::Unknown)?;
+		ensure!(asset_details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+
+		let approval =
+			Approvals::<T, I>::take((id.clone(), owner, delegate)).ok_or(Error::<T, I>::Unknown)?;
+		T::Currency::unreserve(owner, approval.deposit);
+
+		asset_details.approvals.saturating_dec();
+		Asset::<T, I>::insert(id, asset_details);
+
+		Self::deposit_event(Event::ApprovalCancelled {
+			asset_id: id.clone(),
+			owner: owner.clone(),
+			delegate: delegate.clone(),
+		});
+		Ok(())
+	}
+
 	/// Reduces the asset `id` balance of `owner` by some `amount` and increases the balance of
 	/// `dest` by (similar) amount, checking that 'delegate' has an existing approval from `owner`
 	/// to spend`amount`.
@@ -1103,7 +1136,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Will fail if `amount` is greater than the approval from `owner` to 'delegate'
 	/// Will unreserve the deposit from `owner` if the entire approved `amount` is spent by
 	/// 'delegate'
-	pub(super) fn do_transfer_approved(
+	pub fn do_transfer_approved(
 		id: T::AssetId,
 		owner: &T::AccountId,
 		delegate: &T::AccountId,
@@ -1234,6 +1267,23 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		d.issuer = issuer;
 		d.freezer = freezer;
 		Asset::<T, I>::insert(&id, d);
+		Ok(())
+	}
+
+	/// Helper function for setting reserves to be used in benchmarking and migrations.
+	/// Does not check validity of asset id, caller should check it.
+	pub fn unchecked_update_reserves(
+		id: T::AssetId,
+		reserves: BoundedVec<T::ReserveData, ConstU32<MAX_RESERVES>>,
+	) -> Result<(), Error<T, I>> {
+		if reserves.is_empty() {
+			Reserves::<T, I>::remove(&id);
+			Self::deposit_event(Event::ReservesRemoved { asset_id: id });
+		} else {
+			let reserves_vec = reserves.clone().into_inner();
+			Reserves::<T, I>::set(&id, reserves);
+			Self::deposit_event(Event::ReservesUpdated { asset_id: id, reserves: reserves_vec });
+		}
 		Ok(())
 	}
 }

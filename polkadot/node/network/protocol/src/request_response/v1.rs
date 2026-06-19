@@ -22,7 +22,7 @@ use polkadot_node_primitives::{
 	AvailableData, DisputeMessage, ErasureChunk, PoV, Proof, UncheckedDisputeMessage,
 };
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, HeadData, Id as ParaId,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, HeadData, Id as ParaId,
 	ValidatorIndex,
 };
 
@@ -103,7 +103,7 @@ impl IsRequest for ChunkFetchingRequest {
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct CollationFetchingRequest {
 	/// Relay parent we want a collation for.
-	pub relay_parent: Hash,
+	pub scheduling_parent: Hash,
 	/// The `ParaId` of the collation.
 	pub para_id: ParaId,
 }

@@ -42,14 +42,14 @@ pub trait Client: 'static + Clone + Send + Sync {
 			match self.reconnect().await {
 				Ok(()) => break,
 				Err(error) => {
-					log::warn!(
+					tracing::warn!(
 						target: "bridge",
-						"Failed to reconnect to client. Going to retry in {}s: {:?}",
-						delay.as_secs(),
-						error,
+						?error,
+						retry_as_secs=%delay.as_secs(),
+						"Failed to reconnect to client. Going to retry"
 					);
 
-					async_std::task::sleep(delay).await;
+					tokio::time::sleep(delay).await;
 				},
 			}
 		}
@@ -150,7 +150,7 @@ impl<SC, TC, LM> Loop<SC, TC, LM> {
 				match result {
 					Ok(()) => break,
 					Err(failed_client) => {
-						log::debug!(target: "bridge", "Restarting relay loop");
+						tracing::debug!(target: "bridge", "Restarting relay loop");
 
 						reconnect_failed_client(
 							failed_client,
@@ -165,7 +165,7 @@ impl<SC, TC, LM> Loop<SC, TC, LM> {
 			Ok(())
 		};
 
-		async_std::task::spawn(run_loop_task).await
+		tokio::spawn(run_loop_task).await.unwrap()
 	}
 }
 
@@ -205,34 +205,19 @@ impl<SC, TC, LM> LoopMetrics<SC, TC, LM> {
 				address.port,
 			);
 
-			let registry = self.registry;
-			async_std::task::spawn(async move {
-				let runtime =
-					match tokio::runtime::Builder::new_current_thread().enable_all().build() {
-						Ok(runtime) => runtime,
-						Err(err) => {
-							log::trace!(
-								target: "bridge-metrics",
-								"Failed to create tokio runtime. Prometheus metrics are not available: {:?}",
-								err,
-							);
-							return
-						},
-					};
-
-				runtime.block_on(async move {
-					log::trace!(
-						target: "bridge-metrics",
-						"Starting prometheus endpoint at: {:?}",
-						socket_addr,
-					);
-					let result = init_prometheus(socket_addr, registry).await;
-					log::trace!(
-						target: "bridge-metrics",
-						"Prometheus endpoint has exited with result: {:?}",
-						result,
-					);
-				});
+			let registry = self.registry.clone();
+			tokio::spawn(async move {
+				tracing::trace!(
+					target: "bridge-metrics",
+					at=?socket_addr,
+					"Starting prometheus endpoint"
+				);
+				let result = init_prometheus(socket_addr, registry).await;
+				tracing::trace!(
+					target: "bridge-metrics",
+					?result,
+					"Prometheus endpoint has exited"
+				);
 			});
 		}
 

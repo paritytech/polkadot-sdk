@@ -26,7 +26,9 @@ extern crate alloc;
 #[cfg(feature = "runtime-benchmarks")]
 use pallet_asset_rate::AssetKindFactory;
 #[cfg(feature = "runtime-benchmarks")]
-use pallet_treasury::ArgumentsFactory;
+use pallet_multi_asset_bounties::ArgumentsFactory as PalletMultiAssetBountiesArgumentsFactory;
+#[cfg(feature = "runtime-benchmarks")]
+use pallet_treasury::ArgumentsFactory as PalletTreasuryArgumentsFactory;
 #[cfg(feature = "runtime-benchmarks")]
 use polkadot_sdk::sp_core::crypto::FromEntropy;
 
@@ -55,18 +57,18 @@ use frame_support::{
 			imbalance::{ResolveAssetTo, ResolveTo},
 			nonfungibles_v2::Inspect,
 			pay::PayAssetFromAccount,
-			GetSalary, PayFromAccount,
+			GetSalary, PayFromAccount, PayWithFungibles,
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstU64,
 		ConstantStoragePrice, Contains, Currency, EitherOfDiverse, EnsureOriginWithArg,
-		EqualPrivilegeOnly, Imbalance, InsideBoth, InstanceFilter, KeyOwnerProofSystem,
-		LinearStoragePrice, LockIdentifier, Nothing, OnUnbalanced, VariantCountOf, WithdrawReasons,
+		EqualPrivilegeOnly, InsideBoth, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice,
+		LockIdentifier, Nothing, OnUnbalanced, VariantCountOf, WithdrawReasons,
 	},
 	weights::{
 		constants::{
 			BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
 		},
-		ConstantMultiplier, IdentityFee, Weight,
+		ConstantMultiplier, Weight,
 	},
 	BoundedVec, PalletId,
 };
@@ -78,8 +80,8 @@ pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
-use pallet_assets::precompiles::{InlineIdConfig, ERC20};
-use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
+use pallet_assets_precompiles::{InlineIdConfig, ERC20};
+use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, TaskId};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -88,13 +90,10 @@ use pallet_nis::WithMaximumOf;
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
 use pallet_session::historical as pallet_session_historical;
-// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
-// <https://github.com/paritytech/polkadot-sdk/issues/226>
-use pallet_broker::TaskId;
-#[allow(deprecated)]
-pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
+pub use pallet_transaction_payment::{FungibleAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_tx_pause::RuntimeCallNameOf;
+use pallet_vesting_precompiles::Vesting as VestingPrecompile;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::{
@@ -112,8 +111,8 @@ use sp_runtime::{
 		MaybeConvert, NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedPointNumber, FixedU128, MultiSignature, MultiSigner, Perbill,
-	Percent, Permill, Perquintill, RuntimeDebug,
+	ApplyExtrinsicResult, Debug, FixedPointNumber, FixedU128, MultiSignature, MultiSigner, Perbill,
+	Percent, Permill, Perquintill,
 };
 use sp_std::{borrow::Cow, prelude::*};
 #[cfg(any(feature = "std", test))]
@@ -136,7 +135,7 @@ pub use pallet_staking::StakerStatus;
 pub mod impls;
 #[cfg(not(feature = "runtime-benchmarks"))]
 use impls::AllianceIdentityVerifier;
-use impls::{AllianceProposalProvider, Author};
+use impls::AllianceProposalProvider;
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -159,7 +158,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 /// Max size for serialized extrinsic params for this testing runtime.
 /// This is a quite arbitrary but empirically battle tested value.
 #[cfg(test)]
-pub const CALL_PARAMS_MAX_SIZE: usize = 244;
+pub const CALL_PARAMS_MAX_SIZE: usize = 512;
 
 /// Wasm binary unwrapped. If built with `SKIP_WASM_BUILD`, the function panics.
 #[cfg(feature = "std")]
@@ -203,28 +202,12 @@ pub fn native_version() -> NativeVersion {
 
 type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 
-pub struct DealWithFees;
-impl OnUnbalanced<NegativeImbalance> for DealWithFees {
-	fn on_unbalanceds(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
-		if let Some(fees) = fees_then_tips.next() {
-			// for fees, 80% to treasury, 20% to author
-			let mut split = fees.ration(80, 20);
-			if let Some(tips) = fees_then_tips.next() {
-				// for tips, if any, 80% to treasury, 20% to author (though this can be anything)
-				tips.ration_merge_into(80, 20, &mut split);
-			}
-			Treasury::on_unbalanced(split.0);
-			Author::on_unbalanced(split.1);
-		}
-	}
-}
-
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 /// This is used to limit the maximal weight of a single extrinsic.
 const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
-/// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
+/// We allow `Normal` extrinsics to fill up the block up to 95%, the rest can be used
 /// by  Operational  extrinsics.
-const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
+const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(95);
 /// We allow for 2 seconds of compute with a 6 second average block time, with maximum proof size.
 const MAXIMUM_BLOCK_WEIGHT: Weight =
 	Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2), u64::MAX);
@@ -232,8 +215,12 @@ const MAXIMUM_BLOCK_WEIGHT: Weight =
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 2400;
 	pub const Version: RuntimeVersion = VERSION;
-	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
+		.max_length(15 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * *m
+		})
+		.build();
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
@@ -285,7 +272,7 @@ pub struct AssetRateArguments;
 #[cfg(feature = "runtime-benchmarks")]
 impl AssetKindFactory<NativeOrWithId<u32>> for AssetRateArguments {
 	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
-		if seed % 2 > 0 {
+		if !seed.is_multiple_of(2) {
 			NativeOrWithId::Native
 		} else {
 			NativeOrWithId::WithId(seed / 2)
@@ -296,9 +283,28 @@ impl AssetKindFactory<NativeOrWithId<u32>> for AssetRateArguments {
 #[cfg(feature = "runtime-benchmarks")]
 pub struct PalletTreasuryArguments;
 #[cfg(feature = "runtime-benchmarks")]
-impl ArgumentsFactory<NativeOrWithId<u32>, AccountId> for PalletTreasuryArguments {
+impl PalletTreasuryArgumentsFactory<NativeOrWithId<u32>, AccountId> for PalletTreasuryArguments {
 	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
-		if seed % 2 > 0 {
+		if !seed.is_multiple_of(2) {
+			NativeOrWithId::Native
+		} else {
+			NativeOrWithId::WithId(seed / 2)
+		}
+	}
+
+	fn create_beneficiary(seed: [u8; 32]) -> AccountId {
+		AccountId::from_entropy(&mut seed.as_slice()).unwrap()
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct PalletMultiAssetBountiesArguments;
+#[cfg(feature = "runtime-benchmarks")]
+impl PalletMultiAssetBountiesArgumentsFactory<NativeOrWithId<u32>, AccountId, u128>
+	for PalletMultiAssetBountiesArguments
+{
+	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
+		if !seed.is_multiple_of(2) {
 			NativeOrWithId::Native
 		} else {
 			NativeOrWithId::WithId(seed / 2)
@@ -364,6 +370,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = ConstU16<42>;
 	type MaxConsumers = ConstU32<16>;
 	type MultiBlockMigrator = MultiBlockMigrations;
+	type SingleBlockMigrations = Migrations;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -420,7 +427,7 @@ parameter_types! {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]
@@ -603,18 +610,15 @@ parameter_types! {
 	pub const OperationalFeeMultiplier: u8 = 5;
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
 	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
-	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
+	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 10u128);
 	pub MaximumMultiplier: Multiplier = Bounded::max_value();
 }
 
-// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
-// <https://github.com/paritytech/polkadot-sdk/issues/226>
-#[allow(deprecated)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
+	type OnChargeTransaction = FungibleAdapter<Balances, ResolveTo<TreasuryAccount, Balances>>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
-	type WeightToFee = IdentityFee<Balance>;
+	type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<1, 1, Self, Balance>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<
 		Self,
@@ -766,6 +770,24 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type Filter = Nothing;
 	type MaxValidatorSet = ConstU32<1000>;
+}
+
+parameter_types! {
+	pub const DapPalletId: PalletId = pallet_dap::DAP_PALLET_ID;
+	pub const DapIssuanceCadence: u64 = 0; // drip every block
+	pub const DapMaxElapsedPerDrip: u64 = 600_000;
+}
+
+impl pallet_dap::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = DapPalletId;
+	type IssuanceCurve = ();
+	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);
+	type Time = Timestamp;
+	type IssuanceCadence = DapIssuanceCadence;
+	type MaxElapsedPerDrip = DapMaxElapsedPerDrip;
+	type BudgetOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -964,7 +986,8 @@ impl pallet_delegated_staking::Config for Runtime {
 }
 
 parameter_types! {
-	pub const PostUnbondPoolsWindow: u32 = 4;
+	// Buffer (4) + bonding duration (24 * 28).
+	pub const MaxUnbondingPools: u32 = 24 * 28 + 4;
 	pub const NominationPoolsPalletId: PalletId = PalletId(*b"py/nopls");
 	pub const MaxPointsToBalance: u8 = 10;
 }
@@ -993,7 +1016,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type U256ToBalance = U256ToBalance;
 	type StakeAdapter =
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
-	type PostUnbondingPoolsWindow = PostUnbondPoolsWindow;
+	type MaxUnbondingPools = MaxUnbondingPools;
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = ConstU32<8>;
 	type PalletId = NominationPoolsPalletId;
@@ -1349,7 +1372,7 @@ parameter_types! {
 	pub const BountyCuratorDeposit: Permill = Permill::from_percent(50);
 	pub const BountyValueMinimum: Balance = 5 * DOLLARS;
 	pub const BountyDepositBase: Balance = 1 * DOLLARS;
-	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
+	pub const CuratorDepositFromFeeMultiplier: Permill = Permill::from_percent(50);
 	pub const CuratorDepositMin: Balance = 1 * DOLLARS;
 	pub const CuratorDepositMax: Balance = 100 * DOLLARS;
 	pub const BountyDepositPayoutDelay: BlockNumber = 1 * DAYS;
@@ -1361,7 +1384,7 @@ impl pallet_bounties::Config for Runtime {
 	type BountyDepositBase = BountyDepositBase;
 	type BountyDepositPayoutDelay = BountyDepositPayoutDelay;
 	type BountyUpdatePeriod = BountyUpdatePeriod;
-	type CuratorDepositMultiplier = CuratorDepositMultiplier;
+	type CuratorDepositMultiplier = CuratorDepositFromFeeMultiplier;
 	type CuratorDepositMin = CuratorDepositMin;
 	type CuratorDepositMax = CuratorDepositMax;
 	type BountyValueMinimum = BountyValueMinimum;
@@ -1370,6 +1393,7 @@ impl pallet_bounties::Config for Runtime {
 	type WeightInfo = pallet_bounties::weights::SubstrateWeight<Runtime>;
 	type ChildBountyManager = ChildBounties;
 	type OnSlash = Treasury;
+	type TransferAllAssets = ();
 }
 
 parameter_types! {
@@ -1395,13 +1419,81 @@ impl pallet_message_queue::Config for Runtime {
 
 parameter_types! {
 	pub const ChildBountyValueMinimum: Balance = 1 * DOLLARS;
+	pub const MaxActiveChildBountyCount: u32 = 5;
 }
 
 impl pallet_child_bounties::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type MaxActiveChildBountyCount = ConstU32<5>;
+	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
 	type ChildBountyValueMinimum = ChildBountyValueMinimum;
 	type WeightInfo = pallet_child_bounties::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	pub const CuratorDepositFromValueMultiplier: Permill = Permill::from_percent(10);
+	pub const CuratorHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::MultiAssetBounties(pallet_multi_asset_bounties::HoldReason::CuratorDeposit);
+}
+
+impl pallet_multi_asset_bounties::Config for Runtime {
+	type Balance = Balance;
+	type RejectOrigin = EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
+	>;
+	type SpendOrigin = EnsureWithSuccess<EnsureRoot<AccountId>, AccountId, MaxBalance>;
+	type AssetKind = NativeOrWithId<u32>;
+	type Beneficiary = AccountId;
+	type BeneficiaryLookup = Indices;
+	type BountyValueMinimum = BountyValueMinimum;
+	type ChildBountyValueMinimum = ChildBountyValueMinimum;
+	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
+	type WeightInfo = pallet_multi_asset_bounties::weights::SubstrateWeight<Runtime>;
+	type FundingSource = pallet_multi_asset_bounties::PalletIdAsFundingSource<
+		TreasuryPalletId,
+		Runtime,
+		sp_runtime::traits::Identity,
+	>;
+	type BountySource = pallet_multi_asset_bounties::BountySourceFromPalletId<
+		TreasuryPalletId,
+		pallet_multi_asset_bounties::BountyAccountPrefix,
+		Runtime,
+		sp_runtime::traits::Identity,
+	>;
+	type ChildBountySource = pallet_multi_asset_bounties::ChildBountySourceFromPalletId<
+		TreasuryPalletId,
+		pallet_multi_asset_bounties::ChildBountyAccountPrefix,
+		Runtime,
+		sp_runtime::traits::Identity,
+	>;
+	type Paymaster = PayWithFungibles<NativeAndAssets, AccountId>;
+	type BalanceConverter = AssetRate;
+	type Preimages = Preimage;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		CuratorHoldReason,
+		pallet_multi_asset_bounties::CuratorDepositAmount<
+			CuratorDepositFromValueMultiplier,
+			CuratorDepositMin,
+			CuratorDepositMax,
+			Balance,
+		>,
+		Balance,
+	>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = PalletMultiAssetBountiesArguments;
+}
+
+impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
+	type ForeignAssetId = u32;
+	#[cfg(feature = "runtime-benchmarks")]
+	type AssetsInstance = Instance1;
+}
+
+impl pallet_assets_precompiles::PermitConfig for Runtime {
+	type ChainId = ConstU64<420_420_420>;
+	type WeightInfo = pallet_assets_precompiles::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_tips::Config for Runtime {
@@ -1419,10 +1511,12 @@ impl pallet_tips::Config for Runtime {
 
 parameter_types! {
 	pub const DepositPerItem: Balance = deposit(1, 0);
+	pub const DepositPerChildTrieItem: Balance = deposit(1, 0) / 100;
 	pub const DepositPerByte: Balance = deposit(0, 1);
 	pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
 	pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
+	pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
 }
 
 impl pallet_contracts::Config for Runtime {
@@ -1469,27 +1563,42 @@ impl pallet_contracts::Config for Runtime {
 
 impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
+	type Balance = Balance;
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeOrigin = RuntimeOrigin;
 	type DepositPerItem = DepositPerItem;
+	type DepositPerChildTrieItem = DepositPerChildTrieItem;
 	type DepositPerByte = DepositPerByte;
-	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
-	type Precompiles =
-		(ERC20<Self, InlineIdConfig<0x1>, Instance1>, ERC20<Self, InlineIdConfig<0x2>, Instance2>);
+	type Precompiles = (
+		ERC20<Self, InlineIdConfig<0x1>, Instance1>,
+		ERC20<Self, InlineIdConfig<0x2>, Instance2>,
+		VestingPrecompile<Self>,
+	);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
-	type UnsafeUnstableInterface = ConstBool<false>;
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type ChainId = ConstU64<420_420_420>;
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
-	type EthGasEncoder = ();
 	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
+	type AllowEVMBytecode = ConstBool<true>;
+	type FeeInfo = pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>;
+	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
+	type DebugEnabled = ConstBool<false>;
+	type AutoMap = ConstBool<false>;
+	type GasScale = ConstU32<1000>;
+	type OnBurn = ();
+	type Deposit = ();
+}
+
+impl pallet_vesting_precompiles::pallet::Config for Runtime {
+	type WeightInfo = pallet_vesting_precompiles::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -1555,6 +1664,7 @@ where
 				),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
 			frame_system::WeightReclaim::<Runtime>::new(),
 		);
 
@@ -1612,6 +1722,7 @@ where
 				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
 			frame_system::WeightReclaim::<Runtime>::new(),
 		)
 	}
@@ -1691,23 +1802,18 @@ impl pallet_identity::Config for Runtime {
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-	pub const ConfigDepositBase: Balance = 5 * DOLLARS;
-	pub const FriendDepositFactor: Balance = 50 * CENTS;
-	pub const MaxFriends: u16 = 9;
-	pub const RecoveryDeposit: Balance = 5 * DOLLARS;
-}
-
 impl pallet_recovery::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Runtime>;
 	type RuntimeCall = RuntimeCall;
-	type BlockNumberProvider = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 	type Currency = Balances;
-	type ConfigDepositBase = ConfigDepositBase;
-	type FriendDepositFactor = FriendDepositFactor;
-	type MaxFriends = MaxFriends;
-	type RecoveryDeposit = RecoveryDeposit;
+	type FriendGroupsConsideration = ();
+	type AttemptConsideration = ();
+	type InheritorConsideration = ();
+	type SecurityDeposit = ();
+	type MaxFriendsPerConfig = ConstU32<100>;
+	type WeightInfo = ();
+	type Slash = (); // burn
 }
 
 parameter_types! {
@@ -1815,6 +1921,7 @@ impl pallet_assets::Config<Instance1> for Runtime {
 	type Balance = u128;
 	type AssetId = u32;
 	type AssetIdParameter = codec::Compact<u32>;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -1827,7 +1934,7 @@ impl pallet_assets::Config<Instance1> for Runtime {
 	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
-	type CallbackHandle = ();
+	type CallbackHandle = (pallet_assets_precompiles::ForeignAssetId<Runtime, Instance1>,);
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type RemoveItemsLimit = ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1843,6 +1950,7 @@ impl pallet_assets::Config<Instance2> for Runtime {
 	type Balance = u128;
 	type AssetId = u32;
 	type AssetIdParameter = codec::Compact<u32>;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -1866,6 +1974,7 @@ parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
 	pub const PoolSetupFee: Balance = 1 * DOLLARS; // should be more or equal to the existential deposit
 	pub const MintMinLiquidity: Balance = 100;  // 100 is good enough when the main currency has 10-12 decimals.
+	pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
 }
@@ -1899,7 +2008,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeAsset = Native;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type PalletId = AssetConversionPalletId;
-	type LPFee = ConstU32<3>; // means 0.3%
+	type LPFee = LpFee;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type WeightInfo = pallet_asset_conversion::weights::SubstrateWeight<Runtime>;
 	type MaxSwapPathLength = ConstU32<4>;
@@ -1951,6 +2060,7 @@ impl pallet_asset_rewards::Config for Runtime {
 		CreationHoldReason,
 		ConstantStoragePrice<StakePoolCreationDeposit, Balance>,
 	>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
 }
@@ -2477,11 +2587,11 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 		match key {
 			RuntimeParametersKey::Storage(_) => {
 				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
-				return Ok(())
+				return Ok(());
 			},
 			RuntimeParametersKey::Referenda(_) => {
 				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
-				return Ok(())
+				return Ok(());
 			},
 		}
 	}
@@ -2795,8 +2905,29 @@ mod runtime {
 	#[runtime::pallet_index(84)]
 	pub type AssetsFreezer = pallet_assets_freezer::Pallet<Runtime, Instance1>;
 
+	#[runtime::pallet_index(85)]
+	pub type Oracle = pallet_oracle::Pallet<Runtime>;
+
+	#[runtime::pallet_index(86)]
+	pub type Psm = pallet_psm::Pallet<Runtime>;
+
 	#[runtime::pallet_index(89)]
 	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
+
+	#[runtime::pallet_index(90)]
+	pub type MultiAssetBounties = pallet_multi_asset_bounties::Pallet<Runtime>;
+
+	#[runtime::pallet_index(91)]
+	pub type AssetsPrecompiles = pallet_assets_precompiles::pallet::Pallet<Runtime>;
+
+	#[runtime::pallet_index(92)]
+	pub type AssetsPrecompilesPermit = pallet_assets_precompiles::permit::pallet::Pallet<Runtime>;
+
+	#[runtime::pallet_index(93)]
+	pub type VestingPrecompiles = pallet_vesting_precompiles::pallet::Pallet<Runtime>;
+
+	#[runtime::pallet_index(94)]
+	pub type Dap = pallet_dap::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -2828,6 +2959,7 @@ pub type TxExtension = (
 		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 	>,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	pallet_revive::evm::tx_extension::SetOrigin<Runtime>,
 	frame_system::WeightReclaim<Runtime>,
 );
 
@@ -2836,9 +2968,10 @@ pub struct EthExtraImpl;
 
 impl EthExtra for EthExtraImpl {
 	type Config = Runtime;
-	type Extension = TxExtension;
+	type ExtensionV0 = TxExtension;
+	type ExtensionOtherVersions = sp_runtime::traits::InvalidVersion;
 
-	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::Extension {
+	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::ExtensionV0 {
 		(
 			frame_system::AuthorizeCall::<Runtime>::new(),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
@@ -2851,6 +2984,7 @@ impl EthExtra for EthExtraImpl {
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None)
 				.into(),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::new_from_eth_transaction(),
 			frame_system::WeightReclaim::<Runtime>::new(),
 		)
 	}
@@ -2873,7 +3007,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	Migrations,
 >;
 
 // We don't have a limit in the Relay Chain.
@@ -2911,6 +3044,146 @@ impl pallet_beefy::Config for Runtime {
 		pallet_beefy::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
 
+parameter_types! {
+	pub const OracleMaxHasDispatchedSize: u32 = 20;
+	pub const RootOperatorAccountId: AccountId = AccountId::new([0xffu8; 32]);
+
+	pub const OracleMaxFeedValues: u32 = 10;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct OracleBenchmarkingHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_oracle::BenchmarkHelper<u32, u128, OracleMaxFeedValues> for OracleBenchmarkingHelper {
+	fn get_currency_id_value_pairs() -> BoundedVec<(u32, u128), OracleMaxFeedValues> {
+		use rand::{distributions::Uniform, prelude::*};
+
+		// Use seeded RNG like in contracts benchmarking
+		let mut rng = rand_pcg::Pcg32::seed_from_u64(0x1234567890ABCDEF);
+		let max_values = OracleMaxFeedValues::get() as usize;
+
+		// Generate random pairs like in election-provider-multi-phase
+		let currency_range = Uniform::new_inclusive(1, 1000);
+		let value_range = Uniform::new_inclusive(1000, 1_000_000);
+
+		let pairs: Vec<(u32, u128)> = (0..max_values)
+			.map(|_| {
+				let currency_id = rng.sample(currency_range);
+				let value = rng.sample(value_range);
+				(currency_id, value)
+			})
+			.collect();
+
+		// Use try_from pattern like in core-fellowship and broker
+		BoundedVec::try_from(pairs).unwrap_or_default()
+	}
+}
+
+parameter_types! {
+	pub const OraclePalletId: PalletId = PalletId(*b"py/oracl");
+}
+
+impl pallet_oracle::Config for Runtime {
+	type OnNewData = ();
+	type CombineData = pallet_oracle::DefaultCombineData<Self, ConstU32<5>, ConstU64<3600>>;
+	type Time = Timestamp;
+	type OracleKey = u32;
+	type OracleValue = u128;
+	type PalletId = OraclePalletId;
+	type Members = TechnicalMembership;
+	type WeightInfo = ();
+	type MaxHasDispatchedSize = OracleMaxHasDispatchedSize;
+	type MaxFeedValues = OracleMaxFeedValues;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = OracleBenchmarkingHelper;
+}
+
+parameter_types! {
+	/// The pUSD stablecoin asset ID.
+	pub const PsmStablecoinAssetId: u32 = 4242;
+	/// Minimum swap amount for PSM operations (100 pUSD = 100 * 10^6).
+	pub const PsmMinSwapAmount: Balance = 100_000_000;
+	/// PalletId for deriving the PSM system account.
+	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
+	/// Insurance fund account that receives PSM fee revenue.
+	pub PsmInsuranceFundAccount: AccountId =
+		sp_runtime::traits::AccountIdConversion::<AccountId>::into_account_truncating(
+			&PalletId(*b"py/insur"),
+		);
+}
+
+type PsmInternalAsset = ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
+
+parameter_types! {
+	/// No debt ceiling: maximum possible issuance.
+	pub const NoVaultsCeiling: Balance = Balance::MAX;
+}
+
+/// EnsureOrigin implementation for PSM management that supports privilege levels.
+pub struct EnsurePsmManager;
+impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
+	type Success = pallet_psm::PsmManagerLevel;
+
+	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		use frame_system::RawOrigin;
+
+		match o.clone().into() {
+			Ok(RawOrigin::Root) => Ok(pallet_psm::PsmManagerLevel::Full),
+			_ => Err(o),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(RuntimeOrigin::root())
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct PsmBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_psm::BenchmarkHelper<u32, AccountId> for PsmBenchmarkHelper {
+	fn get_asset_id(asset_index: u32) -> u32 {
+		asset_index
+	}
+	fn create_asset(asset_id: u32, owner: &AccountId, decimals: u8) {
+		use frame_support::traits::fungibles::{metadata::Mutate as MetadataMutate, Create};
+		if !<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::asset_exists(asset_id)
+		{
+			let _ = <Assets as Create<AccountId>>::create(asset_id, owner.clone(), true, 1);
+		}
+		let _ = Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			owner.clone().into(),
+			10u128.pow(18),
+		);
+		let _ = <Assets as MetadataMutate<AccountId>>::set(
+			asset_id,
+			owner,
+			b"Benchmark".to_vec(),
+			b"BNC".to_vec(),
+			decimals,
+		);
+	}
+}
+
+/// Configure the PSM (Peg Stability Module) pallet.
+impl pallet_psm::Config for Runtime {
+	type Fungibles = Assets;
+	type AssetId = u32;
+	type MaximumIssuance = NoVaultsCeiling;
+	type ManagerOrigin = EnsurePsmManager;
+	type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;
+	type InternalAsset = PsmInternalAsset;
+	type FeeDestination = PsmInsuranceFundAccount;
+	type PalletId = PsmPalletId;
+	type MinSwapAmount = PsmMinSwapAmount;
+	type MaxExternalAssets = ConstU32<10>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = PsmBenchmarkHelper;
+}
+
 /// MMR helper types.
 mod mmr {
 	use super::*;
@@ -2942,8 +3215,8 @@ impl
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
 			asset_idx.into(),
-			account.clone().into(), /* owner */
-			true,                   /* is_sufficient */
+			account.clone().into(), // owner
+			true,                   // is_sufficient
 			1,
 		));
 
@@ -3017,9 +3290,13 @@ mod benches {
 		[pallet_message_queue, MessageQueue]
 		[pallet_migrations, MultiBlockMigrations]
 		[pallet_mmr, Mmr]
+		[pallet_multi_asset_bounties, MultiAssetBounties]
+		[pallet_assets_precompiles, AssetsPrecompiles]
+		[pallet_vesting_precompiles, VestingPrecompiles]
 		[pallet_multisig, Multisig]
 		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 		[pallet_offences, OffencesBench::<Runtime>]
+		[pallet_oracle, Oracle]
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
 		[pallet_ranked_collective, RankedCollective]
@@ -3031,6 +3308,7 @@ mod benches {
 		[pallet_glutton, Glutton]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_society, Society]
+		[pallet_dap, Dap]
 		[pallet_staking, Staking]
 		[pallet_state_trie_migration, StateTrieMigration]
 		[pallet_sudo, Sudo]
@@ -3053,11 +3331,13 @@ mod benches {
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		[pallet_verify_signature, VerifySignature]
 		[pallet_meta_tx, MetaTx]
+		[pallet_psm, Psm]
 	);
 }
 
-pallet_revive::impl_runtime_apis_plus_revive!(
+pallet_revive::impl_runtime_apis_plus_revive_traits!(
 	Runtime,
+	Revive,
 	Executive,
 	EthExtraImpl,
 
@@ -3066,7 +3346,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			VERSION
 		}
 
-		fn execute_block(block: Block) {
+		fn execute_block(block: <Block as BlockT>::LazyBlock) {
 			Executive::execute_block(block);
 		}
 
@@ -3108,7 +3388,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			data.create_extrinsics()
 		}
 
-		fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult {
+		fn check_inherents(block: <Block as BlockT>::LazyBlock, data: InherentData) -> CheckInherentsResult {
 			data.check_extrinsics(&block)
 		}
 	}
@@ -3120,15 +3400,6 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			block_hash: <Block as BlockT>::Hash,
 		) -> TransactionValidity {
 			Executive::validate_transaction(source, tx, block_hash)
-		}
-	}
-
-	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
-		fn validate_statement(
-			source: sp_statement_store::runtime_api::StatementSource,
-			statement: sp_statement_store::Statement,
-		) -> Result<sp_statement_store::runtime_api::ValidStatement, sp_statement_store::runtime_api::InvalidStatement> {
-			Statement::validate_statement(source, statement)
 		}
 	}
 
@@ -3282,6 +3553,20 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
 		fn authorities() -> Vec<AuthorityDiscoveryId> {
 			AuthorityDiscovery::authorities()
+		}
+	}
+
+	impl polkadot_sdk::pallet_oracle_runtime_api::OracleApi<Block, u32, u32, u128> for Runtime {
+		fn get_value(_provider_id: u32, key: u32) -> Option<u128> {
+			// ProviderId is unused as we only have 1 provider
+			pallet_oracle::Pallet::<Runtime>::get(&key).map(|v| v.value)
+		}
+
+		fn get_all_values(_provider_id: u32) -> Vec<(u32, Option<u128>)> {
+			use pallet_oracle::DataProviderExtended;
+			pallet_oracle::Pallet::<Runtime>::get_all_values()
+				.map(|(k, v)| (k, v.map(|tv| tv.value)))
+				.collect()
 		}
 	}
 
@@ -3475,7 +3760,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 		}
 	}
 
-	#[api_version(5)]
+	#[api_version(6)]
 	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			pallet_beefy::GenesisBlock::<Runtime>::get()
@@ -3534,19 +3819,9 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 				.map(|p| p.encode())
 				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
 		}
-
-		fn generate_ancestry_proof(
-			prev_block_number: BlockNumber,
-			best_known_block_number: Option<BlockNumber>,
-		) -> Option<sp_runtime::OpaqueValue> {
-			use sp_consensus_beefy::AncestryHelper;
-
-			MmrLeaf::generate_proof(prev_block_number, best_known_block_number)
-				.map(|p| p.encode())
-				.map(sp_runtime::OpaqueValue::new)
-		}
 	}
 
+	#[api_version(3)]
 	impl pallet_mmr::primitives::MmrApi<
 		Block,
 		mmr::Hash,
@@ -3587,6 +3862,13 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			Mmr::verify_leaves(leaves, proof)
 		}
 
+		fn generate_ancestry_proof(
+			prev_block_number: BlockNumber,
+			best_known_block_number: Option<BlockNumber>,
+		) -> Result<mmr::AncestryProof<mmr::Hash>, mmr::Error> {
+			Mmr::generate_ancestry_proof(prev_block_number, best_known_block_number)
+		}
+
 		fn verify_proof_stateless(
 			root: mmr::Hash,
 			leaves: Vec<mmr::EncodableOpaqueLeaf>,
@@ -3616,8 +3898,8 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, seed).into()
 		}
 
 		fn decode_session_keys(
@@ -3633,6 +3915,18 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 		}
 	}
 
+	impl sp_transaction_storage_proof::runtime_api::TransactionStorageApi<Block> for Runtime {
+		fn retention_period() -> NumberFor<Block> {
+			TransactionStorage::retention_period()
+		}
+
+		fn indexed_transactions(
+			block: NumberFor<Block>,
+		) -> Vec<sp_transaction_storage_proof::IndexedTransactionInfo> {
+			TransactionStorage::indexed_transactions(block)
+		}
+	}
+
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
@@ -3644,7 +3938,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 		}
 
 		fn execute_block(
-			block: Block,
+			block: <Block as BlockT>::LazyBlock,
 			state_root_check: bool,
 			signature_check: bool,
 			select: frame_try_runtime::TryStateSelect
@@ -3701,10 +3995,16 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			use baseline::Pallet as BaselineBench;
 			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 
-			impl pallet_session_benchmarking::Config for Runtime {}
+			impl pallet_session_benchmarking::Config for Runtime {
+				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+					let keys = SessionKeys::generate(&owner.encode(), None);
+					(keys.keys, keys.proof.encode())
+				}
+			}
 			impl pallet_offences_benchmarking::Config for Runtime {}
 			impl pallet_election_provider_support_benchmarking::Config for Runtime {}
 			impl frame_system_benchmarking::Config for Runtime {}
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
 			impl baseline::Config for Runtime {}
 			impl pallet_nomination_pools_benchmarking::Config for Runtime {}
 

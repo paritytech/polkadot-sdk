@@ -18,7 +18,7 @@
 
 //! Prometheus's metrics for a fork-aware transaction pool.
 
-use super::tx_mem_pool::InsertionInfo;
+use super::tx_mem_pool::{InsertionInfo, InvalidTxReason};
 use crate::{
 	common::metrics::{GenericMetricsLink, MetricsRegistrant},
 	graph::{self, BlockHash, ExtrinsicHash},
@@ -26,8 +26,8 @@ use crate::{
 };
 use futures::{FutureExt, StreamExt};
 use prometheus_endpoint::{
-	exponential_buckets, histogram_opts, linear_buckets, register, Counter, Gauge, Histogram,
-	PrometheusError, Registry, U64,
+	exponential_buckets, histogram_opts, linear_buckets, register, Counter, CounterVec, Gauge,
+	Histogram, Opts, PrometheusError, Registry, U64,
 };
 #[cfg(doc)]
 use sc_transaction_pool_api::TransactionPool;
@@ -74,7 +74,7 @@ pub struct Metrics {
 	/// Total number of transactions submitted from mempool to views.
 	pub submitted_from_mempool_txs: Counter<U64>,
 	/// Total number of transactions found as invalid during mempool revalidation.
-	pub mempool_revalidation_invalid_txs: Counter<U64>,
+	pub mempool_revalidation_invalid_txs: MempoolInvalidTxReasonCounter,
 	/// Total number of transactions found as invalid during view revalidation.
 	pub view_revalidation_invalid_txs: Counter<U64>,
 	/// Total number of valid transactions processed during view revalidation.
@@ -97,6 +97,12 @@ pub struct EventsHistograms {
 	pub broadcast: Histogram,
 	/// Histogram of timings for reporting `TransactionStatus::InBlock` event
 	pub in_block: Histogram,
+	/// Histogram of timings for reporting `TransactionStatus::InBlock` event (unfiltered).
+	///
+	/// This is an experimental feature for reliability dashboard.
+	/// Unlike `in_block`, this metric records every InBlock event, including duplicates
+	/// when the same transaction appears in multiple blocks (e.g., during chain reorgs).
+	pub in_block_forks: Histogram,
 	/// Histogram of timings for reporting `TransactionStatus::Retracted` event
 	pub retracted: Histogram,
 	/// Histogram of timings for reporting `TransactionStatus::FinalityTimeout` event
@@ -139,11 +145,37 @@ impl EventsHistograms {
 				registry,
 			)?,
 			in_block: register(
-				Histogram::with_opts(histogram_opts!(
-					"substrate_sub_txpool_timing_event_in_block",
-					"Histogram of timings for reporting InBlock event",
-					linear_buckets(0.0, 3.0, 20).unwrap()
-				))?,
+				Histogram::with_opts(
+					histogram_opts!(
+						"substrate_sub_txpool_timing_event_in_block",
+						"Histogram of timings for reporting InBlock event"
+					)
+					.buckets(
+						[
+							linear_buckets(0.0, 3.0, 20).unwrap(),
+							// requested in #9158
+							vec![60.0, 75.0, 90.0, 120.0, 180.0],
+						]
+						.concat(),
+					),
+				)?,
+				registry,
+			)?,
+			in_block_forks: register(
+				Histogram::with_opts(
+					histogram_opts!(
+						"substrate_sub_txpool_timing_event_in_block_forks",
+						"Histogram of timings for reporting unfiltered InBlock event (experimental feature for reliability dashboard)",
+					)
+					.buckets(
+						[
+							linear_buckets(0.0, 3.0, 20).unwrap(),
+							// requested in #9158
+							vec![60.0, 75.0, 90.0, 120.0, 180.0],
+						]
+						.concat(),
+					),
+				)?,
 				registry,
 			)?,
 			retracted: register(
@@ -163,35 +195,71 @@ impl EventsHistograms {
 				registry,
 			)?,
 			finalized: register(
-				Histogram::with_opts(histogram_opts!(
-					"substrate_sub_txpool_timing_event_finalized",
-					"Histogram of timings for reporting Finalized event",
-					linear_buckets(0.0, 40.0, 20).unwrap()
-				))?,
+				Histogram::with_opts(
+					histogram_opts!(
+						"substrate_sub_txpool_timing_event_finalized",
+						"Histogram of timings for reporting Finalized event"
+					)
+					.buckets(
+						[
+							// requested in #9158
+							linear_buckets(0.0, 5.0, 8).unwrap(),
+							linear_buckets(40.0, 40.0, 19).unwrap(),
+						]
+						.concat(),
+					),
+				)?,
 				registry,
 			)?,
 			usurped: register(
-				Histogram::with_opts(histogram_opts!(
-					"substrate_sub_txpool_timing_event_usurped",
-					"Histogram of timings for reporting Usurped event",
-					linear_buckets(0.0, 3.0, 20).unwrap()
-				))?,
+				Histogram::with_opts(
+					histogram_opts!(
+						"substrate_sub_txpool_timing_event_usurped",
+						"Histogram of timings for reporting Usurped event"
+					)
+					.buckets(
+						[
+							linear_buckets(0.0, 3.0, 20).unwrap(),
+							// requested in #9158
+							vec![60.0, 75.0, 90.0, 120.0, 180.0],
+						]
+						.concat(),
+					),
+				)?,
 				registry,
 			)?,
 			dropped: register(
-				Histogram::with_opts(histogram_opts!(
-					"substrate_sub_txpool_timing_event_dropped",
-					"Histogram of timings for reporting Dropped event",
-					linear_buckets(0.0, 3.0, 20).unwrap()
-				))?,
+				Histogram::with_opts(
+					histogram_opts!(
+						"substrate_sub_txpool_timing_event_dropped",
+						"Histogram of timings for reporting Dropped event"
+					)
+					.buckets(
+						[
+							linear_buckets(0.0, 3.0, 20).unwrap(),
+							// requested in #9158
+							vec![60.0, 75.0, 90.0, 120.0, 180.0],
+						]
+						.concat(),
+					),
+				)?,
 				registry,
 			)?,
 			invalid: register(
-				Histogram::with_opts(histogram_opts!(
-					"substrate_sub_txpool_timing_event_invalid",
-					"Histogram of timings for reporting Invalid event",
-					linear_buckets(0.0, 3.0, 20).unwrap()
-				))?,
+				Histogram::with_opts(
+					histogram_opts!(
+						"substrate_sub_txpool_timing_event_invalid",
+						"Histogram of timings for reporting Invalid event"
+					)
+					.buckets(
+						[
+							linear_buckets(0.0, 3.0, 20).unwrap(),
+							// requested in #9158
+							vec![60.0, 75.0, 90.0, 120.0, 180.0],
+						]
+						.concat(),
+					),
+				)?,
 				registry,
 			)?,
 		})
@@ -221,6 +289,39 @@ impl EventsHistograms {
 			TransactionStatus::Invalid => &self.invalid,
 		};
 		histogram.observe(duration);
+	}
+}
+
+/// Represents a labeled counter of invalid tx reasons.
+pub struct MempoolInvalidTxReasonCounter {
+	inner: CounterVec<U64>,
+}
+
+impl MempoolInvalidTxReasonCounter {
+	fn register(registry: &Registry) -> Result<Self, PrometheusError> {
+		Ok(Self {
+			inner: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sub_txpool_mempool_revalidation_invalid_txs_total",
+						r#"Total number of transactions found as invalid during mempool revalidation.
+						They are broken down into `category` and `reason` labels.
+						- `category` can be `invalid`, `unknown`, `subtree` or `validation_failed`.
+						- `reason` is more nuanced, but is worth mentioning that for `subtree` category,
+						   the underlying reason can be one of the other categories."#,
+					),
+					&["category", "reason"],
+				)?,
+				registry,
+			)?,
+		})
+	}
+
+	// Increments the mempool invalid txs metrics based on a custom category & reason.
+	pub fn observe(&self, label: &InvalidTxReason, count: u64) {
+		self.inner
+			.with_label_values(&[label.category().as_str(), label.reason().as_str()])
+			.inc_by(count)
 	}
 }
 
@@ -312,13 +413,7 @@ impl MetricsRegistrant for Metrics {
 				)?,
 				registry,
 			)?,
-			mempool_revalidation_invalid_txs: register(
-				Counter::new(
-					"substrate_sub_txpool_mempool_revalidation_invalid_txs_total",
-					"Total number of transactions found as invalid during mempool revalidation.",
-				)?,
-				registry,
-			)?,
+			mempool_revalidation_invalid_txs: MempoolInvalidTxReasonCounter::register(registry)?,
 			view_revalidation_invalid_txs: register(
 				Counter::new(
 					"substrate_sub_txpool_view_revalidation_invalid_txs_total",
@@ -512,6 +607,15 @@ where
 	) {
 		let Entry::Occupied(mut entry) = submitted_timestamp_map.entry(hash) else { return };
 		let remove = status.is_final();
+
+		// Record unfiltered in_block_forks metric for EVERY InBlock event
+		if matches!(status, TransactionStatus::InBlock(..)) {
+			let duration = timestamp.duration_since(entry.get().submit_timestamp);
+			metrics.report(|metrics| {
+				metrics.events_histograms.in_block_forks.observe(duration.as_secs_f64())
+			});
+		}
+
 		if let Some(submit_timestamp) = entry.get_mut().update(&status) {
 			metrics.report(|metrics| {
 				metrics
@@ -549,7 +653,7 @@ where
 					);
 				},
 				None => {
-					return /* ? */
+					return; // ?
 				},
 			};
 		}

@@ -26,11 +26,10 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{
-	node_features,
-	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt, CoreState, OccupiedCore},
-	ApprovalVotingParams, AsyncBackingParams, CoreIndex, GroupIndex, GroupRotationInfo,
-	Id as ParaId, IndexedVec, NodeFeatures, ScheduledCore, SessionIndex, SessionInfo,
-	ValidationCode, ValidatorIndex,
+	node_features, ApprovalVotingParams, AsyncBackingParams, CandidateEvent,
+	CandidateReceiptV2 as CandidateReceipt, CoreIndex, CoreState, GroupIndex, GroupRotationInfo,
+	Id as ParaId, IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex, SessionInfo,
+	ValidationCode, ValidatorIndex, MAX_COALESCE_APPROVALS,
 };
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
@@ -174,10 +173,11 @@ impl MockRuntimeApi {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 
 			match msg {
-				orchestra::FromOrchestra::Signal(signal) =>
+				orchestra::FromOrchestra::Signal(signal) => {
 					if signal == OverseerSignal::Conclude {
-						return
-					},
+						return;
+					}
+				},
 				orchestra::FromOrchestra::Communication { msg } => {
 					gum::debug!(target: LOG_TARGET, msg=?msg, "recv message");
 
@@ -200,12 +200,6 @@ impl MockRuntimeApi {
 							RuntimeApiRequest::NodeFeatures(_session_index, sender),
 						) => {
 							let _ = sender.send(Ok(self.state.node_features.clone()));
-						},
-						RuntimeApiMessage::Request(
-							_block_hash,
-							RuntimeApiRequest::SessionExecutorParams(_session_index, sender),
-						) => {
-							let _ = sender.send(Ok(Some(Default::default())));
 						},
 						RuntimeApiMessage::Request(
 							_block_hash,
@@ -324,10 +318,13 @@ impl MockRuntimeApi {
 						RuntimeApiMessage::Request(
 							_parent,
 							RuntimeApiRequest::ApprovalVotingParams(_, tx),
-						) =>
-							if let Err(err) = tx.send(Ok(ApprovalVotingParams::default())) {
+						) => {
+							if let Err(err) = tx.send(Ok(ApprovalVotingParams {
+								max_approval_coalesce_count: MAX_COALESCE_APPROVALS,
+							})) {
 								gum::error!(target: LOG_TARGET, ?err, "Voting params weren't received");
-							},
+							}
+						},
 						RuntimeApiMessage::Request(_parent, RuntimeApiRequest::ClaimQueue(tx)) => {
 							tx.send(Ok(self.state.claim_queue.clone())).unwrap();
 						},
@@ -342,6 +339,18 @@ impl MockRuntimeApi {
 							RuntimeApiRequest::UnappliedSlashes(tx),
 						) => {
 							tx.send(Ok(vec![])).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::UnappliedSlashesV2(tx),
+						) => {
+							tx.send(Ok(vec![])).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::SchedulingLookahead(_session, tx),
+						) => {
+							tx.send(Ok(2)).unwrap();
 						},
 						// Long term TODO: implement more as needed.
 						message => {

@@ -18,8 +18,8 @@
 //! Traits for encoding data related to pallet's storage items.
 
 use alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
-use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
-use core::marker::PhantomData;
+use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, MaxEncodedLen};
+use core::{marker::PhantomData, mem, ops::Drop};
 use frame_support::CloneNoBound;
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::TypeInfo;
@@ -27,7 +27,7 @@ pub use sp_core::storage::TrackedStorageKey;
 use sp_core::Get;
 use sp_runtime::{
 	traits::{Convert, Member},
-	DispatchError, RuntimeDebug,
+	Debug, DispatchError,
 };
 
 /// An instance of a pallet in the storage.
@@ -162,7 +162,19 @@ impl WhitelistedStorageKeys for Tuple {
 
 /// The resource footprint of a bunch of blobs. We assume only the number of blobs and their total
 /// size in bytes matter.
-#[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+#[derive(
+	Default,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+	Decode,
+	Encode,
+	DecodeWithMemTracking,
+)]
 pub struct Footprint {
 	/// The number of blobs.
 	pub count: u64,
@@ -237,7 +249,11 @@ impl<A, F> Consideration<A, F> for Disabled {
 ///
 /// A single ticket corresponding to some particular datum held in storage. This is an opaque
 /// type, but must itself be stored and generally it should be placed alongside whatever data
-/// the ticket was created for.
+/// the ticket was created for and the attributable account.
+///
+/// Tickets are generally attributable to a single account for their whole lifetime. Calling
+/// `update`, `burn` or `drop` with a different account than `new` was called with may result in
+/// wrong accounting since the ticket type is not required to store the attributable account.
 ///
 /// While not technically a linear type owing to the need for `FullCodec`, *this should be
 /// treated as one*. Don't type to duplicate it, and remember to drop it when you're done with
@@ -250,10 +266,10 @@ pub trait Consideration<AccountId, Footprint>:
 	/// be consumed through `update` or `drop` once the footprint changes or is removed.
 	fn new(who: &AccountId, new: Footprint) -> Result<Self, DispatchError>;
 
-	/// Optionally consume an old ticket and alter the footprint, enforcing the new cost to `who`
-	/// and returning the new ticket (or an error if there was an issue).
+	/// Consume an old ticket to modify its footprint without altering the attributable account.
 	///
 	/// For creating tickets and dropping them, you can use the simpler `new` and `drop` instead.
+	/// Note that this must be called with the same account as `new` was.
 	fn update(self, who: &AccountId, new: Footprint) -> Result<Self, DispatchError>;
 
 	/// Consume a ticket for some `old` footprint attributable to `who` which should now been freed.
@@ -341,6 +357,80 @@ where
 }
 
 impl_incrementable!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
+
+/// Wrap a type so that is `Drop` impl is never called.
+///
+/// Useful when storing types like `Imbalance` which would trigger their `Drop`
+/// implementation whenever they are written to storage as they are dropped after
+/// being serialized.
+#[derive(Default, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo)]
+pub struct NoDrop<T: Default>(T);
+
+impl<T: Default> Drop for NoDrop<T> {
+	fn drop(&mut self) {
+		mem::forget(mem::take(&mut self.0))
+	}
+}
+
+/// Sealed trait that marks a type with a suppressed Drop implementation.
+///
+/// Useful for constraining your storage items types by this bound to make
+/// sure they won't run drop when stored.
+pub trait SuppressedDrop: sealed::Sealed {
+	/// The wrapped whose drop function is ignored.
+	type Inner;
+
+	fn new(inner: Self::Inner) -> Self;
+	fn as_ref(&self) -> &Self::Inner;
+	fn as_mut(&mut self) -> &mut Self::Inner;
+	fn into_inner(self) -> Self::Inner;
+}
+
+impl SuppressedDrop for () {
+	type Inner = ();
+
+	fn new(inner: Self::Inner) -> Self {
+		inner
+	}
+
+	fn as_ref(&self) -> &Self::Inner {
+		self
+	}
+
+	fn as_mut(&mut self) -> &mut Self::Inner {
+		self
+	}
+
+	fn into_inner(self) -> Self::Inner {
+		self
+	}
+}
+
+impl<T: Default> SuppressedDrop for NoDrop<T> {
+	type Inner = T;
+
+	fn as_ref(&self) -> &Self::Inner {
+		&self.0
+	}
+
+	fn as_mut(&mut self) -> &mut Self::Inner {
+		&mut self.0
+	}
+
+	fn into_inner(mut self) -> Self::Inner {
+		mem::take(&mut self.0)
+	}
+
+	fn new(inner: Self::Inner) -> Self {
+		Self(inner)
+	}
+}
+
+mod sealed {
+	pub trait Sealed {}
+	impl Sealed for () {}
+	impl<T: Default> Sealed for super::NoDrop<T> {}
+}
 
 #[cfg(test)]
 mod tests {

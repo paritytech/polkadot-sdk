@@ -8,7 +8,6 @@ use frame_support::{
 	traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
 	weights::Weight,
 };
-use log;
 use sp_std::marker::PhantomData;
 
 #[cfg(feature = "try-runtime")]
@@ -40,13 +39,13 @@ pub mod v0 {
 					AssetHubParaId::get().into(),
 				)
 				.expect("infallible; qed");
-				log::info!(
+				tracing::info!(
 					target: LOG_TARGET,
 					"Ethereum system initialized."
 				);
 				T::DbWeight::get().reads_writes(2, 5)
 			} else {
-				log::info!(
+				tracing::info!(
 					target: LOG_TARGET,
 					"Ethereum system already initialized. Skipping."
 				);
@@ -57,12 +56,12 @@ pub mod v0 {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			if !Pallet::<T>::is_initialized() {
-				log::info!(
+				tracing::info!(
 					target: LOG_TARGET,
 					"Agents and channels not initialized. Initialization will run."
 				);
 			} else {
-				log::info!(
+				tracing::info!(
 					target: LOG_TARGET,
 					"Agents and channels are initialized. Initialization will not run."
 				);
@@ -147,10 +146,11 @@ pub mod v1 {
 			// same.
 			params.fee_per_gas = params.fee_per_gas * GAS_INCREASE_PERCENTAGE / 100;
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"Fee per gas migrated from {old_fee_per_gas:?} to {0:?}.",
-				params.fee_per_gas,
+				from=?old_fee_per_gas,
+				to=?params.fee_per_gas,
+				"Fee per gas migrated."
 			);
 
 			PricingParameters::<T>::put(params);
@@ -165,9 +165,10 @@ pub mod v1 {
 			let remote_fee_v1 = Self::calculate_remote_fee_v1(&params);
 			let remote_fee_v2 = Self::calculate_remote_fee_v2(&params);
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"Pre fee per gas migration: pricing parameters = {params:?}, remote_fee_v1 = {remote_fee_v1:?}, remote_fee_v2 = {remote_fee_v2:?}"
+				pricing_parameters=?params, ?remote_fee_v1, ?remote_fee_v2,
+				"Pre fee per gas migration"
 			);
 			Ok((params, remote_fee_v1, remote_fee_v2).encode())
 		}
@@ -202,9 +203,10 @@ pub mod v1 {
 				"The v2 remote fee can cover the cost of the previous fee."
 			);
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"Post fee per gas migration: pricing parameters = {params:?} remote_fee_v1 = {remote_fee_v1:?} remote_fee_v2 = {remote_fee_v2:?}"
+				pricing_parameters=?params, ?remote_fee_v1, ?remote_fee_v2,
+				"Post fee per gas migration"
 			);
 			Ok(())
 		}

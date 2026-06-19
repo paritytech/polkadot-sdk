@@ -66,9 +66,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_overseer::Handle as OverseerHandleReal;
 use polkadot_primitives::{
-	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
-	BlockNumber, CandidateIndex, Hash, Header, Slot, ValidatorId, ValidatorIndex,
-	ASSIGNMENT_KEY_TYPE_ID,
+	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceiptV2 as CandidateReceipt, Hash,
+	Header, Slot, ValidatorId, ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
 };
 use prometheus::Registry;
 use sc_keystore::LocalKeystore;

@@ -96,18 +96,12 @@ fn main() -> Result<(), sc_cli::Error> {
 			let collator_key =
 				parachain_config.role.is_authority().then(|| CollatorPair::generate().0);
 
-			let consensus = cli
-				.use_null_consensus
-				.then(|| {
-					tracing::info!("Using null consensus.");
-					cumulus_test_service::Consensus::Null
-				})
-				.unwrap_or(cumulus_test_service::Consensus::Aura);
 			let use_slot_based_collator = cli.authoring == AuthoringPolicy::SlotBased;
+			let collator_reserved_slots = cli.collator_reserved_slots;
 			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(async move {
 					match relay_chain_config.network.network_backend {
-						sc_network::config::NetworkBackendType::Libp2p =>
+						sc_network::config::NetworkBackendType::Libp2p => {
 							cumulus_test_service::start_node_impl::<
 								_,
 								sc_network::NetworkWorker<_, _>,
@@ -118,13 +112,14 @@ fn main() -> Result<(), sc_cli::Error> {
 								cli.disable_block_announcements.then(wrap_announce_block),
 								cli.fail_pov_recovery,
 								|_| Ok(jsonrpsee::RpcModule::new(())),
-								consensus,
 								collator_options,
 								true,
 								use_slot_based_collator,
+								collator_reserved_slots,
 							)
-							.await,
-						sc_network::config::NetworkBackendType::Litep2p =>
+							.await
+						},
+						sc_network::config::NetworkBackendType::Litep2p => {
 							cumulus_test_service::start_node_impl::<
 								_,
 								sc_network::Litep2pNetworkBackend,
@@ -135,12 +130,13 @@ fn main() -> Result<(), sc_cli::Error> {
 								cli.disable_block_announcements.then(wrap_announce_block),
 								cli.fail_pov_recovery,
 								|_| Ok(jsonrpsee::RpcModule::new(())),
-								consensus,
 								collator_options,
 								true,
 								use_slot_based_collator,
+								collator_reserved_slots,
 							)
-							.await,
+							.await
+						},
 					}
 				})
 				.expect("could not create Cumulus test service");

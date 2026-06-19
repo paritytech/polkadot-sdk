@@ -1,0 +1,24 @@
+title: 'Handle invulnerable AH collators with priority in collator-protocol'
+doc:
+- audience: Runtime Dev
+  description: |
+    Implements priority handling of invulnerable AH collators which consists of:
+    1. Connection management - there is a connection limit in the networking stack of 100 peers
+       after which no new connections are accepted. To make sure that the invulnerable collators can
+       always connect to the validators permissionless collators are getting disconnected one the
+       connection count is close to the limit.
+    2. Collations from permissionless collators are held off for some time before processing so that
+       the invulnerables have got a chance to put a collation on their own.
+
+
+crates:
+- name: polkadot-node-network-protocol
+  bump: minor
+- name: polkadot-collator-protocol
+  bump: major
+- name: polkadot-cli
+  bump: major
+- name: polkadot-service
+  bump: major
+- name: cumulus-relay-chain-inprocess-interface
+  bump: minor

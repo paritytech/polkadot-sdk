@@ -1,0 +1,16 @@
+title: 'precompiles: Enforce state mutability'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-assets-precompile`, `pallet-xcm-precompiles` and revive builtin precompile implementations currently violate [Solidity state mutability](https://docs.soliditylang.org/en/latest/grammar.html#syntax-rule-SolidityParser.stateMutability), potentially introducing a new attack vector. This PR implements corresponding checks at the function dispatch.
+
+    Could be enforced in `pallet-revive`, however:
+    1. Adding something like a `const MUTATES: bool` to the `Precompile` trait won't help because whether the call is mutating or not depends on the [Solidity function selector.](https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector).
+    2. Alloy, which we are using to parse the interface definitions prior to calling precompile implementations, doesn't provide a mapping from function selector to its mutability [modifier](https://docs.soliditylang.org/en/latest/cheatsheet.html#modifiers).
+crates:
+- name: pallet-assets-precompiles
+  bump: patch
+- name: pallet-xcm-precompiles
+  bump: patch
+- name: pallet-revive
+  bump: patch

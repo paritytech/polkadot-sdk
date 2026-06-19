@@ -32,7 +32,6 @@ use crate::{
 	TransactionParams,
 };
 
-use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof, storage_keys::inbound_lane_data_key,
@@ -49,7 +48,7 @@ use relay_substrate_client::{
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
-use std::{collections::VecDeque, convert::TryFrom, ops::RangeInclusive};
+use std::{collections::VecDeque, convert::TryFrom, ops::RangeInclusive, sync::Arc};
 
 /// Message receiving proof returned by the target Substrate node.
 pub type SubstrateMessagesDeliveryProof<C, L> =
@@ -335,7 +334,7 @@ where
 			if let Some(batch_tx) =
 				BatchProofTransaction::new(source_to_target_headers_relay.clone(), id.0).await?
 			{
-				return Ok(Some(batch_tx))
+				return Ok(Some(batch_tx));
 			}
 
 			source_to_target_headers_relay.require_more_headers(id.0).await;

@@ -57,6 +57,7 @@ export async function runPresetUntilLaunched(
 				// Extract log path from the last log command
 				const lastCmd = logCmds[logCmds.length - 1];
 				const paraLog = lastCmd ? lastCmd.match(/tail -f\s+(.+\.log)/)?.[1] || null : null;
+				logger.verbose(`Parachain log file: ${paraLog}`);
 
 				resolve({
 					killZn: () => {
@@ -84,7 +85,7 @@ export async function spawnMiner(): Promise<() => void> {
 		[
 			"--uri",
 			"ws://127.0.0.1:9946",
-			"experimental-monitor-multi-block",
+			"monitor",
 			"--seed-or-path",
 			"//Bob",
 		],
@@ -123,8 +124,8 @@ function prepPreset(paraPreset: Presets): void {
 		`staging-chain-spec-builder`,
 	]);
 
-	cmd("rm", ["./parachain.json"]);
-	cmd("rm", ["./rc.json"]);
+	cmd("rm", ["-f", "./parachain.json"]);
+	cmd("rm", ["-f", "./rc.json"]);
 
 	cmd(join(targetDir, "/release/chain-spec-builder"), [
 		"create",
@@ -163,8 +164,8 @@ function cmd(cmd: string, args: string[], stdio: string = "ignore"): void {
 	logger.info(`Running command: ${cmd} ${args.join(" ")}`);
 	// @ts-ignore
 	const result = spawnSync(cmd, args, { stdio: stdio, cwd: __dirname });
-	if (result.error) {
-		logger.error(`Error running command: ${cmd} ${args.join(" ")}`, result.error);
-		throw result.error;
+	if (result.error || result.status !== 0) {
+		logger.error(`Error running command: ${cmd} ${args.join(" ")}`);
+		logger.error(`Status: ${result.status}`);
 	}
 }

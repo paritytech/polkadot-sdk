@@ -14,10 +14,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
+use super::{
 	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
+
+use polkadot_sdk::{
+	staging_xcm as xcm, staging_xcm_builder as xcm_builder, staging_xcm_executor as xcm_executor, *,
+};
+
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Contains, Everything, Nothing},
@@ -143,7 +148,6 @@ impl xcm_executor::Config for XcmConfig {
 		UsingComponents<WeightToFee, RelayLocation, AccountId, Balances, ToAuthor<Runtime>>;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
-	type AssetClaims = PolkadotXcm;
 	type SubscriptionService = PolkadotXcm;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;

@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Implementation for [`snowbridge_outbound_queue_primitives::v2::SendMessage`]
 use super::*;
-use bridge_hub_common::AggregateMessageOrigin;
 use codec::Encode;
 use frame_support::{
 	ensure,
@@ -33,7 +32,7 @@ where
 	}
 
 	fn deliver(ticket: Self::Ticket) -> Result<H256, SendError> {
-		let origin = AggregateMessageOrigin::SnowbridgeV2(ticket.origin);
+		let origin = ticket.origin.into();
 
 		let message =
 			BoundedVec::try_from(ticket.encode()).map_err(|_| SendError::MessageTooLarge)?;

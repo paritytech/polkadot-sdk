@@ -17,16 +17,9 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use cumulus_client_consensus_common::ParachainBlockImportMarker;
-
-use sc_consensus::{
-	import_queue::{BasicQueue, Verifier as VerifierT},
-	BlockImport, BlockImportParams,
-};
+use sc_consensus::{import_queue::Verifier as VerifierT, BlockImportParams};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_blockchain::Result as ClientResult;
-use sp_consensus::error::Error as ConsensusError;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
@@ -65,7 +58,7 @@ where
 		// This is done for example when gap syncing and it is expected that the block after the gap
 		// was checked/chosen properly, e.g. by warp syncing to this block using a finality proof.
 		if block_params.state_action.skip_execution_checks() || block_params.with_state() {
-			return Ok(block_params)
+			return Ok(block_params);
 		}
 
 		if let Some(inner_body) = block_params.body.take() {
@@ -92,27 +85,4 @@ where
 		block_params.post_hash = Some(block_params.header.hash());
 		Ok(block_params)
 	}
-}
-
-/// Start an import queue for a Cumulus collator that does not uses any special authoring logic.
-pub fn import_queue<Client, Block: BlockT, I, CIDP>(
-	client: Arc<Client>,
-	block_import: I,
-	create_inherent_data_providers: CIDP,
-	spawner: &impl sp_core::traits::SpawnEssentialNamed,
-	registry: Option<&prometheus_endpoint::Registry>,
-) -> ClientResult<BasicQueue<Block>>
-where
-	I: BlockImport<Block, Error = ConsensusError>
-		+ ParachainBlockImportMarker
-		+ Send
-		+ Sync
-		+ 'static,
-	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
-	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
-{
-	let verifier = Verifier::new(client, create_inherent_data_providers);
-
-	Ok(BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry))
 }

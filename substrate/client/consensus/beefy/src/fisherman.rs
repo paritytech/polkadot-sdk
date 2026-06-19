@@ -23,7 +23,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_beefy::{
-	check_double_voting_proof, AuthorityIdBound, BeefyApi, BeefySignatureHasher, DoubleVotingProof,
+	check_double_voting_proof, AuthorityIdBound, BeefyApi, DoubleVotingProof,
 	OpaqueKeyOwnershipProof, ValidatorSetId,
 };
 use sp_runtime::{
@@ -131,7 +131,7 @@ where
 			(active_rounds.validators(), active_rounds.validator_set_id());
 		let offender_id = proof.offender_id();
 
-		if !check_double_voting_proof::<_, _, BeefySignatureHasher>(&proof) {
+		if !check_double_voting_proof::<_, _>(&proof) {
 			debug!(target: LOG_TARGET, "🥩 Skipping report for bad equivocation {:?}", proof);
 			return Ok(());
 		}

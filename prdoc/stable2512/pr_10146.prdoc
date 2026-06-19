@@ -1,0 +1,7 @@
+title: eth-rpc - fix subscription race
+doc:
+- audience: Runtime Dev
+  description: fix https://github.com/paritytech/polkadot-sdk/issues/10139#issuecomment-3456077366
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch

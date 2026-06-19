@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rococo_system_emulated_network::rococo_emulated_chain::rococo_runtime::Dmp;
+use rococo_westend_system_emulated_network::rococo_emulated_chain::rococo_runtime::Dmp;
 
 use crate::tests::*;
 
@@ -68,9 +68,6 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	let destination = asset_hub_westend_location();
 	let native_token = Location::parent();
 	let amount = ASSET_HUB_ROCOCO_ED * 1_000;
-
-	// fund the AHR's SA on BHR for paying bridge delivery fees
-	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);
 	// fund sender
 	AssetHubRococo::fund_accounts(vec![(AssetHubRococoSender::get().into(), amount * 10)]);
 
@@ -87,7 +84,8 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 		send_assets_from_asset_hub_rococo(
 			destination.clone(),
 			(native_token.clone(), amount).into(),
-			0
+			0,
+			TransferType::LocalReserve
 		),
 		DispatchError::Module(sp_runtime::ModuleError {
 			index: 31,
@@ -109,6 +107,7 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 		destination.clone(),
 		(native_token.clone(), amount).into(),
 		0,
+		TransferType::LocalReserve
 	));
 
 	// `ExportMessage` on local BridgeHub - fails - remote BridgeHub version not known
@@ -127,6 +126,7 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 		destination.clone(),
 		(native_token.clone(), amount).into(),
 		0,
+		TransferType::LocalReserve
 	));
 	assert_bridge_hub_rococo_message_accepted(true);
 	assert_bridge_hub_westend_message_received();

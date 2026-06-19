@@ -39,7 +39,7 @@ pub use weights::WeightInfo;
 pub type Cycle = u32;
 
 /// The status of the pallet instance.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 pub struct StatusType<CycleIndex, BlockNumber, Balance> {
 	/// The index of the "current cycle" (i.e. the last cycle being processed).
 	cycle_index: CycleIndex,
@@ -54,7 +54,7 @@ pub struct StatusType<CycleIndex, BlockNumber, Balance> {
 }
 
 /// The state of a specific payment claim.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 pub enum ClaimState<Balance, Id> {
 	/// No claim recorded.
 	Nothing,
@@ -67,7 +67,7 @@ pub enum ClaimState<Balance, Id> {
 use ClaimState::*;
 
 /// The status of a single payee/claimant.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 pub struct ClaimantStatus<CycleIndex, Balance, Id> {
 	/// The most recent cycle in which the claimant was active.
 	last_active: CycleIndex,
@@ -402,8 +402,11 @@ pub mod pallet {
 					};
 					(payout, Some(unpaid))
 				},
-				Nothing | Attempted { .. } if claimant.last_active < status.cycle_index => {
-					// Not registered for this cycle. Pay from whatever is left.
+				Nothing | Attempted { .. } | Registered(_)
+					if claimant.last_active < status.cycle_index =>
+				{
+					// Not registered for this cycle (or stale registration from previous cycle).
+					// Pay from whatever is left.
 					let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::NotMember)?;
 					let ideal_payout = T::Salary::get_salary(rank, &who);
 

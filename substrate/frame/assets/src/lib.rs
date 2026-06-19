@@ -61,7 +61,7 @@
 //!   particular account.
 //! * **Non-fungible asset**: An asset for which each unit has unique characteristics.
 //! * **Owner**: An account ID uniquely privileged to be able to destroy a particular asset class,
-//!   or to set the Issuer, Freezer or Admin of that asset class.
+//!   or to set the Issuer, Freezer, Reserves, or Admin of that asset class.
 //! * **Approval**: The act of allowing an account the permission to transfer some balance of asset
 //!   from the approving account into some third-party destination account.
 //! * **Sufficiency**: The idea of a minimum-balance of an asset being sufficient to allow the
@@ -94,6 +94,7 @@
 //! * `refund`: Return the deposit (if any) of the caller's asset account or a consumer reference
 //!   (if any) of the caller's account.
 //! * `refund_other`: Return the deposit (if any) of a specified asset account.
+//! * `touch_other`: Create an asset account for specified account. Caller must place a deposit.
 //!
 //! ### Permissioned Functions
 //!
@@ -118,8 +119,8 @@
 //!   Owner.
 //! * `set_metadata`: Set the metadata of an asset class; called by the asset class's Owner.
 //! * `clear_metadata`: Remove the metadata of an asset class; called by the asset class's Owner.
-//! * `touch_other`: Create an asset account for specified account. Caller must place a deposit;
-//!   called by the asset class's Freezer or Admin.
+//! * `set_reserves`: Set the reserve information of an asset class; called by the asset class's
+//!   Owner.
 //! * `block`: Disallows further `transfer`s to and from an account; called by the asset class's
 //!   Freezer.
 //!
@@ -157,7 +158,6 @@ pub mod benchmarking;
 pub mod migration;
 #[cfg(test)]
 pub mod mock;
-pub mod precompiles;
 #[cfg(test)]
 mod tests;
 pub mod weights;
@@ -171,6 +171,7 @@ mod types;
 pub use types::*;
 
 extern crate alloc;
+extern crate core;
 
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -179,7 +180,7 @@ use sp_runtime::{
 };
 
 use alloc::vec::Vec;
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -254,25 +255,32 @@ pub mod pallet {
 	use codec::HasCompact;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{AccountTouch, ContainsPair},
+		traits::{tokens::ProvideAssetReserves, AccountTouch, ContainsPair},
 	};
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
+	/// The maximum number of configurable reserve locations for one asset class.
+	pub const MAX_RESERVES: u32 = 5;
+
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(_);
 
 	#[cfg(feature = "runtime-benchmarks")]
-	pub trait BenchmarkHelper<AssetIdParameter> {
+	pub trait BenchmarkHelper<AssetIdParameter, ReserveIdParameter> {
 		fn create_asset_id_parameter(id: u32) -> AssetIdParameter;
+		fn create_reserve_id_parameter(id: u32) -> ReserveIdParameter;
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	impl<AssetIdParameter: From<u32>> BenchmarkHelper<AssetIdParameter> for () {
+	impl<AssetIdParameter: From<u32>> BenchmarkHelper<AssetIdParameter, ()> for () {
 		fn create_asset_id_parameter(id: u32) -> AssetIdParameter {
 			id.into()
+		}
+		fn create_reserve_id_parameter(_: u32) -> () {
+			()
 		}
 	}
 
@@ -293,6 +301,7 @@ pub mod pallet {
 			type RemoveItemsLimit = ConstU32<5>;
 			type AssetId = u32;
 			type AssetIdParameter = u32;
+			type ReserveData = ();
 			type AssetDeposit = ConstUint<1>;
 			type AssetAccountDeposit = ConstUint<10>;
 			type MetadataDepositBase = ConstUint<1>;
@@ -346,6 +355,9 @@ pub mod pallet {
 		/// want to convert an `AssetId` into a parameter for calling dispatchable functions
 		/// directly.
 		type AssetIdParameter: Parameter + From<Self::AssetId> + Into<Self::AssetId> + MaxEncodedLen;
+
+		/// Information about reserve locations for a class of asset.
+		type ReserveData: Debug + Parameter + MaybeSerializeDeserialize + MaxEncodedLen;
 
 		/// The currency mechanism.
 		#[pallet::no_default]
@@ -420,7 +432,7 @@ pub mod pallet {
 
 		/// Helper trait for benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: BenchmarkHelper<Self::AssetIdParameter>;
+		type BenchmarkHelper: BenchmarkHelper<Self::AssetIdParameter, Self::ReserveData>;
 	}
 
 	#[pallet::storage]
@@ -467,6 +479,16 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Maps an asset to a list of its configured reserve information.
+	#[pallet::storage]
+	pub type Reserves<T: Config<I>, I: 'static = ()> = StorageMap<
+		_,
+		Blake2_128Concat,
+		T::AssetId,
+		BoundedVec<T::ReserveData, ConstU32<MAX_RESERVES>>,
+		ValueQuery,
+	>;
+
 	/// The asset ID enforced for the next asset creation, if any present. Otherwise, this storage
 	/// item has no effect.
 	///
@@ -495,6 +517,8 @@ pub mod pallet {
 		/// This does not enforce the asset ID for the [assets](`GenesisConfig::assets`) within the
 		/// genesis config. It sets the [`NextAssetId`] after they have been created.
 		pub next_asset_id: Option<T::AssetId>,
+		/// Genesis assets and their reserves
+		pub reserves: Vec<(T::AssetId, Vec<T::ReserveData>)>,
 	}
 
 	#[pallet::genesis_build]
@@ -559,6 +583,12 @@ pub mod pallet {
 
 			if let Some(next_asset_id) = &self.next_asset_id {
 				NextAssetId::<T, I>::put(next_asset_id);
+			}
+
+			for (id, reserves) in &self.reserves {
+				assert!(!Reserves::<T, I>::contains_key(id), "Asset id already in use");
+				let reserves = BoundedVec::try_from(reserves.clone()).expect("too many reserves");
+				Reserves::<T, I>::insert(id, reserves);
 			}
 		}
 	}
@@ -655,6 +685,18 @@ pub mod pallet {
 		AccountPersistenceSet { asset_id: T::AssetId, who: T::AccountId },
 		/// The persistent mark of some account `who` was removed.
 		AccountPersistenceRemoved { asset_id: T::AssetId, who: T::AccountId },
+		/// Reserve information was set or updated for `asset_id`.
+		ReservesUpdated { asset_id: T::AssetId, reserves: Vec<T::ReserveData> },
+		/// Reserve information was removed for `asset_id`.
+		ReservesRemoved { asset_id: T::AssetId },
+		/// Some assets were issued as Credit (no owner yet).
+		IssuedCredit { asset_id: T::AssetId, amount: T::Balance },
+		/// Some assets Credit was destroyed.
+		BurnedCredit { asset_id: T::AssetId, amount: T::Balance },
+		/// Some assets were burned and a Debt was created.
+		IssuedDebt { asset_id: T::AssetId, amount: T::Balance },
+		/// Some assets Debt was destroyed (and assets issued).
+		BurnedDebt { asset_id: T::AssetId, amount: T::Balance },
 	}
 
 	#[pallet::error]
@@ -715,6 +757,16 @@ pub mod pallet {
 		/// The account cannot be made persistent because it is backed by a deposit, which must be
 		/// refunded first.
 		AccountHasDeposit,
+		/// Tried setting too many reserves.
+		TooManyReserves,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -1218,7 +1270,7 @@ pub mod pallet {
 				ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
 				ensure!(origin == details.owner, Error::<T, I>::NoPermission);
 				if details.owner == owner {
-					return Ok(())
+					return Ok(());
 				}
 
 				let metadata_deposit = Metadata::<T, I>::get(&id).deposit;
@@ -1528,18 +1580,7 @@ pub mod pallet {
 			let owner = ensure_signed(origin)?;
 			let delegate = T::Lookup::lookup(delegate)?;
 			let id: T::AssetId = id.into();
-			let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			ensure!(d.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
-
-			let approval = Approvals::<T, I>::take((id.clone(), &owner, &delegate))
-				.ok_or(Error::<T, I>::Unknown)?;
-			T::Currency::unreserve(&owner, approval.deposit);
-
-			d.approvals.saturating_dec();
-			Asset::<T, I>::insert(id.clone(), d);
-
-			Self::deposit_event(Event::ApprovalCancelled { asset_id: id, owner, delegate });
-			Ok(())
+			Self::do_cancel_approval(&id, &owner, &delegate)
 		}
 
 		/// Cancel all of some asset approved for delegated transfer by a third-party account.
@@ -1563,8 +1604,7 @@ pub mod pallet {
 			delegate: AccountIdLookupOf<T>,
 		) -> DispatchResult {
 			let id: T::AssetId = id.into();
-			let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			ensure!(d.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			T::ForceOrigin::try_origin(origin)
 				.map(|_| ())
 				.or_else(|origin| -> DispatchResult {
@@ -1575,15 +1615,7 @@ pub mod pallet {
 
 			let owner = T::Lookup::lookup(owner)?;
 			let delegate = T::Lookup::lookup(delegate)?;
-
-			let approval = Approvals::<T, I>::take((id.clone(), &owner, &delegate))
-				.ok_or(Error::<T, I>::Unknown)?;
-			T::Currency::unreserve(&owner, approval.deposit);
-			d.approvals.saturating_dec();
-			Asset::<T, I>::insert(id.clone(), d);
-
-			Self::deposit_event(Event::ApprovalCancelled { asset_id: id, owner, delegate });
-			Ok(())
+			Self::do_cancel_approval(&id, &owner, &delegate)
 		}
 
 		/// Transfer some asset balance from a previously delegated account to some third-party
@@ -1633,7 +1665,7 @@ pub mod pallet {
 		pub fn touch(origin: OriginFor<T>, id: T::AssetIdParameter) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
-			Self::do_touch(id, who.clone(), who, false)
+			Self::do_touch(id, who.clone(), who)
 		}
 
 		/// Return the deposit (if any) of an asset account or a consumer reference (if any) of an
@@ -1710,9 +1742,10 @@ pub mod pallet {
 		///
 		/// A deposit will be taken from the signer account.
 		///
-		/// - `origin`: Must be Signed by `Freezer` or `Admin` of the asset `id`; the signer account
-		///   must have sufficient funds for a deposit to be taken.
-		/// - `id`: The identifier of the asset for the account to be created.
+		/// - `origin`: Must be Signed; the signer account must have sufficient funds for a deposit
+		///   to be taken.
+		/// - `id`: The identifier of the asset for the account to be created, the asset status must
+		///   be live.
 		/// - `who`: The account to be created.
 		///
 		/// Emits `Touched` event when successful.
@@ -1726,7 +1759,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			let who = T::Lookup::lookup(who)?;
 			let id: T::AssetId = id.into();
-			Self::do_touch(id, who, origin, true)
+			Self::do_touch(id, who, origin)
 		}
 
 		/// Return the deposit (if any) of a target asset account. Useful if you are the depositor.
@@ -1835,6 +1868,33 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Sets the trusted reserve information of an asset.
+		///
+		/// Origin must be the Owner of the asset `id`. The origin must conform to the configured
+		/// `CreateOrigin` or be the signed `owner` configured during asset creation.
+		///
+		/// - `id`: The identifier of the asset.
+		/// - `reserves`: The full list of trusted reserves information.
+		///
+		/// Emits `AssetMinBalanceChanged` event when successful.
+		#[pallet::call_index(33)]
+		#[pallet::weight(T::WeightInfo::set_reserves(reserves.len() as u32))]
+		pub fn set_reserves(
+			origin: OriginFor<T>,
+			id: T::AssetIdParameter,
+			reserves: BoundedVec<T::ReserveData, ConstU32<MAX_RESERVES>>,
+		) -> DispatchResult {
+			let id: T::AssetId = id.into();
+			let origin = ensure_signed(origin.clone())
+				.or_else(|_| T::CreateOrigin::ensure_origin(origin, &id))?;
+
+			let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+			ensure!(origin == details.owner, Error::<T, I>::NoPermission);
+
+			Self::unchecked_update_reserves(id, reserves)?;
+			Ok(())
+		}
+
 		/// Mark an account as persistent for a given asset, creating the asset-account if it does
 		/// not exist yet.
 		///
@@ -1851,7 +1911,7 @@ pub mod pallet {
 		/// first.
 		///
 		/// Emits `AccountPersistenceSet` event when successful.
-		#[pallet::call_index(33)]
+		#[pallet::call_index(34)]
 		#[pallet::weight(T::WeightInfo::force_set_persistent())]
 		pub fn force_set_persistent(
 			origin: OriginFor<T>,
@@ -1880,7 +1940,7 @@ pub mod pallet {
 		/// - `who`: The account that should no longer be persistent.
 		///
 		/// Emits `AccountPersistenceRemoved` event when successful.
-		#[pallet::call_index(34)]
+		#[pallet::call_index(35)]
 		#[pallet::weight(T::WeightInfo::force_unset_persistent())]
 		pub fn force_unset_persistent(
 			origin: OriginFor<T>,
@@ -1894,9 +1954,35 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::view_functions]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Provide the asset details for asset `id`.
+		pub fn asset_details(
+			id: T::AssetId,
+		) -> Option<AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>> {
+			Asset::<T, I>::get(id)
+		}
+
+		/// Provide the balance of `who` for asset `id`.
+		pub fn balance_of(who: T::AccountId, id: T::AssetId) -> Option<<T as Config<I>>::Balance> {
+			Account::<T, I>::get(id, who).map(|account| account.balance)
+		}
+
+		/// Provide the configured metadata for asset `id`.
+		pub fn get_metadata(
+			id: T::AssetId,
+		) -> Option<AssetMetadata<DepositBalanceOf<T, I>, BoundedVec<u8, T::StringLimit>>> {
+			Metadata::<T, I>::try_get(id).ok()
+		}
+
+		/// Provide the configured reserves data for asset `id`.
+		pub fn get_reserves_data(id: T::AssetId) -> Vec<T::ReserveData> {
+			Self::reserves(&id)
+		}
+	}
+
 	/// Implements [`AccountTouch`] trait.
 	/// Note that a depositor can be any account, without any specific privilege.
-	/// This implementation is supposed to be used only for creation of system accounts.
 	impl<T: Config<I>, I: 'static> AccountTouch<T::AssetId, T::AccountId> for Pallet<T, I> {
 		type Balance = DepositBalanceOf<T, I>;
 
@@ -1919,7 +2005,7 @@ pub mod pallet {
 			who: &T::AccountId,
 			depositor: &T::AccountId,
 		) -> DispatchResult {
-			Self::do_touch(asset, who.clone(), depositor.clone(), false)
+			Self::do_touch(asset, who.clone(), depositor.clone())
 		}
 	}
 
@@ -1929,6 +2015,105 @@ pub mod pallet {
 		fn contains(asset: &T::AssetId, who: &T::AccountId) -> bool {
 			Account::<T, I>::contains_key(asset, who)
 		}
+	}
+
+	/// Implements [`ProvideAssetReserves`] trait for getting the list of trusted reserves for a
+	/// given asset.
+	impl<T: Config<I>, I: 'static> ProvideAssetReserves<T::AssetId, T::ReserveData> for Pallet<T, I> {
+		/// Provide the configured reserves for asset `id`.
+		fn reserves(id: &T::AssetId) -> Vec<T::ReserveData> {
+			Reserves::<T, I>::get(id).into_inner()
+		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		for asset_id in Reserves::<T, I>::iter_keys() {
+			ensure!(Asset::<T, I>::contains_key(asset_id.clone()), "Orphaned Reserves data found");
+		}
+
+		for asset_id in Metadata::<T, I>::iter_keys() {
+			ensure!(Asset::<T, I>::contains_key(asset_id.clone()), "Orphaned Metadata found");
+		}
+
+		for (asset_id, _, _) in Approvals::<T, I>::iter_keys() {
+			ensure!(Asset::<T, I>::contains_key(asset_id.clone()), "Orphaned Approval found");
+		}
+
+		for (asset_id, _) in Account::<T, I>::iter_keys() {
+			ensure!(Asset::<T, I>::contains_key(asset_id.clone()), "Orphaned Account found");
+		}
+
+		for (asset_id, details) in Asset::<T, I>::iter() {
+			if details.status == AssetStatus::Destroying {
+				continue;
+			}
+
+			let mut calculated_supply = T::Balance::zero();
+			let mut calculated_accounts = 0u32;
+			let mut calculated_sufficients = 0u32;
+
+			for (who, account) in Account::<T, I>::iter_prefix(&asset_id) {
+				let held = T::Holder::balance_on_hold(asset_id.clone(), &who).unwrap_or_default();
+				calculated_supply =
+					calculated_supply.saturating_add(account.balance).saturating_add(held);
+				calculated_accounts += 1;
+
+				if matches!(account.reason, ExistenceReason::Sufficient) {
+					calculated_sufficients += 1;
+				}
+
+				let total_balance = account.balance.saturating_add(held);
+				if total_balance < details.min_balance {
+					if !matches!(
+						account.reason,
+						ExistenceReason::DepositHeld(_) |
+							ExistenceReason::DepositFrom(_, _) |
+							ExistenceReason::Persistent
+					) {
+						log::warn!(
+							"Account {who:?} for asset {asset_id:?} has total balance below min_balance but no deposit. Balance: {:?}, Held: {:?}, Min balance: {:?}, Reason: {:?}",
+							account.balance,
+							held,
+							details.min_balance,
+							account.reason,
+						);
+					}
+				}
+			}
+
+			// Using >= instead of == because the provided `do_refund` implementation
+			// historically destroyed the account balance without decrementing the asset
+			// supply. Although this has been fixed, existing on-chain state may still
+			// contain overcounted supply from prior refunds.
+			// TODO: add a migration to recalculate supply, then tighten this to `==`.
+			ensure!(details.supply >= calculated_supply, "Asset supply mismatch");
+			if details.accounts != calculated_accounts {
+				// Legacy error in Kusama Asset Hub that needs to be cleaned up.
+				log::error!(
+					"Asset {asset_id:?} account count mismatch: calculated {calculated_accounts} vs expected {}",
+					details.accounts,
+				);
+			}
+			ensure!(
+				details.sufficients == calculated_sufficients,
+				"Asset sufficients count mismatch"
+			);
+
+			let calculated_approvals = Approvals::<T, I>::iter_prefix((&asset_id,)).count() as u32;
+
+			if details.approvals != calculated_approvals {
+				log::error!(
+					"Asset {asset_id:?} approvals count mismatch: calculated {calculated_approvals} vs expected {}",
+					details.approvals,
+				);
+
+				return Err("Asset approvals count mismatch".into());
+			}
+		}
+		Ok(())
 	}
 }
 

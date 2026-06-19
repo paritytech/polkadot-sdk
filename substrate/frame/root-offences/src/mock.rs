@@ -182,6 +182,7 @@ impl pallet_timestamp::Config for Test {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OffenceHandler = Staking;
+	type ReportOffence = ();
 }
 
 pub struct ExtBuilder {

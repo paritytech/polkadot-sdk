@@ -35,7 +35,6 @@ use crate::{
 	TransactionTracker, UnsignedTransaction,
 };
 
-use async_std::sync::{Arc, Mutex, RwLock};
 use async_trait::async_trait;
 use bp_runtime::HeaderIdProvider;
 use codec::Encode;
@@ -58,7 +57,8 @@ use sp_runtime::{
 };
 use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
-use std::{cmp::Ordering, future::Future, marker::PhantomData};
+use std::{cmp::Ordering, future::Future, marker::PhantomData, sync::Arc};
+use tokio::sync::{Mutex, RwLock};
 
 const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
 
@@ -119,16 +119,16 @@ impl<C: Chain> RpcClient<C> {
 		loop {
 			match Self::try_connect(params.clone()).await {
 				Ok(client) => return client,
-				Err(error) => log::error!(
+				Err(error) => tracing::error!(
 					target: "bridge",
-					"Failed to connect to {} node: {:?}. Going to retry in {}s",
-					C::NAME,
-					error,
-					RECONNECT_DELAY.as_secs(),
+					?error,
+					node=%C::NAME,
+					retry_as_secs=%RECONNECT_DELAY.as_secs(),
+					"Failed to connect. Going to retry"
 				),
 			}
 
-			async_std::task::sleep(RECONNECT_DELAY).await;
+			tokio::time::sleep(RECONNECT_DELAY).await;
 		}
 	}
 
@@ -173,15 +173,18 @@ impl<C: Chain> RpcClient<C> {
 		// same and we need to abort if actual version is > than expected
 		let actual = SimpleRuntimeVersion::from_runtime_version(&env.runtime_version().await?);
 		match actual.spec_version.cmp(&expected.spec_version) {
-			Ordering::Less =>
-				Err(Error::WaitingForRuntimeUpgrade { chain: C::NAME.into(), expected, actual }),
+			Ordering::Less => {
+				Err(Error::WaitingForRuntimeUpgrade { chain: C::NAME.into(), expected, actual })
+			},
 			Ordering::Equal => Ok(()),
 			Ordering::Greater => {
-				log::error!(
+				tracing::error!(
 					target: "bridge",
-					"The {} client is configured to use runtime version {expected:?} and actual \
-					version is {actual:?}. Aborting",
-					C::NAME,
+					node=%C::NAME,
+					?expected,
+					?actual,
+					"The client is configured to use runtime version, which is different from the \
+					actual version. Aborting",
 				);
 				env.abort().await;
 				Err(Error::Custom("Aborted".into()))
@@ -195,7 +198,7 @@ impl<C: Chain> RpcClient<C> {
 	) -> Result<(Arc<tokio::runtime::Runtime>, Arc<WsClient>)> {
 		let tokio = tokio::runtime::Runtime::new()?;
 		let uri = params.uri.clone();
-		log::info!(target: "bridge", "Connecting to {} node at {}", C::NAME, uri);
+		tracing::info!(target: "bridge", node=%C::NAME, %uri, "Connecting");
 
 		let client = tokio
 			.spawn(async move {
@@ -482,10 +485,10 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 			let tx_hash = SubstrateAuthorClient::<C>::submit_extrinsic(&*client, transaction)
 				.await
 				.map_err(|e| {
-					log::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
+					tracing::error!(target: "bridge", error=?e, node=%C::NAME, "Failed to send transaction");
 					e
 				})?;
-			log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
+			tracing::trace!(target: "bridge", node=%C::NAME, ?tx_hash, "Sent transaction");
 			Ok(tx_hash)
 		})
 		.await
@@ -562,10 +565,10 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 				)
 				.await
 				.map_err(|e| {
-					log::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
+					tracing::error!(target: "bridge", error=?e, node=%C::NAME, "Failed to send transaction");
 					e
 				})?;
-			log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
+			tracing::trace!(target: "bridge", node=%C::NAME, ?tx_hash, "Sent transaction");
 			Ok(TransactionTracker::new(
 				self_clone,
 				stall_timeout,
@@ -674,7 +677,7 @@ mod tests {
 			.0
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn ensure_correct_runtime_version_works() {
 		// when we are configured to use auto version
 		assert!(matches!(

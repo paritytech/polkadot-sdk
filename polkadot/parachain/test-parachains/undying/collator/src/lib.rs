@@ -26,11 +26,9 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_primitives::{
-	vstaging::{
-		CandidateDescriptorV2, CandidateReceiptV2, ClaimQueueOffset, DEFAULT_CLAIM_QUEUE_OFFSET,
-	},
-	CandidateCommitments, CollatorId, CollatorPair, CoreIndex, Hash, Id as ParaId,
-	OccupiedCoreAssumption,
+	CandidateCommitments, CandidateDescriptorV2, CandidateReceiptV2, ClaimQueueOffset, CollatorId,
+	CollatorPair, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
+	DEFAULT_CLAIM_QUEUE_OFFSET,
 };
 use polkadot_service::{Handle, NewFull, ParachainHost};
 use sc_client_api::client::BlockchainEvents;
@@ -287,7 +285,7 @@ impl Collator {
 						"Requested to build on top of malformed head-data: {:?}",
 						err,
 					);
-					return futures::future::ready(None).boxed()
+					return futures::future::ready(None).boxed();
 				},
 				Ok(p) => p,
 			};
@@ -301,7 +299,7 @@ impl Collator {
 							parent,
 							err,
 						);
-						return futures::future::ready(None).boxed()
+						return futures::future::ready(None).boxed();
 					},
 					Ok(x) => x,
 				};
@@ -377,7 +375,7 @@ impl Collator {
 			let current_block = self.state.lock().unwrap().best_block;
 
 			if start_block + blocks <= current_block {
-				return
+				return;
 			}
 		}
 	}
@@ -393,7 +391,7 @@ impl Collator {
 			Delay::new(Duration::from_secs(1)).await;
 
 			if seconded <= seconded_collations.load(Ordering::Relaxed) {
-				return
+				return;
 			}
 		}
 	}

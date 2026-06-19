@@ -29,9 +29,10 @@ use core::ops::{Add, AddAssign, Sub, SubAssign};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	DispatchError, DispatchResult, Perbill, RuntimeDebug, Saturating,
+	Debug, DispatchError, DispatchResult, Perbill, Saturating,
 };
 
+pub mod budget;
 pub mod offence;
 
 pub mod currency_to_vote;
@@ -62,7 +63,7 @@ impl<AccountId> From<AccountId> for StakingAccount<AccountId> {
 }
 
 /// Representation of the status of a staker.
-#[derive(RuntimeDebug, TypeInfo)]
+#[derive(Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone))]
 pub enum StakerStatus<AccountId> {
 	/// Chilling.
@@ -75,7 +76,7 @@ pub enum StakerStatus<AccountId> {
 
 /// A struct that reflects stake that an account has in the staking system. Provides a set of
 /// methods to operate on it's properties. Aimed at making `StakingInterface` more concise.
-#[derive(RuntimeDebug, Clone, Copy, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
 pub struct Stake<Balance> {
 	/// The total stake that `stash` has in the staking system. This includes the
 	/// `active` stake, and any funds currently in the process of unbonding via
@@ -198,7 +199,23 @@ pub trait StakingInterface {
 	fn stash_by_ctrl(controller: &Self::AccountId) -> Result<Self::AccountId, DispatchError>;
 
 	/// Number of eras that staked funds must remain bonded for.
+	///
+	/// This is the full bonding duration used by validators and recent ex-validators.
 	fn bonding_duration() -> EraIndex;
+
+	/// Number of eras that staked funds of a pure nominator must remain bonded for.
+	///
+	/// Same as [`Self::bonding_duration`] by default, but can be lower for pure nominators
+	/// (who have not been validators in recent eras) when nominators are not slashable.
+	///
+	/// Note: The actual unbonding duration for a specific account may vary:
+	/// - Validators always use [`Self::bonding_duration`]
+	/// - Nominators who were recently validators use [`Self::bonding_duration`]
+	/// - Pure nominators (never validators, or not validators in recent eras) may use a shorter
+	///   duration when not slashable
+	fn nominator_bonding_duration() -> EraIndex {
+		Self::bonding_duration()
+	}
 
 	/// The current era index.
 	///
@@ -313,8 +330,9 @@ pub trait StakingInterface {
 		exposures: Vec<(Self::AccountId, Self::Balance)>,
 	);
 
-	#[cfg(feature = "runtime-benchmarks")]
-	fn set_current_era(era: EraIndex);
+	/// Benchmark and test helper to set both active and current era.
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
+	fn set_era(era: EraIndex);
 }
 
 /// Set of low level apis to manipulate staking ledger.
@@ -355,7 +373,7 @@ pub trait StakingUnchecked: StakingInterface {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	Copy,
 )]
@@ -369,16 +387,7 @@ pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 
 /// A snapshot of the stake backing a single validator in the system.
 #[derive(
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	RuntimeDebug,
-	TypeInfo,
+	PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo,
 )]
 pub struct Exposure<AccountId, Balance: HasCompact> {
 	/// The total balance backing this validator.
@@ -463,7 +472,7 @@ impl<
 }
 
 /// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Debug, TypeInfo)]
 pub struct ExposurePage<AccountId, Balance: HasCompact> {
 	/// The total balance of this chunk/page.
 	#[codec(compact)]
@@ -504,7 +513,7 @@ impl<A, B: HasCompact + Default + AddAssign + SubAssign + Clone> From<Vec<Indivi
 	Clone,
 	Encode,
 	Decode,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	Default,
 	MaxEncodedLen,
@@ -718,7 +727,87 @@ pub trait DelegationMigrator {
 	fn force_kill_agent(agent: Agent<Self::AccountId>);
 }
 
+/// Handler for determining how much of a balance should be paid out on the current era.
+///
+/// [`budget::IssuanceCurve`] is the successor to this trait, decoupling issuance computation
+/// from staking state.
+pub trait EraPayout<Balance> {
+	/// Determine the payout for this era.
+	///
+	/// Returns the amount to be paid to stakers in this era, as well as whatever else should be
+	/// paid out ("the rest").
+	fn era_payout(
+		total_staked: Balance,
+		total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> (Balance, Balance);
+}
+
+impl<Balance: Default> EraPayout<Balance> for () {
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		_era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		(Default::default(), Default::default())
+	}
+}
+
+/// Result of splitting a validator's staking reward between the validator and their nominators.
+///
+/// Produced by [`StakerRewardCalculator::calculate_staker_reward`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StakerRewardResult<Balance> {
+	/// Total payout for the validator (commission + proportional stake reward).
+	pub validator_payout: Balance,
+	/// Total payout for all nominators, to be split proportionally by the caller.
+	pub nominator_payout: Balance,
+}
+
+/// Handles two independent reward calculations:
+///
+/// 1. **Staker reward split** ([`Self::calculate_staker_reward`]) — determines how a validator's
+///    staking reward is divided between the validator and their nominators.
+///
+/// 2. **Validator incentive weight** ([`Self::calculate_validator_incentive_weight`]) — determines
+///    a validator's relative share of a separate validator incentive pot, based on self-stake. This
+///    incentive pot is validator-only; nominators do not receive from it.
+pub trait StakerRewardCalculator<Balance> {
+	/// Compute a weight for this validator's share of the validator incentive pot.
+	///
+	/// Called once per validator during era planning. All validators' weights are summed, and
+	/// each validator's incentive payout is proportional to `their_weight / total_weight`.
+	fn calculate_validator_incentive_weight(self_stake: Balance) -> Balance;
+
+	/// Split a validator's staking reward into validator and nominator portions.
+	fn calculate_staker_reward(
+		validator_total_reward: Balance,
+		validator_commission: Perbill,
+		validator_own_stake: Balance,
+		total_exposure: Balance,
+	) -> StakerRewardResult<Balance>;
+}
+
+impl<Balance: Default> StakerRewardCalculator<Balance> for () {
+	fn calculate_validator_incentive_weight(_self_stake: Balance) -> Balance {
+		Default::default()
+	}
+
+	fn calculate_staker_reward(
+		_validator_total_reward: Balance,
+		_validator_commission: Perbill,
+		_validator_own_stake: Balance,
+		_total_exposure: Balance,
+	) -> StakerRewardResult<Balance> {
+		StakerRewardResult {
+			validator_payout: Default::default(),
+			nominator_payout: Default::default(),
+		}
+	}
+}
+
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
+sp_core::generate_feature_enabled_macro!(std_or_benchmarks_enabled, any(feature = "std", feature = "runtime-benchmarks"), $);
 
 #[cfg(test)]
 mod tests {

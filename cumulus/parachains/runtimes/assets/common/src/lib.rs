@@ -22,7 +22,9 @@ pub mod foreign_creators;
 pub mod fungible_conversion;
 pub mod local_and_foreign_assets;
 pub mod matching;
+pub mod migrations;
 pub mod runtime_api;
+
 pub use erc20_transactor::ERC20Transactor;
 
 extern crate alloc;

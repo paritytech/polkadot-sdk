@@ -29,11 +29,12 @@ use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImport, BlockImportParams, ForkChoiceStrategy,
 };
-use sc_consensus_aura::standalone as aura_internal;
+use sc_consensus_aura::{standalone as aura_internal, AuthoritiesTracker};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use schnellru::{ByLength, LruMap};
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
+use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
 use sp_core::crypto::Pair;
@@ -73,12 +74,13 @@ impl<N: std::hash::Hash + PartialEq> NaiveEquivocationDefender<N> {
 }
 
 /// A parachain block import verifier that checks for equivocation limits within each slot.
-pub struct Verifier<P, Client, Block: BlockT, CIDP> {
+pub struct Verifier<P: Pair, Client, Block: BlockT, CIDP> {
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
 	defender: Mutex<NaiveEquivocationDefender<NumberFor<Block>>>,
 	telemetry: Option<TelemetryHandle>,
-	_phantom: std::marker::PhantomData<fn() -> (Block, P)>,
+	// Unused for now. Will be plugged in with a later PR.
+	_authorities_tracker: AuthoritiesTracker<P, Block, Client>,
 }
 
 impl<P, Client, Block, CIDP> Verifier<P, Client, Block, CIDP>
@@ -100,11 +102,11 @@ where
 		telemetry: Option<TelemetryHandle>,
 	) -> Self {
 		Self {
-			client,
+			client: client.clone(),
 			create_inherent_data_providers: inherent_data_provider,
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry,
-			_phantom: std::marker::PhantomData,
+			_authorities_tracker: AuthoritiesTracker::new(client),
 		}
 	}
 }
@@ -116,7 +118,11 @@ where
 	P::Signature: Codec,
 	P::Public: Codec + Debug,
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	Client: HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ ProvideRuntimeApi<Block>
+		+ Send
+		+ Sync,
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
 
 	CIDP: CreateInherentDataProviders<Block, ()>,
@@ -131,7 +137,7 @@ where
 		// was checked/chosen properly, e.g. by warp syncing to this block using a finality proof.
 		if block_params.state_action.skip_execution_checks() || block_params.with_state() {
 			block_params.fork_choice = Some(ForkChoiceStrategy::Custom(block_params.with_state()));
-			return Ok(block_params)
+			return Ok(block_params);
 		}
 
 		let post_hash = block_params.header.hash();
@@ -144,11 +150,10 @@ where
 				format!("Could not fetch authorities at {:?}: {}", parent_hash, e)
 			})?;
 
-			let slot_duration = self
-				.client
-				.runtime_api()
-				.slot_duration(parent_hash)
-				.map_err(|e| e.to_string())?;
+			let mut runtime_api = self.client.runtime_api();
+			runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: true });
+			let slot_duration =
+				runtime_api.slot_duration(parent_hash).map_err(|e| e.to_string())?;
 
 			let slot_now = slot_now(slot_duration);
 			let res = aura_internal::check_header_slot_and_seal::<Block, P>(
@@ -195,7 +200,7 @@ where
 						return Err(format!(
 							"Rejecting block {:?} due to excessive equivocations at slot",
 							post_hash,
-						))
+						));
 					}
 				},
 				Err(aura_internal::SealVerificationError::Deferred(hdr, slot)) => {
@@ -211,13 +216,14 @@ where
 					return Err(format!(
 						"Rejecting block ({:?}) from future slot {:?}",
 						post_hash, slot
-					))
+					));
 				},
-				Err(e) =>
+				Err(e) => {
 					return Err(format!(
 						"Rejecting block ({:?}) with invalid seal ({:?})",
 						post_hash, e
-					)),
+					))
+				},
 			}
 		}
 
@@ -275,16 +281,21 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	Client: HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ ProvideRuntimeApi<Block>
+		+ Send
+		+ Sync
+		+ 'static,
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
 	let verifier = Verifier::<P, _, _, _> {
-		client,
+		client: client.clone(),
 		create_inherent_data_providers,
 		defender: Mutex::new(NaiveEquivocationDefender::default()),
 		telemetry,
-		_phantom: std::marker::PhantomData,
+		_authorities_tracker: AuthoritiesTracker::new(client.clone()),
 	};
 
 	BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry)
@@ -295,7 +306,7 @@ mod test {
 	use super::*;
 	use codec::Encode;
 	use cumulus_test_client::{
-		runtime::Block, seal_block, Client, InitBlockBuilder, TestClientBuilder,
+		runtime::Block, seal_block, BuildBlockBuilder, Client, TestClientBuilder,
 		TestClientBuilderExt,
 	};
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
@@ -319,7 +330,7 @@ mod test {
 			},
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry: None,
-			_phantom: std::marker::PhantomData,
+			_authorities_tracker: AuthoritiesTracker::new(client.clone()),
 		};
 
 		let genesis = client.info().best_hash;
@@ -333,7 +344,11 @@ mod test {
 			..Default::default()
 		};
 
-		let block_builder = client.init_block_builder(Some(validation_data), sproof);
+		let block_builder = client
+			.init_block_builder_builder()
+			.with_validation_data(validation_data)
+			.with_relay_sproof_builder(sproof)
+			.build();
 		let block = block_builder.block_builder.build().unwrap();
 
 		let mut blocks = Vec::new();

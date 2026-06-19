@@ -35,7 +35,7 @@ impl ViewFunctionsImplDef {
 			return Err(syn::Error::new(
 				item.span(),
 				"Invalid pallet::view_functions, expected item impl",
-			))
+			));
 		};
 		let mut view_functions = Vec::new();
 		for item in &mut item_impl.items {
@@ -49,7 +49,7 @@ impl ViewFunctionsImplDef {
 						_ => method.vis.span(),
 					};
 
-					return Err(syn::Error::new(span, msg))
+					return Err(syn::Error::new(span, msg));
 				}
 
 				let view_fn_def = ViewFunctionDef::try_from(method.clone())?;
@@ -58,7 +58,7 @@ impl ViewFunctionsImplDef {
 				return Err(syn::Error::new(
 					item.span(),
 					"Invalid pallet::view_functions, expected a function",
-				))
+				));
 			}
 		}
 		Ok(Self {
@@ -82,7 +82,7 @@ impl TryFrom<syn::ImplItemFn> for ViewFunctionDef {
 	type Error = syn::Error;
 	fn try_from(method: syn::ImplItemFn) -> Result<Self, Self::Error> {
 		let syn::ReturnType::Type(_, type_) = method.sig.output else {
-			return Err(syn::Error::new(method.sig.span(), "view functions must return a value"))
+			return Err(syn::Error::new(method.sig.span(), "view functions must return a value"));
 		};
 
 		Ok(Self {

@@ -22,7 +22,6 @@ codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-log = { workspace = true }
 pallet-asset-conversion = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 snowbridge-core = { workspace = true }
@@ -46,7 +45,6 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-asset-conversion/std",
 	"scale-info/std",
 	"snowbridge-core/std",

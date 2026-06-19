@@ -40,13 +40,19 @@ use sp_runtime::traits::Bounded;
 // of the inner member.
 mod imbalances {
 	use super::*;
+	use alloc::boxed::Box;
 	use core::mem;
-	use frame_support::traits::{tokens::imbalance::TryMerge, SameOrOther};
+	use frame_support::traits::{
+		tokens::imbalance::{
+			ImbalanceAccounting, TryMerge, UnsafeConstructorDestructor, UnsafeManualAccounting,
+		},
+		SameOrOther,
+	};
 
 	/// Opaque, move-only struct with private fields that serves as a token denoting that
 	/// funds have been created without any equal and opposite accounting.
 	#[must_use]
-	#[derive(RuntimeDebug, PartialEq, Eq)]
+	#[derive(Debug, PartialEq, Eq)]
 	pub struct PositiveImbalance<T: Config<I>, I: 'static = ()>(T::Balance);
 
 	impl<T: Config<I>, I: 'static> PositiveImbalance<T, I> {
@@ -59,8 +65,47 @@ mod imbalances {
 	/// Opaque, move-only struct with private fields that serves as a token denoting that
 	/// funds have been destroyed without any equal and opposite accounting.
 	#[must_use]
-	#[derive(RuntimeDebug, PartialEq, Eq)]
+	#[derive(Debug, PartialEq, Eq)]
 	pub struct NegativeImbalance<T: Config<I>, I: 'static = ()>(T::Balance);
+
+	impl<T, I> UnsafeConstructorDestructor<u128> for NegativeImbalance<T, I>
+	where
+		T: Config<I, Balance: From<u128> + Into<u128>>,
+		I: 'static,
+	{
+		fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
+			Box::new(Self(self.0))
+		}
+		fn forget_imbalance(&mut self) -> u128 {
+			let amount = self.0.into();
+			self.0 = Zero::zero();
+			amount
+		}
+	}
+
+	impl<T, I> UnsafeManualAccounting<u128> for NegativeImbalance<T, I>
+	where
+		T: Config<I, Balance: From<u128> + Into<u128>>,
+		I: 'static,
+	{
+		fn saturating_subsume(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
+			let amount = other.forget_imbalance();
+			self.0 = self.0.saturating_add(amount.into())
+		}
+	}
+
+	impl<T, I> ImbalanceAccounting<u128> for NegativeImbalance<T, I>
+	where
+		T: Config<I, Balance: From<u128> + Into<u128>>,
+		I: 'static,
+	{
+		fn amount(&self) -> u128 {
+			self.0.into()
+		}
+		fn saturating_take(&mut self, amount: u128) -> Box<dyn ImbalanceAccounting<u128>> {
+			Box::new(self.extract(amount.into()))
+		}
+	}
 
 	impl<T: Config<I>, I: 'static> NegativeImbalance<T, I> {
 		/// Create a new negative imbalance from a balance.
@@ -263,7 +308,7 @@ where
 	// Check if `value` amount of free balance can be slashed from `who`.
 	fn can_slash(who: &T::AccountId, value: Self::Balance) -> bool {
 		if value.is_zero() {
-			return true
+			return true;
 		}
 		Self::free_balance(who) >= value
 	}
@@ -292,7 +337,7 @@ where
 	// Is a no-op if amount to be burned is zero.
 	fn burn(mut amount: Self::Balance) -> Self::PositiveImbalance {
 		if amount.is_zero() {
-			return PositiveImbalance::zero()
+			return PositiveImbalance::zero();
 		}
 		<TotalIssuance<T, I>>::mutate(|issued| {
 			*issued = issued.checked_sub(&amount).unwrap_or_else(|| {
@@ -310,7 +355,7 @@ where
 	// Is a no-op if amount to be issued it zero.
 	fn issue(mut amount: Self::Balance) -> Self::NegativeImbalance {
 		if amount.is_zero() {
-			return NegativeImbalance::zero()
+			return NegativeImbalance::zero();
 		}
 		<TotalIssuance<T, I>>::mutate(|issued| {
 			*issued = issued.checked_add(&amount).unwrap_or_else(|| {
@@ -337,7 +382,7 @@ where
 		new_balance: T::Balance,
 	) -> DispatchResult {
 		if amount.is_zero() {
-			return Ok(())
+			return Ok(());
 		}
 		ensure!(new_balance >= Self::account(who).frozen, Error::<T, I>::LiquidityRestrictions);
 		Ok(())
@@ -352,7 +397,7 @@ where
 		existence_requirement: ExistenceRequirement,
 	) -> DispatchResult {
 		if value.is_zero() || transactor == dest {
-			return Ok(())
+			return Ok(());
 		}
 		let keep_alive = match existence_requirement {
 			ExistenceRequirement::KeepAlive => Preserve,
@@ -373,10 +418,10 @@ where
 	/// inconsistent or `can_slash` wasn't used appropriately.
 	fn slash(who: &T::AccountId, value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
 		if value.is_zero() {
-			return (NegativeImbalance::zero(), Zero::zero())
+			return (NegativeImbalance::zero(), Zero::zero());
 		}
 		if Self::total_balance(who).is_zero() {
-			return (NegativeImbalance::zero(), value)
+			return (NegativeImbalance::zero(), value);
 		}
 
 		let result = match Self::try_mutate_account_handling_dust(
@@ -414,7 +459,7 @@ where
 		value: Self::Balance,
 	) -> Result<Self::PositiveImbalance, DispatchError> {
 		if value.is_zero() {
-			return Ok(PositiveImbalance::zero())
+			return Ok(PositiveImbalance::zero());
 		}
 
 		Self::try_mutate_account_handling_dust(
@@ -440,7 +485,7 @@ where
 	/// - `value` is so large it would cause the balance of `who` to overflow.
 	fn deposit_creating(who: &T::AccountId, value: Self::Balance) -> Self::PositiveImbalance {
 		if value.is_zero() {
-			return Self::PositiveImbalance::zero()
+			return Self::PositiveImbalance::zero();
 		}
 
 		Self::try_mutate_account_handling_dust(
@@ -474,7 +519,7 @@ where
 		liveness: ExistenceRequirement,
 	) -> result::Result<Self::NegativeImbalance, DispatchError> {
 		if value.is_zero() {
-			return Ok(NegativeImbalance::zero())
+			return Ok(NegativeImbalance::zero());
 		}
 
 		Self::try_mutate_account_handling_dust(
@@ -535,6 +580,29 @@ where
 	}
 }
 
+/// Validates whether an account can create a reserve without violating
+/// liquidity constraints.
+///
+/// This method performs liquidity checks without modifying the account state.
+fn ensure_can_reserve<T: Config<I>, I: 'static>(
+	who: &T::AccountId,
+	value: T::Balance,
+	check_existential_deposit: bool,
+) -> DispatchResult {
+	let AccountData { free, .. } = Pallet::<T, I>::account(who);
+
+	// Early validation: Check sufficient free balance
+	let new_free_balance = free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
+
+	// Conditionally validate existential deposit preservation
+	if check_existential_deposit {
+		let existential_deposit = T::ExistentialDeposit::get();
+		ensure!(new_free_balance >= existential_deposit, Error::<T, I>::Expendability);
+	}
+
+	Ok(())
+}
+
 impl<T: Config<I>, I: 'static> ReservableCurrency<T::AccountId> for Pallet<T, I>
 where
 	T::Balance: MaybeSerializeDeserialize + Debug,
@@ -544,13 +612,9 @@ where
 	/// Always `true` if value to be reserved is zero.
 	fn can_reserve(who: &T::AccountId, value: Self::Balance) -> bool {
 		if value.is_zero() {
-			return true
+			return true;
 		}
-		Self::account(who).free.checked_sub(&value).map_or(false, |new_balance| {
-			new_balance >= T::ExistentialDeposit::get() &&
-				Self::ensure_can_withdraw(who, value, WithdrawReasons::RESERVE, new_balance)
-					.is_ok()
-		})
+		ensure_can_reserve::<T, I>(who, value, true).is_ok()
 	}
 
 	fn reserved_balance(who: &T::AccountId) -> Self::Balance {
@@ -562,7 +626,7 @@ where
 	/// Is a no-op if value to be reserved is zero.
 	fn reserve(who: &T::AccountId, value: Self::Balance) -> DispatchResult {
 		if value.is_zero() {
-			return Ok(())
+			return Ok(());
 		}
 
 		Self::try_mutate_account_handling_dust(who, false, |account, _| -> DispatchResult {
@@ -570,7 +634,9 @@ where
 				account.free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
 			account.reserved =
 				account.reserved.checked_add(&value).ok_or(ArithmeticError::Overflow)?;
-			Self::ensure_can_withdraw(&who, value, WithdrawReasons::RESERVE, account.free)
+
+			// Check if it is possible to reserve before trying to mutate the account
+			ensure_can_reserve::<T, I>(who, value, false)
 		})?;
 
 		Self::deposit_event(Event::Reserved { who: who.clone(), amount: value });
@@ -584,10 +650,10 @@ where
 	/// NOTE: returns amount value which wasn't successfully unreserved.
 	fn unreserve(who: &T::AccountId, value: Self::Balance) -> Self::Balance {
 		if value.is_zero() {
-			return Zero::zero()
+			return Zero::zero();
 		}
 		if Self::total_balance(who).is_zero() {
-			return value
+			return value;
 		}
 
 		let actual = match Self::mutate_account_handling_dust(who, false, |account| {
@@ -603,7 +669,7 @@ where
 				// This should never happen since we don't alter the total amount in the account.
 				// If it ever does, then we should fail gracefully though, indicating that nothing
 				// could be done.
-				return value
+				return value;
 			},
 		};
 
@@ -620,10 +686,10 @@ where
 		value: Self::Balance,
 	) -> (Self::NegativeImbalance, Self::Balance) {
 		if value.is_zero() {
-			return (NegativeImbalance::zero(), Zero::zero())
+			return (NegativeImbalance::zero(), Zero::zero());
 		}
 		if Self::total_balance(who).is_zero() {
-			return (NegativeImbalance::zero(), value)
+			return (NegativeImbalance::zero(), value);
 		}
 
 		// NOTE: `mutate_account` may fail if it attempts to reduce the balance to the point that an
@@ -691,7 +757,7 @@ where
 		value: Self::Balance,
 	) -> DispatchResult {
 		if value.is_zero() {
-			return Ok(())
+			return Ok(());
 		}
 
 		Reserves::<T, I>::try_mutate(who, |reserves| -> DispatchResult {
@@ -722,7 +788,7 @@ where
 		value: Self::Balance,
 	) -> Self::Balance {
 		if value.is_zero() {
-			return Zero::zero()
+			return Zero::zero();
 		}
 
 		Reserves::<T, I>::mutate_exists(who, |maybe_reserves| -> Self::Balance {
@@ -769,7 +835,7 @@ where
 		value: Self::Balance,
 	) -> (Self::NegativeImbalance, Self::Balance) {
 		if value.is_zero() {
-			return (NegativeImbalance::zero(), Zero::zero())
+			return (NegativeImbalance::zero(), Zero::zero());
 		}
 
 		Reserves::<T, I>::mutate(who, |reserves| -> (Self::NegativeImbalance, Self::Balance) {
@@ -808,15 +874,16 @@ where
 		status: Status,
 	) -> Result<Self::Balance, DispatchError> {
 		if value.is_zero() {
-			return Ok(Zero::zero())
+			return Ok(Zero::zero());
 		}
 
 		if slashed == beneficiary {
 			return match status {
 				Status::Free => Ok(Self::unreserve_named(id, slashed, value)),
-				Status::Reserved =>
-					Ok(value.saturating_sub(Self::reserved_balance_named(id, slashed))),
-			}
+				Status::Reserved => {
+					Ok(value.saturating_sub(Self::reserved_balance_named(id, slashed)))
+				},
+			};
 		}
 
 		Reserves::<T, I>::try_mutate(slashed, |reserves| -> Result<Self::Balance, DispatchError> {
@@ -914,7 +981,7 @@ where
 	) {
 		if reasons.is_empty() || amount.is_zero() {
 			Self::remove_lock(id, who);
-			return
+			return;
 		}
 
 		let mut new_lock = Some(BalanceLock { id, amount, reasons: reasons.into() });
@@ -937,7 +1004,7 @@ where
 		reasons: WithdrawReasons,
 	) {
 		if amount.is_zero() || reasons.is_empty() {
-			return
+			return;
 		}
 		let mut new_lock = Some(BalanceLock { id, amount, reasons: reasons.into() });
 		let mut locks = Self::locks(who)

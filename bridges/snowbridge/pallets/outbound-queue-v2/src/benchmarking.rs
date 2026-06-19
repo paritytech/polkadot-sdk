@@ -3,7 +3,6 @@
 use super::*;
 
 use crate::fixture::make_submit_delivery_receipt_message;
-use bridge_hub_common::AggregateMessageOrigin;
 use codec::Encode;
 use frame_benchmarking::v2::*;
 use frame_support::{traits::Hooks, BoundedVec};
@@ -77,7 +76,7 @@ mod benchmarks {
 	#[benchmark]
 	fn do_process_message() -> Result<(), BenchmarkError> {
 		let (enqueued_message, _) = build_message::<T>();
-		let origin = AggregateMessageOrigin::SnowbridgeV2([1; 32].into());
+		let origin = T::AggregateMessageOrigin::from([1; 32].into());
 		let message = enqueued_message.encode();
 
 		#[block]
@@ -135,7 +134,7 @@ mod benchmarks {
 	#[benchmark]
 	fn process() -> Result<(), BenchmarkError> {
 		initialize_worst_case::<T>();
-		let origin = AggregateMessageOrigin::SnowbridgeV2([1; 32].into());
+		let origin = T::AggregateMessageOrigin::from([1; 32].into());
 		let (enqueued_message, _) = build_message::<T>();
 		let message = enqueued_message.encode();
 
@@ -143,7 +142,7 @@ mod benchmarks {
 		{
 			OutboundQueue::<T>::on_initialize(1_u32.into());
 			for _ in 0..T::MaxMessagesPerBlock::get() {
-				OutboundQueue::<T>::do_process_message(origin, &message).unwrap();
+				OutboundQueue::<T>::do_process_message(origin.clone(), &message).unwrap();
 			}
 			OutboundQueue::<T>::commit();
 		}

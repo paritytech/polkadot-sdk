@@ -131,14 +131,16 @@ where
 
 			// only fungible asset is allowed
 			let (token, amount) = match ena {
-				Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
+				Asset { id: AssetId(inner_location), fun: Fungible(amount) } => {
 					match inner_location.unpack() {
-						(0, [AccountKey20 { network, key }]) if self.network_matches(network) =>
-							Ok((H160(*key), amount)),
+						(0, [AccountKey20 { network, key }]) if self.network_matches(network) => {
+							Ok((H160(*key), amount))
+						},
 						// To allow ether
 						(0, []) => Ok((H160([0; 20]), amount)),
 						_ => Err(AssetResolutionFailed),
-					},
+					}
+				},
 				_ => Err(AssetResolutionFailed),
 			}?;
 
@@ -174,7 +176,8 @@ where
 
 			// Ensure PNA already registered
 			let token_id = TokenIdOf::convert_location(&asset_id).ok_or(InvalidAsset)?;
-			ConvertAssetId::maybe_convert(token_id).ok_or(InvalidAsset)?;
+			let expected_asset_id = ConvertAssetId::maybe_convert(token_id).ok_or(InvalidAsset)?;
+			ensure!(asset_id == expected_asset_id, InvalidAsset);
 
 			commands.push(Command::MintForeignToken { token_id, recipient, amount });
 		}

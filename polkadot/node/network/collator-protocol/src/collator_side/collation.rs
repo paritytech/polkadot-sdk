@@ -26,7 +26,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, HeadData, Id as ParaId,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, HeadData, Id as ParaId,
 };
 
 /// The status of a collation as seen from the collator.
@@ -122,9 +122,9 @@ impl VersionedCollationRequest {
 	}
 
 	/// Returns relay parent from the request payload.
-	pub fn relay_parent(&self) -> Hash {
+	pub fn scheduling_parent(&self) -> Hash {
 		match self {
-			VersionedCollationRequest::V2(req) => req.payload.relay_parent,
+			VersionedCollationRequest::V2(req) => req.payload.scheduling_parent,
 		}
 	}
 

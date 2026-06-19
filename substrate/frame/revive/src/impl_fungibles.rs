@@ -24,30 +24,28 @@
 
 #![cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 
+use crate::{OriginFor, metering::TransactionLimits};
 use alloy_core::{
 	primitives::{Address, U256 as EU256},
 	sol_types::*,
 };
 use frame_support::{
-	traits::{
-		tokens::{
-			fungible, fungibles, DepositConsequence, Fortitude, Precision, Preservation,
-			Provenance, WithdrawConsequence,
-		},
-		OriginTrait,
-	},
 	PalletId,
+	traits::{
+		OriginTrait,
+		tokens::{
+			DepositConsequence, Fortitude, Precision, Preservation, Provenance,
+			WithdrawConsequence, fungible, fungibles,
+		},
+	},
 };
-use sp_core::{H160, H256, U256};
-use sp_runtime::{traits::AccountIdConversion, DispatchError};
+use sp_core::{H160, U256};
+use sp_runtime::{DispatchError, traits::AccountIdConversion};
 
-use super::{
-	address::AddressMapper, pallet, BalanceOf, Bounded, Config, ContractResult, DepositLimit,
-	MomentOf, Pallet, Weight,
-};
+use super::{Config, ContractResult, ExecConfig, Pallet, Weight, address::AddressMapper, pallet};
 use ethereum_standards::IERC20;
 
-const GAS_LIMIT: Weight = Weight::from_parts(1_000_000_000, 100_000);
+const WEIGHT_LIMIT: Weight = Weight::from_parts(10_000_000_000, 1000_000);
 
 impl<T: Config> Pallet<T> {
 	// Test checking account for the `fungibles::*` implementation.
@@ -58,12 +56,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for Pallet<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
-{
+impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for Pallet<T> {
 	// The asset id of an ERC20 is its origin contract's address.
 	type AssetId = H160;
 	// The balance is always u128.
@@ -73,21 +66,21 @@ where
 	fn total_issuance(asset_id: Self::AssetId) -> Self::Balance {
 		let data = IERC20::totalSupplyCall {}.abi_encode();
 		let ContractResult { result, .. } = Self::bare_call(
-			T::RuntimeOrigin::signed(Self::checking_account()),
+			OriginFor::<T>::signed(Self::checking_account()),
 			asset_id,
 			U256::zero(),
-			GAS_LIMIT,
-			DepositLimit::Balance(
-				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
-			),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit:
+					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			},
 			data,
+			&ExecConfig::new_substrate_tx(),
 		);
-		if let Ok(return_value) = result {
-			if let Ok(eu256) = EU256::abi_decode_validate(&return_value.data) {
-				eu256.to::<u128>()
-			} else {
-				0
-			}
+		if let Ok(return_value) = result &&
+			let Ok(eu256) = EU256::abi_decode_validate(&return_value.data)
+		{
+			eu256.to::<u128>()
 		} else {
 			0
 		}
@@ -109,21 +102,21 @@ where
 		let address = Address::from(Into::<[u8; 20]>::into(eth_address));
 		let data = IERC20::balanceOfCall { account: address }.abi_encode();
 		let ContractResult { result, .. } = Self::bare_call(
-			T::RuntimeOrigin::signed(account_id.clone()),
+			OriginFor::<T>::signed(account_id.clone()),
 			asset_id,
 			U256::zero(),
-			GAS_LIMIT,
-			DepositLimit::Balance(
-				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
-			),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit:
+					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			},
 			data,
+			&ExecConfig::new_substrate_tx(),
 		);
-		if let Ok(return_value) = result {
-			if let Ok(eu256) = EU256::abi_decode_validate(&return_value.data) {
-				eu256.to::<u128>()
-			} else {
-				0
-			}
+		if let Ok(return_value) = result &&
+			let Ok(eu256) = EU256::abi_decode_validate(&return_value.data)
+		{
+			eu256.to::<u128>()
 		} else {
 			0
 		}
@@ -165,12 +158,7 @@ where
 // We implement `fungibles::Mutate` to override `burn_from` and `mint_to`.
 //
 // These functions are used in [`xcm_builder::FungiblesAdapter`].
-impl<T: Config> fungibles::Mutate<<T as frame_system::Config>::AccountId> for Pallet<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
-{
+impl<T: Config> fungibles::Mutate<<T as frame_system::Config>::AccountId> for Pallet<T> {
 	fn burn_from(
 		asset_id: Self::AssetId,
 		who: &T::AccountId,
@@ -183,17 +171,19 @@ where
 		let checking_address = Address::from(Into::<[u8; 20]>::into(checking_account_eth));
 		let data =
 			IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
-		let ContractResult { result, gas_consumed, .. } = Self::bare_call(
-			T::RuntimeOrigin::signed(who.clone()),
+		let ContractResult { result, weight_consumed, .. } = Self::bare_call(
+			OriginFor::<T>::signed(who.clone()),
 			asset_id,
 			U256::zero(),
-			GAS_LIMIT,
-			DepositLimit::Balance(
-				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
-			),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit:
+					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			},
 			data,
+			&ExecConfig::new_substrate_tx(),
 		);
-		log::trace!(target: "whatiwant", "{gas_consumed}");
+		log::trace!(target: "whatiwant", "{weight_consumed}");
 		if let Ok(return_value) = result {
 			if return_value.did_revert() {
 				Err("Contract reverted".into())
@@ -221,14 +211,16 @@ where
 		let address = Address::from(Into::<[u8; 20]>::into(eth_address));
 		let data = IERC20::transferCall { to: address, value: EU256::from(amount) }.abi_encode();
 		let ContractResult { result, .. } = Self::bare_call(
-			T::RuntimeOrigin::signed(Self::checking_account()),
+			OriginFor::<T>::signed(Self::checking_account()),
 			asset_id,
 			U256::zero(),
-			GAS_LIMIT,
-			DepositLimit::Balance(
-				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
-			),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit:
+					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
+			},
 			data,
+			&ExecConfig::new_substrate_tx(),
 		);
 		if let Ok(return_value) = result {
 			if return_value.did_revert() {
@@ -253,12 +245,7 @@ where
 // However, we don't have this type of access to smart contracts.
 // Withdraw and deposit happen via the custom `fungibles::Mutate` impl above.
 // Because of this, all functions here return an error, when possible.
-impl<T: Config> fungibles::Unbalanced<<T as frame_system::Config>::AccountId> for Pallet<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
-{
+impl<T: Config> fungibles::Unbalanced<<T as frame_system::Config>::AccountId> for Pallet<T> {
 	fn handle_raw_dust(_: Self::AssetId, _: Self::Balance) {}
 	fn handle_dust(_: fungibles::Dust<T::AccountId, Self>) {}
 	fn write_balance(
@@ -297,18 +284,19 @@ where
 mod tests {
 	use super::*;
 	use crate::{
-		test_utils::{builder::*, ALICE},
-		tests::{Contracts, ExtBuilder, RuntimeOrigin, Test},
 		AccountInfoOf, Code,
+		test_utils::{ALICE, builder::*},
+		tests::{Contracts, ExtBuilder, RuntimeOrigin, Test},
 	};
 	use frame_support::assert_ok;
+	use pallet_revive_fixtures::{FixtureType, compile_module_with_type};
 
 	#[test]
 	fn call_erc20_contract() {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = include_bytes!("../fixtures/contracts/erc20.polkavm").to_vec();
+			let code = compile_module_with_type("MyToken", FixtureType::Resolc).unwrap().0.to_vec();
 			let amount = EU256::from(1000);
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&amount);
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -333,7 +321,7 @@ mod tests {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = include_bytes!("../fixtures/contracts/erc20.polkavm").to_vec();
+			let code = compile_module_with_type("MyToken", FixtureType::Resolc).unwrap().0.to_vec();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -353,7 +341,7 @@ mod tests {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = include_bytes!("../fixtures/contracts/erc20.polkavm").to_vec();
+			let code = compile_module_with_type("MyToken", FixtureType::Resolc).unwrap().0.to_vec();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -371,7 +359,7 @@ mod tests {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = include_bytes!("../fixtures/contracts/erc20.polkavm").to_vec();
+			let code = compile_module_with_type("MyToken", FixtureType::Resolc).unwrap().0.to_vec();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&(EU256::from(amount * 2)));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -407,7 +395,7 @@ mod tests {
 				&checking_account,
 				1_000_000,
 			);
-			let code = include_bytes!("../fixtures/contracts/erc20.polkavm").to_vec();
+			let code = compile_module_with_type("MyToken", FixtureType::Resolc).unwrap().0.clone();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			// We're instantiating the contract with the `CheckingAccount` so it has `amount` in it.
@@ -415,7 +403,10 @@ mod tests {
 				RuntimeOrigin::signed(checking_account.clone()),
 				Code::Upload(code),
 			)
-			.storage_deposit_limit((1_000_000_000_000).into())
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: 1_000_000_000_000,
+			})
 			.data(constructor_data)
 			.build_and_unwrap_contract();
 			assert_eq!(

@@ -16,9 +16,7 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use codec::Decode;
-use polkadot_primitives::{
-	Block as PBlock, Hash as PHash, Header as PHeader, PersistedValidationData, ValidationCodeHash,
-};
+use polkadot_primitives::{Block as PBlock, Hash as PHash, Header as PHeader, ValidationCodeHash};
 
 use cumulus_primitives_core::{relay_chain, AbridgedHostConfiguration};
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
@@ -41,12 +39,14 @@ mod tests;
 pub use parent_search::*;
 
 pub use cumulus_relay_chain_streams::finalized_heads;
-pub use parachain_consensus::run_parachain_consensus;
+pub use parachain_consensus::spawn_parachain_consensus_tasks;
 
 use level_monitor::LevelMonitor;
 pub use level_monitor::{LevelLimit, MAX_LEAVES_PER_LEVEL_SENSIBLE_DEFAULT};
 
 pub mod import_queue;
+
+const LOG_TARGET: &str = "consensus::common";
 
 /// Provides the hash of validation code used for authoring/execution of blocks at a given
 /// hash.
@@ -63,52 +63,12 @@ where
 	}
 }
 
-/// The result of [`ParachainConsensus::produce_candidate`].
+/// The result from building a collation.
 pub struct ParachainCandidate<B> {
 	/// The block that was built for this candidate.
 	pub block: B,
 	/// The proof that was recorded while building the block.
 	pub proof: sp_trie::StorageProof,
-}
-
-/// A specific parachain consensus implementation that can be used by a collator to produce
-/// candidates.
-///
-/// The collator will call [`Self::produce_candidate`] every time there is a free core for the
-/// parachain this collator is collating for. It is the job of the consensus implementation to
-/// decide if this specific collator should build a candidate for the given relay chain block. The
-/// consensus implementation could, for example, check whether this specific collator is part of a
-/// staked set.
-#[async_trait::async_trait]
-pub trait ParachainConsensus<B: BlockT>: Send + Sync + dyn_clone::DynClone {
-	/// Produce a new candidate at the given parent block and relay-parent blocks.
-	///
-	/// Should return `None` if the consensus implementation decided that it shouldn't build a
-	/// candidate or if there occurred any error.
-	///
-	/// # NOTE
-	///
-	/// It is expected that the block is already imported when the future resolves.
-	async fn produce_candidate(
-		&mut self,
-		parent: &B::Header,
-		relay_parent: PHash,
-		validation_data: &PersistedValidationData,
-	) -> Option<ParachainCandidate<B>>;
-}
-
-dyn_clone::clone_trait_object!(<B> ParachainConsensus<B> where B: BlockT);
-
-#[async_trait::async_trait]
-impl<B: BlockT> ParachainConsensus<B> for Box<dyn ParachainConsensus<B> + Send + Sync> {
-	async fn produce_candidate(
-		&mut self,
-		parent: &B::Header,
-		relay_parent: PHash,
-		validation_data: &PersistedValidationData,
-	) -> Option<ParachainCandidate<B>> {
-		(*self).produce_candidate(parent, relay_parent, validation_data).await
-	}
 }
 
 /// Parachain specific block import.
@@ -231,19 +191,31 @@ pub trait ParachainBlockImportMarker {}
 
 impl<B: BlockT, BI, BE> ParachainBlockImportMarker for ParachainBlockImport<B, BI, BE> {}
 
-/// Get the relay-parent slot and timestamp from a header.
-pub fn relay_slot_and_timestamp(
-	relay_parent_header: &PHeader,
-	relay_chain_slot_duration: Duration,
-) -> Option<(Slot, Timestamp)> {
-	sc_consensus_babe::find_pre_digest::<PBlock>(relay_parent_header)
-		.map(|babe_pre_digest| {
-			let slot = babe_pre_digest.slot();
-			let t = Timestamp::new(relay_chain_slot_duration.as_millis() as u64 * *slot);
+/// Get the relay slot from a header.
+pub fn get_relay_slot(relay_header: &PHeader) -> Option<Slot> {
+	match sc_consensus_babe::find_pre_digest::<PBlock>(relay_header) {
+		Ok(pre_digest) => Some(pre_digest.slot()),
+		Err(err) => {
+			tracing::error!(
+				target: LOG_TARGET,
+				hash = %relay_header.hash(),
+				?err,
+				"Relay chain block does not contain a BABE pre-digest. This should never happen.",
+			);
+			None
+		},
+	}
+}
 
-			(slot, t)
-		})
-		.ok()
+/// Get the relay slot and timestamp from a header.
+pub fn get_relay_slot_and_timestamp(
+	relay_header: &PHeader,
+	relay_slot_duration: Duration,
+) -> Option<(Slot, Timestamp)> {
+	get_relay_slot(relay_header).map(|slot| {
+		let t = Timestamp::new(relay_slot_duration.as_millis() as u64 * *slot);
+		(slot, t)
+	})
 }
 
 /// Reads abridged host configuration from the relay chain storage at the given relay parent.

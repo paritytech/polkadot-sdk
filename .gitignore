@@ -40,5 +40,8 @@ rls*.log
 runtime/wasm/target/
 substrate.code-workspace
 target/
+target.noindex/
 *.scale
 rustc-ice-*
+/.claude/settings.local.json
+*.local.md

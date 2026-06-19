@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use cumulus_primitives_core::ParaId;
 use polkadot_omni_node_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::{ChainSpec, ChainType};
 use std::str::FromStr;
@@ -26,9 +25,6 @@ pub enum PeopleRuntimeType {
 	KusamaLocal,
 	Polkadot,
 	PolkadotLocal,
-	Rococo,
-	RococoLocal,
-	RococoDevelopment,
 	Westend,
 	WestendLocal,
 	WestendDevelopment,
@@ -43,9 +39,6 @@ impl FromStr for PeopleRuntimeType {
 			kusama::PEOPLE_KUSAMA_LOCAL => Ok(PeopleRuntimeType::KusamaLocal),
 			polkadot::PEOPLE_POLKADOT => Ok(PeopleRuntimeType::Polkadot),
 			polkadot::PEOPLE_POLKADOT_LOCAL => Ok(PeopleRuntimeType::PolkadotLocal),
-			rococo::PEOPLE_ROCOCO => Ok(PeopleRuntimeType::Rococo),
-			rococo::PEOPLE_ROCOCO_LOCAL => Ok(PeopleRuntimeType::RococoLocal),
-			rococo::PEOPLE_ROCOCO_DEVELOPMENT => Ok(PeopleRuntimeType::RococoDevelopment),
 			westend::PEOPLE_WESTEND => Ok(PeopleRuntimeType::Westend),
 			westend::PEOPLE_WESTEND_LOCAL => Ok(PeopleRuntimeType::WestendLocal),
 			westend::PEOPLE_WESTEND_DEVELOPMENT => Ok(PeopleRuntimeType::WestendDevelopment),
@@ -65,23 +58,6 @@ impl PeopleRuntimeType {
 			PeopleRuntimeType::Polkadot => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/people-polkadot.json")[..],
 			)?)),
-			PeopleRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
-				&include_bytes!("../../chain-specs/people-rococo.json")[..],
-			)?)),
-			PeopleRuntimeType::RococoLocal => Ok(Box::new(rococo::local_config(
-				rococo::PEOPLE_ROCOCO_LOCAL,
-				"Rococo People Local",
-				"rococo-local",
-				ParaId::new(1004),
-				ChainType::Local,
-			))),
-			PeopleRuntimeType::RococoDevelopment => Ok(Box::new(rococo::local_config(
-				rococo::PEOPLE_ROCOCO_DEVELOPMENT,
-				"Rococo People Development",
-				"rococo-development",
-				ParaId::new(1004),
-				ChainType::Development,
-			))),
 			PeopleRuntimeType::Westend => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/people-westend.json")[..],
 			)?)),
@@ -89,14 +65,12 @@ impl PeopleRuntimeType {
 				westend::PEOPLE_WESTEND_LOCAL,
 				"Westend People Local",
 				"westend-local",
-				ParaId::new(1004),
 				ChainType::Local,
 			))),
 			PeopleRuntimeType::WestendDevelopment => Ok(Box::new(westend::local_config(
 				westend::PEOPLE_WESTEND_DEVELOPMENT,
 				"Westend People Development",
 				"westend-development",
-				ParaId::new(1004),
 				ChainType::Development,
 			))),
 			other => Err(std::format!(
@@ -120,54 +94,8 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 	}
 }
 
-/// Sub-module for Rococo setup.
-pub mod rococo {
-	use super::ParaId;
-	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
-	use sc_chain_spec::ChainType;
-
-	pub(crate) const PEOPLE_ROCOCO: &str = "people-rococo";
-	pub(crate) const PEOPLE_ROCOCO_LOCAL: &str = "people-rococo-local";
-	pub(crate) const PEOPLE_ROCOCO_DEVELOPMENT: &str = "people-rococo-dev";
-
-	pub fn local_config(
-		id: &str,
-		chain_name: &str,
-		relay_chain: &str,
-		para_id: ParaId,
-		chain_type: ChainType,
-	) -> GenericChainSpec {
-		let mut properties = sc_chain_spec::Properties::new();
-		properties.insert("ss58Format".into(), 42.into());
-		properties.insert("tokenSymbol".into(), "ROC".into());
-		properties.insert("tokenDecimals".into(), 12.into());
-
-		GenericChainSpec::builder(
-			people_rococo_runtime::WASM_BINARY
-				.expect("WASM binary was not built, please build it!"),
-			Extensions { relay_chain: relay_chain.to_string() },
-		)
-		.with_name(chain_name)
-		.with_id(super::ensure_id(id).expect("invalid id"))
-		.with_chain_type(chain_type.clone())
-		.with_genesis_config_preset_name(match chain_type {
-			ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
-			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
-			_ => panic!("chain_type: {chain_type:?} not supported here!"),
-		})
-		.with_genesis_config_patch(serde_json::json!({
-			"parachainInfo": {
-				"parachainId": para_id,
-			},
-		}))
-		.with_properties(properties)
-		.build()
-	}
-}
-
 /// Sub-module for Westend setup.
 pub mod westend {
-	use super::ParaId;
 	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 
@@ -176,10 +104,9 @@ pub mod westend {
 	pub(crate) const PEOPLE_WESTEND_DEVELOPMENT: &str = "people-westend-dev";
 
 	pub fn local_config(
-		id: &str,
+		spec_id: &str,
 		chain_name: &str,
 		relay_chain: &str,
-		para_id: ParaId,
 		chain_type: ChainType,
 	) -> GenericChainSpec {
 		let mut properties = sc_chain_spec::Properties::new();
@@ -190,21 +117,16 @@ pub mod westend {
 		GenericChainSpec::builder(
 			people_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
-			Extensions { relay_chain: relay_chain.to_string() },
+			Extensions::new_with_relay_chain(relay_chain.to_string()),
 		)
 		.with_name(chain_name)
-		.with_id(super::ensure_id(id).expect("invalid id"))
+		.with_id(super::ensure_id(spec_id).expect("invalid id"))
 		.with_chain_type(chain_type.clone())
 		.with_genesis_config_preset_name(match chain_type {
 			ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
 			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
 			_ => panic!("chain_type: {chain_type:?} not supported here!"),
 		})
-		.with_genesis_config_patch(serde_json::json!({
-			"parachainInfo": {
-				"parachainId": para_id,
-			},
-		}))
 		.with_properties(properties)
 		.build()
 	}

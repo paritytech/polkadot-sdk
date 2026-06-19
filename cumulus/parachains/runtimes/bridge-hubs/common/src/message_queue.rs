@@ -83,6 +83,12 @@ impl From<CumulusAggregateMessageOrigin> for AggregateMessageOrigin {
 	}
 }
 
+impl From<H256> for AggregateMessageOrigin {
+	fn from(hash: H256) -> Self {
+		Self::SnowbridgeV2(hash)
+	}
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 impl From<u32> for AggregateMessageOrigin {
 	fn from(x: u32) -> Self {
@@ -116,8 +122,9 @@ where
 	) -> Result<bool, ProcessMessageError> {
 		use AggregateMessageOrigin::*;
 		match origin {
-			Here | Parent | Sibling(_) =>
-				XcmpProcessor::process_message(message, origin, meter, id),
+			Here | Parent | Sibling(_) => {
+				XcmpProcessor::process_message(message, origin, meter, id)
+			},
 			Snowbridge(_) => SnowbridgeProcessor::process_message(message, origin, meter, id),
 			SnowbridgeV2(_) => Err(ProcessMessageError::Unsupported),
 		}
@@ -149,8 +156,9 @@ where
 	) -> Result<bool, ProcessMessageError> {
 		use AggregateMessageOrigin::*;
 		match origin {
-			Here | Parent | Sibling(_) =>
-				XcmpProcessor::process_message(message, origin, meter, id),
+			Here | Parent | Sibling(_) => {
+				XcmpProcessor::process_message(message, origin, meter, id)
+			},
 			Snowbridge(_) => SnowbridgeProcessor::process_message(message, origin, meter, id),
 			SnowbridgeV2(_) => SnowbridgeProcessorV2::process_message(message, origin, meter, id),
 		}

@@ -20,8 +20,8 @@ use codec::{Decode, Encode};
 
 use polkadot_node_primitives::ErasureChunk;
 use polkadot_primitives::{
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash, Hash,
-	Id as ParaId, PersistedValidationData, UncheckedSignedStatement, ValidatorIndex,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash, Id as ParaId,
+	PersistedValidationData, UncheckedSignedStatement, ValidatorIndex,
 };
 
 use super::{v1, IsRequest, Protocol};
@@ -63,11 +63,11 @@ impl IsRequest for AttestedCandidateRequest {
 /// Responses as sent by collators.
 pub type CollationFetchingResponse = super::v1::CollationFetchingResponse;
 
-/// Request the advertised collation at that relay-parent.
+/// Request the advertised collation at that scheduling-parent.
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct CollationFetchingRequest {
 	/// Relay parent collation is built on top of.
-	pub relay_parent: Hash,
+	pub scheduling_parent: Hash,
 	/// The `ParaId` of the collation.
 	pub para_id: ParaId,
 	/// Candidate hash.

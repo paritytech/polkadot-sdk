@@ -16,12 +16,12 @@
 // limitations under the License.
 
 use crate::{
+	Config,
 	precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile},
 	vm::RuntimeCosts,
-	Config,
 };
 use alloc::vec::Vec;
-use bn::{pairing_batch, AffineG1, AffineG2, Fq, Fq2, Group, Gt, G1, G2};
+use bn::{AffineG1, AffineG2, Fq, Fq2, G1, G2, Group, Gt, pairing_batch};
 use core::{marker::PhantomData, num::NonZero};
 use sp_core::U256;
 use sp_runtime::DispatchError;
@@ -30,7 +30,7 @@ pub struct Bn128Add<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Bn128Add<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(6).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x6).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
@@ -38,7 +38,7 @@ impl<T: Config> PrimitivePrecompile for Bn128Add<T> {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		env.gas_meter_mut().charge(RuntimeCosts::Bn128Add)?;
+		env.frame_meter_mut().charge_weight_token(RuntimeCosts::Bn128Add)?;
 
 		let p1 = read_point(&input, 0)?;
 		let p2 = read_point(&input, 64)?;
@@ -58,7 +58,7 @@ pub struct Bn128Mul<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Bn128Mul<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(7).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x7).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
@@ -66,7 +66,7 @@ impl<T: Config> PrimitivePrecompile for Bn128Mul<T> {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		env.gas_meter_mut().charge(RuntimeCosts::Bn128Mul)?;
+		env.frame_meter_mut().charge_weight_token(RuntimeCosts::Bn128Mul)?;
 
 		let p = read_point(&input, 0)?;
 		let fr = read_fr(&input, 64)?;
@@ -86,7 +86,7 @@ pub struct Bn128Pairing<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Bn128Pairing<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(8).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x8).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
@@ -94,17 +94,18 @@ impl<T: Config> PrimitivePrecompile for Bn128Pairing<T> {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		if input.len() % 192 != 0 {
+		if !input.len().is_multiple_of(192) {
 			Err(DispatchError::from("invalid input length"))?;
 		}
 
 		let ret_val = if input.is_empty() {
-			env.gas_meter_mut().charge(RuntimeCosts::Bn128Pairing(0))?;
+			env.frame_meter_mut().charge_weight_token(RuntimeCosts::Bn128Pairing(0))?;
 			U256::one()
 		} else {
 			// (a, b_a, b_b - each 64-byte affine coordinates)
 			let elements = input.len() / 192;
-			env.gas_meter_mut().charge(RuntimeCosts::Bn128Pairing(elements as u32))?;
+			env.frame_meter_mut()
+				.charge_weight_token(RuntimeCosts::Bn128Pairing(elements as u32))?;
 
 			let mut vals = Vec::new();
 			for i in 0..elements {
@@ -154,11 +155,7 @@ impl<T: Config> PrimitivePrecompile for Bn128Pairing<T> {
 
 			let mul = pairing_batch(&vals);
 
-			if mul == Gt::one() {
-				U256::one()
-			} else {
-				U256::zero()
-			}
+			if mul == Gt::one() { U256::one() } else { U256::zero() }
 		};
 
 		let buf = ret_val.to_big_endian();

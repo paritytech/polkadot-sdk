@@ -188,6 +188,31 @@ pub trait TrieRecorderProvider<H: Hasher> {
 pub trait ProofSizeProvider {
 	/// Returns the storage proof size.
 	fn estimate_encoded_size(&self) -> usize;
+
+	/// Start a transaction.
+	///
+	/// `is_host` is set to `true` when the transaction was started by the host.
+	fn start_transaction(&mut self, is_host: bool) {
+		let _ = is_host;
+	}
+
+	/// Rollback the last transaction.
+	///
+	/// `is_host` is set to `true` when the transaction to rollback was started by the host.
+	///
+	/// If there is no active transaction, the call should be ignored.
+	fn rollback_transaction(&mut self, is_host: bool) {
+		let _ = is_host;
+	}
+
+	/// Commit the last transaction.
+	///
+	/// `is_host` is set to `true` when the transaction to commit was started by the host.
+	///
+	/// If there is no active transaction, the call should be ignored.
+	fn commit_transaction(&mut self, is_host: bool) {
+		let _ = is_host;
+	}
 }
 
 /// TrieDB error over `TrieConfiguration` trait.

@@ -22,12 +22,12 @@ use crate::{
 			AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
 			RuntimeResolver,
 		},
+		spec::DynNodeSpec,
 		types::Block,
 		NodeBlock, NodeExtraArgs,
 	},
 	extra_subcommand::DefaultExtraSubcommands,
 	fake_runtime_api,
-	nodes::DynNodeSpecExt,
 	runtime::BlockNumber,
 };
 use clap::{CommandFactory, FromArgMatches};
@@ -35,11 +35,9 @@ use clap::{CommandFactory, FromArgMatches};
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
-use sc_cli::{CliConfiguration, Result, SubstrateCli};
+use sc_cli::{Result, SubstrateCli};
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
-
-const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 
 /// Structure that can be used in order to provide customizers for different functionalities of the
 /// node binary that is being built using this library.
@@ -63,7 +61,7 @@ impl RunConfig {
 pub fn new_aura_node_spec<Block>(
 	aura_id: AuraConsensusId,
 	extra_args: &NodeExtraArgs,
-) -> Box<dyn DynNodeSpecExt>
+) -> Box<dyn DynNodeSpec>
 where
 	Block: NodeBlock,
 {
@@ -85,15 +83,17 @@ fn new_node_spec(
 	config: &sc_service::Configuration,
 	runtime_resolver: &Box<dyn RuntimeResolverT>,
 	extra_args: &NodeExtraArgs,
-) -> std::result::Result<Box<dyn DynNodeSpecExt>, sc_cli::Error> {
+) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
 	let runtime = runtime_resolver.runtime(config.chain_spec.as_ref())?;
 
 	Ok(match runtime {
 		Runtime::Omni(block_number, consensus) => match (block_number, consensus) {
-			(BlockNumber::U32, Consensus::Aura(aura_id)) =>
-				new_aura_node_spec::<Block<u32>>(aura_id, extra_args),
-			(BlockNumber::U64, Consensus::Aura(aura_id)) =>
-				new_aura_node_spec::<Block<u64>>(aura_id, extra_args),
+			(BlockNumber::U32, Consensus::Aura(aura_id)) => {
+				new_aura_node_spec::<Block<u32>>(aura_id, extra_args)
+			},
+			(BlockNumber::U64, Consensus::Aura(aura_id)) => {
+				new_aura_node_spec::<Block<u64>>(aura_id, extra_args)
+			},
 		},
 	})
 }
@@ -136,7 +136,7 @@ where
 		// Handle the extra, and return - subcommands are self contained,
 		// no need to handle the rest of the CLI or node running.
 		extra.handle(&cmd_config)?;
-		return Ok(())
+		return Ok(());
 	}
 
 	// If matching on the extra subcommands fails, match on the rest of the node CLI as usual.
@@ -190,8 +190,9 @@ where
 				node.prepare_revert_cmd(config, cmd)
 			})
 		},
-		Some(Subcommand::ChainSpecBuilder(cmd)) =>
-			cmd.run().map_err(|err| sc_cli::Error::Application(err.into())),
+		Some(Subcommand::ChainSpecBuilder(cmd)) => {
+			cmd.run().map_err(|err| sc_cli::Error::Application(err.into()))
+		},
 
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -300,21 +301,13 @@ where
 			}
 
 			runner.run_node_until_exit(|config| async move {
+				let node_extra_args = cli.node_extra_args();
 				let node_spec =
-					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
+					new_node_spec(&config, &cmd_config.runtime_resolver, &node_extra_args)?;
 
-				if cli.run.base.is_dev()? {
-					// Set default dev block time to 3000ms if not set.
-					// TODO: take block time from AURA config if set.
-					let dev_block_time = cli.dev_block_time.unwrap_or(DEFAULT_DEV_BLOCK_TIME_MS);
+				if let Some(dev_mode) = cli.dev_mode() {
 					return node_spec
-						.start_manual_seal_node(config, dev_block_time)
-						.map_err(Into::into);
-				}
-
-				if let Some(dev_block_time) = cli.dev_block_time {
-					return node_spec
-						.start_manual_seal_node(config, dev_block_time)
+						.start_dev_node(config, dev_mode, node_extra_args)
 						.map_err(Into::into);
 				}
 

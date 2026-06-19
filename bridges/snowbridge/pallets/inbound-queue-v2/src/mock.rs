@@ -3,16 +3,19 @@
 use super::*;
 
 use crate::{self as inbound_queue_v2};
-use frame_support::{derive_impl, parameter_types, traits::ConstU32};
+use frame_support::{derive_impl, parameter_types};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
 };
-use snowbridge_core::TokenId;
-use snowbridge_inbound_queue_primitives::{v2::MessageToXcm, Log, Proof, VerificationError};
+use snowbridge_core::{ParaId, TokenId};
+use snowbridge_inbound_queue_primitives::{
+	v2::{CreateAssetCallInfo, MessageProcessorError, MessageToXcm, XcmMessageProcessor},
+	Log, Proof, VerificationError,
+};
 use sp_core::H160;
 use sp_runtime::{
-	traits::{IdentityLookup, MaybeConvert},
+	traits::{IdentityLookup, MaybeConvert, TryConvert},
 	BuildStorage,
 };
 use sp_std::{convert::From, default::Default, marker::PhantomData};
@@ -20,6 +23,11 @@ use xcm::{opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
 type Block = frame_system::mocking::MockBlock<Test>;
 use snowbridge_test_utils::mock_rewards::{BridgeReward, MockRewardLedger};
 pub use snowbridge_test_utils::mock_xcm::{MockXcmExecutor, MockXcmSender};
+
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_inbound_queue_primitives::EventFixture;
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -60,7 +68,7 @@ pub struct MockVerifier;
 impl Verifier for MockVerifier {
 	fn verify(log: &Log, _: &Proof) -> Result<(), VerificationError> {
 		if log.address == ERROR_ADDRESS.into() {
-			return Err(VerificationError::InvalidProof)
+			return Err(VerificationError::InvalidProof);
 		}
 		Ok(())
 	}
@@ -71,7 +79,9 @@ const GATEWAY_ADDRESS: [u8; 20] = hex!["b1185ede04202fe62d38f5db72f71e38ff3e8305
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: Config> BenchmarkHelper<T> for Test {
 	// not implemented since the MockVerifier is used for tests
-	fn initialize_storage(_: BeaconHeader, _: H256) {}
+	fn initialize_storage() -> EventFixture {
+		make_register_token_message()
+	}
 }
 
 pub struct MockTokenIdConvert;
@@ -91,41 +101,83 @@ impl<'a, AccountId: Clone + Clone> TryConvert<&'a AccountId, Location>
 }
 
 parameter_types! {
-	pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 11155111 };
+	pub const EthereumNetwork: NetworkId = Ethereum { chain_id: 11155111 };
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 	pub InboundQueueLocation: InteriorLocation = [PalletInstance(84)].into();
-	pub UniversalLocation: InteriorLocation =
-		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1002)].into();
-	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),Parachain(1000)]);
-	pub AssetHubUniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)].into();
 	pub SnowbridgeReward: BridgeReward = BridgeReward::Snowbridge;
-	pub const CreateAssetCall: [u8;2] = [53, 0];
+	pub const CreateAssetCallIndex: [u8;2] = [53, 0];
+	pub const SetReservesCallIndex: [u8;2] = [53, 33];
 	pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
+	pub const LocalNetwork: NetworkId = ByGenesis(WESTEND_GENESIS_HASH);
+	pub CreateAssetCall: CreateAssetCallInfo = CreateAssetCallInfo {
+		create_call: CreateAssetCallIndex::get(),
+		deposit: CreateAssetDeposit::get(),
+		min_balance: 1,
+		set_reserves_call: SetReservesCallIndex::get(),
+	};
+	pub AssetHubParaId: ParaId = ParaId::from(1000);
+	pub TargetLocation: Location = Location::new(1, [Parachain(AssetHubParaId::get().into())]);
+}
+
+pub struct DummyPrefix;
+
+impl MessageProcessor<AccountId> for DummyPrefix {
+	fn can_process_message(_relayer: &AccountId, _message: &Message) -> bool {
+		false
+	}
+
+	fn process_message(
+		_relayer: AccountId,
+		_message: Message,
+	) -> Result<[u8; 32], MessageProcessorError> {
+		panic!("DummyPrefix::process_message shouldn't be called");
+	}
+}
+
+pub struct DummySuffix;
+
+impl MessageProcessor<AccountId> for DummySuffix {
+	fn can_process_message(_relayer: &AccountId, _message: &Message) -> bool {
+		true
+	}
+
+	fn process_message(
+		_relayer: AccountId,
+		_message: Message,
+	) -> Result<[u8; 32], MessageProcessorError> {
+		panic!("DummySuffix::process_message shouldn't be called");
+	}
 }
 
 impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
-	type XcmSender = MockXcmSender;
-	type XcmExecutor = MockXcmExecutor;
 	type GatewayAddress = GatewayAddress;
-	type AssetHubParaId = ConstU32<1000>;
-	type MessageConverter = MessageToXcm<
-		CreateAssetCall,
-		CreateAssetDeposit,
-		EthereumNetwork,
-		InboundQueueLocation,
-		MockTokenIdConvert,
-		GatewayAddress,
-		UniversalLocation,
-		AssetHubFromEthereum,
-		AssetHubUniversalLocation,
-		AccountId,
-	>;
+	// Passively test that the implementation of MessageProcessor trait works correctly for tuple
+	type MessageProcessor = (
+		DummyPrefix,
+		XcmMessageProcessor<
+			Test,
+			MockXcmSender,
+			MockXcmExecutor,
+			MessageToXcm<
+				CreateAssetCall,
+				EthereumNetwork,
+				LocalNetwork,
+				GatewayAddress,
+				InboundQueueLocation,
+				AssetHubParaId,
+				MockTokenIdConvert,
+				AccountId,
+			>,
+			MockAccountLocationConverter<AccountId>,
+			TargetLocation,
+		>,
+		DummySuffix,
+	);
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
 	type WeightInfo = ();
-	type AccountToLocation = MockAccountLocationConverter<AccountId>;
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = MockRewardLedger;
@@ -155,6 +207,7 @@ pub fn mock_event_log() -> Log {
         ],
         // Nonce + Payload
         data: hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000b1185ede04202fe62d38f5db72f71e38ff3e830500000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001a0000000000000000000000000000000000000000000000000000009184e72a0000000000000000000000000000000000000000000000000000000015d3ef798000000000000000000000000000000000000000000000000000000015d3ef798000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000040000000000000000000000000b8ea8cb425d85536b158d661da1ef0895bb92f1d00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").into(),
+        tx_index: 0,
     }
 }
 
@@ -167,6 +220,7 @@ pub fn mock_event_log_invalid_gateway() -> Log {
         ],
         // Nonce + Payload
         data: hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000b1185ede04202fe62d38f5db72f71e38ff3e830500000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001a0000000000000000000000000000000000000000000000000000009184e72a0000000000000000000000000000000000000000000000000000000015d3ef798000000000000000000000000000000000000000000000000000000015d3ef798000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000040000000000000000000000000b8ea8cb425d85536b158d661da1ef0895bb92f1d00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").into(),
+        tx_index: 0,
     }
 }
 
@@ -179,6 +233,7 @@ pub fn mock_event_log_invalid_message() -> Log {
 		],
 		// Nonce + Payload
 		data: hex!("000000000000000000000000000000000000000000000000000000b8ea8cb425d85536b158d661da1ef0895bb92f1d000000000000000000000000000000000000000000000000001dcd6500000000000000000000000000000000000000000000000000000000003b9aca000000000000000000000000000000000000000000000000000000000059682f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002cdeadbeef774667629726ec1fabebcec0d9139bd1c8f72a23deadbeef0000000000000000000000001dcd650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").into(),
+		tx_index: 0,
 	}
 }
 
@@ -222,5 +277,105 @@ pub fn mock_event_log_v2() -> Log {
         ],
         // Nonce + Payload
         data: hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000b1185ede04202fe62d38f5db72f71e38ff3e830500000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001a0000000000000000000000000000000000000000000000000000009184e72a0000000000000000000000000000000000000000000000000000000015d3ef798000000000000000000000000000000000000000000000000000000015d3ef798000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000040000000000000000000000000b8ea8cb425d85536b158d661da1ef0895bb92f1d00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").into(),
+        tx_index: 0,
     }
+}
+
+pub mod exploit {
+	use super::*;
+
+	use frame_support::traits::ConstU32;
+	use hex_literal::hex;
+	use snowbridge_beacon_primitives::{Fork, ForkVersions};
+
+	type Block = frame_system::mocking::MockBlock<ExploitTest>;
+
+	frame_support::construct_runtime!(
+		pub enum ExploitTest
+		{
+			System: frame_system::{Pallet, Call, Storage, Event<T>},
+			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+			EthereumBeaconClient: snowbridge_pallet_ethereum_client::{Pallet, Call, Storage, Event<T>},
+			InboundQueue: inbound_queue_v2::{Pallet, Call, Storage, Event<T>},
+		}
+	);
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	impl frame_system::Config for ExploitTest {
+		type AccountId = AccountId;
+		type Lookup = IdentityLookup<Self::AccountId>;
+		type AccountData = pallet_balances::AccountData<u128>;
+		type Block = Block;
+	}
+
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	impl pallet_balances::Config for ExploitTest {
+		type Balance = Balance;
+		type ExistentialDeposit = ExistentialDeposit;
+		type AccountStore = System;
+	}
+
+	parameter_types! {
+		pub const ChainForkVersions: ForkVersions = ForkVersions {
+			genesis: Fork { version: hex!("00000000"), epoch: 0 },
+			altair: Fork { version: hex!("01000000"), epoch: 0 },
+			bellatrix: Fork { version: hex!("02000000"), epoch: 0 },
+			capella: Fork { version: hex!("03000000"), epoch: 0 },
+			deneb: Fork { version: hex!("04000000"), epoch: 0 },
+			electra: Fork { version: hex!("05000000"), epoch: 0 },
+			fulu: Fork { version: hex!("06000000"), epoch: 100_000_000 },
+		};
+	}
+
+	impl snowbridge_pallet_ethereum_client::Config for ExploitTest {
+		type RuntimeEvent = RuntimeEvent;
+		type ForkVersions = ChainForkVersions;
+		type FreeHeadersInterval = ConstU32<32>;
+		type WeightInfo = ();
+	}
+
+	impl inbound_queue_v2::Config for ExploitTest {
+		type RuntimeEvent = RuntimeEvent;
+		type Verifier = EthereumBeaconClient;
+		type GatewayAddress = GatewayAddress;
+		type MessageProcessor = (
+			DummyPrefix,
+			XcmMessageProcessor<
+				ExploitTest,
+				MockXcmSender,
+				MockXcmExecutor,
+				MessageToXcm<
+					CreateAssetCall,
+					EthereumNetwork,
+					LocalNetwork,
+					GatewayAddress,
+					InboundQueueLocation,
+					AssetHubParaId,
+					MockTokenIdConvert,
+					AccountId,
+				>,
+				MockAccountLocationConverter<AccountId>,
+				TargetLocation,
+			>,
+			DummySuffix,
+		);
+		#[cfg(feature = "runtime-benchmarks")]
+		type Helper = Test;
+		type WeightInfo = ();
+		type RewardKind = BridgeReward;
+		type DefaultRewardKind = SnowbridgeReward;
+		type RewardPayment = MockRewardLedger;
+	}
+
+	pub fn setup() {
+		System::set_block_number(1);
+	}
+
+	pub fn new_tester() -> sp_io::TestExternalities {
+		let storage =
+			frame_system::GenesisConfig::<ExploitTest>::default().build_storage().unwrap();
+		let mut ext: sp_io::TestExternalities = storage.into();
+		ext.execute_with(setup);
+		ext
+	}
 }

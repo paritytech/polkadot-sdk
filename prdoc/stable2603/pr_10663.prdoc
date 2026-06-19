@@ -1,0 +1,11 @@
+title: '[WIP][pallet-revive] replaced binary erc20 fixtures with solidity fixtures'
+doc:
+- audience: Runtime Dev
+  description: fixes https://github.com/paritytech/polkadot-sdk/issues/8566
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch

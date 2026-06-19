@@ -16,6 +16,8 @@
 mod backend;
 mod connected;
 mod db;
+mod persistence;
+mod persistent_db;
 
 use futures::channel::oneshot;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -23,31 +25,34 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use crate::{
 	validator_side_experimental::{
 		common::{
-			PeerInfo, PeerState, Score, CONNECTED_PEERS_LIMIT, CONNECTED_PEERS_PARA_LIMIT,
-			INACTIVITY_DECAY, MAX_STARTUP_ANCESTRY_LOOKBACK, MAX_STORED_SCORES_PER_PARA,
-			VALID_INCLUDED_CANDIDATE_BUMP,
+			PeerInfo, Score, TryAcceptOutcome, CONNECTED_PEERS_LIMIT, CONNECTED_PEERS_PARA_LIMIT,
+			INACTIVITY_DECAY, MAX_STARTUP_ANCESTRY_LOOKBACK, VALID_INCLUDED_CANDIDATE_BUMP,
 		},
-		error::{Error, Result},
+		error::{Error, JfyiError, Result},
 	},
 	LOG_TARGET,
 };
 pub use backend::Backend;
 use connected::ConnectedPeers;
+#[cfg(test)]
 pub use db::Db;
+pub use persistence::PersistenceError;
+pub use persistent_db::PersistentDb;
 use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet},
 	PeerId,
 };
 use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, NetworkBridgeTxMessage},
-	ActivatedLeaf, CollatorProtocolSenderTrait,
+	CollatorProtocolSenderTrait, RuntimeApiError,
 };
 use polkadot_node_subsystem_util::{
-	request_candidate_events, request_candidates_pending_availability, runtime::recv_runtime,
+	request_candidate_events, request_candidates_pending_availability, request_para_ids,
+	runtime::{self, recv_runtime},
 };
 use polkadot_primitives::{
-	vstaging::{CandidateDescriptorVersion, CandidateEvent},
-	BlockNumber, CandidateHash, Hash, Id as ParaId,
+	BlockNumber, CandidateDescriptorVersion, CandidateEvent, CandidateHash, Hash, Id as ParaId,
+	SessionIndex,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -65,34 +70,6 @@ pub enum ReputationUpdateKind {
 }
 
 #[derive(Debug, PartialEq)]
-enum TryAcceptOutcome {
-	Added,
-	// This can hold more than one `PeerId` because before receiving the `Declare` message,
-	// one peer can hold connection slots for multiple paraids.
-	// The set can also be empty if this peer replaced some other peer's slot but that other peer
-	// maintained a connection slot for another para (therefore not disconnected).
-	// The number of peers in the set is bound to the number of scheduled paras.
-	Replaced(HashSet<PeerId>),
-	Rejected,
-}
-
-impl TryAcceptOutcome {
-	fn combine(self, other: Self) -> Self {
-		use TryAcceptOutcome::*;
-		match (self, other) {
-			(Added, Added) => Added,
-			(Rejected, Rejected) => Rejected,
-			(Added, Rejected) | (Rejected, Added) => Added,
-			(Replaced(mut replaced_a), Replaced(replaced_b)) => {
-				replaced_a.extend(replaced_b);
-				Replaced(replaced_a)
-			},
-			(_, Replaced(replaced)) | (Replaced(replaced), _) => Replaced(replaced),
-		}
-	}
-}
-
-#[derive(Debug, PartialEq)]
 enum DeclarationOutcome {
 	Rejected,
 	Switched(ParaId),
@@ -102,6 +79,10 @@ enum DeclarationOutcome {
 pub struct PeerManager<B> {
 	db: B,
 	connected: ConnectedPeers,
+	/// The `SessionIndex` of the last finalized block
+	latest_finalized_session: Option<SessionIndex>,
+	/// Clock used for reputation timestamps (passed to `Backend::process_bumps`).
+	clock: std::sync::Arc<dyn polkadot_node_clock::Clock>,
 }
 
 impl<B: Backend> PeerManager<B> {
@@ -111,6 +92,7 @@ impl<B: Backend> PeerManager<B> {
 		backend: B,
 		sender: &mut Sender,
 		scheduled_paras: BTreeSet<ParaId>,
+		clock: std::sync::Arc<dyn polkadot_node_clock::Clock>,
 	) -> Result<Self> {
 		let mut instance = Self {
 			db: backend,
@@ -119,6 +101,8 @@ impl<B: Backend> PeerManager<B> {
 				CONNECTED_PEERS_LIMIT,
 				CONNECTED_PEERS_PARA_LIMIT,
 			),
+			latest_finalized_session: None,
+			clock,
 		};
 
 		let (latest_finalized_block_number, latest_finalized_block_hash) =
@@ -127,6 +111,15 @@ impl<B: Backend> PeerManager<B> {
 		let processed_finalized_block_number =
 			instance.db.processed_finalized_block_number().await.unwrap_or_default();
 
+		gum::trace!(
+			target: LOG_TARGET,
+			scheduled_paras = ?instance.connected.scheduled_paras().collect::<Vec<_>>(),
+			latest_finalized_block_number,
+			?latest_finalized_block_hash,
+			processed_finalized_block_number,
+			"PeerManager startup"
+		);
+
 		let bumps = extract_reputation_bumps_on_new_finalized_block(
 			sender,
 			processed_finalized_block_number,
@@ -134,7 +127,26 @@ impl<B: Backend> PeerManager<B> {
 		)
 		.await?;
 
-		instance.db.process_bumps(latest_finalized_block_number, bumps, None).await;
+		instance
+			.db
+			.process_bumps(
+				latest_finalized_block_number,
+				bumps,
+				None,
+				instance.clock.duration_since_epoch(),
+			)
+			.await;
+
+		if latest_finalized_block_number != processed_finalized_block_number {
+			gum::trace!(
+				target: LOG_TARGET,
+				blocks_processed = std::cmp::min(
+					latest_finalized_block_number.saturating_sub(processed_finalized_block_number),
+					MAX_STARTUP_ANCESTRY_LOOKBACK
+				),
+				"Startup lookback completed"
+			);
+		}
 
 		Ok(instance)
 	}
@@ -155,15 +167,29 @@ impl<B: Backend> PeerManager<B> {
 		)
 		.await?;
 
+		let now = self.clock.duration_since_epoch();
 		let updates = self
 			.db
-			.process_bumps(
-				finalized_block_number,
-				bumps,
-				Some(Score::new(INACTIVITY_DECAY).expect("INACTIVITY_DECAY is a valid score")),
-			)
+			.process_bumps(finalized_block_number, bumps, Some(Score::new(INACTIVITY_DECAY)), now)
 			.await;
+
+		if !updates.is_empty() {
+			gum::debug!(
+				target: LOG_TARGET,
+				finalized_block_number,
+				?finalized_block_hash,
+				num_updates = updates.len(),
+				"Applying reputation updates on new finalized block",
+			);
+		}
+
 		for update in updates {
+			gum::trace!(
+				target: LOG_TARGET,
+				finalized_block_number,
+				?update,
+				"Applying reputation update",
+			);
 			self.connected.update_reputation(update);
 		}
 
@@ -171,27 +197,62 @@ impl<B: Backend> PeerManager<B> {
 	}
 
 	/// Process the registered paras and cleanup all data pertaining to any unregistered paras, if
-	/// any. Should be called every N finalized block notifications, since it's expected that para
-	/// deregistrations are rare.
-	pub async fn registered_paras_update(&mut self, registered_paras: BTreeSet<ParaId>) {
-		// Tell the DB to cleanup paras that are no longer registered. No need to clean up the
-		// connected peers state, since it will get automatically cleaned up as the claim queue
-		// gets rid of these stale assignments.
+	/// any. Should be called every finalized block. Only queries the registered paras once per
+	/// session since they can only change at session boundaries.
+	pub async fn prune_registered_paras<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+		finalized_session: SessionIndex,
+		finalized_hash: Hash,
+	) {
+		let needs_update = self
+			.latest_finalized_session
+			.map(|last_stored| last_stored < finalized_session)
+			.unwrap_or(true);
+
+		if !needs_update {
+			return;
+		}
+
+		self.latest_finalized_session = Some(finalized_session);
+
+		let registered_paras = match recv_runtime(
+			request_para_ids(finalized_hash, finalized_session, sender).await,
+		)
+		.await
+		{
+			Ok(registered_paras) => registered_paras.into_iter().collect(),
+			Err(runtime::Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					"Using a runtime which does not support querying the registered paras, this should not be used in production with the `--enable-experimental-collator-protocol` flag."
+				);
+				return;
+			},
+			Err(err) => {
+				JfyiError::Runtime(err).log();
+				return;
+			},
+		};
+
+		// Tell the DB to cleanup paras that are no longer registered. No need to clean
+		// up the connected peers state, since it will get automatically cleaned up
+		// as the claim queue gets rid of these stale assignments.
 		self.db.prune_paras(registered_paras).await;
 	}
 
-	/// Process a potential change of the scheduled paras.
+	/// Process a potential change of the scheduled paras. Returns a record of the disconnected
+	/// peers.
 	pub async fn scheduled_paras_update<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
 		scheduled_paras: BTreeSet<ParaId>,
-	) {
-		let mut prev_scheduled_paras: BTreeSet<_> =
-			self.connected.scheduled_paras().copied().collect();
+	) -> HashSet<PeerId> {
+		let prev_scheduled_paras: BTreeSet<_> = self.connected.scheduled_paras().copied().collect();
 
 		if prev_scheduled_paras == scheduled_paras {
 			// Nothing to do if the scheduled paras didn't change.
-			return
+			return HashSet::new();
 		}
 
 		// Recreate the connected peers based on the new schedule and try populating it again based
@@ -236,19 +297,25 @@ impl<B: Backend> PeerManager<B> {
 		}
 
 		// Disconnect peers that couldn't be kept.
-		self.disconnect_peers(sender, peers_to_disconnect).await;
+		self.disconnect_peers(sender, peers_to_disconnect.clone().into_iter()).await;
+
+		peers_to_disconnect
 	}
 
 	/// Process a declaration message of a peer.
+	///
+	/// Returns a `bool` indicating whether the operation was successful.
 	pub async fn declared<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
 		peer_id: PeerId,
 		para_id: ParaId,
-	) {
-		let Some(peer_info) = self.connected.peer_info(&peer_id).cloned() else { return };
-		let outcome = self.connected.declared(peer_id, para_id);
+	) -> bool {
+		if self.connected.peer_info(&peer_id).is_none() {
+			return false;
+		}
 
+		let outcome = self.connected.declared(peer_id, para_id);
 		match outcome {
 			DeclarationOutcome::Accepted => {
 				gum::debug!(
@@ -257,6 +324,7 @@ impl<B: Backend> PeerManager<B> {
 					?peer_id,
 					"Peer declared",
 				);
+				true
 			},
 			DeclarationOutcome::Switched(old_para_id) => {
 				gum::debug!(
@@ -264,10 +332,10 @@ impl<B: Backend> PeerManager<B> {
 					?para_id,
 					?old_para_id,
 					?peer_id,
-					"Peer switched collating paraid. Trying to accept it on the new one.",
+					"Peer switched collating paraid. Rejected.",
 				);
-
-				self.try_accept_connection(sender, peer_id, peer_info).await;
+				self.disconnect_peers(sender, [peer_id].into_iter()).await;
+				false
 			},
 			DeclarationOutcome::Rejected => {
 				gum::debug!(
@@ -277,7 +345,8 @@ impl<B: Backend> PeerManager<B> {
 					"Peer declared but rejected. Going to disconnect.",
 				);
 
-				self.disconnect_peers(sender, [peer_id].into_iter().collect()).await;
+				self.disconnect_peers(sender, [peer_id].into_iter()).await;
+				false
 			},
 		}
 	}
@@ -306,13 +375,13 @@ impl<B: Backend> PeerManager<B> {
 		self.connected.remove(peer_id);
 	}
 
-	/// A connection was made, triage it. Return whether or not is was kept.
+	/// A connection was made, triage it.
 	pub async fn try_accept_connection<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
 		peer_id: PeerId,
 		peer_info: PeerInfo,
-	) -> bool {
+	) -> TryAcceptOutcome {
 		let db = &self.db;
 		let reputation_query_fn = |peer_id: PeerId, para_id: ParaId| async move {
 			// Go straight to the DB. We only store in-memory the reputations of connected peers.
@@ -320,27 +389,15 @@ impl<B: Backend> PeerManager<B> {
 		};
 
 		let outcome = self.connected.try_accept(reputation_query_fn, peer_id, peer_info).await;
-
 		match outcome {
-			TryAcceptOutcome::Added => true,
+			TryAcceptOutcome::Added => TryAcceptOutcome::Added,
 			TryAcceptOutcome::Replaced(other_peers) => {
-				gum::trace!(
-					target: LOG_TARGET,
-					"Peer {:?} replaced the connection slots of other peers: {:?}",
-					peer_id,
-					&other_peers
-				);
-				self.disconnect_peers(sender, other_peers).await;
-				true
+				self.disconnect_peers(sender, other_peers.clone().into_iter()).await;
+				TryAcceptOutcome::Replaced(other_peers)
 			},
 			TryAcceptOutcome::Rejected => {
-				gum::debug!(
-					target: LOG_TARGET,
-					?peer_id,
-					"Peer connection was rejected",
-				);
-				self.disconnect_peers(sender, [peer_id].into_iter().collect()).await;
-				false
+				self.disconnect_peers(sender, [peer_id].into_iter()).await;
+				TryAcceptOutcome::Rejected
 			},
 		}
 	}
@@ -350,11 +407,35 @@ impl<B: Backend> PeerManager<B> {
 		self.connected.peer_score(peer_id, para_id)
 	}
 
+	/// Retrieve the peer info associated to this PeerId, if any.
+	pub fn peer_info(&self, peer_id: &PeerId) -> Option<&PeerInfo> {
+		self.connected.peer_info(peer_id)
+	}
+
+	/// Retrieve the max scores for the given paras.
+	pub async fn max_scores_for_paras(&self, paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score> {
+		self.db.max_scores_for_paras(paras).await
+	}
+
+	/// Returns the number of connected peers.
+	pub fn connected_peer_count(&self) -> usize {
+		self.connected.len()
+	}
+
+	#[cfg(test)]
+	pub fn connected_peers(&self) -> BTreeSet<PeerId> {
+		self.connected.clone().consume().0.into_keys().collect()
+	}
+
 	async fn disconnect_peers<Sender: CollatorProtocolSenderTrait>(
 		&self,
 		sender: &mut Sender,
-		peers: HashSet<PeerId>,
+		peers: impl Iterator<Item = PeerId>,
 	) {
+		let peers: Vec<_> = peers.collect();
+		if peers.is_empty() {
+			return;
+		}
 		gum::trace!(
 			target: LOG_TARGET,
 			?peers,
@@ -362,11 +443,29 @@ impl<B: Backend> PeerManager<B> {
 		);
 
 		sender
-			.send_message(NetworkBridgeTxMessage::DisconnectPeers(
-				peers.into_iter().collect(),
-				PeerSet::Collation,
-			))
+			.send_message(NetworkBridgeTxMessage::DisconnectPeers(peers, PeerSet::Collation))
 			.await;
+	}
+
+	pub fn get_peer_protocol_version(&self, peer_id: &PeerId) -> Option<CollationVersion> {
+		self.connected.get_version(peer_id)
+	}
+}
+
+impl PeerManager<PersistentDb> {
+	/// Persist the reputation database to disk asynchronously (fire-and-forget).
+	pub fn persist_to_disk_async(&mut self) {
+		self.db.persist_async(None);
+	}
+
+	/// Persist and wait for the background writer to finish the write.
+	pub async fn persist_and_wait(&mut self) {
+		if self.db.persist_and_wait().await.is_err() {
+			gum::error!(
+				target: LOG_TARGET,
+				"Failed to persist reputation DB: background writer closed"
+			);
+		}
 	}
 }
 
@@ -416,7 +515,7 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 			"Peer manager stored finalized block number {} is higher than the latest finalized block.",
 			processed_finalized_block_number,
 		);
-		return Ok(BTreeMap::new())
+		return Ok(BTreeMap::new());
 	}
 
 	let ancestry_len = std::cmp::min(
@@ -425,18 +524,19 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 	);
 
 	if ancestry_len == 0 {
-		return Ok(BTreeMap::new())
+		return Ok(BTreeMap::new());
 	}
 
 	let mut ancestors =
 		get_ancestors(sender, ancestry_len as usize, latest_finalized_block_hash).await?;
-	ancestors.push(latest_finalized_block_hash);
 	ancestors.reverse();
+	ancestors.push(latest_finalized_block_hash);
 
 	gum::trace!(
 		target: LOG_TARGET,
 		?latest_finalized_block_hash,
 		processed_finalized_block_number,
+		ancestors_len = ancestors.len(),
 		"Processing reputation bumps for finalized relay parent {} and its {} ancestors",
 		latest_finalized_block_number,
 		ancestry_len
@@ -448,12 +548,41 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 	for i in 1..ancestors.len() {
 		let rp = ancestors[i];
 		let parent_rp = ancestors[i - 1];
-		let candidate_events = recv_runtime(request_candidate_events(rp, sender).await).await?;
+
+		gum::trace!(
+			target: LOG_TARGET,
+			relay_parent=?rp,
+			"request_candidate_events"
+		);
+
+		let candidate_events = match recv_runtime(request_candidate_events(rp, sender).await).await
+		{
+			Ok(candidate_events) => candidate_events,
+			Err(e) => {
+				gum::trace!(
+					target: LOG_TARGET,
+					relay_parent=?rp,
+					err=?e,
+					"Error fetching candidate events for reputation bump extraction"
+				);
+				// `ancestors` are reversed so their order is from oldest to newest
+				// (`get_ancestors()` returns newest -> oldest, but they are reversed after that).
+				// So if this runtime call fails, the next one has got a better chance in
+				// succeeding.
+				continue;
+			},
+		};
 
 		for event in candidate_events {
 			if let CandidateEvent::CandidateIncluded(receipt, _, _, _) = event {
-				// Only v2 receipts can contain UMP signals.
-				if receipt.descriptor.version() == CandidateDescriptorVersion::V2 {
+				// Only v2+ receipts can contain UMP signals.
+				// Assuming node feature set here is fine, misinterpretations are harmless in this
+				// context:
+				let has_ump_signals = match receipt.descriptor.version() {
+					CandidateDescriptorVersion::V1 => false,
+					_ => true,
+				};
+				if has_ump_signals {
 					v2_candidates_per_rp
 						.entry(parent_rp)
 						.or_default()
@@ -469,9 +598,22 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 	let mut updates: BTreeMap<ParaId, HashMap<PeerId, Score>> = BTreeMap::new();
 	for (rp, per_para) in v2_candidates_per_rp {
 		for (para_id, included_candidates) in per_para {
-			let candidates_pending_availability =
-				recv_runtime(request_candidates_pending_availability(rp, para_id, sender).await)
-					.await?;
+			let candidates_pending_availability = match recv_runtime(
+				request_candidates_pending_availability(rp, para_id, sender).await,
+			)
+			.await
+			{
+				Ok(c) => c,
+				Err(err) => {
+					gum::warn!(target: LOG_TARGET,
+					relay_parent=?rp,
+					?para_id,
+					?err,
+					"Failed to get candidates pending availability. Skipping score bumps for the para id",
+					);
+					continue;
+				},
+			};
 
 			for candidate in candidates_pending_availability {
 				let candidate_hash = candidate.hash();

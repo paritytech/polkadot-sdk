@@ -50,23 +50,21 @@ impl SubstrateCli for Cli {
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
 			"dev" | "" => Box::new(chain_spec::development_chain_spec()?),
-			path =>
-				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
+			path => {
+				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
+			},
 		})
 	}
 }
 
-/// Parse and run command line arguments
 pub fn run() -> sc_cli::Result<()> {
-	let mut args = std::env::args_os().collect::<Vec<_>>();
-	if args.len() == 1 {
-		args.push("--dev".into());
-		if std::env::var("RUST_LOG").is_err() {
-			args.push("--log=error,sc_rpc_server=info,runtime::revive=debug".into());
-		}
-	}
+	let args = std::env::args_os().map(|s| s.to_string_lossy().to_string()).collect::<Vec<_>>();
+	return run_with_args(args);
+}
 
-	let cli = Cli::from_iter(args);
+/// Parse and run command line arguments
+pub fn run_with_args(args: Vec<String>) -> sc_cli::Result<()> {
+	let mut cli = Cli::from_iter(args);
 
 	match &cli.subcommand {
 		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
@@ -88,6 +86,10 @@ pub fn run() -> sc_cli::Result<()> {
 				let PartialComponents { client, task_manager, .. } = service::new_partial(&config)?;
 				Ok((cmd.run(client, config.database), task_manager))
 			})
+		},
+		Some(Subcommand::ExportChainSpec(cmd)) => {
+			let chain_spec = cli.load_spec(&cmd.chain)?;
+			cmd.run(chain_spec)
 		},
 		Some(Subcommand::ExportState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -121,12 +123,33 @@ pub fn run() -> sc_cli::Result<()> {
 			runner.sync_run(|config| cmd.run::<revive_dev_runtime::OpaqueBlock>(&config))
 		},
 		None => {
+			// Enforce dev
+			cli.run.shared_params.dev = true;
+
+			// Increase max_response_size for large trace responses
+			cli.run.rpc_params.rpc_max_response_size =
+				cli.run.rpc_params.rpc_max_response_size.max(50);
+
+			// Pass Default logging settings if none are specified
+			if std::env::var("RUST_LOG").is_err() && cli.run.shared_params.log.is_empty() {
+				cli.run.shared_params.log = "error,sc_rpc_server=info,runtime::revive=debug"
+					.split(',')
+					.map(|s| s.to_string())
+					.collect();
+			}
+
+			// Enforce single-state pool-type if instant-seal is selected
+			if matches!(cli.consensus, crate::cli::Consensus::InstantSeal) {
+				cli.run.pool_config.pool_type = sc_cli::TransactionPoolType::SingleState
+			}
 			let runner = cli.create_runner(&cli.run)?;
+
 			runner.run_node_until_exit(|config| async move {
 				match config.network.network_backend {
-					sc_network::config::NetworkBackendType::Libp2p =>
+					sc_network::config::NetworkBackendType::Libp2p => {
 						service::new_full::<sc_network::NetworkWorker<_, _>>(config, cli.consensus)
-							.map_err(sc_cli::Error::Service),
+							.map_err(sc_cli::Error::Service)
+					},
 					sc_network::config::NetworkBackendType::Litep2p => service::new_full::<
 						sc_network::Litep2pNetworkBackend,
 					>(config, cli.consensus)

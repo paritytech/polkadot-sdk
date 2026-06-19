@@ -16,6 +16,7 @@
 
 #![cfg(test)]
 
+use crate::bridge_common_config::BridgeRewardBeneficiaries;
 use bp_messages::LegacyLaneId;
 use bp_polkadot_core::Signature;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
@@ -61,7 +62,10 @@ use sp_runtime::{
 	AccountId32, Either, Perbill,
 };
 use testnet_parachains_constants::westend::{consensus::*, fee::WeightToFee};
-use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
+use xcm::{
+	latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+	VersionedLocation,
+};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 // Random para id of sibling chain used in tests.
@@ -250,6 +254,7 @@ fn handle_export_message_from_system_parachain_add_to_outbound_queue_works() {
 			Runtime,
 			XcmConfig,
 			WithBridgeHubRococoMessagesInstance,
+			LocationToAccountId,
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
@@ -717,6 +722,8 @@ pub fn bridge_rewards_works() {
 			assert_ok!(Balances::mint_into(&expected_reward1_account, ExistentialDeposit::get()));
 			assert_ok!(Balances::mint_into(&expected_reward1_account, reward1.into()));
 			assert_ok!(Balances::mint_into(&account1, ExistentialDeposit::get()));
+			// To pay for delivery to AH when claiming the reward on BH
+			assert_ok!(Balances::mint_into(&account2, ExistentialDeposit::get() * 10000));
 
 			// register rewards
 			use bp_relayers::RewardLedger;
@@ -758,11 +765,31 @@ pub fn bridge_rewards_works() {
 				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::NoRewardForRelayer
 			);
 
-			// not yet implemented for Snowbridge
+			// Local account claiming is not supported for Snowbridge
 			assert_err!(
 				BridgeRelayers::claim_rewards(
 					RuntimeOrigin::signed(account2.clone()),
 					BridgeReward::Snowbridge
+				),
+				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::FailedToPayReward
+			);
+
+			let claim_location = VersionedLocation::V5(Location::new(
+				1,
+				[
+					Parachain(1000),
+					xcm::latest::Junction::AccountId32 {
+						id: account2.clone().into(),
+						network: None,
+					},
+				],
+			));
+			// In unit tests without proper HRMP channel setup, the claim will fail at XCM sending.
+			assert_err!(
+				BridgeRelayers::claim_rewards_to(
+					RuntimeOrigin::signed(account2.clone()),
+					BridgeReward::Snowbridge,
+					BridgeRewardBeneficiaries::AssetHubLocation(claim_location)
 				),
 				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::FailedToPayReward
 			);
@@ -787,15 +814,16 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(GovernanceOrigin::Location(Location::new(1, Parachain(ASSET_HUB_ID)))));
-	// no - Collectives
+	// no - Collectives (passes barrier as system parachain, but not root)
 	assert_err!(
 		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
 			Runtime,
 			RuntimeOrigin,
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(COLLECTIVES_ID)))),
-		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
+		Either::Right(InstructionError { index: 1, error: XcmError::BadOrigin })
 	);
-	// no - Collectives Voice of Fellows plurality
+	// no - Collectives Voice of Fellows plurality (bridge-hub has no FellowsPlurality
+	// in its barrier, so the descended origin is rejected)
 	assert_err!(
 		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
 			Runtime,
@@ -818,4 +846,74 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(Governance::get()));
+}
+
+#[test]
+fn tx_fees_go_to_accumulation_account() {
+	let alice = AccountId::from(Alice);
+	let accumulation_account =
+		pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account();
+	let ed = ExistentialDeposit::get();
+
+	run_test::<Runtime, _>(
+		collator_session_keys(),
+		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		vec![(alice.clone(), 100 * ed), (accumulation_account.clone(), ed)],
+		|| {
+			let alice_before = <Balances as Inspect<AccountId>>::balance(&alice);
+			let accumulation_before =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
+			let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
+
+			let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+			let xt = construct_extrinsic(Alice, call);
+			assert_ok!(Executive::apply_extrinsic(xt).unwrap());
+
+			let alice_after = <Balances as Inspect<AccountId>>::balance(&alice);
+			let fee_paid = alice_before - alice_after;
+			assert!(fee_paid > 0, "a fee should have been paid");
+
+			let accumulation_after =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
+			let issuance_after = <Balances as Inspect<AccountId>>::total_issuance();
+
+			assert_eq!(accumulation_after, accumulation_before + fee_paid);
+			assert_eq!(issuance_before, issuance_after);
+		},
+	);
+}
+
+#[test]
+fn dust_removal_goes_to_accumulation_account() {
+	let alice = AccountId::from(Alice);
+	let bob = AccountId::from(Bob);
+	let accumulation_account =
+		pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account();
+	let ed = ExistentialDeposit::get();
+	let dust = ed / 2;
+
+	run_test::<Runtime, _>(
+		collator_session_keys(),
+		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		vec![
+			(alice.clone(), 100 * ed),
+			(bob.clone(), ed + dust),
+			(accumulation_account.clone(), ed),
+		],
+		|| {
+			let accumulation_before =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
+
+			assert_ok!(Balances::transfer_allow_death(
+				RuntimeOrigin::signed(bob.clone()),
+				alice.clone().into(),
+				ed,
+			));
+
+			let accumulation_after =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
+			assert_eq!(accumulation_after, accumulation_before + dust);
+			assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
+		},
+	);
 }

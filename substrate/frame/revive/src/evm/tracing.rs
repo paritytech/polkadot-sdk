@@ -15,11 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	evm::{CallTrace, Trace},
+	Config,
+	evm::{CallTrace, ExecutionTrace, Trace},
 	tracing::Tracing,
-	BalanceOf, Bounded, Config, MomentOf, Weight,
 };
-use sp_core::{H256, U256};
 
 mod call_tracing;
 pub use call_tracing::*;
@@ -27,20 +26,22 @@ pub use call_tracing::*;
 mod prestate_tracing;
 pub use prestate_tracing::*;
 
+mod execution_tracing;
+pub use execution_tracing::*;
+
 /// A composite tracer.
 #[derive(derive_more::From, Debug)]
 pub enum Tracer<T> {
 	/// A tracer that traces calls.
-	CallTracer(CallTracer<U256, fn(Weight) -> U256>),
+	CallTracer(CallTracer),
 	/// A tracer that traces the prestate.
 	PrestateTracer(PrestateTracer<T>),
+	/// A tracer that traces opcodes and syscalls.
+	ExecutionTracer(ExecutionTracer),
 }
 
 impl<T: Config> Tracer<T>
 where
-	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 	T::Nonce: Into<u32>,
 {
 	/// Returns an empty trace.
@@ -48,6 +49,7 @@ where
 		match self {
 			Tracer::CallTracer(_) => CallTrace::default().into(),
 			Tracer::PrestateTracer(tracer) => tracer.empty_trace().into(),
+			Tracer::ExecutionTracer(_) => ExecutionTrace::default().into(),
 		}
 	}
 
@@ -56,14 +58,21 @@ where
 		match self {
 			Tracer::CallTracer(inner) => inner as &mut dyn Tracing,
 			Tracer::PrestateTracer(inner) => inner as &mut dyn Tracing,
+			Tracer::ExecutionTracer(inner) => inner as &mut dyn Tracing,
 		}
 	}
 
 	/// Collect the traces and return them.
-	pub fn collect_trace(&mut self) -> Option<Trace> {
+	pub fn collect_trace(self) -> Option<Trace> {
 		match self {
 			Tracer::CallTracer(inner) => inner.collect_trace().map(Trace::Call),
 			Tracer::PrestateTracer(inner) => Some(inner.collect_trace().into()),
+			Tracer::ExecutionTracer(inner) => Some(inner.collect_trace().into()),
 		}
+	}
+
+	/// Check if this is an execution tracer.
+	pub fn is_execution_tracer(&self) -> bool {
+		matches!(self, Tracer::ExecutionTracer(_))
 	}
 }

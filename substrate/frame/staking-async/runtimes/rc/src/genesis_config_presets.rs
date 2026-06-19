@@ -26,7 +26,7 @@ use alloc::{string::ToString, vec, vec::Vec};
 use core::panic;
 use frame_support::build_struct_json_patch;
 use pallet_staking_async_rc_runtime_constants::currency::UNITS as WND;
-use polkadot_primitives::{AccountId, AssignmentId, SchedulerParams, ValidatorId};
+use polkadot_primitives::{vstaging::SchedulerParams, AccountId, AssignmentId, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
@@ -96,18 +96,20 @@ fn default_parachains_host_configuration(
 	};
 
 	polkadot_runtime_parachains::configuration::HostConfiguration {
+		// Important configs are equal to what is on Polkadot. These configs can be tweaked to mimic
+		// different VMP congestion scenarios.
+		max_downward_message_size: 51200,
+		max_upward_message_size: 65531,
+		max_upward_message_num_per_candidate: 16,
+		max_upward_queue_count: 174762,
+		max_upward_queue_size: 1048576,
+
 		validation_upgrade_cooldown: 2u32,
 		validation_upgrade_delay: 2,
 		code_retention_period: 1200,
 		max_code_size: MAX_CODE_SIZE,
 		max_pov_size: MAX_POV_SIZE,
 		max_head_data_size: 32 * 1024,
-		max_upward_queue_count: 8,
-		max_upward_queue_size: 1024 * 1024,
-		// NOTE: these can be tweaked to mimic the XCM message splitting.
-		max_downward_message_size: 1024 * 1024,
-		max_upward_message_size: 50 * 1024,
-		max_upward_message_num_per_candidate: 5,
 		hrmp_sender_deposit: 0,
 		hrmp_recipient_deposit: 0,
 		hrmp_channel_max_capacity: 8,
@@ -138,6 +140,7 @@ fn default_parachains_host_configuration(
 			paras_availability_period: 4,
 			..Default::default()
 		},
+		max_relay_parent_session_age: 0,
 		approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 5 },
 		..Default::default()
 	}

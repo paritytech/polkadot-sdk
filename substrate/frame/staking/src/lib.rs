@@ -319,19 +319,19 @@ use frame_support::{
 		ConstU32, Contains, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
 	},
 	weights::Weight,
-	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	BoundedVec, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	traits::{AtLeast32BitUnsigned, Convert, StaticLookup, Zero},
-	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
+	Debug, Perbill, Perquintill, Rounding, Saturating,
 };
 use sp_staking::{
 	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
 	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
 };
-pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
+pub use sp_staking::{EraPayout, Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
@@ -375,15 +375,7 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 
 /// Information regarding the active era (era in used in session).
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
-	PartialEq,
-	Eq,
+	Encode, Decode, DecodeWithMemTracking, Clone, Debug, TypeInfo, MaxEncodedLen, PartialEq, Eq,
 )]
 pub struct ActiveEraInfo {
 	/// Index of era.
@@ -398,7 +390,7 @@ pub struct ActiveEraInfo {
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators and their respective nominators.
-#[derive(Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, Clone, PartialEq, Eq)]
 pub struct EraRewardPoints<AccountId: Ord> {
 	/// Total number of points. Equals the sum of reward points for each validator.
 	pub total: RewardPoint,
@@ -421,7 +413,7 @@ impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -448,7 +440,7 @@ pub enum RewardDestination<AccountId> {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	Default,
 	MaxEncodedLen,
@@ -466,15 +458,7 @@ pub struct ValidatorPrefs {
 
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
 #[derive(
-	PartialEq,
-	Eq,
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Amount of funds to be unlocked.
@@ -501,7 +485,7 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -607,7 +591,7 @@ impl<T: Config> StakingLedger<T> {
 		// first we try to remove stake from active
 		if self.active >= to_withdraw {
 			self.active -= to_withdraw;
-			return self
+			return self;
 		} else {
 			withdrawn += self.active;
 			self.active = BalanceOf::<T>::zero();
@@ -625,7 +609,7 @@ impl<T: Config> StakingLedger<T> {
 			}
 
 			if withdrawn >= to_withdraw {
-				break
+				break;
 			}
 		}
 
@@ -652,7 +636,7 @@ impl<T: Config> StakingLedger<T> {
 			}
 
 			if unlocking_balance >= value {
-				break
+				break;
 			}
 		}
 
@@ -689,7 +673,7 @@ impl<T: Config> StakingLedger<T> {
 		slash_era: EraIndex,
 	) -> BalanceOf<T> {
 		if slash_amount.is_zero() {
-			return Zero::zero()
+			return Zero::zero();
 		}
 
 		use sp_runtime::PerThing as _;
@@ -782,7 +766,7 @@ impl<T: Config> StakingLedger<T> {
 		let mut slashed_unlocking = BTreeMap::<_, _>::new();
 		for i in slash_chunks_priority {
 			if remaining_slash.is_zero() {
-				break
+				break;
 			}
 
 			if let Some(chunk) = self.unlocking.get_mut(i).defensive() {
@@ -790,7 +774,7 @@ impl<T: Config> StakingLedger<T> {
 				// write the new slashed value of this chunk to the map.
 				slashed_unlocking.insert(chunk.era, chunk.value);
 			} else {
-				break
+				break;
 			}
 		}
 
@@ -816,7 +800,7 @@ impl<T: Config> StakingLedger<T> {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -840,7 +824,7 @@ pub struct Nominations<T: Config> {
 ///
 /// This is useful where we need to take into account the validator's own stake and total exposure
 /// in consideration, in addition to the individual nominators backing them.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, TypeInfo, PartialEq, Eq)]
 pub struct PagedExposure<AccountId, Balance: HasCompact + codec::MaxEncodedLen> {
 	exposure_metadata: PagedExposureMetadata<Balance>,
 	exposure_page: ExposurePage<AccountId, Balance>,
@@ -885,7 +869,7 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq, Clone, DecodeWithMemTracking)]
+#[derive(Encode, Decode, Debug, TypeInfo, PartialEq, Eq, Clone, DecodeWithMemTracking)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
 	/// The stash ID of the offending validator.
 	pub validator: AccountId,
@@ -993,33 +977,10 @@ impl<AccountId> SessionInterface<AccountId> for () {
 	}
 }
 
-/// Handler for determining how much of a balance should be paid out on the current era.
-pub trait EraPayout<Balance> {
-	/// Determine the payout for this era.
-	///
-	/// Returns the amount to be paid to stakers in this era, as well as whatever else should be
-	/// paid out ("the rest").
-	fn era_payout(
-		total_staked: Balance,
-		total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance);
-}
-
-impl<Balance: Default> EraPayout<Balance> for () {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		(Default::default(), Default::default())
-	}
-}
-
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
 pub struct ConvertCurve<T>(core::marker::PhantomData<T>);
-impl<Balance, T> EraPayout<Balance> for ConvertCurve<T>
+impl<Balance, T> sp_staking::EraPayout<Balance> for ConvertCurve<T>
 where
 	Balance: AtLeast32BitUnsigned + Clone + Copy,
 	T: Get<&'static PiecewiseLinear<'static>>,
@@ -1050,7 +1011,7 @@ where
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -1176,7 +1137,7 @@ where
 	}
 }
 
-/// Wrapper struct for Era related information. It is not a pure encapsulation as these storage
+/// Wrapper struct for Era-related information. It is not a pure encapsulation as these storage
 /// items can be accessed directly but nevertheless, its recommended to use `EraInfo` where we
 /// can and add more functions to it as needed.
 pub struct EraInfo<T>(core::marker::PhantomData<T>);
@@ -1192,7 +1153,7 @@ impl<T: Config> EraInfo<T> {
 				1
 			} else {
 				// if no exposure, then no rewards to claim.
-				return false
+				return false;
 			}
 		};
 
@@ -1201,7 +1162,7 @@ impl<T: Config> EraInfo<T> {
 			.map(|l| l.legacy_claimed_rewards.contains(&era))
 			.unwrap_or_default()
 		{
-			return false
+			return false;
 		}
 
 		ClaimedRewards::<T>::get(era, validator).len() < page_count as usize
@@ -1245,12 +1206,12 @@ impl<T: Config> EraInfo<T> {
 		// return clipped exposure if page zero and paged exposure does not exist
 		// exists for backward compatibility and can be removed as part of #13034
 		if overview.is_none() && page == 0 {
-			return Some(PagedExposure::from_clipped(<ErasStakersClipped<T>>::get(era, validator)))
+			return Some(PagedExposure::from_clipped(<ErasStakersClipped<T>>::get(era, validator)));
 		}
 
 		// no exposure for this validator
 		if overview.is_none() {
-			return None
+			return None;
 		}
 
 		let overview = overview.expect("checked above; qed");
@@ -1259,7 +1220,7 @@ impl<T: Config> EraInfo<T> {
 		let validator_stake = if page == 0 { overview.own } else { Zero::zero() };
 
 		// since overview is present, paged exposure will always be present except when a
-		// validator has only own stake and no nominator stake.
+		// validator only has its own stake and no nominator stake.
 		let exposure_page = <ErasStakersPaged<T>>::get((era, validator, page)).unwrap_or_default();
 
 		// build the exposure
@@ -1277,7 +1238,7 @@ impl<T: Config> EraInfo<T> {
 		let overview = <ErasStakersOverview<T>>::get(&era, validator);
 
 		if overview.is_none() {
-			return ErasStakers::<T>::get(era, validator)
+			return ErasStakers::<T>::get(era, validator);
 		}
 
 		let overview = overview.expect("checked above; qed");
@@ -1322,7 +1283,7 @@ impl<T: Config> EraInfo<T> {
 				Ok(_) => None,
 				// Non-paged exposure is considered as a single page
 				Err(_) => Some(0),
-			}
+			};
 		}
 
 		// Find next claimable page of paged exposure.
@@ -1346,16 +1307,16 @@ impl<T: Config> EraInfo<T> {
 		<ErasValidatorPrefs<T>>::get(&era, validator_stash).commission
 	}
 
-	/// Creates an entry to track validator reward has been claimed for a given era and page.
-	/// Noop if already claimed.
+	/// Creates an entry to track whether validator reward has been claimed for a given era and
+	/// page. Noop if already claimed.
 	pub(crate) fn set_rewards_as_claimed(era: EraIndex, validator: &T::AccountId, page: Page) {
 		let mut claimed_pages = ClaimedRewards::<T>::get(era, validator);
 
 		// this should never be called if the reward has already been claimed
 		if claimed_pages.contains(&page) {
 			defensive!("Trying to set an already claimed reward");
-			// nevertheless don't do anything since the page already exist in claimed rewards.
-			return
+			// nevertheless don't do anything since the page already exists in claimed rewards.
+			return;
 		}
 
 		// add page to claimed entries

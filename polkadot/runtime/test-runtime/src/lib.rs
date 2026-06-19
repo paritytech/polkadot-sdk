@@ -31,7 +31,7 @@ use codec::Encode;
 use pallet_transaction_payment::FungibleAdapter;
 
 use polkadot_runtime_parachains::{
-	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
+	configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
@@ -39,7 +39,7 @@ use polkadot_runtime_parachains::{
 	initializer as parachains_initializer, on_demand as parachains_on_demand,
 	origin as parachains_origin, paras as parachains_paras,
 	paras_inherent as parachains_paras_inherent,
-	runtime_api_impl::{v11 as runtime_impl, vstaging as staging_runtime_impl},
+	runtime_api_impl::{v13 as runtime_impl, vstaging as staging_runtime_impl},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
@@ -60,20 +60,16 @@ use pallet_session::historical as session_historical;
 use pallet_timestamp::Now;
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_primitives::{
-	slashing,
-	vstaging::{
-		async_backing::Constraints, CandidateEvent,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
-	},
-	AccountId, AccountIndex, Balance, BlockNumber, CandidateHash, CoreIndex, DisputeState,
-	ExecutorParams, GroupRotationInfo, Hash as HashT, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData,
+	async_backing::Constraints, slashing, AccountId, AccountIndex, Balance, BlockNumber,
+	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash as HashT,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment, Nonce,
+	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
 	SessionInfo as SessionInfoData, Signature, ValidationCode, ValidationCodeHash, ValidatorId,
 	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
 use polkadot_runtime_common::{
-	claims, impl_runtime_weights, paras_sudo_wrapper, BlockHashCount, BlockLength,
-	SlowAdjustingFeeUpdate,
+	claims, impl_runtime_weights, paras_sudo_wrapper, BlockHashCount, SlowAdjustingFeeUpdate,
 };
 use polkadot_runtime_parachains::reward_points::RewardValidatorsWithEraPoints;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -152,6 +148,15 @@ sp_api::decl_runtime_apis! {
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub const SS58Prefix: u8 = 42;
+	/// Maximum length of a relay-chain block is up to 10 MiB.
+	pub BlockLength: frame_system::limits::BlockLength =
+		frame_system::limits::BlockLength::builder()
+			.max_length(10 * 1024 * 1024)
+			.modify_max_length_for_class(
+				frame_support::dispatch::DispatchClass::Normal,
+				|m| { *m = polkadot_runtime_common::NORMAL_DISPATCH_RATIO * *m },
+			)
+			.build();
 }
 
 #[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig)]
@@ -611,7 +616,7 @@ impl parachains_paras::Config for Runtime {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
-	type AssignCoretime = CoretimeAssignmentProvider;
+	type AssignCoretime = Scheduler;
 	type Fungible = Balances;
 	type CooldownRemovalMultiplier = ConstUint<1>;
 	type AuthorizeCurrentCodeOrigin = frame_system::EnsureRoot<AccountId>;
@@ -664,11 +669,7 @@ impl parachains_on_demand::Config for Runtime {
 	type PalletId = OnDemandPalletId;
 }
 
-impl parachains_assigner_coretime::Config for Runtime {}
-
-impl parachains_scheduler::Config for Runtime {
-	type AssignmentProvider = CoretimeAssignmentProvider;
-}
+impl parachains_scheduler::Config for Runtime {}
 
 pub struct DummyXcmSender;
 impl SendXcm for DummyXcmSender {
@@ -839,8 +840,7 @@ construct_runtime! {
 		Xcm: pallet_xcm,
 		ParasDisputes: parachains_disputes,
 		ParasSlashing: parachains_slashing,
-		OnDemandAssignmentProvider: parachains_on_demand,
-		CoretimeAssignmentProvider: parachains_assigner_coretime,
+		OnDemand: parachains_on_demand,
 		Coretime: coretime,
 
 		Sudo: pallet_sudo,
@@ -899,7 +899,7 @@ sp_api::impl_runtime_apis! {
 			VERSION
 		}
 
-		fn execute_block(block: Block) {
+		fn execute_block(block: <Block as BlockT>::LazyBlock) {
 			Executive::execute_block(block);
 		}
 
@@ -936,7 +936,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn check_inherents(
-			block: Block,
+			block: <Block as BlockT>::LazyBlock,
 			data: sp_inherents::InherentData,
 		) -> sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(&block)
@@ -965,7 +965,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(14)]
+	#[api_version(16)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			runtime_impl::validators::<Runtime>()
@@ -1071,8 +1071,13 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn unapplied_slashes(
-		) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
+		) -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)> {
 			runtime_impl::unapplied_slashes::<Runtime>()
+		}
+
+		fn unapplied_slashes_v2(
+		) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
+			runtime_impl::unapplied_slashes_v2::<Runtime>()
 		}
 
 		fn key_ownership_proof(
@@ -1099,7 +1104,7 @@ sp_api::impl_runtime_apis! {
 			runtime_impl::minimum_backing_votes::<Runtime>()
 		}
 
-		fn para_backing_state(para_id: ParaId) -> Option<polkadot_primitives::vstaging::async_backing::BackingState> {
+		fn para_backing_state(para_id: ParaId) -> Option<polkadot_primitives::async_backing::BackingState> {
 			#[allow(deprecated)]
 			runtime_impl::backing_state::<Runtime>(para_id)
 		}
@@ -1130,22 +1135,34 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn backing_constraints(para_id: ParaId) -> Option<Constraints> {
-			staging_runtime_impl::backing_constraints::<Runtime>(para_id)
+			runtime_impl::backing_constraints::<Runtime>(para_id)
 		}
 
 		fn scheduling_lookahead() -> u32 {
-			staging_runtime_impl::scheduling_lookahead::<Runtime>()
+			runtime_impl::scheduling_lookahead::<Runtime>()
 		}
 
 		fn validation_code_bomb_limit() -> u32 {
-			staging_runtime_impl::validation_code_bomb_limit::<Runtime>()
+			runtime_impl::validation_code_bomb_limit::<Runtime>()
 		}
 
 		fn para_ids() -> Vec<ParaId> {
 			staging_runtime_impl::para_ids::<Runtime>()
 		}
+
+		fn max_relay_parent_session_age() -> u32 {
+			staging_runtime_impl::max_relay_parent_session_age::<Runtime>()
+		}
+
+		fn ancestor_relay_parent_info(
+			session_index: SessionIndex,
+			relay_parent: Hash,
+		) -> Option<polkadot_primitives::vstaging::RelayParentInfo<Hash, BlockNumber>> {
+			staging_runtime_impl::ancestor_relay_parent_info::<Runtime>(session_index, relay_parent)
+		}
 	}
 
+	#[api_version(6)]
 	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			// dummy implementation due to lack of BEEFY pallet.
@@ -1193,15 +1210,9 @@ sp_api::impl_runtime_apis! {
 		) -> Option<sp_consensus_beefy::OpaqueKeyOwnershipProof> {
 			None
 		}
-
-		fn generate_ancestry_proof(
-			_prev_block_number: BlockNumber,
-			_best_known_block_number: Option<BlockNumber>,
-		) -> Option<sp_runtime::OpaqueValue> {
-			None
-		}
 	}
 
+	#[api_version(3)]
 	impl mmr::MmrApi<Block, Hash, BlockNumber> for Runtime {
 		fn mmr_root() -> Result<Hash, mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
@@ -1215,6 +1226,13 @@ sp_api::impl_runtime_apis! {
 			_block_numbers: Vec<BlockNumber>,
 			_best_known_block_number: Option<BlockNumber>,
 		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::LeafProof<Hash>), mmr::Error> {
+			Err(mmr::Error::PalletNotIncluded)
+		}
+
+		fn generate_ancestry_proof(
+			_prev_block_number: BlockNumber,
+			_best_known_block_number: Option<BlockNumber>,
+		) -> Result<mmr::AncestryProof<Hash>, mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
 		}
 
@@ -1301,8 +1319,8 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, seed).into()
 		}
 
 		fn decode_session_keys(

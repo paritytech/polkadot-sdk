@@ -15,10 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{deposit_limit, GAS_LIMIT};
+use super::{ETH_GAS_LIMIT, WEIGHT_LIMIT, deposit_limit};
 use crate::{
-	address::AddressMapper, AccountIdOf, BalanceOf, BumpNonce, Code, Config, ContractResult,
-	DepositLimit, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight, U256,
+	AccountIdOf, BalanceOf, Code, Config, ContractResult, ExecConfig, ExecReturnValue,
+	InstantiateReturnValue, OriginFor, Pallet, U256, Weight, address::AddressMapper,
+	evm::TransactionSigned, metering::TransactionLimits,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
@@ -33,14 +34,43 @@ macro_rules! builder {
         $($extra:item)*
 	) => {
 		paste!{
-			builder!([< $method:camel Builder >], $method($($field: $type,)* ) -> $result; $($extra)*);
+			builder!(with_builder_fn, [< $method:camel Builder >], $method($($field: $type,)* ) -> $result; $($extra)*);
+		}
+	};
+	(
+		$full_expand:path,
+		$method:ident($($field:ident: $type:ty,)*) -> $result:ty;
+        $($extra:item)*
+	) => {
+		paste!{
+			builder!($full_expand, [< $method:camel Builder >], $method($($field: $type,)* ) -> $result; $($extra)*);
 		}
 	};
 	// Generate the builder struct and its methods.
 	(
+		with_builder_fn,
 		$name:ident,
 		$method:ident($($field:ident: $type:ty,)*) -> $result:ty;
         $($extra:item)*
+	) => {
+		builder!(without_builder_fn, $name, $method($($field: $type,)* ) -> $result; $($extra)*);
+
+		#[allow(dead_code)]
+		impl<T: Config> $name<T> {
+			#[doc = concat!("Build the ", stringify!($method), " call")]
+			pub fn build(self) -> $result {
+				Pallet::<T>::$method(
+					$(self.$field,)*
+				)
+			}
+		}
+	};
+	// Generate the builder struct and its methods.
+	(
+		without_builder_fn,
+		$name:ident,
+		$method:ident($($field:ident: $type:ty,)*) -> $result:ty;
+		$($extra:item)*
 	) => {
 		#[doc = concat!("A builder to construct a ", stringify!($method), " call")]
 		pub struct $name<T: Config> {
@@ -48,12 +78,7 @@ macro_rules! builder {
 		}
 
 		#[allow(dead_code)]
-		impl<T: Config> $name<T>
-		where
-			BalanceOf<T>: Into<sp_core::U256> + TryFrom<sp_core::U256>,
-			crate::MomentOf<T>: Into<sp_core::U256>,
-			T::Hash: frame_support::traits::IsType<sp_core::H256>,
-		{
+		impl<T: Config> $name<T> {
 			$(
 				#[doc = concat!("Set the ", stringify!($field))]
 				pub fn $field(mut self, value: $type) -> Self {
@@ -62,16 +87,9 @@ macro_rules! builder {
 				}
 			)*
 
-			#[doc = concat!("Build the ", stringify!($method), " call")]
-			pub fn build(self) -> $result {
-				Pallet::<T>::$method(
-					$(self.$field,)*
-				)
-			}
-
-            $($extra)*
+			$($extra)*
 		}
-	}
+	};
 }
 
 pub struct Contract<T: Config> {
@@ -83,7 +101,7 @@ builder!(
 	instantiate_with_code(
 		origin: OriginFor<T>,
 		value: BalanceOf<T>,
-		gas_limit: Weight,
+		weight_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		code: Vec<u8>,
 		data: Vec<u8>,
@@ -95,7 +113,7 @@ builder!(
 		Self {
 			origin,
 			value: 0u32.into(),
-			gas_limit: GAS_LIMIT,
+			weight_limit: WEIGHT_LIMIT,
 			storage_deposit_limit: deposit_limit::<T>(),
 			code,
 			data: vec![],
@@ -108,7 +126,7 @@ builder!(
 	instantiate(
 		origin: OriginFor<T>,
 		value: BalanceOf<T>,
-		gas_limit: Weight,
+		weight_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		code_hash: sp_core::H256,
 		data: Vec<u8>,
@@ -120,7 +138,7 @@ builder!(
 		Self {
 			origin,
 			value: 0u32.into(),
-			gas_limit: GAS_LIMIT,
+			weight_limit: WEIGHT_LIMIT,
 			storage_deposit_limit: deposit_limit::<T>(),
 			code_hash,
 			data: vec![],
@@ -130,17 +148,41 @@ builder!(
 );
 
 builder!(
+	without_builder_fn,
 	bare_instantiate(
 		origin: OriginFor<T>,
 		evm_value: U256,
-		gas_limit: Weight,
-		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
+		transaction_limits: TransactionLimits<T>,
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		bump_nonce: BumpNonce,
+		exec_config: ExecConfig<T>,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>>;
 
+	pub fn constructor_data(mut self, data: Vec<u8>) -> Self {
+		match self.code {
+			Code::Upload(ref mut code) if !code.starts_with(&polkavm_common::program::BLOB_MAGIC) => {
+				code.extend_from_slice(&data);
+				self
+			},
+			_ => {
+				self.data(data)
+			}
+		}
+	}
+
+	/// Build the "bare_instantiate" call
+	pub fn build(self) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
+		Pallet::<T>::bare_instantiate(
+			self.origin,
+			self.evm_value,
+			self.transaction_limits,
+			self.code,
+			self.data,
+			self.salt,
+			&self.exec_config
+		)
+	}
 	/// Set the call's evm_value using a native_value amount.
 	pub fn native_value(mut self, value: BalanceOf<T>) -> Self {
 		self.evm_value = Pallet::<T>::convert_native_to_evm(value);
@@ -167,12 +209,14 @@ builder!(
 		Self {
 			origin,
 			evm_value: Default::default(),
-			gas_limit: GAS_LIMIT,
-			storage_deposit_limit: DepositLimit::Balance(deposit_limit::<T>()),
+			transaction_limits: TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: deposit_limit::<T>()
+			},
 			code,
 			data: vec![],
 			salt: Some([0; 32]),
-			bump_nonce: BumpNonce::Yes,
+			exec_config: ExecConfig::new_substrate_tx(),
 		}
 	}
 );
@@ -182,7 +226,7 @@ builder!(
 		origin: OriginFor<T>,
 		dest: H160,
 		value: BalanceOf<T>,
-		gas_limit: Weight,
+		weight_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
 	) -> DispatchResultWithPostInfo;
@@ -193,7 +237,7 @@ builder!(
 			origin,
 			dest,
 			value: 0u32.into(),
-			gas_limit: GAS_LIMIT,
+			weight_limit: WEIGHT_LIMIT,
 			storage_deposit_limit: deposit_limit::<T>(),
 			data: vec![],
 		}
@@ -201,14 +245,27 @@ builder!(
 );
 
 builder!(
+	without_builder_fn,
 	bare_call(
 		origin: OriginFor<T>,
 		dest: H160,
 		evm_value: U256,
-		gas_limit: Weight,
-		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
+		transaction_limits: TransactionLimits<T>,
 		data: Vec<u8>,
+		exec_config: ExecConfig<T>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>>;
+
+	/// Build the "bare_call" call
+	pub fn build(self) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
+		Pallet::<T>::bare_call(
+			self.origin,
+			self.dest,
+			self.evm_value,
+			self.transaction_limits,
+			self.data,
+			&self.exec_config
+		)
+	}
 
 	/// Set the call's evm_value using a native_value amount.
 	pub fn native_value(mut self, value: BalanceOf<T>) -> Self {
@@ -227,9 +284,12 @@ builder!(
 			origin,
 			dest,
 			evm_value: Default::default(),
-			gas_limit: GAS_LIMIT,
-			storage_deposit_limit: DepositLimit::Balance(deposit_limit::<T>()),
+			transaction_limits: TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: deposit_limit::<T>()
+			},
 			data: vec![],
+			exec_config: ExecConfig::new_substrate_tx(),
 		}
 	}
 );
@@ -239,9 +299,12 @@ builder!(
 		origin: OriginFor<T>,
 		dest: H160,
 		value: U256,
-		gas_limit: Weight,
-		storage_deposit_limit: BalanceOf<T>,
+		weight_limit: Weight,
+		eth_gas_limit: U256,
 		data: Vec<u8>,
+		transaction_encoded: Vec<u8>,
+		effective_gas_price: U256,
+		encoded_len: u32,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`EthCallBuilder`] with default values.
@@ -250,9 +313,41 @@ builder!(
 			origin,
 			dest,
 			value: 0u32.into(),
-			gas_limit: GAS_LIMIT,
-			storage_deposit_limit: deposit_limit::<T>(),
+			weight_limit: WEIGHT_LIMIT,
+			eth_gas_limit: ETH_GAS_LIMIT.into(),
 			data: vec![],
+			transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default()).signed_payload(),
+			effective_gas_price: 0u32.into(),
+			encoded_len: 0,
+		}
+	}
+);
+
+builder!(
+	eth_instantiate_with_code(
+			origin: OriginFor<T>,
+			value: U256,
+			gas_limit: Weight,
+			eth_gas_limit: U256,
+			code: Vec<u8>,
+			data: Vec<u8>,
+			transaction_encoded: Vec<u8>,
+			effective_gas_price: U256,
+			encoded_len: u32,
+	) -> DispatchResultWithPostInfo;
+
+	/// Create a [`EthInstantiateWithCodeBuilder`] with default values.
+	pub fn eth_instantiate_with_code(origin: OriginFor<T>, code: Vec<u8>) -> Self {
+		Self {
+			origin,
+			value: 0u32.into(),
+			gas_limit: WEIGHT_LIMIT,
+			eth_gas_limit: ETH_GAS_LIMIT.into(),
+			code,
+			data: vec![],
+			transaction_encoded: TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
+			effective_gas_price: 0u32.into(),
+			encoded_len: 0,
 		}
 	}
 );

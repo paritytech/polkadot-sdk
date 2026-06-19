@@ -137,6 +137,9 @@ impl<'de> Deserialize<'de> for Public {
 /// An Schnorrkel/Ristretto x25519 ("sr25519") signature.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Sr25519Tag>;
 
+/// Proof of Possession is the same as Signature for sr25519
+pub type ProofOfPossession = Signature;
+
 #[cfg(feature = "full_crypto")]
 impl From<schnorrkel::Signature> for Signature {
 	fn from(s: schnorrkel::Signature) -> Signature {
@@ -204,6 +207,7 @@ impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
 	type Signature = Signature;
+	type ProofOfPossession = ProofOfPossession;
 
 	/// Get the public key.
 	fn public(&self) -> Public {
@@ -516,25 +520,34 @@ pub mod vrf {
 			NotMarkedSchnorrkel => "Signature error: `NotMarkedSchnorrkel`".into(),
 			BytesLengthError { .. } => "Signature error: `BytesLengthError`".into(),
 			InvalidKey => "Signature error: `InvalidKey`".into(),
-			MuSigAbsent { musig_stage: Commitment } =>
-				"Signature error: `MuSigAbsent` at stage `Commitment`".into(),
-			MuSigAbsent { musig_stage: Reveal } =>
-				"Signature error: `MuSigAbsent` at stage `Reveal`".into(),
-			MuSigAbsent { musig_stage: Cosignature } =>
-				"Signature error: `MuSigAbsent` at stage `Commitment`".into(),
-			MuSigInconsistent { musig_stage: Commitment, duplicate: true } =>
-				"Signature error: `MuSigInconsistent` at stage `Commitment` on duplicate".into(),
-			MuSigInconsistent { musig_stage: Commitment, duplicate: false } =>
-				"Signature error: `MuSigInconsistent` at stage `Commitment` on not duplicate".into(),
-			MuSigInconsistent { musig_stage: Reveal, duplicate: true } =>
-				"Signature error: `MuSigInconsistent` at stage `Reveal` on duplicate".into(),
-			MuSigInconsistent { musig_stage: Reveal, duplicate: false } =>
-				"Signature error: `MuSigInconsistent` at stage `Reveal` on not duplicate".into(),
-			MuSigInconsistent { musig_stage: Cosignature, duplicate: true } =>
-				"Signature error: `MuSigInconsistent` at stage `Cosignature` on duplicate".into(),
-			MuSigInconsistent { musig_stage: Cosignature, duplicate: false } =>
+			MuSigAbsent { musig_stage: Commitment } => {
+				"Signature error: `MuSigAbsent` at stage `Commitment`".into()
+			},
+			MuSigAbsent { musig_stage: Reveal } => {
+				"Signature error: `MuSigAbsent` at stage `Reveal`".into()
+			},
+			MuSigAbsent { musig_stage: Cosignature } => {
+				"Signature error: `MuSigAbsent` at stage `Commitment`".into()
+			},
+			MuSigInconsistent { musig_stage: Commitment, duplicate: true } => {
+				"Signature error: `MuSigInconsistent` at stage `Commitment` on duplicate".into()
+			},
+			MuSigInconsistent { musig_stage: Commitment, duplicate: false } => {
+				"Signature error: `MuSigInconsistent` at stage `Commitment` on not duplicate".into()
+			},
+			MuSigInconsistent { musig_stage: Reveal, duplicate: true } => {
+				"Signature error: `MuSigInconsistent` at stage `Reveal` on duplicate".into()
+			},
+			MuSigInconsistent { musig_stage: Reveal, duplicate: false } => {
+				"Signature error: `MuSigInconsistent` at stage `Reveal` on not duplicate".into()
+			},
+			MuSigInconsistent { musig_stage: Cosignature, duplicate: true } => {
+				"Signature error: `MuSigInconsistent` at stage `Cosignature` on duplicate".into()
+			},
+			MuSigInconsistent { musig_stage: Cosignature, duplicate: false } => {
 				"Signature error: `MuSigInconsistent` at stage `Cosignature` on not duplicate"
-					.into(),
+					.into()
+			},
 		}
 	}
 
@@ -923,10 +936,17 @@ mod tests {
 
 	#[test]
 	fn good_proof_of_possession_should_work_bad_proof_of_possession_should_fail() {
+		let owner = b"owner";
+		let not_owner = b"not owner";
+
 		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
-		let proof_of_possession = pair.generate_proof_of_possession();
-		assert!(Pair::verify_proof_of_possession(&proof_of_possession, &pair.public()));
-		assert!(!Pair::verify_proof_of_possession(&proof_of_possession, &other_pair.public()));
+		let proof_of_possession = pair.generate_proof_of_possession(owner);
+		assert!(Pair::verify_proof_of_possession(owner, &proof_of_possession, &pair.public()));
+		assert_eq!(
+			Pair::verify_proof_of_possession(owner, &proof_of_possession, &other_pair.public()),
+			false
+		);
+		assert!(!Pair::verify_proof_of_possession(not_owner, &proof_of_possession, &pair.public()));
 	}
 }

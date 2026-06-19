@@ -42,7 +42,7 @@ use polkadot_cli::{
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_types::{ChainApiBackend, OverseerSignal, RuntimeApiSubsystemClient};
 use polkadot_node_subsystem_util::request_candidate_events;
-use polkadot_primitives::vstaging::CandidateEvent;
+use polkadot_primitives::CandidateEvent;
 use sp_core::traits::SpawnNamed;
 
 // Filter wrapping related types.
@@ -54,7 +54,7 @@ use std::sync::Arc;
 /// Listens to finalization messages and if possible triggers disputes for their ancestors.
 #[derive(Clone)]
 struct AncestorDisputer<Spawner> {
-	spawner: Spawner, //stores the actual ApprovalVotingSubsystem spawner
+	spawner: Spawner, // stores the actual ApprovalVotingSubsystem spawner
 	dispute_offset: u32, /* relative depth of the disputed block to the finalized block,
 	                   * 0=finalized, 1=parent of finalized etc */
 }
@@ -83,12 +83,12 @@ where
 					"😈 Block Finalization Interception! Block: {:?}", finalized_hash,
 				);
 
-				//Ensure that the chain is long enough for the target ancestor to exist
+				// Ensure that the chain is long enough for the target ancestor to exist
 				if finalized_height <= self.dispute_offset {
 					return Some(FromOrchestra::Signal(OverseerSignal::BlockFinalized(
 						finalized_hash,
 						finalized_height,
-					)))
+					)));
 				}
 
 				let dispute_offset = self.dispute_offset;
@@ -118,7 +118,7 @@ where
 									target: MALUS,
 									"😈 Seems the target is not yet finalized! Nothing to dispute."
 								);
-								return // Early return from the async block
+								return; // Early return from the async block
 							},
 						};
 
@@ -132,14 +132,14 @@ where
 									target: MALUS,
 									"😈 Failed to fetch candidate events: {:?}", e
 								);
-								return // Early return from the async block
+								return; // Early return from the async block
 							},
 							Err(e) => {
 								gum::error!(
 									target: MALUS,
 									"😈 Failed to fetch candidate events: {:?}", e
 								);
-								return // Early return from the async block
+								return; // Early return from the async block
 							},
 						};
 
@@ -148,14 +148,15 @@ where
 							matches!(event, CandidateEvent::CandidateIncluded(_, _, _, _))
 						});
 						let candidate = match event {
-							Some(CandidateEvent::CandidateIncluded(candidate, _, _, _)) =>
-								candidate,
+							Some(CandidateEvent::CandidateIncluded(candidate, _, _, _)) => {
+								candidate
+							},
 							_ => {
 								gum::error!(
 									target: MALUS,
 									"😈 No candidate included event found! Nothing to dispute."
 								);
-								return // Early return from the async block
+								return; // Early return from the async block
 							},
 						};
 
@@ -177,7 +178,7 @@ where
 									target: MALUS,
 									"😈 Failed to fetch session index for candidate."
 								);
-								return // Early return from the async block
+								return; // Early return from the async block
 							},
 						};
 						gum::info!(

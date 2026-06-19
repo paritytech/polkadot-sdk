@@ -21,9 +21,9 @@ pub use prometheus_endpoint::{
 	register, Counter, CounterVec, Gauge, GaugeVec, Opts, PrometheusError, Registry, F64, I64, U64,
 };
 
-use async_std::sync::{Arc, RwLock};
 use async_trait::async_trait;
-use std::{fmt::Debug, time::Duration};
+use std::{fmt::Debug, sync::Arc, time::Duration};
+use tokio::sync::RwLock;
 
 mod float_json_value;
 mod global;
@@ -82,11 +82,11 @@ pub trait StandaloneMetric: Metric {
 
 	/// Spawn the self update task that will keep update metric value at given intervals.
 	fn spawn(self) {
-		async_std::task::spawn(async move {
+		tokio::spawn(async move {
 			let update_interval = self.update_interval();
 			loop {
 				self.update().await;
-				async_std::task::sleep(update_interval).await;
+				tokio::time::sleep(update_interval).await;
 			}
 		});
 	}
@@ -121,12 +121,12 @@ impl MetricsParams {
 		)?
 		.set(1);
 
-		log::info!(
+		tracing::info!(
 			target: "bridge",
-			"Exposed {} metric: version={} commit={}",
-			BUILD_INFO_METRIC,
-			relay_version,
-			relay_commit,
+			metric=%BUILD_INFO_METRIC,
+			version=%relay_version,
+			commit=%relay_commit,
+			"Exposed metric"
 		);
 
 		Ok(MetricsParams { address, registry })
@@ -163,28 +163,28 @@ pub fn set_gauge_value<T: Default + Debug, V: Atomic<T = T>, E: Debug>(
 ) {
 	gauge.set(match value {
 		Ok(Some(value)) => {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge-metrics",
-				"Updated value of metric '{:?}': {:?}",
-				gauge.desc().first().map(|d| &d.fq_name),
-				value,
+				metric=?gauge.desc().first().map(|d| &d.fq_name),
+				?value,
+				"Updated value"
 			);
 			value
 		},
 		Ok(None) => {
-			log::warn!(
+			tracing::warn!(
 				target: "bridge-metrics",
-				"Failed to update metric '{:?}': value is empty",
-				gauge.desc().first().map(|d| &d.fq_name),
+				metric=?gauge.desc().first().map(|d| &d.fq_name),
+				"Failed to update: value is empty"
 			);
 			Default::default()
 		},
 		Err(error) => {
-			log::warn!(
+			tracing::warn!(
 				target: "bridge-metrics",
-				"Failed to update metric '{:?}': {:?}",
-				gauge.desc().first().map(|d| &d.fq_name),
-				error,
+				?error,
+				metric=?gauge.desc().first().map(|d| &d.fq_name),
+				"Failed to update"
 			);
 			Default::default()
 		},

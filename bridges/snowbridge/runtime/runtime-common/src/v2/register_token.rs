@@ -38,14 +38,14 @@ where
 	) -> Result<Self::Success, RuntimeOrigin> {
 		let origin_location = EnsureXcm::<Everything, L>::try_origin(origin.clone())?;
 		if !IsForeign::contains(asset_location, &origin_location) {
-			return Err(origin)
+			return Err(origin);
 		}
 		let asset_location: Location = asset_location.clone().into();
 		let owner = AssetInspect::owner(asset_location.into());
 		let location: Location = origin_location.clone().into();
 		let from = LocationToAccountId::convert_location(&location);
 		if from != owner {
-			return Err(origin)
+			return Err(origin);
 		}
 		Ok(location.into())
 	}
@@ -87,7 +87,7 @@ where
 		let asset_id = MatchAssetId::convert(asset_location).ok_or(origin.clone())?;
 		let owner = AssetInspect::owner(asset_id.into()).ok_or(origin.clone())?;
 		if who != owner {
-			return Err(origin)
+			return Err(origin);
 		}
 		Ok(who.into())
 	}

@@ -17,10 +17,13 @@
 
 //! This contract tests the storage APIs. It sets and clears storage values using the different
 //! versions of the storage APIs.
+
 #![no_std]
 #![no_main]
 
 include!("../panic_handler.rs");
+include!("../sol_utils.rs");
+
 use uapi::{HostFn, HostFnImpl as api, StorageFlags};
 
 #[no_mangle]
@@ -36,9 +39,9 @@ fn test_storage_operations(flags: StorageFlags) {
 	small_value_padded[1] = 6;
 	small_value_padded[2] = 7;
 
-	api::clear_storage(flags, &KEY);
+	clear_storage::<api>(flags, &KEY);
 
-	assert_eq!(api::contains_storage(flags, &KEY), None);
+	assert_eq!(contains_storage::<api>(flags, &KEY), None);
 
 	let existing = api::set_storage_or_clear(flags, &KEY, &VALUE_A);
 	assert_eq!(existing, None);
@@ -54,7 +57,7 @@ fn test_storage_operations(flags: StorageFlags) {
 	api::get_storage_or_zero(flags, &KEY, &mut cleared);
 	assert_eq!(cleared, ZERO);
 
-	assert_eq!(api::contains_storage(flags, &KEY), None);
+	assert_eq!(contains_storage::<api>(flags, &KEY), None);
 
 	// Test retrieving a value smaller than 32 bytes
 	api::set_storage_or_clear(flags, &KEY, &small_value_padded);
@@ -69,7 +72,7 @@ fn test_storage_operations(flags: StorageFlags) {
 	}
 
 	// Clean up
-	api::clear_storage(flags, &KEY);
+	clear_storage::<api>(flags, &KEY);
 }
 
 #[no_mangle]

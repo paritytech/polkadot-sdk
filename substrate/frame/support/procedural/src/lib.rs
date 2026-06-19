@@ -34,6 +34,7 @@ mod pallet;
 mod pallet_error;
 mod runtime;
 mod storage_alias;
+mod stored;
 mod transactional;
 mod tt_macro;
 
@@ -193,7 +194,6 @@ pub fn construct_runtime(input: TokenStream) -> TokenStream {
 	construct_runtime::construct_runtime(input)
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet`.
@@ -290,7 +290,6 @@ pub fn transactional(attr: TokenStream, input: TokenStream) -> TokenStream {
 	transactional::transactional(attr, input).unwrap_or_else(|e| e.to_compile_error().into())
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::require_transactional`.
@@ -314,47 +313,6 @@ pub fn derive_clone_no_bound(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(DebugNoBound)]
 pub fn derive_debug_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::debug::derive_debug_no_bound(input)
-}
-
-/// Derive [`Debug`], if `std` is enabled it uses `frame_support::DebugNoBound`, if `std` is not
-/// enabled it just returns `"<wasm:stripped>"`.
-/// This behaviour is useful to prevent bloating the runtime WASM blob from unneeded code.
-#[proc_macro_derive(RuntimeDebugNoBound)]
-pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
-	let try_runtime_or_std_impl: proc_macro2::TokenStream =
-		no_bound::debug::derive_debug_no_bound(input.clone()).into();
-
-	let stripped_impl = {
-		let input = syn::parse_macro_input!(input as syn::DeriveInput);
-
-		let name = &input.ident;
-		let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-
-		quote::quote!(
-			const _: () = {
-				impl #impl_generics ::core::fmt::Debug for #name #ty_generics #where_clause {
-					fn fmt(&self, fmt: &mut ::core::fmt::Formatter) -> core::fmt::Result {
-						fmt.write_str("<wasm:stripped>")
-					}
-				}
-			};
-		)
-	};
-
-	let frame_support = match generate_access_from_frame_or_crate("frame-support") {
-		Ok(frame_support) => frame_support,
-		Err(e) => return e.to_compile_error().into(),
-	};
-
-	quote::quote!(
-		#frame_support::try_runtime_or_std_enabled! {
-			#try_runtime_or_std_impl
-		}
-		#frame_support::try_runtime_and_std_not_enabled! {
-			#stripped_impl
-		}
-	)
-	.into()
 }
 
 /// Derive [`PartialEq`] but do not bound any generic.
@@ -465,7 +423,6 @@ pub fn __create_tt_macro(input: TokenStream) -> TokenStream {
 	tt_macro::create_tt_return_macro(input)
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::storage_alias`.
@@ -474,6 +431,55 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 	storage_alias::storage_alias(attributes.into(), input.into())
 		.unwrap_or_else(|r| r.into_compile_error())
 		.into()
+}
+
+/// Attribute macro for simplifying storage type definitions with consistent field-based bounding.
+///
+/// Derives the implementation of `Encode`, `Decode`, `DecodeWithMemTracking`, `MaxEncodedLen`,
+/// `Clone`, `PartialEq`, `Eq`, `Debug` and `TypeInfo.
+///
+/// Automatically extracts field types and applies derives with bounds on those fields, ensuring
+/// consistent behavior across all traits. Supports both structs and enums.
+///
+/// Directly recursive types are not supported.
+///
+/// # Example
+///
+/// ```ignore
+/// #[frame_support::stored]
+/// pub struct Foo<F, F2> {
+///     f: F,
+///     f2: Vec<F2>,
+/// }
+/// ```
+///
+/// In this example, the macro will automatically apply field-based bounds to `F` and `F2`
+/// (requiring them to implement `Clone`, `Eq`, `PartialEq`, `Debug`, `TypeInfo`, `Codec`, etc.)
+/// without requiring the user to manually specify them on the generic parameters.
+///
+/// For pallet storage, you can of course still use generics, in this example bound `T::Balance`
+/// and not `T` as the bounds are applied to the fields.
+///
+/// ```ignore
+/// # trait ABCD {
+/// #     type Balance;
+/// # }
+/// #[frame_support::stored]
+/// pub struct AccountData<T: ABCD> {
+///     pub free: T::Balance,
+///     pub reserved: T::Balance,
+/// }
+/// ```
+///
+/// By default the type params are skipped, because they are rarely used. But to not skip them
+/// an attribute can used as follows:
+/// ```ignore
+/// #[frame_support::stored(no_skip_type_params)]
+/// pub struct Bar<T>(T);
+/// ```
+#[proc_macro_attribute]
+pub fn stored(attr: TokenStream, item: TokenStream) -> TokenStream {
+	stored::stored(attr, item)
 }
 
 /// This attribute can be used to derive a full implementation of a trait based on a local partial
@@ -705,7 +711,6 @@ pub fn derive_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
 	.into()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::no_default`.
@@ -714,7 +719,6 @@ pub fn no_default(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::no_default_bounds`.
@@ -806,7 +810,6 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 /// [`#[derive_impl(..)]`](macro@derive_impl) will use the correct type auto-generated by
 /// `construct_runtime!`.
 #[doc = docify::embed!("examples/proc_main/inject_runtime_type.rs", derive_impl_works_with_runtime_type_injection)]
-///
 /// However, if `no_aggregated_types` is specified while using
 /// [`#[derive_impl(..)]`](macro@derive_impl), then these items are attached verbatim to the
 /// combined impl.
@@ -845,7 +848,6 @@ fn pallet_macro_stub() -> TokenStream {
 	.into()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::config`.
@@ -854,7 +856,6 @@ pub fn config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::constant`.
@@ -863,7 +864,6 @@ pub fn constant(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::constant_name`.
@@ -872,7 +872,6 @@ pub fn constant_name(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at
@@ -882,7 +881,6 @@ pub fn disable_frame_system_supertrait_check(_: TokenStream, _: TokenStream) -> 
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::storage_version`.
@@ -891,7 +889,6 @@ pub fn storage_version(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::hooks`.
@@ -900,7 +897,6 @@ pub fn hooks(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::weight`.
@@ -909,7 +905,6 @@ pub fn weight(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::compact`.
@@ -918,7 +913,6 @@ pub fn compact(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::call`.
@@ -938,7 +932,6 @@ pub fn call_index(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::feeless_if`.
@@ -947,7 +940,6 @@ pub fn feeless_if(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::extra_constants`.
@@ -956,7 +948,6 @@ pub fn extra_constants(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::error`.
@@ -965,7 +956,6 @@ pub fn error(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::event`.
@@ -974,7 +964,6 @@ pub fn event(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::include_metadata`.
@@ -983,7 +972,6 @@ pub fn include_metadata(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::generate_deposit`.
@@ -992,7 +980,6 @@ pub fn generate_deposit(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::storage`.
@@ -1001,7 +988,6 @@ pub fn storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::getter`.
@@ -1010,7 +996,6 @@ pub fn getter(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::storage_prefix`.
@@ -1019,7 +1004,6 @@ pub fn storage_prefix(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::unbounded`.
@@ -1028,7 +1012,6 @@ pub fn unbounded(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::whitelist_storage`.
@@ -1037,7 +1020,6 @@ pub fn whitelist_storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at
@@ -1047,7 +1029,6 @@ pub fn disable_try_decode_storage(_: TokenStream, _: TokenStream) -> TokenStream
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::type_value`.
@@ -1056,7 +1037,6 @@ pub fn type_value(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::genesis_config`.
@@ -1065,7 +1045,6 @@ pub fn genesis_config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::genesis_build`.
@@ -1074,7 +1053,6 @@ pub fn genesis_build(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::inherent`.
@@ -1083,7 +1061,6 @@ pub fn inherent(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::validate_unsigned`.
@@ -1092,7 +1069,6 @@ pub fn validate_unsigned(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at
@@ -1102,7 +1078,6 @@ pub fn view_functions(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::origin`.
@@ -1111,7 +1086,6 @@ pub fn origin(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::composite_enum`.
@@ -1120,10 +1094,9 @@ pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// Allows you to define some service work that can be recognized by a script or an
-/// off-chain worker.
+/// Allows you to define some service work that can be recognized by the off-chain worker.
 ///
-/// Such a script can then create and submit all such work items at any given time.
+/// The off-chain worker can then create and submit all such work items at any given time.
 ///
 /// These work items are defined as instances of the `Task` trait (found at
 /// `frame_support::traits::Task`). [`pallet:tasks_experimental`](macro@tasks_experimental) when
@@ -1140,11 +1113,11 @@ pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 /// All of such Tasks are then aggregated into a `RuntimeTask` by
 /// [`construct_runtime`](macro@construct_runtime).
 ///
-/// Finally, the `RuntimeTask` can then used by a script or off-chain worker to create and
-/// submit such tasks via an extrinsic defined in `frame_system` called `do_task`.
+/// Finally, the `RuntimeTask` can then be used by the off-chain worker to create and
+/// submit such tasks via an extrinsic defined in `frame_system` called `do_task` which accepts
+/// unsigned transaction from local source.
 ///
-/// When submitted as unsigned transactions (for example via an off-chain workder), note
-/// that the tasks will be executed in a random order.
+/// When submitted as unsigned transactions, note that the tasks will be executed in a random order.
 ///
 /// ## Example
 #[doc = docify::embed!("examples/proc_main/tasks.rs", tasks_example)]
@@ -1206,7 +1179,6 @@ pub fn task_index(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
@@ -1224,7 +1196,6 @@ pub fn pallet_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	}
 }
 
-///
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
@@ -1278,7 +1249,6 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 ///
 /// # Example:
 #[doc = docify::embed!("examples/proc_main/runtime.rs", runtime_macro)]
-///
 /// # Supported Attributes:
 ///
 /// ## Legacy Ordering

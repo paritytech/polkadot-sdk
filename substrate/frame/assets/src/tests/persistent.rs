@@ -429,7 +429,8 @@ fn adversarial_counter_drift_probe_edge() {
 		// requires balance zero; refund removes the account though. Instead build DepositRefunded
 		// via touch then mint then... refund needs zero balance. So: touch creates DepositHeld with
 		// zero balance; refund removes it. We can't easily reach a *surviving* DepositRefunded with
-		// a balance here, so just test set-persistent on a DepositHeld is rejected and self-transfer.
+		// a balance here, so just test set-persistent on a DepositHeld is rejected and
+		// self-transfer.
 
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 10));
 		Balances::make_free_balance_be(&5, 100);

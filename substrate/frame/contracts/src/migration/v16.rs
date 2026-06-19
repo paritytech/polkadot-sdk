@@ -54,7 +54,7 @@ pub fn store_old_contract_info<T: Config>(
 pub type ContractInfoOf<T: Config> =
 	StorageMap<Pallet<T>, Twox64Concat, <T as frame_system::Config>::AccountId, ContractInfo<T>>;
 
-#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct ContractInfo<T: Config> {
 	trie_id: TrieId,

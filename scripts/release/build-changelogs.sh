@@ -6,6 +6,8 @@ export ENGINE=${ENGINE:-podman}
 export REF1=${REF1:-'HEAD'}
 export REF2=${REF2}
 export RUSTC_STABLE=${RUSTC_STABLE:-'1.0'}
+export NO_RUNTIMES=${NO_RUNTIMES:-'false'}
+export CRATES_ONLY=${CRATES_ONLY:-'false'}
 
 PROJECT_ROOT=`git rev-parse --show-toplevel`
 echo $PROJECT_ROOT
@@ -66,32 +68,36 @@ echo "Changelog ready in $OUTPUT/relnote_commits.md"
 # Show the files
 tree -s -h -c $OUTPUT/
 
-ASSET_HUB_WESTEND_DIGEST=${ASSET_HUB_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/asset-hub-westend-srtool-digest.json"}
-BRIDGE_HUB_WESTEND_DIGEST=${BRIDGE_HUB_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/bridge-hub-westend-srtool-digest.json"}
-COLLECTIVES_WESTEND_DIGEST=${COLLECTIVES_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/collectives-westend-srtool-digest.json"}
-CORETIME_WESTEND_DIGEST=${CORETIME_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/coretime-westend-srtool-digest.json"}
-GLUTTON_WESTEND_DIGEST=${GLUTTON_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/glutton-westend-srtool-digest.json"}
-PEOPLE_WESTEND_DIGEST=${PEOPLE_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/people-westend-srtool-digest.json"}
-WESTEND_DIGEST=${WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/westend-srtool-digest.json"}
+if [[ "$NO_RUNTIMES" == "false" && "$CRATES_ONLY" == "false" ]]; then
+  ASSET_HUB_WESTEND_DIGEST=${ASSET_HUB_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/asset-hub-westend-srtool-digest.json"}
+  BRIDGE_HUB_WESTEND_DIGEST=${BRIDGE_HUB_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/bridge-hub-westend-srtool-digest.json"}
+  COLLECTIVES_WESTEND_DIGEST=${COLLECTIVES_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/collectives-westend-srtool-digest.json"}
+  CORETIME_WESTEND_DIGEST=${CORETIME_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/coretime-westend-srtool-digest.json"}
+  GLUTTON_WESTEND_DIGEST=${GLUTTON_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/glutton-westend-srtool-digest.json"}
+  PEOPLE_WESTEND_DIGEST=${PEOPLE_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/people-westend-srtool-digest.json"}
+  WESTEND_DIGEST=${WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/westend-srtool-digest.json"}
 
-jq \
-      --slurpfile srtool_asset_hub_westend $ASSET_HUB_WESTEND_DIGEST \
-      --slurpfile srtool_bridge_hub_westend $BRIDGE_HUB_WESTEND_DIGEST \
-      --slurpfile srtool_collectives_westend $COLLECTIVES_WESTEND_DIGEST \
-      --slurpfile srtool_coretime_westend $CORETIME_WESTEND_DIGEST \
-      --slurpfile srtool_glutton_westend $GLUTTON_WESTEND_DIGEST \
-      --slurpfile srtool_people_westend $PEOPLE_WESTEND_DIGEST \
-      --slurpfile srtool_westend $WESTEND_DIGEST \
-      -n '{
-          srtool: [
-            { order: 10, name: "Westend", data: $srtool_westend[0] },
-            { order: 11, name: "Westend AssetHub", data: $srtool_asset_hub_westend[0] },
-            { order: 12, name: "Westend BridgeHub", data: $srtool_bridge_hub_westend[0] },
-            { order: 13, name: "Westend Collectives", data: $srtool_collectives_westend[0] },
-            { order: 14, name: "Westend Coretime", data: $srtool_coretime_westend[0] },
-            { order: 15, name: "Westend Glutton", data: $srtool_glutton_westend[0] },
-            { order: 16, name: "Westend People", data: $srtool_people_westend[0] }
-      ] }' > "$PROJECT_ROOT/scripts/release/context.json"
+  jq \
+        --slurpfile srtool_asset_hub_westend $ASSET_HUB_WESTEND_DIGEST \
+        --slurpfile srtool_bridge_hub_westend $BRIDGE_HUB_WESTEND_DIGEST \
+        --slurpfile srtool_collectives_westend $COLLECTIVES_WESTEND_DIGEST \
+        --slurpfile srtool_coretime_westend $CORETIME_WESTEND_DIGEST \
+        --slurpfile srtool_glutton_westend $GLUTTON_WESTEND_DIGEST \
+        --slurpfile srtool_people_westend $PEOPLE_WESTEND_DIGEST \
+        --slurpfile srtool_westend $WESTEND_DIGEST \
+        -n '{
+            srtool: [
+              { order: 10, name: "Westend", data: $srtool_westend[0] },
+              { order: 11, name: "Westend AssetHub", data: $srtool_asset_hub_westend[0] },
+              { order: 12, name: "Westend BridgeHub", data: $srtool_bridge_hub_westend[0] },
+              { order: 13, name: "Westend Collectives", data: $srtool_collectives_westend[0] },
+              { order: 14, name: "Westend Coretime", data: $srtool_coretime_westend[0] },
+              { order: 15, name: "Westend Glutton", data: $srtool_glutton_westend[0] },
+              { order: 16, name: "Westend People", data: $srtool_people_westend[0] }
+        ] }' > "$PROJECT_ROOT/scripts/release/context.json"
+else
+  echo '{}' > "$PROJECT_ROOT/scripts/release/context.json"
+fi
 
 RELEASE_DIR="$PROJECT_ROOT/scripts/release/"
 pushd $RELEASE_DIR >/dev/null

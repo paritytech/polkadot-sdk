@@ -40,6 +40,7 @@ parameter_types! {
 /// directly.
 ///
 /// Useful for when you don't care too much about the signed phase.
+#[allow(dead_code)]
 pub struct MockSignedPhase;
 impl SolutionDataProvider for MockSignedPhase {
 	type Solution = <Runtime as MinerConfig>::Solution;

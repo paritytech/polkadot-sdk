@@ -56,7 +56,10 @@ pub fn expand_outer_inherent(
 		trait InherentDataExt {
 			fn create_extrinsics(&self) ->
 				#scrate::__private::Vec<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic>;
-			fn check_extrinsics(&self, block: &#block) -> #scrate::inherent::CheckInherentsResult;
+			fn check_extrinsics(
+				&self,
+				block: &<#block as #scrate::sp_runtime::traits::Block>::LazyBlock
+			) -> #scrate::inherent::CheckInherentsResult;
 		}
 
 		impl InherentDataExt for #scrate::inherent::InherentData {
@@ -81,10 +84,15 @@ pub fn expand_outer_inherent(
 				inherents
 			}
 
-			fn check_extrinsics(&self, block: &#block) -> #scrate::inherent::CheckInherentsResult {
+			fn check_extrinsics(
+				&self,
+				block: &<#block as #scrate::sp_runtime::traits::Block>::LazyBlock
+			) ->
+				#scrate::inherent::CheckInherentsResult
+			{
 				use #scrate::inherent::{ProvideInherent, IsFatalError};
 				use #scrate::traits::IsSubType;
-				use #scrate::sp_runtime::traits::{Block as _, ExtrinsicCall};
+				use #scrate::sp_runtime::traits::{Block as _, ExtrinsicCall, LazyBlock};
 				use #scrate::__private::{sp_inherents::Error, log};
 
 				let mut result = #scrate::inherent::CheckInherentsResult::new();
@@ -116,15 +124,19 @@ pub fn expand_outer_inherent(
 				}
 
 				let mut pallet_has_inherent = [false; #pallet_count];
-				for xt in block.extrinsics() {
+				for maybe_xt in block.extrinsics() {
+					let Ok(xt) = maybe_xt else {
+						panic!("check_extrinsics(): Unable to decode extrinsic");
+					};
+
 					// Inherents are before any other extrinsics.
 					// And signed extrinsics are not inherents.
-					if !(#scrate::sp_runtime::traits::ExtrinsicLike::is_bare(xt)) {
+					if !(#scrate::sp_runtime::traits::ExtrinsicLike::is_bare(&xt)) {
 						break
 					}
 
 					let mut is_inherent = false;
-					let call = ExtrinsicCall::call(xt);
+					let call = ExtrinsicCall::call(&xt);
 					#(
 						#pallet_attrs
 						{

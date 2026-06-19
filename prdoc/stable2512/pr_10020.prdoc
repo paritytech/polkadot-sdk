@@ -1,0 +1,5 @@
+title: 'pallet-revive: Add ExportChainSpec command to revive-dev-node'
+doc:
+- audience: Runtime Dev
+  description: "Add the `export-chain-spec` command to the revive-dev-node.\r\n"
+crates: []

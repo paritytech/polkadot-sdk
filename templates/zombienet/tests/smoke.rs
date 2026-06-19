@@ -12,7 +12,7 @@
 //!
 //! You can run the following command to generate a minimal chainspec, once the runtime wasm file is
 //! compiled:
-//!`chain-spec-builder create --relay-chain <relay_chain_id> -r \
+//! `chain-spec-builder create --relay-chain <relay_chain_id> -r \
 //!     <path_to_template_wasm_file> named-preset development`
 //!
 //! Once the files are generated, you must export an environment variable called
@@ -64,8 +64,8 @@ mod smoke {
 				r = r.with_default_args(args.into_iter().map(|arg| arg.into()).collect());
 			}
 
-			r.with_node(|node| node.with_name("alice"))
-				.with_node(|node| node.with_name("bob"))
+			r.with_validator(|node| node.with_name("alice"))
+				.with_validator(|node| node.with_name("bob"))
 		});
 
 		let config = if let Some(para_cmd) = network_spec.para_cmd {

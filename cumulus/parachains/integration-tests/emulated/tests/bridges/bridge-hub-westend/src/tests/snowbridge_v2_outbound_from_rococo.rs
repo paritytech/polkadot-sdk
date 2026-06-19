@@ -16,17 +16,13 @@
 use crate::{
 	imports::*,
 	tests::{
+		asset_hub_rococo_location, bridged_roc_at_ah_westend, create_foreign_on_ah_westend,
 		snowbridge_common::*,
 		snowbridge_v2_outbound::{EthereumSystemFrontend, EthereumSystemFrontendCall},
 	},
 };
 use frame_support::traits::fungibles::Mutate;
 use xcm::latest::AssetTransferFilter;
-
-pub(crate) fn create_foreign_on_ah_westend(id: xcm::opaque::v5::Location, sufficient: bool) {
-	let owner = AssetHubWestend::account_id_of(ALICE);
-	AssetHubWestend::force_create_foreign_asset(id, owner, sufficient, ASSET_MIN_BALANCE, vec![]);
-}
 
 // set up pool
 pub(crate) fn set_up_pool_with_wnd_on_ah_westend(
@@ -99,8 +95,6 @@ pub(crate) fn assert_bridge_hub_rococo_message_accepted(expected_processed: bool
 			assert_expected_events!(
 				BridgeHubRococo,
 				vec![
-					// pay for bridge fees
-					RuntimeEvent::Balances(pallet_balances::Event::Burned { .. }) => {},
 					// message exported
 					RuntimeEvent::BridgeWestendMessages(
 						pallet_bridge_messages::Event::MessageAccepted { .. }
@@ -155,7 +149,12 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 	let roc_at_asset_hub_rococo = roc_at_ah_rococo();
 	let bridged_roc_at_asset_hub_westend = bridged_roc_at_ah_westend();
 
-	create_foreign_on_ah_westend(bridged_roc_at_asset_hub_westend.clone(), true);
+	create_foreign_on_ah_westend(
+		bridged_roc_at_asset_hub_westend.clone(),
+		true,
+		vec![(asset_hub_rococo_location(), false).into()],
+		vec![],
+	);
 	set_up_pool_with_wnd_on_ah_westend(
 		bridged_roc_at_asset_hub_westend.clone(),
 		true,
@@ -175,7 +174,7 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 			ethereum()
 		));
 	});
-	create_foreign_on_ah_westend(ethereum(), true);
+	create_foreign_on_ah_westend(ethereum(), true, vec![(ethereum(), false).into()], vec![]);
 	set_up_pool_with_wnd_on_ah_westend(ethereum(), true, initial_fund, initial_liquidity);
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), initial_fund);
 	AssetHubRococo::fund_accounts(vec![(AssetHubRococoSender::get(), initial_fund)]);
@@ -334,9 +333,6 @@ fn register_rococo_asset_on_ethereum_from_rah() {
 	});
 
 	let destination = asset_hub_westend_global_location();
-
-	// fund the RAH's SA on RBH for paying bridge delivery fees
-	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);
 
 	// set XCM versions
 	AssetHubRococo::force_xcm_version(destination.clone(), XCM_VERSION);

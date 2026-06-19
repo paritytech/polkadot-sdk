@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use crate::{mock::*, *};
+use crate::{
+	mock::{AggregateMessageOrigin::*, *},
+	*,
+};
 use alloy_core::primitives::FixedBytes;
 use codec::Encode;
 use frame_support::{
@@ -10,12 +13,14 @@ use frame_support::{
 	BoundedVec,
 };
 use hex_literal::hex;
-use snowbridge_core::{ChannelId, ParaId};
+use snowbridge_beacon_primitives::{types::deneb, VersionedExecutionPayloadHeader};
+use snowbridge_core::{digest_item::SnowbridgeDigestItem, ChannelId, ParaId};
 use snowbridge_outbound_queue_primitives::{
 	v2::{abi::OutboundMessageWrapper, Command, Initializer, SendMessage},
-	SendError,
+	EventProof, Proof, SendError, VerificationError,
 };
 use sp_core::{hexdisplay::HexDisplay, H256};
+use sp_runtime::AccountId32;
 
 #[test]
 fn submit_messages_and_commit() {
@@ -179,8 +184,6 @@ fn process_message_fails_on_overweight_message() {
 #[test]
 fn governance_message_not_processed_in_same_block_when_queue_congested_with_low_priority_messages()
 {
-	use AggregateMessageOrigin::*;
-
 	let sibling_id: u32 = 1000;
 
 	new_tester().execute_with(|| {
@@ -240,7 +243,7 @@ fn governance_message_not_processed_in_same_block_when_queue_congested_with_low_
 #[test]
 fn encode_digest_item_with_correct_index() {
 	new_tester().execute_with(|| {
-		let digest_item: DigestItem = CustomDigestItem::Snowbridge(H256::default()).into();
+		let digest_item: DigestItem = SnowbridgeDigestItem::Snowbridge(H256::default()).into();
 		let enum_prefix = match digest_item {
 			DigestItem::Other(data) => data[0],
 			_ => u8::MAX,
@@ -252,10 +255,10 @@ fn encode_digest_item_with_correct_index() {
 #[test]
 fn encode_digest_item() {
 	new_tester().execute_with(|| {
-		let digest_item: DigestItem = CustomDigestItem::Snowbridge([5u8; 32].into()).into();
+		let digest_item: DigestItem = SnowbridgeDigestItem::Snowbridge([5u8; 32].into()).into();
 		let digest_item_raw = digest_item.encode();
 		assert_eq!(digest_item_raw[0], 0); // DigestItem::Other
-		assert_eq!(digest_item_raw[2], 0); // CustomDigestItem::Snowbridge
+		assert_eq!(digest_item_raw[2], 0); // SnowbridgeDigestItem::Snowbridge
 		assert_eq!(
 			digest_item_raw,
 			[
@@ -325,6 +328,123 @@ fn test_add_tip_fails_no_pending_order() {
 		let nonce = 42;
 		let amount = 1000;
 		assert_noop!(OutboundQueue::add_tip(nonce, amount), AddTipError::UnknownMessage);
+	});
+}
+
+fn mock_event_proof() -> EventProof {
+	EventProof {
+		event_log: snowbridge_outbound_queue_primitives::Log {
+			address: Default::default(),
+			topics: vec![],
+			data: vec![],
+			tx_index: 0,
+		},
+		proof: Proof {
+			receipt_proof: Default::default(),
+			execution_proof: snowbridge_beacon_primitives::ExecutionProof {
+				header: Default::default(),
+				ancestry_proof: None,
+				execution_header: VersionedExecutionPayloadHeader::Deneb(
+					deneb::ExecutionPayloadHeader {
+						parent_hash: Default::default(),
+						fee_recipient: Default::default(),
+						state_root: Default::default(),
+						receipts_root: Default::default(),
+						logs_bloom: vec![],
+						prev_randao: Default::default(),
+						block_number: 0,
+						gas_limit: 0,
+						gas_used: 0,
+						timestamp: 0,
+						extra_data: vec![],
+						base_fee_per_gas: Default::default(),
+						block_hash: Default::default(),
+						transactions_root: Default::default(),
+						withdrawals_root: Default::default(),
+						blob_gas_used: 0,
+						excess_blob_gas: 0,
+					},
+				),
+				execution_branch: vec![],
+			},
+		},
+	}
+}
+
+// A valid, decodable `InboundMessageDispatched` event log emitted by the mock Gateway.
+// Nonce (indexed topic) is 0, matching a `PendingOrder` inserted with nonce=0 in tests.
+fn mock_valid_event_proof() -> EventProof {
+	let mut event = mock_event_proof();
+	event.event_log = snowbridge_outbound_queue_primitives::Log {
+		address: hex!("b1185ede04202fe62d38f5db72f71e38ff3e8305").into(),
+		topics: vec![
+			hex!("8856ab63954e6c2938803a4654fb704c8779757e7bfdbe94a578e341ec637a95").into(),
+			hex!("0000000000000000000000000000000000000000000000000000000000000000").into(),
+		],
+		data: hex!("907b6ec7bf3f2496ef79238e0fb19e032bfe444c7ffe906bd340c6c4ffe8511f0000000000000000000000000000000000000000000000000000000000000001d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d").into(),
+		tx_index: 0,
+	};
+	event
+}
+
+// Reward processing must be blocked while the bridge is halted: `submit_delivery_receipt`
+// should not pay out `PendingOrder` fees if the verifier reports the bridge as halted.
+#[test]
+fn poc_m1() {
+	new_tester().execute_with(|| {
+		let nonce = 1;
+		let fee: u128 = 1_000_000;
+		let order = PendingOrder { nonce, fee, block_number: System::block_number() };
+		PendingOrders::<Test>::insert(nonce, order);
+
+		let relayer: AccountId32 = [7u8; 32].into();
+		let origin = RuntimeOrigin::signed(relayer);
+		let event = Box::new(mock_event_proof());
+
+		set_verifier_halted(true);
+
+		assert_noop!(
+			OutboundQueue::submit_delivery_receipt(origin.clone(), event.clone()),
+			Error::<Test>::Verification(VerificationError::Halted)
+		);
+
+		let order_after = PendingOrders::<Test>::get(nonce).expect("order still present");
+		assert_eq!(order_after.fee, fee);
+
+		set_verifier_halted(false);
+	});
+}
+
+// After governance resumes the bridge, legitimate delivery receipts flow through again:
+// the order is paid out and removed from storage.
+#[test]
+fn submit_delivery_receipt_succeeds_after_unhalt() {
+	new_tester().execute_with(|| {
+		let nonce = 0;
+		let fee: u128 = 1_000_000;
+		let order = PendingOrder { nonce, fee, block_number: System::block_number() };
+		PendingOrders::<Test>::insert(nonce, order);
+
+		let relayer: AccountId32 = [7u8; 32].into();
+		let origin = RuntimeOrigin::signed(relayer);
+		let event = Box::new(mock_valid_event_proof());
+
+		// Bridge halted — receipt rejected, order untouched.
+		set_verifier_halted(true);
+		assert_noop!(
+			OutboundQueue::submit_delivery_receipt(origin.clone(), event.clone()),
+			Error::<Test>::Verification(VerificationError::Halted)
+		);
+		assert!(PendingOrders::<Test>::get(nonce).is_some());
+
+		// Bridge resumed — same receipt succeeds and the order is settled.
+		set_verifier_halted(false);
+		assert_ok!(OutboundQueue::submit_delivery_receipt(origin, event));
+		assert!(PendingOrders::<Test>::get(nonce).is_none());
+
+		System::assert_has_event(mock::RuntimeEvent::OutboundQueue(Event::MessageDelivered {
+			nonce,
+		}));
 	});
 }
 

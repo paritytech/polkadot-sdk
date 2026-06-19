@@ -113,6 +113,7 @@ impl pallet_assets::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetIdForAssets;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -270,7 +271,6 @@ impl Config for XcmConfig {
 	type AssetTrap = PolkadotXcm;
 	type AssetLocker = PolkadotXcm;
 	type AssetExchanger = ();
-	type AssetClaims = PolkadotXcm;
 	type SubscriptionService = PolkadotXcm;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type FeeManager = ();

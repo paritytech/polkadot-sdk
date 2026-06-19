@@ -63,39 +63,39 @@ where
 		let universal_location = UniversalLocation::get();
 
 		if network != expected_network {
-			log::trace!(target: "xcm::ethereum_blob_exporter", "skipped due to unmatched bridge network {network:?}.");
-			return Err(SendError::NotApplicable)
+			tracing::trace!(target: "xcm::ethereum_blob_exporter", ?network, "skipped due to unmatched bridge network.");
+			return Err(SendError::NotApplicable);
 		}
 
 		// Cloning destination to avoid modifying the value so subsequent exporters can use it.
 		let dest = destination.clone().ok_or(SendError::MissingArgument)?;
 		if dest != Here {
-			log::trace!(target: "xcm::ethereum_blob_exporter", "skipped due to unmatched remote destination {dest:?}.");
-			return Err(SendError::NotApplicable)
+			tracing::trace!(target: "xcm::ethereum_blob_exporter", destination=?dest, "skipped due to unmatched remote destination.");
+			return Err(SendError::NotApplicable);
 		}
 
 		// Cloning universal_source to avoid modifying the value so subsequent exporters can use it.
 		let (local_net, local_sub) = universal_source.clone()
 			.ok_or_else(|| {
-				log::error!(target: "xcm::ethereum_blob_exporter", "universal source not provided.");
+				tracing::error!(target: "xcm::ethereum_blob_exporter", "universal source not provided.");
 				SendError::MissingArgument
 			})?
 			.split_global()
 			.map_err(|()| {
-				log::error!(target: "xcm::ethereum_blob_exporter", "could not get global consensus from universal source '{universal_source:?}'.");
+				tracing::error!(target: "xcm::ethereum_blob_exporter", ?universal_source, "could not get global consensus.");
 				SendError::NotApplicable
 			})?;
 
 		if Ok(local_net) != universal_location.global_consensus() {
-			log::trace!(target: "xcm::ethereum_blob_exporter", "skipped due to unmatched relay network {local_net:?}.");
-			return Err(SendError::NotApplicable)
+			tracing::trace!(target: "xcm::ethereum_blob_exporter", relay_network=?local_net, "skipped due to unmatched relay network.");
+			return Err(SendError::NotApplicable);
 		}
 
 		let para_id = match local_sub.as_slice() {
 			[Parachain(para_id)] => *para_id,
 			_ => {
-				log::error!(target: "xcm::ethereum_blob_exporter", "could not get parachain id from universal source '{local_sub:?}'.");
-				return Err(SendError::NotApplicable)
+				tracing::error!(target: "xcm::ethereum_blob_exporter", universal_source=?local_sub, "could not get parachain id.");
+				return Err(SendError::NotApplicable);
 			},
 		};
 
@@ -104,20 +104,20 @@ where
 		let agent_id = match AgentHashedDescription::convert_location(&source_location) {
 			Some(id) => id,
 			None => {
-				log::error!(target: "xcm::ethereum_blob_exporter", "unroutable due to not being able to create agent id. '{source_location:?}'");
-				return Err(SendError::NotApplicable)
+				tracing::error!(target: "xcm::ethereum_blob_exporter", ?source_location, "unroutable due to not being able to create agent id.");
+				return Err(SendError::NotApplicable);
 			},
 		};
 
 		let message = message.take().ok_or_else(|| {
-			log::error!(target: "xcm::ethereum_blob_exporter", "xcm message not provided.");
+			tracing::error!(target: "xcm::ethereum_blob_exporter", "xcm message not provided.");
 			SendError::MissingArgument
 		})?;
 
 		let mut converter =
 			XcmConverter::<ConvertAssetId, ()>::new(&message, expected_network, agent_id);
 		let (command, message_id) = converter.convert().map_err(|err|{
-			log::error!(target: "xcm::ethereum_blob_exporter", "unroutable due to pattern matching error '{err:?}'.");
+			tracing::error!(target: "xcm::ethereum_blob_exporter", error=?err, "unroutable due to pattern matching.");
 			SendError::Unroutable
 		})?;
 
@@ -127,7 +127,7 @@ where
 
 		// validate the message
 		let (ticket, fee) = OutboundQueue::validate(&outbound_message).map_err(|err| {
-			log::error!(target: "xcm::ethereum_blob_exporter", "OutboundQueue validation of message failed. {err:?}");
+			tracing::error!(target: "xcm::ethereum_blob_exporter", error=?err, "OutboundQueue validation of message failed.");
 			SendError::Unroutable
 		})?;
 
@@ -140,16 +140,16 @@ where
 	fn deliver(blob: (Vec<u8>, XcmHash)) -> Result<XcmHash, SendError> {
 		let ticket: OutboundQueue::Ticket = OutboundQueue::Ticket::decode(&mut blob.0.as_ref())
 			.map_err(|_| {
-				log::trace!(target: "xcm::ethereum_blob_exporter", "undeliverable due to decoding error");
+				tracing::trace!(target: "xcm::ethereum_blob_exporter", "undeliverable due to decoding error");
 				SendError::NotApplicable
 			})?;
 
 		let message_id = OutboundQueue::deliver(ticket).map_err(|_| {
-			log::error!(target: "xcm::ethereum_blob_exporter", "OutboundQueue submit of message failed");
+			tracing::error!(target: "xcm::ethereum_blob_exporter", "OutboundQueue submit of message failed");
 			SendError::Transport("other transport error")
 		})?;
 
-		log::info!(target: "xcm::ethereum_blob_exporter", "message delivered {message_id:#?}.");
+		tracing::info!(target: "xcm::ethereum_blob_exporter", "message delivered {message_id:#?}.");
 		Ok(message_id.into())
 	}
 }
@@ -216,7 +216,7 @@ where
 
 		// All xcm instructions must be consumed before exit.
 		if self.next().is_ok() {
-			return Err(XcmConverterError::EndOfXcmMessageExpected)
+			return Err(XcmConverterError::EndOfXcmMessageExpected);
 		}
 
 		Ok(result)
@@ -261,12 +261,12 @@ where
 
 		// Make sure there are reserved assets.
 		if reserve_assets.len() == 0 {
-			return Err(NoReserveAssets)
+			return Err(NoReserveAssets);
 		}
 
 		// Check the the deposit asset filter matches what was reserved.
 		if reserve_assets.inner().iter().any(|asset| !deposit_assets.matches(asset)) {
-			return Err(FilterDoesNotConsumeAllAssets)
+			return Err(FilterDoesNotConsumeAllAssets);
 		}
 
 		// We only support a single asset at a time.
@@ -282,22 +282,24 @@ where
 		if let Some(fee_asset) = fee_asset {
 			// The fee asset must be the same as the reserve asset.
 			if fee_asset.id != reserve_asset.id || fee_asset.fun > reserve_asset.fun {
-				return Err(InvalidFeeAsset)
+				return Err(InvalidFeeAsset);
 			}
 		}
 
 		let (token, amount) = match reserve_asset {
-			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
+			Asset { id: AssetId(inner_location), fun: Fungible(amount) } => {
 				match inner_location.unpack() {
 					// Get the ERC20 contract address of the token.
-					(0, [AccountKey20 { network, key }]) if self.network_matches(network) =>
-						Some((H160(*key), *amount)),
+					(0, [AccountKey20 { network, key }]) if self.network_matches(network) => {
+						Some((H160(*key), *amount))
+					},
 					// If there is no ERC20 contract address in the location then signal to the
 					// gateway that is a native Ether transfer by using
 					// `0x0000000000000000000000000000000000000000` as the token address.
 					(0, []) => Some((H160([0; 20]), *amount)),
 					_ => None,
-				},
+				}
+			},
 			_ => None,
 		}
 		.ok_or(AssetResolutionFailed)?;
@@ -376,12 +378,12 @@ where
 
 		// Make sure there are reserved assets.
 		if reserve_assets.len() == 0 {
-			return Err(NoReserveAssets)
+			return Err(NoReserveAssets);
 		}
 
 		// Check the the deposit asset filter matches what was reserved.
 		if reserve_assets.inner().iter().any(|asset| !deposit_assets.matches(asset)) {
-			return Err(FilterDoesNotConsumeAllAssets)
+			return Err(FilterDoesNotConsumeAllAssets);
 		}
 
 		// We only support a single asset at a time.
@@ -397,13 +399,14 @@ where
 		if let Some(fee_asset) = fee_asset {
 			// The fee asset must be the same as the reserve asset.
 			if fee_asset.id != reserve_asset.id || fee_asset.fun > reserve_asset.fun {
-				return Err(InvalidFeeAsset)
+				return Err(InvalidFeeAsset);
 			}
 		}
 
 		let (asset_id, amount) = match reserve_asset {
-			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
-				Some((inner_location.clone(), *amount)),
+			Asset { id: AssetId(inner_location), fun: Fungible(amount) } => {
+				Some((inner_location.clone(), *amount))
+			},
 			_ => None,
 		}
 		.ok_or(AssetResolutionFailed)?;
@@ -413,7 +416,8 @@ where
 
 		let token_id = TokenIdOf::convert_location(&asset_id).ok_or(InvalidAsset)?;
 
-		ConvertAssetId::maybe_convert(token_id).ok_or(InvalidAsset)?;
+		let expected_asset_id = ConvertAssetId::maybe_convert(token_id).ok_or(InvalidAsset)?;
+		ensure!(asset_id == expected_asset_id, InvalidAsset);
 
 		// Check if there is a SetTopic and skip over it if found.
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;

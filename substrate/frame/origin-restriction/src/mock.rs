@@ -141,10 +141,12 @@ impl RestrictedEntity<OriginCaller, u64> for RuntimeRestrictedEntity {
 
 	fn restricted_entity(caller: &OriginCaller) -> Option<RuntimeRestrictedEntity> {
 		match caller {
-			OriginCaller::system(frame_system::Origin::<Test>::Signed(RESTRICTED_ORIGIN_1)) =>
-				Some(RuntimeRestrictedEntity::A),
-			OriginCaller::system(frame_system::Origin::<Test>::Signed(RESTRICTED_ORIGIN_2)) =>
-				Some(RuntimeRestrictedEntity::B),
+			OriginCaller::system(frame_system::Origin::<Test>::Signed(RESTRICTED_ORIGIN_1)) => {
+				Some(RuntimeRestrictedEntity::A)
+			},
+			OriginCaller::system(frame_system::Origin::<Test>::Signed(RESTRICTED_ORIGIN_2)) => {
+				Some(RuntimeRestrictedEntity::B)
+			},
 			_ => None,
 		}
 	}
@@ -183,6 +185,7 @@ frame_support::parameter_types! {
 }
 
 pub struct OnChargeTransaction;
+
 impl pallet_transaction_payment::OnChargeTransaction<Test> for OnChargeTransaction {
 	type Balance = u64;
 	type LiquidityInfo = ();
@@ -222,6 +225,10 @@ impl pallet_transaction_payment::OnChargeTransaction<Test> for OnChargeTransacti
 	) -> Result<(), TransactionValidityError> {
 		unimplemented!()
 	}
+}
+
+impl pallet_transaction_payment::TxCreditHold<Test> for OnChargeTransaction {
+	type Credit = ();
 }
 
 impl pallet_transaction_payment::Config for Test {

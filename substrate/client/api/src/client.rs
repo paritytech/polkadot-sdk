@@ -19,7 +19,7 @@
 //! A set of APIs supported by the client along with their primitives.
 
 use sp_consensus::BlockOrigin;
-use sp_core::storage::StorageKey;
+use sp_core::{storage::StorageKey, H256};
 use sp_runtime::{
 	generic::SignedBlock,
 	traits::{Block as BlockT, NumberFor},
@@ -31,7 +31,9 @@ use std::{
 	sync::Arc,
 };
 
-use crate::{blockchain::Info, notifications::StorageEventStream, FinalizeSummary, ImportSummary};
+use crate::{
+	blockchain::Info, notifications::StorageEventStream, FinalizeSummary, ImportSummary, StaleBlock,
+};
 
 use sc_transaction_pool_api::ChainEvent;
 use sc_utils::mpsc::{TracingUnboundedReceiver, TracingUnboundedSender};
@@ -130,12 +132,18 @@ pub trait BlockBackend<Block: BlockT> {
 		hash: Block::Hash,
 	) -> sp_blockchain::Result<Option<Vec<<Block as BlockT>::Extrinsic>>>;
 
-	/// Get all indexed transactions for a block,
-	/// including renewed transactions.
+	/// Get all indexed transactions for a block, including renewed transactions.
 	///
-	/// Note that this will only fetch transactions
-	/// that are indexed by the runtime with `storage_index_transaction`.
+	/// Note that this will only fetch transactions that are indexed by the runtime with
+	/// `storage_index_transaction`.
 	fn block_indexed_body(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<Vec<u8>>>>;
+
+	/// Get the BLAKE2b-256 hashes of all indexed transactions in a block, including renewed
+	/// transactions.
+	///
+	/// Note that this will only fetch transactions that are indexed by the runtime with
+	/// `storage_index_transaction`.
+	fn block_indexed_hashes(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<H256>>>;
 
 	/// Get full block by hash.
 	fn block(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<SignedBlock<Block>>>;
@@ -149,14 +157,14 @@ pub trait BlockBackend<Block: BlockT> {
 	/// Get block hash by number.
 	fn block_hash(&self, number: NumberFor<Block>) -> sp_blockchain::Result<Option<Block::Hash>>;
 
-	/// Get single indexed transaction by content hash.
+	/// Get single indexed transaction by content hash (BLAKE2b-256).
 	///
 	/// Note that this will only fetch transactions
 	/// that are indexed by the runtime with `storage_index_transaction`.
-	fn indexed_transaction(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>>;
+	fn indexed_transaction(&self, hash: H256) -> sp_blockchain::Result<Option<Vec<u8>>>;
 
-	/// Check if transaction index exists.
-	fn has_indexed_transaction(&self, hash: Block::Hash) -> sp_blockchain::Result<bool> {
+	/// Check if transaction index exists given its BLAKE2b-256 hash.
+	fn has_indexed_transaction(&self, hash: H256) -> sp_blockchain::Result<bool> {
 		Ok(self.indexed_transaction(hash)?.is_some())
 	}
 
@@ -404,8 +412,8 @@ pub struct FinalityNotification<Block: BlockT> {
 	///
 	/// This maps to the range `(old_finalized, new_finalized)`.
 	pub tree_route: Arc<[Block::Hash]>,
-	/// Stale branches heads.
-	pub stale_heads: Arc<[Block::Hash]>,
+	/// Stale blocks.
+	pub stale_blocks: Arc<[Arc<StaleBlock<Block>>]>,
 	/// Handle to unpin the block this notification is for
 	unpin_handle: UnpinHandle<Block>,
 }
@@ -439,7 +447,9 @@ impl<Block: BlockT> FinalityNotification<Block> {
 			hash,
 			header: summary.header,
 			tree_route: Arc::from(summary.finalized),
-			stale_heads: Arc::from(summary.stale_heads),
+			stale_blocks: Arc::from(
+				summary.stale_blocks.into_iter().map(Arc::from).collect::<Vec<_>>(),
+			),
 			unpin_handle: UnpinHandle::new(hash, unpin_worker_sender),
 		}
 	}

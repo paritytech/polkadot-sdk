@@ -23,6 +23,7 @@ use polkadot_primitives::Id as ParaId;
 use sc_cli::{Error as SubstrateCliError, SubstrateCli};
 use sp_core::hexdisplay::HexDisplay;
 use std::{
+	collections::HashSet,
 	fs,
 	io::{self, Write},
 };
@@ -67,7 +68,7 @@ fn main() -> Result<()> {
 		None => {
 			let runner = cli.create_runner(&cli.run.base).map_err(|e| {
 				SubstrateCliError::Application(
-					Box::new(e) as Box<(dyn 'static + Send + Sync + std::error::Error)>
+					Box::new(e) as Box<dyn 'static + Send + Sync + std::error::Error>
 				)
 			})?;
 
@@ -98,6 +99,10 @@ fn main() -> Result<()> {
 						prepare_workers_hard_max_num: None,
 						prepare_workers_soft_max_num: None,
 						keep_finalized_for: None,
+						invulnerable_ah_collators: HashSet::new(),
+						collator_protocol_hold_off: None,
+						experimental_collator_protocol: false,
+						collator_reputation_persist_interval: None,
 					},
 				)
 				.map_err(|e| e.to_string())?;

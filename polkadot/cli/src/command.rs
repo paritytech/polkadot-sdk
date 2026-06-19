@@ -19,7 +19,7 @@ use frame_benchmarking_cli::{
 	BenchmarkCmd, ExtrinsicFactory, SubstrateRemarkBuilder, SUBSTRATE_REFERENCE_HARDWARE,
 };
 use futures::future::TryFutureExt;
-use log::info;
+use log::{info, warn};
 use polkadot_service::{
 	self,
 	benchmarking::{benchmark_inherent_data, TransferKeepAliveBuilder},
@@ -28,12 +28,14 @@ use polkadot_service::{
 #[cfg(feature = "pyroscope")]
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use sc_cli::SubstrateCli;
+use sc_network_types::PeerId;
 use sp_core::crypto::Ss58AddressFormatRegistry;
 use sp_keyring::Sr25519Keyring;
 
 pub use crate::error::Error;
 #[cfg(feature = "pyroscope")]
 use std::net::ToSocketAddrs;
+use std::{collections::HashSet, time::Duration};
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -42,6 +44,56 @@ fn get_exec_name() -> Option<String> {
 		.ok()
 		.and_then(|pb| pb.file_name().map(|s| s.to_os_string()))
 		.and_then(|s| s.into_string().ok())
+}
+
+fn get_invulnerable_ah_collators(
+	chain_spec: &Box<dyn polkadot_service::ChainSpec>,
+) -> HashSet<PeerId> {
+	// A default set of invulnerable asset hub collators
+	const KUSAMA: [&str; 11] = [
+		"12D3KooWHNEENyCc4R3iDLLFaJiynUp9eDZp7TtS1G6DCp459vVK",
+		"12D3KooWAVqLdQEjSezy7CPEgMLMSTuyfSBdbxPGkmik5x2aL8u4",
+		"12D3KooWBxMiVQdYa5MaQjSWAu3YsfKdrs7vgX9cPk4cCwFVAXEu",
+		"12D3KooWGbRmQ9FjwkzTVTSxfUh854wxc3LUD5agjzcucDarZrNn",
+		"12D3KooWHwXftCGdp73t4BUxW3c9UKjYTvjc7tHsrinT5M8AUmXo",
+		"12D3KooWCTSAq83D99RcT64rrV5X3sGZxc9JQ8nVtd6GbZEKnDqC",
+		"12D3KooWF63ZxKtZMYs5247WQA8fcTiGJb2osXykc31cmjwNLwem",
+		"12D3KooWGowDwrXAh9cxkbPHPHuwMouFHrMcJhCVXcFS2B8vc5Ry",
+		"12D3KooWRhoxXsZypnp1Tady6XSRqXfxu7Bj6hGk8aj6FJ1iU6pt",
+		"12D3KooWJUs11H7S3Hv9BVh72w3yVmHoYTXaoBUg1KQyYk4hL2bB",
+		"12D3KooWAeLjabo2foz6gAQvLRfwF2d3WnpUGDjhg8V5AQUnv5AZ",
+	];
+
+	const POLKADOT: [&str; 8] = [
+		"12D3KooWSrq7vRZcu6ADkeFVTtBaTgfZ1r74bbnyumXrsrGUux5i",
+		"12D3KooWNd2qr3FQUxggCaff5hzTWJxG9dQxzpKbeT5QKTC3ChFR",
+		"12D3KooWSEJ4xgQYFFcM6j9yVqdeVqaQAVkeEp6yv37HuF2W2Low",
+		"12D3KooWDKCVBr59zEK8vG6PomxDdbMMvULYEAWmtqwWmngMf8Qq",
+		"12D3KooWT3XMzDWrmv7ah85aBRpWc3e8sUaeg2oJwzSpS53V61DY",
+		"12D3KooWLo5prRCchbZR6cGayQmks3stuC7ccgSJVh3ZdGkbcLFR",
+		"12D3KooWJQGQ4kQ3MxDJr8CZpmVkW6k1CHiAo8ZEZ681C3XQTtBG",
+		"12D3KooWNvw7LjmzRhUeGJy9mPEZ1uE8ADpjik1DPEuNmmfEeYco",
+	];
+
+	let invulnerables = if chain_spec.is_kusama() {
+		KUSAMA.to_vec()
+	} else if chain_spec.is_polkadot() {
+		POLKADOT.to_vec()
+	} else {
+		vec![]
+	};
+
+	invulnerables
+			.iter()
+			.filter_map(|invuln_str| {
+				invuln_str
+					.parse::<PeerId>()
+					.map_err(|e| {
+						warn!("Failed to parse AssetHub invulnerable peer from the default list. This should never happen. {:?}", e)
+					})
+					.ok()
+			})
+			.collect()
 }
 
 impl SubstrateCli for Cli {
@@ -203,6 +255,11 @@ where
 
 	let secure_validator_mode = cli.run.base.validator && !cli.run.insecure_validator;
 
+	// Parse collator protocol hold off value and get the list of the invlunerable collators.
+	let collator_protocol_hold_off = cli.run.collator_protocol_hold_off.map(Duration::from_millis);
+	let invulnerable_ah_collators = get_invulnerable_ah_collators(&chain_spec);
+	let experimental_collator_protocol = cli.run.experimental_collator_protocol;
+
 	runner.run_node_until_exit(move |config| async move {
 		let hwbench = (!cli.run.no_hardware_benchmarks)
 			.then(|| {
@@ -235,6 +292,13 @@ where
 				prepare_workers_hard_max_num: cli.run.prepare_workers_hard_max_num,
 				prepare_workers_soft_max_num: cli.run.prepare_workers_soft_max_num,
 				keep_finalized_for: cli.run.keep_finalized_for,
+				invulnerable_ah_collators,
+				collator_protocol_hold_off,
+				experimental_collator_protocol,
+				collator_reputation_persist_interval: cli
+					.run
+					.collator_reputation_persist_interval
+					.map(std::time::Duration::from_secs),
 			},
 		)
 		.map(|full| full.task_manager)?;
@@ -276,7 +340,7 @@ pub fn run() -> Result<()> {
 
 	#[cfg(not(feature = "pyroscope"))]
 	if cli.run.pyroscope_server.is_some() {
-		return Err(Error::PyroscopeNotCompiledIn)
+		return Err(Error::PyroscopeNotCompiledIn);
 	}
 
 	match &cli.subcommand {

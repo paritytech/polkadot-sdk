@@ -1,0 +1,42 @@
+title: Rework gas mapping
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Did some breaking changes to the `Config` trait and `impl_runtime_apis_plus_revive` macro.
+      `Config::Balance`: Set to the runtimes balance typ
+      `Config::FeeInfo`: Set to pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>`
+      Renamed `impl_runtime_apis_plus_revive` to `impl_runtime_apis_plus_revive_traits` and added
+      another parameter (set to the name of the revive Pallet "Revive").
+
+
+  - audience: Runtime User
+    description: |
+     Fixes those `InvalidTransaction` errors. Gas mapping is now works even when the wallet does tamper
+     with the weight estimate.
+crates:
+- name: pallet-origin-restriction
+  bump: major
+- name: frame-support
+  bump: major
+- name: pallet-transaction-payment
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: assets-common
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: pallet-xcm
+  bump: major
+- name: pallet-assets
+  bump: major
+- name: pallet-revive-eth-rpc
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major
+- name: pallet-assets-precompiles
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major

@@ -1,0 +1,21 @@
+title: 'revive: Fix dust & child contract calls'
+doc:
+- audience: Runtime Dev
+  description: |-
+    When transferring to self we should just return early as it's a noop.
+    Not doing so cause bug in `transfer_with_dust`
+
+    as we do
+    ```
+    from.dust -= from.dust
+    to.dust += to.dust
+    ```
+
+    We end up with a value of dust - planck (that we burnt from to create dust amount) on the account
+
+    fix https://github.com/paritytech/contract-issues/issues/211
+crates:
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: patch

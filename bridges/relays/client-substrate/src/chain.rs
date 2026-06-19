@@ -224,7 +224,7 @@ pub trait ChainWithTransactions: Chain {
 	/// Type of key pairs used to sign transactions.
 	type AccountKeyPair: Pair + Clone + Send + Sync;
 	/// Signed transaction.
-	type SignedTransaction: Clone + Debug + Codec + Send + 'static;
+	type SignedTransaction: Clone + Debug + Encode + Send + 'static;
 
 	/// Create transaction for given runtime call, signed by given account.
 	fn sign_transaction(

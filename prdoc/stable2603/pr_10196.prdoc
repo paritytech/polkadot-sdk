@@ -1,0 +1,14 @@
+title: Improve Warp Sync Logging
+doc:
+- audience: Node Operator
+  description: |-
+    This update makes warp sync logs more useful. it shows a clear count of synced eras and removes
+    unnecessary block details during the proof phase, giving a better view of progress.
+
+crates:
+- name: sc-consensus-grandpa
+  bump: minor
+- name: sc-informant
+  bump: minor
+- name: sc-network-sync
+  bump: major

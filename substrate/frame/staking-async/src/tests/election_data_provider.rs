@@ -46,7 +46,8 @@ fn set_minimum_active_stake_lower_bond_works() {
 	// lower non-zero active stake below `MinNominatorBond` is the minimum active stake if
 	// it is selected as part of the npos voters.
 	ExtBuilder::default().has_stakers(true).nominate(true).build_and_execute(|| {
-		assert_eq!(MinNominatorBond::<Test>::get(), 1);
+		// default `ExtBuilder` sets `MinNominatorBond = ED + 1 = 2`.
+		assert_eq!(MinNominatorBond::<Test>::get(), 2);
 		assert_eq!(<Test as Config>::VoterList::count(), 4);
 
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(4), 5, RewardDestination::Staked,));
@@ -622,7 +623,7 @@ mod paged_snapshot {
 	}
 
 	#[test]
-	fn target_snaposhot_multi_page_redundant() {
+	fn target_snapshot_multi_page_redundant() {
 		ExtBuilder::default().build_and_execute(|| {
 			let all_targets = vec![31, 21, 11];
 			assert_eq_uvec!(<Test as Config>::TargetList::iter().collect::<Vec<_>>(), all_targets,);
@@ -855,6 +856,67 @@ mod paged_snapshot {
 					);
 				});
 			})
+	}
+}
+
+mod score_provider {
+	use frame_election_provider_support::ScoreProvider;
+
+	use super::*;
+
+	#[test]
+	fn no_score_for_chilled_stakers() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given 41 being a chilled staker
+			assert!(
+				Ledger::<Test>::get(41).is_some() &&
+					!Validators::<Test>::contains_key(41) &&
+					!Nominators::<Test>::contains_key(41)
+			);
+
+			// then they will not have a score when bags-list wants to update it.
+			assert!(<Staking as ScoreProvider<_>>::score(&41).is_none());
+		});
+	}
+
+	#[test]
+	fn no_score_for_non_stakers() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given 777 being neither a nominator nor a validator in this pallet.
+			assert!(
+				!Ledger::<Test>::get(777).is_some() &&
+					!Validators::<Test>::contains_key(777) &&
+					!Nominators::<Test>::contains_key(777)
+			);
+
+			// then it will not have a score when bags-list wants to update it.
+			assert!(<Staking as ScoreProvider<_>>::score(&777).is_none());
+		});
+	}
+
+	#[test]
+	fn score_for_validators_nominators() {
+		ExtBuilder::default().nominate(true).build_and_execute(|| {
+			// Given 101 being a nominator
+			assert!(
+				Ledger::<Test>::get(101).unwrap().active == 500 &&
+					!Validators::<Test>::contains_key(101) &&
+					Nominators::<Test>::contains_key(101)
+			);
+
+			// then it will have a score.
+			assert_eq!(<Staking as ScoreProvider<_>>::score(&101), Some(500));
+
+			// given 11 being a validator
+			assert!(
+				Ledger::<Test>::get(11).unwrap().active == 1000 &&
+					Validators::<Test>::contains_key(11) &&
+					!Nominators::<Test>::contains_key(11)
+			);
+
+			// then it will have a score.
+			assert_eq!(<Staking as ScoreProvider<_>>::score(&11), Some(1000));
+		});
 	}
 }
 

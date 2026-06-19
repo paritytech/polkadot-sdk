@@ -12,8 +12,10 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+array-bytes = { workspace = true }
 bytes = { workspace = true }
 codec = { features = ["derive"], workspace = true }
+derive-where = { workspace = true }
 environmental = { workspace = true }
 hashbrown = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
@@ -26,8 +28,10 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-message-queue = { workspace = true }
+sp-api = { workspace = true }
 sp-consensus-babe = { workspace = true }
 sp-core = { workspace = true }
+sp-crypto-hashing = { workspace = true }
 sp-externalities = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
@@ -39,6 +43,7 @@ sp-version = { workspace = true }
 
 # Polkadot
 polkadot-parachain-primitives = { features = ["wasm-api"], workspace = true }
+polkadot-primitives = { workspace = true }
 polkadot-runtime-parachains = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
@@ -49,6 +54,9 @@ cumulus-primitives-core = { workspace = true }
 cumulus-primitives-parachain-inherent = { workspace = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true }
 
+# For building docs
+docify = { workspace = true }
+
 [dev-dependencies]
 assert_matches = { workspace = true }
 futures = { workspace = true }
@@ -57,8 +65,8 @@ rand = { workspace = true, default-features = true }
 rstest = { workspace = true }
 trie-standardmap = { workspace = true }
 
-
 # Substrate
+frame-executive = { workspace = true }
 sc-consensus = { workspace = true }
 sp-api = { workspace = true, default-features = true }
 sp-consensus-slots = { workspace = true, default-features = true }
@@ -66,6 +74,7 @@ sp-crypto-hashing = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
+
 # Cumulus
 cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
@@ -81,15 +90,19 @@ std = [
 	"cumulus-primitives-proof-size-hostfunction/std",
 	"environmental/std",
 	"frame-benchmarking/std",
+	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
 	"pallet-message-queue/std",
 	"polkadot-parachain-primitives/std",
+	"polkadot-primitives/std",
 	"polkadot-runtime-parachains/std",
 	"scale-info/std",
+	"sp-api/std",
 	"sp-consensus-babe/std",
 	"sp-core/std",
+	"sp-crypto-hashing/std",
 	"sp-externalities/std",
 	"sp-inherents/std",
 	"sp-io/std",
@@ -111,6 +124,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
@@ -118,6 +132,7 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
+	"frame-executive/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-message-queue/try-runtime",
@@ -125,4 +140,12 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
-experimental-ump-signals = []
+# Enables `TransactionIndex` host functions for parachain validation
+# without requiring maintenance of a transaction index.
+# However, the host environment (polkadot-prepare/execute-worker) still expects these functions to exist,
+# so we provide a replacement no-op implementation gated by this feature.
+#
+# Used by: `validate_block::implementation::validate_block`.
+#
+# Note: The parachain collator software is expected to use/include `transaction_index::HostFunctions`.
+transaction-index = []

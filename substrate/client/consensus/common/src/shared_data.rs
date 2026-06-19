@@ -35,7 +35,7 @@ impl<T> SharedDataLockedUpgradable<T> {
 	/// Upgrade to a *real* mutex guard that will give access to the inner data.
 	///
 	/// Every call to this function will reaquire the mutex again.
-	pub fn upgrade(&mut self) -> MappedMutexGuard<T> {
+	pub fn upgrade(&mut self) -> MappedMutexGuard<'_, T> {
 		MutexGuard::map(self.shared_data.inner.lock(), |i| &mut i.shared_data)
 	}
 }
@@ -202,7 +202,7 @@ impl<T> SharedData<T> {
 	///
 	/// When requiring to lock shared data for some longer time, even with temporarily releasing the
 	/// lock, [`Self::shared_data_locked`] should be used.
-	pub fn shared_data(&self) -> MappedMutexGuard<T> {
+	pub fn shared_data(&self) -> MappedMutexGuard<'_, T> {
 		let mut guard = self.inner.lock();
 
 		while guard.locked {
@@ -222,7 +222,7 @@ impl<T> SharedData<T> {
 	/// to be locked, but a mutex guard can not be held.
 	///
 	/// For an example see [`SharedData`].
-	pub fn shared_data_locked(&self) -> SharedDataLocked<T> {
+	pub fn shared_data_locked(&self) -> SharedDataLocked<'_, T> {
 		let mut guard = self.inner.lock();
 
 		while guard.locked {

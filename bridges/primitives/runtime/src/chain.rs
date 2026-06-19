@@ -44,8 +44,9 @@ impl<ChainCall: Clone + Codec> EncodedOrDecodedCall<ChainCall> {
 	/// Returns decoded call.
 	pub fn to_decoded(&self) -> Result<ChainCall, codec::Error> {
 		match self {
-			Self::Encoded(ref encoded_call) =>
-				ChainCall::decode(&mut &encoded_call[..]).map_err(Into::into),
+			Self::Encoded(ref encoded_call) => {
+				ChainCall::decode(&mut &encoded_call[..]).map_err(Into::into)
+			},
 			Self::Decoded(ref decoded_call) => Ok(decoded_call.clone()),
 		}
 	}
@@ -53,8 +54,9 @@ impl<ChainCall: Clone + Codec> EncodedOrDecodedCall<ChainCall> {
 	/// Converts self to decoded call.
 	pub fn into_decoded(self) -> Result<ChainCall, codec::Error> {
 		match self {
-			Self::Encoded(encoded_call) =>
-				ChainCall::decode(&mut &encoded_call[..]).map_err(Into::into),
+			Self::Encoded(encoded_call) => {
+				ChainCall::decode(&mut &encoded_call[..]).map_err(Into::into)
+			},
 			Self::Decoded(decoded_call) => Ok(decoded_call),
 		}
 	}

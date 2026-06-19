@@ -32,8 +32,8 @@ extern crate alloc;
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use cumulus_primitives_core::{
 	relay_chain::{
-		vstaging::ApprovedPeerId, BlakeTwo256, BlockNumber as RelayChainBlockNumber,
-		Hash as RelayHash, HashT as _, Header as RelayHeader,
+		ApprovedPeerId, BlakeTwo256, BlockNumber as RelayChainBlockNumber, Hash as RelayHash,
+		HashT as _, Header as RelayHeader,
 	},
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
@@ -59,7 +59,7 @@ pub mod v0 {
 		codec::Encode,
 		codec::Decode,
 		codec::DecodeWithMemTracking,
-		sp_core::RuntimeDebug,
+		Debug,
 		Clone,
 		PartialEq,
 		TypeInfo,
@@ -87,13 +87,7 @@ pub mod v0 {
 
 /// The inherent data that is passed by the collator to the parachain runtime.
 #[derive(
-	codec::Encode,
-	codec::Decode,
-	codec::DecodeWithMemTracking,
-	sp_core::RuntimeDebug,
-	Clone,
-	PartialEq,
-	TypeInfo,
+	codec::Encode, codec::Decode, codec::DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo,
 )]
 pub struct ParachainInherentData {
 	pub validation_data: PersistedValidationData,
@@ -172,13 +166,7 @@ impl sp_inherents::InherentDataProvider for ParachainInherentData {
 
 /// An inbound message whose content was hashed.
 #[derive(
-	codec::Encode,
-	codec::Decode,
-	codec::DecodeWithMemTracking,
-	sp_core::RuntimeDebug,
-	Clone,
-	PartialEq,
-	TypeInfo,
+	codec::Encode, codec::Decode, codec::DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo,
 )]
 pub struct HashedMessage {
 	pub sent_at: RelayChainBlockNumber,

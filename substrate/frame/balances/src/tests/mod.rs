@@ -41,7 +41,7 @@ use sp_core::{hexdisplay::HexDisplay, sr25519::Pair as SrPair, Pair};
 use sp_io;
 use sp_runtime::{
 	traits::{BadOrigin, Zero},
-	ArithmeticError, BuildStorage, DispatchError, DispatchResult, FixedPointNumber, RuntimeDebug,
+	ArithmeticError, BuildStorage, Debug, DispatchError, DispatchResult, FixedPointNumber,
 	TokenError,
 };
 use std::collections::BTreeSet;
@@ -49,6 +49,7 @@ use std::collections::BTreeSet;
 mod consumer_limit_tests;
 mod currency_tests;
 mod dispatchable_tests;
+mod fungible_and_currency;
 mod fungible_conformance_tests;
 mod fungible_tests;
 mod general_tests;
@@ -68,7 +69,7 @@ type Block = frame_system::mocking::MockBlock<Test>;
 	PartialOrd,
 	MaxEncodedLen,
 	TypeInfo,
-	RuntimeDebug,
+	Debug,
 )]
 pub enum TestId {
 	Foo,

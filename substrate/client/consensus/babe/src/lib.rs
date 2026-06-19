@@ -113,7 +113,7 @@ use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::AppCrypto;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::{
-	Backend as _, BlockStatus, Error as ClientError, ForkBackend, HeaderBackend, HeaderMetadata,
+	Backend as _, BlockStatus, Error as ClientError, HeaderBackend, HeaderMetadata,
 	Result as ClientResult,
 };
 use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain};
@@ -401,10 +401,11 @@ where
 			}
 		},
 		Some(2) => runtime_api.configuration(at_hash)?,
-		_ =>
+		_ => {
 			return Err(sp_blockchain::Error::VersionInvalid(
 				"Unsupported or invalid BabeApi version".to_string(),
-			)),
+			))
+		},
 	};
 	Ok(config)
 }
@@ -561,16 +562,7 @@ fn aux_storage_cleanup<C: HeaderMetadata<Block> + HeaderBackend<Block>, Block: B
 			.filter(|h| **h != notification.hash),
 	);
 
-	// Cleans data for stale forks.
-	let stale_forks = match client.expand_forks(&notification.stale_heads) {
-		Ok(stale_forks) => stale_forks,
-		Err(e) => {
-			warn!(target: LOG_TARGET, "{:?}", e);
-
-			Default::default()
-		},
-	};
-	hashes.extend(stale_forks.iter());
+	hashes.extend(notification.stale_blocks.iter().map(|b| b.hash));
 
 	hashes
 		.into_iter()
@@ -800,13 +792,14 @@ where
 		let sinks = &mut self.slot_notification_sinks.lock();
 		sinks.retain_mut(|sink| match sink.try_send((slot, epoch_descriptor.clone())) {
 			Ok(()) => true,
-			Err(e) =>
+			Err(e) => {
 				if e.is_full() {
 					warn!(target: LOG_TARGET, "Trying to notify a slot but the channel is full");
 					true
 				} else {
 					false
-				},
+				}
+			},
 		});
 	}
 
@@ -862,7 +855,7 @@ where
 					self.client.info().finalized_number,
 					slot,
 					self.logging_target(),
-				)
+				);
 			}
 		}
 		false
@@ -907,7 +900,7 @@ pub fn find_pre_digest<B: BlockT>(header: &B::Header) -> Result<PreDigest, Error
 		return Ok(PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
 			slot: 0.into(),
 			authority_index: 0,
-		}))
+		}));
 	}
 
 	let mut pre_digest: Option<_> = None;
@@ -922,6 +915,11 @@ pub fn find_pre_digest<B: BlockT>(header: &B::Header) -> Result<PreDigest, Error
 	pre_digest.ok_or_else(|| babe_err(Error::NoPreRuntimeDigest))
 }
 
+/// Check whether the given header contains a BABE epoch change digest.
+pub fn contains_epoch_change<B: BlockT>(header: &B::Header) -> bool {
+	find_next_epoch_digest::<B>(header).ok().flatten().is_some()
+}
+
 /// Extract the BABE epoch change digest from the given header, if it exists.
 pub fn find_next_epoch_digest<B: BlockT>(
 	header: &B::Header,
@@ -931,8 +929,9 @@ pub fn find_next_epoch_digest<B: BlockT>(
 		trace!(target: LOG_TARGET, "Checking log {:?}, looking for epoch change digest.", log);
 		let log = log.try_to::<ConsensusLog>(OpaqueDigestItemId::Consensus(&BABE_ENGINE_ID));
 		match (log, epoch_digest.is_some()) {
-			(Some(ConsensusLog::NextEpochData(_)), true) =>
-				return Err(babe_err(Error::MultipleEpochChangeDigests)),
+			(Some(ConsensusLog::NextEpochData(_)), true) => {
+				return Err(babe_err(Error::MultipleEpochChangeDigests))
+			},
 			(Some(ConsensusLog::NextEpochData(epoch)), false) => epoch_digest = Some(epoch),
 			_ => trace!(target: LOG_TARGET, "Ignoring digest not meant for us"),
 		}
@@ -950,8 +949,9 @@ fn find_next_config_digest<B: BlockT>(
 		trace!(target: LOG_TARGET, "Checking log {:?}, looking for epoch change digest.", log);
 		let log = log.try_to::<ConsensusLog>(OpaqueDigestItemId::Consensus(&BABE_ENGINE_ID));
 		match (log, config_digest.is_some()) {
-			(Some(ConsensusLog::NextConfigData(_)), true) =>
-				return Err(babe_err(Error::MultipleConfigChangeDigests)),
+			(Some(ConsensusLog::NextConfigData(_)), true) => {
+				return Err(babe_err(Error::MultipleConfigChangeDigests))
+			},
 			(Some(ConsensusLog::NextConfigData(config)), false) => config_digest = Some(config),
 			_ => trace!(target: LOG_TARGET, "Ignoring digest not meant for us"),
 		}
@@ -1018,8 +1018,8 @@ where
 
 		let number = block.header.number();
 
-		if is_state_sync_or_gap_sync_import(&*self.client, &block) {
-			return Ok(block)
+		if should_skip_verification(&*self.client, &block) {
+			return Ok(block);
 		}
 
 		debug!(
@@ -1087,19 +1087,21 @@ where
 	}
 }
 
-/// Verification for imported blocks is skipped in two cases:
+/// Verification for imported blocks is skipped in three cases:
 /// 1. When importing blocks below the last finalized block during network initial synchronization.
 /// 2. When importing whole state we don't calculate epoch descriptor, but rather read it from the
 ///    state after import. We also skip all verifications because there's no parent state and we
 ///    trust the sync module to verify that the state is correct and finalized.
-fn is_state_sync_or_gap_sync_import<B: BlockT>(
+/// 3. When importing warp sync blocks that have already been verified via warp sync proof.
+fn should_skip_verification<B: BlockT>(
 	client: &impl HeaderBackend<B>,
 	block: &BlockImportParams<B>,
 ) -> bool {
-	let number = *block.header.number();
-	let info = client.info();
-	info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
-		block.with_state()
+	block.origin == BlockOrigin::WarpSync || block.with_state() || {
+		let number = *block.header.number();
+		let info = client.info();
+		info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end)
+	}
 }
 
 /// A block-import handler for BABE.
@@ -1204,11 +1206,12 @@ where
 		let import_result = self.inner.import_block(block).await;
 		let aux = match import_result {
 			Ok(ImportResult::Imported(aux)) => aux,
-			Ok(r) =>
+			Ok(r) => {
 				return Err(ConsensusError::ClientImport(format!(
 					"Unexpected import result: {:?}",
 					r
-				))),
+				)))
+			},
 			Err(r) => return Err(r.into()),
 		};
 
@@ -1235,8 +1238,8 @@ where
 		&self,
 		block: &mut BlockImportParams<Block>,
 	) -> Result<(), ConsensusError> {
-		if is_state_sync_or_gap_sync_import(&*self.client, block) {
-			return Ok(())
+		if should_skip_verification(&*self.client, block) {
+			return Ok(());
 		}
 
 		let parent_hash = *block.header.parent_hash();
@@ -1275,8 +1278,9 @@ where
 				.get(babe_pre_digest.authority_index() as usize)
 			{
 				Some(author) => author.0.clone(),
-				None =>
-					return Err(ConsensusError::Other(Error::<Block>::SlotAuthorNotFound.into())),
+				None => {
+					return Err(ConsensusError::Other(Error::<Block>::SlotAuthorNotFound.into()))
+				},
 			}
 		};
 		if let Err(err) = self
@@ -1299,7 +1303,7 @@ where
 		create_inherent_data_providers: CIDP::InherentDataProviders,
 	) -> Result<(), ConsensusError> {
 		if block.state_action.skip_execution_checks() {
-			return Ok(())
+			return Ok(());
 		}
 
 		if let Some(inner_body) = block.body.take() {
@@ -1325,12 +1329,14 @@ where
 			.await
 			.map_err(|e| {
 				ConsensusError::Other(Box::new(match e {
-					CheckInherentsError::CreateInherentData(e) =>
-						Error::<Block>::CreateInherents(e),
+					CheckInherentsError::CreateInherentData(e) => {
+						Error::<Block>::CreateInherents(e)
+					},
 					CheckInherentsError::Client(e) => Error::RuntimeApi(e),
 					CheckInherentsError::CheckInherents(e) => Error::CheckInherents(e),
-					CheckInherentsError::CheckInherentsUnknownError(id) =>
-						Error::CheckInherentsUnhandled(id),
+					CheckInherentsError::CheckInherentsUnknownError(id) => {
+						Error::CheckInherentsUnhandled(id)
+					},
 				}))
 			})?;
 			let (_, inner_body) = new_block.deconstruct();
@@ -1351,7 +1357,7 @@ where
 		// don't report any equivocations during initial sync
 		// as they are most likely stale.
 		if *origin == BlockOrigin::NetworkInitialSync {
-			return Ok(())
+			return Ok(());
 		}
 
 		// check if authorship of this header is an equivocation and return a proof if so.
@@ -1359,10 +1365,11 @@ where
 			check_equivocation(&*self.client, slot_now, slot, header, author)
 				.map_err(Error::Client)?
 		else {
-			return Ok(())
+			return Ok(());
 		};
 
 		info!(
+			target: LOG_TARGET,
 			"Slot author {:?} is equivocating at slot {} with headers {:?} and {:?}",
 			author,
 			slot,
@@ -1403,7 +1410,7 @@ where
 						target: LOG_TARGET,
 						"Equivocation offender is not part of the authority set."
 					);
-					return Ok(())
+					return Ok(());
 				},
 			},
 		};
@@ -1454,6 +1461,7 @@ where
 		mut block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let hash = block.post_hash();
+		let parent_hash = *block.header.parent_hash();
 		let number = *block.header.number();
 		let info = self.client.info();
 
@@ -1474,11 +1482,11 @@ where
 			// In case of initial sync intermediates should not be present...
 			let _ = block.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY);
 			block.fork_choice = Some(ForkChoiceStrategy::Custom(false));
-			return self.inner.import_block(block).await.map_err(Into::into)
+			return self.inner.import_block(block).await.map_err(Into::into);
 		}
 
 		if block.with_state() {
-			return self.import_state(block).await
+			return self.import_state(block).await;
 		}
 
 		let pre_digest = find_pre_digest::<Block>(&block.header).expect(
@@ -1486,36 +1494,34 @@ where
 		);
 		let slot = pre_digest.slot();
 
-		let parent_hash = *block.header.parent_hash();
-		let parent_header = self
-			.client
-			.header(parent_hash)
-			.map_err(|e| ConsensusError::ChainLookup(e.to_string()))?
-			.ok_or_else(|| {
-				ConsensusError::ChainLookup(
-					babe_err(Error::<Block>::ParentUnavailable(parent_hash, hash)).into(),
-				)
-			})?;
-
-		let parent_slot = find_pre_digest::<Block>(&parent_header).map(|d| d.slot()).expect(
-			"parent is non-genesis; valid BABE headers contain a pre-digest; header has already \
-			 been verified; qed",
-		);
-
-		// make sure that slot number is strictly increasing
-		if slot <= parent_slot {
-			return Err(ConsensusError::ClientImport(
-				babe_err(Error::<Block>::SlotMustIncrease(parent_slot, slot)).into(),
-			))
-		}
-
-		// if there's a pending epoch we'll save the previous epoch changes here
-		// this way we can revert it if there's any error
+		// If there's a pending epoch we'll save the previous epoch changes here
+		// this way we can revert it if there's any error.
 		let mut old_epoch_changes = None;
 
-		// Use an extra scope to make the compiler happy, because otherwise it complains about the
-		// mutex, even if we dropped it...
-		let mut epoch_changes = {
+		// Skip epoch change processing for warp synced blocks
+		let epoch_changes = if block.origin != BlockOrigin::WarpSync {
+			let parent_header = self
+				.client
+				.header(parent_hash)
+				.map_err(|e| ConsensusError::ChainLookup(e.to_string()))?
+				.ok_or_else(|| {
+					ConsensusError::ChainLookup(
+						babe_err(Error::<Block>::ParentUnavailable(parent_hash, hash)).into(),
+					)
+				})?;
+
+			let parent_slot = find_pre_digest::<Block>(&parent_header).map(|d| d.slot()).expect(
+				"parent is non-genesis; valid BABE headers contain a pre-digest; header has already \
+				 been verified; qed",
+			);
+
+			// make sure that slot number is strictly increasing
+			if slot <= parent_slot {
+				return Err(ConsensusError::ClientImport(
+					babe_err(Error::<Block>::SlotMustIncrease(parent_slot, slot)).into(),
+				));
+			}
+
 			let mut epoch_changes = self.epoch_changes.shared_data_locked();
 
 			// check if there's any epoch change expected to happen at this slot.
@@ -1556,18 +1562,21 @@ where
 			match (first_in_epoch, next_epoch_digest.is_some(), next_config_digest.is_some()) {
 				(true, true, _) => {},
 				(false, false, false) => {},
-				(false, false, true) =>
+				(false, false, true) => {
 					return Err(ConsensusError::ClientImport(
 						babe_err(Error::<Block>::UnexpectedConfigChange).into(),
-					)),
-				(true, false, _) =>
+					))
+				},
+				(true, false, _) => {
 					return Err(ConsensusError::ClientImport(
 						babe_err(Error::<Block>::ExpectedEpochChange(hash, slot)).into(),
-					)),
-				(false, true, _) =>
+					))
+				},
+				(false, true, _) => {
 					return Err(ConsensusError::ClientImport(
 						babe_err(Error::<Block>::UnexpectedEpochChange).into(),
-					)),
+					))
+				},
 			}
 
 			if let Some(next_epoch_descriptor) = next_epoch_digest {
@@ -1597,13 +1606,14 @@ where
 					// re-use the same data for that epoch.
 					// Notice that we are only updating a local copy of the `Epoch`, this
 					// makes it so that when we insert the next epoch into `EpochChanges` below
-					// (after incrementing it), it will use the correct epoch index and start slot.
-					// We do not update the original epoch that will be re-used because there might
-					// be other forks (that we haven't imported) where the epoch isn't skipped, and
-					// to import those forks we want to keep the original epoch data. Not updating
-					// the original epoch works because when we search the tree for which epoch to
-					// use for a given slot, we will search in-depth with the predicate
-					// `epoch.start_slot <= slot` which will still match correctly without updating
+					// (after incrementing it), it will use the correct epoch index and start
+					// slot. We do not update the original epoch that will be re-used
+					// because there might be other forks (that we haven't imported) where
+					// the epoch isn't skipped, and to import those forks we want to keep
+					// the original epoch data. Not updating the original epoch works
+					// because when we search the tree for which epoch to use for a given
+					// slot, we will search in-depth with the predicate `epoch.start_slot
+					// <= slot` which will still match correctly without updating
 					// `start_slot` to the correct value as below.
 					let epoch = viable_epoch.as_mut();
 					let prev_index = epoch.epoch_index;
@@ -1665,7 +1675,7 @@ where
 					debug!(target: LOG_TARGET, "Failed to launch next epoch: {}", e);
 					*epoch_changes =
 						old_epoch_changes.expect("set `Some` above and not taken; qed");
-					return Err(e)
+					return Err(e);
 				}
 
 				crate::aux_schema::write_epoch_changes::<Block, _, _>(&*epoch_changes, |insert| {
@@ -1711,7 +1721,10 @@ where
 			};
 
 			// Release the mutex, but it stays locked
-			epoch_changes.release_mutex()
+			Some(epoch_changes.release_mutex())
+		} else {
+			block.fork_choice = Some(ForkChoiceStrategy::Custom(false));
+			None
 		};
 
 		let import_result = self.inner.import_block(block).await;
@@ -1719,7 +1732,9 @@ where
 		// revert to the original epoch changes in case there's an error
 		// importing the block
 		if import_result.is_err() {
-			if let Some(old_epoch_changes) = old_epoch_changes {
+			if let (Some(mut epoch_changes), Some(old_epoch_changes)) =
+				(epoch_changes, old_epoch_changes)
+			{
 				*epoch_changes.upgrade() = old_epoch_changes;
 			}
 		}
@@ -1921,7 +1936,7 @@ where
 
 	let revertible = blocks.min(best_number - finalized);
 	if revertible == Zero::zero() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let revert_up_to_number = best_number - revertible;
@@ -1961,7 +1976,7 @@ where
 				!weight_keys.insert(aux_schema::block_weight_key(hash))
 			{
 				// We've reached the revert point or an already processed branch, stop here.
-				break
+				break;
 			}
 			hash = meta.parent;
 		}

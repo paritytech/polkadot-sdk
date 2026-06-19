@@ -157,6 +157,7 @@ impl Verify for AccountU64 {
 	}
 }
 
+#[allow(dead_code)]
 pub struct AllianceIdentityVerifier;
 impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 	fn has_required_identities(who: &AccountId) -> bool {
@@ -382,6 +383,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		System::set_block_number(1);
 	});
 	ext
+}
+
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		Alliance::do_try_state().expect("All invariants must hold after a test");
+	})
 }
 
 #[cfg(feature = "runtime-benchmarks")]

@@ -563,6 +563,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 				rate_limit: self.rpc_rate_limit()?,
 				rate_limit_whitelisted_ips: self.rpc_rate_limit_whitelisted_ips()?,
 				rate_limit_trust_proxy_headers: self.rpc_rate_limit_trust_proxy_headers()?,
+				request_logger_limit: if is_dev { 1024 * 1024 } else { 1024 },
 			},
 			prometheus_config: self
 				.prometheus_config(DCV::prometheus_listen_port(), &chain_spec)?,
@@ -659,14 +660,15 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		logger.init()?;
 
 		match fdlimit::raise_fd_limit() {
-			Ok(fdlimit::Outcome::LimitRaised { to, .. }) =>
+			Ok(fdlimit::Outcome::LimitRaised { to, .. }) => {
 				if to < RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT {
 					warn!(
 						"Low open file descriptor limit configured for the process. \
 						Current value: {:?}, recommended value: {:?}.",
 						to, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
 					);
-				},
+				}
+			},
 			Ok(fdlimit::Outcome::Unsupported) => {
 				// Unsupported platform (non-Linux)
 			},
@@ -692,7 +694,7 @@ pub fn generate_node_name() -> String {
 		let count = node_name.chars().count();
 
 		if count < NODE_NAME_MAX_LENGTH {
-			return node_name
+			return node_name;
 		}
 	}
 }

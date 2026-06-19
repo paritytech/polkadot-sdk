@@ -15,7 +15,8 @@
 // limitations under the License.
 
 use crate::{
-	chain_spec::DeprecatedExtensions,
+	chain_spec::Extensions,
+	cli::DevSealMode,
 	common::{
 		command::NodeCommandRunner,
 		rpc::BuildRpcExtensions,
@@ -27,23 +28,27 @@ use crate::{
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
 };
+use codec::Encode;
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
-	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
+	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainTracingExecuteBlock,
+	StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{BlockT, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::FutureExt;
-use log::info;
-use parachains_common::Hash;
+use log::{debug, info};
+use parachains_common_types::Hash;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
 use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock};
+use sc_network::{
+	config::FullNetworkConfiguration, NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId,
+};
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_statement_store::Store;
 use sc_sysinfo::HwBench;
@@ -51,10 +56,17 @@ use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::AccountIdConversion;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+
+// Override default idle connection timeout of 10 seconds to give IPFS clients more
+// time to query data over Bitswap. This is needed when manually adding our node
+// to a swarm of an IPFS node, because the IPFS node doesn't keep any active
+// substreams with us and our node closes a connection after
+// `idle_connection_timeout`.
+const IPFS_WORKAROUND_TIMEOUT: Duration = Duration::from_secs(3600);
 
 pub(crate) trait BuildImportQueue<
 	Block: BlockT,
@@ -87,6 +99,7 @@ where
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
+		collator_peer_id: PeerId,
 		overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
@@ -104,7 +117,7 @@ fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 	{
 		log::warn!(
 			"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
-			https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+			https://docs.polkadot.com/infrastructure/running-a-validator/requirements/#minimum-hardware-requirements",
 			err
 		);
 	}
@@ -157,19 +170,27 @@ pub(crate) trait BaseNodeSpec {
 		parachain_config: &Configuration,
 	) -> Option<ParaId> {
 		let best_hash = client.chain_info().best_hash;
-		let para_id = if let Ok(para_id) = client.runtime_api().parachain_id(best_hash) {
-			para_id
+		let para_id = if client
+			.runtime_api()
+			.has_api::<dyn GetParachainInfo<Self::Block>>(best_hash)
+			.ok()
+			.filter(|has_api| *has_api)
+			.is_some()
+		{
+			client
+				.runtime_api()
+				.parachain_id(best_hash)
+				.inspect_err(|err| {
+					log::error!(
+						"`cumulus_primitives_core::GetParachainInfo` runtime API call errored with {}",
+						err
+					);
+				})
+				.ok()?
 		} else {
-			// TODO: remove this once `para_id` extension is removed: https://github.com/paritytech/polkadot-sdk/issues/8740
-			#[allow(deprecated)]
-			let id = ParaId::from(
-				DeprecatedExtensions::try_get(&*parachain_config.chain_spec)
-					.and_then(|ext| ext.para_id)?,
-			);
-			// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
-			// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
-			log::info!("Deprecation notice: the parachain id was provided via the chain spec. This way of providing the parachain id to the node is not recommended. The alternative is to implement the `cumulus_primitives_core::GetParachainInfo` runtime API in the runtime, and upgrade it on-chain. Starting with `stable2512` providing the parachain id via the chain spec will not be supported anymore.");
-			id
+			ParaId::from(
+				Extensions::try_get(&*parachain_config.chain_spec).and_then(|ext| ext.para_id())?,
+			)
 		};
 
 		let parachain_account =
@@ -227,6 +248,7 @@ pub(crate) trait BaseNodeSpec {
 				telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 				executor,
 				true,
+				Default::default(),
 			)?;
 		let client = Arc::new(client);
 
@@ -291,6 +313,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
+	fn start_dev_node(
+		_config: Configuration,
+		_mode: DevSealMode,
+		_node_extra_args: NodeExtraArgs,
+	) -> sc_service::error::Result<TaskManager> {
+		Err(sc_service::Error::Other("Dev not supported for this node type".into()))
+	}
+
 	/// Start a node with the given parachain spec.
 	///
 	/// This is the actual implementation that is abstract over the executor and the runtime api.
@@ -305,7 +335,19 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		Net: NetworkBackend<Self::Block, Hash>,
 	{
 		let fut = async move {
-			let parachain_config = prepare_node_config(parachain_config);
+			let mut parachain_config = prepare_node_config(parachain_config);
+
+			// Some additional customization in relation to starting the node as an ipfs server.
+			if parachain_config.network.idle_connection_timeout < IPFS_WORKAROUND_TIMEOUT &&
+				parachain_config.network.ipfs_server
+			{
+				debug!(
+					"Overriding `config.network.idle_connection_timeout` to allow long-lived connections with IPFS nodes. The old value: {:?} is replaced by: {:?}.",
+					parachain_config.network.idle_connection_timeout, IPFS_WORKAROUND_TIMEOUT
+				);
+				parachain_config.network.idle_connection_timeout = IPFS_WORKAROUND_TIMEOUT;
+			}
+
 			let parachain_public_addresses = parachain_config.network.public_addresses.clone();
 			let parachain_fork_id = parachain_config.chain_spec.fork_id().map(ToString::to_string);
 			let advertise_non_global_ips = parachain_config.network.allow_non_globals_in_dht;
@@ -345,8 +387,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			);
 
-			let statement_handler_proto = node_extra_args.enable_statement_store.then(|| {
-				new_statement_handler_proto(&*client, &parachain_config, &metrics, &mut net_config)
+			let statement_handler_proto = node_extra_args.statement_store_config.map(|config| {
+				let proto = new_statement_handler_proto(
+					&*client,
+					&parachain_config,
+					&metrics,
+					&mut net_config,
+				);
+				(proto, config)
 			});
 
 			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
@@ -357,15 +405,39 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					transaction_pool: transaction_pool.clone(),
 					para_id,
 					spawn_handle: task_manager.spawn_handle(),
+					spawn_essential_handle: task_manager.spawn_essential_handle(),
 					relay_chain_interface: relay_chain_interface.clone(),
 					import_queue: params.import_queue,
 					sybil_resistance_level: Self::SYBIL_RESISTANCE,
 					metrics,
 				})
 				.await?;
+			let peer_id = network.local_peer_id();
+
+			if validator && node_extra_args.collator_reserved_slots > 0 {
+				cumulus_client_collator_discovery::start_collator_discovery(
+					cumulus_client_collator_discovery::StartCollatorDiscoveryParams {
+						max_reserved: node_extra_args.collator_reserved_slots,
+						client: client.clone(),
+						authority_discovery: client.clone(),
+						network: network.clone(),
+						sync_service: sync_service.clone(),
+						network_event_stream: network.event_stream("para-authority-discovery"),
+						keystore: params.keystore_container.keystore(),
+						genesis_hash: client.chain_info().genesis_hash,
+						fork_id: parachain_fork_id.clone(),
+						publish_non_global_ips: parachain_config.network.allow_non_globals_in_dht,
+						public_addresses: parachain_config.network.public_addresses.clone(),
+						persisted_cache_directory: parachain_config.network.net_config_path.clone(),
+						prometheus_registry: prometheus_registry.clone(),
+						spawn_handle: task_manager.spawn_handle(),
+					},
+				)
+				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+			}
 
 			let statement_store = statement_handler_proto
-				.map(|statement_handler_proto| {
+				.map(|(statement_handler_proto, config)| {
 					build_statement_store(
 						&parachain_config,
 						&mut task_manager,
@@ -374,9 +446,33 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						sync_service.clone(),
 						params.keystore_container.local_keystore(),
 						statement_handler_proto,
+						config,
 					)
 				})
 				.transpose()?;
+
+			let hop_pool = node_extra_args.hop.as_ref().and_then(|params| {
+				match params.build_pool(parachain_config.database.path().map(|p| p.to_path_buf())) {
+					Ok(pool) => Some(pool),
+					Err(e) => {
+						log::warn!(
+							target: "hop",
+							"Failed to initialize HOP data pool, continuing without HOP: {e}",
+						);
+						None
+					},
+				}
+			});
+			if let (Some(pool), Some(hop)) = (hop_pool.as_ref(), node_extra_args.hop.as_ref()) {
+				let task = sc_hop::build_maintenance_task::<Self::Block, _, _>(
+					&client,
+					&transaction_pool,
+					pool.clone(),
+					hop.promotion_buffer_secs,
+					hop.check_interval,
+				);
+				task_manager.spawn_handle().spawn("hop-maintenance", None, task.run());
+			}
 
 			if parachain_config.offchain_worker.enabled {
 				let custom_extensions = {
@@ -411,21 +507,27 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				);
 			}
 
+			let spawn_handle = Arc::new(task_manager.spawn_handle());
+
 			let rpc_builder = {
 				let client = client.clone();
 				let transaction_pool = transaction_pool.clone();
 				let backend_for_rpc = backend.clone();
 				let statement_store = statement_store.clone();
-
+				let hop_pool = hop_pool.clone();
 				Box::new(move |_| {
 					Self::BuildRpcExtensions::build_rpc_extensions(
 						client.clone(),
 						backend_for_rpc.clone(),
 						transaction_pool.clone(),
 						statement_store.clone(),
+						hop_pool.clone(),
+						spawn_handle.clone(),
 					)
 				})
 			};
+
+			let database_path = parachain_config.database.path().map(|p| p.to_path_buf());
 
 			sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 				rpc_builder,
@@ -440,7 +542,20 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				system_rpc_tx,
 				tx_handler_controller,
 				telemetry: telemetry.as_mut(),
+				tracing_execute_block: Some(Arc::new(ParachainTracingExecuteBlock::new(
+					client.clone(),
+				))),
 			})?;
+
+			// Spawn the storage monitor
+			if let Some(database_path) = database_path {
+				sc_storage_monitor::StorageMonitorService::try_spawn(
+					node_extra_args.storage_monitor.clone(),
+					database_path,
+					&task_manager.spawn_essential_handle(),
+				)
+				.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+			}
 
 			if let Some(hwbench) = hwbench {
 				sc_sysinfo::print_hwbench(&hwbench);
@@ -498,7 +613,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				request_receiver: paranode_rx,
 				parachain_network: network,
 				advertise_non_global_ips,
-				parachain_genesis_hash: client.chain_info().genesis_hash,
+				parachain_genesis_hash: client.chain_info().genesis_hash.encode(),
 				parachain_fork_id,
 				parachain_public_addresses,
 			});
@@ -516,6 +631,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					relay_chain_slot_duration,
 					para_id,
 					collator_key.expect("Command line arguments do not allow this. qed"),
+					peer_id,
 					overseer_handle,
 					announce_block,
 					backend.clone(),
@@ -538,6 +654,15 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 }
 
 pub(crate) trait DynNodeSpec: NodeCommandRunner {
+	/// Start node with manual or instant seal consensus.
+	fn start_dev_node(
+		self: Box<Self>,
+		config: Configuration,
+		mode: DevSealMode,
+		node_extra_args: NodeExtraArgs,
+	) -> sc_service::error::Result<TaskManager>;
+
+	/// Start the node.
 	fn start_node(
 		self: Box<Self>,
 		parachain_config: Configuration,
@@ -552,6 +677,15 @@ impl<T> DynNodeSpec for T
 where
 	T: NodeSpec + NodeCommandRunner,
 {
+	fn start_dev_node(
+		self: Box<Self>,
+		config: Configuration,
+		mode: DevSealMode,
+		node_extra_args: NodeExtraArgs,
+	) -> sc_service::error::Result<TaskManager> {
+		<Self as NodeSpec>::start_dev_node(config, mode, node_extra_args)
+	}
+
 	fn start_node(
 		self: Box<Self>,
 		parachain_config: Configuration,
@@ -561,22 +695,24 @@ where
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>> {
 		match parachain_config.network.network_backend {
-			sc_network::config::NetworkBackendType::Libp2p =>
+			sc_network::config::NetworkBackendType::Libp2p => {
 				<Self as NodeSpec>::start_node::<sc_network::NetworkWorker<_, _>>(
 					parachain_config,
 					polkadot_config,
 					collator_options,
 					hwbench,
 					node_extra_args,
-				),
-			sc_network::config::NetworkBackendType::Litep2p =>
+				)
+			},
+			sc_network::config::NetworkBackendType::Litep2p => {
 				<Self as NodeSpec>::start_node::<sc_network::Litep2pNetworkBackend>(
 					parachain_config,
 					polkadot_config,
 					collator_options,
 					hwbench,
 					node_extra_args,
-				),
+				)
+			},
 		}
 	}
 }

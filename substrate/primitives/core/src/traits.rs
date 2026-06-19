@@ -31,7 +31,10 @@ pub enum CallContext {
 	/// The call is happening in some offchain context.
 	Offchain,
 	/// The call is happening in some on-chain context like building or importing a block.
-	Onchain,
+	Onchain {
+		/// `true` when the call is part of block import pipeline.
+		import: bool,
+	},
 }
 
 /// Code execution engine.
@@ -53,19 +56,19 @@ pub trait CodeExecutor: Sized + Send + Sync + ReadRuntimeVersion + Clone + 'stat
 	) -> (Result<Vec<u8>, Self::Error>, bool);
 }
 
-/// Something that can fetch the runtime `:code`.
+/// Something that can fetch the runtime code.
 pub trait FetchRuntimeCode {
-	/// Fetch the runtime `:code`.
+	/// Fetch the current runtime code.
 	///
-	/// If the `:code` could not be found/not available, `None` should be returned.
-	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>>;
+	/// If the code could not be found/not available, `None` should be returned.
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>>;
 }
 
 /// Wrapper to use a `u8` slice or `Vec` as [`FetchRuntimeCode`].
 pub struct WrappedRuntimeCode<'a>(pub Cow<'a, [u8]>);
 
 impl<'a> FetchRuntimeCode for WrappedRuntimeCode<'a> {
-	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>> {
 		Some(self.0.as_ref().into())
 	}
 }
@@ -74,7 +77,7 @@ impl<'a> FetchRuntimeCode for WrappedRuntimeCode<'a> {
 pub struct NoneFetchRuntimeCode;
 
 impl FetchRuntimeCode for NoneFetchRuntimeCode {
-	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>> {
 		None
 	}
 }
@@ -111,7 +114,7 @@ impl<'a> RuntimeCode<'a> {
 }
 
 impl<'a> FetchRuntimeCode for RuntimeCode<'a> {
-	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>> {
 		self.code_fetcher.fetch_runtime_code()
 	}
 }

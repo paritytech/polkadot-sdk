@@ -448,7 +448,7 @@ mod std_features {
 		fn set_interest(&self, _: tracing_core::Interest) {
 			unimplemented!()
 		}
-		fn metadata(&self) -> &tracing_core::Metadata {
+		fn metadata(&self) -> &tracing_core::Metadata<'_> {
 			unimplemented!()
 		}
 	}

@@ -15,35 +15,50 @@ on:
           - chain-spec-builder
           - substrate-node
           - eth-rpc
+          - subkey
           - all
 
       release_tag:
         description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcX or polkadot-stableYYMM(-X)
         type: string
 
+  workflow_call:
+    inputs:
+      binary:
+        description: Binary to be built for the release
+        default: all
+        type: string
+      release_tag:
+        description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcY or polkadot-stableYYMM(-X)
+        type: string
+
 jobs:
   check-synchronization:
     uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
+    with:
+      concurrency_suffix: build-rc
     secrets:
       fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
 
   validate-inputs:
     needs: [check-synchronization]
-    if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
+    if: needs.check-synchronization.outputs.checks_passed == 'true'
     runs-on: ubuntu-latest
     outputs:
         release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Validate inputs
         id: validate_inputs
+        env:
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           . ./.github/scripts/common/lib.sh
 
-          RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
+          RELEASE_TAG=$(validate_stable_tag "$INPUT_RELEASE_TAG")
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
   build-polkadot-binary:
@@ -55,14 +70,8 @@ jobs:
       package: polkadot
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
+
     permissions:
       id-token: write
       attestations: write
@@ -77,14 +86,7 @@ jobs:
       package: "polkadot-parachain-bin"
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -100,14 +102,7 @@ jobs:
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
       features: runtime-benchmarks
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -122,14 +117,7 @@ jobs:
       package: "frame-omni-bencher"
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -144,14 +132,7 @@ jobs:
       package: staging-chain-spec-builder
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -166,14 +147,7 @@ jobs:
       package: staging-node-cli
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -188,14 +162,22 @@ jobs:
       package: pallet-revive-eth-rpc
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+
+  build-subkey-binary:
+    needs: [validate-inputs]
+    if: ${{ inputs.binary == 'subkey' || inputs.binary == 'all' }}
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
+    with:
+      binary: '["subkey"]'
+      package: subkey
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      target: x86_64-unknown-linux-gnu
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -210,14 +192,7 @@ jobs:
       package: polkadot
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -232,14 +207,7 @@ jobs:
       package: polkadot-parachain-bin
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -255,14 +223,7 @@ jobs:
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
       features: runtime-benchmarks
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -277,14 +238,7 @@ jobs:
       package: frame-omni-bencher
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -299,14 +253,7 @@ jobs:
       package: staging-chain-spec-builder
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -321,14 +268,7 @@ jobs:
       package: staging-node-cli
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -343,14 +283,22 @@ jobs:
       package: pallet-revive-eth-rpc
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+
+  build-subkey-macos-binary:
+    needs: [validate-inputs]
+    if: ${{ inputs.binary == 'subkey' || inputs.binary == 'all' }}
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
+    with:
+      binary: '["subkey"]'
+      package: subkey
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      target: aarch64-apple-darwin
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write

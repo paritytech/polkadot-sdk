@@ -16,6 +16,9 @@
 
 //! CLI options of the omni-node. See [`Command`].
 
+/// Default block time for dev mode when using `--dev` flag.
+const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
+
 use crate::{
 	chain_spec::DiskChainSpecLoader,
 	common::{
@@ -31,8 +34,9 @@ use sc_cli::{
 	RpcEndpoint, SharedParams, SubstrateCli,
 };
 use sc_service::{config::PrometheusConfig, BasePath};
+use sc_storage_monitor::StorageMonitorParams;
 use std::{
-	fmt::{Debug, Display, Formatter},
+	fmt::{Display, Formatter},
 	marker::PhantomData,
 	path::PathBuf,
 };
@@ -153,6 +157,10 @@ pub struct Cli<Config: CliConfig> {
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
+	/// Parameters for storage monitoring.
+	#[command(flatten)]
+	pub storage_monitor: StorageMonitorParams,
+
 	/// Start a dev node that produces a block each `dev_block_time` ms.
 	///
 	/// This is a dev option. It enables a manual sealing, meaning blocks are produced manually
@@ -163,8 +171,18 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// The `--dev` flag sets the `dev_block_time` to a default value of 3000ms unless explicitly
 	/// provided.
-	#[arg(long)]
+	#[arg(long, conflicts_with = "instant_seal")]
 	pub dev_block_time: Option<u64>,
+
+	/// Start a dev node with instant seal.
+	///
+	/// This is a dev option that enables instant sealing, meaning blocks are produced
+	/// immediately when transactions are received, rather than at fixed intervals.
+	/// Using this option won't result in starting or connecting to a parachain network.
+	/// The resulting node will work on its own, running the wasm blob and producing blocks
+	/// instantly upon receiving transactions.
+	#[arg(long, conflicts_with = "dev_block_time")]
+	pub instant_seal: bool,
 
 	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
 	///
@@ -200,13 +218,70 @@ pub struct Cli<Config: CliConfig> {
 
 	/// Enable the statement store.
 	///
-	/// The statement store is a store for statements validated using the runtime API
-	/// `validate_statement`. It should be enabled for chains that provide this runtime API.
+	/// The statement store reads the storage of the chain to determine if users are allowed to
+	/// store statements or not.
 	#[arg(long)]
 	pub enable_statement_store: bool,
 
+	/// Number of concurrent workers for statement validation from the network.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_NETWORK_WORKERS)]
+	pub statement_network_workers: usize,
+
+	/// Maximum statements per second per peer before rate limiting kicks in.
+	///
+	/// Uses a token bucket algorithm that allows short bursts up to this limit
+	/// while enforcing the average rate over time.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_RATE_LIMIT)]
+	pub statement_rate_limit: u32,
+
+	/// Maximum number of statements the statement store can hold.
+	///
+	/// Once this limit is reached, lower-priority statements may be evicted.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_MAX_TOTAL_STATEMENTS)]
+	pub statement_store_max_total_statements: usize,
+
+	/// Maximum total data size (in bytes) the statement store can hold.
+	///
+	/// Once this limit is reached, lower-priority statements may be evicted.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_MAX_TOTAL_SIZE)]
+	pub statement_store_max_total_size: usize,
+
+	/// Number of seconds for which removed statements won't be allowed to be added back.
+	///
+	/// This prevents old statements from being re-propagated on the network.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_PURGE_AFTER_SEC)]
+	pub statement_store_purge_after_sec: u64,
+
+	/// Upper bound on collator reserved-peer slots.
+	#[arg(long, value_name = "N", default_value_t = 32)]
+	pub collator_reserved_slots: usize,
+
+	/// HOP (Hand-Off Protocol) configuration parameters.
+	#[command(flatten)]
+	pub hop: sc_hop::HopParams,
+
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
+}
+
+/// Development sealing mode.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum DevSealMode {
+	/// Produces blocks immediately upon receiving transactions.
+	InstantSeal,
+	/// Produces blocks at fixed time intervals.
+	/// The u64 parameter represents the block time in milliseconds.
+	ManualSeal(u64),
 }
 
 /// Collator implementation to use.
@@ -239,7 +314,31 @@ impl<Config: CliConfig> Cli<Config> {
 				.unwrap_or(self.authoring),
 			export_pov: self.export_pov_to_path.clone(),
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
-			enable_statement_store: self.enable_statement_store,
+			statement_store_config: self.enable_statement_store.then_some(
+				sc_statement_store::Config {
+					max_total_statements: self.statement_store_max_total_statements,
+					max_total_size: self.statement_store_max_total_size,
+					purge_after_sec: self.statement_store_purge_after_sec,
+					network_workers: self.statement_network_workers,
+					rate_limit: self.statement_rate_limit,
+				},
+			),
+			storage_monitor: self.storage_monitor.clone(),
+			collator_reserved_slots: self.collator_reserved_slots,
+			hop: self.hop.enabled.then(|| self.hop.clone()),
+		}
+	}
+
+	/// Returns the dev seal mode if the node is in dev mode.
+	pub(crate) fn dev_mode(&self) -> Option<DevSealMode> {
+		if self.instant_seal {
+			Some(DevSealMode::InstantSeal)
+		} else if let Some(dev_block_time) = self.dev_block_time {
+			Some(DevSealMode::ManualSeal(dev_block_time))
+		} else if self.run.base.is_dev().unwrap_or(false) {
+			Some(DevSealMode::ManualSeal(DEFAULT_DEV_BLOCK_TIME_MS))
+		} else {
+			None
 		}
 	}
 }
@@ -316,7 +415,7 @@ impl<Config: CliConfig> RelayChainCli<Config> {
 		let base = FromArgMatches::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
 
 		let extension = Extensions::try_get(&*para_config.chain_spec);
-		let chain_id = extension.map(|e| e.relay_chain.clone());
+		let chain_id = extension.map(|e| e.relay_chain());
 
 		let base_path = para_config.base_path.path().join("polkadot");
 		Self { base, chain_id, base_path: Some(base_path), _phantom: Default::default() }

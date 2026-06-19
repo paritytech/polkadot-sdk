@@ -48,14 +48,12 @@ pub enum DhtEvent {
 	ValueNotFound(Key),
 
 	/// The record has been successfully inserted into the DHT.
-	// TODO: this is not implemented with litep2p network backend.
 	ValuePut(Key),
 
 	/// An error has occurred while putting a record into the DHT.
 	ValuePutFailed(Key),
 
 	/// Successfully started providing the given key.
-	// TODO: this is not implemented with litep2p network backend.
 	StartedProviding(Key),
 
 	/// An error occured while registering as a content provider on the DHT.

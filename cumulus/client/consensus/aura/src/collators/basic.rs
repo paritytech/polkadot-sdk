@@ -28,9 +28,9 @@ use cumulus_client_collator::{
 	relay_chain_driven::CollationRequest, service::ServiceInterface as CollatorServiceInterface,
 };
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_core::{relay_chain::BlockId as RBlockId, CollectCollationInfo};
 use cumulus_relay_chain_interface::RelayChainInterface;
+use sp_consensus::Environment;
 
 use polkadot_node_primitives::CollationResult;
 use polkadot_overseer::Handle as OverseerHandle;
@@ -39,7 +39,8 @@ use polkadot_primitives::{CollatorPair, Id as ParaId, ValidationCode};
 use futures::{channel::mpsc::Receiver, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
-use sp_api::{CallApiAt, ProvideRuntimeApi};
+use sc_network_types::PeerId;
+use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AuraApi;
@@ -68,13 +69,15 @@ pub struct Params<BI, CIDP, Client, RClient, Proposer, CS> {
 	pub keystore: KeystorePtr,
 	/// The collator key used to sign collations before submitting to validators.
 	pub collator_key: CollatorPair,
+	/// The collator network peer id.
+	pub collator_peer_id: PeerId,
 	/// The para's ID.
 	pub para_id: ParaId,
 	/// A handle to the relay-chain client's "Overseer" or task orchestrator.
 	pub overseer_handle: OverseerHandle,
 	/// The length of slots in the relay chain.
 	pub relay_chain_slot_duration: Duration,
-	/// The underlying block proposer this should call into.
+	/// The proposer for building blocks.
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
@@ -106,7 +109,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Clone + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	P: Pair,
 	P::Public: AppPublic + Member + Codec,
@@ -115,13 +118,14 @@ where
 	async move {
 		let mut collation_requests = match params.collation_request_receiver {
 			Some(receiver) => receiver,
-			None =>
+			None => {
 				cumulus_client_collator::relay_chain_driven::init(
 					params.collator_key,
 					params.para_id,
 					params.overseer_handle,
 				)
-				.await,
+				.await
+			},
 		};
 
 		let mut collator = {
@@ -130,6 +134,7 @@ where
 				block_import: params.block_import,
 				relay_client: params.relay_client.clone(),
 				keystore: params.keystore.clone(),
+				collator_peer_id: params.collator_peer_id,
 				para_id: params.para_id,
 				proposer: params.proposer,
 				collator_service: params.collator_service,
@@ -167,15 +172,21 @@ where
 			let parent_hash = parent_header.hash();
 
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
-				continue
+				continue;
 			}
 
-			let Ok(Some(code)) =
-				params.para_client.state_at(parent_hash).map_err(drop).and_then(|s| {
-					s.storage(&sp_core::storage::well_known_keys::CODE).map_err(drop)
-				})
-			else {
-				continue;
+			let code = {
+				let Ok(state) = params.para_client.state_at(parent_hash) else { continue };
+				let Ok(pending) = state.storage(&sp_core::storage::well_known_keys::PENDING_CODE)
+				else {
+					continue;
+				};
+				let Some(code) = pending.or_else(|| {
+					state.storage(&sp_core::storage::well_known_keys::CODE).ok().flatten()
+				}) else {
+					continue;
+				};
+				code
 			};
 
 			super::check_validation_code_or_log(
@@ -193,7 +204,9 @@ where
 					Ok(Some(h)) => h,
 				};
 
-			let slot_duration = match params.para_client.runtime_api().slot_duration(parent_hash) {
+			let mut runtime_api = params.para_client.runtime_api();
+			runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
+			let slot_duration = match runtime_api.slot_duration(parent_hash) {
 				Ok(d) => d,
 				Err(e) => reject_with_error!(e),
 			};
@@ -224,7 +237,7 @@ where
 			if last_processed_slot >= *claim.slot() &&
 				last_relay_chain_block < *relay_parent_header.number()
 			{
-				continue
+				continue;
 			}
 
 			let (parachain_inherent_data, other_inherent_data) = try_request!(
@@ -234,6 +247,8 @@ where
 						&validation_data,
 						parent_hash,
 						claim.timestamp(),
+						Default::default(),
+						params.collator_peer_id,
 					)
 					.await
 			);
@@ -249,13 +264,14 @@ where
 						(parachain_inherent_data, other_inherent_data),
 						params.authoring_duration,
 						allowed_pov_size,
+						None,
 					)
 					.await
 			);
 
 			if let Some((collation, block_data)) = maybe_collation {
 				let Some(block_hash) = block_data.blocks().first().map(|b| b.hash()) else {
-					continue
+					continue;
 				};
 				let result_sender =
 					Some(collator.collator_service().announce_with_barrier(block_hash));

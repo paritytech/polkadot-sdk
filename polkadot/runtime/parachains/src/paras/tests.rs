@@ -18,7 +18,7 @@ use super::*;
 use frame_support::{
 	assert_err, assert_noop, assert_ok, assert_storage_noop, traits::UnfilteredDispatchable,
 };
-use polkadot_primitives::{BlockNumber, SchedulerParams, PARACHAIN_KEY_TYPE_ID};
+use polkadot_primitives::{vstaging::SchedulerParams, BlockNumber, PARACHAIN_KEY_TYPE_ID};
 use polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code, validator_pubkeys};
 use sc_keystore::LocalKeystore;
 use sp_keyring::Sr25519Keyring;
@@ -263,6 +263,52 @@ fn schedule_para_init_rejects_empty_code() {
 				genesis_head: dummy_head_data(),
 				validation_code: ValidationCode(vec![1]),
 			}
+		));
+	});
+}
+
+#[test]
+fn schedule_code_upgrade_external_rejects_oversized_new_validation_code() {
+	let max_code_size: u32 = 100;
+	let original_code = ValidationCode(vec![1u8; 32]);
+	let para_id = ParaId::from(1_u32);
+
+	let paras = vec![(
+		para_id,
+		ParaGenesisArgs {
+			para_kind: ParaKind::Parachain,
+			genesis_head: dummy_head_data(),
+			validation_code: original_code.clone(),
+		},
+	)];
+
+	let genesis_config = MockGenesisConfig {
+		paras: GenesisConfig { paras, ..Default::default() },
+		configuration: crate::configuration::GenesisConfig {
+			config: HostConfiguration { max_code_size, ..Default::default() },
+		},
+		..Default::default()
+	};
+
+	new_test_ext(genesis_config).execute_with(|| {
+		run_to_block(2, Some(vec![1]));
+
+		let oversized_code = ValidationCode(vec![0u8; max_code_size as usize + 1]);
+		assert_err!(
+			Paras::schedule_code_upgrade_external(
+				para_id,
+				oversized_code,
+				UpgradeStrategy::SetGoAheadSignal,
+			),
+			Error::<Test>::InvalidCode,
+		);
+
+		// A correctly-sized upgrade still passes the length check.
+		let ok_code = ValidationCode(vec![0u8; max_code_size as usize]);
+		assert_ok!(Paras::schedule_code_upgrade_external(
+			para_id,
+			ok_code,
+			UpgradeStrategy::SetGoAheadSignal,
 		));
 	});
 }
@@ -945,6 +991,11 @@ fn full_parachain_cleanup_storage() {
 		run_to_block(7, None);
 		assert_eq!(frame_system::Pallet::<Test>::block_number(), 7);
 		Paras::note_new_head(para_id, Default::default(), expected_at);
+		AuthorizedCodeHash::<Test>::insert(
+			&para_id,
+			AuthorizedCodeHashAndExpiry::from((ValidationCode(vec![7]).hash(), 1000)),
+		);
+		assert!(AuthorizedCodeHash::<Test>::get(&para_id).is_some());
 
 		assert_ok!(Paras::schedule_para_cleanup(para_id));
 
@@ -968,6 +1019,7 @@ fn full_parachain_cleanup_storage() {
 		assert!(FutureCodeUpgrades::<Test>::get(&para_id).is_none());
 		assert!(FutureCodeHash::<Test>::get(&para_id).is_none());
 		assert!(Paras::current_code(&para_id).is_none());
+		assert!(AuthorizedCodeHash::<Test>::get(&para_id).is_none());
 
 		// run to do the final cleanup
 		let cleaned_up_at = 8 + code_retention_period + 1;
@@ -1451,6 +1503,7 @@ fn pvf_check_submit_vote() {
 
 		let call =
 			Call::include_pvf_check_statement { stmt: stmt.clone(), signature: signature.clone() };
+		#[allow(deprecated)]
 		let validate_unsigned =
 			<Paras as ValidateUnsigned>::validate_unsigned(TransactionSource::InBlock, &call)
 				.map(|_| ());
@@ -2173,7 +2226,33 @@ fn authorize_force_set_current_code_hash_works() {
 			DispatchError::BadOrigin,
 		);
 
-		// root can authorize
+		// para not registered
+		ParaLifecycles::<Test>::insert(&para_a, ParaLifecycle::Onboarding);
+		assert!(!Paras::is_valid_para(para_a));
+		assert_err!(
+			Paras::authorize_force_set_current_code_hash(
+				RuntimeOrigin::root(),
+				para_a,
+				code_1_hash,
+				valid_period
+			),
+			Error::<Test>::NotRegistered,
+		);
+		ParaLifecycles::<Test>::insert(&para_a, ParaLifecycle::OffboardingParachain);
+		assert!(!Paras::is_valid_para(para_a));
+		assert_err!(
+			Paras::authorize_force_set_current_code_hash(
+				RuntimeOrigin::root(),
+				para_a,
+				code_1_hash,
+				valid_period
+			),
+			Error::<Test>::NotRegistered,
+		);
+
+		// root can authorize for registered para
+		ParaLifecycles::<Test>::insert(&para_a, ParaLifecycle::Parachain);
+		assert!(Paras::is_valid_para(para_a));
 		System::set_block_number(1);
 		assert_ok!(Paras::authorize_force_set_current_code_hash(
 			RuntimeOrigin::root(),
@@ -2185,6 +2264,8 @@ fn authorize_force_set_current_code_hash_works() {
 			AuthorizedCodeHash::<Test>::get(&para_a),
 			Some((code_1_hash, 1 + valid_period).into())
 		);
+		ParaLifecycles::<Test>::insert(&para_b, ParaLifecycle::Parachain);
+		assert!(Paras::is_valid_para(para_b));
 		System::set_block_number(5);
 		assert_ok!(Paras::authorize_force_set_current_code_hash(
 			RuntimeOrigin::root(),
@@ -2229,6 +2310,7 @@ fn apply_authorized_force_set_current_code_works() {
 	                  code: ValidationCode|
 	 -> (Result<_, _>, DispatchResultWithPostInfo) {
 		let call = Call::apply_authorized_force_set_current_code { para, new_code: code.clone() };
+		#[allow(deprecated)]
 		let validate_unsigned =
 			<Paras as ValidateUnsigned>::validate_unsigned(TransactionSource::InBlock, &call)
 				.map(|_| ());

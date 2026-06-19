@@ -45,7 +45,7 @@ pub fn expand_outer_query(
 			#scrate::__private::codec::Decode,
 			#scrate::__private::codec::DecodeWithMemTracking,
 			#scrate::__private::scale_info::TypeInfo,
-			#scrate::__private::RuntimeDebug,
+			#scrate::__private::Debug,
 		)]
 		pub enum #runtime_view_function {}
 

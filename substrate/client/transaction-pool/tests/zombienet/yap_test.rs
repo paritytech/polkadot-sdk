@@ -21,13 +21,12 @@
 // and patched as in:
 // https://github.com/paritytech/polkadot-sdk/pull/7220#issuecomment-2808830472
 
-use crate::zombienet::{NetworkSpawner, ScenarioBuilderSharedParams};
-use cumulus_zombienet_sdk_helpers::create_assign_core_call;
+use crate::zombienet::{BlockSubscriptionType, NetworkSpawner, ScenarioBuilderSharedParams};
+use cumulus_zombienet_sdk_helpers::assign_cores;
 use serde_json::json;
 use txtesttool::{execution_log::ExecutionLog, scenario::ScenarioBuilder};
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
 
@@ -58,11 +57,11 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 					.with_default_resources(|resources| {
 						resources.with_request_cpu(4).with_request_memory("4G")
 					})
-					// Have to set a `with_node` outside of the loop below, so that `r` has the
+					// Have to set a `with_validator` outside of the loop below, so that `r` has the
 					// right type.
-					.with_node(|node| node.with_name(names[0]));
+					.with_validator(|node| node.with_name(names[0]));
 
-				(1..3).fold(r, |acc, i| acc.with_node(|node| node.with_name(names[i])))
+				(1..3).fold(r, |acc, i| acc.with_validator(|node| node.with_name(names[i])))
 			})
 			.with_parachain(|p| {
 				// Para 2200 uses the new RFC103-enabled collator which sends the UMP signal
@@ -97,21 +96,12 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	let relay_node = spawner.network().get_node("alice")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let alice = dev::alice();
 
-	let assign_cores_call = create_assign_core_call(&[(0, 2200), (1, 2200)]);
 	// Assign two extra cores to each parachain.
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &alice)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-
-	tracing::info!("2 more cores assigned to the parachain");
+	assign_cores(&relay_client, 2200, vec![0, 1]).await?;
 
 	// Wait for the parachain collator to start block production.
-	spawner.wait_for_block_production("dave").await.unwrap();
+	spawner.wait_for_block("dave", BlockSubscriptionType::Best).await.unwrap();
 
 	// Create txs executor.
 	let ws = spawner.node_rpc_uri("dave").unwrap();
@@ -123,7 +113,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 			.with_block_monitoring(shared_params.does_block_monitoring)
 			.with_chain_type(shared_params.chain_type)
 			.with_base_dir_path(spawner.base_dir_path().unwrap().to_string())
-			.with_timeout_in_secs(21600) //6 hours
+			.with_timeout_in_secs(21600) // 6 hours
 			.with_legacy_backend(true)
 	}
 	.with_rpc_uri(ws)

@@ -22,9 +22,9 @@ use crate::{
 	},
 };
 
-use async_std::sync::{Arc, RwLock};
 use async_trait::async_trait;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
+use tokio::sync::RwLock;
 
 /// Value update interval.
 const UPDATE_INTERVAL: Duration = Duration::from_secs(300);
@@ -112,7 +112,7 @@ fn parse_service_response(json_path: &str, response: &str) -> error::Result<f64>
 		.and_then(|v| v.as_f64())
 		.ok_or_else(|| Error::MissingResponseValue(response.to_owned()))?;
 	if !selected_value.is_normal() || selected_value < 0.0 {
-		return Err(Error::ParseFloat(selected_value))
+		return Err(Error::ParseFloat(selected_value));
 	}
 
 	Ok(selected_value)

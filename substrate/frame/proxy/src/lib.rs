@@ -64,7 +64,7 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 	PartialEq,
 	Ord,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 )]
@@ -87,7 +87,7 @@ pub struct ProxyDefinition<AccountId, ProxyType, BlockNumber> {
 	Copy,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 )]
@@ -108,7 +108,7 @@ pub struct Announcement<AccountId, Hash, BlockNumber> {
 	Copy,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 	DecodeWithMemTracking,
@@ -1008,12 +1008,16 @@ impl<T: Config> Pallet<T> {
 				Some(Call::add_proxy { ref proxy_type, .. }) |
 				Some(Call::remove_proxy { ref proxy_type, .. })
 					if !def.proxy_type.is_superset(proxy_type) =>
-					false,
+				{
+					false
+				},
 				// Proxy call cannot remove all proxies or kill pure proxies unless it has full
 				// permissions.
 				Some(Call::remove_proxies { .. }) | Some(Call::kill_pure { .. })
 					if def.proxy_type != T::ProxyType::default() =>
-					false,
+				{
+					false
+				},
 				_ => def.proxy_type.filter(c),
 			}
 		});
@@ -1026,7 +1030,15 @@ impl<T: Config> Pallet<T> {
 	/// Parameters:
 	/// - `delegator`: The delegator account.
 	pub fn remove_all_proxy_delegates(delegator: &T::AccountId) {
-		let (_, old_deposit) = Proxies::<T>::take(&delegator);
-		T::Currency::unreserve(&delegator, old_deposit);
+		let (proxies, old_deposit) = Proxies::<T>::take(delegator);
+		T::Currency::unreserve(delegator, old_deposit);
+		proxies.into_iter().for_each(|proxy_def| {
+			Self::deposit_event(Event::<T>::ProxyRemoved {
+				delegator: delegator.clone(),
+				delegatee: proxy_def.delegate,
+				proxy_type: proxy_def.proxy_type,
+				delay: proxy_def.delay,
+			});
+		});
 	}
 }

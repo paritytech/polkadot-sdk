@@ -1,0 +1,16 @@
+title: '[pallet-revive] remove disabled host functions terminate and set_code_hash'
+doc:
+- audience: Runtime Dev
+  description: |-
+    fixes part of https://github.com/paritytech/polkadot-sdk/issues/8570
+
+    Removes the following disabled host functions:
+    - `terminate`
+    - `set_code_hash`
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-uapi
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch

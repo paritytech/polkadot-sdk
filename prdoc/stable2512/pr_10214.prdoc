@@ -1,0 +1,25 @@
+title: 'pallet_revive: Fix EVM tests to pass `data` as part of `code`'
+doc:
+- audience: Runtime User
+  description: |-
+    The test code was passing the constructor argument as `data` on EVM. But it should be passed as part of the `code`.  This is different from PVM where those are separate.
+
+    Failing to do so makes those opcodes return the wrong values when `data` is passed to the constructor:
+
+    ```
+    CODESIZE
+    CODECOPY
+    CALLDATASIZE
+    CALLDATACOPY
+    CALLDATALOAD
+    ```
+
+    Further changes:
+
+    - I also added some checks to fail instantiation if `data` is non empty when uploading new EVM bytecode.
+    - Return error when trying to construct EVM contract from code hash as this does not make sense since no initcode is stored on-chain.
+crates:
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive
+  bump: major

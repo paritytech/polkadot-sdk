@@ -23,7 +23,7 @@ use std::{
 	collections::{BTreeSet, HashMap, HashSet},
 	io,
 	sync::Arc,
-	time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH},
+	time::Duration,
 };
 
 use codec::{Decode, Encode, Error as CodecError, Input};
@@ -35,6 +35,7 @@ use futures::{
 	future, select, FutureExt, SinkExt, StreamExt,
 };
 use futures_timer::Delay;
+use polkadot_node_clock::Clock;
 use polkadot_node_subsystem_util::database::{DBTransaction, Database};
 use sp_consensus::SyncOracle;
 
@@ -47,8 +48,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util as util;
 use polkadot_primitives::{
-	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
-	BlockNumber, CandidateHash, ChunkIndex, CoreIndex, Hash, Header, NodeFeatures, ValidatorIndex,
+	BlockNumber, CandidateEvent, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ChunkIndex,
+	CoreIndex, Hash, Header, NodeFeatures, ValidatorIndex,
 };
 use util::availability_chunks::availability_chunk_indices;
 
@@ -324,7 +325,7 @@ fn pruning_range(now: impl Into<BETimestamp>) -> (Vec<u8>, Vec<u8>) {
 
 fn decode_unfinalized_key(s: &[u8]) -> Result<(BlockNumber, Hash, CandidateHash), CodecError> {
 	if !s.starts_with(UNFINALIZED_PREFIX) {
-		return Err("missing magic string".into())
+		return Err("missing magic string".into());
 	}
 
 	<(BEBlockNumber, Hash, CandidateHash)>::decode(&mut &s[UNFINALIZED_PREFIX.len()..])
@@ -333,7 +334,7 @@ fn decode_unfinalized_key(s: &[u8]) -> Result<(BlockNumber, Hash, CandidateHash)
 
 fn decode_pruning_key(s: &[u8]) -> Result<(Duration, CandidateHash), CodecError> {
 	if !s.starts_with(PRUNE_BY_TIME_PREFIX) {
-		return Err("missing magic string".into())
+		return Err("missing magic string".into());
 	}
 
 	<(BETimestamp, CandidateHash)>::decode(&mut &s[PRUNE_BY_TIME_PREFIX.len()..])
@@ -363,9 +364,6 @@ pub enum Error {
 
 	#[error("Context signal channel closed")]
 	ContextChannelClosed,
-
-	#[error(transparent)]
-	Time(#[from] SystemTimeError),
 
 	#[error(transparent)]
 	Codec(#[from] CodecError),
@@ -431,19 +429,6 @@ pub struct Config {
 	pub keep_finalized_for: u32,
 }
 
-trait Clock: Send + Sync {
-	// Returns time since unix epoch.
-	fn now(&self) -> Result<Duration, Error>;
-}
-
-struct SystemClock;
-
-impl Clock for SystemClock {
-	fn now(&self) -> Result<Duration, Error> {
-		SystemTime::now().duration_since(UNIX_EPOCH).map_err(Into::into)
-	}
-}
-
 /// An implementation of the Availability Store subsystem.
 pub struct AvailabilityStoreSubsystem {
 	pruning_config: PruningConfig,
@@ -452,7 +437,7 @@ pub struct AvailabilityStoreSubsystem {
 	known_blocks: KnownUnfinalizedBlocks,
 	finalized_number: Option<BlockNumber>,
 	metrics: Metrics,
-	clock: Box<dyn Clock>,
+	clock: Arc<dyn Clock>,
 	sync_oracle: Box<dyn SyncOracle + Send + Sync>,
 }
 
@@ -474,7 +459,7 @@ impl AvailabilityStoreSubsystem {
 			db,
 			config,
 			pruning_config,
-			Box::new(SystemClock),
+			polkadot_node_clock::system_clock(),
 			sync_oracle,
 			metrics,
 		)
@@ -485,7 +470,7 @@ impl AvailabilityStoreSubsystem {
 		db: Arc<dyn Database>,
 		config: Config,
 		pruning_config: PruningConfig,
-		clock: Box<dyn Clock>,
+		clock: Arc<dyn Clock>,
 		sync_oracle: Box<dyn SyncOracle + Send + Sync>,
 		metrics: Metrics,
 	) -> Self {
@@ -562,12 +547,12 @@ async fn run<Context>(mut subsystem: AvailabilityStoreSubsystem, mut ctx: Contex
 			Err(e) => {
 				e.trace();
 				if e.is_fatal() {
-					break
+					break;
 				}
 			},
 			Ok(true) => {
 				gum::info!(target: LOG_TARGET, "received `Conclude` signal, exiting");
-				break
+				break;
 			},
 			Ok(false) => continue,
 		}
@@ -657,7 +642,7 @@ async fn start_prune_all<Context>(
 	let metrics = subsystem.metrics.clone();
 	let db = subsystem.db.clone();
 	let config = subsystem.config;
-	let time_now = subsystem.clock.now()?;
+	let time_now = subsystem.clock.duration_since_epoch();
 
 	ctx.spawn_blocking(
 		"av-store-prunning",
@@ -682,7 +667,7 @@ async fn process_block_activated<Context>(
 	subsystem: &mut AvailabilityStoreSubsystem,
 	activated: Hash,
 ) -> Result<(), Error> {
-	let now = subsystem.clock.now()?;
+	let now = subsystem.clock.duration_since_epoch();
 
 	let block_header = {
 		let (tx, rx) = oneshot::channel();
@@ -843,13 +828,13 @@ fn note_block_included(
 						within.insert(i, be_block);
 						State::Unfinalized(at, within)
 					} else {
-						return Ok(())
+						return Ok(());
 					}
 				},
 				State::Finalized(_at) => {
 					// This should never happen as a candidate would have to be included after
 					// finality.
-					return Ok(())
+					return Ok(());
 				},
 			};
 
@@ -884,7 +869,7 @@ async fn process_block_finalized<Context>(
 	finalized_hash: Hash,
 	finalized_number: BlockNumber,
 ) -> Result<(), Error> {
-	let now = subsystem.clock.now()?;
+	let now = subsystem.clock.duration_since_epoch();
 
 	let mut next_possible_batch = 0;
 	loop {
@@ -908,7 +893,7 @@ async fn process_block_finalized<Context>(
 		};
 
 		if batch_num < next_possible_batch {
-			continue
+			continue;
 		} // sanity.
 		next_possible_batch = batch_num + 1;
 
@@ -927,7 +912,7 @@ async fn process_block_finalized<Context>(
 						"Failed to retrieve finalized block number.",
 					);
 
-					break
+					break;
 				},
 				Ok(None) => {
 					gum::warn!(
@@ -937,7 +922,7 @@ async fn process_block_finalized<Context>(
 						batch_num,
 					);
 
-					break
+					break;
 				},
 				Ok(Some(h)) => h,
 			}
@@ -1015,7 +1000,7 @@ fn update_blocks_at_finalized_height(
 					candidate_hash,
 				);
 
-				continue
+				continue;
 			},
 			Some(c) => c,
 		};
@@ -1187,7 +1172,7 @@ fn process_message(
 				},
 				Err(e) => {
 					let _ = tx.send(Err(()));
-					return Err(e)
+					return Err(e);
 				},
 			}
 		},
@@ -1220,7 +1205,7 @@ fn process_message(
 				},
 				Err(Error::InvalidErasureRoot) => {
 					let _ = tx.send(Err(StoreAvailableDataError::InvalidErasureRoot));
-					return Err(Error::InvalidErasureRoot)
+					return Err(Error::InvalidErasureRoot);
 				},
 				Err(e) => {
 					// We do not bubble up internal errors to caller subsystems, instead the
@@ -1228,7 +1213,7 @@ fn process_message(
 					//
 					// We bubble up the specific error here so `av-store` logs still tell what
 					// happened.
-					return Err(e.into())
+					return Err(e.into());
 				},
 			}
 		},
@@ -1289,13 +1274,13 @@ fn store_available_data(
 	let mut meta = match load_meta(&subsystem.db, &subsystem.config, &candidate_hash)? {
 		Some(m) => {
 			if m.data_available {
-				return Ok(()) // already stored.
+				return Ok(()); // already stored.
 			}
 
 			m
 		},
 		None => {
-			let now = subsystem.clock.now()?;
+			let now = subsystem.clock.duration_since_epoch();
 
 			// Write a pruning record.
 			let prune_at = now + subsystem.pruning_config.keep_unavailable_for;
@@ -1315,7 +1300,7 @@ fn store_available_data(
 	let branches = polkadot_erasure_coding::branches(chunks.as_ref());
 
 	if branches.root() != expected_erasure_root {
-		return Err(Error::InvalidErasureRoot)
+		return Err(Error::InvalidErasureRoot);
 	}
 
 	let erasure_chunks: Vec<_> = chunks

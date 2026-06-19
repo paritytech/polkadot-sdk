@@ -1,0 +1,10 @@
+title: '[pallet-revive] weight charge in `sr25519_verify` and `ecdsa_to_eth_address`
+  precompiles'
+doc:
+- audience: Runtime Dev
+  description: I couldn't see where the weight is charged in those builtin pre-compiles
+    and a quick test indicated that there's no charges implemented. Assuming those
+    are compute-heavy functions, the missing weight charges seem like a DoS vector.
+crates:
+- name: pallet-revive
+  bump: patch

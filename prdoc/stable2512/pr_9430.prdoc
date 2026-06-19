@@ -1,0 +1,20 @@
+title: Replace `log` with `tracing` on Bridge Relay related modules
+doc:
+- audience: Runtime Dev
+  description: This PR replaces `log` with `tracing` instrumentation on Bridge Relay 
+    related modules by providing structured logging.
+crates:
+- name: equivocation-detector
+  bump: none
+- name: finality-relay
+  bump: none
+- name: messages-relay
+  bump: none
+- name: parachains-relay
+  bump: none
+- name: relay-substrate-client
+  bump: none
+- name: relay-utils
+  bump: none
+- name: substrate-relay-helper
+  bump: none

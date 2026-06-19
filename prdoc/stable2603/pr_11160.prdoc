@@ -1,0 +1,7 @@
+title: 'Grandpa `on_new_session()`: simplification + fix'
+doc:
+- audience: Runtime Dev
+  description: Kill `Stalled::<T>` only if `schedule_change()` has succeeded
+crates:
+- name: pallet-grandpa
+  bump: patch

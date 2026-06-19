@@ -3,6 +3,7 @@
 
 // Test checks that misbehaving validators disabled.
 use anyhow::anyhow;
+use codec::Decode;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::{
 	BlockNumber, CandidateHash, DisputeState, SessionIndex, ValidatorId, ValidatorIndex,
@@ -38,7 +39,7 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 					}
 				}))
 				// Adding malicious validator.
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("malus-validator")
 						.with_image(
 							std::env::var("MALUS_IMAGE")
@@ -57,7 +58,7 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 				});
 			// Also honest validators.
 			let r = (0..3).fold(r, |acc, i| {
-				acc.with_node(|node| {
+				acc.with_validator(|node| {
 					node.with_name(&format!("honest-validator-{i}"))
 						.with_args(vec![("-lparachain=debug,runtime::staking=debug".into())])
 						.invulnerable(false)
@@ -73,6 +74,7 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 				.with_default_args(vec!["-lparachain=debug".into()])
 				.with_collator(|n| n.with_name("alice"))
 		})
+		.with_global_settings(|global_settings| global_settings.with_tear_down_on_failure(false))
 		.build()
 		.map_err(|e| {
 			let errors = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
@@ -86,12 +88,8 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 	log::info!("Waiting for parablocks to be produced");
 	let honest_validator = network.get_node("honest-validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = honest_validator.wait_client().await?;
-	assert_para_throughput(
-		&relay_client,
-		20,
-		[(polkadot_primitives::Id::from(1000), 10..30)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&relay_client, 20, [(polkadot_primitives::Id::from(1000), 10..30)], [])
+		.await?;
 
 	log::info!("Wait for a dispute to be initialized.");
 	let mut best_blocks = relay_client.blocks().subscribe_best().await?;
@@ -100,14 +98,13 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 	// Check next new block from the current best fork
 	while let Some(block) = best_blocks.next().await {
 		let current_hash = block?.hash();
-		let disputes = relay_client
-			.runtime_api()
-			.at(current_hash)
-			.call_raw::<Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>>(
-				"ParachainHost_disputes",
-				None,
-			)
-			.await?;
+		let disputes = Vec::<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>::decode(
+			&mut &relay_client
+				.runtime_api()
+				.at(current_hash)
+				.call_raw("ParachainHost_disputes", None)
+				.await?[..],
+		)?;
 		if let Some((session, _, _)) = disputes.first() {
 			block_hash = Some(current_hash);
 			dispute_session = *session;
@@ -129,19 +126,23 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 		.wait_metric_with_timeout(concluded_dispute_metric, |d| d >= 1.0, 200_u64)
 		.await?;
 
-	let disabled_validators = relay_client
-		.runtime_api()
-		.at(block_hash.unwrap())
-		.call_raw::<Vec<ValidatorIndex>>("ParachainHost_disabled_validators", None)
-		.await?;
+	let disabled_validators = Vec::<ValidatorIndex>::decode(
+		&mut &relay_client
+			.runtime_api()
+			.at(block_hash.unwrap())
+			.call_raw("ParachainHost_disabled_validators", None)
+			.await?[..],
+	)?;
 	// We should have at least one disable validator.
 	assert!(!disabled_validators.is_empty());
 
-	let session_validators = relay_client
-		.runtime_api()
-		.at(block_hash.unwrap())
-		.call_raw::<Vec<ValidatorId>>("ParachainHost_validators", None)
-		.await?;
+	let session_validators = Vec::<ValidatorId>::decode(
+		&mut &relay_client
+			.runtime_api()
+			.at(block_hash.unwrap())
+			.call_raw("ParachainHost_validators", None)
+			.await?[..],
+	)?;
 	// We have a single malicious node, hence the index of the malus-node is the first
 	// entry in the disabled validators list.
 	let disabled_node_public_address = &session_validators[(disabled_validators[0].0) as usize];

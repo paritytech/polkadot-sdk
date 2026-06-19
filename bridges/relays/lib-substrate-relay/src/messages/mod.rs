@@ -25,7 +25,6 @@ use crate::{
 	BatchCallBuilder, BatchCallBuilderConstructor, TransactionParams,
 };
 
-use async_std::sync::Arc;
 use bp_messages::{
 	target_chain::FromBridgedChainMessagesProof, ChainWithMessages as _, MessageNonce,
 };
@@ -45,7 +44,7 @@ use relay_utils::{
 };
 use sp_core::Pair;
 use sp_runtime::traits::Zero;
-use std::{fmt::Debug, marker::PhantomData, ops::RangeInclusive};
+use std::{fmt::Debug, marker::PhantomData, ops::RangeInclusive, sync::Arc};
 
 pub mod metrics;
 pub mod source;
@@ -174,7 +173,7 @@ impl<SC: Chain, TC: Chain, B: BatchCallBuilderConstructor<CallOf<SC>>>
 				proved_header,
 				prove_calls,
 				_phantom: Default::default(),
-			}))
+			}));
 		}
 
 		Ok(None)
@@ -211,13 +210,14 @@ where
 	let max_messages_size_in_single_batch = P::TargetChain::max_extrinsic_size() / 3;
 	let limits = match params.limits {
 		Some(limits) => limits,
-		None =>
+		None => {
 			select_delivery_transaction_limits_rpc(
 				&params,
 				P::TargetChain::max_extrinsic_weight(),
 				P::SourceChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
 			)
-			.await?,
+			.await?
+		},
 	};
 	let (max_messages_in_single_batch, max_messages_weight_in_single_batch) =
 		(limits.max_messages_in_single_batch / 2, limits.max_messages_weight_in_single_batch / 2);
@@ -227,33 +227,27 @@ where
 	let relayer_id_at_source: AccountIdOf<P::SourceChain> =
 		params.source_transaction_params.signer.public().into();
 
-	log::info!(
+	tracing::info!(
 		target: "bridge",
-		"Starting {} -> {} messages relay.\n\t\
-			{} relayer account id: {:?}\n\t\
-			Max messages in single transaction: {}\n\t\
-			Max messages size in single transaction: {}\n\t\
-			Max messages weight in single transaction: {}\n\t\
-			Tx mortality: {:?} (~{}m)/{:?} (~{}m)",
-		P::SourceChain::NAME,
-		P::TargetChain::NAME,
-		P::SourceChain::NAME,
-		relayer_id_at_source,
-		max_messages_in_single_batch,
-		max_messages_size_in_single_batch,
-		max_messages_weight_in_single_batch,
-		params.source_transaction_params.mortality,
-		transaction_stall_timeout(
+		source=%P::SourceChain::NAME,
+		target=%P::TargetChain::NAME,
+		?relayer_id_at_source,
+		%max_messages_in_single_batch,
+		%max_messages_size_in_single_batch,
+		%max_messages_weight_in_single_batch,
+		source_tx_mortality=?params.source_transaction_params.mortality,
+		source_tx_stall_timeout_as_mins=%transaction_stall_timeout(
 			params.source_transaction_params.mortality,
 			P::SourceChain::AVERAGE_BLOCK_INTERVAL,
 			STALL_TIMEOUT,
 		).as_secs_f64() / 60.0f64,
-		params.target_transaction_params.mortality,
-		transaction_stall_timeout(
+		target_tx_mortality=?params.target_transaction_params.mortality,
+		target_tx_stall_timeout_as_mins=%transaction_stall_timeout(
 			params.target_transaction_params.mortality,
 			P::TargetChain::AVERAGE_BLOCK_INTERVAL,
 			STALL_TIMEOUT,
 		).as_secs_f64() / 60.0f64,
+		"Starting source -> target messages relay."
 	);
 
 	messages_relay::message_lane_loop::run(
@@ -423,15 +417,15 @@ where
 		if trace_call {
 			// this trace isn't super-accurate, because limits are for transactions and we
 			// have a call here, but it provides required information
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"Prepared {} -> {} messages delivery call. Weight: {}/{}, size: {}/{}",
-				P::SourceChain::NAME,
-				P::TargetChain::NAME,
-				call.get_dispatch_info().call_weight,
-				P::TargetChain::max_extrinsic_weight(),
-				call.encode().len(),
-				P::TargetChain::max_extrinsic_size(),
+				source=%P::SourceChain::NAME,
+				target=%P::TargetChain::NAME,
+				call_weight=%call.get_dispatch_info().call_weight,
+				max_extrinsic_weight=%P::TargetChain::max_extrinsic_weight(),
+				size=%call.encode().len(),
+				max_extrinsic_size=%P::TargetChain::max_extrinsic_size(),
+				"Prepared source -> target messages delivery call."
 			);
 		}
 		call
@@ -516,15 +510,15 @@ where
 		if trace_call {
 			// this trace isn't super-accurate, because limits are for transactions and we
 			// have a call here, but it provides required information
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"Prepared {} -> {} delivery confirmation transaction. Weight: {}/{}, size: {}/{}",
-				P::TargetChain::NAME,
-				P::SourceChain::NAME,
-				call.get_dispatch_info().call_weight,
-				P::SourceChain::max_extrinsic_weight(),
-				call.encode().len(),
-				P::SourceChain::max_extrinsic_size(),
+				target=%P::TargetChain::NAME,
+				source=%P::SourceChain::NAME,
+				call_weight=%call.get_dispatch_info().call_weight,
+				max_extrinsic_weight=%P::SourceChain::max_extrinsic_weight(),
+				size=%call.encode().len(),
+				max_extrinsic_size=%P::SourceChain::max_extrinsic_size(),
+				"Prepared target -> source delivery confirmation transaction."
 			);
 		}
 		call
@@ -708,8 +702,9 @@ mod tests {
 	impl From<MockUtilityCall<RuntimeCall>> for RuntimeCall {
 		fn from(value: MockUtilityCall<RuntimeCall>) -> RuntimeCall {
 			match value {
-				MockUtilityCall::batch_all(calls) =>
-					RuntimeCall::Utility(UtilityCall::<RuntimeCall>::batch_all(calls)),
+				MockUtilityCall::batch_all(calls) => {
+					RuntimeCall::Utility(UtilityCall::<RuntimeCall>::batch_all(calls))
+				},
 			}
 		}
 	}
@@ -761,8 +756,9 @@ mod tests {
 		);
 		match relayer_call_builder_receive_messages_proof {
 			RuntimeCall::BridgeMessages(call) => match call {
-				call @ CodegenBridgeMessagesCall::receive_messages_proof { .. } =>
-					assert_eq!(pallet_receive_messages_proof.encode(), call.encode()),
+				call @ CodegenBridgeMessagesCall::receive_messages_proof { .. } => {
+					assert_eq!(pallet_receive_messages_proof.encode(), call.encode())
+				},
 				_ => panic!("Unexpected CodegenBridgeMessagesCall type"),
 			},
 			_ => panic!("Unexpected RuntimeCall type"),
@@ -811,8 +807,9 @@ mod tests {
 		);
 		match relayer_call_builder_receive_messages_delivery_proof {
 			RuntimeCall::BridgeMessages(call) => match call {
-				call @ CodegenBridgeMessagesCall::receive_messages_delivery_proof { .. } =>
-					assert_eq!(pallet_receive_messages_delivery_proof.encode(), call.encode()),
+				call @ CodegenBridgeMessagesCall::receive_messages_delivery_proof { .. } => {
+					assert_eq!(pallet_receive_messages_delivery_proof.encode(), call.encode())
+				},
 				_ => panic!("Unexpected CodegenBridgeMessagesCall type"),
 			},
 			_ => panic!("Unexpected RuntimeCall type"),

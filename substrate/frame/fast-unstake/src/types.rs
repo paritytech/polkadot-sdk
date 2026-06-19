@@ -20,7 +20,7 @@
 use crate::Config;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	traits::Currency, BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	traits::Currency, BoundedVec, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use scale_info::TypeInfo;
 use sp_staking::{EraIndex, StakingInterface};
@@ -46,14 +46,7 @@ pub type BalanceOf<T> =
 /// This is stored in [`crate::Head`] storage item and points to the current unstake request that is
 /// being processed.
 #[derive(
-	Encode,
-	Decode,
-	EqNoBound,
-	PartialEqNoBound,
-	CloneNoBound,
-	TypeInfo,
-	RuntimeDebugNoBound,
-	MaxEncodedLen,
+	Encode, Decode, EqNoBound, PartialEqNoBound, CloneNoBound, TypeInfo, DebugNoBound, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T))]
 pub struct UnstakeRequest<T: Config> {

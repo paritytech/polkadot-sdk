@@ -235,6 +235,7 @@ impl Configuration {
 			state_pruning: self.state_pruning.clone(),
 			source: self.database.clone(),
 			blocks_pruning: self.blocks_pruning,
+			pruning_filters: Default::default(),
 			metrics_registry: self.prometheus_registry().cloned(),
 		}
 	}
@@ -340,6 +341,8 @@ pub struct RpcConfiguration {
 	pub rate_limit_whitelisted_ips: Vec<IpNetwork>,
 	/// RPC rate limit trust proxy headers.
 	pub rate_limit_trust_proxy_headers: bool,
+	/// RPC logger capacity (default: 1024).
+	pub request_logger_limit: u32,
 }
 
 /// Runtime executor configuration.

@@ -1,0 +1,9 @@
+title: '[pallet-revive] Properly convert `Ext::minimum_balance` value to `U256`'
+doc:
+- audience: Runtime Dev
+  description: |
+    The value returned by `minimum_balance` was just cast into `U256`, 
+    without applying the actual conversion factor (`NativeToEthRatio`).
+crates:
+- name: pallet-revive
+  bump: patch

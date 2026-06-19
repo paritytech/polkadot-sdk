@@ -1,0 +1,12 @@
+title: '[pallet-revive] Migrate `blake2_128` from host function to pre-compile'
+doc:
+- audience: Runtime Dev
+  description: Moves the unstable host function `hash_blake2_128` to the 
+    `System` pre-compile.
+crates:
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive-uapi
+  bump: major

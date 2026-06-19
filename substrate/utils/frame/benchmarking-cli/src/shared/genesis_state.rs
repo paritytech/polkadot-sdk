@@ -75,14 +75,15 @@ impl GenesisStateHandler {
 					.map_err(|e| format!("{ERROR_CANNOT_BUILD_GENESIS}\nError: {e}").into()),
 				SpecGenesisSource::None => Ok(Storage::default()),
 			},
-			GenesisStateHandler::Runtime(code_bytes, Some(preset)) =>
-				genesis_from_code::<HF>(code_bytes.as_slice(), preset, json_patcher),
+			GenesisStateHandler::Runtime(code_bytes, Some(preset)) => {
+				genesis_from_code::<HF>(code_bytes.as_slice(), preset, json_patcher)
+			},
 			GenesisStateHandler::Runtime(_, None) => Ok(Storage::default()),
 		}
 	}
 
 	/// Get the runtime code blob.
-	pub fn get_code_bytes(&self) -> Result<Cow<[u8]>> {
+	pub fn get_code_bytes(&self) -> Result<Cow<'_, [u8]>> {
 		match self {
 			GenesisStateHandler::ChainSpec(chain_spec, _) => {
 				let mut storage = chain_spec.build_storage()?;

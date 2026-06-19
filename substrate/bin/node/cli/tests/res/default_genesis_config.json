@@ -40,7 +40,6 @@
 
   },
   "revive": {
-    "mappedAccounts": []
   },
   "democracy": {},
   "council": {
@@ -88,18 +87,20 @@
     "assets": [],
     "metadata": [],
     "accounts": [],
-    "nextAssetId": null
+    "nextAssetId": null,
+    "reserves": []
   },
   "poolAssets": {
     "assets": [],
     "metadata": [],
     "accounts": [],
-    "nextAssetId": null
+    "nextAssetId": null,
+    "reserves": []
   },
   "transactionStorage": {
     "byteFee": 10,
     "entryFee": 1000,
-    "storagePeriod": 100800
+    "retentionPeriod": 100800
   },
   "allianceMotion": {
     "members": []
@@ -110,6 +111,9 @@
   },
   "mixnet": {
     "mixnodes": []
+  },
+  "assetConversion": {
+    "pools": []
   },
   "nominationPools": {
     "minJoinBond": 0,
@@ -124,5 +128,9 @@
   },
   "safeMode": {
     "enteredUntil": null
+  },
+  "psm": {
+    "maxPsmDebtOfTotal": 0,
+    "assetConfigs": {}
   }
 }

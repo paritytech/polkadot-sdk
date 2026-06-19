@@ -219,8 +219,9 @@ pub mod pallet {
 					fallback_max_weight: None,
 				}]),
 			) {
-				Ok((hash, cost)) =>
-					Self::deposit_event(Event::PongSent(para, seq, payload, hash, cost)),
+				Ok((hash, cost)) => {
+					Self::deposit_event(Event::PongSent(para, seq, payload, hash, cost))
+				},
 				Err(e) => Self::deposit_event(Event::ErrorSendingPong(e, para, seq, payload)),
 			}
 			Ok(())

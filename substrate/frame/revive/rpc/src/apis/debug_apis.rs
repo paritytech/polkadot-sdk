@@ -29,7 +29,7 @@ pub trait DebugRpc {
 	async fn trace_block_by_number(
 		&self,
 		block: BlockNumberOrTag,
-		tracer_config: TracerConfig,
+		tracer_config: Option<TracerConfig>,
 	) -> RpcResult<Vec<TransactionTrace>>;
 
 	/// Returns a transaction's traces by replaying it.
@@ -41,10 +41,13 @@ pub trait DebugRpc {
 	async fn trace_transaction(
 		&self,
 		transaction_hash: H256,
-		tracer_config: TracerConfig,
+		tracer_config: Option<TracerConfig>,
 	) -> RpcResult<Trace>;
 
 	/// Dry run a call and returns the transaction's traces.
+	///
+	/// Accepts an optional [`TraceCallConfig`] that extends the base tracer config with state
+	/// overrides, matching the [Geth specification](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracecall).
 	///
 	/// ## References
 	///
@@ -54,8 +57,11 @@ pub trait DebugRpc {
 		&self,
 		transaction: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
-		tracer_config: TracerConfig,
+		trace_call_config: Option<TraceCallConfig>,
 	) -> RpcResult<Trace>;
+
+	#[method(name = "debug_getAutomine")]
+	async fn get_automine(&self) -> RpcResult<bool>;
 }
 
 pub struct DebugRpcServerImpl {
@@ -91,18 +97,18 @@ impl DebugRpcServer for DebugRpcServerImpl {
 	async fn trace_block_by_number(
 		&self,
 		block: BlockNumberOrTag,
-		tracer_config: TracerConfig,
+		tracer_config: Option<TracerConfig>,
 	) -> RpcResult<Vec<TransactionTrace>> {
-		let TracerConfig { config, timeout } = tracer_config;
+		let TracerConfig { config, timeout } = tracer_config.unwrap_or_default();
 		with_timeout(timeout, self.client.trace_block_by_number(block, config)).await
 	}
 
 	async fn trace_transaction(
 		&self,
 		transaction_hash: H256,
-		tracer_config: TracerConfig,
+		tracer_config: Option<TracerConfig>,
 	) -> RpcResult<Trace> {
-		let TracerConfig { config, timeout } = tracer_config;
+		let TracerConfig { config, timeout } = tracer_config.unwrap_or_default();
 		with_timeout(timeout, self.client.trace_transaction(transaction_hash, config)).await
 	}
 
@@ -110,9 +116,16 @@ impl DebugRpcServer for DebugRpcServerImpl {
 		&self,
 		transaction: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
-		tracer_config: TracerConfig,
+		trace_call_config: Option<TraceCallConfig>,
 	) -> RpcResult<Trace> {
+		let TraceCallConfig { tracer_config, state_overrides } =
+			trace_call_config.unwrap_or_default();
 		let TracerConfig { config, timeout } = tracer_config;
-		with_timeout(timeout, self.client.trace_call(transaction, block, config)).await
+		with_timeout(timeout, self.client.trace_call(transaction, block, config, state_overrides))
+			.await
+	}
+
+	async fn get_automine(&self) -> RpcResult<bool> {
+		sc_service::Result::Ok(self.client.get_automine().await)
 	}
 }

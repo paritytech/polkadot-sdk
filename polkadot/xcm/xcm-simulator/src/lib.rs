@@ -467,10 +467,51 @@ pub mod helpers {
 		}
 	}
 
-	/// A test utility for tracking XCM topic IDs
-	#[derive(Clone)]
+	/// A test utility for tracking XCM topic IDs.
+	///
+	/// # Examples
+	///
+	/// ```
+	/// use sp_runtime::testing::H256;
+	/// use xcm_simulator::helpers::TopicIdTracker;
+	///
+	/// // Dummy topic IDs
+	/// let topic_id = H256::repeat_byte(0x42);
+	///
+	/// // Create a new tracker
+	/// let mut tracker = TopicIdTracker::new();
+	///
+	/// // Insert the same topic ID for three chains
+	/// tracker.insert("ChainA", topic_id);
+	/// tracker.insert_all("ChainB", &[topic_id]);
+	/// tracker.insert_and_assert_unique("ChainC", topic_id);
+	///
+	/// // Assert the topic ID exists everywhere
+	/// tracker.assert_contains("ChainA", &topic_id);
+	/// tracker.assert_id_seen_on_all_chains(&topic_id);
+	/// tracker.assert_only_id_seen_on_all_chains("ChainB");
+	/// tracker.assert_unique();
+	///
+	/// // You can also test that inserting inconsistent topic IDs fails:
+	/// let another_id = H256::repeat_byte(0x43);
+	/// let result = std::panic::catch_unwind(|| {
+	///     let mut tracker = TopicIdTracker::new();
+	///     tracker.insert("ChainA", topic_id);
+	///     tracker.insert_and_assert_unique("ChainB", another_id);
+	/// });
+	/// assert!(result.is_err());
+	///
+	/// let result = std::panic::catch_unwind(|| {
+	///     let mut tracker = TopicIdTracker::new();
+	///     tracker.insert("ChainA", topic_id);
+	///     tracker.insert("ChainB", another_id);
+	///     tracker.assert_unique();
+	/// });
+	/// assert!(result.is_err());
+	/// ```
+	#[derive(Clone, Debug)]
 	pub struct TopicIdTracker {
-		ids: HashMap<String, H256>,
+		ids: HashMap<String, HashSet<H256>>,
 	}
 	impl TopicIdTracker {
 		/// Initialises a new, empty topic ID tracker.
@@ -478,9 +519,53 @@ pub mod helpers {
 			TopicIdTracker { ids: HashMap::new() }
 		}
 
+		/// Asserts that the given topic ID has been recorded for the specified chain.
+		pub fn assert_contains(&self, chain: &str, id: &H256) {
+			let ids = self
+				.ids
+				.get(chain)
+				.expect(&format!("No topic IDs recorded for chain '{}'", chain));
+
+			assert!(
+				ids.contains(id),
+				"Expected topic ID {:?} not found for chain '{}'. Found topic IDs: {:?}",
+				id,
+				chain,
+				ids
+			);
+		}
+
+		/// Asserts that the given topic ID has been recorded on all chains.
+		pub fn assert_id_seen_on_all_chains(&self, id: &H256) {
+			self.ids.keys().for_each(|chain| {
+				self.assert_contains(chain, id);
+			});
+		}
+
+		/// Asserts that exactly one topic ID is recorded on the given chain, and that the same ID
+		/// is present on all other chains.
+		pub fn assert_only_id_seen_on_all_chains(&self, chain: &str) {
+			let ids = self
+				.ids
+				.get(chain)
+				.expect(&format!("No topic IDs recorded for chain '{}'", chain));
+
+			assert_eq!(
+				ids.len(),
+				1,
+				"Expected exactly one topic ID for chain '{}', but found {}: {:?}",
+				chain,
+				ids.len(),
+				ids
+			);
+
+			let id = *ids.iter().next().unwrap();
+			self.assert_id_seen_on_all_chains(&id);
+		}
+
 		/// Asserts that exactly one unique topic ID is present across all captured entries.
 		pub fn assert_unique(&self) {
-			let unique_ids: HashSet<_> = self.ids.values().collect();
+			let unique_ids: HashSet<_> = self.ids.values().flatten().collect();
 			assert_eq!(
 				unique_ids.len(),
 				1,
@@ -492,14 +577,28 @@ pub mod helpers {
 
 		/// Inserts a topic ID with the given chain name in the captor.
 		pub fn insert(&mut self, chain: &str, id: H256) {
-			self.ids.insert(chain.to_string(), id);
+			self.ids.entry(chain.to_string()).or_default().insert(id);
+		}
+
+		/// Inserts all topic IDs associated with the given chain name.
+		pub fn insert_all(&mut self, chain: &str, ids: &[H256]) {
+			ids.iter().for_each(|&id| self.insert(chain, id));
 		}
 
 		/// Inserts a topic ID for a given chain and then asserts global uniqueness.
 		pub fn insert_and_assert_unique(&mut self, chain: &str, id: H256) {
-			if let Some(existing_id) = self.ids.get(chain) {
+			if let Some(existing_ids) = self.ids.get(chain) {
 				assert_eq!(
-					id, *existing_id,
+					existing_ids.len(),
+					1,
+					"Expected exactly one topic ID for chain '{}', but found: {:?}",
+					chain,
+					existing_ids
+				);
+				let existing_id =
+					*existing_ids.iter().next().expect(&format!("Topic ID for chain '{}'", chain));
+				assert_eq!(
+					id, existing_id,
 					"Topic ID mismatch for chain '{}': expected {:?}, got {:?}",
 					id, existing_id, chain
 				);
@@ -507,6 +606,35 @@ pub mod helpers {
 				self.insert(chain, id);
 			}
 			self.assert_unique();
+		}
+	}
+
+	#[cfg(test)]
+	mod tests {
+		use super::*;
+		use sp_runtime::testing::H256;
+
+		#[test]
+		#[should_panic(expected = "Expected exactly one topic ID")]
+		fn test_assert_unique_fails_with_multiple_ids() {
+			let mut tracker = TopicIdTracker::new();
+			let id1 = H256::repeat_byte(0x42);
+			let id2 = H256::repeat_byte(0x43);
+
+			tracker.insert("ChainA", id1);
+			tracker.insert("ChainB", id2);
+			tracker.assert_unique();
+		}
+
+		#[test]
+		#[should_panic(expected = "Topic ID mismatch")]
+		fn test_insert_and_assert_unique_mismatch() {
+			let mut tracker = TopicIdTracker::new();
+			let id1 = H256::repeat_byte(0x42);
+			let id2 = H256::repeat_byte(0x43);
+
+			tracker.insert_and_assert_unique("ChainA", id1);
+			tracker.insert_and_assert_unique("ChainA", id2);
 		}
 	}
 }

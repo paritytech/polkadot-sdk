@@ -1,0 +1,15 @@
+title: 'Snowbridge - Adds Fulu hardfork'
+doc:
+- audience: Runtime Dev
+  description: Set fork version for Fulu hardfork on Sepolia.
+crates:
+- name: snowbridge-pallet-ethereum-client
+  bump: patch
+- name: snowbridge-pallet-inbound-queue
+  bump: patch
+- name: snowbridge-beacon-primitives
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch

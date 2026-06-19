@@ -74,8 +74,8 @@
 //! impl cumulus_pallet_parachain_system::Config for Runtime {
 //! 	// Other config items here
 //!     ...
-//! 	type SelectCore = DefaultCoreSelector<Test>;
 //! 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+//! 	type SchedulingSignatureVerifier = ();
 //! }
 //! ```
 //! 3. Implement the `RelayParentOffsetApi` runtime API for your runtime.
@@ -87,5 +87,5 @@
 //! 	}
 //! }
 //! ```
-//! 4. Increase the `UNINCLUDED_SEGMENT_CAPICITY` for your runtime. It needs to be increased by
+//! 4. Increase the `UNINCLUDED_SEGMENT_CAPACITY` for your runtime. It needs to be increased by
 //!    `RELAY_PARENT_OFFSET * BLOCK_PROCESSING_VELOCITY`.

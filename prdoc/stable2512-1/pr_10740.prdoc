@@ -1,0 +1,14 @@
+title: Make BlockRatioFee no longer require pallet_revive
+doc:
+- audience: Runtime Dev
+  description: In https://github.com/polkadot-fellows/runtimes/pull/1050 I am unifying
+    the used `WeightToFee` formula to use `BlockRatioFee` everywhere. This type is
+    exported by `pallet_revive` and is independent of any functionality here. However,
+    so far it required the runtime to use `pallet_revive` in order to discover the
+    `Balance` type. This PR removes this constraint so it can be used by all runtimes.
+    Even the ones which do not use `pallet_revive`.
+crates:
+- name: revive-dev-runtime
+  bump: minor
+- name: pallet-revive
+  bump: major

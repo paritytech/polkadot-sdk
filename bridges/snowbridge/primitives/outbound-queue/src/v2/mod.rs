@@ -11,13 +11,13 @@ pub use message::*;
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
+use Debug;
 
 /// The `XCM::Transact` payload for calling arbitrary smart contracts on Ethereum.
 /// On Ethereum, this call will be dispatched by the agent contract acting as a proxy
 /// for the XCM origin.
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, PartialEq, Debug, TypeInfo)]
 pub enum ContractCall {
 	V1 {
 		/// Target contract address

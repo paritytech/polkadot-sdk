@@ -27,21 +27,17 @@ use frame_metadata::v15::{
 	RuntimeApiMethodMetadata, RuntimeApiMethodParamMetadata, RuntimeMetadataV15,
 	SignedExtensionMetadata,
 };
-use scale_info::{IntoPortable, Registry};
 
 impl From<MetadataIR> for RuntimeMetadataV15 {
 	fn from(ir: MetadataIR) -> Self {
-		let mut registry = Registry::new();
-		let pallets =
-			registry.map_into_portable(ir.pallets.into_iter().map(Into::<PalletMetadata>::into));
-		let extrinsic = Into::<ExtrinsicMetadata>::into(ir.extrinsic).into_portable(&mut registry);
-		let ty = registry.register_type(&ir.ty);
-		let apis =
-			registry.map_into_portable(ir.apis.into_iter().map(Into::<RuntimeApiMetadata>::into));
-		let outer_enums = Into::<OuterEnums>::into(ir.outer_enums).into_portable(&mut registry);
-		let custom = CustomMetadata { map: Default::default() };
-
-		Self { types: registry.into(), pallets, extrinsic, ty, apis, outer_enums, custom }
+		RuntimeMetadataV15::new(
+			ir.pallets.into_iter().map(Into::into).collect(),
+			ir.extrinsic.into(),
+			ir.ty,
+			ir.apis.into_iter().map(Into::into).collect(),
+			ir.outer_enums.into(),
+			CustomMetadata { map: Default::default() },
+		)
 	}
 }
 
@@ -105,7 +101,12 @@ impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 			call_ty: ir.call_ty,
 			signature_ty: ir.signature_ty,
 			extra_ty: ir.extra_ty,
-			signed_extensions: ir.extensions.into_iter().map(Into::into).collect(),
+			signed_extensions: ir
+				.extensions_v0()
+				.expect("Metadata V15 expect a defined transaction extenstion pipeline version 0")
+				.into_iter()
+				.map(Into::into)
+				.collect(),
 		}
 	}
 }

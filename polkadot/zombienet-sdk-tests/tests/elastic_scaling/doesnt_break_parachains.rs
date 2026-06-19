@@ -5,15 +5,15 @@
 // itself if ElasticScalingMVP feature is enabled in genesis.
 
 use anyhow::anyhow;
+use codec::Decode;
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput, create_assign_core_call,
+	assert_finality_lag, assert_para_throughput, assign_cores, wait_for_pvf_prepare,
 };
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use serde_json::json;
 use std::collections::{BTreeMap, VecDeque};
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
 
@@ -42,15 +42,16 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
-				// Have to set a `with_node` outside of the loop below, so that `r` has the right
-				// type.
-				.with_node(|node| node.with_name("validator-0"));
+				// Have to set a `with_validator` outside of the loop below, so that `r` has the
+				// right type.
+				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..4).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..4).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			})
 		})
 		.with_parachain(|p| {
-			// Use rococo-parachain default, which has 6 second slot time. Also, don't use
-			// slot-based collator.
+			// Use default, which has 6 second slot time. Also, don't use slot-based collator.
 			p.with_id(2000)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
@@ -70,21 +71,15 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 	let para_node = network.get_node("collator-2000")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let alice = dev::alice();
 
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&create_assign_core_call(&[(0, 2000)]), &alice)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-
-	log::info!("1 more core assigned to the parachain");
+	assign_cores(&relay_client, 2000, vec![0]).await?;
 
 	let para_id = ParaId::from(2000);
+	// Wait for PVF preparation to complete.
+	wait_for_pvf_prepare(&network, 1).await?;
 	// Expect the parachain to be making normal progress, 1 candidate backed per relay chain block.
 	// Lowering to 12 to make sure CI passes.
-	assert_para_throughput(&relay_client, 15, [(para_id, 12..16)].into_iter().collect()).await?;
+	assert_para_throughput(&relay_client, 15, [(para_id, 12..16)], []).await?;
 
 	let para_client = para_node.wait_client().await?;
 	// Assert the parachain finalized block height is also on par with the number of backed
@@ -93,18 +88,30 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 	assert_finality_lag(&para_client, 6).await?;
 
 	// Sanity check that indeed the parachain has two assigned cores.
-	let cq = relay_client
-		.runtime_api()
-		.at_latest()
-		.await?
-		.call_raw::<BTreeMap<CoreIndex, VecDeque<ParaId>>>("ParachainHost_claim_queue", None)
-		.await?;
+	let cq = BTreeMap::<CoreIndex, VecDeque<ParaId>>::decode(
+		&mut &relay_client
+			.runtime_api()
+			.at_latest()
+			.await?
+			.call_raw("ParachainHost_claim_queue", None)
+			.await?[..],
+	)?;
+
+	// Get looakahead config
+	let lookahead = u32::decode(
+		&mut &relay_client
+			.runtime_api()
+			.at_latest()
+			.await?
+			.call_raw("ParachainHost_scheduling_lookahead", None)
+			.await?[..],
+	)?;
 
 	assert_eq!(
 		cq,
 		[
-			(CoreIndex(0), std::iter::repeat_n(para_id, 3).collect()),
-			(CoreIndex(1), std::iter::repeat_n(para_id, 3).collect()),
+			(CoreIndex(0), std::iter::repeat_n(para_id, lookahead as usize).collect()),
+			(CoreIndex(1), std::iter::repeat_n(para_id, lookahead as usize).collect()),
 		]
 		.into_iter()
 		.collect()
