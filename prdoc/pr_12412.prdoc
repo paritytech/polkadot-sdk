@@ -1,0 +1,13 @@
+title: 'pallet-alliance: migrate candidacy deposit from Currency reserves to fungible
+  holds'
+doc:
+- audience: Runtime Dev
+  description: "Part of #12399, which tracks #226\n\nMigrates `pallet-alliance` off\
+    \ the deprecated `ReservableCurrency` trait onto `fungible` holds via `Consideration`,\
+    \ with a reserve-to-hold storage migration, as part of the FRAME `Currency`\u2192\
+    `fungible`"
+crates:
+- name: collectives-westend-runtime
+  bump: major
+- name: pallet-alliance
+  bump: major
