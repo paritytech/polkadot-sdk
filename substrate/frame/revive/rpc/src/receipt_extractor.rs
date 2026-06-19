@@ -515,10 +515,10 @@ impl ReceiptExtractor {
 		// Callers only pass non-empty lists.
 		let first = &transfers.first().expect("transfer list is non-empty; qed").0;
 
-		// `to` is the token contract for a single-token extrinsic; ambiguous for a batch
-		// touching several tokens, where the logs carry the full detail.
-		let distinct_tokens: HashSet<H160> = transfers.iter().map(|(t, _)| t.token).collect();
-		let to = (distinct_tokens.len() == 1).then(|| first.token);
+		// `to` is the (first) token contract, matching the synthetic tx. A batch touching
+		// several tokens has no single target, but `to` must stay non-`None` (an Ethereum tx
+		// with `to == null` is a contract creation); the logs carry the full per-token detail.
+		let to = Some(first.token);
 
 		let signed_tx = synthetic_transaction(first);
 		let receipt = ReceiptInfo::new(
@@ -898,7 +898,7 @@ mod tests {
 	}
 
 	#[test]
-	fn synthetic_asset_receipt_batch_has_no_to() {
+	fn synthetic_asset_receipt_batch_to_is_first_token_and_consistent() {
 		let t1 = AssetTransfer {
 			token: H160::from([0x11; 20]),
 			from: H160::from([0x34; 20]),
@@ -911,7 +911,7 @@ mod tests {
 			to: H160::from([0x78; 20]),
 			amount: 2,
 		};
-		let (_, receipt) = ReceiptExtractor::build_synthetic_asset_receipt(
+		let (signed, receipt) = ReceiptExtractor::build_synthetic_asset_receipt(
 			H256::zero(),
 			U256::from(1),
 			H256::zero(),
@@ -919,9 +919,15 @@ mod tests {
 			H160::from([0x34; 20]),
 			&[(t1, 5), (t2, 6)],
 		);
-		// Distinct tokens in one extrinsic → ambiguous `to`; logs carry the detail.
-		assert_eq!(receipt.to, None);
+		// Batch `to` is the first token (never `None`, which would mean contract creation);
+		// logs carry the per-token detail.
+		assert_eq!(receipt.to, Some(H160::from([0x11; 20])));
 		assert_eq!(receipt.logs.len(), 2);
+		// The synthetic tx must agree with the receipt's `to`.
+		let TransactionSigned::TransactionLegacySigned(tx) = signed else {
+			panic!("expected legacy")
+		};
+		assert_eq!(tx.transaction_legacy_unsigned.to, receipt.to);
 	}
 
 	#[test]
