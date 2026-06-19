@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781816362855,
+  "lastUpdate": 1781899813777,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -99791,6 +99791,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2888981957,
             "range": "± 28061013",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9144026267b5af450ce7cd8ddf72b38d1c84b3d5",
+          "message": "Zombienet CI improvements (#12372)\n\n- Fix loki url\n- Add debug for sending logs to loki\n- Add retries for additional setup.",
+          "timestamp": "2026-06-19T18:40:06Z",
+          "tree_id": "cd4811a247a4dd30ddcf75c979baf5a0d0441d6e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9144026267b5af450ce7cd8ddf72b38d1c84b3d5"
+        },
+        "date": 1781899787255,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18789114,
+            "range": "± 245888",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 18860791,
+            "range": "± 95150",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20399231,
+            "range": "± 71685",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25423466,
+            "range": "± 82330",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57649783,
+            "range": "± 837823",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 344511735,
+            "range": "± 4407136",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2549167620,
+            "range": "± 72694351",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16525505,
+            "range": "± 183269",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16674174,
+            "range": "± 112798",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17334939,
+            "range": "± 129718",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21680322,
+            "range": "± 235560",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62841780,
+            "range": "± 865670",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 354432957,
+            "range": "± 4890052",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2700697630,
+            "range": "± 43913886",
             "unit": "ns/iter"
           }
         ]
