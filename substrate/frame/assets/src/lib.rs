@@ -102,6 +102,8 @@
 //! * `force_clear_metadata`: Remove the metadata of an asset class.
 //! * `force_asset_status`: Alter an asset class's attributes.
 //! * `force_cancel_approval`: Rescind a previous approval.
+//! * `force_set_persistent`: Mark an account as existing independent of the existential deposit.
+//! * `force_unset_persistent`: Remove the persistent mark from an account.
 //!
 //! ### Privileged Functions
 //!
@@ -648,6 +650,11 @@ pub mod pallet {
 		Deposited { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
 		/// Some assets were withdrawn from the account (e.g. for transaction fees).
 		Withdrawn { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
+		/// Some account `who` was marked as persistent and now exists independent of the
+		/// existential deposit.
+		AccountPersistenceSet { asset_id: T::AssetId, who: T::AccountId },
+		/// The persistent mark of some account `who` was removed.
+		AccountPersistenceRemoved { asset_id: T::AssetId, who: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -701,6 +708,13 @@ pub mod pallet {
 		ContainsFreezes,
 		/// The asset cannot be destroyed because some accounts for this asset contain holds.
 		ContainsHolds,
+		/// The account is already marked as persistent.
+		AlreadyPersistent,
+		/// The account is not marked as persistent.
+		NotPersistent,
+		/// The account cannot be made persistent because it is backed by a deposit, which must be
+		/// refunded first.
+		AccountHasDeposit,
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -1819,6 +1833,64 @@ pub mod pallet {
 				keep_alive,
 			)?;
 			Ok(())
+		}
+
+		/// Mark an account as persistent for a given asset, creating the asset-account if it does
+		/// not exist yet.
+		///
+		/// A persistent account exists independent of the existential deposit: it is never reaped
+		/// for having a balance below the asset's `min_balance`. This is useful for system accounts
+		/// such as pallet pots that must keep existing even when emptied.
+		///
+		/// The origin must conform to `ForceOrigin`.
+		///
+		/// - `id`: The identifier of the asset for the account to be made persistent.
+		/// - `who`: The account to be made persistent.
+		///
+		/// Accounts backed by a deposit cannot be made persistent; the deposit must be refunded
+		/// first.
+		///
+		/// Emits `AccountPersistenceSet` event when successful.
+		#[pallet::call_index(33)]
+		#[pallet::weight(T::WeightInfo::force_set_persistent())]
+		pub fn force_set_persistent(
+			origin: OriginFor<T>,
+			id: T::AssetIdParameter,
+			who: AccountIdLookupOf<T>,
+		) -> DispatchResult {
+			T::ForceOrigin::ensure_origin(origin)?;
+			let id: T::AssetId = id.into();
+			let who = T::Lookup::lookup(who)?;
+			Self::do_set_persistent(id, &who)
+		}
+
+		/// Remove the persistent mark from an account for a given asset.
+		///
+		/// If the account holds at least the asset's `min_balance` it keeps existing under a
+		/// regular existence reason. If its balance is zero it is reaped. A non-zero balance below
+		/// the minimum balance cannot be demoted and the call fails with `WouldBurn`.
+		///
+		/// When the account is demoted on a non-sufficient asset it must be able to acquire a
+		/// consumer reference; if `who` has no provider reference (or has reached its consumer
+		/// limit) the call fails with `UnavailableConsumer` and the account stays persistent.
+		///
+		/// The origin must conform to `ForceOrigin`.
+		///
+		/// - `id`: The identifier of the asset for the account to no longer be persistent.
+		/// - `who`: The account that should no longer be persistent.
+		///
+		/// Emits `AccountPersistenceRemoved` event when successful.
+		#[pallet::call_index(34)]
+		#[pallet::weight(T::WeightInfo::force_unset_persistent())]
+		pub fn force_unset_persistent(
+			origin: OriginFor<T>,
+			id: T::AssetIdParameter,
+			who: AccountIdLookupOf<T>,
+		) -> DispatchResult {
+			T::ForceOrigin::ensure_origin(origin)?;
+			let id: T::AssetId = id.into();
+			let who = T::Lookup::lookup(who)?;
+			Self::do_unset_persistent(id, &who)
 		}
 	}
 

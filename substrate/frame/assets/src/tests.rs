@@ -32,6 +32,7 @@ use pallet_balances::Error as BalancesError;
 use sp_io::storage;
 use sp_runtime::{traits::ConvertInto, TokenError};
 
+mod persistent;
 mod sets;
 
 fn asset_ids() -> Vec<u32> {
