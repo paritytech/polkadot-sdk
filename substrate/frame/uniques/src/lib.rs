@@ -48,7 +48,14 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::traits::{
-	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, ReservableCurrency,
+	tokens::{
+		fungible, Fortitude, Locker,
+		Precision::{BestEffort, Exact},
+		Preservation,
+		Restriction::OnHold,
+	},
+	BalanceStatus::Reserved,
+	Currency, EnsureOriginWithArg, ReservableCurrency,
 };
 use frame_system::Config as SystemConfig;
 use sp_runtime::{
@@ -77,6 +84,14 @@ pub mod pallet {
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(_);
+
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		/// Funds are held as a deposit for a collection, item, metadata or attribute.
+		#[codec(index = 0)]
+		Deposit,
+	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub trait BenchmarkHelper<CollectionId, ItemId> {
@@ -107,8 +122,20 @@ pub mod pallet {
 		/// The type used to identify a unique item within a collection.
 		type ItemId: Member + Parameter + MaxEncodedLen + Copy;
 
-		/// The currency mechanism, used for paying for reserves.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		/// The currency mechanism, used for deposits (taken as holds under [`HoldReason`]) and for
+		/// item-price transfers.
+		type Currency: fungible::Inspect<Self::AccountId>
+			+ fungible::Mutate<Self::AccountId>
+			+ fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+
+		/// The overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason<I>>;
+
+		/// The legacy reservable currency. Retained only to drain pre-existing reserved deposits as
+		/// the entities holding them are released (lazy migration); new deposits are taken as
+		/// holds. Otherwise unused.
+		type OldCurrency: Currency<Self::AccountId, Balance = DepositBalanceOf<Self, I>>
+			+ ReservableCurrency<Self::AccountId>;
 
 		/// The origin which may forcibly create or destroy an item or otherwise alter privileged
 		/// attributes.
@@ -706,9 +733,9 @@ pub mod pallet {
 				};
 				let old = details.deposit;
 				if old > deposit {
-					T::Currency::unreserve(&collection_details.owner, old - deposit);
+					Self::release_deposit(&collection_details.owner, old - deposit);
 				} else if deposit > old {
-					if T::Currency::reserve(&collection_details.owner, deposit - old).is_err() {
+					if Self::hold_deposit(&collection_details.owner, deposit - old).is_err() {
 						// NOTE: No alterations made to collection_details in this iteration so far,
 						// so this is OK to do.
 						continue;
@@ -884,12 +911,7 @@ pub mod pallet {
 				}
 
 				// Move the deposit to the new owner.
-				T::Currency::repatriate_reserved(
-					&details.owner,
-					&new_owner,
-					details.total_deposit,
-					Reserved,
-				)?;
+				Self::repatriate_deposit(&details.owner, &new_owner, details.total_deposit)?;
 
 				CollectionAccount::<T, I>::remove(&details.owner, &collection);
 				CollectionAccount::<T, I>::insert(&new_owner, &collection, ());
@@ -1153,9 +1175,9 @@ pub mod pallet {
 			}
 			collection_details.total_deposit.saturating_accrue(deposit);
 			if deposit > old_deposit {
-				T::Currency::reserve(&collection_details.owner, deposit - old_deposit)?;
+				Self::hold_deposit(&collection_details.owner, deposit - old_deposit)?;
 			} else if deposit < old_deposit {
-				T::Currency::unreserve(&collection_details.owner, old_deposit - deposit);
+				Self::release_deposit(&collection_details.owner, old_deposit - deposit);
 			}
 
 			Attribute::<T, I>::insert((&collection, maybe_item, &key), (&value, deposit));
@@ -1208,7 +1230,7 @@ pub mod pallet {
 			{
 				collection_details.attributes.saturating_dec();
 				collection_details.total_deposit.saturating_reduce(deposit);
-				T::Currency::unreserve(&collection_details.owner, deposit);
+				Self::release_deposit(&collection_details.owner, deposit);
 				Collection::<T, I>::insert(collection.clone(), &collection_details);
 				Self::deposit_event(Event::AttributeCleared { collection, maybe_item, key });
 			}
@@ -1268,9 +1290,9 @@ pub mod pallet {
 						.saturating_add(T::MetadataDepositBase::get());
 				}
 				if deposit > old_deposit {
-					T::Currency::reserve(&collection_details.owner, deposit - old_deposit)?;
+					Self::hold_deposit(&collection_details.owner, deposit - old_deposit)?;
 				} else if deposit < old_deposit {
-					T::Currency::unreserve(&collection_details.owner, old_deposit - deposit);
+					Self::release_deposit(&collection_details.owner, old_deposit - deposit);
 				}
 				collection_details.total_deposit.saturating_accrue(deposit);
 
@@ -1320,7 +1342,7 @@ pub mod pallet {
 					collection_details.item_metadatas.saturating_dec();
 				}
 				let deposit = metadata.take().ok_or(Error::<T, I>::UnknownCollection)?.deposit;
-				T::Currency::unreserve(&collection_details.owner, deposit);
+				Self::release_deposit(&collection_details.owner, deposit);
 				collection_details.total_deposit.saturating_reduce(deposit);
 
 				Collection::<T, I>::insert(&collection, &collection_details);
@@ -1376,9 +1398,9 @@ pub mod pallet {
 						.saturating_add(T::MetadataDepositBase::get());
 				}
 				if deposit > old_deposit {
-					T::Currency::reserve(&details.owner, deposit - old_deposit)?;
+					Self::hold_deposit(&details.owner, deposit - old_deposit)?;
 				} else if deposit < old_deposit {
-					T::Currency::unreserve(&details.owner, old_deposit - deposit);
+					Self::release_deposit(&details.owner, old_deposit - deposit);
 				}
 				details.total_deposit.saturating_accrue(deposit);
 
@@ -1424,7 +1446,7 @@ pub mod pallet {
 				ensure!(maybe_check_owner.is_none() || !was_frozen, Error::<T, I>::Frozen);
 
 				let deposit = metadata.take().ok_or(Error::<T, I>::UnknownCollection)?.deposit;
-				T::Currency::unreserve(&details.owner, deposit);
+				Self::release_deposit(&details.owner, deposit);
 				details.total_deposit.saturating_reduce(deposit);
 				Collection::<T, I>::insert(&collection, details);
 				Self::deposit_event(Event::CollectionMetadataCleared { collection });

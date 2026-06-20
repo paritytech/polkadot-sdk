@@ -19,8 +19,7 @@
 
 use crate::{mock::*, Event, *};
 use frame_support::{assert_noop, assert_ok, traits::Currency};
-use pallet_balances::Error as BalancesError;
-use sp_runtime::{traits::Dispatchable, DispatchError};
+use sp_runtime::{traits::Dispatchable, DispatchError, TokenError};
 
 fn items() -> Vec<(u64, u32, u32)> {
 	let mut r: Vec<_> = Account::<Test>::iter().map(|x| x.0).collect();
@@ -364,7 +363,7 @@ fn set_collection_metadata_should_work() {
 		// Cannot over-reserve
 		assert_noop!(
 			Uniques::set_collection_metadata(RuntimeOrigin::signed(1), 0, bvec![0u8; 40], false),
-			BalancesError::<Test, _>::InsufficientBalance,
+			TokenError::FundsUnavailable,
 		);
 
 		// Can't set or clear metadata once frozen
@@ -434,7 +433,7 @@ fn set_item_metadata_should_work() {
 		// Cannot over-reserve
 		assert_noop!(
 			Uniques::set_metadata(RuntimeOrigin::signed(1), 0, 42, bvec![0u8; 40], false),
-			BalancesError::<Test, _>::InsufficientBalance,
+			TokenError::FundsUnavailable,
 		);
 
 		// Can't set or clear metadata once frozen
