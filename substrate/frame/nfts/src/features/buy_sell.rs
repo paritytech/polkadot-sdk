@@ -23,7 +23,7 @@
 use crate::*;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Currency, ExistenceRequirement, ExistenceRequirement::KeepAlive},
+	traits::tokens::{fungible::Mutate, Preservation},
 };
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -43,7 +43,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> DispatchResult {
 		for tip in tips {
 			let ItemTip { collection, item, receiver, amount } = tip;
-			T::Currency::transfer(&sender, &receiver, amount, KeepAlive)?;
+			T::Currency::transfer(&sender, &receiver, amount, Preservation::Preserve)?;
 			Self::deposit_event(Event::TipSent {
 				collection,
 				item,
@@ -148,12 +148,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(only_buyer == buyer, Error::<T, I>::NoPermission);
 		}
 
-		T::Currency::transfer(
-			&buyer,
-			&details.owner,
-			price_info.0,
-			ExistenceRequirement::KeepAlive,
-		)?;
+		T::Currency::transfer(&buyer, &details.owner, price_info.0, Preservation::Preserve)?;
 
 		let old_owner = details.owner.clone();
 

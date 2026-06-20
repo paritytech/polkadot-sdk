@@ -26,11 +26,10 @@ use frame_support::{
 		Currency, Get,
 	},
 };
-use pallet_balances::Error as BalancesError;
 use sp_core::{bounded::BoundedVec, Pair};
 use sp_runtime::{
 	traits::{Dispatchable, IdentifyAccount},
-	MultiSignature, MultiSigner,
+	MultiSignature, MultiSigner, TokenError,
 };
 
 type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
@@ -789,7 +788,7 @@ fn set_collection_metadata_should_work() {
 		// Cannot over-reserve
 		assert_noop!(
 			Nfts::set_collection_metadata(RuntimeOrigin::signed(account(1)), 0, bvec![0u8; 40]),
-			BalancesError::<Test, _>::InsufficientBalance,
+			TokenError::FundsUnavailable,
 		);
 
 		// Can't set or clear metadata once frozen
@@ -866,7 +865,7 @@ fn set_item_metadata_should_work() {
 		// Cannot over-reserve
 		assert_noop!(
 			Nfts::set_metadata(RuntimeOrigin::signed(account(1)), 0, 42, bvec![0u8; 40]),
-			BalancesError::<Test, _>::InsufficientBalance,
+			TokenError::FundsUnavailable,
 		);
 
 		// Can't set or clear metadata once frozen

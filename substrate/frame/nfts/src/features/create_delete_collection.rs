@@ -43,7 +43,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> DispatchResult {
 		ensure!(!Collection::<T, I>::contains_key(collection), Error::<T, I>::CollectionIdInUse);
 
-		T::Currency::reserve(&owner, deposit)?;
+		Self::hold_deposit(&owner, deposit)?;
 
 		Collection::<T, I>::insert(
 			collection,
@@ -121,7 +121,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 			for (_, metadata) in ItemMetadataOf::<T, I>::drain_prefix(&collection) {
 				if let Some(depositor) = metadata.deposit.account {
-					T::Currency::unreserve(&depositor, metadata.deposit.amount);
+					Self::release_deposit(&depositor, metadata.deposit.amount);
 				}
 			}
 
@@ -131,13 +131,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			for (_, (_, deposit)) in Attribute::<T, I>::drain_prefix((&collection,)) {
 				if !deposit.amount.is_zero() {
 					if let Some(account) = deposit.account {
-						T::Currency::unreserve(&account, deposit.amount);
+						Self::release_deposit(&account, deposit.amount);
 					}
 				}
 			}
 
 			CollectionAccount::<T, I>::remove(&collection_details.owner, &collection);
-			T::Currency::unreserve(&collection_details.owner, collection_details.owner_deposit);
+			Self::release_deposit(&collection_details.owner, collection_details.owner_deposit);
 			CollectionConfigOf::<T, I>::remove(&collection);
 			let _ = ItemConfigOf::<T, I>::clear_prefix(&collection, witness.item_configs, None);
 
