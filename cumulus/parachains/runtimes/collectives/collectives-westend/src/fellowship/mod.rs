@@ -24,6 +24,7 @@ use crate::{
 	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation,
 	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, DAYS,
 };
+use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use cumulus_primitives_core::ParaId;
 use frame_support::{
 	parameter_types,

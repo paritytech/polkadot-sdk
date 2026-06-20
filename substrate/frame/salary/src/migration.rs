@@ -55,7 +55,7 @@ mod v0 {
 
 pub mod v1 {
 	use super::{pallet::BlockNumberFor as NewBlockNumberFor, *};
-	use frame::prelude::BlockNumberFor as LocalBlockNumberFor;
+	use frame::prelude::{BlockNumberFor as LocalBlockNumberFor, BlockNumberProvider, Saturating};
 
 	/// Converts the old block-number type into the new block-number type.
 	///
@@ -106,6 +106,48 @@ pub mod v1 {
 		/// For example, if the old provider used 12 second blocks and the new provider uses 6
 		/// second blocks, one old block is equivalent to two new blocks.
 		fn equivalent_block_duration(old_duration: L) -> N;
+	}
+
+	/// Converts block numbers between providers with the same block number type and block
+	/// duration.
+	///
+	/// This is useful when switching from [`frame_system::Pallet`] to another block number
+	/// provider on a chain where both providers advance at the same rate. Cycle indexes are copied
+	/// directly, while stored moments are translated relative to the current moment of each
+	/// provider.
+	pub struct SameBlockDurationConverter<OldProvider, NewProvider>(
+		PhantomData<(OldProvider, NewProvider)>,
+	);
+
+	impl<OldProvider, NewProvider, BlockNumber> ConvertBlockNumber<BlockNumber, BlockNumber>
+		for SameBlockDurationConverter<OldProvider, NewProvider>
+	where
+		OldProvider: BlockNumberProvider<BlockNumber = BlockNumber>,
+		NewProvider: BlockNumberProvider<BlockNumber = BlockNumber>,
+		BlockNumber: Copy + Ord + Saturating,
+	{
+		fn convert(old: BlockNumber) -> BlockNumber {
+			old
+		}
+
+		fn equivalent_moment_in_time(old_moment: BlockNumber) -> BlockNumber {
+			let old_block_number = OldProvider::current_block_number();
+			let old_duration = Self::equivalent_block_duration(if old_block_number >= old_moment {
+				old_block_number.saturating_sub(old_moment)
+			} else {
+				old_moment.saturating_sub(old_block_number)
+			});
+			let new_block_number = NewProvider::current_block_number();
+			if old_block_number >= old_moment {
+				new_block_number.saturating_sub(old_duration)
+			} else {
+				new_block_number.saturating_add(old_duration)
+			}
+		}
+
+		fn equivalent_block_duration(old_duration: BlockNumber) -> BlockNumber {
+			old_duration
+		}
 	}
 
 	pub struct MigrateToV1<T, BC, I = ()>(PhantomData<(T, BC, I)>);
@@ -181,4 +223,13 @@ pub type MigrateV0ToV1<T, BC, I> = VersionedMigration<
 	v1::MigrateToV1<T, BC, I>,
 	crate::pallet::Pallet<T, I>,
 	<T as frame_system::Config>::DbWeight,
+>;
+
+/// Salary v0 to v1 migration for runtimes switching from [`frame_system::Pallet`] to
+/// [`Config::BlockNumberProvider`] where both providers use the same block number type and block
+/// duration.
+pub type MigrateV0ToV1SameBlockDuration<T, I> = MigrateV0ToV1<
+	T,
+	v1::SameBlockDurationConverter<frame_system::Pallet<T>, <T as Config<I>>::BlockNumberProvider>,
+	I,
 >;
