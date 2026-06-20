@@ -42,7 +42,7 @@ fn make_deposit<T: Config<I>, I: 'static>(who: &T::AccountId) -> BalanceOf<T, I>
 	let amount = mock_balance_deposit::<T, I>();
 	let required = amount.saturating_add(T::Currency::minimum_balance());
 	if T::Currency::balance(who) < required {
-		let _ = T::Currency::set_balance(who, required);
+		let _ = T::OldCurrency::make_free_balance_be(who, required);
 	}
 	T::Currency::hold(&Society::<T, I>::deposit_reason(), who, amount)
 		.expect("Pre-funded account; qed");
@@ -56,9 +56,11 @@ fn make_bid<T: Config<I>, I: 'static>(
 }
 
 fn fund_society<T: Config<I>, I: 'static>() {
-	let _ =
-		T::Currency::set_balance(&Society::<T, I>::account_id(), BalanceOf::<T, I>::max_value());
-	Pot::<T, I>::put(&BalanceOf::<T, I>::max_value());
+	let _ = T::OldCurrency::make_free_balance_be(
+		&Society::<T, I>::account_id(),
+		BalanceOf::<T, I>::max_value() / 1000u32.into(),
+	);
+	Pot::<T, I>::put(BalanceOf::<T, I>::max_value() / 1000u32.into());
 }
 
 // Set up Society
@@ -78,9 +80,14 @@ fn setup_society<T: Config<I>, I: 'static>() -> Result<T::AccountId, &'static st
 		mock_balance_deposit::<T, I>(),
 		b"benchmarking-society".to_vec(),
 	)?;
-	let _ =
-		T::Currency::set_balance(&Society::<T, I>::account_id(), T::Currency::minimum_balance());
-	let _ = T::Currency::set_balance(&Society::<T, I>::payouts(), T::Currency::minimum_balance());
+	let _ = T::OldCurrency::make_free_balance_be(
+		&Society::<T, I>::account_id(),
+		T::Currency::minimum_balance(),
+	);
+	let _ = T::OldCurrency::make_free_balance_be(
+		&Society::<T, I>::payouts(),
+		T::Currency::minimum_balance(),
+	);
 	Ok(founder)
 }
 
@@ -121,7 +128,10 @@ mod benchmarks {
 	fn bid() -> Result<(), BenchmarkError> {
 		setup_society::<T, I>()?;
 		let caller: T::AccountId = whitelisted_caller();
-		let _ = T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
+		let _ = T::OldCurrency::make_free_balance_be(
+			&caller,
+			BalanceOf::<T, I>::max_value() / 1000u32.into(),
+		);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), 10u32.into());
@@ -139,7 +149,10 @@ mod benchmarks {
 	fn unbid() -> Result<(), BenchmarkError> {
 		setup_society::<T, I>()?;
 		let caller: T::AccountId = whitelisted_caller();
-		let _ = T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
+		let _ = T::OldCurrency::make_free_balance_be(
+			&caller,
+			BalanceOf::<T, I>::max_value() / 1000u32.into(),
+		);
 		let mut bids = Bids::<T, I>::get();
 		Society::<T, I>::insert_bid(&mut bids, &caller, 10u32.into(), make_bid::<T, I>(&caller));
 		Bids::<T, I>::put(bids);
@@ -156,7 +169,10 @@ mod benchmarks {
 		setup_society::<T, I>()?;
 		let caller: T::AccountId = whitelisted_caller();
 		let vouched: T::AccountId = account("vouched", 0, 0);
-		let _ = T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
+		let _ = T::OldCurrency::make_free_balance_be(
+			&caller,
+			BalanceOf::<T, I>::max_value() / 1000u32.into(),
+		);
 		let _ = Society::<T, I>::insert_member(&caller, 1u32.into());
 		let vouched_lookup: <T::Lookup as StaticLookup>::Source =
 			T::Lookup::unlookup(vouched.clone());
@@ -178,7 +194,10 @@ mod benchmarks {
 	fn unvouch() -> Result<(), BenchmarkError> {
 		setup_society::<T, I>()?;
 		let caller: T::AccountId = whitelisted_caller();
-		let _ = T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
+		let _ = T::OldCurrency::make_free_balance_be(
+			&caller,
+			BalanceOf::<T, I>::max_value() / 1000u32.into(),
+		);
 		let mut bids = Bids::<T, I>::get();
 		Society::<T, I>::insert_bid(
 			&mut bids,
@@ -199,7 +218,10 @@ mod benchmarks {
 	fn vote() -> Result<(), BenchmarkError> {
 		setup_society::<T, I>()?;
 		let caller: T::AccountId = whitelisted_caller();
-		let _ = T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
+		let _ = T::OldCurrency::make_free_balance_be(
+			&caller,
+			BalanceOf::<T, I>::max_value() / 1000u32.into(),
+		);
 		let _ = Society::<T, I>::insert_member(&caller, 1u32.into());
 		let candidate = add_candidate::<T, I>("candidate", Default::default(), false);
 		let candidate_lookup: <T::Lookup as StaticLookup>::Source =
@@ -217,7 +239,10 @@ mod benchmarks {
 	fn defender_vote() -> Result<(), BenchmarkError> {
 		setup_society::<T, I>()?;
 		let caller: T::AccountId = whitelisted_caller();
-		let _ = T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
+		let _ = T::OldCurrency::make_free_balance_be(
+			&caller,
+			BalanceOf::<T, I>::max_value() / 1000u32.into(),
+		);
 		let _ = Society::<T, I>::insert_member(&caller, 1u32.into());
 		let defender: T::AccountId = account("defender", 0, 0);
 		Defending::<T, I>::put((defender, caller.clone(), Tally::default()));
@@ -236,7 +261,7 @@ mod benchmarks {
 		setup_funded_society::<T, I>()?;
 		// Payee's account already exists and is a member.
 		let caller: T::AccountId = whitelisted_caller();
-		let _ = T::Currency::set_balance(&caller, mock_balance_deposit::<T, I>());
+		let _ = T::OldCurrency::make_free_balance_be(&caller, mock_balance_deposit::<T, I>());
 		let _ = Society::<T, I>::insert_member(&caller, 0u32.into());
 		// Introduce payout.
 		Society::<T, I>::bump_payout(&caller, 0u32.into(), 1u32.into());
@@ -253,7 +278,10 @@ mod benchmarks {
 	fn waive_repay() -> Result<(), BenchmarkError> {
 		setup_funded_society::<T, I>()?;
 		let caller: T::AccountId = whitelisted_caller();
-		let _ = T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
+		let _ = T::OldCurrency::make_free_balance_be(
+			&caller,
+			BalanceOf::<T, I>::max_value() / 1000u32.into(),
+		);
 		let _ = Society::<T, I>::insert_member(&caller, 0u32.into());
 		Society::<T, I>::bump_payout(&caller, 0u32.into(), 1u32.into());
 
@@ -513,7 +541,10 @@ mod benchmarks {
 		// Set up society
 		setup_society::<T, I>()?;
 		let bidder: T::AccountId = whitelisted_caller();
-		let _ = T::Currency::set_balance(&bidder, BalanceOf::<T, I>::max_value());
+		let _ = T::OldCurrency::make_free_balance_be(
+			&bidder,
+			BalanceOf::<T, I>::max_value() / 1000u32.into(),
+		);
 
 		// Make initial bid
 		let initial_deposit = mock_balance_deposit::<T, I>();
