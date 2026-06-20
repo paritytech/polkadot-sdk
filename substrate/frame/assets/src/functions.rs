@@ -48,6 +48,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		who: &T::AccountId,
 		amount: DepositBalanceOf<T, I>,
 	) -> DispatchResult {
+		// A zero-amount hold would still require `who` to be a provider (holds add a consumer
+		// reference), unlike the legacy `reserve(who, 0)` which was a no-op. Some runtimes
+		// configure zero deposits, so skip holding nothing to preserve that behaviour.
+		if amount.is_zero() {
+			return Ok(());
+		}
 		T::Currency::hold(&Self::deposit_reason(), who, amount)
 	}
 
