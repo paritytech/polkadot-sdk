@@ -256,7 +256,7 @@ impl pallet_salary::Config<FellowshipSalaryInstance> for Runtime {
 	type PayoutPeriod = ConstU32<{ 15 * DAYS }>;
 	// Total monthly salary budget.
 	type Budget = ConstU128<{ 100_000 * USDT_UNITS }>;
-	type BlockNumberProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<Runtime>;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 }
 
 parameter_types! {
