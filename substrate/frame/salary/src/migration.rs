@@ -19,7 +19,7 @@
 
 use super::*;
 use frame::{
-	deps::frame_support::migrations::VersionedMigration, storage_alias,
+	deps::frame_support::{migrations::VersionedMigration, storage_alias},
 	traits::UncheckedOnRuntimeUpgrade,
 };
 
@@ -233,3 +233,113 @@ pub type MigrateV0ToV1SameBlockDuration<T, I> = MigrateV0ToV1<
 	v1::SameBlockDurationConverter<frame_system::Pallet<T>, <T as Config<I>>::BlockNumberProvider>,
 	I,
 >;
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::tests::unit::{new_test_ext, Test};
+	use frame::prelude::{BlockNumberProvider, OnRuntimeUpgrade, StorageVersion};
+	use std::cell::Cell;
+
+	// Keep the two providers independent so the converter tests can check relative moment mapping
+	// without depending on `frame_system` state.
+	thread_local! {
+		static OLD_BLOCK_NUMBER: Cell<u64> = const { Cell::new(0) };
+		static NEW_BLOCK_NUMBER: Cell<u64> = const { Cell::new(0) };
+	}
+
+	struct OldProvider;
+	impl BlockNumberProvider for OldProvider {
+		type BlockNumber = u64;
+
+		fn current_block_number() -> Self::BlockNumber {
+			OLD_BLOCK_NUMBER.with(Cell::get)
+		}
+	}
+
+	struct NewProvider;
+	impl BlockNumberProvider for NewProvider {
+		type BlockNumber = u64;
+
+		fn current_block_number() -> Self::BlockNumber {
+			NEW_BLOCK_NUMBER.with(Cell::get)
+		}
+	}
+
+	type Converter = v1::SameBlockDurationConverter<OldProvider, NewProvider>;
+
+	#[test]
+	fn same_block_duration_converter_maps_equivalent_moments() {
+		OLD_BLOCK_NUMBER.with(|n| n.set(10));
+		NEW_BLOCK_NUMBER.with(|n| n.set(100));
+
+		// Same-duration providers preserve indexes and durations, while moments move relative to
+		// each provider's current block.
+		assert_eq!(<Converter as v1::ConvertBlockNumber<u64, u64>>::convert(42), 42);
+		assert_eq!(
+			<Converter as v1::ConvertBlockNumber<u64, u64>>::equivalent_moment_in_time(7),
+			97
+		);
+		assert_eq!(
+			<Converter as v1::ConvertBlockNumber<u64, u64>>::equivalent_moment_in_time(13),
+			103
+		);
+		assert_eq!(
+			<Converter as v1::ConvertBlockNumber<u64, u64>>::equivalent_block_duration(3),
+			3
+		);
+	}
+
+	#[test]
+	fn same_block_duration_converter_saturates_past_moments() {
+		OLD_BLOCK_NUMBER.with(|n| n.set(10));
+		NEW_BLOCK_NUMBER.with(|n| n.set(2));
+
+		assert_eq!(
+			<Converter as v1::ConvertBlockNumber<u64, u64>>::equivalent_moment_in_time(7),
+			0
+		);
+	}
+
+	#[test]
+	fn v0_to_v1_migrates_status_and_claimants() {
+		new_test_ext().execute_with(|| {
+			type Migration = MigrateV0ToV1SameBlockDuration<Test, ()>;
+
+			// Populate the old storage layout directly so the test exercises the same decode path
+			// as an on-chain v0 -> v1 migration.
+			StorageVersion::new(0).put::<Pallet<Test>>();
+			v0::Status::<Test, ()>::put(StatusType {
+				cycle_index: 2,
+				cycle_start: 3,
+				budget: 10,
+				total_registrations: 4,
+				total_unregistered_paid: 5,
+			});
+			v0::Claimant::<Test, ()>::insert(
+				42,
+				ClaimantStatus { last_active: 2, status: ClaimState::Registered(7) },
+			);
+
+			<Migration as OnRuntimeUpgrade>::on_runtime_upgrade();
+
+			// The versioned wrapper must bump storage version and rewrite every
+			// block-number-bearing item into the current storage aliases.
+			assert_eq!(Pallet::<Test>::on_chain_storage_version(), 1);
+			assert_eq!(
+				crate::Status::<Test, ()>::get(),
+				Some(StatusType {
+					cycle_index: 2,
+					cycle_start: 3,
+					budget: 10,
+					total_registrations: 4,
+					total_unregistered_paid: 5,
+				})
+			);
+			assert_eq!(
+				crate::Claimant::<Test, ()>::get(42),
+				Some(ClaimantStatus { last_active: 2, status: ClaimState::Registered(7) })
+			);
+		});
+	}
+}
