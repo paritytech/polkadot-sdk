@@ -45,15 +45,15 @@ pub type Cycle = u32;
 #[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 pub struct StatusType<CycleIndex, BlockNumber, Balance> {
 	/// The index of the "current cycle" (i.e. the last cycle being processed).
-	pub(crate) cycle_index: CycleIndex,
+	cycle_index: CycleIndex,
 	/// The first block of the "current cycle" (i.e. the last cycle being processed).
-	pub(crate) cycle_start: BlockNumber,
+	cycle_start: BlockNumber,
 	/// The total budget available for all payments in the current cycle.
-	pub(crate) budget: Balance,
+	budget: Balance,
 	/// The total amount of the payments registered in the current cycle.
-	pub(crate) total_registrations: Balance,
+	total_registrations: Balance,
 	/// The total amount of unregistered payments which have been made in the current cycle.
-	pub(crate) total_unregistered_paid: Balance,
+	total_unregistered_paid: Balance,
 }
 
 /// The state of a specific payment claim.
