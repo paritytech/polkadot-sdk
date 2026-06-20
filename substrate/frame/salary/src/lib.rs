@@ -136,10 +136,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type Budget: Get<BalanceOf<Self, I>>;
 
-		/// Provides the current block number.
-		///
-		/// This is usually `cumulus_pallet_parachain_system::RelaychainDataProvider` if a
-		/// parachain, or `frame_system::Pallet` if a solo- or relaychain.
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
