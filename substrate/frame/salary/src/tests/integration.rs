@@ -20,6 +20,7 @@
 use crate as pallet_salary;
 use crate::*;
 use frame::{deps::sp_io, testing_prelude::*};
+use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_ranked_collective::{EnsureRanked, Geometric};
 
 type Rank = u16;
@@ -126,7 +127,7 @@ impl pallet_ranked_collective::Config for Test {
 		// Members can exchange up to the rank of 2 below them.
 		MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
 	>;
-	type Polls = NoOpPoll<frame::prelude::BlockNumberFor<Test>>;
+	type Polls = NoOpPoll<BlockNumberFor<Test>>;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type MemberSwappedHandler = Salary;
 	type VoteWeight = Geometric;
