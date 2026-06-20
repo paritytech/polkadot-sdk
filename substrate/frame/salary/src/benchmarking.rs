@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::{pallet::BlockNumberFor as SalaryBlockNumberFor, Pallet as Salary};
+use crate::Pallet as Salary;
 
 use frame::benchmarking::prelude::*;
 const SEED: u32 = 0;
@@ -44,14 +44,6 @@ fn ensure_member_with_salary<T: Config<I>, I: 'static>(who: &T::AccountId) {
 mod benchmarks {
 	use super::*;
 
-	fn get_block_number<T: Config<I>, I: 'static>() -> SalaryBlockNumberFor<T, I> {
-		T::BlockNumberProvider::current_block_number()
-	}
-
-	fn set_block_number<T: Config<I>, I: 'static>(n: SalaryBlockNumberFor<T, I>) {
-		T::BlockNumberProvider::set_block_number(n);
-	}
-
 	#[benchmark]
 	fn init() {
 		let caller: T::AccountId = whitelisted_caller();
@@ -66,7 +58,9 @@ mod benchmarks {
 	fn bump() {
 		let caller: T::AccountId = whitelisted_caller();
 		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into()).unwrap();
-		set_block_number::<T, I>(get_block_number::<T, I>() + Salary::<T, I>::cycle_period());
+		T::BlockNumberProvider::set_block_number(
+			T::BlockNumberProvider::current_block_number() + Salary::<T, I>::cycle_period(),
+		);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));
@@ -92,7 +86,9 @@ mod benchmarks {
 		ensure_member_with_salary::<T, I>(&caller);
 		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into()).unwrap();
 		Salary::<T, I>::induct(RawOrigin::Signed(caller.clone()).into()).unwrap();
-		set_block_number::<T, I>(get_block_number::<T, I>() + Salary::<T, I>::cycle_period());
+		T::BlockNumberProvider::set_block_number(
+			T::BlockNumberProvider::current_block_number() + Salary::<T, I>::cycle_period(),
+		);
 		Salary::<T, I>::bump(RawOrigin::Signed(caller.clone()).into()).unwrap();
 
 		#[extrinsic_call]
@@ -107,9 +103,13 @@ mod benchmarks {
 		ensure_member_with_salary::<T, I>(&caller);
 		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into()).unwrap();
 		Salary::<T, I>::induct(RawOrigin::Signed(caller.clone()).into()).unwrap();
-		set_block_number::<T, I>(get_block_number::<T, I>() + Salary::<T, I>::cycle_period());
+		T::BlockNumberProvider::set_block_number(
+			T::BlockNumberProvider::current_block_number() + Salary::<T, I>::cycle_period(),
+		);
 		Salary::<T, I>::bump(RawOrigin::Signed(caller.clone()).into()).unwrap();
-		set_block_number::<T, I>(get_block_number::<T, I>() + T::RegistrationPeriod::get());
+		T::BlockNumberProvider::set_block_number(
+			T::BlockNumberProvider::current_block_number() + T::RegistrationPeriod::get(),
+		);
 
 		let salary = T::Salary::get_salary(T::Members::rank_of(&caller).unwrap(), &caller);
 		T::Paymaster::ensure_successful(&caller, (), salary);
@@ -133,9 +133,13 @@ mod benchmarks {
 		ensure_member_with_salary::<T, I>(&caller);
 		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into()).unwrap();
 		Salary::<T, I>::induct(RawOrigin::Signed(caller.clone()).into()).unwrap();
-		set_block_number::<T, I>(get_block_number::<T, I>() + Salary::<T, I>::cycle_period());
+		T::BlockNumberProvider::set_block_number(
+			T::BlockNumberProvider::current_block_number() + Salary::<T, I>::cycle_period(),
+		);
 		Salary::<T, I>::bump(RawOrigin::Signed(caller.clone()).into()).unwrap();
-		set_block_number::<T, I>(get_block_number::<T, I>() + T::RegistrationPeriod::get());
+		T::BlockNumberProvider::set_block_number(
+			T::BlockNumberProvider::current_block_number() + T::RegistrationPeriod::get(),
+		);
 
 		let salary = T::Salary::get_salary(T::Members::rank_of(&caller).unwrap(), &caller);
 		let recipient: T::AccountId = account("recipient", 0, SEED);
@@ -160,9 +164,13 @@ mod benchmarks {
 		ensure_member_with_salary::<T, I>(&caller);
 		Salary::<T, I>::init(RawOrigin::Signed(caller.clone()).into()).unwrap();
 		Salary::<T, I>::induct(RawOrigin::Signed(caller.clone()).into()).unwrap();
-		set_block_number::<T, I>(get_block_number::<T, I>() + Salary::<T, I>::cycle_period());
+		T::BlockNumberProvider::set_block_number(
+			T::BlockNumberProvider::current_block_number() + Salary::<T, I>::cycle_period(),
+		);
 		Salary::<T, I>::bump(RawOrigin::Signed(caller.clone()).into()).unwrap();
-		set_block_number::<T, I>(get_block_number::<T, I>() + T::RegistrationPeriod::get());
+		T::BlockNumberProvider::set_block_number(
+			T::BlockNumberProvider::current_block_number() + T::RegistrationPeriod::get(),
+		);
 
 		let salary = T::Salary::get_salary(T::Members::rank_of(&caller).unwrap(), &caller);
 		let recipient: T::AccountId = account("recipient", 0, SEED);
