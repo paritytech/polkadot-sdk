@@ -9,4 +9,4 @@ doc:
     The check asserts that the parachain slot duration is a positive multiple of the relay chain's slot duration.
 crates:
 - name: cumulus-pallet-aura-ext
-  bump: patch
+  bump: minor
