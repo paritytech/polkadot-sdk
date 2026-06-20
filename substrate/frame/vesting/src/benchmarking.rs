@@ -20,7 +20,10 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use frame_benchmarking::{v2::*, BenchmarkError};
-use frame_support::assert_ok;
+use frame_support::{
+	assert_ok,
+	traits::{tokens::Preservation, WithdrawReasons},
+};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_runtime::traits::{Bounded, CheckedDiv, CheckedMul};
 
@@ -28,15 +31,12 @@ use crate::*;
 
 const SEED: u32 = 0;
 
-type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
 fn add_locks<T: Config>(who: &T::AccountId, n: u8) {
 	for id in 0..n {
 		let lock_id = [id; 8];
 		let locked = 256_u32;
 		let reasons = WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE;
-		T::Currency::set_lock(lock_id, who, locked.into(), reasons);
+		T::OldCurrency::set_lock(lock_id, who, locked.into(), reasons);
 	}
 }
 
@@ -51,7 +51,7 @@ fn add_vesting_schedules<T: Config>(
 	let starting_block = 1_u32;
 
 	let source = account("source", 0, SEED);
-	T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
+	T::OldCurrency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
 
 	T::BlockNumberProvider::set_block_number(BlockNumberFor::<T>::zero());
 
@@ -63,7 +63,7 @@ fn add_vesting_schedules<T: Config>(
 		assert_ok!(Pallet::<T>::do_vested_transfer(&source, target, schedule));
 
 		// Top up to guarantee we can always transfer another schedule.
-		T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
+		T::OldCurrency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
 	}
 
 	Ok(total_locked)
@@ -79,7 +79,7 @@ mod benchmarks {
 		s: Linear<1, T::MAX_VESTING_SCHEDULES>,
 	) -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, T::Currency::minimum_balance());
+		T::OldCurrency::make_free_balance_be(&caller, T::Currency::minimum_balance());
 
 		add_locks::<T>(&caller, l as u8);
 		let expected_balance = add_vesting_schedules::<T>(&caller, s)?;
@@ -111,7 +111,7 @@ mod benchmarks {
 		s: Linear<1, T::MAX_VESTING_SCHEDULES>,
 	) -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, T::Currency::minimum_balance());
+		T::OldCurrency::make_free_balance_be(&caller, T::Currency::minimum_balance());
 
 		add_locks::<T>(&caller, l as u8);
 		add_vesting_schedules::<T>(&caller, s)?;
@@ -141,7 +141,7 @@ mod benchmarks {
 		let other = account::<T::AccountId>("other", 0, SEED);
 		let other_lookup = T::Lookup::unlookup(other.clone());
 
-		T::Currency::make_free_balance_be(&other, T::Currency::minimum_balance());
+		T::OldCurrency::make_free_balance_be(&other, T::Currency::minimum_balance());
 		add_locks::<T>(&other, l as u8);
 		let expected_balance = add_vesting_schedules::<T>(&other, s)?;
 
@@ -176,7 +176,7 @@ mod benchmarks {
 		let other = account::<T::AccountId>("other", 0, SEED);
 		let other_lookup = T::Lookup::unlookup(other.clone());
 
-		T::Currency::make_free_balance_be(&other, T::Currency::minimum_balance());
+		T::OldCurrency::make_free_balance_be(&other, T::Currency::minimum_balance());
 		add_locks::<T>(&other, l as u8);
 		add_vesting_schedules::<T>(&other, s)?;
 		// At block 21 everything is unlocked.
@@ -205,15 +205,15 @@ mod benchmarks {
 		s: Linear<0, { T::MAX_VESTING_SCHEDULES - 1 }>,
 	) -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		T::OldCurrency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
 		let target = account::<T::AccountId>("target", 0, SEED);
 		let target_lookup = T::Lookup::unlookup(target.clone());
 		// Give target existing locks.
-		T::Currency::make_free_balance_be(&target, T::Currency::minimum_balance());
+		T::OldCurrency::make_free_balance_be(&target, T::Currency::minimum_balance());
 		add_locks::<T>(&target, l as u8);
 		// Add one vesting schedules.
-		let orig_balance = T::Currency::free_balance(&target);
+		let orig_balance = T::Currency::balance(&target);
 		let mut expected_balance = add_vesting_schedules::<T>(&target, s)?;
 
 		let transfer_amount = T::MinVestedTransfer::get();
@@ -227,7 +227,7 @@ mod benchmarks {
 
 		assert_eq!(
 			orig_balance + expected_balance,
-			T::Currency::free_balance(&target),
+			T::Currency::balance(&target),
 			"Transfer didn't happen",
 		);
 		assert_eq!(
@@ -246,15 +246,15 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let source = account::<T::AccountId>("source", 0, SEED);
 		let source_lookup = T::Lookup::unlookup(source.clone());
-		T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
+		T::OldCurrency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
 
 		let target = account::<T::AccountId>("target", 0, SEED);
 		let target_lookup = T::Lookup::unlookup(target.clone());
 		// Give target existing locks.
-		T::Currency::make_free_balance_be(&target, T::Currency::minimum_balance());
+		T::OldCurrency::make_free_balance_be(&target, T::Currency::minimum_balance());
 		add_locks::<T>(&target, l as u8);
 		// Add one less than max vesting schedules.
-		let orig_balance = T::Currency::free_balance(&target);
+		let orig_balance = T::Currency::balance(&target);
 		let mut expected_balance = add_vesting_schedules::<T>(&target, s)?;
 
 		let transfer_amount = T::MinVestedTransfer::get();
@@ -268,7 +268,7 @@ mod benchmarks {
 
 		assert_eq!(
 			orig_balance + expected_balance,
-			T::Currency::free_balance(&target),
+			T::Currency::balance(&target),
 			"Transfer didn't happen",
 		);
 		assert_eq!(
@@ -287,7 +287,7 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller::<T::AccountId>();
 		// Give target existing locks.
-		T::Currency::make_free_balance_be(&caller, T::Currency::minimum_balance());
+		T::OldCurrency::make_free_balance_be(&caller, T::Currency::minimum_balance());
 		add_locks::<T>(&caller, l as u8);
 		// Add max vesting schedules.
 		let expected_balance = add_vesting_schedules::<T>(&caller, s)?;
@@ -339,7 +339,7 @@ mod benchmarks {
 
 		let caller = whitelisted_caller::<T::AccountId>();
 		// Give target existing locks.
-		T::Currency::make_free_balance_be(&caller, T::Currency::minimum_balance());
+		T::OldCurrency::make_free_balance_be(&caller, T::Currency::minimum_balance());
 		add_locks::<T>(&caller, l as u8);
 		// Add max vesting schedules.
 		let total_transferred = add_vesting_schedules::<T>(&caller, s)?;
@@ -365,7 +365,7 @@ mod benchmarks {
 			&caller,
 			&test_dest,
 			expected_balance,
-			ExistenceRequirement::AllowDeath
+			Preservation::Expendable
 		)
 		.is_err());
 
@@ -398,7 +398,7 @@ mod benchmarks {
 			&caller,
 			&test_dest,
 			expected_balance,
-			ExistenceRequirement::AllowDeath
+			Preservation::Expendable
 		));
 
 		Ok(())
@@ -410,11 +410,11 @@ mod benchmarks {
 		s: Linear<2, { T::MAX_VESTING_SCHEDULES }>,
 	) -> Result<(), BenchmarkError> {
 		let source = account::<T::AccountId>("source", 0, SEED);
-		T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
+		T::OldCurrency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
 
 		let target = account::<T::AccountId>("target", 0, SEED);
 		let target_lookup = T::Lookup::unlookup(target.clone());
-		T::Currency::make_free_balance_be(&target, T::Currency::minimum_balance());
+		T::OldCurrency::make_free_balance_be(&target, T::Currency::minimum_balance());
 
 		// Give target existing locks.
 		add_locks::<T>(&target, l as u8);

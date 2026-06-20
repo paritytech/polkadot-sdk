@@ -17,7 +17,7 @@
 
 //! Mock runtime for benchmarking the vesting precompile.
 
-use frame_support::{derive_impl, parameter_types, traits::WithdrawReasons};
+use frame_support::{derive_impl, parameter_types, traits::VariantCountOf};
 use sp_runtime::BuildStorage;
 
 #[frame_support::runtime]
@@ -59,6 +59,9 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 }
 
 parameter_types! {
@@ -74,18 +77,17 @@ impl pallet_timestamp::Config for Test {
 
 parameter_types! {
 	pub const MinVestedTransfer: u64 = 256 * 2;
-	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
-		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
 }
 
 impl pallet_vesting::Config for Test {
 	type BlockNumberToBalance = sp_runtime::traits::Identity;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RuntimeEvent = RuntimeEvent;
 	const MAX_VESTING_SCHEDULES: u32 = 3;
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
-	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
 }
 

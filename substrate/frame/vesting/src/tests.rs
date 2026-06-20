@@ -29,6 +29,44 @@ use crate::mock::{vesting_events_since_last_call, Balances, ExtBuilder, System, 
 /// A default existential deposit.
 const ED: u64 = 256;
 
+#[test]
+fn migrate_to_freeze_converts_legacy_lock() {
+	use crate::mock::RuntimeFreezeReason;
+	use frame_support::traits::{
+		fungible::{InspectFreeze, MutateFreeze},
+		LockableCurrency, WithdrawReasons,
+	};
+
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let who = 1u64;
+		let id = RuntimeFreezeReason::Vesting(crate::FreezeReason::Vesting);
+		let total = Balances::free_balance(&who);
+		let locked = Vesting::vesting_balance(&who).unwrap();
+		assert!(locked > 0);
+
+		// Emulate a pre-migration account: drop the genesis freeze and re-apply an equivalent
+		// legacy lock.
+		assert_ok!(<Balances as MutateFreeze<_>>::thaw(&id, &who));
+		<Balances as LockableCurrency<_>>::set_lock(
+			VESTING_ID,
+			&who,
+			locked,
+			WithdrawReasons::all(),
+		);
+		assert_eq!(Balances::balance_frozen(&id, &who), 0);
+		assert!(!pallet_balances::Locks::<Test>::get(&who).is_empty());
+		assert_eq!(Balances::usable_balance(&who), total - locked);
+
+		// Anyone can permissionlessly migrate the account's lock to a freeze.
+		assert_ok!(Vesting::migrate_to_freeze(Some(2).into(), who));
+
+		// The lock is now a freeze of the same amount, with no double-counting.
+		assert_eq!(Balances::balance_frozen(&id, &who), locked);
+		assert!(pallet_balances::Locks::<Test>::get(&who).is_empty());
+		assert_eq!(Balances::usable_balance(&who), total - locked);
+	});
+}
+
 /// Calls vest, and asserts that there is no entry for `account`
 /// in the `Vesting` storage item.
 fn vest_and_assert_no_vesting<T>(account: u64)
@@ -1156,7 +1194,7 @@ fn vested_transfer_less_than_existential_deposit_fails() {
 	ExtBuilder::default().existential_deposit(4 * ED).build().execute_with(|| {
 		// MinVestedTransfer is less the ED.
 		assert!(
-			<Test as Config>::Currency::minimum_balance() >
+			<<Test as Config>::Currency as Inspect<_>>::minimum_balance() >
 				<Test as Config>::MinVestedTransfer::get()
 		);
 
@@ -1165,7 +1203,7 @@ fn vested_transfer_less_than_existential_deposit_fails() {
 		// The new account balance with the schedule's locked amount would be less than ED.
 		assert!(
 			Balances::free_balance(&99) + sched.locked() <
-				<Test as Config>::Currency::minimum_balance()
+				<<Test as Config>::Currency as Inspect<_>>::minimum_balance()
 		);
 
 		// vested_transfer fails.

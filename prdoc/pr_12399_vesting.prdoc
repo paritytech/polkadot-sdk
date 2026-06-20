@@ -1,0 +1,58 @@
+title: "pallet-vesting: migrate from LockableCurrency to fungible freezes"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `pallet-vesting` no longer uses the deprecated `Currency`/`LockableCurrency` traits for the
+      vesting balance. The unvested balance is now held with a `fungible` freeze under
+      `FreezeReason::Vesting`, and transfers/balance queries use the `fungible` traits. This is part
+      of the `Currency` -> `fungible` migration effort (#226 / #12399).
+
+      Config changes (breaking):
+      - `type Currency` bound changes from `LockableCurrency` to
+        `fungible::{Inspect + Mutate + MutateFreeze<Id = RuntimeFreezeReason> + InspectFreeze}`.
+      - New `type RuntimeFreezeReason: From<FreezeReason>` must be supplied (the runtime's aggregated
+        `RuntimeFreezeReason`). Runtimes must ensure their `pallet-balances` instance sets
+        `FreezeIdentifier = RuntimeFreezeReason` and a sufficient `MaxFreezes`.
+      - New `type OldCurrency: LockableCurrency + Currency<Balance = BalanceOf>` is retained to
+        remove pre-existing vesting locks during migration and to back the legacy `VestingSchedule`
+        / `VestedTransfer` trait implementations consumed by other pallets (claims, purchase,
+        crowdloan). It is otherwise unused.
+      - `type UnvestedFundsAllowedWithdrawReasons` is removed. Freezes are unconditional and have no
+        per-`WithdrawReasons` equivalent (see behaviour note below).
+
+      Migration is lazy: any `vest` / `vest_other` / `vested_transfer` / `merge_schedules`
+      interaction converts an account's legacy lock to a freeze. A new permissionless
+      `migrate_to_freeze(target)` extrinsic (call index 6) is provided to migrate dormant accounts.
+  - audience: Runtime User
+    description: |
+      Existing vesting schedules are unaffected; the locked amount is moved from a lock to a freeze
+      of the same amount on the account's next interaction with the pallet, or by anyone calling the
+      new permissionless `migrate_to_freeze` extrinsic on the account.
+
+      Behaviour change: previously a runtime could allow the unvested (locked) balance to still be
+      used for the reasons configured in `UnvestedFundsAllowedWithdrawReasons` (e.g. paying
+      transaction fees). With freezes this is no longer possible: the unvested balance is frozen for
+      all purposes until it vests.
+
+crates:
+  - name: pallet-vesting
+    bump: major
+  - name: pallet-vesting-precompiles
+    bump: patch
+  - name: kitchensink-runtime
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: polkadot-test-runtime
+    bump: minor
+  - name: polkadot-runtime-common
+    bump: minor
+  - name: pallet-staking-async-rc-runtime
+    bump: minor
+  - name: pallet-staking-async-parachain-runtime
+    bump: minor
