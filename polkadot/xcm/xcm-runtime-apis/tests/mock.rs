@@ -88,6 +88,7 @@ impl pallet_balances::Config for TestRuntime {
 	type AccountStore = System;
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 // Assets instance
@@ -96,6 +97,8 @@ impl pallet_assets::Config for TestRuntime {
 	type AssetId = AssetIdForAssetsPallet;
 	type Balance = Balance;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type Holder = ();

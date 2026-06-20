@@ -72,11 +72,14 @@ impl pallet_balances::Config for Test {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig as pallet_assets::DefaultConfig)]
 impl pallet_assets::Config<Instance1> for Test {
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 }
@@ -84,6 +87,8 @@ impl pallet_assets::Config<Instance1> for Test {
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig as pallet_assets::DefaultConfig)]
 impl pallet_assets::Config<Instance2> for Test {
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type AssetDeposit = ConstU64<0>;

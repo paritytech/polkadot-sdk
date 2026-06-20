@@ -146,6 +146,7 @@ impl pallet_balances::Config for Test {
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
@@ -168,6 +169,8 @@ impl pallet_assets::Config for Test {
 	type AssetId = Location;
 	type AssetIdParameter = Location;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]

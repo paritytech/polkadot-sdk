@@ -52,6 +52,7 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 pub struct AssetsCallbackHandle;
@@ -100,6 +101,8 @@ impl AssetsCallbackHandle {
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Freezer = TestFreezer;

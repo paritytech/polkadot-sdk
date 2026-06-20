@@ -276,6 +276,8 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type AssetIdParameter = codec::Compact<AssetIdForTrustBackedAssets>;
 	type ReserveData = ();
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = AssetsForceOrigin;
 	type AssetDeposit = AssetDeposit;
@@ -321,6 +323,8 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type AssetIdParameter = u32;
 	type ReserveData = ();
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, sp_runtime::AccountId32>>;
 	type ForceOrigin = AssetsForceOrigin;
@@ -559,6 +563,8 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type AssetIdParameter = xcm::v5::Location;
 	type ReserveData = ForeignAssetReserveData;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = ForeignCreators<
 		(
 			FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v5::Location>,

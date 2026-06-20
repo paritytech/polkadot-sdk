@@ -107,6 +107,8 @@ impl pallet_assets::Config for Test {
 	type AssetId = u32;
 	type AssetIdParameter = u32;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<u64>>;
 	type ForceOrigin = EnsureRoot<u64>;
 }

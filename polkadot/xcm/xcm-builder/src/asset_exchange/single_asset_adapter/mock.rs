@@ -66,6 +66,7 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type AccountStore = System;
 	type ExistentialDeposit = ConstU128<1>;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 pub type TrustBackedAssetsInstance = pallet_assets::Instance1;
@@ -74,6 +75,8 @@ pub type PoolAssetsInstance = pallet_assets::Instance2;
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
 impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Balance = Balance;
 	type AssetDeposit = ConstU128<1>;
 	type AssetAccountDeposit = ConstU128<10>;
@@ -90,6 +93,8 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
 impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Balance = Balance;
 	type AssetDeposit = ConstU128<1>;
 	type AssetAccountDeposit = ConstU128<10>;

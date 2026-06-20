@@ -63,6 +63,7 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type Balance = u128;
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
@@ -85,6 +86,8 @@ impl pallet_assets::Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 impl foreign_assets::pallet::Config for Test {

@@ -95,21 +95,21 @@ pub mod pallet {
 		Held {
 			who: T::AccountId,
 			asset_id: T::AssetId,
-			reason: T::RuntimeHoldReason,
+			reason: <T as Config<I>>::RuntimeHoldReason,
 			amount: T::Balance,
 		},
 		/// `who`s balance on hold was decreased by `amount`.
 		Released {
 			who: T::AccountId,
 			asset_id: T::AssetId,
-			reason: T::RuntimeHoldReason,
+			reason: <T as Config<I>>::RuntimeHoldReason,
 			amount: T::Balance,
 		},
 		/// `who`s balance on hold was burned by `amount`.
 		Burned {
 			who: T::AccountId,
 			asset_id: T::AssetId,
-			reason: T::RuntimeHoldReason,
+			reason: <T as Config<I>>::RuntimeHoldReason,
 			amount: T::Balance,
 		},
 	}
@@ -123,8 +123,8 @@ pub mod pallet {
 		Blake2_128Concat,
 		T::AccountId,
 		BoundedVec<
-			IdAmount<T::RuntimeHoldReason, T::Balance>,
-			VariantCountOf<T::RuntimeHoldReason>,
+			IdAmount<<T as Config<I>>::RuntimeHoldReason, T::Balance>,
+			VariantCountOf<<T as Config<I>>::RuntimeHoldReason>,
 		>,
 		ValueQuery,
 	>;

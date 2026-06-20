@@ -287,6 +287,7 @@ impl pallet_balances::Config for Test {
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -307,6 +308,8 @@ impl pallet_assets::Config for Test {
 	type AssetIdParameter = Location;
 	type ReserveData = ();
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type AssetDeposit = ConstU128<1>;

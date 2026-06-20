@@ -25,7 +25,7 @@ use frame_support::{
 use sp_runtime::{traits::Convert, FixedPointNumber, FixedU128};
 
 pub type DepositBalanceOf<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+	<<T as Config<I>>::Currency as fungible::Inspect<<T as SystemConfig>::AccountId>>::Balance;
 pub type AssetAccountOf<T, I> = AssetAccount<
 	<T as Config<I>>::Balance,
 	DepositBalanceOf<T, I>,

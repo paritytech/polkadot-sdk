@@ -477,6 +477,8 @@ impl pallet_assets::Config<AssetsInstance> for Runtime {
 	type AssetIdParameter = AssetsAssetId;
 	type ReserveData = ForeignAssetReserveData;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	// This is to allow any other location to create assets. Used in tests, not
 	// recommended on real chains.
 	type CreateOrigin =
@@ -520,6 +522,8 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type AssetIdParameter = u32;
 	type ReserveData = ();
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, sp_runtime::AccountId32>>;
 	type ForceOrigin = AssetsForceOrigin;

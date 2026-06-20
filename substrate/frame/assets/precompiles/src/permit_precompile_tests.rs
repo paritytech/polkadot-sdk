@@ -820,7 +820,12 @@ fn permit_rejects_when_owner_lacks_deposit_balance() {
 			r,
 			s,
 		);
-		assert_permit_dispatch_err(result, pallet_balances::Error::<Test>::InsufficientBalance);
+		let actual =
+			result.result.expect_err("permit should trap when owner lacks deposit balance");
+		assert_eq!(
+			actual,
+			sp_runtime::DispatchError::Token(sp_runtime::TokenError::FundsUnavailable),
+		);
 		assert_eq!(
 			permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
 			U256::zero(),

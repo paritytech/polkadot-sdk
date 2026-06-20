@@ -29,7 +29,6 @@ use frame_support::{
 	},
 	BoundedVec,
 };
-use pallet_balances::Error as BalancesError;
 use sp_io::storage;
 use sp_runtime::{
 	traits::{ConstU32, ConvertInto},
@@ -403,7 +402,7 @@ fn approval_deposits_work() {
 	build_and_execute(|| {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
-		let e = BalancesError::<Test>::InsufficientBalance;
+		let e = TokenError::FundsUnavailable;
 		assert_noop!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 50), e);
 
 		Balances::make_free_balance_be(&1, 2);
@@ -1094,7 +1093,7 @@ fn touch_other_works() {
 		// creation of asset account `6` by not funded account `5` fails
 		assert_noop!(
 			Assets::touch_other(RuntimeOrigin::signed(5), 0, 6),
-			BalancesError::<Test>::InsufficientBalance,
+			TokenError::FundsUnavailable,
 		);
 		assert!(!Account::<Test>::contains_key(0, &6));
 	});
@@ -1392,7 +1391,7 @@ fn set_metadata_should_work() {
 		// Cannot over-reserve
 		assert_noop!(
 			Assets::set_metadata(RuntimeOrigin::signed(1), 0, vec![0u8; 20], vec![0u8; 20], 12),
-			BalancesError::<Test, _>::InsufficientBalance,
+			TokenError::FundsUnavailable,
 		);
 
 		// Clear Metadata
