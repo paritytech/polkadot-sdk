@@ -22,7 +22,7 @@
 use super::*;
 
 use frame_benchmarking::v2::*;
-use frame_support::traits::fungible::{InspectHold, Mutate, MutateHold};
+use frame_support::traits::fungible::{InspectHold, MutateHold};
 use frame_system::RawOrigin;
 
 use alloc::vec;
