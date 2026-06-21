@@ -98,8 +98,6 @@ pub struct CallTraceV2 {
 	pub value: Option<U256>,
 	#[serde(rename = "type")]
 	pub call_type: CallTypeV1,
-	#[serde(skip)]
-	pub child_call_count: u32,
 }
 
 #[derive(TypeInfo, Encode, Serialize, Deserialize, Decode, Clone, Debug, Eq, PartialEq)]

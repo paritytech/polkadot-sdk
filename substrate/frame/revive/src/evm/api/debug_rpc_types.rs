@@ -545,7 +545,6 @@ impl From<CallTrace> for CallTraceV2 {
 			logs: value.logs.into_iter().map(Into::into).collect(),
 			value: value.value,
 			call_type: value.call_type.into(),
-			child_call_count: value.child_call_count,
 		}
 	}
 }
