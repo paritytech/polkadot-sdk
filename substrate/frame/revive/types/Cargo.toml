@@ -37,6 +37,7 @@ std = [
 	"revm-bytecode/std",
 	"scale-info/std",
 	"serde/std",
+	"serde_json/std",
 	"sp-core/std",
 	"sp-weights/std",
 	"strum/std",

@@ -139,6 +139,7 @@ std = [
 	"sp-runtime/std",
 	"sp-state-machine/std",
 	"sp-version/std",
+	"strum/std",
 	"subxt-signer",
 ]
 runtime-benchmarks = [

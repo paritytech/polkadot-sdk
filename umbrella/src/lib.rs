@@ -664,7 +664,8 @@ pub use pallet_revive;
 #[cfg(feature = "pallet-revive-proc-macro")]
 pub use pallet_revive_proc_macro;
 
-/// Shared types used by pallet_revive and its companion crates.
+/// Wire types used by pallet-revive which have higher stability guarantees than internal
+/// pallet-revive types.
 #[cfg(feature = "pallet-revive-types")]
 pub use pallet_revive_types;
 
