@@ -1949,7 +1949,7 @@ async fn test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input(
 		return Err(anyhow!("V2 output should include a call trace"));
 	};
 	let indexes = call_v2.logs.iter().map(|log| log.index).collect::<Vec<_>>();
-	assert_eq!(indexes, vec![0, 1, 2, 3, 4]);
+	assert_eq!(indexes, vec![3, 4, 5, 6, 7]);
 
 	Ok(())
 }

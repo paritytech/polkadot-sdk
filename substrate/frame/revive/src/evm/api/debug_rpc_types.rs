@@ -561,9 +561,9 @@ pub struct CallLog {
 	/// Position of the log relative to subcalls within the same trace
 	/// See <https://github.com/ethereum/go-ethereum/pull/28389> for details
 	pub position: u32,
-	/// represents the transaction-level log index (matching `logIndex` in receipts), distinct from
-	/// the existing `position` field which tracks ordering relative to sub-calls within the same
-	/// trace frame.
+	/// The block-wide index of the log, matching the `logIndex` in receipts and Geth's call
+	/// tracer. Distinct from `position`, which tracks ordering relative to sub-calls within the
+	/// same trace frame.
 	pub index: u32,
 }
 

@@ -4211,6 +4211,7 @@ fn call_tracing_works() {
 
 		for config in tracer_configs {
 			let with_logs = config.with_logs;
+			let base = System::event_count();
 			let make_logs = |start_index: u32| -> Vec<CallLog> {
 				if !with_logs {
 					return vec![];
@@ -4221,14 +4222,14 @@ fn call_tracing_works() {
 						topics: Default::default(),
 						data: b"before".to_vec().into(),
 						position: 0,
-						index: start_index,
+						index: base + start_index,
 					},
 					CallLog {
 						address: addr,
 						topics: Default::default(),
 						data: b"after".to_vec().into(),
 						position: 1,
-						index: start_index + 1,
+						index: base + start_index + 1,
 					},
 				]
 			};
