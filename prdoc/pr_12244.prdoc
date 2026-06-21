@@ -36,6 +36,6 @@ crates:
 - name: polkadot-sdk
   bump: minor
 - name: pallet-revive
-  bump: minor
+  bump: major
 - name: pallet-revive-eth-rpc
-  bump: minor
+  bump: major
