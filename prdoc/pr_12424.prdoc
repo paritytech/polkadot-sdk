@@ -1,0 +1,10 @@
+title: Add try_state hook to pallet-salary
+doc:
+- audience: Runtime Dev
+  description: "Adds a `try_state` hook to `pallet-salary` asserting its storage invariants\
+    \ (`Status` set whenever a `Claimant` exists, `total_unregistered_paid` never\
+    \ exceeding the cycle `budget`, and no claimant's `last_active` ahead of the current\
+    \ `cycle_index`), closing part of #239 which never tracked this pallet.\r\n"
+crates:
+- name: pallet-salary
+  bump: minor
