@@ -41,7 +41,10 @@ fn create_collection<T: Config<I>, I: 'static>(
 	let caller: T::AccountId = whitelisted_caller();
 	let caller_lookup = T::Lookup::unlookup(caller.clone());
 	let collection = T::Helper::collection(0);
-	T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+	T::OldCurrency::make_free_balance_be(
+		&caller,
+		DepositBalanceOf::<T, I>::max_value() / 1000u32.into(),
+	);
 	assert_ok!(Nfts::<T, I>::force_create(
 		SystemOrigin::Root.into(),
 		caller_lookup.clone(),
@@ -231,7 +234,7 @@ benchmarks_instance_pallet! {
 		let caller = T::CreateOrigin::ensure_origin(origin.clone(), &collection).unwrap();
 		whitelist_account!(caller);
 		let admin = T::Lookup::unlookup(caller.clone());
-		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 		let call = Call::<T, I>::create { admin, config: default_collection_config::<T, I>() };
 	}: { call.dispatch_bypass_filter(origin)? }
 	verify {
@@ -510,7 +513,7 @@ benchmarks_instance_pallet! {
 			item,
 			target_lookup.clone(),
 		)?;
-		T::OldCurrency::make_free_balance_be(&target, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&target, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 		let value: BoundedVec<_, _> = vec![0u8; T::ValueLimit::get() as usize].try_into().unwrap();
 		for i in 0..n {
 			let key = make_filled_vec(i as u16, T::KeyLimit::get() as usize);
@@ -611,7 +614,7 @@ benchmarks_instance_pallet! {
 
 	set_accept_ownership {
 		let caller: T::AccountId = whitelisted_caller();
-		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 		let collection = T::Helper::collection(0);
 	}: _(SystemOrigin::Signed(caller.clone()), Some(collection))
 	verify {
@@ -669,7 +672,7 @@ benchmarks_instance_pallet! {
 		let price = ItemPrice::<T, I>::from(0u32);
 		let origin = SystemOrigin::Signed(seller.clone()).into();
 		Nfts::<T, I>::set_price(origin, collection, item, Some(price), Some(buyer_lookup))?;
-		T::OldCurrency::make_free_balance_be(&buyer, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&buyer, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 	}: _(SystemOrigin::Signed(buyer.clone()), collection, item, price)
 	verify {
 		assert_last_event::<T, I>(Event::ItemBought {
@@ -685,6 +688,10 @@ benchmarks_instance_pallet! {
 		let n in 0 .. T::MaxTips::get() as u32;
 		let amount = BalanceOf::<T, I>::from(100u32);
 		let caller: T::AccountId = whitelisted_caller();
+		T::OldCurrency::make_free_balance_be(
+			&caller,
+			DepositBalanceOf::<T, I>::max_value() / 1000u32.into(),
+		);
 		let collection = T::Helper::collection(0);
 		let item = T::Helper::item(0);
 		let tips: BoundedVec<_, _> = vec![
@@ -790,7 +797,7 @@ benchmarks_instance_pallet! {
 	mint_pre_signed {
 		let n in 0 .. T::MaxAttributesPerCall::get() as u32;
 		let (caller_public, caller) = T::Helper::signer();
-		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 
 		let collection = T::Helper::collection(0);
@@ -821,7 +828,7 @@ benchmarks_instance_pallet! {
 		let signature = T::Helper::sign(&caller_public, &message);
 
 		let target: T::AccountId = account("target", 0, SEED);
-		T::OldCurrency::make_free_balance_be(&target, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&target, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 		T::BlockNumberProvider::set_block_number(One::one());
 	}: _(SystemOrigin::Signed(target.clone()), Box::new(mint_data), signature.into(), caller)
 	verify {
@@ -838,7 +845,7 @@ benchmarks_instance_pallet! {
 
 		let (signer_public, signer) = T::Helper::signer();
 
-		T::OldCurrency::make_free_balance_be(&item_owner, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&item_owner, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 
 		let item = T::Helper::item(0);
 		assert_ok!(Nfts::<T, I>::force_mint(
