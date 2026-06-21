@@ -96,15 +96,18 @@ where
 #[cfg(test)]
 mod test {
 	use super::*;
-	use cumulus_test_client::{runtime::Block as TestBlock, Client, TestClientBuilder, TestClientBuilderExt};
+	use cumulus_test_client::{
+		runtime::Block as TestBlock, Client, TestClientBuilder, TestClientBuilderExt,
+	};
 	use futures::FutureExt;
 	use sc_client_api::HeaderBackend;
 	use sc_consensus::{ForkChoiceStrategy, StateAction};
 	use std::sync::Arc;
 
-	fn new_verifier_and_header(
-	) -> (Verifier<Client, TestBlock, impl CreateInherentDataProviders<TestBlock, ()>>, <TestBlock as BlockT>::Header)
-	{
+	fn new_verifier_and_header() -> (
+		Verifier<Client, TestBlock, impl CreateInherentDataProviders<TestBlock, ()>>,
+		<TestBlock as BlockT>::Header,
+	) {
 		let client = Arc::new(TestClientBuilder::default().build());
 		let header = client.header(client.info().best_hash).unwrap().unwrap();
 
