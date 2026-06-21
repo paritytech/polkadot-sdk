@@ -754,6 +754,86 @@ pub mod pallet {
 			salary[index]
 		}
 	}
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Ensure the correctness of the state of this pallet, used by the `try_state` hook and the
+		/// tests.
+		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::try_state_params()?;
+			Self::try_state_members()?;
+			Self::try_state_evidence()?;
+			Ok(())
+		}
+
+		/// The four rank arrays are parallel tables, so they must share one length, and that length
+		/// must not exceed [`Config::MaxRank`] (arrays are only ever indexed by `rank - 1`).
+		fn try_state_params() -> Result<(), sp_runtime::TryRuntimeError> {
+			let params = Params::<T, I>::get();
+			let len = params.active_salary.len();
+			ensure!(
+				params.passive_salary.len() == len &&
+					params.demotion_period.len() == len &&
+					params.min_promotion_period.len() == len,
+				"All `Params` rank arrays must have the same length."
+			);
+			ensure!(
+				len <= T::MaxRank::get() as usize,
+				"`Params` rank arrays must not be longer than `MaxRank`."
+			);
+			Ok(())
+		}
+
+		/// Every tracked member with a non-zero rank must hold a rank the [`Params`] arrays can
+		/// price, so `get_salary`/`bump`/`promote` can never panic on indexing; and no member's
+		/// `last_proof`/`last_promotion` may be in the future. Rank-zero candidates and
+		/// externally-unranked members awaiting `offboard` don't index the arrays and are skipped.
+		fn try_state_members() -> Result<(), sp_runtime::TryRuntimeError> {
+			let params = Params::<T, I>::get();
+			let now = frame_system::Pallet::<T>::block_number();
+			Member::<T, I>::iter().try_for_each(|(who, status)| -> DispatchResult {
+				ensure!(status.last_proof <= now, "Member `last_proof` may not be in the future.");
+				ensure!(
+					status.last_promotion <= now,
+					"Member `last_promotion` may not be in the future."
+				);
+
+				if let Some(rank) = T::Members::rank_of(&who) {
+					if rank != 0 {
+						let index = Self::rank_to_index(rank)
+							.ok_or("Tracked member holds a rank above `MaxRank`.")?;
+						ensure!(
+							index < params.active_salary.len(),
+							"Tracked member holds a rank that the `Params` arrays cannot price."
+						);
+					}
+				}
+				Ok(())
+			})?;
+			Ok(())
+		}
+
+		/// Evidence is only ever submitted by a tracked member and cleared with the member record,
+		/// so every [`MemberEvidence`] key must also be a [`Member`].
+		fn try_state_evidence() -> Result<(), sp_runtime::TryRuntimeError> {
+			MemberEvidence::<T, I>::iter_keys().try_for_each(|who| -> DispatchResult {
+				ensure!(
+					Member::<T, I>::contains_key(&who),
+					"Every account with submitted evidence must be a tracked member."
+				);
+				Ok(())
+			})?;
+			Ok(())
+		}
+	}
 }
 
 /// Guard to ensure that the given origin is inducted into this pallet with a given minimum rank.
