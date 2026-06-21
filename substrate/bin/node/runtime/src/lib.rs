@@ -2364,8 +2364,7 @@ impl pallet_alliance::Config for Runtime {
 		pallet_collective::EnsureProportionMoreThan<AccountId, AllianceCollective, 2, 3>,
 	>;
 	type OldCurrency = Balances;
-	// A flat candidacy bond of `AllyDeposit` (zero per-byte slope), held under the alliance hold
-	// reason. Note: kicking a member now burns the deposit instead of routing it to the treasury.
+	// Flat `AllyDeposit` candidacy bond, held under the alliance hold reason. Kicking now burns it.
 	type Consideration = HoldConsideration<
 		AccountId,
 		Balances,

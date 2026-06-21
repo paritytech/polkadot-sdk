@@ -173,14 +173,8 @@ pub(crate) mod v1_to_v2 {
 	}
 }
 
-/// v2_to_v3: migrate legacy reserved candidacy deposits to `Consideration`-based holds.
-///
-/// Before this migration, `DepositOf` stored the reserved candidacy balance directly and the
-/// deposit was tracked through `ReservableCurrency`. After it, `DepositOf` stores a
-/// [`frame_support::traits::Consideration`] ticket and the funds are held rather than reserved.
-///
-/// The set of accounts with a deposit is bounded by `MaxMembersCount`, so this single-block
-/// migration is safe to run in one go.
+/// v2_to_v3: convert legacy reserved candidacy deposits into `Consideration`-based holds, turning
+/// each `DepositOf` balance into a ticket. Bounded by `MaxMembersCount`, so safe in one block.
 pub mod v2_to_v3 {
 	use super::*;
 	use crate::{BalanceOf, DepositOf};
@@ -224,9 +218,8 @@ pub mod v2_to_v3 {
 			match T::Consideration::new(&who, footprint) {
 				Ok(ticket) => DepositOf::<T, I>::insert(&who, ticket),
 				Err(e) => {
-					// The account can no longer back the deposit (e.g. its free balance dropped
-					// below the new amount). Drop the tracking entry so state stays consistent; the
-					// now-unreserved funds simply remain free with the account.
+					// Account can no longer back the deposit; drop the entry so state stays
+					// consistent (the unreserved funds just remain free).
 					log::error!(
 						target: LOG_TARGET,
 						"Failed to hold a migrated alliance deposit: {:?}. Removing the entry.",
@@ -246,13 +239,12 @@ pub mod v2_to_v3 {
 	pub fn pre_upgrade<T: Config<I>, I: 'static>() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		use codec::Encode;
 
-		// Only snapshot when this migration is actually going to run.
+		// Only snapshot if the migration will run.
 		if Pallet::<T, I>::on_chain_storage_version() >= 3 {
 			return Ok(Vec::new());
 		}
 
-		// Record the accounts that currently have a deposit. They must all still have a deposit
-		// (now as a hold) afterwards.
+		// Record accounts with a deposit; all must still have one (as a hold) afterwards.
 		let accounts: Vec<T::AccountId> =
 			legacy_deposits::<T, I>().into_iter().map(|(who, _)| who).collect();
 		Ok(accounts.encode())
@@ -321,7 +313,7 @@ mod test {
 			let reason = RuntimeHoldReason::Alliance(HoldReason::AllianceDeposit);
 
 			// Simulate a legacy ally: reserve the deposit and store it in the old `DepositOf`
-			// format (a raw balance keyed by account).
+			// format.
 			assert_ok!(<Test as crate::Config>::OldCurrency::reserve(&who, amount));
 			let key = Blake2_128Concat::hash(&who.encode());
 			put_storage_value(Alliance::name().as_bytes(), b"DepositOf", &key, amount);

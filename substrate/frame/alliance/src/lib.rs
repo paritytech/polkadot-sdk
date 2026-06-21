@@ -128,8 +128,7 @@ pub type ProposalIndex = u32;
 
 type UrlOf<T, I> = BoundedVec<u8, <T as pallet::Config<I>>::MaxWebsiteUrlLength>;
 
-/// Balance type of the legacy [`pallet::Config::OldCurrency`]. Only used by the reserve-to-hold
-/// migration in [`crate::migration`].
+/// Balance type of the legacy [`Config::OldCurrency`], used only by [`crate::migration`].
 type BalanceOf<T, I> =
 	<<T as Config<I>>::OldCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
@@ -249,19 +248,12 @@ pub mod pallet {
 		/// Origin for making announcements and adding/removing unscrupulous items.
 		type AnnouncementOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The legacy reservable currency, retained only to migrate pre-existing reserved
-		/// candidacy deposits to held deposits in [`crate::migration`].
-		///
-		/// It is otherwise unused and can be removed once all reserves have been migrated to
-		/// holds via the `MigrateToV3` migration.
+		/// Legacy reservable currency, kept only so [`crate::migration`] can convert pre-existing
+		/// reserved deposits to holds. Removable once `MigrateToV3` has run.
 		type OldCurrency: ReservableCurrency<Self::AccountId>;
 
-		/// The mechanism by which a candidacy deposit is taken and held.
-		///
-		/// The deposit is held for as long as an account is an Alliance member (`Ally`/`Fellow`)
-		/// or is retiring. It is released on retirement or when the Alliance is disbanded, and
-		/// burned when a member is kicked. The amount is determined by the runtime, which allows
-		/// the deposit pricing policy (e.g. a flat anti-spam bond) to be configured per-runtime.
+		/// Takes and holds the candidacy deposit. Held while an account is a member or retiring;
+		/// released on retirement/disband and burned on kick. Amount is set by the runtime.
 		type Consideration: Consideration<Self::AccountId, Footprint>;
 
 		/// What to do with initial voting members of the Alliance.
@@ -924,10 +916,7 @@ pub mod pallet {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-	/// The storage footprint of a single candidacy deposit.
-	///
-	/// The deposit is a flat anti-spam bond, so it accounts for a single item with no variable
-	/// size; the actual amount is determined by [`Config::Consideration`] in the runtime.
+	/// Footprint of a candidacy deposit: a single item, no variable size (a flat bond).
 	pub(crate) fn deposit_footprint() -> Footprint {
 		Footprint::from_parts(1, 0)
 	}

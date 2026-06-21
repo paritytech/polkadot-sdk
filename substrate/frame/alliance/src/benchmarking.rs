@@ -55,8 +55,7 @@ fn funded_account<T: Config<I>, I: 'static>(name: &'static str, index: u32) -> T
 	account
 }
 
-/// Place a candidacy deposit hold for `who` and record the resulting ticket, mirroring what
-/// `join_alliance` does. The account must already be funded.
+/// Hold a candidacy deposit for `who` and record the ticket. `who` must already be funded.
 fn give_deposit<T: Config<I>, I: 'static>(who: &T::AccountId) {
 	let ticket = T::Consideration::new(who, Alliance::<T, I>::deposit_footprint())
 		.expect("benchmark account is funded; qed");

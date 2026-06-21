@@ -232,7 +232,7 @@ impl Config for Test {
 	type MembershipManager = EnsureSignedBy<Two, AccountId>;
 	type AnnouncementOrigin = EnsureSignedBy<Three, AccountId>;
 	type OldCurrency = Balances;
-	// A flat anti-spam bond of `AllyDeposit` (slope `0`), held under the alliance hold reason.
+	// Flat `AllyDeposit` bond, held under the alliance hold reason.
 	type Consideration = HoldConsideration<
 		AccountId,
 		Balances,

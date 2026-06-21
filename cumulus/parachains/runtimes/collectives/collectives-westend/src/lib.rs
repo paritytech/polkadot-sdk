@@ -618,8 +618,7 @@ impl pallet_alliance::Config for Runtime {
 	type MembershipManager = RootOrAllianceTwoThirdsMajority;
 	type AnnouncementOrigin = RootOrAllianceTwoThirdsMajority;
 	type OldCurrency = Balances;
-	// A flat `AllyDeposit` candidacy bond (zero per-byte slope), held under the alliance hold
-	// reason. Note: kicking a member now burns the deposit rather than forwarding it.
+	// Flat `AllyDeposit` candidacy bond, held under the alliance hold reason. Kicking now burns it.
 	type Consideration = HoldConsideration<
 		AccountId,
 		Balances,
