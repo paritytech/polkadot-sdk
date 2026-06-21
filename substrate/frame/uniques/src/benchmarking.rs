@@ -40,7 +40,10 @@ fn create_collection<T: Config<I>, I: 'static>(
 	let caller: T::AccountId = whitelisted_caller();
 	let caller_lookup = T::Lookup::unlookup(caller.clone());
 	let collection = T::Helper::collection(0);
-	T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+	T::OldCurrency::make_free_balance_be(
+		&caller,
+		DepositBalanceOf::<T, I>::max_value() / 1000u32.into(),
+	);
 	assert!(Uniques::<T, I>::force_create(
 		SystemOrigin::Root.into(),
 		collection.clone(),
@@ -141,7 +144,7 @@ benchmarks_instance_pallet! {
 		let caller = T::CreateOrigin::ensure_origin(origin.clone(), &collection).unwrap();
 		whitelist_account!(caller);
 		let admin = T::Lookup::unlookup(caller.clone());
-		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 		let call = Call::<T, I>::create { collection, admin };
 	}: { call.dispatch_bypass_filter(origin)? }
 	verify {
@@ -388,7 +391,7 @@ benchmarks_instance_pallet! {
 
 	set_accept_ownership {
 		let caller: T::AccountId = whitelisted_caller();
-		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 		let collection = T::Helper::collection(0);
 	}: _(SystemOrigin::Signed(caller.clone()), Some(collection.clone()))
 	verify {
@@ -432,7 +435,7 @@ benchmarks_instance_pallet! {
 		let price = ItemPrice::<T, I>::from(0u32);
 		let origin = SystemOrigin::Signed(seller.clone()).into();
 		Uniques::<T, I>::set_price(origin, collection.clone(), item, Some(price), Some(buyer_lookup))?;
-		T::OldCurrency::make_free_balance_be(&buyer, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&buyer, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 	}: _(SystemOrigin::Signed(buyer.clone()), collection.clone(), item, price)
 	verify {
 		assert_last_event::<T, I>(Event::ItemBought {
