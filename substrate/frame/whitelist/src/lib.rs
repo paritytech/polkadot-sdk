@@ -50,6 +50,9 @@ use frame::{
 };
 use scale_info::TypeInfo;
 
+#[cfg(any(feature = "try-runtime", test))]
+use frame::deps::sp_runtime::TryRuntimeError;
+
 pub use pallet::*;
 
 #[frame::pallet]
@@ -212,6 +215,33 @@ pub mod pallet {
 			});
 
 			Ok(actual_weight.into())
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config> Pallet<T> {
+		/// Ensure the correctness of the state of this pallet, used by the `try_state` hook and the
+		/// tests.
+		///
+		/// Invariant: every whitelisted call has a requested preimage. The pallet requests the
+		/// preimage when a call is whitelisted and unrequests it when the call is removed or
+		/// dispatched, so the two must stay in lock-step.
+		pub fn do_try_state() -> Result<(), TryRuntimeError> {
+			for (call_hash, _) in WhitelistedCall::<T>::iter() {
+				ensure!(
+					T::Preimages::is_requested(&call_hash),
+					"Whitelisted call has no requested preimage."
+				);
+			}
+			Ok(())
 		}
 	}
 }
