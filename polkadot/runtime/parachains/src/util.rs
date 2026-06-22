@@ -27,16 +27,12 @@ use crate::{configuration, hrmp, paras, session_info};
 
 /// Resolve the `max_pov_size` for the given session from the per-session snapshot.
 ///
-/// Falls back to the live `ActiveConfig` value when the snapshot is missing. This occurs
-/// during the first session after a runtime upgrade (before any snapshot is written) or for
-/// a pruned session. The fallback is deterministic: all nodes executing the block read the
-/// same on-chain `ActiveConfig`, so it cannot cause a consensus split.
+/// See [`session_info::Pallet::session_execution_config`] for the snapshot lookup and
+/// fallback semantics.
 fn session_max_pov_size<T: configuration::Config + session_info::Config>(
 	session_index: SessionIndex,
 ) -> u32 {
-	session_info::SessionExecutionConfigs::<T>::get(session_index)
-		.map(|cfg| cfg.max_pov_size)
-		.unwrap_or_else(|| configuration::ActiveConfig::<T>::get().max_pov_size)
+	session_info::Pallet::<T>::session_execution_config(session_index).max_pov_size
 }
 
 /// Make the persisted validation data for a particular parachain, a specified relay-parent and it's

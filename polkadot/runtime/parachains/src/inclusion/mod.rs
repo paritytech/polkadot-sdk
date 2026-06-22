@@ -932,11 +932,11 @@ impl<T: Config> Pallet<T> {
 	/// Check that all the upward messages sent by a candidate pass the acceptance criteria.
 	///
 	/// Per-candidate limits (`max_upward_message_num_per_candidate`, `max_upward_message_size`)
-	/// are read from the candidate's session snapshot. Queue capacity limits
-	/// (`max_upward_queue_count`, `max_upward_queue_size`) are read from the live config
+	/// are read from the candidate's session snapshot (`session_config`). Queue capacity limits
+	/// (`max_upward_queue_count`, `max_upward_queue_size`) are read from the live `host_config`
 	/// since the queue is a current-relay-chain-state quantity.
 	pub(crate) fn check_upward_messages(
-		config: &HostConfiguration<BlockNumberFor<T>>,
+		host_config: &HostConfiguration<BlockNumberFor<T>>,
 		session_config: &SessionExecutionConfig,
 		para: ParaId,
 		upward_messages: &[UpwardMessage],
@@ -959,10 +959,10 @@ impl<T: Config> Pallet<T> {
 
 		let (para_queue_count, mut para_queue_size) = Self::relay_dispatch_queue_size(para);
 
-		if para_queue_count.saturating_add(additional_msgs) > config.max_upward_queue_count {
+		if para_queue_count.saturating_add(additional_msgs) > host_config.max_upward_queue_count {
 			return Err(UmpAcceptanceCheckErr::CapacityExceeded {
 				count: para_queue_count.saturating_add(additional_msgs).into(),
-				limit: config.max_upward_queue_count.into(),
+				limit: host_config.max_upward_queue_count.into(),
 			});
 		}
 
@@ -978,10 +978,10 @@ impl<T: Config> Pallet<T> {
 			// make sure that the queue is not overfilled.
 			// we do it here only once since returning false invalidates the whole relay-chain
 			// block.
-			if para_queue_size.saturating_add(msg_size) > config.max_upward_queue_size {
+			if para_queue_size.saturating_add(msg_size) > host_config.max_upward_queue_size {
 				return Err(UmpAcceptanceCheckErr::TotalSizeExceeded {
 					total_size: para_queue_size.saturating_add(msg_size).into(),
-					limit: config.max_upward_queue_size.into(),
+					limit: host_config.max_upward_queue_size.into(),
 				});
 			}
 			para_queue_size.saturating_accrue(msg_size);
@@ -1236,18 +1236,8 @@ impl<T: Config> CandidateCheckContext<T> {
 		Self { config: configuration::ActiveConfig::<T>::get(), prev_context }
 	}
 
-		fn session_config(&self, session_index: SessionIndex) -> SessionExecutionConfig {
-		session_info::SessionExecutionConfigs::<T>::get(session_index).unwrap_or_else(|| {
-			log::warn!(
-				target: LOG_TARGET,
-				"No SessionExecutionConfig stored for session {:?}; falling back to ActiveConfig. \
-				 This happens at the first session after a runtime upgrade (before any snapshot is \
-				 written) or for a pruned session. All nodes read the same ActiveConfig so this \
-				 is deterministic, but may evaluate the candidate against updated limits.",
-				session_index,
-			);
-			self.config.session_execution_config()
-		})
+	fn session_config(&self, session_index: SessionIndex) -> SessionExecutionConfig {
+		session_info::Pallet::<T>::session_execution_config(session_index)
 	}
 
 	/// Execute verification of the candidate.

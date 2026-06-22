@@ -471,8 +471,7 @@ pub fn backing_constraints<T: initializer::Config>(
 	let now = frame_system::Pallet::<T>::block_number();
 
 	let current_session = shared::CurrentSessionIndex::<T>::get();
-	let session_cfg = session_info::SessionExecutionConfigs::<T>::get(current_session)
-		.unwrap_or_else(|| config.session_execution_config());
+	let session_cfg = session_info::Pallet::<T>::session_execution_config(current_session);
 
 	// Workaround for issue #64.
 	let min_global_relay_parent_number = if shared::Pallet::<T>::on_chain_storage_version() ==
