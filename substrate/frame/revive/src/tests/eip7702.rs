@@ -1281,6 +1281,38 @@ fn delegation_chain_does_not_execute() {
 			"caller contract's balance must be unchanged after the failed nested chain call",
 		);
 		assert_eq!(read_number(), ALICE_INITIAL, "Alice's storage must still be untouched");
+
+		// Case 5: DELEGATECALL variant of the chain. A contract DELEGATECALLing Bob
+		// (chain-delegated to Alice, who's herself delegated) must see the same revert
+		// semantics as CALL. Per spec the resolved code is Bob's indicator bytes
+		// `0xef0100||alice` and execution traps on the `0xef` invalid opcode.
+		//
+		// `delegate_call` has no chain-revert guard today — the third call entry point that
+		// item #5 in the follow-ups doc needs to cover. This test should fail until the
+		// guard is mirrored at `exec.rs:1945`'s `delegate_call`.
+		let result = builder::bare_call(caller_contract.addr)
+			.data(
+				Caller::delegateCall {
+					_callee: BOB_ADDR.0.into(),
+					_data: Counter::setNumberCall { newNumber: CHAINED_ATTEMPT }
+						.abi_encode()
+						.into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "outer contract call itself shouldn't trap");
+		let decoded = Caller::delegateCall::abi_decode_returns(&result.data).unwrap();
+		assert!(
+			!decoded.success,
+			"nested delegatecall into chain-delegated Bob must report failure, not silently succeed",
+		);
+		assert_eq!(
+			read_number(),
+			ALICE_INITIAL,
+			"Alice's storage must still be untouched after the delegatecall chain attempt",
+		);
 	});
 }
 
