@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781899777764,
+  "lastUpdate": 1782095969458,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -178751,6 +178751,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2396462013,
             "range": "± 98513768",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "83864a55470930577e59b256ec9fe38f3534c88a",
+          "message": "[pallet-revive]: Version the `trace_block` runtime API function (#12244)\n\n# Description\n\nThis PR is a follow up from the various discussions we have had as a\nteam around versioning of the runtime API and the approach that we\nshould take.\n\nThis PR versions a single runtime API function in pallet-revive: the\n`trace_block` function. In the process, I also implemented\nhttps://github.com/paritytech/polkadot-sdk/pull/11532 to demonstrate how\nthe various pieces connect together when we want to version a specific\nruntime API function as the last commit in the PR.\n\nThis PR is meant to show case how everything in versioning works e2e\nbefore we go ahead and version the rest of the runtime API using this\nstrategy.\n\nAll of the wire types we use for tracing have been added to the `types`\ncrate. It houses the wire types and the payload types that we use for\nthe runtime APIs.\n\nThe following concepts were added to the codebase:\n- On the wire types:\n- `${name}V${version}` - A version of a specific type. For example\n`CallLogV1`.\n- `${name}InputPayloadV${version}` - A specific version of the input\npayload for some runtime API function. For example\n`TraceBlockInputPayloadV1`.\n- `${name}OutputPayloadV${version}` - A specific version of the output\npayload for some runtime API function. For example\n`TraceBlockOutputPayloadV1`.\n- `${name}VersionedInputPayload` - An enum of all of the possible\nversions that the input payload for some runtime API function can have.\n- `${name}VersionedOutputPayload` - An enum of all of the possible\nversions that the output payload for some runtime API function can have.\n- On the execution types:\n- `${name}InputPayload` - Execution type input payload of some runtime\nAPI function.\n- `${name}OutputPayload` - Execution type output payload of some runtime\nAPI function.\n\nThere are a few things worth noting:\n- In the process of working on this I needed to move some of the JSON\nfunctionality from `pallet-revive` and into the `types` crate.\n- Some of the execution models for tracing no longer implement SCALE\nwhich is done to ensure that these types never cross the wire and are\nindeed internal to pallet-revive (and anybody who imports pallet-revive\nas a direct dependency)\n\n# Tests\n\nThe new\n`test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input`\ntest is probably the best test for this functionality. It shows that the\nversioned runtime API function for `trace_block` functions exactly in\nthe way that we expect it to do: given a V1 input we get a V1 output\nback and given a V2 input we get a V2 output back. It shows that\nversioning works end to end.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-22T01:26:09Z",
+          "tree_id": "7a787da13a6662d65e83a11e6d834b86d8c8b6b0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83864a55470930577e59b256ec9fe38f3534c88a"
+        },
+        "date": 1782095943588,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4363596,
+            "range": "± 43781",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 294093,
+            "range": "± 2570",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4518871,
+            "range": "± 46631",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 367838,
+            "range": "± 3487",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5285196,
+            "range": "± 37857",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 876706,
+            "range": "± 9853",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10634518,
+            "range": "± 28386",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4599234,
+            "range": "± 88487",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 41671505,
+            "range": "± 297009",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 35969321,
+            "range": "± 440594",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 330881594,
+            "range": "± 1985992",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 292613047,
+            "range": "± 934954",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2733337021,
+            "range": "± 35821248",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2333047986,
+            "range": "± 118664178",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3277605,
+            "range": "± 18090",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1808791,
+            "range": "± 11437",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3345201,
+            "range": "± 17265",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1866671,
+            "range": "± 8567",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3942942,
+            "range": "± 54983",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2183406,
+            "range": "± 13069",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7796518,
+            "range": "± 41946",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5137723,
+            "range": "± 34633",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 36329103,
+            "range": "± 178928",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 34554121,
+            "range": "± 209601",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 307059474,
+            "range": "± 3354654",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 272949485,
+            "range": "± 3770545",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2400206745,
+            "range": "± 14509274",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2230480108,
+            "range": "± 68879508",
             "unit": "ns/iter"
           }
         ]
