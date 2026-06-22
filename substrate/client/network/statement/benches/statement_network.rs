@@ -34,7 +34,7 @@ use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
 use sc_statement_store::Store;
 use sp_core::Pair;
-use sp_statement_store::{CategoryMask, Statement, StatementSource, StatementStore};
+use sp_statement_store::{RetentionReasonMask, Statement, StatementSource, StatementStore};
 use std::{
 	collections::HashMap,
 	num::{NonZeroU32, NonZeroUsize},
@@ -235,7 +235,7 @@ fn build_handler(
 
 	let (queue_sender, queue_receiver) = async_channel::bounded::<(
 		Statement,
-		CategoryMask,
+		RetentionReasonMask,
 		futures::channel::oneshot::Sender<sp_statement_store::SubmitResult>,
 	)>(MAX_PENDING_STATEMENTS);
 
