@@ -26,7 +26,7 @@ use crate::{affinity::AffinityFilter, LOG_TARGET};
 use explicit_affinity::{AffinitySource, ExplicitAffinity};
 use peers_topology::{PeersTopology, PeersTopologyConfig};
 use sc_network_types::PeerId;
-use sp_statement_store::{CategoryMask, Hash, Statement, SubmitResult, Topic};
+use sp_statement_store::{Hash, RetentionReasonMask, Statement, SubmitResult, Topic};
 use std::collections::{HashMap, HashSet};
 
 /// Coordinates the v2 DHT-affinity statement gossip path.
@@ -127,14 +127,14 @@ impl V2DhtOrchestrator {
 	// === Receive decision ===
 
 	/// The reasons this node should store the statement.
-	pub(crate) fn category_for(&self, stmt: &Statement) -> CategoryMask {
-		let mut mask = CategoryMask::TRANSIENT;
+	pub(crate) fn retention_reasons_for(&self, stmt: &Statement) -> RetentionReasonMask {
+		let mut mask = RetentionReasonMask::TRANSIENT;
 		// TODO: can we pass the statement instead of topics to the `is_dht_affine`?
 		if stmt.topics().iter().any(|topic| self.peers_topology.is_dht_affine(*topic)) {
-			mask.insert(CategoryMask::DHT_AFFINITY);
+			mask.insert(RetentionReasonMask::DHT_AFFINITY);
 		}
 		if self.explicit_affinity.local_has_explicit_affinity(stmt) {
-			mask.insert(CategoryMask::EXPLICIT_AFFINITY);
+			mask.insert(RetentionReasonMask::EXPLICIT_AFFINITY);
 		}
 		mask
 	}
@@ -279,29 +279,29 @@ mod tests {
 	}
 
 	#[test]
-	fn category_for_marks_explicit_affinity() {
+	fn retention_reasons_for_marks_explicit_affinity() {
 		let orchestrator =
 			V2DhtOrchestrator::new(&[topic(1)], PeerId::random(), topology_config(20, 1));
 
-		let mask = orchestrator.category_for(&statement_on(topic(1)));
+		let mask = orchestrator.retention_reasons_for(&statement_on(topic(1)));
 
-		assert!(mask.contains(CategoryMask::EXPLICIT_AFFINITY));
+		assert!(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
 		assert!(mask.is_persistent());
 	}
 
 	#[test]
-	fn category_for_marks_dht_affinity_when_local_is_a_replica() {
+	fn retention_reasons_for_marks_dht_affinity_when_local_is_a_replica() {
 		// An empty topology makes the local node a replica for every topic.
 		let orchestrator = V2DhtOrchestrator::new(&[], PeerId::random(), topology_config(20, 1));
 
-		let mask = orchestrator.category_for(&statement_on(topic(9)));
+		let mask = orchestrator.retention_reasons_for(&statement_on(topic(9)));
 
-		assert!(mask.contains(CategoryMask::DHT_AFFINITY));
-		assert!(!mask.contains(CategoryMask::EXPLICIT_AFFINITY));
+		assert!(mask.contains(RetentionReasonMask::DHT_AFFINITY));
+		assert!(!mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
 	}
 
 	#[test]
-	fn category_for_is_transient_without_any_affinity() {
+	fn retention_reasons_for_is_transient_without_any_affinity() {
 		// One replica per topic, so a single closer peer displaces the local node.
 		let mut orchestrator = V2DhtOrchestrator::new(&[], PeerId::random(), topology_config(1, 1));
 		let peers = (0..32).map(|_| PeerId::random()).collect::<Vec<_>>();
@@ -316,7 +316,7 @@ mod tests {
 			.find(|topic| !orchestrator.peers_topology.is_dht_affine(*topic))
 			.expect("32 peers leave some topic without local DHT affinity");
 
-		let mask = orchestrator.category_for(&statement_on(topic));
+		let mask = orchestrator.retention_reasons_for(&statement_on(topic));
 
 		assert!(!mask.is_persistent());
 	}

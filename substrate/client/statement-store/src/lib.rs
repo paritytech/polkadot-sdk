@@ -67,9 +67,9 @@ use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed,
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	runtime_api::{StatementSource, StatementStoreExt},
-	AccountId, BlockHash, CategoryMask, Channel, DecryptionKey, FilterDecision, Hash,
-	InvalidReason, OptimizedTopicFilter, RejectionReason, Result, SignatureVerificationResult,
-	Statement, StatementAllowance, StatementEvent, SubmitResult,
+	AccountId, BlockHash, Channel, DecryptionKey, FilterDecision, Hash, InvalidReason,
+	OptimizedTopicFilter, RejectionReason, Result, RetentionReasonMask,
+	SignatureVerificationResult, Statement, StatementAllowance, StatementEvent, SubmitResult,
 };
 pub use sp_statement_store::{Error, StatementStore, Topic, MAX_TOPICS};
 use std::{
@@ -1376,15 +1376,15 @@ impl StatementStore for Store {
 
 	/// Submit a persistent statement to the store.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
-		self.submit_with_category_mask(statement, source, CategoryMask::persistent())
+		self.submit_with_retention_mask(statement, source, RetentionReasonMask::persistent())
 	}
 
 	/// Submit a statement to the store. Validates the statement and returns validation result.
-	fn submit_with_category_mask(
+	fn submit_with_retention_mask(
 		&self,
 		statement: Statement,
 		source: StatementSource,
-		mask: CategoryMask,
+		mask: RetentionReasonMask,
 	) -> SubmitResult {
 		let _histogram_submit_start_timer = self.metrics.start_submit_timer();
 		let hash = statement.hash();
@@ -1700,8 +1700,8 @@ mod tests {
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
-		AccountId, CategoryMask, Channel, DecryptionKey, InvalidReason, Proof, RejectionReason,
-		Statement, StatementSource, StatementStore, SubmitResult, Topic,
+		AccountId, Channel, DecryptionKey, InvalidReason, Proof, RejectionReason,
+		RetentionReasonMask, Statement, StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
@@ -2078,10 +2078,10 @@ mod tests {
 		let hash = statement.hash();
 
 		assert_eq!(
-			store.submit_with_category_mask(
+			store.submit_with_retention_mask(
 				statement.clone(),
 				StatementSource::Network,
-				CategoryMask::TRANSIENT,
+				RetentionReasonMask::TRANSIENT,
 			),
 			SubmitResult::New,
 		);
@@ -2108,18 +2108,18 @@ mod tests {
 		let statement = signed_statement(0);
 
 		assert_eq!(
-			store.submit_with_category_mask(
+			store.submit_with_retention_mask(
 				statement.clone(),
 				StatementSource::Network,
-				CategoryMask::TRANSIENT,
+				RetentionReasonMask::TRANSIENT,
 			),
 			SubmitResult::New,
 		);
 		assert_eq!(
-			store.submit_with_category_mask(
+			store.submit_with_retention_mask(
 				statement,
 				StatementSource::Network,
-				CategoryMask::TRANSIENT,
+				RetentionReasonMask::TRANSIENT,
 			),
 			SubmitResult::Known,
 		);

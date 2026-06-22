@@ -241,28 +241,28 @@ pub enum FilterDecision {
 /// mask marks it transient: held in memory until the next propagation, forwarded once, then dropped
 /// without ever reaching the database.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct CategoryMask(u8);
+pub struct RetentionReasonMask(u8);
 
-impl CategoryMask {
+impl RetentionReasonMask {
 	/// No reason to persist: the store keeps the statement only until the next propagation.
-	pub const TRANSIENT: CategoryMask = CategoryMask(0b00);
+	pub const TRANSIENT: RetentionReasonMask = RetentionReasonMask(0b00);
 	/// The local node is one of the closest DHT replicas for one of the statement's topics.
-	pub const DHT_AFFINITY: CategoryMask = CategoryMask(0b01);
+	pub const DHT_AFFINITY: RetentionReasonMask = RetentionReasonMask(0b01);
 	/// The local node has explicit affinity for one of the topics.
-	pub const EXPLICIT_AFFINITY: CategoryMask = CategoryMask(0b10);
+	pub const EXPLICIT_AFFINITY: RetentionReasonMask = RetentionReasonMask(0b10);
 
 	/// A mask with every reason set.
 	pub fn persistent() -> Self {
-		CategoryMask(u8::MAX)
+		RetentionReasonMask(u8::MAX)
 	}
 
 	/// Add `reason` to the mask.
-	pub fn insert(&mut self, reason: CategoryMask) {
+	pub fn insert(&mut self, reason: RetentionReasonMask) {
 		self.0 |= reason.0;
 	}
 
 	/// Whether `reason` is set.
-	pub fn contains(&self, reason: CategoryMask) -> bool {
+	pub fn contains(&self, reason: RetentionReasonMask) -> bool {
 		self.0 & reason.0 == reason.0 && reason.0 != 0
 	}
 
@@ -344,12 +344,12 @@ pub trait StatementStore: Send + Sync {
 	/// Submit a statement with the reasons it is worth storing.
 	///
 	/// The default ignores the mask and defers to [`Self::submit`], so stores that do
-	/// not distinguish transient statements keep their behavior. See [`CategoryMask`].
-	fn submit_with_category_mask(
+	/// not distinguish transient statements keep their behavior. See [`RetentionReasonMask`].
+	fn submit_with_retention_mask(
 		&self,
 		statement: Statement,
 		source: StatementSource,
-		_mask: CategoryMask,
+		_mask: RetentionReasonMask,
 	) -> SubmitResult {
 		self.submit(statement, source)
 	}
@@ -370,29 +370,29 @@ pub trait StatementStore: Send + Sync {
 
 #[cfg(test)]
 mod tests {
-	use super::CategoryMask;
+	use super::RetentionReasonMask;
 
 	#[test]
 	fn default_mask_is_transient() {
-		assert_eq!(CategoryMask::default(), CategoryMask::TRANSIENT);
-		assert!(!CategoryMask::TRANSIENT.is_persistent());
-		assert!(!CategoryMask::TRANSIENT.contains(CategoryMask::DHT_AFFINITY));
+		assert_eq!(RetentionReasonMask::default(), RetentionReasonMask::TRANSIENT);
+		assert!(!RetentionReasonMask::TRANSIENT.is_persistent());
+		assert!(!RetentionReasonMask::TRANSIENT.contains(RetentionReasonMask::DHT_AFFINITY));
 	}
 
 	#[test]
 	fn persistent_mask_holds_every_reason() {
-		let mask = CategoryMask::persistent();
+		let mask = RetentionReasonMask::persistent();
 		assert!(mask.is_persistent());
-		assert!(mask.contains(CategoryMask::DHT_AFFINITY));
-		assert!(mask.contains(CategoryMask::EXPLICIT_AFFINITY));
+		assert!(mask.contains(RetentionReasonMask::DHT_AFFINITY));
+		assert!(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
 	}
 
 	#[test]
 	fn insert_sets_one_reason_at_a_time() {
-		let mut mask = CategoryMask::default();
-		mask.insert(CategoryMask::EXPLICIT_AFFINITY);
+		let mut mask = RetentionReasonMask::default();
+		mask.insert(RetentionReasonMask::EXPLICIT_AFFINITY);
 		assert!(mask.is_persistent());
-		assert!(mask.contains(CategoryMask::EXPLICIT_AFFINITY));
-		assert!(!mask.contains(CategoryMask::DHT_AFFINITY));
+		assert!(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+		assert!(!mask.contains(RetentionReasonMask::DHT_AFFINITY));
 	}
 }

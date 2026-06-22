@@ -65,8 +65,8 @@ use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
-	CategoryMask, FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
-	Topic,
+	FilterDecision, Hash, RetentionReasonMask, Statement, StatementSource, StatementStore,
+	SubmitResult, Topic,
 };
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
@@ -425,12 +425,15 @@ impl StatementHandlerPrototype {
 			executor(
 				async move {
 					loop {
-						let task: Option<(Statement, CategoryMask, oneshot::Sender<SubmitResult>)> =
-							queue_receiver.next().await;
+						let task: Option<(
+							Statement,
+							RetentionReasonMask,
+							oneshot::Sender<SubmitResult>,
+						)> = queue_receiver.next().await;
 						match task {
 							None => return,
 							Some((statement, mask, completion)) => {
-								let result = store.submit_with_category_mask(
+								let result = store.submit_with_retention_mask(
 									statement,
 									StatementSource::Network,
 									mask,
@@ -530,7 +533,8 @@ pub struct StatementHandler<
 	// All connected peers
 	peers: HashMap<PeerId, Peer>,
 	statement_store: Arc<dyn StatementStore>,
-	queue_sender: async_channel::Sender<(Statement, CategoryMask, oneshot::Sender<SubmitResult>)>,
+	queue_sender:
+		async_channel::Sender<(Statement, RetentionReasonMask, oneshot::Sender<SubmitResult>)>,
 	/// Maximum statements per second per peer.
 	statements_per_second: NonZeroU32,
 	/// Prometheus metrics.
@@ -743,7 +747,7 @@ where
 		statement_store: Arc<dyn StatementStore>,
 		queue_sender: async_channel::Sender<(
 			Statement,
-			CategoryMask,
+			RetentionReasonMask,
 			oneshot::Sender<SubmitResult>,
 		)>,
 		statements_per_second: NonZeroU32,
@@ -1372,9 +1376,9 @@ where
 				match self.pending_statements_peers.entry(hash) {
 					Entry::Vacant(entry) => {
 						let mask = if v2dht_enabled() {
-							self.v2dht.category_for(&s)
+							self.v2dht.retention_reasons_for(&s)
 						} else {
-							CategoryMask::persistent()
+							RetentionReasonMask::persistent()
 						};
 						let (completion_sender, completion_receiver) = oneshot::channel();
 						match self.queue_sender.try_send((s, mask, completion_sender)) {
@@ -2018,8 +2022,6 @@ mod tests {
 		recent_statements:
 			Arc<Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>>,
 		subscription_topics: Arc<Mutex<Vec<Topic>>>,
-		/// Category mask of the most recent submission, for asserting receive-path decisions.
-		last_submit_mask: Arc<Mutex<Option<CategoryMask>>>,
 	}
 
 	impl TestStatementStore {
@@ -2028,7 +2030,6 @@ mod tests {
 				statements: Default::default(),
 				recent_statements: Default::default(),
 				subscription_topics: Default::default(),
-				last_submit_mask: Default::default(),
 			}
 		}
 	}
@@ -2155,17 +2156,16 @@ mod tests {
 			statement: sp_statement_store::Statement,
 			source: sp_statement_store::StatementSource,
 		) -> sp_statement_store::SubmitResult {
-			self.submit_with_category_mask(statement, source, CategoryMask::persistent())
+			self.submit_with_retention_mask(statement, source, RetentionReasonMask::persistent())
 		}
 
-		fn submit_with_category_mask(
+		fn submit_with_retention_mask(
 			&self,
 			statement: sp_statement_store::Statement,
 			_source: sp_statement_store::StatementSource,
-			mask: CategoryMask,
+			mask: RetentionReasonMask,
 		) -> sp_statement_store::SubmitResult {
 			let hash = statement.hash();
-			*self.last_submit_mask.lock().unwrap() = Some(mask);
 			// A persistent statement is kept; a transient one is held only for the next
 			// propagation. Both are forwarded once via `recent_statements`.
 			if mask.is_persistent() {
@@ -2191,7 +2191,7 @@ mod tests {
 		TestStatementStore,
 		TestNetwork,
 		TestNotificationService,
-		async_channel::Receiver<(Statement, CategoryMask, oneshot::Sender<SubmitResult>)>,
+		async_channel::Receiver<(Statement, RetentionReasonMask, oneshot::Sender<SubmitResult>)>,
 		Vec<PeerId>,
 	) {
 		let statement_store = TestStatementStore::new();
