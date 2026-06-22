@@ -455,6 +455,7 @@ fn mk_test_runtime(
 		blob,
 		true,
 		None,
+		None,
 	)
 	.expect("failed to instantiate wasm runtime")
 }
@@ -679,6 +680,7 @@ fn memory_is_cleared_between_invocations(wasm_method: WasmExecutionMethod) {
 		HeapAllocStrategy::Dynamic { maximum_pages: Some(1024) },
 		RuntimeBlob::uncompress_if_needed(&binary[..]).unwrap(),
 		true,
+		None,
 		None,
 	)
 	.unwrap();

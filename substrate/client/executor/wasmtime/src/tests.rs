@@ -23,6 +23,7 @@ use sc_executor_common::{
 	wasm_runtime::{HeapAllocStrategy, WasmModule, DEFAULT_HEAP_ALLOC_STRATEGY},
 };
 use sc_runtime_test::wasm_binary_unwrap;
+use std::time::{Duration, Instant};
 
 use crate::InstantiationStrategy;
 
@@ -70,6 +71,7 @@ struct RuntimeBuilder {
 	deterministic_stack: bool,
 	heap_pages: HeapAllocStrategy,
 	precompile_runtime: bool,
+	execution_timeout: Option<Duration>,
 	tmpdir: Option<tempfile::TempDir>,
 }
 
@@ -82,8 +84,14 @@ impl RuntimeBuilder {
 			deterministic_stack: false,
 			heap_pages: DEFAULT_HEAP_ALLOC_STRATEGY,
 			precompile_runtime: false,
+			execution_timeout: None,
 			tmpdir: None,
 		}
+	}
+
+	fn execution_timeout(mut self, execution_timeout: Option<Duration>) -> Self {
+		self.execution_timeout = execution_timeout;
+		self
 	}
 
 	fn use_wat(mut self, code: String) -> Self {
@@ -146,6 +154,7 @@ impl RuntimeBuilder {
 				wasm_bulk_memory: false,
 				wasm_reference_types: false,
 				wasm_simd: false,
+				execution_timeout: self.execution_timeout,
 			},
 		};
 
@@ -247,6 +256,48 @@ fn test_consume_over_1mb_of_stack_does_trap(instantiation_strategy: Instantiatio
 		},
 		error => panic!("unexpected error: {:?}", error),
 	}
+}
+
+test_wasm_execution!(test_execution_timeout_interrupts_runaway_call);
+fn test_execution_timeout_interrupts_runaway_call(instantiation_strategy: InstantiationStrategy) {
+	let timeout = Duration::from_millis(100);
+	let mut builder = RuntimeBuilder::new(instantiation_strategy).execution_timeout(Some(timeout));
+	let runtime = builder.build();
+	let mut instance = runtime
+		.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY)
+		.expect("failed to instantiate a runtime");
+
+	// `test_spin` never returns, so it can only finish by being interrupted via the epoch deadline.
+	let start = Instant::now();
+	let result = instance.call_export("test_spin", &[]);
+	let elapsed = start.elapsed();
+
+	match result {
+		Err(Error::AbortedDueToTrap(_)) => {},
+		other => panic!("expected the runaway call to trap, got: {:?}", other),
+	}
+
+	// A generous upper bound proves the call was cut short rather than hanging.
+	assert!(
+		elapsed < Duration::from_secs(5),
+		"runaway call was not interrupted promptly: took {:?}",
+		elapsed,
+	);
+}
+
+test_wasm_execution!(test_execution_timeout_allows_normal_call);
+fn test_execution_timeout_allows_normal_call(instantiation_strategy: InstantiationStrategy) {
+	// A normal short-lived call must still succeed when a timeout is configured.
+	let mut builder = RuntimeBuilder::new(instantiation_strategy)
+		.execution_timeout(Some(Duration::from_millis(100)));
+	let runtime = builder.build();
+	let mut instance = runtime
+		.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY)
+		.expect("failed to instantiate a runtime");
+
+	instance
+		.call_export("test_empty_return", &[])
+		.expect("a quick call must not be interrupted by the execution timeout");
 }
 
 test_wasm_execution!(test_nan_canonicalization);
@@ -481,6 +532,7 @@ fn test_instances_without_reuse_are_not_leaked() {
 				wasm_bulk_memory: false,
 				wasm_reference_types: false,
 				wasm_simd: false,
+				execution_timeout: None,
 			},
 		},
 	)

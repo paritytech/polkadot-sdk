@@ -40,6 +40,8 @@ use std::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
 	},
+	thread::{self, JoinHandle},
+	time::Duration,
 };
 use wasmtime::{AsContext, Cache, CacheConfig, Engine, Memory};
 
@@ -80,6 +82,7 @@ struct InstanceCreator {
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 	instance_counter: Arc<InstanceCounter>,
 	heap_alloc_strategy: HeapAllocStrategy,
+	epoch_deadline_ticks: Option<u64>,
 }
 
 impl InstanceCreator {
@@ -89,6 +92,7 @@ impl InstanceCreator {
 			&self.instance_pre,
 			self.instance_counter.clone(),
 			self.heap_alloc_strategy,
+			self.epoch_deadline_ticks,
 		)
 	}
 }
@@ -140,6 +144,50 @@ impl InstanceCounter {
 	}
 }
 
+/// Interval between engine epoch increments, bounding the granularity of the execution timeout.
+const EPOCH_TICK_PERIOD: Duration = Duration::from_millis(1);
+
+/// Number of epoch ticks after which a call should trap, rounded up and at least one.
+fn deadline_ticks_from_timeout(timeout: Duration) -> u64 {
+	timeout.as_nanos().div_ceil(EPOCH_TICK_PERIOD.as_nanos()).max(1) as u64
+}
+
+/// Background thread advancing an [`Engine`]'s epoch to enable wall-clock interruption of calls.
+/// Created with the [`WasmtimeRuntime`] when a timeout is set, and stops when dropped.
+struct EpochTicker {
+	stop: Arc<AtomicBool>,
+	handle: Option<JoinHandle<()>>,
+}
+
+impl EpochTicker {
+	fn spawn(engine: Engine) -> Self {
+		let stop = Arc::new(AtomicBool::new(false));
+		let handle = thread::Builder::new()
+			.name("wasmtime-epoch-ticker".into())
+			.spawn({
+				let stop = stop.clone();
+				move || {
+					while !stop.load(Ordering::Relaxed) {
+						thread::sleep(EPOCH_TICK_PERIOD);
+						engine.increment_epoch();
+					}
+				}
+			})
+			.expect("spawning the wasmtime epoch ticker thread should not fail; qed");
+
+		Self { stop, handle: Some(handle) }
+	}
+}
+
+impl Drop for EpochTicker {
+	fn drop(&mut self) {
+		self.stop.store(true, Ordering::Relaxed);
+		if let Some(handle) = self.handle.take() {
+			let _ = handle.join();
+		}
+	}
+}
+
 /// A `WasmModule` implementation using wasmtime to compile the runtime module to machine code
 /// and execute the compiled code.
 pub struct WasmtimeRuntime {
@@ -147,6 +195,10 @@ pub struct WasmtimeRuntime {
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 	instantiation_strategy: InternalInstantiationStrategy,
 	instance_counter: Arc<InstanceCounter>,
+	/// Per-call epoch deadline, or `None` when execution is unbounded.
+	epoch_deadline_ticks: Option<u64>,
+	/// Keeps the epoch ticker alive for the runtime's lifetime; `None` when no timeout is set.
+	_epoch_ticker: Option<EpochTicker>,
 }
 
 impl WasmModule for WasmtimeRuntime {
@@ -160,6 +212,7 @@ impl WasmModule for WasmtimeRuntime {
 				instance_pre: self.instance_pre.clone(),
 				instance_counter: self.instance_counter.clone(),
 				heap_alloc_strategy,
+				epoch_deadline_ticks: self.epoch_deadline_ticks,
 			}),
 		};
 
@@ -241,6 +294,12 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 	let mut config = wasmtime::Config::new();
 	config.cranelift_opt_level(wasmtime::OptLevel::SpeedAndSize);
 	config.cranelift_nan_canonicalization(semantics.canonicalize_nans);
+
+	// Enable epoch interruption only when a wall-clock execution limit is requested; otherwise
+	// there is no overhead.
+	if semantics.execution_timeout.is_some() {
+		config.epoch_interruption(true);
+	}
 
 	let profiler = match std::env::var_os("WASMTIME_PROFILING_STRATEGY") {
 		Some(os_string) if os_string == "jitdump" => wasmtime::ProfilingStrategy::JitDump,
@@ -460,6 +519,11 @@ pub struct Semantics {
 
 	/// Enables WASM Fixed-Width SIMD proposal
 	pub wasm_simd: bool,
+
+	/// Optional wall-clock limit for a single runtime call. When `Some`, the engine uses epoch
+	/// interruption and a call that exceeds the timeout traps. When `None`, execution is
+	/// unbounded.
+	pub execution_timeout: Option<Duration>,
 }
 
 #[derive(Clone)]
@@ -590,6 +654,14 @@ where
 	let engine = Engine::new(&wasmtime_config)
 		.map_err(|e| WasmError::Other(format!("cannot create the wasmtime engine: {:#}", e)))?;
 
+	// Derive the per-call epoch deadline and spawn the epoch ticker when a timeout is configured.
+	let (epoch_deadline_ticks, epoch_ticker) = match config.semantics.execution_timeout {
+		Some(timeout) => {
+			(Some(deadline_ticks_from_timeout(timeout)), Some(EpochTicker::spawn(engine.clone())))
+		},
+		None => (None, None),
+	};
+
 	let (module, instantiation_strategy) = match code_supply_mode {
 		CodeSupplyMode::Fresh(blob) => {
 			let blob = prepare_blob_for_compilation(blob, &config.semantics)?;
@@ -641,6 +713,8 @@ where
 		instance_pre: Arc::new(instance_pre),
 		instantiation_strategy,
 		instance_counter: Default::default(),
+		epoch_deadline_ticks,
+		_epoch_ticker: epoch_ticker,
 	})
 }
 

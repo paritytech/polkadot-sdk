@@ -106,6 +106,15 @@ sp_core::wasm_export_functions! {
 
 	fn test_empty_return() {}
 
+	// Spins forever; used to test that the execution timeout interrupts a runaway call. `black_box`
+	// keeps the loop from being optimized away.
+	fn test_spin() {
+		let mut i = 0u64;
+		loop {
+			i = core::hint::black_box(i).wrapping_add(1);
+		}
+	}
+
 	fn test_dirty_plenty_memory(heap_base: u32, heap_pages: u32) {
 		// This piece of code will dirty multiple pages of memory. The number of pages is given by
 		// the `heap_pages`. It's unit is a wasm page (64KiB). The first page to be cleared

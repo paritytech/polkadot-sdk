@@ -38,6 +38,7 @@ use std::{
 	panic::AssertUnwindSafe,
 	path::{Path, PathBuf},
 	sync::Arc,
+	time::Duration,
 };
 
 /// Specification of different methods of executing the runtime Wasm code.
@@ -232,6 +233,7 @@ impl RuntimeCache {
 		wasm_method: WasmExecutionMethod,
 		heap_alloc_strategy: HeapAllocStrategy,
 		allow_missing_func_imports: bool,
+		execution_timeout: Option<Duration>,
 		f: F,
 	) -> Result<Result<R, Error>, Error>
 	where
@@ -264,6 +266,7 @@ impl RuntimeCache {
 				allow_missing_func_imports,
 				self.max_runtime_instances,
 				self.cache_path.as_deref(),
+				execution_timeout,
 			);
 
 			match result {
@@ -302,11 +305,14 @@ pub fn create_wasm_runtime_with_code<H>(
 	blob: RuntimeBlob,
 	allow_missing_func_imports: bool,
 	cache_path: Option<&Path>,
+	execution_timeout: Option<Duration>,
 ) -> Result<Box<dyn WasmModule>, WasmError>
 where
 	H: HostFunctions,
 {
 	if let Some(blob) = blob.as_polkavm_blob() {
+		// `execution_timeout` is enforced via wasmtime epoch interruption and does not apply to the
+		// PolkaVM backend.
 		return sc_executor_polkavm::create_runtime::<H>(blob);
 	}
 
@@ -327,6 +333,7 @@ where
 						wasm_bulk_memory: false,
 						wasm_reference_types: false,
 						wasm_simd: false,
+						execution_timeout,
 					},
 				},
 			)
@@ -399,6 +406,7 @@ fn create_versioned_wasm_runtime<H>(
 	allow_missing_func_imports: bool,
 	max_instances: usize,
 	cache_path: Option<&Path>,
+	execution_timeout: Option<Duration>,
 ) -> Result<VersionedRuntime, WasmError>
 where
 	H: HostFunctions,
@@ -418,6 +426,7 @@ where
 		blob,
 		allow_missing_func_imports,
 		cache_path,
+		execution_timeout,
 	)?;
 
 	// If the runtime blob doesn't embed the runtime version then use the legacy version query

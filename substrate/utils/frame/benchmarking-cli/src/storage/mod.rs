@@ -48,6 +48,7 @@ pub(crate) fn get_wasm_module() -> Box<dyn sc_executor_common::wasm_runtime::Was
 			wasm_bulk_memory: false,
 			wasm_reference_types: false,
 			wasm_simd: false,
+			execution_timeout: None,
 		},
 	};
 

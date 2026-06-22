@@ -27,6 +27,7 @@ use std::{
 	panic::{AssertUnwindSafe, UnwindSafe},
 	path::PathBuf,
 	sync::Arc,
+	time::Duration,
 };
 
 use codec::Encode;
@@ -93,6 +94,7 @@ pub struct WasmExecutorBuilder<H = sp_io::SubstrateHostFunctions> {
 	cache_path: Option<PathBuf>,
 	allow_missing_host_functions: bool,
 	runtime_cache_size: u8,
+	execution_timeout: Option<Duration>,
 }
 
 impl<H> WasmExecutorBuilder<H> {
@@ -110,6 +112,7 @@ impl<H> WasmExecutorBuilder<H> {
 			runtime_cache_size: 4,
 			allow_missing_host_functions: false,
 			cache_path: None,
+			execution_timeout: None,
 		}
 	}
 
@@ -193,6 +196,16 @@ impl<H> WasmExecutorBuilder<H> {
 		self
 	}
 
+	/// Set an optional wall-clock limit for a single runtime call.
+	///
+	/// When `Some`, a call exceeding the given duration is interrupted and traps. Intended to bound
+	/// the cost of executing untrusted requests on a dedicated executor. By default no timeout is
+	/// set and execution is unbounded.
+	pub fn with_execution_timeout(mut self, timeout: Option<Duration>) -> Self {
+		self.execution_timeout = timeout;
+		self
+	}
+
 	/// Build the configured [`WasmExecutor`].
 	pub fn build(self) -> WasmExecutor<H> {
 		WasmExecutor {
@@ -211,6 +224,7 @@ impl<H> WasmExecutorBuilder<H> {
 			)),
 			cache_path: self.cache_path,
 			allow_missing_host_functions: self.allow_missing_host_functions,
+			execution_timeout: self.execution_timeout,
 			phantom: PhantomData,
 		}
 	}
@@ -234,6 +248,8 @@ pub struct WasmExecutor<H = sp_io::SubstrateHostFunctions> {
 	cache_path: Option<PathBuf>,
 	/// Ignore missing function imports.
 	allow_missing_host_functions: bool,
+	/// Optional wall-clock limit for a single runtime call. `None` means execution is unbounded.
+	execution_timeout: Option<Duration>,
 	phantom: PhantomData<H>,
 }
 
@@ -247,6 +263,7 @@ impl<H> Clone for WasmExecutor<H> {
 			cache: self.cache.clone(),
 			cache_path: self.cache_path.clone(),
 			allow_missing_host_functions: self.allow_missing_host_functions,
+			execution_timeout: self.execution_timeout,
 			phantom: self.phantom,
 		}
 	}
@@ -301,6 +318,7 @@ impl<H> WasmExecutor<H> {
 			)),
 			cache_path,
 			allow_missing_host_functions: false,
+			execution_timeout: None,
 			phantom: PhantomData,
 		}
 	}
@@ -355,6 +373,7 @@ where
 			self.method,
 			heap_alloc_strategy,
 			self.allow_missing_host_functions,
+			self.execution_timeout,
 			|module, instance, version, ext| {
 				let module = AssertUnwindSafe(module);
 				let instance = AssertUnwindSafe(instance);
@@ -430,6 +449,7 @@ where
 			runtime_blob,
 			allow_missing_host_functions,
 			self.cache_path.as_deref(),
+			self.execution_timeout,
 		)
 		.map_err(|e| format!("Failed to create module: {}", e))?;
 
