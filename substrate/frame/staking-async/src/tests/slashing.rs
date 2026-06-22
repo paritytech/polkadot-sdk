@@ -987,6 +987,7 @@ fn remove_deferred() {
 					fraction: Perbill::from_percent(10)
 				},
 				Event::SlashComputed { offence_era: 1, slash_era: 3, offender: 11, page: 0 }
+				//m test
 			]
 		);
 
