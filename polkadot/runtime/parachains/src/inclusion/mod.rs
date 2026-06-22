@@ -930,11 +930,6 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Check that all the upward messages sent by a candidate pass the acceptance criteria.
-	///
-	/// Per-candidate limits (`max_upward_message_num_per_candidate`, `max_upward_message_size`)
-	/// are read from the candidate's session snapshot (`session_config`). Queue capacity limits
-	/// (`max_upward_queue_count`, `max_upward_queue_size`) are read from the live `host_config`
-	/// since the queue is a current-relay-chain-state quantity.
 	pub(crate) fn check_upward_messages(
 		host_config: &HostConfiguration<BlockNumberFor<T>>,
 		session_config: &SessionExecutionConfig,
@@ -1220,20 +1215,16 @@ impl<T: Config> OnQueueChanged<AggregateMessageOrigin> for Pallet<T> {
 	}
 }
 
-/// A collection of data required for checking a candidate.
-///
-/// `config` is the live host configuration, used for current chain state limits
-/// (e.g. UMP queue capacity). Per-candidate limits that depend on the candidate's
-/// session (head data size, code size, per-candidate UMP/HRMP message limits) are
-/// resolved from `SessionExecutionConfigs` inside the checks.
+/// Context for running the acceptance checks on a backed candidate.
 pub(crate) struct CandidateCheckContext<T: Config> {
-	config: configuration::HostConfiguration<BlockNumberFor<T>>,
+	/// The para's most recent relay-parent context, if any. A candidate's relay parent must
+	/// not move backwards relative to it.
 	prev_context: Option<BlockNumberFor<T>>,
 }
 
 impl<T: Config> CandidateCheckContext<T> {
 	pub(crate) fn new(prev_context: Option<BlockNumberFor<T>>) -> Self {
-		Self { config: configuration::ActiveConfig::<T>::get(), prev_context }
+		Self { prev_context }
 	}
 
 	fn session_config(&self, session_index: SessionIndex) -> SessionExecutionConfig {
@@ -1288,8 +1279,6 @@ impl<T: Config> CandidateCheckContext<T> {
 			}
 		}
 
-		// Resolve the session-keyed execution config once and reuse it for the PVD
-		// reconstruction and the per-candidate acceptance checks.
 		let session_config = self.session_config(session_index);
 
 		{
@@ -1410,7 +1399,8 @@ impl<T: Config> CandidateCheckContext<T> {
 			);
 			e
 		})?;
-		Pallet::<T>::check_upward_messages(&self.config, session_config, para_id, upward_messages)
+		let host_config = configuration::ActiveConfig::<T>::get();
+		Pallet::<T>::check_upward_messages(&host_config, session_config, para_id, upward_messages)
 			.map_err(|e| {
 				log::debug!(
 					target: LOG_TARGET,

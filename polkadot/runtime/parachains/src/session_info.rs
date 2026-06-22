@@ -135,7 +135,7 @@ impl<T: Config> Pallet<T> {
 	/// Resolve the [`SessionExecutionConfig`] snapshot for `session_index`.
 	pub fn session_execution_config(session_index: SessionIndex) -> SessionExecutionConfig {
 		SessionExecutionConfigs::<T>::get(session_index).unwrap_or_else(|| {
-			log::warn!(
+			log::debug!(
 				target: "runtime::session_info",
 				"No SessionExecutionConfig for session {:?}; falling back to ActiveConfig.",
 				session_index,

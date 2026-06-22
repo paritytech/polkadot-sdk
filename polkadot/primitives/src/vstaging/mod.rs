@@ -30,10 +30,6 @@ use crate::v9::ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE;
 /// `session_info` pallet so that validators can look up the configuration
 /// that was active when a candidate was produced, rather than using the
 /// current configuration.
-///
-/// All fields mirror their `HostConfiguration` counterparts; see
-/// `polkadot_runtime_parachains::configuration::HostConfiguration` for the
-/// authoritative semantics.
 #[derive(Copy, Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Default, PartialEq))]
 pub struct SessionExecutionConfig {

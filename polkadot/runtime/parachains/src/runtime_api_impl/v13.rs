@@ -202,8 +202,7 @@ pub fn persisted_validation_data<T: initializer::Config>(
 	assumption: OccupiedCoreAssumption,
 ) -> Option<PersistedValidationData<T::Hash, BlockNumberFor<T>>> {
 	let (relay_parent_number, relay_parent_storage_root) = current_relay_parent::<T>();
-	// The PVD is being constructed at the current chain head, so the session of
-	// the relay parent is the current session.
+
 	let session_index = shared::CurrentSessionIndex::<T>::get();
 	with_assumption::<T, _, _>(para_id, assumption, || {
 		crate::util::make_persisted_validation_data::<T>(
