@@ -415,16 +415,13 @@ fn refund_routes_to_set_payer_not_clear_submitter() {
 		let clear_submitter =
 			<Test as Config>::AddressMapper::to_account_id(&H160::from([0xBB; 20]));
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&set_payer, 100_000_000);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(
-			&clear_submitter,
-			100_000_000,
-		);
+		let _ =
+			<<Test as Config>::Currency as Mutate<_>>::set_balance(&clear_submitter, 100_000_000);
 
 		// Authority is pre-funded so the ED path doesn't perturb relayer balances.
 		let signer = TestSigner::new(&[1u8; 32]);
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&signer.address);
-		let _ =
-			<<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
 
 		let chain_id = U256::from(<Test as Config>::ChainId::get());
 		// `Funds::Balance` mode: deposit flows directly between relayer balances, so the
@@ -432,8 +429,7 @@ fn refund_routes_to_set_payer_not_clear_submitter() {
 		// the per-account leak under the native backend by routing through the fee pool.)
 		let exec_config = ExecConfig::new_substrate_tx();
 
-		let set_payer_before =
-			<<Test as Config>::Currency as Inspect<_>>::balance(&set_payer);
+		let set_payer_before = <<Test as Config>::Currency as Inspect<_>>::balance(&set_payer);
 		let clear_submitter_before =
 			<<Test as Config>::Currency as Inspect<_>>::balance(&clear_submitter);
 
@@ -447,9 +443,11 @@ fn refund_routes_to_set_payer_not_clear_submitter() {
 			&exec_config,
 		);
 		assert!(AccountInfo::<Test>::is_delegated(&signer.address));
-		let hold =
-			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id);
-		assert!(hold > 0, "delegation must carry a non-zero deposit for this test to mean anything");
+		let hold = get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id);
+		assert!(
+			hold > 0,
+			"delegation must carry a non-zero deposit for this test to mean anything"
+		);
 		assert_eq!(
 			<<Test as Config>::Currency as Inspect<_>>::balance(&set_payer),
 			set_payer_before - hold,
@@ -531,7 +529,8 @@ fn payer_change_redelegation_charges_new_payer_in_full() {
 		let redelegate_payer =
 			<Test as Config>::AddressMapper::to_account_id(&H160::from([0xBB; 20]));
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&set_payer, 100_000_000);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&redelegate_payer, 100_000_000);
+		let _ =
+			<<Test as Config>::Currency as Mutate<_>>::set_balance(&redelegate_payer, 100_000_000);
 
 		// Authority is pre-funded so the ED path doesn't perturb relayer balances.
 		let signer = TestSigner::new(&[2u8; 32]);
@@ -555,7 +554,10 @@ fn payer_change_redelegation_charges_new_payer_in_full() {
 			&set_payer,
 			&exec_config,
 		);
-		assert_eq!(AccountInfo::<Test>::get_delegation_target(&signer.address), Some(target_a.addr));
+		assert_eq!(
+			AccountInfo::<Test>::get_delegation_target(&signer.address),
+			Some(target_a.addr)
+		);
 		assert_eq!(
 			<<Test as Config>::Currency as Inspect<_>>::balance(&set_payer),
 			set_payer_before - deposit,
@@ -570,7 +572,10 @@ fn payer_change_redelegation_charges_new_payer_in_full() {
 			&redelegate_payer,
 			&exec_config,
 		);
-		assert_eq!(AccountInfo::<Test>::get_delegation_target(&signer.address), Some(target_b.addr));
+		assert_eq!(
+			AccountInfo::<Test>::get_delegation_target(&signer.address),
+			Some(target_b.addr)
+		);
 
 		// Core bug-#1 invariant: the new submitter is metered for exactly what it paid, not the
 		// cross-account `current - previous` (which would be `Charge(0)` here).
@@ -627,7 +632,8 @@ fn payer_change_redelegation_different_deposits_charges_current() {
 		let redelegate_payer =
 			<Test as Config>::AddressMapper::to_account_id(&H160::from([0xBB; 20]));
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&set_payer, 100_000_000);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&redelegate_payer, 100_000_000);
+		let _ =
+			<<Test as Config>::Currency as Mutate<_>>::set_balance(&redelegate_payer, 100_000_000);
 
 		let signer = TestSigner::new(&[3u8; 32]);
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&signer.address);
@@ -661,7 +667,10 @@ fn payer_change_redelegation_different_deposits_charges_current() {
 			&redelegate_payer,
 			&exec_config,
 		);
-		assert_eq!(AccountInfo::<Test>::get_delegation_target(&signer.address), Some(target_b.addr));
+		assert_eq!(
+			AccountInfo::<Test>::get_delegation_target(&signer.address),
+			Some(target_b.addr)
+		);
 
 		// Net charged to the new payer's budget is the NEW deposit in full — not deposit_b -
 		// deposit_a (the cross-account diff the bug would compute).

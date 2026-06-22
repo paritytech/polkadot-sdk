@@ -285,8 +285,7 @@ impl<T: Config> AccountInfo<T> {
 	pub(crate) fn set_delegation_payer(address: &H160, new_payer: Option<T::AccountId>) {
 		<AccountInfoOf<T>>::mutate(address, |slot| {
 			if let Some(AccountInfo {
-				account_type: AccountType::DelegatedEOA { payer, .. },
-				..
+				account_type: AccountType::DelegatedEOA { payer, .. }, ..
 			}) = slot
 			{
 				*payer = new_payer;
@@ -452,9 +451,7 @@ impl<T: Config> AccountInfo<T> {
 	/// Returns the previously held `storage_base_deposit` (now released). The caller must
 	/// refund this amount to whoever originally paid it — look up via
 	/// [`AccountInfo::get_delegation_payer`] before invoking `clear_delegation`.
-	pub(crate) fn clear_delegation(
-		address: &H160,
-	) -> Result<BalanceOf<T>, DispatchError> {
+	pub(crate) fn clear_delegation(address: &H160) -> Result<BalanceOf<T>, DispatchError> {
 		// Atomic: a failed `decrement_refcount` must roll back `delegate_target = None`.
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 			let result = AccountInfoOf::<T>::mutate(
@@ -462,7 +459,8 @@ impl<T: Config> AccountInfo<T> {
 				|account| -> Result<BalanceOf<T>, DispatchError> {
 					let mut refund: BalanceOf<T> = Zero::zero();
 					if let Some(AccountInfo {
-						account_type: AccountType::DelegatedEOA { delegate_target, contract_info, .. },
+						account_type:
+							AccountType::DelegatedEOA { delegate_target, contract_info, .. },
 						..
 					}) = account
 					{
