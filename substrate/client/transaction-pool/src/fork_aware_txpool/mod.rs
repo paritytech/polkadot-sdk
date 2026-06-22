@@ -74,8 +74,8 @@
 //! Please note that views are only created for the notified blocks.
 //!
 //! The pool can be notified either about every imported block (all forks), or only about the best
-//! blocks. In the former case views are created for all forks, keeping the pool ready to author on or
-//! switch to any fork without a cold-start re-validation; in the latter only the best chain is
+//! blocks. In the former case views are created for all forks, keeping the pool ready to author on
+//! or switch to any fork without a cold-start re-validation; in the latter only the best chain is
 //! tracked.
 //!
 //!
