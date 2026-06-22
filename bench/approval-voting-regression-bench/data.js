@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781900799251,
+  "lastUpdate": 1782097237109,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "920dd6dce169bae2b70c81f74b00643b7a8ef55a",
-          "message": "pallet_revive: Improve logging (#10157)\n\nJust added some more information to the log output during dry_run and\ntransaction creation. This was helpful when debugging if the correct gas\nwas passed in by the client.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-29T22:18:44Z",
-          "tree_id": "09fef4f6d7e42d438697564c39be6b546e066991",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/920dd6dce169bae2b70c81f74b00643b7a8ef55a"
-        },
-        "date": 1761780977929,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52938.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63623.46,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001721156,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4167291166799987,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001721156,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020813469999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.050281442639996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.408495950149999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4654172897599986,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7187494198810707,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4181592541900008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005493150160000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4267563313299977,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9092303503700028,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020813469999999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting/test-environment",
             "value": 0.000018818010000000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "83864a55470930577e59b256ec9fe38f3534c88a",
+          "message": "[pallet-revive]: Version the `trace_block` runtime API function (#12244)\n\n# Description\n\nThis PR is a follow up from the various discussions we have had as a\nteam around versioning of the runtime API and the approach that we\nshould take.\n\nThis PR versions a single runtime API function in pallet-revive: the\n`trace_block` function. In the process, I also implemented\nhttps://github.com/paritytech/polkadot-sdk/pull/11532 to demonstrate how\nthe various pieces connect together when we want to version a specific\nruntime API function as the last commit in the PR.\n\nThis PR is meant to show case how everything in versioning works e2e\nbefore we go ahead and version the rest of the runtime API using this\nstrategy.\n\nAll of the wire types we use for tracing have been added to the `types`\ncrate. It houses the wire types and the payload types that we use for\nthe runtime APIs.\n\nThe following concepts were added to the codebase:\n- On the wire types:\n- `${name}V${version}` - A version of a specific type. For example\n`CallLogV1`.\n- `${name}InputPayloadV${version}` - A specific version of the input\npayload for some runtime API function. For example\n`TraceBlockInputPayloadV1`.\n- `${name}OutputPayloadV${version}` - A specific version of the output\npayload for some runtime API function. For example\n`TraceBlockOutputPayloadV1`.\n- `${name}VersionedInputPayload` - An enum of all of the possible\nversions that the input payload for some runtime API function can have.\n- `${name}VersionedOutputPayload` - An enum of all of the possible\nversions that the output payload for some runtime API function can have.\n- On the execution types:\n- `${name}InputPayload` - Execution type input payload of some runtime\nAPI function.\n- `${name}OutputPayload` - Execution type output payload of some runtime\nAPI function.\n\nThere are a few things worth noting:\n- In the process of working on this I needed to move some of the JSON\nfunctionality from `pallet-revive` and into the `types` crate.\n- Some of the execution models for tracing no longer implement SCALE\nwhich is done to ensure that these types never cross the wire and are\nindeed internal to pallet-revive (and anybody who imports pallet-revive\nas a direct dependency)\n\n# Tests\n\nThe new\n`test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input`\ntest is probably the best test for this functionality. It shows that the\nversioned runtime API function for `trace_block` functions exactly in\nthe way that we expect it to do: given a V1 input we get a V1 output\nback and given a V2 input we get a V2 output back. It shows that\nversioning works end to end.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-22T01:26:09Z",
+          "tree_id": "7a787da13a6662d65e83a11e6d834b86d8c8b6b0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83864a55470930577e59b256ec9fe38f3534c88a"
+        },
+        "date": 1782097211204,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63599.58999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.20128393994995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4180256110899983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002634666,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7851985998399984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7647071368500002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0052530707700000024,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002634666,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000021640969999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7365487843700023,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000021640969999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7702836425899526,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.4188266754927135,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7212670944400004,
             "unit": "seconds"
           }
         ]
