@@ -484,6 +484,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type MaxUnlockingChunks = ConstU32<16>;
 	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<16>;
+	type NominationStalenessCurve = pallet_staking_async::NoNominationStaleness;
 
 	type VoterList = pallet_staking_async::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;

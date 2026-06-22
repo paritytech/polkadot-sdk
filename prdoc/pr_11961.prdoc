@@ -1,0 +1,54 @@
+title: 'Implement RFC #104: Stale Nomination Reward Curve'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Implements [RFC #104](https://github.com/polkadot-fellows/RFCs/pull/104).
+
+    Adds a configurable decaying multiplier for stale nominations in NPoS staking.
+    A nominator's voter weight is scaled by a curve based on how long it has been
+    since they last called `nominate`. The multiplier is applied at the election
+    snapshot input only; reward distribution downstream is unchanged, so a stale
+    nominator's "lost" share of validator rewards naturally flows to that
+    validator's non-stale co-nominators through existing exposure-based payout
+    math.
+
+    The mechanism is applied to both `pallet-staking` and `pallet-staking-async`.
+    The shared trait and default impls live in `sp-staking`.
+
+    New API in `sp-staking`:
+    - `NominationStalenessCurve` trait.
+    - `NoNominationStaleness` no-op default.
+    - `LinearStalenessCurve<GracePeriod, DecayPeriod, Floor>` piecewise-linear default.
+
+    Each pallet adds:
+    - New `Config::NominationStalenessCurve` associated type. `TestDefaultConfig`
+      defaults to `NoNominationStaleness`, preserving pre-staleness behaviour.
+    - Multiplier applied at `get_npos_voters` using the existing `submitted_in`
+      field on `Nominations`.
+    - Migration helpers `migrations::nomination_staleness::reset_all_nomination_submitted_in`
+      and try-runtime helpers, ready to be wrapped in a versioned migration when
+      a runtime opts in. Storage version is intentionally not bumped.
+
+    Production runtimes (Westend, Asset Hub Westend, etc.) wire
+    `NoNominationStaleness` to preserve current behaviour. They can opt into
+    `LinearStalenessCurve<28, 140, 0>` (1 month grace, 5 month linear decay,
+    floor at zero, per the RFC's proposed defaults) once the RFC is approved.
+crates:
+- name: sp-staking
+  bump: minor
+- name: pallet-staking
+  bump: major
+- name: pallet-staking-async
+  bump: major
+- name: kitchensink-runtime
+  bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: minor
+- name: polkadot-test-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor

@@ -423,6 +423,7 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Runtime>;
 	type TargetList = pallet_staking::UseValidatorsMap<Runtime>;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
+	type NominationStalenessCurve = pallet_staking::NoNominationStaleness;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type MaxControllersInDeprecationBatch = ConstU32<5900>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
