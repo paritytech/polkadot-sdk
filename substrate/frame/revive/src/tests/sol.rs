@@ -20,7 +20,7 @@ use crate::{
 	PristineCode, assert_refcount,
 	call_builder::VmBinaryModule,
 	debug::DebugSettings,
-	evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
+	evm::{PrestateTracer, PrestateTracerConfig},
 	test_utils::{ALICE, ALICE_ADDR, BOB, builder::Contract},
 	tests::{
 		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test, builder,
@@ -34,6 +34,7 @@ use frame_support::{
 	assert_err, assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::fungible::Mutate,
 };
 use pallet_revive_fixtures::{Fibonacci, FixtureType, NestedCounter, compile_module_with_type};
+use pallet_revive_types::runtime_api::*;
 use pretty_assertions::assert_eq;
 use sp_runtime::Weight;
 use test_case::test_case;
@@ -557,9 +558,10 @@ fn prestate_diff_mode_tracing_works() {
 			let instantiate_trace = tracer.collect_trace();
 
 			let expected_json = replace_placeholders(test_case.expected_instantiate_trace_json);
-			let expected_trace: PrestateTrace = serde_json::from_str(&expected_json).unwrap();
+			let expected_trace: PrestateTraceV1 = serde_json::from_str(&expected_json).unwrap();
 			assert_eq!(
-				instantiate_trace, expected_trace,
+				PrestateTraceV1::from(instantiate_trace),
+				expected_trace,
 				"unexpected instantiate trace for {:?}",
 				test_case.config
 			);
@@ -578,9 +580,10 @@ fn prestate_diff_mode_tracing_works() {
 
 			let call_trace = tracer.collect_trace();
 			let expected_json = replace_placeholders(test_case.expected_call_trace_json);
-			let expected_trace: PrestateTrace = serde_json::from_str(&expected_json).unwrap();
+			let expected_trace: PrestateTraceV1 = serde_json::from_str(&expected_json).unwrap();
 			assert_eq!(
-				call_trace, expected_trace,
+				PrestateTraceV1::from(call_trace),
+				expected_trace,
 				"unexpected call trace for {:?}",
 				test_case.config
 			);
@@ -679,7 +682,7 @@ fn eth_substrate_call_tracks_weight_correctly() {
 #[test]
 fn execution_tracing_works() {
 	use crate::{
-		evm::{Bytes, ExecutionStepKind, ExecutionTrace, ExecutionTracer, ExecutionTracerConfig},
+		evm::{Bytes, ExecutionTrace, ExecutionTracer, ExecutionTracerConfig},
 		tracing::trace,
 	};
 	use pallet_revive_fixtures::{Callee, Caller};
@@ -785,7 +788,7 @@ fn execution_tracing_works() {
 	];
 
 	/// Normalizes trace by zeroing out all dynamic values for stable comparisons.
-	fn normalize_trace(trace: &ExecutionTrace) -> ExecutionTrace {
+	fn normalize_trace(trace: &ExecutionTraceV1) -> ExecutionTraceV1 {
 		use frame_support::weights::Weight;
 
 		let mut normalized = trace.clone();
@@ -799,33 +802,32 @@ fn execution_tracing_works() {
 			step.weight_cost = Weight::zero();
 
 			match &mut step.kind {
-				ExecutionStepKind::EVMOpcode { stack, .. } => {
+				ExecutionStepKindV1::EVMOpcode { stack, .. } => {
 					for val in stack.iter_mut() {
 						*val = Bytes::from(vec![0u8]);
 					}
 				},
-				ExecutionStepKind::PVMSyscall { op, args, returned, .. } => {
+				ExecutionStepKindV1::PVMSyscall { op, args, returned, .. } => {
 					// Normalize call/delegate_call to their _evm variants so
 					// the test passes regardless of which resolc version
 					// compiled the fixtures (older emits call/delegate_call,
 					// newer emits call_evm/delegate_call_evm).
-					use crate::vm::pvm::env::lookup_syscall_index;
-					let call_idx = lookup_syscall_index("call").unwrap();
-					let call_evm_idx = lookup_syscall_index("call_evm").unwrap();
-					let delegate_idx = lookup_syscall_index("delegate_call").unwrap();
-					let delegate_evm_idx = lookup_syscall_index("delegate_call_evm").unwrap();
-					if *op == call_idx || *op == call_evm_idx {
-						*op = call_evm_idx;
-						// Clear args since the two variants have compatible
-						// behavior but different argument layouts.
-						args.clear();
-					} else if *op == delegate_idx || *op == delegate_evm_idx {
-						*op = delegate_evm_idx;
-						args.clear();
-					} else {
-						for val in args.iter_mut() {
-							*val = 0;
-						}
+					match op {
+						PolkavmSyscallV1::Call | PolkavmSyscallV1::CallEvm => {
+							*op = PolkavmSyscallV1::CallEvm;
+							// Clear args since the two variants have compatible behavior but
+							// different argument layouts.
+							args.clear();
+						},
+						PolkavmSyscallV1::DelegateCall | PolkavmSyscallV1::DelegateCallEvm => {
+							*op = PolkavmSyscallV1::DelegateCallEvm;
+							args.clear();
+						},
+						_ => {
+							for val in args.iter_mut() {
+								*val = 0;
+							}
+						},
 					}
 					if returned.is_some() {
 						*returned = Some(0);
@@ -879,12 +881,12 @@ fn execution_tracing_works() {
 				} else {
 					test_case.expected_pvm_trace
 				};
-				let expected: ExecutionTrace = serde_json::from_str(expected_json_str)
+				let expected: ExecutionTraceV1 = serde_json::from_str(expected_json_str)
 					.unwrap_or_else(|e| {
 						panic!("{name} ({vm_type}): failed to parse expected JSON: {e}")
 					});
 				// Normalize both traces for comparison (zeroes out dynamic values)
-				let normalized_actual = normalize_trace(&actual_trace);
+				let normalized_actual = normalize_trace(&actual_trace.clone().into());
 				let normalized_expected = normalize_trace(&expected);
 				assert_eq!(
 					normalized_actual, normalized_expected,
