@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782097167436,
+  "lastUpdate": 1782144463946,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "ab65a82ec84c4aec10e703630ee3c8eddc5b39ee",
-          "message": "cumulus-bootnodes: Do not require a specific hash (#10048)\n\nOn the wire the hash is represented as `Vec<u8>` any way. So, there is\nno need to take this as an extra type.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-30T15:57:45Z",
-          "tree_id": "bf8dbb51252949db24a63ee18bd114f202e11c2c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ab65a82ec84c4aec10e703630ee3c8eddc5b39ee"
-        },
-        "date": 1761847683379,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20355659069999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.588496905833333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1376116698,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pisarevkir@gmail.com",
+            "name": "Kirill",
+            "username": "P1sar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cb27c1ee088fb6cade9278ea3980077c566a2329",
+          "message": "Statement-store: Publishing documentation (#12256)\n\n### Objective\nMove documentation for google docs to the repo code docs to have single\nsource of information.\nTechnical information added as code docs. More general overview and\nusage files linked to code docs and included in cargo docs\n\n### What's  included\n- Technical specification\n- Allowance and privacy \n- Developer guidelines \n- General information from One Pages\n- Basic LightNode\n\n\n### What's not included\n- Light Node mostly avoided, will be documented in smoldot and linked\nhere\n- SDK avoided for now\n- Benchmarks and status",
+          "timestamp": "2026-06-22T12:06:30Z",
+          "tree_id": "71feae51869692457793fc252bb372042f6aa58b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cb27c1ee088fb6cade9278ea3980077c566a2329"
+        },
+        "date": 1782144436294,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.135959213133333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13429116306666664,
             "unit": "seconds"
           }
         ]
