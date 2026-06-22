@@ -148,9 +148,8 @@ impl Convert<sp_core::U256, Balance> for U256ToBalance {
 	}
 }
 
-/// Always reports block 0 so commission `throttle_from` is deterministic and matches AHW, whose
-/// nom-pools `BlockNumberProvider` is `RelaychainDataProvider` (relay block 0 at benchmark
-/// genesis).
+/// Always reports block 0 so commission `throttle_from` is deterministic.
+/// While benchmarking on AH, nom-pools `BlockNumberProvider` will be `RelaychainDataProvider`.
 pub struct BenchmarkBlockNumberProvider;
 impl BlockNumberProvider for BenchmarkBlockNumberProvider {
 	type BlockNumber = BlockNumber;

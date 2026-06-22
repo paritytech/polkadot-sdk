@@ -71,8 +71,6 @@ fn create_funded_user_with_balance<T: pallet_nomination_pools::Config>(
 }
 
 // Create a funded validator and register it as such, so that pools can nominate it.
-// `pallet-staking-async` rejects nominating non-validators, unlike the old `pallet-staking`, so
-// benchmarks that nominate need real validators.
 fn create_validator<T: Config>(n: u32, balance: BalanceOf<T>) -> T::AccountId
 where
 	pallet_staking_async::BalanceOf<T>: From<u128>,
@@ -204,7 +202,7 @@ impl<T: Config> ListScenario<T> {
 		// Burn the entire issuance.
 		CurrencyOf::<T>::set_total_issuance(Zero::zero());
 
-		// Create a real validator the pools can nominate (staking-async rejects non-validators).
+		// Create a real validator the pools can nominate.
 		let validator =
 			create_validator::<T>(0, CurrencyOf::<T>::minimum_balance() * 1000u32.into());
 
@@ -416,7 +414,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn unbond() {
-		// Initialise the active era; staking-async's unbond path defensively requires it.
 		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(0);
 
 		// The weight the nominator will start at. The value used here is expected to be
@@ -447,7 +444,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn pool_withdraw_unbonded(s: Linear<0, MAX_SPANS>) {
-		// Initialise the active era; staking-async's unbond path defensively requires it.
 		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(0);
 
 		let min_create_bond = Pools::<T>::depositor_min_bond();
@@ -674,7 +670,7 @@ mod benchmarks {
 		let min_create_bond = Pools::<T>::depositor_min_bond() * 2u32.into();
 		let (depositor, _pool_account) = create_pool_account::<T>(0, min_create_bond, None);
 
-		// Create real validators to nominate (staking-async rejects non-validators, #8436).
+		// Create real validators to nominate.
 		let validator_balance = CurrencyOf::<T>::minimum_balance() * 1000u32.into();
 		let validators: Vec<_> =
 			(0..n).map(|i| create_validator::<T>(i, validator_balance)).collect();
