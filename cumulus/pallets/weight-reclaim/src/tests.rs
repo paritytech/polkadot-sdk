@@ -24,7 +24,7 @@ use frame_support::{
 use sp_runtime::{
 	generic,
 	traits::{Applyable, BlakeTwo256, DispatchTransaction, Get},
-	BuildStorage, StateVersion,
+	BuildStorage,
 };
 use sp_trie::proof_size_extension::ProofSizeExt;
 
