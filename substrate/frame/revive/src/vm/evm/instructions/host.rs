@@ -77,12 +77,13 @@ pub fn extcodecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 		return ControlFlow::Continue(());
 	}
 
-	// Pre-charge the larger of the two limits so the `code_size.max(len)` refund can't exceed it.
-	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::ExtCodeCopy(
-		limits::EVM_MEMORY_BYTES.max(limits::code::BLOB_BYTES),
-	))?;
-
+	interpreter.ext.charge_or_halt(RuntimeCosts::CodeSize)?;
 	let address = address.into_address();
+	let code_size = interpreter.ext.code_size(&address) as u32;
+	interpreter
+		.ext
+		.charge_or_halt(RuntimeCosts::ExtCodeCopy(code_size.max(len as u32)))?;
+
 	let memory_offset = as_usize_or_halt::<E::T>(memory_offset)?;
 	let code_offset = as_usize_or_halt::<E::T>(code_offset)?;
 
@@ -90,13 +91,7 @@ pub fn extcodecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 
 	let mut buf = interpreter.memory.slice_mut(memory_offset, len);
 	// Note: This can't panic because we resized memory to fit.
-	let code_size = interpreter.ext.copy_code_slice(&mut buf, &address, code_offset);
-
-	// `len` memory bytes are written regardless, so the refund can't go below `len`.
-	interpreter
-		.ext
-		.frame_meter_mut()
-		.adjust_weight(charged, RuntimeCosts::ExtCodeCopy(code_size.max(len as u32)));
+	interpreter.ext.copy_code_slice(&mut buf, &address, code_offset);
 	ControlFlow::Continue(())
 }
 
