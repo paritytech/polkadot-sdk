@@ -30,10 +30,19 @@ use frame_support::{
 use sp_runtime::traits::Hash;
 use substrate_test_utils::assert_eq_uvec;
 
+/// Run the given closure in a fresh test externality and assert that all of the pallet's
+/// invariants hold afterwards.
+fn test(f: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		f();
+		Scheduler::do_try_state().expect("All invariants must hold after a test");
+	});
+}
+
 #[test]
 #[docify::export]
 fn basic_scheduling_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// Call to schedule
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -67,7 +76,7 @@ fn basic_scheduling_works() {
 #[test]
 #[docify::export]
 fn scheduling_with_preimages_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// Call to schedule
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -104,7 +113,7 @@ fn scheduling_with_preimages_works() {
 
 #[test]
 fn schedule_after_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		System::run_to_block::<AllPalletsWithSystem>(2);
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -128,7 +137,7 @@ fn schedule_after_works() {
 
 #[test]
 fn schedule_after_zero_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		System::run_to_block::<AllPalletsWithSystem>(2);
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -150,7 +159,7 @@ fn schedule_after_zero_works() {
 
 #[test]
 fn periodic_scheduling_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// at #4, every 3 blocks, 3 times.
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(4),
@@ -182,7 +191,7 @@ fn periodic_scheduling_works() {
 
 #[test]
 fn retry_scheduling_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// task fails until block 8 is reached
 		Threshold::<Test>::put((8, 100));
 		// task 42 at #4
@@ -238,7 +247,7 @@ fn retry_scheduling_works() {
 
 #[test]
 fn named_retry_scheduling_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// task fails until block 8 is reached
 		Threshold::<Test>::put((8, 100));
 		// task 42 at #4
@@ -299,7 +308,7 @@ fn named_retry_scheduling_works() {
 
 #[test]
 fn retry_scheduling_multiple_tasks_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// task fails until block 8 is reached
 		Threshold::<Test>::put((8, 100));
 		// task 20 at #4
@@ -386,7 +395,7 @@ fn retry_scheduling_multiple_tasks_works() {
 
 #[test]
 fn retry_scheduling_multiple_named_tasks_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// task fails until we reach block 8
 		Threshold::<Test>::put((8, 100));
 		// task 20 at #4
@@ -475,7 +484,7 @@ fn retry_scheduling_multiple_named_tasks_works() {
 
 #[test]
 fn retry_scheduling_with_period_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// tasks fail until we reach block 4 and after we're past block 8
 		Threshold::<Test>::put((4, 8));
 		// task 42 at #4, every 3 blocks, 6 times
@@ -618,7 +627,7 @@ fn retry_scheduling_with_period_works() {
 
 #[test]
 fn named_retry_scheduling_with_period_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// tasks fail until we reach block 4 and after we're past block 8
 		Threshold::<Test>::put((4, 8));
 		// task 42 at #4, every 3 blocks, 6 times
@@ -767,7 +776,7 @@ fn named_retry_scheduling_with_period_works() {
 
 #[test]
 fn retry_scheduling_expires() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// task will fail if we're past block 3
 		Threshold::<Test>::put((1, 3));
 		// task 42 at #4
@@ -825,7 +834,7 @@ fn retry_scheduling_expires() {
 
 #[test]
 fn set_retry_bad_origin() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// task 42 at #4 with account 101 as origin
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(4),
@@ -849,7 +858,7 @@ fn set_retry_bad_origin() {
 
 #[test]
 fn set_named_retry_bad_origin() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// task 42 at #4 with account 101 as origin
 		assert_ok!(Scheduler::do_schedule_named(
 			[42u8; 32],
@@ -874,7 +883,7 @@ fn set_named_retry_bad_origin() {
 
 #[test]
 fn set_retry_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// task 42 at #4
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(4),
@@ -900,7 +909,7 @@ fn set_retry_works() {
 
 #[test]
 fn set_named_retry_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// task 42 at #4 with account 101 as origin
 		assert_ok!(Scheduler::do_schedule_named(
 			[42u8; 32],
@@ -928,7 +937,7 @@ fn set_named_retry_works() {
 
 #[test]
 fn retry_periodic_full_cycle() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// tasks fail after we pass block 1000
 		Threshold::<Test>::put((1, 1000));
 		// task 42 at #4, every 100 blocks, 4 times
@@ -1041,7 +1050,7 @@ fn retry_periodic_full_cycle() {
 
 #[test]
 fn reschedule_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
@@ -1080,7 +1089,7 @@ fn reschedule_works() {
 
 #[test]
 fn reschedule_named_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
@@ -1120,7 +1129,7 @@ fn reschedule_named_works() {
 
 #[test]
 fn reschedule_named_periodic_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
@@ -1170,7 +1179,7 @@ fn reschedule_named_periodic_works() {
 
 #[test]
 fn cancel_named_scheduling_works_with_normal_cancel() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// at #4.
 		Scheduler::do_schedule_named(
 			[1u8; 32],
@@ -1208,7 +1217,7 @@ fn cancel_named_scheduling_works_with_normal_cancel() {
 
 #[test]
 fn cancel_named_periodic_scheduling_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// at #4, every 3 blocks, 3 times.
 		Scheduler::do_schedule_named(
 			[1u8; 32],
@@ -1264,7 +1273,7 @@ fn cancel_named_periodic_scheduling_works() {
 
 #[test]
 fn scheduler_respects_weight_limits() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3 * 2 });
 		assert_ok!(Scheduler::do_schedule(
@@ -1292,7 +1301,7 @@ fn scheduler_respects_weight_limits() {
 
 #[test]
 fn retry_respects_weight_limits() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		// schedule 42
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3 * 2 });
@@ -1344,7 +1353,7 @@ fn retry_respects_weight_limits() {
 
 #[test]
 fn try_schedule_retry_respects_weight_limits() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let service_agendas_weight = <Test as Config>::WeightInfo::service_agendas_base();
 		let service_agenda_weight = <Test as Config>::WeightInfo::service_agenda_base(
@@ -1406,7 +1415,7 @@ fn schedule_retry_fails_when_retry_target_block_is_full(named: bool) {
 	let retry_period = 3;
 	let task_name = [42u8; 32];
 
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// Task will fail until block 100 (effectively always fails in this test).
 		Threshold::<Test>::put((100, 200));
 
@@ -1489,7 +1498,7 @@ fn schedule_retry_fails_when_retry_target_block_is_full_named() {
 /// Permanently overweight calls are not deleted but also not executed.
 #[test]
 fn scheduler_does_not_delete_permanently_overweight_call() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight });
 		assert_ok!(Scheduler::do_schedule(
@@ -1515,7 +1524,7 @@ fn scheduler_does_not_delete_permanently_overweight_call() {
 
 #[test]
 fn scheduler_handles_periodic_failure() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let max_per_block = <Test as Config>::MaxScheduledPerBlock::get();
 
@@ -1557,7 +1566,7 @@ fn scheduler_handles_periodic_failure() {
 
 #[test]
 fn scheduler_handles_periodic_unavailable_preimage() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: (max_weight / 3) * 2 });
@@ -1603,7 +1612,7 @@ fn scheduler_handles_periodic_unavailable_preimage() {
 
 #[test]
 fn scheduler_respects_priority_ordering() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3 });
 		assert_ok!(Scheduler::do_schedule(
@@ -1628,7 +1637,7 @@ fn scheduler_respects_priority_ordering() {
 
 #[test]
 fn scheduler_respects_priority_ordering_with_soft_deadlines() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 5 * 2 });
 		assert_ok!(Scheduler::do_schedule(
@@ -1666,7 +1675,7 @@ fn scheduler_respects_priority_ordering_with_soft_deadlines() {
 
 #[test]
 fn on_initialize_weight_is_correct() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call_weight = Weight::from_parts(25, 0);
 
 		// Named
@@ -1790,7 +1799,7 @@ fn on_initialize_weight_is_correct() {
 
 #[test]
 fn root_calls_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call = Box::new(RuntimeCall::Logger(LoggerCall::log {
 			i: 69,
 			weight: Weight::from_parts(10, 0),
@@ -1817,7 +1826,7 @@ fn root_calls_works() {
 
 #[test]
 fn fails_to_schedule_task_in_the_past() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		System::run_to_block::<AllPalletsWithSystem>(3);
 
 		let call1 = Box::new(RuntimeCall::Logger(LoggerCall::log {
@@ -1852,7 +1861,7 @@ fn fails_to_schedule_task_in_the_past() {
 
 #[test]
 fn should_use_origin() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call = Box::new(RuntimeCall::Logger(LoggerCall::log {
 			i: 69,
 			weight: Weight::from_parts(10, 0),
@@ -1884,7 +1893,7 @@ fn should_use_origin() {
 
 #[test]
 fn should_check_origin() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call = Box::new(RuntimeCall::Logger(LoggerCall::log {
 			i: 69,
 			weight: Weight::from_parts(10, 0),
@@ -1913,7 +1922,7 @@ fn should_check_origin() {
 
 #[test]
 fn should_check_origin_for_cancel() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call = Box::new(RuntimeCall::Logger(LoggerCall::log_without_filter {
 			i: 69,
 			weight: Weight::from_parts(10, 0),
@@ -1955,7 +1964,7 @@ fn should_check_origin_for_cancel() {
 
 #[test]
 fn cancel_removes_retry_entry() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// task fails until block 99 is reached
 		Threshold::<Test>::put((99, 100));
 		// task 20 at #4
@@ -2030,7 +2039,7 @@ fn cancel_removes_retry_entry() {
 
 #[test]
 fn cancel_retries_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		// task fails until block 99 is reached
 		Threshold::<Test>::put((99, 100));
 		// task 20 at #4
@@ -2083,7 +2092,7 @@ fn cancel_retries_works() {
 
 #[test]
 fn migration_to_v4_works() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		for i in 0..3u64 {
 			let k = i.twox_64_concat();
 			let old = vec![
@@ -2232,7 +2241,7 @@ impl Into<OriginCaller> for u32 {
 
 #[test]
 fn test_migrate_origin() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		for i in 0..3u64 {
 			let k = i.twox_64_concat();
 			let old: Vec<Option<Scheduled<[u8; 32], BoundedCallOf<Test>, u64, u32, u64>>> = vec![
@@ -2367,7 +2376,7 @@ fn test_migrate_origin() {
 
 #[test]
 fn postponed_named_task_cannot_be_rescheduled() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(1000, 0) });
 		let hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
@@ -2445,7 +2454,7 @@ fn postponed_named_task_cannot_be_rescheduled() {
 #[test]
 fn scheduler_v3_anon_basic_works() {
 	use frame_support::traits::schedule::v3::Anon;
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
@@ -2474,7 +2483,7 @@ fn scheduler_v3_anon_basic_works() {
 #[test]
 fn scheduler_v3_anon_cancel_works() {
 	use frame_support::traits::schedule::v3::Anon;
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let bound = Preimage::bound(call).unwrap();
@@ -2501,7 +2510,7 @@ fn scheduler_v3_anon_cancel_works() {
 #[test]
 fn scheduler_v3_anon_reschedule_works() {
 	use frame_support::traits::schedule::v3::Anon;
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
@@ -2548,7 +2557,7 @@ fn scheduler_v3_anon_reschedule_works() {
 #[test]
 fn scheduler_v3_anon_next_schedule_time_works() {
 	use frame_support::traits::schedule::v3::Anon;
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let bound = Preimage::bound(call).unwrap();
@@ -2585,7 +2594,7 @@ fn scheduler_v3_anon_next_schedule_time_works() {
 #[test]
 fn scheduler_v3_anon_reschedule_and_next_schedule_time_work() {
 	use frame_support::traits::schedule::v3::Anon;
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let bound = Preimage::bound(call).unwrap();
@@ -2627,7 +2636,7 @@ fn scheduler_v3_anon_schedule_agenda_overflows() {
 	use frame_support::traits::schedule::v3::Anon;
 	let max: u32 = <Test as Config>::MaxScheduledPerBlock::get();
 
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let bound = Preimage::bound(call).unwrap();
@@ -2663,7 +2672,7 @@ fn scheduler_v3_anon_cancel_and_schedule_fills_holes() {
 	let max: u32 = <Test as Config>::MaxScheduledPerBlock::get();
 	assert!(max > 3, "This test only makes sense for MaxScheduledPerBlock > 3");
 
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let bound = Preimage::bound(call).unwrap();
@@ -2712,7 +2721,7 @@ fn scheduler_v3_anon_reschedule_fills_holes() {
 	let max: u32 = <Test as Config>::MaxScheduledPerBlock::get();
 	assert!(max > 3, "pre-condition: This test only makes sense for MaxScheduledPerBlock > 3");
 
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let bound = Preimage::bound(call).unwrap();
@@ -2756,7 +2765,7 @@ fn scheduler_v3_anon_reschedule_fills_holes() {
 fn scheduler_v3_named_basic_works() {
 	use frame_support::traits::schedule::v3::Named;
 
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let name = [1u8; 32];
@@ -2788,7 +2797,7 @@ fn scheduler_v3_named_basic_works() {
 #[test]
 fn scheduler_v3_named_cancel_named_works() {
 	use frame_support::traits::schedule::v3::Named;
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let bound = Preimage::bound(call).unwrap();
@@ -2820,7 +2829,7 @@ fn scheduler_v3_named_cancel_named_works() {
 #[test]
 fn scheduler_v3_named_cancel_without_name_works() {
 	use frame_support::traits::schedule::v3::{Anon, Named};
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let bound = Preimage::bound(call).unwrap();
@@ -2852,7 +2861,7 @@ fn scheduler_v3_named_cancel_without_name_works() {
 #[test]
 fn scheduler_v3_named_reschedule_named_works() {
 	use frame_support::traits::schedule::v3::{Anon, Named};
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let name = [1u8; 32];
@@ -2911,7 +2920,7 @@ fn scheduler_v3_named_reschedule_named_works() {
 #[test]
 fn scheduler_v3_named_next_schedule_time_works() {
 	use frame_support::traits::schedule::v3::{Anon, Named};
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let bound = Preimage::bound(call).unwrap();
@@ -2955,7 +2964,7 @@ fn scheduler_v3_named_next_schedule_time_works() {
 
 #[test]
 fn cancel_last_task_removes_agenda() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let when = 4;
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -2989,7 +2998,7 @@ fn cancel_last_task_removes_agenda() {
 
 #[test]
 fn cancel_named_last_task_removes_agenda() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let when = 4;
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -3025,7 +3034,7 @@ fn cancel_named_last_task_removes_agenda() {
 
 #[test]
 fn reschedule_last_task_removes_agenda() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let when = 4;
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -3062,7 +3071,7 @@ fn reschedule_last_task_removes_agenda() {
 
 #[test]
 fn reschedule_named_last_task_removes_agenda() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let when = 4;
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -3104,7 +3113,7 @@ fn reschedule_named_last_task_removes_agenda() {
 fn unavailable_call_is_detected() {
 	use frame_support::traits::schedule::v3::Named;
 
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
@@ -3144,7 +3153,7 @@ fn unavailable_call_is_detected() {
 
 #[test]
 fn postponed_task_is_still_available() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let service_agendas_weight = <Test as Config>::WeightInfo::service_agendas_base();
 		let service_agenda_weight = <Test as Config>::WeightInfo::service_agenda_base(
 			<Test as Config>::MaxScheduledPerBlock::get(),
@@ -3183,7 +3192,7 @@ fn postponed_task_is_still_available() {
 /// provider is not local), but the tasks from those skipped agendas still processed later.
 #[test]
 fn on_initialize_misses_blocks() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let now = 1;
 		System::run_to_block::<AllPalletsWithSystem>(now);
 
@@ -3216,7 +3225,7 @@ fn on_initialize_misses_blocks() {
 /// Scheduler runs `on_initialize` twice for the same block.
 #[test]
 fn on_initialize_runs_twice_for_the_same_block() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let now = 1;
 		System::run_to_block::<AllPalletsWithSystem>(now);
 		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
@@ -3250,7 +3259,7 @@ fn on_initialize_runs_twice_for_the_same_block() {
 /// weight.
 #[test]
 fn not_permanently_overweight_when_task_from_not_first_agenda() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let now = 1;
 		System::run_to_block::<AllPalletsWithSystem>(now);
 
@@ -3289,5 +3298,44 @@ fn not_permanently_overweight_when_task_from_not_first_agenda() {
 		// permanently overweight tasks are not removed from the agenda.
 		assert_eq!(Agenda::<Test>::get(schedule_at).len(), 1);
 		assert_eq!(IncompleteSince::<Test>::get(), Some(System::block_number() + 1));
+	});
+}
+
+// These tests corrupt storage on purpose, so they bypass the `test` wrapper (whose own
+// `do_try_state` would trip) and assert the check rejects the inconsistent state.
+
+#[test]
+fn try_state_catches_dangling_lookup() {
+	new_test_ext().execute_with(|| {
+		// A `Lookup` entry with no corresponding `Agenda` slot is inconsistent.
+		Lookup::<Test>::insert([1u8; 32], (5u64, 0u32));
+		assert!(Scheduler::do_try_state().is_err());
+
+		Lookup::<Test>::remove([1u8; 32]);
+		assert_ok!(Scheduler::do_try_state());
+	});
+}
+
+#[test]
+fn try_state_catches_lookup_id_mismatch() {
+	new_test_ext().execute_with(|| {
+		// Schedule a named task at (4, 0).
+		assert_ok!(Scheduler::do_schedule_named(
+			[20u8; 32],
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 20,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+		assert_ok!(Scheduler::do_try_state());
+
+		// A second `Lookup` key pointing at that slot, whose task id differs, is inconsistent.
+		Lookup::<Test>::insert([99u8; 32], (4u64, 0u32));
+		assert!(Scheduler::do_try_state().is_err());
 	});
 }
