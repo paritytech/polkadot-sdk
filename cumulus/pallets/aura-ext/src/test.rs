@@ -41,7 +41,7 @@ use std::cell::RefCell;
 // Test pallet that reads storage and calls storage_proof_size
 #[frame_support::pallet]
 pub mod test_pallet {
-	use frame_support::{pallet_prelude::*, sp_runtime::StateVersion};
+	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]

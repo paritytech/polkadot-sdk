@@ -21,7 +21,7 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::{BlockWeight, CheckWeight};
-use sp_runtime::{traits::DispatchTransaction, AccountId32, BuildStorage, StateVersion};
+use sp_runtime::{traits::DispatchTransaction, AccountId32, BuildStorage};
 use sp_trie::proof_size_extension::ProofSizeExt;
 
 type Test = cumulus_test_runtime::Runtime;
