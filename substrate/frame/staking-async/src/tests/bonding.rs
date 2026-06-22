@@ -2045,14 +2045,15 @@ mod staking_bounds_chill_other {
 
 			let mut active = BoundedBTreeMap::new();
 			active.try_insert(VALIDATOR, 100).unwrap();
-			for era in inactive_threshold + 1..history_depth {
+			for era in 1..=inactive_threshold {
 				ErasRewardPoints::<Test>::insert(
 					era,
 					EraRewardPoints { total: 100, individual: active.clone() },
 				);
 			}
 
-			let valid_proof = BoundedVec::truncate_from((1..=inactive_threshold).collect());
+			let valid_proof =
+				BoundedVec::truncate_from((inactive_threshold + 1..=history_depth).collect());
 
 			assert_noop!(
 				Staking::chill_inactive(
@@ -2096,6 +2097,17 @@ mod staking_bounds_chill_other {
 					not_sorted_proof
 				),
 				Error::<Test>::InvalidInactivityProof(InvalidInactivityProofError::NotSorted)
+			);
+
+			let proof_with_current_era =
+				BoundedVec::truncate_from((inactive_threshold + 2..=history_depth + 1).collect());
+			assert_noop!(
+				Staking::chill_inactive(
+					RuntimeOrigin::signed(NOT_VALIDATOR),
+					VALIDATOR,
+					proof_with_current_era
+				),
+				Error::<Test>::InvalidInactivityProof(InvalidInactivityProofError::InvalidEra)
 			);
 
 			assert_ok!(Staking::chill_inactive(

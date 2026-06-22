@@ -67,7 +67,7 @@ pub mod pallet {
 
 	use super::*;
 	use crate::{
-		session_rotation::{self, Eras},
+		session_rotation::{self, Eras, Rotator},
 		IsValidatorInactive, PagedExposureMetadata, SnapshotStatus,
 	};
 	use codec::HasCompact;
@@ -722,10 +722,10 @@ pub mod pallet {
 		fn get() -> u32 {
 			let bonding_duration = T::BondingDuration::get();
 			bonding_duration.saturating_add(OFFENCE_QUEUE_ERAS_BOUND) // adding OFFENCE_QUEUE_ERAS_BOUND eras
-			                                                 // to add headroom to
-			                                                 // the bound for runtime upgrades that
-			                                                 // lower BondingDuration so we avoid
-			                                                 // the try_into trap.
+			                                              // to add headroom to
+			                                              // the bound for runtime upgrades that
+			                                              // lower BondingDuration so we avoid
+			                                              // the try_into trap.
 		}
 	}
 
@@ -1553,6 +1553,8 @@ pub mod pallet {
 		ValidatorNotExposed,
 		/// Validator wasn't inactive at some era.
 		ValidatorActive,
+		/// An invalid era was provided in the proof.
+		InvalidEra,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -3171,6 +3173,7 @@ pub mod pallet {
 		/// - It must not contain duplicate entries.
 		/// - For every era the `stash` account must be exposed.
 		/// - Every item must pass the check provided by [`Config::IsValidatorInactive`].
+		/// - Every era must be less or equal to the active era.
 		///
 		/// On a successfull execution, caller doesn't pay fees.
 		#[pallet::call_index(35)]
@@ -3193,6 +3196,12 @@ pub mod pallet {
 			ensure!(
 				proof.is_sorted_by(|a, b| a < b),
 				Error::<T>::InvalidInactivityProof(InvalidInactivityProofError::NotSorted)
+			);
+
+			let most_recent_proof_era = proof.last().copied().unwrap_or(EraIndex::MAX);
+			ensure!(
+				most_recent_proof_era <= Rotator::<T>::active_era(),
+				Error::<T>::InvalidInactivityProof(InvalidInactivityProofError::InvalidEra,)
 			);
 
 			for era in proof {
