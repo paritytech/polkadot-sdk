@@ -55,6 +55,9 @@ const SKIP_MAINTENANCE_THRESHOLD: u16 = 20;
 /// - `nbb(B1)`, `nbb(B2)` -> true
 /// - `nbb(B1)`, `nbb(C1)`, `f(C1)` -> false (enactment was already performed in `nbb(B1)`)
 /// - `nbb(C1)`, `f(B1)` -> false (enactment was already performed in `nbb(B2)`)
+///
+/// Note: a `NewBlock` event (a non-best block imported on a fork, see [`ChainEvent::NewBlock`]) is
+/// handled exactly like `NewBestBlock`
 pub struct EnactmentState<Block>
 where
 	Block: BlockT,
@@ -176,7 +179,9 @@ where
 	/// fallback when tree_route cannot be computed.
 	pub fn force_update(&mut self, event: &ChainEvent<Block>) {
 		match event {
-			ChainEvent::NewBestBlock { hash, .. } => self.recent_best_block = *hash,
+			ChainEvent::NewBlock { hash } | ChainEvent::NewBestBlock { hash, .. } => {
+				self.recent_best_block = *hash
+			},
 			ChainEvent::Finalized { hash, .. } => self.recent_finalized_block = *hash,
 		};
 		trace!(
@@ -460,6 +465,19 @@ mod enactment_state_tests {
 			.unwrap()
 	}
 
+	fn trigger_new_block(
+		state: &mut EnactmentState<Block>,
+		acted_on: HashAndNumber<Block>,
+	) -> EnactmentAction<Block> {
+		state
+			.update(
+				&ChainEvent::NewBlock { hash: acted_on.hash },
+				&tree_route,
+				&block_hash_to_block_number,
+			)
+			.unwrap()
+	}
+
 	fn trigger_finalized(
 		state: &mut EnactmentState<Block>,
 		from: HashAndNumber<Block>,
@@ -550,6 +568,30 @@ mod enactment_state_tests {
 		let result = trigger_finalized(&mut es, d2(), e2());
 		assert!(matches!(result, EnactmentAction::HandleFinalization));
 		assert_es_eq(&es, e2(), e2());
+	}
+
+	#[test]
+	fn test_enactment_new_block_is_handled_like_new_best() {
+		sp_tracing::try_init_simple();
+		let mut es = EnactmentState::new(a().hash, a().hash);
+
+		//   B1-C1-D1-E1
+		//  /
+		// A
+		//  \
+		//   B2-C2-D2-E2
+
+		let result = trigger_new_block(&mut es, d1());
+		assert!(matches!(result, EnactmentAction::HandleEnactment { .. }));
+		assert_es_eq(&es, d1(), a());
+
+		let result = trigger_new_block(&mut es, d2());
+		assert!(matches!(result, EnactmentAction::HandleEnactment { .. }));
+		assert_es_eq(&es, d2(), a());
+
+		let result = trigger_new_best_block(&mut es, d2(), e2());
+		assert!(matches!(result, EnactmentAction::HandleEnactment { .. }));
+		assert_es_eq(&es, e2(), a());
 	}
 
 	#[test]

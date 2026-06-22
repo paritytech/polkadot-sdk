@@ -60,6 +60,10 @@ pub struct TransactionPoolParams {
 	/// The type of transaction pool to be instantiated.
 	#[arg(long, value_enum, default_value_t = TransactionPoolType::ForkAware)]
 	pub pool_type: TransactionPoolType,
+
+	/// Only maintain the transaction pool on best blocks, ignoring non-best forks.
+	#[arg(long, default_value_t = false)]
+	pub pool_best_blocks_only: bool,
 }
 
 impl TransactionPoolParams {
@@ -71,6 +75,7 @@ impl TransactionPoolParams {
 			self.tx_ban_seconds,
 			self.pool_type.into(),
 			is_dev,
+			self.pool_best_blocks_only,
 		)
 	}
 }
