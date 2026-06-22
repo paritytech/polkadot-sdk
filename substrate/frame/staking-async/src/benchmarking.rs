@@ -1560,6 +1560,9 @@ mod benchmarks {
 		)?;
 
 		let caller = whitelisted_caller();
+
+		set_active_era::<T>(l + 1);
+
 		// Set the validator has been inactive for `l` eras.
 		let proof = (0..l)
 			.inspect(|&era| {
