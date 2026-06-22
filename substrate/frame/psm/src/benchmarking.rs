@@ -19,13 +19,14 @@
 
 use super::*;
 use crate::Pallet as Psm;
+use alloc::boxed::Box;
 use frame_benchmarking::v2::*;
 use frame_support::traits::{
 	fungibles::{
 		metadata::Inspect as FungiblesMetadataInspect, Create as FungiblesCreate,
 		Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 	},
-	Consideration, Footprint, Get,
+	Consideration, EnsureOriginWithArg, Footprint, Get,
 };
 use frame_system::RawOrigin;
 use pallet::BalanceOf;
@@ -286,6 +287,80 @@ mod benchmarks {
 		_(RawOrigin::Root, internal_id.clone(), asset_id.clone());
 
 		assert!(!crate::ExternalAssets::<T>::contains_key(&internal_id, &asset_id));
+		Ok(())
+	}
+
+	#[benchmark]
+	fn create_psm() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let _ = frame_system::Pallet::<T>::inc_providers(&caller);
+
+		// A fresh internal asset.
+		let internal_id: T::AssetId = T::BenchmarkHelper::get_asset_id(INTERNAL_ASSET_INDEX + 1);
+		if !T::Fungibles::asset_exists(internal_id.clone()) {
+			let _ = T::Fungibles::create(internal_id.clone(), caller.clone(), true, 1u32.into());
+		}
+
+		// The origin permitted to create, and the account it resolves to (the depositor).
+		let origin = T::CreateOrigin::try_successful_origin(&internal_id)
+			.map_err(|_| BenchmarkError::Weightless)?;
+		let who = T::CreateOrigin::ensure_origin(origin.clone(), &internal_id)
+			.map_err(|_| BenchmarkError::Stop("CreateOrigin yielded no account"))?;
+		T::Consideration::ensure_successful(&who, Footprint::from_parts(1, 0));
+
+		let admin: T::PalletsOrigin = RawOrigin::Signed(who).into();
+		let max_debt = BalanceOf::<T>::from(u32::MAX);
+		let min_swap = BalanceOf::<T>::from(BENCH_MIN_SWAP);
+
+		#[extrinsic_call]
+		_(
+			origin,
+			internal_id.clone(),
+			Box::new(admin.clone()),
+			Box::new(admin),
+			caller,
+			max_debt,
+			min_swap,
+		);
+
+		assert!(crate::Psm::<T>::contains_key(&internal_id));
+		Ok(())
+	}
+
+	#[benchmark]
+	fn remove_psm() -> Result<(), BenchmarkError> {
+		// `ensure_internal_setup` installs a PSM with `Root` as full admin, no externals and
+		// no debt: exactly the preconditions for removal.
+		let (internal_id, _) = ensure_internal_setup::<T>();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, internal_id.clone());
+
+		assert!(!crate::Psm::<T>::contains_key(&internal_id));
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_full_admin() -> Result<(), BenchmarkError> {
+		let (internal_id, _) = ensure_internal_setup::<T>();
+		let new_admin: T::PalletsOrigin = RawOrigin::Signed(whitelisted_caller()).into();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, internal_id.clone(), Box::new(new_admin.clone()));
+
+		assert_eq!(crate::PsmAdmin::<T>::get(&internal_id).unwrap().full_admin, new_admin);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_emergency_admin() -> Result<(), BenchmarkError> {
+		let (internal_id, _) = ensure_internal_setup::<T>();
+		let new_admin: T::PalletsOrigin = RawOrigin::Signed(whitelisted_caller()).into();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, internal_id.clone(), Box::new(new_admin.clone()));
+
+		assert_eq!(crate::PsmAdmin::<T>::get(&internal_id).unwrap().emergency_admin, new_admin);
 		Ok(())
 	}
 
