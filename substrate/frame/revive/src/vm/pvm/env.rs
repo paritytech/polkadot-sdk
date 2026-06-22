@@ -957,3 +957,29 @@ pub mod env {
 		Err(TrapReason::Termination)
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use pallet_revive_types::runtime_api::*;
+	use strum::VariantArray;
+
+	#[test]
+	fn wire_has_all_syscalls() {
+		let wire_syscalls = PolkavmSyscallV1::VARIANTS
+			.iter()
+			.copied()
+			.map(<&'static str>::from)
+			.collect::<Vec<_>>();
+		let canonical_syscalls = list_trace_ops()
+			.iter()
+			.map(|bytes| str::from_utf8(bytes).unwrap())
+			.collect::<Vec<_>>();
+
+		assert_eq!(
+			wire_syscalls, canonical_syscalls,
+			"There is a difference between the syscalls defined for the wire and the syscalls \
+			available in the system. Wire = {wire_syscalls:?}. Available = {canonical_syscalls:?}"
+		)
+	}
+}
