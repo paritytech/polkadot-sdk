@@ -310,7 +310,7 @@ fn xor_distance(a: Key, b: Key) -> Key {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::test_helpers::{config, peer, topic};
+	use crate::test_helpers::{peer, topic, topology_config};
 	use std::cmp::Ordering;
 
 	fn distance_to(topic: Topic, peer: &PeerId) -> [u8; 32] {
@@ -322,7 +322,7 @@ mod tests {
 	}
 
 	fn topology(local_seed: u8) -> PeersTopology {
-		PeersTopology::new(peer(local_seed), config(2, 2))
+		PeersTopology::new(peer(local_seed), topology_config(2, 2))
 	}
 
 	fn dht_peer(topology: &mut PeersTopology, peer: PeerId) {
@@ -520,7 +520,7 @@ mod tests {
 	#[test]
 	fn queries_match_naive_recomputation() {
 		let local = peer(1);
-		let mut topology = PeersTopology::new(local, config(5, 3));
+		let mut topology = PeersTopology::new(local, topology_config(5, 3));
 		let mut records = Vec::new();
 
 		for seed in 2..=220 {

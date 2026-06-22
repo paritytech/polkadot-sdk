@@ -28,6 +28,14 @@ pub(crate) fn topic(n: u8) -> Topic {
 	Topic([n; 32])
 }
 
+/// A deterministic peer whose identity multihash is seeded by `seed`.
+pub(crate) fn peer(seed: u8) -> PeerId {
+	let mut bytes = [seed; 34];
+	bytes[0] = 0;
+	bytes[1] = 32;
+	PeerId::from_bytes(&bytes).expect("identity multihash peer id")
+}
+
 /// A statement carrying the single `topic`.
 pub(crate) fn statement_on(topic: Topic) -> Statement {
 	let mut stmt = Statement::new();
@@ -41,16 +49,11 @@ pub(crate) fn filter_over(topics: &[Topic]) -> AffinityFilter {
 	AffinityFilter::from_topics(topics.iter().map(|topic| topic.as_ref()), 0)
 }
 
-/// A peer with a deterministic identity-multihash `PeerId` derived from `seed`.
-pub(crate) fn peer(seed: u8) -> PeerId {
-	let mut bytes = [seed; 34];
-	bytes[0] = 0;
-	bytes[1] = 32;
-	PeerId::from_bytes(&bytes).expect("identity multihash peer id")
-}
-
 /// A topology config with the given `replication_factor` and `gossip_target`.
-pub(crate) fn config(replication_factor: usize, gossip_target: usize) -> PeersTopologyConfig {
+pub(crate) fn topology_config(
+	replication_factor: usize,
+	gossip_target: usize,
+) -> PeersTopologyConfig {
 	PeersTopologyConfig {
 		replication_factor: NonZeroUsize::new(replication_factor).expect("non-zero"),
 		gossip_target: NonZeroUsize::new(gossip_target).expect("non-zero"),

@@ -65,7 +65,8 @@ use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
-	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult, Topic,
+	FilterDecision, Hash, RetentionReasonMask, Statement, StatementSource, StatementStore,
+	SubmitResult, Topic,
 };
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
@@ -424,12 +425,19 @@ impl StatementHandlerPrototype {
 			executor(
 				async move {
 					loop {
-						let task: Option<(Statement, oneshot::Sender<SubmitResult>)> =
-							queue_receiver.next().await;
+						let task: Option<(
+							Statement,
+							RetentionReasonMask,
+							oneshot::Sender<SubmitResult>,
+						)> = queue_receiver.next().await;
 						match task {
 							None => return,
-							Some((statement, completion)) => {
-								let result = store.submit(statement, StatementSource::Network);
+							Some((statement, mask, completion)) => {
+								let result = store.submit_with_retention_mask(
+									statement,
+									StatementSource::Network,
+									mask,
+								);
 								if completion.send(result).is_err() {
 									log::debug!(
 										target: LOG_TARGET,
@@ -525,7 +533,8 @@ pub struct StatementHandler<
 	// All connected peers
 	peers: HashMap<PeerId, Peer>,
 	statement_store: Arc<dyn StatementStore>,
-	queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
+	queue_sender:
+		async_channel::Sender<(Statement, RetentionReasonMask, oneshot::Sender<SubmitResult>)>,
 	/// Maximum statements per second per peer.
 	statements_per_second: NonZeroU32,
 	/// Prometheus metrics.
@@ -736,7 +745,11 @@ where
 		sync_event_stream: stream::Fuse<Pin<Box<dyn Stream<Item = SyncEvent> + Send>>>,
 		peers: HashMap<PeerId, Peer>,
 		statement_store: Arc<dyn StatementStore>,
-		queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
+		queue_sender: async_channel::Sender<(
+			Statement,
+			RetentionReasonMask,
+			oneshot::Sender<SubmitResult>,
+		)>,
 		statements_per_second: NonZeroU32,
 	) -> Self {
 		let local_peer = network.local_peer_id();
@@ -1362,8 +1375,13 @@ where
 
 				match self.pending_statements_peers.entry(hash) {
 					Entry::Vacant(entry) => {
+						let mask = if v2dht_enabled() {
+							self.v2dht.retention_reasons_for(&s)
+						} else {
+							RetentionReasonMask::persistent()
+						};
 						let (completion_sender, completion_receiver) = oneshot::channel();
-						match self.queue_sender.try_send((s, completion_sender)) {
+						match self.queue_sender.try_send((s, mask, completion_sender)) {
 							Ok(()) => {
 								self.pending_statements.push(
 									async move {
@@ -2135,10 +2153,26 @@ mod tests {
 
 		fn submit(
 			&self,
-			_statement: sp_statement_store::Statement,
-			_source: sp_statement_store::StatementSource,
+			statement: sp_statement_store::Statement,
+			source: sp_statement_store::StatementSource,
 		) -> sp_statement_store::SubmitResult {
-			unimplemented!()
+			self.submit_with_retention_mask(statement, source, RetentionReasonMask::persistent())
+		}
+
+		fn submit_with_retention_mask(
+			&self,
+			statement: sp_statement_store::Statement,
+			_source: sp_statement_store::StatementSource,
+			mask: RetentionReasonMask,
+		) -> sp_statement_store::SubmitResult {
+			let hash = statement.hash();
+			// A persistent statement is kept; a transient one is held only for the next
+			// propagation. Both are forwarded once via `recent_statements`.
+			if mask.is_persistent() {
+				self.statements.lock().unwrap().insert(hash, statement.clone());
+			}
+			self.recent_statements.lock().unwrap().insert(hash, statement);
+			SubmitResult::New
 		}
 
 		fn remove(&self, _hash: &sp_statement_store::Hash) -> sp_statement_store::Result<()> {
@@ -2157,7 +2191,7 @@ mod tests {
 		TestStatementStore,
 		TestNetwork,
 		TestNotificationService,
-		async_channel::Receiver<(Statement, oneshot::Sender<SubmitResult>)>,
+		async_channel::Receiver<(Statement, RetentionReasonMask, oneshot::Sender<SubmitResult>)>,
 		Vec<PeerId>,
 	) {
 		let statement_store = TestStatementStore::new();
@@ -2291,7 +2325,7 @@ mod tests {
 		handler.on_statements(peer_id, vec![statement1.clone()]);
 		{
 			// Manually process statements submission
-			let (s, _) = queue_receiver.try_recv().unwrap();
+			let (s, _, _) = queue_receiver.try_recv().unwrap();
 			let _ = statement_store.statements.lock().unwrap().insert(s.hash(), s);
 			handler.network.report_peer(peer_id, rep::ANY_STATEMENT_REFUND);
 		}
@@ -3299,7 +3333,7 @@ mod tests {
 			})
 			.await;
 
-		let (received, _) = queue_receiver.try_recv().unwrap();
+		let (received, _, _) = queue_receiver.try_recv().unwrap();
 		assert_eq!(received.hash(), hash, "V1 peer's raw statement should be decoded correctly");
 	}
 
@@ -3336,7 +3370,7 @@ mod tests {
 			})
 			.await;
 
-		let (received, _) = queue_receiver.try_recv().unwrap();
+		let (received, _, _) = queue_receiver.try_recv().unwrap();
 		assert_eq!(received.hash(), hash, "V2 peer's StatementMessage should be decoded correctly");
 	}
 

@@ -168,13 +168,7 @@ fn split_key(key: &Key, bit: u16) -> Key {
 #[cfg(test)]
 mod tests {
 	use super::*;
-
-	fn peer(seed: u8) -> PeerId {
-		let mut bytes = [seed; 34];
-		bytes[0] = 0;
-		bytes[1] = 32;
-		PeerId::from_bytes(&bytes).expect("identity multihash peer id")
-	}
+	use crate::test_helpers::peer;
 
 	fn peer_key(peer: &PeerId) -> Key {
 		sp_crypto_hashing::blake2_256(&peer.to_bytes())
