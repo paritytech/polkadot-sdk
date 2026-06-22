@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782097202493,
+  "lastUpdate": 1782144501396,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "dd3b145ec339af22ae904558561448361fd479f4",
-          "message": "Adjustable zstd compression level (#10151)\n\nChanges:\n- Create `compress_weakly`, `compress_strongly` and\n`compress_with_level` functions for variable compression levels\n- Use said functions instead of the old fixed-level `compress` function\n  - Deprecate `compress` function in faviour of the added ones\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-10-30T13:22:51Z",
-          "tree_id": "5c05740db261840dc99cf422ab34824e33cf6e3e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dd3b145ec339af22ae904558561448361fd479f4"
-        },
-        "date": 1761834890384,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15987906918000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007351213213333322,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022633904973333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013126751586666662,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.023793116953333346,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pisarevkir@gmail.com",
+            "name": "Kirill",
+            "username": "P1sar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cb27c1ee088fb6cade9278ea3980077c566a2329",
+          "message": "Statement-store: Publishing documentation (#12256)\n\n### Objective\nMove documentation for google docs to the repo code docs to have single\nsource of information.\nTechnical information added as code docs. More general overview and\nusage files linked to code docs and included in cargo docs\n\n### What's  included\n- Technical specification\n- Allowance and privacy \n- Developer guidelines \n- General information from One Pages\n- Basic LightNode\n\n\n### What's not included\n- Light Node mostly avoided, will be documented in smoldot and linked\nhere\n- SDK avoided for now\n- Benchmarks and status",
+          "timestamp": "2026-06-22T12:06:30Z",
+          "tree_id": "71feae51869692457793fc252bb372042f6aa58b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cb27c1ee088fb6cade9278ea3980077c566a2329"
+        },
+        "date": 1782144473321,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007661533073333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02375852083999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010021390553333304,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1481427962533334,
             "unit": "seconds"
           }
         ]
