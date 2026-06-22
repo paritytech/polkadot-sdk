@@ -1,12 +1,11 @@
-title: Fix `AllowedSchedulingParents` off by one error
+title: Fix `AllowedRelayParentInfo` off by one error
 doc:
 - audience: Runtime Dev
   description: |-
     Related to https://github.com/paritytech/polkadot-sdk/issues/11624
 
-    As far as i understand `initializer_on_new_session()` is called after `new_block()`. So for the first block in each session, the pruning wasn't happening.
-
-    Therefore I moved the prunning inside `initializer_on_new_session()`
+    Moved the pruning logic for `AllowedRelayParentInfo` from `new_block` to `initializer_on_new_session()`,
+    in order to avoid an off-by-one error.
 crates:
 - name: polkadot-runtime-parachains
   bump: major
