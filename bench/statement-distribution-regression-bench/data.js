@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781900830433,
+  "lastUpdate": 1782097272339,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "74ac323a85458e8d88e8be98bd24cfb9adad835a",
-          "message": "pallet-revive: add interface to implement mocks and pranks (#9909)\n\nNeeded for: https://github.com/paritytech/foundry-polkadot/pull/334.\n\nIn foundry-polkadot we need the ability to be able to manipulate the\n`msg.sender` and the `tx.origin` that a solidity contract sees cheatcode\ndocumentation, plus the ability to mock calls and functions.\n\nCurrently all create/call methods use the `bare_instantiate`/`bare_call`\nto run things in pallet-revive, the caller then normally gets set\nautomatically, based on what is the call stack, but for `forge test` we\nneed to be able to manipulate, so that we can set it to custom values.\n\nAdditionally, for delegate_call, bare_call is used, so there is no way\nto specify we are dealing with a delegate call, so the call is not\nworking correcly.\n \nFor both this paths, we need a way to inject this information into the\nexecution environment, hence I added an optional hooks interface that we\nimplement from foundry cheatcodes for prank and mock functionality.\n\n## TODO\n- [x] Add tests to make sure the hooks functionality does not regress.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-28T13:19:37Z",
-          "tree_id": "9d9e73ab388e6d3b9b0c2b0ab988c017e3e0665b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/74ac323a85458e8d88e8be98bd24cfb9adad835a"
-        },
-        "date": 1761661673776,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.98400000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035384411216,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04460066433799995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08619726407999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "83864a55470930577e59b256ec9fe38f3534c88a",
+          "message": "[pallet-revive]: Version the `trace_block` runtime API function (#12244)\n\n# Description\n\nThis PR is a follow up from the various discussions we have had as a\nteam around versioning of the runtime API and the approach that we\nshould take.\n\nThis PR versions a single runtime API function in pallet-revive: the\n`trace_block` function. In the process, I also implemented\nhttps://github.com/paritytech/polkadot-sdk/pull/11532 to demonstrate how\nthe various pieces connect together when we want to version a specific\nruntime API function as the last commit in the PR.\n\nThis PR is meant to show case how everything in versioning works e2e\nbefore we go ahead and version the rest of the runtime API using this\nstrategy.\n\nAll of the wire types we use for tracing have been added to the `types`\ncrate. It houses the wire types and the payload types that we use for\nthe runtime APIs.\n\nThe following concepts were added to the codebase:\n- On the wire types:\n- `${name}V${version}` - A version of a specific type. For example\n`CallLogV1`.\n- `${name}InputPayloadV${version}` - A specific version of the input\npayload for some runtime API function. For example\n`TraceBlockInputPayloadV1`.\n- `${name}OutputPayloadV${version}` - A specific version of the output\npayload for some runtime API function. For example\n`TraceBlockOutputPayloadV1`.\n- `${name}VersionedInputPayload` - An enum of all of the possible\nversions that the input payload for some runtime API function can have.\n- `${name}VersionedOutputPayload` - An enum of all of the possible\nversions that the output payload for some runtime API function can have.\n- On the execution types:\n- `${name}InputPayload` - Execution type input payload of some runtime\nAPI function.\n- `${name}OutputPayload` - Execution type output payload of some runtime\nAPI function.\n\nThere are a few things worth noting:\n- In the process of working on this I needed to move some of the JSON\nfunctionality from `pallet-revive` and into the `types` crate.\n- Some of the execution models for tracing no longer implement SCALE\nwhich is done to ensure that these types never cross the wire and are\nindeed internal to pallet-revive (and anybody who imports pallet-revive\nas a direct dependency)\n\n# Tests\n\nThe new\n`test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input`\ntest is probably the best test for this functionality. It shows that the\nversioned runtime API function for `trace_block` functions exactly in\nthe way that we expect it to do: given a V1 input we get a V1 output\nback and given a V2 input we get a V2 output back. It shows that\nversioning works end to end.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-22T01:26:09Z",
+          "tree_id": "7a787da13a6662d65e83a11e6d834b86d8c8b6b0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83864a55470930577e59b256ec9fe38f3534c88a"
+        },
+        "date": 1782097246300,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.138,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08739179866999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038468330626,
             "unit": "seconds"
           }
         ]
