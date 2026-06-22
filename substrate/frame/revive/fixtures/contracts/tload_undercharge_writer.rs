@@ -28,7 +28,7 @@
 #![no_main]
 include!("../panic_handler.rs");
 
-use uapi::{CallFlags, HostFn, HostFnImpl as api, input};
+use uapi::{CallFlags, HostFn, HostFnImpl as api, StorageFlags, input};
 
 #[polkavm_derive::polkavm_import]
 extern "C" {
@@ -42,7 +42,7 @@ extern "C" {
 }
 
 const SENTINEL: u32 = u32::MAX;
-const TRANSIENT_FLAG: u32 = 0x0000_0001;
+const TRANSIENT_FLAG: u32 = StorageFlags::TRANSIENT.bits();
 
 // Static value buffer sized for `limits::TRANSIENT_STORAGE_BYTES` so any requested length fits.
 static VALUE_BUFFER: [u8; 4096] = [0xAAu8; 4096];

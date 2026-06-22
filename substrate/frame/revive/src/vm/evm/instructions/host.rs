@@ -125,7 +125,7 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 		.adjust_weight(charged, RuntimeCosts::GetStorage(actual_len));
 
 	*index = if let Some(storage_value) = value {
-		// sload always reads a word
+		// sload expects a 32-byte word; reject anything else.
 		let Ok::<[u8; 32], _>(bytes) = storage_value.try_into() else {
 			log::debug!(target: crate::LOG_TARGET, "sload read invalid storage value length. Expected 32.");
 			return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
@@ -214,7 +214,7 @@ pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 	*index = if let Some(storage_value) = bytes {
 		if storage_value.len() != 32 {
-			// tload always reads a word
+			// tload expects a 32-byte word; reject anything else.
 			log::debug!(target: crate::LOG_TARGET, "tload read invalid storage value length. Expected 32.");
 			return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 		}
