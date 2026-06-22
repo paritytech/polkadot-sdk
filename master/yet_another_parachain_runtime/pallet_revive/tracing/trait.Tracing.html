@@ -177,7 +177,13 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
         _old_value: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>&gt;&gt;,
         _new_value: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>]&gt;,
     ) { ... }
-<span class="item-spacer"></span>    fn <a href="#method.log_event" class="fn">log_event</a>(&amp;mut self, _event: <a class="struct" href="../struct.H160.html" title="struct yet_another_parachain_runtime::pallet_revive::H160">H160</a>, _topics: &amp;[<a class="struct" href="../struct.H256.html" title="struct yet_another_parachain_runtime::pallet_revive::H256">H256</a>], _data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>]) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.log_event" class="fn">log_event</a>(
+        &amp;mut self,
+        _event: <a class="struct" href="../struct.H160.html" title="struct yet_another_parachain_runtime::pallet_revive::H160">H160</a>,
+        _topics: &amp;[<a class="struct" href="../struct.H256.html" title="struct yet_another_parachain_runtime::pallet_revive::H256">H256</a>],
+        _data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>],
+        _log_index: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
+    ) { ... }
 <span class="item-spacer"></span>    fn <a href="#method.exit_child_span" class="fn">exit_child_span</a>(
         &amp;mut self,
         _output: &amp;<a class="struct" href="../struct.ExecReturnValue.html" title="struct yet_another_parachain_runtime::pallet_revive::ExecReturnValue">ExecReturnValue</a>,
@@ -245,7 +251,13 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
     _old_value: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>&gt;&gt;,
     _new_value: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>]&gt;,
 )</h4></section></summary><div class="docblock"><p>Called when storage write is called</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.log_event" class="method"><a class="src rightside" href="../../../src/pallet_revive/tracing.rs.html#120">Source</a><h4 class="code-header">fn <a href="#method.log_event" class="fn">log_event</a>(&amp;mut self, _event: <a class="struct" href="../struct.H160.html" title="struct yet_another_parachain_runtime::pallet_revive::H160">H160</a>, _topics: &amp;[<a class="struct" href="../struct.H256.html" title="struct yet_another_parachain_runtime::pallet_revive::H256">H256</a>], _data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Record a log event</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.log_event" class="method"><a class="src rightside" href="../../../src/pallet_revive/tracing.rs.html#120">Source</a><h4 class="code-header">fn <a href="#method.log_event" class="fn">log_event</a>(
+    &amp;mut self,
+    _event: <a class="struct" href="../struct.H160.html" title="struct yet_another_parachain_runtime::pallet_revive::H160">H160</a>,
+    _topics: &amp;[<a class="struct" href="../struct.H256.html" title="struct yet_another_parachain_runtime::pallet_revive::H256">H256</a>],
+    _data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>],
+    _log_index: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
+)</h4></section></summary><div class="docblock"><p>Record a log event</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.exit_child_span" class="method"><a class="src rightside" href="../../../src/pallet_revive/tracing.rs.html#123-128">Source</a><h4 class="code-header">fn <a href="#method.exit_child_span" class="fn">exit_child_span</a>(
     &amp;mut self,
     _output: &amp;<a class="struct" href="../struct.ExecReturnValue.html" title="struct yet_another_parachain_runtime::pallet_revive::ExecReturnValue">ExecReturnValue</a>,

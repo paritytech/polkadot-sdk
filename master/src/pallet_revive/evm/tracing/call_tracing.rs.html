@@ -282,7 +282,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#132 id=132 data-nosnippet>132</a>		}
 <a href=#133 id=133 data-nosnippet>133</a>	}
 <a href=#134 id=134 data-nosnippet>134</a>
-<a href=#135 id=135 data-nosnippet>135</a>	<span class="kw">fn </span>log_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, address: H160, topics: <span class="kw-2">&amp;</span>[H256], data: <span class="kw-2">&amp;</span>[u8]) {
+<a href=#135 id=135 data-nosnippet>135</a>	<span class="kw">fn </span>log_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, address: H160, topics: <span class="kw-2">&amp;</span>[H256], data: <span class="kw-2">&amp;</span>[u8], log_index: u32) {
 <a href=#136 id=136 data-nosnippet>136</a>		<span class="kw">if </span>!<span class="self">self</span>.config.with_logs {
 <a href=#137 id=137 data-nosnippet>137</a>			<span class="kw">return</span>;
 <a href=#138 id=138 data-nosnippet>138</a>		}
@@ -295,77 +295,78 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#145 id=145 data-nosnippet>145</a>				topics: topics.to_vec(),
 <a href=#146 id=146 data-nosnippet>146</a>				data: data.to_vec().into(),
 <a href=#147 id=147 data-nosnippet>147</a>				position: trace.child_call_count,
-<a href=#148 id=148 data-nosnippet>148</a>			};
-<a href=#149 id=149 data-nosnippet>149</a>
-<a href=#150 id=150 data-nosnippet>150</a>			trace.logs.push(log);
-<a href=#151 id=151 data-nosnippet>151</a>		}
-<a href=#152 id=152 data-nosnippet>152</a>	}
-<a href=#153 id=153 data-nosnippet>153</a>
-<a href=#154 id=154 data-nosnippet>154</a>	<span class="kw">fn </span>exit_child_span(
-<a href=#155 id=155 data-nosnippet>155</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#156 id=156 data-nosnippet>156</a>		output: <span class="kw-2">&amp;</span>ExecReturnValue,
-<a href=#157 id=157 data-nosnippet>157</a>		gas_used: u64,
-<a href=#158 id=158 data-nosnippet>158</a>		_weight_consumed: Weight,
-<a href=#159 id=159 data-nosnippet>159</a>	) {
-<a href=#160 id=160 data-nosnippet>160</a>		<span class="self">self</span>.code_with_salt = <span class="prelude-val">None</span>;
-<a href=#161 id=161 data-nosnippet>161</a>
-<a href=#162 id=162 data-nosnippet>162</a>		<span class="comment">// Set the output of the current trace
-<a href=#163 id=163 data-nosnippet>163</a>		</span><span class="kw">let </span>current_index = <span class="self">self</span>.current_stack.pop().unwrap();
-<a href=#164 id=164 data-nosnippet>164</a>
-<a href=#165 id=165 data-nosnippet>165</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(trace) = <span class="self">self</span>.traces.get_mut(current_index) {
-<a href=#166 id=166 data-nosnippet>166</a>			trace.output = output.data.clone().into();
-<a href=#167 id=167 data-nosnippet>167</a>			trace.gas_used = gas_used;
-<a href=#168 id=168 data-nosnippet>168</a>
-<a href=#169 id=169 data-nosnippet>169</a>			<span class="kw">if </span>output.did_revert() {
-<a href=#170 id=170 data-nosnippet>170</a>				trace.revert_reason = decode_revert_reason(<span class="kw-2">&amp;</span>output.data);
-<a href=#171 id=171 data-nosnippet>171</a>				trace.error = <span class="prelude-val">Some</span>(<span class="string">"execution reverted"</span>.to_string());
-<a href=#172 id=172 data-nosnippet>172</a>			}
-<a href=#173 id=173 data-nosnippet>173</a>
-<a href=#174 id=174 data-nosnippet>174</a>			<span class="kw">if </span><span class="self">self</span>.config.only_top_call {
-<a href=#175 id=175 data-nosnippet>175</a>				<span class="kw">return</span>;
-<a href=#176 id=176 data-nosnippet>176</a>			}
-<a href=#177 id=177 data-nosnippet>177</a>
-<a href=#178 id=178 data-nosnippet>178</a>			<span class="comment">//  Move the current trace into its parent
-<a href=#179 id=179 data-nosnippet>179</a>			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(parent_index) = <span class="self">self</span>.current_stack.last() {
-<a href=#180 id=180 data-nosnippet>180</a>				<span class="kw">let </span>child_trace = <span class="self">self</span>.traces.remove(current_index);
-<a href=#181 id=181 data-nosnippet>181</a>				<span class="self">self</span>.traces[<span class="kw-2">*</span>parent_index].calls.push(child_trace);
-<a href=#182 id=182 data-nosnippet>182</a>			}
-<a href=#183 id=183 data-nosnippet>183</a>		}
-<a href=#184 id=184 data-nosnippet>184</a>	}
-<a href=#185 id=185 data-nosnippet>185</a>
-<a href=#186 id=186 data-nosnippet>186</a>	<span class="kw">fn </span>exit_child_span_with_error(
-<a href=#187 id=187 data-nosnippet>187</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#188 id=188 data-nosnippet>188</a>		error: DispatchError,
-<a href=#189 id=189 data-nosnippet>189</a>		gas_used: u64,
-<a href=#190 id=190 data-nosnippet>190</a>		_weight_consumed: Weight,
-<a href=#191 id=191 data-nosnippet>191</a>	) {
-<a href=#192 id=192 data-nosnippet>192</a>		<span class="self">self</span>.code_with_salt = <span class="prelude-val">None</span>;
-<a href=#193 id=193 data-nosnippet>193</a>
-<a href=#194 id=194 data-nosnippet>194</a>		<span class="comment">// Set the output of the current trace
-<a href=#195 id=195 data-nosnippet>195</a>		</span><span class="kw">let </span>current_index = <span class="self">self</span>.current_stack.pop().unwrap();
-<a href=#196 id=196 data-nosnippet>196</a>
-<a href=#197 id=197 data-nosnippet>197</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(trace) = <span class="self">self</span>.traces.get_mut(current_index) {
-<a href=#198 id=198 data-nosnippet>198</a>			trace.gas_used = gas_used;
-<a href=#199 id=199 data-nosnippet>199</a>
-<a href=#200 id=200 data-nosnippet>200</a>			trace.error = <span class="kw">match </span>error {
-<a href=#201 id=201 data-nosnippet>201</a>				DispatchError::Module(sp_runtime::ModuleError { message, .. }) =&gt; {
-<a href=#202 id=202 data-nosnippet>202</a>					<span class="prelude-val">Some</span>(message.unwrap_or_default().to_string())
-<a href=#203 id=203 data-nosnippet>203</a>				},
-<a href=#204 id=204 data-nosnippet>204</a>				<span class="kw">_ </span>=&gt; <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, error)),
-<a href=#205 id=205 data-nosnippet>205</a>			};
-<a href=#206 id=206 data-nosnippet>206</a>
-<a href=#207 id=207 data-nosnippet>207</a>			<span class="kw">if </span><span class="self">self</span>.config.only_top_call {
-<a href=#208 id=208 data-nosnippet>208</a>				<span class="kw">return</span>;
-<a href=#209 id=209 data-nosnippet>209</a>			}
-<a href=#210 id=210 data-nosnippet>210</a>
-<a href=#211 id=211 data-nosnippet>211</a>			<span class="comment">//  Move the current trace into its parent
-<a href=#212 id=212 data-nosnippet>212</a>			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(parent_index) = <span class="self">self</span>.current_stack.last() {
-<a href=#213 id=213 data-nosnippet>213</a>				<span class="kw">let </span>child_trace = <span class="self">self</span>.traces.remove(current_index);
-<a href=#214 id=214 data-nosnippet>214</a>				<span class="self">self</span>.traces[<span class="kw-2">*</span>parent_index].calls.push(child_trace);
-<a href=#215 id=215 data-nosnippet>215</a>			}
-<a href=#216 id=216 data-nosnippet>216</a>		}
-<a href=#217 id=217 data-nosnippet>217</a>	}
-<a href=#218 id=218 data-nosnippet>218</a>}
+<a href=#148 id=148 data-nosnippet>148</a>				index: log_index,
+<a href=#149 id=149 data-nosnippet>149</a>			};
+<a href=#150 id=150 data-nosnippet>150</a>
+<a href=#151 id=151 data-nosnippet>151</a>			trace.logs.push(log);
+<a href=#152 id=152 data-nosnippet>152</a>		}
+<a href=#153 id=153 data-nosnippet>153</a>	}
+<a href=#154 id=154 data-nosnippet>154</a>
+<a href=#155 id=155 data-nosnippet>155</a>	<span class="kw">fn </span>exit_child_span(
+<a href=#156 id=156 data-nosnippet>156</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#157 id=157 data-nosnippet>157</a>		output: <span class="kw-2">&amp;</span>ExecReturnValue,
+<a href=#158 id=158 data-nosnippet>158</a>		gas_used: u64,
+<a href=#159 id=159 data-nosnippet>159</a>		_weight_consumed: Weight,
+<a href=#160 id=160 data-nosnippet>160</a>	) {
+<a href=#161 id=161 data-nosnippet>161</a>		<span class="self">self</span>.code_with_salt = <span class="prelude-val">None</span>;
+<a href=#162 id=162 data-nosnippet>162</a>
+<a href=#163 id=163 data-nosnippet>163</a>		<span class="comment">// Set the output of the current trace
+<a href=#164 id=164 data-nosnippet>164</a>		</span><span class="kw">let </span>current_index = <span class="self">self</span>.current_stack.pop().unwrap();
+<a href=#165 id=165 data-nosnippet>165</a>
+<a href=#166 id=166 data-nosnippet>166</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(trace) = <span class="self">self</span>.traces.get_mut(current_index) {
+<a href=#167 id=167 data-nosnippet>167</a>			trace.output = output.data.clone().into();
+<a href=#168 id=168 data-nosnippet>168</a>			trace.gas_used = gas_used;
+<a href=#169 id=169 data-nosnippet>169</a>
+<a href=#170 id=170 data-nosnippet>170</a>			<span class="kw">if </span>output.did_revert() {
+<a href=#171 id=171 data-nosnippet>171</a>				trace.revert_reason = decode_revert_reason(<span class="kw-2">&amp;</span>output.data);
+<a href=#172 id=172 data-nosnippet>172</a>				trace.error = <span class="prelude-val">Some</span>(<span class="string">"execution reverted"</span>.to_string());
+<a href=#173 id=173 data-nosnippet>173</a>			}
+<a href=#174 id=174 data-nosnippet>174</a>
+<a href=#175 id=175 data-nosnippet>175</a>			<span class="kw">if </span><span class="self">self</span>.config.only_top_call {
+<a href=#176 id=176 data-nosnippet>176</a>				<span class="kw">return</span>;
+<a href=#177 id=177 data-nosnippet>177</a>			}
+<a href=#178 id=178 data-nosnippet>178</a>
+<a href=#179 id=179 data-nosnippet>179</a>			<span class="comment">//  Move the current trace into its parent
+<a href=#180 id=180 data-nosnippet>180</a>			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(parent_index) = <span class="self">self</span>.current_stack.last() {
+<a href=#181 id=181 data-nosnippet>181</a>				<span class="kw">let </span>child_trace = <span class="self">self</span>.traces.remove(current_index);
+<a href=#182 id=182 data-nosnippet>182</a>				<span class="self">self</span>.traces[<span class="kw-2">*</span>parent_index].calls.push(child_trace);
+<a href=#183 id=183 data-nosnippet>183</a>			}
+<a href=#184 id=184 data-nosnippet>184</a>		}
+<a href=#185 id=185 data-nosnippet>185</a>	}
+<a href=#186 id=186 data-nosnippet>186</a>
+<a href=#187 id=187 data-nosnippet>187</a>	<span class="kw">fn </span>exit_child_span_with_error(
+<a href=#188 id=188 data-nosnippet>188</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#189 id=189 data-nosnippet>189</a>		error: DispatchError,
+<a href=#190 id=190 data-nosnippet>190</a>		gas_used: u64,
+<a href=#191 id=191 data-nosnippet>191</a>		_weight_consumed: Weight,
+<a href=#192 id=192 data-nosnippet>192</a>	) {
+<a href=#193 id=193 data-nosnippet>193</a>		<span class="self">self</span>.code_with_salt = <span class="prelude-val">None</span>;
+<a href=#194 id=194 data-nosnippet>194</a>
+<a href=#195 id=195 data-nosnippet>195</a>		<span class="comment">// Set the output of the current trace
+<a href=#196 id=196 data-nosnippet>196</a>		</span><span class="kw">let </span>current_index = <span class="self">self</span>.current_stack.pop().unwrap();
+<a href=#197 id=197 data-nosnippet>197</a>
+<a href=#198 id=198 data-nosnippet>198</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(trace) = <span class="self">self</span>.traces.get_mut(current_index) {
+<a href=#199 id=199 data-nosnippet>199</a>			trace.gas_used = gas_used;
+<a href=#200 id=200 data-nosnippet>200</a>
+<a href=#201 id=201 data-nosnippet>201</a>			trace.error = <span class="kw">match </span>error {
+<a href=#202 id=202 data-nosnippet>202</a>				DispatchError::Module(sp_runtime::ModuleError { message, .. }) =&gt; {
+<a href=#203 id=203 data-nosnippet>203</a>					<span class="prelude-val">Some</span>(message.unwrap_or_default().to_string())
+<a href=#204 id=204 data-nosnippet>204</a>				},
+<a href=#205 id=205 data-nosnippet>205</a>				<span class="kw">_ </span>=&gt; <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, error)),
+<a href=#206 id=206 data-nosnippet>206</a>			};
+<a href=#207 id=207 data-nosnippet>207</a>
+<a href=#208 id=208 data-nosnippet>208</a>			<span class="kw">if </span><span class="self">self</span>.config.only_top_call {
+<a href=#209 id=209 data-nosnippet>209</a>				<span class="kw">return</span>;
+<a href=#210 id=210 data-nosnippet>210</a>			}
+<a href=#211 id=211 data-nosnippet>211</a>
+<a href=#212 id=212 data-nosnippet>212</a>			<span class="comment">//  Move the current trace into its parent
+<a href=#213 id=213 data-nosnippet>213</a>			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(parent_index) = <span class="self">self</span>.current_stack.last() {
+<a href=#214 id=214 data-nosnippet>214</a>				<span class="kw">let </span>child_trace = <span class="self">self</span>.traces.remove(current_index);
+<a href=#215 id=215 data-nosnippet>215</a>				<span class="self">self</span>.traces[<span class="kw-2">*</span>parent_index].calls.push(child_trace);
+<a href=#216 id=216 data-nosnippet>216</a>			}
+<a href=#217 id=217 data-nosnippet>217</a>		}
+<a href=#218 id=218 data-nosnippet>218</a>	}
+<a href=#219 id=219 data-nosnippet>219</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

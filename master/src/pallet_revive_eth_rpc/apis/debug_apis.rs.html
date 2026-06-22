@@ -192,7 +192,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#42 id=42 data-nosnippet>42</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
 <a href=#43 id=43 data-nosnippet>43</a>		transaction_hash: H256,
 <a href=#44 id=44 data-nosnippet>44</a>		tracer_config: <span class="prelude-ty">Option</span>&lt;TracerConfig&gt;,
-<a href=#45 id=45 data-nosnippet>45</a>	) -&gt; RpcResult&lt;Trace&gt;;
+<a href=#45 id=45 data-nosnippet>45</a>	) -&gt; RpcResult&lt;TraceV1&gt;;
 <a href=#46 id=46 data-nosnippet>46</a>
 <a href=#47 id=47 data-nosnippet>47</a>	<span class="doccomment">/// Dry run a call and returns the transaction's traces.
 <a href=#48 id=48 data-nosnippet>48</a>	///
@@ -208,7 +208,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#58 id=58 data-nosnippet>58</a>		transaction: GenericTransaction,
 <a href=#59 id=59 data-nosnippet>59</a>		block: BlockNumberOrTagOrHash,
 <a href=#60 id=60 data-nosnippet>60</a>		trace_call_config: <span class="prelude-ty">Option</span>&lt;TraceCallConfig&gt;,
-<a href=#61 id=61 data-nosnippet>61</a>	) -&gt; RpcResult&lt;Trace&gt;;
+<a href=#61 id=61 data-nosnippet>61</a>	) -&gt; RpcResult&lt;TraceV1&gt;;
 <a href=#62 id=62 data-nosnippet>62</a>
 <a href=#63 id=63 data-nosnippet>63</a>	<span class="attr">#[method(name = <span class="string">"debug_getAutomine"</span>)]
 <a href=#64 id=64 data-nosnippet>64</a>	</span><span class="kw">async fn </span>get_automine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;bool&gt;;
@@ -257,7 +257,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#107 id=107 data-nosnippet>107</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
 <a href=#108 id=108 data-nosnippet>108</a>		transaction_hash: H256,
 <a href=#109 id=109 data-nosnippet>109</a>		tracer_config: <span class="prelude-ty">Option</span>&lt;TracerConfig&gt;,
-<a href=#110 id=110 data-nosnippet>110</a>	) -&gt; RpcResult&lt;Trace&gt; {
+<a href=#110 id=110 data-nosnippet>110</a>	) -&gt; RpcResult&lt;TraceV1&gt; {
 <a href=#111 id=111 data-nosnippet>111</a>		<span class="kw">let </span>TracerConfig { config, timeout } = tracer_config.unwrap_or_default();
 <a href=#112 id=112 data-nosnippet>112</a>		with_timeout(timeout, <span class="self">self</span>.client.trace_transaction(transaction_hash, config)).<span class="kw">await
 <a href=#113 id=113 data-nosnippet>113</a>	</span>}
@@ -267,7 +267,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#117 id=117 data-nosnippet>117</a>		transaction: GenericTransaction,
 <a href=#118 id=118 data-nosnippet>118</a>		block: BlockNumberOrTagOrHash,
 <a href=#119 id=119 data-nosnippet>119</a>		trace_call_config: <span class="prelude-ty">Option</span>&lt;TraceCallConfig&gt;,
-<a href=#120 id=120 data-nosnippet>120</a>	) -&gt; RpcResult&lt;Trace&gt; {
+<a href=#120 id=120 data-nosnippet>120</a>	) -&gt; RpcResult&lt;TraceV1&gt; {
 <a href=#121 id=121 data-nosnippet>121</a>		<span class="kw">let </span>TraceCallConfig { tracer_config, state_overrides } =
 <a href=#122 id=122 data-nosnippet>122</a>			trace_call_config.unwrap_or_default();
 <a href=#123 id=123 data-nosnippet>123</a>		<span class="kw">let </span>TracerConfig { config, timeout } = tracer_config;
