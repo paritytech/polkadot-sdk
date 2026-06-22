@@ -25,6 +25,6 @@ doc:
     validators included in the relay-chain session report.
 crates:
 - name: pallet-staking-async
-  bump: patch
+  bump: minor
 - name: asset-hub-westend-runtime
   bump: patch
