@@ -2039,6 +2039,10 @@ impl<T: Config> Pallet<T> {
 		low = first_dry_run_result.eth_gas;
 		high = gas_limit;
 
+		// TODO: each iteration re-runs `process_authorizations`, which re-recovers every
+		// authority via `ecdsa_recover`. The recovered addresses are invariant across iterations
+		// (they're a function of the signatures, not gas) — cache them once outside the loop and
+		// thread them into `dry_run_eth_transact` to save N * iterations ECDSA recoveries.
 		while low + U256::one() < high {
 			log::trace!(target: LOG_TARGET, "eth_estimate_gas estimation iteration with low={low} high={high}");
 			let error_ratio = high
