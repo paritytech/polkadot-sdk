@@ -133,10 +133,12 @@ use bitvec::vec::BitVec;
 use futures::{
 	channel::oneshot, future::BoxFuture, select, stream::FuturesUnordered, FutureExt, StreamExt,
 };
+#[cfg(test)]
 use futures_timer::Delay;
 use std::{
 	collections::{hash_map::Entry, BTreeMap, HashMap, HashSet, VecDeque},
 	future::Future,
+	sync::Arc,
 	time::{Duration, Instant},
 };
 use tokio_util::sync::CancellationToken;
@@ -144,6 +146,7 @@ use tokio_util::sync::CancellationToken;
 use sp_keystore::KeystorePtr;
 
 use crate::{extract_leaf_scheduling_info, is_scheduling_parent_valid, LeafSchedulingInfo};
+use polkadot_node_clock::Clock;
 use polkadot_node_network_protocol::{
 	self as net_protocol,
 	peer_set::{CollationVersion, PeerSet, MAX_AUTHORITY_INCOMING_STREAMS},
@@ -175,13 +178,9 @@ use polkadot_primitives::{
 
 use super::{modify_reputation, tick_stream, LOG_TARGET};
 
-mod claim_queue_state;
 mod collation;
 pub mod error;
 
-// Only export PerLeafClaimQueueState for validator_side_experimental
-// ClaimQueueState (basic.rs) is no longer used in validator_side after the leaf-based refactoring
-pub(crate) use claim_queue_state::PerLeafClaimQueueState;
 pub use collation::BlockedCollationId;
 use collation::{
 	fetched_collation_sanity_check, CollationEvent, CollationFetchError, CollationFetchRequest,
@@ -350,6 +349,7 @@ impl PeerData {
 		implicit_view: &ImplicitView,
 		per_scheduling_parent: &PerSchedulingParent,
 		leaf_claim_queues: &HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+		clock: &dyn Clock,
 	) -> std::result::Result<(CollatorId, ParaId), InsertAdvertisementError> {
 		match self.state {
 			PeerState::Connected(_) => Err(InsertAdvertisementError::UndeclaredCollator),
@@ -414,7 +414,7 @@ impl PeerData {
 						.insert(on_scheduling_parent, HashSet::from_iter(candidate_hash));
 				};
 
-				state.last_active = Instant::now();
+				state.last_active = clock.now();
 				Ok((state.collator_id.clone(), state.para_id))
 			},
 		}
@@ -432,12 +432,12 @@ impl PeerData {
 	///
 	/// This will overwrite any previous call to `set_collating` and should only be called
 	/// if `is_collating` is false.
-	fn set_collating(&mut self, collator_id: CollatorId, para_id: ParaId) {
+	fn set_collating(&mut self, collator_id: CollatorId, para_id: ParaId, clock: &dyn Clock) {
 		self.state = PeerState::Collating(CollatingPeerState {
 			collator_id,
 			para_id,
 			advertisements: HashMap::new(),
-			last_active: Instant::now(),
+			last_active: clock.now(),
 		});
 	}
 
@@ -477,11 +477,14 @@ impl PeerData {
 	}
 
 	/// Whether the peer is now inactive according to the current instant and the eviction policy.
-	fn is_inactive(&self, policy: &crate::CollatorEvictionPolicy) -> bool {
+	fn is_inactive(&self, clock: &dyn Clock, policy: &crate::CollatorEvictionPolicy) -> bool {
+		let now = clock.now();
 		match self.state {
-			PeerState::Connected(connected_at) => connected_at.elapsed() >= policy.undeclared,
+			PeerState::Connected(connected_at) => {
+				now.saturating_duration_since(connected_at) >= policy.undeclared
+			},
 			PeerState::Collating(ref state) => {
-				state.last_active.elapsed() >= policy.inactive_collator
+				now.saturating_duration_since(state.last_active) >= policy.inactive_collator
 			},
 		}
 	}
@@ -588,8 +591,10 @@ struct HeldOffAdvertisement {
 }
 
 /// All state relevant for the validator side of the protocol lives here.
-#[derive(Default)]
 struct State {
+	/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
+	/// tests inject a mock.
+	clock: Arc<dyn Clock>,
 	/// Leaves that do support asynchronous backing along with
 	/// implicit ancestry. Leaves from the implicit view are present in
 	/// `active_leaves`, the opposite doesn't hold true.
@@ -680,6 +685,34 @@ struct State {
 }
 
 impl State {
+	fn new(
+		clock: Arc<dyn Clock>,
+		metrics: Metrics,
+		reputation: ReputationAggregator,
+		ah_invulnerables: HashSet<PeerId>,
+		hold_off_duration: Duration,
+	) -> Self {
+		Self {
+			clock,
+			implicit_view: Default::default(),
+			leaf_claim_queues: Default::default(),
+			leaf_scheduling_info: Default::default(),
+			per_scheduling_parent: Default::default(),
+			peer_data: Default::default(),
+			assigned_cores: Default::default(),
+			collation_requests: Default::default(),
+			collation_requests_cancel_handles: Default::default(),
+			metrics,
+			collation_fetch_timeouts: Default::default(),
+			fetched_candidates: Default::default(),
+			blocked_from_seconding: Default::default(),
+			reputation,
+			ah_invulnerables,
+			ah_held_off_rp_timers: Default::default(),
+			hold_off_duration,
+		}
+	}
+
 	// Returns the number of seconded and pending collations for a specific `ParaId`. Pending
 	// collations are:
 	// 1. Collations being fetched from a collator.
@@ -859,8 +892,9 @@ async fn fetch_collation(
 
 	if peer_data.has_advertised(&relay_parent, candidate_hash) {
 		request_collation(sender, state, pc, id.clone(), peer_data.version).await?;
+		let clock = state.clock.clone();
 		let timeout = |collator_id, candidate_hash, relay_parent| async move {
-			Delay::new(MAX_UNSHARED_DOWNLOAD_TIME).await;
+			clock.delay(MAX_UNSHARED_DOWNLOAD_TIME).await;
 			(collator_id, candidate_hash, relay_parent)
 		};
 		state
@@ -1154,7 +1188,7 @@ async fn process_incoming_peer_message<Context>(
 					"Declared as collator for current para",
 				);
 
-				peer_data.set_collating(collator_id, para_id);
+				peer_data.set_collating(collator_id, para_id, &*state.clock);
 			} else {
 				gum::debug!(
 					target: LOG_TARGET,
@@ -1331,8 +1365,9 @@ fn hold_off_asset_hub_collation_if_needed(
 
 	match hold_off_outcome {
 		HoldOffOperationOutcome::FirstHoldOff => {
+			let clock = state.clock.clone();
 			state.ah_held_off_rp_timers.push(Box::pin(async move {
-				Delay::new(hold_off_duration).await;
+				clock.delay(hold_off_duration).await;
 				scheduling_parent
 			}));
 
@@ -1696,6 +1731,7 @@ where
 			&state.implicit_view,
 			&per_scheduling_parent,
 			&state.leaf_claim_queues,
+			&*state.clock,
 		)
 		.map_err(|error| {
 			gum::debug!(
@@ -1776,7 +1812,11 @@ where
 	// finished relay chain slot. We compare slot numbers rather than timestamps to keep
 	// the logic simple and aligned with how BABE/Aura reason about slots.
 	if candidate_descriptor_version == CandidateDescriptorVersion::V3 {
-		if !is_scheduling_parent_valid(&scheduling_parent, &state.leaf_scheduling_info) {
+		if !is_scheduling_parent_valid(
+			&*state.clock,
+			&scheduling_parent,
+			&state.leaf_scheduling_info,
+		) {
 			return Err(AdvertisementError::SchedulingParentNotValid);
 		}
 	}
@@ -1792,6 +1832,7 @@ where
 			&state.implicit_view,
 			&per_scheduling_parent,
 			&state.leaf_claim_queues,
+			&*state.clock,
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
@@ -2197,9 +2238,10 @@ async fn handle_network_msg<Context>(
 				return Ok(());
 			}
 
+			let now = state.clock.now();
 			state.peer_data.entry(peer_id).or_insert_with(|| PeerData {
 				view: View::default(),
-				state: PeerState::Connected(Instant::now()),
+				state: PeerState::Connected(now),
 				version,
 			});
 			state.metrics.note_collator_peer_count(state.peer_data.len());
@@ -2401,6 +2443,7 @@ pub(crate) async fn run<Context>(
 	metrics: Metrics,
 	ah_invulnerables: HashSet<PeerId>,
 	hold_off_duration: Option<Duration>,
+	clock: Arc<dyn Clock>,
 ) -> std::result::Result<(), SubsystemError> {
 	gum::info!(target: LOG_TARGET, "Running legacy collator protocol");
 	run_inner(
@@ -2412,6 +2455,7 @@ pub(crate) async fn run<Context>(
 		REPUTATION_CHANGE_INTERVAL,
 		ah_invulnerables,
 		hold_off_duration.unwrap_or(HOLD_OFF_DURATION_DEFAULT_VALUE),
+		clock,
 	)
 	.await
 }
@@ -2426,14 +2470,15 @@ async fn run_inner<Context>(
 	reputation_interval: Duration,
 	ah_invulnerables: HashSet<PeerId>,
 	hold_off_duration: Duration,
+	clock: Arc<dyn Clock>,
 ) -> std::result::Result<(), SubsystemError> {
-	let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
+	let new_reputation_delay = || clock.delay(reputation_interval).fuse();
 	let mut reputation_delay = new_reputation_delay();
 
 	let mut state =
-		State { metrics, reputation, ah_invulnerables, hold_off_duration, ..Default::default() };
+		State::new(clock.clone(), metrics, reputation, ah_invulnerables, hold_off_duration);
 
-	let next_inactivity_stream = tick_stream(ACTIVITY_POLL);
+	let next_inactivity_stream = tick_stream(clock.clone(), ACTIVITY_POLL);
 	futures::pin_mut!(next_inactivity_stream);
 
 	let mut network_error_freq = gum::Freq::new();
@@ -2461,7 +2506,7 @@ async fn run_inner<Context>(
 				}
 			},
 			_ = next_inactivity_stream.next() => {
-				disconnect_inactive_peers(ctx.sender(), &eviction_policy, &state.peer_data).await;
+				disconnect_inactive_peers(ctx.sender(), &*clock, &eviction_policy, &state.peer_data).await;
 			},
 			resp = state.collation_requests.select_next_some() => {
 				let relay_parent = resp.0.pending_collation.scheduling_parent;
@@ -2670,6 +2715,7 @@ where
 pub async fn request_prospective_validation_data<Sender>(
 	sender: &mut Sender,
 	candidate_relay_parent: Hash,
+	session_index: SessionIndex,
 	parent_head_data_hash: Hash,
 	para_id: ParaId,
 	maybe_parent_head_data: Option<HeadData>,
@@ -2685,8 +2731,12 @@ where
 		ParentHeadData::OnlyHash(parent_head_data_hash)
 	};
 
-	let request =
-		ProspectiveValidationDataRequest { para_id, candidate_relay_parent, parent_head_data };
+	let request = ProspectiveValidationDataRequest {
+		para_id,
+		candidate_relay_parent,
+		session_index,
+		parent_head_data,
+	};
 
 	sender
 		.send_message(ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx))
@@ -2743,9 +2793,15 @@ async fn kick_off_seconding<Context>(
 				// we must pass the actual relay_parent (execution context), not the
 				// scheduling_parent. For V1/V2 these are identical; for V3 the
 				// relay_parent may be older.
+				let session_index = candidate_receipt
+					.descriptor()
+					.session_index()
+					.unwrap_or(per_scheduling_parent.session_index);
+
 				let pvd = request_prospective_validation_data(
 					ctx.sender(),
 					candidate_receipt.descriptor().relay_parent(),
+					session_index,
 					parent_head_data_hash,
 					para_id,
 					maybe_parent_head_data.clone(),
@@ -2842,11 +2898,12 @@ async fn kick_off_seconding<Context>(
 // receipt of the `PeerDisconnected` event.
 async fn disconnect_inactive_peers(
 	sender: &mut impl overseer::CollatorProtocolSenderTrait,
+	clock: &dyn Clock,
 	eviction_policy: &crate::CollatorEvictionPolicy,
 	peers: &HashMap<PeerId, PeerData>,
 ) {
 	for (peer, peer_data) in peers {
-		if peer_data.is_inactive(&eviction_policy) {
+		if peer_data.is_inactive(clock, &eviction_policy) {
 			gum::trace!(target: LOG_TARGET, ?peer, "Disconnecting inactive peer");
 			disconnect_peer(sender, *peer).await;
 		}

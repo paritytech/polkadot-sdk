@@ -333,6 +333,11 @@ pub struct UncheckedExtrinsic<
 	/// are not bijective (encodes to the exact same bytes it was encoded from). If this `field`
 	/// is set, it is being used when re-encoding this transaction.
 	pub encoded_call: Option<Vec<u8>>,
+	/// The encoded length of this extrinsic.
+	///
+	/// Used internally to optimize some allocations, should be set to `None` if not known.
+	#[codec(skip)]
+	pub encoded_len: Option<usize>,
 }
 
 impl<
@@ -353,10 +358,18 @@ impl<
 	>
 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		f.debug_struct("UncheckedExtrinsic")
-			.field("preamble", &self.preamble)
-			.field("function", &self.function)
-			.finish()
+		let mut debug_struct = f.debug_struct("UncheckedExtrinsic");
+
+		debug_struct.field("preamble", &self.preamble);
+
+		// Given our current allocator, we can at maximum allocate 32MiB and this is not enough for
+		// big transactions.
+		if self.encoded_len.unwrap_or_default() < 1024 * 1024 {
+			debug_struct.field("function", &self.function)
+		} else {
+			debug_struct.field("function", &"Too big to be printed from the runtime")
+		}
+		.finish()
 	}
 }
 
@@ -464,7 +477,7 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions, const MAX_CA
 		function: Call,
 		preamble: Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions>,
 	) -> Self {
-		Self { preamble, function, encoded_call: None }
+		Self { preamble, function, encoded_call: None, encoded_len: None }
 	}
 
 	/// New instance of a bare (ne unsigned) extrinsic.
@@ -494,12 +507,15 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions, const MAX_CA
 
 	fn decode_with_len<I: Input>(input: &mut I, len: usize) -> Result<Self, codec::Error>
 	where
-		Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions>: Decode,
+		Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions>: DecodeWithMemTracking,
 		Call: DecodeWithMemTracking,
 	{
 		let mut input = CountedInput::new(input);
 
-		let preamble = Decode::decode(&mut input)?;
+		// Decode the preamble using the same memory limit as we will use for the `call`.
+		// The preamble is not that big, but we play it safe.
+		let preamble =
+			DecodeWithMemLimit::decode_with_mem_limit(&mut input, MAX_CALL_SIZE.saturating_add(1))?;
 
 		struct CloneBytes<'a, I>(&'a mut I, Vec<u8>);
 		impl<I: Input> Input for CloneBytes<'_, I> {
@@ -527,7 +543,7 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions, const MAX_CA
 			}
 		}
 
-		let mut clone_bytes = CloneBytes(&mut input, Vec::new());
+		let mut clone_bytes = CloneBytes(&mut input, Vec::with_capacity(len));
 
 		// Adds 1 byte to the `MAX_CALL_SIZE` as the decoding fails exactly at the given value and
 		// the maximum should be allowed to fit in.
@@ -540,7 +556,7 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions, const MAX_CA
 			return Err("Invalid length prefix".into());
 		}
 
-		Ok(Self { preamble, function, encoded_call })
+		Ok(Self { preamble, function, encoded_call, encoded_len: Some(len) })
 	}
 
 	fn encode_without_prefix(&self) -> Vec<u8>
@@ -647,9 +663,17 @@ where
 					CallAndMaybeEncoded { encoded: self.encoded_call, call: self.function },
 					tx_ext,
 				)?;
-				if !raw_payload.using_encoded(|payload| signature.verify(payload, &signed)) {
+
+				let mut payload = Vec::with_capacity(self.encoded_len.unwrap_or_default());
+				raw_payload.0.encode_to(&mut payload);
+
+				let payload =
+					if payload.len() > 256 { blake2_256(&payload).to_vec() } else { payload };
+
+				if !signature.verify(payload.as_ref(), &signed) {
 					return Err(InvalidTransaction::BadProof.into());
 				}
+
 				let (function, tx_ext, _) = raw_payload.deconstruct();
 				CheckedExtrinsic { format: ExtrinsicFormat::Signed(signed, tx_ext), function }
 			},
@@ -738,11 +762,11 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions, const MAX_CA
 		MAX_CALL_SIZE,
 	>
 where
-	Address: Decode,
-	Signature: Decode,
+	Address: DecodeWithMemTracking,
+	Signature: DecodeWithMemTracking,
 	Call: DecodeWithMemTracking,
-	ExtensionV0: Decode,
-	ExtensionOtherVersions: DecodeWithVersion,
+	ExtensionV0: DecodeWithMemTracking,
+	ExtensionOtherVersions: DecodeWithVersionWithMemTracking,
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
 		// This is a little more complicated than usual since the binary format must be compatible
@@ -846,11 +870,11 @@ impl<
 		MAX_CALL_SIZE,
 	>
 where
-	Address: Decode,
-	Signature: Decode,
+	Address: DecodeWithMemTracking,
+	Signature: DecodeWithMemTracking,
 	Call: DecodeWithMemTracking,
-	ExtensionV0: Decode,
-	ExtensionOtherVersions: DecodeWithVersion,
+	ExtensionV0: DecodeWithMemTracking,
+	ExtensionOtherVersions: DecodeWithVersionWithMemTracking,
 {
 	fn deserialize<D>(de: D) -> Result<Self, D::Error>
 	where
@@ -882,6 +906,13 @@ impl<T> From<T> for CallAndMaybeEncoded<T> {
 }
 
 impl<T: Encode> Encode for CallAndMaybeEncoded<T> {
+	fn encode_to<O: codec::Output + ?Sized>(&self, dest: &mut O) {
+		match &self.encoded {
+			Some(enc) => dest.write(enc),
+			None => self.call.encode_to(dest),
+		}
+	}
+
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 		match &self.encoded {
 			Some(enc) => f(&enc),
@@ -997,10 +1028,10 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions, const MAX_CA
 		MAX_CALL_SIZE,
 	>
 where
-	Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions>: Decode,
+	Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions>: DecodeWithMemTracking,
 	Call: DecodeWithMemTracking,
-	ExtensionV0: Decode,
-	ExtensionOtherVersions: DecodeWithVersion + PipelineVersion,
+	ExtensionV0: DecodeWithMemTracking,
+	ExtensionOtherVersions: DecodeWithVersionWithMemTracking + PipelineVersion,
 {
 	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error> {
 		Self::decode_with_len(&mut &data[..], data.len())
@@ -1351,6 +1382,58 @@ mod tests {
 				format: ExtrinsicFormat::Signed(TEST_ACCOUNT, DummyExtension),
 				function: Call::Raw(vec![0u8; 0]).into()
 			}),
+		);
+	}
+
+	#[test]
+	fn large_signed_check_uses_blake2_256_hashed_payload() {
+		// A 257-byte call ensures the encoded `(call, ext, implicit)` tuple is > 256 bytes,
+		// triggering the blake2_256 hashing branch in both `SignedPayload::using_encoded`
+		// (used to build the signature here) and `check` (which re-derives the same
+		// payload). The two paths must produce the same bytes for `verify` to succeed.
+		let large_call_data = vec![0u8; 257];
+		let call: TestCall = large_call_data.clone().into();
+		let sig_payload = SignedPayload::from_raw(
+			call.clone(),
+			DummyExtension,
+			DummyExtension.implicit().unwrap(),
+		);
+
+		// Sanity-check the test setup: the *raw* encoded tuple is > 256 bytes, but
+		// `SignedPayload::encode()` returns the 32-byte blake2_256 hash.
+		let raw_payload = (call.clone(), DummyExtension, ()).encode();
+		assert!(raw_payload.len() > 256);
+		let signed_bytes = sig_payload.encode();
+		assert_eq!(signed_bytes.len(), 32);
+		assert_eq!(signed_bytes, blake2_256(&raw_payload).to_vec());
+
+		let ux =
+			Ex::new_signed(call, TEST_ACCOUNT, TestSig(TEST_ACCOUNT, signed_bytes), DummyExtension);
+		assert!(!ux.is_inherent());
+		assert_eq!(
+			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
+			Ok(CEx {
+				format: ExtrinsicFormat::Signed(TEST_ACCOUNT, DummyExtension),
+				function: Call::Raw(large_call_data).into(),
+			}),
+		);
+	}
+
+	#[test]
+	fn large_signed_check_fails_if_signed_over_unhashed_payload() {
+		// If the signer (incorrectly) signs the *raw* > 256 byte payload instead of the
+		// blake2_256 hash, `check` must reject it with `BadProof` because `check` always
+		// hashes payloads that exceed 256 bytes.
+		let large_call_data = vec![0u8; 257];
+		let call: TestCall = large_call_data.into();
+		let raw_payload = (call.clone(), DummyExtension, ()).encode();
+		assert!(raw_payload.len() > 256);
+
+		let ux =
+			Ex::new_signed(call, TEST_ACCOUNT, TestSig(TEST_ACCOUNT, raw_payload), DummyExtension);
+		assert_eq!(
+			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
+			Err(InvalidTransaction::BadProof.into()),
 		);
 	}
 

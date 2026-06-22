@@ -28,13 +28,12 @@ pub use tokens::{
 	},
 	fungible, fungibles,
 	imbalance::{Imbalance, OnUnbalanced, SignedImbalance},
-	nonfungible, nonfungible_v2, nonfungibles, nonfungibles_v2, BalanceStatus,
-	ExistenceRequirement, Locker, WithdrawReasons,
+	nonfungible, nonfungible_v2, nonfungibles, nonfungibles_v2,
+	stable::PsmInterface,
+	BalanceStatus, ExistenceRequirement, Locker, WithdrawReasons,
 };
 
 mod members;
-#[allow(deprecated)]
-pub use members::{AllowAll, DenyAll, Filter};
 pub use members::{
 	AsContains, ChangeMembers, Contains, ContainsLengthBound, ContainsPair, Equals, Everything,
 	EverythingBut, FromContains, FromContainsPair, InitializeMembers, InsideBoth, IsInVec, Nothing,
@@ -103,8 +102,6 @@ pub use storage::{
 };
 
 mod dispatch;
-#[allow(deprecated)]
-pub use dispatch::EnsureOneOf;
 pub use dispatch::{
 	AsEnsureOriginWithArg, Authorize, CallerTrait, EitherOf, EitherOfDiverse, EnsureOrigin,
 	EnsureOriginEqualOrHigherPrivilege, EnsureOriginWithArg, MapSuccess, NeverEnsureOrigin,
