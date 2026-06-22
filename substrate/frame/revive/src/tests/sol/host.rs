@@ -443,7 +443,7 @@ fn sstore_works(fixture_type: FixtureType) {
 			let written_value = {
 				let contract_info = test_utils::get_contract(&addr);
 				let key = Key::Fix(U256::from(index).to_big_endian());
-				let result = contract_info.read(&key).unwrap();
+				let result = contract_info.read(&key).data.unwrap();
 				U256::from_big_endian(&result)
 			};
 			assert_eq!(

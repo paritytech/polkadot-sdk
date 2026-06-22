@@ -1782,42 +1782,58 @@ fn set_storage_works() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		// Write
 		assert_eq!(
-			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false),
+			ctx.ext
+				.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false)
+				.map(|sl| sl.data),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
-			ctx.ext.set_storage(&Key::Fix([2; 32]), Some(vec![4, 5, 6]), true),
-			Ok(WriteOutcome::New)
-		);
-		assert_eq!(ctx.ext.set_storage(&Key::Fix([3; 32]), None, false), Ok(WriteOutcome::New));
-		assert_eq!(ctx.ext.set_storage(&Key::Fix([4; 32]), None, true), Ok(WriteOutcome::New));
-		assert_eq!(
-			ctx.ext.set_storage(&Key::Fix([5; 32]), Some(vec![]), false),
+			ctx.ext
+				.set_storage(&Key::Fix([2; 32]), Some(vec![4, 5, 6]), true)
+				.map(|sl| sl.data),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
-			ctx.ext.set_storage(&Key::Fix([6; 32]), Some(vec![]), true),
+			ctx.ext.set_storage(&Key::Fix([3; 32]), None, false).map(|sl| sl.data),
+			Ok(WriteOutcome::New)
+		);
+		assert_eq!(
+			ctx.ext.set_storage(&Key::Fix([4; 32]), None, true).map(|sl| sl.data),
+			Ok(WriteOutcome::New)
+		);
+		assert_eq!(
+			ctx.ext.set_storage(&Key::Fix([5; 32]), Some(vec![]), false).map(|sl| sl.data),
+			Ok(WriteOutcome::New)
+		);
+		assert_eq!(
+			ctx.ext.set_storage(&Key::Fix([6; 32]), Some(vec![]), true).map(|sl| sl.data),
 			Ok(WriteOutcome::New)
 		);
 
 		// Overwrite
 		assert_eq!(
-			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![42]), false),
-			Ok(WriteOutcome::Overwritten(3))
+			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![42]), false).map(|sl| sl.data),
+			Ok(WriteOutcome::Overwritten { len: 3 })
 		);
 		assert_eq!(
-			ctx.ext.set_storage(&Key::Fix([2; 32]), Some(vec![48]), true),
-			Ok(WriteOutcome::Taken(vec![4, 5, 6]))
-		);
-		assert_eq!(ctx.ext.set_storage(&Key::Fix([3; 32]), None, false), Ok(WriteOutcome::New));
-		assert_eq!(ctx.ext.set_storage(&Key::Fix([4; 32]), None, true), Ok(WriteOutcome::New));
-		assert_eq!(
-			ctx.ext.set_storage(&Key::Fix([5; 32]), Some(vec![]), false),
-			Ok(WriteOutcome::Overwritten(0))
+			ctx.ext.set_storage(&Key::Fix([2; 32]), Some(vec![48]), true).map(|sl| sl.data),
+			Ok(WriteOutcome::Taken { value: vec![4, 5, 6] })
 		);
 		assert_eq!(
-			ctx.ext.set_storage(&Key::Fix([6; 32]), Some(vec![]), true),
-			Ok(WriteOutcome::Taken(vec![]))
+			ctx.ext.set_storage(&Key::Fix([3; 32]), None, false).map(|sl| sl.data),
+			Ok(WriteOutcome::New)
+		);
+		assert_eq!(
+			ctx.ext.set_storage(&Key::Fix([4; 32]), None, true).map(|sl| sl.data),
+			Ok(WriteOutcome::New)
+		);
+		assert_eq!(
+			ctx.ext.set_storage(&Key::Fix([5; 32]), Some(vec![]), false).map(|sl| sl.data),
+			Ok(WriteOutcome::Overwritten { len: 0 })
+		);
+		assert_eq!(
+			ctx.ext.set_storage(&Key::Fix([6; 32]), Some(vec![]), true).map(|sl| sl.data),
+			Ok(WriteOutcome::Taken { value: vec![] })
 		);
 
 		exec_success()
@@ -1849,74 +1865,90 @@ fn set_storage_varsized_key_works() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		// Write
 		assert_eq!(
-			ctx.ext.set_storage(
-				&Key::try_from_var([1; 64].to_vec()).unwrap(),
-				Some(vec![1, 2, 3]),
-				false
-			),
-			Ok(WriteOutcome::New)
-		);
-		assert_eq!(
-			ctx.ext.set_storage(
-				&Key::try_from_var([2; 19].to_vec()).unwrap(),
-				Some(vec![4, 5, 6]),
-				true
-			),
-			Ok(WriteOutcome::New)
-		);
-		assert_eq!(
-			ctx.ext.set_storage(&Key::try_from_var([3; 19].to_vec()).unwrap(), None, false),
-			Ok(WriteOutcome::New)
-		);
-		assert_eq!(
-			ctx.ext.set_storage(&Key::try_from_var([4; 64].to_vec()).unwrap(), None, true),
+			ctx.ext
+				.set_storage(
+					&Key::try_from_var([1; 64].to_vec()).unwrap(),
+					Some(vec![1, 2, 3]),
+					false
+				)
+				.map(|sl| sl.data),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
 			ctx.ext
-				.set_storage(&Key::try_from_var([5; 30].to_vec()).unwrap(), Some(vec![]), false),
+				.set_storage(
+					&Key::try_from_var([2; 19].to_vec()).unwrap(),
+					Some(vec![4, 5, 6]),
+					true
+				)
+				.map(|sl| sl.data),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
 			ctx.ext
-				.set_storage(&Key::try_from_var([6; 128].to_vec()).unwrap(), Some(vec![]), true),
+				.set_storage(&Key::try_from_var([3; 19].to_vec()).unwrap(), None, false)
+				.map(|sl| sl.data),
+			Ok(WriteOutcome::New)
+		);
+		assert_eq!(
+			ctx.ext
+				.set_storage(&Key::try_from_var([4; 64].to_vec()).unwrap(), None, true)
+				.map(|sl| sl.data),
+			Ok(WriteOutcome::New)
+		);
+		assert_eq!(
+			ctx.ext
+				.set_storage(&Key::try_from_var([5; 30].to_vec()).unwrap(), Some(vec![]), false)
+				.map(|sl| sl.data),
+			Ok(WriteOutcome::New)
+		);
+		assert_eq!(
+			ctx.ext
+				.set_storage(&Key::try_from_var([6; 128].to_vec()).unwrap(), Some(vec![]), true)
+				.map(|sl| sl.data),
 			Ok(WriteOutcome::New)
 		);
 
 		// Overwrite
 		assert_eq!(
-			ctx.ext.set_storage(
-				&Key::try_from_var([1; 64].to_vec()).unwrap(),
-				Some(vec![42, 43, 44]),
-				false
-			),
-			Ok(WriteOutcome::Overwritten(3))
+			ctx.ext
+				.set_storage(
+					&Key::try_from_var([1; 64].to_vec()).unwrap(),
+					Some(vec![42, 43, 44]),
+					false
+				)
+				.map(|sl| sl.data),
+			Ok(WriteOutcome::Overwritten { len: 3 })
 		);
 		assert_eq!(
-			ctx.ext.set_storage(
-				&Key::try_from_var([2; 19].to_vec()).unwrap(),
-				Some(vec![48]),
-				true
-			),
-			Ok(WriteOutcome::Taken(vec![4, 5, 6]))
+			ctx.ext
+				.set_storage(&Key::try_from_var([2; 19].to_vec()).unwrap(), Some(vec![48]), true)
+				.map(|sl| sl.data),
+			Ok(WriteOutcome::Taken { value: vec![4, 5, 6] })
 		);
 		assert_eq!(
-			ctx.ext.set_storage(&Key::try_from_var([3; 19].to_vec()).unwrap(), None, false),
-			Ok(WriteOutcome::New)
-		);
-		assert_eq!(
-			ctx.ext.set_storage(&Key::try_from_var([4; 64].to_vec()).unwrap(), None, true),
+			ctx.ext
+				.set_storage(&Key::try_from_var([3; 19].to_vec()).unwrap(), None, false)
+				.map(|sl| sl.data),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
 			ctx.ext
-				.set_storage(&Key::try_from_var([5; 30].to_vec()).unwrap(), Some(vec![]), false),
-			Ok(WriteOutcome::Overwritten(0))
+				.set_storage(&Key::try_from_var([4; 64].to_vec()).unwrap(), None, true)
+				.map(|sl| sl.data),
+			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
 			ctx.ext
-				.set_storage(&Key::try_from_var([6; 128].to_vec()).unwrap(), Some(vec![]), true),
-			Ok(WriteOutcome::Taken(vec![]))
+				.set_storage(&Key::try_from_var([5; 30].to_vec()).unwrap(), Some(vec![]), false)
+				.map(|sl| sl.data),
+			Ok(WriteOutcome::Overwritten { len: 0 })
+		);
+		assert_eq!(
+			ctx.ext
+				.set_storage(&Key::try_from_var([6; 128].to_vec()).unwrap(), Some(vec![]), true)
+				.map(|sl| sl.data),
+			Ok(WriteOutcome::Taken { value: vec![] })
 		);
 
 		exec_success()
@@ -1946,16 +1978,18 @@ fn set_storage_varsized_key_works() {
 fn get_storage_works() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_eq!(
-			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false),
+			ctx.ext
+				.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false)
+				.map(|sl| sl.data),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
-			ctx.ext.set_storage(&Key::Fix([2; 32]), Some(vec![]), false),
+			ctx.ext.set_storage(&Key::Fix([2; 32]), Some(vec![]), false).map(|sl| sl.data),
 			Ok(WriteOutcome::New)
 		);
-		assert_eq!(ctx.ext.get_storage(&Key::Fix([1; 32])), Some(vec![1, 2, 3]));
-		assert_eq!(ctx.ext.get_storage(&Key::Fix([2; 32])), Some(vec![]));
-		assert_eq!(ctx.ext.get_storage(&Key::Fix([3; 32])), None);
+		assert_eq!(ctx.ext.get_storage(&Key::Fix([1; 32])).data, Some(vec![1, 2, 3]));
+		assert_eq!(ctx.ext.get_storage(&Key::Fix([2; 32])).data, Some(vec![]));
+		assert_eq!(ctx.ext.get_storage(&Key::Fix([3; 32])).data, None);
 
 		exec_success()
 	});
@@ -1984,11 +2018,13 @@ fn get_storage_works() {
 fn get_storage_size_works() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_eq!(
-			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false),
+			ctx.ext
+				.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false)
+				.map(|sl| sl.data),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
-			ctx.ext.set_storage(&Key::Fix([2; 32]), Some(vec![]), false),
+			ctx.ext.set_storage(&Key::Fix([2; 32]), Some(vec![]), false).map(|sl| sl.data),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(ctx.ext.get_storage_size(&Key::Fix([1; 32])), Some(3));
@@ -2022,27 +2058,30 @@ fn get_storage_size_works() {
 fn get_storage_varsized_key_works() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_eq!(
-			ctx.ext.set_storage(
-				&Key::try_from_var([1; 19].to_vec()).unwrap(),
-				Some(vec![1, 2, 3]),
-				false
-			),
+			ctx.ext
+				.set_storage(
+					&Key::try_from_var([1; 19].to_vec()).unwrap(),
+					Some(vec![1, 2, 3]),
+					false
+				)
+				.map(|sl| sl.data),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
 			ctx.ext
-				.set_storage(&Key::try_from_var([2; 16].to_vec()).unwrap(), Some(vec![]), false),
+				.set_storage(&Key::try_from_var([2; 16].to_vec()).unwrap(), Some(vec![]), false)
+				.map(|sl| sl.data),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
-			ctx.ext.get_storage(&Key::try_from_var([1; 19].to_vec()).unwrap()),
+			ctx.ext.get_storage(&Key::try_from_var([1; 19].to_vec()).unwrap()).data,
 			Some(vec![1, 2, 3])
 		);
 		assert_eq!(
-			ctx.ext.get_storage(&Key::try_from_var([2; 16].to_vec()).unwrap()),
+			ctx.ext.get_storage(&Key::try_from_var([2; 16].to_vec()).unwrap()).data,
 			Some(vec![])
 		);
-		assert_eq!(ctx.ext.get_storage(&Key::try_from_var([3; 8].to_vec()).unwrap()), None);
+		assert_eq!(ctx.ext.get_storage(&Key::try_from_var([3; 8].to_vec()).unwrap()).data, None);
 
 		exec_success()
 	});
@@ -2071,16 +2110,19 @@ fn get_storage_varsized_key_works() {
 fn get_storage_size_varsized_key_works() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_eq!(
-			ctx.ext.set_storage(
-				&Key::try_from_var([1; 19].to_vec()).unwrap(),
-				Some(vec![1, 2, 3]),
-				false
-			),
+			ctx.ext
+				.set_storage(
+					&Key::try_from_var([1; 19].to_vec()).unwrap(),
+					Some(vec![1, 2, 3]),
+					false
+				)
+				.map(|sl| sl.data),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
 			ctx.ext
-				.set_storage(&Key::try_from_var([2; 16].to_vec()).unwrap(), Some(vec![]), false),
+				.set_storage(&Key::try_from_var([2; 16].to_vec()).unwrap(), Some(vec![]), false)
+				.map(|sl| sl.data),
 			Ok(WriteOutcome::New)
 		);
 		assert_eq!(
@@ -2148,11 +2190,11 @@ fn set_transient_storage_works() {
 		// Overwrite
 		assert_eq!(
 			ctx.ext.set_transient_storage(&Key::Fix([1; 32]), Some(vec![42]), false),
-			Ok(WriteOutcome::Overwritten(3))
+			Ok(WriteOutcome::Overwritten { len: 3 })
 		);
 		assert_eq!(
 			ctx.ext.set_transient_storage(&Key::Fix([2; 32]), Some(vec![48]), true),
-			Ok(WriteOutcome::Taken(vec![4, 5, 6]))
+			Ok(WriteOutcome::Taken { value: vec![4, 5, 6] })
 		);
 		assert_eq!(
 			ctx.ext.set_transient_storage(&Key::Fix([3; 32]), None, false),
@@ -2164,11 +2206,11 @@ fn set_transient_storage_works() {
 		);
 		assert_eq!(
 			ctx.ext.set_transient_storage(&Key::Fix([5; 32]), Some(vec![]), false),
-			Ok(WriteOutcome::Overwritten(0))
+			Ok(WriteOutcome::Overwritten { len: 0 })
 		);
 		assert_eq!(
 			ctx.ext.set_transient_storage(&Key::Fix([6; 32]), Some(vec![]), true),
-			Ok(WriteOutcome::Taken(vec![]))
+			Ok(WriteOutcome::Taken { value: vec![] })
 		);
 
 		exec_success()
@@ -2222,7 +2264,7 @@ fn get_transient_storage_works() {
 		} else {
 			assert_eq!(
 				ctx.ext.set_transient_storage(storage_key_1, Some(vec![3]), true),
-				Ok(WriteOutcome::Taken(vec![1, 2]))
+				Ok(WriteOutcome::Taken { value: vec![1, 2] })
 			);
 			assert_eq!(
 				ctx.ext.set_transient_storage(storage_key_2, Some(vec![]), false),
@@ -2332,7 +2374,7 @@ fn rollback_transient_storage_works() {
 			let overwritten_length = ctx.ext.get_transient_storage_size(storage_key).unwrap();
 			assert_eq!(
 				ctx.ext.set_transient_storage(storage_key, Some(vec![3]), false),
-				Ok(WriteOutcome::Overwritten(overwritten_length))
+				Ok(WriteOutcome::Overwritten { len: overwritten_length })
 			);
 			assert_eq!(ctx.ext.get_transient_storage(storage_key), Some(vec![3]));
 		}

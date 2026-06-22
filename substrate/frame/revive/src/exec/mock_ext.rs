@@ -239,7 +239,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::gas_left")
 	}
 
-	fn get_storage(&mut self, _key: &Key) -> Option<Vec<u8>> {
+	fn get_storage(&mut self, _key: &Key) -> sp_io::StateLoad<Option<Vec<u8>>> {
 		panic!("MockExt::get_storage")
 	}
 
@@ -252,7 +252,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		_key: &Key,
 		_value: Option<Vec<u8>>,
 		_take_old: bool,
-	) -> Result<WriteOutcome, DispatchError> {
+	) -> Result<sp_io::StateLoad<WriteOutcome>, DispatchError> {
 		panic!("MockExt::set_storage")
 	}
 
