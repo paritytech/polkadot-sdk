@@ -392,6 +392,305 @@ fn clearing_delegation_with_zero_address() {
 	});
 }
 
+/// The deposit refund on clear must go to the account that paid when the delegation was set,
+/// not to whichever relayer happens to submit the clear. Authorizations are signed by the
+/// authority and may be relayed by anyone, so the set and clear submitters can differ.
+///
+/// The refund is routed via `exec_config.funds(old_payer)` to the recorded payer rather than to
+/// `origin` (the clear submitter), so the original payer is made whole and the clearer gains
+/// nothing. This test pins that invariant; it would have failed against the earlier
+/// `exec_config.funds(origin)` routing that paid the clearer.
+#[test]
+fn refund_routes_to_set_payer_not_clear_submitter() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
+
+		// Deploy a real contract so the delegation carries a non-zero base deposit.
+		let target = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+			.build_and_unwrap_contract();
+
+		// Two distinct relayers, both funded.
+		let set_payer = <Test as Config>::AddressMapper::to_account_id(&H160::from([0xAA; 20]));
+		let clear_submitter =
+			<Test as Config>::AddressMapper::to_account_id(&H160::from([0xBB; 20]));
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&set_payer, 100_000_000);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(
+			&clear_submitter,
+			100_000_000,
+		);
+
+		// Authority is pre-funded so the ED path doesn't perturb relayer balances.
+		let signer = TestSigner::new(&[1u8; 32]);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&signer.address);
+		let _ =
+			<<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
+
+		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		// `Funds::Balance` mode: deposit flows directly between relayer balances, so the
+		// routing on refund is observable. (eth-tx dispatch uses `Funds::TxFee`, which hides
+		// the per-account leak under the native backend by routing through the fee pool.)
+		let exec_config = ExecConfig::new_substrate_tx();
+
+		let set_payer_before =
+			<<Test as Config>::Currency as Inspect<_>>::balance(&set_payer);
+		let clear_submitter_before =
+			<<Test as Config>::Currency as Inspect<_>>::balance(&clear_submitter);
+
+		// Step 1: `set_payer` relays the authority's set-authorization. The deposit is
+		// transferred from `set_payer` to the authority's held balance.
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
+		let auth_set = signer.sign_authorization(chain_id, target.addr, nonce);
+		let _ = crate::evm::eip7702::process_authorizations::<Test>(
+			&[auth_set],
+			&set_payer,
+			&exec_config,
+		);
+		assert!(AccountInfo::<Test>::is_delegated(&signer.address));
+		let hold =
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id);
+		assert!(hold > 0, "delegation must carry a non-zero deposit for this test to mean anything");
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&set_payer),
+			set_payer_before - hold,
+			"set_payer should have paid the deposit",
+		);
+
+		// Step 2: a *different* relayer submits the authority's signed clear. The payer-change
+		// path refunds the held deposit to `set_payer` (the recorded payer) rather than to
+		// `clear_submitter`, so under the mock runtime's `PGasDeposit` backend the
+		// `NativeDepositOf[(authority, set_payer)]` lookup resolves and the hold is fully
+		// released to the correct account.
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
+		let auth_clear = signer.sign_authorization(chain_id, H160::zero(), nonce);
+		let clear_result = crate::evm::eip7702::process_authorizations::<Test>(
+			&[auth_clear],
+			&clear_submitter,
+			&exec_config,
+		);
+		assert!(!AccountInfo::<Test>::is_delegated(&signer.address));
+
+		// `clear_submitter` paid nothing and the refund went to a *different* account
+		// (`set_payer`), so the deposit reported to `clear_submitter`'s metering budget must be a
+		// net-zero charge — not `Refund(hold)`. A cross-account refund here would credit
+		// `clear_submitter`'s EVM deposit budget with money it never paid.
+		assert_eq!(
+			clear_result.deposit,
+			crate::StorageDeposit::Charge(0),
+			"payer-change clear must not credit the clear submitter's deposit budget",
+		);
+		assert_eq!(
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id),
+			0,
+			"hold must be fully released after clear",
+		);
+
+		// The correctness invariant: refund must restore the original payer, and the
+		// unrelated clear-submitter must not gain anything.
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&set_payer),
+			set_payer_before,
+			"set_payer should be made whole on clear",
+		);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&clear_submitter),
+			clear_submitter_before,
+			"clear_submitter should not pocket the deposit",
+		);
+	});
+}
+
+/// Payer-change *re-delegation* (both deposit legs non-zero): when a second relayer re-points an
+/// existing delegation, the old payer must be fully refunded, the new submitter must be charged
+/// the new deposit in full, and the net deposit reported to the new submitter's metering budget
+/// must be exactly `Charge(current)` — never the cross-account `current - previous` diff.
+///
+/// This is the regime where the cross-account bug bites hardest: with the buggy `current -
+/// previous` net and `previous == current` it would report `Charge(0)`, handing the new submitter
+/// a full deposit's worth of free EVM budget. The clear-path test above only exercises
+/// `current == 0`.
+#[test]
+fn payer_change_redelegation_charges_new_payer_in_full() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
+
+		// Two distinct contracts sharing the same code, hence the same base deposit. Re-pointing
+		// between them keeps `previous == current`, isolating the metering net from any deposit
+		// delta so `Charge(current)` (correct) is distinguishable from `Charge(0)` (the bug).
+		let target_a = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+			.build_and_unwrap_contract();
+		let target_b = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+			.salt(Some([1; 32]))
+			.build_and_unwrap_contract();
+		let deposit = get_contract(&target_a.addr).storage_base_deposit();
+		assert!(deposit > 0, "delegation target must carry a non-zero base deposit");
+
+		// Two distinct relayers, both funded.
+		let set_payer = <Test as Config>::AddressMapper::to_account_id(&H160::from([0xAA; 20]));
+		let redelegate_payer =
+			<Test as Config>::AddressMapper::to_account_id(&H160::from([0xBB; 20]));
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&set_payer, 100_000_000);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&redelegate_payer, 100_000_000);
+
+		// Authority is pre-funded so the ED path doesn't perturb relayer balances.
+		let signer = TestSigner::new(&[2u8; 32]);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&signer.address);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
+
+		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		// `Funds::Balance` mode so the deposit moves directly between relayer balances and the
+		// routing is observable.
+		let exec_config = ExecConfig::new_substrate_tx();
+
+		let set_payer_before = <<Test as Config>::Currency as Inspect<_>>::balance(&set_payer);
+		let redelegate_payer_before =
+			<<Test as Config>::Currency as Inspect<_>>::balance(&redelegate_payer);
+
+		// Step 1: `set_payer` relays the initial delegation to target A.
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
+		let auth_a = signer.sign_authorization(chain_id, target_a.addr, nonce);
+		let _ = crate::evm::eip7702::process_authorizations::<Test>(
+			&[auth_a],
+			&set_payer,
+			&exec_config,
+		);
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&signer.address), Some(target_a.addr));
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&set_payer),
+			set_payer_before - deposit,
+			"set_payer should have paid the full deposit",
+		);
+
+		// Step 2: a *different* relayer re-points the delegation to target B.
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
+		let auth_b = signer.sign_authorization(chain_id, target_b.addr, nonce);
+		let redelegate_result = crate::evm::eip7702::process_authorizations::<Test>(
+			&[auth_b],
+			&redelegate_payer,
+			&exec_config,
+		);
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&signer.address), Some(target_b.addr));
+
+		// Core bug-#1 invariant: the new submitter is metered for exactly what it paid, not the
+		// cross-account `current - previous` (which would be `Charge(0)` here).
+		assert_eq!(
+			redelegate_result.deposit,
+			crate::StorageDeposit::Charge(deposit),
+			"re-delegation must charge the new payer's budget in full, not a cross-account net",
+		);
+		// The hold on the authority is unchanged in size (same deposit, new payer).
+		assert_eq!(
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id),
+			deposit,
+			"hold must still equal one base deposit after re-delegation",
+		);
+		// Old payer is made whole; new payer pays exactly one deposit; neither over- nor
+		// under-charged.
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&set_payer),
+			set_payer_before,
+			"set_payer should be fully refunded on re-delegation",
+		);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&redelegate_payer),
+			redelegate_payer_before - deposit,
+			"redelegate_payer should be charged exactly one deposit",
+		);
+	});
+}
+
+/// Payer-change re-delegation where the two targets carry *different* deposits. This is the
+/// strongest form of the cross-account metering bug: `previous != current`, so the buggy
+/// `current - previous` net would be a non-zero (and wrong) charge/refund, while the correct net
+/// is exactly `Charge(current)` charged to the new payer. The old payer must be refunded its full
+/// `previous`, independent of the new deposit.
+#[test]
+fn payer_change_redelegation_different_deposits_charges_current() {
+	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
+
+		// Two targets with distinct code → distinct base deposits.
+		let target_a = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+			.build_and_unwrap_contract();
+		let target_b =
+			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
+		let deposit_a = get_contract(&target_a.addr).storage_base_deposit();
+		let deposit_b = get_contract(&target_b.addr).storage_base_deposit();
+		assert!(deposit_a > 0 && deposit_b > 0, "both targets must carry a deposit");
+		assert_ne!(deposit_a, deposit_b, "targets must have different deposits for this test");
+
+		let set_payer = <Test as Config>::AddressMapper::to_account_id(&H160::from([0xAA; 20]));
+		let redelegate_payer =
+			<Test as Config>::AddressMapper::to_account_id(&H160::from([0xBB; 20]));
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&set_payer, 100_000_000);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&redelegate_payer, 100_000_000);
+
+		let signer = TestSigner::new(&[3u8; 32]);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&signer.address);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
+
+		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let exec_config = ExecConfig::new_substrate_tx();
+
+		let set_payer_before = <<Test as Config>::Currency as Inspect<_>>::balance(&set_payer);
+		let redelegate_payer_before =
+			<<Test as Config>::Currency as Inspect<_>>::balance(&redelegate_payer);
+
+		// Step 1: set_payer delegates to A (deposit_a).
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
+		let auth_a = signer.sign_authorization(chain_id, target_a.addr, nonce);
+		let _ = crate::evm::eip7702::process_authorizations::<Test>(
+			&[auth_a],
+			&set_payer,
+			&exec_config,
+		);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&set_payer),
+			set_payer_before - deposit_a,
+		);
+
+		// Step 2: a different relayer re-delegates to B (deposit_b != deposit_a).
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
+		let auth_b = signer.sign_authorization(chain_id, target_b.addr, nonce);
+		let result = crate::evm::eip7702::process_authorizations::<Test>(
+			&[auth_b],
+			&redelegate_payer,
+			&exec_config,
+		);
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&signer.address), Some(target_b.addr));
+
+		// Net charged to the new payer's budget is the NEW deposit in full — not deposit_b -
+		// deposit_a (the cross-account diff the bug would compute).
+		assert_eq!(
+			result.deposit,
+			crate::StorageDeposit::Charge(deposit_b),
+			"new payer must be metered for the full new deposit, not the cross-account diff",
+		);
+		// Hold now reflects the new target's deposit.
+		assert_eq!(
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id),
+			deposit_b,
+			"hold must equal the new target's deposit after re-delegation",
+		);
+		// Old payer refunded its full original deposit (deposit_a), regardless of deposit_b.
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&set_payer),
+			set_payer_before,
+			"old payer must be refunded its full original deposit",
+		);
+		// New payer charged exactly the new deposit.
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&redelegate_payer),
+			redelegate_payer_before - deposit_b,
+			"new payer charged exactly the new deposit",
+		);
+	});
+}
+
 /// EIP-7702 spec: an authorization with `address == 0x00…00` on a non-existent authority
 /// satisfies step 5 (code is empty), so the auth must still execute — creating the account,
 /// bumping its nonce, and leaving it as a plain EOA with no delegation.
@@ -1347,7 +1646,15 @@ fn redelegation_adjusts_deposit() {
 
 		// Re-delegate to target B (same code size → same deposit)
 		let auth = setup.sign_authorization(target_b.addr);
-		setup.process(&[auth]);
+		let result = setup.process(&[auth]);
+
+		// Same payer, same deposit → the net reported to the metering budget must be zero, not a
+		// spurious charge or refund. Discarding this previously hid metering-net regressions.
+		assert_eq!(
+			result.deposit,
+			crate::StorageDeposit::Charge(0),
+			"same-payer same-deposit re-delegation must net to zero",
+		);
 
 		let hold_b =
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id);
@@ -1458,21 +1765,16 @@ fn redelegation_via_eoa_does_not_double_decrement() {
 
 		// Step 1: delegate to contract A — charges deposit, increments refcount
 		let deposit_a = AccountInfo::<Test>::set_delegation(&authority, target_a.addr).unwrap();
-		let charge_a = match deposit_a {
-			crate::StorageDeposit::Charge(d) => d,
-			other => panic!("expected Charge, got {other:?}"),
-		};
+		assert_eq!(deposit_a.previous, 0, "fresh delegation should have no previous deposit");
+		let charge_a = deposit_a.current;
 		assert!(charge_a > 0, "delegation to contract should charge a deposit");
 		assert_eq!(CodeInfoOf::<Test>::get(hash_a).unwrap().refcount(), refcount_a_before + 1);
 
 		// Step 2: re-delegate to a plain EOA — refunds the full deposit, decrements refcount
 		let plain_eoa = H160::from([0x77; 20]);
 		let deposit_eoa = AccountInfo::<Test>::set_delegation(&authority, plain_eoa).unwrap();
-		assert_eq!(
-			deposit_eoa,
-			crate::StorageDeposit::Refund(charge_a),
-			"re-delegating to EOA should refund the full deposit from step 1"
-		);
+		assert_eq!(deposit_eoa.previous, charge_a, "previous deposit should match step 1's charge");
+		assert_eq!(deposit_eoa.current, 0, "re-delegating to EOA should leave no new deposit");
 		assert_eq!(
 			CodeInfoOf::<Test>::get(hash_a).unwrap().refcount(),
 			refcount_a_before,
@@ -1481,10 +1783,8 @@ fn redelegation_via_eoa_does_not_double_decrement() {
 
 		// Step 3: re-delegate to contract C — charges a fresh deposit, must NOT touch A
 		let deposit_c = AccountInfo::<Test>::set_delegation(&authority, target_c.addr).unwrap();
-		let charge_c = match deposit_c {
-			crate::StorageDeposit::Charge(d) => d,
-			other => panic!("expected Charge, got {other:?}"),
-		};
+		assert_eq!(deposit_c.previous, 0, "post-EOA re-delegation should have no previous deposit");
+		let charge_c = deposit_c.current;
 		assert!(charge_c > 0, "delegation to contract should charge a deposit");
 		assert_eq!(
 			CodeInfoOf::<Test>::get(hash_a).unwrap().refcount(),
@@ -1511,7 +1811,8 @@ fn delegation_to_eoa_has_no_deposit() {
 		let deposit = AccountInfo::<Test>::set_delegation(&authority, plain_eoa).unwrap();
 
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
-		assert!(deposit.is_zero(), "delegation to EOA should not charge any deposit");
+		assert_eq!(deposit.previous, 0, "delegation to EOA should not surface a previous deposit");
+		assert_eq!(deposit.current, 0, "delegation to EOA should not charge any deposit");
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id),
 			0
@@ -1549,7 +1850,8 @@ fn set_delegation_to_zero_hash_contract_succeeds() {
 
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(precompile_like));
-		assert!(deposit.is_zero(), "zero-code target should not charge a code-lockup deposit");
+		assert_eq!(deposit.previous, 0, "fresh delegation should have no previous deposit");
+		assert_eq!(deposit.current, 0, "zero-code target should not charge a code-lockup deposit");
 	});
 }
 

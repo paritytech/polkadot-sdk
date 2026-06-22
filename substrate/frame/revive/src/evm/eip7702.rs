@@ -39,7 +39,10 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_core::{Get, H160, U256};
-use sp_runtime::SaturatedConversion;
+use sp_runtime::{
+	SaturatedConversion,
+	traits::{Saturating, Zero},
+};
 
 /// EIP-7702: Magic value for authorization signature message
 const EIP7702_MAGIC: u8 = 0x05;
@@ -155,34 +158,96 @@ pub fn process_authorizations<T: Config>(
 							.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 					}
 
-					let deposit = if auth.address.is_zero() {
-						AccountInfo::<T>::clear_delegation(&authority)?
+					// Authorizations can be relayed by anyone, so the account that paid when the
+					// delegation was set and the account submitting the next set/clear can
+					// differ. The payer field on `AccountType::DelegatedEOA` records who paid
+					// last so the refund flows back to them rather than to the current
+					// submitter (under `PGasDeposit` mis-routing also strands the
+					// `NativeDepositOf[(authority, original_payer)]` entry, because the
+					// refund-side lookup keys on the destination).
+					let old_payer = AccountInfo::<T>::get_delegation_payer(&authority);
+					let (previous, current): (BalanceOf<T>, BalanceOf<T>) = if auth.address.is_zero() {
+						(AccountInfo::<T>::clear_delegation(&authority)?, BalanceOf::<T>::zero())
 					} else {
-						AccountInfo::<T>::set_delegation(&authority, auth.address)?
+						let change = AccountInfo::<T>::set_delegation(&authority, auth.address)?;
+						(change.previous, change.current)
 					};
 
-					match deposit {
-						StorageDeposit::Charge(amount) => {
-							Pallet::<T>::charge_deposit(
-								HoldReason::StorageDepositReserve,
-								origin,
-								&account_id,
-								amount,
-								exec_config,
-							)?;
-						},
-						StorageDeposit::Refund(amount) => {
+					// Same-payer path applies a net diff (avoids round-tripping through
+					// `T::Deposit` twice, which under `PGasDeposit` would burn
+					// `1 - RefundPercent` of the PGAS-held portion on every revisit).
+					// Payer-change path fully refunds the old payer and fully charges the
+					// new payer.
+					// `origin` is the sole payer when it set the current deposit, or when there
+					// is no recorded payer (fresh delegation / zero deposit).
+					let origin_is_sole_payer =
+						old_payer.as_ref() == Some(origin) || old_payer.is_none();
+					if origin_is_sole_payer {
+						if current >= previous {
+							let diff = current.saturating_sub(previous);
+							if !diff.is_zero() {
+								Pallet::<T>::charge_deposit(
+									HoldReason::StorageDepositReserve,
+									origin,
+									&account_id,
+									diff,
+									exec_config,
+								)?;
+							}
+						} else {
+							let diff = previous.saturating_sub(current);
 							Pallet::<T>::refund_deposit(
 								HoldReason::StorageDepositReserve,
 								&account_id,
 								exec_config.funds(origin),
-								amount,
+								diff,
 							)?;
-						},
+						}
+					} else {
+						let old_payer = old_payer
+							.as_ref()
+							.expect("old_payer is Some in this branch; qed");
+						if !previous.is_zero() {
+							Pallet::<T>::refund_deposit(
+								HoldReason::StorageDepositReserve,
+								&account_id,
+								exec_config.funds(old_payer),
+								previous,
+							)?;
+						}
+						if !current.is_zero() {
+							Pallet::<T>::charge_deposit(
+								HoldReason::StorageDepositReserve,
+								origin,
+								&account_id,
+								current,
+								exec_config,
+							)?;
+						}
 					}
 
+					AccountInfo::<T>::set_delegation_payer(
+						&authority,
+						if current.is_zero() { None } else { Some(origin.clone()) },
+					);
+
 					frame_system::Pallet::<T>::inc_account_nonce(&account_id);
-					Ok(deposit)
+					// The deposit reported upward feeds `origin`'s metering budget, so it must
+					// reflect only what `origin` paid. When `origin` is the sole payer this is the
+					// signed diff against its own prior deposit. On the payer-change path
+					// `previous` was refunded to a *different* account (`old_payer`); folding it
+					// into the net here would credit `origin` for money it never paid and inflate
+					// its deposit budget, so the net is the full charge to `origin`.
+					let net = if origin_is_sole_payer {
+						if current >= previous {
+							StorageDeposit::Charge(current.saturating_sub(previous))
+						} else {
+							StorageDeposit::Refund(previous.saturating_sub(current))
+						}
+					} else {
+						StorageDeposit::Charge(current)
+					};
+					Ok(net)
 				})();
 
 				match inner {

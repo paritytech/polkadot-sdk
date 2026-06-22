@@ -23,7 +23,6 @@ use crate::{
 	address::AddressMapper,
 	exec::{AccountIdOf, Key},
 	metering::FrameMeter,
-	primitives::StorageDeposit,
 	tracing::if_tracing,
 	vm::CodeInfo,
 	weights::WeightInfo,
@@ -95,7 +94,25 @@ pub enum AccountType<T: Config> {
 		delegate_target: Option<H160>,
 		/// Storage accounting for this EOA's child trie.
 		contract_info: ContractInfo<T>,
+		/// Account that paid the current `contract_info.storage_base_deposit`. `Some` whenever a
+		/// non-zero deposit is held; `None` for fresh delegations and post-clear leftovers. Used
+		/// on clear/re-delegation so the refund flows back to the original payer regardless of
+		/// who relays the next authorization.
+		payer: Option<T::AccountId>,
 	},
+}
+
+/// Deposit movement caused by [`AccountInfo::set_delegation`].
+///
+/// `previous` is the `storage_base_deposit` that was held under the *prior* delegation (0 if the
+/// account is freshly delegated). `current` is the deposit required by the *new* delegation
+/// target (0 if the target carries no code). The caller is responsible for refunding `previous`
+/// to whoever originally paid it (look up via [`AccountInfo::get_delegation_payer`]) and charging
+/// `current` from the new payer.
+#[derive(Debug, PartialEq, Eq)]
+pub struct DelegationDepositChange<T: Config> {
+	pub previous: BalanceOf<T>,
+	pub current: BalanceOf<T>,
 }
 
 /// Information for managing an account and its sub trie abstraction.
@@ -162,7 +179,7 @@ impl<T: Config> AccountType<T> {
 	pub fn contract_info(self) -> Option<ContractInfo<T>> {
 		match self {
 			AccountType::Contract(info) => Some(info),
-			AccountType::DelegatedEOA { delegate_target: Some(_), contract_info }
+			AccountType::DelegatedEOA { delegate_target: Some(_), contract_info, .. }
 				if !contract_info.code_hash.is_zero() =>
 			{
 				Some(contract_info)
@@ -255,6 +272,28 @@ impl<T: Config> AccountInfo<T> {
 		}
 	}
 
+	/// EIP-7702: Read the account that paid the currently held delegation deposit, if any.
+	pub(crate) fn get_delegation_payer(address: &H160) -> Option<T::AccountId> {
+		let info = <AccountInfoOf<T>>::get(address)?;
+		match info.account_type {
+			AccountType::DelegatedEOA { payer, .. } => payer,
+			_ => None,
+		}
+	}
+
+	/// EIP-7702: Update the delegation payer in place. No-op if the account is not delegated.
+	pub(crate) fn set_delegation_payer(address: &H160, new_payer: Option<T::AccountId>) {
+		<AccountInfoOf<T>>::mutate(address, |slot| {
+			if let Some(AccountInfo {
+				account_type: AccountType::DelegatedEOA { payer, .. },
+				..
+			}) = slot
+			{
+				*payer = new_payer;
+			}
+		});
+	}
+
 	/// EIP-7702: Build the 23-byte delegation indicator `0xef0100 || target`.
 	pub fn delegation_indicator(target: &H160) -> [u8; 23] {
 		let mut buf = [0u8; 23];
@@ -292,10 +331,10 @@ impl<T: Config> AccountInfo<T> {
 	pub(crate) fn set_delegation(
 		address: &H160,
 		target: H160,
-	) -> Result<StorageDeposit<BalanceOf<T>>, DispatchError> {
+	) -> Result<DelegationDepositChange<T>, DispatchError> {
 		// Atomic: a failed refcount update below must roll back the account mutation.
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
-			let result = (|| -> Result<StorageDeposit<BalanceOf<T>>, DispatchError> {
+			let result = (|| -> Result<DelegationDepositChange<T>, DispatchError> {
 				// `Some` iff target is a deployed contract with a real (non-zero) code
 				// hash. Precompiles and other special accounts surface as
 				// `AccountType::Contract` with `code_hash == 0` and have no `CodeInfo`;
@@ -323,6 +362,7 @@ impl<T: Config> AccountInfo<T> {
 								address,
 								Default::default(),
 							),
+							payer: None,
 						};
 						match slot.as_mut() {
 							None => {
@@ -345,7 +385,7 @@ impl<T: Config> AccountInfo<T> {
 
 						let Some(AccountInfo {
 							account_type:
-								AccountType::DelegatedEOA { delegate_target, contract_info },
+								AccountType::DelegatedEOA { delegate_target, contract_info, .. },
 							..
 						}) = slot
 						else {
@@ -394,11 +434,7 @@ impl<T: Config> AccountInfo<T> {
 					})?;
 				}
 
-				Ok(if new_deposit >= old_deposit {
-					StorageDeposit::Charge(new_deposit.saturating_sub(old_deposit))
-				} else {
-					StorageDeposit::Refund(old_deposit.saturating_sub(new_deposit))
-				})
+				Ok(DelegationDepositChange { previous: old_deposit, current: new_deposit })
 			})();
 
 			match result {
@@ -413,18 +449,20 @@ impl<T: Config> AccountInfo<T> {
 	/// The account stays `DelegatedEOA` with `delegate_target = None` so that
 	/// the child trie and deposit accounting are preserved for future re-delegation.
 	///
-	/// Returns the `storage_base_deposit` to refund.
+	/// Returns the previously held `storage_base_deposit` (now released). The caller must
+	/// refund this amount to whoever originally paid it — look up via
+	/// [`AccountInfo::get_delegation_payer`] before invoking `clear_delegation`.
 	pub(crate) fn clear_delegation(
 		address: &H160,
-	) -> Result<StorageDeposit<BalanceOf<T>>, DispatchError> {
+	) -> Result<BalanceOf<T>, DispatchError> {
 		// Atomic: a failed `decrement_refcount` must roll back `delegate_target = None`.
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 			let result = AccountInfoOf::<T>::mutate(
 				address,
-				|account| -> Result<StorageDeposit<BalanceOf<T>>, DispatchError> {
+				|account| -> Result<BalanceOf<T>, DispatchError> {
 					let mut refund: BalanceOf<T> = Zero::zero();
 					if let Some(AccountInfo {
-						account_type: AccountType::DelegatedEOA { delegate_target, contract_info },
+						account_type: AccountType::DelegatedEOA { delegate_target, contract_info, .. },
 						..
 					}) = account
 					{
@@ -437,7 +475,7 @@ impl<T: Config> AccountInfo<T> {
 							contract_info.code_hash = Default::default();
 						}
 					}
-					Ok(StorageDeposit::Refund(refund))
+					Ok(refund)
 				},
 			);
 

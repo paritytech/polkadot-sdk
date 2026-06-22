@@ -241,6 +241,9 @@ fn apply_delegation_override<T: Config>(address: &H160, target: H160) {
 			account_type: AccountType::DelegatedEOA {
 				delegate_target: Some(target),
 				contract_info,
+				// State overrides bypass deposit accounting (they run inside a dry-run
+				// transaction that's rolled back), so there is no payer to record.
+				payer: None,
 			},
 			dust,
 		});
