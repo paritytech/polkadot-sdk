@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781899813777,
+  "lastUpdate": 1782096004380,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -99899,6 +99899,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2700697630,
             "range": "± 43913886",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "83864a55470930577e59b256ec9fe38f3534c88a",
+          "message": "[pallet-revive]: Version the `trace_block` runtime API function (#12244)\n\n# Description\n\nThis PR is a follow up from the various discussions we have had as a\nteam around versioning of the runtime API and the approach that we\nshould take.\n\nThis PR versions a single runtime API function in pallet-revive: the\n`trace_block` function. In the process, I also implemented\nhttps://github.com/paritytech/polkadot-sdk/pull/11532 to demonstrate how\nthe various pieces connect together when we want to version a specific\nruntime API function as the last commit in the PR.\n\nThis PR is meant to show case how everything in versioning works e2e\nbefore we go ahead and version the rest of the runtime API using this\nstrategy.\n\nAll of the wire types we use for tracing have been added to the `types`\ncrate. It houses the wire types and the payload types that we use for\nthe runtime APIs.\n\nThe following concepts were added to the codebase:\n- On the wire types:\n- `${name}V${version}` - A version of a specific type. For example\n`CallLogV1`.\n- `${name}InputPayloadV${version}` - A specific version of the input\npayload for some runtime API function. For example\n`TraceBlockInputPayloadV1`.\n- `${name}OutputPayloadV${version}` - A specific version of the output\npayload for some runtime API function. For example\n`TraceBlockOutputPayloadV1`.\n- `${name}VersionedInputPayload` - An enum of all of the possible\nversions that the input payload for some runtime API function can have.\n- `${name}VersionedOutputPayload` - An enum of all of the possible\nversions that the output payload for some runtime API function can have.\n- On the execution types:\n- `${name}InputPayload` - Execution type input payload of some runtime\nAPI function.\n- `${name}OutputPayload` - Execution type output payload of some runtime\nAPI function.\n\nThere are a few things worth noting:\n- In the process of working on this I needed to move some of the JSON\nfunctionality from `pallet-revive` and into the `types` crate.\n- Some of the execution models for tracing no longer implement SCALE\nwhich is done to ensure that these types never cross the wire and are\nindeed internal to pallet-revive (and anybody who imports pallet-revive\nas a direct dependency)\n\n# Tests\n\nThe new\n`test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input`\ntest is probably the best test for this functionality. It shows that the\nversioned runtime API function for `trace_block` functions exactly in\nthe way that we expect it to do: given a V1 input we get a V1 output\nback and given a V2 input we get a V2 output back. It shows that\nversioning works end to end.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-22T01:26:09Z",
+          "tree_id": "7a787da13a6662d65e83a11e6d834b86d8c8b6b0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83864a55470930577e59b256ec9fe38f3534c88a"
+        },
+        "date": 1782095978456,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19314049,
+            "range": "± 212840",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19336358,
+            "range": "± 448362",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21088776,
+            "range": "± 342088",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25970159,
+            "range": "± 191995",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58106819,
+            "range": "± 805173",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 355767200,
+            "range": "± 7168432",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2538276726,
+            "range": "± 138018780",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16764374,
+            "range": "± 366469",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17180136,
+            "range": "± 406292",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17670331,
+            "range": "± 297682",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22409219,
+            "range": "± 242423",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60647664,
+            "range": "± 1078856",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 362602193,
+            "range": "± 5278010",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2714036389,
+            "range": "± 41084912",
             "unit": "ns/iter"
           }
         ]
