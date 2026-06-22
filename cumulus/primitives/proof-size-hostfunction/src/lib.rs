@@ -21,12 +21,10 @@
 #[cfg(feature = "std")]
 use sp_externalities::ExternalitiesExt;
 
-use sp_runtime_interface::{pass_by::PassAs, runtime_interface};
+use sp_runtime_interface::runtime_interface;
 
 #[cfg(feature = "std")]
 use sp_trie::proof_size_extension::ProofSizeExt;
-
-use sp_core::storage::StateVersion;
 
 pub const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
 
@@ -60,7 +58,7 @@ pub trait StorageProofSize {
 
 #[cfg(test)]
 mod tests {
-	use sp_core::{storage::StateVersion, Blake2Hasher};
+	use sp_core::Blake2Hasher;
 	use sp_state_machine::TestExternalities;
 	use sp_trie::{
 		proof_size_extension::ProofSizeExt, recorder::Recorder, LayoutV1, PrefixedMemoryDB,
