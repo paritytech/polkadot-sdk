@@ -89,6 +89,11 @@ impl PendingRequests {
 		req
 	}
 
+	/// Iterator over advertisements currently being fetched.
+	pub fn iter(&self) -> impl Iterator<Item = &Advertisement> {
+		self.cancellation_tokens.keys()
+	}
+
 	pub fn cancel(&mut self, advertisement: &Advertisement) {
 		if let Some(cancellation_token) = self.cancellation_tokens.remove(advertisement) {
 			gum::trace!(

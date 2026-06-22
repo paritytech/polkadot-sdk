@@ -35,6 +35,8 @@ exclude = [
 	"https://docs.substrate.io/rustdocs/latest/sp_api/macro.decl_runtime_apis.html",
 	"https://github.com/ipfs/js-ipfs-bitswap/blob/",
 	"https://github.com/paritytech/polkadot-sdk/substrate/frame/timestamp",
+	# Self-reference that resolves post-merge (PR #11662):
+	"https://github.com/paritytech/polkadot-sdk/blob/master/substrate/client/hop/README.md",
 	"https://github.com/paritytech/substrate/frame/fast-unstake",
 	"https://github.com/zkcrypto/bls12_381/blob/e224ad4ea1babfc582ccd751c2bf128611d10936/src/test-data/mod.rs",
 	"https://polkadot.network/the-path-of-a-parachain-block/",
@@ -57,7 +59,10 @@ exclude = [
 	"https://chainlist.org/chain/*",
 	"https://dl.acm.org",
 	"https://iohk.io/en/blog/posts/2023/11/03/partner-chains-are-coming-to-cardano/",
+	"https://medium.com/wicketh/mathemagic-512-bit-division-in-solidity-afa55870a65",
 	"https://polymesh.network",
+	"https://tomaka.medium.com/a-look-back-at-asynchronous-rust-d54d63934a1c",
+	"https://weka.medium.com/how-to-send-ether-to-11-440-people-187e332566b7",
 	"https://www.reddit.com/r/rust/comments/3spfh1/does_collect_allocate_more_than_once_while/",
 	# 403 rate limited:
 	"https://etherscan.io/block/11090290",
@@ -65,6 +70,7 @@ exclude = [
 	"https://substrate.stackexchange.com/.*",
 	# Broken for link-checker CI, but works in browser and local machine
 	"http://www.gnu.org/licenses/",
+	"https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug*",
 	"https://www.gnu.org/licenses/",
 	# Exclude strings which contain templates like {} and {:?}
 	"%7B%7D",
