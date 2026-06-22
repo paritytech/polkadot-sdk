@@ -77,10 +77,10 @@ pub fn extcodecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 		return ControlFlow::Continue(());
 	}
 
-	// The whole blob is loaded regardless of `len`: charge the max, then refund to actual size.
-	let charged = interpreter
-		.ext
-		.charge_or_halt(RuntimeCosts::ExtCodeCopy(limits::code::BLOB_BYTES))?;
+	// Pre-charge the larger of the two limits so the `code_size.max(len)` refund can't exceed it.
+	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::ExtCodeCopy(
+		limits::EVM_MEMORY_BYTES.max(limits::code::BLOB_BYTES),
+	))?;
 
 	let address = address.into_address();
 	let memory_offset = as_usize_or_halt::<E::T>(memory_offset)?;

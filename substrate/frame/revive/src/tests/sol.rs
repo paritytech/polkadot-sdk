@@ -200,7 +200,9 @@ fn extcodecopy_charges_for_actual_code_size() {
 			let mut input = vec![0u8; 12];
 			input.extend_from_slice(target_addr.as_bytes());
 
-			builder::bare_call(reader_addr).data(input).build().gas_consumed
+			let result = builder::bare_call(reader_addr).data(input).build();
+			result.result.unwrap();
+			result.gas_consumed
 		})
 	};
 
@@ -211,6 +213,60 @@ fn extcodecopy_charges_for_actual_code_size() {
 		gas_large > gas_small,
 		"extcodecopy must charge more for a larger target contract: \
 		 gas_large={gas_large}, gas_small={gas_small}",
+	);
+}
+
+#[test]
+fn extcodecopy_charges_for_copy_length_beyond_code_size() {
+	// The target's code size is held fixed; only the copy length varies.
+	const TARGET_CODE_SIZE: u32 = 64;
+
+	// Reader runtime: copy `copy_len` bytes of code from the address in calldata.
+	let reader_for = |copy_len: u32| -> Vec<u8> {
+		let [b0, b1, b2, b3] = copy_len.to_be_bytes();
+		make_initcode_from_runtime_code(&vec![
+			PUSH4,
+			b0,
+			b1,
+			b2,
+			b3,
+			PUSH0,
+			PUSH0,
+			PUSH0,
+			CALLDATALOAD,
+			EXTCODECOPY,
+			STOP,
+		])
+	};
+
+	let measure = |copy_len: u32| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let target_code = VmBinaryModule::evm_init_code_for_runtime_size(TARGET_CODE_SIZE).code;
+			let Contract { addr: target_addr, .. } =
+				builder::bare_instantiate(Code::Upload(target_code)).build_and_unwrap_contract();
+
+			let Contract { addr: reader_addr, .. } =
+				builder::bare_instantiate(Code::Upload(reader_for(copy_len)))
+					.build_and_unwrap_contract();
+
+			let mut input = vec![0u8; 12];
+			input.extend_from_slice(target_addr.as_bytes());
+
+			let result = builder::bare_call(reader_addr).data(input).build();
+			result.result.unwrap();
+			result.gas_consumed
+		})
+	};
+
+	let gas_at_code_size = measure(TARGET_CODE_SIZE);
+	let gas_max = measure(crate::limits::EVM_MEMORY_BYTES);
+
+	assert!(
+		gas_max > gas_at_code_size,
+		"extcodecopy must charge for the copy length when it exceeds the code size: \
+		 gas_max={gas_max}, gas_at_code_size={gas_at_code_size}",
 	);
 }
 
