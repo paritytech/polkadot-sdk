@@ -615,10 +615,19 @@ pub mod env {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
-		// quering the length is free as it is stored with the contract metadata
-		let len = self.ext.immutable_data_len();
-		self.charge_gas(RuntimeCosts::GetImmutableData(len))?;
+		// Immutables follow the code: under delegatecall it's the callee's, not the caller's.
+		// Its length isn't known up front, so pre-charge the max and refund to the actual size.
+		let is_delegate = self.ext.is_delegate_call();
+		let charged = if is_delegate {
+			self.charge_gas(RuntimeCosts::GetImmutableData(limits::IMMUTABLE_BYTES))?
+		} else {
+			let len = self.ext.immutable_data_len();
+			self.charge_gas(RuntimeCosts::GetImmutableData(len))?
+		};
 		let data = self.ext.get_immutable_data()?;
+		if is_delegate {
+			self.adjust_gas(charged, RuntimeCosts::GetImmutableData(data.len() as u32));
+		}
 		self.write_sandbox_output(memory, out_ptr, out_len_ptr, &data, false, already_charged)?;
 		Ok(())
 	}
