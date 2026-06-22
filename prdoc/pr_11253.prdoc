@@ -22,4 +22,4 @@ doc:
     - https://github.com/paritytech/polkadot-sdk/issues/11164
 crates:
 - name: sc-network
-  bump: patch
+  bump: minor
