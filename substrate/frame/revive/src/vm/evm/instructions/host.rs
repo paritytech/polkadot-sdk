@@ -201,7 +201,7 @@ pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
 	let charged = interpreter
 		.ext
-		.charge_or_halt(RuntimeCosts::GetTransientStorage(limits::TRANSIENT_STORAGE_BYTES))?;
+		.charge_or_halt(RuntimeCosts::GetTransientStorage(limits::STORAGE_BYTES))?;
 
 	let key = Key::Fix(index.to_big_endian());
 	let bytes = interpreter.ext.get_transient_storage(&key);
