@@ -125,7 +125,7 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 
 	// Verify both V3 and V2 candidates are backed in the same relay chain block window.
 	let expected_v3_throughput = match para_chain {
-		"async-backing-v3" => 15..21,
+		"async-backing-v3" => 16..21,
 		"async-backing-v3-rpo" => 8..21,
 		_ => unreachable!("unexpected para_chain"),
 	};
