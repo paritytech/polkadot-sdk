@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Disk-backed statement store."><title>yet_another_parachain_runtime::sc_statement_store - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Statement Store"><title>yet_another_parachain_runtime::sc_statement_store - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
 data-use_system_theme="false"
 data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="yet_another_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../crates.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
 	function createToC() {
@@ -148,10 +148,209 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 	}
 </style>
 
-<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate sc_statement_store</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>sc_<wbr>statement_<wbr>store</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Disk-backed statement store.</p>
-<p>This module contains an implementation of <code>sp_statement_store::StatementStore</code> which is backed
-by a database.</p>
-<p>Constraint management.</p>
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate sc_statement_store</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#statement-store" title="Statement Store">Statement Store</a><ul><li><a href="#design-principles" title="Design principles">Design principles</a></li><li><a href="#architecture" title="Architecture">Architecture</a></li><li><a href="#account-quota" title="Account quota">Account quota</a></li><li><a href="#channels" title="Channels">Channels</a></li><li><a href="#topics" title="Topics">Topics</a></li><li><a href="#best-practices" title="Best practices">Best practices</a></li></ul></li><li><a href="#integrating-the-statement-store" title="Integrating the statement store">Integrating the statement store</a><ul><li><a href="#authorization-and-signing" title="Authorization and signing">Authorization and signing</a></li><li><a href="#channels-and-topics-in-practice" title="Channels and topics in practice">Channels and topics in practice</a></li><li><a href="#expiry-and-priority" title="Expiry and priority">Expiry and priority</a></li><li><a href="#submission-outcomes-and-errors" title="Submission outcomes and errors">Submission outcomes and errors</a></li><li><a href="#duplicates-retries-and-delivery" title="Duplicates, retries, and delivery">Duplicates, retries, and delivery</a></li><li><a href="#privacy-and-security" title="Privacy and security">Privacy and security</a></li></ul></li><li><a href="#implementation-notes" title="Implementation notes">Implementation notes</a><ul><li><a href="#constraint-management" title="Constraint management">Constraint management</a></li><li><a href="#statement-expiration" title="Statement expiration">Statement expiration</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>sc_<wbr>statement_<wbr>store</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="statement-store"><a class="doc-anchor" href="#statement-store">§</a>Statement Store</h2>
+<p>The statement store is an off-chain, decentralized data store for cryptographically signed
+statements in the Polkadot SDK. It lets accounts publish arbitrary data that can be queried and
+propagated across the network without consuming on-chain storage.</p>
+<p>Key characteristics:</p>
+<ul>
+<li><strong>Off-chain storage</strong> — keeps the data off-chain to avoid blockchain state bloat.</li>
+<li><strong>Gossip-based distribution</strong> — statements propagate node-to-node over a notification protocol.</li>
+<li><strong>Cryptographic verification</strong> — every statement is signed and verified before acceptance.</li>
+<li><strong>Topic-based indexing</strong> — up to four topics per statement for efficient querying.</li>
+<li><strong>Account-based limits</strong> — per-account quotas bound how much an account may store.</li>
+<li><strong>Automatic eviction</strong> — lower-priority statements are evicted when limits are reached.</li>
+<li><strong>Multiple access methods</strong> — reachable over JSON-RPC for applications and via the runtime API
+(offchain workers) for on-chain logic.</li>
+</ul>
+<h3 id="design-principles"><a class="doc-anchor" href="#design-principles">§</a>Design principles</h3>
+<p>The service is built around two pillars — <strong>scalability</strong> and <strong>graceful degradation</strong> — and
+deliberately avoids the properties of a centralized data structure, prioritizing privacy,
+scalability, and decentralization by reducing other guarantees:</p>
+<ul>
+<li><strong>No centralized-system guarantees.</strong> The store is weakly coherent: it does not guarantee message
+delivery or specific delivery times, operating on a best-effort basis. Under saturation, quality
+of service (latency, propagation speed) degrades gracefully rather than the system halting.</li>
+<li><strong>Generic transport layer.</strong> It does not natively guarantee data confidentiality, integrity, or
+authenticity; applications must layer those properties on top (e.g. their own encryption).</li>
+<li><strong>Local enforcement.</strong> Global quotas cannot be enforced instantly in a decentralized system, so
+nodes enforce quotas locally and global consistency is only eventual. Node operators may also
+apply their own storage limits or quality-of-service.</li>
+</ul>
+<p>Because delivery is not guaranteed — notably under full network saturation, malicious nodes, or
+network partitioning/ISP failures — the store is best thought of as closer to UDP than TCP, and
+applications should use fail-safe mechanisms that confirm a message was delivered before proceeding.</p>
+<h3 id="architecture"><a class="doc-anchor" href="#architecture">§</a>Architecture</h3>
+<p>The implementation is split across several crates:</p>
+<ul>
+<li><strong><code>sp-statement-store</code></strong> — the <a href="../sp_statement_store/struct.Statement.html" title="struct yet_another_parachain_runtime::sp_statement_store::Statement"><code>Statement</code></a> structure, core types, the <a href="trait.StatementStore.html" title="trait yet_another_parachain_runtime::sc_statement_store::StatementStore"><code>StatementStore</code></a> runtime
+and client interfaces, and cryptographic primitives.</li>
+<li><strong><code>sc-statement-store</code></strong> — the disk-backed (ParityDB) store: constraint management, the in-memory
+index, and subscription handling.</li>
+<li><strong><code>sc-network-statement</code></strong> — gossip-based propagation, per-peer state, and topic affinity.</li>
+<li><strong><code>pallet-statement</code></strong> — the runtime pallet: it turns on-chain statement events into statements
+(via an offchain worker) and defines the bounds used to compute account allowances.</li>
+<li><strong><code>sc-rpc-api</code> / <code>sc-rpc</code></strong> — the JSON-RPC API (a statement subscription and a submit method) used
+by external clients; see
+<a href="../sc_rpc_api/statement/trait.StatementApiClient.html"><code>StatementApiClient</code></a>.</li>
+</ul>
+<h3 id="account-quota"><a class="doc-anchor" href="#account-quota">§</a>Account quota</h3>
+<p>An account’s budget is a <code>StatementAllowance { max_count, max_size }</code>, enforced on two axes at the
+same time:</p>
+<ul>
+<li><code>max_count</code> — the maximum number of statements the account may have stored.</li>
+<li><code>max_size</code> — the maximum total <strong>data</strong> size in bytes (the length of each statement’s <code>data</code>
+field, not its full SCALE-encoded size).</li>
+</ul>
+<p>Because both are hard limits, an account may spend its budget as a few large statements or many
+small ones, up to whichever limit it reaches first. For example, with <code>max_size</code> = 50 KiB and
+<code>max_count</code> = 50: an account could store two 25 KiB statements (filling the size budget but using
+only 2 of 50 slots), or fifty 1 KiB statements (reaching both limits at once).</p>
+<p>When a submission would exceed either limit, the account’s lowest-priority statements (those with
+the lowest expiry) are evicted to make room. If a single statement’s data exceeds <code>max_size</code> it is
+rejected outright; and if, even after evicting every lower-priority statement, the new one still
+does not fit, it is rejected too. Global limits apply on top of per-account limits: the store holds
+at most <code>DEFAULT_MAX_TOTAL_STATEMENTS</code> statements and <code>DEFAULT_MAX_TOTAL_SIZE</code> of data.</p>
+<p>Allowances are not fixed in code: they are held in chain state (keyed under
+<code>STATEMENT_ALLOWANCE_PREFIX</code>) and granted or revoked by the runtime; an account with no allowance —
+or a depleted one — cannot store statements. The bounds within which a runtime may set allowances
+are configured by <code>pallet-statement</code>.</p>
+<h3 id="channels"><a class="doc-anchor" href="#channels">§</a>Channels</h3>
+<p>A channel is an optional per-account identifier (<code>Option&lt;Channel&gt;</code>, 32 bytes) used for message
+replacement: only one statement per <code>(account, channel)</code> pair is stored at a time.</p>
+<p>Submitting a new statement on a channel that already has one replaces the previous statement from
+the same account <strong>only if the new statement has a strictly higher expiry</strong> (priority). Replacing
+frees the old statement’s size; if the new statement is larger and replacing the old one is not
+enough to stay within the account quota, additional lowest-priority statements from the same
+account are evicted, and if it still does not fit the submission is rejected.</p>
+<p>A statement with no channel is never subject to channel uniqueness — it is only ever removed by
+priority-based eviction or expiry. The store does not prescribe how a channel id is generated.</p>
+<h3 id="topics"><a class="doc-anchor" href="#topics">§</a>Topics</h3>
+<p>Topics are the primary attribute used to query and filter statements. A statement carries up to
+<code>MAX_TOPICS</code> (4) topics, each a 32-byte identifier, and the store maintains a <code>topic -&gt; statements</code>
+index for fast lookups.</p>
+<p>Subscriptions filter by topic in one of three ways:</p>
+<ul>
+<li><code>Any</code> — match every statement.</li>
+<li><code>MatchAll(topics)</code> — match statements that include <strong>all</strong> of the given topics (up to <code>MAX_TOPICS</code>
+= 4 topics; an empty set matches everything).</li>
+<li><code>MatchAny(topics)</code> — match statements that include <strong>any</strong> of the given topics (up to
+<code>MAX_ANY_TOPICS</code> = 128 topics).</li>
+</ul>
+<p>Topics are neither private nor reserved: any statement may use any topic, so it is the
+application’s responsibility to filter or validate them. At the network layer, peers can
+additionally advertise a topic <em>affinity</em> (a bloom filter) so that only statements matching their
+interests are propagated to them.</p>
+<h3 id="best-practices"><a class="doc-anchor" href="#best-practices">§</a>Best practices</h3>
+<ul>
+<li><strong>Do not use the store for synchronous communication.</strong> It is designed for asynchronous hand-offs
+and signaling, not real-time exchange between nodes or apps.</li>
+<li><strong>Do not route peer-to-peer data through the store.</strong> High-bandwidth or continuous peer-to-peer
+traffic should go over a direct channel (e.g. WebRTC); use the statement store only to signal the
+setup of such a connection, not to carry its traffic.</li>
+<li><strong>Do not rely on timely or guaranteed delivery.</strong> Network congestion can delay or drop
+propagation — treat the store as closer to UDP than TCP.</li>
+</ul>
+<h2 id="integrating-the-statement-store"><a class="doc-anchor" href="#integrating-the-statement-store">§</a>Integrating the statement store</h2>
+<p>This guide covers what an application developer needs to know to integrate the statement store. It
+focuses on integration-specific guidance; for the concepts and mechanics it refers to the crate
+overview above and the API docs (<a href="trait.StatementStore.html" title="trait yet_another_parachain_runtime::sc_statement_store::StatementStore"><code>StatementStore</code></a>, <a href="../sp_statement_store/struct.Statement.html" title="struct yet_another_parachain_runtime::sp_statement_store::Statement"><code>Statement</code></a>, and the RPC client
+<a href="../sc_rpc_api/statement/trait.StatementApiClient.html"><code>StatementApiClient</code></a>) rather than repeating
+them.</p>
+<h3 id="authorization-and-signing"><a class="doc-anchor" href="#authorization-and-signing">§</a>Authorization and signing</h3>
+<p>There is no separate authentication step. Every statement must be <strong>signed by the submitting
+account’s key</strong>, and the store authorizes submission by checking that the account has a non-zero
+allowance (<a href="../sp_statement_store/struct.StatementAllowance.html" title="struct yet_another_parachain_runtime::sp_statement_store::StatementAllowance"><code>StatementAllowance</code></a>); an account with no allowance cannot store statements.</p>
+<h3 id="channels-and-topics-in-practice"><a class="doc-anchor" href="#channels-and-topics-in-practice">§</a>Channels and topics in practice</h3>
+<p><strong>Channels</strong> act as a single-slot mailbox per <code>(account, channel)</code> pair: only one statement per
+channel is kept, and a new one replaces the old one <strong>only if it has strictly higher priority</strong>
+(a greater <code>expiry</code>). This makes them ideal for replaceable state, keeping only the latest value on
+a channel. A lower-or-equal-priority submission on an existing channel is rejected with
+<a href="../sp_statement_store/enum.RejectionReason.html#variant.ChannelPriorityTooLow" title="variant yet_another_parachain_runtime::sp_statement_store::RejectionReason::ChannelPriorityTooLow"><code>RejectionReason::ChannelPriorityTooLow</code></a>. There is no built-in way to fetch statements by
+channel — retrieval is by topic only.</p>
+<p><strong>Topics</strong> are network-wide, public, and unreserved: anyone may post to any topic, and every
+subscriber listening on a topic receives matching statements. They are the main element for
+grouping related statements. The store does not prescribe how a <code>TopicID</code> (32 bytes) is chosen;
+two common patterns and their trade-offs:</p>
+<ul>
+<li><code>hash(app_name + public_key)</code> — convenient, but since the public key is known this lets an
+observer correlate all of an application’s statements for that key (metadata leakage).</li>
+<li><code>hash(public_key + entropy)</code> — avoids that correlation where no metadata leakage is acceptable.</li>
+</ul>
+<p>It is the application’s responsibility to filter and validate topics (see
+<a href="#privacy-and-security">Privacy and security</a>).</p>
+<h3 id="expiry-and-priority"><a class="doc-anchor" href="#expiry-and-priority">§</a>Expiry and priority</h3>
+<p>A statement’s <code>expiry</code> is a single <code>u64</code> that packs an expiration timestamp (seconds since the
+UNIX epoch) in the <strong>high 32 bits</strong> and a sequence number in the <strong>low 32 bits</strong>; a higher value is
+higher priority. Eviction is purely priority-based and treats channel and non-channel statements
+uniformly — there is no separate per-channel eviction.</p>
+<p>For example, to keep only the latest value on a channel, use a fixed future expiry timestamp with
+an incrementing sequence number:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// Two successive updates share the same channel and the same future expiry timestamp, but the
+// sequence number increments so the newer one outranks the older.
+</span><span class="kw">let </span>expires_at: u64 = <span class="number">0x69F5_4B54</span>; <span class="comment">// ~30 days in the future, seconds since the UNIX epoch
+
+</span><span class="kw">let </span>first: u64 = (expires_at &lt;&lt; <span class="number">32</span>) | <span class="number">1</span>;
+<span class="kw">let </span>second: u64 = (expires_at &lt;&lt; <span class="number">32</span>) | <span class="number">2</span>;
+
+<span class="comment">// Higher priority, so submitting `second` on the same channel replaces the `first` statement.
+</span><span class="macro">assert!</span>(second &gt; first);
+<span class="macro">assert_eq!</span>(second, <span class="number">0x69F5_4B54_0000_0002</span>);</code></pre></div>
+<p>A caveat for client design: within a shared application namespace, a statement with a very high
+expiry can crowd out others, and one with a very low expiry is easily evicted — choose priorities
+deliberately.</p>
+<h3 id="submission-outcomes-and-errors"><a class="doc-anchor" href="#submission-outcomes-and-errors">§</a>Submission outcomes and errors</h3>
+<p>Submitting returns a <code>SubmitResult</code>: <code>new</code> (accepted), <code>known</code> / <code>knownExpired</code> (already seen), or a
+failure. Failures are of two kinds.</p>
+<p>Rejections (<a href="../sp_statement_store/enum.RejectionReason.html" title="enum yet_another_parachain_runtime::sp_statement_store::RejectionReason"><code>RejectionReason</code></a>) — the statement is valid but does not fit:</p>
+<ul>
+<li><strong><code>channelPriorityTooLow</code></strong> (<a href="../sp_statement_store/enum.RejectionReason.html#variant.ChannelPriorityTooLow" title="variant yet_another_parachain_runtime::sp_statement_store::RejectionReason::ChannelPriorityTooLow"><code>RejectionReason::ChannelPriorityTooLow</code></a>) — a statement already
+exists on this <code>(account, channel)</code> and the new one is not strictly higher priority. Because a
+channel is a single-slot mailbox, replacement requires a strictly higher <code>expiry</code>; this stops an
+attacker from cheaply overwriting an existing channel message.</li>
+<li><strong><code>dataTooLarge</code></strong> — the data exceeds the account’s remaining size allowance.</li>
+<li><strong><code>accountFull</code></strong> — the account is at its statement limit and the new expiry is too low to evict
+an existing one.</li>
+<li><strong><code>storeFull</code></strong> — the global store is full.</li>
+<li><strong><code>noAllowance</code></strong> — the account has no allowance to use the store.</li>
+</ul>
+<p>Validation failures (<a href="../sp_statement_store/enum.InvalidReason.html" title="enum yet_another_parachain_runtime::sp_statement_store::InvalidReason"><code>InvalidReason</code></a>) — the statement is malformed or unusable:</p>
+<ul>
+<li><strong><code>noProof</code></strong> / <strong><code>badProof</code></strong> — missing or invalid signature.</li>
+<li><strong><code>encodingTooLarge</code></strong> — the encoded statement exceeds the network size limit.</li>
+<li><strong><code>alreadyExpired</code></strong> — the expiry timestamp is already in the past.</li>
+</ul>
+<h3 id="duplicates-retries-and-delivery"><a class="doc-anchor" href="#duplicates-retries-and-delivery">§</a>Duplicates, retries, and delivery</h3>
+<p>The store does <strong>not</strong> guarantee delivery or timing (see the overview’s design principles). In
+practice:</p>
+<ul>
+<li><strong>Deduplicate on the client.</strong> On reconnecting with a filter you receive <em>all</em> currently matching
+statements again, so applications must handle duplicates.</li>
+<li><strong>Handle retries and fail-safes.</strong> Under network saturation a statement may not propagate;
+applications should retry and confirm delivery according to their own logic before proceeding.</li>
+</ul>
+<h3 id="privacy-and-security"><a class="doc-anchor" href="#privacy-and-security">§</a>Privacy and security</h3>
+<p>As a transport layer the store provides no privacy or integrity guarantees of its own; applications
+build those on top. The main considerations:</p>
+<ul>
+<li><strong>Metadata leakage (IP).</strong> Submitting statements to a node reveals network metadata such as the
+client’s IP address. Mitigation: end users should use a VPN.</li>
+<li><strong>No confidentiality or integrity.</strong> The store neither encrypts nor verifies application data.
+Mitigation: the application must encrypt and sign its payloads.</li>
+<li><strong>Identity correlation.</strong> A signing key does not directly identify a person, but reusing one
+keypair across interactions (including with other services) allows correlation. Mitigation: use a
+voucher-based privacy mechanism provided by the identity layer.</li>
+<li><strong>Unverified statement injection.</strong> A client trusts the node it queries to return only valid
+statements, and because topics are open, a malicious node can inject spam — even spam encrypted
+to the user’s public key. The application must therefore filter unwelcome statements and validate
+that topics are relevant and senders are trusted.</li>
+</ul>
+<p>For general usage do’s and don’ts (asynchronous use only, not routing peer-to-peer traffic through
+the store), see the best-practices section of the overview.</p>
+<h2 id="implementation-notes"><a class="doc-anchor" href="#implementation-notes">§</a>Implementation notes</h2>
+<p>This crate contains a disk-backed implementation of <code>sp_statement_store::StatementStore</code>.</p>
+<h3 id="constraint-management"><a class="doc-anchor" href="#constraint-management">§</a>Constraint management</h3>
 <p>The statement store validates statements using node-side signature verification and
 static runtime allowance limits.
 The following constraints are then checked:</p>
@@ -164,9 +363,9 @@ To satisfy this, statements are removed from the store starting with the lowest
 <code>global_priority</code> until a constraint is satisfied.</li>
 </ul>
 <p>When a new statement is inserted that would not satisfy constraints in the first place, no
-statements are deleted and <code>Ignored</code> result is returned.
+statements are deleted and a <code>Rejected</code> result is returned.
 The order in which statements with the same priority are deleted is unspecified.</p>
-<p>Statement expiration.</p>
+<h3 id="statement-expiration"><a class="doc-anchor" href="#statement-expiration">§</a>Statement expiration</h3>
 <p>Each time a statement is removed from the store (Either evicted by higher priority statement or
 explicitly with the <code>remove</code> function) the statement is marked as expired. Expired statements
 can’t be added to the store for <code>Options::purge_after_sec</code> seconds. This is to prevent old

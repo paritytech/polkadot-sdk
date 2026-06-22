@@ -171,6 +171,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
     Self: <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'async_trait,</div></h4></section></summary><div class="docblock"><p>Submit a SCALE-encoded statement.</p>
 <p>See <code>Statement</code> definition for more details.</p>
 <p>Returns <code>SubmitResult</code> indicating success or failure reason.</p>
+<h5 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h5><div class="example-wrap"><pre class="language-json"><code>{ &quot;jsonrpc&quot;: &quot;2.0&quot;, &quot;id&quot;: 2, &quot;method&quot;: &quot;statement_submit&quot;, &quot;params&quot;: [&quot;0x…scale-encoded…&quot;] }</code></pre></div>
+<p>On success the result is <code>{ "status": "new" }</code>. Other outcomes are <code>known</code>, <code>knownExpired</code>,
+<code>rejected</code> and <code>invalid</code> (each with a reason), and <code>internalError</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.subscribe_statement" class="method"><h4 class="code-header">fn <a href="#method.subscribe_statement" class="fn">subscribe_statement</a>&lt;'life0, 'async_trait&gt;(
     &amp;'life0 self,
     topic_filter: <a class="enum" href="../../sp_statement_store/enum.TopicFilter.html" title="enum yet_another_parachain_runtime::sp_statement_store::TopicFilter">TopicFilter</a>,
@@ -194,7 +197,26 @@ subscription stream, but it may receive more if new statements are added to the 
 match the filter.</p>
 <p>If there are no statements in the store matching the filter, an empty batch of statements
 is sent.</p>
-</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.93.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-StatementApiClient-for-TypeJsonRpseeInteral" class="impl"><a href="#impl-StatementApiClient-for-TypeJsonRpseeInteral" class="anchor">§</a><h3 class="code-header">impl&lt;TypeJsonRpseeInteral&gt; <a class="trait" href="trait.StatementApiClient.html" title="trait yet_another_parachain_runtime::sc_rpc_api::statement::StatementApiClient">StatementApiClient</a> for TypeJsonRpseeInteral<div class="where">where
+<h5 id="examples-1"><a class="doc-anchor" href="#examples-1">§</a>Examples</h5>
+<p>Subscribe, matching statements that include <em>all</em> of the given topics (use <code>"any"</code> to match
+everything, or <code>{ "matchAny": [...] }</code> for any-of):</p>
+<div class="example-wrap"><pre class="language-json"><code>{ &quot;jsonrpc&quot;: &quot;2.0&quot;, &quot;id&quot;: 1, &quot;method&quot;: &quot;statement_subscribeStatement&quot;,
+  &quot;params&quot;: [{ &quot;matchAll&quot;: [&quot;0xdede…&quot;, &quot;0xadad…&quot;] }] }</code></pre></div>
+<p>Notifications arrive on <code>statement_statement</code>. The already-stored matches are delivered
+first in batches, each carrying <code>remaining</code> (how many more are guaranteed to follow). An
+empty initial batch is sent when nothing matches:</p>
+<div class="example-wrap"><pre class="language-json"><code>{ &quot;jsonrpc&quot;: &quot;2.0&quot;, &quot;method&quot;: &quot;statement_statement&quot;,
+  &quot;params&quot;: { &quot;subscription&quot;: 4851578855668545,
+    &quot;result&quot;: { &quot;event&quot;: &quot;newStatements&quot;, &quot;data&quot;: { &quot;statements&quot;: [], &quot;remaining&quot;: 0 } } } }</code></pre></div>
+<p>A non-empty batch from the initial set (each statement is hex-encoded SCALE):</p>
+<div class="example-wrap"><pre class="language-json"><code>{ &quot;jsonrpc&quot;: &quot;2.0&quot;, &quot;method&quot;: &quot;statement_statement&quot;,
+  &quot;params&quot;: { &quot;subscription&quot;: 4851578855668545,
+    &quot;result&quot;: { &quot;event&quot;: &quot;newStatements&quot;,
+      &quot;data&quot;: { &quot;statements&quot;: [&quot;0x1000010000&quot;, &quot;0x100001000000&quot;], &quot;remaining&quot;: 10 } } } }</code></pre></div>
+<p>Statements arriving live, after the initial set is drained, carry no <code>remaining</code>:</p>
+<div class="example-wrap"><pre class="language-json"><code>{ &quot;jsonrpc&quot;: &quot;2.0&quot;, &quot;method&quot;: &quot;statement_statement&quot;,
+  &quot;params&quot;: { &quot;subscription&quot;: 4851578855668545,
+    &quot;result&quot;: { &quot;event&quot;: &quot;newStatements&quot;, &quot;data&quot;: { &quot;statements&quot;: [&quot;0x1000010000&quot;] } } } }</code></pre></div></div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.93.0/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-StatementApiClient-for-TypeJsonRpseeInteral" class="impl"><a href="#impl-StatementApiClient-for-TypeJsonRpseeInteral" class="anchor">§</a><h3 class="code-header">impl&lt;TypeJsonRpseeInteral&gt; <a class="trait" href="trait.StatementApiClient.html" title="trait yet_another_parachain_runtime::sc_rpc_api::statement::StatementApiClient">StatementApiClient</a> for TypeJsonRpseeInteral<div class="where">where
     TypeJsonRpseeInteral: <a class="trait" href="../../substrate_rpc_client/trait.SubscriptionClientT.html" title="trait yet_another_parachain_runtime::substrate_rpc_client::SubscriptionClientT">SubscriptionClientT</a>,</div></h3></section></div><script src="../../../trait.impl/sc_rpc_api/statement/trait.StatementApiClient.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
