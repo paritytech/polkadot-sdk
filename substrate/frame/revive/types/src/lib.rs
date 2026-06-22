@@ -14,29 +14,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//! JSON-RPC methods and types, for Ethereum.
 
-pub use pallet_revive_types::common::{Byte, Bytes, Bytes8, Bytes32, Bytes256};
+#![cfg_attr(not(feature = "std"), no_std)]
 
-mod rlp_codec;
-pub use rlp;
+extern crate alloc;
 
-mod type_id;
-pub use type_id::*;
-
-mod debug_rpc_types;
-pub use debug_rpc_types::*;
-
-mod rpc_types;
-pub use rpc_types::{DryRunConfig, TracingConfig};
-
-mod rpc_types_gen;
-pub use rpc_types_gen::*;
-
-#[cfg(feature = "std")]
-mod account;
-
-#[cfg(feature = "std")]
-pub use account::*;
-
-mod signature;
+pub mod common;
+pub mod runtime_api;
