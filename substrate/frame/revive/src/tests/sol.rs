@@ -229,58 +229,50 @@ fn sload_charges_for_actual_storage_value_size() {
 }
 
 /// Regression: EVM TLOAD must charge gas proportional to the actual length of the transient
-/// value it reads. The companion `tload_undercharge_writer` fixture writes a non-32-byte value
-/// at the EVM-visible `Key::Fix(...)` slot via the raw `set_storage` syscall (the safe uapi
-/// can't reach that slot with a non-32-byte value), then delegate-calls an EVM TLOAD reader.
+/// value it reads. We inject a value at the EVM-visible `Key::Fix([0; 32])` slot via
+/// `ExecConfig::test_env_transient_storage` — simulating a PVM contract writing a non-32-byte
+/// value there through the shared namespace (delegatecall) — then call a contract whose runtime
+/// is `TLOAD(0)`.
 ///
-/// We need both a TLOAD reader and a noop EVM callee because the writer's `set_storage` cost
-/// dominates the total (~485K gas) and swamps the TLOAD scaling signal (~974 gas). Subtracting
-/// the noop run from the TLOAD run isolates the EVM-side cost. `value_len ∈ {0, 32}` keeps
-/// both runs on the non-trap path so EVM execution is identical except for TLOAD's
-/// `adjust_weight`. Final assertion is on the difference of those two TLOAD-only deltas:
-/// ~974 gas with the fix, ~1 gas without.
+/// Comparing a `None` read (slot empty → zero) against a 32-byte read keeps both runs on the
+/// same, non-trapping control-flow path, so the only difference in gas is TLOAD's `adjust_weight`
+/// to the actual length read: ~974 gas with the fix, ~1 without. Mirrors
+/// `sload_charges_for_actual_storage_value_size`.
 #[test]
 fn tload_charges_for_actual_transient_value_size() {
-	use pallet_revive_fixtures::compile_module;
+	use crate::{ExecConfig, exec::Key, limits, transient_storage::TransientStorage};
+	use core::cell::RefCell;
 
 	// EVM runtime that reads transient slot 0 and returns it as a 32-byte response:
 	//   PUSH0 TLOAD PUSH0 MSTORE PUSH1 0x20 PUSH0 RETURN
 	let tload_runtime: Vec<u8> = vec![PUSH0, TLOAD, PUSH0, MSTORE, PUSH1, 0x20, PUSH0, RETURN];
 	let tload_code = make_initcode_from_runtime_code(&tload_runtime);
-	// Noop EVM runtime (baseline for the writer's write-cost delta): PUSH0 PUSH0 RETURN.
-	let noop_code = make_initcode_from_runtime_code(&vec![PUSH0, PUSH0, RETURN]);
 
-	let (writer_code, _) = compile_module("tload_undercharge_writer").unwrap();
-
-	let measure = |callee_code: &Vec<u8>, value_len: u32| -> u128 {
+	let measure = |inject: Option<usize>| -> u128 {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-			let Contract { addr: callee_addr, .. } =
-				builder::bare_instantiate(Code::Upload(callee_code.clone()))
+			let Contract { addr, account_id } =
+				builder::bare_instantiate(Code::Upload(tload_code.clone()))
 					.build_and_unwrap_contract();
 
-			let Contract { addr: writer_addr, .. } =
-				builder::bare_instantiate(Code::Upload(writer_code.clone()))
-					.build_and_unwrap_contract();
+			// Pre-populate the EVM-visible transient slot under the callee's namespace. The write
+			// updates the backing store immediately, and the frame's `start_transaction`
+			// checkpoints the journal *after* this entry, so it survives any in-call rollback.
+			let mut transient = TransientStorage::<Test>::new(limits::TRANSIENT_STORAGE_BYTES);
+			if let Some(len) = inject {
+				transient
+					.write(&account_id, &Key::Fix([0u8; 32]), Some(vec![0xAAu8; len]), false)
+					.unwrap();
+			}
+			let mut exec_config = ExecConfig::new_substrate_tx();
+			exec_config.test_env_transient_storage = Some(RefCell::new(transient));
 
-			let mut input = Vec::with_capacity(24);
-			input.extend_from_slice(callee_addr.as_bytes());
-			input.extend_from_slice(&value_len.to_le_bytes());
-
-			let result = builder::bare_call(writer_addr).data(input).build();
-			result.result.as_ref().unwrap_or_else(|err| {
-				panic!("writer call failed for value_len={value_len}: {err:?}")
-			});
-			result.gas_consumed
+			builder::bare_call(addr).exec_config(exec_config).build().gas_consumed
 		})
 	};
 
-	let evm_cost = |value_len: u32| -> u128 {
-		measure(&tload_code, value_len).saturating_sub(measure(&noop_code, value_len))
-	};
-
-	let delta = evm_cost(32).saturating_sub(evm_cost(0));
+	let delta = measure(Some(32)).saturating_sub(measure(None));
 
 	assert!(
 		delta >= 100,
