@@ -1424,12 +1424,8 @@ parameter_types! {
 	pub ParametersName: &'static str = "Parameters";
 }
 
-/// One-shot migration: writes `pallet_psm`'s on-chain storage version to v1.
-/// Required because `RemovePallet<PsmName>` (above in the migration tuple)
-/// wipes the pallet's `:__STORAGE_VERSION__:` key, and nothing else re-seeds it
-/// (PSMs are now created on demand via the permissionless `create_psm` extrinsic).
-/// Without this, try-runtime's post-upgrade check sees in-code = 1, on-chain = 0
-/// and panics.
+/// Restores `pallet_psm`'s on-chain storage version to v1 after the preceding
+/// `RemovePallet<PsmName>` wipes it, so the try-runtime post-upgrade check passes.
 pub struct SetPsmStorageVersionV1;
 impl frame_support::traits::OnRuntimeUpgrade for SetPsmStorageVersionV1 {
 	fn on_runtime_upgrade() -> Weight {
@@ -1578,7 +1574,7 @@ impl pallet_verify_signature::Config for Runtime {
 parameter_types! {
 	/// Base deposit held for the footprint of a PSM created via `create_psm`.
 	pub const PsmCreationDeposit: Balance = deposit(1, 68);
-	/// Per-byte slope of the PSM creation deposit. PSM footprints are fixed-size, so this is zero.
+	/// Per-byte deposit slope; PSM footprints are fixed-size, so this is zero.
 	pub const PsmDepositSlope: Balance = 0;
 	pub PsmHoldReason: RuntimeHoldReason = RuntimeHoldReason::Psm(pallet_psm::HoldReason::CreationDeposit);
 	/// PalletId for deriving the PSM system account.
@@ -1900,16 +1896,14 @@ pub type Migrations = (
 
 	// start: PSM reset
 
-	// `RemovePallet` wipes the old PSM deployment (entries + storage version
-	// key). `SetPsmStorageVersionV1` re-seeds the storage version key that
-	// `RemovePallet` cleared.
+	// `RemovePallet` wipes the old PSM deployment; `SetPsmStorageVersionV1`
+	// restores the storage version key it cleared.
 	frame_support::migrations::RemovePallet<PsmName, <Runtime as frame_system::Config>::DbWeight>,
 	SetPsmStorageVersionV1,
 	// end: PSM reset
 
-	// `pallet_parameters` only ever hosted the now-removed system-wide PSM issuance cap
-	// (the per-PSM `max_debt` replaced it). Wipe its on-chain storage now that the pallet
-	// is gone from the runtime.
+	// `pallet_parameters` only hosted the system-wide PSM issuance cap, now replaced
+	// by per-PSM `max_debt`. Wipe its storage now the pallet is gone from the runtime.
 	frame_support::migrations::RemovePallet<
 		ParametersName,
 		<Runtime as frame_system::Config>::DbWeight,

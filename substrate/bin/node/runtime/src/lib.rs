@@ -3103,7 +3103,7 @@ parameter_types! {
 	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
 	/// Base deposit held for the footprint of a PSM created via `create_psm`.
 	pub const PsmCreationDeposit: Balance = 10 * DOLLARS;
-	/// Per-byte slope of the PSM creation deposit. PSM footprints are fixed-size, so this is zero.
+	/// Per-byte deposit slope; PSM footprints are fixed-size, so this is zero.
 	pub const PsmDepositSlope: Balance = 0;
 	pub PsmHoldReason: RuntimeHoldReason = RuntimeHoldReason::Psm(pallet_psm::HoldReason::CreationDeposit);
 }

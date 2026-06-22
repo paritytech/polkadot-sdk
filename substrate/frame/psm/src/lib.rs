@@ -18,7 +18,7 @@
 //! # Peg Stability Module (PSM) Pallet
 //!
 //! A module hosting one or more Peg Stability Modules. Each PSM enables 1:1 swaps between a
-//! specific internal stablecoin and that PSM's pre-approved external stablecoins.
+//! specific internal stablecoin and that PSM's pre-approved external assets.
 //!
 //! ## Pallet API
 //!
@@ -34,7 +34,7 @@
 //!   coexist, each with its own reserve, debt ceiling, fee destination and approved externals. Mint
 //!   operations credit the user with the internal asset; redeem operations burn it. Fees are
 //!   collected in the internal asset and forwarded to that instance's [`PsmInfo::fee_destination`].
-//! * **External** — third-party stablecoins (e.g. USDC, USDT) approved on a specific PSM via
+//! * **External** — third-party assets (e.g. USDC, USDT) approved on a specific PSM via
 //!   [`Pallet::add_external_asset`] and held in that PSM's reserve. Users deposit external to mint
 //!   internal, and burn internal to redeem external. A PSM may approve multiple externals, each
 //!   identified by `external_asset`.
@@ -42,10 +42,10 @@
 //! ## Overview
 //!
 //! A PSM strengthens its internal asset's peg by providing arbitrage opportunities:
-//! - When the internal asset trades **above** $1: Users swap external stablecoins for the internal
-//!   asset and sell for profit.
+//! - When the internal asset trades **above** $1: Users swap external assets for the internal asset
+//!   and sell for profit.
 //! - When the internal asset trades **below** $1: Users buy cheap internal asset and swap for
-//!   external stablecoins.
+//!   external assets.
 //!
 //! This creates a price corridor bounded by the minting and redemption fees.
 //!
@@ -55,20 +55,19 @@
 //!   described by [`PsmInfo`]. Each instance has its own reserve account derived as
 //!   `PalletId::into_sub_account_truncating(blake2_256(internal_asset.encode()))` — the hash gives
 //!   a fixed-size seed so arbitrary asset ids (e.g. XCM `Location`s) do not collide.
-//! * **Minting**: Deposit external stablecoin → receive internal asset (minus fee).
-//! * **Redemption**: Burn internal asset → receive external stablecoin (minus fee).
-//! * **Reserve**: External stablecoin balance held by a PSM's reserve account (derived, not
-//!   stored).
-//! * **PSM Debt**: Total internal asset minted through a PSM, backed 1:1 by external stablecoins in
-//!   that PSM's reserve.
+//! * **Minting**: Deposit external asset → receive internal asset (minus fee).
+//! * **Redemption**: Burn internal asset → receive external asset (minus fee).
+//! * **Reserve**: External asset balance held by a PSM's reserve account (derived, not stored).
+//! * **PSM Debt**: Total internal asset minted through a PSM, backed 1:1 by external assets in that
+//!   PSM's reserve.
 //! * **Circuit Breaker**: Per-external emergency control to disable minting or all swaps.
 //!
 //! ### Fee Structure
 //!
 //! * **Minting Fee (`MintingFee`)**: Deducted from internal-asset output during minting, configured
 //!   per `(internal_asset, external_asset)` pair.
-//! * **Redemption Fee (`RedemptionFee`)**: Deducted from external stablecoin output during
-//!   redemption, configured per `(internal_asset, external_asset)` pair.
+//! * **Redemption Fee (`RedemptionFee`)**: Deducted from external-asset output during redemption,
+//!   configured per `(internal_asset, external_asset)` pair.
 //!
 //! Fees are collected in the internal asset and transferred to the instance's
 //! [`PsmInfo::fee_destination`].
@@ -324,7 +323,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// Fungibles implementation for both internal and external stablecoins.
+		/// Fungibles implementation for both internal and external assets.
 		type Fungibles: FungiblesMutate<Self::AccountId, AssetId = Self::AssetId>
 			+ FungiblesMetadataInspect<Self::AccountId>
 			+ FungiblesRolesInspect<Self::AccountId>;
@@ -522,7 +521,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// User swapped external stablecoin for internal.
+		/// User swapped external asset for internal.
 		Minted {
 			who: T::AccountId,
 			internal_asset: T::AssetId,
@@ -531,7 +530,7 @@ pub mod pallet {
 			internal_received: BalanceOf<T>,
 			internal_fee: BalanceOf<T>,
 		},
-		/// User swapped internal for external stablecoin.
+		/// User swapped internal for external asset.
 		Redeemed {
 			who: T::AccountId,
 			internal_asset: T::AssetId,
@@ -604,7 +603,7 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// PSM doesn't have enough external stablecoin for redemption.
+		/// PSM doesn't have enough external asset for redemption.
 		InsufficientReserve,
 		/// Swap would exceed PSM debt ceiling.
 		ExceedsMaxPsmDebt,
@@ -616,7 +615,7 @@ pub mod pallet {
 		MintingStopped,
 		/// All swap operations are disabled (circuit breaker level = 2).
 		AllSwapsStopped,
-		/// Asset is not an approved external stablecoin.
+		/// Asset is not an approved external asset.
 		UnsupportedAsset,
 		/// No PSM instance is registered for the given internal asset.
 		PsmNotFound,
@@ -653,7 +652,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Swap external stablecoin for internal on a specific PSM instance.
+		/// Swap external asset for internal on a specific PSM instance.
 		///
 		/// ## Dispatch Origin
 		///
@@ -670,9 +669,9 @@ pub mod pallet {
 		/// ## Parameters
 		///
 		/// - `internal_asset`: The internal stablecoin that identifies the PSM instance.
-		/// - `external_asset`: The external stablecoin to deposit (must be approved on
+		/// - `external_asset`: The external asset to deposit (must be approved on
 		///   `internal_asset`).
-		/// - `external_amount`: Amount of external stablecoin to deposit.
+		/// - `external_amount`: Amount of external asset to deposit.
 		///
 		/// ## Errors
 		///
@@ -759,7 +758,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Swap internal for external stablecoin on a specific PSM instance.
+		/// Swap internal for external asset on a specific PSM instance.
 		///
 		/// ## Dispatch Origin
 		///
@@ -776,7 +775,7 @@ pub mod pallet {
 		/// ## Parameters
 		///
 		/// - `internal_asset`: The internal stablecoin that identifies the PSM instance.
-		/// - `external_asset`: The external stablecoin to receive (must be approved on
+		/// - `external_asset`: The external asset to receive (must be approved on
 		///   `internal_asset`).
 		/// - `internal_amount`: Amount of `internal_asset` to redeem.
 		///
@@ -1047,7 +1046,7 @@ pub mod pallet {
 		/// ## Parameters
 		///
 		/// - `internal_asset`: The PSM instance to configure.
-		/// - `external_asset`: The external stablecoin whose minting fee is being updated.
+		/// - `external_asset`: The external asset whose minting fee is being updated.
 		/// - `fee`: The new minting fee.
 		///
 		/// ## Errors
@@ -1091,7 +1090,7 @@ pub mod pallet {
 		/// ## Parameters
 		///
 		/// - `internal_asset`: The PSM instance to configure.
-		/// - `external_asset`: The external stablecoin whose redemption fee is being updated.
+		/// - `external_asset`: The external asset whose redemption fee is being updated.
 		/// - `fee`: The new redemption fee.
 		///
 		/// ## Errors
@@ -1181,7 +1180,7 @@ pub mod pallet {
 		/// ## Parameters
 		///
 		/// - `internal_asset`: The PSM instance to configure.
-		/// - `external_asset`: The external stablecoin whose status is being updated.
+		/// - `external_asset`: The external asset whose status is being updated.
 		/// - `status`: The new circuit breaker level for that external.
 		///
 		/// ## Errors
@@ -1230,7 +1229,7 @@ pub mod pallet {
 		/// ## Parameters
 		///
 		/// - `internal_asset`: The PSM instance to configure.
-		/// - `external_asset`: The external stablecoin whose ceiling weight is being updated.
+		/// - `external_asset`: The external asset whose ceiling weight is being updated.
 		/// - `weight`: The new ceiling weight. Zero disables minting for this external.
 		///
 		/// ## Errors
@@ -1267,7 +1266,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Approve an external stablecoin for a given internal asset.
+		/// Approve an external asset for a given internal asset.
 		///
 		/// Snapshots the external asset's live decimals at registration time and
 		/// increments [`PsmInfo::external_count`].
@@ -1279,7 +1278,7 @@ pub mod pallet {
 		/// ## Parameters
 		///
 		/// - `internal_asset`: The PSM instance to approve the external on.
-		/// - `external_asset`: The external stablecoin to approve.
+		/// - `external_asset`: The external asset to approve.
 		///
 		/// ## Errors
 		///
@@ -1341,7 +1340,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Remove an external stablecoin from a PSM instance.
+		/// Remove an external asset from a PSM instance.
 		///
 		/// Wipes the external's per-instance state (status, decimals, fees, ceiling
 		/// weight, debt counter) and decrements [`PsmInfo::external_count`]. The
@@ -1354,7 +1353,7 @@ pub mod pallet {
 		/// ## Parameters
 		///
 		/// - `internal_asset`: The PSM instance to remove the external from.
-		/// - `external_asset`: The external stablecoin to remove.
+		/// - `external_asset`: The external asset to remove.
 		///
 		/// ## Errors
 		///
@@ -1713,7 +1712,7 @@ pub mod pallet {
 				);
 			}
 
-			// 7. No orphaned per-asset state outside registered PSMs.
+			// 5. No orphaned per-asset state outside registered PSMs.
 			for (internal_asset, _, _) in ExternalAssets::<T>::iter() {
 				ensure!(
 					Psm::<T>::contains_key(&internal_asset),

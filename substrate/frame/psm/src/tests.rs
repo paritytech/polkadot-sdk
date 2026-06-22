@@ -1977,7 +1977,7 @@ mod cycles {
 			// 3. User external decrease equals total fees paid
 			assert_eq!(user_decrease, total_fees, "User loss equals fees");
 
-			// 4. PSM debt equals PSM external stablecoin balance
+			// 4. PSM debt equals PSM external asset balance
 			assert_eq!(
 				psm_debt_after,
 				get_asset_balance(USDC_ASSET_ID, psm_account()),

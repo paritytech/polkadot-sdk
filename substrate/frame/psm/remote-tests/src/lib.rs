@@ -55,11 +55,11 @@ pub type PsmTestConfigOf<Runtime> = PsmTestConfig<
 	BalanceOf<Runtime>,
 >;
 
-/// Configuration for which asset to use as the external stablecoin in tests.
+/// Configuration for which asset to use as the external asset in tests.
 pub struct PsmTestConfig<AssetId, AccountId, Balance> {
 	/// The internal stablecoin asset ID for the PSM instance under test.
 	pub internal_asset_id: AssetId,
-	/// The external stablecoin asset ID.
+	/// The external asset asset ID.
 	pub external_asset_id: AssetId,
 	/// The expected decimal precision for the internal asset (e.g., 6).
 	pub internal_asset_decimals: u8,
@@ -82,9 +82,9 @@ pub struct PsmTestConfig<AssetId, AccountId, Balance> {
 	pub pre_create_hook: Option<Box<dyn Fn()>>,
 }
 
-/// Amount of external stablecoin to swap in tests (1000 units).
+/// Amount of external asset to swap in tests (1000 units).
 const SWAP_AMOUNT: u128 = 1_000;
-/// Amount of external stablecoin to fund the test caller with (2000 units).
+/// Amount of external asset to fund the test caller with (2000 units).
 const FUND_AMOUNT: u128 = 2_000;
 /// Amount for a small redeem in circuit breaker tests (100 units).
 const SMALL_REDEEM: u128 = 100;
@@ -307,8 +307,8 @@ pub fn clear_ext() {
 ///
 /// This test:
 /// 1. Sets up PSM with an approved external asset
-/// 2. Mints internal asset by depositing the external stablecoin
-/// 3. Redeems internal asset back for the external stablecoin
+/// 2. Mints internal asset by depositing the external asset
+/// 3. Redeems internal asset back for the external asset
 /// 4. Verifies balances, debt tracking, and fee accounting
 pub fn mint_and_redeem<Runtime, Block>(
 	ext: &mut remote_externalities::RemoteExternalities<Block>,
@@ -331,7 +331,7 @@ pub fn mint_and_redeem<Runtime, Block>(
 
 		log::info!(
 			target: LOG_TARGET,
-			"Test account external stablecoin balance: {:?}",
+			"Test account external asset balance: {:?}",
 			balance_before,
 		);
 
@@ -358,12 +358,12 @@ pub fn mint_and_redeem<Runtime, Block>(
 			.fold(BalanceOf::<Runtime>::zero(), |acc, debt| acc.saturating_add(debt));
 		assert_eq!(total_debt, swap_amount, "PSM total debt should equal the swap amount");
 
-		// The PSM account should hold the external stablecoin.
+		// The PSM account should hold the external asset.
 		let psm_external = <Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
 			asset_id.clone(),
 			&psm_account,
 		);
-		assert_eq!(psm_external, swap_amount, "PSM should hold the external stablecoin");
+		assert_eq!(psm_external, swap_amount, "PSM should hold the external asset");
 
 		log::info!(
 			target: LOG_TARGET,

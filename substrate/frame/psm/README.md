@@ -2,7 +2,7 @@
 
 A module hosting one or more Peg Stability Modules. Each PSM enables 1:1 swaps
 between a specific internal stablecoin and that PSM's pre-approved external
-stablecoins on Substrate-based blockchains.
+assets on Substrate-based blockchains.
 
 ## Terminology
 
@@ -14,7 +14,7 @@ Throughout this pallet two distinct token roles are referenced:
   approved externals. Mint operations credit the user with the internal asset;
   redeem operations burn it. Fees are collected in the internal asset and
   forwarded to that instance's `PsmInfo::fee_destination`.
-- **External** — third-party stablecoins (e.g. USDC, USDT) approved on a
+- **External** — third-party assets (e.g. USDC, USDT) approved on a
   specific PSM via `add_external_asset` and held in that PSM's reserve. Users
   deposit external to mint internal, and burn internal to redeem external. A
   PSM may approve multiple externals, each identified by `asset_id`.
@@ -25,10 +25,10 @@ The PSM pallet hosts one or more PSM instances, each keyed by its internal
 asset id. Each instance:
 
 - **Holds a per-instance reserve account** derived as
-  `PalletId::into_sub_account_truncating(internal_asset)`. External stablecoins
+  `PalletId::into_sub_account_truncating(internal_asset)`. External assets
   deposited by users are held there.
 - **Mints and burns its own internal asset**. Users receive the internal asset
-  when depositing external stablecoins, and burn the internal asset when
+  when depositing external assets, and burn the internal asset when
   redeeming.
 - **Routes fees to the instance's `fee_destination`**. Mint and redeem fees are
   collected in the internal asset and transferred to the per-instance account
@@ -57,7 +57,7 @@ redeem(origin, internal_asset, asset_id, amount)
 ```
 
 - Burns `amount` of `internal_asset` from the user
-- Transfers external stablecoin from the instance's reserve to the user
+- Transfers external asset from the instance's reserve to the user
 - Redemption fee is transferred from the user as `internal_asset` to `fee_destination`
 - Limited by the per-external tracked debt (`PsmDebt`), not raw reserve balance
 - Requires `amount >= PsmInfo::min_swap_amount`
@@ -213,7 +213,7 @@ All events carry `internal_asset` so consumers can attribute them to the correct
 
 ## Errors
 
-- `InsufficientReserve`: PSM doesn't have enough external stablecoin for redemption
+- `InsufficientReserve`: PSM doesn't have enough external asset for redemption
 - `ExceedsMaxPsmDebt`: Mint would exceed the instance's aggregate or per-external ceiling
 - `BelowMinimumSwap`: Swap amount below the instance's `min_swap_amount`
 - `MintingStopped`: Minting disabled by the per-external circuit breaker
