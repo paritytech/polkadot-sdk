@@ -174,8 +174,6 @@ fn basic_evm_flow_tracing_works() {
 	});
 }
 
-/// `extcodecopy` loads the whole code blob into PoV regardless of copy length, so its gas must
-/// scale with the target's code size, not the copy length.
 #[test]
 fn extcodecopy_charges_for_actual_code_size() {
 	// Reader runtime: copy 1 byte of code from the address in calldata.
@@ -183,7 +181,6 @@ fn extcodecopy_charges_for_actual_code_size() {
 		vec![PUSH1, 0x01, PUSH0, PUSH0, PUSH0, CALLDATALOAD, EXTCODECOPY, STOP];
 	let reader_code = make_initcode_from_runtime_code(&reader_runtime);
 
-	// Gas of `extcodecopy(target, 0, 0, 1)` where `target` has `code_size` bytes of runtime code.
 	let measure = |code_size: u32| -> u128 {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -218,7 +215,6 @@ fn extcodecopy_charges_for_actual_code_size() {
 
 #[test]
 fn extcodecopy_charges_for_copy_length_beyond_code_size() {
-	// The target's code size is held fixed; only the copy length varies.
 	const TARGET_CODE_SIZE: u32 = 64;
 
 	// Reader runtime: copy `copy_len` bytes of code from the address in calldata.
