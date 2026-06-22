@@ -2041,7 +2041,7 @@ mod staking_bounds_chill_other {
 				ConfigOp::Set(inactive_threshold)
 			));
 
-			Session::roll_until_active_era(history_depth);
+			Session::roll_until_active_era(history_depth + 1);
 
 			let mut active = BoundedBTreeMap::new();
 			active.try_insert(VALIDATOR, 100).unwrap();

@@ -3173,7 +3173,7 @@ pub mod pallet {
 		/// - It must not contain duplicate entries.
 		/// - For every era the `stash` account must be exposed.
 		/// - Every item must pass the check provided by [`Config::IsValidatorInactive`].
-		/// - Every era must be less or equal to the active era.
+		/// - Every era must be less than the active era.
 		///
 		/// On a successfull execution, caller doesn't pay fees.
 		#[pallet::call_index(35)]
@@ -3200,7 +3200,7 @@ pub mod pallet {
 
 			let most_recent_proof_era = proof.last().copied().unwrap_or(EraIndex::MAX);
 			ensure!(
-				most_recent_proof_era <= Rotator::<T>::active_era(),
+				most_recent_proof_era < Rotator::<T>::active_era(),
 				Error::<T>::InvalidInactivityProof(InvalidInactivityProofError::InvalidEra,)
 			);
 
