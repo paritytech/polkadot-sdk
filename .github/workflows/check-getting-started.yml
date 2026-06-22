@@ -63,7 +63,7 @@ jobs:
             container: opensuse/tumbleweed
             template: solochain
             shell: sh
-    runs-on: parity-large
+    runs-on: parity-large-test
     container: ${{ matrix.container }}:latest
     steps:
       # A minimal amount of prerequisites required before we can run the actual getting-started script,

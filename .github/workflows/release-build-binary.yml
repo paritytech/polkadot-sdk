@@ -52,7 +52,7 @@ jobs:
           INPUT_BINARY: ${{ inputs.binary }}
         run: |
           if [[ "$INPUT_BINARY" == "polkadot-parachain" ]]; then
-            echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
+            echo "RUNNER=parity-large-test" >> $GITHUB_OUTPUT
           else
             echo "RUNNER=ubuntu-latest" >> $GITHUB_OUTPUT
           fi
