@@ -44,7 +44,7 @@ use crate::{
 };
 use polkadot_node_network_protocol::{
 	request_response::Requests, v1 as protocol_v1, v2 as protocol_v2, v3_collation as protocol_v3,
-	CollationProtocols,
+	v4_collation as protocol_v4, CollationProtocols,
 };
 use polkadot_node_subsystem::messages::{
 	AllMessages, CandidateBackingMessage, NetworkBridgeTxMessage, ReportPeerMessage,
@@ -248,7 +248,7 @@ fn wire_kind_from_collation_protocol(
 ) -> WireMsgKind {
 	use polkadot_node_network_protocol::{
 		v1::CollationProtocol as V1, v2::CollationProtocol as V2,
-		v3_collation::CollationProtocol as V3,
+		v3_collation::CollationProtocol as V3, v4_collation::CollationProtocol as V4,
 	};
 	match proto {
 		CollationProtocols::V1(V1::CollatorProtocol(msg)) => match msg {
@@ -305,6 +305,29 @@ fn wire_kind_from_collation_protocol(
 			},
 			protocol_v3::CollatorProtocolMessage::CollationSeconded(rp, _) => {
 				WireMsgKind::CollationSeconded { relay_parent: *rp }
+			},
+		},
+		CollationProtocols::V4(V4::CollatorProtocol(msg)) => match msg {
+			protocol_v4::CollatorProtocolMessage::Declare(_, para, _) => {
+				WireMsgKind::Declare { para: *para }
+			},
+			protocol_v4::CollatorProtocolMessage::CollationSeconded(rp, _) => {
+				WireMsgKind::CollationSeconded { relay_parent: *rp }
+			},
+			protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
+				scheduling_parent,
+				candidates,
+			} => {
+				let tip = candidates
+					.last()
+					.expect("subsystem never emits an empty segment advertisement");
+				WireMsgKind::Advertise {
+					summary: AdvertisementSummary {
+						scheduling_parent: *scheduling_parent,
+						candidate_hash: Some(tip.candidate_hash),
+						parent_head_hash: Some(tip.parent_head_data_hash),
+					},
+				}
 			},
 		},
 	}
