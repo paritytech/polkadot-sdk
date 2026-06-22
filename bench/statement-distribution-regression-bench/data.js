@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782097272339,
+  "lastUpdate": 1782144576370,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1c29484b6878c915dff83f7e27ab7ff0110bfd12",
-          "message": "[revive] Receipts should include failed tx (#10120)\n\nThe current implementation incorrectly accumulates receipts in storage\nto compute the `receipts_root`.\nHowever, when an extrinsic fails, all storage changes are reverted\ncausing the receipts to be lost.\n\nThis PR updates the handling of Ethereum transactions so that they\nalways succeed. The transaction logic is now wrapped in a top-level\nstorage transaction that rolls back all state changes on failure while\nstill producing a valid receipt.\n\nA new event `EthExtrinsicRevert` is emitted when an eth transaction\nreverts.\neth-rpc uses this event to set the correct receipt status.\n\nThis event also serves as a replacement for ExtrinsicFailed to make\ndebugging failed Ethereum transactions easier in tools like Polkadot.js.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-28T13:48:56Z",
-          "tree_id": "f4b49bafb4ad8768d76300f0f8b59abe1cff77ef",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1c29484b6878c915dff83f7e27ab7ff0110bfd12"
-        },
-        "date": 1761664266137,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.96,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044124627795999946,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035164842646000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038468330626,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pisarevkir@gmail.com",
+            "name": "Kirill",
+            "username": "P1sar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cb27c1ee088fb6cade9278ea3980077c566a2329",
+          "message": "Statement-store: Publishing documentation (#12256)\n\n### Objective\nMove documentation for google docs to the repo code docs to have single\nsource of information.\nTechnical information added as code docs. More general overview and\nusage files linked to code docs and included in cargo docs\n\n### What's  included\n- Technical specification\n- Allowance and privacy \n- Developer guidelines \n- General information from One Pages\n- Basic LightNode\n\n\n### What's not included\n- Light Node mostly avoided, will be documented in smoldot and linked\nhere\n- SDK avoided for now\n- Benchmarks and status",
+          "timestamp": "2026-06-22T12:06:30Z",
+          "tree_id": "71feae51869692457793fc252bb372042f6aa58b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cb27c1ee088fb6cade9278ea3980077c566a2329"
+        },
+        "date": 1782144548501,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12400000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08286485060199994,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038343303871999995,
             "unit": "seconds"
           }
         ]
