@@ -21,7 +21,7 @@ use frame_support::{
 	derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstBool, ConstU64, Nothing, VariantCountOf},
+	traits::{ConstBool, Nothing, VariantCountOf},
 	PalletId,
 };
 use sp_runtime::{
@@ -41,13 +41,6 @@ impl frame_system::Config for Runtime {
 	type AccountData = pallet_balances::AccountData<Balance>;
 }
 
-impl pallet_timestamp::Config for Runtime {
-	type Moment = u64;
-	type OnTimestampSet = ();
-	type MinimumPeriod = ConstU64<5>;
-	type WeightInfo = ();
-}
-
 parameter_types! {
 	pub const ExistentialDeposit: Balance = 10;
 }
@@ -63,18 +56,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
-pallet_staking_reward_curve::build! {
-	const I_NPOS: sp_runtime::curve::PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000,
-		max_inflation: 0_100_000,
-		ideal_stake: 0_500_000,
-		falloff: 0_050_000,
-		max_piece_count: 40,
-		test_precision: 0_005_000,
-	);
-}
 parameter_types! {
-	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 	pub static BondingDuration: u32 = 3;
 	pub static EraPayout: (Balance, Balance) = (1000, 100);
 }
@@ -205,7 +187,6 @@ type Block = frame_system::mocking::MockBlock<Runtime>;
 frame_support::construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
-		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
 		Staking: pallet_staking_async,
 		VoterList: pallet_bags_list::<Instance1>,

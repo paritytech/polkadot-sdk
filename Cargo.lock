@@ -13895,8 +13895,6 @@ dependencies = [
  "pallet-nomination-pools",
  "pallet-staking-async",
  "pallet-staking-async-rc-client",
- "pallet-staking-reward-curve",
- "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
