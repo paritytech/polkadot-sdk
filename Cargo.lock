@@ -528,7 +528,7 @@ dependencies = [
  "alloy-rlp",
  "alloy-serde",
  "alloy-sol-types",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "serde",
  "serde_json",
  "serde_with",
@@ -692,7 +692,7 @@ checksum = "e8597d36d546e1dab822345ad563243ec3920e199322cb554ce56c8ef1a1e2e7"
 dependencies = [
  "alloy-json-rpc",
  "alloy-transport",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "reqwest 0.13.2",
  "serde_json",
  "tower 0.5.3",
@@ -1786,6 +1786,7 @@ dependencies = [
  "pallet-nfts",
  "pallet-nfts-runtime-api",
  "pallet-nomination-pools",
+ "pallet-nomination-pools-benchmarking",
  "pallet-nomination-pools-runtime-api",
  "pallet-parameters",
  "pallet-pgas-allowance",
@@ -10818,9 +10819,9 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
-version = "0.14.2"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c64660564d1f74164ee1d9d7b35482bf107da006d3590c1bea00dd31333b259f"
+checksum = "67508e7500fe69a99a038d2fba84fb30f23cac9d98bfeb7f5a1389ddd137b579"
 dependencies = [
  "async-trait",
  "bs58",
@@ -12005,7 +12006,7 @@ version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff32365de1b6743cb203b710788263c44a03de03802daf96092f2da4fe6ba4d7"
 dependencies = [
- "proc-macro-crate 1.3.1",
+ "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
@@ -13894,9 +13895,8 @@ dependencies = [
  "pallet-balances",
  "pallet-delegated-staking",
  "pallet-nomination-pools",
- "pallet-staking",
- "pallet-staking-reward-curve",
- "pallet-timestamp",
+ "pallet-staking-async",
+ "pallet-staking-async-rc-client",
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
@@ -14283,6 +14283,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-revive-fixtures",
  "pallet-revive-proc-macro",
+ "pallet-revive-types",
  "pallet-revive-uapi",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -14315,6 +14316,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-tracing 16.0.0",
  "sp-version 29.0.0",
+ "strum 0.26.3",
  "substrate-bn",
  "subxt-signer 0.44.2",
  "test-case",
@@ -14342,6 +14344,7 @@ dependencies = [
  "log",
  "pallet-revive",
  "pallet-revive-fixtures",
+ "pallet-revive-types",
  "parity-scale-codec",
  "pretty_assertions",
  "revive-dev-node",
@@ -14394,6 +14397,24 @@ dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
+]
+
+[[package]]
+name = "pallet-revive-types"
+version = "0.1.0"
+dependencies = [
+ "alloy-core",
+ "derive_more 0.99.17",
+ "num-traits",
+ "num_enum",
+ "parity-scale-codec",
+ "revm-bytecode",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-core 28.0.0",
+ "sp-weights 27.0.0",
+ "strum 0.26.3",
 ]
 
 [[package]]
@@ -17646,6 +17667,7 @@ dependencies = [
  "pallet-remark",
  "pallet-revive",
  "pallet-revive-proc-macro",
+ "pallet-revive-types",
  "pallet-revive-uapi",
  "pallet-root-offences",
  "pallet-root-testing",
@@ -19178,7 +19200,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac6c3320f9abac597dcbc668774ef006702672474aad53c6d596b62e487b40b1"
 dependencies = [
  "heck 0.5.0",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "log",
  "multimap",
  "once_cell",
@@ -19224,7 +19246,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
@@ -19237,7 +19259,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9120690fafc389a67ba3803df527d0ec9cbbc9cc45e4cc20b332996dfb672425"
 dependencies = [
  "anyhow",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
@@ -20048,6 +20070,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "66c52031b73cae95d84cd1b07725808b5fd1500da3e5e24574a3b2dc13d9f16d"
 dependencies = [
  "bitvec",
+ "paste",
  "phf",
  "revm-primitives",
  "serde",
@@ -21851,7 +21874,7 @@ dependencies = [
  "ip_network",
  "libp2p",
  "linked_hash_set",
- "litep2p 0.14.2",
+ "litep2p 0.14.3",
  "log",
  "mockall",
  "multihash-codetable",
@@ -21863,6 +21886,7 @@ dependencies = [
  "prost 0.12.6",
  "prost-build 0.13.2",
  "rand 0.8.5",
+ "rustls 0.23.31",
  "sc-block-builder",
  "sc-client-api 28.0.0",
  "sc-network-common 0.33.0",
@@ -22138,7 +22162,7 @@ dependencies = [
  "ed25519-dalek",
  "libp2p-identity",
  "libp2p-kad",
- "litep2p 0.14.2",
+ "litep2p 0.14.3",
  "log",
  "multiaddr 0.18.2",
  "multihash 0.19.5",

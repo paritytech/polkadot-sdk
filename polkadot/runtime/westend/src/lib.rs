@@ -2551,9 +2551,7 @@ sp_api::impl_runtime_apis! {
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
-
 			use xcm_config::{AssetHub, TokenLocation};
-
 			use alloc::boxed::Box;
 
 			parameter_types! {
