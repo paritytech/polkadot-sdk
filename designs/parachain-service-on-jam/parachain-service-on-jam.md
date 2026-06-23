@@ -469,7 +469,7 @@ These forward the full JAM fetch functionality to the PVF:
 | `foreign_lookup(service: ServiceId, hash: Hash)` | `Option<Vec<u8>>` | Fetch a preimage from another service's store |
 | `gas()` | `u64` | Query the remaining gas budget |
 | `work_package()` | `WorkPackage` | Access the full encoded work package |
-| `work_package_context()` | `RefineContext` | Access the refinement context (anchor, lookup-anchor, prerequisites) |
+| `work_package_context()` | `RefineContext` | Access the refinement context: anchor (hash, timeslot, posterior state-root), lookup-anchor (hash, timeslot, posterior state-root), prerequisites |
 | `auth_config()` | `Vec<u8>` | Access the authorizer config blob |
 | `auth_token()` | `Vec<u8>` | Access the authorization token blob |
 | `work_items_summary()` | `Vec<WorkItemSummary>` | Summary of all work items (service, code hash, gas limits, counts, payload length) |
@@ -992,8 +992,7 @@ struct AuthorizationToken {
 1. Decode config (`pf`) → `authorized_paras`, `collator_set_root`, `collator_set_size`,
    `slot_duration`.
 2. Decode token (`pj`) → `collator_proof`, `collator_key`, `signature`.
-3. Read the **anchor timeslot** from the refinement context. If JAM does not yet expose it
-   directly, this becomes a required host-interface extension (see §9).
+3. Read the **anchor timeslot** from the refinement context.
 4. Compute the expected collator index:
    `collator_index = (anchor_timeslot / slot_duration) mod collator_set_size`.
 5. Verify `collator_proof` against `collator_set_root` at leaf `collator_index`,
@@ -1116,24 +1115,7 @@ messaging model is finalized.
 
 ---
 
-## 9. Missing JAM / Gray Paper Features
-
-The current design assumes two pieces of context that are not yet clearly exposed by the Gray Paper
-host interface and therefore likely need either specification work or an explicit embedding into the
-Parachain Service protocol:
-
-1. **Anchor timeslot access**: the authorizer needs direct access to the anchor block's
-   timeslot in order to derive the expected collator index. If this is not provided in the
-   refinement context, JAM likely needs a dedicated host function or an equivalent context
-   field.
-2. **Lookup-anchor posterior state root access**: parachain validation flows will need the
-   posterior state root associated with the lookup anchor, not just its hash and timeslot,
-   to support state-proof reuse and retry scenarios where an earlier work package failed
-   to make it on-chain despite having a reusable PoV.
-
----
-
-## 10. References
+## 9. References
 
 - [JAM Gray Paper](https://graypaper.com) — Formal JAM specification (Gavin Wood)
 - [CoreJAM RFC #31](https://github.com/polkadot-fellows/RFCs/pull/31) — Original CoreJAM RFC
