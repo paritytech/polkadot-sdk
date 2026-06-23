@@ -58,19 +58,6 @@ impl pallet_balances::Config for Runtime {
 
 parameter_types! {
 	pub static BondingDuration: u32 = 3;
-	pub static EraPayout: (Balance, Balance) = (1000, 100);
-}
-
-/// A simple `EraPayout` implementation for benchmarks that returns fixed values.
-pub struct TestEraPayout;
-impl pallet_staking_async::EraPayout<Balance> for TestEraPayout {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		EraPayout::get()
-	}
 }
 
 /// A mock `RcClientInterface` for benchmarks that don't need session/validator-set management.
@@ -91,8 +78,8 @@ impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type EraPayout = TestEraPayout;
-	type DisableMinting = ConstBool<false>;
+	type EraPayout = ();
+	type DisableMinting = ConstBool<true>;
 	type BondingDuration = BondingDuration;
 	type RewardPots = pallet_staking_async::SequentialTest;
 	type ElectionProvider =
