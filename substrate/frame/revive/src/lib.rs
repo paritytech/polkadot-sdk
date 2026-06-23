@@ -2888,7 +2888,8 @@ sp_api::decl_runtime_apis! {
 		/// # Note
 		///
 		/// Each entry corresponds to the appropriate Ethereum transaction in the current block.
-		fn eth_receipt_data() -> Vec<ReceiptGasInfo>;
+		#[deprecated(note = "Use the versioned equivalent `eth_receipt_data_versioned` if available on your runtime")]
+		fn eth_receipt_data() -> Vec<ReceiptGasInfoV1>;
 
 		/// Returns the block gas limit.
 		fn block_gas_limit() -> U256;
@@ -3051,6 +3052,9 @@ sp_api::decl_runtime_apis! {
 		fn eth_block_hash_versioned(input: BlockHashVersionedInputPayload) -> BlockHashVersionedOutputPayload;
 
 		#[api_version(2)]
+		fn eth_receipt_data_versioned(input: ReceiptDataVersionedInputPayload) -> ReceiptDataVersionedOutputPayload;
+
+		#[api_version(2)]
 		fn trace_block_versioned(input: TraceBlockVersionedInputPayload<Block>) -> TraceBlockVersionedOutputPayload;
 	}
 }
@@ -3102,11 +3106,25 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn eth_block_hash(number: $crate::U256) -> Option<$crate::H256> {
-					$crate::Pallet::<Self>::eth_block_hash_from_number(number)
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = BlockHashVersionedInputPayload::from(BlockHashInputPayloadV1 {
+						block_number: number
+					});
+					let output = Self::eth_block_hash_versioned(input);
+					BlockHashOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.block_hash
 				}
 
-				fn eth_receipt_data() -> Vec<$crate::ReceiptGasInfo> {
-					$crate::Pallet::<Self>::eth_receipt_data()
+				fn eth_receipt_data() -> Vec<$crate::pallet_revive_types::runtime_api::ReceiptGasInfoV1> {
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = ReceiptDataVersionedInputPayload::from(ReceiptDataInputPayloadV1);
+					let output = Self::eth_receipt_data_versioned(input);
+					ReceiptDataOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.receipt_data
 				}
 
 				fn balance(address: $crate::H160) -> $crate::U256 {
@@ -3388,6 +3406,29 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					let output = BlockHashOutputPayload {
 						block_hash: $crate::Pallet::<Self>::eth_block_hash_from_number(input.block_number)
+					};
+					output_wrapper(output)
+				}
+
+				fn eth_receipt_data_versioned(
+					input: $crate::pallet_revive_types::runtime_api::ReceiptDataVersionedInputPayload
+				) -> $crate::pallet_revive_types::runtime_api::ReceiptDataVersionedOutputPayload {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use alloc::boxed::Box;
+
+					let (_input, output_wrapper): (
+						_,
+						Box<dyn Fn(ReceiptDataOutputPayload) -> ReceiptDataVersionedOutputPayload>,
+					) = match input {
+						ReceiptDataVersionedInputPayload::V1(payload) => (
+							ReceiptDataInputPayload::from(payload),
+							Box::new(|output| ReceiptDataVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let output = ReceiptDataOutputPayload {
+						receipt_data: $crate::Pallet::<Self>::eth_receipt_data()
 					};
 					output_wrapper(output)
 				}

@@ -78,6 +78,10 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TracerTypeV1>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::receipt::ReceiptGasInfoV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ReceiptGasInfoV1>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::types::tracer::CallTracerConfigV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallTracerConfigV1>"
 	),

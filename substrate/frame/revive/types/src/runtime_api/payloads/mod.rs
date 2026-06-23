@@ -16,7 +16,9 @@
 // limitations under the License.
 
 mod block_hash;
+mod receipt_data;
 mod trace_block;
 
 pub use block_hash::*;
+pub use receipt_data::*;
 pub use trace_block::*;
