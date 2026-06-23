@@ -174,6 +174,22 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GasPriceVersionedOutputPayload>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::nonce::NonceInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NonceInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::nonce::NonceVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NonceVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::nonce::NonceOutputPayloadV1<Nonce>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NonceOutputPayloadV1<Nonce>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::nonce::NonceVersionedOutputPayload<Nonce>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NonceVersionedOutputPayload<Nonce>>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::block_author::BlockAuthorInputPayloadV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockAuthorInputPayloadV1>"
 	),

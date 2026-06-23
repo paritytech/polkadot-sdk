@@ -2908,6 +2908,7 @@ sp_api::decl_runtime_apis! {
 		fn gas_price() -> U256;
 
 		/// Returns the nonce of the given `[H160]` address.
+		#[deprecated(note = "Use the versioned equivalent `nonce_versioned` if available on your runtime")]
 		fn nonce(address: H160) -> Nonce;
 
 		/// Perform a call from a specified account to a given contract.
@@ -3076,6 +3077,9 @@ sp_api::decl_runtime_apis! {
 		fn gas_price_versioned(input: GasPriceVersionedInputPayload) -> GasPriceVersionedOutputPayload;
 
 		#[api_version(2)]
+		fn nonce_versioned(input: NonceVersionedInputPayload) -> NonceVersionedOutputPayload<Nonce>;
+
+		#[api_version(2)]
 		fn block_author_versioned(input: BlockAuthorVersionedInputPayload) -> BlockAuthorVersionedOutputPayload;
 
 		#[api_version(2)]
@@ -3204,9 +3208,13 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn nonce(address: $crate::H160) -> Nonce {
-					use $crate::AddressMapper;
-					let account = <Self as $crate::Config>::AddressMapper::to_account_id(&address);
-					$crate::frame_system::Pallet::<Self>::account_nonce(account)
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = NonceVersionedInputPayload::from(NonceInputPayloadV1 { address });
+					let output = Self::nonce_versioned(input);
+					NonceOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.nonce
 				}
 
 				fn address(account_id: AccountId) -> $crate::H160 {
@@ -3577,6 +3585,31 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					let output = GasPriceOutputPayload {
 						gas_price: $crate::Pallet::<Self>::evm_base_fee()
+					};
+					output_wrapper(output)
+				}
+
+				fn nonce_versioned(
+					input: $crate::pallet_revive_types::runtime_api::NonceVersionedInputPayload
+				) -> $crate::pallet_revive_types::runtime_api::NonceVersionedOutputPayload<Nonce> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use $crate::AddressMapper;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(NonceOutputPayload<Nonce>) -> NonceVersionedOutputPayload<Nonce>>,
+					) = match input {
+						NonceVersionedInputPayload::V1(payload) => (
+							NonceInputPayload::from(payload),
+							Box::new(|output| NonceVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let account = <Self as $crate::Config>::AddressMapper::to_account_id(&input.address);
+					let output = NonceOutputPayload {
+						nonce: $crate::frame_system::Pallet::<Self>::account_nonce(account)
 					};
 					output_wrapper(output)
 				}
