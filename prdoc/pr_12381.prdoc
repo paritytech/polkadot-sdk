@@ -8,6 +8,9 @@ doc:
 
       Validator can be chilled if it has zero era points for at least ChillInactiveThreshold (configurable) eras among the last HistoryDepth eras.
       The check of the inactivity can be adjusted using newly introduced config item `IsValidatorInactive`.
+
+      A newly introduced config item contains `is_inactive` fn which should be defined in a way that it will have a constant weight, so the trait usage
+      properly benchmarked. Otherwise, measures ensuring proper benchmarking must be taken.
 crates:
   - name: pallet-staking-async
     bump: major
