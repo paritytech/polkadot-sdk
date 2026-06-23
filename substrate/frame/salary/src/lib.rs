@@ -141,6 +141,11 @@ pub mod pallet {
 		/// `RegistrationPeriod`, `PayoutPeriod`, `Status::cycle_start`, and the payout windows are
 		/// all interpreted in the block-number domain returned by this provider.
 		///
+		/// Choose `RegistrationPeriod + PayoutPeriod` large enough, relative to the provider's
+		/// progression and expected gaps between calls to `bump`, that at most one salary cycle
+		/// normally becomes due at a time. If the provided block number can jump by multiple cycle
+		/// periods, repeated `bump` calls can advance through multiple cycles immediately.
+		///
 		/// Must return monotonically increasing values when called from consecutive blocks. Can be
 		/// configured to return either:
 		/// - the local block number of the runtime via `frame_system::Pallet`
