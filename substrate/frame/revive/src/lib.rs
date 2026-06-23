@@ -3046,6 +3046,7 @@ sp_api::decl_runtime_apis! {
 		fn address(account_id: AccountId) -> H160;
 
 		/// Get the account id associated to this H160 address.
+		#[deprecated(note = "Use the versioned equivalent `account_id_versioned` if available on your runtime")]
 		fn account_id(address: H160) -> AccountId;
 
 		/// The address used to call the runtime's pallets dispatchables
@@ -3108,6 +3109,9 @@ sp_api::decl_runtime_apis! {
 
 		#[api_version(2)]
 		fn code_versioned(input: CodeVersionedInputPayload) -> CodeVersionedOutputPayload;
+
+		#[api_version(2)]
+		fn account_id_versioned(input: AccountIdVersionedInputPayload) -> AccountIdVersionedOutputPayload<AccountId>;
 
 		#[api_version(2)]
 		fn block_author_versioned(input: BlockAuthorVersionedInputPayload) -> BlockAuthorVersionedOutputPayload;
@@ -3524,8 +3528,13 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn account_id(address: $crate::H160) -> AccountId {
-					use $crate::AddressMapper;
-					<Self as $crate::Config>::AddressMapper::to_account_id(&address)
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = AccountIdVersionedInputPayload::from(AccountIdInputPayloadV1 { address });
+					let output = Self::account_id_versioned(input);
+					AccountIdOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.account_id
 				}
 
 				fn new_balance_with_dust(balance: $crate::U256) -> Result<(Balance, u32), $crate::BalanceConversionError> {
@@ -3823,6 +3832,30 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					let output = CodeOutputPayload {
 						code: $crate::Pallet::<Self>::code(&input.address)
+					};
+					output_wrapper(output)
+				}
+
+				fn account_id_versioned(
+					input: $crate::pallet_revive_types::runtime_api::AccountIdVersionedInputPayload
+				) -> $crate::pallet_revive_types::runtime_api::AccountIdVersionedOutputPayload<AccountId> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use $crate::AddressMapper;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(AccountIdOutputPayload<AccountId>) -> AccountIdVersionedOutputPayload<AccountId>>,
+					) = match input {
+						AccountIdVersionedInputPayload::V1(payload) => (
+							AccountIdInputPayload::from(payload),
+							Box::new(|output| AccountIdVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let output = AccountIdOutputPayload {
+						account_id: <Self as $crate::Config>::AddressMapper::to_account_id(&input.address)
 					};
 					output_wrapper(output)
 				}

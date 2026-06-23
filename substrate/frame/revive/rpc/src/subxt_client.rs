@@ -278,6 +278,22 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CodeVersionedOutputPayload>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::account_id::AccountIdInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AccountIdInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::account_id::AccountIdVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AccountIdVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::account_id::AccountIdOutputPayloadV1<AccountId>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AccountIdOutputPayloadV1<AccountId>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::account_id::AccountIdVersionedOutputPayload<AccountId>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AccountIdVersionedOutputPayload<AccountId>>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::block_author::BlockAuthorInputPayloadV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockAuthorInputPayloadV1>"
 	),

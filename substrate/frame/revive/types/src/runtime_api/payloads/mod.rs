@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod account_id;
 mod address;
 mod balance;
 mod block_author;
@@ -31,6 +32,7 @@ mod runtime_pallets_address;
 mod trace_block;
 mod upload_code;
 
+pub use account_id::*;
 pub use address::*;
 pub use balance::*;
 pub use block_author::*;
