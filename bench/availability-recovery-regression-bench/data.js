@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782144463946,
+  "lastUpdate": 1782190573117,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1654f94848dc6227aa905b126ffc93da13799337",
-          "message": "Ensure that multiple blocks in a PoV form a chain (#10149)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-30T16:57:46Z",
-          "tree_id": "a8554b8ccb46eb69d0e2d954943aee3aa568e522",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1654f94848dc6227aa905b126ffc93da13799337"
-        },
-        "date": 1761850666178,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.620742900666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2050136746333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13429116306666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ismailov.m.h@gmail.com",
+            "name": "muharem",
+            "username": "muharem"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "24f2641af03078b638c548033ad93059b8fd94d8",
+          "message": "frame-support: stabilize MaybeConsideration by removing experimental gate (#12365)\n\nRemove the `experimental` feature gate from the `MaybeConsideration`\ntrait and its implementations (`()`, `FreezeConsideration`,\n`HoldConsideration`), making it available unconditionally alongside\n`Consideration`.\n\nConsumers no longer need to enable `frame-support/experimental` to use\n`MaybeConsideration`; the feature has been dropped from the\n`pallet-collective` dependency and the `pallet-balances` dev-dependency\naccordingly. No public API removals or storage changes.",
+          "timestamp": "2026-06-22T18:06:17Z",
+          "tree_id": "23fd94fb652f41d4c4b8084f762fe93844762294",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/24f2641af03078b638c548033ad93059b8fd94d8"
+        },
+        "date": 1782190543550,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14357027639999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.241941501166668,
             "unit": "seconds"
           }
         ]
