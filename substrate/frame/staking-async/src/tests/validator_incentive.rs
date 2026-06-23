@@ -740,6 +740,33 @@ fn defensive_panic_on_transfer_failure() {
 	});
 }
 
+#[test]
+#[cfg_attr(debug_assertions, should_panic(expected = "Defensive failure has been triggered!"))]
+fn reward_active_era_defends_individual_map_capacity() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+		let bob = 21;
+
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+
+		#[cfg(not(debug_assertions))]
+		let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
+
+		// Reward points are keyed by a bounded `individual` map. If that map cannot record a
+		// validator, the point delta must not enter `ErasSumWeightedPoints` either; otherwise
+		// payout and try-state recomputation would see different denominators.
+		MaxValidatorSet::set(1);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
+
+		#[cfg(not(debug_assertions))]
+		{
+			assert_eq!(ErasRewardPoints::<Test>::get(2).individual.len(), 1);
+			assert_eq!(ErasSumWeightedPoints::<Test>::get(2), alice_weight);
+		}
+	});
+}
+
 // ===== Performance scaling integration tests =====
 
 #[test]
@@ -1123,16 +1150,13 @@ fn sum_weighted_points_accrues_across_sequential_calls() {
 //
 // These pin the [`WeightedPointsFormulaStartEra`] branch in
 // `calculate_validator_incentive_for_page`: eras strictly older than the cutoff
-// fall back to the legacy stake-only share, so pending payouts from before the
-// runtime upgrade still pay out correctly even though their
-// `ErasSumWeightedPoints` denominator was never populated.
+// fall back to the legacy stake-only share, so pending pre-cutoff payouts still
+// work even when their `ErasSumWeightedPoints` denominator was never populated.
 
 #[test]
 fn legacy_formula_used_for_eras_before_cutoff() {
-	// Simulates the post-upgrade situation: era 2 was active when the new code
-	// shipped, so `WeightedPointsFormulaStartEra = 3` and era 2 must still pay
-	// out under the legacy `w_i / Σ_j w_j` share (which ignores points beyond
-	// the zero-gate). We clear `ErasSumWeightedPoints` to prove the legacy path
+	// Era 2 is modeled as active before the cutoff is recorded at era 3, so it must pay under
+	// the legacy `w_i / Σ_j w_j` share. Clear `ErasSumWeightedPoints` to prove the legacy path
 	// does not read it.
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11;
@@ -1145,8 +1169,8 @@ fn legacy_formula_used_for_eras_before_cutoff() {
 		Eras::<Test>::reward_active_era(vec![(alice, 10), (bob, 1)]);
 		Session::roll_until_active_era(3);
 
-		// WHEN: pin era 2 as pre-cutoff and wipe its weighted-points denominator
-		// to mimic an era whose points were credited before the new code shipped.
+		// WHEN: pin era 2 as pre-cutoff and wipe its weighted-points denominator to mimic an era
+		// whose points were credited before that denominator was maintained.
 		WeightedPointsFormulaStartEra::<Test>::put(3);
 		ErasSumWeightedPoints::<Test>::remove(2);
 		let _ = staking_events_since_last_call();
@@ -1213,7 +1237,7 @@ fn new_formula_zero_denominator_emits_unexpected_and_skips_payout() {
 		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
 		Session::roll_until_active_era(3);
 
-		// WHEN: corrupt the denominator to zero on a post-cutoff era (no cutoff ⇒ new formula).
+		// WHEN: corrupt the denominator to zero on a weighted-points era.
 		let valid_sum = ErasSumWeightedPoints::<Test>::get(2);
 		ErasSumWeightedPoints::<Test>::remove(2);
 		let _ = staking_events_since_last_call();
@@ -1234,10 +1258,9 @@ fn new_formula_zero_denominator_emits_unexpected_and_skips_payout() {
 
 #[test]
 fn legacy_era_pays_out_even_without_weighted_points_storage() {
-	// Regression for the original bug: under the new formula, era 2 would pay
-	// zero because `ErasSumWeightedPoints[2] == 0` (was never accumulated for
-	// pending pre-upgrade eras). With the cutoff in place, the legacy branch
-	// must still pay alice her full share.
+	// Regression for pending pre-cutoff payouts: under the weighted-points formula, era 2 would
+	// pay zero because `ErasSumWeightedPoints[2] == 0`. With the cutoff in place, the legacy
+	// branch must still pay alice her full share.
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11;
 		let bob = 21;
@@ -1248,8 +1271,7 @@ fn legacy_era_pays_out_even_without_weighted_points_storage() {
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
 		Session::roll_until_active_era(3);
 
-		// Pretend the new code only just shipped: cutoff sits in the future and
-		// the denominator for era 2 is empty.
+		// Model a pre-cutoff era whose weighted-points denominator was not maintained.
 		WeightedPointsFormulaStartEra::<Test>::put(3);
 		ErasSumWeightedPoints::<Test>::remove(2);
 		let _ = staking_events_since_last_call();
@@ -1257,7 +1279,7 @@ fn legacy_era_pays_out_even_without_weighted_points_storage() {
 		make_all_reward_payment(2);
 		let events = staking_events_since_last_call();
 
-		// Both validators are paid (would have been `None` under the new formula
+		// Both validators are paid (would have been `None` under the weighted-points formula
 		// because the denominator is zero).
 		assert!(incentive_paid_for(alice, &events).is_some());
 		assert!(incentive_paid_for(bob, &events).is_some());
@@ -1273,12 +1295,12 @@ fn try_state_skips_weighted_points_check_for_pre_cutoff_eras() {
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(11, 1), (21, 1)]);
 
-		// GIVEN: no cutoff yet ⇒ new formula assumed everywhere ⇒ a missing
+		// GIVEN: the genesis cutoff makes era 2 a weighted-points era, so a missing
 		// denominator must trip try-state.
 		ErasSumWeightedPoints::<Test>::remove(2);
 		assert!(
 			ErasMod::<Test>::do_try_state().is_err(),
-			"try-state should flag missing denominator without a cutoff"
+			"try-state should flag a missing denominator for weighted-points eras"
 		);
 
 		// WHEN: declare era 2 as pre-cutoff (legacy formula territory).
@@ -1296,6 +1318,9 @@ fn migration_sets_cutoff_to_active_era_plus_one() {
 
 	ExtBuilder::default().build_and_execute(|| {
 		Session::roll_until_active_era(3);
+		// Model a chain whose storage predates the cutoff item: genesis initializes the test
+		// value to 0, so clear it to reproduce the unset state the migration must handle.
+		WeightedPointsFormulaStartEra::<Test>::kill();
 		assert!(WeightedPointsFormulaStartEra::<Test>::get().is_none());
 
 		let _ = SetWeightedPointsFormulaStartEra::<Test>::on_runtime_upgrade();
@@ -1320,5 +1345,24 @@ fn migration_is_idempotent_when_cutoff_already_set() {
 
 		// Cutoff must not move on subsequent runs.
 		assert_eq!(WeightedPointsFormulaStartEra::<Test>::get(), Some(7));
+	});
+}
+
+#[test]
+fn genesis_pins_cutoff_and_migration_is_a_noop() {
+	use crate::migrations::SetWeightedPointsFormulaStartEra;
+	use frame_support::traits::OnRuntimeUpgrade;
+
+	ExtBuilder::default().build_and_execute(|| {
+		// Chains initialized with this storage item maintain the denominator from era 0, so the
+		// cutoff is pinned to 0 and every era uses the weighted-points formula.
+		assert_eq!(WeightedPointsFormulaStartEra::<Test>::get(), Some(0));
+		assert!(Eras::<Test>::uses_weighted_points(0));
+
+		// A later runtime upgrade must not retroactively flip these eras to the legacy
+		// formula: the migration sees the cutoff already set and leaves it untouched.
+		Session::roll_until_active_era(3);
+		let _ = SetWeightedPointsFormulaStartEra::<Test>::on_runtime_upgrade();
+		assert_eq!(WeightedPointsFormulaStartEra::<Test>::get(), Some(0));
 	});
 }

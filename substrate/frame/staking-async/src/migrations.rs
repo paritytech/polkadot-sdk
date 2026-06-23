@@ -201,8 +201,8 @@ impl<T: Config, S: Get<PalletId>, K: Get<RewardKind>> MigrateEraPotsToPool<T, S,
 /// `share_i = (w_i · ep_i) / Σ_j(w_j · ep_j)`.
 ///
 /// The denominator [`crate::ErasSumWeightedPoints`] is maintained incrementally by
-/// the new code as session reports credit reward points. Eras whose points were
-/// credited before this code shipped therefore have a zero/incomplete denominator.
+/// session reports as they credit reward points. Eras whose points were credited
+/// before that denominator was maintained can have a zero or incomplete value.
 /// Rather than paying the cost of recomputing it for the full
 /// [`Config::HistoryDepth`] window (`HistoryDepth × MaxValidatorSet` reads), this
 /// migration sets [`WeightedPointsFormulaStartEra`] to `active_era + 1`:
@@ -211,8 +211,9 @@ impl<T: Config, S: Get<PalletId>, K: Get<RewardKind>> MigrateEraPotsToPool<T, S,
 /// - eras `> active_era` use the new weighted-points share, with their
 ///   [`crate::ErasSumWeightedPoints`] accumulated from session 0 of the era.
 ///
-/// Idempotent: if the cutoff is already set (e.g. from a fresh chain at genesis or
-/// a prior application of this migration) it is left untouched.
+/// Idempotent: if the cutoff is already set, it is left untouched. Chains initialized with this
+/// storage item pin the cutoff to `0` at genesis, so their already-recorded denominators continue
+/// to apply to every era.
 pub struct SetWeightedPointsFormulaStartEra<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> OnRuntimeUpgrade for SetWeightedPointsFormulaStartEra<T> {
@@ -226,8 +227,8 @@ impl<T: Config> OnRuntimeUpgrade for SetWeightedPointsFormulaStartEra<T> {
 
 		let active_era = crate::session_rotation::Rotator::<T>::active_era();
 		// `active_era` may already have reward points credited without
-		// `ErasSumWeightedPoints` having been maintained for them, so the new
-		// formula can only safely apply from the next era onwards.
+		// `ErasSumWeightedPoints` having been maintained for them, so the weighted-points formula
+		// can only safely apply from the next era onwards.
 		let cutoff = active_era.saturating_add(1);
 		WeightedPointsFormulaStartEra::<T>::put(cutoff);
 		weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
@@ -245,9 +246,9 @@ impl<T: Config> OnRuntimeUpgrade for SetWeightedPointsFormulaStartEra<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		use codec::Encode;
-		// Capture `active_era` here, before the upgrade runs, so `post_upgrade` can derive the
-		// expected cutoff without re-reading it — `active_era` may otherwise differ if any era
-		// rotation occurs between the two hooks.
+		// Capture `active_era` before the upgrade runs so `post_upgrade` can derive the expected
+		// cutoff without re-reading it; `active_era` may otherwise differ if an era rotation occurs
+		// between the two hooks.
 		let active_era = crate::session_rotation::Rotator::<T>::active_era();
 		Ok((WeightedPointsFormulaStartEra::<T>::get(), active_era).encode())
 	}

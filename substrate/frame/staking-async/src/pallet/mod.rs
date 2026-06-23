@@ -590,8 +590,12 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, EraIndex, IncentiveWeight<T>, ValueQuery>;
 
 	/// Cutoff era from which the validator self-stake incentive switches to the
-	/// weighted-points formula. `None` means every era uses it (e.g. a chain that
-	/// activated it at genesis). Set once by the upgrade migration.
+	/// weighted-points formula.
+	///
+	/// `None` is the pre-migration state for chains whose storage predates this item. Until the
+	/// migration records a cutoff, [`session_rotation::Eras::uses_weighted_points`] treats all
+	/// eras as weighted-points eras. Chains initialized with this storage item set the cutoff to
+	/// `0` in `genesis_build`, and the upgrade migration leaves any existing value untouched.
 	///
 	/// See [`session_rotation::Eras::uses_weighted_points`] for the exact semantics and
 	/// the rationale for the cutoff.
@@ -1258,6 +1262,11 @@ pub mod pallet {
 					));
 				})
 			}
+
+			// Chains initialized with this storage item maintain `ErasSumWeightedPoints` from
+			// era 0. Pin the cutoff to the first era so every era uses the weighted-points formula
+			// and the idempotent migration only acts on chains whose storage predates this item.
+			WeightedPointsFormulaStartEra::<T>::put(0);
 
 			let (active_era, session_index, timestamp) = self.active_era;
 			ActiveEra::<T>::put(ActiveEraInfo { index: active_era, start: Some(timestamp) });

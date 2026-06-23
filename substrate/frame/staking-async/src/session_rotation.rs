@@ -429,11 +429,10 @@ impl<T: Config> Eras<T> {
 						},
 					};
 
-					// Only fold the validator into the weighted-points denominator if it was
-					// actually recorded in `individual`. If the bounded map overflowed and
-					// dropped the entry, accumulating it here would leave `ErasSumWeightedPoints`
-					// counting a validator that neither the payout path nor the try-state
-					// recompute (both of which iterate `individual`) can ever see.
+					// Keep the denominator aligned with `individual`, which is the source used
+					// by payouts and try-state recomputation. A defensive overflow may leave
+					// points unrecorded; those points must not be counted in
+					// `ErasSumWeightedPoints`.
 					if recorded && !weight.is_zero() {
 						sum_weighted_points_delta = sum_weighted_points_delta.saturating_add(
 							weight.saturating_mul(IncentiveWeight::<T>::from(points)),
@@ -458,13 +457,13 @@ impl<T: Config> Eras<T> {
 	/// Whether era `era` uses the weighted-points incentive-share formula
 	/// `share_i = (w_i · ep_i) / Σ_j(w_j · ep_j)`.
 	///
-	/// Returns `true` for eras at or after [`crate::WeightedPointsFormulaStartEra`], and for
-	/// every era when the cutoff is unset (e.g. a chain that activated the formula at genesis).
+	/// Returns `true` for eras at or after [`crate::WeightedPointsFormulaStartEra`], and while
+	/// the cutoff is still unset before the migration records it.
 	///
 	/// Returns `false` for pre-cutoff eras, which fall back to the legacy stake-only share
-	/// `share_i = w_i / Σ_j w_j`. Those eras predate this code, so their
-	/// [`crate::ErasSumWeightedPoints`] denominator was never accumulated; recomputing it for the
-	/// full [`Config::HistoryDepth`] window on upgrade would cost `HistoryDepth × MaxValidatorSet`
+	/// `share_i = w_i / Σ_j w_j`. Those eras may have reward points credited before their
+	/// [`crate::ErasSumWeightedPoints`] denominator was maintained; recomputing it for the full
+	/// [`Config::HistoryDepth`] window on upgrade would cost `HistoryDepth × MaxValidatorSet`
 	/// reads, so the migration sets the cutoff to `active_era + 1` instead. See
 	/// [`crate::migrations::SetWeightedPointsFormulaStartEra`].
 	///
@@ -564,9 +563,9 @@ impl<T: Config> Eras<T> {
 		for e in oldest_present_era..=active_era {
 			Self::era_fully_present(e)?;
 			Self::check_validator_incentive_weight_consistency(e)?;
-			// Eras strictly older than the cutoff were paid out under the legacy
-			// stake-only formula and never had `ErasSumWeightedPoints` populated, so skip
-			// the denominator consistency check for them. See
+			// Eras strictly older than the cutoff use the legacy stake-only formula and may not
+			// have `ErasSumWeightedPoints` populated, so skip the denominator consistency check.
+			// See
 			// [`crate::migrations::SetWeightedPointsFormulaStartEra`].
 			if Self::uses_weighted_points(e) {
 				Self::check_sum_weighted_points_consistency(e)?;
