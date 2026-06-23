@@ -435,6 +435,7 @@ members = [
 	"substrate/frame/revive/fixtures",
 	"substrate/frame/revive/proc-macro",
 	"substrate/frame/revive/rpc",
+	"substrate/frame/revive/types",
 	"substrate/frame/revive/uapi",
 	"substrate/frame/revive/ui-tests",
 	"substrate/frame/root-offences",
@@ -924,7 +925,7 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.14.2", features = ["rsa", "websocket"] }
+litep2p = { version = "0.14.3", features = ["rsa", "webrtc", "websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
@@ -1059,6 +1060,7 @@ pallet-referenda = { path = "substrate/frame/referenda", default-features = fals
 pallet-revive = { path = "substrate/frame/revive", default-features = false }
 pallet-revive-fixtures = { path = "substrate/frame/revive/fixtures", default-features = false }
 pallet-revive-proc-macro = { path = "substrate/frame/revive/proc-macro", default-features = false }
+pallet-revive-types = { path = "substrate/frame/revive/types", default-features = false }
 pallet-revive-uapi = { path = "substrate/frame/revive/uapi", default-features = false }
 pallet-root-offences = { default-features = false, path = "substrate/frame/root-offences" }
 pallet-root-testing = { path = "substrate/frame/root-testing", default-features = false }
@@ -1213,6 +1215,7 @@ remote-externalities = { path = "substrate/utils/frame/remote-externalities", de
 revive-dev-node = { path = "substrate/frame/revive/dev-node/node" }
 revive-dev-runtime = { path = "substrate/frame/revive/dev-node/runtime" }
 revm = { version = "27.0.2", default-features = false }
+revm-bytecode = { version = "6.2.2", default-features = false }
 ripemd = { version = "0.1.3", default-features = false }
 rlp = { version = "0.6.1", default-features = false }
 rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/rococo" }
