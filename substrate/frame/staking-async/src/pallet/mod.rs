@@ -1539,8 +1539,6 @@ pub mod pallet {
 		InvalidInactivityProof(InvalidInactivityProofError),
 		/// Cannot set [`ChillInactiveThreshold`] to the provided value.
 		InvalidChillInactiveThreshold,
-		/// Provided account doesn't correspond to any validator.
-		NotValidator,
 	}
 
 	#[derive(Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo, PalletError)]
@@ -3177,10 +3175,7 @@ pub mod pallet {
 		///
 		/// On a successfull execution, caller doesn't pay fees.
 		#[pallet::call_index(35)]
-		#[pallet::weight(
-			T::WeightInfo::chill_inactive(proof.len() as _)
-				.saturating_add(T::IsValidatorInactive::weight().saturating_mul(proof.len() as u64))
-		)]
+		#[pallet::weight(T::WeightInfo::chill_inactive(proof.len() as _))]
 		pub fn chill_inactive(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
@@ -3227,7 +3222,7 @@ pub mod pallet {
 
 				Ok(Pays::No.into())
 			} else {
-				Err(Error::<T>::NotValidator.into())
+				Err(Error::<T>::BadTarget.into())
 			}
 		}
 	}

@@ -234,7 +234,7 @@ use ledger::LedgerIntegrityState;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, One, StaticLookup, UniqueSaturatedInto},
-	BoundedBTreeMap, Debug, Perbill, Saturating, Weight,
+	BoundedBTreeMap, Debug, Perbill, Saturating,
 };
 use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex};
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
@@ -508,20 +508,11 @@ pub trait NominationsQuota<Balance> {
 pub trait IsValidatorInactive<AccountId> {
 	/// Tell if the validator considered inactive.
 	fn is_inactive(era: EraIndex, stash: &AccountId, era_points: RewardPoint) -> bool;
-
-	/// Get the weight of calling [`IsValidatorInactive::is_inactive`].
-	fn weight() -> Weight;
 }
 
 impl<AccountId> IsValidatorInactive<AccountId> for () {
 	fn is_inactive(_era: EraIndex, _stash: &AccountId, era_points: RewardPoint) -> bool {
 		era_points == 0
-	}
-
-	fn weight() -> Weight {
-		// If the default implementation is used, the weight of calling `is_inactive` will already
-		// be baked into the `chill_inactive` weight.
-		Weight::zero()
 	}
 }
 
