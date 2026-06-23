@@ -21884,6 +21884,7 @@ dependencies = [
  "prost 0.12.6",
  "prost-build 0.13.2",
  "rand 0.8.5",
+ "rustls 0.23.31",
  "sc-block-builder",
  "sc-client-api 28.0.0",
  "sc-network-common 0.33.0",
