@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782196234074,
+  "lastUpdate": 1782200959637,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1654f94848dc6227aa905b126ffc93da13799337",
-          "message": "Ensure that multiple blocks in a PoV form a chain (#10149)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-30T16:57:46Z",
-          "tree_id": "a8554b8ccb46eb69d0e2d954943aee3aa568e522",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1654f94848dc6227aa905b126ffc93da13799337"
-        },
-        "date": 1761850699674,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022488612220000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0071739019933333295,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013018710226666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16000031402,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14787599263333331,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e093bace983234f2466d70964736f512d2dc78fe",
+          "message": "cargo: Bump litep2p to 0.14.3 (#12432)\n\nThis patch release is dedicated entirely to strengthening the WebRTC\ntransport layer, specifically focusing on connection resilience and\nbuild stability.\n\n### Fixed\n\n- fix(webrtc): decode errors during opening phase are not recoverable\n([#622](https://github.com/paritytech/litep2p/pull/622))\n- fix(webrtc): build vendored OpenSSL for str0m\n([#620](https://github.com/paritytech/litep2p/pull/620))\n- fix(webrtc): time out inbound and outbound opening data channels\n([#617](https://github.com/paritytech/litep2p/pull/617))\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-23T06:17:27Z",
+          "tree_id": "b18ee08e8dd34db18a1dbd2701ad991ed503f07f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e093bace983234f2466d70964736f512d2dc78fe"
+        },
+        "date": 1782200933662,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010262256859999971,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023552523800000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007662265780000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14512326885333338,
             "unit": "seconds"
           }
         ]
