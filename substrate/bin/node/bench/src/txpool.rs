@@ -27,6 +27,7 @@ use node_testing::bench::{BenchDb, BlockType, DatabaseType, KeyTypes};
 
 use sc_transaction_pool::BasicPool;
 use sc_transaction_pool_api::{TransactionPool, TransactionSource};
+use sp_core::traits::CallContext;
 
 use crate::core::{self, Mode, Path};
 
@@ -61,7 +62,7 @@ impl core::Benchmark for PoolBenchmark {
 
 		let _ = context
 			.client
-			.runtime_version_at(genesis_hash)
+			.runtime_version_at(genesis_hash, CallContext::Offchain)
 			.expect("Failed to get runtime version")
 			.spec_version;
 

@@ -58,7 +58,7 @@ pub trait Memory<T: Config> {
 	/// Returns `Err` if one of the following conditions occurs:
 	///
 	/// - requested buffer is not within the bounds of the sandbox memory.
-	fn read_into_buf(&self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError>;
+	fn read_into_buf(&mut self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError>;
 
 	/// Write the given buffer to the designated location in the sandbox memory.
 	///
@@ -86,40 +86,40 @@ pub trait Memory<T: Config> {
 	/// Returns `Err` if one of the following conditions occurs:
 	///
 	/// - requested buffer is not within the bounds of the sandbox memory.
-	fn read(&self, ptr: u32, len: u32) -> Result<Vec<u8>, DispatchError> {
+	fn read(&mut self, ptr: u32, len: u32) -> Result<Vec<u8>, DispatchError> {
 		let mut buf = vec![0u8; len as usize];
 		self.read_into_buf(ptr, buf.as_mut_slice())?;
 		Ok(buf)
 	}
 
 	/// Same as `read` but reads into a fixed size buffer.
-	fn read_array<const N: usize>(&self, ptr: u32) -> Result<[u8; N], DispatchError> {
+	fn read_array<const N: usize>(&mut self, ptr: u32) -> Result<[u8; N], DispatchError> {
 		let mut buf = [0u8; N];
 		self.read_into_buf(ptr, &mut buf)?;
 		Ok(buf)
 	}
 
 	/// Read a `u32` from the sandbox memory.
-	fn read_u32(&self, ptr: u32) -> Result<u32, DispatchError> {
+	fn read_u32(&mut self, ptr: u32) -> Result<u32, DispatchError> {
 		let buf: [u8; 4] = self.read_array(ptr)?;
 		Ok(u32::from_le_bytes(buf))
 	}
 
 	/// Read a `U256` from the sandbox memory.
-	fn read_u256(&self, ptr: u32) -> Result<U256, DispatchError> {
+	fn read_u256(&mut self, ptr: u32) -> Result<U256, DispatchError> {
 		let buf: [u8; 32] = self.read_array(ptr)?;
 		Ok(U256::from_little_endian(&buf))
 	}
 
 	/// Read a `H160` from the sandbox memory.
-	fn read_h160(&self, ptr: u32) -> Result<H160, DispatchError> {
+	fn read_h160(&mut self, ptr: u32) -> Result<H160, DispatchError> {
 		let mut buf = H160::default();
 		self.read_into_buf(ptr, buf.as_bytes_mut())?;
 		Ok(buf)
 	}
 
 	/// Read a `H256` from the sandbox memory.
-	fn read_h256(&self, ptr: u32) -> Result<H256, DispatchError> {
+	fn read_h256(&mut self, ptr: u32) -> Result<H256, DispatchError> {
 		let mut code_hash = H256::default();
 		self.read_into_buf(ptr, code_hash.as_bytes_mut())?;
 		Ok(code_hash)
@@ -146,7 +146,7 @@ pub trait PolkaVmInstance<T: Config>: Memory<T> {
 // in the streaming implementation while it could fail with a segfault in the copy implementation.
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: Config> Memory<T> for [u8] {
-	fn read_into_buf(&self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
+	fn read_into_buf(&mut self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
 		let ptr = ptr as usize;
 		let bound_checked =
 			self.get(ptr..ptr + buf.len()).ok_or_else(|| Error::<T>::OutOfBounds)?;
@@ -170,7 +170,7 @@ impl<T: Config> Memory<T> for [u8] {
 }
 
 impl<T: Config> Memory<T> for polkavm::RawInstance {
-	fn read_into_buf(&self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
+	fn read_into_buf(&mut self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
 		self.read_memory_into(ptr, buf)
 			.map(|_| ())
 			.map_err(|_| Error::<T>::OutOfBounds.into())
@@ -451,7 +451,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		Ok(())
 	}
 
-	fn decode_key(&self, memory: &M, key_ptr: u32, key_len: u32) -> Result<Key, TrapReason> {
+	fn decode_key(&self, memory: &mut M, key_ptr: u32, key_len: u32) -> Result<Key, TrapReason> {
 		let res = match key_len {
 			SENTINEL => {
 				let mut buffer = [0u8; 32];
@@ -476,7 +476,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 	fn set_storage(
 		&mut self,
-		memory: &M,
+		memory: &mut M,
 		flags: u32,
 		key_ptr: u32,
 		key_len: u32,
@@ -521,7 +521,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 	fn clear_storage(
 		&mut self,
-		memory: &M,
+		memory: &mut M,
 		flags: u32,
 		key_ptr: u32,
 		key_len: u32,
@@ -840,7 +840,13 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 				break exec_result;
 			}
 		};
-		self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas())?;
+		crate::tracing::if_tracing(|tracer| {
+			tracer.enter_ecall(crate::tracing::PVM_FUEL_NAME, &[], &self.runtime)
+		});
+		let sync_result =
+			self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas());
+		crate::tracing::if_tracing(|tracer| tracer.exit_step(&self.runtime, None));
+		sync_result?;
 		exec_result
 	}
 

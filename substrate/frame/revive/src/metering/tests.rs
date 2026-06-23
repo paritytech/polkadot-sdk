@@ -16,14 +16,18 @@
 // limitations under the License.
 
 use crate::{
-	BalanceOf, CallResources, Code, Config, EthTxInfo, StorageDeposit, TransactionLimits,
-	TransactionMeter, WeightToken,
+	BalanceOf, CallResources, Code, Config, Error, EthTxInfo, ExecConfig, StorageDeposit,
+	TransactionLimits, TransactionMeter, WeightToken,
 	storage::AccountInfo,
-	test_utils::{ALICE, ALICE_ADDR, builder::Contract},
+	test_utils::{ALICE, ALICE_ADDR, CHARLIE, builder::Contract},
 	tests::{ExtBuilder, Test, builder},
 };
 use alloy_core::sol_types::SolCall;
-use frame_support::traits::fungible::Mutate;
+use frame_support::{
+	storage::{TransactionOutcome, with_transaction},
+	traits::fungible::Mutate,
+};
+use frame_system::RawOrigin;
 use pallet_revive_fixtures::{
 	CatchConstructorTest, DepositPrecompile, FixtureType, compile_module_with_type,
 };
@@ -41,7 +45,7 @@ impl WeightToken<Test> for TestToken {
 
 enum Charge {
 	W(u64, u64),
-	D(i64),
+	D(i128),
 }
 
 #[test]
@@ -159,16 +163,82 @@ fn nested_call_storage_refund(fixture_type: FixtureType, fixture_name: &str) {
 	});
 }
 
+/// A dry-run from an unfunded account should still report the `max_storage_deposit`
+/// that a successful run would need, so that the caller can size the allowance
+/// required to cover the storage deposit before submitting the real transaction.
+#[test_case(FixtureType::Solc   , "DepositPrecompile" ; "solc precompiles")]
+#[test_case(FixtureType::Resolc , "DepositPrecompile" ; "resolc precompiles")]
+#[test_case(FixtureType::Solc   , "DepositDirect" ; "solc direct")]
+#[test_case(FixtureType::Resolc , "DepositDirect" ; "resolc direct")]
+fn max_storage_deposit_reported_for_unfunded_dry_run(
+	fixture_type: FixtureType,
+	fixture_name: &str,
+) {
+	let (code, _) = compile_module_with_type(fixture_name, fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Wrap each call in a rolled-back storage layer so state doesn't leak
+		// between them. Mirrors how a runtime API dispatches the dry-run.
+		let run_in_rollback = |build: &dyn Fn() -> _| {
+			with_transaction(|| {
+				TransactionOutcome::Rollback(Ok::<_, sp_runtime::DispatchError>(build()))
+			})
+			.unwrap()
+		};
+
+		// Reference run from a funded account.
+		let funded = run_in_rollback(&|| {
+			builder::bare_call(caller_addr)
+				.data(DepositPrecompile::setAndClearCall {}.abi_encode())
+				.build()
+		});
+		assert!(funded.result.is_ok(), "reference run must succeed, got {:?}", funded.result);
+		assert!(
+			funded.max_storage_deposit.charge_or_zero() > 0,
+			"expected the funded reference run to require some storage deposit, got {:?}",
+			funded.max_storage_deposit,
+		);
+
+		// Same call from CHARLIE, who has no balance, using the runtime-api dry-run
+		// `ExecConfig`. Collecting the deposit fails because CHARLIE cannot fund it, but
+		// the reported `max_storage_deposit` must still match the funded run so the
+		// caller can size the allowance needed to cover the deposit.
+		let unfunded = run_in_rollback(&|| {
+			crate::Pallet::<Test>::prepare_dry_run(&CHARLIE);
+			builder::bare_call(caller_addr)
+				.origin(RawOrigin::Signed(CHARLIE).into())
+				.data(DepositPrecompile::setAndClearCall {}.abi_encode())
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: <Test as frame_system::Config>::BlockWeights::get().max_block,
+					deposit_limit: u128::MAX,
+				})
+				.exec_config(ExecConfig::new_substrate_tx().with_dry_run(Default::default()))
+				.build()
+		});
+
+		assert_eq!(
+			unfunded.result.unwrap_err(),
+			Error::<Test>::StorageDepositNotEnoughFunds.into()
+		);
+		assert_eq!(unfunded.max_storage_deposit, funded.max_storage_deposit);
+	});
+}
+
 #[test]
 fn substrate_metering_initialization_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
 
 	let tests = vec![
 		(
-			5_000_000_000u64,
+			5_000_000_000u128,
 			1_000_000_000,
 			2_000,
-			Some((2999999500u64, 1499999750, 11107, 599999900)),
+			Some((2999999500u128, 1499999750, 11107, 599999900)),
 		),
 		(6_000_000_000, 1_000_000_000, 2_000, Some((3999999500, 1999999750, 13728, 799999900))),
 		(6_000_000_000, 1_000_000_000, 10_000, Some((2185302235, 1999999750, 5728, 437060447))),
@@ -248,10 +318,10 @@ fn substrate_metering_charges_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
 	let tests = vec![
 		(
-			(5_000_000_000u64, 1_000_000_000, 2_000),
+			(5_000_000_000u128, 1_000_000_000, 2_000),
 			vec![(
 				W(1000, 100),
-				Some((2999997500u64, 1499998750, 11007, 599999500, 2000002500u64)),
+				Some((2999997500u128, 1499998750, 11007, 599999500, 2000002500u128)),
 			)],
 		),
 		(
@@ -333,9 +403,9 @@ fn substrate_metering_charges_works() {
 						D(deposit_charge) => transaction_meter
 							.charge_deposit(
 								&(if deposit_charge >= 0 {
-									StorageDeposit::Charge(deposit_charge as u64)
+									StorageDeposit::Charge(deposit_charge as u128)
 								} else {
-									StorageDeposit::Refund(-deposit_charge as u64)
+									StorageDeposit::Refund(-deposit_charge as u128)
 								}),
 							)
 							.is_ok(),
@@ -378,8 +448,8 @@ fn substrate_nesting_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
 	let tests = vec![
 		(
-			((5_000_000_000u64, 1_000_000_000, 2_000, 1000, 1000, 1000i64), NoLimits),
-			Some((2999992500u64, 1499996250, 10107, 599998500, 2000007500u64)),
+			((5_000_000_000u128, 1_000_000_000, 2_000, 1000, 1000, 1000i128), NoLimits),
+			Some((2999992500u128, 1499996250, 10107, 599998500, 2000007500u128)),
 		),
 		(
 			((5_000_000_000, 1_000_000_000, 2_000, 1000000000, 10000, 50000), NoLimits),
@@ -555,9 +625,9 @@ fn substrate_nesting_works() {
 				transaction_meter
 					.charge_deposit(
 						&(if deposit_charge >= 0 {
-							StorageDeposit::Charge(deposit_charge as u64)
+							StorageDeposit::Charge(deposit_charge as u128)
 						} else {
-							StorageDeposit::Refund(-deposit_charge as u64)
+							StorageDeposit::Refund(-deposit_charge as u128)
 						}),
 					)
 					.unwrap();
@@ -604,9 +674,9 @@ fn substrate_nesting_charges_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
 	let tests = vec![
 		(
-			(5_000_000_000u64, 1_000_000_000, 2_000, 1000, 100, 1000i64, 1000u64),
+			(5_000_000_000u128, 1_000_000_000, 2_000, 1000, 100, 1000i128, 1000u128),
 			vec![
-				(W(100, 100), Some((800u64, 400, 3042, 160, 2000007700u64))),
+				(W(100, 100), Some((800u128, 400, 3042, 160, 2000007700u128))),
 				(D(100), Some((300, 150, 3042, 60, 2000008200))),
 			],
 		),
@@ -659,9 +729,9 @@ fn substrate_nesting_charges_works() {
 				transaction_meter
 					.charge_deposit(
 						&(if deposit_charge >= 0 {
-							StorageDeposit::Charge(deposit_charge as u64)
+							StorageDeposit::Charge(deposit_charge as u128)
 						} else {
-							StorageDeposit::Refund((-deposit_charge) as u64)
+							StorageDeposit::Refund((-deposit_charge) as u128)
 						}),
 					)
 					.unwrap();
@@ -685,9 +755,9 @@ fn substrate_nesting_charges_works() {
 						D(deposit_charge) => nested
 							.charge_deposit(
 								&(if deposit_charge >= 0 {
-									StorageDeposit::Charge(deposit_charge as u64)
+									StorageDeposit::Charge(deposit_charge as u128)
 								} else {
-									StorageDeposit::Refund(-deposit_charge as u64)
+									StorageDeposit::Refund(-deposit_charge as u128)
 								}),
 							)
 							.is_ok(),
@@ -759,7 +829,7 @@ fn catch_constructor_test() {
 
 		assert_ok!(second_estimate);
 
-		let make_call = |eth_gas_limit: u64| {
+		let make_call = |eth_gas_limit: u128| {
 			builder::bare_call(test_address)
 				.data(
 					CatchConstructorTest::tryCatchNewContractCall { _owner: [0u8; 20].into() }
@@ -773,7 +843,7 @@ fn catch_constructor_test() {
 				.build()
 		};
 
-		let results = make_call(u64::MAX);
+		let results = make_call(u128::MAX);
 
 		let mut tracer =
 			CallTracer::new(CallTracerConfig { with_logs: true, only_top_call: false });
@@ -820,4 +890,36 @@ fn dry_run_bounded_execution_runs_out_of_gas() {
 			"expected OutOfGas error, got: {err:?}"
 		);
 	});
+}
+
+/// Regression test for proxy contract delegatecall with large deposit limits.
+///
+/// When deposit_left is very large (u128::MAX in production), remaining_gas becomes huge,
+/// causing ratio = gas_limit / remaining_gas ≈ 0. This resulted in nested calls receiving
+/// almost no weight. The fix caps remaining_gas to u64::MAX since Ethereum gas is u64.
+#[test]
+fn substrate_nesting_with_large_deposit_and_max_gas_request() {
+	use super::math::substrate_execution;
+
+	ExtBuilder::default()
+		.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
+		.build()
+		.execute_with(|| {
+			let weight_limit = Weight::from_parts(1_000_000_000, 10_000);
+			let deposit_limit: u128 = u64::MAX as _;
+
+			let mut root_meter =
+				substrate_execution::new_root::<Test>(weight_limit, deposit_limit).unwrap();
+
+			root_meter.charge_weight_token(TestToken(1000, 100)).unwrap();
+			root_meter.charge_deposit(&StorageDeposit::Charge(1000)).unwrap();
+
+			let weight_left_before = root_meter.weight_left().unwrap();
+			let nested = root_meter
+				.new_nested(&CallResources::Ethereum { gas: u64::MAX as _, add_stipend: false })
+				.unwrap();
+
+			let nested_weight_left = nested.weight_left().unwrap();
+			assert!(nested_weight_left.eq(&weight_left_before));
+		});
 }

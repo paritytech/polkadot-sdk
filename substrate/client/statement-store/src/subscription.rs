@@ -43,7 +43,9 @@ use crate::LOG_TARGET;
 use sc_utils::id_sequence::SeqID;
 use sp_core::{traits::SpawnNamed, Bytes, Encode};
 pub use sp_statement_store::StatementStore;
-use sp_statement_store::{OptimizedTopicFilter, Result, Statement, Topic, MAX_TOPICS};
+use sp_statement_store::{
+	OptimizedTopicFilter, Result, Statement, StatementEvent, Topic, MAX_TOPICS,
+};
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
 	sync::atomic::AtomicU64,
@@ -58,7 +60,7 @@ pub trait StatementStoreSubscriptionApi: Send + Sync {
 	fn subscribe_statement(
 		&self,
 		topic_filter: OptimizedTopicFilter,
-	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<Bytes>, SubscriptionStatementsStream)>;
+	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<StatementEvent>, SubscriptionStatementsStream)>;
 }
 
 /// Messages sent to matcher tasks.
@@ -143,7 +145,7 @@ impl SubscriptionsHandle {
 	pub(crate) fn subscribe(
 		&self,
 		topic_filter: OptimizedTopicFilter,
-	) -> (async_channel::Sender<Bytes>, SubscriptionStatementsStream) {
+	) -> (async_channel::Sender<StatementEvent>, SubscriptionStatementsStream) {
 		let next_id = self.next_id();
 		let (tx, rx) = async_channel::bounded(SUBSCRIPTION_BUFFER_SIZE);
 		let subscription_info =
@@ -197,7 +199,7 @@ pub(crate) struct SubscriptionInfo {
 	// The unique ID of this subscription.
 	seq_id: SeqID,
 	// Channel to send matched statements to the subscriber.
-	tx: async_channel::Sender<Bytes>,
+	tx: async_channel::Sender<StatementEvent>,
 }
 
 impl SubscriptionsInfo {
@@ -243,7 +245,10 @@ impl SubscriptionsInfo {
 		bytes_to_send: Bytes,
 		needs_unsubscribing: &mut HashSet<SeqID>,
 	) {
-		if let Err(err) = subscription.tx.try_send(bytes_to_send) {
+		if let Err(err) = subscription.tx.try_send(StatementEvent::NewStatements {
+			statements: vec![bytes_to_send],
+			remaining: None,
+		}) {
 			log::debug!(
 				target: LOG_TARGET,
 				"Failed to send statement to subscriber {:?}: {:?} unsubscribing it", subscription.seq_id, err
@@ -431,7 +436,7 @@ impl SubscriptionsMatchersHandlers {
 // Stream of statements for a subscription.
 pub struct SubscriptionStatementsStream {
 	// Channel to receive statements.
-	pub rx: async_channel::Receiver<Bytes>,
+	pub rx: async_channel::Receiver<StatementEvent>,
 	// Subscription ID, used for cleanup on drop.
 	sub_id: SeqID,
 	// Reference to the matchers for cleanup.
@@ -447,7 +452,7 @@ impl Drop for SubscriptionStatementsStream {
 }
 
 impl Stream for SubscriptionStatementsStream {
-	type Item = Bytes;
+	type Item = StatementEvent;
 
 	fn poll_next(
 		mut self: std::pin::Pin<&mut Self>,
@@ -465,11 +470,20 @@ mod tests {
 	use super::*;
 	use sp_core::Decode;
 	use sp_statement_store::Topic;
+
+	fn unwrap_statement(item: StatementEvent) -> Bytes {
+		match item {
+			StatementEvent::NewStatements { mut statements, .. } => {
+				assert_eq!(statements.len(), 1, "Expected exactly one statement in batch");
+				statements.remove(0)
+			},
+		}
+	}
 	#[test]
 	fn test_subscribe_unsubscribe() {
 		let mut subscriptions = SubscriptionsInfo::new();
 
-		let (tx1, _rx1) = async_channel::bounded::<Bytes>(10);
+		let (tx1, _rx1) = async_channel::bounded::<StatementEvent>(10);
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
 		let sub_info1 = SubscriptionInfo {
@@ -493,7 +507,7 @@ mod tests {
 	#[test]
 	fn test_subscribe_any() {
 		let mut subscriptions = SubscriptionsInfo::new();
-		let (tx1, _rx1) = async_channel::bounded::<Bytes>(10);
+		let (tx1, _rx1) = async_channel::bounded::<StatementEvent>(10);
 		let sub_info1 = SubscriptionInfo {
 			topic_filter: OptimizedTopicFilter::Any,
 			seq_id: SeqID::from(1),
@@ -510,7 +524,7 @@ mod tests {
 	fn test_subscribe_match_any() {
 		let mut subscriptions = SubscriptionsInfo::new();
 
-		let (tx1, _rx1) = async_channel::bounded::<Bytes>(10);
+		let (tx1, _rx1) = async_channel::bounded::<StatementEvent>(10);
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
 		let sub_info1 = SubscriptionInfo {
@@ -535,7 +549,7 @@ mod tests {
 	fn test_notify_any_subscribers() {
 		let mut subscriptions = SubscriptionsInfo::new();
 
-		let (tx1, rx1) = async_channel::bounded::<Bytes>(10);
+		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(10);
 		let sub_info1 = SubscriptionInfo {
 			topic_filter: OptimizedTopicFilter::Any,
 			seq_id: SeqID::from(1),
@@ -546,7 +560,7 @@ mod tests {
 		let statement = signed_statement(1);
 		subscriptions.notify_matching_filters(&statement);
 
-		let received = rx1.try_recv().expect("Should receive statement");
+		let received = unwrap_statement(rx1.try_recv().expect("Should receive statement"));
 		let decoded_statement: Statement =
 			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
 		assert_eq!(decoded_statement, statement);
@@ -556,7 +570,7 @@ mod tests {
 	fn test_notify_match_all_subscribers() {
 		let mut subscriptions = SubscriptionsInfo::new();
 
-		let (tx1, rx1) = async_channel::bounded::<Bytes>(10);
+		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(10);
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
 		let sub_info1 = SubscriptionInfo {
@@ -578,7 +592,7 @@ mod tests {
 		statement.set_topic(1, topic1);
 		subscriptions.notify_matching_filters(&statement);
 
-		let received = rx1.try_recv().expect("Should receive statement");
+		let received = unwrap_statement(rx1.try_recv().expect("Should receive statement"));
 		let decoded_statement: Statement =
 			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
 		assert_eq!(decoded_statement, statement);
@@ -587,8 +601,8 @@ mod tests {
 	#[test]
 	fn test_notify_match_any_subscribers() {
 		let mut subscriptions = SubscriptionsInfo::new();
-		let (tx1, rx1) = async_channel::bounded::<Bytes>(10);
-		let (tx2, rx2) = async_channel::bounded::<Bytes>(10);
+		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(10);
+		let (tx2, rx2) = async_channel::bounded::<StatementEvent>(10);
 
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
@@ -614,12 +628,12 @@ mod tests {
 		statement.set_topic(1, topic2);
 		subscriptions.notify_match_any_subscribers(&statement);
 
-		let received = rx1.try_recv().expect("Should receive statement");
+		let received = unwrap_statement(rx1.try_recv().expect("Should receive statement"));
 		let decoded_statement: Statement =
 			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
 		assert_eq!(decoded_statement, statement);
 
-		let received = rx2.try_recv().expect("Should receive statement");
+		let received = unwrap_statement(rx2.try_recv().expect("Should receive statement"));
 		let decoded_statement: Statement =
 			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
 		assert_eq!(decoded_statement, statement);
@@ -653,7 +667,8 @@ mod tests {
 			subscriptions_handle.notify(statement.clone());
 
 			for (_tx, mut stream) in streams {
-				let received = stream.next().await.expect("Should receive statement");
+				let received =
+					unwrap_statement(stream.next().await.expect("Should receive statement"));
 				let decoded_statement: Statement =
 					Statement::decode(&mut &received.0[..]).expect("Should decode statement");
 				assert_eq!(decoded_statement, statement);
@@ -679,7 +694,7 @@ mod tests {
 		// Send a statement and verify it's received.
 		subscriptions_handle.notify(statement.clone());
 
-		let received = stream.next().await.expect("Should receive statement");
+		let received = unwrap_statement(stream.next().await.expect("Should receive statement"));
 		let decoded_statement: Statement =
 			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
 		assert_eq!(decoded_statement, statement);
@@ -721,8 +736,8 @@ mod tests {
 	fn test_multiple_subscriptions_same_topic() {
 		let mut subscriptions = SubscriptionsInfo::new();
 
-		let (tx1, rx1) = async_channel::bounded::<Bytes>(10);
-		let (tx2, rx2) = async_channel::bounded::<Bytes>(10);
+		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(10);
+		let (tx2, rx2) = async_channel::bounded::<StatementEvent>(10);
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
 
@@ -816,7 +831,7 @@ mod tests {
 		let mut subscriptions = SubscriptionsInfo::new();
 
 		// Create a channel with capacity 1.
-		let (tx1, rx1) = async_channel::bounded::<Bytes>(1);
+		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(1);
 		let topic1 = Topic::from([8u8; 32]);
 
 		let sub_info1 = SubscriptionInfo {
@@ -849,7 +864,7 @@ mod tests {
 	fn test_match_any_receives_once_per_statement() {
 		let mut subscriptions = SubscriptionsInfo::new();
 
-		let (tx1, rx1) = async_channel::bounded::<Bytes>(10);
+		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(10);
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
 
@@ -871,7 +886,7 @@ mod tests {
 		subscriptions.notify_match_any_subscribers(&statement);
 
 		// Should receive exactly once, not twice.
-		let received = rx1.try_recv().expect("Should receive statement");
+		let received = unwrap_statement(rx1.try_recv().expect("Should receive statement"));
 		let decoded_statement: Statement =
 			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
 		assert_eq!(decoded_statement, statement);
@@ -884,7 +899,7 @@ mod tests {
 	fn test_match_all_with_single_topic_matches_statement_with_two_topics() {
 		let mut subscriptions = SubscriptionsInfo::new();
 
-		let (tx1, rx1) = async_channel::bounded::<Bytes>(10);
+		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(10);
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
 
@@ -904,7 +919,7 @@ mod tests {
 		subscriptions.notify_matching_filters(&statement);
 
 		// Should receive because the statement contains topic1 (which is the only required topic).
-		let received = rx1.try_recv().expect("Should receive statement");
+		let received = unwrap_statement(rx1.try_recv().expect("Should receive statement"));
 		let decoded_statement: Statement =
 			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
 		assert_eq!(decoded_statement, statement);
@@ -917,7 +932,7 @@ mod tests {
 	fn test_match_all_no_matching_topics() {
 		let mut subscriptions = SubscriptionsInfo::new();
 
-		let (tx1, rx1) = async_channel::bounded::<Bytes>(10);
+		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(10);
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
 		let topic3 = Topic::from([10u8; 32]);
@@ -949,7 +964,7 @@ mod tests {
 		// subsequent topic combinations.
 		let mut subscriptions = SubscriptionsInfo::new();
 
-		let (tx1, rx1) = async_channel::bounded::<Bytes>(10);
+		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(10);
 		// topic1 will have NO subscriptions
 		let topic1 = Topic::from([1u8; 32]);
 		// topic2 WILL have a subscription
@@ -975,10 +990,10 @@ mod tests {
 
 		// With the bug: rx1.try_recv() fails because the function returned early.
 		// With the fix: rx1.try_recv() succeeds because [topic2] combination is checked.
-		let received = rx1.try_recv().expect(
+		let received = unwrap_statement(rx1.try_recv().expect(
 			"Should receive statement - if this fails, the `return` bug in \
 			 notify_match_all_subscribers_best is present (should be `continue`)",
-		);
+		));
 		let decoded_statement: Statement =
 			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
 		assert_eq!(decoded_statement, statement);
@@ -1000,7 +1015,7 @@ mod tests {
 		statement1.set_topic(0, topic1);
 		subscriptions_handle.notify(statement1.clone());
 
-		let received = stream.next().await.expect("Should receive statement");
+		let received = unwrap_statement(stream.next().await.expect("Should receive statement"));
 		let decoded_statement: Statement =
 			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
 		assert_eq!(decoded_statement, statement1);
@@ -1010,7 +1025,7 @@ mod tests {
 		statement2.set_topic(0, topic2);
 		subscriptions_handle.notify(statement2.clone());
 
-		let received = stream.next().await.expect("Should receive statement");
+		let received = unwrap_statement(stream.next().await.expect("Should receive statement"));
 		let decoded_statement: Statement =
 			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
 		assert_eq!(decoded_statement, statement2);
@@ -1027,7 +1042,7 @@ mod tests {
 		let statement1 = signed_statement(1);
 		subscriptions_handle.notify(statement1.clone());
 
-		let received = stream.next().await.expect("Should receive statement");
+		let received = unwrap_statement(stream.next().await.expect("Should receive statement"));
 		let decoded_statement: Statement =
 			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
 		assert_eq!(decoded_statement, statement1);
@@ -1036,7 +1051,7 @@ mod tests {
 		statement2.set_topic(0, Topic::from([99u8; 32]));
 		subscriptions_handle.notify(statement2.clone());
 
-		let received = stream.next().await.expect("Should receive statement");
+		let received = unwrap_statement(stream.next().await.expect("Should receive statement"));
 		let decoded_statement: Statement =
 			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
 		assert_eq!(decoded_statement, statement2);
@@ -1070,11 +1085,11 @@ mod tests {
 		// stream2 should receive (MatchAny topic1).
 		// stream3 should receive (Any).
 
-		let received2 = stream2.next().await.expect("stream2 should receive");
+		let received2 = unwrap_statement(stream2.next().await.expect("stream2 should receive"));
 		let decoded2: Statement = Statement::decode(&mut &received2.0[..]).unwrap();
 		assert_eq!(decoded2, statement1);
 
-		let received3 = stream3.next().await.expect("stream3 should receive");
+		let received3 = unwrap_statement(stream3.next().await.expect("stream3 should receive"));
 		let decoded3: Statement = Statement::decode(&mut &received3.0[..]).unwrap();
 		assert_eq!(decoded3, statement1);
 
@@ -1085,15 +1100,15 @@ mod tests {
 		subscriptions_handle.notify(statement2.clone());
 
 		// All should receive.
-		let received1 = stream1.next().await.expect("stream1 should receive");
+		let received1 = unwrap_statement(stream1.next().await.expect("stream1 should receive"));
 		let decoded1: Statement = Statement::decode(&mut &received1.0[..]).unwrap();
 		assert_eq!(decoded1, statement2);
 
-		let received2 = stream2.next().await.expect("stream2 should receive");
+		let received2 = unwrap_statement(stream2.next().await.expect("stream2 should receive"));
 		let decoded2: Statement = Statement::decode(&mut &received2.0[..]).unwrap();
 		assert_eq!(decoded2, statement2);
 
-		let received3 = stream3.next().await.expect("stream3 should receive");
+		let received3 = unwrap_statement(stream3.next().await.expect("stream3 should receive"));
 		let decoded3: Statement = Statement::decode(&mut &received3.0[..]).unwrap();
 		assert_eq!(decoded3, statement2);
 	}
@@ -1102,9 +1117,9 @@ mod tests {
 	fn test_statement_without_topics_matches_only_any_filter() {
 		let mut subscriptions = SubscriptionsInfo::new();
 
-		let (tx_match_all, rx_match_all) = async_channel::bounded::<Bytes>(10);
-		let (tx_match_any, rx_match_any) = async_channel::bounded::<Bytes>(10);
-		let (tx_any, rx_any) = async_channel::bounded::<Bytes>(10);
+		let (tx_match_all, rx_match_all) = async_channel::bounded::<StatementEvent>(10);
+		let (tx_match_any, rx_match_any) = async_channel::bounded::<StatementEvent>(10);
+		let (tx_any, rx_any) = async_channel::bounded::<StatementEvent>(10);
 
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
@@ -1145,7 +1160,8 @@ mod tests {
 		subscriptions.notify_matching_filters(&statement);
 
 		// Any should receive (matches all statements regardless of topics).
-		let received = rx_any.try_recv().expect("Any filter should receive statement");
+		let received =
+			unwrap_statement(rx_any.try_recv().expect("Any filter should receive statement"));
 		let decoded_statement: Statement =
 			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
 		assert_eq!(decoded_statement, statement);

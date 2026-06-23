@@ -441,7 +441,7 @@ impl RuntimeTarget {
 			},
 			RuntimeTarget::Riscv => {
 				let mut args = polkavm_linker::TargetJsonArgs::default();
-				args.is_64_bit = false;
+				args.is_64_bit = true;
 				let path = polkavm_linker::target_json_path(args).expect("riscv not found");
 				path.into_os_string().into_string().unwrap()
 			},
@@ -458,7 +458,7 @@ impl RuntimeTarget {
 					"wasm32-unknown-unknown".into()
 				}
 			},
-			RuntimeTarget::Riscv => "riscv32emac-unknown-none-polkavm",
+			RuntimeTarget::Riscv => "riscv64emac-unknown-none-polkavm",
 		}
 	}
 

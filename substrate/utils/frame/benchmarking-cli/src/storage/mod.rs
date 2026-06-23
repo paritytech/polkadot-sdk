@@ -16,6 +16,7 @@
 // limitations under the License.
 
 pub mod cmd;
+pub mod keys_selection;
 pub mod read;
 pub mod template;
 pub mod write;

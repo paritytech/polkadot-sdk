@@ -38,7 +38,10 @@ use connected::ConnectedPeers;
 pub use db::Db;
 pub use persistence::PersistenceError;
 pub use persistent_db::PersistentDb;
-use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
+use polkadot_node_network_protocol::{
+	peer_set::{CollationVersion, PeerSet},
+	PeerId,
+};
 use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, NetworkBridgeTxMessage},
 	CollatorProtocolSenderTrait, RuntimeApiError,
@@ -78,6 +81,8 @@ pub struct PeerManager<B> {
 	connected: ConnectedPeers,
 	/// The `SessionIndex` of the last finalized block
 	latest_finalized_session: Option<SessionIndex>,
+	/// Clock used for reputation timestamps (passed to `Backend::process_bumps`).
+	clock: std::sync::Arc<dyn polkadot_node_clock::Clock>,
 }
 
 impl<B: Backend> PeerManager<B> {
@@ -87,6 +92,7 @@ impl<B: Backend> PeerManager<B> {
 		backend: B,
 		sender: &mut Sender,
 		scheduled_paras: BTreeSet<ParaId>,
+		clock: std::sync::Arc<dyn polkadot_node_clock::Clock>,
 	) -> Result<Self> {
 		let mut instance = Self {
 			db: backend,
@@ -96,6 +102,7 @@ impl<B: Backend> PeerManager<B> {
 				CONNECTED_PEERS_PARA_LIMIT,
 			),
 			latest_finalized_session: None,
+			clock,
 		};
 
 		let (latest_finalized_block_number, latest_finalized_block_hash) =
@@ -120,7 +127,15 @@ impl<B: Backend> PeerManager<B> {
 		)
 		.await?;
 
-		instance.db.process_bumps(latest_finalized_block_number, bumps, None).await;
+		instance
+			.db
+			.process_bumps(
+				latest_finalized_block_number,
+				bumps,
+				None,
+				instance.clock.duration_since_epoch(),
+			)
+			.await;
 
 		if latest_finalized_block_number != processed_finalized_block_number {
 			gum::trace!(
@@ -152,15 +167,29 @@ impl<B: Backend> PeerManager<B> {
 		)
 		.await?;
 
+		let now = self.clock.duration_since_epoch();
 		let updates = self
 			.db
-			.process_bumps(
-				finalized_block_number,
-				bumps,
-				Some(Score::new(INACTIVITY_DECAY).expect("INACTIVITY_DECAY is a valid score")),
-			)
+			.process_bumps(finalized_block_number, bumps, Some(Score::new(INACTIVITY_DECAY)), now)
 			.await;
+
+		if !updates.is_empty() {
+			gum::debug!(
+				target: LOG_TARGET,
+				finalized_block_number,
+				?finalized_block_hash,
+				num_updates = updates.len(),
+				"Applying reputation updates on new finalized block",
+			);
+		}
+
 		for update in updates {
+			gum::trace!(
+				target: LOG_TARGET,
+				finalized_block_number,
+				?update,
+				"Applying reputation update",
+			);
 			self.connected.update_reputation(update);
 		}
 
@@ -417,6 +446,10 @@ impl<B: Backend> PeerManager<B> {
 			.send_message(NetworkBridgeTxMessage::DisconnectPeers(peers, PeerSet::Collation))
 			.await;
 	}
+
+	pub fn get_peer_protocol_version(&self, peer_id: &PeerId) -> Option<CollationVersion> {
+		self.connected.get_version(peer_id)
+	}
 }
 
 impl PeerManager<PersistentDb> {
@@ -503,6 +536,7 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 		target: LOG_TARGET,
 		?latest_finalized_block_hash,
 		processed_finalized_block_number,
+		ancestors_len = ancestors.len(),
 		"Processing reputation bumps for finalized relay parent {} and its {} ancestors",
 		latest_finalized_block_number,
 		ancestry_len
@@ -514,12 +548,41 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 	for i in 1..ancestors.len() {
 		let rp = ancestors[i];
 		let parent_rp = ancestors[i - 1];
-		let candidate_events = recv_runtime(request_candidate_events(rp, sender).await).await?;
+
+		gum::trace!(
+			target: LOG_TARGET,
+			relay_parent=?rp,
+			"request_candidate_events"
+		);
+
+		let candidate_events = match recv_runtime(request_candidate_events(rp, sender).await).await
+		{
+			Ok(candidate_events) => candidate_events,
+			Err(e) => {
+				gum::trace!(
+					target: LOG_TARGET,
+					relay_parent=?rp,
+					err=?e,
+					"Error fetching candidate events for reputation bump extraction"
+				);
+				// `ancestors` are reversed so their order is from oldest to newest
+				// (`get_ancestors()` returns newest -> oldest, but they are reversed after that).
+				// So if this runtime call fails, the next one has got a better chance in
+				// succeeding.
+				continue;
+			},
+		};
 
 		for event in candidate_events {
 			if let CandidateEvent::CandidateIncluded(receipt, _, _, _) = event {
-				// Only v2 receipts can contain UMP signals.
-				if receipt.descriptor.version() == CandidateDescriptorVersion::V2 {
+				// Only v2+ receipts can contain UMP signals.
+				// Assuming node feature set here is fine, misinterpretations are harmless in this
+				// context:
+				let has_ump_signals = match receipt.descriptor.version() {
+					CandidateDescriptorVersion::V1 => false,
+					_ => true,
+				};
+				if has_ump_signals {
 					v2_candidates_per_rp
 						.entry(parent_rp)
 						.or_default()

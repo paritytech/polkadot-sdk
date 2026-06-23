@@ -17,6 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+frame-support = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 sp-api = { workspace = true }
@@ -45,6 +46,7 @@ std = [
 	"codec/std",
 	"curve25519-dalek",
 	"ed25519-dalek",
+	"frame-support/std",
 	"hkdf",
 	"hkdf?/std",
 	"rand",

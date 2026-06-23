@@ -44,13 +44,13 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView, reputation::ReputationAggregator,
-	request_min_backing_votes, request_node_features, runtime::ClaimQueueSnapshot,
+	request_min_backing_votes, runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
-	node_features::FeatureIndex, transpose_claim_queue, AuthorityDiscoveryId,
-	CandidateDescriptorVersion, CandidateHash, CompactStatement, CoreIndex, GroupIndex,
-	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, SessionIndex, SessionInfo, SignedStatement,
-	SigningContext, TransposedClaimQueue, UncheckedSignedStatement, ValidatorId, ValidatorIndex,
+	transpose_claim_queue, AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex,
+	GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec, SessionIndex, SessionInfo,
+	SignedStatement, SigningContext, TransposedClaimQueue, UncheckedSignedStatement, ValidatorId,
+	ValidatorIndex,
 };
 
 use sp_keystore::KeystorePtr;
@@ -135,8 +135,6 @@ const COST_UNREQUESTED_RESPONSE_STATEMENT: Rep =
 	Rep::CostMajor("Un-requested Statement In Response");
 const COST_INACCURATE_ADVERTISEMENT: Rep =
 	Rep::CostMajor("Peer advertised a candidate inaccurately");
-const COST_UNSUPPORTED_DESCRIPTOR_VERSION: Rep =
-	Rep::CostMajor("Candidate Descriptor version is not supported");
 const COST_INVALID_UMP_SIGNALS: Rep =
 	Rep::CostMajor("Candidate Descriptor contains invalid ump signals");
 const COST_INVALID_SESSION_INDEX: Rep =
@@ -155,7 +153,7 @@ const BENEFIT_VALID_STATEMENT_FIRST: Rep =
 /// The amount of time to wait before retrying when the node sends a request and it is dropped.
 pub(crate) const REQUEST_RETRY_DELAY: Duration = Duration::from_secs(1);
 
-struct PerRelayParentState {
+struct PerSchedulingParentState {
 	local_validator: Option<LocalValidatorState>,
 	statement_store: StatementStore,
 	session: SessionIndex,
@@ -165,7 +163,7 @@ struct PerRelayParentState {
 	assignments_per_group: HashMap<GroupIndex, Vec<ParaId>>,
 }
 
-impl PerRelayParentState {
+impl PerSchedulingParentState {
 	fn active_validator_state(&self) -> Option<&ActiveValidatorState> {
 		self.local_validator.as_ref().and_then(|local| local.active.as_ref())
 	}
@@ -174,7 +172,7 @@ impl PerRelayParentState {
 		self.local_validator.as_mut().and_then(|local| local.active.as_mut())
 	}
 
-	/// Returns `true` if the given validator is disabled in the context of the relay parent.
+	/// Returns `true` if the given validator is disabled in the context of the scheduling parent.
 	pub fn is_disabled(&self, validator_index: &ValidatorIndex) -> bool {
 		self.disabled_validators.contains(validator_index)
 	}
@@ -186,7 +184,7 @@ impl PerRelayParentState {
 	}
 }
 
-// per-relay-parent local validator state.
+// per-scheduling-parent local validator state.
 struct LocalValidatorState {
 	// the grid-level communication at this relay-parent.
 	grid_tracker: GridTracker,
@@ -224,17 +222,10 @@ struct PerSessionState {
 	// getting the topology from the gossip-support subsystem
 	grid_view: Option<grid::SessionTopologyView>,
 	local_validator: Option<LocalValidatorIndex>,
-	// `true` if v2 candidate receipts are allowed by the runtime
-	allow_v2_descriptors: bool,
 }
 
 impl PerSessionState {
-	fn new(
-		session_info: SessionInfo,
-		keystore: &KeystorePtr,
-		backing_threshold: u32,
-		allow_v2_descriptors: bool,
-	) -> Self {
+	fn new(session_info: SessionInfo, keystore: &KeystorePtr, backing_threshold: u32) -> Self {
 		let groups = Groups::new(session_info.validator_groups.clone(), backing_threshold);
 		let mut authority_lookup = HashMap::new();
 		for (i, ad) in session_info.discovery_keys.iter().cloned().enumerate() {
@@ -247,14 +238,7 @@ impl PerSessionState {
 		)
 		.map(|(_, index)| LocalValidatorIndex::Active(index));
 
-		PerSessionState {
-			session_info,
-			groups,
-			authority_lookup,
-			grid_view: None,
-			local_validator,
-			allow_v2_descriptors,
-		}
+		PerSessionState { session_info, groups, authority_lookup, grid_view: None, local_validator }
 	}
 
 	fn supply_topology(
@@ -290,18 +274,13 @@ impl PerSessionState {
 	fn is_not_validator(&self) -> bool {
 		self.grid_view.is_some() && self.local_validator.is_none()
 	}
-
-	/// Returns `true` if v2 candidate receipts are enabled
-	fn candidate_receipt_v2_enabled(&self) -> bool {
-		self.allow_v2_descriptors
-	}
 }
 
 pub(crate) struct State {
 	/// The utility for managing the implicit and explicit views in a consistent way.
 	implicit_view: ImplicitView,
 	candidates: Candidates,
-	per_relay_parent: HashMap<Hash, PerRelayParentState>,
+	per_scheduling_parent: HashMap<Hash, PerSchedulingParentState>,
 	per_session: HashMap<SessionIndex, PerSessionState>,
 	// Topology might be received before first leaf update, where we
 	// initialize the per_session_state, so cache it here until we
@@ -320,7 +299,7 @@ impl State {
 		State {
 			implicit_view: Default::default(),
 			candidates: Default::default(),
-			per_relay_parent: HashMap::new(),
+			per_scheduling_parent: HashMap::new(),
 			per_session: HashMap::new(),
 			peers: HashMap::new(),
 			keystore,
@@ -361,12 +340,12 @@ struct PeerState {
 }
 
 impl PeerState {
-	// Update the view, returning a vector of implicit relay-parents which weren't previously
+	// Update the view, returning a vector of implicit scheduling-parents which weren't previously
 	// part of the view.
 	fn update_view(&mut self, new_view: View, local_implicit: &ImplicitView) -> Vec<Hash> {
 		let next_implicit = new_view
 			.iter()
-			.flat_map(|x| local_implicit.known_allowed_relay_parents_under(x, None))
+			.flat_map(|x| local_implicit.known_allowed_relay_parents_under(x))
 			.flatten()
 			.cloned()
 			.collect::<HashSet<_>>();
@@ -383,7 +362,7 @@ impl PeerState {
 		fresh_implicit
 	}
 
-	// Attempt to reconcile the view with new information about the implicit relay parents
+	// Attempt to reconcile the view with new information about the implicit scheduling parents
 	// under an active leaf.
 	fn reconcile_active_leaf(&mut self, leaf_hash: Hash, implicit: &[Hash]) -> Vec<Hash> {
 		if !self.view.contains(&leaf_hash) {
@@ -485,7 +464,7 @@ pub(crate) async fn handle_network_update<Context>(
 
 			// TODO [https://github.com/paritytech/polkadot/issues/6194]
 			// technically, we should account for the fact that the session topology might
-			// come late, and for all relay-parents with this session, send all grid peers
+			// come late, and for all scheduling-parents with this session, send all grid peers
 			// any `BackedCandidateInv` messages they might need.
 			//
 			// in practice, this is a small issue & the API of receiving topologies could
@@ -554,19 +533,22 @@ pub(crate) async fn handle_network_update<Context>(
 async fn handle_active_leaf_update<Context>(
 	ctx: &mut Context,
 	state: &mut State,
-	new_relay_parent: Hash,
+	new_scheduling_parent: Hash,
 ) -> JfyiErrorResult<()> {
 	let disabled_validators: HashSet<_> =
-		polkadot_node_subsystem_util::request_disabled_validators(new_relay_parent, ctx.sender())
-			.await
-			.await
-			.map_err(JfyiError::RuntimeApiUnavailable)?
-			.map_err(JfyiError::FetchDisabledValidators)?
-			.into_iter()
-			.collect();
+		polkadot_node_subsystem_util::request_disabled_validators(
+			new_scheduling_parent,
+			ctx.sender(),
+		)
+		.await
+		.await
+		.map_err(JfyiError::RuntimeApiUnavailable)?
+		.map_err(JfyiError::FetchDisabledValidators)?
+		.into_iter()
+		.collect();
 
 	let session_index = polkadot_node_subsystem_util::request_session_index_for_child(
-		new_relay_parent,
+		new_scheduling_parent,
 		ctx.sender(),
 	)
 	.await
@@ -576,7 +558,7 @@ async fn handle_active_leaf_update<Context>(
 
 	if !state.per_session.contains_key(&session_index) {
 		let session_info = polkadot_node_subsystem_util::request_session_info(
-			new_relay_parent,
+			new_scheduling_parent,
 			session_index,
 			ctx.sender(),
 		)
@@ -589,7 +571,7 @@ async fn handle_active_leaf_update<Context>(
 			None => {
 				gum::warn!(
 					target: LOG_TARGET,
-					relay_parent = ?new_relay_parent,
+					scheduling_parent = ?new_scheduling_parent,
 					"No session info available for current session"
 				);
 
@@ -599,25 +581,13 @@ async fn handle_active_leaf_update<Context>(
 		};
 
 		let minimum_backing_votes =
-			request_min_backing_votes(new_relay_parent, session_index, ctx.sender())
+			request_min_backing_votes(new_scheduling_parent, session_index, ctx.sender())
 				.await
 				.await
 				.map_err(JfyiError::RuntimeApiUnavailable)?
 				.map_err(JfyiError::FetchMinimumBackingVotes)?;
-		let node_features = request_node_features(new_relay_parent, session_index, ctx.sender())
-			.await
-			.await
-			.map_err(JfyiError::RuntimeApiUnavailable)?
-			.map_err(JfyiError::FetchNodeFeatures)?;
-		let mut per_session_state = PerSessionState::new(
-			session_info,
-			&state.keystore,
-			minimum_backing_votes,
-			node_features
-				.get(FeatureIndex::CandidateReceiptV2 as usize)
-				.map(|b| *b)
-				.unwrap_or(false),
-		);
+		let mut per_session_state =
+			PerSessionState::new(session_info, &state.keystore, minimum_backing_votes);
 		if let Some(topology) = state.unused_topologies.remove(&session_index) {
 			per_session_state.supply_topology(&topology.topology, topology.local_index);
 		}
@@ -632,7 +602,7 @@ async fn handle_active_leaf_update<Context>(
 	if !disabled_validators.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
-			relay_parent = ?new_relay_parent,
+			scheduling_parent = ?new_scheduling_parent,
 			?session_index,
 			?disabled_validators,
 			"Disabled validators detected"
@@ -640,7 +610,7 @@ async fn handle_active_leaf_update<Context>(
 	}
 
 	let group_rotation_info =
-		polkadot_node_subsystem_util::request_validator_groups(new_relay_parent, ctx.sender())
+		polkadot_node_subsystem_util::request_validator_groups(new_scheduling_parent, ctx.sender())
 			.await
 			.await
 			.map_err(JfyiError::RuntimeApiUnavailable)?
@@ -648,7 +618,7 @@ async fn handle_active_leaf_update<Context>(
 			.1;
 
 	let claim_queue = ClaimQueueSnapshot(
-		polkadot_node_subsystem_util::request_claim_queue(new_relay_parent, ctx.sender())
+		polkadot_node_subsystem_util::request_claim_queue(new_scheduling_parent, ctx.sender())
 			.await
 			.await
 			.map_err(JfyiError::RuntimeApiUnavailable)?
@@ -672,9 +642,9 @@ async fn handle_active_leaf_update<Context>(
 
 	let transposed_cq = transpose_claim_queue(claim_queue.0);
 
-	state.per_relay_parent.insert(
-		new_relay_parent,
-		PerRelayParentState {
+	state.per_scheduling_parent.insert(
+		new_scheduling_parent,
+		PerSchedulingParentState {
 			local_validator,
 			statement_store: StatementStore::new(&per_session.groups),
 			session: session_index,
@@ -701,18 +671,18 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 		.await
 		.map_err(JfyiError::ActivateLeafFailure)?;
 
-	let new_relay_parents =
+	let new_scheduling_parents =
 		state.implicit_view.all_allowed_relay_parents().cloned().collect::<Vec<_>>();
 
-	for new_relay_parent in new_relay_parents.iter().cloned() {
-		if state.per_relay_parent.contains_key(&new_relay_parent) {
+	for new_scheduling_parent in new_scheduling_parents.iter().cloned() {
+		if state.per_scheduling_parent.contains_key(&new_scheduling_parent) {
 			continue;
 		}
 
-		if let Err(err) = handle_active_leaf_update(ctx, state, new_relay_parent).await {
+		if let Err(err) = handle_active_leaf_update(ctx, state, new_scheduling_parent).await {
 			gum::warn!(
 				target: LOG_TARGET,
-				relay_parent = ?new_relay_parent,
+				scheduling_parent = ?new_scheduling_parent,
 				error = ?err,
 				"Failed to handle active leaf update"
 			);
@@ -722,27 +692,34 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 
 	gum::debug!(
 		target: LOG_TARGET,
-		"Activated leaves. Now tracking {} relay-parents across {} sessions",
-		state.per_relay_parent.len(),
+		"Activated leaves. Now tracking {} scheduling-parents across {} sessions",
+		state.per_scheduling_parent.len(),
 		state.per_session.len(),
 	);
 
-	// Reconcile all peers' views with the active leaf and any relay parents
+	// Reconcile all peers' views with the active leaf and any scheduling parents
 	// it implies. If they learned about the block before we did, this reconciliation will give
-	// non-empty results and we should send them messages concerning all activated relay-parents.
+	// non-empty results and we should send them messages concerning all activated
+	// scheduling-parents.
 	{
 		let mut update_peers = Vec::new();
 		for (peer, peer_state) in state.peers.iter_mut() {
-			let fresh = peer_state.reconcile_active_leaf(activated.hash, &new_relay_parents);
+			let fresh = peer_state.reconcile_active_leaf(activated.hash, &new_scheduling_parents);
 			if !fresh.is_empty() {
 				update_peers.push((*peer, fresh));
 			}
 		}
 
 		for (peer, fresh) in update_peers {
-			for fresh_relay_parent in fresh {
-				send_peer_messages_for_relay_parent(ctx, state, peer, fresh_relay_parent, metrics)
-					.await;
+			for fresh_scheduling_parent in fresh {
+				send_peer_messages_for_scheduling_parent(
+					ctx,
+					state,
+					peer,
+					fresh_scheduling_parent,
+					metrics,
+				)
+				.await;
 			}
 		}
 	}
@@ -784,9 +761,9 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 	for leaf in leaves {
 		let pruned = state.implicit_view.deactivate_leaf(*leaf);
 		for pruned_rp in pruned {
-			// clean up per-relay-parent data based on everything removed.
+			// clean up per-scheduling-parent data based on everything removed.
 			state
-				.per_relay_parent
+				.per_scheduling_parent
 				.remove(&pruned_rp)
 				.as_ref()
 				.and_then(|pruned| pruned.active_validator_state())
@@ -794,24 +771,24 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 					active_state.cluster_tracker.warn_if_too_many_pending_statements(pruned_rp)
 				});
 
-			// clean up requests related to this relay parent.
-			state.request_manager.remove_by_relay_parent(*leaf);
+			// clean up requests related to this scheduling parent.
+			state.request_manager.remove_by_scheduling_parent(pruned_rp);
 		}
 	}
 
 	state
 		.candidates
-		.on_deactivate_leaves(&leaves, |h| state.per_relay_parent.contains_key(h));
+		.on_deactivate_leaves(&leaves, |h| state.per_scheduling_parent.contains_key(h));
 
 	// clean up sessions based on everything remaining.
-	let sessions: HashSet<_> = state.per_relay_parent.values().map(|r| r.session).collect();
+	let sessions: HashSet<_> = state.per_scheduling_parent.values().map(|r| r.session).collect();
 	state.per_session.retain(|s, _| sessions.contains(s));
 
 	let last_session_index = state.unused_topologies.keys().max().copied();
 	// Do not clean-up the last saved toplogy unless we moved to the next session
 	// This is needed because handle_deactive_leaves, gets also called when
 	// prospective_parachains APIs are not present, so we would actually remove
-	// the topology without using it because `per_relay_parent` is empty until
+	// the topology without using it because `per_scheduling_parent` is empty until
 	// prospective_parachains gets enabled
 	state
 		.unused_topologies
@@ -835,8 +812,9 @@ async fn handle_peer_view_update<Context>(
 		peer_data.update_view(new_view, &state.implicit_view)
 	};
 
-	for new_relay_parent in fresh_implicit {
-		send_peer_messages_for_relay_parent(ctx, state, peer, new_relay_parent, metrics).await;
+	for new_scheduling_parent in fresh_implicit {
+		send_peer_messages_for_scheduling_parent(ctx, state, peer, new_scheduling_parent, metrics)
+			.await;
 	}
 }
 
@@ -855,18 +833,18 @@ fn find_validator_ids<'a>(
 /// In particular, we send all statements pertaining to our common cluster,
 /// as well as all manifests, acknowledgements, or other grid statements.
 ///
-/// Note that due to the way we handle views, our knowledge of peers' relay parents
-/// may "oscillate" with relay parents repeatedly leaving and entering the
+/// Note that due to the way we handle views, our knowledge of peers' scheduling parents
+/// may "oscillate" with scheduling parents repeatedly leaving and entering the
 /// view of a peer based on the implicit view of active leaves.
 ///
 /// This function is designed to be cheap and not to send duplicate messages in repeated
 /// cases.
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-async fn send_peer_messages_for_relay_parent<Context>(
+async fn send_peer_messages_for_scheduling_parent<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	peer: PeerId,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	metrics: &Metrics,
 ) {
 	let peer_data = match state.peers.get_mut(&peer) {
@@ -874,12 +852,12 @@ async fn send_peer_messages_for_relay_parent<Context>(
 		Some(p) => p,
 	};
 
-	let relay_parent_state = match state.per_relay_parent.get_mut(&relay_parent) {
+	let scheduling_parent_state = match state.per_scheduling_parent.get_mut(&scheduling_parent) {
 		None => return,
 		Some(s) => s,
 	};
 
-	let per_session_state = match state.per_session.get(&relay_parent_state.session) {
+	let per_session_state = match state.per_session.get(&scheduling_parent_state.session) {
 		None => return,
 		Some(s) => s,
 	};
@@ -887,19 +865,19 @@ async fn send_peer_messages_for_relay_parent<Context>(
 	for validator_id in find_validator_ids(peer_data.iter_known_discovery_ids(), |a| {
 		per_session_state.authority_lookup.get(a)
 	}) {
-		if let Some(active) = relay_parent_state
+		if let Some(active) = scheduling_parent_state
 			.local_validator
 			.as_mut()
 			.and_then(|local| local.active.as_mut())
 		{
 			send_pending_cluster_statements(
 				ctx,
-				relay_parent,
+				scheduling_parent,
 				&(peer, peer_data.protocol_version),
 				validator_id,
 				&mut active.cluster_tracker,
 				&state.candidates,
-				&relay_parent_state.statement_store,
+				&scheduling_parent_state.statement_store,
 				metrics,
 			)
 			.await;
@@ -907,11 +885,11 @@ async fn send_peer_messages_for_relay_parent<Context>(
 
 		send_pending_grid_messages(
 			ctx,
-			relay_parent,
+			scheduling_parent,
 			&(peer, peer_data.protocol_version),
 			validator_id,
 			&per_session_state.groups,
-			relay_parent_state,
+			scheduling_parent_state,
 			&state.candidates,
 			metrics,
 		)
@@ -937,7 +915,7 @@ fn pending_statement_network_message(
 	}
 }
 
-/// Send a peer all pending cluster statements for a relay parent.
+/// Send a peer all pending cluster statements for a scheduling parent.
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
 async fn send_pending_cluster_statements<Context>(
 	ctx: &mut Context,
@@ -982,20 +960,20 @@ async fn send_pending_cluster_statements<Context>(
 }
 
 /// Send a peer all pending grid messages / acknowledgements / follow up statements
-/// upon learning about a new relay parent.
+/// upon learning about a new scheduling parent.
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
 async fn send_pending_grid_messages<Context>(
 	ctx: &mut Context,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	peer_id: &(PeerId, ValidationVersion),
 	peer_validator_id: ValidatorIndex,
 	groups: &Groups,
-	relay_parent_state: &mut PerRelayParentState,
+	scheduling_parent_state: &mut PerSchedulingParentState,
 	candidates: &Candidates,
 	metrics: &Metrics,
 ) {
 	let pending_manifests = {
-		let local_validator = match relay_parent_state.local_validator.as_mut() {
+		let local_validator = match scheduling_parent_state.local_validator.as_mut() {
 			None => return,
 			Some(l) => l,
 		};
@@ -1024,14 +1002,14 @@ async fn send_pending_grid_messages<Context>(
 				group_size,
 				group_index,
 				candidate_hash,
-				&relay_parent_state.statement_store,
+				&scheduling_parent_state.statement_store,
 			)
 		};
 
 		match kind {
 			grid::ManifestKind::Full => {
 				let manifest = protocol_v3::BackedCandidateManifest {
-					relay_parent,
+					scheduling_parent,
 					candidate_hash,
 					group_index,
 					para_id: confirmed_candidate.para_id(),
@@ -1039,7 +1017,7 @@ async fn send_pending_grid_messages<Context>(
 					statement_knowledge: local_knowledge.clone(),
 				};
 
-				let grid = &mut relay_parent_state
+				let grid = &mut scheduling_parent_state
 					.local_validator
 					.as_mut()
 					.expect("determined to be some earlier in this function; qed")
@@ -1068,8 +1046,8 @@ async fn send_pending_grid_messages<Context>(
 					peer_id,
 					peer_validator_id,
 					groups,
-					relay_parent_state,
-					relay_parent,
+					scheduling_parent_state,
+					scheduling_parent,
 					group_index,
 					candidate_hash,
 					local_knowledge,
@@ -1086,7 +1064,7 @@ async fn send_pending_grid_messages<Context>(
 	// otherwise, we might receive statements while the grid peer is "out of view" and then
 	// not send them when they get back "in view". problem!
 	{
-		let grid_tracker = &mut relay_parent_state
+		let grid_tracker = &mut scheduling_parent_state
 			.local_validator
 			.as_mut()
 			.expect("checked earlier; qed")
@@ -1098,8 +1076,8 @@ async fn send_pending_grid_messages<Context>(
 			.into_iter()
 			.filter_map(|(originator, compact)| {
 				let res = pending_statement_network_message(
-					&relay_parent_state.statement_store,
-					relay_parent,
+					&scheduling_parent_state.statement_store,
+					scheduling_parent,
 					peer_id,
 					originator,
 					compact.clone(),
@@ -1134,12 +1112,12 @@ async fn send_pending_grid_messages<Context>(
 pub(crate) async fn share_local_statement<Context>(
 	ctx: &mut Context,
 	state: &mut State,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	statement: SignedFullStatementWithPVD,
 	reputation: &mut ReputationAggregator,
 	metrics: &Metrics,
 ) -> JfyiErrorResult<()> {
-	let per_relay_parent = match state.per_relay_parent.get_mut(&relay_parent) {
+	let per_scheduling_parent = match state.per_scheduling_parent.get_mut(&scheduling_parent) {
 		None => return Err(JfyiError::InvalidShare),
 		Some(x) => x,
 	};
@@ -1150,13 +1128,13 @@ pub(crate) async fn share_local_statement<Context>(
 		"Sharing Statement",
 	);
 
-	let per_session = match state.per_session.get(&per_relay_parent.session) {
+	let per_session = match state.per_session.get(&per_scheduling_parent.session) {
 		Some(s) => s,
 		None => return Ok(()),
 	};
 
 	let (local_index, local_assignments, local_group) =
-		match per_relay_parent.active_validator_state() {
+		match per_scheduling_parent.active_validator_state() {
 			None => return Err(JfyiError::InvalidShare),
 			Some(l) => (l.index, &l.assignments, l.group),
 		};
@@ -1165,11 +1143,12 @@ pub(crate) async fn share_local_statement<Context>(
 	// have the candidate. Sanity: check the para-id is valid.
 	let expected = match statement.payload() {
 		FullStatementWithPVD::Seconded(ref c, _) => {
-			Some((c.descriptor.para_id(), c.descriptor.relay_parent()))
+			Some((c.descriptor.para_id(), c.descriptor.scheduling_parent()))
 		},
-		FullStatementWithPVD::Valid(hash) => {
-			state.candidates.get_confirmed(&hash).map(|c| (c.para_id(), c.relay_parent()))
-		},
+		FullStatementWithPVD::Valid(hash) => state
+			.candidates
+			.get_confirmed(&hash)
+			.map(|c| (c.para_id(), c.scheduling_parent())),
 	};
 
 	let is_seconded = match statement.payload() {
@@ -1177,7 +1156,7 @@ pub(crate) async fn share_local_statement<Context>(
 		FullStatementWithPVD::Valid(_) => false,
 	};
 
-	let (expected_para, expected_relay_parent) = match expected {
+	let (expected_para, expected_scheduling_parent) = match expected {
 		None => return Err(JfyiError::InvalidShare),
 		Some(x) => x,
 	};
@@ -1189,7 +1168,7 @@ pub(crate) async fn share_local_statement<Context>(
 	let seconding_limit = local_assignments.len();
 
 	if is_seconded &&
-		per_relay_parent.statement_store.seconded_count(&local_index) >= seconding_limit
+		per_scheduling_parent.statement_store.seconded_count(&local_index) >= seconding_limit
 	{
 		gum::warn!(
 			target: LOG_TARGET,
@@ -1199,7 +1178,9 @@ pub(crate) async fn share_local_statement<Context>(
 		return Err(JfyiError::InvalidShare);
 	}
 
-	if !local_assignments.contains(&expected_para) || relay_parent != expected_relay_parent {
+	if !local_assignments.contains(&expected_para) ||
+		scheduling_parent != expected_scheduling_parent
+	{
 		return Err(JfyiError::InvalidShare);
 	}
 
@@ -1219,7 +1200,7 @@ pub(crate) async fn share_local_statement<Context>(
 			);
 		};
 
-		match per_relay_parent.statement_store.insert(
+		match per_scheduling_parent.statement_store.insert(
 			&per_session.groups,
 			compact_statement.clone(),
 			StatementOrigin::Local,
@@ -1236,12 +1217,12 @@ pub(crate) async fn share_local_statement<Context>(
 		}
 
 		{
-			let l = per_relay_parent.active_validator_state_mut().expect("checked above; qed");
+			let l = per_scheduling_parent.active_validator_state_mut().expect("checked above; qed");
 			l.cluster_tracker.note_issued(local_index, compact_statement.payload().clone());
 		}
 
 		if let Some(ref session_topology) = per_session.grid_view {
-			let l = per_relay_parent.local_validator.as_mut().expect("checked above; qed");
+			let l = per_scheduling_parent.local_validator.as_mut().expect("checked above; qed");
 			l.grid_tracker.learned_fresh_statement(
 				&per_session.groups,
 				session_topology,
@@ -1256,8 +1237,8 @@ pub(crate) async fn share_local_statement<Context>(
 	// send the compact version of the statement to any peers which need it.
 	circulate_statement(
 		ctx,
-		relay_parent,
-		per_relay_parent,
+		scheduling_parent,
+		per_scheduling_parent,
 		per_session,
 		&state.candidates,
 		&state.authorities,
@@ -1292,14 +1273,14 @@ enum DirectTargetKind {
 // specified already. This function should not be used when the candidate receipt and
 // therefore the canonical group for the parachain is unknown.
 //
-// preconditions: the candidate entry exists in the state under the relay parent
+// preconditions: the candidate entry exists in the state under the scheduling parent
 // and the statement has already been imported into the entry. If this is a `Valid`
 // statement, then there must be at least one `Seconded` statement.
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
 async fn circulate_statement<Context>(
 	ctx: &mut Context,
-	relay_parent: Hash,
-	relay_parent_state: &mut PerRelayParentState,
+	scheduling_parent: Hash,
+	scheduling_parent_state: &mut PerSchedulingParentState,
 	per_session: &PerSessionState,
 	candidates: &Candidates,
 	authorities: &HashMap<AuthorityDiscoveryId, PeerId>,
@@ -1316,7 +1297,7 @@ async fn circulate_statement<Context>(
 
 	let originator = statement.validator_index();
 	let (local_validator, targets) = {
-		let local_validator = match relay_parent_state.local_validator.as_mut() {
+		let local_validator = match scheduling_parent_state.local_validator.as_mut() {
 			Some(v) => v,
 			None => return, // sanity: nothing to propagate if not a validator.
 		};
@@ -1378,14 +1359,16 @@ async fn circulate_statement<Context>(
 	for (target, authority_id, kind) in targets {
 		// Find peer ID based on authority ID, and also filter to connected.
 		let peer_id: (PeerId, ProtocolVersion) = match authorities.get(&authority_id) {
-			Some(p) if peers.get(p).map_or(false, |p| p.knows_relay_parent(&relay_parent)) => (
-				*p,
-				peers
-					.get(p)
-					.expect("Qed, can't fail because it was checked above")
-					.protocol_version
-					.into(),
-			),
+			Some(p) if peers.get(p).map_or(false, |p| p.knows_relay_parent(&scheduling_parent)) => {
+				(
+					*p,
+					peers
+						.get(p)
+						.expect("Qed, can't fail because it was checked above")
+						.protocol_version
+						.into(),
+				)
+			},
 			None | Some(_) => continue,
 		};
 
@@ -1433,7 +1416,7 @@ async fn circulate_statement<Context>(
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			statement_to_v3_peers,
 			ValidationProtocols::V3(protocol_v3::StatementDistributionMessage::Statement(
-				relay_parent,
+				scheduling_parent,
 				statement.as_unchecked().clone(),
 			))
 			.into(),
@@ -1446,10 +1429,10 @@ async fn circulate_statement<Context>(
 fn check_statement_signature(
 	session_index: SessionIndex,
 	validators: &IndexedVec<ValidatorIndex, ValidatorId>,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	statement: UncheckedSignedStatement,
 ) -> std::result::Result<SignedStatement, UncheckedSignedStatement> {
-	let signing_context = SigningContext { session_index, parent_hash: relay_parent };
+	let signing_context = SigningContext { session_index, parent_hash: scheduling_parent };
 
 	validators
 		.get(statement.unchecked_validator_index())
@@ -1483,7 +1466,7 @@ async fn handle_incoming_statement<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	peer: PeerId,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	statement: UncheckedSignedStatement,
 	reputation: &mut ReputationAggregator,
 	metrics: &Metrics,
@@ -1496,8 +1479,8 @@ async fn handle_incoming_statement<Context>(
 		Some(p) => p,
 	};
 
-	// Ensure we know the relay parent.
-	let per_relay_parent = match state.per_relay_parent.get_mut(&relay_parent) {
+	// Ensure we know the scheduling parent.
+	let per_scheduling_parent = match state.per_scheduling_parent.get_mut(&scheduling_parent) {
 		None => {
 			modify_reputation(
 				reputation,
@@ -1511,11 +1494,11 @@ async fn handle_incoming_statement<Context>(
 		Some(p) => p,
 	};
 
-	let per_session = match state.per_session.get(&per_relay_parent.session) {
+	let per_session = match state.per_session.get(&per_scheduling_parent.session) {
 		None => {
 			gum::warn!(
 				target: LOG_TARGET,
-				session = ?per_relay_parent.session,
+				session = ?per_scheduling_parent.session,
 				"Missing expected session info.",
 			);
 
@@ -1525,10 +1508,10 @@ async fn handle_incoming_statement<Context>(
 	};
 	let session_info = &per_session.session_info;
 
-	if per_relay_parent.is_disabled(&statement.unchecked_validator_index()) {
+	if per_scheduling_parent.is_disabled(&statement.unchecked_validator_index()) {
 		gum::debug!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?scheduling_parent,
 			validator_index = ?statement.unchecked_validator_index(),
 			"Ignoring a statement from disabled validator."
 		);
@@ -1536,7 +1519,7 @@ async fn handle_incoming_statement<Context>(
 		return;
 	}
 
-	let local_validator = match per_relay_parent.local_validator.as_mut() {
+	let local_validator = match per_scheduling_parent.local_validator.as_mut() {
 		None => {
 			// we shouldn't be receiving statements unless we're a validator
 			// this session.
@@ -1596,9 +1579,9 @@ async fn handle_incoming_statement<Context>(
 		active.zip(cluster_sender_index)
 	{
 		match handle_cluster_statement(
-			relay_parent,
+			scheduling_parent,
 			&mut active.cluster_tracker,
-			per_relay_parent.session,
+			per_scheduling_parent.session,
 			&per_session.session_info,
 			statement,
 			cluster_sender_index,
@@ -1632,9 +1615,9 @@ async fn handle_incoming_statement<Context>(
 		if let Some((grid_sender_index, validator_knows_statement)) = grid_sender_index {
 			if !validator_knows_statement {
 				match handle_grid_statement(
-					relay_parent,
+					scheduling_parent,
 					&mut local_validator.grid_tracker,
-					per_relay_parent.session,
+					per_scheduling_parent.session,
 					&per_session,
 					statement,
 					grid_sender_index,
@@ -1674,7 +1657,7 @@ async fn handle_incoming_statement<Context>(
 		let res = state.candidates.insert_unconfirmed(
 			peer,
 			candidate_hash,
-			relay_parent,
+			scheduling_parent,
 			originator_group,
 			None,
 		);
@@ -1696,10 +1679,11 @@ async fn handle_incoming_statement<Context>(
 	if !is_confirmed {
 		// If the candidate is not confirmed, note that we should attempt
 		// to request it from the given peer.
-		let mut request_entry =
-			state
-				.request_manager
-				.get_or_insert(relay_parent, candidate_hash, originator_group);
+		let mut request_entry = state.request_manager.get_or_insert(
+			scheduling_parent,
+			candidate_hash,
+			originator_group,
+		);
 
 		request_entry.add_peer(peer);
 
@@ -1708,7 +1692,7 @@ async fn handle_incoming_statement<Context>(
 		request_entry.set_cluster_priority();
 	}
 
-	let was_fresh = match per_relay_parent.statement_store.insert(
+	let was_fresh = match per_scheduling_parent.statement_store.insert(
 		&per_session.groups,
 		checked_statement.clone(),
 		StatementOrigin::Remote,
@@ -1717,7 +1701,7 @@ async fn handle_incoming_statement<Context>(
 			// sanity: should never happen.
 			gum::warn!(
 				target: LOG_TARGET,
-				?relay_parent,
+				?scheduling_parent,
 				validator_index = ?originator_index,
 				"Error - accepted message from unknown validator."
 			);
@@ -1745,8 +1729,8 @@ async fn handle_incoming_statement<Context>(
 				ctx,
 				candidate_hash,
 				originator_group,
-				&relay_parent,
-				&mut *per_relay_parent,
+				&scheduling_parent,
+				&mut *per_scheduling_parent,
 				confirmed,
 				per_session,
 			)
@@ -1756,8 +1740,8 @@ async fn handle_incoming_statement<Context>(
 		// We always circulate statements at this point.
 		circulate_statement(
 			ctx,
-			relay_parent,
-			per_relay_parent,
+			scheduling_parent,
+			per_scheduling_parent,
 			per_session,
 			&state.candidates,
 			&state.authorities,
@@ -1777,7 +1761,7 @@ async fn handle_incoming_statement<Context>(
 /// if successful, this returns a checked signed statement if it should be imported
 /// or otherwise an error indicating a reputational fault.
 fn handle_cluster_statement(
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	cluster_tracker: &mut ClusterTracker,
 	session: SessionIndex,
 	session_info: &SessionInfo,
@@ -1806,12 +1790,15 @@ fn handle_cluster_statement(
 	};
 
 	// Ensure the statement is correctly signed.
-	let checked_statement =
-		match check_statement_signature(session, &session_info.validators, relay_parent, statement)
-		{
-			Ok(s) => s,
-			Err(_) => return Err(COST_INVALID_SIGNATURE),
-		};
+	let checked_statement = match check_statement_signature(
+		session,
+		&session_info.validators,
+		scheduling_parent,
+		statement,
+	) {
+		Ok(s) => s,
+		Err(_) => return Err(COST_INVALID_SIGNATURE),
+	};
 
 	cluster_tracker.note_received(
 		cluster_sender_index,
@@ -1828,7 +1815,7 @@ fn handle_cluster_statement(
 /// if successful, this returns a checked signed statement if it should be imported
 /// or otherwise an error indicating a reputational fault.
 fn handle_grid_statement(
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	grid_tracker: &mut GridTracker,
 	session: SessionIndex,
 	per_session: &PerSessionState,
@@ -1839,7 +1826,7 @@ fn handle_grid_statement(
 	let checked_statement = match check_statement_signature(
 		session,
 		&per_session.session_info.validators,
-		relay_parent,
+		scheduling_parent,
 		statement,
 	) {
 		Ok(s) => s,
@@ -1864,15 +1851,15 @@ async fn send_backing_fresh_statements<Context>(
 	ctx: &mut Context,
 	candidate_hash: CandidateHash,
 	group_index: GroupIndex,
-	relay_parent: &Hash,
-	relay_parent_state: &mut PerRelayParentState,
+	scheduling_parent: &Hash,
+	scheduling_parent_state: &mut PerSchedulingParentState,
 	confirmed: &candidates::ConfirmedCandidate,
 	per_session: &PerSessionState,
 ) {
 	let group_validators = per_session.groups.get(group_index).unwrap_or(&[]);
 	let mut imported = Vec::new();
 
-	for statement in relay_parent_state
+	for statement in scheduling_parent_state
 		.statement_store
 		.fresh_statements_for_backing(group_validators, candidate_hash)
 	{
@@ -1890,12 +1877,15 @@ async fn send_backing_fresh_statements<Context>(
 			})
 			.expect("statements refer to same candidate; qed");
 
-		ctx.send_message(CandidateBackingMessage::Statement(*relay_parent, carrying_pvd))
-			.await;
+		ctx.send_message(CandidateBackingMessage::Statement {
+			scheduling_parent: *scheduling_parent,
+			statement: carrying_pvd,
+		})
+		.await;
 	}
 
 	for (v, s) in imported {
-		relay_parent_state.statement_store.note_known_by_backing(v, s);
+		scheduling_parent_state.statement_store.note_known_by_backing(v, s);
 	}
 }
 
@@ -1917,19 +1907,19 @@ fn local_knowledge_filter(
 async fn provide_candidate_to_grid<Context>(
 	ctx: &mut Context,
 	candidate_hash: CandidateHash,
-	relay_parent_state: &mut PerRelayParentState,
+	scheduling_parent_state: &mut PerSchedulingParentState,
 	confirmed_candidate: &candidates::ConfirmedCandidate,
 	per_session: &PerSessionState,
 	authorities: &HashMap<AuthorityDiscoveryId, PeerId>,
 	peers: &HashMap<PeerId, PeerState>,
 	metrics: &Metrics,
 ) {
-	let local_validator = match relay_parent_state.local_validator {
+	let local_validator = match scheduling_parent_state.local_validator {
 		Some(ref mut v) => v,
 		None => return,
 	};
 
-	let relay_parent = confirmed_candidate.relay_parent();
+	let scheduling_parent = confirmed_candidate.scheduling_parent();
 	let group_index = confirmed_candidate.group_index();
 
 	let grid_view = match per_session.grid_view {
@@ -1937,7 +1927,7 @@ async fn provide_candidate_to_grid<Context>(
 		None => {
 			gum::debug!(
 				target: LOG_TARGET,
-				session = relay_parent_state.session,
+				session = scheduling_parent_state.session,
 				"Cannot handle backable candidate due to lack of topology",
 			);
 
@@ -1950,9 +1940,9 @@ async fn provide_candidate_to_grid<Context>(
 			gum::warn!(
 				target: LOG_TARGET,
 				?candidate_hash,
-				?relay_parent,
+				?scheduling_parent,
 				?group_index,
-				session = relay_parent_state.session,
+				session = scheduling_parent_state.session,
 				"Handled backed candidate with unknown group?",
 			);
 
@@ -1965,7 +1955,7 @@ async fn provide_candidate_to_grid<Context>(
 		group_size,
 		group_index,
 		candidate_hash,
-		&relay_parent_state.statement_store,
+		&scheduling_parent_state.statement_store,
 	);
 
 	let actions = local_validator.grid_tracker.add_backed_candidate(
@@ -1976,7 +1966,7 @@ async fn provide_candidate_to_grid<Context>(
 	);
 
 	let manifest = protocol_v3::BackedCandidateManifest {
-		relay_parent,
+		scheduling_parent,
 		candidate_hash,
 		group_index,
 		para_id: confirmed_candidate.para_id(),
@@ -1996,7 +1986,7 @@ async fn provide_candidate_to_grid<Context>(
 		let p = match connected_validator_peer(authorities, per_session, v) {
 			None => continue,
 			Some(p) => {
-				if peers.get(&p).map_or(false, |d| d.knows_relay_parent(&relay_parent)) {
+				if peers.get(&p).map_or(false, |d| d.knows_relay_parent(&scheduling_parent)) {
 					(p, peers.get(&p).expect("Qed, was checked above").protocol_version.into())
 				} else {
 					continue;
@@ -2018,9 +2008,9 @@ async fn provide_candidate_to_grid<Context>(
 		post_statements.extend(
 			post_acknowledgement_statement_messages(
 				v,
-				relay_parent,
+				scheduling_parent,
 				&mut local_validator.grid_tracker,
-				&relay_parent_state.statement_store,
+				&scheduling_parent_state.statement_store,
 				&per_session.groups,
 				group_index,
 				candidate_hash,
@@ -2079,14 +2069,14 @@ async fn provide_candidate_to_grid<Context>(
 }
 
 // Utility function to populate:
-// - per relay parent `ParaId` to `GroupIndex` mappings.
+// - per scheduling parent `ParaId` to `GroupIndex` mappings.
 // - per `GroupIndex` claim queue assignments
 async fn determine_group_assignments(
 	n_cores: usize,
 	group_rotation_info: GroupRotationInfo,
 	claim_queue: &ClaimQueueSnapshot,
 ) -> (HashMap<ParaId, Vec<GroupIndex>>, HashMap<GroupIndex, Vec<ParaId>>) {
-	// Determine the core indices occupied by each para at the current relay parent. To support
+	// Determine the core indices occupied by each para at the current scheduling parent. To support
 	// on-demand parachains we also consider the core indices at next blocks.
 	let schedule: HashMap<CoreIndex, Vec<ParaId>> = claim_queue
 		.iter_all_claims()
@@ -2165,12 +2155,20 @@ async fn fragment_chain_update_inner<Context>(
 		} = hypo
 		{
 			let confirmed_candidate = state.candidates.get_confirmed(&candidate_hash);
-			let prs = state.per_relay_parent.get_mut(&receipt.descriptor.relay_parent());
-			if let (Some(confirmed), Some(prs)) = (confirmed_candidate, prs) {
-				let per_session = state.per_session.get(&prs.session);
+
+			let scheduling_parent = receipt.descriptor.scheduling_parent();
+			let per_session = state
+				.per_scheduling_parent
+				.get(&scheduling_parent)
+				.and_then(|p| state.per_session.get(&p.session));
+			let prs = state.per_scheduling_parent.get_mut(&scheduling_parent);
+
+			if let (Some(confirmed), Some(prs), Some(per_session)) =
+				(confirmed_candidate, prs, per_session)
+			{
 				let group_index = confirmed.group_index();
 
-				// Sanity check if group_index is valid for this para at relay parent.
+				// Sanity check if group_index is valid for this para at scheduling parent.
 				let Some(expected_groups) = prs.groups_per_para.get(&receipt.descriptor.para_id())
 				else {
 					continue;
@@ -2179,18 +2177,16 @@ async fn fragment_chain_update_inner<Context>(
 					continue;
 				}
 
-				if let Some(per_session) = per_session {
-					send_backing_fresh_statements(
-						ctx,
-						candidate_hash,
-						confirmed.group_index(),
-						&receipt.descriptor.relay_parent(),
-						prs,
-						confirmed,
-						per_session,
-					)
-					.await;
-				}
+				send_backing_fresh_statements(
+					ctx,
+					candidate_hash,
+					confirmed.group_index(),
+					&scheduling_parent,
+					prs,
+					confirmed,
+					per_session,
+				)
+				.await;
 			}
 		}
 	}
@@ -2225,7 +2221,7 @@ async fn new_confirmed_candidate_fragment_chain_updates<Context>(
 }
 
 struct ManifestImportSuccess<'a> {
-	relay_parent_state: &'a mut PerRelayParentState,
+	scheduling_parent_state: &'a mut PerSchedulingParentState,
 	per_session: &'a PerSessionState,
 	acknowledge: bool,
 	sender_index: ValidatorIndex,
@@ -2240,11 +2236,11 @@ async fn handle_incoming_manifest_common<'a, Context>(
 	ctx: &mut Context,
 	peer: PeerId,
 	peers: &HashMap<PeerId, PeerState>,
-	per_relay_parent: &'a mut HashMap<Hash, PerRelayParentState>,
+	per_scheduling_parent: &'a mut HashMap<Hash, PerSchedulingParentState>,
 	per_session: &'a HashMap<SessionIndex, PerSessionState>,
 	candidates: &mut Candidates,
 	candidate_hash: CandidateHash,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	para_id: ParaId,
 	mut manifest_summary: grid::ManifestSummary,
 	manifest_kind: grid::ManifestKind,
@@ -2253,7 +2249,7 @@ async fn handle_incoming_manifest_common<'a, Context>(
 	// 1. sanity checks: peer is connected, relay-parent in state, para ID matches group index.
 	let peer_state = peers.get(&peer)?;
 
-	let relay_parent_state = match per_relay_parent.get_mut(&relay_parent) {
+	let scheduling_parent_state = match per_scheduling_parent.get_mut(&scheduling_parent) {
 		None => {
 			modify_reputation(
 				reputation,
@@ -2267,9 +2263,9 @@ async fn handle_incoming_manifest_common<'a, Context>(
 		Some(s) => s,
 	};
 
-	let per_session = per_session.get(&relay_parent_state.session)?;
+	let per_session = per_session.get(&scheduling_parent_state.session)?;
 
-	if relay_parent_state.local_validator.is_none() {
+	if scheduling_parent_state.local_validator.is_none() {
 		if per_session.is_not_validator() {
 			modify_reputation(
 				reputation,
@@ -2282,7 +2278,7 @@ async fn handle_incoming_manifest_common<'a, Context>(
 		return None;
 	}
 
-	let Some(expected_groups) = relay_parent_state.groups_per_para.get(&para_id) else {
+	let Some(expected_groups) = scheduling_parent_state.groups_per_para.get(&para_id) else {
 		modify_reputation(reputation, ctx.sender(), peer, COST_MALFORMED_MANIFEST).await;
 		return None;
 	};
@@ -2321,13 +2317,14 @@ async fn handle_incoming_manifest_common<'a, Context>(
 
 	// Ignore votes from disabled validators when counting towards the threshold.
 	let group = per_session.groups.get(group_index).unwrap_or(&[]);
-	let disabled_mask = relay_parent_state.disabled_bitmask(group);
+	let disabled_mask = scheduling_parent_state.disabled_bitmask(group);
 	manifest_summary.statement_knowledge.mask_seconded(&disabled_mask);
 	manifest_summary.statement_knowledge.mask_valid(&disabled_mask);
 
-	let local_validator = relay_parent_state.local_validator.as_mut().expect("checked above; qed");
+	let local_validator =
+		scheduling_parent_state.local_validator.as_mut().expect("checked above; qed");
 
-	let seconding_limit = relay_parent_state
+	let seconding_limit = scheduling_parent_state
 		.assignments_per_group
 		.get(&group_index)?
 		.iter()
@@ -2371,7 +2368,7 @@ async fn handle_incoming_manifest_common<'a, Context>(
 	if let Err(BadAdvertisement) = candidates.insert_unconfirmed(
 		peer,
 		candidate_hash,
-		relay_parent,
+		scheduling_parent,
 		group_index,
 		Some((claimed_parent_hash, para_id)),
 	) {
@@ -2390,14 +2387,14 @@ async fn handle_incoming_manifest_common<'a, Context>(
 		);
 	}
 
-	Some(ManifestImportSuccess { relay_parent_state, per_session, acknowledge, sender_index })
+	Some(ManifestImportSuccess { scheduling_parent_state, per_session, acknowledge, sender_index })
 }
 
 /// Produce a list of network messages to send to a peer, following acknowledgement of a manifest.
 /// This notes the messages as sent within the grid state.
 fn post_acknowledgement_statement_messages(
 	recipient: ValidatorIndex,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	grid_tracker: &mut GridTracker,
 	statement_store: &StatementStore,
 	groups: &Groups,
@@ -2424,7 +2421,7 @@ fn post_acknowledgement_statement_messages(
 		match peer.1.into() {
 			ValidationVersion::V3 => messages.push(ValidationProtocols::V3(
 				protocol_v3::StatementDistributionMessage::Statement(
-					relay_parent,
+					scheduling_parent,
 					statement.as_unchecked().clone(),
 				)
 				.into(),
@@ -2455,11 +2452,11 @@ async fn handle_incoming_manifest<Context>(
 		ctx,
 		peer,
 		&state.peers,
-		&mut state.per_relay_parent,
+		&mut state.per_scheduling_parent,
 		&state.per_session,
 		&mut state.candidates,
 		manifest.candidate_hash,
-		manifest.relay_parent,
+		manifest.scheduling_parent,
 		manifest.para_id,
 		grid::ManifestSummary {
 			claimed_parent_hash: manifest.parent_head_data_hash,
@@ -2475,7 +2472,8 @@ async fn handle_incoming_manifest<Context>(
 		None => return,
 	};
 
-	let ManifestImportSuccess { relay_parent_state, per_session, acknowledge, sender_index } = x;
+	let ManifestImportSuccess { scheduling_parent_state, per_session, acknowledge, sender_index } =
+		x;
 
 	if acknowledge {
 		// 4. if already known within grid (confirmed & backed), acknowledge candidate
@@ -2495,7 +2493,7 @@ async fn handle_incoming_manifest<Context>(
 				group_size,
 				manifest.group_index,
 				manifest.candidate_hash,
-				&relay_parent_state.statement_store,
+				&scheduling_parent_state.statement_store,
 			)
 		};
 
@@ -2511,8 +2509,8 @@ async fn handle_incoming_manifest<Context>(
 			),
 			sender_index,
 			&per_session.groups,
-			relay_parent_state,
-			manifest.relay_parent,
+			scheduling_parent_state,
+			manifest.scheduling_parent,
 			manifest.group_index,
 			manifest.candidate_hash,
 			local_knowledge,
@@ -2532,7 +2530,11 @@ async fn handle_incoming_manifest<Context>(
 
 		state
 			.request_manager
-			.get_or_insert(manifest.relay_parent, manifest.candidate_hash, manifest.group_index)
+			.get_or_insert(
+				manifest.scheduling_parent,
+				manifest.candidate_hash,
+				manifest.group_index,
+			)
 			.add_peer(peer);
 	}
 }
@@ -2543,13 +2545,13 @@ fn acknowledgement_and_statement_messages(
 	peer: &(PeerId, ValidationVersion),
 	validator_index: ValidatorIndex,
 	groups: &Groups,
-	relay_parent_state: &mut PerRelayParentState,
-	relay_parent: Hash,
+	scheduling_parent_state: &mut PerSchedulingParentState,
+	scheduling_parent: Hash,
 	group_index: GroupIndex,
 	candidate_hash: CandidateHash,
 	local_knowledge: StatementFilter,
 ) -> (Vec<(Vec<PeerId>, net_protocol::VersionedValidationProtocol)>, usize) {
-	let local_validator = match relay_parent_state.local_validator.as_mut() {
+	let local_validator = match scheduling_parent_state.local_validator.as_mut() {
 		None => return (Vec::new(), 0),
 		Some(l) => l,
 	};
@@ -2578,9 +2580,9 @@ fn acknowledgement_and_statement_messages(
 
 	let statement_messages = post_acknowledgement_statement_messages(
 		validator_index,
-		relay_parent,
+		scheduling_parent,
 		&mut local_validator.grid_tracker,
-		&relay_parent_state.statement_store,
+		&scheduling_parent_state.statement_store,
 		&groups,
 		group_index,
 		candidate_hash,
@@ -2614,9 +2616,11 @@ async fn handle_incoming_acknowledgement<Context>(
 	);
 
 	let candidate_hash = acknowledgement.candidate_hash;
-	let (relay_parent, parent_head_data_hash, group_index, para_id) = {
+	let (scheduling_parent, parent_head_data_hash, group_index, para_id) = {
 		match state.candidates.get_confirmed(&candidate_hash) {
-			Some(c) => (c.relay_parent(), c.parent_head_data_hash(), c.group_index(), c.para_id()),
+			Some(c) => {
+				(c.scheduling_parent(), c.parent_head_data_hash(), c.group_index(), c.para_id())
+			},
 			None => {
 				modify_reputation(
 					reputation,
@@ -2634,11 +2638,11 @@ async fn handle_incoming_acknowledgement<Context>(
 		ctx,
 		peer,
 		&state.peers,
-		&mut state.per_relay_parent,
+		&mut state.per_scheduling_parent,
 		&state.per_session,
 		&mut state.candidates,
 		candidate_hash,
-		relay_parent,
+		scheduling_parent,
 		para_id,
 		grid::ManifestSummary {
 			claimed_parent_hash: parent_head_data_hash,
@@ -2654,18 +2658,18 @@ async fn handle_incoming_acknowledgement<Context>(
 		None => return,
 	};
 
-	let ManifestImportSuccess { relay_parent_state, per_session, sender_index, .. } = x;
+	let ManifestImportSuccess { scheduling_parent_state, per_session, sender_index, .. } = x;
 
-	let local_validator = match relay_parent_state.local_validator.as_mut() {
+	let local_validator = match scheduling_parent_state.local_validator.as_mut() {
 		None => return,
 		Some(l) => l,
 	};
 
 	let messages = post_acknowledgement_statement_messages(
 		sender_index,
-		relay_parent,
+		scheduling_parent,
 		&mut local_validator.grid_tracker,
-		&relay_parent_state.statement_store,
+		&scheduling_parent_state.statement_store,
 		&per_session.groups,
 		group_index,
 		candidate_hash,
@@ -2713,12 +2717,13 @@ pub(crate) async fn handle_backed_candidate_message<Context>(
 		Some(c) => c,
 	};
 
-	let relay_parent_state = match state.per_relay_parent.get_mut(&confirmed.relay_parent()) {
-		None => return,
-		Some(s) => s,
-	};
+	let scheduling_parent_state =
+		match state.per_scheduling_parent.get_mut(&confirmed.scheduling_parent()) {
+			None => return,
+			Some(s) => s,
+		};
 
-	let per_session = match state.per_session.get(&relay_parent_state.session) {
+	let per_session = match state.per_session.get(&scheduling_parent_state.session) {
 		None => return,
 		Some(s) => s,
 	};
@@ -2733,7 +2738,7 @@ pub(crate) async fn handle_backed_candidate_message<Context>(
 	provide_candidate_to_grid(
 		ctx,
 		candidate_hash,
-		relay_parent_state,
+		scheduling_parent_state,
 		confirmed,
 		per_session,
 		&state.authorities,
@@ -2759,20 +2764,20 @@ async fn send_cluster_candidate_statements<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	candidate_hash: CandidateHash,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	metrics: &Metrics,
 ) {
-	let relay_parent_state = match state.per_relay_parent.get_mut(&relay_parent) {
+	let scheduling_parent_state = match state.per_scheduling_parent.get_mut(&scheduling_parent) {
 		None => return,
 		Some(s) => s,
 	};
 
-	let per_session = match state.per_session.get(&relay_parent_state.session) {
+	let per_session = match state.per_session.get(&scheduling_parent_state.session) {
 		None => return,
 		Some(s) => s,
 	};
 
-	let local_group = match relay_parent_state.active_validator_state_mut() {
+	let local_group = match scheduling_parent_state.active_validator_state_mut() {
 		None => return,
 		Some(v) => v.group,
 	};
@@ -2782,7 +2787,7 @@ async fn send_cluster_candidate_statements<Context>(
 		Some(g) => g.len(),
 	};
 
-	let statements: Vec<_> = relay_parent_state
+	let statements: Vec<_> = scheduling_parent_state
 		.statement_store
 		.group_statements(
 			&per_session.groups,
@@ -2796,8 +2801,8 @@ async fn send_cluster_candidate_statements<Context>(
 	for statement in statements {
 		circulate_statement(
 			ctx,
-			relay_parent,
-			relay_parent_state,
+			scheduling_parent,
+			scheduling_parent_state,
 			per_session,
 			&state.candidates,
 			&state.authorities,
@@ -2830,11 +2835,12 @@ async fn apply_post_confirmation<Context>(
 	let candidate_hash = post_confirmation.hypothetical.candidate_hash();
 	state.request_manager.remove_for(candidate_hash);
 
+	// Scheduling context: look up per_scheduling_parent state for statement circulation.
 	send_cluster_candidate_statements(
 		ctx,
 		state,
 		candidate_hash,
-		post_confirmation.hypothetical.relay_parent(),
+		post_confirmation.hypothetical.scheduling_parent(),
 		metrics,
 	)
 	.await;
@@ -2853,10 +2859,11 @@ pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut St
 	let peer_advertised = |identifier: &CandidateIdentifier, peer: &_| {
 		let peer_data = peers.get(peer)?;
 
-		let relay_parent_state = state.per_relay_parent.get(&identifier.relay_parent)?;
-		let per_session = state.per_session.get(&relay_parent_state.session)?;
+		let scheduling_parent_state =
+			state.per_scheduling_parent.get(&identifier.scheduling_parent)?;
+		let per_session = state.per_session.get(&scheduling_parent_state.session)?;
 
-		let local_validator = relay_parent_state.local_validator.as_ref()?;
+		let local_validator = scheduling_parent_state.local_validator.as_ref()?;
 
 		for validator_id in find_validator_ids(peer_data.iter_known_discovery_ids(), |a| {
 			per_session.authority_lookup.get(a)
@@ -2881,28 +2888,29 @@ pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut St
 		None
 	};
 	let request_props = |identifier: &CandidateIdentifier| {
-		let &CandidateIdentifier { relay_parent, group_index, .. } = identifier;
+		let &CandidateIdentifier { scheduling_parent, group_index, .. } = identifier;
 
-		let relay_parent_state = state.per_relay_parent.get(&relay_parent)?;
-		let per_session = state.per_session.get(&relay_parent_state.session)?;
+		let scheduling_parent_state = state.per_scheduling_parent.get(&scheduling_parent)?;
+		let per_session = state.per_session.get(&scheduling_parent_state.session)?;
 		let group = per_session.groups.get(group_index)?;
-		let seconding_limit = relay_parent_state.assignments_per_group.get(&group_index)?.len();
+		let seconding_limit =
+			scheduling_parent_state.assignments_per_group.get(&group_index)?.len();
 
 		// Request nothing which would be an 'over-seconded' statement.
 		let mut unwanted_mask = StatementFilter::blank(group.len());
 		for (i, v) in group.iter().enumerate() {
-			if relay_parent_state.statement_store.seconded_count(v) >= seconding_limit {
+			if scheduling_parent_state.statement_store.seconded_count(v) >= seconding_limit {
 				unwanted_mask.seconded_in_group.set(i, true);
 			}
 		}
 
 		// Add disabled validators to the unwanted mask.
-		let disabled_mask = relay_parent_state.disabled_bitmask(group);
+		let disabled_mask = scheduling_parent_state.disabled_bitmask(group);
 		unwanted_mask.seconded_in_group |= &disabled_mask;
 		unwanted_mask.validated_in_group |= &disabled_mask;
 
 		// don't require a backing threshold for cluster candidates.
-		let local_validator = relay_parent_state.local_validator.as_ref()?;
+		let local_validator = scheduling_parent_state.local_validator.as_ref()?;
 		let require_backing = local_validator
 			.active
 			.as_ref()
@@ -2964,7 +2972,7 @@ pub(crate) async fn handle_response<Context>(
 	reputation: &mut ReputationAggregator,
 	metrics: &Metrics,
 ) {
-	let &requests::CandidateIdentifier { relay_parent, candidate_hash, group_index } =
+	let &requests::CandidateIdentifier { scheduling_parent, candidate_hash, group_index } =
 		response.candidate_identifier();
 	let peer = *response.requested_peer();
 
@@ -2976,12 +2984,13 @@ pub(crate) async fn handle_response<Context>(
 	);
 
 	let post_confirmation = {
-		let relay_parent_state = match state.per_relay_parent.get_mut(&relay_parent) {
+		let scheduling_parent_state = match state.per_scheduling_parent.get_mut(&scheduling_parent)
+		{
 			None => return,
 			Some(s) => s,
 		};
 
-		let per_session = match state.per_session.get(&relay_parent_state.session) {
+		let per_session = match state.per_session.get(&scheduling_parent_state.session) {
 			None => return,
 			Some(s) => s,
 		};
@@ -2991,23 +3000,23 @@ pub(crate) async fn handle_response<Context>(
 			Some(g) => g,
 		};
 
-		let disabled_mask = relay_parent_state.disabled_bitmask(group);
+		let disabled_mask = scheduling_parent_state.disabled_bitmask(group);
 
 		let res = response.validate_response(
 			&mut state.request_manager,
 			group,
-			relay_parent_state.session,
+			scheduling_parent_state.session,
 			|v| per_session.session_info.validators.get(v).map(|x| x.clone()),
 			|para, g_index| {
-				let Some(expected_groups) = relay_parent_state.groups_per_para.get(&para) else {
+				let Some(expected_groups) = scheduling_parent_state.groups_per_para.get(&para)
+				else {
 					return false;
 				};
 
 				expected_groups.iter().any(|g| g == &g_index)
 			},
 			disabled_mask,
-			&relay_parent_state.transposed_cq,
-			per_session.candidate_receipt_v2_enabled(),
+			&scheduling_parent_state.transposed_cq,
 		);
 
 		for (peer, rep) in res.reputation_changes {
@@ -3042,7 +3051,7 @@ pub(crate) async fn handle_response<Context>(
 		};
 
 		for statement in statements {
-			let _ = relay_parent_state.statement_store.insert(
+			let _ = scheduling_parent_state.statement_store.insert(
 				&per_session.groups,
 				statement,
 				StatementOrigin::Remote,
@@ -3076,12 +3085,12 @@ pub(crate) async fn handle_response<Context>(
 		return;
 	}
 
-	let relay_parent_state = match state.per_relay_parent.get_mut(&relay_parent) {
+	let scheduling_parent_state = match state.per_scheduling_parent.get_mut(&scheduling_parent) {
 		None => return,
 		Some(s) => s,
 	};
 
-	let per_session = match state.per_session.get(&relay_parent_state.session) {
+	let per_session = match state.per_session.get(&scheduling_parent_state.session) {
 		None => return,
 		Some(s) => s,
 	};
@@ -3090,8 +3099,8 @@ pub(crate) async fn handle_response<Context>(
 		ctx,
 		candidate_hash,
 		group_index,
-		&relay_parent,
-		relay_parent_state,
+		&scheduling_parent,
+		scheduling_parent_state,
 		confirmed,
 		per_session,
 	)
@@ -3133,17 +3142,18 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 		Some(c) => c,
 	};
 
-	let relay_parent_state = match state.per_relay_parent.get_mut(&confirmed.relay_parent()) {
+	let scheduling_parent_state =
+		match state.per_scheduling_parent.get_mut(&confirmed.scheduling_parent()) {
+			None => return,
+			Some(s) => s,
+		};
+
+	let local_validator = match scheduling_parent_state.local_validator.as_ref() {
 		None => return,
 		Some(s) => s,
 	};
 
-	let local_validator = match relay_parent_state.local_validator.as_ref() {
-		None => return,
-		Some(s) => s,
-	};
-
-	let per_session = match state.per_session.get(&relay_parent_state.session) {
+	let per_session = match state.per_session.get(&scheduling_parent_state.session) {
 		None => return,
 		Some(s) => s,
 	};
@@ -3217,13 +3227,13 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 		validated_in_group: !mask.validated_in_group.clone(),
 	};
 
-	let local_validator = match relay_parent_state.local_validator.as_mut() {
+	let local_validator = match scheduling_parent_state.local_validator.as_mut() {
 		None => return,
 		Some(s) => s,
 	};
 
 	let mut sent_filter = StatementFilter::blank(group_size);
-	let statements: Vec<_> = relay_parent_state
+	let statements: Vec<_> = scheduling_parent_state
 		.statement_store
 		.group_statements(&per_session.groups, group_index, *candidate_hash, &and_mask)
 		.map(|s| {
@@ -3256,7 +3266,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 			gum::info!(
 				target: LOG_TARGET,
 				?candidate_hash,
-				relay_parent = ?confirmed.relay_parent(),
+				scheduling_parent = ?confirmed.scheduling_parent(),
 				?group_index,
 				"Dropping a request from a grid peer because the backing threshold is no longer met."
 			);
@@ -3365,5 +3375,379 @@ pub(crate) async fn respond_task(
 				active_peers.remove(&peer);
 			},
 		}
+	}
+}
+
+#[cfg(test)]
+mod deactivation_tests {
+	//! Unit tests for [`handle_deactivate_leaves`] covering all cleanup responsibilities:
+	//! implicit view pruning, `per_scheduling_parent` cleanup, request-manager cleanup keyed by
+	//! pruned scheduling parent (not by leaf), `per_session` retention, and `unused_topologies`
+	//! retention including the "keep last session's topology" edge case.
+	//!
+	//! Tests run without the full subsystem harness: they construct a `State` directly and
+	//! drive `ImplicitView::activate_leaf` via a mock subsystem context, which lets us make
+	//! precise assertions on private state fields after deactivation.
+	use super::*;
+	use assert_matches::assert_matches;
+	use futures::future::join;
+	use polkadot_node_network_protocol::grid_topology::SessionGridTopology;
+	use polkadot_node_subsystem::{
+		messages::{ChainApiMessage, RuntimeApiMessage, RuntimeApiRequest},
+		AllMessages, SubsystemContext,
+	};
+	use polkadot_node_subsystem_test_helpers::{
+		make_subsystem_context, TestSubsystemContextHandle,
+	};
+	use polkadot_primitives::{BlockNumber, CandidateHash, Header, IndexedVec, SessionInfo};
+	use sc_keystore::LocalKeystore;
+	use sp_core::testing::TaskExecutor;
+	use std::sync::Arc;
+
+	type VirtualOverseer = TestSubsystemContextHandle<AllMessages>;
+
+	const SCHEDULING_LOOKAHEAD: u32 = 3;
+
+	/// Build an empty `State` with an in-memory keystore.
+	fn new_state() -> State {
+		State::new(Arc::new(LocalKeystore::in_memory()) as KeystorePtr)
+	}
+
+	/// Build a minimal `SessionInfo` with a single validator group containing a single validator.
+	/// Enough for `PerSessionState::new` to succeed; no other session-dependent logic is exercised
+	/// by these tests.
+	fn dummy_session_info() -> SessionInfo {
+		SessionInfo {
+			validators: IndexedVec::from(vec![]),
+			discovery_keys: vec![],
+			assignment_keys: vec![],
+			validator_groups: IndexedVec::from(vec![vec![ValidatorIndex(0)]]),
+			n_cores: 1,
+			zeroth_delay_tranche_width: 0,
+			relay_vrf_modulo_samples: 0,
+			n_delay_tranches: 0,
+			no_show_slots: 0,
+			needed_approvals: 0,
+			active_validator_indices: vec![],
+			dispute_period: 6,
+			random_seed: [0u8; 32],
+		}
+	}
+
+	/// Build a `PerSchedulingParentState` with no local-validator state. Enough for
+	/// `handle_deactivate_leaves` to traverse it without panicking.
+	fn dummy_per_sp_state(session: SessionIndex) -> PerSchedulingParentState {
+		let groups = Groups::new(
+			dummy_session_info().validator_groups.clone(),
+			// backing_threshold
+			1,
+		);
+		PerSchedulingParentState {
+			local_validator: None,
+			statement_store: StatementStore::new(&groups),
+			session,
+			transposed_cq: TransposedClaimQueue::default(),
+			groups_per_para: HashMap::new(),
+			disabled_validators: HashSet::new(),
+			assignments_per_group: HashMap::new(),
+		}
+	}
+
+	fn dummy_per_session_state(keystore: &KeystorePtr) -> PerSessionState {
+		PerSessionState::new(dummy_session_info(), keystore, /* backing_threshold */ 1)
+	}
+
+	fn dummy_topology() -> NewGossipTopology {
+		NewGossipTopology {
+			session: 0,
+			topology: SessionGridTopology::new(Vec::new(), Vec::new()),
+			local_index: None,
+		}
+	}
+
+	/// Answer the sequence of `ChainApi`/`RuntimeApi` messages produced by
+	/// `ImplicitView::activate_leaf` for a single leaf with `SCHEDULING_LOOKAHEAD` ancestors,
+	/// all in `session`.
+	///
+	/// `chain` is `[leaf, parent, grandparent, ...]` — leaf first, then ancestors in
+	/// descending block-number order. `leaf_number` is the absolute block number of the leaf;
+	/// ancestor numbers decrement by 1 going deeper.
+	///
+	/// `already_cached` tracks blocks that prior activations have already placed in the view's
+	/// `block_info_storage`; those don't trigger `BlockHeader` requests. Updated in-place.
+	async fn answer_implicit_view_activation(
+		ctx_handle: &mut VirtualOverseer,
+		chain: &[Hash],
+		leaf_number: BlockNumber,
+		session: SessionIndex,
+		already_cached: &mut HashSet<Hash>,
+	) {
+		let leaf = chain[0];
+		let ancestors_len = (SCHEDULING_LOOKAHEAD as usize).saturating_sub(1).min(chain.len() - 1);
+		let ancestors: Vec<Hash> = chain[1..=ancestors_len].to_vec();
+
+		// 1. SessionIndexForChild(leaf).
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				hash,
+				RuntimeApiRequest::SessionIndexForChild(tx),
+			)) if hash == leaf => {
+				tx.send(Ok(session)).unwrap();
+			}
+		);
+
+		// 2. SchedulingLookahead(session).
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SchedulingLookahead(_, tx),
+			)) => {
+				tx.send(Ok(SCHEDULING_LOOKAHEAD)).unwrap();
+			}
+		);
+
+		// 3. Ancestors(leaf, k = lookahead - 1).
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::ChainApi(ChainApiMessage::Ancestors {
+				hash,
+				k,
+				response_channel,
+			}) if hash == leaf && k == ancestors_len => {
+				response_channel.send(Ok(ancestors.clone())).unwrap();
+			}
+		);
+
+		// 4. SessionIndexForChild(ancestor) for each ancestor (same session → no truncation).
+		for ancestor in &ancestors {
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					hash,
+					RuntimeApiRequest::SessionIndexForChild(tx),
+				)) if hash == *ancestor => {
+					tx.send(Ok(session)).unwrap();
+				}
+			);
+		}
+
+		// 5. BlockHeader for each ancestry block NOT already in the view's block_info_storage.
+		//    `fetch_fresh_leaf_and_insert_ancestry` iterates `iter::once(leaf).chain(ancestors)`
+		//    and skips `Occupied` entries.
+		let full_chain: Vec<Hash> =
+			std::iter::once(leaf).chain(ancestors.iter().copied()).collect();
+		for (depth, block) in full_chain.iter().enumerate() {
+			if already_cached.contains(block) {
+				continue;
+			}
+			let expected_number = leaf_number - depth as BlockNumber;
+			let parent_hash = full_chain.get(depth + 1).copied().unwrap_or_default();
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::ChainApi(ChainApiMessage::BlockHeader(hash, tx)) if hash == *block => {
+					tx.send(Ok(Some(Header {
+						parent_hash,
+						number: expected_number,
+						state_root: Hash::zero(),
+						extrinsics_root: Hash::zero(),
+						digest: Default::default(),
+					}))).unwrap();
+				}
+			);
+			already_cached.insert(*block);
+		}
+	}
+
+	/// Drive the full implicit-view activation for each leaf in `leaves_with_chains`, in order.
+	/// Each entry is `(chain, leaf_number, session)` where `chain[0]` is the leaf and subsequent
+	/// entries are its ancestors, `leaf_number` is the leaf's absolute block number.
+	fn activate_leaves_in_view(
+		view: &mut ImplicitView,
+		leaves_with_chains: &[(&[Hash], BlockNumber, SessionIndex)],
+	) {
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool);
+		let mut cached = HashSet::new();
+
+		futures::executor::block_on(async {
+			for (chain, leaf_number, session) in leaves_with_chains {
+				let activation = view.activate_leaf(ctx.sender(), chain[0]);
+				let answering = answer_implicit_view_activation(
+					&mut ctx_handle,
+					chain,
+					*leaf_number,
+					*session,
+					&mut cached,
+				);
+				let (result, _) = join(activation, answering).await;
+				result.expect("activation should succeed");
+			}
+		});
+	}
+
+	// --------------------------------------------------------------------------------------------
+	// Scenario A: deactivate the only leaf in the view.
+	//
+	// After deactivation the implicit view has no leaves, so *all* block info is pruned. Every
+	// `per_scheduling_parent` entry (for leaf and ancestors), all requests keyed by any of those
+	// scheduling parents, and the corresponding `per_session` entry should disappear.
+	// `unused_topologies` for the (former) last session is kept per the inline-documented edge
+	// case.
+	// --------------------------------------------------------------------------------------------
+	#[test]
+	fn deactivate_last_leaf_prunes_everything_but_keeps_last_session_topology() {
+		const SESSION: SessionIndex = 7;
+		let leaf = Hash::repeat_byte(0x0A);
+		let parent = Hash::repeat_byte(0x09);
+		let grandparent = Hash::repeat_byte(0x08);
+		let chain = [leaf, parent, grandparent];
+		const LEAF_NUMBER: BlockNumber = 10;
+
+		let mut state = new_state();
+		activate_leaves_in_view(&mut state.implicit_view, &[(&chain, LEAF_NUMBER, SESSION)]);
+
+		// Seed `per_scheduling_parent` for every block in the implicit view, `per_session` for
+		// the active session, and `unused_topologies` for both an active and an older session
+		// so we can see which ones are retained.
+		const OLDER_SESSION: SessionIndex = 6;
+		for rp in &chain {
+			state.per_scheduling_parent.insert(*rp, dummy_per_sp_state(SESSION));
+		}
+		state
+			.per_session
+			.insert(SESSION, dummy_per_session_state(&state.keystore.clone()));
+		state.unused_topologies.insert(SESSION, dummy_topology());
+		state.unused_topologies.insert(OLDER_SESSION, dummy_topology());
+
+		// Seed requests against the leaf, an ancestor, and an unrelated scheduling parent that
+		// isn't in the view. The unrelated one should survive — deactivation must only clean up
+		// things reachable from the deactivated leaf's implicit view.
+		let unrelated_sp = Hash::repeat_byte(0xFF);
+		let c_leaf = CandidateHash(Hash::repeat_byte(0xA1));
+		let c_parent = CandidateHash(Hash::repeat_byte(0xA2));
+		let c_unrelated = CandidateHash(Hash::repeat_byte(0xA3));
+		state.request_manager.get_or_insert(leaf, c_leaf, GroupIndex(0));
+		state.request_manager.get_or_insert(parent, c_parent, GroupIndex(0));
+		state.request_manager.get_or_insert(unrelated_sp, c_unrelated, GroupIndex(0));
+		assert_eq!(state.request_manager.total_requests_count(), 3);
+
+		handle_deactivate_leaves(&mut state, &[leaf]);
+
+		// Implicit view is empty: all blocks were pruned.
+		assert_eq!(state.implicit_view.leaves().count(), 0);
+
+		// `per_scheduling_parent` lost entries for all blocks in the pruned view.
+		for rp in &chain {
+			assert!(
+				!state.per_scheduling_parent.contains_key(rp),
+				"per_scheduling_parent should not contain pruned block {:?}",
+				rp,
+			);
+		}
+
+		// Requests for pruned scheduling parents are gone; unrelated requests survive.
+		assert_eq!(state.request_manager.requests_count_by_scheduling_parent(leaf), 0);
+		assert_eq!(state.request_manager.requests_count_by_scheduling_parent(parent), 0);
+		assert_eq!(state.request_manager.requests_count_by_scheduling_parent(grandparent), 0);
+		assert_eq!(state.request_manager.requests_count_by_scheduling_parent(unrelated_sp), 1);
+		assert_eq!(state.request_manager.total_requests_count(), 1);
+
+		// `per_session` is dropped because no `per_scheduling_parent` entry still references it.
+		assert!(state.per_session.is_empty());
+
+		// `unused_topologies`: the last-seen session's topology is retained (per inline comment
+		// at the cleanup site — we might still need it if PP APIs come online later), older
+		// topologies are dropped.
+		assert!(state.unused_topologies.contains_key(&SESSION));
+		assert!(!state.unused_topologies.contains_key(&OLDER_SESSION));
+	}
+
+	// --------------------------------------------------------------------------------------------
+	// Scenario B: deactivate one of two leaves sharing the same chain + session.
+	//
+	// The surviving leaf's retain-minimum keeps some ancestors alive in the implicit view, so
+	// deactivation only partially prunes. This is the scenario where the pre-fix bug was
+	// observable: requests tied to *pruned ancestors* (not the deactivated leaf) must be cleaned
+	// up. Before the fix, `remove_by_scheduling_parent(*leaf)` was called once per pruned RP,
+	// which is wrong on both axes — wrong key, and called more times than needed.
+	// --------------------------------------------------------------------------------------------
+	#[test]
+	fn deactivate_one_of_two_leaves_prunes_only_unreachable_ancestors() {
+		const SESSION: SessionIndex = 5;
+
+		// Chain: leaf_b (n=5) <- leaf_a (n=4) <- a1 (n=3) <- a2 (n=2) <- a3 (n=1).
+		// Both leaves share the same chain, so activating leaf_a first, then leaf_b, gives us
+		// a view where both leaves are active. Deactivating leaf_a shouldn't prune any blocks
+		// that are still inside leaf_b's retain window.
+		let leaf_b = Hash::repeat_byte(0x05);
+		let leaf_a = Hash::repeat_byte(0x04);
+		let a1 = Hash::repeat_byte(0x03);
+		let a2 = Hash::repeat_byte(0x02);
+		let a3 = Hash::repeat_byte(0x01);
+
+		let chain_a = [leaf_a, a1, a2];
+		let chain_b = [leaf_b, leaf_a, a1];
+		const LEAF_A_NUMBER: BlockNumber = 4;
+		const LEAF_B_NUMBER: BlockNumber = 5;
+
+		let mut state = new_state();
+		activate_leaves_in_view(
+			&mut state.implicit_view,
+			&[(&chain_a, LEAF_A_NUMBER, SESSION), (&chain_b, LEAF_B_NUMBER, SESSION)],
+		);
+
+		// Seed per_scheduling_parent for every block that's in the combined view.
+		for rp in [leaf_b, leaf_a, a1, a2] {
+			state.per_scheduling_parent.insert(rp, dummy_per_sp_state(SESSION));
+		}
+		state
+			.per_session
+			.insert(SESSION, dummy_per_session_state(&state.keystore.clone()));
+		state.unused_topologies.insert(SESSION, dummy_topology());
+
+		// Seed a request for every scheduling parent and for an unrelated hash.
+		let unrelated_sp = Hash::repeat_byte(0xFF);
+		let ch = |b: u8| CandidateHash(Hash::repeat_byte(b));
+		state.request_manager.get_or_insert(leaf_b, ch(0xB0), GroupIndex(0));
+		state.request_manager.get_or_insert(leaf_a, ch(0xA0), GroupIndex(0));
+		state.request_manager.get_or_insert(a1, ch(0xA1), GroupIndex(0));
+		state.request_manager.get_or_insert(a2, ch(0xA2), GroupIndex(0));
+		state.request_manager.get_or_insert(a3, ch(0xA3), GroupIndex(0));
+		state.request_manager.get_or_insert(unrelated_sp, ch(0xFE), GroupIndex(0));
+		assert_eq!(state.request_manager.total_requests_count(), 6);
+
+		handle_deactivate_leaves(&mut state, &[leaf_a]);
+
+		// leaf_b is still active.
+		assert!(state.implicit_view.contains_leaf(&leaf_b));
+		assert!(!state.implicit_view.contains_leaf(&leaf_a));
+
+		// Ancestors reachable from leaf_b (leaf_a, a1) survive in the implicit view; older
+		// ones (a2, a3) are pruned.
+		assert!(
+			state.per_scheduling_parent.contains_key(&leaf_b),
+			"leaf_b's per-scheduling-parent entry must remain",
+		);
+		assert!(
+			!state.per_scheduling_parent.contains_key(&a2),
+			"a2 falls outside leaf_b's retain window and should be pruned",
+		);
+
+		// Request cleanup must follow the same "pruned = gone" rule, keyed on the *pruned*
+		// scheduling parent, not on the deactivated leaf. In particular: requests tied to
+		// ancestors of the deactivated leaf that were pruned (a2) must be removed; requests
+		// tied to still-referenced blocks (leaf_b, leaf_a, a1) must survive.
+		assert_eq!(state.request_manager.requests_count_by_scheduling_parent(a2), 0);
+		assert_eq!(state.request_manager.requests_count_by_scheduling_parent(leaf_b), 1);
+		assert_eq!(state.request_manager.requests_count_by_scheduling_parent(unrelated_sp), 1);
+		// a3 was never in the implicit view at all — its request survives, because cleanup
+		// only targets blocks that were actually pruned from the view.
+		assert_eq!(state.request_manager.requests_count_by_scheduling_parent(a3), 1);
+
+		// `per_session` survives because leaf_b still references SESSION.
+		assert!(state.per_session.contains_key(&SESSION));
+		assert!(state.unused_topologies.contains_key(&SESSION));
 	}
 }

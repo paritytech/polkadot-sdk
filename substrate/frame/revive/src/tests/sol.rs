@@ -20,19 +20,21 @@ use crate::{
 	PristineCode, assert_refcount,
 	call_builder::VmBinaryModule,
 	debug::DebugSettings,
-	evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
+	evm::{PrestateTracer, PrestateTracerConfig},
 	test_utils::{ALICE, ALICE_ADDR, BOB, builder::Contract},
 	tests::{
 		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test, builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 	},
 	tracing::trace,
+	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::fungible::Mutate,
 };
 use pallet_revive_fixtures::{Fibonacci, FixtureType, NestedCounter, compile_module_with_type};
+use pallet_revive_types::runtime_api::*;
 use pretty_assertions::assert_eq;
 use sp_runtime::Weight;
 use test_case::test_case;
@@ -173,12 +175,186 @@ fn basic_evm_flow_tracing_works() {
 	});
 }
 
+/// EVM `sload` must charge proportionally to the actual byte size of the storage
+/// value, not just the EVM word size of 32. The trie's storage values can exceed
+/// 32 bytes when a PVM contract sharing the same namespace (via delegatecall) wrote
+/// them — a fixed 32-byte charge would undercharge the proof space consumed by the
+/// read. The fix charges `STORAGE_BYTES` upfront and refunds the unused portion
+/// based on the actual length read (mirroring `get_storage` in PVM).
+///
+/// Setup: deploy Solc-compiled `Counter`, then directly inject values of different
+/// sizes into its storage at slot 0 (simulating a PVM contract writing there via
+/// shared namespace). Calling `number()` compiles down to `SLOAD(0)`; the 256-byte
+/// read traps (length mismatch) but the gas consumed up to that point reflects the
+/// actual read size.
+///
+/// Without the fix, both 32-byte and 256-byte cases would consume the same gas.
+/// With the fix, the 256-byte case consumes strictly more.
+#[test]
+fn sload_charges_for_actual_storage_value_size() {
+	use crate::exec::Key;
+	use pallet_revive_fixtures::Counter;
+
+	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
+	let measure_with_value_len = |len: usize| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(counter_code.clone()))
+					.build_and_unwrap_contract();
+
+			// Inject a value of the requested length directly into the contract's
+			// storage trie at slot 0 — simulates a PVM contract writing there via
+			// shared namespace (delegatecall).
+			let info = get_contract(&addr);
+			info.write(&Key::Fix([0u8; 32]), Some(vec![0xAAu8; len]), None, false).unwrap();
+
+			// Counter::number() compiles to SLOAD(0). For len != 32 it traps with
+			// ContractTrapped after the read; we still observe the gas consumed.
+			let result = builder::bare_call(addr).data(Counter::numberCall {}.abi_encode()).build();
+			result.gas_consumed
+		})
+	};
+
+	let gas_32: u128 = measure_with_value_len(32);
+	let gas_256: u128 = measure_with_value_len(256);
+
+	// With the fix, the 256-byte read costs strictly more than the 32-byte read.
+	// Without the fix (legacy `GetStorage(32)`), the two would be equal.
+	assert!(
+		gas_256 > gas_32,
+		"sload must charge more for larger storage values: gas_256={gas_256}, gas_32={gas_32}",
+	);
+}
+
+/// Regression: EVM TLOAD must charge gas proportional to the actual length of the transient
+/// value it reads. We inject a value at the EVM-visible `Key::Fix([0; 32])` slot via
+/// `ExecConfig::test_env_transient_storage` — simulating a PVM contract writing a non-32-byte
+/// value there through the shared namespace (delegatecall) — then call a contract whose runtime
+/// is `TLOAD(0)`.
+///
+/// Comparing a `None` read (slot empty → zero) against a 32-byte read keeps both runs on the
+/// same, non-trapping control-flow path, so the only difference in gas is TLOAD's `adjust_weight`
+/// to the actual length read: ~974 gas with the fix, ~1 without. Mirrors
+/// `sload_charges_for_actual_storage_value_size`.
+#[test]
+fn tload_charges_for_actual_transient_value_size() {
+	use crate::{ExecConfig, exec::Key, limits, transient_storage::TransientStorage};
+	use core::cell::RefCell;
+
+	// EVM runtime that reads transient slot 0 and returns it as a 32-byte response:
+	//   PUSH0 TLOAD PUSH0 MSTORE PUSH1 0x20 PUSH0 RETURN
+	let tload_runtime: Vec<u8> = vec![PUSH0, TLOAD, PUSH0, MSTORE, PUSH1, 0x20, PUSH0, RETURN];
+	let tload_code = make_initcode_from_runtime_code(&tload_runtime);
+
+	let measure = |inject: Option<usize>| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr, account_id } =
+				builder::bare_instantiate(Code::Upload(tload_code.clone()))
+					.build_and_unwrap_contract();
+
+			// Pre-populate the EVM-visible transient slot under the callee's namespace. The write
+			// updates the backing store immediately, and the frame's `start_transaction`
+			// checkpoints the journal *after* this entry, so it survives any in-call rollback.
+			let mut transient = TransientStorage::<Test>::new(limits::TRANSIENT_STORAGE_BYTES);
+			if let Some(len) = inject {
+				transient
+					.write(&account_id, &Key::Fix([0u8; 32]), Some(vec![0xAAu8; len]), false)
+					.unwrap();
+			}
+			let mut exec_config = ExecConfig::new_substrate_tx();
+			exec_config.test_env_transient_storage = Some(RefCell::new(transient));
+
+			builder::bare_call(addr).exec_config(exec_config).build().gas_consumed
+		})
+	};
+
+	let delta = measure(Some(32)).saturating_sub(measure(None));
+
+	assert!(
+		delta >= 100,
+		"TLOAD must charge more for a 32-byte read than for a None read: delta={delta} \
+		 (expected ~974 with fix, ~1 without)",
+	);
+}
+
+/// Regression test for paritytech/contract-issues#278 — nested-call variant.
+///
+/// `Stack::call`'s no-code branch (the path taken when a running contract
+/// makes an external call into an account with no code, e.g.
+/// `payable(addr).transfer(...)` or `addr.call{value: ...}("")` to an EOA)
+/// invokes `exit_child_span` with `Default::default()` for both `gas_used`
+/// and `weight_consumed`. The frame meter does charge an existential
+/// deposit when the destination is fresh, so the inner `CallTrace` should
+/// report non-zero `gas_used`, but today it reports zero. The top-level
+/// `Stack::run_call` no-code branch has the same shape and is fixed
+/// separately; this test pins down the nested case.
+#[test]
+fn call_tracing_records_consumption_for_nested_transfer_to_eoa() {
+	use crate::evm::{CallTracer, CallType};
+	use pallet_revive_fixtures::Caller;
+	use sp_core::H160;
+
+	let (caller_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: caller, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		// Pre-fund the caller contract so it has enough balance for the
+		// inner value transfer. Pre-funding directly (rather than via
+		// `evm_value` on `bare_call`) avoids dust/conversion complications.
+		let _ = Pallet::<Test>::set_evm_balance(&caller, 100_000_000_000u128.into());
+
+		// A fresh EOA with no code. The contract's sub-call into this address
+		// hits the no-code branch in `Stack::call`, which charges an
+		// existential deposit through the frame meter.
+		let eoa = H160::from([0xfe; 20]);
+
+		let mut tracer = CallTracer::new(Default::default());
+		trace(&mut tracer, || {
+			builder::bare_call(caller)
+				.data(
+					Caller::normalCall {
+						_callee: eoa.0.into(),
+						_value: 1_000_000,
+						_data: Vec::<u8>::new().into(),
+						_gas: u64::MAX,
+					}
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+		});
+
+		// Sanity: the value actually arrived.
+		assert!(Pallet::<Test>::evm_balance(&eoa) >= 1_000_000.into());
+
+		let trace = tracer.collect_trace().unwrap();
+		let inner =
+			trace.calls.first().expect("CallTrace must contain the contract → EOA sub-call");
+		assert_eq!(inner.to, eoa, "sub-call destination must be the EOA");
+		assert_eq!(inner.call_type, CallType::Call, "sub-call must be a regular CALL");
+		assert!(
+			inner.gas_used > 0,
+			"inner call to a fresh EOA must report non-zero gas_used; got {} — see issue #278",
+			inner.gas_used,
+		);
+	});
+}
+
 #[test]
 fn eth_contract_too_large() {
-	// Generate EVM bytecode that is one byte larger than the EIP-3860 limit.
-	let contract_size = u32::try_from(revm::primitives::eip3860::MAX_INITCODE_SIZE + 1)
-		.expect("usize value doesn't fit in u32");
-	let code = VmBinaryModule::evm_sized(contract_size).code;
+	// Create EVM init code that is one byte larger than the EIP-3860 limit.
+	// We take valid init code and pad it with STOP opcodes after the RETURN instruction
+	// (unreachable but makes the init code blob itself exceed MAX_INITCODE_SIZE).
+	let mut code = VmBinaryModule::evm_init_code_for_runtime_size(0).code;
+	code.resize(revm::primitives::eip3860::MAX_INITCODE_SIZE + 1, revm::bytecode::opcode::STOP);
 
 	for (allow_unlimited_contract_size, debug_flag) in
 		[(true, false), (true, true), (false, false), (false, true)]
@@ -269,7 +445,7 @@ fn upload_and_remove_code_works_for_evm() {
 		assert!(!PristineCode::<Test>::contains_key(&code_hash));
 
 		// Upload the code.
-		assert_ok!(Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64));
+		assert_ok!(Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u128));
 
 		// Ensure the contract was stored.
 		ensure_stored(code_hash);
@@ -290,7 +466,7 @@ fn upload_fails_if_evm_bytecode_disabled() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Upload should fail since support for EVM bytecode is disabled.
 		assert_err!(
-			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64),
+			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u128),
 			<Error<Test>>::CodeRejected
 		);
 	});
@@ -489,9 +665,10 @@ fn prestate_diff_mode_tracing_works() {
 			let instantiate_trace = tracer.collect_trace();
 
 			let expected_json = replace_placeholders(test_case.expected_instantiate_trace_json);
-			let expected_trace: PrestateTrace = serde_json::from_str(&expected_json).unwrap();
+			let expected_trace: PrestateTraceV1 = serde_json::from_str(&expected_json).unwrap();
 			assert_eq!(
-				instantiate_trace, expected_trace,
+				PrestateTraceV1::from(instantiate_trace),
+				expected_trace,
 				"unexpected instantiate trace for {:?}",
 				test_case.config
 			);
@@ -510,9 +687,10 @@ fn prestate_diff_mode_tracing_works() {
 
 			let call_trace = tracer.collect_trace();
 			let expected_json = replace_placeholders(test_case.expected_call_trace_json);
-			let expected_trace: PrestateTrace = serde_json::from_str(&expected_json).unwrap();
+			let expected_trace: PrestateTraceV1 = serde_json::from_str(&expected_json).unwrap();
 			assert_eq!(
-				call_trace, expected_trace,
+				PrestateTraceV1::from(call_trace),
+				expected_trace,
 				"unexpected call trace for {:?}",
 				test_case.config
 			);
@@ -573,7 +751,7 @@ fn eth_substrate_call_tracks_weight_correctly() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
 
 		let inner_call = frame_system::Call::remark { remark: vec![0u8; 100] };
-		let transaction_encoded = vec![];
+		let transaction_encoded = vec![0u8; 200];
 		let transaction_encoded_len = transaction_encoded.len() as u32;
 
 		let result = Pallet::<Test>::eth_substrate_call(
@@ -585,7 +763,10 @@ fn eth_substrate_call_tracks_weight_correctly() {
 		assert_ok!(result);
 		let post_info = result.unwrap();
 
-		let overhead = <Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded_len);
+		let overhead = <Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded_len)
+			.saturating_add(<Test as Config>::WeightInfo::on_finalize_block_per_tx(
+				transaction_encoded_len,
+			));
 		let expected_weight = overhead.saturating_add(inner_call.get_dispatch_info().call_weight);
 		assert!(
 			expected_weight == post_info.actual_weight.unwrap(),
@@ -608,7 +789,7 @@ fn eth_substrate_call_tracks_weight_correctly() {
 #[test]
 fn execution_tracing_works() {
 	use crate::{
-		evm::{Bytes, ExecutionStepKind, ExecutionTrace, ExecutionTracer, ExecutionTracerConfig},
+		evm::{Bytes, ExecutionTrace, ExecutionTracer, ExecutionTracerConfig},
 		tracing::trace,
 	};
 	use pallet_revive_fixtures::{Callee, Caller};
@@ -714,7 +895,7 @@ fn execution_tracing_works() {
 	];
 
 	/// Normalizes trace by zeroing out all dynamic values for stable comparisons.
-	fn normalize_trace(trace: &ExecutionTrace) -> ExecutionTrace {
+	fn normalize_trace(trace: &ExecutionTraceV1) -> ExecutionTraceV1 {
 		use frame_support::weights::Weight;
 
 		let mut normalized = trace.clone();
@@ -728,33 +909,32 @@ fn execution_tracing_works() {
 			step.weight_cost = Weight::zero();
 
 			match &mut step.kind {
-				ExecutionStepKind::EVMOpcode { stack, .. } => {
+				ExecutionStepKindV1::EVMOpcode { stack, .. } => {
 					for val in stack.iter_mut() {
 						*val = Bytes::from(vec![0u8]);
 					}
 				},
-				ExecutionStepKind::PVMSyscall { op, args, returned, .. } => {
+				ExecutionStepKindV1::PVMSyscall { op, args, returned, .. } => {
 					// Normalize call/delegate_call to their _evm variants so
 					// the test passes regardless of which resolc version
 					// compiled the fixtures (older emits call/delegate_call,
 					// newer emits call_evm/delegate_call_evm).
-					use crate::vm::pvm::env::lookup_syscall_index;
-					let call_idx = lookup_syscall_index("call").unwrap();
-					let call_evm_idx = lookup_syscall_index("call_evm").unwrap();
-					let delegate_idx = lookup_syscall_index("delegate_call").unwrap();
-					let delegate_evm_idx = lookup_syscall_index("delegate_call_evm").unwrap();
-					if *op == call_idx || *op == call_evm_idx {
-						*op = call_evm_idx;
-						// Clear args since the two variants have compatible
-						// behavior but different argument layouts.
-						args.clear();
-					} else if *op == delegate_idx || *op == delegate_evm_idx {
-						*op = delegate_evm_idx;
-						args.clear();
-					} else {
-						for val in args.iter_mut() {
-							*val = 0;
-						}
+					match op {
+						PolkavmSyscallV1::Call | PolkavmSyscallV1::CallEvm => {
+							*op = PolkavmSyscallV1::CallEvm;
+							// Clear args since the two variants have compatible behavior but
+							// different argument layouts.
+							args.clear();
+						},
+						PolkavmSyscallV1::DelegateCall | PolkavmSyscallV1::DelegateCallEvm => {
+							*op = PolkavmSyscallV1::DelegateCallEvm;
+							args.clear();
+						},
+						_ => {
+							for val in args.iter_mut() {
+								*val = 0;
+							}
+						},
 					}
 					if returned.is_some() {
 						*returned = Some(0);
@@ -808,12 +988,12 @@ fn execution_tracing_works() {
 				} else {
 					test_case.expected_pvm_trace
 				};
-				let expected: ExecutionTrace = serde_json::from_str(expected_json_str)
+				let expected: ExecutionTraceV1 = serde_json::from_str(expected_json_str)
 					.unwrap_or_else(|e| {
 						panic!("{name} ({vm_type}): failed to parse expected JSON: {e}")
 					});
 				// Normalize both traces for comparison (zeroes out dynamic values)
-				let normalized_actual = normalize_trace(&actual_trace);
+				let normalized_actual = normalize_trace(&actual_trace.clone().into());
 				let normalized_expected = normalize_trace(&expected);
 				assert_eq!(
 					normalized_actual, normalized_expected,

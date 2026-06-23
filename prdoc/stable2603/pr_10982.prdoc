@@ -1,0 +1,12 @@
+title: Meta Transactions - Benchmarking update
+doc:
+- audience: Runtime Dev
+  description: |-
+    Update of benchmarking logic to remove possibility of `quadratic complexity` not being weighted when executed. Introducing witness parameter that would define length of `meta_tx` encoded size.
+
+    Update of weight annotation to `saturating add` instead of `add`.
+crates:
+- name: pallet-meta-tx
+  bump: major
+- name: westend-runtime
+  bump: major

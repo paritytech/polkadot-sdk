@@ -1,5 +1,3 @@
-cargo-features = ["edition2024"]
-
 [package]
 name = "pallet-revive"
 version = "0.1.0"
@@ -36,8 +34,8 @@ num-bigint = { workspace = true }
 num-integer = { workspace = true }
 num-traits = { workspace = true }
 paste = { workspace = true }
-polkavm = { version = "0.30.0", default-features = false }
-polkavm-common = { version = "0.30.0", default-features = false, features = ["alloc"] }
+polkavm = { workspace = true }
+polkavm-common = { workspace = true, features = ["alloc"] }
 rand = { workspace = true, optional = true }
 rand_pcg = { workspace = true, optional = true }
 revm = { workspace = true }
@@ -53,6 +51,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-revive-fixtures = { workspace = true, optional = true }
 pallet-revive-proc-macro = { workspace = true }
+pallet-revive-types = { workspace = true }
 pallet-revive-uapi = { workspace = true, features = ["precompiles-sol-interfaces", "scale"] }
 pallet-transaction-payment = { workspace = true }
 ripemd = { workspace = true }
@@ -62,6 +61,7 @@ sp-consensus-aura = { workspace = true, optional = true }
 sp-consensus-babe = { workspace = true, optional = true }
 sp-consensus-slots = { workspace = true, optional = true }
 sp-core = { workspace = true }
+sp-crypto-hashing = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-version = { workspace = true }
@@ -75,9 +75,13 @@ itertools = { workspace = true }
 pretty_assertions = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
 test-case = { workspace = true }
 
 # Polkadot SDK Dependencies
+pallet-assets = { workspace = true, default-features = true }
+pallet-assets-freezer = { workspace = true, default-features = true }
+pallet-assets-holder = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-proxy = { workspace = true, default-features = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
@@ -109,6 +113,7 @@ std = [
 	"num-traits/std",
 	"pallet-proxy/std",
 	"pallet-revive-fixtures?/std",
+	"pallet-revive-types/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
@@ -128,11 +133,13 @@ std = [
 	"sp-consensus-babe/std",
 	"sp-consensus-slots/std",
 	"sp-core/std",
+	"sp-crypto-hashing/std",
 	"sp-io/std",
 	"sp-keystore/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
 	"sp-version/std",
+	"strum/std",
 	"subxt-signer",
 ]
 runtime-benchmarks = [
@@ -140,6 +147,9 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"k256",
+	"pallet-assets-freezer/runtime-benchmarks",
+	"pallet-assets-holder/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-revive-fixtures",
@@ -156,6 +166,9 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-assets-freezer/try-runtime",
+	"pallet-assets-holder/try-runtime",
+	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-timestamp/try-runtime",

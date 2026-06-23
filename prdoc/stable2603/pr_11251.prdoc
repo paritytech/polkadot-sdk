@@ -1,0 +1,13 @@
+title: 'people: Enable Elastic Scaling with 2 block times for people chain'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR enables elastic scaling:
+    - 3 cores for producing blocks
+    - expected block times for 2s
+
+    Part of:
+    - https://github.com/paritytech/polkadot-sdk/issues/10425
+crates:
+- name: people-westend-runtime
+  bump: patch

@@ -17,20 +17,20 @@
 
 use super::*;
 use async_trait::async_trait;
-use cumulus_primitives_core::relay_chain::{BlockId, CoreIndex};
+use cumulus_primitives_core::relay_chain::{BlockId, CoreIndex, Hash};
 use cumulus_relay_chain_inprocess_interface::{check_block_in_chain, BlockCheckStatus};
 use cumulus_relay_chain_interface::{
 	ChildInfo, OverseerHandle, PHeader, ParaId, RelayChainError, RelayChainResult,
 };
-use cumulus_test_service::runtime::{Block, Hash, Header};
+use cumulus_test_service::runtime::{Block, Header};
 use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt};
 use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::{
 	BlockNumber, CandidateCommitments, CandidateDescriptorV2, CandidateEvent, CollatorPair,
 	CommittedCandidateReceiptV2, CoreState, Hash as PHash, HeadData, InboundDownwardMessage,
-	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
-	SigningContext, ValidationCodeHash, ValidatorId,
+	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
+	SessionIndex, SigningContext, ValidationCodeHash, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{CandidateDescriptor, CommittedCandidateReceipt};
 use polkadot_test_client::{
@@ -363,6 +363,14 @@ impl RelayChainInterface for DummyRelayChainInterface {
 	async fn candidate_events(&self, _: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
 		unimplemented!("Not needed for test")
 	}
+
+	async fn max_relay_parent_session_age(&self, _at: PHash) -> RelayChainResult<u32> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn node_features(&self, _at: PHash) -> RelayChainResult<NodeFeatures> {
+		unimplemented!("Not needed for test")
+	}
 }
 
 fn make_validator_and_api() -> (
@@ -441,7 +449,7 @@ async fn make_gossip_message_and_header(
 	.flatten()
 	.expect("Signing statement");
 
-	(CollationSecondedSignal { statement: signed, relay_parent }, header)
+	(CollationSecondedSignal { statement: signed, scheduling_parent: relay_parent }, header)
 }
 
 #[test]

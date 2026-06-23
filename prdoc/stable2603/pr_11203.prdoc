@@ -1,0 +1,10 @@
+title: 'asset-hub-westend: restrict StakingOperator proxy to explicit utility  batch
+  calls'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Replace the RuntimeCall::Utility { .. } wildcard with explicit batch, batch_all, and force_batch calls only.
+    The wildcard unnecessarily exposed as_derivative, dispatch_as, and with_weight which have no legitimate use for staking operations, and future utility pallet additions would be automatically exposed.
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
