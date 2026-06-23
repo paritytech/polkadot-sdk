@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782196339952,
+  "lastUpdate": 1782201064383,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "920dd6dce169bae2b70c81f74b00643b7a8ef55a",
-          "message": "pallet_revive: Improve logging (#10157)\n\nJust added some more information to the log output during dry_run and\ntransaction creation. This was helpful when debugging if the correct gas\nwas passed in by the client.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-29T22:18:44Z",
-          "tree_id": "09fef4f6d7e42d438697564c39be6b546e066991",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/920dd6dce169bae2b70c81f74b00643b7a8ef55a"
-        },
-        "date": 1761781042110,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002690474440000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008771241919999988,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005086660709999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0026196374700000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e093bace983234f2466d70964736f512d2dc78fe",
+          "message": "cargo: Bump litep2p to 0.14.3 (#12432)\n\nThis patch release is dedicated entirely to strengthening the WebRTC\ntransport layer, specifically focusing on connection resilience and\nbuild stability.\n\n### Fixed\n\n- fix(webrtc): decode errors during opening phase are not recoverable\n([#622](https://github.com/paritytech/litep2p/pull/622))\n- fix(webrtc): build vendored OpenSSL for str0m\n([#620](https://github.com/paritytech/litep2p/pull/620))\n- fix(webrtc): time out inbound and outbound opening data channels\n([#617](https://github.com/paritytech/litep2p/pull/617))\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-23T06:17:27Z",
+          "tree_id": "b18ee08e8dd34db18a1dbd2701ad991ed503f07f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e093bace983234f2466d70964736f512d2dc78fe"
+        },
+        "date": 1782201037819,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009534515309999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00265849234,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010746675019999992,
             "unit": "seconds"
           }
         ]
