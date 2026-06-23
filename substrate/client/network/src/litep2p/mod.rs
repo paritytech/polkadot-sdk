@@ -93,6 +93,7 @@ use std::{
 };
 
 mod bitswap;
+mod bitswap_metrics;
 mod discovery;
 mod ipfs_dht;
 mod peerstore;
@@ -349,6 +350,14 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	where
 		Self: Sized,
 	{
+		// Install the ring CryptoProvider for rustls before any TLS connections are made.
+		if let Err(err) = rustls::crypto::ring::default_provider().install_default() {
+			log::warn!(
+				target: LOG_TARGET,
+				"failed to install ring CryptoProvider for rustls, another provider might be installed: {err:?}",
+			);
+		}
+
 		let (keypair, local_peer_id) =
 			Self::get_keypair(&params.network_config.network_config.node_key)?;
 		let (cmd_tx, cmd_rx) = tracing_unbounded("mpsc_network_worker", 100_000);
@@ -623,8 +632,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	/// Create Bitswap server.
 	fn bitswap_server(
 		client: Arc<dyn BlockBackend<B> + Send + Sync>,
+		metrics_registry: Option<Registry>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig) {
-		BitswapService::new(client)
+		BitswapService::new(client, metrics_registry.as_ref())
 	}
 
 	/// Create notification protocol configuration for `protocol`.

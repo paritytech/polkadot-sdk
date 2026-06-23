@@ -14,9 +14,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//! Define Byte wrapper types for encoding and decoding hex strings
 
-use super::hex_serde::HexCodec;
+use crate::common::hex_serde::HexCodec;
 use alloc::{vec, vec::Vec};
 use alloy_core::hex;
 use codec::{Decode, DecodeWithMemTracking, Encode};
@@ -39,7 +38,7 @@ macro_rules! impl_hex {
     ($type:ident, $inner:ty, $default:expr) => {
         #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, TypeInfo, Clone, Serialize, Deserialize, Hash, DecodeWithMemTracking)]
         #[doc = concat!("`", stringify!($inner), "`", " wrapper type for encoding and decoding hex strings")]
-        pub struct $type(#[serde(with = "crate::evm::api::hex_serde")] pub $inner);
+        pub struct $type(#[serde(with = "crate::common::hex_serde")] pub $inner);
 
         impl Default for $type {
             fn default() -> Self {
@@ -94,34 +93,39 @@ impl_hex!(Bytes8, [u8; 8], [0u8; 8]);
 impl_hex!(Bytes32, [u8; 32], [0u8; 32]);
 impl_hex!(Bytes256, [u8; 256], [0u8; 256]);
 
-#[test]
-fn test_to_short_hex() {
-	let bytes = Bytes(crate::U256::from(4).to_big_endian().to_vec());
-	assert_eq!(bytes.to_short_hex(), "0x4");
-}
+#[cfg(test)]
+mod tests {
+	use super::*;
 
-#[test]
-fn test_to_hex_no_prefix() {
-	let bytes = Bytes(vec![0x12, 0x34, 0x56, 0x78]);
-	assert_eq!(bytes.to_hex_no_prefix(), "12345678");
-}
+	#[test]
+	fn test_to_short_hex() {
+		let bytes = Bytes(sp_core::U256::from(4).to_big_endian().to_vec());
+		assert_eq!(bytes.to_short_hex(), "0x4");
+	}
 
-#[test]
-fn serialize_works() {
-	let a = Byte(42);
-	let s = serde_json::to_string(&a).unwrap();
-	assert_eq!(s, "\"0x2a\"");
-	let b = serde_json::from_str::<Byte>(&s).unwrap();
-	assert_eq!(a, b);
+	#[test]
+	fn test_to_hex_no_prefix() {
+		let bytes = Bytes(vec![0x12, 0x34, 0x56, 0x78]);
+		assert_eq!(bytes.to_hex_no_prefix(), "12345678");
+	}
 
-	let a = Bytes(b"bello world".to_vec());
-	let s = serde_json::to_string(&a).unwrap();
-	assert_eq!(s, "\"0x62656c6c6f20776f726c64\"");
-	let b = serde_json::from_str::<Bytes>(&s).unwrap();
-	assert_eq!(a, b);
+	#[test]
+	fn serialize_works() {
+		let a = Byte(42);
+		let s = serde_json::to_string(&a).unwrap();
+		assert_eq!(s, "\"0x2a\"");
+		let b = serde_json::from_str::<Byte>(&s).unwrap();
+		assert_eq!(a, b);
 
-	let a = Bytes256([42u8; 256]);
-	let s = serde_json::to_string(&a).unwrap();
-	let b = serde_json::from_str::<Bytes256>(&s).unwrap();
-	assert_eq!(a, b);
+		let a = Bytes(b"bello world".to_vec());
+		let s = serde_json::to_string(&a).unwrap();
+		assert_eq!(s, "\"0x62656c6c6f20776f726c64\"");
+		let b = serde_json::from_str::<Bytes>(&s).unwrap();
+		assert_eq!(a, b);
+
+		let a = Bytes256([42u8; 256]);
+		let s = serde_json::to_string(&a).unwrap();
+		let b = serde_json::from_str::<Bytes256>(&s).unwrap();
+		assert_eq!(a, b);
+	}
 }

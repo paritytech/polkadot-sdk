@@ -4077,6 +4077,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28c122c3980598d243d63d9a704629a2d748d101f278052ff068be5a4423ab6f"
 
 [[package]]
+name = "const-oid"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
+
+[[package]]
 name = "const-random"
 version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4889,6 +4895,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-client-collator-discovery"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "futures-timer",
+ "log",
+ "sc-authority-discovery",
+ "sc-network 0.34.0",
+ "sc-network-sync",
+ "sc-service",
+ "sp-api 26.0.0",
+ "sp-authority-discovery",
+ "sp-blockchain 28.0.0",
+ "sp-core 28.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "substrate-prometheus-endpoint 0.17.0",
+]
+
+[[package]]
 name = "cumulus-client-consensus-aura"
 version = "0.7.0"
 dependencies = [
@@ -5156,6 +5182,7 @@ dependencies = [
  "cumulus-test-relay-sproof-builder",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-aura",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -5521,7 +5548,6 @@ dependencies = [
 name = "cumulus-relay-chain-minimal-node"
 version = "0.7.0"
 dependencies = [
- "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "async-trait",
  "cumulus-client-bootnodes",
@@ -5540,6 +5566,7 @@ dependencies = [
  "sc-client-api 28.0.0",
  "sc-network 0.34.0",
  "sc-network-common 0.33.0",
+ "sc-network-sync",
  "sc-service",
  "sc-tracing",
  "sc-utils 14.0.0",
@@ -5670,6 +5697,7 @@ dependencies = [
  "frame-system",
  "frame-system-rpc-runtime-api",
  "pallet-aura",
+ "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-balances",
  "pallet-glutton",
@@ -5684,6 +5712,7 @@ dependencies = [
  "scale-info",
  "serde_json",
  "sp-api 26.0.0",
+ "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 28.0.0",
@@ -5710,6 +5739,7 @@ dependencies = [
  "criterion",
  "cumulus-client-cli",
  "cumulus-client-collator",
+ "cumulus-client-collator-discovery",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
  "cumulus-client-parachain-inherent",
@@ -5828,6 +5858,7 @@ dependencies = [
  "sp-version 29.0.0",
  "subxt 0.44.2",
  "subxt 0.50.0",
+ "subxt-signer 0.44.2",
  "subxt-signer 0.50.0",
  "tokio",
  "verifiable",
@@ -6089,7 +6120,7 @@ version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fffa369a668c8af7dbf8b5e56c9f744fbd399949ed171606040001947de40b1c"
 dependencies = [
- "const-oid",
+ "const-oid 0.9.5",
  "pem-rfc7468",
  "zeroize",
 ]
@@ -6268,7 +6299,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer 0.10.4",
- "const-oid",
+ "const-oid 0.9.5",
  "crypto-common 0.1.6",
  "subtle 2.6.1",
 ]
@@ -6280,6 +6311,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
 dependencies = [
  "block-buffer 0.12.0",
+ "const-oid 0.10.2",
  "crypto-common 0.2.1",
 ]
 
@@ -10784,9 +10816,9 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
-version = "0.14.0"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68e9c1a55534ab498c75dac677475818b74eebbdf8132cc47783e257b1921228"
+checksum = "67508e7500fe69a99a038d2fba84fb30f23cac9d98bfeb7f5a1389ddd137b579"
 dependencies = [
  "async-trait",
  "bs58",
@@ -10812,7 +10844,7 @@ dependencies = [
  "rand 0.8.5",
  "ring 0.17.14",
  "serde",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "simple-dns 0.11.0",
  "smallvec",
  "snow",
@@ -14249,6 +14281,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-revive-fixtures",
  "pallet-revive-proc-macro",
+ "pallet-revive-types",
  "pallet-revive-uapi",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -14281,6 +14314,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-tracing 16.0.0",
  "sp-version 29.0.0",
+ "strum 0.26.3",
  "substrate-bn",
  "subxt-signer 0.44.2",
  "test-case",
@@ -14309,6 +14343,7 @@ dependencies = [
  "log",
  "pallet-revive",
  "pallet-revive-fixtures",
+ "pallet-revive-types",
  "parity-scale-codec",
  "pretty_assertions",
  "revive-dev-node",
@@ -14361,6 +14396,24 @@ dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
+]
+
+[[package]]
+name = "pallet-revive-types"
+version = "0.1.0"
+dependencies = [
+ "alloy-core",
+ "derive_more 0.99.17",
+ "num-traits",
+ "num_enum",
+ "parity-scale-codec",
+ "revm-bytecode",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-core 28.0.0",
+ "sp-weights 27.0.0",
+ "strum 0.26.3",
 ]
 
 [[package]]
@@ -15418,7 +15471,6 @@ dependencies = [
  "cumulus-primitives-utility",
  "frame-support",
  "frame-system",
- "pallet-asset-tx-payment",
  "pallet-assets",
  "pallet-authorship",
  "pallet-balances",
@@ -16253,13 +16305,19 @@ dependencies = [
  "itertools 0.11.0",
  "kvdb-memorydb",
  "parity-scale-codec",
+ "polkadot-collator-protocol-test-sim-macros",
+ "polkadot-node-clock",
+ "polkadot-node-core-backing",
+ "polkadot-node-core-prospective-parachains",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
  "polkadot-node-subsystem-util",
+ "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "polkadot-subsystem-test-sim",
  "rstest",
  "sc-keystore",
  "sc-network 0.34.0",
@@ -16277,6 +16335,15 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing-gum",
+]
+
+[[package]]
+name = "polkadot-collator-protocol-test-sim-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2 1.0.95",
+ "quote 1.0.40",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -16404,6 +16471,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-node-clock"
+version = "7.0.0"
+dependencies = [
+ "futures",
+ "futures-timer",
+ "tokio",
+]
+
+[[package]]
 name = "polkadot-node-collation-generation"
 version = "7.0.0"
 dependencies = [
@@ -16508,8 +16584,8 @@ dependencies = [
  "futures-timer",
  "kvdb-memorydb",
  "parity-scale-codec",
- "parking_lot 0.12.3",
  "polkadot-erasure-coding",
+ "polkadot-node-clock",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
@@ -16628,6 +16704,7 @@ dependencies = [
  "kvdb-memorydb",
  "parity-scale-codec",
  "parking_lot 0.12.3",
+ "polkadot-node-clock",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
@@ -16648,6 +16725,7 @@ dependencies = [
  "futures-timer",
  "kvdb-memorydb",
  "parity-scale-codec",
+ "polkadot-node-clock",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
@@ -16694,6 +16772,7 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "polkadot-subsystem-test-sim",
  "rand 0.8.5",
  "rstest",
  "schnellru",
@@ -17059,6 +17138,7 @@ dependencies = [
  "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
+ "cumulus-client-collator-discovery",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-relay-chain",
@@ -17087,6 +17167,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-cli",
  "polkadot-primitives",
+ "sc-authority-discovery",
  "sc-basic-authorship",
  "sc-chain-spec 28.0.0",
  "sc-cli",
@@ -17116,6 +17197,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api 26.0.0",
+ "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus 0.32.0",
  "sp-consensus-aura",
@@ -17440,6 +17522,7 @@ dependencies = [
  "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
+ "cumulus-client-collator-discovery",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-relay-chain",
@@ -17583,6 +17666,7 @@ dependencies = [
  "pallet-remark",
  "pallet-revive",
  "pallet-revive-proc-macro",
+ "pallet-revive-types",
  "pallet-revive-uapi",
  "pallet-root-offences",
  "pallet-root-testing",
@@ -17637,6 +17721,7 @@ dependencies = [
  "polkadot-erasure-coding",
  "polkadot-gossip-support",
  "polkadot-network-bridge",
+ "polkadot-node-clock",
  "polkadot-node-collation-generation",
  "polkadot-node-core-approval-voting",
  "polkadot-node-core-approval-voting-parallel",
@@ -18004,6 +18089,7 @@ dependencies = [
  "polkadot-dispute-distribution",
  "polkadot-gossip-support",
  "polkadot-network-bridge",
+ "polkadot-node-clock",
  "polkadot-node-collation-generation",
  "polkadot-node-core-approval-voting",
  "polkadot-node-core-approval-voting-parallel",
@@ -18196,6 +18282,39 @@ dependencies = [
  "tikv-jemallocator",
  "tokio",
  "tracing-gum",
+]
+
+[[package]]
+name = "polkadot-subsystem-test-sim"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "parity-scale-codec",
+ "polkadot-node-clock",
+ "polkadot-node-network-protocol",
+ "polkadot-node-primitives",
+ "polkadot-node-subsystem",
+ "polkadot-node-subsystem-test-helpers",
+ "polkadot-overseer",
+ "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
+ "sc-network 0.34.0",
+ "sc-network-types 0.10.0",
+ "sp-consensus-babe",
+ "sp-consensus-slots",
+ "sp-core 28.0.0",
+ "sp-keyring",
+ "sp-runtime 31.0.1",
+ "tracing-subscriber 0.3.19",
+]
+
+[[package]]
+name = "polkadot-subsystem-test-sim-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2 1.0.95",
+ "quote 1.0.40",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -19950,6 +20069,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "66c52031b73cae95d84cd1b07725808b5fd1500da3e5e24574a3b2dc13d9f16d"
 dependencies = [
  "bitvec",
+ "paste",
  "phf",
  "revm-primitives",
  "serde",
@@ -20366,7 +20486,7 @@ version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af6c4b23d99685a1408194da11270ef8e9809aff951cc70ec9b17350b087e474"
 dependencies = [
- "const-oid",
+ "const-oid 0.9.5",
  "digest 0.10.7",
  "num-bigint-dig",
  "num-integer",
@@ -21753,7 +21873,7 @@ dependencies = [
  "ip_network",
  "libp2p",
  "linked_hash_set",
- "litep2p 0.14.0",
+ "litep2p 0.14.3",
  "log",
  "mockall",
  "multihash-codetable",
@@ -21765,6 +21885,7 @@ dependencies = [
  "prost 0.12.6",
  "prost-build 0.13.2",
  "rand 0.8.5",
+ "rustls 0.23.31",
  "sc-block-builder",
  "sc-client-api 28.0.0",
  "sc-network-common 0.33.0",
@@ -22040,7 +22161,7 @@ dependencies = [
  "ed25519-dalek",
  "libp2p-identity",
  "libp2p-kad",
- "litep2p 0.14.0",
+ "litep2p 0.14.3",
  "log",
  "multiaddr 0.18.2",
  "multihash 0.19.5",

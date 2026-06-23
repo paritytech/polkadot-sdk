@@ -51,6 +51,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-revive-fixtures = { workspace = true, optional = true }
 pallet-revive-proc-macro = { workspace = true }
+pallet-revive-types = { workspace = true }
 pallet-revive-uapi = { workspace = true, features = ["precompiles-sol-interfaces", "scale"] }
 pallet-transaction-payment = { workspace = true }
 ripemd = { workspace = true }
@@ -75,6 +76,7 @@ k256 = { features = ["alloc", "ecdsa"], workspace = true }
 pretty_assertions = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
 test-case = { workspace = true }
 
 # Polkadot SDK Dependencies
@@ -113,6 +115,7 @@ std = [
 	"num-traits/std",
 	"pallet-proxy/std",
 	"pallet-revive-fixtures?/std",
+	"pallet-revive-types/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
@@ -138,6 +141,7 @@ std = [
 	"sp-runtime/std",
 	"sp-state-machine/std",
 	"sp-version/std",
+	"strum/std",
 	"subxt-signer",
 ]
 runtime-benchmarks = [
