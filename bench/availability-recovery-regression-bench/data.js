@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782240442503,
+  "lastUpdate": 1782254248175,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "38e365842debbd5044b9b03d3da5378123cf53d7",
-          "message": "Cumulus: pre-connect to backers before own slot (#9929)\n\nOn top of https://github.com/paritytech/polkadot-sdk/pull/9178.\nImplements a mechanism to pre-connect to backers, see\nhttps://github.com/paritytech/polkadot-sdk/issues/9767#issuecomment-3306292493\n\nHow it works:\n- connect to backers 6s before own slot starts\n- disconnect from all backers and stop connecting as the RC advances if\nown slot has finished\n\nTODO:\n- [x] fix collator protocol tests\n- [x] Explicitly disconnect from all backers when own slot has passed\n- [x] add test coverage for new connect/disconnect notifications\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-11-03T08:16:15Z",
-          "tree_id": "559e93d2302c36f39cdae9019485d795ee1ebace",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38e365842debbd5044b9b03d3da5378123cf53d7"
-        },
-        "date": 1762162079339,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.6066299751,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20312487526666664,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.982412127666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2a3365c7f6d685c8e1cc8e72d80f1108886e0ffd",
+          "message": "CI: Get it green again (link-checker + check-macos-crates) (#12361)\n\nSince brew 6.0 llvm post-install step fails. But I think we can just\ndisable it for our purposes.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-23T20:46:20Z",
+          "tree_id": "3dbe12bd1faafb4cfa725c4dd6004fe056aa3bbf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2a3365c7f6d685c8e1cc8e72d80f1108886e0ffd"
+        },
+        "date": 1782254218962,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1371722834,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.088773026600002,
             "unit": "seconds"
           }
         ]
