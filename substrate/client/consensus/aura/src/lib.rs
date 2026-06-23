@@ -614,7 +614,7 @@ mod tests {
 		Box<
 			dyn CreateInherentDataProviders<
 				TestBlock,
-				(),
+				sp_inherents::InherentContext<TestBlock>,
 				InherentDataProviders = (InherentDataProvider,),
 			>,
 		>,

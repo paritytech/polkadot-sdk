@@ -218,7 +218,7 @@ impl TestNetFactory for BabeTestNet {
 			config,
 			client.clone(),
 			client.clone(),
-			Arc::new(move |_, _| async {
+			Arc::new(move |_, _context: sp_inherents::InherentContext<TestBlock>| async {
 				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 				let slot = InherentDataProvider::from_timestamp_and_slot_duration(
 					*timestamp,

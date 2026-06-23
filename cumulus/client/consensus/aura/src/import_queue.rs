@@ -31,7 +31,7 @@ use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
-use sp_inherents::CreateInherentDataProviders;
+use sp_inherents::{CreateInherentDataProviders, InherentContext};
 use sp_runtime::traits::Block as BlockT;
 use std::{fmt::Debug, sync::Arc};
 
@@ -83,7 +83,7 @@ where
 	P::Public: Debug + Codec,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
-	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
+	CIDP: CreateInherentDataProviders<Block, InherentContext<Block>> + Sync + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	sc_consensus_aura::import_queue::<P, _, _, _, _, _>(sc_consensus_aura::ImportQueueParams {

@@ -120,7 +120,7 @@ use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, 
 use sp_consensus_babe::{inherents::BabeInherentData, SlotDuration};
 use sp_consensus_slots::Slot;
 use sp_core::traits::SpawnEssentialNamed;
-use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
+use sp_inherents::{CreateInherentDataProviders, InherentContext, InherentDataProvider};
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
@@ -1179,7 +1179,7 @@ where
 		+ Send
 		+ Sync,
 	Client::Api: BlockBuilderApi<Block> + BabeApi<Block> + ApiExt<Block>,
-	CIDP: CreateInherentDataProviders<Block, ()>,
+	CIDP: CreateInherentDataProviders<Block, InherentContext<Block>>,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 	SC: sp_consensus::SelectChain<Block> + 'static,
 {
@@ -1245,20 +1245,19 @@ where
 		let parent_hash = *block.header.parent_hash();
 		let number = *block.header.number();
 
-		let create_inherent_data_providers = self
+		let proposing_inherent_data_providers = self
 			.create_inherent_data_providers
-			.create_inherent_data_providers(parent_hash, ())
+			.create_inherent_data_providers(parent_hash, InherentContext::Proposing)
 			.await?;
 
-		let slot_now = create_inherent_data_providers.slot();
+		let slot_now = proposing_inherent_data_providers.slot();
 
 		let babe_pre_digest = find_pre_digest::<Block>(&block.header)
 			.map_err(|e| ConsensusError::Other(Box::new(e)))?;
 		let slot = babe_pre_digest.slot();
 
 		// Check inherents.
-		self.check_inherents(block, parent_hash, slot, create_inherent_data_providers)
-			.await?;
+		self.check_inherents(block, parent_hash, slot).await?;
 
 		// Check for equivocation and report it to the runtime if needed.
 		let author = {
@@ -1300,13 +1299,22 @@ where
 		block: &mut BlockImportParams<Block>,
 		at_hash: Block::Hash,
 		slot: Slot,
-		create_inherent_data_providers: CIDP::InherentDataProviders,
 	) -> Result<(), ConsensusError> {
 		if block.state_action.skip_execution_checks() {
 			return Ok(());
 		}
 
 		if let Some(inner_body) = block.body.take() {
+			let create_inherent_data_providers = self
+				.create_inherent_data_providers
+				.create_inherent_data_providers(
+					at_hash,
+					InherentContext::Verifying {
+						header: block.header.clone(),
+						post_hash: block.post_hash(),
+					},
+				)
+				.await?;
 			let new_block = Block::new(block.header.clone(), inner_body);
 			// if the body is passed through and the block was executed,
 			// we need to use the runtime to check that the internally-set
@@ -1450,7 +1458,7 @@ where
 		+ Send
 		+ Sync,
 	Client::Api: BlockBuilderApi<Block> + BabeApi<Block> + ApiExt<Block>,
-	CIDP: CreateInherentDataProviders<Block, ()>,
+	CIDP: CreateInherentDataProviders<Block, InherentContext<Block>>,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 	SC: SelectChain<Block> + 'static,
 {

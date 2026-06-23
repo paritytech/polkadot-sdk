@@ -220,7 +220,7 @@ pub fn new_partial(
 		ImportQueueParams {
 			block_import: block_import.clone(),
 			client: client.clone(),
-			create_inherent_data_providers: move |_, ()| async move {
+			create_inherent_data_providers: move |_, _context| async move {
 				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
 				let slot =

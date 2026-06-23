@@ -276,7 +276,7 @@ pub fn new_partial(
 		babe_config,
 		beefy_block_import,
 		client.clone(),
-		Arc::new(move |_, _| async move {
+		Arc::new(move |_parent, _context: sp_inherents::InherentContext<Block>| async move {
 			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 			let slot =
 			sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(

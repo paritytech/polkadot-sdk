@@ -1,0 +1,20 @@
+title: Add InherentContext for verification-time inherent data providers
+doc:
+- audience: Node Dev
+  description: |-
+    `CreateInherentDataProviders` can now receive an explicit `InherentContext` in Aura and BABE import paths.
+
+    This distinguishes block production (`Proposing`) from block verification (`Verifying { header, post_hash }`), allowing verification-time CIDPs to reconstruct inherent data that depends on the block being checked, such as header digests. Existing `()`-based CIDPs need to update these import-path signatures when used with Aura or BABE verification.
+crates:
+- name: sp-inherents
+  bump: minor
+- name: sp-consensus-babe
+  bump: patch
+- name: sc-consensus-aura
+  bump: minor
+- name: sc-consensus-babe
+  bump: minor
+- name: polkadot-service
+  bump: patch
+- name: cumulus-client-consensus-aura
+  bump: patch

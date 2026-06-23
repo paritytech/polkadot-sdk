@@ -30,7 +30,7 @@ pub type InherentType = sp_consensus_slots::Slot;
 pub type BabeCreateInherentDataProviders<Block> = std::sync::Arc<
 	dyn sp_inherents::CreateInherentDataProviders<
 		Block,
-		(),
+		sp_inherents::InherentContext<Block>,
 		InherentDataProviders = (InherentDataProvider, sp_timestamp::InherentDataProvider),
 	>,
 >;

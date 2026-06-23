@@ -39,7 +39,7 @@ use sp_consensus::Error as ConsensusError;
 use sp_consensus_aura::{inherents::AuraInherentData, AuraApi};
 use sp_consensus_slots::Slot;
 use sp_core::crypto::Pair;
-use sp_inherents::{CreateInherentDataProviders, InherentDataProvider as _};
+use sp_inherents::{CreateInherentDataProviders, InherentContext, InherentDataProvider as _};
 use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor},
 	DigestItem,
@@ -142,7 +142,7 @@ where
 	P: Pair,
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
-	CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
+	CIDP: CreateInherentDataProviders<B, InherentContext<B>> + Send + Sync,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	async fn verify(
@@ -171,18 +171,13 @@ where
 		)
 		.map_err(|e| format!("Could not fetch authorities at {:?}: {}", parent_hash, e))?;
 
-		let create_inherent_data_providers = self
+		let proposing_inherent_data_providers = self
 			.create_inherent_data_providers
-			.create_inherent_data_providers(parent_hash, ())
+			.create_inherent_data_providers(parent_hash, InherentContext::Proposing)
 			.await
 			.map_err(|e| Error::<B>::Client(sp_blockchain::Error::Application(e)))?;
 
-		let mut inherent_data = create_inherent_data_providers
-			.create_inherent_data()
-			.await
-			.map_err(Error::<B>::Inherent)?;
-
-		let slot_now = create_inherent_data_providers.slot();
+		let slot_now = proposing_inherent_data_providers.slot();
 
 		// we add one to allow for some small drift.
 		// FIXME #1019 in the future, alter this queue to allow deferring of
@@ -197,12 +192,27 @@ where
 		)
 		.map_err(|e| e.to_string())?;
 		match checked_header {
-			CheckedHeader::Checked(pre_header, (slot, seal)) => {
+			CheckedHeader::Checked(mut pre_header, (slot, seal)) => {
 				// if the body is passed through, we need to use the runtime
 				// to check that the internally-set timestamp in the inherents
 				// actually matches the slot set in the seal.
 				if let Some(inner_body) = block.body.take() {
-					let new_block = B::new(pre_header.clone(), inner_body);
+					let context_header = pre_header.clone();
+					let new_block = B::new(pre_header, inner_body);
+
+					let create_inherent_data_providers = self
+						.create_inherent_data_providers
+						.create_inherent_data_providers(
+							parent_hash,
+							InherentContext::Verifying { header: context_header, post_hash: hash },
+						)
+						.await
+						.map_err(|e| Error::<B>::Client(sp_blockchain::Error::Application(e)))?;
+
+					let mut inherent_data = create_inherent_data_providers
+						.create_inherent_data()
+						.await
+						.map_err(Error::<B>::Inherent)?;
 
 					inherent_data.aura_replace_inherent_data(slot);
 
@@ -225,7 +235,8 @@ where
 						.map_err(|e| format!("Error checking block inherents {:?}", e))?;
 					}
 
-					let (_, inner_body) = new_block.deconstruct();
+					let (checked_pre_header, inner_body) = new_block.deconstruct();
+					pre_header = checked_pre_header;
 					block.body = Some(inner_body);
 				}
 
@@ -339,7 +350,7 @@ where
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
-	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
+	CIDP: CreateInherentDataProviders<Block, InherentContext<Block>> + Sync + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	let verifier = build_verifier::<P, _, _, _>(BuildVerifierParams {
