@@ -34,14 +34,6 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		::sp_runtime::OpaqueExtrinsic
 		>>"
 	),
-	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::Trace",
-		with = "::subxt::utils::Static<::pallet_revive::evm::Trace>"
-	),
-	substitute_type(
-		path = "pallet_revive::evm::api::debug_rpc_types::TracerType",
-		with = "::subxt::utils::Static<::pallet_revive::evm::TracerType>"
-	),
 
 	substitute_type(
 		path = "pallet_revive::evm::api::rpc_types_gen::GenericTransaction",
@@ -79,6 +71,97 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		path = "pallet_revive::evm::block_hash::ReceiptGasInfo",
 		with = "::subxt::utils::Static<::pallet_revive::evm::ReceiptGasInfo>"
 	),
+
+	// Versioning replacements
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::tracer::TracerTypeV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TracerTypeV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::tracer::CallTracerConfigV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallTracerConfigV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::tracer::PrestateTracerConfigV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PrestateTracerConfigV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::tracer::ExecutionTracerConfigV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionTracerConfigV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::TraceV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::TraceV2",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceV2>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::CallTraceV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallTraceV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::CallTraceV2",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallTraceV2>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::PrestateTraceV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PrestateTraceV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::ExecutionTraceV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionTraceV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::CallLogV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallLogV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::CallLogV2",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallLogV2>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::CallTypeV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallTypeV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::PrestateTraceInfoV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PrestateTraceInfoV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::ExecutionStepV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionStepV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::ExecutionStepKindV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionStepKindV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockInputPayloadV1<Block>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockInputPayloadV1<Block>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockInputPayloadV2<Block>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockInputPayloadV2<Block>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockVersionedInputPayload<Block>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockVersionedInputPayload<Block>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockOutputPayloadV2",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockOutputPayloadV2>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockVersionedOutputPayload>"
+	),
+
 	derive_for_all_types = "codec::Encode, codec::Decode"
 )]
 mod src_chain {}
