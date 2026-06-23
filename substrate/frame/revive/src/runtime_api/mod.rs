@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod block_hash;
 mod trace_block;
 
+pub use block_hash::*;
 pub use trace_block::*;

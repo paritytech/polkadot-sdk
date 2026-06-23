@@ -2880,6 +2880,7 @@ sp_api::decl_runtime_apis! {
 		fn eth_block() -> EthBlock;
 
 		/// Returns the ETH block hash for the given block number.
+		#[deprecated(note = "Use the versioned equivalent `eth_block_hash_versioned` if available on your runtime")]
 		fn eth_block_hash(number: U256) -> Option<H256>;
 
 		/// The details needed to reconstruct the receipt information offchain.
@@ -3045,6 +3046,9 @@ sp_api::decl_runtime_apis! {
 		fn new_balance_with_dust(balance: U256) -> Result<(Balance, u32), BalanceConversionError>;
 
 		/* Versioned Runtime APIs */
+
+		#[api_version(2)]
+		fn eth_block_hash_versioned(input: BlockHashVersionedInputPayload) -> BlockHashVersionedOutputPayload;
 
 		#[api_version(2)]
 		fn trace_block_versioned(input: TraceBlockVersionedInputPayload<Block>) -> TraceBlockVersionedOutputPayload;
@@ -3365,6 +3369,29 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				/* Versioned Runtime APIs */
+				fn eth_block_hash_versioned(
+					input: $crate::pallet_revive_types::runtime_api::BlockHashVersionedInputPayload
+				) -> $crate::pallet_revive_types::runtime_api::BlockHashVersionedOutputPayload {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(BlockHashOutputPayload) -> BlockHashVersionedOutputPayload>,
+					) = match input {
+						BlockHashVersionedInputPayload::V1(payload) => (
+							BlockHashInputPayload::from(payload),
+							Box::new(|output| BlockHashVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let output = BlockHashOutputPayload {
+						block_hash: $crate::Pallet::<Self>::eth_block_hash_from_number(input.block_number)
+					};
+					output_wrapper(output)
+				}
+
 				fn trace_block_versioned(
 					input: $crate::pallet_revive_types::runtime_api::TraceBlockVersionedInputPayload<Block>
 				) -> $crate::pallet_revive_types::runtime_api::TraceBlockVersionedOutputPayload {
