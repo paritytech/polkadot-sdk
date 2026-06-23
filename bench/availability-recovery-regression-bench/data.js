@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782196199620,
+  "lastUpdate": 1782200925473,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "35823283+jpserrat@users.noreply.github.com",
-            "name": "jpserrat",
-            "username": "jpserrat"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "38945d6a8b61c7f16b08f3b51bc28230270e882a",
-          "message": "add default xcm delivery fees configurations for parachain template (#10117)\n\n# Description\nAdding default delivery fees configuration to both HRMP and UMP in the\nparachain template\nCloses #10114\nHey @franciscoaguirre, I've used the same configurations that we have in\nother parachains, please let me know if anything have to be adjusted!\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-10-31T09:45:04Z",
-          "tree_id": "60fd8b810a05043470cd87193c8dfbeffe8a51dc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38945d6a8b61c7f16b08f3b51bc28230270e882a"
-        },
-        "date": 1761908030125,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.655813359666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19985554666666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13774607196666663,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e093bace983234f2466d70964736f512d2dc78fe",
+          "message": "cargo: Bump litep2p to 0.14.3 (#12432)\n\nThis patch release is dedicated entirely to strengthening the WebRTC\ntransport layer, specifically focusing on connection resilience and\nbuild stability.\n\n### Fixed\n\n- fix(webrtc): decode errors during opening phase are not recoverable\n([#622](https://github.com/paritytech/litep2p/pull/622))\n- fix(webrtc): build vendored OpenSSL for str0m\n([#620](https://github.com/paritytech/litep2p/pull/620))\n- fix(webrtc): time out inbound and outbound opening data channels\n([#617](https://github.com/paritytech/litep2p/pull/617))\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-23T06:17:27Z",
+          "tree_id": "b18ee08e8dd34db18a1dbd2701ad991ed503f07f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e093bace983234f2466d70964736f512d2dc78fe"
+        },
+        "date": 1782200899572,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13988748203333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.4276870058,
             "unit": "seconds"
           }
         ]
