@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782222173315,
+  "lastUpdate": 1782237485734,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dharjeezy@gmail.com",
-            "name": "dharjeezy",
-            "username": "dharjeezy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f268e327685e04ad4134631a8b547a52f931fb83",
-          "message": "try state hook for alliance pallet (#10000)\n\nThis PR introduces the try_state hook to pallet-alliance to verify key\nstorage invariants.\n\ncloses part of #239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2025-11-01T01:11:41Z",
-          "tree_id": "0351bce041bfc4ca7434df57fe836ee6dbf0ced7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f268e327685e04ad4134631a8b547a52f931fb83"
-        },
-        "date": 1761963505887,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.84138772203333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20176296873333338,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.670548320166663,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79002163+gab8i@users.noreply.github.com",
+            "name": "gab",
+            "username": "gab8i"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "182e7b93b4311362be1a95003c1fa3fae7ae6d8f",
+          "message": "feat(webrtc): add experimental WebRTC transport to litep2p backend (#12315)\n\n# Description\n\nAdd webrtc-direct support to the litep2p backend\n\n- webrtc-direct support gated behind a new `--experimental-webrtc` CLI\nflag.\n- WebRTC `listen_addr` entries are skipped with a warning unless\nenabled.\n- Persist the DTLS certificate to `<net_config_path>/webrtc_certificate`\nso the node keeps a stable identity across restarts. Fall back to an\nephemeral cert otherwise.\n- update network type to support `WebRTCDirect`\n\n## Integration\n\nNo behavioral change unless --experimental-webrtc is explicitly enabled.\n\n## Review Notes\n\nThis PR adds experimental webrtc-direct transport support to the litep2p\nnetwork backend. It is fully opt-in: nothing changes for existing nodes\nunless the operator explicitly passes --experimental-webrtc and supplies\na webrtc-direct listen address. Default backend (litep2p) behavior, the\nlibp2p backend, and all existing transports are untouched.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
+          "timestamp": "2026-06-23T16:23:39Z",
+          "tree_id": "a55797ee6ef62676e447fb959473a3aef790f42e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/182e7b93b4311362be1a95003c1fa3fae7ae6d8f"
+        },
+        "date": 1782237459544,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.891520264799999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14542036236666667,
             "unit": "seconds"
           }
         ]
