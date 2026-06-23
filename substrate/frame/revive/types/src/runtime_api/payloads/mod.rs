@@ -26,6 +26,7 @@ mod max_extrinsic_weight_in_gas;
 mod nonce;
 mod receipt_data;
 mod trace_block;
+mod upload_code;
 
 pub use address::*;
 pub use balance::*;
@@ -38,3 +39,4 @@ pub use max_extrinsic_weight_in_gas::*;
 pub use nonce::*;
 pub use receipt_data::*;
 pub use trace_block::*;
+pub use upload_code::*;

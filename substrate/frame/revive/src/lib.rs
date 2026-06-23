@@ -2968,11 +2968,12 @@ sp_api::decl_runtime_apis! {
 		/// Upload new code without instantiating a contract from it.
 		///
 		/// See [`crate::Pallet::bare_upload_code`].
+		#[deprecated(note = "Use the versioned equivalent `upload_code_versioned` if available on your runtime")]
 		fn upload_code(
 			origin: AccountId,
 			code: Vec<u8>,
 			storage_deposit_limit: Option<Balance>,
-		) -> CodeUploadResult<Balance>;
+		) -> Result<CodeUploadReturnValueV1<Balance>, DispatchError>;
 
 		/// Query a given storage key in a given contract.
 		///
@@ -3085,6 +3086,11 @@ sp_api::decl_runtime_apis! {
 		fn eth_pre_dispatch_weight_versioned(
 			input: EthPreDispatchWeightVersionedInputPayload
 		) -> Result<EthPreDispatchWeightVersionedOutputPayload, EthTransactError>;
+
+		#[api_version(2)]
+		fn upload_code_versioned(
+			input: UploadCodeVersionedInputPayload<AccountId, Balance>
+		) -> Result<UploadCodeVersionedOutputPayload<Balance>, DispatchError>;
 
 		#[api_version(2)]
 		fn block_author_versioned(input: BlockAuthorVersionedInputPayload) -> BlockAuthorVersionedOutputPayload;
@@ -3344,14 +3350,18 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					origin: AccountId,
 					code: Vec<u8>,
 					storage_deposit_limit: Option<Balance>,
-				) -> $crate::CodeUploadResult<Balance> {
-					let origin =
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin);
-					$crate::Pallet::<Self>::bare_upload_code(
+				) -> Result<$crate::pallet_revive_types::runtime_api::CodeUploadReturnValueV1<Balance>, $crate::sp_runtime::DispatchError> {
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = UploadCodeVersionedInputPayload::from(UploadCodeInputPayloadV1 {
 						origin,
 						code,
-						storage_deposit_limit.unwrap_or(u128::MAX),
-					)
+						storage_deposit_limit
+					});
+					let output = Self::upload_code_versioned(input)?;
+					Ok(UploadCodeOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.code_upload_return_value)
 				}
 
 				fn get_storage_var_key(
@@ -3660,6 +3670,37 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let output = EthPreDispatchWeightOutputPayload {
 						weight: $crate::Pallet::<Self>::eth_pre_dispatch_weight(input.tx)?
 					};
+					Ok(output_wrapper(output))
+				}
+
+				fn upload_code_versioned(
+					input: $crate::pallet_revive_types::runtime_api::UploadCodeVersionedInputPayload<AccountId, Balance>
+				) -> Result<
+					$crate::pallet_revive_types::runtime_api::UploadCodeVersionedOutputPayload<Balance>,
+					$crate::sp_runtime::DispatchError
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(UploadCodeOutputPayload<Balance>) -> UploadCodeVersionedOutputPayload<Balance>>,
+					) = match input {
+						UploadCodeVersionedInputPayload::V1(payload) => (
+							UploadCodeInputPayload::from(payload),
+							Box::new(|output| UploadCodeVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let origin =
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin);
+					let code_upload_return_value = $crate::Pallet::<Self>::bare_upload_code(
+						origin,
+						input.code,
+						input.storage_deposit_limit.unwrap_or(u128::MAX),
+					)?;
+					let output = UploadCodeOutputPayload { code_upload_return_value };
 					Ok(output_wrapper(output))
 				}
 

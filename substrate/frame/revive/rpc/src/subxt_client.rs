@@ -206,6 +206,26 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthPreDispatchWeightVersionedOutputPayload>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::upload::CodeUploadReturnValueV1<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CodeUploadReturnValueV1<Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::upload_code::UploadCodeInputPayloadV1<AccountId, Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::UploadCodeInputPayloadV1<AccountId, Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::upload_code::UploadCodeVersionedInputPayload<AccountId, Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::UploadCodeVersionedInputPayload<AccountId, Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::upload_code::UploadCodeOutputPayloadV1<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::UploadCodeOutputPayloadV1<Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::upload_code::UploadCodeVersionedOutputPayload<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::UploadCodeVersionedOutputPayload<Balance>>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::block_author::BlockAuthorInputPayloadV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockAuthorInputPayloadV1>"
 	),

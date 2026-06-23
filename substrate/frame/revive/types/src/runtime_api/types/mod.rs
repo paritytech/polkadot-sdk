@@ -18,7 +18,9 @@
 mod receipt;
 mod tracer;
 mod traces;
+mod upload;
 
 pub use receipt::*;
 pub use tracer::*;
 pub use traces::*;
+pub use upload::*;
