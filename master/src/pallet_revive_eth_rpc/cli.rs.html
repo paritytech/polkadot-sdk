@@ -423,7 +423,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#273 id=273 data-nosnippet>273</a>			EthPruningMode::KeepLatest(max_blocks) =&gt; {
 <a href=#274 id=274 data-nosnippet>274</a>				<span class="macro">log::info!</span>(target: LOG_TARGET,
 <a href=#275 id=275 data-nosnippet>275</a>					<span class="string">"💾 Using in-memory database, keeping only {max_blocks} blocks"</span>);
-<a href=#276 id=276 data-nosnippet>276</a>				<span class="comment">// see sqlite in-memory issue: https://github.com/launchbadge/sqlx/issues/2510
+<a href=#276 id=276 data-nosnippet>276</a>				<span class="comment">// see sqlite in-memory issue: https://github.com/transact-rs/sqlx/issues/2510
 <a href=#277 id=277 data-nosnippet>277</a>				</span><span class="kw">let </span>pool = SqlitePoolOptions::new()
 <a href=#278 id=278 data-nosnippet>278</a>					.max_connections(<span class="number">1</span>)
 <a href=#279 id=279 data-nosnippet>279</a>					.idle_timeout(<span class="prelude-val">None</span>)
