@@ -200,7 +200,7 @@ pub type MigrateV0ToV1SameBlockDuration<T, I> = MigrateV0ToV1<
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::tests::unit::{Test, new_test_ext};
+	use crate::tests::unit::{new_test_ext, Test};
 	use frame::prelude::{BlockNumberProvider, OnRuntimeUpgrade, StorageVersion};
 	use std::cell::Cell;
 

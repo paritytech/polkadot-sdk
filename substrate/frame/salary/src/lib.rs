@@ -110,10 +110,10 @@ pub mod pallet {
 		///
 		/// The benchmarks require that this be non-zero for some rank at most 255.
 		type Salary: GetSalary<
-				<Self::Members as RankedMembers>::Rank,
-				Self::AccountId,
-				<Self::Paymaster as Pay>::Balance,
-			>;
+			<Self::Members as RankedMembers>::Rank,
+			Self::AccountId,
+			<Self::Paymaster as Pay>::Balance,
+		>;
 
 		/// The number of blocks within a cycle which accounts have to register their intent to
 		/// claim.
