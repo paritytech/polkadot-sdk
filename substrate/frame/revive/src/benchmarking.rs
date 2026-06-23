@@ -2702,9 +2702,10 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn extcodecopy(n: Linear<1_000, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
-		let module = VmBinaryModule::sized(n);
-		let mut setup = CallSetup::<T>::new(module);
-		let contract = setup.contract();
+		// The caller contract; `CallSetup` whitelists its `AccountInfoOf`.
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::dummy());
+		// Copy a contract other than the caller, so its `AccountInfoOf` read is counted.
+		let target = Contract::<T>::with_index(1, VmBinaryModule::sized(n), vec![])?;
 
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
@@ -2713,7 +2714,7 @@ mod benchmarks {
 		let _ = interpreter.stack.push(U256::from(n));
 		let _ = interpreter.stack.push(U256::from(0u32));
 		let _ = interpreter.stack.push(U256::from(0u32));
-		let _ = interpreter.stack.push(contract.address);
+		let _ = interpreter.stack.push(target.address);
 
 		let result;
 		#[block]
@@ -2724,8 +2725,8 @@ mod benchmarks {
 		assert!(result.is_continue());
 		assert_eq!(
 			*interpreter.memory.slice(0..n as usize),
-			PristineCode::<T>::get(contract.info()?.code_hash).unwrap()[0..n as usize],
-			"Memory should contain the contract's code after extcodecopy"
+			PristineCode::<T>::get(target.info()?.code_hash).unwrap()[0..n as usize],
+			"Memory should contain the target contract's code after extcodecopy"
 		);
 
 		Ok(())
