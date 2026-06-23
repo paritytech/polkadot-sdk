@@ -1742,8 +1742,9 @@ fn test_runtime_api_pending_rewards() {
 			Exposure::<AccountId, Balance> { total: stake, own: stake, others: Default::default() };
 		Eras::<T>::upsert_exposure(0, &validator_four, exposure_four);
 
-		// exposure exists and rewards are unclaimed, yet the validator has no reward points.
+		// exposure exists and the page is unclaimed, yet the validator has no reward points.
 		assert!(!ErasRewardPoints::<T>::get(0).individual.contains_key(&validator_four));
+		assert!(!Eras::<T>::is_rewards_claimed(0, &validator_four, 0));
 		assert!(!Eras::<T>::pending_rewards(0, &validator_four));
 
 		// paying out succeeds but is a no-op: no `Rewarded` event is emitted for the validator.
@@ -1753,6 +1754,9 @@ fn test_runtime_api_pending_rewards() {
 			e,
 			Event::Rewarded { stash, .. } if *stash == validator_four
 		)));
+		// the no-op payout still marks the (only) page claimed.
+		assert!(Eras::<T>::is_rewards_claimed(0, &validator_four, 0));
+		assert_eq!(ClaimedRewards::<T>::get(0, &validator_four).to_vec(), vec![0]);
 	});
 }
 
