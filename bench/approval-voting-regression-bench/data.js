@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782240504921,
+  "lastUpdate": 1782254323367,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9136565addc23a552f6960a7581f13c8dfc651f1",
-          "message": "pallet_revive_dev_node: Always increment the timestamp by at least one second (#10160)\n\nFixes https://github.com/paritytech/contract-issues/issues/191\n\ncc @albertov19\n\nThe instant seal introduces a race condition. Blocks can be build faster\nthan the timestamp resolution of Ethereum. Eth timestamps are only one\nsecond granularity. If we build blocks faster it can happen that the\ntimestamp delta between them is zero. This is not allowed. We have to\nmake sure that in instant seal two blocks don't return the same\ntimestamp.\n\nThis PR does that by always incrementing the timestamp by at least one\nsecond. Note that this is a dev-node only change. Production chains\nwon't have this problem as long as the block time is larger than 1\nsecond.\n\nYes, it will produce timestamps in the future. But this seems to be the\nlesser evil for this dev node. Time is subjective. But the rule to not\nreturn duplicate timestamps is dependent on.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-31T16:46:46Z",
-          "tree_id": "5c7ce198b06890d684f68f70084ddc28d5c9e05f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9136565addc23a552f6960a7581f13c8dfc651f1"
-        },
-        "date": 1761935116634,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52938.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63630.659999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005994821560000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4440975444000017,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.444824209370002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.467162535939999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4533085713600019,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001934241,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.47695829855,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9445219639400015,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.772619176131005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.236867945120007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001934241,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000018810990000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000018810990000000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.7822962068699482,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2a3365c7f6d685c8e1cc8e72d80f1108886e0ffd",
+          "message": "CI: Get it green again (link-checker + check-macos-crates) (#12361)\n\nSince brew 6.0 llvm post-install step fails. But I think we can just\ndisable it for our purposes.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-23T20:46:20Z",
+          "tree_id": "3dbe12bd1faafb4cfa725c4dd6004fe056aa3bbf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2a3365c7f6d685c8e1cc8e72d80f1108886e0ffd"
+        },
+        "date": 1782254294585,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63604.920000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002378726,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7911363605400004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000026792869999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7201058546999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.254624001329898,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7446233693000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4029420523999967,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7908309124799031,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.360889684052847,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0066727453000000065,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.798312706609999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002378726,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000026792869999999997,
             "unit": "seconds"
           }
         ]
