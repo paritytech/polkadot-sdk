@@ -3030,6 +3030,7 @@ sp_api::decl_runtime_apis! {
 		) -> Result<TraceV1, EthTransactError>;
 
 		/// The address of the validator that produced the current block.
+		#[deprecated(note = "Use the versioned equivalent `block_author_versioned` if available on your runtime")]
 		fn block_author() -> H160;
 
 		/// Get the H160 address associated to this account id
@@ -3057,6 +3058,9 @@ sp_api::decl_runtime_apis! {
 
 		#[api_version(2)]
 		fn balance_versioned(input: BalanceVersionedInputPayload) -> BalanceVersionedOutputPayload;
+
+		#[api_version(2)]
+		fn block_author_versioned(input: BlockAuthorVersionedInputPayload) -> BlockAuthorVersionedOutputPayload;
 
 		#[api_version(2)]
 		fn trace_block_versioned(input: TraceBlockVersionedInputPayload<Block>) -> TraceBlockVersionedOutputPayload;
@@ -3142,7 +3146,13 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn block_author() -> $crate::H160 {
-					$crate::Pallet::<Self>::block_author()
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = BlockAuthorVersionedInputPayload::from(BlockAuthorInputPayloadV1);
+					let output = Self::block_author_versioned(input);
+					BlockAuthorOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.block_author
 				}
 
 				fn block_gas_limit() -> $crate::U256 {
@@ -3462,6 +3472,29 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					let output = BalanceOutputPayload {
 						balance: $crate::Pallet::<Self>::evm_balance(&input.address)
+					};
+					output_wrapper(output)
+				}
+
+				fn block_author_versioned(
+					input: $crate::pallet_revive_types::runtime_api::BlockAuthorVersionedInputPayload
+				) -> $crate::pallet_revive_types::runtime_api::BlockAuthorVersionedOutputPayload {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use alloc::boxed::Box;
+
+					let (_input, output_wrapper): (
+						_,
+						Box<dyn Fn(BlockAuthorOutputPayload) -> BlockAuthorVersionedOutputPayload>,
+					) = match input {
+						BlockAuthorVersionedInputPayload::V1(payload) => (
+							BlockAuthorInputPayload::from(payload),
+							Box::new(|output| BlockAuthorVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let output = BlockAuthorOutputPayload {
+						block_author: $crate::Pallet::<Self>::block_author()
 					};
 					output_wrapper(output)
 				}
