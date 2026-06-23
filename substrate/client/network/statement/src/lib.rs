@@ -465,6 +465,7 @@ impl StatementHandlerPrototype {
 			configured_topics,
 			network.local_peer_id(),
 			PeersTopologyConfig { replication_factor, gossip_target },
+			self.protocol_name.clone(),
 		);
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
@@ -753,7 +754,12 @@ where
 		statements_per_second: NonZeroU32,
 	) -> Self {
 		let local_peer = network.local_peer_id();
-		let v2dht = V2DhtOrchestrator::new(&[], local_peer, PeersTopologyConfig::default());
+		let v2dht = V2DhtOrchestrator::new(
+			&[],
+			local_peer,
+			PeersTopologyConfig::default(),
+			protocol_name.clone(),
+		);
 		Self {
 			protocol_name,
 			notification_service,
@@ -863,6 +869,7 @@ where
 						// send the matching stored statements. This is the v2 counterpart of v1's
 						// `process_pending_affinities` -> `schedule_initial_sync_for_peer`.
 						self.v2dht.on_pending_affinities();
+						self.v2dht.refresh_connections(&self.network);
 					}
 					self.process_pending_affinities();
 					self.pending_affinities_timeout =
@@ -2258,6 +2265,7 @@ mod tests {
 				&[],
 				network.local_peer_id(),
 				PeersTopologyConfig::default(),
+				"/statement/test".into(),
 			),
 		};
 		(handler, statement_store, network, notification_service, queue_receiver, peer_ids)
@@ -2590,6 +2598,7 @@ mod tests {
 				&[],
 				network.local_peer_id(),
 				PeersTopologyConfig::default(),
+				"/statement/test".into(),
 			),
 		};
 		(handler, statement_store, network, notification_service)
@@ -2641,6 +2650,7 @@ mod tests {
 				&[],
 				network.local_peer_id(),
 				PeersTopologyConfig::default(),
+				"/statement/test".into(),
 			),
 		};
 		(handler, statement_store, network, notification_service)
@@ -4066,6 +4076,7 @@ mod tests {
 				&[],
 				network.local_peer_id(),
 				PeersTopologyConfig::default(),
+				"/statement/test".into(),
 			),
 		};
 
@@ -4429,6 +4440,7 @@ mod tests {
 				&[],
 				network.local_peer_id(),
 				PeersTopologyConfig::default(),
+				"/statement/test".into(),
 			),
 		};
 
@@ -4502,6 +4514,7 @@ mod tests {
 				&[],
 				network.local_peer_id(),
 				PeersTopologyConfig::default(),
+				"/statement/test".into(),
 			),
 		};
 
@@ -4587,6 +4600,7 @@ mod tests {
 				&[],
 				network.local_peer_id(),
 				PeersTopologyConfig::default(),
+				"/statement/test".into(),
 			),
 		};
 
@@ -4692,7 +4706,12 @@ mod tests {
 					dropped_statements_during_sync: dropped,
 					sync_recovery_peer: None,
 					sync_recovery_readd_timeout: Box::pin(pending().fuse()),
-					v2dht: V2DhtOrchestrator::new(&[], local_peer, PeersTopologyConfig::default()),
+					v2dht: V2DhtOrchestrator::new(
+						&[],
+						local_peer,
+						PeersTopologyConfig::default(),
+						"/statement/test".into(),
+					),
 				}
 			};
 
