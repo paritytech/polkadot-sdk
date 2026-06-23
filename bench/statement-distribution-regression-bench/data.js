@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782190682044,
+  "lastUpdate": 1782196304300,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0a85c328bfd04309433036a19da1b589cbb24185",
-          "message": "anvil / eth-rpc - fix subscription race (#10146)\n\nfix\nhttps://github.com/paritytech/polkadot-sdk/issues/10139#issuecomment-3456077366\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alin Dima <alin@parity.io>",
-          "timestamp": "2025-10-29T10:13:05Z",
-          "tree_id": "cf88f469cc442592dc8412d79d2ab41387f79f7f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0a85c328bfd04309433036a19da1b589cbb24185"
-        },
-        "date": 1761736799399,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95599999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034958474992000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04379675223599995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08339787197399989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d675175f09cf39c9c21d2be779c6b50b61b24c00",
+          "message": "fix `sload` undercharge on cross-VM storage (#12387)\n\n## Summary\n\nEVM `sload` previously charged a fixed `RuntimeCosts::GetStorage(32)`\nregardless of the actual byte size of the storage value read. This is\ncorrect under the EVM-only assumption that every slot holds a 32-byte\nword, but it breaks under cross-VM execution where a PVM contract\nsharing the storage namespace (via delegatecall) can have written values\nup to `limits::STORAGE_BYTES`.\n\nThe bug: `sload` reads the full value from the trie — consuming PoV\nproportional to the actual length — but only bills for 32 bytes. The\nsubsequent length-check trap doesn't refund PoV. A crafted PVM caller\ncould repeatedly delegate-call into an EVM contract over storage slots\nit had previously populated with large values, under-paying for the\nproof space consumed.\n\n## Fix\n\nMirror the PVM `get_storage` host fn pattern: charge\n`RuntimeCosts::GetStorage(limits::STORAGE_BYTES)` upfront, then\n`adjust_weight` to `RuntimeCosts::GetStorage(actual_len)` after the\nread.\n\n```rust\nlet charged = interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage(limits::STORAGE_BYTES))?;\nlet key = Key::Fix(index.to_big_endian());\nlet value = interpreter.ext.get_storage(&key);\n\nlet actual_len = value.as_ref().map(|v| v.len() as u32).unwrap_or(0);\ninterpreter\n    .ext\n    .frame_meter_mut()\n    .adjust_weight(charged, RuntimeCosts::GetStorage(actual_len));\n```\n\nThe length-check trap continues to fire for non-32-byte values; only the\nmetering is corrected.\n\n## Attack surface\n\nRequires both:\n- A PVM execution that wrote a non-32-byte value into a storage\nnamespace (Rust-PVM contracts via `seal_set_storage` with arbitrary\nlength; Solidity-compiled-to-PVM does not since `sstore` is always 32\nbytes).\n- A subsequent EVM execution in that same namespace, via PVM→EVM\ndelegatecall.\n\nBoth halves are already supported and tested individually (e.g.\n`Resolc→Solc` in `delegatecall_works`, `multi_store.rs` for non-32-byte\nPVM writes); only the combination is unexercised, and is what this PR\ncloses.\n\n## Test plan\n\n- [x] `sload_charges_for_actual_storage_value_size` — injects a value of\nlength `L` directly into a Solc-deployed `Counter`'s storage slot 0,\ncalls `number()` (which compiles to `SLOAD(0)`), and asserts gas\nconsumed for `L=256` is strictly greater than for `L=32`. Fails with the\nlegacy fixed-32 charge, passes with the fix.\n- [x] Full `tests::sol` suite (225 tests) — no regressions.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-23T04:39:40Z",
+          "tree_id": "70d3918938ec7b8aff1b42289ad058eaad917b09",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d675175f09cf39c9c21d2be779c6b50b61b24c00"
+        },
+        "date": 1782196278163,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.146,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.07645610588199991,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.037773071312,
             "unit": "seconds"
           }
         ]
