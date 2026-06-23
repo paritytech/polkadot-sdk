@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782144576370,
+  "lastUpdate": 1782190682044,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "Denzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "227c73b5c8810c0f34e87447f00e96743234fa52",
-          "message": "feat: add validation for zombienet flaky tests (#10034)\n\n# Description\nAdd some check in CI that would verify if test has a corresponding issue\nand if that issue exists. That verification could happen whenever some\nflaky test is added to the zombienet-flaky-tests.\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-10-28T16:36:35Z",
-          "tree_id": "ca1f1dd81ed644f6ab46edec993d107da1722ee9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/227c73b5c8810c0f34e87447f00e96743234fa52"
-        },
-        "date": 1761673754492,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035050765888000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04429703211799994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038343303871999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ismailov.m.h@gmail.com",
+            "name": "muharem",
+            "username": "muharem"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "24f2641af03078b638c548033ad93059b8fd94d8",
+          "message": "frame-support: stabilize MaybeConsideration by removing experimental gate (#12365)\n\nRemove the `experimental` feature gate from the `MaybeConsideration`\ntrait and its implementations (`()`, `FreezeConsideration`,\n`HoldConsideration`), making it available unconditionally alongside\n`Consideration`.\n\nConsumers no longer need to enable `frame-support/experimental` to use\n`MaybeConsideration`; the feature has been dropped from the\n`pallet-collective` dependency and the `pallet-balances` dev-dependency\naccordingly. No public API removals or storage changes.",
+          "timestamp": "2026-06-22T18:06:17Z",
+          "tree_id": "23fd94fb652f41d4c4b8084f762fe93844762294",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/24f2641af03078b638c548033ad93059b8fd94d8"
+        },
+        "date": 1782190654568,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.09199999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03837319809400001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08339787197399989,
             "unit": "seconds"
           }
         ]
