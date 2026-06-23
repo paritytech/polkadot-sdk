@@ -23,6 +23,10 @@ use crate::{
 use alloc::vec::Vec;
 use assets_common::IsLocalAccountKey20;
 use frame_support::{traits::Contains, weights::Weight};
+use pallet_xcm_benchmarks::xcm_weights::{
+	weigh_assets_filter_by_count, weigh_assets_list_by_count, weigh_hints, weigh_initiate_transfer,
+	AssetFilterCountWeigher, AssetWeigher,
+};
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
 use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
 use sp_runtime::BoundedVec;
@@ -31,46 +35,29 @@ use xcm::{
 	DoubleEncoded,
 };
 
-trait WeighAssets {
-	fn weigh_assets(&self, weight: Weight) -> Weight;
-}
-
 const MAX_ASSETS: u64 = 100;
 
-impl WeighAssets for AssetFilter {
-	fn weigh_assets(&self, weight: Weight) -> Weight {
-		match self {
-			Self::Definite(assets) => weight.saturating_mul(assets.inner().iter().count() as u64),
-			Self::Wild(asset) => match asset {
-				All => weight.saturating_mul(MAX_ASSETS),
-				AllOf { fun, .. } => match fun {
-					WildFungibility::Fungible => weight,
-					// Magic number 2 has to do with the fact that we could have up to 2 times
-					// MaxAssetsIntoHolding in the worst-case scenario.
-					WildFungibility::NonFungible => {
-						weight.saturating_mul((MaxAssetsIntoHolding::get() * 2) as u64)
-					},
-				},
-				AllCounted(count) => weight.saturating_mul(MAX_ASSETS.min((*count as u64).max(1))),
-				AllOfCounted { count, .. } => {
-					weight.saturating_mul(MAX_ASSETS.min((*count as u64).max(1)))
-				},
-			},
-		}
+/// Count-based filter weigher for Asset Hub Westend.
+pub struct AssetHubWestendCountWeigher;
+impl AssetFilterCountWeigher for AssetHubWestendCountWeigher {
+	fn max_assets() -> u64 {
+		MAX_ASSETS
+	}
+
+	fn max_assets_into_holding() -> u64 {
+		MaxAssetsIntoHolding::get() as u64
 	}
 }
 
-trait WeighAsset {
-	/// Return one worst-case estimate: `weight`, or another.
-	fn weigh_asset(&self, weight: Weight) -> Weight;
-}
-
-impl WeighAsset for Asset {
-	fn weigh_asset(&self, weight: Weight) -> Weight {
-		// If the asset is a smart contract ERC20, then we know the gas limit,
-		// else we return the weight that was passed in, that's already
-		// the worst case for non-ERC20 assets.
-		if IsLocalAccountKey20::contains(&self.id.0) {
+/// Per-asset weight hook for Asset Hub Westend.
+///
+/// ERC20 assets routed via Snowbridge are priced in Ethereum gas (a fixed ceiling)
+/// rather than Substrate execution weight. All other assets use the provided weight
+/// as-is.
+pub struct WestendERC20AssetWeigher;
+impl AssetWeigher for WestendERC20AssetWeigher {
+	fn weigh_asset(asset: &Asset, weight: Weight) -> Weight {
+		if IsLocalAccountKey20::contains(&asset.id.0) {
 			ERC20TransferGasLimit::get()
 		} else {
 			weight
@@ -78,28 +65,25 @@ impl WeighAsset for Asset {
 	}
 }
 
-impl WeighAssets for Assets {
-	fn weigh_assets(&self, weight: Weight) -> Weight {
-		// We start with zero.
-		let mut final_weight = Weight::zero();
-		// For each asset, we add weight depending on the type of asset.
-		for asset in self.inner().iter() {
-			final_weight = final_weight.saturating_add(asset.weigh_asset(weight));
-		}
-		final_weight
-	}
-}
-
 pub struct AssetHubWestendXcmWeight<Call>(core::marker::PhantomData<Call>);
 impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 	fn withdraw_asset(assets: &Assets) -> Weight {
-		assets.weigh_assets(XcmFungibleWeight::<Runtime>::withdraw_asset())
+		weigh_assets_list_by_count::<WestendERC20AssetWeigher>(
+			assets,
+			XcmFungibleWeight::<Runtime>::withdraw_asset(),
+		)
 	}
 	fn reserve_asset_deposited(assets: &Assets) -> Weight {
-		assets.weigh_assets(XcmFungibleWeight::<Runtime>::reserve_asset_deposited())
+		weigh_assets_list_by_count::<WestendERC20AssetWeigher>(
+			assets,
+			XcmFungibleWeight::<Runtime>::reserve_asset_deposited(),
+		)
 	}
 	fn receive_teleported_asset(assets: &Assets) -> Weight {
-		assets.weigh_assets(XcmFungibleWeight::<Runtime>::receive_teleported_asset())
+		weigh_assets_list_by_count::<WestendERC20AssetWeigher>(
+			assets,
+			XcmFungibleWeight::<Runtime>::receive_teleported_asset(),
+		)
 	}
 	fn query_response(
 		_query_id: &u64,
@@ -110,10 +94,16 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 		XcmGeneric::<Runtime>::query_response()
 	}
 	fn transfer_asset(assets: &Assets, _dest: &Location) -> Weight {
-		assets.weigh_assets(XcmFungibleWeight::<Runtime>::transfer_asset())
+		weigh_assets_list_by_count::<WestendERC20AssetWeigher>(
+			assets,
+			XcmFungibleWeight::<Runtime>::transfer_asset(),
+		)
 	}
 	fn transfer_reserve_asset(assets: &Assets, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		assets.weigh_assets(XcmFungibleWeight::<Runtime>::transfer_reserve_asset())
+		weigh_assets_list_by_count::<WestendERC20AssetWeigher>(
+			assets,
+			XcmFungibleWeight::<Runtime>::transfer_reserve_asset(),
+		)
 	}
 	fn transact(
 		_origin_type: &OriginKind,
@@ -149,15 +139,23 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 	}
 
 	fn deposit_asset(assets: &AssetFilter, _dest: &Location) -> Weight {
-		assets.weigh_assets(XcmFungibleWeight::<Runtime>::deposit_asset())
+		weigh_assets_filter_by_count::<AssetHubWestendCountWeigher>(
+			assets,
+			XcmFungibleWeight::<Runtime>::deposit_asset(),
+		)
 	}
 	fn deposit_reserve_asset(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		assets.weigh_assets(XcmFungibleWeight::<Runtime>::deposit_reserve_asset())
+		weigh_assets_filter_by_count::<AssetHubWestendCountWeigher>(
+			assets,
+			XcmFungibleWeight::<Runtime>::deposit_reserve_asset(),
+		)
 	}
 	fn exchange_asset(give: &AssetFilter, receive: &Assets, _maximal: &bool) -> Weight {
 		let base_weight = XcmGeneric::<Runtime>::exchange_asset();
-		let give_weight = give.weigh_assets(base_weight);
-		let receive_weight = receive.weigh_assets(base_weight);
+		let give_weight =
+			weigh_assets_filter_by_count::<AssetHubWestendCountWeigher>(give, base_weight);
+		let receive_weight =
+			weigh_assets_list_by_count::<WestendERC20AssetWeigher>(receive, base_weight);
 		give_weight.max(receive_weight)
 	}
 	fn initiate_reserve_withdraw(
@@ -165,10 +163,16 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 		_reserve: &Location,
 		_xcm: &Xcm<()>,
 	) -> Weight {
-		assets.weigh_assets(XcmFungibleWeight::<Runtime>::initiate_reserve_withdraw())
+		weigh_assets_filter_by_count::<AssetHubWestendCountWeigher>(
+			assets,
+			XcmFungibleWeight::<Runtime>::initiate_reserve_withdraw(),
+		)
 	}
 	fn initiate_teleport(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		assets.weigh_assets(XcmFungibleWeight::<Runtime>::initiate_teleport())
+		weigh_assets_filter_by_count::<AssetHubWestendCountWeigher>(
+			assets,
+			XcmFungibleWeight::<Runtime>::initiate_teleport(),
+		)
 	}
 	fn initiate_transfer(
 		_dest: &Location,
@@ -177,19 +181,14 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 		assets: &BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
 		_xcm: &Xcm<()>,
 	) -> Weight {
-		let base_weight = XcmFungibleWeight::<Runtime>::initiate_transfer();
-		let mut weight = if let Some(remote_fees) = remote_fees {
-			let fees = remote_fees.inner();
-			fees.weigh_assets(base_weight)
-		} else {
-			base_weight
-		};
-		for asset_filter in assets {
-			let assets = asset_filter.inner();
-			let extra = assets.weigh_assets(XcmFungibleWeight::<Runtime>::initiate_transfer());
-			weight = weight.saturating_add(extra);
-		}
-		weight
+		weigh_initiate_transfer(
+			remote_fees,
+			assets,
+			XcmFungibleWeight::<Runtime>::initiate_transfer(),
+			|asset_filter, weight| {
+				weigh_assets_filter_by_count::<AssetHubWestendCountWeigher>(asset_filter, weight)
+			},
+		)
 	}
 	fn report_holding(_response_info: &QueryResponseInfo, _assets: &AssetFilter) -> Weight {
 		XcmGeneric::<Runtime>::report_holding()
@@ -213,15 +212,7 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 		XcmGeneric::<Runtime>::clear_error()
 	}
 	fn set_hints(hints: &BoundedVec<Hint, HintNumVariants>) -> Weight {
-		let mut weight = Weight::zero();
-		for hint in hints {
-			match hint {
-				AssetClaimer { .. } => {
-					weight = weight.saturating_add(XcmGeneric::<Runtime>::asset_claimer());
-				},
-			}
-		}
-		weight
+		weigh_hints(hints, XcmGeneric::<Runtime>::asset_claimer())
 	}
 	fn claim_asset(_assets: &Assets, _ticket: &Location) -> Weight {
 		XcmGeneric::<Runtime>::claim_asset()
@@ -236,10 +227,16 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 		XcmGeneric::<Runtime>::unsubscribe_version()
 	}
 	fn burn_asset(assets: &Assets) -> Weight {
-		assets.weigh_assets(XcmGeneric::<Runtime>::burn_asset())
+		weigh_assets_list_by_count::<WestendERC20AssetWeigher>(
+			assets,
+			XcmGeneric::<Runtime>::burn_asset(),
+		)
 	}
 	fn expect_asset(assets: &Assets) -> Weight {
-		assets.weigh_assets(XcmGeneric::<Runtime>::expect_asset())
+		weigh_assets_list_by_count::<WestendERC20AssetWeigher>(
+			assets,
+			XcmGeneric::<Runtime>::expect_asset(),
+		)
 	}
 	fn expect_origin(_origin: &Option<Location>) -> Weight {
 		XcmGeneric::<Runtime>::expect_origin()
