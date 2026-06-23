@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782190608961,
+  "lastUpdate": 1782196234074,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "ab65a82ec84c4aec10e703630ee3c8eddc5b39ee",
-          "message": "cumulus-bootnodes: Do not require a specific hash (#10048)\n\nOn the wire the hash is represented as `Vec<u8>` any way. So, there is\nno need to take this as an extra type.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-30T15:57:45Z",
-          "tree_id": "bf8dbb51252949db24a63ee18bd114f202e11c2c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ab65a82ec84c4aec10e703630ee3c8eddc5b39ee"
-        },
-        "date": 1761847716216,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0076134846799999776,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022748964839999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013906599819999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16324274934000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.0075606780266666675,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d675175f09cf39c9c21d2be779c6b50b61b24c00",
+          "message": "fix `sload` undercharge on cross-VM storage (#12387)\n\n## Summary\n\nEVM `sload` previously charged a fixed `RuntimeCosts::GetStorage(32)`\nregardless of the actual byte size of the storage value read. This is\ncorrect under the EVM-only assumption that every slot holds a 32-byte\nword, but it breaks under cross-VM execution where a PVM contract\nsharing the storage namespace (via delegatecall) can have written values\nup to `limits::STORAGE_BYTES`.\n\nThe bug: `sload` reads the full value from the trie — consuming PoV\nproportional to the actual length — but only bills for 32 bytes. The\nsubsequent length-check trap doesn't refund PoV. A crafted PVM caller\ncould repeatedly delegate-call into an EVM contract over storage slots\nit had previously populated with large values, under-paying for the\nproof space consumed.\n\n## Fix\n\nMirror the PVM `get_storage` host fn pattern: charge\n`RuntimeCosts::GetStorage(limits::STORAGE_BYTES)` upfront, then\n`adjust_weight` to `RuntimeCosts::GetStorage(actual_len)` after the\nread.\n\n```rust\nlet charged = interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage(limits::STORAGE_BYTES))?;\nlet key = Key::Fix(index.to_big_endian());\nlet value = interpreter.ext.get_storage(&key);\n\nlet actual_len = value.as_ref().map(|v| v.len() as u32).unwrap_or(0);\ninterpreter\n    .ext\n    .frame_meter_mut()\n    .adjust_weight(charged, RuntimeCosts::GetStorage(actual_len));\n```\n\nThe length-check trap continues to fire for non-32-byte values; only the\nmetering is corrected.\n\n## Attack surface\n\nRequires both:\n- A PVM execution that wrote a non-32-byte value into a storage\nnamespace (Rust-PVM contracts via `seal_set_storage` with arbitrary\nlength; Solidity-compiled-to-PVM does not since `sstore` is always 32\nbytes).\n- A subsequent EVM execution in that same namespace, via PVM→EVM\ndelegatecall.\n\nBoth halves are already supported and tested individually (e.g.\n`Resolc→Solc` in `delegatecall_works`, `multi_store.rs` for non-32-byte\nPVM writes); only the combination is unexercised, and is what this PR\ncloses.\n\n## Test plan\n\n- [x] `sload_charges_for_actual_storage_value_size` — injects a value of\nlength `L` directly into a Solc-deployed `Counter`'s storage slot 0,\ncalls `number()` (which compiles to `SLOAD(0)`), and asserts gas\nconsumed for `L=256` is strictly greater than for `L=32`. Fails with the\nlegacy fixed-32 charge, passes with the fix.\n- [x] Full `tests::sol` suite (225 tests) — no regressions.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-23T04:39:40Z",
+          "tree_id": "70d3918938ec7b8aff1b42289ad058eaad917b09",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d675175f09cf39c9c21d2be779c6b50b61b24c00"
+        },
+        "date": 1782196208264,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010289459233333314,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007751574113333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023692779373333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14787599263333331,
             "unit": "seconds"
           }
         ]
