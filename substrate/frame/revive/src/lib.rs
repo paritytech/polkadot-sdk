@@ -3053,6 +3053,7 @@ sp_api::decl_runtime_apis! {
 		fn runtime_pallets_address() -> H160;
 
 		/// The code at the specified address taking pre-compiles into account.
+		#[deprecated(note = "Use the versioned equivalent `code_versioned` if available on your runtime")]
 		fn code(address: H160) -> Vec<u8>;
 
 		/// Construct the new balance and dust components of this EVM balance.
@@ -3104,6 +3105,9 @@ sp_api::decl_runtime_apis! {
 		fn runtime_pallets_address_versioned(
 			input: RuntimePalletsAddressVersionedInputPayload
 		) -> RuntimePalletsAddressVersionedOutputPayload;
+
+		#[api_version(2)]
+		fn code_versioned(input: CodeVersionedInputPayload) -> CodeVersionedOutputPayload;
 
 		#[api_version(2)]
 		fn block_author_versioned(input: BlockAuthorVersionedInputPayload) -> BlockAuthorVersionedOutputPayload;
@@ -3510,7 +3514,13 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn code(address: $crate::H160) -> Vec<u8> {
-					$crate::Pallet::<Self>::code(&address)
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = CodeVersionedInputPayload::from(CodeInputPayloadV1 { address });
+					let output = Self::code_versioned(input);
+					CodeOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.code
 				}
 
 				fn account_id(address: $crate::H160) -> AccountId {
@@ -3790,6 +3800,29 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					let output = RuntimePalletsAddressOutputPayload {
 						runtime_pallets_address: $crate::RUNTIME_PALLETS_ADDR
+					};
+					output_wrapper(output)
+				}
+
+				fn code_versioned(
+					input: $crate::pallet_revive_types::runtime_api::CodeVersionedInputPayload
+				) -> $crate::pallet_revive_types::runtime_api::CodeVersionedOutputPayload {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(CodeOutputPayload) -> CodeVersionedOutputPayload>,
+					) = match input {
+						CodeVersionedInputPayload::V1(payload) => (
+							CodeInputPayload::from(payload),
+							Box::new(|output| CodeVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let output = CodeOutputPayload {
+						code: $crate::Pallet::<Self>::code(&input.address)
 					};
 					output_wrapper(output)
 				}
