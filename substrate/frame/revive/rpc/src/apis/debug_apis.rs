@@ -42,7 +42,7 @@ pub trait DebugRpc {
 		&self,
 		transaction_hash: H256,
 		tracer_config: Option<TracerConfig>,
-	) -> RpcResult<Trace>;
+	) -> RpcResult<TraceV1>;
 
 	/// Dry run a call and returns the transaction's traces.
 	///
@@ -58,7 +58,7 @@ pub trait DebugRpc {
 		transaction: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
 		trace_call_config: Option<TraceCallConfig>,
-	) -> RpcResult<Trace>;
+	) -> RpcResult<TraceV1>;
 
 	#[method(name = "debug_getAutomine")]
 	async fn get_automine(&self) -> RpcResult<bool>;
@@ -107,7 +107,7 @@ impl DebugRpcServer for DebugRpcServerImpl {
 		&self,
 		transaction_hash: H256,
 		tracer_config: Option<TracerConfig>,
-	) -> RpcResult<Trace> {
+	) -> RpcResult<TraceV1> {
 		let TracerConfig { config, timeout } = tracer_config.unwrap_or_default();
 		with_timeout(timeout, self.client.trace_transaction(transaction_hash, config)).await
 	}
@@ -117,7 +117,7 @@ impl DebugRpcServer for DebugRpcServerImpl {
 		transaction: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
 		trace_call_config: Option<TraceCallConfig>,
-	) -> RpcResult<Trace> {
+	) -> RpcResult<TraceV1> {
 		let TraceCallConfig { tracer_config, state_overrides } =
 			trace_call_config.unwrap_or_default();
 		let TracerConfig { config, timeout } = tracer_config;

@@ -25,9 +25,10 @@ use pallet_revive::{
 	DryRunConfig, EthTransactInfo, TracingConfig,
 	evm::{
 		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, H160,
-		ReceiptGasInfo, StateOverrideSet, Trace, U256,
+		ReceiptGasInfo, StateOverrideSet, U256,
 	},
 };
+use pallet_revive_types::runtime_api::*;
 use sp_core::H256;
 use sp_timestamp::Timestamp;
 use subxt::{Error::Metadata, OnlineClient, error::MetadataError, ext::subxt_rpcs::UserError};
@@ -235,8 +236,8 @@ impl RuntimeApi {
 			sp_runtime::OpaqueExtrinsic,
 		>,
 		transaction_index: u32,
-		tracer_type: crate::TracerType,
-	) -> Result<Trace, ClientError> {
+		tracer_type: TracerTypeV1,
+	) -> Result<TraceV1, ClientError> {
 		let payload = subxt_client::apis()
 			.revive_api()
 			.trace_tx(block.into(), transaction_index, tracer_type.into())
@@ -253,8 +254,8 @@ impl RuntimeApi {
 			sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
 			sp_runtime::OpaqueExtrinsic,
 		>,
-		tracer_type: crate::TracerType,
-	) -> Result<Vec<(u32, Trace)>, ClientError> {
+		tracer_type: TracerTypeV1,
+	) -> Result<Vec<(u32, TraceV1)>, ClientError> {
 		let payload = subxt_client::apis()
 			.revive_api()
 			.trace_block(block.into(), tracer_type.into())
@@ -272,9 +273,9 @@ impl RuntimeApi {
 	pub async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
-		tracer_type: crate::TracerType,
+		tracer_type: TracerTypeV1,
 		state_overrides: Option<StateOverrideSet>,
-	) -> Result<Trace, ClientError> {
+	) -> Result<TraceV1, ClientError> {
 		let result = if let Some(overrides) = state_overrides {
 			let config = TracingConfig::new().with_state_overrides(overrides);
 			let payload = subxt_client::apis()

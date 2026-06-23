@@ -4044,6 +4044,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28c122c3980598d243d63d9a704629a2d748d101f278052ff068be5a4423ab6f"
 
 [[package]]
+name = "const-oid"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
+
+[[package]]
 name = "const-random"
 version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4713,6 +4719,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-client-collator-discovery"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "futures-timer",
+ "log",
+ "sc-authority-discovery",
+ "sc-network 0.34.0",
+ "sc-network-sync",
+ "sc-service",
+ "sp-api 26.0.0",
+ "sp-authority-discovery",
+ "sp-blockchain 28.0.0",
+ "sp-core 28.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "substrate-prometheus-endpoint 0.17.0",
+]
+
+[[package]]
 name = "cumulus-client-consensus-aura"
 version = "0.7.0"
 dependencies = [
@@ -5346,7 +5372,6 @@ dependencies = [
 name = "cumulus-relay-chain-minimal-node"
 version = "0.7.0"
 dependencies = [
- "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "async-trait",
  "cumulus-client-bootnodes",
@@ -5365,6 +5390,7 @@ dependencies = [
  "sc-client-api 28.0.0",
  "sc-network 0.34.0",
  "sc-network-common 0.33.0",
+ "sc-network-sync",
  "sc-service",
  "sc-tracing",
  "sc-utils 14.0.0",
@@ -5495,6 +5521,7 @@ dependencies = [
  "frame-system",
  "frame-system-rpc-runtime-api",
  "pallet-aura",
+ "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-balances",
  "pallet-glutton",
@@ -5509,6 +5536,7 @@ dependencies = [
  "scale-info",
  "serde_json",
  "sp-api 26.0.0",
+ "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 28.0.0",
@@ -5535,6 +5563,7 @@ dependencies = [
  "criterion",
  "cumulus-client-cli",
  "cumulus-client-collator",
+ "cumulus-client-collator-discovery",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
  "cumulus-client-parachain-inherent",
@@ -5657,6 +5686,7 @@ dependencies = [
  "sp-version 29.0.0",
  "subxt 0.44.2",
  "subxt 0.50.0",
+ "subxt-signer 0.44.2",
  "subxt-signer 0.50.0",
  "tempfile",
  "thiserror 1.0.65",
@@ -5920,7 +5950,7 @@ version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fffa369a668c8af7dbf8b5e56c9f744fbd399949ed171606040001947de40b1c"
 dependencies = [
- "const-oid",
+ "const-oid 0.9.5",
  "pem-rfc7468",
  "zeroize",
 ]
@@ -6099,7 +6129,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer 0.10.4",
- "const-oid",
+ "const-oid 0.9.5",
  "crypto-common 0.1.6",
  "subtle 2.6.1",
 ]
@@ -6111,6 +6141,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
 dependencies = [
  "block-buffer 0.12.0",
+ "const-oid 0.10.2",
  "crypto-common 0.2.1",
 ]
 
@@ -10617,9 +10648,9 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
-version = "0.14.0"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68e9c1a55534ab498c75dac677475818b74eebbdf8132cc47783e257b1921228"
+checksum = "67508e7500fe69a99a038d2fba84fb30f23cac9d98bfeb7f5a1389ddd137b579"
 dependencies = [
  "async-trait",
  "bs58",
@@ -10645,7 +10676,7 @@ dependencies = [
  "rand 0.8.5",
  "ring 0.17.14",
  "serde",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "simple-dns",
  "smallvec",
  "snow",
@@ -14077,6 +14108,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-revive-fixtures",
  "pallet-revive-proc-macro",
+ "pallet-revive-types",
  "pallet-revive-uapi",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -14109,6 +14141,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-tracing 16.0.0",
  "sp-version 29.0.0",
+ "strum 0.26.3",
  "substrate-bn",
  "subxt-signer 0.44.2",
  "test-case",
@@ -14136,6 +14169,7 @@ dependencies = [
  "log",
  "pallet-revive",
  "pallet-revive-fixtures",
+ "pallet-revive-types",
  "parity-scale-codec",
  "pretty_assertions",
  "revive-dev-node",
@@ -14188,6 +14222,24 @@ dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
+]
+
+[[package]]
+name = "pallet-revive-types"
+version = "0.1.0"
+dependencies = [
+ "alloy-core",
+ "derive_more 0.99.17",
+ "num-traits",
+ "num_enum",
+ "parity-scale-codec",
+ "revm-bytecode",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-core 28.0.0",
+ "sp-weights 27.0.0",
+ "strum 0.26.3",
 ]
 
 [[package]]
@@ -16899,6 +16951,7 @@ dependencies = [
  "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
+ "cumulus-client-collator-discovery",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-relay-chain",
@@ -16927,6 +16980,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-cli",
  "polkadot-primitives",
+ "sc-authority-discovery",
  "sc-basic-authorship",
  "sc-chain-spec 28.0.0",
  "sc-cli",
@@ -16957,6 +17011,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api 26.0.0",
+ "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus 0.32.0",
  "sp-consensus-aura",
@@ -17281,6 +17336,7 @@ dependencies = [
  "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
+ "cumulus-client-collator-discovery",
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-relay-chain",
@@ -17424,6 +17480,7 @@ dependencies = [
  "pallet-remark",
  "pallet-revive",
  "pallet-revive-proc-macro",
+ "pallet-revive-types",
  "pallet-revive-uapi",
  "pallet-root-offences",
  "pallet-root-testing",
@@ -19735,6 +19792,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "66c52031b73cae95d84cd1b07725808b5fd1500da3e5e24574a3b2dc13d9f16d"
 dependencies = [
  "bitvec",
+ "paste",
  "phf",
  "revm-primitives",
  "serde",
@@ -20151,7 +20209,7 @@ version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af6c4b23d99685a1408194da11270ef8e9809aff951cc70ec9b17350b087e474"
 dependencies = [
- "const-oid",
+ "const-oid 0.9.5",
  "digest 0.10.7",
  "num-bigint-dig",
  "num-integer",
@@ -21540,7 +21598,7 @@ dependencies = [
  "ip_network",
  "libp2p",
  "linked_hash_set",
- "litep2p 0.14.0",
+ "litep2p 0.14.3",
  "log",
  "mockall",
  "multihash-codetable",
@@ -21827,7 +21885,7 @@ dependencies = [
  "ed25519-dalek",
  "libp2p-identity",
  "libp2p-kad",
- "litep2p 0.14.0",
+ "litep2p 0.14.3",
  "log",
  "multiaddr 0.18.2",
  "multihash 0.19.5",
@@ -30823,9 +30881,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-configuration"
-version = "0.4.13"
+version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2c269216bae9a4628882f272d00d5e44be68091e7b468e75dc70fe7f3e838e4"
+checksum = "d05660f87aa814c9dbd3849009be9620b7c7d1433106bd6ab04145a423fb0958"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -30844,9 +30902,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-orchestrator"
-version = "0.4.13"
+version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd5fc4ca778d2bf804f6ea1983f248957452f55fbf06bbb47f31a2bfbbac516b"
+checksum = "a07cb49c5df8db332e32c5003914800d1f0f7f04a62d713af29baa174076b416"
 dependencies = [
  "anyhow",
  "array-bytes 6.2.2",
@@ -30882,9 +30940,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-prom-metrics-parser"
-version = "0.4.13"
+version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa851f64b120ee4f5fc13f453f18bb3eb984225e21a91a480f713ecf23c409a0"
+checksum = "451c572553c231dabce257cc333f217a3165e3cdd7f8dbb49b1b47fe49efe2b3"
 dependencies = [
  "pest",
  "pest_derive",
@@ -30893,9 +30951,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-provider"
-version = "0.4.13"
+version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85a96858350524976ca391e88d637c51a1698de26a2a9de815b79ab99e53911f"
+checksum = "ceb4cb0694e26c475f15168fd78ad5847e57df58046948eeca9a6eda8dc49f6e"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -30925,9 +30983,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-sdk"
-version = "0.4.13"
+version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fac89f216adc651f1bc3c064b53b2a907efee05acb1a6b272dce3d1419a9d9bb"
+checksum = "10b8eb47d71e7ef3439a0353a67431fc126568e3e84d8b8989e9a9f3cdf7cdcb"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -30951,9 +31009,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-support"
-version = "0.4.13"
+version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e00dc9084a78b16d2c3d0bd1c79a34998466ce7f522187ec1c7880b250af4011"
+checksum = "18109702c46d34679c95a7f81df96e23acad84d8e7a9d136261a782f820f2c13"
 dependencies = [
  "anyhow",
  "async-trait",
