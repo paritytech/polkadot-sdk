@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod address;
 mod balance;
 mod block_author;
 mod block_gas_limit;
@@ -25,6 +26,7 @@ mod nonce;
 mod receipt_data;
 mod trace_block;
 
+pub use address::*;
 pub use balance::*;
 pub use block_author::*;
 pub use block_gas_limit::*;

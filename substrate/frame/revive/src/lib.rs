@@ -3038,6 +3038,7 @@ sp_api::decl_runtime_apis! {
 		fn block_author() -> H160;
 
 		/// Get the H160 address associated to this account id
+		#[deprecated(note = "Use the versioned equivalent `address_versioned` if available on your runtime")]
 		fn address(account_id: AccountId) -> H160;
 
 		/// Get the account id associated to this H160 address.
@@ -3081,6 +3082,9 @@ sp_api::decl_runtime_apis! {
 
 		#[api_version(2)]
 		fn block_author_versioned(input: BlockAuthorVersionedInputPayload) -> BlockAuthorVersionedOutputPayload;
+
+		#[api_version(2)]
+		fn address_versioned(input: AddressVersionedInputPayload<AccountId>) -> AddressVersionedOutputPayload;
 
 		#[api_version(2)]
 		fn trace_block_versioned(input: TraceBlockVersionedInputPayload<Block>) -> TraceBlockVersionedOutputPayload;
@@ -3218,8 +3222,13 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn address(account_id: AccountId) -> $crate::H160 {
-					use $crate::AddressMapper;
-					<Self as $crate::Config>::AddressMapper::to_address(&account_id)
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = AddressVersionedInputPayload::from(AddressInputPayloadV1 { account_id });
+					let output = Self::address_versioned(input);
+					AddressOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.address
 				}
 
 				fn eth_transact(
@@ -3633,6 +3642,30 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					let output = BlockAuthorOutputPayload {
 						block_author: $crate::Pallet::<Self>::block_author()
+					};
+					output_wrapper(output)
+				}
+
+				fn address_versioned(
+					input: $crate::pallet_revive_types::runtime_api::AddressVersionedInputPayload<AccountId>
+				) -> $crate::pallet_revive_types::runtime_api::AddressVersionedOutputPayload {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use $crate::AddressMapper;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(AddressOutputPayload) -> AddressVersionedOutputPayload>,
+					) = match input {
+						AddressVersionedInputPayload::V1(payload) => (
+							AddressInputPayload::from(payload),
+							Box::new(|output| AddressVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let output = AddressOutputPayload {
+						address: <Self as $crate::Config>::AddressMapper::to_address(&input.account_id)
 					};
 					output_wrapper(output)
 				}

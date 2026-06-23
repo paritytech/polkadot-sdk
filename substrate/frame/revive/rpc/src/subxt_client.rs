@@ -206,6 +206,22 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockAuthorVersionedOutputPayload>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::address::AddressInputPayloadV1<AccountId>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AddressInputPayloadV1<AccountId>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::address::AddressVersionedInputPayload<AccountId>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AddressVersionedInputPayload<AccountId>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::address::AddressOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AddressOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::address::AddressVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AddressVersionedOutputPayload>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::block_gas_limit::BlockGasLimitInputPayloadV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockGasLimitInputPayloadV1>"
 	),
