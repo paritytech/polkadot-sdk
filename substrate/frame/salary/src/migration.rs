@@ -57,55 +57,22 @@ pub mod v1 {
 	use super::{pallet::BlockNumberFor as NewBlockNumberFor, *};
 	use frame::prelude::{BlockNumberFor as LocalBlockNumberFor, BlockNumberProvider, Saturating};
 
-	/// Converts the old block-number type into the new block-number type.
+	/// Converts stored salary timing values from the old block-number type into the new
+	/// block-number type.
 	///
 	/// The old provider was implicitly `frame_system::Pallet`. The new provider is selected by
 	/// the runtime through [`Config::BlockNumberProvider`].
 	pub trait ConvertBlockNumber<L, N> {
-		/// Converts an old stored block-number value into the new type.
+		/// Converts an old stored cycle index into the new type.
 		///
-		/// # Example Usage
-		///
-		/// ```rust,ignore
-		/// // Same type: identity conversion is enough.
-		/// fn convert(old: u32) -> u32 {
-		/// 	old
-		/// }
-		///
-		/// // Different type: use explicit bounds or fallback behavior.
-		/// fn convert(old: u64) -> u32 {
-		/// 	u32::try_from(old).unwrap_or(u32::MAX)
-		/// }
-		/// ```
-		fn convert(old: L) -> N;
+		/// A salary cycle index is count-like, so changes in the rate of blocks should not be
+		/// applied.
+		fn convert_cycle_index(cycle_index: L) -> N;
 
-		/// Converts an old block-number moment into the equivalent moment for the new provider.
+		/// Converts an old block number into the equivalent block number for the new provider.
 		///
-		/// # Example Usage
-		///
-		/// ```rust,ignore
-		/// // A parachain switching salary timing from local block numbers to relay-chain block
-		/// // numbers can map an old local moment onto the relay block at the same wall-clock time.
-		/// fn equivalent_moment_in_time(old_local_moment: u32) -> u32 {
-		/// 	let current_local_block = System::block_number();
-		/// 	let local_duration = u32::abs_diff(current_local_block, old_local_moment);
-		/// 	let relay_duration = Self::equivalent_block_duration(local_duration);
-		/// 	let current_relay_block = ParachainSystem::last_relay_block_number();
-		///
-		/// 	if current_local_block >= old_local_moment {
-		/// 		current_relay_block.saturating_sub(relay_duration)
-		/// 	} else {
-		/// 		current_relay_block.saturating_add(relay_duration)
-		/// 	}
-		/// }
-		/// ```
-		fn equivalent_moment_in_time(old_moment: L) -> N;
-
-		/// Converts an old block duration into an equivalent duration for the new provider.
-		///
-		/// For example, if the old provider used 12 second blocks and the new provider uses 6
-		/// second blocks, one old block is equivalent to two new blocks.
-		fn equivalent_block_duration(old_duration: L) -> N;
+		/// Any changes in the rate of blocks need to be taken into account.
+		fn convert_block_number(block_number: L) -> N;
 	}
 
 	/// Converts block numbers between providers with the same block number type and block
@@ -126,27 +93,23 @@ pub mod v1 {
 		NewProvider: BlockNumberProvider<BlockNumber = BlockNumber>,
 		BlockNumber: Copy + Ord + Saturating,
 	{
-		fn convert(old: BlockNumber) -> BlockNumber {
-			old
+		fn convert_cycle_index(cycle_index: BlockNumber) -> BlockNumber {
+			cycle_index
 		}
 
-		fn equivalent_moment_in_time(old_moment: BlockNumber) -> BlockNumber {
+		fn convert_block_number(block_number: BlockNumber) -> BlockNumber {
 			let old_block_number = OldProvider::current_block_number();
-			let old_duration = Self::equivalent_block_duration(if old_block_number >= old_moment {
-				old_block_number.saturating_sub(old_moment)
+			let old_duration = if old_block_number >= block_number {
+				old_block_number.saturating_sub(block_number)
 			} else {
-				old_moment.saturating_sub(old_block_number)
-			});
+				block_number.saturating_sub(old_block_number)
+			};
 			let new_block_number = NewProvider::current_block_number();
-			if old_block_number >= old_moment {
+			if old_block_number >= block_number {
 				new_block_number.saturating_sub(old_duration)
 			} else {
 				new_block_number.saturating_add(old_duration)
 			}
-		}
-
-		fn equivalent_block_duration(old_duration: BlockNumber) -> BlockNumber {
-			old_duration
 		}
 	}
 
@@ -168,8 +131,8 @@ pub mod v1 {
 
 			if let Some(old_status) = v0::Status::<T, I>::take() {
 				let new_status = crate::StatusOf::<T, I> {
-					cycle_index: BC::convert(old_status.cycle_index),
-					cycle_start: BC::equivalent_moment_in_time(old_status.cycle_start),
+					cycle_index: BC::convert_cycle_index(old_status.cycle_index),
+					cycle_start: BC::convert_block_number(old_status.cycle_start),
 					budget: old_status.budget,
 					total_registrations: old_status.total_registrations,
 					total_unregistered_paid: old_status.total_unregistered_paid,
@@ -182,7 +145,7 @@ pub mod v1 {
 				|_, old_claimant| {
 					transactions = transactions.saturating_add(1);
 					Some(crate::ClaimantStatusOf::<T, I> {
-						last_active: BC::convert(old_claimant.last_active),
+						last_active: BC::convert_cycle_index(old_claimant.last_active),
 						status: old_claimant.status,
 					})
 				},
@@ -273,21 +236,11 @@ mod tests {
 		OLD_BLOCK_NUMBER.with(|n| n.set(10));
 		NEW_BLOCK_NUMBER.with(|n| n.set(100));
 
-		// Same-duration providers preserve indexes and durations, while moments move relative to
+		// Same-duration providers preserve indexes, while block numbers move relative to
 		// each provider's current block.
-		assert_eq!(<Converter as v1::ConvertBlockNumber<u64, u64>>::convert(42), 42);
-		assert_eq!(
-			<Converter as v1::ConvertBlockNumber<u64, u64>>::equivalent_moment_in_time(7),
-			97
-		);
-		assert_eq!(
-			<Converter as v1::ConvertBlockNumber<u64, u64>>::equivalent_moment_in_time(13),
-			103
-		);
-		assert_eq!(
-			<Converter as v1::ConvertBlockNumber<u64, u64>>::equivalent_block_duration(3),
-			3
-		);
+		assert_eq!(<Converter as v1::ConvertBlockNumber<u64, u64>>::convert_cycle_index(42), 42);
+		assert_eq!(<Converter as v1::ConvertBlockNumber<u64, u64>>::convert_block_number(7), 97);
+		assert_eq!(<Converter as v1::ConvertBlockNumber<u64, u64>>::convert_block_number(13), 103);
 	}
 
 	#[test]
@@ -295,10 +248,7 @@ mod tests {
 		OLD_BLOCK_NUMBER.with(|n| n.set(10));
 		NEW_BLOCK_NUMBER.with(|n| n.set(2));
 
-		assert_eq!(
-			<Converter as v1::ConvertBlockNumber<u64, u64>>::equivalent_moment_in_time(7),
-			0
-		);
+		assert_eq!(<Converter as v1::ConvertBlockNumber<u64, u64>>::convert_block_number(7), 0);
 	}
 
 	#[test]
