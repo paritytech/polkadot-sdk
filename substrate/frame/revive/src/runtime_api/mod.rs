@@ -26,6 +26,7 @@ mod get_storage;
 mod max_extrinsic_weight_in_gas;
 mod nonce;
 mod receipt_data;
+mod runtime_pallets_address;
 mod trace_block;
 mod upload_code;
 
@@ -40,5 +41,6 @@ pub use get_storage::*;
 pub use max_extrinsic_weight_in_gas::*;
 pub use nonce::*;
 pub use receipt_data::*;
+pub use runtime_pallets_address::*;
 pub use trace_block::*;
 pub use upload_code::*;

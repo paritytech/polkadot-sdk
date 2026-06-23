@@ -3049,6 +3049,7 @@ sp_api::decl_runtime_apis! {
 		fn account_id(address: H160) -> AccountId;
 
 		/// The address used to call the runtime's pallets dispatchables
+		#[deprecated(note = "Use the versioned equivalent `runtime_pallets_address_versioned` if available on your runtime")]
 		fn runtime_pallets_address() -> H160;
 
 		/// The code at the specified address taking pre-compiles into account.
@@ -3098,6 +3099,11 @@ sp_api::decl_runtime_apis! {
 		fn get_storage_versioned(
 			input: GetStorageVersionedInputPayload
 		) -> Result<GetStorageVersionedOutputPayload, ContractAccessError>;
+
+		#[api_version(2)]
+		fn runtime_pallets_address_versioned(
+			input: RuntimePalletsAddressVersionedInputPayload
+		) -> RuntimePalletsAddressVersionedOutputPayload;
 
 		#[api_version(2)]
 		fn block_author_versioned(input: BlockAuthorVersionedInputPayload) -> BlockAuthorVersionedOutputPayload;
@@ -3492,7 +3498,15 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn runtime_pallets_address() -> $crate::H160 {
-					$crate::RUNTIME_PALLETS_ADDR
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = RuntimePalletsAddressVersionedInputPayload::from(
+						RuntimePalletsAddressInputPayloadV1
+					);
+					let output = Self::runtime_pallets_address_versioned(input);
+					RuntimePalletsAddressOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.runtime_pallets_address
 				}
 
 				fn code(address: $crate::H160) -> Vec<u8> {
@@ -3755,6 +3769,29 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					};
 					let output = GetStorageOutputPayload { storage };
 					Ok(output_wrapper(output))
+				}
+
+				fn runtime_pallets_address_versioned(
+					input: $crate::pallet_revive_types::runtime_api::RuntimePalletsAddressVersionedInputPayload
+				) -> $crate::pallet_revive_types::runtime_api::RuntimePalletsAddressVersionedOutputPayload {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use alloc::boxed::Box;
+
+					let (_input, output_wrapper): (
+						_,
+						Box<dyn Fn(RuntimePalletsAddressOutputPayload) -> RuntimePalletsAddressVersionedOutputPayload>,
+					) = match input {
+						RuntimePalletsAddressVersionedInputPayload::V1(payload) => (
+							RuntimePalletsAddressInputPayload::from(payload),
+							Box::new(|output| RuntimePalletsAddressVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let output = RuntimePalletsAddressOutputPayload {
+						runtime_pallets_address: $crate::RUNTIME_PALLETS_ADDR
+					};
+					output_wrapper(output)
 				}
 
 				fn block_author_versioned(
