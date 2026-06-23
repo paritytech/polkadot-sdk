@@ -335,6 +335,44 @@ impl<H> WasmExecutor<H> {
 	}
 }
 
+/// Number of runtime instances kept warm by a capped (execution-timeout) executor.
+const CAPPED_EXECUTOR_MAX_RUNTIME_INSTANCES: usize = 4;
+/// Number of distinct runtime versions cached by a capped (execution-timeout) executor.
+const CAPPED_EXECUTOR_RUNTIME_CACHE_SIZE: u8 = 2;
+
+/// Derive a variant of an executor that enforces a wall-clock limit on each runtime call.
+///
+/// Used to build a dedicated capped executor (e.g. to serve light-client requests) from the
+/// node-wide one, leaving the latter untouched.
+pub trait WithExecutionTimeout {
+	/// Return a new executor that traps any single call exceeding `timeout`. `None` leaves
+	/// execution unbounded (equivalent to the source executor with a fresh runtime cache).
+	fn with_execution_timeout(&self, timeout: Option<Duration>) -> Self;
+}
+
+impl<H> WithExecutionTimeout for WasmExecutor<H> {
+	fn with_execution_timeout(&self, timeout: Option<Duration>) -> Self {
+		Self {
+			method: self.method,
+			default_onchain_heap_alloc_strategy: self.default_onchain_heap_alloc_strategy,
+			default_offchain_heap_alloc_strategy: self.default_offchain_heap_alloc_strategy,
+			ignore_onchain_heap_pages: self.ignore_onchain_heap_pages,
+			// The capped executor compiles into its own epoch-enabled engine and only serves
+			// light-client requests, so it gets a small dedicated cache rather than the node-wide
+			// sizing.
+			cache: Arc::new(RuntimeCache::new(
+				CAPPED_EXECUTOR_MAX_RUNTIME_INSTANCES,
+				self.cache_path.clone(),
+				CAPPED_EXECUTOR_RUNTIME_CACHE_SIZE,
+			)),
+			cache_path: self.cache_path.clone(),
+			allow_missing_host_functions: self.allow_missing_host_functions,
+			execution_timeout: timeout,
+			phantom: self.phantom,
+		}
+	}
+}
+
 impl<H> WasmExecutor<H>
 where
 	H: HostFunctions,
@@ -761,6 +799,17 @@ impl<D: NativeExecutionDispatch> Clone for NativeElseWasmExecutor<D> {
 		NativeElseWasmExecutor {
 			native_version: D::native_version(),
 			wasm: self.wasm.clone(),
+			use_native: self.use_native,
+		}
+	}
+}
+
+#[allow(deprecated)]
+impl<D: NativeExecutionDispatch> WithExecutionTimeout for NativeElseWasmExecutor<D> {
+	fn with_execution_timeout(&self, timeout: Option<Duration>) -> Self {
+		NativeElseWasmExecutor {
+			native_version: D::native_version(),
+			wasm: self.wasm.with_execution_timeout(timeout),
 			use_native: self.use_native,
 		}
 	}

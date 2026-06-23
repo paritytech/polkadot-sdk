@@ -34,9 +34,11 @@ use sc_network::{
 	NetworkBackend, ReputationChange,
 };
 use sc_network_types::PeerId;
+use sp_blockchain::HeaderBackend;
 use sp_core::{
 	hexdisplay::HexDisplay,
 	storage::{ChildInfo, ChildType, PrefixedStorageKey},
+	traits::SpawnNamed,
 };
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
@@ -52,19 +54,22 @@ pub struct LightClientRequestHandler<B, Client> {
 	request_receiver: async_channel::Receiver<IncomingRequest>,
 	/// Blockchain client.
 	client: Arc<Client>,
+	/// Task spawner, used to pre-warm the capped runtime off the async reactor.
+	spawn_handle: Box<dyn SpawnNamed>,
 	_block: PhantomData<B>,
 }
 
 impl<B, Client> LightClientRequestHandler<B, Client>
 where
 	B: Block,
-	Client: BlockBackend<B> + ProofProvider<B> + Send + Sync + 'static,
+	Client: BlockBackend<B> + HeaderBackend<B> + ProofProvider<B> + Send + Sync + 'static,
 {
 	/// Create a new [`LightClientRequestHandler`].
 	pub fn new<N: NetworkBackend<B, <B as Block>::Hash>>(
 		protocol_id: &ProtocolId,
 		fork_id: Option<&str>,
 		client: Arc<Client>,
+		spawn_handle: Box<dyn SpawnNamed>,
 	) -> (Self, N::RequestResponseProtocolConfig) {
 		let (tx, request_receiver) = async_channel::bounded(MAX_LIGHT_REQUEST_QUEUE);
 
@@ -79,11 +84,40 @@ where
 			tx,
 		);
 
-		(Self { client, request_receiver, _block: PhantomData::default() }, protocol_config)
+		(
+			Self { client, request_receiver, spawn_handle, _block: PhantomData::default() },
+			protocol_config,
+		)
+	}
+
+	/// Pre-warm the dedicated capped executor by compiling the runtime ahead of the first
+	/// light-client call request.
+	///
+	/// The capped executor compiles into its own engine, so the first `RemoteCallRequest` would
+	/// otherwise pay a (potentially multi-second, much longer in debug builds) compile and likely
+	/// time out on the network. Run it once, off the async reactor, on the blocking pool.
+	fn prewarm(&self) {
+		let client = self.client.clone();
+		let best_hash = client.info().best_hash;
+		self.spawn_handle.spawn_blocking(
+			"light-client-request-prewarm",
+			Some("networking"),
+			async move {
+				if let Err(e) = client.execution_proof(best_hash, "Core_version", &[]) {
+					debug!(
+						target: LOG_TARGET,
+						"Light client capped-runtime pre-warm failed: {}", e,
+					);
+				}
+			}
+			.boxed(),
+		);
 	}
 
 	/// Run [`LightClientRequestHandler`].
 	pub async fn run(mut self) {
+		self.prewarm();
+
 		while let Some(request) = self.request_receiver.next().await {
 			let IncomingRequest { peer, payload, pending_response } = request;
 
@@ -178,11 +212,14 @@ where
 
 		let block = Decode::decode(&mut request.block.as_ref())?;
 
+		// `execution_proof` runs on the capped executor: a call exceeding the configured wall-clock
+		// limit traps and is reported here as an error, yielding an empty proof (same as any other
+		// execution failure).
 		let response = match self.client.execution_proof(block, &request.method, &request.data) {
 			Ok((_, proof)) => schema::v1::light::RemoteCallResponse { proof: Some(proof.encode()) },
 			Err(e) => {
 				trace!(
-					"remote call request from {} ({} at {:?}) failed with: {}",
+					"remote call request from {} ({} at {:?}) failed (possibly timed out) with: {}",
 					peer,
 					request.method,
 					request.block,

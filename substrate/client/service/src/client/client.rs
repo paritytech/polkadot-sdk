@@ -85,6 +85,7 @@ use std::{
 	marker::PhantomData,
 	path::PathBuf,
 	sync::Arc,
+	time::Duration,
 };
 
 use super::call_executor::LocalCallExecutor;
@@ -99,6 +100,9 @@ where
 {
 	backend: Arc<B>,
 	executor: E,
+	/// Dedicated call executor enforcing a wall-clock limit per call, used to serve untrusted
+	/// (light-client) execution-proof requests. `None` when no execution timeout is configured.
+	capped_call_executor: Option<E>,
 	storage_notifications: StorageNotifications<Block>,
 	import_notification_sinks: NotificationSinks<BlockImportNotification<Block>>,
 	every_import_notification_sinks: NotificationSinks<BlockImportNotification<Block>>,
@@ -168,6 +172,9 @@ pub struct ClientConfig<Block: BlockT> {
 	pub wasm_runtime_substitutes: HashMap<NumberFor<Block>, Vec<u8>>,
 	/// Enable recording of storage proofs during block import
 	pub enable_import_proof_recording: bool,
+	/// Wall-clock limit for a single runtime call made through the dedicated capped executor used
+	/// to serve untrusted (light-client) execution-proof requests. `None` disables capping.
+	pub execution_timeout: Option<Duration>,
 }
 
 impl<Block: BlockT> Default for ClientConfig<Block> {
@@ -179,6 +186,7 @@ impl<Block: BlockT> Default for ClientConfig<Block> {
 			no_genesis: false,
 			wasm_runtime_substitutes: HashMap::new(),
 			enable_import_proof_recording: false,
+			execution_timeout: None,
 		}
 	}
 }
@@ -211,6 +219,8 @@ where
 	Client::new(
 		backend,
 		call_executor,
+		// This test/in-mem helper does not serve light-client requests, so no capped executor.
+		None,
 		spawn_handle,
 		genesis_block_builder,
 		Default::default(),
@@ -364,6 +374,7 @@ where
 	pub fn new<G>(
 		backend: Arc<B>,
 		executor: E,
+		capped_call_executor: Option<E>,
 		spawn_handle: Box<dyn SpawnNamed>,
 		genesis_block_builder: G,
 		fork_blocks: ForkBlocks<Block>,
@@ -411,6 +422,7 @@ where
 		Ok(Client {
 			backend,
 			executor,
+			capped_call_executor,
 			storage_notifications: StorageNotifications::new(prometheus_registry),
 			import_notification_sinks: Default::default(),
 			every_import_notification_sinks: Default::default(),
@@ -1244,7 +1256,13 @@ where
 		method: &str,
 		call_data: &[u8],
 	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
-		self.executor.prove_execution(hash, method, call_data)
+		// Use the dedicated capped executor when configured; otherwise fall back to the uncapped
+		// one. The cap traps calls that exceed the configured wall-clock limit, protecting against
+		// unbounded CPU use when serving untrusted (e.g. light-client) requests.
+		self.capped_call_executor
+			.as_ref()
+			.unwrap_or(&self.executor)
+			.prove_execution(hash, method, call_data)
 	}
 
 	fn read_proof_collection(

@@ -44,6 +44,10 @@ pub trait ProofProvider<Block: BlockT> {
 	/// AND returning execution proof.
 	///
 	/// No changes are made.
+	///
+	/// On [`Client`](https://docs.rs/sc-service) this call is subject to the configured wall-clock
+	/// execution limit (if any), so it can serve untrusted (e.g. light-client) requests without
+	/// letting a single call consume unbounded CPU; the call traps once the limit is exceeded.
 	fn execution_proof(
 		&self,
 		hash: Block::Hash,

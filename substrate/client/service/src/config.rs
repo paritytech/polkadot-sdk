@@ -44,6 +44,7 @@ use std::{
 	net::SocketAddr,
 	num::NonZeroU32,
 	path::{Path, PathBuf},
+	time::Duration,
 };
 use tempfile::TempDir;
 
@@ -358,7 +359,15 @@ pub struct ExecutorConfiguration {
 	pub default_heap_pages: Option<u64>,
 	/// Maximum number of different runtime versions that can be cached.
 	pub runtime_cache_size: u8,
+	/// Wall-clock limit for a single runtime call served through the dedicated capped executor
+	/// used for untrusted (light-client) execution-proof requests. `None` disables capping.
+	///
+	/// The default is `Some(10ms)`.
+	pub execution_timeout: Option<Duration>,
 }
+
+/// Default wall-clock limit for runtime calls serving light-client requests.
+pub const DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT: Duration = Duration::from_millis(10);
 
 impl Default for ExecutorConfiguration {
 	fn default() -> Self {
@@ -367,6 +376,7 @@ impl Default for ExecutorConfiguration {
 			max_runtime_instances: 8,
 			default_heap_pages: None,
 			runtime_cache_size: 2,
+			execution_timeout: Some(DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT),
 		}
 	}
 }

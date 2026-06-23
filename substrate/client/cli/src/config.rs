@@ -35,7 +35,7 @@ use sc_service::{
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
 use sc_tracing::logging::LoggerBuilder;
-use std::{num::NonZeroU32, path::PathBuf};
+use std::{num::NonZeroU32, path::PathBuf, time::Duration};
 
 /// The maximum number of characters for a node name.
 pub(crate) const NODE_NAME_MAX_LENGTH: usize = 64;
@@ -476,6 +476,13 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(2)
 	}
 
+	/// Wall-clock limit for a single runtime call serving an (untrusted) light-client request.
+	///
+	/// `None` disables the limit. By default this is `Some(10ms)`.
+	fn light_request_execution_timeout(&self) -> Result<Option<Duration>> {
+		Ok(Some(sc_service::config::DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT))
+	}
+
 	/// Activate or not the automatic announcing of blocks after import
 	///
 	/// By default this is `false`.
@@ -546,6 +553,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 				default_heap_pages: self.default_heap_pages()?,
 				max_runtime_instances,
 				runtime_cache_size,
+				execution_timeout: self.light_request_execution_timeout()?,
 			},
 			wasm_runtime_overrides: self.wasm_runtime_overrides(),
 			rpc: RpcConfiguration {
