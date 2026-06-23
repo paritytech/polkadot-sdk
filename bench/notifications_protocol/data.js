@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782143418621,
+  "lastUpdate": 1782189566125,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -179135,6 +179135,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2355992975,
             "range": "± 25972275",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ismailov.m.h@gmail.com",
+            "name": "muharem",
+            "username": "muharem"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "24f2641af03078b638c548033ad93059b8fd94d8",
+          "message": "frame-support: stabilize MaybeConsideration by removing experimental gate (#12365)\n\nRemove the `experimental` feature gate from the `MaybeConsideration`\ntrait and its implementations (`()`, `FreezeConsideration`,\n`HoldConsideration`), making it available unconditionally alongside\n`Consideration`.\n\nConsumers no longer need to enable `frame-support/experimental` to use\n`MaybeConsideration`; the feature has been dropped from the\n`pallet-collective` dependency and the `pallet-balances` dev-dependency\naccordingly. No public API removals or storage changes.",
+          "timestamp": "2026-06-22T18:06:17Z",
+          "tree_id": "23fd94fb652f41d4c4b8084f762fe93844762294",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/24f2641af03078b638c548033ad93059b8fd94d8"
+        },
+        "date": 1782189536519,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4399062,
+            "range": "± 35777",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 295081,
+            "range": "± 2042",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4275580,
+            "range": "± 43364",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 367037,
+            "range": "± 5927",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5389486,
+            "range": "± 45044",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 893079,
+            "range": "± 16898",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10898627,
+            "range": "± 134350",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4935923,
+            "range": "± 42980",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 47025273,
+            "range": "± 955691",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40220587,
+            "range": "± 505813",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 400289453,
+            "range": "± 6803204",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 321684689,
+            "range": "± 2017023",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2716687617,
+            "range": "± 14540938",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2450849730,
+            "range": "± 21122159",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3435383,
+            "range": "± 58345",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1803484,
+            "range": "± 17250",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3474165,
+            "range": "± 32554",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1879982,
+            "range": "± 13164",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4023058,
+            "range": "± 62791",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2203560,
+            "range": "± 14281",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8193319,
+            "range": "± 67260",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5284356,
+            "range": "± 72523",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37818727,
+            "range": "± 278082",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37579940,
+            "range": "± 876487",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 335677585,
+            "range": "± 32098726",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 287139776,
+            "range": "± 3990936",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2712752191,
+            "range": "± 66540472",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2388199258,
+            "range": "± 47564806",
             "unit": "ns/iter"
           }
         ]
