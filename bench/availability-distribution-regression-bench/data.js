@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782222208868,
+  "lastUpdate": 1782237520252,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "73b887762f13c70814e1c319fab4b5871b0882c9",
-          "message": "pallet-revive-eth-rpc: derive Encode/Decode for subxt-generated types (#10169)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-31T13:15:28Z",
-          "tree_id": "e4f93fb111e9cb3ae95e24f1b61c1e05976857be",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/73b887762f13c70814e1c319fab4b5871b0882c9"
-        },
-        "date": 1761921888854,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02263802126,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013417540920000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15985396590000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007625284666666652,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14469982078666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79002163+gab8i@users.noreply.github.com",
+            "name": "gab",
+            "username": "gab8i"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "182e7b93b4311362be1a95003c1fa3fae7ae6d8f",
+          "message": "feat(webrtc): add experimental WebRTC transport to litep2p backend (#12315)\n\n# Description\n\nAdd webrtc-direct support to the litep2p backend\n\n- webrtc-direct support gated behind a new `--experimental-webrtc` CLI\nflag.\n- WebRTC `listen_addr` entries are skipped with a warning unless\nenabled.\n- Persist the DTLS certificate to `<net_config_path>/webrtc_certificate`\nso the node keeps a stable identity across restarts. Fall back to an\nephemeral cert otherwise.\n- update network type to support `WebRTCDirect`\n\n## Integration\n\nNo behavioral change unless --experimental-webrtc is explicitly enabled.\n\n## Review Notes\n\nThis PR adds experimental webrtc-direct transport support to the litep2p\nnetwork backend. It is fully opt-in: nothing changes for existing nodes\nunless the operator explicitly passes --experimental-webrtc and supplies\na webrtc-direct listen address. Default backend (litep2p) behavior, the\nlibp2p backend, and all existing transports are untouched.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
+          "timestamp": "2026-06-23T16:23:39Z",
+          "tree_id": "a55797ee6ef62676e447fb959473a3aef790f42e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/182e7b93b4311362be1a95003c1fa3fae7ae6d8f"
+        },
+        "date": 1782237494320,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02357787348666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01003673241333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14380977582000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007557635713333333,
             "unit": "seconds"
           }
         ]
