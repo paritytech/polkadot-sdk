@@ -3783,12 +3783,12 @@ fn delegatecall_immutable_charge_follows_callee_not_caller() {
 				builder::bare_instantiate(Code::Upload(delegator_code.clone()))
 					.build_and_unwrap_contract();
 
-			// the callee's blob: what get_immutable_data returns.
+			// Give the callee's stored blob and the caller's recorded length different sizes, so
+			// the measured gas shows which of the two the charge is based on.
 			crate::ImmutableDataOf::<Test>::insert(
 				reader_addr,
 				crate::ImmutableData::try_from(vec![0xAAu8; callee_len]).unwrap(),
 			);
-			// the caller's length: what immutable_data_len reports.
 			let mut info = AccountInfo::<Test>::load_contract(&delegator_addr).unwrap();
 			info.set_immutable_data_len(caller_len);
 			AccountInfo::<Test>::insert_contract(&delegator_addr, info);

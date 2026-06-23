@@ -78,6 +78,24 @@ fn make_initcode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
 	init_code
 }
 
+/// Init code for a contract that `EXTCODECOPY`s `copy_len` bytes from the address in calldata.
+fn make_extcodecopy_reader(copy_len: u32) -> Vec<u8> {
+	let [b0, b1, b2, b3] = copy_len.to_be_bytes();
+	make_initcode_from_runtime_code(&vec![
+		PUSH4,
+		b0,
+		b1,
+		b2,
+		b3,           // size: bytes to copy
+		PUSH0,        // code offset
+		PUSH0,        // destination memory offset
+		PUSH0,        // calldata offset of the target address
+		CALLDATALOAD, // load the target address
+		EXTCODECOPY,
+		STOP,
+	])
+}
+
 #[test]
 fn basic_evm_flow_works() {
 	let (code, init_hash) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
@@ -177,10 +195,8 @@ fn basic_evm_flow_tracing_works() {
 
 #[test]
 fn extcodecopy_charges_for_actual_code_size() {
-	// Reader runtime: copy 1 byte of code from the address in calldata.
-	let reader_runtime: Vec<u8> =
-		vec![PUSH1, 0x01, PUSH0, PUSH0, PUSH0, CALLDATALOAD, EXTCODECOPY, STOP];
-	let reader_code = make_initcode_from_runtime_code(&reader_runtime);
+	// Copy a single byte, so the charge is driven by the target's code size, not the copy length.
+	let reader_code = make_extcodecopy_reader(1);
 
 	let measure = |code_size: u32| -> u128 {
 		ExtBuilder::default().build().execute_with(|| {
@@ -194,7 +210,6 @@ fn extcodecopy_charges_for_actual_code_size() {
 				builder::bare_instantiate(Code::Upload(reader_code.clone()))
 					.build_and_unwrap_contract();
 
-			// 32-byte word: 12 zero bytes + the 20-byte address (right-aligned, as EVM expects).
 			let mut input = vec![0u8; 12];
 			input.extend_from_slice(target_addr.as_bytes());
 
@@ -218,24 +233,6 @@ fn extcodecopy_charges_for_actual_code_size() {
 fn extcodecopy_charges_for_copy_length_beyond_code_size() {
 	const TARGET_CODE_SIZE: u32 = 64;
 
-	// Reader runtime: copy `copy_len` bytes of code from the address in calldata.
-	let reader_for = |copy_len: u32| -> Vec<u8> {
-		let [b0, b1, b2, b3] = copy_len.to_be_bytes();
-		make_initcode_from_runtime_code(&vec![
-			PUSH4,
-			b0,
-			b1,
-			b2,
-			b3,
-			PUSH0,
-			PUSH0,
-			PUSH0,
-			CALLDATALOAD,
-			EXTCODECOPY,
-			STOP,
-		])
-	};
-
 	let measure = |copy_len: u32| -> u128 {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -245,7 +242,7 @@ fn extcodecopy_charges_for_copy_length_beyond_code_size() {
 				builder::bare_instantiate(Code::Upload(target_code)).build_and_unwrap_contract();
 
 			let Contract { addr: reader_addr, .. } =
-				builder::bare_instantiate(Code::Upload(reader_for(copy_len)))
+				builder::bare_instantiate(Code::Upload(make_extcodecopy_reader(copy_len)))
 					.build_and_unwrap_contract();
 
 			let mut input = vec![0u8; 12];
