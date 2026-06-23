@@ -16,7 +16,7 @@ pallet-staking = { workspace = true }
 sc-consensus-grandpa = { workspace = true }
 sp-authority-discovery = { workspace = true }
 sp-consensus-babe = { workspace = true }
-sp-consensus-beefy = { workspace = true, default-features = true }
+sp-consensus-beefy = { features = ["bls-experimental"], workspace = true, default-features = true }
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }
 

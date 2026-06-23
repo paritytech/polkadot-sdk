@@ -58,7 +58,7 @@ pallet-babe = { workspace = true }
 pallet-bags-list = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-beefy = { workspace = true }
-pallet-beefy-mmr = { workspace = true }
+pallet-beefy-mmr = { features = ["bls-experimental"], workspace = true }
 pallet-conviction-voting = { workspace = true }
 pallet-delegated-staking = { workspace = true }
 pallet-election-provider-multi-phase = { workspace = true }
