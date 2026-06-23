@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782208598464,
+  "lastUpdate": 1782222208868,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "35823283+jpserrat@users.noreply.github.com",
-            "name": "jpserrat",
-            "username": "jpserrat"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "38945d6a8b61c7f16b08f3b51bc28230270e882a",
-          "message": "add default xcm delivery fees configurations for parachain template (#10117)\n\n# Description\nAdding default delivery fees configuration to both HRMP and UMP in the\nparachain template\nCloses #10114\nHey @franciscoaguirre, I've used the same configurations that we have in\nother parachains, please let me know if anything have to be adjusted!\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-10-31T09:45:04Z",
-          "tree_id": "60fd8b810a05043470cd87193c8dfbeffe8a51dc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38945d6a8b61c7f16b08f3b51bc28230270e882a"
-        },
-        "date": 1761908063276,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007147180879999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01318978788666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022548523346666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1599330517266667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010089329966666642,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c977417885ff0bee314a1044d165b2b350e45ec2",
+          "message": "fix penpal build-spec (#11592)\n\nCurrently building the `raw` version panic if you don't delete the aura\nauthorities.\nThx!",
+          "timestamp": "2026-06-23T11:55:50Z",
+          "tree_id": "f7d8ca5c58b3baf6dee949c686da5c5f6722e9ba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c977417885ff0bee314a1044d165b2b350e45ec2"
+        },
+        "date": 1782222181790,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009961585979999972,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02358664143333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007292549279999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14469982078666666,
             "unit": "seconds"
           }
         ]
