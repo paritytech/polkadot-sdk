@@ -20,7 +20,7 @@ use std::{path::PathBuf, sync::Arc};
 use codec::Encode;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::ValidationCodeHashProvider;
-use cumulus_client_unincluded_segment_store::UnincludedSegmentStore;
+use cumulus_client_resubmission_store::ResubmissionStore;
 use cumulus_primitives_core::SignedSchedulingInfo;
 use cumulus_relay_chain_interface::RelayChainInterface;
 
@@ -72,7 +72,7 @@ pub struct Params<Block: BlockT, B, Client, RClient, CHP, CS> {
 	/// segment hydration.
 	pub para_backend: Arc<B>,
 	/// Per-block storage-proof store — used to look up stored proofs during V3 segment hydration.
-	pub store: UnincludedSegmentStore<Block, Client>,
+	pub store: ResubmissionStore<Block, Client>,
 	/// Validation code hash provider — used during V3 segment hydration.
 	pub code_hash_provider: CHP,
 }
@@ -269,7 +269,7 @@ async fn handle_resubmit_segment<Block, B, Client, RClient, CHP>(
 	relay_client: RClient,
 	export_pov: Option<PathBuf>,
 	para_backend: &B,
-	store: &UnincludedSegmentStore<Block, Client>,
+	store: &ResubmissionStore<Block, Client>,
 	code_hash_provider: &CHP,
 	relay_chain_data_cache: &mut RelayChainDataCache<RClient>,
 ) where

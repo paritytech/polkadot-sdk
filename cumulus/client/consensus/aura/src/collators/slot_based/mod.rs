@@ -74,7 +74,7 @@ use codec::Codec;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_proof_size_recording::register_proof_size_recording_cleanup;
-use cumulus_client_resubmission_store::register_resubmission_cleanup;
+use cumulus_client_resubmission_store::{register_resubmission_cleanup, ResubmissionStore};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{
 	KeyToIncludeInRelayProof, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
@@ -228,7 +228,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	// `SlotBasedBlockImport`.
 	block_import_handle.install_relay_data_source(Arc::new(relay_client.clone()), para_id);
 
-	let unincluded_segment_store = UnincludedSegmentStore::<Block, _>::new(para_client.clone());
+	let resubmission_store = ResubmissionStore::<Block, _>::new(para_client.clone());
 
 	let (collation_tx, collation_rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
 	let (resubmit_tx, resubmit_rx) = tracing_unbounded("mpsc_builder_to_collator_resubmit", 100);
@@ -243,7 +243,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		block_import_handle,
 		export_pov,
 		para_backend: para_backend.clone(),
-		store: unincluded_segment_store,
+		store: resubmission_store,
 		code_hash_provider: code_hash_provider.clone(),
 	};
 

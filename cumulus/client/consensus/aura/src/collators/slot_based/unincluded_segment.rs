@@ -26,7 +26,7 @@ use codec::Encode;
 use cumulus_client_consensus_common::{
 	parent_search::extract_relay_parent_or_lookup, ValidationCodeHashProvider,
 };
-use cumulus_client_unincluded_segment_store::UnincludedSegmentStore;
+use cumulus_client_resubmission_store::ResubmissionStore;
 use cumulus_primitives_core::{relay_chain::Hash as RelayHash, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_primitives::ValidationCodeHash;
@@ -54,7 +54,7 @@ pub(super) async fn hydrate_segment<Block, B, Client, RClient, CHP>(
 	headers: Vec<Block::Header>,
 	para_backend: &B,
 	code_hash_provider: &CHP,
-	store: &UnincludedSegmentStore<Block, Client>,
+	store: &ResubmissionStore<Block, Client>,
 	relay_chain_data_cache: &mut RelayChainDataCache<RClient>,
 ) -> Vec<SegmentEntry<Block>>
 where
@@ -89,7 +89,7 @@ pub(super) async fn build_entry<Block, B, Client, RClient, CHP>(
 	header: Block::Header,
 	para_backend: &B,
 	code_hash_provider: &CHP,
-	store: &UnincludedSegmentStore<Block, Client>,
+	store: &ResubmissionStore<Block, Client>,
 	relay_chain_data_cache: &mut RelayChainDataCache<RClient>,
 ) -> Option<SegmentEntry<Block>>
 where
@@ -130,7 +130,7 @@ where
 		relay_parent,
 		parent_header,
 		blocks: vec![block],
-		proof: stored.proof,
+		proof: (*stored.proof).clone(),
 		validation_code_hash,
 		validation_data,
 	})
