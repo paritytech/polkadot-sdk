@@ -175,6 +175,113 @@ fn basic_evm_flow_tracing_works() {
 	});
 }
 
+/// EVM `sload` must charge proportionally to the actual byte size of the storage
+/// value, not just the EVM word size of 32. The trie's storage values can exceed
+/// 32 bytes when a PVM contract sharing the same namespace (via delegatecall) wrote
+/// them — a fixed 32-byte charge would undercharge the proof space consumed by the
+/// read. The fix charges `STORAGE_BYTES` upfront and refunds the unused portion
+/// based on the actual length read (mirroring `get_storage` in PVM).
+///
+/// Setup: deploy Solc-compiled `Counter`, then directly inject values of different
+/// sizes into its storage at slot 0 (simulating a PVM contract writing there via
+/// shared namespace). Calling `number()` compiles down to `SLOAD(0)`; the 256-byte
+/// read traps (length mismatch) but the gas consumed up to that point reflects the
+/// actual read size.
+///
+/// Without the fix, both 32-byte and 256-byte cases would consume the same gas.
+/// With the fix, the 256-byte case consumes strictly more.
+#[test]
+fn sload_charges_for_actual_storage_value_size() {
+	use crate::exec::Key;
+	use pallet_revive_fixtures::Counter;
+
+	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
+	let measure_with_value_len = |len: usize| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(counter_code.clone()))
+					.build_and_unwrap_contract();
+
+			// Inject a value of the requested length directly into the contract's
+			// storage trie at slot 0 — simulates a PVM contract writing there via
+			// shared namespace (delegatecall).
+			let info = get_contract(&addr);
+			info.write(&Key::Fix([0u8; 32]), Some(vec![0xAAu8; len]), None, false).unwrap();
+
+			// Counter::number() compiles to SLOAD(0). For len != 32 it traps with
+			// ContractTrapped after the read; we still observe the gas consumed.
+			let result = builder::bare_call(addr).data(Counter::numberCall {}.abi_encode()).build();
+			result.gas_consumed
+		})
+	};
+
+	let gas_32: u128 = measure_with_value_len(32);
+	let gas_256: u128 = measure_with_value_len(256);
+
+	// With the fix, the 256-byte read costs strictly more than the 32-byte read.
+	// Without the fix (legacy `GetStorage(32)`), the two would be equal.
+	assert!(
+		gas_256 > gas_32,
+		"sload must charge more for larger storage values: gas_256={gas_256}, gas_32={gas_32}",
+	);
+}
+
+/// Regression: EVM TLOAD must charge gas proportional to the actual length of the transient
+/// value it reads. We inject a value at the EVM-visible `Key::Fix([0; 32])` slot via
+/// `ExecConfig::test_env_transient_storage` — simulating a PVM contract writing a non-32-byte
+/// value there through the shared namespace (delegatecall) — then call a contract whose runtime
+/// is `TLOAD(0)`.
+///
+/// Comparing a `None` read (slot empty → zero) against a 32-byte read keeps both runs on the
+/// same, non-trapping control-flow path, so the only difference in gas is TLOAD's `adjust_weight`
+/// to the actual length read: ~974 gas with the fix, ~1 without. Mirrors
+/// `sload_charges_for_actual_storage_value_size`.
+#[test]
+fn tload_charges_for_actual_transient_value_size() {
+	use crate::{ExecConfig, exec::Key, limits, transient_storage::TransientStorage};
+	use core::cell::RefCell;
+
+	// EVM runtime that reads transient slot 0 and returns it as a 32-byte response:
+	//   PUSH0 TLOAD PUSH0 MSTORE PUSH1 0x20 PUSH0 RETURN
+	let tload_runtime: Vec<u8> = vec![PUSH0, TLOAD, PUSH0, MSTORE, PUSH1, 0x20, PUSH0, RETURN];
+	let tload_code = make_initcode_from_runtime_code(&tload_runtime);
+
+	let measure = |inject: Option<usize>| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr, account_id } =
+				builder::bare_instantiate(Code::Upload(tload_code.clone()))
+					.build_and_unwrap_contract();
+
+			// Pre-populate the EVM-visible transient slot under the callee's namespace. The write
+			// updates the backing store immediately, and the frame's `start_transaction`
+			// checkpoints the journal *after* this entry, so it survives any in-call rollback.
+			let mut transient = TransientStorage::<Test>::new(limits::TRANSIENT_STORAGE_BYTES);
+			if let Some(len) = inject {
+				transient
+					.write(&account_id, &Key::Fix([0u8; 32]), Some(vec![0xAAu8; len]), false)
+					.unwrap();
+			}
+			let mut exec_config = ExecConfig::new_substrate_tx();
+			exec_config.test_env_transient_storage = Some(RefCell::new(transient));
+
+			builder::bare_call(addr).exec_config(exec_config).build().gas_consumed
+		})
+	};
+
+	let delta = measure(Some(32)).saturating_sub(measure(None));
+
+	assert!(
+		delta >= 100,
+		"TLOAD must charge more for a 32-byte read than for a None read: delta={delta} \
+		 (expected ~974 with fix, ~1 without)",
+	);
+}
+
 /// Regression test for paritytech/contract-issues#278 — nested-call variant.
 ///
 /// `Stack::call`'s no-code branch (the path taken when a running contract
