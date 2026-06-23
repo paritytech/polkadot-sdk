@@ -15,10 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod balance;
 mod block_hash;
 mod receipt_data;
 mod trace_block;
 
+pub use balance::*;
 pub use block_hash::*;
 pub use receipt_data::*;
 pub use trace_block::*;

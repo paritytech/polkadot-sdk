@@ -2898,6 +2898,7 @@ sp_api::decl_runtime_apis! {
 		fn max_extrinsic_weight_in_gas() -> U256;
 
 		/// Returns the free balance of the given `[H160]` address, using EVM decimals.
+		#[deprecated(note = "Use the versioned equivalent `balance_versioned` if available on your runtime")]
 		fn balance(address: H160) -> U256;
 
 		/// Returns the gas price.
@@ -3055,6 +3056,9 @@ sp_api::decl_runtime_apis! {
 		fn eth_receipt_data_versioned(input: ReceiptDataVersionedInputPayload) -> ReceiptDataVersionedOutputPayload;
 
 		#[api_version(2)]
+		fn balance_versioned(input: BalanceVersionedInputPayload) -> BalanceVersionedOutputPayload;
+
+		#[api_version(2)]
 		fn trace_block_versioned(input: TraceBlockVersionedInputPayload<Block>) -> TraceBlockVersionedOutputPayload;
 	}
 }
@@ -3128,7 +3132,13 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn balance(address: $crate::H160) -> $crate::U256 {
-					$crate::Pallet::<Self>::evm_balance(&address)
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = BalanceVersionedInputPayload::from(BalanceInputPayloadV1 { address });
+					let output = Self::balance_versioned(input);
+					BalanceOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.balance
 				}
 
 				fn block_author() -> $crate::H160 {
@@ -3429,6 +3439,29 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					let output = ReceiptDataOutputPayload {
 						receipt_data: $crate::Pallet::<Self>::eth_receipt_data()
+					};
+					output_wrapper(output)
+				}
+
+				fn balance_versioned(
+					input: $crate::pallet_revive_types::runtime_api::BalanceVersionedInputPayload
+				) -> $crate::pallet_revive_types::runtime_api::BalanceVersionedOutputPayload {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(BalanceOutputPayload) -> BalanceVersionedOutputPayload>,
+					) = match input {
+						BalanceVersionedInputPayload::V1(payload) => (
+							BalanceInputPayload::from(payload),
+							Box::new(|output| BalanceVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let output = BalanceOutputPayload {
+						balance: $crate::Pallet::<Self>::evm_balance(&input.address)
 					};
 					output_wrapper(output)
 				}

@@ -142,6 +142,22 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionStepKindV1>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::balance::BalanceInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BalanceInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::balance::BalanceVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BalanceVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::balance::BalanceOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BalanceOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::balance::BalanceVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BalanceVersionedOutputPayload>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockInputPayloadV1<Block>",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockInputPayloadV1<Block>>"
 	),
