@@ -110,10 +110,10 @@ pub mod pallet {
 		///
 		/// The benchmarks require that this be non-zero for some rank at most 255.
 		type Salary: GetSalary<
-			<Self::Members as RankedMembers>::Rank,
-			Self::AccountId,
-			<Self::Paymaster as Pay>::Balance,
-		>;
+				<Self::Members as RankedMembers>::Rank,
+				Self::AccountId,
+				<Self::Paymaster as Pay>::Balance,
+			>;
 
 		/// The number of blocks within a cycle which accounts have to register their intent to
 		/// claim.
@@ -136,12 +136,39 @@ pub mod pallet {
 		#[pallet::constant]
 		type Budget: Get<BalanceOf<Self, I>>;
 
-		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		/// Query the block number used to measure salary cycle time.
+		///
+		/// `RegistrationPeriod`, `PayoutPeriod`, `Status::cycle_start`, and the payout windows are
+		/// all interpreted in the block-number domain returned by this provider.
+		///
+		/// Must return monotonically increasing values when called from consecutive blocks. Can be
+		/// configured to return either:
+		/// - the local block number of the runtime via `frame_system::Pallet`
+		/// - a remote block number, eg from the relay chain through `RelaychainDataProvider`
+		/// - an arbitrary value through a custom implementation of the trait
+		///
+		/// Changing this for an already deployed pallet changes the meaning of stored cycle timing
+		/// values. Use a migration, such as [`crate::migration::MigrateV0ToV1`], to convert
+		/// existing storage when switching providers.
+		///
+		/// Suggested values:
+		/// - Solo- and Relay-chains: `frame_system::Pallet`
+		/// - Parachains that may produce blocks sparingly or only when needed (on-demand):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: `RelaychainDataProvider`
+		/// - Parachains with a reliable block production rate (PLO or bulk-coretime):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: no strong recommendation. Both local and remote
+		///     providers can be used. Relay provider can be a bit better in cases where the
+		///     parachain is lagging its block production to avoid clock skew.
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
-	pub type BlockNumberFor<T, I> =
+	/// The block number type returned by [`Config::BlockNumberProvider`] and used to measure salary
+	/// cycle time.
+	pub type ProvidedBlockNumber<T, I> =
 		<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+	pub type BlockNumberFor<T, I> = ProvidedBlockNumber<T, I>;
 	pub type CycleIndexOf<T, I> = BlockNumberFor<T, I>;
 	pub type BalanceOf<T, I> = <<T as Config<I>>::Paymaster as Pay>::Balance;
 	pub type IdOf<T, I> = <<T as Config<I>>::Paymaster as Pay>::Id;
