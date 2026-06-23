@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782207532845,
+  "lastUpdate": 1782219178555,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -100547,6 +100547,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2783439069,
             "range": "± 49369067",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "125471df6abe0fa522181d0d0be74c70303a11ae",
+          "message": "nomination-pools: benchmark against staking-async, enable on Asset Hub Westend (#12402)\n\nMake `pallet-nomination-pools-benchmarking` depend on\n`pallet-staking-async` instead of the deprecated `pallet-staking`, so\nnomination pools can be benchmarked on Asset Hub.\n\nThis is meant as replacement of #9016 where we drop fast-unstake (not\nsupported on AH) and bags-list (already staking-async compatible). The\ncleanup of Westend RC is part of #11940. The combination of this PR and\n#11940 close https://github.com/paritytech/polkadot-sdk/issues/9442.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-06-23T11:18:36Z",
+          "tree_id": "1a99a65097dedaad647651a4e8b256629915a08e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/125471df6abe0fa522181d0d0be74c70303a11ae"
+        },
+        "date": 1782219151195,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19518971,
+            "range": "± 163809",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19903528,
+            "range": "± 115879",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21261266,
+            "range": "± 168086",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26356654,
+            "range": "± 132688",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61535888,
+            "range": "± 855987",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 362194606,
+            "range": "± 6643878",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2702129141,
+            "range": "± 87829204",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17355218,
+            "range": "± 163460",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17739975,
+            "range": "± 129700",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17809903,
+            "range": "± 128676",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22390623,
+            "range": "± 174882",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61570141,
+            "range": "± 815401",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 359675739,
+            "range": "± 2889128",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2635511199,
+            "range": "± 44820826",
             "unit": "ns/iter"
           }
         ]
