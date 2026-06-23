@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782208561399,
+  "lastUpdate": 1782222173315,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9136565addc23a552f6960a7581f13c8dfc651f1",
-          "message": "pallet_revive_dev_node: Always increment the timestamp by at least one second (#10160)\n\nFixes https://github.com/paritytech/contract-issues/issues/191\n\ncc @albertov19\n\nThe instant seal introduces a race condition. Blocks can be build faster\nthan the timestamp resolution of Ethereum. Eth timestamps are only one\nsecond granularity. If we build blocks faster it can happen that the\ntimestamp delta between them is zero. This is not allowed. We have to\nmake sure that in instant seal two blocks don't return the same\ntimestamp.\n\nThis PR does that by always incrementing the timestamp by at least one\nsecond. Note that this is a dev-node only change. Production chains\nwon't have this problem as long as the block time is larger than 1\nsecond.\n\nYes, it will produce timestamps in the future. But this seems to be the\nlesser evil for this dev node. Time is subjective. But the rule to not\nreturn duplicate timestamps is dependent on.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-31T16:46:46Z",
-          "tree_id": "5c7ce198b06890d684f68f70084ddc28d5c9e05f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9136565addc23a552f6960a7581f13c8dfc651f1"
-        },
-        "date": 1761935049691,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2012640575333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.635400624733334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.926591486333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c977417885ff0bee314a1044d165b2b350e45ec2",
+          "message": "fix penpal build-spec (#11592)\n\nCurrently building the `raw` version panic if you don't delete the aura\nauthorities.\nThx!",
+          "timestamp": "2026-06-23T11:55:50Z",
+          "tree_id": "f7d8ca5c58b3baf6dee949c686da5c5f6722e9ba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c977417885ff0bee314a1044d165b2b350e45ec2"
+        },
+        "date": 1782222146104,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13277015370000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.670548320166663,
             "unit": "seconds"
           }
         ]
