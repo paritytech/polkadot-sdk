@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782199971700,
+  "lastUpdate": 1782207532845,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -100439,6 +100439,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2692362376,
             "range": "± 43211941",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "782fb2c3925a86b3e30b2e9c7f73c9fc4836c183",
+          "message": "net/litep2p: Install the default crypto provider (#11253)\n\nThis PR installs the default crypto provider before TLS connections are\nmade.\n\nIn case another provider was already installed (unexpected but\nparachains dev might have enabled it), a warning is printed.\n\nWithout the fix, litep2p websocket (tokio tungstenite that uses rustls)\nwould panic under the hood:\n\n```rust\nThread 'tokio-runtime-worker' panicked at '\nCould not automatically determine the process-level CryptoProvider from Rustls crate features.\nCall CryptoProvider::install_default() before this point to select a provider manually, or make sure exactly one of the 'aws-lc-rs' and 'ring' features is enabled.\nSee the documentation of the CryptoProvider type for more information.\n            ', /home/akru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustls-0.23.36/src/crypto/mod.rs:249\n```\n\nThis happens speficially when both `aws-lc-rs` (legacy) and `ring`\nfeatures are enabled by some dependencies that get into the\n`Cargo.lock`.\n\nCloses:\n- https://github.com/paritytech/polkadot-sdk/issues/11164\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-23T08:21:22Z",
+          "tree_id": "e459f7f5c7c641b09bdd99d8e1789da44f963225",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/782fb2c3925a86b3e30b2e9c7f73c9fc4836c183"
+        },
+        "date": 1782207507503,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20065634,
+            "range": "± 160470",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20342786,
+            "range": "± 244203",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21972450,
+            "range": "± 216811",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27112025,
+            "range": "± 114414",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62394703,
+            "range": "± 715310",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 394644988,
+            "range": "± 7004182",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2719101925,
+            "range": "± 72823343",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18631277,
+            "range": "± 279807",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18683510,
+            "range": "± 186716",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18868301,
+            "range": "± 419616",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23513712,
+            "range": "± 371112",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65008722,
+            "range": "± 985998",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 390418520,
+            "range": "± 4789395",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2783439069,
+            "range": "± 49369067",
             "unit": "ns/iter"
           }
         ]
