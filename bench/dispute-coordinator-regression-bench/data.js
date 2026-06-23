@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782208708338,
+  "lastUpdate": 1782222317216,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "dd3b145ec339af22ae904558561448361fd479f4",
-          "message": "Adjustable zstd compression level (#10151)\n\nChanges:\n- Create `compress_weakly`, `compress_strongly` and\n`compress_with_level` functions for variable compression levels\n- Use said functions instead of the old fixed-level `compress` function\n  - Deprecate `compress` function in faviour of the added ones\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-10-30T13:22:51Z",
-          "tree_id": "5c05740db261840dc99cf422ab34824e33cf6e3e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dd3b145ec339af22ae904558561448361fd479f4"
-        },
-        "date": 1761834978547,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027029556,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00899998828999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0053569390499999935,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009194238499999988,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c977417885ff0bee314a1044d165b2b350e45ec2",
+          "message": "fix penpal build-spec (#11592)\n\nCurrently building the `raw` version panic if you don't delete the aura\nauthorities.\nThx!",
+          "timestamp": "2026-06-23T11:55:50Z",
+          "tree_id": "f7d8ca5c58b3baf6dee949c686da5c5f6722e9ba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c977417885ff0bee314a1044d165b2b350e45ec2"
+        },
+        "date": 1782222290306,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026780109499999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009727098599999982,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010725838530000005,
             "unit": "seconds"
           }
         ]
