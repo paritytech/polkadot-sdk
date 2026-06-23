@@ -209,7 +209,7 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::WestendXcmWeight<RuntimeCall>,
+		crate::weights::xcm::RcXcmWeight<RuntimeCall>,
 		RuntimeCall,
 		MaxInstructions,
 	>;
@@ -304,7 +304,7 @@ impl pallet_xcm::Config for Runtime {
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
 	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::WestendXcmWeight<RuntimeCall>,
+		crate::weights::xcm::RcXcmWeight<RuntimeCall>,
 		RuntimeCall,
 		MaxInstructions,
 	>;
