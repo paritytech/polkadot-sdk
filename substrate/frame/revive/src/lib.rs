@@ -2892,6 +2892,7 @@ sp_api::decl_runtime_apis! {
 		fn eth_receipt_data() -> Vec<ReceiptGasInfoV1>;
 
 		/// Returns the block gas limit.
+		#[deprecated(note = "Use the versioned equivalent `block_gas_limit_versioned` if available on your runtime")]
 		fn block_gas_limit() -> U256;
 
 		/// Returns the block gas limit as calculated from the weights.
@@ -3057,6 +3058,11 @@ sp_api::decl_runtime_apis! {
 		fn eth_receipt_data_versioned(input: ReceiptDataVersionedInputPayload) -> ReceiptDataVersionedOutputPayload;
 
 		#[api_version(2)]
+		fn block_gas_limit_versioned(
+			input: BlockGasLimitVersionedInputPayload
+		) -> BlockGasLimitVersionedOutputPayload;
+
+		#[api_version(2)]
 		fn balance_versioned(input: BalanceVersionedInputPayload) -> BalanceVersionedOutputPayload;
 
 		#[api_version(2)]
@@ -3156,7 +3162,13 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn block_gas_limit() -> $crate::U256 {
-					$crate::Pallet::<Self>::evm_block_gas_limit()
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = BlockGasLimitVersionedInputPayload::from(BlockGasLimitInputPayloadV1);
+					let output = Self::block_gas_limit_versioned(input);
+					BlockGasLimitOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.block_gas_limit
 				}
 
 				fn max_extrinsic_weight_in_gas() -> $crate::U256 {
@@ -3449,6 +3461,29 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					let output = ReceiptDataOutputPayload {
 						receipt_data: $crate::Pallet::<Self>::eth_receipt_data()
+					};
+					output_wrapper(output)
+				}
+
+				fn block_gas_limit_versioned(
+					input: $crate::pallet_revive_types::runtime_api::BlockGasLimitVersionedInputPayload
+				) -> $crate::pallet_revive_types::runtime_api::BlockGasLimitVersionedOutputPayload {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use alloc::boxed::Box;
+
+					let (_input, output_wrapper): (
+						_,
+						Box<dyn Fn(BlockGasLimitOutputPayload) -> BlockGasLimitVersionedOutputPayload>,
+					) = match input {
+						BlockGasLimitVersionedInputPayload::V1(payload) => (
+							BlockGasLimitInputPayload::from(payload),
+							Box::new(|output| BlockGasLimitVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let output = BlockGasLimitOutputPayload {
+						block_gas_limit: $crate::Pallet::<Self>::evm_block_gas_limit()
 					};
 					output_wrapper(output)
 				}

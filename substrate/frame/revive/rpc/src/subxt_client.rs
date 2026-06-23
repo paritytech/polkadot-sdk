@@ -174,6 +174,22 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockAuthorVersionedOutputPayload>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_gas_limit::BlockGasLimitInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockGasLimitInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_gas_limit::BlockGasLimitVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockGasLimitVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_gas_limit::BlockGasLimitOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockGasLimitOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_gas_limit::BlockGasLimitVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockGasLimitVersionedOutputPayload>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockInputPayloadV1<Block>",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockInputPayloadV1<Block>>"
 	),
