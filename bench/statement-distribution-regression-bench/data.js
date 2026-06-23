@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782237589491,
+  "lastUpdate": 1782240536140,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "ab65a82ec84c4aec10e703630ee3c8eddc5b39ee",
-          "message": "cumulus-bootnodes: Do not require a specific hash (#10048)\n\nOn the wire the hash is represented as `Vec<u8>` any way. So, there is\nno need to take this as an extra type.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-30T15:57:45Z",
-          "tree_id": "bf8dbb51252949db24a63ee18bd114f202e11c2c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ab65a82ec84c4aec10e703630ee3c8eddc5b39ee"
-        },
-        "date": 1761847781070,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.96999999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03536813207199999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.045208931565999935,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08547912537199986,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "601bb0c22905a875c11ea76f7dd1e5fcb15fe195",
+          "message": "Fix for `rust-lld` regression (#12440)\n\nThis adapts code to a `rust-lld` regression observed since 1.96.0,\nrequiring the explicit specification of a Wasm module name from which\nexternal functions are imported.",
+          "timestamp": "2026-06-23T16:42:06Z",
+          "tree_id": "23f6fb9173c48d915a926061427331528ccebe9d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/601bb0c22905a875c11ea76f7dd1e5fcb15fe195"
+        },
+        "date": 1782240511230,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12400000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.07996472159599993,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038148254757999996,
             "unit": "seconds"
           }
         ]
