@@ -6,7 +6,6 @@
 //! v2 routes a statement to the `K` nodes with affinity to its topic instead of
 //! flooding every peer. It is enabled per node via `--enable-statement-store-v2-dht`
 //! (off by default).
-//!
 
 use super::common::{
 	count_storers, expect_one_statement, spawn_network_with_injected_allowances_v2,
