@@ -2962,6 +2962,7 @@ sp_api::decl_runtime_apis! {
 		) -> Result<U256, EthTransactError>;
 
 		/// Return the pre-dispatch weight booked for the signed Ethereum transaction payload.
+		#[deprecated(note = "Use the versioned equivalent `eth_pre_dispatch_weight_versioned` if available on your runtime")]
 		fn eth_pre_dispatch_weight(tx: Vec<u8>) -> Result<Weight, EthTransactError>;
 
 		/// Upload new code without instantiating a contract from it.
@@ -3079,6 +3080,11 @@ sp_api::decl_runtime_apis! {
 
 		#[api_version(2)]
 		fn nonce_versioned(input: NonceVersionedInputPayload) -> NonceVersionedOutputPayload<Nonce>;
+
+		#[api_version(2)]
+		fn eth_pre_dispatch_weight_versioned(
+			input: EthPreDispatchWeightVersionedInputPayload
+		) -> Result<EthPreDispatchWeightVersionedOutputPayload, EthTransactError>;
 
 		#[api_version(2)]
 		fn block_author_versioned(input: BlockAuthorVersionedInputPayload) -> BlockAuthorVersionedOutputPayload;
@@ -3269,7 +3275,15 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				fn eth_pre_dispatch_weight(
 					tx: Vec<u8>,
 				) -> Result<$crate::Weight, $crate::EthTransactError> {
-					$crate::Pallet::<Self>::eth_pre_dispatch_weight(tx)
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = EthPreDispatchWeightVersionedInputPayload::from(
+						EthPreDispatchWeightInputPayloadV1 { tx }
+					);
+					let output = Self::eth_pre_dispatch_weight_versioned(input)?;
+					Ok(EthPreDispatchWeightOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.weight)
 				}
 
 				fn call(
@@ -3621,6 +3635,32 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						nonce: $crate::frame_system::Pallet::<Self>::account_nonce(account)
 					};
 					output_wrapper(output)
+				}
+
+				fn eth_pre_dispatch_weight_versioned(
+					input: $crate::pallet_revive_types::runtime_api::EthPreDispatchWeightVersionedInputPayload
+				) -> Result<
+					$crate::pallet_revive_types::runtime_api::EthPreDispatchWeightVersionedOutputPayload,
+					$crate::EthTransactError
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(EthPreDispatchWeightOutputPayload) -> EthPreDispatchWeightVersionedOutputPayload>,
+					) = match input {
+						EthPreDispatchWeightVersionedInputPayload::V1(payload) => (
+							EthPreDispatchWeightInputPayload::from(payload),
+							Box::new(|output| EthPreDispatchWeightVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let output = EthPreDispatchWeightOutputPayload {
+						weight: $crate::Pallet::<Self>::eth_pre_dispatch_weight(input.tx)?
+					};
+					Ok(output_wrapper(output))
 				}
 
 				fn block_author_versioned(

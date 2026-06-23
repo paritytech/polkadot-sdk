@@ -190,6 +190,22 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NonceVersionedOutputPayload<Nonce>>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::EthPreDispatchWeightInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthPreDispatchWeightInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::EthPreDispatchWeightVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthPreDispatchWeightVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::EthPreDispatchWeightOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthPreDispatchWeightOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::EthPreDispatchWeightVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthPreDispatchWeightVersionedOutputPayload>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::block_author::BlockAuthorInputPayloadV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockAuthorInputPayloadV1>"
 	),
