@@ -3015,6 +3015,7 @@ sp_api::decl_runtime_apis! {
 		/// parent hash up to the transaction.
 		///
 		/// See eth-rpc `debug_traceTransaction` for usage.
+		#[deprecated(note = "Use the versioned equivalent `trace_tx_versioned` if available on your runtime")]
 		fn trace_tx(
 			block: Block,
 			tx_index: u32,
@@ -3127,6 +3128,9 @@ sp_api::decl_runtime_apis! {
 
 		#[api_version(2)]
 		fn trace_block_versioned(input: TraceBlockVersionedInputPayload<Block>) -> TraceBlockVersionedOutputPayload;
+
+		#[api_version(2)]
+		fn trace_tx_versioned(input: TraceTxVersionedInputPayload<Block>) -> TraceTxVersionedOutputPayload;
 	}
 }
 
@@ -3441,30 +3445,17 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					tx_index: u32,
 					tracer_type: $crate::pallet_revive_types::runtime_api::TracerTypeV1,
 				) -> Option<$crate::pallet_revive_types::runtime_api::TraceV1> {
-					use $crate::{sp_runtime::traits::Block, tracing::trace};
+					use $crate::pallet_revive_types::runtime_api::*;
 
-					let tracer_type = $crate::evm::TracerType::from(tracer_type);
-					if matches!(tracer_type, $crate::evm::TracerType::ExecutionTracer(_)) &&
-						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
-					{
-						return None
-					}
-
-					let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type);
-					let (header, extrinsics) = block.deconstruct();
-
-					<$Executive>::initialize_block(&header);
-					for (index, ext) in extrinsics.into_iter().enumerate() {
-						if index as u32 == tx_index {
-							let t = tracer.as_tracing();
-							let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
-							break;
-						} else {
-							let _ = <$Executive>::apply_extrinsic(ext);
-						}
-					}
-
-					tracer.collect_trace().map(Into::into)
+					let input = TraceTxVersionedInputPayload::from(TraceTxInputPayloadV1 {
+						block,
+						tx_index,
+						config: tracer_type
+					});
+					let output = Self::trace_tx_versioned(input);
+					TraceTxOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.trace
 				}
 
 				fn trace_call(
@@ -3990,6 +3981,54 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					}
 
 					let output = TraceBlockOutputPayload { traces };
+					output_wrapper(output)
+				}
+
+				fn trace_tx_versioned(
+					input: $crate::pallet_revive_types::runtime_api::TraceTxVersionedInputPayload<Block>
+				) -> $crate::pallet_revive_types::runtime_api::TraceTxVersionedOutputPayload {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use $crate::{sp_runtime::traits::Block, tracing::trace};
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(TraceTxOutputPayload) -> TraceTxVersionedOutputPayload>,
+					) = match input {
+						TraceTxVersionedInputPayload::V1(payload) => (
+							TraceTxInputPayload::from(payload),
+							Box::new(|output| TraceTxVersionedOutputPayload::V1(output.into())),
+						),
+						TraceTxVersionedInputPayload::V2(payload) => (
+							TraceTxInputPayload::from(payload),
+							Box::new(|output| TraceTxVersionedOutputPayload::V2(output.into())),
+						),
+					};
+
+					if matches!(&input.config, $crate::evm::TracerType::ExecutionTracer(_)) &&
+						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
+					{
+						return output_wrapper(TraceTxOutputPayload { trace: None })
+					}
+
+					let mut tracer = $crate::Pallet::<Self>::evm_tracer(input.config);
+					let (header, extrinsics) = input.block.deconstruct();
+
+					<$Executive>::initialize_block(&header);
+					for (index, ext) in extrinsics.into_iter().enumerate() {
+						if index as u32 == input.tx_index {
+							let t = tracer.as_tracing();
+							let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
+							break;
+						} else {
+							let _ = <$Executive>::apply_extrinsic(ext);
+						}
+					}
+
+					let output = TraceTxOutputPayload {
+						trace: tracer.collect_trace()
+					};
 					output_wrapper(output)
 				}
 			}

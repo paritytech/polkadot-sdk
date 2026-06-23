@@ -397,6 +397,30 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockVersionedOutputPayload",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockVersionedOutputPayload>"
 	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_tx::TraceTxInputPayloadV1<Block>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceTxInputPayloadV1<Block>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_tx::TraceTxInputPayloadV2<Block>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceTxInputPayloadV2<Block>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_tx::TraceTxVersionedInputPayload<Block>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceTxVersionedInputPayload<Block>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_tx::TraceTxOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceTxOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_tx::TraceTxOutputPayloadV2",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceTxOutputPayloadV2>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_tx::TraceTxVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceTxVersionedOutputPayload>"
+	),
 
 	derive_for_all_types = "codec::Encode, codec::Decode"
 )]
