@@ -1,178 +1,135 @@
 # XCM Weights Refactor Walkthrough
 
-This document explains the refactoring used to reduce manual XCM weight glue code by moving the reusable helper logic into `pallet-xcm-benchmarks`.
+This document explains the current XCM weight refactor status and the runtime behavior model now in place.
+
+The reusable XCM weight composition helpers now live with the benchmark infrastructure, and both relay and Asset Hub runtimes use that shared surface. The important point is that they share infrastructure but not identical asset semantics.
 
 ## Goal
 
-Reduce per-runtime handwritten logic in XCM `weights/xcm/mod.rs` by extracting reusable helper logic into `pallet-xcm-benchmarks`, where it can be shared by relay runtimes today and parachain runtimes later.
+Reduce repeated handwritten XCM weight wiring by centralizing shared helper logic in the benchmark layer while preserving runtime-specific policy where behavior genuinely differs.
 
-This remains an incremental step:
-- It does not yet auto-generate `mod.rs`.
-- It preserves current Rococo, Westend, and rc runtime behavior.
-- It places the reusable logic next to the XCM benchmark infrastructure rather than in a relay-runtime-specific common crate.
+Current status:
+[x] Shared helper infrastructure is centralized (inside xcm-benchmarks)
+[ ] Runtime-level instruction mapping is still explicit, but asset-weighing policy is now factored and reusable.
 
-## Why Move It Out Of `runtime/common`
+## Why This Lives In The Benchmark Layer
 
-`polkadot/runtime/common` works for relay-chain reuse, but it is the wrong abstraction boundary for broader XCM runtime reuse:
+This logic is benchmark-composition logic, not relay-chain-only policy logic. Placing it beside XCM benchmarks gives one reusable source for all runtimes that consume benchmark weight outputs.
 
-- The helper logic is about benchmarking-oriented XCM weight composition, not relay runtime policy.
-- Asset Hub and other Cumulus runtimes should be able to adopt the same helpers without depending on relay runtime common code.
-- `pallet-xcm-benchmarks` is already the natural home for the generated XCM benchmark weight building blocks.
+This separation keeps responsibilities clear:
+- Shared mechanics: benchmark crate helpers.
+- Runtime policy: local matcher/count/per-asset override choices.
+- Runtime exceptions: explicit overrides or unsupported instructions.
 
-Putting the helper logic there makes the layering clearer:
+## Implemented Shared Helper Surface
 
-- benchmark primitives and reusable XCM weight helpers live in `pallet-xcm-benchmarks`
-- each runtime keeps only its local asset-classification and instruction-policy mapping
+The shared helper layer now exposes two distinct asset-weighing models, plus common instruction combinators.
 
-## Scope Of This Change
+### 1. Relay-style classification model
 
-Files changed:
-- `polkadot/xcm/pallet-xcm-benchmarks/src/lib.rs`
-- `polkadot/xcm/pallet-xcm-benchmarks/src/xcm_weights.rs` (new)
-- `polkadot/runtime/rococo/src/weights/xcm/mod.rs`
-- `polkadot/runtime/westend/src/weights/xcm/mod.rs`
-- `substrate/frame/staking-async/runtimes/rc/src/weights/xcm/mod.rs`
-- `polkadot/runtime/rococo/Cargo.toml`
-- `polkadot/runtime/westend/Cargo.toml`
-- `substrate/frame/staking-async/runtimes/rc/Cargo.toml`
+Relay-style helpers classify assets into Known (Balances) vs Unknown classes and then price by class.
 
-Removed:
-- `polkadot/runtime/common/src/xcm_weights.rs`
+Key properties:
+- Asset identity is part of policy.
+- Known class uses benchmark-derived weight.
+- Unknown class escalates to `Weight::MAX`.
+- Wild filters are bounded via configured max-asset caps.
 
-## Step 1: Expose A Shared XCM Weight Helper Module In `pallet-xcm-benchmarks`
+This matches relay-chain behavior where accepted assets are intentionally narrow.
 
-### What was done
+### 2. Asset Hub style count-based model
 
-Added a new public module export in `pallet-xcm-benchmarks`:
+Asset Hub style helpers treat assets as broadly supported and scale cost primarily by count, not by class rejection.
 
-- In `polkadot/xcm/pallet-xcm-benchmarks/src/lib.rs`, added:
-  - `pub mod xcm_weights;`
+Key properties:
+- No known/unknown hard split in normal path.
+- `AssetFilter` and `Assets` weighing scales with bounded counts.
+- Per-asset hook allows special pricing when an asset class has a cost model that differs from the runtime's default benchmark unit cost.
+- Default behavior remains uniform per-asset cost when no special case is configured.
 
-### Why
+This matches Asset Hub semantics where many asset types are valid and pricing is dominated by cardinality and selected special policies.
 
-The helper logic is tightly coupled to how benchmark-generated XCM weights are composed. Keeping it in the same crate as the benchmark primitives makes it reusable for any runtime that consumes those benchmarks.
+When special pricing is needed:
+- the asset executes through a different metering domain than the runtime default (for example, external gas-derived pricing)
+- the asset path has materially different execution characteristics that would be mispriced by a single flat per-asset benchmark weight
+- the runtime intentionally caps or normalizes a class to a fixed charge for safety or policy reasons
 
-## Step 2: Move Shared Helper Primitives
+### Asset Hub Westend ERC20 Special Case
 
-### What was done
+Asset Hub Westend includes a concrete per-asset override for ERC20-style assets. In that case, the runtime uses an ERC20 transfer gas-limit-derived charge instead of the default fungible benchmark unit weight.
 
-Created:
+Why this matters:
+- it prevents undercharging or overcharging when ERC20 handling cost does not track the default Substrate benchmark unit
+- it keeps the general count-based model while allowing targeted policy-correct pricing for a known special class
 
-- `polkadot/xcm/pallet-xcm-benchmarks/src/xcm_weights.rs`
+All non-ERC20 assets in that path continue to use the default per-asset benchmark-based weight.
 
-This file contains the reusable helper surface:
+### 3. Shared instruction combinators
 
-1. `AssetTypes`
-- `Balances`
-- `Unknown`
+Common helper functions are used by both models for recurring instruction patterns:
+- transfer initiation logic that combines remote fee filters and transfer filters with saturating addition
+- hint processing logic that applies bounded additive charging for supported hint variants
 
-2. `AssetMatcher`
-- `fn classify(asset: &Asset) -> AssetTypes`
-- `fn max_assets() -> u64`
+## Relay Runtime Interpretation Model
 
-3. `WeighAssets`
-- shared trait for applying runtime asset policy to `Assets` and `AssetFilter`
+Relay runtimes interpret asset-bearing XCM instructions through classification:
+- If an instruction references recognized local asset classes, benchmark weights are applied.
+- If an instruction references unsupported classes, weighing can escalate to `Weight::MAX`.
+- Filter/list operations therefore encode both workload and support policy in one path.
 
-4. `weigh_assets_list`
-- shared logic for `Assets`
+In short: relay runtimes treat asset support as selective, and that selectivity is reflected directly in weighting behavior.
 
-5. `weigh_assets_filter`
-- shared logic for `AssetFilter`
+## Asset Hub Runtime Interpretation Model
 
-6. `weigh_initiate_transfer`
-- shared logic for combining `remote_fees` and transfer asset filters
+Asset Hub runtimes interpret asset-bearing instructions through count-based support with optional per-asset adjustment:
+- Asset types are generally considered supported.
+- Weight scales with how many assets may be touched.
+- Runtime-specific hooks can override per-asset cost for special classes (for example, assets whose cost model follows external gas semantics).
+- Unsupported instruction families are still explicitly marked as unsupported where applicable.
 
-7. `weigh_hints`
-- shared logic for `SetHints`
+In short: Asset Hub runtimes treat support as broad, then encode cost through count bounds plus targeted overrides.
 
-### Why
+## What Is Automated Today vs What Remains Manual
 
-These are generic XCM weight-composition algorithms, not relay-specific runtime helpers. By moving them into `pallet-xcm-benchmarks`, they become available to relay runtimes and future Cumulus runtimes through the same crate boundary.
+Automated/shared today:
+- core asset weighing algorithms for both relay and Asset Hub semantics
+- common transfer/hint composition helpers
+- reusable benchmark-composition primitives available to all participating runtimes
 
-## Step 3: Repoint Relay Runtime Imports
+Still manual today:
+- full per-instruction `XcmWeightInfo` method mapping in each runtime wrapper
+- explicit runtime exceptions and unsupported instruction declarations
 
-### What was done
-
-Updated these runtime modules:
-
-- `polkadot/runtime/rococo/src/weights/xcm/mod.rs`
-- `polkadot/runtime/westend/src/weights/xcm/mod.rs`
-- `substrate/frame/staking-async/runtimes/rc/src/weights/xcm/mod.rs`
-
-Each now imports from:
-
-- `pallet_xcm_benchmarks::xcm_weights`
-
-instead of:
-
-- `polkadot_runtime_common::xcm_weights`
-
-### Why
-
-This preserves the current runtime-specific policy structure while moving the reusable mechanics to the benchmark crate.
-
-## Step 4: Normalize Runtime Dependency Wiring
-
-### What was done
-
-For the runtimes that now directly import `pallet-xcm-benchmarks`, changed the dependency from optional to normal:
-
-- `polkadot/runtime/rococo/Cargo.toml`
-- `polkadot/runtime/westend/Cargo.toml`
-- `substrate/frame/staking-async/runtimes/rc/Cargo.toml`
-
-Also updated their `std` feature wiring from:
-
-- `pallet-xcm-benchmarks?/std`
-
-to:
-
-- `pallet-xcm-benchmarks/std`
-
-### Why
-
-Once the helpers are imported in normal runtime code, the crate can no longer remain benchmark-only and optional for those runtimes.
-
-## Step 5: Remove The Old Relay-Common Copy
-
-### What was done
-
-Removed:
-
-- `polkadot/runtime/common/src/xcm_weights.rs`
-
-### Why
-
-Keeping the old copy would make the new crate boundary redundant and create two competing homes for the same helper logic.
+This is an intentional intermediate state: shared policy mechanics are centralized first, and wrapper boilerplate removal can build on that stable base.
 
 ## Behavior Compatibility Notes
 
-This refactor is intended to be behavior-preserving for the runtimes already migrated:
+Current behavior is intended to stay equivalent to prior runtime semantics:
+- relay runtimes keep classification-driven support behavior
+- Asset Hub runtimes keep count-driven behavior and per-asset override behavior
+- transfer and hint charging remains saturating and additive under the same policy inputs
+- unsupported instruction families still resolve to `Weight::MAX` where defined by runtime policy
 
-1. `Balances` vs `Unknown` asset handling is unchanged.
-2. `MAX_ASSETS` cap logic is unchanged.
-3. `initiate_transfer` total calculation remains saturating and additive over the same elements.
-4. `set_hints` still only counts `AssetClaimer` the same way.
-5. Instruction-level mapping in each runtime `impl XcmWeightInfo` is unchanged except for the helper import path.
+## Why This Refactor Matters
 
-## Why This Is A Better Home For Future Migrations
+The major gain is architectural correctness and reuse:
+- one shared home for XCM benchmark composition logic
+- clear separation between shared mechanics and runtime policy
+- a practical foundation for the next step: reducing large runtime wrapper boilerplate while keeping explicit override control
 
-This layout is more useful for Asset Hub and other Cumulus runtimes because:
+## Next Improvement Direction
 
-- they can adopt the helper crate without depending on relay `runtime/common`
-- the helper APIs now sit next to the benchmark inputs they are meant to compose
-- future refactors can target a single reusable crate for both relay and parachain XCM weight wrappers
+The natural follow-up is to introduce a higher-level reusable wrapper that auto-maps common fungible and generic instruction paths, so runtime modules mostly declare:
+- asset policy (classification or count/per-asset hooks)
+- explicit overrides
+- unsupported/default behaviors
 
-## What This Enables Next
+That would preserve policy flexibility while removing most repetitive method glue.
 
-Follow-up work can now proceed on a better boundary:
+## Using This Model Outside SDK Runtimes
 
-1. Migrate Asset Hub and other Cumulus XCM wrappers onto the same helper module where appropriate.
-2. Extend the helper APIs for richer asset models beyond the simple relay-chain `Balances`/`Unknown` split.
-3. Introduce optional override hooks for runtimes with more specialized asset policies.
-4. Generate runtime wrapper skeletons around benchmark-produced weights.
-5. Add broader validation for helper adoption across relay and parachain runtimes.
+External chains are independent runtimes, so they do not automatically inherit these weight implementations. They have two practical options:
+- copy the same modeling pattern (relay-style classification or Asset Hub-style count/per-asset hooks) and wire it to their own benchmark outputs
+- depend on the same benchmark/helper crate surface and provide local runtime policy types (matcher/count bounds/per-asset overrides/unsupported rules)
 
-## Summary
-
-The main improvement in this step is not just extraction, but extraction to the correct crate boundary. The reusable XCM weight helper logic now lives in `pallet-xcm-benchmarks`, which better matches both its purpose and its intended future consumers. Rococo, Westend, and rc keep their local policy definitions, while the common mechanics now live where relay and parachain runtimes can both build on them.
+In both cases, the key principle is the same: benchmark outputs are runtime-local, and the helper model is reusable. So non-SDK chains can use the same architecture, but they still define their own policy and regenerate weights for their own runtime configuration.
