@@ -29,8 +29,8 @@ use peer_steering::PeerSteering;
 use peers_topology::{PeersTopology, PeersTopologyConfig};
 use sc_network::{types::ProtocolName, NetworkPeers};
 use sc_network_types::PeerId;
-use sp_statement_store::{SubmitResult, Topic};
-use std::collections::HashSet;
+use sp_statement_store::{Hash, RetentionReasonMask, Statement, SubmitResult, Topic};
+use std::collections::{HashMap, HashSet};
 
 /// Coordinates the v2 DHT-affinity statement gossip path.
 #[allow(dead_code)]
@@ -80,6 +80,18 @@ impl V2DhtOrchestrator {
 		self.explicit_affinity.topics()
 	}
 
+	// === Advertise own filter ===
+
+	/// The [`AffinityFilter`] this node advertises, built from its current topics.
+	pub(crate) fn local_filter(&self) -> AffinityFilter {
+		self.explicit_affinity.local_filter()
+	}
+
+	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
+	pub(crate) fn take_local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
+		self.explicit_affinity.take_local_filter_if_changed()
+	}
+
 	// === Peer-set events ===
 
 	pub(crate) fn on_peer_connected(&mut self, peer: PeerId) {
@@ -88,8 +100,7 @@ impl V2DhtOrchestrator {
 	}
 
 	pub(crate) fn on_peer_disconnected(&mut self, peer: PeerId) {
-		// TODO: we may need it for the topology, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_peer_disconnected {peer} (stub)");
+		self.explicit_affinity.on_peer_disconnected(peer);
 	}
 
 	// === Notification-substream events ===
@@ -111,9 +122,30 @@ impl V2DhtOrchestrator {
 		log::trace!(target: LOG_TARGET, "v2dht: on_substream_closed {peer}");
 	}
 
-	pub(crate) fn on_peer_filter_update(&mut self, peer: PeerId, _filter: AffinityFilter) {
-		// TODO: we may need it for the topology or explicit affinity, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_peer_filter_update {peer} (stub)");
+	pub(crate) fn on_peer_filter_update(&mut self, peer: PeerId, filter: AffinityFilter) {
+		self.explicit_affinity.on_peer_filter_update(peer, filter);
+	}
+
+	// === Forward decision ===
+
+	/// Whether the peer's advertised filter accepts the statement.
+	pub(crate) fn peer_has_explicit_affinity(&self, peer: PeerId, stmt: &Statement) -> bool {
+		self.explicit_affinity.peer_has_explicit_affinity(peer, stmt)
+	}
+
+	// === Receive decision ===
+
+	/// The reasons this node should store the statement.
+	pub(crate) fn retention_reasons_for(&self, stmt: &Statement) -> RetentionReasonMask {
+		let mut mask = RetentionReasonMask::TRANSIENT;
+		// TODO: can we pass the statement instead of topics to the `is_dht_affine`?
+		if stmt.topics().iter().any(|topic| self.peers_topology.is_dht_affine(*topic)) {
+			mask.insert(RetentionReasonMask::DHT_AFFINITY);
+		}
+		if self.explicit_affinity.local_has_explicit_affinity(stmt) {
+			mask.insert(RetentionReasonMask::EXPLICIT_AFFINITY);
+		}
+		mask
 	}
 
 	// === Post-submit hook ===
@@ -125,9 +157,35 @@ impl V2DhtOrchestrator {
 
 	// === Periodic ticks & post-iteration hooks ===
 
-	pub(crate) async fn propagate_statements(&mut self) {
-		// TODO: We need to know where to propagate
-		log::trace!(target: LOG_TARGET, "v2dht: propagate_statements (stub)");
+	/// For each connected peer, the indices of `statements` it should receive.
+	///
+	/// A peer is a target for a statement when it is a DHT routing target for one of the
+	/// statement's topics ([`PeersTopology::routing_targets`]) or its advertised filter matches the
+	/// statement ([`ExplicitAffinity::peer_has_explicit_affinity`]).
+	pub(crate) fn propagation_plan(
+		&self,
+		statements: &[(Hash, Statement)],
+	) -> Vec<(PeerId, Vec<usize>)> {
+		let mut statements_by_peer: HashMap<PeerId, Vec<usize>> = HashMap::new();
+
+		for (index, (_hash, statement)) in statements.iter().enumerate() {
+			let mut targets: HashSet<PeerId> = HashSet::new();
+
+			for topic in statement.topics() {
+				targets.extend(self.peers_topology.routing_targets(*topic));
+			}
+			for peer in self.peers_topology.connected_peers() {
+				if self.explicit_affinity.peer_has_explicit_affinity(peer, statement) {
+					targets.insert(peer);
+				}
+			}
+
+			for peer_id in targets {
+				statements_by_peer.entry(peer_id).or_default().push(index);
+			}
+		}
+
+		statements_by_peer.into_iter().collect()
 	}
 
 	pub(crate) async fn on_initial_sync(&mut self) {
@@ -159,13 +217,185 @@ impl V2DhtOrchestrator {
 		log::trace!(target: LOG_TARGET, "v2dht: on_major_sync_end (stub)");
 	}
 }
-
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::test_helpers::{filter_over, peer, statement_on, topic, topology_config};
 
-	fn topic(n: u8) -> Topic {
-		Topic([n; 32])
+	fn orchestrator() -> V2DhtOrchestrator {
+		V2DhtOrchestrator::new(
+			&[],
+			PeerId::random(),
+			PeersTopologyConfig::default(),
+			"/statement/test".into(),
+		)
+	}
+
+	/// Like [`orchestrator`] but with a deterministic local identity, so the XOR routing
+	/// distances the propagation tests assert on stay reproducible across runs.
+	fn orchestrator_with(local_seed: u8, config: PeersTopologyConfig) -> V2DhtOrchestrator {
+		V2DhtOrchestrator::new(&[], peer(local_seed), config, "/statement/test".into())
+	}
+
+	fn statement(seed: u8, topics: &[Topic]) -> (Hash, Statement) {
+		let mut statement = Statement::new();
+		statement.set_plain_data(vec![seed]);
+		for (index, topic) in topics.iter().enumerate() {
+			statement.set_topic(index, *topic);
+		}
+		(statement.hash(), statement)
+	}
+
+	/// Routing targets `propagation_plan` is expected to reach for `topics`, taken from the
+	/// already-tested [`PeersTopology::routing_targets`] rather than recomputed from XOR distances.
+	fn routing_targets(orchestrator: &V2DhtOrchestrator, topics: &[Topic]) -> Vec<PeerId> {
+		let mut targets: Vec<PeerId> = topics
+			.iter()
+			.flat_map(|topic| orchestrator.peers_topology.routing_targets(*topic))
+			.collect();
+		targets.sort();
+		targets.dedup();
+		targets
+	}
+
+	#[test]
+	fn routes_a_statement_to_the_union_of_its_topics_routing_targets_once() {
+		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
+		for seed in 2u8..=60 {
+			let peer = peer(seed);
+			orchestrator.on_peers_discovered([peer]);
+			orchestrator.on_peer_identified(peer, /* supports_statement_protocol */ true);
+			orchestrator.on_substream_opened(peer);
+		}
+		let topics = [Topic([7; 32]), Topic([42; 32])];
+		let expected = routing_targets(&orchestrator, &topics);
+		assert!(!expected.is_empty(), "fixture must yield routing targets");
+
+		let plan = orchestrator.propagation_plan(&[statement(1, &topics)]);
+
+		let mut planned: Vec<PeerId> = plan.iter().map(|(peer, _)| *peer).collect();
+		planned.sort();
+		assert_eq!(planned, expected);
+		assert!(
+			plan.iter().all(|(_, indices)| indices == &[0]),
+			"a target receives the statement once however many of its topics route there"
+		);
+	}
+
+	#[test]
+	fn batches_statements_bound_for_the_same_peer() {
+		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
+		for seed in 2u8..=60 {
+			let peer = peer(seed);
+			orchestrator.on_peers_discovered([peer]);
+			orchestrator.on_peer_identified(peer, /* supports_statement_protocol */ true);
+			orchestrator.on_substream_opened(peer);
+		}
+		let topic = Topic([7; 32]);
+		let target = *routing_targets(&orchestrator, &[topic])
+			.first()
+			.expect("fixture must yield a routing target");
+
+		let plan = orchestrator.propagation_plan(&[statement(1, &[topic]), statement(2, &[topic])]);
+
+		let batch = plan
+			.iter()
+			.find(|(peer, _)| *peer == target)
+			.map(|(_, indices)| indices.clone())
+			.expect("the shared target must be planned");
+		assert_eq!(batch, vec![0, 1]);
+	}
+
+	#[test]
+	fn retention_reasons_for_marks_explicit_affinity() {
+		let orchestrator = V2DhtOrchestrator::new(
+			&[topic(1)],
+			PeerId::random(),
+			topology_config(20, 1),
+			"/statement/test".into(),
+		);
+
+		let mask = orchestrator.retention_reasons_for(&statement_on(topic(1)));
+
+		assert!(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+		assert!(mask.is_persistent());
+	}
+
+	#[test]
+	fn retention_reasons_for_marks_dht_affinity_when_local_is_a_replica() {
+		// An empty topology makes the local node a replica for every topic.
+		let orchestrator = V2DhtOrchestrator::new(
+			&[],
+			PeerId::random(),
+			topology_config(20, 1),
+			"/statement/test".into(),
+		);
+
+		let mask = orchestrator.retention_reasons_for(&statement_on(topic(9)));
+
+		assert!(mask.contains(RetentionReasonMask::DHT_AFFINITY));
+		assert!(!mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+	}
+
+	#[test]
+	fn retention_reasons_for_is_transient_without_any_affinity() {
+		// One replica per topic, so a single closer peer displaces the local node.
+		let mut orchestrator = V2DhtOrchestrator::new(
+			&[],
+			PeerId::random(),
+			topology_config(1, 1),
+			"/statement/test".into(),
+		);
+		let peers = (0..32).map(|_| PeerId::random()).collect::<Vec<_>>();
+		orchestrator.on_peers_discovered(peers.clone());
+		for peer in &peers {
+			orchestrator.on_peer_identified(*peer, true);
+		}
+
+		// A topic the local node is not the closest replica for, so DHT affinity does not hold.
+		let topic = (0u8..=255)
+			.map(topic)
+			.find(|topic| !orchestrator.peers_topology.is_dht_affine(*topic))
+			.expect("32 peers leave some topic without local DHT affinity");
+
+		let mask = orchestrator.retention_reasons_for(&statement_on(topic));
+
+		assert!(!mask.is_persistent());
+	}
+
+	#[test]
+	fn on_peer_filter_update_stores_the_filter() {
+		let mut orchestrator = orchestrator();
+		let peer = PeerId::random();
+
+		orchestrator.on_peer_filter_update(peer, filter_over(&[topic(1)]));
+
+		assert!(orchestrator.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
+		assert!(!orchestrator.peer_has_explicit_affinity(peer, &statement_on(topic(2))));
+	}
+
+	#[test]
+	fn on_peer_disconnected_drops_the_filter() {
+		let mut orchestrator = orchestrator();
+		let peer = PeerId::random();
+		orchestrator.on_peer_filter_update(peer, filter_over(&[topic(1)]));
+
+		orchestrator.on_peer_disconnected(peer);
+
+		assert!(!orchestrator.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
+	}
+
+	#[test]
+	fn take_local_filter_if_changed_reflects_subscription_topics() {
+		let mut orchestrator = orchestrator();
+		assert!(orchestrator.take_local_filter_if_changed().is_none());
+
+		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1)]));
+		let filter = orchestrator
+			.take_local_filter_if_changed()
+			.expect("a subscription topic marks the filter changed");
+		assert!(filter.contains(&topic(1)));
+		assert!(orchestrator.take_local_filter_if_changed().is_none());
 	}
 
 	#[test]

@@ -106,7 +106,6 @@ pub(crate) struct ExplicitAffinity {
 	/// while some source references it.
 	local: HashMap<Topic, HashMap<AffinitySource, u32>>,
 	/// Marks the advertised affinity filter stale
-	// TODO: clear this once the rebuilt affinity filter has been advertised to peers.
 	local_changed: bool,
 	/// The filter each connected peer advertises.
 	peers: HashMap<PeerId, AffinityFilter>,
@@ -193,10 +192,19 @@ impl ExplicitAffinity {
 		AffinityFilter::from_topics(self.local.keys().map(|topic| topic.as_ref()), self.seed)
 	}
 
+	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
+	pub(crate) fn take_local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
+		if !self.local_changed {
+			return None;
+		}
+		self.local_changed = false;
+		Some(self.local_filter())
+	}
+
 	// === Peer filters ===
 
 	/// Store the filter a peer advertises, replacing any earlier one.
-	pub(crate) fn update_peer_filter(&mut self, peer: PeerId, filter: AffinityFilter) {
+	pub(crate) fn on_peer_filter_update(&mut self, peer: PeerId, filter: AffinityFilter) {
 		self.peers.insert(peer, filter);
 	}
 
@@ -223,10 +231,7 @@ impl ExplicitAffinity {
 #[cfg(test)]
 mod tests {
 	use super::*;
-
-	fn topic(n: u8) -> Topic {
-		Topic([n; 32])
-	}
+	use crate::test_helpers::{filter_over, statement_on, topic};
 
 	fn topic_set(affinity: &ExplicitAffinity) -> HashSet<Topic> {
 		affinity.topics().into_iter().collect()
@@ -358,14 +363,6 @@ mod tests {
 		assert_eq!(topic_set(&affinity), HashSet::from([topic(1), topic(2), topic(3)]));
 	}
 
-	/// A statement carrying the single `topic`.
-	fn statement_on(topic: Topic) -> Statement {
-		let mut stmt = Statement::new();
-		stmt.set_plain_data(b"data".to_vec());
-		stmt.set_topic(0, topic);
-		stmt
-	}
-
 	#[test]
 	fn local_filter_advertises_every_followed_topic() {
 		let mut affinity = ExplicitAffinity::new(&[topic(1)]);
@@ -381,6 +378,23 @@ mod tests {
 	fn local_filter_empty_set_matches_nothing_concrete() {
 		let affinity = ExplicitAffinity::new(&[]);
 		assert!(!affinity.local_filter().matches_statement(&statement_on(topic(1))));
+	}
+
+	#[test]
+	fn take_local_filter_if_changed_yields_once_per_change() {
+		let mut affinity = ExplicitAffinity::new(&[topic(1)]);
+		let filter = affinity.take_local_filter_if_changed().expect("construction marks a change");
+		assert!(filter.contains(&topic(1)));
+
+		// No further change, no filter.
+		assert!(affinity.take_local_filter_if_changed().is_none());
+
+		// A new topic marks the set changed again; the filter carries it.
+		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(2)]);
+		let filter = affinity.take_local_filter_if_changed().expect("add marks a change");
+		assert!(filter.contains(&topic(1)));
+		assert!(filter.contains(&topic(2)));
+		assert!(affinity.take_local_filter_if_changed().is_none());
 	}
 
 	#[test]
@@ -400,16 +414,11 @@ mod tests {
 		assert!(!affinity.local_has_explicit_affinity(&broadcast));
 	}
 
-	/// A filter advertising the given `topics`.
-	fn filter_over(topics: &[Topic]) -> AffinityFilter {
-		AffinityFilter::from_topics(topics.iter().map(|topic| topic.as_ref()), 0)
-	}
-
 	#[test]
 	fn peer_has_explicit_affinity_reads_the_stored_filter() {
 		let mut affinity = ExplicitAffinity::new(&[]);
 		let peer = PeerId::random();
-		affinity.update_peer_filter(peer, filter_over(&[topic(1)]));
+		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
 		assert!(affinity.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
 		assert!(!affinity.peer_has_explicit_affinity(peer, &statement_on(topic(2))));
@@ -426,8 +435,8 @@ mod tests {
 		let mut affinity = ExplicitAffinity::new(&[]);
 		let peer = PeerId::random();
 
-		affinity.update_peer_filter(peer, filter_over(&[topic(1)]));
-		affinity.update_peer_filter(peer, filter_over(&[topic(2)]));
+		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
+		affinity.on_peer_filter_update(peer, filter_over(&[topic(2)]));
 
 		assert!(!affinity.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
 		assert!(affinity.peer_has_explicit_affinity(peer, &statement_on(topic(2))));
@@ -437,7 +446,7 @@ mod tests {
 	fn on_peer_disconnected_drops_the_filter() {
 		let mut affinity = ExplicitAffinity::new(&[]);
 		let peer = PeerId::random();
-		affinity.update_peer_filter(peer, filter_over(&[topic(1)]));
+		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
 		affinity.on_peer_disconnected(peer);
 		assert!(!affinity.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
@@ -447,7 +456,7 @@ mod tests {
 	fn peer_with_a_filter_accepts_broadcast_statements() {
 		let mut affinity = ExplicitAffinity::new(&[]);
 		let peer = PeerId::random();
-		affinity.update_peer_filter(peer, filter_over(&[topic(1)]));
+		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
 		let mut broadcast = Statement::new();
 		broadcast.set_plain_data(b"broadcast".to_vec());

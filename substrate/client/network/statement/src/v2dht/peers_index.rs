@@ -54,6 +54,11 @@ impl PeersIndex {
 	pub(crate) fn closest(&self, target: Key) -> Closest<'_> {
 		closest(&self.peers_by_key, target)
 	}
+
+	/// All peers in the index, in `(key, peer)` order.
+	pub(crate) fn peers(&self) -> impl Iterator<Item = PeerId> + '_ {
+		self.peers_by_key.values().flatten().copied()
+	}
 }
 
 /// Peers of `index` in increasing `(xor_distance(target, key), peer)` order, without sorting the
@@ -163,13 +168,7 @@ fn split_key(key: &Key, bit: u16) -> Key {
 #[cfg(test)]
 mod tests {
 	use super::*;
-
-	fn peer(seed: u8) -> PeerId {
-		let mut bytes = [seed; 34];
-		bytes[0] = 0;
-		bytes[1] = 32;
-		PeerId::from_bytes(&bytes).expect("identity multihash peer id")
-	}
+	use crate::test_helpers::peer;
 
 	fn peer_key(peer: &PeerId) -> Key {
 		sp_crypto_hashing::blake2_256(&peer.to_bytes())

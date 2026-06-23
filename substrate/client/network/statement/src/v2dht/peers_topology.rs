@@ -143,6 +143,11 @@ impl PeersTopology {
 		self.discovered.get(peer).is_some_and(|info| info.connected)
 	}
 
+	/// The connected statement-protocol peers, those with an open notification substream.
+	pub fn connected_peers(&self) -> impl Iterator<Item = PeerId> + '_ {
+		self.connected.peers()
+	}
+
 	/// Number of known remote peers, including peers without confirmed statement-protocol support.
 	pub fn known_peers_count(&self) -> usize {
 		self.discovered.len()
@@ -305,7 +310,8 @@ fn xor_distance(a: Key, b: Key) -> Key {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::{cmp::Ordering, num::NonZeroUsize};
+	use crate::test_helpers::{peer, topic, topology_config};
+	use std::cmp::Ordering;
 
 	fn distance_to(topic: Topic, peer: &PeerId) -> [u8; 32] {
 		xor_distance(*topic, peer_key(peer))
@@ -315,26 +321,8 @@ mod tests {
 		distance_to(topic, a).cmp(&distance_to(topic, b)).then_with(|| a.cmp(b))
 	}
 
-	fn config(replication_factor: usize, gossip_target: usize) -> PeersTopologyConfig {
-		PeersTopologyConfig {
-			replication_factor: NonZeroUsize::new(replication_factor).expect("non-zero"),
-			gossip_target: NonZeroUsize::new(gossip_target).expect("non-zero"),
-		}
-	}
-
-	fn peer(seed: u8) -> PeerId {
-		let mut bytes = [seed; 34];
-		bytes[0] = 0;
-		bytes[1] = 32;
-		PeerId::from_bytes(&bytes).expect("identity multihash peer id")
-	}
-
 	fn topology(local_seed: u8) -> PeersTopology {
-		PeersTopology::new(peer(local_seed), config(2, 2))
-	}
-
-	fn topic(seed: u8) -> Topic {
-		Topic([seed; 32])
+		PeersTopology::new(peer(local_seed), topology_config(2, 2))
 	}
 
 	fn dht_peer(topology: &mut PeersTopology, peer: PeerId) {
@@ -532,7 +520,7 @@ mod tests {
 	#[test]
 	fn queries_match_naive_recomputation() {
 		let local = peer(1);
-		let mut topology = PeersTopology::new(local, config(5, 3));
+		let mut topology = PeersTopology::new(local, topology_config(5, 3));
 		let mut records = Vec::new();
 
 		for seed in 2..=220 {
