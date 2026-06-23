@@ -42,8 +42,8 @@ pub struct PeersTopologyConfig {
 impl Default for PeersTopologyConfig {
 	fn default() -> Self {
 		Self {
-			replication_factor: NonZeroUsize::new(20).expect("20 is non-zero"),
-			gossip_target: NonZeroUsize::new(3).expect("3 is non-zero"),
+			replication_factor: crate::config::DEFAULT_REPLICATION_FACTOR,
+			gossip_target: crate::config::DEFAULT_GOSSIP_TARGET,
 		}
 	}
 }

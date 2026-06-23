@@ -216,6 +216,71 @@ pub(super) fn collator_args(participant_count: u32, log_filter: &str) -> Vec<zom
 	args.iter().map(|s| s.as_str().into()).collect()
 }
 
+/// Collator args for the v2 DHT-affinity tests: [`collator_args`] plus the v2 flags.
+pub(super) fn collator_args_v2(
+	participant_count: u32,
+	log_filter: &str,
+	k: u32,
+	gossip_target: u32,
+) -> Vec<zombienet_sdk::Arg> {
+	let mut args: Vec<zombienet_sdk::Arg> = collator_args(participant_count, log_filter);
+	args.push("--enable-statement-store-v2-dht".into());
+	args.push(format!("--statement-replication-factor={k}").as_str().into());
+	args.push(format!("--statement-gossip-target={gossip_target}").as_str().into());
+	args
+}
+
+/// Returns whether a node's local store holds `statement` for `topic`.
+pub(super) async fn stores_locally(
+	rpc: &RpcClient,
+	topic: Topic,
+	statement: &Bytes,
+) -> Result<bool, anyhow::Error> {
+	const PROBE_TIMEOUT_SECS: u64 = 30;
+
+	let mut subscription = subscribe_topic(rpc, topic).await?;
+
+	loop {
+		let item = match tokio::time::timeout(
+			Duration::from_secs(PROBE_TIMEOUT_SECS),
+			subscription.next(),
+		)
+		.await
+		{
+			// Timeout or end of stream: replay is over without a match.
+			Err(_) | Ok(None) => return Ok(false),
+			Ok(Some(item)) => item.map_err(|e| anyhow!("Subscription error: {}", e))?,
+		};
+
+		match item {
+			StatementEvent::NewStatements { statements: batch, remaining } => {
+				if batch.iter().any(|s| s == statement) {
+					return Ok(true);
+				}
+				if remaining == Some(0) {
+					return Ok(false);
+				}
+			},
+		}
+	}
+}
+
+/// Counts how many of `rpcs` hold `statement` for `topic` locally. With replication factor
+/// `K`, exactly `K` nodes should store it.
+pub(super) async fn count_storers(
+	rpcs: &[&RpcClient],
+	topic: Topic,
+	statement: &Bytes,
+) -> Result<usize, anyhow::Error> {
+	let mut count: usize = 0;
+	for rpc in rpcs {
+		if stores_locally(rpc, topic, statement).await? {
+			count = count.saturating_add(1);
+		}
+	}
+	Ok(count)
+}
+
 pub(super) fn base_dir() -> Result<PathBuf, anyhow::Error> {
 	let path = std::env::var("ZOMBIENET_SDK_BASE_DIR")
 		.ok()
@@ -298,6 +363,25 @@ pub(super) async fn spawn_network_with_injected_allowances(
 	let base_dir = base_dir()?;
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
 	let args = collator_args(participant_count, COLLATOR_TRACE_LOG_FILTER);
+	launch_network(collators, &chain_spec_path, args).await
+}
+
+/// Spawns a zombienet network for the v2 DHT-affinity tests.
+///
+/// Identical to [`spawn_network_with_injected_allowances`] except that it uses
+/// [`collator_args_v2`] to pin an explicit replication factor `k` and
+/// `gossip_target` on EVERY collator (see `launch_network`'s
+/// `.with_default_args`)
+pub(super) async fn spawn_network_with_injected_allowances_v2(
+	collators: &[&str],
+	participant_count: u32,
+	k: u32,
+	gossip_target: u32,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	assert!(!collators.is_empty());
+	let base_dir = base_dir()?;
+	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
+	let args = collator_args_v2(participant_count, COLLATOR_TRACE_LOG_FILTER, k, gossip_target);
 	launch_network(collators, &chain_spec_path, args).await
 }
 
