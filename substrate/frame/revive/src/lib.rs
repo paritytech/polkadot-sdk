@@ -2896,6 +2896,7 @@ sp_api::decl_runtime_apis! {
 		fn block_gas_limit() -> U256;
 
 		/// Returns the block gas limit as calculated from the weights.
+		#[deprecated(note = "Use the versioned equivalent `max_extrinsic_weight_in_gas_versioned` if available on your runtime")]
 		fn max_extrinsic_weight_in_gas() -> U256;
 
 		/// Returns the free balance of the given `[H160]` address, using EVM decimals.
@@ -3063,6 +3064,11 @@ sp_api::decl_runtime_apis! {
 		) -> BlockGasLimitVersionedOutputPayload;
 
 		#[api_version(2)]
+		fn max_extrinsic_weight_in_gas_versioned(
+			input: MaxExtrinsicWeightInGasVersionedInputPayload
+		) -> MaxExtrinsicWeightInGasVersionedOutputPayload;
+
+		#[api_version(2)]
 		fn balance_versioned(input: BalanceVersionedInputPayload) -> BalanceVersionedOutputPayload;
 
 		#[api_version(2)]
@@ -3172,7 +3178,15 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn max_extrinsic_weight_in_gas() -> $crate::U256 {
-					$crate::Pallet::<Self>::evm_max_extrinsic_weight_in_gas()
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = MaxExtrinsicWeightInGasVersionedInputPayload::from(
+						MaxExtrinsicWeightInGasInputPayloadV1
+					);
+					let output = Self::max_extrinsic_weight_in_gas_versioned(input);
+					MaxExtrinsicWeightInGasOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.max_extrinsic_weight_in_gas
 				}
 
 				fn gas_price() -> $crate::U256 {
@@ -3484,6 +3498,29 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					let output = BlockGasLimitOutputPayload {
 						block_gas_limit: $crate::Pallet::<Self>::evm_block_gas_limit()
+					};
+					output_wrapper(output)
+				}
+
+				fn max_extrinsic_weight_in_gas_versioned(
+					input: $crate::pallet_revive_types::runtime_api::MaxExtrinsicWeightInGasVersionedInputPayload
+				) -> $crate::pallet_revive_types::runtime_api::MaxExtrinsicWeightInGasVersionedOutputPayload {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use alloc::boxed::Box;
+
+					let (_input, output_wrapper): (
+						_,
+						Box<dyn Fn(MaxExtrinsicWeightInGasOutputPayload) -> MaxExtrinsicWeightInGasVersionedOutputPayload>,
+					) = match input {
+						MaxExtrinsicWeightInGasVersionedInputPayload::V1(payload) => (
+							MaxExtrinsicWeightInGasInputPayload::from(payload),
+							Box::new(|output| MaxExtrinsicWeightInGasVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let output = MaxExtrinsicWeightInGasOutputPayload {
+						max_extrinsic_weight_in_gas: $crate::Pallet::<Self>::evm_max_extrinsic_weight_in_gas()
 					};
 					output_wrapper(output)
 				}

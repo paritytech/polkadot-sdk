@@ -19,6 +19,7 @@ mod balance;
 mod block_author;
 mod block_gas_limit;
 mod block_hash;
+mod max_extrinsic_weight_in_gas;
 mod receipt_data;
 mod trace_block;
 
@@ -26,5 +27,6 @@ pub use balance::*;
 pub use block_author::*;
 pub use block_gas_limit::*;
 pub use block_hash::*;
+pub use max_extrinsic_weight_in_gas::*;
 pub use receipt_data::*;
 pub use trace_block::*;

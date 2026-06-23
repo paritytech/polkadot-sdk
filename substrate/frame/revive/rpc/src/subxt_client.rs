@@ -190,6 +190,22 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockGasLimitVersionedOutputPayload>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::max_extrinsic_weight_in_gas::MaxExtrinsicWeightInGasInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::MaxExtrinsicWeightInGasInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::max_extrinsic_weight_in_gas::MaxExtrinsicWeightInGasVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::MaxExtrinsicWeightInGasVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::max_extrinsic_weight_in_gas::MaxExtrinsicWeightInGasOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::MaxExtrinsicWeightInGasOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::max_extrinsic_weight_in_gas::MaxExtrinsicWeightInGasVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::MaxExtrinsicWeightInGasVersionedOutputPayload>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockInputPayloadV1<Block>",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockInputPayloadV1<Block>>"
 	),
