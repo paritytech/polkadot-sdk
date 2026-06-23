@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782237485734,
+  "lastUpdate": 1782240442503,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a44be635e6710432c49e844af8631e6ad98ade36",
-          "message": "TxPool: Downgrade log from `info` to `debug` (#10179)\n\nThere is no need to log information about `maintain` to the `info` log.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-01T09:20:14Z",
-          "tree_id": "345a946799c12465072bc3ac5f43b8d81159af1e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a44be635e6710432c49e844af8631e6ad98ade36"
-        },
-        "date": 1761993477655,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.579504247166668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20203184566666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14542036236666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "601bb0c22905a875c11ea76f7dd1e5fcb15fe195",
+          "message": "Fix for `rust-lld` regression (#12440)\n\nThis adapts code to a `rust-lld` regression observed since 1.96.0,\nrequiring the explicit specification of a Wasm module name from which\nexternal functions are imported.",
+          "timestamp": "2026-06-23T16:42:06Z",
+          "tree_id": "23f6fb9173c48d915a926061427331528ccebe9d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/601bb0c22905a875c11ea76f7dd1e5fcb15fe195"
+        },
+        "date": 1782240417270,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1521685328,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.982412127666667,
             "unit": "seconds"
           }
         ]
