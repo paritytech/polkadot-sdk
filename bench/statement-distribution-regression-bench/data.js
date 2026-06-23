@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782240536140,
+  "lastUpdate": 1782254360400,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1654f94848dc6227aa905b126ffc93da13799337",
-          "message": "Ensure that multiple blocks in a PoV form a chain (#10149)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-30T16:57:46Z",
-          "tree_id": "a8554b8ccb46eb69d0e2d954943aee3aa568e522",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1654f94848dc6227aa905b126ffc93da13799337"
-        },
-        "date": 1761850767808,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95399999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044292630867999956,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03536612138799999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038148254757999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2a3365c7f6d685c8e1cc8e72d80f1108886e0ffd",
+          "message": "CI: Get it green again (link-checker + check-macos-crates) (#12361)\n\nSince brew 6.0 llvm post-install step fails. But I think we can just\ndisable it for our purposes.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-23T20:46:20Z",
+          "tree_id": "3dbe12bd1faafb4cfa725c4dd6004fe056aa3bbf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2a3365c7f6d685c8e1cc8e72d80f1108886e0ffd"
+        },
+        "date": 1782254331586,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.052,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08267064000599998,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038559300684,
             "unit": "seconds"
           }
         ]
