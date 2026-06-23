@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782143455169,
+  "lastUpdate": 1782189602507,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -100115,6 +100115,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2449964880,
             "range": "± 24856666",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ismailov.m.h@gmail.com",
+            "name": "muharem",
+            "username": "muharem"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "24f2641af03078b638c548033ad93059b8fd94d8",
+          "message": "frame-support: stabilize MaybeConsideration by removing experimental gate (#12365)\n\nRemove the `experimental` feature gate from the `MaybeConsideration`\ntrait and its implementations (`()`, `FreezeConsideration`,\n`HoldConsideration`), making it available unconditionally alongside\n`Consideration`.\n\nConsumers no longer need to enable `frame-support/experimental` to use\n`MaybeConsideration`; the feature has been dropped from the\n`pallet-collective` dependency and the `pallet-balances` dev-dependency\naccordingly. No public API removals or storage changes.",
+          "timestamp": "2026-06-22T18:06:17Z",
+          "tree_id": "23fd94fb652f41d4c4b8084f762fe93844762294",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/24f2641af03078b638c548033ad93059b8fd94d8"
+        },
+        "date": 1782189574582,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18863139,
+            "range": "± 84051",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19053261,
+            "range": "± 255704",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20811641,
+            "range": "± 147994",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25182230,
+            "range": "± 168365",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56913752,
+            "range": "± 847543",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 355964432,
+            "range": "± 3150786",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2668118299,
+            "range": "± 48232649",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16579181,
+            "range": "± 157779",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17003410,
+            "range": "± 258590",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17093062,
+            "range": "± 186853",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21910150,
+            "range": "± 161357",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59655912,
+            "range": "± 686674",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 347678595,
+            "range": "± 3080018",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2588330585,
+            "range": "± 23793303",
             "unit": "ns/iter"
           }
         ]
