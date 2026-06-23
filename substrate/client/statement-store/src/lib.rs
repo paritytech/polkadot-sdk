@@ -965,18 +965,17 @@ impl Store {
 	}
 
 	/// Returns the full hash set of an index set, from the read cache if present, otherwise by
-	/// scanning the on-disk column (and caching the result).
-	fn materialize_index_set(
-		&self,
-		query_index: &mut QueryIndex,
-		set: &IndexSet,
-	) -> Result<HashSet<Hash>> {
+	/// scanning the on-disk column (and caching the result). The lock is held only to look up or
+	/// populate the cache — never across the disk scan — so readers do not serialize on I/O.
+	fn load_set_cached(&self, set: &IndexSet) -> Result<HashSet<Hash>> {
 		let cache_key = set.cache_key();
-		if let Some(cached) = query_index.cache.get(&cache_key) {
+		if let Some(cached) = self.query_index.lock().cache.get(&cache_key) {
 			return Ok(cached.clone());
 		}
+		// Cache miss: scan the column without holding the lock. A concurrent reader may scan and
+		// insert the same set in parallel, which is harmless (the inserts are identical).
 		let scanned = self.scan_index_prefix(set.column(), &set.prefix())?;
-		query_index.cache.insert(cache_key, scanned.clone());
+		self.query_index.lock().cache.insert(cache_key, scanned.clone());
 		Ok(scanned)
 	}
 
@@ -991,16 +990,13 @@ impl Store {
 
 	fn iterate_with(
 		&self,
-		query_index: &mut QueryIndex,
 		key: Option<DecryptionKey>,
 		topic: &OptimizedTopicFilter,
 		f: impl FnMut(&Hash) -> Result<()>,
 	) -> Result<()> {
 		match topic {
 			OptimizedTopicFilter::Any => self.iterate_with_any(key, f),
-			OptimizedTopicFilter::MatchAll(topics) => {
-				self.iterate_with_match_all(query_index, key, topics, f)
-			},
+			OptimizedTopicFilter::MatchAll(topics) => self.iterate_with_match_all(key, topics, f),
 			OptimizedTopicFilter::MatchAny(topics) => self.iterate_with_match_any(key, topics, f),
 		}
 	}
@@ -1054,12 +1050,12 @@ impl Store {
 		Ok(())
 	}
 
-	/// Intersects the decryption-key set with all requested topic sets. Materialises only the
-	/// smallest set (using the in-memory cardinality counters) and tests membership of the rest
-	/// against disk.
+	/// Intersects the decryption-key set with all requested topic sets. The lock is taken only
+	/// briefly to read the cardinality counters (to bail on an empty set and order the sets so the
+	/// smallest is materialised first); materialising that set and probing the rest against disk
+	/// then happen without holding the lock.
 	fn iterate_with_match_all(
 		&self,
-		query_index: &mut QueryIndex,
 		key: Option<DecryptionKey>,
 		topics: &HashSet<Topic>,
 		mut f: impl FnMut(&Hash) -> Result<()>,
@@ -1072,12 +1068,15 @@ impl Store {
 		for topic in topics {
 			sets.push(IndexSet::Topic(*topic));
 		}
-		if sets.iter().any(|s| s.len(query_index) == 0) {
-			return Ok(());
+		{
+			let query_index = self.query_index.lock();
+			if sets.iter().any(|s| s.len(&query_index) == 0) {
+				return Ok(());
+			}
+			// Start from the smallest set to minimise membership tests.
+			sets.sort_by_key(|s| s.len(&query_index));
 		}
-		// Start from the smallest set to minimise membership tests.
-		sets.sort_by_key(|s| s.len(query_index));
-		let smallest = self.materialize_index_set(query_index, &sets[0])?;
+		let smallest = self.load_set_cached(&sets[0])?;
 		let others = &sets[1..];
 		for hash in &smallest {
 			if others.iter().try_fold(true, |acc, set| {
@@ -1094,15 +1093,17 @@ impl Store {
 		Ok(())
 	}
 
-	fn collect_statements_locked<R>(
+	/// Collects statements matching `key` / `topic_filter`. Reads never hold the query-index lock
+	/// across disk I/O: `Any` / `MatchAny` touch only the (thread-safe) database, and `MatchAll`
+	/// takes the lock only momentarily to order the candidate sets.
+	fn collect_statements<R>(
 		&self,
-		query_index: &mut QueryIndex,
 		key: Option<DecryptionKey>,
 		topic_filter: &OptimizedTopicFilter,
-		result: &mut Vec<R>,
 		mut f: impl FnMut(Statement) -> Option<R>,
-	) -> Result<()> {
-		self.iterate_with(query_index, key, topic_filter, |hash| {
+	) -> Result<Vec<R>> {
+		let mut result = Vec::new();
+		self.iterate_with(key, topic_filter, |hash| {
 			match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
 				Some(entry) => {
 					if let Ok(statement) = Statement::decode(&mut entry.as_slice()) {
@@ -1129,18 +1130,6 @@ impl Store {
 			}
 			Ok(())
 		})?;
-		Ok(())
-	}
-
-	fn collect_statements<R>(
-		&self,
-		key: Option<DecryptionKey>,
-		topic_filter: &OptimizedTopicFilter,
-		f: impl FnMut(Statement) -> Option<R>,
-	) -> Result<Vec<R>> {
-		let mut result = Vec::new();
-		let mut query_index = self.query_index.lock();
-		self.collect_statements_locked(&mut query_index, key, topic_filter, &mut result, f)?;
 		Ok(result)
 	}
 
@@ -1980,19 +1969,15 @@ impl StatementStoreSubscriptionApi for Store {
 		topic_filter: OptimizedTopicFilter,
 	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<StatementEvent>, SubscriptionStatementsStream)>
 	{
-		// Hold the query index lock until after we have subscribed, so that no statement is both
-		// missed by the initial scan and missed by a notification.
-		let mut existing_statements = Vec::new();
-		let mut query_index = self.query_index.lock();
-		self.collect_statements_locked(
-			&mut query_index,
-			None,
-			&topic_filter,
-			&mut existing_statements,
-			|statement| Some(statement.encode()),
-		)?;
+		// Register the subscription first, then snapshot the current state. This avoids holding the
+		// query-index lock across the scan. A statement committed during the snapshot may appear
+		// both in it and as a notification (a duplicate, which this design already allows), but
+		// none is missed: a statement absent from the snapshot was committed after it, so its
+		// `submit` notifies an already-registered subscriber.
 		let (subscription_sender, subscription_stream) =
-			self.subscription_manager.subscribe(topic_filter);
+			self.subscription_manager.subscribe(topic_filter.clone());
+		let existing_statements =
+			self.collect_statements(None, &topic_filter, |statement| Some(statement.encode()))?;
 		if existing_statements.is_empty() {
 			subscription_sender
 				.send_blocking(StatementEvent::NewStatements {
