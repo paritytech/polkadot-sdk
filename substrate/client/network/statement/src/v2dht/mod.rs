@@ -19,9 +19,12 @@
 //! DHT-targeted gossip path for the statement protocol.
 
 mod explicit_affinity;
+mod metrics;
 mod peer_steering;
 mod peers_index;
 pub mod peers_topology;
+
+pub(crate) use metrics::V2DhtMetrics;
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use explicit_affinity::{AffinitySource, ExplicitAffinity};
@@ -41,6 +44,8 @@ pub(crate) struct V2DhtOrchestrator {
 	explicit_affinity: ExplicitAffinity,
 	/// Keeps the connected peer set aligned with the peers needed to cover subscriptions.
 	peer_steering: PeerSteering,
+	/// Prometheus metrics.
+	metrics: Option<V2DhtMetrics>,
 }
 
 #[allow(dead_code)]
@@ -50,20 +55,33 @@ impl V2DhtOrchestrator {
 		local_peer: PeerId,
 		peers_topology_config: PeersTopologyConfig,
 		protocol: ProtocolName,
+		metrics: Option<V2DhtMetrics>,
 	) -> Self {
 		Self {
 			peers_topology: PeersTopology::new(local_peer, peers_topology_config),
 			explicit_affinity: ExplicitAffinity::new(configured_topics),
 			peer_steering: PeerSteering::new(protocol),
+			metrics,
+		}
+	}
+
+	fn report_topology_size(&self) {
+		if let Some(metrics) = &self.metrics {
+			metrics.set_topology_size(
+				self.peers_topology.known_peers_count(),
+				self.peers_topology.connected_peers().count(),
+			);
 		}
 	}
 
 	pub(crate) fn on_peers_discovered(&mut self, peers: impl IntoIterator<Item = PeerId>) {
 		self.peers_topology.on_peers_discovered(peers);
+		self.report_topology_size();
 	}
 
 	pub(crate) fn on_peer_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
 		self.peers_topology.on_peer_identified(peer, supports_statement_protocol);
+		self.report_topology_size();
 	}
 
 	// === RPC-subscription source ===
@@ -113,12 +131,14 @@ impl V2DhtOrchestrator {
 	pub(crate) fn on_substream_opened(&mut self, peer: PeerId) {
 		self.peers_topology.on_substream_opened(peer);
 		self.peer_steering.on_substream_opened(peer);
+		self.report_topology_size();
 		log::trace!(target: LOG_TARGET, "v2dht: on_substream_opened {peer}");
 	}
 
 	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
 		self.peers_topology.on_substream_closed(peer);
 		self.peer_steering.on_substream_closed(peer);
+		self.report_topology_size();
 		log::trace!(target: LOG_TARGET, "v2dht: on_substream_closed {peer}");
 	}
 
@@ -228,13 +248,14 @@ mod tests {
 			PeerId::random(),
 			PeersTopologyConfig::default(),
 			"/statement/test".into(),
+			None,
 		)
 	}
 
 	/// Like [`orchestrator`] but with a deterministic local identity, so the XOR routing
 	/// distances the propagation tests assert on stay reproducible across runs.
 	fn orchestrator_with(local_seed: u8, config: PeersTopologyConfig) -> V2DhtOrchestrator {
-		V2DhtOrchestrator::new(&[], peer(local_seed), config, "/statement/test".into())
+		V2DhtOrchestrator::new(&[], peer(local_seed), config, "/statement/test".into(), None)
 	}
 
 	fn statement(seed: u8, topics: &[Topic]) -> (Hash, Statement) {
@@ -313,6 +334,7 @@ mod tests {
 			PeerId::random(),
 			topology_config(20, 1),
 			"/statement/test".into(),
+			None,
 		);
 
 		let mask = orchestrator.retention_reasons_for(&statement_on(topic(1)));
@@ -329,6 +351,7 @@ mod tests {
 			PeerId::random(),
 			topology_config(20, 1),
 			"/statement/test".into(),
+			None,
 		);
 
 		let mask = orchestrator.retention_reasons_for(&statement_on(topic(9)));
@@ -345,6 +368,7 @@ mod tests {
 			PeerId::random(),
 			topology_config(1, 1),
 			"/statement/test".into(),
+			None,
 		);
 		let peers = (0..32).map(|_| PeerId::random()).collect::<Vec<_>>();
 		orchestrator.on_peers_discovered(peers.clone());
@@ -405,6 +429,7 @@ mod tests {
 			PeerId::random(),
 			PeersTopologyConfig::default(),
 			"/statement/test".into(),
+			None,
 		);
 
 		let peers: Vec<PeerId> = (0..5).map(|_| PeerId::random()).collect();
