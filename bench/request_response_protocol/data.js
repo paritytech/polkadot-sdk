@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782221073324,
+  "lastUpdate": 1782236647620,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -100763,6 +100763,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2626182794,
             "range": "± 33727772",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79002163+gab8i@users.noreply.github.com",
+            "name": "gab",
+            "username": "gab8i"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "182e7b93b4311362be1a95003c1fa3fae7ae6d8f",
+          "message": "feat(webrtc): add experimental WebRTC transport to litep2p backend (#12315)\n\n# Description\n\nAdd webrtc-direct support to the litep2p backend\n\n- webrtc-direct support gated behind a new `--experimental-webrtc` CLI\nflag.\n- WebRTC `listen_addr` entries are skipped with a warning unless\nenabled.\n- Persist the DTLS certificate to `<net_config_path>/webrtc_certificate`\nso the node keeps a stable identity across restarts. Fall back to an\nephemeral cert otherwise.\n- update network type to support `WebRTCDirect`\n\n## Integration\n\nNo behavioral change unless --experimental-webrtc is explicitly enabled.\n\n## Review Notes\n\nThis PR adds experimental webrtc-direct transport support to the litep2p\nnetwork backend. It is fully opt-in: nothing changes for existing nodes\nunless the operator explicitly passes --experimental-webrtc and supplies\na webrtc-direct listen address. Default backend (litep2p) behavior, the\nlibp2p backend, and all existing transports are untouched.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
+          "timestamp": "2026-06-23T16:23:39Z",
+          "tree_id": "a55797ee6ef62676e447fb959473a3aef790f42e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/182e7b93b4311362be1a95003c1fa3fae7ae6d8f"
+        },
+        "date": 1782236620108,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19041660,
+            "range": "± 59757",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19296270,
+            "range": "± 103680",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20778201,
+            "range": "± 96595",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25148937,
+            "range": "± 185490",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56380673,
+            "range": "± 571759",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 333444879,
+            "range": "± 3738029",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2445622983,
+            "range": "± 77013126",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16815151,
+            "range": "± 188419",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16766755,
+            "range": "± 167543",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17330309,
+            "range": "± 161602",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21688914,
+            "range": "± 99387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 57392156,
+            "range": "± 364505",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 340004946,
+            "range": "± 2789486",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2567979996,
+            "range": "± 21056070",
             "unit": "ns/iter"
           }
         ]
