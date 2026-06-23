@@ -19,12 +19,15 @@
 //! DHT-targeted gossip path for the statement protocol.
 
 mod explicit_affinity;
+mod peer_steering;
 mod peers_index;
 pub mod peers_topology;
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use explicit_affinity::{AffinitySource, ExplicitAffinity};
+use peer_steering::PeerSteering;
 use peers_topology::{PeersTopology, PeersTopologyConfig};
+use sc_network::{types::ProtocolName, NetworkPeers};
 use sc_network_types::PeerId;
 use sp_statement_store::{Hash, RetentionReasonMask, Statement, SubmitResult, Topic};
 use std::collections::{HashMap, HashSet};
@@ -36,6 +39,8 @@ pub(crate) struct V2DhtOrchestrator {
 	peers_topology: PeersTopology,
 	/// Tracks the local node's topic affinity and the filters peers advertise.
 	explicit_affinity: ExplicitAffinity,
+	/// Keeps the connected peer set aligned with the peers needed to cover subscriptions.
+	peer_steering: PeerSteering,
 }
 
 #[allow(dead_code)]
@@ -44,10 +49,12 @@ impl V2DhtOrchestrator {
 		configured_topics: &[Topic],
 		local_peer: PeerId,
 		peers_topology_config: PeersTopologyConfig,
+		protocol: ProtocolName,
 	) -> Self {
 		Self {
 			peers_topology: PeersTopology::new(local_peer, peers_topology_config),
 			explicit_affinity: ExplicitAffinity::new(configured_topics),
+			peer_steering: PeerSteering::new(protocol),
 		}
 	}
 
@@ -105,11 +112,13 @@ impl V2DhtOrchestrator {
 
 	pub(crate) fn on_substream_opened(&mut self, peer: PeerId) {
 		self.peers_topology.on_substream_opened(peer);
+		self.peer_steering.on_substream_opened(peer);
 		log::trace!(target: LOG_TARGET, "v2dht: on_substream_opened {peer}");
 	}
 
 	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
 		self.peers_topology.on_substream_closed(peer);
+		self.peer_steering.on_substream_closed(peer);
 		log::trace!(target: LOG_TARGET, "v2dht: on_substream_closed {peer}");
 	}
 
@@ -184,9 +193,23 @@ impl V2DhtOrchestrator {
 		log::trace!(target: LOG_TARGET, "v2dht: on_initial_sync (stub)");
 	}
 
+	/// Recompute the peers needed to cover the node's topics and hand them to peer steering.
+	// TODO: `peers_for_topics` returns gaps only — it omits topics already served by a connected
+	// peer and never lists connected peers. Peer steering reconciles toward this set and
+	// disconnects connected peers absent from it, so a peer that starts covering its topic drops
+	// out of the next result and gets disconnected, then reconnected — it flaps. A stable,
+	// connection-independent coverage target (e.g. the closest known peers per topic) must replace
+	// this before steering is enabled.
 	pub(crate) fn on_pending_affinities(&mut self) {
-		// TODO: We need to know what to propagate
-		log::trace!(target: LOG_TARGET, "v2dht: on_pending_affinities (stub)");
+		let topics = self.explicit_affinity.topics();
+		let desired = self.peers_topology.peers_for_topics(&topics);
+		self.peer_steering.update_peers_needing_connections(desired);
+	}
+
+	/// Align the connected peers with the peers needed to cover the node's subscriptions, opening
+	/// and closing connections through the statement protocol's reserved set on `network`.
+	pub(crate) fn refresh_connections<N: NetworkPeers>(&self, network: &N) {
+		self.peer_steering.refresh_connections(network);
 	}
 
 	pub(crate) fn on_major_sync_end(&mut self) {
@@ -200,13 +223,18 @@ mod tests {
 	use crate::test_helpers::{filter_over, peer, statement_on, topic, topology_config};
 
 	fn orchestrator() -> V2DhtOrchestrator {
-		V2DhtOrchestrator::new(&[], PeerId::random(), PeersTopologyConfig::default())
+		V2DhtOrchestrator::new(
+			&[],
+			PeerId::random(),
+			PeersTopologyConfig::default(),
+			"/statement/test".into(),
+		)
 	}
 
 	/// Like [`orchestrator`] but with a deterministic local identity, so the XOR routing
 	/// distances the propagation tests assert on stay reproducible across runs.
 	fn orchestrator_with(local_seed: u8, config: PeersTopologyConfig) -> V2DhtOrchestrator {
-		V2DhtOrchestrator::new(&[], peer(local_seed), config)
+		V2DhtOrchestrator::new(&[], peer(local_seed), config, "/statement/test".into())
 	}
 
 	fn statement(seed: u8, topics: &[Topic]) -> (Hash, Statement) {
@@ -280,8 +308,12 @@ mod tests {
 
 	#[test]
 	fn retention_reasons_for_marks_explicit_affinity() {
-		let orchestrator =
-			V2DhtOrchestrator::new(&[topic(1)], PeerId::random(), topology_config(20, 1));
+		let orchestrator = V2DhtOrchestrator::new(
+			&[topic(1)],
+			PeerId::random(),
+			topology_config(20, 1),
+			"/statement/test".into(),
+		);
 
 		let mask = orchestrator.retention_reasons_for(&statement_on(topic(1)));
 
@@ -292,7 +324,12 @@ mod tests {
 	#[test]
 	fn retention_reasons_for_marks_dht_affinity_when_local_is_a_replica() {
 		// An empty topology makes the local node a replica for every topic.
-		let orchestrator = V2DhtOrchestrator::new(&[], PeerId::random(), topology_config(20, 1));
+		let orchestrator = V2DhtOrchestrator::new(
+			&[],
+			PeerId::random(),
+			topology_config(20, 1),
+			"/statement/test".into(),
+		);
 
 		let mask = orchestrator.retention_reasons_for(&statement_on(topic(9)));
 
@@ -303,7 +340,12 @@ mod tests {
 	#[test]
 	fn retention_reasons_for_is_transient_without_any_affinity() {
 		// One replica per topic, so a single closer peer displaces the local node.
-		let mut orchestrator = V2DhtOrchestrator::new(&[], PeerId::random(), topology_config(1, 1));
+		let mut orchestrator = V2DhtOrchestrator::new(
+			&[],
+			PeerId::random(),
+			topology_config(1, 1),
+			"/statement/test".into(),
+		);
 		let peers = (0..32).map(|_| PeerId::random()).collect::<Vec<_>>();
 		orchestrator.on_peers_discovered(peers.clone());
 		for peer in &peers {
@@ -354,5 +396,30 @@ mod tests {
 			.expect("a subscription topic marks the filter changed");
 		assert!(filter.contains(&topic(1)));
 		assert!(orchestrator.take_local_filter_if_changed().is_none());
+	}
+
+	#[test]
+	fn affinity_tick_marks_coverage_peers_for_connection() {
+		let mut orchestrator = V2DhtOrchestrator::new(
+			&[topic(1)],
+			PeerId::random(),
+			PeersTopologyConfig::default(),
+			"/statement/test".into(),
+		);
+
+		let peers: Vec<PeerId> = (0..5).map(|_| PeerId::random()).collect();
+		orchestrator.on_peers_discovered(peers.clone());
+		for peer in &peers {
+			orchestrator.on_peer_identified(*peer, true);
+		}
+
+		// The tick turns the configured topic into a coverage target.
+		orchestrator.on_pending_affinities();
+		let desired = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		assert!(!desired.is_empty());
+
+		// Every coverage peer is queued for a connection, since none are connected yet.
+		let connect = orchestrator.peer_steering.peers_to_connect();
+		assert!(desired.iter().all(|peer| connect.contains(peer)));
 	}
 }
