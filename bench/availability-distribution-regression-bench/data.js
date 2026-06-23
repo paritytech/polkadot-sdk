@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782240473368,
+  "lastUpdate": 1782254286393,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dharjeezy@gmail.com",
-            "name": "dharjeezy",
-            "username": "dharjeezy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f268e327685e04ad4134631a8b547a52f931fb83",
-          "message": "try state hook for alliance pallet (#10000)\n\nThis PR introduces the try_state hook to pallet-alliance to verify key\nstorage invariants.\n\ncloses part of #239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2025-11-01T01:11:41Z",
-          "tree_id": "0351bce041bfc4ca7434df57fe836ee6dbf0ced7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f268e327685e04ad4134631a8b547a52f931fb83"
-        },
-        "date": 1761963538964,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022502904280000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012874449173333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007428200159999979,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15953452152000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1438540545133334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2a3365c7f6d685c8e1cc8e72d80f1108886e0ffd",
+          "message": "CI: Get it green again (link-checker + check-macos-crates) (#12361)\n\nSince brew 6.0 llvm post-install step fails. But I think we can just\ndisable it for our purposes.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-23T20:46:20Z",
+          "tree_id": "3dbe12bd1faafb4cfa725c4dd6004fe056aa3bbf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2a3365c7f6d685c8e1cc8e72d80f1108886e0ffd"
+        },
+        "date": 1782254256918,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010281891499999982,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0076068937400000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023594406653333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14463840832000002,
             "unit": "seconds"
           }
         ]
