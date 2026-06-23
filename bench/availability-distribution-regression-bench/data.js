@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782237520252,
+  "lastUpdate": 1782240473368,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9136565addc23a552f6960a7581f13c8dfc651f1",
-          "message": "pallet_revive_dev_node: Always increment the timestamp by at least one second (#10160)\n\nFixes https://github.com/paritytech/contract-issues/issues/191\n\ncc @albertov19\n\nThe instant seal introduces a race condition. Blocks can be build faster\nthan the timestamp resolution of Ethereum. Eth timestamps are only one\nsecond granularity. If we build blocks faster it can happen that the\ntimestamp delta between them is zero. This is not allowed. We have to\nmake sure that in instant seal two blocks don't return the same\ntimestamp.\n\nThis PR does that by always incrementing the timestamp by at least one\nsecond. Note that this is a dev-node only change. Production chains\nwon't have this problem as long as the block time is larger than 1\nsecond.\n\nYes, it will produce timestamps in the future. But this seems to be the\nlesser evil for this dev node. Time is subjective. But the rule to not\nreturn duplicate timestamps is dependent on.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-31T16:46:46Z",
-          "tree_id": "5c7ce198b06890d684f68f70084ddc28d5c9e05f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9136565addc23a552f6960a7581f13c8dfc651f1"
-        },
-        "date": 1761935083328,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022603597733333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013184321239999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007241761013333317,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15951212334666676,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007557635713333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "601bb0c22905a875c11ea76f7dd1e5fcb15fe195",
+          "message": "Fix for `rust-lld` regression (#12440)\n\nThis adapts code to a `rust-lld` regression observed since 1.96.0,\nrequiring the explicit specification of a Wasm module name from which\nexternal functions are imported.",
+          "timestamp": "2026-06-23T16:42:06Z",
+          "tree_id": "23f6fb9173c48d915a926061427331528ccebe9d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/601bb0c22905a875c11ea76f7dd1e5fcb15fe195"
+        },
+        "date": 1782240448239,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023691126586666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010406083393333316,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007454654993333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1438540545133334,
             "unit": "seconds"
           }
         ]
