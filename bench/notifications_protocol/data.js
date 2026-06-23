@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782189566125,
+  "lastUpdate": 1782195107039,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -179327,6 +179327,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2388199258,
             "range": "± 47564806",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d675175f09cf39c9c21d2be779c6b50b61b24c00",
+          "message": "fix `sload` undercharge on cross-VM storage (#12387)\n\n## Summary\n\nEVM `sload` previously charged a fixed `RuntimeCosts::GetStorage(32)`\nregardless of the actual byte size of the storage value read. This is\ncorrect under the EVM-only assumption that every slot holds a 32-byte\nword, but it breaks under cross-VM execution where a PVM contract\nsharing the storage namespace (via delegatecall) can have written values\nup to `limits::STORAGE_BYTES`.\n\nThe bug: `sload` reads the full value from the trie — consuming PoV\nproportional to the actual length — but only bills for 32 bytes. The\nsubsequent length-check trap doesn't refund PoV. A crafted PVM caller\ncould repeatedly delegate-call into an EVM contract over storage slots\nit had previously populated with large values, under-paying for the\nproof space consumed.\n\n## Fix\n\nMirror the PVM `get_storage` host fn pattern: charge\n`RuntimeCosts::GetStorage(limits::STORAGE_BYTES)` upfront, then\n`adjust_weight` to `RuntimeCosts::GetStorage(actual_len)` after the\nread.\n\n```rust\nlet charged = interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage(limits::STORAGE_BYTES))?;\nlet key = Key::Fix(index.to_big_endian());\nlet value = interpreter.ext.get_storage(&key);\n\nlet actual_len = value.as_ref().map(|v| v.len() as u32).unwrap_or(0);\ninterpreter\n    .ext\n    .frame_meter_mut()\n    .adjust_weight(charged, RuntimeCosts::GetStorage(actual_len));\n```\n\nThe length-check trap continues to fire for non-32-byte values; only the\nmetering is corrected.\n\n## Attack surface\n\nRequires both:\n- A PVM execution that wrote a non-32-byte value into a storage\nnamespace (Rust-PVM contracts via `seal_set_storage` with arbitrary\nlength; Solidity-compiled-to-PVM does not since `sstore` is always 32\nbytes).\n- A subsequent EVM execution in that same namespace, via PVM→EVM\ndelegatecall.\n\nBoth halves are already supported and tested individually (e.g.\n`Resolc→Solc` in `delegatecall_works`, `multi_store.rs` for non-32-byte\nPVM writes); only the combination is unexercised, and is what this PR\ncloses.\n\n## Test plan\n\n- [x] `sload_charges_for_actual_storage_value_size` — injects a value of\nlength `L` directly into a Solc-deployed `Counter`'s storage slot 0,\ncalls `number()` (which compiles to `SLOAD(0)`), and asserts gas\nconsumed for `L=256` is strictly greater than for `L=32`. Fails with the\nlegacy fixed-32 charge, passes with the fix.\n- [x] Full `tests::sol` suite (225 tests) — no regressions.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-23T04:39:40Z",
+          "tree_id": "70d3918938ec7b8aff1b42289ad058eaad917b09",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d675175f09cf39c9c21d2be779c6b50b61b24c00"
+        },
+        "date": 1782195080661,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4516956,
+            "range": "± 20007",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 299997,
+            "range": "± 7494",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4342483,
+            "range": "± 52407",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 372231,
+            "range": "± 5007",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5235692,
+            "range": "± 46974",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 896934,
+            "range": "± 8418",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10872151,
+            "range": "± 66189",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4824727,
+            "range": "± 88301",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 44629775,
+            "range": "± 437761",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 39420491,
+            "range": "± 448244",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 385014431,
+            "range": "± 3630042",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 313316374,
+            "range": "± 2938805",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2677394120,
+            "range": "± 10696194",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2417916416,
+            "range": "± 19575405",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3432289,
+            "range": "± 25572",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1825644,
+            "range": "± 11112",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3796439,
+            "range": "± 124264",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1885859,
+            "range": "± 9454",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3951600,
+            "range": "± 39061",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2190495,
+            "range": "± 21579",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7875710,
+            "range": "± 100304",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5275364,
+            "range": "± 35206",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37144385,
+            "range": "± 281671",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 36759028,
+            "range": "± 380685",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 326994206,
+            "range": "± 3801700",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 279624209,
+            "range": "± 2101600",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2536807274,
+            "range": "± 51477799",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2284518026,
+            "range": "± 40060633",
             "unit": "ns/iter"
           }
         ]
