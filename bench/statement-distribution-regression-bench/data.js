@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782201029116,
+  "lastUpdate": 1782208671931,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tsvetomir@parity.io",
-            "name": "Tsvetomir Dimitrov",
-            "username": "tdimitrov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f7347bbacaf11cf74f5703ba2b6151770b656231",
-          "message": "Better hadling of held off collations for AHM stop-gap solution (#10163)\n\nMake logging around held off AHM collations better.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-30T12:15:09Z",
-          "tree_id": "c5c7af94719ccf331c861052ab995ccfb959db52",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f7347bbacaf11cf74f5703ba2b6151770b656231"
-        },
-        "date": 1761830703773,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95599999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044321058343999936,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035358369308,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03839685157599998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "782fb2c3925a86b3e30b2e9c7f73c9fc4836c183",
+          "message": "net/litep2p: Install the default crypto provider (#11253)\n\nThis PR installs the default crypto provider before TLS connections are\nmade.\n\nIn case another provider was already installed (unexpected but\nparachains dev might have enabled it), a warning is printed.\n\nWithout the fix, litep2p websocket (tokio tungstenite that uses rustls)\nwould panic under the hood:\n\n```rust\nThread 'tokio-runtime-worker' panicked at '\nCould not automatically determine the process-level CryptoProvider from Rustls crate features.\nCall CryptoProvider::install_default() before this point to select a provider manually, or make sure exactly one of the 'aws-lc-rs' and 'ring' features is enabled.\nSee the documentation of the CryptoProvider type for more information.\n            ', /home/akru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustls-0.23.36/src/crypto/mod.rs:249\n```\n\nThis happens speficially when both `aws-lc-rs` (legacy) and `ring`\nfeatures are enabled by some dependencies that get into the\n`Cargo.lock`.\n\nCloses:\n- https://github.com/paritytech/polkadot-sdk/issues/11164\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-23T08:21:22Z",
+          "tree_id": "e459f7f5c7c641b09bdd99d8e1789da44f963225",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/782fb2c3925a86b3e30b2e9c7f73c9fc4836c183"
+        },
+        "date": 1782208644115,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.10399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038429661872,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08649315309599993,
             "unit": "seconds"
           }
         ]
