@@ -294,6 +294,22 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AccountIdVersionedOutputPayload<AccountId>>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::new_balance_with_dust::NewBalanceWithDustInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NewBalanceWithDustInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::new_balance_with_dust::NewBalanceWithDustVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NewBalanceWithDustVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::new_balance_with_dust::NewBalanceWithDustOutputPayloadV1<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NewBalanceWithDustOutputPayloadV1<Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::new_balance_with_dust::NewBalanceWithDustVersionedOutputPayload<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NewBalanceWithDustVersionedOutputPayload<Balance>>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::block_author::BlockAuthorInputPayloadV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockAuthorInputPayloadV1>"
 	),

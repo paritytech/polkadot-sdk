@@ -3058,6 +3058,7 @@ sp_api::decl_runtime_apis! {
 		fn code(address: H160) -> Vec<u8>;
 
 		/// Construct the new balance and dust components of this EVM balance.
+		#[deprecated(note = "Use the versioned equivalent `new_balance_with_dust_versioned` if available on your runtime")]
 		fn new_balance_with_dust(balance: U256) -> Result<(Balance, u32), BalanceConversionError>;
 
 		/* Versioned Runtime APIs */
@@ -3112,6 +3113,11 @@ sp_api::decl_runtime_apis! {
 
 		#[api_version(2)]
 		fn account_id_versioned(input: AccountIdVersionedInputPayload) -> AccountIdVersionedOutputPayload<AccountId>;
+
+		#[api_version(2)]
+		fn new_balance_with_dust_versioned(
+			input: NewBalanceWithDustVersionedInputPayload
+		) -> Result<NewBalanceWithDustVersionedOutputPayload<Balance>, BalanceConversionError>;
 
 		#[api_version(2)]
 		fn block_author_versioned(input: BlockAuthorVersionedInputPayload) -> BlockAuthorVersionedOutputPayload;
@@ -3538,7 +3544,15 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn new_balance_with_dust(balance: $crate::U256) -> Result<(Balance, u32), $crate::BalanceConversionError> {
-					$crate::Pallet::<Self>::new_balance_with_dust(balance)
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = NewBalanceWithDustVersionedInputPayload::from(
+						NewBalanceWithDustInputPayloadV1 { balance }
+					);
+					let output = Self::new_balance_with_dust_versioned(input)?;
+					let output = NewBalanceWithDustOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output");
+					Ok((output.new_balance, output.dust))
 				}
 
 				/* Versioned Runtime APIs */
@@ -3858,6 +3872,33 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						account_id: <Self as $crate::Config>::AddressMapper::to_account_id(&input.address)
 					};
 					output_wrapper(output)
+				}
+
+				fn new_balance_with_dust_versioned(
+					input: $crate::pallet_revive_types::runtime_api::NewBalanceWithDustVersionedInputPayload
+				) -> Result<
+					$crate::pallet_revive_types::runtime_api::NewBalanceWithDustVersionedOutputPayload<Balance>,
+					$crate::BalanceConversionError
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<
+							dyn Fn(NewBalanceWithDustOutputPayload<Balance>) -> NewBalanceWithDustVersionedOutputPayload<Balance>,
+						>,
+					) = match input {
+						NewBalanceWithDustVersionedInputPayload::V1(payload) => (
+							NewBalanceWithDustInputPayload::from(payload),
+							Box::new(|output| NewBalanceWithDustVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let (new_balance, dust) = $crate::Pallet::<Self>::new_balance_with_dust(input.balance)?;
+					let output = NewBalanceWithDustOutputPayload { new_balance, dust };
+					Ok(output_wrapper(output))
 				}
 
 				fn block_author_versioned(
