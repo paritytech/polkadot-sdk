@@ -2904,6 +2904,7 @@ sp_api::decl_runtime_apis! {
 		fn balance(address: H160) -> U256;
 
 		/// Returns the gas price.
+		#[deprecated(note = "Use the versioned equivalent `gas_price_versioned` if available on your runtime")]
 		fn gas_price() -> U256;
 
 		/// Returns the nonce of the given `[H160]` address.
@@ -3072,6 +3073,9 @@ sp_api::decl_runtime_apis! {
 		fn balance_versioned(input: BalanceVersionedInputPayload) -> BalanceVersionedOutputPayload;
 
 		#[api_version(2)]
+		fn gas_price_versioned(input: GasPriceVersionedInputPayload) -> GasPriceVersionedOutputPayload;
+
+		#[api_version(2)]
 		fn block_author_versioned(input: BlockAuthorVersionedInputPayload) -> BlockAuthorVersionedOutputPayload;
 
 		#[api_version(2)]
@@ -3190,7 +3194,13 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn gas_price() -> $crate::U256 {
-					$crate::Pallet::<Self>::evm_base_fee()
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = GasPriceVersionedInputPayload::from(GasPriceInputPayloadV1);
+					let output = Self::gas_price_versioned(input);
+					GasPriceOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.gas_price
 				}
 
 				fn nonce(address: $crate::H160) -> Nonce {
@@ -3544,6 +3554,29 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					let output = BalanceOutputPayload {
 						balance: $crate::Pallet::<Self>::evm_balance(&input.address)
+					};
+					output_wrapper(output)
+				}
+
+				fn gas_price_versioned(
+					input: $crate::pallet_revive_types::runtime_api::GasPriceVersionedInputPayload
+				) -> $crate::pallet_revive_types::runtime_api::GasPriceVersionedOutputPayload {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use alloc::boxed::Box;
+
+					let (_input, output_wrapper): (
+						_,
+						Box<dyn Fn(GasPriceOutputPayload) -> GasPriceVersionedOutputPayload>,
+					) = match input {
+						GasPriceVersionedInputPayload::V1(payload) => (
+							GasPriceInputPayload::from(payload),
+							Box::new(|output| GasPriceVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let output = GasPriceOutputPayload {
+						gas_price: $crate::Pallet::<Self>::evm_base_fee()
 					};
 					output_wrapper(output)
 				}

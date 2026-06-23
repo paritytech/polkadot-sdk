@@ -158,6 +158,22 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BalanceVersionedOutputPayload>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::gas_price::GasPriceInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GasPriceInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::gas_price::GasPriceVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GasPriceVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::gas_price::GasPriceOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GasPriceOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::gas_price::GasPriceVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GasPriceVersionedOutputPayload>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::block_author::BlockAuthorInputPayloadV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockAuthorInputPayloadV1>"
 	),
