@@ -9,7 +9,7 @@
 3. [The Parachain Service](#3-the-parachain-service)
    - 3.1 [Service State Layout](#31-service-state-layout)
    - 3.2 [Work Items](#32-work-items)
-   - 3.3 [Refine Result](#33-refine-result)
+   - 3.3 [Work Digest](#33-work-digest)
 4. [Refine: In-Core Execution](#4-refine-in-core-execution)
    - 4.1 [What Refine Does](#41-what-refine-does)
    - 4.2 [PVF Entry Point](#42-pvf-entry-point)
@@ -214,7 +214,7 @@ enum RefineLog {
 }
 
 struct AccumulateLogEntry {
-    /// Events recorded while Accumulating a work result for this parachain.
+    /// Events recorded while Accumulating a work digest for this parachain.
     /// Capped at 30 — further entries in the same Accumulate invocation
     /// are dropped.
     entries: BoundedVec<AccumulateLog, 30>,
@@ -229,7 +229,7 @@ enum InsufficientBalanceReason {
 }
 
 enum AccumulateLog {
-    /// The work result's `validation_code_hash` matches neither
+    /// The work digest's `validation_code_hash` matches neither
     /// `ParaInfo.validation_code.hash` nor the pending upgrade's code hash.
     /// This is the authoritative validation-code check (Refine does not
     /// perform it). See §5.1 step 3.
@@ -314,21 +314,21 @@ sourced from the authorizer config, which is pinned by the Coretime chain (see �
 Parachain Service enforces that every authorizer config begins with a `Vec<ParaId>` whose
 length matches the number of work items in the package, so that work item `item_index` is
 authoritatively bound to `authorized_paras[item_index]`. Refine reads this prefix via
-`auth_config()` and uses it to populate `ParachainWorkResult.para_id`.
+`auth_config()` and uses it to populate `ParachainWorkDigest.para_id`.
 
-### 3.3 Refine Result
+### 3.3 Work Digest
 
-The Parachain Service's Refine function returns a parachain work result per work item.
-This result is forwarded to Accumulate. From the service's perspective, Refine either
+The Parachain Service's Refine function returns a parachain work digest per work item.
+This digest is forwarded to Accumulate. From the service's perspective, Refine either
 succeeds or fails:
 
 ```rust
 /// The Parachain Service's Refine output for one parachain candidate.
 /// Side effects from host functions (code upgrades, transfers, authorizer
 /// updates) are recorded separately during Refine and forwarded to Accumulate.
-enum ParachainWorkResult {
+enum ParachainWorkDigest {
     Ok {
-        /// The parachain this result belongs to.
+        /// The parachain this digest belongs to.
         para_id: ParaId,
         /// Hash of the validation code that Refine actually used.
         validation_code_hash: ValidationCodeHash,
@@ -402,7 +402,7 @@ to **48 KiB** by the Gray Paper.
 
 - **`Ok`** is returned when PVF validation succeeds. The upward host-function calls made
   during Refine (code upgrades, transfers, authorizer updates, etc.) are carried alongside
-  this result and applied by Accumulate.
+  this digest and applied by Accumulate.
 
 - **`Err`** is returned when Refine fails (see `RefineLog`). Accumulate appends
   a `LogEntry::Refine` to the parachain's `parachain_log` (see §3.1) together
@@ -427,7 +427,7 @@ index `item_index` the Parachain Service performs:
    store at the lookup-anchor), aborts with `Err(RefineLog::InvalidCodeHash)`.
 4. Instantiates a child PVM with the PVF.
 5. Executes the PVF against the PoV (the `jam_validate_block` call).
-6. Assembles a `ParachainWorkResult` from the PVF's host-function side effects and the
+6. Assembles a `ParachainWorkDigest` from the PVF's host-function side effects and the
    authoritative `para_id` (see §4.2).
 
 Because Refine is stateless, it cannot write to service storage.
@@ -442,7 +442,7 @@ fn jam_validate_block() -> ()
 
 The PVF reads its inputs (PoV, context, downward transfers) through host functions and
 writes its outputs (head data, code upgrades, transfers) through host functions. It does
-not return a value directly — the `ParachainWorkResult` is assembled by the Parachain
+not return a value directly — the `ParachainWorkDigest` is assembled by the Parachain
 Service's Refine wrapper from the accumulated host-function side effects.
 
 If the PVF exits abnormally (panic, trap, or other failed execution), Refine treats this as
@@ -480,7 +480,7 @@ These forward the full JAM fetch functionality to the PVF:
 
 #### Side-effect host functions
 
-These produce effects carried in the work result and applied by Accumulate:
+These produce effects carried in the work digest and applied by Accumulate:
 
 | Host function | Returns | Purpose |
 |---|---|---|
@@ -523,12 +523,12 @@ Performed once for each work package that is being accumulated in this block, in
 1. **Registration check**: If `para_id` is not in `parachains`, reject the work-package
    immediately and stop processing. In practice the work-report should already have
    failed Refine — the unregistered para's validation code is no longer solicited and
-   thus not retrievable via `historical_lookup`, so the result would have come in as
-   `Err(InvalidCodeHash)` (see §4.1). But a successful Refine result can still arrive
+   thus not retrievable via `historical_lookup`, so the digest would have come in as
+   `Err(InvalidCodeHash)` (see §4.1). But a successful Refine digest can still arrive
    at Accumulate for a parachain the Coretime chain cleaned up between guarantee and
    accumulation; this check is the earliest possible reject. No `parachain_log` entry
    is recorded — there is no `parachain_log[para_id]` to append to.
-2. **Parent head check**: Verify the work result's `parent_head_hash` equals
+2. **Parent head check**: Verify the work digest's `parent_head_hash` equals
    `hash(ParaInfo[para_id].head_data)`. If not, the candidate is rejected. This prevents
    a collator from including a candidate that was built on top of a stale, skipped, or
    non-canonical parent head.
@@ -542,7 +542,7 @@ Performed once for each work package that is being accumulated in this block, in
    neither, the candidate is rejected and `AccumulateLog::InvalidCodeHash { hash }`
    is recorded in the parachain's `LogEntry::Accumulate` for this timeslot.
 5. **Head data update + code upgrade check**: Writes the new `head_data` from the
-   work result into `ParaInfo` for the parachain and immediately checks whether the
+   work digest into `ParaInfo` for the parachain and immediately checks whether the
    candidate was validated with the pending new PVF code. If so, activate the new
    code, release the old code (see §6.1), and clear `pending_upgrade`. This must
    happen here because later candidates from the same parachain in the same block
@@ -550,7 +550,7 @@ Performed once for each work package that is being accumulated in this block, in
    (timeslot) is strictly less than the current candidate's lookup-anchor timeslot
    are also pruned here.
 6. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
-   the work result, applying the effects of each side-effect host function the PVF
+   the work digest, applying the effects of each side-effect host function the PVF
    invoked during Refine (code upgrades, transfers, authorizer queue updates, validator
    key updates, etc.). See the side-effect host function table in §4.3 for the full list.
 
@@ -1098,7 +1098,7 @@ is what §8.2 proposes.
 ### 8.2 Proposed Solution: Full XCMP
 
 The current HRMP model — routing full message payloads through the relay chain — cannot
-work on JAM because the work result output is too small to carry message payloads on-chain.
+work on JAM because the work digest output is too small to carry message payloads on-chain.
 Off-chain messaging is required.
 
 The proposed model is **full XCMP**: only message *headers* and
