@@ -2980,6 +2980,7 @@ sp_api::decl_runtime_apis! {
 		/// Returns `Ok(Some(Vec<u8>))` if the storage value exists under the given key in the
 		/// specified account and `Ok(None)` if it doesn't. If the account specified by the address
 		/// doesn't exist, or doesn't have a contract then `Err` is returned.
+		#[deprecated(note = "Use the versioned equivalent `get_storage_versioned` if available on your runtime")]
 		fn get_storage(
 			address: H160,
 			key: [u8; 32],
@@ -2990,6 +2991,7 @@ sp_api::decl_runtime_apis! {
 		/// Returns `Ok(Some(Vec<u8>))` if the storage value exists under the given key in the
 		/// specified account and `Ok(None)` if it doesn't. If the account specified by the address
 		/// doesn't exist, or doesn't have a contract then `Err` is returned.
+		#[deprecated(note = "Use the versioned equivalent `get_storage_versioned` if available on your runtime")]
 		fn get_storage_var_key(
 			address: H160,
 			key: Vec<u8>,
@@ -3091,6 +3093,11 @@ sp_api::decl_runtime_apis! {
 		fn upload_code_versioned(
 			input: UploadCodeVersionedInputPayload<AccountId, Balance>
 		) -> Result<UploadCodeVersionedOutputPayload<Balance>, DispatchError>;
+
+		#[api_version(2)]
+		fn get_storage_versioned(
+			input: GetStorageVersionedInputPayload
+		) -> Result<GetStorageVersionedOutputPayload, ContractAccessError>;
 
 		#[api_version(2)]
 		fn block_author_versioned(input: BlockAuthorVersionedInputPayload) -> BlockAuthorVersionedOutputPayload;
@@ -3368,11 +3375,29 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					address: $crate::H160,
 					key: Vec<u8>,
 				) -> $crate::GetStorageResult {
-					$crate::Pallet::<Self>::get_storage_var_key(address, key)
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = GetStorageVersionedInputPayload::from(GetStorageInputPayloadV1 {
+						address,
+						key: StorageKeyV1::Variable(key)
+					});
+					let output = Self::get_storage_versioned(input)?;
+					Ok(GetStorageOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.storage)
 				}
 
 				fn get_storage(address: $crate::H160, key: [u8; 32]) -> $crate::GetStorageResult {
-					$crate::Pallet::<Self>::get_storage(address, key)
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = GetStorageVersionedInputPayload::from(GetStorageInputPayloadV1 {
+						address,
+						key: StorageKeyV1::Fixed(key)
+					});
+					let output = Self::get_storage_versioned(input)?;
+					Ok(GetStorageOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.storage)
 				}
 
 				fn trace_block(
@@ -3701,6 +3726,34 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						input.storage_deposit_limit.unwrap_or(u128::MAX),
 					)?;
 					let output = UploadCodeOutputPayload { code_upload_return_value };
+					Ok(output_wrapper(output))
+				}
+
+				fn get_storage_versioned(
+					input: $crate::pallet_revive_types::runtime_api::GetStorageVersionedInputPayload
+				) -> Result<
+					$crate::pallet_revive_types::runtime_api::GetStorageVersionedOutputPayload,
+					$crate::ContractAccessError
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(GetStorageOutputPayload) -> GetStorageVersionedOutputPayload>,
+					) = match input {
+						GetStorageVersionedInputPayload::V1(payload) => (
+							GetStorageInputPayload::from(payload),
+							Box::new(|output| GetStorageVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let storage = match input.key {
+						StorageKey::Fixed(key) => $crate::Pallet::<Self>::get_storage(input.address, key)?,
+						StorageKey::Variable(key) => $crate::Pallet::<Self>::get_storage_var_key(input.address, key)?,
+					};
+					let output = GetStorageOutputPayload { storage };
 					Ok(output_wrapper(output))
 				}
 

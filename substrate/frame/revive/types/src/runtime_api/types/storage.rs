@@ -15,30 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod address;
-mod balance;
-mod block_author;
-mod block_gas_limit;
-mod block_hash;
-mod eth_pre_dispatch_weight;
-mod gas_price;
-mod get_storage;
-mod max_extrinsic_weight_in_gas;
-mod nonce;
-mod receipt_data;
-mod trace_block;
-mod upload_code;
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 
-pub use address::*;
-pub use balance::*;
-pub use block_author::*;
-pub use block_gas_limit::*;
-pub use block_hash::*;
-pub use eth_pre_dispatch_weight::*;
-pub use gas_price::*;
-pub use get_storage::*;
-pub use max_extrinsic_weight_in_gas::*;
-pub use nonce::*;
-pub use receipt_data::*;
-pub use trace_block::*;
-pub use upload_code::*;
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
+pub enum StorageKeyV1 {
+	Fixed([u8; 32]),
+	Variable(Vec<u8>),
+}

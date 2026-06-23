@@ -226,6 +226,26 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::UploadCodeVersionedOutputPayload<Balance>>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::storage::StorageKeyV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::StorageKeyV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::get_storage::GetStorageInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GetStorageInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::get_storage::GetStorageVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GetStorageVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::get_storage::GetStorageOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GetStorageOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::get_storage::GetStorageVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GetStorageVersionedOutputPayload>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::block_author::BlockAuthorInputPayloadV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockAuthorInputPayloadV1>"
 	),
