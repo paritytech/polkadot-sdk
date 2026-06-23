@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782222281179,
+  "lastUpdate": 1782237589491,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "aff20c532b063b060ceee970c262fd809bfeaa17",
-          "message": "Deny parameters for pallet macros that do not support parameters (#10127)\n\nE.g. `pallet::constant`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-30T15:15:55Z",
-          "tree_id": "b5c15de05bfb81640ff44ab19dc0146ff0ae1c48",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/aff20c532b063b060ceee970c262fd809bfeaa17"
-        },
-        "date": 1761842089955,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94799999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03571290194,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.045074244945999986,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.07713894075199995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79002163+gab8i@users.noreply.github.com",
+            "name": "gab",
+            "username": "gab8i"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "182e7b93b4311362be1a95003c1fa3fae7ae6d8f",
+          "message": "feat(webrtc): add experimental WebRTC transport to litep2p backend (#12315)\n\n# Description\n\nAdd webrtc-direct support to the litep2p backend\n\n- webrtc-direct support gated behind a new `--experimental-webrtc` CLI\nflag.\n- WebRTC `listen_addr` entries are skipped with a warning unless\nenabled.\n- Persist the DTLS certificate to `<net_config_path>/webrtc_certificate`\nso the node keeps a stable identity across restarts. Fall back to an\nephemeral cert otherwise.\n- update network type to support `WebRTCDirect`\n\n## Integration\n\nNo behavioral change unless --experimental-webrtc is explicitly enabled.\n\n## Review Notes\n\nThis PR adds experimental webrtc-direct transport support to the litep2p\nnetwork backend. It is fully opt-in: nothing changes for existing nodes\nunless the operator explicitly passes --experimental-webrtc and supplies\na webrtc-direct listen address. Default backend (litep2p) behavior, the\nlibp2p backend, and all existing transports are untouched.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
+          "timestamp": "2026-06-23T16:23:39Z",
+          "tree_id": "a55797ee6ef62676e447fb959473a3aef790f42e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/182e7b93b4311362be1a95003c1fa3fae7ae6d8f"
+        },
+        "date": 1782237563363,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03863576465799999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08547912537199986,
             "unit": "seconds"
           }
         ]
