@@ -20,7 +20,7 @@ mod pallet_xcm_benchmarks_generic;
 use crate::Runtime;
 use alloc::vec::Vec;
 use frame_support::weights::Weight;
-use polkadot_runtime_common::xcm_weights::{
+use pallet_xcm_benchmarks::xcm_weights::{
 	weigh_hints, weigh_initiate_transfer, AssetMatcher, AssetTypes, WeighAssets,
 };
 use xcm::{latest::prelude::*, DoubleEncoded};

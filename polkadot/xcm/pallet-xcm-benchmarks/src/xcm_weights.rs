@@ -14,6 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+// This file is part of the XCM pallet benchmarks. It provides utilities for weighing assets and XCM messages.
+// Naturally, each runtime would have its own implementation of these utilities, as the weights for each asset type may differ.
+// This file attempts to provide a generic implementation that can be used across different runtimes.
+
 use frame_support::{traits::Get, weights::Weight};
 use sp_runtime::BoundedVec;
 use xcm::latest::{prelude::*, AssetTransferFilter};

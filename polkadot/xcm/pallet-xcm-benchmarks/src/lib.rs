@@ -28,6 +28,7 @@ use xcm_executor::{traits::ConvertLocation, AssetsInHolding, Config as XcmConfig
 
 pub mod fungible;
 pub mod generic;
+pub mod xcm_weights;
 
 #[cfg(test)]
 mod mock;
