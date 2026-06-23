@@ -59,8 +59,8 @@ pub mod standalone;
 pub use crate::standalone::{find_pre_digest, slot_duration};
 pub use authorities_tracker::AuthoritiesTracker;
 pub use import_queue::{
-	build_verifier, import_queue, AuraVerifier, BuildVerifierParams, CheckForEquivocation,
-	ImportQueueParams,
+	build_verifier, check_inherents, import_queue, AuraBlockImport, AuraVerifier,
+	BuildVerifierParams, CheckForEquivocation, ImportQueueParams,
 };
 pub use sc_consensus_slots::SlotProportion;
 pub use sp_consensus::SyncOracle;
@@ -608,18 +608,7 @@ mod tests {
 		}
 	}
 
-	type AuraVerifier = import_queue::AuraVerifier<
-		PeersFullClient,
-		AuthorityPair,
-		Box<
-			dyn CreateInherentDataProviders<
-				TestBlock,
-				(),
-				InherentDataProviders = (InherentDataProvider,),
-			>,
-		>,
-		TestBlock,
-	>;
+	type AuraVerifier = import_queue::AuraVerifier<PeersFullClient, AuthorityPair, TestBlock>;
 	type AuraPeer = Peer<(), PeersClient>;
 
 	#[derive(Default)]
@@ -639,13 +628,7 @@ mod tests {
 			assert_eq!(slot_duration.as_millis() as u64, SLOT_DURATION_MS);
 			import_queue::AuraVerifier::new(
 				client,
-				Box::new(|_, _| async {
-					let slot = InherentDataProvider::from_timestamp_and_slot_duration(
-						Timestamp::current(),
-						SlotDuration::from_millis(SLOT_DURATION_MS),
-					);
-					Ok((slot,))
-				}),
+				slot_duration,
 				CheckForEquivocation::Yes,
 				None,
 				CompatibilityMode::None,

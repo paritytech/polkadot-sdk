@@ -60,7 +60,8 @@ use sc_client_api::{Backend, BlockchainEvents};
 use sc_client_db::DbHash;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
-	BlockImportParams, DefaultImportQueue, LongestChain,
+	BlockCheckParams, BlockImport, BlockImportParams, DefaultImportQueue, ImportResult,
+	LongestChain,
 };
 use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
 use sc_network::{config::FullNetworkConfiguration, NotificationMetrics, PeerId};
@@ -106,6 +107,55 @@ where
 	}
 }
 
+struct RelayToAuraBlockImport<Block, Client, AuraId, I, CIDP> {
+	client: Arc<Client>,
+	inner: I,
+	create_inherent_data_providers: CIDP,
+	_phantom: PhantomData<(Block, AuraId)>,
+}
+
+#[async_trait::async_trait]
+impl<Block, Client, AuraId, I, CIDP> BlockImport<Block>
+	for RelayToAuraBlockImport<Block, Client, AuraId, I, CIDP>
+where
+	Block: BlockT,
+	Client: sc_client_api::backend::AuxStore
+		+ sc_client_api::HeaderBackend<Block>
+		+ ProvideRuntimeApi<Block>
+		+ Send
+		+ Sync,
+	Client::Api: AuraRuntimeApi<Block, AuraId> + sp_block_builder::BlockBuilder<Block>,
+	AuraId: AuraIdT + Sync,
+	I: BlockImport<Block, Error = sp_consensus::Error> + Send + Sync,
+	CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync,
+	CIDP::InherentDataProviders: Send + Sync,
+{
+	type Error = sp_consensus::Error;
+
+	async fn check_block(
+		&self,
+		block: BlockCheckParams<Block>,
+	) -> Result<ImportResult, Self::Error> {
+		self.inner.check_block(block).await
+	}
+
+	async fn import_block(
+		&self,
+		mut block: BlockImportParams<Block>,
+	) -> Result<ImportResult, Self::Error> {
+		if self.client.runtime_api().has_aura_api(*block.header.parent_hash()) {
+			sc_consensus_aura::check_inherents::<Block, Client, <AuraId as AppCrypto>::Pair, CIDP>(
+				self.client.clone(),
+				&self.create_inherent_data_providers,
+				&mut block,
+			)
+			.await?;
+		}
+
+		self.inner.import_block(block).await
+	}
+}
+
 /// Build the import queue for parachain runtimes that started with relay chain consensus and
 /// switched to aura.
 pub(crate) struct BuildRelayToAuraImportQueue<Block, RuntimeApi, AuraId, BlockImport>(
@@ -138,16 +188,21 @@ where
 			Box::new(RelayChainVerifier::new(client.clone(), inherent_data_providers));
 
 		let equivocation_aura_verifier =
-			EquivocationVerifier::<<AuraId as AppCrypto>::Pair, _, _, _>::new(
+			EquivocationVerifier::<<AuraId as AppCrypto>::Pair, _, _>::new(
 				client.clone(),
-				inherent_data_providers,
 				telemetry_handle,
 			);
 
 		let verifier = Verifier {
-			client,
+			client: client.clone(),
 			aura_verifier: Box::new(equivocation_aura_verifier),
 			relay_chain_verifier,
+			_phantom: Default::default(),
+		};
+		let block_import = RelayToAuraBlockImport::<Block, _, AuraId, _, _> {
+			client,
+			inner: block_import,
+			create_inherent_data_providers: inherent_data_providers,
 			_phantom: Default::default(),
 		};
 

@@ -1,0 +1,15 @@
+title: Move Aura inherent checks into block import
+doc:
+- audience: Node Dev
+  description: |-
+    Moves Aura inherent verification from `AuraVerifier` into the new `AuraBlockImport`
+    wrapper so that inherent data provider creation happens during block import. Aura import
+    queue construction now takes `slot_duration` separately from the inherent data providers.
+
+crates:
+- name: sc-consensus-aura
+  bump: major
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: patch

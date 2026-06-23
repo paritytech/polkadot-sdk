@@ -91,6 +91,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 			block_import: grandpa_block_import.clone(),
 			justification_import: Some(Box::new(grandpa_block_import.clone())),
 			client: client.clone(),
+			slot_duration: sc_consensus_aura::slot_duration(&*client)?,
 			create_inherent_data_providers: move |parent_hash, _| {
 				let cidp_client = cidp_client.clone();
 				async move {

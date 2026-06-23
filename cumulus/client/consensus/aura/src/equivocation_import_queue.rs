@@ -29,7 +29,7 @@ use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImport, BlockImportParams, ForkChoiceStrategy,
 };
-use sc_consensus_aura::{standalone as aura_internal, AuthoritiesTracker};
+use sc_consensus_aura::{standalone as aura_internal, AuraBlockImport, AuthoritiesTracker};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use schnellru::{ByLength, LruMap};
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -74,36 +74,28 @@ impl<N: std::hash::Hash + PartialEq> NaiveEquivocationDefender<N> {
 }
 
 /// A parachain block import verifier that checks for equivocation limits within each slot.
-pub struct Verifier<P: Pair, Client, Block: BlockT, CIDP> {
+pub struct Verifier<P: Pair, Client, Block: BlockT> {
 	client: Arc<Client>,
-	create_inherent_data_providers: CIDP,
 	defender: Mutex<NaiveEquivocationDefender<NumberFor<Block>>>,
 	telemetry: Option<TelemetryHandle>,
 	// Unused for now. Will be plugged in with a later PR.
 	_authorities_tracker: AuthoritiesTracker<P, Block, Client>,
 }
 
-impl<P, Client, Block, CIDP> Verifier<P, Client, Block, CIDP>
+impl<P, Client, Block> Verifier<P, Client, Block>
 where
 	P: Pair,
 	P::Signature: Codec,
 	P::Public: Codec + Debug,
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block> + Send + Sync,
-	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
-
-	CIDP: CreateInherentDataProviders<Block, ()>,
+	<Client as ProvideRuntimeApi<Block>>::Api: AuraApi<Block, P::Public>,
 {
 	/// Creates a new Verifier instance for handling parachain block import verification in Aura
 	/// consensus.
-	pub fn new(
-		client: Arc<Client>,
-		inherent_data_provider: CIDP,
-		telemetry: Option<TelemetryHandle>,
-	) -> Self {
+	pub fn new(client: Arc<Client>, telemetry: Option<TelemetryHandle>) -> Self {
 		Self {
 			client: client.clone(),
-			create_inherent_data_providers: inherent_data_provider,
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry,
 			_authorities_tracker: AuthoritiesTracker::new(client),
@@ -112,7 +104,7 @@ where
 }
 
 #[async_trait::async_trait]
-impl<P, Client, Block, CIDP> VerifierT<Block> for Verifier<P, Client, Block, CIDP>
+impl<P, Client, Block> VerifierT<Block> for Verifier<P, Client, Block>
 where
 	P: Pair,
 	P::Signature: Codec,
@@ -123,9 +115,7 @@ where
 		+ ProvideRuntimeApi<Block>
 		+ Send
 		+ Sync,
-	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
-
-	CIDP: CreateInherentDataProviders<Block, ()>,
+	<Client as ProvideRuntimeApi<Block>>::Api: AuraApi<Block, P::Public>,
 {
 	async fn verify(
 		&self,
@@ -227,25 +217,6 @@ where
 			}
 		}
 
-		// Check inherents.
-		if let Some(body) = block_params.body.clone() {
-			let block = Block::new(block_params.header.clone(), body);
-			let create_inherent_data_providers = self
-				.create_inherent_data_providers
-				.create_inherent_data_providers(parent_hash, ())
-				.await
-				.map_err(|e| format!("Could not create inherent data {:?}", e))?;
-
-			sp_block_builder::check_inherents(
-				self.client.clone(),
-				parent_hash,
-				block,
-				&create_inherent_data_providers,
-			)
-			.await
-			.map_err(|e| format!("Error checking block inherents {:?}", e))?;
-		}
-
 		Ok(block_params)
 	}
 }
@@ -284,19 +255,23 @@ where
 	Client: HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ ProvideRuntimeApi<Block>
+		+ sc_client_api::backend::AuxStore
 		+ Send
 		+ Sync
 		+ 'static,
-	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
-	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
+	<Client as ProvideRuntimeApi<Block>>::Api:
+		BlockBuilderApi<Block> + AuraApi<Block, P::Public> + ApiExt<Block>,
+	CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync + 'static,
+	CIDP::InherentDataProviders: Send + Sync,
 {
-	let verifier = Verifier::<P, _, _, _> {
+	let verifier = Verifier::<P, _, _> {
 		client: client.clone(),
-		create_inherent_data_providers,
 		defender: Mutex::new(NaiveEquivocationDefender::default()),
 		telemetry,
 		_authorities_tracker: AuthoritiesTracker::new(client.clone()),
 	};
+	let block_import =
+		AuraBlockImport::<_, _, _, P, _>::new(block_import, client, create_inherent_data_providers);
 
 	BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry)
 }
@@ -323,11 +298,8 @@ mod test {
 
 		let client = Arc::new(TestClientBuilder::default().build());
 
-		let verifier = Verifier::<sr25519::AuthorityPair, Client, Block, _> {
+		let verifier = Verifier::<sr25519::AuthorityPair, Client, Block> {
 			client: client.clone(),
-			create_inherent_data_providers: |_, _| async move {
-				Ok(sp_timestamp::InherentDataProvider::from_system_time())
-			},
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry: None,
 			_authorities_tracker: AuthoritiesTracker::new(client.clone()),
