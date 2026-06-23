@@ -75,3 +75,52 @@ pub(crate) fn testnet_genesis_patch(
 			},
 	})
 }
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use penpal_runtime::BuildStorage;
+
+	#[test]
+	fn staging_penpal_local_config_works() {
+		let chain_spec = Box::new(staging_penpal_local_config());
+		chain_spec
+			.build_storage()
+			.expect("build_storage from staging chain-spec (default) config should works.");
+	}
+
+	#[test]
+	fn penpal_chain_spec_works() {
+		let chain_spec = Box::new(get_penpal_chain_spec(1002.into(), "rococo"));
+		chain_spec
+			.build_storage()
+			.expect("build_storage from staging chain-spec (default) config should works.");
+	}
+
+	#[test]
+	fn staging_penpal_invalid_config_err() {
+		use parachains_common::AuraId;
+		use serde_json::{json, Value};
+		use sp_core::crypto::UncheckedInto;
+
+		let aura_auth: AuraId =
+			hex!["aad9fa2249f87a210a0f93400b7f90e47b810c6d65caa0ca3f5af982904c2a33"]
+				.unchecked_into();
+
+		let chain_spec = Box::new(staging_penpal_local_config());
+		let mut chain_spec_json: Value = serde_json::from_str(
+			&chain_spec
+				.as_json(false)
+				.expect("serialization to json is expected to work. qed."),
+		)
+		.expect("serialization to json Value is expected to work. qed.");
+		chain_spec_json["genesis"]["runtimeGenesis"]["patch"]["aura"] =
+			json!({"authorities" : vec![ aura_auth ] });
+
+		let chain_spec_invalid_config =
+			GenericChainSpec::from_json_bytes(chain_spec_json.to_string().as_bytes().to_vec())
+				.expect("parse json content into a ChainSpec should works. qed");
+		let result = chain_spec_invalid_config.build_storage();
+		assert!(result.is_err());
+	}
+}
