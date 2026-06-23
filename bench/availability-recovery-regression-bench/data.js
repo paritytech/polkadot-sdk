@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782190573117,
+  "lastUpdate": 1782196199620,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "69f210b33fce91b23570f3bda64f8e3deff04843",
-          "message": "RawIter: stop iterating on incomplete DB only with `stop_on_incomplete_database`  (#10155)\n\nOn RawIter there is an argument `stop_on_incomplete_database`. In\ncontrast to what it is saying, the Iterator was always stopping on\nincomplete DB.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-30T19:18:17Z",
-          "tree_id": "75255a00186882577559ec9e361e913084f476b5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/69f210b33fce91b23570f3bda64f8e3deff04843"
-        },
-        "date": 1761857055972,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.708818622266666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20243026593333338,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.241941501166668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d675175f09cf39c9c21d2be779c6b50b61b24c00",
+          "message": "fix `sload` undercharge on cross-VM storage (#12387)\n\n## Summary\n\nEVM `sload` previously charged a fixed `RuntimeCosts::GetStorage(32)`\nregardless of the actual byte size of the storage value read. This is\ncorrect under the EVM-only assumption that every slot holds a 32-byte\nword, but it breaks under cross-VM execution where a PVM contract\nsharing the storage namespace (via delegatecall) can have written values\nup to `limits::STORAGE_BYTES`.\n\nThe bug: `sload` reads the full value from the trie — consuming PoV\nproportional to the actual length — but only bills for 32 bytes. The\nsubsequent length-check trap doesn't refund PoV. A crafted PVM caller\ncould repeatedly delegate-call into an EVM contract over storage slots\nit had previously populated with large values, under-paying for the\nproof space consumed.\n\n## Fix\n\nMirror the PVM `get_storage` host fn pattern: charge\n`RuntimeCosts::GetStorage(limits::STORAGE_BYTES)` upfront, then\n`adjust_weight` to `RuntimeCosts::GetStorage(actual_len)` after the\nread.\n\n```rust\nlet charged = interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage(limits::STORAGE_BYTES))?;\nlet key = Key::Fix(index.to_big_endian());\nlet value = interpreter.ext.get_storage(&key);\n\nlet actual_len = value.as_ref().map(|v| v.len() as u32).unwrap_or(0);\ninterpreter\n    .ext\n    .frame_meter_mut()\n    .adjust_weight(charged, RuntimeCosts::GetStorage(actual_len));\n```\n\nThe length-check trap continues to fire for non-32-byte values; only the\nmetering is corrected.\n\n## Attack surface\n\nRequires both:\n- A PVM execution that wrote a non-32-byte value into a storage\nnamespace (Rust-PVM contracts via `seal_set_storage` with arbitrary\nlength; Solidity-compiled-to-PVM does not since `sstore` is always 32\nbytes).\n- A subsequent EVM execution in that same namespace, via PVM→EVM\ndelegatecall.\n\nBoth halves are already supported and tested individually (e.g.\n`Resolc→Solc` in `delegatecall_works`, `multi_store.rs` for non-32-byte\nPVM writes); only the combination is unexercised, and is what this PR\ncloses.\n\n## Test plan\n\n- [x] `sload_charges_for_actual_storage_value_size` — injects a value of\nlength `L` directly into a Solc-deployed `Counter`'s storage slot 0,\ncalls `number()` (which compiles to `SLOAD(0)`), and asserts gas\nconsumed for `L=256` is strictly greater than for `L=32`. Fails with the\nlegacy fixed-32 charge, passes with the fix.\n- [x] Full `tests::sol` suite (225 tests) — no regressions.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-23T04:39:40Z",
+          "tree_id": "70d3918938ec7b8aff1b42289ad058eaad917b09",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d675175f09cf39c9c21d2be779c6b50b61b24c00"
+        },
+        "date": 1782196173344,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.152747142299997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13774607196666663,
             "unit": "seconds"
           }
         ]
