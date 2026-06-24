@@ -39,9 +39,14 @@ use crate::{
 	vm::RuntimeCosts,
 };
 use alloc::vec::Vec;
+use alloy_core::sol_types::SolValue;
 use codec::Decode;
 use core::{marker::PhantomData, num::NonZero};
-use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo};
+use frame_support::{
+	dispatch::{extract_actual_weight, GetDispatchInfo},
+	traits::Get,
+	weights::Weight,
+};
 use frame_system::RawOrigin;
 use sp_runtime::traits::Dispatchable;
 
@@ -117,10 +122,33 @@ impl<T: crate::Config> Precompile for UnstableRuntime<T> {
 				}
 			},
 			IUnstableRuntimeCalls::storage(IUnstableRuntime::storageCall { key, max_len }) => {
-				let _ = (key, max_len);
-				// TODO: implement storage read (charge by max_len, length-aware
-				// read against the main trie, ABI-encode the bytes return).
-				Ok(Default::default())
+				let max_len = *max_len;
+
+				// Charge for the read up front, bounded by the caller-declared
+				// `max_len`. proof_size is proportional to the maximum number of
+				// value bytes that could enter the PoV and cannot be refunded once
+				// the node is read, so we bill the declared bound rather than the
+				// actual length.
+				// TODO(G2): replace with a benchmark that also accounts for the
+				// worst-case trie node overhead of reading an item of this length.
+				let read_weight = <T as frame_system::Config>::DbWeight::get()
+					.reads(1)
+					.saturating_add(Weight::from_parts(0, max_len as u64));
+				env.charge(read_weight)?;
+
+				// Read against the main trie (including the in-block overlay). The
+				// returned length is the value's full length; if it exceeds the
+				// declared bound we revert rather than return a truncated value.
+				let mut buf = alloc::vec![0u8; max_len as usize];
+				match sp_io::storage::read(key.as_ref(), &mut buf, 0) {
+					None => Ok(Vec::<u8>::new().abi_encode()),
+					Some(len) if len > max_len =>
+						Err(Error::Revert("value exceeds max_len".into())),
+					Some(len) => {
+						buf.truncate(len as usize);
+						Ok(buf.abi_encode())
+					},
+				}
 			},
 		}
 	}
@@ -304,5 +332,47 @@ mod tests {
 			let decoded = Bytes::abi_decode(&raw).expect("return should abi-decode as bytes");
 			assert!(decoded.as_ref().is_empty(), "absent key should return empty bytes");
 		});
+	}
+
+	#[test]
+	fn storage_reverts_when_value_exceeds_max_len() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			sp_io::storage::set(b"big_key", &[0u8; 64]);
+
+			// Declared bound is smaller than the actual value length.
+			let input = storage_input(b"big_key", 16);
+			let result =
+				<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+
+			assert_eq!(result.unwrap_err(), Error::Revert("value exceeds max_len".into()));
+		});
+	}
+
+	#[test]
+	fn storage_charges_more_proof_size_for_larger_max_len() {
+		// proof_size (PoV) is the dominant, non-refundable cost of a read and is
+		// bounded by the caller-declared `max_len`, so the charge must grow with
+		// it. Each measurement runs in its own externalities.
+		let measure = |max_len: u32| {
+			ExtBuilder::default().build().execute_with(|| {
+				let mut call_setup = CallSetup::<Test>::default();
+				let (mut ext, _) = call_setup.ext();
+				let before = ext.frame_meter().weight_consumed();
+				let input = storage_input(b"some_key", max_len);
+				let _ =
+					<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+				(ext.frame_meter().weight_consumed() - before).proof_size()
+			})
+		};
+
+		let small = measure(16);
+		let large = measure(16_384);
+		assert!(
+			large > small,
+			"a larger max_len must charge more proof_size (small={small}, large={large})",
+		);
 	}
 }
