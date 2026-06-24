@@ -418,8 +418,11 @@ impl StatementHandlerPrototype {
 
 		let metrics =
 			if let Some(r) = metrics_registry { Some(Metrics::register(r)?) } else { None };
-		let v2dht_metrics =
-			if let Some(r) = metrics_registry { Some(V2DhtMetrics::register(r)?) } else { None };
+		let v2dht_metrics = if let (true, Some(r)) = (v2dht_enabled(), metrics_registry) {
+			Some(V2DhtMetrics::register(r)?)
+		} else {
+			None
+		};
 
 		for _ in 0..num_submission_workers {
 			let store = statement_store.clone();
