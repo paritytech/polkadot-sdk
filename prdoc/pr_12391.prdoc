@@ -15,4 +15,4 @@ doc:
     at the first block of the session for the current session (for example at block 31 for session 3).
 crates:
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: major
