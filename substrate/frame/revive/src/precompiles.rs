@@ -27,6 +27,8 @@
 
 mod builtin;
 
+pub mod unstable_runtime;
+
 mod tests;
 
 pub use crate::{
@@ -37,6 +39,7 @@ pub use crate::{
 };
 pub use alloy_core as alloy;
 pub use sp_core::{H160, H256, U256};
+pub use unstable_runtime::UnstableRuntime;
 
 use crate::{
 	Config, Error as CrateError, exec::ExecResult, precompiles::builtin::Builtin,
