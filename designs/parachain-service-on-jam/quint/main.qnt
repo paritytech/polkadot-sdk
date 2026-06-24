@@ -47,7 +47,15 @@ module main {
     nondet para_id = oneOf(svc.parachains.keys())
     nondet candidate = oneOf(arbitraryCandidates(svc, para_id))
     nondet pvfPanic = oneOf(Set(false, true))
-    nondet msgs = oneOf(arbitraryUpwardBundles(para_id, assetHub, svc.paraInfo(para_id).validationCode.hash))
+    val activeHash = svc.paraInfo(para_id).validationCode.hash
+    val msgPool = arbitraryMessages(para_id, activeHash)
+    nondet m1 = oneOf(msgPool)
+    nondet m2 = oneOf(msgPool)
+    nondet numMsgs = oneOf(Set(0, 1, 2))
+    val msgs =
+      if (numMsgs == 0) List()
+      else if (numMsgs == 1) List(m1)
+      else List(m1, m2)
     nondet itemCount = oneOf(Set(0, 1, 2))
     nondet authConfigMalformed = oneOf(Set(false, true))
     val newHead = svc.paraInfo(para_id).headData + 1
@@ -123,7 +131,8 @@ module main {
   /// ParaId with nondeterministically chosen arguments (within reasonable
   /// bounds for exploration).
   action stepManagement = {
-    nondet para_id = oneOf(Set(MkParaId(1), MkParaId(2), MkParaId(3), MkParaId(4), MkParaId(5)))
+    nondet paraIdInt = oneOf(Set(1, 2, 3, 4, 5))
+    val para_id: ParaId = MkParaId(paraIdInt)
     nondet choice = oneOf(Set("set_balance", "set_head", "set_code", "clean_up"))
     nondet total = oneOf(Set(BaselineFootprint, BaselineFootprint * 2, BaselineFootprint * 4))
     nondet headBlob = oneOf(Set(1, 2, 3, 4, 5, 6))
@@ -185,58 +194,45 @@ module main {
     )
   }
 
-  /// A small menu of upward-message bundles a PVF might emit during Refine.
-  /// For Asset Hub the menu includes well-formed `SetValidatorKeys` chunks
-  /// (partial / finalize / abort), and intentionally ill-formed bundles that
-  /// the Refine wrapper rejects via `wellFormedUpwardMessages` (multiple
-  /// `SetValidatorKeys` per Refine — caught by `setValidatorKeysCount ≤ 1`).
-  pure def arbitraryUpwardBundles(
-    para_id: ParaId, assetHubId: ParaId, activeCode: ValidationCodeHash
-  ): Set[List[UpwardMessage]] = {
-    val baseBundles = Set(
-      List(),
-      List(RequestCodeUpgrade({ hash: { vchBytes: 101 }, len: FixedCodeLen })),
-      // A second distinct upgrade hash so the overwrite path (superseding an
-      // in-flight pending upgrade with a different code) gets exercised.
-      List(RequestCodeUpgrade({ hash: { vchBytes: 102 }, len: FixedCodeLen })),
-      // Plain solicit/forget pair — exercises `solicit_implies_registry`
-      // and the registry's referencer-multiplexing on a non-code preimage.
-      List(Solicit({ hash: { hashBytes: 42 }, len: 1024 })),
-      List(Forget({ hash: { hashBytes: 42 }, len: 1024 })),
-      // Parachain soliciting / forgetting its OWN active code — exercises the
-      // `pinned` path: solicit sets the bit (no extra balance), forget
-      // clears it without forwarding a JAM forget (the code is still active).
-      List(Solicit({ hash: vchAsHash(activeCode), len: FixedCodeLen })),
-      List(Forget({ hash: vchAsHash(activeCode), len: FixedCodeLen }))
+  /// Menu of individual upward messages a PVF might emit during Refine.
+  /// Every parachain draws from the SAME menu — restricted host calls
+  /// (AH-only, Coretime-only) are included for all paras so the Refine
+  /// wrapper's `RestrictedHostFunction` rejection (§4.3) is exercised
+  /// for each one. Bundles of multiple messages are composed nondet in
+  /// the step action, so any combination/ordering is reachable.
+  pure def arbitraryMessages(
+    para_id: ParaId, activeCode: ValidationCodeHash
+  ): Set[UpwardMessage] = {
+    val anyHash: Hash = { hashBytes: 42 }
+    val unsolicitedHash: Hash = { hashBytes: 99999 }
+    val codeHashA: ValidationCodeHash = { vchBytes: 101 }
+    val codeHashB: ValidationCodeHash = { vchBytes: 102 }
+    val anyAuthHash: AuthorizerHash = { authBytes: 0 }
+    Set(
+      RequestCodeUpgrade({ hash: codeHashA, len: FixedCodeLen }),
+      RequestCodeUpgrade({ hash: codeHashB, len: FixedCodeLen }),
+      Solicit({ hash: anyHash, len: 1024 }),
+      Forget({ hash: anyHash, len: 1024 }),
+      // Solicit/forget of the para's OWN active code — exercises the
+      // `pinned` path (§5.2).
+      Solicit({ hash: vchAsHash(activeCode), len: FixedCodeLen }),
+      Forget({ hash: vchAsHash(activeCode), len: FixedCodeLen }),
+      // AH-only — Refine rejects from non-AH callers (§4.3).
+      TransferOut({ dest: MkServiceId(0), amount: 100, memo: 0 }),
+      SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: false }),
+      SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: true }),
+      SetValidatorKeys({ keys: List(), isLast: true }),
+      ConsumeTransfersUpTo(0),
+      UpgradeService({ codeHash: vchAsHash(activeCode), minItemGas: 0, minMemoGas: 0 }),
+      UpgradeService({ codeHash: unsolicitedHash, minItemGas: 0, minMemoGas: 0 }),
+      // Coretime-only — Refine rejects from non-Coretime callers.
+      SetAuthorizerQueue({
+        core: 0, queue: List(anyAuthHash), immediate: false, newAssigner: None
+      }),
+      ParachainSetHead({ paraId: para_id, newHead: 0 }),
+      ParachainSetValidationCode({ paraId: para_id, newValidationCodeHash: codeHashA }),
+      ParachainCleanUp(para_id),
+      ParachainSetStateBalance({ paraId: para_id, newTotal: 0 })
     )
-    if (para_id == assetHubId)
-    baseBundles.union(Set(
-        // §5.3 partial chunk: 6 keys (|ValCount| min), not last.
-        List(SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: false })),
-        // §5.3 finalize: append 6 keys with isLast — designate fires
-        // (length 6 is in ValCount).
-        List(SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: true })),
-        // §5.3 abort: empty chunk with isLast — designate rejects the empty
-        // vector, buffer is cleared.
-        List(SetValidatorKeys({ keys: List(), isLast: true })),
-        // §4.3 violation: two `SetValidatorKeys` in one Refine — caught by
-        // the well-formedness rule and turned into `Err(Opaque)`.
-        List(
-          SetValidatorKeys({ keys: List(0), isLast: false }),
-          SetValidatorKeys({ keys: List(0), isLast: false })
-        ),
-        // §5.4 happy path: upgrade to a hash whose preimage is already in
-        // the registry (AH's own active validation code).
-        List(UpgradeService({ codeHash: vchAsHash(activeCode), minItemGas: 0, minMemoGas: 0 })),
-        // §5.4 missing-preimage path: upgrade to an unsolicited hash —
-        // rejected with `ServiceUpgradePreimageMissing`.
-        List(UpgradeService({ codeHash: { hashBytes: 99999 }, minItemGas: 0, minMemoGas: 0 }))
-    ))
-    else
-    // Non-Asset-Hub paras may still attempt restricted host calls —
-    // exercise the service-restriction Refine rejection (§4.3).
-    baseBundles.union(Set(
-        List(SetValidatorKeys({ keys: List(0), isLast: false }))
-    ))
   }
 }
