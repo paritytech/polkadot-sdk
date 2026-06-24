@@ -403,7 +403,7 @@ fn unstable_runtime_dispatch_from_solidity() {
 #[test]
 fn unstable_runtime_storage_from_solidity() {
 	use crate::precompiles::{Precompile, UnstableRuntime};
-	use alloy_core::sol_types::{sol_data::Bytes, SolType};
+	use alloy_core::sol_types::{SolType, sol_data::Bytes};
 	use pallet_revive_fixtures::UnstableRuntimeCaller;
 	use sp_core::H160;
 

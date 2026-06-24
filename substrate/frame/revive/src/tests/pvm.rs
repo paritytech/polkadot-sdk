@@ -4904,7 +4904,7 @@ fn precompiles_with_info_creates_contract() {
 #[cfg(feature = "unstable-precompiles")]
 #[test]
 fn unstable_runtime_dispatch_executes_as_contract() {
-	use crate::precompiles::{unstable_runtime::IUnstableRuntime, Precompile, UnstableRuntime};
+	use crate::precompiles::{Precompile, UnstableRuntime, unstable_runtime::IUnstableRuntime};
 	use alloy_core::sol_types::SolInterface;
 
 	let precompile_addr = H160(UnstableRuntime::<Test>::MATCHER.base_address());
@@ -4948,8 +4948,8 @@ fn unstable_runtime_dispatch_executes_as_contract() {
 #[cfg(feature = "unstable-precompiles")]
 #[test]
 fn unstable_runtime_storage_read_works() {
-	use crate::precompiles::{unstable_runtime::IUnstableRuntime, Precompile, UnstableRuntime};
-	use alloy_core::sol_types::{sol_data::Bytes, SolInterface, SolType};
+	use crate::precompiles::{Precompile, UnstableRuntime, unstable_runtime::IUnstableRuntime};
+	use alloy_core::sol_types::{SolInterface, SolType, sol_data::Bytes};
 
 	let precompile_addr = H160(UnstableRuntime::<Test>::MATCHER.base_address());
 	let input =

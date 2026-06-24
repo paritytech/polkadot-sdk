@@ -18,16 +18,16 @@
 //! [`UnstableRuntime`] precompile implementation.
 //!
 //! Provides low-level access to runtime functionality from within a contract:
-//! - [`IUnstableRuntime::dispatch`]: dispatch an arbitrary SCALE-encoded
-//!   `RuntimeCall` as the calling contract's account (a `Signed` origin).
-//! - [`IUnstableRuntime::storage`]: read the raw bytes of any runtime storage
-//!   item by its full storage key.
+//! - [`IUnstableRuntime::dispatch`]: dispatch an arbitrary SCALE-encoded `RuntimeCall` as the
+//!   calling contract's account (a `Signed` origin).
+//! - [`IUnstableRuntime::storage`]: read the raw bytes of any runtime storage item by its full
+//!   storage key.
 //!
 //! # Warning
 //!
 //! This interface is **unstable**:
-//! - The runtime organization of pallets, indices, and storage keys might change
-//!   between runtime upgrades.
+//! - The runtime organization of pallets, indices, and storage keys might change between runtime
+//!   upgrades.
 //! - The encoding format might change between runtime upgrades.
 //!
 //! Contracts relying on it can break across upgrades. It is opt-in per runtime
@@ -35,7 +35,7 @@
 
 use crate::{
 	exec::Origin,
-	precompiles::{alloy::sol, AddressMatcher, Error, Ext, Precompile},
+	precompiles::{AddressMatcher, Error, Ext, Precompile, alloy::sol},
 	vm::RuntimeCosts,
 	weights::WeightInfo,
 };
@@ -44,7 +44,7 @@ use alloy_core::sol_types::SolValue;
 use codec::Decode;
 use core::{marker::PhantomData, num::NonZero};
 use frame_support::{
-	dispatch::{extract_actual_weight, GetDispatchInfo},
+	dispatch::{GetDispatchInfo, extract_actual_weight},
 	traits::{Contains, Everything},
 };
 use frame_system::RawOrigin;
@@ -127,8 +127,9 @@ where
 				// rather than silently dispatching with Root privileges.
 				let origin = match env.caller() {
 					Origin::Signed(account_id) => RawOrigin::Signed(account_id).into(),
-					Origin::Root =>
-						return Err(Error::Revert("root origin cannot dispatch".into())),
+					Origin::Root => {
+						return Err(Error::Revert("root origin cannot dispatch".into()));
+					},
 				};
 
 				let info = call.get_dispatch_info();
@@ -142,7 +143,10 @@ where
 					Err(e) => Err(Error::from(e.error)),
 				}
 			},
-			IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall { key, max_len }) => {
+			IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall {
+				key,
+				max_len,
+			}) => {
 				let max_len = *max_len;
 
 				// Charge the benchmarked read weight for the caller-declared bound
@@ -159,8 +163,9 @@ where
 				let mut buf = alloc::vec![0u8; max_len as usize];
 				let value = match sp_io::storage::read(key.as_ref(), &mut buf, 0) {
 					None => Vec::new(),
-					Some(len) if len > max_len =>
-						return Err(Error::Revert("value exceeds max_len".into())),
+					Some(len) if len > max_len => {
+						return Err(Error::Revert("value exceeds max_len".into()));
+					},
 					Some(len) => {
 						buf.truncate(len as usize);
 						buf
@@ -170,7 +175,7 @@ where
 				env.adjust_gas(
 					charged,
 					<T as crate::Config>::WeightInfo::unstable_runtime_get_storage(
-						value.len() as u32,
+						value.len() as u32
 					),
 				);
 				Ok(value.abi_encode())
@@ -185,8 +190,8 @@ mod tests {
 	use crate::{
 		call_builder::CallSetup,
 		precompiles::{
-			alloy::sol_types::{sol_data::Bytes, SolType},
 			Error, Ext, Precompile,
+			alloy::sol_types::{SolType, sol_data::Bytes},
 		},
 		test_utils::BOB,
 		tests::{ExtBuilder, RuntimeCall, Test},
@@ -280,13 +285,9 @@ mod tests {
 			let call = RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() });
 			let input = dispatch_input(call);
 
-			let result =
-				<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
-			assert_eq!(
-				result.unwrap_err(),
-				Error::from(crate::Error::<Test>::StateChangeDenied),
-			);
+			assert_eq!(result.unwrap_err(), Error::from(crate::Error::<Test>::StateChangeDenied),);
 		});
 	}
 
@@ -300,8 +301,7 @@ mod tests {
 			let call = RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() });
 			let input = dispatch_input(call);
 
-			let result =
-				<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
 			assert_eq!(
 				result.unwrap_err(),
@@ -316,17 +316,14 @@ mod tests {
 			let mut call_setup = CallSetup::<Test>::default();
 			let (mut ext, _) = call_setup.ext();
 
-			let input = IUnstableRuntime::IUnstableRuntimeCalls::dispatch(
-				IUnstableRuntime::dispatchCall { encoded_call: vec![0xff, 0xff, 0xff].into() },
-			);
+			let input =
+				IUnstableRuntime::IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall {
+					encoded_call: vec![0xff, 0xff, 0xff].into(),
+				});
 
-			let result =
-				<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
-			assert_eq!(
-				result.unwrap_err(),
-				Error::Revert("invalid RuntimeCall encoding".into()),
-			);
+			assert_eq!(result.unwrap_err(), Error::Revert("invalid RuntimeCall encoding".into()),);
 		});
 	}
 
@@ -345,8 +342,7 @@ mod tests {
 				let input = IUnstableRuntime::IUnstableRuntimeCalls::dispatch(
 					IUnstableRuntime::dispatchCall { encoded_call: vec![0xff; len].into() },
 				);
-				let _ =
-					<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+				let _ = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 				(ext.frame_meter().weight_consumed() - before).ref_time()
 			})
 		};
@@ -401,8 +397,7 @@ mod tests {
 
 			// Declared bound is smaller than the actual value length.
 			let input = storage_input(b"big_key", 16);
-			let result =
-				<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
 			assert_eq!(result.unwrap_err(), Error::Revert("value exceeds max_len".into()));
 		});
@@ -421,8 +416,7 @@ mod tests {
 				let (mut ext, _) = call_setup.ext();
 				let before = ext.frame_meter().weight_consumed();
 				let input = storage_input(b"some_key", value_len as u32);
-				let _ =
-					<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+				let _ = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 				(ext.frame_meter().weight_consumed() - before).proof_size()
 			})
 		};
