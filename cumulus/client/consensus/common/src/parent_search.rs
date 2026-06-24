@@ -229,7 +229,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	};
 
 	// Fetch the pending block if one exists.
-	let maybe_pending = 'fetch_pending: {
+	let maybe_pending = {
 		// Fetch the most recent pending header from the relay chain. We use
 		// `OccupiedCoreAssumption::Included` so the candidate pending availability gets enacted
 		// before being returned to us.
@@ -241,16 +241,16 @@ pub async fn find_parent_for_building<Block: BlockT>(
 		)
 		.await?
 		.filter(|pvd_header| pvd_header.hash() != included_hash);
-		let Some(header) = maybe_header else {
-			break 'fetch_pending None;
-		};
-		let hash = header.hash();
-		// If the included block is not locally known, we can't do anything.
-		match get_para_header(backend, hash) {
-			Some(header) => Some((hash, header)),
-			None => {
+
+		// If the pending block is not locally known, we can't proceed.
+		if let Some(header) = maybe_header {
+			let hash = header.hash();
+			let Ok(Some(header)) = get_para_header(backend, hash) else {
 				return Ok(None);
-			},
+			};
+			Some((header, hash))
+		} else {
+			None
 		}
 	};
 	// Determine the starting point for the search.
