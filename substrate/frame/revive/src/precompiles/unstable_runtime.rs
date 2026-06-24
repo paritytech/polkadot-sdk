@@ -78,8 +78,12 @@ where
 {
 	type T = T;
 	type Interface = IUnstableRuntime::IUnstableRuntimeCalls;
-	// TODO: provisional address (see design doc O6); confirm before stabilising.
-	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(0x0100).unwrap());
+	// Fixed external precompile address. The `u16` occupies bytes [16,17] of the
+	// 20-byte address, resolving to
+	// `0x0000000000000000000000000000000009030000`. Chosen adjacent to the vesting
+	// precompile (`0x0902`) and clear of the asset/XCM precompiles (`0x0120`-`0x0420`,
+	// `0x000A`) so it does not collide in revive runtimes.
+	const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(0x0903).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
