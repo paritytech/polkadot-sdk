@@ -18,7 +18,7 @@
 pub use crate::runtime_api::StatementSource;
 use crate::{Hash, Statement, Topic, MAX_ANY_TOPICS, MAX_TOPICS};
 use sp_core::{bounded_vec::BoundedVec, Bytes, ConstU32};
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 /// Statement store error.
 #[derive(Debug, Clone, Eq, PartialEq, thiserror::Error)]
@@ -272,6 +272,18 @@ impl RetentionReasonMask {
 	}
 }
 
+/// Decides the retention mask for a **locally submitted** statement.
+///
+/// The v2 DHT path keeps a statement only when the node has DHT affinity or explicit affinity for
+/// its topic. Network-received statements get their mask from the statement handler; local
+/// submissions go straight through [`StatementStore::submit`], which has no view of the node's
+/// affinity. When installed via [`StatementStore::set_local_retention_policy`], this policy supplies
+/// that decision so local submissions obey the same rule.
+pub trait LocalRetentionPolicy: Send + Sync {
+	/// The reasons the local node should keep `statement`.
+	fn retention_reasons_for(&self, statement: &Statement) -> RetentionReasonMask;
+}
+
 /// Statement store API.
 pub trait StatementStore: Send + Sync {
 	/// Return all statements.
@@ -353,6 +365,12 @@ pub trait StatementStore: Send + Sync {
 	) -> SubmitResult {
 		self.submit(statement, source)
 	}
+
+	/// Install the policy that gates local submissions by affinity (see [`LocalRetentionPolicy`]).
+	///
+	/// The default is a no-op: stores that do not distinguish transient statements ignore it and
+	/// keep persisting every local submission.
+	fn set_local_retention_policy(&self, _policy: Arc<dyn LocalRetentionPolicy>) {}
 
 	/// Remove a statement from the store.
 	fn remove(&self, hash: &Hash) -> Result<()>;

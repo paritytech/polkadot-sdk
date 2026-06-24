@@ -128,29 +128,26 @@ impl PeerSteering {
 		peers.into_iter().map(|(_, peer)| peer).collect()
 	}
 
-	/// Align the connected set with the desired set by editing the statement protocol's reserved
-	/// set on `network`.
+	/// Connect to the desired peers that lack a connection by adding them to the statement
+	/// protocol's reserved set on `network`.
 	///
 	/// The connected set tracks open substreams, so it updates through the substream events as the
 	/// changes take effect, not here.
+	///
+	/// Disconnecting undesired peers is suppressed for now. The coverage target feeding `desired`
+	/// (`on_pending_affinities` in `mod.rs`) lists only gaps, so a connected peer already covering
+	/// its topic falls out of the desired set; closing it would tear down the substream the routing
+	/// path needs and stall propagation. Until the target is connection-independent, steering only
+	/// opens connections. `peers_to_disconnect` stays for that future.
 	pub(crate) fn refresh_connections<N: NetworkPeers>(&self, network: &N) {
 		let connect = self.peers_to_connect();
-		let disconnect = self.peers_to_disconnect();
 
 		log::trace!(
 			target: LOG_TARGET,
-			"peer_steering: refresh_connections connect {} disconnect {}",
+			"peer_steering: refresh_connections connect {}",
 			connect.len(),
-			disconnect.len(),
 		);
 
-		for peer in disconnect {
-			if let Err(err) =
-				network.remove_peers_from_reserved_set(self.protocol.clone(), vec![peer])
-			{
-				log::warn!(target: LOG_TARGET, "peer_steering: disconnect {peer} failed: {err}");
-			}
-		}
 		for peer in connect {
 			let addr =
 				iter::once(multiaddr::Protocol::P2p(peer.into())).collect::<multiaddr::Multiaddr>();

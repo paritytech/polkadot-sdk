@@ -802,6 +802,12 @@ where
 	/// Turns the [`StatementHandler`] into a future that should run forever and not be
 	/// interrupted.
 	pub async fn run(mut self) {
+		// Gate local submissions by affinity: the store keeps a local submission only with DHT or
+		// explicit affinity, the same rule applied to network-received statements.
+		if self.v2dht_enabled {
+			self.statement_store
+				.set_local_retention_policy(self.v2dht.local_retention_policy());
+		}
 		loop {
 			futures::select_biased! {
 				_ = self.propagate_timeout.next() => {
@@ -871,6 +877,9 @@ where
 						// `process_pending_affinities` -> `schedule_initial_sync_for_peer`.
 						self.v2dht.on_pending_affinities();
 						self.v2dht.refresh_connections(&self.network);
+						// Refresh the affinity snapshot the store reads for local submissions, now
+						// that topology and subscription topics are up to date.
+						self.v2dht.refresh_local_retention();
 					}
 					self.process_pending_affinities();
 					self.pending_affinities_timeout =

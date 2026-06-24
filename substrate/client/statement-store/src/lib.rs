@@ -68,7 +68,7 @@ use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	runtime_api::{StatementSource, StatementStoreExt},
 	AccountId, BlockHash, Channel, DecryptionKey, FilterDecision, Hash, InvalidReason,
-	OptimizedTopicFilter, RejectionReason, Result, RetentionReasonMask,
+	LocalRetentionPolicy, OptimizedTopicFilter, RejectionReason, Result, RetentionReasonMask,
 	SignatureVerificationResult, Statement, StatementAllowance, StatementEvent, SubmitResult,
 };
 pub use sp_statement_store::{Error, StatementStore, Topic, MAX_TOPICS};
@@ -377,6 +377,9 @@ pub struct Store {
 	// Used for testing
 	time_override: Option<u64>,
 	metrics: PrometheusMetrics,
+	// Affinity gate for local submissions. `None` means persist every local submission (v1
+	// behavior); the v2 statement handler installs a policy via `set_local_retention_policy`.
+	local_retention_policy: RwLock<Option<Arc<dyn LocalRetentionPolicy>>>,
 }
 
 enum IndexQuery {
@@ -824,6 +827,7 @@ impl Store {
 				task_spawner.clone(),
 				NUM_FILTER_WORKERS,
 			),
+			local_retention_policy: RwLock::new(None),
 		};
 		store.populate()?;
 		Ok(store)
@@ -1392,9 +1396,26 @@ impl StatementStore for Store {
 		})
 	}
 
-	/// Submit a persistent statement to the store.
+	/// Submit a statement to the store.
+	///
+	/// Local submissions obey the same retention rule as network-received ones when a
+	/// [`LocalRetentionPolicy`] is installed (v2 DHT): the statement is persisted only with DHT or
+	/// explicit affinity, otherwise it is kept transiently and forwarded once. Without a policy
+	/// (v1) every submission is persisted.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
-		self.submit_with_retention_mask(statement, source, RetentionReasonMask::persistent())
+		let mask = match self.local_retention_policy.read().as_ref() {
+			Some(policy) => policy.retention_reasons_for(&statement),
+			None => RetentionReasonMask::persistent(),
+		};
+		self.submit_with_retention_mask(statement, source, mask)
+	}
+
+	/// Install the affinity gate for local submissions (see [`LocalRetentionPolicy`]).
+	///
+	/// Until this is called, every local submission is persisted. The v2 statement handler
+	/// installs a policy so a local submission is kept only with DHT or explicit affinity.
+	fn set_local_retention_policy(&self, policy: Arc<dyn LocalRetentionPolicy>) {
+		*self.local_retention_policy.write() = Some(policy);
 	}
 
 	/// Submit a statement to the store. Validates the statement and returns validation result.
@@ -2021,6 +2042,42 @@ mod tests {
 		assert_eq!(store.submit(statement0, StatementSource::Network), SubmitResult::New);
 		let statement1 = statement(1, 1, None, 0);
 		assert_eq!(store.submit(statement1, StatementSource::Network), SubmitResult::New);
+	}
+
+	/// A `LocalRetentionPolicy` that returns a fixed verdict, to drive the local-submission gate.
+	struct FixedPolicy(RetentionReasonMask);
+	impl sp_statement_store::LocalRetentionPolicy for FixedPolicy {
+		fn retention_reasons_for(&self, _statement: &Statement) -> RetentionReasonMask {
+			self.0
+		}
+	}
+
+	#[test]
+	fn local_submission_obeys_retention_policy() {
+		let (store, _temp) = test_store();
+
+		// Without a policy, a local submission is persisted (v1 behavior).
+		let kept = signed_statement(0);
+		assert_eq!(store.submit(kept.clone(), StatementSource::Local), SubmitResult::New);
+		assert!(store.has_statement(&kept.hash()));
+
+		// A non-persistent (transient) verdict keeps a local submission only transiently: invisible
+		// to the query API, exactly like a non-affine network statement.
+		store.set_local_retention_policy(std::sync::Arc::new(FixedPolicy(
+			RetentionReasonMask::TRANSIENT,
+		)));
+		let dropped = signed_statement(1);
+		assert_eq!(store.submit(dropped.clone(), StatementSource::Local), SubmitResult::New);
+		assert!(!store.has_statement(&dropped.hash()));
+		assert_eq!(store.statement(&dropped.hash()).unwrap(), None);
+
+		// A persistent verdict (DHT or explicit affinity) persists the local submission.
+		store.set_local_retention_policy(std::sync::Arc::new(FixedPolicy(
+			RetentionReasonMask::DHT_AFFINITY,
+		)));
+		let affine = signed_statement(2);
+		assert_eq!(store.submit(affine.clone(), StatementSource::Local), SubmitResult::New);
+		assert!(store.has_statement(&affine.hash()));
 	}
 
 	#[test]

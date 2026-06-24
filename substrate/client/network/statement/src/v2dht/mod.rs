@@ -19,18 +19,25 @@
 //! DHT-targeted gossip path for the statement protocol.
 
 mod explicit_affinity;
+mod local_retention;
 mod peer_steering;
 mod peers_index;
 pub mod peers_topology;
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use explicit_affinity::{AffinitySource, ExplicitAffinity};
+use local_retention::{RetentionSnapshot, SharedRetention};
 use peer_steering::PeerSteering;
 use peers_topology::{PeersTopology, PeersTopologyConfig};
 use sc_network::{types::ProtocolName, NetworkPeers};
 use sc_network_types::PeerId;
-use sp_statement_store::{Hash, RetentionReasonMask, Statement, SubmitResult, Topic};
-use std::collections::{HashMap, HashSet};
+use sp_statement_store::{
+	Hash, LocalRetentionPolicy, RetentionReasonMask, Statement, SubmitResult, Topic,
+};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+};
 
 /// Coordinates the v2 DHT-affinity statement gossip path.
 #[allow(dead_code)]
@@ -41,6 +48,8 @@ pub(crate) struct V2DhtOrchestrator {
 	explicit_affinity: ExplicitAffinity,
 	/// Keeps the connected peer set aligned with the peers needed to cover subscriptions.
 	peer_steering: PeerSteering,
+	/// Snapshot of the affinity state the statement store reads to gate local submissions.
+	retention: SharedRetention,
 }
 
 #[allow(dead_code)]
@@ -51,11 +60,31 @@ impl V2DhtOrchestrator {
 		peers_topology_config: PeersTopologyConfig,
 		protocol: ProtocolName,
 	) -> Self {
+		let peers_topology = PeersTopology::new(local_peer, peers_topology_config);
+		let explicit_affinity = ExplicitAffinity::new(configured_topics);
+		let retention = SharedRetention::new(RetentionSnapshot::new(
+			peers_topology.clone(),
+			explicit_affinity.topics().into_iter().collect(),
+		));
 		Self {
-			peers_topology: PeersTopology::new(local_peer, peers_topology_config),
-			explicit_affinity: ExplicitAffinity::new(configured_topics),
+			peers_topology,
+			explicit_affinity,
 			peer_steering: PeerSteering::new(protocol),
+			retention,
 		}
+	}
+
+	/// A handle to the local-submission affinity gate, to install in the statement store.
+	pub(crate) fn local_retention_policy(&self) -> Arc<dyn LocalRetentionPolicy> {
+		Arc::new(self.retention.clone())
+	}
+
+	/// Refresh the affinity snapshot the store reads, from the current topology and topics.
+	pub(crate) fn refresh_local_retention(&self) {
+		self.retention.store(RetentionSnapshot::new(
+			self.peers_topology.clone(),
+			self.explicit_affinity.topics().into_iter().collect(),
+		));
 	}
 
 	pub(crate) fn on_peers_discovered(&mut self, peers: impl IntoIterator<Item = PeerId>) {
