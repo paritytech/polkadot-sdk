@@ -544,8 +544,11 @@ pub trait PrecompileExt: sealing::Sealed {
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError>;
 
-	/// Returns a [`StorageAccessKind`] for the access at `key` and touches the
-	/// access list so subsequent accesses to the same slot bill as hot.
+	/// Checks if `key` was already accessed in this transaction and inserts it
+	/// otherwise, so subsequent accesses to the same slot bill as hot. Returns
+	/// the [`StorageAccessKind`]: hot if `key` was already accessed, cold
+	/// otherwise. When `transient` is true, skips the access list and returns
+	/// the `Transient` variant.
 	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind;
 
 	/// Non-mutating sibling of `touch_storage_access`.
