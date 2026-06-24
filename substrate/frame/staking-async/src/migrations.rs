@@ -22,11 +22,12 @@ use crate::{
 	WeightedPointsFormulaStartEra,
 };
 use frame_support::{
+	migrations::VersionedMigration,
 	pallet_prelude::*,
 	traits::{
 		fungible::{Inspect, Mutate},
 		tokens::Preservation,
-		Get, OnRuntimeUpgrade,
+		Get, OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade,
 	},
 	PalletId,
 };
@@ -196,6 +197,15 @@ impl<T: Config, S: Get<PalletId>, K: Get<RewardKind>> MigrateEraPotsToPool<T, S,
 	}
 }
 
+/// Version-gated form of [`VersionUncheckedSetWeightedPointsFormulaStartEra`]
+pub type SetWeightedPointsFormulaStartEra<T> = VersionedMigration<
+	17,
+	18,
+	VersionUncheckedSetWeightedPointsFormulaStartEra<T>,
+	crate::Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
 /// One-shot, single-block migration that records the cutoff era from which the
 /// validator self-stake incentive uses the weighted-points formula
 /// `share_i = (w_i · ep_i) / Σ_j(w_j · ep_j)`.
@@ -211,27 +221,21 @@ impl<T: Config, S: Get<PalletId>, K: Get<RewardKind>> MigrateEraPotsToPool<T, S,
 /// - eras `> active_era` use the new weighted-points share, with their
 ///   [`crate::ErasSumWeightedPoints`] accumulated from session 0 of the era.
 ///
-/// Idempotent: if the cutoff is already set, it is left untouched. Chains initialized with this
-/// storage item pin the cutoff to `0` at genesis, so their already-recorded denominators continue
-/// to apply to every era.
-pub struct SetWeightedPointsFormulaStartEra<T>(core::marker::PhantomData<T>);
+/// Chains initialized with this storage item pin the cutoff to `0` at genesis, so their
+/// already-recorded denominators continue to apply to every era.
+///
+/// Runtimes should wire the version-gated [`SetWeightedPointsFormulaStartEra`], not this type
+/// directly; it is only `pub` because the gated alias names it in its signature.
+pub struct VersionUncheckedSetWeightedPointsFormulaStartEra<T>(core::marker::PhantomData<T>);
 
-impl<T: Config> OnRuntimeUpgrade for SetWeightedPointsFormulaStartEra<T> {
+impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedSetWeightedPointsFormulaStartEra<T> {
 	fn on_runtime_upgrade() -> Weight {
-		let mut weight = T::DbWeight::get().reads(1);
-
-		if WeightedPointsFormulaStartEra::<T>::exists() {
-			log!(info, "WeightedPointsFormulaStartEra already set, nothing to do");
-			return weight;
-		}
-
 		let active_era = crate::session_rotation::Rotator::<T>::active_era();
 		// `active_era` may already have reward points credited without
 		// `ErasSumWeightedPoints` having been maintained for them, so the weighted-points formula
 		// can only safely apply from the next era onwards.
 		let cutoff = active_era.saturating_add(1);
 		WeightedPointsFormulaStartEra::<T>::put(cutoff);
-		weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
 		log!(
 			info,
@@ -240,7 +244,7 @@ impl<T: Config> OnRuntimeUpgrade for SetWeightedPointsFormulaStartEra<T> {
 			active_era,
 		);
 
-		weight
+		T::DbWeight::get().reads_writes(1, 1)
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -249,31 +253,20 @@ impl<T: Config> OnRuntimeUpgrade for SetWeightedPointsFormulaStartEra<T> {
 		// Capture `active_era` before the upgrade runs so `post_upgrade` can derive the expected
 		// cutoff without re-reading it; `active_era` may otherwise differ if an era rotation occurs
 		// between the two hooks.
-		let active_era = crate::session_rotation::Rotator::<T>::active_era();
-		Ok((WeightedPointsFormulaStartEra::<T>::get(), active_era).encode())
+		Ok(crate::session_rotation::Rotator::<T>::active_era().encode())
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		use codec::Decode;
 
-		let (pre, pre_active_era): (Option<EraIndex>, EraIndex) =
-			Decode::decode(&mut &state[..]).map_err(|_| "decode pre_upgrade state")?;
-		let post = WeightedPointsFormulaStartEra::<T>::get();
-
-		match (pre, post) {
-			(Some(p), Some(q)) => frame_support::ensure!(
-				p == q,
-				"SetWeightedPointsFormulaStartEra must be idempotent when already set"
-			),
-			(None, Some(q)) => frame_support::ensure!(
-				q == pre_active_era.saturating_add(1),
-				"cutoff must be active_era + 1 after a fresh migration"
-			),
-			(_, None) => {
-				return Err("WeightedPointsFormulaStartEra was not set by the migration".into())
-			},
-		}
+		// The version gate forwards to this hook only when the migration actually ran, so the
+		// cutoff must now equal `active_era + 1`.
+		let pre_active_era = EraIndex::decode(&mut &state[..]).map_err(|_| "decode active_era")?;
+		frame_support::ensure!(
+			WeightedPointsFormulaStartEra::<T>::get() == Some(pre_active_era.saturating_add(1)),
+			"cutoff must be active_era + 1 after the migration"
+		);
 
 		Ok(())
 	}

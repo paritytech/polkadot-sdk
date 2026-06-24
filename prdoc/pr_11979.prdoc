@@ -19,7 +19,8 @@ doc:
     one-shot migration `SetWeightedPointsFormulaStartEra` into a new
     `WeightedPointsFormulaStartEra` storage item; eras strictly older than the
     cutoff use the legacy formula, eras at or after the cutoff use the new
-    weighted-points formula.
+    weighted-points formula. The pallet storage version is bumped (17 → 18) and
+    the migration is version-gated.
 
     The `rc_on_session_report` benchmark/weight now scales with the number of
     validators included in the relay-chain session report.

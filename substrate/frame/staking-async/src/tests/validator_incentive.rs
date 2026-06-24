@@ -1313,56 +1313,19 @@ fn try_state_skips_weighted_points_check_for_pre_cutoff_eras() {
 
 #[test]
 fn migration_sets_cutoff_to_active_era_plus_one() {
-	use crate::migrations::SetWeightedPointsFormulaStartEra;
-	use frame_support::traits::OnRuntimeUpgrade;
+	use crate::migrations::VersionUncheckedSetWeightedPointsFormulaStartEra as Migration;
+	use frame_support::traits::UncheckedOnRuntimeUpgrade;
 
 	ExtBuilder::default().build_and_execute(|| {
 		Session::roll_until_active_era(3);
 		// Model a chain whose storage predates the cutoff item: genesis initializes the test
 		// value to 0, so clear it to reproduce the unset state the migration must handle.
 		WeightedPointsFormulaStartEra::<Test>::kill();
-		assert!(WeightedPointsFormulaStartEra::<Test>::get().is_none());
 
-		let _ = SetWeightedPointsFormulaStartEra::<Test>::on_runtime_upgrade();
+		Migration::<Test>::on_runtime_upgrade();
 
 		// Active era at upgrade time was 3 ⇒ cutoff = 4. Era 3 (which may already
 		// have points credited without a denominator) stays on the legacy formula.
 		assert_eq!(WeightedPointsFormulaStartEra::<Test>::get(), Some(4));
-	});
-}
-
-#[test]
-fn migration_is_idempotent_when_cutoff_already_set() {
-	use crate::migrations::SetWeightedPointsFormulaStartEra;
-	use frame_support::traits::OnRuntimeUpgrade;
-
-	ExtBuilder::default().build_and_execute(|| {
-		Session::roll_until_active_era(2);
-		// Pre-seed as if a previous upgrade already set the cutoff.
-		WeightedPointsFormulaStartEra::<Test>::put(7);
-
-		let _ = SetWeightedPointsFormulaStartEra::<Test>::on_runtime_upgrade();
-
-		// Cutoff must not move on subsequent runs.
-		assert_eq!(WeightedPointsFormulaStartEra::<Test>::get(), Some(7));
-	});
-}
-
-#[test]
-fn genesis_pins_cutoff_and_migration_is_a_noop() {
-	use crate::migrations::SetWeightedPointsFormulaStartEra;
-	use frame_support::traits::OnRuntimeUpgrade;
-
-	ExtBuilder::default().build_and_execute(|| {
-		// Chains initialized with this storage item maintain the denominator from era 0, so the
-		// cutoff is pinned to 0 and every era uses the weighted-points formula.
-		assert_eq!(WeightedPointsFormulaStartEra::<Test>::get(), Some(0));
-		assert!(Eras::<Test>::uses_weighted_points(0));
-
-		// A later runtime upgrade must not retroactively flip these eras to the legacy
-		// formula: the migration sees the cutoff already set and leaves it untouched.
-		Session::roll_until_active_era(3);
-		let _ = SetWeightedPointsFormulaStartEra::<Test>::on_runtime_upgrade();
-		assert_eq!(WeightedPointsFormulaStartEra::<Test>::get(), Some(0));
 	});
 }
