@@ -1598,3 +1598,220 @@ fn no_ancestry_search_during_major_sync() {
 		}
 	}
 }
+
+/// Regression test for <https://github.com/paritytech/polkadot-sdk/issues/12364>.
+///
+/// Reproduces a real production stall observed on `summit-people-rpc-node-2` on 2026-06-12:
+/// after a backward reorg the node's `best_queued_hash` is left pointing at a block that the
+/// client has pruned, while the canonical block at the same height has a *different* hash. The
+/// node never asks any peer for that canonical block, so sync silently stops forever (0 bps).
+///
+/// The mechanism (verified against the production logs, see `logs/rpc2-reorg-timeline.txt`):
+///
+/// 1. The node downloads Branch A and ends up with `best_queued_number = N+1`,
+///    `best_queued_hash = H_A_{N+1}`. `on_block_queued` drove every peer's
+///    `common_number` up to `N+1` (chain_sync.rs:1762-1778).
+/// 2. Branch B blocks arrive as non-best announcements and the client imports them.
+/// 3. The relay-chain finalizes Branch B at height `N+1` (different hash, `H_B_{N+1}`),
+///    which pulls the client's best+finalized backward and prunes `H_A_{N+1}`.
+/// 4. `on_block_finalized` is a no-op for the download layer (chain_sync.rs:899-921),
+///    so `best_queued_hash` stays stuck on the pruned `H_A_{N+1}` and every peer's
+///    `common_number` stays at `N+1` (monotonic-up only, chain_sync.rs:322-334).
+/// 5. The block-request floor is `first_different = common + 1 = N+2` (blocks.rs:125),
+///    so canonical `H_B_{N+1}` at height `N+1` sits *below* the floor and is never
+///    requested. `fork_sync_request` also won't ask for it because the block is "known"
+///    to the client (it imported it already).
+/// 6. With no error in the import path, `restart()` / `reset_sync_start_point` is never
+///    called, so `best_queued_hash` never reconciles with the client's real best.
+///
+/// This test recreates step 1-5 and asserts the divergence between `best_queued_hash`
+/// and the client's real best hash, plus the fact that no peer is asked for the canonical
+/// chain. It currently fails — the fix should make it pass.
+#[test]
+fn stuck_on_pruned_best_queued_after_backward_reorg_to_different_fork() {
+	sp_tracing::try_init_simple();
+
+	// === Build two forks that diverge at N=10 and both end at N+1=11 ===
+	//
+	//                          ┌── #11 H_A  (Branch A — what ChainSync downloads first)
+	//                          │
+	//   genesis ── … ── #10 ───┤
+	//                          │
+	//                          └── #11 H_B  (Branch B — finalized by the relay)
+	//
+	// `fork = false` for A, `fork = true` for B → distinct storage root → distinct hashes
+	// at the same height.
+	const COMMON_BLOCKS: usize = 10;
+	let (common_blocks, branch_a_tip, branch_b_tip) = {
+		let client = TestClientBuilder::new().build();
+		let common = (0..COMMON_BLOCKS)
+			.map(|_| build_block(&client, None, false))
+			.collect::<Vec<_>>();
+		let fork_parent = common.last().unwrap().hash();
+
+		// Branch A tip at height #11 (no fork-marker change).
+		let a_tip = build_block(&client, Some(fork_parent), false);
+
+		// To produce a *different* block at the same height from the same parent, we have
+		// to start from a fresh client (the existing one already has #11 H_A imported).
+		// Rebuild the common chain on a second client, then build the Branch B tip there.
+		let client_b = TestClientBuilder::new().build();
+		for b in &common {
+			block_on(client_b.import(BlockOrigin::Own, b.clone())).unwrap();
+		}
+		let b_tip = build_block(&client_b, Some(fork_parent), true);
+
+		assert_eq!(*a_tip.header().number(), (COMMON_BLOCKS as u64) + 1);
+		assert_eq!(*b_tip.header().number(), (COMMON_BLOCKS as u64) + 1);
+		assert_ne!(a_tip.hash(), b_tip.hash(), "Branches must diverge at the tip");
+		(common, a_tip, b_tip)
+	};
+
+	// === Set up the node-under-test's client and ChainSync ===
+	let client = Arc::new(TestClientBuilder::new().build());
+
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		1,
+		64,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		false,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	// === Step 1: peer1 (on Branch A's tip #11 H_A) downloads the full chain.
+	// We start at genesis (best_queued = 0) so add_peer skips ancestor search and we
+	// just download #1..#11 from peer1.
+	let peer_id1 = PeerId::random();
+	let peer_id2 = PeerId::random();
+	sync.add_peer(peer_id1, branch_a_tip.hash(), *branch_a_tip.header().number());
+
+	let req = get_block_request(
+		&mut sync,
+		FromBlock::Hash(branch_a_tip.hash()),
+		(COMMON_BLOCKS + 1) as u32,
+		&peer_id1,
+	);
+	let mut branch_a_chain: Vec<_> = common_blocks.clone();
+	branch_a_chain.push(branch_a_tip.clone());
+	let mut resp_blocks = branch_a_chain.clone();
+	resp_blocks.reverse();
+	let response = create_block_response(resp_blocks);
+	let _ = sync.take_actions();
+	sync.on_block_data(&peer_id1, Some(req), response).unwrap();
+	let _ = sync.take_actions();
+
+	// Import the whole Branch A into the client so the client agrees that H_A is best.
+	for b in &branch_a_chain {
+		block_on(client.import(BlockOrigin::Own, b.clone())).unwrap();
+	}
+	sync.on_blocks_processed(
+		branch_a_chain.len(),
+		branch_a_chain.len(),
+		branch_a_chain
+			.iter()
+			.map(|b| {
+				(
+					Ok(BlockImportStatus::ImportedUnknown(
+						*b.header().number(),
+						Default::default(),
+						Some(peer_id1),
+					)),
+					b.hash(),
+				)
+			})
+			.collect(),
+	);
+	let _ = sync.take_actions();
+
+	// ChainSync's view: best_queued = #11 / H_A. Client's view: best = #11 / H_A.
+	assert_eq!(sync.best_queued_number, 11, "best_queued must have advanced to #11");
+	assert_eq!(sync.best_queued_hash, branch_a_tip.hash(), "best_queued_hash must be H_A");
+	assert_eq!(client.info().best_hash, branch_a_tip.hash());
+	assert_eq!(sync.peers.get(&peer_id1).unwrap().common_number, 11);
+
+	// Peer 2 joins on canonical Branch B. It will (re-)announce H_B later.
+	sync.add_peer(peer_id2, branch_b_tip.hash(), *branch_b_tip.header().number());
+	let _ = sync.take_actions();
+
+	// === Step 3: now reality diverges from ChainSync's view.
+	//
+	// In production this is what happens: the relay-chain finalizes Branch B at #11. The
+	// client adopts Branch B (different hash at the same height) and prunes Branch A's
+	// #11 H_A. We simulate this by importing Branch B's tip *as final* — `import_as_final`
+	// makes it both the client's best AND finalized.
+	//
+	// Note we never imported Branch A into the *real* client. After this step:
+	//   client.info().best_hash      = H_B (Branch B tip)
+	//   client.info().finalized_hash = H_B
+	//   ChainSync.best_queued_hash   = H_A   ← still pointing at a hash the client does NOT have
+	block_on(client.import_as_final(BlockOrigin::Own, branch_b_tip.clone())).unwrap();
+
+	let info_after = client.info();
+	assert_eq!(info_after.best_hash, branch_b_tip.hash());
+	assert_eq!(info_after.finalized_hash, branch_b_tip.hash());
+	assert_eq!(info_after.best_number, 11);
+	assert_eq!(info_after.finalized_number, 11);
+
+	// Notify ChainSync of the finalization — exactly what the client does in production.
+	sync.on_block_finalized(&branch_b_tip.hash(), 11);
+
+	// === Step 4: peer2 (on canonical Branch B) re-announces the canonical tip H_B.
+	// In production this happens continually. The announcement must NOT trigger ancestry
+	// search because the import queue / target makes the node still classed major-syncing,
+	// and even if it did, the block is "known" to the client by now so the major-sync
+	// guards on chain_sync.rs:549 / :587 keep it from being routed to fork_targets.
+	send_block_announce(branch_b_tip.header().clone(), peer_id2, &mut sync);
+	let _ = sync.take_actions();
+
+	// === The bug: ChainSync is now stuck. Document it with three independent observations.
+
+	// --- Observation A: best_queued_hash is stale and references a pruned block, while
+	// the canonical block at the same height has a different hash.
+	assert_eq!(sync.best_queued_number, 11);
+	assert_eq!(
+		sync.best_queued_hash,
+		branch_a_tip.hash(),
+		"BUG: best_queued_hash is still H_A even though the client moved to H_B",
+	);
+	let bq_in_client = client.block_status(sync.best_queued_hash).unwrap();
+	assert!(
+		matches!(bq_in_client, BlockStatus::InChainPruned),
+		"BUG: best_queued_hash {:?} should be pruned by the reorg (got status={:?})",
+		sync.best_queued_hash,
+		bq_in_client,
+	);
+
+	// --- Observation B: ChainSync's view of "best queued" diverges from the client's real best.
+	assert_ne!(
+		sync.best_queued_hash,
+		client.info().best_hash,
+		"BUG: best_queued_hash diverged from client.info().best_hash — \
+		 ChainSync no longer agrees with the client about the canonical chain at #11",
+	);
+
+	// --- Observation C: the recovery paths are dead. No peer is asked for canonical H_B,
+	// and `fork_targets` is empty so `fork_sync_request` won't ask either.
+	assert!(
+		sync.fork_targets.is_empty(),
+		"BUG: fork_targets is empty — the canonical block H_B was never registered as a fork \
+		 target, so the only path that would request it by hash is dead",
+	);
+
+	let requests = sync.block_requests();
+	let canonical_requested = requests
+		.iter()
+		.any(|(_, r)| matches!(r.from, FromBlock::Hash(h) if h == branch_b_tip.hash()));
+	assert!(
+		canonical_requested,
+		"BUG: no peer is being asked for the canonical block H_B={:?} at height #11. \
+		 block_requests()={:?}. ChainSync is stuck — the node will report 0 bps forever \
+		 (issue #12364).",
+		branch_b_tip.hash(),
+		requests,
+	);
+}
