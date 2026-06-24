@@ -138,6 +138,7 @@ std = [
 	"pallet-recovery?/std",
 	"pallet-referenda?/std",
 	"pallet-remark?/std",
+	"pallet-revive-types?/std",
 	"pallet-revive?/std",
 	"pallet-root-offences?/std",
 	"pallet-root-testing?/std",
@@ -713,6 +714,7 @@ runtime-full = [
 	"pallet-remark",
 	"pallet-revive",
 	"pallet-revive-proc-macro",
+	"pallet-revive-types",
 	"pallet-revive-uapi",
 	"pallet-root-offences",
 	"pallet-root-testing",
@@ -1723,6 +1725,11 @@ path = "../substrate/frame/revive"
 default-features = false
 optional = true
 path = "../substrate/frame/revive/proc-macro"
+
+[dependencies.pallet-revive-types]
+default-features = false
+optional = true
+path = "../substrate/frame/revive/types"
 
 [dependencies.pallet-revive-uapi]
 default-features = false
