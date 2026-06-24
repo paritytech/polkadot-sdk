@@ -1,7 +1,7 @@
 title: '[pallet-revive] storage precompile error-handling refactor and accounting
   refinements'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     This PR bundles three self-contained changes in pallet-revive:
 
@@ -10,8 +10,8 @@ doc:
     3. Existential deposit: charge the ED storage deposit only when the account-creating transfer actually succeeds, instead of also counting it for transfers that roll back.
 crates:
 - name: pallet-revive
-  bump: major
+  bump: patch
 - name: pallet-revive-fixtures
-  bump: major
+  bump: patch
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: patch
