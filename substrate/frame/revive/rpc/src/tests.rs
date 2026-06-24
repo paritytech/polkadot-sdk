@@ -1251,8 +1251,14 @@ async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
 		.try_into()
 		.expect("nonce fits u64");
 	let signed = sign_auth(AlloyAddress::ZERO, auth_nonce);
+	let alith_nonce: u64 = client
+		.get_transaction_count(alith.address(), BlockTag::Latest.into())
+		.await?
+		.try_into()
+		.expect("alith nonce fits u64");
 	let req = TransactionRequest::default()
 		.with_to(alith_alloy)
+		.with_nonce(alith_nonce)
 		.with_authorization_list(vec![signed]);
 	provider.send_transaction(req).await?.get_receipt().await?;
 
