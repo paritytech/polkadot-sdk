@@ -245,10 +245,10 @@ pub async fn find_parent_for_building<Block: BlockT>(
 		// If the pending block is not locally known, we can't proceed.
 		if let Some(header) = maybe_header {
 			let hash = header.hash();
-			let Ok(Some(header)) = get_para_header(backend, hash) else {
+			let Some(header) = get_para_header(backend, hash) else {
 				return Ok(None);
 			};
-			Some((header, hash))
+			Some((hash, header))
 		} else {
 			None
 		}
