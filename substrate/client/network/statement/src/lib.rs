@@ -18,13 +18,43 @@
 
 //! Statement handling to plug on top of the network service.
 //!
-//! Usage:
+//! This crate implements gossip-based propagation of statements between nodes, layered on the
+//! substrate notifications protocol. Two protocol versions are negotiated per peer: `statement/2`
+//! (preferred) with `statement/1` as a fallback.
+//!
+//! ## Propagation
+//!
+//! - During major chain synchronization, statement gossip is paused so peers prioritize downloading
+//!   blocks; it resumes automatically once the node is fully synced (peers are reconnected to
+//!   recover statements missed while syncing).
+//! - Each peer keeps an LRU cache of statement hashes sent to or received from it, so duplicates
+//!   are not re-sent.
+//! - A propagation loop runs every second (`config::PROPAGATE_TIMEOUT`): it takes all statements
+//!   added since the previous round, batches them up to the maximum notification size
+//!   (`config::MAX_STATEMENT_NOTIFICATION_SIZE`, ~1 MiB), and sends the batches to connected peers.
+//! - Incoming statements are pushed onto a bounded validation queue
+//!   (`config::MAX_PENDING_STATEMENTS`); if the queue is full, incoming statements are dropped.
+//! - Peer reputation is adjusted based on statement quality (good, duplicate, invalid, flooding).
+//!
+//! ## Topic affinity and light nodes
+//!
+//! The `statement/2` protocol lets a peer advertise which topics it cares about as a bloom filter
+//! ("topic affinity"). Once a peer has an active affinity filter, only matching statements are
+//! forwarded to it; when its affinity changes, newly relevant statements are re-sent. Affinity
+//! advertisements are rate-limited. See the `affinity` module.
+//!
+//! Light-client peers on `statement/2` must advertise an affinity before receiving any statements:
+//! a light V2 peer pulls only the topics it cares about instead of the full feed, and is synced
+//! those statements in an initial burst on connect. Full nodes receive all statements unless they
+//! opt into an affinity.
+//!
+//! ## Usage
 //!
 //! - Use [`StatementHandlerPrototype::new`] to create a prototype.
 //! - Pass the `NonDefaultSetConfig` returned from [`StatementHandlerPrototype::new`] to the network
 //!   configuration as an extra peers set.
-//! - Use [`StatementHandlerPrototype::build`] then [`StatementHandler::run`] to obtain a
-//! `Future` that processes statements.
+//! - Use [`StatementHandlerPrototype::build`] then [`StatementHandler::run`] to obtain a `Future`
+//!   that processes statements.
 
 mod affinity;
 
@@ -933,6 +963,14 @@ where
 		}
 	}
 
+	/// React to peer connect/disconnect events from the sync subsystem:
+	///
+	/// - On connect while major-syncing: defer the peer (kept in `deferred_peers`) instead of
+	///   adding it to the statement protocol's reserved set, prioritizing block download; deferred
+	///   peers are flushed once syncing finishes.
+	/// - On connect otherwise: add the peer to the reserved set.
+	/// - On disconnect: remove the peer from the reserved set, or from the deferred set if it never
+	///   joined.
 	fn handle_sync_event(&mut self, event: SyncEvent) {
 		match event {
 			SyncEvent::PeerConnected(remote) => {
@@ -969,6 +1007,15 @@ where
 		}
 	}
 
+	/// Dispatch a notification-protocol event for the statement protocol:
+	///
+	/// - Validates inbound substreams by peer role.
+	/// - Tracks stream open/close to maintain per-peer state.
+	/// - Decodes incoming notifications: V1 peers send raw statement batches; V2 peers send a
+	///   `StatementMessage` that is either a batch of statements or an `ExplicitTopicAffinity`
+	///   advertisement.
+	/// - Rate-limits affinity advertisements (reporting `rep::BAD_MESSAGE` on abuse); otherwise
+	///   stores the filter as pending until applied by the main loop.
 	async fn handle_notification_event(&mut self, event: NotificationEvent) {
 		match event {
 			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
@@ -1134,7 +1181,17 @@ where
 		}
 	}
 
-	/// Called when peer sends us new statements
+	/// Handle a batch of statements received from a peer.
+	///
+	/// For the batch:
+	/// - Enforces the per-peer rate limit — on abuse, disconnects the peer and reports
+	///   `rep::STATEMENT_FLOODING`.
+	/// - Marks each statement as known for the peer.
+	/// - Skips statements already in the store, reporting `rep::DUPLICATE_STATEMENT` if the same
+	///   peer sent it twice.
+	/// - Enqueues unknown statements onto the bounded validation queue.
+	/// - Drops the remaining statements in the batch if the queue is full
+	///   (`MAX_PENDING_STATEMENTS`).
 	#[cfg_attr(not(any(test, feature = "test-helpers")), doc(hidden))]
 	pub fn on_statements(&mut self, who: PeerId, statements: Statements) {
 		log::trace!(target: LOG_TARGET, "Received {} statements from {}", statements.len(), who);
@@ -1242,6 +1299,20 @@ where
 		}
 	}
 
+	/// Adjust the sending peer's reputation based on the outcome of importing a statement it sent.
+	///
+	/// Every newly received statement is first charged `rep::ANY_STATEMENT` (a small **decrease**)
+	/// in [`on_statements`](Self::on_statements); this method applies the follow-up adjustment
+	/// once the statement has been validated:
+	///
+	/// - `New` → **increase** by `rep::GOOD_STATEMENT` — a valid, previously unknown statement; the
+	///   net change is positive (the reward outweighs the initial charge).
+	/// - `Known` → **increase** by `rep::ANY_STATEMENT_REFUND`, which exactly cancels the initial
+	///   `rep::ANY_STATEMENT` charge (net zero) — valid but already in the store.
+	/// - `Invalid` → **decrease** by `rep::INVALID_STATEMENT`, a large penalty — the statement
+	///   failed validation.
+	/// - `KnownExpired`, `Rejected`, `InternalError` → no follow-up change, so the peer keeps the
+	///   initial `rep::ANY_STATEMENT` charge.
 	fn on_handle_statement_import(&mut self, who: PeerId, import: &SubmitResult) {
 		match import {
 			SubmitResult::New => self.network.report_peer(who, rep::GOOD_STATEMENT),
