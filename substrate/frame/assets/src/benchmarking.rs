@@ -77,7 +77,7 @@ pub fn create_default_minted_asset<T: Config<I>, I: 'static>(
 ) -> (T::AssetIdParameter, T::AccountId, AccountIdLookupOf<T>) {
 	let (asset_id, caller, caller_lookup) = create_default_asset::<T, I>(is_sufficient);
 	if !is_sufficient {
-		T::Currency::make_free_balance_be(&caller, T::Currency::minimum_balance());
+		T::OldCurrency::make_free_balance_be(&caller, T::OldCurrency::minimum_balance());
 	}
 	assert!(Assets::<T, I>::mint(
 		SystemOrigin::Signed(caller.clone()).into(),
@@ -119,9 +119,9 @@ fn add_sufficients<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
 
 fn add_approvals<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
 	let asset_id = default_asset_id::<T, I>();
-	let _ = T::Currency::deposit_creating(
+	let _ = T::OldCurrency::deposit_creating(
 		&minter,
-		T::ApprovalDeposit::get() * n.into() + T::Currency::minimum_balance(),
+		T::ApprovalDeposit::get() * n.into() + T::OldCurrency::minimum_balance(),
 	);
 	let minter_lookup = T::Lookup::unlookup(minter.clone());
 	let origin = SystemOrigin::Signed(minter);
@@ -132,10 +132,10 @@ fn add_approvals<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
 		(100 * (n + 1)).into(),
 	)
 	.unwrap();
-	let enough = T::Currency::minimum_balance();
+	let enough = T::OldCurrency::minimum_balance();
 	for i in 0..n {
 		let target = account("approval", i, SEED);
-		T::Currency::make_free_balance_be(&target, enough);
+		T::OldCurrency::make_free_balance_be(&target, enough);
 		let target_lookup = T::Lookup::unlookup(target);
 		Assets::<T, I>::approve_transfer(
 			origin.clone().into(),
@@ -162,7 +162,7 @@ benchmarks_instance_pallet! {
 			.map_err(|_| BenchmarkError::Weightless)?;
 		let caller = T::CreateOrigin::ensure_origin(origin.clone(), &asset_id.clone().into()).unwrap();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
-		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 	}: _<T::RuntimeOrigin>(origin, asset_id.clone(), caller_lookup, 1u32.into())
 	verify {
 		assert_last_event::<T, I>(Event::Created { asset_id: asset_id.into(), creator: caller.clone(), owner: caller }.into());
@@ -353,7 +353,7 @@ benchmarks_instance_pallet! {
 	set_reserves {
 		let n in 0 .. MAX_RESERVES;
 		let (asset_id, caller, reserves) = create_default_reserves::<T, I>(n);
-		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 		let bounded_reserves = reserves.clone().try_into().unwrap();
 	}: _(SystemOrigin::Signed(caller), asset_id.clone(), bounded_reserves)
 	verify {
@@ -374,7 +374,7 @@ benchmarks_instance_pallet! {
 		let decimals = 12;
 
 		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
-		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 	}: _(SystemOrigin::Signed(caller), asset_id.clone(), name.clone(), symbol.clone(), decimals)
 	verify {
 		assert_last_event::<T, I>(Event::MetadataSet { asset_id: asset_id.into(), name, symbol, decimals, is_frozen: false }.into());
@@ -382,7 +382,7 @@ benchmarks_instance_pallet! {
 
 	clear_metadata {
 		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
-		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 		let dummy = vec![0u8; T::StringLimit::get() as usize];
 		let origin = SystemOrigin::Signed(caller.clone()).into();
 		Assets::<T, I>::set_metadata(origin, asset_id.clone(), dummy.clone(), dummy, 12)?;
@@ -417,7 +417,7 @@ benchmarks_instance_pallet! {
 
 	force_clear_metadata {
 		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
-		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 		let dummy = vec![0u8; T::StringLimit::get() as usize];
 		let origin = SystemOrigin::Signed(caller).into();
 		Assets::<T, I>::set_metadata(origin, asset_id.clone(), dummy.clone(), dummy, 12)?;
@@ -452,7 +452,7 @@ benchmarks_instance_pallet! {
 
 	approve_transfer {
 		let (asset_id, caller, _) = create_default_minted_asset::<T, I>(true, 100u32.into());
-		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 
 		let delegate: T::AccountId = account("delegate", 0, SEED);
 		let delegate_lookup = T::Lookup::unlookup(delegate.clone());
@@ -464,7 +464,7 @@ benchmarks_instance_pallet! {
 
 	transfer_approved {
 		let (asset_id, owner, owner_lookup) = create_default_minted_asset::<T, I>(true, 100u32.into());
-		T::Currency::make_free_balance_be(&owner, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&owner, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 
 		let delegate: T::AccountId = account("delegate", 0, SEED);
 		whitelist_account!(delegate);
@@ -477,13 +477,13 @@ benchmarks_instance_pallet! {
 		let dest_lookup = T::Lookup::unlookup(dest.clone());
 	}: _(SystemOrigin::Signed(delegate.clone()), asset_id.clone(), owner_lookup, dest_lookup, amount)
 	verify {
-		assert!(T::Currency::reserved_balance(&owner).is_zero());
+		assert!(T::OldCurrency::reserved_balance(&owner).is_zero());
 		assert_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: owner, to: dest, amount }.into());
 	}
 
 	cancel_approval {
 		let (asset_id, caller, _) = create_default_minted_asset::<T, I>(true, 100u32.into());
-		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 
 		let delegate: T::AccountId = account("delegate", 0, SEED);
 		let delegate_lookup = T::Lookup::unlookup(delegate.clone());
@@ -497,7 +497,7 @@ benchmarks_instance_pallet! {
 
 	force_cancel_approval {
 		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, 100u32.into());
-		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 
 		let delegate: T::AccountId = account("delegate", 0, SEED);
 		let delegate_lookup = T::Lookup::unlookup(delegate.clone());
@@ -519,7 +519,7 @@ benchmarks_instance_pallet! {
 	touch {
 		let (asset_id, asset_owner, asset_owner_lookup) = create_default_asset::<T, I>(false);
 		let new_account: T::AccountId = account("newaccount", 1, SEED);
-		T::Currency::make_free_balance_be(&new_account, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&new_account, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 		assert_ne!(asset_owner, new_account);
 		assert!(!Account::<T, I>::contains_key(asset_id.clone().into(), &new_account));
 	}: _(SystemOrigin::Signed(new_account.clone()), asset_id.clone())
@@ -531,7 +531,7 @@ benchmarks_instance_pallet! {
 		let (asset_id, asset_owner, asset_owner_lookup) = create_default_asset::<T, I>(false);
 		let new_account: T::AccountId = account("newaccount", 1, SEED);
 		let new_account_lookup = T::Lookup::unlookup(new_account.clone());
-		T::Currency::make_free_balance_be(&asset_owner, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&asset_owner, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 		assert_ne!(asset_owner, new_account);
 		assert!(!Account::<T, I>::contains_key(asset_id.clone().into(), &new_account));
 	}: _(SystemOrigin::Signed(asset_owner.clone()), asset_id.clone(), new_account_lookup)
@@ -542,27 +542,27 @@ benchmarks_instance_pallet! {
 	refund {
 		let (asset_id, asset_owner, asset_owner_lookup) = create_default_asset::<T, I>(false);
 		let new_account: T::AccountId = account("newaccount", 1, SEED);
-		T::Currency::make_free_balance_be(&new_account, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&new_account, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 		assert_ne!(asset_owner, new_account);
 		assert!(Assets::<T, I>::touch(
 			SystemOrigin::Signed(new_account.clone()).into(),
 			asset_id.clone()
 		).is_ok());
 		// `touch` should reserve balance of the caller according to the `AssetAccountDeposit` amount...
-		assert_eq!(T::Currency::reserved_balance(&new_account), T::AssetAccountDeposit::get());
+		assert_eq!(T::OldCurrency::reserved_balance(&new_account), T::AssetAccountDeposit::get());
 		// ...and also create an `Account` entry.
 		assert!(Account::<T, I>::contains_key(asset_id.clone().into(), &new_account));
 	}: _(SystemOrigin::Signed(new_account.clone()), asset_id, true)
 	verify {
 		// `refund`ing should of course repatriate the reserve
-		assert!(T::Currency::reserved_balance(&new_account).is_zero());
+		assert!(T::OldCurrency::reserved_balance(&new_account).is_zero());
 	}
 
 	refund_other {
 		let (asset_id, asset_owner, asset_owner_lookup) = create_default_asset::<T, I>(false);
 		let new_account: T::AccountId = account("newaccount", 1, SEED);
 		let new_account_lookup = T::Lookup::unlookup(new_account.clone());
-		T::Currency::make_free_balance_be(&asset_owner, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&asset_owner, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 		assert_ne!(asset_owner, new_account);
 		assert!(Assets::<T, I>::touch_other(
 			SystemOrigin::Signed(asset_owner.clone()).into(),
@@ -570,12 +570,12 @@ benchmarks_instance_pallet! {
 			new_account_lookup.clone()
 		).is_ok());
 		// `touch` should reserve balance of the caller according to the `AssetAccountDeposit` amount...
-		assert_eq!(T::Currency::reserved_balance(&asset_owner), T::AssetAccountDeposit::get());
+		assert_eq!(T::OldCurrency::reserved_balance(&asset_owner), T::AssetAccountDeposit::get());
 		assert!(Account::<T, I>::contains_key(asset_id.clone().into(), &new_account));
 	}: _(SystemOrigin::Signed(asset_owner.clone()), asset_id, new_account_lookup.clone())
 	verify {
 		// this should repatriate the reserved balance of the freezer
-		assert!(T::Currency::reserved_balance(&asset_owner).is_zero());
+		assert!(T::OldCurrency::reserved_balance(&asset_owner).is_zero());
 	}
 
 	block {
@@ -643,7 +643,7 @@ benchmarks_instance_pallet! {
 
 	get_metadata {
 		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
-		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		T::OldCurrency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value() / 1000u32.into());
 		let name_bytes = vec![0u8; T::StringLimit::get() as usize];
 		let symbol_bytes = vec![0u8; T::StringLimit::get() as usize];
 		let origin = SystemOrigin::Signed(caller).into();

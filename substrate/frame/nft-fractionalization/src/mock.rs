@@ -51,6 +51,7 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 impl pallet_assets::Config for Test {
@@ -61,6 +62,8 @@ impl pallet_assets::Config for Test {
 	type AssetIdParameter = u32;
 	type ReserveData = ();
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<Self::AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type AssetDeposit = ConstU64<1>;

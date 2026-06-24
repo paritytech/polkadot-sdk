@@ -115,7 +115,7 @@ impl<T: Config<I>, I: 'static> Inspect<T::AccountId> for Pallet<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> InspectHold<T::AccountId> for Pallet<T, I> {
-	type Reason = T::RuntimeHoldReason;
+	type Reason = <T as Config<I>>::RuntimeHoldReason;
 
 	fn total_balance_on_hold(asset: Self::AssetId, who: &T::AccountId) -> Self::Balance {
 		BalancesOnHold::<T, I>::get(asset, who).unwrap_or_else(Zero::zero)

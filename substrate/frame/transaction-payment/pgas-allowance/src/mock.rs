@@ -72,6 +72,7 @@ impl frame_system::Config for Runtime {
 impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
@@ -85,6 +86,8 @@ impl pallet_transaction_payment::Config for Runtime {
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
 impl pallet_assets::Config for Runtime {
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 }

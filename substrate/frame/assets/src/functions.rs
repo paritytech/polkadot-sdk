@@ -19,8 +19,12 @@
 
 use super::*;
 use alloc::vec;
-use frame_support::{defensive, traits::Get, BoundedVec};
-use sp_runtime::traits::ConstU32;
+use frame_support::{
+	defensive,
+	traits::{tokens::fungible::MutateHold, Get},
+	BoundedVec,
+};
+use sp_runtime::traits::{ConstU32, Saturating};
 
 #[must_use]
 pub(super) enum DeadConsequence {
@@ -33,6 +37,75 @@ use DeadConsequence::*;
 // The main implementation block for the module.
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	// Public immutables
+
+	/// The hold reason used for all native-token deposits taken by this pallet.
+	pub(super) fn deposit_reason() -> T::RuntimeHoldReason {
+		HoldReason::<I>::Deposit.into()
+	}
+
+	/// Take a native-token deposit of `amount` from `who` as a hold.
+	pub(super) fn hold_deposit(
+		who: &T::AccountId,
+		amount: DepositBalanceOf<T, I>,
+	) -> DispatchResult {
+		// A zero-amount hold would still require `who` to be a provider (holds add a consumer
+		// reference), unlike the legacy `reserve(who, 0)` which was a no-op. Some runtimes
+		// configure zero deposits, so skip holding nothing to preserve that behaviour.
+		if amount.is_zero() {
+			return Ok(());
+		}
+		T::Currency::hold(&Self::deposit_reason(), who, amount)
+	}
+
+	/// Release a native-token deposit of `amount` previously taken from `who`.
+	///
+	/// Drains from the new hold first; any remainder is unreserved from a pre-migration legacy
+	/// reserve. This lazily migrates old reserves to holds: new deposits are taken as holds, and
+	/// pre-existing reserves are released here as the entities holding them are torn down.
+	pub(super) fn release_deposit(who: &T::AccountId, amount: DepositBalanceOf<T, I>) {
+		use frame_support::traits::tokens::fungible::InspectHold;
+		let reason = Self::deposit_reason();
+		let from_hold = amount.min(T::Currency::balance_on_hold(&reason, who));
+		if !from_hold.is_zero() {
+			let r = T::Currency::release(&reason, who, from_hold, BestEffort);
+			debug_assert!(r.is_ok());
+		}
+		let from_reserve = amount.saturating_sub(from_hold);
+		if !from_reserve.is_zero() {
+			let remaining = T::OldCurrency::unreserve(who, from_reserve);
+			debug_assert!(remaining.is_zero());
+		}
+	}
+
+	/// Move a native-token deposit of `amount` from `from` to `to`, keeping it on deposit.
+	///
+	/// Mirrors [`Self::release_deposit`]'s lazy migration: the held portion is transferred as a
+	/// hold, and any legacy-reserved remainder is repatriated as a reserve on `to`.
+	pub(super) fn repatriate_deposit(
+		from: &T::AccountId,
+		to: &T::AccountId,
+		amount: DepositBalanceOf<T, I>,
+	) -> DispatchResult {
+		use frame_support::traits::tokens::fungible::InspectHold;
+		let reason = Self::deposit_reason();
+		let from_hold = amount.min(T::Currency::balance_on_hold(&reason, from));
+		if !from_hold.is_zero() {
+			T::Currency::transfer_on_hold(
+				&reason,
+				from,
+				to,
+				from_hold,
+				Exact,
+				OnHold,
+				Fortitude::Polite,
+			)?;
+		}
+		let from_reserve = amount.saturating_sub(from_hold);
+		if !from_reserve.is_zero() {
+			T::OldCurrency::repatriate_reserved(from, to, from_reserve, Reserved)?;
+		}
+		Ok(())
+	}
 
 	/// Return the extra "sid-car" data for `id`/`who`, or `None` if the account doesn't exist.
 	pub fn adjust_extra(
@@ -350,7 +423,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
 		let reason = Self::new_account(&who, &mut details, Some((&depositor, deposit)))?;
-		T::Currency::reserve(&depositor, deposit)?;
+		Self::hold_deposit(&depositor, deposit)?;
 		Asset::<T, I>::insert(&id, details);
 		Account::<T, I>::insert(
 			&id,
@@ -380,7 +453,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::ensure_account_can_die(id.clone(), &who)?;
 
 		if let Some(deposit) = account.reason.take_deposit() {
-			T::Currency::unreserve(&who, deposit);
+			Self::release_deposit(&who, deposit);
 		}
 
 		if let Remove = Self::dead_account(&who, &mut details, &account.reason, false) {
@@ -432,7 +505,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(account.balance.is_zero(), Error::<T, I>::WouldBurn);
 		Self::ensure_account_can_die(id.clone(), who)?;
 
-		T::Currency::unreserve(&depositor, deposit);
+		Self::release_deposit(&depositor, deposit);
 
 		if let Remove = Self::dead_account(&who, &mut details, &account.reason, false) {
 			Account::<T, I>::remove(&id, &who);
@@ -832,9 +905,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 				// unreserve the existence deposit if any
 				if let Some((depositor, deposit)) = v.reason.take_deposit_from() {
-					T::Currency::unreserve(&depositor, deposit);
+					Self::release_deposit(&depositor, deposit);
 				} else if let Some(deposit) = v.reason.take_deposit() {
-					T::Currency::unreserve(&who, deposit);
+					Self::release_deposit(&who, deposit);
 				}
 				if let Remove = Self::dead_account(&who, &mut details, &v.reason, false) {
 					Account::<T, I>::remove(&id, &who);
@@ -883,7 +956,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				ensure!(details.status == AssetStatus::Destroying, Error::<T, I>::IncorrectStatus);
 
 				for ((owner, _), approval) in Approvals::<T, I>::drain_prefix((id.clone(),)) {
-					T::Currency::unreserve(&owner, approval.deposit);
+					Self::release_deposit(&owner, approval.deposit);
 					removed_approvals = removed_approvals.saturating_add(1);
 					details.approvals = details.approvals.saturating_sub(1);
 					if removed_approvals >= max_items {
@@ -913,10 +986,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(T::CallbackHandle::destroyed(&id).is_ok(), Error::<T, I>::CallbackFailed);
 
 			let metadata = Metadata::<T, I>::take(&id);
-			T::Currency::unreserve(
-				&details.owner,
-				details.deposit.saturating_add(metadata.deposit),
-			);
+			Self::release_deposit(&details.owner, details.deposit.saturating_add(metadata.deposit));
 			Reserves::<T, I>::remove(&id);
 			Self::deposit_event(Event::Destroyed { asset_id: id });
 
@@ -950,7 +1020,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				};
 				let deposit_required = T::ApprovalDeposit::get();
 				if approved.deposit < deposit_required {
-					T::Currency::reserve(owner, deposit_required - approved.deposit)?;
+					Self::hold_deposit(owner, deposit_required - approved.deposit)?;
 					approved.deposit = deposit_required;
 				}
 				approved.amount = approved.amount.saturating_add(amount);
@@ -982,7 +1052,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let approval =
 			Approvals::<T, I>::take((id.clone(), owner, delegate)).ok_or(Error::<T, I>::Unknown)?;
-		T::Currency::unreserve(owner, approval.deposit);
+		Self::release_deposit(owner, approval.deposit);
 
 		asset_details.approvals.saturating_dec();
 		Asset::<T, I>::insert(id, asset_details);
@@ -1026,7 +1096,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Self::transfer_and_die(id.clone(), owner, destination, amount, None, f)?.1;
 
 				if remaining.is_zero() {
-					T::Currency::unreserve(owner, approved.deposit);
+					Self::release_deposit(owner, approved.deposit);
 					Asset::<T, I>::mutate(id.clone(), |maybe_details| {
 						if let Some(details) = maybe_details {
 							details.approvals.saturating_dec();
@@ -1072,9 +1142,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let new_deposit = Self::calc_metadata_deposit(&name, &symbol);
 
 			if new_deposit > old_deposit {
-				T::Currency::reserve(from, new_deposit - old_deposit)?;
+				Self::hold_deposit(from, new_deposit - old_deposit)?;
 			} else {
-				T::Currency::unreserve(from, old_deposit - new_deposit);
+				Self::release_deposit(from, old_deposit - new_deposit);
 			}
 
 			*metadata = Some(AssetMetadata {

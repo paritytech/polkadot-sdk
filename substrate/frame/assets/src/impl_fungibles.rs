@@ -278,15 +278,10 @@ impl<T: Config<I>, I: 'static> fungibles::metadata::Mutate<<T as SystemConfig>::
 	}
 }
 
-impl<T: Config<I>, I: 'static>
-	fungibles::metadata::MetadataDeposit<
-		<T::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance,
-	> for Pallet<T, I>
+impl<T: Config<I>, I: 'static> fungibles::metadata::MetadataDeposit<DepositBalanceOf<T, I>>
+	for Pallet<T, I>
 {
-	fn calc_metadata_deposit(
-		name: &[u8],
-		symbol: &[u8],
-	) -> <T::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance {
+	fn calc_metadata_deposit(name: &[u8], symbol: &[u8]) -> DepositBalanceOf<T, I> {
 		Self::calc_metadata_deposit(&name, &symbol)
 	}
 }

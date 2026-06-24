@@ -66,6 +66,7 @@ impl pallet_balances::Config for Test {
 	type Balance = u128;
 	type ExistentialDeposit = ConstU128<100>;
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 impl pallet_assets::Config<Instance1> for Test {
@@ -76,6 +77,8 @@ impl pallet_assets::Config<Instance1> for Test {
 	type AssetIdParameter = u32;
 	type ReserveData = ();
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<Self::AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type AssetDeposit = ConstU128<1>;
@@ -102,6 +105,8 @@ impl pallet_assets::Config<Instance2> for Test {
 	type AssetIdParameter = u32;
 	type ReserveData = ();
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, Self::AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;

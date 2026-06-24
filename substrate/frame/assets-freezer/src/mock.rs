@@ -83,7 +83,7 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = ();
 	type DoneSlashHandler = ();
 }
@@ -105,6 +105,8 @@ impl pallet_assets::Config for Test {
 	type RemoveItemsLimit = ConstU32<10>;
 	type CallbackHandle = ();
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Holder = ();
 	type Freezer = AssetsFreezer;
 	type RuntimeEvent = RuntimeEvent;

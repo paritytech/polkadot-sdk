@@ -1,0 +1,43 @@
+title: "pallet-assets: migrate native-token deposits from Currency reserves to fungible holds"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `pallet-assets` no longer uses the deprecated `ReservableCurrency` trait for the native-token
+      deposits it takes (asset-creation, asset-account, metadata and approval deposits). Those
+      deposits are now taken as `fungible` holds under `HoldReason::Deposit`. Part of #12399 / #226.
+
+      Config changes (breaking):
+      - `type Currency` bound changes from `ReservableCurrency` to
+        `fungible::{Inspect + MutateHold<Reason = RuntimeHoldReason>}`.
+      - New `type RuntimeHoldReason: From<HoldReason<I>>` must be supplied (the runtime's aggregated
+        `RuntimeHoldReason`). Runtimes must ensure their `pallet-balances` instance exposes
+        `RuntimeHoldReason`.
+      - New `type OldCurrency: Currency + ReservableCurrency`, retained only to drain pre-existing
+        reserved deposits during the lazy migration; otherwise unused.
+
+      Migration strategy (no mass iteration): the deposits are per-asset, per-account, per-metadata
+      and per-approval, which is unbounded on Asset Hub, so there is no `OnRuntimeUpgrade`.
+      Instead the migration is lazy:
+      - New deposits are always taken as holds.
+      - When a deposit is released (asset destroyed, account refunded, metadata/approval cleared,
+        etc.) the pallet first releases from the new hold and unreserves any remainder from a
+        pre-existing legacy reserve. Ownership transfer moves the held portion via
+        `transfer_on_hold` and repatriates any legacy-reserved remainder.
+      This drains old reserves over time as entities are torn down; nothing strands and no entry is
+      iterated en masse.
+
+      Note: `pallet-assets-holder` (which extends `pallet_assets::Config` and defines its own
+      `RuntimeHoldReason` for *asset* holds) now disambiguates its references to
+      `<T as Config>::RuntimeHoldReason`.
+  - audience: Runtime User
+    description: |
+      Asset/account/metadata/approval deposits keep working unchanged. Existing reserved deposits
+      are converted to holds lazily, as each deposit is returned or moved; no action is required and
+      funds stay locked throughout.
+
+crates:
+  - name: pallet-assets
+    bump: major
+  - name: pallet-assets-holder
+    bump: patch

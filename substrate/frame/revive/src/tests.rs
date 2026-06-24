@@ -344,6 +344,8 @@ impl pallet_transaction_payment::Config for Test {
 impl pallet_assets::Config for Test {
 	type Balance = u128;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId32>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId32>;
 	type Holder = AssetsHolder;

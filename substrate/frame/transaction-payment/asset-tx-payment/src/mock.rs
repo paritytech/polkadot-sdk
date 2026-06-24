@@ -85,6 +85,7 @@ parameter_types! {
 impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ConstU64<10>;
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 impl WeightToFeeT for WeightToFee {
@@ -132,6 +133,8 @@ impl pallet_assets::Config for Runtime {
 	type AssetIdParameter = codec::Compact<AssetId>;
 	type ReserveData = ();
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type AssetDeposit = ConstU64<2>;

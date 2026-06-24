@@ -186,8 +186,10 @@ use frame_support::{
 	storage::KeyPrefixIterator,
 	traits::{
 		tokens::{
-			fungibles, DepositConsequence, Fortitude,
+			fungible, fungibles, DepositConsequence, Fortitude,
+			Precision::{BestEffort, Exact},
 			Preservation::{Expendable, Preserve},
+			Restriction::OnHold,
 			WithdrawConsequence,
 		},
 		BalanceStatus::Reserved,
@@ -266,6 +268,14 @@ pub mod pallet {
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(_);
+
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		/// Funds are held as a deposit for an asset, asset account, metadata or approval.
+		#[codec(index = 0)]
+		Deposit,
+	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub trait BenchmarkHelper<AssetIdParameter, ReserveIdParameter> {
@@ -357,9 +367,22 @@ pub mod pallet {
 		/// Information about reserve locations for a class of asset.
 		type ReserveData: Debug + Parameter + MaybeSerializeDeserialize + MaxEncodedLen;
 
-		/// The currency mechanism.
+		/// The currency mechanism used for the native-token deposits taken by this pallet. Deposits
+		/// are taken as holds under [`HoldReason`].
 		#[pallet::no_default]
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Currency: fungible::Inspect<Self::AccountId>
+			+ fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+
+		/// The overarching hold reason.
+		#[pallet::no_default]
+		type RuntimeHoldReason: From<HoldReason<I>>;
+
+		/// The legacy reservable currency. Retained only to drain pre-existing reserved deposits as
+		/// the entities holding them are released (lazy migration); all new deposits are taken as
+		/// holds. Otherwise unused and removable once all legacy reserves are drained.
+		#[pallet::no_default]
+		type OldCurrency: Currency<Self::AccountId, Balance = DepositBalanceOf<Self, I>>
+			+ ReservableCurrency<Self::AccountId>;
 
 		/// Standard asset class creation is only allowed if the origin attempting it and the
 		/// asset class are in this set.
@@ -795,7 +818,7 @@ pub mod pallet {
 			}
 
 			let deposit = T::AssetDeposit::get();
-			T::Currency::reserve(&owner, deposit)?;
+			Self::hold_deposit(&owner, deposit)?;
 
 			Asset::<T, I>::insert(
 				id.clone(),
@@ -1263,7 +1286,7 @@ pub mod pallet {
 				let deposit = details.deposit + metadata_deposit;
 
 				// Move the deposit to the new owner.
-				T::Currency::repatriate_reserved(&details.owner, &owner, deposit, Reserved)?;
+				Self::repatriate_deposit(&details.owner, &owner, deposit)?;
 
 				details.owner = owner.clone();
 
@@ -1364,7 +1387,7 @@ pub mod pallet {
 
 			Metadata::<T, I>::try_mutate_exists(id.clone(), |metadata| {
 				let deposit = metadata.take().ok_or(Error::<T, I>::Unknown)?.deposit;
-				T::Currency::unreserve(&d.owner, deposit);
+				Self::release_deposit(&d.owner, deposit);
 				Self::deposit_event(Event::MetadataCleared { asset_id: id });
 				Ok(())
 			})
@@ -1447,7 +1470,7 @@ pub mod pallet {
 			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			Metadata::<T, I>::try_mutate_exists(id.clone(), |metadata| {
 				let deposit = metadata.take().ok_or(Error::<T, I>::Unknown)?.deposit;
-				T::Currency::unreserve(&d.owner, deposit);
+				Self::release_deposit(&d.owner, deposit);
 				Self::deposit_event(Event::MetadataCleared { asset_id: id });
 				Ok(())
 			})

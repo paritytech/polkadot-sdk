@@ -1,0 +1,54 @@
+title: 'pallet-assets: migrate native-token deposits from Currency reserves to fungible
+  holds'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Migrates `pallet-assets` off the deprecated `ReservableCurrency` trait for the native-token deposits it takes (asset-creation, asset-account, metadata, and approval deposits). Those deposits are now taken as `fungible` holds under `HoldReason::Deposit`.
+    Part of #12399 / #226.
+crates:
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: pallet-xcm-precompiles
+  bump: major
+- name: pallet-xcm
+  bump: major
+- name: staging-xcm-builder
+  bump: major
+- name: xcm-runtime-apis
+  bump: major
+- name: pallet-asset-conversion-ops
+  bump: major
+- name: pallet-asset-conversion-precompiles
+  bump: major
+- name: pallet-asset-conversion
+  bump: major
+- name: pallet-asset-rewards
+  bump: major
+- name: pallet-assets-freezer
+  bump: major
+- name: pallet-assets-holder
+  bump: major
+- name: pallet-assets-precompiles
+  bump: major
+- name: pallet-assets
+  bump: major
+- name: pallet-bounties
+  bump: major
+- name: pallet-contracts-mock-network
+  bump: major
+- name: pallet-nft-fractionalization
+  bump: major
+- name: pallet-psm
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-asset-conversion-tx-payment
+  bump: major
+- name: pallet-asset-tx-payment
+  bump: major
+- name: pallet-pgas-allowance
+  bump: major
