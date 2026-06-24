@@ -62,7 +62,7 @@ sol! {
 		///
 		/// Returns empty bytes if the key is absent. `max_len` is the caller's
 		/// declared upper bound on the value length, used for metering.
-		function storage(bytes key, uint32 max_len) external returns (bytes);
+		function getStorage(bytes key, uint32 max_len) external returns (bytes);
 	}
 }
 
@@ -121,7 +121,7 @@ impl<T: crate::Config> Precompile for UnstableRuntime<T> {
 					Err(e) => Err(Error::from(e.error)),
 				}
 			},
-			IUnstableRuntimeCalls::storage(IUnstableRuntime::storageCall { key, max_len }) => {
+			IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall { key, max_len }) => {
 				let max_len = *max_len;
 
 				// Charge for the read up front, bounded by the caller-declared
@@ -178,7 +178,7 @@ mod tests {
 
 	/// Build the `storage(key, max_len)` precompile input.
 	fn storage_input(key: &[u8], max_len: u32) -> IUnstableRuntime::IUnstableRuntimeCalls {
-		IUnstableRuntime::IUnstableRuntimeCalls::storage(IUnstableRuntime::storageCall {
+		IUnstableRuntime::IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall {
 			key: key.to_vec().into(),
 			max_len,
 		})

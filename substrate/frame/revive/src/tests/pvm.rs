@@ -4950,11 +4950,12 @@ fn unstable_runtime_storage_read_works() {
 	use alloy_core::sol_types::{sol_data::Bytes, SolInterface, SolType};
 
 	let precompile_addr = H160(UnstableRuntime::<Test>::MATCHER.base_address());
-	let input = IUnstableRuntime::IUnstableRuntimeCalls::storage(IUnstableRuntime::storageCall {
-		key: b"e2e_key".to_vec().into(),
-		max_len: 64,
-	})
-	.abi_encode();
+	let input =
+		IUnstableRuntime::IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall {
+			key: b"e2e_key".to_vec().into(),
+			max_len: 64,
+		})
+		.abi_encode();
 
 	let (code, _code_hash) = compile_module("call_and_returncode").unwrap();
 	ExtBuilder::default().build().execute_with(|| {

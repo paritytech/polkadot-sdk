@@ -348,6 +348,89 @@ fn call_tracing_records_consumption_for_nested_transfer_to_eoa() {
 	});
 }
 
+/// End-to-end: a real Solidity contract (compiled by solc) calls the
+/// `UnstableRuntime` precompile's `dispatch`, and the runtime call executes as
+/// the contract's own account.
+#[test]
+fn unstable_runtime_dispatch_from_solidity() {
+	use crate::{
+		precompiles::{Precompile, UnstableRuntime},
+		tests::RuntimeCall,
+	};
+	use codec::Encode;
+	use frame_support::traits::fungible::Inspect;
+	use pallet_revive_fixtures::UnstableRuntimeCaller;
+	use sp_core::H160;
+
+	let precompile = H160(UnstableRuntime::<Test>::MATCHER.base_address());
+	let (code, _) = compile_module_with_type("UnstableRuntimeCaller", FixtureType::Solc).unwrap();
+	let value = 1_000_000u128;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, account_id } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Fund the contract's (native) account so it can transfer.
+		let _ = <Test as Config>::Currency::set_balance(&account_id, 100_000_000);
+
+		let runtime_call =
+			RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { dest: BOB, value });
+
+		let bob_before = <Test as Config>::Currency::balance(&BOB);
+		let contract_before = <Test as Config>::Currency::balance(&account_id);
+
+		builder::bare_call(addr)
+			.data(
+				UnstableRuntimeCaller::runDispatchCall {
+					precompile: precompile.0.into(),
+					encodedCall: runtime_call.encode().into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		// The transfer executed as the contract's account.
+		assert_eq!(<Test as Config>::Currency::balance(&BOB) - bob_before, value);
+		assert_eq!(contract_before - <Test as Config>::Currency::balance(&account_id), value);
+	});
+}
+
+/// End-to-end: a real Solidity contract reads raw runtime storage through the
+/// precompile and returns the value bytes.
+#[test]
+fn unstable_runtime_storage_from_solidity() {
+	use crate::precompiles::{Precompile, UnstableRuntime};
+	use alloy_core::sol_types::{sol_data::Bytes, SolType};
+	use pallet_revive_fixtures::UnstableRuntimeCaller;
+	use sp_core::H160;
+
+	let precompile = H160(UnstableRuntime::<Test>::MATCHER.base_address());
+	let (code, _) = compile_module_with_type("UnstableRuntimeCaller", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		sp_io::storage::set(b"sol_key", b"sol_value");
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data(
+				UnstableRuntimeCaller::runStorageCall {
+					precompile: precompile.0.into(),
+					key: b"sol_key".to_vec().into(),
+					maxLen: 64,
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		// The contract returns the value decoded as `bytes`.
+		let decoded = Bytes::abi_decode(&result.data).expect("return should abi-decode");
+		assert_eq!(decoded.as_ref(), b"sol_value");
+	});
+}
+
 #[test]
 fn eth_contract_too_large() {
 	// Create EVM init code that is one byte larger than the EIP-3860 limit.
