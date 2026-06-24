@@ -9,7 +9,7 @@
 //
 // Refine-side rules (enforced in `refine.qnt`):
 // - `set_validator_keys` may be called at most once per Refine invocation.
-// - Each `keys` chunk encodes to ≤ 10 KiB.
+// - Each `keys` chunk contains at most 30 keys.
 //
 // Accumulate-side rules (this module):
 // - A partial (non-last) append grows `usedStateBalance` for Asset Hub by

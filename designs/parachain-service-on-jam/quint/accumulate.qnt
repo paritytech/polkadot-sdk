@@ -264,11 +264,11 @@ module accumulate {
             jamForget: if (reaped.jamForget) Set({ hashBytes: 0 }) else Set(),
             logs: List(InvalidCodeHashAcc(r.validationCodeHash))
           }
-        } else if (violatesServiceRestrictions(r.upwardMessages, r.paraId, assetHub, coretimeChain)) {
+        } else if (violatesParachainRestrictions(r.upwardMessages, r.paraId, assetHub, coretimeChain)) {
           // §4.3 defense-in-depth: even if Refine should already have
           // rejected this, Accumulate independently verifies and refuses
           // to apply a work-package whose upward messages include
-          // restricted host calls from the wrong service.
+          // restricted host calls from the wrong parachain.
           {
             state: reaped.state,
             rejected: true,

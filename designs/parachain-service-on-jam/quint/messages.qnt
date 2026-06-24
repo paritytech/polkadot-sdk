@@ -13,6 +13,13 @@ module messages {
   | InvalidCodeHash
   // PVF called report_error(data) before failing. Payload ≤ 1024 B.
   | Opaque(int)
+  // A `set_validator_keys` chunk exceeded 30 keys, or
+  // `set_validator_keys` was called more than once in a single
+  // Refine invocation.
+  | SetValidatorKeysTooManyKeys
+  // The PVF invoked a host function restricted to another parachain
+  // (Asset Hub or the Coretime chain).
+  | RestrictedHostFunction
 
   // --- Accumulate-side log payloads ---------------------------------------
 
@@ -130,11 +137,11 @@ module messages {
     | _ => false
   }
 
-  /// Per §4.3: host functions restricted to a specific service (Asset Hub
-  /// or the Coretime chain) abort when invoked from any other service.
+  /// Per §4.3: host functions restricted to a specific parachain (Asset Hub
+  /// or the Coretime chain) abort when invoked from any other parachain.
   /// Refine enforces this as a PVF-level panic; Accumulate independently
   /// verifies and rejects the work-package as defense-in-depth.
-  pure def violatesServiceRestrictions(
+  pure def violatesParachainRestrictions(
     msgs: List[UpwardMessage],
     para_id: ParaId,
     assetHub: ParaId,

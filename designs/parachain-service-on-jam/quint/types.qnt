@@ -60,7 +60,7 @@ module types {
   pure val MaxReportVarSize: int = 48 * 1024
 
   /// Per-call cap on `set_validator_keys` chunks (design §4.3).
-  pure val SetValidatorKeysChunkCap: int = 10 * 1024
+  pure val SetValidatorKeysMaxKeys: int = 30
 
   /// Worst-case staging footprint when an Asset Hub rotation is in flight.
   pure val MaxStagedValidatorKeysFootprint: int =

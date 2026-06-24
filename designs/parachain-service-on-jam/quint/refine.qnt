@@ -11,7 +11,7 @@
 // - Refine returns `Err(InvalidCodeHash)` iff `historical_lookup` for the
 // candidate's `validation_code_hash` returns None.
 // - `set_validator_keys` may appear at most once in the emitted
-// `upwardMessages` list, and any chunk must be ≤ 10 KiB.
+//   `upwardMessages` list, and any chunk must contain at most 30 keys.
 //
 // The `parent_head_hash` field is mandatory but is *not* validated against
 // service state here — that check lives in Accumulate (§5.1, step 1).
@@ -43,13 +43,11 @@ module refine {
       | _ => acc
   })
 
-  /// Per §4.3: the encoded chunk in each `set_validator_keys` is ≤ 10 KiB.
-  /// We approximate the encoded size as `336 * len(keys)` per the raw ABI
-  /// (see the discussion of the PVM data-passing convention).
+  /// Per §4.3: each `set_validator_keys` chunk contains at most 30 keys.
   pure def setValidatorKeysChunkOk(msgs: List[UpwardMessage]): bool =
   msgs.foldl(true, (acc, m) => match m {
       | SetValidatorKeys(payload) =>
-      acc and (ValidatorKeySize * payload.keys.length() <= SetValidatorKeysChunkCap)
+      acc and (payload.keys.length() <= SetValidatorKeysMaxKeys)
       | _ => acc
   })
 
@@ -126,9 +124,9 @@ module refine {
     else if (pvfPanic)
     refineErr(para_id, Opaque(0))
     else if (not(wellFormedUpwardMessages(msgs)))
-    refineErr(para_id, Opaque(0))
-    else if (violatesServiceRestrictions(msgs, para_id, assetHub, coretimeChain))
-    refineErr(para_id, Opaque(0))
+    refineErr(para_id, SetValidatorKeysTooManyKeys)
+    else if (violatesParachainRestrictions(msgs, para_id, assetHub, coretimeChain))
+    refineErr(para_id, RestrictedHostFunction)
     else
     refineOk(
       para_id,
