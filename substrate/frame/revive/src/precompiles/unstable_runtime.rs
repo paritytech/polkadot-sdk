@@ -88,4 +88,153 @@ impl<T: crate::Config> Precompile for UnstableRuntime<T> {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+	use super::{IUnstableRuntime, UnstableRuntime};
+	use crate::{
+		call_builder::CallSetup,
+		precompiles::{
+			alloy::sol_types::{sol_data::Bytes, SolType},
+			Error, Precompile,
+		},
+		test_utils::BOB,
+		tests::{ExtBuilder, RuntimeCall, Test},
+	};
+	use codec::Encode;
+	use frame_support::traits::fungible::Inspect;
+
+	/// Build the `dispatch(encoded_call)` precompile input for a `RuntimeCall`.
+	fn dispatch_input(call: RuntimeCall) -> IUnstableRuntime::IUnstableRuntimeCalls {
+		IUnstableRuntime::IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall {
+			encoded_call: call.encode().into(),
+		})
+	}
+
+	/// Build the `storage(key, max_len)` precompile input.
+	fn storage_input(key: &[u8], max_len: u32) -> IUnstableRuntime::IUnstableRuntimeCalls {
+		IUnstableRuntime::IUnstableRuntimeCalls::storage(IUnstableRuntime::storageCall {
+			key: key.to_vec().into(),
+			max_len,
+		})
+	}
+
+	fn address() -> [u8; 20] {
+		<UnstableRuntime<Test> as Precompile>::MATCHER.base_address()
+	}
+
+	#[test]
+	fn dispatch_executes_call_as_contract_account() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let value = 1_000_000u128;
+			let before = <Test as crate::Config>::Currency::balance(&BOB);
+
+			// The caller account (ALICE) is funded by `CallSetup`. Dispatching a
+			// transfer should execute as ALICE and move funds to BOB.
+			let call = RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+				dest: BOB,
+				value,
+			});
+			let input = dispatch_input(call);
+
+			<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext)
+				.expect("dispatch should succeed");
+
+			let after = <Test as crate::Config>::Currency::balance(&BOB);
+			assert_eq!(after - before, value, "dispatch did not execute the transfer");
+		});
+	}
+
+	#[test]
+	fn dispatch_reverts_in_read_only() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			call_setup.set_read_only(true);
+			let (mut ext, _) = call_setup.ext();
+
+			let call = RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() });
+			let input = dispatch_input(call);
+
+			let result =
+				<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+
+			assert_eq!(
+				result.unwrap_err(),
+				Error::from(crate::Error::<Test>::StateChangeDenied),
+			);
+		});
+	}
+
+	#[test]
+	fn dispatch_reverts_on_delegate_call() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			call_setup.set_delegate_call(true);
+			let (mut ext, _) = call_setup.ext();
+
+			let call = RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() });
+			let input = dispatch_input(call);
+
+			let result =
+				<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+
+			assert_eq!(
+				result.unwrap_err(),
+				Error::from(crate::Error::<Test>::PrecompileDelegateDenied),
+			);
+		});
+	}
+
+	#[test]
+	fn dispatch_reverts_on_invalid_encoding() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let input = IUnstableRuntime::IUnstableRuntimeCalls::dispatch(
+				IUnstableRuntime::dispatchCall { encoded_call: vec![0xff, 0xff, 0xff].into() },
+			);
+
+			let result =
+				<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+
+			assert_eq!(
+				result.unwrap_err(),
+				Error::Revert("invalid RuntimeCall encoding".into()),
+			);
+		});
+	}
+
+	#[test]
+	fn storage_reads_raw_value() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			sp_io::storage::set(b"my_key", b"hello world");
+
+			let input = storage_input(b"my_key", 64);
+			let raw = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext)
+				.expect("storage read should succeed");
+
+			let decoded = Bytes::abi_decode(&raw).expect("return should abi-decode as bytes");
+			assert_eq!(decoded.as_ref(), b"hello world");
+		});
+	}
+
+	#[test]
+	fn storage_absent_key_returns_empty() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let input = storage_input(b"does_not_exist", 64);
+			let raw = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext)
+				.expect("storage read should succeed");
+
+			let decoded = Bytes::abi_decode(&raw).expect("return should abi-decode as bytes");
+			assert!(decoded.as_ref().is_empty(), "absent key should return empty bytes");
+		});
+	}
+}
