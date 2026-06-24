@@ -108,6 +108,12 @@ where
 				let call = <T as crate::Config>::RuntimeCall::decode(&mut &encoded_call[..])
 					.map_err(|_| Error::Revert("invalid RuntimeCall encoding".into()))?;
 
+				// Let the runtime restrict which calls may be dispatched through
+				// this precompile (defaults to allowing everything).
+				if !Filter::contains(&call) {
+					return Err(Error::Revert("call not allowed by filter".into()));
+				}
+
 				// Dispatch as the calling contract's account. Reject a Root caller
 				// rather than silently dispatching with Root privileges.
 				let origin = match env.caller() {
