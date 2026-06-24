@@ -57,6 +57,7 @@ pallet-nft-fractionalization = { workspace = true }
 pallet-nfts = { workspace = true }
 pallet-nfts-runtime-api = { workspace = true }
 pallet-nomination-pools = { workspace = true }
+pallet-nomination-pools-benchmarking = { optional = true, workspace = true }
 pallet-nomination-pools-runtime-api = { workspace = true }
 pallet-parameters = { workspace = true }
 pallet-pgas-allowance = { workspace = true }
@@ -210,6 +211,7 @@ runtime-benchmarks = [
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
+	"pallet-nomination-pools-benchmarking/runtime-benchmarks",
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-parameters/runtime-benchmarks",
 	"pallet-pgas-allowance/runtime-benchmarks",
@@ -391,6 +393,7 @@ std = [
 	"pallet-nft-fractionalization/std",
 	"pallet-nfts-runtime-api/std",
 	"pallet-nfts/std",
+	"pallet-nomination-pools-benchmarking/std",
 	"pallet-nomination-pools-runtime-api/std",
 	"pallet-nomination-pools/std",
 	"pallet-parameters/std",
