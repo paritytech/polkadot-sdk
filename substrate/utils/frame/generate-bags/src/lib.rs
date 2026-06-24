@@ -17,8 +17,9 @@
 
 //! Support code to ease the process of generating bag thresholds.
 //!
-//! NOTE: this assume the runtime implements `pallet_staking::Config`, as it requires an
-//! implementation of the traits [`frame_support::traits::Currency`] and `CurrencyToVote`.
+//! NOTE: this assumes the runtime implements either `pallet_staking::Config`
+//! or `pallet_staking_async::Config`, as it requires an implementation of
+//! the traits [`frame_support::traits::Currency`] and `CurrencyToVote`.
 //!
 //! The process of adding bags to a runtime requires only four steps.
 //!

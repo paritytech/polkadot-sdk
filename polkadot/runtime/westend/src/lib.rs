@@ -1682,6 +1682,11 @@ pub mod migrations {
 		pub const ReferendaPalletStr: &'static str = "Referenda";
 		pub const OriginsPalletStr: &'static str = "Origins";
 		pub const WhitelistPalletStr: &'static str = "Whitelist";
+		pub const StakingPalletStr: &'static str = "Staking";
+		pub const ElectionProviderMultiPhasePalletStr: &'static str = "ElectionProviderMultiPhase";
+		pub const VoterListPalletStr: &'static str = "VoterList";
+		pub const NominationPoolsPalletStr: &'static str = "NominationPools";
+		pub const FastUnstakePalletStr: &'static str = "FastUnstake";
 	}
 
 	/// Legacy treasury `PalletId` (`py/trsry`).
@@ -1832,6 +1837,27 @@ pub mod migrations {
 		// Remove the Recovery pallet.
 		frame_support::migrations::RemovePallet<
 			RecoveryPalletName,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
+		// Staking removal: clear orphaned storage for staking-related pallets.
+		frame_support::migrations::RemovePallet<
+			StakingPalletStr,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
+		frame_support::migrations::RemovePallet<
+			ElectionProviderMultiPhasePalletStr,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
+		frame_support::migrations::RemovePallet<
+			VoterListPalletStr,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
+		frame_support::migrations::RemovePallet<
+			NominationPoolsPalletStr,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
+		frame_support::migrations::RemovePallet<
+			FastUnstakePalletStr,
 			<Runtime as frame_system::Config>::DbWeight,
 		>,
 		// permanent
