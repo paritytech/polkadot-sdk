@@ -667,6 +667,13 @@ impl<T: Config> Pallet<T> {
 	/// double-counting against the new freeze).
 	fn write_lock(who: &T::AccountId, total_locked_now: BalanceOf<T>) {
 		// Lazily migrate any legacy lock to the freeze model. No-op if absent.
+		//
+		// NOTE: the old lock is removed here and the new freeze is applied below, so for the
+		// remainder of this function neither restriction is in place on `who`'s balance. This is
+		// safe because runtime extrinsics/migrations execute to completion within a single block
+		// with no interleaving, so the gap is never observable. If this is ever reached from a
+		// context where reentrancy is possible (e.g. a runtime API that reads state mid-execution),
+		// the freeze must be set before the lock is removed instead.
 		T::OldCurrency::remove_lock(VESTING_ID, who);
 
 		if total_locked_now.is_zero() {

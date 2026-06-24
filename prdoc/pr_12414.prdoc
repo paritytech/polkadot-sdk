@@ -1,0 +1,45 @@
+title: 'pallet-vesting: migrate from LockableCurrency to fungible freezes'
+doc:
+- audience: Runtime Dev
+  description: |
+    Migrates `pallet-vesting` off the deprecated `Currency`/`LockableCurrency` traits onto the
+    `fungible` trait family. The unvested balance is now held with a `fungible` freeze under
+    `FreezeReason::Vesting`, and transfers/balance reads use the `fungible` traits. Part of
+    #12399 / #226.
+
+    Config changes (breaking):
+    - `Currency: LockableCurrency` is replaced by `Currency: fungible::{Inspect, Mutate,
+      MutateFreeze}` plus a new `RuntimeFreezeReason` and a `FreezeReason::Vesting` hold reason.
+    - `OldCurrency: LockableCurrency` is added, kept solely so the legacy vesting lock can be
+      removed during the lazy migration. It can be removed once all locks have been migrated.
+    - The `UnvestedFundsAllowedWithdrawReasons` config item is removed (see the behavior change
+      below).
+
+    Pre-existing vesting locks are migrated lazily: any account's legacy lock is converted to a
+    freeze the first time it interacts with the pallet (`vest`, `vested_transfer`, etc.), and a
+    permissionless `migrate_to_freeze` extrinsic is provided to convert an account on demand.
+
+    Behavior change - `UnvestedFundsAllowedWithdrawReasons` is removed:
+    The old `LockableCurrency` lock was created with a `WithdrawReasons` bitmask
+    (`WithdrawReasons::except(UnvestedFundsAllowedWithdrawReasons::get())`), which let the
+    operations named in `UnvestedFundsAllowedWithdrawReasons` draw from the still-locked
+    (unvested) balance. `fungible` freezes have no equivalent carve-out concept: a freeze
+    unconditionally prevents the balance from dropping below the frozen amount. Consequently,
+    operations that were previously permitted to spend from the unvested balance via those
+    withdraw-reason exceptions can no longer do so. Runtimes that configured a non-default
+    `UnvestedFundsAllowedWithdrawReasons` should review this change, as it tightens what the
+    unvested balance can be used for. The in-tree runtimes all used the default
+    (`WithdrawReasons::except(TRANSFER | RESERVE)`).
+crates:
+- name: pallet-vesting
+  bump: major
+- name: pallet-vesting-precompiles
+  bump: patch
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: polkadot-runtime-common
+  bump: none
