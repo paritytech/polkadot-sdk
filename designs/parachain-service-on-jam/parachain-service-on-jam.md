@@ -18,6 +18,7 @@
    - 5.1 [What Accumulate Does](#51-what-accumulate-does)
    - 5.2 [Code Upgrade Lifecycle](#52-code-upgrade-lifecycle)
    - 5.3 [Validator-Key Updates](#53-validator-key-updates)
+   - 5.4 [Service Self-Upgrade](#54-service-self-upgrade)
 6. [Parachain Management](#6-parachain-management)
    - 6.1 [State-Balance Accounting](#61-state-balance-accounting)
    - 6.2 [Registration](#62-registration)
@@ -247,6 +248,10 @@ enum AccumulateLog {
     /// JAM `designate` rejected the assembled validator-key set because its
     /// `len` is not in `valcount`. The staging buffer is cleared regardless. See §5.3.
     DesignateRejected { len: u32 },
+    /// `parachain_service_upgrade(code_hash, ...)` was rejected because
+    /// `code_hash`'s preimage is not in the Parachain Service's preimage
+    /// store. See §5.4.
+    ServiceUpgradePreimageMissing { code_hash: Hash },
 }
 
 struct PreimageEntry {
@@ -385,6 +390,8 @@ enum UpwardMessage {
     /// From `consume_transfers_up_to` — prune the consumed prefix of
     /// `incoming_transfers`.
     ConsumeTransfersUpTo(u32),
+    /// From `parachain_service_upgrade`. See §5.4.
+    UpgradeService { code_hash: Hash, min_item_gas: u64, min_memo_gas: u64 },
     /// From `parachain_set_head` — upsert a parachain's head data.
     ParachainSetHead { para_id: ParaId, new_head: HeadData },
     /// From `parachain_set_validation_code` — upsert a parachain's
@@ -493,6 +500,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, mode: QueueUpdateMode, new_assigner: Option<ServiceId>)` | `()` | Update the authorizer queue for a core (Coretime chain only). `mode` determines whether the queue is applied immediately or cached in service state until the current 80-slot queue is exhausted. `new_assigner`, when `Some`, hands off `assigners[core]` to another service so that service can manage its own core queue going forward; when `None`, the current assigner (Parachain Service) is retained. |
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` encodes to more than **10 KiB** or if called more than once per Refine invocation. |
 | `consume_transfers_up_to(index: u32)` | `()` | Mark all incoming transfers up to `index` as consumed. Accumulate prunes processed entries. When the queue is empty, index resets to 0. (Asset Hub only) |
+| `parachain_service_upgrade(code_hash: Hash, min_item_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_item_gas, min_memo_gas)` (Asset Hub only). Accumulate rejects the call with `AccumulateLog::ServiceUpgradePreimageMissing` if the new code's preimage is not in the Parachain Service's preimage store. See §5.4. |
 | `report_error(data: BoundedVec<u8, 1024>)` | `()` | Provide an opaque error payload (max 1024 bytes) before aborting the execution of the PVF. Stored per-parachain by Accumulate (see §3.3). |
 | `parachain_set_head(para_id: ParaId, new_head: HeadData)` | `()` | Upsert a parachain's head data (Coretime chain only). Used for both initial registration and recovery from a stuck chain. See §6. |
 | `parachain_set_validation_code(para_id: ParaId, new_validation_code_hash: ValidationCodeHash)` | `()` | Upsert a parachain's validation code, bypassing the normal upgrade lifecycle (Coretime chain only). Used for both initial registration and forced code replacement. See §6. |
@@ -704,6 +712,39 @@ at genesis. The exact mechanism is TBD.
 
 A worst-case 1023-key rotation takes ~35 Asset Hub work packages (≈ 3.5
 minutes at 6 s timeslots).
+
+### 5.4 Service Self-Upgrade
+
+Authority over Parachain Service code upgrades is held by **Asset Hub**. Asset Hub
+triggers the upgrade via `parachain_service_upgrade` (§4.3), which emits
+`UpwardMessage::UpgradeService` and is rejected by the Refine wrapper
+for any other parachain. Accumulate forwards it to JAM's `upgrade`
+host call after verifying that the new code's preimage is present.
+
+```
+Phase 1: Solicit
+    Asset Hub calls solicit(new_code_hash, len) (§6.1).
+
+Phase 2: Verify Solicit
+    Asset Hub waits for its next block to be built on top of a JAM
+    block whose state reflects the accumulated solicit, then reads
+    its parachain_log via the validation inputs and confirms no
+    AccumulateLog::InsufficientStateBalance for new_code_hash. If
+    insufficient, Asset Hub aborts.
+
+Phase 3: Upgrade
+    Asset Hub calls parachain_service_upgrade(new_code_hash, ...).
+    Accumulate forwards to JAM upgrade if the preimage is present;
+    otherwise it logs AccumulateLog::ServiceUpgradePreimageMissing.
+
+Phase 4: Activate
+    On the next JAM invocation the Parachain Service runs under the
+    new code.
+
+Phase 5: Forget
+    Asset Hub observes the new codehash in Parachain Service state
+    and calls forget(old_code_hash, len) (§6.1).
+```
 
 ---
 
