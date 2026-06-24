@@ -194,6 +194,7 @@ runtime-benchmarks = [
 	"kitchensink-runtime/runtime-benchmarks",
 	"node-inspect?/runtime-benchmarks",
 	"polkadot-sdk/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
 ]
 try-runtime = [
 	"kitchensink-runtime/try-runtime",
