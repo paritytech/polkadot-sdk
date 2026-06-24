@@ -33,9 +33,16 @@
 //! Contracts relying on it can break across upgrades. It is opt-in per runtime
 //! and intended for experimentation, not production use.
 
-use crate::precompiles::{alloy::sol, AddressMatcher, Error, Ext, Precompile};
+use crate::{
+	exec::Origin,
+	precompiles::{alloy::sol, AddressMatcher, Error, Ext, Precompile},
+};
 use alloc::vec::Vec;
+use codec::Decode;
 use core::{marker::PhantomData, num::NonZero};
+use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo};
+use frame_system::RawOrigin;
+use sp_runtime::traits::Dispatchable;
 
 sol! {
 	/// Everything here is unstable; the runtime organization of pallets,
@@ -66,16 +73,43 @@ impl<T: crate::Config> Precompile for UnstableRuntime<T> {
 	fn call(
 		_address: &[u8; 20],
 		input: &Self::Interface,
-		_env: &mut impl Ext<T = Self::T>,
+		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		use IUnstableRuntime::IUnstableRuntimeCalls;
 
 		match input {
 			IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall { encoded_call }) => {
-				let _ = encoded_call;
-				// TODO: implement dispatch (decode RuntimeCall, guards, charge,
-				// dispatch as Signed(caller), adjust weight).
-				Ok(Default::default())
+				// Dispatching mutates state and acts with the contract's origin,
+				// so it is forbidden in a static context or via delegate call.
+				if env.is_read_only() {
+					return Err(crate::Error::<T>::StateChangeDenied.into());
+				}
+				if env.is_delegate_call() {
+					return Err(crate::Error::<T>::PrecompileDelegateDenied.into());
+				}
+
+				// TODO: charge for decoding the (arbitrary length) call bytes.
+				let call = <T as crate::Config>::RuntimeCall::decode(&mut &encoded_call[..])
+					.map_err(|_| Error::Revert("invalid RuntimeCall encoding".into()))?;
+
+				// Dispatch as the calling contract's account. Reject a Root caller
+				// rather than silently dispatching with Root privileges.
+				let origin = match env.caller() {
+					Origin::Signed(account_id) => RawOrigin::Signed(account_id).into(),
+					Origin::Root =>
+						return Err(Error::Revert("root origin cannot dispatch".into())),
+				};
+
+				let info = call.get_dispatch_info();
+				let charged = env.charge(info.call_weight)?;
+				let result = call.dispatch(origin);
+				let actual = extract_actual_weight(&result, &info);
+				env.adjust_gas(charged, actual);
+
+				match result {
+					Ok(_) => Ok(Default::default()),
+					Err(e) => Err(Error::from(e.error)),
+				}
 			},
 			IUnstableRuntimeCalls::storage(IUnstableRuntime::storageCall { key, max_len }) => {
 				let _ = (key, max_len);
