@@ -4902,6 +4902,82 @@ fn precompiles_with_info_creates_contract() {
 }
 
 #[test]
+fn unstable_runtime_dispatch_executes_as_contract() {
+	use crate::precompiles::{unstable_runtime::IUnstableRuntime, Precompile, UnstableRuntime};
+	use alloy_core::sol_types::SolInterface;
+
+	let precompile_addr = H160(UnstableRuntime::<Test>::MATCHER.base_address());
+	let value = 1_000u128;
+
+	// `dispatch(encoded_call)` where the inner call transfers `value` to BOB.
+	let runtime_call =
+		RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { dest: BOB, value });
+	let input = IUnstableRuntime::IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall {
+		encoded_call: runtime_call.encode().into(),
+	})
+	.abi_encode();
+
+	let (code, _code_hash) = compile_module("call_and_returncode").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, account_id } = builder::bare_instantiate(Code::Upload(code))
+			.native_value(10_000)
+			.build_and_unwrap_contract();
+
+		let bob_before = get_balance(&BOB);
+		let contract_before = get_balance(&account_id);
+
+		let result = builder::bare_call(addr)
+			.data((&precompile_addr, 0u64).encode().into_iter().chain(input).collect::<Vec<_>>())
+			.build_and_unwrap_result();
+
+		// The precompile call itself succeeded.
+		assert_eq!(
+			u32::from_le_bytes(result.data[..4].try_into().unwrap()),
+			RuntimeReturnCode::Success as u32,
+		);
+
+		// The transfer executed as the CONTRACT's account (the immediate caller of
+		// the precompile), not as the transaction signer.
+		assert_eq!(get_balance(&BOB) - bob_before, value);
+		assert_eq!(contract_before - get_balance(&account_id), value);
+	});
+}
+
+#[test]
+fn unstable_runtime_storage_read_works() {
+	use crate::precompiles::{unstable_runtime::IUnstableRuntime, Precompile, UnstableRuntime};
+	use alloy_core::sol_types::{sol_data::Bytes, SolInterface, SolType};
+
+	let precompile_addr = H160(UnstableRuntime::<Test>::MATCHER.base_address());
+	let input = IUnstableRuntime::IUnstableRuntimeCalls::storage(IUnstableRuntime::storageCall {
+		key: b"e2e_key".to_vec().into(),
+		max_len: 64,
+	})
+	.abi_encode();
+
+	let (code, _code_hash) = compile_module("call_and_returncode").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		sp_io::storage::set(b"e2e_key", b"e2e_value");
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.native_value(1000)
+			.build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data((&precompile_addr, 0u64).encode().into_iter().chain(input).collect::<Vec<_>>())
+			.build_and_unwrap_result();
+
+		assert_eq!(
+			u32::from_le_bytes(result.data[..4].try_into().unwrap()),
+			RuntimeReturnCode::Success as u32,
+		);
+		let decoded = Bytes::abi_decode(&result.data[4..]).expect("return should abi-decode");
+		assert_eq!(decoded.as_ref(), b"e2e_value");
+	});
+}
+
+#[test]
 fn bump_nonce_once_works() {
 	let (code, hash) = compile_module("dummy").unwrap();
 
