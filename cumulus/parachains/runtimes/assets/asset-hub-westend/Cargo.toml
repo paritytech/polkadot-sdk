@@ -57,6 +57,7 @@ pallet-nft-fractionalization = { workspace = true }
 pallet-nfts = { workspace = true }
 pallet-nfts-runtime-api = { workspace = true }
 pallet-nomination-pools = { workspace = true }
+pallet-nomination-pools-benchmarking = { optional = true, workspace = true }
 pallet-nomination-pools-runtime-api = { workspace = true }
 pallet-parameters = { workspace = true }
 pallet-pgas-allowance = { workspace = true }
@@ -170,6 +171,7 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 [features]
 default = ["std"]
 runtime-benchmarks = [
+	"asset-test-utils/runtime-benchmarks",
 	"assets-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
@@ -209,6 +211,7 @@ runtime-benchmarks = [
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
+	"pallet-nomination-pools-benchmarking/runtime-benchmarks",
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-parameters/runtime-benchmarks",
 	"pallet-pgas-allowance/runtime-benchmarks",
@@ -239,6 +242,7 @@ runtime-benchmarks = [
 	"pallet-xcm-precompiles/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
+	"parachains-runtimes-test-utils/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
@@ -325,6 +329,7 @@ try-runtime = [
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"parachains-common/try-runtime",
+	"parachains-runtimes-test-utils/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"snowbridge-pallet-system-frontend/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
@@ -388,6 +393,7 @@ std = [
 	"pallet-nft-fractionalization/std",
 	"pallet-nfts-runtime-api/std",
 	"pallet-nfts/std",
+	"pallet-nomination-pools-benchmarking/std",
 	"pallet-nomination-pools-runtime-api/std",
 	"pallet-nomination-pools/std",
 	"pallet-parameters/std",
