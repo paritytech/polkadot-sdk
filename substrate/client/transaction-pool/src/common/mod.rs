@@ -35,8 +35,8 @@ pub(crate) const STAT_SLIDING_WINDOW: u64 = 3;
 
 /// Inform the transaction pool about imported and finalized blocks.
 ///
-/// If `all_block_notifications` is `true`, the pool is informed about *every* imported block;
-/// otherwise it is only informed about best blocks.
+/// If `all_block_notifications` is `true`, the pool is informed about every imported block (all
+/// forks); otherwise it is only informed about blocks imported as the new best.
 pub async fn notification_future<Client, Pool, Block>(
 	client: Arc<Client>,
 	txpool: Arc<Pool>,
@@ -46,13 +46,13 @@ pub async fn notification_future<Client, Pool, Block>(
 	Client: sc_client_api::BlockchainEvents<Block>,
 	Pool: sc_transaction_pool_api::MaintainedTransactionPool<Block = Block>,
 {
-	let import_notification_stream = if all_block_notifications {
-		client.every_import_notification_stream()
-	} else {
-		client.import_notification_stream()
-	};
-	let import_stream = import_notification_stream
-		.filter_map(|n| futures::future::ready(n.try_into().ok()))
+	let import_stream = client
+		.import_notification_stream()
+		.filter_map(move |n| {
+			futures::future::ready(
+				(all_block_notifications || n.is_new_best).then(|| n.try_into().ok()).flatten(),
+			)
+		})
 		.fuse();
 	let finality_stream = client.finality_notification_stream().map(Into::into).fuse();
 
