@@ -615,8 +615,6 @@ pub mod env {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
-		// Immutables follow the code: under delegatecall it's the callee's, not the caller's.
-		// Its length isn't known up front, so pre-charge the max and refund to the actual size.
 		let is_delegate = self.ext.is_delegate_call();
 		let charge_len =
 			if is_delegate { limits::IMMUTABLE_BYTES } else { self.ext.immutable_data_len() };
