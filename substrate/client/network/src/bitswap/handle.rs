@@ -223,19 +223,11 @@ pub(crate) enum BitswapCommand {
 	},
 }
 
-/// Peer connect/disconnect events published from the litep2p backend's main loop into the
-/// Bitswap service actor.
+/// Peer connect/disconnect events published into the Bitswap service actor.
 ///
-/// `Snapshot` is delivered exactly once, as the first event after the actor subscribes, so
-/// the actor learns about already-established connections that pre-date its startup. The
-/// actor MUST handle `Snapshot` before treating `connected_peers` as authoritative.
+/// Production wiring uses `Connected` / `Disconnected` events from the sync peer stream.
 #[derive(Debug, Clone)]
 pub enum PeerEvent {
-	/// Initial snapshot of currently-connected peers.
-	Snapshot {
-		/// Already-connected peers at subscription time.
-		peers: Vec<litep2p::PeerId>,
-	},
 	/// A new peer connected.
 	Connected {
 		/// Peer ID.
@@ -248,20 +240,19 @@ pub enum PeerEvent {
 	},
 }
 
-/// Wiring produced by [`crate::bitswap::start`] and consumed by the litep2p network
-/// backend at construction time.
+/// Wiring produced by [`crate::bitswap::start`] and consumed during network construction.
 ///
-/// The backend:
+/// Network construction:
 /// - feeds [`Self::litep2p_config`] into `Litep2pConfigBuilder::with_libp2p_bitswap`,
 /// - stores [`Self::user_handle`] on `Litep2pNetworkService` for the `bitswap_handle()` accessor,
-/// - publishes `PeerEvent`s into [`Self::peer_event_tx`] from its main loop.
+/// - publishes sync-vetted `PeerEvent`s into [`Self::peer_event_tx`].
 pub struct BitswapWiring {
 	/// Litep2p protocol config; consumed by `with_libp2p_bitswap`.
 	pub litep2p_config: litep2p::protocol::libp2p::bitswap::Config,
 	/// Public, cloneable user-facing handle.
 	pub user_handle: BitswapHandle,
-	/// Sender into which the backend's main loop publishes peer events. The actor holds the
-	/// receiver internally.
+	/// Sender into which network construction publishes peer events. The actor holds the receiver
+	/// internally.
 	pub peer_event_tx: mpsc::Sender<PeerEvent>,
 }
 

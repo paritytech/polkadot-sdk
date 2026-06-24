@@ -191,18 +191,6 @@ pub struct Litep2pNetworkBackend {
 
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
-
-	/// Sender for Bitswap peer events. `Some` when `--ipfs-server` is enabled. The main
-	/// loop publishes [`crate::bitswap::PeerEvent::Connected`] /
-	/// [`crate::bitswap::PeerEvent::Disconnected`] into this channel from its
-	/// `ConnectionEstablished` / `ConnectionClosed` arms; the receiver lives inside the
-	/// Bitswap service actor.
-	bitswap_peer_event_tx: Option<tokio::sync::mpsc::Sender<crate::bitswap::PeerEvent>>,
-
-	/// Per-peer connection count, used to dedup Bitswap peer events. Empty when
-	/// `bitswap_peer_event_tx` is `None`. We track this independently of
-	/// [`Self::peers`] because that map is only populated when metrics are enabled.
-	bitswap_peer_conn_count: HashMap<litep2p::PeerId, usize>,
 }
 
 impl Litep2pNetworkBackend {
@@ -519,9 +507,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			);
 
 		let mut bitswap_user_handle: Option<crate::bitswap::BitswapHandle> = None;
-		let mut bitswap_peer_event_tx: Option<
-			tokio::sync::mpsc::Sender<crate::bitswap::PeerEvent>,
-		> = None;
 
 		if let Some(ipfs) = params.ipfs_config {
 			let wiring = ipfs.bitswap_wiring.expect(
@@ -530,7 +515,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			);
 			config_builder = config_builder.with_libp2p_bitswap(wiring.litep2p_config);
 			bitswap_user_handle = Some(wiring.user_handle);
-			bitswap_peer_event_tx = Some(wiring.peer_event_tx);
 
 			if !ipfs.bootnodes.is_empty() {
 				let (ipfs_dht, kad_config) = IpfsDht::new(ipfs.bootnodes, ipfs.block_provider);
@@ -617,8 +601,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			event_streams: out_events::OutChannels::new(None)?,
 			peers: HashMap::new(),
 			litep2p,
-			bitswap_peer_event_tx,
-			bitswap_peer_conn_count: HashMap::new(),
 		})
 	}
 
@@ -1188,14 +1170,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				},
 				event = self.litep2p.next_event() => match event {
 					Some(Litep2pEvent::ConnectionEstablished { peer, endpoint }) => {
-						if let Some(tx) = self.bitswap_peer_event_tx.as_ref() {
-							let count = self.bitswap_peer_conn_count.entry(peer).or_insert(0);
-							*count += 1;
-							if *count == 1 {
-								let _ = tx.try_send(crate::bitswap::PeerEvent::Connected { peer });
-							}
-						}
-
 						let Some(metrics) = &self.metrics else {
 							continue;
 						};
@@ -1230,16 +1204,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 					Some(Litep2pEvent::ConnectionClosed { peer, connection_id }) => {
-						if let Some(tx) = self.bitswap_peer_event_tx.as_ref() {
-							if let Some(count) = self.bitswap_peer_conn_count.get_mut(&peer) {
-								*count = count.saturating_sub(1);
-								if *count == 0 {
-									self.bitswap_peer_conn_count.remove(&peer);
-									let _ = tx.try_send(crate::bitswap::PeerEvent::Disconnected { peer });
-								}
-							}
-						}
-
 						let Some(metrics) = &self.metrics else {
 							continue;
 						};

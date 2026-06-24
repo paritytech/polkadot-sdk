@@ -764,8 +764,8 @@ impl NetworkConfiguration {
 /// IPFS server configuration.
 pub struct IpfsConfig {
 	/// Bitswap wiring produced by [`crate::bitswap::start`]. Carries the litep2p protocol
-	/// config, the user-facing handle, and the peer-event sender. Consumed by the litep2p
-	/// backend at construction. `None` is unsupported when `ipfs_server = true`.
+	/// config, the user-facing handle, and the peer-event sender. `None` is unsupported when
+	/// `ipfs_server = true`.
 	pub bitswap_wiring: Option<crate::bitswap::BitswapWiring>,
 	/// Indexed transactions provider.
 	pub block_provider: Box<dyn crate::IpfsBlockProvider>,

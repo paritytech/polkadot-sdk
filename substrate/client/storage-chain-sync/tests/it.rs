@@ -1133,9 +1133,8 @@ mod mock {
 		let inner = TestInner::recording();
 		let captured = inner.captured.clone();
 
-		let fetcher = IndexedTransactionFetcher::<TestBlock>::new(populated_bitswap_slot(
-			network.clone(),
-		));
+		let fetcher =
+			IndexedTransactionFetcher::<TestBlock>::new(populated_bitswap_slot(network.clone()));
 		let wrapper = StorageChainBlockImport::new(inner, api.clone(), fetcher);
 
 		Harness { wrapper, api, captured, network }
@@ -1156,8 +1155,7 @@ mod mock {
 		let inner = TestInner::recording();
 		let captured = inner.captured.clone();
 
-		let fetcher =
-			IndexedTransactionFetcher::<TestBlock>::new(populated_bitswap_slot(network));
+		let fetcher = IndexedTransactionFetcher::<TestBlock>::new(populated_bitswap_slot(network));
 		let wrapper = StorageChainBlockImport::new(inner, api.clone(), fetcher);
 
 		CaseBHarness { wrapper, api, captured, content_hash }

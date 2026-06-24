@@ -313,9 +313,9 @@ pub(crate) struct BitswapService<B: BlockT> {
 
 /// Build, wire and return the Bitswap service.
 ///
-/// The returned future MUST be spawned on the runtime; the [`BitswapWiring`] MUST be passed
-/// to the litep2p network backend at construction (it carries the litep2p protocol config
-/// and the user-facing handle).
+/// The returned future MUST be spawned on the runtime; the [`BitswapWiring`] carries the
+/// litep2p protocol config, user-facing handle, and peer-event sender needed during network
+/// construction.
 pub fn start<B: BlockT>(
 	client: Arc<dyn BlockBackend<B> + Send + Sync>,
 	config: BitswapServiceConfig,
@@ -378,7 +378,6 @@ impl<B: BlockT> BitswapService<B> {
 				},
 
 				peer_ev = self.peer_event_rx.recv() => match peer_ev {
-					Some(PeerEvent::Snapshot { peers }) => self.on_peer_snapshot(peers).await,
 					Some(PeerEvent::Connected { peer }) => self.on_peer_connected(peer).await,
 					Some(PeerEvent::Disconnected { peer }) => self.on_peer_disconnected(peer).await,
 					None => {
@@ -548,19 +547,6 @@ impl<B: BlockT> BitswapService<B> {
 			"waiter {id:?} expired; emitted Missing for {} CIDs",
 			remaining.len(),
 		);
-	}
-
-	async fn on_peer_snapshot(&mut self, peers: Vec<litep2p::PeerId>) {
-		self.connected_peers = peers.into_iter().collect();
-		log::debug!(
-			target: LOG_TARGET,
-			"snapshot: {} connected peers at startup",
-			self.connected_peers.len(),
-		);
-		let cids = self.wants.all_cids();
-		for cid in cids {
-			self.top_up_in_flight(cid).await;
-		}
 	}
 
 	async fn on_peer_connected(&mut self, peer: litep2p::PeerId) {

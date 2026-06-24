@@ -47,11 +47,11 @@ use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{
-	config::FullNetworkConfiguration, NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId,
+	bitswap::BitswapRequest, config::FullNetworkConfiguration, NetworkBackend, NetworkBlock,
+	NetworkStateInfo, PeerId,
 };
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_statement_store::Store;
-use sc_network::bitswap::BitswapRequest;
 use sc_storage_chain_sync::{
 	BitswapHandleSlot, IndexedTransactionFetcher, StorageChainBlockImport,
 };
