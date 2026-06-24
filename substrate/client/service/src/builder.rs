@@ -64,7 +64,7 @@ use sc_network_sync::{
 		SyncingStrategy,
 	},
 	warp_request_handler::RequestHandler as WarpSyncRequestHandler,
-	SyncingService, WarpSyncConfig,
+	SyncEvent, SyncEventStream, SyncingService, WarpSyncConfig,
 };
 use sc_rpc::{
 	author::AuthorApiServer,
@@ -1170,6 +1170,37 @@ where
 	pub blocks_pruning: BlocksPruning,
 }
 
+fn spawn_bitswap_sync_peer_events<Block: BlockT + 'static>(
+	spawn_handle: &SpawnTaskHandle,
+	sync_service: Arc<SyncingService<Block>>,
+	bitswap_peer_event_tx: tokio::sync::mpsc::Sender<sc_network::bitswap::PeerEvent>,
+) {
+	let mut sync_event_stream = sync_service.event_stream("bitswap-sync-peers");
+	spawn_handle.spawn("bitswap-sync-peer-events", Some("networking"), async move {
+		while let Some(event) = sync_event_stream.next().await {
+			let peer_event = match event {
+				SyncEvent::PeerConnected(peer) => {
+					sc_network::bitswap::PeerEvent::Connected { peer: peer.into() }
+				},
+				SyncEvent::PeerDisconnected(peer) => {
+					sc_network::bitswap::PeerEvent::Disconnected { peer: peer.into() }
+				},
+			};
+
+			match bitswap_peer_event_tx.try_send(peer_event) {
+				Ok(()) => {},
+				Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+					log::warn!(
+						target: "sub-libp2p::bitswap",
+						"dropping sync peer event because BitswapService is backlogged",
+					);
+				},
+				Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => break,
+			}
+		}
+	});
+}
+
 /// Build the network service, the network status sinks and an RPC sender, this is a lower-level
 /// version of [`build_network`] for those needing more control.
 pub fn build_network_advanced<Block, Net, TxPool, IQ, Client>(
@@ -1218,6 +1249,7 @@ where
 	} = params;
 
 	let genesis_hash = client.info().genesis_hash;
+	let sync_service = Arc::new(sync_service);
 
 	let light_client_request_protocol_config = {
 		// Allow both outgoing and incoming requests.
@@ -1249,6 +1281,11 @@ where
 			sc_network::bitswap::BitswapServiceConfig::default(),
 		);
 		spawn_handle.spawn("bitswap-service", Some("networking"), handler);
+		spawn_bitswap_sync_peer_events(
+			&spawn_handle,
+			sync_service.clone(),
+			bitswap_wiring.peer_event_tx.clone(),
+		);
 
 		let ipfs_num_blocks = match blocks_pruning {
 			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => IPFS_MAX_BLOCKS,
@@ -1278,8 +1315,6 @@ where
 	// Start task for `PeerStore`
 	let peer_store = net_config.take_peer_store();
 	spawn_handle.spawn("peer-store", Some("networking"), peer_store.run());
-
-	let sync_service = Arc::new(sync_service);
 
 	let network_params = sc_network::config::Params::<Block, <Block as BlockT>::Hash, Net> {
 		role,

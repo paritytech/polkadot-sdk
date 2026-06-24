@@ -23,16 +23,14 @@
 //! itself. This fetcher's only jobs are:
 //!
 //! 1. building the per-want CIDs from the runtime-declared [`RenewWant`]s,
-//! 2. chunking by [`sc_network::bitswap::MAX_CIDS_PER_REQUEST`] and submitting all
-//!    chunks concurrently,
+//! 2. chunking by [`sc_network::bitswap::MAX_CIDS_PER_REQUEST`] and submitting all chunks
+//!    concurrently,
 //! 3. draining the per-chunk streams into a `HashMap<ContentHash, Vec<u8>>`.
 
 use crate::RenewWant;
 use cid::{multihash::Multihash, Cid};
 use futures::{future, stream::FuturesUnordered, StreamExt};
-use sc_network::bitswap::{
-	BitswapError, BitswapRequest, FetchOutcome, MAX_CIDS_PER_REQUEST,
-};
+use sc_network::bitswap::{BitswapError, BitswapRequest, FetchOutcome, MAX_CIDS_PER_REQUEST};
 use sp_runtime::traits::Block as BlockT;
 use sp_transaction_storage_proof::ContentHash;
 use std::{
@@ -116,15 +114,12 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 			cids.push(cid);
 		}
 
-		let chunks: Vec<Vec<Cid>> = cids
-			.chunks(MAX_CIDS_PER_REQUEST)
-			.map(<[Cid]>::to_vec)
-			.collect();
+		let chunks: Vec<Vec<Cid>> =
+			cids.chunks(MAX_CIDS_PER_REQUEST).map(<[Cid]>::to_vec).collect();
 
-		let receivers = future::try_join_all(
-			chunks.into_iter().map(|chunk| handle.request_stream(chunk)),
-		)
-		.await?;
+		let receivers =
+			future::try_join_all(chunks.into_iter().map(|chunk| handle.request_stream(chunk)))
+				.await?;
 
 		let mut acquired: HashMap<ContentHash, Vec<u8>> = HashMap::with_capacity(wants.len());
 		let mut streams: FuturesUnordered<_> = receivers
