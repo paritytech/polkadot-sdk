@@ -77,7 +77,7 @@ use std::{
 	time::Instant,
 };
 use tokio::time::timeout;
-use v2dht::V2DhtOrchestrator;
+use v2dht::{V2DhtMetrics, V2DhtOrchestrator};
 pub mod config;
 #[cfg(test)]
 mod test_helpers;
@@ -418,6 +418,11 @@ impl StatementHandlerPrototype {
 
 		let metrics =
 			if let Some(r) = metrics_registry { Some(Metrics::register(r)?) } else { None };
+		let v2dht_metrics = if let (true, Some(r)) = (v2dht_enabled(), metrics_registry) {
+			Some(V2DhtMetrics::register(r)?)
+		} else {
+			None
+		};
 
 		for _ in 0..num_submission_workers {
 			let store = statement_store.clone();
@@ -470,6 +475,7 @@ impl StatementHandlerPrototype {
 			network.local_peer_id(),
 			PeersTopologyConfig::default(),
 			self.protocol_name.clone(),
+			v2dht_metrics,
 		);
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
@@ -759,6 +765,7 @@ where
 			local_peer,
 			PeersTopologyConfig::default(),
 			protocol_name.clone(),
+			None,
 		);
 		Self {
 			protocol_name,
@@ -2266,6 +2273,7 @@ mod tests {
 				network.local_peer_id(),
 				PeersTopologyConfig::default(),
 				"/statement/test".into(),
+				None,
 			),
 		};
 		(handler, statement_store, network, notification_service, queue_receiver, peer_ids)
@@ -2599,6 +2607,7 @@ mod tests {
 				network.local_peer_id(),
 				PeersTopologyConfig::default(),
 				"/statement/test".into(),
+				None,
 			),
 		};
 		(handler, statement_store, network, notification_service)
@@ -2651,6 +2660,7 @@ mod tests {
 				network.local_peer_id(),
 				PeersTopologyConfig::default(),
 				"/statement/test".into(),
+				None,
 			),
 		};
 		(handler, statement_store, network, notification_service)
@@ -4077,6 +4087,7 @@ mod tests {
 				network.local_peer_id(),
 				PeersTopologyConfig::default(),
 				"/statement/test".into(),
+				None,
 			),
 		};
 
@@ -4441,6 +4452,7 @@ mod tests {
 				network.local_peer_id(),
 				PeersTopologyConfig::default(),
 				"/statement/test".into(),
+				None,
 			),
 		};
 
@@ -4515,6 +4527,7 @@ mod tests {
 				network.local_peer_id(),
 				PeersTopologyConfig::default(),
 				"/statement/test".into(),
+				None,
 			),
 		};
 
@@ -4601,6 +4614,7 @@ mod tests {
 				network.local_peer_id(),
 				PeersTopologyConfig::default(),
 				"/statement/test".into(),
+				None,
 			),
 		};
 
@@ -4711,6 +4725,7 @@ mod tests {
 						local_peer,
 						PeersTopologyConfig::default(),
 						"/statement/test".into(),
+						None,
 					),
 				}
 			};
