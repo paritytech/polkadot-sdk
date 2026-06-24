@@ -166,13 +166,6 @@ const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::fr
 /// Delay before re-adding a peer to the reserved set after a forced disconnect for sync recovery.
 const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from_secs(60);
 
-/// Feature-flag to switch between the legacy flood path and the new DHT-targeted path.
-///
-/// Hard-coded for now.
-const fn v2dht_enabled() -> bool {
-	false
-}
-
 struct Metrics {
 	propagated_statements: Counter<U64>,
 	known_statements_received: Counter<U64>,
@@ -391,6 +384,9 @@ impl StatementHandlerPrototype {
 		mut num_submission_workers: usize,
 		statements_per_second: u32,
 		configured_topics: &[Topic],
+		v2dht_enabled: bool,
+		replication_factor: std::num::NonZeroUsize,
+		gossip_target: std::num::NonZeroUsize,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
 		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
@@ -452,7 +448,7 @@ impl StatementHandlerPrototype {
 			);
 		}
 
-		let network_event_stream = if v2dht_enabled() {
+		let network_event_stream = if v2dht_enabled {
 			network
 				.event_stream("statement-handler-network")
 				.filter(|event| {
@@ -468,7 +464,7 @@ impl StatementHandlerPrototype {
 		let v2dht = V2DhtOrchestrator::new(
 			configured_topics,
 			network.local_peer_id(),
-			PeersTopologyConfig::default(),
+			PeersTopologyConfig { replication_factor, gossip_target },
 			self.protocol_name.clone(),
 		);
 		let handler = StatementHandler {
@@ -499,6 +495,7 @@ impl StatementHandlerPrototype {
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
 			v2dht,
+			v2dht_enabled,
 		};
 
 		Ok(handler)
@@ -557,8 +554,11 @@ pub struct StatementHandler<
 	sync_recovery_peer: Option<PeerId>,
 	/// Fires when the `sync_recovery_peer` re-add delay has elapsed
 	sync_recovery_readd_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
-	/// Only invoked when [`v2dht_enabled`] returns `true`.
+	/// Orchestrates the v2 DHT-affinity path. Only driven when `v2dht_enabled` is `true`.
 	v2dht: V2DhtOrchestrator,
+	/// Selects the v2 DHT-affinity path. Off by default; opt in via
+	/// `--enable-statement-store-v2-dht`.
+	v2dht_enabled: bool,
 }
 
 /// Per-peer rate limiter using a token bucket algorithm.
@@ -786,6 +786,7 @@ where
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
 			v2dht,
+			v2dht_enabled: false,
 		}
 	}
 
@@ -843,7 +844,7 @@ where
 					}
 				}
 				_ = &mut self.initial_sync_timeout => {
-					if v2dht_enabled() {
+					if self.v2dht_enabled {
 						self.v2dht.on_initial_sync().await;
 					}
 					self.process_initial_sync_burst().await;
@@ -851,7 +852,7 @@ where
 						Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse());
 				},
 				_ = &mut self.pending_affinities_timeout => {
-					if v2dht_enabled() {
+					if self.v2dht_enabled {
 						// Advertise this node's filter changes before serving peers their backlog.
 						let topics = self.statement_store.subscription_topics();
 						self.v2dht.set_rpc_subscription_topics(&topics);
@@ -882,7 +883,7 @@ where
 			}
 
 			if !self.sync.is_major_syncing() {
-				if v2dht_enabled() {
+				if self.v2dht_enabled {
 					self.v2dht.on_major_sync_end();
 				} else {
 					self.drain_deferred_peers();
@@ -894,8 +895,8 @@ where
 
 	/// Handle a network topology event.
 	///
-	/// The network event stream is `pending()` unless `v2dht_enabled()`, so this runs only on the
-	/// v2 DHT path.
+	/// The network event stream is `pending()` unless `v2dht_enabled` is set, so this runs only on
+	/// the v2 DHT path.
 	fn handle_network_event(&mut self, event: Event) {
 		match event {
 			Event::PeerRoutingTableUpdate(peers) => self.v2dht.on_peers_discovered(peers),
@@ -1093,7 +1094,7 @@ where
 	fn handle_sync_event(&mut self, event: SyncEvent) {
 		match event {
 			SyncEvent::PeerConnected(remote) => {
-				if v2dht_enabled() {
+				if self.v2dht_enabled {
 					self.v2dht.on_peer_connected(remote);
 				}
 				if self.sync.is_major_syncing() {
@@ -1115,7 +1116,7 @@ where
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
-				if v2dht_enabled() {
+				if self.v2dht_enabled {
 					self.v2dht.on_peer_disconnected(remote);
 				}
 				if self.deferred_peers.remove(&remote) {
@@ -1135,7 +1136,7 @@ where
 	async fn handle_notification_event(&mut self, event: NotificationEvent) {
 		match event {
 			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
-				if v2dht_enabled() {
+				if self.v2dht_enabled {
 					self.v2dht.on_validate_inbound_substream(peer)
 				}
 				// Only accept peers whose role can be determined
@@ -1198,7 +1199,7 @@ where
 					}
 				});
 
-				if v2dht_enabled() {
+				if self.v2dht_enabled {
 					if !is_light {
 						// TODO: Do we need to pass light nodes to the Orchestrator?
 						self.v2dht.on_substream_opened(peer);
@@ -1213,7 +1214,7 @@ where
 				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
-				if v2dht_enabled() {
+				if self.v2dht_enabled {
 					self.v2dht.on_substream_closed(peer);
 				}
 				let removed_peer = self.peers.remove(&peer);
@@ -1279,7 +1280,7 @@ where
 									self.on_statements(peer, statements);
 								},
 								StatementMessage::ExplicitTopicAffinity(filter) => {
-									if v2dht_enabled() {
+									if self.v2dht_enabled {
 										self.v2dht.on_peer_filter_update(peer, filter);
 									} else if let Some(peer_data) = self.peers.get_mut(&peer) {
 										if peer_data.rate_limiter.is_flooding(1) {
@@ -1382,7 +1383,7 @@ where
 
 				match self.pending_statements_peers.entry(hash) {
 					Entry::Vacant(entry) => {
-						let mask = if v2dht_enabled() {
+						let mask = if self.v2dht_enabled {
 							self.v2dht.retention_reasons_for(&s)
 						} else {
 							RetentionReasonMask::persistent()
@@ -1427,7 +1428,7 @@ where
 	}
 
 	fn on_handle_statement_import(&mut self, who: PeerId, import: &SubmitResult) {
-		if v2dht_enabled() {
+		if self.v2dht_enabled {
 			self.v2dht.on_statement_imported(who, import);
 		}
 		match import {
@@ -1571,7 +1572,7 @@ where
 			return;
 		}
 
-		if v2dht_enabled() {
+		if self.v2dht_enabled {
 			for (who, indices) in self.v2dht.propagation_plan(&statements) {
 				self.send_targeted_statements_to_peer(&who, &statements, &indices).await;
 			}
@@ -2261,6 +2262,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+			v2dht_enabled: false,
 			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
@@ -2594,6 +2596,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+			v2dht_enabled: false,
 			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
@@ -2646,6 +2649,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+			v2dht_enabled: false,
 			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
@@ -4072,6 +4076,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+			v2dht_enabled: false,
 			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
@@ -4436,6 +4441,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
+			v2dht_enabled: false,
 			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
@@ -4510,6 +4516,7 @@ mod tests {
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
+			v2dht_enabled: false,
 			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
@@ -4596,6 +4603,7 @@ mod tests {
 			dropped_statements_during_sync: true,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+			v2dht_enabled: false,
 			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
@@ -4706,6 +4714,7 @@ mod tests {
 					dropped_statements_during_sync: dropped,
 					sync_recovery_peer: None,
 					sync_recovery_readd_timeout: Box::pin(pending().fuse()),
+					v2dht_enabled: false,
 					v2dht: V2DhtOrchestrator::new(
 						&[],
 						local_peer,

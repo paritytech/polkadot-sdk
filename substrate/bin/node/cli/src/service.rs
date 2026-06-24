@@ -451,6 +451,9 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let statement_network_workers = statement_store_config.network_workers;
 	let statement_rate_limit = statement_store_config.rate_limit;
 	let statement_affinity_topics = statement_store_config.affinity_topics.clone();
+	let statement_v2dht_enabled = statement_store_config.v2dht_enabled;
+	let statement_replication_factor = statement_store_config.replication_factor;
+	let statement_gossip_target = statement_store_config.gossip_target;
 
 	let sc_service::PartialComponents {
 		client,
@@ -807,6 +810,9 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		statement_network_workers,
 		statement_rate_limit,
 		&statement_affinity_topics,
+		statement_v2dht_enabled,
+		statement_replication_factor,
+		statement_gossip_target,
 	)?;
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",
@@ -859,6 +865,9 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 		network_workers: cli.statement_network_workers,
 		rate_limit: cli.statement_rate_limit,
 		affinity_topics: cli.statement_affinity_topics.clone(),
+		v2dht_enabled: cli.statement_enable_v2_dht,
+		replication_factor: cli.statement_replication_factor,
+		gossip_target: cli.statement_gossip_target,
 	};
 
 	let task_manager = match config.network.network_backend {
