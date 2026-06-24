@@ -635,25 +635,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		log::trace!(target: LOG_TARGET, "Inserting receipts for block #{block_number} ethereum: {ethereum_hash:?} substrate: {substrate_block_hash:?}");
 
-		// Check if mapping already exists (eg. added when processing best block and we are now
-		// processing finalized block)
-		let result = sqlx::query!(
-			r#"SELECT EXISTS(SELECT 1 FROM eth_to_substrate_blocks WHERE substrate_block_hash = $1) AS "exists!:bool""#, substrate_hash_ref
-		)
-		.fetch_one(&self.db_ctx.pool)
-		.await?;
-
-		// Assuming that if no mapping exists then no relevant entries in transaction_hashes and
-		// logs exist
-		if result.exists {
-			log::trace!(target: LOG_TARGET,
-				"Skipping receipt insert for block #{block_number} ({substrate_block_hash:?}): \
-				 mapping already exists. ETH hash: {ethereum_hash:?}, receipts count: {count}",
-				count = receipts.len(),
-			);
-			return Ok(());
-		}
-
+		// A block may be re-indexed (best block, then finalized), and a later pass can carry more
+		// receipts than an earlier, partial one. The inserts below are `INSERT OR REPLACE` keyed on
+		// the block, so re-running is idempotent yet still backfills receipts an earlier pass
+		// missed.
 		let mut db_tx = self.db_ctx.pool.begin().await?;
 
 		for chunk in receipts.chunks(self.db_ctx.tx_insert_chunk_size) {
@@ -1815,6 +1800,80 @@ mod tests {
 		Ok(())
 	}
 
+	/// Re-indexing a block with a more complete set of receipts must not lose receipts that were
+	/// missing from an earlier partial index of the same block. Here a block is first indexed with
+	/// only some of its receipts, then re-indexed with the full set; every receipt must end up
+	/// queryable.
+	#[sqlx::test]
+	async fn reindexing_backfills_receipts_missing_from_a_partial_index(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
+		let block = MockBlockInfo { hash: H256::from([0xB1; 32]), number: 100 };
+		let ethereum_hash = H256::from([0xE7; 32]);
+
+		// The two transactions in the mixed block.
+		let evm_tx_hash = H256::from([0xE5; 32]); // eth_transact at extrinsic index 2
+		let asset_tx_hash = H256::from([0xA5; 32]); // synthetic assets.transfer at index 3
+
+		let evm_receipt = (
+			TransactionSigned::default(),
+			ReceiptInfo {
+				transaction_hash: evm_tx_hash,
+				transaction_index: U256::from(2),
+				logs: vec![Log {
+					block_hash: block.hash,
+					transaction_hash: evm_tx_hash,
+					..Default::default()
+				}],
+				..Default::default()
+			},
+		);
+		let asset_receipt = (
+			TransactionSigned::default(),
+			ReceiptInfo {
+				transaction_hash: asset_tx_hash,
+				transaction_index: U256::from(3),
+				logs: vec![Log {
+					block_hash: block.hash,
+					transaction_hash: asset_tx_hash,
+					..Default::default()
+				}],
+				..Default::default()
+			},
+		);
+
+		// Round 1 — transient `get_block_extrinsics` failure: `build_receipts` swallows the error
+		// and yields ONLY the synthetic asset receipt. The indexer persists this partial set.
+		provider.insert(&block, &[asset_receipt.clone()], &ethereum_hash).await?;
+		assert_eq!(
+			provider.find_transaction(&asset_tx_hash).await,
+			Some((block.hash, 3)),
+			"asset transfer should be indexed",
+		);
+		assert_eq!(
+			provider.find_transaction(&evm_tx_hash).await,
+			None,
+			"EVM tx is not in the partial set yet",
+		);
+
+		// Round 2 — the transient failure has cleared; the indexer re-processes the same block and
+		// now `build_receipts` returns the COMPLETE set `[evm, asset]`.
+		provider.insert(&block, &[evm_receipt, asset_receipt], &ethereum_hash).await?;
+
+		// The EVM transaction must be queryable after the retry. It is NOT: the `result.exists`
+		// guard short-circuited round 2 because the block mapping was already written in round 1,
+		// so the EVM receipt is permanently lost. This assertion fails on the current code.
+		assert_eq!(
+			provider.find_transaction(&evm_tx_hash).await,
+			Some((block.hash, 2)),
+			"EVM receipt permanently lost: partial round-1 insert committed the block mapping, \
+			 and the insert_into_db EXISTS guard skipped the complete round-2 re-index",
+		);
+
+		Ok(())
+	}
+
 	#[sqlx::test]
 	async fn test_insert_empty_receipts(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
@@ -1828,12 +1887,13 @@ mod tests {
 		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", None).await, 0);
 		assert_eq!(count(&provider.db_ctx.pool, "logs", None).await, 0);
 
-		// Second insert for the same block is a no-op, even with receipts.
+		// Re-indexing the same block with receipts backfills them (an empty/partial first index
+		// must not permanently suppress later receipts); the block mapping stays unique.
 		let receipts = make_receipts(0, 3, 2);
 		provider.insert(&block, &receipts, &ethereum_hash).await?;
 		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 1);
-		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", None).await, 0);
-		assert_eq!(count(&provider.db_ctx.pool, "logs", None).await, 0);
+		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", None).await, 3);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", None).await, 6);
 
 		Ok(())
 	}
