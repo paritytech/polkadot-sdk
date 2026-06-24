@@ -2222,9 +2222,9 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(0, 5039))
 			// Standard Error: 19_434
 			.saturating_add(Weight::from_parts(10_486_986, 0).saturating_mul(l.into()))
-			.saturating_add(T::DbWeight::get().reads(8))
-			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(l.into())))
-			.saturating_add(T::DbWeight::get().writes(5))
+			.saturating_add(RocksDbWeight::get().reads(8))
+			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(l.into())))
+			.saturating_add(RocksDbWeight::get().writes(5))
 			.saturating_add(Weight::from_parts(0, 2564).saturating_mul(l.into()))
 	}
 }
