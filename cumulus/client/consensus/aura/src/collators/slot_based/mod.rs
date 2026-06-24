@@ -222,10 +222,12 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	register_proof_size_recording_cleanup(para_client.clone());
 	register_resubmission_cleanup::<Block, _>(para_client.clone());
 
-	// Install the relay client used to fill resubmission entries for *imported* blocks.
-	// The relay client only exists now, so this is a late-bound install into the handle created by
-	// `SlotBasedBlockImport`.
-	block_import_handle.install_relay_data_source(Arc::new(relay_client.clone()), para_id);
+	let resubmission_backfill_fut = resubmission::run_resubmission_backfill(
+		block_import_handle,
+		relay_client.clone(),
+		para_client.clone(),
+		para_id,
+	);
 
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
 	let collator_task_params = collation_task::Params {
@@ -235,7 +237,6 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		reinitialize,
 		collator_service: collator_service.clone(),
 		collator_receiver: rx,
-		block_import_handle,
 		export_pov,
 	};
 
@@ -271,6 +272,11 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		"slot-based-collation",
 		Some("slot-based-collator"),
 		collation_task_fut.boxed(),
+	);
+	spawner.spawn_essential_blocking(
+		"slot-based-resubmission-backfill",
+		Some("slot-based-collator"),
+		resubmission_backfill_fut.boxed(),
 	);
 }
 
