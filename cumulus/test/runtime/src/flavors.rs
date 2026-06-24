@@ -40,12 +40,11 @@ macro_rules! define_flavors {
 		define_flavor!(elastic_scaling_12s_slot, $($capabilities)*);
 		define_flavor!(block_bundling, $($capabilities)*);
 		define_flavor!(sync_backing, $($capabilities)*);
-		define_flavor!(async_backing, $($capabilities)*);
-		define_flavor!(async_backing_v3, $($capabilities)*);
-		define_flavor!(async_backing_v3_rpo_2, $($capabilities)*);
-		define_flavor!(async_backing_v3_rpo_4, $($capabilities)*);
-		define_flavor!(async_backing_v3_rpo_6, $($capabilities)*);
-		define_flavor!(async_backing_v3_rpo_15, $($capabilities)*);
+		define_flavor!(v3, $($capabilities)*);
+		define_flavor!(v3_rpo_2, $($capabilities)*);
+		define_flavor!(v3_rpo_4, $($capabilities)*);
+		define_flavor!(v3_rpo_6, $($capabilities)*);
+		define_flavor!(v3_rpo_15, $($capabilities)*);
 		define_flavor!(elastic_scaling_v3, $($capabilities)*);
 		define_flavor!(slot_duration_18s, $($capabilities)*);
 		define_flavor!(with_authority_discovery, $($capabilities)*);

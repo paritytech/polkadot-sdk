@@ -81,17 +81,17 @@ async fn fetch_pvd_header<Block: BlockT>(
 }
 
 /// Fetch the included block from the relay chain.
-pub async fn fetch_included_from_pvd<B: BlockT>(
+pub async fn fetch_included_from_relay_chain<B: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	backend: &impl Backend<B>,
 	at: RelayHash,
 	para_id: ParaId,
 ) -> Result<Option<(B::Header, B::Hash)>, RelayChainError> {
-	use OccupiedCoreAssumption::TimedOut;
 	// Fetch the pending header from the relay chain. We use `OccupiedCoreAssumption::TimedOut`
 	// so that even if there is a pending candidate, we assume it is timed out, and we get the
 	// included head.
-	let Some(included_header) = fetch_pvd_header::<B>(relay_client, at, para_id, TimedOut).await?
+	let Some(included_header) =
+		fetch_pvd_header::<B>(relay_client, at, para_id, OccupiedCoreAssumption::TimedOut).await?
 	else {
 		return Ok(None);
 	};
@@ -223,20 +223,24 @@ pub async fn find_parent_for_building<Block: BlockT>(
 
 	// Get the included block.
 	let Some((included_header, included_hash)) =
-		fetch_included_from_pvd(relay_client, backend, relay_parent, para_id).await?
+		fetch_included_from_relay_chain(relay_client, backend, relay_parent, para_id).await?
 	else {
 		return Ok(None);
 	};
 
 	// Fetch the pending block if one exists.
 	let maybe_pending = 'fetch_pending: {
-		use OccupiedCoreAssumption::Included;
 		// Fetch the most recent pending header from the relay chain. We use
 		// `OccupiedCoreAssumption::Included` so the candidate pending availability gets enacted
 		// before being returned to us.
-		let maybe_header = fetch_pvd_header::<Block>(relay_client, relay_parent, para_id, Included)
-			.await?
-			.filter(|pvd_header| pvd_header.hash() != included_hash);
+		let maybe_header = fetch_pvd_header::<Block>(
+			relay_client,
+			relay_parent,
+			para_id,
+			OccupiedCoreAssumption::Included,
+		)
+		.await?
+		.filter(|pvd_header| pvd_header.hash() != included_hash);
 		let Some(header) = maybe_header else {
 			break 'fetch_pending None;
 		};

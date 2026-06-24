@@ -26,11 +26,6 @@ fn main() {
 	// A runtime with 6s slot duration which only authors one block per slot.
 	WasmBuilder::init_with_defaults().build();
 
-	// A runtime with 6s slot duration which only authors one block per slot.
-	WasmBuilder::init_with_defaults()
-		.set_file_name(async_backing::WASM_FILE_NAME)
-		.build();
-
 	WasmBuilder::init_with_defaults()
 		.enable_feature("spec-version-3")
 		.set_file_name(spec_version_incremented::WASM_FILE_NAME)
@@ -77,31 +72,31 @@ fn main() {
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("v3-descriptor")
-		.set_file_name(async_backing_v3::WASM_FILE_NAME)
+		.set_file_name(v3::WASM_FILE_NAME)
 		.build();
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("v3-descriptor")
 		.enable_feature("relay-parent-offset-2")
-		.set_file_name(async_backing_v3_rpo_2::WASM_FILE_NAME)
+		.set_file_name(v3_rpo_2::WASM_FILE_NAME)
 		.build();
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("v3-descriptor")
 		.enable_feature("relay-parent-offset-4")
-		.set_file_name(async_backing_v3_rpo_4::WASM_FILE_NAME)
+		.set_file_name(v3_rpo_4::WASM_FILE_NAME)
 		.build();
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("v3-descriptor")
 		.enable_feature("relay-parent-offset-6")
-		.set_file_name(async_backing_v3_rpo_6::WASM_FILE_NAME)
+		.set_file_name(v3_rpo_6::WASM_FILE_NAME)
 		.build();
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("v3-descriptor")
 		.enable_feature("relay-parent-offset-15")
-		.set_file_name(async_backing_v3_rpo_15::WASM_FILE_NAME)
+		.set_file_name(v3_rpo_15::WASM_FILE_NAME)
 		.build();
 
 	WasmBuilder::init_with_defaults()
@@ -120,7 +115,6 @@ fn main() {
 	WasmBuilder::new()
 		.with_current_project()
 		.enable_feature("with-authority-discovery")
-		.enable_feature("spec-version-4")
 		.enable_feature("relay-parent-offset-2")
 		.set_file_name(with_authority_discovery::WASM_FILE_NAME)
 		.build();
