@@ -1601,73 +1601,83 @@ fn no_ancestry_search_during_major_sync() {
 
 /// Regression test for <https://github.com/paritytech/polkadot-sdk/issues/12364>.
 ///
-/// Reproduces a real production stall observed on `summit-people-rpc-node-2` on 2026-06-12:
-/// after a backward reorg the node's `best_queued_hash` is left pointing at a block that the
-/// client has pruned, while the canonical block at the same height has a *different* hash. The
-/// node never asks any peer for that canonical block, so sync silently stops forever (0 bps).
+/// Reproduces the production stall observed on `summit-people-rpc-node-2` on 2026-06-12.
 ///
-/// The mechanism (verified against the production logs, see `logs/rpc2-reorg-timeline.txt`):
+/// ```text
+///                                     ┌── #10 H_A_10 ── #11 H_A_11    Branch A (downloaded first)
+///                                     │
+///   genesis ── … ── #9 (common) ──────┤
+///                                     │
+///                                     └── #10 H_B_10 ── #11 H_B_11 ── #12 H_B_12  Branch B (canonical)
+///                                           ^^^^^^^^^
+///                                           finalized by the relay
+/// ```
 ///
-/// 1. The node downloads Branch A and ends up with `best_queued_number = N+1`,
-///    `best_queued_hash = H_A_{N+1}`. `on_block_queued` drove every peer's
-///    `common_number` up to `N+1` (chain_sync.rs:1762-1778).
-/// 2. Branch B blocks arrive as non-best announcements and the client imports them.
-/// 3. The relay-chain finalizes Branch B at height `N+1` (different hash, `H_B_{N+1}`),
-///    which pulls the client's best+finalized backward and prunes `H_A_{N+1}`.
-/// 4. `on_block_finalized` is a no-op for the download layer (chain_sync.rs:899-921),
-///    so `best_queued_hash` stays stuck on the pruned `H_A_{N+1}` and every peer's
-///    `common_number` stays at `N+1` (monotonic-up only, chain_sync.rs:322-334).
-/// 5. The block-request floor is `first_different = common + 1 = N+2` (blocks.rs:125),
-///    so canonical `H_B_{N+1}` at height `N+1` sits *below* the floor and is never
-///    requested. `fork_sync_request` also won't ask for it because the block is "known"
-///    to the client (it imported it already).
-/// 6. With no error in the import path, `restart()` / `reset_sync_start_point` is never
-///    called, so `best_queued_hash` never reconciles with the client's real best.
-///
-/// This test recreates step 1-5 and asserts the divergence between `best_queued_hash`
-/// and the client's real best hash, plus the fact that no peer is asked for the canonical
-/// chain. It currently fails — the fix should make it pass.
+/// 1. The node downloads Branch A to `H_A_11`. ChainSync records `best_queued = (11, H_A_11)`
+///    and `on_block_queued` drives every peer's `common_number` to 11 (chain_sync.rs:1762-1778).
+/// 2. Branch B's #10 and #11 arrive as non-best (the `🆕` imports in the production logs); the
+///    client keeps them as a side fork. `best_queued` is monotonic-up, so it stays on Branch A.
+/// 3. The relay finalizes `H_B_10` — *below* `best_queued_number`. The client reorgs the
+///    canonical chain onto Branch B and prunes Branch A; `H_A_11` becomes `InChainPruned`.
+///    `on_block_finalized` is a no-op for the download layer (chain_sync.rs:899-921), so
+///    `best_queued_hash` stays at the now-pruned `H_A_11`.
+/// 4. The network keeps producing on Branch B; a peer announces `H_B_12`. The node should
+///    request it but doesn't — every peer's `common_number` is stuck at 11 and the request
+///    floor is `common + 1 = 12 = peer.best_number`, which leaves no range to ask for.
+///    `fork_sync_request` also won't ask because `H_B_12` was never registered as a fork
+///    target. Result: 0 bps forever, until the node restarts.
 #[test]
 fn stuck_on_pruned_best_queued_after_backward_reorg_to_different_fork() {
 	sp_tracing::try_init_simple();
 
-	// === Build two forks that diverge at N=10 and both end at N+1=11 ===
-	//
-	//                          ┌── #11 H_A  (Branch A — what ChainSync downloads first)
-	//                          │
-	//   genesis ── … ── #10 ───┤
-	//                          │
-	//                          └── #11 H_B  (Branch B — finalized by the relay)
-	//
-	// `fork = false` for A, `fork = true` for B → distinct storage root → distinct hashes
-	// at the same height.
-	const COMMON_BLOCKS: usize = 10;
-	let (common_blocks, branch_a_tip, branch_b_tip) = {
-		let client = TestClientBuilder::new().build();
-		let common = (0..COMMON_BLOCKS)
-			.map(|_| build_block(&client, None, false))
-			.collect::<Vec<_>>();
-		let fork_parent = common.last().unwrap().hash();
+	const COMMON_BLOCKS: usize = 9;
 
-		// Branch A tip at height #11 (no fork-marker change).
-		let a_tip = build_block(&client, Some(fork_parent), false);
-
-		// To produce a *different* block at the same height from the same parent, we have
-		// to start from a fresh client (the existing one already has #11 H_A imported).
-		// Rebuild the common chain on a second client, then build the Branch B tip there.
-		let client_b = TestClientBuilder::new().build();
-		for b in &common {
-			block_on(client_b.import(BlockOrigin::Own, b.clone())).unwrap();
+	// Two scratch clients to fabricate the two competing forks. Each branch is built and
+	// imported into its own scratch client so the runtime API can construct the next
+	// block's environment from the parent's header. These clients are throwaway — only
+	// the resulting `Block` values are used in the actual test below.
+	let build_branch = |children: &[(Vec<u8>, u64)]| {
+		let scratch = TestClientBuilder::new().build();
+		for _ in 0..COMMON_BLOCKS {
+			build_block(&scratch, None, false);
 		}
-		let b_tip = build_block(&client_b, Some(fork_parent), true);
-
-		assert_eq!(*a_tip.header().number(), (COMMON_BLOCKS as u64) + 1);
-		assert_eq!(*b_tip.header().number(), (COMMON_BLOCKS as u64) + 1);
-		assert_ne!(a_tip.hash(), b_tip.hash(), "Branches must diverge at the tip");
-		(common, a_tip, b_tip)
+		children
+			.iter()
+			.map(|(marker, _)| {
+				let mut bb = BlockBuilderBuilder::new(&scratch)
+					.on_parent_block(scratch.info().best_hash)
+					.fetch_parent_block_number(&scratch)
+					.unwrap()
+					.build()
+					.unwrap();
+				bb.push_storage_change(marker.clone(), Some(vec![1])).unwrap();
+				let block = bb.build().unwrap().block;
+				block_on(scratch.import(BlockOrigin::Own, block.clone())).unwrap();
+				block
+			})
+			.collect::<Vec<_>>()
 	};
 
-	// === Set up the node-under-test's client and ChainSync ===
+	// Same genesis-derived #1..#9 on every client (deterministic given a fresh
+	// `TestClientBuilder`), so the two branches actually share #9 as common ancestor.
+	let common_blocks = {
+		let scratch = TestClientBuilder::new().build();
+		(0..COMMON_BLOCKS).map(|_| build_block(&scratch, None, false)).collect::<Vec<_>>()
+	};
+	let branch_a = build_branch(&[(vec![0xA0], 10), (vec![0xA1], 11)]);
+	let branch_b = build_branch(&[(vec![0xB0], 10), (vec![0xB1], 11), (vec![0xB2], 12)]);
+	let (a10, a11) = (branch_a[0].clone(), branch_a[1].clone());
+	let (b10, b11, b12) = (branch_b[0].clone(), branch_b[1].clone(), branch_b[2].clone());
+
+	assert_eq!(common_blocks.last().unwrap().hash(), a10.header().parent_hash().clone());
+	assert_eq!(common_blocks.last().unwrap().hash(), b10.header().parent_hash().clone());
+
+	assert_eq!(*a11.header().number(), 11);
+	assert_eq!(*b11.header().number(), 11);
+	assert_eq!(*b12.header().number(), 12);
+	assert_ne!(a10.hash(), b10.hash());
+	assert_ne!(a11.hash(), b11.hash());
+
 	let client = Arc::new(TestClientBuilder::new().build());
 
 	let mut sync = ChainSync::new(
@@ -1683,29 +1693,27 @@ fn stuck_on_pruned_best_queued_after_backward_reorg_to_different_fork() {
 	)
 	.unwrap();
 
-	// === Step 1: peer1 (on Branch A's tip #11 H_A) downloads the full chain.
-	// We start at genesis (best_queued = 0) so add_peer skips ancestor search and we
-	// just download #1..#11 from peer1.
+	// Step 1: peer1 (on Branch A tip) feeds the node the whole chain through Branch A.
 	let peer_id1 = PeerId::random();
 	let peer_id2 = PeerId::random();
-	sync.add_peer(peer_id1, branch_a_tip.hash(), *branch_a_tip.header().number());
+	sync.add_peer(peer_id1, a11.hash(), *a11.header().number());
+
+	let mut branch_a_chain = common_blocks.clone();
+	branch_a_chain.push(a10.clone());
+	branch_a_chain.push(a11.clone());
 
 	let req = get_block_request(
 		&mut sync,
-		FromBlock::Hash(branch_a_tip.hash()),
-		(COMMON_BLOCKS + 1) as u32,
+		FromBlock::Hash(a11.hash()),
+		branch_a_chain.len() as u32,
 		&peer_id1,
 	);
-	let mut branch_a_chain: Vec<_> = common_blocks.clone();
-	branch_a_chain.push(branch_a_tip.clone());
 	let mut resp_blocks = branch_a_chain.clone();
 	resp_blocks.reverse();
-	let response = create_block_response(resp_blocks);
 	let _ = sync.take_actions();
-	sync.on_block_data(&peer_id1, Some(req), response).unwrap();
+	sync.on_block_data(&peer_id1, Some(req), create_block_response(resp_blocks)).unwrap();
 	let _ = sync.take_actions();
 
-	// Import the whole Branch A into the client so the client agrees that H_A is best.
 	for b in &branch_a_chain {
 		block_on(client.import(BlockOrigin::Own, b.clone())).unwrap();
 	}
@@ -1728,90 +1736,94 @@ fn stuck_on_pruned_best_queued_after_backward_reorg_to_different_fork() {
 	);
 	let _ = sync.take_actions();
 
-	// ChainSync's view: best_queued = #11 / H_A. Client's view: best = #11 / H_A.
-	assert_eq!(sync.best_queued_number, 11, "best_queued must have advanced to #11");
-	assert_eq!(sync.best_queued_hash, branch_a_tip.hash(), "best_queued_hash must be H_A");
-	assert_eq!(client.info().best_hash, branch_a_tip.hash());
+	assert_eq!(sync.best_queued_number, 11);
+	assert_eq!(sync.best_queued_hash, a11.hash());
+	assert_eq!(client.info().best_hash, a11.hash());
 	assert_eq!(sync.peers.get(&peer_id1).unwrap().common_number, 11);
 
-	// Peer 2 joins on canonical Branch B. It will (re-)announce H_B later.
-	sync.add_peer(peer_id2, branch_b_tip.hash(), *branch_b_tip.header().number());
-	let _ = sync.take_actions();
+	// Step 2: Branch B's #10 and #11 arrive (in production these are `🆕` non-best
+	// announcements from other peers). We import them with the default `LongestChain`
+	// fork-choice; since Branch B is the same length as Branch A here, they stay non-best
+	// and ChainSync is never notified.
+	block_on(client.import(BlockOrigin::Own, b10.clone())).unwrap();
+	block_on(client.import(BlockOrigin::Own, b11.clone())).unwrap();
+	assert_eq!(
+		client.info().best_hash,
+		a11.hash(),
+		"Branch A must still be best — Branch B blocks are side-fork imports",
+	);
 
-	// === Step 3: now reality diverges from ChainSync's view.
-	//
-	// In production this is what happens: the relay-chain finalizes Branch B at #11. The
-	// client adopts Branch B (different hash at the same height) and prunes Branch A's
-	// #11 H_A. We simulate this by importing Branch B's tip *as final* — `import_as_final`
-	// makes it both the client's best AND finalized.
-	//
-	// Note we never imported Branch A into the *real* client. After this step:
-	//   client.info().best_hash      = H_B (Branch B tip)
-	//   client.info().finalized_hash = H_B
-	//   ChainSync.best_queued_hash   = H_A   ← still pointing at a hash the client does NOT have
-	block_on(client.import_as_final(BlockOrigin::Own, branch_b_tip.clone())).unwrap();
+	// Step 3: relay-chain finalizes Branch B's #10 — BELOW best_queued_number = 11.
+	// This reorgs the canonical chain onto Branch B and prunes Branch A's #10 and #11.
+	let just = (*b"TEST", Vec::new());
+	client.finalize_block(b10.hash(), Some(just)).unwrap();
 
 	let info_after = client.info();
-	assert_eq!(info_after.best_hash, branch_b_tip.hash());
-	assert_eq!(info_after.finalized_hash, branch_b_tip.hash());
-	assert_eq!(info_after.best_number, 11);
-	assert_eq!(info_after.finalized_number, 11);
+	assert_eq!(info_after.finalized_hash, b10.hash());
+	assert_eq!(info_after.finalized_number, 10);
+	assert_eq!(
+		info_after.best_hash,
+		b10.hash(),
+		"finalization onto a fork resets `best` to the finalized block itself \
+		 (sc-client `apply_finality_with_block_hash` mark_head, client.rs:929-937)",
+	);
+	assert_eq!(info_after.best_number, 10);
+	assert!(matches!(
+		client.block_status(a11.hash()).unwrap(),
+		BlockStatus::InChainPruned,
+	));
 
-	// Notify ChainSync of the finalization — exactly what the client does in production.
-	sync.on_block_finalized(&branch_b_tip.hash(), 11);
+	sync.on_block_finalized(&b10.hash(), 10);
 
-	// === Step 4: peer2 (on canonical Branch B) re-announces the canonical tip H_B.
-	// In production this happens continually. The announcement must NOT trigger ancestry
-	// search because the import queue / target makes the node still classed major-syncing,
-	// and even if it did, the block is "known" to the client by now so the major-sync
-	// guards on chain_sync.rs:549 / :587 keep it from being routed to fork_targets.
-	send_block_announce(branch_b_tip.header().clone(), peer_id2, &mut sync);
+	// Step 4: peer2 (on Branch B) is now ahead at #12 and announces it. In production this
+	// is analogous to canonical `0x1963…322a` at #375748 — the block the stuck node never
+	// asks for.
+	sync.add_peer(peer_id2, b12.hash(), *b12.header().number());
+	send_block_announce(b12.header().clone(), peer_id2, &mut sync);
 	let _ = sync.take_actions();
 
-	// === The bug: ChainSync is now stuck. Document it with three independent observations.
-
-	// --- Observation A: best_queued_hash is stale and references a pruned block, while
-	// the canonical block at the same height has a different hash.
+	// --- Observation A: best_queued_hash still points at the pruned Branch A tip.
 	assert_eq!(sync.best_queued_number, 11);
 	assert_eq!(
 		sync.best_queued_hash,
-		branch_a_tip.hash(),
-		"BUG: best_queued_hash is still H_A even though the client moved to H_B",
+		a11.hash(),
+		"BUG: best_queued_hash is still H_A_11 even though the client reorg'd to Branch B",
 	);
-	let bq_in_client = client.block_status(sync.best_queued_hash).unwrap();
 	assert!(
-		matches!(bq_in_client, BlockStatus::InChainPruned),
-		"BUG: best_queued_hash {:?} should be pruned by the reorg (got status={:?})",
-		sync.best_queued_hash,
-		bq_in_client,
+		matches!(
+			client.block_status(sync.best_queued_hash).unwrap(),
+			BlockStatus::InChainPruned,
+		),
+		"BUG: best_queued_hash is pruned by the reorg",
 	);
 
-	// --- Observation B: ChainSync's view of "best queued" diverges from the client's real best.
+	// --- Observation B: ChainSync disagrees with the client about the canonical #11.
 	assert_ne!(
 		sync.best_queued_hash,
 		client.info().best_hash,
-		"BUG: best_queued_hash diverged from client.info().best_hash — \
-		 ChainSync no longer agrees with the client about the canonical chain at #11",
+		"BUG: best_queued_hash diverged from client.info().best_hash",
 	);
 
-	// --- Observation C: the recovery paths are dead. No peer is asked for canonical H_B,
-	// and `fork_targets` is empty so `fork_sync_request` won't ask either.
+	// --- Observation C: peer2 has #12 H_B_12, the client doesn't, no one is asking for it.
+	assert_eq!(
+		client.block_status(b12.hash()).unwrap(),
+		BlockStatus::Unknown,
+		"sanity: the node really doesn't have #12 H_B_12 yet",
+	);
 	assert!(
 		sync.fork_targets.is_empty(),
-		"BUG: fork_targets is empty — the canonical block H_B was never registered as a fork \
-		 target, so the only path that would request it by hash is dead",
+		"BUG: fork_targets is empty — H_B_12 was not registered as a fork target",
 	);
-
 	let requests = sync.block_requests();
-	let canonical_requested = requests
-		.iter()
-		.any(|(_, r)| matches!(r.from, FromBlock::Hash(h) if h == branch_b_tip.hash()));
+	let requested = requests.iter().any(|(_, r)| match r.from {
+		FromBlock::Hash(h) => h == b12.hash(),
+		FromBlock::Number(n) => n >= 12,
+	});
 	assert!(
-		canonical_requested,
-		"BUG: no peer is being asked for the canonical block H_B={:?} at height #11. \
-		 block_requests()={:?}. ChainSync is stuck — the node will report 0 bps forever \
-		 (issue #12364).",
-		branch_b_tip.hash(),
+		requested,
+		"BUG: no peer is being asked for #12 H_B_12={:?}. block_requests()={:?}. \
+		 ChainSync is stuck — the node will report 0 bps forever (issue #12364).",
+		b12.hash(),
 		requests,
 	);
 }
