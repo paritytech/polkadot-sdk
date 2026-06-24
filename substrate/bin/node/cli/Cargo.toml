@@ -146,7 +146,7 @@ polkadot-sdk = { features = [
 	"tracing-gum",
 ], workspace = true, default-features = true }
 
-sc-service = { workspace = true, features = [ "rocksdb" ] }
+sc-service = { workspace = true, features = ["rocksdb"] }
 
 # Shared code between the staging node and kitchensink runtime:
 kitchensink-runtime = { workspace = true }
