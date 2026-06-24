@@ -18,16 +18,16 @@
 //! [`UnstableRuntime`] precompile implementation.
 //!
 //! Provides low-level access to runtime functionality from within a contract:
-//! - [`IUnstableRuntime::dispatch`]: dispatch an arbitrary SCALE-encoded `RuntimeCall` as the
-//!   calling contract's account (a `Signed` origin).
-//! - [`IUnstableRuntime::storage`]: read the raw bytes of any runtime storage item by its full
-//!   storage key.
+//! - [`IUnstableRuntime::dispatch`]: dispatch an arbitrary SCALE-encoded
+//!   `RuntimeCall` as the calling contract's account (a `Signed` origin).
+//! - [`IUnstableRuntime::storage`]: read the raw bytes of any runtime storage
+//!   item by its full storage key.
 //!
 //! # Warning
 //!
 //! This interface is **unstable**:
-//! - The runtime organization of pallets, indices, and storage keys might change between runtime
-//!   upgrades.
+//! - The runtime organization of pallets, indices, and storage keys might change
+//!   between runtime upgrades.
 //! - The encoding format might change between runtime upgrades.
 //!
 //! Contracts relying on it can break across upgrades. It is opt-in per runtime
@@ -35,7 +35,8 @@
 
 use crate::{
 	exec::Origin,
-	precompiles::{AddressMatcher, Error, Ext, Precompile, alloy::sol},
+	limits,
+	precompiles::{alloy::sol, AddressMatcher, Error, Ext, Precompile},
 	vm::RuntimeCosts,
 	weights::WeightInfo,
 };
@@ -44,7 +45,7 @@ use alloy_core::sol_types::SolValue;
 use codec::Decode;
 use core::{marker::PhantomData, num::NonZero};
 use frame_support::{
-	dispatch::{GetDispatchInfo, extract_actual_weight},
+	dispatch::{extract_actual_weight, GetDispatchInfo},
 	traits::{Contains, Everything},
 };
 use frame_system::RawOrigin;
@@ -127,9 +128,8 @@ where
 				// rather than silently dispatching with Root privileges.
 				let origin = match env.caller() {
 					Origin::Signed(account_id) => RawOrigin::Signed(account_id).into(),
-					Origin::Root => {
-						return Err(Error::Revert("root origin cannot dispatch".into()));
-					},
+					Origin::Root =>
+						return Err(Error::Revert("root origin cannot dispatch".into())),
 				};
 
 				let info = call.get_dispatch_info();
@@ -143,42 +143,46 @@ where
 					Err(e) => Err(Error::from(e.error)),
 				}
 			},
-			IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall {
-				key,
-				max_len,
-			}) => {
+			IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall { key, max_len }) => {
 				let max_len = *max_len;
 
-				// Charge the benchmarked read weight for the caller-declared bound
-				// up front. proof_size is proportional to the value bytes that may
-				// enter the PoV, so we bill `max_len`, then adjust down to the
-				// actual length once it is known.
-				let charged = env.charge(
-					<T as crate::Config>::WeightInfo::unstable_runtime_get_storage(max_len),
-				)?;
+				// Bound the declared read length. This caps the return size and,
+				// together with the upfront charge below, gates the `max_len`-sized
+				// allocation against the gas budget.
+				if max_len > limits::CALLDATA_BYTES {
+					return Err(Error::Revert("max_len too large".into()));
+				}
 
-				// Read against the main trie (including the in-block overlay). The
-				// returned length is the value's full length; if it exceeds the
-				// declared bound we revert rather than return a truncated value.
+				let weight =
+					|len: u32| <T as crate::Config>::WeightInfo::unstable_runtime_get_storage(len);
+
+				// Charge the benchmarked read weight for the caller-declared bound
+				// up front. This also gates the `max_len`-sized allocation: an
+				// oversized `max_len` runs out of gas here, before we allocate.
+				let charged = env.charge(weight(max_len))?;
+
+				// Read against the main trie (including the in-block overlay).
 				let mut buf = alloc::vec![0u8; max_len as usize];
-				let value = match sp_io::storage::read(key.as_ref(), &mut buf, 0) {
-					None => Vec::new(),
-					Some(len) if len > max_len => {
-						return Err(Error::Revert("value exceeds max_len".into()));
+				let len = match sp_io::storage::read(key.as_ref(), &mut buf, 0) {
+					None => {
+						env.adjust_gas(charged, weight(0));
+						return Ok(Vec::<u8>::new().abi_encode());
 					},
-					Some(len) => {
-						buf.truncate(len as usize);
-						buf
-					},
+					Some(len) => len,
 				};
 
-				env.adjust_gas(
-					charged,
-					<T as crate::Config>::WeightInfo::unstable_runtime_get_storage(
-						value.len() as u32
-					),
-				);
-				Ok(value.abi_encode())
+				// The whole value entered the PoV regardless of `max_len`, so the
+				// proof must be charged for its actual length on every path —
+				// including the revert below — otherwise an oversized value could be
+				// read into the proof for the price of a tiny `max_len`.
+				if len > max_len {
+					env.charge(weight(len).saturating_sub(weight(max_len)))?;
+					return Err(Error::Revert("value exceeds max_len".into()));
+				}
+
+				buf.truncate(len as usize);
+				env.adjust_gas(charged, weight(len));
+				Ok(buf.abi_encode())
 			},
 		}
 	}
@@ -190,11 +194,12 @@ mod tests {
 	use crate::{
 		call_builder::CallSetup,
 		precompiles::{
+			alloy::sol_types::{sol_data::Bytes, SolType},
 			Error, Ext, Precompile,
-			alloy::sol_types::{SolType, sol_data::Bytes},
 		},
 		test_utils::BOB,
 		tests::{ExtBuilder, RuntimeCall, Test},
+		weights::WeightInfo,
 	};
 	use codec::Encode;
 	use frame_support::traits::fungible::Inspect;
@@ -285,9 +290,13 @@ mod tests {
 			let call = RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() });
 			let input = dispatch_input(call);
 
-			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result =
+				<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
-			assert_eq!(result.unwrap_err(), Error::from(crate::Error::<Test>::StateChangeDenied),);
+			assert_eq!(
+				result.unwrap_err(),
+				Error::from(crate::Error::<Test>::StateChangeDenied),
+			);
 		});
 	}
 
@@ -301,7 +310,8 @@ mod tests {
 			let call = RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() });
 			let input = dispatch_input(call);
 
-			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result =
+				<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
 			assert_eq!(
 				result.unwrap_err(),
@@ -316,14 +326,17 @@ mod tests {
 			let mut call_setup = CallSetup::<Test>::default();
 			let (mut ext, _) = call_setup.ext();
 
-			let input =
-				IUnstableRuntime::IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall {
-					encoded_call: vec![0xff, 0xff, 0xff].into(),
-				});
+			let input = IUnstableRuntime::IUnstableRuntimeCalls::dispatch(
+				IUnstableRuntime::dispatchCall { encoded_call: vec![0xff, 0xff, 0xff].into() },
+			);
 
-			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result =
+				<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
-			assert_eq!(result.unwrap_err(), Error::Revert("invalid RuntimeCall encoding".into()),);
+			assert_eq!(
+				result.unwrap_err(),
+				Error::Revert("invalid RuntimeCall encoding".into()),
+			);
 		});
 	}
 
@@ -342,7 +355,8 @@ mod tests {
 				let input = IUnstableRuntime::IUnstableRuntimeCalls::dispatch(
 					IUnstableRuntime::dispatchCall { encoded_call: vec![0xff; len].into() },
 				);
-				let _ = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+				let _ =
+					<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 				(ext.frame_meter().weight_consumed() - before).ref_time()
 			})
 		};
@@ -397,7 +411,8 @@ mod tests {
 
 			// Declared bound is smaller than the actual value length.
 			let input = storage_input(b"big_key", 16);
-			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result =
+				<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
 			assert_eq!(result.unwrap_err(), Error::Revert("value exceeds max_len".into()));
 		});
@@ -416,7 +431,8 @@ mod tests {
 				let (mut ext, _) = call_setup.ext();
 				let before = ext.frame_meter().weight_consumed();
 				let input = storage_input(b"some_key", value_len as u32);
-				let _ = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+				let _ =
+					<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 				(ext.frame_meter().weight_consumed() - before).proof_size()
 			})
 		};
@@ -427,5 +443,52 @@ mod tests {
 			large > small,
 			"a larger value must charge more proof_size (small={small}, large={large})",
 		);
+	}
+
+	#[test]
+	fn storage_reverts_when_max_len_too_large() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let input = storage_input(b"k", crate::limits::CALLDATA_BYTES + 1);
+			let result =
+				<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+
+			assert_eq!(result.unwrap_err(), Error::Revert("max_len too large".into()));
+		});
+	}
+
+	#[test]
+	fn storage_charges_for_actual_proof_on_revert() {
+		ExtBuilder::default().build().execute_with(|| {
+			// A value much larger than the declared `max_len`. The whole value
+			// enters the PoV when read, so even though we revert, proof_size must
+			// be charged for the actual length — not the small `max_len`.
+			let value_len = 400usize;
+			sp_io::storage::set(b"big_value", &alloc::vec![0u8; value_len]);
+
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let before = ext.frame_meter().weight_consumed();
+			let input = storage_input(b"big_value", 16);
+			let result =
+				<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let consumed = ext.frame_meter().weight_consumed() - before;
+
+			assert_eq!(result.unwrap_err(), Error::Revert("value exceeds max_len".into()));
+
+			let expected = <Test as crate::Config>::WeightInfo::unstable_runtime_get_storage(
+				value_len as u32,
+			)
+			.proof_size();
+			assert!(
+				consumed.proof_size() >= expected,
+				"revert must charge proof_size for the actual value length \
+				 (consumed={}, expected>={expected})",
+				consumed.proof_size(),
+			);
+		});
 	}
 }
