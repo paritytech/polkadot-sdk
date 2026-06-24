@@ -444,11 +444,14 @@ impl Config for Test {
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type ChainId = ChainId;
 	type FindAuthor = Test;
+	#[cfg(feature = "unstable-precompiles")]
 	type Precompiles = (
 		precompiles::WithInfo<Self>,
 		precompiles::NoInfo<Self>,
 		crate::precompiles::UnstableRuntime<Self>,
 	);
+	#[cfg(not(feature = "unstable-precompiles"))]
+	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 	type Deposit =
 		PGasDeposit<Test, Assets, AssetsHolder, AssetsFreezer, PGasAssetId, PGasRefundPercent>;

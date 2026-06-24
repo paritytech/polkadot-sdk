@@ -94,6 +94,11 @@ sp-tracing = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
+# Enables the unstable `UnstableRuntime` precompile (arbitrary runtime call
+# dispatch + raw storage reads). Off by default; must be opted into explicitly
+# and must never be enabled for a production runtime. The interface is unstable
+# and may change or break across runtime upgrades.
+unstable-precompiles = []
 std = [
 	"alloy-consensus/serde",
 	"alloy-consensus/std",

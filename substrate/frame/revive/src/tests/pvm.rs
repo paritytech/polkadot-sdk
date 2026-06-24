@@ -4901,6 +4901,7 @@ fn precompiles_with_info_creates_contract() {
 	}
 }
 
+#[cfg(feature = "unstable-precompiles")]
 #[test]
 fn unstable_runtime_dispatch_executes_as_contract() {
 	use crate::precompiles::{unstable_runtime::IUnstableRuntime, Precompile, UnstableRuntime};
@@ -4944,6 +4945,7 @@ fn unstable_runtime_dispatch_executes_as_contract() {
 	});
 }
 
+#[cfg(feature = "unstable-precompiles")]
 #[test]
 fn unstable_runtime_storage_read_works() {
 	use crate::precompiles::{unstable_runtime::IUnstableRuntime, Precompile, UnstableRuntime};
