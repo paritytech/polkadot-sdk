@@ -945,11 +945,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 		match instr {
 			WithdrawAsset(assets) => {
-				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 				self.ensure_can_subsume_assets(assets.len())?;
-				let mut total_surplus = Weight::zero();
-				let mut withdrawn = AssetsInHolding::new();
 				Config::TransactionalProcessor::process(|| {
+					let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
+					let mut total_surplus = Weight::zero();
+					let mut withdrawn = AssetsInHolding::new();
 					// Take `assets` from the origin account (on-chain)...
 					for asset in assets.inner() {
 						let (credit, surplus) = Config::AssetTransactor::withdraw_asset_with_surplus(
@@ -961,9 +961,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						// If we have some surplus, aggregate it.
 						total_surplus.saturating_accrue(surplus);
 					}
-					Ok(())
-				})
-				.and_then(|_| {
 					// ...and place into holding.
 					self.holding.subsume_assets(withdrawn);
 					// Credit the total surplus.
