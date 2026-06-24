@@ -36,6 +36,7 @@
 use crate::{
 	exec::Origin,
 	precompiles::{alloy::sol, AddressMatcher, Error, Ext, Precompile},
+	vm::RuntimeCosts,
 };
 use alloc::vec::Vec;
 use codec::Decode;
@@ -88,7 +89,11 @@ impl<T: crate::Config> Precompile for UnstableRuntime<T> {
 					return Err(crate::Error::<T>::PrecompileDelegateDenied.into());
 				}
 
-				// TODO: charge for decoding the (arbitrary length) call bytes.
+				// Charge for decoding the (arbitrary length) call bytes up front,
+				// so oversized input is metered even when it fails to decode.
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::PrecompileDecode(
+					encoded_call.len() as u32,
+				))?;
 				let call = <T as crate::Config>::RuntimeCall::decode(&mut &encoded_call[..])
 					.map_err(|_| Error::Revert("invalid RuntimeCall encoding".into()))?;
 
@@ -128,7 +133,7 @@ mod tests {
 		call_builder::CallSetup,
 		precompiles::{
 			alloy::sol_types::{sol_data::Bytes, SolType},
-			Error, Precompile,
+			Error, Ext, Precompile,
 		},
 		test_utils::BOB,
 		tests::{ExtBuilder, RuntimeCall, Test},
@@ -238,6 +243,35 @@ mod tests {
 				Error::Revert("invalid RuntimeCall encoding".into()),
 			);
 		});
+	}
+
+	#[test]
+	fn dispatch_charges_for_decoding_call_bytes() {
+		// Measure the weight consumed when dispatching `len` bytes of (invalid)
+		// call data. Invalid input reverts at decode time, so no dispatch
+		// `call_weight` is charged and any difference is solely the decode cost —
+		// which must be metered before the decode is attempted. Each measurement
+		// runs in its own externalities to avoid duplicate-contract setup.
+		let measure = |len: usize| {
+			ExtBuilder::default().build().execute_with(|| {
+				let mut call_setup = CallSetup::<Test>::default();
+				let (mut ext, _) = call_setup.ext();
+				let before = ext.frame_meter().weight_consumed();
+				let input = IUnstableRuntime::IUnstableRuntimeCalls::dispatch(
+					IUnstableRuntime::dispatchCall { encoded_call: vec![0xff; len].into() },
+				);
+				let _ =
+					<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+				(ext.frame_meter().weight_consumed() - before).ref_time()
+			})
+		};
+
+		let small = measure(8);
+		let large = measure(8_192);
+		assert!(
+			large > small,
+			"decoding a larger call must charge more weight (small={small}, large={large})",
+		);
 	}
 
 	#[test]
