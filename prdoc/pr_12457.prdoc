@@ -1,0 +1,81 @@
+title: '[pallet-revive] Add unstable runtime precompile (call dispatch + raw storage
+  reads)'
+doc:
+- audience: Todo
+  description: "# Description\n\nAdds a new, **opt-in and feature-gated** precompile\
+    \ to `pallet-revive`,\n`UnstableRuntime`, that gives contracts two low-level primitives\
+    \ against the host\nruntime:\n\n- **`dispatch(bytes encodedCall)`** \u2014 decode\
+    \ an arbitrary SCALE-encoded\n  `RuntimeCall` and dispatch it **as the calling\
+    \ contract's account** (a `Signed`\n  origin).\n- **`getStorage(bytes key, uint32\
+    \ maxLen) \u2192 bytes`** \u2014 read the raw bytes of any\n  runtime storage\
+    \ item by its full key.\n\nDispatching narrow, typed runtime calls from a contract\
+    \ already exists (XCM,\nvesting, assets precompiles), but **generic `RuntimeCall`\
+    \ dispatch** and **reading\narbitrary runtime storage** are new. Together they\
+    \ let builders prototype a wide\nrange of contract\u2194runtime integrations without\
+    \ a bespoke precompile per pallet.\n\nThe interface is intentionally **unstable**:\
+    \ pallet indices, call encodings, and\nstorage key layouts can change across runtime\
+    \ upgrades, so contracts relying on it\ncan break. For that reason it is gated\
+    \ behind the `unstable-precompiles` cargo\nfeature (off by default) **and** must\
+    \ be explicitly added to a runtime's\n`Config::Precompiles`. It must never be\
+    \ enabled on a production runtime as-is.\n\nPrior art: @kianenigma's exploratory\
+    \ branch `kiz-unstable-runtime-precompiles`.\n\n## Integration\n\nThis crate (`pallet-revive`)\
+    \ gains a new, default-off cargo feature\n`unstable-precompiles`. No existing\
+    \ runtime behaviour changes unless a runtime\nopts in by **both** enabling the\
+    \ feature and adding the precompile to its\nprecompile set:\n\n```diff\n type\
+    \ Precompiles = (\n     // ...existing precompiles...\n+    pallet_revive::precompiles::UnstableRuntime<Self>,\n\
+    \ );\n```\n\n`UnstableRuntime<T, Filter = Everything>` takes an optional second\
+    \ type parameter\nimplementing `Contains<RuntimeCall>` to restrict which calls\
+    \ may be dispatched\n(defaults to allowing everything):\n\n```rust\n// Allow everything\
+    \ (default):\nUnstableRuntime<Runtime>\n// Restrict the dispatch surface:\nUnstableRuntime<Runtime,\
+    \ MyCallFilter>\n```\n\nDownstream projects that do not enable the feature are\
+    \ unaffected.\n\n## Review Notes\n\nImplemented test-first (TDD); see the tests\
+    \ for the behavioural spec.\n\n**Precompile** (`substrate/frame/revive/src/precompiles/unstable_runtime.rs`):\n\
+    - External, opt-in `Precompile` (matcher `Fixed(0x0903)`, resolving to\n  `0x00\u2026\
+    09030000`). Not a builtin, so it is never present unless a runtime opts in.\n\
+    - `dispatch`:\n  - reverts in a static (read-only) context (`StateChangeDenied`)\
+    \ and via\n    delegatecall (`PrecompileDelegateDenied`);\n  - charges `RuntimeCosts::PrecompileDecode(len)`\
+    \ before decoding the\n    attacker-controlled call bytes (DoS guard);\n  - applies\
+    \ the configurable `Filter` (`Contains<RuntimeCall>`) and reverts\n    disallowed\
+    \ calls;\n  - charges a fixed `WeightInfo::unstable_runtime_dispatch()` wrapper\
+    \ overhead;\n  - dispatches as `Signed(caller)` \u2014 rejecting a `Root` caller\
+    \ \u2014 and reconciles\n    the dispatched call's weight via `extract_actual_weight`\
+    \ / `adjust_gas`.\n- `getStorage`:\n  - caps `max_len` at `limits::CALLDATA_BYTES`\
+    \ (return-size / allocation bound);\n  - charges the benchmarked `WeightInfo::unstable_runtime_get_storage(max_len)`\
+    \ up\n    front (this also gates the `max_len`-sized buffer allocation against\
+    \ the gas\n    budget), reads the main trie (incl. in-block overlay) via `sp_io::storage::read`,\n\
+    \    then reconciles the charge to the **actual** value length;\n  - because a\
+    \ trie read pulls the whole value node into the PoV regardless of\n    `max_len`,\
+    \ proof_size is charged for the actual length on **every** path \u2014\n    including\
+    \ the revert when the value exceeds `max_len` \u2014 so a large value can\n  \
+    \  never be read into the proof for the price of a small `max_len`;\n  - returns\
+    \ empty bytes for an absent key.\n\n**Benchmarks** (`benchmarking.rs` + `weights.rs`):\n\
+    - `unstable_runtime_get_storage(n)` \u2014 a main-trie read of an `n`-byte value\n\
+    \  (`pov_mode = Measured`, so both `ref_time` and `proof_size`).\n- `unstable_runtime_dispatch()`\
+    \ \u2014 the fixed wrapper overhead of `dispatch`\n  (dispatch-info computation\
+    \ + origin construction); the dispatched call's own\n  weight and the input decode\
+    \ are charged separately, so they are not measured\n  here.\n\n  Both measure\
+    \ the raw operations and do not reference the feature-gated\n  precompile, so\
+    \ they run in the standard `/cmd bench` flow without the\n  benchmarking runtime\
+    \ needing the feature. **Weights in this PR are placeholders\n  pending `/cmd\
+    \ bench`.**\n\n**Tests**:\n- Unit tests (direct `Precompile::call`): `dispatch`\
+    \ read-only/delegatecall\n  guards, invalid-encoding revert, dispatch-as-caller,\
+    \ decode-weight scaling, and\n  the configurable call filter; `getStorage` read,\
+    \ absent key, `max_len` cap,\n  value-exceeds-bound revert, proof_size scaling\
+    \ with value length, and\n  proof-charged-on-revert.\n- Rust-fixture integration\
+    \ (`tests/pvm.rs`): `dispatch` debits the contract's own\n  account, and `getStorage`\
+    \ reads through a real contract `CALL`.\n- Solidity end-to-end (`tests/sol.rs`\
+    \ + `fixtures/contracts/UnstableRuntimeCaller.sol`):\n  both primitives driven\
+    \ from a solc-compiled contract via the typed interface.\n- Benchmark suite: both\
+    \ benchmarks execute as tests under `runtime-benchmarks`.\n\n### Leftover TODOs\n\
+    - Run `/cmd bench` to generate real weights for `unstable_runtime_get_storage`\n\
+    \  and `unstable_runtime_dispatch` (placeholders in this PR).\n\n# Checklist\n\
+    \n* [x] My PR includes a detailed description as outlined in the \"Description\"\
+    \ and its two subsections above.\n* [ ] My PR follows the labeling requirements\
+    \ of this project (at minimum one label for `T` required)\n* [x] I have made corresponding\
+    \ changes to the documentation (if applicable)\n* [x] I have added tests that\
+    \ prove my fix is effective or that my feature works (if applicable)"
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
