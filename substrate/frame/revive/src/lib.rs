@@ -988,11 +988,9 @@ pub mod pallet {
 			// The memory available in the block building runtime
 			let max_runtime_mem: u64 = T::RuntimeMemory::get().into();
 
-			// Contracts call stack gets 4/7 of runtime memory; the rest is reserved for
-			// PoV and other facilities.
-			// TODO: revisit the 4/7 split.
-			const CONTRACTS_MEMORY_NUM: u64 = 4;
-			const CONTRACTS_MEMORY_DEN: u64 = 7;
+			// We only allow 50% of the runtime memory to be utilized by the contracts call
+			// stack, keeping the rest for other facilities, such as PoV, etc.
+			const TOTAL_MEMORY_DEVIDER: u64 = 2;
 
 			// Validators are configured to be able to use more memory than block builders. This is
 			// because in addition to `max_runtime_mem` they need to hold additional data in
@@ -1098,8 +1096,7 @@ pub mod pallet {
 			// Dynamic allocations are not available, yet. Hence they are not taken into
 			// consideration here.
 			let memory_left = i128::from(max_runtime_mem)
-				.saturating_mul(CONTRACTS_MEMORY_NUM.into())
-				.saturating_div(CONTRACTS_MEMORY_DEN.into())
+				.saturating_div(TOTAL_MEMORY_DEVIDER.into())
 				.saturating_sub(limits::MEMORY_REQUIRED.into())
 				.saturating_sub(max_eth_block_builder_bytes.into());
 
@@ -1108,11 +1105,7 @@ pub mod pallet {
 			assert!(
 				memory_left >= 0,
 				"Runtime does not have enough memory for current limits. Additional runtime memory required: {} KB",
-				memory_left
-					.saturating_mul(CONTRACTS_MEMORY_DEN.into())
-					.saturating_div(CONTRACTS_MEMORY_NUM.into())
-					.saturating_abs() /
-					1024
+				memory_left.saturating_mul(TOTAL_MEMORY_DEVIDER.into()).abs() / 1024
 			);
 
 			// We can use storage to store items using the available block ref_time with the
