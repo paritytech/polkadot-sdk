@@ -136,4 +136,40 @@ module refine {
       msgs
     )
   }
+
+  /// Per-work-package Refine entry point (§4.1).
+  ///
+  /// Performs the package-level check on the authorizer config — if
+  /// `len(authorized_paras) != len(workitems)` the Refine invocation
+  /// aborts and every item is tagged with `AuthConfigMismatch` (§4.1
+  /// step 1). Otherwise each item is refined independently via
+  /// `refineItem`, with its `para_id` sourced from `authorized_paras`.
+  ///
+  /// Single-item packages only (per §3.2): `pvfPanic`, `newHead`, and
+  /// `msgs` are per-item scalars.
+  pure def refine(
+    s: ParachainServiceState,
+    pkg: WorkPackage,
+    authConfigMalformed: bool,
+    pvfPanic: bool,
+    newHead: HeadData,
+    msgs: List[UpwardMessage],
+    assetHub: ParaId,
+    coretimeChain: ParaId
+  ): List[ParachainWorkResult] = {
+    val errParaId =
+      if (pkg.authorizedParas.length() > 0) pkg.authorizedParas[0]
+      else MkParaId(0)
+    if (authConfigMalformed)
+    List(refineErr(errParaId, MalformedAuthorizerConfig))
+    else if (pkg.items.length() != 1)
+    List(refineErr(errParaId, InvalidItemCount))
+    else if (pkg.authorizedParas.length() != pkg.items.length())
+    List(refineErr(errParaId, AuthConfigMismatch))
+    else
+    List(refineItem(
+      s, pkg.authorizedParas[0], pkg.items[0],
+      pvfPanic, newHead, msgs, assetHub, coretimeChain
+    ))
+  }
 }

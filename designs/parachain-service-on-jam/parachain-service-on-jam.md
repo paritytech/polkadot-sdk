@@ -219,6 +219,14 @@ enum RefineLog {
     /// The PVF invoked a host function restricted to another parachain
     /// (Asset Hub or the Coretime chain). See §4.3.
     RestrictedHostFunction,
+    /// The authorizer config's `authorized_paras` prefix length does not
+    /// match the work package's item count. See §4.1 step 1.
+    AuthConfigMismatch,
+    /// The work package has 0 items or more than 1 item; only single-item
+    /// packages are currently supported (§3.2).
+    InvalidItemCount,
+    /// The opaque `AuthorizerConfig` blob failed to decode. See §4.1 step 1.
+    MalformedAuthorizerConfig,
 }
 
 struct AccumulateLogEntry {

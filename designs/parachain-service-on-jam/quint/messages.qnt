@@ -20,6 +20,14 @@ module messages {
   // The PVF invoked a host function restricted to another parachain
   // (Asset Hub or the Coretime chain).
   | RestrictedHostFunction
+  // The authorizer config's `authorized_paras` prefix has a different
+  // length than the work package's items (§4.1 step 1).
+  | AuthConfigMismatch
+  // The work package has 0 items or more than 1 item; only single-item
+  // packages are currently supported (§3.2).
+  | InvalidItemCount
+  // The opaque `AuthorizerConfig` blob failed to decode (§4.1 step 1).
+  | MalformedAuthorizerConfig
 
   // --- Accumulate-side log payloads ---------------------------------------
 

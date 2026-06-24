@@ -48,8 +48,14 @@ module main {
     nondet candidate = oneOf(arbitraryCandidates(svc, para_id))
     nondet pvfPanic = oneOf(Set(false, true))
     nondet msgs = oneOf(arbitraryUpwardBundles(para_id, assetHub, svc.paraInfo(para_id).validationCode.hash))
+    nondet itemCount = oneOf(Set(0, 1, 2))
+    nondet authConfigMalformed = oneOf(Set(false, true))
     val newHead = svc.paraInfo(para_id).headData + 1
-    val result = refineItem(svc, para_id, candidate, pvfPanic, newHead, msgs, assetHub, coretimeChain)
+    val pkg: WorkPackage =
+      if (itemCount == 0) { authorizedParas: List(para_id), items: List() }
+      else if (itemCount == 1) { authorizedParas: List(para_id), items: List(candidate) }
+      else { authorizedParas: List(para_id, para_id), items: List(candidate, candidate) }
+    val result = refine(svc, pkg, authConfigMalformed, pvfPanic, newHead, msgs, assetHub, coretimeChain)[0]
 
     // Accumulate phase (§5.1): registration check, parent-head check, code
     // check, code-upgrade activation, then upward-message replay.
