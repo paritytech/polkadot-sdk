@@ -224,7 +224,13 @@ module main {
         List(
           SetValidatorKeys({ keys: List(0), isLast: false }),
           SetValidatorKeys({ keys: List(0), isLast: false })
-        )
+        ),
+        // §5.4 happy path: upgrade to a hash whose preimage is already in
+        // the registry (AH's own active validation code).
+        List(UpgradeService({ codeHash: vchAsHash(activeCode), minItemGas: 0, minMemoGas: 0 })),
+        // §5.4 missing-preimage path: upgrade to an unsolicited hash —
+        // rejected with `ServiceUpgradePreimageMissing`.
+        List(UpgradeService({ codeHash: { hashBytes: 99999 }, minItemGas: 0, minMemoGas: 0 }))
     ))
     else
     // Non-Asset-Hub paras may still attempt restricted host calls —

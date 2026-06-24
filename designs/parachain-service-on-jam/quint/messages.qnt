@@ -54,6 +54,10 @@ module messages {
   // not in `valcount`, i.e. not a multiple of 3 in [6, 1023]); the staging
   // buffer is cleared regardless. `len` is the rejected length. See §5.3.
   | DesignateRejected({ len: int })
+  // `parachain_service_upgrade(code_hash, ...)` was rejected because the
+  // new code's preimage is not in the Parachain Service's preimage store
+  // (§5.4).
+  | ServiceUpgradePreimageMissing({ codeHash: Hash })
 
   // --- Upward messages emitted by the PVF, replayed by Accumulate ---------
 
@@ -88,6 +92,9 @@ module messages {
   | ParachainCleanUp(ParaId)
   // parachain_set_state_balance(para_id, new_total) — Coretime only.
   | ParachainSetStateBalance({ paraId: ParaId, newTotal: Balance })
+  // parachain_service_upgrade(code_hash, min_item_gas, min_memo_gas) —
+  // Asset Hub only (design §5.4).
+  | UpgradeService({ codeHash: Hash, minItemGas: int, minMemoGas: int })
 
   // --- Refine output per work item ---------------------------------------
 
@@ -130,6 +137,7 @@ module messages {
     | TransferOut(_) => true
     | SetValidatorKeys(_) => true
     | ConsumeTransfersUpTo(_) => true
+    | UpgradeService(_) => true
     | _ => false
   }
 

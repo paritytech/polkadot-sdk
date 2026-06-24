@@ -60,7 +60,10 @@ module state {
     // Validator-key buffer (design §5.3) — appended chunk by chunk by
     // Asset Hub via `set_validator_keys`; flushed to JAM `designate` on
     // `is_last`.
-    stagedValidatorKeys: List[ValidatorKey]
+    stagedValidatorKeys: List[ValidatorKey],
+    // JAM `sa.codehash` for the Parachain Service itself. Mutated by the
+    // `parachain_service_upgrade` upward message (design §5.4).
+    serviceCodeHash: Hash
   }
 
   /// The "global" state we track alongside the service state: the current
@@ -83,7 +86,8 @@ module state {
     preimageRegistry: Map(),
     pendingAuthorizerQueues: Map(),
     lastAuthorizerAssignment: Map(),
-    stagedValidatorKeys: List()
+    stagedValidatorKeys: List(),
+    serviceCodeHash: { hashBytes: 0 }
   }
 
   // --- Read helpers ------------------------------------------------------

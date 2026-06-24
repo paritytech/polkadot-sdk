@@ -215,6 +215,19 @@ module accumulate {
           acc.state.incomingTransfers.slice(idx, acc.state.incomingTransfers.length())
         }
       }
+      | UpgradeService(payload) =>
+      // §5.4: Asset Hub-initiated service code upgrade. Accumulate verifies
+      // the new code's preimage is in the service's preimage store before
+      // forwarding to JAM `upgrade`; otherwise rejects with a log entry.
+      val preimagePresent =
+        acc.state.preimageRegistry.keys().contains(payload.codeHash) and
+        acc.state.preimageRegistry.get(payload.codeHash).referencers != Set()
+      if (preimagePresent)
+        { ...acc, state: { ...acc.state, serviceCodeHash: payload.codeHash } }
+      else
+        { ...acc,
+          logs: acc.logs.append(ServiceUpgradePreimageMissing({ codeHash: payload.codeHash }))
+        }
     }
   }
 
