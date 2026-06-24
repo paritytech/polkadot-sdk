@@ -44,7 +44,7 @@ use codec::Decode;
 use core::{marker::PhantomData, num::NonZero};
 use frame_support::{
 	dispatch::{extract_actual_weight, GetDispatchInfo},
-	traits::Get,
+	traits::{Contains, Everything, Get},
 	weights::Weight,
 };
 use frame_system::RawOrigin;
@@ -67,9 +67,15 @@ sol! {
 }
 
 /// Precompile that provides access to unstable runtime functionality.
-pub struct UnstableRuntime<T>(PhantomData<T>);
+///
+/// `Filter` lets a runtime restrict which `RuntimeCall`s may be dispatched
+/// through this precompile. Defaults to [`Everything`] (no restriction).
+pub struct UnstableRuntime<T, Filter = Everything>(PhantomData<(T, Filter)>);
 
-impl<T: crate::Config> Precompile for UnstableRuntime<T> {
+impl<T: crate::Config, Filter> Precompile for UnstableRuntime<T, Filter>
+where
+	Filter: Contains<<T as crate::Config>::RuntimeCall>,
+{
 	type T = T;
 	type Interface = IUnstableRuntime::IUnstableRuntimeCalls;
 	// TODO: provisional address (see design doc O6); confirm before stabilising.
@@ -186,6 +192,38 @@ mod tests {
 
 	fn address() -> [u8; 20] {
 		<UnstableRuntime<Test> as Precompile>::MATCHER.base_address()
+	}
+
+	/// A call filter that forbids all `Balances` calls. Used to exercise the
+	/// configurable `Filter` parameter of the precompile.
+	pub struct DenyBalances;
+	impl frame_support::traits::Contains<RuntimeCall> for DenyBalances {
+		fn contains(call: &RuntimeCall) -> bool {
+			!matches!(call, RuntimeCall::Balances(_))
+		}
+	}
+
+	#[test]
+	fn dispatch_respects_call_filter() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			// A balances transfer that the `DenyBalances` filter forbids.
+			let call = RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+				dest: BOB,
+				value: 1,
+			});
+			let input = dispatch_input(call);
+
+			let result = <UnstableRuntime<Test, DenyBalances> as Precompile>::call(
+				&address(),
+				&input,
+				&mut ext,
+			);
+
+			assert_eq!(result.unwrap_err(), Error::Revert("call not allowed by filter".into()));
+		});
 	}
 
 	#[test]
