@@ -37,6 +37,7 @@ use crate::{
 	exec::Origin,
 	precompiles::{alloy::sol, AddressMatcher, Error, Ext, Precompile},
 	vm::RuntimeCosts,
+	weights::WeightInfo,
 };
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
@@ -44,8 +45,7 @@ use codec::Decode;
 use core::{marker::PhantomData, num::NonZero};
 use frame_support::{
 	dispatch::{extract_actual_weight, GetDispatchInfo},
-	traits::{Contains, Everything, Get},
-	weights::Weight,
+	traits::{Contains, Everything},
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::Dispatchable;
@@ -114,6 +114,11 @@ where
 					return Err(Error::Revert("call not allowed by filter".into()));
 				}
 
+				// Charge the fixed overhead of the dispatch wrapper (dispatch-info
+				// computation and origin construction). The dispatched call's own
+				// weight is charged separately below.
+				env.charge(<T as crate::Config>::WeightInfo::unstable_runtime_dispatch())?;
+
 				// Dispatch as the calling contract's account. Reject a Root caller
 				// rather than silently dispatching with Root privileges.
 				let origin = match env.caller() {
@@ -136,31 +141,35 @@ where
 			IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall { key, max_len }) => {
 				let max_len = *max_len;
 
-				// Charge for the read up front, bounded by the caller-declared
-				// `max_len`. proof_size is proportional to the maximum number of
-				// value bytes that could enter the PoV and cannot be refunded once
-				// the node is read, so we bill the declared bound rather than the
-				// actual length.
-				// TODO(G2): replace with a benchmark that also accounts for the
-				// worst-case trie node overhead of reading an item of this length.
-				let read_weight = <T as frame_system::Config>::DbWeight::get()
-					.reads(1)
-					.saturating_add(Weight::from_parts(0, max_len as u64));
-				env.charge(read_weight)?;
+				// Charge the benchmarked read weight for the caller-declared bound
+				// up front. proof_size is proportional to the value bytes that may
+				// enter the PoV, so we bill `max_len`, then adjust down to the
+				// actual length once it is known.
+				let charged = env.charge(
+					<T as crate::Config>::WeightInfo::unstable_runtime_get_storage(max_len),
+				)?;
 
 				// Read against the main trie (including the in-block overlay). The
 				// returned length is the value's full length; if it exceeds the
 				// declared bound we revert rather than return a truncated value.
 				let mut buf = alloc::vec![0u8; max_len as usize];
-				match sp_io::storage::read(key.as_ref(), &mut buf, 0) {
-					None => Ok(Vec::<u8>::new().abi_encode()),
+				let value = match sp_io::storage::read(key.as_ref(), &mut buf, 0) {
+					None => Vec::new(),
 					Some(len) if len > max_len =>
-						Err(Error::Revert("value exceeds max_len".into())),
+						return Err(Error::Revert("value exceeds max_len".into())),
 					Some(len) => {
 						buf.truncate(len as usize);
-						Ok(buf.abi_encode())
+						buf
 					},
-				}
+				};
+
+				env.adjust_gas(
+					charged,
+					<T as crate::Config>::WeightInfo::unstable_runtime_get_storage(
+						value.len() as u32,
+					),
+				);
+				Ok(value.abi_encode())
 			},
 		}
 	}
@@ -396,16 +405,18 @@ mod tests {
 	}
 
 	#[test]
-	fn storage_charges_more_proof_size_for_larger_max_len() {
-		// proof_size (PoV) is the dominant, non-refundable cost of a read and is
-		// bounded by the caller-declared `max_len`, so the charge must grow with
-		// it. Each measurement runs in its own externalities.
-		let measure = |max_len: u32| {
+	fn storage_charges_more_proof_size_for_larger_value() {
+		// proof_size (PoV) is the dominant cost of a read and scales with the
+		// actual value length that enters the proof. The charge (after adjusting
+		// the upfront `max_len` reservation down to the real length) must grow
+		// with the value size. Each measurement runs in its own externalities.
+		let measure = |value_len: usize| {
 			ExtBuilder::default().build().execute_with(|| {
+				sp_io::storage::set(b"some_key", &alloc::vec![0u8; value_len]);
 				let mut call_setup = CallSetup::<Test>::default();
 				let (mut ext, _) = call_setup.ext();
 				let before = ext.frame_meter().weight_consumed();
-				let input = storage_input(b"some_key", max_len);
+				let input = storage_input(b"some_key", value_len as u32);
 				let _ =
 					<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 				(ext.frame_meter().weight_consumed() - before).proof_size()
@@ -413,10 +424,10 @@ mod tests {
 		};
 
 		let small = measure(16);
-		let large = measure(16_384);
+		let large = measure(400);
 		assert!(
 			large > small,
-			"a larger max_len must charge more proof_size (small={small}, large={large})",
+			"a larger value must charge more proof_size (small={small}, large={large})",
 		);
 	}
 }

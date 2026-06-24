@@ -49,6 +49,7 @@ use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
 	self, assert_ok,
+	dispatch::GetDispatchInfo,
 	migrations::SteppedMigration,
 	storage::child,
 	traits::{Hooks, fungible::InspectHold},
@@ -1610,6 +1611,50 @@ mod benchmarks {
 
 		assert_ok!(result);
 		assert_eq!(&info.read(&key).unwrap(), &memory[out_ptr as usize..]);
+		Ok(())
+	}
+
+	// Weight of reading a runtime storage value of length `n` from the main trie,
+	// as performed by the unstable `UnstableRuntime::getStorage` precompile. The
+	// benchmark measures the raw read so it is independent of the
+	// `unstable-precompiles` feature gate.
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn unstable_runtime_get_storage(
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+	) -> Result<(), BenchmarkError> {
+		let key = vec![0u8; limits::STORAGE_KEY_BYTES as usize];
+		sp_io::storage::set(&key, &vec![42u8; n as usize]);
+
+		let mut out = vec![0u8; n as usize];
+		let read;
+		#[block]
+		{
+			read = sp_io::storage::read(&key, &mut out, 0);
+		}
+
+		assert_eq!(read, Some(n));
+		Ok(())
+	}
+
+	// Fixed overhead of the unstable `UnstableRuntime::dispatch` wrapper around a
+	// runtime call: computing the call's dispatch info and constructing the signed
+	// origin. The dispatched call's own weight is charged separately (via its
+	// dispatch info) and decoding via `RuntimeCosts::PrecompileDecode`, so neither
+	// is measured here. Measured raw so it is independent of the
+	// `unstable-precompiles` feature gate.
+	#[benchmark(pov_mode = Measured)]
+	fn unstable_runtime_dispatch() -> Result<(), BenchmarkError> {
+		let runtime_call: <T as Config>::RuntimeCall =
+			frame_system::Call::remark { remark: vec![] }.into();
+		let account: T::AccountId = whitelisted_caller();
+
+		#[block]
+		{
+			let info = runtime_call.get_dispatch_info();
+			let origin: OriginFor<T> = RawOrigin::Signed(account).into();
+			core::hint::black_box((info, origin));
+		}
+
 		Ok(())
 	}
 
