@@ -110,13 +110,22 @@ pub fn blockhash<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 /// Loads a word from storage.
 pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
-	// NB: SLOAD loads 32 bytes from storage (i.e. U256).
-	interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage(32))?;
+	// Storage values can exceed 32 bytes when written by a PVM contract sharing this
+	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
+	let charged = interpreter
+		.ext
+		.charge_or_halt(RuntimeCosts::GetStorage(limits::STORAGE_BYTES))?;
 	let key = Key::Fix(index.to_big_endian());
 	let value = interpreter.ext.get_storage(&key);
 
+	let actual_len = value.as_ref().map(|v| v.len() as u32).unwrap_or(0);
+	interpreter
+		.ext
+		.frame_meter_mut()
+		.adjust_weight(charged, RuntimeCosts::GetStorage(actual_len));
+
 	*index = if let Some(storage_value) = value {
-		// sload always reads a word
+		// sload expects a 32-byte word; reject anything else.
 		let Ok::<[u8; 32], _>(bytes) = storage_value.try_into() else {
 			log::debug!(target: crate::LOG_TARGET, "sload read invalid storage value length. Expected 32.");
 			return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
@@ -188,14 +197,24 @@ pub fn tstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 /// Load value from transient storage
 pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
-	interpreter.ext.charge_or_halt(RuntimeCosts::GetTransientStorage(32))?;
+	// Transient values can exceed 32 bytes when written by a PVM contract sharing this
+	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
+	let charged = interpreter
+		.ext
+		.charge_or_halt(RuntimeCosts::GetTransientStorage(limits::STORAGE_BYTES))?;
 
 	let key = Key::Fix(index.to_big_endian());
 	let bytes = interpreter.ext.get_transient_storage(&key);
 
+	let actual_len = bytes.as_ref().map(|v| v.len() as u32).unwrap_or(0);
+	interpreter
+		.ext
+		.frame_meter_mut()
+		.adjust_weight(charged, RuntimeCosts::GetTransientStorage(actual_len));
+
 	*index = if let Some(storage_value) = bytes {
 		if storage_value.len() != 32 {
-			// tload always reads a word
+			// tload expects a 32-byte word; reject anything else.
 			log::debug!(target: crate::LOG_TARGET, "tload read invalid storage value length. Expected 32.");
 			return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 		}

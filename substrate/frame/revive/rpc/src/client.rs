@@ -22,7 +22,7 @@ pub(crate) mod storage_api;
 
 use crate::{
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
-	SyncLabel, TracerType, TransactionInfo,
+	SyncLabel, TransactionInfo,
 	block_sync::SyncCheckpoint,
 	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
@@ -33,10 +33,11 @@ use pallet_revive::{
 	evm::{
 		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult, Filter,
 		GenericTransaction, H256, HashesOrTransactionInfos, Log, ReceiptInfo, StateOverrideSet,
-		SyncingProgress, SyncingStatus, Trace, TransactionSigned, TransactionTrace, U256,
+		SyncingProgress, SyncingStatus, TransactionSigned, TransactionTrace, U256,
 		decode_revert_reason,
 	},
 };
+use pallet_revive_types::runtime_api::*;
 use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
@@ -987,7 +988,7 @@ impl Client {
 	pub async fn trace_block_by_number(
 		&self,
 		at: BlockNumberOrTag,
-		config: TracerType,
+		config: TracerTypeV1,
 	) -> Result<Vec<TransactionTrace>, ClientError> {
 		if self.receipt_provider.is_before_earliest_block(&at) {
 			return Ok(vec![]);
@@ -1020,8 +1021,8 @@ impl Client {
 	pub async fn trace_transaction(
 		&self,
 		transaction_hash: H256,
-		config: TracerType,
-	) -> Result<Trace, ClientError> {
+		config: TracerTypeV1,
+	) -> Result<TraceV1, ClientError> {
 		let (block_hash, transaction_index) = self
 			.receipt_provider
 			.find_transaction(&transaction_hash)
@@ -1040,9 +1041,9 @@ impl Client {
 		&self,
 		transaction: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
-		config: TracerType,
+		config: TracerTypeV1,
 		state_overrides: Option<StateOverrideSet>,
-	) -> Result<Trace, ClientError> {
+	) -> Result<TraceV1, ClientError> {
 		let block_hash = self.block_hash_for_tag(block).await?;
 		let runtime_api = self.runtime_api(block_hash);
 		runtime_api.trace_call(transaction, config, state_overrides).await
