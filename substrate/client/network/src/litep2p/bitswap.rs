@@ -43,7 +43,7 @@ use sc_client_api::BlockBackend;
 use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	future::Future,
 	pin::Pin,
 	sync::Arc,
@@ -235,6 +235,7 @@ pub(crate) struct BitswapService<Block: BlockT> {
 	cmd_rx: mpsc::Receiver<BitswapOutboundCmd>,
 	pending: PendingBatches,
 	metrics: BitswapMetrics,
+	known_peers: HashSet<litep2p::PeerId>,
 }
 
 impl<Block: BlockT> BitswapService<Block> {
@@ -249,6 +250,7 @@ impl<Block: BlockT> BitswapService<Block> {
 	pub(crate) fn new(
 		client: Arc<dyn BlockBackend<Block> + Send + Sync>,
 		metrics_registry: Option<&Registry>,
+		known_peers: Vec<litep2p::PeerId>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, BitswapConfig) {
 		let metrics = BitswapMetrics::new(metrics_registry).unwrap_or_else(|err| {
 			log::debug!(target: LOG_TARGET, "failed to register bitswap metrics: {err}");
@@ -256,7 +258,14 @@ impl<Block: BlockT> BitswapService<Block> {
 		});
 		let (litep2p_config, handle) = Config::new();
 		let (cmd_tx, cmd_rx) = mpsc::channel(CMD_CHANNEL_CAPACITY);
-		let service = Self { handle, client, cmd_rx, pending: PendingBatches::default(), metrics };
+		let service = Self { 
+			handle,
+			client,
+			cmd_rx,
+			pending: PendingBatches::default(),
+			metrics,
+			known_peers: known_peers.into_iter().collect(),
+		};
 		let future = Box::pin(async move { service.run().await });
 		let config = BitswapConfig { litep2p_config, cmd_tx };
 		(future, config)

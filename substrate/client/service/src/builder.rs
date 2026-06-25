@@ -1243,8 +1243,16 @@ where
 
 	// Initialize IPFS server.
 	let ipfs_config = net_config.network_config.ipfs_server.then(|| {
+		// Obtain known PeerIds here to pass to BitswapService, so the nodes can communicate
+		// before the first request comes in and BitswapService can keep a list of 
+		// known peers.
+		let known_peers = net_config.network_config.ipfs_bootnodes
+			.iter()
+			.map(|b| b.peer_id)
+			.collect();
+
 		let (handler, bitswap_config) =
-			Net::bitswap_server(client.clone(), metrics_registry.cloned());
+			Net::bitswap_server(client.clone(), metrics_registry.cloned(), known_peers);
 		spawn_handle.spawn("bitswap-request-handler", Some("networking"), handler);
 
 		let ipfs_num_blocks = match blocks_pruning {

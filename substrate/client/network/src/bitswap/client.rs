@@ -18,10 +18,12 @@
 use crate::{IfDisconnected, NetworkRequest, ProtocolName};
 
 use cid::{multihash::Multihash as CidMultihash, Cid, Version as CidVersion};
+use futures::channel::oneshot;
 use log::{debug, trace, warn};
 use prost::Message;
 use sc_network_types::PeerId;
 use std::collections::{HashMap, HashSet};
+use tokio::sync::mpsc;
 
 use super::{
 	is_cid_supported,
@@ -407,6 +409,31 @@ pub enum BitswapError {
 		/// The unsupported CID version number.
 		version: u64,
 	},
+}
+
+type Response = HashMap<Cid, FetchOutcome>;
+
+pub(crate) struct BitswapRequest {
+	pub(crate) cids: Vec<Cid>,
+	pub(crate) response_tx: oneshot::Sender<Response>,
+}
+
+pub struct BitswapClient {
+	request_tx: mpsc::Sender<BitswapRequest>, 
+}
+
+impl BitswapClient {
+	fn new(request_tx: mpsc::Sender<BitswapRequest>) -> Self {
+		Self {
+			request_tx,
+		}
+	}
+
+	pub async fn request_blocks(&self, cids: &[Cid]) -> Result<Response, BitswapError> {
+		let (response_tx, response_rx) = oneshot::channel();
+		self.request_tx.send(BitswapRequest { cids: cids.to_vec(), response_tx });
+		response_rx.await.map_err(|err| BitswapError::RequestFailed(err.to_string()))
+	}
 }
 
 #[cfg(test)]

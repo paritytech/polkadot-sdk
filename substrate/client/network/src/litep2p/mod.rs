@@ -682,8 +682,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	fn bitswap_server(
 		client: Arc<dyn BlockBackend<B> + Send + Sync>,
 		metrics_registry: Option<Registry>,
+		known_peers: Vec<sc_network_types::PeerId>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig) {
-		BitswapService::new(client, metrics_registry.as_ref())
+		let known_peers = known_peers.into_iter().map(|p| litep2p::PeerId::from(p)).collect();
+		BitswapService::new(client, metrics_registry.as_ref(), known_peers)
 	}
 
 	/// Create notification protocol configuration for `protocol`.
