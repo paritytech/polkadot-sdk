@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782388975803,
+  "lastUpdate": 1782391985167,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "73b887762f13c70814e1c319fab4b5871b0882c9",
-          "message": "pallet-revive-eth-rpc: derive Encode/Decode for subxt-generated types (#10169)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-31T13:15:28Z",
-          "tree_id": "e4f93fb111e9cb3ae95e24f1b61c1e05976857be",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/73b887762f13c70814e1c319fab4b5871b0882c9"
-        },
-        "date": 1761921947655,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95199999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035404612909999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04558371404799993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038887847075999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "64b05158dc6a20ca74a46db268d83c112ecedb61",
+          "message": "Fix duplicate statement notifications for multi-topic MatchAll subscriptions (#12453)\n\nA multi-topic `MatchAll` subscription is registered under each of its\ntopics, so the topic-combination loop in\n`notify_match_all_subscribers_best` could select it across several\ncombinations and deliver the same statement once per combination.\n\nTrack already-notified subscriptions per statement (mirroring the\n`MatchAny` path) so each statement is delivered at most once per\nsubscription, and add a regression test.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-06-25T09:23:51Z",
+          "tree_id": "3a323e27fbf2b1cffdce4ab0d295c73ce8239990",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/64b05158dc6a20ca74a46db268d83c112ecedb61"
+        },
+        "date": 1782391956219,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.08599999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08002150834999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038397554221999995,
             "unit": "seconds"
           }
         ]
