@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782388855947,
+  "lastUpdate": 1782391872111,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f890ed85a74e16bbd5e9f5e3ff3afda29aecc8ae",
-          "message": "Return the correct block difficulty from the eth-rpc (#10186)\n\n# Description\n\nThis PR fixes an issue in the eth-rpc/pallet-revive that was causing it\nto return an incorrect value for the block's difficulty or prevrandao.\n\nIn the VM/interpreter implementation we use a constant for the block\ndifficulty. However, the eth block construction side was unaware of this\nconstant being used and therefore the RPC was always returning a block\ndifficulty of zero.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-04T01:49:41Z",
-          "tree_id": "5068bd91a1cb0ddea0fab374dca45358d177ea42",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f890ed85a74e16bbd5e9f5e3ff3afda29aecc8ae"
-        },
-        "date": 1762225499722,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.63743582436666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2035530430666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.054932478999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "64b05158dc6a20ca74a46db268d83c112ecedb61",
+          "message": "Fix duplicate statement notifications for multi-topic MatchAll subscriptions (#12453)\n\nA multi-topic `MatchAll` subscription is registered under each of its\ntopics, so the topic-combination loop in\n`notify_match_all_subscribers_best` could select it across several\ncombinations and deliver the same statement once per combination.\n\nTrack already-notified subscriptions per statement (mirroring the\n`MatchAny` path) so each statement is delivered at most once per\nsubscription, and add a regression test.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-06-25T09:23:51Z",
+          "tree_id": "3a323e27fbf2b1cffdce4ab0d295c73ce8239990",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/64b05158dc6a20ca74a46db268d83c112ecedb61"
+        },
+        "date": 1782391839947,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14430412416666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.821459378933332,
             "unit": "seconds"
           }
         ]
