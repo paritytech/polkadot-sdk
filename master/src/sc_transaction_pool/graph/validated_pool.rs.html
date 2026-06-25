@@ -810,244 +810,239 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#660 id=660 data-nosnippet>660</a>	) {
 <a href=#661 id=661 data-nosnippet>661</a>		<span class="macro">debug_assert_eq!</span>(pruned_hashes.len(), pruned_xts.len());
 <a href=#662 id=662 data-nosnippet>662</a>
-<a href=#663 id=663 data-nosnippet>663</a>		<span class="comment">// Resubmit pruned transactions
-<a href=#664 id=664 data-nosnippet>664</a>		</span><span class="kw">let </span>results = <span class="self">self</span>.submit(pruned_xts);
-<a href=#665 id=665 data-nosnippet>665</a>
-<a href=#666 id=666 data-nosnippet>666</a>		<span class="comment">// Collect the hashes of transactions that now became invalid (meaning that they are
-<a href=#667 id=667 data-nosnippet>667</a>		// successfully pruned).
-<a href=#668 id=668 data-nosnippet>668</a>		</span><span class="kw">let </span>hashes = results.into_iter().enumerate().filter_map(|(idx, r)| {
-<a href=#669 id=669 data-nosnippet>669</a>			<span class="kw">match </span>r.map_err(error::IntoPoolError::into_pool_error) {
-<a href=#670 id=670 data-nosnippet>670</a>				<span class="prelude-val">Err</span>(<span class="prelude-val">Ok</span>(error::Error::InvalidTransaction(<span class="kw">_</span>))) =&gt; <span class="prelude-val">Some</span>(pruned_hashes[idx]),
-<a href=#671 id=671 data-nosnippet>671</a>				<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#672 id=672 data-nosnippet>672</a>			}
-<a href=#673 id=673 data-nosnippet>673</a>		});
-<a href=#674 id=674 data-nosnippet>674</a>		<span class="comment">// Fire `pruned` notifications for collected hashes and make sure to include
-<a href=#675 id=675 data-nosnippet>675</a>		// `known_imported_hashes` since they were just imported as part of the block.
-<a href=#676 id=676 data-nosnippet>676</a>		</span><span class="kw">let </span>hashes = hashes.chain(known_imported_hashes.into_iter());
-<a href=#677 id=677 data-nosnippet>677</a>		<span class="self">self</span>.fire_pruned(at, hashes);
+<a href=#663 id=663 data-nosnippet>663</a>		<span class="comment">// Resubmit pruned transactions back to the pool. Tag-based pruning may over-prune
+<a href=#664 id=664 data-nosnippet>664</a>		// (removing dependents in the subtree), so still-valid collateral txs need to be
+<a href=#665 id=665 data-nosnippet>665</a>		// re-added. In the fork-aware pool this is likely redundant — `update_view_with_mempool`
+<a href=#666 id=666 data-nosnippet>666</a>		// resubmits everything from the mempool right after pruning — and could be removed in
+<a href=#667 id=667 data-nosnippet>667</a>		// the future.
+<a href=#668 id=668 data-nosnippet>668</a>		</span><span class="self">self</span>.submit(pruned_xts);
+<a href=#669 id=669 data-nosnippet>669</a>
+<a href=#670 id=670 data-nosnippet>670</a>		<span class="comment">// Fire `pruned` (InBlock) notifications only for `known_imported_hashes` — the
+<a href=#671 id=671 data-nosnippet>671</a>		// hashes of extrinsics actually present in the imported block body.
+<a href=#672 id=672 data-nosnippet>672</a>		</span><span class="self">self</span>.fire_pruned(at, known_imported_hashes.into_iter());
+<a href=#673 id=673 data-nosnippet>673</a>
+<a href=#674 id=674 data-nosnippet>674</a>		<span class="comment">// perform regular cleanup of old transactions in the pool
+<a href=#675 id=675 data-nosnippet>675</a>		// and update temporary bans.
+<a href=#676 id=676 data-nosnippet>676</a>		</span><span class="self">self</span>.clear_stale(at);
+<a href=#677 id=677 data-nosnippet>677</a>	}
 <a href=#678 id=678 data-nosnippet>678</a>
-<a href=#679 id=679 data-nosnippet>679</a>		<span class="comment">// perform regular cleanup of old transactions in the pool
-<a href=#680 id=680 data-nosnippet>680</a>		// and update temporary bans.
-<a href=#681 id=681 data-nosnippet>681</a>		</span><span class="self">self</span>.clear_stale(at);
-<a href=#682 id=682 data-nosnippet>682</a>	}
-<a href=#683 id=683 data-nosnippet>683</a>
-<a href=#684 id=684 data-nosnippet>684</a>	<span class="doccomment">/// Fire notifications for pruned transactions.
-<a href=#685 id=685 data-nosnippet>685</a>	</span><span class="kw">pub fn </span>fire_pruned(
-<a href=#686 id=686 data-nosnippet>686</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#687 id=687 data-nosnippet>687</a>		at: <span class="kw-2">&amp;</span>HashAndNumber&lt;B::Block&gt;,
-<a href=#688 id=688 data-nosnippet>688</a>		hashes: <span class="kw">impl </span>Iterator&lt;Item = ExtrinsicHash&lt;B&gt;&gt;,
-<a href=#689 id=689 data-nosnippet>689</a>	) {
-<a href=#690 id=690 data-nosnippet>690</a>		<span class="kw">let </span><span class="kw-2">mut </span>event_dispatcher = <span class="self">self</span>.event_dispatcher.write();
-<a href=#691 id=691 data-nosnippet>691</a>		<span class="kw">let </span><span class="kw-2">mut </span>set = HashSet::with_capacity(hashes.size_hint().<span class="number">0</span>);
-<a href=#692 id=692 data-nosnippet>692</a>		<span class="kw">for </span>h <span class="kw">in </span>hashes {
-<a href=#693 id=693 data-nosnippet>693</a>			<span class="comment">// `hashes` has possibly duplicate hashes.
-<a href=#694 id=694 data-nosnippet>694</a>			// we'd like to send out the `InBlock` notification only once.
-<a href=#695 id=695 data-nosnippet>695</a>			</span><span class="kw">if </span>!set.contains(<span class="kw-2">&amp;</span>h) {
-<a href=#696 id=696 data-nosnippet>696</a>				event_dispatcher.pruned(at.hash, <span class="kw-2">&amp;</span>h);
-<a href=#697 id=697 data-nosnippet>697</a>				set.insert(h);
-<a href=#698 id=698 data-nosnippet>698</a>			}
-<a href=#699 id=699 data-nosnippet>699</a>		}
-<a href=#700 id=700 data-nosnippet>700</a>	}
-<a href=#701 id=701 data-nosnippet>701</a>
-<a href=#702 id=702 data-nosnippet>702</a>	<span class="doccomment">/// Removes stale transactions from the pool.
-<a href=#703 id=703 data-nosnippet>703</a>	///
-<a href=#704 id=704 data-nosnippet>704</a>	/// Stale transactions are transaction beyond their longevity period.
-<a href=#705 id=705 data-nosnippet>705</a>	/// Note this function does not remove transactions that are already included in the chain.
-<a href=#706 id=706 data-nosnippet>706</a>	/// See `prune_tags` if you want this.
-<a href=#707 id=707 data-nosnippet>707</a>	</span><span class="kw">pub fn </span>clear_stale(<span class="kw-2">&amp;</span><span class="self">self</span>, at: <span class="kw-2">&amp;</span>HashAndNumber&lt;B::Block&gt;) {
-<a href=#708 id=708 data-nosnippet>708</a>		<span class="kw">let </span>HashAndNumber { number, .. } = <span class="kw-2">*</span>at;
-<a href=#709 id=709 data-nosnippet>709</a>		<span class="kw">let </span>number = number.saturated_into::&lt;u64&gt;();
-<a href=#710 id=710 data-nosnippet>710</a>		<span class="kw">let </span>now = Instant::now();
-<a href=#711 id=711 data-nosnippet>711</a>		<span class="kw">let </span>to_remove = {
-<a href=#712 id=712 data-nosnippet>712</a>			<span class="self">self</span>.ready()
-<a href=#713 id=713 data-nosnippet>713</a>				.filter(|tx| <span class="self">self</span>.rotator.ban_if_stale(<span class="kw-2">&amp;</span>now, number, tx))
-<a href=#714 id=714 data-nosnippet>714</a>				.map(|tx| tx.hash)
-<a href=#715 id=715 data-nosnippet>715</a>				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#716 id=716 data-nosnippet>716</a>		};
-<a href=#717 id=717 data-nosnippet>717</a>		<span class="kw">let </span>futures_to_remove: Vec&lt;ExtrinsicHash&lt;B&gt;&gt; = {
-<a href=#718 id=718 data-nosnippet>718</a>			<span class="kw">let </span>p = <span class="self">self</span>.pool.read();
-<a href=#719 id=719 data-nosnippet>719</a>			<span class="kw">let </span><span class="kw-2">mut </span>hashes = Vec::new();
-<a href=#720 id=720 data-nosnippet>720</a>			<span class="kw">for </span>tx <span class="kw">in </span>p.futures() {
-<a href=#721 id=721 data-nosnippet>721</a>				<span class="kw">if </span><span class="self">self</span>.rotator.ban_if_stale(<span class="kw-2">&amp;</span>now, number, tx) {
-<a href=#722 id=722 data-nosnippet>722</a>					hashes.push(tx.hash);
-<a href=#723 id=723 data-nosnippet>723</a>				}
-<a href=#724 id=724 data-nosnippet>724</a>			}
-<a href=#725 id=725 data-nosnippet>725</a>			hashes
-<a href=#726 id=726 data-nosnippet>726</a>		};
-<a href=#727 id=727 data-nosnippet>727</a>		<span class="macro">debug!</span>(
-<a href=#728 id=728 data-nosnippet>728</a>			target:LOG_TARGET,
-<a href=#729 id=729 data-nosnippet>729</a>			to_remove_len=to_remove.len(),
-<a href=#730 id=730 data-nosnippet>730</a>			futures_to_remove_len=futures_to_remove.len(),
-<a href=#731 id=731 data-nosnippet>731</a>			<span class="string">"clear_stale"
-<a href=#732 id=732 data-nosnippet>732</a>		</span>);
-<a href=#733 id=733 data-nosnippet>733</a>		<span class="comment">// removing old transactions
-<a href=#734 id=734 data-nosnippet>734</a>		</span><span class="self">self</span>.remove_invalid(<span class="kw-2">&amp;</span>to_remove);
-<a href=#735 id=735 data-nosnippet>735</a>		<span class="self">self</span>.remove_invalid(<span class="kw-2">&amp;</span>futures_to_remove);
-<a href=#736 id=736 data-nosnippet>736</a>		<span class="comment">// clear banned transactions timeouts
-<a href=#737 id=737 data-nosnippet>737</a>		</span><span class="self">self</span>.rotator.clear_timeouts(<span class="kw-2">&amp;</span>now);
+<a href=#679 id=679 data-nosnippet>679</a>	<span class="doccomment">/// Fire notifications for pruned transactions.
+<a href=#680 id=680 data-nosnippet>680</a>	</span><span class="kw">pub fn </span>fire_pruned(
+<a href=#681 id=681 data-nosnippet>681</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#682 id=682 data-nosnippet>682</a>		at: <span class="kw-2">&amp;</span>HashAndNumber&lt;B::Block&gt;,
+<a href=#683 id=683 data-nosnippet>683</a>		hashes: <span class="kw">impl </span>Iterator&lt;Item = ExtrinsicHash&lt;B&gt;&gt;,
+<a href=#684 id=684 data-nosnippet>684</a>	) {
+<a href=#685 id=685 data-nosnippet>685</a>		<span class="kw">let </span><span class="kw-2">mut </span>event_dispatcher = <span class="self">self</span>.event_dispatcher.write();
+<a href=#686 id=686 data-nosnippet>686</a>		<span class="kw">let </span><span class="kw-2">mut </span>set = HashSet::with_capacity(hashes.size_hint().<span class="number">0</span>);
+<a href=#687 id=687 data-nosnippet>687</a>		<span class="kw">for </span>h <span class="kw">in </span>hashes {
+<a href=#688 id=688 data-nosnippet>688</a>			<span class="comment">// `hashes` has possibly duplicate hashes.
+<a href=#689 id=689 data-nosnippet>689</a>			// we'd like to send out the `InBlock` notification only once.
+<a href=#690 id=690 data-nosnippet>690</a>			</span><span class="kw">if </span>!set.contains(<span class="kw-2">&amp;</span>h) {
+<a href=#691 id=691 data-nosnippet>691</a>				event_dispatcher.pruned(at.hash, <span class="kw-2">&amp;</span>h);
+<a href=#692 id=692 data-nosnippet>692</a>				set.insert(h);
+<a href=#693 id=693 data-nosnippet>693</a>			}
+<a href=#694 id=694 data-nosnippet>694</a>		}
+<a href=#695 id=695 data-nosnippet>695</a>	}
+<a href=#696 id=696 data-nosnippet>696</a>
+<a href=#697 id=697 data-nosnippet>697</a>	<span class="doccomment">/// Removes stale transactions from the pool.
+<a href=#698 id=698 data-nosnippet>698</a>	///
+<a href=#699 id=699 data-nosnippet>699</a>	/// Stale transactions are transaction beyond their longevity period.
+<a href=#700 id=700 data-nosnippet>700</a>	/// Note this function does not remove transactions that are already included in the chain.
+<a href=#701 id=701 data-nosnippet>701</a>	/// See `prune_tags` if you want this.
+<a href=#702 id=702 data-nosnippet>702</a>	</span><span class="kw">pub fn </span>clear_stale(<span class="kw-2">&amp;</span><span class="self">self</span>, at: <span class="kw-2">&amp;</span>HashAndNumber&lt;B::Block&gt;) {
+<a href=#703 id=703 data-nosnippet>703</a>		<span class="kw">let </span>HashAndNumber { number, .. } = <span class="kw-2">*</span>at;
+<a href=#704 id=704 data-nosnippet>704</a>		<span class="kw">let </span>number = number.saturated_into::&lt;u64&gt;();
+<a href=#705 id=705 data-nosnippet>705</a>		<span class="kw">let </span>now = Instant::now();
+<a href=#706 id=706 data-nosnippet>706</a>		<span class="kw">let </span>to_remove = {
+<a href=#707 id=707 data-nosnippet>707</a>			<span class="self">self</span>.ready()
+<a href=#708 id=708 data-nosnippet>708</a>				.filter(|tx| <span class="self">self</span>.rotator.ban_if_stale(<span class="kw-2">&amp;</span>now, number, tx))
+<a href=#709 id=709 data-nosnippet>709</a>				.map(|tx| tx.hash)
+<a href=#710 id=710 data-nosnippet>710</a>				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#711 id=711 data-nosnippet>711</a>		};
+<a href=#712 id=712 data-nosnippet>712</a>		<span class="kw">let </span>futures_to_remove: Vec&lt;ExtrinsicHash&lt;B&gt;&gt; = {
+<a href=#713 id=713 data-nosnippet>713</a>			<span class="kw">let </span>p = <span class="self">self</span>.pool.read();
+<a href=#714 id=714 data-nosnippet>714</a>			<span class="kw">let </span><span class="kw-2">mut </span>hashes = Vec::new();
+<a href=#715 id=715 data-nosnippet>715</a>			<span class="kw">for </span>tx <span class="kw">in </span>p.futures() {
+<a href=#716 id=716 data-nosnippet>716</a>				<span class="kw">if </span><span class="self">self</span>.rotator.ban_if_stale(<span class="kw-2">&amp;</span>now, number, tx) {
+<a href=#717 id=717 data-nosnippet>717</a>					hashes.push(tx.hash);
+<a href=#718 id=718 data-nosnippet>718</a>				}
+<a href=#719 id=719 data-nosnippet>719</a>			}
+<a href=#720 id=720 data-nosnippet>720</a>			hashes
+<a href=#721 id=721 data-nosnippet>721</a>		};
+<a href=#722 id=722 data-nosnippet>722</a>		<span class="macro">debug!</span>(
+<a href=#723 id=723 data-nosnippet>723</a>			target:LOG_TARGET,
+<a href=#724 id=724 data-nosnippet>724</a>			to_remove_len=to_remove.len(),
+<a href=#725 id=725 data-nosnippet>725</a>			futures_to_remove_len=futures_to_remove.len(),
+<a href=#726 id=726 data-nosnippet>726</a>			<span class="string">"clear_stale"
+<a href=#727 id=727 data-nosnippet>727</a>		</span>);
+<a href=#728 id=728 data-nosnippet>728</a>		<span class="comment">// removing old transactions
+<a href=#729 id=729 data-nosnippet>729</a>		</span><span class="self">self</span>.remove_invalid(<span class="kw-2">&amp;</span>to_remove);
+<a href=#730 id=730 data-nosnippet>730</a>		<span class="self">self</span>.remove_invalid(<span class="kw-2">&amp;</span>futures_to_remove);
+<a href=#731 id=731 data-nosnippet>731</a>		<span class="comment">// clear banned transactions timeouts
+<a href=#732 id=732 data-nosnippet>732</a>		</span><span class="self">self</span>.rotator.clear_timeouts(<span class="kw-2">&amp;</span>now);
+<a href=#733 id=733 data-nosnippet>733</a>	}
+<a href=#734 id=734 data-nosnippet>734</a>
+<a href=#735 id=735 data-nosnippet>735</a>	<span class="doccomment">/// Get api reference.
+<a href=#736 id=736 data-nosnippet>736</a>	</span><span class="kw">pub fn </span>api(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>B {
+<a href=#737 id=737 data-nosnippet>737</a>		<span class="kw-2">&amp;</span><span class="self">self</span>.api
 <a href=#738 id=738 data-nosnippet>738</a>	}
 <a href=#739 id=739 data-nosnippet>739</a>
-<a href=#740 id=740 data-nosnippet>740</a>	<span class="doccomment">/// Get api reference.
-<a href=#741 id=741 data-nosnippet>741</a>	</span><span class="kw">pub fn </span>api(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>B {
-<a href=#742 id=742 data-nosnippet>742</a>		<span class="kw-2">&amp;</span><span class="self">self</span>.api
-<a href=#743 id=743 data-nosnippet>743</a>	}
-<a href=#744 id=744 data-nosnippet>744</a>
-<a href=#745 id=745 data-nosnippet>745</a>	<span class="doccomment">/// Return an event stream of notifications for when transactions are imported to the pool.
-<a href=#746 id=746 data-nosnippet>746</a>	///
-<a href=#747 id=747 data-nosnippet>747</a>	/// Consumers of this stream should use the `ready` method to actually get the
-<a href=#748 id=748 data-nosnippet>748</a>	/// pending transactions in the right order.
-<a href=#749 id=749 data-nosnippet>749</a>	</span><span class="kw">pub fn </span>import_notification_stream(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EventStream&lt;ExtrinsicHash&lt;B&gt;&gt; {
-<a href=#750 id=750 data-nosnippet>750</a>		<span class="kw">const </span>CHANNEL_BUFFER_SIZE: usize = <span class="number">1024</span>;
+<a href=#740 id=740 data-nosnippet>740</a>	<span class="doccomment">/// Return an event stream of notifications for when transactions are imported to the pool.
+<a href=#741 id=741 data-nosnippet>741</a>	///
+<a href=#742 id=742 data-nosnippet>742</a>	/// Consumers of this stream should use the `ready` method to actually get the
+<a href=#743 id=743 data-nosnippet>743</a>	/// pending transactions in the right order.
+<a href=#744 id=744 data-nosnippet>744</a>	</span><span class="kw">pub fn </span>import_notification_stream(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EventStream&lt;ExtrinsicHash&lt;B&gt;&gt; {
+<a href=#745 id=745 data-nosnippet>745</a>		<span class="kw">const </span>CHANNEL_BUFFER_SIZE: usize = <span class="number">1024</span>;
+<a href=#746 id=746 data-nosnippet>746</a>
+<a href=#747 id=747 data-nosnippet>747</a>		<span class="kw">let </span>(sink, stream) = channel(CHANNEL_BUFFER_SIZE);
+<a href=#748 id=748 data-nosnippet>748</a>		<span class="self">self</span>.import_notification_sinks.lock().push(sink);
+<a href=#749 id=749 data-nosnippet>749</a>		stream
+<a href=#750 id=750 data-nosnippet>750</a>	}
 <a href=#751 id=751 data-nosnippet>751</a>
-<a href=#752 id=752 data-nosnippet>752</a>		<span class="kw">let </span>(sink, stream) = channel(CHANNEL_BUFFER_SIZE);
-<a href=#753 id=753 data-nosnippet>753</a>		<span class="self">self</span>.import_notification_sinks.lock().push(sink);
-<a href=#754 id=754 data-nosnippet>754</a>		stream
-<a href=#755 id=755 data-nosnippet>755</a>	}
-<a href=#756 id=756 data-nosnippet>756</a>
-<a href=#757 id=757 data-nosnippet>757</a>	<span class="doccomment">/// Invoked when extrinsics are broadcasted.
-<a href=#758 id=758 data-nosnippet>758</a>	</span><span class="kw">pub fn </span>on_broadcasted(<span class="kw-2">&amp;</span><span class="self">self</span>, propagated: HashMap&lt;ExtrinsicHash&lt;B&gt;, Vec&lt;String&gt;&gt;) {
-<a href=#759 id=759 data-nosnippet>759</a>		<span class="kw">let </span><span class="kw-2">mut </span>event_dispatcher = <span class="self">self</span>.event_dispatcher.write();
-<a href=#760 id=760 data-nosnippet>760</a>		<span class="kw">for </span>(hash, peers) <span class="kw">in </span>propagated.into_iter() {
-<a href=#761 id=761 data-nosnippet>761</a>			event_dispatcher.broadcasted(<span class="kw-2">&amp;</span>hash, peers);
-<a href=#762 id=762 data-nosnippet>762</a>		}
-<a href=#763 id=763 data-nosnippet>763</a>	}
-<a href=#764 id=764 data-nosnippet>764</a>
-<a href=#765 id=765 data-nosnippet>765</a>	<span class="doccomment">/// Remove a subtree of transactions from the pool and mark them invalid.
+<a href=#752 id=752 data-nosnippet>752</a>	<span class="doccomment">/// Invoked when extrinsics are broadcasted.
+<a href=#753 id=753 data-nosnippet>753</a>	</span><span class="kw">pub fn </span>on_broadcasted(<span class="kw-2">&amp;</span><span class="self">self</span>, propagated: HashMap&lt;ExtrinsicHash&lt;B&gt;, Vec&lt;String&gt;&gt;) {
+<a href=#754 id=754 data-nosnippet>754</a>		<span class="kw">let </span><span class="kw-2">mut </span>event_dispatcher = <span class="self">self</span>.event_dispatcher.write();
+<a href=#755 id=755 data-nosnippet>755</a>		<span class="kw">for </span>(hash, peers) <span class="kw">in </span>propagated.into_iter() {
+<a href=#756 id=756 data-nosnippet>756</a>			event_dispatcher.broadcasted(<span class="kw-2">&amp;</span>hash, peers);
+<a href=#757 id=757 data-nosnippet>757</a>		}
+<a href=#758 id=758 data-nosnippet>758</a>	}
+<a href=#759 id=759 data-nosnippet>759</a>
+<a href=#760 id=760 data-nosnippet>760</a>	<span class="doccomment">/// Remove a subtree of transactions from the pool and mark them invalid.
+<a href=#761 id=761 data-nosnippet>761</a>	///
+<a href=#762 id=762 data-nosnippet>762</a>	/// The transactions passed as an argument will be additionally banned
+<a href=#763 id=763 data-nosnippet>763</a>	/// to prevent them from entering the pool right away.
+<a href=#764 id=764 data-nosnippet>764</a>	/// Note this is not the case for the dependent transactions - those may
+<a href=#765 id=765 data-nosnippet>765</a>	/// still be valid so we want to be able to re-import them.
 <a href=#766 id=766 data-nosnippet>766</a>	///
-<a href=#767 id=767 data-nosnippet>767</a>	/// The transactions passed as an argument will be additionally banned
-<a href=#768 id=768 data-nosnippet>768</a>	/// to prevent them from entering the pool right away.
-<a href=#769 id=769 data-nosnippet>769</a>	/// Note this is not the case for the dependent transactions - those may
-<a href=#770 id=770 data-nosnippet>770</a>	/// still be valid so we want to be able to re-import them.
-<a href=#771 id=771 data-nosnippet>771</a>	///
-<a href=#772 id=772 data-nosnippet>772</a>	/// For every removed transaction an Invalid event is triggered.
-<a href=#773 id=773 data-nosnippet>773</a>	///
-<a href=#774 id=774 data-nosnippet>774</a>	/// Returns the list of actually removed transactions, which may include transactions dependent
-<a href=#775 id=775 data-nosnippet>775</a>	/// on provided set.
-<a href=#776 id=776 data-nosnippet>776</a>	</span><span class="kw">pub fn </span>remove_invalid(<span class="kw-2">&amp;</span><span class="self">self</span>, hashes: <span class="kw-2">&amp;</span>[ExtrinsicHash&lt;B&gt;]) -&gt; Vec&lt;TransactionFor&lt;B&gt;&gt; {
-<a href=#777 id=777 data-nosnippet>777</a>		<span class="comment">// early exit in case there is no invalid transactions.
-<a href=#778 id=778 data-nosnippet>778</a>		</span><span class="kw">if </span>hashes.is_empty() {
-<a href=#779 id=779 data-nosnippet>779</a>			<span class="kw">return </span><span class="macro">vec!</span>[];
-<a href=#780 id=780 data-nosnippet>780</a>		}
-<a href=#781 id=781 data-nosnippet>781</a>
-<a href=#782 id=782 data-nosnippet>782</a>		<span class="kw">let </span>invalid = <span class="self">self</span>.remove_subtree(hashes, <span class="bool-val">true</span>, |listener, removed_tx_hash| {
-<a href=#783 id=783 data-nosnippet>783</a>			listener.invalid(<span class="kw-2">&amp;</span>removed_tx_hash);
-<a href=#784 id=784 data-nosnippet>784</a>		});
-<a href=#785 id=785 data-nosnippet>785</a>
-<a href=#786 id=786 data-nosnippet>786</a>		<span class="macro">trace!</span>(
-<a href=#787 id=787 data-nosnippet>787</a>			target: LOG_TARGET,
-<a href=#788 id=788 data-nosnippet>788</a>			removed_count = hashes.len(),
-<a href=#789 id=789 data-nosnippet>789</a>			invalid_count = invalid.len(),
-<a href=#790 id=790 data-nosnippet>790</a>			<span class="string">"Removed invalid transactions"
-<a href=#791 id=791 data-nosnippet>791</a>		</span>);
-<a href=#792 id=792 data-nosnippet>792</a>		<span class="macro">log_xt_trace!</span>(target: LOG_TARGET, invalid.iter().map(|t| t.hash), <span class="string">"Removed invalid transaction"</span>);
-<a href=#793 id=793 data-nosnippet>793</a>
-<a href=#794 id=794 data-nosnippet>794</a>		invalid
+<a href=#767 id=767 data-nosnippet>767</a>	/// For every removed transaction an Invalid event is triggered.
+<a href=#768 id=768 data-nosnippet>768</a>	///
+<a href=#769 id=769 data-nosnippet>769</a>	/// Returns the list of actually removed transactions, which may include transactions dependent
+<a href=#770 id=770 data-nosnippet>770</a>	/// on provided set.
+<a href=#771 id=771 data-nosnippet>771</a>	</span><span class="kw">pub fn </span>remove_invalid(<span class="kw-2">&amp;</span><span class="self">self</span>, hashes: <span class="kw-2">&amp;</span>[ExtrinsicHash&lt;B&gt;]) -&gt; Vec&lt;TransactionFor&lt;B&gt;&gt; {
+<a href=#772 id=772 data-nosnippet>772</a>		<span class="comment">// early exit in case there is no invalid transactions.
+<a href=#773 id=773 data-nosnippet>773</a>		</span><span class="kw">if </span>hashes.is_empty() {
+<a href=#774 id=774 data-nosnippet>774</a>			<span class="kw">return </span><span class="macro">vec!</span>[];
+<a href=#775 id=775 data-nosnippet>775</a>		}
+<a href=#776 id=776 data-nosnippet>776</a>
+<a href=#777 id=777 data-nosnippet>777</a>		<span class="kw">let </span>invalid = <span class="self">self</span>.remove_subtree(hashes, <span class="bool-val">true</span>, |listener, removed_tx_hash| {
+<a href=#778 id=778 data-nosnippet>778</a>			listener.invalid(<span class="kw-2">&amp;</span>removed_tx_hash);
+<a href=#779 id=779 data-nosnippet>779</a>		});
+<a href=#780 id=780 data-nosnippet>780</a>
+<a href=#781 id=781 data-nosnippet>781</a>		<span class="macro">trace!</span>(
+<a href=#782 id=782 data-nosnippet>782</a>			target: LOG_TARGET,
+<a href=#783 id=783 data-nosnippet>783</a>			removed_count = hashes.len(),
+<a href=#784 id=784 data-nosnippet>784</a>			invalid_count = invalid.len(),
+<a href=#785 id=785 data-nosnippet>785</a>			<span class="string">"Removed invalid transactions"
+<a href=#786 id=786 data-nosnippet>786</a>		</span>);
+<a href=#787 id=787 data-nosnippet>787</a>		<span class="macro">log_xt_trace!</span>(target: LOG_TARGET, invalid.iter().map(|t| t.hash), <span class="string">"Removed invalid transaction"</span>);
+<a href=#788 id=788 data-nosnippet>788</a>
+<a href=#789 id=789 data-nosnippet>789</a>		invalid
+<a href=#790 id=790 data-nosnippet>790</a>	}
+<a href=#791 id=791 data-nosnippet>791</a>
+<a href=#792 id=792 data-nosnippet>792</a>	<span class="doccomment">/// Get an iterator for ready transactions ordered by priority
+<a href=#793 id=793 data-nosnippet>793</a>	</span><span class="kw">pub fn </span>ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>ReadyTransactions&lt;Item = TransactionFor&lt;B&gt;&gt; + Send {
+<a href=#794 id=794 data-nosnippet>794</a>		<span class="self">self</span>.pool.read().ready()
 <a href=#795 id=795 data-nosnippet>795</a>	}
 <a href=#796 id=796 data-nosnippet>796</a>
-<a href=#797 id=797 data-nosnippet>797</a>	<span class="doccomment">/// Get an iterator for ready transactions ordered by priority
-<a href=#798 id=798 data-nosnippet>798</a>	</span><span class="kw">pub fn </span>ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>ReadyTransactions&lt;Item = TransactionFor&lt;B&gt;&gt; + Send {
-<a href=#799 id=799 data-nosnippet>799</a>		<span class="self">self</span>.pool.read().ready()
+<a href=#797 id=797 data-nosnippet>797</a>	<span class="doccomment">/// Returns a Vec of hashes and extrinsics in the future pool.
+<a href=#798 id=798 data-nosnippet>798</a>	</span><span class="kw">pub fn </span>futures(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(ExtrinsicHash&lt;B&gt;, ExtrinsicFor&lt;B&gt;)&gt; {
+<a href=#799 id=799 data-nosnippet>799</a>		<span class="self">self</span>.pool.read().futures().map(|tx| (tx.hash, tx.data.clone())).collect()
 <a href=#800 id=800 data-nosnippet>800</a>	}
 <a href=#801 id=801 data-nosnippet>801</a>
-<a href=#802 id=802 data-nosnippet>802</a>	<span class="doccomment">/// Returns a Vec of hashes and extrinsics in the future pool.
-<a href=#803 id=803 data-nosnippet>803</a>	</span><span class="kw">pub fn </span>futures(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(ExtrinsicHash&lt;B&gt;, ExtrinsicFor&lt;B&gt;)&gt; {
-<a href=#804 id=804 data-nosnippet>804</a>		<span class="self">self</span>.pool.read().futures().map(|tx| (tx.hash, tx.data.clone())).collect()
+<a href=#802 id=802 data-nosnippet>802</a>	<span class="doccomment">/// Returns pool status.
+<a href=#803 id=803 data-nosnippet>803</a>	</span><span class="kw">pub fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PoolStatus {
+<a href=#804 id=804 data-nosnippet>804</a>		<span class="self">self</span>.pool.read().status()
 <a href=#805 id=805 data-nosnippet>805</a>	}
 <a href=#806 id=806 data-nosnippet>806</a>
-<a href=#807 id=807 data-nosnippet>807</a>	<span class="doccomment">/// Returns pool status.
-<a href=#808 id=808 data-nosnippet>808</a>	</span><span class="kw">pub fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PoolStatus {
-<a href=#809 id=809 data-nosnippet>809</a>		<span class="self">self</span>.pool.read().status()
-<a href=#810 id=810 data-nosnippet>810</a>	}
-<a href=#811 id=811 data-nosnippet>811</a>
-<a href=#812 id=812 data-nosnippet>812</a>	<span class="doccomment">/// Notify all watchers that transactions in the block with hash have been finalized
-<a href=#813 id=813 data-nosnippet>813</a>	</span><span class="kw">pub async fn </span>on_block_finalized(<span class="kw-2">&amp;</span><span class="self">self</span>, block_hash: BlockHash&lt;B&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), B::Error&gt; {
-<a href=#814 id=814 data-nosnippet>814</a>		<span class="macro">trace!</span>(
-<a href=#815 id=815 data-nosnippet>815</a>			target: LOG_TARGET,
-<a href=#816 id=816 data-nosnippet>816</a>			<span class="question-mark">?</span>block_hash,
-<a href=#817 id=817 data-nosnippet>817</a>			<span class="string">"Attempting to notify watchers of finalization"
-<a href=#818 id=818 data-nosnippet>818</a>		</span>);
-<a href=#819 id=819 data-nosnippet>819</a>		<span class="self">self</span>.event_dispatcher.write().finalized(block_hash);
-<a href=#820 id=820 data-nosnippet>820</a>		<span class="prelude-val">Ok</span>(())
+<a href=#807 id=807 data-nosnippet>807</a>	<span class="doccomment">/// Notify all watchers that transactions in the block with hash have been finalized
+<a href=#808 id=808 data-nosnippet>808</a>	</span><span class="kw">pub async fn </span>on_block_finalized(<span class="kw-2">&amp;</span><span class="self">self</span>, block_hash: BlockHash&lt;B&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), B::Error&gt; {
+<a href=#809 id=809 data-nosnippet>809</a>		<span class="macro">trace!</span>(
+<a href=#810 id=810 data-nosnippet>810</a>			target: LOG_TARGET,
+<a href=#811 id=811 data-nosnippet>811</a>			<span class="question-mark">?</span>block_hash,
+<a href=#812 id=812 data-nosnippet>812</a>			<span class="string">"Attempting to notify watchers of finalization"
+<a href=#813 id=813 data-nosnippet>813</a>		</span>);
+<a href=#814 id=814 data-nosnippet>814</a>		<span class="self">self</span>.event_dispatcher.write().finalized(block_hash);
+<a href=#815 id=815 data-nosnippet>815</a>		<span class="prelude-val">Ok</span>(())
+<a href=#816 id=816 data-nosnippet>816</a>	}
+<a href=#817 id=817 data-nosnippet>817</a>
+<a href=#818 id=818 data-nosnippet>818</a>	<span class="doccomment">/// Notify the event_dispatcher of retracted blocks
+<a href=#819 id=819 data-nosnippet>819</a>	</span><span class="kw">pub fn </span>on_block_retracted(<span class="kw-2">&amp;</span><span class="self">self</span>, block_hash: BlockHash&lt;B&gt;) {
+<a href=#820 id=820 data-nosnippet>820</a>		<span class="self">self</span>.event_dispatcher.write().retracted(block_hash)
 <a href=#821 id=821 data-nosnippet>821</a>	}
 <a href=#822 id=822 data-nosnippet>822</a>
-<a href=#823 id=823 data-nosnippet>823</a>	<span class="doccomment">/// Notify the event_dispatcher of retracted blocks
-<a href=#824 id=824 data-nosnippet>824</a>	</span><span class="kw">pub fn </span>on_block_retracted(<span class="kw-2">&amp;</span><span class="self">self</span>, block_hash: BlockHash&lt;B&gt;) {
-<a href=#825 id=825 data-nosnippet>825</a>		<span class="self">self</span>.event_dispatcher.write().retracted(block_hash)
-<a href=#826 id=826 data-nosnippet>826</a>	}
-<a href=#827 id=827 data-nosnippet>827</a>
-<a href=#828 id=828 data-nosnippet>828</a>	<span class="doccomment">/// Resends ready and future events for all the ready and future transactions that are already
-<a href=#829 id=829 data-nosnippet>829</a>	/// in the pool.
-<a href=#830 id=830 data-nosnippet>830</a>	///
-<a href=#831 id=831 data-nosnippet>831</a>	/// Intended to be called after cloning the instance of `ValidatedPool`.
-<a href=#832 id=832 data-nosnippet>832</a>	</span><span class="kw">pub fn </span>retrigger_notifications(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-<a href=#833 id=833 data-nosnippet>833</a>		<span class="kw">let </span>pool = <span class="self">self</span>.pool.read();
-<a href=#834 id=834 data-nosnippet>834</a>		<span class="kw">let </span><span class="kw-2">mut </span>event_dispatcher = <span class="self">self</span>.event_dispatcher.write();
-<a href=#835 id=835 data-nosnippet>835</a>		pool.ready().for_each(|r| {
-<a href=#836 id=836 data-nosnippet>836</a>			event_dispatcher.ready(<span class="kw-2">&amp;</span>r.hash, <span class="prelude-val">None</span>);
-<a href=#837 id=837 data-nosnippet>837</a>		});
-<a href=#838 id=838 data-nosnippet>838</a>		pool.futures().for_each(|f| {
-<a href=#839 id=839 data-nosnippet>839</a>			event_dispatcher.future(<span class="kw-2">&amp;</span>f.hash);
-<a href=#840 id=840 data-nosnippet>840</a>		});
-<a href=#841 id=841 data-nosnippet>841</a>	}
-<a href=#842 id=842 data-nosnippet>842</a>
-<a href=#843 id=843 data-nosnippet>843</a>	<span class="doccomment">/// Removes a transaction subtree from the pool, starting from the given transaction hash.
-<a href=#844 id=844 data-nosnippet>844</a>	///
-<a href=#845 id=845 data-nosnippet>845</a>	/// This function traverses the dependency graph of transactions and removes the specified
-<a href=#846 id=846 data-nosnippet>846</a>	/// transaction along with all its descendant transactions from the pool.
-<a href=#847 id=847 data-nosnippet>847</a>	///
-<a href=#848 id=848 data-nosnippet>848</a>	/// The root transactions will be banned from re-entrering the pool if `ban_transactions` is
-<a href=#849 id=849 data-nosnippet>849</a>	/// true. Descendant transactions may be re-submitted to the pool if required.
-<a href=#850 id=850 data-nosnippet>850</a>	///
-<a href=#851 id=851 data-nosnippet>851</a>	/// A `event_disaptcher_action` callback function is invoked for every transaction that is
-<a href=#852 id=852 data-nosnippet>852</a>	/// removed, providing a reference to the pool's event dispatcher and the hash of the removed
-<a href=#853 id=853 data-nosnippet>853</a>	/// transaction. This allows to trigger the required events.
-<a href=#854 id=854 data-nosnippet>854</a>	///
-<a href=#855 id=855 data-nosnippet>855</a>	/// Returns a vector containing the hashes of all removed transactions, including the root
-<a href=#856 id=856 data-nosnippet>856</a>	/// transaction specified by `tx_hash`.
-<a href=#857 id=857 data-nosnippet>857</a>	</span><span class="kw">pub fn </span>remove_subtree&lt;F&gt;(
-<a href=#858 id=858 data-nosnippet>858</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#859 id=859 data-nosnippet>859</a>		hashes: <span class="kw-2">&amp;</span>[ExtrinsicHash&lt;B&gt;],
-<a href=#860 id=860 data-nosnippet>860</a>		ban_transactions: bool,
-<a href=#861 id=861 data-nosnippet>861</a>		event_dispatcher_action: F,
-<a href=#862 id=862 data-nosnippet>862</a>	) -&gt; Vec&lt;TransactionFor&lt;B&gt;&gt;
-<a href=#863 id=863 data-nosnippet>863</a>	<span class="kw">where
-<a href=#864 id=864 data-nosnippet>864</a>		</span>F: Fn(<span class="kw-2">&amp;mut </span>EventDispatcher&lt;B, L&gt;, ExtrinsicHash&lt;B&gt;),
-<a href=#865 id=865 data-nosnippet>865</a>	{
-<a href=#866 id=866 data-nosnippet>866</a>		<span class="comment">// temporarily ban removed transactions if requested
-<a href=#867 id=867 data-nosnippet>867</a>		</span><span class="kw">if </span>ban_transactions {
-<a href=#868 id=868 data-nosnippet>868</a>			<span class="self">self</span>.rotator.ban(<span class="kw-2">&amp;</span>Instant::now(), hashes.iter().cloned());
-<a href=#869 id=869 data-nosnippet>869</a>		};
-<a href=#870 id=870 data-nosnippet>870</a>		<span class="kw">let </span>removed = <span class="self">self</span>.pool.write().remove_subtree(hashes);
-<a href=#871 id=871 data-nosnippet>871</a>
-<a href=#872 id=872 data-nosnippet>872</a>		removed
-<a href=#873 id=873 data-nosnippet>873</a>			.into_iter()
-<a href=#874 id=874 data-nosnippet>874</a>			.map(|tx| {
-<a href=#875 id=875 data-nosnippet>875</a>				<span class="kw">let </span>removed_tx_hash = tx.hash;
-<a href=#876 id=876 data-nosnippet>876</a>				<span class="kw">let </span><span class="kw-2">mut </span>event_dispatcher = <span class="self">self</span>.event_dispatcher.write();
-<a href=#877 id=877 data-nosnippet>877</a>				event_dispatcher_action(<span class="kw-2">&amp;mut *</span>event_dispatcher, removed_tx_hash);
-<a href=#878 id=878 data-nosnippet>878</a>				tx.clone()
-<a href=#879 id=879 data-nosnippet>879</a>			})
-<a href=#880 id=880 data-nosnippet>880</a>			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#881 id=881 data-nosnippet>881</a>	}
-<a href=#882 id=882 data-nosnippet>882</a>}
-<a href=#883 id=883 data-nosnippet>883</a>
-<a href=#884 id=884 data-nosnippet>884</a><span class="kw">fn </span>fire_events&lt;B, L, Ex&gt;(
-<a href=#885 id=885 data-nosnippet>885</a>	event_dispatcher: <span class="kw-2">&amp;mut </span>EventDispatcher&lt;B, L&gt;,
-<a href=#886 id=886 data-nosnippet>886</a>	imported: <span class="kw-2">&amp;</span>base::Imported&lt;ExtrinsicHash&lt;B&gt;, Ex&gt;,
-<a href=#887 id=887 data-nosnippet>887</a>) <span class="kw">where
-<a href=#888 id=888 data-nosnippet>888</a>	</span>B: ChainApi,
-<a href=#889 id=889 data-nosnippet>889</a>	L: EventHandler&lt;B&gt;,
-<a href=#890 id=890 data-nosnippet>890</a>{
-<a href=#891 id=891 data-nosnippet>891</a>	<span class="kw">match </span><span class="kw-2">*</span>imported {
-<a href=#892 id=892 data-nosnippet>892</a>		base::Imported::Ready { <span class="kw-2">ref </span>promoted, <span class="kw-2">ref </span>failed, <span class="kw-2">ref </span>removed, <span class="kw-2">ref </span>hash } =&gt; {
-<a href=#893 id=893 data-nosnippet>893</a>			event_dispatcher.ready(hash, <span class="prelude-val">None</span>);
-<a href=#894 id=894 data-nosnippet>894</a>			failed.iter().for_each(|f| event_dispatcher.invalid(f));
-<a href=#895 id=895 data-nosnippet>895</a>			removed.iter().for_each(|r| event_dispatcher.usurped(<span class="kw-2">&amp;</span>r.hash, hash));
-<a href=#896 id=896 data-nosnippet>896</a>			promoted.iter().for_each(|p| event_dispatcher.ready(p, <span class="prelude-val">None</span>));
-<a href=#897 id=897 data-nosnippet>897</a>		},
-<a href=#898 id=898 data-nosnippet>898</a>		base::Imported::Future { <span class="kw-2">ref </span>hash } =&gt; event_dispatcher.future(hash),
-<a href=#899 id=899 data-nosnippet>899</a>	}
-<a href=#900 id=900 data-nosnippet>900</a>}
+<a href=#823 id=823 data-nosnippet>823</a>	<span class="doccomment">/// Resends ready and future events for all the ready and future transactions that are already
+<a href=#824 id=824 data-nosnippet>824</a>	/// in the pool.
+<a href=#825 id=825 data-nosnippet>825</a>	///
+<a href=#826 id=826 data-nosnippet>826</a>	/// Intended to be called after cloning the instance of `ValidatedPool`.
+<a href=#827 id=827 data-nosnippet>827</a>	</span><span class="kw">pub fn </span>retrigger_notifications(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+<a href=#828 id=828 data-nosnippet>828</a>		<span class="kw">let </span>pool = <span class="self">self</span>.pool.read();
+<a href=#829 id=829 data-nosnippet>829</a>		<span class="kw">let </span><span class="kw-2">mut </span>event_dispatcher = <span class="self">self</span>.event_dispatcher.write();
+<a href=#830 id=830 data-nosnippet>830</a>		pool.ready().for_each(|r| {
+<a href=#831 id=831 data-nosnippet>831</a>			event_dispatcher.ready(<span class="kw-2">&amp;</span>r.hash, <span class="prelude-val">None</span>);
+<a href=#832 id=832 data-nosnippet>832</a>		});
+<a href=#833 id=833 data-nosnippet>833</a>		pool.futures().for_each(|f| {
+<a href=#834 id=834 data-nosnippet>834</a>			event_dispatcher.future(<span class="kw-2">&amp;</span>f.hash);
+<a href=#835 id=835 data-nosnippet>835</a>		});
+<a href=#836 id=836 data-nosnippet>836</a>	}
+<a href=#837 id=837 data-nosnippet>837</a>
+<a href=#838 id=838 data-nosnippet>838</a>	<span class="doccomment">/// Removes a transaction subtree from the pool, starting from the given transaction hash.
+<a href=#839 id=839 data-nosnippet>839</a>	///
+<a href=#840 id=840 data-nosnippet>840</a>	/// This function traverses the dependency graph of transactions and removes the specified
+<a href=#841 id=841 data-nosnippet>841</a>	/// transaction along with all its descendant transactions from the pool.
+<a href=#842 id=842 data-nosnippet>842</a>	///
+<a href=#843 id=843 data-nosnippet>843</a>	/// The root transactions will be banned from re-entrering the pool if `ban_transactions` is
+<a href=#844 id=844 data-nosnippet>844</a>	/// true. Descendant transactions may be re-submitted to the pool if required.
+<a href=#845 id=845 data-nosnippet>845</a>	///
+<a href=#846 id=846 data-nosnippet>846</a>	/// A `event_disaptcher_action` callback function is invoked for every transaction that is
+<a href=#847 id=847 data-nosnippet>847</a>	/// removed, providing a reference to the pool's event dispatcher and the hash of the removed
+<a href=#848 id=848 data-nosnippet>848</a>	/// transaction. This allows to trigger the required events.
+<a href=#849 id=849 data-nosnippet>849</a>	///
+<a href=#850 id=850 data-nosnippet>850</a>	/// Returns a vector containing the hashes of all removed transactions, including the root
+<a href=#851 id=851 data-nosnippet>851</a>	/// transaction specified by `tx_hash`.
+<a href=#852 id=852 data-nosnippet>852</a>	</span><span class="kw">pub fn </span>remove_subtree&lt;F&gt;(
+<a href=#853 id=853 data-nosnippet>853</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#854 id=854 data-nosnippet>854</a>		hashes: <span class="kw-2">&amp;</span>[ExtrinsicHash&lt;B&gt;],
+<a href=#855 id=855 data-nosnippet>855</a>		ban_transactions: bool,
+<a href=#856 id=856 data-nosnippet>856</a>		event_dispatcher_action: F,
+<a href=#857 id=857 data-nosnippet>857</a>	) -&gt; Vec&lt;TransactionFor&lt;B&gt;&gt;
+<a href=#858 id=858 data-nosnippet>858</a>	<span class="kw">where
+<a href=#859 id=859 data-nosnippet>859</a>		</span>F: Fn(<span class="kw-2">&amp;mut </span>EventDispatcher&lt;B, L&gt;, ExtrinsicHash&lt;B&gt;),
+<a href=#860 id=860 data-nosnippet>860</a>	{
+<a href=#861 id=861 data-nosnippet>861</a>		<span class="comment">// temporarily ban removed transactions if requested
+<a href=#862 id=862 data-nosnippet>862</a>		</span><span class="kw">if </span>ban_transactions {
+<a href=#863 id=863 data-nosnippet>863</a>			<span class="self">self</span>.rotator.ban(<span class="kw-2">&amp;</span>Instant::now(), hashes.iter().cloned());
+<a href=#864 id=864 data-nosnippet>864</a>		};
+<a href=#865 id=865 data-nosnippet>865</a>		<span class="kw">let </span>removed = <span class="self">self</span>.pool.write().remove_subtree(hashes);
+<a href=#866 id=866 data-nosnippet>866</a>
+<a href=#867 id=867 data-nosnippet>867</a>		removed
+<a href=#868 id=868 data-nosnippet>868</a>			.into_iter()
+<a href=#869 id=869 data-nosnippet>869</a>			.map(|tx| {
+<a href=#870 id=870 data-nosnippet>870</a>				<span class="kw">let </span>removed_tx_hash = tx.hash;
+<a href=#871 id=871 data-nosnippet>871</a>				<span class="kw">let </span><span class="kw-2">mut </span>event_dispatcher = <span class="self">self</span>.event_dispatcher.write();
+<a href=#872 id=872 data-nosnippet>872</a>				event_dispatcher_action(<span class="kw-2">&amp;mut *</span>event_dispatcher, removed_tx_hash);
+<a href=#873 id=873 data-nosnippet>873</a>				tx.clone()
+<a href=#874 id=874 data-nosnippet>874</a>			})
+<a href=#875 id=875 data-nosnippet>875</a>			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#876 id=876 data-nosnippet>876</a>	}
+<a href=#877 id=877 data-nosnippet>877</a>}
+<a href=#878 id=878 data-nosnippet>878</a>
+<a href=#879 id=879 data-nosnippet>879</a><span class="kw">fn </span>fire_events&lt;B, L, Ex&gt;(
+<a href=#880 id=880 data-nosnippet>880</a>	event_dispatcher: <span class="kw-2">&amp;mut </span>EventDispatcher&lt;B, L&gt;,
+<a href=#881 id=881 data-nosnippet>881</a>	imported: <span class="kw-2">&amp;</span>base::Imported&lt;ExtrinsicHash&lt;B&gt;, Ex&gt;,
+<a href=#882 id=882 data-nosnippet>882</a>) <span class="kw">where
+<a href=#883 id=883 data-nosnippet>883</a>	</span>B: ChainApi,
+<a href=#884 id=884 data-nosnippet>884</a>	L: EventHandler&lt;B&gt;,
+<a href=#885 id=885 data-nosnippet>885</a>{
+<a href=#886 id=886 data-nosnippet>886</a>	<span class="kw">match </span><span class="kw-2">*</span>imported {
+<a href=#887 id=887 data-nosnippet>887</a>		base::Imported::Ready { <span class="kw-2">ref </span>promoted, <span class="kw-2">ref </span>failed, <span class="kw-2">ref </span>removed, <span class="kw-2">ref </span>hash } =&gt; {
+<a href=#888 id=888 data-nosnippet>888</a>			event_dispatcher.ready(hash, <span class="prelude-val">None</span>);
+<a href=#889 id=889 data-nosnippet>889</a>			failed.iter().for_each(|f| event_dispatcher.invalid(f));
+<a href=#890 id=890 data-nosnippet>890</a>			removed.iter().for_each(|r| event_dispatcher.usurped(<span class="kw-2">&amp;</span>r.hash, hash));
+<a href=#891 id=891 data-nosnippet>891</a>			promoted.iter().for_each(|p| event_dispatcher.ready(p, <span class="prelude-val">None</span>));
+<a href=#892 id=892 data-nosnippet>892</a>		},
+<a href=#893 id=893 data-nosnippet>893</a>		base::Imported::Future { <span class="kw-2">ref </span>hash } =&gt; event_dispatcher.future(hash),
+<a href=#894 id=894 data-nosnippet>894</a>	}
+<a href=#895 id=895 data-nosnippet>895</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

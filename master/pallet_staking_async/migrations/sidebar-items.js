@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["MigrateEraPotsToPool"]};
+window.SIDEBAR_ITEMS = {"struct":["MigrateEraPotsToPool","VersionUncheckedSetWeightedPointsFormulaStartEra"],"type":["SetWeightedPointsFormulaStartEra"]};

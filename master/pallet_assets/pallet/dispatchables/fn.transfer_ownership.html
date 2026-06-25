@@ -153,6 +153,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
     owner: &lt;&lt;T as Config&gt;::Lookup as StaticLookup&gt;::Source,
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Change the Owner of an asset.</p>
 <p>Origin must be Signed and the sender should be the Owner of the asset <code>id</code>.</p>
+<p>The asset (and metadata) deposit is moved from the current to the new owner. Fails
+with <a href="../enum.Error.html#variant.IncompleteDepositTransfer" title="variant pallet_assets::pallet::Error::IncompleteDepositTransfer"><code>Error::IncompleteDepositTransfer</code></a> if a lock or freeze on the current owner
+blocks the full transfer; clear it and retry.</p>
 <ul>
 <li><code>id</code>: The identifier of the asset.</li>
 <li><code>owner</code>: The new Owner of this asset.</li>
