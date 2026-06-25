@@ -74,7 +74,6 @@ use codec::Codec;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_proof_size_recording::register_proof_size_recording_cleanup;
-use cumulus_client_resubmission_store::register_resubmission_cleanup;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{
 	KeyToIncludeInRelayProof, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
@@ -87,7 +86,8 @@ use polkadot_primitives::{
 	ValidationCodeHash,
 };
 use sc_client_api::{
-	backend::AuxStore, client::PreCommitActions, BlockBackend, BlockOf, UsageProvider,
+	backend::AuxStore, client::PreCommitActions, BlockBackend, BlockOf, BlockchainEvents,
+	UsageProvider,
 };
 use sc_consensus::BlockImport;
 use sc_network_types::PeerId;
@@ -173,6 +173,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		+ BlockBackend<Block>
 		+ UsageProvider<Block>
 		+ PreCommitActions<Block>
+		+ BlockchainEvents<Block>
 		+ Send
 		+ Sync
 		+ 'static,
@@ -220,7 +221,6 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 
 	// Initialize proof size recording cleanup
 	register_proof_size_recording_cleanup(para_client.clone());
-	register_resubmission_cleanup::<Block, _>(para_client.clone());
 
 	let resubmission_backfill_fut = resubmission::run_resubmission_backfill(
 		block_import_handle,

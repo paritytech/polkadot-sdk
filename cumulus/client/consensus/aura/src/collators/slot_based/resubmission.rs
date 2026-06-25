@@ -23,14 +23,17 @@
 //! off the block-import path.
 
 use super::SlotBasedBlockImportHandle;
-use cumulus_client_resubmission_store::{now_unix_ms, prepare_resubmission_aux_data};
+use cumulus_client_resubmission_store::{
+	now_unix_ms, prepare_resubmission_aux_data, prune_finalized_entries,
+};
 use cumulus_primitives_core::{
 	relay_chain::{BlockId, Hash as RelayHash, Header as RelayHeader, SessionIndex},
 	CumulusDigestItem, PersistedValidationData, RelayBlockIdentifier,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
+use futures::{FutureExt, StreamExt};
 use polkadot_primitives::{Id as ParaId, OccupiedCoreAssumption};
-use sc_client_api::backend::AuxStore;
+use sc_client_api::{backend::AuxStore, BlockchainEvents};
 use sp_api::StorageProof;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
@@ -38,12 +41,8 @@ use std::sync::Arc;
 
 const LOG_TARGET: &str = "aura::resubmission";
 
-/// Fetch the session index and persisted validation data (with `OccupiedCoreAssumption::TimedOut`)
-/// for the given relay parent and para id.
-///
-/// Returns `None` on any error. The returned PVD is the relay-chain's own PVD
-/// as-is — its `parent_head` is the currently-included head, which is the authoritative value for
-/// resubmission.
+/// Fetch the session index and persisted validation data (with `OccupiedCoreAssumption::TimedOut`,
+/// so `parent_head` is the currently-included head) for the given relay parent. `None` on error.
 pub(crate) async fn resolve_session_and_pvd<R: RelayChainInterface + ?Sized>(
 	relay_client: &R,
 	relay_parent: RelayHash,
@@ -160,11 +159,11 @@ pub(crate) async fn resolve_relay_parent<R: RelayChainInterface + ?Sized>(
 	}
 }
 
-/// Backfill resubmission entries for blocks imported at the tip.
+/// Maintain the resubmission store for blocks imported at the tip.
 ///
 /// Receives imported `(block, storage proof)` pairs from the [`SlotBasedBlockImportHandle`] and
-/// records a resubmission entry for each via [`backfill_resubmission_entry`]. All relay-chain
-/// queries happen here, off the block-import path, so block import is never delayed by them.
+/// records a resubmission entry for each via [`backfill_resubmission_entry`], and prunes entries as
+/// blocks are finalized.
 pub(crate) async fn run_resubmission_backfill<Block, RClient, Client>(
 	mut block_import_handle: SlotBasedBlockImportHandle<Block>,
 	relay_client: RClient,
@@ -173,38 +172,61 @@ pub(crate) async fn run_resubmission_backfill<Block, RClient, Client>(
 ) where
 	Block: BlockT,
 	RClient: RelayChainInterface,
-	Client: AuxStore + HeaderBackend<Block>,
+	Client: AuxStore + HeaderBackend<Block> + BlockchainEvents<Block>,
 {
+	let mut finality_notifications = para_client.finality_notification_stream();
+
 	loop {
-		let (block, proof) = block_import_handle.next().await;
-		backfill_resubmission_entry(&relay_client, &*para_client, para_id, block, proof).await;
+		let import_fut = block_import_handle.next().fuse();
+		let notification_fut = finality_notifications.next().fuse();
+		futures::pin_mut!(import_fut, notification_fut);
+
+		futures::select! {
+			maybe_notification = notification_fut => {
+				let Some(notification) = maybe_notification else {
+					// The finality stream ended; nothing left to prune.
+					break;
+				};
+
+				if let Err(err) = prune_finalized_entries(&*para_client, &notification) {
+					tracing::warn!(
+						target: LOG_TARGET,
+						?err,
+						"Failed to prune finalized resubmission entries.",
+					);
+				}
+			},
+			(block, proof) = import_fut => {
+				backfill_resubmission_entry(&relay_client, &*para_client, para_id, block, proof)
+					.await;
+			},
+		}
 	}
 }
 
-/// Record a resubmission entry for a single block imported at the tip (built by another collator).
+/// Resolve the relay-chain data an entry needs and write it to the aux store.
 ///
-/// Resolves the relay-chain data the entry needs (relay-parent header, session and persisted
-/// validation data) and writes the entry to the aux store. All relay-chain queries happen here,
-/// outside the block-import path, so block import is never delayed by them.
-///
-/// Resubmission only ever concerns unfinalized blocks, so blocks that have already been finalized
-/// are skipped — they are no longer part of any unincluded segment, and their entries would be
-/// pruned on finality anyway. Finality is re-checked after the relay-chain queries (which may take
-/// a while) to avoid resurrecting an entry the finality pruner has just removed.
-pub(crate) async fn backfill_resubmission_entry<Block, R, Client>(
+/// Finalized blocks are skipped
+async fn backfill_resubmission_entry<Block, R, Client>(
 	relay_client: &R,
 	para_client: &Client,
 	para_id: ParaId,
 	block: Block,
-	proof: StorageProof,
+	proof: Arc<StorageProof>,
 ) where
 	Block: BlockT,
 	R: RelayChainInterface + ?Sized,
 	Client: AuxStore + HeaderBackend<Block>,
 {
+	let time_ms = now_unix_ms();
+
 	let header = block.header();
 	let block_hash = header.hash();
 	let number = *header.number();
+
+	if number <= para_client.info().finalized_number {
+		return;
+	}
 
 	let Some(core_info) = CumulusDigestItem::find_core_info(header.digest()) else {
 		tracing::trace!(target: LOG_TARGET, ?block_hash, "Imported block has no core info digest; skipping.");
@@ -236,8 +258,8 @@ pub(crate) async fn backfill_resubmission_entry<Block, R, Client>(
 
 	let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 		block_hash,
-		now_unix_ms(),
-		Arc::new(proof),
+		time_ms,
+		proof,
 		relay_parent_header,
 		relay_parent_session,
 		persisted_validation_data,

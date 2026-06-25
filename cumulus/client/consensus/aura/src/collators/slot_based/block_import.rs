@@ -74,14 +74,14 @@ fn load_ignored_nodes<Block: BlockT, B: AuxStore>(
 /// This handle should be passed to [`Params`](super::Params) or can also be dropped if the node is
 /// not running as collator.
 pub struct SlotBasedBlockImportHandle<Block> {
-	receiver: TracingUnboundedReceiver<(Block, StorageProof)>,
+	receiver: TracingUnboundedReceiver<(Block, Arc<StorageProof>)>,
 }
 
 impl<Block> SlotBasedBlockImportHandle<Block> {
 	/// Returns the next item.
 	///
 	/// The future will never return when the internal channel is closed.
-	pub async fn next(&mut self) -> (Block, StorageProof) {
+	pub async fn next(&mut self) -> (Block, Arc<StorageProof>) {
 		loop {
 			if self.receiver.is_terminated() {
 				futures::pending!()
@@ -134,7 +134,7 @@ where
 pub struct SlotBasedBlockImport<Block: BlockT, BI, Client> {
 	inner: BI,
 	client: Arc<Client>,
-	sender: TracingUnboundedSender<(Block, StorageProof)>,
+	sender: TracingUnboundedSender<(Block, Arc<StorageProof>)>,
 }
 
 impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
@@ -211,7 +211,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 		&self,
 		params: &mut sc_consensus::BlockImportParams<Block>,
 		collect_for_resubmission: bool,
-	) -> Result<Option<(Block, StorageProof)>, sp_consensus::Error>
+	) -> Result<Option<(Block, Arc<StorageProof>)>, sp_consensus::Error>
 	where
 		Client: ProvideRuntimeApi<Block>
 			+ CallApiAt<Block>
@@ -322,7 +322,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 		let Some(resubmission_body) = resubmission_body else { return Ok(None) };
 
 		let block = Block::new(params.header.clone(), resubmission_body);
-		Ok(Some((block, storage_proof)))
+		Ok(Some((block, Arc::new(storage_proof))))
 	}
 }
 

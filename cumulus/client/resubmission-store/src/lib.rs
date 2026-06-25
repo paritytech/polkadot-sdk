@@ -20,8 +20,11 @@
 //! Persists a [`StoredEntry`] per imported parablock, keyed by parablock hash, holding everything
 //! needed to reconstruct and resubmit the collation for an unincluded block without assuming the
 //! relay parent is still available: the storage proof, the relay parent header, the relay-parent
-//! session, the persisted validation data and the core selector. Data is pruned on
-//! parachain finality (via [`register_resubmission_cleanup`]).
+//! session, the persisted validation data and the core selector.
+//!
+//! Entries are pruned on parachain finality via [`prune_finalized_entries`], which is meant to run
+//! on the same task that records entries so a recorded entry is always observed by a subsequent
+//! finality notification.
 
 use codec::{Decode, Encode};
 use cumulus_client_consensus_common::old_finalized_hash;
@@ -31,7 +34,7 @@ use cumulus_primitives_core::{
 };
 use sc_client_api::{
 	backend::AuxStore,
-	client::{AuxDataOperations, FinalityNotification, PreCommitActions},
+	client::{AuxDataOperations, FinalityNotification},
 	HeaderBackend,
 };
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
@@ -151,33 +154,41 @@ impl<Block: BlockT, B: AuxStore> ResubmissionStore<Block, B> {
 	}
 }
 
-/// Register a finality hook that prunes entries for the just-finalized chain, the
-/// intermediate tree route, the prior finalized head, and any stale forks.
+/// Prune resubmission entries made obsolete by a finality notification.
 ///
-/// Should be called during consensus initialization. Once a block is finalized it is no
-/// longer in any unincluded segment, so its proof entry can be dropped.
-pub fn register_resubmission_cleanup<Block, B>(backend: Arc<B>)
+/// Deletes entries for the just-finalized chain, the intermediate tree route, the prior finalized
+/// head, and any stale forks. Once a block is finalized it is no longer in any unincluded segment,
+/// so its proof entry can be dropped.
+///
+/// This is meant to run on the same task that records entries (see [`record_resubmission_entry`]),
+/// so that a recorded entry is always observed by a subsequent finality notification. Driving the
+/// pruning from a separate pre-commit hook would race with the recording task: finality could prune
+/// before the entry is written, leaking the entry.
+pub fn prune_finalized_entries<Block, B>(
+	backend: &B,
+	notification: &FinalityNotification<Block>,
+) -> ClientResult<()>
 where
 	Block: BlockT,
-	B: PreCommitActions<Block> + HeaderBackend<Block> + 'static,
+	B: AuxStore + HeaderBackend<Block>,
 {
-	let client = backend.clone();
-	let on_finality = move |notification: &FinalityNotification<Block>| -> AuxDataOperations {
-		let old_finalized = old_finalized_hash::<_, Block>(
-			&*client,
-			&notification.tree_route,
-			*notification.header.parent_hash(),
-		);
+	let old_finalized = old_finalized_hash::<_, Block>(
+		backend,
+		&notification.tree_route,
+		*notification.header.parent_hash(),
+	);
 
-		finality_cleanup_ops::<Block>(
-			notification.hash,
-			old_finalized,
-			&notification.tree_route,
-			notification.stale_blocks.iter().map(|b| b.hash),
-		)
-	};
+	let ops = finality_cleanup_ops::<Block>(
+		notification.hash,
+		old_finalized,
+		&notification.tree_route,
+		notification.stale_blocks.iter().map(|b| b.hash),
+	);
 
-	backend.register_finality_action(Box::new(on_finality));
+	let deletes: Vec<_> =
+		ops.iter().filter_map(|(k, v)| v.is_none().then_some(k.as_slice())).collect();
+
+	backend.insert_aux(&[], &deletes)
 }
 
 /// Compute aux storage cleanup operations.
