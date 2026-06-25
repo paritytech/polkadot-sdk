@@ -2266,7 +2266,8 @@ mod tests {
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
-			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),			v2dht: V2DhtOrchestrator::new(
+			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
 				topology_config(20, 3),
@@ -2598,7 +2599,8 @@ mod tests {
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
-			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),			v2dht: V2DhtOrchestrator::new(
+			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
 				topology_config(20, 3),
@@ -2649,7 +2651,8 @@ mod tests {
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
-			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),			v2dht: V2DhtOrchestrator::new(
+			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
 				topology_config(20, 3),
@@ -4074,7 +4077,8 @@ mod tests {
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
-			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),			v2dht: V2DhtOrchestrator::new(
+			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
 				topology_config(20, 3),
@@ -4437,7 +4441,8 @@ mod tests {
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
-			sync_recovery_readd_timeout: Box::pin(pending().fuse()),			v2dht: V2DhtOrchestrator::new(
+			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
+			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
 				topology_config(20, 3),
@@ -4510,7 +4515,8 @@ mod tests {
 			deferred_peers: deferred,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
-			sync_recovery_readd_timeout: Box::pin(pending().fuse()),			v2dht: V2DhtOrchestrator::new(
+			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
+			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
 				topology_config(20, 3),
@@ -4595,7 +4601,8 @@ mod tests {
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: true,
 			sync_recovery_peer: None,
-			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),			v2dht: V2DhtOrchestrator::new(
+			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
 				topology_config(20, 3),
@@ -4704,7 +4711,8 @@ mod tests {
 					deferred_peers: HashSet::new(),
 					dropped_statements_during_sync: dropped,
 					sync_recovery_peer: None,
-					sync_recovery_readd_timeout: Box::pin(pending().fuse()),					v2dht: V2DhtOrchestrator::new(
+					sync_recovery_readd_timeout: Box::pin(pending().fuse()),
+					v2dht: V2DhtOrchestrator::new(
 						&[],
 						local_peer,
 						topology_config(20, 3),
