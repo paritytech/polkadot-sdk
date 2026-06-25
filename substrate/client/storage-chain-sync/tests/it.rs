@@ -66,7 +66,7 @@ fn info(
 		content_hash,
 		size,
 		hashing,
-		cid_codec: sc_network::bitswap::RAW_CODEC,
+		cid_codec: sc_network_bitswap::RAW_CODEC,
 		extrinsic_index,
 	}
 }
@@ -152,7 +152,7 @@ async fn import_case_a_propagates_runtime_declared_codec_to_bitswap_cid() {
 		"bitswap request must carry the runtime-declared codec ({DAG_PB_CODEC:#x}); observed: {observed:?}",
 	);
 	assert!(
-		observed.iter().all(|cid| cid.codec() != sc_network::bitswap::RAW_CODEC),
+		observed.iter().all(|cid| cid.codec() != sc_network_bitswap::RAW_CODEC),
 		"no request should fall back to hard-coded RAW_CODEC; observed: {observed:?}",
 	);
 
@@ -532,7 +532,7 @@ mod mock {
 		BlockCheckParams, BlockImport, BlockImportParams, ImportResult, ImportedAux, StateAction,
 		StorageChanges as ConsensusStorageChanges,
 	};
-	use sc_network::bitswap::{
+	use sc_network_bitswap::{
 		BitswapError, BitswapRequest, Cid as BitswapCid, FetchItem, FetchOutcome, RAW_CODEC,
 	};
 	use sp_api::{ApiError, ConstructRuntimeApi};

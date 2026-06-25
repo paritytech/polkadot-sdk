@@ -17,8 +17,8 @@
 
 //! Public user-facing handle for the Bitswap service.
 //!
-//! The handle is returned by [`crate::service::traits::BitswapProvider::bitswap_handle`] when
-//! the node is configured with `--ipfs-server` and uses the litep2p network backend.
+//! The handle is returned by [`crate::start`] when the node is configured with
+//! `--ipfs-server` and uses the litep2p network backend.
 //!
 //! Cheap to clone. Submit work via [`BitswapHandle::request_stream`], drain the receiver to
 //! get per-CID outcomes as they resolve.
@@ -105,8 +105,7 @@ pub type FetchItem = Result<(Cid, FetchOutcome), BitswapError>;
 
 /// User-facing handle to the Bitswap service.
 ///
-/// Cheap to clone. Created at network construction time and stored on `NetworkService`;
-/// retrieve via `NetworkService::bitswap_handle()`.
+/// Cheap to clone. Created at network construction time and returned by [`crate::start`].
 #[derive(Debug, Clone)]
 pub struct BitswapHandle {
 	cmd_tx: mpsc::Sender<BitswapCommand>,
@@ -114,7 +113,7 @@ pub struct BitswapHandle {
 
 impl BitswapHandle {
 	/// Construct a new handle around an existing command sender. Used internally by
-	/// [`crate::bitswap::start`].
+	/// [`crate::start`].
 	pub(crate) fn new(cmd_tx: mpsc::Sender<BitswapCommand>) -> Self {
 		Self { cmd_tx }
 	}
@@ -223,43 +222,4 @@ pub(crate) enum BitswapCommand {
 	},
 }
 
-/// Peer connect/disconnect events published into the Bitswap service actor.
-///
-/// Production wiring uses `Connected` / `Disconnected` events from the sync peer stream.
-#[derive(Debug, Clone)]
-pub enum PeerEvent {
-	/// A new peer connected.
-	Connected {
-		/// Peer ID.
-		peer: litep2p::PeerId,
-	},
-	/// A previously-connected peer disconnected.
-	Disconnected {
-		/// Peer ID.
-		peer: litep2p::PeerId,
-	},
-}
 
-/// Wiring produced by [`crate::bitswap::start`] and consumed during network construction.
-///
-/// Network construction:
-/// - feeds [`Self::litep2p_config`] into `Litep2pConfigBuilder::with_libp2p_bitswap`,
-/// - stores [`Self::user_handle`] on `Litep2pNetworkService` for the `bitswap_handle()` accessor,
-/// - publishes sync-vetted `PeerEvent`s into [`Self::peer_event_tx`].
-pub struct BitswapWiring {
-	/// Litep2p protocol config; consumed by `with_libp2p_bitswap`.
-	pub litep2p_config: litep2p::protocol::libp2p::bitswap::Config,
-	/// Public, cloneable user-facing handle.
-	pub user_handle: BitswapHandle,
-	/// Sender into which network construction publishes peer events. The actor holds the receiver
-	/// internally.
-	pub peer_event_tx: mpsc::Sender<PeerEvent>,
-}
-
-impl std::fmt::Debug for BitswapWiring {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("BitswapWiring")
-			.field("user_handle", &self.user_handle)
-			.finish_non_exhaustive()
-	}
-}

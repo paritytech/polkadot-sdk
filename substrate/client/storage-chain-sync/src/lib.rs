@@ -533,7 +533,7 @@ impl From<FetchError> for ConsensusError {
 mod tests {
 	use super::*;
 	use codec::Encode;
-	use sc_network::bitswap::RAW_CODEC;
+	use sc_network_bitswap::RAW_CODEC;
 	use sp_runtime::{generic, traits::BlakeTwo256, OpaqueExtrinsic};
 	use std::collections::HashSet;
 

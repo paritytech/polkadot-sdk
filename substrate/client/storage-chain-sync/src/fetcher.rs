@@ -30,18 +30,18 @@
 
 //! Bitswap-based fetcher for indexed-transaction blobs.
 //!
-//! Thin adapter over [`sc_network::bitswap::BitswapHandle`]. Peer selection,
+//! Thin adapter over [`sc_network_bitswap::BitswapHandle`]. Peer selection,
 //! per-peer timeouts, retries and hash verification all live in the bitswap actor
 //! itself. This fetcher's only jobs are:
 //!
 //! 1. building the per-want CIDs from the runtime-declared (hash, hashing, codec) triples,
-//! 2. chunking by [`sc_network::bitswap::MAX_CIDS_PER_REQUEST`] and submitting all chunks
+//! 2. chunking by [`sc_network_bitswap::MAX_CIDS_PER_REQUEST`] and submitting all chunks
 //!    concurrently,
 //! 3. draining the per-chunk streams into a `HashMap<ContentHash, Vec<u8>>`.
 
 use cid::{multihash::Multihash, Cid};
 use futures::{future, stream::FuturesUnordered, StreamExt};
-use sc_network::bitswap::{BitswapError, BitswapRequest, FetchOutcome, MAX_CIDS_PER_REQUEST};
+use sc_network_bitswap::{BitswapError, BitswapRequest, FetchOutcome, MAX_CIDS_PER_REQUEST};
 use sp_runtime::traits::Block as BlockT;
 use sp_transaction_storage_proof::{ContentHash, HashingAlgorithm};
 use std::{

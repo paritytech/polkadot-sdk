@@ -21,9 +21,11 @@
 //! Bitswap v1.2.0 wantlists) and the client side (a long-lived service plus user-facing
 //! [`BitswapHandle`] for fetching CIDs from the network).
 //!
-//! Only available on the litep2p network backend. The user-facing handle is reached via
-//! `NetworkService::bitswap_handle()` and is `Some(_)` when the node was started with
-//! `--ipfs-server` and a litep2p backend, `None` otherwise.
+//! Only available on the litep2p network backend. The caller mints the litep2p protocol
+//! config + transport handle pair via `litep2p::protocol::libp2p::bitswap::Config::new`,
+//! hands the transport handle to [`start`], and routes the litep2p config into the
+//! backend's IPFS layer. The user-facing handle returned by [`start`] is exposed to
+//! consumers via the build-network output of `sc-service`.
 
 use cid::Version as CidVersion;
 
@@ -33,8 +35,8 @@ mod service;
 pub use cid::Cid;
 pub(crate) use handle::BitswapCommand;
 pub use handle::{
-	BitswapError, BitswapHandle, BitswapRequest, BitswapServiceConfig, BitswapWiring, FetchItem,
-	FetchOutcome, PeerEvent, MAX_CIDS_PER_REQUEST,
+	BitswapError, BitswapHandle, BitswapRequest, BitswapServiceConfig, FetchItem, FetchOutcome,
+	MAX_CIDS_PER_REQUEST,
 };
 pub use service::start;
 

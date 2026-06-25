@@ -20,8 +20,10 @@ doc:
 
       The omni-node wiring in `polkadot-omni-node-lib` is updated accordingly:
       the partial-components tuple carries one bitswap-handle slot instead of
-      two handles, and `start_node` populates the slot via
-      `NetworkService::bitswap_handle()`.
+      two handles, and `start_node` populates the slot from the bitswap handle
+      returned in the build-network output tuple (see the follow-up PR that
+      extracts the bitswap crate; `NetworkService::bitswap_handle()` is
+      removed as part of that move).
 
 crates:
   - name: sc-storage-chain-sync

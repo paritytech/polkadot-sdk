@@ -47,9 +47,9 @@ use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{
-	bitswap::BitswapRequest, config::FullNetworkConfiguration, NetworkBackend, NetworkBlock,
-	NetworkStateInfo, PeerId,
+	config::FullNetworkConfiguration, NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId,
 };
+use sc_network_bitswap::BitswapRequest;
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_statement_store::Store;
 use sc_storage_chain_sync::{
@@ -449,7 +449,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				(proto, config)
 			});
 
-			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+			let (network, system_rpc_tx, tx_handler_controller, sync_service, bitswap_handle) =
 				build_network(BuildNetworkParams {
 					parachain_config: &parachain_config,
 					net_config,
@@ -465,7 +465,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 				.await?;
 
-			if let Some(handle) = sc_network::BitswapProvider::bitswap_handle(&*network) {
+			if let Some(handle) = bitswap_handle {
 				let _ = bitswap_slot.set(Arc::new(handle) as Arc<dyn BitswapRequest>);
 			}
 

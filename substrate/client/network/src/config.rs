@@ -36,6 +36,14 @@ pub use crate::{
 };
 
 pub use sc_network_types::{build_multiaddr, ed25519};
+
+/// Litep2p transport-side Bitswap handle.
+///
+/// Re-exported here so callers wiring bitswap (typically `sc-service`) need not depend on
+/// `litep2p` directly. Pair-minted with [`IpfsConfig`] via [`IpfsConfig::new`]; the handle is
+/// then handed to `sc_network_bitswap::start` while the config is consumed by the litep2p
+/// backend.
+pub use litep2p::protocol::libp2p::bitswap::BitswapHandle as LitepBitswapHandle;
 use sc_network_types::{
 	multiaddr::{self, Multiaddr},
 	PeerId,
@@ -763,14 +771,33 @@ impl NetworkConfiguration {
 
 /// IPFS server configuration.
 pub struct IpfsConfig {
-	/// Bitswap wiring produced by [`crate::bitswap::start`]. Carries the litep2p protocol
-	/// config, the user-facing handle, and the peer-event sender. `None` is unsupported when
-	/// `ipfs_server = true`.
-	pub bitswap_wiring: Option<crate::bitswap::BitswapWiring>,
+	/// Litep2p Bitswap protocol config; consumed by `Litep2pConfigBuilder::with_libp2p_bitswap`
+	/// inside the network backend. Pair-minted with the transport handle returned alongside
+	/// from [`IpfsConfig::new`].
+	pub litep2p_bitswap_config: litep2p::protocol::libp2p::bitswap::Config,
 	/// Indexed transactions provider.
 	pub block_provider: Box<dyn crate::IpfsBlockProvider>,
 	/// IPFS bootstrap nodes.
 	pub bootnodes: Vec<MultiaddrWithPeerId>,
+}
+
+impl IpfsConfig {
+	/// Construct an [`IpfsConfig`] together with the litep2p transport-side Bitswap handle
+	/// that the bitswap service actor must own.
+	///
+	/// The litep2p `(Config, BitswapHandle)` pair shares one protocol negotiator and must
+	/// therefore be minted together; returning them from the same call makes that constraint
+	/// type-enforced. The caller hands the returned [`LitepBitswapHandle`] to
+	/// `sc_network_bitswap::start`, then passes the resulting `IpfsConfig` to
+	/// `sc-network` via `Params::ipfs_config`.
+	pub fn new(
+		block_provider: Box<dyn crate::IpfsBlockProvider>,
+		bootnodes: Vec<MultiaddrWithPeerId>,
+	) -> (Self, LitepBitswapHandle) {
+		let (litep2p_bitswap_config, litep2p_handle) =
+			litep2p::protocol::libp2p::bitswap::Config::new();
+		(Self { litep2p_bitswap_config, block_provider, bootnodes }, litep2p_handle)
+	}
 }
 
 /// Network initialization parameters.
