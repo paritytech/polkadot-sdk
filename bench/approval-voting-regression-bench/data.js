@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782399388576,
+  "lastUpdate": 1782405100945,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f890ed85a74e16bbd5e9f5e3ff3afda29aecc8ae",
-          "message": "Return the correct block difficulty from the eth-rpc (#10186)\n\n# Description\n\nThis PR fixes an issue in the eth-rpc/pallet-revive that was causing it\nto return an incorrect value for the block's difficulty or prevrandao.\n\nIn the VM/interpreter implementation we use a constant for the block\ndifficulty. However, the eth block construction side was unaware of this\nconstant being used and therefore the RPC was always returning a block\ndifficulty of zero.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-04T01:49:41Z",
-          "tree_id": "5068bd91a1cb0ddea0fab374dca45358d177ea42",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f890ed85a74e16bbd5e9f5e3ff3afda29aecc8ae"
-        },
-        "date": 1762225567795,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52943.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63629.27,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001930298,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.403445326709999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005896669489999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4037069448499997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001781441,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4024506122199996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9400722767699938,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.44849079916,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7102143632810725,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.42137297092999815,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001781441,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001930298,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.025435600129992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.386217861789997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b339135883ffe5f7e7f02e265b0db55ab9f2bae7",
+          "message": "pallet-revive: per-transaction cold/hot storage access pricing (#12104)\n\n### Summary\nEIP-2929-style cold/hot(warm) pricing for persistent storage access in\npallet-revive. The first access to a (contract, slot)` pair within a\ntransaction is billed \"cold\" (higher weight); any later access to the\nsame slot is \"hot\" (cheaper).\n\n### Description\n#### Covered operations\nCold/hot pricing applies to persistent storage:\n- the EVM `SLOAD` / `SSTORE` opcodes,\n- the PVM storage host functions,\n- the storage precompile (`containsStorage` warms the slot like an\n`SLOAD`).\n\n#### Access list and rollback\nHot/cold state is tracked by a new per-transaction access list, whose\nlayout mirrors `TransientStorage`: a current-state set plus a journal\nand per-frame checkpoints.\n- Nested frames open a checkpoint, so a reverted frame drops the slots\nit warmed; the top-level frame is never rolled back.\n- A cold touch that journals inside a nested frame also pre-pays a small\nrollback weight, to cover the cost of a potential revert (which charges\nno gas).\n\n#### Memory bound\nThe access list is capped at a fixed number of entries per transaction;\nonce full, further new slots are billed cold without being tracked.\nShort slots are held inline (Fix at 32 bytes, VarInline up to\nMAX_INLINE_KEY_LEN); longer ones (VarLong, up to STORAGE_KEY_BYTES) use\na heap-allocated bounded vector.\n\n#### Benchmarks\nNew benchmarks cover the hot storage ops (`seal_set_storage_hot`,\n`clear_storage_hot`, `contains_storage_hot`, `seal_get_storage_hot`,\n`take_storage_hot`) and the access-list overhead\n(`access_list_touch_cold_*`, `access_list_touch_hot_*`,\n`access_list_rollback_amortization`)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-25T14:01:59Z",
+          "tree_id": "8f41d342e1beba78282b2f13f32da68efbc7ea17",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b339135883ffe5f7e7f02e265b0db55ab9f2bae7"
+        },
+        "date": 1782405069918,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63608.119999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005614710209999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000026245199999999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.284048418039912,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000022367280000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000026245199999999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.715816091789999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.766101751009998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.412344896400002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7806897440899176,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.80829585401,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.311650247192781,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7951853705300005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000022367280000000004,
             "unit": "seconds"
           }
         ]
