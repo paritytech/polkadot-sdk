@@ -4,8 +4,8 @@
 //! End-to-end tests for the v2 DHT-affinity statement routing.
 //!
 //! v2 routes a statement to the `K` nodes with affinity to its topic instead of flooding every
-//! peer. It is enabled per node by the `STATEMENT_STORE_V2_DHT_ENABLED` environment variable (off by
-//! default); the replication factor `K` and gossip target are set via CLI flags.
+//! peer. It is enabled per node by the `STATEMENT_STORE_V2_DHT_ENABLED` environment variable (off
+//! by default); the replication factor `K` and gossip target are set via CLI flags.
 
 use super::common::{spawn_network_with_injected_allowances_v2, stores_locally, submit_statement};
 use codec::Encode;
@@ -35,7 +35,8 @@ async fn dht_affinity_works() -> Result<(), anyhow::Error> {
 	);
 
 	let names = ["alice", "bob", "charlie"];
-	let network = spawn_network_with_injected_allowances_v2(&names, 4, 2, TEST_GOSSIP_TARGET).await?;
+	let network =
+		spawn_network_with_injected_allowances_v2(&names, 4, 2, TEST_GOSSIP_TARGET).await?;
 
 	let nodes =
 		[network.get_node(names[0])?, network.get_node(names[1])?, network.get_node(names[2])?];
@@ -46,7 +47,8 @@ async fn dht_affinity_works() -> Result<(), anyhow::Error> {
 
 	// Each node must learn the other two before its K=2 affinity decision is meaningful.
 	for node in &nodes {
-		node.wait_metric_with_timeout(KNOWN_PEERS_METRIC, |peers| peers >= 2.0, 120).await?;
+		node.wait_metric_with_timeout(KNOWN_PEERS_METRIC, |peers| peers >= 2.0, 120)
+			.await?;
 	}
 
 	// With K=2 over three nodes, exactly two nodes are the DHT replicas for any topic.
@@ -69,9 +71,9 @@ async fn dht_affinity_works() -> Result<(), anyhow::Error> {
 		statements.push(expected);
 	}
 
-	// Poll until the K=2 distribution settles: the two replicas each store all three statements (own
-	// plus the two routed to them), the non-replica stores none. Forwarding is asynchronous, so we
-	// retry rather than sleep a fixed time.
+	// Poll until the K=2 distribution settles: the two replicas each store all three statements
+	// (own plus the two routed to them), the non-replica stores none. Forwarding is asynchronous,
+	// so we retry rather than sleep a fixed time.
 	const ATTEMPTS: u32 = 30;
 	for attempt in 0..ATTEMPTS {
 		let mut counts = Vec::with_capacity(rpcs.len());

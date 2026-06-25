@@ -382,8 +382,8 @@ pub(super) fn collator_args_v2(
 
 /// Spawns a network on the v2 DHT path with injected allowances, pinning `K` and the gossip target.
 ///
-/// The v2 DHT path is gated by `v2dht_enabled()`, which reads `STATEMENT_STORE_V2_DHT_ENABLED`, so we
-/// set that on every collator rather than passing a CLI flag.
+/// The v2 DHT path is gated by `v2dht_enabled()`, which reads `STATEMENT_STORE_V2_DHT_ENABLED`, so
+/// we set that on every collator rather than passing a CLI flag.
 pub(super) async fn spawn_network_with_injected_allowances_v2(
 	collators: &[&str],
 	participant_count: u32,
@@ -407,8 +407,8 @@ pub(super) async fn spawn_network_with_injected_allowances_v2(
 ///
 /// A fresh subscription first replays every matching statement already in the store, ending the
 /// replay with `remaining == Some(0)` (or a single empty batch when the store holds none). We scan
-/// that replay for `expected`. Subscribing grants explicit affinity for *future* statements only, so
-/// the probe cannot turn an already-dropped statement into a stored one.
+/// that replay for `expected`. Subscribing grants explicit affinity for *future* statements only,
+/// so the probe cannot turn an already-dropped statement into a stored one.
 pub(super) async fn stores_locally(
 	rpc: &RpcClient,
 	topic: Topic,
