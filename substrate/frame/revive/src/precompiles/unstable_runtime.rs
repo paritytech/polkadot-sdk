@@ -176,8 +176,12 @@ where
 					return Err(Error::Revert("max_len too large".into()));
 				}
 
-				let weight =
-					|len: u32| <T as crate::Config>::WeightInfo::unstable_runtime_get_storage(len);
+				// Two-dimensional read weight: keyed on the key length (trie
+				// traversal) and the value length `v` (bytes pulled into the PoV).
+				let key_len = key.as_ref().len() as u32;
+				let weight = |v: u32| {
+					<T as crate::Config>::WeightInfo::unstable_runtime_get_storage(key_len, v)
+				};
 
 				// Charge the benchmarked read weight for the caller-declared bound
 				// up front. This also gates the `max_len`-sized allocation: an
@@ -540,6 +544,28 @@ mod tests {
 	}
 
 	#[test]
+	fn storage_charges_more_for_longer_key() {
+		// The read weight is two-dimensional: a longer key traverses more trie
+		// nodes, so the charge must grow with the key length, not only the value
+		// length. Value is held constant (1 byte) so only the key dimension varies.
+		let measure = |key: &[u8]| {
+			ExtBuilder::default().build().execute_with(|| {
+				sp_io::storage::set(key, b"v");
+				let mut call_setup = CallSetup::<Test>::default();
+				let (mut ext, _) = call_setup.ext();
+				let before = ext.frame_meter().weight_consumed();
+				let input = storage_input(key, 64);
+				let _ = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+				(ext.frame_meter().weight_consumed() - before).ref_time()
+			})
+		};
+
+		let short = measure(&[1u8; 4]);
+		let long = measure(&[1u8; 128]);
+		assert!(long > short, "a longer key must charge more weight (short={short}, long={long})");
+	}
+
+	#[test]
 	fn storage_reverts_when_max_len_too_large() {
 		ExtBuilder::default().build().execute_with(|| {
 			let mut call_setup = CallSetup::<Test>::default();
@@ -571,9 +597,11 @@ mod tests {
 
 			assert_eq!(result.unwrap_err(), Error::Revert("value exceeds max_len".into()));
 
-			let expected =
-				<Test as crate::Config>::WeightInfo::unstable_runtime_get_storage(value_len as u32)
-					.proof_size();
+			let expected = <Test as crate::Config>::WeightInfo::unstable_runtime_get_storage(
+				b"big_value".len() as u32,
+				value_len as u32,
+			)
+			.proof_size();
 			assert!(
 				consumed.proof_size() >= expected,
 				"revert must charge proof_size for the actual value length \

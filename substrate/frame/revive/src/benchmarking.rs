@@ -1614,25 +1614,27 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Weight of reading a runtime storage value of length `n` from the main trie,
-	// as performed by the unstable `UnstableRuntime::getStorage` precompile. The
-	// benchmark measures the raw read so it is independent of the
-	// `unstable-precompiles` feature gate.
+	// Weight of reading a runtime storage value from the main trie, as performed by
+	// the unstable `UnstableRuntime::getStorage` precompile. Two-dimensional: `k` is
+	// the key length (longer keys traverse more trie nodes) and `v` is the value
+	// length (more bytes read into the PoV). The benchmark measures the raw read so
+	// it is independent of the `unstable-precompiles` feature gate.
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn unstable_runtime_get_storage(
-		n: Linear<0, { limits::STORAGE_BYTES }>,
+		k: Linear<0, { limits::STORAGE_KEY_BYTES }>,
+		v: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
-		let key = vec![0u8; limits::STORAGE_KEY_BYTES as usize];
-		sp_io::storage::set(&key, &vec![42u8; n as usize]);
+		let key = vec![0u8; k as usize];
+		sp_io::storage::set(&key, &vec![42u8; v as usize]);
 
-		let mut out = vec![0u8; n as usize];
+		let mut out = vec![0u8; v as usize];
 		let read;
 		#[block]
 		{
 			read = sp_io::storage::read(&key, &mut out, 0);
 		}
 
-		assert_eq!(read, Some(n));
+		assert_eq!(read, Some(v));
 		Ok(())
 	}
 
