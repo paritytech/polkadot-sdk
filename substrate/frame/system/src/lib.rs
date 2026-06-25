@@ -640,7 +640,8 @@ pub mod pallet {
 
 		/// Weight of signature verification for signed extrinsics.
 		///
-		/// Should match the value subtracted from [`ExtrinsicBaseWeight`] during overhead
+		/// Should match the value subtracted from
+		/// [`frame_support::weights::constants::ExtrinsicBaseWeight`] during overhead
 		/// benchmarking. Re-added for signed transactions via [`ChargeSignatureWeight`].
 		#[pallet::constant]
 		type SignatureWeight: Get<Weight>;

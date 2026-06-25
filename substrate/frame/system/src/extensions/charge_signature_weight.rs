@@ -45,7 +45,7 @@ impl Get<Weight> for ZeroWeight {
 	}
 }
 
-/// Charges [`Config::SignatureWeight`] when [`Self::is_signed`] is true.
+/// Charges [`Config::SignatureWeight`] when the extrinsic is signed.
 ///
 /// Include this extension in the runtime transaction-extension tuple. Construct it with
 /// [`Self::signed`] for signed extrinsics and [`Self::unsigned`] for general or unsigned paths.
