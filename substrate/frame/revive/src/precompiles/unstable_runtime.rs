@@ -18,10 +18,9 @@
 //! [`UnstableRuntime`] precompile implementation.
 //!
 //! Provides low-level access to runtime functionality from within a contract:
-//! - [`IUnstableRuntime::dispatch`]: dispatch an arbitrary SCALE-encoded `RuntimeCall` as the
-//!   calling contract's account (a `Signed` origin).
-//! - [`IUnstableRuntime::storage`]: read the raw bytes of any runtime storage item by its full
-//!   storage key.
+//! - `dispatch`: dispatch an arbitrary SCALE-encoded `RuntimeCall` as the calling contract's
+//!   account (a `Signed` origin).
+//! - `getStorage`: read the raw bytes of any runtime storage item by its full storage key.
 //!
 //! # Warning
 //!
@@ -308,6 +307,54 @@ mod tests {
 				before,
 				"filter must apply to calls nested inside Utility::batch",
 			);
+		});
+	}
+
+	#[test]
+	fn dispatch_allows_permitted_nested_batch_calls() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let value = 1_000u128;
+			let before = <Test as crate::Config>::Currency::balance(&BOB);
+
+			// Positive control: with the default `Everything` filter, a transfer
+			// nested in `Utility::batch` must still execute (the origin-attached
+			// filter does not over-block permitted calls).
+			let inner = RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+				dest: BOB,
+				value,
+			});
+			let batch =
+				RuntimeCall::Utility(pallet_utility::Call::batch { calls: alloc::vec![inner] });
+			let input = dispatch_input(batch);
+
+			<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext)
+				.expect("dispatch should succeed");
+
+			assert_eq!(
+				<Test as crate::Config>::Currency::balance(&BOB) - before,
+				value,
+				"permitted nested batch call should execute",
+			);
+		});
+	}
+
+	#[test]
+	fn dispatch_rejects_root_caller() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			// Make the precompile's caller a Root origin.
+			call_setup.set_origin(crate::exec::Origin::Root);
+			let (mut ext, _) = call_setup.ext();
+
+			let call = RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() });
+			let input = dispatch_input(call);
+
+			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+
+			assert_eq!(result.unwrap_err(), Error::Revert("root origin cannot dispatch".into()));
 		});
 	}
 
