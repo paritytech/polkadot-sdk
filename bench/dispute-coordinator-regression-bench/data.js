@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782383355146,
+  "lastUpdate": 1782389015487,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "35823283+jpserrat@users.noreply.github.com",
-            "name": "jpserrat",
-            "username": "jpserrat"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "38945d6a8b61c7f16b08f3b51bc28230270e882a",
-          "message": "add default xcm delivery fees configurations for parachain template (#10117)\n\n# Description\nAdding default delivery fees configuration to both HRMP and UMP in the\nparachain template\nCloses #10114\nHey @franciscoaguirre, I've used the same configurations that we have in\nother parachains, please let me know if anything have to be adjusted!\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-10-31T09:45:04Z",
-          "tree_id": "60fd8b810a05043470cd87193c8dfbeffe8a51dc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38945d6a8b61c7f16b08f3b51bc28230270e882a"
-        },
-        "date": 1761908163031,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0050191099299999944,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027024221099999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008682542769999985,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009475623789999981,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "764925dbdffab8f99309495ad2588a035e0b1a43",
+          "message": "XCM hardening - fix some regressions (#11910)\n\nThis PR fixes some regressions, improves code and adds more\ndefense-in-depth in a couple places.\n\n### xcm-executor: drain holdings by ownership in\ndeposit_assets_with_retry\n\nAdd `AssetsInHolding::into_per_asset_holdings()` and use it in\n`deposit_assets_with_retry` so each pass consumes the input via owning\n`BTreeMap`/`BTreeSet` iterators instead of `assets_iter().collect()` +\n`try_take`. Per asset this drops one `AssetId` clone, one or two\n`BTreeMap` lookups, one dynamic dispatch on `saturating_take`, and one\ninternal `subsume_assets` call; per pass it drops the intermediate\n`Vec<Asset>` allocation. Behaviour is unchanged: same iteration order,\nsame partial-failure / retry semantics.\n\n### xcm-executor: remove now dead code related do dust deposit errors\n\n`deposit_assets_with_retry` previously tried to silently drop \"dust\"\n(below-minimum) deposit failures, comparing the returned `XcmError`\nstring against the canonical `TokenError::BelowMinimum` text. After PR\nhttps://github.com/paritytech/polkadot-sdk/pull/10384 within\n`FungiblesAdapter::deposit_asset` the underlying `DispatchError` is\ndiscarded and the adapter returns `XcmError::FailedToTransactAsset(\"\")`\n- an empty string. The dust check never matched, so classifying the\nerror is no longer possible.\nRemove the special handling of dust deposit errors (which can no longer\nbe identified from returned error), and treat all errors the same.\n\n### cumulus/utility: fix inverted ED guard in\n`TakeFirstAssetTrader::refund_weight`\n\nThe else-branch was refunding ED to the user and leaving sub-ED dust for\nthe `OnUnbalanced` drop handler, the inverse of the intended behavior.\nRefund `outstanding - ED` instead so the handler keeps at least ED (or\nall of it when outstanding < ED), preventing silent fee burns.\n\nThis was actually a bug, but `TakeFirstAssetTrader` is not used by any\nproduction runtimes.\n\n### snowbridge: short-circuit on register-token error path\n    \nMinor optimization and defense-in-depth - short-circuit on errors and\ndon't directly compare `Option`s.\n\n### snowbridge: harden BLS public key deserialization\n\nDefense-in-depth: validate all cryptographic inputs.\n\nThe Merkle proof binding means the public keys must match exactly what\nthe Ethereum beacon chain committed. Since the beacon chain itself\nenforces G1 subgroup membership for validator keys, invalid subgroup\npoints cannot appear in honest beacon chain state.\nAn attacker would need to compromise the Merkle proof verification\n(e.g., via a SHA-256 collision or another bug in the verification chain)\nto inject a public key that is on the BLS12-381 curve but not in the G1\nsubgroup.\nThe performance cost of the subgroup check is a one-time cost during\nsync committee preparation (512 checks per sync committee period,\napproximately every 27 hours). This is negligible compared to the BLS\nsignature verification that occurs on every update. So just check it as\ndefense-in-depth.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: ron <yrong1997@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-06-25T09:23:44Z",
+          "tree_id": "f06ad552979f3fa125b216ee7f2c4c609051e0e1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/764925dbdffab8f99309495ad2588a035e0b1a43"
+        },
+        "date": 1782388984720,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00950273014999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01098440066,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00260672934,
             "unit": "seconds"
           }
         ]
