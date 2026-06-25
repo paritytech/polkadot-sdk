@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782382148779,
+  "lastUpdate": 1782387806505,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -181055,6 +181055,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2555746073,
             "range": "± 38463022",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "764925dbdffab8f99309495ad2588a035e0b1a43",
+          "message": "XCM hardening - fix some regressions (#11910)\n\nThis PR fixes some regressions, improves code and adds more\ndefense-in-depth in a couple places.\n\n### xcm-executor: drain holdings by ownership in\ndeposit_assets_with_retry\n\nAdd `AssetsInHolding::into_per_asset_holdings()` and use it in\n`deposit_assets_with_retry` so each pass consumes the input via owning\n`BTreeMap`/`BTreeSet` iterators instead of `assets_iter().collect()` +\n`try_take`. Per asset this drops one `AssetId` clone, one or two\n`BTreeMap` lookups, one dynamic dispatch on `saturating_take`, and one\ninternal `subsume_assets` call; per pass it drops the intermediate\n`Vec<Asset>` allocation. Behaviour is unchanged: same iteration order,\nsame partial-failure / retry semantics.\n\n### xcm-executor: remove now dead code related do dust deposit errors\n\n`deposit_assets_with_retry` previously tried to silently drop \"dust\"\n(below-minimum) deposit failures, comparing the returned `XcmError`\nstring against the canonical `TokenError::BelowMinimum` text. After PR\nhttps://github.com/paritytech/polkadot-sdk/pull/10384 within\n`FungiblesAdapter::deposit_asset` the underlying `DispatchError` is\ndiscarded and the adapter returns `XcmError::FailedToTransactAsset(\"\")`\n- an empty string. The dust check never matched, so classifying the\nerror is no longer possible.\nRemove the special handling of dust deposit errors (which can no longer\nbe identified from returned error), and treat all errors the same.\n\n### cumulus/utility: fix inverted ED guard in\n`TakeFirstAssetTrader::refund_weight`\n\nThe else-branch was refunding ED to the user and leaving sub-ED dust for\nthe `OnUnbalanced` drop handler, the inverse of the intended behavior.\nRefund `outstanding - ED` instead so the handler keeps at least ED (or\nall of it when outstanding < ED), preventing silent fee burns.\n\nThis was actually a bug, but `TakeFirstAssetTrader` is not used by any\nproduction runtimes.\n\n### snowbridge: short-circuit on register-token error path\n    \nMinor optimization and defense-in-depth - short-circuit on errors and\ndon't directly compare `Option`s.\n\n### snowbridge: harden BLS public key deserialization\n\nDefense-in-depth: validate all cryptographic inputs.\n\nThe Merkle proof binding means the public keys must match exactly what\nthe Ethereum beacon chain committed. Since the beacon chain itself\nenforces G1 subgroup membership for validator keys, invalid subgroup\npoints cannot appear in honest beacon chain state.\nAn attacker would need to compromise the Merkle proof verification\n(e.g., via a SHA-256 collision or another bug in the verification chain)\nto inject a public key that is on the BLS12-381 curve but not in the G1\nsubgroup.\nThe performance cost of the subgroup check is a one-time cost during\nsync committee preparation (512 checks per sync committee period,\napproximately every 27 hours). This is negligible compared to the BLS\nsignature verification that occurs on every update. So just check it as\ndefense-in-depth.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: ron <yrong1997@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-06-25T09:23:44Z",
+          "tree_id": "f06ad552979f3fa125b216ee7f2c4c609051e0e1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/764925dbdffab8f99309495ad2588a035e0b1a43"
+        },
+        "date": 1782387777535,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4380948,
+            "range": "± 27234",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 296543,
+            "range": "± 1980",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4310557,
+            "range": "± 63960",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 374098,
+            "range": "± 2912",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5796270,
+            "range": "± 80838",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 910478,
+            "range": "± 11796",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11061248,
+            "range": "± 265806",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5092597,
+            "range": "± 175582",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 46864268,
+            "range": "± 446950",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40070096,
+            "range": "± 467109",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 420604586,
+            "range": "± 15320520",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 322769808,
+            "range": "± 4339294",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2820701937,
+            "range": "± 27443544",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2547094102,
+            "range": "± 30166024",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3700386,
+            "range": "± 57019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1862920,
+            "range": "± 58333",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3778674,
+            "range": "± 84693",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1945857,
+            "range": "± 33056",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4444666,
+            "range": "± 102905",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2297004,
+            "range": "± 30412",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8570126,
+            "range": "± 127270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5370547,
+            "range": "± 53829",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38612356,
+            "range": "± 428270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37233850,
+            "range": "± 394682",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 330638497,
+            "range": "± 33320394",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 281793020,
+            "range": "± 8368705",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2646759073,
+            "range": "± 42151176",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2515273697,
+            "range": "± 67595104",
             "unit": "ns/iter"
           }
         ]
