@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782383248001,
+  "lastUpdate": 1782388895919,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "38e365842debbd5044b9b03d3da5378123cf53d7",
-          "message": "Cumulus: pre-connect to backers before own slot (#9929)\n\nOn top of https://github.com/paritytech/polkadot-sdk/pull/9178.\nImplements a mechanism to pre-connect to backers, see\nhttps://github.com/paritytech/polkadot-sdk/issues/9767#issuecomment-3306292493\n\nHow it works:\n- connect to backers 6s before own slot starts\n- disconnect from all backers and stop connecting as the RC advances if\nown slot has finished\n\nTODO:\n- [x] fix collator protocol tests\n- [x] Explicitly disconnect from all backers when own slot has passed\n- [x] add test coverage for new connect/disconnect notifications\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-11-03T08:16:15Z",
-          "tree_id": "559e93d2302c36f39cdae9019485d795ee1ebace",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38e365842debbd5044b9b03d3da5378123cf53d7"
-        },
-        "date": 1762162112922,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00708835623333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013162188353333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022538123120000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1585461353933333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14366756172000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "764925dbdffab8f99309495ad2588a035e0b1a43",
+          "message": "XCM hardening - fix some regressions (#11910)\n\nThis PR fixes some regressions, improves code and adds more\ndefense-in-depth in a couple places.\n\n### xcm-executor: drain holdings by ownership in\ndeposit_assets_with_retry\n\nAdd `AssetsInHolding::into_per_asset_holdings()` and use it in\n`deposit_assets_with_retry` so each pass consumes the input via owning\n`BTreeMap`/`BTreeSet` iterators instead of `assets_iter().collect()` +\n`try_take`. Per asset this drops one `AssetId` clone, one or two\n`BTreeMap` lookups, one dynamic dispatch on `saturating_take`, and one\ninternal `subsume_assets` call; per pass it drops the intermediate\n`Vec<Asset>` allocation. Behaviour is unchanged: same iteration order,\nsame partial-failure / retry semantics.\n\n### xcm-executor: remove now dead code related do dust deposit errors\n\n`deposit_assets_with_retry` previously tried to silently drop \"dust\"\n(below-minimum) deposit failures, comparing the returned `XcmError`\nstring against the canonical `TokenError::BelowMinimum` text. After PR\nhttps://github.com/paritytech/polkadot-sdk/pull/10384 within\n`FungiblesAdapter::deposit_asset` the underlying `DispatchError` is\ndiscarded and the adapter returns `XcmError::FailedToTransactAsset(\"\")`\n- an empty string. The dust check never matched, so classifying the\nerror is no longer possible.\nRemove the special handling of dust deposit errors (which can no longer\nbe identified from returned error), and treat all errors the same.\n\n### cumulus/utility: fix inverted ED guard in\n`TakeFirstAssetTrader::refund_weight`\n\nThe else-branch was refunding ED to the user and leaving sub-ED dust for\nthe `OnUnbalanced` drop handler, the inverse of the intended behavior.\nRefund `outstanding - ED` instead so the handler keeps at least ED (or\nall of it when outstanding < ED), preventing silent fee burns.\n\nThis was actually a bug, but `TakeFirstAssetTrader` is not used by any\nproduction runtimes.\n\n### snowbridge: short-circuit on register-token error path\n    \nMinor optimization and defense-in-depth - short-circuit on errors and\ndon't directly compare `Option`s.\n\n### snowbridge: harden BLS public key deserialization\n\nDefense-in-depth: validate all cryptographic inputs.\n\nThe Merkle proof binding means the public keys must match exactly what\nthe Ethereum beacon chain committed. Since the beacon chain itself\nenforces G1 subgroup membership for validator keys, invalid subgroup\npoints cannot appear in honest beacon chain state.\nAn attacker would need to compromise the Merkle proof verification\n(e.g., via a SHA-256 collision or another bug in the verification chain)\nto inject a public key that is on the BLS12-381 curve but not in the G1\nsubgroup.\nThe performance cost of the subgroup check is a one-time cost during\nsync committee preparation (512 checks per sync committee period,\napproximately every 27 hours). This is negligible compared to the BLS\nsignature verification that occurs on every update. So just check it as\ndefense-in-depth.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: ron <yrong1997@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-06-25T09:23:44Z",
+          "tree_id": "f06ad552979f3fa125b216ee7f2c4c609051e0e1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/764925dbdffab8f99309495ad2588a035e0b1a43"
+        },
+        "date": 1782388864915,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023554761339999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007529602873333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14644086242666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0102219323733333,
             "unit": "seconds"
           }
         ]
