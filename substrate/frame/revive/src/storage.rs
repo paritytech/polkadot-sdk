@@ -306,11 +306,13 @@ impl<T: Config> AccountInfo<T> {
 	/// EIP-7702: Set a delegation indicator for an EOA
 	///
 	/// Marks the account as delegated to the target address.
-	/// Per EIP-7702, only creates ContractInfo if target is a Contract.
-	/// If target is delegated or EOA, contract_info is None (no chain following).
-	/// Existing contract_info (deposit accounting) is preserved across re-delegations.
+	/// The `DelegatedEOA` variant always carries a `ContractInfo`, but per EIP-7702 it only
+	/// snapshots the target's `code_hash`/deposit when the target is a contract. If the target is
+	/// itself delegated or a plain EOA, those fields are zeroed (no chain following). Existing
+	/// deposit accounting is preserved across re-delegations.
 	///
-	/// Returns the net deposit change.
+	/// Returns the previous and new delegation deposits (see [`DelegationDepositChange`]) so the
+	/// caller can refund the old deposit and charge the new one.
 	///
 	/// # Spec deviation: code is resolved at delegation time, not at call time
 	///

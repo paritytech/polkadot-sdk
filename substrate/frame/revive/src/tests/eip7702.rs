@@ -1287,9 +1287,9 @@ fn delegation_chain_does_not_execute() {
 		// semantics as CALL. Per spec the resolved code is Bob's indicator bytes
 		// `0xef0100||alice` and execution traps on the `0xef` invalid opcode.
 		//
-		// `delegate_call` has no chain-revert guard today — the third call entry point that
-		// item #5 in the follow-ups doc needs to cover. This test should fail until the
-		// guard is mirrored at `exec.rs:1945`'s `delegate_call`.
+		// The chain-revert guard is mirrored in `Stack::delegate_call` (the third call entry
+		// point), so the delegatecall reverts here just like CALL rather than silently
+		// succeeding as a no-op.
 		let result = builder::bare_call(caller_contract.addr)
 			.data(
 				Caller::delegateCall {

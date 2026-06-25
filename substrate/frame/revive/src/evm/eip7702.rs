@@ -88,7 +88,9 @@ pub fn worst_case_authorization_weight<T: Config>(n: u32) -> Weight {
 
 /// Process a list of EIP-7702 authorization tuples.
 ///
-/// For new accounts the ED is charged from `origin` via [`Pallet::charge_deposit`].
+/// For new accounts the ED is drawn from the transaction fee via `FeeInfo::withdraw_txfee` and
+/// resolved into the account; the delegation deposit itself is charged via
+/// [`Pallet::charge_deposit`].
 /// The pre-dispatch weight reservation comes from [`worst_case_authorization_weight`]; the
 /// returned `weight_refund` is the gap between that baseline and the actual cost incurred.
 ///
@@ -279,8 +281,8 @@ pub fn process_authorizations<T: Config>(
 	//              + sig-recovery + existing-account work for existing tuples
 	//              + sig-recovery + new-account work for new tuples
 	//   refund     = worst - actual
-	// where `invalid` = tuples that ran through `ecdsa_recover` but bailed before
-	// applying any state change (bad nonce, non-EOA authority, post-validation rollback).
+	// where `invalid` = tuples that applied no state change: chain-id mismatch, failed
+	// signature recovery, bad nonce, non-EOA authority, or post-validation rollback.
 	let total = authorization_list.len() as u32;
 	let invalid = total
 		.saturating_sub(result.new_accounts)

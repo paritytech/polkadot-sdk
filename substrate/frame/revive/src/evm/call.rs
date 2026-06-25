@@ -126,8 +126,8 @@ impl GenericTransaction {
 		// EIP-7702: per-tuple field bounds. `chain_id`, `r`, `s` are `U256` (< 2^256 by
 		// construction) and `address` is `H160` (always 20 bytes), so we only need to check
 		// `nonce` and `y_parity` here. Out-of-bounds invalidates the *entire* transaction —
-		// distinct from the per-tuple "nonce < 2^64 - 1" check in `process_authorizations`,
-		// which is a processing-step skip.
+		// distinct from the per-tuple "nonce fits in u64" (<= 2^64 - 1) check in
+		// `process_authorizations`, which is a processing-step skip.
 		for auth in self.authorization_list.iter() {
 			if auth.nonce.bits() > 64 {
 				log::debug!(

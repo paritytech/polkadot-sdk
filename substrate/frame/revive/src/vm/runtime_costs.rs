@@ -180,10 +180,12 @@ pub enum RuntimeCosts {
 	Modexp(u64),
 	/// Weight of processing EIP-7702 authorization tuples.
 	///
-	/// `invalid_accounts` covers tuples that pass the chain-id check and run
-	/// `ecdsa_recover` but then fail validation (bad nonce, non-EOA authority,
-	/// etc.) or fail post-validation (set_delegation error). They incur the
-	/// signature recovery cost but no account creation/update work.
+	/// `invalid_accounts` covers every tuple that produced no state change: those that
+	/// fail the chain-id check, fail signature recovery, or pass recovery but then fail
+	/// validation (bad nonce, non-EOA authority, etc.) or post-validation (set_delegation
+	/// error). All are billed at the signature-recovery cost — a conservative over-estimate
+	/// for the chain-id failures, which bail before recovery — and incur no
+	/// account creation/update work.
 	Delegations { new_accounts: u32, existing_accounts: u32, invalid_accounts: u32 },
 }
 
