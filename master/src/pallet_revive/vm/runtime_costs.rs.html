@@ -413,175 +413,179 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#263 id=263 data-nosnippet>263</a>		<span class="kw">use </span><span class="self">self</span>::RuntimeCosts::<span class="kw-2">*</span>;
 <a href=#264 id=264 data-nosnippet>264</a>		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 <a href=#265 id=265 data-nosnippet>265</a>			HostFn =&gt; <span class="macro">cost_args!</span>(noop_host_fn, <span class="number">1</span>),
-<a href=#266 id=266 data-nosnippet>266</a>			ExtCodeCopy(len) =&gt; T::WeightInfo::extcodecopy(len),
-<a href=#267 id=267 data-nosnippet>267</a>			CopyToContract(len) =&gt; T::WeightInfo::seal_copy_to_contract(len),
-<a href=#268 id=268 data-nosnippet>268</a>			CopyFromContract(len) =&gt; T::WeightInfo::seal_return(len),
-<a href=#269 id=269 data-nosnippet>269</a>			CallDataSize =&gt; T::WeightInfo::seal_call_data_size(),
-<a href=#270 id=270 data-nosnippet>270</a>			ReturnDataSize =&gt; T::WeightInfo::seal_return_data_size(),
-<a href=#271 id=271 data-nosnippet>271</a>			CallDataLoad =&gt; T::WeightInfo::seal_call_data_load(),
-<a href=#272 id=272 data-nosnippet>272</a>			CallDataCopy(len) =&gt; T::WeightInfo::seal_call_data_copy(len),
-<a href=#273 id=273 data-nosnippet>273</a>			Caller =&gt; T::WeightInfo::seal_caller(),
-<a href=#274 id=274 data-nosnippet>274</a>			Origin =&gt; T::WeightInfo::seal_origin(),
-<a href=#275 id=275 data-nosnippet>275</a>			ToAccountId =&gt; T::WeightInfo::to_account_id(),
-<a href=#276 id=276 data-nosnippet>276</a>			CodeHash =&gt; T::WeightInfo::seal_code_hash(),
-<a href=#277 id=277 data-nosnippet>277</a>			CodeSize =&gt; T::WeightInfo::seal_code_size(),
-<a href=#278 id=278 data-nosnippet>278</a>			OwnCodeHash =&gt; T::WeightInfo::own_code_hash(),
-<a href=#279 id=279 data-nosnippet>279</a>			CallerIsOrigin =&gt; T::WeightInfo::caller_is_origin(),
-<a href=#280 id=280 data-nosnippet>280</a>			CallerIsRoot =&gt; T::WeightInfo::caller_is_root(),
-<a href=#281 id=281 data-nosnippet>281</a>			Address =&gt; T::WeightInfo::seal_address(),
-<a href=#282 id=282 data-nosnippet>282</a>			RefTimeLeft =&gt; T::WeightInfo::seal_ref_time_left(),
-<a href=#283 id=283 data-nosnippet>283</a>			WeightLeft =&gt; T::WeightInfo::weight_left(),
-<a href=#284 id=284 data-nosnippet>284</a>			Balance =&gt; T::WeightInfo::seal_balance(),
-<a href=#285 id=285 data-nosnippet>285</a>			BalanceOf =&gt; T::WeightInfo::seal_balance_of(),
-<a href=#286 id=286 data-nosnippet>286</a>			ValueTransferred =&gt; T::WeightInfo::seal_value_transferred(),
-<a href=#287 id=287 data-nosnippet>287</a>			MinimumBalance =&gt; T::WeightInfo::minimum_balance(),
-<a href=#288 id=288 data-nosnippet>288</a>			BlockNumber =&gt; T::WeightInfo::seal_block_number(),
-<a href=#289 id=289 data-nosnippet>289</a>			BlockHash =&gt; T::WeightInfo::seal_block_hash(),
-<a href=#290 id=290 data-nosnippet>290</a>			BlockAuthor =&gt; T::WeightInfo::seal_block_author(),
-<a href=#291 id=291 data-nosnippet>291</a>			GasPrice =&gt; T::WeightInfo::seal_gas_price(),
-<a href=#292 id=292 data-nosnippet>292</a>			BaseFee =&gt; T::WeightInfo::seal_base_fee(),
-<a href=#293 id=293 data-nosnippet>293</a>			Now =&gt; T::WeightInfo::seal_now(),
-<a href=#294 id=294 data-nosnippet>294</a>			GasLimit =&gt; T::WeightInfo::seal_gas_limit(),
-<a href=#295 id=295 data-nosnippet>295</a>			Terminate { code_removed } =&gt; {
-<a href=#296 id=296 data-nosnippet>296</a>				<span class="comment">// logic only runs if code is removed
-<a href=#297 id=297 data-nosnippet>297</a>				</span><span class="kw">if </span>code_removed {
-<a href=#298 id=298 data-nosnippet>298</a>					T::WeightInfo::seal_terminate(code_removed.into())
-<a href=#299 id=299 data-nosnippet>299</a>						.saturating_add(T::WeightInfo::seal_terminate_logic())
-<a href=#300 id=300 data-nosnippet>300</a>				} <span class="kw">else </span>{
-<a href=#301 id=301 data-nosnippet>301</a>					T::WeightInfo::seal_terminate(code_removed.into())
-<a href=#302 id=302 data-nosnippet>302</a>				}
-<a href=#303 id=303 data-nosnippet>303</a>			},
-<a href=#304 id=304 data-nosnippet>304</a>			DepositEvent { num_topic, len } =&gt; T::WeightInfo::seal_deposit_event(num_topic, len)
-<a href=#305 id=305 data-nosnippet>305</a>				.saturating_add(T::WeightInfo::on_finalize_block_per_event(len))
-<a href=#306 id=306 data-nosnippet>306</a>				.saturating_add(Weight::from_parts(
-<a href=#307 id=307 data-nosnippet>307</a>					limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(len.into()).into(),
-<a href=#308 id=308 data-nosnippet>308</a>					<span class="number">0</span>,
-<a href=#309 id=309 data-nosnippet>309</a>				)),
-<a href=#310 id=310 data-nosnippet>310</a>			SetStorage { new_bytes, old_bytes, kind } =&gt; <span class="self">Self</span>::weight_for_storage_access::&lt;T&gt;(
-<a href=#311 id=311 data-nosnippet>311</a>				kind,
-<a href=#312 id=312 data-nosnippet>312</a>				|| <span class="macro">cost_storage!</span>(write_cold, seal_set_storage, new_bytes, old_bytes),
-<a href=#313 id=313 data-nosnippet>313</a>				|| T::WeightInfo::seal_set_storage_hot(new_bytes, old_bytes),
-<a href=#314 id=314 data-nosnippet>314</a>				|| <span class="macro">cost_storage!</span>(write_transient, seal_set_transient_storage, new_bytes, old_bytes),
-<a href=#315 id=315 data-nosnippet>315</a>			),
-<a href=#316 id=316 data-nosnippet>316</a>			ClearStorage { len, kind } =&gt; <span class="self">Self</span>::weight_for_storage_access::&lt;T&gt;(
-<a href=#317 id=317 data-nosnippet>317</a>				kind,
-<a href=#318 id=318 data-nosnippet>318</a>				|| <span class="macro">cost_storage!</span>(write_cold, clear_storage, len),
-<a href=#319 id=319 data-nosnippet>319</a>				|| T::WeightInfo::clear_storage_hot(len),
-<a href=#320 id=320 data-nosnippet>320</a>				|| <span class="macro">cost_storage!</span>(write_transient, seal_clear_transient_storage, len),
-<a href=#321 id=321 data-nosnippet>321</a>			),
-<a href=#322 id=322 data-nosnippet>322</a>			ContainsStorage { len, kind } =&gt; <span class="self">Self</span>::weight_for_storage_access::&lt;T&gt;(
-<a href=#323 id=323 data-nosnippet>323</a>				kind,
-<a href=#324 id=324 data-nosnippet>324</a>				|| <span class="macro">cost_storage!</span>(read_cold, contains_storage, len),
-<a href=#325 id=325 data-nosnippet>325</a>				|| T::WeightInfo::contains_storage_hot(len),
-<a href=#326 id=326 data-nosnippet>326</a>				|| <span class="macro">cost_storage!</span>(read_transient, seal_contains_transient_storage, len),
-<a href=#327 id=327 data-nosnippet>327</a>			),
-<a href=#328 id=328 data-nosnippet>328</a>			GetStorage { len, kind } =&gt; <span class="self">Self</span>::weight_for_storage_access::&lt;T&gt;(
-<a href=#329 id=329 data-nosnippet>329</a>				kind,
-<a href=#330 id=330 data-nosnippet>330</a>				|| <span class="macro">cost_storage!</span>(read_cold, seal_get_storage, len),
-<a href=#331 id=331 data-nosnippet>331</a>				|| T::WeightInfo::seal_get_storage_hot(len),
-<a href=#332 id=332 data-nosnippet>332</a>				|| <span class="macro">cost_storage!</span>(read_transient, seal_get_transient_storage, len),
-<a href=#333 id=333 data-nosnippet>333</a>			),
-<a href=#334 id=334 data-nosnippet>334</a>			TakeStorage { len, kind } =&gt; <span class="self">Self</span>::weight_for_storage_access::&lt;T&gt;(
-<a href=#335 id=335 data-nosnippet>335</a>				kind,
-<a href=#336 id=336 data-nosnippet>336</a>				|| <span class="macro">cost_storage!</span>(write_cold, take_storage, len),
-<a href=#337 id=337 data-nosnippet>337</a>				|| T::WeightInfo::take_storage_hot(len),
-<a href=#338 id=338 data-nosnippet>338</a>				|| <span class="macro">cost_storage!</span>(write_transient, seal_take_transient_storage, len),
-<a href=#339 id=339 data-nosnippet>339</a>			),
-<a href=#340 id=340 data-nosnippet>340</a>			CallBase =&gt; T::WeightInfo::seal_call(<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>),
-<a href=#341 id=341 data-nosnippet>341</a>			DelegateCallBase =&gt; T::WeightInfo::seal_delegate_call(),
-<a href=#342 id=342 data-nosnippet>342</a>			PrecompileBase =&gt; T::WeightInfo::seal_call_precompile(<span class="number">0</span>, <span class="number">0</span>),
-<a href=#343 id=343 data-nosnippet>343</a>			PrecompileWithInfoBase =&gt; T::WeightInfo::seal_call_precompile(<span class="number">1</span>, <span class="number">0</span>),
-<a href=#344 id=344 data-nosnippet>344</a>			PrecompileDecode(len) =&gt; <span class="macro">cost_args!</span>(seal_call_precompile, <span class="number">0</span>, len),
-<a href=#345 id=345 data-nosnippet>345</a>			CallTransferSurcharge { dust_transfer } =&gt; {
-<a href=#346 id=346 data-nosnippet>346</a>				<span class="macro">cost_args!</span>(seal_call, <span class="number">1</span>, dust_transfer.into(), <span class="number">0</span>)
-<a href=#347 id=347 data-nosnippet>347</a>			},
-<a href=#348 id=348 data-nosnippet>348</a>			CallInputCloned(len) =&gt; <span class="macro">cost_args!</span>(seal_call, <span class="number">0</span>, <span class="number">0</span>, len),
-<a href=#349 id=349 data-nosnippet>349</a>			Instantiate { input_data_len, balance_transfer, dust_transfer } =&gt; {
-<a href=#350 id=350 data-nosnippet>350</a>				T::WeightInfo::seal_instantiate(
-<a href=#351 id=351 data-nosnippet>351</a>					balance_transfer.into(),
-<a href=#352 id=352 data-nosnippet>352</a>					dust_transfer.into(),
-<a href=#353 id=353 data-nosnippet>353</a>					input_data_len,
-<a href=#354 id=354 data-nosnippet>354</a>				)
-<a href=#355 id=355 data-nosnippet>355</a>			},
-<a href=#356 id=356 data-nosnippet>356</a>			Create { init_code_len, balance_transfer, dust_transfer } =&gt; {
-<a href=#357 id=357 data-nosnippet>357</a>				T::WeightInfo::evm_instantiate(
-<a href=#358 id=358 data-nosnippet>358</a>					balance_transfer.into(),
-<a href=#359 id=359 data-nosnippet>359</a>					dust_transfer.into(),
-<a href=#360 id=360 data-nosnippet>360</a>					init_code_len,
-<a href=#361 id=361 data-nosnippet>361</a>				)
-<a href=#362 id=362 data-nosnippet>362</a>			},
-<a href=#363 id=363 data-nosnippet>363</a>			HashSha256(len) =&gt; T::WeightInfo::sha2_256(len),
-<a href=#364 id=364 data-nosnippet>364</a>			Ripemd160(len) =&gt; T::WeightInfo::ripemd_160(len),
-<a href=#365 id=365 data-nosnippet>365</a>			HashKeccak256(len) =&gt; T::WeightInfo::seal_hash_keccak_256(len),
-<a href=#366 id=366 data-nosnippet>366</a>			HashBlake256(len) =&gt; T::WeightInfo::hash_blake2_256(len),
-<a href=#367 id=367 data-nosnippet>367</a>			HashBlake128(len) =&gt; T::WeightInfo::hash_blake2_128(len),
-<a href=#368 id=368 data-nosnippet>368</a>			EcdsaRecovery =&gt; T::WeightInfo::ecdsa_recover(),
-<a href=#369 id=369 data-nosnippet>369</a>			P256Verify =&gt; T::WeightInfo::p256_verify(),
-<a href=#370 id=370 data-nosnippet>370</a>			Sr25519Verify(len) =&gt; T::WeightInfo::seal_sr25519_verify(len),
-<a href=#371 id=371 data-nosnippet>371</a>			Precompile(weight) =&gt; weight,
-<a href=#372 id=372 data-nosnippet>372</a>			EcdsaToEthAddress =&gt; T::WeightInfo::seal_ecdsa_to_eth_address(),
-<a href=#373 id=373 data-nosnippet>373</a>			GetImmutableData(len) =&gt; T::WeightInfo::seal_get_immutable_data(len),
-<a href=#374 id=374 data-nosnippet>374</a>			SetImmutableData(len) =&gt; T::WeightInfo::seal_set_immutable_data(len),
-<a href=#375 id=375 data-nosnippet>375</a>			Bn128Add =&gt; T::WeightInfo::bn128_add(),
-<a href=#376 id=376 data-nosnippet>376</a>			Bn128Mul =&gt; T::WeightInfo::bn128_mul(),
-<a href=#377 id=377 data-nosnippet>377</a>			Bn128Pairing(len) =&gt; T::WeightInfo::bn128_pairing(len),
-<a href=#378 id=378 data-nosnippet>378</a>			Identity(len) =&gt; T::WeightInfo::identity(len),
-<a href=#379 id=379 data-nosnippet>379</a>			Blake2F(rounds) =&gt; T::WeightInfo::blake2f(rounds),
-<a href=#380 id=380 data-nosnippet>380</a>			Modexp(gas) =&gt; Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), <span class="number">0</span>),
-<a href=#381 id=381 data-nosnippet>381</a>		}
-<a href=#382 id=382 data-nosnippet>382</a>	}
-<a href=#383 id=383 data-nosnippet>383</a>}
-<a href=#384 id=384 data-nosnippet>384</a>
-<a href=#385 id=385 data-nosnippet>385</a><span class="attr">#[cfg(test)]
-<a href=#386 id=386 data-nosnippet>386</a></span><span class="kw">mod </span>tests {
-<a href=#387 id=387 data-nosnippet>387</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#388 id=388 data-nosnippet>388</a>	<span class="kw">use </span><span class="kw">crate</span>::tests::Test;
-<a href=#389 id=389 data-nosnippet>389</a>
-<a href=#390 id=390 data-nosnippet>390</a>	<span class="attr">#[test]
-<a href=#391 id=391 data-nosnippet>391</a>	</span><span class="kw">fn </span>cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
-<a href=#392 id=392 data-nosnippet>392</a>		<span class="kw">let </span>len = <span class="number">64u32</span>;
-<a href=#393 id=393 data-nosnippet>393</a>		<span class="kw">let </span>cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: <span class="bool-val">false </span>});
-<a href=#394 id=394 data-nosnippet>394</a>		<span class="kw">let </span>cold_revertible = StorageAccessKind::Persistent(Warmth::Cold { revertible: <span class="bool-val">true </span>});
-<a href=#395 id=395 data-nosnippet>395</a>		<span class="kw">let </span>hot = StorageAccessKind::Persistent(Warmth::Hot);
-<a href=#396 id=396 data-nosnippet>396</a>
-<a href=#397 id=397 data-nosnippet>397</a>		<span class="kw">let </span>with_kind = |kind: StorageAccessKind| -&gt; Vec&lt;RuntimeCosts&gt; {
-<a href=#398 id=398 data-nosnippet>398</a>			<span class="macro">vec!</span>[
-<a href=#399 id=399 data-nosnippet>399</a>				RuntimeCosts::GetStorage { len, kind },
-<a href=#400 id=400 data-nosnippet>400</a>				RuntimeCosts::SetStorage { new_bytes: len, old_bytes: len, kind },
-<a href=#401 id=401 data-nosnippet>401</a>				RuntimeCosts::ClearStorage { len, kind },
-<a href=#402 id=402 data-nosnippet>402</a>				RuntimeCosts::ContainsStorage { len, kind },
-<a href=#403 id=403 data-nosnippet>403</a>				RuntimeCosts::TakeStorage { len, kind },
-<a href=#404 id=404 data-nosnippet>404</a>			]
-<a href=#405 id=405 data-nosnippet>405</a>		};
-<a href=#406 id=406 data-nosnippet>406</a>
-<a href=#407 id=407 data-nosnippet>407</a>		<span class="kw">for </span>(cold_cost, hot_cost) <span class="kw">in </span>with_kind(cold).into_iter().zip(with_kind(hot)) {
-<a href=#408 id=408 data-nosnippet>408</a>			<span class="kw">let </span>cold_weight = &lt;RuntimeCosts <span class="kw">as </span>Token&lt;Test&gt;&gt;::weight(<span class="kw-2">&amp;</span>cold_cost);
-<a href=#409 id=409 data-nosnippet>409</a>			<span class="kw">let </span>hot_weight = &lt;RuntimeCosts <span class="kw">as </span>Token&lt;Test&gt;&gt;::weight(<span class="kw-2">&amp;</span>hot_cost);
-<a href=#410 id=410 data-nosnippet>410</a>			<span class="macro">assert!</span>(
-<a href=#411 id=411 data-nosnippet>411</a>				cold_weight.ref_time() &gt; hot_weight.ref_time(),
-<a href=#412 id=412 data-nosnippet>412</a>				<span class="string">"expected cold &gt; hot ref_time for {cold_cost:?}: cold={cold_weight:?} hot={hot_weight:?}"</span>,
-<a href=#413 id=413 data-nosnippet>413</a>			);
-<a href=#414 id=414 data-nosnippet>414</a>			<span class="macro">assert_eq!</span>(hot_weight.proof_size(), <span class="number">0</span>, <span class="string">"hot proof_size {hot_cost:?}: {hot_weight:?}"</span>);
-<a href=#415 id=415 data-nosnippet>415</a>			<span class="macro">assert!</span>(cold_weight.proof_size() &gt; <span class="number">0</span>, <span class="string">"cold proof_size {cold_cost:?}: {cold_weight:?}"</span>,);
-<a href=#416 id=416 data-nosnippet>416</a>		}
-<a href=#417 id=417 data-nosnippet>417</a>
-<a href=#418 id=418 data-nosnippet>418</a>		<span class="kw">for </span>(rev_cost, non_rev_cost) <span class="kw">in </span>with_kind(cold_revertible).into_iter().zip(with_kind(cold))
-<a href=#419 id=419 data-nosnippet>419</a>		{
-<a href=#420 id=420 data-nosnippet>420</a>			<span class="kw">let </span>rev_weight = &lt;RuntimeCosts <span class="kw">as </span>Token&lt;Test&gt;&gt;::weight(<span class="kw-2">&amp;</span>rev_cost);
-<a href=#421 id=421 data-nosnippet>421</a>			<span class="kw">let </span>non_rev_weight = &lt;RuntimeCosts <span class="kw">as </span>Token&lt;Test&gt;&gt;::weight(<span class="kw-2">&amp;</span>non_rev_cost);
-<a href=#422 id=422 data-nosnippet>422</a>			<span class="macro">assert!</span>(
-<a href=#423 id=423 data-nosnippet>423</a>				rev_weight.ref_time() &gt; non_rev_weight.ref_time(),
-<a href=#424 id=424 data-nosnippet>424</a>				<span class="string">"expected revertible &gt; non-revertible ref_time for {rev_cost:?}: \
-<a href=#425 id=425 data-nosnippet>425</a>				 rev={rev_weight:?} non={non_rev_weight:?}"</span>,
-<a href=#426 id=426 data-nosnippet>426</a>			);
-<a href=#427 id=427 data-nosnippet>427</a>			<span class="macro">assert_eq!</span>(
-<a href=#428 id=428 data-nosnippet>428</a>				rev_weight.proof_size(),
-<a href=#429 id=429 data-nosnippet>429</a>				non_rev_weight.proof_size(),
-<a href=#430 id=430 data-nosnippet>430</a>				<span class="string">"proof_size differs {rev_cost:?}: rev={rev_weight:?} non={non_rev_weight:?}"</span>,
-<a href=#431 id=431 data-nosnippet>431</a>			);
-<a href=#432 id=432 data-nosnippet>432</a>		}
-<a href=#433 id=433 data-nosnippet>433</a>	}
-<a href=#434 id=434 data-nosnippet>434</a>}
+<a href=#266 id=266 data-nosnippet>266</a>			<span class="comment">// `extcodecopy` charges `CodeSize` separately; subtract it so its read isn't counted
+<a href=#267 id=267 data-nosnippet>267</a>			// twice.
+<a href=#268 id=268 data-nosnippet>268</a>			</span>ExtCodeCopy(len) =&gt; {
+<a href=#269 id=269 data-nosnippet>269</a>				T::WeightInfo::extcodecopy(len).saturating_sub(T::WeightInfo::seal_code_size())
+<a href=#270 id=270 data-nosnippet>270</a>			},
+<a href=#271 id=271 data-nosnippet>271</a>			CopyToContract(len) =&gt; T::WeightInfo::seal_copy_to_contract(len),
+<a href=#272 id=272 data-nosnippet>272</a>			CopyFromContract(len) =&gt; T::WeightInfo::seal_return(len),
+<a href=#273 id=273 data-nosnippet>273</a>			CallDataSize =&gt; T::WeightInfo::seal_call_data_size(),
+<a href=#274 id=274 data-nosnippet>274</a>			ReturnDataSize =&gt; T::WeightInfo::seal_return_data_size(),
+<a href=#275 id=275 data-nosnippet>275</a>			CallDataLoad =&gt; T::WeightInfo::seal_call_data_load(),
+<a href=#276 id=276 data-nosnippet>276</a>			CallDataCopy(len) =&gt; T::WeightInfo::seal_call_data_copy(len),
+<a href=#277 id=277 data-nosnippet>277</a>			Caller =&gt; T::WeightInfo::seal_caller(),
+<a href=#278 id=278 data-nosnippet>278</a>			Origin =&gt; T::WeightInfo::seal_origin(),
+<a href=#279 id=279 data-nosnippet>279</a>			ToAccountId =&gt; T::WeightInfo::to_account_id(),
+<a href=#280 id=280 data-nosnippet>280</a>			CodeHash =&gt; T::WeightInfo::seal_code_hash(),
+<a href=#281 id=281 data-nosnippet>281</a>			CodeSize =&gt; T::WeightInfo::seal_code_size(),
+<a href=#282 id=282 data-nosnippet>282</a>			OwnCodeHash =&gt; T::WeightInfo::own_code_hash(),
+<a href=#283 id=283 data-nosnippet>283</a>			CallerIsOrigin =&gt; T::WeightInfo::caller_is_origin(),
+<a href=#284 id=284 data-nosnippet>284</a>			CallerIsRoot =&gt; T::WeightInfo::caller_is_root(),
+<a href=#285 id=285 data-nosnippet>285</a>			Address =&gt; T::WeightInfo::seal_address(),
+<a href=#286 id=286 data-nosnippet>286</a>			RefTimeLeft =&gt; T::WeightInfo::seal_ref_time_left(),
+<a href=#287 id=287 data-nosnippet>287</a>			WeightLeft =&gt; T::WeightInfo::weight_left(),
+<a href=#288 id=288 data-nosnippet>288</a>			Balance =&gt; T::WeightInfo::seal_balance(),
+<a href=#289 id=289 data-nosnippet>289</a>			BalanceOf =&gt; T::WeightInfo::seal_balance_of(),
+<a href=#290 id=290 data-nosnippet>290</a>			ValueTransferred =&gt; T::WeightInfo::seal_value_transferred(),
+<a href=#291 id=291 data-nosnippet>291</a>			MinimumBalance =&gt; T::WeightInfo::minimum_balance(),
+<a href=#292 id=292 data-nosnippet>292</a>			BlockNumber =&gt; T::WeightInfo::seal_block_number(),
+<a href=#293 id=293 data-nosnippet>293</a>			BlockHash =&gt; T::WeightInfo::seal_block_hash(),
+<a href=#294 id=294 data-nosnippet>294</a>			BlockAuthor =&gt; T::WeightInfo::seal_block_author(),
+<a href=#295 id=295 data-nosnippet>295</a>			GasPrice =&gt; T::WeightInfo::seal_gas_price(),
+<a href=#296 id=296 data-nosnippet>296</a>			BaseFee =&gt; T::WeightInfo::seal_base_fee(),
+<a href=#297 id=297 data-nosnippet>297</a>			Now =&gt; T::WeightInfo::seal_now(),
+<a href=#298 id=298 data-nosnippet>298</a>			GasLimit =&gt; T::WeightInfo::seal_gas_limit(),
+<a href=#299 id=299 data-nosnippet>299</a>			Terminate { code_removed } =&gt; {
+<a href=#300 id=300 data-nosnippet>300</a>				<span class="comment">// logic only runs if code is removed
+<a href=#301 id=301 data-nosnippet>301</a>				</span><span class="kw">if </span>code_removed {
+<a href=#302 id=302 data-nosnippet>302</a>					T::WeightInfo::seal_terminate(code_removed.into())
+<a href=#303 id=303 data-nosnippet>303</a>						.saturating_add(T::WeightInfo::seal_terminate_logic())
+<a href=#304 id=304 data-nosnippet>304</a>				} <span class="kw">else </span>{
+<a href=#305 id=305 data-nosnippet>305</a>					T::WeightInfo::seal_terminate(code_removed.into())
+<a href=#306 id=306 data-nosnippet>306</a>				}
+<a href=#307 id=307 data-nosnippet>307</a>			},
+<a href=#308 id=308 data-nosnippet>308</a>			DepositEvent { num_topic, len } =&gt; T::WeightInfo::seal_deposit_event(num_topic, len)
+<a href=#309 id=309 data-nosnippet>309</a>				.saturating_add(T::WeightInfo::on_finalize_block_per_event(len))
+<a href=#310 id=310 data-nosnippet>310</a>				.saturating_add(Weight::from_parts(
+<a href=#311 id=311 data-nosnippet>311</a>					limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(len.into()).into(),
+<a href=#312 id=312 data-nosnippet>312</a>					<span class="number">0</span>,
+<a href=#313 id=313 data-nosnippet>313</a>				)),
+<a href=#314 id=314 data-nosnippet>314</a>			SetStorage { new_bytes, old_bytes, kind } =&gt; <span class="self">Self</span>::weight_for_storage_access::&lt;T&gt;(
+<a href=#315 id=315 data-nosnippet>315</a>				kind,
+<a href=#316 id=316 data-nosnippet>316</a>				|| <span class="macro">cost_storage!</span>(write_cold, seal_set_storage, new_bytes, old_bytes),
+<a href=#317 id=317 data-nosnippet>317</a>				|| T::WeightInfo::seal_set_storage_hot(new_bytes, old_bytes),
+<a href=#318 id=318 data-nosnippet>318</a>				|| <span class="macro">cost_storage!</span>(write_transient, seal_set_transient_storage, new_bytes, old_bytes),
+<a href=#319 id=319 data-nosnippet>319</a>			),
+<a href=#320 id=320 data-nosnippet>320</a>			ClearStorage { len, kind } =&gt; <span class="self">Self</span>::weight_for_storage_access::&lt;T&gt;(
+<a href=#321 id=321 data-nosnippet>321</a>				kind,
+<a href=#322 id=322 data-nosnippet>322</a>				|| <span class="macro">cost_storage!</span>(write_cold, clear_storage, len),
+<a href=#323 id=323 data-nosnippet>323</a>				|| T::WeightInfo::clear_storage_hot(len),
+<a href=#324 id=324 data-nosnippet>324</a>				|| <span class="macro">cost_storage!</span>(write_transient, seal_clear_transient_storage, len),
+<a href=#325 id=325 data-nosnippet>325</a>			),
+<a href=#326 id=326 data-nosnippet>326</a>			ContainsStorage { len, kind } =&gt; <span class="self">Self</span>::weight_for_storage_access::&lt;T&gt;(
+<a href=#327 id=327 data-nosnippet>327</a>				kind,
+<a href=#328 id=328 data-nosnippet>328</a>				|| <span class="macro">cost_storage!</span>(read_cold, contains_storage, len),
+<a href=#329 id=329 data-nosnippet>329</a>				|| T::WeightInfo::contains_storage_hot(len),
+<a href=#330 id=330 data-nosnippet>330</a>				|| <span class="macro">cost_storage!</span>(read_transient, seal_contains_transient_storage, len),
+<a href=#331 id=331 data-nosnippet>331</a>			),
+<a href=#332 id=332 data-nosnippet>332</a>			GetStorage { len, kind } =&gt; <span class="self">Self</span>::weight_for_storage_access::&lt;T&gt;(
+<a href=#333 id=333 data-nosnippet>333</a>				kind,
+<a href=#334 id=334 data-nosnippet>334</a>				|| <span class="macro">cost_storage!</span>(read_cold, seal_get_storage, len),
+<a href=#335 id=335 data-nosnippet>335</a>				|| T::WeightInfo::seal_get_storage_hot(len),
+<a href=#336 id=336 data-nosnippet>336</a>				|| <span class="macro">cost_storage!</span>(read_transient, seal_get_transient_storage, len),
+<a href=#337 id=337 data-nosnippet>337</a>			),
+<a href=#338 id=338 data-nosnippet>338</a>			TakeStorage { len, kind } =&gt; <span class="self">Self</span>::weight_for_storage_access::&lt;T&gt;(
+<a href=#339 id=339 data-nosnippet>339</a>				kind,
+<a href=#340 id=340 data-nosnippet>340</a>				|| <span class="macro">cost_storage!</span>(write_cold, take_storage, len),
+<a href=#341 id=341 data-nosnippet>341</a>				|| T::WeightInfo::take_storage_hot(len),
+<a href=#342 id=342 data-nosnippet>342</a>				|| <span class="macro">cost_storage!</span>(write_transient, seal_take_transient_storage, len),
+<a href=#343 id=343 data-nosnippet>343</a>			),
+<a href=#344 id=344 data-nosnippet>344</a>			CallBase =&gt; T::WeightInfo::seal_call(<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>),
+<a href=#345 id=345 data-nosnippet>345</a>			DelegateCallBase =&gt; T::WeightInfo::seal_delegate_call(),
+<a href=#346 id=346 data-nosnippet>346</a>			PrecompileBase =&gt; T::WeightInfo::seal_call_precompile(<span class="number">0</span>, <span class="number">0</span>),
+<a href=#347 id=347 data-nosnippet>347</a>			PrecompileWithInfoBase =&gt; T::WeightInfo::seal_call_precompile(<span class="number">1</span>, <span class="number">0</span>),
+<a href=#348 id=348 data-nosnippet>348</a>			PrecompileDecode(len) =&gt; <span class="macro">cost_args!</span>(seal_call_precompile, <span class="number">0</span>, len),
+<a href=#349 id=349 data-nosnippet>349</a>			CallTransferSurcharge { dust_transfer } =&gt; {
+<a href=#350 id=350 data-nosnippet>350</a>				<span class="macro">cost_args!</span>(seal_call, <span class="number">1</span>, dust_transfer.into(), <span class="number">0</span>)
+<a href=#351 id=351 data-nosnippet>351</a>			},
+<a href=#352 id=352 data-nosnippet>352</a>			CallInputCloned(len) =&gt; <span class="macro">cost_args!</span>(seal_call, <span class="number">0</span>, <span class="number">0</span>, len),
+<a href=#353 id=353 data-nosnippet>353</a>			Instantiate { input_data_len, balance_transfer, dust_transfer } =&gt; {
+<a href=#354 id=354 data-nosnippet>354</a>				T::WeightInfo::seal_instantiate(
+<a href=#355 id=355 data-nosnippet>355</a>					balance_transfer.into(),
+<a href=#356 id=356 data-nosnippet>356</a>					dust_transfer.into(),
+<a href=#357 id=357 data-nosnippet>357</a>					input_data_len,
+<a href=#358 id=358 data-nosnippet>358</a>				)
+<a href=#359 id=359 data-nosnippet>359</a>			},
+<a href=#360 id=360 data-nosnippet>360</a>			Create { init_code_len, balance_transfer, dust_transfer } =&gt; {
+<a href=#361 id=361 data-nosnippet>361</a>				T::WeightInfo::evm_instantiate(
+<a href=#362 id=362 data-nosnippet>362</a>					balance_transfer.into(),
+<a href=#363 id=363 data-nosnippet>363</a>					dust_transfer.into(),
+<a href=#364 id=364 data-nosnippet>364</a>					init_code_len,
+<a href=#365 id=365 data-nosnippet>365</a>				)
+<a href=#366 id=366 data-nosnippet>366</a>			},
+<a href=#367 id=367 data-nosnippet>367</a>			HashSha256(len) =&gt; T::WeightInfo::sha2_256(len),
+<a href=#368 id=368 data-nosnippet>368</a>			Ripemd160(len) =&gt; T::WeightInfo::ripemd_160(len),
+<a href=#369 id=369 data-nosnippet>369</a>			HashKeccak256(len) =&gt; T::WeightInfo::seal_hash_keccak_256(len),
+<a href=#370 id=370 data-nosnippet>370</a>			HashBlake256(len) =&gt; T::WeightInfo::hash_blake2_256(len),
+<a href=#371 id=371 data-nosnippet>371</a>			HashBlake128(len) =&gt; T::WeightInfo::hash_blake2_128(len),
+<a href=#372 id=372 data-nosnippet>372</a>			EcdsaRecovery =&gt; T::WeightInfo::ecdsa_recover(),
+<a href=#373 id=373 data-nosnippet>373</a>			P256Verify =&gt; T::WeightInfo::p256_verify(),
+<a href=#374 id=374 data-nosnippet>374</a>			Sr25519Verify(len) =&gt; T::WeightInfo::seal_sr25519_verify(len),
+<a href=#375 id=375 data-nosnippet>375</a>			Precompile(weight) =&gt; weight,
+<a href=#376 id=376 data-nosnippet>376</a>			EcdsaToEthAddress =&gt; T::WeightInfo::seal_ecdsa_to_eth_address(),
+<a href=#377 id=377 data-nosnippet>377</a>			GetImmutableData(len) =&gt; T::WeightInfo::seal_get_immutable_data(len),
+<a href=#378 id=378 data-nosnippet>378</a>			SetImmutableData(len) =&gt; T::WeightInfo::seal_set_immutable_data(len),
+<a href=#379 id=379 data-nosnippet>379</a>			Bn128Add =&gt; T::WeightInfo::bn128_add(),
+<a href=#380 id=380 data-nosnippet>380</a>			Bn128Mul =&gt; T::WeightInfo::bn128_mul(),
+<a href=#381 id=381 data-nosnippet>381</a>			Bn128Pairing(len) =&gt; T::WeightInfo::bn128_pairing(len),
+<a href=#382 id=382 data-nosnippet>382</a>			Identity(len) =&gt; T::WeightInfo::identity(len),
+<a href=#383 id=383 data-nosnippet>383</a>			Blake2F(rounds) =&gt; T::WeightInfo::blake2f(rounds),
+<a href=#384 id=384 data-nosnippet>384</a>			Modexp(gas) =&gt; Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), <span class="number">0</span>),
+<a href=#385 id=385 data-nosnippet>385</a>		}
+<a href=#386 id=386 data-nosnippet>386</a>	}
+<a href=#387 id=387 data-nosnippet>387</a>}
+<a href=#388 id=388 data-nosnippet>388</a>
+<a href=#389 id=389 data-nosnippet>389</a><span class="attr">#[cfg(test)]
+<a href=#390 id=390 data-nosnippet>390</a></span><span class="kw">mod </span>tests {
+<a href=#391 id=391 data-nosnippet>391</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#392 id=392 data-nosnippet>392</a>	<span class="kw">use </span><span class="kw">crate</span>::tests::Test;
+<a href=#393 id=393 data-nosnippet>393</a>
+<a href=#394 id=394 data-nosnippet>394</a>	<span class="attr">#[test]
+<a href=#395 id=395 data-nosnippet>395</a>	</span><span class="kw">fn </span>cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
+<a href=#396 id=396 data-nosnippet>396</a>		<span class="kw">let </span>len = <span class="number">64u32</span>;
+<a href=#397 id=397 data-nosnippet>397</a>		<span class="kw">let </span>cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: <span class="bool-val">false </span>});
+<a href=#398 id=398 data-nosnippet>398</a>		<span class="kw">let </span>cold_revertible = StorageAccessKind::Persistent(Warmth::Cold { revertible: <span class="bool-val">true </span>});
+<a href=#399 id=399 data-nosnippet>399</a>		<span class="kw">let </span>hot = StorageAccessKind::Persistent(Warmth::Hot);
+<a href=#400 id=400 data-nosnippet>400</a>
+<a href=#401 id=401 data-nosnippet>401</a>		<span class="kw">let </span>with_kind = |kind: StorageAccessKind| -&gt; Vec&lt;RuntimeCosts&gt; {
+<a href=#402 id=402 data-nosnippet>402</a>			<span class="macro">vec!</span>[
+<a href=#403 id=403 data-nosnippet>403</a>				RuntimeCosts::GetStorage { len, kind },
+<a href=#404 id=404 data-nosnippet>404</a>				RuntimeCosts::SetStorage { new_bytes: len, old_bytes: len, kind },
+<a href=#405 id=405 data-nosnippet>405</a>				RuntimeCosts::ClearStorage { len, kind },
+<a href=#406 id=406 data-nosnippet>406</a>				RuntimeCosts::ContainsStorage { len, kind },
+<a href=#407 id=407 data-nosnippet>407</a>				RuntimeCosts::TakeStorage { len, kind },
+<a href=#408 id=408 data-nosnippet>408</a>			]
+<a href=#409 id=409 data-nosnippet>409</a>		};
+<a href=#410 id=410 data-nosnippet>410</a>
+<a href=#411 id=411 data-nosnippet>411</a>		<span class="kw">for </span>(cold_cost, hot_cost) <span class="kw">in </span>with_kind(cold).into_iter().zip(with_kind(hot)) {
+<a href=#412 id=412 data-nosnippet>412</a>			<span class="kw">let </span>cold_weight = &lt;RuntimeCosts <span class="kw">as </span>Token&lt;Test&gt;&gt;::weight(<span class="kw-2">&amp;</span>cold_cost);
+<a href=#413 id=413 data-nosnippet>413</a>			<span class="kw">let </span>hot_weight = &lt;RuntimeCosts <span class="kw">as </span>Token&lt;Test&gt;&gt;::weight(<span class="kw-2">&amp;</span>hot_cost);
+<a href=#414 id=414 data-nosnippet>414</a>			<span class="macro">assert!</span>(
+<a href=#415 id=415 data-nosnippet>415</a>				cold_weight.ref_time() &gt; hot_weight.ref_time(),
+<a href=#416 id=416 data-nosnippet>416</a>				<span class="string">"expected cold &gt; hot ref_time for {cold_cost:?}: cold={cold_weight:?} hot={hot_weight:?}"</span>,
+<a href=#417 id=417 data-nosnippet>417</a>			);
+<a href=#418 id=418 data-nosnippet>418</a>			<span class="macro">assert_eq!</span>(hot_weight.proof_size(), <span class="number">0</span>, <span class="string">"hot proof_size {hot_cost:?}: {hot_weight:?}"</span>);
+<a href=#419 id=419 data-nosnippet>419</a>			<span class="macro">assert!</span>(cold_weight.proof_size() &gt; <span class="number">0</span>, <span class="string">"cold proof_size {cold_cost:?}: {cold_weight:?}"</span>,);
+<a href=#420 id=420 data-nosnippet>420</a>		}
+<a href=#421 id=421 data-nosnippet>421</a>
+<a href=#422 id=422 data-nosnippet>422</a>		<span class="kw">for </span>(rev_cost, non_rev_cost) <span class="kw">in </span>with_kind(cold_revertible).into_iter().zip(with_kind(cold))
+<a href=#423 id=423 data-nosnippet>423</a>		{
+<a href=#424 id=424 data-nosnippet>424</a>			<span class="kw">let </span>rev_weight = &lt;RuntimeCosts <span class="kw">as </span>Token&lt;Test&gt;&gt;::weight(<span class="kw-2">&amp;</span>rev_cost);
+<a href=#425 id=425 data-nosnippet>425</a>			<span class="kw">let </span>non_rev_weight = &lt;RuntimeCosts <span class="kw">as </span>Token&lt;Test&gt;&gt;::weight(<span class="kw-2">&amp;</span>non_rev_cost);
+<a href=#426 id=426 data-nosnippet>426</a>			<span class="macro">assert!</span>(
+<a href=#427 id=427 data-nosnippet>427</a>				rev_weight.ref_time() &gt; non_rev_weight.ref_time(),
+<a href=#428 id=428 data-nosnippet>428</a>				<span class="string">"expected revertible &gt; non-revertible ref_time for {rev_cost:?}: \
+<a href=#429 id=429 data-nosnippet>429</a>				 rev={rev_weight:?} non={non_rev_weight:?}"</span>,
+<a href=#430 id=430 data-nosnippet>430</a>			);
+<a href=#431 id=431 data-nosnippet>431</a>			<span class="macro">assert_eq!</span>(
+<a href=#432 id=432 data-nosnippet>432</a>				rev_weight.proof_size(),
+<a href=#433 id=433 data-nosnippet>433</a>				non_rev_weight.proof_size(),
+<a href=#434 id=434 data-nosnippet>434</a>				<span class="string">"proof_size differs {rev_cost:?}: rev={rev_weight:?} non={non_rev_weight:?}"</span>,
+<a href=#435 id=435 data-nosnippet>435</a>			);
+<a href=#436 id=436 data-nosnippet>436</a>		}
+<a href=#437 id=437 data-nosnippet>437</a>	}
+<a href=#438 id=438 data-nosnippet>438</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

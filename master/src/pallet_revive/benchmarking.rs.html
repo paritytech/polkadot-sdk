@@ -3126,645 +3126,646 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#2976 id=2976 data-nosnippet>2976</a>	}
 <a href=#2977 id=2977 data-nosnippet>2977</a>
 <a href=#2978 id=2978 data-nosnippet>2978</a>	<span class="attr">#[benchmark(pov_mode = Measured)]
-<a href=#2979 id=2979 data-nosnippet>2979</a>	</span><span class="kw">fn </span>extcodecopy(n: Linear&lt;<span class="number">1_000</span>, <span class="number">10_000</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-<a href=#2980 id=2980 data-nosnippet>2980</a>		<span class="kw">let </span>module = VmBinaryModule::sized(n);
-<a href=#2981 id=2981 data-nosnippet>2981</a>		<span class="kw">let </span><span class="kw-2">mut </span>setup = CallSetup::&lt;T&gt;::new(module);
-<a href=#2982 id=2982 data-nosnippet>2982</a>		<span class="kw">let </span>contract = setup.contract();
-<a href=#2983 id=2983 data-nosnippet>2983</a>
-<a href=#2984 id=2984 data-nosnippet>2984</a>		<span class="kw">let </span>(<span class="kw-2">mut </span>ext, <span class="kw">_</span>) = setup.ext();
-<a href=#2985 id=2985 data-nosnippet>2985</a>		<span class="kw">let </span><span class="kw-2">mut </span>interpreter = Interpreter::new(Default::default(), Default::default(), <span class="kw-2">&amp;mut </span>ext);
-<a href=#2986 id=2986 data-nosnippet>2986</a>
-<a href=#2987 id=2987 data-nosnippet>2987</a>		<span class="comment">// Setup stack for extcodecopy instruction: [address, dest_offset, offset, size]
-<a href=#2988 id=2988 data-nosnippet>2988</a>		</span><span class="kw">let _ </span>= interpreter.stack.push(U256::from(n));
-<a href=#2989 id=2989 data-nosnippet>2989</a>		<span class="kw">let _ </span>= interpreter.stack.push(U256::from(<span class="number">0u32</span>));
+<a href=#2979 id=2979 data-nosnippet>2979</a>	</span><span class="kw">fn </span>extcodecopy(n: Linear&lt;<span class="number">1_000</span>, { <span class="number">100 </span>* <span class="number">1024 </span>}&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#2980 id=2980 data-nosnippet>2980</a>		<span class="comment">// The caller contract; `CallSetup` whitelists its `AccountInfoOf`.
+<a href=#2981 id=2981 data-nosnippet>2981</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>setup = CallSetup::&lt;T&gt;::new(VmBinaryModule::dummy());
+<a href=#2982 id=2982 data-nosnippet>2982</a>		<span class="comment">// Copy a contract other than the caller, so its `AccountInfoOf` read is counted.
+<a href=#2983 id=2983 data-nosnippet>2983</a>		</span><span class="kw">let </span>target = Contract::&lt;T&gt;::with_index(<span class="number">1</span>, VmBinaryModule::sized(n), <span class="macro">vec!</span>[])<span class="question-mark">?</span>;
+<a href=#2984 id=2984 data-nosnippet>2984</a>
+<a href=#2985 id=2985 data-nosnippet>2985</a>		<span class="kw">let </span>(<span class="kw-2">mut </span>ext, <span class="kw">_</span>) = setup.ext();
+<a href=#2986 id=2986 data-nosnippet>2986</a>		<span class="kw">let </span><span class="kw-2">mut </span>interpreter = Interpreter::new(Default::default(), Default::default(), <span class="kw-2">&amp;mut </span>ext);
+<a href=#2987 id=2987 data-nosnippet>2987</a>
+<a href=#2988 id=2988 data-nosnippet>2988</a>		<span class="comment">// Setup stack for extcodecopy instruction: [address, dest_offset, offset, size]
+<a href=#2989 id=2989 data-nosnippet>2989</a>		</span><span class="kw">let _ </span>= interpreter.stack.push(U256::from(n));
 <a href=#2990 id=2990 data-nosnippet>2990</a>		<span class="kw">let _ </span>= interpreter.stack.push(U256::from(<span class="number">0u32</span>));
-<a href=#2991 id=2991 data-nosnippet>2991</a>		<span class="kw">let _ </span>= interpreter.stack.push(contract.address);
-<a href=#2992 id=2992 data-nosnippet>2992</a>
-<a href=#2993 id=2993 data-nosnippet>2993</a>		<span class="kw">let </span>result;
-<a href=#2994 id=2994 data-nosnippet>2994</a>		<span class="attr">#[block]
-<a href=#2995 id=2995 data-nosnippet>2995</a>		</span>{
-<a href=#2996 id=2996 data-nosnippet>2996</a>			result = instructions::host::extcodecopy(<span class="kw-2">&amp;mut </span>interpreter);
-<a href=#2997 id=2997 data-nosnippet>2997</a>		}
-<a href=#2998 id=2998 data-nosnippet>2998</a>
-<a href=#2999 id=2999 data-nosnippet>2999</a>		<span class="macro">assert!</span>(result.is_continue());
-<a href=#3000 id=3000 data-nosnippet>3000</a>		<span class="macro">assert_eq!</span>(
-<a href=#3001 id=3001 data-nosnippet>3001</a>			<span class="kw-2">*</span>interpreter.memory.slice(<span class="number">0</span>..n <span class="kw">as </span>usize),
-<a href=#3002 id=3002 data-nosnippet>3002</a>			PristineCode::&lt;T&gt;::get(contract.info()<span class="question-mark">?</span>.code_hash).unwrap()[<span class="number">0</span>..n <span class="kw">as </span>usize],
-<a href=#3003 id=3003 data-nosnippet>3003</a>			<span class="string">"Memory should contain the contract's code after extcodecopy"
-<a href=#3004 id=3004 data-nosnippet>3004</a>		</span>);
-<a href=#3005 id=3005 data-nosnippet>3005</a>
-<a href=#3006 id=3006 data-nosnippet>3006</a>		<span class="prelude-val">Ok</span>(())
-<a href=#3007 id=3007 data-nosnippet>3007</a>	}
-<a href=#3008 id=3008 data-nosnippet>3008</a>
-<a href=#3009 id=3009 data-nosnippet>3009</a>	<span class="attr">#[benchmark]
-<a href=#3010 id=3010 data-nosnippet>3010</a>	</span><span class="kw">fn </span>v1_migration_step() {
-<a href=#3011 id=3011 data-nosnippet>3011</a>		<span class="kw">use </span><span class="kw">crate</span>::migrations::v1;
-<a href=#3012 id=3012 data-nosnippet>3012</a>		<span class="kw">let </span>addr = H160::from([<span class="number">1u8</span>; <span class="number">20</span>]);
-<a href=#3013 id=3013 data-nosnippet>3013</a>		<span class="kw">let </span>contract_info = ContractInfo::new(<span class="kw-2">&amp;</span>addr, <span class="number">1u32</span>.into(), Default::default()).unwrap();
-<a href=#3014 id=3014 data-nosnippet>3014</a>
-<a href=#3015 id=3015 data-nosnippet>3015</a>		v1::old::ContractInfoOf::&lt;T&gt;::insert(addr, contract_info.clone());
-<a href=#3016 id=3016 data-nosnippet>3016</a>		<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::new();
-<a href=#3017 id=3017 data-nosnippet>3017</a>		<span class="macro">assert_eq!</span>(AccountInfo::&lt;T&gt;::load_contract(<span class="kw-2">&amp;</span>addr), <span class="prelude-val">None</span>);
-<a href=#3018 id=3018 data-nosnippet>3018</a>
-<a href=#3019 id=3019 data-nosnippet>3019</a>		<span class="attr">#[block]
-<a href=#3020 id=3020 data-nosnippet>3020</a>		</span>{
-<a href=#3021 id=3021 data-nosnippet>3021</a>			v1::Migration::&lt;T&gt;::step(<span class="prelude-val">None</span>, <span class="kw-2">&amp;mut </span>meter).unwrap();
-<a href=#3022 id=3022 data-nosnippet>3022</a>		}
-<a href=#3023 id=3023 data-nosnippet>3023</a>
-<a href=#3024 id=3024 data-nosnippet>3024</a>		<span class="macro">assert_eq!</span>(v1::old::ContractInfoOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>addr), <span class="prelude-val">None</span>);
-<a href=#3025 id=3025 data-nosnippet>3025</a>		<span class="macro">assert_eq!</span>(AccountInfo::&lt;T&gt;::load_contract(<span class="kw-2">&amp;</span>addr).unwrap(), contract_info);
-<a href=#3026 id=3026 data-nosnippet>3026</a>
-<a href=#3027 id=3027 data-nosnippet>3027</a>		<span class="comment">// uses twice the weight once for migration and then for checking if there is another key.
-<a href=#3028 id=3028 data-nosnippet>3028</a>		</span><span class="macro">assert_eq!</span>(meter.consumed(), &lt;T <span class="kw">as </span>Config&gt;::WeightInfo::v1_migration_step() * <span class="number">2</span>);
-<a href=#3029 id=3029 data-nosnippet>3029</a>	}
-<a href=#3030 id=3030 data-nosnippet>3030</a>
-<a href=#3031 id=3031 data-nosnippet>3031</a>	<span class="attr">#[benchmark]
-<a href=#3032 id=3032 data-nosnippet>3032</a>	</span><span class="kw">fn </span>v2_migration_step() {
-<a href=#3033 id=3033 data-nosnippet>3033</a>		<span class="kw">use </span><span class="kw">crate</span>::migrations::v2;
-<a href=#3034 id=3034 data-nosnippet>3034</a>		<span class="kw">let </span>code_hash = H256::from([<span class="number">0</span>; <span class="number">32</span>]);
-<a href=#3035 id=3035 data-nosnippet>3035</a>		<span class="kw">let </span>old_code_info = v2::Migration::&lt;T&gt;::create_old_code_info(
-<a href=#3036 id=3036 data-nosnippet>3036</a>			whitelisted_caller(),
-<a href=#3037 id=3037 data-nosnippet>3037</a>			<span class="number">1000u32</span>.into(),
-<a href=#3038 id=3038 data-nosnippet>3038</a>			<span class="number">1</span>,
-<a href=#3039 id=3039 data-nosnippet>3039</a>			<span class="number">100</span>,
-<a href=#3040 id=3040 data-nosnippet>3040</a>			<span class="number">0</span>,
-<a href=#3041 id=3041 data-nosnippet>3041</a>		);
-<a href=#3042 id=3042 data-nosnippet>3042</a>		v2::Migration::&lt;T&gt;::insert_old_code_info(code_hash, old_code_info.clone());
-<a href=#3043 id=3043 data-nosnippet>3043</a>		<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::new();
-<a href=#3044 id=3044 data-nosnippet>3044</a>
-<a href=#3045 id=3045 data-nosnippet>3045</a>		<span class="attr">#[block]
-<a href=#3046 id=3046 data-nosnippet>3046</a>		</span>{
-<a href=#3047 id=3047 data-nosnippet>3047</a>			v2::Migration::&lt;T&gt;::step(<span class="prelude-val">None</span>, <span class="kw-2">&amp;mut </span>meter).unwrap();
-<a href=#3048 id=3048 data-nosnippet>3048</a>		}
-<a href=#3049 id=3049 data-nosnippet>3049</a>
-<a href=#3050 id=3050 data-nosnippet>3050</a>		v2::Migration::&lt;T&gt;::assert_migrated_code_info(code_hash, <span class="kw-2">&amp;</span>old_code_info);
-<a href=#3051 id=3051 data-nosnippet>3051</a>
-<a href=#3052 id=3052 data-nosnippet>3052</a>		<span class="comment">// uses twice the weight once for migration and then for checking if there is another key.
-<a href=#3053 id=3053 data-nosnippet>3053</a>		</span><span class="macro">assert_eq!</span>(meter.consumed(), &lt;T <span class="kw">as </span>Config&gt;::WeightInfo::v2_migration_step() * <span class="number">2</span>);
-<a href=#3054 id=3054 data-nosnippet>3054</a>	}
-<a href=#3055 id=3055 data-nosnippet>3055</a>
-<a href=#3056 id=3056 data-nosnippet>3056</a>	<span class="attr">#[benchmark]
-<a href=#3057 id=3057 data-nosnippet>3057</a>	</span><span class="kw">fn </span>v3_migration_step() {
-<a href=#3058 id=3058 data-nosnippet>3058</a>		<span class="kw">use </span><span class="kw">crate</span>::migrations::v3;
-<a href=#3059 id=3059 data-nosnippet>3059</a>		<span class="comment">// Remove all pre-existing accounts
-<a href=#3060 id=3060 data-nosnippet>3060</a>		</span><span class="kw">let _ </span>= frame_system::Account::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
-<a href=#3061 id=3061 data-nosnippet>3061</a>
-<a href=#3062 id=3062 data-nosnippet>3062</a>		<span class="kw">let </span>account = account::&lt;T::AccountId&gt;(<span class="string">"target"</span>, <span class="number">0</span>, <span class="number">0</span>);
-<a href=#3063 id=3063 data-nosnippet>3063</a>		T::Currency::mint_into(<span class="kw-2">&amp;</span>account, Pallet::&lt;T&gt;::min_balance())
-<a href=#3064 id=3064 data-nosnippet>3064</a>			.expect(<span class="string">"should mint into account"</span>);
-<a href=#3065 id=3065 data-nosnippet>3065</a>
-<a href=#3066 id=3066 data-nosnippet>3066</a>		<span class="comment">// clear the mapping so the migration has work to do
-<a href=#3067 id=3067 data-nosnippet>3067</a>		</span><span class="kw">let </span>addr = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>account);
-<a href=#3068 id=3068 data-nosnippet>3068</a>		<span class="kw">crate</span>::OriginalAccount::&lt;T&gt;::remove(addr);
-<a href=#3069 id=3069 data-nosnippet>3069</a>
-<a href=#3070 id=3070 data-nosnippet>3070</a>		<span class="macro">assert!</span>(!T::AddressMapper::is_mapped(<span class="kw-2">&amp;</span>account));
-<a href=#3071 id=3071 data-nosnippet>3071</a>		<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::new();
-<a href=#3072 id=3072 data-nosnippet>3072</a>
-<a href=#3073 id=3073 data-nosnippet>3073</a>		<span class="attr">#[block]
-<a href=#3074 id=3074 data-nosnippet>3074</a>		</span>{
-<a href=#3075 id=3075 data-nosnippet>3075</a>			v3::Migration::&lt;T&gt;::step(<span class="prelude-val">None</span>, <span class="kw-2">&amp;mut </span>meter).unwrap();
-<a href=#3076 id=3076 data-nosnippet>3076</a>		}
-<a href=#3077 id=3077 data-nosnippet>3077</a>
-<a href=#3078 id=3078 data-nosnippet>3078</a>		<span class="macro">assert!</span>(T::AddressMapper::is_mapped(<span class="kw-2">&amp;</span>account));
-<a href=#3079 id=3079 data-nosnippet>3079</a>
-<a href=#3080 id=3080 data-nosnippet>3080</a>		<span class="comment">// uses twice the weight: once for migration and then for checking if there is another key.
-<a href=#3081 id=3081 data-nosnippet>3081</a>		</span><span class="macro">assert_eq!</span>(meter.consumed(), &lt;T <span class="kw">as </span>Config&gt;::WeightInfo::v3_migration_step() * <span class="number">2</span>);
-<a href=#3082 id=3082 data-nosnippet>3082</a>	}
-<a href=#3083 id=3083 data-nosnippet>3083</a>
-<a href=#3084 id=3084 data-nosnippet>3084</a>	<span class="doccomment">/// One iteration of v4 phase 1: credit the uploader's [`NativeDepositOf`] bucket.
-<a href=#3085 id=3085 data-nosnippet>3085</a>	///
-<a href=#3086 id=3086 data-nosnippet>3086</a>	/// Seeds two codes and primes the cursor with the first stored entry so the benched
-<a href=#3087 id=3087 data-nosnippet>3087</a>	/// iteration exercises the `iter_from` path that dominates phase 1 in production.
-<a href=#3088 id=3088 data-nosnippet>3088</a>	</span><span class="attr">#[benchmark]
-<a href=#3089 id=3089 data-nosnippet>3089</a>	</span><span class="kw">fn </span>v4_code_upload_step() {
-<a href=#3090 id=3090 data-nosnippet>3090</a>		<span class="kw">use </span><span class="kw">crate</span>::migrations::v4;
-<a href=#3091 id=3091 data-nosnippet>3091</a>
-<a href=#3092 id=3092 data-nosnippet>3092</a>		<span class="kw">let _ </span>= CodeInfoOf::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
-<a href=#3093 id=3093 data-nosnippet>3093</a>
-<a href=#3094 id=3094 data-nosnippet>3094</a>		<span class="kw">let </span>owner: T::AccountId = whitelisted_caller();
-<a href=#3095 id=3095 data-nosnippet>3095</a>		<span class="kw">let </span>deposit: BalanceOf&lt;T&gt; = <span class="number">1_000u32</span>.into();
-<a href=#3096 id=3096 data-nosnippet>3096</a>
-<a href=#3097 id=3097 data-nosnippet>3097</a>		<span class="kw">let </span>pallet_account = Pallet::&lt;T&gt;::account_id();
-<a href=#3098 id=3098 data-nosnippet>3098</a>		T::Currency::mint_into(<span class="kw-2">&amp;</span>pallet_account, Pallet::&lt;T&gt;::min_balance()).unwrap();
-<a href=#3099 id=3099 data-nosnippet>3099</a>		T::Currency::mint_into(<span class="kw-2">&amp;</span>pallet_account, deposit).unwrap();
-<a href=#3100 id=3100 data-nosnippet>3100</a>		T::Currency::hold(<span class="kw-2">&amp;</span>HoldReason::CodeUploadDepositReserve.into(), <span class="kw-2">&amp;</span>pallet_account, deposit)
-<a href=#3101 id=3101 data-nosnippet>3101</a>			.unwrap();
-<a href=#3102 id=3102 data-nosnippet>3102</a>
-<a href=#3103 id=3103 data-nosnippet>3103</a>		CodeInfoOf::&lt;T&gt;::insert(
-<a href=#3104 id=3104 data-nosnippet>3104</a>			H256::from([<span class="number">1u8</span>; <span class="number">32</span>]),
-<a href=#3105 id=3105 data-nosnippet>3105</a>			CodeInfo::&lt;T&gt;::new_with_deposit(owner.clone(), deposit),
-<a href=#3106 id=3106 data-nosnippet>3106</a>		);
-<a href=#3107 id=3107 data-nosnippet>3107</a>		CodeInfoOf::&lt;T&gt;::insert(
-<a href=#3108 id=3108 data-nosnippet>3108</a>			H256::from([<span class="number">2u8</span>; <span class="number">32</span>]),
-<a href=#3109 id=3109 data-nosnippet>3109</a>			CodeInfo::&lt;T&gt;::new_with_deposit(owner.clone(), deposit),
-<a href=#3110 id=3110 data-nosnippet>3110</a>		);
-<a href=#3111 id=3111 data-nosnippet>3111</a>
-<a href=#3112 id=3112 data-nosnippet>3112</a>		<span class="kw">let </span>first = <span class="kw">match </span>v4::Migration::&lt;T&gt;::step_once(<span class="prelude-val">None</span>) {
-<a href=#3113 id=3113 data-nosnippet>3113</a>			<span class="prelude-val">Some</span>(v4::Cursor::CodeUpload(h)) =&gt; h,
-<a href=#3114 id=3114 data-nosnippet>3114</a>			other =&gt; <span class="macro">panic!</span>(<span class="string">"expected CodeUpload cursor, got {other:?}"</span>),
-<a href=#3115 id=3115 data-nosnippet>3115</a>		};
-<a href=#3116 id=3116 data-nosnippet>3116</a>		<span class="kw">let </span>cursor = <span class="prelude-val">Some</span>(v4::Cursor::CodeUpload(first));
-<a href=#3117 id=3117 data-nosnippet>3117</a>
-<a href=#3118 id=3118 data-nosnippet>3118</a>		<span class="attr">#[block]
-<a href=#3119 id=3119 data-nosnippet>3119</a>		</span>{
-<a href=#3120 id=3120 data-nosnippet>3120</a>			<span class="kw">let _ </span>= v4::Migration::&lt;T&gt;::step_once(cursor);
-<a href=#3121 id=3121 data-nosnippet>3121</a>		}
-<a href=#3122 id=3122 data-nosnippet>3122</a>
-<a href=#3123 id=3123 data-nosnippet>3123</a>		<span class="macro">assert_eq!</span>(
-<a href=#3124 id=3124 data-nosnippet>3124</a>			NativeDepositOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>pallet_account, <span class="kw-2">&amp;</span>owner),
-<a href=#3125 id=3125 data-nosnippet>3125</a>			deposit + deposit,
-<a href=#3126 id=3126 data-nosnippet>3126</a>			<span class="string">"both code uploads credited to owner"</span>,
-<a href=#3127 id=3127 data-nosnippet>3127</a>		);
-<a href=#3128 id=3128 data-nosnippet>3128</a>	}
-<a href=#3129 id=3129 data-nosnippet>3129</a>
-<a href=#3130 id=3130 data-nosnippet>3130</a>	<span class="doccomment">/// One iteration of v4 phase 2: burn native hold, mint and hold PGAS for a single contract.
-<a href=#3131 id=3131 data-nosnippet>3131</a>	///
-<a href=#3132 id=3132 data-nosnippet>3132</a>	/// Seeds two contracts and primes the cursor with the first stored entry so the benched
-<a href=#3133 id=3133 data-nosnippet>3133</a>	/// iteration exercises the `iter_from` path that dominates phase 2 in production.
-<a href=#3134 id=3134 data-nosnippet>3134</a>	</span><span class="attr">#[benchmark]
-<a href=#3135 id=3135 data-nosnippet>3135</a>	</span><span class="kw">fn </span>v4_contract_step() {
-<a href=#3136 id=3136 data-nosnippet>3136</a>		<span class="kw">use </span><span class="kw">crate</span>::migrations::v4;
-<a href=#3137 id=3137 data-nosnippet>3137</a>
-<a href=#3138 id=3138 data-nosnippet>3138</a>		<span class="kw">let _ </span>= AccountInfoOf::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
-<a href=#3139 id=3139 data-nosnippet>3139</a>
-<a href=#3140 id=3140 data-nosnippet>3140</a>		<span class="kw">let </span>code_hash = H256::from([<span class="number">0u8</span>; <span class="number">32</span>]);
-<a href=#3141 id=3141 data-nosnippet>3141</a>		<span class="kw">let </span>deposit: BalanceOf&lt;T&gt; = <span class="number">1_000u32</span>.into();
-<a href=#3142 id=3142 data-nosnippet>3142</a>
-<a href=#3143 id=3143 data-nosnippet>3143</a>		<span class="kw">for </span>byte <span class="kw">in </span>[<span class="number">0x41u8</span>, <span class="number">0x42u8</span>] {
-<a href=#3144 id=3144 data-nosnippet>3144</a>			<span class="kw">let </span>addr = H160::from([byte; <span class="number">20</span>]);
-<a href=#3145 id=3145 data-nosnippet>3145</a>			<span class="kw">let </span>contract_account = T::AddressMapper::to_account_id(<span class="kw-2">&amp;</span>addr);
-<a href=#3146 id=3146 data-nosnippet>3146</a>			<span class="kw">let </span>info =
-<a href=#3147 id=3147 data-nosnippet>3147</a>				ContractInfo::&lt;T&gt;::new(<span class="kw-2">&amp;</span>addr, <span class="number">1u32</span>.into(), code_hash).expect(<span class="string">"fresh contract info"</span>);
-<a href=#3148 id=3148 data-nosnippet>3148</a>			AccountInfoOf::&lt;T&gt;::insert(
-<a href=#3149 id=3149 data-nosnippet>3149</a>				addr,
-<a href=#3150 id=3150 data-nosnippet>3150</a>				<span class="kw">crate</span>::storage::AccountInfo::&lt;T&gt; {
-<a href=#3151 id=3151 data-nosnippet>3151</a>					account_type: <span class="kw">crate</span>::storage::AccountType::Contract(info),
-<a href=#3152 id=3152 data-nosnippet>3152</a>					dust: <span class="number">0</span>,
-<a href=#3153 id=3153 data-nosnippet>3153</a>				},
-<a href=#3154 id=3154 data-nosnippet>3154</a>			);
-<a href=#3155 id=3155 data-nosnippet>3155</a>			T::Currency::mint_into(<span class="kw-2">&amp;</span>contract_account, Pallet::&lt;T&gt;::min_balance()).unwrap();
-<a href=#3156 id=3156 data-nosnippet>3156</a>			T::Currency::mint_into(<span class="kw-2">&amp;</span>contract_account, deposit).unwrap();
-<a href=#3157 id=3157 data-nosnippet>3157</a>			T::Currency::hold(
-<a href=#3158 id=3158 data-nosnippet>3158</a>				<span class="kw-2">&amp;</span>HoldReason::StorageDepositReserve.into(),
-<a href=#3159 id=3159 data-nosnippet>3159</a>				<span class="kw-2">&amp;</span>contract_account,
-<a href=#3160 id=3160 data-nosnippet>3160</a>				deposit,
-<a href=#3161 id=3161 data-nosnippet>3161</a>			)
-<a href=#3162 id=3162 data-nosnippet>3162</a>			.unwrap();
-<a href=#3163 id=3163 data-nosnippet>3163</a>		}
-<a href=#3164 id=3164 data-nosnippet>3164</a>
-<a href=#3165 id=3165 data-nosnippet>3165</a>		<span class="kw">let </span>first = <span class="kw">match </span>v4::Migration::&lt;T&gt;::step_once(<span class="prelude-val">Some</span>(v4::Cursor::Contract(<span class="prelude-val">None</span>))) {
-<a href=#3166 id=3166 data-nosnippet>3166</a>			<span class="prelude-val">Some</span>(v4::Cursor::Contract(<span class="prelude-val">Some</span>(addr))) =&gt; addr,
-<a href=#3167 id=3167 data-nosnippet>3167</a>			other =&gt; <span class="macro">panic!</span>(<span class="string">"expected Contract cursor, got {other:?}"</span>),
-<a href=#3168 id=3168 data-nosnippet>3168</a>		};
-<a href=#3169 id=3169 data-nosnippet>3169</a>		<span class="kw">let </span>cursor = <span class="prelude-val">Some</span>(v4::Cursor::Contract(<span class="prelude-val">Some</span>(first)));
-<a href=#3170 id=3170 data-nosnippet>3170</a>
-<a href=#3171 id=3171 data-nosnippet>3171</a>		<span class="attr">#[block]
-<a href=#3172 id=3172 data-nosnippet>3172</a>		</span>{
-<a href=#3173 id=3173 data-nosnippet>3173</a>			<span class="kw">let _ </span>= v4::Migration::&lt;T&gt;::step_once(cursor);
-<a href=#3174 id=3174 data-nosnippet>3174</a>		}
-<a href=#3175 id=3175 data-nosnippet>3175</a>
-<a href=#3176 id=3176 data-nosnippet>3176</a>		<span class="comment">// `migrate_native_to_pgas` is a no-op for `Deposit = ()`, so the hold only clears on
-<a href=#3177 id=3177 data-nosnippet>3177</a>		// PGAS-backed runtimes. On non-PGAS runtimes the benchmark still measures the iter cost.
-<a href=#3178 id=3178 data-nosnippet>3178</a>		</span><span class="kw">if </span>T::Deposit::SUPPORTS_PGAS {
-<a href=#3179 id=3179 data-nosnippet>3179</a>			<span class="kw">for </span>byte <span class="kw">in </span>[<span class="number">0x41u8</span>, <span class="number">0x42u8</span>] {
-<a href=#3180 id=3180 data-nosnippet>3180</a>				<span class="kw">let </span>addr = H160::from([byte; <span class="number">20</span>]);
-<a href=#3181 id=3181 data-nosnippet>3181</a>				<span class="kw">let </span>contract_account = T::AddressMapper::to_account_id(<span class="kw-2">&amp;</span>addr);
-<a href=#3182 id=3182 data-nosnippet>3182</a>				<span class="macro">assert_eq!</span>(
-<a href=#3183 id=3183 data-nosnippet>3183</a>					T::Currency::balance_on_hold(
-<a href=#3184 id=3184 data-nosnippet>3184</a>						<span class="kw-2">&amp;</span>HoldReason::StorageDepositReserve.into(),
-<a href=#3185 id=3185 data-nosnippet>3185</a>						<span class="kw-2">&amp;</span>contract_account,
-<a href=#3186 id=3186 data-nosnippet>3186</a>					),
-<a href=#3187 id=3187 data-nosnippet>3187</a>					<span class="number">0u32</span>.into(),
-<a href=#3188 id=3188 data-nosnippet>3188</a>					<span class="string">"native storage deposit burned for {addr:?}"</span>,
-<a href=#3189 id=3189 data-nosnippet>3189</a>				);
-<a href=#3190 id=3190 data-nosnippet>3190</a>			}
-<a href=#3191 id=3191 data-nosnippet>3191</a>		}
-<a href=#3192 id=3192 data-nosnippet>3192</a>	}
-<a href=#3193 id=3193 data-nosnippet>3193</a>
-<a href=#3194 id=3194 data-nosnippet>3194</a>	<span class="doccomment">/// One iteration of v4 phase 3: rewrite a legacy [`v4::old::DeletionQueue`] entry into the
-<a href=#3195 id=3195 data-nosnippet>3195</a>	/// new [`DeletionQueue`] format.
-<a href=#3196 id=3196 data-nosnippet>3196</a>	///
-<a href=#3197 id=3197 data-nosnippet>3197</a>	/// Seeds two legacy entries and primes the cursor with the first stored entry so the benched
-<a href=#3198 id=3198 data-nosnippet>3198</a>	/// iteration exercises the `iter_from` path.
-<a href=#3199 id=3199 data-nosnippet>3199</a>	</span><span class="attr">#[benchmark]
-<a href=#3200 id=3200 data-nosnippet>3200</a>	</span><span class="kw">fn </span>v4_deletion_queue_step() {
-<a href=#3201 id=3201 data-nosnippet>3201</a>		<span class="kw">use </span><span class="kw">crate</span>::migrations::v4;
-<a href=#3202 id=3202 data-nosnippet>3202</a>
-<a href=#3203 id=3203 data-nosnippet>3203</a>		<span class="kw">let _ </span>= v4::old::DeletionQueue::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
-<a href=#3204 id=3204 data-nosnippet>3204</a>
-<a href=#3205 id=3205 data-nosnippet>3205</a>		<span class="kw">let </span>trie_a: TrieId = <span class="macro">vec!</span>[<span class="number">0xAAu8</span>; <span class="number">16</span>].try_into().unwrap();
-<a href=#3206 id=3206 data-nosnippet>3206</a>		<span class="kw">let </span>trie_b: TrieId = <span class="macro">vec!</span>[<span class="number">0xBBu8</span>; <span class="number">24</span>].try_into().unwrap();
-<a href=#3207 id=3207 data-nosnippet>3207</a>		v4::old::DeletionQueue::&lt;T&gt;::insert(<span class="number">0u32</span>, trie_a);
-<a href=#3208 id=3208 data-nosnippet>3208</a>		v4::old::DeletionQueue::&lt;T&gt;::insert(<span class="number">1u32</span>, trie_b);
-<a href=#3209 id=3209 data-nosnippet>3209</a>
-<a href=#3210 id=3210 data-nosnippet>3210</a>		<span class="kw">let </span>first = <span class="kw">match </span>v4::Migration::&lt;T&gt;::step_once(<span class="prelude-val">Some</span>(v4::Cursor::DeletionQueue(<span class="prelude-val">None</span>))) {
-<a href=#3211 id=3211 data-nosnippet>3211</a>			<span class="prelude-val">Some</span>(v4::Cursor::DeletionQueue(<span class="prelude-val">Some</span>(key))) =&gt; key,
-<a href=#3212 id=3212 data-nosnippet>3212</a>			other =&gt; <span class="macro">panic!</span>(<span class="string">"expected DeletionQueue cursor, got {other:?}"</span>),
-<a href=#3213 id=3213 data-nosnippet>3213</a>		};
-<a href=#3214 id=3214 data-nosnippet>3214</a>		<span class="kw">let </span>cursor = <span class="prelude-val">Some</span>(v4::Cursor::DeletionQueue(<span class="prelude-val">Some</span>(first)));
-<a href=#3215 id=3215 data-nosnippet>3215</a>
-<a href=#3216 id=3216 data-nosnippet>3216</a>		<span class="attr">#[block]
-<a href=#3217 id=3217 data-nosnippet>3217</a>		</span>{
-<a href=#3218 id=3218 data-nosnippet>3218</a>			<span class="kw">let _ </span>= v4::Migration::&lt;T&gt;::step_once(cursor);
-<a href=#3219 id=3219 data-nosnippet>3219</a>		}
-<a href=#3220 id=3220 data-nosnippet>3220</a>
-<a href=#3221 id=3221 data-nosnippet>3221</a>		<span class="macro">assert!</span>(
-<a href=#3222 id=3222 data-nosnippet>3222</a>			DeletionQueue::&lt;T&gt;::get(<span class="number">0u32</span>).is_some() &amp;&amp; DeletionQueue::&lt;T&gt;::get(<span class="number">1u32</span>).is_some(),
-<a href=#3223 id=3223 data-nosnippet>3223</a>			<span class="string">"both legacy entries rewritten into the new format"</span>,
-<a href=#3224 id=3224 data-nosnippet>3224</a>		);
-<a href=#3225 id=3225 data-nosnippet>3225</a>	}
-<a href=#3226 id=3226 data-nosnippet>3226</a>
-<a href=#3227 id=3227 data-nosnippet>3227</a>	<span class="doccomment">/// Helper function to create a test signer for finalize_block benchmark
-<a href=#3228 id=3228 data-nosnippet>3228</a>	</span><span class="kw">fn </span>create_test_signer&lt;T: Config&gt;() -&gt; (T::AccountId, SigningKey, H160) {
-<a href=#3229 id=3229 data-nosnippet>3229</a>		<span class="kw">use </span>hex_literal::hex;
-<a href=#3230 id=3230 data-nosnippet>3230</a>		<span class="comment">// dev::alith()
-<a href=#3231 id=3231 data-nosnippet>3231</a>		</span><span class="kw">let </span>signer_account_id = <span class="macro">hex!</span>(<span class="string">"f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac"</span>);
-<a href=#3232 id=3232 data-nosnippet>3232</a>		<span class="kw">let </span>signer_priv_key =
-<a href=#3233 id=3233 data-nosnippet>3233</a>			<span class="macro">hex!</span>(<span class="string">"5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133"</span>);
-<a href=#3234 id=3234 data-nosnippet>3234</a>
-<a href=#3235 id=3235 data-nosnippet>3235</a>		<span class="kw">let </span>signer_key = SigningKey::from_bytes(<span class="kw-2">&amp;</span>signer_priv_key.into()).expect(<span class="string">"valid key"</span>);
-<a href=#3236 id=3236 data-nosnippet>3236</a>
-<a href=#3237 id=3237 data-nosnippet>3237</a>		<span class="kw">let </span>signer_address = H160::from_slice(<span class="kw-2">&amp;</span>signer_account_id);
-<a href=#3238 id=3238 data-nosnippet>3238</a>		<span class="kw">let </span>signer_caller = T::AddressMapper::to_fallback_account_id(<span class="kw-2">&amp;</span>signer_address);
-<a href=#3239 id=3239 data-nosnippet>3239</a>
-<a href=#3240 id=3240 data-nosnippet>3240</a>		(signer_caller, signer_key, signer_address)
-<a href=#3241 id=3241 data-nosnippet>3241</a>	}
-<a href=#3242 id=3242 data-nosnippet>3242</a>
-<a href=#3243 id=3243 data-nosnippet>3243</a>	<span class="doccomment">/// Helper function to create and sign a transaction for finalize_block benchmark
-<a href=#3244 id=3244 data-nosnippet>3244</a>	</span><span class="kw">fn </span>create_signed_transaction&lt;T: Config&gt;(
-<a href=#3245 id=3245 data-nosnippet>3245</a>		signer_key: <span class="kw-2">&amp;</span>SigningKey,
-<a href=#3246 id=3246 data-nosnippet>3246</a>		target_address: H160,
-<a href=#3247 id=3247 data-nosnippet>3247</a>		value: U256,
-<a href=#3248 id=3248 data-nosnippet>3248</a>		input_data: Vec&lt;u8&gt;,
-<a href=#3249 id=3249 data-nosnippet>3249</a>	) -&gt; Vec&lt;u8&gt; {
-<a href=#3250 id=3250 data-nosnippet>3250</a>		<span class="kw">let </span>unsigned_tx: TransactionUnsigned = TransactionLegacyUnsigned {
-<a href=#3251 id=3251 data-nosnippet>3251</a>			to: <span class="prelude-val">Some</span>(target_address),
-<a href=#3252 id=3252 data-nosnippet>3252</a>			value,
-<a href=#3253 id=3253 data-nosnippet>3253</a>			chain_id: <span class="prelude-val">Some</span>(T::ChainId::get().into()),
-<a href=#3254 id=3254 data-nosnippet>3254</a>			input: input_data.into(),
-<a href=#3255 id=3255 data-nosnippet>3255</a>			..Default::default()
-<a href=#3256 id=3256 data-nosnippet>3256</a>		}
-<a href=#3257 id=3257 data-nosnippet>3257</a>		.into();
-<a href=#3258 id=3258 data-nosnippet>3258</a>
-<a href=#3259 id=3259 data-nosnippet>3259</a>		<span class="kw">let </span>hashed_payload = sp_io::hashing::keccak_256(<span class="kw-2">&amp;</span>unsigned_tx.unsigned_payload());
-<a href=#3260 id=3260 data-nosnippet>3260</a>		<span class="kw">let </span>(signature, recovery_id) =
-<a href=#3261 id=3261 data-nosnippet>3261</a>			signer_key.sign_prehash_recoverable(<span class="kw-2">&amp;</span>hashed_payload).expect(<span class="string">"signing success"</span>);
-<a href=#3262 id=3262 data-nosnippet>3262</a>
-<a href=#3263 id=3263 data-nosnippet>3263</a>		<span class="kw">let </span><span class="kw-2">mut </span>sig_bytes = [<span class="number">0u8</span>; <span class="number">65</span>];
-<a href=#3264 id=3264 data-nosnippet>3264</a>		sig_bytes[..<span class="number">64</span>].copy_from_slice(<span class="kw-2">&amp;</span>signature.to_bytes());
-<a href=#3265 id=3265 data-nosnippet>3265</a>		sig_bytes[<span class="number">64</span>] = recovery_id.to_byte();
-<a href=#3266 id=3266 data-nosnippet>3266</a>
-<a href=#3267 id=3267 data-nosnippet>3267</a>		<span class="kw">let </span>signed_tx = unsigned_tx.with_signature(sig_bytes);
-<a href=#3268 id=3268 data-nosnippet>3268</a>
-<a href=#3269 id=3269 data-nosnippet>3269</a>		signed_tx.signed_payload()
-<a href=#3270 id=3270 data-nosnippet>3270</a>	}
-<a href=#3271 id=3271 data-nosnippet>3271</a>
-<a href=#3272 id=3272 data-nosnippet>3272</a>	<span class="doccomment">/// Helper function to generate common finalize_block benchmark setup
-<a href=#3273 id=3273 data-nosnippet>3273</a>	</span><span class="kw">fn </span>setup_finalize_block_benchmark&lt;T&gt;()
-<a href=#3274 id=3274 data-nosnippet>3274</a>	-&gt; <span class="prelude-ty">Result</span>&lt;(Contract&lt;T&gt;, BalanceOf&lt;T&gt;, U256, SigningKey, BlockNumberFor&lt;T&gt;), BenchmarkError&gt;
-<a href=#3275 id=3275 data-nosnippet>3275</a>	<span class="kw">where
-<a href=#3276 id=3276 data-nosnippet>3276</a>		</span>BalanceOf&lt;T&gt;: Into&lt;U256&gt; + TryFrom&lt;U256&gt;,
-<a href=#3277 id=3277 data-nosnippet>3277</a>		T: Config,
-<a href=#3278 id=3278 data-nosnippet>3278</a>		MomentOf&lt;T&gt;: Into&lt;U256&gt;,
-<a href=#3279 id=3279 data-nosnippet>3279</a>		&lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash: frame_support::traits::IsType&lt;H256&gt;,
-<a href=#3280 id=3280 data-nosnippet>3280</a>	{
-<a href=#3281 id=3281 data-nosnippet>3281</a>		<span class="comment">// Setup test signer
-<a href=#3282 id=3282 data-nosnippet>3282</a>		</span><span class="kw">let </span>(signer_caller, signer_key, _signer_address) = create_test_signer::&lt;T&gt;();
-<a href=#3283 id=3283 data-nosnippet>3283</a>		<span class="macro">whitelist_account!</span>(signer_caller);
-<a href=#3284 id=3284 data-nosnippet>3284</a>
-<a href=#3285 id=3285 data-nosnippet>3285</a>		<span class="comment">// Setup contract instance
-<a href=#3286 id=3286 data-nosnippet>3286</a>		</span><span class="kw">let </span>instance =
-<a href=#3287 id=3287 data-nosnippet>3287</a>			Contract::&lt;T&gt;::with_caller(signer_caller.clone(), VmBinaryModule::dummy(), <span class="macro">vec!</span>[])<span class="question-mark">?</span>;
-<a href=#3288 id=3288 data-nosnippet>3288</a>		<span class="kw">let </span>storage_deposit = default_deposit_limit::&lt;T&gt;();
-<a href=#3289 id=3289 data-nosnippet>3289</a>		<span class="kw">let </span>value = Pallet::&lt;T&gt;::min_balance();
-<a href=#3290 id=3290 data-nosnippet>3290</a>		<span class="kw">let </span>evm_value =
-<a href=#3291 id=3291 data-nosnippet>3291</a>			Pallet::&lt;T&gt;::convert_native_to_evm(BalanceWithDust::new_unchecked::&lt;T&gt;(value, <span class="number">0</span>));
-<a href=#3292 id=3292 data-nosnippet>3292</a>
-<a href=#3293 id=3293 data-nosnippet>3293</a>		<span class="comment">// Setup block
-<a href=#3294 id=3294 data-nosnippet>3294</a>		</span><span class="kw">let </span>current_block = BlockNumberFor::&lt;T&gt;::from(<span class="number">1u32</span>);
-<a href=#3295 id=3295 data-nosnippet>3295</a>		frame_system::Pallet::&lt;T&gt;::set_block_number(current_block);
-<a href=#3296 id=3296 data-nosnippet>3296</a>
-<a href=#3297 id=3297 data-nosnippet>3297</a>		<span class="prelude-val">Ok</span>((instance, storage_deposit, evm_value, signer_key, current_block))
-<a href=#3298 id=3298 data-nosnippet>3298</a>	}
-<a href=#3299 id=3299 data-nosnippet>3299</a>
-<a href=#3300 id=3300 data-nosnippet>3300</a>	<span class="doccomment">/// Benchmark the `on_finalize` hook scaling with number of transactions.
-<a href=#3301 id=3301 data-nosnippet>3301</a>	///
-<a href=#3302 id=3302 data-nosnippet>3302</a>	/// This benchmark measures the marginal computational cost of adding transactions
-<a href=#3303 id=3303 data-nosnippet>3303</a>	/// to a block during finalization, with fixed payload size to isolate transaction
-<a href=#3304 id=3304 data-nosnippet>3304</a>	/// count scaling effects.
-<a href=#3305 id=3305 data-nosnippet>3305</a>	///
-<a href=#3306 id=3306 data-nosnippet>3306</a>	/// ## Parameters:
-<a href=#3307 id=3307 data-nosnippet>3307</a>	/// - `n`: Number of transactions in the block (0-200)
-<a href=#3308 id=3308 data-nosnippet>3308</a>	///
-<a href=#3309 id=3309 data-nosnippet>3309</a>	/// ## Test Setup:
-<a href=#3310 id=3310 data-nosnippet>3310</a>	/// - Creates `n` transactions with fixed 100-byte payloads
-<a href=#3311 id=3311 data-nosnippet>3311</a>	/// - Pre-populates block builder storage with test data
-<a href=#3312 id=3312 data-nosnippet>3312</a>	///
-<a href=#3313 id=3313 data-nosnippet>3313</a>	/// ## Usage:
-<a href=#3314 id=3314 data-nosnippet>3314</a>	/// Use this with `on_finalize_per_byte` to calculate total cost:
-<a href=#3315 id=3315 data-nosnippet>3315</a>	/// `total_cost = base + (n × per_tx_cost) + (total_bytes × per_byte_cost)`
-<a href=#3316 id=3316 data-nosnippet>3316</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
-<a href=#3317 id=3317 data-nosnippet>3317</a>	</span><span class="kw">fn </span>on_finalize_per_transaction(n: Linear&lt;<span class="number">0</span>, <span class="number">200</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-<a href=#3318 id=3318 data-nosnippet>3318</a>		<span class="kw">let </span>(instance, _storage_deposit, evm_value, signer_key, current_block) =
-<a href=#3319 id=3319 data-nosnippet>3319</a>			setup_finalize_block_benchmark::&lt;T&gt;()<span class="question-mark">?</span>;
-<a href=#3320 id=3320 data-nosnippet>3320</a>
-<a href=#3321 id=3321 data-nosnippet>3321</a>		<span class="comment">// Fixed payload size to isolate transaction count effects
-<a href=#3322 id=3322 data-nosnippet>3322</a>		</span><span class="kw">let </span>fixed_payload_size = <span class="number">100usize</span>;
-<a href=#3323 id=3323 data-nosnippet>3323</a>
-<a href=#3324 id=3324 data-nosnippet>3324</a>		<span class="comment">// Pre-populate InflightTransactions with n transactions of fixed size
-<a href=#3325 id=3325 data-nosnippet>3325</a>		</span><span class="kw">if </span>n &gt; <span class="number">0 </span>{
-<a href=#3326 id=3326 data-nosnippet>3326</a>			<span class="comment">// Initialize block
-<a href=#3327 id=3327 data-nosnippet>3327</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_initialize(current_block);
-<a href=#3328 id=3328 data-nosnippet>3328</a>
-<a href=#3329 id=3329 data-nosnippet>3329</a>			<span class="comment">// Create input data of fixed size for consistent transaction payloads
-<a href=#3330 id=3330 data-nosnippet>3330</a>			</span><span class="kw">let </span>input_data = <span class="macro">vec!</span>[<span class="number">0x42u8</span>; fixed_payload_size];
-<a href=#3331 id=3331 data-nosnippet>3331</a>			<span class="kw">let </span>receipt_gas_info = ReceiptGasInfo {
-<a href=#3332 id=3332 data-nosnippet>3332</a>				gas_used: U256::from(<span class="number">1_000_000</span>),
-<a href=#3333 id=3333 data-nosnippet>3333</a>				effective_gas_price: Pallet::&lt;T&gt;::evm_base_fee(),
-<a href=#3334 id=3334 data-nosnippet>3334</a>			};
-<a href=#3335 id=3335 data-nosnippet>3335</a>
-<a href=#3336 id=3336 data-nosnippet>3336</a>			<span class="kw">for _ in </span><span class="number">0</span>..n {
-<a href=#3337 id=3337 data-nosnippet>3337</a>				<span class="comment">// Create real signed transaction with fixed-size input data
-<a href=#3338 id=3338 data-nosnippet>3338</a>				</span><span class="kw">let </span>signed_transaction = create_signed_transaction::&lt;T&gt;(
-<a href=#3339 id=3339 data-nosnippet>3339</a>					<span class="kw-2">&amp;</span>signer_key,
-<a href=#3340 id=3340 data-nosnippet>3340</a>					instance.address,
-<a href=#3341 id=3341 data-nosnippet>3341</a>					evm_value,
-<a href=#3342 id=3342 data-nosnippet>3342</a>					input_data.clone(),
-<a href=#3343 id=3343 data-nosnippet>3343</a>				);
-<a href=#3344 id=3344 data-nosnippet>3344</a>
-<a href=#3345 id=3345 data-nosnippet>3345</a>				<span class="comment">// Store transaction
-<a href=#3346 id=3346 data-nosnippet>3346</a>				</span><span class="kw">let _ </span>= block_storage::bench_with_ethereum_context(|| {
-<a href=#3347 id=3347 data-nosnippet>3347</a>					<span class="kw">let </span>(encoded_logs, bloom) =
-<a href=#3348 id=3348 data-nosnippet>3348</a>						block_storage::get_receipt_details().unwrap_or_default();
-<a href=#3349 id=3349 data-nosnippet>3349</a>
-<a href=#3350 id=3350 data-nosnippet>3350</a>					<span class="kw">let </span>block_builder_ir = EthBlockBuilderIR::&lt;T&gt;::get();
-<a href=#3351 id=3351 data-nosnippet>3351</a>					<span class="kw">let </span><span class="kw-2">mut </span>block_builder = EthereumBlockBuilder::&lt;T&gt;::from_ir(block_builder_ir);
-<a href=#3352 id=3352 data-nosnippet>3352</a>
-<a href=#3353 id=3353 data-nosnippet>3353</a>					block_builder.process_transaction(
-<a href=#3354 id=3354 data-nosnippet>3354</a>						signed_transaction,
-<a href=#3355 id=3355 data-nosnippet>3355</a>						<span class="bool-val">true</span>,
-<a href=#3356 id=3356 data-nosnippet>3356</a>						receipt_gas_info.clone(),
-<a href=#3357 id=3357 data-nosnippet>3357</a>						encoded_logs,
-<a href=#3358 id=3358 data-nosnippet>3358</a>						bloom,
-<a href=#3359 id=3359 data-nosnippet>3359</a>					);
-<a href=#3360 id=3360 data-nosnippet>3360</a>
-<a href=#3361 id=3361 data-nosnippet>3361</a>					EthBlockBuilderIR::&lt;T&gt;::put(block_builder.to_ir());
-<a href=#3362 id=3362 data-nosnippet>3362</a>				});
-<a href=#3363 id=3363 data-nosnippet>3363</a>			}
-<a href=#3364 id=3364 data-nosnippet>3364</a>		}
-<a href=#3365 id=3365 data-nosnippet>3365</a>
-<a href=#3366 id=3366 data-nosnippet>3366</a>		<span class="attr">#[block]
-<a href=#3367 id=3367 data-nosnippet>3367</a>		</span>{
-<a href=#3368 id=3368 data-nosnippet>3368</a>			<span class="comment">// Measure only the finalization cost with n transactions of fixed size
-<a href=#3369 id=3369 data-nosnippet>3369</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_finalize(current_block);
-<a href=#3370 id=3370 data-nosnippet>3370</a>		}
-<a href=#3371 id=3371 data-nosnippet>3371</a>
-<a href=#3372 id=3372 data-nosnippet>3372</a>		<span class="comment">// Verify transaction count
-<a href=#3373 id=3373 data-nosnippet>3373</a>		</span><span class="macro">assert_eq!</span>(Pallet::&lt;T&gt;::eth_block().transactions.len(), n <span class="kw">as </span>usize);
-<a href=#3374 id=3374 data-nosnippet>3374</a>
-<a href=#3375 id=3375 data-nosnippet>3375</a>		<span class="prelude-val">Ok</span>(())
-<a href=#3376 id=3376 data-nosnippet>3376</a>	}
-<a href=#3377 id=3377 data-nosnippet>3377</a>
-<a href=#3378 id=3378 data-nosnippet>3378</a>	<span class="doccomment">/// Benchmark the `on_finalize` hook scaling with transaction payload size.
-<a href=#3379 id=3379 data-nosnippet>3379</a>	///
-<a href=#3380 id=3380 data-nosnippet>3380</a>	/// This benchmark measures the marginal computational cost of processing
-<a href=#3381 id=3381 data-nosnippet>3381</a>	/// larger transaction payloads during finalization, with fixed transaction count
-<a href=#3382 id=3382 data-nosnippet>3382</a>	/// to isolate payload size scaling effects.
-<a href=#3383 id=3383 data-nosnippet>3383</a>	///
-<a href=#3384 id=3384 data-nosnippet>3384</a>	/// ## Parameters:
-<a href=#3385 id=3385 data-nosnippet>3385</a>	/// - `d`: Payload size per transaction in bytes (0-1000)
-<a href=#3386 id=3386 data-nosnippet>3386</a>	///
-<a href=#3387 id=3387 data-nosnippet>3387</a>	/// ## Test Setup:
-<a href=#3388 id=3388 data-nosnippet>3388</a>	/// - Creates 10 transactions with payload size `d`
-<a href=#3389 id=3389 data-nosnippet>3389</a>	/// - Pre-populates block builder storage with test data
-<a href=#3390 id=3390 data-nosnippet>3390</a>	///
-<a href=#3391 id=3391 data-nosnippet>3391</a>	/// ## Usage:
-<a href=#3392 id=3392 data-nosnippet>3392</a>	/// Use this with `on_finalize_per_transaction` to calculate total cost:
-<a href=#3393 id=3393 data-nosnippet>3393</a>	/// `total_cost = base + (n × per_tx_cost) + (total_bytes × per_byte_cost)`
-<a href=#3394 id=3394 data-nosnippet>3394</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
-<a href=#3395 id=3395 data-nosnippet>3395</a>	</span><span class="kw">fn </span>on_finalize_per_transaction_data(d: Linear&lt;<span class="number">0</span>, <span class="number">1000</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-<a href=#3396 id=3396 data-nosnippet>3396</a>		<span class="kw">let </span>(instance, _storage_deposit, evm_value, signer_key, current_block) =
-<a href=#3397 id=3397 data-nosnippet>3397</a>			setup_finalize_block_benchmark::&lt;T&gt;()<span class="question-mark">?</span>;
-<a href=#3398 id=3398 data-nosnippet>3398</a>
-<a href=#3399 id=3399 data-nosnippet>3399</a>		<span class="comment">// Fixed transaction count to isolate payload size effects
-<a href=#3400 id=3400 data-nosnippet>3400</a>		</span><span class="kw">let </span>fixed_tx_count = <span class="number">10u32</span>;
-<a href=#3401 id=3401 data-nosnippet>3401</a>
-<a href=#3402 id=3402 data-nosnippet>3402</a>		<span class="comment">// Initialize block
-<a href=#3403 id=3403 data-nosnippet>3403</a>		</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_initialize(current_block);
-<a href=#3404 id=3404 data-nosnippet>3404</a>
-<a href=#3405 id=3405 data-nosnippet>3405</a>		<span class="comment">// Create input data of variable size p for realistic transaction payloads
-<a href=#3406 id=3406 data-nosnippet>3406</a>		</span><span class="kw">let </span>input_data = <span class="macro">vec!</span>[<span class="number">0x42u8</span>; d <span class="kw">as </span>usize];
-<a href=#3407 id=3407 data-nosnippet>3407</a>		<span class="kw">let </span>receipt_gas_info = ReceiptGasInfo {
-<a href=#3408 id=3408 data-nosnippet>3408</a>			gas_used: U256::from(<span class="number">1_000_000</span>),
-<a href=#3409 id=3409 data-nosnippet>3409</a>			effective_gas_price: Pallet::&lt;T&gt;::evm_base_fee(),
-<a href=#3410 id=3410 data-nosnippet>3410</a>		};
-<a href=#3411 id=3411 data-nosnippet>3411</a>
-<a href=#3412 id=3412 data-nosnippet>3412</a>		<span class="kw">for _ in </span><span class="number">0</span>..fixed_tx_count {
-<a href=#3413 id=3413 data-nosnippet>3413</a>			<span class="comment">// Create real signed transaction with variable-size input data
-<a href=#3414 id=3414 data-nosnippet>3414</a>			</span><span class="kw">let </span>signed_transaction = create_signed_transaction::&lt;T&gt;(
-<a href=#3415 id=3415 data-nosnippet>3415</a>				<span class="kw-2">&amp;</span>signer_key,
-<a href=#3416 id=3416 data-nosnippet>3416</a>				instance.address,
-<a href=#3417 id=3417 data-nosnippet>3417</a>				evm_value,
-<a href=#3418 id=3418 data-nosnippet>3418</a>				input_data.clone(),
-<a href=#3419 id=3419 data-nosnippet>3419</a>			);
-<a href=#3420 id=3420 data-nosnippet>3420</a>
-<a href=#3421 id=3421 data-nosnippet>3421</a>			<span class="comment">// Store transaction
-<a href=#3422 id=3422 data-nosnippet>3422</a>			</span><span class="kw">let _ </span>= block_storage::bench_with_ethereum_context(|| {
-<a href=#3423 id=3423 data-nosnippet>3423</a>				<span class="kw">let </span>(encoded_logs, bloom) =
-<a href=#3424 id=3424 data-nosnippet>3424</a>					block_storage::get_receipt_details().unwrap_or_default();
-<a href=#3425 id=3425 data-nosnippet>3425</a>
-<a href=#3426 id=3426 data-nosnippet>3426</a>				<span class="kw">let </span>block_builder_ir = EthBlockBuilderIR::&lt;T&gt;::get();
-<a href=#3427 id=3427 data-nosnippet>3427</a>				<span class="kw">let </span><span class="kw-2">mut </span>block_builder = EthereumBlockBuilder::&lt;T&gt;::from_ir(block_builder_ir);
-<a href=#3428 id=3428 data-nosnippet>3428</a>
-<a href=#3429 id=3429 data-nosnippet>3429</a>				block_builder.process_transaction(
-<a href=#3430 id=3430 data-nosnippet>3430</a>					signed_transaction,
-<a href=#3431 id=3431 data-nosnippet>3431</a>					<span class="bool-val">true</span>,
-<a href=#3432 id=3432 data-nosnippet>3432</a>					receipt_gas_info.clone(),
-<a href=#3433 id=3433 data-nosnippet>3433</a>					encoded_logs,
-<a href=#3434 id=3434 data-nosnippet>3434</a>					bloom,
-<a href=#3435 id=3435 data-nosnippet>3435</a>				);
-<a href=#3436 id=3436 data-nosnippet>3436</a>
-<a href=#3437 id=3437 data-nosnippet>3437</a>				EthBlockBuilderIR::&lt;T&gt;::put(block_builder.to_ir());
-<a href=#3438 id=3438 data-nosnippet>3438</a>			});
-<a href=#3439 id=3439 data-nosnippet>3439</a>		}
-<a href=#3440 id=3440 data-nosnippet>3440</a>
-<a href=#3441 id=3441 data-nosnippet>3441</a>		<span class="attr">#[block]
-<a href=#3442 id=3442 data-nosnippet>3442</a>		</span>{
-<a href=#3443 id=3443 data-nosnippet>3443</a>			<span class="comment">// Measure only the finalization cost with fixed count, variable payload size
-<a href=#3444 id=3444 data-nosnippet>3444</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_finalize(current_block);
-<a href=#3445 id=3445 data-nosnippet>3445</a>		}
-<a href=#3446 id=3446 data-nosnippet>3446</a>
-<a href=#3447 id=3447 data-nosnippet>3447</a>		<span class="comment">// Verify transaction count
-<a href=#3448 id=3448 data-nosnippet>3448</a>		</span><span class="macro">assert_eq!</span>(Pallet::&lt;T&gt;::eth_block().transactions.len(), fixed_tx_count <span class="kw">as </span>usize);
-<a href=#3449 id=3449 data-nosnippet>3449</a>
-<a href=#3450 id=3450 data-nosnippet>3450</a>		<span class="prelude-val">Ok</span>(())
-<a href=#3451 id=3451 data-nosnippet>3451</a>	}
-<a href=#3452 id=3452 data-nosnippet>3452</a>
-<a href=#3453 id=3453 data-nosnippet>3453</a>	<span class="doccomment">/// Benchmark the `on_finalize` per-event costs.
-<a href=#3454 id=3454 data-nosnippet>3454</a>	///
-<a href=#3455 id=3455 data-nosnippet>3455</a>	/// This benchmark measures the computational cost of processing events
-<a href=#3456 id=3456 data-nosnippet>3456</a>	/// within the finalization process, isolating the overhead of event count.
-<a href=#3457 id=3457 data-nosnippet>3457</a>	/// Uses a single transaction with varying numbers of minimal events.
-<a href=#3458 id=3458 data-nosnippet>3458</a>	///
-<a href=#3459 id=3459 data-nosnippet>3459</a>	/// ## Parameters:
-<a href=#3460 id=3460 data-nosnippet>3460</a>	/// - `e`: Number of events per transaction
-<a href=#3461 id=3461 data-nosnippet>3461</a>	///
-<a href=#3462 id=3462 data-nosnippet>3462</a>	/// ## Test Setup:
-<a href=#3463 id=3463 data-nosnippet>3463</a>	/// - Creates 1 transaction with `e` ContractEmitted events
-<a href=#3464 id=3464 data-nosnippet>3464</a>	/// - Each event contains minimal data (no topics, empty data field)
-<a href=#3465 id=3465 data-nosnippet>3465</a>	///
-<a href=#3466 id=3466 data-nosnippet>3466</a>	/// ## Usage:
-<a href=#3467 id=3467 data-nosnippet>3467</a>	/// Measures the per-event processing overhead during finalization
-<a href=#3468 id=3468 data-nosnippet>3468</a>	/// - Fixed cost: `on_finalize_per_event(0)` - baseline finalization cost
-<a href=#3469 id=3469 data-nosnippet>3469</a>	/// - Per event: `on_finalize_per_event(e)` - linear scaling with event count
-<a href=#3470 id=3470 data-nosnippet>3470</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
-<a href=#3471 id=3471 data-nosnippet>3471</a>	</span><span class="kw">fn </span>on_finalize_per_event(e: Linear&lt;<span class="number">0</span>, <span class="number">100</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-<a href=#3472 id=3472 data-nosnippet>3472</a>		<span class="kw">let </span>(instance, _storage_deposit, evm_value, signer_key, current_block) =
-<a href=#3473 id=3473 data-nosnippet>3473</a>			setup_finalize_block_benchmark::&lt;T&gt;()<span class="question-mark">?</span>;
-<a href=#3474 id=3474 data-nosnippet>3474</a>
-<a href=#3475 id=3475 data-nosnippet>3475</a>		<span class="comment">// Create a single transaction with e events, each with minimal data
-<a href=#3476 id=3476 data-nosnippet>3476</a>		</span><span class="kw">let </span>input_data = <span class="macro">vec!</span>[<span class="number">0x42u8</span>; <span class="number">100</span>];
-<a href=#3477 id=3477 data-nosnippet>3477</a>		<span class="kw">let </span>signed_transaction = create_signed_transaction::&lt;T&gt;(
-<a href=#3478 id=3478 data-nosnippet>3478</a>			<span class="kw-2">&amp;</span>signer_key,
-<a href=#3479 id=3479 data-nosnippet>3479</a>			instance.address,
-<a href=#3480 id=3480 data-nosnippet>3480</a>			evm_value,
-<a href=#3481 id=3481 data-nosnippet>3481</a>			input_data.clone(),
-<a href=#3482 id=3482 data-nosnippet>3482</a>		);
-<a href=#3483 id=3483 data-nosnippet>3483</a>
-<a href=#3484 id=3484 data-nosnippet>3484</a>		<span class="kw">let </span>receipt_gas_info = ReceiptGasInfo {
-<a href=#3485 id=3485 data-nosnippet>3485</a>			gas_used: U256::from(<span class="number">1_000_000</span>),
-<a href=#3486 id=3486 data-nosnippet>3486</a>			effective_gas_price: Pallet::&lt;T&gt;::evm_base_fee(),
-<a href=#3487 id=3487 data-nosnippet>3487</a>		};
-<a href=#3488 id=3488 data-nosnippet>3488</a>
-<a href=#3489 id=3489 data-nosnippet>3489</a>		<span class="comment">// Store transaction
-<a href=#3490 id=3490 data-nosnippet>3490</a>		</span><span class="kw">let _ </span>= block_storage::bench_with_ethereum_context(|| {
-<a href=#3491 id=3491 data-nosnippet>3491</a>			<span class="kw">let </span>(encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
-<a href=#3492 id=3492 data-nosnippet>3492</a>
-<a href=#3493 id=3493 data-nosnippet>3493</a>			<span class="kw">let </span>block_builder_ir = EthBlockBuilderIR::&lt;T&gt;::get();
-<a href=#3494 id=3494 data-nosnippet>3494</a>			<span class="kw">let </span><span class="kw-2">mut </span>block_builder = EthereumBlockBuilder::&lt;T&gt;::from_ir(block_builder_ir);
-<a href=#3495 id=3495 data-nosnippet>3495</a>
-<a href=#3496 id=3496 data-nosnippet>3496</a>			block_builder.process_transaction(
-<a href=#3497 id=3497 data-nosnippet>3497</a>				signed_transaction,
-<a href=#3498 id=3498 data-nosnippet>3498</a>				<span class="bool-val">true</span>,
-<a href=#3499 id=3499 data-nosnippet>3499</a>				receipt_gas_info.clone(),
-<a href=#3500 id=3500 data-nosnippet>3500</a>				encoded_logs,
-<a href=#3501 id=3501 data-nosnippet>3501</a>				bloom,
-<a href=#3502 id=3502 data-nosnippet>3502</a>			);
-<a href=#3503 id=3503 data-nosnippet>3503</a>
-<a href=#3504 id=3504 data-nosnippet>3504</a>			EthBlockBuilderIR::&lt;T&gt;::put(block_builder.to_ir());
-<a href=#3505 id=3505 data-nosnippet>3505</a>		});
-<a href=#3506 id=3506 data-nosnippet>3506</a>
-<a href=#3507 id=3507 data-nosnippet>3507</a>		<span class="comment">// Create e events with minimal data to isolate event count overhead
-<a href=#3508 id=3508 data-nosnippet>3508</a>		</span><span class="kw">for _ in </span><span class="number">0</span>..e {
-<a href=#3509 id=3509 data-nosnippet>3509</a>			block_storage::capture_ethereum_log(<span class="kw-2">&amp;</span>instance.address, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[], <span class="kw-2">&amp;</span><span class="macro">vec!</span>[]);
-<a href=#3510 id=3510 data-nosnippet>3510</a>		}
-<a href=#3511 id=3511 data-nosnippet>3511</a>
-<a href=#3512 id=3512 data-nosnippet>3512</a>		<span class="attr">#[block]
-<a href=#3513 id=3513 data-nosnippet>3513</a>		</span>{
-<a href=#3514 id=3514 data-nosnippet>3514</a>			<span class="comment">// Initialize block
-<a href=#3515 id=3515 data-nosnippet>3515</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_initialize(current_block);
-<a href=#3516 id=3516 data-nosnippet>3516</a>
-<a href=#3517 id=3517 data-nosnippet>3517</a>			<span class="comment">// Measure the finalization cost with e events
-<a href=#3518 id=3518 data-nosnippet>3518</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_finalize(current_block);
-<a href=#3519 id=3519 data-nosnippet>3519</a>		}
-<a href=#3520 id=3520 data-nosnippet>3520</a>
-<a href=#3521 id=3521 data-nosnippet>3521</a>		<span class="comment">// Verify transaction count
-<a href=#3522 id=3522 data-nosnippet>3522</a>		</span><span class="macro">assert_eq!</span>(Pallet::&lt;T&gt;::eth_block().transactions.len(), <span class="number">1</span>);
-<a href=#3523 id=3523 data-nosnippet>3523</a>
-<a href=#3524 id=3524 data-nosnippet>3524</a>		<span class="prelude-val">Ok</span>(())
-<a href=#3525 id=3525 data-nosnippet>3525</a>	}
-<a href=#3526 id=3526 data-nosnippet>3526</a>
-<a href=#3527 id=3527 data-nosnippet>3527</a>	<span class="doccomment">/// ## Test Setup:
-<a href=#3528 id=3528 data-nosnippet>3528</a>	/// - Creates 1 transaction with 1 ContractEmitted event
-<a href=#3529 id=3529 data-nosnippet>3529</a>	/// - Event contains `d` total bytes of data across data field and topics
-<a href=#3530 id=3530 data-nosnippet>3530</a>	///
-<a href=#3531 id=3531 data-nosnippet>3531</a>	/// ## Usage:
-<a href=#3532 id=3532 data-nosnippet>3532</a>	/// Measures the per-byte event data processing overhead during finalization
-<a href=#3533 id=3533 data-nosnippet>3533</a>	/// - Fixed cost: `on_finalize_per_event_data(0)` - baseline cost with empty event
-<a href=#3534 id=3534 data-nosnippet>3534</a>	/// - Per byte: `on_finalize_per_event_data(d)` - linear scaling with data size
-<a href=#3535 id=3535 data-nosnippet>3535</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
-<a href=#3536 id=3536 data-nosnippet>3536</a>	</span><span class="kw">fn </span>on_finalize_per_event_data(d: Linear&lt;<span class="number">0</span>, <span class="number">16384</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-<a href=#3537 id=3537 data-nosnippet>3537</a>		<span class="kw">let </span>(instance, _storage_deposit, evm_value, signer_key, current_block) =
-<a href=#3538 id=3538 data-nosnippet>3538</a>			setup_finalize_block_benchmark::&lt;T&gt;()<span class="question-mark">?</span>;
-<a href=#3539 id=3539 data-nosnippet>3539</a>
-<a href=#3540 id=3540 data-nosnippet>3540</a>		<span class="comment">// Create a single transaction with one event containing d bytes of data
-<a href=#3541 id=3541 data-nosnippet>3541</a>		</span><span class="kw">let </span>input_data = <span class="macro">vec!</span>[<span class="number">0x42u8</span>; <span class="number">100</span>];
-<a href=#3542 id=3542 data-nosnippet>3542</a>		<span class="kw">let </span>signed_transaction = create_signed_transaction::&lt;T&gt;(
-<a href=#3543 id=3543 data-nosnippet>3543</a>			<span class="kw-2">&amp;</span>signer_key,
-<a href=#3544 id=3544 data-nosnippet>3544</a>			instance.address,
-<a href=#3545 id=3545 data-nosnippet>3545</a>			evm_value,
-<a href=#3546 id=3546 data-nosnippet>3546</a>			input_data.clone(),
-<a href=#3547 id=3547 data-nosnippet>3547</a>		);
-<a href=#3548 id=3548 data-nosnippet>3548</a>
-<a href=#3549 id=3549 data-nosnippet>3549</a>		<span class="kw">let </span>receipt_gas_info = ReceiptGasInfo {
-<a href=#3550 id=3550 data-nosnippet>3550</a>			gas_used: U256::from(<span class="number">1_000_000</span>),
-<a href=#3551 id=3551 data-nosnippet>3551</a>			effective_gas_price: Pallet::&lt;T&gt;::evm_base_fee(),
-<a href=#3552 id=3552 data-nosnippet>3552</a>		};
-<a href=#3553 id=3553 data-nosnippet>3553</a>
-<a href=#3554 id=3554 data-nosnippet>3554</a>		<span class="comment">// Store transaction
-<a href=#3555 id=3555 data-nosnippet>3555</a>		</span><span class="kw">let _ </span>= block_storage::bench_with_ethereum_context(|| {
-<a href=#3556 id=3556 data-nosnippet>3556</a>			<span class="kw">let </span>(encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
-<a href=#3557 id=3557 data-nosnippet>3557</a>
-<a href=#3558 id=3558 data-nosnippet>3558</a>			<span class="kw">let </span>block_builder_ir = EthBlockBuilderIR::&lt;T&gt;::get();
-<a href=#3559 id=3559 data-nosnippet>3559</a>			<span class="kw">let </span><span class="kw-2">mut </span>block_builder = EthereumBlockBuilder::&lt;T&gt;::from_ir(block_builder_ir);
-<a href=#3560 id=3560 data-nosnippet>3560</a>
-<a href=#3561 id=3561 data-nosnippet>3561</a>			block_builder.process_transaction(
-<a href=#3562 id=3562 data-nosnippet>3562</a>				signed_transaction,
-<a href=#3563 id=3563 data-nosnippet>3563</a>				<span class="bool-val">true</span>,
-<a href=#3564 id=3564 data-nosnippet>3564</a>				receipt_gas_info,
-<a href=#3565 id=3565 data-nosnippet>3565</a>				encoded_logs,
-<a href=#3566 id=3566 data-nosnippet>3566</a>				bloom,
-<a href=#3567 id=3567 data-nosnippet>3567</a>			);
-<a href=#3568 id=3568 data-nosnippet>3568</a>
-<a href=#3569 id=3569 data-nosnippet>3569</a>			EthBlockBuilderIR::&lt;T&gt;::put(block_builder.to_ir());
-<a href=#3570 id=3570 data-nosnippet>3570</a>		});
-<a href=#3571 id=3571 data-nosnippet>3571</a>
-<a href=#3572 id=3572 data-nosnippet>3572</a>		<span class="comment">// Create one event with d bytes of data distributed across topics and data field
-<a href=#3573 id=3573 data-nosnippet>3573</a>		</span><span class="kw">let </span>(event_data, topics) = <span class="kw">if </span>d &lt; <span class="number">32 </span>{
-<a href=#3574 id=3574 data-nosnippet>3574</a>			<span class="comment">// If total data is less than 32 bytes, put all in data field
-<a href=#3575 id=3575 data-nosnippet>3575</a>			</span>(<span class="macro">vec!</span>[<span class="number">0x42u8</span>; d <span class="kw">as </span>usize], <span class="macro">vec!</span>[])
-<a href=#3576 id=3576 data-nosnippet>3576</a>		} <span class="kw">else </span>{
-<a href=#3577 id=3577 data-nosnippet>3577</a>			<span class="comment">// Fill topics first, then put remaining bytes in data field
-<a href=#3578 id=3578 data-nosnippet>3578</a>			</span><span class="kw">let </span>num_topics = core::cmp::min(limits::NUM_EVENT_TOPICS, d / <span class="number">32</span>);
-<a href=#3579 id=3579 data-nosnippet>3579</a>			<span class="kw">let </span>topic_bytes_used = num_topics * <span class="number">32</span>;
-<a href=#3580 id=3580 data-nosnippet>3580</a>			<span class="kw">let </span>data_bytes_remaining = d - topic_bytes_used;
-<a href=#3581 id=3581 data-nosnippet>3581</a>
-<a href=#3582 id=3582 data-nosnippet>3582</a>			<span class="comment">// Create topics filled with sequential data
-<a href=#3583 id=3583 data-nosnippet>3583</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>topics = Vec::new();
-<a href=#3584 id=3584 data-nosnippet>3584</a>			<span class="kw">for </span>topic_index <span class="kw">in </span><span class="number">0</span>..num_topics {
-<a href=#3585 id=3585 data-nosnippet>3585</a>				<span class="kw">let </span>topic_data = [topic_index <span class="kw">as </span>u8; <span class="number">32</span>];
-<a href=#3586 id=3586 data-nosnippet>3586</a>				topics.push(H256::from(topic_data));
-<a href=#3587 id=3587 data-nosnippet>3587</a>			}
-<a href=#3588 id=3588 data-nosnippet>3588</a>
-<a href=#3589 id=3589 data-nosnippet>3589</a>			<span class="comment">// Remaining bytes go to data field
-<a href=#3590 id=3590 data-nosnippet>3590</a>			</span><span class="kw">let </span>event_data = <span class="macro">vec!</span>[<span class="number">0x42u8</span>; data_bytes_remaining <span class="kw">as </span>usize];
-<a href=#3591 id=3591 data-nosnippet>3591</a>
-<a href=#3592 id=3592 data-nosnippet>3592</a>			(event_data, topics)
-<a href=#3593 id=3593 data-nosnippet>3593</a>		};
-<a href=#3594 id=3594 data-nosnippet>3594</a>
-<a href=#3595 id=3595 data-nosnippet>3595</a>		block_storage::capture_ethereum_log(<span class="kw-2">&amp;</span>instance.address, <span class="kw-2">&amp;</span>event_data, <span class="kw-2">&amp;</span>topics);
-<a href=#3596 id=3596 data-nosnippet>3596</a>
-<a href=#3597 id=3597 data-nosnippet>3597</a>		<span class="attr">#[block]
-<a href=#3598 id=3598 data-nosnippet>3598</a>		</span>{
-<a href=#3599 id=3599 data-nosnippet>3599</a>			<span class="comment">// Initialize block
-<a href=#3600 id=3600 data-nosnippet>3600</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_initialize(current_block);
-<a href=#3601 id=3601 data-nosnippet>3601</a>
-<a href=#3602 id=3602 data-nosnippet>3602</a>			<span class="comment">// Measure the finalization cost with d bytes of event data
-<a href=#3603 id=3603 data-nosnippet>3603</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_finalize(current_block);
-<a href=#3604 id=3604 data-nosnippet>3604</a>		}
-<a href=#3605 id=3605 data-nosnippet>3605</a>
-<a href=#3606 id=3606 data-nosnippet>3606</a>		<span class="comment">// Verify transaction count
-<a href=#3607 id=3607 data-nosnippet>3607</a>		</span><span class="macro">assert_eq!</span>(Pallet::&lt;T&gt;::eth_block().transactions.len(), <span class="number">1</span>);
-<a href=#3608 id=3608 data-nosnippet>3608</a>
-<a href=#3609 id=3609 data-nosnippet>3609</a>		<span class="prelude-val">Ok</span>(())
-<a href=#3610 id=3610 data-nosnippet>3610</a>	}
-<a href=#3611 id=3611 data-nosnippet>3611</a>
-<a href=#3612 id=3612 data-nosnippet>3612</a>	<span class="macro">impl_benchmark_test_suite!</span>(
-<a href=#3613 id=3613 data-nosnippet>3613</a>		Contracts,
-<a href=#3614 id=3614 data-nosnippet>3614</a>		<span class="kw">crate</span>::tests::ExtBuilder::default().build(),
-<a href=#3615 id=3615 data-nosnippet>3615</a>		<span class="kw">crate</span>::tests::Test,
-<a href=#3616 id=3616 data-nosnippet>3616</a>	);
-<a href=#3617 id=3617 data-nosnippet>3617</a>}
+<a href=#2991 id=2991 data-nosnippet>2991</a>		<span class="kw">let _ </span>= interpreter.stack.push(U256::from(<span class="number">0u32</span>));
+<a href=#2992 id=2992 data-nosnippet>2992</a>		<span class="kw">let _ </span>= interpreter.stack.push(target.address);
+<a href=#2993 id=2993 data-nosnippet>2993</a>
+<a href=#2994 id=2994 data-nosnippet>2994</a>		<span class="kw">let </span>result;
+<a href=#2995 id=2995 data-nosnippet>2995</a>		<span class="attr">#[block]
+<a href=#2996 id=2996 data-nosnippet>2996</a>		</span>{
+<a href=#2997 id=2997 data-nosnippet>2997</a>			result = instructions::host::extcodecopy(<span class="kw-2">&amp;mut </span>interpreter);
+<a href=#2998 id=2998 data-nosnippet>2998</a>		}
+<a href=#2999 id=2999 data-nosnippet>2999</a>
+<a href=#3000 id=3000 data-nosnippet>3000</a>		<span class="macro">assert!</span>(result.is_continue());
+<a href=#3001 id=3001 data-nosnippet>3001</a>		<span class="macro">assert_eq!</span>(
+<a href=#3002 id=3002 data-nosnippet>3002</a>			<span class="kw-2">*</span>interpreter.memory.slice(<span class="number">0</span>..n <span class="kw">as </span>usize),
+<a href=#3003 id=3003 data-nosnippet>3003</a>			PristineCode::&lt;T&gt;::get(target.info()<span class="question-mark">?</span>.code_hash).unwrap()[<span class="number">0</span>..n <span class="kw">as </span>usize],
+<a href=#3004 id=3004 data-nosnippet>3004</a>			<span class="string">"Memory should contain the target contract's code after extcodecopy"
+<a href=#3005 id=3005 data-nosnippet>3005</a>		</span>);
+<a href=#3006 id=3006 data-nosnippet>3006</a>
+<a href=#3007 id=3007 data-nosnippet>3007</a>		<span class="prelude-val">Ok</span>(())
+<a href=#3008 id=3008 data-nosnippet>3008</a>	}
+<a href=#3009 id=3009 data-nosnippet>3009</a>
+<a href=#3010 id=3010 data-nosnippet>3010</a>	<span class="attr">#[benchmark]
+<a href=#3011 id=3011 data-nosnippet>3011</a>	</span><span class="kw">fn </span>v1_migration_step() {
+<a href=#3012 id=3012 data-nosnippet>3012</a>		<span class="kw">use </span><span class="kw">crate</span>::migrations::v1;
+<a href=#3013 id=3013 data-nosnippet>3013</a>		<span class="kw">let </span>addr = H160::from([<span class="number">1u8</span>; <span class="number">20</span>]);
+<a href=#3014 id=3014 data-nosnippet>3014</a>		<span class="kw">let </span>contract_info = ContractInfo::new(<span class="kw-2">&amp;</span>addr, <span class="number">1u32</span>.into(), Default::default()).unwrap();
+<a href=#3015 id=3015 data-nosnippet>3015</a>
+<a href=#3016 id=3016 data-nosnippet>3016</a>		v1::old::ContractInfoOf::&lt;T&gt;::insert(addr, contract_info.clone());
+<a href=#3017 id=3017 data-nosnippet>3017</a>		<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::new();
+<a href=#3018 id=3018 data-nosnippet>3018</a>		<span class="macro">assert_eq!</span>(AccountInfo::&lt;T&gt;::load_contract(<span class="kw-2">&amp;</span>addr), <span class="prelude-val">None</span>);
+<a href=#3019 id=3019 data-nosnippet>3019</a>
+<a href=#3020 id=3020 data-nosnippet>3020</a>		<span class="attr">#[block]
+<a href=#3021 id=3021 data-nosnippet>3021</a>		</span>{
+<a href=#3022 id=3022 data-nosnippet>3022</a>			v1::Migration::&lt;T&gt;::step(<span class="prelude-val">None</span>, <span class="kw-2">&amp;mut </span>meter).unwrap();
+<a href=#3023 id=3023 data-nosnippet>3023</a>		}
+<a href=#3024 id=3024 data-nosnippet>3024</a>
+<a href=#3025 id=3025 data-nosnippet>3025</a>		<span class="macro">assert_eq!</span>(v1::old::ContractInfoOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>addr), <span class="prelude-val">None</span>);
+<a href=#3026 id=3026 data-nosnippet>3026</a>		<span class="macro">assert_eq!</span>(AccountInfo::&lt;T&gt;::load_contract(<span class="kw-2">&amp;</span>addr).unwrap(), contract_info);
+<a href=#3027 id=3027 data-nosnippet>3027</a>
+<a href=#3028 id=3028 data-nosnippet>3028</a>		<span class="comment">// uses twice the weight once for migration and then for checking if there is another key.
+<a href=#3029 id=3029 data-nosnippet>3029</a>		</span><span class="macro">assert_eq!</span>(meter.consumed(), &lt;T <span class="kw">as </span>Config&gt;::WeightInfo::v1_migration_step() * <span class="number">2</span>);
+<a href=#3030 id=3030 data-nosnippet>3030</a>	}
+<a href=#3031 id=3031 data-nosnippet>3031</a>
+<a href=#3032 id=3032 data-nosnippet>3032</a>	<span class="attr">#[benchmark]
+<a href=#3033 id=3033 data-nosnippet>3033</a>	</span><span class="kw">fn </span>v2_migration_step() {
+<a href=#3034 id=3034 data-nosnippet>3034</a>		<span class="kw">use </span><span class="kw">crate</span>::migrations::v2;
+<a href=#3035 id=3035 data-nosnippet>3035</a>		<span class="kw">let </span>code_hash = H256::from([<span class="number">0</span>; <span class="number">32</span>]);
+<a href=#3036 id=3036 data-nosnippet>3036</a>		<span class="kw">let </span>old_code_info = v2::Migration::&lt;T&gt;::create_old_code_info(
+<a href=#3037 id=3037 data-nosnippet>3037</a>			whitelisted_caller(),
+<a href=#3038 id=3038 data-nosnippet>3038</a>			<span class="number">1000u32</span>.into(),
+<a href=#3039 id=3039 data-nosnippet>3039</a>			<span class="number">1</span>,
+<a href=#3040 id=3040 data-nosnippet>3040</a>			<span class="number">100</span>,
+<a href=#3041 id=3041 data-nosnippet>3041</a>			<span class="number">0</span>,
+<a href=#3042 id=3042 data-nosnippet>3042</a>		);
+<a href=#3043 id=3043 data-nosnippet>3043</a>		v2::Migration::&lt;T&gt;::insert_old_code_info(code_hash, old_code_info.clone());
+<a href=#3044 id=3044 data-nosnippet>3044</a>		<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::new();
+<a href=#3045 id=3045 data-nosnippet>3045</a>
+<a href=#3046 id=3046 data-nosnippet>3046</a>		<span class="attr">#[block]
+<a href=#3047 id=3047 data-nosnippet>3047</a>		</span>{
+<a href=#3048 id=3048 data-nosnippet>3048</a>			v2::Migration::&lt;T&gt;::step(<span class="prelude-val">None</span>, <span class="kw-2">&amp;mut </span>meter).unwrap();
+<a href=#3049 id=3049 data-nosnippet>3049</a>		}
+<a href=#3050 id=3050 data-nosnippet>3050</a>
+<a href=#3051 id=3051 data-nosnippet>3051</a>		v2::Migration::&lt;T&gt;::assert_migrated_code_info(code_hash, <span class="kw-2">&amp;</span>old_code_info);
+<a href=#3052 id=3052 data-nosnippet>3052</a>
+<a href=#3053 id=3053 data-nosnippet>3053</a>		<span class="comment">// uses twice the weight once for migration and then for checking if there is another key.
+<a href=#3054 id=3054 data-nosnippet>3054</a>		</span><span class="macro">assert_eq!</span>(meter.consumed(), &lt;T <span class="kw">as </span>Config&gt;::WeightInfo::v2_migration_step() * <span class="number">2</span>);
+<a href=#3055 id=3055 data-nosnippet>3055</a>	}
+<a href=#3056 id=3056 data-nosnippet>3056</a>
+<a href=#3057 id=3057 data-nosnippet>3057</a>	<span class="attr">#[benchmark]
+<a href=#3058 id=3058 data-nosnippet>3058</a>	</span><span class="kw">fn </span>v3_migration_step() {
+<a href=#3059 id=3059 data-nosnippet>3059</a>		<span class="kw">use </span><span class="kw">crate</span>::migrations::v3;
+<a href=#3060 id=3060 data-nosnippet>3060</a>		<span class="comment">// Remove all pre-existing accounts
+<a href=#3061 id=3061 data-nosnippet>3061</a>		</span><span class="kw">let _ </span>= frame_system::Account::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
+<a href=#3062 id=3062 data-nosnippet>3062</a>
+<a href=#3063 id=3063 data-nosnippet>3063</a>		<span class="kw">let </span>account = account::&lt;T::AccountId&gt;(<span class="string">"target"</span>, <span class="number">0</span>, <span class="number">0</span>);
+<a href=#3064 id=3064 data-nosnippet>3064</a>		T::Currency::mint_into(<span class="kw-2">&amp;</span>account, Pallet::&lt;T&gt;::min_balance())
+<a href=#3065 id=3065 data-nosnippet>3065</a>			.expect(<span class="string">"should mint into account"</span>);
+<a href=#3066 id=3066 data-nosnippet>3066</a>
+<a href=#3067 id=3067 data-nosnippet>3067</a>		<span class="comment">// clear the mapping so the migration has work to do
+<a href=#3068 id=3068 data-nosnippet>3068</a>		</span><span class="kw">let </span>addr = T::AddressMapper::to_address(<span class="kw-2">&amp;</span>account);
+<a href=#3069 id=3069 data-nosnippet>3069</a>		<span class="kw">crate</span>::OriginalAccount::&lt;T&gt;::remove(addr);
+<a href=#3070 id=3070 data-nosnippet>3070</a>
+<a href=#3071 id=3071 data-nosnippet>3071</a>		<span class="macro">assert!</span>(!T::AddressMapper::is_mapped(<span class="kw-2">&amp;</span>account));
+<a href=#3072 id=3072 data-nosnippet>3072</a>		<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::new();
+<a href=#3073 id=3073 data-nosnippet>3073</a>
+<a href=#3074 id=3074 data-nosnippet>3074</a>		<span class="attr">#[block]
+<a href=#3075 id=3075 data-nosnippet>3075</a>		</span>{
+<a href=#3076 id=3076 data-nosnippet>3076</a>			v3::Migration::&lt;T&gt;::step(<span class="prelude-val">None</span>, <span class="kw-2">&amp;mut </span>meter).unwrap();
+<a href=#3077 id=3077 data-nosnippet>3077</a>		}
+<a href=#3078 id=3078 data-nosnippet>3078</a>
+<a href=#3079 id=3079 data-nosnippet>3079</a>		<span class="macro">assert!</span>(T::AddressMapper::is_mapped(<span class="kw-2">&amp;</span>account));
+<a href=#3080 id=3080 data-nosnippet>3080</a>
+<a href=#3081 id=3081 data-nosnippet>3081</a>		<span class="comment">// uses twice the weight: once for migration and then for checking if there is another key.
+<a href=#3082 id=3082 data-nosnippet>3082</a>		</span><span class="macro">assert_eq!</span>(meter.consumed(), &lt;T <span class="kw">as </span>Config&gt;::WeightInfo::v3_migration_step() * <span class="number">2</span>);
+<a href=#3083 id=3083 data-nosnippet>3083</a>	}
+<a href=#3084 id=3084 data-nosnippet>3084</a>
+<a href=#3085 id=3085 data-nosnippet>3085</a>	<span class="doccomment">/// One iteration of v4 phase 1: credit the uploader's [`NativeDepositOf`] bucket.
+<a href=#3086 id=3086 data-nosnippet>3086</a>	///
+<a href=#3087 id=3087 data-nosnippet>3087</a>	/// Seeds two codes and primes the cursor with the first stored entry so the benched
+<a href=#3088 id=3088 data-nosnippet>3088</a>	/// iteration exercises the `iter_from` path that dominates phase 1 in production.
+<a href=#3089 id=3089 data-nosnippet>3089</a>	</span><span class="attr">#[benchmark]
+<a href=#3090 id=3090 data-nosnippet>3090</a>	</span><span class="kw">fn </span>v4_code_upload_step() {
+<a href=#3091 id=3091 data-nosnippet>3091</a>		<span class="kw">use </span><span class="kw">crate</span>::migrations::v4;
+<a href=#3092 id=3092 data-nosnippet>3092</a>
+<a href=#3093 id=3093 data-nosnippet>3093</a>		<span class="kw">let _ </span>= CodeInfoOf::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
+<a href=#3094 id=3094 data-nosnippet>3094</a>
+<a href=#3095 id=3095 data-nosnippet>3095</a>		<span class="kw">let </span>owner: T::AccountId = whitelisted_caller();
+<a href=#3096 id=3096 data-nosnippet>3096</a>		<span class="kw">let </span>deposit: BalanceOf&lt;T&gt; = <span class="number">1_000u32</span>.into();
+<a href=#3097 id=3097 data-nosnippet>3097</a>
+<a href=#3098 id=3098 data-nosnippet>3098</a>		<span class="kw">let </span>pallet_account = Pallet::&lt;T&gt;::account_id();
+<a href=#3099 id=3099 data-nosnippet>3099</a>		T::Currency::mint_into(<span class="kw-2">&amp;</span>pallet_account, Pallet::&lt;T&gt;::min_balance()).unwrap();
+<a href=#3100 id=3100 data-nosnippet>3100</a>		T::Currency::mint_into(<span class="kw-2">&amp;</span>pallet_account, deposit).unwrap();
+<a href=#3101 id=3101 data-nosnippet>3101</a>		T::Currency::hold(<span class="kw-2">&amp;</span>HoldReason::CodeUploadDepositReserve.into(), <span class="kw-2">&amp;</span>pallet_account, deposit)
+<a href=#3102 id=3102 data-nosnippet>3102</a>			.unwrap();
+<a href=#3103 id=3103 data-nosnippet>3103</a>
+<a href=#3104 id=3104 data-nosnippet>3104</a>		CodeInfoOf::&lt;T&gt;::insert(
+<a href=#3105 id=3105 data-nosnippet>3105</a>			H256::from([<span class="number">1u8</span>; <span class="number">32</span>]),
+<a href=#3106 id=3106 data-nosnippet>3106</a>			CodeInfo::&lt;T&gt;::new_with_deposit(owner.clone(), deposit),
+<a href=#3107 id=3107 data-nosnippet>3107</a>		);
+<a href=#3108 id=3108 data-nosnippet>3108</a>		CodeInfoOf::&lt;T&gt;::insert(
+<a href=#3109 id=3109 data-nosnippet>3109</a>			H256::from([<span class="number">2u8</span>; <span class="number">32</span>]),
+<a href=#3110 id=3110 data-nosnippet>3110</a>			CodeInfo::&lt;T&gt;::new_with_deposit(owner.clone(), deposit),
+<a href=#3111 id=3111 data-nosnippet>3111</a>		);
+<a href=#3112 id=3112 data-nosnippet>3112</a>
+<a href=#3113 id=3113 data-nosnippet>3113</a>		<span class="kw">let </span>first = <span class="kw">match </span>v4::Migration::&lt;T&gt;::step_once(<span class="prelude-val">None</span>) {
+<a href=#3114 id=3114 data-nosnippet>3114</a>			<span class="prelude-val">Some</span>(v4::Cursor::CodeUpload(h)) =&gt; h,
+<a href=#3115 id=3115 data-nosnippet>3115</a>			other =&gt; <span class="macro">panic!</span>(<span class="string">"expected CodeUpload cursor, got {other:?}"</span>),
+<a href=#3116 id=3116 data-nosnippet>3116</a>		};
+<a href=#3117 id=3117 data-nosnippet>3117</a>		<span class="kw">let </span>cursor = <span class="prelude-val">Some</span>(v4::Cursor::CodeUpload(first));
+<a href=#3118 id=3118 data-nosnippet>3118</a>
+<a href=#3119 id=3119 data-nosnippet>3119</a>		<span class="attr">#[block]
+<a href=#3120 id=3120 data-nosnippet>3120</a>		</span>{
+<a href=#3121 id=3121 data-nosnippet>3121</a>			<span class="kw">let _ </span>= v4::Migration::&lt;T&gt;::step_once(cursor);
+<a href=#3122 id=3122 data-nosnippet>3122</a>		}
+<a href=#3123 id=3123 data-nosnippet>3123</a>
+<a href=#3124 id=3124 data-nosnippet>3124</a>		<span class="macro">assert_eq!</span>(
+<a href=#3125 id=3125 data-nosnippet>3125</a>			NativeDepositOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>pallet_account, <span class="kw-2">&amp;</span>owner),
+<a href=#3126 id=3126 data-nosnippet>3126</a>			deposit + deposit,
+<a href=#3127 id=3127 data-nosnippet>3127</a>			<span class="string">"both code uploads credited to owner"</span>,
+<a href=#3128 id=3128 data-nosnippet>3128</a>		);
+<a href=#3129 id=3129 data-nosnippet>3129</a>	}
+<a href=#3130 id=3130 data-nosnippet>3130</a>
+<a href=#3131 id=3131 data-nosnippet>3131</a>	<span class="doccomment">/// One iteration of v4 phase 2: burn native hold, mint and hold PGAS for a single contract.
+<a href=#3132 id=3132 data-nosnippet>3132</a>	///
+<a href=#3133 id=3133 data-nosnippet>3133</a>	/// Seeds two contracts and primes the cursor with the first stored entry so the benched
+<a href=#3134 id=3134 data-nosnippet>3134</a>	/// iteration exercises the `iter_from` path that dominates phase 2 in production.
+<a href=#3135 id=3135 data-nosnippet>3135</a>	</span><span class="attr">#[benchmark]
+<a href=#3136 id=3136 data-nosnippet>3136</a>	</span><span class="kw">fn </span>v4_contract_step() {
+<a href=#3137 id=3137 data-nosnippet>3137</a>		<span class="kw">use </span><span class="kw">crate</span>::migrations::v4;
+<a href=#3138 id=3138 data-nosnippet>3138</a>
+<a href=#3139 id=3139 data-nosnippet>3139</a>		<span class="kw">let _ </span>= AccountInfoOf::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
+<a href=#3140 id=3140 data-nosnippet>3140</a>
+<a href=#3141 id=3141 data-nosnippet>3141</a>		<span class="kw">let </span>code_hash = H256::from([<span class="number">0u8</span>; <span class="number">32</span>]);
+<a href=#3142 id=3142 data-nosnippet>3142</a>		<span class="kw">let </span>deposit: BalanceOf&lt;T&gt; = <span class="number">1_000u32</span>.into();
+<a href=#3143 id=3143 data-nosnippet>3143</a>
+<a href=#3144 id=3144 data-nosnippet>3144</a>		<span class="kw">for </span>byte <span class="kw">in </span>[<span class="number">0x41u8</span>, <span class="number">0x42u8</span>] {
+<a href=#3145 id=3145 data-nosnippet>3145</a>			<span class="kw">let </span>addr = H160::from([byte; <span class="number">20</span>]);
+<a href=#3146 id=3146 data-nosnippet>3146</a>			<span class="kw">let </span>contract_account = T::AddressMapper::to_account_id(<span class="kw-2">&amp;</span>addr);
+<a href=#3147 id=3147 data-nosnippet>3147</a>			<span class="kw">let </span>info =
+<a href=#3148 id=3148 data-nosnippet>3148</a>				ContractInfo::&lt;T&gt;::new(<span class="kw-2">&amp;</span>addr, <span class="number">1u32</span>.into(), code_hash).expect(<span class="string">"fresh contract info"</span>);
+<a href=#3149 id=3149 data-nosnippet>3149</a>			AccountInfoOf::&lt;T&gt;::insert(
+<a href=#3150 id=3150 data-nosnippet>3150</a>				addr,
+<a href=#3151 id=3151 data-nosnippet>3151</a>				<span class="kw">crate</span>::storage::AccountInfo::&lt;T&gt; {
+<a href=#3152 id=3152 data-nosnippet>3152</a>					account_type: <span class="kw">crate</span>::storage::AccountType::Contract(info),
+<a href=#3153 id=3153 data-nosnippet>3153</a>					dust: <span class="number">0</span>,
+<a href=#3154 id=3154 data-nosnippet>3154</a>				},
+<a href=#3155 id=3155 data-nosnippet>3155</a>			);
+<a href=#3156 id=3156 data-nosnippet>3156</a>			T::Currency::mint_into(<span class="kw-2">&amp;</span>contract_account, Pallet::&lt;T&gt;::min_balance()).unwrap();
+<a href=#3157 id=3157 data-nosnippet>3157</a>			T::Currency::mint_into(<span class="kw-2">&amp;</span>contract_account, deposit).unwrap();
+<a href=#3158 id=3158 data-nosnippet>3158</a>			T::Currency::hold(
+<a href=#3159 id=3159 data-nosnippet>3159</a>				<span class="kw-2">&amp;</span>HoldReason::StorageDepositReserve.into(),
+<a href=#3160 id=3160 data-nosnippet>3160</a>				<span class="kw-2">&amp;</span>contract_account,
+<a href=#3161 id=3161 data-nosnippet>3161</a>				deposit,
+<a href=#3162 id=3162 data-nosnippet>3162</a>			)
+<a href=#3163 id=3163 data-nosnippet>3163</a>			.unwrap();
+<a href=#3164 id=3164 data-nosnippet>3164</a>		}
+<a href=#3165 id=3165 data-nosnippet>3165</a>
+<a href=#3166 id=3166 data-nosnippet>3166</a>		<span class="kw">let </span>first = <span class="kw">match </span>v4::Migration::&lt;T&gt;::step_once(<span class="prelude-val">Some</span>(v4::Cursor::Contract(<span class="prelude-val">None</span>))) {
+<a href=#3167 id=3167 data-nosnippet>3167</a>			<span class="prelude-val">Some</span>(v4::Cursor::Contract(<span class="prelude-val">Some</span>(addr))) =&gt; addr,
+<a href=#3168 id=3168 data-nosnippet>3168</a>			other =&gt; <span class="macro">panic!</span>(<span class="string">"expected Contract cursor, got {other:?}"</span>),
+<a href=#3169 id=3169 data-nosnippet>3169</a>		};
+<a href=#3170 id=3170 data-nosnippet>3170</a>		<span class="kw">let </span>cursor = <span class="prelude-val">Some</span>(v4::Cursor::Contract(<span class="prelude-val">Some</span>(first)));
+<a href=#3171 id=3171 data-nosnippet>3171</a>
+<a href=#3172 id=3172 data-nosnippet>3172</a>		<span class="attr">#[block]
+<a href=#3173 id=3173 data-nosnippet>3173</a>		</span>{
+<a href=#3174 id=3174 data-nosnippet>3174</a>			<span class="kw">let _ </span>= v4::Migration::&lt;T&gt;::step_once(cursor);
+<a href=#3175 id=3175 data-nosnippet>3175</a>		}
+<a href=#3176 id=3176 data-nosnippet>3176</a>
+<a href=#3177 id=3177 data-nosnippet>3177</a>		<span class="comment">// `migrate_native_to_pgas` is a no-op for `Deposit = ()`, so the hold only clears on
+<a href=#3178 id=3178 data-nosnippet>3178</a>		// PGAS-backed runtimes. On non-PGAS runtimes the benchmark still measures the iter cost.
+<a href=#3179 id=3179 data-nosnippet>3179</a>		</span><span class="kw">if </span>T::Deposit::SUPPORTS_PGAS {
+<a href=#3180 id=3180 data-nosnippet>3180</a>			<span class="kw">for </span>byte <span class="kw">in </span>[<span class="number">0x41u8</span>, <span class="number">0x42u8</span>] {
+<a href=#3181 id=3181 data-nosnippet>3181</a>				<span class="kw">let </span>addr = H160::from([byte; <span class="number">20</span>]);
+<a href=#3182 id=3182 data-nosnippet>3182</a>				<span class="kw">let </span>contract_account = T::AddressMapper::to_account_id(<span class="kw-2">&amp;</span>addr);
+<a href=#3183 id=3183 data-nosnippet>3183</a>				<span class="macro">assert_eq!</span>(
+<a href=#3184 id=3184 data-nosnippet>3184</a>					T::Currency::balance_on_hold(
+<a href=#3185 id=3185 data-nosnippet>3185</a>						<span class="kw-2">&amp;</span>HoldReason::StorageDepositReserve.into(),
+<a href=#3186 id=3186 data-nosnippet>3186</a>						<span class="kw-2">&amp;</span>contract_account,
+<a href=#3187 id=3187 data-nosnippet>3187</a>					),
+<a href=#3188 id=3188 data-nosnippet>3188</a>					<span class="number">0u32</span>.into(),
+<a href=#3189 id=3189 data-nosnippet>3189</a>					<span class="string">"native storage deposit burned for {addr:?}"</span>,
+<a href=#3190 id=3190 data-nosnippet>3190</a>				);
+<a href=#3191 id=3191 data-nosnippet>3191</a>			}
+<a href=#3192 id=3192 data-nosnippet>3192</a>		}
+<a href=#3193 id=3193 data-nosnippet>3193</a>	}
+<a href=#3194 id=3194 data-nosnippet>3194</a>
+<a href=#3195 id=3195 data-nosnippet>3195</a>	<span class="doccomment">/// One iteration of v4 phase 3: rewrite a legacy [`v4::old::DeletionQueue`] entry into the
+<a href=#3196 id=3196 data-nosnippet>3196</a>	/// new [`DeletionQueue`] format.
+<a href=#3197 id=3197 data-nosnippet>3197</a>	///
+<a href=#3198 id=3198 data-nosnippet>3198</a>	/// Seeds two legacy entries and primes the cursor with the first stored entry so the benched
+<a href=#3199 id=3199 data-nosnippet>3199</a>	/// iteration exercises the `iter_from` path.
+<a href=#3200 id=3200 data-nosnippet>3200</a>	</span><span class="attr">#[benchmark]
+<a href=#3201 id=3201 data-nosnippet>3201</a>	</span><span class="kw">fn </span>v4_deletion_queue_step() {
+<a href=#3202 id=3202 data-nosnippet>3202</a>		<span class="kw">use </span><span class="kw">crate</span>::migrations::v4;
+<a href=#3203 id=3203 data-nosnippet>3203</a>
+<a href=#3204 id=3204 data-nosnippet>3204</a>		<span class="kw">let _ </span>= v4::old::DeletionQueue::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
+<a href=#3205 id=3205 data-nosnippet>3205</a>
+<a href=#3206 id=3206 data-nosnippet>3206</a>		<span class="kw">let </span>trie_a: TrieId = <span class="macro">vec!</span>[<span class="number">0xAAu8</span>; <span class="number">16</span>].try_into().unwrap();
+<a href=#3207 id=3207 data-nosnippet>3207</a>		<span class="kw">let </span>trie_b: TrieId = <span class="macro">vec!</span>[<span class="number">0xBBu8</span>; <span class="number">24</span>].try_into().unwrap();
+<a href=#3208 id=3208 data-nosnippet>3208</a>		v4::old::DeletionQueue::&lt;T&gt;::insert(<span class="number">0u32</span>, trie_a);
+<a href=#3209 id=3209 data-nosnippet>3209</a>		v4::old::DeletionQueue::&lt;T&gt;::insert(<span class="number">1u32</span>, trie_b);
+<a href=#3210 id=3210 data-nosnippet>3210</a>
+<a href=#3211 id=3211 data-nosnippet>3211</a>		<span class="kw">let </span>first = <span class="kw">match </span>v4::Migration::&lt;T&gt;::step_once(<span class="prelude-val">Some</span>(v4::Cursor::DeletionQueue(<span class="prelude-val">None</span>))) {
+<a href=#3212 id=3212 data-nosnippet>3212</a>			<span class="prelude-val">Some</span>(v4::Cursor::DeletionQueue(<span class="prelude-val">Some</span>(key))) =&gt; key,
+<a href=#3213 id=3213 data-nosnippet>3213</a>			other =&gt; <span class="macro">panic!</span>(<span class="string">"expected DeletionQueue cursor, got {other:?}"</span>),
+<a href=#3214 id=3214 data-nosnippet>3214</a>		};
+<a href=#3215 id=3215 data-nosnippet>3215</a>		<span class="kw">let </span>cursor = <span class="prelude-val">Some</span>(v4::Cursor::DeletionQueue(<span class="prelude-val">Some</span>(first)));
+<a href=#3216 id=3216 data-nosnippet>3216</a>
+<a href=#3217 id=3217 data-nosnippet>3217</a>		<span class="attr">#[block]
+<a href=#3218 id=3218 data-nosnippet>3218</a>		</span>{
+<a href=#3219 id=3219 data-nosnippet>3219</a>			<span class="kw">let _ </span>= v4::Migration::&lt;T&gt;::step_once(cursor);
+<a href=#3220 id=3220 data-nosnippet>3220</a>		}
+<a href=#3221 id=3221 data-nosnippet>3221</a>
+<a href=#3222 id=3222 data-nosnippet>3222</a>		<span class="macro">assert!</span>(
+<a href=#3223 id=3223 data-nosnippet>3223</a>			DeletionQueue::&lt;T&gt;::get(<span class="number">0u32</span>).is_some() &amp;&amp; DeletionQueue::&lt;T&gt;::get(<span class="number">1u32</span>).is_some(),
+<a href=#3224 id=3224 data-nosnippet>3224</a>			<span class="string">"both legacy entries rewritten into the new format"</span>,
+<a href=#3225 id=3225 data-nosnippet>3225</a>		);
+<a href=#3226 id=3226 data-nosnippet>3226</a>	}
+<a href=#3227 id=3227 data-nosnippet>3227</a>
+<a href=#3228 id=3228 data-nosnippet>3228</a>	<span class="doccomment">/// Helper function to create a test signer for finalize_block benchmark
+<a href=#3229 id=3229 data-nosnippet>3229</a>	</span><span class="kw">fn </span>create_test_signer&lt;T: Config&gt;() -&gt; (T::AccountId, SigningKey, H160) {
+<a href=#3230 id=3230 data-nosnippet>3230</a>		<span class="kw">use </span>hex_literal::hex;
+<a href=#3231 id=3231 data-nosnippet>3231</a>		<span class="comment">// dev::alith()
+<a href=#3232 id=3232 data-nosnippet>3232</a>		</span><span class="kw">let </span>signer_account_id = <span class="macro">hex!</span>(<span class="string">"f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac"</span>);
+<a href=#3233 id=3233 data-nosnippet>3233</a>		<span class="kw">let </span>signer_priv_key =
+<a href=#3234 id=3234 data-nosnippet>3234</a>			<span class="macro">hex!</span>(<span class="string">"5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133"</span>);
+<a href=#3235 id=3235 data-nosnippet>3235</a>
+<a href=#3236 id=3236 data-nosnippet>3236</a>		<span class="kw">let </span>signer_key = SigningKey::from_bytes(<span class="kw-2">&amp;</span>signer_priv_key.into()).expect(<span class="string">"valid key"</span>);
+<a href=#3237 id=3237 data-nosnippet>3237</a>
+<a href=#3238 id=3238 data-nosnippet>3238</a>		<span class="kw">let </span>signer_address = H160::from_slice(<span class="kw-2">&amp;</span>signer_account_id);
+<a href=#3239 id=3239 data-nosnippet>3239</a>		<span class="kw">let </span>signer_caller = T::AddressMapper::to_fallback_account_id(<span class="kw-2">&amp;</span>signer_address);
+<a href=#3240 id=3240 data-nosnippet>3240</a>
+<a href=#3241 id=3241 data-nosnippet>3241</a>		(signer_caller, signer_key, signer_address)
+<a href=#3242 id=3242 data-nosnippet>3242</a>	}
+<a href=#3243 id=3243 data-nosnippet>3243</a>
+<a href=#3244 id=3244 data-nosnippet>3244</a>	<span class="doccomment">/// Helper function to create and sign a transaction for finalize_block benchmark
+<a href=#3245 id=3245 data-nosnippet>3245</a>	</span><span class="kw">fn </span>create_signed_transaction&lt;T: Config&gt;(
+<a href=#3246 id=3246 data-nosnippet>3246</a>		signer_key: <span class="kw-2">&amp;</span>SigningKey,
+<a href=#3247 id=3247 data-nosnippet>3247</a>		target_address: H160,
+<a href=#3248 id=3248 data-nosnippet>3248</a>		value: U256,
+<a href=#3249 id=3249 data-nosnippet>3249</a>		input_data: Vec&lt;u8&gt;,
+<a href=#3250 id=3250 data-nosnippet>3250</a>	) -&gt; Vec&lt;u8&gt; {
+<a href=#3251 id=3251 data-nosnippet>3251</a>		<span class="kw">let </span>unsigned_tx: TransactionUnsigned = TransactionLegacyUnsigned {
+<a href=#3252 id=3252 data-nosnippet>3252</a>			to: <span class="prelude-val">Some</span>(target_address),
+<a href=#3253 id=3253 data-nosnippet>3253</a>			value,
+<a href=#3254 id=3254 data-nosnippet>3254</a>			chain_id: <span class="prelude-val">Some</span>(T::ChainId::get().into()),
+<a href=#3255 id=3255 data-nosnippet>3255</a>			input: input_data.into(),
+<a href=#3256 id=3256 data-nosnippet>3256</a>			..Default::default()
+<a href=#3257 id=3257 data-nosnippet>3257</a>		}
+<a href=#3258 id=3258 data-nosnippet>3258</a>		.into();
+<a href=#3259 id=3259 data-nosnippet>3259</a>
+<a href=#3260 id=3260 data-nosnippet>3260</a>		<span class="kw">let </span>hashed_payload = sp_io::hashing::keccak_256(<span class="kw-2">&amp;</span>unsigned_tx.unsigned_payload());
+<a href=#3261 id=3261 data-nosnippet>3261</a>		<span class="kw">let </span>(signature, recovery_id) =
+<a href=#3262 id=3262 data-nosnippet>3262</a>			signer_key.sign_prehash_recoverable(<span class="kw-2">&amp;</span>hashed_payload).expect(<span class="string">"signing success"</span>);
+<a href=#3263 id=3263 data-nosnippet>3263</a>
+<a href=#3264 id=3264 data-nosnippet>3264</a>		<span class="kw">let </span><span class="kw-2">mut </span>sig_bytes = [<span class="number">0u8</span>; <span class="number">65</span>];
+<a href=#3265 id=3265 data-nosnippet>3265</a>		sig_bytes[..<span class="number">64</span>].copy_from_slice(<span class="kw-2">&amp;</span>signature.to_bytes());
+<a href=#3266 id=3266 data-nosnippet>3266</a>		sig_bytes[<span class="number">64</span>] = recovery_id.to_byte();
+<a href=#3267 id=3267 data-nosnippet>3267</a>
+<a href=#3268 id=3268 data-nosnippet>3268</a>		<span class="kw">let </span>signed_tx = unsigned_tx.with_signature(sig_bytes);
+<a href=#3269 id=3269 data-nosnippet>3269</a>
+<a href=#3270 id=3270 data-nosnippet>3270</a>		signed_tx.signed_payload()
+<a href=#3271 id=3271 data-nosnippet>3271</a>	}
+<a href=#3272 id=3272 data-nosnippet>3272</a>
+<a href=#3273 id=3273 data-nosnippet>3273</a>	<span class="doccomment">/// Helper function to generate common finalize_block benchmark setup
+<a href=#3274 id=3274 data-nosnippet>3274</a>	</span><span class="kw">fn </span>setup_finalize_block_benchmark&lt;T&gt;()
+<a href=#3275 id=3275 data-nosnippet>3275</a>	-&gt; <span class="prelude-ty">Result</span>&lt;(Contract&lt;T&gt;, BalanceOf&lt;T&gt;, U256, SigningKey, BlockNumberFor&lt;T&gt;), BenchmarkError&gt;
+<a href=#3276 id=3276 data-nosnippet>3276</a>	<span class="kw">where
+<a href=#3277 id=3277 data-nosnippet>3277</a>		</span>BalanceOf&lt;T&gt;: Into&lt;U256&gt; + TryFrom&lt;U256&gt;,
+<a href=#3278 id=3278 data-nosnippet>3278</a>		T: Config,
+<a href=#3279 id=3279 data-nosnippet>3279</a>		MomentOf&lt;T&gt;: Into&lt;U256&gt;,
+<a href=#3280 id=3280 data-nosnippet>3280</a>		&lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash: frame_support::traits::IsType&lt;H256&gt;,
+<a href=#3281 id=3281 data-nosnippet>3281</a>	{
+<a href=#3282 id=3282 data-nosnippet>3282</a>		<span class="comment">// Setup test signer
+<a href=#3283 id=3283 data-nosnippet>3283</a>		</span><span class="kw">let </span>(signer_caller, signer_key, _signer_address) = create_test_signer::&lt;T&gt;();
+<a href=#3284 id=3284 data-nosnippet>3284</a>		<span class="macro">whitelist_account!</span>(signer_caller);
+<a href=#3285 id=3285 data-nosnippet>3285</a>
+<a href=#3286 id=3286 data-nosnippet>3286</a>		<span class="comment">// Setup contract instance
+<a href=#3287 id=3287 data-nosnippet>3287</a>		</span><span class="kw">let </span>instance =
+<a href=#3288 id=3288 data-nosnippet>3288</a>			Contract::&lt;T&gt;::with_caller(signer_caller.clone(), VmBinaryModule::dummy(), <span class="macro">vec!</span>[])<span class="question-mark">?</span>;
+<a href=#3289 id=3289 data-nosnippet>3289</a>		<span class="kw">let </span>storage_deposit = default_deposit_limit::&lt;T&gt;();
+<a href=#3290 id=3290 data-nosnippet>3290</a>		<span class="kw">let </span>value = Pallet::&lt;T&gt;::min_balance();
+<a href=#3291 id=3291 data-nosnippet>3291</a>		<span class="kw">let </span>evm_value =
+<a href=#3292 id=3292 data-nosnippet>3292</a>			Pallet::&lt;T&gt;::convert_native_to_evm(BalanceWithDust::new_unchecked::&lt;T&gt;(value, <span class="number">0</span>));
+<a href=#3293 id=3293 data-nosnippet>3293</a>
+<a href=#3294 id=3294 data-nosnippet>3294</a>		<span class="comment">// Setup block
+<a href=#3295 id=3295 data-nosnippet>3295</a>		</span><span class="kw">let </span>current_block = BlockNumberFor::&lt;T&gt;::from(<span class="number">1u32</span>);
+<a href=#3296 id=3296 data-nosnippet>3296</a>		frame_system::Pallet::&lt;T&gt;::set_block_number(current_block);
+<a href=#3297 id=3297 data-nosnippet>3297</a>
+<a href=#3298 id=3298 data-nosnippet>3298</a>		<span class="prelude-val">Ok</span>((instance, storage_deposit, evm_value, signer_key, current_block))
+<a href=#3299 id=3299 data-nosnippet>3299</a>	}
+<a href=#3300 id=3300 data-nosnippet>3300</a>
+<a href=#3301 id=3301 data-nosnippet>3301</a>	<span class="doccomment">/// Benchmark the `on_finalize` hook scaling with number of transactions.
+<a href=#3302 id=3302 data-nosnippet>3302</a>	///
+<a href=#3303 id=3303 data-nosnippet>3303</a>	/// This benchmark measures the marginal computational cost of adding transactions
+<a href=#3304 id=3304 data-nosnippet>3304</a>	/// to a block during finalization, with fixed payload size to isolate transaction
+<a href=#3305 id=3305 data-nosnippet>3305</a>	/// count scaling effects.
+<a href=#3306 id=3306 data-nosnippet>3306</a>	///
+<a href=#3307 id=3307 data-nosnippet>3307</a>	/// ## Parameters:
+<a href=#3308 id=3308 data-nosnippet>3308</a>	/// - `n`: Number of transactions in the block (0-200)
+<a href=#3309 id=3309 data-nosnippet>3309</a>	///
+<a href=#3310 id=3310 data-nosnippet>3310</a>	/// ## Test Setup:
+<a href=#3311 id=3311 data-nosnippet>3311</a>	/// - Creates `n` transactions with fixed 100-byte payloads
+<a href=#3312 id=3312 data-nosnippet>3312</a>	/// - Pre-populates block builder storage with test data
+<a href=#3313 id=3313 data-nosnippet>3313</a>	///
+<a href=#3314 id=3314 data-nosnippet>3314</a>	/// ## Usage:
+<a href=#3315 id=3315 data-nosnippet>3315</a>	/// Use this with `on_finalize_per_byte` to calculate total cost:
+<a href=#3316 id=3316 data-nosnippet>3316</a>	/// `total_cost = base + (n × per_tx_cost) + (total_bytes × per_byte_cost)`
+<a href=#3317 id=3317 data-nosnippet>3317</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
+<a href=#3318 id=3318 data-nosnippet>3318</a>	</span><span class="kw">fn </span>on_finalize_per_transaction(n: Linear&lt;<span class="number">0</span>, <span class="number">200</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#3319 id=3319 data-nosnippet>3319</a>		<span class="kw">let </span>(instance, _storage_deposit, evm_value, signer_key, current_block) =
+<a href=#3320 id=3320 data-nosnippet>3320</a>			setup_finalize_block_benchmark::&lt;T&gt;()<span class="question-mark">?</span>;
+<a href=#3321 id=3321 data-nosnippet>3321</a>
+<a href=#3322 id=3322 data-nosnippet>3322</a>		<span class="comment">// Fixed payload size to isolate transaction count effects
+<a href=#3323 id=3323 data-nosnippet>3323</a>		</span><span class="kw">let </span>fixed_payload_size = <span class="number">100usize</span>;
+<a href=#3324 id=3324 data-nosnippet>3324</a>
+<a href=#3325 id=3325 data-nosnippet>3325</a>		<span class="comment">// Pre-populate InflightTransactions with n transactions of fixed size
+<a href=#3326 id=3326 data-nosnippet>3326</a>		</span><span class="kw">if </span>n &gt; <span class="number">0 </span>{
+<a href=#3327 id=3327 data-nosnippet>3327</a>			<span class="comment">// Initialize block
+<a href=#3328 id=3328 data-nosnippet>3328</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_initialize(current_block);
+<a href=#3329 id=3329 data-nosnippet>3329</a>
+<a href=#3330 id=3330 data-nosnippet>3330</a>			<span class="comment">// Create input data of fixed size for consistent transaction payloads
+<a href=#3331 id=3331 data-nosnippet>3331</a>			</span><span class="kw">let </span>input_data = <span class="macro">vec!</span>[<span class="number">0x42u8</span>; fixed_payload_size];
+<a href=#3332 id=3332 data-nosnippet>3332</a>			<span class="kw">let </span>receipt_gas_info = ReceiptGasInfo {
+<a href=#3333 id=3333 data-nosnippet>3333</a>				gas_used: U256::from(<span class="number">1_000_000</span>),
+<a href=#3334 id=3334 data-nosnippet>3334</a>				effective_gas_price: Pallet::&lt;T&gt;::evm_base_fee(),
+<a href=#3335 id=3335 data-nosnippet>3335</a>			};
+<a href=#3336 id=3336 data-nosnippet>3336</a>
+<a href=#3337 id=3337 data-nosnippet>3337</a>			<span class="kw">for _ in </span><span class="number">0</span>..n {
+<a href=#3338 id=3338 data-nosnippet>3338</a>				<span class="comment">// Create real signed transaction with fixed-size input data
+<a href=#3339 id=3339 data-nosnippet>3339</a>				</span><span class="kw">let </span>signed_transaction = create_signed_transaction::&lt;T&gt;(
+<a href=#3340 id=3340 data-nosnippet>3340</a>					<span class="kw-2">&amp;</span>signer_key,
+<a href=#3341 id=3341 data-nosnippet>3341</a>					instance.address,
+<a href=#3342 id=3342 data-nosnippet>3342</a>					evm_value,
+<a href=#3343 id=3343 data-nosnippet>3343</a>					input_data.clone(),
+<a href=#3344 id=3344 data-nosnippet>3344</a>				);
+<a href=#3345 id=3345 data-nosnippet>3345</a>
+<a href=#3346 id=3346 data-nosnippet>3346</a>				<span class="comment">// Store transaction
+<a href=#3347 id=3347 data-nosnippet>3347</a>				</span><span class="kw">let _ </span>= block_storage::bench_with_ethereum_context(|| {
+<a href=#3348 id=3348 data-nosnippet>3348</a>					<span class="kw">let </span>(encoded_logs, bloom) =
+<a href=#3349 id=3349 data-nosnippet>3349</a>						block_storage::get_receipt_details().unwrap_or_default();
+<a href=#3350 id=3350 data-nosnippet>3350</a>
+<a href=#3351 id=3351 data-nosnippet>3351</a>					<span class="kw">let </span>block_builder_ir = EthBlockBuilderIR::&lt;T&gt;::get();
+<a href=#3352 id=3352 data-nosnippet>3352</a>					<span class="kw">let </span><span class="kw-2">mut </span>block_builder = EthereumBlockBuilder::&lt;T&gt;::from_ir(block_builder_ir);
+<a href=#3353 id=3353 data-nosnippet>3353</a>
+<a href=#3354 id=3354 data-nosnippet>3354</a>					block_builder.process_transaction(
+<a href=#3355 id=3355 data-nosnippet>3355</a>						signed_transaction,
+<a href=#3356 id=3356 data-nosnippet>3356</a>						<span class="bool-val">true</span>,
+<a href=#3357 id=3357 data-nosnippet>3357</a>						receipt_gas_info.clone(),
+<a href=#3358 id=3358 data-nosnippet>3358</a>						encoded_logs,
+<a href=#3359 id=3359 data-nosnippet>3359</a>						bloom,
+<a href=#3360 id=3360 data-nosnippet>3360</a>					);
+<a href=#3361 id=3361 data-nosnippet>3361</a>
+<a href=#3362 id=3362 data-nosnippet>3362</a>					EthBlockBuilderIR::&lt;T&gt;::put(block_builder.to_ir());
+<a href=#3363 id=3363 data-nosnippet>3363</a>				});
+<a href=#3364 id=3364 data-nosnippet>3364</a>			}
+<a href=#3365 id=3365 data-nosnippet>3365</a>		}
+<a href=#3366 id=3366 data-nosnippet>3366</a>
+<a href=#3367 id=3367 data-nosnippet>3367</a>		<span class="attr">#[block]
+<a href=#3368 id=3368 data-nosnippet>3368</a>		</span>{
+<a href=#3369 id=3369 data-nosnippet>3369</a>			<span class="comment">// Measure only the finalization cost with n transactions of fixed size
+<a href=#3370 id=3370 data-nosnippet>3370</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_finalize(current_block);
+<a href=#3371 id=3371 data-nosnippet>3371</a>		}
+<a href=#3372 id=3372 data-nosnippet>3372</a>
+<a href=#3373 id=3373 data-nosnippet>3373</a>		<span class="comment">// Verify transaction count
+<a href=#3374 id=3374 data-nosnippet>3374</a>		</span><span class="macro">assert_eq!</span>(Pallet::&lt;T&gt;::eth_block().transactions.len(), n <span class="kw">as </span>usize);
+<a href=#3375 id=3375 data-nosnippet>3375</a>
+<a href=#3376 id=3376 data-nosnippet>3376</a>		<span class="prelude-val">Ok</span>(())
+<a href=#3377 id=3377 data-nosnippet>3377</a>	}
+<a href=#3378 id=3378 data-nosnippet>3378</a>
+<a href=#3379 id=3379 data-nosnippet>3379</a>	<span class="doccomment">/// Benchmark the `on_finalize` hook scaling with transaction payload size.
+<a href=#3380 id=3380 data-nosnippet>3380</a>	///
+<a href=#3381 id=3381 data-nosnippet>3381</a>	/// This benchmark measures the marginal computational cost of processing
+<a href=#3382 id=3382 data-nosnippet>3382</a>	/// larger transaction payloads during finalization, with fixed transaction count
+<a href=#3383 id=3383 data-nosnippet>3383</a>	/// to isolate payload size scaling effects.
+<a href=#3384 id=3384 data-nosnippet>3384</a>	///
+<a href=#3385 id=3385 data-nosnippet>3385</a>	/// ## Parameters:
+<a href=#3386 id=3386 data-nosnippet>3386</a>	/// - `d`: Payload size per transaction in bytes (0-1000)
+<a href=#3387 id=3387 data-nosnippet>3387</a>	///
+<a href=#3388 id=3388 data-nosnippet>3388</a>	/// ## Test Setup:
+<a href=#3389 id=3389 data-nosnippet>3389</a>	/// - Creates 10 transactions with payload size `d`
+<a href=#3390 id=3390 data-nosnippet>3390</a>	/// - Pre-populates block builder storage with test data
+<a href=#3391 id=3391 data-nosnippet>3391</a>	///
+<a href=#3392 id=3392 data-nosnippet>3392</a>	/// ## Usage:
+<a href=#3393 id=3393 data-nosnippet>3393</a>	/// Use this with `on_finalize_per_transaction` to calculate total cost:
+<a href=#3394 id=3394 data-nosnippet>3394</a>	/// `total_cost = base + (n × per_tx_cost) + (total_bytes × per_byte_cost)`
+<a href=#3395 id=3395 data-nosnippet>3395</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
+<a href=#3396 id=3396 data-nosnippet>3396</a>	</span><span class="kw">fn </span>on_finalize_per_transaction_data(d: Linear&lt;<span class="number">0</span>, <span class="number">1000</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#3397 id=3397 data-nosnippet>3397</a>		<span class="kw">let </span>(instance, _storage_deposit, evm_value, signer_key, current_block) =
+<a href=#3398 id=3398 data-nosnippet>3398</a>			setup_finalize_block_benchmark::&lt;T&gt;()<span class="question-mark">?</span>;
+<a href=#3399 id=3399 data-nosnippet>3399</a>
+<a href=#3400 id=3400 data-nosnippet>3400</a>		<span class="comment">// Fixed transaction count to isolate payload size effects
+<a href=#3401 id=3401 data-nosnippet>3401</a>		</span><span class="kw">let </span>fixed_tx_count = <span class="number">10u32</span>;
+<a href=#3402 id=3402 data-nosnippet>3402</a>
+<a href=#3403 id=3403 data-nosnippet>3403</a>		<span class="comment">// Initialize block
+<a href=#3404 id=3404 data-nosnippet>3404</a>		</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_initialize(current_block);
+<a href=#3405 id=3405 data-nosnippet>3405</a>
+<a href=#3406 id=3406 data-nosnippet>3406</a>		<span class="comment">// Create input data of variable size p for realistic transaction payloads
+<a href=#3407 id=3407 data-nosnippet>3407</a>		</span><span class="kw">let </span>input_data = <span class="macro">vec!</span>[<span class="number">0x42u8</span>; d <span class="kw">as </span>usize];
+<a href=#3408 id=3408 data-nosnippet>3408</a>		<span class="kw">let </span>receipt_gas_info = ReceiptGasInfo {
+<a href=#3409 id=3409 data-nosnippet>3409</a>			gas_used: U256::from(<span class="number">1_000_000</span>),
+<a href=#3410 id=3410 data-nosnippet>3410</a>			effective_gas_price: Pallet::&lt;T&gt;::evm_base_fee(),
+<a href=#3411 id=3411 data-nosnippet>3411</a>		};
+<a href=#3412 id=3412 data-nosnippet>3412</a>
+<a href=#3413 id=3413 data-nosnippet>3413</a>		<span class="kw">for _ in </span><span class="number">0</span>..fixed_tx_count {
+<a href=#3414 id=3414 data-nosnippet>3414</a>			<span class="comment">// Create real signed transaction with variable-size input data
+<a href=#3415 id=3415 data-nosnippet>3415</a>			</span><span class="kw">let </span>signed_transaction = create_signed_transaction::&lt;T&gt;(
+<a href=#3416 id=3416 data-nosnippet>3416</a>				<span class="kw-2">&amp;</span>signer_key,
+<a href=#3417 id=3417 data-nosnippet>3417</a>				instance.address,
+<a href=#3418 id=3418 data-nosnippet>3418</a>				evm_value,
+<a href=#3419 id=3419 data-nosnippet>3419</a>				input_data.clone(),
+<a href=#3420 id=3420 data-nosnippet>3420</a>			);
+<a href=#3421 id=3421 data-nosnippet>3421</a>
+<a href=#3422 id=3422 data-nosnippet>3422</a>			<span class="comment">// Store transaction
+<a href=#3423 id=3423 data-nosnippet>3423</a>			</span><span class="kw">let _ </span>= block_storage::bench_with_ethereum_context(|| {
+<a href=#3424 id=3424 data-nosnippet>3424</a>				<span class="kw">let </span>(encoded_logs, bloom) =
+<a href=#3425 id=3425 data-nosnippet>3425</a>					block_storage::get_receipt_details().unwrap_or_default();
+<a href=#3426 id=3426 data-nosnippet>3426</a>
+<a href=#3427 id=3427 data-nosnippet>3427</a>				<span class="kw">let </span>block_builder_ir = EthBlockBuilderIR::&lt;T&gt;::get();
+<a href=#3428 id=3428 data-nosnippet>3428</a>				<span class="kw">let </span><span class="kw-2">mut </span>block_builder = EthereumBlockBuilder::&lt;T&gt;::from_ir(block_builder_ir);
+<a href=#3429 id=3429 data-nosnippet>3429</a>
+<a href=#3430 id=3430 data-nosnippet>3430</a>				block_builder.process_transaction(
+<a href=#3431 id=3431 data-nosnippet>3431</a>					signed_transaction,
+<a href=#3432 id=3432 data-nosnippet>3432</a>					<span class="bool-val">true</span>,
+<a href=#3433 id=3433 data-nosnippet>3433</a>					receipt_gas_info.clone(),
+<a href=#3434 id=3434 data-nosnippet>3434</a>					encoded_logs,
+<a href=#3435 id=3435 data-nosnippet>3435</a>					bloom,
+<a href=#3436 id=3436 data-nosnippet>3436</a>				);
+<a href=#3437 id=3437 data-nosnippet>3437</a>
+<a href=#3438 id=3438 data-nosnippet>3438</a>				EthBlockBuilderIR::&lt;T&gt;::put(block_builder.to_ir());
+<a href=#3439 id=3439 data-nosnippet>3439</a>			});
+<a href=#3440 id=3440 data-nosnippet>3440</a>		}
+<a href=#3441 id=3441 data-nosnippet>3441</a>
+<a href=#3442 id=3442 data-nosnippet>3442</a>		<span class="attr">#[block]
+<a href=#3443 id=3443 data-nosnippet>3443</a>		</span>{
+<a href=#3444 id=3444 data-nosnippet>3444</a>			<span class="comment">// Measure only the finalization cost with fixed count, variable payload size
+<a href=#3445 id=3445 data-nosnippet>3445</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_finalize(current_block);
+<a href=#3446 id=3446 data-nosnippet>3446</a>		}
+<a href=#3447 id=3447 data-nosnippet>3447</a>
+<a href=#3448 id=3448 data-nosnippet>3448</a>		<span class="comment">// Verify transaction count
+<a href=#3449 id=3449 data-nosnippet>3449</a>		</span><span class="macro">assert_eq!</span>(Pallet::&lt;T&gt;::eth_block().transactions.len(), fixed_tx_count <span class="kw">as </span>usize);
+<a href=#3450 id=3450 data-nosnippet>3450</a>
+<a href=#3451 id=3451 data-nosnippet>3451</a>		<span class="prelude-val">Ok</span>(())
+<a href=#3452 id=3452 data-nosnippet>3452</a>	}
+<a href=#3453 id=3453 data-nosnippet>3453</a>
+<a href=#3454 id=3454 data-nosnippet>3454</a>	<span class="doccomment">/// Benchmark the `on_finalize` per-event costs.
+<a href=#3455 id=3455 data-nosnippet>3455</a>	///
+<a href=#3456 id=3456 data-nosnippet>3456</a>	/// This benchmark measures the computational cost of processing events
+<a href=#3457 id=3457 data-nosnippet>3457</a>	/// within the finalization process, isolating the overhead of event count.
+<a href=#3458 id=3458 data-nosnippet>3458</a>	/// Uses a single transaction with varying numbers of minimal events.
+<a href=#3459 id=3459 data-nosnippet>3459</a>	///
+<a href=#3460 id=3460 data-nosnippet>3460</a>	/// ## Parameters:
+<a href=#3461 id=3461 data-nosnippet>3461</a>	/// - `e`: Number of events per transaction
+<a href=#3462 id=3462 data-nosnippet>3462</a>	///
+<a href=#3463 id=3463 data-nosnippet>3463</a>	/// ## Test Setup:
+<a href=#3464 id=3464 data-nosnippet>3464</a>	/// - Creates 1 transaction with `e` ContractEmitted events
+<a href=#3465 id=3465 data-nosnippet>3465</a>	/// - Each event contains minimal data (no topics, empty data field)
+<a href=#3466 id=3466 data-nosnippet>3466</a>	///
+<a href=#3467 id=3467 data-nosnippet>3467</a>	/// ## Usage:
+<a href=#3468 id=3468 data-nosnippet>3468</a>	/// Measures the per-event processing overhead during finalization
+<a href=#3469 id=3469 data-nosnippet>3469</a>	/// - Fixed cost: `on_finalize_per_event(0)` - baseline finalization cost
+<a href=#3470 id=3470 data-nosnippet>3470</a>	/// - Per event: `on_finalize_per_event(e)` - linear scaling with event count
+<a href=#3471 id=3471 data-nosnippet>3471</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
+<a href=#3472 id=3472 data-nosnippet>3472</a>	</span><span class="kw">fn </span>on_finalize_per_event(e: Linear&lt;<span class="number">0</span>, <span class="number">100</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#3473 id=3473 data-nosnippet>3473</a>		<span class="kw">let </span>(instance, _storage_deposit, evm_value, signer_key, current_block) =
+<a href=#3474 id=3474 data-nosnippet>3474</a>			setup_finalize_block_benchmark::&lt;T&gt;()<span class="question-mark">?</span>;
+<a href=#3475 id=3475 data-nosnippet>3475</a>
+<a href=#3476 id=3476 data-nosnippet>3476</a>		<span class="comment">// Create a single transaction with e events, each with minimal data
+<a href=#3477 id=3477 data-nosnippet>3477</a>		</span><span class="kw">let </span>input_data = <span class="macro">vec!</span>[<span class="number">0x42u8</span>; <span class="number">100</span>];
+<a href=#3478 id=3478 data-nosnippet>3478</a>		<span class="kw">let </span>signed_transaction = create_signed_transaction::&lt;T&gt;(
+<a href=#3479 id=3479 data-nosnippet>3479</a>			<span class="kw-2">&amp;</span>signer_key,
+<a href=#3480 id=3480 data-nosnippet>3480</a>			instance.address,
+<a href=#3481 id=3481 data-nosnippet>3481</a>			evm_value,
+<a href=#3482 id=3482 data-nosnippet>3482</a>			input_data.clone(),
+<a href=#3483 id=3483 data-nosnippet>3483</a>		);
+<a href=#3484 id=3484 data-nosnippet>3484</a>
+<a href=#3485 id=3485 data-nosnippet>3485</a>		<span class="kw">let </span>receipt_gas_info = ReceiptGasInfo {
+<a href=#3486 id=3486 data-nosnippet>3486</a>			gas_used: U256::from(<span class="number">1_000_000</span>),
+<a href=#3487 id=3487 data-nosnippet>3487</a>			effective_gas_price: Pallet::&lt;T&gt;::evm_base_fee(),
+<a href=#3488 id=3488 data-nosnippet>3488</a>		};
+<a href=#3489 id=3489 data-nosnippet>3489</a>
+<a href=#3490 id=3490 data-nosnippet>3490</a>		<span class="comment">// Store transaction
+<a href=#3491 id=3491 data-nosnippet>3491</a>		</span><span class="kw">let _ </span>= block_storage::bench_with_ethereum_context(|| {
+<a href=#3492 id=3492 data-nosnippet>3492</a>			<span class="kw">let </span>(encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
+<a href=#3493 id=3493 data-nosnippet>3493</a>
+<a href=#3494 id=3494 data-nosnippet>3494</a>			<span class="kw">let </span>block_builder_ir = EthBlockBuilderIR::&lt;T&gt;::get();
+<a href=#3495 id=3495 data-nosnippet>3495</a>			<span class="kw">let </span><span class="kw-2">mut </span>block_builder = EthereumBlockBuilder::&lt;T&gt;::from_ir(block_builder_ir);
+<a href=#3496 id=3496 data-nosnippet>3496</a>
+<a href=#3497 id=3497 data-nosnippet>3497</a>			block_builder.process_transaction(
+<a href=#3498 id=3498 data-nosnippet>3498</a>				signed_transaction,
+<a href=#3499 id=3499 data-nosnippet>3499</a>				<span class="bool-val">true</span>,
+<a href=#3500 id=3500 data-nosnippet>3500</a>				receipt_gas_info.clone(),
+<a href=#3501 id=3501 data-nosnippet>3501</a>				encoded_logs,
+<a href=#3502 id=3502 data-nosnippet>3502</a>				bloom,
+<a href=#3503 id=3503 data-nosnippet>3503</a>			);
+<a href=#3504 id=3504 data-nosnippet>3504</a>
+<a href=#3505 id=3505 data-nosnippet>3505</a>			EthBlockBuilderIR::&lt;T&gt;::put(block_builder.to_ir());
+<a href=#3506 id=3506 data-nosnippet>3506</a>		});
+<a href=#3507 id=3507 data-nosnippet>3507</a>
+<a href=#3508 id=3508 data-nosnippet>3508</a>		<span class="comment">// Create e events with minimal data to isolate event count overhead
+<a href=#3509 id=3509 data-nosnippet>3509</a>		</span><span class="kw">for _ in </span><span class="number">0</span>..e {
+<a href=#3510 id=3510 data-nosnippet>3510</a>			block_storage::capture_ethereum_log(<span class="kw-2">&amp;</span>instance.address, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[], <span class="kw-2">&amp;</span><span class="macro">vec!</span>[]);
+<a href=#3511 id=3511 data-nosnippet>3511</a>		}
+<a href=#3512 id=3512 data-nosnippet>3512</a>
+<a href=#3513 id=3513 data-nosnippet>3513</a>		<span class="attr">#[block]
+<a href=#3514 id=3514 data-nosnippet>3514</a>		</span>{
+<a href=#3515 id=3515 data-nosnippet>3515</a>			<span class="comment">// Initialize block
+<a href=#3516 id=3516 data-nosnippet>3516</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_initialize(current_block);
+<a href=#3517 id=3517 data-nosnippet>3517</a>
+<a href=#3518 id=3518 data-nosnippet>3518</a>			<span class="comment">// Measure the finalization cost with e events
+<a href=#3519 id=3519 data-nosnippet>3519</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_finalize(current_block);
+<a href=#3520 id=3520 data-nosnippet>3520</a>		}
+<a href=#3521 id=3521 data-nosnippet>3521</a>
+<a href=#3522 id=3522 data-nosnippet>3522</a>		<span class="comment">// Verify transaction count
+<a href=#3523 id=3523 data-nosnippet>3523</a>		</span><span class="macro">assert_eq!</span>(Pallet::&lt;T&gt;::eth_block().transactions.len(), <span class="number">1</span>);
+<a href=#3524 id=3524 data-nosnippet>3524</a>
+<a href=#3525 id=3525 data-nosnippet>3525</a>		<span class="prelude-val">Ok</span>(())
+<a href=#3526 id=3526 data-nosnippet>3526</a>	}
+<a href=#3527 id=3527 data-nosnippet>3527</a>
+<a href=#3528 id=3528 data-nosnippet>3528</a>	<span class="doccomment">/// ## Test Setup:
+<a href=#3529 id=3529 data-nosnippet>3529</a>	/// - Creates 1 transaction with 1 ContractEmitted event
+<a href=#3530 id=3530 data-nosnippet>3530</a>	/// - Event contains `d` total bytes of data across data field and topics
+<a href=#3531 id=3531 data-nosnippet>3531</a>	///
+<a href=#3532 id=3532 data-nosnippet>3532</a>	/// ## Usage:
+<a href=#3533 id=3533 data-nosnippet>3533</a>	/// Measures the per-byte event data processing overhead during finalization
+<a href=#3534 id=3534 data-nosnippet>3534</a>	/// - Fixed cost: `on_finalize_per_event_data(0)` - baseline cost with empty event
+<a href=#3535 id=3535 data-nosnippet>3535</a>	/// - Per byte: `on_finalize_per_event_data(d)` - linear scaling with data size
+<a href=#3536 id=3536 data-nosnippet>3536</a>	</span><span class="attr">#[benchmark(pov_mode = Measured)]
+<a href=#3537 id=3537 data-nosnippet>3537</a>	</span><span class="kw">fn </span>on_finalize_per_event_data(d: Linear&lt;<span class="number">0</span>, <span class="number">16384</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#3538 id=3538 data-nosnippet>3538</a>		<span class="kw">let </span>(instance, _storage_deposit, evm_value, signer_key, current_block) =
+<a href=#3539 id=3539 data-nosnippet>3539</a>			setup_finalize_block_benchmark::&lt;T&gt;()<span class="question-mark">?</span>;
+<a href=#3540 id=3540 data-nosnippet>3540</a>
+<a href=#3541 id=3541 data-nosnippet>3541</a>		<span class="comment">// Create a single transaction with one event containing d bytes of data
+<a href=#3542 id=3542 data-nosnippet>3542</a>		</span><span class="kw">let </span>input_data = <span class="macro">vec!</span>[<span class="number">0x42u8</span>; <span class="number">100</span>];
+<a href=#3543 id=3543 data-nosnippet>3543</a>		<span class="kw">let </span>signed_transaction = create_signed_transaction::&lt;T&gt;(
+<a href=#3544 id=3544 data-nosnippet>3544</a>			<span class="kw-2">&amp;</span>signer_key,
+<a href=#3545 id=3545 data-nosnippet>3545</a>			instance.address,
+<a href=#3546 id=3546 data-nosnippet>3546</a>			evm_value,
+<a href=#3547 id=3547 data-nosnippet>3547</a>			input_data.clone(),
+<a href=#3548 id=3548 data-nosnippet>3548</a>		);
+<a href=#3549 id=3549 data-nosnippet>3549</a>
+<a href=#3550 id=3550 data-nosnippet>3550</a>		<span class="kw">let </span>receipt_gas_info = ReceiptGasInfo {
+<a href=#3551 id=3551 data-nosnippet>3551</a>			gas_used: U256::from(<span class="number">1_000_000</span>),
+<a href=#3552 id=3552 data-nosnippet>3552</a>			effective_gas_price: Pallet::&lt;T&gt;::evm_base_fee(),
+<a href=#3553 id=3553 data-nosnippet>3553</a>		};
+<a href=#3554 id=3554 data-nosnippet>3554</a>
+<a href=#3555 id=3555 data-nosnippet>3555</a>		<span class="comment">// Store transaction
+<a href=#3556 id=3556 data-nosnippet>3556</a>		</span><span class="kw">let _ </span>= block_storage::bench_with_ethereum_context(|| {
+<a href=#3557 id=3557 data-nosnippet>3557</a>			<span class="kw">let </span>(encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
+<a href=#3558 id=3558 data-nosnippet>3558</a>
+<a href=#3559 id=3559 data-nosnippet>3559</a>			<span class="kw">let </span>block_builder_ir = EthBlockBuilderIR::&lt;T&gt;::get();
+<a href=#3560 id=3560 data-nosnippet>3560</a>			<span class="kw">let </span><span class="kw-2">mut </span>block_builder = EthereumBlockBuilder::&lt;T&gt;::from_ir(block_builder_ir);
+<a href=#3561 id=3561 data-nosnippet>3561</a>
+<a href=#3562 id=3562 data-nosnippet>3562</a>			block_builder.process_transaction(
+<a href=#3563 id=3563 data-nosnippet>3563</a>				signed_transaction,
+<a href=#3564 id=3564 data-nosnippet>3564</a>				<span class="bool-val">true</span>,
+<a href=#3565 id=3565 data-nosnippet>3565</a>				receipt_gas_info,
+<a href=#3566 id=3566 data-nosnippet>3566</a>				encoded_logs,
+<a href=#3567 id=3567 data-nosnippet>3567</a>				bloom,
+<a href=#3568 id=3568 data-nosnippet>3568</a>			);
+<a href=#3569 id=3569 data-nosnippet>3569</a>
+<a href=#3570 id=3570 data-nosnippet>3570</a>			EthBlockBuilderIR::&lt;T&gt;::put(block_builder.to_ir());
+<a href=#3571 id=3571 data-nosnippet>3571</a>		});
+<a href=#3572 id=3572 data-nosnippet>3572</a>
+<a href=#3573 id=3573 data-nosnippet>3573</a>		<span class="comment">// Create one event with d bytes of data distributed across topics and data field
+<a href=#3574 id=3574 data-nosnippet>3574</a>		</span><span class="kw">let </span>(event_data, topics) = <span class="kw">if </span>d &lt; <span class="number">32 </span>{
+<a href=#3575 id=3575 data-nosnippet>3575</a>			<span class="comment">// If total data is less than 32 bytes, put all in data field
+<a href=#3576 id=3576 data-nosnippet>3576</a>			</span>(<span class="macro">vec!</span>[<span class="number">0x42u8</span>; d <span class="kw">as </span>usize], <span class="macro">vec!</span>[])
+<a href=#3577 id=3577 data-nosnippet>3577</a>		} <span class="kw">else </span>{
+<a href=#3578 id=3578 data-nosnippet>3578</a>			<span class="comment">// Fill topics first, then put remaining bytes in data field
+<a href=#3579 id=3579 data-nosnippet>3579</a>			</span><span class="kw">let </span>num_topics = core::cmp::min(limits::NUM_EVENT_TOPICS, d / <span class="number">32</span>);
+<a href=#3580 id=3580 data-nosnippet>3580</a>			<span class="kw">let </span>topic_bytes_used = num_topics * <span class="number">32</span>;
+<a href=#3581 id=3581 data-nosnippet>3581</a>			<span class="kw">let </span>data_bytes_remaining = d - topic_bytes_used;
+<a href=#3582 id=3582 data-nosnippet>3582</a>
+<a href=#3583 id=3583 data-nosnippet>3583</a>			<span class="comment">// Create topics filled with sequential data
+<a href=#3584 id=3584 data-nosnippet>3584</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>topics = Vec::new();
+<a href=#3585 id=3585 data-nosnippet>3585</a>			<span class="kw">for </span>topic_index <span class="kw">in </span><span class="number">0</span>..num_topics {
+<a href=#3586 id=3586 data-nosnippet>3586</a>				<span class="kw">let </span>topic_data = [topic_index <span class="kw">as </span>u8; <span class="number">32</span>];
+<a href=#3587 id=3587 data-nosnippet>3587</a>				topics.push(H256::from(topic_data));
+<a href=#3588 id=3588 data-nosnippet>3588</a>			}
+<a href=#3589 id=3589 data-nosnippet>3589</a>
+<a href=#3590 id=3590 data-nosnippet>3590</a>			<span class="comment">// Remaining bytes go to data field
+<a href=#3591 id=3591 data-nosnippet>3591</a>			</span><span class="kw">let </span>event_data = <span class="macro">vec!</span>[<span class="number">0x42u8</span>; data_bytes_remaining <span class="kw">as </span>usize];
+<a href=#3592 id=3592 data-nosnippet>3592</a>
+<a href=#3593 id=3593 data-nosnippet>3593</a>			(event_data, topics)
+<a href=#3594 id=3594 data-nosnippet>3594</a>		};
+<a href=#3595 id=3595 data-nosnippet>3595</a>
+<a href=#3596 id=3596 data-nosnippet>3596</a>		block_storage::capture_ethereum_log(<span class="kw-2">&amp;</span>instance.address, <span class="kw-2">&amp;</span>event_data, <span class="kw-2">&amp;</span>topics);
+<a href=#3597 id=3597 data-nosnippet>3597</a>
+<a href=#3598 id=3598 data-nosnippet>3598</a>		<span class="attr">#[block]
+<a href=#3599 id=3599 data-nosnippet>3599</a>		</span>{
+<a href=#3600 id=3600 data-nosnippet>3600</a>			<span class="comment">// Initialize block
+<a href=#3601 id=3601 data-nosnippet>3601</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_initialize(current_block);
+<a href=#3602 id=3602 data-nosnippet>3602</a>
+<a href=#3603 id=3603 data-nosnippet>3603</a>			<span class="comment">// Measure the finalization cost with d bytes of event data
+<a href=#3604 id=3604 data-nosnippet>3604</a>			</span><span class="kw">let _ </span>= Pallet::&lt;T&gt;::on_finalize(current_block);
+<a href=#3605 id=3605 data-nosnippet>3605</a>		}
+<a href=#3606 id=3606 data-nosnippet>3606</a>
+<a href=#3607 id=3607 data-nosnippet>3607</a>		<span class="comment">// Verify transaction count
+<a href=#3608 id=3608 data-nosnippet>3608</a>		</span><span class="macro">assert_eq!</span>(Pallet::&lt;T&gt;::eth_block().transactions.len(), <span class="number">1</span>);
+<a href=#3609 id=3609 data-nosnippet>3609</a>
+<a href=#3610 id=3610 data-nosnippet>3610</a>		<span class="prelude-val">Ok</span>(())
+<a href=#3611 id=3611 data-nosnippet>3611</a>	}
+<a href=#3612 id=3612 data-nosnippet>3612</a>
+<a href=#3613 id=3613 data-nosnippet>3613</a>	<span class="macro">impl_benchmark_test_suite!</span>(
+<a href=#3614 id=3614 data-nosnippet>3614</a>		Contracts,
+<a href=#3615 id=3615 data-nosnippet>3615</a>		<span class="kw">crate</span>::tests::ExtBuilder::default().build(),
+<a href=#3616 id=3616 data-nosnippet>3616</a>		<span class="kw">crate</span>::tests::Test,
+<a href=#3617 id=3617 data-nosnippet>3617</a>	);
+<a href=#3618 id=3618 data-nosnippet>3618</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
