@@ -41,9 +41,10 @@ use crate::{
 };
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
-use codec::Decode;
+use codec::DecodeLimit;
 use core::{marker::PhantomData, num::NonZero};
 use frame_support::{
+	MAX_EXTRINSIC_DEPTH,
 	dispatch::{GetDispatchInfo, extract_actual_weight},
 	traits::{Contains, Everything, IsType, OriginTrait},
 };
@@ -118,8 +119,16 @@ where
 				env.frame_meter_mut().charge_weight_token(RuntimeCosts::PrecompileDecode(
 					encoded_call.len() as u32,
 				))?;
-				let call = <T as crate::Config>::RuntimeCall::decode(&mut &encoded_call[..])
-					.map_err(|_| Error::Revert("invalid RuntimeCall encoding".into()))?;
+				// Strict decode: reject trailing bytes and bound the nesting depth so
+				// deeply nested calls cannot overflow the stack during decoding.
+				// here i am using MAX_EXTRINSIC_DEPTH because That's the same depth limit the runtime applies 
+				// to normal extrinsics. Using it means this precompile accepts exactly the calls that would 
+				// be valid if a user submitted them as a transaction
+				let call = <T as crate::Config>::RuntimeCall::decode_all_with_depth_limit(
+					MAX_EXTRINSIC_DEPTH,
+					&mut &encoded_call[..],
+				)
+				.map_err(|_| Error::Revert("invalid RuntimeCall encoding".into()))?;
 
 				// Let the runtime restrict which calls may be dispatched through
 				// this precompile (defaults to allowing everything). Redundant with
@@ -438,6 +447,50 @@ mod tests {
 			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
 			assert_eq!(result.unwrap_err(), Error::Revert("invalid RuntimeCall encoding".into()),);
+		});
+	}
+
+	#[test]
+	fn dispatch_rejects_trailing_bytes() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			// A valid call with extra bytes appended. A strict (`decode_all`) decode
+			// must reject this rather than silently dispatch the leading call.
+			let call = RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() });
+			let mut bytes = call.encode();
+			bytes.push(0xff);
+			let input =
+				IUnstableRuntime::IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall {
+					encoded_call: bytes.into(),
+				});
+
+			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+
+			assert_eq!(result.unwrap_err(), Error::Revert("invalid RuntimeCall encoding".into()));
+		});
+	}
+
+	#[test]
+	fn dispatch_rejects_deeply_nested_calls() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			// Nest `Utility::batch` far past `MAX_EXTRINSIC_DEPTH` so the bounded
+			// decode rejects it before it can recurse the native stack. Built
+			// inside-out with a loop (no native recursion during construction).
+			let mut call = RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() });
+			for _ in 0..512 {
+				call =
+					RuntimeCall::Utility(pallet_utility::Call::batch { calls: alloc::vec![call] });
+			}
+			let input = dispatch_input(call);
+
+			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+
+			assert_eq!(result.unwrap_err(), Error::Revert("invalid RuntimeCall encoding".into()));
 		});
 	}
 
