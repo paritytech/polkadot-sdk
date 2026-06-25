@@ -43,8 +43,8 @@ const SKIP_MAINTENANCE_THRESHOLD: u16 = 20;
 ///  \
 ///   B2-C2-D2-E2
 ///
-/// the list presents scenarios and expected behavior for sequence of `NewBestBlock` (`nbb`)
-/// and `Finalized` (`f`) events. true/false means if enactiment is required:
+/// the list presents scenarios and expected behavior for sequence of `NewBestBlock` or `NewBlock`
+/// (`nbb`) and `Finalized` (`f`) events. true/false means if enactiment is required:
 ///
 /// - `nbb(C1)`, `f(C1)` -> false (enactment was already performed in `nbb(C1))`
 /// - `f(C1)`, `nbb(C1)` -> false (enactment was already performed in `f(C1))`
@@ -55,9 +55,6 @@ const SKIP_MAINTENANCE_THRESHOLD: u16 = 20;
 /// - `nbb(B1)`, `nbb(B2)` -> true
 /// - `nbb(B1)`, `nbb(C1)`, `f(C1)` -> false (enactment was already performed in `nbb(B1)`)
 /// - `nbb(C1)`, `f(B1)` -> false (enactment was already performed in `nbb(B2)`)
-///
-/// Note: a `NewBlock` event (a non-best block imported on a fork, see [`ChainEvent::NewBlock`]) is
-/// handled exactly like `NewBestBlock`
 pub struct EnactmentState<Block>
 where
 	Block: BlockT,
