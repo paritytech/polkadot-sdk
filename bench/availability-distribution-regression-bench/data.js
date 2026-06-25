@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782254286393,
+  "lastUpdate": 1782383248001,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a44be635e6710432c49e844af8631e6ad98ade36",
-          "message": "TxPool: Downgrade log from `info` to `debug` (#10179)\n\nThere is no need to log information about `maintain` to the `info` log.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-01T09:20:14Z",
-          "tree_id": "345a946799c12465072bc3ac5f43b8d81159af1e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a44be635e6710432c49e844af8631e6ad98ade36"
-        },
-        "date": 1761993510384,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01322755136,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16041645602,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02257952534666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00741004909999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14463840832000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4447daba7a576accedc9f55ef22408cc6bc1c597",
+          "message": "Fix `AllowedRelayParentInfo` off by one error (#12391)\n\nRelated to https://github.com/paritytech/polkadot-sdk/issues/11624\n\n## The issue\n\nThis issue was found while working on\nhttps://github.com/paritytech/polkadot-sdk/pull/12296 . Added some debug\nlogs in the function that was calling `ancestor_relay_parent_info` and\nsometimes there were situations like the following:\n\n```\nmax_relay_parent_session_age = 1\n\ntokio-runtime-worker consensus::common::parent_search: [Parachain] ancestor_relay_parent_info call succeeded scheduling_parent=0x56fa4fbab20eb77b995d18c4a9b638a35422afaeb4138d2a89f6f73ee826055d scheduling_parent_session=3 relay_parent=0x8bcf87dc4c00e5394e046bca6e53fa7d9c3737dd22c72911e162a2847f22751d relay_parent_session=1\n```\n\nSo a relay parent from session 1 is still valid at a scheduling parent\nfrom session 3. This shouldn't happen when max_relay_parent_session_age\nis 1.\n\n## The cause\n\nThe pruning for `AllowedRelayParentInfo` was performed in `new_block`.\nBut `new_block` is called at the beginning of each block, [receiving the\nparent block number and parent block session as\narguments](https://github.com/paritytech/polkadot-sdk/blob/bcafdb3d87eb3756f64bd1e830b0785d17a86812/polkadot/runtime/parachains/src/paras_inherent/mod.rs#L319-L327).\nSo when a new session starts, for example at block 31, `new_block` will\nbe called for block 30, session 2, and only at block 32, it will be\ncalled for block 31, session 3, performing the required pruning. So at\nblock 31, even if `max_relay_parent_session_age`, the blocks from\nsession 1 were still considered valid relay parents. Which is wrong.\n\n## The fix\n\nSo moved the pruning logic from `new_block` to\n`initializer_on_new_session()`, which is actually called correctly at\nthe first block of the session for the current session (for example at\nblock 31 for session 3).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-24T18:09:56Z",
+          "tree_id": "26a6222c736037300cdb1ce14c9afd4f3c5314c6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4447daba7a576accedc9f55ef22408cc6bc1c597"
+        },
+        "date": 1782383218489,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023536264519999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007616361239999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010064123479999963,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14366756172000003,
             "unit": "seconds"
           }
         ]
