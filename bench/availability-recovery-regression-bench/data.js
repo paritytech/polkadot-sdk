@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782399312787,
+  "lastUpdate": 1782405022548,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "490aa7fa021335a1895ba9aedddccdeeaa2bb6f2",
-          "message": "omni-node: Enable storage monitor (#10202)\n\nThe storage monitor shuts down the node when the available DB space is\nfalling below a configured minimum (1GB by default). This prevents that\na database gets corrupted when a disk is filling up.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-04T12:06:54Z",
-          "tree_id": "22c9a8aab5ace8cd130cc8ab0da258b86d2b86e5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/490aa7fa021335a1895ba9aedddccdeeaa2bb6f2"
-        },
-        "date": 1762263866694,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2033002643333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.61636414116667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1436056465666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b339135883ffe5f7e7f02e265b0db55ab9f2bae7",
+          "message": "pallet-revive: per-transaction cold/hot storage access pricing (#12104)\n\n### Summary\nEIP-2929-style cold/hot(warm) pricing for persistent storage access in\npallet-revive. The first access to a (contract, slot)` pair within a\ntransaction is billed \"cold\" (higher weight); any later access to the\nsame slot is \"hot\" (cheaper).\n\n### Description\n#### Covered operations\nCold/hot pricing applies to persistent storage:\n- the EVM `SLOAD` / `SSTORE` opcodes,\n- the PVM storage host functions,\n- the storage precompile (`containsStorage` warms the slot like an\n`SLOAD`).\n\n#### Access list and rollback\nHot/cold state is tracked by a new per-transaction access list, whose\nlayout mirrors `TransientStorage`: a current-state set plus a journal\nand per-frame checkpoints.\n- Nested frames open a checkpoint, so a reverted frame drops the slots\nit warmed; the top-level frame is never rolled back.\n- A cold touch that journals inside a nested frame also pre-pays a small\nrollback weight, to cover the cost of a potential revert (which charges\nno gas).\n\n#### Memory bound\nThe access list is capped at a fixed number of entries per transaction;\nonce full, further new slots are billed cold without being tracked.\nShort slots are held inline (Fix at 32 bytes, VarInline up to\nMAX_INLINE_KEY_LEN); longer ones (VarLong, up to STORAGE_KEY_BYTES) use\na heap-allocated bounded vector.\n\n#### Benchmarks\nNew benchmarks cover the hot storage ops (`seal_set_storage_hot`,\n`clear_storage_hot`, `contains_storage_hot`, `seal_get_storage_hot`,\n`take_storage_hot`) and the access-list overhead\n(`access_list_touch_cold_*`, `access_list_touch_hot_*`,\n`access_list_rollback_amortization`)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-25T14:01:59Z",
+          "tree_id": "8f41d342e1beba78282b2f13f32da68efbc7ea17",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b339135883ffe5f7e7f02e265b0db55ab9f2bae7"
+        },
+        "date": 1782404992512,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13848557816666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.859023327966666,
             "unit": "seconds"
           }
         ]
