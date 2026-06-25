@@ -438,10 +438,10 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#288 id=288 data-nosnippet>288</a>			<span class="kw">let </span>relay_parent_hash = relay_parent_header.hash();
 <a href=#289 id=289 data-nosnippet>289</a>
 <a href=#290 id=290 data-nosnippet>290</a>			<span class="kw">let </span><span class="prelude-val">Some</span>(parent_search_result) = <span class="kw">crate</span>::collators::find_parent(
-<a href=#291 id=291 data-nosnippet>291</a>				relay_parent_hash,
-<a href=#292 id=292 data-nosnippet>292</a>				para_id,
-<a href=#293 id=293 data-nosnippet>293</a>				<span class="kw-2">&amp;*</span>para_backend,
-<a href=#294 id=294 data-nosnippet>294</a>				<span class="kw-2">&amp;</span>relay_client,
+<a href=#291 id=291 data-nosnippet>291</a>				<span class="kw-2">&amp;</span>relay_client,
+<a href=#292 id=292 data-nosnippet>292</a>				<span class="kw-2">&amp;*</span>para_backend,
+<a href=#293 id=293 data-nosnippet>293</a>				para_id,
+<a href=#294 id=294 data-nosnippet>294</a>				relay_parent_hash,
 <a href=#295 id=295 data-nosnippet>295</a>				|parent| {
 <a href=#296 id=296 data-nosnippet>296</a>					<span class="comment">// We never want to build on any "middle block" that isn't the last block in a
 <a href=#297 id=297 data-nosnippet>297</a>					// core.
