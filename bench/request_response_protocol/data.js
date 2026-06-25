@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782393421293,
+  "lastUpdate": 1782398307562,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -101519,6 +101519,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2799075535,
             "range": "± 60122627",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4afa487d81d22a1dc823f6ac8705afb29a0ac5bf",
+          "message": "Cumulus v3 add more test cases + cosmetics (#12395)\n\nRelated to https://github.com/paritytech/polkadot-sdk/issues/11624\n\nCosmetics + implementing the test cases listed\n[here](https://github.com/paritytech/polkadot-sdk/issues/11624#issuecomment-4518148597)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-25T12:58:25Z",
+          "tree_id": "dcc9844ee22d6574fa24b8f0717484cfd96aaefb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4afa487d81d22a1dc823f6ac8705afb29a0ac5bf"
+        },
+        "date": 1782398277086,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18734559,
+            "range": "± 80740",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 18949408,
+            "range": "± 92185",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20645339,
+            "range": "± 90754",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25532584,
+            "range": "± 372764",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56104416,
+            "range": "± 682707",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 361892725,
+            "range": "± 5837984",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2477427379,
+            "range": "± 117051768",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16456522,
+            "range": "± 189124",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16647952,
+            "range": "± 208104",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17268697,
+            "range": "± 181323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21772586,
+            "range": "± 94236",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58310881,
+            "range": "± 840170",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 343886633,
+            "range": "± 5307012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2533767486,
+            "range": "± 22247247",
             "unit": "ns/iter"
           }
         ]
