@@ -36,7 +36,11 @@ impl<T: Config> InboundDownwardQueue<T> {
 		let len_v1 = Self::meta(para)
 			.map(|meta| meta.first_free.defensive_saturating_sub(meta.first_full) as usize);
 
-		len_v0.and_then(|v0| len_v1.map(|v1| v0.saturating_add(v1) as u64))
+		if len_v0.is_none() && len_v1.is_none() {
+			None
+		} else {
+			Some(len_v0.unwrap_or_default().saturating_add(len_v1.unwrap_or_default()) as u64)
+		}
 	}
 
 	/// Append the message at the end of the queue and return the appended message.
