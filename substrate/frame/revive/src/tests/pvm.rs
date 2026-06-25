@@ -4980,6 +4980,78 @@ fn unstable_runtime_storage_read_works() {
 	});
 }
 
+#[cfg(feature = "unstable-precompiles")]
+#[test]
+fn unstable_runtime_dispatch_reentrancy_guarded() {
+	use crate::precompiles::{Precompile, UnstableRuntime, unstable_runtime::IUnstableRuntime};
+	use alloy_core::sol_types::SolInterface;
+
+	let precompile_addr = H160(UnstableRuntime::<Test>::MATCHER.base_address());
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		// A runtime call that re-enters pallet-revive. Dispatching it through the
+		// precompile (itself invoked via `bare_call`) must hit the pallet's global
+		// re-entrancy guard rather than recurse.
+		let reentrant = RuntimeCall::Contracts(crate::Call::call {
+			dest: H160::zero(),
+			value: 0,
+			weight_limit: WEIGHT_LIMIT / 3,
+			storage_deposit_limit: deposit_limit::<Test>(),
+			data: Vec::new(),
+		})
+		.encode();
+		let input =
+			IUnstableRuntime::IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall {
+				encoded_call: reentrant.into(),
+			})
+			.abi_encode();
+
+		let result = builder::bare_call(precompile_addr).data(input).build();
+
+		assert_err!(result.result, <Error<Test>>::ReenteredPallet);
+	});
+}
+
+#[cfg(feature = "unstable-precompiles")]
+#[test]
+fn unstable_runtime_dispatch_out_of_gas_is_clean() {
+	use crate::precompiles::{Precompile, UnstableRuntime, unstable_runtime::IUnstableRuntime};
+	use alloy_core::sol_types::SolInterface;
+
+	let precompile_addr = H160(UnstableRuntime::<Test>::MATCHER.base_address());
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let before = get_balance(&BOB);
+
+		let inner = RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+			dest: BOB,
+			value: 1_000,
+		})
+		.encode();
+		let input =
+			IUnstableRuntime::IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall {
+				encoded_call: inner.into(),
+			})
+			.abi_encode();
+
+		// A weight limit far too small to pay for the precompile's charges: running
+		// out of gas must be a clean error with no state change (and no panic).
+		let result = builder::bare_call(precompile_addr)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::from_parts(1_000, 1_000),
+				deposit_limit: deposit_limit::<Test>(),
+			})
+			.data(input)
+			.build();
+
+		assert_err!(result.result, <Error<Test>>::OutOfGas);
+		assert_eq!(get_balance(&BOB), before, "no funds move when the dispatch runs out of gas");
+	});
+}
+
 #[test]
 fn bump_nonce_once_works() {
 	let (code, hash) = compile_module("dummy").unwrap();

@@ -496,6 +496,24 @@ mod tests {
 	}
 
 	#[test]
+	fn dispatch_rejects_empty_call() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			// Empty input is not a valid `RuntimeCall`.
+			let input =
+				IUnstableRuntime::IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall {
+					encoded_call: Vec::new().into(),
+				});
+
+			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+
+			assert_eq!(result.unwrap_err(), Error::Revert("invalid RuntimeCall encoding".into()));
+		});
+	}
+
+	#[test]
 	fn dispatch_charges_for_decoding_call_bytes() {
 		// Measure the weight consumed when dispatching `len` bytes of (invalid)
 		// call data. Invalid input reverts at decode time, so no dispatch
