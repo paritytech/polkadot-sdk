@@ -122,7 +122,10 @@ where
 					.map_err(|_| Error::Revert("invalid RuntimeCall encoding".into()))?;
 
 				// Let the runtime restrict which calls may be dispatched through
-				// this precompile (defaults to allowing everything).
+				// this precompile (defaults to allowing everything). Redundant with
+				// the origin-attached filter below for *blocking*, but kept so a
+				// filtered top-level call reverts with this clear message instead of
+				// the generic `frame_system` "call filtered" error.
 				if !Filter::contains(&call) {
 					return Err(Error::Revert("call not allowed by filter".into()));
 				}
@@ -145,9 +148,8 @@ where
 				// calls nested inside synchronous wrappers (`Utility::batch`,
 				// `Proxy::proxy`, ...), not only on the top-level call checked above.
 				origin.add_filter(|c: &<T as frame_system::Config>::RuntimeCall| {
-					Filter::contains(<<T as crate::Config>::RuntimeCall as IsType<
-						<T as frame_system::Config>::RuntimeCall,
-					>>::from_ref(c))
+					let c = <T as crate::Config>::RuntimeCall::from_ref(c);
+					Filter::contains(c)
 				});
 
 				let info = call.get_dispatch_info();
@@ -232,7 +234,7 @@ mod tests {
 		})
 	}
 
-	/// Build the `storage(key, max_len)` precompile input.
+	/// Build the `getStorage(key, max_len)` precompile input.
 	fn storage_input(key: &[u8], max_len: u32) -> IUnstableRuntime::IUnstableRuntimeCalls {
 		IUnstableRuntime::IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall {
 			key: key.to_vec().into(),
