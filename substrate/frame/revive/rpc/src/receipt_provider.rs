@@ -777,6 +777,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			}
 
 			for (i, topic) in topics.into_iter().enumerate() {
+				// A `null` topic imposes no constraint at this position: it matches any value.
+				let Some(topic) = topic else { continue };
 				match topic {
 					FilterTopic::Single(hash) => {
 						qb.push(format_args!(" AND topic_{i} = ")).push_bind(hash.0.to_vec());
@@ -1351,7 +1353,7 @@ mod tests {
 			.logs(
 				Some(Filter {
 					from_block: Some(BlockTag::Earliest.into()),
-					topics: Some(vec![FilterTopic::Single(log1.topics[0])]),
+					topics: Some(vec![Some(FilterTopic::Single(log1.topics[0]))]),
 					..Default::default()
 				}),
 				&resolve_block_number,
@@ -1365,8 +1367,8 @@ mod tests {
 				Some(Filter {
 					from_block: Some(BlockTag::Earliest.into()),
 					topics: Some(vec![
-						FilterTopic::Single(log1.topics[0]),
-						FilterTopic::Single(log1.topics[1]),
+						Some(FilterTopic::Single(log1.topics[0])),
+						Some(FilterTopic::Single(log1.topics[1])),
 					]),
 					..Default::default()
 				}),
@@ -1380,7 +1382,10 @@ mod tests {
 			.logs(
 				Some(Filter {
 					from_block: Some(BlockTag::Earliest.into()),
-					topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
+					topics: Some(vec![Some(FilterTopic::Multiple(vec![
+						log1.topics[0],
+						log2.topics[0],
+					]))]),
 					..Default::default()
 				}),
 				&resolve_block_number,
@@ -1396,12 +1401,29 @@ mod tests {
 					to_block: Some(BlockTag::Latest.into()),
 					block_hash: None,
 					address: Some(vec![log1.address, log2.address].into()),
-					topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
+					topics: Some(vec![Some(FilterTopic::Multiple(vec![
+						log1.topics[0],
+						log2.topics[0],
+					]))]),
 				}),
 				&resolve_block_number,
 			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
+
+		// Null (wildcard) topic position: match any topic_0, but topic_1 == log1.topics[1].
+		// Only log1 has that second topic, so log2 is excluded.
+		let logs = provider
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					topics: Some(vec![None, Some(FilterTopic::Single(log1.topics[1]))]),
+					..Default::default()
+				}),
+				&resolve_block_number,
+			)
+			.await?;
+		assert_eq!(logs, vec![log1.clone()]);
 		Ok(())
 	}
 
