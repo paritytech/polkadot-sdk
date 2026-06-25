@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782391947682,
+  "lastUpdate": 1782394567331,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f2c957b8065c5bfe94d6fad5af8e35a38fcdb59f",
-          "message": "revive-eth-rpc: fix blocks pruning (#10175)\n\nWe need to call prune_blocks before the insertion process.\nOtherwise, if we get a fork, we won't be able to insert it into the DB\nbecause it already exists there. In reality, we want the other fork to\nbe pruned instead.\n\nMoreover, once we do get a fork we need to prune all the other\nsubsequent blocks of the old fork",
-          "timestamp": "2025-11-03T14:06:23Z",
-          "tree_id": "a20efba814d825db11d739f7e79eb0b8f7edebc8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f2c957b8065c5bfe94d6fad5af8e35a38fcdb59f"
-        },
-        "date": 1762184694111,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63626.46,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52938.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000196634,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.42262497101000085,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7045585594310504,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.441595701730001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.915672772479999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000019438230000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000196634,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000019438230000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4038141594800004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.392665753550001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.40054457835,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005562613360000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.982480549960002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 0.000017484180000000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "90d5eef17615c4340e307f7f908c07435f63fd90",
+          "message": "fatxpool: invalid inblock event fixed (#11733)\n\n#### Problem\n\nWhen a user sends rapid replacement transactions (same sender+nonce,\nincreasing priority), an earlier version may get included in a block by\nanother node before the latest replacement propagates. The local node\nthen incorrectly reports the latest replacement as `InBlock` - even\nthough it was never included in any block.\n\n#### How it happens\n\n1. Tx A (nonce N) is in the pool. Tx B (nonce N, higher priority)\narrives and usurps A.\n2. A remote block producer includes A (broadcast before B reached it).\n3. Local node imports the block. During pruning, the pool collects tags\nfrom the block's extrinsics. B provides the same tag as A (same\nsender+nonce), so tag-based pruning removes B from the pool.\n4. B is re-verified at the new block and fails (e.g. `Stale` — nonce\nconsumed, or other error).\n5. `resubmit_pruned` treats \"pruned by tag + `InvalidTransaction` on\nresubmit\" as proof of block inclusion and fires `InBlock` for B.\n\nB was never in the block. The `InBlock` event is false.\n\n#### Why it was wrong\n\n`resubmit_pruned` in `validated_pool.rs` chained two sources into\n`fire_pruned`:\n\n- `known_imported_hashes` — hashes of actual block extrinsics (from\nblock body). Always correct.\n- Pruned transactions that failed resubmission with `InvalidTransaction`\n— assumed to be\n\"successfully included.\" Wrong after replacement: a replacement tx\nshares tags with the\n  block extrinsic but has a different hash.\n\n`known_imported_hashes` already contains the complete, unfiltered list\nof block extrinsic\nhashes. The second source only adds false positives.\n\n#### Fix\n\nRemove the \"pruned + invalid = in block\" inference from\n`resubmit_pruned`. Fire `InBlock`\nonly for `known_imported_hashes` — the block body is the ground truth\nfor inclusion.\n\nThe `submit(pruned_xts)` call is kept — it still serves its purpose of\nresubmitting\nstill-valid collateral transactions (pruned as part of the dependency\nsubtree) back to\nthe pool.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-06-25T10:21:07Z",
+          "tree_id": "0c95368030873b95c2ba3b210d91e383d572c9dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/90d5eef17615c4340e307f7f908c07435f63fd90"
+        },
+        "date": 1782394536469,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63596.729999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020489169999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.76021705004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.165932601689942,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7637436258399457,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005177081769999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000025539709999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000025539709999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.149551425722608,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7336702601000016,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7291434775899996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8013460516500013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3726350546999955,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020489169999999998,
             "unit": "seconds"
           }
         ]
