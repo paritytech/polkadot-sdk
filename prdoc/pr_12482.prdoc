@@ -1,12 +1,10 @@
 title: Remove deprecated FilterAssetLocation trait
 doc:
-- audience: Runtime Dev
-  description: |-
-    ## Summary
+  - audience: Runtime Dev
+    description: |
+      Removes deprecated `xcm_executor::traits::FilterAssetLocation`. Use
+      `frame_support::traits::ContainsPair<Asset, Location>` directly.
 
-    Removes the deprecated `FilterAssetLocation` trait from `staging-xcm-executor`. Use `frame_support::traits::ContainsPair<Asset, Location>` directly.
-
-    Part of #11561
 crates:
-- name: staging-xcm-executor
-  bump: major
+  - name: staging-xcm-executor
+    bump: major
