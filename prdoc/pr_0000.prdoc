@@ -1,0 +1,11 @@
+title: 'pallet-revive: map eth-rpc errors to EIP-1474 error codes'
+doc:
+- audience: [Node Dev]
+  description: |-
+    The Ethereum JSON-RPC server (`pallet-revive-eth-rpc`) previously collapsed every
+    `EthRpcError` other than a client error to the generic `-32600` (Invalid request)
+    code. Each variant is now mapped to its appropriate EIP-1474 error code so that
+    Ethereum tooling can react to RPC errors correctly.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch

@@ -131,13 +131,51 @@ pub enum EthRpcError {
 	TransactionTypeNotSupported(Byte),
 }
 
-// TODO use https://eips.ethereum.org/EIPS/eip-1474#error-codes
+/// EIP-1474 error code returned when a transaction is rejected.
+///
+/// <https://eips.ethereum.org/EIPS/eip-1474#error-codes>
+const TRANSACTION_REJECTED_CODE: i32 = -32003;
+
+/// EIP-1474 error code returned when a requested resource cannot be found.
+///
+/// <https://eips.ethereum.org/EIPS/eip-1474#error-codes>
+const RESOURCE_NOT_FOUND_CODE: i32 = -32001;
+
 impl From<EthRpcError> for ErrorObjectOwned {
 	fn from(value: EthRpcError) -> Self {
-		match value {
-			EthRpcError::ClientError(err) => Self::from(err),
-			_ => Self::owned::<String>(ErrorCode::InvalidRequest.code(), value.to_string(), None),
-		}
+		// Error codes follow EIP-1474.
+		// <https://eips.ethereum.org/EIPS/eip-1474#error-codes>
+		let message = value.to_string();
+		let code = match value {
+			EthRpcError::ClientError(err) => return Self::from(err),
+			EthRpcError::RlpError(_) => ErrorCode::InvalidParams.code(),
+			EthRpcError::ConversionError => ErrorCode::InternalError.code(),
+			EthRpcError::AccountNotFound(_) => RESOURCE_NOT_FOUND_CODE,
+			EthRpcError::InvalidSignature |
+			EthRpcError::InvalidTransaction |
+			EthRpcError::TransactionTypeNotSupported(_) => TRANSACTION_REJECTED_CODE,
+		};
+		Self::owned::<String>(code, message, None)
+	}
+}
+
+#[cfg(test)]
+mod error_mapping_tests {
+	use super::*;
+
+	fn code_of(error: EthRpcError) -> i32 {
+		ErrorObjectOwned::from(error).code()
+	}
+
+	/// Each [`EthRpcError`] variant maps to its EIP-1474 error code.
+	#[test]
+	fn eth_rpc_error_maps_to_eip1474_codes() {
+		let decode_error = rlp::DecoderError::RlpIsTooShort;
+		assert_eq!(code_of(EthRpcError::RlpError(decode_error)), ErrorCode::InvalidParams.code());
+		assert_eq!(code_of(EthRpcError::ConversionError), ErrorCode::InternalError.code());
+		assert_eq!(code_of(EthRpcError::InvalidSignature), TRANSACTION_REJECTED_CODE);
+		assert_eq!(code_of(EthRpcError::InvalidTransaction), TRANSACTION_REJECTED_CODE);
+		assert_eq!(code_of(EthRpcError::AccountNotFound(H160::zero())), RESOURCE_NOT_FOUND_CODE);
 	}
 }
 
