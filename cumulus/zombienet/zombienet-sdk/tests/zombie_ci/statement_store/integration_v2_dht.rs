@@ -4,8 +4,8 @@
 //! End-to-end tests for the v2 DHT-affinity statement routing.
 //!
 //! v2 routes a statement to the `K` nodes with affinity to its topic instead of flooding every
-//! peer. It is enabled per node by the `STATEMENT_STORE_V2_DHT_ENABLED` environment variable (off by
-//! default); the replication factor `K` and gossip target are set via CLI flags.
+//! peer. It is enabled per node by the `STATEMENT_STORE_V2_DHT_ENABLED` environment variable (off
+//! by default); the replication factor `K` and gossip target are set via CLI flags.
 
 use super::common::{
 	expect_one_statement, spawn_network_with_injected_allowances_v2, stores_locally,
@@ -21,8 +21,8 @@ const TEST_GOSSIP_TARGET: u32 = 3;
 // Statement-store peers known to a node's topology, exported per node by the v2 DHT path.
 const KNOWN_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_known_peers";
 
-/// Subscribing gives a node explicit affinity: it then receives matching statements even though it is
-/// not a DHT replica for the topic and stored nothing before.
+/// Subscribing gives a node explicit affinity: it then receives matching statements even though it
+/// is not a DHT replica for the topic and stored nothing before.
 ///
 /// Two nodes, `K=1`. We pick a topic and find which node is its single DHT replica, then submit a
 /// statement on that replica. The other node is not a replica, so it stores nothing. Once it
@@ -45,7 +45,8 @@ async fn explicit_affinity_works() -> Result<(), anyhow::Error> {
 
 	// Each node must learn the other before its affinity decision is meaningful.
 	for node in [alice, bob] {
-		node.wait_metric_with_timeout(KNOWN_PEERS_METRIC, |peers| peers >= 1.0, 120).await?;
+		node.wait_metric_with_timeout(KNOWN_PEERS_METRIC, |peers| peers >= 1.0, 120)
+			.await?;
 	}
 
 	let topic: Topic = [0x33u8; 32].into();
@@ -66,8 +67,8 @@ async fn explicit_affinity_works() -> Result<(), anyhow::Error> {
 	let expected: Bytes = statement.encode().into();
 	assert_eq!(submit_statement(replica_rpc, &statement).await?, SubmitResult::New);
 
-	// Wait for propagation. The replica stores its own submission; the non-replica is farther from the
-	// topic, so it is never a routing target and should receive nothing.
+	// Wait for propagation. The replica stores its own submission; the non-replica is farther from
+	// the topic, so it is never a routing target and should receive nothing.
 	tokio::time::sleep(Duration::from_secs(10)).await;
 
 	// The replica holds the statement (DHT affinity).
