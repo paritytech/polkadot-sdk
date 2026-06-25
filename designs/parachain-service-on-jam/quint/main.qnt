@@ -105,9 +105,15 @@ module main {
     nondet wp2ItemCount = oneOf(Set(0, 1, 2))
     nondet wp2AuthMalformed = oneOf(Set(false, true))
 
-    nondet numPkgs = oneOf(Set(1, 2))
+    // 0 packages models a pure always-accumulate block (the service still
+    // accumulates with no work packages); 1 or 2 exercise the normal path.
+    nondet numPkgs = oneOf(Set(0, 1, 2))
 
-    val out1 = accumulateOnePackage(svc, wp1Result, solicitedSet, None, FixedCodeLen, now, assetHub, coretimeChain)
+    val passThrough: PerPackageOutcome =
+      { state: svc, solicited: solicitedSet, jamDesignate: None }
+    val out1 =
+      if (numPkgs == 0) passThrough
+      else accumulateOnePackage(svc, wp1Result, solicitedSet, None, FixedCodeLen, now, assetHub, coretimeChain)
     // wp2 refines against the post-wp1 state so a second package for the
     // SAME para chains off wp1's new head; different para → identical to
     // refining against `svc`.
@@ -125,7 +131,8 @@ module main {
     }
 
     val results =
-      if (numPkgs == 1) List(wp1Result)
+      if (numPkgs == 0) List()
+      else if (numPkgs == 1) List(wp1Result)
       else List(wp1Result, wp2Result)
 
     all {
