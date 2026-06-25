@@ -35,11 +35,19 @@ async fn dht_affinity_works() -> Result<(), anyhow::Error> {
 	);
 
 	let names = ["alice", "bob", "charlie"];
-	let network =
-		spawn_network_with_injected_allowances_v2(&names, 4, 2, TEST_GOSSIP_TARGET).await?;
+	let replication_factor: usize = 2;
+	let network = spawn_network_with_injected_allowances_v2(
+		&names,
+		names.len() as u32,
+		replication_factor as u32,
+		TEST_GOSSIP_TARGET,
+	)
+	.await?;
 
-	let nodes =
-		[network.get_node(names[0])?, network.get_node(names[1])?, network.get_node(names[2])?];
+	let mut nodes = Vec::with_capacity(names.len());
+	for name in names {
+		nodes.push(network.get_node(name)?);
+	}
 	let mut rpcs = Vec::with_capacity(nodes.len());
 	for node in &nodes {
 		rpcs.push(node.rpc().await?);
@@ -47,8 +55,12 @@ async fn dht_affinity_works() -> Result<(), anyhow::Error> {
 
 	// Each node must learn the other two before its K=2 affinity decision is meaningful.
 	for node in &nodes {
-		node.wait_metric_with_timeout(KNOWN_PEERS_METRIC, |peers| peers >= 2.0, 120)
-			.await?;
+		node.wait_metric_with_timeout(
+			KNOWN_PEERS_METRIC,
+			|peers| peers >= (names.len() - 1) as f64,
+			120u64,
+		)
+		.await?;
 	}
 
 	// With K=2 over three nodes, exactly two nodes are the DHT replicas for any topic.
@@ -89,15 +101,16 @@ async fn dht_affinity_works() -> Result<(), anyhow::Error> {
 
 		let replicas = counts.iter().filter(|held| **held == statements.len()).count();
 		let non_replicas = counts.iter().filter(|held| **held == 0).count();
-		if replicas == 2 && non_replicas == 1 {
+		if replicas == replication_factor && non_replicas == names.len() - replication_factor {
 			return Ok(());
 		}
 
 		if attempt + 1 == ATTEMPTS {
 			return Err(anyhow::anyhow!(
-				"unexpected storage distribution {counts:?}; expected two replicas holding all {} \
-				 statements and one non-replica holding none",
-				statements.len()
+				"unexpected storage distribution {counts:?}; expected {replication_factor} replicas \
+				 holding all {} statements and {} non-replicas holding none",
+				statements.len(),
+				names.len() - replication_factor,
 			));
 		}
 		tokio::time::sleep(Duration::from_secs(2)).await;
