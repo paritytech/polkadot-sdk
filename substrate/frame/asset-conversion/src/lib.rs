@@ -722,7 +722,8 @@ pub mod pallet {
 			let pool_account =
 				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
 
-			let (reserve1, reserve2) = Self::get_reserves(asset1.clone(), asset2.clone())?;
+			let reserve1 = Self::get_balance(&pool_account, asset1.clone());
+			let reserve2 = Self::get_balance(&pool_account, asset2.clone());
 
 			let amount1: T::Balance;
 			let amount2: T::Balance;
