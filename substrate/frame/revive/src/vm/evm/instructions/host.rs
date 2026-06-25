@@ -112,17 +112,19 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
 	// Storage values can exceed 32 bytes when written by a PVM contract sharing this
 	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
-	let charged = interpreter
-		.ext
-		.charge_or_halt(RuntimeCosts::GetStorage(limits::STORAGE_BYTES))?;
 	let key = Key::Fix(index.to_big_endian());
+	let access_kind = interpreter.ext.touch_storage_access(false, &key);
+	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage {
+		len: limits::STORAGE_BYTES,
+		kind: access_kind,
+	})?;
 	let value = interpreter.ext.get_storage(&key);
 
 	let actual_len = value.as_ref().map(|v| v.len() as u32).unwrap_or(0);
 	interpreter
 		.ext
 		.frame_meter_mut()
-		.adjust_weight(charged, RuntimeCosts::GetStorage(actual_len));
+		.adjust_weight(charged, RuntimeCosts::GetStorage { len: actual_len, kind: access_kind });
 
 	*index = if let Some(storage_value) = value {
 		// sload expects a 32-byte word; reject anything else.
@@ -138,33 +140,42 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	ControlFlow::Continue(())
 }
 
+/// Shared helper for SSTORE and TSTORE: touch the access list, perform the
+/// write via `set_function`, and pre-charge worst-case `old_bytes` (refunded
+/// on Ok).
 fn store_helper<'ext, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
-	cost_before: RuntimeCosts,
-	set_function: fn(&mut E, &Key, Option<Vec<u8>>, bool) -> Result<WriteOutcome, DispatchError>,
-	adjust_cost: fn(new_bytes: u32, old_bytes: u32) -> RuntimeCosts,
+	transient: bool,
+	set_function: fn(&mut E, &Key, Option<Vec<u8>>) -> Result<WriteOutcome, DispatchError>,
 ) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
 
 	let [index, value] = interpreter.stack.popn()?;
-
-	// Charge gas before set_storage and later adjust it down to the true gas cost
-	let charged_amount = interpreter.ext.charge_or_halt(cost_before)?;
 	let key = Key::Fix(index.to_big_endian());
-	let take_old = false;
+
+	let access_kind = interpreter.ext.touch_storage_access(transient, &key);
+	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::SetStorage {
+		new_bytes: 32,
+		old_bytes: limits::STORAGE_BYTES,
+		kind: access_kind,
+	})?;
+
 	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
-	let Ok(write_outcome) = set_function(interpreter.ext, &key, value_to_store.clone(), take_old)
-	else {
+	let new_bytes = value_to_store.as_ref().map(|v| v.len() as u32).unwrap_or(0);
+	let Ok(write_outcome) = set_function(interpreter.ext, &key, value_to_store) else {
 		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 	};
 
 	interpreter.ext.frame_meter_mut().adjust_weight(
-		charged_amount,
-		adjust_cost(value_to_store.unwrap_or_default().len() as u32, write_outcome.old_len()),
+		charged,
+		RuntimeCosts::SetStorage {
+			new_bytes,
+			old_bytes: write_outcome.old_len(),
+			kind: access_kind,
+		},
 	);
-
 	ControlFlow::Continue(())
 }
 
@@ -172,45 +183,41 @@ fn store_helper<'ext, E: Ext>(
 ///
 /// Stores a word to storage.
 pub fn sstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	let old_bytes = limits::STORAGE_BYTES;
-	store_helper(
-		interpreter,
-		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes },
-		|ext, key, value, take_old| ext.set_storage(key, value, take_old),
-		|new_bytes, old_bytes| RuntimeCosts::SetStorage { new_bytes, old_bytes },
-	)
+	store_helper(interpreter, false, |ext, key, value| {
+		let take_old = false;
+		ext.set_storage(key, value, take_old)
+	})
 }
 
 /// EIP-1153: Transient storage opcodes
 /// Store value to transient storage
 pub fn tstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	let old_bytes = limits::STORAGE_BYTES;
-	store_helper(
-		interpreter,
-		RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes },
-		|ext, key, value, take_old| ext.set_transient_storage(key, value, take_old),
-		|new_bytes, old_bytes| RuntimeCosts::SetTransientStorage { new_bytes, old_bytes },
-	)
+	store_helper(interpreter, true, |ext, key, value| {
+		let take_old = false;
+		ext.set_transient_storage(key, value, take_old)
+	})
 }
 
 /// EIP-1153: Transient storage opcodes
 /// Load value from transient storage
 pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
-	// Transient values can exceed 32 bytes when written by a PVM contract sharing this
-	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
-	let charged = interpreter
-		.ext
-		.charge_or_halt(RuntimeCosts::GetTransientStorage(limits::STORAGE_BYTES))?;
 
 	let key = Key::Fix(index.to_big_endian());
+	let access_kind = interpreter.ext.touch_storage_access(true, &key);
+	// Transient values can exceed 32 bytes when written by a PVM contract sharing this
+	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
+	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage {
+		len: limits::STORAGE_BYTES,
+		kind: access_kind,
+	})?;
 	let bytes = interpreter.ext.get_transient_storage(&key);
 
 	let actual_len = bytes.as_ref().map(|v| v.len() as u32).unwrap_or(0);
 	interpreter
 		.ext
 		.frame_meter_mut()
-		.adjust_weight(charged, RuntimeCosts::GetTransientStorage(actual_len));
+		.adjust_weight(charged, RuntimeCosts::GetStorage { len: actual_len, kind: access_kind });
 
 	*index = if let Some(storage_value) = bytes {
 		if storage_value.len() != 32 {
