@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782392023491,
+  "lastUpdate": 1782394646223,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9136565addc23a552f6960a7581f13c8dfc651f1",
-          "message": "pallet_revive_dev_node: Always increment the timestamp by at least one second (#10160)\n\nFixes https://github.com/paritytech/contract-issues/issues/191\n\ncc @albertov19\n\nThe instant seal introduces a race condition. Blocks can be build faster\nthan the timestamp resolution of Ethereum. Eth timestamps are only one\nsecond granularity. If we build blocks faster it can happen that the\ntimestamp delta between them is zero. This is not allowed. We have to\nmake sure that in instant seal two blocks don't return the same\ntimestamp.\n\nThis PR does that by always incrementing the timestamp by at least one\nsecond. Note that this is a dev-node only change. Production chains\nwon't have this problem as long as the block time is larger than 1\nsecond.\n\nYes, it will produce timestamps in the future. But this seems to be the\nlesser evil for this dev node. Time is subjective. But the rule to not\nreturn duplicate timestamps is dependent on.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-31T16:46:46Z",
-          "tree_id": "5c7ce198b06890d684f68f70084ddc28d5c9e05f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9136565addc23a552f6960a7581f13c8dfc651f1"
-        },
-        "date": 1761935183604,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00269483387,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008724980439999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005117220329999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011482873230000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "90d5eef17615c4340e307f7f908c07435f63fd90",
+          "message": "fatxpool: invalid inblock event fixed (#11733)\n\n#### Problem\n\nWhen a user sends rapid replacement transactions (same sender+nonce,\nincreasing priority), an earlier version may get included in a block by\nanother node before the latest replacement propagates. The local node\nthen incorrectly reports the latest replacement as `InBlock` - even\nthough it was never included in any block.\n\n#### How it happens\n\n1. Tx A (nonce N) is in the pool. Tx B (nonce N, higher priority)\narrives and usurps A.\n2. A remote block producer includes A (broadcast before B reached it).\n3. Local node imports the block. During pruning, the pool collects tags\nfrom the block's extrinsics. B provides the same tag as A (same\nsender+nonce), so tag-based pruning removes B from the pool.\n4. B is re-verified at the new block and fails (e.g. `Stale` — nonce\nconsumed, or other error).\n5. `resubmit_pruned` treats \"pruned by tag + `InvalidTransaction` on\nresubmit\" as proof of block inclusion and fires `InBlock` for B.\n\nB was never in the block. The `InBlock` event is false.\n\n#### Why it was wrong\n\n`resubmit_pruned` in `validated_pool.rs` chained two sources into\n`fire_pruned`:\n\n- `known_imported_hashes` — hashes of actual block extrinsics (from\nblock body). Always correct.\n- Pruned transactions that failed resubmission with `InvalidTransaction`\n— assumed to be\n\"successfully included.\" Wrong after replacement: a replacement tx\nshares tags with the\n  block extrinsic but has a different hash.\n\n`known_imported_hashes` already contains the complete, unfiltered list\nof block extrinsic\nhashes. The second source only adds false positives.\n\n#### Fix\n\nRemove the \"pruned + invalid = in block\" inference from\n`resubmit_pruned`. Fire `InBlock`\nonly for `known_imported_hashes` — the block body is the ground truth\nfor inclusion.\n\nThe `submit(pruned_xts)` call is kept — it still serves its purpose of\nresubmitting\nstill-valid collateral transactions (pruned as part of the dependency\nsubtree) back to\nthe pool.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-06-25T10:21:07Z",
+          "tree_id": "0c95368030873b95c2ba3b210d91e383d572c9dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/90d5eef17615c4340e307f7f908c07435f63fd90"
+        },
+        "date": 1782394615615,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010025709319999984,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00258347174,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009282228679999987,
             "unit": "seconds"
           }
         ]
