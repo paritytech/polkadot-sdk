@@ -1122,11 +1122,9 @@ impl Client {
 	pub async fn logs(&self, filter: Option<Filter>) -> Result<Vec<Log>, ClientError> {
 		let earliest = U256::from(self.earliest_block_number());
 		let latest = U256::from(self.latest_block().await.number());
-		let resolve_block_number = |block: BlockNumberOrTag| match block {
-			BlockNumberOrTag::U256(v) => Ok(v),
-			BlockNumberOrTag::BlockTag(BlockTag::Earliest) => Ok(earliest),
-			BlockNumberOrTag::BlockTag(BlockTag::Latest) => Ok(latest),
-			BlockNumberOrTag::BlockTag(tag) => anyhow::bail!("Unsupported tag: {tag:?}"),
+		let finalized = U256::from(self.latest_finalized_block().await.number());
+		let resolve_block_number = |block: BlockNumberOrTag| -> anyhow::Result<U256> {
+			Ok(resolve_filter_block_number(block, earliest, latest, finalized))
 		};
 
 		let logs = self
@@ -1176,4 +1174,45 @@ impl Client {
 
 fn to_hex(bytes: impl AsRef<[u8]>) -> String {
 	format!("0x{}", hex::encode(bytes.as_ref()))
+}
+
+/// Resolve a block number or tag from an `eth_getLogs` filter to a concrete block number.
+///
+/// `safe` and `finalized` resolve to the latest finalized block, and `pending` resolves to
+/// `latest`, consistent with [`Client::block_hash_for_tag`].
+fn resolve_filter_block_number(
+	block: BlockNumberOrTag,
+	earliest: U256,
+	latest: U256,
+	finalized: U256,
+) -> U256 {
+	match block {
+		BlockNumberOrTag::U256(n) => n,
+		BlockNumberOrTag::BlockTag(BlockTag::Earliest) => earliest,
+		BlockNumberOrTag::BlockTag(BlockTag::Safe | BlockTag::Finalized) => finalized,
+		BlockNumberOrTag::BlockTag(BlockTag::Latest | BlockTag::Pending) => latest,
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn resolve_filter_block_number_supports_all_block_tags() {
+		let earliest = U256::from(1u32);
+		let latest = U256::from(100u32);
+		let finalized = U256::from(90u32);
+		let resolve = |block| resolve_filter_block_number(block, earliest, latest, finalized);
+
+		// Explicit block numbers are returned as-is.
+		assert_eq!(resolve(BlockNumberOrTag::U256(U256::from(42u32))), U256::from(42u32));
+
+		// Every tag resolves instead of being rejected as unsupported.
+		assert_eq!(resolve(BlockNumberOrTag::BlockTag(BlockTag::Earliest)), earliest);
+		assert_eq!(resolve(BlockNumberOrTag::BlockTag(BlockTag::Latest)), latest);
+		assert_eq!(resolve(BlockNumberOrTag::BlockTag(BlockTag::Pending)), latest);
+		assert_eq!(resolve(BlockNumberOrTag::BlockTag(BlockTag::Safe)), finalized);
+		assert_eq!(resolve(BlockNumberOrTag::BlockTag(BlockTag::Finalized)), finalized);
+	}
 }
