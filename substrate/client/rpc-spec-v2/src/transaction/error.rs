@@ -48,18 +48,13 @@ impl<Hash> From<Error> for TransactionEvent<Hash> {
 				})
 			},
 			Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(e))) => {
-				let error = if let Some(message) = e.message {
-					format!(
-						"Invalid transaction: Module invalidity: index: {}, error: {:?}, message: {}",
-						e.index, e.error, message
-					)
-				} else {
-					format!(
-						"Invalid transaction: Module invalidity: index: {}, error: {:?}",
-						e.index, e.error
-					)
-				};
-				TransactionEvent::Invalid(TransactionError { error })
+				let details = e.rpc_details();
+				TransactionEvent::Invalid(TransactionError {
+					error: format!(
+						"Invalid transaction: module invalidity (pallet: {}, error: {})",
+						details.pallet_index, details.error
+					),
+				})
 			},
 			Error::Pool(PoolError::InvalidTransaction(e)) => {
 				let msg: &str = e.into();

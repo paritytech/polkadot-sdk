@@ -198,20 +198,16 @@ mod tests {
 	use sc_transaction_pool_api::error::Error as PoolError;
 	use sp_runtime::{ModuleInvalidity, ModuleInvalidityDetails};
 
-	/// After validation, the node only has index + error bytes — not the runtime `message`.
-	/// RPC must expose those bytes so PAPI / polkadot-js can resolve the name via metadata.
+	/// After validation, the node exposes pallet index and error number for diagnostics.
 	#[test]
 	fn author_submit_extrinsic_module_invalidity_rpc_data() {
-		let on_node = ModuleInvalidity { index: 42, error: [1, 0, 0, 0], message: None };
+		let on_node = ModuleInvalidity { index: 42, error: 1 };
 		let err = Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(on_node)));
 		let rpc_error: ErrorObjectOwned = err.into();
 
 		let details: ModuleInvalidityDetails =
 			serde_json::from_str(rpc_error.data().unwrap().get()).unwrap();
 		assert_eq!(details.pallet_index, 42);
-		assert_eq!(details.error, "0x01000000");
-
-		let json = serde_json::to_value(&details).unwrap();
-		assert!(json.get("message").is_none(), "message cannot be transmitted over RPC");
+		assert_eq!(details.error, 1);
 	}
 }

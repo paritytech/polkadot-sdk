@@ -49,8 +49,6 @@
 extern crate alloc;
 
 #[doc(hidden)]
-pub use alloc::string::String;
-#[doc(hidden)]
 pub use alloc::vec::Vec;
 #[doc(hidden)]
 pub use codec;
@@ -575,57 +573,35 @@ impl PartialEq for ModuleError {
 
 /// Reason why a transaction was invalid due to a module-specific reason.
 ///
-/// This is semantically different from `ModuleError` which represents
-/// a dispatch error. While structurally identical, separating the types
-/// avoids ambiguity in conversion logic (e.g. `Into`).
+/// Semantically different from [`ModuleError`] (dispatch error). Carries a per-module error
+/// number when validation fails.
 #[derive(
-	Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+	Eq, PartialEq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ModuleInvalidity {
 	/// Module index, matching the metadata module index.
 	pub index: u8,
-	/// Module specific error value.
-	pub error: [u8; MAX_MODULE_ERROR_ENCODED_SIZE],
-	/// Optional error message for logging inside the runtime.
-	///
-	/// Not SCALE-encoded: it is **not** available on the node after `validate_transaction`
-	/// returns. RPC clients must decode the `error` field using chain metadata (same as
-	/// [`ModuleError`]).
-	#[codec(skip)]
-	#[cfg_attr(feature = "serde", serde(skip_deserializing))]
-	pub message: Option<&'static str>,
+	/// Module-specific error number.
+	pub error: u16,
 }
 
-impl PartialEq for ModuleInvalidity {
-	fn eq(&self, other: &Self) -> bool {
-		(self.index == other.index) && (self.error == other.error)
-	}
-}
-
-/// Module invalidity details for RPC / JSON consumers.
-///
-/// Does not include `message` (stripped at the runtime boundary). PAPI and polkadot-js should
-/// resolve the human-readable error name via metadata (`findMetaError` and equivalents).
+/// Module invalidity details exposed in RPC responses for diagnostics.
 #[cfg(feature = "serde")]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModuleInvalidityDetails {
 	/// Pallet index, matching the metadata module index.
 	pub pallet_index: u8,
-	/// SCALE-encoded pallet error, hex-encoded with a `0x` prefix.
-	pub error: String,
+	/// Module-specific error number.
+	pub error: u16,
 }
 
 impl ModuleInvalidity {
-	/// Build structured details for RPC after validation (post SCALE round-trip).
+	/// Build structured details for RPC.
 	#[cfg(feature = "std")]
 	pub fn rpc_details(&self) -> ModuleInvalidityDetails {
-		use sp_core::hexdisplay::HexDisplay;
-		ModuleInvalidityDetails {
-			pallet_index: self.index,
-			error: alloc::format!("0x{}", HexDisplay::from(&self.error)),
-		}
+		ModuleInvalidityDetails { pallet_index: self.index, error: self.error }
 	}
 }
 
@@ -1252,29 +1228,21 @@ mod tests {
 		);
 	}
 
-	/// Same encoding rules as [`dispatch_error_encoding`]: `message` does not cross the boundary.
 	#[test]
-	fn module_invalidity_encoding_strips_message() {
-		let invalidity =
-			ModuleInvalidity { index: 7, error: [3, 0, 0, 0], message: Some("NotEnoughFunds") };
+	fn module_invalidity_should_encode_and_decode() {
+		let invalidity = ModuleInvalidity { index: 7, error: 3 };
 		let encoded = invalidity.encode();
 		let decoded = ModuleInvalidity::decode(&mut &encoded[..]).unwrap();
-		assert_eq!(encoded, vec![7, 3, 0, 0, 0]);
-		assert_eq!(decoded, ModuleInvalidity { index: 7, error: [3, 0, 0, 0], message: None });
+		assert_eq!(encoded, vec![7, 3, 0]);
+		assert_eq!(decoded, invalidity);
 	}
 
-	/// What the node can expose over RPC after validation: index + error bytes, not `message`.
 	#[test]
-	fn module_invalidity_rpc_details_exclude_message() {
-		let on_node = ModuleInvalidity { index: 7, error: [3, 0, 0, 0], message: None };
-		let details = on_node.rpc_details();
+	fn module_invalidity_rpc_details() {
+		let invalidity = ModuleInvalidity { index: 7, error: 3 };
+		let details = invalidity.rpc_details();
 		assert_eq!(details.pallet_index, 7);
-		assert_eq!(details.error, "0x03000000");
-
-		let json = serde_json::to_value(&details).unwrap();
-		assert!(json.get("message").is_none());
-		assert_eq!(json["palletIndex"], 7);
-		assert_eq!(json["error"], "0x03000000");
+		assert_eq!(details.error, 3);
 	}
 
 	#[test]
