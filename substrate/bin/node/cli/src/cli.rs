@@ -89,6 +89,18 @@ pub struct Cli {
 	#[arg(long = "statement-affinity-topic", value_name = "TOPIC")]
 	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
 
+	/// DHT replication factor (K): number of closest peers a statement is routed to.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, value_name = "K", default_value_t = sc_statement_store::DEFAULT_REPLICATION_FACTOR)]
+	pub statement_replication_factor: std::num::NonZeroUsize,
+
+	/// Number of peers to gossip a statement to within the affinity set.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, value_name = "N", default_value_t = sc_statement_store::DEFAULT_GOSSIP_TARGET)]
+	pub statement_gossip_target: std::num::NonZeroUsize,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,

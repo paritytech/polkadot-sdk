@@ -68,6 +68,8 @@ pub(crate) fn build_statement_store<
 	let network_workers = config.network_workers;
 	let rate_limit = config.rate_limit;
 	let affinity_topics = config.affinity_topics.clone();
+	let replication_factor = config.replication_factor;
+	let gossip_target = config.gossip_target;
 
 	let statement_store = sc_statement_store::Store::new_shared(
 		&parachain_config.data_path,
@@ -93,6 +95,8 @@ pub(crate) fn build_statement_store<
 		network_workers,
 		rate_limit,
 		&affinity_topics,
+		replication_factor,
+		gossip_target,
 	)?;
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",

@@ -272,6 +272,18 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long = "statement-affinity-topic", value_name = "TOPIC")]
 	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
 
+	/// Number of K-closest peers (replication factor) used for DHT-affinity statement routing.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, value_name = "K", default_value_t = sc_statement_store::DEFAULT_REPLICATION_FACTOR)]
+	pub statement_replication_factor: std::num::NonZeroUsize,
+
+	/// Number of peers to gossip a statement to in addition to DHT-affinity routing targets.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, value_name = "N", default_value_t = sc_statement_store::DEFAULT_GOSSIP_TARGET)]
+	pub statement_gossip_target: std::num::NonZeroUsize,
+
 	/// HOP (Hand-Off Protocol) configuration parameters.
 	#[command(flatten)]
 	pub hop: sc_hop::HopParams,
@@ -328,6 +340,8 @@ impl<Config: CliConfig> Cli<Config> {
 					network_workers: self.statement_network_workers,
 					rate_limit: self.statement_rate_limit,
 					affinity_topics: self.statement_affinity_topics.clone(),
+					replication_factor: self.statement_replication_factor,
+					gossip_target: self.statement_gossip_target,
 				},
 			),
 			storage_monitor: self.storage_monitor.clone(),
