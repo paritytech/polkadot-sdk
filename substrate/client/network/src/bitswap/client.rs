@@ -430,6 +430,7 @@ impl BitswapClient {
 	}
 
 	pub async fn request_blocks(&self, cids: &[Cid]) -> Result<Response, BitswapError> {
+		validate_cids(cids)?;
 		let (response_tx, response_rx) = oneshot::channel();
 		let cids = cids.iter().map(|cid| (*cid, ProtoWantType::Block)).collect();
 		self.request_tx.send(BitswapRequest { cids, response_tx });
@@ -437,6 +438,7 @@ impl BitswapClient {
 	}
 
 	pub async fn request_haves(&self, cids: &[Cid]) -> Result<Response, BitswapError> {
+		validate_cids(cids)?;
 		let (response_tx, response_rx) = oneshot::channel();
 		let cids = cids.iter().map(|cid| (*cid, ProtoWantType::Have)).collect();
 		self.request_tx.send(BitswapRequest { cids, response_tx });
