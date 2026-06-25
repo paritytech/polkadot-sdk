@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782399350567,
+  "lastUpdate": 1782405061185,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "52bdb96d4bd5d81f1c9a902d92ccf6ff062eedf7",
-          "message": "revive: Fix dust & child contract calls (#10192)\n\nWhen transferring to self we should just return early as it's a noop.\nNot doing so cause bug in `transfer_with_dust`\n\nas we do \n```\nfrom.dust -= from.dust\nto.dust += to.dust\n```\n\nWe end up with a value of dust - planck (that we burnt from to create\ndust amount) on the account\n\nfix https://github.com/paritytech/contract-issues/issues/211\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-04T06:38:38Z",
-          "tree_id": "cc7d1f1949f1760e138d8726109ad6b95141f237",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/52bdb96d4bd5d81f1c9a902d92ccf6ff062eedf7"
-        },
-        "date": 1762242377374,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007509007539999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16019999188666673,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013204557673333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022781998693333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02382318170666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b339135883ffe5f7e7f02e265b0db55ab9f2bae7",
+          "message": "pallet-revive: per-transaction cold/hot storage access pricing (#12104)\n\n### Summary\nEIP-2929-style cold/hot(warm) pricing for persistent storage access in\npallet-revive. The first access to a (contract, slot)` pair within a\ntransaction is billed \"cold\" (higher weight); any later access to the\nsame slot is \"hot\" (cheaper).\n\n### Description\n#### Covered operations\nCold/hot pricing applies to persistent storage:\n- the EVM `SLOAD` / `SSTORE` opcodes,\n- the PVM storage host functions,\n- the storage precompile (`containsStorage` warms the slot like an\n`SLOAD`).\n\n#### Access list and rollback\nHot/cold state is tracked by a new per-transaction access list, whose\nlayout mirrors `TransientStorage`: a current-state set plus a journal\nand per-frame checkpoints.\n- Nested frames open a checkpoint, so a reverted frame drops the slots\nit warmed; the top-level frame is never rolled back.\n- A cold touch that journals inside a nested frame also pre-pays a small\nrollback weight, to cover the cost of a potential revert (which charges\nno gas).\n\n#### Memory bound\nThe access list is capped at a fixed number of entries per transaction;\nonce full, further new slots are billed cold without being tracked.\nShort slots are held inline (Fix at 32 bytes, VarInline up to\nMAX_INLINE_KEY_LEN); longer ones (VarLong, up to STORAGE_KEY_BYTES) use\na heap-allocated bounded vector.\n\n#### Benchmarks\nNew benchmarks cover the hot storage ops (`seal_set_storage_hot`,\n`clear_storage_hot`, `contains_storage_hot`, `seal_get_storage_hot`,\n`take_storage_hot`) and the access-list overhead\n(`access_list_touch_cold_*`, `access_list_touch_hot_*`,\n`access_list_rollback_amortization`)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-25T14:01:59Z",
+          "tree_id": "8f41d342e1beba78282b2f13f32da68efbc7ea17",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b339135883ffe5f7e7f02e265b0db55ab9f2bae7"
+        },
+        "date": 1782405031179,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0076717518,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01009552945999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1476430266066667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02364653955333333,
             "unit": "seconds"
           }
         ]
