@@ -17,7 +17,7 @@ crates:
   - name: sc-transaction-pool
     bump: major
   - name: sc-client-api
-    bump: patch
+    bump: minor
   - name: sc-service
     bump: patch
   - name: sc-cli
