@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782388895919,
+  "lastUpdate": 1782391910288,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f2c957b8065c5bfe94d6fad5af8e35a38fcdb59f",
-          "message": "revive-eth-rpc: fix blocks pruning (#10175)\n\nWe need to call prune_blocks before the insertion process.\nOtherwise, if we get a fork, we won't be able to insert it into the DB\nbecause it already exists there. In reality, we want the other fork to\nbe pruned instead.\n\nMoreover, once we do get a fork we need to prune all the other\nsubsequent blocks of the old fork",
-          "timestamp": "2025-11-03T14:06:23Z",
-          "tree_id": "a20efba814d825db11d739f7e79eb0b8f7edebc8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f2c957b8065c5bfe94d6fad5af8e35a38fcdb59f"
-        },
-        "date": 1762184661278,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013215200946666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007392670646666675,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1605395368466667,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02286303869333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0102219323733333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "64b05158dc6a20ca74a46db268d83c112ecedb61",
+          "message": "Fix duplicate statement notifications for multi-topic MatchAll subscriptions (#12453)\n\nA multi-topic `MatchAll` subscription is registered under each of its\ntopics, so the topic-combination loop in\n`notify_match_all_subscribers_best` could select it across several\ncombinations and deliver the same statement once per combination.\n\nTrack already-notified subscriptions per statement (mirroring the\n`MatchAny` path) so each statement is delivered at most once per\nsubscription, and add a regression test.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-06-25T09:23:51Z",
+          "tree_id": "3a323e27fbf2b1cffdce4ab0d295c73ce8239990",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/64b05158dc6a20ca74a46db268d83c112ecedb61"
+        },
+        "date": 1782391880847,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010136785913333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14796365870000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007584045313333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02364987780666667,
             "unit": "seconds"
           }
         ]
