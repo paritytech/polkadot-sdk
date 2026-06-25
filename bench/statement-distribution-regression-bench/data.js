@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782394606760,
+  "lastUpdate": 1782399426775,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dharjeezy@gmail.com",
-            "name": "dharjeezy",
-            "username": "dharjeezy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f268e327685e04ad4134631a8b547a52f931fb83",
-          "message": "try state hook for alliance pallet (#10000)\n\nThis PR introduces the try_state hook to pallet-alliance to verify key\nstorage invariants.\n\ncloses part of #239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2025-11-01T01:11:41Z",
-          "tree_id": "0351bce041bfc4ca7434df57fe836ee6dbf0ced7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f268e327685e04ad4134631a8b547a52f931fb83"
-        },
-        "date": 1761963606470,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.96399999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035405340079999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04449467648799994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038154713147999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4afa487d81d22a1dc823f6ac8705afb29a0ac5bf",
+          "message": "Cumulus v3 add more test cases + cosmetics (#12395)\n\nRelated to https://github.com/paritytech/polkadot-sdk/issues/11624\n\nCosmetics + implementing the test cases listed\n[here](https://github.com/paritytech/polkadot-sdk/issues/11624#issuecomment-4518148597)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-25T12:58:25Z",
+          "tree_id": "dcc9844ee22d6574fa24b8f0717484cfd96aaefb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4afa487d81d22a1dc823f6ac8705afb29a0ac5bf"
+        },
+        "date": 1782399397070,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.066,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038229877690000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08189280931799996,
             "unit": "seconds"
           }
         ]
