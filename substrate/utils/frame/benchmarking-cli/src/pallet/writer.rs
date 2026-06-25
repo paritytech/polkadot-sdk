@@ -460,6 +460,53 @@ pub(crate) fn write_results(
 		cmd.additional_trie_layers,
 	)?;
 	let mut created_files = Vec::new();
+	let single_output_file = !path.is_dir();
+
+	if single_output_file {
+		let mut merged = Vec::<BenchmarkData>::new();
+		let mut pallet_labels = Vec::<String>::new();
+
+		for ((pallet, instance), results) in all_results.iter().sorted_by_key(|((p, i), _)| {
+			(p.to_string(), i.to_string())
+		}) {
+			let label = if instance.is_empty() {
+				pallet.to_string()
+			} else {
+				format!("{}::{}", pallet, instance)
+			};
+			pallet_labels.push(label);
+			merged.extend(results.clone());
+		}
+
+		let file_path = path.clone();
+		let pallet_label = if pallet_labels.len() == 1 {
+			pallet_labels.into_iter().next().unwrap_or_default()
+		} else {
+			pallet_labels.join(" + ")
+		};
+
+		let hbs_data = TemplateData {
+			args: args.clone(),
+			date: date.clone(),
+			hostname: cmd.hostinfo_params.hostname(),
+			cpuname: cmd.hostinfo_params.cpuname(),
+			version: VERSION.to_string(),
+			pallet: pallet_label,
+			instance: String::new(),
+			header: header_text.clone(),
+			cmd: cmd_data.clone(),
+			benchmarks: merged,
+		};
+
+		let mut output_file = fs::File::create(&file_path).map_err(|e| {
+			format!("Could not write weight file to: {:?}. Error: {:?}", &file_path, e)
+		})?;
+		handlebars
+			.render_template_to_write(&template, &hbs_data, &mut output_file)
+			.map_err(|e| io_error(&format!("Template error: {:?}", e)))?;
+		created_files.push(file_path);
+		return Ok(());
+	}
 
 	for ((pallet, instance), results) in all_results.iter() {
 		let mut file_path = path.clone();

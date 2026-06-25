@@ -30,6 +30,10 @@ pub mod fungible;
 pub mod generic;
 pub mod xcm_weights;
 
+pub use xcm_procedural::{
+	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
+};
+
 #[cfg(test)]
 mod mock;
 
