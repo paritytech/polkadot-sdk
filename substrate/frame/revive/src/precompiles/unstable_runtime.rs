@@ -46,7 +46,7 @@ use codec::Decode;
 use core::{marker::PhantomData, num::NonZero};
 use frame_support::{
 	dispatch::{GetDispatchInfo, extract_actual_weight},
-	traits::{Contains, Everything},
+	traits::{Contains, Everything, IsType, OriginTrait},
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::Dispatchable;
@@ -71,6 +71,15 @@ sol! {
 ///
 /// `Filter` lets a runtime restrict which `RuntimeCall`s may be dispatched
 /// through this precompile. Defaults to [`Everything`] (no restriction).
+///
+/// The filter is attached to the dispatch origin, so it is enforced
+/// transitively on calls nested inside synchronous wrappers such as
+/// `Utility::batch` and `Proxy::proxy` — not only on the top-level call. It does
+/// **not** cover calls that are stored and re-dispatched later by
+/// deferred-execution pallets (e.g. `Scheduler`), which run with the runtime's
+/// `BaseCallFilter` only; to bar those, deny the deferral call itself (e.g.
+/// `Scheduler::schedule`) in the filter, or rely on `BaseCallFilter` for hard
+/// restrictions.
 pub struct UnstableRuntime<T, Filter = Everything>(PhantomData<(T, Filter)>);
 
 impl<T: crate::Config, Filter> Precompile for UnstableRuntime<T, Filter>
@@ -126,12 +135,21 @@ where
 
 				// Dispatch as the calling contract's account. Reject a Root caller
 				// rather than silently dispatching with Root privileges.
-				let origin = match env.caller() {
+				let mut origin: <T as frame_system::Config>::RuntimeOrigin = match env.caller() {
 					Origin::Signed(account_id) => RawOrigin::Signed(account_id).into(),
 					Origin::Root => {
 						return Err(Error::Revert("root origin cannot dispatch".into()));
 					},
 				};
+
+				// Attach the filter to the origin so it is enforced transitively on
+				// calls nested inside synchronous wrappers (`Utility::batch`,
+				// `Proxy::proxy`, ...), not only on the top-level call checked above.
+				origin.add_filter(|c: &<T as frame_system::Config>::RuntimeCall| {
+					Filter::contains(<<T as crate::Config>::RuntimeCall as IsType<
+						<T as frame_system::Config>::RuntimeCall,
+					>>::from_ref(c))
+				});
 
 				let info = call.get_dispatch_info();
 				let charged = env.charge(info.call_weight)?;
@@ -256,6 +274,40 @@ mod tests {
 			);
 
 			assert_eq!(result.unwrap_err(), Error::Revert("call not allowed by filter".into()));
+		});
+	}
+
+	#[test]
+	fn dispatch_filter_applies_to_nested_batch_calls() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let value = 1_000u128;
+			let before = <Test as crate::Config>::Currency::balance(&BOB);
+
+			// A denied `Balances` transfer wrapped in `Utility::batch`. A top-level
+			// filter lets the batch through and the inner transfer would execute; an
+			// origin-attached filter must reject the nested call so BOB is unpaid.
+			let inner = RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+				dest: BOB,
+				value,
+			});
+			let batch =
+				RuntimeCall::Utility(pallet_utility::Call::batch { calls: alloc::vec![inner] });
+			let input = dispatch_input(batch);
+
+			let _ = <UnstableRuntime<Test, DenyBalances> as Precompile>::call(
+				&address(),
+				&input,
+				&mut ext,
+			);
+
+			assert_eq!(
+				<Test as crate::Config>::Currency::balance(&BOB),
+				before,
+				"filter must apply to calls nested inside Utility::batch",
+			);
 		});
 	}
 
