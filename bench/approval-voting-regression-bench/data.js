@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782383283357,
+  "lastUpdate": 1782388935802,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a44be635e6710432c49e844af8631e6ad98ade36",
-          "message": "TxPool: Downgrade log from `info` to `debug` (#10179)\n\nThere is no need to log information about `maintain` to the `info` log.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-01T09:20:14Z",
-          "tree_id": "345a946799c12465072bc3ac5f43b8d81159af1e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a44be635e6710432c49e844af8631e6ad98ade36"
-        },
-        "date": 1761993543218,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63629.340000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7240200994909896,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.448449859330001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.42911461481000257,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9560756948799956,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005770384570000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000197712,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001923575,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001923575,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000197712,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.211064429609994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4797524327199993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.437463758219997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4544376850799994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting/test-environment",
             "value": 0.00001900435,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "764925dbdffab8f99309495ad2588a035e0b1a43",
+          "message": "XCM hardening - fix some regressions (#11910)\n\nThis PR fixes some regressions, improves code and adds more\ndefense-in-depth in a couple places.\n\n### xcm-executor: drain holdings by ownership in\ndeposit_assets_with_retry\n\nAdd `AssetsInHolding::into_per_asset_holdings()` and use it in\n`deposit_assets_with_retry` so each pass consumes the input via owning\n`BTreeMap`/`BTreeSet` iterators instead of `assets_iter().collect()` +\n`try_take`. Per asset this drops one `AssetId` clone, one or two\n`BTreeMap` lookups, one dynamic dispatch on `saturating_take`, and one\ninternal `subsume_assets` call; per pass it drops the intermediate\n`Vec<Asset>` allocation. Behaviour is unchanged: same iteration order,\nsame partial-failure / retry semantics.\n\n### xcm-executor: remove now dead code related do dust deposit errors\n\n`deposit_assets_with_retry` previously tried to silently drop \"dust\"\n(below-minimum) deposit failures, comparing the returned `XcmError`\nstring against the canonical `TokenError::BelowMinimum` text. After PR\nhttps://github.com/paritytech/polkadot-sdk/pull/10384 within\n`FungiblesAdapter::deposit_asset` the underlying `DispatchError` is\ndiscarded and the adapter returns `XcmError::FailedToTransactAsset(\"\")`\n- an empty string. The dust check never matched, so classifying the\nerror is no longer possible.\nRemove the special handling of dust deposit errors (which can no longer\nbe identified from returned error), and treat all errors the same.\n\n### cumulus/utility: fix inverted ED guard in\n`TakeFirstAssetTrader::refund_weight`\n\nThe else-branch was refunding ED to the user and leaving sub-ED dust for\nthe `OnUnbalanced` drop handler, the inverse of the intended behavior.\nRefund `outstanding - ED` instead so the handler keeps at least ED (or\nall of it when outstanding < ED), preventing silent fee burns.\n\nThis was actually a bug, but `TakeFirstAssetTrader` is not used by any\nproduction runtimes.\n\n### snowbridge: short-circuit on register-token error path\n    \nMinor optimization and defense-in-depth - short-circuit on errors and\ndon't directly compare `Option`s.\n\n### snowbridge: harden BLS public key deserialization\n\nDefense-in-depth: validate all cryptographic inputs.\n\nThe Merkle proof binding means the public keys must match exactly what\nthe Ethereum beacon chain committed. Since the beacon chain itself\nenforces G1 subgroup membership for validator keys, invalid subgroup\npoints cannot appear in honest beacon chain state.\nAn attacker would need to compromise the Merkle proof verification\n(e.g., via a SHA-256 collision or another bug in the verification chain)\nto inject a public key that is on the BLS12-381 curve but not in the G1\nsubgroup.\nThe performance cost of the subgroup check is a one-time cost during\nsync committee preparation (512 checks per sync committee period,\napproximately every 27 hours). This is negligible compared to the BLS\nsignature verification that occurs on every update. So just check it as\ndefense-in-depth.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: ron <yrong1997@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-06-25T09:23:44Z",
+          "tree_id": "f06ad552979f3fa125b216ee7f2c4c609051e0e1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/764925dbdffab8f99309495ad2588a035e0b1a43"
+        },
+        "date": 1782388904807,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63600.64,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8096083043499998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005196601190000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.433225314252855,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000022787730000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.754702611650001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7485312639800004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002557375,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002557375,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.393185602560001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7888814620299173,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.797663474160001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.297769319919919,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000022787730000000004,
             "unit": "seconds"
           }
         ]
