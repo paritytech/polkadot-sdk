@@ -12,6 +12,10 @@ doc:
 
     To resolve this, we now continue to use a standard signed `System::remark` (ensuring we benchmark the real production code path including `Executive::apply_extrinsic`), but we subtract the known weights of the signature verification and included extensions from the final result.
 
+    Runtimes must re-add signature weight for signed transactions via `frame_system::ChargeSignatureWeight` and `frame_system::Config::SignatureWeight`. See the overhead benchmark README for integration steps.
+
 crates:
 - name: frame-benchmarking-cli
+  bump: minor
+- name: frame-system
   bump: minor

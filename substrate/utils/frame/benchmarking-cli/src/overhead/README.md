@@ -153,6 +153,17 @@ By default, the benchmark uses a signed `System::remark` extrinsic. To accuratel
 `TransactionExtensions`, use `--extrinsic-subtract-weight` and provide the relevant weights if
 they are significantly non-zero in your runtime.
 
+## Runtime integration
+
+Subtracting signature weight from generated `ExtrinsicBaseWeight` only works if signed extrinsics
+re-charge that weight at runtime:
+
+1. Set `frame_system::Config::SignatureWeight` to the value passed as `--signature-weight` when
+   running the overhead benchmark.
+2. Add `frame_system::ChargeSignatureWeight` to the runtime `TxExtension` tuple.
+3. Construct signed extrinsics with `ChargeSignatureWeight::signed()` and general/unsigned
+   extrinsics with `ChargeSignatureWeight::unsigned()` (or `Default`).
+
 License: Apache-2.0
 
 <!-- LINKS -->

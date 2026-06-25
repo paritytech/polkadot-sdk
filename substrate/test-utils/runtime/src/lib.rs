@@ -155,6 +155,7 @@ pub type Pair = sp_core::sr25519::Pair;
 // TODO: Remove after the Checks are migrated to TxExtension.
 /// The extension to the basic transaction logic.
 pub type TxExtension = (
+	frame_system::ChargeSignatureWeight<Runtime>,
 	(CheckNonce<Runtime>, CheckWeight<Runtime>),
 	CheckSubstrateCall,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,

@@ -23,7 +23,7 @@ use crate::{
 };
 use codec::Encode;
 use frame_metadata_hash_extension::CheckMetadataHash;
-use frame_system::{CheckNonce, CheckWeight};
+use frame_system::{ChargeSignatureWeight, CheckNonce, CheckWeight};
 use sp_core::crypto::Pair as TraitPair;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
@@ -69,7 +69,7 @@ impl TryFrom<&Extrinsic> for TransferData {
 		match uxt {
 			Extrinsic {
 				function: RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest, value }),
-				preamble: Preamble::Signed(from, _, ((CheckNonce(nonce), ..), ..)),
+				preamble: Preamble::Signed(from, _, (_, (CheckNonce(nonce), _), ..)),
 				..
 			} => Ok(TransferData { from: *from, to: *dest, amount: *value, nonce: *nonce }),
 			Extrinsic {
@@ -209,6 +209,7 @@ impl ExtrinsicBuilder {
 	pub fn build(self) -> Extrinsic {
 		if let Some(signer) = self.signer {
 			let tx_ext = (
+				ChargeSignatureWeight::<crate::Runtime>::signed(),
 				(CheckNonce::from(self.nonce.unwrap_or(0)), CheckWeight::new()),
 				CheckSubstrateCall {},
 				self.metadata_hash
