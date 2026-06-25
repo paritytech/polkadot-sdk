@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782390815299,
+  "lastUpdate": 1782393383014,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -181439,6 +181439,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2578237221,
             "range": "± 37638300",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "90d5eef17615c4340e307f7f908c07435f63fd90",
+          "message": "fatxpool: invalid inblock event fixed (#11733)\n\n#### Problem\n\nWhen a user sends rapid replacement transactions (same sender+nonce,\nincreasing priority), an earlier version may get included in a block by\nanother node before the latest replacement propagates. The local node\nthen incorrectly reports the latest replacement as `InBlock` - even\nthough it was never included in any block.\n\n#### How it happens\n\n1. Tx A (nonce N) is in the pool. Tx B (nonce N, higher priority)\narrives and usurps A.\n2. A remote block producer includes A (broadcast before B reached it).\n3. Local node imports the block. During pruning, the pool collects tags\nfrom the block's extrinsics. B provides the same tag as A (same\nsender+nonce), so tag-based pruning removes B from the pool.\n4. B is re-verified at the new block and fails (e.g. `Stale` — nonce\nconsumed, or other error).\n5. `resubmit_pruned` treats \"pruned by tag + `InvalidTransaction` on\nresubmit\" as proof of block inclusion and fires `InBlock` for B.\n\nB was never in the block. The `InBlock` event is false.\n\n#### Why it was wrong\n\n`resubmit_pruned` in `validated_pool.rs` chained two sources into\n`fire_pruned`:\n\n- `known_imported_hashes` — hashes of actual block extrinsics (from\nblock body). Always correct.\n- Pruned transactions that failed resubmission with `InvalidTransaction`\n— assumed to be\n\"successfully included.\" Wrong after replacement: a replacement tx\nshares tags with the\n  block extrinsic but has a different hash.\n\n`known_imported_hashes` already contains the complete, unfiltered list\nof block extrinsic\nhashes. The second source only adds false positives.\n\n#### Fix\n\nRemove the \"pruned + invalid = in block\" inference from\n`resubmit_pruned`. Fire `InBlock`\nonly for `known_imported_hashes` — the block body is the ground truth\nfor inclusion.\n\nThe `submit(pruned_xts)` call is kept — it still serves its purpose of\nresubmitting\nstill-valid collateral transactions (pruned as part of the dependency\nsubtree) back to\nthe pool.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-06-25T10:21:07Z",
+          "tree_id": "0c95368030873b95c2ba3b210d91e383d572c9dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/90d5eef17615c4340e307f7f908c07435f63fd90"
+        },
+        "date": 1782393354045,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4448531,
+            "range": "± 34332",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 300091,
+            "range": "± 7524",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4312524,
+            "range": "± 20539",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 374049,
+            "range": "± 4651",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5389892,
+            "range": "± 31241",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 900634,
+            "range": "± 7334",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10953121,
+            "range": "± 61054",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4858032,
+            "range": "± 63339",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 46757515,
+            "range": "± 462972",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 39796907,
+            "range": "± 349215",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 401396077,
+            "range": "± 4816703",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 319982267,
+            "range": "± 2456389",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2722176847,
+            "range": "± 11418526",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2477562553,
+            "range": "± 25489531",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3364895,
+            "range": "± 11216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1831694,
+            "range": "± 7612",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3449676,
+            "range": "± 26312",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1899180,
+            "range": "± 5435",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3990730,
+            "range": "± 26394",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2224279,
+            "range": "± 10355",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8088017,
+            "range": "± 74477",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5308070,
+            "range": "± 50903",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38259239,
+            "range": "± 306123",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37425358,
+            "range": "± 289392",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 334091654,
+            "range": "± 1878976",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 286327911,
+            "range": "± 2433069",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2557790200,
+            "range": "± 12760372",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2350416838,
+            "range": "± 32373736",
             "unit": "ns/iter"
           }
         ]
