@@ -1,0 +1,12 @@
+title: 'pallet-revive: fix eth_getLogs with empty address/topic filter lists'
+doc:
+- audience: Node Dev
+  description: |-
+    An `eth_getLogs` filter with an empty address list (`"address": []`) or an empty topic
+    list at a position (`"topics": [[]]`) built an invalid `IN ()` SQL clause, causing the
+    query to fail. Such filters are valid Ethereum requests and, as in other Ethereum
+    clients, an empty list now imposes no constraint (it matches any address/topic) instead
+    of erroring.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch

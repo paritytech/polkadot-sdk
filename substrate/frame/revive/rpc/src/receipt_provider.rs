@@ -760,7 +760,9 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				AddressOrAddresses::Address(addr) => {
 					qb.push(" AND address = ").push_bind(addr.0.to_vec());
 				},
-				AddressOrAddresses::Addresses(addrs) => {
+				// An empty address list imposes no constraint: `IN ()` is invalid SQL and
+				// Ethereum treats an empty list as matching any address.
+				AddressOrAddresses::Addresses(addrs) if !addrs.is_empty() => {
 					qb.push(" AND address IN (");
 					let mut separated = qb.separated(", ");
 					for addr in addrs {
@@ -768,6 +770,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					}
 					separated.push_unseparated(")");
 				},
+				AddressOrAddresses::Addresses(_) => {},
 			}
 		}
 
@@ -781,7 +784,9 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					FilterTopic::Single(hash) => {
 						qb.push(format_args!(" AND topic_{i} = ")).push_bind(hash.0.to_vec());
 					},
-					FilterTopic::Multiple(hashes) => {
+					// An empty topic list imposes no constraint at this position: `IN ()` is
+					// invalid SQL and Ethereum treats it as matching any topic.
+					FilterTopic::Multiple(hashes) if !hashes.is_empty() => {
 						qb.push(format_args!(" AND topic_{i} IN ("));
 						let mut separated = qb.separated(", ");
 						for hash in hashes {
@@ -789,6 +794,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 						}
 						separated.push_unseparated(")");
 					},
+					FilterTopic::Multiple(_) => {},
 				}
 			}
 		}
@@ -1397,6 +1403,32 @@ mod tests {
 					block_hash: None,
 					address: Some(vec![log1.address, log2.address].into()),
 					topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
+				}),
+				&resolve_block_number,
+			)
+			.await?;
+		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
+
+		// Empty address list: imposes no constraint instead of building invalid `IN ()` SQL.
+		let logs = provider
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					address: Some(Vec::<H160>::new().into()),
+					..Default::default()
+				}),
+				&resolve_block_number,
+			)
+			.await?;
+		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
+
+		// Empty topic list at a position: imposes no constraint instead of invalid `IN ()` SQL.
+		let logs = provider
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					topics: Some(vec![FilterTopic::Multiple(vec![])]),
+					..Default::default()
 				}),
 				&resolve_block_number,
 			)
