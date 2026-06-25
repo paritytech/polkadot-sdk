@@ -361,8 +361,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Prunes the specified number of messages from the downward message queue of the given para.
 	pub(crate) fn prune_dmq(para: ParaId, processed_downward_messages: u32) {
-		let _dropped =
-			InboundDownwardQueue::<T>::drop_front_n(para, processed_downward_messages as u64);
+		InboundDownwardQueue::<T>::drop_front_n(para, processed_downward_messages as u64);
 		let q_len = InboundDownwardQueue::<T>::len(para).unwrap_or(0);
 
 		let config = configuration::ActiveConfig::<T>::get();
