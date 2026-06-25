@@ -364,163 +364,162 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#214 id=214 data-nosnippet>214</a>		// to be in the current session.
 <a href=#215 id=215 data-nosnippet>215</a>		</span>AllowedSchedulingParents::&lt;T&gt;::mutate(|tracker| tracker.buffer.clear());
 <a href=#216 id=216 data-nosnippet>216</a>
-<a href=#217 id=217 data-nosnippet>217</a>		CurrentSessionIndex::&lt;T&gt;::set(session_index);
-<a href=#218 id=218 data-nosnippet>218</a>		<span class="kw">let </span><span class="kw-2">mut </span>rng: ChaCha20Rng = SeedableRng::from_seed(random_seed);
-<a href=#219 id=219 data-nosnippet>219</a>
-<a href=#220 id=220 data-nosnippet>220</a>		<span class="kw">let </span><span class="kw-2">mut </span>shuffled_indices: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..all_validators.len())
-<a href=#221 id=221 data-nosnippet>221</a>			.enumerate()
-<a href=#222 id=222 data-nosnippet>222</a>			.map(|(i, <span class="kw">_</span>)| ValidatorIndex(i <span class="kw">as _</span>))
-<a href=#223 id=223 data-nosnippet>223</a>			.collect();
-<a href=#224 id=224 data-nosnippet>224</a>
-<a href=#225 id=225 data-nosnippet>225</a>		shuffled_indices.shuffle(<span class="kw-2">&amp;mut </span>rng);
-<a href=#226 id=226 data-nosnippet>226</a>
-<a href=#227 id=227 data-nosnippet>227</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(max) = new_config.max_validators {
-<a href=#228 id=228 data-nosnippet>228</a>			shuffled_indices.truncate(max <span class="kw">as </span>usize);
-<a href=#229 id=229 data-nosnippet>229</a>		}
-<a href=#230 id=230 data-nosnippet>230</a>
-<a href=#231 id=231 data-nosnippet>231</a>		<span class="kw">let </span>active_validator_keys =
-<a href=#232 id=232 data-nosnippet>232</a>			<span class="kw">crate</span>::util::take_active_subset(<span class="kw-2">&amp;</span>shuffled_indices, <span class="kw-2">&amp;</span>all_validators);
-<a href=#233 id=233 data-nosnippet>233</a>
-<a href=#234 id=234 data-nosnippet>234</a>		ActiveValidatorIndices::&lt;T&gt;::set(shuffled_indices);
-<a href=#235 id=235 data-nosnippet>235</a>		ActiveValidatorKeys::&lt;T&gt;::set(active_validator_keys.clone());
-<a href=#236 id=236 data-nosnippet>236</a>
-<a href=#237 id=237 data-nosnippet>237</a>		active_validator_keys
-<a href=#238 id=238 data-nosnippet>238</a>	}
-<a href=#239 id=239 data-nosnippet>239</a>
-<a href=#240 id=240 data-nosnippet>240</a>	<span class="doccomment">/// Return the session index that should be used for any future scheduled changes.
-<a href=#241 id=241 data-nosnippet>241</a>	</span><span class="kw">pub fn </span>scheduled_session() -&gt; SessionIndex {
-<a href=#242 id=242 data-nosnippet>242</a>		CurrentSessionIndex::&lt;T&gt;::get().saturating_add(SESSION_DELAY)
-<a href=#243 id=243 data-nosnippet>243</a>	}
+<a href=#217 id=217 data-nosnippet>217</a>		<span class="comment">// Prune relay parents from sessions that are now too old.
+<a href=#218 id=218 data-nosnippet>218</a>		</span><span class="kw">let </span>oldest_allowed_session =
+<a href=#219 id=219 data-nosnippet>219</a>			session_index.saturating_sub(new_config.max_relay_parent_session_age);
+<a href=#220 id=220 data-nosnippet>220</a>		<span class="kw">let </span>oldest_stored = OldestRelayParentSession::&lt;T&gt;::get();
+<a href=#221 id=221 data-nosnippet>221</a>
+<a href=#222 id=222 data-nosnippet>222</a>		<span class="comment">// Only prune and advance the pointer if the allowed oldest session has moved
+<a href=#223 id=223 data-nosnippet>223</a>		// forward. If max_relay_parent_session_age was increased at runtime,
+<a href=#224 id=224 data-nosnippet>224</a>		// oldest_allowed_session may be less than oldest_stored; in that case, entries
+<a href=#225 id=225 data-nosnippet>225</a>		// for those older sessions were already pruned in prior blocks and we must not
+<a href=#226 id=226 data-nosnippet>226</a>		// move the pointer backward.
+<a href=#227 id=227 data-nosnippet>227</a>		</span><span class="kw">if </span>oldest_allowed_session &gt; oldest_stored {
+<a href=#228 id=228 data-nosnippet>228</a>			<span class="kw">for </span>expired <span class="kw">in </span>oldest_stored..oldest_allowed_session {
+<a href=#229 id=229 data-nosnippet>229</a>				<span class="kw">let _ </span>= AllowedRelayParents::&lt;T&gt;::clear_prefix(expired, u32::MAX, <span class="prelude-val">None</span>);
+<a href=#230 id=230 data-nosnippet>230</a>				MinimumRelayParentNumber::&lt;T&gt;::remove(expired);
+<a href=#231 id=231 data-nosnippet>231</a>			}
+<a href=#232 id=232 data-nosnippet>232</a>			OldestRelayParentSession::&lt;T&gt;::set(oldest_allowed_session);
+<a href=#233 id=233 data-nosnippet>233</a>		}
+<a href=#234 id=234 data-nosnippet>234</a>
+<a href=#235 id=235 data-nosnippet>235</a>		CurrentSessionIndex::&lt;T&gt;::set(session_index);
+<a href=#236 id=236 data-nosnippet>236</a>		<span class="kw">let </span><span class="kw-2">mut </span>rng: ChaCha20Rng = SeedableRng::from_seed(random_seed);
+<a href=#237 id=237 data-nosnippet>237</a>
+<a href=#238 id=238 data-nosnippet>238</a>		<span class="kw">let </span><span class="kw-2">mut </span>shuffled_indices: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..all_validators.len())
+<a href=#239 id=239 data-nosnippet>239</a>			.enumerate()
+<a href=#240 id=240 data-nosnippet>240</a>			.map(|(i, <span class="kw">_</span>)| ValidatorIndex(i <span class="kw">as _</span>))
+<a href=#241 id=241 data-nosnippet>241</a>			.collect();
+<a href=#242 id=242 data-nosnippet>242</a>
+<a href=#243 id=243 data-nosnippet>243</a>		shuffled_indices.shuffle(<span class="kw-2">&amp;mut </span>rng);
 <a href=#244 id=244 data-nosnippet>244</a>
-<a href=#245 id=245 data-nosnippet>245</a>	<span class="doccomment">/// Fetches disabled validators list from session pallet.
-<a href=#246 id=246 data-nosnippet>246</a>	/// CAVEAT: this might produce incorrect results on session boundaries
-<a href=#247 id=247 data-nosnippet>247</a>	</span><span class="kw">pub fn </span>disabled_validators() -&gt; Vec&lt;ValidatorIndex&gt; {
-<a href=#248 id=248 data-nosnippet>248</a>		<span class="kw">let </span>shuffled_indices = ActiveValidatorIndices::&lt;T&gt;::get();
-<a href=#249 id=249 data-nosnippet>249</a>		<span class="comment">// mapping from raw validator index to `ValidatorIndex`
-<a href=#250 id=250 data-nosnippet>250</a>		// this computation is the same within a session, but should be cheap
-<a href=#251 id=251 data-nosnippet>251</a>		</span><span class="kw">let </span>reverse_index = shuffled_indices
-<a href=#252 id=252 data-nosnippet>252</a>			.iter()
-<a href=#253 id=253 data-nosnippet>253</a>			.enumerate()
-<a href=#254 id=254 data-nosnippet>254</a>			.map(|(i, v)| (v.<span class="number">0</span>, ValidatorIndex(i <span class="kw">as </span>u32)))
-<a href=#255 id=255 data-nosnippet>255</a>			.collect::&lt;BTreeMap&lt;u32, ValidatorIndex&gt;&gt;();
-<a href=#256 id=256 data-nosnippet>256</a>
-<a href=#257 id=257 data-nosnippet>257</a>		<span class="comment">// we might have disabled validators who are not parachain validators
-<a href=#258 id=258 data-nosnippet>258</a>		</span>T::DisabledValidators::disabled_validators()
-<a href=#259 id=259 data-nosnippet>259</a>			.iter()
-<a href=#260 id=260 data-nosnippet>260</a>			.filter_map(|v| reverse_index.get(v).cloned())
-<a href=#261 id=261 data-nosnippet>261</a>			.collect()
-<a href=#262 id=262 data-nosnippet>262</a>	}
-<a href=#263 id=263 data-nosnippet>263</a>
-<a href=#264 id=264 data-nosnippet>264</a>	<span class="doccomment">/// Called at the beginning of each block to update the allowed scheduling and relay parents.
-<a href=#265 id=265 data-nosnippet>265</a>	///
-<a href=#266 id=266 data-nosnippet>266</a>	/// Adds the parent block as an allowed scheduling parent and relay parent.
-<a href=#267 id=267 data-nosnippet>267</a>	/// Prunes relay parents from sessions that are older than `max_relay_parent_session_age`.
-<a href=#268 id=268 data-nosnippet>268</a>	</span><span class="kw">pub fn </span>new_block(
-<a href=#269 id=269 data-nosnippet>269</a>		hash: T::Hash,
-<a href=#270 id=270 data-nosnippet>270</a>		cq: BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;,
-<a href=#271 id=271 data-nosnippet>271</a>		block_number: BlockNumberFor&lt;T&gt;,
-<a href=#272 id=272 data-nosnippet>272</a>		max_ancestry_len: u32,
-<a href=#273 id=273 data-nosnippet>273</a>		storage_root: T::Hash,
-<a href=#274 id=274 data-nosnippet>274</a>		session_index: SessionIndex,
-<a href=#275 id=275 data-nosnippet>275</a>		max_relay_parent_session_age: u32,
-<a href=#276 id=276 data-nosnippet>276</a>	) {
-<a href=#277 id=277 data-nosnippet>277</a>		<span class="comment">// Update the allowed scheduling parents.
-<a href=#278 id=278 data-nosnippet>278</a>		</span>AllowedSchedulingParents::&lt;T&gt;::mutate(|tracker| {
-<a href=#279 id=279 data-nosnippet>279</a>			tracker.update(hash, cq, block_number, max_ancestry_len);
-<a href=#280 id=280 data-nosnippet>280</a>		});
+<a href=#245 id=245 data-nosnippet>245</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(max) = new_config.max_validators {
+<a href=#246 id=246 data-nosnippet>246</a>			shuffled_indices.truncate(max <span class="kw">as </span>usize);
+<a href=#247 id=247 data-nosnippet>247</a>		}
+<a href=#248 id=248 data-nosnippet>248</a>
+<a href=#249 id=249 data-nosnippet>249</a>		<span class="kw">let </span>active_validator_keys =
+<a href=#250 id=250 data-nosnippet>250</a>			<span class="kw">crate</span>::util::take_active_subset(<span class="kw-2">&amp;</span>shuffled_indices, <span class="kw-2">&amp;</span>all_validators);
+<a href=#251 id=251 data-nosnippet>251</a>
+<a href=#252 id=252 data-nosnippet>252</a>		ActiveValidatorIndices::&lt;T&gt;::set(shuffled_indices);
+<a href=#253 id=253 data-nosnippet>253</a>		ActiveValidatorKeys::&lt;T&gt;::set(active_validator_keys.clone());
+<a href=#254 id=254 data-nosnippet>254</a>
+<a href=#255 id=255 data-nosnippet>255</a>		active_validator_keys
+<a href=#256 id=256 data-nosnippet>256</a>	}
+<a href=#257 id=257 data-nosnippet>257</a>
+<a href=#258 id=258 data-nosnippet>258</a>	<span class="doccomment">/// Return the session index that should be used for any future scheduled changes.
+<a href=#259 id=259 data-nosnippet>259</a>	</span><span class="kw">pub fn </span>scheduled_session() -&gt; SessionIndex {
+<a href=#260 id=260 data-nosnippet>260</a>		CurrentSessionIndex::&lt;T&gt;::get().saturating_add(SESSION_DELAY)
+<a href=#261 id=261 data-nosnippet>261</a>	}
+<a href=#262 id=262 data-nosnippet>262</a>
+<a href=#263 id=263 data-nosnippet>263</a>	<span class="doccomment">/// Fetches disabled validators list from session pallet.
+<a href=#264 id=264 data-nosnippet>264</a>	/// CAVEAT: this might produce incorrect results on session boundaries
+<a href=#265 id=265 data-nosnippet>265</a>	</span><span class="kw">pub fn </span>disabled_validators() -&gt; Vec&lt;ValidatorIndex&gt; {
+<a href=#266 id=266 data-nosnippet>266</a>		<span class="kw">let </span>shuffled_indices = ActiveValidatorIndices::&lt;T&gt;::get();
+<a href=#267 id=267 data-nosnippet>267</a>		<span class="comment">// mapping from raw validator index to `ValidatorIndex`
+<a href=#268 id=268 data-nosnippet>268</a>		// this computation is the same within a session, but should be cheap
+<a href=#269 id=269 data-nosnippet>269</a>		</span><span class="kw">let </span>reverse_index = shuffled_indices
+<a href=#270 id=270 data-nosnippet>270</a>			.iter()
+<a href=#271 id=271 data-nosnippet>271</a>			.enumerate()
+<a href=#272 id=272 data-nosnippet>272</a>			.map(|(i, v)| (v.<span class="number">0</span>, ValidatorIndex(i <span class="kw">as </span>u32)))
+<a href=#273 id=273 data-nosnippet>273</a>			.collect::&lt;BTreeMap&lt;u32, ValidatorIndex&gt;&gt;();
+<a href=#274 id=274 data-nosnippet>274</a>
+<a href=#275 id=275 data-nosnippet>275</a>		<span class="comment">// we might have disabled validators who are not parachain validators
+<a href=#276 id=276 data-nosnippet>276</a>		</span>T::DisabledValidators::disabled_validators()
+<a href=#277 id=277 data-nosnippet>277</a>			.iter()
+<a href=#278 id=278 data-nosnippet>278</a>			.filter_map(|v| reverse_index.get(v).cloned())
+<a href=#279 id=279 data-nosnippet>279</a>			.collect()
+<a href=#280 id=280 data-nosnippet>280</a>	}
 <a href=#281 id=281 data-nosnippet>281</a>
-<a href=#282 id=282 data-nosnippet>282</a>		<span class="comment">// Insert this block's parent as an allowed relay parent for the current session.
-<a href=#283 id=283 data-nosnippet>283</a>		</span>AllowedRelayParents::&lt;T&gt;::insert(
-<a href=#284 id=284 data-nosnippet>284</a>			session_index,
-<a href=#285 id=285 data-nosnippet>285</a>			hash,
-<a href=#286 id=286 data-nosnippet>286</a>			RelayParentInfo { number: block_number, state_root: storage_root },
-<a href=#287 id=287 data-nosnippet>287</a>		);
-<a href=#288 id=288 data-nosnippet>288</a>
-<a href=#289 id=289 data-nosnippet>289</a>		<span class="comment">// Track the minimum relay parent number for this session.
-<a href=#290 id=290 data-nosnippet>290</a>		// Only set on the first relay parent of the session (subsequent blocks have
-<a href=#291 id=291 data-nosnippet>291</a>		// higher numbers).
-<a href=#292 id=292 data-nosnippet>292</a>		</span><span class="kw">if </span>!MinimumRelayParentNumber::&lt;T&gt;::contains_key(session_index) {
-<a href=#293 id=293 data-nosnippet>293</a>			MinimumRelayParentNumber::&lt;T&gt;::insert(session_index, block_number);
-<a href=#294 id=294 data-nosnippet>294</a>		}
-<a href=#295 id=295 data-nosnippet>295</a>
-<a href=#296 id=296 data-nosnippet>296</a>		<span class="comment">// Prune relay parents from sessions that are now too old.
-<a href=#297 id=297 data-nosnippet>297</a>		</span><span class="kw">let </span>oldest_allowed_session = session_index.saturating_sub(max_relay_parent_session_age);
-<a href=#298 id=298 data-nosnippet>298</a>		<span class="kw">let </span>oldest_stored = OldestRelayParentSession::&lt;T&gt;::get();
-<a href=#299 id=299 data-nosnippet>299</a>
-<a href=#300 id=300 data-nosnippet>300</a>		<span class="comment">// Only prune and advance the pointer if the allowed oldest session has moved
-<a href=#301 id=301 data-nosnippet>301</a>		// forward. If max_relay_parent_session_age was increased at runtime,
-<a href=#302 id=302 data-nosnippet>302</a>		// oldest_allowed_session may be less than oldest_stored; in that case, entries
-<a href=#303 id=303 data-nosnippet>303</a>		// for those older sessions were already pruned in prior blocks and we must not
-<a href=#304 id=304 data-nosnippet>304</a>		// move the pointer backward.
-<a href=#305 id=305 data-nosnippet>305</a>		</span><span class="kw">if </span>oldest_allowed_session &gt; oldest_stored {
-<a href=#306 id=306 data-nosnippet>306</a>			<span class="kw">for </span>expired <span class="kw">in </span>oldest_stored..oldest_allowed_session {
-<a href=#307 id=307 data-nosnippet>307</a>				<span class="kw">let _ </span>= AllowedRelayParents::&lt;T&gt;::clear_prefix(expired, u32::MAX, <span class="prelude-val">None</span>);
-<a href=#308 id=308 data-nosnippet>308</a>				MinimumRelayParentNumber::&lt;T&gt;::remove(expired);
-<a href=#309 id=309 data-nosnippet>309</a>			}
-<a href=#310 id=310 data-nosnippet>310</a>			OldestRelayParentSession::&lt;T&gt;::set(oldest_allowed_session);
-<a href=#311 id=311 data-nosnippet>311</a>		}
-<a href=#312 id=312 data-nosnippet>312</a>	}
-<a href=#313 id=313 data-nosnippet>313</a>
-<a href=#314 id=314 data-nosnippet>314</a>	<span class="doccomment">/// Retrieve relay parent info by session index and relay parent hash.
-<a href=#315 id=315 data-nosnippet>315</a>	</span><span class="kw">pub fn </span>get_relay_parent_info(
-<a href=#316 id=316 data-nosnippet>316</a>		session_index: SessionIndex,
-<a href=#317 id=317 data-nosnippet>317</a>		relay_parent: T::Hash,
-<a href=#318 id=318 data-nosnippet>318</a>	) -&gt; <span class="prelude-ty">Option</span>&lt;RelayParentInfo&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;&gt; {
-<a href=#319 id=319 data-nosnippet>319</a>		AllowedRelayParents::&lt;T&gt;::get(session_index, relay_parent)
-<a href=#320 id=320 data-nosnippet>320</a>	}
-<a href=#321 id=321 data-nosnippet>321</a>
-<a href=#322 id=322 data-nosnippet>322</a>	<span class="doccomment">/// Get the minimum allowed relay parent block number across all sessions.
-<a href=#323 id=323 data-nosnippet>323</a>	/// Returns the minimum from the oldest session's entry in `MinimumRelayParentNumber`.
-<a href=#324 id=324 data-nosnippet>324</a>	</span><span class="kw">pub fn </span>get_minimum_relay_parent_number() -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt; {
-<a href=#325 id=325 data-nosnippet>325</a>		<span class="kw">let </span>oldest_session = OldestRelayParentSession::&lt;T&gt;::get();
-<a href=#326 id=326 data-nosnippet>326</a>		MinimumRelayParentNumber::&lt;T&gt;::get(oldest_session)
-<a href=#327 id=327 data-nosnippet>327</a>	}
-<a href=#328 id=328 data-nosnippet>328</a>
-<a href=#329 id=329 data-nosnippet>329</a>	<span class="doccomment">/// Test function for setting the current session index.
-<a href=#330 id=330 data-nosnippet>330</a>	</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
-<a href=#331 id=331 data-nosnippet>331</a>	</span><span class="kw">pub fn </span>set_session_index(index: SessionIndex) {
-<a href=#332 id=332 data-nosnippet>332</a>		CurrentSessionIndex::&lt;T&gt;::set(index);
-<a href=#333 id=333 data-nosnippet>333</a>	}
-<a href=#334 id=334 data-nosnippet>334</a>
-<a href=#335 id=335 data-nosnippet>335</a>	<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
-<a href=#336 id=336 data-nosnippet>336</a>	</span><span class="kw">pub fn </span>set_active_validators_ascending(active: Vec&lt;ValidatorId&gt;) {
-<a href=#337 id=337 data-nosnippet>337</a>		ActiveValidatorIndices::&lt;T&gt;::set(
-<a href=#338 id=338 data-nosnippet>338</a>			(<span class="number">0</span>..active.len()).map(|i| ValidatorIndex(i <span class="kw">as _</span>)).collect(),
-<a href=#339 id=339 data-nosnippet>339</a>		);
-<a href=#340 id=340 data-nosnippet>340</a>		ActiveValidatorKeys::&lt;T&gt;::set(active);
-<a href=#341 id=341 data-nosnippet>341</a>	}
-<a href=#342 id=342 data-nosnippet>342</a>
-<a href=#343 id=343 data-nosnippet>343</a>	<span class="attr">#[cfg(test)]
-<a href=#344 id=344 data-nosnippet>344</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_active_validators_with_indices(
-<a href=#345 id=345 data-nosnippet>345</a>		indices: Vec&lt;ValidatorIndex&gt;,
-<a href=#346 id=346 data-nosnippet>346</a>		keys: Vec&lt;ValidatorId&gt;,
-<a href=#347 id=347 data-nosnippet>347</a>	) {
-<a href=#348 id=348 data-nosnippet>348</a>		<span class="macro">assert_eq!</span>(indices.len(), keys.len());
-<a href=#349 id=349 data-nosnippet>349</a>		ActiveValidatorIndices::&lt;T&gt;::set(indices);
-<a href=#350 id=350 data-nosnippet>350</a>		ActiveValidatorKeys::&lt;T&gt;::set(keys);
-<a href=#351 id=351 data-nosnippet>351</a>	}
-<a href=#352 id=352 data-nosnippet>352</a>
-<a href=#353 id=353 data-nosnippet>353</a>	<span class="attr">#[cfg(test)]
-<a href=#354 id=354 data-nosnippet>354</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>add_allowed_scheduling_parent(
-<a href=#355 id=355 data-nosnippet>355</a>		scheduling_parent: T::Hash,
-<a href=#356 id=356 data-nosnippet>356</a>		claim_queue: BTreeMap&lt;CoreIndex, VecDeque&lt;Id&gt;&gt;,
-<a href=#357 id=357 data-nosnippet>357</a>		number: BlockNumberFor&lt;T&gt;,
-<a href=#358 id=358 data-nosnippet>358</a>		max_ancestry_len: u32,
-<a href=#359 id=359 data-nosnippet>359</a>	) {
-<a href=#360 id=360 data-nosnippet>360</a>		AllowedSchedulingParents::&lt;T&gt;::mutate(|tracker| {
-<a href=#361 id=361 data-nosnippet>361</a>			tracker.update(scheduling_parent, claim_queue, number, max_ancestry_len + <span class="number">1</span>)
-<a href=#362 id=362 data-nosnippet>362</a>		});
-<a href=#363 id=363 data-nosnippet>363</a>
-<a href=#364 id=364 data-nosnippet>364</a>		<span class="comment">// Also populate the AllowedRelayParents DoubleMap so that tests
-<a href=#365 id=365 data-nosnippet>365</a>		// which call verify_backed_candidate can look up relay parent info.
-<a href=#366 id=366 data-nosnippet>366</a>		</span><span class="kw">let </span>session_index = CurrentSessionIndex::&lt;T&gt;::get();
-<a href=#367 id=367 data-nosnippet>367</a>		AllowedRelayParents::&lt;T&gt;::insert(
-<a href=#368 id=368 data-nosnippet>368</a>			session_index,
-<a href=#369 id=369 data-nosnippet>369</a>			scheduling_parent,
-<a href=#370 id=370 data-nosnippet>370</a>			RelayParentInfo { number, state_root: Default::default() },
-<a href=#371 id=371 data-nosnippet>371</a>		);
-<a href=#372 id=372 data-nosnippet>372</a>	}
-<a href=#373 id=373 data-nosnippet>373</a>}
+<a href=#282 id=282 data-nosnippet>282</a>	<span class="doccomment">/// Called at the beginning of each block to update the allowed scheduling and relay parents.
+<a href=#283 id=283 data-nosnippet>283</a>	///
+<a href=#284 id=284 data-nosnippet>284</a>	/// Adds the parent block as an allowed scheduling parent and relay parent.
+<a href=#285 id=285 data-nosnippet>285</a>	</span><span class="kw">pub fn </span>new_block(
+<a href=#286 id=286 data-nosnippet>286</a>		hash: T::Hash,
+<a href=#287 id=287 data-nosnippet>287</a>		cq: BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;,
+<a href=#288 id=288 data-nosnippet>288</a>		block_number: BlockNumberFor&lt;T&gt;,
+<a href=#289 id=289 data-nosnippet>289</a>		max_ancestry_len: u32,
+<a href=#290 id=290 data-nosnippet>290</a>		storage_root: T::Hash,
+<a href=#291 id=291 data-nosnippet>291</a>		session_index: SessionIndex,
+<a href=#292 id=292 data-nosnippet>292</a>	) {
+<a href=#293 id=293 data-nosnippet>293</a>		<span class="comment">// Update the allowed scheduling parents.
+<a href=#294 id=294 data-nosnippet>294</a>		</span>AllowedSchedulingParents::&lt;T&gt;::mutate(|tracker| {
+<a href=#295 id=295 data-nosnippet>295</a>			tracker.update(hash, cq, block_number, max_ancestry_len);
+<a href=#296 id=296 data-nosnippet>296</a>		});
+<a href=#297 id=297 data-nosnippet>297</a>
+<a href=#298 id=298 data-nosnippet>298</a>		<span class="comment">// Insert this block's parent as an allowed relay parent for the current session.
+<a href=#299 id=299 data-nosnippet>299</a>		</span>AllowedRelayParents::&lt;T&gt;::insert(
+<a href=#300 id=300 data-nosnippet>300</a>			session_index,
+<a href=#301 id=301 data-nosnippet>301</a>			hash,
+<a href=#302 id=302 data-nosnippet>302</a>			RelayParentInfo { number: block_number, state_root: storage_root },
+<a href=#303 id=303 data-nosnippet>303</a>		);
+<a href=#304 id=304 data-nosnippet>304</a>
+<a href=#305 id=305 data-nosnippet>305</a>		<span class="comment">// Track the minimum relay parent number for this session.
+<a href=#306 id=306 data-nosnippet>306</a>		// Only set on the first relay parent of the session (subsequent blocks have
+<a href=#307 id=307 data-nosnippet>307</a>		// higher numbers).
+<a href=#308 id=308 data-nosnippet>308</a>		</span><span class="kw">if </span>!MinimumRelayParentNumber::&lt;T&gt;::contains_key(session_index) {
+<a href=#309 id=309 data-nosnippet>309</a>			MinimumRelayParentNumber::&lt;T&gt;::insert(session_index, block_number);
+<a href=#310 id=310 data-nosnippet>310</a>		}
+<a href=#311 id=311 data-nosnippet>311</a>	}
+<a href=#312 id=312 data-nosnippet>312</a>
+<a href=#313 id=313 data-nosnippet>313</a>	<span class="doccomment">/// Retrieve relay parent info by session index and relay parent hash.
+<a href=#314 id=314 data-nosnippet>314</a>	</span><span class="kw">pub fn </span>get_relay_parent_info(
+<a href=#315 id=315 data-nosnippet>315</a>		session_index: SessionIndex,
+<a href=#316 id=316 data-nosnippet>316</a>		relay_parent: T::Hash,
+<a href=#317 id=317 data-nosnippet>317</a>	) -&gt; <span class="prelude-ty">Option</span>&lt;RelayParentInfo&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;&gt; {
+<a href=#318 id=318 data-nosnippet>318</a>		AllowedRelayParents::&lt;T&gt;::get(session_index, relay_parent)
+<a href=#319 id=319 data-nosnippet>319</a>	}
+<a href=#320 id=320 data-nosnippet>320</a>
+<a href=#321 id=321 data-nosnippet>321</a>	<span class="doccomment">/// Get the minimum allowed relay parent block number across all sessions.
+<a href=#322 id=322 data-nosnippet>322</a>	/// Returns the minimum from the oldest session's entry in `MinimumRelayParentNumber`.
+<a href=#323 id=323 data-nosnippet>323</a>	</span><span class="kw">pub fn </span>get_minimum_relay_parent_number() -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt; {
+<a href=#324 id=324 data-nosnippet>324</a>		<span class="kw">let </span>oldest_session = OldestRelayParentSession::&lt;T&gt;::get();
+<a href=#325 id=325 data-nosnippet>325</a>		MinimumRelayParentNumber::&lt;T&gt;::get(oldest_session)
+<a href=#326 id=326 data-nosnippet>326</a>	}
+<a href=#327 id=327 data-nosnippet>327</a>
+<a href=#328 id=328 data-nosnippet>328</a>	<span class="doccomment">/// Test function for setting the current session index.
+<a href=#329 id=329 data-nosnippet>329</a>	</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
+<a href=#330 id=330 data-nosnippet>330</a>	</span><span class="kw">pub fn </span>set_session_index(index: SessionIndex) {
+<a href=#331 id=331 data-nosnippet>331</a>		CurrentSessionIndex::&lt;T&gt;::set(index);
+<a href=#332 id=332 data-nosnippet>332</a>	}
+<a href=#333 id=333 data-nosnippet>333</a>
+<a href=#334 id=334 data-nosnippet>334</a>	<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
+<a href=#335 id=335 data-nosnippet>335</a>	</span><span class="kw">pub fn </span>set_active_validators_ascending(active: Vec&lt;ValidatorId&gt;) {
+<a href=#336 id=336 data-nosnippet>336</a>		ActiveValidatorIndices::&lt;T&gt;::set(
+<a href=#337 id=337 data-nosnippet>337</a>			(<span class="number">0</span>..active.len()).map(|i| ValidatorIndex(i <span class="kw">as _</span>)).collect(),
+<a href=#338 id=338 data-nosnippet>338</a>		);
+<a href=#339 id=339 data-nosnippet>339</a>		ActiveValidatorKeys::&lt;T&gt;::set(active);
+<a href=#340 id=340 data-nosnippet>340</a>	}
+<a href=#341 id=341 data-nosnippet>341</a>
+<a href=#342 id=342 data-nosnippet>342</a>	<span class="attr">#[cfg(test)]
+<a href=#343 id=343 data-nosnippet>343</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_active_validators_with_indices(
+<a href=#344 id=344 data-nosnippet>344</a>		indices: Vec&lt;ValidatorIndex&gt;,
+<a href=#345 id=345 data-nosnippet>345</a>		keys: Vec&lt;ValidatorId&gt;,
+<a href=#346 id=346 data-nosnippet>346</a>	) {
+<a href=#347 id=347 data-nosnippet>347</a>		<span class="macro">assert_eq!</span>(indices.len(), keys.len());
+<a href=#348 id=348 data-nosnippet>348</a>		ActiveValidatorIndices::&lt;T&gt;::set(indices);
+<a href=#349 id=349 data-nosnippet>349</a>		ActiveValidatorKeys::&lt;T&gt;::set(keys);
+<a href=#350 id=350 data-nosnippet>350</a>	}
+<a href=#351 id=351 data-nosnippet>351</a>
+<a href=#352 id=352 data-nosnippet>352</a>	<span class="attr">#[cfg(test)]
+<a href=#353 id=353 data-nosnippet>353</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>add_allowed_scheduling_parent(
+<a href=#354 id=354 data-nosnippet>354</a>		scheduling_parent: T::Hash,
+<a href=#355 id=355 data-nosnippet>355</a>		claim_queue: BTreeMap&lt;CoreIndex, VecDeque&lt;Id&gt;&gt;,
+<a href=#356 id=356 data-nosnippet>356</a>		number: BlockNumberFor&lt;T&gt;,
+<a href=#357 id=357 data-nosnippet>357</a>		max_ancestry_len: u32,
+<a href=#358 id=358 data-nosnippet>358</a>	) {
+<a href=#359 id=359 data-nosnippet>359</a>		AllowedSchedulingParents::&lt;T&gt;::mutate(|tracker| {
+<a href=#360 id=360 data-nosnippet>360</a>			tracker.update(scheduling_parent, claim_queue, number, max_ancestry_len + <span class="number">1</span>)
+<a href=#361 id=361 data-nosnippet>361</a>		});
+<a href=#362 id=362 data-nosnippet>362</a>
+<a href=#363 id=363 data-nosnippet>363</a>		<span class="comment">// Also populate the AllowedRelayParents DoubleMap so that tests
+<a href=#364 id=364 data-nosnippet>364</a>		// which call verify_backed_candidate can look up relay parent info.
+<a href=#365 id=365 data-nosnippet>365</a>		</span><span class="kw">let </span>session_index = CurrentSessionIndex::&lt;T&gt;::get();
+<a href=#366 id=366 data-nosnippet>366</a>		AllowedRelayParents::&lt;T&gt;::insert(
+<a href=#367 id=367 data-nosnippet>367</a>			session_index,
+<a href=#368 id=368 data-nosnippet>368</a>			scheduling_parent,
+<a href=#369 id=369 data-nosnippet>369</a>			RelayParentInfo { number, state_root: Default::default() },
+<a href=#370 id=370 data-nosnippet>370</a>		);
+<a href=#371 id=371 data-nosnippet>371</a>	}
+<a href=#372 id=372 data-nosnippet>372</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
