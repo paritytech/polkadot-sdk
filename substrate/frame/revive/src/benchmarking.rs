@@ -169,7 +169,22 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Benchmark for processing N EIP-7702 authorizations with existing accounts
+	// Benchmark for processing N EIP-7702 authorizations with existing accounts.
+	//
+	// Worst case: each authority is *already* delegated to a unique target whose code is
+	// referenced only by that delegation, with the deposit paid by an account other than the
+	// bench's `caller`. Re-delegating to a fresh target then exercises the most expensive paths
+	// per auth:
+	//   - payer-change: full refund to `setup_payer` + full charge from `caller`
+	//   - old-code refcount → 0: `decrement_refcount` removes `CodeInfoOf` + `PristineCode`
+	//   - new-code refcount 0 → 1: `increment_refcount`
+	//
+	// To produce `refcount(old_code) == 1` going into the bench, we directly decrement the
+	// deployment's contribution after setup. This is equivalent to having terminated the old
+	// target (which would also drop the deployment's ref) — `#[block]` only reads the
+	// delegation snapshot's `code_hash`, never `AccountInfoOf[old_target]`, so it doesn't
+	// matter that the latter is still present.
+	//
 	// Parameter `n`: number of authorizations to process
 	#[benchmark(pov_mode = Measured)]
 	fn process_existing_account_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
@@ -181,25 +196,55 @@ mod benchmarks {
 		<T as Config>::FeeInfo::deposit_txfee(
 			<T as Config>::Currency::issue(caller_funding::<T>()),
 		);
+
+		// Distinct payer (≠ `caller`) so the bench takes the payer-change branch in
+		// `process_authorizations` (full refund + full charge per auth) rather than the
+		// same-payer net-diff fast path.
+		let setup_payer: T::AccountId = account("setup_payer", 0, 0);
+		T::Currency::set_balance(&setup_payer, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+
 		let chain_id = U256::from(T::ChainId::get());
 		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
 
-		// Worst case: each auth has a distinct target with distinct code (see comment on
-		// `process_new_account_authorization` above).
 		let mut authorization_list = vec![];
 		for i in 0..n {
-			let target_contract =
-				Contract::<T>::with_index(i + 1, VmBinaryModule::dummy_unique(i), vec![])?;
-			let target = target_contract.address;
+			// Old delegation target with unique code (so each gets its own `CodeInfoOf` entry).
+			let old_target =
+				Contract::<T>::with_index(2 * i + 1, VmBinaryModule::dummy_unique(2 * i), vec![])?;
+			let old_code_hash = <AccountInfoOf<T>>::get(&old_target.address)
+				.and_then(|info| match info.account_type {
+					AccountType::Contract(c) => Some(c.code_hash),
+					_ => None,
+				})
+				.ok_or("old_target should be a Contract")?;
 
+			// Pre-existing delegation paid by `setup_payer`. Bumps the authority's nonce to 1
+			// and brings `refcount(old_code)` to 2 (deployment + delegation snapshot).
 			let key_material = keccak_256(&i.to_le_bytes());
 			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
+			let setup_auth =
+				eip7702::sign_authorization(&key, chain_id, old_target.address, U256::zero());
+			let _ = eip7702::process_authorizations::<T>(&[setup_auth], &setup_payer, &exec_config);
 
-			let eth_address = eip7702::eth_address(&key);
-			let account_id = T::AddressMapper::to_account_id(&eth_address);
-			T::Currency::set_balance(&account_id, Pallet::<T>::min_balance());
+			// Drop the deployment's ref so the delegation snapshot is the sole holder. This
+			// mirrors the post-termination storage state without spending setup time on real
+			// contract calls (the bench measures `#[block]`, not setup).
+			let _ =
+				CodeInfo::<T>::decrement_refcount(old_code_hash).map_err(|_| "decrement failed")?;
 
-			let signed_auth = eip7702::sign_authorization(&key, chain_id, target, U256::zero());
+			// New target (also unique code) that the authority re-delegates to.
+			let new_target = Contract::<T>::with_index(
+				2 * i + 2,
+				VmBinaryModule::dummy_unique(2 * i + 1),
+				vec![],
+			)?;
+
+			// Authority's nonce is 1 after setup, so the re-delegation auth signs with nonce=1.
+			let signed_auth =
+				eip7702::sign_authorization(&key, chain_id, new_target.address, U256::one());
 			authorization_list.push(signed_auth);
 		}
 
@@ -211,6 +256,7 @@ mod benchmarks {
 		}
 
 		assert_eq!(auth_result.new_accounts, 0u32);
+		assert_eq!(auth_result.existing_accounts, n as u32);
 		Ok(())
 	}
 
