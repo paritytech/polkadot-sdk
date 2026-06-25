@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782405022548,
+  "lastUpdate": 1782422156271,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bkontur@gmail.com",
-            "name": "Branislav Kontur",
-            "username": "bkontur"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "41bc46f27067c243d1c0fb7f83260d61c1f97c75",
-          "message": "[pallet-transaction-storage] Improved `check_proof` check + tests + docs (#10153)\n\n**This PR:**\n\n* Fixes `check_proof` and its `binary_search_by_key` chunk\n* Adds the `ensure_chunk_proof_works` test, which covers all possible\nchunk index build/verify proof roundtrips (to catch all corner cases)\n* Improves docs around `pallet-transaction-storage`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-11-04T15:15:11Z",
-          "tree_id": "c369cf004da2e377313c241f9655aa8817ba112b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/41bc46f27067c243d1c0fb7f83260d61c1f97c75"
-        },
-        "date": 1762273431782,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20000203366666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.599545456033331,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.859023327966666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cd33d702d9da16e5d3d9e11c61d2b76b9e2a1a30",
+          "message": "[pallet-revive] storage precompile error-handling refactor and accounting refinements (#12434)\n\nThis PR bundles three self-contained changes in pallet-revive:\n\n1. Storage precompile: refactor argument-error handling behind a small\nStorageArgError enum, replacing the repeated inline map_errs.\n2. Weight charges: adjust two operations so their charge tracks the\nmeasured cost more closely.\n3. Existential deposit: charge the ED storage deposit only when the\naccount-creating transfer actually succeeds, instead of also counting it\nfor transfers that roll back.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-25T19:37:10Z",
+          "tree_id": "9348055268f2ebb01a1356ff9c0f47bb8ac18e4d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd33d702d9da16e5d3d9e11c61d2b76b9e2a1a30"
+        },
+        "date": 1782422126128,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1372202355,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.950574928066667,
             "unit": "seconds"
           }
         ]
