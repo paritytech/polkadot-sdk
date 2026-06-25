@@ -24,139 +24,123 @@ module main {
   /// Abstract per-test fixed code length (so the upgrade math is concrete).
   pure val FixedCodeLen: int = 64 * 1024
 
+  /// Initial state with the two privileged chains pre-registered, so that
+  /// every state mutation in the model flows through `stepRefineAccumulate`
+  /// — Coretime and Asset Hub act as ordinary parachains whose PVFs emit
+  /// privileged upward messages (Coretime: `ParachainSet*`, Asset Hub:
+  /// `SetValidatorKeys` / `UpgradeService` / `TransferOut` / `ConsumeTransfersUpTo`).
+  pure val initialState: ParachainServiceState = {
+    val coretimeId: ParaId = MkParaId(1)
+    val assetHubId: ParaId = MkParaId(2)
+    val coretimeCode: ValidationCodeHash = { vchBytes: 1 }
+    val assetHubCode: ValidationCodeHash = { vchBytes: 2 }
+    val s1 = parachainSetStateBalance(emptyState, coretimeId, BaselineFootprint * 4).state
+    val s2 = parachainSetValidationCode(s1, coretimeId, coretimeCode, FixedCodeLen, FixedCodeLen).state
+    val s3 = parachainSetHead(s2, coretimeId, 0).state
+    val s4 = parachainSetStateBalance(s3, assetHubId, BaselineFootprint * 4).state
+    val s5 = parachainSetValidationCode(s4, assetHubId, assetHubCode, FixedCodeLen, FixedCodeLen).state
+    parachainSetHead(s5, assetHubId, 0).state
+  }
+
   // --- Init --------------------------------------------------------------
 
   action init = all {
-    svc' = emptyState,
+    svc' = initialState,
     now' = 0,
     jamStagingSet' = List(),
     coretimeChain' = MkParaId(1),
     assetHub' = MkParaId(2),
     solicitedSet' = Set(),
-    prevSvc' = emptyState
+    prevSvc' = initialState,
+    lastStepWorkResults' = List()
   }
 
   // --- Step (a): refine + accumulate one work-report --------------------
 
-  action stepRefineAccumulate = {
-    // Refine phase (§4.1): pick a live parachain, an authored candidate
-    // (which may carry the active code, the pending-upgrade code, or some
-    // unrelated hash), an abstract PVF outcome, and a bundle of upward
-    // messages. Then apply the Refine wrapper rules to assemble a
-    // ParachainWorkResult.
-    nondet para_id = oneOf(svc.parachains.keys())
-    nondet candidate = oneOf(arbitraryCandidates(svc, para_id))
-    nondet pvfPanic = oneOf(Set(false, true))
-    val activeHash = svc.paraInfo(para_id).validationCode.hash
-    val msgPool = arbitraryMessages(para_id, activeHash)
-    nondet m1 = oneOf(msgPool)
-    nondet m2 = oneOf(msgPool)
-    nondet numMsgs = oneOf(Set(0, 1, 2))
+  /// Construct one nondet work package's inputs against `svc`. Used twice
+  /// in `stepRefineAccumulate` to model 1 or 2 work packages per block,
+  /// from the same or different paras, with mixed valid/invalid outcomes.
+  pure def buildPackage(
+    s: ParachainServiceState,
+    paraId: ParaId,
+    candidate: ParachainCandidate,
+    m1: UpwardMessage,
+    m2: UpwardMessage,
+    numMsgs: int,
+    itemCount: int
+  ): { pkg: WorkPackage, msgs: List[UpwardMessage], newHead: HeadData } = {
     val msgs =
       if (numMsgs == 0) List()
       else if (numMsgs == 1) List(m1)
       else List(m1, m2)
-    nondet itemCount = oneOf(Set(0, 1, 2))
-    nondet authConfigMalformed = oneOf(Set(false, true))
-    val newHead = svc.paraInfo(para_id).headData + 1
     val pkg: WorkPackage =
-      if (itemCount == 0) { authorizedParas: List(para_id), items: List() }
-      else if (itemCount == 1) { authorizedParas: List(para_id), items: List(candidate) }
-      else { authorizedParas: List(para_id, para_id), items: List(candidate, candidate) }
-    val result = refine(svc, pkg, authConfigMalformed, pvfPanic, newHead, msgs, assetHub, coretimeChain)[0]
+      if (itemCount == 0) { authorizedParas: List(paraId), items: List() }
+      else if (itemCount == 1) { authorizedParas: List(paraId), items: List(candidate) }
+      else { authorizedParas: List(paraId, paraId), items: List(candidate, candidate) }
+    { pkg: pkg, msgs: msgs, newHead: s.paraInfo(paraId).headData + 1 }
+  }
 
-    // Accumulate phase (§5.1): registration check, parent-head check, code
-    // check, code-upgrade activation, then upward-message replay.
-    val accIn = { ...emptyOutcome, state: svc }
-    val accOut = match result {
-      | Err(_) =>
-      // Refine failure: in the real protocol Accumulate would append a
-      // RefineLogEntry against the para's log. Modeled here as a no-op
-      // on service state.
-      accIn
-      | Ok(ok) =>
-      val pre = accumulateOkPrefix(accIn.state, ok, FixedCodeLen, now, assetHub, coretimeChain)
-      if (pre.rejected)
-      { state: pre.state,
-        jamDesignate: None,
-        jamSolicit: pre.jamSolicit,
-        jamForget: pre.jamForget,
-        logs: pre.logs
-      }
-      else
-      ok.upwardMessages.foldl(
-        { ...accIn,
-          state: pre.state,
-          jamSolicit: pre.jamSolicit,
-          jamForget: pre.jamForget,
-          logs: pre.logs
-        },
-        (acc, m) => applyUpwardMessage(acc, ok.paraId, FixedCodeLen, assetHub, now, m)
-      )
-    }
+  action stepRefineAccumulate = {
+    // First work package
+    nondet wp1Para = oneOf(svc.parachains.keys())
+    nondet wp1Candidate = oneOf(arbitraryCandidates(svc, wp1Para))
+    nondet wp1PvfPanic = oneOf(Set(false, true))
+    val wp1Pool = arbitraryMessages(wp1Para, svc.paraInfo(wp1Para).validationCode.hash)
+    nondet wp1M1 = oneOf(wp1Pool)
+    nondet wp1M2 = oneOf(wp1Pool)
+    nondet wp1NumMsgs = oneOf(Set(0, 1, 2))
+    nondet wp1ItemCount = oneOf(Set(0, 1, 2))
+    nondet wp1AuthMalformed = oneOf(Set(false, true))
+    val wp1 = buildPackage(svc, wp1Para, wp1Candidate, wp1M1, wp1M2, wp1NumMsgs, wp1ItemCount)
+    val wp1Result = refine(svc, wp1.pkg, wp1AuthMalformed, wp1PvfPanic, wp1.newHead, wp1.msgs, assetHub, coretimeChain)[0]
 
-    // Always-accumulate work.
-    val sFinal = applyAlwaysAccumulate(accOut.state, now)
-    val newStaging = match accOut.jamDesignate {
+    // Second work package (possibly same para — captures multi-package mix)
+    nondet wp2Para = oneOf(svc.parachains.keys())
+    nondet wp2Candidate = oneOf(arbitraryCandidates(svc, wp2Para))
+    nondet wp2PvfPanic = oneOf(Set(false, true))
+    val wp2Pool = arbitraryMessages(wp2Para, svc.paraInfo(wp2Para).validationCode.hash)
+    nondet wp2M1 = oneOf(wp2Pool)
+    nondet wp2M2 = oneOf(wp2Pool)
+    nondet wp2NumMsgs = oneOf(Set(0, 1, 2))
+    nondet wp2ItemCount = oneOf(Set(0, 1, 2))
+    nondet wp2AuthMalformed = oneOf(Set(false, true))
+
+    nondet numPkgs = oneOf(Set(1, 2))
+
+    val out1 = accumulateOnePackage(svc, wp1Result, solicitedSet, None, FixedCodeLen, now, assetHub, coretimeChain)
+    // wp2 refines against the post-wp1 state so a second package for the
+    // SAME para chains off wp1's new head; different para → identical to
+    // refining against `svc`.
+    val wp2 = buildPackage(out1.state, wp2Para, wp2Candidate, wp2M1, wp2M2, wp2NumMsgs, wp2ItemCount)
+    val wp2Result = refine(out1.state, wp2.pkg, wp2AuthMalformed, wp2PvfPanic, wp2.newHead, wp2.msgs, assetHub, coretimeChain)[0]
+    val out2 =
+      if (numPkgs == 2)
+        accumulateOnePackage(out1.state, wp2Result, out1.solicited, out1.jamDesignate, FixedCodeLen, now, assetHub, coretimeChain)
+      else out1
+
+    val sFinal = applyAlwaysAccumulate(out2.state, now)
+    val newStaging = match out2.jamDesignate {
       | Some(v) => v
       | None => jamStagingSet
     }
-    // Ghost-state update: mirror the Solicit/Forget upward messages that
-    // were actually processed (Ok result + accumulate not rejected).
-    val nextSolicited = match result {
-      | Err(_) => solicitedSet
-      | Ok(ok) =>
-      val pre = accumulateOkPrefix(svc, ok, FixedCodeLen, now, assetHub, coretimeChain)
-      if (pre.rejected) solicitedSet
-      else ok.upwardMessages.foldl(solicitedSet, (acc, m) => match m {
-          | Solicit(payload) => acc.union(Set((ok.paraId, payload.hash)))
-          | Forget(payload) => acc.exclude(Set((ok.paraId, payload.hash)))
-          | _ => acc
-      })
-    }
+
+    val results =
+      if (numPkgs == 1) List(wp1Result)
+      else List(wp1Result, wp2Result)
+
     all {
       svc' = sFinal,
       jamStagingSet' = newStaging,
       now' = now,
       coretimeChain' = coretimeChain,
       assetHub' = assetHub,
-      solicitedSet' = nextSolicited,
-      prevSvc' = svc
+      solicitedSet' = out2.solicited,
+      prevSvc' = svc,
+      lastStepWorkResults' = results
     }
   }
 
-  // --- Step (b): Coretime-driven management primitive -------------------
-  //
-  /// Any of the four §6 primitives, applied to a nondeterministically chosen
-  /// ParaId with nondeterministically chosen arguments (within reasonable
-  /// bounds for exploration).
-  action stepManagement = {
-    nondet paraIdInt = oneOf(Set(1, 2, 3, 4, 5))
-    val para_id: ParaId = MkParaId(paraIdInt)
-    nondet choice = oneOf(Set("set_balance", "set_head", "set_code", "clean_up"))
-    nondet total = oneOf(Set(BaselineFootprint, BaselineFootprint * 2, BaselineFootprint * 4))
-    nondet headBlob = oneOf(Set(1, 2, 3, 4, 5, 6))
-    nondet codeHash = oneOf(Set(
-        { vchBytes: 101 }, { vchBytes: 102 }, { vchBytes: 103 }
-    ))
-    val newSvc =
-    if (choice == "set_balance") parachainSetStateBalance(svc, para_id, total).state
-    else if (choice == "set_head") parachainSetHead(svc, para_id, headBlob).state
-    else if (choice == "set_code")
-    parachainSetValidationCode(svc, para_id, codeHash, FixedCodeLen, FixedCodeLen).state
-    else parachainCleanUp(svc, para_id, assetHub)
-    all {
-      svc' = newSvc,
-      now' = now,
-      jamStagingSet' = jamStagingSet,
-      coretimeChain' = coretimeChain,
-      assetHub' = assetHub,
-      solicitedSet' = solicitedSet,
-      prevSvc' = svc
-    }
-  }
-
-  // --- Step (c): time advance -------------------------------------------
+  // --- Step (b): time advance -------------------------------------------
 
   action stepTick = all {
     now' = now + 1,
@@ -165,12 +149,13 @@ module main {
     coretimeChain' = coretimeChain,
     assetHub' = assetHub,
     solicitedSet' = solicitedSet,
-    prevSvc' = svc
+    prevSvc' = svc,
+    lastStepWorkResults' = List()
   }
 
   // --- Step composition --------------------------------------------------
 
-  action step = any { stepRefineAccumulate, stepManagement, stepTick }
+  action step = any { stepRefineAccumulate, stepTick }
 
   // --- Auxiliary: nondeterministic refine-input generators --------------
 
@@ -232,7 +217,17 @@ module main {
       ParachainSetHead({ paraId: para_id, newHead: 0 }),
       ParachainSetValidationCode({ paraId: para_id, newValidationCodeHash: codeHashA }),
       ParachainCleanUp(para_id),
-      ParachainSetStateBalance({ paraId: para_id, newTotal: 0 })
+      ParachainSetStateBalance({ paraId: para_id, newTotal: 0 }),
+      // Coretime-only targeting OTHER paras — registers new paras and
+      // performs forced recovery / clean-up across the model's paraId space.
+      ParachainSetStateBalance({ paraId: MkParaId(3), newTotal: BaselineFootprint * 2 }),
+      ParachainSetStateBalance({ paraId: MkParaId(4), newTotal: BaselineFootprint * 2 }),
+      ParachainSetStateBalance({ paraId: MkParaId(5), newTotal: BaselineFootprint * 2 }),
+      ParachainSetHead({ paraId: MkParaId(3), newHead: 7 }),
+      ParachainSetHead({ paraId: MkParaId(4), newHead: 7 }),
+      ParachainSetValidationCode({ paraId: MkParaId(3), newValidationCodeHash: codeHashB }),
+      ParachainCleanUp(MkParaId(3)),
+      ParachainCleanUp(MkParaId(4))
     )
   }
 }

@@ -170,6 +170,31 @@ module invariants {
       }
     })
 
+  /// Every `headData` change between `prevSvc` and `svc` must be backed
+  /// by an `Ok` work result that claims that new head — either directly
+  /// (the Ok's own `headData` for its `paraId`) or indirectly via a
+  /// `ParachainSetHead` upward message. Holds universally, including
+  /// always-accumulate blocks with no work packages. Uses only data also
+  /// available to a Rust trace harness.
+  val head_state_matches_outcomes: bool =
+    prevSvc.parachains.keys().forall(p =>
+      not(svc.parachains.keys().contains(p))
+      or svc.paraInfo(p).headData == prevSvc.paraInfo(p).headData
+      or lastStepWorkResults.foldl(false, (acc, r) => match r {
+        | Ok(ok) =>
+          val direct = ok.paraId == p
+            and ok.headData == svc.paraInfo(p).headData
+          val viaMsg = ok.upwardMessages.foldl(false, (a, m) => match m {
+            | ParachainSetHead(payload) =>
+              a or (payload.paraId == p
+                and payload.newHead == svc.paraInfo(p).headData)
+            | _ => a
+          })
+          acc or direct or viaMsg
+        | Err(_) => acc
+      })
+    )
+
   /// Composite invariant — every invariant above must hold simultaneously.
   val invariants: bool = and {
     balance_invariant,
@@ -184,6 +209,7 @@ module invariants {
     used_balance_consistency,
     referencers_are_live,
     parachain_log_only_for_live,
-    code_activation_releases_old
+    code_activation_releases_old,
+    head_state_matches_outcomes
   }
 }

@@ -8,6 +8,7 @@
 // `--invariant=<name>` on the CLI without per-state wrapper boilerplate.
 module state_vars {
   import types.* from "./types"
+  import messages.* from "./messages"
   import state.* from "./state"
 
   var svc: ParachainServiceState
@@ -29,4 +30,12 @@ module state_vars {
   /// Lets invariants relate consecutive states (transition invariants),
   /// e.g. `code_activation_releases_old`. Not part of the protocol.
   var prevSvc: ParachainServiceState
+
+  /// Ghost state: the (ordered) refine work results from the last refine
+  /// step. Empty for non-refine steps. Lets invariants check that the
+  /// state reflects what the work results declared — e.g. a para whose
+  /// head changed must have a matching `Ok` result. The Rust harness has
+  /// the same data from the trace, so invariants over this ghost transfer
+  /// directly. Not part of the protocol.
+  var lastStepWorkResults: List[ParachainWorkResult]
 }

@@ -31,6 +31,16 @@ module accumulate {
     logs: List[AccumulateLog]
   }
 
+  /// Result of accumulating ONE work package's `ParachainWorkResult` against
+  /// the current state. Multi-package steps thread this forward across
+  /// packages by calling `accumulateOnePackage` in sequence with the
+  /// previous call's `state`, `solicited`, and `jamDesignate`.
+  type PerPackageOutcome = {
+    state: ParachainServiceState,
+    solicited: Set[(ParaId, Hash)],
+    jamDesignate: Option[List[ValidatorKey]]
+  }
+
   pure val emptyOutcome: AccumulateOutcome = {
     state: emptyState,
     jamDesignate: None,
@@ -314,6 +324,55 @@ module accumulate {
           }
         }
       }
+    }
+  }
+
+  /// Accumulate one work package against the current state, threading
+  /// `solicited` (ghost) and `jamDesignate` (last designate so far) forward.
+  /// Used by multi-package steps to apply work packages sequentially.
+  pure def accumulateOnePackage(
+    state: ParachainServiceState,
+    result: ParachainWorkResult,
+    solicited: Set[(ParaId, Hash)],
+    prevDesignate: Option[List[ValidatorKey]],
+    codeLen: int,
+    now: Timeslot,
+    assetHub: ParaId,
+    coretimeChain: ParaId
+  ): PerPackageOutcome = {
+    match result {
+      | Err(_) => {
+        state: state,
+        solicited: solicited,
+        jamDesignate: prevDesignate
+      }
+      | Ok(ok) =>
+        val pre = accumulateOkPrefix(state, ok, codeLen, now, assetHub, coretimeChain)
+        if (pre.rejected) {
+          state: pre.state,
+          solicited: solicited,
+          jamDesignate: prevDesignate
+        } else {
+          val baseAcc = {
+            state: pre.state,
+            jamDesignate: prevDesignate,
+            jamSolicit: pre.jamSolicit,
+            jamForget: pre.jamForget,
+            logs: pre.logs
+          }
+          val acc = ok.upwardMessages.foldl(baseAcc, (a, m) =>
+            applyUpwardMessage(a, ok.paraId, codeLen, assetHub, now, m))
+          val newSolicited = ok.upwardMessages.foldl(solicited, (s, m) => match m {
+            | Solicit(p) => s.union(Set((ok.paraId, p.hash)))
+            | Forget(p) => s.exclude(Set((ok.paraId, p.hash)))
+            | _ => s
+          })
+          {
+            state: acc.state,
+            solicited: newSolicited,
+            jamDesignate: acc.jamDesignate
+          }
+        }
     }
   }
 
