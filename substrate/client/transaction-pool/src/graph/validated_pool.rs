@@ -660,21 +660,16 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 	) {
 		debug_assert_eq!(pruned_hashes.len(), pruned_xts.len());
 
-		// Resubmit pruned transactions
-		let results = self.submit(pruned_xts);
+		// Resubmit pruned transactions back to the pool. Tag-based pruning may over-prune
+		// (removing dependents in the subtree), so still-valid collateral txs need to be
+		// re-added. In the fork-aware pool this is likely redundant — `update_view_with_mempool`
+		// resubmits everything from the mempool right after pruning — and could be removed in
+		// the future.
+		self.submit(pruned_xts);
 
-		// Collect the hashes of transactions that now became invalid (meaning that they are
-		// successfully pruned).
-		let hashes = results.into_iter().enumerate().filter_map(|(idx, r)| {
-			match r.map_err(error::IntoPoolError::into_pool_error) {
-				Err(Ok(error::Error::InvalidTransaction(_))) => Some(pruned_hashes[idx]),
-				_ => None,
-			}
-		});
-		// Fire `pruned` notifications for collected hashes and make sure to include
-		// `known_imported_hashes` since they were just imported as part of the block.
-		let hashes = hashes.chain(known_imported_hashes.into_iter());
-		self.fire_pruned(at, hashes);
+		// Fire `pruned` (InBlock) notifications only for `known_imported_hashes` — the
+		// hashes of extrinsics actually present in the imported block body.
+		self.fire_pruned(at, known_imported_hashes.into_iter());
 
 		// perform regular cleanup of old transactions in the pool
 		// and update temporary bans.
