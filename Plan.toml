@@ -2534,9 +2534,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/beefy-mmr
 name = "pallet-beefy-mmr"
-from = "46.0.0"
-to = "47.0.0"
-bump = "major"
+from = "47.0.0"
+to = "47.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -3050,9 +3050,9 @@ to = "1.0.0"
 [[crate]]
 # cumulus/pallets/xcmp-queue
 name = "cumulus-pallet-xcmp-queue"
-from = "0.25.0"
-to = "0.26.0"
-bump = "major"
+from = "0.26.0"
+to = "0.26.1"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -3306,17 +3306,17 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/collectives/collectives-westend
 name = "collectives-westend-runtime"
-from = "26.0.0"
-to = "26.1.0"
-bump = "minor"
+from = "26.1.0"
+to = "26.1.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/coretime/coretime-westend
 name = "coretime-westend-runtime"
-from = "0.22.0"
-to = "0.22.1"
-bump = "minor"
+from = "0.22.1"
+to = "0.22.2"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3478,17 +3478,17 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/assets/asset-hub-rococo
 name = "asset-hub-rococo-runtime"
-from = "0.31.1"
-to = "0.32.0"
-bump = "major"
+from = "0.32.0"
+to = "0.32.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/assets/asset-hub-westend
 name = "asset-hub-westend-runtime"
-from = "0.43.1"
-to = "0.45.0"
-bump = "major"
+from = "0.45.0"
+to = "0.45.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3706,17 +3706,17 @@ to = "0.1.0"
 [[crate]]
 # cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo
 name = "bridge-hub-rococo-runtime"
-from = "0.26.0"
-to = "0.28.0"
-bump = "major"
+from = "0.28.0"
+to = "0.28.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend
 name = "bridge-hub-westend-runtime"
-from = "0.23.0"
-to = "0.25.0"
-bump = "major"
+from = "0.25.0"
+to = "0.25.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -4002,8 +4002,8 @@ to = "0.1.0"
 [[crate]]
 # cumulus/client/consensus/aura
 name = "cumulus-client-consensus-aura"
-from = "0.29.0"
-to = "0.29.1"
+from = "0.29.1"
+to = "0.29.2"
 bump = "patch"
 reason = "changed"
 
