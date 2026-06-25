@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782390855316,
+  "lastUpdate": 1782393421293,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -101411,6 +101411,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2747201060,
             "range": "± 37029857",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "90d5eef17615c4340e307f7f908c07435f63fd90",
+          "message": "fatxpool: invalid inblock event fixed (#11733)\n\n#### Problem\n\nWhen a user sends rapid replacement transactions (same sender+nonce,\nincreasing priority), an earlier version may get included in a block by\nanother node before the latest replacement propagates. The local node\nthen incorrectly reports the latest replacement as `InBlock` - even\nthough it was never included in any block.\n\n#### How it happens\n\n1. Tx A (nonce N) is in the pool. Tx B (nonce N, higher priority)\narrives and usurps A.\n2. A remote block producer includes A (broadcast before B reached it).\n3. Local node imports the block. During pruning, the pool collects tags\nfrom the block's extrinsics. B provides the same tag as A (same\nsender+nonce), so tag-based pruning removes B from the pool.\n4. B is re-verified at the new block and fails (e.g. `Stale` — nonce\nconsumed, or other error).\n5. `resubmit_pruned` treats \"pruned by tag + `InvalidTransaction` on\nresubmit\" as proof of block inclusion and fires `InBlock` for B.\n\nB was never in the block. The `InBlock` event is false.\n\n#### Why it was wrong\n\n`resubmit_pruned` in `validated_pool.rs` chained two sources into\n`fire_pruned`:\n\n- `known_imported_hashes` — hashes of actual block extrinsics (from\nblock body). Always correct.\n- Pruned transactions that failed resubmission with `InvalidTransaction`\n— assumed to be\n\"successfully included.\" Wrong after replacement: a replacement tx\nshares tags with the\n  block extrinsic but has a different hash.\n\n`known_imported_hashes` already contains the complete, unfiltered list\nof block extrinsic\nhashes. The second source only adds false positives.\n\n#### Fix\n\nRemove the \"pruned + invalid = in block\" inference from\n`resubmit_pruned`. Fire `InBlock`\nonly for `known_imported_hashes` — the block body is the ground truth\nfor inclusion.\n\nThe `submit(pruned_xts)` call is kept — it still serves its purpose of\nresubmitting\nstill-valid collateral transactions (pruned as part of the dependency\nsubtree) back to\nthe pool.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-06-25T10:21:07Z",
+          "tree_id": "0c95368030873b95c2ba3b210d91e383d572c9dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/90d5eef17615c4340e307f7f908c07435f63fd90"
+        },
+        "date": 1782393392257,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19416380,
+            "range": "± 127381",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19654406,
+            "range": "± 115115",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21254932,
+            "range": "± 221453",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26087753,
+            "range": "± 284871",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60394477,
+            "range": "± 1187809",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 357248248,
+            "range": "± 4947627",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2515565722,
+            "range": "± 139403751",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17384268,
+            "range": "± 207331",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17392120,
+            "range": "± 217331",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17816546,
+            "range": "± 258251",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22498687,
+            "range": "± 124340",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62989061,
+            "range": "± 945438",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 368256347,
+            "range": "± 8477596",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2799075535,
+            "range": "± 60122627",
             "unit": "ns/iter"
           }
         ]
