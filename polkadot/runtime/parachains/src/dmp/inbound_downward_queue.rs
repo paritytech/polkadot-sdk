@@ -59,7 +59,7 @@ impl<T: Config> InboundDownwardQueue<T> {
 		inbound: &InboundDownwardMessage<BlockNumberFor<T>>,
 	) -> Result<(), ()> {
 		// v0 else v1
-		if migration::v0::DownwardMessageQueues::<T>::decode_len(para).map_or(false, |l| l > 0) {
+		if migration::v0::DownwardMessageQueues::<T>::decode_len(para).is_some_and(|l| l > 0) {
 			migration::v0::DownwardMessageQueues::<T>::append(para, inbound);
 			return Ok(());
 		}
@@ -168,7 +168,7 @@ impl<T: Config> InboundDownwardQueue<T> {
 	}
 
 	fn drop_front_n_v0(para: ParaId, n: u64) -> Option<u64> {
-		if !migration::v0::DownwardMessageQueues::<T>::decode_len(para).map_or(false, |l| l > 0) {
+		if !migration::v0::DownwardMessageQueues::<T>::decode_len(para).is_some_and(|l| l > 0) {
 			return None;
 		}
 
@@ -292,9 +292,9 @@ impl<T: Config> InboundDownwardQueue<T> {
 
 		for (para, idx) in DownwardMessageQueuePages::<T>::iter_keys() {
 			let in_meta = DownwardMessageQueueMeta::<T>::get(para)
-				.map_or(false, |m| idx >= m.first_full && idx < m.first_free);
+				.is_some_and(|m| idx >= m.first_full && idx < m.first_free);
 			let in_lazy = DownwardMessageQueueLazyDelete::<T>::get(para)
-				.map_or(false, |(first, last)| idx >= first && idx < last);
+				.is_some_and(|(first, last)| idx >= first && idx < last);
 
 			assert!(
 				in_meta || in_lazy,
