@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782254323367,
+  "lastUpdate": 1782383283357,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dharjeezy@gmail.com",
-            "name": "dharjeezy",
-            "username": "dharjeezy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f268e327685e04ad4134631a8b547a52f931fb83",
-          "message": "try state hook for alliance pallet (#10000)\n\nThis PR introduces the try_state hook to pallet-alliance to verify key\nstorage invariants.\n\ncloses part of #239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2025-11-01T01:11:41Z",
-          "tree_id": "0351bce041bfc4ca7434df57fe836ee6dbf0ced7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f268e327685e04ad4134631a8b547a52f931fb83"
-        },
-        "date": 1761963572843,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63633.1,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.205628248789989,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005582077249999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.453031657069998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000018468629999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9363890940999897,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7070087678409,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.41584335105000136,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002069,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.456938217319999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.445605692880001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000018468629999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4922381591200016,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002069,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 0.000026792869999999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4447daba7a576accedc9f55ef22408cc6bc1c597",
+          "message": "Fix `AllowedRelayParentInfo` off by one error (#12391)\n\nRelated to https://github.com/paritytech/polkadot-sdk/issues/11624\n\n## The issue\n\nThis issue was found while working on\nhttps://github.com/paritytech/polkadot-sdk/pull/12296 . Added some debug\nlogs in the function that was calling `ancestor_relay_parent_info` and\nsometimes there were situations like the following:\n\n```\nmax_relay_parent_session_age = 1\n\ntokio-runtime-worker consensus::common::parent_search: [Parachain] ancestor_relay_parent_info call succeeded scheduling_parent=0x56fa4fbab20eb77b995d18c4a9b638a35422afaeb4138d2a89f6f73ee826055d scheduling_parent_session=3 relay_parent=0x8bcf87dc4c00e5394e046bca6e53fa7d9c3737dd22c72911e162a2847f22751d relay_parent_session=1\n```\n\nSo a relay parent from session 1 is still valid at a scheduling parent\nfrom session 3. This shouldn't happen when max_relay_parent_session_age\nis 1.\n\n## The cause\n\nThe pruning for `AllowedRelayParentInfo` was performed in `new_block`.\nBut `new_block` is called at the beginning of each block, [receiving the\nparent block number and parent block session as\narguments](https://github.com/paritytech/polkadot-sdk/blob/bcafdb3d87eb3756f64bd1e830b0785d17a86812/polkadot/runtime/parachains/src/paras_inherent/mod.rs#L319-L327).\nSo when a new session starts, for example at block 31, `new_block` will\nbe called for block 30, session 2, and only at block 32, it will be\ncalled for block 31, session 3, performing the required pruning. So at\nblock 31, even if `max_relay_parent_session_age`, the blocks from\nsession 1 were still considered valid relay parents. Which is wrong.\n\n## The fix\n\nSo moved the pruning logic from `new_block` to\n`initializer_on_new_session()`, which is actually called correctly at\nthe first block of the session for the current session (for example at\nblock 31 for session 3).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-24T18:09:56Z",
+          "tree_id": "26a6222c736037300cdb1ce14c9afd4f3c5314c6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4447daba7a576accedc9f55ef22408cc6bc1c597"
+        },
+        "date": 1782383254168,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63596.96,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005251271909999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001900435,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7316427555299266,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.325207264202951,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3903937755099927,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7247895266300004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.784023113479999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001900453,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7643678044600004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.13712507656992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001900453,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7366568290500006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001900435,
             "unit": "seconds"
           }
         ]
