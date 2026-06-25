@@ -30,7 +30,7 @@ impl<T: Config> InboundDownwardQueue<T> {
 		DownwardMessageQueueMeta::<T>::get(para)
 	}
 
-	/// Length of a queue or 0 if not exists.
+	/// Length of a queue or `None` if not exists.
 	pub fn len(para: ParaId) -> Option<u64> {
 		let len_v0 = migration::v0::DownwardMessageQueues::<T>::decode_len(para);
 		let len_v1 = Self::meta(para)
@@ -95,6 +95,7 @@ impl<T: Config> InboundDownwardQueue<T> {
 	}
 
 	/// Try to remove the next message from the front of the queue.
+	#[cfg(test)]
 	pub fn pop_front(para: ParaId) -> Option<InboundDownwardMessage<BlockNumberFor<T>>> {
 		// v1 else v0
 		let Some(mut meta) = Self::meta(para) else {
@@ -195,7 +196,8 @@ impl<T: Config> InboundDownwardQueue<T> {
 			return;
 		}
 
-		// Try to delete all at once but do it lazy otherwise
+		// Try to delete all at once but do it lazy otherwise. Note that the clearing will happen in
+		// random order and not key order but it does not matter.
 		let cursor =
 			DownwardMessageQueuePages::<T>::clear_prefix(para, LAZY_DELETE_MAX_PAGES, None);
 
@@ -224,6 +226,7 @@ impl<T: Config> InboundDownwardQueue<T> {
 
 		let mut next = first;
 		let end = next.saturating_add(LAZY_DELETE_MAX_PAGES as u64).min(last);
+		// Note: We DO NOT use clear_prefix here to not accidentally delete new incoming pages.
 		while next < end {
 			DownwardMessageQueuePages::<T>::remove(para_id, next);
 			next += 1;
