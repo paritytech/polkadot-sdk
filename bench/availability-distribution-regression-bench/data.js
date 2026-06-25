@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782391910288,
+  "lastUpdate": 1782394527725,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6ffecaaab2a3039b8055da047a432fa1ad3c8b25",
-          "message": "Adding Retester to CI (#10071)\n\n# Description\n\nThis PR adds differential tests as part of the CI of the polkadot SDK.\nCurrently, a job will be started when pushing to master or when a PR is\nopened that runs the [differential testing\nframework](https://github.com/paritytech/revive-differential-tests) with\nthe `revive-dev-node-revm-resolc` target.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-03T16:12:41Z",
-          "tree_id": "dcd9713066287fdb219da70371fcef2143a1382c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ffecaaab2a3039b8055da047a432fa1ad3c8b25"
-        },
-        "date": 1762190465579,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013254260740000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.0226846264,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15830844996666674,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007339316739999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02364987780666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "90d5eef17615c4340e307f7f908c07435f63fd90",
+          "message": "fatxpool: invalid inblock event fixed (#11733)\n\n#### Problem\n\nWhen a user sends rapid replacement transactions (same sender+nonce,\nincreasing priority), an earlier version may get included in a block by\nanother node before the latest replacement propagates. The local node\nthen incorrectly reports the latest replacement as `InBlock` - even\nthough it was never included in any block.\n\n#### How it happens\n\n1. Tx A (nonce N) is in the pool. Tx B (nonce N, higher priority)\narrives and usurps A.\n2. A remote block producer includes A (broadcast before B reached it).\n3. Local node imports the block. During pruning, the pool collects tags\nfrom the block's extrinsics. B provides the same tag as A (same\nsender+nonce), so tag-based pruning removes B from the pool.\n4. B is re-verified at the new block and fails (e.g. `Stale` — nonce\nconsumed, or other error).\n5. `resubmit_pruned` treats \"pruned by tag + `InvalidTransaction` on\nresubmit\" as proof of block inclusion and fires `InBlock` for B.\n\nB was never in the block. The `InBlock` event is false.\n\n#### Why it was wrong\n\n`resubmit_pruned` in `validated_pool.rs` chained two sources into\n`fire_pruned`:\n\n- `known_imported_hashes` — hashes of actual block extrinsics (from\nblock body). Always correct.\n- Pruned transactions that failed resubmission with `InvalidTransaction`\n— assumed to be\n\"successfully included.\" Wrong after replacement: a replacement tx\nshares tags with the\n  block extrinsic but has a different hash.\n\n`known_imported_hashes` already contains the complete, unfiltered list\nof block extrinsic\nhashes. The second source only adds false positives.\n\n#### Fix\n\nRemove the \"pruned + invalid = in block\" inference from\n`resubmit_pruned`. Fire `InBlock`\nonly for `known_imported_hashes` — the block body is the ground truth\nfor inclusion.\n\nThe `submit(pruned_xts)` call is kept — it still serves its purpose of\nresubmitting\nstill-valid collateral transactions (pruned as part of the dependency\nsubtree) back to\nthe pool.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-06-25T10:21:07Z",
+          "tree_id": "0c95368030873b95c2ba3b210d91e383d572c9dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/90d5eef17615c4340e307f7f908c07435f63fd90"
+        },
+        "date": 1782394496807,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024027871620000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14876101397333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0077106479200000026,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010601026966666644,
             "unit": "seconds"
           }
         ]
