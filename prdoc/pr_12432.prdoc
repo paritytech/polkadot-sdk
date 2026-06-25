@@ -9,4 +9,8 @@ doc:
     - fix(webrtc): decode errors during opening phase are not recoverable  ([#622](https://github.com/paritytech/litep2p/pull/622))
     - fix(webrtc): build vendored OpenSSL for str0m  ([#620](https://github.com/paritytech/litep2p/pull/620))
     - fix(webrtc): time out inbound and outbound opening data channels  ([#617](https://github.com/paritytech/litep2p/pull/617))
-crates: []
+crates:
+  - name: sc-network
+    bump: patch
+  - name: sc-network-types
+    bump: patch
