@@ -1,0 +1,33 @@
+title: "fix(txpool): handle AlreadyImported race in fork-aware submit_and_watch"
+
+doc:
+- audience: Node Dev
+  description: |
+    Fixes a race condition in the fork-aware transaction pool where
+    `submit_and_watch` can spuriously return `AlreadyImported` (RPC error 1013)
+    even though only a single submission was made. This happens when a concurrent
+    `maintain()` call imports the transaction from mempool into a newly-built view
+    before `submit_and_watch` gets to submit to that view.
+
+    The fix is implemented in the caller submission paths
+    (`submit_and_watch_inner`, `submit_at_inner`, `submit_local`) instead of
+    inside `ViewStore::submit_and_watch`:
+
+    - `submit_and_watch_inner` now pre-creates the external watcher before mempool
+      insertion, so events emitted by a concurrently-created view are not missed.
+    - A snapshot of `most_recent_view` is taken before insertion. If view
+      submission later returns `AlreadyImported`, the snapshot is compared with
+      the current `most_recent_view`. If it changed, the error is treated as the
+      maintain-race and converted to success.
+    - On non-race failures after watcher pre-creation, the external watcher is
+      explicitly removed, and inserted mempool entries are cleaned up as before.
+    - `ViewStore::submit_and_watch` now only submits to active views and
+      propagates errors; race detection is handled by callers that have the
+      necessary timing context.
+
+    This avoids returning spurious RPC 1013 for the race case while preserving
+    normal error handling for non-race `AlreadyImported` paths.
+
+crates:
+- name: sc-transaction-pool
+  bump: major

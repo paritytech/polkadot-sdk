@@ -2823,3 +2823,60 @@ fn fatp_watcher_ready_event_after_instant_finalization() {
 		"First event should be Ready, delivered from the finalized view"
 	);
 }
+
+#[test]
+fn fatp_submit_and_watch_handles_already_imported_from_maintain_race() {
+	sp_tracing::try_init_simple();
+
+	// This test exercises the race condition between submit_and_watch and maintain.
+	//
+	// In submit_and_watch_inner, a tx is first pushed to mempool, then submitted to
+	// active views via view_store.submit_and_watch. A concurrent maintain() can build
+	// a new view and import the tx from mempool (via update_view_with_mempool) before
+	// view_store.submit_and_watch submits to that view. This causes the view to return
+	// AlreadyImported.
+	//
+	// The fix detects this race by comparing a snapshot of most_recent_view taken before
+	// mempool insertion with the current most_recent_view after the AlreadyImported error.
+	// If they differ, a new view was created concurrently, confirming the race condition.
+	//
+	// We run multiple iterations with different timing strategies to increase the
+	// probability of hitting the race window. The race is timing-dependent: in
+	// production it is triggered by slow clone_view operations (1-2 seconds) that
+	// widen the window between mempool insertion and view submission.
+	for _ in 0..50u64 {
+		let (pool, api, _thread_pool) = pool();
+
+		let header01 = api.push_block(1, vec![], true);
+		let header02 = api.push_block(2, vec![], true);
+		let event01 = new_best_block_event(&pool, None, header01.hash());
+		let event02 = new_best_block_event(&pool, Some(header01.hash()), header02.hash());
+
+		let pool = Arc::new(pool);
+
+		// Establish the first view.
+		block_on(pool.maintain(event01));
+
+		let xt = uxt(Alice, 200);
+
+		// Race: start maintain first (it needs time to clone the view and build the new
+		// one), then submit_and_watch. This ordering maximizes the chance that maintain's
+		// update_view_with_mempool imports the tx from mempool into the new view before
+		// view_store.submit_and_watch gets to submit it.
+		let pool_for_maintain = pool.clone();
+		let maintain_handle = std::thread::spawn(move || {
+			block_on(pool_for_maintain.maintain(event02));
+		});
+
+		// Yield briefly to give maintain a head start.
+		std::thread::yield_now();
+
+		let result = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt));
+
+		maintain_handle.join().unwrap();
+
+		// With the fix, submit_and_watch always succeeds regardless of whether maintain
+		// races ahead and imports the tx from mempool into the view first.
+		assert!(result.is_ok(), "submit_and_watch should not fail with AlreadyImported");
+	}
+}

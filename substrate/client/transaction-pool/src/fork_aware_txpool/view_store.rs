@@ -35,9 +35,7 @@ use crate::{
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{
-	error::Error as PoolError, PoolStatus, TransactionTag as Tag, TxInvalidityReportMap,
-};
+use sc_transaction_pool_api::{PoolStatus, TransactionTag as Tag, TxInvalidityReportMap};
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::BlockId,
@@ -283,13 +281,10 @@ where
 		}
 	}
 
-	/// Import a single extrinsic and starts to watch its progress in the pool.
+	/// Import a single extrinsic into every active view.
 	///
-	/// The extrinsic is imported to every view, and the individual streams providing the progress
-	/// of this transaction within every view are added to the multi view listener.
-	///
-	/// The external stream of aggregated/processed events provided by the `MultiViewListener`
-	/// instance is returned.
+	/// The caller is responsible for creating the external watcher beforehand and for
+	/// race-condition detection (comparing `most_recent_view` snapshots).
 	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view_store::sumbit_and_watch")]
 	pub(super) async fn submit_and_watch(
 		&self,
@@ -298,9 +293,6 @@ where
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
-		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash) else {
-			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into());
-		};
 		let submit_futures = {
 			let active_views = self.active_views.read();
 			active_views
@@ -321,19 +313,9 @@ where
 			.find_or_first(Result::is_ok);
 
 		match result {
-			Some(Err(error)) => {
-				trace!(
-					target: LOG_TARGET,
-					?tx_hash,
-					%error,
-					"submit_and_watch failed"
-				);
-				return Err(error);
-			},
-			Some(Ok(result)) => {
-				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher))
-			},
-			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None).with_watcher(external_watcher)),
+			Some(Err(error)) => Err(error),
+			Some(Ok(result)) => Ok(ViewStoreSubmitOutcome::from(result)),
+			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None)),
 		}
 	}
 
@@ -345,6 +327,13 @@ where
 	/// Returns true if there are no active views.
 	pub(super) fn is_empty(&self) -> bool {
 		self.active_views.read().is_empty() && self.inactive_views.read().is_empty()
+	}
+
+	/// Returns the hash of the most recently processed view, if any.
+	///
+	/// Used for race-condition detection between mempool insertion and view submission.
+	pub(super) fn most_recent_view_hash(&self) -> Option<Block::Hash> {
+		self.most_recent_view.read().as_ref().map(|v| v.at.hash)
 	}
 
 	/// Searches in the view store for the first descendant view by iterating through the fork of
@@ -1011,5 +1000,95 @@ where
 		});
 
 		provides_tags_map
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{
+		common::tests::TestApi,
+		fork_aware_txpool::{
+			dropped_watcher::MultiViewDroppedWatcherController,
+			import_notification_sink::MultiViewImportNotificationSink,
+			multi_view_listener::MultiViewListener, view::View,
+		},
+		graph::base_pool::TimedTransactionSource,
+		ValidateTransactionPriority,
+	};
+	use futures::StreamExt;
+	use substrate_test_runtime::{AccountId, Block, ExtrinsicBuilder, Transfer, H256};
+	use substrate_test_runtime_client::Sr25519Keyring::Alice;
+
+	type TestViewStore = ViewStore<TestApi, Block>;
+
+	fn create_test_view_store(
+		api: Arc<TestApi>,
+	) -> (TestViewStore, futures::future::BoxFuture<'static, ()>) {
+		let (listener, listener_task) = MultiViewListener::new_with_worker(Default::default());
+		let listener = Arc::new(listener);
+		let (dropped_controller, _dropped_stream) = MultiViewDroppedWatcherController::new();
+		let (import_sink, _import_task) = MultiViewImportNotificationSink::new_with_worker();
+		let view_store = ViewStore::new(api, listener, dropped_controller, import_sink);
+		(view_store, listener_task)
+	}
+
+	/// Verifies that submit_and_watch correctly propagates AlreadyImported errors.
+	///
+	/// Since race detection is now handled by the caller (submit_and_watch_inner),
+	/// the view_store's submit_and_watch should propagate AlreadyImported as an error.
+	#[tokio::test]
+	async fn submit_and_watch_propagates_already_imported_error() {
+		sp_tracing::try_init_simple();
+
+		let api = Arc::new(TestApi::default());
+		let (view_store, listener_task) = create_test_view_store(api.clone());
+
+		// Spawn the listener task so the external watcher stream works.
+		let _listener_handle = tokio::spawn(listener_task);
+
+		// Create a view at block 0.
+		let block_hash = H256::from_low_u64_be(0);
+		let at = sp_blockchain::HashAndNumber { hash: block_hash, number: 0 };
+		let (view, _dropped_stream, aggregated_stream) =
+			View::new(api.clone(), at, Default::default(), Default::default(), true.into());
+		let view = Arc::new(view);
+
+		// Create a test transaction (nonce 0 is "ready" at block 0).
+		let xt = ExtrinsicBuilder::new_transfer(Transfer {
+			from: Alice.into(),
+			to: AccountId::from_h256(H256::from_low_u64_be(2)),
+			amount: 5,
+			nonce: 0,
+		})
+		.build();
+		let xt = Arc::from(xt);
+
+		// Submit the tx to the view first — this is what update_view_with_mempool does.
+		view.submit_one(
+			TimedTransactionSource::new_external(false),
+			xt.clone(),
+			ValidateTransactionPriority::Maintained,
+		)
+		.await
+		.expect("initial submit to view should succeed");
+
+		// Connect the view's aggregated stream to the listener and insert into active_views.
+		view_store
+			.listener
+			.add_view_aggregated_stream(block_hash, aggregated_stream.boxed());
+		view_store.active_views.write().insert(block_hash, view);
+
+		// Now call submit_and_watch for the same tx.
+		// The view already has this tx, so view.submit_one will return AlreadyImported.
+		// submit_and_watch no longer handles this — it propagates the error to the caller.
+		let result = view_store
+			.submit_and_watch(block_hash, TimedTransactionSource::new_external(false), xt)
+			.await;
+
+		assert!(
+			result.is_err(),
+			"submit_and_watch should propagate AlreadyImported (race detection is caller's job)"
+		);
 	}
 }
