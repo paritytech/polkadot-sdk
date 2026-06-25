@@ -49,9 +49,7 @@ pub async fn notification_future<Client, Pool, Block>(
 	let import_stream = client
 		.import_notification_stream()
 		.filter_map(move |n| {
-			futures::future::ready(
-				(all_block_notifications || n.is_new_best).then(|| n.try_into().ok()).flatten(),
-			)
+			futures::future::ready((all_block_notifications || n.is_new_best).then(|| n.into()))
 		})
 		.fuse();
 	let finality_stream = client.finality_notification_stream().map(Into::into).fuse();
