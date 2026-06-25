@@ -121,9 +121,10 @@ where
 				))?;
 				// Strict decode: reject trailing bytes and bound the nesting depth so
 				// deeply nested calls cannot overflow the stack during decoding.
-				// here i am using MAX_EXTRINSIC_DEPTH because That's the same depth limit the runtime applies 
-				// to normal extrinsics. Using it means this precompile accepts exactly the calls that would 
-				// be valid if a user submitted them as a transaction
+				// here i am using MAX_EXTRINSIC_DEPTH because That's the same depth limit the
+				// runtime applies to normal extrinsics. Using it means this precompile accepts
+				// exactly the calls that would be valid if a user submitted them as a
+				// transaction
 				let call = <T as crate::Config>::RuntimeCall::decode_all_with_depth_limit(
 					MAX_EXTRINSIC_DEPTH,
 					&mut &encoded_call[..],
@@ -661,6 +662,149 @@ mod tests {
 				 (consumed={}, expected>={expected})",
 				consumed.proof_size(),
 			);
+		});
+	}
+
+	#[test]
+	fn dispatch_propagates_inner_call_error() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let before = <Test as crate::Config>::Currency::balance(&BOB);
+
+			// Transfer far more than the caller (ALICE) holds: the call dispatches
+			// but fails, and the failure must propagate (not silently succeed).
+			let call = RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+				dest: BOB,
+				value: u128::MAX,
+			});
+			let input = dispatch_input(call);
+
+			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+
+			// Mapped to an `Error::Error` (the dispatch error), not a revert or `Ok`.
+			assert!(
+				matches!(result, Err(Error::Error(_))),
+				"a failing dispatched call must propagate its error, got {result:?}",
+			);
+			assert_eq!(
+				<Test as crate::Config>::Currency::balance(&BOB),
+				before,
+				"a failed transfer must not move funds",
+			);
+		});
+	}
+
+	#[test]
+	fn storage_read_works_in_read_only_context() {
+		ExtBuilder::default().build().execute_with(|| {
+			sp_io::storage::set(b"ro_key", b"value");
+
+			let mut call_setup = CallSetup::<Test>::default();
+			// A static (read-only) context: reads are still permitted (unlike
+			// `dispatch`, which reverts here).
+			call_setup.set_read_only(true);
+			let (mut ext, _) = call_setup.ext();
+
+			let raw = <UnstableRuntime<Test> as Precompile>::call(
+				&address(),
+				&storage_input(b"ro_key", 64),
+				&mut ext,
+			)
+			.expect("getStorage must succeed in a read-only context");
+
+			let decoded = Bytes::abi_decode(&raw).expect("decode");
+			assert_eq!(decoded.as_ref(), b"value");
+		});
+	}
+
+	#[test]
+	fn storage_returns_value_exactly_at_max_len() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			// Boundary: the value length equals `max_len` exactly (`len > max_len`
+			// is false), so it is returned rather than reverted.
+			let value = alloc::vec![7u8; 32];
+			sp_io::storage::set(b"exact", &value);
+			let raw = <UnstableRuntime<Test> as Precompile>::call(
+				&address(),
+				&storage_input(b"exact", 32),
+				&mut ext,
+			)
+			.expect("a value exactly at max_len must be returned");
+
+			let decoded = Bytes::abi_decode(&raw).expect("decode");
+			assert_eq!(decoded.as_ref(), value.as_slice());
+		});
+	}
+
+	#[test]
+	fn storage_allows_max_len_equal_to_calldata_bytes() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			// Boundary: the cap is strictly `>`, so `max_len == CALLDATA_BYTES` is
+			// allowed (absent key → empty bytes, not a "too large" revert).
+			let raw = <UnstableRuntime<Test> as Precompile>::call(
+				&address(),
+				&storage_input(b"absent", crate::limits::CALLDATA_BYTES),
+				&mut ext,
+			)
+			.expect("max_len == CALLDATA_BYTES must be allowed");
+
+			let decoded = Bytes::abi_decode(&raw).expect("decode");
+			assert!(decoded.as_ref().is_empty());
+		});
+	}
+
+	#[test]
+	fn storage_max_len_zero_reverts_for_non_empty_value() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			// `max_len == 0` against a present, non-empty value: the value length
+			// exceeds the bound, so it reverts.
+			sp_io::storage::set(b"nonempty", b"x");
+			let result = <UnstableRuntime<Test> as Precompile>::call(
+				&address(),
+				&storage_input(b"nonempty", 0),
+				&mut ext,
+			);
+			assert_eq!(result.unwrap_err(), Error::Revert("value exceeds max_len".into()));
+		});
+	}
+
+	#[test]
+	fn storage_empty_value_and_absent_key_both_return_empty() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			// A key present with an EMPTY value and an absent key both decode to
+			// empty bytes — the precompile does not distinguish them.
+			sp_io::storage::set(b"empty_val", b"");
+			let present = <UnstableRuntime<Test> as Precompile>::call(
+				&address(),
+				&storage_input(b"empty_val", 64),
+				&mut ext,
+			)
+			.expect("read");
+			let absent = <UnstableRuntime<Test> as Precompile>::call(
+				&address(),
+				&storage_input(b"never_set", 64),
+				&mut ext,
+			)
+			.expect("read");
+
+			let present = Bytes::abi_decode(&present).expect("decode");
+			let absent = Bytes::abi_decode(&absent).expect("decode");
+			assert!(present.as_ref().is_empty());
+			assert_eq!(present.as_ref(), absent.as_ref());
 		});
 	}
 }
