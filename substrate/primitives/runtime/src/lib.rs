@@ -576,7 +576,16 @@ impl PartialEq for ModuleError {
 /// Semantically different from [`ModuleError`] (dispatch error). Carries a per-module error
 /// number when validation fails.
 #[derive(
-	Eq, PartialEq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+	Eq,
+	PartialEq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ModuleInvalidity {
