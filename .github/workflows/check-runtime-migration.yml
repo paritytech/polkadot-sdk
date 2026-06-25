@@ -187,12 +187,12 @@ jobs:
               on-runtime-upgrade --disable-spec-version-check --checks=all ${{ matrix.subcommand_extra_args }} snap -p snapshot.raw
           sleep 5
 
-      - name: Stop all workflows if failed
-        if: ${{ failure() && (steps.required1.conclusion == 'failure' || steps.required2.conclusion == 'failure') }}
-        uses: ./.github/actions/workflow-stopper
-        with:
-          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
-          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+      # - name: Stop all workflows if failed
+      #   if: ${{ failure() && (steps.required1.conclusion == 'failure' || steps.required2.conclusion == 'failure') }}
+      #   uses: ./.github/actions/workflow-stopper
+      #   with:
+      #     app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+      #     app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   # name of this job must be unique across all workflows
   # otherwise GitHub will mark all these jobs as required
