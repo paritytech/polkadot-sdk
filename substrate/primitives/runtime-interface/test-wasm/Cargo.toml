@@ -17,9 +17,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 bytes = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime-interface = { workspace = true }
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime-interface.workspace = true
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

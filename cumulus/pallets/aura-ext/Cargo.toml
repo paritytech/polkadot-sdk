@@ -13,32 +13,32 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-cumulus-pallet-parachain-system = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-aura = { workspace = true }
-pallet-timestamp = { workspace = true }
+cumulus-pallet-parachain-system.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-aura.workspace = true
+pallet-timestamp.workspace = true
 scale-info = { features = ["derive"], workspace = true }
-sp-application-crypto = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-runtime = { workspace = true }
+sp-application-crypto.workspace = true
+sp-consensus-aura.workspace = true
+sp-runtime.workspace = true
 
 [dev-dependencies]
 rstest = { workspace = true }
 
 # Cumulus
-cumulus-pallet-parachain-system = { default-features = true, workspace = true }
-cumulus-primitives-core = { default-features = true, workspace = true }
-cumulus-primitives-proof-size-hostfunction = { default-features = true, workspace = true }
-cumulus-test-relay-sproof-builder = { default-features = true, workspace = true }
+cumulus-pallet-parachain-system = { default-features = true, path = "../parachain-system" }
+cumulus-primitives-core = { default-features = true, path = "../../primitives/core" }
+cumulus-primitives-proof-size-hostfunction = { default-features = true, path = "../../primitives/proof-size-hostfunction" }
+cumulus-test-relay-sproof-builder = { default-features = true, path = "../../test/relay-sproof-builder" }
 
 # Substrate
-sp-core = { default-features = true, workspace = true }
-sp-io = { default-features = true, workspace = true }
-sp-keyring = { default-features = true, workspace = true }
-sp-state-machine = { default-features = true, workspace = true }
-sp-trie = { default-features = true, workspace = true }
-sp-version = { default-features = true, workspace = true }
+sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
+sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
+sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
+sp-state-machine = { default-features = true, path = "../../../substrate/primitives/state-machine" }
+sp-trie = { default-features = true, path = "../../../substrate/primitives/trie" }
+sp-version = { default-features = true, path = "../../../substrate/primitives/version" }
 
 [features]
 default = ["std"]

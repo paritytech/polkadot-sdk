@@ -13,9 +13,9 @@ workspace = true
 [dependencies]
 codec = { features = ["bit-vec", "derive"], workspace = true }
 scale-info = { features = ["bit-vec", "derive"], workspace = true }
-sp-core = { workspace = true }
-sp-runtime = { workspace = true }
-xcm = { workspace = true }
+sp-core.workspace = true
+sp-runtime.workspace = true
+xcm.workspace = true
 
 [features]
 default = ["std"]
