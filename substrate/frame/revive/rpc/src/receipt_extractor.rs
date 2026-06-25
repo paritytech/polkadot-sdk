@@ -682,7 +682,14 @@ impl ReceiptExtractor {
 			let signers = Self::extract_signers(block).await;
 			let substrate_block_hash = block.hash();
 			for (transaction_index, transfers) in asset_transfers {
-				let from = signers.get(&transaction_index).copied().unwrap_or_default();
+				// The resolved extrinsic signer (the true tx initiator) if known, else the
+				// transfer's own sender — so a real transfer is never attributed to the zero
+				// address. Keyed on the `Option`, so a genuinely-zero resolved signer is preserved.
+				let from = signers
+					.get(&transaction_index)
+					.copied()
+					.or_else(|| transfers.first().map(|(transfer, _)| transfer.from))
+					.unwrap_or_default();
 				receipts.push(Self::build_synthetic_asset_receipt(
 					eth_block_hash,
 					eth_block_number,
