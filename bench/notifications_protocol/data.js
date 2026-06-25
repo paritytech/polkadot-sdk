@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782398268302,
+  "lastUpdate": 1782404010240,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -181823,6 +181823,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2345244835,
             "range": "± 27814869",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b339135883ffe5f7e7f02e265b0db55ab9f2bae7",
+          "message": "pallet-revive: per-transaction cold/hot storage access pricing (#12104)\n\n### Summary\nEIP-2929-style cold/hot(warm) pricing for persistent storage access in\npallet-revive. The first access to a (contract, slot)` pair within a\ntransaction is billed \"cold\" (higher weight); any later access to the\nsame slot is \"hot\" (cheaper).\n\n### Description\n#### Covered operations\nCold/hot pricing applies to persistent storage:\n- the EVM `SLOAD` / `SSTORE` opcodes,\n- the PVM storage host functions,\n- the storage precompile (`containsStorage` warms the slot like an\n`SLOAD`).\n\n#### Access list and rollback\nHot/cold state is tracked by a new per-transaction access list, whose\nlayout mirrors `TransientStorage`: a current-state set plus a journal\nand per-frame checkpoints.\n- Nested frames open a checkpoint, so a reverted frame drops the slots\nit warmed; the top-level frame is never rolled back.\n- A cold touch that journals inside a nested frame also pre-pays a small\nrollback weight, to cover the cost of a potential revert (which charges\nno gas).\n\n#### Memory bound\nThe access list is capped at a fixed number of entries per transaction;\nonce full, further new slots are billed cold without being tracked.\nShort slots are held inline (Fix at 32 bytes, VarInline up to\nMAX_INLINE_KEY_LEN); longer ones (VarLong, up to STORAGE_KEY_BYTES) use\na heap-allocated bounded vector.\n\n#### Benchmarks\nNew benchmarks cover the hot storage ops (`seal_set_storage_hot`,\n`clear_storage_hot`, `contains_storage_hot`, `seal_get_storage_hot`,\n`take_storage_hot`) and the access-list overhead\n(`access_list_touch_cold_*`, `access_list_touch_hot_*`,\n`access_list_rollback_amortization`)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-25T14:01:59Z",
+          "tree_id": "8f41d342e1beba78282b2f13f32da68efbc7ea17",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b339135883ffe5f7e7f02e265b0db55ab9f2bae7"
+        },
+        "date": 1782403979869,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4482743,
+            "range": "± 33642",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 296863,
+            "range": "± 2076",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4340252,
+            "range": "± 20430",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 367846,
+            "range": "± 4557",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5471071,
+            "range": "± 25167",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 902553,
+            "range": "± 9487",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10807871,
+            "range": "± 75092",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4837859,
+            "range": "± 79485",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 45296758,
+            "range": "± 465065",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38902024,
+            "range": "± 597158",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 389724633,
+            "range": "± 3992025",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 312482788,
+            "range": "± 3634654",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2718578088,
+            "range": "± 16241263",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2460285954,
+            "range": "± 27124979",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3499316,
+            "range": "± 33886",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1826961,
+            "range": "± 16883",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3566065,
+            "range": "± 59078",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1896960,
+            "range": "± 16979",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4251345,
+            "range": "± 110686",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2294698,
+            "range": "± 68965",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8446425,
+            "range": "± 100996",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5337046,
+            "range": "± 59498",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38845220,
+            "range": "± 280109",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37948469,
+            "range": "± 775790",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 331733884,
+            "range": "± 6887589",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 282767460,
+            "range": "± 3203599",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2568590811,
+            "range": "± 49224956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2486969933,
+            "range": "± 53457891",
             "unit": "ns/iter"
           }
         ]
