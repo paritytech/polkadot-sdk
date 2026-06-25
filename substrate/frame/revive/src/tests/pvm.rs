@@ -5052,6 +5052,70 @@ fn unstable_runtime_dispatch_out_of_gas_is_clean() {
 	});
 }
 
+#[cfg(feature = "unstable-precompiles")]
+#[test]
+fn unstable_runtime_get_storage_out_of_gas_on_upfront_charge() {
+	use crate::precompiles::{Precompile, UnstableRuntime, unstable_runtime::IUnstableRuntime};
+	use alloy_core::sol_types::SolInterface;
+
+	let precompile_addr = H160(UnstableRuntime::<Test>::MATCHER.base_address());
+	// A large declared bound makes the upfront read-weight charge exceed the
+	// (proof) gas budget, so it runs out of gas before any read.
+	let input =
+		IUnstableRuntime::IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall {
+			key: b"k".to_vec().into(),
+			max_len: limits::CALLDATA_BYTES,
+		})
+		.abi_encode();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let result = builder::bare_call(precompile_addr)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::from_parts(u64::MAX, 60_000),
+				deposit_limit: deposit_limit::<Test>(),
+			})
+			.data(input)
+			.build();
+
+		assert_err!(result.result, <Error<Test>>::OutOfGas);
+	});
+}
+
+#[cfg(feature = "unstable-precompiles")]
+#[test]
+fn unstable_runtime_get_storage_out_of_gas_on_revert_charge() {
+	use crate::precompiles::{Precompile, UnstableRuntime, unstable_runtime::IUnstableRuntime};
+	use alloy_core::sol_types::SolInterface;
+
+	let precompile_addr = H160(UnstableRuntime::<Test>::MATCHER.base_address());
+	// Small declared bound, so the upfront charge is cheap and passes; the actual
+	// value is far larger, so the post-read "charge for the real length" on the
+	// revert path runs out of gas.
+	let input =
+		IUnstableRuntime::IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall {
+			key: b"huge".to_vec().into(),
+			max_len: 16,
+		})
+		.abi_encode();
+
+	ExtBuilder::default().build().execute_with(|| {
+		sp_io::storage::set(b"huge", &vec![0u8; 200_000]);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let result = builder::bare_call(precompile_addr)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::from_parts(u64::MAX, 60_000),
+				deposit_limit: deposit_limit::<Test>(),
+			})
+			.data(input)
+			.build();
+
+		assert_err!(result.result, <Error<Test>>::OutOfGas);
+	});
+}
+
 #[test]
 fn bump_nonce_once_works() {
 	let (code, hash) = compile_module("dummy").unwrap();
