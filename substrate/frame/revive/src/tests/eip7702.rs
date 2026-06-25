@@ -249,6 +249,18 @@ fn invalid_authorization_is_skipped() {
 		};
 		assert_eq!(setup.process(&[auth]), skipped);
 		assert!(!AccountInfo::<Test>::is_delegated(&setup.signer.address));
+
+		// `y_parity` outside `{0, 1}` must be skipped per EIP-7702. In particular `27`/`28`
+		// (the legacy Bitcoin/pre-EIP-155 v convention) would silently normalise to `0`/`1`
+		// inside `sp_io::crypto::secp256k1_ecdsa_recover` if we let them through, so the
+		// per-tuple skip has to happen *before* recovery.
+		for bad in [U256::from(2u32), U256::from(27u32), U256::from(28u32)] {
+			let setup = DelegationTestSetup::new([0x11; 32]);
+			let mut auth = setup.sign_authorization(target);
+			auth.y_parity = bad;
+			assert_eq!(setup.process(&[auth]), skipped, "y_parity={bad:?} should be skipped");
+			assert!(!AccountInfo::<Test>::is_delegated(&setup.signer.address));
+		}
 	});
 }
 

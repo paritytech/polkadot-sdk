@@ -306,8 +306,17 @@ fn signing_message(auth: &AuthorizationListEntry) -> Vec<u8> {
 	message
 }
 
-/// Recover the authority address from an authorization signature
+/// Recover the authority address from an authorization signature.
+///
+/// EIP-7702 mandates `y_parity ∈ {0, 1}`. The shared `sp_io::crypto::secp256k1_ecdsa_recover`
+/// primitive accepts the legacy Bitcoin/pre-EIP-155 `v ∈ {27, 28}` convention and silently
+/// normalises it to `{0, 1}`, which would let those values pass through here as valid 7702
+/// signatures (spec deviation). Filter strictly before recovery so the per-tuple skip path in
+/// `process_authorizations` catches them.
 fn recover_authority(auth: &AuthorizationListEntry) -> Result<H160, ()> {
+	if auth.y_parity.bits() > 1 {
+		return Err(());
+	}
 	recover_eth_address_from_message(&signing_message(auth), &auth.signature())
 }
 
