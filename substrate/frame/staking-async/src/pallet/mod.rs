@@ -3193,10 +3193,15 @@ pub mod pallet {
 				Error::<T>::InvalidInactivityProof(InvalidInactivityProofError::NotSorted)
 			);
 
+			// All proof eras must fall in the retained window `[active_era - HistoryDepth,
+			// active_era)`.
+			let active_era = Rotator::<T>::active_era();
+			let oldest_allowed_era = active_era.saturating_sub(T::HistoryDepth::get());
+			let oldest_proof_era = proof.first().copied().unwrap_or(EraIndex::MAX);
 			let most_recent_proof_era = proof.last().copied().unwrap_or(EraIndex::MAX);
 			ensure!(
-				most_recent_proof_era < Rotator::<T>::active_era(),
-				Error::<T>::InvalidInactivityProof(InvalidInactivityProofError::InvalidEra,)
+				oldest_proof_era >= oldest_allowed_era && most_recent_proof_era < active_era,
+				Error::<T>::InvalidInactivityProof(InvalidInactivityProofError::InvalidEra)
 			);
 
 			for era in proof {

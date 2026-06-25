@@ -2110,6 +2110,20 @@ mod staking_bounds_chill_other {
 				Error::<Test>::InvalidInactivityProof(InvalidInactivityProofError::InvalidEra)
 			);
 
+			// Era 0 is in the past and the validator is exposed + inactive there, but it falls
+			// before the retained window `[active_era - HistoryDepth, active_era)` (here, era 0 <
+			// 81 - 80 = 1), so the proof must be rejected on the lower bound.
+			let proof_with_too_old_era =
+				BoundedVec::truncate_from((0..inactive_threshold).collect());
+			assert_noop!(
+				Staking::chill_inactive(
+					RuntimeOrigin::signed(NOT_VALIDATOR),
+					VALIDATOR,
+					proof_with_too_old_era
+				),
+				Error::<Test>::InvalidInactivityProof(InvalidInactivityProofError::InvalidEra)
+			);
+
 			assert_ok!(Staking::chill_inactive(
 				RuntimeOrigin::signed(NOT_VALIDATOR),
 				VALIDATOR,
