@@ -25,9 +25,62 @@
 // Multi-asset runtimes allow multiple asset types and the weight scales with the number of assets.
 // Their weights are calculated based on the count of assets, rather than their identity.
 
+use alloc::vec::Vec;
 use frame_support::{traits::Get, weights::Weight};
 use sp_runtime::BoundedVec;
 use xcm::latest::{prelude::*, AssetTransferFilter};
+
+/// Generated benchmark weights for generic (non-asset-loop) XCM instructions.
+pub trait XcmGenericWeightInfo {
+	fn query_response() -> Weight;
+	fn transact() -> Weight;
+	fn clear_origin() -> Weight;
+	fn descend_origin() -> Weight;
+	fn report_error() -> Weight;
+	fn report_holding() -> Weight;
+	fn buy_execution() -> Weight;
+	fn pay_fees() -> Weight;
+	fn refund_surplus() -> Weight;
+	fn set_error_handler() -> Weight;
+	fn set_appendix() -> Weight;
+	fn clear_error() -> Weight;
+	fn asset_claimer() -> Weight;
+	fn claim_asset() -> Weight;
+	fn trap() -> Weight;
+	fn subscribe_version() -> Weight;
+	fn unsubscribe_version() -> Weight;
+	fn burn_asset() -> Weight;
+	fn expect_asset() -> Weight;
+	fn expect_origin() -> Weight;
+	fn expect_error() -> Weight;
+	fn expect_transact_status() -> Weight;
+	fn query_pallet() -> Weight;
+	fn expect_pallet() -> Weight;
+	fn report_transact_status() -> Weight;
+	fn clear_transact_status() -> Weight;
+	fn universal_origin() -> Weight;
+	fn set_fees_mode() -> Weight;
+	fn set_topic() -> Weight;
+	fn clear_topic() -> Weight;
+	fn alias_origin() -> Weight;
+	fn unpaid_execution() -> Weight;
+	fn execute_with_origin() -> Weight;
+	fn exchange_asset() -> Weight;
+}
+
+/// Generated benchmark weights for fungible/asset-heavy XCM instructions.
+pub trait XcmFungibleWeightInfo {
+	fn withdraw_asset() -> Weight;
+	fn reserve_asset_deposited() -> Weight;
+	fn receive_teleported_asset() -> Weight;
+	fn transfer_asset() -> Weight;
+	fn transfer_reserve_asset() -> Weight;
+	fn deposit_asset() -> Weight;
+	fn deposit_reserve_asset() -> Weight;
+	fn initiate_reserve_withdraw() -> Weight;
+	fn initiate_teleport() -> Weight;
+	fn initiate_transfer() -> Weight;
+}
 
 /// Asset classification used by relay-chain style weighing.
 ///
@@ -244,4 +297,359 @@ pub fn weigh_assets_list_by_count<A: AssetWeigher>(assets: &Assets, weight: Weig
 		.inner()
 		.iter()
 		.fold(Weight::zero(), |acc, asset| acc.saturating_add(A::weigh_asset(asset, weight)))
+}
+
+/// Configuration for the default count-based [`XcmWeightInfo`] adapter.
+///
+/// This is intended for multi-asset runtimes where the default behavior is:
+/// - fungible instructions scale by number of assets/filter count,
+/// - generic instructions use generated generic benchmark weights,
+/// - unsupported instruction families default to `Weight::MAX`.
+///
+/// Runtimes can override only the methods that differ from defaults.
+pub trait CountBasedXcmWeightConfig<Call> {
+	type GenericWeights: XcmGenericWeightInfo;
+	type FungibleWeights: XcmFungibleWeightInfo;
+	type FilterCountWeigher: AssetFilterCountWeigher;
+	type ListAssetWeigher: AssetWeigher;
+
+	fn exchange_asset(give: &AssetFilter, receive: &Assets, _maximal: &bool) -> Weight {
+		let base_weight = <Self::GenericWeights as XcmGenericWeightInfo>::exchange_asset();
+		let give_weight =
+			weigh_assets_filter_by_count::<Self::FilterCountWeigher>(give, base_weight);
+		let receive_weight =
+			weigh_assets_list_by_count::<Self::ListAssetWeigher>(receive, base_weight);
+		give_weight.max(receive_weight)
+	}
+
+	fn initiate_transfer(
+		remote_fees: &Option<AssetTransferFilter>,
+		assets: &BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
+	) -> Weight {
+		weigh_initiate_transfer(
+			remote_fees,
+			assets,
+			<Self::FungibleWeights as XcmFungibleWeightInfo>::initiate_transfer(),
+			|asset_filter, weight| {
+				weigh_assets_filter_by_count::<Self::FilterCountWeigher>(asset_filter, weight)
+			},
+		)
+	}
+
+	fn set_hints(hints: &BoundedVec<Hint, HintNumVariants>) -> Weight {
+		weigh_hints(hints, <Self::GenericWeights as XcmGenericWeightInfo>::asset_claimer())
+	}
+
+	fn hrmp_new_channel_open_request() -> Weight {
+		Weight::MAX
+	}
+
+	fn hrmp_channel_accepted() -> Weight {
+		Weight::MAX
+	}
+
+	fn hrmp_channel_closing() -> Weight {
+		Weight::MAX
+	}
+
+	fn export_message() -> Weight {
+		Weight::MAX
+	}
+
+	fn lock_asset() -> Weight {
+		Weight::MAX
+	}
+
+	fn unlock_asset() -> Weight {
+		Weight::MAX
+	}
+
+	fn note_unlockable() -> Weight {
+		Weight::MAX
+	}
+
+	fn request_unlock() -> Weight {
+		Weight::MAX
+	}
+}
+
+/// Default count-based [`XcmWeightInfo`] implementation.
+///
+/// Runtime wiring can use this directly as a type alias and only provide a
+/// [`CountBasedXcmWeightConfig`] implementation.
+pub struct AutoCountBasedXcmWeight<Call, Config>(core::marker::PhantomData<(Call, Config)>);
+
+impl<Call, Config> XcmWeightInfo<Call> for AutoCountBasedXcmWeight<Call, Config>
+where
+	Config: CountBasedXcmWeightConfig<Call>,
+{
+	fn withdraw_asset(assets: &Assets) -> Weight {
+		weigh_assets_list_by_count::<Config::ListAssetWeigher>(
+			assets,
+			<Config::FungibleWeights as XcmFungibleWeightInfo>::withdraw_asset(),
+		)
+	}
+
+	fn reserve_asset_deposited(assets: &Assets) -> Weight {
+		weigh_assets_list_by_count::<Config::ListAssetWeigher>(
+			assets,
+			<Config::FungibleWeights as XcmFungibleWeightInfo>::reserve_asset_deposited(),
+		)
+	}
+
+	fn receive_teleported_asset(assets: &Assets) -> Weight {
+		weigh_assets_list_by_count::<Config::ListAssetWeigher>(
+			assets,
+			<Config::FungibleWeights as XcmFungibleWeightInfo>::receive_teleported_asset(),
+		)
+	}
+
+	fn query_response(
+		_query_id: &u64,
+		_response: &Response,
+		_max_weight: &Weight,
+		_querier: &Option<Location>,
+	) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::query_response()
+	}
+
+	fn transfer_asset(assets: &Assets, _dest: &Location) -> Weight {
+		weigh_assets_list_by_count::<Config::ListAssetWeigher>(
+			assets,
+			<Config::FungibleWeights as XcmFungibleWeightInfo>::transfer_asset(),
+		)
+	}
+
+	fn transfer_reserve_asset(assets: &Assets, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
+		weigh_assets_list_by_count::<Config::ListAssetWeigher>(
+			assets,
+			<Config::FungibleWeights as XcmFungibleWeightInfo>::transfer_reserve_asset(),
+		)
+	}
+
+	fn transact(
+		_origin_type: &OriginKind,
+		_fallback_max_weight: &Option<Weight>,
+		_call: &xcm::DoubleEncoded<Call>,
+	) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::transact()
+	}
+
+	fn hrmp_new_channel_open_request(
+		_sender: &u32,
+		_max_message_size: &u32,
+		_max_capacity: &u32,
+	) -> Weight {
+		Config::hrmp_new_channel_open_request()
+	}
+
+	fn hrmp_channel_accepted(_recipient: &u32) -> Weight {
+		Config::hrmp_channel_accepted()
+	}
+
+	fn hrmp_channel_closing(_initiator: &u32, _sender: &u32, _recipient: &u32) -> Weight {
+		Config::hrmp_channel_closing()
+	}
+
+	fn clear_origin() -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::clear_origin()
+	}
+
+	fn descend_origin(_who: &InteriorLocation) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::descend_origin()
+	}
+
+	fn report_error(_query_response_info: &QueryResponseInfo) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::report_error()
+	}
+
+	fn deposit_asset(assets: &AssetFilter, _dest: &Location) -> Weight {
+		weigh_assets_filter_by_count::<Config::FilterCountWeigher>(
+			assets,
+			<Config::FungibleWeights as XcmFungibleWeightInfo>::deposit_asset(),
+		)
+	}
+
+	fn deposit_reserve_asset(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
+		weigh_assets_filter_by_count::<Config::FilterCountWeigher>(
+			assets,
+			<Config::FungibleWeights as XcmFungibleWeightInfo>::deposit_reserve_asset(),
+		)
+	}
+
+	fn exchange_asset(give: &AssetFilter, receive: &Assets, maximal: &bool) -> Weight {
+		Config::exchange_asset(give, receive, maximal)
+	}
+
+	fn initiate_reserve_withdraw(
+		assets: &AssetFilter,
+		_reserve: &Location,
+		_xcm: &Xcm<()>,
+	) -> Weight {
+		weigh_assets_filter_by_count::<Config::FilterCountWeigher>(
+			assets,
+			<Config::FungibleWeights as XcmFungibleWeightInfo>::initiate_reserve_withdraw(),
+		)
+	}
+
+	fn initiate_teleport(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
+		weigh_assets_filter_by_count::<Config::FilterCountWeigher>(
+			assets,
+			<Config::FungibleWeights as XcmFungibleWeightInfo>::initiate_teleport(),
+		)
+	}
+
+	fn initiate_transfer(
+		_dest: &Location,
+		remote_fees: &Option<AssetTransferFilter>,
+		_preserve_origin: &bool,
+		assets: &BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
+		_xcm: &Xcm<()>,
+	) -> Weight {
+		Config::initiate_transfer(remote_fees, assets)
+	}
+
+	fn report_holding(_response_info: &QueryResponseInfo, _assets: &AssetFilter) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::report_holding()
+	}
+
+	fn buy_execution(_fees: &Asset, _weight_limit: &WeightLimit) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::buy_execution()
+	}
+
+	fn pay_fees(_asset: &Asset) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::pay_fees()
+	}
+
+	fn refund_surplus() -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::refund_surplus()
+	}
+
+	fn set_error_handler(_xcm: &Xcm<Call>) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::set_error_handler()
+	}
+
+	fn set_appendix(_xcm: &Xcm<Call>) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::set_appendix()
+	}
+
+	fn clear_error() -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::clear_error()
+	}
+
+	fn set_hints(hints: &BoundedVec<Hint, HintNumVariants>) -> Weight {
+		Config::set_hints(hints)
+	}
+
+	fn claim_asset(_assets: &Assets, _ticket: &Location) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::claim_asset()
+	}
+
+	fn trap(_code: &u64) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::trap()
+	}
+
+	fn subscribe_version(_query_id: &QueryId, _max_response_weight: &Weight) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::subscribe_version()
+	}
+
+	fn unsubscribe_version() -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::unsubscribe_version()
+	}
+
+	fn burn_asset(assets: &Assets) -> Weight {
+		weigh_assets_list_by_count::<Config::ListAssetWeigher>(
+			assets,
+			<Config::GenericWeights as XcmGenericWeightInfo>::burn_asset(),
+		)
+	}
+
+	fn expect_asset(assets: &Assets) -> Weight {
+		weigh_assets_list_by_count::<Config::ListAssetWeigher>(
+			assets,
+			<Config::GenericWeights as XcmGenericWeightInfo>::expect_asset(),
+		)
+	}
+
+	fn expect_origin(_origin: &Option<Location>) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::expect_origin()
+	}
+
+	fn expect_error(_error: &Option<(u32, XcmError)>) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::expect_error()
+	}
+
+	fn expect_transact_status(_transact_status: &MaybeErrorCode) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::expect_transact_status()
+	}
+
+	fn query_pallet(_module_name: &Vec<u8>, _response_info: &QueryResponseInfo) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::query_pallet()
+	}
+
+	fn expect_pallet(
+		_index: &u32,
+		_name: &Vec<u8>,
+		_module_name: &Vec<u8>,
+		_crate_major: &u32,
+		_min_crate_minor: &u32,
+	) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::expect_pallet()
+	}
+
+	fn report_transact_status(_response_info: &QueryResponseInfo) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::report_transact_status()
+	}
+
+	fn clear_transact_status() -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::clear_transact_status()
+	}
+
+	fn universal_origin(_: &Junction) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::universal_origin()
+	}
+
+	fn export_message(_: &NetworkId, _: &Junctions, _: &Xcm<()>) -> Weight {
+		Config::export_message()
+	}
+
+	fn lock_asset(_: &Asset, _: &Location) -> Weight {
+		Config::lock_asset()
+	}
+
+	fn unlock_asset(_: &Asset, _: &Location) -> Weight {
+		Config::unlock_asset()
+	}
+
+	fn note_unlockable(_: &Asset, _: &Location) -> Weight {
+		Config::note_unlockable()
+	}
+
+	fn request_unlock(_: &Asset, _: &Location) -> Weight {
+		Config::request_unlock()
+	}
+
+	fn set_fees_mode(_: &bool) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::set_fees_mode()
+	}
+
+	fn set_topic(_topic: &[u8; 32]) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::set_topic()
+	}
+
+	fn clear_topic() -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::clear_topic()
+	}
+
+	fn alias_origin(_: &Location) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::alias_origin()
+	}
+
+	fn unpaid_execution(_: &WeightLimit, _: &Option<Location>) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::unpaid_execution()
+	}
+
+	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<Call>) -> Weight {
+		<Config::GenericWeights as XcmGenericWeightInfo>::execute_with_origin()
+	}
 }
