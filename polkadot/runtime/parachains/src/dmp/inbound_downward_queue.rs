@@ -137,7 +137,11 @@ impl<T: Config> InboundDownwardQueue<T> {
 		n = n.saturating_sub(dropped_v1.unwrap_or_default());
 		let dropped_v0 = Self::drop_front_n_v0(para, n);
 
-		dropped_v0.and_then(|v0| dropped_v1.map(|v1| v0.saturating_add(v1)))
+		if dropped_v0.is_none() && dropped_v1.is_none() {
+			None
+		} else {
+			Some(dropped_v0.unwrap_or_default().saturating_add(dropped_v1.unwrap_or_default()))
+		}
 	}
 
 	/// Drop first `n` messages from the queue.
