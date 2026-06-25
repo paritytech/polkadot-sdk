@@ -1561,7 +1561,10 @@ mod benchmarks {
 
 		let caller = whitelisted_caller();
 
-		set_active_era::<T>(l + 1);
+		// Proof eras `0..l` must sit in `[active_era - HistoryDepth, active_era)`. `l <=
+		// HistoryDepth`, so `active_era = l` keeps the lower bound at 0 while the most recent
+		// proof era (`l - 1`) stays below the active era.
+		set_active_era::<T>(l);
 
 		// Set the validator has been inactive for `l` eras.
 		let proof = (0..l)
