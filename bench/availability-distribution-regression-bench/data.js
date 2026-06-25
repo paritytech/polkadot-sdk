@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782405061185,
+  "lastUpdate": 1782422194826,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4dd3e2e3dce53f7a0c77127dd768d508a50a620a",
-          "message": "Add confirmation step for zombienet test results in CI workflow (#10115)\n\n# Description\n\nAdd logic to mark as required (status collator job).",
-          "timestamp": "2025-11-04T09:34:51Z",
-          "tree_id": "ab3249a73e42617074986a5ef5349634c2a66e66",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4dd3e2e3dce53f7a0c77127dd768d508a50a620a"
-        },
-        "date": 1762253003572,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013083568053333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022576818353333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15845539248666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007301042579999973,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02364653955333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cd33d702d9da16e5d3d9e11c61d2b76b9e2a1a30",
+          "message": "[pallet-revive] storage precompile error-handling refactor and accounting refinements (#12434)\n\nThis PR bundles three self-contained changes in pallet-revive:\n\n1. Storage precompile: refactor argument-error handling behind a small\nStorageArgError enum, replacing the repeated inline map_errs.\n2. Weight charges: adjust two operations so their charge tracks the\nmeasured cost more closely.\n3. Existential deposit: charge the ED storage deposit only when the\naccount-creating transfer actually succeeds, instead of also counting it\nfor transfers that roll back.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-25T19:37:10Z",
+          "tree_id": "9348055268f2ebb01a1356ff9c0f47bb8ac18e4d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd33d702d9da16e5d3d9e11c61d2b76b9e2a1a30"
+        },
+        "date": 1782422164580,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010293924439999973,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023602467379999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007901623753333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14820923508666664,
             "unit": "seconds"
           }
         ]
