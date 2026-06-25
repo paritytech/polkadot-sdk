@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782399426775,
+  "lastUpdate": 1782405140275,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a44be635e6710432c49e844af8631e6ad98ade36",
-          "message": "TxPool: Downgrade log from `info` to `debug` (#10179)\n\nThere is no need to log information about `maintain` to the `info` log.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-01T09:20:14Z",
-          "tree_id": "345a946799c12465072bc3ac5f43b8d81159af1e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a44be635e6710432c49e844af8631e6ad98ade36"
-        },
-        "date": 1761993575705,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95999999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04428661798999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035104946622000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08189280931799996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b339135883ffe5f7e7f02e265b0db55ab9f2bae7",
+          "message": "pallet-revive: per-transaction cold/hot storage access pricing (#12104)\n\n### Summary\nEIP-2929-style cold/hot(warm) pricing for persistent storage access in\npallet-revive. The first access to a (contract, slot)` pair within a\ntransaction is billed \"cold\" (higher weight); any later access to the\nsame slot is \"hot\" (cheaper).\n\n### Description\n#### Covered operations\nCold/hot pricing applies to persistent storage:\n- the EVM `SLOAD` / `SSTORE` opcodes,\n- the PVM storage host functions,\n- the storage precompile (`containsStorage` warms the slot like an\n`SLOAD`).\n\n#### Access list and rollback\nHot/cold state is tracked by a new per-transaction access list, whose\nlayout mirrors `TransientStorage`: a current-state set plus a journal\nand per-frame checkpoints.\n- Nested frames open a checkpoint, so a reverted frame drops the slots\nit warmed; the top-level frame is never rolled back.\n- A cold touch that journals inside a nested frame also pre-pays a small\nrollback weight, to cover the cost of a potential revert (which charges\nno gas).\n\n#### Memory bound\nThe access list is capped at a fixed number of entries per transaction;\nonce full, further new slots are billed cold without being tracked.\nShort slots are held inline (Fix at 32 bytes, VarInline up to\nMAX_INLINE_KEY_LEN); longer ones (VarLong, up to STORAGE_KEY_BYTES) use\na heap-allocated bounded vector.\n\n#### Benchmarks\nNew benchmarks cover the hot storage ops (`seal_set_storage_hot`,\n`clear_storage_hot`, `contains_storage_hot`, `seal_get_storage_hot`,\n`take_storage_hot`) and the access-list overhead\n(`access_list_touch_cold_*`, `access_list_touch_hot_*`,\n`access_list_rollback_amortization`)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-25T14:01:59Z",
+          "tree_id": "8f41d342e1beba78282b2f13f32da68efbc7ea17",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b339135883ffe5f7e7f02e265b0db55ab9f2bae7"
+        },
+        "date": 1782405109604,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.12000000000003,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08547061520799991,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03804772524399999,
             "unit": "seconds"
           }
         ]
