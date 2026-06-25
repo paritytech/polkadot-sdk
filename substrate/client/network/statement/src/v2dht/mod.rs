@@ -226,7 +226,7 @@ mod tests {
 		V2DhtOrchestrator::new(
 			&[],
 			PeerId::random(),
-			PeersTopologyConfig::default(),
+			topology_config(20, 3),
 			"/statement/test".into(),
 		)
 	}
@@ -403,7 +403,7 @@ mod tests {
 		let mut orchestrator = V2DhtOrchestrator::new(
 			&[topic(1)],
 			PeerId::random(),
-			PeersTopologyConfig::default(),
+			topology_config(20, 3),
 			"/statement/test".into(),
 		);
 

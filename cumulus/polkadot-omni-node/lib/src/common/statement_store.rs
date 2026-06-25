@@ -68,7 +68,6 @@ pub(crate) fn build_statement_store<
 	let network_workers = config.network_workers;
 	let rate_limit = config.rate_limit;
 	let affinity_topics = config.affinity_topics.clone();
-	let v2dht_enabled = config.v2dht_enabled;
 	let replication_factor = config.replication_factor;
 	let gossip_target = config.gossip_target;
 
@@ -96,7 +95,6 @@ pub(crate) fn build_statement_store<
 		network_workers,
 		rate_limit,
 		&affinity_topics,
-		v2dht_enabled,
 		replication_factor,
 		gossip_target,
 	)?;

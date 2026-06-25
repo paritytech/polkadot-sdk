@@ -216,9 +216,6 @@ pub struct Config {
 	pub rate_limit: u32,
 	/// Topics this node advertises affinity for, so peers route matching statements to it.
 	pub affinity_topics: Vec<sp_statement_store::Topic>,
-	/// Selects the v2 DHT-affinity routing path over the legacy flood path. Off by default; the
-	/// v2 path is enabled per node via `--enable-statement-store-v2-dht`.
-	pub v2dht_enabled: bool,
 	/// Replication factor (K) for v2 DHT-affinity routing: number of statement-protocol peers
 	/// responsible for storing a given topic.
 	pub replication_factor: std::num::NonZeroUsize,
@@ -254,7 +251,6 @@ impl Default for Config {
 			network_workers: DEFAULT_NETWORK_WORKERS,
 			rate_limit: DEFAULT_RATE_LIMIT,
 			affinity_topics: Vec::new(),
-			v2dht_enabled: false,
 			replication_factor: DEFAULT_REPLICATION_FACTOR,
 			gossip_target: DEFAULT_GOSSIP_TARGET,
 		}

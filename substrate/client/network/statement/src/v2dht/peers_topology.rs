@@ -39,15 +39,6 @@ pub struct PeersTopologyConfig {
 	pub gossip_target: NonZeroUsize,
 }
 
-impl Default for PeersTopologyConfig {
-	fn default() -> Self {
-		Self {
-			replication_factor: crate::config::DEFAULT_REPLICATION_FACTOR,
-			gossip_target: crate::config::DEFAULT_GOSSIP_TARGET,
-		}
-	}
-}
-
 #[derive(Debug, Clone)]
 struct PeerInfo {
 	supports_protocol: bool,

@@ -272,12 +272,6 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long = "statement-affinity-topic", value_name = "TOPIC")]
 	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
 
-	/// Enable the v2 DHT-affinity statement routing path instead of the legacy flood path.
-	///
-	/// Only relevant when `--enable-statement-store` is used.
-	#[arg(long = "enable-statement-store-v2-dht", default_value_t = false)]
-	pub statement_enable_v2_dht: bool,
-
 	/// Number of K-closest peers (replication factor) used for DHT-affinity statement routing.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
@@ -346,7 +340,6 @@ impl<Config: CliConfig> Cli<Config> {
 					network_workers: self.statement_network_workers,
 					rate_limit: self.statement_rate_limit,
 					affinity_topics: self.statement_affinity_topics.clone(),
-					v2dht_enabled: self.statement_enable_v2_dht,
 					replication_factor: self.statement_replication_factor,
 					gossip_target: self.statement_gossip_target,
 				},
