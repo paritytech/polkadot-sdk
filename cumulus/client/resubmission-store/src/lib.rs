@@ -154,16 +154,8 @@ impl<Block: BlockT, B: AuxStore> ResubmissionStore<Block, B> {
 	}
 }
 
-/// Prune resubmission entries made obsolete by a finality notification.
-///
-/// Deletes entries for the just-finalized chain, the intermediate tree route, the prior finalized
-/// head, and any stale forks. Once a block is finalized it is no longer in any unincluded segment,
-/// so its proof entry can be dropped.
-///
-/// This is meant to run on the same task that records entries (see [`record_resubmission_entry`]),
-/// so that a recorded entry is always observed by a subsequent finality notification. Driving the
-/// pruning from a separate pre-commit hook would race with the recording task: finality could prune
-/// before the entry is written, leaking the entry.
+/// Delete entries for the just-finalized chain, the tree route, the prior finalized head, and stale
+/// forks — once finalized, a block is no longer in any unincluded segment.
 pub fn prune_finalized_entries<Block, B>(
 	backend: &B,
 	notification: &FinalityNotification<Block>,
