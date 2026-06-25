@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782253281073,
+  "lastUpdate": 1782382148779,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -180863,6 +180863,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2991097076,
             "range": "± 150632244",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4447daba7a576accedc9f55ef22408cc6bc1c597",
+          "message": "Fix `AllowedRelayParentInfo` off by one error (#12391)\n\nRelated to https://github.com/paritytech/polkadot-sdk/issues/11624\n\n## The issue\n\nThis issue was found while working on\nhttps://github.com/paritytech/polkadot-sdk/pull/12296 . Added some debug\nlogs in the function that was calling `ancestor_relay_parent_info` and\nsometimes there were situations like the following:\n\n```\nmax_relay_parent_session_age = 1\n\ntokio-runtime-worker consensus::common::parent_search: [Parachain] ancestor_relay_parent_info call succeeded scheduling_parent=0x56fa4fbab20eb77b995d18c4a9b638a35422afaeb4138d2a89f6f73ee826055d scheduling_parent_session=3 relay_parent=0x8bcf87dc4c00e5394e046bca6e53fa7d9c3737dd22c72911e162a2847f22751d relay_parent_session=1\n```\n\nSo a relay parent from session 1 is still valid at a scheduling parent\nfrom session 3. This shouldn't happen when max_relay_parent_session_age\nis 1.\n\n## The cause\n\nThe pruning for `AllowedRelayParentInfo` was performed in `new_block`.\nBut `new_block` is called at the beginning of each block, [receiving the\nparent block number and parent block session as\narguments](https://github.com/paritytech/polkadot-sdk/blob/bcafdb3d87eb3756f64bd1e830b0785d17a86812/polkadot/runtime/parachains/src/paras_inherent/mod.rs#L319-L327).\nSo when a new session starts, for example at block 31, `new_block` will\nbe called for block 30, session 2, and only at block 32, it will be\ncalled for block 31, session 3, performing the required pruning. So at\nblock 31, even if `max_relay_parent_session_age`, the blocks from\nsession 1 were still considered valid relay parents. Which is wrong.\n\n## The fix\n\nSo moved the pruning logic from `new_block` to\n`initializer_on_new_session()`, which is actually called correctly at\nthe first block of the session for the current session (for example at\nblock 31 for session 3).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-24T18:09:56Z",
+          "tree_id": "26a6222c736037300cdb1ce14c9afd4f3c5314c6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4447daba7a576accedc9f55ef22408cc6bc1c597"
+        },
+        "date": 1782382117302,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4976000,
+            "range": "± 92324",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 320586,
+            "range": "± 5833",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4766482,
+            "range": "± 97007",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 390444,
+            "range": "± 10561",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5823637,
+            "range": "± 85996",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 973146,
+            "range": "± 45751",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11633483,
+            "range": "± 224148",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5192158,
+            "range": "± 115562",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 48669030,
+            "range": "± 1047560",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 41657163,
+            "range": "± 980137",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 419128848,
+            "range": "± 4282387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 331760962,
+            "range": "± 7119601",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2809078190,
+            "range": "± 29739163",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2499088614,
+            "range": "± 25900538",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3694135,
+            "range": "± 52823",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1824758,
+            "range": "± 11724",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3701050,
+            "range": "± 67202",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1908687,
+            "range": "± 13444",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4274358,
+            "range": "± 81003",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2293404,
+            "range": "± 33899",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8571627,
+            "range": "± 157656",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5607690,
+            "range": "± 56430",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 41726802,
+            "range": "± 735923",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 40580339,
+            "range": "± 615740",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 358066320,
+            "range": "± 4002894",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 302449199,
+            "range": "± 3897953",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2635262460,
+            "range": "± 18968736",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2555746073,
+            "range": "± 38463022",
             "unit": "ns/iter"
           }
         ]
