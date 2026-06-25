@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782383212587,
+  "lastUpdate": 1782388855947,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6ffecaaab2a3039b8055da047a432fa1ad3c8b25",
-          "message": "Adding Retester to CI (#10071)\n\n# Description\n\nThis PR adds differential tests as part of the CI of the polkadot SDK.\nCurrently, a job will be started when pushing to master or when a PR is\nopened that runs the [differential testing\nframework](https://github.com/paritytech/revive-differential-tests) with\nthe `revive-dev-node-revm-resolc` target.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-03T16:12:41Z",
-          "tree_id": "dcd9713066287fdb219da70371fcef2143a1382c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ffecaaab2a3039b8055da047a432fa1ad3c8b25"
-        },
-        "date": 1762190432482,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.632262335966667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20370858709999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.071255672566666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "764925dbdffab8f99309495ad2588a035e0b1a43",
+          "message": "XCM hardening - fix some regressions (#11910)\n\nThis PR fixes some regressions, improves code and adds more\ndefense-in-depth in a couple places.\n\n### xcm-executor: drain holdings by ownership in\ndeposit_assets_with_retry\n\nAdd `AssetsInHolding::into_per_asset_holdings()` and use it in\n`deposit_assets_with_retry` so each pass consumes the input via owning\n`BTreeMap`/`BTreeSet` iterators instead of `assets_iter().collect()` +\n`try_take`. Per asset this drops one `AssetId` clone, one or two\n`BTreeMap` lookups, one dynamic dispatch on `saturating_take`, and one\ninternal `subsume_assets` call; per pass it drops the intermediate\n`Vec<Asset>` allocation. Behaviour is unchanged: same iteration order,\nsame partial-failure / retry semantics.\n\n### xcm-executor: remove now dead code related do dust deposit errors\n\n`deposit_assets_with_retry` previously tried to silently drop \"dust\"\n(below-minimum) deposit failures, comparing the returned `XcmError`\nstring against the canonical `TokenError::BelowMinimum` text. After PR\nhttps://github.com/paritytech/polkadot-sdk/pull/10384 within\n`FungiblesAdapter::deposit_asset` the underlying `DispatchError` is\ndiscarded and the adapter returns `XcmError::FailedToTransactAsset(\"\")`\n- an empty string. The dust check never matched, so classifying the\nerror is no longer possible.\nRemove the special handling of dust deposit errors (which can no longer\nbe identified from returned error), and treat all errors the same.\n\n### cumulus/utility: fix inverted ED guard in\n`TakeFirstAssetTrader::refund_weight`\n\nThe else-branch was refunding ED to the user and leaving sub-ED dust for\nthe `OnUnbalanced` drop handler, the inverse of the intended behavior.\nRefund `outstanding - ED` instead so the handler keeps at least ED (or\nall of it when outstanding < ED), preventing silent fee burns.\n\nThis was actually a bug, but `TakeFirstAssetTrader` is not used by any\nproduction runtimes.\n\n### snowbridge: short-circuit on register-token error path\n    \nMinor optimization and defense-in-depth - short-circuit on errors and\ndon't directly compare `Option`s.\n\n### snowbridge: harden BLS public key deserialization\n\nDefense-in-depth: validate all cryptographic inputs.\n\nThe Merkle proof binding means the public keys must match exactly what\nthe Ethereum beacon chain committed. Since the beacon chain itself\nenforces G1 subgroup membership for validator keys, invalid subgroup\npoints cannot appear in honest beacon chain state.\nAn attacker would need to compromise the Merkle proof verification\n(e.g., via a SHA-256 collision or another bug in the verification chain)\nto inject a public key that is on the BLS12-381 curve but not in the G1\nsubgroup.\nThe performance cost of the subgroup check is a one-time cost during\nsync committee preparation (512 checks per sync committee period,\napproximately every 27 hours). This is negligible compared to the BLS\nsignature verification that occurs on every update. So just check it as\ndefense-in-depth.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: ron <yrong1997@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-06-25T09:23:44Z",
+          "tree_id": "f06ad552979f3fa125b216ee7f2c4c609051e0e1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/764925dbdffab8f99309495ad2588a035e0b1a43"
+        },
+        "date": 1782388824640,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12945475803333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.054932478999998,
             "unit": "seconds"
           }
         ]
