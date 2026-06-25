@@ -309,6 +309,13 @@ impl SubstrateCli for TestCollatorCli {
 					Some(ParaId::from(2200)),
 				)
 			},
+			"elastic-scaling-rpo" => {
+				tracing::info!("Using elastic-scaling + relay-parent-offset-2 chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::elastic_scaling_rpo::WASM_BINARY,
+					Some(ParaId::from(2200)),
+				)
+			},
 			"elastic-scaling-500ms" => {
 				tracing::info!("Using elastic-scaling 500ms chain spec.");
 				cumulus_test_service::get_chain_spec(

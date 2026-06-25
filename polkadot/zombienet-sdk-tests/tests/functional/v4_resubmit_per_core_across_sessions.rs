@@ -22,6 +22,8 @@
 //! `assert_para_throughput` and `assert_finality_lag` calls should fail — the parachain stalls
 //! once it crosses a session boundary with unincluded blocks still pending.
 
+use std::time::Duration;
+
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
 use polkadot_primitives::Id as ParaId;
@@ -65,7 +67,7 @@ async fn v4_resubmit_first_core_across_sessions() -> Result<(), anyhow::Error> {
 								// older relay parent gets `SchedulingParentNotInScope` and is
 								// silently dropped by the validator. Default is 1, which only
 								// admits candidates anchored to the leaf itself.
-								"lookahead": 10
+								"lookahead": 5
 							},
 							// Enable V2 (bit 3) + V3 (bit 4) candidate descriptors so the
 							// elastic-scaling-v3 runtime receives the V3 `ValidationParamsExtension`
@@ -93,6 +95,11 @@ async fn v4_resubmit_first_core_across_sessions() -> Result<(), anyhow::Error> {
 				.with_default_args(vec![
 					("-lparachain=debug,aura=debug,parachain::collator-protocol=trace,aura::cumulus=debug,basic-authorship=debug").into(),
 					"--authoring=slot-based".into(),
+					// Keep the collator's embedded relay-chain client in archive mode so all
+					// relay blocks (and their state) remain available for post-hoc analysis.
+					"--".into(),
+					"--state-pruning=archive".into(),
+					"--blocks-pruning=archive".into(),
 				])
 				.with_collator(|n| n.with_name("collator-2900"))
 		})
@@ -113,13 +120,14 @@ async fn v4_resubmit_first_core_across_sessions() -> Result<(), anyhow::Error> {
 	assign_cores(&relay_client, 2900, vec![0, 1]).await?;
 	log::info!("Para 2900 elastic-scaled to 3 cores");
 
+	tokio::time::sleep(Duration::from_secs(3600)).await;
 	// Count backed candidates over a window long enough to span ~3 sessions of relay-chain
 	// activity (sessions are ~10 RC blocks each here). The helper internally waits for the
 	// first session change + first backed candidate before counting starts, which absorbs the
 	// `assign_cores`/PVF warm-up window; the rest of the window then exercises the
 	// resubmit-on-first-core path across validator-set rotations. With 3 cores at the
 	// elastic-scaling-v3 throughput target, ~3 backed candidates per relay block.
-	assert_para_throughput(&relay_client, 100, [(ParaId::from(2900), 150..160)], []).await?;
+	assert_para_throughput(&relay_client, 100, [(ParaId::from(2900), 250..310)], []).await?;
 
 	// Finality must keep up — a stalled parachain would lag finality unboundedly.
 	let collator_client: OnlineClient<PolkadotConfig> = collator_node.wait_client().await?;

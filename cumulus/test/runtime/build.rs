@@ -42,6 +42,13 @@ fn main() {
 		.set_file_name(elastic_scaling::WASM_FILE_NAME)
 		.build();
 
+	WasmBuilder::init_with_defaults()
+		.enable_feature("velocity-3")
+		.enable_feature("relay-parent-offset-2")
+		.enable_feature("spec-version-3")
+		.set_file_name(elastic_scaling_rpo::WASM_FILE_NAME)
+		.build();
+
 	// A runtime with 6s slots and block velocity 12.
 	// Coupled with 12 cores it can produce a block every 500ms.
 	WasmBuilder::init_with_defaults()

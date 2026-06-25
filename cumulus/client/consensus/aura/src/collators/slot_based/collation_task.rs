@@ -286,6 +286,19 @@ async fn handle_resubmit_segment<Block, B, Client, RClient, CHP>(
 		SegmentKind::ResubmitOnly { core_index } => (core_index, None),
 	};
 
+	tracing::info!(
+		target: LOG_TARGET,
+		?scheduling_parent,
+		?core_index,
+		kind = if bundle.is_some() { "WithBundle" } else { "ResubmitOnly" },
+		segment_len = unincluded_segment.len(),
+		segment_blocks = ?unincluded_segment
+			.iter()
+			.map(|h| *h.number())
+			.collect::<Vec<_>>(),
+		"Received resubmit segment.",
+	);
+
 	let entries = hydrate_segment(
 		unincluded_segment,
 		para_backend,

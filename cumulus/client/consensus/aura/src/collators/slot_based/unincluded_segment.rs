@@ -66,12 +66,16 @@ where
 {
 	let mut entries = Vec::with_capacity(headers.len());
 	for header in headers {
+		let block_number = *header.number();
+		let block_hash = header.hash();
 		match build_entry(header, para_backend, code_hash_provider, store, relay_chain_data_cache)
 			.await
 		{
 			Some(entry) => entries.push(entry),
 			None => tracing::warn!(
 				target: LOG_TARGET,
+				?block_number,
+				?block_hash,
 				"Skipping unincluded-segment entry: could not hydrate header (missing body/proof/relay data).",
 			),
 		}

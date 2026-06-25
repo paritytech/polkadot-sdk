@@ -25,5 +25,5 @@ mod sync_backing;
 mod systematic_chunk_recovery;
 mod v3_dynamic_enablement;
 mod v3_rolling_upgrade;
-mod v4_resubmit_first_core_across_sessions;
+mod v4_resubmit_per_core_across_sessions;
 mod validator_disabling;
