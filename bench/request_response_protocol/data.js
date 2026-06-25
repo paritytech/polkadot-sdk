@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782404050475,
+  "lastUpdate": 1782421160231,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -101735,6 +101735,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2554452156,
             "range": "± 18479834",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cd33d702d9da16e5d3d9e11c61d2b76b9e2a1a30",
+          "message": "[pallet-revive] storage precompile error-handling refactor and accounting refinements (#12434)\n\nThis PR bundles three self-contained changes in pallet-revive:\n\n1. Storage precompile: refactor argument-error handling behind a small\nStorageArgError enum, replacing the repeated inline map_errs.\n2. Weight charges: adjust two operations so their charge tracks the\nmeasured cost more closely.\n3. Existential deposit: charge the ED storage deposit only when the\naccount-creating transfer actually succeeds, instead of also counting it\nfor transfers that roll back.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-25T19:37:10Z",
+          "tree_id": "9348055268f2ebb01a1356ff9c0f47bb8ac18e4d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd33d702d9da16e5d3d9e11c61d2b76b9e2a1a30"
+        },
+        "date": 1782421130405,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19828082,
+            "range": "± 451452",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20008816,
+            "range": "± 705356",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21687788,
+            "range": "± 1307291",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26994533,
+            "range": "± 866432",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60423622,
+            "range": "± 1556847",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 375924123,
+            "range": "± 11694689",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2702554882,
+            "range": "± 116668394",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17177572,
+            "range": "± 292568",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17606351,
+            "range": "± 220699",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18584699,
+            "range": "± 822853",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22504474,
+            "range": "± 683732",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62077076,
+            "range": "± 2828829",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 347709610,
+            "range": "± 15543070",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2674486240,
+            "range": "± 59577596",
             "unit": "ns/iter"
           }
         ]
