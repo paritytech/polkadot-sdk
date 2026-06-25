@@ -984,6 +984,22 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
 	}
+	/// The range of component `n` is `[0, 416]`.
+	///
+	/// Interim weight mirroring `seal_get_storage` (one storage read of length
+	/// `n`); regenerate with `/cmd bench --pallet pallet_revive` for accuracy.
+	fn unstable_runtime_get_storage(n: u32, ) -> Weight {
+		Weight::from_parts(12_011_610, 0)
+			.saturating_add(Weight::from_parts(0, 252))
+			.saturating_add(Weight::from_parts(1_561, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
+	}
+	/// Interim weight: fixed dispatch-wrapper overhead (no storage access);
+	/// regenerate with `/cmd bench --pallet pallet_revive` for accuracy.
+	fn unstable_runtime_dispatch() -> Weight {
+		Weight::from_parts(530_000, 0)
+	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
