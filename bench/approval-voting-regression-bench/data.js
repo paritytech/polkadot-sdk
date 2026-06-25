@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782405100945,
+  "lastUpdate": 1782422233254,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "52bdb96d4bd5d81f1c9a902d92ccf6ff062eedf7",
-          "message": "revive: Fix dust & child contract calls (#10192)\n\nWhen transferring to self we should just return early as it's a noop.\nNot doing so cause bug in `transfer_with_dust`\n\nas we do \n```\nfrom.dust -= from.dust\nto.dust += to.dust\n```\n\nWe end up with a value of dust - planck (that we burnt from to create\ndust amount) on the account\n\nfix https://github.com/paritytech/contract-issues/issues/211\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-04T06:38:38Z",
-          "tree_id": "cc7d1f1949f1760e138d8726109ad6b95141f237",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/52bdb96d4bd5d81f1c9a902d92ccf6ff062eedf7"
-        },
-        "date": 1762242410543,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63632.13999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52943.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.3986917166400006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.995872650770007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.384006018860002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000019813610000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4307098160799994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000021249170000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7044860157109847,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000021249170000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005843443399999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4008779763400008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4172854167400021,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000019813610000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9584582627100022,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 0.000022367280000000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cd33d702d9da16e5d3d9e11c61d2b76b9e2a1a30",
+          "message": "[pallet-revive] storage precompile error-handling refactor and accounting refinements (#12434)\n\nThis PR bundles three self-contained changes in pallet-revive:\n\n1. Storage precompile: refactor argument-error handling behind a small\nStorageArgError enum, replacing the repeated inline map_errs.\n2. Weight charges: adjust two operations so their charge tracks the\nmeasured cost more closely.\n3. Existential deposit: charge the ED storage deposit only when the\naccount-creating transfer actually succeeds, instead of also counting it\nfor transfers that roll back.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-25T19:37:10Z",
+          "tree_id": "9348055268f2ebb01a1356ff9c0f47bb8ac18e4d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd33d702d9da16e5d3d9e11c61d2b76b9e2a1a30"
+        },
+        "date": 1782422203347,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63602.08,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7264952700499974,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.161947503009918,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019669450000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.72143811296,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000023654949999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7878903758799292,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.75446334037,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005599164910000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3641049803099916,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019669450000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.282401862332594,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.801956258529999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000023654949999999996,
             "unit": "seconds"
           }
         ]
