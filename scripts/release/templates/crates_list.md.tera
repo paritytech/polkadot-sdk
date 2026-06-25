@@ -1,5 +1,8 @@
 The following crates were updated to the corresponding versions:
 
+<details>
+<summary>Crates list</summary>
+
 - pallet-beefy-mmr@47.1.0
 - cumulus-pallet-xcmp-queue@0.26.1
 - collectives-westend-runtime@26.1.1
@@ -9,3 +12,5 @@ The following crates were updated to the corresponding versions:
 - bridge-hub-rococo-runtime@0.28.1
 - bridge-hub-westend-runtime@0.25.1
 - cumulus-client-consensus-aura@0.29.2
+
+</details>
