@@ -61,7 +61,11 @@ pub struct TransactionPoolParams {
 	#[arg(long, value_enum, default_value_t = TransactionPoolType::ForkAware)]
 	pub pool_type: TransactionPoolType,
 
-	/// Only maintain the transaction pool on best blocks, ignoring non-best forks.
+	/// Maintain the transaction pool only on best blocks, ignoring non-best forks.
+	///
+	/// Escape hatch restoring the legacy best-blocks-only behavior (the pool is maintained on every
+	/// imported block by default). Expected to degrade performance under forking; only use it as a
+	/// fallback if you know what you are doing. No effect on the single-state pool.
 	#[arg(long, default_value_t = false)]
 	pub pool_best_blocks_only: bool,
 }
