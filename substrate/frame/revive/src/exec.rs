@@ -19,6 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
+	access_list::{AccessEntry, AccessList, StorageAccessKind},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -543,6 +544,16 @@ pub trait PrecompileExt: sealing::Sealed {
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError>;
 
+	/// Checks if `key` was already accessed in this transaction and inserts it
+	/// otherwise, so subsequent accesses to the same slot bill as hot. Returns
+	/// the [`StorageAccessKind`]: hot if `key` was already accessed, cold
+	/// otherwise. When `transient` is true, skips the access list and returns
+	/// the `Transient` variant.
+	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind;
+
+	/// Non-mutating sibling of `touch_storage_access`.
+	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind;
+
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
 }
@@ -637,6 +648,8 @@ pub struct Stack<'a, T: Config, E> {
 	first_frame: Frame<T>,
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
+	/// Per-transaction cold/hot access list for storage slots (EIP-2929 style).
+	access_list: AccessList,
 	/// Global behavior determined by the creater of this stack.
 	exec_config: &'a ExecConfig<T>,
 	/// No executable is held by the struct but influences its behaviour.
@@ -1034,6 +1047,7 @@ where
 			first_frame,
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
+			access_list: AccessList::new(),
 			exec_config,
 			_phantom: Default::default(),
 		};
@@ -1297,6 +1311,12 @@ where
 			transient_storage.start_transaction();
 		});
 		let is_first_frame = self.frames.is_empty();
+		// Open an access-list frame for nested CALL/CREATE. The first frame
+		// is skipped; its touches land in the bare journal and persist
+		// for the whole transaction.
+		if !is_first_frame {
+			self.access_list.enter_frame();
+		}
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
@@ -1548,6 +1568,20 @@ where
 				transient_storage.rollback_transaction();
 			}
 		});
+		// For the first frame, only log the final metrics since it doesn't open a
+		// checkpoint. Nested frames commit or roll back the checkpoint they opened.
+		if is_first_frame {
+			let m = self.access_list.metrics();
+			log::trace!(
+				target: LOG_TARGET,
+				"access list metrics: size={size} cold={cold} hot={hot}",
+				size = m.size, cold = m.cold, hot = m.hot,
+			);
+		} else if success {
+			self.access_list.commit_frame();
+		} else {
+			self.access_list.rollback_frame();
+		}
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);
@@ -2547,6 +2581,26 @@ where
 			value,
 			Some(&mut frame.frame_meter),
 			take_old,
+		)
+	}
+
+	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind {
+		if transient {
+			return StorageAccessKind::Transient;
+		}
+		let address = self.address();
+		StorageAccessKind::Persistent(
+			self.access_list.touch(AccessEntry { address, slot: key.into() }),
+		)
+	}
+
+	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind {
+		if transient {
+			return StorageAccessKind::Transient;
+		}
+		let address = self.address();
+		StorageAccessKind::Persistent(
+			self.access_list.peek(&AccessEntry { address, slot: key.into() }),
 		)
 	}
 
