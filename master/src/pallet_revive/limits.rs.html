@@ -431,18 +431,20 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#281 id=281 data-nosnippet>281</a>	<span class="comment">// The root frame is not accounted for in CALL_STACK_DEPTH
 <a href=#282 id=282 data-nosnippet>282</a>	</span><span class="kw">let </span>max_call_depth = CALL_STACK_DEPTH + <span class="number">1</span>;
 <a href=#283 id=283 data-nosnippet>283</a>
-<a href=#284 id=284 data-nosnippet>284</a>	<span class="kw">let </span>per_stack_memory = code::PURGABLE_MEMORY_LIMIT + TRANSIENT_STORAGE_BYTES * <span class="number">2</span>;
-<a href=#285 id=285 data-nosnippet>285</a>
-<a href=#286 id=286 data-nosnippet>286</a>	<span class="kw">let </span>evm_max_initcode_size = revm::primitives::eip3860::MAX_INITCODE_SIZE <span class="kw">as </span>u32;
-<a href=#287 id=287 data-nosnippet>287</a>	<span class="kw">let </span>evm_overhead = EVM_MEMORY_BYTES + evm_max_initcode_size + EVM_STACK_LIMIT * <span class="number">32</span>;
-<a href=#288 id=288 data-nosnippet>288</a>	<span class="kw">let </span>per_frame_memory = <span class="kw">if </span>code::BASELINE_MEMORY_LIMIT &gt; evm_overhead {
-<a href=#289 id=289 data-nosnippet>289</a>		code::BASELINE_MEMORY_LIMIT
-<a href=#290 id=290 data-nosnippet>290</a>	} <span class="kw">else </span>{
-<a href=#291 id=291 data-nosnippet>291</a>		evm_overhead
-<a href=#292 id=292 data-nosnippet>292</a>	} + CALLDATA_BYTES * <span class="number">2</span>;
-<a href=#293 id=293 data-nosnippet>293</a>
-<a href=#294 id=294 data-nosnippet>294</a>	per_stack_memory + max_call_depth * per_frame_memory
-<a href=#295 id=295 data-nosnippet>295</a>}
+<a href=#284 id=284 data-nosnippet>284</a>	<span class="kw">let </span>per_stack_memory = code::PURGABLE_MEMORY_LIMIT +
+<a href=#285 id=285 data-nosnippet>285</a>		TRANSIENT_STORAGE_BYTES * <span class="number">2 </span>+
+<a href=#286 id=286 data-nosnippet>286</a>		<span class="kw">crate</span>::access_list::MAX_ACCESS_LIST_BYTES;
+<a href=#287 id=287 data-nosnippet>287</a>
+<a href=#288 id=288 data-nosnippet>288</a>	<span class="kw">let </span>evm_max_initcode_size = revm::primitives::eip3860::MAX_INITCODE_SIZE <span class="kw">as </span>u32;
+<a href=#289 id=289 data-nosnippet>289</a>	<span class="kw">let </span>evm_overhead = EVM_MEMORY_BYTES + evm_max_initcode_size + EVM_STACK_LIMIT * <span class="number">32</span>;
+<a href=#290 id=290 data-nosnippet>290</a>	<span class="kw">let </span>per_frame_memory = <span class="kw">if </span>code::BASELINE_MEMORY_LIMIT &gt; evm_overhead {
+<a href=#291 id=291 data-nosnippet>291</a>		code::BASELINE_MEMORY_LIMIT
+<a href=#292 id=292 data-nosnippet>292</a>	} <span class="kw">else </span>{
+<a href=#293 id=293 data-nosnippet>293</a>		evm_overhead
+<a href=#294 id=294 data-nosnippet>294</a>	} + CALLDATA_BYTES * <span class="number">2</span>;
+<a href=#295 id=295 data-nosnippet>295</a>
+<a href=#296 id=296 data-nosnippet>296</a>	per_stack_memory + max_call_depth * per_frame_memory
+<a href=#297 id=297 data-nosnippet>297</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
