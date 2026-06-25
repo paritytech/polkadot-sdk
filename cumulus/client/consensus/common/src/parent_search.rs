@@ -248,14 +248,14 @@ pub async fn find_parent_for_building<Block: BlockT>(
 			let Some(header) = get_para_header(backend, hash) else {
 				return Ok(None);
 			};
-			Some((hash, header))
+			Some((header, hash))
 		} else {
 			None
 		}
 	};
 	// Determine the starting point for the search.
-	let (start_hash, start_header) =
-		maybe_pending.unwrap_or((included_hash, included_header.clone()));
+	let (start_header, start_hash) =
+		maybe_pending.unwrap_or((included_header.clone(), included_hash));
 
 	let ancestry_lookback = relay_client
 		.scheduling_lookahead(relay_parent)
