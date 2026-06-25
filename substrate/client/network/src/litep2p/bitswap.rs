@@ -283,8 +283,10 @@ impl<Block: BlockT> BitswapService<Block> {
 				event = self.handle.next() => match event {
 					Some(BitswapEvent::Request { peer, cids }) =>
 						self.handle_inbound_request(peer, cids).await,
-					Some(BitswapEvent::Response { peer, responses }) =>
-						self.pending.handle_response(peer, responses),
+					Some(BitswapEvent::Response { peer, responses }) => {
+						self.known_peers.insert(peer);
+						self.pending.handle_response(peer, responses)
+					}
 					None => {
 						log::debug!(target: LOG_TARGET, "bitswap handle stream ended");
 						return;

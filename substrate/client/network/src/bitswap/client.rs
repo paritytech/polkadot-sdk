@@ -414,7 +414,7 @@ pub enum BitswapError {
 type Response = HashMap<Cid, FetchOutcome>;
 
 pub(crate) struct BitswapRequest {
-	pub(crate) cids: Vec<Cid>,
+	pub(crate) cids: Vec<(Cid, ProtoWantType)>,
 	pub(crate) response_tx: oneshot::Sender<Response>,
 }
 
@@ -431,7 +431,15 @@ impl BitswapClient {
 
 	pub async fn request_blocks(&self, cids: &[Cid]) -> Result<Response, BitswapError> {
 		let (response_tx, response_rx) = oneshot::channel();
-		self.request_tx.send(BitswapRequest { cids: cids.to_vec(), response_tx });
+		let cids = cids.iter().map(|cid| (*cid, ProtoWantType::Block)).collect();
+		self.request_tx.send(BitswapRequest { cids, response_tx });
+		response_rx.await.map_err(|err| BitswapError::RequestFailed(err.to_string()))
+	}
+
+	pub async fn request_haves(&self, cids: &[Cid]) -> Result<Response, BitswapError> {
+		let (response_tx, response_rx) = oneshot::channel();
+		let cids = cids.iter().map(|cid| (*cid, ProtoWantType::Have)).collect();
+		self.request_tx.send(BitswapRequest { cids, response_tx });
 		response_rx.await.map_err(|err| BitswapError::RequestFailed(err.to_string()))
 	}
 }
