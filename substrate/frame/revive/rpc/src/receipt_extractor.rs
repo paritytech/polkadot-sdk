@@ -585,9 +585,8 @@ impl ReceiptExtractor {
 	/// [`Self::extract_from_block_with_eth_hash`] and [`Self::extract_from_transaction`].
 	/// `eth_transact` extrinsics get real receipts (merging same-extrinsic asset logs);
 	/// plain `assets.transfer` extrinsics get synthesized stand-ins. `only_index` restricts
-	/// to one extrinsic. A `get_block_extrinsics` error is swallowed only when indexing a
-	/// whole asset-bearing block (so asset-only blocks survive missing EVM data); a
-	/// single-extrinsic query (`only_index.is_some()`) always propagates it (see below).
+	/// to one extrinsic. A `get_block_extrinsics` error always propagates so the block is
+	/// retried rather than persisted as an asset-only partial (which would drop EVM receipts).
 	async fn build_receipts(
 		&self,
 		block: &SubstrateBlock,
@@ -602,28 +601,20 @@ impl ReceiptExtractor {
 
 		let mut asset_transfers = self.extract_asset_transfers(&block_events).await;
 
-		let mut eth_tx_by_index: BTreeMap<usize, (EthTransact, H256, ReceiptGasInfo)> = match self
+		// A `get_block_extrinsics` error must propagate (the block is retried), never be swallowed
+		// into an asset-only result: a block with no EVM activity does NOT error here
+		// (`eth_receipt_data` is `ValueQuery`, so it yields `Ok(vec![])`), so an error means a
+		// genuine failure (RPC/pruned state/length mismatch) on what may be a *mixed* block.
+		// Synthesizing asset-only receipts there would persist the block and permanently drop its
+		// EVM receipts.
+		let mut eth_tx_by_index: BTreeMap<usize, (EthTransact, H256, ReceiptGasInfo)> = self
 			.get_block_extrinsics(block)
-			.await
-		{
-			Ok(extrinsics) => extrinsics
-				.map(|(call, receipt_gas_info, extrinsic_index)| {
-					let hash = H256(keccak_256(&call.payload));
-					(extrinsic_index, (call, hash, receipt_gas_info))
-				})
-				.collect(),
-			// A single-extrinsic query can't tell a plain `assets.transfer` from an
-			// `eth_transact` that also moved assets once this fetch failed, so it must
-			// propagate rather than synthesize a stand-in for what may be a real EVM tx.
-			Err(err) if only_index.is_some() || asset_transfers.is_empty() => return Err(err),
-			Err(err) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"EVM extrinsic data unavailable for block #{substrate_block_number} ({err:?}); indexing asset transfers only"
-				);
-				BTreeMap::new()
-			},
-		};
+			.await?
+			.map(|(call, receipt_gas_info, extrinsic_index)| {
+				let hash = H256(keccak_256(&call.payload));
+				(extrinsic_index, (call, hash, receipt_gas_info))
+			})
+			.collect();
 
 		// Single-transaction queries keep only their extrinsic.
 		if let Some(index) = only_index {
