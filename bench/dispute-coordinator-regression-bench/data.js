@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782394646223,
+  "lastUpdate": 1782399464572,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dharjeezy@gmail.com",
-            "name": "dharjeezy",
-            "username": "dharjeezy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f268e327685e04ad4134631a8b547a52f931fb83",
-          "message": "try state hook for alliance pallet (#10000)\n\nThis PR introduces the try_state hook to pallet-alliance to verify key\nstorage invariants.\n\ncloses part of #239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2025-11-01T01:11:41Z",
-          "tree_id": "0351bce041bfc4ca7434df57fe836ee6dbf0ced7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f268e327685e04ad4134631a8b547a52f931fb83"
-        },
-        "date": 1761963640594,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026401175700000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008552664489999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.004930924279999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009282228679999987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4afa487d81d22a1dc823f6ac8705afb29a0ac5bf",
+          "message": "Cumulus v3 add more test cases + cosmetics (#12395)\n\nRelated to https://github.com/paritytech/polkadot-sdk/issues/11624\n\nCosmetics + implementing the test cases listed\n[here](https://github.com/paritytech/polkadot-sdk/issues/11624#issuecomment-4518148597)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-25T12:58:25Z",
+          "tree_id": "dcc9844ee22d6574fa24b8f0717484cfd96aaefb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4afa487d81d22a1dc823f6ac8705afb29a0ac5bf"
+        },
+        "date": 1782399435357,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009954881419999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00251645076,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009258247609999977,
             "unit": "seconds"
           }
         ]
