@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782405140275,
+  "lastUpdate": 1782422287052,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "38e365842debbd5044b9b03d3da5378123cf53d7",
-          "message": "Cumulus: pre-connect to backers before own slot (#9929)\n\nOn top of https://github.com/paritytech/polkadot-sdk/pull/9178.\nImplements a mechanism to pre-connect to backers, see\nhttps://github.com/paritytech/polkadot-sdk/issues/9767#issuecomment-3306292493\n\nHow it works:\n- connect to backers 6s before own slot starts\n- disconnect from all backers and stop connecting as the RC advances if\nown slot has finished\n\nTODO:\n- [x] fix collator protocol tests\n- [x] Explicitly disconnect from all backers when own slot has passed\n- [x] add test coverage for new connect/disconnect notifications\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-11-03T08:16:15Z",
-          "tree_id": "559e93d2302c36f39cdae9019485d795ee1ebace",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38e365842debbd5044b9b03d3da5378123cf53d7"
-        },
-        "date": 1762162180638,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95799999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03513777833199999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04425227432199989,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03804772524399999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cd33d702d9da16e5d3d9e11c61d2b76b9e2a1a30",
+          "message": "[pallet-revive] storage precompile error-handling refactor and accounting refinements (#12434)\n\nThis PR bundles three self-contained changes in pallet-revive:\n\n1. Storage precompile: refactor argument-error handling behind a small\nStorageArgError enum, replacing the repeated inline map_errs.\n2. Weight charges: adjust two operations so their charge tracks the\nmeasured cost more closely.\n3. Existential deposit: charge the ED storage deposit only when the\naccount-creating transfer actually succeeds, instead of also counting it\nfor transfers that roll back.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-25T19:37:10Z",
+          "tree_id": "9348055268f2ebb01a1356ff9c0f47bb8ac18e4d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd33d702d9da16e5d3d9e11c61d2b76b9e2a1a30"
+        },
+        "date": 1782422257194,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08298632432399992,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038054097128,
             "unit": "seconds"
           }
         ]
