@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782254360400,
+  "lastUpdate": 1782383319610,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "69f210b33fce91b23570f3bda64f8e3deff04843",
-          "message": "RawIter: stop iterating on incomplete DB only with `stop_on_incomplete_database`  (#10155)\n\nOn RawIter there is an argument `stop_on_incomplete_database`. In\ncontrast to what it is saying, the Iterator was always stopping on\nincomplete DB.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-10-30T19:18:17Z",
-          "tree_id": "75255a00186882577559ec9e361e913084f476b5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/69f210b33fce91b23570f3bda64f8e3deff04843"
-        },
-        "date": 1761857153941,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94799999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035375350423999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04460318048999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038559300684,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4447daba7a576accedc9f55ef22408cc6bc1c597",
+          "message": "Fix `AllowedRelayParentInfo` off by one error (#12391)\n\nRelated to https://github.com/paritytech/polkadot-sdk/issues/11624\n\n## The issue\n\nThis issue was found while working on\nhttps://github.com/paritytech/polkadot-sdk/pull/12296 . Added some debug\nlogs in the function that was calling `ancestor_relay_parent_info` and\nsometimes there were situations like the following:\n\n```\nmax_relay_parent_session_age = 1\n\ntokio-runtime-worker consensus::common::parent_search: [Parachain] ancestor_relay_parent_info call succeeded scheduling_parent=0x56fa4fbab20eb77b995d18c4a9b638a35422afaeb4138d2a89f6f73ee826055d scheduling_parent_session=3 relay_parent=0x8bcf87dc4c00e5394e046bca6e53fa7d9c3737dd22c72911e162a2847f22751d relay_parent_session=1\n```\n\nSo a relay parent from session 1 is still valid at a scheduling parent\nfrom session 3. This shouldn't happen when max_relay_parent_session_age\nis 1.\n\n## The cause\n\nThe pruning for `AllowedRelayParentInfo` was performed in `new_block`.\nBut `new_block` is called at the beginning of each block, [receiving the\nparent block number and parent block session as\narguments](https://github.com/paritytech/polkadot-sdk/blob/bcafdb3d87eb3756f64bd1e830b0785d17a86812/polkadot/runtime/parachains/src/paras_inherent/mod.rs#L319-L327).\nSo when a new session starts, for example at block 31, `new_block` will\nbe called for block 30, session 2, and only at block 32, it will be\ncalled for block 31, session 3, performing the required pruning. So at\nblock 31, even if `max_relay_parent_session_age`, the blocks from\nsession 1 were still considered valid relay parents. Which is wrong.\n\n## The fix\n\nSo moved the pruning logic from `new_block` to\n`initializer_on_new_session()`, which is actually called correctly at\nthe first block of the session for the current session (for example at\nblock 31 for session 3).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-24T18:09:56Z",
+          "tree_id": "26a6222c736037300cdb1ce14c9afd4f3c5314c6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4447daba7a576accedc9f55ef22408cc6bc1c597"
+        },
+        "date": 1782383289795,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.08599999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.07900408829799992,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038051694204,
             "unit": "seconds"
           }
         ]
