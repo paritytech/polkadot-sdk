@@ -34,7 +34,8 @@ use crate::{
 	request_responses::RequestFailure,
 	OutboundFailure, MAX_RESPONSE_SIZE,
 };
-use futures::{channel::oneshot, StreamExt};
+use futures::{channel::oneshot, future::join_all, StreamExt};
+use rand::seq::IteratorRandom;
 use litep2p::protocol::libp2p::bitswap::{
 	BitswapEvent, BitswapHandle, BlockPresenceType, Config, ResponseType, WantType,
 };
@@ -60,6 +61,8 @@ const CMD_CHANNEL_CAPACITY: usize = 256;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 /// Interval for reaping expired pending batches.
 const EXPIRY_TICK_INTERVAL: Duration = Duration::from_secs(10);
+/// Maximum number of peers to fan out an outbound request to.
+const MAX_FANOUT_PEERS: usize = 3;
 
 // pub(crate) type ResponseSender = oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>;
 pub(crate) type ResponseSenderC = oneshot::Sender<BitswapResponse>;
@@ -522,9 +525,20 @@ impl<Block: BlockT> BitswapService<Block> {
 
 		let id = self.next_id();
 		self.pending.insert(id, PendingBatch::new(cid_keys, response_tx, Instant::now()));
-		for peer in &self.known_peers {
-			self.handle.send_request(*peer, wants.clone()).await;
-		}
+
+		let peers: Vec<litep2p::PeerId> = self.known_peers
+			.iter()
+			.copied()
+			.choose_multiple(&mut rand::thread_rng(), MAX_FANOUT_PEERS);
+
+		log::debug!(
+			target: LOG_TARGET,
+			"bitswap: fanning out WANT to {}/{} peers",
+			peers.len(),
+			self.known_peers.len(),
+		);
+
+		join_all(peers.iter().map(|peer| self.handle.send_request(*peer, wants.clone()))).await;
 	}
 }
 
