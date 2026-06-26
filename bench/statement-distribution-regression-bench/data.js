@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782459756528,
+  "lastUpdate": 1782494653844,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f890ed85a74e16bbd5e9f5e3ff3afda29aecc8ae",
-          "message": "Return the correct block difficulty from the eth-rpc (#10186)\n\n# Description\n\nThis PR fixes an issue in the eth-rpc/pallet-revive that was causing it\nto return an incorrect value for the block's difficulty or prevrandao.\n\nIn the VM/interpreter implementation we use a constant for the block\ndifficulty. However, the eth block construction side was unaware of this\nconstant being used and therefore the RPC was always returning a block\ndifficulty of zero.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-04T01:49:41Z",
-          "tree_id": "5068bd91a1cb0ddea0fab374dca45358d177ea42",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f890ed85a74e16bbd5e9f5e3ff3afda29aecc8ae"
-        },
-        "date": 1762225601680,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95199999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044373996505999935,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03532077045,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08080927291799993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mertwole@gmail.com",
+            "name": "mertwole",
+            "username": "mertwole"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f3d3e2f0809142b4a4bf6420aec2a943fe2c6a4d",
+          "message": "[pallet-staking-async] add `chill_inactive` extrinsic (#12381)\n\nThis PR adds the `chill_inactive` extrinsic which allows chilling the\nvalidators that were inactive too much.\n\nThe inactivity is defined as having zero era points for at least\n`ChillInactiveThreshold` eras among the last `HistoryDepth` eras.\n\nResolves #5674\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Andrei Trandafir <142614787+andreitrand@users.noreply.github.com>",
+          "timestamp": "2026-06-26T13:24:01Z",
+          "tree_id": "db2986711527f35904f0774478f503a0cf23967a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3d3e2f0809142b4a4bf6420aec2a943fe2c6a4d"
+        },
+        "date": 1782494623316,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.108,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08504552909399994,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038118936672,
             "unit": "seconds"
           }
         ]
