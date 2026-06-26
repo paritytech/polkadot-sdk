@@ -880,23 +880,28 @@ used_state_balance: Balance                                               =     
 `CountedMap<Timeslot, LogEntry, 8>`:
 
 ```
-LogEntry, Refine variant (dominates Accumulate variant at 992 B):
+LogEntry, Accumulate variant (dominates Refine variant at 1 286 B):
   enum discriminant                                                       =       1 B
-  RefineLogEntry.error: RefineLog::Opaque(BoundedVec<u8, 1024>)
-    enum discriminant + 2 (compact len) + 1024                            =   1 027 B
-  RefineLogEntry.auth_trace: BoundedVec<u8, 256> = 2 + 256               =     258 B
+  AccumulateLogEntry.entries: BoundedVec<AccumulateLog, 30>
+    compact length prefix                                                 =       1 B
+    AccumulateLog largest variant — StateBalanceUpdateRejected:
+      enum discriminant                                                   =       1 B
+      attempted, current_total, current_used: 3 × Balance (16 B)          =      48 B
                                                                             -------
-                                                                              1 286 B
+                                                                              49 B
+    30 × 49 B                                                             =   1 470 B
+                                                                            -------
+                                                                              1 472 B
 
-per slot: Timeslot + LogEntry = 4 + 1 286                               =   1 290 B
-8 slots                                                                   =  10 320 B
+per slot: Timeslot + LogEntry = 4 + 1 472                               =   1 476 B
+8 slots                                                                   =  11 808 B
 CountedMap compact length prefix                                          =       1 B
 ParaId key                                                                =       4 B
                                                                             -------
-                                                                             10 325 B
+                                                                             11 813 B
 ```
 
-**`baseline_footprint = 4 205 + 10 325 = 14 530 B`** per parachain. Coretime
+**`baseline_footprint = 4 205 + 11 813 = 16 018 B`** per parachain. Coretime
 should hardcode this value with some headroom to make room for future
 changes to the Service's layout.
 
