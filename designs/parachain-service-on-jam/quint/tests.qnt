@@ -36,9 +36,12 @@ module tests {
       items: List({ validationCodeHash: codeHash, pov: 0 })
     }
     val newHead = pi.headData + 1
-    val wr = refine(svc, pkg, false, false, headHash(pi.headData), newHead, msgs)[0]
+    val wr: WorkResult = {
+      result: WorkOk(refine(svc, pkg, false, false, headHash(pi.headData), newHead, msgs)[0]),
+      authTrace: 0
+    }
     val out = accumulateOnePackage(
-      svc, wr, 0, solicitedSet, None, FixedCodeLen, now
+      svc, wr, solicitedSet, None, FixedCodeLen, now
     )
     val sFinal = applyAlwaysAccumulate(out.state, now)
     all {
@@ -68,9 +71,12 @@ module tests {
       items: List({ validationCodeHash: c1, pov: 0 })
     }
     val nh1 = pi1.headData + 1
-    val wr1 = refine(svc, pkg1, false, false, headHash(pi1.headData), nh1, m1)[0]
+    val wr1: WorkResult = {
+      result: WorkOk(refine(svc, pkg1, false, false, headHash(pi1.headData), nh1, m1)[0]),
+      authTrace: 0
+    }
     val out1 = accumulateOnePackage(
-      svc, wr1, 0, solicitedSet, None, FixedCodeLen, now
+      svc, wr1, solicitedSet, None, FixedCodeLen, now
     )
     val pi2 = out1.state.paraInfo(p2)
     val pkg2: WorkPackage = {
@@ -78,9 +84,12 @@ module tests {
       items: List({ validationCodeHash: c2, pov: 0 })
     }
     val nh2 = pi2.headData + 1
-    val wr2 = refine(out1.state, pkg2, false, false, headHash(pi2.headData), nh2, m2)[0]
+    val wr2: WorkResult = {
+      result: WorkOk(refine(out1.state, pkg2, false, false, headHash(pi2.headData), nh2, m2)[0]),
+      authTrace: 0
+    }
     val out2 = accumulateOnePackage(
-      out1.state, wr2, 0, out1.solicited, out1.jamDesignate,
+      out1.state, wr2, out1.solicited, out1.jamDesignate,
       FixedCodeLen, now
     )
     val sFinal = applyAlwaysAccumulate(out2.state, now)

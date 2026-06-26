@@ -109,8 +109,17 @@ module main {
     nondet wp1ItemCount = oneOf(Set(0, 1, 2))
     nondet wp1AuthMalformed = oneOf(Set(false, true))
     nondet wp1AuthTrace = oneOf(Set(0, 1, 2))
+    // Gray paper `WorkExecResult::Error` — JAM substituted an error for this
+    // work-item before the service's refine ran. Accumulate sees the no-op
+    // case (§3.3).
+    nondet wp1IsJamSkip = oneOf(Set(false, true))
     val wp1 = buildPackage(svc, wp1Para, wp1Candidate, wp1M1, wp1M2, wp1NumMsgs, wp1ItemCount)
-    val wp1Result = refine(svc, wp1.pkg, wp1AuthMalformed, wp1PvfPanic, wp1.parentHead, wp1.newHead, wp1.msgs)[0]
+    val wp1Wr: WorkResult = {
+      result:
+        if (wp1IsJamSkip) WorkErr
+        else WorkOk(refine(svc, wp1.pkg, wp1AuthMalformed, wp1PvfPanic, wp1.parentHead, wp1.newHead, wp1.msgs)[0]),
+      authTrace: wp1AuthTrace
+    }
 
     // Second work package (possibly same para — captures multi-package mix)
     nondet wp2Para = oneOf(svc.parachains.keys())
@@ -123,6 +132,7 @@ module main {
     nondet wp2ItemCount = oneOf(Set(0, 1, 2))
     nondet wp2AuthMalformed = oneOf(Set(false, true))
     nondet wp2AuthTrace = oneOf(Set(0, 1, 2))
+    nondet wp2IsJamSkip = oneOf(Set(false, true))
 
     // 0 packages models a pure always-accumulate block (the service still
     // accumulates with no work packages); 1 or 2 exercise the normal path.
@@ -132,7 +142,7 @@ module main {
       { state: svc, solicited: solicitedSet, jamDesignate: None }
     val out1 =
       if (numPkgs == 0) passThrough
-      else accumulateOnePackage(svc, wp1Result, wp1AuthTrace, solicitedSet, None, FixedCodeLen, now)
+      else accumulateOnePackage(svc, wp1Wr, solicitedSet, None, FixedCodeLen, now)
     // wp2 refines against the post-wp1 state so a second package for the
     // SAME para chains off wp1's new head; different para → identical to
     // refining against `svc`. wp1 may have cleaned up `wp2Para` (it was
@@ -140,10 +150,15 @@ module main {
     // `refine` both guard the resulting unregistered para (it fails Refine
     // with `InvalidCodeHash` and is dropped at Accumulate).
     val wp2 = buildPackage(out1.state, wp2Para, wp2Candidate, wp2M1, wp2M2, wp2NumMsgs, wp2ItemCount)
-    val wp2Result = refine(out1.state, wp2.pkg, wp2AuthMalformed, wp2PvfPanic, wp2.parentHead, wp2.newHead, wp2.msgs)[0]
+    val wp2Wr: WorkResult = {
+      result:
+        if (wp2IsJamSkip) WorkErr
+        else WorkOk(refine(out1.state, wp2.pkg, wp2AuthMalformed, wp2PvfPanic, wp2.parentHead, wp2.newHead, wp2.msgs)[0]),
+      authTrace: wp2AuthTrace
+    }
     val out2 =
       if (numPkgs == 2)
-        accumulateOnePackage(out1.state, wp2Result, wp2AuthTrace, out1.solicited, out1.jamDesignate, FixedCodeLen, now)
+        accumulateOnePackage(out1.state, wp2Wr, out1.solicited, out1.jamDesignate, FixedCodeLen, now)
       else out1
 
     val sFinal = applyAlwaysAccumulate(out2.state, now)
@@ -154,8 +169,8 @@ module main {
 
     val results =
       if (numPkgs == 0) List()
-      else if (numPkgs == 1) List(wp1Result)
-      else List(wp1Result, wp2Result)
+      else if (numPkgs == 1) List(wp1Wr)
+      else List(wp1Wr, wp2Wr)
 
     all {
       svc' = sFinal,

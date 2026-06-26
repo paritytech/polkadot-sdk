@@ -1,7 +1,7 @@
 // Refine: in-core, stateless PVF execution (design §4).
 //
 // We do NOT model PVF semantics — instead we model Refine as a non-
-// deterministic producer of `ParachainWorkResult`s subject to the
+// deterministic producer of `ParachainWorkDigest`s subject to the
 // structural rules from §4.1–§4.3:
 //
 // - The `paraId` of each work-item is sourced from the authorizer config's
@@ -96,7 +96,7 @@ module refine {
   // For the model, we nondeterministically pick the upward messages in
   // the spec's top-level `step` action — see `main.qnt`.
 
-  pure def refineErr(paraId: ParaId, e: RefineLog): ParachainWorkResult =
+  pure def refineErr(paraId: ParaId, e: RefineLog): ParachainWorkDigest =
   Err({ paraId: paraId, error: e })
 
   pure def refineOk(
@@ -105,7 +105,7 @@ module refine {
     parentHead: Hash,
     newHead: HeadData,
     msgs: List[UpwardMessage]
-  ): ParachainWorkResult =
+  ): ParachainWorkDigest =
   Ok({
       paraId: paraId,
       validationCodeHash: vch,
@@ -155,7 +155,7 @@ module refine {
     parentHead: Hash,
     newHead: HeadData,
     msgs: List[UpwardMessage]
-  ): ParachainWorkResult = {
+  ): ParachainWorkDigest = {
     if (not(codeAvailable(s, candidate.validationCodeHash)))
     refineErr(para_id, InvalidCodeHash)
     else if (pvfPanic)
@@ -194,7 +194,7 @@ module refine {
     parentHead: Hash,
     newHead: HeadData,
     msgs: List[UpwardMessage]
-  ): List[ParachainWorkResult] = {
+  ): List[ParachainWorkDigest] = {
     val errParaId =
       if (pkg.authorizedParas.length() > 0) pkg.authorizedParas[0]
       else MkParaId(0)

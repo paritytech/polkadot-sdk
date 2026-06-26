@@ -31,7 +31,7 @@ module accumulate {
     logs: List[AccumulateLog]
   }
 
-  /// Result of accumulating ONE work package's `ParachainWorkResult` against
+  /// Result of accumulating ONE work package's `ParachainWorkDigest` against
   /// the current state. Multi-package steps thread this forward across
   /// packages by calling `accumulateOnePackage` in sequence with the
   /// previous call's `state`, `solicited`, and `jamDesignate`.
@@ -235,11 +235,11 @@ module accumulate {
 
   // ---- Per-work-package accumulation (§5.1) -----------------------------
 
-  /// Implements §5.1 steps 1–5 for a single `ParachainWorkResult::Ok`.
+  /// Implements §5.1 steps 1–5 for a single `ParachainWorkDigest::Ok`.
   /// Step 5 (replay upward messages) is iterated by the caller.
   pure def accumulateOkPrefix(
     s: ParachainServiceState,
-    r: ParachainWorkResultOk,
+    r: ParachainWorkDigestOk,
     codeLen: int,
     now: Timeslot
   ): {
@@ -322,53 +322,63 @@ module accumulate {
   /// Used by multi-package steps to apply work packages sequentially.
   pure def accumulateOnePackage(
     state: ParachainServiceState,
-    result: ParachainWorkResult,
-    authTrace: AuthTrace,
+    wr: WorkResult,
     solicited: Set[(ParaId, Hash)],
     prevDesignate: Option[List[ValidatorKey]],
     codeLen: int,
     now: Timeslot
   ): PerPackageOutcome = {
-    match result {
-      | Err(e) =>
-        // §3.3: a failed Refine digest is logged with the work-report's
-        // authorizer trace. No-op inside `appendRefineLog` for an
-        // unregistered para (§5.1 step 1).
-        {
-          state: state.appendRefineLog(e.paraId, now, e.error, authTrace),
+    match wr.result {
+      // §3.3: gray paper `WorkExecResult::Error` — JAM substituted an
+      // error for this work-item before the service's refine ran.
+      // Skip entirely: no log entry, no state change.
+      | WorkErr => {
+          state: state,
           solicited: solicited,
           jamDesignate: prevDesignate
         }
-      | Ok(ok) =>
-        val pre = accumulateOkPrefix(state, ok, codeLen, now)
-        if (pre.rejected) {
-          // §5.1 steps 1–3: a rejected candidate may still record an
-          // accumulate event (e.g. `InvalidCodeHash`). Persist it.
-          {
-            state: pre.state.appendAccumulateLogs(ok.paraId, now, pre.logs),
-            solicited: solicited,
-            jamDesignate: prevDesignate
-          }
-        } else {
-          val baseAcc = {
-            state: pre.state,
-            jamDesignate: prevDesignate,
-            jamSolicit: pre.jamSolicit,
-            jamForget: pre.jamForget,
-            logs: pre.logs
-          }
-          val acc = ok.upwardMessages.foldl(baseAcc, (a, m) =>
-            applyUpwardMessage(a, ok.paraId, codeLen, now, m))
-          val newSolicited = ok.upwardMessages.foldl(solicited, (s, m) => match m {
-            | Solicit(p) => s.union(Set((ok.paraId, p.hash)))
-            | Forget(p) => s.exclude(Set((ok.paraId, p.hash)))
-            | _ => s
-          })
-          {
-            state: acc.state.appendAccumulateLogs(ok.paraId, now, acc.logs),
-            solicited: newSolicited,
-            jamDesignate: acc.jamDesignate
-          }
+      | WorkOk(digest) =>
+        match digest {
+          | Err(e) =>
+            // §3.3: a failed Refine digest is logged with the work-report's
+            // authorizer trace. No-op inside `appendRefineLog` for an
+            // unregistered para (§5.1 step 1).
+            {
+              state: state.appendRefineLog(e.paraId, now, e.error, wr.authTrace),
+              solicited: solicited,
+              jamDesignate: prevDesignate
+            }
+          | Ok(ok) =>
+            val pre = accumulateOkPrefix(state, ok, codeLen, now)
+            if (pre.rejected) {
+              // §5.1 steps 1–3: a rejected candidate may still record an
+              // accumulate event (e.g. `InvalidCodeHash`). Persist it.
+              {
+                state: pre.state.appendAccumulateLogs(ok.paraId, now, pre.logs),
+                solicited: solicited,
+                jamDesignate: prevDesignate
+              }
+            } else {
+              val baseAcc = {
+                state: pre.state,
+                jamDesignate: prevDesignate,
+                jamSolicit: pre.jamSolicit,
+                jamForget: pre.jamForget,
+                logs: pre.logs
+              }
+              val acc = ok.upwardMessages.foldl(baseAcc, (a, m) =>
+                applyUpwardMessage(a, ok.paraId, codeLen, now, m))
+              val newSolicited = ok.upwardMessages.foldl(solicited, (s, m) => match m {
+                | Solicit(p) => s.union(Set((ok.paraId, p.hash)))
+                | Forget(p) => s.exclude(Set((ok.paraId, p.hash)))
+                | _ => s
+              })
+              {
+                state: acc.state.appendAccumulateLogs(ok.paraId, now, acc.logs),
+                solicited: newSolicited,
+                jamDesignate: acc.jamDesignate
+              }
+            }
         }
     }
   }

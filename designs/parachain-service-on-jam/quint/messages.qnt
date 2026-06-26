@@ -102,7 +102,7 @@ module messages {
 
   // --- Refine output per work item ---------------------------------------
 
-  type ParachainWorkResultOk = {
+  type ParachainWorkDigestOk = {
     paraId: ParaId,
     validationCodeHash: ValidationCodeHash,
     parentHeadHash: Hash,
@@ -110,9 +110,29 @@ module messages {
     upwardMessages: List[UpwardMessage]
   }
 
-  type ParachainWorkResult =
-  | Ok(ParachainWorkResultOk)
+  type ParachainWorkDigest =
+  | Ok(ParachainWorkDigestOk)
   | Err({ paraId: ParaId, error: RefineLog })
+
+  /// Gray paper `WorkExecResult`. `WorkOk` carries the service-produced
+  /// `ParachainWorkDigest`; `WorkErr` is the JAM-substituted error case
+  /// (gray paper `WorkExecResult::Error(WorkErrorCode)`) which Accumulate
+  /// skips entirely — no `parachain_log` entry, no state change (§3.3).
+  /// Constructor names are prefixed to avoid Quint's module-wide name
+  /// collision with `ParachainWorkDigest::Ok` / `Err`.
+  type WorkExecResult =
+  | WorkOk(ParachainWorkDigest)
+  | WorkErr
+
+  /// Gray paper per-work-item record consumed by Accumulate. `result`
+  /// carries the outcome (service digest or JAM-substituted error);
+  /// `authTrace` is the work-report authorizer trace (one per report
+  /// in JAM, but per-item here since the model fixes one work-item per
+  /// work-report — design §3.2).
+  type WorkResult = {
+    result: WorkExecResult,
+    authTrace: AuthTrace
+  }
 
   /// The originating authorizer trace from the work-report. Carried by Err
   /// results into the parachain_log (design §3.3).

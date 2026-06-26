@@ -34,7 +34,7 @@ module state_vars {
   /// head changed must have a matching `Ok` result. The Rust harness has
   /// the same data from the trace, so invariants over this ghost transfer
   /// directly. Not part of the protocol.
-  var lastStepWorkResults: List[ParachainWorkResult]
+  var lastStepWorkResults: List[WorkResult]
 
   /// Ghost state: incoming transfers that hit the full `incoming_transfers`
   /// queue in the last step and were bounced back. Each entry corresponds

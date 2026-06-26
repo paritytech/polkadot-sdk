@@ -182,18 +182,22 @@ module invariants {
       // would crash on a `ParachainCleanUp`-removed para.
       if (not(svc.parachains.keys().contains(p))) true
       else if (svc.paraInfo(p).headData == prevSvc.paraInfo(p).headData) true
-      else lastStepWorkResults.foldl(false, (acc, r) => match r {
-        | Ok(ok) =>
-          val direct = ok.paraId == p
-            and ok.headData == svc.paraInfo(p).headData
-          val viaMsg = ok.upwardMessages.foldl(false, (a, m) => match m {
-            | ParachainSetHead(payload) =>
-              a or (payload.paraId == p
-                and payload.newHead == svc.paraInfo(p).headData)
-            | _ => a
-          })
-          acc or direct or viaMsg
-        | Err(_) => acc
+      else lastStepWorkResults.foldl(false, (acc, r) => match r.result {
+        | WorkErr => acc
+        | WorkOk(digest) =>
+          match digest {
+            | Ok(ok) =>
+              val direct = ok.paraId == p
+                and ok.headData == svc.paraInfo(p).headData
+              val viaMsg = ok.upwardMessages.foldl(false, (a, m) => match m {
+                | ParachainSetHead(payload) =>
+                  a or (payload.paraId == p
+                    and payload.newHead == svc.paraInfo(p).headData)
+                | _ => a
+              })
+              acc or direct or viaMsg
+            | Err(_) => acc
+          }
       })
     )
 
@@ -221,17 +225,23 @@ module invariants {
   ///     refine entry with an accumulate one — covered by `acc_error_logged`.
   val refine_error_logged: bool = {
     val erredLiveParas =
-      lastStepWorkResults.foldl(Set(), (acc, r) => match r {
-        | Ok(_) => acc
-        | Err(e) => if (svc.isLive(e.paraId)) acc.union(Set(e.paraId)) else acc
+      lastStepWorkResults.foldl(Set(), (acc, r) => match r.result {
+        | WorkErr => acc
+        | WorkOk(digest) => match digest {
+          | Ok(_) => acc
+          | Err(e) => if (svc.isLive(e.paraId)) acc.union(Set(e.paraId)) else acc
+        }
       })
     erredLiveParas.forall(p => {
       // Last result for this para; `None` once any later result exists that
       // is not an Err for `p` (an Ok write would have superseded the slot).
       val lastForPara =
-        lastStepWorkResults.foldl(None, (acc, r) => match r {
-          | Ok(ok) => if (ok.paraId == p) None else acc
-          | Err(e) => if (e.paraId == p) Some(e.error) else acc
+        lastStepWorkResults.foldl(None, (acc, r) => match r.result {
+          | WorkErr => acc
+          | WorkOk(digest) => match digest {
+            | Ok(ok) => if (ok.paraId == p) None else acc
+            | Err(e) => if (e.paraId == p) Some(e.error) else acc
+          }
         })
       match lastForPara {
         | None => true  // superseded by a later Ok for the same para
@@ -258,38 +268,44 @@ module invariants {
   /// rather than re-derived here.
   val acc_error_logged: bool = {
     val okLiveParas =
-      lastStepWorkResults.foldl(Set(), (acc, r) => match r {
-        | Err(_) => acc
-        | Ok(ok) => if (prevSvc.isLive(ok.paraId)) acc.union(Set(ok.paraId)) else acc
+      lastStepWorkResults.foldl(Set(), (acc, r) => match r.result {
+        | WorkErr => acc
+        | WorkOk(digest) => match digest {
+          | Err(_) => acc
+          | Ok(ok) => if (prevSvc.isLive(ok.paraId)) acc.union(Set(ok.paraId)) else acc
+        }
       })
     okLiveParas.forall(p => {
       // Last result for this para, and whether it is an Ok with a code
       // hash matching neither active nor pending in the PRE-step state.
       val lastBadCode =
-        lastStepWorkResults.foldl(None, (acc, r) => match r {
-          | Err(_) => acc
-          | Ok(ok) =>
-            if (ok.paraId != p) acc
-            else {
-              val pi = prevSvc.paraInfo(p)
-              val matchesActive = ok.validationCodeHash == pi.validationCode.hash
-              // The lazy reap (§5.1 step 2) runs BEFORE the code check and
-              // can drop a timed-out pending upgrade. If the pre-step pending
-              // deadline had passed we cannot decide the post-reap code state
-              // from `prevSvc` alone, so we exempt that case (`None`).
-              val reapable =
-                match pi.pendingUpgrade {
-                  | None => false
-                  | Some(pair) => pair._2 <= now
-                }
-              val matchesPending =
-                match pi.pendingUpgrade {
-                  | None => false
-                  | Some(pair) => ok.validationCodeHash == pair._1.hash
-                }
-              if (reapable) None
-              else Some(not(matchesActive) and not(matchesPending))
-            }
+        lastStepWorkResults.foldl(None, (acc, r) => match r.result {
+          | WorkErr => acc
+          | WorkOk(digest) => match digest {
+            | Err(_) => acc
+            | Ok(ok) =>
+              if (ok.paraId != p) acc
+              else {
+                val pi = prevSvc.paraInfo(p)
+                val matchesActive = ok.validationCodeHash == pi.validationCode.hash
+                // The lazy reap (§5.1 step 2) runs BEFORE the code check and
+                // can drop a timed-out pending upgrade. If the pre-step pending
+                // deadline had passed we cannot decide the post-reap code state
+                // from `prevSvc` alone, so we exempt that case (`None`).
+                val reapable =
+                  match pi.pendingUpgrade {
+                    | None => false
+                    | Some(pair) => pair._2 <= now
+                  }
+                val matchesPending =
+                  match pi.pendingUpgrade {
+                    | None => false
+                    | Some(pair) => ok.validationCodeHash == pair._1.hash
+                  }
+                if (reapable) None
+                else Some(not(matchesActive) and not(matchesPending))
+              }
+          }
         })
       match lastBadCode {
         | None => true

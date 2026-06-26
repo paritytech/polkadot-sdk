@@ -8,12 +8,12 @@ design, written in [Quint](https://quint-lang.org).
 | File | Models | Source §  |
 |---|---|---|
 | [`types.qnt`](./types.qnt) | Foundational types (`ParaId`, `Hash`, `ValidatorKey`, …) and protocol constants (`ValCount`, `MaxReportVarSize`, …) | — |
-| [`messages.qnt`](./messages.qnt) | `UpwardMessage`, `ParachainWorkResult`, `RefineLog`, `AccumulateLog` | §3.3, §4 |
+| [`messages.qnt`](./messages.qnt) | `UpwardMessage`, `ParachainWorkDigest`, `RefineLog`, `AccumulateLog` | §3.3, §4 |
 | [`state.qnt`](./state.qnt) | `ParaInfo`, `PreimageEntry`, `ParachainServiceState` | §3.1 |
 | [`state_balance.qnt`](./state_balance.qnt) | `baseline_footprint`, `used`/`total_state_balance` accounting, preimage-registry referencer multiplexing | §6.1 |
 | [`code_upgrades.qnt`](./code_upgrades.qnt) | Pending-upgrade lifecycle: request, transition, activation, timeout | §5.2 |
 | [`validator_keys.qnt`](./validator_keys.qnt) | Chunked `designate`: `set_validator_keys`, `staged_validator_keys`, finalize/abort | §5.3 |
-| [`refine.qnt`](./refine.qnt) | Refine per work-item, abstract PVF execution, `ParachainWorkResult` assembly | §4 |
+| [`refine.qnt`](./refine.qnt) | Refine per work-item, abstract PVF execution, `ParachainWorkDigest` assembly | §4 |
 | [`accumulate.qnt`](./accumulate.qnt) | Per-work-package and always-accumulate work, upward-message replay | §5.1 |
 | [`management.qnt`](./management.qnt) | Coretime-chain-only host calls: `parachain_set_state_balance`, `_set_head`, `_set_validation_code`, `_clean_up` | §6 |
 | [`state_vars.qnt`](./state_vars.qnt) | Shared `var` declarations: `svc`, `now`, `jamStagingSet`, `coretimeChain`, `assetHub`, ghost `solicitedSet` — imported by `main.qnt` and `invariants.qnt` so both modules refer to the same state | — |

@@ -441,6 +441,12 @@ to **48 KiB** by the Gray Paper.
   with the work-report's authorizer trace — useful for example to slash a
   collator who claimed an authorizer slot that was not theirs.
 
+> **JAM `WorkErrorCode` is skipped.** When JAM substitutes a work-item with
+> a gray paper `WorkExecResult::Error(WorkErrorCode)`, the Parachain
+> Service's refine wrapper never produces a `ParachainWorkDigest`. The
+> service does not progress that work-item: Accumulate skips it as if it
+> did not exist — no `parachain_log` entry, no state change.
+
 ---
 
 ## 4. Refine: In-Core Execution
