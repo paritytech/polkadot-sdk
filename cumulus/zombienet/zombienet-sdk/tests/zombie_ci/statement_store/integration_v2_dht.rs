@@ -113,7 +113,7 @@ async fn local_submission_retention_works() -> Result<(), anyhow::Error> {
 
 	// Wait until node_1 has an open statement substream to node_2
 	node_1
-		.wait_metric_with_timeout(CONNECTED_PEERS_METRIC, |peers| peers >= 1.0, 120)
+		.wait_metric_with_timeout(CONNECTED_PEERS_METRIC, |peers| peers >= 1.0, 120u64)
 		.await?;
 
 	// Pick two topics node_1 is not a DHT replica for; with K=1 over two nodes, node_2 is the
