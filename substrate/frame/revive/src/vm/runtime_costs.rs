@@ -263,7 +263,11 @@ impl<T: Config> Token<T> for RuntimeCosts {
 		use self::RuntimeCosts::*;
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
-			ExtCodeCopy(len) => T::WeightInfo::extcodecopy(len),
+			// `extcodecopy` charges `CodeSize` separately; subtract it so its read isn't counted
+			// twice.
+			ExtCodeCopy(len) => {
+				T::WeightInfo::extcodecopy(len).saturating_sub(T::WeightInfo::seal_code_size())
+			},
 			CopyToContract(len) => T::WeightInfo::seal_copy_to_contract(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
 			CallDataSize => T::WeightInfo::seal_call_data_size(),
