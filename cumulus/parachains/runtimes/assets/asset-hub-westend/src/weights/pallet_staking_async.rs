@@ -1141,6 +1141,7 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 	/// The range of component `l` is `[2, 84]`.
 	fn chill_inactive(l: u32, ) -> Weight {
 		// Proof Size summary in bytes:
+<<<<<<< HEAD
 		//  Measured:  `1595 + l * (36096 ±0)`
 		//  Estimated: `5061 + l * (38571 ±0)`
 		// Minimum execution time: 317_146_000 picoseconds.
@@ -1152,5 +1153,18 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(l.into())))
 			.saturating_add(T::DbWeight::get().writes(5))
 			.saturating_add(Weight::from_parts(0, 38571).saturating_mul(l.into()))
+=======
+		//  Measured:  `1573 + l * (89 ±0)`
+		//  Estimated: `5039 + l * (2564 ±0)`
+		// Minimum execution time: 141_343_000 picoseconds.
+		Weight::from_parts(124_052_635, 0)
+			.saturating_add(Weight::from_parts(0, 5039))
+			// Standard Error: 19_434
+			.saturating_add(Weight::from_parts(10_486_986, 0).saturating_mul(l.into()))
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(l.into())))
+			.saturating_add(T::DbWeight::get().writes(5))
+			.saturating_add(Weight::from_parts(0, 2564).saturating_mul(l.into()))
+>>>>>>> f3d3e2f0 ([pallet-staking-async] add `chill_inactive` extrinsic (#12381))
 	}
 }

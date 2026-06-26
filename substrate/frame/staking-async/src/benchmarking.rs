@@ -1608,6 +1608,7 @@ mod benchmarks {
 		// proof era (`l - 1`) stays below the active era.
 		set_active_era::<T>(l);
 
+<<<<<<< HEAD
 		// Fill the `EraRewardPoints::individual` to hit the worst-case scenario.
 		let mut individual_points = BoundedBTreeMap::new();
 		for index in 0..T::MaxValidatorSet::get() {
@@ -1616,12 +1617,18 @@ mod benchmarks {
 				.unwrap();
 		}
 
+=======
+>>>>>>> f3d3e2f0 ([pallet-staking-async] add `chill_inactive` extrinsic (#12381))
 		// Set the validator has been inactive for `l` eras.
 		let proof = (0..l)
 			.inspect(|&era| {
 				ErasRewardPoints::<T>::insert(
 					era,
+<<<<<<< HEAD
 					EraRewardPoints { total: 0, individual: individual_points.clone() },
+=======
+					EraRewardPoints { total: 0, individual: BoundedBTreeMap::new() },
+>>>>>>> f3d3e2f0 ([pallet-staking-async] add `chill_inactive` extrinsic (#12381))
 				);
 				Eras::<T>::upsert_exposure(era, &stash, Exposure::default());
 			})
