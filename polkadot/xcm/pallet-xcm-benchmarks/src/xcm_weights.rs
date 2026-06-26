@@ -297,12 +297,8 @@ pub trait CountBasedXcmWeightConfig<Call> {
 	type FilterCountWeigher: AssetFilterCountWeigher;
 	type AssetsListWeigher: AssetsWeigher;
 
-	fn exchange_asset(give: &AssetFilter, receive: &Assets, _maximal: &bool) -> Weight {
-		let base_weight = <Self::GenericWeights as XcmGenericWeightInfo>::exchange_asset();
-		let give_weight =
-			weigh_assets_filter_by_count::<Self::FilterCountWeigher>(give, base_weight);
-		let receive_weight = Self::AssetsListWeigher::weigh_assets(receive, base_weight);
-		give_weight.max(receive_weight)
+	fn exchange_asset(_give: &AssetFilter, _receive: &Assets, _maximal: &bool) -> Weight {
+		Weight::MAX
 	}
 
 	fn initiate_transfer(
@@ -335,7 +331,7 @@ pub trait CountBasedXcmWeightConfig<Call> {
 		Weight::MAX
 	}
 
-	fn export_message() -> Weight {
+	fn export_message(_: &NetworkId, _: &Junctions, _inner: &Xcm<()>) -> Weight {
 		Weight::MAX
 	}
 
@@ -592,8 +588,8 @@ where
 		<Config::GenericWeights as XcmGenericWeightInfo>::universal_origin()
 	}
 
-	fn export_message(_: &NetworkId, _: &Junctions, _: &Xcm<()>) -> Weight {
-		Config::export_message()
+	fn export_message(network: &NetworkId, location: &Junctions, inner: &Xcm<()>) -> Weight {
+		Config::export_message(network, location, inner)
 	}
 
 	fn lock_asset(_: &Asset, _: &Location) -> Weight {
