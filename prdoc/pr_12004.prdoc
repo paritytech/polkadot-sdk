@@ -2,89 +2,38 @@ title: Avoid duplicate fetches on the experimental collator protocol
 doc:
 - audience: Node Dev
   description: |-
-    Follow-up to #11967. Two changes to the validator side of the experimental collator
-    protocol:
+    Follow-up to #11967. Hardens the validator side of the experimental collator protocol
+    against fetching the same collation more than once and against mis-attributing a fetched
+    collation to the wrong peer.
 
-    **Avoid duplicate fetches for the same advertised collation.**
+    * **Dedup co-advertised collations.** When several peers advertise the same collation, only
+      one fetch is issued. This is a best-effort optimisation for honest peers; no correctness
+      property depends on it (a redundant fetch is the only cost when it does not collapse).
 
-    Previously, when two peers happened to advertise the same V2 candidate, the planner could
-    launch fetches in parallel from both. The fetch dedup compared whole `Advertisement`
-    values, which conflated the offer (relay parent, para id, prospective candidate) with
-    the carrier `peer_id` — so the same offer carried by two peers produced two distinct
-    keys. The duplicate fetch wasted a CQ slot and bandwidth, and the second-completing
-    fetch overwrote the first in `fetched_collations`, so slashing attribution to
-    a peer depended on which response happened to arrive last.
+    * **Account a fetched collation only once verified.** A collation occupies a claim-queue
+      slot — and is attributed to the delivering peer (for inclusion credit or invalid-collation
+      slashing) — only after it is verified against the advertised candidate and its persisted
+      validation data. Previously it was recorded optimistically and undone on failure, which let
+      one peer's failing delivery release a *different* peer's valid delivery of the same
+      candidate, depending on response ordering — mis-attributing a slot or letting a candidate
+      escape its slash.
 
-    The fix splits the type:
+    * **Parked ("blocked") collations no longer count towards capacity.** A collation whose parent
+      isn't seconded yet (so its PVD can't be reconstructed and the collator didn't inline the
+      parent head data) is parked for retry but holds no slot, and parking is bounded to one at a
+      time. Otherwise a peer could occupy capacity it never fills by withholding the parent head
+      data. This is a legacy path; collators that inline the parent head data (required for
+      elastic scaling) never block.
 
-    * `Advertisement` is the peer-agnostic identifier of an advertised collation (the on-wire
-      identity).
-    * `PeerAdvertisement` is `Advertisement` paired with the carrier `peer_id` and the
-      carrier-asserted `advertised_descriptor_version`. It's what flows through accept-time
-      and fetch-time code wherever the carrier matters (rate-limit, reputation arbitration,
-      slashing).
+    * **Drop the 300ms initial fetch delay (`MAX_FETCH_DELAY`).** It rarely applied in practice and
+      could penalise slower honest builds; the protection it approximated is delivered by parallel
+      fetching ([#11023](https://github.com/paritytech/polkadot-sdk/issues/11023)).
 
-    `advertised_descriptor_version` lives on `PeerAdvertisement` rather than `Advertisement`
-    on purpose: V1/V2 protocol messages have no descriptor-version field (decoded as `None`),
-    while V3 protocol messages carry it explicitly (`Some(_)`). If the field were part of
-    `Advertisement`'s identity, the same candidate hash advertised by a V2-protocol peer and
-    a V3-protocol peer would hash to two distinct in-flight keys, letting an attacker
-    controlling peers on both protocol versions bypass the dedup and double-fetch the same
-    candidate, wasting a CQ slot. Hoisting the field onto the carrier-attached type keeps
-    the dedup peer-agnostic while preserving the validation that the fetched descriptor
-    version matches what the carrier advertised.
+    All collator-protocol behaviour changes are contained to the experimental validator side.
 
-    `PendingRequests` is now keyed by `Advertisement`, with the peer we're fetching from
-    stored as the value. "Is a fetch already in flight for this advertisement?" is an O(1)
-    lookup. The fetch planner's reputation arbitration picks the rep-best carrier among
-    co-advertisers, so a contested advertisement always goes to the highest-reputation
-    peer, and that peer is the only one slashed/credited for the resulting candidate.
-
-    Dedup of duplicate advertisements happens at fetch time, not accept time:
-    `try_accept_advertisement` parks every advertisement (subject to the per-peer
-    rate-limit counter, which counts every attempt regardless), and the fetch planner
-    filters out anything already in flight or already fetched via `PendingRequests::contains`
-    and `fetched_collations.contains_key`. Co-advertisers' parked ads are useful fallbacks
-    if the in-flight fetch fails (peer goes offline, times out, etc.) — we retry from a
-    parked co-advertiser without waiting for re-advertisement.
-
-    **Drop `MAX_FETCH_DELAY` (300ms initial fetch delay).** The mechanism does
-    not deliver what it was meant to:
-
-    * For V3 (low-latency design) and V2 with `RelayParentOffset > 0` (already in
-      production on AssetHub-Westend with `RELAY_PARENT_OFFSET = 1`), the delay's
-      anchor (`activated_at` for the scheduling parent) is at least one slot before honest
-      collators are ready to advertise. The 300ms window has elapsed long before any
-      ad-arbitration could happen.
-    * For V2 with `RelayParentOffset = 0`, the window does sit roughly around slot start,
-      but only protects collations that finish in under 300ms; for any longer build the
-      delay strictly hurts (the rep-0 attacker's fetch starts at t=300ms and runs until
-      t=2.3s, blocking the honest ad that arrives at t=2s — without the delay it would
-      have started at t=0 and timed out at t=2s, freeing the slot exactly when the honest
-      ad arrives).
-    * An adaptive attacker can wait until the moment honest collators advertise, making
-      the delay break-even at best.
-
-    The protection the delay was approximating — letting honest, lower-reputation peers
-    compete with adversarial advertisements — is what parallel fetching
-    ([#11023](https://github.com/paritytech/polkadot-sdk/issues/11023)) is designed to
-    deliver.
-
-    Test coverage in `validator_side_experimental/tests.rs`:
-    * `v2_same_candidate_from_multiple_peers_fetched_once` — two peers carry the same
-      offer, exactly one fetch is launched.
-    * `v2_co_carrier_rep_arbitration_picks_high_rep_peer` — when two peers carry the same
-      offer with different reputations, the fetch goes to the rep-best peer.
-    * `cross_protocol_version_carriers_fetched_once` — V2-protocol carrier (`None`) and
-      V3-protocol carrier (`Some(_)`) advertising the same candidate dedup to one fetch.
-
-    Additionally, `polkadot-node-network-protocol` gains `Protocol::request_timeout()`,
-    exposing the per-protocol request timeout that was previously hardcoded inside
-    `Protocol::into_config`. The configured timeouts are unchanged; the accessor lets
-    components standing in for the network layer (the deterministic subsystem test-sim)
-    model the same timeout instead of duplicating the constants.
-
-    Collator-protocol behavior change is contained to the experimental validator side.
+    Separately, `polkadot-node-network-protocol` gains `Protocol::request_timeout()`, exposing the
+    per-protocol request timeout previously hardcoded inside `Protocol::into_config` (configured
+    values unchanged).
 crates:
 - name: polkadot-collator-protocol
   bump: patch
