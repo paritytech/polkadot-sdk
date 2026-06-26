@@ -265,6 +265,7 @@ fn pool_chill_e2e() {
 			pallet_staking_async::ConfigOp::Noop,
 			pallet_staking_async::ConfigOp::Noop,
 			pallet_staking_async::ConfigOp::Noop, // are_nominators_slashable
+			pallet_staking_async::ConfigOp::Noop
 		));
 
 		// members can unbond as long as total stake of the pool is above min nominator bond
