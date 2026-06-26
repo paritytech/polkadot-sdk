@@ -1266,7 +1266,7 @@ where
 
 fn parse_hex(s: &str) -> anyhow::Result<Vec<u8>> {
 	let stripped = s.strip_prefix("0x").unwrap_or(s);
-	if stripped.len() % 2 != 0 {
+	if !stripped.len().is_multiple_of(2) {
 		return Err(anyhow!("odd-length hex string: {s}"));
 	}
 	(0..stripped.len())
