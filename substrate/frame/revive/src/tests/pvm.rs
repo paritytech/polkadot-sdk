@@ -4956,7 +4956,6 @@ fn unchecked_runtime_storage_read_works() {
 	let input =
 		IUncheckedRuntime::IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall {
 			key: b"e2e_key".to_vec().into(),
-			max_len: 64,
 		})
 		.abi_encode();
 
@@ -5060,12 +5059,11 @@ fn unchecked_runtime_get_storage_out_of_gas_on_upfront_charge() {
 	use alloy_core::sol_types::SolInterface;
 
 	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
-	// A large declared bound makes the upfront read-weight charge exceed the
-	// (proof) gas budget, so it runs out of gas before any read.
+	// The upfront charge is the runtime limit's worth of read weight, which exceeds
+	// the (proof) gas budget — so it runs out of gas before any read.
 	let input =
 		IUncheckedRuntime::IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall {
 			key: b"k".to_vec().into(),
-			max_len: limits::CALLDATA_BYTES,
 		})
 		.abi_encode();
 
@@ -5090,24 +5088,35 @@ fn unchecked_runtime_get_storage_out_of_gas_on_revert_charge() {
 	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
 	use alloy_core::sol_types::SolInterface;
 
+	use crate::weights::WeightInfo;
+
 	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
-	// Small declared bound, so the upfront charge is cheap and passes; the actual
-	// value is far larger, so the post-read "charge for the real length" on the
-	// revert path runs out of gas.
+	// The value is larger than the runtime limit, so the whole value is pulled into
+	// the PoV and the post-read "charge for the real length" runs out of gas.
 	let input =
 		IUncheckedRuntime::IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall {
 			key: b"huge".to_vec().into(),
-			max_len: 16,
 		})
 		.abi_encode();
 
+	let value_len = 2 * limits::CALLDATA_BYTES;
+	let key_len = b"huge".len() as u32;
+	// A budget between the upfront (limit) charge and the full (actual) charge: the
+	// upfront passes, but the post-read top-up to the real length does not.
+	let upfront = <Test as Config>::WeightInfo::unchecked_runtime_get_storage(
+		key_len,
+		limits::CALLDATA_BYTES,
+	);
+	let full = <Test as Config>::WeightInfo::unchecked_runtime_get_storage(key_len, value_len);
+	let budget_proof = (upfront.proof_size() + full.proof_size()) / 2;
+
 	ExtBuilder::default().build().execute_with(|| {
-		sp_io::storage::set(b"huge", &vec![0u8; 200_000]);
+		sp_io::storage::set(b"huge", &vec![0u8; value_len as usize]);
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
 		let result = builder::bare_call(precompile_addr)
 			.transaction_limits(TransactionLimits::WeightAndDeposit {
-				weight_limit: Weight::from_parts(u64::MAX, 60_000),
+				weight_limit: Weight::from_parts(u64::MAX, budget_proof),
 				deposit_limit: deposit_limit::<Test>(),
 			})
 			.data(input)

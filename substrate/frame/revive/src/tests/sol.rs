@@ -421,7 +421,6 @@ fn unchecked_runtime_storage_from_solidity() {
 				UncheckedRuntimeCaller::runStorageCall {
 					precompile: precompile.0.into(),
 					key: b"sol_key".to_vec().into(),
-					maxLen: 64,
 				}
 				.abi_encode(),
 			)

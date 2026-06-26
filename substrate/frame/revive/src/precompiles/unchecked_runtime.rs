@@ -70,7 +70,7 @@ use core::{marker::PhantomData, num::NonZero};
 use frame_support::{
 	MAX_EXTRINSIC_DEPTH,
 	dispatch::{GetDispatchInfo, extract_actual_weight},
-	traits::{Contains, Everything, IsType, OriginTrait},
+	traits::{ConstU32, Contains, Everything, Get, IsType, OriginTrait},
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::Dispatchable;
@@ -86,9 +86,9 @@ sol! {
 
 		/// Read the raw bytes of the runtime storage value at `key`.
 		///
-		/// Returns empty bytes if the key is absent. `max_len` is the caller's
-		/// declared upper bound on the value length, used for metering.
-		function getStorage(bytes key, uint32 max_len) external returns (bytes);
+		/// Returns empty bytes if the key is absent. The returned value is bounded by
+		/// the runtime's configured length limit.
+		function getStorage(bytes key) external returns (bytes);
 	}
 }
 
@@ -111,15 +111,25 @@ sol! {
 /// the size is known, so an unrestricted reader can pull a large value (e.g.
 /// `:code:`) into the proof. Deny such keys here to bound that exposure; the runtime
 /// that opts in is responsible for scoping the readable key space.
-pub struct UncheckedRuntime<T, Filter = Everything, StorageFilter = Everything>(
-	PhantomData<(T, Filter, StorageFilter)>,
-);
+///
+/// `MaxValueLen` is the value length `getStorage` charges for **before** the read,
+/// regardless of the actual value (it is refunded down to the real length after).
+/// This is what makes the read sound: a caller that cannot afford the worst case
+/// runs out of gas before the value is pulled into the PoV. Set it together with
+/// `StorageFilter` so that no readable key can hold a value larger than the limit.
+pub struct UncheckedRuntime<
+	T,
+	Filter = Everything,
+	StorageFilter = Everything,
+	MaxValueLen = ConstU32<{ limits::CALLDATA_BYTES }>,
+>(PhantomData<(T, Filter, StorageFilter, MaxValueLen)>);
 
-impl<T: crate::Config, Filter, StorageFilter> Precompile
-	for UncheckedRuntime<T, Filter, StorageFilter>
+impl<T: crate::Config, Filter, StorageFilter, MaxValueLen> Precompile
+	for UncheckedRuntime<T, Filter, StorageFilter, MaxValueLen>
 where
 	Filter: Contains<<T as crate::Config>::RuntimeCall>,
 	StorageFilter: Contains<Vec<u8>>,
+	MaxValueLen: Get<u32>,
 {
 	type T = T;
 	type Interface = IUncheckedRuntime::IUncheckedRuntimeCalls;
@@ -195,21 +205,14 @@ where
 					Err(e) => Err(Error::from(e.error)),
 				}
 			},
-			IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall {
-				key,
-				max_len,
-			}) => {
+			IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall { key }) => {
 				// A read materialises the whole value into the PoV before its size is
 				// known, so gate the key before reading to bound that exposure.
 				if !StorageFilter::contains(&key.as_ref().to_vec()) {
 					return Err(Error::Revert("storage key not allowed by filter".into()));
 				}
 
-				let max_len = *max_len;
-				if max_len > limits::CALLDATA_BYTES {
-					return Err(Error::Revert("max_len too large".into()));
-				}
-
+				let limit = MaxValueLen::get();
 				// Read weight is 2-D: key length (trie traversal) and value length
 				// (bytes pulled into the PoV).
 				let key_len = key.as_ref().len() as u32;
@@ -217,11 +220,12 @@ where
 					<T as crate::Config>::WeightInfo::unchecked_runtime_get_storage(key_len, v)
 				};
 
-				// Charge for the declared bound up front, so an oversized `max_len`
-				// runs out of gas before we allocate.
-				let charged = env.charge(weight(max_len))?;
+				// Charge the worst case before the read, so a caller that cannot afford
+				// the limit runs out of gas before the value is pulled into the PoV.
+				// Refunded down to the actual length below.
+				let charged = env.charge(weight(limit))?;
 
-				let mut buf = alloc::vec![0u8; max_len as usize];
+				let mut buf = alloc::vec![0u8; limit as usize];
 				let len = match sp_io::storage::read(key.as_ref(), &mut buf, 0) {
 					None => {
 						env.adjust_gas(charged, weight(0));
@@ -230,13 +234,19 @@ where
 					Some(len) => len,
 				};
 
-				// The whole value entered the PoV regardless of `max_len`, so charge
-				// proof for its actual length on every path — including this revert —
-				// else a large value could enter the proof for the price of a tiny
-				// `max_len`.
-				if len > max_len {
-					env.charge(weight(len).saturating_sub(weight(max_len)))?;
-					return Err(Error::Revert("value exceeds max_len".into()));
+				// A value above the limit means the `StorageFilter` and `MaxValueLen`
+				// are misaligned (a config bug). The whole value is already in the PoV,
+				// so charge its actual length; revert rather than hand back a silently
+				// truncated value. Warn first, so the misconfiguration is visible even
+				// when the charge below runs out of gas.
+				if len > limit {
+					log::warn!(
+						target: crate::LOG_TARGET,
+						"getStorage read a {len}-byte value over the {limit}-byte MaxValueLen; \
+						 align the StorageFilter and MaxValueLen",
+					);
+					env.charge(weight(len).saturating_sub(weight(limit)))?;
+					return Err(Error::Revert("value exceeds storage limit".into()));
 				}
 
 				buf.truncate(len as usize);
@@ -261,7 +271,7 @@ mod tests {
 		weights::WeightInfo,
 	};
 	use codec::Encode;
-	use frame_support::traits::{Everything, fungible::Inspect};
+	use frame_support::traits::{ConstU32, Everything, fungible::Inspect};
 
 	/// Build the `dispatch(encoded_call)` precompile input for a `RuntimeCall`.
 	fn dispatch_input(call: RuntimeCall) -> IUncheckedRuntime::IUncheckedRuntimeCalls {
@@ -270,11 +280,10 @@ mod tests {
 		})
 	}
 
-	/// Build the `getStorage(key, max_len)` precompile input.
-	fn storage_input(key: &[u8], max_len: u32) -> IUncheckedRuntime::IUncheckedRuntimeCalls {
+	/// Build the `getStorage(key)` precompile input.
+	fn storage_input(key: &[u8]) -> IUncheckedRuntime::IUncheckedRuntimeCalls {
 		IUncheckedRuntime::IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall {
 			key: key.to_vec().into(),
-			max_len,
 		})
 	}
 
@@ -351,7 +360,7 @@ mod tests {
 
 			let result = <UncheckedRuntime<Test, Everything, DenyCodeKey> as Precompile>::call(
 				&address(),
-				&storage_input(b":code:", 64),
+				&storage_input(b":code:"),
 				&mut ext,
 			);
 
@@ -371,7 +380,7 @@ mod tests {
 
 			let raw = <UncheckedRuntime<Test, Everything, DenyCodeKey> as Precompile>::call(
 				&address(),
-				&storage_input(b"allowed", 64),
+				&storage_input(b"allowed"),
 				&mut ext,
 			)
 			.expect("a permitted key is readable");
@@ -658,7 +667,7 @@ mod tests {
 
 			sp_io::storage::set(b"my_key", b"hello world");
 
-			let input = storage_input(b"my_key", 64);
+			let input = storage_input(b"my_key");
 			let raw = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext)
 				.expect("storage read should succeed");
 
@@ -673,7 +682,7 @@ mod tests {
 			let mut call_setup = CallSetup::<Test>::default();
 			let (mut ext, _) = call_setup.ext();
 
-			let input = storage_input(b"does_not_exist", 64);
+			let input = storage_input(b"does_not_exist");
 			let raw = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext)
 				.expect("storage read should succeed");
 
@@ -683,18 +692,22 @@ mod tests {
 	}
 
 	#[test]
-	fn storage_reverts_when_value_exceeds_max_len() {
+	fn storage_reverts_when_value_exceeds_limit() {
 		ExtBuilder::default().build().execute_with(|| {
 			let mut call_setup = CallSetup::<Test>::default();
 			let (mut ext, _) = call_setup.ext();
 
+			// The runtime limit is 8 bytes; the stored value is larger.
 			sp_io::storage::set(b"big_key", &[0u8; 64]);
 
-			// Declared bound is smaller than the actual value length.
-			let input = storage_input(b"big_key", 16);
-			let result = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result =
+				<UncheckedRuntime<Test, Everything, Everything, ConstU32<8>> as Precompile>::call(
+					&address(),
+					&storage_input(b"big_key"),
+					&mut ext,
+				);
 
-			assert_eq!(result.unwrap_err(), Error::Revert("value exceeds max_len".into()));
+			assert_eq!(result.unwrap_err(), Error::Revert("value exceeds storage limit".into()));
 		});
 	}
 
@@ -702,15 +715,15 @@ mod tests {
 	fn storage_charges_more_proof_size_for_larger_value() {
 		// proof_size (PoV) is the dominant cost of a read and scales with the
 		// actual value length that enters the proof. The charge (after adjusting
-		// the upfront `max_len` reservation down to the real length) must grow
-		// with the value size. Each measurement runs in its own externalities.
+		// the upfront limit reservation down to the real length) must grow with
+		// the value size. Each measurement runs in its own externalities.
 		let measure = |value_len: usize| {
 			ExtBuilder::default().build().execute_with(|| {
 				sp_io::storage::set(b"some_key", &alloc::vec![0u8; value_len]);
 				let mut call_setup = CallSetup::<Test>::default();
 				let (mut ext, _) = call_setup.ext();
 				let before = ext.frame_meter().weight_consumed();
-				let input = storage_input(b"some_key", value_len as u32);
+				let input = storage_input(b"some_key");
 				let _ = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 				(ext.frame_meter().weight_consumed() - before).proof_size()
 			})
@@ -735,7 +748,7 @@ mod tests {
 				let mut call_setup = CallSetup::<Test>::default();
 				let (mut ext, _) = call_setup.ext();
 				let before = ext.frame_meter().weight_consumed();
-				let input = storage_input(key, 64);
+				let input = storage_input(key);
 				let _ = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 				(ext.frame_meter().weight_consumed() - before).ref_time()
 			})
@@ -747,24 +760,11 @@ mod tests {
 	}
 
 	#[test]
-	fn storage_reverts_when_max_len_too_large() {
-		ExtBuilder::default().build().execute_with(|| {
-			let mut call_setup = CallSetup::<Test>::default();
-			let (mut ext, _) = call_setup.ext();
-
-			let input = storage_input(b"k", crate::limits::CALLDATA_BYTES + 1);
-			let result = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
-
-			assert_eq!(result.unwrap_err(), Error::Revert("max_len too large".into()));
-		});
-	}
-
-	#[test]
 	fn storage_charges_for_actual_proof_on_revert() {
 		ExtBuilder::default().build().execute_with(|| {
-			// A value much larger than the declared `max_len`. The whole value
-			// enters the PoV when read, so even though we revert, proof_size must
-			// be charged for the actual length — not the small `max_len`.
+			// A value much larger than the limit. The whole value enters the PoV when
+			// read, so even though we revert, proof_size must be charged for the actual
+			// length — not the (smaller) limit.
 			let value_len = 400usize;
 			sp_io::storage::set(b"big_value", &alloc::vec![0u8; value_len]);
 
@@ -772,11 +772,15 @@ mod tests {
 			let (mut ext, _) = call_setup.ext();
 
 			let before = ext.frame_meter().weight_consumed();
-			let input = storage_input(b"big_value", 16);
-			let result = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result =
+				<UncheckedRuntime<Test, Everything, Everything, ConstU32<16>> as Precompile>::call(
+					&address(),
+					&storage_input(b"big_value"),
+					&mut ext,
+				);
 			let consumed = ext.frame_meter().weight_consumed() - before;
 
-			assert_eq!(result.unwrap_err(), Error::Revert("value exceeds max_len".into()));
+			assert_eq!(result.unwrap_err(), Error::Revert("value exceeds storage limit".into()));
 
 			let expected = <Test as crate::Config>::WeightInfo::unchecked_runtime_get_storage(
 				b"big_value".len() as u32,
@@ -836,7 +840,7 @@ mod tests {
 
 			let raw = <UncheckedRuntime<Test> as Precompile>::call(
 				&address(),
-				&storage_input(b"ro_key", 64),
+				&storage_input(b"ro_key"),
 				&mut ext,
 			)
 			.expect("getStorage must succeed in a read-only context");
@@ -847,62 +851,25 @@ mod tests {
 	}
 
 	#[test]
-	fn storage_returns_value_exactly_at_max_len() {
+	fn storage_returns_value_exactly_at_limit() {
 		ExtBuilder::default().build().execute_with(|| {
 			let mut call_setup = CallSetup::<Test>::default();
 			let (mut ext, _) = call_setup.ext();
 
-			// Boundary: the value length equals `max_len` exactly (`len > max_len`
-			// is false), so it is returned rather than reverted.
+			// Boundary: value length equals the limit exactly (`len > limit` is false),
+			// so it is returned rather than reverted.
 			let value = alloc::vec![7u8; 32];
 			sp_io::storage::set(b"exact", &value);
-			let raw = <UncheckedRuntime<Test> as Precompile>::call(
-				&address(),
-				&storage_input(b"exact", 32),
-				&mut ext,
-			)
-			.expect("a value exactly at max_len must be returned");
+			let raw =
+				<UncheckedRuntime<Test, Everything, Everything, ConstU32<32>> as Precompile>::call(
+					&address(),
+					&storage_input(b"exact"),
+					&mut ext,
+				)
+				.expect("a value exactly at the limit must be returned");
 
 			let decoded = Bytes::abi_decode(&raw).expect("decode");
 			assert_eq!(decoded.as_ref(), value.as_slice());
-		});
-	}
-
-	#[test]
-	fn storage_allows_max_len_equal_to_calldata_bytes() {
-		ExtBuilder::default().build().execute_with(|| {
-			let mut call_setup = CallSetup::<Test>::default();
-			let (mut ext, _) = call_setup.ext();
-
-			// Boundary: the cap is strictly `>`, so `max_len == CALLDATA_BYTES` is
-			// allowed (absent key → empty bytes, not a "too large" revert).
-			let raw = <UncheckedRuntime<Test> as Precompile>::call(
-				&address(),
-				&storage_input(b"absent", crate::limits::CALLDATA_BYTES),
-				&mut ext,
-			)
-			.expect("max_len == CALLDATA_BYTES must be allowed");
-
-			let decoded = Bytes::abi_decode(&raw).expect("decode");
-			assert!(decoded.as_ref().is_empty());
-		});
-	}
-
-	#[test]
-	fn storage_max_len_zero_reverts_for_non_empty_value() {
-		ExtBuilder::default().build().execute_with(|| {
-			let mut call_setup = CallSetup::<Test>::default();
-			let (mut ext, _) = call_setup.ext();
-
-			// `max_len == 0` against a present, non-empty value: the value length
-			// exceeds the bound, so it reverts.
-			sp_io::storage::set(b"nonempty", b"x");
-			let result = <UncheckedRuntime<Test> as Precompile>::call(
-				&address(),
-				&storage_input(b"nonempty", 0),
-				&mut ext,
-			);
-			assert_eq!(result.unwrap_err(), Error::Revert("value exceeds max_len".into()));
 		});
 	}
 
@@ -917,13 +884,13 @@ mod tests {
 			sp_io::storage::set(b"empty_val", b"");
 			let present = <UncheckedRuntime<Test> as Precompile>::call(
 				&address(),
-				&storage_input(b"empty_val", 64),
+				&storage_input(b"empty_val"),
 				&mut ext,
 			)
 			.expect("read");
 			let absent = <UncheckedRuntime<Test> as Precompile>::call(
 				&address(),
-				&storage_input(b"never_set", 64),
+				&storage_input(b"never_set"),
 				&mut ext,
 			)
 			.expect("read");

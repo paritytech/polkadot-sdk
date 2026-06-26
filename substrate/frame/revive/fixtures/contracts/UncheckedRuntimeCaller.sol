@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.0;
 
-// Minimal interface for the unstable runtime precompile.
+// Minimal interface for the unchecked runtime precompile.
 interface IUncheckedRuntime {
     function dispatch(bytes memory encodedCall) external;
-    function getStorage(bytes memory key, uint32 maxLen) external returns (bytes memory);
+    function getStorage(bytes memory key) external returns (bytes memory);
 }
 
 // Test helper contract that forwards calls to the `UncheckedRuntime` precompile at
@@ -17,10 +17,10 @@ contract UncheckedRuntimeCaller {
     }
 
     // Read raw runtime storage through the precompile and return the value bytes.
-    function runStorage(address precompile, bytes memory key, uint32 maxLen)
+    function runStorage(address precompile, bytes memory key)
         external
         returns (bytes memory value)
     {
-        value = IUncheckedRuntime(precompile).getStorage(key, maxLen);
+        value = IUncheckedRuntime(precompile).getStorage(key);
     }
 }
