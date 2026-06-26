@@ -225,6 +225,10 @@ enum RefineLog {
     InvalidItemCount,
     /// The opaque `AuthorizerConfig` blob failed to decode. See §4.1 step 1.
     MalformedAuthorizerConfig,
+    /// The encoded `ParachainWorkDigest` (head data + upward messages) would
+    /// exceed the Gray Paper's 48 KiB combined result-blob + auth-trace
+    /// budget. See §4.1.
+    WorkDigestTooLarge,
 }
 
 struct AccumulateLogEntry {
@@ -457,6 +461,10 @@ index `item_index` the Parachain Service performs:
 5. Executes the PVF against the PoV (the `jam_validate_block` call).
 6. Assembles a `ParachainWorkDigest` from the PVF's host-function side effects and the
    authoritative `para_id` (see §4.2).
+7. Checks that the encoded digest (head data + upward messages) plus the
+   work-report's authorizer trace fits in the Gray Paper's 48 KiB
+   combined-result-blob budget; if not, aborts with
+   `Err(RefineLog::WorkDigestTooLarge)`.
 
 Because Refine is stateless, it cannot write to service storage.
 

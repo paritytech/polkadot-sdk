@@ -56,6 +56,35 @@ module refine {
   setValidatorKeysCount(msgs) <= 1 and
   setValidatorKeysChunkOk(msgs)
 
+  /// Approximate SCALE-encoded size of one upward message, used by the
+  /// 48 KiB result-blob budget check (§4.1 step 7).
+  pure def upwardMessageSize(m: UpwardMessage): int =
+  match m {
+    | RequestCodeUpgrade(_) => 37
+    | Solicit(_) => 37
+    | Forget(_) => 37
+    | TransferOut(_) => 149
+    | SetAuthorizerQueue(p) => 13 + p.queue.length() * 32
+    | SetValidatorKeys(p) => 4 + p.keys.length() * 336
+    | ConsumeTransfersUpTo(_) => 5
+    | ParachainSetHead(_) => 4103
+    | ParachainSetValidationCode(_) => 41
+    | ParachainCleanUp(_) => 5
+    | ParachainSetStateBalance(_) => 21
+    | UpgradeService(_) => 49
+  }
+
+  /// `true` iff the work result (`paraId` + `vch` + `parentHeadHash` +
+  /// worst-case `head_data` + upward messages) plus a worst-case auth
+  /// trace would exceed `MaxReportVarSize`.
+  pure def resultExceedsBudget(msgs: List[UpwardMessage]): bool = {
+    val headDataMax = 4098    // BoundedVec<u8, 4096> worst case
+    val authTraceMax = 256
+    val resultBase = 4 + 32 + 32 + headDataMax
+    val msgsSize = msgs.foldl(2, (acc, m) => acc + upwardMessageSize(m))
+    resultBase + msgsSize + authTraceMax > MaxReportVarSize
+  }
+
   // --- Abstract Refine ----------------------------------------------------
   //
   // `refineItem` models §4.1 abstractly: given a candidate and the service's
@@ -127,6 +156,8 @@ module refine {
     refineErr(para_id, SetValidatorKeysTooManyKeys)
     else if (violatesParachainRestrictions(msgs, para_id, assetHub, coretimeChain))
     refineErr(para_id, RestrictedHostFunction)
+    else if (resultExceedsBudget(msgs))
+    refineErr(para_id, WorkDigestTooLarge)
     else
     refineOk(
       para_id,

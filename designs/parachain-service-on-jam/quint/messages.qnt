@@ -28,6 +28,9 @@ module messages {
   | InvalidItemCount
   // The opaque `AuthorizerConfig` blob failed to decode (§4.1 step 1).
   | MalformedAuthorizerConfig
+  // The encoded digest plus the work-report's authorizer trace exceeds
+  // the Gray Paper's 48 KiB combined-result-blob budget (§4.1 step 7).
+  | WorkDigestTooLarge
 
   // --- Accumulate-side log payloads ---------------------------------------
 
