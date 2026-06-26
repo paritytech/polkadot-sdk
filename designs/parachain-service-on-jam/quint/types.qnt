@@ -81,6 +81,12 @@ module types {
   /// §3.1: 80-slot authorizer queue length.
   pure val AuthorizerQueueLength: int = 80
 
+  /// §3.1: bounded cap on `staged_validator_keys` (= `CoreCount * 3 = 1023`).
+  pure val MaxStagedValidatorKeys: int = CoreCount * 3
+
+  /// §3.1: bounded cap on `incoming_transfers`.
+  pure val IncomingTransfersMaxLen: int = 1000
+
   // --- Polymorphic Option ------------------------------------------------
 
   type Option[a] = Some(a) | None

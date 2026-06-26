@@ -160,9 +160,37 @@ module main {
     lastStepWorkResults' = List()
   }
 
+  // --- Step (c): another service sends an OnTransfer into Asset Hub ----
+  //
+  /// Models JAM-level OnTransfer ingress (§5.1 step 2): append to
+  /// `incoming_transfers` if it has space, otherwise bounce the funds
+  /// back to the sender with the same memo. The bounce is unobservable
+  /// in this model (no funds tracked), so it appears as a no-op.
+  action stepIncomingTransfer = {
+    nondet senderId = oneOf(Set(MkServiceId(0), MkServiceId(3), MkServiceId(7)))
+    nondet amount = oneOf(Set(100, 1000, 10000))
+    nondet memo = oneOf(Set(0, 1, 2))
+    val full = svc.incomingTransfers.length() >= IncomingTransfersMaxLen
+    val newSvc =
+      if (full) svc
+      else { ...svc,
+        incomingTransfers: svc.incomingTransfers.append({ from: senderId, amount: amount, memo: memo })
+      }
+    all {
+      svc' = newSvc,
+      now' = now,
+      jamStagingSet' = jamStagingSet,
+      coretimeChain' = coretimeChain,
+      assetHub' = assetHub,
+      solicitedSet' = solicitedSet,
+      prevSvc' = svc,
+      lastStepWorkResults' = List()
+    }
+  }
+
   // --- Step composition --------------------------------------------------
 
-  action step = any { stepRefineAccumulate, stepTick }
+  action step = any { stepRefineAccumulate, stepTick, stepIncomingTransfer }
 
   // --- Auxiliary: nondeterministic refine-input generators --------------
 

@@ -195,6 +195,21 @@ module invariants {
       })
     )
 
+  /// `incoming_transfers` must never exceed its cap; overflow is bounced
+  /// at ingress in `stepIncomingTransfer`.
+  val incoming_transfers_bounded: bool =
+    svc.incomingTransfers.length() <= IncomingTransfersMaxLen
+
+  /// Each pending authorizer queue must fit within JAM's queue length.
+  val pending_authorizer_queue_bounded: bool =
+    svc.pendingAuthorizerQueues.keys().forall(c =>
+      svc.pendingAuthorizerQueues.get(c).length() <= AuthorizerQueueLength)
+
+  /// `staged_validator_keys` must never exceed the worst-case staging
+  /// length (`MaxStagedValidatorKeys = 1023`).
+  val staged_validator_keys_bounded: bool =
+    svc.stagedValidatorKeys.length() <= MaxStagedValidatorKeys
+
   /// Composite invariant — every invariant above must hold simultaneously.
   val invariants: bool = and {
     balance_invariant,
@@ -210,6 +225,9 @@ module invariants {
     referencers_are_live,
     parachain_log_only_for_live,
     code_activation_releases_old,
-    head_state_matches_outcomes
+    head_state_matches_outcomes,
+    incoming_transfers_bounded,
+    pending_authorizer_queue_bounded,
+    staged_validator_keys_bounded
   }
 }
