@@ -82,6 +82,55 @@ pub enum AdvertisementError {
 	SchedulingParentNotValid,
 }
 
+/// Maximum number of collations parked in `blocked_from_seconding` at once. See that field's
+/// docs for why this legacy path exists and why one is enough.
+const MAX_BLOCKED_COLLATIONS: usize = 1;
+
+/// Tracks which collations the validator is fetching and which it already holds, and decides
+/// what to fetch next.
+///
+/// # What to fetch
+///
+/// Several peers may advertise a collation for the same claim-queue slot. The differentiator
+/// for *whom* to fetch from is peer reputation (highest first), bounded by a per-peer
+/// advertisement limit. It is deliberately not the candidate's identity: a candidate hash is
+/// only trustworthy once the collation has been fetched and verified, so it can't drive the
+/// decision of what to fetch.
+///
+/// Collapsing several advertisements of the same collation into a single in-flight fetch is a
+/// best-effort optimisation for honest peers — **no correctness property is derived from it**.
+/// It can legitimately fail (e.g. peers advertising the same candidate over different protocol
+/// versions, or a peer misstating fields not bound by the candidate hash); the only
+/// consequence is a redundant fetch, which is acceptable. Correctness — slot accounting and
+/// slash/credit attribution — comes entirely from the *post-fetch* path keyed by the verified
+/// candidate hash (see below), never from this dedup.
+///
+/// (The right dedup key would be the candidate's claim-queue position, which the current
+/// protocol does not advertise — so a candidate is eligible at every reachable position and we
+/// approximate with its hash. A future protocol version carrying the position, and/or assuming
+/// at most one collation per scheduling-parent-and-core, would let this be exact.)
+///
+/// # What we already hold
+///
+/// A fetched collation is recorded as occupying a claim-queue slot (`fetched_collations`) only
+/// once it is **verified**: it is the advertised candidate and its persisted validation data
+/// checks out. From that point a re-fetch is pointless, so we record it and move on, also
+/// remembering which peer served it (to credit it on inclusion, or slash it if the collation
+/// turns out invalid).
+///
+/// Recording only on verification is what keeps slot accounting honest:
+/// - A fetch that fails verification records nothing, so it cannot overwrite or release the slot of
+///   a *different* peer's valid fetch of the same candidate (which would let a peer misattribute or
+///   drop a slot it doesn't own).
+/// - A fetch that *cannot* be verified — its parent isn't seconded yet so its validation data can't
+///   be reconstructed — is "blocked", parked for retry but recording no slot. It must not consume
+///   capacity: it is unverified and may never become seconding-able, so counting it would let a
+///   peer occupy capacity it never fills. Parking is bounded and a legacy path; see
+///   `blocked_from_seconding`.
+///
+/// Slot accounting is a local optimisation to avoid pointless fetches and seconding attempts;
+/// the authority on claim-queue capacity is the backing subsystem, which rejects seconds that
+/// don't fit.
 pub struct CollationManager {
 	// The backing implicit view, which is used to track the active leaves and their implicit
 	// ancestors.
@@ -94,10 +143,21 @@ pub struct CollationManager {
 	// (`unfulfilled_claim_queue_entries`, `slots_available`).
 	leaf_claim_queues: HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 
-	// Collations which we haven't been able to second due to their parent not being known by
-	// prospective-parachains. Mapped from the para_id and parent_head_hash to the fetched
-	// collation data. Only needed for async backing. For elastic scaling, the fetched collation
-	// must contain the full parent head data.
+	// Fetched collations we cannot second yet because their parent head data is unknown:
+	// prospective-parachains can't supply it (the parent isn't seconded) and the collator did
+	// not include it in the fetch response. Keyed by `(para_id, parent_head_data_hash)` so that
+	// seconding a candidate with that output head unblocks them.
+	//
+	// Legacy path: collators that send the parent head data inline (`CollationWithParentHeadData`,
+	// required for and shipped with elastic scaling) never end up here — we can second them
+	// straight away. This map only serves older collators that omit it; it can be removed once
+	// support for those is dropped.
+	//
+	// Bounded to `MAX_BLOCKED_COLLATIONS` total (see the parking site for why blocked collations
+	// must not count towards claim-queue capacity). One is enough: such a collator is
+	// pre-elastic-scaling, i.e. one candidate per relay parent (~6s apart), so a second blocked
+	// collation for the same chain only arrives long after the first has unblocked ...
+	// assuming normal operation.
 	blocked_from_seconding: HashMap<BlockedCollationId, Vec<FetchedCollation>>,
 
 	// Information kept per scheduling parent.
@@ -580,24 +640,16 @@ impl CollationManager {
 		match process_collation_fetch_result(res) {
 			Ok(fetched_collation) => {
 				let candidate_hash = fetched_collation.candidate_receipt.hash();
-				// It can't be a duplicate, because we check before initiating fetch. For the old
-				// protocol version, we anyway only fetch one per scheduling parent.
-				//
-				// `peer_id` — the only peer to be slashed/credited for this candidate, even if
-				// other peers also advertised it. See `Advertisement` vs `PeerAdvertisement` in
-				// `common.rs`.
-				per_sp.fetched_collations.insert(
-					candidate_hash,
-					FetchedCollationInfo { peer_id: peer_adv.peer_id, para_id: peer_adv.para_id() },
-				);
 
-				// Now that the candidate hash is known, populate it on the rejection info so
-				// V1 release paths can clean up the right entry too.
+				// Populate the rejection info now that the candidate hash is known (used for
+				// logging and for releasing the slot on the unblock path).
 				reject_info.maybe_candidate_hash = Some(candidate_hash);
 				reject_info.maybe_output_head_hash =
 					Some(fetched_collation.candidate_receipt.descriptor.para_head());
 
-				// Some initial sanity checks on the fetched collation, based on the advertisement.
+				// Sanity checks against the advertisement. These are part of "verifying" the
+				// collation (see the `CollationManager` docs): only a fully-verified collation
+				// is recorded as occupying a slot, which happens in `can_begin_seconding`.
 				if let Err(err) = fetched_collation.ensure_matches_advertisement(&peer_adv) {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -860,12 +912,18 @@ impl CollationManager {
 		Ok(self.per_session.get(&index).expect("Just inserted"))
 	}
 
+	/// Fetch the candidate's PVD, and if it checks out, record the candidate as occupying a
+	/// slot and return that it can be seconded. This is the point a collation becomes
+	/// "verified" and thus recorded — see the [`CollationManager`] docs.
+	///
+	/// `may_queue_if_blocked` is `true` on the initial fetch and `false` on an unblock retry
+	/// (so a still-blocked retry isn't re-queued — an unblock retry is one-shot).
 	async fn can_begin_seconding<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
 		scheduling_session: SessionIndex,
 		fetched_collation: FetchedCollation,
-		queue_blocked_collations: bool,
+		may_queue_if_blocked: bool,
 		reject_info: SecondingRejectionInfo,
 	) -> CanSecond {
 		let scheduling_parent = fetched_collation.scheduling_parent();
@@ -882,6 +940,10 @@ impl CollationManager {
 		.await
 		{
 			Ok(pvd) => {
+				// Verified — it is the advertised candidate and its PVD checks out — so it
+				// occupies a slot. Recording it also means a re-fetch of this candidate is
+				// pointless from here on.
+				self.record_fetched_collation(&fetched_collation);
 				CanSecond::Yes(fetched_collation.candidate_receipt, fetched_collation.pov, pvd)
 			},
 			Err(SecondingError::BlockedOnParent(parent)) => {
@@ -895,11 +957,16 @@ impl CollationManager {
 					parent,
 				);
 
-				if queue_blocked_collations {
-					self.blocked_from_seconding
-						.entry(BlockedCollationId { para_id, parent_head_data_hash: parent })
-						.or_default()
-						.push(fetched_collation);
+				// Park the collation to retry once its parent is seconded. A blocked collation
+				// is unverified (we could not reconstruct, let alone check, its PVD) and may
+				// never become seconding-able, so parking does NOT record a slot (unlike the
+				// `Ok` arm): it must not consume claim-queue capacity, or a peer could withhold
+				// parent head data to occupy capacity it never fills.
+				//
+				// `may_queue_if_blocked` is false on the unblock retry — a retry that is still
+				// blocked is dropped rather than re-parked.
+				if may_queue_if_blocked {
+					self.park_blocked_collation(parent, fetched_collation);
 				}
 
 				CanSecond::BlockedOnParent(parent, reject_info)
@@ -914,10 +981,51 @@ impl CollationManager {
 					err,
 				);
 
+				// Verification failed: record no slot. A failed delivery must not be able to
+				// touch the slot of a (concurrent) valid one — see the `CollationManager` docs.
 				let slash = err.is_malicious().then_some(FAILED_FETCH_SLASH);
 				CanSecond::No(slash, reject_info)
 			},
 		}
+	}
+
+	/// Park a fetched-but-not-yet-second-able collation (its parent isn't seconded, so its PVD
+	/// can't be reconstructed) to retry once the parent is seconded.
+	///
+	/// Bounded to `MAX_BLOCKED_COLLATIONS` total: over the cap the collation is dropped (no
+	/// slash — parking is only a re-fetch optimization). See the `blocked_from_seconding` field
+	/// docs for why this legacy path exists and why a tiny bound suffices.
+	fn park_blocked_collation(&mut self, parent_head_data_hash: Hash, collation: FetchedCollation) {
+		let parked: usize = self.blocked_from_seconding.values().map(Vec::len).sum();
+		if parked >= MAX_BLOCKED_COLLATIONS {
+			return;
+		}
+		self.blocked_from_seconding
+			.entry(BlockedCollationId {
+				para_id: collation.candidate_receipt.descriptor.para_id(),
+				parent_head_data_hash,
+			})
+			.or_default()
+			.push(collation);
+	}
+
+	/// Record that a verified collation occupies a slot at its scheduling parent, keyed by
+	/// candidate hash. The stored `peer_id` is the peer we fetched it from — the one to
+	/// credit if it is later included, or slash if it turns out invalid. No-op if the
+	/// scheduling parent has since left view.
+	fn record_fetched_collation(&mut self, fetched_collation: &FetchedCollation) {
+		let Some(per_sp) =
+			self.per_scheduling_parent.get_mut(&fetched_collation.scheduling_parent())
+		else {
+			return;
+		};
+		per_sp.fetched_collations.insert(
+			fetched_collation.candidate_receipt.hash(),
+			FetchedCollationInfo {
+				peer_id: fetched_collation.peer_id,
+				para_id: fetched_collation.candidate_receipt.descriptor.para_id(),
+			},
+		);
 	}
 
 	fn remove_blocked_collations(&mut self, id: BlockedCollationId) {
@@ -986,7 +1094,14 @@ impl FetchedCollation {
 		self.candidate_receipt.descriptor().scheduling_parent()
 	}
 
-	/// Performs a sanity check between advertised and fetched collations.
+	/// Checks the fetched collation against the *self-verifiable* fields of its advertisement —
+	/// those derivable from the receipt itself: candidate hash (V2+) or para id (V1),
+	/// scheduling parent, and, when advertised, the descriptor version. A mismatch means the
+	/// peer served something other than what it advertised.
+	///
+	/// It deliberately does NOT check the advertised parent-head-data hash: that is not
+	/// derivable from the receipt, so it cannot be verified here. It is validated separately,
+	/// against prospective-parachains, while reconstructing the PVD (see `fetch_pvd`).
 	fn ensure_matches_advertisement(
 		&self,
 		peer_adv: &PeerAdvertisement,
@@ -1674,5 +1789,42 @@ mod tests {
 				None
 			);
 		}
+	}
+
+	// Parking blocked collations is bounded: beyond `MAX_BLOCKED_COLLATIONS`, further blocked
+	// collations are dropped rather than accumulated. This bounds the memory a peer can tie up
+	// by advertising collations whose parents never get seconded.
+	#[test]
+	fn park_blocked_collation_is_bounded() {
+		use polkadot_primitives_test_helpers::dummy_committed_candidate_receipt_v2;
+
+		let mut manager = CollationManager {
+			implicit_view: ImplicitView::new(),
+			leaf_claim_queues: HashMap::new(),
+			per_scheduling_parent: HashMap::new(),
+			blocked_from_seconding: HashMap::new(),
+			per_session: LruMap::new(ByLength::new(2)),
+			fetching: PendingRequests::default(),
+			keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
+			leaf_scheduling_info: HashMap::default(),
+			clock: polkadot_node_clock::system_clock(),
+		};
+
+		// Park more distinct blocked collations than the bound allows.
+		let to_park = MAX_BLOCKED_COLLATIONS + 3;
+		for i in 0..to_park {
+			let ccr = dummy_committed_candidate_receipt_v2(Hash::repeat_byte(i as u8));
+			let fetched = FetchedCollation::new(
+				ccr.to_plain(),
+				PoV { block_data: polkadot_node_primitives::BlockData(vec![i as u8]) },
+				None,
+				None,
+				PeerId::random(),
+			);
+			manager.park_blocked_collation(Hash::repeat_byte(0xf0 | i as u8), fetched);
+		}
+
+		let parked: usize = manager.blocked_from_seconding.values().map(Vec::len).sum();
+		assert_eq!(parked, MAX_BLOCKED_COLLATIONS, "parked collations must be capped at the bound");
 	}
 }

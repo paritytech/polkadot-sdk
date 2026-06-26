@@ -95,6 +95,11 @@ pub fn peek_effects(msg: &AllMessages) -> Vec<Effect> {
 /// [`RequestId`] and the embedded `oneshot::Sender` is moved into `pending` so tests can
 /// later resolve it via `Sim::respond_fetch`.
 ///
+/// `now` is the simulated clock's monotonic [`Instant`] (`Clock::now`, never wall time), used
+/// to anchor each fetch's request-timeout deadline (`now + request_timeout`). See
+/// [`Dispatcher::dispatch`](crate::harness::Dispatcher::dispatch) for why this is the clock's
+/// monotonic channel and how it differs from the `sim_t` used to stamp effects.
+///
 /// [`RequestId`]: crate::contract::RequestId
 pub fn classify(msg: AllMessages, pending: &mut PendingFetches, now: Instant) -> Vec<Classified> {
 	match msg {
@@ -328,6 +333,7 @@ fn recipient_to_peer_id(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use polkadot_node_clock::{Clock, MockClock};
 	use polkadot_node_network_protocol::peer_set::PeerSet;
 	use polkadot_node_subsystem::messages::ChainApiMessage;
 	use polkadot_primitives::Hash;
@@ -344,7 +350,7 @@ mod tests {
 		let msg = AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(
 			ReportPeerMessage::Single(peer, change),
 		));
-		match one(classify(msg, &mut PendingFetches::new(), Instant::now())) {
+		match one(classify(msg, &mut PendingFetches::new(), MockClock::default().now())) {
 			Classified::Effect(Effect::Reputation { peer: p, bucket }) => {
 				assert_eq!(p, peer);
 				assert_eq!(bucket, RepBucket::Malicious);
@@ -365,7 +371,7 @@ mod tests {
 		let msg = AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(
 			ReportPeerMessage::Batch(map),
 		));
-		let out = classify(msg, &mut PendingFetches::new(), Instant::now());
+		let out = classify(msg, &mut PendingFetches::new(), MockClock::default().now());
 		assert_eq!(out.len(), 3);
 		// Bucket per peer is preserved.
 		let buckets: Vec<RepBucket> = out
@@ -388,7 +394,7 @@ mod tests {
 			vec![peer_a, peer_b],
 			PeerSet::Collation,
 		));
-		match one(classify(msg, &mut PendingFetches::new(), Instant::now())) {
+		match one(classify(msg, &mut PendingFetches::new(), MockClock::default().now())) {
 			Classified::Effect(Effect::DisconnectPeers { peers, peer_set }) => {
 				assert_eq!(peers.len(), 2);
 				assert_eq!(peer_set, PeerSet::Collation);
@@ -401,7 +407,7 @@ mod tests {
 	fn chain_api_classifies_as_query() {
 		let (tx, _rx) = futures::channel::oneshot::channel();
 		let msg = AllMessages::ChainApi(ChainApiMessage::FinalizedBlockNumber(tx));
-		match one(classify(msg, &mut PendingFetches::new(), Instant::now())) {
+		match one(classify(msg, &mut PendingFetches::new(), MockClock::default().now())) {
 			Classified::Query(Query::ChainApi(_)) => {},
 			other => panic!("unexpected classification: {:?}", other),
 		}

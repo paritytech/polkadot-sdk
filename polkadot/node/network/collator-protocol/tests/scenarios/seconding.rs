@@ -179,6 +179,59 @@ mod child_blocked_from_seconding_by_parent {
 		w.expect_second(&child);
 	}
 
+	/// Property: blocked collations must not starve good ones.
+	///
+	/// A collation whose parent isn't seconded yet is fetched but held ("blocked"). Such a
+	/// collation must not occupy a claim-queue slot — otherwise a peer could withhold/never
+	/// produce parents and fill every slot with collations that never second, starving honest
+	/// collations (a DoS).
+	///
+	/// We block *more* collations than the para has claim-queue slots (4 blockers vs 3 slots), so
+	/// if blocked collations counted toward the slot quota the window would be full and the good
+	/// collation could never be fetched. The good collation must still be fetched and seconded.
+	///
+	/// `bug_on = "legacy"`: legacy counts blocked collations toward the per-para quota (see
+	/// `seconded_and_pending_for_para`, `total = ... + blocked_from_seconding`), so it starves the
+	/// good collation here. This is the DoS the experimental rewrite fixes by not accounting parked
+	/// collations against the quota; legacy is deprecated and won't be fixed.
+	#[crate::sim_test(bug_on = "legacy", bug_url = "won't fix")]
+	fn blocked_collations_do_not_starve_good_ones<S: CollatorSut>() {
+		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+		let leaf = w.leaf();
+
+		// Block 4 collations (> the 3 claim-queue slots), each from its *own* peer and built on a
+		// distinct parent that is never seconded (so its PVD can't be reconstructed → blocked).
+		// Distinct peers: the per-peer advertisement limit would otherwise reject later
+		// advertisements from one peer, which is a separate guard — here we isolate the "blocked
+		// don't consume slots" property. Registering outputs lets backing accept them as potential
+		// fragment-chain members, so they are fetched (then held), not rejected.
+		for i in 1..=4u8 {
+			let peer = w.declared_peer(PARA, V2);
+			let blocked = w
+				.candidate_at(leaf)
+				.para(PARA)
+				.parent_head(HeadData(vec![0xb0, i]))
+				.head_data(HeadData(vec![0xb1, i]))
+				.build();
+			w.outputs
+				.insert(blocked.hash(), blocked.commitments.clone(), blocked.pvd.clone());
+			w.advertise_with_parent_head(&peer, leaf, blocked.hash(), blocked.parent_head_hash());
+			let req = w.fetch_request(&blocked);
+			w.respond_fetch_v2(req, blocked.receipt.clone(), Candidate::empty_pov());
+		}
+
+		// A good collation from a fresh peer: its parent is the chain head (empty), so it can be
+		// seconded immediately. It must be fetched and seconded despite the blocked collations.
+		let good_peer = w.declared_peer(PARA, V2);
+		let good = w
+			.candidate_at(leaf)
+			.para(PARA)
+			.parent_head(HeadData(Vec::new()))
+			.head_data(HeadData(vec![1]))
+			.build();
+		w.full_second(&good_peer, &good);
+	}
+
 	/// Upstream's `valid_parent=false` variant: parent A reported Invalid before being
 	/// seconded → B never seconded.
 	///

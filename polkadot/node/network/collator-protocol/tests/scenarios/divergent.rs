@@ -197,7 +197,6 @@ mod reputation_priority {
 
 		// Fail A's now-in-flight fetch → `FAILED_FETCH_SLASH` saturates A's 2 to 0.
 		w.respond_fetch_invalid(fetch_id);
-		w.base.sim.advance(Duration::from_millis(50));
 
 		// Round 2: A is now 0-rep, B keeps its 1 → B wins the re-fetch.
 		let _ = contended_round(&mut w, leaf, 2, &carrier2, &peer_a, &peer_b);
@@ -912,7 +911,6 @@ mod reputation_arbitration {
 	};
 	use polkadot_node_subsystem::OverseerSignal;
 	use polkadot_primitives::{CandidateEvent, CoreIndex, GroupIndex, HeadData, Id as ParaId};
-	use std::time::Duration;
 
 	const PARA_A: ParaId = ParaId::new(100);
 	const PARA_OTHER: ParaId = ParaId::new(200);
@@ -960,7 +958,6 @@ mod reputation_arbitration {
 			chain.set_finalized(leaf0);
 		}
 		w.base.sim.signal(OverseerSignal::BlockFinalized(leaf0, w.leaf_number()));
-		w.base.sim.advance(Duration::from_millis(50));
 
 		// New leaf for the arbitration round; rebuild leaf-q on the new leaf too.
 		let leaf1 = w
@@ -1001,7 +998,6 @@ mod reputation_arbitration {
 			cand_low.hash(),
 			cand_low.parent_head_hash(),
 		);
-		w.base.sim.advance(Duration::from_millis(50));
 
 		let _ = w.expect_fetch_from(peer_high.peer_id);
 		w.base.sim.assert_count(
@@ -1132,7 +1128,6 @@ mod duplicate_fetch {
 			chain.set_finalized(leaf0);
 		}
 		w.base.sim.signal(OverseerSignal::BlockFinalized(leaf0, w.leaf_number()));
-		w.base.sim.advance(Duration::from_millis(50));
 
 		// New leaf for the arbitration round.
 		let leaf1 = w.new_block().from_parent(leaf0).activate().hash;
@@ -1147,7 +1142,6 @@ mod duplicate_fetch {
 			.build();
 		w.advertise_with_parent_head(&peer_high, leaf1, cand.hash(), cand.parent_head_hash());
 		w.advertise_with_parent_head(&peer_low, leaf1, cand.hash(), cand.parent_head_hash());
-		w.base.sim.advance(Duration::from_millis(50));
 
 		// Exactly one fetch, targeted at peer_high.
 		let _ = w.expect_fetch_from(peer_high.peer_id);

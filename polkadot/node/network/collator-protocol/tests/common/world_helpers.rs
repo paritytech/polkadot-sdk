@@ -553,7 +553,6 @@ impl<S: CollatorSut> World<S> {
 				.number
 		};
 		self.base.sim.signal(OverseerSignal::BlockFinalized(leaf, number));
-		self.base.sim.advance(Duration::from_millis(50));
 	}
 
 	/// Seed collator reputations by repeated inclusion: for each `(peer, score)` entry the

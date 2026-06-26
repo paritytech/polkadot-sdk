@@ -362,13 +362,6 @@ impl<B: Backend> State<B> {
 						.slash_reputation(&reject_info.peer_id, &reject_info.para_id, slash)
 						.await;
 				}
-
-				self.collation_manager.release_slot(
-					&reject_info.scheduling_parent,
-					reject_info.para_id,
-					reject_info.maybe_candidate_hash.as_ref(),
-					reject_info.maybe_output_head_hash,
-				);
 			},
 			CanSecond::BlockedOnParent(parent_hash, reject_info) => {
 				gum::debug!(

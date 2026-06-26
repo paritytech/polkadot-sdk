@@ -43,24 +43,26 @@ mod fetches_next_collation {
 		// Exactly one V1 fetch is in flight (the other carriers for this (sp, para) are parked);
 		// the first peer never responds.
 		let (_first_peer, _, _) = w.expect_any_fetch();
-		let barrier = w.base.sim.now_sim_t();
+		let barrier = w.recorder_barrier();
 		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
 			1,
 			"a single V1 fetch in flight; the other carriers are parked",
 		);
 
-		// Advance past the request timeout: the stalled fetch is abandoned as a network-level
-		// timeout, and the subsystem must fall back to a parked carrier — a *new* fetch fired
-		// strictly after the first one. The +1ms excludes the first fetch itself, which was
-		// recorded at exactly `barrier` (`assert_at_least_after` is `>= since`).
+		// Advance past the request timeout (+ a small margin to clear the exact deadline
+		// instant): the stalled fetch is abandoned as a network-level timeout, and the
+		// subsystem must fall back to a parked carrier — a *new* fetch fired after the first
+		// one. The barrier was taken after the first fetch was recorded, so the first fetch
+		// itself cannot satisfy this.
 		w.base
 			.sim
 			.advance(Protocol::CollationFetchingV1.request_timeout() + Duration::from_millis(100));
-		w.base.sim.assert_at_least_after(
-			barrier + Duration::from_millis(1),
+		// The timeout was already processed by the `advance` above, so the fallback fetch is
+		// already recorded — assert it is present (no further waiting).
+		let _ = w.base.sim.assert_from(
+			barrier,
 			|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
-			1,
 			"a follow-up SendRequest fires after the first peer's deadline",
 		);
 	}
@@ -768,7 +770,6 @@ mod collation_fetching_prefer_entries_earlier_in_claim_queue {
 		world::{bootstrap_world, collator_world_config, World, WorldExt as _},
 	};
 	use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
-	use std::time::Duration;
 
 	const PARA_A: ParaId = ParaId::new(2000);
 	const PARA_B: ParaId = ParaId::new(2001);
@@ -838,7 +839,6 @@ mod collation_fetching_prefer_entries_earlier_in_claim_queue {
 			crate::common::builders::Candidate::empty_pov(),
 		);
 		w.expect_second(&a1);
-		w.base.sim.advance(Duration::from_millis(50));
 
 		let next = w.first_fetch_after(barrier).expect("a fetch fires after A1 seconding");
 		assert_eq!(
