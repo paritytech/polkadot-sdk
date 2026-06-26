@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782422194826,
+  "lastUpdate": 1782450623327,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "490aa7fa021335a1895ba9aedddccdeeaa2bb6f2",
-          "message": "omni-node: Enable storage monitor (#10202)\n\nThe storage monitor shuts down the node when the available DB space is\nfalling below a configured minimum (1GB by default). This prevents that\na database gets corrupted when a disk is filling up.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-04T12:06:54Z",
-          "tree_id": "22c9a8aab5ace8cd130cc8ab0da258b86d2b86e5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/490aa7fa021335a1895ba9aedddccdeeaa2bb6f2"
-        },
-        "date": 1762263899576,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00704064320666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013164313973333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022475149973333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15860518038666663,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14820923508666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4d6533fed0dd4445f20ca6648b5bc0027b4fdd35",
+          "message": "[pallet-revive]: short-circuit eth_estimate_gas for simple ETH transfers (#11890)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/11888\n\nSkip the binary-search of dry-runs and return the fixed 21,000 gas cost\nwhen eth_estimate_gas is called for an EOA-to-EOA value transfer with\nempty calldata and no access list, EIP-7702 authorization list, EIP-4844\nblob payload, or state overrides.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-26T03:26:42Z",
+          "tree_id": "815efc1d48fe58433c03328ea915e620a3b15ebe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4d6533fed0dd4445f20ca6648b5bc0027b4fdd35"
+        },
+        "date": 1782450592169,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00987087554666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007619033680000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02368684117999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14797637615333342,
             "unit": "seconds"
           }
         ]
