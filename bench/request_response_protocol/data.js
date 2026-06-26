@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782421160231,
+  "lastUpdate": 1782449578861,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -101843,6 +101843,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2674486240,
             "range": "± 59577596",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4d6533fed0dd4445f20ca6648b5bc0027b4fdd35",
+          "message": "[pallet-revive]: short-circuit eth_estimate_gas for simple ETH transfers (#11890)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/11888\n\nSkip the binary-search of dry-runs and return the fixed 21,000 gas cost\nwhen eth_estimate_gas is called for an EOA-to-EOA value transfer with\nempty calldata and no access list, EIP-7702 authorization list, EIP-4844\nblob payload, or state overrides.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-26T03:26:42Z",
+          "tree_id": "815efc1d48fe58433c03328ea915e620a3b15ebe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4d6533fed0dd4445f20ca6648b5bc0027b4fdd35"
+        },
+        "date": 1782449547413,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19895047,
+            "range": "± 89434",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20083260,
+            "range": "± 201232",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21753635,
+            "range": "± 327778",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26569965,
+            "range": "± 208528",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61024452,
+            "range": "± 738748",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 388755496,
+            "range": "± 6551710",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2670373764,
+            "range": "± 174005928",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17332592,
+            "range": "± 115895",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17586530,
+            "range": "± 137065",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17928644,
+            "range": "± 130282",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22579476,
+            "range": "± 225845",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61317513,
+            "range": "± 706341",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 366669702,
+            "range": "± 6057827",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2714281807,
+            "range": "± 40162119",
             "unit": "ns/iter"
           }
         ]
