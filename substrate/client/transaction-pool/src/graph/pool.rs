@@ -456,8 +456,11 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		// Make sure that we don't revalidate extrinsics that were part of the recently
 		// imported block. This is especially important for UTXO-like chains cause the
 		// inputs are pruned so such transaction would go to future again.
-		self.validated_pool
-			.ban(&Instant::now(), known_imported_hashes.clone().into_iter());
+		self.validated_pool.ban(
+			&Instant::now(),
+			known_imported_hashes.clone().into_iter(),
+			crate::graph::rotator::BanReason::Validation,
+		);
 
 		// Try to re-validate pruned transactions since some of them might be still valid.
 		// note that `known_imported_hashes` will be rejected here due to temporary ban.
@@ -698,7 +701,11 @@ mod tests {
 		});
 
 		// when
-		pool.validated_pool.ban(&Instant::now(), vec![pool.hash_of(&uxt)]);
+		pool.validated_pool.ban(
+			&Instant::now(),
+			vec![pool.hash_of(&uxt)],
+			crate::graph::rotator::BanReason::Validation,
+		);
 		let res = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.into()))
 			.map(|o| o.hash());
 		assert_eq!(pool.validated_pool().status().ready, 0);
