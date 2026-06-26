@@ -425,12 +425,6 @@ pub struct BitswapClient {
 }
 
 impl BitswapClient {
-	fn new(request_tx: mpsc::Sender<BitswapRequest>) -> Self {
-		Self {
-			request_tx,
-		}
-	}
-
 	/// Request blocks. Send WANT requests.
 	pub async fn request_blocks(&self, cids: &[Cid]) -> BitswapResponse{
 		validate_cids(cids)?;

@@ -636,7 +636,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			request_response_senders,
 			Arc::clone(&listen_addresses),
 			public_addresses,
-			bitswap_cmd_tx,
+			// bitswap_cmd_tx,
 		));
 
 		// register rest of the metrics now that `Litep2p` has been created

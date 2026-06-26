@@ -218,9 +218,9 @@ pub struct Litep2pNetworkService {
 	/// External addresses.
 	external_addresses: PublicAddresses,
 
-	/// Sender for outbound bitswap requests; `None` if IPFS/bitswap is not configured.
+	// Sender for outbound bitswap requests; `None` if IPFS/bitswap is not configured.
 	// bitswap_cmd_tx: Option<tokio::sync::mpsc::Sender<super::bitswap::BitswapOutboundCmd>>,
-	bitswap_cmd_tx: Option<tokio::sync::mpsc::Sender<crate::bitswap::BitswapRequest>>,
+	// bitswap_cmd_tx: Option<tokio::sync::mpsc::Sender<crate::bitswap::BitswapRequest>>,
 }
 
 impl Litep2pNetworkService {
@@ -236,7 +236,7 @@ impl Litep2pNetworkService {
 		listen_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
 		external_addresses: PublicAddresses,
 		// bitswap_cmd_tx: Option<tokio::sync::mpsc::Sender<super::bitswap::BitswapOutboundCmd>>,
-		bitswap_cmd_tx: Option<tokio::sync::mpsc::Sender<crate::bitswap::BitswapRequest>>,
+		// bitswap_cmd_tx: Option<tokio::sync::mpsc::Sender<crate::bitswap::BitswapRequest>>,
 	) -> Self {
 		Self {
 			local_peer_id,
@@ -248,7 +248,7 @@ impl Litep2pNetworkService {
 			request_response_protocols,
 			listen_addresses,
 			external_addresses,
-			bitswap_cmd_tx,
+			// bitswap_cmd_tx,
 		}
 	}
 
