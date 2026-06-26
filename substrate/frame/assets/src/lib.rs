@@ -745,6 +745,8 @@ pub mod pallet {
 		ContainsHolds,
 		/// Tried setting too many reserves.
 		TooManyReserves,
+		/// The asset deposit could not be fully moved due to a lock or freeze on the owner.
+		IncompleteDepositTransfer,
 	}
 
 	#[pallet::hooks]
@@ -1235,6 +1237,10 @@ pub mod pallet {
 		///
 		/// Origin must be Signed and the sender should be the Owner of the asset `id`.
 		///
+		/// The asset (and metadata) deposit is moved from the current to the new owner. Fails
+		/// with [`Error::IncompleteDepositTransfer`] if a lock or freeze on the current owner
+		/// blocks the full transfer; clear it and retry.
+		///
 		/// - `id`: The identifier of the asset.
 		/// - `owner`: The new Owner of this asset.
 		///
@@ -1262,8 +1268,11 @@ pub mod pallet {
 				let metadata_deposit = Metadata::<T, I>::get(&id).deposit;
 				let deposit = details.deposit + metadata_deposit;
 
-				// Move the deposit to the new owner.
-				T::Currency::repatriate_reserved(&details.owner, &owner, deposit, Reserved)?;
+				// `repatriate_reserved` is best-effort: reject any partial move so the recorded
+				// deposit stays in sync with what is actually reserved on the owner.
+				let remaining =
+					T::Currency::repatriate_reserved(&details.owner, &owner, deposit, Reserved)?;
+				ensure!(remaining.is_zero(), Error::<T, I>::IncompleteDepositTransfer);
 
 				details.owner = owner.clone();
 
@@ -2016,7 +2025,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			// contain overcounted supply from prior refunds.
 			// TODO: add a migration to recalculate supply, then tighten this to `==`.
 			ensure!(details.supply >= calculated_supply, "Asset supply mismatch");
-			if details.accounts == calculated_accounts {
+			if details.accounts != calculated_accounts {
 				// Legacy error in Kusama Asset Hub that needs to be cleaned up.
 				log::error!(
 					"Asset {asset_id:?} account count mismatch: calculated {calculated_accounts} vs expected {}",

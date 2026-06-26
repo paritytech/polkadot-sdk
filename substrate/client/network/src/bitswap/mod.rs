@@ -17,9 +17,8 @@
 
 //! Bitswap server for Substrate.
 //!
-//! Allows querying transactions by hash over standard bitswap protocol
-//! Only supports bitswap 1.2.0.
-//! CID is expected to reference 256-bit Blake2b transaction hash.
+//! Supports querying indexed transactions by hash over the standard bitswap protocol (v1.2.0).
+//! CIDs must reference a supported 256-bit transaction hash.
 
 use crate::{
 	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
@@ -27,8 +26,8 @@ use crate::{
 	MAX_RESPONSE_SIZE,
 };
 
+use cid::{Error as CidError, Version as CidVersion};
 use futures::StreamExt;
-use litep2p::types::cid::{Cid, Error as CidError, Version as CidVersion};
 use log::{debug, error, trace};
 use prost::Message;
 use sc_client_api::BlockBackend;
@@ -42,33 +41,51 @@ use sp_runtime::traits::Block as BlockT;
 use std::{io, sync::Arc, time::Duration};
 use unsigned_varint::encode as varint_encode;
 
-mod schema;
+/// Bitswap client.
+mod client;
+pub(crate) mod schema;
 
-const LOG_TARGET: &str = "bitswap";
+pub use cid::Cid;
+pub use client::{
+	request_bitswap_blocks, request_bitswap_blocks_unverified, BitswapError, FetchOutcome,
+	BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, SHA2_256_MULTIHASH_CODE,
+};
 
-// Undocumented, but according to JS the bitswap messages have a max size of 512*1024 bytes
-// https://github.com/ipfs/js-ipfs-bitswap/blob/
-// d8f80408aadab94c962f6b88f343eb9f39fa0fcc/src/decision-engine/index.js#L16
-// We set it to the same value as max substrate protocol message
+pub(crate) use schema::bitswap::Message as BitswapProtoMessage;
+
+pub(crate) const LOG_TARGET: &str = "sub-libp2p::bitswap";
+
+// Use the network-wide response cap for Bitswap messages.
 const MAX_PACKET_SIZE: u64 = MAX_RESPONSE_SIZE;
 
 /// Max number of queued responses before denying requests.
 const MAX_REQUEST_QUEUE: usize = 20;
 
-/// Max number of blocks per wantlist
-const MAX_WANTED_BLOCKS: usize = 16;
+/// Max number of blocks per wantlist.
+pub const MAX_WANTED_BLOCKS: usize = 16;
 
-/// Bitswap protocol name
-const PROTOCOL_NAME: &'static str = "/ipfs/bitswap/1.2.0";
+/// Bitswap protocol name.
+pub(crate) const PROTOCOL_NAME: &str = "/ipfs/bitswap/1.2.0";
 
-/// Check if a CID is supported by the bitswap protocol.
+/// IPFS raw multicodec used for indexed transaction payload bytes.
+pub const RAW_CODEC: u64 = 0x55;
+
+/// Check if a CID is supported by the bitswap protocol — CIDv1, 32-byte digest, with a
+/// supported multihash code (Blake2b-256, SHA2-256, or Keccak-256).
 pub fn is_cid_supported(cid: &Cid) -> bool {
-	cid.version() != CidVersion::V0 && cid.hash().size() == 32
+	cid.version() != CidVersion::V0 &&
+		cid.hash().size() == 32 &&
+		is_supported_multihash_code(cid.hash().code())
 }
 
-/// Prefix represents all metadata of a CID, without the actual content.
+/// Return `true` if `code` is a supported multihash code.
+pub(crate) fn is_supported_multihash_code(code: u64) -> bool {
+	matches!(code, BLAKE2B_256_MULTIHASH_CODE | SHA2_256_MULTIHASH_CODE | KECCAK_256_MULTIHASH_CODE)
+}
+
+/// CID metadata without the actual content bytes.
 #[derive(PartialEq, Eq, Clone, Debug)]
-struct Prefix {
+pub(crate) struct Prefix {
 	/// The version of CID.
 	pub version: CidVersion,
 	/// The codec of CID.
@@ -79,9 +96,20 @@ struct Prefix {
 	pub mh_len: u8,
 }
 
+impl From<&Cid> for Prefix {
+	fn from(cid: &Cid) -> Self {
+		Self {
+			version: cid.version(),
+			codec: cid.codec(),
+			mh_type: cid.hash().code(),
+			mh_len: cid.hash().size(),
+		}
+	}
+}
+
 impl Prefix {
 	/// Convert the prefix to encoded bytes.
-	pub fn to_bytes(&self) -> Vec<u8> {
+	pub(crate) fn to_bytes(&self) -> Vec<u8> {
 		let mut res = Vec::with_capacity(4);
 		let mut buf = varint_encode::u64_buffer();
 		let version = varint_encode::u64(self.version.into(), &mut buf);
@@ -99,15 +127,15 @@ impl Prefix {
 	}
 }
 
-/// Bitswap request handler
-pub struct BitswapRequestHandler<B> {
+/// Bitswap request handler.
+pub(crate) struct BitswapRequestHandler<B> {
 	client: Arc<dyn BlockBackend<B> + Send + Sync>,
 	request_receiver: async_channel::Receiver<IncomingRequest>,
 }
 
 impl<B: BlockT> BitswapRequestHandler<B> {
 	/// Create a new [`BitswapRequestHandler`].
-	pub fn new(client: Arc<dyn BlockBackend<B> + Send + Sync>) -> (Self, ProtocolConfig) {
+	pub(crate) fn new(client: Arc<dyn BlockBackend<B> + Send + Sync>) -> (Self, ProtocolConfig) {
 		let (tx, request_receiver) = async_channel::bounded(MAX_REQUEST_QUEUE);
 
 		let config = ProtocolConfig {
@@ -123,7 +151,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 	}
 
 	/// Run [`BitswapRequestHandler`].
-	pub async fn run(mut self) {
+	pub(crate) async fn run(mut self) {
 		while let Some(request) = self.request_receiver.next().await {
 			let IncomingRequest { peer, payload, pending_response } = request;
 
@@ -141,8 +169,8 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 						},
 						Err(_) => debug!(
 							target: LOG_TARGET,
-							"Failed to handle light client request from {peer}: {}",
-							BitswapError::SendResponse,
+							"Failed to handle bitswap request from {peer}: {}",
+							RequestHandlerError::SendResponse,
 						),
 					}
 				},
@@ -161,7 +189,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 						debug!(
 							target: LOG_TARGET,
 							"Failed to handle bitswap request from {peer}: {}",
-							BitswapError::SendResponse,
+							RequestHandlerError::SendResponse,
 						);
 					}
 				},
@@ -173,9 +201,9 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 	fn handle_message(
 		&mut self,
 		peer: &PeerId,
-		payload: &Vec<u8>,
-	) -> Result<Vec<u8>, BitswapError> {
-		let request = schema::bitswap::Message::decode(&payload[..])?;
+		payload: &[u8],
+	) -> Result<Vec<u8>, RequestHandlerError> {
+		let request = schema::bitswap::Message::decode(payload)?;
 
 		trace!(target: LOG_TARGET, "Received request: {:?} from {}", request, peer);
 
@@ -185,13 +213,13 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 			Some(wantlist) => wantlist,
 			None => {
 				debug!(target: LOG_TARGET, "Unexpected bitswap message from {}", peer);
-				return Err(BitswapError::InvalidWantList);
+				return Err(RequestHandlerError::InvalidWantList);
 			},
 		};
 
 		if wantlist.entries.len() > MAX_WANTED_BLOCKS {
 			trace!(target: LOG_TARGET, "Ignored request: too many entries");
-			return Err(BitswapError::TooManyEntries);
+			return Err(RequestHandlerError::TooManyEntries);
 		}
 
 		for entry in wantlist.entries {
@@ -223,12 +251,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 					trace!(target: LOG_TARGET, "Found CID {:?}, hash {:?}", cid, hash);
 
 					if entry.want_type == WantType::Block as i32 {
-						let prefix = Prefix {
-							version: cid.version(),
-							codec: cid.codec(),
-							mh_type: cid.hash().code(),
-							mh_len: cid.hash().size(),
-						};
+						let prefix: Prefix = (&cid).into();
 						response
 							.payload
 							.push(MessageBlock { prefix: prefix.to_bytes(), data: transaction });
@@ -258,7 +281,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 
 /// Bitswap protocol error.
 #[derive(Debug, thiserror::Error)]
-pub enum BitswapError {
+enum RequestHandlerError {
 	/// Protobuf decoding error.
 	#[error("Failed to decode request: {0}.")]
 	DecodeProto(#[from] prost::DecodeError),
@@ -296,7 +319,7 @@ pub enum BitswapError {
 mod tests {
 	use super::*;
 	use futures::channel::oneshot;
-	use litep2p::types::multihash::Code;
+	use litep2p::types::multihash::Code as LiteP2pCode;
 	use sc_block_builder::BlockBuilderBuilder;
 	use schema::bitswap::{
 		message::{wantlist::Entry, Wantlist},
@@ -445,7 +468,7 @@ mod tests {
 							block: cid::Cid::new_v1(
 								0x70,
 								cid::multihash::Multihash::wrap(
-									u64::from(Code::Blake2b256),
+									u64::from(LiteP2pCode::Blake2b256),
 									&[0u8; 32],
 								)
 								.unwrap(),
@@ -506,7 +529,7 @@ mod tests {
 							block: cid::Cid::new_v1(
 								0x70,
 								cid::multihash::Multihash::wrap(
-									u64::from(Code::Blake2b256),
+									u64::from(LiteP2pCode::Blake2b256),
 									&sp_crypto_hashing::blake2_256(&ext.encode()[pattern_index..]),
 								)
 								.unwrap(),
@@ -534,5 +557,109 @@ mod tests {
 		} else {
 			panic!("invalid event received");
 		}
+	}
+
+	#[tokio::test]
+	async fn transaction_not_found_sends_dont_have_when_requested() {
+		let client = TestClientBuilder::with_tx_storage(u32::MAX).build();
+		let (mut bitswap, _config) = BitswapRequestHandler::new(Arc::new(client));
+		let cid = cid::Cid::new_v1(
+			0x70,
+			cid::multihash::Multihash::wrap(u64::from(LiteP2pCode::Blake2b256), &[0u8; 32])
+				.unwrap(),
+		);
+		let request = BitswapMessage {
+			wantlist: Some(Wantlist {
+				entries: vec![Entry {
+					block: cid.to_bytes(),
+					send_dont_have: true,
+					..Default::default()
+				}],
+				full: false,
+			}),
+			..Default::default()
+		}
+		.encode_to_vec();
+
+		let response = BitswapMessage::decode(
+			bitswap.handle_message(&PeerId::random(), &request).unwrap().as_slice(),
+		)
+		.unwrap();
+
+		assert!(response.payload.is_empty());
+		assert_eq!(response.block_presences.len(), 1);
+		assert_eq!(response.block_presences[0].cid, cid.to_bytes());
+		assert_eq!(response.block_presences[0].r#type, BlockPresenceType::DontHave as i32);
+	}
+
+	#[tokio::test]
+	async fn transaction_found_sends_have_for_want_have() {
+		let client = TestClientBuilder::with_tx_storage(u32::MAX).build();
+		let mut block_builder = BlockBuilderBuilder::new(&client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap();
+
+		let ext = ExtrinsicBuilder::new_indexed_call(vec![0x13, 0x37, 0x13, 0x38]).build();
+		let pattern_index = ext.encoded_size() - 4;
+		let cid = cid::Cid::new_v1(
+			0x70,
+			cid::multihash::Multihash::wrap(
+				u64::from(LiteP2pCode::Blake2b256),
+				&sp_crypto_hashing::blake2_256(&ext.encode()[pattern_index..]),
+			)
+			.unwrap(),
+		);
+
+		block_builder.push(ext).unwrap();
+		let block = block_builder.build().unwrap().block;
+		client.import(BlockOrigin::File, block).await.unwrap();
+
+		let (mut bitswap, _config) = BitswapRequestHandler::new(Arc::new(client));
+		let request = BitswapMessage {
+			wantlist: Some(Wantlist {
+				entries: vec![Entry {
+					block: cid.to_bytes(),
+					want_type: WantType::Have as i32,
+					..Default::default()
+				}],
+				full: false,
+			}),
+			..Default::default()
+		}
+		.encode_to_vec();
+
+		let response = BitswapMessage::decode(
+			bitswap.handle_message(&PeerId::random(), &request).unwrap().as_slice(),
+		)
+		.unwrap();
+
+		assert!(response.payload.is_empty());
+		assert_eq!(response.block_presences.len(), 1);
+		assert_eq!(response.block_presences[0].cid, cid.to_bytes());
+		assert_eq!(response.block_presences[0].r#type, BlockPresenceType::Have as i32);
+	}
+
+	#[test]
+	fn is_cid_supported_accepts_all_three_supported_hashings() {
+		use cid::multihash::Multihash;
+		for multihash_code in
+			[BLAKE2B_256_MULTIHASH_CODE, SHA2_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE]
+		{
+			let digest = [9u8; 32];
+			let mh = Multihash::<64>::wrap(multihash_code, &digest).unwrap();
+			let cid = Cid::new_v1(RAW_CODEC, mh);
+			assert!(is_cid_supported(&cid), "{multihash_code} CID should be supported");
+		}
+	}
+
+	#[test]
+	fn is_cid_supported_rejects_unknown_multihash_code() {
+		use cid::multihash::Multihash;
+		let digest = [9u8; 32];
+		let mh = Multihash::<64>::wrap(0x99, &digest).unwrap();
+		let cid = Cid::new_v1(RAW_CODEC, mh);
+		assert!(!is_cid_supported(&cid));
 	}
 }

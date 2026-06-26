@@ -38,7 +38,7 @@ fn collectives_westend_genesis(
 				.cloned()
 				.map(|k| (k, COLLECTIVES_WESTEND_ED * 4096))
 				.chain(core::iter::once((
-					DapSatellite::satellite_account(),
+					AccumulateForward::accumulation_account(),
 					COLLECTIVES_WESTEND_ED
 				)))
 				.collect::<Vec<_>>(),

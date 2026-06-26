@@ -309,6 +309,7 @@ pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	collator_options: CollatorOptions,
 	proof_recording_during_import: bool,
 	use_slot_based_collator: bool,
+	collator_reserved_slots: usize,
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<Client>,
@@ -374,6 +375,29 @@ where
 		.await?;
 
 	let keystore = params.keystore_container.keystore();
+
+	if collator_key.is_some() && collator_reserved_slots > 0 {
+		cumulus_client_collator_discovery::start_collator_discovery(
+			cumulus_client_collator_discovery::StartCollatorDiscoveryParams {
+				max_reserved: collator_reserved_slots,
+				client: client.clone(),
+				authority_discovery: client.clone(),
+				network: network.clone(),
+				sync_service: sync_service.clone(),
+				network_event_stream: network.event_stream("para-authority-discovery"),
+				keystore: keystore.clone(),
+				genesis_hash: client.chain_info().genesis_hash,
+				fork_id: parachain_config.chain_spec.fork_id().map(ToString::to_string),
+				publish_non_global_ips: parachain_config.network.allow_non_globals_in_dht,
+				public_addresses: parachain_config.network.public_addresses.clone(),
+				persisted_cache_directory: parachain_config.network.net_config_path.clone(),
+				prometheus_registry: prometheus_registry.clone(),
+				spawn_handle: task_manager.spawn_handle(),
+			},
+		)
+		.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+	}
+
 	let rpc_builder = {
 		let client = client.clone();
 		Box::new(move |_| rpc_ext_builder(client.clone()))
@@ -725,6 +749,7 @@ impl TestNodeBuilder {
 						collator_options,
 						self.record_proof_during_import,
 						false,
+						0,
 					)
 					.await
 					.expect("could not create Cumulus test service")
@@ -740,6 +765,7 @@ impl TestNodeBuilder {
 						collator_options,
 						self.record_proof_during_import,
 						false,
+						0,
 					)
 					.await
 					.expect("could not create Cumulus test service")
