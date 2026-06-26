@@ -29,6 +29,14 @@ use std::{
 };
 use tokio::time::sleep;
 
+/// What to do with the worker's client after a failed work item, before retrying.
+pub(crate) enum RetryAction {
+	/// Reconnect the client and keep it in the pool.
+	Recreate,
+	/// Drop the client from the pool, e.g. because it lacks the target block.
+	Remove,
+}
+
 /// Result of processing a work item.
 pub(crate) enum ProcessResult<W> {
 	/// Work completed successfully, optionally queue more work items.
@@ -39,11 +47,8 @@ pub(crate) enum ProcessResult<W> {
 		work: W,
 		/// How long to sleep before retrying.
 		sleep_duration: Duration,
-		/// Whether to recreate the client connection.
-		recreate_client: bool,
-		/// Whether to drop this client from the pool (e.g. it lacks the target block). Takes
-		/// precedence over `recreate_client`.
-		remove_client: bool,
+		/// What to do with the worker's client before retrying.
+		action: RetryAction,
 	},
 }
 
@@ -130,20 +135,16 @@ pub(crate) async fn run_workers<W, F, Fut>(
 							work_queue.lock().unwrap().extend(new_work);
 						}
 					},
-					ProcessResult::Retry {
-						work,
-						sleep_duration,
-						recreate_client,
-						remove_client,
-					} => {
+					ProcessResult::Retry { work, sleep_duration, action } => {
 						work_queue.lock().unwrap().push_back(work);
 
 						sleep(sleep_duration).await;
 
-						if remove_client {
-							conn_manager.remove_client(&client).await;
-						} else if recreate_client {
-							conn_manager.recreate_client(worker_index, client).await;
+						match action {
+							RetryAction::Remove => conn_manager.remove_client(&client).await,
+							RetryAction::Recreate => {
+								conn_manager.recreate_client(worker_index, client).await
+							},
 						}
 					},
 				}

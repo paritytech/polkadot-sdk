@@ -36,7 +36,7 @@ use config::DEFAULT_WS_ENDPOINT;
 use indicatif::{ProgressBar, ProgressStyle};
 use jsonrpsee::core::params::ArrayParams;
 use log::*;
-use parallel::{run_workers, ProcessResult};
+use parallel::{run_workers, ProcessResult, RetryAction};
 use serde::de::DeserializeOwned;
 use sp_core::{
 	hexdisplay::HexDisplay,
@@ -78,6 +78,16 @@ const LOG_TARGET: &str = "remote-ext";
 /// `UnknownBlock` error in `sp_blockchain`).
 fn is_unknown_block_error(error: &str) -> bool {
 	error.contains("UnknownBlock")
+}
+
+/// How to handle the worker's client after a failed RPC: drop a provider that lacks the block,
+/// otherwise reconnect and retry.
+fn retry_action(error: &str) -> RetryAction {
+	if is_unknown_block_error(error) {
+		RetryAction::Remove
+	} else {
+		RetryAction::Recreate
+	}
 }
 
 /// An externalities that acts exactly the same as [`sp_io::TestExternalities`] but has a few extra
@@ -306,13 +316,10 @@ where
 					Ok(Ok(p)) => p,
 					Ok(Err(e)) => {
 						debug!(target: LOG_TARGET, "Worker {worker_index}: RPC error: {e:?}");
-						// A provider that lacks the block is dropped instead of recreated.
-						let remove_client = is_unknown_block_error(&format!("{e:?}"));
 						return ProcessResult::Retry {
 							work: range.with_halved_page_size(),
 							sleep_duration: Duration::from_secs(15),
-							recreate_client: !remove_client,
-							remove_client,
+							action: retry_action(&format!("{e:?}")),
 						};
 					},
 					Err(()) => {
@@ -320,8 +327,7 @@ where
 						return ProcessResult::Retry {
 							work: range.with_halved_page_size(),
 							sleep_duration: Duration::from_secs(5),
-							recreate_client: true,
-							remove_client: false,
+							action: RetryAction::Recreate,
 						};
 					},
 				};
@@ -574,14 +580,11 @@ where
 						},
 						Err(e) => {
 							debug!(target: LOG_TARGET, "Value worker {worker_index}: failed: {e:?}");
-							// A provider that lacks the block is dropped instead of recreated.
-							let remove_client = is_unknown_block_error(&e);
 							let new_batch_size = (batch_size / 2).max(10);
 							ProcessResult::Retry {
 								work: (start_index, batch, new_batch_size),
 								sleep_duration: Duration::from_secs(15),
-								recreate_client: !remove_client,
-								remove_client,
+								action: retry_action(&e),
 							}
 						},
 					}
@@ -798,13 +801,10 @@ where
 						},
 						Err(e) => {
 							error!(target: LOG_TARGET, "Worker {worker_index}: Failed: {e:?}");
-							// A provider that lacks the block is dropped instead of recreated.
-							let remove_client = is_unknown_block_error(&e);
 							ProcessResult::Retry {
 								work: prefixed_top_key,
 								sleep_duration: Duration::from_secs(5),
-								recreate_client: !remove_client,
-								remove_client,
+								action: retry_action(&e),
 							}
 						},
 					}
@@ -899,7 +899,7 @@ where
 		let mut clients = Vec::new();
 		for uri in &online_config.transport_uris {
 			if let Some(client) = Client::new(uri.clone()).await {
-				clients.push(Arc::new(tokio::sync::Mutex::new(client)));
+				clients.push((uri.clone(), Arc::new(tokio::sync::Mutex::new(client))));
 			}
 		}
 		self.conn_manager = Some(ConnectionManager::new(clients)?);
@@ -1608,7 +1608,6 @@ mod remote_tests {
 			computed_root, expected_root
 		);
 
-		// Verify we actually got some keys
 		ext.execute_with(|| {
 			let key_count = KeyPrefixIterator::<()>::new(vec![], vec![], |_| Ok(())).count();
 
@@ -1639,7 +1638,6 @@ mod remote_tests {
 
 		info!(target: LOG_TARGET, "Connecting to Asset Hub Polkadot using {} RPC providers", endpoints.len());
 
-		// `build()` already verifies the storage root for a complete scrape; we re-assert below.
 		let mut ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
 				transport_uris: endpoints.into_iter().map(|e| e.to_owned()).collect(),
@@ -1657,7 +1655,6 @@ mod remote_tests {
 		info!(target: LOG_TARGET, "Computed storage root: {:?}", computed_root);
 		info!(target: LOG_TARGET, "Expected storage root (from header): {:?}", expected_root);
 
-		// Exact match proves every key (including all child tries) was downloaded.
 		assert_eq!(
 			computed_root, expected_root,
 			"Storage root mismatch! Computed: {:?}, Expected: {:?}. \
@@ -1665,7 +1662,6 @@ mod remote_tests {
 			computed_root, expected_root
 		);
 
-		// Verify we actually got some keys.
 		ext.execute_with(|| {
 			let key_count = KeyPrefixIterator::<()>::new(vec![], vec![], |_| Ok(())).count();
 

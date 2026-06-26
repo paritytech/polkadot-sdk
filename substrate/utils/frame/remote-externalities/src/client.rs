@@ -90,7 +90,6 @@ impl Client {
 
 	/// Recreate the WebSocket client using the stored URI if the version matches.
 	pub(crate) async fn recreate(&mut self, expected_version: u64) {
-		// Only recreate if version matches (prevents redundant reconnections)
 		if self.version > expected_version {
 			return;
 		}
@@ -115,15 +114,15 @@ impl Client {
 
 /// Manages WebSocket client connections for parallel workers.
 ///
-/// The client pool is shared across all worker clones (`Arc`) so that dropping a provider on one
-/// worker (see [`Self::remove_client`]) is visible to every other worker.
+/// The pool is shared across all worker clones, so dropping a provider is seen by every worker. The
+/// connecting URI is stored next to each client so the pool can be filtered without locking.
 #[derive(Clone)]
 pub(crate) struct ConnectionManager {
-	clients: Arc<tokio::sync::RwLock<Vec<Arc<tokio::sync::Mutex<Client>>>>>,
+	clients: Arc<tokio::sync::RwLock<Vec<(String, Arc<tokio::sync::Mutex<Client>>)>>>,
 }
 
 impl ConnectionManager {
-	pub(crate) fn new(clients: Vec<Arc<tokio::sync::Mutex<Client>>>) -> Result<Self> {
+	pub(crate) fn new(clients: Vec<(String, Arc<tokio::sync::Mutex<Client>>)>) -> Result<Self> {
 		if clients.is_empty() {
 			return Err("At least one client must be provided");
 		}
@@ -135,63 +134,41 @@ impl ConnectionManager {
 		self.clients.read().await.len()
 	}
 
-	/// Drop the `failed` provider from the pool (matched by URI), e.g. because it lacks the target
-	/// block.
+	/// Drop the `failed` provider from the pool (matched by URI).
 	///
-	/// Returns `true` if the client was removed. The last remaining client is never removed, so
-	/// that the pool is never emptied; in that case `false` is returned and the caller keeps
-	/// retrying it.
-	pub(crate) async fn remove_client(&self, failed: &Client) -> bool {
+	/// The last remaining provider is never removed, so that the pool is never emptied.
+	pub(crate) async fn remove_client(&self, failed: &Client) {
 		let mut clients = self.clients.write().await;
 		if clients.len() <= 1 {
-			return false;
+			return;
 		}
 
-		// Identify the slot by URI: several workers may share one provider, so the `failed` clone
-		// may already have been removed by another worker.
-		let mut index = None;
-		for (i, client_arc) in clients.iter().enumerate() {
-			if client_arc.lock().await.uri() == failed.uri() {
-				index = Some(i);
-				break;
-			}
-		}
-
-		match index {
-			Some(i) => {
-				let removed = clients.remove(i);
-				warn!(
-					target: LOG_TARGET,
-					"⚠️ dropping RPC provider `{}` ({} provider(s) left)",
-					removed.lock().await.uri(),
-					clients.len(),
-				);
-				true
-			},
-			None => false,
+		let before = clients.len();
+		clients.retain(|(uri, _)| uri != failed.uri());
+		if clients.len() < before {
+			warn!(
+				target: LOG_TARGET,
+				"⚠️ dropping RPC provider `{}` ({} provider(s) left)",
+				failed.uri(),
+				clients.len(),
+			);
 		}
 	}
 
-	/// Get a usable client for a specific worker.
-	/// Distributes workers across available clients.
+	/// The pool slot assigned to `worker_index`.
+	async fn slot(&self, worker_index: usize) -> Arc<tokio::sync::Mutex<Client>> {
+		let clients = self.clients.read().await;
+		clients[worker_index % clients.len()].1.clone()
+	}
+
+	/// Get a client for `worker_index` to issue RPC calls with.
 	pub(crate) async fn get(&self, worker_index: usize) -> Client {
-		let client_arc = {
-			let clients = self.clients.read().await;
-			let client_index = worker_index % clients.len();
-			clients[client_index].clone()
-		};
-		let client = client_arc.lock().await.clone();
-		client
+		self.slot(worker_index).await.lock().await.clone()
 	}
 
-	/// Called when a request fails. Triggers client recreation if version matches.
+	/// Reconnect the client assigned to `worker_index`, unless `failed` is already stale.
 	pub(crate) async fn recreate_client(&self, worker_index: usize, failed: Client) {
-		let client_arc = {
-			let clients = self.clients.read().await;
-			let client_index = worker_index % clients.len();
-			clients[client_index].clone()
-		};
-		client_arc.lock().await.recreate(failed.version).await;
+		self.slot(worker_index).await.lock().await.recreate(failed.version).await;
 	}
 }
 
