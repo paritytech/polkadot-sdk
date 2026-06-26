@@ -155,7 +155,13 @@ mod benchmarks {
 		let reserve_before = T::Fungibles::balance(asset_id.clone(), &psm_account);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), internal_id.clone(), asset_id.clone(), mint_amount);
+		_(
+			RawOrigin::Signed(caller.clone()),
+			internal_id.clone(),
+			asset_id.clone(),
+			mint_amount,
+			MintingFee::<T>::get(&internal_id, &asset_id),
+		);
 
 		assert!(T::Fungibles::balance(asset_id, &psm_account) > reserve_before);
 		Ok(())
@@ -179,6 +185,7 @@ mod benchmarks {
 			internal_id.clone(),
 			asset_id.clone(),
 			setup_amount,
+			MintingFee::<T>::get(&internal_id, &asset_id),
 		)
 		.map_err(|_| BenchmarkError::Stop("Failed to setup reserve via mint"))?;
 
@@ -186,7 +193,13 @@ mod benchmarks {
 		let reserve_before = T::Fungibles::balance(asset_id.clone(), &psm_account);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), internal_id.clone(), asset_id.clone(), redeem_amount);
+		_(
+			RawOrigin::Signed(caller.clone()),
+			internal_id.clone(),
+			asset_id.clone(),
+			redeem_amount,
+			RedemptionFee::<T>::get(&internal_id, &asset_id),
+		);
 
 		assert!(T::Fungibles::balance(asset_id, &psm_account) < reserve_before);
 		Ok(())

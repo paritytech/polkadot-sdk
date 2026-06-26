@@ -303,6 +303,7 @@ impl ExtBuilder {
 					INTERNAL_ASSET_ID,
 					asset_id,
 					amount,
+					crate::MintingFee::<Test>::get(INTERNAL_ASSET_ID, asset_id),
 				));
 			}
 			test();

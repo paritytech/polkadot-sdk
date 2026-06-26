@@ -32,6 +32,8 @@ doc:
       `set_max_psm_debt(ratio: Permill)` is renamed `set_max_debt(value: Balance)` with
       absolute semantics; the `MaxPsmDebtOfTotalUpdated` event is renamed `MaxDebtUpdated`;
       `Error::ExceedsMaxIssuance` is removed and `Error::PsmNotFound` is added.
+      `mint` and `redeem` now take a `max_fee` bound and fail with `FeeTooHigh` when the
+      configured fee exceeds it.
     - The pallet's genesis config and the `InitializePsm` / decimals migration helpers are
       removed. There is no in-place data migration: the pallet is redeployed from scratch.
       A runtime upgrading an existing deployment must wipe the old storage. On Asset Hub

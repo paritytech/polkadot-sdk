@@ -208,8 +208,7 @@ where
 		pallet_psm::PsmAdminInfo::<Runtime> {
 			full_admin: root_origin.clone(),
 			emergency_admin: root_origin,
-			depositor: config.fee_destination.clone(),
-			ticket,
+			deposit: Some((config.fee_destination.clone(), ticket)),
 		},
 	);
 	let psm_account_id = pallet_psm::Pallet::<Runtime>::psm_account(&internal_asset_id);
@@ -341,6 +340,7 @@ pub fn mint_and_redeem<Runtime, Block>(
 			internal_asset_id.clone(),
 			asset_id.clone(),
 			swap_amount,
+			config.minting_fee,
 		));
 
 		let balance_after_mint =
@@ -385,6 +385,7 @@ pub fn mint_and_redeem<Runtime, Block>(
 			internal_asset_id.clone(),
 			asset_id,
 			redeem_amount,
+			config.redemption_fee,
 		));
 
 		// Verify caller's internal asset was fully spent.
@@ -448,6 +449,7 @@ pub fn circuit_breaker<Runtime, Block>(
 			internal_asset_id.clone(),
 			asset_id.clone(),
 			swap_amount,
+			config.minting_fee,
 		));
 
 		let unit = 10u128.pow(config.internal_asset_decimals as u32);
@@ -469,6 +471,7 @@ pub fn circuit_breaker<Runtime, Block>(
 				internal_asset_id.clone(),
 				asset_id.clone(),
 				swap_amount,
+				config.minting_fee,
 			),
 			pallet_psm::Error::<Runtime>::MintingStopped
 		);
@@ -478,6 +481,7 @@ pub fn circuit_breaker<Runtime, Block>(
 			internal_asset_id.clone(),
 			asset_id.clone(),
 			small_redeem,
+			config.redemption_fee,
 		));
 
 		log::info!(target: LOG_TARGET, "MintingDisabled: mint blocked, redeem allowed");
@@ -496,6 +500,7 @@ pub fn circuit_breaker<Runtime, Block>(
 				internal_asset_id.clone(),
 				asset_id.clone(),
 				swap_amount,
+				config.minting_fee,
 			),
 			pallet_psm::Error::<Runtime>::MintingStopped
 		);
@@ -506,6 +511,7 @@ pub fn circuit_breaker<Runtime, Block>(
 				internal_asset_id.clone(),
 				asset_id.clone(),
 				small_redeem,
+				config.redemption_fee,
 			),
 			pallet_psm::Error::<Runtime>::AllSwapsStopped
 		);
@@ -525,6 +531,7 @@ pub fn circuit_breaker<Runtime, Block>(
 			internal_asset_id.clone(),
 			asset_id.clone(),
 			swap_amount,
+			config.minting_fee,
 		));
 
 		assert_ok!(pallet_psm::Pallet::<Runtime>::redeem(
@@ -532,6 +539,7 @@ pub fn circuit_breaker<Runtime, Block>(
 			internal_asset_id,
 			asset_id,
 			small_redeem,
+			config.redemption_fee,
 		));
 
 		log::info!(target: LOG_TARGET, "AllEnabled: both mint and redeem resumed");

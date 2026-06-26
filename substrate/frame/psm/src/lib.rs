@@ -76,10 +76,24 @@
 //!
 //! ```ignore
 //! // Mint internal asset by depositing USDC on the PSM
-//! Psm::mint(RuntimeOrigin::signed(user), INTERNAL_ASSET_ID, USDC_ASSET_ID, 1000 * UNIT)?;
+//! let max_fee = MintingFee::<Runtime>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+//! Psm::mint(
+//! 	RuntimeOrigin::signed(user),
+//! 	INTERNAL_ASSET_ID,
+//! 	USDC_ASSET_ID,
+//! 	1000 * UNIT,
+//! 	max_fee,
+//! )?;
 //!
 //! // Redeem USDC by burning the internal asset
-//! Psm::redeem(RuntimeOrigin::signed(user), INTERNAL_ASSET_ID, USDC_ASSET_ID, 1000 * UNIT)?;
+//! let max_fee = RedemptionFee::<Runtime>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+//! Psm::redeem(
+//! 	RuntimeOrigin::signed(user),
+//! 	INTERNAL_ASSET_ID,
+//! 	USDC_ASSET_ID,
+//! 	1000 * UNIT,
+//! 	max_fee,
+//! )?;
 //! ```
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -610,6 +624,8 @@ pub mod pallet {
 		ExceedsMaxPsmDebt,
 		/// Swap amount below the instance's minimum threshold.
 		BelowMinimumSwap,
+		/// Current fee exceeds the caller-provided maximum.
+		FeeTooHigh,
 		/// `create_psm` was called with a zero `min_swap_amount`.
 		ZeroMinSwapAmount,
 		/// Minting operations are disabled (circuit breaker level >= 1).
@@ -673,6 +689,7 @@ pub mod pallet {
 		/// - `external_asset`: The external asset to deposit (must be approved on
 		///   `internal_asset`).
 		/// - `external_amount`: Amount of external asset to deposit.
+		/// - `max_fee`: Maximum minting fee rate accepted by the caller.
 		///
 		/// ## Errors
 		///
@@ -682,6 +699,7 @@ pub mod pallet {
 		///   or higher.
 		/// - [`Error::BelowMinimumSwap`]: If the internal-equivalent of `external_amount` is below
 		///   the instance's `min_swap_amount`.
+		/// - [`Error::FeeTooHigh`]: If the configured minting fee exceeds `max_fee`.
 		/// - [`Error::ExceedsMaxPsmDebt`]: If minting would exceed this PSM's debt ceiling
 		///   (aggregate or per-asset).
 		/// - [`Error::DecimalsMismatch`]: If live decimals diverged from the snapshot taken at
@@ -699,6 +717,7 @@ pub mod pallet {
 			internal_asset: T::AssetId,
 			external_asset: T::AssetId,
 			external_amount: BalanceOf<T>,
+			max_fee: Permill,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let info = Psm::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
@@ -718,8 +737,9 @@ pub mod pallet {
 			let effective_external =
 				Self::internal_to_external(internal_equivalent, ext_decimals, internal_decimals)?;
 
-			let fee = MintingFee::<T>::get(&internal_asset, &external_asset)
-				.mul_ceil(internal_equivalent);
+			let fee_rate = MintingFee::<T>::get(&internal_asset, &external_asset);
+			ensure!(fee_rate <= max_fee, Error::<T>::FeeTooHigh);
+			let fee = fee_rate.mul_ceil(internal_equivalent);
 			let internal_to_user = internal_equivalent.saturating_sub(fee);
 
 			let current_total_psm_debt = Self::total_psm_debt(&internal_asset);
@@ -779,6 +799,7 @@ pub mod pallet {
 		/// - `external_asset`: The external asset to receive (must be approved on
 		///   `internal_asset`).
 		/// - `internal_amount`: Amount of `internal_asset` to redeem.
+		/// - `max_fee`: Maximum redemption fee rate accepted by the caller.
 		///
 		/// ## Errors
 		///
@@ -787,6 +808,7 @@ pub mod pallet {
 		/// - [`Error::AllSwapsStopped`]: If the per-external circuit breaker is at `AllDisabled`.
 		/// - [`Error::BelowMinimumSwap`]: If `internal_amount` is below the instance's
 		///   `min_swap_amount`.
+		/// - [`Error::FeeTooHigh`]: If the configured redemption fee exceeds `max_fee`.
 		/// - [`Error::InsufficientReserve`]: If the PSM holds less of `external_asset` than the
 		///   redemption requires.
 		/// - [`Error::DecimalsMismatch`]: If live decimals diverged from the snapshot taken at
@@ -804,6 +826,7 @@ pub mod pallet {
 			internal_asset: T::AssetId,
 			external_asset: T::AssetId,
 			internal_amount: BalanceOf<T>,
+			max_fee: Permill,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let info = Psm::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
@@ -817,8 +840,9 @@ pub mod pallet {
 
 			ensure!(internal_amount >= info.min_swap_amount, Error::<T>::BelowMinimumSwap);
 
-			let fee =
-				RedemptionFee::<T>::get(&internal_asset, &external_asset).mul_ceil(internal_amount);
+			let fee_rate = RedemptionFee::<T>::get(&internal_asset, &external_asset);
+			ensure!(fee_rate <= max_fee, Error::<T>::FeeTooHigh);
+			let fee = fee_rate.mul_ceil(internal_amount);
 			let internal_net = internal_amount.saturating_sub(fee);
 
 			let external_out =

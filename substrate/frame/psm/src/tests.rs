@@ -47,7 +47,8 @@ mod mint {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				mint_amount
+				mint_amount,
+				Permill::from_percent(1)
 			));
 
 			let fee = Permill::from_percent(1).mul_ceil(mint_amount);
@@ -84,7 +85,8 @@ mod mint {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				mint_amount
+				mint_amount,
+				Permill::zero()
 			));
 
 			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, ALICE), mint_amount);
@@ -105,7 +107,8 @@ mod mint {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				mint_amount
+				mint_amount,
+				Permill::from_percent(5)
 			));
 
 			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, ALICE), internal_to_user);
@@ -124,11 +127,30 @@ mod mint {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				mint_amount
+				mint_amount,
+				Permill::from_percent(100)
 			));
 
 			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, ALICE), 0);
 			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, INSURANCE_FUND), mint_amount);
+		});
+	}
+
+	#[test]
+	fn fails_when_fee_exceeds_max_fee() {
+		new_test_ext().execute_with(|| {
+			set_minting_fee(USDC_ASSET_ID, Permill::from_percent(10));
+
+			assert_noop!(
+				Psm::mint(
+					RuntimeOrigin::signed(ALICE),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					1000 * INTERNAL_UNIT,
+					Permill::from_percent(1),
+				),
+				Error::<Test>::FeeTooHigh
+			);
 		});
 	}
 
@@ -140,7 +162,8 @@ mod mint {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					UNSUPPORTED_ASSET_ID,
-					1000 * INTERNAL_UNIT
+					1000 * INTERNAL_UNIT,
+					Permill::zero()
 				),
 				Error::<Test>::UnsupportedAsset
 			);
@@ -157,7 +180,8 @@ mod mint {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					1000 * INTERNAL_UNIT
+					1000 * INTERNAL_UNIT,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::MintingStopped
 			);
@@ -167,7 +191,8 @@ mod mint {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDT_ASSET_ID,
-				1000 * INTERNAL_UNIT
+				1000 * INTERNAL_UNIT,
+				Permill::from_percent(1)
 			));
 		});
 	}
@@ -182,7 +207,8 @@ mod mint {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					1000 * INTERNAL_UNIT
+					1000 * INTERNAL_UNIT,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::MintingStopped
 			);
@@ -192,7 +218,8 @@ mod mint {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDT_ASSET_ID,
-				1000 * INTERNAL_UNIT
+				1000 * INTERNAL_UNIT,
+				Permill::from_percent(1)
 			));
 		});
 	}
@@ -207,7 +234,8 @@ mod mint {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					below_min
+					below_min,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::BelowMinimumSwap
 			);
@@ -227,7 +255,13 @@ mod mint {
 			fund_external_asset(USDC_ASSET_ID, ALICE, too_much);
 
 			assert_noop!(
-				Psm::mint(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, USDC_ASSET_ID, too_much),
+				Psm::mint(
+					RuntimeOrigin::signed(ALICE),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					too_much,
+					Permill::from_percent(1)
+				),
 				Error::<Test>::ExceedsMaxPsmDebt
 			);
 		});
@@ -249,7 +283,8 @@ mod mint {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					1000 * INTERNAL_UNIT
+					1000 * INTERNAL_UNIT,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::ExceedsMaxPsmDebt
 			);
@@ -272,7 +307,8 @@ mod mint {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				max_debt
+				max_debt,
+				Permill::from_percent(1)
 			));
 
 			assert_eq!(PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID), max_debt);
@@ -288,7 +324,13 @@ mod mint {
 			let too_much = alice_usdc_before + 1000 * INTERNAL_UNIT;
 
 			assert_noop!(
-				Psm::mint(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, USDC_ASSET_ID, too_much),
+				Psm::mint(
+					RuntimeOrigin::signed(ALICE),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					too_much,
+					Permill::from_percent(1)
+				),
 				TokenError::FundsUnavailable
 			);
 
@@ -317,7 +359,8 @@ mod mint {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				usdc_amount
+				usdc_amount,
+				Permill::from_percent(1)
 			));
 
 			// Try to mint 50% + 1 via USDT (total would exceed PSM ceiling)
@@ -329,7 +372,8 @@ mod mint {
 					RuntimeOrigin::signed(BOB),
 					INTERNAL_ASSET_ID,
 					USDT_ASSET_ID,
-					usdt_amount
+					usdt_amount,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::ExceedsMaxPsmDebt
 			);
@@ -353,7 +397,8 @@ mod redeem {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				redeem_amount
+				redeem_amount,
+				Permill::from_percent(1)
 			));
 
 			let fee = Permill::from_percent(1).mul_ceil(redeem_amount);
@@ -402,7 +447,8 @@ mod redeem {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				redeem_amount
+				redeem_amount,
+				Permill::zero()
 			));
 
 			assert_eq!(get_asset_balance(USDC_ASSET_ID, ALICE), alice_usdc_before + redeem_amount);
@@ -423,7 +469,8 @@ mod redeem {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				redeem_amount
+				redeem_amount,
+				Permill::from_percent(5)
 			));
 
 			assert_eq!(
@@ -446,13 +493,32 @@ mod redeem {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				redeem_amount
+				redeem_amount,
+				Permill::from_percent(100)
 			));
 
 			assert_eq!(get_asset_balance(USDC_ASSET_ID, ALICE), alice_usdc_before);
 			assert_eq!(
 				get_asset_balance(INTERNAL_ASSET_ID, INSURANCE_FUND),
 				insurance_internal_before + redeem_amount
+			);
+		});
+	}
+
+	#[test]
+	fn fails_when_fee_exceeds_max_fee() {
+		ExtBuilder::default().mints(ALICE, 5000 * INTERNAL_UNIT).build_and_execute(|| {
+			set_redemption_fee(USDC_ASSET_ID, Permill::from_percent(10));
+
+			assert_noop!(
+				Psm::redeem(
+					RuntimeOrigin::signed(ALICE),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					1000 * INTERNAL_UNIT,
+					Permill::from_percent(1),
+				),
+				Error::<Test>::FeeTooHigh
 			);
 		});
 	}
@@ -465,7 +531,8 @@ mod redeem {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					UNSUPPORTED_ASSET_ID,
-					1000 * INTERNAL_UNIT
+					1000 * INTERNAL_UNIT,
+					Permill::zero()
 				),
 				Error::<Test>::UnsupportedAsset
 			);
@@ -482,7 +549,8 @@ mod redeem {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					1000 * INTERNAL_UNIT
+					1000 * INTERNAL_UNIT,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::AllSwapsStopped
 			);
@@ -499,7 +567,8 @@ mod redeem {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				1000 * INTERNAL_UNIT
+				1000 * INTERNAL_UNIT,
+				Permill::from_percent(1)
 			));
 		});
 	}
@@ -514,7 +583,8 @@ mod redeem {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					below_min
+					below_min,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::BelowMinimumSwap
 			);
@@ -534,7 +604,8 @@ mod redeem {
 					RuntimeOrigin::signed(BOB),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					1000 * INTERNAL_UNIT
+					1000 * INTERNAL_UNIT,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::InsufficientReserve
 			);
@@ -555,7 +626,8 @@ mod redeem {
 						RuntimeOrigin::signed(ALICE),
 						INTERNAL_ASSET_ID,
 						USDC_ASSET_ID,
-						too_much
+						too_much,
+						Permill::from_percent(1)
 					),
 					TokenError::FundsUnavailable
 				);
@@ -573,13 +645,15 @@ mod redeem {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				amount
+				amount,
+				Permill::zero()
 			));
 			assert_ok!(Psm::redeem(
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				amount
+				amount,
+				Permill::zero()
 			));
 
 			assert_eq!(get_asset_balance(USDC_ASSET_ID, psm_account()), 0);
@@ -611,7 +685,8 @@ mod redeem {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					redeem_amount
+					redeem_amount,
+					Permill::zero()
 				),
 				Error::<Test>::InsufficientReserve
 			);
@@ -622,7 +697,8 @@ mod redeem {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					debt
+					debt,
+					Permill::zero()
 				));
 				assert_eq!(get_asset_balance(USDC_ASSET_ID, psm_account()), donation);
 			});
@@ -632,7 +708,8 @@ mod redeem {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					debt + 1
+					debt + 1,
+					Permill::zero()
 				),
 				Error::<Test>::InsufficientReserve
 			);
@@ -784,7 +861,8 @@ mod governance {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				600 * INTERNAL_UNIT
+				600 * INTERNAL_UNIT,
+				Permill::from_percent(1)
 			));
 
 			// Lowering max_debt to 700 drops USDC's 60% ceiling to 420, below its 600 debt. This
@@ -801,7 +879,8 @@ mod governance {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					100 * INTERNAL_UNIT
+					100 * INTERNAL_UNIT,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::ExceedsMaxPsmDebt
 			);
@@ -810,7 +889,8 @@ mod governance {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				200 * INTERNAL_UNIT
+				200 * INTERNAL_UNIT,
+				Permill::from_percent(1)
 			));
 			assert_ok!(Psm::do_try_state());
 		});
@@ -824,7 +904,8 @@ mod governance {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				600 * INTERNAL_UNIT
+				600 * INTERNAL_UNIT,
+				Permill::from_percent(1)
 			));
 
 			// USDC holds 600 at its 60% (=600) ceiling. Cutting its weight to 30% drops the
@@ -842,7 +923,8 @@ mod governance {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					100 * INTERNAL_UNIT
+					100 * INTERNAL_UNIT,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::ExceedsMaxPsmDebt
 			);
@@ -851,7 +933,8 @@ mod governance {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				200 * INTERNAL_UNIT
+				200 * INTERNAL_UNIT,
+				Permill::from_percent(1)
 			));
 			assert_ok!(Psm::do_try_state());
 		});
@@ -1195,7 +1278,8 @@ mod governance {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				1000 * INTERNAL_UNIT
+				1000 * INTERNAL_UNIT,
+				Permill::zero()
 			));
 			assert_noop!(
 				Psm::remove_external_asset(RuntimeOrigin::root(), INTERNAL_ASSET_ID, USDC_ASSET_ID),
@@ -1207,7 +1291,8 @@ mod governance {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				1000 * INTERNAL_UNIT
+				1000 * INTERNAL_UNIT,
+				Permill::zero()
 			));
 			assert_eq!(PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID), 0);
 			assert_ok!(Psm::remove_external_asset(
@@ -1470,7 +1555,8 @@ mod helpers {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				mint_amount
+				mint_amount,
+				Permill::from_percent(1)
 			));
 
 			assert_eq!(
@@ -1511,12 +1597,25 @@ mod circuit_breaker {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				asset,
-				500 * INTERNAL_UNIT
+				500 * INTERNAL_UNIT,
+				Permill::zero()
 			));
 
 			// Baseline: AllEnabled — both swaps work.
-			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, asset, amount));
-			assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, asset, amount));
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				asset,
+				amount,
+				Permill::zero()
+			));
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				asset,
+				amount,
+				Permill::zero()
+			));
 
 			// Transition: AllEnabled -> MintingDisabled. Mint blocked, redeem
 			// still works (useful for draining debt during a partial outage).
@@ -1527,10 +1626,22 @@ mod circuit_breaker {
 				CircuitBreakerLevel::MintingDisabled,
 			));
 			assert_noop!(
-				Psm::mint(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, asset, amount),
+				Psm::mint(
+					RuntimeOrigin::signed(ALICE),
+					INTERNAL_ASSET_ID,
+					asset,
+					amount,
+					Permill::zero()
+				),
 				Error::<Test>::MintingStopped
 			);
-			assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, asset, amount));
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				asset,
+				amount,
+				Permill::zero()
+			));
 
 			// Transition: MintingDisabled -> AllDisabled. Both blocked. Debt is
 			// still > 0 here, so a redeem rejection is a real circuit-breaker
@@ -1542,11 +1653,23 @@ mod circuit_breaker {
 				CircuitBreakerLevel::AllDisabled,
 			));
 			assert_noop!(
-				Psm::mint(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, asset, amount),
+				Psm::mint(
+					RuntimeOrigin::signed(ALICE),
+					INTERNAL_ASSET_ID,
+					asset,
+					amount,
+					Permill::zero()
+				),
 				Error::<Test>::MintingStopped
 			);
 			assert_noop!(
-				Psm::redeem(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, asset, amount),
+				Psm::redeem(
+					RuntimeOrigin::signed(ALICE),
+					INTERNAL_ASSET_ID,
+					asset,
+					amount,
+					Permill::zero()
+				),
 				Error::<Test>::AllSwapsStopped
 			);
 
@@ -1557,8 +1680,20 @@ mod circuit_breaker {
 				asset,
 				CircuitBreakerLevel::AllEnabled,
 			));
-			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, asset, amount));
-			assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, asset, amount));
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				asset,
+				amount,
+				Permill::zero()
+			));
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				asset,
+				amount,
+				Permill::zero()
+			));
 		});
 	}
 }
@@ -1599,7 +1734,8 @@ mod ceiling_redistribution {
 				RuntimeOrigin::signed(BOB),
 				INTERNAL_ASSET_ID,
 				USDT_ASSET_ID,
-				4_000_000 * INTERNAL_UNIT
+				4_000_000 * INTERNAL_UNIT,
+				Permill::from_percent(1)
 			));
 
 			// Mint another 5M - this would fail with old logic but should work now
@@ -1607,7 +1743,8 @@ mod ceiling_redistribution {
 				RuntimeOrigin::signed(BOB),
 				INTERNAL_ASSET_ID,
 				USDT_ASSET_ID,
-				5_000_000 * INTERNAL_UNIT
+				5_000_000 * INTERNAL_UNIT,
+				Permill::from_percent(1)
 			));
 
 			// Total USDT debt should be 9M
@@ -1622,7 +1759,8 @@ mod ceiling_redistribution {
 					RuntimeOrigin::signed(BOB),
 					INTERNAL_ASSET_ID,
 					USDT_ASSET_ID,
-					2_000_000 * INTERNAL_UNIT
+					2_000_000 * INTERNAL_UNIT,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::ExceedsMaxPsmDebt
 			);
@@ -1654,7 +1792,8 @@ mod ceiling_redistribution {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				4_000_000 * INTERNAL_UNIT
+				4_000_000 * INTERNAL_UNIT,
+				Permill::from_percent(1)
 			));
 			assert_eq!(
 				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID),
@@ -1677,7 +1816,8 @@ mod ceiling_redistribution {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDT_ASSET_ID,
-				5_000_000 * INTERNAL_UNIT
+				5_000_000 * INTERNAL_UNIT,
+				Permill::from_percent(1)
 			));
 
 			// USDT can't mint more than its redistributed ceiling
@@ -1686,7 +1826,8 @@ mod ceiling_redistribution {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDT_ASSET_ID,
-					1_000_000 * INTERNAL_UNIT
+					1_000_000 * INTERNAL_UNIT,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::ExceedsMaxPsmDebt
 			);
@@ -1711,7 +1852,8 @@ mod ceiling_redistribution {
 				RuntimeOrigin::signed(BOB),
 				INTERNAL_ASSET_ID,
 				USDT_ASSET_ID,
-				4_000_000 * INTERNAL_UNIT
+				4_000_000 * INTERNAL_UNIT,
+				Permill::from_percent(1)
 			));
 
 			// Can't mint more - exceeds per-asset ceiling
@@ -1720,7 +1862,8 @@ mod ceiling_redistribution {
 					RuntimeOrigin::signed(BOB),
 					INTERNAL_ASSET_ID,
 					USDT_ASSET_ID,
-					1_000_000 * INTERNAL_UNIT
+					1_000_000 * INTERNAL_UNIT,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::ExceedsMaxPsmDebt
 			);
@@ -1749,7 +1892,8 @@ mod ceiling_redistribution {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				mint_amount
+				mint_amount,
+				Permill::from_percent(1)
 			));
 
 			// Change weight to 80% — still normalizes to 100%
@@ -1766,7 +1910,8 @@ mod ceiling_redistribution {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					mint_amount
+					mint_amount,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::ExceedsMaxPsmDebt
 			);
@@ -1790,7 +1935,8 @@ mod ceiling_redistribution {
 				RuntimeOrigin::signed(BOB),
 				INTERNAL_ASSET_ID,
 				USDT_ASSET_ID,
-				5_000_000 * INTERNAL_UNIT
+				5_000_000 * INTERNAL_UNIT,
+				Permill::from_percent(1)
 			));
 
 			// Re-enable USDC and restore weight
@@ -1804,7 +1950,8 @@ mod ceiling_redistribution {
 					RuntimeOrigin::signed(BOB),
 					INTERNAL_ASSET_ID,
 					USDT_ASSET_ID,
-					1_000_000 * INTERNAL_UNIT
+					1_000_000 * INTERNAL_UNIT,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::ExceedsMaxPsmDebt
 			);
@@ -1859,7 +2006,8 @@ mod cycles {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					amount
+					amount,
+					Permill::from_percent(1)
 				));
 
 				let (mint_fee, internal_received) = match last_event() {
@@ -1900,7 +2048,8 @@ mod cycles {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					amount
+					amount,
+					Permill::from_percent(1)
 				));
 
 				let (redeem_fee, external_received) = match last_event() {
@@ -2050,7 +2199,8 @@ mod cycles {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					amount
+					amount,
+					Permill::from_percent(1)
 				));
 
 				let (mint_fee, internal_received) = match last_event() {
@@ -2091,7 +2241,8 @@ mod cycles {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					amount
+					amount,
+					Permill::from_percent(1)
 				));
 
 				let (redeem_fee, external_received) = match last_event() {
@@ -2178,7 +2329,8 @@ mod cycles {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				internal_needed
+				internal_needed,
+				Permill::from_percent(1)
 			));
 
 			let (redeem_fee, _external_received) = match last_event() {
@@ -2318,7 +2470,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDX_ASSET_ID,
-				usdx_raw
+				usdx_raw,
+				Permill::zero()
 			));
 
 			// User spent exactly usdx_raw (no dust path on scale-up).
@@ -2347,7 +2500,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				DAI_MOCK_ASSET_ID,
-				dai_raw
+				dai_raw,
+				Permill::zero()
 			));
 
 			// Only effective amount left the user; dust (123 wei) stays.
@@ -2394,7 +2548,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				DAI_MOCK_ASSET_ID,
-				deposit
+				deposit,
+				Permill::from_percent(1)
 			));
 
 			// ALICE keeps exactly `dust` of the submitted DAI; only
@@ -2440,7 +2595,13 @@ mod decimal_scaling {
 
 			// 999 wei DAI -> internal = 999 / 10^12 = 0.
 			assert_noop!(
-				Psm::mint(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, DAI_MOCK_ASSET_ID, 999),
+				Psm::mint(
+					RuntimeOrigin::signed(ALICE),
+					INTERNAL_ASSET_ID,
+					DAI_MOCK_ASSET_ID,
+					999,
+					Permill::zero()
+				),
 				Error::<Test>::AmountTooSmallAfterConversion
 			);
 		});
@@ -2458,7 +2619,8 @@ mod decimal_scaling {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					DAI_MOCK_ASSET_ID,
-					below
+					below,
+					Permill::zero()
 				),
 				Error::<Test>::BelowMinimumSwap
 			);
@@ -2480,7 +2642,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				DAI_MOCK_ASSET_ID,
-				dai_raw
+				dai_raw,
+				Permill::zero()
 			));
 			assert_eq!(PsmDebt::<Test>::get(INTERNAL_ASSET_ID, DAI_MOCK_ASSET_ID), internal_amount);
 
@@ -2493,7 +2656,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				DAI_MOCK_ASSET_ID,
-				redeem
+				redeem,
+				Permill::zero()
 			));
 
 			assert_eq!(
@@ -2518,7 +2682,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDX_ASSET_ID,
-				10_000 * USDX_UNIT
+				10_000 * USDX_UNIT,
+				Permill::zero()
 			));
 
 			set_redemption_fee(USDX_ASSET_ID, Permill::from_percent(1));
@@ -2548,7 +2713,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDX_ASSET_ID,
-				redeem
+				redeem,
+				Permill::from_percent(1)
 			));
 
 			// User receives exactly `external_out` USDX.
@@ -2598,7 +2764,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDX_ASSET_ID,
-				usdx_raw
+				usdx_raw,
+				Permill::zero()
 			));
 
 			// Redeem 100 internal + 1 unit of dust. USDX has 2 decimals, so internal -> USDX
@@ -2616,7 +2783,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDX_ASSET_ID,
-				redeem
+				redeem,
+				Permill::zero()
 			));
 
 			assert_eq!(
@@ -2652,7 +2820,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDX_ASSET_ID,
-				usdx_raw
+				usdx_raw,
+				Permill::zero()
 			));
 			set_redemption_fee(USDX_ASSET_ID, Permill::from_percent(100));
 
@@ -2668,7 +2837,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDX_ASSET_ID,
-				redeem
+				redeem,
+				Permill::from_percent(100)
 			));
 
 			// User receives zero USDX (100% fee).
@@ -2690,7 +2860,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDX_ASSET_ID,
-				usdx_raw
+				usdx_raw,
+				Permill::zero()
 			));
 
 			// Configure an extreme redemption fee so `internal_net > 0` but falls
@@ -2703,7 +2874,13 @@ mod decimal_scaling {
 
 			let redeem = 100 * INTERNAL_UNIT;
 			assert_noop!(
-				Psm::redeem(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, USDX_ASSET_ID, redeem),
+				Psm::redeem(
+					RuntimeOrigin::signed(ALICE),
+					INTERNAL_ASSET_ID,
+					USDX_ASSET_ID,
+					redeem,
+					Permill::from_parts(999_999)
+				),
 				Error::<Test>::AmountTooSmallAfterConversion
 			);
 		});
@@ -2730,7 +2907,8 @@ mod decimal_scaling {
 					RuntimeOrigin::signed(BOB),
 					INTERNAL_ASSET_ID,
 					USDX_ASSET_ID,
-					10_000 * USDX_UNIT
+					10_000 * USDX_UNIT,
+					Permill::zero()
 				),
 				Error::<Test>::DecimalsMismatch
 			);
@@ -2748,7 +2926,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDX_ASSET_ID,
-				10_000 * USDX_UNIT
+				10_000 * USDX_UNIT,
+				Permill::zero()
 			));
 			assert_ok!(Assets::set_metadata(
 				RuntimeOrigin::signed(ALICE),
@@ -2763,7 +2942,8 @@ mod decimal_scaling {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDX_ASSET_ID,
-					100 * INTERNAL_UNIT
+					100 * INTERNAL_UNIT,
+					Permill::zero()
 				),
 				Error::<Test>::DecimalsMismatch
 			);
@@ -2788,7 +2968,8 @@ mod decimal_scaling {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					1000 * INTERNAL_UNIT
+					1000 * INTERNAL_UNIT,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::DecimalsMismatch
 			);
@@ -2804,7 +2985,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				1000 * INTERNAL_UNIT
+				1000 * INTERNAL_UNIT,
+				Permill::from_percent(1)
 			));
 			assert_ok!(Assets::set_metadata(
 				RuntimeOrigin::signed(ALICE),
@@ -2819,7 +3001,8 @@ mod decimal_scaling {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					100 * INTERNAL_UNIT
+					100 * INTERNAL_UNIT,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::DecimalsMismatch
 			);
@@ -2836,7 +3019,8 @@ mod decimal_scaling {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					1000 * INTERNAL_UNIT
+					1000 * INTERNAL_UNIT,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::PsmNotFound
 			);
@@ -2854,7 +3038,8 @@ mod decimal_scaling {
 					RuntimeOrigin::signed(ALICE),
 					INTERNAL_ASSET_ID,
 					USDC_ASSET_ID,
-					100 * INTERNAL_UNIT
+					100 * INTERNAL_UNIT,
+					Permill::from_percent(1)
 				),
 				Error::<Test>::PsmNotFound
 			);
@@ -2904,13 +3089,15 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				USDX_ASSET_ID,
-				500 * USDX_UNIT
+				500 * USDX_UNIT,
+				Permill::zero()
 			));
 			assert_ok!(Psm::mint(
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				DAI_MOCK_ASSET_ID,
-				1500 * DAI_UNIT
+				1500 * DAI_UNIT,
+				Permill::zero()
 			));
 
 			assert_eq!(PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDX_ASSET_ID), 500 * INTERNAL_UNIT);
@@ -2953,14 +3140,16 @@ mod decimal_scaling {
 						RuntimeOrigin::signed(ALICE),
 						INTERNAL_ASSET_ID,
 						asset_id,
-						amount
+						amount,
+						Permill::zero()
 					));
 				} else {
 					assert_ok!(Psm::redeem(
 						RuntimeOrigin::signed(ALICE),
 						INTERNAL_ASSET_ID,
 						asset_id,
-						amount
+						amount,
+						Permill::zero()
 					));
 				}
 				// try_state must hold after every step.
@@ -2989,7 +3178,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				DAI_MOCK_ASSET_ID,
-				1000 * DAI_UNIT
+				1000 * DAI_UNIT,
+				Permill::zero()
 			));
 			assert_eq!(
 				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, DAI_MOCK_ASSET_ID),
@@ -3013,7 +3203,8 @@ mod decimal_scaling {
 				RuntimeOrigin::signed(ALICE),
 				INTERNAL_ASSET_ID,
 				DAI_MOCK_ASSET_ID,
-				1000 * INTERNAL_UNIT
+				1000 * INTERNAL_UNIT,
+				Permill::zero()
 			));
 			assert_eq!(PsmDebt::<Test>::get(INTERNAL_ASSET_ID, DAI_MOCK_ASSET_ID), 0);
 			assert_eq!(get_asset_balance(DAI_MOCK_ASSET_ID, psm), 7 * DAI_UNIT);
