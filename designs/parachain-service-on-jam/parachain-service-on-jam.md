@@ -896,7 +896,9 @@ ParaId key                                                                =     
                                                                              10 325 B
 ```
 
-**`baseline_footprint = 4 205 + 10 325 = 14 530 B`** per parachain.
+**`baseline_footprint = 4 205 + 10 325 = 14 530 B`** per parachain. Coretime
+should hardcode this value with some headroom to make room for future
+changes to the Service's layout.
 
 ### 6.2 Registration
 
