@@ -46,10 +46,13 @@ pub fn genesis() -> Storage {
 			keys: collators::invulnerables()
 				.into_iter()
 				.map(|(acc, aura)| {
+					let raw: [u8; 32] = sp_core::sr25519::Public::from(aura.clone()).0;
+					let authority_discovery: sp_authority_discovery::AuthorityId =
+						sp_core::sr25519::Public::from_raw(raw).into();
 					(
-						acc.clone(),                                  // account id
-						acc,                                          // validator id
-						people_westend_runtime::SessionKeys { aura }, // session keys
+						acc.clone(), // account id
+						acc,         // validator id
+						people_westend_runtime::SessionKeys { aura, authority_discovery },
 					)
 				})
 				.collect(),

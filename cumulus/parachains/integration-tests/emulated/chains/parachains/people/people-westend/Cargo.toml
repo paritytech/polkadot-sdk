@@ -13,6 +13,7 @@ workspace = true
 [dependencies]
 # Substrate
 frame-support = { workspace = true }
+sp-authority-discovery = { workspace = true, default-features = true }
 sp-core = { workspace = true }
 
 # Cumulus

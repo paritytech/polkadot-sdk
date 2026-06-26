@@ -154,9 +154,11 @@ where
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		if migration_done() {
-			return Err(sp_runtime::TryRuntimeError::Other(
-				"pre_upgrade: AppendAuthorityDiscoveryKeys already executed",
-			));
+			log::info!(
+				target: LOG_TARGET,
+				"pre_upgrade: migration already executed on this chain; treating as a no-op",
+			);
+			return Ok(Vec::new());
 		}
 
 		if !layout_matches::<R>() {
@@ -200,6 +202,15 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		if state.is_empty() {
+			if !migration_done() {
+				return Err(sp_runtime::TryRuntimeError::Other(
+					"post_upgrade: sentinel missing after a detected re-run",
+				));
+			}
+			return Ok(());
+		}
+
 		let (pre_next_keys, queued_present): (Vec<(Vec<u8>, AuraId)>, bool) =
 			DecodeAll::decode_all(&mut &state[..]).map_err(|_| {
 				sp_runtime::TryRuntimeError::Other(
@@ -434,9 +445,13 @@ mod tests {
 				validators.iter().map(|v| pallet_session::NextKeys::<Test>::get(v)).collect();
 			assert_eq!(before, after);
 
-			// try-runtime rejects re-runs loudly.
+			// try-runtime re-runs.
 			#[cfg(feature = "try-runtime")]
-			assert!(AppendAuthorityDiscoveryKeys::<Test>::pre_upgrade().is_err());
+			{
+				let state = AppendAuthorityDiscoveryKeys::<Test>::pre_upgrade().unwrap();
+				assert!(state.is_empty());
+				AppendAuthorityDiscoveryKeys::<Test>::post_upgrade(state).unwrap();
+			}
 		});
 	}
 
