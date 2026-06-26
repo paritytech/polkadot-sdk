@@ -1977,6 +1977,7 @@ pub type Migrations = (
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v7::MigrateV6ToV7<Runtime>,
 	// unreleased
 	pallet_assets::migration::next_asset_id::SetNextAssetId<
 		ConstU32<50_000_000>,
@@ -2026,6 +2027,10 @@ pub type Migrations = (
 		staking::StakingPotsPalletId,
 		staking::StakingStakerRewardKind,
 	>,
+	// Records the cutoff era from which the weighted-points validator self-stake
+	// incentive formula applies; pending pre-cutoff eras keep the legacy
+	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.
+	pallet_staking_async::migrations::SetWeightedPointsFormulaStartEra<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
@@ -2241,6 +2246,7 @@ mod benches {
 		[pallet_multisig, Multisig]
 		[pallet_nft_fractionalization, NftFractionalization]
 		[pallet_nfts, Nfts]
+		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 		[pallet_proxy, Proxy]
 		[pallet_psm, Psm]
 		[pallet_parameters, Parameters]
@@ -2740,6 +2746,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
+			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			use pallet_xcm_bridge_hub_router::benchmarking::Pallet as XcmBridgeHubRouterBench;
 
@@ -2793,6 +2800,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					(keys.keys, keys.proof.encode())
 				}
 			}
+
+			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
+			impl pallet_nomination_pools_benchmarking::Config for Runtime {}
 
 			use xcm_config::{MaxAssetsIntoHolding, WestendLocation, PriceForParentDelivery};
 
