@@ -910,7 +910,7 @@ mod reputation_arbitration {
 		world::{bootstrap_world, collator_world_config, World, WorldExt as _},
 	};
 	use polkadot_node_subsystem::OverseerSignal;
-	use polkadot_primitives::{CoreIndex, Id as ParaId};
+	use polkadot_primitives::{CandidateEvent, CoreIndex, GroupIndex, HeadData, Id as ParaId};
 
 	const PARA_A: ParaId = ParaId::new(100);
 	const PARA_OTHER: ParaId = ParaId::new(200);
