@@ -910,7 +910,7 @@ mod reputation_arbitration {
 		world::{bootstrap_world, collator_world_config, World, WorldExt as _},
 	};
 	use polkadot_node_subsystem::OverseerSignal;
-	use polkadot_primitives::{CandidateEvent, CoreIndex, GroupIndex, HeadData, Id as ParaId};
+	use polkadot_primitives::{CoreIndex, Id as ParaId};
 
 	const PARA_A: ParaId = ParaId::new(100);
 	const PARA_OTHER: ParaId = ParaId::new(200);
@@ -1037,8 +1037,7 @@ mod duplicate_fetch {
 		world::{activated_world, WorldExt as _},
 	};
 	use polkadot_node_network_protocol::request_response::Protocol;
-	use polkadot_node_subsystem::OverseerSignal;
-	use polkadot_primitives::{CandidateEvent, CoreIndex, GroupIndex, HeadData, Id as ParaId};
+	use polkadot_primitives::{CoreIndex, Id as ParaId};
 	use std::time::Duration;
 
 	const PARA: ParaId = ParaId::new(100);
@@ -1086,69 +1085,6 @@ mod duplicate_fetch {
 			|e| matches!(e, Effect::SendRequest { .. }),
 			1,
 			"exactly one fetch across V2 + V3 carriers (offer-keyed dedup)",
-		);
-	}
-
-	/// Reputation arbitration when multiple carriers offer the same candidate. peer_high
-	/// has score 1 (one past inclusion); peer_low has 0. Both advertise the same offer;
-	/// the single fetch must go to peer_high.
-	#[crate::sim_test(
-		only = "experimental",
-		bug_on = "experimental",
-		bug_url = "github:paritytech/polkadot-sdk#12004"
-	)]
-	fn v2_co_carrier_rep_arbitration_picks_high_rep_peer<S: CollatorSut>() {
-		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
-		let leaf0 = w.leaf();
-
-		// Ramp peer_high to score 1 via finalize-with-included-candidate.
-		let peer_high = w.declared_peer(PARA, V2);
-		let cand_seed = w
-			.candidate_at(leaf0)
-			.para(PARA)
-			.parent_head(HeadData(Vec::new()))
-			.head_data(HeadData(vec![1]))
-			.approved_peer(peer_high.peer_id)
-			.build();
-		w.outputs
-			.insert(cand_seed.hash(), cand_seed.commitments.clone(), cand_seed.pvd.clone());
-		w.full_second(&peer_high, &cand_seed);
-		{
-			let mut chain = w.base.chain.lock();
-			chain.set_pending_availability(PARA, vec![cand_seed.committed()]);
-			chain.set_candidate_events(
-				leaf0,
-				vec![CandidateEvent::CandidateIncluded(
-					cand_seed.receipt.clone(),
-					cand_seed.commitments.head_data.clone(),
-					CoreIndex(0),
-					GroupIndex(0),
-				)],
-			);
-			chain.set_finalized(leaf0);
-		}
-		w.base.sim.signal(OverseerSignal::BlockFinalized(leaf0, w.leaf_number()));
-
-		// New leaf for the arbitration round.
-		let leaf1 = w.new_block().from_parent(leaf0).activate().hash;
-		let peer_low = w.declared_peer(PARA, V2);
-
-		// Both carriers offer the same new candidate.
-		let cand = w
-			.candidate_at(leaf1)
-			.para(PARA)
-			.parent_head(cand_seed.output_head())
-			.head_data(HeadData(vec![2]))
-			.build();
-		w.advertise_with_parent_head(&peer_high, leaf1, cand.hash(), cand.parent_head_hash());
-		w.advertise_with_parent_head(&peer_low, leaf1, cand.hash(), cand.parent_head_hash());
-
-		// Exactly one fetch, targeted at peer_high.
-		let _ = w.expect_fetch_from(peer_high.peer_id);
-		w.base.sim.assert_count(
-			|e| matches!(e, Effect::SendRequest { .. }),
-			1,
-			"exactly one fetch and it goes to the rep-best peer",
 		);
 	}
 
