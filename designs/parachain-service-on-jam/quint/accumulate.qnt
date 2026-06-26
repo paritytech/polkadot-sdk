@@ -186,7 +186,8 @@ module accumulate {
       { ...acc, state: o.state }
       | ParachainSetValidationCode(payload) =>
       val o = parachainSetValidationCode(
-        acc.state, payload.paraId, payload.newValidationCodeHash, codeLen, codeLen
+        acc.state, payload.paraId, payload.newValidationCodeHash,
+        payload.newValidationCodeLen, codeLen
       )
       {
         state: o.state,

@@ -410,8 +410,13 @@ enum UpwardMessage {
     /// From `parachain_set_head` — upsert a parachain's head data.
     ParachainSetHead { para_id: ParaId, new_head: HeadData },
     /// From `parachain_set_validation_code` — upsert a parachain's
-    /// validation code hash.
-    ParachainSetValidationCode { para_id: ParaId, new_validation_code_hash: ValidationCodeHash },
+    /// validation code hash. The service must solicit the validation
+    /// code preimage.
+    ParachainSetValidationCode {
+        para_id: ParaId,
+        new_validation_code_hash: ValidationCodeHash,
+        new_validation_code_len: u32,
+    },
     /// From `parachain_clean_up` — remove all per-parachain state.
     ParachainCleanUp(ParaId),
     /// From `parachain_set_state_balance`. See §6.1.
@@ -518,7 +523,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `parachain_service_upgrade(code_hash: Hash, min_item_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_item_gas, min_memo_gas)` (Asset Hub only). Accumulate rejects the call with `AccumulateLog::ServiceUpgradePreimageMissing` if the new code's preimage is not in the Parachain Service's preimage store. See §5.4. |
 | `report_error(data: BoundedVec<u8, 1024>)` | `()` | Provide an opaque error payload (max 1024 bytes) before aborting the execution of the PVF. Stored per-parachain by Accumulate (see §3.3). |
 | `parachain_set_head(para_id: ParaId, new_head: HeadData)` | `()` | Upsert a parachain's head data (Coretime chain only). Used for both initial registration and recovery from a stuck chain. See §6. |
-| `parachain_set_validation_code(para_id: ParaId, new_validation_code_hash: ValidationCodeHash)` | `()` | Upsert a parachain's validation code, bypassing the normal upgrade lifecycle (Coretime chain only). Used for both initial registration and forced code replacement. See §6. |
+| `parachain_set_validation_code(para_id: ParaId, new_validation_code_hash: ValidationCodeHash, new_validation_code_len: u32)` | `()` | Upsert a parachain's validation code, bypassing the normal upgrade lifecycle (Coretime chain only). `new_validation_code_len` is the byte length of the PVF preimage, used by the service to solicit the preimage from JAM and to charge the para's `used_state_balance` for it. Used for both initial registration and forced code replacement. See §6. |
 | `parachain_clean_up(para_id: ParaId)` | `()` | Remove all per-parachain state (Coretime chain only). See §6. |
 | `parachain_set_state_balance(para_id: ParaId, new_total: Balance)` | `()` | Overwrite `ParaInfo[para_id].total_state_balance` (Coretime chain only). On rejection an `AccumulateLog::StateBalanceUpdateRejected` is appended to the parachain's log. See §6.1. |
 
@@ -774,7 +779,7 @@ state-balance management, registration, forced updates, and deregistration:
 
 - `parachain_set_state_balance(para_id, new_total)` — set the parachain's quota
 - `parachain_set_head(para_id, new_head)` — upsert head data
-- `parachain_set_validation_code(para_id, new_validation_code_hash)` — upsert validation code
+- `parachain_set_validation_code(para_id, new_validation_code_hash, new_validation_code_len)` — upsert validation code
 - `parachain_clean_up(para_id)` — remove all per-parachain state
 
 All four are Coretime-chain-only; the Parachain Service performs no rights-checking
@@ -901,36 +906,21 @@ Registration is the composition of `parachain_set_state_balance`,
 
 ```
 Coretime chain
-    │  Account submits registration with genesis head + validation code hash,
-    │  placing the required deposit. Coretime verifies the user has enough
-    │  balance to cover the parachain's required state balance.
-    │  Coretime chain allocates the ParaId and verifies it is not already live.
-    │  Calls parachain_set_state_balance(para_id, total)  // creates ParaInfo
-    │  Calls parachain_set_head(para_id, genesis_head)
-    │  Calls parachain_set_validation_code(para_id, validation_code_hash)
+    │  Account submits registration: genesis head + validation code hash + len.
+    │  Coretime sizes the deposit per §6.1, allocates the ParaId, and calls:
+    │      parachain_set_state_balance(para_id, total)
+    │      parachain_set_head(para_id, genesis_head)
+    │      parachain_set_validation_code(para_id, validation_code_hash, validation_code_len)
     ▼
 Parachain Service (Accumulate)
-    │  parachain_set_state_balance creates a fresh ParaInfo with
-    │    total_state_balance = total and used_state_balance = baseline
-    │    footprint (ParaInfo + worst-case parachain_log reserve). Rejected
-    │    if total < baseline.
-    │  parachain_set_head fills in head_data.
-    │  parachain_set_validation_code fills in validation_code_hash and
-    │    solicits the validation code (see §6.1).
+    │  ParaInfo created (rejected if total < baseline), head_data set,
+    │  validation code solicited and its footprint charged (§6.1).
     ▼
-User submits the validation code preimage to JAM (xtpreimages extrinsic)
-    ▼
-Parachain is live on its assigned core once the preimage is available.
+User submits the validation code preimage to JAM (xtpreimages extrinsic).
+Parachain goes live on its assigned core once the preimage is available.
 ```
 
-Registration does **not** wait for the preimage to be available — only the validation
-code hash is needed. The Parachain Service solicits the preimage immediately, and then
-anyone can submit the actual PVF bytecode via `xtpreimages`. Once the preimage is
-available the parachain is ready to produce blocks.
-
-The Coretime chain must raise `total_state_balance` further before any state beyond
-the baseline can be accommodated (pending code upgrade, PVF-initiated `solicit`,
-etc.).
+Registration does **not** wait for the preimage.
 
 ### 6.3 Forced Updates (Recovery)
 
@@ -939,18 +929,22 @@ whose last included block cannot be built on, or swapping in a new PVF outside t
 upgrade lifecycle:
 
 - `parachain_set_head(para_id, new_head)` overwrites `ParaInfo.head_data`.
-- `parachain_set_validation_code(para_id, new_hash)` overwrites
-  `ParaInfo.validation_code.hash`, swaps the parachain's referencer slot from the
-  old code's `preimage_registry` entry to the new one's (§6.1), and clears any
-  `pending_upgrade`. The Coretime chain must raise `total_state_balance` first
-  (in the same batch) if the new code's footprint wouldn't fit.
+- `parachain_set_validation_code(para_id, new_hash, new_len)` overwrites
+  `ParaInfo.validation_code.hash`, solicits `new_hash`, and clears any
+  `pending_upgrade` (releasing its referencer if set). `used_state_balance`
+  is adjusted by `preimage_footprint(new_len) - preimage_footprint(old_len)`,
+  where `old_len` is `pending_upgrade`'s code length if one was scheduled,
+  otherwise the active code's. Rejected with
+  `AccumulateLog::InsufficientStateBalance` if the new footprint wouldn't
+  fit, so Coretime must raise `total_state_balance` first (in the same
+  batch) when needed.
 
 ```
 Coretime chain
     │  Verifies the rights of the caller
     │  Calls parachain_set_state_balance(para_id, new_total) if needed
     │  Calls parachain_set_head(para_id, new_head) OR
-    │        parachain_set_validation_code(para_id, new_validation_code_hash)
+    │        parachain_set_validation_code(para_id, new_validation_code_hash, new_validation_code_len)
     ▼
 Parachain Service (Accumulate)
     │  Applies the change, updating each affected preimage_registry entry's

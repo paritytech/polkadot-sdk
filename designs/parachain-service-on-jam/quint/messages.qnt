@@ -83,10 +83,11 @@ module messages {
   | ConsumeTransfersUpTo(int)
   // parachain_set_head(para_id, new_head) — Coretime only.
   | ParachainSetHead({ paraId: ParaId, newHead: HeadData })
-  // parachain_set_validation_code(para_id, new_hash) — Coretime only.
+  // parachain_set_validation_code(para_id, new_hash, new_len) — Coretime only.
   | ParachainSetValidationCode({
       paraId: ParaId,
-      newValidationCodeHash: ValidationCodeHash
+      newValidationCodeHash: ValidationCodeHash,
+      newValidationCodeLen: int
   })
   // parachain_clean_up(para_id) — Coretime only.
   | ParachainCleanUp(ParaId)

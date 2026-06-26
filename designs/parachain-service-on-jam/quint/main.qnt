@@ -222,7 +222,7 @@ module main {
         core: 0, queue: List(anyAuthHash), immediate: false, newAssigner: None
       }),
       ParachainSetHead({ paraId: para_id, newHead: 0 }),
-      ParachainSetValidationCode({ paraId: para_id, newValidationCodeHash: codeHashA }),
+      ParachainSetValidationCode({ paraId: para_id, newValidationCodeHash: codeHashA, newValidationCodeLen: FixedCodeLen }),
       ParachainCleanUp(para_id),
       ParachainSetStateBalance({ paraId: para_id, newTotal: 0 }),
       // Coretime-only targeting OTHER paras — registers new paras and
@@ -232,7 +232,7 @@ module main {
       ParachainSetStateBalance({ paraId: MkParaId(5), newTotal: BaselineFootprint * 2 }),
       ParachainSetHead({ paraId: MkParaId(3), newHead: 7 }),
       ParachainSetHead({ paraId: MkParaId(4), newHead: 7 }),
-      ParachainSetValidationCode({ paraId: MkParaId(3), newValidationCodeHash: codeHashB }),
+      ParachainSetValidationCode({ paraId: MkParaId(3), newValidationCodeHash: codeHashB, newValidationCodeLen: FixedCodeLen }),
       ParachainCleanUp(MkParaId(3)),
       ParachainCleanUp(MkParaId(4))
     )
