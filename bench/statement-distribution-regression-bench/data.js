@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782450704231,
+  "lastUpdate": 1782459756528,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6ffecaaab2a3039b8055da047a432fa1ad3c8b25",
-          "message": "Adding Retester to CI (#10071)\n\n# Description\n\nThis PR adds differential tests as part of the CI of the polkadot SDK.\nCurrently, a job will be started when pushing to master or when a PR is\nopened that runs the [differential testing\nframework](https://github.com/paritytech/revive-differential-tests) with\nthe `revive-dev-node-revm-resolc` target.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-03T16:12:41Z",
-          "tree_id": "dcd9713066287fdb219da70371fcef2143a1382c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ffecaaab2a3039b8055da047a432fa1ad3c8b25"
-        },
-        "date": 1762190532134,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.96199999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03503278394600001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04429729048599995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.080013217046,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d1fe835d4be0517056f3b33c34f040b3b2123e35",
+          "message": "fatxpool: unban viewless transactions after mempool revalidation (#11731)\n\n### Problem\n\nIn rare cases, a transaction can get stuck in the fork-aware pool. When\na tx gets `InvalidTransaction` (e.g., `Payment`) on one fork but is\nvalid on others, the view's rotator bans it. The ban propagates to all\nnew views via `deep_clone_with_event_handler` (rotator is cloned), and\n`check_is_known` silently rejects the tx on every subsequent view for\nthe entire ban duration (default 30 min). The tx stays in the mempool\n(valid at the finalized block) but can't enter any view.\n\n### Fix\n\nThree mechanisms working together:\n\n1. **Ban reason tracking** — the rotator now distinguishes `Validation`\nbans (tx failed validation) from `LimitsEnforced` bans (tx evicted for\npool capacity). Only `Validation` bans are eligible for unbanning.\n\n2. **Viewless event** — when a ready tx loses all referencing views, the\ndropped watcher emits a `Viewless` event. The `dropped_monitor_task`\nsets a `needs_unban` flag on the tx's mempool entry.\n\n3. **Mempool revalidation unban** — `revalidate_inner` prioritizes\nflagged txs. If the tx passes validation at the finalized block, it\nunbans across all active views. If it fails — the tx is removed from\nmempool (second chance failed).\n\nAdditionally:\n- `View::imported_status()` returns an `ImportedStatus` enum\n(`NotImported`/`Banned`/`Imported`) instead of a bool, enabling\ndiagnostic logging when a mempool tx is skipped due to a ban.\n- Trace log in `update_view_with_mempool` when a tx is skipped as\ntemporarily banned.\n\n### Alternatives considered\n\n- **Drop tx when no views reference it** — simplest, but loses\npotentially valid transactions,\n- **Unban in `update_view_with_mempool`** — unconditionally unbans\neverything, defeating spam protection (`submit_and_watch` relies on the\nban).\n- **Unban all txs passing mempool revalidation** — creates a hot loop\nfor txs evicted by pool capacity limits (`enforce_limits` → revalidation\nvalid → unbanned → evicted again).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-26T06:00:52Z",
+          "tree_id": "bea4d27d08ba1ae87919031b54430f8913f587df",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d1fe835d4be0517056f3b33c34f040b3b2123e35"
+        },
+        "date": 1782459725905,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.10799999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038160005843999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08080927291799993,
             "unit": "seconds"
           }
         ]
