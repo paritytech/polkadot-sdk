@@ -14,23 +14,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod pallet_xcm_benchmarks_fungible;
-mod pallet_xcm_benchmarks_generic;
+mod pallet_xcm_benchmarks;
 
 use crate::{xcm_config::MaxAssetsIntoHolding, Runtime};
-use alloc::vec::Vec;
+use ::pallet_xcm_benchmarks::xcm_weights::{
+	AssetFilterCountWeigher, AutoCountBasedXcmWeight, CountBasedXcmWeightConfig,
+	UniformAssetsWeigher,
+};
+use ::pallet_xcm_benchmarks::{
+	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
+};
 use frame_support::weights::Weight;
-use pallet_xcm_benchmarks::xcm_weights::{
-	weigh_assets_filter_by_count, weigh_assets_list_by_count, weigh_hints, weigh_initiate_transfer,
-	AssetFilterCountWeigher, UniformAssetWeigher,
-};
-use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
-use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
-use sp_runtime::BoundedVec;
-use xcm::{
-	latest::{prelude::*, AssetTransferFilter},
-	DoubleEncoded,
-};
+use pallet_xcm_benchmarks::WeightInfo as XcmBenchWeight;
+use xcm::latest::prelude::*;
+
+impl_xcm_generic_weight_info_provider!(XcmBenchWeight<Runtime>);
+impl_xcm_fungible_weight_info_provider!(XcmBenchWeight<Runtime>);
 
 const MAX_ASSETS: u64 = 100;
 
@@ -45,93 +44,18 @@ impl AssetFilterCountWeigher for AssetHubRococoCountWeigher {
 	}
 }
 
-pub struct AssetHubRococoXcmWeight<Call>(core::marker::PhantomData<Call>);
-impl<Call> XcmWeightInfo<Call> for AssetHubRococoXcmWeight<Call> {
-	fn withdraw_asset(assets: &Assets) -> Weight {
-		weigh_assets_list_by_count::<UniformAssetWeigher>(
-			assets,
-			XcmFungibleWeight::<Runtime>::withdraw_asset(),
-		)
-	}
-	fn reserve_asset_deposited(assets: &Assets) -> Weight {
-		weigh_assets_list_by_count::<UniformAssetWeigher>(
-			assets,
-			XcmFungibleWeight::<Runtime>::reserve_asset_deposited(),
-		)
-	}
-	fn receive_teleported_asset(assets: &Assets) -> Weight {
-		weigh_assets_list_by_count::<UniformAssetWeigher>(
-			assets,
-			XcmFungibleWeight::<Runtime>::receive_teleported_asset(),
-		)
-	}
-	fn query_response(
-		_query_id: &u64,
-		_response: &Response,
-		_max_weight: &Weight,
-		_querier: &Option<Location>,
-	) -> Weight {
-		XcmGeneric::<Runtime>::query_response()
-	}
-	fn transfer_asset(assets: &Assets, _dest: &Location) -> Weight {
-		weigh_assets_list_by_count::<UniformAssetWeigher>(
-			assets,
-			XcmFungibleWeight::<Runtime>::transfer_asset(),
-		)
-	}
-	fn transfer_reserve_asset(assets: &Assets, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		weigh_assets_list_by_count::<UniformAssetWeigher>(
-			assets,
-			XcmFungibleWeight::<Runtime>::transfer_reserve_asset(),
-		)
-	}
-	fn transact(
-		_origin_type: &OriginKind,
-		_fallback_max_weight: &Option<Weight>,
-		_call: &DoubleEncoded<Call>,
-	) -> Weight {
-		XcmGeneric::<Runtime>::transact()
-	}
-	fn hrmp_new_channel_open_request(
-		_sender: &u32,
-		_max_message_size: &u32,
-		_max_capacity: &u32,
-	) -> Weight {
-		// XCM Executor does not currently support HRMP channel operations
-		Weight::MAX
-	}
-	fn hrmp_channel_accepted(_recipient: &u32) -> Weight {
-		// XCM Executor does not currently support HRMP channel operations
-		Weight::MAX
-	}
-	fn hrmp_channel_closing(_initiator: &u32, _sender: &u32, _recipient: &u32) -> Weight {
-		// XCM Executor does not currently support HRMP channel operations
-		Weight::MAX
-	}
-	fn clear_origin() -> Weight {
-		XcmGeneric::<Runtime>::clear_origin()
-	}
-	fn descend_origin(_who: &InteriorLocation) -> Weight {
-		XcmGeneric::<Runtime>::descend_origin()
-	}
-	fn report_error(_query_response_info: &QueryResponseInfo) -> Weight {
-		XcmGeneric::<Runtime>::report_error()
-	}
-	fn deposit_asset(assets: &AssetFilter, _dest: &Location) -> Weight {
-		weigh_assets_filter_by_count::<AssetHubRococoCountWeigher>(
-			assets,
-			XcmFungibleWeight::<Runtime>::deposit_asset(),
-		)
-	}
-	fn deposit_reserve_asset(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		weigh_assets_filter_by_count::<AssetHubRococoCountWeigher>(
-			assets,
-			XcmFungibleWeight::<Runtime>::deposit_reserve_asset(),
-		)
-	}
+pub struct AssetHubRococoXcmWeightConfig;
+impl<Call> CountBasedXcmWeightConfig<Call> for AssetHubRococoXcmWeightConfig {
+	type GenericWeights = XcmBenchWeight<Runtime>;
+	type FungibleWeights = XcmBenchWeight<Runtime>;
+	type FilterCountWeigher = AssetHubRococoCountWeigher;
+	type AssetsListWeigher = UniformAssetsWeigher;
+
 	fn exchange_asset(_give: &AssetFilter, _receive: &Assets, _maximal: &bool) -> Weight {
+		// Rococo does not currently support asset exchange operations
 		Weight::MAX
 	}
+<<<<<<< HEAD
 	fn initiate_reserve_withdraw(
 		assets: &AssetFilter,
 		_reserve: &Location,
@@ -272,4 +196,9 @@ impl<Call> XcmWeightInfo<Call> for AssetHubRococoXcmWeight<Call> {
 	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<Call>) -> Weight {
 		XcmGeneric::<Runtime>::execute_with_origin()
 	}
+=======
+>>>>>>> 9333807107 (include rococo to use abstracted weight xcm logic)
 }
+
+pub type AssetHubRococoXcmWeight<Call> =
+	AutoCountBasedXcmWeight<Call, AssetHubRococoXcmWeightConfig>;
