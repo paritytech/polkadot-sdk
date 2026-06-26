@@ -50,7 +50,7 @@ const PARA_ID: u32 = 1000;
 const VARIANT_WASM: Option<&[u8]> = cumulus_test_runtime::with_authority_discovery::WASM_BINARY;
 
 /// Mesh convergence timeout after session change.
-const FULL_MESH_TIMEOUT: Duration = Duration::from_secs(180);
+const FULL_MESH_TIMEOUT: Duration = Duration::from_secs(240);
 
 /// Polling cadence for the full-mesh check.
 const FULL_MESH_POLL_INTERVAL: Duration = Duration::from_secs(5);
@@ -92,6 +92,15 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_resources(|resources| {
 					resources.with_request_cpu(2).with_request_memory("2G")
 				})
+				.with_genesis_overrides(serde_json::json!({
+					"configuration": {
+						"config": {
+							"scheduler_params": {
+								"scheduling_lookahead": 5
+							}
+						}
+					}
+				}))
 				.with_validator(|node| node.with_name("validator-0"))
 				.with_validator(|node| node.with_name("validator-1"))
 				.with_validator(|node| node.with_name("validator-2"))
@@ -99,14 +108,11 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		})
 		.with_parachain(|p| {
 			let names = collator_names();
-			// `default-test` is a chain-spec id registered in the `test-parachain` binary's
-			// `load_spec` function.  It loads the default `cumulus-test-runtime` WASM (no
-			// pallet_session / pallet_authority_discovery) with para id 1000.
 			let mut p = p
 				.with_id(PARA_ID)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("default-test")
+				.with_chain("relay-parent-offset")
 				.with_collator(|n| {
 					n.with_name(names[0])
 						.validator(true)
@@ -126,7 +132,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			// 4 full nodes — consume the 1/1 non-reserved slots but are not in the mesh.
 			for name in full_node_names() {
 				let name = *name;
-				p = p.with_collator(|n| n.with_name(name).validator(false));
+				p = p.with_fullnode(|n| n.with_name(name));
 			}
 
 			p

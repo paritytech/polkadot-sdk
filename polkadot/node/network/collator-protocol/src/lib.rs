@@ -16,6 +16,27 @@
 
 //! The Collator Protocol allows collators and validators talk to each other.
 //! This subsystem implements both sides of the collator protocol.
+//!
+//! # Public API discipline
+//!
+//! The deterministic test-sim framework
+//! (`polkadot-collator-protocol-test-sim`) is a **separate crate** and uses only this crate's
+//! public API. This is intentional. **Do not** add `pub` items to expose internals just to
+//! make a scenario compile.
+//!
+//! When a scenario needs a private type the answer is one of:
+//!
+//! - Add a variant to the contract enums in `test-sim/src/contract/{effect,query}.rs`. The scenario
+//!   then asserts/queries the new observable rather than reaching into state.
+//! - Add a public builder method on the test-sim builders (`World`, `Peer`, `Candidate`).
+//! - Refactor the scenario to drive the property via a stimulus that makes it observable.
+//!
+//! Why: tests that depend on internals calcify implementation choices, mask production bugs
+//! when private state diverges from observable behaviour, and break on refactors that did not
+//! actually change behaviour. The whole point of the framework is that tests survive internal
+//! refactors. Convenience exports erode that asset; the doc rule + reviewer attention on new
+//! `pub` items at the lib.rs boundary is the enforcement mechanism. PR reviewers: any new
+//! `pub` item in this file gets a justification or a "no".
 
 #![deny(missing_docs)]
 #![deny(unused_crate_dependencies)]
@@ -24,6 +45,17 @@
 // is enforced for production code; legacy tests retain their original behavior.
 #![cfg_attr(test, allow(clippy::disallowed_methods))]
 #![recursion_limit = "256"]
+
+// Acknowledge dev-deps used only by integration tests under `tests/`. The
+// `unused_crate_dependencies` lint checks each Cargo target against the whole dependency set,
+// so the lib target flags deps that only the `tests/` target uses.
+// See https://github.com/rust-lang/rust/issues/95513.
+#[cfg(test)]
+use {
+	polkadot_collator_protocol_test_sim_macros as _, polkadot_node_core_backing as _,
+	polkadot_node_core_prospective_parachains as _, polkadot_overseer as _,
+	polkadot_subsystem_test_sim as _, sp_consensus_slots as _,
+};
 
 use std::{
 	collections::{HashMap, HashSet},

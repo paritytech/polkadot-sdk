@@ -669,6 +669,11 @@ pub use pallet_revive;
 #[cfg(feature = "pallet-revive-proc-macro")]
 pub use pallet_revive_proc_macro;
 
+/// Wire types used by pallet-revive which have higher stability guarantees than internal
+/// pallet-revive types.
+#[cfg(feature = "pallet-revive-types")]
+pub use pallet_revive_types;
+
 /// Exposes all the host functions that a contract can import.
 #[cfg(feature = "pallet-revive-uapi")]
 pub use pallet_revive_uapi;
