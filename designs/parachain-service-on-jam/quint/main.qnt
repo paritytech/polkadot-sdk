@@ -29,15 +29,22 @@ module main {
   /// — Coretime and Asset Hub act as ordinary parachains whose PVFs emit
   /// privileged upward messages (Coretime: `ParachainSet*`, Asset Hub:
   /// `SetValidatorKeys` / `UpgradeService` / `TransferOut` / `ConsumeTransfersUpTo`).
+  /// Per-para balance budget at init: baseline + headroom for the active
+  /// code preimage + headroom for one pending-upgrade code preimage + a
+  /// small buffer for other state (staged validator keys, solicited
+  /// preimages used by tests, etc.).
+  pure val InitialParaBalance: int =
+    BaselineFootprint + preimageFootprint(FixedCodeLen) * 2 + BaselineFootprint
+
   pure val initialState: ParachainServiceState = {
     val coretimeId: ParaId = MkParaId(1)
     val assetHubId: ParaId = MkParaId(2)
     val coretimeCode: ValidationCodeHash = { vchBytes: 1 }
     val assetHubCode: ValidationCodeHash = { vchBytes: 2 }
-    val s1 = parachainSetStateBalance(emptyState, coretimeId, BaselineFootprint * 4).state
+    val s1 = parachainSetStateBalance(emptyState, coretimeId, InitialParaBalance).state
     val s2 = parachainSetValidationCode(s1, coretimeId, coretimeCode, FixedCodeLen, FixedCodeLen).state
     val s3 = parachainSetHead(s2, coretimeId, 0).state
-    val s4 = parachainSetStateBalance(s3, assetHubId, BaselineFootprint * 4).state
+    val s4 = parachainSetStateBalance(s3, assetHubId, InitialParaBalance).state
     val s5 = parachainSetValidationCode(s4, assetHubId, assetHubCode, FixedCodeLen, FixedCodeLen).state
     parachainSetHead(s5, assetHubId, 0).state
   }

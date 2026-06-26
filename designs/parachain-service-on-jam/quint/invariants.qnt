@@ -178,9 +178,11 @@ module invariants {
   /// available to a Rust trace harness.
   val head_state_matches_outcomes: bool =
     prevSvc.parachains.keys().forall(p =>
-      not(svc.parachains.keys().contains(p))
-      or svc.paraInfo(p).headData == prevSvc.paraInfo(p).headData
-      or lastStepWorkResults.foldl(false, (acc, r) => match r {
+      // Guarded explicitly because Quint's `or` is eager — `svc.paraInfo(p)`
+      // would crash on a `ParachainCleanUp`-removed para.
+      if (not(svc.parachains.keys().contains(p))) true
+      else if (svc.paraInfo(p).headData == prevSvc.paraInfo(p).headData) true
+      else lastStepWorkResults.foldl(false, (acc, r) => match r {
         | Ok(ok) =>
           val direct = ok.paraId == p
             and ok.headData == svc.paraInfo(p).headData
