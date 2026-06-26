@@ -118,14 +118,6 @@ module messages {
   /// results into the parachain_log (design §3.3).
   type AuthTrace = int
 
-  /// What Accumulate receives from JAM for each accumulated work-report.
-  /// The `authTrace` is on the report, not per-result; we tag every result
-  /// with the report-level trace for ease of modeling.
-  type AccumulatedItem = {
-    result: ParachainWorkResult,
-    authTrace: AuthTrace
-  }
-
   // --- Per-parachain log entries (design §3.1) ---------------------------
 
   type LogEntry =
@@ -163,12 +155,10 @@ module messages {
   /// verifies and rejects the work-package as defense-in-depth.
   pure def violatesParachainRestrictions(
     msgs: List[UpwardMessage],
-    para_id: ParaId,
-    assetHub: ParaId,
-    coretimeChain: ParaId
+    para_id: ParaId
   ): bool =
   msgs.foldl(false, (acc, m) =>
     acc or
-    (isAssetHubOnly(m) and para_id != assetHub) or
-    (isCoretimeOnly(m) and para_id != coretimeChain))
+    (isAssetHubOnly(m) and para_id != AssetHubParaId) or
+    (isCoretimeOnly(m) and para_id != CoretimeParaId))
 }

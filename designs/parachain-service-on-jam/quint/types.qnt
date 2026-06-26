@@ -25,6 +25,14 @@ module types {
   type ParaId = MkParaId(int)
   type ServiceId = MkServiceId(int)
 
+  /// The two privileged chains, modeled as fixed parachain IDs. The
+  /// Coretime chain owns parachain management (§6); Asset Hub owns
+  /// validator-key updates and service self-upgrade (§5.3, §5.4). Defined
+  /// here so the whole model refers to the same IDs instead of scattering
+  /// `MkParaId(1)` / `MkParaId(2)` literals.
+  pure val CoretimeParaId: ParaId = MkParaId(1)
+  pure val AssetHubParaId: ParaId = MkParaId(2)
+
   type CoreIndex = int
   type Timeslot = int
   type Balance = int
@@ -47,12 +55,11 @@ module types {
   /// Each validator key blob is 336 octets.
   pure val ValidatorKeySize: int = 336
 
-  /// Valid `stagingset` lengths (gray paper Safrole, eq. valcount):
-  /// `valcount = { 3c : c ∈ N_{2 .. C_corecount+1} } = {6, 9, …, 1023}`.
-  /// The gray paper's `N_{a .. b}` is the half-open interval `[a, b)`, so the
-  /// max is `3 * C_corecount = 1023`. Quint's `.to` is inclusive, hence
-  /// `2.to(CoreCount)` (NOT `CoreCount + 1`) to model `c ∈ [2, 342)`.
   pure val CoreCount: int = 341
+  /// Valid `stagingset` lengths (gray paper Safrole, eq. valcount).
+  /// Quint's `.to` is inclusive, so the upper bound is `CoreCount` not
+  /// `CoreCount + 1` — this `2.to(CoreCount)` matches the gray paper's
+  /// half-open `N_{2 .. C_corecount+1}`.
   pure val ValCount: Set[int] =
   2.to(CoreCount).map(c => 3 * c)
 

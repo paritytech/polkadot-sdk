@@ -17,9 +17,6 @@ module state_vars {
   /// JAM `stagingset` mirror so we can observe `designate` effects.
   var jamStagingSet: List[ValidatorKey]
 
-  /// Privileged service IDs (modeled as parachain IDs in this skeleton).
-  var coretimeChain: ParaId
-  var assetHub: ParaId
 
   /// Ghost state: every `(para, hash)` for which Accumulate has processed
   /// a `Solicit` upward message without a matching `Forget`. Used only by

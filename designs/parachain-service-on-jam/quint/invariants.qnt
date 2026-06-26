@@ -45,8 +45,8 @@ module invariants {
   /// buffer is non-empty, Asset Hub must be live and have room for it.
   val staged_keys_owned_by_asset_hub: bool =
   svc.stagedValidatorKeys == List() or (
-    svc.isLive(assetHub) and
-    svc.paraInfo(assetHub).usedStateBalance >=
+    svc.isLive(AssetHubParaId) and
+    svc.paraInfo(AssetHubParaId).usedStateBalance >=
     ValidatorKeySize * svc.stagedValidatorKeys.length()
   )
 
@@ -111,7 +111,7 @@ module invariants {
           else acc
       })
       val stagedFootprint =
-      if (para_id == assetHub)
+      if (para_id == AssetHubParaId)
       ValidatorKeySize * svc.stagedValidatorKeys.length()
       else 0
       pi.usedStateBalance == BaselineFootprint + refSum + stagedFootprint
@@ -197,6 +197,119 @@ module invariants {
       })
     )
 
+  /// When Refine fails for a *registered* para, Accumulate must record a
+  /// `RefineLogEntry` carrying that error in the para's `parachain_log`
+  /// (design §3.3). This invariant checks that record exists after a step.
+  ///
+  /// Two facts let the check find the entry by reading `parachain_log[p]`
+  /// at `now`:
+  ///   - `parachain_log[p]` is a `Map[Timeslot, LogEntry]`, and Accumulate
+  ///     files each entry under the timeslot it ran in.
+  ///   - `stepRefineAccumulate` does not advance time, so the timeslot the
+  ///     entry was filed under equals the value of `now` we read here.
+  /// Hence: the matching entry, if present, lives at `parachain_log[p][now]`.
+  ///
+  /// Two cases are deliberately NOT required to hold:
+  ///   - Unregistered-para errors: there is no `parachain_log[p]` to append
+  ///     to (§5.1 step 1), so they are exempt.
+  ///   - Each timeslot holds at most one `LogEntry` (§3.1
+  ///     `CountedMap[Timeslot, LogEntry, 8]`), so when a para has several
+  ///     results in one step the *last* writer wins that slot. We therefore
+  ///     only require the entry for the para's LAST result: if that result
+  ///     is an `Err`, the slot must hold a matching `RefineLogEntry`. A
+  ///     later `Ok` for the same para legitimately overwrites an earlier
+  ///     refine entry with an accumulate one — covered by `acc_error_logged`.
+  val refine_error_logged: bool = {
+    val erredLiveParas =
+      lastStepWorkResults.foldl(Set(), (acc, r) => match r {
+        | Ok(_) => acc
+        | Err(e) => if (svc.isLive(e.paraId)) acc.union(Set(e.paraId)) else acc
+      })
+    erredLiveParas.forall(p => {
+      // Last result for this para; `None` once any later result exists that
+      // is not an Err for `p` (an Ok write would have superseded the slot).
+      val lastForPara =
+        lastStepWorkResults.foldl(None, (acc, r) => match r {
+          | Ok(ok) => if (ok.paraId == p) None else acc
+          | Err(e) => if (e.paraId == p) Some(e.error) else acc
+        })
+      match lastForPara {
+        | None => true  // superseded by a later Ok for the same para
+        | Some(err) =>
+          val log = svc.paraLog(p)
+          log.keys().contains(now) and
+          (match log.get(now) {
+            | RefineLogEntry(entry) => entry.error == err
+            | AccumulateLogEntry(_) => false
+          })
+      }
+    })
+  }
+
+  /// An `Ok` candidate that fails the authoritative validation-code check
+  /// (§5.1 step 3 — its `validationCodeHash` matches neither the active nor
+  /// the pending code) must surface an `InvalidCodeHash` accumulate event in
+  /// the para's `parachain_log` at the current timeslot (§5.1, §3.1). We
+  /// check this against `prevSvc` — the pre-step code state the check ran
+  /// against — and only for the para's LAST result this step (last writer
+  /// wins per slot). Paras whose code check would have passed are exempt;
+  /// other accumulate-log causes (insufficient balance, designate rejection)
+  /// are pinned by `used_balance_consistency` / `designate_only_valid_lengths`
+  /// rather than re-derived here.
+  val acc_error_logged: bool = {
+    val okLiveParas =
+      lastStepWorkResults.foldl(Set(), (acc, r) => match r {
+        | Err(_) => acc
+        | Ok(ok) => if (prevSvc.isLive(ok.paraId)) acc.union(Set(ok.paraId)) else acc
+      })
+    okLiveParas.forall(p => {
+      // Last result for this para, and whether it is an Ok with a code
+      // hash matching neither active nor pending in the PRE-step state.
+      val lastBadCode =
+        lastStepWorkResults.foldl(None, (acc, r) => match r {
+          | Err(_) => acc
+          | Ok(ok) =>
+            if (ok.paraId != p) acc
+            else {
+              val pi = prevSvc.paraInfo(p)
+              val matchesActive = ok.validationCodeHash == pi.validationCode.hash
+              // The lazy reap (§5.1 step 2) runs BEFORE the code check and
+              // can drop a timed-out pending upgrade. If the pre-step pending
+              // deadline had passed we cannot decide the post-reap code state
+              // from `prevSvc` alone, so we exempt that case (`None`).
+              val reapable =
+                match pi.pendingUpgrade {
+                  | None => false
+                  | Some(pair) => pair._2 <= now
+                }
+              val matchesPending =
+                match pi.pendingUpgrade {
+                  | None => false
+                  | Some(pair) => ok.validationCodeHash == pair._1.hash
+                }
+              if (reapable) None
+              else Some(not(matchesActive) and not(matchesPending))
+            }
+        })
+      match lastBadCode {
+        | None => true
+        | Some(bad) =>
+          not(bad) or {
+            val log = svc.paraLog(p)
+            log.keys().contains(now) and
+            (match log.get(now) {
+              | AccumulateLogEntry(es) =>
+                es.foldl(false, (a, e) => match e {
+                  | InvalidCodeHashAcc(_) => true
+                  | _ => a
+                })
+              | RefineLogEntry(_) => false
+            })
+          }
+      }
+    })
+  }
+
   /// `incoming_transfers` must never exceed its cap; overflow is bounced
   /// at ingress in `stepIncomingTransfer`.
   val incoming_transfers_bounded: bool =
@@ -228,6 +341,8 @@ module invariants {
     parachain_log_only_for_live,
     code_activation_releases_old,
     head_state_matches_outcomes,
+    refine_error_logged,
+    acc_error_logged,
     incoming_transfers_bounded,
     pending_authorizer_queue_bounded,
     staged_validator_keys_bounded

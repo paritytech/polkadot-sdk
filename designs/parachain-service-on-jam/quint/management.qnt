@@ -177,13 +177,12 @@ module management {
 
   /// §6.4 — remove all per-parachain state. Releases every preimage the
   /// parachain references; JAM `forget` is invoked for each preimage that
-  /// becomes referencerless. The `assetHub` parameter lets us also clear
-  /// any service-level state that's logically Asset-Hub-only (notably
-  /// `stagedValidatorKeys`) when Asset Hub itself is being cleaned up.
+  /// becomes referencerless. Also clears any service-level state that's
+  /// logically Asset-Hub-only (notably `stagedValidatorKeys`) when Asset Hub
+  /// (`AssetHubParaId`) itself is being cleaned up.
   pure def parachainCleanUp(
     s: ParachainServiceState,
-    para_id: ParaId,
-    assetHub: ParaId
+    para_id: ParaId
   ): ParachainServiceState = {
     if (not(s.isLive(para_id))) {
       s
@@ -203,7 +202,7 @@ module management {
       // Drop any Asset-Hub-specific service-level state if Asset Hub
       // itself is being unregistered.
       val stagedAfter =
-      if (para_id == assetHub) List() else s.stagedValidatorKeys
+      if (para_id == AssetHubParaId) List() else s.stagedValidatorKeys
       {
         ...s,
         preimageRegistry: regAfter,

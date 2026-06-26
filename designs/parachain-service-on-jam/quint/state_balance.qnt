@@ -13,10 +13,8 @@ module state_balance {
 
   // --- Per-parachain footprint primitives --------------------------------
 
-  /// Baseline footprint of an empty parachain — the `(ParaId, ParaInfo)`
-  /// entry plus the per-parachain log reserve, with every bounded field
-  /// SCALE-encoded at its maximum. Computed in design §6.1.
-  pure val BaselineFootprint: int = 14530
+  /// Per-para baseline footprint (design §6.1).
+  pure val BaselineFootprint: int = 16018
 
   /// The single-referencer footprint a parachain pays for a solicited
   /// preimage of length `len`. Combines the entry-side cost (hash, len,

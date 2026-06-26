@@ -15,6 +15,7 @@ module tests {
   import messages.* from "./messages"
   import state.* from "./state"
   import state_balance.* from "./state_balance"
+  import code_upgrades.* from "./code_upgrades"
   import refine.* from "./refine"
   import accumulate.* from "./accumulate"
   import state_vars.* from "./state_vars"
@@ -35,9 +36,9 @@ module tests {
       items: List({ validationCodeHash: codeHash, pov: 0 })
     }
     val newHead = pi.headData + 1
-    val wr = refine(svc, pkg, false, false, newHead, msgs, assetHub, coretimeChain)[0]
+    val wr = refine(svc, pkg, false, false, headHash(pi.headData), newHead, msgs)[0]
     val out = accumulateOnePackage(
-      svc, wr, solicitedSet, None, FixedCodeLen, now, assetHub, coretimeChain
+      svc, wr, 0, solicitedSet, None, FixedCodeLen, now
     )
     val sFinal = applyAlwaysAccumulate(out.state, now)
     all {
@@ -47,8 +48,6 @@ module tests {
         | Some(v) => v
         | None => jamStagingSet
       },
-      coretimeChain' = coretimeChain,
-      assetHub' = assetHub,
       solicitedSet' = out.solicited,
       prevSvc' = svc,
       lastStepWorkResults' = List(wr),
@@ -69,9 +68,9 @@ module tests {
       items: List({ validationCodeHash: c1, pov: 0 })
     }
     val nh1 = pi1.headData + 1
-    val wr1 = refine(svc, pkg1, false, false, nh1, m1, assetHub, coretimeChain)[0]
+    val wr1 = refine(svc, pkg1, false, false, headHash(pi1.headData), nh1, m1)[0]
     val out1 = accumulateOnePackage(
-      svc, wr1, solicitedSet, None, FixedCodeLen, now, assetHub, coretimeChain
+      svc, wr1, 0, solicitedSet, None, FixedCodeLen, now
     )
     val pi2 = out1.state.paraInfo(p2)
     val pkg2: WorkPackage = {
@@ -79,10 +78,10 @@ module tests {
       items: List({ validationCodeHash: c2, pov: 0 })
     }
     val nh2 = pi2.headData + 1
-    val wr2 = refine(out1.state, pkg2, false, false, nh2, m2, assetHub, coretimeChain)[0]
+    val wr2 = refine(out1.state, pkg2, false, false, headHash(pi2.headData), nh2, m2)[0]
     val out2 = accumulateOnePackage(
-      out1.state, wr2, out1.solicited, out1.jamDesignate,
-      FixedCodeLen, now, assetHub, coretimeChain
+      out1.state, wr2, 0, out1.solicited, out1.jamDesignate,
+      FixedCodeLen, now
     )
     val sFinal = applyAlwaysAccumulate(out2.state, now)
     all {
@@ -92,8 +91,6 @@ module tests {
         | Some(v) => v
         | None => jamStagingSet
       },
-      coretimeChain' = coretimeChain,
-      assetHub' = assetHub,
       solicitedSet' = out2.solicited,
       prevSvc' = svc,
       lastStepWorkResults' = List(wr1, wr2),
@@ -108,8 +105,6 @@ module tests {
     svc' = svc,
     now' = now,
     jamStagingSet' = jamStagingSet,
-    coretimeChain' = coretimeChain,
-    assetHub' = assetHub,
     solicitedSet' = solicitedSet,
     prevSvc' = prevSvc,
     lastStepWorkResults' = lastStepWorkResults,
@@ -133,8 +128,6 @@ module tests {
     svc' = { ...svc, incomingTransfers: fullIncomingTransfersFixture },
     now' = now,
     jamStagingSet' = jamStagingSet,
-    coretimeChain' = coretimeChain,
-    assetHub' = assetHub,
     solicitedSet' = solicitedSet,
     prevSvc' = svc,
     lastStepWorkResults' = lastStepWorkResults,
@@ -148,19 +141,10 @@ module tests {
     init
       .then(fillIncomingTransfers)
       .then(stepIncomingTransfer)
-      .then(all {
+      .then(expectThat(all {
         svc.incomingTransfers.length() == IncomingTransfersMaxLen,
-        lastStepBouncedTransfers.length() == 1,
-        svc' = svc,
-        now' = now,
-        jamStagingSet' = jamStagingSet,
-        coretimeChain' = coretimeChain,
-        assetHub' = assetHub,
-        solicitedSet' = solicitedSet,
-        prevSvc' = prevSvc,
-        lastStepWorkResults' = lastStepWorkResults,
-        lastStepBouncedTransfers' = lastStepBouncedTransfers
-      })
+        lastStepBouncedTransfers.length() == 1
+      }))
 
   // --- Multi-package accumulate ------------------------------------------
 
@@ -172,13 +156,13 @@ module tests {
     val assetHubCode: ValidationCodeHash = { vchBytes: 2 }
     init
       .then(applyTwoHappyPaths(
-        MkParaId(1), coretimeCode, List(),
-        MkParaId(2), assetHubCode, List()
+        CoretimeParaId, coretimeCode, List(),
+        AssetHubParaId, assetHubCode, List()
       ))
       .then(expectThat(all {
         lastStepWorkResults.length() == 2,
-        svc.paraInfo(MkParaId(1)).headData == 1,
-        svc.paraInfo(MkParaId(2)).headData == 1
+        svc.paraInfo(CoretimeParaId).headData == 1,
+        svc.paraInfo(AssetHubParaId).headData == 1
       }))
   }
 
@@ -197,7 +181,7 @@ module tests {
     val codeB: ValidationCodeHash = { vchBytes: 0x22 }
     val balance = BaselineFootprint + preimageFootprint(FixedCodeLen) * 4
     init
-      .then(applyHappyPath(MkParaId(1), { vchBytes: 1 }, List(
+      .then(applyHappyPath(CoretimeParaId, { vchBytes: 1 }, List(
         ParachainSetStateBalance({ paraId: MkParaId(3), newTotal: balance }),
         ParachainSetValidationCode({
           paraId: MkParaId(3),
@@ -239,7 +223,7 @@ module tests {
   run testParaRegisterOperateCleanup = {
     val coretimeCode: ValidationCodeHash = { vchBytes: 1 }
     init
-      .then(applyHappyPath(MkParaId(1), coretimeCode, List(
+      .then(applyHappyPath(CoretimeParaId, coretimeCode, List(
         ParachainSetStateBalance({ paraId: MkParaId(4), newTotal: BaselineFootprint * 2 })
       )))
       .then(expectThat(all {
@@ -247,17 +231,110 @@ module tests {
         svc.paraInfo(MkParaId(4)).headData == 0,
         svc.paraInfo(MkParaId(4)).usedStateBalance == BaselineFootprint
       }))
-      .then(applyHappyPath(MkParaId(1), coretimeCode, List(
+      .then(applyHappyPath(CoretimeParaId, coretimeCode, List(
         ParachainSetHead({ paraId: MkParaId(4), newHead: 42 })
       )))
       .then(expectThat(svc.paraInfo(MkParaId(4)).headData == 42))
-      .then(applyHappyPath(MkParaId(1), coretimeCode, List(
+      .then(applyHappyPath(CoretimeParaId, coretimeCode, List(
         ParachainCleanUp(MkParaId(4))
       )))
-      .then(expectThat(all {
+       .then(expectThat(all {
         not(svc.parachains.keys().contains(MkParaId(4))),
         svc.preimageRegistry.keys().forall(h =>
           not(svc.preimageRegistry.get(h).referencers.contains(MkParaId(4))))
       }))
+  }
+
+  // --- Pending-upgrade timeout reap (§5.2 Phase 5b) ----------------------
+  //
+  // The timeout is hard to hit in random simulation: `UpgradeTimeoutTimeslots
+  // = 14400` and `stepTick` advances `now` by 1, so `quint run` essentially
+  // never advances past a deadline. These deterministic `run` tests drive the
+  // lazy-reap path directly so it is actually exercised.
+
+  /// A registered para with an armed pending upgrade. Built off the initial
+  /// state by requesting an upgrade to `pendingUpgradeHash` at timeslot 0, so
+  /// the deadline is `UpgradeTimeoutTimeslots`.
+  pure val pendingUpgradeHash: ValidationCodeHash = { vchBytes: 777 }
+
+  pure val stateWithPendingUpgrade: ParachainServiceState = {
+    // Coretime chain is registered in `initialState`; arm an upgrade for it
+    // via the Accumulate-side `requestCodeUpgrade` primitive.
+    requestCodeUpgrade(
+      initialState, 0, CoretimeParaId, pendingUpgradeHash, FixedCodeLen
+    ).state
+  }
+
+  /// Reaping BEFORE the deadline is a no-op: the pending upgrade survives.
+  run reapBeforeDeadlineTest = {
+    val para = CoretimeParaId
+    val s0 = stateWithPendingUpgrade
+    // Sanity: the upgrade is armed and its code is solicited.
+    val armed =
+      match s0.paraInfo(para).pendingUpgrade {
+        | None => false
+        | Some(pair) => pair._1.hash == pendingUpgradeHash
+      }
+    // now = 1 < deadline (UpgradeTimeoutTimeslots).
+    val reaped = reapTimedOutUpgrade(s0, 1, para, FixedCodeLen)
+    val stillArmed =
+      match reaped.state.paraInfo(para).pendingUpgrade {
+        | None => false
+        | Some(pair) => pair._1.hash == pendingUpgradeHash
+      }
+    all {
+      assert(armed),
+      assert(s0.hasReferencer(vchAsHash(pendingUpgradeHash), para)),
+      assert(stillArmed),
+      assert(reaped.state.hasReferencer(vchAsHash(pendingUpgradeHash), para)),
+      assert(not(reaped.jamForget)),
+      init
+    }
+  }
+
+  /// Reaping AT/AFTER the deadline clears the pending upgrade and releases
+  /// the (unpinned) pending code's referencer, forwarding JAM `forget`.
+  run reapAfterDeadlineTest = {
+    val para = CoretimeParaId
+    val s0 = stateWithPendingUpgrade
+    // now = UpgradeTimeoutTimeslots == deadline; reap fires (deadline <= now).
+    val reaped = reapTimedOutUpgrade(s0, UpgradeTimeoutTimeslots, para, FixedCodeLen)
+    val cleared = reaped.state.paraInfo(para).pendingUpgrade == None
+    all {
+      // Pending upgrade is gone.
+      assert(cleared),
+      // The pending code was unpinned, so its referencer is released and
+      // JAM `forget` is forwarded (it was the only referencer).
+      assert(not(reaped.state.hasReferencer(vchAsHash(pendingUpgradeHash), para))),
+      assert(reaped.jamForget),
+      // The active code is untouched.
+      assert(reaped.state.hasReferencer(
+        vchAsHash(s0.paraInfo(para).validationCode.hash), para)),
+      init
+    }
+  }
+
+  /// A pinned pending code survives the reap as an ordinary solicited
+  /// preimage: `pendingUpgrade` is cleared but the referencer stays and no
+  /// JAM `forget` is forwarded (§5.2 `pinned`).
+  run reapPinnedPendingTest = {
+    val para = CoretimeParaId
+    // Pin the pending code by replaying a `Solicit` of it during Accumulate.
+    val baseAcc: AccumulateOutcome = {
+      state: stateWithPendingUpgrade,
+      jamDesignate: None, jamSolicit: Set(), jamForget: Set(), logs: List()
+    }
+    val pinned = applyUpwardMessage(
+      baseAcc, para, FixedCodeLen, 0,
+      Solicit({ hash: vchAsHash(pendingUpgradeHash), len: FixedCodeLen })
+    ).state
+    val reaped = reapTimedOutUpgrade(pinned, UpgradeTimeoutTimeslots, para, FixedCodeLen)
+    all {
+      assert(reaped.state.paraInfo(para).pendingUpgrade == None),
+      // Referencer survives because the para independently solicited it.
+      assert(reaped.state.hasReferencer(vchAsHash(pendingUpgradeHash), para)),
+      assert(not(reaped.jamForget)),
+      init
+    }
   }
 }

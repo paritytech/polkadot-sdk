@@ -66,17 +66,6 @@ module state {
     serviceCodeHash: Hash
   }
 
-  /// The "global" state we track alongside the service state: the current
-  /// JAM timeslot, the JAM `stagingset` (so we can observe `designate`
-  /// effects), and which service ids are which special chain.
-  type Globals = {
-    now: Timeslot,
-    jamStagingSet: List[ValidatorKey],
-    // The service IDs of the two privileged chains (design §6, §7).
-    coretimeChain: ServiceId,
-    assetHub: ServiceId
-  }
-
   // --- Constructors ------------------------------------------------------
 
   pure val emptyState: ParachainServiceState = {
@@ -103,4 +92,52 @@ module state {
   ): bool =
   s.preimageRegistry.keys().contains(h) and
   s.preimageRegistry.get(h).referencers.contains(para_id)
+
+  // --- Log-append helpers (design §3.1, §3.3, §5.1) ----------------------
+
+  pure def paraLog(s: ParachainServiceState, para_id: ParaId): ParachainLog =
+  if (s.parachainLog.keys().contains(para_id)) s.parachainLog.get(para_id)
+  else Map()
+
+  /// Append a `RefineLogEntry` for a failed Refine at timeslot `now`
+  /// (design §3.3). No-op for an unregistered para — there is no
+  /// `parachainLog[para_id]` to append to (§5.1 step 1).
+  pure def appendRefineLog(
+    s: ParachainServiceState,
+    para_id: ParaId,
+    now: Timeslot,
+    error: RefineLog,
+    authTrace: AuthTrace
+  ): ParachainServiceState =
+  if (not(s.isLive(para_id))) s
+  else {
+    val log = s.paraLog(para_id)
+    val entry = RefineLogEntry({ error: error, authTrace: authTrace })
+    { ...s, parachainLog: s.parachainLog.put(para_id, log.put(now, entry)) }
+  }
+
+  /// Merge `entries` into the `AccumulateLogEntry` at timeslot `now` for a
+  /// live para (design §5.1). Existing accumulate entries at `now` are
+  /// preserved and appended to; a refine entry at the same slot is replaced
+  /// (the two never co-occur in a single block in this model). No-op for an
+  /// unregistered para and for an empty `entries` list.
+  pure def appendAccumulateLogs(
+    s: ParachainServiceState,
+    para_id: ParaId,
+    now: Timeslot,
+    entries: List[AccumulateLog]
+  ): ParachainServiceState =
+  if (not(s.isLive(para_id)) or entries == List()) s
+  else {
+    val log = s.paraLog(para_id)
+    val prior =
+      if (log.keys().contains(now))
+        match log.get(now) {
+          | AccumulateLogEntry(es) => es
+          | RefineLogEntry(_) => List()
+        }
+      else List()
+    val merged = AccumulateLogEntry(prior.concat(entries))
+    { ...s, parachainLog: s.parachainLog.put(para_id, log.put(now, merged)) }
+  }
 }

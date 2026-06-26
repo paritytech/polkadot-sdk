@@ -37,16 +37,14 @@ module main {
     BaselineFootprint + preimageFootprint(FixedCodeLen) * 2 + BaselineFootprint
 
   pure val initialState: ParachainServiceState = {
-    val coretimeId: ParaId = MkParaId(1)
-    val assetHubId: ParaId = MkParaId(2)
     val coretimeCode: ValidationCodeHash = { vchBytes: 1 }
     val assetHubCode: ValidationCodeHash = { vchBytes: 2 }
-    val s1 = parachainSetStateBalance(emptyState, coretimeId, InitialParaBalance).state
-    val s2 = parachainSetValidationCode(s1, coretimeId, coretimeCode, FixedCodeLen, FixedCodeLen).state
-    val s3 = parachainSetHead(s2, coretimeId, 0).state
-    val s4 = parachainSetStateBalance(s3, assetHubId, InitialParaBalance).state
-    val s5 = parachainSetValidationCode(s4, assetHubId, assetHubCode, FixedCodeLen, FixedCodeLen).state
-    parachainSetHead(s5, assetHubId, 0).state
+    val s1 = parachainSetStateBalance(emptyState, CoretimeParaId, InitialParaBalance).state
+    val s2 = parachainSetValidationCode(s1, CoretimeParaId, coretimeCode, FixedCodeLen, FixedCodeLen).state
+    val s3 = parachainSetHead(s2, CoretimeParaId, 0).state
+    val s4 = parachainSetStateBalance(s3, AssetHubParaId, InitialParaBalance).state
+    val s5 = parachainSetValidationCode(s4, AssetHubParaId, assetHubCode, FixedCodeLen, FixedCodeLen).state
+    parachainSetHead(s5, AssetHubParaId, 0).state
   }
 
   // --- Init --------------------------------------------------------------
@@ -55,8 +53,6 @@ module main {
     svc' = initialState,
     now' = 0,
     jamStagingSet' = List(),
-    coretimeChain' = MkParaId(1),
-    assetHub' = MkParaId(2),
     solicitedSet' = Set(),
     prevSvc' = initialState,
     lastStepWorkResults' = List(),
@@ -76,7 +72,10 @@ module main {
     m2: UpwardMessage,
     numMsgs: int,
     itemCount: int
-  ): { pkg: WorkPackage, msgs: List[UpwardMessage], newHead: HeadData } = {
+  ): {
+    pkg: WorkPackage, msgs: List[UpwardMessage],
+    parentHead: Hash, newHead: HeadData
+  } = {
     val msgs =
       if (numMsgs == 0) List()
       else if (numMsgs == 1) List(m1)
@@ -85,7 +84,17 @@ module main {
       if (itemCount == 0) { authorizedParas: List(paraId), items: List() }
       else if (itemCount == 1) { authorizedParas: List(paraId), items: List(candidate) }
       else { authorizedParas: List(paraId, paraId), items: List(candidate, candidate) }
-    { pkg: pkg, msgs: msgs, newHead: s.paraInfo(paraId).headData + 1 }
+    // The collator builds on the para's current head. For a live para that is
+    // `headHash(headData)` and the new head is `headData + 1`, so the result
+    // chains correctly and passes Accumulate's parent-head check (§5.1 step 2).
+    // For a non-live para (e.g. cleaned up by an earlier package this block)
+    // there is no head; we declare an arbitrary one — the candidate is dropped
+    // at Accumulate (§5.1 step 1) regardless.
+    val curHead = if (s.isLive(paraId)) s.paraInfo(paraId).headData else 0
+    {
+      pkg: pkg, msgs: msgs,
+      parentHead: headHash(curHead), newHead: curHead + 1
+    }
   }
 
   action stepRefineAccumulate = {
@@ -99,8 +108,9 @@ module main {
     nondet wp1NumMsgs = oneOf(Set(0, 1, 2))
     nondet wp1ItemCount = oneOf(Set(0, 1, 2))
     nondet wp1AuthMalformed = oneOf(Set(false, true))
+    nondet wp1AuthTrace = oneOf(Set(0, 1, 2))
     val wp1 = buildPackage(svc, wp1Para, wp1Candidate, wp1M1, wp1M2, wp1NumMsgs, wp1ItemCount)
-    val wp1Result = refine(svc, wp1.pkg, wp1AuthMalformed, wp1PvfPanic, wp1.newHead, wp1.msgs, assetHub, coretimeChain)[0]
+    val wp1Result = refine(svc, wp1.pkg, wp1AuthMalformed, wp1PvfPanic, wp1.parentHead, wp1.newHead, wp1.msgs)[0]
 
     // Second work package (possibly same para — captures multi-package mix)
     nondet wp2Para = oneOf(svc.parachains.keys())
@@ -112,6 +122,7 @@ module main {
     nondet wp2NumMsgs = oneOf(Set(0, 1, 2))
     nondet wp2ItemCount = oneOf(Set(0, 1, 2))
     nondet wp2AuthMalformed = oneOf(Set(false, true))
+    nondet wp2AuthTrace = oneOf(Set(0, 1, 2))
 
     // 0 packages models a pure always-accumulate block (the service still
     // accumulates with no work packages); 1 or 2 exercise the normal path.
@@ -121,15 +132,18 @@ module main {
       { state: svc, solicited: solicitedSet, jamDesignate: None }
     val out1 =
       if (numPkgs == 0) passThrough
-      else accumulateOnePackage(svc, wp1Result, solicitedSet, None, FixedCodeLen, now, assetHub, coretimeChain)
+      else accumulateOnePackage(svc, wp1Result, wp1AuthTrace, solicitedSet, None, FixedCodeLen, now)
     // wp2 refines against the post-wp1 state so a second package for the
     // SAME para chains off wp1's new head; different para → identical to
-    // refining against `svc`.
+    // refining against `svc`. wp1 may have cleaned up `wp2Para` (it was
+    // chosen from the pre-step `svc.parachains`); `buildPackage` and
+    // `refine` both guard the resulting unregistered para (it fails Refine
+    // with `InvalidCodeHash` and is dropped at Accumulate).
     val wp2 = buildPackage(out1.state, wp2Para, wp2Candidate, wp2M1, wp2M2, wp2NumMsgs, wp2ItemCount)
-    val wp2Result = refine(out1.state, wp2.pkg, wp2AuthMalformed, wp2PvfPanic, wp2.newHead, wp2.msgs, assetHub, coretimeChain)[0]
+    val wp2Result = refine(out1.state, wp2.pkg, wp2AuthMalformed, wp2PvfPanic, wp2.parentHead, wp2.newHead, wp2.msgs)[0]
     val out2 =
       if (numPkgs == 2)
-        accumulateOnePackage(out1.state, wp2Result, out1.solicited, out1.jamDesignate, FixedCodeLen, now, assetHub, coretimeChain)
+        accumulateOnePackage(out1.state, wp2Result, wp2AuthTrace, out1.solicited, out1.jamDesignate, FixedCodeLen, now)
       else out1
 
     val sFinal = applyAlwaysAccumulate(out2.state, now)
@@ -147,8 +161,6 @@ module main {
       svc' = sFinal,
       jamStagingSet' = newStaging,
       now' = now,
-      coretimeChain' = coretimeChain,
-      assetHub' = assetHub,
       solicitedSet' = out2.solicited,
       prevSvc' = svc,
       lastStepWorkResults' = results,
@@ -162,8 +174,6 @@ module main {
     now' = now + 1,
     svc' = svc,
     jamStagingSet' = jamStagingSet,
-    coretimeChain' = coretimeChain,
-    assetHub' = assetHub,
     solicitedSet' = solicitedSet,
     prevSvc' = svc,
     lastStepWorkResults' = List(),
@@ -190,8 +200,6 @@ module main {
       svc' = newSvc,
       now' = now,
       jamStagingSet' = jamStagingSet,
-      coretimeChain' = coretimeChain,
-      assetHub' = assetHub,
       solicitedSet' = solicitedSet,
       prevSvc' = svc,
       lastStepWorkResults' = List(),
@@ -262,7 +270,6 @@ module main {
       }),
       ParachainSetHead({ paraId: para_id, newHead: 0 }),
       ParachainSetValidationCode({ paraId: para_id, newValidationCodeHash: codeHashA, newValidationCodeLen: FixedCodeLen }),
-      ParachainCleanUp(para_id),
       ParachainSetStateBalance({ paraId: para_id, newTotal: 0 }),
       // Coretime-only targeting OTHER paras — registers new paras and
       // performs forced recovery / clean-up across the model's paraId space.
@@ -272,6 +279,11 @@ module main {
       ParachainSetHead({ paraId: MkParaId(3), newHead: 7 }),
       ParachainSetHead({ paraId: MkParaId(4), newHead: 7 }),
       ParachainSetValidationCode({ paraId: MkParaId(3), newValidationCodeHash: codeHashB, newValidationCodeLen: FixedCodeLen }),
+      // `ParachainCleanUp` is Coretime-only, but the real Coretime chain
+      // never cleans up the privileged chains (1 = Coretime, 2 = Asset Hub)
+      // — that would brick the control plane. We only generate clean-up of
+      // non-privileged test paras (3, 4), never `para_id` (which is the
+      // originating para, e.g. Coretime cleaning up itself).
       ParachainCleanUp(MkParaId(3)),
       ParachainCleanUp(MkParaId(4))
     )

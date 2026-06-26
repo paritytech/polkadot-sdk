@@ -37,14 +37,13 @@ module validator_keys {
   }
 
   /// Replay of `SetValidatorKeys { keys, isLast }` during Accumulate.
-  /// `assetHub` is the Asset Hub `ParaId` — the only caller permitted by §4.3.
+  /// Asset Hub (`AssetHubParaId`) is the only caller permitted by §4.3.
   pure def applySetValidatorKeys(
     s: ParachainServiceState,
-    assetHub: ParaId,
     chunk: List[ValidatorKey],
     isLast: bool
   ): ChunkOutcome = {
-    val pi = s.paraInfo(assetHub)
+    val pi = s.paraInfo(AssetHubParaId)
     if (isLast) {
       // Final chunk: assemble the full set in memory, hand it to `designate`,
       // and clear the staging buffer in the same step. These keys never
@@ -56,7 +55,7 @@ module validator_keys {
       val sCleared = {
         ...s,
         stagedValidatorKeys: List(),
-        parachains: s.parachains.put(assetHub, pi.addUsed(-priorFootprint))
+        parachains: s.parachains.put(AssetHubParaId, pi.addUsed(-priorFootprint))
       }
       val ok = ValCount.contains(assembled.length())
       {
@@ -84,7 +83,7 @@ module validator_keys {
           state: {
             ...s,
             stagedValidatorKeys: s.stagedValidatorKeys.concat(chunk),
-            parachains: s.parachains.put(assetHub, pi.addUsed(delta))
+            parachains: s.parachains.put(AssetHubParaId, pi.addUsed(delta))
           },
           jamDesignate: false,
           designateVec: List(),

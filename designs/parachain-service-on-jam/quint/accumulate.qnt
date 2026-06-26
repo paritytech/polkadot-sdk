@@ -41,21 +41,12 @@ module accumulate {
     jamDesignate: Option[List[ValidatorKey]]
   }
 
-  pure val emptyOutcome: AccumulateOutcome = {
-    state: emptyState,
-    jamDesignate: None,
-    jamSolicit: Set(),
-    jamForget: Set(),
-    logs: List()
-  }
-
   // ---- Replay a single upward message -----------------------------------
 
   pure def applyUpwardMessage(
     acc: AccumulateOutcome,
     para_id: ParaId,
     codeLen: int,
-    assetHub: ParaId,
     now: Timeslot,
     m: UpwardMessage
   ): AccumulateOutcome = {
@@ -154,8 +145,8 @@ module accumulate {
       | SetValidatorKeys(payload) =>
       // Both Refine and `accumulateOkPrefix`'s service-restriction check
       // (§4.3) reject upward messages from non-Asset-Hub paras before we
-      // reach this branch, so `para_id == assetHub` holds by construction.
-      val o = applySetValidatorKeys(acc.state, assetHub, payload.keys, payload.isLast)
+      // reach this branch, so `para_id == AssetHubParaId` holds by construction.
+      val o = applySetValidatorKeys(acc.state, payload.keys, payload.isLast)
       {
         state: o.state,
         jamDesignate:
@@ -200,7 +191,7 @@ module accumulate {
         }
       }
       | ParachainCleanUp(paraId) =>
-      { ...acc, state: parachainCleanUp(acc.state, paraId, assetHub) }
+      { ...acc, state: parachainCleanUp(acc.state, paraId) }
       | TransferOut(_) =>
       // Asset-Hub-only outbound transfer. Modeled abstractly: the
       // top-level `step` action routes the transfer into the destination
@@ -250,9 +241,7 @@ module accumulate {
     s: ParachainServiceState,
     r: ParachainWorkResultOk,
     codeLen: int,
-    now: Timeslot,
-    assetHub: ParaId,
-    coretimeChain: ParaId
+    now: Timeslot
   ): {
     state: ParachainServiceState,
     rejected: bool,
@@ -288,7 +277,7 @@ module accumulate {
             jamForget: if (reaped.jamForget) Set({ hashBytes: 0 }) else Set(),
             logs: List(InvalidCodeHashAcc(r.validationCodeHash))
           }
-        } else if (violatesParachainRestrictions(r.upwardMessages, r.paraId, assetHub, coretimeChain)) {
+        } else if (violatesParachainRestrictions(r.upwardMessages, r.paraId)) {
           // §4.3 defense-in-depth: even if Refine should already have
           // rejected this, Accumulate independently verifies and refuses
           // to apply a work-package whose upward messages include
@@ -334,25 +323,32 @@ module accumulate {
   pure def accumulateOnePackage(
     state: ParachainServiceState,
     result: ParachainWorkResult,
+    authTrace: AuthTrace,
     solicited: Set[(ParaId, Hash)],
     prevDesignate: Option[List[ValidatorKey]],
     codeLen: int,
-    now: Timeslot,
-    assetHub: ParaId,
-    coretimeChain: ParaId
+    now: Timeslot
   ): PerPackageOutcome = {
     match result {
-      | Err(_) => {
-        state: state,
-        solicited: solicited,
-        jamDesignate: prevDesignate
-      }
-      | Ok(ok) =>
-        val pre = accumulateOkPrefix(state, ok, codeLen, now, assetHub, coretimeChain)
-        if (pre.rejected) {
-          state: pre.state,
+      | Err(e) =>
+        // §3.3: a failed Refine digest is logged with the work-report's
+        // authorizer trace. No-op inside `appendRefineLog` for an
+        // unregistered para (§5.1 step 1).
+        {
+          state: state.appendRefineLog(e.paraId, now, e.error, authTrace),
           solicited: solicited,
           jamDesignate: prevDesignate
+        }
+      | Ok(ok) =>
+        val pre = accumulateOkPrefix(state, ok, codeLen, now)
+        if (pre.rejected) {
+          // §5.1 steps 1–3: a rejected candidate may still record an
+          // accumulate event (e.g. `InvalidCodeHash`). Persist it.
+          {
+            state: pre.state.appendAccumulateLogs(ok.paraId, now, pre.logs),
+            solicited: solicited,
+            jamDesignate: prevDesignate
+          }
         } else {
           val baseAcc = {
             state: pre.state,
@@ -362,14 +358,14 @@ module accumulate {
             logs: pre.logs
           }
           val acc = ok.upwardMessages.foldl(baseAcc, (a, m) =>
-            applyUpwardMessage(a, ok.paraId, codeLen, assetHub, now, m))
+            applyUpwardMessage(a, ok.paraId, codeLen, now, m))
           val newSolicited = ok.upwardMessages.foldl(solicited, (s, m) => match m {
             | Solicit(p) => s.union(Set((ok.paraId, p.hash)))
             | Forget(p) => s.exclude(Set((ok.paraId, p.hash)))
             | _ => s
           })
           {
-            state: acc.state,
+            state: acc.state.appendAccumulateLogs(ok.paraId, now, acc.logs),
             solicited: newSolicited,
             jamDesignate: acc.jamDesignate
           }

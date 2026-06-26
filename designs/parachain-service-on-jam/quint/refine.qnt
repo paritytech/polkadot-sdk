@@ -128,25 +128,33 @@ module refine {
   /// Per-item Refine semantics (§4.1).
   ///
   /// The PVF itself is modeled as an oracle whose visible effects are:
-  ///   - `pvfPanic`: did the guest trap / report_error before completing?
-  ///   - `newHead`:  the head data the PVF committed (via the head host call).
-  ///   - `msgs`:     the upward-message side effects the PVF emitted during Refine.
+  ///   - `pvfPanic`:    did the guest trap / report_error before completing?
+  ///   - `parentHead`:  the parent-head hash the PVF declared via
+  ///                    `set_parent_head_hash` (§4.2). Refine forwards it
+  ///                    verbatim; the authoritative check against the para's
+  ///                    stored head happens in Accumulate (§5.1 step 2).
+  ///   - `newHead`:     the head data the PVF committed (via the head host call).
+  ///   - `msgs`:        the upward-message side effects the PVF emitted.
   ///
   /// The Refine wrapper then applies the rules from §4.1 and §4.3:
   ///   1. `historical_lookup` for the candidate's validation code (`codeAvailable`).
   ///   2. Treat panic / report_error as an `Err(Opaque(...))` result.
   ///   3. Reject ill-formed upward-message bundles (`wellFormedUpwardMessages`).
   ///   4. Otherwise assemble an `Ok` result tagged with the para id from the
-  ///      authorizer config and the canonical parent-head hash.
+  ///      authorizer config and the PVF-declared parent-head hash.
+  ///
+  /// Refine is stateless: it reads NO `ParaInfo`. In particular it neither
+  /// knows nor checks whether `para_id` is registered — that is Accumulate's
+  /// job (§5.1 step 1), as is the parent-head match (§5.1 step 2). The only
+  /// state Refine touches is the preimage store, via `codeAvailable`.
   pure def refineItem(
     s: ParachainServiceState,
     para_id: ParaId,
     candidate: ParachainCandidate,
     pvfPanic: bool,
+    parentHead: Hash,
     newHead: HeadData,
-    msgs: List[UpwardMessage],
-    assetHub: ParaId,
-    coretimeChain: ParaId
+    msgs: List[UpwardMessage]
   ): ParachainWorkResult = {
     if (not(codeAvailable(s, candidate.validationCodeHash)))
     refineErr(para_id, InvalidCodeHash)
@@ -154,7 +162,7 @@ module refine {
     refineErr(para_id, Opaque(0))
     else if (not(wellFormedUpwardMessages(msgs)))
     refineErr(para_id, SetValidatorKeysTooManyKeys)
-    else if (violatesParachainRestrictions(msgs, para_id, assetHub, coretimeChain))
+    else if (violatesParachainRestrictions(msgs, para_id))
     refineErr(para_id, RestrictedHostFunction)
     else if (resultExceedsBudget(msgs))
     refineErr(para_id, WorkDigestTooLarge)
@@ -162,7 +170,7 @@ module refine {
     refineOk(
       para_id,
       candidate.validationCodeHash,
-      headHash(s.paraInfo(para_id).headData),
+      parentHead,
       newHead,
       msgs
     )
@@ -176,17 +184,16 @@ module refine {
   /// step 1). Otherwise each item is refined independently via
   /// `refineItem`, with its `para_id` sourced from `authorized_paras`.
   ///
-  /// Single-item packages only (per §3.2): `pvfPanic`, `newHead`, and
-  /// `msgs` are per-item scalars.
+  /// Single-item packages only (per §3.2): `pvfPanic`, `parentHead`,
+  /// `newHead`, and `msgs` are per-item scalars declared by the PVF.
   pure def refine(
     s: ParachainServiceState,
     pkg: WorkPackage,
     authConfigMalformed: bool,
     pvfPanic: bool,
+    parentHead: Hash,
     newHead: HeadData,
-    msgs: List[UpwardMessage],
-    assetHub: ParaId,
-    coretimeChain: ParaId
+    msgs: List[UpwardMessage]
   ): List[ParachainWorkResult] = {
     val errParaId =
       if (pkg.authorizedParas.length() > 0) pkg.authorizedParas[0]
@@ -200,7 +207,7 @@ module refine {
     else
     List(refineItem(
       s, pkg.authorizedParas[0], pkg.items[0],
-      pvfPanic, newHead, msgs, assetHub, coretimeChain
+      pvfPanic, parentHead, newHead, msgs
     ))
   }
 }
