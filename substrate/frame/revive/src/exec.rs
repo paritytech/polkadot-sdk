@@ -1712,8 +1712,9 @@ where
 		let ed = <T as Config>::Currency::minimum_balance();
 		let is_eth_tx = exec_config.collect_deposit_from_hold.is_some();
 		with_transaction(|| -> TransactionOutcome<DispatchResult> {
-			match meter
-				.charge_deposit(&StorageDeposit::Charge(ed))
+			// Meter the ED deposit only after the transfer succeeds: the meter is not rolled
+			// back, so metering earlier would count an ED for an account never created.
+			match Ok::<(), DispatchError>(())
 				.and_then(|_| {
 					if is_eth_tx {
 						let credit = T::FeeInfo::withdraw_txfee(ed)
@@ -1728,6 +1729,7 @@ where
 					}
 				})
 				.and_then(|_| transfer_with_dust::<T>(from, to, value, preservation))
+				.and_then(|_| meter.charge_deposit(&StorageDeposit::Charge(ed)))
 			{
 				Ok(_) => TransactionOutcome::Commit(Ok(())),
 				Err(err) => TransactionOutcome::Rollback(Err(err)),

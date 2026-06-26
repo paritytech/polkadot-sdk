@@ -335,6 +335,17 @@ fn transfer_to_nonexistent_account_works() {
 		);
 		// The ED transfer would work. But it should only be executed with the actual transfer
 		assert!(!System::account_exists(&EVE));
+
+		assert_eq!(
+			meter
+				.execute_postponed_deposits(
+					&Origin::from_account_id(ALICE),
+					&ExecConfig::new_substrate_tx()
+				)
+				.unwrap(),
+			StorageDeposit::Charge(ed),
+			"only the successful transfer should charge the ED storage deposit",
+		);
 	});
 }
 
