@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782459638930,
+  "lastUpdate": 1782494535605,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b365061a52d56f1efa11565fb4e9b777206e4519",
-          "message": "Run differential tests for PolkaVM and REVM (#10205)\n\n# Description\n\nThis is a PR that builds on PR #10071 making the differential testing\nframework run the tests for both REVM and PolkaVM.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-05T10:25:46Z",
-          "tree_id": "6fdaf770e376c30943adee1ffc9e11c08b37da88",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b365061a52d56f1efa11565fb4e9b777206e4519"
-        },
-        "date": 1762342327167,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.659225142900002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20228736703333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13738226143333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mertwole@gmail.com",
+            "name": "mertwole",
+            "username": "mertwole"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f3d3e2f0809142b4a4bf6420aec2a943fe2c6a4d",
+          "message": "[pallet-staking-async] add `chill_inactive` extrinsic (#12381)\n\nThis PR adds the `chill_inactive` extrinsic which allows chilling the\nvalidators that were inactive too much.\n\nThe inactivity is defined as having zero era points for at least\n`ChillInactiveThreshold` eras among the last `HistoryDepth` eras.\n\nResolves #5674\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Andrei Trandafir <142614787+andreitrand@users.noreply.github.com>",
+          "timestamp": "2026-06-26T13:24:01Z",
+          "tree_id": "db2986711527f35904f0774478f503a0cf23967a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3d3e2f0809142b4a4bf6420aec2a943fe2c6a4d"
+        },
+        "date": 1782494504834,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13690824433333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.877255905166667,
             "unit": "seconds"
           }
         ]
