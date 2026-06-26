@@ -154,7 +154,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 </div></details><details class="toggle method-toggle" open><summary><section id="method.new" class="method"><a class="src rightside" href="../../../src/sc_network_sync/strategy/warp.rs.html#233-283">Source</a><h4 class="code-header">pub fn <a href="#method.new" class="fn">new</a>&lt;Client&gt;(
     client: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Client&gt;,
     warp_sync_config: <a class="enum" href="enum.WarpSyncConfig.html" title="enum sc_network_sync::strategy::warp::WarpSyncConfig">WarpSyncConfig</a>&lt;B&gt;,
-    protocol_name: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ProtocolName&gt;,
+    protocol_name: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="../../../sc_network/types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>&gt;,
     block_downloader: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn <a class="trait" href="../../block_relay_protocol/trait.BlockDownloader.html" title="trait sc_network_sync::block_relay_protocol::BlockDownloader">BlockDownloader</a>&lt;B&gt;&gt;,
     min_peers_to_start_warp_sync: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.usize.html">usize</a>&gt;,
 ) -&gt; Self<div class="where">where
@@ -178,7 +178,7 @@ proofs, in this case we will continue polling until the target block is known.</
 </div></details><section id="method.on_generic_response" class="method"><a class="src rightside" href="../../../src/sc_network_sync/strategy/warp.rs.html#339-389">Source</a><h4 class="code-header">pub fn <a href="#method.on_generic_response" class="fn">on_generic_response</a>(
     &amp;mut self,
     peer_id: &amp;<a class="struct" href="../../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
-    protocol_name: ProtocolName,
+    protocol_name: <a class="enum" href="../../../sc_network/types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
     response: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;,
 )</h4></section><details class="toggle method-toggle" open><summary><section id="method.on_warp_proof_response" class="method"><a class="src rightside" href="../../../src/sc_network_sync/strategy/warp.rs.html#392-473">Source</a><h4 class="code-header">pub fn <a href="#method.on_warp_proof_response" class="fn">on_warp_proof_response</a>(
     &amp;mut self,
