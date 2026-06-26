@@ -19,12 +19,14 @@ use frame_support::{
 	derive_impl, parameter_types,
 	traits::{
 		fungible::HoldConsideration, AsEnsureOriginWithArg, Consideration, ConstU128, ConstU32,
-		ConstU64, Footprint, LinearStoragePrice,
+		ConstU64, EitherOf, Footprint, LinearStoragePrice,
 	},
 	weights::constants::RocksDbWeight,
 	PalletId,
 };
-use frame_system::{mocking::MockBlock, EnsureRoot, EnsureSigned, GenesisConfig};
+use frame_system::{
+	mocking::MockBlock, EnsureRoot, EnsureRootWithSuccess, EnsureSigned, GenesisConfig,
+};
 use sp_io::TestExternalities as TestState;
 use sp_runtime::{traits::IdentityLookup, BuildStorage, Permill};
 
@@ -119,7 +121,11 @@ parameter_types! {
 	pub const PsmCreationDeposit: u128 = 1_000_000;
 	pub const PsmDepositSlope: u128 = 0;
 	pub PsmHoldReason: RuntimeHoldReason = RuntimeHoldReason::Psm(crate::HoldReason::CreationDeposit);
+	pub const NoPsmDepositor: Option<u128> = None;
 }
+
+type PsmCreateOrigin =
+	EitherOf<EnsureRootWithSuccess<u128, NoPsmDepositor>, crate::EnsureAssetOwner<Test>>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub struct PsmBenchmarkHelper;
@@ -153,7 +159,7 @@ impl crate::Config for Test {
 		PsmHoldReason,
 		LinearStoragePrice<PsmCreationDeposit, PsmDepositSlope, u128>,
 	>;
-	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<u128>>;
+	type CreateOrigin = PsmCreateOrigin;
 	type RuntimeOrigin = RuntimeOrigin;
 	type PalletsOrigin = OriginCaller;
 	type AssetId = u32;
@@ -244,7 +250,7 @@ fn install_test_psm() {
 		.expect("ALICE is funded; consideration succeeds");
 	crate::PsmAdmin::<Test>::insert(
 		INTERNAL_ASSET_ID,
-		crate::PsmAdminInfo::<Test> { full_admin, emergency_admin, depositor: ALICE, ticket },
+		crate::PsmAdminInfo::<Test> { full_admin, emergency_admin, deposit: Some((ALICE, ticket)) },
 	);
 	// Acquire provider refs like `create_psm` does, so the test PSM mirrors a real one.
 	frame_system::Pallet::<Test>::inc_providers(&crate::Pallet::<Test>::psm_account(

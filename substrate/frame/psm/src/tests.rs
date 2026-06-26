@@ -3063,12 +3063,12 @@ mod admin {
 			assert_eq!(info.min_swap_amount, DEFAULT_MIN_SWAP);
 			assert_eq!(info.external_count, 0);
 
-			// Admin record: the signer is both admins and the depositor; the creation deposit
-			// is held from the signer (holds are accounted within `reserved`).
+			// Admin record: the signer is both admins and paid the creation deposit (holds are
+			// accounted within `reserved`).
 			let admin = crate::PsmAdmin::<Test>::get(NEW_INTERNAL).expect("admin record");
 			assert_eq!(admin.full_admin, signed_origin(ALICE));
 			assert_eq!(admin.emergency_admin, signed_origin(ALICE));
-			assert_eq!(admin.depositor, ALICE);
+			assert!(matches!(admin.deposit, Some((ALICE, _))));
 			assert!(Balances::reserved_balance(&ALICE) > reserved_before);
 
 			System::assert_has_event(
@@ -3110,7 +3110,7 @@ mod admin {
 		new_test_ext().execute_with(|| {
 			assert_noop!(
 				Psm::create_psm(
-					RuntimeOrigin::signed(ALICE),
+					RuntimeOrigin::root(),
 					4242u32,
 					Box::new(signed_origin(ALICE)),
 					Box::new(signed_origin(ALICE)),
@@ -3120,6 +3120,29 @@ mod admin {
 				),
 				Error::<Test>::AssetDoesNotExist
 			);
+		});
+	}
+
+	#[test]
+	fn root_can_create_psm_without_deposit() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+			let reserved_before = Balances::reserved_balance(&ALICE);
+
+			assert_ok!(Psm::create_psm(
+				RuntimeOrigin::root(),
+				NEW_INTERNAL,
+				Box::new(root_origin()),
+				Box::new(root_origin()),
+				INSURANCE_FUND,
+				DEFAULT_MAX_DEBT,
+				DEFAULT_MIN_SWAP,
+			));
+
+			let admin = crate::PsmAdmin::<Test>::get(NEW_INTERNAL).expect("admin record");
+			assert_eq!(admin.deposit, None);
+			assert_eq!(Balances::reserved_balance(&ALICE), reserved_before);
+			assert_ok!(Psm::remove_psm(RuntimeOrigin::root(), NEW_INTERNAL));
 		});
 	}
 
@@ -3155,7 +3178,7 @@ mod admin {
 					&NEW_INTERNAL,
 				)
 				.ok(),
-				Some(ALICE),
+				Some(Some(ALICE)),
 			);
 			assert!(crate::EnsureAssetOwner::<Test>::try_origin(
 				RuntimeOrigin::signed(BOB),

@@ -53,31 +53,24 @@ where
 	}
 	let internal_decimals = T::Fungibles::decimals(internal_id.clone());
 	if !crate::Psm::<T>::contains_key(&internal_id) {
-		crate::Psm::<T>::insert(
-			&internal_id,
-			crate::PsmInfo::<T> {
-				fee_destination: admin.clone(),
-				max_debt: BalanceOf::<T>::from(u32::MAX).saturating_mul(1_000_000u32.into()),
-				min_swap_amount: BalanceOf::<T>::from(BENCH_MIN_SWAP),
-				internal_decimals,
-				external_count: 0,
-			},
-		);
-		// Admins set to `Root` so the admin benchmarks (dispatched as `RawOrigin::Root`)
-		// match `full_admin` in `ensure_psm_admin`.
+		let origin = T::CreateOrigin::try_successful_origin(&internal_id)
+			.expect("benchmark CreateOrigin is available");
+		if let Some(depositor) = T::CreateOrigin::ensure_origin(origin.clone(), &internal_id)
+			.expect("benchmark CreateOrigin succeeds")
+		{
+			T::Consideration::ensure_successful(&depositor, Footprint::from_parts(1, 0));
+		}
 		let root_origin: T::PalletsOrigin = RawOrigin::Root.into();
-		T::Consideration::ensure_successful(&admin, Footprint::from_parts(1, 0));
-		let ticket = T::Consideration::new(&admin, Footprint::from_parts(1, 0))
-			.expect("consideration established for funded caller");
-		crate::PsmAdmin::<T>::insert(
-			&internal_id,
-			crate::PsmAdminInfo::<T> {
-				full_admin: root_origin.clone(),
-				emergency_admin: root_origin,
-				depositor: admin,
-				ticket,
-			},
-		);
+		Psm::<T>::create_psm(
+			origin,
+			internal_id.clone(),
+			Box::new(root_origin.clone()),
+			Box::new(root_origin),
+			admin,
+			BalanceOf::<T>::from(u32::MAX).saturating_mul(1_000_000u32.into()),
+			BalanceOf::<T>::from(BENCH_MIN_SWAP),
+		)
+		.expect("benchmark PSM creation succeeds");
 	}
 	(internal_id, internal_decimals)
 }
@@ -301,14 +294,18 @@ mod benchmarks {
 			let _ = T::Fungibles::create(internal_id.clone(), caller.clone(), true, 1u32.into());
 		}
 
-		// The origin permitted to create, and the account it resolves to (the depositor).
+		// The origin permitted to create, and the optional account it resolves to for deposit
+		// payment.
 		let origin = T::CreateOrigin::try_successful_origin(&internal_id)
 			.map_err(|_| BenchmarkError::Weightless)?;
-		let who = T::CreateOrigin::ensure_origin(origin.clone(), &internal_id)
-			.map_err(|_| BenchmarkError::Stop("CreateOrigin yielded no account"))?;
-		T::Consideration::ensure_successful(&who, Footprint::from_parts(1, 0));
+		let maybe_depositor = T::CreateOrigin::ensure_origin(origin.clone(), &internal_id)
+			.map_err(|_| BenchmarkError::Stop("CreateOrigin failed"))?;
+		if let Some(who) = &maybe_depositor {
+			T::Consideration::ensure_successful(who, Footprint::from_parts(1, 0));
+		}
 
-		let admin: T::PalletsOrigin = RawOrigin::Signed(who).into();
+		let admin: T::PalletsOrigin =
+			maybe_depositor.map(RawOrigin::Signed).unwrap_or(RawOrigin::Root).into();
 		let max_debt = BalanceOf::<T>::from(u32::MAX);
 		let min_swap = BalanceOf::<T>::from(BENCH_MIN_SWAP);
 

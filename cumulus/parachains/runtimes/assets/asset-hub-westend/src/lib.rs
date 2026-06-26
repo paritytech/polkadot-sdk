@@ -62,7 +62,7 @@ use frame_support::{
 		fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8,
-		ConstantStoragePrice, Contains, EitherOfDiverse, Equals, InstanceFilter,
+		ConstantStoragePrice, Contains, EitherOf, EitherOfDiverse, Equals, InstanceFilter,
 		LinearStoragePrice, Nothing, TransformOrigin, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, Weight},
@@ -70,7 +70,7 @@ use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureSigned, EnsureSignedBy,
+	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_assets_precompiles::{ForeignAssetId, ForeignIdConfig, InlineIdConfig, ERC20};
@@ -1424,27 +1424,6 @@ parameter_types! {
 	pub ParametersName: &'static str = "Parameters";
 }
 
-/// Restores `pallet_psm`'s on-chain storage version to v1 after the preceding
-/// `RemovePallet<PsmName>` wipes it, so the try-runtime post-upgrade check passes.
-pub struct SetPsmStorageVersionV1;
-impl frame_support::traits::OnRuntimeUpgrade for SetPsmStorageVersionV1 {
-	fn on_runtime_upgrade() -> Weight {
-		frame_support::traits::StorageVersion::new(1).put::<pallet_psm::Pallet<Runtime>>();
-		<Runtime as frame_system::Config>::DbWeight::get().writes(1)
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		use frame_support::{ensure, traits::GetStorageVersion};
-		ensure!(
-			pallet_psm::Pallet::<Runtime>::on_chain_storage_version() ==
-				frame_support::traits::StorageVersion::new(1),
-			"PSM on-chain storage version was not set to 1"
-		);
-		Ok(())
-	}
-}
-
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
@@ -1572,14 +1551,20 @@ impl pallet_verify_signature::Config for Runtime {
 
 // PSM configuration.
 parameter_types! {
-	/// Base deposit held for the footprint of a PSM created via `create_psm`.
-	pub const PsmCreationDeposit: Balance = deposit(1, 68);
+	/// Entry-barrier deposit held for a permissionless PSM created via `create_psm`.
+	pub const PsmCreationDeposit: Balance = 100 * UNITS;
 	/// Per-byte deposit slope; PSM footprints are fixed-size, so this is zero.
 	pub const PsmDepositSlope: Balance = 0;
 	pub PsmHoldReason: RuntimeHoldReason = RuntimeHoldReason::Psm(pallet_psm::HoldReason::CreationDeposit);
+	pub const NoPsmDepositor: Option<AccountId> = None;
 	/// PalletId for deriving the PSM system account.
 	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
 }
+
+type PsmCreateOrigin = EitherOf<
+	EnsureRootWithSuccess<AccountId, NoPsmDepositor>,
+	pallet_psm::EnsureAssetOwner<Runtime>,
+>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub struct PsmBenchmarkHelper;
@@ -1623,7 +1608,7 @@ impl pallet_psm::Config for Runtime {
 		PsmHoldReason,
 		LinearStoragePrice<PsmCreationDeposit, PsmDepositSlope, Balance>,
 	>;
-	type CreateOrigin = pallet_psm::EnsureAssetOwner<Runtime>;
+	type CreateOrigin = PsmCreateOrigin;
 	type RuntimeOrigin = RuntimeOrigin;
 	type PalletsOrigin = OriginCaller;
 	type AssetId = xcm::v5::Location;
@@ -1896,10 +1881,8 @@ pub type Migrations = (
 
 	// start: PSM reset
 
-	// `RemovePallet` wipes the old PSM deployment; `SetPsmStorageVersionV1`
-	// restores the storage version key it cleared.
+	// `RemovePallet` wipes the old PSM deployment, including the storage version key.
 	frame_support::migrations::RemovePallet<PsmName, <Runtime as frame_system::Config>::DbWeight>,
-	SetPsmStorageVersionV1,
 	// end: PSM reset
 
 	// `pallet_parameters` only hosted the system-wide PSM issuance cap, now replaced

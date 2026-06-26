@@ -14,13 +14,9 @@ doc:
     - A runtime can hold any number of PSMs at once, each keyed by its internal
       (stablecoin) asset id. Each PSM can be backed by several external assets; all
       per-asset state is keyed by the `(internal_asset, external_asset)` pair.
-    - PSMs are created permissionlessly via the new `create_psm` extrinsic, which reserves
-      a refundable deposit (`Config::CreationDeposit`) in the native `Currency`. The creator
-      becomes the PSM's admin and picks its initial parameters. `remove_psm` returns the
-      deposit to the original depositor. The caller must be the owner of the internal asset,
-      so a PSM can only be created over an asset its creator controls (the PSM mints/burns
-      through the privileged `fungibles` trait path, which bypasses the issuer check). The
-      owner keeps the asset and may run other minters, e.g. a vault, over it.
+    - PSMs are created via the new `create_psm` extrinsic. Creation is controlled by
+      `Config::CreateOrigin`, parameterized by the internal asset. The creator picks the
+      initial admins and parameters.
     - Per-PSM authorization: each PSM stores a `full_admin` and an `emergency_admin` origin,
       reassignable via `set_full_admin` / `set_emergency_admin`. This replaces the single,
       global governance manager origin.
@@ -30,25 +26,17 @@ doc:
 
     Breaking changes for runtimes wiring `pallet-psm`:
     - `Config` reworked. Removed: `InternalAsset`, `FeeDestination`, `MaximumIssuance`, and
-      `ManagerOrigin`. Added: `Currency: ReservableCurrency` (native token used for the
-      creation deposit), `PalletsOrigin`, and `CreationDeposit`. `MaxExternalAssets` is
-      renamed `MaxExternalAssetsPerPsm`.
+      `ManagerOrigin`. Added: `Consideration`, `CreateOrigin`, and `PalletsOrigin`.
+      `MaxExternalAssets` is renamed `MaxExternals`.
     - New extrinsics: `create_psm`, `remove_psm`, `set_full_admin`, `set_emergency_admin`.
       `set_max_psm_debt(ratio: Permill)` is renamed `set_max_debt(value: Balance)` with
       absolute semantics; the `MaxPsmDebtOfTotalUpdated` event is renamed `MaxDebtUpdated`;
       `Error::ExceedsMaxIssuance` is removed and `Error::PsmNotFound` is added.
     - The pallet's genesis config and the `InitializePsm` / decimals migration helpers are
       removed. There is no in-place data migration: the pallet is redeployed from scratch.
-      A runtime upgrading an existing deployment must wipe the old storage and reset the
-      storage version. On Asset Hub Westend this is done with `RemovePallet<Psm>` followed
-      by a migration that re-seeds the storage version to `1`.
-    - `STORAGE_VERSION` is `1`.
-
-    The `frame-support` `PsmInterface` trait (used by consumers such as the Vaults pallet)
-    gains an `AssetId` associated type, and `reserved_capacity` now takes the asset whose
-    reserved issuance is being queried. Additionally, `fungibles::UnionOf` now implements
-    `fungibles::roles::Inspect` (forwarding `owner`/`issuer`/`admin`/`freezer` to the side
-    that owns the asset), so unions of role-aware backends expose team roles.
+      A runtime upgrading an existing deployment must wipe the old storage. On Asset Hub
+      Westend this is done with `RemovePallet<Psm>`.
+    - `STORAGE_VERSION` remains at the initial version `0`.
 
     Asset Hub Westend drops `pallet-parameters`: it only ever hosted a system-wide PSM
     issuance cap, which the per-PSM `max_debt` ceiling replaced, so the pallet is removed

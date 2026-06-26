@@ -52,9 +52,9 @@
 //! ### Key Concepts
 //!
 //! * **PSM instance**: A configured Peg Stability Module, keyed by its internal asset id and
-//!   described by [`PsmInfo`]. Each instance has its own reserve account derived as
-//!   `PalletId::into_sub_account_truncating(blake2_256(internal_asset.encode()))` — the hash gives
-//!   a fixed-size seed so arbitrary asset ids (e.g. XCM `Location`s) do not collide.
+//!   described by [`PsmInfo`]. Each instance has its own reserve account derived from `PalletId`
+//!   and the first 24 bytes of `blake2_256(internal_asset.encode())`, keeping the sub-account
+//!   preimage at 32 bytes while supporting arbitrary asset ids (e.g. XCM `Location`s).
 //! * **Minting**: Deposit external asset → receive internal asset (minus fee).
 //! * **Redemption**: Burn internal asset → receive external asset (minus fee).
 //! * **Reserve**: External asset balance held by a PSM's reserve account (derived, not stored).
@@ -259,6 +259,12 @@ pub mod pallet {
 	/// so realistic balances cannot overflow during conversion.
 	pub const MAX_DECIMALS_DIFF: u32 = 24;
 
+	/// Number of `blake2_256(asset)` bytes used as the PSM reserve sub-account seed.
+	///
+	/// Together with the 8-byte [`PalletId`] this keeps the encoded sub-account preimage at
+	/// 32 bytes, avoiding extra truncation before conversion into `T::AccountId`.
+	const PSM_ACCOUNT_SEED_BYTES: usize = 24;
+
 	/// On-chain record of a PSM instance.
 	#[derive(
 		Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug,
@@ -285,20 +291,15 @@ pub mod pallet {
 	// Kept separate from `PsmInfo` so the swap path (`mint`/`redeem`) doesn't read the
 	// admin origins, which can be large.
 	pub struct PsmAdminInfo<T: Config> {
-		/// Origin with `Full` management privileges over this PSM. Set to
-		/// `Signed(signer)` on `create_psm` and reassignable to any origin via
-		/// `set_full_admin`.
+		/// Origin with `Full` management privileges over this PSM. Set on `create_psm` and
+		/// reassignable to any origin via `set_full_admin`.
 		pub full_admin: T::PalletsOrigin,
-		/// Origin with `Emergency` management privileges over this PSM. Set to
-		/// `Signed(signer)` on `create_psm` and reassignable to any origin via
-		/// `set_emergency_admin`.
+		/// Origin with `Emergency` management privileges over this PSM. Set on `create_psm` and
+		/// reassignable to any origin via `set_emergency_admin`.
 		pub emergency_admin: T::PalletsOrigin,
-		/// Account that paid the creation deposit. The deposit is always returned here on
-		/// `remove_psm`, independently of any admin reassignment.
-		pub depositor: T::AccountId,
-		/// The creation-deposit ticket, established from `depositor` on `create_psm` and
-		/// dropped (refunding them) on `remove_psm`.
-		pub ticket: T::Consideration,
+		/// Optional creation deposit and its depositor. Dropped on `remove_psm`, independently of
+		/// any admin reassignment.
+		pub deposit: Option<(T::AccountId, T::Consideration)>,
 	}
 
 	/// On-chain record of an external asset approved on a PSM instance.
@@ -328,17 +329,17 @@ pub mod pallet {
 			+ FungiblesMetadataInspect<Self::AccountId>
 			+ FungiblesRolesInspect<Self::AccountId>;
 
-		/// The deposit taken (and returned) for the on-chain footprint of a PSM instance.
-		/// Established on `create_psm` and dropped on `remove_psm`.
+		/// Consideration for PSM creation. Runtimes can price this from the PSM footprint or
+		/// anything else they choose.
 		type Consideration: Consideration<Self::AccountId, Footprint>;
 
 		/// Origin permitted to create a PSM for a given internal asset; succeeds with the
-		/// account that pays the deposit and becomes the `depositor`. See [`EnsureAssetOwner`]
-		/// for the recommended policy.
+		/// optional account that pays the creation consideration. Returning `None` creates without
+		/// a deposit, useful for privileged origins such as Root.
 		type CreateOrigin: EnsureOriginWithArg<
 			<Self as frame_system::Config>::RuntimeOrigin,
 			Self::AssetId,
-			Success = Self::AccountId,
+			Success = Option<Self::AccountId>,
 		>;
 
 		/// The aggregated origin, tying the runtime origin to [`Config::PalletsOrigin`] so PSM
@@ -381,7 +382,7 @@ pub mod pallet {
 	impl<T: Config> EnsureOriginWithArg<<T as frame_system::Config>::RuntimeOrigin, T::AssetId>
 		for EnsureAssetOwner<T>
 	{
-		type Success = T::AccountId;
+		type Success = Option<T::AccountId>;
 
 		fn try_origin(
 			origin: <T as frame_system::Config>::RuntimeOrigin,
@@ -389,7 +390,7 @@ pub mod pallet {
 		) -> Result<Self::Success, <T as frame_system::Config>::RuntimeOrigin> {
 			match ensure_signed(origin.clone()) {
 				Ok(who) if T::Fungibles::owner(internal_asset.clone()) == Some(who.clone()) => {
-					Ok(who)
+					Ok(Some(who))
 				},
 				_ => Err(origin),
 			}
@@ -406,7 +407,7 @@ pub mod pallet {
 	}
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -423,10 +424,10 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
-			// Reserve accounts are `PalletId ++ blake2_256(asset)` truncated to `T::AccountId`;
-			// guard against an `AccountId` too small to retain enough of the hash.
 			const PALLET_ID_BYTES: usize = 8;
 			const MIN_SEED_BYTES: usize = 8;
+			// Reserve accounts are `PalletId ++ first_24_bytes(blake2_256(asset))`
+			// truncated to `T::AccountId`.
 			let account_bytes = <T::AccountId as MaxEncodedLen>::max_encoded_len();
 			let seed_bytes = account_bytes.saturating_sub(PALLET_ID_BYTES);
 			assert!(
@@ -891,11 +892,11 @@ pub mod pallet {
 
 		/// Create a PSM for a given internal asset.
 		///
-		/// Takes a [`Config::Consideration`] deposit from the account resolved by
-		/// [`Config::CreateOrigin`] for the instance's footprint (refunded on `remove_psm`); that
-		/// account is also recorded as the `depositor`. The `full_admin` and `emergency_admin`
-		/// origins are set from the provided arguments and may later be reassigned via
-		/// [`Pallet::set_full_admin`] / [`Pallet::set_emergency_admin`].
+		/// If [`Config::CreateOrigin`] resolves to `Some(account)`, takes a
+		/// [`Config::Consideration`] deposit from that account for the instance's footprint
+		/// (refunded on `remove_psm`). If it resolves to `None`, no deposit is taken. The
+		/// `full_admin` and `emergency_admin` origins are set from the provided arguments and may
+		/// later be reassigned via [`Pallet::set_full_admin`] / [`Pallet::set_emergency_admin`].
 		///
 		/// ## Dispatch Origin
 		///
@@ -919,8 +920,8 @@ pub mod pallet {
 		/// - [`Error::PsmAlreadyExists`]: A PSM is already registered for `internal_asset`.
 		/// - [`Error::ZeroMinSwapAmount`]: `min_swap_amount` is zero.
 		/// - [`Error::AssetDoesNotExist`]: The internal asset does not exist.
-		/// - Any error from establishing the [`Config::Consideration`] deposit (e.g. the account
-		///   cannot afford it).
+		/// - Any error from establishing the [`Config::Consideration`] deposit when one is needed
+		///   (e.g. the account cannot afford it).
 		///
 		/// ## Events
 		///
@@ -936,7 +937,7 @@ pub mod pallet {
 			max_debt: BalanceOf<T>,
 			min_swap_amount: BalanceOf<T>,
 		) -> DispatchResult {
-			let who = T::CreateOrigin::ensure_origin(origin, &internal_asset)?;
+			let maybe_depositor = T::CreateOrigin::ensure_origin(origin, &internal_asset)?;
 			ensure!(!Psm::<T>::contains_key(&internal_asset), Error::<T>::PsmAlreadyExists);
 			ensure!(!min_swap_amount.is_zero(), Error::<T>::ZeroMinSwapAmount);
 			ensure!(
@@ -944,9 +945,12 @@ pub mod pallet {
 				Error::<T>::AssetDoesNotExist
 			);
 
-			// Establish the creation-deposit ticket for this instance's footprint, charged to
-			// the signer. A PSM is a single fixed record, hence a footprint of `(1, 0)`.
-			let ticket = T::Consideration::new(&who, Footprint::from_parts(1, 0))?;
+			let deposit = maybe_depositor
+				.map(|depositor| {
+					T::Consideration::new(&depositor, Footprint::from_parts(1, 0))
+						.map(|ticket| (depositor, ticket))
+				})
+				.transpose()?;
 
 			let full_admin = *full_admin;
 			let emergency_admin = *emergency_admin;
@@ -966,8 +970,7 @@ pub mod pallet {
 				PsmAdminInfo::<T> {
 					full_admin: full_admin.clone(),
 					emergency_admin: emergency_admin.clone(),
-					depositor: who,
-					ticket,
+					deposit,
 				},
 			);
 			// Acquire a provider reference on the reserve account and the fee destination for the
@@ -991,8 +994,8 @@ pub mod pallet {
 		/// Remove a PSM. Callable by the current `full_admin`. All approved externals
 		/// must be removed first and aggregate PSM debt must be zero.
 		///
-		/// The creation deposit is always returned to the account that originally paid it
-		/// (the depositor), regardless of any later admin reassignment.
+		/// If a creation deposit was taken, it is always returned to the account that originally
+		/// paid it, regardless of any later admin reassignment.
 		///
 		/// ## Dispatch Origin
 		///
@@ -1019,10 +1022,11 @@ pub mod pallet {
 			ensure!(info.external_count == 0, Error::<T>::PsmHasApprovedExternals);
 			ensure!(Self::total_psm_debt(&internal_asset).is_zero(), Error::<T>::PsmHasDebt);
 
-			let PsmAdminInfo { depositor, ticket, .. } =
+			let PsmAdminInfo { deposit, .. } =
 				PsmAdmin::<T>::get(&internal_asset).ok_or(Error::<T>::PsmNotFound)?;
-			// Drop the creation-deposit ticket, refunding the original depositor.
-			ticket.drop(&depositor)?;
+			if let Some((depositor, ticket)) = deposit {
+				ticket.drop(&depositor)?;
+			}
 
 			Psm::<T>::remove(&internal_asset);
 			PsmAdmin::<T>::remove(&internal_asset);
@@ -1483,9 +1487,11 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Derive the reserve account for a PSM instance: a `PalletId` sub-account seeded with
-		/// `blake2_256(internal_asset)`.
+		/// the first 24 bytes of `blake2_256(internal_asset)`.
 		pub fn psm_account(internal_asset: &T::AssetId) -> T::AccountId {
-			let seed = sp_io::hashing::blake2_256(&internal_asset.encode());
+			let hash = sp_io::hashing::blake2_256(&internal_asset.encode());
+			let seed: [u8; PSM_ACCOUNT_SEED_BYTES] =
+				hash[..PSM_ACCOUNT_SEED_BYTES].try_into().expect("slice length is fixed; qed");
 			T::PalletId::get().into_sub_account_truncating(seed)
 		}
 
