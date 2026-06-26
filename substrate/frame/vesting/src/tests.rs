@@ -1797,3 +1797,92 @@ fn vesting_schedule_trait_enforces_public_per_kind_cap() {
 		);
 	});
 }
+
+/// `add_to_vesting_unrestricted` with no pre-existing schedule creates a new `None`-tagged entry.
+#[test]
+fn add_to_vesting_unrestricted_create_path() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 13u64;
+		let dest = 4u64;
+		let amount = ED * 4; // 1024
+		let duration = 20u64;
+		let start_at = 50u64;
+
+		// Pre-condition: dest has no vesting schedules.
+		assert!(VestingStorage::<Test>::get(&dest).is_none());
+
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting_unrestricted(
+			&source, &dest, amount, duration, start_at,
+		));
+
+		let schedules = VestingStorage::<Test>::get(&dest).unwrap();
+		assert_eq!(schedules.len(), 1);
+		let (vi, kind) = &schedules[0];
+		assert_eq!(kind, &None);
+		assert_eq!(vi.locked(), amount);
+		assert_eq!(vi.starting_block(), start_at);
+		// per_block = ceil(1024 / 20) = (1024 + 19) / 20 = 52
+		assert_eq!(vi.per_block(), 52u64);
+	});
+}
+
+/// `add_to_vesting_unrestricted` returns `AtMaxVestingSchedules` when the global cap is full.
+#[test]
+fn add_to_vesting_unrestricted_at_global_cap_returns_error() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 13u64;
+		let dest = 4u64;
+		let amount = ED * 4; // 1024, above MinVestedTransfer
+
+		// Seed dest with MAX_VESTING_SCHEDULES (4) None-tagged entries at distinct starting blocks
+		// so that an incoming call at start_at=99 always hits the create-path (no merge).
+		let schedules_vec: Vec<(VestingInfo<u64, u64>, Option<VestingKind>)> =
+			(10u64..14u64).map(|block| (VestingInfo::new(amount, 1, block), None)).collect();
+		let bounded: frame_support::BoundedVec<_, _> = schedules_vec.try_into().unwrap();
+		VestingStorage::<Test>::insert(dest, bounded);
+
+		// Sanity: storage is at global cap.
+		assert_eq!(VestingStorage::<Test>::get(&dest).unwrap().len(), 4);
+
+		// The call must be rejected and must not mutate any state.
+		assert_noop!(
+			<Vesting as VestedPayout<_, _>>::add_to_vesting_unrestricted(
+				&source, &dest, amount, 20, 99,
+			),
+			Error::<Test>::AtMaxVestingSchedules,
+		);
+	});
+}
+
+/// `add_to_vesting` with `VestingKind::Staking` and no pre-existing schedule creates a new entry.
+#[test]
+fn add_to_vesting_staking_create_path() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 13u64;
+		let dest = 4u64;
+		let amount = ED * 4; // 1024
+		let duration = 20u64;
+		let start_at = 50u64;
+
+		// Pre-condition: dest has no vesting schedules.
+		assert!(VestingStorage::<Test>::get(&dest).is_none());
+
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source,
+			&dest,
+			amount,
+			duration,
+			start_at,
+			VestingKind::Staking,
+		));
+
+		let schedules = VestingStorage::<Test>::get(&dest).unwrap();
+		assert_eq!(schedules.len(), 1);
+		let (vi, kind) = &schedules[0];
+		assert_eq!(kind, &Some(VestingKind::Staking));
+		assert_eq!(vi.locked(), amount);
+		assert_eq!(vi.starting_block(), start_at);
+		// per_block = ceil(1024 / 20) = (1024 + 19) / 20 = 52
+		assert_eq!(vi.per_block(), 52u64);
+	});
+}

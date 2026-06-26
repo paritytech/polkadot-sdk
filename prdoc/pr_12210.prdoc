@@ -30,10 +30,14 @@ crates:
 - name: pallet-staking-async
   bump: major
 - name: pallet-vesting
-  bump: minor
+  bump: major
 - name: frame-support
-  bump: minor
+  bump: major
 - name: pallet-staking-async-parachain-runtime
   bump: minor
 - name: asset-hub-westend-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: rococo-runtime
   bump: minor
