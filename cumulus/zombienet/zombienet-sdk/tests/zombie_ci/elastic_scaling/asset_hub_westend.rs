@@ -5,8 +5,8 @@
 //!
 //! Setup:
 //! * 6 relay validators on `westend-local` with `num_cores = 3`,
-//! * 6 parachain collators running `polkadot-parachain`, launched with
-//!   `--in-peers=1 --out-peers=1 --collator-reserved-slots=32`
+//! * 6 parachain collators running `polkadot-parachain`, launched with `--in-peers=1 --out-peers=1
+//!   --collator-reserved-slots=32`
 //!
 //! Test flow:
 //! 1. Spawn network. Wait for first session change and PVF preparation.
@@ -18,8 +18,8 @@ use crate::utils::initialize_network;
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_full_collator_mesh, assert_para_throughput, assign_cores,
-	wait_for_first_session_change, wait_for_pvf_prepare,
+	assert_full_collator_mesh, assert_para_throughput, assign_cores, wait_for_first_session_change,
+	wait_for_pvf_prepare,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
@@ -50,7 +50,6 @@ const COLLATOR_NETWORK_ARGS: &[&str] = &[
 fn collator_names() -> &'static [&'static str] {
 	&["alice", "bob", "charlie", "dave", "eve", "ferdie"]
 }
-
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	// images are not relevant for `native`, but we leave it here in case we use `k8s` some day

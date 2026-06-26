@@ -97,10 +97,8 @@ impl_opaque_keys! {
 }
 
 /// Migrations to apply on runtime upgrade.
-pub type Migrations = (
-	RemoveCollectiveFlip,
-	parachains_common::ad_migration::AppendAuthorityDiscoveryKeys<Runtime>,
-);
+pub type Migrations =
+	(RemoveCollectiveFlip, parachains_common::ad_migration::AppendAuthorityDiscoveryKeys<Runtime>);
 
 /// This runtime version.
 #[sp_version::runtime_version]

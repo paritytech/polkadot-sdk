@@ -126,9 +126,8 @@ where
 				collator,
 			);
 			let bytes = (old.aura, zeros.clone()).encode();
-			<R as pallet_session::Config>::Keys::decode(&mut &bytes[..]).expect(
-				"R::Keys::key_ids() verified above; qed",
-			)
+			<R as pallet_session::Config>::Keys::decode(&mut &bytes[..])
+				.expect("R::Keys::key_ids() verified above; qed")
 		});
 
 		storage::set(MIGRATION_DONE_KEY, &[1u8]);

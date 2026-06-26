@@ -1194,7 +1194,8 @@ pub async fn insert_session_key(
 
 	let pub_hex = format!("0x{}", hex_encode(public_key));
 	let rpc: RpcClient = network.get_node(node_name)?.rpc().await?;
-	rpc.request::<()>("author_insertKey", rpc_params![key_type, suri, &pub_hex]).await?;
+	rpc.request::<()>("author_insertKey", rpc_params![key_type, suri, &pub_hex])
+		.await?;
 	log::info!("inserted `{key_type}` key {pub_hex} into `{node_name}` keystore (suri {suri})");
 	Ok(())
 }
@@ -1255,11 +1256,8 @@ where
 			.map_err(|e| anyhow!("decode generated session keys against runtime metadata: {e}"))?
 			.remove_context();
 
-	let call = subxt::dynamic::tx(
-		"Session",
-		"set_keys",
-		vec![keys_value, Value::from_bytes(proof_bytes)],
-	);
+	let call =
+		subxt::dynamic::tx("Session", "set_keys", vec![keys_value, Value::from_bytes(proof_bytes)]);
 
 	submit_extrinsic_and_wait_for_finalization_success(para_client, &call, signer).await?;
 	log::info!("`{node_name}` session keys rotated and set_keys finalised");
