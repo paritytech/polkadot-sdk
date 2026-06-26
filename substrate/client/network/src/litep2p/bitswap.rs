@@ -25,13 +25,14 @@ use crate::{
 	bitswap::{
 		is_cid_supported,
 		schema::bitswap::message::{
+			wantlist::WantType as ProtoWantType,
 			Block as MessageBlock, BlockPresence, BlockPresenceType as ProtoPresenceType,
 		},
-		BitswapProtoMessage, Cid, Prefix, LOG_TARGET, MAX_WANTED_BLOCKS, PROTOCOL_NAME,
+		BitswapClient, BitswapError, BitswapProtoMessage, BitswapRequest, BitswapResponse, Cid, FetchOutcome, Prefix, LOG_TARGET, MAX_WANTED_BLOCKS,
 	},
 	litep2p::bitswap_metrics::{errors, outcomes, BitswapMetrics},
 	request_responses::RequestFailure,
-	OutboundFailure, ProtocolName, MAX_RESPONSE_SIZE,
+	OutboundFailure, MAX_RESPONSE_SIZE,
 };
 use futures::{channel::oneshot, StreamExt};
 use litep2p::protocol::libp2p::bitswap::{
@@ -51,6 +52,8 @@ use std::{
 };
 use tokio::sync::mpsc;
 
+type RequestId = u64;
+
 /// Command channel capacity.
 const CMD_CHANNEL_CAPACITY: usize = 256;
 /// Timeout for pending bitswap requests.
@@ -58,44 +61,63 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 /// Interval for reaping expired pending batches.
 const EXPIRY_TICK_INTERVAL: Duration = Duration::from_secs(10);
 
-pub(crate) type ResponseSender = oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>;
+// pub(crate) type ResponseSender = oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>;
+pub(crate) type ResponseSenderC = oneshot::Sender<BitswapResponse>;
 
 /// Outbound bitswap command sent from [`super::service::Litep2pNetworkService`].
-pub(crate) struct BitswapOutboundCmd {
-	pub(crate) peer: litep2p::PeerId,
-	pub(crate) wants: Vec<(Cid, WantType)>,
-	pub(crate) response_tx: ResponseSender,
-}
+// pub(crate) struct BitswapOutboundCmd {
+// 	pub(crate) peer: litep2p::PeerId,
+// 	pub(crate) wants: Vec<(Cid, WantType)>,
+// 	pub(crate) response_tx: ResponseSender,
+// }
 
 /// Pending outbound WANT batch.
 struct PendingBatch {
+	remaining: HashSet<Cid>,
+	// rename to `responses`
+	collected: HashMap<Cid, FetchOutcome>,
+	// rename to response_tx
+	response_txc: Option<ResponseSenderC>,
 	cids: Vec<Cid>,
 	responses: HashMap<Cid, ResponseType>,
 	response_bytes: usize,
-	response_tx: Option<ResponseSender>,
+	// response_tx: Option<ResponseSender>,
 	inserted: Instant,
 }
 
 impl PendingBatch {
-	fn new(cids: Vec<Cid>, response_tx: ResponseSender, inserted: Instant) -> Self {
+	fn new(cids: Vec<Cid>, response_tx: ResponseSenderC, inserted: Instant) -> Self {
 		Self {
+			remaining: cids.iter().copied().collect(),
+			collected: HashMap::new(),
+			response_txc: Some(response_tx),
 			cids,
 			responses: HashMap::new(),
 			response_bytes: 0,
-			response_tx: Some(response_tx),
+			// response_tx: Some(response_tx),
 			inserted,
 		}
 	}
 
-	fn record_responses(&mut self, responses: &HashMap<Cid, ResponseType>) {
-		for cid in &self.cids {
-			if self.responses.contains_key(cid) {
-				continue;
-			}
-			let Some(resp) = responses.get(cid) else { continue };
-			self.response_bytes = self.response_bytes.saturating_add(response_retained_bytes(resp));
-			self.responses.insert(*cid, resp.clone());
-		}
+	// fn record_responses(&mut self, responses: &HashMap<Cid, ResponseType>) {
+	// 	for cid in &self.cids {
+	// 		if self.responses.contains_key(cid) {
+	// 			continue;
+	// 		}
+	// 		let Some(resp) = responses.get(cid) else { continue };
+	// 		self.response_bytes = self.response_bytes.saturating_add(response_retained_bytes(resp));
+	// 		self.responses.insert(*cid, resp.clone());
+	// 	}
+	// }
+
+	fn record_response(&mut self, cid: &Cid, resp: ResponseType) {
+		self.response_bytes = self.response_bytes.saturating_add(response_retained_bytes(&resp));
+		self.remaining.remove(cid);
+		let outcome = match resp {
+			ResponseType::Block { block, .. } => FetchOutcome::Block(block),
+			ResponseType::Presence { .. } => FetchOutcome::Missing,
+		};
+		self.collected.insert(*cid, outcome);
 	}
 
 	fn is_complete(&self) -> bool {
@@ -110,18 +132,30 @@ impl PendingBatch {
 		now.saturating_duration_since(self.inserted) >= timeout
 	}
 
+	// fn send_success(&mut self) {
+	// 	let responses: Vec<ResponseType> =
+	// 		self.cids.iter().filter_map(|cid| self.responses.get(cid).cloned()).collect();
+	// 	let encoded = encode_responses_as_bitswap_message(&responses);
+	// 	if let Some(response_tx) = self.response_tx.take() {
+	// 		let _ = response_tx.send(Ok((encoded, ProtocolName::from(PROTOCOL_NAME))));
+	// 	}
+	// }
+
 	fn send_success(&mut self) {
-		let responses: Vec<ResponseType> =
-			self.cids.iter().filter_map(|cid| self.responses.get(cid).cloned()).collect();
-		let encoded = encode_responses_as_bitswap_message(&responses);
-		if let Some(response_tx) = self.response_tx.take() {
-			let _ = response_tx.send(Ok((encoded, ProtocolName::from(PROTOCOL_NAME))));
+		if let Some(response_tx) = self.response_txc.take() {
+			let _ = response_tx.send(Ok(std::mem::take(&mut self.collected)));
 		}
 	}
 
+	// fn send_failure(&mut self, failure: RequestFailure) {
+	// 	if let Some(response_tx) = self.response_tx.take() {
+	// 		let _ = response_tx.send(Err(failure));
+	// 	}
+	// }
+
 	fn send_failure(&mut self, failure: RequestFailure) {
-		if let Some(response_tx) = self.response_tx.take() {
-			let _ = response_tx.send(Err(failure));
+		if let Some(response_tx) = self.response_txc.take() {
+			let _ = response_tx.send(Err(BitswapError::RequestFailed(failure.to_string())));
 		}
 	}
 }
@@ -133,23 +167,74 @@ impl PendingBatch {
 /// client-side bitswap requests.
 pub struct BitswapConfig {
 	pub(crate) litep2p_config: Config,
-	pub(crate) cmd_tx: mpsc::Sender<BitswapOutboundCmd>,
+	// pub(crate) cmd_tx: mpsc::Sender<BitswapOutboundCmd>,
+	pub(crate) client: BitswapClient,
 }
 
 /// Pending outbound WANT batches, indexed by peer.
+/// Use an inverted index to enable fast searching.
 #[derive(Default)]
 struct PendingBatches {
-	by_peer: HashMap<litep2p::PeerId, Vec<PendingBatch>>,
+	// by_peer: HashMap<litep2p::PeerId, Vec<PendingBatch>>,
+	by_id: HashMap<RequestId, PendingBatch>,
+	by_cid: HashMap<Cid, Vec<RequestId>>,
 }
 
 impl PendingBatches {
-	fn insert(&mut self, peer: litep2p::PeerId, batch: PendingBatch) {
-		self.by_peer.entry(peer).or_default().push(batch);
+	// fn insert(&mut self, peer: litep2p::PeerId, batch: PendingBatch) {
+	// 	self.by_peer.entry(peer).or_default().push(batch);
+	// }
+
+	fn insert(&mut self, id: RequestId, batch: PendingBatch) {
+		for cid in &batch.cids {
+			self.by_cid.entry(*cid).or_default().push(id);
+		}
+		self.by_id.insert(id, batch);
 	}
 
 	fn handle_response(&mut self, peer: litep2p::PeerId, responses: Vec<ResponseType>) {
 		self.handle_response_with_limit(peer, responses, MAX_RESPONSE_SIZE as usize);
 	}
+
+	// fn handle_response_with_limit(
+	// 	&mut self,
+	// 	peer: litep2p::PeerId,
+	// 	responses: Vec<ResponseType>,
+	// 	max_response_bytes: usize,
+	// ) {
+	// 	log::debug!(
+	// 		target: LOG_TARGET,
+	// 		"bitswap: received response from {peer:?} with {} entries",
+	// 		responses.len()
+	// 	);
+
+	// 	let Some(peer_batches) = self.by_peer.get_mut(&peer) else { return };
+	// 	let best = select_best_response_per_cid(responses);
+
+	// 	peer_batches.retain_mut(|batch| {
+	// 		batch.record_responses(&best);
+
+	// 		if batch.is_over_limit(max_response_bytes) {
+	// 			log::warn!(
+	// 				target: LOG_TARGET,
+	// 				"bitswap: response from {peer:?} exceeded pending batch byte limit: {} > {}",
+	// 				batch.response_bytes,
+	// 				max_response_bytes,
+	// 			);
+	// 			batch.send_failure(RequestFailure::Network(OutboundFailure::ConnectionClosed));
+	// 			false
+	// 		} else if batch.is_complete() {
+	// 			batch.send_success();
+	// 			false
+	// 		} else {
+	// 			true
+	// 		}
+	// 	});
+
+	// 	if peer_batches.is_empty() {
+	// 		self.by_peer.remove(&peer);
+	// 	}
+	// }
 
 	fn handle_response_with_limit(
 		&mut self,
@@ -163,68 +248,109 @@ impl PendingBatches {
 			responses.len()
 		);
 
-		let Some(peer_batches) = self.by_peer.get_mut(&peer) else { return };
+		// let Some(peer_batches) = self.by_peer.get_mut(&peer) else { return };
 		let best = select_best_response_per_cid(responses);
 
-		peer_batches.retain_mut(|batch| {
-			batch.record_responses(&best);
+		for (_, response) in &best {
+			let cid = match &response {
+				ResponseType::Block { cid, .. } => *cid,
+				ResponseType::Presence { cid, .. } => *cid,
+			};
 
-			if batch.is_over_limit(max_response_bytes) {
-				log::warn!(
-					target: LOG_TARGET,
-					"bitswap: response from {peer:?} exceeded pending batch byte limit: {} > {}",
-					batch.response_bytes,
-					max_response_bytes,
-				);
-				batch.send_failure(RequestFailure::Network(OutboundFailure::ConnectionClosed));
-				false
-			} else if batch.is_complete() {
-				batch.send_success();
-				false
-			} else {
-				true
+			let Some(request_ids) = self.by_cid.remove(&cid) else { continue };
+			
+			for id in request_ids {
+				let Some(batch) = self.by_id.get_mut(&id) else { continue };
+				batch.record_response(&cid, response.clone());
+
+				// Only fire when every CID in the original request is resolved
+				if batch.remaining.is_empty() {
+					if batch.is_over_limit(max_response_bytes) {
+						log::warn!(
+							target: LOG_TARGET,
+							"bitswap: response from {peer:?} exceeded pending batch byte limit: {} > {}",
+							batch.response_bytes,
+							max_response_bytes,
+						);
+						batch.send_failure(RequestFailure::Network(OutboundFailure::ConnectionClosed));
+					} else if batch.is_complete() {
+						batch.send_success();
+					}
+				}
+
+				// If no more pending requests, remove Cid entry
+				if self.by_cid.get(&cid).map_or(true, |ids| ids.is_empty()) {
+					self.by_cid.remove(&cid);
+				}
 			}
-		});
-
-		if peer_batches.is_empty() {
-			self.by_peer.remove(&peer);
 		}
 	}
 
-	fn expire(&mut self, timeout: Duration, now: Instant) {
-		self.by_peer.retain(|peer, peer_batches| {
-			peer_batches.retain_mut(|batch| {
-				if batch.is_expired(timeout, now) {
-					log::debug!(
-						target: LOG_TARGET,
-						"bitswap: expired pending batch for {} CIDs from {:?}",
-						batch.cids.len(),
-						peer,
-					);
-					batch.send_failure(RequestFailure::Network(OutboundFailure::Timeout));
-					false
-				} else {
-					true
-				}
-			});
+	// fn expire(&mut self, timeout: Duration, now: Instant) {
+	// 	self.by_peer.retain(|peer, peer_batches| {
+	// 		peer_batches.retain_mut(|batch| {
+	// 			if batch.is_expired(timeout, now) {
+	// 				log::debug!(
+	// 					target: LOG_TARGET,
+	// 					"bitswap: expired pending batch for {} CIDs from {:?}",
+	// 					batch.cids.len(),
+	// 					peer,
+	// 				);
+	// 				batch.send_failure(RequestFailure::Network(OutboundFailure::Timeout));
+	// 				false
+	// 			} else {
+	// 				true
+	// 			}
+	// 		});
 
-			!peer_batches.is_empty()
-		});
+	// 		!peer_batches.is_empty()
+	// 	});
+	// }
+
+	fn expire_pending(&mut self, timeout: Duration, now: Instant) {
+		let expired_ids: Vec<RequestId> = self
+			.by_id
+			.iter()
+			.filter(|(_, batch)| batch.is_expired(timeout, now))
+			.map(|(id, _)| *id)
+			.collect();
+
+		for id in expired_ids {
+			let Some(mut batch) = self.by_id.remove(&id) else { continue };
+
+			log::debug!(
+				target: LOG_TARGET,
+				"bitswap: expired pending batch for {} CIDs (request {id:?})",
+				batch.cids.len(),
+			);
+
+			// Clean up inverted index for every CID in the expired batch
+			for cid in &batch.cids {
+				if let Some(ids) = self.by_cid.get_mut(cid) {
+					ids.retain(|rid| *rid != id);
+					if ids.is_empty() {
+						self.by_cid.remove(cid);
+					}
+				}
+			}
+
+			batch.send_failure(RequestFailure::Network(OutboundFailure::Timeout));
+		}
 	}
 
 	#[cfg(test)]
 	fn is_empty(&self) -> bool {
-		self.by_peer.is_empty()
+		self.by_id.is_empty()
 	}
 
 	#[cfg(test)]
 	fn len(&self) -> usize {
-		self.by_peer.len()
+		self.by_id.len()
 	}
 
 	#[cfg(test)]
-	fn contains_key(&self, peer: &litep2p::PeerId) -> bool {
-		self.by_peer.contains_key(peer)
+	fn contains_key(&self, id: &RequestId) -> bool {
+		self.by_id.contains_key(id)
 	}
 }
 
@@ -232,7 +358,9 @@ impl PendingBatches {
 pub(crate) struct BitswapService<Block: BlockT> {
 	handle: BitswapHandle,
 	client: Arc<dyn BlockBackend<Block> + Send + Sync>,
-	cmd_rx: mpsc::Receiver<BitswapOutboundCmd>,
+	// cmd_rx: mpsc::Receiver<BitswapOutboundCmd>,
+	request_rx: mpsc::Receiver<BitswapRequest>,
+	next_request_id: RequestId,
 	pending: PendingBatches,
 	metrics: BitswapMetrics,
 	known_peers: HashSet<litep2p::PeerId>,
@@ -257,18 +385,26 @@ impl<Block: BlockT> BitswapService<Block> {
 			BitswapMetrics::new(None).expect("registering with None registry never fails; qed")
 		});
 		let (litep2p_config, handle) = Config::new();
-		let (cmd_tx, cmd_rx) = mpsc::channel(CMD_CHANNEL_CAPACITY);
+		let (request_tx, request_rx) = mpsc::channel(CMD_CHANNEL_CAPACITY);
 		let service = Self { 
 			handle,
 			client,
-			cmd_rx,
+			request_rx,
+			next_request_id: 0,
 			pending: PendingBatches::default(),
 			metrics,
 			known_peers: known_peers.into_iter().collect(),
 		};
 		let future = Box::pin(async move { service.run().await });
-		let config = BitswapConfig { litep2p_config, cmd_tx };
+		let client = BitswapClient { request_tx };
+		let config = BitswapConfig { litep2p_config, client };
 		(future, config)
+	}
+
+	fn next_id(&mut self) -> RequestId {
+		let id = self.next_request_id;
+		self.next_request_id += 1;
+		id
 	}
 
 	/// Run the bitswap event loop.
@@ -292,16 +428,17 @@ impl<Block: BlockT> BitswapService<Block> {
 						return;
 					},
 				},
-				cmd = self.cmd_rx.recv() => match cmd {
-					Some(BitswapOutboundCmd { peer, wants, response_tx }) =>
-						self.handle_outbound_cmd(peer, wants, response_tx).await,
+				cmd = self.request_rx.recv() => match cmd {
+					Some(BitswapRequest { cids, response_tx }) =>
+						self.handle_outbound_cmd(cids, response_tx).await,
 					None => {
 						log::debug!(target: LOG_TARGET, "bitswap cmd channel closed");
 						return;
 					},
 				},
 				_ = expiry_ticker.tick() => {
-					self.pending.expire(REQUEST_TIMEOUT, Instant::now());
+					// self.pending.expire(REQUEST_TIMEOUT, Instant::now());
+					self.pending.expire_pending(REQUEST_TIMEOUT, Instant::now());
 				},
 			}
 		}
@@ -363,18 +500,31 @@ impl<Block: BlockT> BitswapService<Block> {
 	/// Handle an outbound bitswap command from the network service.
 	async fn handle_outbound_cmd(
 		&mut self,
-		peer: litep2p::PeerId,
-		wants: Vec<(Cid, WantType)>,
-		response_tx: ResponseSender,
+		cids: Vec<(Cid, ProtoWantType)>,
+		response_tx: ResponseSenderC,
 	) {
 		log::debug!(
 			target: LOG_TARGET,
-			"bitswap: outbound WANT for {} CIDs to {peer:?}",
-			wants.len(),
+			"bitswap: outbound WANT for {} CIDs",
+			cids.len(),
 		);
-		let cids: Vec<_> = wants.iter().map(|(cid, _)| *cid).collect();
-		self.pending.insert(peer, PendingBatch::new(cids, response_tx, Instant::now()));
-		self.handle.send_request(peer, wants).await;
+
+		let cid_keys: Vec<Cid> = cids.iter().map(|(cid, _)| *cid).collect();
+
+		// Convert Substrate proto WantType to litep2p WantType at the transport boundary.
+		let wants: Vec<(Cid, WantType)> = cids
+			.into_iter()
+			.map(|(cid, wt)| (cid, match wt {
+				ProtoWantType::Block => WantType::Block,
+				ProtoWantType::Have  => WantType::Have,
+			}))
+			.collect();
+
+		let id = self.next_id();
+		self.pending.insert(id, PendingBatch::new(cid_keys, response_tx, Instant::now()));
+		for peer in &self.known_peers {
+			self.handle.send_request(*peer, wants.clone()).await;
+		}
 	}
 }
 

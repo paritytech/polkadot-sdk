@@ -47,10 +47,11 @@ pub(crate) mod schema;
 
 pub use cid::Cid;
 pub use client::{
-	request_bitswap_blocks, request_bitswap_blocks_unverified, BitswapError, FetchOutcome,
+	request_bitswap_blocks, request_bitswap_blocks_unverified, BitswapClient, BitswapError, FetchOutcome,
 	BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, SHA2_256_MULTIHASH_CODE,
 };
 
+pub(crate) use client::{BitswapRequest, BitswapResponse};
 pub(crate) use schema::bitswap::Message as BitswapProtoMessage;
 
 pub(crate) const LOG_TARGET: &str = "sub-libp2p::bitswap";

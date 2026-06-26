@@ -411,15 +411,17 @@ pub enum BitswapError {
 	},
 }
 
-type Response = HashMap<Cid, FetchOutcome>;
+pub(crate) type BitswapResponse = Result<HashMap<Cid, FetchOutcome>, BitswapError>;
 
 pub(crate) struct BitswapRequest {
 	pub(crate) cids: Vec<(Cid, ProtoWantType)>,
-	pub(crate) response_tx: oneshot::Sender<Response>,
+	pub(crate) response_tx: oneshot::Sender<BitswapResponse>,
 }
 
+/// BitswapClient for sending requests. Holds unto a sender channel from BitswapService.
+/// For sending messages to BitswapService.
 pub struct BitswapClient {
-	request_tx: mpsc::Sender<BitswapRequest>, 
+	pub(crate) request_tx: mpsc::Sender<BitswapRequest>, 
 }
 
 impl BitswapClient {
@@ -429,20 +431,22 @@ impl BitswapClient {
 		}
 	}
 
-	pub async fn request_blocks(&self, cids: &[Cid]) -> Result<Response, BitswapError> {
+	/// Request blocks. Send WANT requests.
+	pub async fn request_blocks(&self, cids: &[Cid]) -> BitswapResponse{
 		validate_cids(cids)?;
 		let (response_tx, response_rx) = oneshot::channel();
 		let cids = cids.iter().map(|cid| (*cid, ProtoWantType::Block)).collect();
-		self.request_tx.send(BitswapRequest { cids, response_tx });
-		response_rx.await.map_err(|err| BitswapError::RequestFailed(err.to_string()))
+		let _ = self.request_tx.send(BitswapRequest { cids, response_tx }).await;
+		response_rx.await.map_err(|err| BitswapError::RequestFailed(err.to_string())).and_then(|r| r)
 	}
 
-	pub async fn request_haves(&self, cids: &[Cid]) -> Result<Response, BitswapError> {
+	/// Ask for block availability. Send HAVE requests.
+	pub async fn request_haves(&self, cids: &[Cid]) -> BitswapResponse {
 		validate_cids(cids)?;
 		let (response_tx, response_rx) = oneshot::channel();
 		let cids = cids.iter().map(|cid| (*cid, ProtoWantType::Have)).collect();
-		self.request_tx.send(BitswapRequest { cids, response_tx });
-		response_rx.await.map_err(|err| BitswapError::RequestFailed(err.to_string()))
+		let _ = self.request_tx.send(BitswapRequest { cids, response_tx }).await;
+		response_rx.await.map_err(|err| BitswapError::RequestFailed(err.to_string())).and_then(|r| r)
 	}
 }
 
