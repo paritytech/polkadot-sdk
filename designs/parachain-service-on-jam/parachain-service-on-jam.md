@@ -279,6 +279,9 @@ struct PreimageEntry {
 /// `ParaInfo` contributes to the baseline state-balance reservation (see §6.1).
 type HeadData = BoundedVec<u8, { 4 * 1024 }>;
 
+/// Fixed 128-octet transfer memo, matching Gray Paper `C_memosize = 128`.
+type Memo = [u8; 128];
+
 /// A validation code reference: its hash plus `pinned` — whether the
 /// parachain has *also* solicited it itself, on top of the service's own
 /// code-upgrade solicit. See §5.2.
@@ -514,7 +517,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `request_code_upgrade(hash: ValidationCodeHash, len: u32)` | `()` | Signal a PVF code upgrade request. See §5.2. |
 | `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent — no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. For the parachain's own active/pending validation code it only sets `pinned` to true (§5.2). |
 | `forget(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent — no-op if the parachain is not in `preimage_registry[hash].referencers`. May be called for the parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). |
-| `transfer_out(dest: ServiceId, amount: Balance, memo: Vec<u8>)` | `()` | Transfer balance to another JAM service (Asset Hub only) |
+| `transfer_out(dest: ServiceId, amount: Balance, memo: Memo)` | `()` | Transfer balance to another JAM service (Asset Hub only) |
 | `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, mode: QueueUpdateMode, new_assigner: Option<ServiceId>)` | `()` | Update the authorizer queue for a core (Coretime chain only). `mode` determines whether the queue is applied immediately or cached in service state until the current 80-slot queue is exhausted. `new_assigner`, when `Some`, hands off `assigners[core]` to another service so that service can manage its own core queue going forward; when `None`, the current assigner (Parachain Service) is retained. |
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
 | `consume_transfers_up_to(index: u32)` | `()` | Mark all incoming transfers up to `index` as consumed; Accumulate prunes those entries. (Asset Hub only) |
