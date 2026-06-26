@@ -15,7 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use super::{resubmission::resolve_session_and_pvd, CollatorMessage};
+use super::{
+	resubmission::{resolve_pvd, resolve_session},
+	CollatorMessage,
+};
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
 	collators::{
@@ -691,7 +694,8 @@ where
 	check_validation_code_or_log(&validation_code_hash, para_id, relay_client, relay_parent_hash)
 		.await;
 
-	let session_and_pvd = resolve_session_and_pvd(relay_client, relay_parent_hash, para_id).await;
+	let session = resolve_session(relay_client, relay_parent_hash).await;
+	let pvd = resolve_pvd(relay_client, relay_parent_hash, para_id).await;
 
 	let mut blocks = Vec::new();
 	let mut proofs = Vec::new();
@@ -839,7 +843,7 @@ where
 
 		let time_ms = now_unix_ms();
 		let proof = Arc::new(built_block.proof);
-		if let Some((relay_parent_session, pvd)) = session_and_pvd.clone() {
+		if let (Some(relay_parent_session), Some(pvd)) = (session, pvd.clone()) {
 			prepare_resubmission_aux_data::<Block>(
 				parent_hash,
 				time_ms,
