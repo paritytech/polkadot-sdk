@@ -20,8 +20,7 @@ use crate::{
 	Runtime,
 };
 use ::pallet_xcm_benchmarks::xcm_weights::{
-	weigh_assets_filter_by_count, weigh_assets_list_by_count, AssetFilterCountWeigher,
-	AssetWeigher, AutoCountBasedXcmWeight, CountBasedXcmWeightConfig, XcmGenericWeightInfo,
+	AssetFilterCountWeigher, AssetsWeigher, AutoCountBasedXcmWeight, CountBasedXcmWeightConfig,
 };
 use ::pallet_xcm_benchmarks::{
 	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
@@ -54,13 +53,17 @@ impl AssetFilterCountWeigher for AssetHubWestendCountWeigher {
 /// rather than Substrate execution weight. All other assets use the provided weight
 /// as-is.
 pub struct WestendERC20AssetWeigher;
-impl AssetWeigher for WestendERC20AssetWeigher {
-	fn weigh_asset(asset: &Asset, weight: Weight) -> Weight {
-		if IsLocalAccountKey20::contains(&asset.id.0) {
-			ERC20TransferGasLimit::get()
-		} else {
-			weight
-		}
+impl AssetsWeigher for WestendERC20AssetWeigher {
+	fn weigh_assets(assets: &Assets, weight: Weight) -> Weight {
+		assets.inner().iter().fold(Weight::zero(), |acc, asset| {
+			let asset_weight = if IsLocalAccountKey20::contains(&asset.id.0) {
+				ERC20TransferGasLimit::get()
+			} else {
+				weight
+			};
+
+			acc.saturating_add(asset_weight)
+		})
 	}
 }
 
@@ -70,16 +73,7 @@ impl<Call> CountBasedXcmWeightConfig<Call> for AssetHubWestendXcmWeightConfig {
 	type GenericWeights = XcmBenchWeight<Runtime>;
 	type FungibleWeights = XcmBenchWeight<Runtime>;
 	type FilterCountWeigher = AssetHubWestendCountWeigher;
-	type ListAssetWeigher = WestendERC20AssetWeigher;
-
-	fn exchange_asset(give: &AssetFilter, receive: &Assets, _maximal: &bool) -> Weight {
-		let base_weight = <XcmBenchWeight<Runtime> as XcmGenericWeightInfo>::exchange_asset();
-		let give_weight =
-			weigh_assets_filter_by_count::<AssetHubWestendCountWeigher>(give, base_weight);
-		let receive_weight =
-			weigh_assets_list_by_count::<WestendERC20AssetWeigher>(receive, base_weight);
-		give_weight.max(receive_weight)
-	}
+	type AssetsListWeigher = WestendERC20AssetWeigher;
 }
 
 pub type AssetHubWestendXcmWeight<Call> =

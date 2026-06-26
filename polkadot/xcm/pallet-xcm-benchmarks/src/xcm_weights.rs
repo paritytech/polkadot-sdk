@@ -234,22 +234,20 @@ pub trait AssetFilterCountWeigher {
 	fn max_assets_into_holding() -> u64;
 }
 
-/// Per-asset weight hook.
+/// Used for computing the weight of Assets collection.
 ///
-/// The default implementation (`UniformAssetWeigher`) returns the provided weight
-/// unchanged — every asset costs the same. Runtimes that have special cases
-/// (e.g. Asset Hub Westend where ERC20 transfers are priced in Ethereum gas)
-/// provide their own implementation.
-pub trait AssetWeigher {
-	fn weigh_asset(asset: &Asset, weight: Weight) -> Weight;
+/// Ideally, weight of Assets is a sum of each individual Weight
+///
+/// Some runtimes like `AssetHub Westend` might include ERC20s
+/// These might have different weight fo it won't do to just multiple all Asset weights
+pub trait AssetsWeigher {
+	fn weigh_assets(assets: &Assets, weight: Weight) -> Weight;
 }
 
-/// No-op [`AssetWeigher`]: every asset gets exactly `weight`.
-/// Use this for runtimes where all assets have the same per-unit cost.
-pub struct UniformAssetWeigher;
-impl AssetWeigher for UniformAssetWeigher {
-	fn weigh_asset(_asset: &Asset, weight: Weight) -> Weight {
-		weight
+pub struct UniformAssetsWeigher;
+impl AssetsWeigher for UniformAssetsWeigher {
+	fn weigh_assets(assets: &Assets, weight: Weight) -> Weight {
+		weight.saturating_mul(assets.inner().len() as u64)
 	}
 }
 
@@ -285,20 +283,6 @@ pub fn weigh_assets_filter_by_count<C: AssetFilterCountWeigher>(
 	}
 }
 
-/// Count-based weight calculation for an [`Assets`] collection, with a
-/// per-asset weight hook `A`.
-///
-/// Each asset is passed through `A::weigh_asset`; the results are summed with
-/// saturation. Use `UniformAssetWeigher` when all assets cost the same.
-///
-/// This is the list counterpart to [`weigh_assets_filter_by_count`].
-pub fn weigh_assets_list_by_count<A: AssetWeigher>(assets: &Assets, weight: Weight) -> Weight {
-	assets
-		.inner()
-		.iter()
-		.fold(Weight::zero(), |acc, asset| acc.saturating_add(A::weigh_asset(asset, weight)))
-}
-
 /// Configuration for the default count-based [`XcmWeightInfo`] adapter.
 ///
 /// This is intended for multi-asset runtimes where the default behavior is:
@@ -311,14 +295,13 @@ pub trait CountBasedXcmWeightConfig<Call> {
 	type GenericWeights: XcmGenericWeightInfo;
 	type FungibleWeights: XcmFungibleWeightInfo;
 	type FilterCountWeigher: AssetFilterCountWeigher;
-	type ListAssetWeigher: AssetWeigher;
+	type AssetsListWeigher: AssetsWeigher;
 
 	fn exchange_asset(give: &AssetFilter, receive: &Assets, _maximal: &bool) -> Weight {
 		let base_weight = <Self::GenericWeights as XcmGenericWeightInfo>::exchange_asset();
 		let give_weight =
 			weigh_assets_filter_by_count::<Self::FilterCountWeigher>(give, base_weight);
-		let receive_weight =
-			weigh_assets_list_by_count::<Self::ListAssetWeigher>(receive, base_weight);
+		let receive_weight = Self::AssetsListWeigher::weigh_assets(receive, base_weight);
 		give_weight.max(receive_weight)
 	}
 
@@ -384,21 +367,21 @@ where
 	Config: CountBasedXcmWeightConfig<Call>,
 {
 	fn withdraw_asset(assets: &Assets) -> Weight {
-		weigh_assets_list_by_count::<Config::ListAssetWeigher>(
+		Config::AssetsListWeigher::weigh_assets(
 			assets,
 			<Config::FungibleWeights as XcmFungibleWeightInfo>::withdraw_asset(),
 		)
 	}
 
 	fn reserve_asset_deposited(assets: &Assets) -> Weight {
-		weigh_assets_list_by_count::<Config::ListAssetWeigher>(
+		Config::AssetsListWeigher::weigh_assets(
 			assets,
 			<Config::FungibleWeights as XcmFungibleWeightInfo>::reserve_asset_deposited(),
 		)
 	}
 
 	fn receive_teleported_asset(assets: &Assets) -> Weight {
-		weigh_assets_list_by_count::<Config::ListAssetWeigher>(
+		Config::AssetsListWeigher::weigh_assets(
 			assets,
 			<Config::FungibleWeights as XcmFungibleWeightInfo>::receive_teleported_asset(),
 		)
@@ -414,14 +397,14 @@ where
 	}
 
 	fn transfer_asset(assets: &Assets, _dest: &Location) -> Weight {
-		weigh_assets_list_by_count::<Config::ListAssetWeigher>(
+		Config::AssetsListWeigher::weigh_assets(
 			assets,
 			<Config::FungibleWeights as XcmFungibleWeightInfo>::transfer_asset(),
 		)
 	}
 
 	fn transfer_reserve_asset(assets: &Assets, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		weigh_assets_list_by_count::<Config::ListAssetWeigher>(
+		Config::AssetsListWeigher::weigh_assets(
 			assets,
 			<Config::FungibleWeights as XcmFungibleWeightInfo>::transfer_reserve_asset(),
 		)
@@ -558,14 +541,14 @@ where
 	}
 
 	fn burn_asset(assets: &Assets) -> Weight {
-		weigh_assets_list_by_count::<Config::ListAssetWeigher>(
+		Config::AssetsListWeigher::weigh_assets(
 			assets,
 			<Config::GenericWeights as XcmGenericWeightInfo>::burn_asset(),
 		)
 	}
 
 	fn expect_asset(assets: &Assets) -> Weight {
-		weigh_assets_list_by_count::<Config::ListAssetWeigher>(
+		Config::AssetsListWeigher::weigh_assets(
 			assets,
 			<Config::GenericWeights as XcmGenericWeightInfo>::expect_asset(),
 		)
