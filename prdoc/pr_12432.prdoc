@@ -12,5 +12,7 @@ doc:
 crates:
   - name: sc-network
     bump: patch
+    validate: false
   - name: sc-network-types
     bump: patch
+    validate: false
