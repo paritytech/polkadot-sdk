@@ -166,6 +166,8 @@ jobs:
           name: release-notes-context
           path: |
             scripts/release/context.json
+            scripts/release/RELEASE_DRAFT.md
+            scripts/release/templates/changelog.md
             **/*-srtool-digest.json
 
       - name: Create draft release
