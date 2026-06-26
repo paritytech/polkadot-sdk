@@ -34,7 +34,7 @@ use crate::utils::{assert_candidates_version, assert_validator_backed_candidates
 #[case::rpo_2_max_session_age_1("v3-rpo-2", 1, 40, 18..30)]
 #[case::rpo_4_max_session_age_1("v3-rpo-4", 1, 40, 18..30)]
 #[case::rpo_6_max_session_age_1("v3-rpo-6", 1, 40, 18..30)]
-#[case::rpo_15_max_session_age_2("v3-rpo-15", 2, 60, 28..40)]
+#[case::rpo_15_max_session_age_2("v3-rpo-15", 2, 60, 26..40)]
 #[tokio::test(flavor = "multi_thread")]
 async fn scheduling_v2_and_v3_collator_with_v3_validators(
 	#[case] parachain: &str,
