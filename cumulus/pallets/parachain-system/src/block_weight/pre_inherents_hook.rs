@@ -38,6 +38,14 @@ where
 	TargetBlockRate: Get<u32>,
 {
 	fn pre_inherents() {
+		log::info!(
+			target: LOG_TARGET,
+			"pre-inherent at block {:?}, target_block_weight: {:?}, consumed: {:?}, is_first_block_in_core: {:?}",
+			frame_system::Pallet::<Config>::block_number(),
+			crate::block_weight::MaxParachainBlockWeight::<Config, TargetBlockRate>::target_block_weight(),
+			frame_system::Pallet::<Config>::remaining_block_weight().consumed(),
+			is_first_block_in_core::<Config>(),
+		);
 		if !block_weight_over_target_block_weight::<Config, TargetBlockRate>() {
 			let new_mode = if Config::MultiBlockMigrator::ongoing() {
 				log::debug!(
