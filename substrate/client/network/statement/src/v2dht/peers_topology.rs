@@ -144,6 +144,12 @@ impl PeersTopology {
 		self.discovered.len()
 	}
 
+	/// Number of known statement-protocol peers, the DHT storage, affinity and forwarding
+	/// candidates.
+	pub fn dht_eligible_peers_count(&self) -> usize {
+		self.discovered_index.peers().count()
+	}
+
 	/// Closest known statement-protocol peers for `topic`.
 	///
 	/// "Closest" is computed over the locally learned statement-protocol peers, not by querying
