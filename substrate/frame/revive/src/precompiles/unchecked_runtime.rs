@@ -105,11 +105,21 @@ sol! {
 /// `BaseCallFilter` only; to bar those, deny the deferral call itself (e.g.
 /// `Scheduler::schedule`) in the filter, or rely on `BaseCallFilter` for hard
 /// restrictions.
-pub struct UncheckedRuntime<T, Filter = Everything>(PhantomData<(T, Filter)>);
+///
+/// `StorageFilter` restricts which storage keys `getStorage` may read (defaults to
+/// [`Everything`]). Reading a key materialises its whole value into the PoV before
+/// the size is known, so an unrestricted reader can pull a large value (e.g.
+/// `:code:`) into the proof. Deny such keys here to bound that exposure; the runtime
+/// that opts in is responsible for scoping the readable key space.
+pub struct UncheckedRuntime<T, Filter = Everything, StorageFilter = Everything>(
+	PhantomData<(T, Filter, StorageFilter)>,
+);
 
-impl<T: crate::Config, Filter> Precompile for UncheckedRuntime<T, Filter>
+impl<T: crate::Config, Filter, StorageFilter> Precompile
+	for UncheckedRuntime<T, Filter, StorageFilter>
 where
 	Filter: Contains<<T as crate::Config>::RuntimeCall>,
+	StorageFilter: Contains<Vec<u8>>,
 {
 	type T = T;
 	type Interface = IUncheckedRuntime::IUncheckedRuntimeCalls;
@@ -189,6 +199,12 @@ where
 				key,
 				max_len,
 			}) => {
+				// A read materialises the whole value into the PoV before its size is
+				// known, so gate the key before reading to bound that exposure.
+				if !StorageFilter::contains(&key.as_ref().to_vec()) {
+					return Err(Error::Revert("storage key not allowed by filter".into()));
+				}
+
 				let max_len = *max_len;
 				if max_len > limits::CALLDATA_BYTES {
 					return Err(Error::Revert("max_len too large".into()));
@@ -245,7 +261,7 @@ mod tests {
 		weights::WeightInfo,
 	};
 	use codec::Encode;
-	use frame_support::traits::fungible::Inspect;
+	use frame_support::traits::{Everything, fungible::Inspect};
 
 	/// Build the `dispatch(encoded_call)` precompile input for a `RuntimeCall`.
 	fn dispatch_input(call: RuntimeCall) -> IUncheckedRuntime::IUncheckedRuntimeCalls {
@@ -315,6 +331,54 @@ mod tests {
 		fn contains(call: &RuntimeCall) -> bool {
 			!matches!(call, RuntimeCall::Balances(_))
 		}
+	}
+
+	/// A storage-key filter that forbids reading the `:code:` key. Used to exercise
+	/// the configurable `StorageFilter` parameter of the precompile.
+	pub struct DenyCodeKey;
+	impl frame_support::traits::Contains<Vec<u8>> for DenyCodeKey {
+		fn contains(key: &Vec<u8>) -> bool {
+			!key.starts_with(b":code:")
+		}
+	}
+
+	#[test]
+	fn storage_respects_key_filter() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+			sp_io::storage::set(b":code:", b"wasm-blob");
+
+			let result = <UncheckedRuntime<Test, Everything, DenyCodeKey> as Precompile>::call(
+				&address(),
+				&storage_input(b":code:", 64),
+				&mut ext,
+			);
+
+			assert_eq!(
+				result.unwrap_err(),
+				Error::Revert("storage key not allowed by filter".into()),
+			);
+		});
+	}
+
+	#[test]
+	fn storage_filter_allows_permitted_keys() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+			sp_io::storage::set(b"allowed", b"value");
+
+			let raw = <UncheckedRuntime<Test, Everything, DenyCodeKey> as Precompile>::call(
+				&address(),
+				&storage_input(b"allowed", 64),
+				&mut ext,
+			)
+			.expect("a permitted key is readable");
+
+			let decoded = Bytes::abi_decode(&raw).expect("decode");
+			assert_eq!(decoded.as_ref(), b"value");
+		});
 	}
 
 	#[test]
