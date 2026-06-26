@@ -21,10 +21,6 @@ use derive_more::{From, TryInto};
 use scale_info::TypeInfo;
 use sp_weights::Weight;
 
-// ======
-// Input
-// ======
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct EthPreDispatchWeightInputPayloadV1 {
 	pub tx: Vec<u8>,
@@ -34,10 +30,6 @@ pub struct EthPreDispatchWeightInputPayloadV1 {
 pub enum EthPreDispatchWeightVersionedInputPayload {
 	V1(EthPreDispatchWeightInputPayloadV1),
 }
-
-// =======
-// Output
-// =======
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct EthPreDispatchWeightOutputPayloadV1 {

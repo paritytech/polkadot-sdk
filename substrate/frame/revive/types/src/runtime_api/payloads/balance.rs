@@ -20,10 +20,6 @@ use derive_more::{From, TryInto};
 use scale_info::TypeInfo;
 use sp_core::{H160, U256};
 
-// ======
-// Input
-// ======
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct BalanceInputPayloadV1 {
 	pub address: H160,
@@ -33,10 +29,6 @@ pub struct BalanceInputPayloadV1 {
 pub enum BalanceVersionedInputPayload {
 	V1(BalanceInputPayloadV1),
 }
-
-// =======
-// Output
-// =======
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct BalanceOutputPayloadV1 {

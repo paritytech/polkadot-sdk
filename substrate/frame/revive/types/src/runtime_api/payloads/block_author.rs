@@ -20,10 +20,6 @@ use derive_more::{From, TryInto};
 use scale_info::TypeInfo;
 use sp_core::H160;
 
-// ======
-// Input
-// ======
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct BlockAuthorInputPayloadV1;
 
@@ -31,10 +27,6 @@ pub struct BlockAuthorInputPayloadV1;
 pub enum BlockAuthorVersionedInputPayload {
 	V1(BlockAuthorInputPayloadV1),
 }
-
-// =======
-// Output
-// =======
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct BlockAuthorOutputPayloadV1 {

@@ -20,10 +20,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::H160;
 
-// ======
-// Input
-// ======
-
 pub struct CodeInputPayload {
 	pub address: H160,
 }
@@ -41,10 +37,6 @@ impl From<CodeInputPayloadV1> for CodeInputPayload {
 		Self { address: value.address }
 	}
 }
-
-// =======
-// Output
-// =======
 
 pub struct CodeOutputPayload {
 	pub code: Vec<u8>,

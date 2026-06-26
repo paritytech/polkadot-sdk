@@ -22,10 +22,6 @@ use scale_info::TypeInfo;
 
 use crate::runtime_api::*;
 
-// ======
-// Input
-// ======
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct ReceiptDataInputPayloadV1;
 
@@ -33,10 +29,6 @@ pub struct ReceiptDataInputPayloadV1;
 pub enum ReceiptDataVersionedInputPayload {
 	V1(ReceiptDataInputPayloadV1),
 }
-
-// =======
-// Output
-// =======
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct ReceiptDataOutputPayloadV1 {

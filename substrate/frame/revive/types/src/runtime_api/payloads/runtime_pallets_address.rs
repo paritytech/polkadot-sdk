@@ -20,10 +20,6 @@ use derive_more::{From, TryInto};
 use scale_info::TypeInfo;
 use sp_core::H160;
 
-// ======
-// Input
-// ======
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct RuntimePalletsAddressInputPayloadV1;
 
@@ -31,10 +27,6 @@ pub struct RuntimePalletsAddressInputPayloadV1;
 pub enum RuntimePalletsAddressVersionedInputPayload {
 	V1(RuntimePalletsAddressInputPayloadV1),
 }
-
-// =======
-// Output
-// =======
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct RuntimePalletsAddressOutputPayloadV1 {

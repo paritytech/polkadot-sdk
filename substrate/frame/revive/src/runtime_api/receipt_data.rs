@@ -20,10 +20,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::ReceiptGasInfo;
 
-// ======
-// Input
-// ======
-
 pub struct ReceiptDataInputPayload;
 
 impl From<ReceiptDataVersionedInputPayload> for ReceiptDataInputPayload {
@@ -39,10 +35,6 @@ impl From<ReceiptDataInputPayloadV1> for ReceiptDataInputPayload {
 		Self
 	}
 }
-
-// =======
-// Output
-// =======
 
 pub struct ReceiptDataOutputPayload {
 	pub receipt_data: Vec<ReceiptGasInfo>,

@@ -19,10 +19,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::H160;
 
-// ======
-// Input
-// ======
-
 pub struct RuntimePalletsAddressInputPayload;
 
 impl From<RuntimePalletsAddressVersionedInputPayload> for RuntimePalletsAddressInputPayload {
@@ -38,10 +34,6 @@ impl From<RuntimePalletsAddressInputPayloadV1> for RuntimePalletsAddressInputPay
 		Self
 	}
 }
-
-// =======
-// Output
-// =======
 
 pub struct RuntimePalletsAddressOutputPayload {
 	pub runtime_pallets_address: H160,

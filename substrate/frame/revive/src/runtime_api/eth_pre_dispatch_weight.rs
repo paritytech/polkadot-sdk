@@ -20,10 +20,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::Weight;
 
-// ======
-// Input
-// ======
-
 pub struct EthPreDispatchWeightInputPayload {
 	pub tx: Vec<u8>,
 }
@@ -41,10 +37,6 @@ impl From<EthPreDispatchWeightInputPayloadV1> for EthPreDispatchWeightInputPaylo
 		Self { tx: value.tx }
 	}
 }
-
-// =======
-// Output
-// =======
 
 pub struct EthPreDispatchWeightOutputPayload {
 	pub weight: Weight,

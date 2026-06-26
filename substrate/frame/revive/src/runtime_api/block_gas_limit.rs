@@ -19,10 +19,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::U256;
 
-// ======
-// Input
-// ======
-
 pub struct BlockGasLimitInputPayload;
 
 impl From<BlockGasLimitVersionedInputPayload> for BlockGasLimitInputPayload {
@@ -38,10 +34,6 @@ impl From<BlockGasLimitInputPayloadV1> for BlockGasLimitInputPayload {
 		Self
 	}
 }
-
-// =======
-// Output
-// =======
 
 pub struct BlockGasLimitOutputPayload {
 	pub block_gas_limit: U256,

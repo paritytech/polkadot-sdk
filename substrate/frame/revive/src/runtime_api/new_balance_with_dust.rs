@@ -19,10 +19,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::U256;
 
-// ======
-// Input
-// ======
-
 pub struct NewBalanceWithDustInputPayload {
 	pub balance: U256,
 }
@@ -40,10 +36,6 @@ impl From<NewBalanceWithDustInputPayloadV1> for NewBalanceWithDustInputPayload {
 		Self { balance: value.balance }
 	}
 }
-
-// =======
-// Output
-// =======
 
 pub struct NewBalanceWithDustOutputPayload<Balance> {
 	pub new_balance: Balance,

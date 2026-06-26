@@ -19,10 +19,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::{H160, U256};
 
-// ======
-// Input
-// ======
-
 pub struct BalanceInputPayload {
 	pub address: H160,
 }
@@ -40,10 +36,6 @@ impl From<BalanceInputPayloadV1> for BalanceInputPayload {
 		Self { address: value.address }
 	}
 }
-
-// =======
-// Output
-// =======
 
 pub struct BalanceOutputPayload {
 	pub balance: U256,

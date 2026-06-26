@@ -19,10 +19,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::H160;
 
-// ======
-// Input
-// ======
-
 pub struct AddressInputPayload<AccountId> {
 	pub account_id: AccountId,
 }
@@ -40,10 +36,6 @@ impl<AccountId> From<AddressInputPayloadV1<AccountId>> for AddressInputPayload<A
 		Self { account_id: value.account_id }
 	}
 }
-
-// =======
-// Output
-// =======
 
 pub struct AddressOutputPayload {
 	pub address: H160,

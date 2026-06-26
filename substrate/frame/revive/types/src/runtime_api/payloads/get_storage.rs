@@ -23,10 +23,6 @@ use sp_core::H160;
 
 use crate::runtime_api::*;
 
-// ======
-// Input
-// ======
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct GetStorageInputPayloadV1 {
 	pub address: H160,
@@ -37,10 +33,6 @@ pub struct GetStorageInputPayloadV1 {
 pub enum GetStorageVersionedInputPayload {
 	V1(GetStorageInputPayloadV1),
 }
-
-// =======
-// Output
-// =======
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct GetStorageOutputPayloadV1 {

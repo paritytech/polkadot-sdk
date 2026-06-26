@@ -22,10 +22,6 @@ use scale_info::TypeInfo;
 
 use crate::runtime_api::*;
 
-// ======
-// Input
-// ======
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct UploadCodeInputPayloadV1<AccountId, Balance> {
 	pub origin: AccountId,
@@ -37,10 +33,6 @@ pub struct UploadCodeInputPayloadV1<AccountId, Balance> {
 pub enum UploadCodeVersionedInputPayload<AccountId, Balance> {
 	V1(UploadCodeInputPayloadV1<AccountId, Balance>),
 }
-
-// =======
-// Output
-// =======
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct UploadCodeOutputPayloadV1<Balance> {

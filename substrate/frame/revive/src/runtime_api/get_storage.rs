@@ -20,10 +20,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::H160;
 
-// ======
-// Input
-// ======
-
 pub struct GetStorageInputPayload {
 	pub address: H160,
 	pub key: StorageKey,
@@ -56,10 +52,6 @@ impl From<StorageKeyV1> for StorageKey {
 		}
 	}
 }
-
-// =======
-// Output
-// =======
 
 pub struct GetStorageOutputPayload {
 	pub storage: Option<Vec<u8>>,

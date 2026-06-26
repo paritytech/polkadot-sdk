@@ -19,10 +19,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::U256;
 
-// ======
-// Input
-// ======
-
 pub struct GasPriceInputPayload;
 
 impl From<GasPriceVersionedInputPayload> for GasPriceInputPayload {
@@ -38,10 +34,6 @@ impl From<GasPriceInputPayloadV1> for GasPriceInputPayload {
 		Self
 	}
 }
-
-// =======
-// Output
-// =======
 
 pub struct GasPriceOutputPayload {
 	pub gas_price: U256,

@@ -20,10 +20,6 @@ use derive_more::{From, TryInto};
 use scale_info::TypeInfo;
 use sp_core::H160;
 
-// ======
-// Input
-// ======
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct AddressInputPayloadV1<AccountId> {
 	pub account_id: AccountId,
@@ -33,10 +29,6 @@ pub struct AddressInputPayloadV1<AccountId> {
 pub enum AddressVersionedInputPayload<AccountId> {
 	V1(AddressInputPayloadV1<AccountId>),
 }
-
-// =======
-// Output
-// =======
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct AddressOutputPayloadV1 {

@@ -19,10 +19,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::H160;
 
-// ======
-// Input
-// ======
-
 pub struct BlockAuthorInputPayload;
 
 impl From<BlockAuthorVersionedInputPayload> for BlockAuthorInputPayload {
@@ -38,10 +34,6 @@ impl From<BlockAuthorInputPayloadV1> for BlockAuthorInputPayload {
 		Self
 	}
 }
-
-// =======
-// Output
-// =======
 
 pub struct BlockAuthorOutputPayload {
 	pub block_author: H160,

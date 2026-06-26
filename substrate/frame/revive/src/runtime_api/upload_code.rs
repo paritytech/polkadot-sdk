@@ -20,10 +20,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::CodeUploadReturnValue;
 
-// ======
-// Input
-// ======
-
 pub struct UploadCodeInputPayload<AccountId, Balance> {
 	pub origin: AccountId,
 	pub code: Vec<u8>,
@@ -51,10 +47,6 @@ impl<AccountId, Balance> From<UploadCodeInputPayloadV1<AccountId, Balance>>
 		}
 	}
 }
-
-// =======
-// Output
-// =======
 
 pub struct UploadCodeOutputPayload<Balance> {
 	pub code_upload_return_value: CodeUploadReturnValue<Balance>,

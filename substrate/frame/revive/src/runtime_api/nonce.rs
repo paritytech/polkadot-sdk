@@ -19,10 +19,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::H160;
 
-// ======
-// Input
-// ======
-
 pub struct NonceInputPayload {
 	pub address: H160,
 }
@@ -40,10 +36,6 @@ impl From<NonceInputPayloadV1> for NonceInputPayload {
 		Self { address: value.address }
 	}
 }
-
-// =======
-// Output
-// =======
 
 pub struct NonceOutputPayload<Nonce> {
 	pub nonce: Nonce,

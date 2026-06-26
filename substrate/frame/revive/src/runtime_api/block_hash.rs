@@ -19,10 +19,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::{H256, U256};
 
-// ======
-// Input
-// ======
-
 pub struct BlockHashInputPayload {
 	pub block_number: U256,
 }
@@ -40,10 +36,6 @@ impl From<BlockHashInputPayloadV1> for BlockHashInputPayload {
 		Self { block_number: value.block_number }
 	}
 }
-
-// =======
-// Output
-// =======
 
 pub struct BlockHashOutputPayload {
 	pub block_hash: Option<H256>,

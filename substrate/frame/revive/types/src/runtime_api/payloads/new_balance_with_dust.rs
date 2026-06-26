@@ -20,10 +20,6 @@ use derive_more::{From, TryInto};
 use scale_info::TypeInfo;
 use sp_core::U256;
 
-// ======
-// Input
-// ======
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct NewBalanceWithDustInputPayloadV1 {
 	pub balance: U256,
@@ -33,10 +29,6 @@ pub struct NewBalanceWithDustInputPayloadV1 {
 pub enum NewBalanceWithDustVersionedInputPayload {
 	V1(NewBalanceWithDustInputPayloadV1),
 }
-
-// =======
-// Output
-// =======
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct NewBalanceWithDustOutputPayloadV1<Balance> {

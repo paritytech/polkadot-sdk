@@ -19,10 +19,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::U256;
 
-// ======
-// Input
-// ======
-
 pub struct MaxExtrinsicWeightInGasInputPayload;
 
 impl From<MaxExtrinsicWeightInGasVersionedInputPayload> for MaxExtrinsicWeightInGasInputPayload {
@@ -38,10 +34,6 @@ impl From<MaxExtrinsicWeightInGasInputPayloadV1> for MaxExtrinsicWeightInGasInpu
 		Self
 	}
 }
-
-// =======
-// Output
-// =======
 
 pub struct MaxExtrinsicWeightInGasOutputPayload {
 	pub max_extrinsic_weight_in_gas: U256,

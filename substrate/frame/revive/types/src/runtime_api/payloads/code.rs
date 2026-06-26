@@ -21,10 +21,6 @@ use derive_more::{From, TryInto};
 use scale_info::TypeInfo;
 use sp_core::H160;
 
-// ======
-// Input
-// ======
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct CodeInputPayloadV1 {
 	pub address: H160,
@@ -34,10 +30,6 @@ pub struct CodeInputPayloadV1 {
 pub enum CodeVersionedInputPayload {
 	V1(CodeInputPayloadV1),
 }
-
-// =======
-// Output
-// =======
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct CodeOutputPayloadV1 {

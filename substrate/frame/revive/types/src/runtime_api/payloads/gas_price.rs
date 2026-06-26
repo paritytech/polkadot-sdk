@@ -20,10 +20,6 @@ use derive_more::{From, TryInto};
 use scale_info::TypeInfo;
 use sp_core::U256;
 
-// ======
-// Input
-// ======
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct GasPriceInputPayloadV1;
 
@@ -31,10 +27,6 @@ pub struct GasPriceInputPayloadV1;
 pub enum GasPriceVersionedInputPayload {
 	V1(GasPriceInputPayloadV1),
 }
-
-// =======
-// Output
-// =======
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct GasPriceOutputPayloadV1 {

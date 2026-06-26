@@ -20,10 +20,6 @@ use derive_more::{From, TryInto};
 use scale_info::TypeInfo;
 use sp_core::{H256, U256};
 
-// ======
-// Input
-// ======
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct BlockHashInputPayloadV1 {
 	pub block_number: U256,
@@ -33,10 +29,6 @@ pub struct BlockHashInputPayloadV1 {
 pub enum BlockHashVersionedInputPayload {
 	V1(BlockHashInputPayloadV1),
 }
-
-// =======
-// Output
-// =======
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct BlockHashOutputPayloadV1 {

@@ -20,10 +20,6 @@ use derive_more::{From, TryInto};
 use scale_info::TypeInfo;
 use sp_core::U256;
 
-// ======
-// Input
-// ======
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct MaxExtrinsicWeightInGasInputPayloadV1;
 
@@ -31,10 +27,6 @@ pub struct MaxExtrinsicWeightInGasInputPayloadV1;
 pub enum MaxExtrinsicWeightInGasVersionedInputPayload {
 	V1(MaxExtrinsicWeightInGasInputPayloadV1),
 }
-
-// =======
-// Output
-// =======
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct MaxExtrinsicWeightInGasOutputPayloadV1 {
