@@ -19,6 +19,7 @@ design, written in [Quint](https://quint-lang.org).
 | [`state_vars.qnt`](./state_vars.qnt) | Shared `var` declarations: `svc`, `now`, `jamStagingSet`, `coretimeChain`, `assetHub`, ghost `solicitedSet` — imported by `main.qnt` and `invariants.qnt` so both modules refer to the same state | — |
 | [`invariants.qnt`](./invariants.qnt) | Nullary `val: bool` catalogue of every state invariant (balance, preimage-registry, designate, code-upgrade, staged-keys, solicit-bookkeeping) + composite `invariants` | — |
 | [`main.qnt`](./main.qnt) | Composition: `init`, `step`, refine-input generators. State variables live in `state_vars.qnt`; invariants in `invariants.qnt`. | — |
+| [`tests.qnt`](./tests.qnt) | `run` tests (e.g. `testBounceOnFull` — `incoming_transfers` at capacity bounces the next ingress). | — |
 
 ## Scope
 
@@ -66,7 +67,8 @@ The top-level invariants live in [`main.qnt`](./main.qnt). The key ones:
 ## Running the spec
 
 ```sh
-quint typecheck main.qnt # static checks
-quint run main.qnt # randomized exploration
-quint verify main.qnt # symbolic model checking (via Apalache)
+quint typecheck main.qnt                       # static checks
+quint run main.qnt                             # randomized exploration
+quint test --backend=typescript tests.qnt      # unit tests
+quint verify main.qnt                          # symbolic model checking (via Apalache)
 ```

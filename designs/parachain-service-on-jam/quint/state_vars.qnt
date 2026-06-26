@@ -38,4 +38,16 @@ module state_vars {
   /// the same data from the trace, so invariants over this ghost transfer
   /// directly. Not part of the protocol.
   var lastStepWorkResults: List[ParachainWorkResult]
+
+  /// Ghost state: incoming transfers that hit the full `incoming_transfers`
+  /// queue in the last step and were bounced back. Each entry corresponds
+  /// to a JAM-level outgoing transfer the Parachain Service must emit
+  /// (dest = original sender, same `amount`/`memo`). The Rust harness can
+  /// observe the same outgoing transfers and compare. Empty on non-ingress
+  /// steps. Not part of the protocol.
+  var lastStepBouncedTransfers: List[{
+      from: ServiceId,
+      amount: Balance,
+      memo: Memo
+  }]
 }

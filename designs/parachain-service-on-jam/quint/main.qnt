@@ -52,7 +52,8 @@ module main {
     assetHub' = MkParaId(2),
     solicitedSet' = Set(),
     prevSvc' = initialState,
-    lastStepWorkResults' = List()
+    lastStepWorkResults' = List(),
+    lastStepBouncedTransfers' = List()
   }
 
   // --- Step (a): refine + accumulate one work-report --------------------
@@ -143,7 +144,8 @@ module main {
       assetHub' = assetHub,
       solicitedSet' = out2.solicited,
       prevSvc' = svc,
-      lastStepWorkResults' = results
+      lastStepWorkResults' = results,
+      lastStepBouncedTransfers' = List()
     }
   }
 
@@ -157,25 +159,26 @@ module main {
     assetHub' = assetHub,
     solicitedSet' = solicitedSet,
     prevSvc' = svc,
-    lastStepWorkResults' = List()
+    lastStepWorkResults' = List(),
+    lastStepBouncedTransfers' = List()
   }
 
   // --- Step (c): another service sends an OnTransfer into Asset Hub ----
   //
   /// Models JAM-level OnTransfer ingress (§5.1 step 2): append to
-  /// `incoming_transfers` if it has space, otherwise bounce the funds
-  /// back to the sender with the same memo. The bounce is unobservable
-  /// in this model (no funds tracked), so it appears as a no-op.
+  /// `incoming_transfers` if it has space, otherwise record a bounce in
+  /// `lastStepBouncedTransfers` (the Parachain Service must emit a
+  /// matching outgoing JAM transfer back to the sender with the same memo).
   action stepIncomingTransfer = {
     nondet senderId = oneOf(Set(MkServiceId(0), MkServiceId(3), MkServiceId(7)))
     nondet amount = oneOf(Set(100, 1000, 10000))
     nondet memo = oneOf(Set(0, 1, 2))
+    val incoming = { from: senderId, amount: amount, memo: memo }
     val full = svc.incomingTransfers.length() >= IncomingTransfersMaxLen
     val newSvc =
       if (full) svc
-      else { ...svc,
-        incomingTransfers: svc.incomingTransfers.append({ from: senderId, amount: amount, memo: memo })
-      }
+      else { ...svc, incomingTransfers: svc.incomingTransfers.append(incoming) }
+    val bounced = if (full) List(incoming) else List()
     all {
       svc' = newSvc,
       now' = now,
@@ -184,7 +187,8 @@ module main {
       assetHub' = assetHub,
       solicitedSet' = solicitedSet,
       prevSvc' = svc,
-      lastStepWorkResults' = List()
+      lastStepWorkResults' = List(),
+      lastStepBouncedTransfers' = bounced
     }
   }
 
@@ -265,4 +269,5 @@ module main {
       ParachainCleanUp(MkParaId(4))
     )
   }
+
 }
