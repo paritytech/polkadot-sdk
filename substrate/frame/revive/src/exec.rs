@@ -2175,21 +2175,13 @@ where
 		allows_reentry: ReentrancyProtection,
 		read_only: bool,
 	) -> Result<(), ExecError> {
-		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
-		// It is important to do this before calling `allows_reentry` so that a direct recursion
-		// is caught by it.
-
-		if allows_reentry == ReentrancyProtection::Strict {
-			self.top_frame_mut().allows_reentry = false;
-		}
-
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case for balance transfers or when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
-		// EIP-7702 chained delegation: see comment in `Stack::run_call`. Must run *before* the
-		// value-transfer fallthrough so a chain call doesn't silently succeed as a plain EOA
-		// transfer.
+		// EIP-7702 chained delegation: see `Stack::run_call`. Must precede the `allows_reentry`
+		// flip (early return would leak `false` into the caller's frame) and the value-transfer
+		// fallthrough (would silently succeed as an EOA transfer).
 		if let Some(target) = AccountInfo::<T>::get_delegation_target(dest_addr) &&
 			AccountInfo::<T>::is_delegated(&target)
 		{
@@ -2198,6 +2190,14 @@ where
 				data: Vec::new(),
 			};
 			return Ok(());
+		}
+
+		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
+		// It is important to do this before calling `allows_reentry` so that a direct recursion
+		// is caught by it.
+
+		if allows_reentry == ReentrancyProtection::Strict {
+			self.top_frame_mut().allows_reentry = false;
 		}
 
 		let try_call = || {
