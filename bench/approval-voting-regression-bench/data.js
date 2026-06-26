@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782450663893,
+  "lastUpdate": 1782459717129,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "490aa7fa021335a1895ba9aedddccdeeaa2bb6f2",
-          "message": "omni-node: Enable storage monitor (#10202)\n\nThe storage monitor shuts down the node when the available DB space is\nfalling below a configured minimum (1GB by default). This prevents that\na database gets corrupted when a disk is filling up.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-04T12:06:54Z",
-          "tree_id": "22c9a8aab5ace8cd130cc8ab0da258b86d2b86e5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/490aa7fa021335a1895ba9aedddccdeeaa2bb6f2"
-        },
-        "date": 1762263932609,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63631.48,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52944.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43586002685999964,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000017908340000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000019020869999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.140253166530002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000019020869999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.96501582001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.428633140890001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.41965312361,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4199539629400015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.465092061959999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7580989903810247,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000017908340000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006045030260000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.325625398662692,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d1fe835d4be0517056f3b33c34f040b3b2123e35",
+          "message": "fatxpool: unban viewless transactions after mempool revalidation (#11731)\n\n### Problem\n\nIn rare cases, a transaction can get stuck in the fork-aware pool. When\na tx gets `InvalidTransaction` (e.g., `Payment`) on one fork but is\nvalid on others, the view's rotator bans it. The ban propagates to all\nnew views via `deep_clone_with_event_handler` (rotator is cloned), and\n`check_is_known` silently rejects the tx on every subsequent view for\nthe entire ban duration (default 30 min). The tx stays in the mempool\n(valid at the finalized block) but can't enter any view.\n\n### Fix\n\nThree mechanisms working together:\n\n1. **Ban reason tracking** — the rotator now distinguishes `Validation`\nbans (tx failed validation) from `LimitsEnforced` bans (tx evicted for\npool capacity). Only `Validation` bans are eligible for unbanning.\n\n2. **Viewless event** — when a ready tx loses all referencing views, the\ndropped watcher emits a `Viewless` event. The `dropped_monitor_task`\nsets a `needs_unban` flag on the tx's mempool entry.\n\n3. **Mempool revalidation unban** — `revalidate_inner` prioritizes\nflagged txs. If the tx passes validation at the finalized block, it\nunbans across all active views. If it fails — the tx is removed from\nmempool (second chance failed).\n\nAdditionally:\n- `View::imported_status()` returns an `ImportedStatus` enum\n(`NotImported`/`Banned`/`Imported`) instead of a bool, enabling\ndiagnostic logging when a mempool tx is skipped due to a ban.\n- Trace log in `update_view_with_mempool` when a tx is skipped as\ntemporarily banned.\n\n### Alternatives considered\n\n- **Drop tx when no views reference it** — simplest, but loses\npotentially valid transactions,\n- **Unban in `update_view_with_mempool`** — unconditionally unbans\neverything, defeating spam protection (`submit_and_watch` relies on the\nban).\n- **Unban all txs passing mempool revalidation** — creates a hot loop\nfor txs evicted by pool capacity limits (`enforce_limits` → revalidation\nvalid → unbanned → evicted again).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-26T06:00:52Z",
+          "tree_id": "bea4d27d08ba1ae87919031b54430f8913f587df",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d1fe835d4be0517056f3b33c34f040b3b2123e35"
+        },
+        "date": 1782459686565,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63606.11,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52938.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000034295990000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8219200364700003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7383420697600007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4142275629699954,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000034295990000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000021565239999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.322160207402745,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8004621670599497,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000021565239999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7813269005399994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7406784635499997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.302087020859947,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005129820509999995,
             "unit": "seconds"
           }
         ]
