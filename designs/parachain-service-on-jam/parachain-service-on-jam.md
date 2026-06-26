@@ -171,7 +171,7 @@ struct ParachainServiceState {
 
     /// Pending authorizer queue updates that should be applied once the
     /// current 80-slot queue has been consumed.
-    pending_authorizer_queues: Map<CoreIndex, Vec<AuthorizerHash>>,
+    pending_authorizer_queues: Map<CoreIndex, BoundedVec<AuthorizerHash, 80>>,
 
     /// Per-core timeslot at which `assign` was last called for that core.
     /// Combined with the 80-slot queue length, this lets the service compute
@@ -187,7 +187,7 @@ struct ParachainServiceState {
 
     /// Validator-key set being assembled chunk by chunk by
     /// `set_validator_keys`. See §5.3.
-    staged_validator_keys: Vec<ValidatorKey>,
+    staged_validator_keys: BoundedVec<ValidatorKey, 1023>,
 }
 
 enum LogEntry {
