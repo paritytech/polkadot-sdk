@@ -333,7 +333,7 @@ impl SubstrateCli for TestCollatorCli {
 			"async-backing" => {
 				tracing::info!("Using async backing chain spec.");
 				cumulus_test_service::get_chain_spec(
-					cumulus_test_runtime::async_backing::WASM_BINARY,
+					cumulus_test_runtime::WASM_BINARY,
 					Some(ParaId::from(2500)),
 				)
 			},
@@ -348,38 +348,38 @@ impl SubstrateCli for TestCollatorCli {
 					Some(ParaId::from(1000)),
 				)
 			},
-			"async-backing-v3" => {
+			"v3" => {
 				tracing::info!("Using async backing V3 chain spec.");
 				cumulus_test_service::get_chain_spec(
-					cumulus_test_runtime::async_backing_v3::WASM_BINARY,
+					cumulus_test_runtime::v3::WASM_BINARY,
 					Some(ParaId::from(2700)),
 				)
 			},
-			"async-backing-v3-rpo-2" => {
+			"v3-rpo-2" => {
 				tracing::info!("Using async backing V3 with relay parent offset 2 chain spec.");
 				cumulus_test_service::get_chain_spec(
-					cumulus_test_runtime::async_backing_v3_rpo_2::WASM_BINARY,
+					cumulus_test_runtime::v3_rpo_2::WASM_BINARY,
 					Some(ParaId::from(2700)),
 				)
 			},
-			"async-backing-v3-rpo-4" => {
+			"v3-rpo-4" => {
 				tracing::info!("Using async backing V3 with relay parent offset 4 chain spec.");
 				cumulus_test_service::get_chain_spec(
-					cumulus_test_runtime::async_backing_v3_rpo_4::WASM_BINARY,
+					cumulus_test_runtime::v3_rpo_4::WASM_BINARY,
 					Some(ParaId::from(2700)),
 				)
 			},
-			"async-backing-v3-rpo-6" => {
+			"v3-rpo-6" => {
 				tracing::info!("Using async backing V3 with relay parent offset 6 chain spec.");
 				cumulus_test_service::get_chain_spec(
-					cumulus_test_runtime::async_backing_v3_rpo_6::WASM_BINARY,
+					cumulus_test_runtime::v3_rpo_6::WASM_BINARY,
 					Some(ParaId::from(2700)),
 				)
 			},
-			"async-backing-v3-rpo-15" => {
+			"v3-rpo-15" => {
 				tracing::info!("Using async backing V3 with relay parent offset 15 chain spec.");
 				cumulus_test_service::get_chain_spec(
-					cumulus_test_runtime::async_backing_v3_rpo_15::WASM_BINARY,
+					cumulus_test_runtime::v3_rpo_15::WASM_BINARY,
 					Some(ParaId::from(2700)),
 				)
 			},

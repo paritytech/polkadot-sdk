@@ -32,8 +32,8 @@ use crate::{
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
-	self as consensus_common, fetch_included_from_pvd, get_relay_slot, ParachainBlockImportMarker,
-	ParentSearchParams,
+	self as consensus_common, fetch_included_from_relay_chain, get_relay_slot,
+	ParachainBlockImportMarker, ParentSearchParams,
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
@@ -320,7 +320,7 @@ where
 			let included_header_at_execution = match v3_enabled {
 				false => parent_search_result.included_at_scheduling,
 				true => {
-					let Ok(Some((_, included_header))) = fetch_included_from_pvd(
+					let Ok(Some((included_header, _))) = fetch_included_from_relay_chain(
 						&relay_client,
 						&*para_backend,
 						relay_parent_hash,
