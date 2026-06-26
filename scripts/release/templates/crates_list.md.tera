@@ -1,9 +1,16 @@
 The following crates were updated to the corresponding versions:
 
-- pallet-revive-fixtures@0.10.1
-- sc-network@0.56.1
-- pallet-revive@0.13.1
-- snowbridge-inbound-queue-primitives@0.10.1
-- frame-omni-bencher@0.18.1
-- polkadot-omni-node-lib@0.14.1
-- pallet-revive-eth-rpc@0.14.1
+<details>
+<summary>Crates list</summary>
+
+- pallet-beefy-mmr@47.1.0
+- cumulus-pallet-xcmp-queue@0.26.1
+- collectives-westend-runtime@26.1.1
+- coretime-westend-runtime@0.22.2
+- asset-hub-rococo-runtime@0.32.1
+- asset-hub-westend-runtime@0.45.1
+- bridge-hub-rococo-runtime@0.28.1
+- bridge-hub-westend-runtime@0.25.1
+- cumulus-client-consensus-aura@0.29.2
+
+</details>
