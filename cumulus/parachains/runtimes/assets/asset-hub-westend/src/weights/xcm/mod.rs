@@ -74,6 +74,14 @@ impl<Call> CountBasedXcmWeightConfig<Call> for AssetHubWestendXcmWeightConfig {
 	type FungibleWeights = XcmBenchWeight<Runtime>;
 	type FilterCountWeigher = AssetHubWestendCountWeigher;
 	type AssetsListWeigher = WestendERC20AssetWeigher;
+
+	fn exchange_asset(give: &AssetFilter, receive: &Assets, _maximal: &bool) -> Weight {
+		let base_weight = <Self::GenericWeights as XcmGenericWeightInfo>::exchange_asset();
+		let give_weight =
+			weigh_assets_filter_by_count::<Self::FilterCountWeigher>(give, base_weight);
+		let receive_weight = Self::AssetsListWeigher::weigh_assets(receive, base_weight);
+		give_weight.max(receive_weight)
+	}
 }
 
 pub type AssetHubWestendXcmWeight<Call> =

@@ -24,9 +24,7 @@ use ::pallet_xcm_benchmarks::xcm_weights::{
 use ::pallet_xcm_benchmarks::{
 	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
 };
-use frame_support::weights::Weight;
 use pallet_xcm_benchmarks::WeightInfo as XcmBenchWeight;
-use xcm::latest::prelude::*;
 
 impl_xcm_generic_weight_info_provider!(XcmBenchWeight<Runtime>);
 impl_xcm_fungible_weight_info_provider!(XcmBenchWeight<Runtime>);
@@ -50,11 +48,6 @@ impl<Call> CountBasedXcmWeightConfig<Call> for AssetHubRococoXcmWeightConfig {
 	type FungibleWeights = XcmBenchWeight<Runtime>;
 	type FilterCountWeigher = AssetHubRococoCountWeigher;
 	type AssetsListWeigher = UniformAssetsWeigher;
-
-	fn exchange_asset(_give: &AssetFilter, _receive: &Assets, _maximal: &bool) -> Weight {
-		// Rococo does not currently support asset exchange operations
-		Weight::MAX
-	}
 }
 
 pub type AssetHubRococoXcmWeight<Call> =
