@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782449540255,
+  "lastUpdate": 1782458630436,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -182399,6 +182399,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2471340363,
             "range": "± 69629510",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d1fe835d4be0517056f3b33c34f040b3b2123e35",
+          "message": "fatxpool: unban viewless transactions after mempool revalidation (#11731)\n\n### Problem\n\nIn rare cases, a transaction can get stuck in the fork-aware pool. When\na tx gets `InvalidTransaction` (e.g., `Payment`) on one fork but is\nvalid on others, the view's rotator bans it. The ban propagates to all\nnew views via `deep_clone_with_event_handler` (rotator is cloned), and\n`check_is_known` silently rejects the tx on every subsequent view for\nthe entire ban duration (default 30 min). The tx stays in the mempool\n(valid at the finalized block) but can't enter any view.\n\n### Fix\n\nThree mechanisms working together:\n\n1. **Ban reason tracking** — the rotator now distinguishes `Validation`\nbans (tx failed validation) from `LimitsEnforced` bans (tx evicted for\npool capacity). Only `Validation` bans are eligible for unbanning.\n\n2. **Viewless event** — when a ready tx loses all referencing views, the\ndropped watcher emits a `Viewless` event. The `dropped_monitor_task`\nsets a `needs_unban` flag on the tx's mempool entry.\n\n3. **Mempool revalidation unban** — `revalidate_inner` prioritizes\nflagged txs. If the tx passes validation at the finalized block, it\nunbans across all active views. If it fails — the tx is removed from\nmempool (second chance failed).\n\nAdditionally:\n- `View::imported_status()` returns an `ImportedStatus` enum\n(`NotImported`/`Banned`/`Imported`) instead of a bool, enabling\ndiagnostic logging when a mempool tx is skipped due to a ban.\n- Trace log in `update_view_with_mempool` when a tx is skipped as\ntemporarily banned.\n\n### Alternatives considered\n\n- **Drop tx when no views reference it** — simplest, but loses\npotentially valid transactions,\n- **Unban in `update_view_with_mempool`** — unconditionally unbans\neverything, defeating spam protection (`submit_and_watch` relies on the\nban).\n- **Unban all txs passing mempool revalidation** — creates a hot loop\nfor txs evicted by pool capacity limits (`enforce_limits` → revalidation\nvalid → unbanned → evicted again).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-26T06:00:52Z",
+          "tree_id": "bea4d27d08ba1ae87919031b54430f8913f587df",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d1fe835d4be0517056f3b33c34f040b3b2123e35"
+        },
+        "date": 1782458599762,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4528605,
+            "range": "± 41464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 297320,
+            "range": "± 1951",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4694412,
+            "range": "± 30481",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 373305,
+            "range": "± 2380",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5569101,
+            "range": "± 51323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 899918,
+            "range": "± 11607",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10698256,
+            "range": "± 58098",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4922091,
+            "range": "± 76244",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 46053617,
+            "range": "± 849569",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 39067868,
+            "range": "± 281907",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 397838925,
+            "range": "± 3275284",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 321440502,
+            "range": "± 3479450",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2695031694,
+            "range": "± 10599065",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2438582621,
+            "range": "± 17907580",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3386223,
+            "range": "± 23481",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1790059,
+            "range": "± 6916",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3473586,
+            "range": "± 17592",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1862622,
+            "range": "± 25337",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4053352,
+            "range": "± 24557",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2211724,
+            "range": "± 16319",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8158649,
+            "range": "± 86430",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5343145,
+            "range": "± 52319",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37578920,
+            "range": "± 610339",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 38211980,
+            "range": "± 481012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 338651857,
+            "range": "± 4824020",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 288811999,
+            "range": "± 3282104",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2633295070,
+            "range": "± 28469995",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2506519601,
+            "range": "± 58373413",
             "unit": "ns/iter"
           }
         ]
