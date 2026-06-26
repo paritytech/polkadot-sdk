@@ -91,8 +91,6 @@ Let's assume that we want to version a runtime API function called `${function-n
   - The Polkadot-sdk license header present in all of the other files present in this repo.
   - The required `use` statements needed for this file (including imports for common collections such as `Vec` from
     `alloc` since the `pallet-revive-types` crate can be compiled with `no-std`).
-  - An `// Input` block comment (with the same equal signs above and below it as seen in files such as
-    `types/src/runtime_api/payloads/receipt_data.rs`).
   - A struct with the following specifications:
     - Named `${function-name} InputPayloadV1` (we're using V1 here since this is the first version of that payload)
     - With named fields with field names matching the argument names of the existing unversioned `${function-name}`
@@ -108,8 +106,6 @@ Let's assume that we want to version a runtime API function called `${function-n
     - Derives `TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto` with `PartialEq` being an optional
       derive if the types used for the fields can not satisfy `PartialEq`.
     - With the same generics as the unversioned runtime API function `${function-name}` has in its arguments.
-  - An `// Output` block comment (with the same equal signs above and below it as seen in files such as
-    `types/src/runtime_api/payloads/receipt_data.rs`).
   - A struct with the following specifications:
     - Named `${function-name} OutputPayloadV1` (we're using V1 here since this is the first version of that payload)
     - With named fields matching the intended return type's semantic meaning of the unversioned runtime API function
@@ -139,8 +135,6 @@ Let's assume that we want to version a runtime API function called `${function-n
   - The Polkadot-sdk license header present in all of the other files present in this repo.
   - The required `use` statements needed for this file (including imports for common collections such as `Vec` from
     `alloc` since the `pallet-revive-types` crate can be compiled with `no-std`).
-  - An `// Input` block comment (with the same equal signs above and below it as seen in files such as
-    `src/runtime_api/receipt_data.rs`).
   - A struct with the following specifications:
     - Named `${function-name} InputPayload`.
     - With the same fields as the unversioned runtime API function `${function-name}` has as arguments but with the
@@ -154,8 +148,6 @@ Let's assume that we want to version a runtime API function called `${function-n
   - An implementation of `From<${function-name} VersionedInputPayload> for ${function-name} InputPayload`.
   - An implementation of `From<${function-name} InputPayloadVn> for ${function-name} InputPayload` for each version
     which is defined (only one in this case since this is a newly versioned runtime API)
-  - An `// Output` block comment (with the same equal signs above and below it as seen in files such as
-    `src/runtime_api/receipt_data.rs`).
   - A struct with the following specifications:
     - Named `${function-name} OutputPayload`.
     - With the same fields as the unversioned runtime API function `${function-name}` has as return type(s) but with the
