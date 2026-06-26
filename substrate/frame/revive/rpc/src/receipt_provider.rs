@@ -760,8 +760,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				AddressOrAddresses::Address(addr) => {
 					qb.push(" AND address = ").push_bind(addr.0.to_vec());
 				},
-				// An empty address list imposes no constraint: `IN ()` is invalid SQL and
-				// Ethereum treats an empty list as matching any address.
+				// An empty address list is a wildcard in Ethereum (match any address). Skip the
+				// constraint: SQLite treats `IN ()` as always-false, which would match no logs.
 				AddressOrAddresses::Addresses(addrs) if !addrs.is_empty() => {
 					qb.push(" AND address IN (");
 					let mut separated = qb.separated(", ");
@@ -784,8 +784,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					FilterTopic::Single(hash) => {
 						qb.push(format_args!(" AND topic_{i} = ")).push_bind(hash.0.to_vec());
 					},
-					// An empty topic list imposes no constraint at this position: `IN ()` is
-					// invalid SQL and Ethereum treats it as matching any topic.
+					// An empty topic list is a wildcard at this position (match any topic). Skip
+					// the constraint: SQLite treats `IN ()` as always-false, matching no logs.
 					FilterTopic::Multiple(hashes) if !hashes.is_empty() => {
 						qb.push(format_args!(" AND topic_{i} IN ("));
 						let mut separated = qb.separated(", ");
@@ -1409,7 +1409,7 @@ mod tests {
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 
-		// Empty address list: imposes no constraint instead of building invalid `IN ()` SQL.
+		// Empty address list is a wildcard (matches any), not an always-false `IN ()`.
 		let logs = provider
 			.logs(
 				Some(Filter {
@@ -1422,7 +1422,7 @@ mod tests {
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 
-		// Empty topic list at a position: imposes no constraint instead of invalid `IN ()` SQL.
+		// Empty topic list at a position is a wildcard (matches any), not always-false `IN ()`.
 		let logs = provider
 			.logs(
 				Some(Filter {
