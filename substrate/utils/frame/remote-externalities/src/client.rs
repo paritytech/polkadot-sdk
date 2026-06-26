@@ -63,7 +63,6 @@ impl Client {
 			.map_err(|e| format!("{e:?}"))
 	}
 
-	/// The endpoint URI this client connects to.
 	pub(crate) fn uri(&self) -> &str {
 		&self.uri
 	}
@@ -155,7 +154,6 @@ impl ConnectionManager {
 		}
 	}
 
-	/// The pool slot assigned to `worker_index`.
 	async fn slot(&self, worker_index: usize) -> Arc<tokio::sync::Mutex<Client>> {
 		let clients = self.clients.read().await;
 		clients[worker_index % clients.len()].1.clone()

@@ -33,7 +33,7 @@ use tokio::time::sleep;
 pub(crate) enum RetryAction {
 	/// Reconnect the client and keep it in the pool.
 	Recreate,
-	/// Drop the client from the pool, e.g. because it lacks the target block.
+	/// Drop the client from the pool because it lacks the target block.
 	Remove,
 }
 

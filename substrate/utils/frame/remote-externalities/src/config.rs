@@ -80,7 +80,7 @@ pub struct OnlineConfig<H> {
 	/// Disable verifying the downloaded storage root against the block header's state root.
 	///
 	/// The check fails `build` when the scraped state is incomplete or corrupted. Set this to
-	/// bypass it, e.g. when deliberately overwriting the state version. Use with care.
+	/// bypass it when deliberately overwriting the state version. Use with care.
 	pub disable_root_check: bool,
 }
 
