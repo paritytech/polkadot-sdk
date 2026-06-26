@@ -4901,22 +4901,23 @@ fn precompiles_with_info_creates_contract() {
 	}
 }
 
-#[cfg(feature = "unstable-precompiles")]
+#[cfg(feature = "unchecked-precompiles")]
 #[test]
-fn unstable_runtime_dispatch_executes_as_contract() {
-	use crate::precompiles::{Precompile, UnstableRuntime, unstable_runtime::IUnstableRuntime};
+fn unchecked_runtime_dispatch_executes_as_contract() {
+	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
 	use alloy_core::sol_types::SolInterface;
 
-	let precompile_addr = H160(UnstableRuntime::<Test>::MATCHER.base_address());
+	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
 	let value = 1_000u128;
 
 	// `dispatch(encoded_call)` where the inner call transfers `value` to BOB.
 	let runtime_call =
 		RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { dest: BOB, value });
-	let input = IUnstableRuntime::IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall {
-		encoded_call: runtime_call.encode().into(),
-	})
-	.abi_encode();
+	let input =
+		IUncheckedRuntime::IUncheckedRuntimeCalls::dispatch(IUncheckedRuntime::dispatchCall {
+			encoded_call: runtime_call.encode().into(),
+		})
+		.abi_encode();
 
 	let (code, _code_hash) = compile_module("call_and_returncode").unwrap();
 	ExtBuilder::default().build().execute_with(|| {
@@ -4945,15 +4946,15 @@ fn unstable_runtime_dispatch_executes_as_contract() {
 	});
 }
 
-#[cfg(feature = "unstable-precompiles")]
+#[cfg(feature = "unchecked-precompiles")]
 #[test]
-fn unstable_runtime_storage_read_works() {
-	use crate::precompiles::{Precompile, UnstableRuntime, unstable_runtime::IUnstableRuntime};
+fn unchecked_runtime_storage_read_works() {
+	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
 	use alloy_core::sol_types::{SolInterface, SolType, sol_data::Bytes};
 
-	let precompile_addr = H160(UnstableRuntime::<Test>::MATCHER.base_address());
+	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
 	let input =
-		IUnstableRuntime::IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall {
+		IUncheckedRuntime::IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall {
 			key: b"e2e_key".to_vec().into(),
 			max_len: 64,
 		})
@@ -4980,13 +4981,13 @@ fn unstable_runtime_storage_read_works() {
 	});
 }
 
-#[cfg(feature = "unstable-precompiles")]
+#[cfg(feature = "unchecked-precompiles")]
 #[test]
-fn unstable_runtime_dispatch_reentrancy_guarded() {
-	use crate::precompiles::{Precompile, UnstableRuntime, unstable_runtime::IUnstableRuntime};
+fn unchecked_runtime_dispatch_reentrancy_guarded() {
+	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
 	use alloy_core::sol_types::SolInterface;
 
-	let precompile_addr = H160(UnstableRuntime::<Test>::MATCHER.base_address());
+	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -5003,7 +5004,7 @@ fn unstable_runtime_dispatch_reentrancy_guarded() {
 		})
 		.encode();
 		let input =
-			IUnstableRuntime::IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall {
+			IUncheckedRuntime::IUncheckedRuntimeCalls::dispatch(IUncheckedRuntime::dispatchCall {
 				encoded_call: reentrant.into(),
 			})
 			.abi_encode();
@@ -5014,13 +5015,13 @@ fn unstable_runtime_dispatch_reentrancy_guarded() {
 	});
 }
 
-#[cfg(feature = "unstable-precompiles")]
+#[cfg(feature = "unchecked-precompiles")]
 #[test]
-fn unstable_runtime_dispatch_out_of_gas_is_clean() {
-	use crate::precompiles::{Precompile, UnstableRuntime, unstable_runtime::IUnstableRuntime};
+fn unchecked_runtime_dispatch_out_of_gas_is_clean() {
+	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
 	use alloy_core::sol_types::SolInterface;
 
-	let precompile_addr = H160(UnstableRuntime::<Test>::MATCHER.base_address());
+	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -5032,7 +5033,7 @@ fn unstable_runtime_dispatch_out_of_gas_is_clean() {
 		})
 		.encode();
 		let input =
-			IUnstableRuntime::IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall {
+			IUncheckedRuntime::IUncheckedRuntimeCalls::dispatch(IUncheckedRuntime::dispatchCall {
 				encoded_call: inner.into(),
 			})
 			.abi_encode();
@@ -5052,17 +5053,17 @@ fn unstable_runtime_dispatch_out_of_gas_is_clean() {
 	});
 }
 
-#[cfg(feature = "unstable-precompiles")]
+#[cfg(feature = "unchecked-precompiles")]
 #[test]
-fn unstable_runtime_get_storage_out_of_gas_on_upfront_charge() {
-	use crate::precompiles::{Precompile, UnstableRuntime, unstable_runtime::IUnstableRuntime};
+fn unchecked_runtime_get_storage_out_of_gas_on_upfront_charge() {
+	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
 	use alloy_core::sol_types::SolInterface;
 
-	let precompile_addr = H160(UnstableRuntime::<Test>::MATCHER.base_address());
+	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
 	// A large declared bound makes the upfront read-weight charge exceed the
 	// (proof) gas budget, so it runs out of gas before any read.
 	let input =
-		IUnstableRuntime::IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall {
+		IUncheckedRuntime::IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall {
 			key: b"k".to_vec().into(),
 			max_len: limits::CALLDATA_BYTES,
 		})
@@ -5083,18 +5084,18 @@ fn unstable_runtime_get_storage_out_of_gas_on_upfront_charge() {
 	});
 }
 
-#[cfg(feature = "unstable-precompiles")]
+#[cfg(feature = "unchecked-precompiles")]
 #[test]
-fn unstable_runtime_get_storage_out_of_gas_on_revert_charge() {
-	use crate::precompiles::{Precompile, UnstableRuntime, unstable_runtime::IUnstableRuntime};
+fn unchecked_runtime_get_storage_out_of_gas_on_revert_charge() {
+	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
 	use alloy_core::sol_types::SolInterface;
 
-	let precompile_addr = H160(UnstableRuntime::<Test>::MATCHER.base_address());
+	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
 	// Small declared bound, so the upfront charge is cheap and passes; the actual
 	// value is far larger, so the post-read "charge for the real length" on the
 	// revert path runs out of gas.
 	let input =
-		IUnstableRuntime::IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall {
+		IUncheckedRuntime::IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall {
 			key: b"huge".to_vec().into(),
 			max_len: 16,
 		})

@@ -3,7 +3,7 @@ title: '[pallet-revive] Add unstable runtime precompile (call dispatch + raw sto
 doc:
   - audience: Runtime Dev
     description: |
-      Adds the opt-in, feature-gated `UnstableRuntime` precompile to `pallet-revive`,
+      Adds the opt-in, feature-gated `UncheckedRuntime` precompile to `pallet-revive`,
       exposing two low-level primitives to contracts:
 
       - `dispatch(bytes)` — dispatch an arbitrary SCALE-encoded `RuntimeCall` as the
@@ -11,7 +11,7 @@ doc:
       - `getStorage(bytes, uint32)` — read the raw bytes of any runtime storage item
         by its full key.
 
-      The precompile is gated behind the new, default-off `unstable-precompiles`
+      The precompile is gated behind the new, default-off `unchecked-precompiles`
       cargo feature and must be explicitly added to a runtime's `Config::Precompiles`
       to become active. Its interface is unstable — pallet indices, call encodings
       and storage keys may change across runtime upgrades — and must not be enabled

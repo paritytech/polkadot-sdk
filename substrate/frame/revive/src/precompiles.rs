@@ -27,8 +27,8 @@
 
 mod builtin;
 
-#[cfg(feature = "unstable-precompiles")]
-pub mod unstable_runtime;
+#[cfg(feature = "unchecked-precompiles")]
+pub mod unchecked_runtime;
 
 mod tests;
 
@@ -40,8 +40,8 @@ pub use crate::{
 };
 pub use alloy_core as alloy;
 pub use sp_core::{H160, H256, U256};
-#[cfg(feature = "unstable-precompiles")]
-pub use unstable_runtime::UnstableRuntime;
+#[cfg(feature = "unchecked-precompiles")]
+pub use unchecked_runtime::UncheckedRuntime;
 
 use crate::{
 	Config, Error as CrateError, exec::ExecResult, precompiles::builtin::Builtin,

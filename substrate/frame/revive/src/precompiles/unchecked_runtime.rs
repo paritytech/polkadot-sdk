@@ -15,22 +15,46 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! [`UnstableRuntime`] precompile implementation.
+//! [`UncheckedRuntime`] precompile implementation.
 //!
-//! Provides low-level access to runtime functionality from within a contract:
+//! Provides low-level, **unchecked** access to runtime functionality from within a
+//! contract:
 //! - `dispatch`: dispatch an arbitrary SCALE-encoded `RuntimeCall` as the calling contract's
 //!   account (a `Signed` origin).
 //! - `getStorage`: read the raw bytes of any runtime storage item by its full storage key.
 //!
-//! # Warning
+//! # Why "unchecked"
 //!
-//! This interface is **unstable**:
-//! - The runtime organization of pallets, indices, and storage keys might change between runtime
-//!   upgrades.
-//! - The encoding format might change between runtime upgrades.
+//! The precompile operates on **raw, positionally-encoded** input: a `dispatch`
+//! payload is `[pallet_index][call_index][SCALE-encoded args]` and a `getStorage`
+//! key is a raw storage key. Those are *implementation details* of the runtime, not
+//! a stable ABI — a runtime upgrade can change what a given byte sequence means. The
+//! precompile does **not** (and cannot, on-chain) verify that the bytes a contract
+//! submits still carry the semantics the author intended. Calling it with stale
+//! assumptions is undefined behaviour — hence "unchecked". It is opt-in per runtime
+//! (the `unchecked-precompiles` cargo feature plus explicit inclusion in
+//! `Config::Precompiles`) and intended for experimentation, not production use.
 //!
-//! Contracts relying on it can break across upgrades. It is opt-in per runtime
-//! and intended for experimentation, not production use.
+//! # What a runtime upgrade can change, and what `dispatch` does about it
+//!
+//! `dispatch` decodes the input strictly (`decode_all_with_depth_limit`), which
+//! catches *structural* drift but is blind to *semantic* drift:
+//!
+//! | Upgrade change | Outcome |
+//! |---|---|
+//! | Field added/removed/reordered; width-changing type swap (`u64`→`u128`); compact toggled; vacant pallet/call index | **decode fails → reverts** (safe) |
+//! | A pallet/call index is **reassigned** to a *different* call whose argument layout still fits | **silently dispatches the wrong call** ⚠️ |
+//! | Same pallet/call/index, **same-width** argument-type change (e.g. `Permill`→`Perbill`, both `u32`) | **silently dispatches with different semantics** ⚠️ |
+//! | Same encoding, changed call *behaviour* (logic/units) | **silently dispatches with different semantics** ⚠️ |
+//! | Origin requirement tightened (`Signed`→`Root`), or call newly blocked by `BaseCallFilter` | dispatch reverts (`BadOrigin` / filtered) |
+//!
+//! The ⚠️ rows **cannot** be detected on-chain: distinguishing them requires
+//! verifying the call's full *type signature* against runtime metadata, which is not
+//! available during execution (and a name/index check would be duck-typing — it
+//! misses the `Permill`→`Perbill` class entirely). Contracts that need that
+//! guarantee must establish it themselves (e.g. pin and verify the encoding
+//! off-chain against the runtime metadata). This precompile deliberately offers only
+//! the raw primitive, not the safety layer.
 
 use crate::{
 	exec::Origin,
@@ -52,9 +76,10 @@ use frame_system::RawOrigin;
 use sp_runtime::traits::Dispatchable;
 
 sol! {
-	/// Everything here is unstable; the runtime organization of pallets,
-	/// indices, and storage keys might change between runtime upgrades.
-	interface IUnstableRuntime {
+	/// Unchecked, raw access to the runtime. The pallet/call indices and storage
+	/// keys are positional implementation details, not a stable ABI: a runtime
+	/// upgrade can change what a given byte sequence means (see the module docs).
+	interface IUncheckedRuntime {
 		/// Dispatch a SCALE-encoded runtime `encoded_call` as the calling
 		/// contract's account (a `Signed` origin).
 		function dispatch(bytes encoded_call) external;
@@ -67,7 +92,7 @@ sol! {
 	}
 }
 
-/// Precompile that provides access to unstable runtime functionality.
+/// Precompile that provides unchecked, low-level access to runtime functionality.
 ///
 /// `Filter` lets a runtime restrict which `RuntimeCall`s may be dispatched
 /// through this precompile. Defaults to [`Everything`] (no restriction).
@@ -80,14 +105,14 @@ sol! {
 /// `BaseCallFilter` only; to bar those, deny the deferral call itself (e.g.
 /// `Scheduler::schedule`) in the filter, or rely on `BaseCallFilter` for hard
 /// restrictions.
-pub struct UnstableRuntime<T, Filter = Everything>(PhantomData<(T, Filter)>);
+pub struct UncheckedRuntime<T, Filter = Everything>(PhantomData<(T, Filter)>);
 
-impl<T: crate::Config, Filter> Precompile for UnstableRuntime<T, Filter>
+impl<T: crate::Config, Filter> Precompile for UncheckedRuntime<T, Filter>
 where
 	Filter: Contains<<T as crate::Config>::RuntimeCall>,
 {
 	type T = T;
-	type Interface = IUnstableRuntime::IUnstableRuntimeCalls;
+	type Interface = IUncheckedRuntime::IUncheckedRuntimeCalls;
 	// Fixed external precompile address. The `u16` occupies bytes [16,17] of the
 	// 20-byte address, resolving to
 	// `0x0000000000000000000000000000000009030000`. Chosen adjacent to the vesting
@@ -101,10 +126,10 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		use IUnstableRuntime::IUnstableRuntimeCalls;
+		use IUncheckedRuntime::IUncheckedRuntimeCalls;
 
 		match input {
-			IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall { encoded_call }) => {
+			IUncheckedRuntimeCalls::dispatch(IUncheckedRuntime::dispatchCall { encoded_call }) => {
 				// Dispatching mutates state and acts with the contract's origin,
 				// so it is forbidden in a static context or via delegate call.
 				if env.is_read_only() {
@@ -143,7 +168,7 @@ where
 				// Charge the fixed overhead of the dispatch wrapper (dispatch-info
 				// computation and origin construction). The dispatched call's own
 				// weight is charged separately below.
-				env.charge(<T as crate::Config>::WeightInfo::unstable_runtime_dispatch())?;
+				env.charge(<T as crate::Config>::WeightInfo::unchecked_runtime_dispatch())?;
 
 				// Dispatch as the calling contract's account. Reject a Root caller
 				// rather than silently dispatching with Root privileges.
@@ -173,7 +198,7 @@ where
 					Err(e) => Err(Error::from(e.error)),
 				}
 			},
-			IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall {
+			IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall {
 				key,
 				max_len,
 			}) => {
@@ -190,7 +215,7 @@ where
 				// traversal) and the value length `v` (bytes pulled into the PoV).
 				let key_len = key.as_ref().len() as u32;
 				let weight = |v: u32| {
-					<T as crate::Config>::WeightInfo::unstable_runtime_get_storage(key_len, v)
+					<T as crate::Config>::WeightInfo::unchecked_runtime_get_storage(key_len, v)
 				};
 
 				// Charge the benchmarked read weight for the caller-declared bound
@@ -227,7 +252,7 @@ where
 
 #[cfg(test)]
 mod tests {
-	use super::{IUnstableRuntime, UnstableRuntime};
+	use super::{IUncheckedRuntime, UncheckedRuntime};
 	use crate::{
 		call_builder::CallSetup,
 		precompiles::{
@@ -242,22 +267,22 @@ mod tests {
 	use frame_support::traits::fungible::Inspect;
 
 	/// Build the `dispatch(encoded_call)` precompile input for a `RuntimeCall`.
-	fn dispatch_input(call: RuntimeCall) -> IUnstableRuntime::IUnstableRuntimeCalls {
-		IUnstableRuntime::IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall {
+	fn dispatch_input(call: RuntimeCall) -> IUncheckedRuntime::IUncheckedRuntimeCalls {
+		IUncheckedRuntime::IUncheckedRuntimeCalls::dispatch(IUncheckedRuntime::dispatchCall {
 			encoded_call: call.encode().into(),
 		})
 	}
 
 	/// Build the `getStorage(key, max_len)` precompile input.
-	fn storage_input(key: &[u8], max_len: u32) -> IUnstableRuntime::IUnstableRuntimeCalls {
-		IUnstableRuntime::IUnstableRuntimeCalls::getStorage(IUnstableRuntime::getStorageCall {
+	fn storage_input(key: &[u8], max_len: u32) -> IUncheckedRuntime::IUncheckedRuntimeCalls {
+		IUncheckedRuntime::IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall {
 			key: key.to_vec().into(),
 			max_len,
 		})
 	}
 
 	fn address() -> [u8; 20] {
-		<UnstableRuntime<Test> as Precompile>::MATCHER.base_address()
+		<UncheckedRuntime<Test> as Precompile>::MATCHER.base_address()
 	}
 
 	/// A call filter that forbids all `Balances` calls. Used to exercise the
@@ -282,7 +307,7 @@ mod tests {
 			});
 			let input = dispatch_input(call);
 
-			let result = <UnstableRuntime<Test, DenyBalances> as Precompile>::call(
+			let result = <UncheckedRuntime<Test, DenyBalances> as Precompile>::call(
 				&address(),
 				&input,
 				&mut ext,
@@ -312,7 +337,7 @@ mod tests {
 				RuntimeCall::Utility(pallet_utility::Call::batch { calls: alloc::vec![inner] });
 			let input = dispatch_input(batch);
 
-			let _ = <UnstableRuntime<Test, DenyBalances> as Precompile>::call(
+			let _ = <UncheckedRuntime<Test, DenyBalances> as Precompile>::call(
 				&address(),
 				&input,
 				&mut ext,
@@ -346,7 +371,7 @@ mod tests {
 				RuntimeCall::Utility(pallet_utility::Call::batch { calls: alloc::vec![inner] });
 			let input = dispatch_input(batch);
 
-			<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext)
+			<UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext)
 				.expect("dispatch should succeed");
 
 			assert_eq!(
@@ -368,7 +393,7 @@ mod tests {
 			let call = RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() });
 			let input = dispatch_input(call);
 
-			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
 			assert_eq!(result.unwrap_err(), Error::Revert("root origin cannot dispatch".into()));
 		});
@@ -391,7 +416,7 @@ mod tests {
 			});
 			let input = dispatch_input(call);
 
-			<UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext)
+			<UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext)
 				.expect("dispatch should succeed");
 
 			let after = <Test as crate::Config>::Currency::balance(&BOB);
@@ -409,7 +434,7 @@ mod tests {
 			let call = RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() });
 			let input = dispatch_input(call);
 
-			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
 			assert_eq!(result.unwrap_err(), Error::from(crate::Error::<Test>::StateChangeDenied),);
 		});
@@ -425,7 +450,7 @@ mod tests {
 			let call = RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() });
 			let input = dispatch_input(call);
 
-			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
 			assert_eq!(
 				result.unwrap_err(),
@@ -440,12 +465,11 @@ mod tests {
 			let mut call_setup = CallSetup::<Test>::default();
 			let (mut ext, _) = call_setup.ext();
 
-			let input =
-				IUnstableRuntime::IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall {
-					encoded_call: vec![0xff, 0xff, 0xff].into(),
-				});
+			let input = IUncheckedRuntime::IUncheckedRuntimeCalls::dispatch(
+				IUncheckedRuntime::dispatchCall { encoded_call: vec![0xff, 0xff, 0xff].into() },
+			);
 
-			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
 			assert_eq!(result.unwrap_err(), Error::Revert("invalid RuntimeCall encoding".into()),);
 		});
@@ -462,12 +486,11 @@ mod tests {
 			let call = RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() });
 			let mut bytes = call.encode();
 			bytes.push(0xff);
-			let input =
-				IUnstableRuntime::IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall {
-					encoded_call: bytes.into(),
-				});
+			let input = IUncheckedRuntime::IUncheckedRuntimeCalls::dispatch(
+				IUncheckedRuntime::dispatchCall { encoded_call: bytes.into() },
+			);
 
-			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
 			assert_eq!(result.unwrap_err(), Error::Revert("invalid RuntimeCall encoding".into()));
 		});
@@ -489,7 +512,7 @@ mod tests {
 			}
 			let input = dispatch_input(call);
 
-			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
 			assert_eq!(result.unwrap_err(), Error::Revert("invalid RuntimeCall encoding".into()));
 		});
@@ -502,12 +525,11 @@ mod tests {
 			let (mut ext, _) = call_setup.ext();
 
 			// Empty input is not a valid `RuntimeCall`.
-			let input =
-				IUnstableRuntime::IUnstableRuntimeCalls::dispatch(IUnstableRuntime::dispatchCall {
-					encoded_call: Vec::new().into(),
-				});
+			let input = IUncheckedRuntime::IUncheckedRuntimeCalls::dispatch(
+				IUncheckedRuntime::dispatchCall { encoded_call: Vec::new().into() },
+			);
 
-			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
 			assert_eq!(result.unwrap_err(), Error::Revert("invalid RuntimeCall encoding".into()));
 		});
@@ -525,10 +547,10 @@ mod tests {
 				let mut call_setup = CallSetup::<Test>::default();
 				let (mut ext, _) = call_setup.ext();
 				let before = ext.frame_meter().weight_consumed();
-				let input = IUnstableRuntime::IUnstableRuntimeCalls::dispatch(
-					IUnstableRuntime::dispatchCall { encoded_call: vec![0xff; len].into() },
+				let input = IUncheckedRuntime::IUncheckedRuntimeCalls::dispatch(
+					IUncheckedRuntime::dispatchCall { encoded_call: vec![0xff; len].into() },
 				);
-				let _ = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+				let _ = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 				(ext.frame_meter().weight_consumed() - before).ref_time()
 			})
 		};
@@ -550,7 +572,7 @@ mod tests {
 			sp_io::storage::set(b"my_key", b"hello world");
 
 			let input = storage_input(b"my_key", 64);
-			let raw = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext)
+			let raw = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext)
 				.expect("storage read should succeed");
 
 			let decoded = Bytes::abi_decode(&raw).expect("return should abi-decode as bytes");
@@ -565,7 +587,7 @@ mod tests {
 			let (mut ext, _) = call_setup.ext();
 
 			let input = storage_input(b"does_not_exist", 64);
-			let raw = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext)
+			let raw = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext)
 				.expect("storage read should succeed");
 
 			let decoded = Bytes::abi_decode(&raw).expect("return should abi-decode as bytes");
@@ -583,7 +605,7 @@ mod tests {
 
 			// Declared bound is smaller than the actual value length.
 			let input = storage_input(b"big_key", 16);
-			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
 			assert_eq!(result.unwrap_err(), Error::Revert("value exceeds max_len".into()));
 		});
@@ -602,7 +624,7 @@ mod tests {
 				let (mut ext, _) = call_setup.ext();
 				let before = ext.frame_meter().weight_consumed();
 				let input = storage_input(b"some_key", value_len as u32);
-				let _ = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+				let _ = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 				(ext.frame_meter().weight_consumed() - before).proof_size()
 			})
 		};
@@ -627,7 +649,7 @@ mod tests {
 				let (mut ext, _) = call_setup.ext();
 				let before = ext.frame_meter().weight_consumed();
 				let input = storage_input(key, 64);
-				let _ = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+				let _ = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 				(ext.frame_meter().weight_consumed() - before).ref_time()
 			})
 		};
@@ -644,7 +666,7 @@ mod tests {
 			let (mut ext, _) = call_setup.ext();
 
 			let input = storage_input(b"k", crate::limits::CALLDATA_BYTES + 1);
-			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
 			assert_eq!(result.unwrap_err(), Error::Revert("max_len too large".into()));
 		});
@@ -664,12 +686,12 @@ mod tests {
 
 			let before = ext.frame_meter().weight_consumed();
 			let input = storage_input(b"big_value", 16);
-			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 			let consumed = ext.frame_meter().weight_consumed() - before;
 
 			assert_eq!(result.unwrap_err(), Error::Revert("value exceeds max_len".into()));
 
-			let expected = <Test as crate::Config>::WeightInfo::unstable_runtime_get_storage(
+			let expected = <Test as crate::Config>::WeightInfo::unchecked_runtime_get_storage(
 				b"big_value".len() as u32,
 				value_len as u32,
 			)
@@ -699,7 +721,7 @@ mod tests {
 			});
 			let input = dispatch_input(call);
 
-			let result = <UnstableRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
+			let result = <UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext);
 
 			// Mapped to an `Error::Error` (the dispatch error), not a revert or `Ok`.
 			assert!(
@@ -725,7 +747,7 @@ mod tests {
 			call_setup.set_read_only(true);
 			let (mut ext, _) = call_setup.ext();
 
-			let raw = <UnstableRuntime<Test> as Precompile>::call(
+			let raw = <UncheckedRuntime<Test> as Precompile>::call(
 				&address(),
 				&storage_input(b"ro_key", 64),
 				&mut ext,
@@ -747,7 +769,7 @@ mod tests {
 			// is false), so it is returned rather than reverted.
 			let value = alloc::vec![7u8; 32];
 			sp_io::storage::set(b"exact", &value);
-			let raw = <UnstableRuntime<Test> as Precompile>::call(
+			let raw = <UncheckedRuntime<Test> as Precompile>::call(
 				&address(),
 				&storage_input(b"exact", 32),
 				&mut ext,
@@ -767,7 +789,7 @@ mod tests {
 
 			// Boundary: the cap is strictly `>`, so `max_len == CALLDATA_BYTES` is
 			// allowed (absent key → empty bytes, not a "too large" revert).
-			let raw = <UnstableRuntime<Test> as Precompile>::call(
+			let raw = <UncheckedRuntime<Test> as Precompile>::call(
 				&address(),
 				&storage_input(b"absent", crate::limits::CALLDATA_BYTES),
 				&mut ext,
@@ -788,7 +810,7 @@ mod tests {
 			// `max_len == 0` against a present, non-empty value: the value length
 			// exceeds the bound, so it reverts.
 			sp_io::storage::set(b"nonempty", b"x");
-			let result = <UnstableRuntime<Test> as Precompile>::call(
+			let result = <UncheckedRuntime<Test> as Precompile>::call(
 				&address(),
 				&storage_input(b"nonempty", 0),
 				&mut ext,
@@ -806,13 +828,13 @@ mod tests {
 			// A key present with an EMPTY value and an absent key both decode to
 			// empty bytes — the precompile does not distinguish them.
 			sp_io::storage::set(b"empty_val", b"");
-			let present = <UnstableRuntime<Test> as Precompile>::call(
+			let present = <UncheckedRuntime<Test> as Precompile>::call(
 				&address(),
 				&storage_input(b"empty_val", 64),
 				&mut ext,
 			)
 			.expect("read");
-			let absent = <UnstableRuntime<Test> as Precompile>::call(
+			let absent = <UncheckedRuntime<Test> as Precompile>::call(
 				&address(),
 				&storage_input(b"never_set", 64),
 				&mut ext,

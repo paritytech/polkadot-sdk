@@ -1615,12 +1615,12 @@ mod benchmarks {
 	}
 
 	// Weight of reading a runtime storage value from the main trie, as performed by
-	// the unstable `UnstableRuntime::getStorage` precompile. Two-dimensional: `k` is
+	// the `UncheckedRuntime::getStorage` precompile. Two-dimensional: `k` is
 	// the key length (longer keys traverse more trie nodes) and `v` is the value
 	// length (more bytes read into the PoV). The benchmark measures the raw read so
-	// it is independent of the `unstable-precompiles` feature gate.
+	// it is independent of the `unchecked-precompiles` feature gate.
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn unstable_runtime_get_storage(
+	fn unchecked_runtime_get_storage(
 		k: Linear<0, { limits::STORAGE_KEY_BYTES }>,
 		v: Linear<0, { limits::STORAGE_BYTES }>,
 	) -> Result<(), BenchmarkError> {
@@ -1638,14 +1638,14 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Fixed overhead of the unstable `UnstableRuntime::dispatch` wrapper around a
+	// Fixed overhead of the `UncheckedRuntime::dispatch` wrapper around a
 	// runtime call: computing the call's dispatch info and constructing the signed
 	// origin. The dispatched call's own weight is charged separately (via its
 	// dispatch info) and decoding via `RuntimeCosts::PrecompileDecode`, so neither
 	// is measured here. Measured raw so it is independent of the
-	// `unstable-precompiles` feature gate.
+	// `unchecked-precompiles` feature gate.
 	#[benchmark(pov_mode = Measured)]
-	fn unstable_runtime_dispatch() -> Result<(), BenchmarkError> {
+	fn unchecked_runtime_dispatch() -> Result<(), BenchmarkError> {
 		let runtime_call: <T as Config>::RuntimeCall =
 			frame_system::Call::remark { remark: vec![] }.into();
 		let account: T::AccountId = whitelisted_caller();

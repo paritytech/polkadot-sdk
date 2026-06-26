@@ -988,7 +988,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `k` is `[0, 128]`.
 	/// The range of component `v` is `[0, 416]`.
-	fn unstable_runtime_get_storage(k: u32, v: u32, ) -> Weight {
+	fn unchecked_runtime_get_storage(k: u32, v: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `111 + k * (1 ±0) + v * (1 ±0)`
 		//  Estimated: `96 + k * (1 ±0) + v * (1 ±0)`
@@ -1003,7 +1003,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(k.into()))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(v.into()))
 	}
-	fn unstable_runtime_dispatch() -> Weight {
+	fn unchecked_runtime_dispatch() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
