@@ -441,7 +441,7 @@ where
 	// epoch-enabled engine) used only to serve untrusted light-client execution-proof requests.
 	let capped_call_executor = match config.execution_timeout {
 		Some(timeout) => {
-			let capped_executor = executor.with_execution_timeout(Some(timeout));
+			let capped_executor = executor.with_execution_timeout(timeout);
 			let capped_extensions =
 				ExecutionExtensions::new(None, Arc::new(capped_executor.clone()));
 			Some(crate::client::LocalCallExecutor::new(

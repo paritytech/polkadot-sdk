@@ -94,7 +94,6 @@ pub struct WasmExecutorBuilder<H = sp_io::SubstrateHostFunctions> {
 	cache_path: Option<PathBuf>,
 	allow_missing_host_functions: bool,
 	runtime_cache_size: u8,
-	execution_timeout: Option<Duration>,
 }
 
 impl<H> WasmExecutorBuilder<H> {
@@ -112,7 +111,6 @@ impl<H> WasmExecutorBuilder<H> {
 			runtime_cache_size: 4,
 			allow_missing_host_functions: false,
 			cache_path: None,
-			execution_timeout: None,
 		}
 	}
 
@@ -196,16 +194,6 @@ impl<H> WasmExecutorBuilder<H> {
 		self
 	}
 
-	/// Set an optional wall-clock limit for a single runtime call.
-	///
-	/// When `Some`, a call exceeding the given duration is interrupted and traps. Intended to bound
-	/// the cost of executing untrusted requests on a dedicated executor. By default no timeout is
-	/// set and execution is unbounded.
-	pub fn with_execution_timeout(mut self, timeout: Option<Duration>) -> Self {
-		self.execution_timeout = timeout;
-		self
-	}
-
 	/// Build the configured [`WasmExecutor`].
 	pub fn build(self) -> WasmExecutor<H> {
 		WasmExecutor {
@@ -224,7 +212,9 @@ impl<H> WasmExecutorBuilder<H> {
 			)),
 			cache_path: self.cache_path,
 			allow_missing_host_functions: self.allow_missing_host_functions,
-			execution_timeout: self.execution_timeout,
+			// A capped executor is derived from a built one via [`WithExecutionTimeout`], never
+			// configured through the builder.
+			execution_timeout: None,
 			phantom: PhantomData,
 		}
 	}
@@ -345,18 +335,13 @@ const CAPPED_EXECUTOR_RUNTIME_CACHE_SIZE: u8 = 2;
 /// Used to build a dedicated capped executor (e.g. to serve light-client requests) from the
 /// node-wide one, leaving the latter untouched.
 pub trait WithExecutionTimeout {
-	/// Return a new executor that traps any single call exceeding `timeout`. `None` leaves
-	/// execution unbounded (equivalent to the source executor with a fresh runtime cache).
-	fn with_execution_timeout(&self, timeout: Option<Duration>) -> Self;
+	/// Return a new executor that traps any single call exceeding `timeout`.
+	fn with_execution_timeout(&self, timeout: Duration) -> Self;
 }
 
 impl<H> WithExecutionTimeout for WasmExecutor<H> {
-	fn with_execution_timeout(&self, timeout: Option<Duration>) -> Self {
+	fn with_execution_timeout(&self, timeout: Duration) -> Self {
 		Self {
-			method: self.method,
-			default_onchain_heap_alloc_strategy: self.default_onchain_heap_alloc_strategy,
-			default_offchain_heap_alloc_strategy: self.default_offchain_heap_alloc_strategy,
-			ignore_onchain_heap_pages: self.ignore_onchain_heap_pages,
 			// The capped executor compiles into its own epoch-enabled engine and only serves
 			// light-client requests, so it gets a small dedicated cache rather than the node-wide
 			// sizing.
@@ -365,10 +350,8 @@ impl<H> WithExecutionTimeout for WasmExecutor<H> {
 				self.cache_path.clone(),
 				CAPPED_EXECUTOR_RUNTIME_CACHE_SIZE,
 			)),
-			cache_path: self.cache_path.clone(),
-			allow_missing_host_functions: self.allow_missing_host_functions,
-			execution_timeout: timeout,
-			phantom: self.phantom,
+			execution_timeout: Some(timeout),
+			..self.clone()
 		}
 	}
 }
@@ -806,12 +789,8 @@ impl<D: NativeExecutionDispatch> Clone for NativeElseWasmExecutor<D> {
 
 #[allow(deprecated)]
 impl<D: NativeExecutionDispatch> WithExecutionTimeout for NativeElseWasmExecutor<D> {
-	fn with_execution_timeout(&self, timeout: Option<Duration>) -> Self {
-		NativeElseWasmExecutor {
-			native_version: D::native_version(),
-			wasm: self.wasm.with_execution_timeout(timeout),
-			use_native: self.use_native,
-		}
+	fn with_execution_timeout(&self, timeout: Duration) -> Self {
+		NativeElseWasmExecutor { wasm: self.wasm.with_execution_timeout(timeout), ..self.clone() }
 	}
 }
 
