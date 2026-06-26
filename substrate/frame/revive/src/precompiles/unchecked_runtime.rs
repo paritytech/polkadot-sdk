@@ -117,6 +117,8 @@ sol! {
 /// This is what makes the read sound: a caller that cannot afford the worst case
 /// runs out of gas before the value is pulled into the PoV. Set it together with
 /// `StorageFilter` so that no readable key can hold a value larger than the limit.
+/// `limits::CALLDATA_BYTES` is the maximum that can be returned anyway so it will
+/// never go above that.
 pub struct UncheckedRuntime<
 	T,
 	Filter = Everything,
