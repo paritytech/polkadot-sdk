@@ -23,6 +23,7 @@ use std::{
 	cmp::Reverse,
 	collections::{HashMap, HashSet},
 	num::NonZeroUsize,
+	time::{Duration, Instant},
 };
 
 #[derive(Debug, Clone)]
@@ -46,9 +47,19 @@ struct PeerInfo {
 	connected: bool,
 	/// Cached `peer_key`; the peer id never changes and hashing is costly.
 	key: Key,
+	/// Wall-clock time of the most recent event observing this peer; the eviction key for both
+	/// staleness and the capacity backstop.
+	last_seen: Instant,
 }
 
-/// Pure, event-fed local view of statement-store peers.
+/// Evict a disconnected peer unseen by any event for this long.
+const PEER_STALENESS_TTL: Duration = Duration::from_secs(24 * 60 * 60);
+
+/// Hard cap on `discovered`; bounds memory when discovery outruns staleness eviction.
+const MAX_KNOWN_PEERS: usize = 8192;
+
+/// Event-fed local view of statement-store peers that ages out peers unseen for
+/// `PEER_STALENESS_TTL`.
 ///
 /// The topology is built from peers learned through routing-table updates, identify metadata and
 /// statement notification connections. It computes XOR distances locally over that learned peer
@@ -61,8 +72,8 @@ pub struct PeersTopology {
 	local_peer: PeerId,
 	local_key: Key,
 	config: PeersTopologyConfig,
-	// TODO: add an eviction mechanism; this map grows unbounded as peers are discovered.
-	// A follow-up should evict peers that leave the network entirely or become unresponsive.
+	/// Known remote peers, evicted by [`PeersTopology::evict`] once stale or over
+	/// `MAX_KNOWN_PEERS`.
 	discovered: HashMap<PeerId, PeerInfo>,
 	/// XOR-ordered index of the statement-protocol peers: the candidates for DHT storage,
 	/// affinity and forwarding decisions.
@@ -72,7 +83,6 @@ pub struct PeersTopology {
 	connected: PeersIndex,
 }
 
-#[allow(dead_code)]
 impl PeersTopology {
 	pub fn new(local_peer: PeerId, config: PeersTopologyConfig) -> Self {
 		Self {
@@ -127,6 +137,7 @@ impl PeersTopology {
 		let Some(info) = self.discovered.get_mut(&peer) else { return };
 		let key = info.key;
 		info.connected = false;
+		info.last_seen = Instant::now();
 		self.connected.remove(key, &peer);
 	}
 
@@ -148,6 +159,7 @@ impl PeersTopology {
 	///
 	/// "Closest" is computed over the locally learned statement-protocol peers, not by querying
 	/// the network for the true global closest peers.
+	#[allow(dead_code)]
 	pub fn closest_known(&self, topic: Topic, limit: usize) -> Vec<PeerId> {
 		self.closest_known_keyed(topic, limit)
 			.into_iter()
@@ -231,13 +243,43 @@ impl PeersTopology {
 		selected
 	}
 
-	/// Insert `peer` into the discovered set if absent and return its record.
+	/// Insert `peer` if absent, refresh its `last_seen`, and return its record.
+	///
+	/// Inserting a new peer first evicts stale and over-capacity peers ([`PeersTopology::evict`]).
 	fn get_or_insert_peer(&mut self, peer: PeerId) -> &mut PeerInfo {
-		self.discovered.entry(peer).or_insert_with(|| PeerInfo {
+		let now = Instant::now();
+		if !self.discovered.contains_key(&peer) {
+			self.evict(now);
+		}
+		let info = self.discovered.entry(peer).or_insert_with(|| PeerInfo {
 			supports_protocol: false,
 			connected: false,
 			key: peer_key(&peer),
-		})
+			last_seen: now,
+		});
+		info.last_seen = now;
+		info
+	}
+
+	fn evict(&mut self, now: Instant) {
+		loop {
+			let over_cap = self.discovered.len() >= MAX_KNOWN_PEERS;
+			let Some((victim, last_seen)) = self
+				.discovered
+				.iter()
+				.filter(|(_, info)| !info.connected)
+				.min_by_key(|(_, info)| info.last_seen)
+				.map(|(peer, info)| (*peer, info.last_seen))
+			else {
+				return;
+			};
+			if !over_cap && now.saturating_duration_since(last_seen) < PEER_STALENESS_TTL {
+				return;
+			}
+			if let Some(info) = self.discovered.remove(&victim) {
+				self.discovered_index.remove(info.key, &victim);
+			}
+		}
 	}
 
 	/// `closest_known` paired with each peer's key, so callers that compute further distances
@@ -559,5 +601,67 @@ mod tests {
 			connected.truncate(3);
 			assert_eq!(topology.routing_targets(topic), connected);
 		}
+	}
+
+	#[test]
+	fn eviction_bounds_known_peers_at_capacity() {
+		let mut topology = topology(1);
+
+		for _ in 0..(MAX_KNOWN_PEERS + 50) {
+			dht_peer(&mut topology, PeerId::random());
+		}
+
+		assert_eq!(topology.known_peers_count(), MAX_KNOWN_PEERS);
+	}
+
+	#[test]
+	fn eviction_removes_least_recently_seen_first() {
+		let mut topology = topology(1);
+		let oldest = PeerId::random();
+		let next_oldest = PeerId::random();
+		dht_peer(&mut topology, oldest);
+		dht_peer(&mut topology, next_oldest);
+		for _ in 2..MAX_KNOWN_PEERS {
+			dht_peer(&mut topology, PeerId::random());
+		}
+
+		// Re-seeing the oldest peer makes the next-oldest the least-recently-seen instead.
+		topology.on_peer_identified(oldest, true);
+
+		// One new peer at capacity forces a single eviction.
+		dht_peer(&mut topology, PeerId::random());
+
+		assert_eq!(topology.known_peers_count(), MAX_KNOWN_PEERS);
+		let known = known_dht_peers(&topology, topic(7));
+		assert!(known.contains(&oldest));
+		assert!(!known.contains(&next_oldest));
+	}
+
+	#[test]
+	fn staleness_keeps_peers_seen_within_the_ttl() {
+		let mut topology = topology(1);
+		let peer = peer(2);
+		dht_peer(&mut topology, peer);
+
+		let last_seen = topology.discovered[&peer].last_seen;
+		topology.evict(last_seen + PEER_STALENESS_TTL - Duration::from_secs(1));
+
+		assert_eq!(topology.known_peers_count(), 1);
+	}
+
+	#[test]
+	fn staleness_never_drops_connected_peers() {
+		let mut topology = topology(1);
+		let live = peer(2);
+		let idle = peer(3);
+		dht_peer(&mut topology, live);
+		topology.on_substream_opened(live);
+		dht_peer(&mut topology, idle);
+
+		topology.evict(Instant::now() + PEER_STALENESS_TTL + Duration::from_secs(1));
+
+		assert!(topology.is_connected(&live));
+		assert_eq!(topology.known_peers_count(), 1);
+		assert!(!known_dht_peers(&topology, topic(7)).contains(&idle));
 	}
 }
