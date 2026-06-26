@@ -1014,6 +1014,12 @@ For the Parachain Service, the ownership boundary is:
 
 ### 7.1 Authorizer Design: AURA Example
 
+Each parachain supplies its own authorizer — the Parachain Service does
+not prescribe a specific one. The only constraint the service imposes is
+that the authorizer's config blob begins with a `Vec<ParaId>` matching
+the work package's items (§3.2). What follows is one AURA-style collator-set
+authorizer, sketched for demonstration purposes only.
+
 The authorizer is a single piece of PVM code (≤ 64 KB) deployed once as a preimage and
 reused across all cores. Per-core behavior is controlled by the **config blob** (`pf`),
 which is committed to when the authorizer queue is set via `assign`.
