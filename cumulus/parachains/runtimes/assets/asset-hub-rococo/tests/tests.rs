@@ -46,6 +46,7 @@ use frame_support::{
 };
 use hex_literal::hex;
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::traits::MaybeEquivalence;
@@ -94,7 +95,12 @@ fn collator_session_key(account: [u8; 32]) -> CollatorSessionKey<Runtime> {
 	CollatorSessionKey::new(
 		AccountId::from(account),
 		AccountId::from(account),
-		SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(account)) },
+		SessionKeys {
+			aura: AuraId::from(sp_core::sr25519::Public::from_raw(account)),
+			authority_discovery: AuthorityDiscoveryId::from(sp_core::sr25519::Public::from_raw(
+				account,
+			)),
+		},
 	)
 }
 
@@ -116,7 +122,12 @@ fn test_buy_and_refund_weight_in_native() {
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
 			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+			SessionKeys {
+				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
+				authority_discovery: AuthorityDiscoveryId::from(
+					sp_core::sr25519::Public::from_raw(ALICE),
+				),
+			},
 		)])
 		.build()
 		.execute_with(|| {
@@ -178,7 +189,12 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
 			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+			SessionKeys {
+				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
+				authority_discovery: AuthorityDiscoveryId::from(
+					sp_core::sr25519::Public::from_raw(ALICE),
+				),
+			},
 		)])
 		.build()
 		.execute_with(|| {
@@ -278,7 +294,12 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
 			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+			SessionKeys {
+				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
+				authority_discovery: AuthorityDiscoveryId::from(
+					sp_core::sr25519::Public::from_raw(ALICE),
+				),
+			},
 		)])
 		.build()
 		.execute_with(|| {
@@ -385,7 +406,12 @@ fn test_asset_xcm_take_first_trader_refund_not_possible_since_amount_less_than_e
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
 			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+			SessionKeys {
+				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
+				authority_discovery: AuthorityDiscoveryId::from(
+					sp_core::sr25519::Public::from_raw(ALICE),
+				),
+			},
 		)])
 		.build()
 		.execute_with(|| {
@@ -467,7 +493,12 @@ fn test_asset_xcm_trader_not_possible_for_non_sufficient_assets() {
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
 			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+			SessionKeys {
+				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
+				authority_discovery: AuthorityDiscoveryId::from(
+					sp_core::sr25519::Public::from_raw(ALICE),
+				),
+			},
 		)])
 		.build()
 		.execute_with(|| {
@@ -556,7 +587,12 @@ fn test_assets_balances_api_works() {
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
 			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+			SessionKeys {
+				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
+				authority_discovery: AuthorityDiscoveryId::from(
+					sp_core::sr25519::Public::from_raw(ALICE),
+				),
+			},
 		)])
 		.build()
 		.execute_with(|| {
