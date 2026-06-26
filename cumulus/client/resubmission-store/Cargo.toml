@@ -21,7 +21,6 @@ sp-runtime = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 
 [dev-dependencies]
-hex = { workspace = true, default-features = true }
 sc-client-db = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 tempfile = { workspace = true }
