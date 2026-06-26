@@ -652,231 +652,245 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#502 id=502 data-nosnippet>502</a>	</span><span class="kw">fn </span>curve(balance: Balance) -&gt; u32;
 <a href=#503 id=503 data-nosnippet>503</a>}
 <a href=#504 id=504 data-nosnippet>504</a>
-<a href=#505 id=505 data-nosnippet>505</a><span class="doccomment">/// A nomination quota that allows up to MAX nominations for all validators.
-<a href=#506 id=506 data-nosnippet>506</a></span><span class="kw">pub struct </span>FixedNominationsQuota&lt;<span class="kw">const </span>MAX: u32&gt;;
-<a href=#507 id=507 data-nosnippet>507</a><span class="kw">impl</span>&lt;Balance, <span class="kw">const </span>MAX: u32&gt; NominationsQuota&lt;Balance&gt; <span class="kw">for </span>FixedNominationsQuota&lt;MAX&gt; {
-<a href=#508 id=508 data-nosnippet>508</a>	<span class="kw">type </span>MaxNominations = ConstU32&lt;MAX&gt;;
-<a href=#509 id=509 data-nosnippet>509</a>
-<a href=#510 id=510 data-nosnippet>510</a>	<span class="kw">fn </span>curve(<span class="kw">_</span>: Balance) -&gt; u32 {
-<a href=#511 id=511 data-nosnippet>511</a>		MAX
-<a href=#512 id=512 data-nosnippet>512</a>	}
-<a href=#513 id=513 data-nosnippet>513</a>}
-<a href=#514 id=514 data-nosnippet>514</a>
-<a href=#515 id=515 data-nosnippet>515</a><span class="kw">pub use </span>sp_staking::EraPayout;
-<a href=#516 id=516 data-nosnippet>516</a>
-<a href=#517 id=517 data-nosnippet>517</a><span class="doccomment">/// Mode of era-forcing.
-<a href=#518 id=518 data-nosnippet>518</a></span><span class="attr">#[derive(
-<a href=#519 id=519 data-nosnippet>519</a>	Copy,
-<a href=#520 id=520 data-nosnippet>520</a>	Clone,
-<a href=#521 id=521 data-nosnippet>521</a>	PartialEq,
-<a href=#522 id=522 data-nosnippet>522</a>	Eq,
-<a href=#523 id=523 data-nosnippet>523</a>	Encode,
-<a href=#524 id=524 data-nosnippet>524</a>	Decode,
-<a href=#525 id=525 data-nosnippet>525</a>	DecodeWithMemTracking,
-<a href=#526 id=526 data-nosnippet>526</a>	Debug,
-<a href=#527 id=527 data-nosnippet>527</a>	TypeInfo,
-<a href=#528 id=528 data-nosnippet>528</a>	MaxEncodedLen,
-<a href=#529 id=529 data-nosnippet>529</a>	serde::Serialize,
-<a href=#530 id=530 data-nosnippet>530</a>	serde::Deserialize,
-<a href=#531 id=531 data-nosnippet>531</a>)]
-<a href=#532 id=532 data-nosnippet>532</a></span><span class="kw">pub enum </span>Forcing {
-<a href=#533 id=533 data-nosnippet>533</a>	<span class="doccomment">/// Not forcing anything - just let whatever happen.
-<a href=#534 id=534 data-nosnippet>534</a>	</span>NotForcing,
-<a href=#535 id=535 data-nosnippet>535</a>	<span class="doccomment">/// Force a new era, then reset to `NotForcing` as soon as it is done.
-<a href=#536 id=536 data-nosnippet>536</a>	/// Note that this will force to trigger an election until a new era is triggered, if the
-<a href=#537 id=537 data-nosnippet>537</a>	/// election failed, the next session end will trigger a new election again, until success.
-<a href=#538 id=538 data-nosnippet>538</a>	</span>ForceNew,
-<a href=#539 id=539 data-nosnippet>539</a>	<span class="doccomment">/// Avoid a new era indefinitely.
-<a href=#540 id=540 data-nosnippet>540</a>	</span>ForceNone,
-<a href=#541 id=541 data-nosnippet>541</a>	<span class="doccomment">/// Force a new era at the end of all sessions indefinitely.
-<a href=#542 id=542 data-nosnippet>542</a>	</span>ForceAlways,
-<a href=#543 id=543 data-nosnippet>543</a>}
-<a href=#544 id=544 data-nosnippet>544</a>
-<a href=#545 id=545 data-nosnippet>545</a><span class="kw">impl </span>Default <span class="kw">for </span>Forcing {
-<a href=#546 id=546 data-nosnippet>546</a>	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-<a href=#547 id=547 data-nosnippet>547</a>		Forcing::NotForcing
-<a href=#548 id=548 data-nosnippet>548</a>	}
-<a href=#549 id=549 data-nosnippet>549</a>}
-<a href=#550 id=550 data-nosnippet>550</a>
-<a href=#551 id=551 data-nosnippet>551</a><span class="doccomment">/// A utility struct that provides a way to check if a given account is a staker.
-<a href=#552 id=552 data-nosnippet>552</a>///
-<a href=#553 id=553 data-nosnippet>553</a>/// This struct implements the `Contains` trait, allowing it to determine whether
-<a href=#554 id=554 data-nosnippet>554</a>/// a particular account is currently staking by checking if the account exists in
-<a href=#555 id=555 data-nosnippet>555</a>/// the staking ledger.
-<a href=#556 id=556 data-nosnippet>556</a>///
-<a href=#557 id=557 data-nosnippet>557</a>/// Intended to be used in [`crate::Config::Filter`].
-<a href=#558 id=558 data-nosnippet>558</a></span><span class="kw">pub struct </span>AllStakers&lt;T: Config&gt;(core::marker::PhantomData&lt;T&gt;);
-<a href=#559 id=559 data-nosnippet>559</a>
-<a href=#560 id=560 data-nosnippet>560</a><span class="kw">impl</span>&lt;T: Config&gt; Contains&lt;T::AccountId&gt; <span class="kw">for </span>AllStakers&lt;T&gt; {
-<a href=#561 id=561 data-nosnippet>561</a>	<span class="doccomment">/// Checks if the given account ID corresponds to a staker.
-<a href=#562 id=562 data-nosnippet>562</a>	///
-<a href=#563 id=563 data-nosnippet>563</a>	/// # Returns
-<a href=#564 id=564 data-nosnippet>564</a>	/// - `true` if the account has an entry in the staking ledger (indicating it is staking).
-<a href=#565 id=565 data-nosnippet>565</a>	/// - `false` otherwise.
-<a href=#566 id=566 data-nosnippet>566</a>	</span><span class="kw">fn </span>contains(account: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
-<a href=#567 id=567 data-nosnippet>567</a>		Ledger::&lt;T&gt;::contains_key(account)
-<a href=#568 id=568 data-nosnippet>568</a>	}
-<a href=#569 id=569 data-nosnippet>569</a>}
-<a href=#570 id=570 data-nosnippet>570</a>
-<a href=#571 id=571 data-nosnippet>571</a><span class="doccomment">/// Size of the rotating pool of era-specific pot accounts.
-<a href=#572 id=572 data-nosnippet>572</a>///
-<a href=#573 id=573 data-nosnippet>573</a>/// Era pots are addressed by `era % POT_POOL_SIZE`, so a pot account is reused
-<a href=#574 id=574 data-nosnippet>574</a>/// every `POT_POOL_SIZE` eras instead of a fresh account being created per era.
-<a href=#575 id=575 data-nosnippet>575</a>/// This bounds the total storage footprint contributed by era pot accounts to a
-<a href=#576 id=576 data-nosnippet>576</a>/// constant rather than growing with chain age.
-<a href=#577 id=577 data-nosnippet>577</a>///
-<a href=#578 id=578 data-nosnippet>578</a>/// Must be strictly greater than [`Config::HistoryDepth`] so that a slot is only
-<a href=#579 id=579 data-nosnippet>579</a>/// reused after its previous era has been pruned and drained. The
-<a href=#580 id=580 data-nosnippet>580</a>/// [`integrity_test`] enforces this invariant at runtime startup.
-<a href=#581 id=581 data-nosnippet>581</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>POT_POOL_SIZE: u32 = <span class="number">200</span>;
-<a href=#582 id=582 data-nosnippet>582</a>
-<a href=#583 id=583 data-nosnippet>583</a><span class="doccomment">/// Maps an era index to its slot in the rotating pot pool.
-<a href=#584 id=584 data-nosnippet>584</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>pot_slot(era: EraIndex) -&gt; u32 {
-<a href=#585 id=585 data-nosnippet>585</a>	era % POT_POOL_SIZE
-<a href=#586 id=586 data-nosnippet>586</a>}
-<a href=#587 id=587 data-nosnippet>587</a>
-<a href=#588 id=588 data-nosnippet>588</a><span class="doccomment">/// Kind of reward managed by staking pots.
-<a href=#589 id=589 data-nosnippet>589</a></span><span class="attr">#[derive(
-<a href=#590 id=590 data-nosnippet>590</a>	Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, codec::DecodeWithMemTracking, TypeInfo,
-<a href=#591 id=591 data-nosnippet>591</a>)]
-<a href=#592 id=592 data-nosnippet>592</a></span><span class="kw">pub enum </span>RewardKind {
-<a href=#593 id=593 data-nosnippet>593</a>	<span class="doccomment">/// Staker rewards (nominators + validators).
-<a href=#594 id=594 data-nosnippet>594</a>	</span><span class="attr">#[codec(index = <span class="number">0</span>)]
-<a href=#595 id=595 data-nosnippet>595</a>	</span>StakerRewards,
-<a href=#596 id=596 data-nosnippet>596</a>	<span class="doccomment">/// Pot for validator self-stake incentive.
-<a href=#597 id=597 data-nosnippet>597</a>	</span><span class="attr">#[codec(index = <span class="number">1</span>)]
-<a href=#598 id=598 data-nosnippet>598</a>	</span>ValidatorSelfStake,
-<a href=#599 id=599 data-nosnippet>599</a>}
-<a href=#600 id=600 data-nosnippet>600</a>
-<a href=#601 id=601 data-nosnippet>601</a><span class="doccomment">/// Identifies a reward pot account.
-<a href=#602 id=602 data-nosnippet>602</a></span><span class="attr">#[derive(
-<a href=#603 id=603 data-nosnippet>603</a>	Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, codec::DecodeWithMemTracking, TypeInfo,
-<a href=#604 id=604 data-nosnippet>604</a>)]
-<a href=#605 id=605 data-nosnippet>605</a></span><span class="kw">pub enum </span>RewardPot {
-<a href=#606 id=606 data-nosnippet>606</a>	<span class="doccomment">/// General pot: funded by an external source (e.g. pallet-dap).
-<a href=#607 id=607 data-nosnippet>607</a>	/// At era boundaries, staking snapshots the balance into an era-specific pot.
+<a href=#505 id=505 data-nosnippet>505</a><span class="doccomment">/// Check if validator was inactive at some era.
+<a href=#506 id=506 data-nosnippet>506</a>///
+<a href=#507 id=507 data-nosnippet>507</a>/// The check is based on the [`RewardPoint`] amount received during the era by the given validator.
+<a href=#508 id=508 data-nosnippet>508</a></span><span class="kw">pub trait </span>IsValidatorInactive&lt;AccountId&gt; {
+<a href=#509 id=509 data-nosnippet>509</a>	<span class="doccomment">/// Tell if the validator considered inactive.
+<a href=#510 id=510 data-nosnippet>510</a>	</span><span class="kw">fn </span>is_inactive(era: EraIndex, stash: <span class="kw-2">&amp;</span>AccountId, era_points: RewardPoint) -&gt; bool;
+<a href=#511 id=511 data-nosnippet>511</a>}
+<a href=#512 id=512 data-nosnippet>512</a>
+<a href=#513 id=513 data-nosnippet>513</a><span class="kw">impl</span>&lt;AccountId&gt; IsValidatorInactive&lt;AccountId&gt; <span class="kw">for </span>() {
+<a href=#514 id=514 data-nosnippet>514</a>	<span class="kw">fn </span>is_inactive(_era: EraIndex, _stash: <span class="kw-2">&amp;</span>AccountId, era_points: RewardPoint) -&gt; bool {
+<a href=#515 id=515 data-nosnippet>515</a>		era_points == <span class="number">0
+<a href=#516 id=516 data-nosnippet>516</a>	</span>}
+<a href=#517 id=517 data-nosnippet>517</a>}
+<a href=#518 id=518 data-nosnippet>518</a>
+<a href=#519 id=519 data-nosnippet>519</a><span class="doccomment">/// A nomination quota that allows up to MAX nominations for all validators.
+<a href=#520 id=520 data-nosnippet>520</a></span><span class="kw">pub struct </span>FixedNominationsQuota&lt;<span class="kw">const </span>MAX: u32&gt;;
+<a href=#521 id=521 data-nosnippet>521</a><span class="kw">impl</span>&lt;Balance, <span class="kw">const </span>MAX: u32&gt; NominationsQuota&lt;Balance&gt; <span class="kw">for </span>FixedNominationsQuota&lt;MAX&gt; {
+<a href=#522 id=522 data-nosnippet>522</a>	<span class="kw">type </span>MaxNominations = ConstU32&lt;MAX&gt;;
+<a href=#523 id=523 data-nosnippet>523</a>
+<a href=#524 id=524 data-nosnippet>524</a>	<span class="kw">fn </span>curve(<span class="kw">_</span>: Balance) -&gt; u32 {
+<a href=#525 id=525 data-nosnippet>525</a>		MAX
+<a href=#526 id=526 data-nosnippet>526</a>	}
+<a href=#527 id=527 data-nosnippet>527</a>}
+<a href=#528 id=528 data-nosnippet>528</a>
+<a href=#529 id=529 data-nosnippet>529</a><span class="kw">pub use </span>sp_staking::EraPayout;
+<a href=#530 id=530 data-nosnippet>530</a>
+<a href=#531 id=531 data-nosnippet>531</a><span class="doccomment">/// Mode of era-forcing.
+<a href=#532 id=532 data-nosnippet>532</a></span><span class="attr">#[derive(
+<a href=#533 id=533 data-nosnippet>533</a>	Copy,
+<a href=#534 id=534 data-nosnippet>534</a>	Clone,
+<a href=#535 id=535 data-nosnippet>535</a>	PartialEq,
+<a href=#536 id=536 data-nosnippet>536</a>	Eq,
+<a href=#537 id=537 data-nosnippet>537</a>	Encode,
+<a href=#538 id=538 data-nosnippet>538</a>	Decode,
+<a href=#539 id=539 data-nosnippet>539</a>	DecodeWithMemTracking,
+<a href=#540 id=540 data-nosnippet>540</a>	Debug,
+<a href=#541 id=541 data-nosnippet>541</a>	TypeInfo,
+<a href=#542 id=542 data-nosnippet>542</a>	MaxEncodedLen,
+<a href=#543 id=543 data-nosnippet>543</a>	serde::Serialize,
+<a href=#544 id=544 data-nosnippet>544</a>	serde::Deserialize,
+<a href=#545 id=545 data-nosnippet>545</a>)]
+<a href=#546 id=546 data-nosnippet>546</a></span><span class="kw">pub enum </span>Forcing {
+<a href=#547 id=547 data-nosnippet>547</a>	<span class="doccomment">/// Not forcing anything - just let whatever happen.
+<a href=#548 id=548 data-nosnippet>548</a>	</span>NotForcing,
+<a href=#549 id=549 data-nosnippet>549</a>	<span class="doccomment">/// Force a new era, then reset to `NotForcing` as soon as it is done.
+<a href=#550 id=550 data-nosnippet>550</a>	/// Note that this will force to trigger an election until a new era is triggered, if the
+<a href=#551 id=551 data-nosnippet>551</a>	/// election failed, the next session end will trigger a new election again, until success.
+<a href=#552 id=552 data-nosnippet>552</a>	</span>ForceNew,
+<a href=#553 id=553 data-nosnippet>553</a>	<span class="doccomment">/// Avoid a new era indefinitely.
+<a href=#554 id=554 data-nosnippet>554</a>	</span>ForceNone,
+<a href=#555 id=555 data-nosnippet>555</a>	<span class="doccomment">/// Force a new era at the end of all sessions indefinitely.
+<a href=#556 id=556 data-nosnippet>556</a>	</span>ForceAlways,
+<a href=#557 id=557 data-nosnippet>557</a>}
+<a href=#558 id=558 data-nosnippet>558</a>
+<a href=#559 id=559 data-nosnippet>559</a><span class="kw">impl </span>Default <span class="kw">for </span>Forcing {
+<a href=#560 id=560 data-nosnippet>560</a>	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href=#561 id=561 data-nosnippet>561</a>		Forcing::NotForcing
+<a href=#562 id=562 data-nosnippet>562</a>	}
+<a href=#563 id=563 data-nosnippet>563</a>}
+<a href=#564 id=564 data-nosnippet>564</a>
+<a href=#565 id=565 data-nosnippet>565</a><span class="doccomment">/// A utility struct that provides a way to check if a given account is a staker.
+<a href=#566 id=566 data-nosnippet>566</a>///
+<a href=#567 id=567 data-nosnippet>567</a>/// This struct implements the `Contains` trait, allowing it to determine whether
+<a href=#568 id=568 data-nosnippet>568</a>/// a particular account is currently staking by checking if the account exists in
+<a href=#569 id=569 data-nosnippet>569</a>/// the staking ledger.
+<a href=#570 id=570 data-nosnippet>570</a>///
+<a href=#571 id=571 data-nosnippet>571</a>/// Intended to be used in [`crate::Config::Filter`].
+<a href=#572 id=572 data-nosnippet>572</a></span><span class="kw">pub struct </span>AllStakers&lt;T: Config&gt;(core::marker::PhantomData&lt;T&gt;);
+<a href=#573 id=573 data-nosnippet>573</a>
+<a href=#574 id=574 data-nosnippet>574</a><span class="kw">impl</span>&lt;T: Config&gt; Contains&lt;T::AccountId&gt; <span class="kw">for </span>AllStakers&lt;T&gt; {
+<a href=#575 id=575 data-nosnippet>575</a>	<span class="doccomment">/// Checks if the given account ID corresponds to a staker.
+<a href=#576 id=576 data-nosnippet>576</a>	///
+<a href=#577 id=577 data-nosnippet>577</a>	/// # Returns
+<a href=#578 id=578 data-nosnippet>578</a>	/// - `true` if the account has an entry in the staking ledger (indicating it is staking).
+<a href=#579 id=579 data-nosnippet>579</a>	/// - `false` otherwise.
+<a href=#580 id=580 data-nosnippet>580</a>	</span><span class="kw">fn </span>contains(account: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
+<a href=#581 id=581 data-nosnippet>581</a>		Ledger::&lt;T&gt;::contains_key(account)
+<a href=#582 id=582 data-nosnippet>582</a>	}
+<a href=#583 id=583 data-nosnippet>583</a>}
+<a href=#584 id=584 data-nosnippet>584</a>
+<a href=#585 id=585 data-nosnippet>585</a><span class="doccomment">/// Size of the rotating pool of era-specific pot accounts.
+<a href=#586 id=586 data-nosnippet>586</a>///
+<a href=#587 id=587 data-nosnippet>587</a>/// Era pots are addressed by `era % POT_POOL_SIZE`, so a pot account is reused
+<a href=#588 id=588 data-nosnippet>588</a>/// every `POT_POOL_SIZE` eras instead of a fresh account being created per era.
+<a href=#589 id=589 data-nosnippet>589</a>/// This bounds the total storage footprint contributed by era pot accounts to a
+<a href=#590 id=590 data-nosnippet>590</a>/// constant rather than growing with chain age.
+<a href=#591 id=591 data-nosnippet>591</a>///
+<a href=#592 id=592 data-nosnippet>592</a>/// Must be strictly greater than [`Config::HistoryDepth`] so that a slot is only
+<a href=#593 id=593 data-nosnippet>593</a>/// reused after its previous era has been pruned and drained. The
+<a href=#594 id=594 data-nosnippet>594</a>/// [`integrity_test`] enforces this invariant at runtime startup.
+<a href=#595 id=595 data-nosnippet>595</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>POT_POOL_SIZE: u32 = <span class="number">200</span>;
+<a href=#596 id=596 data-nosnippet>596</a>
+<a href=#597 id=597 data-nosnippet>597</a><span class="doccomment">/// Maps an era index to its slot in the rotating pot pool.
+<a href=#598 id=598 data-nosnippet>598</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>pot_slot(era: EraIndex) -&gt; u32 {
+<a href=#599 id=599 data-nosnippet>599</a>	era % POT_POOL_SIZE
+<a href=#600 id=600 data-nosnippet>600</a>}
+<a href=#601 id=601 data-nosnippet>601</a>
+<a href=#602 id=602 data-nosnippet>602</a><span class="doccomment">/// Kind of reward managed by staking pots.
+<a href=#603 id=603 data-nosnippet>603</a></span><span class="attr">#[derive(
+<a href=#604 id=604 data-nosnippet>604</a>	Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, codec::DecodeWithMemTracking, TypeInfo,
+<a href=#605 id=605 data-nosnippet>605</a>)]
+<a href=#606 id=606 data-nosnippet>606</a></span><span class="kw">pub enum </span>RewardKind {
+<a href=#607 id=607 data-nosnippet>607</a>	<span class="doccomment">/// Staker rewards (nominators + validators).
 <a href=#608 id=608 data-nosnippet>608</a>	</span><span class="attr">#[codec(index = <span class="number">0</span>)]
-<a href=#609 id=609 data-nosnippet>609</a>	</span>General(RewardKind),
-<a href=#610 id=610 data-nosnippet>610</a>	<span class="doccomment">/// Era-specific pot: snapshotted from the general pot at era boundaries.
-<a href=#611 id=611 data-nosnippet>611</a>	/// See `POT_POOL_SIZE` for the slot rotation scheme.
-<a href=#612 id=612 data-nosnippet>612</a>	</span><span class="attr">#[codec(index = <span class="number">1</span>)]
-<a href=#613 id=613 data-nosnippet>613</a>	</span>Era(EraIndex, RewardKind),
-<a href=#614 id=614 data-nosnippet>614</a>}
-<a href=#615 id=615 data-nosnippet>615</a>
-<a href=#616 id=616 data-nosnippet>616</a><span class="doccomment">/// Trait for generating reward pot account IDs.
-<a href=#617 id=617 data-nosnippet>617</a></span><span class="kw">pub trait </span>PotAccountProvider&lt;AccountId&gt; {
-<a href=#618 id=618 data-nosnippet>618</a>	<span class="kw">fn </span>pot_account(pot: RewardPot) -&gt; AccountId;
-<a href=#619 id=619 data-nosnippet>619</a>}
-<a href=#620 id=620 data-nosnippet>620</a>
-<a href=#621 id=621 data-nosnippet>621</a><span class="doccomment">/// Seed-based pot account provider for production use.
-<a href=#622 id=622 data-nosnippet>622</a>///
-<a href=#623 id=623 data-nosnippet>623</a>/// Era pots are derived from `(slot, kind)` where `slot = era % POT_POOL_SIZE`,
-<a href=#624 id=624 data-nosnippet>624</a>/// so a fixed pool of accounts rotates instead of creating one per era.
-<a href=#625 id=625 data-nosnippet>625</a></span><span class="kw">pub struct </span>Seed&lt;S&gt;(core::marker::PhantomData&lt;S&gt;);
-<a href=#626 id=626 data-nosnippet>626</a>
-<a href=#627 id=627 data-nosnippet>627</a><span class="kw">impl</span>&lt;AccountId, S&gt; PotAccountProvider&lt;AccountId&gt; <span class="kw">for </span>Seed&lt;S&gt;
-<a href=#628 id=628 data-nosnippet>628</a><span class="kw">where
-<a href=#629 id=629 data-nosnippet>629</a>	</span>AccountId: codec::FullCodec,
-<a href=#630 id=630 data-nosnippet>630</a>	S: Get&lt;frame_support::PalletId&gt;,
-<a href=#631 id=631 data-nosnippet>631</a>{
-<a href=#632 id=632 data-nosnippet>632</a>	<span class="kw">fn </span>pot_account(pot: RewardPot) -&gt; AccountId {
-<a href=#633 id=633 data-nosnippet>633</a>		<span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
-<a href=#634 id=634 data-nosnippet>634</a>		<span class="comment">// Era pots are addressed by slot (`era % POT_POOL_SIZE`), not by the
-<a href=#635 id=635 data-nosnippet>635</a>		// raw era index, so a fixed pool of accounts rotates instead of
-<a href=#636 id=636 data-nosnippet>636</a>		// growing per era.
-<a href=#637 id=637 data-nosnippet>637</a>		</span><span class="kw">let </span>normalized = <span class="kw">match </span>pot {
-<a href=#638 id=638 data-nosnippet>638</a>			RewardPot::Era(era, kind) =&gt; RewardPot::Era(pot_slot(era), kind),
-<a href=#639 id=639 data-nosnippet>639</a>			other =&gt; other,
-<a href=#640 id=640 data-nosnippet>640</a>		};
-<a href=#641 id=641 data-nosnippet>641</a>		S::get().into_sub_account_truncating(normalized)
-<a href=#642 id=642 data-nosnippet>642</a>	}
-<a href=#643 id=643 data-nosnippet>643</a>}
-<a href=#644 id=644 data-nosnippet>644</a>
-<a href=#645 id=645 data-nosnippet>645</a><span class="doccomment">/// Sequential pot account provider for testing.
-<a href=#646 id=646 data-nosnippet>646</a>///
-<a href=#647 id=647 data-nosnippet>647</a>/// Mirrors the production rotation: era pots collide every `POT_POOL_SIZE`
-<a href=#648 id=648 data-nosnippet>648</a>/// eras so tests exercise the same pool reuse path.
-<a href=#649 id=649 data-nosnippet>649</a></span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-<a href=#650 id=650 data-nosnippet>650</a></span><span class="kw">pub struct </span>SequentialTest;
-<a href=#651 id=651 data-nosnippet>651</a>
-<a href=#652 id=652 data-nosnippet>652</a><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-<a href=#653 id=653 data-nosnippet>653</a></span><span class="kw">impl</span>&lt;AccountId&gt; PotAccountProvider&lt;AccountId&gt; <span class="kw">for </span>SequentialTest
-<a href=#654 id=654 data-nosnippet>654</a><span class="kw">where
-<a href=#655 id=655 data-nosnippet>655</a>	</span>AccountId: From&lt;u64&gt;,
-<a href=#656 id=656 data-nosnippet>656</a>{
-<a href=#657 id=657 data-nosnippet>657</a>	<span class="kw">fn </span>pot_account(pot: RewardPot) -&gt; AccountId {
-<a href=#658 id=658 data-nosnippet>658</a>		<span class="kw">match </span>pot {
-<a href=#659 id=659 data-nosnippet>659</a>			RewardPot::General(RewardKind::StakerRewards) =&gt; AccountId::from(<span class="number">200_000u64</span>),
-<a href=#660 id=660 data-nosnippet>660</a>			RewardPot::General(RewardKind::ValidatorSelfStake) =&gt; AccountId::from(<span class="number">200_001u64</span>),
-<a href=#661 id=661 data-nosnippet>661</a>			RewardPot::Era(era, RewardKind::StakerRewards) =&gt; {
-<a href=#662 id=662 data-nosnippet>662</a>				AccountId::from(<span class="number">100_000 </span>+ (pot_slot(era) <span class="kw">as </span>u64 * <span class="number">10</span>))
-<a href=#663 id=663 data-nosnippet>663</a>			},
-<a href=#664 id=664 data-nosnippet>664</a>			RewardPot::Era(era, RewardKind::ValidatorSelfStake) =&gt; {
-<a href=#665 id=665 data-nosnippet>665</a>				AccountId::from(<span class="number">100_000 </span>+ (pot_slot(era) <span class="kw">as </span>u64 * <span class="number">10</span>) + <span class="number">1</span>)
-<a href=#666 id=666 data-nosnippet>666</a>			},
-<a href=#667 id=667 data-nosnippet>667</a>		}
-<a href=#668 id=668 data-nosnippet>668</a>	}
-<a href=#669 id=669 data-nosnippet>669</a>}
-<a href=#670 id=670 data-nosnippet>670</a>
-<a href=#671 id=671 data-nosnippet>671</a><span class="doccomment">/// Budget recipient for staker rewards.
-<a href=#672 id=672 data-nosnippet>672</a>///
-<a href=#673 id=673 data-nosnippet>673</a>/// Exposes the general staker reward pot so DAP can drip inflation into it.
-<a href=#674 id=674 data-nosnippet>674</a></span><span class="kw">pub struct </span>StakerRewardRecipient&lt;P&gt;(core::marker::PhantomData&lt;P&gt;);
-<a href=#675 id=675 data-nosnippet>675</a>
-<a href=#676 id=676 data-nosnippet>676</a><span class="kw">impl</span>&lt;AccountId, P&gt; sp_staking::budget::BudgetRecipient&lt;AccountId&gt; <span class="kw">for </span>StakerRewardRecipient&lt;P&gt;
-<a href=#677 id=677 data-nosnippet>677</a><span class="kw">where
-<a href=#678 id=678 data-nosnippet>678</a>	</span>P: PotAccountProvider&lt;AccountId&gt;,
-<a href=#679 id=679 data-nosnippet>679</a>{
-<a href=#680 id=680 data-nosnippet>680</a>	<span class="kw">fn </span>budget_key() -&gt; sp_staking::budget::BudgetKey {
-<a href=#681 id=681 data-nosnippet>681</a>		sp_staking::budget::BudgetKey::truncate_from(<span class="string">b"staker_rewards"</span>.to_vec())
+<a href=#609 id=609 data-nosnippet>609</a>	</span>StakerRewards,
+<a href=#610 id=610 data-nosnippet>610</a>	<span class="doccomment">/// Pot for validator self-stake incentive.
+<a href=#611 id=611 data-nosnippet>611</a>	</span><span class="attr">#[codec(index = <span class="number">1</span>)]
+<a href=#612 id=612 data-nosnippet>612</a>	</span>ValidatorSelfStake,
+<a href=#613 id=613 data-nosnippet>613</a>}
+<a href=#614 id=614 data-nosnippet>614</a>
+<a href=#615 id=615 data-nosnippet>615</a><span class="doccomment">/// Identifies a reward pot account.
+<a href=#616 id=616 data-nosnippet>616</a></span><span class="attr">#[derive(
+<a href=#617 id=617 data-nosnippet>617</a>	Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, codec::DecodeWithMemTracking, TypeInfo,
+<a href=#618 id=618 data-nosnippet>618</a>)]
+<a href=#619 id=619 data-nosnippet>619</a></span><span class="kw">pub enum </span>RewardPot {
+<a href=#620 id=620 data-nosnippet>620</a>	<span class="doccomment">/// General pot: funded by an external source (e.g. pallet-dap).
+<a href=#621 id=621 data-nosnippet>621</a>	/// At era boundaries, staking snapshots the balance into an era-specific pot.
+<a href=#622 id=622 data-nosnippet>622</a>	</span><span class="attr">#[codec(index = <span class="number">0</span>)]
+<a href=#623 id=623 data-nosnippet>623</a>	</span>General(RewardKind),
+<a href=#624 id=624 data-nosnippet>624</a>	<span class="doccomment">/// Era-specific pot: snapshotted from the general pot at era boundaries.
+<a href=#625 id=625 data-nosnippet>625</a>	/// See `POT_POOL_SIZE` for the slot rotation scheme.
+<a href=#626 id=626 data-nosnippet>626</a>	</span><span class="attr">#[codec(index = <span class="number">1</span>)]
+<a href=#627 id=627 data-nosnippet>627</a>	</span>Era(EraIndex, RewardKind),
+<a href=#628 id=628 data-nosnippet>628</a>}
+<a href=#629 id=629 data-nosnippet>629</a>
+<a href=#630 id=630 data-nosnippet>630</a><span class="doccomment">/// Trait for generating reward pot account IDs.
+<a href=#631 id=631 data-nosnippet>631</a></span><span class="kw">pub trait </span>PotAccountProvider&lt;AccountId&gt; {
+<a href=#632 id=632 data-nosnippet>632</a>	<span class="kw">fn </span>pot_account(pot: RewardPot) -&gt; AccountId;
+<a href=#633 id=633 data-nosnippet>633</a>}
+<a href=#634 id=634 data-nosnippet>634</a>
+<a href=#635 id=635 data-nosnippet>635</a><span class="doccomment">/// Seed-based pot account provider for production use.
+<a href=#636 id=636 data-nosnippet>636</a>///
+<a href=#637 id=637 data-nosnippet>637</a>/// Era pots are derived from `(slot, kind)` where `slot = era % POT_POOL_SIZE`,
+<a href=#638 id=638 data-nosnippet>638</a>/// so a fixed pool of accounts rotates instead of creating one per era.
+<a href=#639 id=639 data-nosnippet>639</a></span><span class="kw">pub struct </span>Seed&lt;S&gt;(core::marker::PhantomData&lt;S&gt;);
+<a href=#640 id=640 data-nosnippet>640</a>
+<a href=#641 id=641 data-nosnippet>641</a><span class="kw">impl</span>&lt;AccountId, S&gt; PotAccountProvider&lt;AccountId&gt; <span class="kw">for </span>Seed&lt;S&gt;
+<a href=#642 id=642 data-nosnippet>642</a><span class="kw">where
+<a href=#643 id=643 data-nosnippet>643</a>	</span>AccountId: codec::FullCodec,
+<a href=#644 id=644 data-nosnippet>644</a>	S: Get&lt;frame_support::PalletId&gt;,
+<a href=#645 id=645 data-nosnippet>645</a>{
+<a href=#646 id=646 data-nosnippet>646</a>	<span class="kw">fn </span>pot_account(pot: RewardPot) -&gt; AccountId {
+<a href=#647 id=647 data-nosnippet>647</a>		<span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
+<a href=#648 id=648 data-nosnippet>648</a>		<span class="comment">// Era pots are addressed by slot (`era % POT_POOL_SIZE`), not by the
+<a href=#649 id=649 data-nosnippet>649</a>		// raw era index, so a fixed pool of accounts rotates instead of
+<a href=#650 id=650 data-nosnippet>650</a>		// growing per era.
+<a href=#651 id=651 data-nosnippet>651</a>		</span><span class="kw">let </span>normalized = <span class="kw">match </span>pot {
+<a href=#652 id=652 data-nosnippet>652</a>			RewardPot::Era(era, kind) =&gt; RewardPot::Era(pot_slot(era), kind),
+<a href=#653 id=653 data-nosnippet>653</a>			other =&gt; other,
+<a href=#654 id=654 data-nosnippet>654</a>		};
+<a href=#655 id=655 data-nosnippet>655</a>		S::get().into_sub_account_truncating(normalized)
+<a href=#656 id=656 data-nosnippet>656</a>	}
+<a href=#657 id=657 data-nosnippet>657</a>}
+<a href=#658 id=658 data-nosnippet>658</a>
+<a href=#659 id=659 data-nosnippet>659</a><span class="doccomment">/// Sequential pot account provider for testing.
+<a href=#660 id=660 data-nosnippet>660</a>///
+<a href=#661 id=661 data-nosnippet>661</a>/// Mirrors the production rotation: era pots collide every `POT_POOL_SIZE`
+<a href=#662 id=662 data-nosnippet>662</a>/// eras so tests exercise the same pool reuse path.
+<a href=#663 id=663 data-nosnippet>663</a></span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+<a href=#664 id=664 data-nosnippet>664</a></span><span class="kw">pub struct </span>SequentialTest;
+<a href=#665 id=665 data-nosnippet>665</a>
+<a href=#666 id=666 data-nosnippet>666</a><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+<a href=#667 id=667 data-nosnippet>667</a></span><span class="kw">impl</span>&lt;AccountId&gt; PotAccountProvider&lt;AccountId&gt; <span class="kw">for </span>SequentialTest
+<a href=#668 id=668 data-nosnippet>668</a><span class="kw">where
+<a href=#669 id=669 data-nosnippet>669</a>	</span>AccountId: From&lt;u64&gt;,
+<a href=#670 id=670 data-nosnippet>670</a>{
+<a href=#671 id=671 data-nosnippet>671</a>	<span class="kw">fn </span>pot_account(pot: RewardPot) -&gt; AccountId {
+<a href=#672 id=672 data-nosnippet>672</a>		<span class="kw">match </span>pot {
+<a href=#673 id=673 data-nosnippet>673</a>			RewardPot::General(RewardKind::StakerRewards) =&gt; AccountId::from(<span class="number">200_000u64</span>),
+<a href=#674 id=674 data-nosnippet>674</a>			RewardPot::General(RewardKind::ValidatorSelfStake) =&gt; AccountId::from(<span class="number">200_001u64</span>),
+<a href=#675 id=675 data-nosnippet>675</a>			RewardPot::Era(era, RewardKind::StakerRewards) =&gt; {
+<a href=#676 id=676 data-nosnippet>676</a>				AccountId::from(<span class="number">100_000 </span>+ (pot_slot(era) <span class="kw">as </span>u64 * <span class="number">10</span>))
+<a href=#677 id=677 data-nosnippet>677</a>			},
+<a href=#678 id=678 data-nosnippet>678</a>			RewardPot::Era(era, RewardKind::ValidatorSelfStake) =&gt; {
+<a href=#679 id=679 data-nosnippet>679</a>				AccountId::from(<span class="number">100_000 </span>+ (pot_slot(era) <span class="kw">as </span>u64 * <span class="number">10</span>) + <span class="number">1</span>)
+<a href=#680 id=680 data-nosnippet>680</a>			},
+<a href=#681 id=681 data-nosnippet>681</a>		}
 <a href=#682 id=682 data-nosnippet>682</a>	}
-<a href=#683 id=683 data-nosnippet>683</a>
-<a href=#684 id=684 data-nosnippet>684</a>	<span class="kw">fn </span>pot_account() -&gt; AccountId {
-<a href=#685 id=685 data-nosnippet>685</a>		P::pot_account(RewardPot::General(RewardKind::StakerRewards))
-<a href=#686 id=686 data-nosnippet>686</a>	}
-<a href=#687 id=687 data-nosnippet>687</a>}
-<a href=#688 id=688 data-nosnippet>688</a>
-<a href=#689 id=689 data-nosnippet>689</a><span class="doccomment">/// Budget recipient for validator self-stake incentive.
-<a href=#690 id=690 data-nosnippet>690</a>///
-<a href=#691 id=691 data-nosnippet>691</a>/// Exposes the general validator incentive pot so DAP can drip inflation into it.
-<a href=#692 id=692 data-nosnippet>692</a></span><span class="kw">pub struct </span>ValidatorIncentiveRecipient&lt;P&gt;(core::marker::PhantomData&lt;P&gt;);
-<a href=#693 id=693 data-nosnippet>693</a>
-<a href=#694 id=694 data-nosnippet>694</a><span class="kw">impl</span>&lt;AccountId, P&gt; sp_staking::budget::BudgetRecipient&lt;AccountId&gt; <span class="kw">for </span>ValidatorIncentiveRecipient&lt;P&gt;
-<a href=#695 id=695 data-nosnippet>695</a><span class="kw">where
-<a href=#696 id=696 data-nosnippet>696</a>	</span>P: PotAccountProvider&lt;AccountId&gt;,
-<a href=#697 id=697 data-nosnippet>697</a>{
-<a href=#698 id=698 data-nosnippet>698</a>	<span class="kw">fn </span>budget_key() -&gt; sp_staking::budget::BudgetKey {
-<a href=#699 id=699 data-nosnippet>699</a>		sp_staking::budget::BudgetKey::truncate_from(<span class="string">b"validator_incentive"</span>.to_vec())
+<a href=#683 id=683 data-nosnippet>683</a>}
+<a href=#684 id=684 data-nosnippet>684</a>
+<a href=#685 id=685 data-nosnippet>685</a><span class="doccomment">/// Budget recipient for staker rewards.
+<a href=#686 id=686 data-nosnippet>686</a>///
+<a href=#687 id=687 data-nosnippet>687</a>/// Exposes the general staker reward pot so DAP can drip inflation into it.
+<a href=#688 id=688 data-nosnippet>688</a></span><span class="kw">pub struct </span>StakerRewardRecipient&lt;P&gt;(core::marker::PhantomData&lt;P&gt;);
+<a href=#689 id=689 data-nosnippet>689</a>
+<a href=#690 id=690 data-nosnippet>690</a><span class="kw">impl</span>&lt;AccountId, P&gt; sp_staking::budget::BudgetRecipient&lt;AccountId&gt; <span class="kw">for </span>StakerRewardRecipient&lt;P&gt;
+<a href=#691 id=691 data-nosnippet>691</a><span class="kw">where
+<a href=#692 id=692 data-nosnippet>692</a>	</span>P: PotAccountProvider&lt;AccountId&gt;,
+<a href=#693 id=693 data-nosnippet>693</a>{
+<a href=#694 id=694 data-nosnippet>694</a>	<span class="kw">fn </span>budget_key() -&gt; sp_staking::budget::BudgetKey {
+<a href=#695 id=695 data-nosnippet>695</a>		sp_staking::budget::BudgetKey::truncate_from(<span class="string">b"staker_rewards"</span>.to_vec())
+<a href=#696 id=696 data-nosnippet>696</a>	}
+<a href=#697 id=697 data-nosnippet>697</a>
+<a href=#698 id=698 data-nosnippet>698</a>	<span class="kw">fn </span>pot_account() -&gt; AccountId {
+<a href=#699 id=699 data-nosnippet>699</a>		P::pot_account(RewardPot::General(RewardKind::StakerRewards))
 <a href=#700 id=700 data-nosnippet>700</a>	}
-<a href=#701 id=701 data-nosnippet>701</a>
-<a href=#702 id=702 data-nosnippet>702</a>	<span class="kw">fn </span>pot_account() -&gt; AccountId {
-<a href=#703 id=703 data-nosnippet>703</a>		P::pot_account(RewardPot::General(RewardKind::ValidatorSelfStake))
-<a href=#704 id=704 data-nosnippet>704</a>	}
-<a href=#705 id=705 data-nosnippet>705</a>}
-<a href=#706 id=706 data-nosnippet>706</a>
-<a href=#707 id=707 data-nosnippet>707</a><span class="doccomment">/// A smart type to determine the [`Config::PlanningEraOffset`], given:
-<a href=#708 id=708 data-nosnippet>708</a>///
-<a href=#709 id=709 data-nosnippet>709</a>/// * Expected relay session duration, `RS`
-<a href=#710 id=710 data-nosnippet>710</a>/// * Time taking into consideration for XCM sending, `S`
-<a href=#711 id=711 data-nosnippet>711</a>///
-<a href=#712 id=712 data-nosnippet>712</a>/// It will use the estimated election duration, the relay session duration, and add one as it knows
-<a href=#713 id=713 data-nosnippet>713</a>/// the relay chain will want to buffer validators for one session. This is needed because we use
-<a href=#714 id=714 data-nosnippet>714</a>/// this in our calculation based on the "active era".
-<a href=#715 id=715 data-nosnippet>715</a></span><span class="kw">pub struct </span>PlanningEraOffsetOf&lt;T, RS, S&gt;(core::marker::PhantomData&lt;(T, RS, S)&gt;);
-<a href=#716 id=716 data-nosnippet>716</a><span class="kw">impl</span>&lt;T: Config, RS: Get&lt;BlockNumberFor&lt;T&gt;&gt;, S: Get&lt;BlockNumberFor&lt;T&gt;&gt;&gt; Get&lt;SessionIndex&gt;
-<a href=#717 id=717 data-nosnippet>717</a>	<span class="kw">for </span>PlanningEraOffsetOf&lt;T, RS, S&gt;
-<a href=#718 id=718 data-nosnippet>718</a>{
-<a href=#719 id=719 data-nosnippet>719</a>	<span class="kw">fn </span>get() -&gt; SessionIndex {
-<a href=#720 id=720 data-nosnippet>720</a>		<span class="kw">let </span>election_duration = &lt;T::ElectionProvider <span class="kw">as </span>ElectionProvider&gt;::duration_with_export();
-<a href=#721 id=721 data-nosnippet>721</a>		<span class="kw">let </span>sessions_needed = (election_duration + S::get()) / RS::get();
-<a href=#722 id=722 data-nosnippet>722</a>		<span class="comment">// add one, because we know the RC session pallet wants to buffer for one session, and
-<a href=#723 id=723 data-nosnippet>723</a>		// another one cause we will receive activation report one session after that.
-<a href=#724 id=724 data-nosnippet>724</a>		</span>sessions_needed
-<a href=#725 id=725 data-nosnippet>725</a>			.saturating_add(One::one())
-<a href=#726 id=726 data-nosnippet>726</a>			.saturating_add(One::one())
-<a href=#727 id=727 data-nosnippet>727</a>			.unique_saturated_into()
-<a href=#728 id=728 data-nosnippet>728</a>	}
-<a href=#729 id=729 data-nosnippet>729</a>}
+<a href=#701 id=701 data-nosnippet>701</a>}
+<a href=#702 id=702 data-nosnippet>702</a>
+<a href=#703 id=703 data-nosnippet>703</a><span class="doccomment">/// Budget recipient for validator self-stake incentive.
+<a href=#704 id=704 data-nosnippet>704</a>///
+<a href=#705 id=705 data-nosnippet>705</a>/// Exposes the general validator incentive pot so DAP can drip inflation into it.
+<a href=#706 id=706 data-nosnippet>706</a></span><span class="kw">pub struct </span>ValidatorIncentiveRecipient&lt;P&gt;(core::marker::PhantomData&lt;P&gt;);
+<a href=#707 id=707 data-nosnippet>707</a>
+<a href=#708 id=708 data-nosnippet>708</a><span class="kw">impl</span>&lt;AccountId, P&gt; sp_staking::budget::BudgetRecipient&lt;AccountId&gt; <span class="kw">for </span>ValidatorIncentiveRecipient&lt;P&gt;
+<a href=#709 id=709 data-nosnippet>709</a><span class="kw">where
+<a href=#710 id=710 data-nosnippet>710</a>	</span>P: PotAccountProvider&lt;AccountId&gt;,
+<a href=#711 id=711 data-nosnippet>711</a>{
+<a href=#712 id=712 data-nosnippet>712</a>	<span class="kw">fn </span>budget_key() -&gt; sp_staking::budget::BudgetKey {
+<a href=#713 id=713 data-nosnippet>713</a>		sp_staking::budget::BudgetKey::truncate_from(<span class="string">b"validator_incentive"</span>.to_vec())
+<a href=#714 id=714 data-nosnippet>714</a>	}
+<a href=#715 id=715 data-nosnippet>715</a>
+<a href=#716 id=716 data-nosnippet>716</a>	<span class="kw">fn </span>pot_account() -&gt; AccountId {
+<a href=#717 id=717 data-nosnippet>717</a>		P::pot_account(RewardPot::General(RewardKind::ValidatorSelfStake))
+<a href=#718 id=718 data-nosnippet>718</a>	}
+<a href=#719 id=719 data-nosnippet>719</a>}
+<a href=#720 id=720 data-nosnippet>720</a>
+<a href=#721 id=721 data-nosnippet>721</a><span class="doccomment">/// A smart type to determine the [`Config::PlanningEraOffset`], given:
+<a href=#722 id=722 data-nosnippet>722</a>///
+<a href=#723 id=723 data-nosnippet>723</a>/// * Expected relay session duration, `RS`
+<a href=#724 id=724 data-nosnippet>724</a>/// * Time taking into consideration for XCM sending, `S`
+<a href=#725 id=725 data-nosnippet>725</a>///
+<a href=#726 id=726 data-nosnippet>726</a>/// It will use the estimated election duration, the relay session duration, and add one as it knows
+<a href=#727 id=727 data-nosnippet>727</a>/// the relay chain will want to buffer validators for one session. This is needed because we use
+<a href=#728 id=728 data-nosnippet>728</a>/// this in our calculation based on the "active era".
+<a href=#729 id=729 data-nosnippet>729</a></span><span class="kw">pub struct </span>PlanningEraOffsetOf&lt;T, RS, S&gt;(core::marker::PhantomData&lt;(T, RS, S)&gt;);
+<a href=#730 id=730 data-nosnippet>730</a><span class="kw">impl</span>&lt;T: Config, RS: Get&lt;BlockNumberFor&lt;T&gt;&gt;, S: Get&lt;BlockNumberFor&lt;T&gt;&gt;&gt; Get&lt;SessionIndex&gt;
+<a href=#731 id=731 data-nosnippet>731</a>	<span class="kw">for </span>PlanningEraOffsetOf&lt;T, RS, S&gt;
+<a href=#732 id=732 data-nosnippet>732</a>{
+<a href=#733 id=733 data-nosnippet>733</a>	<span class="kw">fn </span>get() -&gt; SessionIndex {
+<a href=#734 id=734 data-nosnippet>734</a>		<span class="kw">let </span>election_duration = &lt;T::ElectionProvider <span class="kw">as </span>ElectionProvider&gt;::duration_with_export();
+<a href=#735 id=735 data-nosnippet>735</a>		<span class="kw">let </span>sessions_needed = (election_duration + S::get()) / RS::get();
+<a href=#736 id=736 data-nosnippet>736</a>		<span class="comment">// add one, because we know the RC session pallet wants to buffer for one session, and
+<a href=#737 id=737 data-nosnippet>737</a>		// another one cause we will receive activation report one session after that.
+<a href=#738 id=738 data-nosnippet>738</a>		</span>sessions_needed
+<a href=#739 id=739 data-nosnippet>739</a>			.saturating_add(One::one())
+<a href=#740 id=740 data-nosnippet>740</a>			.saturating_add(One::one())
+<a href=#741 id=741 data-nosnippet>741</a>			.unique_saturated_into()
+<a href=#742 id=742 data-nosnippet>742</a>	}
+<a href=#743 id=743 data-nosnippet>743</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

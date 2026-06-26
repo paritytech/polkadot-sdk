@@ -157,6 +157,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
     min_commission: <a class="enum" href="../enum.ConfigOp.html" title="enum pallet_staking_async::ConfigOp">ConfigOp</a>&lt;Perbill&gt;,
     max_staked_rewards: <a class="enum" href="../enum.ConfigOp.html" title="enum pallet_staking_async::ConfigOp">ConfigOp</a>&lt;Percent&gt;,
     are_nominators_slashable: <a class="enum" href="../enum.ConfigOp.html" title="enum pallet_staking_async::ConfigOp">ConfigOp</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a>&gt;,
+    chill_inactive_threshold: <a class="enum" href="../enum.ConfigOp.html" title="enum pallet_staking_async::ConfigOp">ConfigOp</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>&gt;,
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Update the various staking configurations .</p>
 <ul>
 <li><code>min_nominator_bond</code>: The minimum active bond needed to be a nominator.</li>
@@ -169,6 +170,9 @@ set to <code>None</code>, no limit is enforced.</li>
 should be filled in order for the <code>chill_other</code> transaction to work.</li>
 <li><code>min_commission</code>: The minimum amount of commission that each validators must maintain.
 This is checked only upon calling <code>validate</code>. Existing validators are not affected.</li>
+<li><code>chill_inactive_threshold</code>: The number of eras a validator can remain inactive during
+the last <a href="../trait.Config.html#associatedtype.HistoryDepth" title="associated type pallet_staking_async::Config::HistoryDepth"><code>Config::HistoryDepth</code></a> eras before being subject to chilling becuase of
+inactivity.</li>
 </ul>
 <p>RuntimeOrigin must be Root to call this function.</p>
 <p>NOTE: Existing nominators and validators will not be affected by this update.
