@@ -214,12 +214,6 @@ impl V2DhtOrchestrator {
 	}
 
 	/// Recompute the peers needed to cover the node's topics and hand them to peer steering.
-	// TODO: `peers_for_topics` returns gaps only — it omits topics already served by a connected
-	// peer and never lists connected peers. Peer steering reconciles toward this set and
-	// disconnects connected peers absent from it, so a peer that starts covering its topic drops
-	// out of the next result and gets disconnected, then reconnected — it flaps. A stable,
-	// connection-independent coverage target (e.g. the closest known peers per topic) must replace
-	// this before steering is enabled.
 	pub(crate) fn on_pending_affinities(&mut self) {
 		let topics = self.explicit_affinity.topics();
 		let desired = self.peers_topology.peers_for_topics(&topics);
@@ -446,5 +440,37 @@ mod tests {
 		// Every coverage peer is queued for a connection, since none are connected yet.
 		let connect = orchestrator.peer_steering.peers_to_connect();
 		assert!(desired.iter().all(|peer| connect.contains(peer)));
+	}
+
+	#[test]
+	fn connected_coverage_peer_is_never_disconnected() {
+		let mut orchestrator = V2DhtOrchestrator::new(
+			&[topic(1)],
+			peer(1),
+			topology_config(20, 3),
+			"/statement/test".into(),
+			None,
+		);
+
+		for seed in 2..=10 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
+		}
+
+		// The first tick selects the coverage peers and queues them for connection.
+		orchestrator.on_pending_affinities();
+		let desired = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		assert!(!desired.is_empty());
+
+		// The coverage peers connect, then the next tick recomputes the target.
+		for peer in &desired {
+			orchestrator.on_substream_opened(*peer);
+		}
+		orchestrator.on_pending_affinities();
+
+		// The connected coverage peers stay desired, so peer steering keeps them: nothing left to
+		// connect, nothing to disconnect.
+		assert!(orchestrator.peer_steering.peers_to_connect().is_empty());
+		assert!(orchestrator.peer_steering.peers_to_disconnect().is_empty());
 	}
 }
