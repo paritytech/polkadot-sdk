@@ -285,6 +285,48 @@ mod tests {
 		<UncheckedRuntime<Test> as Precompile>::MATCHER.base_address()
 	}
 
+	/// Documents a limitation: `dispatch` cannot detect a same-width argument-type
+	/// change (the ⚠️ row in the module docs). A contract that encoded a `Permill`
+	/// has its bytes silently re-interpreted as a `Perbill` after an upgrade — the
+	/// call dispatches with completely different semantics and nothing reverts.
+	#[test]
+	fn dispatch_cannot_detect_same_width_type_change() {
+		use crate::tests::pallet_dummy;
+		use sp_runtime::{Perbill, Permill};
+
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			// A 50% `Permill` and a 0.05% `Perbill` encode to the SAME 4 bytes (both
+			// are the u32 `500_000`), so a strict decode cannot tell them apart.
+			let intended = Permill::from_percent(50);
+			assert_eq!(intended.encode(), Perbill::from_parts(500_000).encode());
+
+			// Emulate a contract built against an OLDER runtime where `record_rate`
+			// took a `Permill`: it ships `[pallet][call][Permill(50%) bytes]`. The
+			// CURRENT `record_rate` takes a `Perbill` — same width, so it still decodes.
+			let probe =
+				RuntimeCall::Dummy(pallet_dummy::Call::record_rate { rate: Perbill::zero() });
+			let mut stale_bytes = probe.encode()[..2].to_vec(); // pallet + call index
+			stale_bytes.extend(intended.encode()); // the Permill-intended argument
+
+			let input = IUncheckedRuntime::IUncheckedRuntimeCalls::dispatch(
+				IUncheckedRuntime::dispatchCall { encoded_call: stale_bytes.into() },
+			);
+
+			// Dispatch SUCCEEDS — there is no protection against the semantic drift.
+			<UncheckedRuntime<Test> as Precompile>::call(&address(), &input, &mut ext)
+				.expect("stale bytes decode cleanly and dispatch");
+
+			// The call silently ran with the WRONG meaning: 0.05% (Perbill) instead of
+			// the 50% the contract intended.
+			let recorded = pallet_dummy::RecordedRate::<Test>::get().expect("record_rate ran");
+			assert_eq!(recorded, Perbill::from_parts(500_000)); // 0.05%
+			assert_ne!(recorded, Perbill::from_percent(50)); // NOT the intended 50%
+		});
+	}
+
 	/// A call filter that forbids all `Balances` calls. Used to exercise the
 	/// configurable `Filter` parameter of the precompile.
 	pub struct DenyBalances;

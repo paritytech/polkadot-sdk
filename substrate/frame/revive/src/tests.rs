@@ -17,7 +17,7 @@
 
 mod block_hash;
 mod deposit_payment;
-mod pallet_dummy;
+pub(crate) mod pallet_dummy;
 mod precompiles;
 mod pvm;
 mod sol;
