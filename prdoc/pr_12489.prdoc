@@ -1,0 +1,29 @@
+title: "Enable Authority Discovery on Asset Hub, People-Westend and YAP"
+
+doc:
+  - audience: Node Operator
+    description: |
+      Enables the collator authority-discovery on the following parachains:
+      Rococo AH, Westend AH, Westend PC and YAP.
+
+      **After the runtime upgrade, every collator on these chains MUST submit a
+      `session.set_keys` extrinsic carrying their authority-discovery key.**
+
+      Until you rotate, your collator stays at its current connectivity but is
+      not part of the AD mesh.
+
+      How to tell if a collator has rotated: query `session.nextKeys(<account>)`.
+      If the `authority_discovery` field is zeroed, that collator has not
+      rotated yet.
+
+crates:
+  - name: parachains-common
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: people-westend-runtime
+    bump: major
+  - name: yet-another-parachain-runtime
+    bump: major
