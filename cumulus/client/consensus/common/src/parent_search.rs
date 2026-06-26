@@ -31,7 +31,7 @@ use std::future::Future;
 const LOG_TARGET: &str = "consensus::common::parent_search";
 
 #[derive(Clone, Debug)]
-pub enum ParentSearchParams<Block: BlockT> {
+pub enum ParentSearchParams {
 	V2 {
 		/// The scheduling-parent that is intended to be used.
 		/// For V2, the scheduling parent is equal to the relay parent.
@@ -40,15 +40,14 @@ pub enum ParentSearchParams<Block: BlockT> {
 	V3 {
 		/// The scheduling-parent that is intended to be used.
 		scheduling_parent: RelayHash,
-		para_best_hash: Block::Hash,
 	},
 }
 
-impl<Block: BlockT> ParentSearchParams<Block> {
+impl ParentSearchParams {
 	fn scheduling_parent(&self) -> &RelayHash {
 		match self {
 			ParentSearchParams::V2 { scheduling_parent } => scheduling_parent,
-			ParentSearchParams::V3 { scheduling_parent, .. } => scheduling_parent,
+			ParentSearchParams::V3 { scheduling_parent } => scheduling_parent,
 		}
 	}
 }
@@ -282,7 +281,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	backend: &impl Backend<Block>,
 	para_id: ParaId,
-	params: ParentSearchParams<Block>,
+	params: ParentSearchParams,
 ) -> RelayChainResult<Option<ParentSearchResult<Block>>> {
 	tracing::trace!(
 		target: LOG_TARGET,
@@ -345,7 +344,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 			})
 			.await
 		},
-		ParentSearchParams::V3 { scheduling_parent, para_best_hash } => {
+		ParentSearchParams::V3 { scheduling_parent } => {
 			find_deepest_valid_parent(backend, start_header, start_hash, |header| {
 				let header = header.clone();
 				async move {

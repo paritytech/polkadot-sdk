@@ -240,7 +240,7 @@ async fn find_parent<Block>(
 	relay_client: &impl RelayChainInterface,
 	para_backend: &impl sc_client_api::Backend<Block>,
 	para_id: ParaId,
-	params: ParentSearchParams<Block>,
+	params: ParentSearchParams,
 	filter_parent: impl Fn(&Block::Header) -> bool,
 ) -> Option<consensus_common::ParentSearchResult<Block>>
 where

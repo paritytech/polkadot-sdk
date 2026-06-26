@@ -290,10 +290,7 @@ where
 
 			let parent_search_params = match v3_enabled {
 				false => ParentSearchParams::V2 { scheduling_parent: relay_parent_hash },
-				true => ParentSearchParams::V3 {
-					scheduling_parent: scheduling_parent_hash,
-					para_best_hash,
-				},
+				true => ParentSearchParams::V3 { scheduling_parent: scheduling_parent_hash },
 			};
 			let Some(parent_search_result) = crate::collators::find_parent(
 				&relay_client,
