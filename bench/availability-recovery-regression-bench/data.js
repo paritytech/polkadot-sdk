@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782422156271,
+  "lastUpdate": 1782450583165,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "23d90a0426b76ce9ff94e7cef38a51f4024ebec3",
-          "message": "revive fix reported gas used (#10148)\n\nFix `gas_used` calculation introduced in #9418 to use the actual gas\ninstead of just `ref_time`.\n\nWith these changes we now guarantee that `tx_cost = effective_gas_price\n* gas`.\nNote that since we compute gas as `fee / gas_price`, this can lead to\nrounding errors when the chain uses `SlowAdjustingFeeUpdate` (i.e. the\nfee is not a multiple of the gas price).\nThe changes in this PR ensure the fee still matches by burning the\nrounding remainder.\n\nThis PR also fixes how the actual fee is computed and introduces a new\n`compute_actual_fee` in `Config::FeeInfo`.\nThe previous fee calculation was skipping the `extension_weight` in the\nfee calculation.\n\nThe updated tests ensure that the tx cost reported in the receipt\nmatches the fees deducted from the user account:\n\n\nhttps://github.com/paritytech/evm-test-suite/blob/460b2c9aa3a3019d3508bb5a34a2498ea86035ff/src/gas.test.ts?plain=1#L31-L61\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-04T19:38:28Z",
-          "tree_id": "117ca9a6e866e88e48d7f0638c4b4c2ddaf5ab07",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/23d90a0426b76ce9ff94e7cef38a51f4024ebec3"
-        },
-        "date": 1762289146800,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.71112640996667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20815757713333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.950574928066667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4d6533fed0dd4445f20ca6648b5bc0027b4fdd35",
+          "message": "[pallet-revive]: short-circuit eth_estimate_gas for simple ETH transfers (#11890)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/11888\n\nSkip the binary-search of dry-runs and return the fixed 21,000 gas cost\nwhen eth_estimate_gas is called for an EOA-to-EOA value transfer with\nempty calldata and no access list, EIP-7702 authorization list, EIP-4844\nblob payload, or state overrides.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-26T03:26:42Z",
+          "tree_id": "815efc1d48fe58433c03328ea915e620a3b15ebe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4d6533fed0dd4445f20ca6648b5bc0027b4fdd35"
+        },
+        "date": 1782450552457,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.140992564,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.006801494766668,
             "unit": "seconds"
           }
         ]
