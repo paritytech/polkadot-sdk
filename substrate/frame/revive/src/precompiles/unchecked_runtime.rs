@@ -130,8 +130,8 @@ where
 
 		match input {
 			IUncheckedRuntimeCalls::dispatch(IUncheckedRuntime::dispatchCall { encoded_call }) => {
-				// Dispatching mutates state and acts with the contract's origin,
-				// so it is forbidden in a static context or via delegate call.
+				// Mutates state and acts with the contract's origin — unsafe under
+				// STATICCALL or DELEGATECALL.
 				if env.is_read_only() {
 					return Err(crate::Error::<T>::StateChangeDenied.into());
 				}
@@ -139,39 +139,27 @@ where
 					return Err(crate::Error::<T>::PrecompileDelegateDenied.into());
 				}
 
-				// Charge for decoding the (arbitrary length) call bytes up front,
-				// so oversized input is metered even when it fails to decode.
+				// Charge before decoding so oversized input is paid for even when it
+				// fails to decode, and depth-bound the decode (as extrinsics are) to
+				// prevent stack overflow.
 				env.frame_meter_mut().charge_weight_token(RuntimeCosts::PrecompileDecode(
 					encoded_call.len() as u32,
 				))?;
-				// Strict decode: reject trailing bytes and bound the nesting depth so
-				// deeply nested calls cannot overflow the stack during decoding.
-				// here i am using MAX_EXTRINSIC_DEPTH because That's the same depth limit the
-				// runtime applies to normal extrinsics. Using it means this precompile accepts
-				// exactly the calls that would be valid if a user submitted them as a
-				// transaction
 				let call = <T as crate::Config>::RuntimeCall::decode_all_with_depth_limit(
 					MAX_EXTRINSIC_DEPTH,
 					&mut &encoded_call[..],
 				)
 				.map_err(|_| Error::Revert("invalid RuntimeCall encoding".into()))?;
 
-				// Let the runtime restrict which calls may be dispatched through
-				// this precompile (defaults to allowing everything). Redundant with
-				// the origin-attached filter below for *blocking*, but kept so a
-				// filtered top-level call reverts with this clear message instead of
-				// the generic `frame_system` "call filtered" error.
+				// Redundant with the origin filter below, but gives a clear revert
+				// instead of the generic `frame_system` "call filtered" error.
 				if !Filter::contains(&call) {
 					return Err(Error::Revert("call not allowed by filter".into()));
 				}
 
-				// Charge the fixed overhead of the dispatch wrapper (dispatch-info
-				// computation and origin construction). The dispatched call's own
-				// weight is charged separately below.
 				env.charge(<T as crate::Config>::WeightInfo::unchecked_runtime_dispatch())?;
 
-				// Dispatch as the calling contract's account. Reject a Root caller
-				// rather than silently dispatching with Root privileges.
+				// Reject a Root caller rather than dispatch with Root's privileges.
 				let mut origin: <T as frame_system::Config>::RuntimeOrigin = match env.caller() {
 					Origin::Signed(account_id) => RawOrigin::Signed(account_id).into(),
 					Origin::Root => {
@@ -179,9 +167,8 @@ where
 					},
 				};
 
-				// Attach the filter to the origin so it is enforced transitively on
-				// calls nested inside synchronous wrappers (`Utility::batch`,
-				// `Proxy::proxy`, ...), not only on the top-level call checked above.
+				// Enforce the filter transitively on nested calls (`Utility::batch`,
+				// `Proxy::proxy`, ...), not just the top-level call checked above.
 				origin.add_filter(|c: &<T as frame_system::Config>::RuntimeCall| {
 					let c = <T as crate::Config>::RuntimeCall::from_ref(c);
 					Filter::contains(c)
@@ -203,27 +190,21 @@ where
 				max_len,
 			}) => {
 				let max_len = *max_len;
-
-				// Bound the declared read length. This caps the return size and,
-				// together with the upfront charge below, gates the `max_len`-sized
-				// allocation against the gas budget.
 				if max_len > limits::CALLDATA_BYTES {
 					return Err(Error::Revert("max_len too large".into()));
 				}
 
-				// Two-dimensional read weight: keyed on the key length (trie
-				// traversal) and the value length `v` (bytes pulled into the PoV).
+				// Read weight is 2-D: key length (trie traversal) and value length
+				// (bytes pulled into the PoV).
 				let key_len = key.as_ref().len() as u32;
 				let weight = |v: u32| {
 					<T as crate::Config>::WeightInfo::unchecked_runtime_get_storage(key_len, v)
 				};
 
-				// Charge the benchmarked read weight for the caller-declared bound
-				// up front. This also gates the `max_len`-sized allocation: an
-				// oversized `max_len` runs out of gas here, before we allocate.
+				// Charge for the declared bound up front, so an oversized `max_len`
+				// runs out of gas before we allocate.
 				let charged = env.charge(weight(max_len))?;
 
-				// Read against the main trie (including the in-block overlay).
 				let mut buf = alloc::vec![0u8; max_len as usize];
 				let len = match sp_io::storage::read(key.as_ref(), &mut buf, 0) {
 					None => {
@@ -233,10 +214,10 @@ where
 					Some(len) => len,
 				};
 
-				// The whole value entered the PoV regardless of `max_len`, so the
-				// proof must be charged for its actual length on every path —
-				// including the revert below — otherwise an oversized value could be
-				// read into the proof for the price of a tiny `max_len`.
+				// The whole value entered the PoV regardless of `max_len`, so charge
+				// proof for its actual length on every path — including this revert —
+				// else a large value could enter the proof for the price of a tiny
+				// `max_len`.
 				if len > max_len {
 					env.charge(weight(len).saturating_sub(weight(max_len)))?;
 					return Err(Error::Revert("value exceeds max_len".into()));
