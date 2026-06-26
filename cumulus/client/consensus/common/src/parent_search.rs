@@ -222,32 +222,38 @@ fn find_deepest_valid_parent_v2<Block: BlockT>(
 	best
 }
 
+async fn get_relay_parent<Block: BlockT>(
+	relay_client: &impl RelayChainInterface,
+	header: &Block::Header,
+) -> RelayChainResult<Option<RelayHash>> {
+	let digest = header.digest();
+
+	if let Some(relay_parent) = cumulus_primitives_core::extract_relay_parent(digest) {
+		return Ok(Some(relay_parent));
+	}
+
+	if let Some((storage_root, number)) =
+		cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(digest)
+	{
+		let Some(relay_parent_header) = relay_client.header(RelayBlockId::Number(number)).await?
+		else {
+			return Ok(None);
+		};
+		if relay_parent_header.state_root != storage_root {
+			return Ok(None);
+		}
+		return Ok(Some(relay_parent_header.hash()));
+	}
+
+	Ok(None)
+}
+
 async fn has_ancestor_relay_parent_info<Block: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	scheduling_parent: RelayHash,
 	header: &Block::Header,
 ) -> RelayChainResult<bool> {
-	let relay_parent = 'get_relay_parent: {
-		let digest = header.digest();
-
-		if let Some(relay_parent) = cumulus_primitives_core::extract_relay_parent(digest) {
-			break 'get_relay_parent relay_parent;
-		}
-
-		if let Some((storage_root, number)) =
-			cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(digest)
-		{
-			let Some(relay_parent_header) =
-				relay_client.header(RelayBlockId::Number(number)).await?
-			else {
-				return Ok(false);
-			};
-			if relay_parent_header.state_root != storage_root {
-				return Ok(false);
-			}
-			break 'get_relay_parent relay_parent_header.hash();
-		}
-
+	let Some(relay_parent) = get_relay_parent::<Block>(relay_client, header).await? else {
 		return Ok(false);
 	};
 

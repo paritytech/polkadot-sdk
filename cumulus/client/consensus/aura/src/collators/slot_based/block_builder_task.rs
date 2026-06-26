@@ -335,7 +335,7 @@ where
 			};
 			let initial_parent_hash = parent_search_result.best_parent_header.hash();
 			let initial_parent_header = parent_search_result.best_parent_header;
-			let unincluded_segment_len = initial_parent_header
+			let unincluded_segment_len_at_execution = initial_parent_header
 				.number()
 				.saturating_sub(*included_header_at_execution.number());
 
@@ -403,7 +403,7 @@ where
 			else {
 				tracing::debug!(
 					target: LOG_TARGET,
-					?unincluded_segment_len,
+					?unincluded_segment_len_at_execution,
 					relay_parent = ?relay_parent_hash,
 					relay_parent_num = %relay_parent_header.number(),
 					?included_hash_at_execution,
@@ -417,7 +417,7 @@ where
 
 			tracing::debug!(
 				target: LOG_TARGET,
-				?unincluded_segment_len,
+				?unincluded_segment_len_at_execution,
 				relay_parent = ?relay_parent_hash,
 				relay_parent_num = %relay_parent_header.number(),
 				relay_parent_offset,
