@@ -24,6 +24,7 @@ use cumulus_primitives_core::ParaId;
 use frame_support::{build_struct_json_patch, PalletId};
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::crypto::UncheckedInto;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
@@ -63,11 +64,10 @@ fn asset_hub_westend_genesis(
 			keys: invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
-					(
-						acc.clone(),          // account id
-						acc,                  // validator id
-						SessionKeys { aura }, // session keys
-					)
+					let raw: [u8; 32] = sp_core::sr25519::Public::from(aura.clone()).0;
+					let authority_discovery: AuthorityDiscoveryId =
+						sp_core::sr25519::Public::from_raw(raw).into();
+					(acc.clone(), acc, SessionKeys { aura, authority_discovery })
 				})
 				.collect(),
 		},

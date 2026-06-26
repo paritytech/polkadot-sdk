@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
+log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
 tracing = { workspace = true }
@@ -34,6 +35,7 @@ pallet-asset-rewards = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-assets-freezer = { workspace = true }
 pallet-aura = { workspace = true }
+pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-message-queue = { workspace = true }
@@ -48,11 +50,13 @@ pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-uniques = { workspace = true }
 pallet-utility = { workspace = true }
 sp-api = { workspace = true }
+sp-authority-discovery = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
+sp-io = { workspace = true }
 sp-keyring = { workspace = true }
 sp-offchain = { workspace = true }
 sp-runtime = { workspace = true }
@@ -169,6 +173,7 @@ try-runtime = [
 	"pallet-assets-freezer/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-aura/try-runtime",
+	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
@@ -196,6 +201,7 @@ std = [
 	"bp-bridge-hub-rococo/std",
 	"bp-bridge-hub-westend/std",
 	"codec/std",
+	"log/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-session-benchmarking/std",
@@ -220,6 +226,7 @@ std = [
 	"pallet-assets-freezer/std",
 	"pallet-assets/std",
 	"pallet-aura/std",
+	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
@@ -246,11 +253,13 @@ std = [
 	"scale-info/std",
 	"serde_json/std",
 	"sp-api/std",
+	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
+	"sp-io/std",
 	"sp-keyring/std",
 	"sp-offchain/std",
 	"sp-runtime/std",

@@ -17,6 +17,7 @@
 
 extern crate alloc;
 
+pub mod ad_migration;
 pub mod impls;
 pub mod message_queue;
 pub mod pay;
