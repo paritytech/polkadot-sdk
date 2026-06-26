@@ -122,6 +122,16 @@ async fn local_submission_retention_works() -> Result<(), anyhow::Error> {
 	let topic_a = topics[0];
 	let topic_b = topics[1];
 
+	// Control: with no affinity for `topic_a` yet, node_1 drops its own submission.
+	let probe_a =
+		create_test_statement(&keypair, &[topic_a], None, vec![0xa0, 9, 9, 9], u32::MAX, 1000);
+	let probe_a_encoded: Bytes = probe_a.encode().into();
+	assert_eq!(submit_statement(&rpc_1, &probe_a).await?, SubmitResult::New);
+	assert!(
+		!stores_locally(&rpc_1, topic_a, &probe_a_encoded).await?,
+		"node_1 accepted but must not store its own topic_a submission while non-affine",
+	);
+
 	// Subscribing grants node_1 explicit affinity for `topic_a` only; `topic_b` stays
 	// affinity-free.
 	let mut sub_a = subscribe_topic(&rpc_1, topic_a).await?;

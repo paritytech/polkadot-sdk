@@ -414,6 +414,8 @@ pub(super) async fn stores_locally(
 	topic: Topic,
 	expected: &Bytes,
 ) -> Result<bool, anyhow::Error> {
+	// TODO: replace this subscription-replay probe with a direct "is this stored locally?" store
+	// query once the store exposes one.
 	let mut subscription = subscribe_topic(rpc, topic).await?;
 	loop {
 		let item = match tokio::time::timeout(Duration::from_secs(10), subscription.next()).await {
