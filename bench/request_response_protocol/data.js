@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782449578861,
+  "lastUpdate": 1782458670301,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -101951,6 +101951,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2714281807,
             "range": "± 40162119",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d1fe835d4be0517056f3b33c34f040b3b2123e35",
+          "message": "fatxpool: unban viewless transactions after mempool revalidation (#11731)\n\n### Problem\n\nIn rare cases, a transaction can get stuck in the fork-aware pool. When\na tx gets `InvalidTransaction` (e.g., `Payment`) on one fork but is\nvalid on others, the view's rotator bans it. The ban propagates to all\nnew views via `deep_clone_with_event_handler` (rotator is cloned), and\n`check_is_known` silently rejects the tx on every subsequent view for\nthe entire ban duration (default 30 min). The tx stays in the mempool\n(valid at the finalized block) but can't enter any view.\n\n### Fix\n\nThree mechanisms working together:\n\n1. **Ban reason tracking** — the rotator now distinguishes `Validation`\nbans (tx failed validation) from `LimitsEnforced` bans (tx evicted for\npool capacity). Only `Validation` bans are eligible for unbanning.\n\n2. **Viewless event** — when a ready tx loses all referencing views, the\ndropped watcher emits a `Viewless` event. The `dropped_monitor_task`\nsets a `needs_unban` flag on the tx's mempool entry.\n\n3. **Mempool revalidation unban** — `revalidate_inner` prioritizes\nflagged txs. If the tx passes validation at the finalized block, it\nunbans across all active views. If it fails — the tx is removed from\nmempool (second chance failed).\n\nAdditionally:\n- `View::imported_status()` returns an `ImportedStatus` enum\n(`NotImported`/`Banned`/`Imported`) instead of a bool, enabling\ndiagnostic logging when a mempool tx is skipped due to a ban.\n- Trace log in `update_view_with_mempool` when a tx is skipped as\ntemporarily banned.\n\n### Alternatives considered\n\n- **Drop tx when no views reference it** — simplest, but loses\npotentially valid transactions,\n- **Unban in `update_view_with_mempool`** — unconditionally unbans\neverything, defeating spam protection (`submit_and_watch` relies on the\nban).\n- **Unban all txs passing mempool revalidation** — creates a hot loop\nfor txs evicted by pool capacity limits (`enforce_limits` → revalidation\nvalid → unbanned → evicted again).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-26T06:00:52Z",
+          "tree_id": "bea4d27d08ba1ae87919031b54430f8913f587df",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d1fe835d4be0517056f3b33c34f040b3b2123e35"
+        },
+        "date": 1782458640206,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19636857,
+            "range": "± 211176",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20089002,
+            "range": "± 262713",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21487838,
+            "range": "± 173831",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26667348,
+            "range": "± 176712",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60813522,
+            "range": "± 814717",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 353872188,
+            "range": "± 3631213",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2775073234,
+            "range": "± 97743571",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17321932,
+            "range": "± 234062",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17568582,
+            "range": "± 140931",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17986479,
+            "range": "± 166344",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22718379,
+            "range": "± 213533",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59845333,
+            "range": "± 596913",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 347275951,
+            "range": "± 3589158",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2663517702,
+            "range": "± 40688310",
             "unit": "ns/iter"
           }
         ]
