@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782459795500,
+  "lastUpdate": 1782494693076,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f890ed85a74e16bbd5e9f5e3ff3afda29aecc8ae",
-          "message": "Return the correct block difficulty from the eth-rpc (#10186)\n\n# Description\n\nThis PR fixes an issue in the eth-rpc/pallet-revive that was causing it\nto return an incorrect value for the block's difficulty or prevrandao.\n\nIn the VM/interpreter implementation we use a constant for the block\ndifficulty. However, the eth block construction side was unaware of this\nconstant being used and therefore the RPC was always returning a block\ndifficulty of zero.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-04T01:49:41Z",
-          "tree_id": "5068bd91a1cb0ddea0fab374dca45358d177ea42",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f890ed85a74e16bbd5e9f5e3ff3afda29aecc8ae"
-        },
-        "date": 1762225638471,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026572166499999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008702006819999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005104483019999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010664935239999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mertwole@gmail.com",
+            "name": "mertwole",
+            "username": "mertwole"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f3d3e2f0809142b4a4bf6420aec2a943fe2c6a4d",
+          "message": "[pallet-staking-async] add `chill_inactive` extrinsic (#12381)\n\nThis PR adds the `chill_inactive` extrinsic which allows chilling the\nvalidators that were inactive too much.\n\nThe inactivity is defined as having zero era points for at least\n`ChillInactiveThreshold` eras among the last `HistoryDepth` eras.\n\nResolves #5674\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Andrei Trandafir <142614787+andreitrand@users.noreply.github.com>",
+          "timestamp": "2026-06-26T13:24:01Z",
+          "tree_id": "db2986711527f35904f0774478f503a0cf23967a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3d3e2f0809142b4a4bf6420aec2a943fe2c6a4d"
+        },
+        "date": 1782494662611,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00258194513,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009507607669999984,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010857567580000001,
             "unit": "seconds"
           }
         ]
