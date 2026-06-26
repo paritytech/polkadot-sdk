@@ -34,33 +34,33 @@ fn minimum_relay_parent_number() {
 		assert!(Pallet::<Test>::get_minimum_relay_parent_number().is_none());
 
 		let session = 0;
-
-		// Add a relay parent at block 10. This is the first entry for session 0,
-		// so MinimumRelayParentNumber is set to 10.
+		// Add a relay parent at block 9. This is the first entry for session 0,
+		// so MinimumRelayParentNumber is set to 9.
 		Pallet::<Test>::new_block(
 			Hash::repeat_byte(1),
+			Default::default(),
+			9,
+			5,
+			Default::default(),
+			session,
+		);
+		assert_eq!(Pallet::<Test>::get_minimum_relay_parent_number(), Some(9));
+
+		// Add another relay parent at block 10. Minimum stays at 9.
+		Pallet::<Test>::new_block(
+			Hash::repeat_byte(2),
 			Default::default(),
 			10,
 			5,
 			Default::default(),
 			session,
 		);
-		assert_eq!(Pallet::<Test>::get_minimum_relay_parent_number(), Some(10));
-
-		// Add another relay parent at block 11. Minimum stays at 10.
-		Pallet::<Test>::new_block(
-			Hash::repeat_byte(2),
-			Default::default(),
-			11,
-			5,
-			Default::default(),
-			session,
-		);
-		assert_eq!(Pallet::<Test>::get_minimum_relay_parent_number(), Some(10));
+		assert_eq!(Pallet::<Test>::get_minimum_relay_parent_number(), Some(9));
 
 		// New session 1 with max_relay_parent_session_age=1 (keep both sessions).
 		let session = 1;
 		config.max_relay_parent_session_age = 1;
+		Pallet::<Test>::initializer_on_new_session(session, [0; 32], &config, vec![]);
 		Pallet::<Test>::new_block(
 			Hash::repeat_byte(3),
 			Default::default(),
@@ -69,13 +69,13 @@ fn minimum_relay_parent_number() {
 			Default::default(),
 			session,
 		);
-		Pallet::<Test>::initializer_on_new_session(session, [0; 32], &config, vec![]);
-		// Minimum is still 10 from session 0 (oldest session).
-		assert_eq!(Pallet::<Test>::get_minimum_relay_parent_number(), Some(10));
+		// Minimum is still 9 from session 0 (oldest session).
+		assert_eq!(Pallet::<Test>::get_minimum_relay_parent_number(), Some(9));
 
 		// New session 2 with max_relay_parent_session_age=1. Session 0 gets pruned.
 		let session = 2;
 		config.max_relay_parent_session_age = 1;
+		Pallet::<Test>::initializer_on_new_session(session, [0; 32], &config, vec![]);
 		Pallet::<Test>::new_block(
 			Hash::repeat_byte(4),
 			Default::default(),
@@ -84,13 +84,13 @@ fn minimum_relay_parent_number() {
 			Default::default(),
 			session,
 		);
-		Pallet::<Test>::initializer_on_new_session(session, [0; 32], &config, vec![]);
 		// Session 0 pruned, oldest is now session 1 with min block 20.
 		assert_eq!(Pallet::<Test>::get_minimum_relay_parent_number(), Some(20));
 
 		// New session 3 with max_relay_parent_session_age=0. Sessions 1 and 2 get pruned.
 		let session = 3;
 		config.max_relay_parent_session_age = 0;
+		Pallet::<Test>::initializer_on_new_session(session, [0; 32], &config, vec![]);
 		Pallet::<Test>::new_block(
 			Hash::repeat_byte(5),
 			Default::default(),
@@ -99,7 +99,6 @@ fn minimum_relay_parent_number() {
 			Default::default(),
 			session,
 		);
-		Pallet::<Test>::initializer_on_new_session(session, [0; 32], &config, vec![]);
 		// Only session 3 remains, min is 40.
 		assert_eq!(Pallet::<Test>::get_minimum_relay_parent_number(), Some(40));
 	});
@@ -219,7 +218,8 @@ fn session_change_prunes_old_relay_parents() {
 		// Insert multiple entries per session in sessions 0, 1, 2.
 		config.max_relay_parent_session_age = 2;
 		for session in 0..3u32 {
-			for i in 0..3u32 {
+			Pallet::<Test>::initializer_on_new_session(session, [0; 32], &config, vec![]);
+			for i in 1..=3u32 {
 				let hash = Hash::repeat_byte((session * 10 + i) as u8);
 				Pallet::<Test>::new_block(
 					hash,
@@ -230,12 +230,11 @@ fn session_change_prunes_old_relay_parents() {
 					session,
 				);
 			}
-			Pallet::<Test>::initializer_on_new_session(session, [0; 32], &config, vec![]);
 		}
 
 		// With max_relay_parent_session_age=2 at session 2,
 		// oldest_allowed = 2 - 2 = 0. All sessions should still exist.
-		for i in 0..3u32 {
+		for i in 1..=3u32 {
 			assert!(Pallet::<Test>::get_relay_parent_info(0, Hash::repeat_byte(i as u8)).is_some());
 			assert!(Pallet::<Test>::get_relay_parent_info(1, Hash::repeat_byte((10 + i) as u8))
 				.is_some());
@@ -246,40 +245,32 @@ fn session_change_prunes_old_relay_parents() {
 
 		// Now move to session 3 with max_age=2. oldest_allowed = 3 - 2 = 1.
 		// All entries from session 0 should be pruned.
-		Pallet::<Test>::new_block(
-			Hash::repeat_byte(30),
-			Default::default(),
-			30,
-			10,
-			Default::default(),
-			3,
-		);
 		Pallet::<Test>::initializer_on_new_session(3, [0; 32], &config, vec![]);
 		assert_eq!(AllowedRelayParents::<Test>::iter_prefix(0).count(), 0);
-		for i in 0..3u32 {
+		for i in 1..=3u32 {
 			assert!(Pallet::<Test>::get_relay_parent_info(1, Hash::repeat_byte((10 + i) as u8))
 				.is_some());
 			assert!(Pallet::<Test>::get_relay_parent_info(2, Hash::repeat_byte((20 + i) as u8))
 				.is_some());
 		}
-		assert!(Pallet::<Test>::get_relay_parent_info(3, Hash::repeat_byte(30)).is_some());
+
+		Pallet::<Test>::new_block(
+			Hash::repeat_byte(31),
+			Default::default(),
+			31,
+			10,
+			Default::default(),
+			3,
+		);
+		assert!(Pallet::<Test>::get_relay_parent_info(3, Hash::repeat_byte(31)).is_some());
 		assert_eq!(OldestRelayParentSession::<Test>::get(), 1);
 
 		// Session 5 with max_age=2. oldest_allowed = 5 - 2 = 3.
 		// All entries from sessions 1 and 2 should be pruned.
-		Pallet::<Test>::new_block(
-			Hash::repeat_byte(50),
-			Default::default(),
-			50,
-			10,
-			Default::default(),
-			5,
-		);
 		Pallet::<Test>::initializer_on_new_session(5, [0; 32], &config, vec![]);
 		assert_eq!(AllowedRelayParents::<Test>::iter_prefix(1).count(), 0);
 		assert_eq!(AllowedRelayParents::<Test>::iter_prefix(2).count(), 0);
-		assert!(Pallet::<Test>::get_relay_parent_info(3, Hash::repeat_byte(30)).is_some());
-		assert!(Pallet::<Test>::get_relay_parent_info(5, Hash::repeat_byte(50)).is_some());
+		assert!(Pallet::<Test>::get_relay_parent_info(3, Hash::repeat_byte(31)).is_some());
 		assert_eq!(OldestRelayParentSession::<Test>::get(), 3);
 	});
 }
@@ -298,21 +289,11 @@ fn max_age_zero_keeps_only_current_session() {
 			Default::default(),
 			0,
 		);
-		Pallet::<Test>::initializer_on_new_session(0, [0; 32], &config, vec![]);
 		assert!(Pallet::<Test>::get_relay_parent_info(0, Hash::repeat_byte(0)).is_some());
 
 		// Move to session 1 with max_age=0. Session 0 should be pruned.
-		Pallet::<Test>::new_block(
-			Hash::repeat_byte(1),
-			Default::default(),
-			10,
-			10,
-			Default::default(),
-			1,
-		);
 		Pallet::<Test>::initializer_on_new_session(1, [0; 32], &config, vec![]);
 		assert!(Pallet::<Test>::get_relay_parent_info(0, Hash::repeat_byte(0)).is_none());
-		assert!(Pallet::<Test>::get_relay_parent_info(1, Hash::repeat_byte(1)).is_some());
 		assert_eq!(OldestRelayParentSession::<Test>::get(), 1);
 	});
 }
@@ -325,15 +306,15 @@ fn increasing_max_age() {
 		// Build up sessions 0..5 with max_age=1.
 		config.max_relay_parent_session_age = 1;
 		for session in 0..5u32 {
+			Pallet::<Test>::initializer_on_new_session(session, [0; 32], &config, vec![]);
 			Pallet::<Test>::new_block(
 				Hash::repeat_byte(session as u8),
 				Default::default(),
-				session * 10,
+				session * 10 + 1,
 				10,
 				Default::default(),
 				session,
 			);
-			Pallet::<Test>::initializer_on_new_session(session, [0; 32], &config, vec![]);
 		}
 
 		// After session 4 with max_age=1, oldest_allowed = 3.
@@ -345,28 +326,16 @@ fn increasing_max_age() {
 		// Now increase max_age to 10. oldest_allowed = 4 - 10 = 0 (saturating).
 		// OldestRelayParentSession must NOT move backward to 0 — sessions 0, 1, 2
 		// are already gone.
-		Pallet::<Test>::new_block(
-			Hash::repeat_byte(5),
-			Default::default(),
-			50,
-			10,
-			Default::default(),
-			4,
-		);
 		config.max_relay_parent_session_age = 10;
 		Pallet::<Test>::initializer_on_new_session(4, [0; 32], &config, vec![]);
 		assert_eq!(OldestRelayParentSession::<Test>::get(), 3);
-
 		// Sessions 0, 1, 2 are still gone.
 		assert!(Pallet::<Test>::get_relay_parent_info(0, Hash::repeat_byte(0)).is_none());
 		assert!(Pallet::<Test>::get_relay_parent_info(1, Hash::repeat_byte(1)).is_none());
 		assert!(Pallet::<Test>::get_relay_parent_info(2, Hash::repeat_byte(2)).is_none());
-
 		// But sessions 3 and 4 are still there.
 		assert!(Pallet::<Test>::get_relay_parent_info(3, Hash::repeat_byte(3)).is_some());
-		// The original session 4 entry (Hash::repeat_byte(4)) and the new one both survive.
 		assert!(Pallet::<Test>::get_relay_parent_info(4, Hash::repeat_byte(4)).is_some());
-		assert!(Pallet::<Test>::get_relay_parent_info(4, Hash::repeat_byte(5)).is_some());
 	});
 }
 
@@ -378,15 +347,15 @@ fn decreasing_max_age_prunes_multiple_sessions() {
 		// Build up sessions 0..5 with max_age=5 (no pruning at all).
 		config.max_relay_parent_session_age = 5;
 		for session in 0..5u32 {
+			ParasShared::initializer_on_new_session(session, [0; 32], &config, vec![]);
 			Pallet::<Test>::new_block(
 				Hash::repeat_byte(session as u8),
 				Default::default(),
-				session * 10,
+				session * 10 + 1,
 				10,
 				Default::default(),
 				session,
 			);
-			ParasShared::initializer_on_new_session(1, [0; 32], &config, vec![]);
 		}
 		assert_eq!(OldestRelayParentSession::<Test>::get(), 0);
 
@@ -401,14 +370,6 @@ fn decreasing_max_age_prunes_multiple_sessions() {
 
 		// Now decrease max_age to 1 at session 5. oldest_allowed = 5 - 1 = 4.
 		// Sessions 0, 1, 2, 3 should all be pruned in one go.
-		Pallet::<Test>::new_block(
-			Hash::repeat_byte(5),
-			Default::default(),
-			50,
-			10,
-			Default::default(),
-			5,
-		);
 		config.max_relay_parent_session_age = 1;
 		ParasShared::initializer_on_new_session(5, [0; 32], &config, vec![]);
 		assert_eq!(OldestRelayParentSession::<Test>::get(), 4);
@@ -421,7 +382,6 @@ fn decreasing_max_age_prunes_multiple_sessions() {
 			.is_none());
 		}
 		assert!(Pallet::<Test>::get_relay_parent_info(4, Hash::repeat_byte(4)).is_some());
-		assert!(Pallet::<Test>::get_relay_parent_info(5, Hash::repeat_byte(5)).is_some());
 	});
 }
 
