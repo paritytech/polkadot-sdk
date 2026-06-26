@@ -70,6 +70,20 @@ impl InputOrData {
 	pub fn to_vec(self) -> Vec<u8> {
 		self.to_bytes().0
 	}
+
+	/// Returns the input as a byte slice, preferring `input` over `data`.
+	pub fn as_slice(&self) -> &[u8] {
+		self.input
+			.as_ref()
+			.or(self.data.as_ref())
+			.map(|bytes| bytes.0.as_slice())
+			.unwrap_or_default()
+	}
+
+	/// Returns true if the input carries no bytes.
+	pub fn is_empty(&self) -> bool {
+		self.as_slice().is_empty()
+	}
 }
 
 fn deserialize_input_or_data<'d, D: Deserializer<'d>>(d: D) -> Result<InputOrData, D::Error> {
