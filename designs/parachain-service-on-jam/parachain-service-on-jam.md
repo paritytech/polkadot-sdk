@@ -159,9 +159,9 @@ struct ParachainServiceState {
     /// All registered parachains and their current metadata.
     parachains: Map<ParaId, ParaInfo>,
 
-    /// Incoming transfer queue for Asset Hub. Accumulate appends; the PVF
-    /// consumes via `consume_transfers_up_to` (§4.3).
-    incoming_transfers: Vec<(ServiceId, Amount, Memo)>,
+    /// Incoming transfer queue for Asset Hub.
+    /// See §5.1.
+    incoming_transfers: BoundedVec<(ServiceId, Amount, Memo), 1000>,
 
     /// Per-parachain log. Records both Refine failures (with the
     /// originating authorizer trace) and events recorded during Accumulate
@@ -590,7 +590,8 @@ accumulated, on the always-accumulate control path:
    from `pending_authorizer_queues` and call JAM `assign` to install it.
 2. **Incoming transfer processing**: Append any `OnTransfer` calls received from other
    JAM services this block to `incoming_transfers`, **after all work reports in the
-   block have been processed**. Asset Hub consumes them later via
+   block have been processed**. If the queue is full the service bounces the funds
+   back to the sender with the same memo. Asset Hub consumes queued entries via
    `consume_transfers_up_to(index)`.
 
 The core Accumulate logic is primarily **parachain bookkeeping**: updating head data,
@@ -724,12 +725,9 @@ it:
    `set_validator_keys(vec![], true)` flushes a length-zero buffer, which
    `designate` rejects, clearing the staging area.
 
-Asset Hub's `total_state_balance` must include enough headroom for the
-worst-case staging footprint (up to `1023 * 336 B ≈ 336 KiB`), provisioned
-at genesis. The exact mechanism is TBD.
-
 A worst-case 1023-key rotation takes ~35 Asset Hub work packages (≈ 3.5
-minutes at 6 s timeslots).
+minutes at 6 s timeslots). State-balance accounting for the staging
+buffer is covered in §6.1.
 
 ### 5.4 Service Self-Upgrade
 
@@ -902,6 +900,28 @@ ParaId key                                                                =     
 **`baseline_footprint = 4 205 + 11 813 = 16 018 B`** per parachain. Coretime
 should hardcode this value with some headroom to make room for future
 changes to the Service's layout.
+
+#### Asset Hub baseline footprint
+
+Asset Hub additionally owns the service-global state items as privileged
+caller; its `total_state_balance` must cover them, provisioned at genesis.
+Taking `CoreCount = 341`, `AuthorizerHash = 32 B`, `ServiceId = 4 B`,
+`Memo = 128 B`, authorizer-queue length = 80:
+
+```
+staged_validator_keys: BoundedVec<ValidatorKey, 1023>
+  2 + 1023 × 336                                                        = 343 730 B
+pending_authorizer_queues: Map<CoreIndex, BoundedVec<AuthorizerHash, 80>>
+  2 + 341 × (4 + 2 + 80 × 32)                                           = 874 908 B
+last_authorizer_assignment: Map<CoreIndex, Timeslot>
+  2 + 341 × (4 + 4)                                                     =   2 730 B
+incoming_transfers: BoundedVec<(ServiceId, Amount, Memo), 1000>
+  2 + 1000 × (4 + 16 + 128)                                             = 148 002 B
+                                                                          ---------
+                                                                        1 369 370 B
+```
+
+**Asset Hub baseline footprint ≈ 1.3 MiB.**
 
 ### 6.2 Registration
 
