@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782450623327,
+  "lastUpdate": 1782459677973,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bkontur@gmail.com",
-            "name": "Branislav Kontur",
-            "username": "bkontur"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "41bc46f27067c243d1c0fb7f83260d61c1f97c75",
-          "message": "[pallet-transaction-storage] Improved `check_proof` check + tests + docs (#10153)\n\n**This PR:**\n\n* Fixes `check_proof` and its `binary_search_by_key` chunk\n* Adds the `ensure_chunk_proof_works` test, which covers all possible\nchunk index build/verify proof roundtrips (to catch all corner cases)\n* Improves docs around `pallet-transaction-storage`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-11-04T15:15:11Z",
-          "tree_id": "c369cf004da2e377313c241f9655aa8817ba112b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/41bc46f27067c243d1c0fb7f83260d61c1f97c75"
-        },
-        "date": 1762273464659,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013339605700000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007514084859999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02259683891333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15995403282000006,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14797637615333342,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d1fe835d4be0517056f3b33c34f040b3b2123e35",
+          "message": "fatxpool: unban viewless transactions after mempool revalidation (#11731)\n\n### Problem\n\nIn rare cases, a transaction can get stuck in the fork-aware pool. When\na tx gets `InvalidTransaction` (e.g., `Payment`) on one fork but is\nvalid on others, the view's rotator bans it. The ban propagates to all\nnew views via `deep_clone_with_event_handler` (rotator is cloned), and\n`check_is_known` silently rejects the tx on every subsequent view for\nthe entire ban duration (default 30 min). The tx stays in the mempool\n(valid at the finalized block) but can't enter any view.\n\n### Fix\n\nThree mechanisms working together:\n\n1. **Ban reason tracking** — the rotator now distinguishes `Validation`\nbans (tx failed validation) from `LimitsEnforced` bans (tx evicted for\npool capacity). Only `Validation` bans are eligible for unbanning.\n\n2. **Viewless event** — when a ready tx loses all referencing views, the\ndropped watcher emits a `Viewless` event. The `dropped_monitor_task`\nsets a `needs_unban` flag on the tx's mempool entry.\n\n3. **Mempool revalidation unban** — `revalidate_inner` prioritizes\nflagged txs. If the tx passes validation at the finalized block, it\nunbans across all active views. If it fails — the tx is removed from\nmempool (second chance failed).\n\nAdditionally:\n- `View::imported_status()` returns an `ImportedStatus` enum\n(`NotImported`/`Banned`/`Imported`) instead of a bool, enabling\ndiagnostic logging when a mempool tx is skipped due to a ban.\n- Trace log in `update_view_with_mempool` when a tx is skipped as\ntemporarily banned.\n\n### Alternatives considered\n\n- **Drop tx when no views reference it** — simplest, but loses\npotentially valid transactions,\n- **Unban in `update_view_with_mempool`** — unconditionally unbans\neverything, defeating spam protection (`submit_and_watch` relies on the\nban).\n- **Unban all txs passing mempool revalidation** — creates a hot loop\nfor txs evicted by pool capacity limits (`enforce_limits` → revalidation\nvalid → unbanned → evicted again).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-26T06:00:52Z",
+          "tree_id": "bea4d27d08ba1ae87919031b54430f8913f587df",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d1fe835d4be0517056f3b33c34f040b3b2123e35"
+        },
+        "date": 1782459647621,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007187454633333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14848619247333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023638869399999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009880419293333298,
             "unit": "seconds"
           }
         ]
