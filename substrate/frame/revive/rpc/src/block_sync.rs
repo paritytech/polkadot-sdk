@@ -312,7 +312,7 @@ impl Client {
 			let block_hash = block.hash();
 
 			let ethereum_hash = match self
-				.runtime_api(block_hash)
+				.storage_api(block_hash)
 				.eth_block_hash(pallet_revive::evm::U256::from(block_number))
 				.await
 			{

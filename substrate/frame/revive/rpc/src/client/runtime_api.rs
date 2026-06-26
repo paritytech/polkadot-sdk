@@ -304,7 +304,8 @@ impl RuntimeApi {
 		Ok(code)
 	}
 
-	/// Get the current Ethereum block.
+	/// Current Ethereum block via the `eth_block` runtime API.
+	#[deprecated(note = "use `StorageApi::eth_block`: reads storage directly without the runtime")]
 	pub async fn eth_block(&self) -> Result<EthBlock, ClientError> {
 		let payload = subxt_client::apis().revive_api().eth_block().unvalidated();
 		let block = self.0.call(payload).await.inspect_err(|err| {
@@ -313,7 +314,10 @@ impl RuntimeApi {
 		Ok(block.0)
 	}
 
-	/// Get the Ethereum block hash for the given block number.
+	/// Ethereum block hash via the `eth_block_hash` runtime API.
+	#[deprecated(
+		note = "use `StorageApi::eth_block_hash`: reads storage directly without the runtime"
+	)]
 	pub async fn eth_block_hash(&self, number: U256) -> Result<Option<H256>, ClientError> {
 		let payload = subxt_client::apis().revive_api().eth_block_hash(number.into()).unvalidated();
 		let hash = self.0.call(payload).await.inspect_err(|err| {
@@ -322,7 +326,10 @@ impl RuntimeApi {
 		Ok(hash)
 	}
 
-	/// Get the receipt data for the current block.
+	/// Receipt data for the current block via the `eth_receipt_data` runtime API.
+	#[deprecated(
+		note = "use `StorageApi::eth_receipt_data`: reads storage directly without the runtime"
+	)]
 	pub async fn eth_receipt_data(&self) -> Result<Vec<ReceiptGasInfo>, ClientError> {
 		let payload = subxt_client::apis().revive_api().eth_receipt_data().unvalidated();
 		let receipt_data = self.0.call(payload).await.inspect_err(|err| {

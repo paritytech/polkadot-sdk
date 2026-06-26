@@ -588,7 +588,7 @@ impl Client {
 			}};
 		}
 
-		let eth_block = time!("eth_block", self.runtime_api(hash).eth_block().await?);
+		let eth_block = time!("eth_block", self.storage_api(hash).eth_block().await?);
 		let receipts = time!(
 			"receipts_from_block",
 			self.receipt_provider.receipts_from_block(block, eth_block.hash).await?
@@ -1071,7 +1071,7 @@ impl Client {
 		//  - the block author cannot be obtained from the digest logs (highly unlikely)
 		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
 		//    disabled)
-		match self.runtime_api(block.hash()).eth_block().await {
+		match self.storage_api(block.hash()).eth_block().await {
 			Ok(mut eth_block) => {
 				log::trace!(target: LOG_TARGET, "Ethereum block from runtime API hash {:?}", eth_block.hash);
 
