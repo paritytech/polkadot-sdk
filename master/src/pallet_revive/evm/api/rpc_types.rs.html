@@ -546,250 +546,262 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#396 id=396 data-nosnippet>396</a>		<span class="self">Self</span>::from_unsigned(tx.into(), base_gas_price, from)
 <a href=#397 id=397 data-nosnippet>397</a>	}
 <a href=#398 id=398 data-nosnippet>398</a>
-<a href=#399 id=399 data-nosnippet>399</a>	<span class="doccomment">/// The gas price that is actually paid (including priority fee).
-<a href=#400 id=400 data-nosnippet>400</a>	</span><span class="kw">pub fn </span>effective_gas_price(<span class="kw-2">&amp;</span><span class="self">self</span>, base_gas_price: U256) -&gt; <span class="prelude-ty">Option</span>&lt;U256&gt; {
-<a href=#401 id=401 data-nosnippet>401</a>		<span class="kw">let </span>effective_gas_price = <span class="kw">if let </span><span class="prelude-val">Some</span>(prio_price) = <span class="self">self</span>.max_priority_fee_per_gas {
-<a href=#402 id=402 data-nosnippet>402</a>			<span class="kw">let </span>max_price = <span class="self">self</span>.max_fee_per_gas<span class="question-mark">?</span>;
-<a href=#403 id=403 data-nosnippet>403</a>			<span class="prelude-val">Some</span>(max_price.min(base_gas_price.saturating_add(prio_price)))
-<a href=#404 id=404 data-nosnippet>404</a>		} <span class="kw">else </span>{
-<a href=#405 id=405 data-nosnippet>405</a>			<span class="self">self</span>.gas_price
-<a href=#406 id=406 data-nosnippet>406</a>		};
-<a href=#407 id=407 data-nosnippet>407</a>
-<a href=#408 id=408 data-nosnippet>408</a>		<span class="comment">// we do not implement priority fee as it does not map to tip well
-<a href=#409 id=409 data-nosnippet>409</a>		// hence the effective gas price cannot be higher than the base price
-<a href=#410 id=410 data-nosnippet>410</a>		</span>effective_gas_price.map(|e| e.min(base_gas_price))
-<a href=#411 id=411 data-nosnippet>411</a>	}
-<a href=#412 id=412 data-nosnippet>412</a>
-<a href=#413 id=413 data-nosnippet>413</a>	<span class="doccomment">/// Create a new [`GenericTransaction`] from a unsigned transaction.
-<a href=#414 id=414 data-nosnippet>414</a>	</span><span class="kw">pub fn </span>from_unsigned(
-<a href=#415 id=415 data-nosnippet>415</a>		tx: TransactionUnsigned,
-<a href=#416 id=416 data-nosnippet>416</a>		base_gas_price: U256,
-<a href=#417 id=417 data-nosnippet>417</a>		from: <span class="prelude-ty">Option</span>&lt;H160&gt;,
-<a href=#418 id=418 data-nosnippet>418</a>	) -&gt; <span class="self">Self </span>{
-<a href=#419 id=419 data-nosnippet>419</a>		<span class="kw">use </span>TransactionUnsigned::<span class="kw-2">*</span>;
-<a href=#420 id=420 data-nosnippet>420</a>		<span class="kw">let </span><span class="kw-2">mut </span>tx = <span class="kw">match </span>tx {
-<a href=#421 id=421 data-nosnippet>421</a>			TransactionLegacyUnsigned(tx) =&gt; GenericTransaction {
-<a href=#422 id=422 data-nosnippet>422</a>				from,
-<a href=#423 id=423 data-nosnippet>423</a>				r#type: <span class="prelude-val">Some</span>(tx.r#type.as_byte()),
-<a href=#424 id=424 data-nosnippet>424</a>				chain_id: tx.chain_id,
-<a href=#425 id=425 data-nosnippet>425</a>				input: tx.input.into(),
-<a href=#426 id=426 data-nosnippet>426</a>				nonce: <span class="prelude-val">Some</span>(tx.nonce),
-<a href=#427 id=427 data-nosnippet>427</a>				value: <span class="prelude-val">Some</span>(tx.value),
-<a href=#428 id=428 data-nosnippet>428</a>				to: tx.to,
-<a href=#429 id=429 data-nosnippet>429</a>				gas: <span class="prelude-val">Some</span>(tx.gas),
-<a href=#430 id=430 data-nosnippet>430</a>				gas_price: <span class="prelude-val">Some</span>(tx.gas_price),
-<a href=#431 id=431 data-nosnippet>431</a>				..Default::default()
-<a href=#432 id=432 data-nosnippet>432</a>			},
-<a href=#433 id=433 data-nosnippet>433</a>			Transaction4844Unsigned(tx) =&gt; GenericTransaction {
+<a href=#399 id=399 data-nosnippet>399</a>	<span class="doccomment">/// Returns `true` when the transaction's payload fields look like those of a simple value
+<a href=#400 id=400 data-nosnippet>400</a>	/// transfer: empty calldata, no access list, no EIP-7702 authorization list, no EIP-4844 blob
+<a href=#401 id=401 data-nosnippet>401</a>	/// payload, and no blob gas fee. The destination address is validated separately by the caller.
+<a href=#402 id=402 data-nosnippet>402</a>	</span><span class="kw">pub fn </span>has_simple_transfer_fields(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#403 id=403 data-nosnippet>403</a>		<span class="self">self</span>.input.is_empty() &amp;&amp;
+<a href=#404 id=404 data-nosnippet>404</a>			<span class="self">self</span>.access_list.as_ref().is_none_or(|list| list.is_empty()) &amp;&amp;
+<a href=#405 id=405 data-nosnippet>405</a>			<span class="self">self</span>.authorization_list.is_empty() &amp;&amp;
+<a href=#406 id=406 data-nosnippet>406</a>			<span class="self">self</span>.blob_versioned_hashes.is_empty() &amp;&amp;
+<a href=#407 id=407 data-nosnippet>407</a>			<span class="self">self</span>.blobs.is_empty() &amp;&amp;
+<a href=#408 id=408 data-nosnippet>408</a>			<span class="self">self</span>.max_fee_per_blob_gas.is_none()
+<a href=#409 id=409 data-nosnippet>409</a>	}
+<a href=#410 id=410 data-nosnippet>410</a>
+<a href=#411 id=411 data-nosnippet>411</a>	<span class="doccomment">/// The gas price that is actually paid (including priority fee).
+<a href=#412 id=412 data-nosnippet>412</a>	</span><span class="kw">pub fn </span>effective_gas_price(<span class="kw-2">&amp;</span><span class="self">self</span>, base_gas_price: U256) -&gt; <span class="prelude-ty">Option</span>&lt;U256&gt; {
+<a href=#413 id=413 data-nosnippet>413</a>		<span class="kw">let </span>effective_gas_price = <span class="kw">if let </span><span class="prelude-val">Some</span>(prio_price) = <span class="self">self</span>.max_priority_fee_per_gas {
+<a href=#414 id=414 data-nosnippet>414</a>			<span class="kw">let </span>max_price = <span class="self">self</span>.max_fee_per_gas<span class="question-mark">?</span>;
+<a href=#415 id=415 data-nosnippet>415</a>			<span class="prelude-val">Some</span>(max_price.min(base_gas_price.saturating_add(prio_price)))
+<a href=#416 id=416 data-nosnippet>416</a>		} <span class="kw">else </span>{
+<a href=#417 id=417 data-nosnippet>417</a>			<span class="self">self</span>.gas_price
+<a href=#418 id=418 data-nosnippet>418</a>		};
+<a href=#419 id=419 data-nosnippet>419</a>
+<a href=#420 id=420 data-nosnippet>420</a>		<span class="comment">// we do not implement priority fee as it does not map to tip well
+<a href=#421 id=421 data-nosnippet>421</a>		// hence the effective gas price cannot be higher than the base price
+<a href=#422 id=422 data-nosnippet>422</a>		</span>effective_gas_price.map(|e| e.min(base_gas_price))
+<a href=#423 id=423 data-nosnippet>423</a>	}
+<a href=#424 id=424 data-nosnippet>424</a>
+<a href=#425 id=425 data-nosnippet>425</a>	<span class="doccomment">/// Create a new [`GenericTransaction`] from a unsigned transaction.
+<a href=#426 id=426 data-nosnippet>426</a>	</span><span class="kw">pub fn </span>from_unsigned(
+<a href=#427 id=427 data-nosnippet>427</a>		tx: TransactionUnsigned,
+<a href=#428 id=428 data-nosnippet>428</a>		base_gas_price: U256,
+<a href=#429 id=429 data-nosnippet>429</a>		from: <span class="prelude-ty">Option</span>&lt;H160&gt;,
+<a href=#430 id=430 data-nosnippet>430</a>	) -&gt; <span class="self">Self </span>{
+<a href=#431 id=431 data-nosnippet>431</a>		<span class="kw">use </span>TransactionUnsigned::<span class="kw-2">*</span>;
+<a href=#432 id=432 data-nosnippet>432</a>		<span class="kw">let </span><span class="kw-2">mut </span>tx = <span class="kw">match </span>tx {
+<a href=#433 id=433 data-nosnippet>433</a>			TransactionLegacyUnsigned(tx) =&gt; GenericTransaction {
 <a href=#434 id=434 data-nosnippet>434</a>				from,
 <a href=#435 id=435 data-nosnippet>435</a>				r#type: <span class="prelude-val">Some</span>(tx.r#type.as_byte()),
-<a href=#436 id=436 data-nosnippet>436</a>				chain_id: <span class="prelude-val">Some</span>(tx.chain_id),
+<a href=#436 id=436 data-nosnippet>436</a>				chain_id: tx.chain_id,
 <a href=#437 id=437 data-nosnippet>437</a>				input: tx.input.into(),
 <a href=#438 id=438 data-nosnippet>438</a>				nonce: <span class="prelude-val">Some</span>(tx.nonce),
 <a href=#439 id=439 data-nosnippet>439</a>				value: <span class="prelude-val">Some</span>(tx.value),
-<a href=#440 id=440 data-nosnippet>440</a>				to: <span class="prelude-val">Some</span>(tx.to),
+<a href=#440 id=440 data-nosnippet>440</a>				to: tx.to,
 <a href=#441 id=441 data-nosnippet>441</a>				gas: <span class="prelude-val">Some</span>(tx.gas),
-<a href=#442 id=442 data-nosnippet>442</a>				access_list: <span class="prelude-val">Some</span>(tx.access_list),
-<a href=#443 id=443 data-nosnippet>443</a>				blob_versioned_hashes: tx.blob_versioned_hashes,
-<a href=#444 id=444 data-nosnippet>444</a>				max_fee_per_blob_gas: <span class="prelude-val">Some</span>(tx.max_fee_per_blob_gas),
-<a href=#445 id=445 data-nosnippet>445</a>				max_fee_per_gas: <span class="prelude-val">Some</span>(tx.max_fee_per_gas),
-<a href=#446 id=446 data-nosnippet>446</a>				max_priority_fee_per_gas: <span class="prelude-val">Some</span>(tx.max_priority_fee_per_gas),
-<a href=#447 id=447 data-nosnippet>447</a>				..Default::default()
-<a href=#448 id=448 data-nosnippet>448</a>			},
-<a href=#449 id=449 data-nosnippet>449</a>			Transaction1559Unsigned(tx) =&gt; GenericTransaction {
-<a href=#450 id=450 data-nosnippet>450</a>				from,
-<a href=#451 id=451 data-nosnippet>451</a>				r#type: <span class="prelude-val">Some</span>(tx.r#type.as_byte()),
-<a href=#452 id=452 data-nosnippet>452</a>				chain_id: <span class="prelude-val">Some</span>(tx.chain_id),
-<a href=#453 id=453 data-nosnippet>453</a>				input: tx.input.into(),
-<a href=#454 id=454 data-nosnippet>454</a>				nonce: <span class="prelude-val">Some</span>(tx.nonce),
-<a href=#455 id=455 data-nosnippet>455</a>				value: <span class="prelude-val">Some</span>(tx.value),
-<a href=#456 id=456 data-nosnippet>456</a>				to: tx.to,
-<a href=#457 id=457 data-nosnippet>457</a>				gas: <span class="prelude-val">Some</span>(tx.gas),
-<a href=#458 id=458 data-nosnippet>458</a>				access_list: <span class="prelude-val">Some</span>(tx.access_list),
-<a href=#459 id=459 data-nosnippet>459</a>				max_fee_per_gas: <span class="prelude-val">Some</span>(tx.max_fee_per_gas),
-<a href=#460 id=460 data-nosnippet>460</a>				max_priority_fee_per_gas: <span class="prelude-val">Some</span>(tx.max_priority_fee_per_gas),
-<a href=#461 id=461 data-nosnippet>461</a>				..Default::default()
-<a href=#462 id=462 data-nosnippet>462</a>			},
-<a href=#463 id=463 data-nosnippet>463</a>			Transaction2930Unsigned(tx) =&gt; GenericTransaction {
-<a href=#464 id=464 data-nosnippet>464</a>				from,
-<a href=#465 id=465 data-nosnippet>465</a>				r#type: <span class="prelude-val">Some</span>(tx.r#type.as_byte()),
-<a href=#466 id=466 data-nosnippet>466</a>				chain_id: <span class="prelude-val">Some</span>(tx.chain_id),
-<a href=#467 id=467 data-nosnippet>467</a>				input: tx.input.into(),
-<a href=#468 id=468 data-nosnippet>468</a>				nonce: <span class="prelude-val">Some</span>(tx.nonce),
-<a href=#469 id=469 data-nosnippet>469</a>				value: <span class="prelude-val">Some</span>(tx.value),
-<a href=#470 id=470 data-nosnippet>470</a>				to: tx.to,
-<a href=#471 id=471 data-nosnippet>471</a>				gas: <span class="prelude-val">Some</span>(tx.gas),
-<a href=#472 id=472 data-nosnippet>472</a>				gas_price: <span class="prelude-val">Some</span>(tx.gas_price),
-<a href=#473 id=473 data-nosnippet>473</a>				access_list: <span class="prelude-val">Some</span>(tx.access_list),
-<a href=#474 id=474 data-nosnippet>474</a>				..Default::default()
-<a href=#475 id=475 data-nosnippet>475</a>			},
-<a href=#476 id=476 data-nosnippet>476</a>			Transaction7702Unsigned(tx) =&gt; GenericTransaction {
-<a href=#477 id=477 data-nosnippet>477</a>				from,
-<a href=#478 id=478 data-nosnippet>478</a>				r#type: <span class="prelude-val">Some</span>(tx.r#type.as_byte()),
-<a href=#479 id=479 data-nosnippet>479</a>				chain_id: <span class="prelude-val">Some</span>(tx.chain_id),
-<a href=#480 id=480 data-nosnippet>480</a>				input: tx.input.into(),
-<a href=#481 id=481 data-nosnippet>481</a>				nonce: <span class="prelude-val">Some</span>(tx.nonce),
-<a href=#482 id=482 data-nosnippet>482</a>				value: <span class="prelude-val">Some</span>(tx.value),
-<a href=#483 id=483 data-nosnippet>483</a>				to: <span class="prelude-val">Some</span>(tx.to),
-<a href=#484 id=484 data-nosnippet>484</a>				gas: <span class="prelude-val">Some</span>(tx.gas),
+<a href=#442 id=442 data-nosnippet>442</a>				gas_price: <span class="prelude-val">Some</span>(tx.gas_price),
+<a href=#443 id=443 data-nosnippet>443</a>				..Default::default()
+<a href=#444 id=444 data-nosnippet>444</a>			},
+<a href=#445 id=445 data-nosnippet>445</a>			Transaction4844Unsigned(tx) =&gt; GenericTransaction {
+<a href=#446 id=446 data-nosnippet>446</a>				from,
+<a href=#447 id=447 data-nosnippet>447</a>				r#type: <span class="prelude-val">Some</span>(tx.r#type.as_byte()),
+<a href=#448 id=448 data-nosnippet>448</a>				chain_id: <span class="prelude-val">Some</span>(tx.chain_id),
+<a href=#449 id=449 data-nosnippet>449</a>				input: tx.input.into(),
+<a href=#450 id=450 data-nosnippet>450</a>				nonce: <span class="prelude-val">Some</span>(tx.nonce),
+<a href=#451 id=451 data-nosnippet>451</a>				value: <span class="prelude-val">Some</span>(tx.value),
+<a href=#452 id=452 data-nosnippet>452</a>				to: <span class="prelude-val">Some</span>(tx.to),
+<a href=#453 id=453 data-nosnippet>453</a>				gas: <span class="prelude-val">Some</span>(tx.gas),
+<a href=#454 id=454 data-nosnippet>454</a>				access_list: <span class="prelude-val">Some</span>(tx.access_list),
+<a href=#455 id=455 data-nosnippet>455</a>				blob_versioned_hashes: tx.blob_versioned_hashes,
+<a href=#456 id=456 data-nosnippet>456</a>				max_fee_per_blob_gas: <span class="prelude-val">Some</span>(tx.max_fee_per_blob_gas),
+<a href=#457 id=457 data-nosnippet>457</a>				max_fee_per_gas: <span class="prelude-val">Some</span>(tx.max_fee_per_gas),
+<a href=#458 id=458 data-nosnippet>458</a>				max_priority_fee_per_gas: <span class="prelude-val">Some</span>(tx.max_priority_fee_per_gas),
+<a href=#459 id=459 data-nosnippet>459</a>				..Default::default()
+<a href=#460 id=460 data-nosnippet>460</a>			},
+<a href=#461 id=461 data-nosnippet>461</a>			Transaction1559Unsigned(tx) =&gt; GenericTransaction {
+<a href=#462 id=462 data-nosnippet>462</a>				from,
+<a href=#463 id=463 data-nosnippet>463</a>				r#type: <span class="prelude-val">Some</span>(tx.r#type.as_byte()),
+<a href=#464 id=464 data-nosnippet>464</a>				chain_id: <span class="prelude-val">Some</span>(tx.chain_id),
+<a href=#465 id=465 data-nosnippet>465</a>				input: tx.input.into(),
+<a href=#466 id=466 data-nosnippet>466</a>				nonce: <span class="prelude-val">Some</span>(tx.nonce),
+<a href=#467 id=467 data-nosnippet>467</a>				value: <span class="prelude-val">Some</span>(tx.value),
+<a href=#468 id=468 data-nosnippet>468</a>				to: tx.to,
+<a href=#469 id=469 data-nosnippet>469</a>				gas: <span class="prelude-val">Some</span>(tx.gas),
+<a href=#470 id=470 data-nosnippet>470</a>				access_list: <span class="prelude-val">Some</span>(tx.access_list),
+<a href=#471 id=471 data-nosnippet>471</a>				max_fee_per_gas: <span class="prelude-val">Some</span>(tx.max_fee_per_gas),
+<a href=#472 id=472 data-nosnippet>472</a>				max_priority_fee_per_gas: <span class="prelude-val">Some</span>(tx.max_priority_fee_per_gas),
+<a href=#473 id=473 data-nosnippet>473</a>				..Default::default()
+<a href=#474 id=474 data-nosnippet>474</a>			},
+<a href=#475 id=475 data-nosnippet>475</a>			Transaction2930Unsigned(tx) =&gt; GenericTransaction {
+<a href=#476 id=476 data-nosnippet>476</a>				from,
+<a href=#477 id=477 data-nosnippet>477</a>				r#type: <span class="prelude-val">Some</span>(tx.r#type.as_byte()),
+<a href=#478 id=478 data-nosnippet>478</a>				chain_id: <span class="prelude-val">Some</span>(tx.chain_id),
+<a href=#479 id=479 data-nosnippet>479</a>				input: tx.input.into(),
+<a href=#480 id=480 data-nosnippet>480</a>				nonce: <span class="prelude-val">Some</span>(tx.nonce),
+<a href=#481 id=481 data-nosnippet>481</a>				value: <span class="prelude-val">Some</span>(tx.value),
+<a href=#482 id=482 data-nosnippet>482</a>				to: tx.to,
+<a href=#483 id=483 data-nosnippet>483</a>				gas: <span class="prelude-val">Some</span>(tx.gas),
+<a href=#484 id=484 data-nosnippet>484</a>				gas_price: <span class="prelude-val">Some</span>(tx.gas_price),
 <a href=#485 id=485 data-nosnippet>485</a>				access_list: <span class="prelude-val">Some</span>(tx.access_list),
-<a href=#486 id=486 data-nosnippet>486</a>				authorization_list: tx.authorization_list,
-<a href=#487 id=487 data-nosnippet>487</a>				max_fee_per_gas: <span class="prelude-val">Some</span>(tx.max_fee_per_gas),
-<a href=#488 id=488 data-nosnippet>488</a>				max_priority_fee_per_gas: <span class="prelude-val">Some</span>(tx.max_priority_fee_per_gas),
-<a href=#489 id=489 data-nosnippet>489</a>				..Default::default()
-<a href=#490 id=490 data-nosnippet>490</a>			},
-<a href=#491 id=491 data-nosnippet>491</a>		};
-<a href=#492 id=492 data-nosnippet>492</a>		tx.gas_price = tx.effective_gas_price(base_gas_price);
-<a href=#493 id=493 data-nosnippet>493</a>		tx
-<a href=#494 id=494 data-nosnippet>494</a>	}
-<a href=#495 id=495 data-nosnippet>495</a>
-<a href=#496 id=496 data-nosnippet>496</a>	<span class="doccomment">/// Convert to a [`TransactionUnsigned`].
-<a href=#497 id=497 data-nosnippet>497</a>	</span><span class="kw">pub fn </span>try_into_unsigned(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TransactionUnsigned, ()&gt; {
-<a href=#498 id=498 data-nosnippet>498</a>		<span class="kw">match </span><span class="self">self</span>.r#type.unwrap_or_default().<span class="number">0 </span>{
-<a href=#499 id=499 data-nosnippet>499</a>			TYPE_LEGACY =&gt; <span class="prelude-val">Ok</span>(TransactionLegacyUnsigned {
-<a href=#500 id=500 data-nosnippet>500</a>				r#type: TypeLegacy {},
-<a href=#501 id=501 data-nosnippet>501</a>				chain_id: <span class="self">self</span>.chain_id,
-<a href=#502 id=502 data-nosnippet>502</a>				input: <span class="self">self</span>.input.to_bytes(),
-<a href=#503 id=503 data-nosnippet>503</a>				nonce: <span class="self">self</span>.nonce.unwrap_or_default(),
-<a href=#504 id=504 data-nosnippet>504</a>				value: <span class="self">self</span>.value.unwrap_or_default(),
-<a href=#505 id=505 data-nosnippet>505</a>				to: <span class="self">self</span>.to,
-<a href=#506 id=506 data-nosnippet>506</a>				gas: <span class="self">self</span>.gas.unwrap_or_default(),
-<a href=#507 id=507 data-nosnippet>507</a>				gas_price: <span class="self">self</span>.gas_price.unwrap_or_default(),
-<a href=#508 id=508 data-nosnippet>508</a>			}
-<a href=#509 id=509 data-nosnippet>509</a>			.into()),
-<a href=#510 id=510 data-nosnippet>510</a>			TYPE_EIP1559 =&gt; <span class="prelude-val">Ok</span>(Transaction1559Unsigned {
-<a href=#511 id=511 data-nosnippet>511</a>				r#type: TypeEip1559 {},
-<a href=#512 id=512 data-nosnippet>512</a>				chain_id: <span class="self">self</span>.chain_id.unwrap_or_default(),
-<a href=#513 id=513 data-nosnippet>513</a>				input: <span class="self">self</span>.input.to_bytes(),
-<a href=#514 id=514 data-nosnippet>514</a>				nonce: <span class="self">self</span>.nonce.unwrap_or_default(),
-<a href=#515 id=515 data-nosnippet>515</a>				value: <span class="self">self</span>.value.unwrap_or_default(),
-<a href=#516 id=516 data-nosnippet>516</a>				to: <span class="self">self</span>.to,
-<a href=#517 id=517 data-nosnippet>517</a>				gas: <span class="self">self</span>.gas.unwrap_or_default(),
-<a href=#518 id=518 data-nosnippet>518</a>				gas_price: <span class="self">self</span>.max_fee_per_gas.unwrap_or_default(),
-<a href=#519 id=519 data-nosnippet>519</a>				access_list: <span class="self">self</span>.access_list.unwrap_or_default(),
-<a href=#520 id=520 data-nosnippet>520</a>				max_fee_per_gas: <span class="self">self</span>.max_fee_per_gas.unwrap_or_default(),
-<a href=#521 id=521 data-nosnippet>521</a>				max_priority_fee_per_gas: <span class="self">self</span>.max_priority_fee_per_gas.unwrap_or_default(),
-<a href=#522 id=522 data-nosnippet>522</a>			}
-<a href=#523 id=523 data-nosnippet>523</a>			.into()),
-<a href=#524 id=524 data-nosnippet>524</a>			TYPE_EIP2930 =&gt; <span class="prelude-val">Ok</span>(Transaction2930Unsigned {
-<a href=#525 id=525 data-nosnippet>525</a>				r#type: TypeEip2930 {},
-<a href=#526 id=526 data-nosnippet>526</a>				chain_id: <span class="self">self</span>.chain_id.unwrap_or_default(),
-<a href=#527 id=527 data-nosnippet>527</a>				input: <span class="self">self</span>.input.to_bytes(),
-<a href=#528 id=528 data-nosnippet>528</a>				nonce: <span class="self">self</span>.nonce.unwrap_or_default(),
-<a href=#529 id=529 data-nosnippet>529</a>				value: <span class="self">self</span>.value.unwrap_or_default(),
-<a href=#530 id=530 data-nosnippet>530</a>				to: <span class="self">self</span>.to,
-<a href=#531 id=531 data-nosnippet>531</a>				gas: <span class="self">self</span>.gas.unwrap_or_default(),
-<a href=#532 id=532 data-nosnippet>532</a>				gas_price: <span class="self">self</span>.gas_price.unwrap_or_default(),
-<a href=#533 id=533 data-nosnippet>533</a>				access_list: <span class="self">self</span>.access_list.unwrap_or_default(),
+<a href=#486 id=486 data-nosnippet>486</a>				..Default::default()
+<a href=#487 id=487 data-nosnippet>487</a>			},
+<a href=#488 id=488 data-nosnippet>488</a>			Transaction7702Unsigned(tx) =&gt; GenericTransaction {
+<a href=#489 id=489 data-nosnippet>489</a>				from,
+<a href=#490 id=490 data-nosnippet>490</a>				r#type: <span class="prelude-val">Some</span>(tx.r#type.as_byte()),
+<a href=#491 id=491 data-nosnippet>491</a>				chain_id: <span class="prelude-val">Some</span>(tx.chain_id),
+<a href=#492 id=492 data-nosnippet>492</a>				input: tx.input.into(),
+<a href=#493 id=493 data-nosnippet>493</a>				nonce: <span class="prelude-val">Some</span>(tx.nonce),
+<a href=#494 id=494 data-nosnippet>494</a>				value: <span class="prelude-val">Some</span>(tx.value),
+<a href=#495 id=495 data-nosnippet>495</a>				to: <span class="prelude-val">Some</span>(tx.to),
+<a href=#496 id=496 data-nosnippet>496</a>				gas: <span class="prelude-val">Some</span>(tx.gas),
+<a href=#497 id=497 data-nosnippet>497</a>				access_list: <span class="prelude-val">Some</span>(tx.access_list),
+<a href=#498 id=498 data-nosnippet>498</a>				authorization_list: tx.authorization_list,
+<a href=#499 id=499 data-nosnippet>499</a>				max_fee_per_gas: <span class="prelude-val">Some</span>(tx.max_fee_per_gas),
+<a href=#500 id=500 data-nosnippet>500</a>				max_priority_fee_per_gas: <span class="prelude-val">Some</span>(tx.max_priority_fee_per_gas),
+<a href=#501 id=501 data-nosnippet>501</a>				..Default::default()
+<a href=#502 id=502 data-nosnippet>502</a>			},
+<a href=#503 id=503 data-nosnippet>503</a>		};
+<a href=#504 id=504 data-nosnippet>504</a>		tx.gas_price = tx.effective_gas_price(base_gas_price);
+<a href=#505 id=505 data-nosnippet>505</a>		tx
+<a href=#506 id=506 data-nosnippet>506</a>	}
+<a href=#507 id=507 data-nosnippet>507</a>
+<a href=#508 id=508 data-nosnippet>508</a>	<span class="doccomment">/// Convert to a [`TransactionUnsigned`].
+<a href=#509 id=509 data-nosnippet>509</a>	</span><span class="kw">pub fn </span>try_into_unsigned(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TransactionUnsigned, ()&gt; {
+<a href=#510 id=510 data-nosnippet>510</a>		<span class="kw">match </span><span class="self">self</span>.r#type.unwrap_or_default().<span class="number">0 </span>{
+<a href=#511 id=511 data-nosnippet>511</a>			TYPE_LEGACY =&gt; <span class="prelude-val">Ok</span>(TransactionLegacyUnsigned {
+<a href=#512 id=512 data-nosnippet>512</a>				r#type: TypeLegacy {},
+<a href=#513 id=513 data-nosnippet>513</a>				chain_id: <span class="self">self</span>.chain_id,
+<a href=#514 id=514 data-nosnippet>514</a>				input: <span class="self">self</span>.input.to_bytes(),
+<a href=#515 id=515 data-nosnippet>515</a>				nonce: <span class="self">self</span>.nonce.unwrap_or_default(),
+<a href=#516 id=516 data-nosnippet>516</a>				value: <span class="self">self</span>.value.unwrap_or_default(),
+<a href=#517 id=517 data-nosnippet>517</a>				to: <span class="self">self</span>.to,
+<a href=#518 id=518 data-nosnippet>518</a>				gas: <span class="self">self</span>.gas.unwrap_or_default(),
+<a href=#519 id=519 data-nosnippet>519</a>				gas_price: <span class="self">self</span>.gas_price.unwrap_or_default(),
+<a href=#520 id=520 data-nosnippet>520</a>			}
+<a href=#521 id=521 data-nosnippet>521</a>			.into()),
+<a href=#522 id=522 data-nosnippet>522</a>			TYPE_EIP1559 =&gt; <span class="prelude-val">Ok</span>(Transaction1559Unsigned {
+<a href=#523 id=523 data-nosnippet>523</a>				r#type: TypeEip1559 {},
+<a href=#524 id=524 data-nosnippet>524</a>				chain_id: <span class="self">self</span>.chain_id.unwrap_or_default(),
+<a href=#525 id=525 data-nosnippet>525</a>				input: <span class="self">self</span>.input.to_bytes(),
+<a href=#526 id=526 data-nosnippet>526</a>				nonce: <span class="self">self</span>.nonce.unwrap_or_default(),
+<a href=#527 id=527 data-nosnippet>527</a>				value: <span class="self">self</span>.value.unwrap_or_default(),
+<a href=#528 id=528 data-nosnippet>528</a>				to: <span class="self">self</span>.to,
+<a href=#529 id=529 data-nosnippet>529</a>				gas: <span class="self">self</span>.gas.unwrap_or_default(),
+<a href=#530 id=530 data-nosnippet>530</a>				gas_price: <span class="self">self</span>.max_fee_per_gas.unwrap_or_default(),
+<a href=#531 id=531 data-nosnippet>531</a>				access_list: <span class="self">self</span>.access_list.unwrap_or_default(),
+<a href=#532 id=532 data-nosnippet>532</a>				max_fee_per_gas: <span class="self">self</span>.max_fee_per_gas.unwrap_or_default(),
+<a href=#533 id=533 data-nosnippet>533</a>				max_priority_fee_per_gas: <span class="self">self</span>.max_priority_fee_per_gas.unwrap_or_default(),
 <a href=#534 id=534 data-nosnippet>534</a>			}
 <a href=#535 id=535 data-nosnippet>535</a>			.into()),
-<a href=#536 id=536 data-nosnippet>536</a>			TYPE_EIP4844 =&gt; <span class="prelude-val">Ok</span>(Transaction4844Unsigned {
-<a href=#537 id=537 data-nosnippet>537</a>				r#type: TypeEip4844 {},
+<a href=#536 id=536 data-nosnippet>536</a>			TYPE_EIP2930 =&gt; <span class="prelude-val">Ok</span>(Transaction2930Unsigned {
+<a href=#537 id=537 data-nosnippet>537</a>				r#type: TypeEip2930 {},
 <a href=#538 id=538 data-nosnippet>538</a>				chain_id: <span class="self">self</span>.chain_id.unwrap_or_default(),
 <a href=#539 id=539 data-nosnippet>539</a>				input: <span class="self">self</span>.input.to_bytes(),
 <a href=#540 id=540 data-nosnippet>540</a>				nonce: <span class="self">self</span>.nonce.unwrap_or_default(),
 <a href=#541 id=541 data-nosnippet>541</a>				value: <span class="self">self</span>.value.unwrap_or_default(),
-<a href=#542 id=542 data-nosnippet>542</a>				to: <span class="self">self</span>.to.unwrap_or_default(),
+<a href=#542 id=542 data-nosnippet>542</a>				to: <span class="self">self</span>.to,
 <a href=#543 id=543 data-nosnippet>543</a>				gas: <span class="self">self</span>.gas.unwrap_or_default(),
-<a href=#544 id=544 data-nosnippet>544</a>				max_fee_per_gas: <span class="self">self</span>.max_fee_per_gas.unwrap_or_default(),
-<a href=#545 id=545 data-nosnippet>545</a>				max_fee_per_blob_gas: <span class="self">self</span>.max_fee_per_blob_gas.unwrap_or_default(),
-<a href=#546 id=546 data-nosnippet>546</a>				max_priority_fee_per_gas: <span class="self">self</span>.max_priority_fee_per_gas.unwrap_or_default(),
-<a href=#547 id=547 data-nosnippet>547</a>				access_list: <span class="self">self</span>.access_list.unwrap_or_default(),
-<a href=#548 id=548 data-nosnippet>548</a>				blob_versioned_hashes: <span class="self">self</span>.blob_versioned_hashes,
-<a href=#549 id=549 data-nosnippet>549</a>			}
-<a href=#550 id=550 data-nosnippet>550</a>			.into()),
-<a href=#551 id=551 data-nosnippet>551</a>			TYPE_EIP7702 =&gt; <span class="prelude-val">Ok</span>(Transaction7702Unsigned {
-<a href=#552 id=552 data-nosnippet>552</a>				r#type: TypeEip7702 {},
-<a href=#553 id=553 data-nosnippet>553</a>				chain_id: <span class="self">self</span>.chain_id.unwrap_or_default(),
-<a href=#554 id=554 data-nosnippet>554</a>				input: <span class="self">self</span>.input.to_bytes(),
-<a href=#555 id=555 data-nosnippet>555</a>				nonce: <span class="self">self</span>.nonce.unwrap_or_default(),
-<a href=#556 id=556 data-nosnippet>556</a>				value: <span class="self">self</span>.value.unwrap_or_default(),
-<a href=#557 id=557 data-nosnippet>557</a>				to: <span class="self">self</span>.to.unwrap_or_default(),
-<a href=#558 id=558 data-nosnippet>558</a>				gas: <span class="self">self</span>.gas.unwrap_or_default(),
-<a href=#559 id=559 data-nosnippet>559</a>				max_fee_per_gas: <span class="self">self</span>.max_fee_per_gas.unwrap_or_default(),
-<a href=#560 id=560 data-nosnippet>560</a>				max_priority_fee_per_gas: <span class="self">self</span>.max_priority_fee_per_gas.unwrap_or_default(),
-<a href=#561 id=561 data-nosnippet>561</a>				access_list: <span class="self">self</span>.access_list.unwrap_or_default(),
-<a href=#562 id=562 data-nosnippet>562</a>				authorization_list: <span class="self">self</span>.authorization_list,
-<a href=#563 id=563 data-nosnippet>563</a>			}
-<a href=#564 id=564 data-nosnippet>564</a>			.into()),
-<a href=#565 id=565 data-nosnippet>565</a>			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(()),
-<a href=#566 id=566 data-nosnippet>566</a>		}
-<a href=#567 id=567 data-nosnippet>567</a>	}
-<a href=#568 id=568 data-nosnippet>568</a>}
-<a href=#569 id=569 data-nosnippet>569</a>
-<a href=#570 id=570 data-nosnippet>570</a><span class="attr">#[test]
-<a href=#571 id=571 data-nosnippet>571</a></span><span class="kw">fn </span>from_unsigned_works_for_legacy() {
-<a href=#572 id=572 data-nosnippet>572</a>	<span class="kw">let </span>base_gas_price = U256::from(<span class="number">10</span>);
-<a href=#573 id=573 data-nosnippet>573</a>	<span class="kw">let </span>tx = TransactionUnsigned::from(TransactionLegacyUnsigned {
-<a href=#574 id=574 data-nosnippet>574</a>		chain_id: <span class="prelude-val">Some</span>(U256::from(<span class="number">1</span>)),
-<a href=#575 id=575 data-nosnippet>575</a>		input: Bytes::from(<span class="macro">vec!</span>[<span class="number">1u8</span>]),
-<a href=#576 id=576 data-nosnippet>576</a>		nonce: U256::from(<span class="number">1</span>),
-<a href=#577 id=577 data-nosnippet>577</a>		value: U256::from(<span class="number">1</span>),
-<a href=#578 id=578 data-nosnippet>578</a>		to: <span class="prelude-val">Some</span>(H160::zero()),
-<a href=#579 id=579 data-nosnippet>579</a>		gas: U256::from(<span class="number">1</span>),
-<a href=#580 id=580 data-nosnippet>580</a>		gas_price: U256::from(<span class="number">10</span>),
-<a href=#581 id=581 data-nosnippet>581</a>		..Default::default()
-<a href=#582 id=582 data-nosnippet>582</a>	});
-<a href=#583 id=583 data-nosnippet>583</a>
-<a href=#584 id=584 data-nosnippet>584</a>	<span class="kw">let </span>generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, <span class="prelude-val">None</span>);
-<a href=#585 id=585 data-nosnippet>585</a>	<span class="macro">assert_eq!</span>(generic.gas_price, <span class="prelude-val">Some</span>(U256::from(<span class="number">10</span>)));
-<a href=#586 id=586 data-nosnippet>586</a>
-<a href=#587 id=587 data-nosnippet>587</a>	<span class="kw">let </span>tx2 = generic.try_into_unsigned().unwrap();
-<a href=#588 id=588 data-nosnippet>588</a>	<span class="macro">assert_eq!</span>(tx, tx2);
-<a href=#589 id=589 data-nosnippet>589</a>}
-<a href=#590 id=590 data-nosnippet>590</a>
-<a href=#591 id=591 data-nosnippet>591</a><span class="attr">#[test]
-<a href=#592 id=592 data-nosnippet>592</a></span><span class="kw">fn </span>from_unsigned_works_for_1559() {
-<a href=#593 id=593 data-nosnippet>593</a>	<span class="kw">let </span>base_gas_price = U256::from(<span class="number">10</span>);
-<a href=#594 id=594 data-nosnippet>594</a>	<span class="kw">let </span>tx = TransactionUnsigned::from(Transaction1559Unsigned {
-<a href=#595 id=595 data-nosnippet>595</a>		chain_id: U256::from(<span class="number">1</span>),
-<a href=#596 id=596 data-nosnippet>596</a>		input: Bytes::from(<span class="macro">vec!</span>[<span class="number">1u8</span>]),
-<a href=#597 id=597 data-nosnippet>597</a>		nonce: U256::from(<span class="number">1</span>),
-<a href=#598 id=598 data-nosnippet>598</a>		value: U256::from(<span class="number">1</span>),
-<a href=#599 id=599 data-nosnippet>599</a>		to: <span class="prelude-val">Some</span>(H160::zero()),
-<a href=#600 id=600 data-nosnippet>600</a>		gas: U256::from(<span class="number">1</span>),
-<a href=#601 id=601 data-nosnippet>601</a>		gas_price: U256::from(<span class="number">20</span>),
-<a href=#602 id=602 data-nosnippet>602</a>		max_fee_per_gas: U256::from(<span class="number">20</span>),
-<a href=#603 id=603 data-nosnippet>603</a>		max_priority_fee_per_gas: U256::from(<span class="number">1</span>),
-<a href=#604 id=604 data-nosnippet>604</a>		..Default::default()
-<a href=#605 id=605 data-nosnippet>605</a>	});
-<a href=#606 id=606 data-nosnippet>606</a>
-<a href=#607 id=607 data-nosnippet>607</a>	<span class="kw">let </span>generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, <span class="prelude-val">None</span>);
-<a href=#608 id=608 data-nosnippet>608</a>	<span class="macro">assert_eq!</span>(generic.gas_price, <span class="prelude-val">Some</span>(U256::from(<span class="number">10</span>)));
-<a href=#609 id=609 data-nosnippet>609</a>
-<a href=#610 id=610 data-nosnippet>610</a>	<span class="kw">let </span>tx2 = generic.try_into_unsigned().unwrap();
-<a href=#611 id=611 data-nosnippet>611</a>	<span class="macro">assert_eq!</span>(tx, tx2);
-<a href=#612 id=612 data-nosnippet>612</a>}
-<a href=#613 id=613 data-nosnippet>613</a>
-<a href=#614 id=614 data-nosnippet>614</a><span class="attr">#[test]
-<a href=#615 id=615 data-nosnippet>615</a></span><span class="kw">fn </span>from_unsigned_works_for_7702() {
-<a href=#616 id=616 data-nosnippet>616</a>	<span class="kw">let </span>base_gas_price = U256::from(<span class="number">10</span>);
-<a href=#617 id=617 data-nosnippet>617</a>	<span class="kw">let </span>tx = TransactionUnsigned::from(Transaction7702Unsigned {
-<a href=#618 id=618 data-nosnippet>618</a>		chain_id: U256::from(<span class="number">1</span>),
-<a href=#619 id=619 data-nosnippet>619</a>		input: Bytes::from(<span class="macro">vec!</span>[<span class="number">1u8</span>]),
-<a href=#620 id=620 data-nosnippet>620</a>		nonce: U256::from(<span class="number">1</span>),
-<a href=#621 id=621 data-nosnippet>621</a>		value: U256::from(<span class="number">1</span>),
-<a href=#622 id=622 data-nosnippet>622</a>		to: H160::zero(),
-<a href=#623 id=623 data-nosnippet>623</a>		gas: U256::from(<span class="number">1</span>),
-<a href=#624 id=624 data-nosnippet>624</a>		max_fee_per_gas: U256::from(<span class="number">20</span>),
-<a href=#625 id=625 data-nosnippet>625</a>		max_priority_fee_per_gas: U256::from(<span class="number">1</span>),
-<a href=#626 id=626 data-nosnippet>626</a>		authorization_list: <span class="macro">vec!</span>[AuthorizationListEntry {
-<a href=#627 id=627 data-nosnippet>627</a>			chain_id: U256::from(<span class="number">1</span>),
-<a href=#628 id=628 data-nosnippet>628</a>			address: H160::from_low_u64_be(<span class="number">42</span>),
-<a href=#629 id=629 data-nosnippet>629</a>			nonce: U256::from(<span class="number">0</span>),
-<a href=#630 id=630 data-nosnippet>630</a>			y_parity: U256::from(<span class="number">1</span>),
-<a href=#631 id=631 data-nosnippet>631</a>			r: U256::from(<span class="number">1</span>),
-<a href=#632 id=632 data-nosnippet>632</a>			s: U256::from(<span class="number">2</span>),
-<a href=#633 id=633 data-nosnippet>633</a>		}],
-<a href=#634 id=634 data-nosnippet>634</a>		..Default::default()
-<a href=#635 id=635 data-nosnippet>635</a>	});
-<a href=#636 id=636 data-nosnippet>636</a>
-<a href=#637 id=637 data-nosnippet>637</a>	<span class="kw">let </span>generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, <span class="prelude-val">None</span>);
-<a href=#638 id=638 data-nosnippet>638</a>	<span class="macro">assert_eq!</span>(generic.gas_price, <span class="prelude-val">Some</span>(U256::from(<span class="number">10</span>)));
-<a href=#639 id=639 data-nosnippet>639</a>
-<a href=#640 id=640 data-nosnippet>640</a>	<span class="kw">let </span>tx2 = generic.try_into_unsigned().unwrap();
-<a href=#641 id=641 data-nosnippet>641</a>	<span class="macro">assert_eq!</span>(tx, tx2);
-<a href=#642 id=642 data-nosnippet>642</a>}
+<a href=#544 id=544 data-nosnippet>544</a>				gas_price: <span class="self">self</span>.gas_price.unwrap_or_default(),
+<a href=#545 id=545 data-nosnippet>545</a>				access_list: <span class="self">self</span>.access_list.unwrap_or_default(),
+<a href=#546 id=546 data-nosnippet>546</a>			}
+<a href=#547 id=547 data-nosnippet>547</a>			.into()),
+<a href=#548 id=548 data-nosnippet>548</a>			TYPE_EIP4844 =&gt; <span class="prelude-val">Ok</span>(Transaction4844Unsigned {
+<a href=#549 id=549 data-nosnippet>549</a>				r#type: TypeEip4844 {},
+<a href=#550 id=550 data-nosnippet>550</a>				chain_id: <span class="self">self</span>.chain_id.unwrap_or_default(),
+<a href=#551 id=551 data-nosnippet>551</a>				input: <span class="self">self</span>.input.to_bytes(),
+<a href=#552 id=552 data-nosnippet>552</a>				nonce: <span class="self">self</span>.nonce.unwrap_or_default(),
+<a href=#553 id=553 data-nosnippet>553</a>				value: <span class="self">self</span>.value.unwrap_or_default(),
+<a href=#554 id=554 data-nosnippet>554</a>				to: <span class="self">self</span>.to.unwrap_or_default(),
+<a href=#555 id=555 data-nosnippet>555</a>				gas: <span class="self">self</span>.gas.unwrap_or_default(),
+<a href=#556 id=556 data-nosnippet>556</a>				max_fee_per_gas: <span class="self">self</span>.max_fee_per_gas.unwrap_or_default(),
+<a href=#557 id=557 data-nosnippet>557</a>				max_fee_per_blob_gas: <span class="self">self</span>.max_fee_per_blob_gas.unwrap_or_default(),
+<a href=#558 id=558 data-nosnippet>558</a>				max_priority_fee_per_gas: <span class="self">self</span>.max_priority_fee_per_gas.unwrap_or_default(),
+<a href=#559 id=559 data-nosnippet>559</a>				access_list: <span class="self">self</span>.access_list.unwrap_or_default(),
+<a href=#560 id=560 data-nosnippet>560</a>				blob_versioned_hashes: <span class="self">self</span>.blob_versioned_hashes,
+<a href=#561 id=561 data-nosnippet>561</a>			}
+<a href=#562 id=562 data-nosnippet>562</a>			.into()),
+<a href=#563 id=563 data-nosnippet>563</a>			TYPE_EIP7702 =&gt; <span class="prelude-val">Ok</span>(Transaction7702Unsigned {
+<a href=#564 id=564 data-nosnippet>564</a>				r#type: TypeEip7702 {},
+<a href=#565 id=565 data-nosnippet>565</a>				chain_id: <span class="self">self</span>.chain_id.unwrap_or_default(),
+<a href=#566 id=566 data-nosnippet>566</a>				input: <span class="self">self</span>.input.to_bytes(),
+<a href=#567 id=567 data-nosnippet>567</a>				nonce: <span class="self">self</span>.nonce.unwrap_or_default(),
+<a href=#568 id=568 data-nosnippet>568</a>				value: <span class="self">self</span>.value.unwrap_or_default(),
+<a href=#569 id=569 data-nosnippet>569</a>				to: <span class="self">self</span>.to.unwrap_or_default(),
+<a href=#570 id=570 data-nosnippet>570</a>				gas: <span class="self">self</span>.gas.unwrap_or_default(),
+<a href=#571 id=571 data-nosnippet>571</a>				max_fee_per_gas: <span class="self">self</span>.max_fee_per_gas.unwrap_or_default(),
+<a href=#572 id=572 data-nosnippet>572</a>				max_priority_fee_per_gas: <span class="self">self</span>.max_priority_fee_per_gas.unwrap_or_default(),
+<a href=#573 id=573 data-nosnippet>573</a>				access_list: <span class="self">self</span>.access_list.unwrap_or_default(),
+<a href=#574 id=574 data-nosnippet>574</a>				authorization_list: <span class="self">self</span>.authorization_list,
+<a href=#575 id=575 data-nosnippet>575</a>			}
+<a href=#576 id=576 data-nosnippet>576</a>			.into()),
+<a href=#577 id=577 data-nosnippet>577</a>			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(()),
+<a href=#578 id=578 data-nosnippet>578</a>		}
+<a href=#579 id=579 data-nosnippet>579</a>	}
+<a href=#580 id=580 data-nosnippet>580</a>}
+<a href=#581 id=581 data-nosnippet>581</a>
+<a href=#582 id=582 data-nosnippet>582</a><span class="attr">#[test]
+<a href=#583 id=583 data-nosnippet>583</a></span><span class="kw">fn </span>from_unsigned_works_for_legacy() {
+<a href=#584 id=584 data-nosnippet>584</a>	<span class="kw">let </span>base_gas_price = U256::from(<span class="number">10</span>);
+<a href=#585 id=585 data-nosnippet>585</a>	<span class="kw">let </span>tx = TransactionUnsigned::from(TransactionLegacyUnsigned {
+<a href=#586 id=586 data-nosnippet>586</a>		chain_id: <span class="prelude-val">Some</span>(U256::from(<span class="number">1</span>)),
+<a href=#587 id=587 data-nosnippet>587</a>		input: Bytes::from(<span class="macro">vec!</span>[<span class="number">1u8</span>]),
+<a href=#588 id=588 data-nosnippet>588</a>		nonce: U256::from(<span class="number">1</span>),
+<a href=#589 id=589 data-nosnippet>589</a>		value: U256::from(<span class="number">1</span>),
+<a href=#590 id=590 data-nosnippet>590</a>		to: <span class="prelude-val">Some</span>(H160::zero()),
+<a href=#591 id=591 data-nosnippet>591</a>		gas: U256::from(<span class="number">1</span>),
+<a href=#592 id=592 data-nosnippet>592</a>		gas_price: U256::from(<span class="number">10</span>),
+<a href=#593 id=593 data-nosnippet>593</a>		..Default::default()
+<a href=#594 id=594 data-nosnippet>594</a>	});
+<a href=#595 id=595 data-nosnippet>595</a>
+<a href=#596 id=596 data-nosnippet>596</a>	<span class="kw">let </span>generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, <span class="prelude-val">None</span>);
+<a href=#597 id=597 data-nosnippet>597</a>	<span class="macro">assert_eq!</span>(generic.gas_price, <span class="prelude-val">Some</span>(U256::from(<span class="number">10</span>)));
+<a href=#598 id=598 data-nosnippet>598</a>
+<a href=#599 id=599 data-nosnippet>599</a>	<span class="kw">let </span>tx2 = generic.try_into_unsigned().unwrap();
+<a href=#600 id=600 data-nosnippet>600</a>	<span class="macro">assert_eq!</span>(tx, tx2);
+<a href=#601 id=601 data-nosnippet>601</a>}
+<a href=#602 id=602 data-nosnippet>602</a>
+<a href=#603 id=603 data-nosnippet>603</a><span class="attr">#[test]
+<a href=#604 id=604 data-nosnippet>604</a></span><span class="kw">fn </span>from_unsigned_works_for_1559() {
+<a href=#605 id=605 data-nosnippet>605</a>	<span class="kw">let </span>base_gas_price = U256::from(<span class="number">10</span>);
+<a href=#606 id=606 data-nosnippet>606</a>	<span class="kw">let </span>tx = TransactionUnsigned::from(Transaction1559Unsigned {
+<a href=#607 id=607 data-nosnippet>607</a>		chain_id: U256::from(<span class="number">1</span>),
+<a href=#608 id=608 data-nosnippet>608</a>		input: Bytes::from(<span class="macro">vec!</span>[<span class="number">1u8</span>]),
+<a href=#609 id=609 data-nosnippet>609</a>		nonce: U256::from(<span class="number">1</span>),
+<a href=#610 id=610 data-nosnippet>610</a>		value: U256::from(<span class="number">1</span>),
+<a href=#611 id=611 data-nosnippet>611</a>		to: <span class="prelude-val">Some</span>(H160::zero()),
+<a href=#612 id=612 data-nosnippet>612</a>		gas: U256::from(<span class="number">1</span>),
+<a href=#613 id=613 data-nosnippet>613</a>		gas_price: U256::from(<span class="number">20</span>),
+<a href=#614 id=614 data-nosnippet>614</a>		max_fee_per_gas: U256::from(<span class="number">20</span>),
+<a href=#615 id=615 data-nosnippet>615</a>		max_priority_fee_per_gas: U256::from(<span class="number">1</span>),
+<a href=#616 id=616 data-nosnippet>616</a>		..Default::default()
+<a href=#617 id=617 data-nosnippet>617</a>	});
+<a href=#618 id=618 data-nosnippet>618</a>
+<a href=#619 id=619 data-nosnippet>619</a>	<span class="kw">let </span>generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, <span class="prelude-val">None</span>);
+<a href=#620 id=620 data-nosnippet>620</a>	<span class="macro">assert_eq!</span>(generic.gas_price, <span class="prelude-val">Some</span>(U256::from(<span class="number">10</span>)));
+<a href=#621 id=621 data-nosnippet>621</a>
+<a href=#622 id=622 data-nosnippet>622</a>	<span class="kw">let </span>tx2 = generic.try_into_unsigned().unwrap();
+<a href=#623 id=623 data-nosnippet>623</a>	<span class="macro">assert_eq!</span>(tx, tx2);
+<a href=#624 id=624 data-nosnippet>624</a>}
+<a href=#625 id=625 data-nosnippet>625</a>
+<a href=#626 id=626 data-nosnippet>626</a><span class="attr">#[test]
+<a href=#627 id=627 data-nosnippet>627</a></span><span class="kw">fn </span>from_unsigned_works_for_7702() {
+<a href=#628 id=628 data-nosnippet>628</a>	<span class="kw">let </span>base_gas_price = U256::from(<span class="number">10</span>);
+<a href=#629 id=629 data-nosnippet>629</a>	<span class="kw">let </span>tx = TransactionUnsigned::from(Transaction7702Unsigned {
+<a href=#630 id=630 data-nosnippet>630</a>		chain_id: U256::from(<span class="number">1</span>),
+<a href=#631 id=631 data-nosnippet>631</a>		input: Bytes::from(<span class="macro">vec!</span>[<span class="number">1u8</span>]),
+<a href=#632 id=632 data-nosnippet>632</a>		nonce: U256::from(<span class="number">1</span>),
+<a href=#633 id=633 data-nosnippet>633</a>		value: U256::from(<span class="number">1</span>),
+<a href=#634 id=634 data-nosnippet>634</a>		to: H160::zero(),
+<a href=#635 id=635 data-nosnippet>635</a>		gas: U256::from(<span class="number">1</span>),
+<a href=#636 id=636 data-nosnippet>636</a>		max_fee_per_gas: U256::from(<span class="number">20</span>),
+<a href=#637 id=637 data-nosnippet>637</a>		max_priority_fee_per_gas: U256::from(<span class="number">1</span>),
+<a href=#638 id=638 data-nosnippet>638</a>		authorization_list: <span class="macro">vec!</span>[AuthorizationListEntry {
+<a href=#639 id=639 data-nosnippet>639</a>			chain_id: U256::from(<span class="number">1</span>),
+<a href=#640 id=640 data-nosnippet>640</a>			address: H160::from_low_u64_be(<span class="number">42</span>),
+<a href=#641 id=641 data-nosnippet>641</a>			nonce: U256::from(<span class="number">0</span>),
+<a href=#642 id=642 data-nosnippet>642</a>			y_parity: U256::from(<span class="number">1</span>),
+<a href=#643 id=643 data-nosnippet>643</a>			r: U256::from(<span class="number">1</span>),
+<a href=#644 id=644 data-nosnippet>644</a>			s: U256::from(<span class="number">2</span>),
+<a href=#645 id=645 data-nosnippet>645</a>		}],
+<a href=#646 id=646 data-nosnippet>646</a>		..Default::default()
+<a href=#647 id=647 data-nosnippet>647</a>	});
+<a href=#648 id=648 data-nosnippet>648</a>
+<a href=#649 id=649 data-nosnippet>649</a>	<span class="kw">let </span>generic = GenericTransaction::from_unsigned(tx.clone(), base_gas_price, <span class="prelude-val">None</span>);
+<a href=#650 id=650 data-nosnippet>650</a>	<span class="macro">assert_eq!</span>(generic.gas_price, <span class="prelude-val">Some</span>(U256::from(<span class="number">10</span>)));
+<a href=#651 id=651 data-nosnippet>651</a>
+<a href=#652 id=652 data-nosnippet>652</a>	<span class="kw">let </span>tx2 = generic.try_into_unsigned().unwrap();
+<a href=#653 id=653 data-nosnippet>653</a>	<span class="macro">assert_eq!</span>(tx, tx2);
+<a href=#654 id=654 data-nosnippet>654</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
