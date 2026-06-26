@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782459677973,
+  "lastUpdate": 1782494574663,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "23d90a0426b76ce9ff94e7cef38a51f4024ebec3",
-          "message": "revive fix reported gas used (#10148)\n\nFix `gas_used` calculation introduced in #9418 to use the actual gas\ninstead of just `ref_time`.\n\nWith these changes we now guarantee that `tx_cost = effective_gas_price\n* gas`.\nNote that since we compute gas as `fee / gas_price`, this can lead to\nrounding errors when the chain uses `SlowAdjustingFeeUpdate` (i.e. the\nfee is not a multiple of the gas price).\nThe changes in this PR ensure the fee still matches by burning the\nrounding remainder.\n\nThis PR also fixes how the actual fee is computed and introduces a new\n`compute_actual_fee` in `Config::FeeInfo`.\nThe previous fee calculation was skipping the `extension_weight` in the\nfee calculation.\n\nThe updated tests ensure that the tx cost reported in the receipt\nmatches the fees deducted from the user account:\n\n\nhttps://github.com/paritytech/evm-test-suite/blob/460b2c9aa3a3019d3508bb5a34a2498ea86035ff/src/gas.test.ts?plain=1#L31-L61\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-04T19:38:28Z",
-          "tree_id": "117ca9a6e866e88e48d7f0638c4b4c2ddaf5ab07",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/23d90a0426b76ce9ff94e7cef38a51f4024ebec3"
-        },
-        "date": 1762289180787,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013175858233333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022662928933333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007181263886666643,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16030330102666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009880419293333298,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mertwole@gmail.com",
+            "name": "mertwole",
+            "username": "mertwole"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f3d3e2f0809142b4a4bf6420aec2a943fe2c6a4d",
+          "message": "[pallet-staking-async] add `chill_inactive` extrinsic (#12381)\n\nThis PR adds the `chill_inactive` extrinsic which allows chilling the\nvalidators that were inactive too much.\n\nThe inactivity is defined as having zero era points for at least\n`ChillInactiveThreshold` eras among the last `HistoryDepth` eras.\n\nResolves #5674\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Andrei Trandafir <142614787+andreitrand@users.noreply.github.com>",
+          "timestamp": "2026-06-26T13:24:01Z",
+          "tree_id": "db2986711527f35904f0774478f503a0cf23967a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3d3e2f0809142b4a4bf6420aec2a943fe2c6a4d"
+        },
+        "date": 1782494544181,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023720918353333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.008063597006666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1487138780533334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010215212046666654,
             "unit": "seconds"
           }
         ]
