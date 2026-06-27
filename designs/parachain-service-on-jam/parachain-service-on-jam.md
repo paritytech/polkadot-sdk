@@ -229,6 +229,9 @@ enum RefineLog {
     /// exceed the Gray Paper's 48 KiB combined result-blob + auth-trace
     /// budget. See §4.1.
     WorkDigestTooLarge,
+    /// The PVF exited without calling `set_parent_head_hash` and/or `set_head`
+    /// exactly once. Both head declarations are mandatory. See §4.2.
+    MissingHeadDeclaration,
 }
 
 struct AccumulateLogEntry {
@@ -492,7 +495,8 @@ If the PVF exits abnormally (panic, trap, or other failed execution), Refine tre
 one was provided.
 
 The Refine wrapper also fails the invocation as `Err` if the PVF exits without calling
-`set_parent_head_hash` exactly once — the parent-head declaration is mandatory.
+`set_parent_head_hash` exactly once or without calling `set_head` exactly once — both the
+parent-head and the new-head declarations are mandatory.
 
 ### 4.3 Host Functions & PVM Imports
 
@@ -528,6 +532,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 |---|---|---|
 | `export(data: Vec<u8>)` | `u32` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads). Returns segment index. |
 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate. |
+| `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 5). Distinct from the Coretime-only `parachain_set_head`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
 | `request_code_upgrade(hash: ValidationCodeHash, len: u32)` | `()` | Signal a PVF code upgrade request. See §5.2. |
 | `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent — no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. For the parachain's own active/pending validation code it only sets `pinned` to true (§5.2). |
 | `forget(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent — no-op if the parachain is not in `preimage_registry[hash].referencers`. May be called for the parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). |

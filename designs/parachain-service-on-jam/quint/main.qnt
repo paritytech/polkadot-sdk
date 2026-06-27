@@ -64,6 +64,10 @@ module main {
   /// Construct one nondet work package's inputs against `svc`. Used twice
   /// in `stepRefineAccumulate` to model 1 or 2 work packages per block,
   /// from the same or different paras, with mixed valid/invalid outcomes.
+  /// `declParent` / `declHead` model whether the PVF called
+  /// `set_parent_head_hash` / `set_head`; when false the corresponding
+  /// declaration is `None`, which Refine rejects with
+  /// `MissingHeadDeclaration` (§4.2).
   pure def buildPackage(
     s: ParachainServiceState,
     paraId: ParaId,
@@ -71,10 +75,12 @@ module main {
     m1: UpwardMessage,
     m2: UpwardMessage,
     numMsgs: int,
-    itemCount: int
+    itemCount: int,
+    declParent: bool,
+    declHead: bool
   ): {
     pkg: WorkPackage, msgs: List[UpwardMessage],
-    parentHead: Hash, newHead: HeadData
+    parentHead: Option[Hash], newHead: Option[HeadData]
   } = {
     val msgs =
       if (numMsgs == 0) List()
@@ -93,7 +99,8 @@ module main {
     val curHead = if (s.isLive(paraId)) s.paraInfo(paraId).headData else 0
     {
       pkg: pkg, msgs: msgs,
-      parentHead: headHash(curHead), newHead: curHead + 1
+      parentHead: if (declParent) Some(headHash(curHead)) else None,
+      newHead: if (declHead) Some(curHead + 1) else None
     }
   }
 
@@ -113,7 +120,11 @@ module main {
     // work-item before the service's refine ran. Accumulate sees the no-op
     // case (§3.3).
     nondet wp1IsJamSkip = oneOf(Set(false, true))
-    val wp1 = buildPackage(svc, wp1Para, wp1Candidate, wp1M1, wp1M2, wp1NumMsgs, wp1ItemCount)
+    // Whether the PVF declared its parent head / new head (§4.2). When
+    // false, Refine rejects with `MissingHeadDeclaration`.
+    nondet wp1DeclParent = oneOf(Set(false, true))
+    nondet wp1DeclHead = oneOf(Set(false, true))
+    val wp1 = buildPackage(svc, wp1Para, wp1Candidate, wp1M1, wp1M2, wp1NumMsgs, wp1ItemCount, wp1DeclParent, wp1DeclHead)
     val wp1Wr: WorkResult = {
       result:
         if (wp1IsJamSkip) WorkErr
@@ -133,6 +144,8 @@ module main {
     nondet wp2AuthMalformed = oneOf(Set(false, true))
     nondet wp2AuthTrace = oneOf(Set(0, 1, 2))
     nondet wp2IsJamSkip = oneOf(Set(false, true))
+    nondet wp2DeclParent = oneOf(Set(false, true))
+    nondet wp2DeclHead = oneOf(Set(false, true))
 
     // 0 packages models a pure always-accumulate block (the service still
     // accumulates with no work packages); 1 or 2 exercise the normal path.
@@ -149,7 +162,7 @@ module main {
     // chosen from the pre-step `svc.parachains`); `buildPackage` and
     // `refine` both guard the resulting unregistered para (it fails Refine
     // with `InvalidCodeHash` and is dropped at Accumulate).
-    val wp2 = buildPackage(out1.state, wp2Para, wp2Candidate, wp2M1, wp2M2, wp2NumMsgs, wp2ItemCount)
+    val wp2 = buildPackage(out1.state, wp2Para, wp2Candidate, wp2M1, wp2M2, wp2NumMsgs, wp2ItemCount, wp2DeclParent, wp2DeclHead)
     val wp2Wr: WorkResult = {
       result:
         if (wp2IsJamSkip) WorkErr

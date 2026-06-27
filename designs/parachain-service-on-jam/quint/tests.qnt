@@ -37,7 +37,7 @@ module tests {
     }
     val newHead = pi.headData + 1
     val wr: WorkResult = {
-      result: WorkOk(refine(svc, pkg, false, false, headHash(pi.headData), newHead, msgs)[0]),
+      result: WorkOk(refine(svc, pkg, false, false, Some(headHash(pi.headData)), Some(newHead), msgs)[0]),
       authTrace: 0
     }
     val out = accumulateOnePackage(
@@ -72,7 +72,7 @@ module tests {
     }
     val nh1 = pi1.headData + 1
     val wr1: WorkResult = {
-      result: WorkOk(refine(svc, pkg1, false, false, headHash(pi1.headData), nh1, m1)[0]),
+      result: WorkOk(refine(svc, pkg1, false, false, Some(headHash(pi1.headData)), Some(nh1), m1)[0]),
       authTrace: 0
     }
     val out1 = accumulateOnePackage(
@@ -85,7 +85,7 @@ module tests {
     }
     val nh2 = pi2.headData + 1
     val wr2: WorkResult = {
-      result: WorkOk(refine(out1.state, pkg2, false, false, headHash(pi2.headData), nh2, m2)[0]),
+      result: WorkOk(refine(out1.state, pkg2, false, false, Some(headHash(pi2.headData)), Some(nh2), m2)[0]),
       authTrace: 0
     }
     val out2 = accumulateOnePackage(
@@ -343,6 +343,43 @@ module tests {
       // Referencer survives because the para independently solicited it.
       assert(reaped.state.hasReferencer(vchAsHash(pendingUpgradeHash), para)),
       assert(not(reaped.jamForget)),
+      init
+    }
+  }
+
+  // --- Missing head declaration (§4.2) -----------------------------------
+
+  /// An otherwise-valid candidate whose PVF skipped `set_parent_head_hash`
+  /// and/or `set_head` is rejected by Refine with `MissingHeadDeclaration`.
+  /// Coretime's active code (`{ vchBytes: 1 }`) is solicited in
+  /// `initialState`, so the candidate passes `codeAvailable` and reaches the
+  /// head-declaration check rather than failing earlier with `InvalidCodeHash`.
+  run refineMissingHeadDeclarationTest = {
+    val pkg: WorkPackage = {
+      authorizedParas: List(CoretimeParaId),
+      items: List({ validationCodeHash: { vchBytes: 1 }, pov: 0 })
+    }
+    val parentOnly =
+      refine(initialState, pkg, false, false, Some(headHash(0)), None, List())[0]
+    val headOnly =
+      refine(initialState, pkg, false, false, None, Some(1), List())[0]
+    val neither =
+      refine(initialState, pkg, false, false, None, None, List())[0]
+    val both =
+      refine(initialState, pkg, false, false, Some(headHash(0)), Some(1), List())[0]
+    all {
+      // Missing new head, missing parent head, or both → rejected.
+      assert(parentOnly == Err({ paraId: CoretimeParaId, error: MissingHeadDeclaration })),
+      assert(headOnly == Err({ paraId: CoretimeParaId, error: MissingHeadDeclaration })),
+      assert(neither == Err({ paraId: CoretimeParaId, error: MissingHeadDeclaration })),
+      // Both declared → not a MissingHeadDeclaration error (succeeds here).
+      assert(both == Ok({
+        paraId: CoretimeParaId,
+        validationCodeHash: { vchBytes: 1 },
+        parentHeadHash: headHash(0),
+        headData: 1,
+        upwardMessages: List()
+      })),
       init
     }
   }
