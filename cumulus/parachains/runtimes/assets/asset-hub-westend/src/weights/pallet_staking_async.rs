@@ -630,6 +630,8 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 	/// Proof: `Staking::MinCommission` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::MinValidatorBond` (r:0 w:1)
 	/// Proof: `Staking::MinValidatorBond` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ChillInactiveThreshold` (r:0 w:1)
+	/// Proof: `Staking::ChillInactiveThreshold` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::MaxValidatorsCount` (r:0 w:1)
 	/// Proof: `Staking::MaxValidatorsCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::MaxStakedRewards` (r:0 w:1)
@@ -647,7 +649,7 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 		// Minimum execution time: 5_094_000 picoseconds.
 		Weight::from_parts(5_820_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			.saturating_add(T::DbWeight::get().writes(8))
+			.saturating_add(T::DbWeight::get().writes(9))
 	}
 	/// Storage: `Staking::AreNominatorsSlashable` (r:0 w:1)
 	/// Proof: `Staking::AreNominatorsSlashable` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
@@ -655,6 +657,8 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 	/// Proof: `Staking::MinCommission` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::MinValidatorBond` (r:0 w:1)
 	/// Proof: `Staking::MinValidatorBond` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ChillInactiveThreshold` (r:0 w:1)
+	/// Proof: `Staking::ChillInactiveThreshold` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::MaxValidatorsCount` (r:0 w:1)
 	/// Proof: `Staking::MaxValidatorsCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::MaxStakedRewards` (r:0 w:1)
@@ -672,7 +676,7 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 		// Minimum execution time: 4_752_000 picoseconds.
 		Weight::from_parts(5_375_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			.saturating_add(T::DbWeight::get().writes(8))
+			.saturating_add(T::DbWeight::get().writes(9))
 	}
 	/// Storage: `Staking::Bonded` (r:1 w:0)
 	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
@@ -1131,5 +1135,40 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 			.saturating_add(T::DbWeight::get().reads(81))
 			.saturating_add(T::DbWeight::get().writes(79))
 			.saturating_add(Weight::from_parts(0, 83).saturating_mul(v.into()))
+	}
+	/// Storage: `Staking::ChillInactiveThreshold` (r:1 w:0)
+	/// Proof: `Staking::ChillInactiveThreshold` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `Staking::ActiveEra` (r:1 w:0)
+	/// Proof: `Staking::ActiveEra` (`max_values`: Some(1), `max_size`: Some(13), added: 508, mode: `Measured`)
+	/// Storage: `Staking::ErasStakersOverview` (r:84 w:0)
+	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `Measured`)
+	/// Storage: `Staking::ErasRewardPoints` (r:84 w:0)
+	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `Measured`)
+	/// Storage: `Staking::Validators` (r:1 w:1)
+	/// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `Measured`)
+	/// Storage: `Staking::CounterForValidators` (r:1 w:1)
+	/// Proof: `Staking::CounterForValidators` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `VoterList::Lock` (r:1 w:0)
+	/// Proof: `VoterList::Lock` (`max_values`: Some(1), `max_size`: Some(0), added: 495, mode: `Measured`)
+	/// Storage: `VoterList::ListNodes` (r:1 w:1)
+	/// Proof: `VoterList::ListNodes` (`max_values`: None, `max_size`: Some(154), added: 2629, mode: `Measured`)
+	/// Storage: `VoterList::ListBags` (r:1 w:1)
+	/// Proof: `VoterList::ListBags` (`max_values`: None, `max_size`: Some(82), added: 2557, mode: `Measured`)
+	/// Storage: `VoterList::CounterForListNodes` (r:1 w:1)
+	/// Proof: `VoterList::CounterForListNodes` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// The range of component `l` is `[2, 84]`.
+	fn chill_inactive(l: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1573 + l * (89 ±0)`
+		//  Estimated: `5039 + l * (2564 ±0)`
+		// Minimum execution time: 141_343_000 picoseconds.
+		Weight::from_parts(124_052_635, 0)
+			.saturating_add(Weight::from_parts(0, 5039))
+			// Standard Error: 19_434
+			.saturating_add(Weight::from_parts(10_486_986, 0).saturating_mul(l.into()))
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(l.into())))
+			.saturating_add(T::DbWeight::get().writes(5))
+			.saturating_add(Weight::from_parts(0, 2564).saturating_mul(l.into()))
 	}
 }

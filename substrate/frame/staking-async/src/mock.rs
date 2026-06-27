@@ -609,6 +609,7 @@ impl Config for Test {
 	type VestingBlockNumberProvider = frame_system::Pallet<Test>;
 	type ValidatorIncentivePayout = MockIncentivePayout;
 	type WeightInfo = ();
+	type IsValidatorInactive = ();
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
