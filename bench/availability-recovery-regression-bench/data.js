@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782494535605,
+  "lastUpdate": 1782676557147,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "45a0ea734fed1ed2b323e4b1bd8f44d53f4db598",
-          "message": "Require only one review from the smart contracts team (#10212)",
-          "timestamp": "2025-11-05T22:46:32Z",
-          "tree_id": "3b274a2851ddf70f42b10678137848ea1c8d7222",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/45a0ea734fed1ed2b323e4b1bd8f44d53f4db598"
-        },
-        "date": 1762386745332,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.6393904926,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2034348120333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.877255905166667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0610b27079652623b0f95b16c99b4fa7e394d44f",
+          "message": "Membership pallet try state (#5850)\n\nThis PR introduces try state hook into the Membership Pallet.\nIt also defines the invariants that holds for the pallet.\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-06-28T18:16:11Z",
+          "tree_id": "dbaa7598d8eec31ce31ed2c95bfd29f4ff1bd56d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0610b27079652623b0f95b16c99b4fa7e394d44f"
+        },
+        "date": 1782676526739,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.932546501900001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14309791813333333,
             "unit": "seconds"
           }
         ]
