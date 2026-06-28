@@ -78,7 +78,6 @@ pub(crate) type ResponseSender = oneshot::Sender<BitswapResponse>;
 /// Pending outbound WANT batch.
 struct PendingBatch {
 	remaining: HashSet<Cid>,
-	// rename to `responses`
 	collected: HashMap<Cid, FetchOutcome>,
 	response_tx: Option<ResponseSender>,
 	cids: Vec<Cid>,
