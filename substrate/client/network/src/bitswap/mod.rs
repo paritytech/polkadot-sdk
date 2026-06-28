@@ -51,7 +51,7 @@ pub use client::{
 	BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, SHA2_256_MULTIHASH_CODE,
 };
 
-pub(crate) use client::{BitswapRequest, BitswapResponse};
+pub(crate) use client::{BitswapRequest, BitswapResponse, VerificationMode};
 pub(crate) use schema::bitswap::Message as BitswapProtoMessage;
 
 pub(crate) const LOG_TARGET: &str = "sub-libp2p::bitswap";

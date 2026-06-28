@@ -28,7 +28,8 @@ use crate::{
 			wantlist::WantType as ProtoWantType,
 			Block as MessageBlock, BlockPresence, BlockPresenceType as ProtoPresenceType,
 		},
-		BitswapClient, BitswapError, BitswapProtoMessage, BitswapRequest, BitswapResponse, Cid, FetchOutcome, Prefix, LOG_TARGET, MAX_WANTED_BLOCKS,
+		BitswapClient, BitswapError, BitswapProtoMessage, BitswapRequest, BitswapResponse, Cid,
+		FetchOutcome, Prefix, VerificationMode, LOG_TARGET, MAX_WANTED_BLOCKS,
 	},
 	litep2p::bitswap_metrics::{errors, outcomes, BitswapMetrics},
 	request_responses::RequestFailure,
@@ -82,22 +83,25 @@ struct PendingBatch {
 	// rename to response_tx
 	response_txc: Option<ResponseSenderC>,
 	cids: Vec<Cid>,
-	responses: HashMap<Cid, ResponseType>,
 	response_bytes: usize,
-	// response_tx: Option<ResponseSender>,
+	verification: VerificationMode,
 	inserted: Instant,
 }
 
 impl PendingBatch {
-	fn new(cids: Vec<Cid>, response_tx: ResponseSenderC, inserted: Instant) -> Self {
+	fn new(
+		cids: Vec<Cid>,
+		response_tx: ResponseSenderC,
+		verification: VerificationMode,
+		inserted: Instant,
+	) -> Self {
 		Self {
 			remaining: cids.iter().copied().collect(),
 			collected: HashMap::new(),
 			response_txc: Some(response_tx),
 			cids,
-			responses: HashMap::new(),
 			response_bytes: 0,
-			// response_tx: Some(response_tx),
+			verification,
 			inserted,
 		}
 	}
@@ -117,14 +121,26 @@ impl PendingBatch {
 		self.response_bytes = self.response_bytes.saturating_add(response_retained_bytes(&resp));
 		self.remaining.remove(cid);
 		let outcome = match resp {
-			ResponseType::Block { block, .. } => FetchOutcome::Block(block),
+			ResponseType::Block { cid: block_cid, block } => match self.verification {
+				VerificationMode::Verified =>
+					if verify_block(&block_cid, &block) {
+						FetchOutcome::Block(block)
+					} else {
+						log::warn!(
+							target: LOG_TARGET,
+							"bitswap: block for CID {block_cid} failed hash verification; treating as missing",
+						);
+						FetchOutcome::Missing
+					},
+				VerificationMode::Unverified => FetchOutcome::Block(block),
+			},
 			ResponseType::Presence { .. } => FetchOutcome::Missing,
 		};
 		self.collected.insert(*cid, outcome);
 	}
 
 	fn is_complete(&self) -> bool {
-		self.cids.len() == self.responses.len()
+		self.remaining.is_empty()
 	}
 
 	fn is_over_limit(&self, max_response_bytes: usize) -> bool {
@@ -432,8 +448,8 @@ impl<Block: BlockT> BitswapService<Block> {
 					},
 				},
 				cmd = self.request_rx.recv() => match cmd {
-					Some(BitswapRequest { cids, response_tx }) =>
-						self.handle_outbound_cmd(cids, response_tx).await,
+					Some(BitswapRequest { cids, response_tx, verification }) =>
+						self.handle_outbound_cmd(cids, response_tx, verification).await,
 					None => {
 						log::debug!(target: LOG_TARGET, "bitswap cmd channel closed");
 						return;
@@ -505,6 +521,7 @@ impl<Block: BlockT> BitswapService<Block> {
 		&mut self,
 		cids: Vec<(Cid, ProtoWantType)>,
 		response_tx: ResponseSenderC,
+		verification: VerificationMode,
 	) {
 		log::debug!(
 			target: LOG_TARGET,
@@ -524,7 +541,7 @@ impl<Block: BlockT> BitswapService<Block> {
 			.collect();
 
 		let id = self.next_id();
-		self.pending.insert(id, PendingBatch::new(cid_keys, response_tx, Instant::now()));
+		self.pending.insert(id, PendingBatch::new(cid_keys, response_tx, verification, Instant::now()));
 
 		let peers: Vec<litep2p::PeerId> = self.known_peers
 			.iter()
@@ -544,6 +561,26 @@ impl<Block: BlockT> BitswapService<Block> {
 
 fn inbound_wantlist_exceeds_limit(len: usize) -> bool {
 	len > MAX_WANTED_BLOCKS
+}
+
+/// Re-hash `block` bytes and confirm the digest matches the multihash embedded in `cid`.
+///
+/// Uses `sp_crypto_hashing` for the three supported codes (BLAKE2b-256, SHA2-256, Keccak-256).
+/// Returns `false` for any unsupported multihash code, treating the block as unverifiable.
+fn verify_block(cid: &Cid, block: &[u8]) -> bool {
+	use crate::bitswap::{
+		BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, SHA2_256_MULTIHASH_CODE,
+	};
+
+	let expected = cid.hash().digest();
+	let computed: Option<[u8; 32]> = match cid.hash().code() {
+		BLAKE2B_256_MULTIHASH_CODE => Some(sp_crypto_hashing::blake2_256(block)),
+		SHA2_256_MULTIHASH_CODE => Some(sp_crypto_hashing::sha2_256(block)),
+		KECCAK_256_MULTIHASH_CODE => Some(sp_crypto_hashing::keccak_256(block)),
+		_ => None,
+	};
+
+	computed.map_or(false, |digest| digest.as_ref() == expected)
 }
 
 /// Collapse a response list into at most one entry per CID, preferring `Block`

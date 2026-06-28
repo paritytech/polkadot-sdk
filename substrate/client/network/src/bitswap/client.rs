@@ -15,26 +15,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{IfDisconnected, NetworkRequest, ProtocolName};
-
-use cid::{multihash::Multihash as CidMultihash, Cid, Version as CidVersion};
+use cid::Cid;
 use futures::channel::oneshot;
-use log::{debug, trace, warn};
-use prost::Message;
-use sc_network_types::PeerId;
 use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
 
 use super::{
 	is_cid_supported,
-	schema::bitswap::{
-		message::{
-			wantlist::{Entry, WantType as ProtoWantType},
-			BlockPresence, BlockPresenceType, Wantlist,
-		},
-		Message as BitswapMessage,
-	},
-	Prefix, LOG_TARGET, MAX_WANTED_BLOCKS, PROTOCOL_NAME,
+	schema::bitswap::message::wantlist::WantType as ProtoWantType,
+	MAX_WANTED_BLOCKS,
 };
 
 /// Const from <https://github.com/multiformats/multicodec/blame/master/table.csv>
@@ -62,9 +51,6 @@ pub enum FetchOutcome {
 	/// equivalent: no block was delivered.
 	Missing,
 }
-
-/// Multihash type with a 64-byte digest capacity.
-type Multihash = CidMultihash<64>;
 
 /// Validate the wantlist length is within bounds.
 fn validate_wantlist_size(len: usize) -> Result<(), BitswapError> {
@@ -194,203 +180,203 @@ fn validate_cids(cids: &[Cid]) -> Result<(), BitswapError> {
 // 	})
 // }
 
-/// Classify the response by verifying each block's CID against the wanted set.
-///
-/// Every wanted CID is recorded exactly once: as [`FetchOutcome::Block`] if the peer delivered
-/// bytes whose recomputed CID is in `wanted`, otherwise as [`FetchOutcome::Missing`]. Presence
-/// frames (`HAVE` / `DONT_HAVE`) are logged for diagnostics but do not change the outcome.
-fn classify_response(
-	response: BitswapMessage,
-	wanted: &HashSet<Cid>,
-	peer: PeerId,
-) -> HashMap<Cid, FetchOutcome> {
-	let mut result: HashMap<Cid, FetchOutcome> = HashMap::with_capacity(wanted.len());
+// Classify the response by verifying each block's CID against the wanted set.
+//
+// Every wanted CID is recorded exactly once: as [`FetchOutcome::Block`] if the peer delivered
+// bytes whose recomputed CID is in `wanted`, otherwise as [`FetchOutcome::Missing`]. Presence
+// frames (`HAVE` / `DONT_HAVE`) are logged for diagnostics but do not change the outcome.
+// fn classify_response(
+// 	response: BitswapMessage,
+// 	wanted: &HashSet<Cid>,
+// 	peer: PeerId,
+// ) -> HashMap<Cid, FetchOutcome> {
+// 	let mut result: HashMap<Cid, FetchOutcome> = HashMap::with_capacity(wanted.len());
 
-	for block in response.payload {
-		let Ok(cid) = cid_from_block_prefix(&block.prefix, &block.data).inspect_err(|err| {
-			debug!(target: LOG_TARGET, "client: malformed block prefix from {peer}: {err:?}");
-		}) else {
-			continue;
-		};
-		if !wanted.contains(&cid) {
-			debug!(target: LOG_TARGET, "client: {peer} returned unsolicited block for CID {cid}");
-			continue;
-		}
-		debug!(target: LOG_TARGET, "client: {peer} returned {} bytes for CID {cid}", block.data.len());
-		result.insert(cid, FetchOutcome::Block(block.data));
-	}
+// 	for block in response.payload {
+// 		let Ok(cid) = cid_from_block_prefix(&block.prefix, &block.data).inspect_err(|err| {
+// 			debug!(target: LOG_TARGET, "client: malformed block prefix from {peer}: {err:?}");
+// 		}) else {
+// 			continue;
+// 		};
+// 		if !wanted.contains(&cid) {
+// 			debug!(target: LOG_TARGET, "client: {peer} returned unsolicited block for CID {cid}");
+// 			continue;
+// 		}
+// 		debug!(target: LOG_TARGET, "client: {peer} returned {} bytes for CID {cid}", block.data.len());
+// 		result.insert(cid, FetchOutcome::Block(block.data));
+// 	}
 
-	log_presences(response.block_presences, wanted, peer);
+// 	log_presences(response.block_presences, wanted, peer);
 
-	for cid in wanted {
-		result.entry(*cid).or_insert(FetchOutcome::Missing);
-	}
+// 	for cid in wanted {
+// 		result.entry(*cid).or_insert(FetchOutcome::Missing);
+// 	}
 
-	result
-}
+// 	result
+// }
 
-/// Classify an unverified response via order-based correlation.
-///
-/// Every wanted CID is recorded exactly once: as [`FetchOutcome::Block`] if the peer delivered
-/// bytes whose declared prefix matches a requested CID at the corresponding position in the
-/// wantlist, otherwise as [`FetchOutcome::Missing`].
-fn classify_response_unverified(
-	response: BitswapMessage,
-	cids: &[Cid],
-	peer: PeerId,
-) -> HashMap<Cid, FetchOutcome> {
-	let mut result: HashMap<Cid, FetchOutcome> = HashMap::with_capacity(cids.len());
-	let wanted_set: HashSet<Cid> = cids.iter().copied().collect();
-	let mut dont_have_cids: HashSet<Cid> = HashSet::with_capacity(cids.len());
+// Classify an unverified response via order-based correlation.
+//
+// Every wanted CID is recorded exactly once: as [`FetchOutcome::Block`] if the peer delivered
+// bytes whose declared prefix matches a requested CID at the corresponding position in the
+// wantlist, otherwise as [`FetchOutcome::Missing`].
+// fn classify_response_unverified(
+// 	response: BitswapMessage,
+// 	cids: &[Cid],
+// 	peer: PeerId,
+// ) -> HashMap<Cid, FetchOutcome> {
+// 	let mut result: HashMap<Cid, FetchOutcome> = HashMap::with_capacity(cids.len());
+// 	let wanted_set: HashSet<Cid> = cids.iter().copied().collect();
+// 	let mut dont_have_cids: HashSet<Cid> = HashSet::with_capacity(cids.len());
 
-	for presence in response.block_presences {
-		let Ok(cid) = Cid::read_bytes(presence.cid.as_slice()).inspect_err(|err| {
-			debug!(target: LOG_TARGET, "client: malformed presence CID from {peer}: {err}");
-		}) else {
-			continue;
-		};
-		if !wanted_set.contains(&cid) {
-			debug!(target: LOG_TARGET, "client: {peer} returned unsolicited presence for CID {cid}");
-			continue;
-		}
-		if presence.r#type == BlockPresenceType::DontHave as i32 {
-			debug!(target: LOG_TARGET, "client: {peer} DONT_HAVE for CID {cid}");
-			dont_have_cids.insert(cid);
-		} else if presence.r#type == BlockPresenceType::Have as i32 {
-			debug!(target: LOG_TARGET, "client: {peer} HAVE for CID {cid}");
-		} else {
-			warn!(
-				target: LOG_TARGET,
-				"client: {peer} unexpected presence type {} for CID {cid}",
-				presence.r#type,
-			);
-		}
-	}
+// 	for presence in response.block_presences {
+// 		let Ok(cid) = Cid::read_bytes(presence.cid.as_slice()).inspect_err(|err| {
+// 			debug!(target: LOG_TARGET, "client: malformed presence CID from {peer}: {err}");
+// 		}) else {
+// 			continue;
+// 		};
+// 		if !wanted_set.contains(&cid) {
+// 			debug!(target: LOG_TARGET, "client: {peer} returned unsolicited presence for CID {cid}");
+// 			continue;
+// 		}
+// 		if presence.r#type == BlockPresenceType::DontHave as i32 {
+// 			debug!(target: LOG_TARGET, "client: {peer} DONT_HAVE for CID {cid}");
+// 			dont_have_cids.insert(cid);
+// 		} else if presence.r#type == BlockPresenceType::Have as i32 {
+// 			debug!(target: LOG_TARGET, "client: {peer} HAVE for CID {cid}");
+// 		} else {
+// 			warn!(
+// 				target: LOG_TARGET,
+// 				"client: {peer} unexpected presence type {} for CID {cid}",
+// 				presence.r#type,
+// 			);
+// 		}
+// 	}
 
-	// Unverified payloads cannot be matched by recomputing their CID from bytes, so attribute
-	// each block to the next requested CID (skipping any the peer already said it doesn't have)
-	// whose CID metadata matches the payload prefix.
-	let mut expected_payload_order =
-		cids.iter().copied().filter(|cid| !dont_have_cids.contains(cid));
+// 	// Unverified payloads cannot be matched by recomputing their CID from bytes, so attribute
+// 	// each block to the next requested CID (skipping any the peer already said it doesn't have)
+// 	// whose CID metadata matches the payload prefix.
+// 	let mut expected_payload_order =
+// 		cids.iter().copied().filter(|cid| !dont_have_cids.contains(cid));
 
-	for block in response.payload {
-		let Some(expected_cid) = expected_payload_order.next() else {
-			debug!(target: LOG_TARGET, "client: {peer} returned more payload blocks than expected; dropping extras");
-			break;
-		};
-		let Ok(prefix) = decode_prefix(&block.prefix).inspect_err(|err| {
-			debug!(target: LOG_TARGET, "client: malformed block prefix from {peer}: {err:?}");
-		}) else {
-			break;
-		};
-		if !prefix_matches_cid(&prefix, &expected_cid) {
-			debug!(
-				target: LOG_TARGET,
-				"client: {peer} returned block with prefix {:?} but expected CID {expected_cid}; \
-				 stopping payload attribution",
-				prefix,
-			);
-			break;
-		}
-		debug!(
-			target: LOG_TARGET,
-			"client: {peer} returned {} unverified bytes for CID {expected_cid}",
-			block.data.len(),
-		);
-		result.insert(expected_cid, FetchOutcome::Block(block.data.clone()));
-	}
+// 	for block in response.payload {
+// 		let Some(expected_cid) = expected_payload_order.next() else {
+// 			debug!(target: LOG_TARGET, "client: {peer} returned more payload blocks than expected; dropping extras");
+// 			break;
+// 		};
+// 		let Ok(prefix) = decode_prefix(&block.prefix).inspect_err(|err| {
+// 			debug!(target: LOG_TARGET, "client: malformed block prefix from {peer}: {err:?}");
+// 		}) else {
+// 			break;
+// 		};
+// 		if !prefix_matches_cid(&prefix, &expected_cid) {
+// 			debug!(
+// 				target: LOG_TARGET,
+// 				"client: {peer} returned block with prefix {:?} but expected CID {expected_cid}; \
+// 				 stopping payload attribution",
+// 				prefix,
+// 			);
+// 			break;
+// 		}
+// 		debug!(
+// 			target: LOG_TARGET,
+// 			"client: {peer} returned {} unverified bytes for CID {expected_cid}",
+// 			block.data.len(),
+// 		);
+// 		result.insert(expected_cid, FetchOutcome::Block(block.data.clone()));
+// 	}
 
-	for cid in cids {
-		result.entry(*cid).or_insert(FetchOutcome::Missing);
-	}
+// 	for cid in cids {
+// 		result.entry(*cid).or_insert(FetchOutcome::Missing);
+// 	}
 
-	result
-}
+// 	result
+// }
 
-/// Log per-CID presence frames for diagnostics. Presence does not influence the public outcome.
-fn log_presences(presences: Vec<BlockPresence>, wanted: &HashSet<Cid>, peer: PeerId) {
-	for presence in presences {
-		let Ok(cid) = Cid::read_bytes(presence.cid.as_slice()).inspect_err(|err| {
-			debug!(target: LOG_TARGET, "client: malformed presence CID from {peer}: {err}");
-		}) else {
-			continue;
-		};
-		if !wanted.contains(&cid) {
-			debug!(target: LOG_TARGET, "client: {peer} returned unsolicited presence for CID {cid}");
-			continue;
-		}
-		if presence.r#type == BlockPresenceType::DontHave as i32 {
-			debug!(target: LOG_TARGET, "client: {peer} DONT_HAVE for CID {cid}");
-		} else if presence.r#type == BlockPresenceType::Have as i32 {
-			debug!(target: LOG_TARGET, "client: {peer} HAVE for CID {cid}");
-		} else {
-			debug!(
-				target: LOG_TARGET,
-				"client: {peer} unexpected presence type {} for CID {cid}",
-				presence.r#type,
-			);
-		}
-	}
-}
+// Log per-CID presence frames for diagnostics. Presence does not influence the public outcome.
+// fn log_presences(presences: Vec<BlockPresence>, wanted: &HashSet<Cid>, peer: PeerId) {
+// 	for presence in presences {
+// 		let Ok(cid) = Cid::read_bytes(presence.cid.as_slice()).inspect_err(|err| {
+// 			debug!(target: LOG_TARGET, "client: malformed presence CID from {peer}: {err}");
+// 		}) else {
+// 			continue;
+// 		};
+// 		if !wanted.contains(&cid) {
+// 			debug!(target: LOG_TARGET, "client: {peer} returned unsolicited presence for CID {cid}");
+// 			continue;
+// 		}
+// 		if presence.r#type == BlockPresenceType::DontHave as i32 {
+// 			debug!(target: LOG_TARGET, "client: {peer} DONT_HAVE for CID {cid}");
+// 		} else if presence.r#type == BlockPresenceType::Have as i32 {
+// 			debug!(target: LOG_TARGET, "client: {peer} HAVE for CID {cid}");
+// 		} else {
+// 			debug!(
+// 				target: LOG_TARGET,
+// 				"client: {peer} unexpected presence type {} for CID {cid}",
+// 				presence.r#type,
+// 			);
+// 		}
+// 	}
+// }
 
-/// Check that a decoded prefix matches a CID's version, codec, and multihash metadata.
-fn prefix_matches_cid(prefix: &Prefix, cid: &Cid) -> bool {
-	prefix.version == cid.version() &&
-		prefix.codec == cid.codec() &&
-		prefix.mh_type == cid.hash().code() &&
-		prefix.mh_len == cid.hash().size()
-}
+// Check that a decoded prefix matches a CID's version, codec, and multihash metadata.
+// fn prefix_matches_cid(prefix: &Prefix, cid: &Cid) -> bool {
+// 	prefix.version == cid.version() &&
+// 		prefix.codec == cid.codec() &&
+// 		prefix.mh_type == cid.hash().code() &&
+// 		prefix.mh_len == cid.hash().size()
+// }
 
-/// Reconstruct a CID from a block's prefix bytes and payload data.
-fn cid_from_block_prefix(prefix: &[u8], data: &[u8]) -> Result<Cid, BitswapError> {
-	let prefix = decode_prefix(prefix)?;
-	if prefix.version != CidVersion::V1 {
-		return Err(BitswapError::UnsupportedCidVersion { version: prefix.version.into() });
-	}
+// Reconstruct a CID from a block's prefix bytes and payload data.
+// fn cid_from_block_prefix(prefix: &[u8], data: &[u8]) -> Result<Cid, BitswapError> {
+// 	let prefix = decode_prefix(prefix)?;
+// 	if prefix.version != CidVersion::V1 {
+// 		return Err(BitswapError::UnsupportedCidVersion { version: prefix.version.into() });
+// 	}
 
-	let hash = hash_for_multihash_code(prefix.mh_type, data)
-		.ok_or(BitswapError::UnsupportedHashing { multihash_code: prefix.mh_type })?;
-	let multihash = Multihash::wrap(prefix.mh_type, &hash)
-		.map_err(|err| BitswapError::DecodeError(err.to_string()))?;
-	Ok(Cid::new_v1(prefix.codec, multihash))
-}
+// 	let hash = hash_for_multihash_code(prefix.mh_type, data)
+// 		.ok_or(BitswapError::UnsupportedHashing { multihash_code: prefix.mh_type })?;
+// 	let multihash = Multihash::wrap(prefix.mh_type, &hash)
+// 		.map_err(|err| BitswapError::DecodeError(err.to_string()))?;
+// 	Ok(Cid::new_v1(prefix.codec, multihash))
+// }
 
-/// Compute a 32-byte hash for the given multihash code.
-fn hash_for_multihash_code(multihash_code: u64, data: &[u8]) -> Option<[u8; 32]> {
-	match multihash_code {
-		BLAKE2B_256_MULTIHASH_CODE => Some(sp_crypto_hashing::blake2_256(data)),
-		SHA2_256_MULTIHASH_CODE => Some(sp_crypto_hashing::sha2_256(data)),
-		KECCAK_256_MULTIHASH_CODE => Some(sp_crypto_hashing::keccak_256(data)),
-		_ => None,
-	}
-}
+// Compute a 32-byte hash for the given multihash code.
+// fn hash_for_multihash_code(multihash_code: u64, data: &[u8]) -> Option<[u8; 32]> {
+// 	match multihash_code {
+// 		BLAKE2B_256_MULTIHASH_CODE => Some(sp_crypto_hashing::blake2_256(data)),
+// 		SHA2_256_MULTIHASH_CODE => Some(sp_crypto_hashing::sha2_256(data)),
+// 		KECCAK_256_MULTIHASH_CODE => Some(sp_crypto_hashing::keccak_256(data)),
+// 		_ => None,
+// 	}
+// }
 
-/// Decode varint-encoded CID prefix bytes.
-fn decode_prefix(mut bytes: &[u8]) -> Result<Prefix, BitswapError> {
-	let mut read_varint = || -> Result<u64, BitswapError> {
-		let (v, rest) = unsigned_varint::decode::u64(bytes)
-			.map_err(|err| BitswapError::DecodeError(err.to_string()))?;
-		bytes = rest;
-		Ok(v)
-	};
+// Decode varint-encoded CID prefix bytes.
+// fn decode_prefix(mut bytes: &[u8]) -> Result<Prefix, BitswapError> {
+// 	let mut read_varint = || -> Result<u64, BitswapError> {
+// 		let (v, rest) = unsigned_varint::decode::u64(bytes)
+// 			.map_err(|err| BitswapError::DecodeError(err.to_string()))?;
+// 		bytes = rest;
+// 		Ok(v)
+// 	};
 
-	let version = read_varint()?;
-	let codec = read_varint()?;
-	let mh_type = read_varint()?;
-	let mh_len = read_varint()?;
+// 	let version = read_varint()?;
+// 	let codec = read_varint()?;
+// 	let mh_type = read_varint()?;
+// 	let mh_len = read_varint()?;
 
-	if !bytes.is_empty() {
-		return Err(BitswapError::DecodeError("bitswap block prefix had trailing bytes".into()));
-	}
+// 	if !bytes.is_empty() {
+// 		return Err(BitswapError::DecodeError("bitswap block prefix had trailing bytes".into()));
+// 	}
 
-	let version = CidVersion::try_from(version)
-		.map_err(|_| BitswapError::UnsupportedCidVersion { version })?;
-	let mh_len = u8::try_from(mh_len).map_err(|_| {
-		BitswapError::DecodeError(format!("multihash length {mh_len} does not fit into u8"))
-	})?;
+// 	let version = CidVersion::try_from(version)
+// 		.map_err(|_| BitswapError::UnsupportedCidVersion { version })?;
+// 	let mh_len = u8::try_from(mh_len).map_err(|_| {
+// 		BitswapError::DecodeError(format!("multihash length {mh_len} does not fit into u8"))
+// 	})?;
 
-	Ok(Prefix { version, codec, mh_type, mh_len })
-}
+// 	Ok(Prefix { version, codec, mh_type, mh_len })
+// }
 
 /// Bitswap client errors.
 #[derive(Debug)]
@@ -413,9 +399,21 @@ pub enum BitswapError {
 
 pub(crate) type BitswapResponse = Result<HashMap<Cid, FetchOutcome>, BitswapError>;
 
+/// Whether the service should re-hash block bytes to confirm they match the requested CID.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum VerificationMode {
+	/// Re-hash received block bytes and confirm the digest matches the requested CID.
+	/// Blocks that fail verification are recorded as [`FetchOutcome::Missing`].
+	Verified,
+	/// Trust the peer-declared CID without recomputing the hash.
+	/// Integrity verification is delegated to the caller.
+	Unverified,
+}
+
 pub(crate) struct BitswapRequest {
 	pub(crate) cids: Vec<(Cid, ProtoWantType)>,
 	pub(crate) response_tx: oneshot::Sender<BitswapResponse>,
+	pub(crate) verification: VerificationMode,
 }
 
 /// BitswapClient for sending requests. Holds unto a sender channel from BitswapService.
@@ -433,21 +431,29 @@ impl BitswapClient {
 	///
 	/// Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS`], contains an unsupported CID,
 	/// or contains a duplicate CID.
-	pub async fn request_blocks(&self, cids: &[Cid]) -> BitswapResponse{
+	/// Request blocks, verifying each response by recomputing the CID from the received bytes.
+	///
+	/// Blocks whose recomputed CID does not match what was requested are recorded as
+	/// [`FetchOutcome::Missing`]. Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS`],
+	/// contains an unsupported CID, or contains a duplicate CID.
+	pub async fn request_blocks(&self, cids: &[Cid]) -> BitswapResponse {
 		validate_cids(cids)?;
-
-		self.request_blocks_unverified(cids).await
+		self.send(cids, VerificationMode::Verified).await
 	}
 
-	/// Like [`request_bitswap_blocks`], but does not recompute or verify the hash of received bytes.
+	/// Like [`BitswapClient::request_blocks`], but does not recompute or verify the hash.
 	///
-	/// Use this when the requester must fetch by CID-shaped identifiers before it can verify the
-	/// returned bytes through an external authority. The response is matched by request order and
-	/// CID prefix only; integrity verification is delegated to the caller.
+	/// Use when the requester must fetch blocks before it can verify them through an external
+	/// authority. Integrity verification is delegated to the caller.
 	pub async fn request_blocks_unverified(&self, cids: &[Cid]) -> BitswapResponse {
+		validate_cids(cids)?;
+		self.send(cids, VerificationMode::Unverified).await
+	}
+
+	async fn send(&self, cids: &[Cid], verification: VerificationMode) -> BitswapResponse {
 		let (response_tx, response_rx) = oneshot::channel();
 		let cids = cids.iter().map(|cid| (*cid, ProtoWantType::Block)).collect();
-		let _ = self.request_tx.send(BitswapRequest { cids, response_tx }).await;
+		let _ = self.request_tx.send(BitswapRequest { cids, response_tx, verification }).await;
 		response_rx.await.map_err(|err| BitswapError::RequestFailed(err.to_string())).and_then(|r| r)
 	}
 }
