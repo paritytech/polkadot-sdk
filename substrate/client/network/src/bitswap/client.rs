@@ -96,103 +96,103 @@ fn validate_cids(cids: &[Cid]) -> Result<(), BitswapError> {
 	Ok(())
 }
 
-/// Send one `WANT-BLOCK` request for `cids` to `peer` and classify the response.
-///
-/// Returned blocks are verified by recomputing the CID from the response prefix and bytes.
-/// Blocks whose recomputed CID was not requested are ignored.
-///
-/// Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS`], contains an unsupported CID,
-/// or contains a duplicate CID.
-///
-/// Note: This is a temporary API that shall be superseeded by a better abstraction such as
-///  <https://github.com/paritytech/polkadot-sdk/issues/12052>
-pub async fn request_bitswap_blocks<N>(
-	network: &N,
-	peer: PeerId,
-	cids: &[Cid],
-) -> Result<HashMap<Cid, FetchOutcome>, BitswapError>
-where
-	N: NetworkRequest + ?Sized,
-{
-	validate_cids(cids)?;
+// Send one `WANT-BLOCK` request for `cids` to `peer` and classify the response.
+//
+// Returned blocks are verified by recomputing the CID from the response prefix and bytes.
+// Blocks whose recomputed CID was not requested are ignored.
+//
+// Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS`], contains an unsupported CID,
+// or contains a duplicate CID.
+//
+// Note: This is a temporary API that shall be superseeded by a better abstraction such as
+//  <https://github.com/paritytech/polkadot-sdk/issues/12052>
+// pub async fn request_bitswap_blocks<N>(
+// 	network: &N,
+// 	peer: PeerId,
+// 	cids: &[Cid],
+// ) -> Result<HashMap<Cid, FetchOutcome>, BitswapError>
+// where
+// 	N: NetworkRequest + ?Sized,
+// {
+// 	validate_cids(cids)?;
 
-	let wanted: HashSet<Cid> = cids.iter().copied().collect();
-	let response = send_request(network, peer, cids).await?;
-	Ok(classify_response(response, &wanted, peer))
-}
+// 	let wanted: HashSet<Cid> = cids.iter().copied().collect();
+// 	let response = send_request(network, peer, cids).await?;
+// 	Ok(classify_response(response, &wanted, peer))
+// }
 
-/// Like [`request_bitswap_blocks`], but does not recompute or verify the hash of received bytes.
-///
-/// Use this when the requester must fetch by CID-shaped identifiers before it can verify the
-/// returned bytes through an external authority. The response is matched by request order and
-/// CID prefix only; integrity verification is delegated to the caller.
-///
-/// Note: This is a temporary API that shall be superseeded by a better abstraction such as
-///  <https://github.com/paritytech/polkadot-sdk/issues/12052>
-pub async fn request_bitswap_blocks_unverified<N>(
-	network: &N,
-	peer: PeerId,
-	cids: &[Cid],
-) -> Result<HashMap<Cid, FetchOutcome>, BitswapError>
-where
-	N: NetworkRequest + ?Sized,
-{
-	validate_cids(cids)?;
+// Like [`request_bitswap_blocks`], but does not recompute or verify the hash of received bytes.
+//
+// Use this when the requester must fetch by CID-shaped identifiers before it can verify the
+// returned bytes through an external authority. The response is matched by request order and
+// CID prefix only; integrity verification is delegated to the caller.
+//
+// Note: This is a temporary API that shall be superseeded by a better abstraction such as
+//  <https://github.com/paritytech/polkadot-sdk/issues/12052>
+// pub async fn request_bitswap_blocks_unverified<N>(
+// 	network: &N,
+// 	peer: PeerId,
+// 	cids: &[Cid],
+// ) -> Result<HashMap<Cid, FetchOutcome>, BitswapError>
+// where
+// 	N: NetworkRequest + ?Sized,
+// {
+// 	validate_cids(cids)?;
 
-	let response = send_request(network, peer, cids).await?;
-	Ok(classify_response_unverified(response, cids, peer))
-}
+// 	let response = send_request(network, peer, cids).await?;
+// 	Ok(classify_response_unverified(response, cids, peer))
+// }
 
-/// Dispatch a bitswap WANT request to `peer` and decode the response.
-async fn send_request<N>(
-	network: &N,
-	peer: PeerId,
-	cids: &[Cid],
-) -> Result<BitswapMessage, BitswapError>
-where
-	N: NetworkRequest + ?Sized,
-{
-	let entries: Vec<Entry> = cids
-		.iter()
-		.copied()
-		.map(|cid| Entry {
-			block: cid.to_bytes(),
-			want_type: ProtoWantType::Block as i32,
-			send_dont_have: true,
-			..Default::default()
-		})
-		.collect();
-	let request =
-		BitswapMessage { wantlist: Some(Wantlist { entries, full: false }), ..Default::default() };
+// Dispatch a bitswap WANT request to `peer` and decode the response.
+// async fn send_request<N>(
+// 	network: &N,
+// 	peer: PeerId,
+// 	cids: &[Cid],
+// ) -> Result<BitswapMessage, BitswapError>
+// where
+// 	N: NetworkRequest + ?Sized,
+// {
+// 	let entries: Vec<Entry> = cids
+// 		.iter()
+// 		.copied()
+// 		.map(|cid| Entry {
+// 			block: cid.to_bytes(),
+// 			want_type: ProtoWantType::Block as i32,
+// 			send_dont_have: true,
+// 			..Default::default()
+// 		})
+// 		.collect();
+// 	let request =
+// 		BitswapMessage { wantlist: Some(Wantlist { entries, full: false }), ..Default::default() };
 
-	trace!(
-		target: LOG_TARGET,
-		"client: sending Bitswap wantlist for {} CIDs to {peer}, protocol {PROTOCOL_NAME}",
-		cids.len(),
-	);
+// 	trace!(
+// 		target: LOG_TARGET,
+// 		"client: sending Bitswap wantlist for {} CIDs to {peer}, protocol {PROTOCOL_NAME}",
+// 		cids.len(),
+// 	);
 
-	let payload = match network
-		.request(
-			peer,
-			ProtocolName::from(PROTOCOL_NAME),
-			request.encode_to_vec(),
-			None,
-			IfDisconnected::TryConnect,
-		)
-		.await
-	{
-		Ok((payload, _)) => payload,
-		Err(err) => {
-			debug!(target: LOG_TARGET, "client: batch request to {peer} rejected by network: {err:?}");
-			return Err(BitswapError::RequestFailed(err.to_string()));
-		},
-	};
+// 	let payload = match network
+// 		.request(
+// 			peer,
+// 			ProtocolName::from(PROTOCOL_NAME),
+// 			request.encode_to_vec(),
+// 			None,
+// 			IfDisconnected::TryConnect,
+// 		)
+// 		.await
+// 	{
+// 		Ok((payload, _)) => payload,
+// 		Err(err) => {
+// 			debug!(target: LOG_TARGET, "client: batch request to {peer} rejected by network: {err:?}");
+// 			return Err(BitswapError::RequestFailed(err.to_string()));
+// 		},
+// 	};
 
-	BitswapMessage::decode(&payload[..]).map_err(|err| {
-		debug!(target: LOG_TARGET, "client: failed to decode batch response from {peer}: {err}");
-		BitswapError::DecodeError(err.to_string())
-	})
-}
+// 	BitswapMessage::decode(&payload[..]).map_err(|err| {
+// 		debug!(target: LOG_TARGET, "client: failed to decode batch response from {peer}: {err}");
+// 		BitswapError::DecodeError(err.to_string())
+// 	})
+// }
 
 /// Classify the response by verifying each block's CID against the wanted set.
 ///
@@ -426,9 +426,25 @@ pub struct BitswapClient {
 }
 
 impl BitswapClient {
-	/// Request blocks. Send WANT requests.
+	/// Send one `WANT-BLOCK` request for `cids` to `peer` and classify the response.
+	///
+	/// Returned blocks are verified by recomputing the CID from the response prefix and bytes.
+	/// Blocks whose recomputed CID was not requested are ignored.
+	///
+	/// Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS`], contains an unsupported CID,
+	/// or contains a duplicate CID.
 	pub async fn request_blocks(&self, cids: &[Cid]) -> BitswapResponse{
 		validate_cids(cids)?;
+
+		self.request_blocks_unverified(cids).await
+	}
+
+	/// Like [`request_bitswap_blocks`], but does not recompute or verify the hash of received bytes.
+	///
+	/// Use this when the requester must fetch by CID-shaped identifiers before it can verify the
+	/// returned bytes through an external authority. The response is matched by request order and
+	/// CID prefix only; integrity verification is delegated to the caller.
+	pub async fn request_blocks_unverified(&self, cids: &[Cid]) -> BitswapResponse {
 		let (response_tx, response_rx) = oneshot::channel();
 		let cids = cids.iter().map(|cid| (*cid, ProtoWantType::Block)).collect();
 		let _ = self.request_tx.send(BitswapRequest { cids, response_tx }).await;
