@@ -82,7 +82,7 @@ pub struct BitswapClient {
 }
 
 impl BitswapClient {
-	/// Send one `WANT-BLOCK` request for `cids`, verifying each response by recomputing the CID from the received bytes.
+	/// Request blocks, verifying each response by recomputing the CID from the received bytes.
 	///
 	/// Blocks whose recomputed CID does not match what was requested are recorded as
 	/// [`FetchOutcome::Missing`]. Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS`],

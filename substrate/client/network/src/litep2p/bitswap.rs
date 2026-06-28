@@ -557,8 +557,7 @@ impl<Block: BlockT> BitswapService<Block> {
 		let id = self.next_id();
 		self.pending.insert(id, PendingBatch::new(cid_keys, response_tx, verification, Instant::now()));
 
-
-		// Pick three pairs in random and send concurrent requests to all of them
+		// Fan out concurrently to a random subset of known peers.
 		let peers: Vec<litep2p::PeerId> = self.known_peers
 			.iter()
 			.copied()
