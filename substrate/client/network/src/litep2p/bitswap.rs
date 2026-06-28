@@ -193,7 +193,7 @@ pub struct BitswapConfig {
 #[derive(Default)]
 struct PendingBatches {
 	// by_peer: HashMap<litep2p::PeerId, Vec<PendingBatch>>,
-	by_id: HashMap<RequestId, PendingBatch>,
+	by_request_id: HashMap<RequestId, PendingBatch>,
 	by_cid: HashMap<Cid, Vec<RequestId>>,
 }
 
@@ -206,7 +206,7 @@ impl PendingBatches {
 		for cid in &batch.cids {
 			self.by_cid.entry(*cid).or_default().push(id);
 		}
-		self.by_id.insert(id, batch);
+		self.by_request_id.insert(id, batch);
 	}
 
 	fn handle_response(&mut self, peer: litep2p::PeerId, responses: Vec<ResponseType>) {
@@ -277,7 +277,7 @@ impl PendingBatches {
 			let Some(request_ids) = self.by_cid.remove(&cid) else { continue };
 			
 			for id in request_ids {
-				let Some(batch) = self.by_id.get_mut(&id) else { continue };
+				let Some(batch) = self.by_request_id.get_mut(&id) else { continue };
 				batch.record_response(&cid, response.clone());
 
 				let done = if batch.is_over_limit(max_response_bytes) {
@@ -300,7 +300,7 @@ impl PendingBatches {
 					// Remove the batch and sweep its remaining CIDs out of the inverted index.
 					// The current `cid` is already removed (line above the outer for loop);
 					// only the unresolved ones need cleaning up.
-					if let Some(removed) = self.by_id.remove(&id) {
+					if let Some(removed) = self.by_request_id.remove(&id) {
 						for remaining_cid in &removed.cids {
 							if remaining_cid == &cid {
 								continue;
@@ -341,14 +341,14 @@ impl PendingBatches {
 
 	fn expire(&mut self, timeout: Duration, now: Instant) {
 		let expired_ids: Vec<RequestId> = self
-			.by_id
+			.by_request_id
 			.iter()
 			.filter(|(_, batch)| batch.is_expired(timeout, now))
 			.map(|(id, _)| *id)
 			.collect();
 
 		for id in expired_ids {
-			let Some(mut batch) = self.by_id.remove(&id) else { continue };
+			let Some(mut batch) = self.by_request_id.remove(&id) else { continue };
 
 			log::debug!(
 				target: LOG_TARGET,
@@ -372,17 +372,17 @@ impl PendingBatches {
 
 	#[cfg(test)]
 	fn is_empty(&self) -> bool {
-		self.by_id.is_empty()
+		self.by_request_id.is_empty()
 	}
 
 	#[cfg(test)]
 	fn len(&self) -> usize {
-		self.by_id.len()
+		self.by_request_id.len()
 	}
 
 	#[cfg(test)]
 	fn contains_key(&self, id: &RequestId) -> bool {
-		self.by_id.contains_key(id)
+		self.by_request_id.contains_key(id)
 	}
 }
 
