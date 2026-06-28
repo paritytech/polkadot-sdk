@@ -116,7 +116,6 @@ impl BitswapClient {
 	}
 }
 
-
 /// Validate the wantlist length is within bounds.
 fn validate_wantlist_size(len: usize) -> Result<(), BitswapError> {
 	if len == 0 {
