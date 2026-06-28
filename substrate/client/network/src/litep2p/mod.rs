@@ -568,8 +568,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				Arc::clone(&peer_store_handle),
 			);
 
-		// let bitswap_cmd_tx = params.ipfs_config.as_ref().map(|c|
-		// c.bitswap_config.cmd_tx.clone());
 		let bitswap_client = params.ipfs_config.as_ref().map(|c| c.bitswap_config.client.clone());
 
 		// enable Bitswap & IPFS DHT

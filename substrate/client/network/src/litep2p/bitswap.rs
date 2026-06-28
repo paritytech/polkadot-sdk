@@ -65,16 +65,7 @@ const EXPIRY_TICK_INTERVAL: Duration = Duration::from_secs(10);
 /// Maximum number of peers to fan out an outbound request to.
 const MAX_FANOUT_PEERS: usize = 3;
 
-// pub(crate) type ResponseSender = oneshot::Sender<Result<(Vec<u8>, ProtocolName),
-// RequestFailure>>;
 pub(crate) type ResponseSender = oneshot::Sender<BitswapResponse>;
-
-/// Outbound bitswap command sent from [`super::service::Litep2pNetworkService`].
-// pub(crate) struct BitswapOutboundCmd {
-// 	pub(crate) peer: litep2p::PeerId,
-// 	pub(crate) wants: Vec<(Cid, WantType)>,
-// 	pub(crate) response_tx: ResponseSender,
-// }
 
 /// Pending outbound WANT batch.
 struct PendingBatch {
@@ -104,17 +95,6 @@ impl PendingBatch {
 			inserted,
 		}
 	}
-
-	// fn record_responses(&mut self, responses: &HashMap<Cid, ResponseType>) {
-	// 	for cid in &self.cids {
-	// 		if self.responses.contains_key(cid) {
-	// 			continue;
-	// 		}
-	// 		let Some(resp) = responses.get(cid) else { continue };
-	// 		self.response_bytes = self.response_bytes.saturating_add(response_retained_bytes(resp));
-	// 		self.responses.insert(*cid, resp.clone());
-	// 	}
-	// }
 
 	fn record_response(&mut self, cid: &Cid, resp: ResponseType) {
 		self.response_bytes = self.response_bytes.saturating_add(response_retained_bytes(&resp));
@@ -151,26 +131,11 @@ impl PendingBatch {
 		now.saturating_duration_since(self.inserted) >= timeout
 	}
 
-	// fn send_success(&mut self) {
-	// 	let responses: Vec<ResponseType> =
-	// 		self.cids.iter().filter_map(|cid| self.responses.get(cid).cloned()).collect();
-	// 	let encoded = encode_responses_as_bitswap_message(&responses);
-	// 	if let Some(response_tx) = self.response_tx.take() {
-	// 		let _ = response_tx.send(Ok((encoded, ProtocolName::from(PROTOCOL_NAME))));
-	// 	}
-	// }
-
 	fn send_success(&mut self) {
 		if let Some(response_tx) = self.response_tx.take() {
 			let _ = response_tx.send(Ok(std::mem::take(&mut self.collected)));
 		}
 	}
-
-	// fn send_failure(&mut self, failure: RequestFailure) {
-	// 	if let Some(response_tx) = self.response_tx.take() {
-	// 		let _ = response_tx.send(Err(failure));
-	// 	}
-	// }
 
 	fn send_failure(&mut self, failure: RequestFailure) {
 		if let Some(response_tx) = self.response_tx.take() {
@@ -186,24 +151,17 @@ impl PendingBatch {
 /// client-side bitswap requests.
 pub struct BitswapConfig {
 	pub(crate) litep2p_config: Config,
-	// pub(crate) cmd_tx: mpsc::Sender<BitswapOutboundCmd>,
 	pub(crate) client: BitswapClient,
 }
 
-/// Pending outbound WANT batches, indexed by peer.
-/// Use an inverted index to enable fast searching.
+/// Pending outbound WANT batches, keyed by [`RequestId`] with an inverted index by [`Cid`].
 #[derive(Default)]
 struct PendingBatches {
-	// by_peer: HashMap<litep2p::PeerId, Vec<PendingBatch>>,
 	by_request_id: HashMap<RequestId, PendingBatch>,
 	by_cid: HashMap<Cid, Vec<RequestId>>,
 }
 
 impl PendingBatches {
-	// fn insert(&mut self, peer: litep2p::PeerId, batch: PendingBatch) {
-	// 	self.by_peer.entry(peer).or_default().push(batch);
-	// }
-
 	fn insert(&mut self, id: RequestId, batch: PendingBatch) {
 		for cid in &batch.cids {
 			self.by_cid.entry(*cid).or_default().push(id);
@@ -214,46 +172,6 @@ impl PendingBatches {
 	fn handle_response(&mut self, peer: litep2p::PeerId, responses: Vec<ResponseType>) {
 		self.handle_response_with_limit(peer, responses, MAX_RESPONSE_SIZE as usize);
 	}
-
-	// fn handle_response_with_limit(
-	// 	&mut self,
-	// 	peer: litep2p::PeerId,
-	// 	responses: Vec<ResponseType>,
-	// 	max_response_bytes: usize,
-	// ) {
-	// 	log::debug!(
-	// 		target: LOG_TARGET,
-	// 		"bitswap: received response from {peer:?} with {} entries",
-	// 		responses.len()
-	// 	);
-
-	// 	let Some(peer_batches) = self.by_peer.get_mut(&peer) else { return };
-	// 	let best = select_best_response_per_cid(responses);
-
-	// 	peer_batches.retain_mut(|batch| {
-	// 		batch.record_responses(&best);
-
-	// 		if batch.is_over_limit(max_response_bytes) {
-	// 			log::warn!(
-	// 				target: LOG_TARGET,
-	// 				"bitswap: response from {peer:?} exceeded pending batch byte limit: {} > {}",
-	// 				batch.response_bytes,
-	// 				max_response_bytes,
-	// 			);
-	// 			batch.send_failure(RequestFailure::Network(OutboundFailure::ConnectionClosed));
-	// 			false
-	// 		} else if batch.is_complete() {
-	// 			batch.send_success();
-	// 			false
-	// 		} else {
-	// 			true
-	// 		}
-	// 	});
-
-	// 	if peer_batches.is_empty() {
-	// 		self.by_peer.remove(&peer);
-	// 	}
-	// }
 
 	fn handle_response_with_limit(
 		&mut self,
@@ -267,7 +185,6 @@ impl PendingBatches {
 			responses.len()
 		);
 
-		// let Some(peer_batches) = self.by_peer.get_mut(&peer) else { return };
 		let best = select_best_response_per_cid(responses);
 
 		for (_, response) in &best {
@@ -320,27 +237,6 @@ impl PendingBatches {
 		}
 	}
 
-	// fn expire(&mut self, timeout: Duration, now: Instant) {
-	// 	self.by_peer.retain(|peer, peer_batches| {
-	// 		peer_batches.retain_mut(|batch| {
-	// 			if batch.is_expired(timeout, now) {
-	// 				log::debug!(
-	// 					target: LOG_TARGET,
-	// 					"bitswap: expired pending batch for {} CIDs from {:?}",
-	// 					batch.cids.len(),
-	// 					peer,
-	// 				);
-	// 				batch.send_failure(RequestFailure::Network(OutboundFailure::Timeout));
-	// 				false
-	// 			} else {
-	// 				true
-	// 			}
-	// 		});
-
-	// 		!peer_batches.is_empty()
-	// 	});
-	// }
-
 	fn expire(&mut self, timeout: Duration, now: Instant) {
 		let expired_ids: Vec<RequestId> = self
 			.by_request_id
@@ -392,7 +288,6 @@ impl PendingBatches {
 pub(crate) struct BitswapService<Block: BlockT> {
 	handle: BitswapHandle,
 	client: Arc<dyn BlockBackend<Block> + Send + Sync>,
-	// cmd_rx: mpsc::Receiver<BitswapOutboundCmd>,
 	request_rx: mpsc::Receiver<BitswapRequest>,
 	next_request_id: RequestId,
 	pending: PendingBatches,
