@@ -326,7 +326,7 @@ impl PendingBatches {
 	// 	});
 	// }
 
-	fn expire_pending(&mut self, timeout: Duration, now: Instant) {
+	fn expire(&mut self, timeout: Duration, now: Instant) {
 		let expired_ids: Vec<RequestId> = self
 			.by_id
 			.iter()
@@ -436,8 +436,10 @@ impl<Block: BlockT> BitswapService<Block> {
 		loop {
 			tokio::select! {
 				event = self.handle.next() => match event {
-					Some(BitswapEvent::Request { peer, cids }) =>
-						self.handle_inbound_request(peer, cids).await,
+					Some(BitswapEvent::Request { peer, cids }) => {
+						self.known_peers.insert(peer);
+						self.handle_inbound_request(peer, cids).await
+					}
 					Some(BitswapEvent::Response { peer, responses }) => {
 						self.known_peers.insert(peer);
 						self.pending.handle_response(peer, responses)
@@ -457,7 +459,7 @@ impl<Block: BlockT> BitswapService<Block> {
 				},
 				_ = expiry_ticker.tick() => {
 					// self.pending.expire(REQUEST_TIMEOUT, Instant::now());
-					self.pending.expire_pending(REQUEST_TIMEOUT, Instant::now());
+					self.pending.expire(REQUEST_TIMEOUT, Instant::now());
 				},
 			}
 		}
@@ -543,6 +545,8 @@ impl<Block: BlockT> BitswapService<Block> {
 		let id = self.next_id();
 		self.pending.insert(id, PendingBatch::new(cid_keys, response_tx, verification, Instant::now()));
 
+
+		// Pick three pairs in random and send concurrent requests to all of them
 		let peers: Vec<litep2p::PeerId> = self.known_peers
 			.iter()
 			.copied()
