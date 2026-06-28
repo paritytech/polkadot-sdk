@@ -39,7 +39,6 @@ use libp2p::identity::SigningError;
 use litep2p::{
 	addresses::PublicAddresses,
 	crypto::ed25519::Keypair,
-	// protocol::libp2p::bitswap::WantType as LitepBitswapWantType,
 	types::multiaddr::Multiaddr as LiteP2pMultiaddr,
 };
 use parking_lot::RwLock;
