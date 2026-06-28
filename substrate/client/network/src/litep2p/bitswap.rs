@@ -578,6 +578,14 @@ mod tests {
 		Cid::new_v1(0x55, mh)
 	}
 
+	fn pending_batch(
+		cids: Vec<Cid>,
+		response_tx: ResponseSender,
+		inserted: Instant,
+	) -> PendingBatch {
+		PendingBatch::new(cids, response_tx, VerificationMode::Unverified, inserted)
+	}
+
 	#[test]
 	fn inbound_wantlist_limit_rejects_only_over_cap_requests() {
 		assert!(!inbound_wantlist_exceeds_limit(MAX_WANTED_BLOCKS));
@@ -587,27 +595,19 @@ mod tests {
 	#[test]
 	fn bitswap_service_constructs_without_registry() {
 		let client = Arc::new(substrate_test_runtime_client::new());
-		let (_future, _config) = BitswapService::new(client, None);
+		let (_future, _config) = BitswapService::new(client, None, vec![]);
 	}
 
 	#[test]
 	fn bitswap_service_constructs_with_registry() {
 		let registry = Registry::new();
 		let client = Arc::new(substrate_test_runtime_client::new());
-		let (_future, _config) = BitswapService::new(client, Some(&registry));
+		let (_future, _config) = BitswapService::new(client, Some(&registry), vec![]);
 
 		// Sanity check: registering the same metric names a second time on the same
 		// registry must fail — proves the first registration actually went through.
 		let second = crate::litep2p::bitswap_metrics::BitswapMetrics::new(Some(&registry));
 		assert!(second.is_err(), "double registration should fail");
-	}
-
-	fn pending_batch(
-		cids: Vec<Cid>,
-		response_tx: ResponseSender,
-		inserted: Instant,
-	) -> PendingBatch {
-		PendingBatch::new(cids, response_tx, inserted)
 	}
 
 	#[test]
@@ -677,49 +677,44 @@ mod tests {
 
 	#[tokio::test]
 	async fn pending_batch_single_request_resolves() {
-		let peer = make_peer();
 		let cid = make_cid(7);
 		let data = b"resolved-data".to_vec();
 
 		let (tx, rx) = oneshot::channel();
 		let mut pending = PendingBatches::default();
-		pending.insert(peer, pending_batch(vec![cid], tx, Instant::now()));
+		pending.insert(0, pending_batch(vec![cid], tx, Instant::now()));
 
-		pending.handle_response(peer, vec![ResponseType::Block { cid, block: data.clone() }]);
+		pending
+			.handle_response(make_peer(), vec![ResponseType::Block { cid, block: data.clone() }]);
 
-		let (payload, _) = rx.await.unwrap().unwrap();
-		let msg = BitswapProtoMessage::decode(payload.as_slice()).unwrap();
-		assert_eq!(msg.payload.len(), 1);
-		assert_eq!(msg.payload[0].data, data);
+		let result = rx.await.unwrap().unwrap();
+		assert!(matches!(result.get(&cid), Some(FetchOutcome::Block(d)) if *d == data));
 		assert!(pending.is_empty());
 	}
 
 	#[tokio::test]
 	async fn pending_batch_duplicate_requests_both_resolve() {
-		let peer = make_peer();
 		let cid = make_cid(8);
 		let data = b"shared-blob".to_vec();
 
 		let (tx_a, rx_a) = oneshot::channel();
 		let (tx_b, rx_b) = oneshot::channel();
 		let mut pending = PendingBatches::default();
-		pending.insert(peer, pending_batch(vec![cid], tx_a, Instant::now()));
-		pending.insert(peer, pending_batch(vec![cid], tx_b, Instant::now()));
+		pending.insert(0, pending_batch(vec![cid], tx_a, Instant::now()));
+		pending.insert(1, pending_batch(vec![cid], tx_b, Instant::now()));
 
-		pending.handle_response(peer, vec![ResponseType::Block { cid, block: data.clone() }]);
+		pending
+			.handle_response(make_peer(), vec![ResponseType::Block { cid, block: data.clone() }]);
 
-		let a = rx_a.await.unwrap().unwrap();
-		let b = rx_b.await.unwrap().unwrap();
-		let msg_a = BitswapProtoMessage::decode(a.0.as_slice()).unwrap();
-		let msg_b = BitswapProtoMessage::decode(b.0.as_slice()).unwrap();
-		assert_eq!(msg_a.payload[0].data, data);
-		assert_eq!(msg_b.payload[0].data, data);
+		let result_a = rx_a.await.unwrap().unwrap();
+		let result_b = rx_b.await.unwrap().unwrap();
+		assert!(matches!(result_a.get(&cid), Some(FetchOutcome::Block(d)) if *d == data));
+		assert!(matches!(result_b.get(&cid), Some(FetchOutcome::Block(d)) if *d == data));
 		assert!(pending.is_empty());
 	}
 
 	#[tokio::test]
 	async fn pending_batch_multi_want_waits_for_all_cids() {
-		let peer = make_peer();
 		let cid_a = make_cid(11);
 		let cid_b = make_cid(12);
 		let data_a = b"first".to_vec();
@@ -727,47 +722,143 @@ mod tests {
 
 		let (tx, rx) = oneshot::channel();
 		let mut pending = PendingBatches::default();
-		pending.insert(peer, pending_batch(vec![cid_a, cid_b], tx, Instant::now()));
+		pending.insert(0, pending_batch(vec![cid_a, cid_b], tx, Instant::now()));
 
-		pending
-			.handle_response(peer, vec![ResponseType::Block { cid: cid_a, block: data_a.clone() }]);
+		pending.handle_response(
+			make_peer(),
+			vec![ResponseType::Block { cid: cid_a, block: data_a.clone() }],
+		);
 		assert_eq!(pending.len(), 1);
 
-		pending
-			.handle_response(peer, vec![ResponseType::Block { cid: cid_b, block: data_b.clone() }]);
+		pending.handle_response(
+			make_peer(),
+			vec![ResponseType::Block { cid: cid_b, block: data_b.clone() }],
+		);
 
-		let (payload, _) = rx.await.unwrap().unwrap();
-		let msg = BitswapProtoMessage::decode(payload.as_slice()).unwrap();
-		assert_eq!(msg.payload.len(), 2);
-		assert_eq!(msg.payload[0].data, data_a);
-		assert_eq!(msg.payload[1].data, data_b);
+		let result = rx.await.unwrap().unwrap();
+		assert_eq!(result.len(), 2);
+		assert!(matches!(result.get(&cid_a), Some(FetchOutcome::Block(d)) if *d == data_a));
+		assert!(matches!(result.get(&cid_b), Some(FetchOutcome::Block(d)) if *d == data_b));
 		assert!(pending.is_empty());
 	}
 
 	#[tokio::test]
+	async fn pending_batch_dont_have_presence_is_missing() {
+		let cid = make_cid(15);
+
+		let (tx, rx) = oneshot::channel();
+		let mut pending = PendingBatches::default();
+		pending.insert(0, pending_batch(vec![cid], tx, Instant::now()));
+
+		pending.handle_response(
+			make_peer(),
+			vec![ResponseType::Presence { cid, presence: BlockPresenceType::DontHave }],
+		);
+
+		let result = rx.await.unwrap().unwrap();
+		assert!(matches!(result.get(&cid), Some(FetchOutcome::Missing)));
+		assert!(pending.is_empty());
+	}
+
+	#[tokio::test]
+	async fn pending_batch_verified_mode_rejects_corrupted_block() {
+		let real_data = b"real-block-data".to_vec();
+		let digest = sp_crypto_hashing::blake2_256(&real_data);
+		let mh = CidMultihash::<64>::wrap(0xb220, &digest).unwrap();
+		let cid = Cid::new_v1(0x55, mh);
+
+		let (tx, rx) = oneshot::channel();
+		let mut pending = PendingBatches::default();
+		pending.insert(
+			0,
+			PendingBatch::new(vec![cid], tx, VerificationMode::Verified, Instant::now()),
+		);
+
+		pending.handle_response(
+			make_peer(),
+			vec![ResponseType::Block { cid, block: b"corrupted-data".to_vec() }],
+		);
+
+		let result = rx.await.unwrap().unwrap();
+		assert!(matches!(result.get(&cid), Some(FetchOutcome::Missing)));
+	}
+
+	#[tokio::test]
+	async fn pending_batch_unverified_mode_accepts_corrupted_block() {
+		let real_data = b"real-block-data".to_vec();
+		let digest = sp_crypto_hashing::blake2_256(&real_data);
+		let mh = CidMultihash::<64>::wrap(0xb220, &digest).unwrap();
+		let cid = Cid::new_v1(0x55, mh);
+		let corrupted = b"corrupted-data".to_vec();
+
+		let (tx, rx) = oneshot::channel();
+		let mut pending = PendingBatches::default();
+		pending.insert(
+			0,
+			PendingBatch::new(vec![cid], tx, VerificationMode::Unverified, Instant::now()),
+		);
+
+		pending.handle_response(
+			make_peer(),
+			vec![ResponseType::Block { cid, block: corrupted.clone() }],
+		);
+
+		let result = rx.await.unwrap().unwrap();
+		assert!(matches!(result.get(&cid), Some(FetchOutcome::Block(d)) if *d == corrupted));
+	}
+
+	#[tokio::test]
 	async fn pending_batch_fails_when_partial_responses_exceed_byte_limit() {
-		let peer = make_peer();
 		let cid_a = make_cid(13);
 		let cid_b = make_cid(14);
 
 		let (tx, rx) = oneshot::channel();
 		let mut pending = PendingBatches::default();
-		pending.insert(peer, pending_batch(vec![cid_a, cid_b], tx, Instant::now()));
+		pending.insert(0, pending_batch(vec![cid_a, cid_b], tx, Instant::now()));
 
 		pending.handle_response_with_limit(
-			peer,
+			make_peer(),
 			vec![ResponseType::Block { cid: cid_a, block: vec![0u8; 8] }],
 			4,
 		);
 
 		let result = rx.await.unwrap();
-		assert!(matches!(result, Err(RequestFailure::Network(OutboundFailure::ConnectionClosed))));
+		assert!(matches!(result, Err(BitswapError::RequestFailed(_))));
 		assert!(pending.is_empty());
 	}
 
 	#[tokio::test]
+	async fn pending_batch_over_limit_cleans_up_remaining_cids() {
+		let cid_a = make_cid(16);
+		let cid_b = make_cid(17);
+
+		let (tx, rx) = oneshot::channel();
+		let mut pending = PendingBatches::default();
+		pending.insert(0, pending_batch(vec![cid_a, cid_b], tx, Instant::now()));
+
+		pending.handle_response_with_limit(
+			make_peer(),
+			vec![ResponseType::Block { cid: cid_a, block: vec![0u8; 8] }],
+			4,
+		);
+		rx.await.unwrap().unwrap_err();
+		assert!(pending.is_empty());
+
+		// cid_b must have been swept from by_cid; a new batch for it must insert and resolve
+		// cleanly
+		let (tx2, rx2) = oneshot::channel();
+		let data = b"clean-block".to_vec();
+		pending.insert(1, pending_batch(vec![cid_b], tx2, Instant::now()));
+		pending.handle_response(
+			make_peer(),
+			vec![ResponseType::Block { cid: cid_b, block: data.clone() }],
+		);
+		let result = rx2.await.unwrap().unwrap();
+		assert!(matches!(result.get(&cid_b), Some(FetchOutcome::Block(d)) if *d == data));
+	}
+
+	#[tokio::test]
 	async fn pending_batch_expiry_sends_failure() {
-		let peer = make_peer();
 		let cid = make_cid(9);
 
 		let (tx_stale, rx_stale) = oneshot::channel();
@@ -776,59 +867,57 @@ mod tests {
 		let fresh_time = Instant::now();
 
 		let mut pending = PendingBatches::default();
-		pending.insert(peer, pending_batch(vec![cid], tx_stale, past));
-		pending.insert(peer, pending_batch(vec![cid], tx_fresh, fresh_time));
+		pending.insert(0, pending_batch(vec![cid], tx_stale, past));
+		pending.insert(1, pending_batch(vec![cid], tx_fresh, fresh_time));
 
 		pending.expire(Duration::from_secs(30), Instant::now());
 
 		let stale_result = rx_stale.await.unwrap();
-		assert!(matches!(stale_result, Err(RequestFailure::Network(OutboundFailure::Timeout))));
+		assert!(matches!(stale_result, Err(BitswapError::RequestFailed(_))));
 		assert_eq!(pending.len(), 1);
 		drop(rx_fresh);
 	}
 
 	#[tokio::test]
-	async fn pending_batch_mismatched_peer_does_not_resolve() {
-		let peer_a = make_peer();
-		let peer_b = make_peer();
-		let cid = make_cid(10);
+	async fn pending_batch_unknown_cid_response_does_not_resolve() {
+		let cid_wanted = make_cid(10);
+		let cid_unknown = make_cid(99);
 
 		let (tx, mut rx) = oneshot::channel();
 		let mut pending = PendingBatches::default();
-		pending.insert(peer_a, pending_batch(vec![cid], tx, Instant::now()));
+		pending.insert(0, pending_batch(vec![cid_wanted], tx, Instant::now()));
 
-		pending.handle_response(peer_b, vec![ResponseType::Block { cid, block: b"data".to_vec() }]);
+		pending.handle_response(
+			make_peer(),
+			vec![ResponseType::Block { cid: cid_unknown, block: b"data".to_vec() }],
+		);
 
 		assert_eq!(pending.len(), 1);
 		assert!(rx.try_recv().unwrap().is_none());
 	}
 
 	#[tokio::test]
-	async fn pending_batch_response_from_one_peer_does_not_affect_other_peer() {
-		let peer_a = make_peer();
-		let peer_b = make_peer();
+	async fn pending_batch_response_for_one_cid_does_not_resolve_batch_for_different_cid() {
 		let cid_a = make_cid(20);
 		let cid_b = make_cid(21);
-		let data_b = b"peer-b-data".to_vec();
+		let data_b = b"batch-b-data".to_vec();
 
 		let (tx_a, mut rx_a) = oneshot::channel();
 		let (tx_b, rx_b) = oneshot::channel();
 		let mut pending = PendingBatches::default();
-		pending.insert(peer_a, pending_batch(vec![cid_a], tx_a, Instant::now()));
-		pending.insert(peer_b, pending_batch(vec![cid_b], tx_b, Instant::now()));
+		pending.insert(0, pending_batch(vec![cid_a], tx_a, Instant::now()));
+		pending.insert(1, pending_batch(vec![cid_b], tx_b, Instant::now()));
 
 		pending.handle_response(
-			peer_b,
+			make_peer(),
 			vec![ResponseType::Block { cid: cid_b, block: data_b.clone() }],
 		);
 
-		let (payload, _) = rx_b.await.unwrap().unwrap();
-		let msg = BitswapProtoMessage::decode(payload.as_slice()).unwrap();
-		assert_eq!(msg.payload.len(), 1);
-		assert_eq!(msg.payload[0].data, data_b);
+		let result_b = rx_b.await.unwrap().unwrap();
+		assert!(matches!(result_b.get(&cid_b), Some(FetchOutcome::Block(d)) if *d == data_b));
 
 		assert!(rx_a.try_recv().unwrap().is_none());
 		assert_eq!(pending.len(), 1);
-		assert!(pending.contains_key(&peer_a));
+		assert!(pending.contains_key(&0u64));
 	}
 }
