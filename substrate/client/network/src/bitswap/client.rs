@@ -65,14 +65,17 @@ pub enum FetchOutcome {
 
 pub(crate) type BitswapResponse = Result<HashMap<Cid, FetchOutcome>, BitswapError>;
 
+/// An outbound request queued for [`BitswapService`] to fulfil.
+///
+/// `response_tx` is a oneshot sender the service uses to return the collected
+/// [`BitswapResponse`] once all requested CIDs have been resolved or the request times out.
 pub(crate) struct BitswapRequest {
 	pub(crate) cids: Vec<(Cid, ProtoWantType)>,
 	pub(crate) response_tx: oneshot::Sender<BitswapResponse>,
 	pub(crate) verification: VerificationMode,
 }
 
-/// BitswapClient for sending requests. Holds unto a sender channel from BitswapService.
-/// For sending messages to BitswapService.
+/// A cloneable handle for submitting block requests to the [`BitswapService`].
 #[derive(Clone, Debug)]
 pub struct BitswapClient {
 	pub(crate) request_tx: mpsc::Sender<BitswapRequest>, 
