@@ -82,14 +82,7 @@ pub struct BitswapClient {
 }
 
 impl BitswapClient {
-	/// Send one `WANT-BLOCK` request for `cids` to `peer` and classify the response.
-	///
-	/// Returned blocks are verified by recomputing the CID from the response prefix and bytes.
-	/// Blocks whose recomputed CID was not requested are ignored.
-	///
-	/// Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS`], contains an unsupported CID,
-	/// or contains a duplicate CID.
-	/// Request blocks, verifying each response by recomputing the CID from the received bytes.
+	/// Send one `WANT-BLOCK` request for `cids`, verifying each response by recomputing the CID from the received bytes.
 	///
 	/// Blocks whose recomputed CID does not match what was requested are recorded as
 	/// [`FetchOutcome::Missing`]. Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS`],
@@ -157,11 +150,6 @@ pub enum BitswapError {
 	UnsupportedHashing {
 		/// The unrecognised IPFS multihash code.
 		multihash_code: u64,
-	},
-	/// CID version is unsupported for this bitswap client.
-	UnsupportedCidVersion {
-		/// The unsupported CID version number.
-		version: u64,
 	},
 }
 

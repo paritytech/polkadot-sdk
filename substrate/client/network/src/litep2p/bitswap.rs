@@ -280,7 +280,7 @@ impl PendingBatches {
 				let Some(batch) = self.by_id.get_mut(&id) else { continue };
 				batch.record_response(&cid, response.clone());
 
-				if batch.is_over_limit(max_response_bytes) {
+				let done = if batch.is_over_limit(max_response_bytes) {
 					log::warn!(
 						target: LOG_TARGET,
 						"bitswap: response from {peer:?} exceeded pending batch byte limit: {} > {}",
@@ -288,10 +288,31 @@ impl PendingBatches {
 						max_response_bytes,
 					);
 					batch.send_failure(RequestFailure::Network(OutboundFailure::ConnectionClosed));
-					self.by_id.remove(&id);
+					true
 				} else if batch.is_complete() {
 					batch.send_success();
-					self.by_id.remove(&id);
+					true
+				} else {
+					false
+				};
+
+				if done {
+					// Remove the batch and sweep its remaining CIDs out of the inverted index.
+					// The current `cid` is already removed (line above the outer for loop);
+					// only the unresolved ones need cleaning up.
+					if let Some(removed) = self.by_id.remove(&id) {
+						for remaining_cid in &removed.cids {
+							if remaining_cid == &cid {
+								continue;
+							}
+							if let Some(ids) = self.by_cid.get_mut(remaining_cid) {
+								ids.retain(|rid| *rid != id);
+								if ids.is_empty() {
+									self.by_cid.remove(remaining_cid);
+								}
+							}
+						}
+					}
 				}
 			}
 		}
@@ -450,7 +471,6 @@ impl<Block: BlockT> BitswapService<Block> {
 					},
 				},
 				_ = expiry_ticker.tick() => {
-					// self.pending.expire(REQUEST_TIMEOUT, Instant::now());
 					self.pending.expire(REQUEST_TIMEOUT, Instant::now());
 				},
 			}
