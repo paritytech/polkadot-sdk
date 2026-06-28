@@ -434,15 +434,6 @@ impl BitswapClient {
 		let _ = self.request_tx.send(BitswapRequest { cids, response_tx }).await;
 		response_rx.await.map_err(|err| BitswapError::RequestFailed(err.to_string())).and_then(|r| r)
 	}
-
-	/// Ask for block availability. Send HAVE requests.
-	pub async fn request_haves(&self, cids: &[Cid]) -> BitswapResponse {
-		validate_cids(cids)?;
-		let (response_tx, response_rx) = oneshot::channel();
-		let cids = cids.iter().map(|cid| (*cid, ProtoWantType::Have)).collect();
-		let _ = self.request_tx.send(BitswapRequest { cids, response_tx }).await;
-		response_rx.await.map_err(|err| BitswapError::RequestFailed(err.to_string())).and_then(|r| r)
-	}
 }
 
 #[cfg(test)]
