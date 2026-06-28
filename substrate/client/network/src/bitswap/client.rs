@@ -34,6 +34,17 @@ pub const SHA2_256_MULTIHASH_CODE: u64 = 0x12;
 /// Multihash code for Keccak-256.
 pub const KECCAK_256_MULTIHASH_CODE: u64 = 0x1b;
 
+/// Whether the service should re-hash block bytes to confirm they match the requested CID.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum VerificationMode {
+	/// Re-hash received block bytes and confirm the digest matches the requested CID.
+	/// Blocks that fail verification are recorded as [`FetchOutcome::Missing`].
+	Verified,
+	/// Trust the peer-declared CID without recomputing the hash.
+	/// Integrity verification is delegated to the caller.
+	Unverified,
+}
+
 /// Per-CID outcome from a Bitswap block request.
 ///
 /// The public contract is intentionally narrow: either the peer delivered the bytes for the CID
@@ -51,6 +62,57 @@ pub enum FetchOutcome {
 	/// equivalent: no block was delivered.
 	Missing,
 }
+
+pub(crate) type BitswapResponse = Result<HashMap<Cid, FetchOutcome>, BitswapError>;
+
+pub(crate) struct BitswapRequest {
+	pub(crate) cids: Vec<(Cid, ProtoWantType)>,
+	pub(crate) response_tx: oneshot::Sender<BitswapResponse>,
+	pub(crate) verification: VerificationMode,
+}
+
+/// BitswapClient for sending requests. Holds unto a sender channel from BitswapService.
+/// For sending messages to BitswapService.
+#[derive(Clone, Debug)]
+pub struct BitswapClient {
+	pub(crate) request_tx: mpsc::Sender<BitswapRequest>, 
+}
+
+impl BitswapClient {
+	/// Send one `WANT-BLOCK` request for `cids` to `peer` and classify the response.
+	///
+	/// Returned blocks are verified by recomputing the CID from the response prefix and bytes.
+	/// Blocks whose recomputed CID was not requested are ignored.
+	///
+	/// Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS`], contains an unsupported CID,
+	/// or contains a duplicate CID.
+	/// Request blocks, verifying each response by recomputing the CID from the received bytes.
+	///
+	/// Blocks whose recomputed CID does not match what was requested are recorded as
+	/// [`FetchOutcome::Missing`]. Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS`],
+	/// contains an unsupported CID, or contains a duplicate CID.
+	pub async fn request_blocks(&self, cids: &[Cid]) -> BitswapResponse {
+		validate_cids(cids)?;
+		self.send(cids, VerificationMode::Verified).await
+	}
+
+	/// Like [`BitswapClient::request_blocks`], but does not recompute or verify the hash.
+	///
+	/// Use when the requester must fetch blocks before it can verify them through an external
+	/// authority. Integrity verification is delegated to the caller.
+	pub async fn request_blocks_unverified(&self, cids: &[Cid]) -> BitswapResponse {
+		validate_cids(cids)?;
+		self.send(cids, VerificationMode::Unverified).await
+	}
+
+	async fn send(&self, cids: &[Cid], verification: VerificationMode) -> BitswapResponse {
+		let (response_tx, response_rx) = oneshot::channel();
+		let cids = cids.iter().map(|cid| (*cid, ProtoWantType::Block)).collect();
+		let _ = self.request_tx.send(BitswapRequest { cids, response_tx, verification }).await;
+		response_rx.await.map_err(|err| BitswapError::RequestFailed(err.to_string())).and_then(|r| r)
+	}
+}
+
 
 /// Validate the wantlist length is within bounds.
 fn validate_wantlist_size(len: usize) -> Result<(), BitswapError> {
@@ -80,6 +142,25 @@ fn validate_cids(cids: &[Cid]) -> Result<(), BitswapError> {
 	}
 
 	Ok(())
+}
+
+/// Bitswap client errors.
+#[derive(Debug)]
+pub enum BitswapError {
+	/// Failed to decode or validate a bitswap payload.
+	DecodeError(String),
+	/// Request/response exchange failed.
+	RequestFailed(String),
+	/// Block prefix declared an unsupported multihash code.
+	UnsupportedHashing {
+		/// The unrecognised IPFS multihash code.
+		multihash_code: u64,
+	},
+	/// CID version is unsupported for this bitswap client.
+	UnsupportedCidVersion {
+		/// The unsupported CID version number.
+		version: u64,
+	},
 }
 
 // Send one `WANT-BLOCK` request for `cids` to `peer` and classify the response.
@@ -377,86 +458,6 @@ fn validate_cids(cids: &[Cid]) -> Result<(), BitswapError> {
 
 // 	Ok(Prefix { version, codec, mh_type, mh_len })
 // }
-
-/// Bitswap client errors.
-#[derive(Debug)]
-pub enum BitswapError {
-	/// Failed to decode or validate a bitswap payload.
-	DecodeError(String),
-	/// Request/response exchange failed.
-	RequestFailed(String),
-	/// Block prefix declared an unsupported multihash code.
-	UnsupportedHashing {
-		/// The unrecognised IPFS multihash code.
-		multihash_code: u64,
-	},
-	/// CID version is unsupported for this bitswap client.
-	UnsupportedCidVersion {
-		/// The unsupported CID version number.
-		version: u64,
-	},
-}
-
-pub(crate) type BitswapResponse = Result<HashMap<Cid, FetchOutcome>, BitswapError>;
-
-/// Whether the service should re-hash block bytes to confirm they match the requested CID.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum VerificationMode {
-	/// Re-hash received block bytes and confirm the digest matches the requested CID.
-	/// Blocks that fail verification are recorded as [`FetchOutcome::Missing`].
-	Verified,
-	/// Trust the peer-declared CID without recomputing the hash.
-	/// Integrity verification is delegated to the caller.
-	Unverified,
-}
-
-pub(crate) struct BitswapRequest {
-	pub(crate) cids: Vec<(Cid, ProtoWantType)>,
-	pub(crate) response_tx: oneshot::Sender<BitswapResponse>,
-	pub(crate) verification: VerificationMode,
-}
-
-/// BitswapClient for sending requests. Holds unto a sender channel from BitswapService.
-/// For sending messages to BitswapService.
-#[derive(Clone, Debug)]
-pub struct BitswapClient {
-	pub(crate) request_tx: mpsc::Sender<BitswapRequest>, 
-}
-
-impl BitswapClient {
-	/// Send one `WANT-BLOCK` request for `cids` to `peer` and classify the response.
-	///
-	/// Returned blocks are verified by recomputing the CID from the response prefix and bytes.
-	/// Blocks whose recomputed CID was not requested are ignored.
-	///
-	/// Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS`], contains an unsupported CID,
-	/// or contains a duplicate CID.
-	/// Request blocks, verifying each response by recomputing the CID from the received bytes.
-	///
-	/// Blocks whose recomputed CID does not match what was requested are recorded as
-	/// [`FetchOutcome::Missing`]. Errors if `cids` is empty, larger than [`MAX_WANTED_BLOCKS`],
-	/// contains an unsupported CID, or contains a duplicate CID.
-	pub async fn request_blocks(&self, cids: &[Cid]) -> BitswapResponse {
-		validate_cids(cids)?;
-		self.send(cids, VerificationMode::Verified).await
-	}
-
-	/// Like [`BitswapClient::request_blocks`], but does not recompute or verify the hash.
-	///
-	/// Use when the requester must fetch blocks before it can verify them through an external
-	/// authority. Integrity verification is delegated to the caller.
-	pub async fn request_blocks_unverified(&self, cids: &[Cid]) -> BitswapResponse {
-		validate_cids(cids)?;
-		self.send(cids, VerificationMode::Unverified).await
-	}
-
-	async fn send(&self, cids: &[Cid], verification: VerificationMode) -> BitswapResponse {
-		let (response_tx, response_rx) = oneshot::channel();
-		let cids = cids.iter().map(|cid| (*cid, ProtoWantType::Block)).collect();
-		let _ = self.request_tx.send(BitswapRequest { cids, response_tx, verification }).await;
-		response_rx.await.map_err(|err| BitswapError::RequestFailed(err.to_string())).and_then(|r| r)
-	}
-}
 
 #[cfg(test)]
 mod tests {
