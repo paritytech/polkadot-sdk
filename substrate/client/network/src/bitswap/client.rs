@@ -420,6 +420,7 @@ pub(crate) struct BitswapRequest {
 
 /// BitswapClient for sending requests. Holds unto a sender channel from BitswapService.
 /// For sending messages to BitswapService.
+#[derive(Clone, Debug)]
 pub struct BitswapClient {
 	pub(crate) request_tx: mpsc::Sender<BitswapRequest>, 
 }

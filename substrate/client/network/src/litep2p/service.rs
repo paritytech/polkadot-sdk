@@ -20,6 +20,7 @@
 
 use crate::{
 	// bitswap::schema::bitswap::message::wantlist::WantType as ProtoBitswapWantType,
+	bitswap::BitswapClient,
 	config::MultiaddrWithPeerId,
 	litep2p::shim::{
 		notification::{config::ProtocolControlHandle, peerset::PeersetCommand},
@@ -220,7 +221,7 @@ pub struct Litep2pNetworkService {
 
 	// Sender for outbound bitswap requests; `None` if IPFS/bitswap is not configured.
 	// bitswap_cmd_tx: Option<tokio::sync::mpsc::Sender<super::bitswap::BitswapOutboundCmd>>,
-	// bitswap_cmd_tx: Option<tokio::sync::mpsc::Sender<crate::bitswap::BitswapRequest>>,
+	bitswap_client: Option<BitswapClient>,
 }
 
 impl Litep2pNetworkService {
@@ -236,7 +237,7 @@ impl Litep2pNetworkService {
 		listen_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
 		external_addresses: PublicAddresses,
 		// bitswap_cmd_tx: Option<tokio::sync::mpsc::Sender<super::bitswap::BitswapOutboundCmd>>,
-		// bitswap_cmd_tx: Option<tokio::sync::mpsc::Sender<crate::bitswap::BitswapRequest>>,
+		bitswap_client: Option<BitswapClient>,
 	) -> Self {
 		Self {
 			local_peer_id,
@@ -248,8 +249,12 @@ impl Litep2pNetworkService {
 			request_response_protocols,
 			listen_addresses,
 			external_addresses,
-			// bitswap_cmd_tx,
+			bitswap_client,
 		}
+	}
+
+	pub fn bitswap_client(&self) -> Option<BitswapClient> {
+		self.bitswap_client.clone()
 	}
 
 	// Route an outbound request whose protocol name matches the bitswap protocol.
