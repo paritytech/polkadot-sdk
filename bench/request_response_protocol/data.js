@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782494149909,
+  "lastUpdate": 1782675535703,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -102167,6 +102167,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2804646116,
             "range": "± 27525099",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0610b27079652623b0f95b16c99b4fa7e394d44f",
+          "message": "Membership pallet try state (#5850)\n\nThis PR introduces try state hook into the Membership Pallet.\nIt also defines the invariants that holds for the pallet.\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-06-28T18:16:11Z",
+          "tree_id": "dbaa7598d8eec31ce31ed2c95bfd29f4ff1bd56d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0610b27079652623b0f95b16c99b4fa7e394d44f"
+        },
+        "date": 1782675506216,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20520045,
+            "range": "± 188332",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20780069,
+            "range": "± 326448",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22549699,
+            "range": "± 231285",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27628509,
+            "range": "± 293715",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 65957173,
+            "range": "± 1617467",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 415920364,
+            "range": "± 6295929",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2876214358,
+            "range": "± 162967378",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18147520,
+            "range": "± 206698",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18569197,
+            "range": "± 137502",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18785885,
+            "range": "± 145268",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23624954,
+            "range": "± 150765",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 66635936,
+            "range": "± 978670",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 406463109,
+            "range": "± 5064861",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2818235128,
+            "range": "± 35879179",
             "unit": "ns/iter"
           }
         ]
