@@ -280,24 +280,18 @@ impl PendingBatches {
 				let Some(batch) = self.by_id.get_mut(&id) else { continue };
 				batch.record_response(&cid, response.clone());
 
-				// Only fire when every CID in the original request is resolved
-				if batch.remaining.is_empty() {
-					if batch.is_over_limit(max_response_bytes) {
-						log::warn!(
-							target: LOG_TARGET,
-							"bitswap: response from {peer:?} exceeded pending batch byte limit: {} > {}",
-							batch.response_bytes,
-							max_response_bytes,
-						);
-						batch.send_failure(RequestFailure::Network(OutboundFailure::ConnectionClosed));
-					} else if batch.is_complete() {
-						batch.send_success();
-					}
-				}
-
-				// If no more pending requests, remove Cid entry
-				if self.by_cid.get(&cid).map_or(true, |ids| ids.is_empty()) {
-					self.by_cid.remove(&cid);
+				if batch.is_over_limit(max_response_bytes) {
+					log::warn!(
+						target: LOG_TARGET,
+						"bitswap: response from {peer:?} exceeded pending batch byte limit: {} > {}",
+						batch.response_bytes,
+						max_response_bytes,
+					);
+					batch.send_failure(RequestFailure::Network(OutboundFailure::ConnectionClosed));
+					self.by_id.remove(&id);
+				} else if batch.is_complete() {
+					batch.send_success();
+					self.by_id.remove(&id);
 				}
 			}
 		}
