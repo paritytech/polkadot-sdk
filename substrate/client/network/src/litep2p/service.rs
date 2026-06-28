@@ -28,20 +28,9 @@ use crate::{
 	network_state::NetworkState,
 	peer_store::PeerStoreProvider,
 	service::out_events,
-	Event,
-	IfDisconnected,
-	NetworkDHTProvider,
-	NetworkEventStream,
-	NetworkPeers,
-	NetworkRequest,
-	NetworkSigner,
-	NetworkStateInfo,
-	NetworkStatus,
-	NetworkStatusProvider,
-	OutboundFailure,
-	ProtocolName,
-	RequestFailure,
-	Signature,
+	Event, IfDisconnected, NetworkDHTProvider, NetworkEventStream, NetworkPeers, NetworkRequest,
+	NetworkSigner, NetworkStateInfo, NetworkStatus, NetworkStatusProvider, OutboundFailure,
+	ProtocolName, RequestFailure, Signature,
 };
 
 use codec::DecodeAll;
@@ -265,7 +254,6 @@ impl Litep2pNetworkService {
 	pub fn bitswap_client(&self) -> Option<BitswapClient> {
 		self.bitswap_client.clone()
 	}
-
 }
 
 impl NetworkSigner for Litep2pNetworkService {

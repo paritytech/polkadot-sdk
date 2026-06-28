@@ -184,8 +184,10 @@ mod tests {
 	#[tokio::test]
 	async fn request_blocks_unverified_empty_wantlist_errors() {
 		let (client, _rx) = make_client();
-		let err =
-			client.request_blocks_unverified(&[]).await.expect_err("empty wantlist must error");
+		let err = client
+			.request_blocks_unverified(&[])
+			.await
+			.expect_err("empty wantlist must error");
 		assert!(matches!(err, BitswapError::DecodeError(msg) if msg == "empty wantlist"));
 	}
 
@@ -240,8 +242,7 @@ mod tests {
 	async fn request_blocks_duplicate_cid_errors() {
 		let (client, _rx) = make_client();
 		let cid = make_cid(BLAKE2B_256_MULTIHASH_CODE, [1u8; 32]);
-		let err =
-			client.request_blocks(&[cid, cid]).await.expect_err("duplicate CID must error");
+		let err = client.request_blocks(&[cid, cid]).await.expect_err("duplicate CID must error");
 		assert!(matches!(err, BitswapError::DecodeError(msg) if msg.starts_with("duplicate CID")));
 	}
 
@@ -312,8 +313,7 @@ mod tests {
 		let cid = make_cid(BLAKE2B_256_MULTIHASH_CODE, [1u8; 32]);
 		drop(rx);
 
-		let err =
-			client.request_blocks(&[cid]).await.expect_err("closed channel must error");
+		let err = client.request_blocks(&[cid]).await.expect_err("closed channel must error");
 		assert!(matches!(err, BitswapError::RequestFailed(_)));
 	}
 
