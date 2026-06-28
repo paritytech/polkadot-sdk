@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782676557147,
+  "lastUpdate": 1782681329027,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a4f007cd7c3643519de40ba33b6db08b38e1ac19",
-          "message": "[v2] pallet-revive: support uploading EVM bytecode via upload_code extrinsic. (#10193)\n\nFixes https://github.com/paritytech/contract-issues/issues/182\n\nAdd support for EVM bytecode to the upload_code extrinsic. \nTests in issue https://github.com/paritytech/contract-issues/issues/182\nsend hardhat_setCode, which uses revive's upload_code API; this change\nmakes that flow accept and store the EVM bytecode using upload_code\nextrinsic.\n\nThis PR deprecates PR:\nhttps://github.com/paritytech/polkadot-sdk/pull/10095\n\nComment explaining test configuration requirements:\nhttps://github.com/paritytech/polkadot-sdk/pull/10095#issuecomment-3456450460\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-06T09:20:31Z",
-          "tree_id": "a6ae4894fcd0a36f64c0c9e86cd5833069e5491a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a4f007cd7c3643519de40ba33b6db08b38e1ac19"
-        },
-        "date": 1762424700397,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.592686970166666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20331585423333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14309791813333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8efd63e335c0419b540458e0721426ffcdc37f75",
+          "message": "Remove deprecated ConvertedConcreteAssetId type alias (#12472)\n\n## Summary\nRemoves the deprecated `ConvertedConcreteAssetId` type alias from\n`staging-xcm-builder`. All usages should use `ConvertedConcreteId`\ndirectly.\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-06-28T19:32:58Z",
+          "tree_id": "b4a95b1ed817d2091d7d02c37615d7035a2abb0a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8efd63e335c0419b540458e0721426ffcdc37f75"
+        },
+        "date": 1782681297701,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.798514745433334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14428414679999998,
             "unit": "seconds"
           }
         ]
