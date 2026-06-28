@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782676596171,
+  "lastUpdate": 1782681369670,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b365061a52d56f1efa11565fb4e9b777206e4519",
-          "message": "Run differential tests for PolkaVM and REVM (#10205)\n\n# Description\n\nThis is a PR that builds on PR #10071 making the differential testing\nframework run the tests for both REVM and PolkaVM.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-05T10:25:46Z",
-          "tree_id": "6fdaf770e376c30943adee1ffc9e11c08b37da88",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b365061a52d56f1efa11565fb4e9b777206e4519"
-        },
-        "date": 1762342360085,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16011710060000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02275616311333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013412167533333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007381191686666677,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007582401306666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8efd63e335c0419b540458e0721426ffcdc37f75",
+          "message": "Remove deprecated ConvertedConcreteAssetId type alias (#12472)\n\n## Summary\nRemoves the deprecated `ConvertedConcreteAssetId` type alias from\n`staging-xcm-builder`. All usages should use `ConvertedConcreteId`\ndirectly.\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-06-28T19:32:58Z",
+          "tree_id": "b4a95b1ed817d2091d7d02c37615d7035a2abb0a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8efd63e335c0419b540458e0721426ffcdc37f75"
+        },
+        "date": 1782681337848,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010207748933333309,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007575089253333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023774252660000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14774429739333336,
             "unit": "seconds"
           }
         ]
