@@ -153,6 +153,12 @@ pub enum BitswapError {
 		/// The unrecognised IPFS multihash code.
 		multihash_code: u64,
 	},
+	/// No peers are known to the bitswap service; the request cannot be dispatched.
+	///
+	/// This happens when a request arrives before any peer has connected or announced
+	/// itself via a bitswap event. Callers should retry once peer discovery has
+	/// completed or after a short backoff.
+	NoPeers,
 }
 
 #[cfg(test)]

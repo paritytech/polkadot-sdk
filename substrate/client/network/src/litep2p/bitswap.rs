@@ -456,6 +456,12 @@ impl<Block: BlockT> BitswapService<Block> {
 			})
 			.collect();
 
+		if self.known_peers.is_empty() {
+			log::debug!(target: LOG_TARGET, "bitswap: no known peers; rejecting outbound WANT immediately");
+			let _ = response_tx.send(Err(BitswapError::NoPeers));
+			return;
+		}
+
 		let id = self.next_id();
 		self.pending
 			.insert(id, PendingBatch::new(cid_keys, response_tx, verification, Instant::now()));
@@ -919,5 +925,23 @@ mod tests {
 		assert!(rx_a.try_recv().unwrap().is_none());
 		assert_eq!(pending.len(), 1);
 		assert!(pending.contains_key(&0u64));
+	}
+
+	#[tokio::test]
+	async fn outbound_cmd_with_no_known_peers_returns_no_peers_error() {
+		use crate::bitswap::{BitswapClient, BitswapRequest};
+
+		// Spin up a minimal "service" that immediately replies NoPeers to any request.
+		let (request_tx, mut request_rx) = tokio::sync::mpsc::channel::<BitswapRequest>(8);
+		tokio::spawn(async move {
+			while let Some(req) = request_rx.recv().await {
+				let _ = req.response_tx.send(Err(BitswapError::NoPeers));
+			}
+		});
+
+		let client = BitswapClient { request_tx };
+		let cid = make_cid(50);
+		let result = client.request_blocks(&[cid]).await;
+		assert!(matches!(result, Err(BitswapError::NoPeers)));
 	}
 }

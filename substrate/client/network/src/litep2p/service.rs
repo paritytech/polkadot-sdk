@@ -37,8 +37,7 @@ use codec::DecodeAll;
 use futures::{channel::oneshot, stream::BoxStream};
 use libp2p::identity::SigningError;
 use litep2p::{
-	addresses::PublicAddresses,
-	crypto::ed25519::Keypair,
+	addresses::PublicAddresses, crypto::ed25519::Keypair,
 	types::multiaddr::Multiaddr as LiteP2pMultiaddr,
 };
 use parking_lot::RwLock;
