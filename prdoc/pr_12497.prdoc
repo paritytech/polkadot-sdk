@@ -1,0 +1,66 @@
+title: 'Bitswap: Improve Client API'
+doc:
+- audience: Node Dev
+  description: "## Summary\nRefactors the Bitswap client from a request-response shaped\
+    \ API into a proper message-based architecture that matches how the underlying\
+    \ litep2p Bitswap protocol actually works.\n\n---\n\n## Problem\n\nThe previous\
+    \ implementation forced a one-shot request-response pattern onto a protocol where\
+    \ peers can reuse streams and responses may arrive split across multiple messages.\
+    \ This meant a single peer response was expected to carry the entire result, and\
+    \ response correlation was keyed by peer identity rather than CID identity \u2014\
+    \ both wrong assumptions for Bitswap.\n\n---\n\n## What Changed\n\n### `sc-network/src/bitswap/client.rs`\n\
+    \n**New public types:**\n\n- `BitswapClient` \u2014 a `Clone`-able handle wrapping\
+    \ an `mpsc::Sender<BitswapRequest>`. Returned from `BitswapService::new`; callers\
+    \ hold this instead of going through the network service directly.\n- `FetchOutcome`\
+    \ \u2014 per-CID result: `Block(Vec<u8>)` or `Missing`. `Missing` covers `DONT_HAVE`,\
+    \ `HAVE`-without-bytes, and silence \u2014 callers do not need to know which.\n\
+    - `BitswapError` \u2014 `DecodeError`, `RequestFailed`, `UnsupportedHashing`.\n\
+    - `BitswapResponse = Result<HashMap<Cid, FetchOutcome>, BitswapError>` \u2014\
+    \ the resolved type of every `request_blocks` / `request_blocks_unverified` call.\n\
+    - `VerificationMode` \u2014 `Verified` (re-hash bytes against CID digest) or `Unverified`\
+    \ (trust the peer, delegate integrity to caller).\n\n**Public API on `BitswapClient`:**\n\
+    \n```rust\npub async fn request_blocks(&self, cids: &[Cid]) -> BitswapResponse\n\
+    pub async fn request_blocks_unverified(&self, cids: &[Cid]) -> BitswapResponse\n\
+    ```\n\nCallers supply a slice of CIDs and await a `HashMap<Cid, FetchOutcome>`.No\
+    \ knowledge of HAVE/BLOCK wantlist semantics is required.\n\n**Validation (`validate_cids`):**\
+    \ rejects empty lists, lists over MAX_WANTED_BLOCKS, unsupported multihash codes,\
+    \ and duplicate CIDs.\n\n**`BitswapError::NoPeers`** \u2014 returns immediately\
+    \ when no peers are known, instead of silently waiting 30s for the expiry tick\
+    \ to reap the batch.\n\n### `sc-network/src/bitswap/client.rs`\n\n`BitswapService`\
+    \ remains a long-running task. BitswapConfig now carries both the litep2p protocol\
+    \ config and the `BitswapClient` handle.\n\n**`PendingBatches` \u2014 dual-index\
+    \ correlation map:**\n\n```rust\n#[derive(Default)]\nstruct PendingBatches {\n\
+    \tby_request_id: HashMap<RequestId, PendingBatch>,\n\tby_cid:        HashMap<Cid,\
+    \ Vec<RequestId>>,\n}\n```\n`by_cid` is an inverted index. When a response arrives\
+    \ for a CID, `by_cid.remove(&cid)` is a \"claim\" operation that returns every\
+    \ `RequestId` waiting on that CID and prevents duplicate fanout responses from\
+    \ double-resolving the same batch (first responder wins per CID).\n\n**`handle_outbound_cmd`**\
+    \ now checks `known_peers.is_empty()` before registering a batch; on no peers,\
+    \ the oneshot is resolved with `Err(NoPeers)` and the function returns early,\
+    \ leaving `PendingBatches` untouched.\n\n**`PendingBatch` \u2014 accumulates incrementally:**\
+    \ Each batch tracks a remaining: `HashSet<Cid>`. Responses are recorded one CID\
+    \ at a time via `record_response`; the batch fires `send_success` only when `remaining`\
+    \ is empty. Responses from different peers for different CIDs in the same batch\
+    \ all contribute correctly.\n\n**Block verification (`verify_block`):** Supports\
+    \ `BLAKE2b-256`, `SHA2-256`, and `Keccak-256`` via `sp_crypto_hashing`. Called\
+    \ per-block when `VerificationMode::Verified`; a hash mismatch records `FetchOutcome::Missing`\
+    \ rather than propagating corrupted bytes.\n\n**Fanout:** each outbound request\
+    \ is sent concurrently to up to `MAX_FANOUT_PEERS = 3` randomly selected known\
+    \ peers via `join_all`. `known_peers` is populated passively from both inbound\
+    \ `BitswapEvent::Request` and `BitswapEvent::Response` events, so the set grows\
+    \ without a separate discovery step.\n\n**Expiry:**  Batches older than 30 s are\
+    \ removed, and their response channel receives `Err(BitswapError::RequestFailed)`.\
+    \ Expired batches sweep their remaining CIDs from `by_cid` to prevent memory leaks.\n\
+    \n**Over-limit guard:** `handle_response_with_limit` fails a batch immediately\
+    \ if accumulated response bytes exceed `MAX_RESPONSE_SIZE`. On failure, the batch's\
+    \ remaining CIDs are also swept from `by_cid`.\n\n---\n\n### Open Questions (from\
+    \ the issue)\n**One-shot helpers vs. longer-lived session?**\nThis implementation\
+    \ maintains the \"one-shot per batch\" approach.\n\n**Partial responses: incremental\
+    \ / accumulated / timeout-as-missing?**\nThis implementation maintains the \"\
+    accumulate until complete\" approach. On timeout, the entire batch fails \u2014\
+    \ the caller receives an error rather than a partial map."
+crates:
+- name: sc-network
+  bump: major
+- name: sc-service
+  bump: major
