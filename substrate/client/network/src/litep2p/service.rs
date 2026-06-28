@@ -29,16 +29,28 @@ use crate::{
 	network_state::NetworkState,
 	peer_store::PeerStoreProvider,
 	service::out_events,
-	Event, IfDisconnected, NetworkDHTProvider, NetworkEventStream, NetworkPeers, NetworkRequest,
-	NetworkSigner, NetworkStateInfo, NetworkStatus, NetworkStatusProvider, OutboundFailure,
-	ProtocolName, RequestFailure, Signature,
+	Event,
+	IfDisconnected,
+	NetworkDHTProvider,
+	NetworkEventStream,
+	NetworkPeers,
+	NetworkRequest,
+	NetworkSigner,
+	NetworkStateInfo,
+	NetworkStatus,
+	NetworkStatusProvider,
+	OutboundFailure,
+	ProtocolName,
+	RequestFailure,
+	Signature,
 };
 
 use codec::DecodeAll;
 use futures::{channel::oneshot, stream::BoxStream};
 use libp2p::identity::SigningError;
 use litep2p::{
-	addresses::PublicAddresses, crypto::ed25519::Keypair,
+	addresses::PublicAddresses,
+	crypto::ed25519::Keypair,
 	// protocol::libp2p::bitswap::WantType as LitepBitswapWantType,
 	types::multiaddr::Multiaddr as LiteP2pMultiaddr,
 };

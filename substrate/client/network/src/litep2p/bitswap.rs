@@ -25,8 +25,8 @@ use crate::{
 	bitswap::{
 		is_cid_supported,
 		schema::bitswap::message::{
-			wantlist::WantType as ProtoWantType,
-			Block as MessageBlock, BlockPresence, BlockPresenceType as ProtoPresenceType,
+			wantlist::WantType as ProtoWantType, Block as MessageBlock, BlockPresence,
+			BlockPresenceType as ProtoPresenceType,
 		},
 		BitswapClient, BitswapError, BitswapProtoMessage, BitswapRequest, BitswapResponse, Cid,
 		FetchOutcome, Prefix, VerificationMode, LOG_TARGET, MAX_WANTED_BLOCKS,
@@ -36,12 +36,12 @@ use crate::{
 	OutboundFailure, MAX_RESPONSE_SIZE,
 };
 use futures::{channel::oneshot, future::join_all, StreamExt};
-use rand::seq::IteratorRandom;
 use litep2p::protocol::libp2p::bitswap::{
 	BitswapEvent, BitswapHandle, BlockPresenceType, Config, ResponseType, WantType,
 };
 use prometheus_endpoint::Registry;
 use prost::Message as ProstMessage;
+use rand::seq::IteratorRandom;
 use sc_client_api::BlockBackend;
 use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
@@ -65,7 +65,8 @@ const EXPIRY_TICK_INTERVAL: Duration = Duration::from_secs(10);
 /// Maximum number of peers to fan out an outbound request to.
 const MAX_FANOUT_PEERS: usize = 3;
 
-// pub(crate) type ResponseSender = oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>;
+// pub(crate) type ResponseSender = oneshot::Sender<Result<(Vec<u8>, ProtocolName),
+// RequestFailure>>;
 pub(crate) type ResponseSender = oneshot::Sender<BitswapResponse>;
 
 /// Outbound bitswap command sent from [`super::service::Litep2pNetworkService`].
@@ -120,7 +121,7 @@ impl PendingBatch {
 		self.remaining.remove(cid);
 		let outcome = match resp {
 			ResponseType::Block { cid: block_cid, block } => match self.verification {
-				VerificationMode::Verified =>
+				VerificationMode::Verified => {
 					if verify_block(&block_cid, &block) {
 						FetchOutcome::Block(block)
 					} else {
@@ -129,7 +130,8 @@ impl PendingBatch {
 							"bitswap: block for CID {block_cid} failed hash verification; treating as missing",
 						);
 						FetchOutcome::Missing
-					},
+					}
+				},
 				VerificationMode::Unverified => FetchOutcome::Block(block),
 			},
 			ResponseType::Presence { .. } => FetchOutcome::Missing,
@@ -275,7 +277,7 @@ impl PendingBatches {
 			};
 
 			let Some(request_ids) = self.by_cid.remove(&cid) else { continue };
-			
+
 			for id in request_ids {
 				let Some(batch) = self.by_request_id.get_mut(&id) else { continue };
 				batch.record_response(&cid, response.clone());
@@ -418,7 +420,7 @@ impl<Block: BlockT> BitswapService<Block> {
 		});
 		let (litep2p_config, handle) = Config::new();
 		let (request_tx, request_rx) = mpsc::channel(CMD_CHANNEL_CAPACITY);
-		let service = Self { 
+		let service = Self {
 			handle,
 			client,
 			request_rx,
@@ -548,17 +550,24 @@ impl<Block: BlockT> BitswapService<Block> {
 		// Convert Substrate proto WantType to litep2p WantType at the transport boundary.
 		let wants: Vec<(Cid, WantType)> = cids
 			.into_iter()
-			.map(|(cid, wt)| (cid, match wt {
-				ProtoWantType::Block => WantType::Block,
-				ProtoWantType::Have  => WantType::Have,
-			}))
+			.map(|(cid, wt)| {
+				(
+					cid,
+					match wt {
+						ProtoWantType::Block => WantType::Block,
+						ProtoWantType::Have => WantType::Have,
+					},
+				)
+			})
 			.collect();
 
 		let id = self.next_id();
-		self.pending.insert(id, PendingBatch::new(cid_keys, response_tx, verification, Instant::now()));
+		self.pending
+			.insert(id, PendingBatch::new(cid_keys, response_tx, verification, Instant::now()));
 
 		// Fan out concurrently to a random subset of known peers.
-		let peers: Vec<litep2p::PeerId> = self.known_peers
+		let peers: Vec<litep2p::PeerId> = self
+			.known_peers
 			.iter()
 			.copied()
 			.choose_multiple(&mut rand::thread_rng(), MAX_FANOUT_PEERS);

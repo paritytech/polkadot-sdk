@@ -47,8 +47,8 @@ pub(crate) mod schema;
 
 pub use cid::Cid;
 pub use client::{
-	BitswapClient, BitswapError, FetchOutcome,
-	BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, SHA2_256_MULTIHASH_CODE,
+	BitswapClient, BitswapError, FetchOutcome, BLAKE2B_256_MULTIHASH_CODE,
+	KECCAK_256_MULTIHASH_CODE, SHA2_256_MULTIHASH_CODE,
 };
 
 pub(crate) use client::{BitswapRequest, BitswapResponse, VerificationMode};

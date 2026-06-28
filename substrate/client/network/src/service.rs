@@ -200,7 +200,7 @@ where
 	fn bitswap_server(
 		client: Arc<dyn BlockBackend<B> + Send + Sync>,
 		_metrics_registry: Option<Registry>,
-		_known_peers: Vec<sc_network_types::PeerId>
+		_known_peers: Vec<sc_network_types::PeerId>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig) {
 		let (handler, protocol_config) = BitswapRequestHandler::new(client.clone());
 

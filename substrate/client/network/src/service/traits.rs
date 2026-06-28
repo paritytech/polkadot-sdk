@@ -147,7 +147,7 @@ pub trait NetworkBackend<B: BlockT + 'static, H: ExHashT>: Send + 'static {
 	fn bitswap_server(
 		client: Arc<dyn BlockBackend<B> + Send + Sync>,
 		metrics_registry: Option<Registry>,
-		known_peers: Vec<sc_network_types::PeerId>
+		known_peers: Vec<sc_network_types::PeerId>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig);
 
 	/// Create notification protocol configuration and an associated `NotificationService`

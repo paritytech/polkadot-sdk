@@ -21,8 +21,7 @@ use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
 
 use super::{
-	is_cid_supported,
-	schema::bitswap::message::wantlist::WantType as ProtoWantType,
+	is_cid_supported, schema::bitswap::message::wantlist::WantType as ProtoWantType,
 	MAX_WANTED_BLOCKS,
 };
 
@@ -78,7 +77,7 @@ pub(crate) struct BitswapRequest {
 /// A cloneable handle for submitting block requests to the [`BitswapService`].
 #[derive(Clone, Debug)]
 pub struct BitswapClient {
-	pub(crate) request_tx: mpsc::Sender<BitswapRequest>, 
+	pub(crate) request_tx: mpsc::Sender<BitswapRequest>,
 }
 
 impl BitswapClient {
@@ -105,7 +104,10 @@ impl BitswapClient {
 		let (response_tx, response_rx) = oneshot::channel();
 		let cids = cids.iter().map(|cid| (*cid, ProtoWantType::Block)).collect();
 		let _ = self.request_tx.send(BitswapRequest { cids, response_tx, verification }).await;
-		response_rx.await.map_err(|err| BitswapError::RequestFailed(err.to_string())).and_then(|r| r)
+		response_rx
+			.await
+			.map_err(|err| BitswapError::RequestFailed(err.to_string()))
+			.and_then(|r| r)
 	}
 }
 
@@ -332,8 +334,8 @@ pub enum BitswapError {
 
 // 	for block in response.payload {
 // 		let Some(expected_cid) = expected_payload_order.next() else {
-// 			debug!(target: LOG_TARGET, "client: {peer} returned more payload blocks than expected; dropping extras");
-// 			break;
+// 			debug!(target: LOG_TARGET, "client: {peer} returned more payload blocks than expected;
+// dropping extras"); 			break;
 // 		};
 // 		let Ok(prefix) = decode_prefix(&block.prefix).inspect_err(|err| {
 // 			debug!(target: LOG_TARGET, "client: malformed block prefix from {peer}: {err:?}");
