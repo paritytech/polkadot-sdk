@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782494653844,
+  "lastUpdate": 1782676674268,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "52bdb96d4bd5d81f1c9a902d92ccf6ff062eedf7",
-          "message": "revive: Fix dust & child contract calls (#10192)\n\nWhen transferring to self we should just return early as it's a noop.\nNot doing so cause bug in `transfer_with_dust`\n\nas we do \n```\nfrom.dust -= from.dust\nto.dust += to.dust\n```\n\nWe end up with a value of dust - planck (that we burnt from to create\ndust amount) on the account\n\nfix https://github.com/paritytech/contract-issues/issues/211\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-04T06:38:38Z",
-          "tree_id": "cc7d1f1949f1760e138d8726109ad6b95141f237",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/52bdb96d4bd5d81f1c9a902d92ccf6ff062eedf7"
-        },
-        "date": 1762242443855,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.94199999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035196714598,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044261123319999936,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038118936672,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0610b27079652623b0f95b16c99b4fa7e394d44f",
+          "message": "Membership pallet try state (#5850)\n\nThis PR introduces try state hook into the Membership Pallet.\nIt also defines the invariants that holds for the pallet.\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-06-28T18:16:11Z",
+          "tree_id": "dbaa7598d8eec31ce31ed2c95bfd29f4ff1bd56d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0610b27079652623b0f95b16c99b4fa7e394d44f"
+        },
+        "date": 1782676643904,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038868540804,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08292785977399988,
             "unit": "seconds"
           }
         ]
