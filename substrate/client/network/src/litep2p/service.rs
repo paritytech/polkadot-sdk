@@ -577,11 +577,6 @@ impl NetworkRequest for Litep2pNetworkService {
 		sender: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 		connect: IfDisconnected,
 	) {
-		// if protocol.as_ref() == crate::bitswap::PROTOCOL_NAME {
-		// 	self.route_bitswap_request(peer, request, sender);
-		// 	return;
-		// }
-
 		match self.request_response_protocols.get(&protocol) {
 			Some(tx) => {
 				let _ = tx.unbounded_send(OutboundRequest::new(
