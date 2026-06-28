@@ -249,4 +249,7 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	fn prune_era_validator_slash_in_era(_: u32) -> Weight {
 		unreachable!()
 	}
+	fn chill_inactive(_: u32) -> Weight {
+		unreachable!()
+	}
 }

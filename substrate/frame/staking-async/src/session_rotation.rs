@@ -193,6 +193,11 @@ impl<T: Config> Eras<T> {
 			.unwrap_or(1)
 	}
 
+	/// Check whether the validator was exposed at specified era.
+	pub(crate) fn was_validator_exposed(era: EraIndex, validator: &T::AccountId) -> bool {
+		<ErasStakersOverview<T>>::contains_key(era, validator)
+	}
+
 	/// Returns the next page that can be claimed or `None` if nothing to claim.
 	pub(crate) fn get_next_claimable_page(era: EraIndex, validator: &T::AccountId) -> Option<Page> {
 		// Find next claimable page of paged exposure.
@@ -452,6 +457,14 @@ impl<T: Config> Eras<T> {
 
 	pub(crate) fn get_reward_points(era: EraIndex) -> EraRewardPoints<T> {
 		ErasRewardPoints::<T>::get(era)
+	}
+
+	pub(crate) fn get_reward_points_for_validator(
+		era: EraIndex,
+		validator: &T::AccountId,
+	) -> RewardPoint {
+		let points = ErasRewardPoints::<T>::get(era);
+		points.individual.get(validator).copied().unwrap_or_default()
 	}
 
 	/// Whether era `era` uses the weighted-points incentive-share formula
