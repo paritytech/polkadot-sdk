@@ -66,7 +66,7 @@ const EXPIRY_TICK_INTERVAL: Duration = Duration::from_secs(10);
 const MAX_FANOUT_PEERS: usize = 3;
 
 // pub(crate) type ResponseSender = oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>;
-pub(crate) type ResponseSenderC = oneshot::Sender<BitswapResponse>;
+pub(crate) type ResponseSender = oneshot::Sender<BitswapResponse>;
 
 /// Outbound bitswap command sent from [`super::service::Litep2pNetworkService`].
 // pub(crate) struct BitswapOutboundCmd {
@@ -80,8 +80,7 @@ struct PendingBatch {
 	remaining: HashSet<Cid>,
 	// rename to `responses`
 	collected: HashMap<Cid, FetchOutcome>,
-	// rename to response_tx
-	response_txc: Option<ResponseSenderC>,
+	response_tx: Option<ResponseSender>,
 	cids: Vec<Cid>,
 	response_bytes: usize,
 	verification: VerificationMode,
@@ -91,14 +90,14 @@ struct PendingBatch {
 impl PendingBatch {
 	fn new(
 		cids: Vec<Cid>,
-		response_tx: ResponseSenderC,
+		response_tx: ResponseSender,
 		verification: VerificationMode,
 		inserted: Instant,
 	) -> Self {
 		Self {
 			remaining: cids.iter().copied().collect(),
 			collected: HashMap::new(),
-			response_txc: Some(response_tx),
+			response_tx: Some(response_tx),
 			cids,
 			response_bytes: 0,
 			verification,
@@ -161,7 +160,7 @@ impl PendingBatch {
 	// }
 
 	fn send_success(&mut self) {
-		if let Some(response_tx) = self.response_txc.take() {
+		if let Some(response_tx) = self.response_tx.take() {
 			let _ = response_tx.send(Ok(std::mem::take(&mut self.collected)));
 		}
 	}
@@ -173,7 +172,7 @@ impl PendingBatch {
 	// }
 
 	fn send_failure(&mut self, failure: RequestFailure) {
-		if let Some(response_tx) = self.response_txc.take() {
+		if let Some(response_tx) = self.response_tx.take() {
 			let _ = response_tx.send(Err(BitswapError::RequestFailed(failure.to_string())));
 		}
 	}
@@ -522,7 +521,7 @@ impl<Block: BlockT> BitswapService<Block> {
 	async fn handle_outbound_cmd(
 		&mut self,
 		cids: Vec<(Cid, ProtoWantType)>,
-		response_tx: ResponseSenderC,
+		response_tx: ResponseSender,
 		verification: VerificationMode,
 	) {
 		log::debug!(
