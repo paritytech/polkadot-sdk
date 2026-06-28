@@ -74,7 +74,7 @@ pub(crate) struct BitswapRequest {
 	pub(crate) verification: VerificationMode,
 }
 
-/// A cloneable handle for submitting block requests to the [`BitswapService`].
+/// A cloneable handle for submitting block requests to the bitswap service.
 #[derive(Clone, Debug)]
 pub struct BitswapClient {
 	pub(crate) request_tx: mpsc::Sender<BitswapRequest>,
