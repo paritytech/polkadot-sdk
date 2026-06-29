@@ -352,6 +352,8 @@ impl<H> WithExecutionTimeout for WasmExecutor<H> {
 			// sizing.
 			cache: Arc::new(RuntimeCache::new(
 				CAPPED_EXECUTOR_MAX_RUNTIME_INSTANCES,
+				// Safe to share with the main executor: wasmtime keys on-disk artifacts on
+				// `epoch_interruption`, so capped and uncapped engines never collide.
 				self.cache_path.clone(),
 				CAPPED_EXECUTOR_RUNTIME_CACHE_SIZE,
 			)),
