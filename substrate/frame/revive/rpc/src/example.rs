@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Example utilities
-use crate::{EthRpcClient, ReceiptInfo};
+use crate::{BlockNumberOrTag, EthRpcClient, ReceiptInfo};
 use anyhow::Context;
 use pallet_revive::evm::*;
 use std::sync::Arc;
@@ -188,7 +188,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			nonce
 		} else {
 			client
-				.get_transaction_count(from, BlockTag::Latest.into())
+				.get_transaction_count(from, BlockNumberOrTag::Latest.into())
 				.await
 				.with_context(|| "Failed to fetch account nonce")?
 		};

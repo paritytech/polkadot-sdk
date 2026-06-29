@@ -17,9 +17,11 @@
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::{
 	create1,
-	evm::{Account, BlockTag, U256},
+	evm::{Account, U256},
 };
-use pallet_revive_eth_rpc::{EthRpcClient, ReceiptInfo, example::TransactionBuilder};
+use pallet_revive_eth_rpc::{
+	BlockNumberOrTag, EthRpcClient, ReceiptInfo, example::TransactionBuilder,
+};
 use std::sync::Arc;
 
 #[tokio::main]
@@ -38,7 +40,9 @@ async fn main() -> anyhow::Result<()> {
 
 	println!("\n\n=== Deploying contract ===\n\n");
 
-	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let nonce = client
+		.get_transaction_count(account.address(), BlockNumberOrTag::Latest.into())
+		.await?;
 	let tx = TransactionBuilder::new(client.clone())
 		.value(5_000_000_000_000u128.into())
 		.input(input)
@@ -57,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
 	println!("- Gas estimated:    {}", tx.gas());
 	println!("- Gas used:         {gas_used}");
 	println!("- Contract address: {contract_address:?}");
-	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	let balance = client.get_balance(contract_address, BlockNumberOrTag::Latest.into()).await?;
 	println!("- Contract balance: {balance:?}");
 
 	if std::env::var("SKIP_CALL").is_ok() {

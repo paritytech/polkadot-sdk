@@ -20,6 +20,9 @@ name = "eth-rpc"
 path = "src/main.rs"
 
 [dependencies]
+alloy-rpc-types = { workspace = true, default-features = true, features = [
+	"trace",
+] }
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 codec = { workspace = true, features = ["derive"] }
@@ -65,9 +68,6 @@ alloy-primitives = { workspace = true, default-features = true }
 alloy-provider = { workspace = true, default-features = true, features = [
 	"debug-api",
 	"reqwest",
-] }
-alloy-rpc-types = { workspace = true, default-features = true, features = [
-	"trace",
 ] }
 alloy-signer-local = { workspace = true, default-features = true }
 env_logger = { workspace = true }

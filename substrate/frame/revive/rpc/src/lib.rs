@@ -17,6 +17,7 @@
 //! The [`EthRpcServer`] RPC server implementation
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+pub use alloy_rpc_types::{BlockId, BlockNumberOrTag, Filter, FilterBlockOption};
 use client::ClientError;
 use futures::{Stream, StreamExt, TryStreamExt};
 use jsonrpsee::{
@@ -188,14 +189,14 @@ impl EthRpcServer for EthRpcServerImpl {
 
 		let block = block.unwrap_or_else(|| {
 			if self.use_pending_for_estimate_gas {
-				BlockTag::Pending.into()
+				BlockNumberOrTag::Pending
 			} else {
 				Default::default()
 			}
 		});
-		let hash = self.client.block_hash_for_tag(block.into()).await?;
-		let gas_estimate =
-			self.client.runtime_api(hash).estimate_gas(transaction, block.into()).await?;
+		let block = BlockId::from(block);
+		let hash = self.client.block_hash_for_tag(block).await?;
+		let gas_estimate = self.client.runtime_api(hash).estimate_gas(transaction, block).await?;
 
 		log::trace!(
 			target: LOG_TARGET,
@@ -207,11 +208,11 @@ impl EthRpcServer for EthRpcServerImpl {
 	async fn call(
 		&self,
 		transaction: GenericTransaction,
-		block: Option<BlockNumberOrTagOrHash>,
+		block: Option<BlockId>,
 		state_overrides: Option<StateOverrideSet>,
 	) -> RpcResult<Bytes> {
 		let block = block.unwrap_or_default();
-		let hash = self.client.block_hash_for_tag(block.clone()).await?;
+		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash);
 		let dry_run = runtime_api.dry_run(transaction, block, state_overrides).await?;
 		Ok(dry_run.data.into())
@@ -315,7 +316,7 @@ impl EthRpcServer for EthRpcServerImpl {
 
 		if transaction.nonce.is_none() {
 			transaction.nonce =
-				Some(self.get_transaction_count(from, BlockTag::Latest.into()).await?);
+				Some(self.get_transaction_count(from, BlockNumberOrTag::Latest.into()).await?);
 		}
 
 		if transaction.chain_id.is_none() {
@@ -339,7 +340,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(block)
 	}
 
-	async fn get_balance(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<U256> {
+	async fn get_balance(&self, address: H160, block: BlockId) -> RpcResult<U256> {
 		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash);
 		let balance = runtime_api.balance(address).await?;
@@ -351,7 +352,7 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 
 	async fn gas_price(&self) -> RpcResult<U256> {
-		let hash = self.client.block_hash_for_tag(BlockTag::Latest.into()).await?;
+		let hash = self.client.block_hash_for_tag(BlockNumberOrTag::Latest.into()).await?;
 		let runtime_api = self.client.runtime_api(hash);
 		Ok(runtime_api.gas_price().await?)
 	}
@@ -362,7 +363,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(Default::default())
 	}
 
-	async fn get_code(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes> {
+	async fn get_code(&self, address: H160, block: BlockId) -> RpcResult<Bytes> {
 		let hash = self.client.block_hash_for_tag(block).await?;
 		let code = self.client.runtime_api(hash).code(address).await?;
 		Ok(code.into())
@@ -407,7 +408,7 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<Option<U256>> {
 		let substrate_hash = if let Some(block) = self
 			.client
-			.block_by_number_or_tag(&block.unwrap_or_else(|| BlockTag::Latest.into()))
+			.block_by_number_or_tag(&block.unwrap_or_else(|| BlockNumberOrTag::Latest))
 			.await?
 		{
 			block.hash()
@@ -427,7 +428,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		&self,
 		address: H160,
 		storage_slot: U256,
-		block: BlockNumberOrTagOrHash,
+		block: BlockId,
 	) -> RpcResult<Bytes> {
 		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash);
@@ -484,11 +485,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(None)
 	}
 
-	async fn get_transaction_count(
-		&self,
-		address: H160,
-		block: BlockNumberOrTagOrHash,
-	) -> RpcResult<U256> {
+	async fn get_transaction_count(&self, address: H160, block: BlockId) -> RpcResult<U256> {
 		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash);
 		let nonce = runtime_api.nonce(address).await?;
