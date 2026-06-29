@@ -225,6 +225,12 @@ impl SignatureWeight for sp_core::ecdsa::KeccakSignature {
 	}
 }
 
+impl SignatureWeight for () {
+	fn weight(&self) -> sp_weights::Weight {
+		sp_weights::Weight::zero()
+	}
+}
+
 /// Means of signature verification of an application key.
 pub trait AppVerify {
 	/// Type of the signer.

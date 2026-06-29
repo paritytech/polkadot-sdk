@@ -1575,7 +1575,7 @@ mod extension_weight_tests {
 			// First testcase
 			let ext: TxExtension = (HalfCostIf(false), FreeIfUnder(2000), ActualWeightIs(0));
 			let xt = CheckedExtrinsic {
-				format: ExtrinsicFormat::<_, _>::Signed(0, ext.clone()),
+				format: ExtrinsicFormat::<_, _>::Signed(0, ext.clone(), Weight::zero()),
 				function: call.clone(),
 			};
 			assert_eq!(xt.extension_weight(), Weight::from_parts(600, 0));
@@ -1590,7 +1590,7 @@ mod extension_weight_tests {
 			// Second testcase
 			let ext: TxExtension = (HalfCostIf(false), FreeIfUnder(1100), ActualWeightIs(200));
 			let xt = CheckedExtrinsic {
-				format: ExtrinsicFormat::<_, _>::Signed(0, ext),
+				format: ExtrinsicFormat::<_, _>::Signed(0, ext, Weight::zero()),
 				function: call.clone(),
 			};
 			let post_info = xt.apply::<ExtRuntime>(&info, 0).unwrap().unwrap();
@@ -1600,7 +1600,7 @@ mod extension_weight_tests {
 			// Third testcase
 			let ext: TxExtension = (HalfCostIf(true), FreeIfUnder(1060), ActualWeightIs(200));
 			let xt = CheckedExtrinsic {
-				format: ExtrinsicFormat::<_, _>::Signed(0, ext),
+				format: ExtrinsicFormat::<_, _>::Signed(0, ext, Weight::zero()),
 				function: call.clone(),
 			};
 			let post_info = xt.apply::<ExtRuntime>(&info, 0).unwrap().unwrap();
@@ -1610,7 +1610,7 @@ mod extension_weight_tests {
 			// Fourth testcase
 			let ext: TxExtension = (HalfCostIf(false), FreeIfUnder(100), ActualWeightIs(300));
 			let xt = CheckedExtrinsic {
-				format: ExtrinsicFormat::<_, _>::Signed(0, ext),
+				format: ExtrinsicFormat::<_, _>::Signed(0, ext, Weight::zero()),
 				function: call.clone(),
 			};
 			let post_info = xt.apply::<ExtRuntime>(&info, 0).unwrap().unwrap();

@@ -1433,7 +1433,7 @@ mod tests {
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
 			Ok(CEx {
-				format: ExtrinsicFormat::Signed(TEST_ACCOUNT, DummyExtension),
+				format: ExtrinsicFormat::Signed(TEST_ACCOUNT, DummyExtension, Default::default()),
 				function: Call::Raw(large_call_data).into(),
 			}),
 		);
