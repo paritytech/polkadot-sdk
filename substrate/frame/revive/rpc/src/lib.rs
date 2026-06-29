@@ -58,6 +58,9 @@ pub use receipt_extractor::*;
 mod apis;
 pub use apis::*;
 
+mod types;
+pub use types::*;
+
 pub const LOG_TARGET: &str = "eth-rpc";
 
 /// An EVM RPC server implementation.
