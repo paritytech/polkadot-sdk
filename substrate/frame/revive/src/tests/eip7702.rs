@@ -602,9 +602,10 @@ fn refund_routes_to_set_payer_not_clear_submitter() {
 
 /// Under eth-tx, a payer-change refund must reach the recorded payer, not the fee pot. The
 /// `Funds::TxFee` rail drops the recipient and returns the deposit to the pot (→ the current
-/// submitter); the fix forces a `Funds::Balance` transfer to `old_payer`. This pins the
-/// observable half at the `process_authorizations` layer: on the clear the pot must NOT recover
-/// the deposit. (Full cross-tx loss needs two separate gas pools, out of scope here.)
+/// submitter); the fix forces a `Funds::Balance` transfer to `old_payer`. Exercises both
+/// payer-change refund legs — re-delegation (`current > 0`) and clear (`current == 0`) — and the
+/// moving recorded-payer across them, asserting the refund lands on the right account and the pot
+/// never recovers it. (Full cross-tx loss needs two separate gas pools, out of scope here.)
 #[test]
 fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -612,17 +613,25 @@ fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
 		// Seed the fee pot so eth-tx charges have somewhere to draw from.
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
 
-		// Real contract → the delegation carries a non-zero base deposit.
+		// Two targets sharing the same code → same base deposit, so re-delegating between them
+		// keeps `previous == current` and isolates the payer routing.
 		let target = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+			.build_and_unwrap_contract();
+		let target_b = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+			.salt(Some([1; 32]))
 			.build_and_unwrap_contract();
 		let deposit = get_contract(&target.addr).storage_base_deposit();
 		assert!(deposit > 0, "delegation target must carry a non-zero base deposit");
 
-		// Two distinct relayers and a pre-funded authority (ED path must not perturb the pot).
+		// Three distinct relayers and a pre-funded authority (ED path must not perturb the pot).
 		let set_payer = <Test as Config>::AddressMapper::to_account_id(&H160::from([0xAA; 20]));
+		let redelegate_payer =
+			<Test as Config>::AddressMapper::to_account_id(&H160::from([0xCC; 20]));
 		let clear_submitter =
 			<Test as Config>::AddressMapper::to_account_id(&H160::from([0xBB; 20]));
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&set_payer, 100_000_000);
+		let _ =
+			<<Test as Config>::Currency as Mutate<_>>::set_balance(&redelegate_payer, 100_000_000);
 		let _ =
 			<<Test as Config>::Currency as Mutate<_>>::set_balance(&clear_submitter, 100_000_000);
 		let signer = TestSigner::new(&[1u8; 32]);
@@ -633,9 +642,14 @@ fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
 		// Production config: deposits flow through the tx-fee pot (`Funds::TxFee`).
 		let eth_tx = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
 
+		let set_payer_before = <<Test as Config>::Currency as Inspect<_>>::balance(&set_payer);
+		let redelegate_payer_before =
+			<<Test as Config>::Currency as Inspect<_>>::balance(&redelegate_payer);
+		let clear_submitter_before =
+			<<Test as Config>::Currency as Inspect<_>>::balance(&clear_submitter);
+
 		// Step 1: `set_payer` relays the set. Deposit drawn from the pot, payer recorded.
 		let pot_before = <Test as Config>::FeeInfo::remaining_txfee();
-		let set_payer_before = <<Test as Config>::Currency as Inspect<_>>::balance(&set_payer);
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 		let auth_set = signer.sign_authorization(chain_id, target.addr, nonce);
 		let _ =
@@ -648,8 +662,8 @@ fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
 			"eth-tx charge is drawn from the fee pot, not the payer's free balance",
 		);
 		assert_eq!(
-			pot_before.saturating_sub(pot_after_set),
-			deposit,
+			pot_before.saturating_sub(deposit),
+			pot_after_set,
 			"the deposit must have been drawn from the fee pot",
 		);
 		assert_eq!(
@@ -658,7 +672,44 @@ fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
 			"hold must equal the deposit after delegation",
 		);
 
-		// Step 2: a *different* relayer clears, triggering the payer-change refund to `set_payer`.
+		// Step 2: a *different* relayer re-delegates to `target_b` (`current > 0`). The
+		// payer-change refund of `previous` must reach `set_payer`'s balance — not the pot —
+		// while the new charge for `current` is drawn from the pot against `redelegate_payer`.
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
+		let auth_redelegate = signer.sign_authorization(chain_id, target_b.addr, nonce);
+		let _ = crate::evm::eip7702::process_authorizations::<Test>(
+			&[auth_redelegate],
+			&redelegate_payer,
+			&eth_tx,
+		);
+		assert_eq!(
+			AccountInfo::<Test>::get_delegation_target(&signer.address),
+			Some(target_b.addr),
+		);
+		let pot_after_redelegate = <Test as Config>::FeeInfo::remaining_txfee();
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&set_payer),
+			set_payer_before + deposit,
+			"re-delegation must refund `previous` to set_payer's balance, not the pot",
+		);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&redelegate_payer),
+			redelegate_payer_before,
+			"the new charge is drawn from the pot, not redelegate_payer's free balance",
+		);
+		assert_eq!(
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id),
+			deposit,
+			"hold stays one deposit after same-size re-delegation",
+		);
+		assert_eq!(
+			pot_after_redelegate,
+			pot_after_set.saturating_sub(deposit),
+			"only the new charge hit the pot; the refund of `previous` bypassed it",
+		);
+
+		// Step 3: a *third* relayer clears (`current == 0`). The refund must now reach the most
+		// recent payer (`redelegate_payer`), again via balance, never the pot or the submitter.
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 		let auth_clear = signer.sign_authorization(chain_id, H160::zero(), nonce);
 		let _ = crate::evm::eip7702::process_authorizations::<Test>(
@@ -672,15 +723,25 @@ fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
 			0,
 			"hold must be fully released after clear",
 		);
-		let pot_after_clear = <Test as Config>::FeeInfo::remaining_txfee();
-
-		// The refund must be earmarked to `set_payer`, so the pot must NOT recover the deposit.
 		assert_eq!(
-			pot_after_clear,
-			pot_after_set,
-			"payer-change refund leaked to the fee pot: the released deposit ({}) returned to the \
-			 shared pot instead of being earmarked to the original payer (set_payer)",
-			pot_after_clear.saturating_sub(pot_after_set),
+			<<Test as Config>::Currency as Inspect<_>>::balance(&redelegate_payer),
+			redelegate_payer_before + deposit,
+			"clear must refund the current recorded payer (redelegate_payer) to its balance",
+		);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&set_payer),
+			set_payer_before + deposit,
+			"set_payer must not be refunded twice — it was made whole at re-delegation",
+		);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&clear_submitter),
+			clear_submitter_before,
+			"the clear submitter must not pocket the refund",
+		);
+		assert_eq!(
+			<Test as Config>::FeeInfo::remaining_txfee(),
+			pot_after_redelegate,
+			"the clear refund must bypass the pot (it goes to redelegate_payer's balance)",
 		);
 	});
 }
