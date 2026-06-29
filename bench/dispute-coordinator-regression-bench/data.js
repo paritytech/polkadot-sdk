@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782724743275,
+  "lastUpdate": 1782732575814,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bkontur@gmail.com",
-            "name": "Branislav Kontur",
-            "username": "bkontur"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "41bc46f27067c243d1c0fb7f83260d61c1f97c75",
-          "message": "[pallet-transaction-storage] Improved `check_proof` check + tests + docs (#10153)\n\n**This PR:**\n\n* Fixes `check_proof` and its `binary_search_by_key` chunk\n* Adds the `ensure_chunk_proof_works` test, which covers all possible\nchunk index build/verify proof roundtrips (to catch all corner cases)\n* Improves docs around `pallet-transaction-storage`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-11-04T15:15:11Z",
-          "tree_id": "c369cf004da2e377313c241f9655aa8817ba112b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/41bc46f27067c243d1c0fb7f83260d61c1f97c75"
-        },
-        "date": 1762273564650,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026379149900000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008631826019999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005139918419999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.002516491789999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9107f88f83300b98af2d212463c83c659596261c",
+          "message": "[CI/CD ]Add eth-rpc image build to  Binary and Docker image Build for testing flow (#12494)\n\nThis PR adds a job that will allow building custom eth-rpc image for the\ntesting purposes from any `polkadot-sdk` commit",
+          "timestamp": "2026-06-29T09:45:09Z",
+          "tree_id": "7ec01332244c5f1272063bbe0b5555ca5cbdb876",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9107f88f83300b98af2d212463c83c659596261c"
+        },
+        "date": 1782732545118,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009562788259999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002609996129999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011539428419999984,
             "unit": "seconds"
           }
         ]
