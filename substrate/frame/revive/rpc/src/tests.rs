@@ -19,8 +19,9 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
-	BlockInfoProvider, ChainMetadata, DbContext, DebugRpcClient, EthRpcClient, ReceiptExtractor,
-	ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
+	BlockHeader, BlockInfoProvider, BoundedOneOrMany, ChainMetadata, DbContext, DebugRpcClient,
+	EthRpcClient, ReceiptExtractor, ReceiptProvider, SubscriptionItem, SubscriptionKind,
+	SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
 	client::{Client, GapFillRequest, SubscriptionGapQueue, connect},
 	example::TransactionBuilder,
@@ -45,10 +46,8 @@ use jsonrpsee::{
 use pallet_revive::{
 	create1,
 	evm::{
-		Account, Block, BlockHeader, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag,
-		BoundedOneOrMany, Filter, FilterResults, GenericTransaction, H256,
-		HashesOrTransactionInfos, Log, SubscriptionItem, SubscriptionKind, SubscriptionOptions,
-		TransactionInfo, TransactionUnsigned, U256,
+		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag, Filter, FilterResults,
+		GenericTransaction, H256, HashesOrTransactionInfos, Log, TransactionUnsigned, U256,
 	},
 	precompiles::alloy::{
 		self,
@@ -820,7 +819,7 @@ async fn test_evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
 		.try_into_unsigned()
 		.expect("Transaction shall be converted");
 	let signed_tx = signer_copy.sign_transaction(unsigned_tx);
-	let expected_tx_info = TransactionInfo::new(&receipt, signed_tx);
+	let expected_tx_info = receipt.transaction_info(signed_tx);
 
 	let tx_info = if let HashesOrTransactionInfos::TransactionInfos(tx_infos) =
 		evm_block_from_rpc_by_number.transactions

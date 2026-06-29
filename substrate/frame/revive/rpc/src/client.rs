@@ -21,8 +21,8 @@ pub(crate) mod runtime_api;
 pub(crate) mod storage_api;
 
 use crate::{
-	BlockInfoProvider, BlockTag, FeeHistoryProvider, FeeHistoryResult, ReceiptProvider,
-	SubxtBlockInfoProvider, SyncLabel, SyncingProgress, SyncingStatus, TransactionInfo,
+	BlockInfoProvider, BlockTag, FeeHistoryProvider, FeeHistoryResult, ReceiptInfo,
+	ReceiptProvider, SubxtBlockInfoProvider, SyncLabel, SyncingProgress, SyncingStatus,
 	block_sync::SyncCheckpoint,
 	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
@@ -32,8 +32,8 @@ use pallet_revive::{
 	EthTransactError,
 	evm::{
 		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Filter, GenericTransaction, H256,
-		HashesOrTransactionInfos, Log, ReceiptInfo, StateOverrideSet, TransactionSigned,
-		TransactionTrace, U256, decode_revert_reason,
+		HashesOrTransactionInfos, Log, StateOverrideSet, TransactionSigned, TransactionTrace, U256,
+		decode_revert_reason,
 	},
 };
 use pallet_revive_types::runtime_api::*;
@@ -1086,7 +1086,7 @@ impl Client {
 						})
 						.unwrap_or_default()
 						.into_iter()
-						.map(|(signed_tx, receipt)| TransactionInfo::new(&receipt, signed_tx))
+						.map(|(signed_tx, receipt)| receipt.transaction_info(signed_tx))
 						.collect::<Vec<_>>();
 
 					eth_block.transactions = HashesOrTransactionInfos::TransactionInfos(tx_infos);

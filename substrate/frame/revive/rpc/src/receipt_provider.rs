@@ -16,11 +16,12 @@
 // limitations under the License.
 use crate::{
 	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, Bytes, ChainMetadata,
-	ClientError, FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider, SyncLabel, SyncStateKey,
+	ClientError, FilterTopic, ReceiptExtractor, ReceiptInfo, SubxtBlockInfoProvider, SyncLabel,
+	SyncStateKey,
 	block_sync::SyncCheckpoint,
 	client::{SubstrateBlock, SubstrateBlockNumber},
 };
-use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
+use pallet_revive::evm::{Filter, Log, TransactionSigned};
 use sp_core::{H256, U256};
 use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool, query};
 use std::{
@@ -948,8 +949,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::test::{MockBlockInfo, MockBlockInfoProvider};
-	use pallet_revive::evm::{BlockTag, ReceiptInfo, TransactionSigned};
+	use crate::{
+		ReceiptInfo,
+		test::{MockBlockInfo, MockBlockInfoProvider},
+	};
+	use pallet_revive::evm::{BlockTag, TransactionSigned};
 	use pretty_assertions::assert_eq;
 	use sp_core::{H160, H256};
 	use sqlx::SqlitePool;

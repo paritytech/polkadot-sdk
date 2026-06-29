@@ -17,9 +17,9 @@
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::{
 	create1,
-	evm::{Account, BlockTag, ReceiptInfo, U256},
+	evm::{Account, BlockTag, U256},
 };
-use pallet_revive_eth_rpc::{EthRpcClient, example::TransactionBuilder};
+use pallet_revive_eth_rpc::{EthRpcClient, ReceiptInfo, example::TransactionBuilder};
 use std::sync::Arc;
 
 #[tokio::main]

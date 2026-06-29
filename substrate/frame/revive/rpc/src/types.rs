@@ -23,3 +23,6 @@ pub use subscription::*;
 
 mod sync;
 pub use sync::*;
+
+mod receipt;
+pub use receipt::*;
