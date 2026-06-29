@@ -36,6 +36,9 @@ pub use rpc_types_gen::*;
 mod block;
 pub use block::*;
 
+mod transaction;
+pub use transaction::*;
+
 #[cfg(feature = "std")]
 mod account;
 

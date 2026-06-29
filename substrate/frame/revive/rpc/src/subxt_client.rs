@@ -36,7 +36,7 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	),
 
 	substitute_type(
-		path = "pallet_revive::evm::api::rpc_types_gen::GenericTransaction",
+		path = "pallet_revive::evm::api::transaction::GenericTransaction",
 		with = "::subxt::utils::Static<::pallet_revive::evm::GenericTransaction>"
 	),
 	substitute_type(
