@@ -121,11 +121,26 @@ pub mod v2 {
 			Vesting::<T>::translate::<
 				BoundedVec<VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, MaxVestingSchedulesGet<T>>,
 				_,
-			>(|_who, old| {
+			>(|who, old| {
 				reads += 1;
 				writes += 1;
 				let tagged: alloc::vec::Vec<_> =
 					old.into_iter().map(|vi| (vi, Some(VestingKind::Public))).collect();
+
+				// Warn if this account exceeds the public vesting schedule capacity, as this will
+				// cause new schedules to be rejected until some existing ones vest out.
+				let count = tagged.len() as u32;
+				if count >= T::MAX_PUBLIC_VESTING_SCHEDULES {
+					log::warn!(
+						target: "runtime::vesting",
+						"Migration: account {:?} has {} public schedules which exceed the limit of {}; \
+						 new public schedules will be rejected until some existing schedules vest out.",
+						who,
+						count,
+						T::MAX_PUBLIC_VESTING_SCHEDULES,
+					);
+				}
+
 				let new: BoundedVec<_, MaxVestingSchedulesGet<T>> =
 					tagged.try_into().expect("same capacity; qed");
 				Some(new)
