@@ -30,8 +30,6 @@ use super::AuraConfig;
 #[cfg(feature = "with-authority-discovery")]
 use super::SessionConfig;
 
-// ---------- Named preset identifiers ----------------------------------------------------------
-//
 // Each string corresponds to one of the WASM variants this runtime used to ship as a separate
 // build artifact. They are stable strings exposed to clients via the GenesisBuilder API and
 // referenced from `cumulus/test/service/src/chain_spec.rs` to pick a preset by name.
@@ -74,8 +72,6 @@ pub const WITH_AUTHORITY_DISCOVERY_PRESET: &str = "with-authority-discovery";
 /// Slot duration of 18s — used by zombienet tests that change slot timing via parameter
 /// updates / runtime upgrades.
 pub const SLOT_DURATION_18S_PRESET: &str = "slot-duration-18s";
-
-// ---------- Preset → InitialConsensusParameters mapping ---------------------------------------
 
 /// Map a preset id to the consensus parameter overrides it implies.
 ///
@@ -142,8 +138,6 @@ fn initial_consensus_parameters_for(id: &str) -> Option<InitialConsensusParamete
 		_ => return None,
 	})
 }
-
-// ---------- Genesis JSON builders -------------------------------------------------------------
 
 /// Build the genesis config seeding `pallet_aura::authorities` directly.
 ///

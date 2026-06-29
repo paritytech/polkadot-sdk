@@ -14,19 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! WASM blob accessors for the additional variants built by `build.rs`.
+//! Additional WASM blob accessors built by `build.rs`.
 //!
-//! Most consensus parameters (slot duration, block-processing velocity, relay-parent offset,
-//! `AllowMultipleBlocksPerSlot`, scheduling V3) are now runtime-configurable via
-//! `pallet_parameters` and seeded by named GenesisBuilder presets — they no longer require
-//! distinct WASM artifacts. Only two extra WASM blobs are produced beyond the default
-//! [`crate::WASM_BINARY`]:
-//!
-//! - [`spec_version_incremented`] — behaviour-identical to the default WASM but with
-//!   `spec_version` bumped by one. Used by runtime-upgrade tests that need to observe a
-//!   `set_code` transition.
-//! - [`with_authority_discovery`] — structural variant adding `pallet_session` +
-//!   `pallet_authority_discovery`. Used by the authority-discovery upgrade test.
+//! Consensus tuning variants moved to runtime parameters; only upgrade-test blobs remain here.
 
 /// Same runtime as [`crate::WASM_BINARY`] but with `spec_version` bumped by one — used by
 /// runtime-upgrade tests to observe a `set_code` transition.

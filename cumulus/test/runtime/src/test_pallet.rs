@@ -424,64 +424,26 @@ pub mod pallet {
 			use crate::dynamic_params::consensus;
 			let icp = &self.initial_consensus_parameters;
 
-			if let Some(v) = icp.slot_duration_millis {
-				pallet_parameters::Parameters::<crate::Runtime>::insert(
-					crate::RuntimeParametersKey::Consensus(
-						consensus::ParametersKey::SlotDurationMillis(consensus::SlotDurationMillis),
-					),
-					crate::RuntimeParametersValue::Consensus(
-						consensus::ParametersValue::SlotDurationMillis(v),
-					),
-				);
+			macro_rules! insert_consensus_parameter {
+				($field:ident, $variant:ident) => {
+					if let Some(v) = icp.$field {
+						pallet_parameters::Parameters::<crate::Runtime>::insert(
+							crate::RuntimeParametersKey::Consensus(
+								consensus::ParametersKey::$variant(consensus::$variant),
+							),
+							crate::RuntimeParametersValue::Consensus(
+								consensus::ParametersValue::$variant(v),
+							),
+						);
+					}
+				};
 			}
-			if let Some(v) = icp.block_processing_velocity {
-				pallet_parameters::Parameters::<crate::Runtime>::insert(
-					crate::RuntimeParametersKey::Consensus(
-						consensus::ParametersKey::BlockProcessingVelocity(
-							consensus::BlockProcessingVelocity,
-						),
-					),
-					crate::RuntimeParametersValue::Consensus(
-						consensus::ParametersValue::BlockProcessingVelocity(v),
-					),
-				);
-			}
-			if let Some(v) = icp.relay_parent_offset {
-				pallet_parameters::Parameters::<crate::Runtime>::insert(
-					crate::RuntimeParametersKey::Consensus(
-						consensus::ParametersKey::RelayParentOffset(
-							consensus::RelayParentOffset,
-						),
-					),
-					crate::RuntimeParametersValue::Consensus(
-						consensus::ParametersValue::RelayParentOffset(v),
-					),
-				);
-			}
-			if let Some(v) = icp.allow_multiple_blocks_per_slot {
-				pallet_parameters::Parameters::<crate::Runtime>::insert(
-					crate::RuntimeParametersKey::Consensus(
-						consensus::ParametersKey::AllowMultipleBlocksPerSlot(
-							consensus::AllowMultipleBlocksPerSlot,
-						),
-					),
-					crate::RuntimeParametersValue::Consensus(
-						consensus::ParametersValue::AllowMultipleBlocksPerSlot(v),
-					),
-				);
-			}
-			if let Some(v) = icp.scheduling_v3_enabled {
-				pallet_parameters::Parameters::<crate::Runtime>::insert(
-					crate::RuntimeParametersKey::Consensus(
-						consensus::ParametersKey::SchedulingV3Enabled(
-							consensus::SchedulingV3Enabled,
-						),
-					),
-					crate::RuntimeParametersValue::Consensus(
-						consensus::ParametersValue::SchedulingV3Enabled(v),
-					),
-				);
-			}
+
+			insert_consensus_parameter!(slot_duration_millis, SlotDurationMillis);
+			insert_consensus_parameter!(block_processing_velocity, BlockProcessingVelocity);
+			insert_consensus_parameter!(relay_parent_offset, RelayParentOffset);
+			insert_consensus_parameter!(allow_multiple_blocks_per_slot, AllowMultipleBlocksPerSlot);
+			insert_consensus_parameter!(scheduling_v3_enabled, SchedulingV3Enabled);
 		}
 	}
 

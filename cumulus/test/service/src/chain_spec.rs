@@ -44,12 +44,12 @@ pub fn get_chain_spec_with_extra_endowed(
 	preset_id: &str,
 ) -> GenericChainSpec {
 	let runtime_caller = GenesisConfigBuilderRuntimeCaller::<ParachainHostFunctions>::new(code);
-	let mut development_preset = runtime_caller
+	let mut preset_config = runtime_caller
 		.get_named_preset(Some(&preset_id.to_string()))
 		.unwrap_or_else(|_| panic!("preset `{preset_id}` is available on test runtime; qed"));
 
 	// Extract existing balances
-	let existing_balances = development_preset
+	let existing_balances = preset_config
 		.get("balances")
 		.and_then(|b| b.get("balances"))
 		.and_then(|b| b.as_array())
@@ -79,13 +79,13 @@ pub fn get_chain_spec_with_extra_endowed(
 		);
 	};
 
-	sc_chain_spec::json_merge(&mut development_preset, patch_json.into());
+	sc_chain_spec::json_merge(&mut preset_config, patch_json.into());
 
 	GenericChainSpec::builder(code, None)
 		.with_name("Local Testnet")
 		.with_id(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(development_preset)
+		.with_genesis_config_patch(preset_config)
 		.build()
 }
 
@@ -96,14 +96,14 @@ fn default_wasm() -> &'static [u8] {
 
 /// Default chain spec — async-backing parachain with no consensus-parameter overrides.
 pub fn get_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
-	get_chain_spec_with_extra_endowed(id, Default::default(), default_wasm(), ASYNC_BACKING_PRESET)
+	get_chain_spec_with_extra_endowed(id, Vec::new(), default_wasm(), ASYNC_BACKING_PRESET)
 }
 
 /// Elastic-scaling chain spec (velocity = 3).
 pub fn get_elastic_scaling_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
-		Default::default(),
+		Vec::new(),
 		default_wasm(),
 		ELASTIC_SCALING_PRESET,
 	)
@@ -113,7 +113,7 @@ pub fn get_elastic_scaling_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 pub fn get_relay_parent_offset_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
-		Default::default(),
+		Vec::new(),
 		default_wasm(),
 		RELAY_PARENT_OFFSET_PRESET,
 	)
@@ -123,7 +123,7 @@ pub fn get_relay_parent_offset_chain_spec(id: Option<ParaId>) -> GenericChainSpe
 pub fn get_elastic_scaling_500ms_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
-		Default::default(),
+		Vec::new(),
 		default_wasm(),
 		ELASTIC_SCALING_500MS_PRESET,
 	)
@@ -131,19 +131,19 @@ pub fn get_elastic_scaling_500ms_chain_spec(id: Option<ParaId>) -> GenericChainS
 
 /// Block-bundling chain spec (velocity = 12, same throughput as elastic-scaling 500ms).
 pub fn get_block_bundling_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
-	get_chain_spec_with_extra_endowed(id, Default::default(), default_wasm(), BLOCK_BUNDLING_PRESET)
+	get_chain_spec_with_extra_endowed(id, Vec::new(), default_wasm(), BLOCK_BUNDLING_PRESET)
 }
 
 /// Sync-backing chain spec (slot = 12s, `AllowMultipleBlocksPerSlot` = false).
 pub fn get_sync_backing_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
-	get_chain_spec_with_extra_endowed(id, Default::default(), default_wasm(), SYNC_BACKING_PRESET)
+	get_chain_spec_with_extra_endowed(id, Vec::new(), default_wasm(), SYNC_BACKING_PRESET)
 }
 
 /// Async-backing chain spec with scheduling V3 enabled.
 pub fn get_async_backing_v3_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
-		Default::default(),
+		Vec::new(),
 		default_wasm(),
 		ASYNC_BACKING_V3_PRESET,
 	)
@@ -153,7 +153,7 @@ pub fn get_async_backing_v3_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 pub fn get_async_backing_v3_rpo_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
-		Default::default(),
+		Vec::new(),
 		default_wasm(),
 		ASYNC_BACKING_V3_RPO_PRESET,
 	)
@@ -163,7 +163,7 @@ pub fn get_async_backing_v3_rpo_chain_spec(id: Option<ParaId>) -> GenericChainSp
 pub fn get_elastic_scaling_v3_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
-		Default::default(),
+		Vec::new(),
 		default_wasm(),
 		ELASTIC_SCALING_V3_PRESET,
 	)
@@ -171,7 +171,7 @@ pub fn get_elastic_scaling_v3_chain_spec(id: Option<ParaId>) -> GenericChainSpec
 
 /// Async-backing chain spec — alias for the default `get_chain_spec`.
 pub fn get_async_backing_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
-	get_chain_spec_with_extra_endowed(id, Default::default(), default_wasm(), ASYNC_BACKING_PRESET)
+	get_chain_spec_with_extra_endowed(id, Vec::new(), default_wasm(), ASYNC_BACKING_PRESET)
 }
 
 /// Chain spec for the authority-discovery / collator-discovery test.
@@ -184,7 +184,7 @@ pub fn get_async_backing_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 pub fn get_with_authority_discovery_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
-		Default::default(),
+		Vec::new(),
 		cumulus_test_runtime::with_authority_discovery::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		WITH_AUTHORITY_DISCOVERY_PRESET,

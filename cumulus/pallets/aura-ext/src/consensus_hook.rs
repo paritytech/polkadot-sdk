@@ -165,11 +165,7 @@ impl<
 	}
 }
 
-/// A consensus hook identical to [`FixedVelocityConsensusHook`] but reads velocity (`V`) and
-/// unincluded-segment capacity (`C`) from [`Get<u32>`] impls instead of `const u32`.
-///
-/// This allows the velocity and segment capacity to be configured at runtime (e.g. via
-/// `pallet_parameters` or any other [`Get<u32>`] source) instead of being baked at compile time.
+/// Consensus hook with runtime-configurable velocity and unincluded-segment capacity.
 ///
 /// # Type Parameters
 /// - `T` - The runtime configuration trait
