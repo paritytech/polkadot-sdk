@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782724587344,
+  "lastUpdate": 1782732420201,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "eb53cda54c1384ce7cdd51d3a30772e1e95cb568",
-          "message": "Notify when there is a new best block (#10220)\n\n# Description\n\nModify the tx_notifier to send the block hash to the subscribers instead\nof all transactions hashes.\nModify the send_raw_transaction to look for the transaction hash in the\ntransactions field of the evm block.\n\nWe need this changes in anvil-polkadot:\n* https://github.com/paritytech/foundry-polkadot/pull/389\n* to be able to implement some RPCs like : send_transaction_sync and the\nfilters logic\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-06T15:00:23Z",
-          "tree_id": "53e26ba861384add37c4831a831f7af88485b4e4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eb53cda54c1384ce7cdd51d3a30772e1e95cb568"
-        },
-        "date": 1762445870576,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.651819250733332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2002277766333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13890499866666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9107f88f83300b98af2d212463c83c659596261c",
+          "message": "[CI/CD ]Add eth-rpc image build to  Binary and Docker image Build for testing flow (#12494)\n\nThis PR adds a job that will allow building custom eth-rpc image for the\ntesting purposes from any `polkadot-sdk` commit",
+          "timestamp": "2026-06-29T09:45:09Z",
+          "tree_id": "7ec01332244c5f1272063bbe0b5555ca5cbdb876",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9107f88f83300b98af2d212463c83c659596261c"
+        },
+        "date": 1782732390545,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14100468026666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.963095671800003,
             "unit": "seconds"
           }
         ]
