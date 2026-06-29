@@ -49,10 +49,10 @@ pub mod v1 {
 				reads_writes += 1;
 				let v: Option<
 					BoundedVec<
-						(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, Option<VestingKind>),
+						(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, VestingKind),
 						MaxVestingSchedulesGet<T>,
 					>,
-				> = vec![(vesting_info, Some(VestingKind::Public))].try_into().ok();
+				> = vec![(vesting_info, VestingKind::Public)].try_into().ok();
 
 				if v.is_none() {
 					log::warn!(
@@ -99,11 +99,11 @@ pub mod v1 {
 }
 
 /// Migration from multi-schedule (`BoundedVec<VestingInfo>`, V1) to kind-tagged schedules
-/// (`BoundedVec<(VestingInfo, Option<VestingKind>)>`, V2).
+/// (`BoundedVec<(VestingInfo, VestingKind)>`, V2).
 ///
-/// All pre-existing V1 schedules are tagged `Some(VestingKind::Public)`. Historical
+/// All pre-existing V1 schedules are tagged `VestingKind::Public`. Historical
 /// `force_vested_transfer` schedules are indistinguishable from public ones in V1 storage, so
-/// they also receive the `Public` tag. Future root-issued schedules will be stored with `None`.
+/// they also receive the `Public` tag. Future root-issued schedules will be stored with `System`.
 pub mod v2 {
 	use super::*;
 	use frame_support::traits::OnRuntimeUpgrade;
@@ -125,7 +125,7 @@ pub mod v2 {
 				reads += 1;
 				writes += 1;
 				let tagged: alloc::vec::Vec<_> =
-					old.into_iter().map(|vi| (vi, Some(VestingKind::Public))).collect();
+					old.into_iter().map(|vi| (vi, VestingKind::Public)).collect();
 
 				// Warn if this account exceeds the public vesting schedule capacity, as this will
 				// cause new schedules to be rejected until some existing ones vest out.
@@ -174,7 +174,7 @@ pub mod v2 {
 				for (_vi, kind) in &schedules {
 					assert_eq!(
 						*kind,
-						Some(VestingKind::Public),
+						VestingKind::Public,
 						"All migrated schedules must be tagged Public"
 					);
 				}

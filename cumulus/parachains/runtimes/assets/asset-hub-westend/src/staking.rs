@@ -659,7 +659,7 @@ mod tests {
 		// Ensure that staking-related vesting schedule quota strictly exceeds
 		// `VestingBondingPeriods` so incentives never get dropped at the cap.
 		let staking_cap =
-			<Runtime as pallet_vesting::Config>::slot_cap(pallet_vesting::VestingKind::Staking);
+			<Runtime as pallet_vesting::Config>::slot_cap(pallet_vesting::VestingKind::System);
 		assert!(
 			staking_cap > ValidatorVestingBondingPeriods::get(),
 			"The staking-related vesting schedule quota must exceed VestingBondingPeriods"

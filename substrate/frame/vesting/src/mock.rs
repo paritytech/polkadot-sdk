@@ -50,6 +50,8 @@ parameter_types! {
 	pub static ExistentialDeposit: u64 = 1;
 }
 impl Config for Test {
+	const MAX_VESTING_SCHEDULES: u32 = 4;
+	const MAX_PUBLIC_VESTING_SCHEDULES: u32 = 3;
 	type BlockNumberToBalance = Identity;
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
@@ -57,9 +59,6 @@ impl Config for Test {
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
-	const MAX_VESTING_SCHEDULES: u32 = 4;
-	const MAX_PUBLIC_VESTING_SCHEDULES: u32 = 3;
-	const MAX_STAKING_VESTING_SCHEDULES: u32 = 1;
 }
 
 pub struct ExtBuilder {

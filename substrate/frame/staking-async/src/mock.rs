@@ -128,7 +128,6 @@ parameter_types! {
 impl pallet_vesting::Config for Test {
 	const MAX_VESTING_SCHEDULES: u32 = 100;
 	const MAX_PUBLIC_VESTING_SCHEDULES: u32 = 72;
-	const MAX_STAKING_VESTING_SCHEDULES: u32 = 28;
 	type BlockNumberToBalance = sp_runtime::traits::ConvertInto;
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;

@@ -13,7 +13,7 @@ doc:
     - A new `VestedPayout` trait allows the addition of new vesting schedules either as new
       entries or through merging with existing schedules that start at the same block
     - A new `VestingKind` enum that differentiates the vesting schedule origins (currently
-      supporting `Public` and `Staking`) and which is used to partition the vesting schedule
+      supporting `Public` and `System`) and which is used to partition the vesting schedule
       capacity, with merging allowed only for schedules from the same origin
     - All existing schedules are tagged as `Public` so a V1 → V2 migration is needed
 

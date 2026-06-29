@@ -782,7 +782,7 @@ where
 			));
 		}
 
-		V::add_to_vesting(source, dest, amount, duration, start_at, VestingKind::Staking)
+		V::add_to_vesting(source, dest, amount, duration, start_at, VestingKind::System)
 	}
 }
 

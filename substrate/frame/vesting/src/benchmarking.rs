@@ -61,8 +61,16 @@ fn add_vesting_schedules<T: Config>(
 
 		let schedule = VestingInfo::new(locked, per_block, starting_block.into());
 
-		// Use `None` (root / unrestricted) to populate up to MAX_VESTING_SCHEDULES.
-		assert_ok!(Pallet::<T>::do_vested_transfer(&source, target, schedule, None));
+		// Fill all Public slots first, afterwards fall back to System slots. Together
+		// they cover the full MAX_VESTING_SCHEDULES capacity.
+		let current_count = Vesting::<T>::decode_len(target).unwrap_or(0) as u32;
+		let kind = if current_count < T::MAX_PUBLIC_VESTING_SCHEDULES {
+			VestingKind::Public
+		} else {
+			VestingKind::System
+		};
+
+		assert_ok!(Pallet::<T>::do_vested_transfer(&source, target, schedule, kind));
 
 		// Top up to guarantee we can always transfer another schedule.
 		T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
@@ -463,7 +471,7 @@ mod benchmarks {
 			<Pallet<T> as frame_support::traits::tokens::VestedPayout<
 				T::AccountId,
 				BalanceOf<T>,
-			>>::add_to_vesting(&source, &dest, amount, duration, start_at, VestingKind::Public)
+			>>::add_to_vesting(&source, &dest, amount, duration, start_at, VestingKind::System)
 			.unwrap();
 		}
 
@@ -501,7 +509,7 @@ mod benchmarks {
 		<Pallet<T> as frame_support::traits::tokens::VestedPayout<
 			T::AccountId,
 			BalanceOf<T>,
-		>>::add_to_vesting(&source, &dest, amount, duration, start_at, VestingKind::Public)
+		>>::add_to_vesting(&source, &dest, amount, duration, start_at, VestingKind::System)
 		.unwrap();
 		T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
 
@@ -512,7 +520,7 @@ mod benchmarks {
 			<Pallet<T> as frame_support::traits::tokens::VestedPayout<
 				T::AccountId,
 				BalanceOf<T>,
-			>>::add_to_vesting(&source, &dest, amount, duration, start_at, VestingKind::Public)
+			>>::add_to_vesting(&source, &dest, amount, duration, start_at, VestingKind::System)
 			.unwrap();
 		}
 

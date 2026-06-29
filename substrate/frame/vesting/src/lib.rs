@@ -133,9 +133,8 @@ impl VestingAction {
 	/// Pick the schedules that this action dictates should continue vesting undisturbed.
 	fn pick_schedules<T: Config>(
 		&self,
-		schedules: Vec<(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, Option<VestingKind>)>,
-	) -> impl Iterator<Item = (VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, Option<VestingKind>)> + '_
-	{
+		schedules: Vec<(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, VestingKind)>,
+	) -> impl Iterator<Item = (VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, VestingKind)> + '_ {
 		schedules.into_iter().enumerate().filter_map(move |(index, entry)| {
 			if self.should_remove(index) {
 				None
@@ -220,15 +219,13 @@ pub mod pallet {
 		/// Defaults to `MAX_VESTING_SCHEDULES` (no separation).
 		const MAX_PUBLIC_VESTING_SCHEDULES: u32 = Self::MAX_VESTING_SCHEDULES;
 
-		/// Maximum number of vesting schedules an account may hold from staking rewards.
-		/// Runtimes that do not use vesting-enabled staking may leave this at 0.
-		const MAX_STAKING_VESTING_SCHEDULES: u32 = 0;
-
 		/// Returns the slot cap for a given [`VestingKind`].
 		fn slot_cap(kind: VestingKind) -> u32 {
 			match kind {
 				VestingKind::Public => Self::MAX_PUBLIC_VESTING_SCHEDULES,
-				VestingKind::Staking => Self::MAX_STAKING_VESTING_SCHEDULES,
+				VestingKind::System => {
+					Self::MAX_VESTING_SCHEDULES.saturating_sub(Self::MAX_PUBLIC_VESTING_SCHEDULES)
+				},
 			}
 		}
 	}
@@ -246,30 +243,25 @@ pub mod pallet {
 		fn integrity_test() {
 			assert!(T::MAX_VESTING_SCHEDULES > 0, "`MaxVestingSchedules` must be greater than 0");
 
-			// The sum of the per-kind caps must always match the total cap.
-			let per_kind_sum = [VestingKind::Public, VestingKind::Staking]
-				.iter()
-				.fold(0u32, |acc, &k| acc.saturating_add(T::slot_cap(k)));
-			assert_eq!(
-				per_kind_sum,
-				T::MAX_VESTING_SCHEDULES,
-				"The sum of the per-kind vesting caps must always match the total vesting cap."
+			assert!(
+				T::MAX_PUBLIC_VESTING_SCHEDULES <= T::MAX_VESTING_SCHEDULES,
+				"MAX_PUBLIC_VESTING_SCHEDULES must not exceed MAX_VESTING_SCHEDULES"
 			);
 		}
 	}
 
 	/// Information regarding the vesting of a given account.
 	///
-	/// Each entry is a `(VestingInfo, Option<VestingKind>)` tuple where `Some(kind)` indicates
-	/// a consumer-issued schedule (subject to per-kind caps) and `None` indicates a root-issued
-	/// schedule (via `force_vested_transfer` or `add_to_vesting_unrestricted`).
+	/// Each entry is a `(VestingInfo, VestingKind)` tuple where `Public` indicates
+	/// a schedule from the permissionless `vested_transfer` extrinsic and `System`
+	/// indicates a schedule from a trusted caller (staking payouts, root/force calls).
 	#[pallet::storage]
 	pub type Vesting<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
 		T::AccountId,
 		BoundedVec<
-			(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, Option<VestingKind>),
+			(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, VestingKind),
 			MaxVestingSchedulesGet<T>,
 		>,
 	>;
@@ -315,7 +307,7 @@ pub mod pallet {
 				};
 
 				// Tag genesis schedules as Public — they originate from the initial chain config.
-				Vesting::<T>::try_append(who, (vesting_info, Some(VestingKind::Public)))
+				Vesting::<T>::try_append(who, (vesting_info, VestingKind::Public))
 					.expect("Too many vesting schedules at genesis.");
 
 				let reasons =
@@ -419,7 +411,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let transactor = ensure_signed(origin)?;
 			let target = T::Lookup::lookup(target)?;
-			Self::do_vested_transfer(&transactor, &target, schedule, Some(VestingKind::Public))
+			Self::do_vested_transfer(&transactor, &target, schedule, VestingKind::Public)
 		}
 
 		/// Force a vested transfer.
@@ -449,7 +441,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let target = T::Lookup::lookup(target)?;
 			let source = T::Lookup::lookup(source)?;
-			Self::do_vested_transfer(&source, &target, schedule, None)
+			Self::do_vested_transfer(&source, &target, schedule, VestingKind::System)
 		}
 
 		/// Merge two vesting schedules together, creating a new vesting schedule that unlocks over
@@ -540,7 +532,7 @@ impl<T: Config> Pallet<T> {
 		account: T::AccountId,
 	) -> Option<
 		BoundedVec<
-			(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, Option<VestingKind>),
+			(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, VestingKind),
 			MaxVestingSchedulesGet<T>,
 		>,
 	> {
@@ -639,26 +631,13 @@ impl<T: Config> Pallet<T> {
 		VestingInfo::new(locked, per_block, existing.starting_block())
 	}
 
-	/// Returns `Ok` if `who` has room for one more schedule of the given `kind`. Checks both
-	/// the per-kind cap and the total cap (since root entries may use up consumer slots).
+	/// Returns `Ok` if there is room for one more schedule of the given `kind`.
 	fn check_per_kind_room(
-		schedules: &[(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, Option<VestingKind>)],
-		kind: Option<VestingKind>,
+		schedules: &[(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, VestingKind)],
+		kind: VestingKind,
 	) -> DispatchResult {
-		let (count, cap) = match kind {
-			Some(k) => {
-				// For consumers we also check the total cap, as root entries may have filled slots.
-				ensure!(
-					(schedules.len() as u32) < T::MAX_VESTING_SCHEDULES,
-					Error::<T>::AtMaxVestingSchedules,
-				);
-
-				(schedules.iter().filter(|(_, kk)| *kk == Some(k)).count() as u32, T::slot_cap(k))
-			},
-			None => (schedules.len() as u32, T::MAX_VESTING_SCHEDULES),
-		};
-
-		ensure!(count < cap, Error::<T>::AtMaxVestingSchedules);
+		let count = schedules.iter().filter(|(_, k)| *k == kind).count() as u32;
+		ensure!(count < T::slot_cap(kind), Error::<T>::AtMaxVestingSchedules);
 		Ok(())
 	}
 
@@ -668,7 +647,7 @@ impl<T: Config> Pallet<T> {
 		source: &T::AccountId,
 		target: &T::AccountId,
 		schedule: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
-		kind: Option<VestingKind>,
+		kind: VestingKind,
 	) -> DispatchResult {
 		// Validate user inputs.
 		ensure!(schedule.locked() >= T::MinVestedTransfer::get(), Error::<T>::AmountLow);
@@ -695,55 +674,13 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	// Helper to safely add a vesting schedule of a given kind if there is room.
-	fn add_to_vesting_inner(
-		source: &T::AccountId,
-		dest: &T::AccountId,
-		amount: BalanceOf<T>,
-		duration: BlockNumberFor<T>,
-		start_at: BlockNumberFor<T>,
-		kind: Option<VestingKind>,
-	) -> DispatchResult {
-		if amount.is_zero() || duration.is_zero() {
-			return Ok(());
-		}
-
-		let now = T::BlockNumberProvider::current_block_number();
-		let duration_as_balance = T::BlockNumberToBalance::convert(duration);
-		let per_block = (amount.saturating_add(duration_as_balance).saturating_sub(One::one()) /
-			duration_as_balance)
-			.max(One::one());
-		let incoming = VestingInfo::new(amount, per_block, start_at);
-		let schedules = Vesting::<T>::get(dest).unwrap_or_default();
-
-		if let Some(idx) = schedules
-			.iter()
-			.position(|(vi, k)| vi.starting_block() == start_at && *k == kind)
-		{
-			// Merging bypasses MinVestedTransfer and all operations are performed atomically.
-			with_storage_layer(|| {
-				T::Currency::transfer(source, dest, amount, ExistenceRequirement::AllowDeath)?;
-				let mut schedules = schedules.into_inner();
-				let merged_vi =
-					Self::merge_vesting_info_preserving_start(now, schedules[idx].0, incoming);
-				schedules[idx] = (merged_vi, kind);
-				let (schedules, locked_now) = Self::exec_action(schedules, VestingAction::Passive)?;
-				Self::write_vesting(dest, schedules)?;
-				Self::write_lock(dest, locked_now);
-				Ok(())
-			})
-		} else {
-			Self::do_vested_transfer(source, dest, incoming, kind)
-		}
-	}
-
 	// Internal kind-aware schedule insertion with cap enforcement.
 	fn add_vesting_schedule_with_kind(
 		who: &T::AccountId,
 		locked: BalanceOf<T>,
 		per_block: BalanceOf<T>,
 		starting_block: BlockNumberFor<T>,
-		kind: Option<VestingKind>,
+		kind: VestingKind,
 	) -> DispatchResult {
 		if locked.is_zero() {
 			return Ok(());
@@ -791,9 +728,9 @@ impl<T: Config> Pallet<T> {
 	///
 	/// NOTE: the amount locked does not include any schedules that are filtered out via `action`.
 	fn report_schedule_updates(
-		schedules: Vec<(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, Option<VestingKind>)>,
+		schedules: Vec<(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, VestingKind)>,
 		action: VestingAction,
-	) -> (Vec<(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, Option<VestingKind>)>, BalanceOf<T>) {
+	) -> (Vec<(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, VestingKind)>, BalanceOf<T>) {
 		let now = T::BlockNumberProvider::current_block_number();
 
 		let mut total_locked_now: BalanceOf<T> = Zero::zero();
@@ -830,10 +767,10 @@ impl<T: Config> Pallet<T> {
 	/// Write an accounts updated vesting schedules to storage.
 	fn write_vesting(
 		who: &T::AccountId,
-		schedules: Vec<(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, Option<VestingKind>)>,
+		schedules: Vec<(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, VestingKind)>,
 	) -> Result<(), DispatchError> {
 		let schedules: BoundedVec<
-			(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, Option<VestingKind>),
+			(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, VestingKind),
 			MaxVestingSchedulesGet<T>,
 		> = schedules.try_into().map_err(|_| Error::<T>::AtMaxVestingSchedules)?;
 
@@ -862,10 +799,10 @@ impl<T: Config> Pallet<T> {
 	/// Execute a `VestingAction` against the given `schedules`. Returns the updated schedules
 	/// and locked amount.
 	fn exec_action(
-		schedules: Vec<(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, Option<VestingKind>)>,
+		schedules: Vec<(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, VestingKind)>,
 		action: VestingAction,
 	) -> Result<
-		(Vec<(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, Option<VestingKind>)>, BalanceOf<T>),
+		(Vec<(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, VestingKind)>, BalanceOf<T>),
 		DispatchError,
 	> {
 		let (schedules, locked_now) = match action {
@@ -942,7 +879,7 @@ where
 					.max(One::one());
 			let schedule = VestingInfo::new(amount, per_block, starting_block);
 
-			Self::do_vested_transfer(source, dest, schedule, Some(VestingKind::Public))
+			Self::do_vested_transfer(source, dest, schedule, VestingKind::Public)
 		}
 	}
 
@@ -954,17 +891,37 @@ where
 		start_at: BlockNumberFor<T>,
 		kind: VestingKind,
 	) -> DispatchResult {
-		Self::add_to_vesting_inner(source, dest, amount, duration, start_at, Some(kind))
-	}
+		if amount.is_zero() || duration.is_zero() {
+			return Ok(());
+		}
 
-	fn add_to_vesting_unrestricted(
-		source: &T::AccountId,
-		dest: &T::AccountId,
-		amount: BalanceOf<T>,
-		duration: BlockNumberFor<T>,
-		start_at: BlockNumberFor<T>,
-	) -> DispatchResult {
-		Self::add_to_vesting_inner(source, dest, amount, duration, start_at, None)
+		let now = T::BlockNumberProvider::current_block_number();
+		let duration_as_balance = T::BlockNumberToBalance::convert(duration);
+		let per_block = (amount.saturating_add(duration_as_balance).saturating_sub(One::one()) /
+			duration_as_balance)
+			.max(One::one());
+		let incoming = VestingInfo::new(amount, per_block, start_at);
+		let schedules = Vesting::<T>::get(dest).unwrap_or_default();
+
+		if let Some(idx) = schedules
+			.iter()
+			.position(|(vi, k)| vi.starting_block() == start_at && *k == kind)
+		{
+			// Merging bypasses MinVestedTransfer and all operations are performed atomically.
+			with_storage_layer(|| {
+				T::Currency::transfer(source, dest, amount, ExistenceRequirement::AllowDeath)?;
+				let mut schedules = schedules.into_inner();
+				let merged_vi =
+					Self::merge_vesting_info_preserving_start(now, schedules[idx].0, incoming);
+				schedules[idx] = (merged_vi, kind);
+				let (schedules, locked_now) = Self::exec_action(schedules, VestingAction::Passive)?;
+				Self::write_vesting(dest, schedules)?;
+				Self::write_lock(dest, locked_now);
+				Ok(())
+			})
+		} else {
+			Self::do_vested_transfer(source, dest, incoming, kind)
+		}
 	}
 }
 
@@ -1012,7 +969,7 @@ where
 			locked,
 			per_block,
 			starting_block,
-			Some(VestingKind::Public),
+			VestingKind::Public,
 		)
 	}
 
@@ -1032,7 +989,7 @@ where
 		// `add_vesting_schedule` tags Public, so the predicate must apply the Public quota
 		// to honour the can-add → add contract.
 		let schedules = Vesting::<T>::get(who).unwrap_or_default();
-		Self::check_per_kind_room(&schedules, Some(VestingKind::Public))?;
+		Self::check_per_kind_room(&schedules, VestingKind::Public)?;
 
 		Ok(())
 	}
@@ -1070,8 +1027,7 @@ where
 		let schedule = VestingInfo::new(locked, per_block, starting_block);
 		with_transaction(|| -> TransactionOutcome<DispatchResult> {
 			// VestedTransfer callers are trusted (they hold Currency); treat as Public.
-			let result =
-				Self::do_vested_transfer(source, target, schedule, Some(VestingKind::Public));
+			let result = Self::do_vested_transfer(source, target, schedule, VestingKind::Public);
 
 			match &result {
 				Ok(()) => TransactionOutcome::Commit(result),

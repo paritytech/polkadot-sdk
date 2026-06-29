@@ -442,8 +442,8 @@ pub struct IdAmount<Id, Balance> {
 pub enum VestingKind {
 	/// The permissionless `vested_transfer` extrinsic.
 	Public,
-	/// Validator self-stake incentives.
-	Staking,
+	/// System-issued schedules: staking payouts, root/force calls, or any trusted caller.
+	System,
 }
 
 /// Transfer `amount` from `source` to `dest` and apply a linear vesting schedule that completes
@@ -466,9 +466,8 @@ pub enum VestingKind {
 /// can fill a target's vesting schedule slots and cause subsequent *create* calls from
 /// [`add_to_vesting`](Self::add_to_vesting) to fail with `AtMaxVestingSchedules`.
 /// To mitigate this, `pallet-vesting` partitions vesting schedule slots into multiple kinds.
-/// The permissionless `vested_transfer` extrinsic can only fill the allocated Public slots, the
-/// more generic `add_to_vesting` can select any non-root kind, while the privileged
-/// `add_to_vesting_unrestricted` can fill any remaining empty slot.
+/// The permissionless `vested_transfer` extrinsic can only fill the allocated Public slots, while
+/// trusted callers may use `add_to_vesting(VestingKind::System)` to fill (trusted) system slots.
 pub trait VestedPayout<AccountId, Balance> {
 	/// The block number type used to express vesting duration.
 	type BlockNumber;
@@ -496,15 +495,5 @@ pub trait VestedPayout<AccountId, Balance> {
 		duration: Self::BlockNumber,
 		start_at: Self::BlockNumber,
 		kind: VestingKind,
-	) -> sp_runtime::DispatchResult;
-
-	/// Root-only counterpart to `add_to_vesting`, which bypasses all per-kind caps and
-	/// only merges with other root schedules.
-	fn add_to_vesting_unrestricted(
-		source: &AccountId,
-		dest: &AccountId,
-		amount: Balance,
-		duration: Self::BlockNumber,
-		start_at: Self::BlockNumber,
 	) -> sp_runtime::DispatchResult;
 }
