@@ -248,10 +248,7 @@ fn invalid_authorization_is_skipped() {
 		// rather than relying on the `Charge(0)` return alone.
 		let assert_no_money_moved = |setup: &DelegationTestSetup, origin_before: u128| {
 			assert_eq!(
-				get_balance_on_hold(
-					&HoldReason::StorageDepositReserve.into(),
-					&setup.authority_id,
-				),
+				get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id,),
 				0,
 				"skipped auth must not leave a hold on the authority",
 			);
@@ -443,7 +440,8 @@ fn new_account_sets_delegation() {
 			0,
 			"non-contract target must not produce a storage-deposit hold",
 		);
-		// Under `new_eth_tx`, deposits/EDs flow through the tx-fee pot, never origin's free balance.
+		// Under `new_eth_tx`, deposits/EDs flow through the tx-fee pot, never origin's free
+		// balance.
 		assert_eq!(
 			<<Test as Config>::Currency as Inspect<_>>::balance(&setup.origin),
 			origin_before,
@@ -655,11 +653,8 @@ fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
 		let set_payer_before = <<Test as Config>::Currency as Inspect<_>>::balance(&set_payer);
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 		let auth_set = signer.sign_authorization(chain_id, target.addr, nonce);
-		let _ = crate::evm::eip7702::process_authorizations::<Test>(
-			&[auth_set],
-			&set_payer,
-			&eth_tx,
-		);
+		let _ =
+			crate::evm::eip7702::process_authorizations::<Test>(&[auth_set], &set_payer, &eth_tx);
 		assert!(AccountInfo::<Test>::is_delegated(&signer.address));
 		let pot_after_set = <Test as Config>::FeeInfo::remaining_txfee();
 		assert_eq!(
@@ -701,7 +696,8 @@ fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
 		// must NOT recover the deposit here. Under current code `pot_after_clear == pot_after_set +
 		// deposit`, so this assertion FAILS — which is the repro.
 		assert_eq!(
-			pot_after_clear, pot_after_set,
+			pot_after_clear,
+			pot_after_set,
 			"payer-change refund leaked to the fee pot: the released deposit ({}) returned to the \
 			 shared pot instead of being earmarked to the original payer (set_payer)",
 			pot_after_clear.saturating_sub(pot_after_set),
@@ -970,10 +966,7 @@ fn process_multiple_authorizations_from_different_signers() {
 		// All targets are non-contracts → no storage-deposit holds anywhere.
 		for setup in [&setup1, &setup2, &setup3] {
 			assert_eq!(
-				get_balance_on_hold(
-					&HoldReason::StorageDepositReserve.into(),
-					&setup.authority_id,
-				),
+				get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id,),
 				0,
 			);
 		}
@@ -1019,8 +1012,7 @@ fn auth_failing_post_validation_skips_without_aborting_list() {
 		let auth_bad = setup.sign_authorization(target_bad.addr);
 		let auth_good = good_signer.sign_authorization(chain_id, target_good.addr, U256::zero());
 
-		let origin_before =
-			<<Test as Config>::Currency as Inspect<_>>::balance(&setup.origin);
+		let origin_before = <<Test as Config>::Currency as Inspect<_>>::balance(&setup.origin);
 
 		// Without the per-auth `with_transaction` skip, the bad auth's error would propagate
 		// out and abort the whole list. With the skip, this returns normally and we can
@@ -1904,8 +1896,7 @@ fn pure_revoke_authorization_yields_net_refund() {
 			.build_and_unwrap_contract();
 
 		let setup = DelegationTestSetup::new([0xAB; 32]);
-		let origin_before =
-			<<Test as Config>::Currency as Inspect<_>>::balance(&setup.origin);
+		let origin_before = <<Test as Config>::Currency as Inspect<_>>::balance(&setup.origin);
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id),
 			0,
@@ -1917,7 +1908,10 @@ fn pure_revoke_authorization_yields_net_refund() {
 		// the account the charge and the hold both live on — not the target's (which would only
 		// match by coincidence of identical `ContractInfo` encoding).
 		let expected_deposit = get_contract(&setup.signer.address).storage_base_deposit();
-		assert!(expected_deposit > 0, "delegation to a real contract must carry a non-zero deposit");
+		assert!(
+			expected_deposit > 0,
+			"delegation to a real contract must carry a non-zero deposit"
+		);
 		assert_eq!(
 			charge_result.deposit,
 			crate::StorageDeposit::Charge(expected_deposit),
@@ -1969,8 +1963,7 @@ fn redelegation_adjusts_deposit() {
 		let hold_a =
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id);
 		assert!(hold_a > 0);
-		let origin_after_set =
-			<<Test as Config>::Currency as Inspect<_>>::balance(&setup.origin);
+		let origin_after_set = <<Test as Config>::Currency as Inspect<_>>::balance(&setup.origin);
 
 		// Re-delegate to target B (same code size → same deposit)
 		let auth = setup.sign_authorization(target_b.addr);
