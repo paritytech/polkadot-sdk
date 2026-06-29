@@ -189,11 +189,6 @@ impl TryFrom<&'_ CollationSecondedSignal> for BlockAnnounceData {
 	}
 }
 
-/// A type alias for the [`RequireSecondedInBlockAnnounce`] validator.
-#[deprecated = "This has been renamed to RequireSecondedInBlockAnnounce"]
-pub type BlockAnnounceValidator<Block, RCInterface> =
-	RequireSecondedInBlockAnnounce<Block, RCInterface>;
-
 /// Parachain specific block announce validator.
 ///
 /// This is not required when the collation mechanism itself is sybil-resistant, as it is a spam
