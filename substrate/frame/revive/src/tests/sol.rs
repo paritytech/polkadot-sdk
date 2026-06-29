@@ -78,6 +78,24 @@ fn make_initcode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
 	init_code
 }
 
+/// Init code for a contract that `EXTCODECOPY`s `copy_len` bytes from the address in calldata.
+fn make_extcodecopy_reader(copy_len: u32) -> Vec<u8> {
+	let [b0, b1, b2, b3] = copy_len.to_be_bytes();
+	make_initcode_from_runtime_code(&vec![
+		PUSH4,
+		b0,
+		b1,
+		b2,
+		b3,           // size: bytes to copy
+		PUSH0,        // code offset
+		PUSH0,        // destination memory offset
+		PUSH0,        // calldata offset of the target address
+		CALLDATALOAD, // load the target address
+		EXTCODECOPY,
+		STOP,
+	])
+}
+
 #[test]
 fn basic_evm_flow_works() {
 	let (code, init_hash) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
@@ -279,6 +297,77 @@ fn tload_charges_for_actual_transient_value_size() {
 		delta >= 100,
 		"TLOAD must charge more for a 32-byte read than for a None read: delta={delta} \
 		 (expected ~974 with fix, ~1 without)",
+	);
+}
+
+#[test]
+fn extcodecopy_charges_for_actual_code_size() {
+	// Copy a single byte, so the charge is driven by the target's code size, not the copy length.
+	let reader_code = make_extcodecopy_reader(1);
+
+	let measure = |code_size: u32| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let target_code = VmBinaryModule::evm_init_code_for_runtime_size(code_size).code;
+			let Contract { addr: target_addr, .. } =
+				builder::bare_instantiate(Code::Upload(target_code)).build_and_unwrap_contract();
+
+			let Contract { addr: reader_addr, .. } =
+				builder::bare_instantiate(Code::Upload(reader_code.clone()))
+					.build_and_unwrap_contract();
+
+			let mut input = vec![0u8; 12];
+			input.extend_from_slice(target_addr.as_bytes());
+
+			let result = builder::bare_call(reader_addr).data(input).build();
+			result.result.unwrap();
+			result.gas_consumed
+		})
+	};
+
+	let gas_small = measure(64);
+	let gas_large = measure(20_000);
+
+	assert!(
+		gas_large > gas_small,
+		"extcodecopy must charge more for a larger target contract: \
+		 gas_large={gas_large}, gas_small={gas_small}",
+	);
+}
+
+#[test]
+fn extcodecopy_charges_for_copy_length_beyond_code_size() {
+	const TARGET_CODE_SIZE: u32 = 64;
+
+	let measure = |copy_len: u32| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let target_code = VmBinaryModule::evm_init_code_for_runtime_size(TARGET_CODE_SIZE).code;
+			let Contract { addr: target_addr, .. } =
+				builder::bare_instantiate(Code::Upload(target_code)).build_and_unwrap_contract();
+
+			let Contract { addr: reader_addr, .. } =
+				builder::bare_instantiate(Code::Upload(make_extcodecopy_reader(copy_len)))
+					.build_and_unwrap_contract();
+
+			let mut input = vec![0u8; 12];
+			input.extend_from_slice(target_addr.as_bytes());
+
+			let result = builder::bare_call(reader_addr).data(input).build();
+			result.result.unwrap();
+			result.gas_consumed
+		})
+	};
+
+	let gas_at_code_size = measure(TARGET_CODE_SIZE);
+	let gas_max = measure(crate::limits::EVM_MEMORY_BYTES);
+
+	assert!(
+		gas_max > gas_at_code_size,
+		"extcodecopy must charge for the copy length when it exceeds the code size: \
+		 gas_max={gas_max}, gas_at_code_size={gas_at_code_size}",
 	);
 }
 
