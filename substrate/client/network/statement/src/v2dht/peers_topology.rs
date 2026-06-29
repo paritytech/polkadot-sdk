@@ -199,8 +199,8 @@ impl PeersTopology {
 	/// Local-only explicit-affinity connection candidates for `topics`.
 	///
 	/// This uses only the locally learned topology, avoiding network lookups that would reveal
-	/// explicit-affinity topics, and tries to minimize new connections by choosing peers that
-	/// cover currently uncovered topics.
+	/// explicit-affinity topics, and selects a minimal set of peers covering every topic,
+	/// independent of connection state.
 	pub fn peers_for_topics(&self, topics: &[Topic]) -> Vec<PeerId> {
 		if topics.is_empty() {
 			return Vec::new();
@@ -213,13 +213,7 @@ impl PeersTopology {
 			.map(|topic| self.closest_known_keyed(*topic, pool_size))
 			.collect::<Vec<_>>();
 
-		let mut uncovered = closest_pools
-			.iter()
-			.enumerate()
-			.filter_map(|(topic_idx, pool)| {
-				(!pool.iter().any(|(peer, _)| self.is_connected(peer))).then_some(topic_idx)
-			})
-			.collect::<HashSet<_>>();
+		let mut uncovered = (0..topics.len()).collect::<HashSet<_>>();
 
 		let mut selected = Vec::new();
 		let limit = topics.len();
@@ -461,7 +455,7 @@ mod tests {
 	}
 
 	#[test]
-	fn peers_for_topics_does_not_select_for_topics_covered_by_connected_peers() {
+	fn peers_for_topics_keeps_connected_coverage_peer() {
 		let mut topology = topology(1);
 		let topic = topic(9);
 
@@ -470,9 +464,11 @@ mod tests {
 		}
 
 		let connected = topology.closest_known(topic, 1)[0];
+		let before = topology.peers_for_topics(&[topic]);
 		topology.on_substream_opened(connected);
 
-		assert!(topology.peers_for_topics(&[topic]).is_empty());
+		assert_eq!(topology.peers_for_topics(&[topic]), before);
+		assert!(topology.peers_for_topics(&[topic]).contains(&connected));
 	}
 
 	#[test]
