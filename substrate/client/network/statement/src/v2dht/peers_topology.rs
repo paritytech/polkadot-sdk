@@ -39,15 +39,6 @@ pub struct PeersTopologyConfig {
 	pub gossip_target: NonZeroUsize,
 }
 
-impl Default for PeersTopologyConfig {
-	fn default() -> Self {
-		Self {
-			replication_factor: NonZeroUsize::new(20).expect("20 is non-zero"),
-			gossip_target: NonZeroUsize::new(3).expect("3 is non-zero"),
-		}
-	}
-}
-
 #[derive(Debug, Clone)]
 struct PeerInfo {
 	supports_protocol: bool,

@@ -168,9 +168,9 @@ const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from
 
 /// Feature-flag to switch between the legacy flood path and the new DHT-targeted path.
 ///
-/// Hard-coded for now.
-const fn v2dht_enabled() -> bool {
-	false
+/// Off by default; enable the v2 DHT path by setting `STATEMENT_STORE_V2_DHT_ENABLED=1`.
+fn v2dht_enabled() -> bool {
+	std::env::var_os("STATEMENT_STORE_V2_DHT_ENABLED").map_or(false, |value| value == "1")
 }
 
 struct Metrics {
@@ -391,6 +391,8 @@ impl StatementHandlerPrototype {
 		mut num_submission_workers: usize,
 		statements_per_second: u32,
 		configured_topics: &[Topic],
+		replication_factor: std::num::NonZeroUsize,
+		gossip_target: std::num::NonZeroUsize,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
 		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
@@ -473,7 +475,7 @@ impl StatementHandlerPrototype {
 		let v2dht = V2DhtOrchestrator::new(
 			configured_topics,
 			network.local_peer_id(),
-			PeersTopologyConfig::default(),
+			PeersTopologyConfig { replication_factor, gossip_target },
 			self.protocol_name.clone(),
 			v2dht_metrics,
 		);
@@ -763,7 +765,10 @@ where
 		let v2dht = V2DhtOrchestrator::new(
 			&[],
 			local_peer,
-			PeersTopologyConfig::default(),
+			PeersTopologyConfig {
+				replication_factor: crate::config::DEFAULT_REPLICATION_FACTOR,
+				gossip_target: crate::config::DEFAULT_GOSSIP_TARGET,
+			},
 			protocol_name.clone(),
 			None,
 		);
@@ -1767,6 +1772,7 @@ where
 mod tests {
 
 	use super::*;
+	use crate::test_helpers::topology_config;
 	use std::sync::{
 		atomic::{AtomicBool, Ordering},
 		Mutex,
@@ -2279,7 +2285,7 @@ mod tests {
 			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
-				PeersTopologyConfig::default(),
+				topology_config(20, 3),
 				"/statement/test".into(),
 				None,
 			),
@@ -2613,7 +2619,7 @@ mod tests {
 			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
-				PeersTopologyConfig::default(),
+				topology_config(20, 3),
 				"/statement/test".into(),
 				None,
 			),
@@ -2666,7 +2672,7 @@ mod tests {
 			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
-				PeersTopologyConfig::default(),
+				topology_config(20, 3),
 				"/statement/test".into(),
 				None,
 			),
@@ -4093,7 +4099,7 @@ mod tests {
 			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
-				PeersTopologyConfig::default(),
+				topology_config(20, 3),
 				"/statement/test".into(),
 				None,
 			),
@@ -4458,7 +4464,7 @@ mod tests {
 			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
-				PeersTopologyConfig::default(),
+				topology_config(20, 3),
 				"/statement/test".into(),
 				None,
 			),
@@ -4533,7 +4539,7 @@ mod tests {
 			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
-				PeersTopologyConfig::default(),
+				topology_config(20, 3),
 				"/statement/test".into(),
 				None,
 			),
@@ -4620,7 +4626,7 @@ mod tests {
 			v2dht: V2DhtOrchestrator::new(
 				&[],
 				network.local_peer_id(),
-				PeersTopologyConfig::default(),
+				topology_config(20, 3),
 				"/statement/test".into(),
 				None,
 			),
@@ -4731,7 +4737,7 @@ mod tests {
 					v2dht: V2DhtOrchestrator::new(
 						&[],
 						local_peer,
-						PeersTopologyConfig::default(),
+						topology_config(20, 3),
 						"/statement/test".into(),
 						None,
 					),
