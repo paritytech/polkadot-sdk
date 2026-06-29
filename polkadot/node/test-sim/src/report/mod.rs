@@ -14,22 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use frame_support::traits::ContainsPair;
-use xcm::latest::{Asset, Location};
+//! Failure-message reporter for the test framework.
+//!
+//! When an assertion times out or a forbidden effect is observed, the harness assembles a
+//! [`TimelineReport`] of what happened and panics with the formatted message. The report shows
+//! the timeline of observed effects relative to the assertion window, plus a replay seed for
+//! reproducing the failure.
 
-/// Filters assets/location pairs.
-///
-/// Can be amalgamated into tuples. If any item returns `true`, it short-circuits, else `false` is
-/// returned.
-#[deprecated = "Use `frame_support::traits::ContainsPair<Asset, Location>` instead"]
-pub trait FilterAssetLocation {
-	/// A filter to distinguish between asset/location pairs.
-	fn contains(asset: &Asset, origin: &Location) -> bool;
-}
+pub mod timeline;
 
-#[allow(deprecated)]
-impl<T: ContainsPair<Asset, Location>> FilterAssetLocation for T {
-	fn contains(asset: &Asset, origin: &Location) -> bool {
-		T::contains(asset, origin)
-	}
-}
+pub use timeline::{format_effect, format_timeline, TimelineReport};

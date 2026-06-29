@@ -32,6 +32,7 @@ use crate::{
 };
 use fatality::Split;
 use futures::{channel::oneshot, stream::FusedStream};
+use polkadot_node_clock::Clock;
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
 	request_response::{outgoing::RequestError, v2 as request_v2, Requests},
@@ -58,6 +59,7 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
+	sync::Arc,
 	time::{Duration, Instant},
 };
 
@@ -110,6 +112,12 @@ pub struct CollationManager {
 	// Key store.
 	keystore: KeystorePtr,
 	leaf_scheduling_info: HashMap<Hash, LeafSchedulingInfo>,
+	// Clock for time reads (V3 scheduling-parent slot validation, advertisement timestamps).
+	clock: Arc<dyn Clock>,
+	// Rate-limiting state for the (potentially frequent) collation-fetch error warnings, so a
+	// flaky network or a buggy `Canceled` loop can't flood the logs.
+	network_error_freq: gum::Freq,
+	canceled_freq: gum::Freq,
 }
 
 impl CollationManager {
@@ -117,6 +125,7 @@ impl CollationManager {
 		sender: &mut Sender,
 		keystore: KeystorePtr,
 		active_leaf: ActivatedLeaf,
+		clock: Arc<dyn Clock>,
 	) -> FatalResult<Self> {
 		let mut instance = Self {
 			implicit_view: ImplicitView::new(),
@@ -127,6 +136,9 @@ impl CollationManager {
 			fetching: PendingRequests::default(),
 			keystore,
 			leaf_scheduling_info: HashMap::default(),
+			clock,
+			network_error_freq: gum::Freq::new(),
+			canceled_freq: gum::Freq::new(),
 		};
 
 		instance.update_view(sender, OurView::new([active_leaf.hash], 0)).await?;
@@ -199,6 +211,13 @@ impl CollationManager {
 				if !self.implicit_view.paths_via_relay_parent(&sp).is_empty() {
 					return Some((sp, per_sp));
 				}
+
+				gum::trace!(
+					target: LOG_TARGET,
+					scheduling_parent = ?sp,
+					"Scheduling parent no longer reachable from any leaf; dropping it and cancelling its in-flight fetches",
+				);
+
 				for (advertisement, _) in per_sp.all_advertisements() {
 					self.fetching.cancel(advertisement);
 				}
@@ -246,8 +265,15 @@ impl CollationManager {
 						continue;
 					},
 				};
+				gum::trace!(
+					target: LOG_TARGET,
+					scheduling_parent = ?ancestor,
+					?core,
+					session_index,
+					"Registered scheduling parent on our assigned core",
+				);
 				self.per_scheduling_parent
-					.insert(*ancestor, PerSchedulingParent::new(session_index, core));
+					.insert(*ancestor, PerSchedulingParent::new(session_index, core, &*self.clock));
 			}
 
 			// Fetch and store the leaf's full per-core claim queue. Capacity at every
@@ -316,8 +342,11 @@ impl CollationManager {
 		// V3 candidate descriptors require scheduling_parent to be the block from the last
 		// finished relay chain slot.
 		if advertised_descriptor_version == Some(CandidateDescriptorVersion::V3) &&
-			!is_scheduling_parent_valid(&scheduling_parent, &self.leaf_scheduling_info)
-		{
+			!is_scheduling_parent_valid(
+				&*self.clock,
+				&scheduling_parent,
+				&self.leaf_scheduling_info,
+			) {
 			return Err(AdvertisementError::SchedulingParentNotValid);
 		}
 
@@ -343,7 +372,7 @@ impl CollationManager {
 			return Err(AdvertisementError::BlockedByBacking);
 		}
 
-		per_sp.add_advertisement(advertisement, Instant::now());
+		per_sp.add_advertisement(advertisement, self.clock.now());
 
 		Ok(())
 	}
@@ -407,7 +436,7 @@ impl CollationManager {
 		max_scores: HashMap<ParaId, Score>,
 		mut create_timer_fn: TimerFn,
 	) -> (Vec<Requests>, Option<Duration>) {
-		let now = Instant::now();
+		let now = self.clock.now();
 		let mut requests = vec![];
 		let mut maybe_min_delay = None;
 
@@ -597,7 +626,11 @@ impl CollationManager {
 			return CanSecond::No(None, reject_info);
 		};
 
-		match process_collation_fetch_result(res) {
+		match process_collation_fetch_result(
+			res,
+			&mut self.network_error_freq,
+			&mut self.canceled_freq,
+		) {
 			Ok(fetched_collation) => {
 				let candidate_hash = fetched_collation.candidate_receipt.hash();
 				// It can't be a duplicate, because we check before initiating fetch. For the old
@@ -841,7 +874,14 @@ impl CollationManager {
 			.collect();
 
 		// `Ord` is custom: descending by score, so first = best.
-		let Some(best) = advertisements.first() else { return Either::Left(None) };
+		let Some(best) = advertisements.first() else {
+			gum::trace!(
+				target: LOG_TARGET,
+				?para_id,
+				"No fetchable advertisement for a free claim-queue slot",
+			);
+			return Either::Left(None);
+		};
 
 		let delay = Self::calculate_delay(best.score, highest_rep_of_para);
 
@@ -863,6 +903,14 @@ impl CollationManager {
 			);
 			Either::Left(Some(*best.adv))
 		} else {
+			gum::trace!(
+				target: LOG_TARGET,
+				peer_id = ?best.adv.peer_id,
+				scheduling_parent = ?best.adv.scheduling_parent,
+				?para_id,
+				?remaining,
+				"Best advertisement is fetch-delayed; will fetch once the delay elapses",
+			);
 			Either::Right(remaining)
 		}
 	}
@@ -1190,13 +1238,13 @@ struct PerSchedulingParent {
 }
 
 impl PerSchedulingParent {
-	fn new(session_index: SessionIndex, core_index: CoreIndex) -> Self {
+	fn new(session_index: SessionIndex, core_index: CoreIndex, clock: &dyn Clock) -> Self {
 		Self {
 			session_index,
 			core_index,
 			peer_advertisements: Default::default(),
 			fetched_collations: Default::default(),
-			activated_at: Instant::now(),
+			activated_at: clock.now(),
 		}
 	}
 
@@ -1352,6 +1400,8 @@ async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
 
 fn process_collation_fetch_result(
 	(advertisement, res): CollationFetchResponse,
+	network_error_freq: &mut gum::Freq,
+	canceled_freq: &mut gum::Freq,
 ) -> std::result::Result<FetchedCollation, Option<Score>> {
 	match res {
 		Err(CollationFetchError::Cancelled) => {
@@ -1376,7 +1426,9 @@ fn process_collation_fetch_result(
 			Err(Some(FAILED_FETCH_SLASH))
 		},
 		Err(CollationFetchError::Request(RequestError::NetworkError(err))) => {
-			gum::warn!(
+			gum::warn_if_frequent!(
+				freq: network_error_freq,
+				max_rate: gum::Times::PerHour(100),
 				target: LOG_TARGET,
 				?advertisement,
 				err = ?err,
@@ -1385,7 +1437,9 @@ fn process_collation_fetch_result(
 			Err(None)
 		},
 		Err(CollationFetchError::Request(RequestError::Canceled(err))) => {
-			gum::warn!(
+			gum::warn_if_frequent!(
+				freq: canceled_freq,
+				max_rate: gum::Times::PerHour(100),
 				target: LOG_TARGET,
 				?advertisement,
 				err = ?err,
@@ -1674,13 +1728,16 @@ mod tests {
 			leaf_claim_queues: HashMap::new(),
 			per_scheduling_parent: HashMap::from([(
 				scheduling_parent,
-				PerSchedulingParent::new(0, CoreIndex(0)),
+				PerSchedulingParent::new(0, CoreIndex(0), &*polkadot_node_clock::system_clock()),
 			)]),
 			blocked_from_seconding: HashMap::new(),
 			per_session: LruMap::new(ByLength::new(2)),
 			fetching: PendingRequests::default(),
 			keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
 			leaf_scheduling_info: HashMap::default(),
+			clock: polkadot_node_clock::system_clock(),
+			network_error_freq: gum::Freq::new(),
+			canceled_freq: gum::Freq::new(),
 		};
 
 		// No advertisements - returns Left(None).
