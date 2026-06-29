@@ -1075,7 +1075,7 @@ where
 	/// Returns the pool status which includes information like the number of ready and future
 	/// transactions.
 	///
-	/// Currently the status for the most recently notified best block is returned (for which
+	/// Currently the status for the most recently notified block is returned (for which
 	/// maintain process was accomplished).
 	fn status(&self) -> PoolStatus {
 		self.view_store
@@ -1106,7 +1106,7 @@ where
 
 	/// Return specific ready transaction by hash, if there is one.
 	///
-	/// Currently the ready transaction is returned if it exists for the most recently notified best
+	/// Currently the ready transaction is returned if it exists for the most recently notified
 	/// block (for which maintain process was accomplished).
 	// todo [#5491]: api change: we probably should have at here?
 	fn ready_transaction(&self, tx_hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>> {
@@ -2061,7 +2061,7 @@ where
 		};
 
 		match event {
-			ChainEvent::NewBestBlock { .. } => {},
+			ChainEvent::NewBlock { .. } | ChainEvent::NewBestBlock { .. } => {},
 			ChainEvent::Finalized { hash, ref tree_route } => {
 				self.handle_finalized(hash, tree_route).await;
 
