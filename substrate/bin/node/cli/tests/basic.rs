@@ -810,11 +810,9 @@ fn native_big_block_import_fails_on_fallback() {
 	// block.
 	set_heap_pages(&mut t.ext(), 8);
 
-	assert!(
-		executor_call(&mut t, "Core_execute_block", &block_with_size(42, 0, 120_000).0)
-			.0
-			.is_err()
-	);
+	assert!(executor_call(&mut t, "Core_execute_block", &block_with_size(42, 0, 120_000).0)
+		.0
+		.is_err());
 }
 
 #[test]
@@ -892,7 +890,7 @@ fn successful_execution_gives_ok() {
 #[test]
 fn should_import_block_with_test_client() {
 	use node_testing::client::{
-		ClientBlockImportExt, TestClientBuilder, TestClientBuilderExt, sp_consensus::BlockOrigin,
+		sp_consensus::BlockOrigin, ClientBlockImportExt, TestClientBuilder, TestClientBuilderExt,
 	};
 
 	let client = TestClientBuilder::new().build();
