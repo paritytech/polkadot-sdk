@@ -238,9 +238,11 @@ pub struct ReceiptExtractor {
 	/// Fetch raw storage (for resolving foreign-asset indices).
 	fetch_storage_raw: FetchStorageRawFn,
 
-	/// Cache of `foreign asset Location (SCALE bytes) -> resolved u32 index`. Caches definitive
-	/// outcomes only (a resolved index or a confirmed absence); never a transient fetch error.
-	foreign_index_cache: Arc<tokio::sync::Mutex<HashMap<Vec<u8>, Option<u32>>>>,
+	/// Cache of `foreign asset Location (SCALE bytes) -> resolved u32 index`. Caches resolved
+	/// indices only. A non-resolution (absent key, undecodable value, or transient fetch error)
+	/// is never cached, so a later block re-attempts the lookup — the index for a `Location` can
+	/// appear after a transfer was first seen (e.g. an asset destroyed then re-registered).
+	foreign_index_cache: Arc<tokio::sync::Mutex<HashMap<Vec<u8>, u32>>>,
 }
 
 impl ReceiptExtractor {
@@ -490,24 +492,28 @@ impl ReceiptExtractor {
 	}
 
 	/// Resolve (and cache) a foreign asset's `u32` index from its SCALE-encoded `Location`.
-	/// A transient fetch error returns `None` uncached so the next block retries.
+	/// Only a successfully-resolved index is cached; every non-resolution (absent key,
+	/// undecodable value, or transient fetch error) returns `None` uncached so the next block
+	/// retries — none of those outcomes is durable, since a `Location`'s index can appear later.
 	async fn resolve_foreign_index(&self, asset_id_key: &[u8]) -> Option<u32> {
 		if let Some(cached) = self.foreign_index_cache.lock().await.get(asset_id_key) {
-			return *cached;
+			return Some(*cached);
 		}
 		let key = foreign_index_storage_key(asset_id_key);
-		let index = match (self.fetch_storage_raw)(key).await {
-			Ok(raw) => raw.and_then(|raw| decode_foreign_index(&raw)),
+		let raw = match (self.fetch_storage_raw)(key).await {
+			Ok(Some(raw)) => raw,
+			Ok(None) => return None,
 			Err(()) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"Foreign asset index storage read failed; not caching, will retry"
-				);
+				log::debug!(target: LOG_TARGET, "Foreign asset index read failed; will retry");
 				return None;
 			},
 		};
+		let Some(index) = decode_foreign_index(&raw) else {
+			log::debug!(target: LOG_TARGET, "Foreign asset index undecodable; will retry");
+			return None;
+		};
 		self.foreign_index_cache.lock().await.insert(asset_id_key.to_vec(), index);
-		index
+		Some(index)
 	}
 
 	/// Build a synthetic transaction + receipt for an extrinsic that moved assets but is not
@@ -1069,6 +1075,38 @@ mod tests {
 			assert_eq!(extractor.resolve_foreign_index(&key).await, Some(7));
 		});
 		assert_eq!(calls.load(Ordering::SeqCst), 2);
+	}
+
+	#[test]
+	fn foreign_index_absent_or_undecodable_is_not_cached() {
+		use std::sync::atomic::{AtomicU32, Ordering};
+
+		// Call 0: key absent (`Ok(None)`). Call 1: present but undecodable (3 bytes, not a u32).
+		// Call 2: resolves to index 9. Neither non-resolution must be cached, so the resolver is
+		// reached on every call until it returns a decodable value — otherwise a `Location` that
+		// gains a mapping later (e.g. destroyed then re-registered) would be dropped forever.
+		let calls = Arc::new(AtomicU32::new(0));
+		let calls_in = calls.clone();
+		let resolver: FetchStorageRawFn = Arc::new(move |_key: Vec<u8>| {
+			let out: Result<Option<Vec<u8>>, ()> = match calls_in.fetch_add(1, Ordering::SeqCst) {
+				0 => Ok(None),                   // absent
+				1 => Ok(Some(vec![1, 2, 3])),    // present but not a valid u32
+				_ => Ok(Some(vec![9, 0, 0, 0])), // resolves to 9
+			};
+			Box::pin(std::future::ready(out)) as Pin<Box<_>>
+		});
+		let extractor =
+			ReceiptExtractor { fetch_storage_raw: resolver, ..ReceiptExtractor::new_mock() };
+
+		let key = vec![4u8, 5, 6];
+		futures::executor::block_on(async {
+			assert_eq!(extractor.resolve_foreign_index(&key).await, None); // absent, uncached
+			assert_eq!(extractor.resolve_foreign_index(&key).await, None); // undecodable, uncached
+			assert_eq!(extractor.resolve_foreign_index(&key).await, Some(9)); // resolves, cached
+			assert_eq!(extractor.resolve_foreign_index(&key).await, Some(9)); // cache hit
+		});
+		// Resolver reached for all three pre-resolution calls; the 4th is served from cache.
+		assert_eq!(calls.load(Ordering::SeqCst), 3);
 	}
 
 	#[test]
