@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782728831905,
+  "lastUpdate": 1782731362906,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -102599,6 +102599,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2706547529,
             "range": "± 18808585",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9107f88f83300b98af2d212463c83c659596261c",
+          "message": "[CI/CD ]Add eth-rpc image build to  Binary and Docker image Build for testing flow (#12494)\n\nThis PR adds a job that will allow building custom eth-rpc image for the\ntesting purposes from any `polkadot-sdk` commit",
+          "timestamp": "2026-06-29T09:45:09Z",
+          "tree_id": "7ec01332244c5f1272063bbe0b5555ca5cbdb876",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9107f88f83300b98af2d212463c83c659596261c"
+        },
+        "date": 1782731335326,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19764041,
+            "range": "± 128401",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20064435,
+            "range": "± 170666",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22092893,
+            "range": "± 673692",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26715836,
+            "range": "± 237582",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61188855,
+            "range": "± 747909",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 395883076,
+            "range": "± 4056796",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2688077347,
+            "range": "± 84822207",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17444361,
+            "range": "± 133905",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17705207,
+            "range": "± 235240",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18329980,
+            "range": "± 174435",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23058057,
+            "range": "± 282117",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64824032,
+            "range": "± 887234",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 387772209,
+            "range": "± 7006168",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2731835661,
+            "range": "± 12691554",
             "unit": "ns/iter"
           }
         ]
