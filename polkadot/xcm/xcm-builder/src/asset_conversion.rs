@@ -106,9 +106,6 @@ impl<
 	}
 }
 
-#[deprecated = "Use `ConvertedConcreteId` instead"]
-pub type ConvertedConcreteAssetId<A, B, C, O> = ConvertedConcreteId<A, B, C, O>;
-
 pub struct MatchedConvertedConcreteId<AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertOther>(
 	PhantomData<(AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertOther)>,
 );
