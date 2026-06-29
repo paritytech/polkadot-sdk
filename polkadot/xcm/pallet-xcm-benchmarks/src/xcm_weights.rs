@@ -230,8 +230,17 @@ pub fn weigh_hints<HintVariants: Get<u32>>(
 /// - `max_assets_into_holding()` is used to bound non-fungible wild matches
 ///   (worst case is `2 × max_assets_into_holding` assets in holding).
 pub trait AssetFilterCountWeigher {
+	/// Max number of recognized assets by implementing runtime
+	/// Relay chains only understand Native token while,
+	/// Asset Hubs can understand multiple assets, including maybe ERC20s.
 	fn max_assets() -> u64;
 	fn max_assets_into_holding() -> u64;
+
+	/// If no asset(s) are included in Instruction,
+	/// Defaults to this value, but can be overridden by runtime to a different value
+	fn minimum_asset_count() -> u64 {
+		0
+	}
 }
 
 /// Used for computing the weight of Assets collection.
@@ -274,12 +283,10 @@ pub fn weigh_assets_filter_by_count<C: AssetFilterCountWeigher>(
 				weight.saturating_mul(C::max_assets_into_holding().saturating_mul(2))
 			},
 		},
-		AssetFilter::Wild(AllCounted(count)) => {
-			weight.saturating_mul(C::max_assets().min((*count as u64).max(1)))
-		},
-		AssetFilter::Wild(AllOfCounted { count, .. }) => {
-			weight.saturating_mul(C::max_assets().min((*count as u64).max(1)))
-		},
+		AssetFilter::Wild(AllCounted(count)) => weight
+			.saturating_mul(C::max_assets().min((*count as u64).max(C::minimum_asset_count()))),
+		AssetFilter::Wild(AllOfCounted { count, .. }) => weight
+			.saturating_mul(C::max_assets().min((*count as u64).max(C::minimum_asset_count()))),
 	}
 }
 

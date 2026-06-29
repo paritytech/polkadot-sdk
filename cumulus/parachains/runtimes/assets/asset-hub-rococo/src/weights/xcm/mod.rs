@@ -40,6 +40,10 @@ impl AssetFilterCountWeigher for AssetHubRococoCountWeigher {
 	fn max_assets_into_holding() -> u64 {
 		MaxAssetsIntoHolding::get() as u64
 	}
+
+	fn minimum_asset_count() -> u64 {
+		1
+	}
 }
 
 pub struct AssetHubRococoXcmWeightConfig;
