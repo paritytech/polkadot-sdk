@@ -490,7 +490,7 @@ async fn wait_to_announce<Block: BlockT>(
 	}
 }
 
-/// A [`BlockAnnounceValidator`] which accepts all block announcements, as it assumes
+/// A [`BlockAnnounceValidatorT`] which accepts all block announcements, as it assumes
 /// sybil resistance is handled elsewhere.
 #[derive(Debug, Clone)]
 pub struct AssumeSybilResistance(bool);
