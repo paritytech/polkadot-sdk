@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782732459019,
+  "lastUpdate": 1782748500368,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "80ba4a3febadfc98552b094d28a3c08cf2becc1f",
-          "message": "Increase the concurrency of retester in CI (#10213)\n\n# Description\n\nThis PR bumps the commit hash of the revive differential tests repo\nallowing us to pull in some tests that needed to be fixed. Additionally,\nit increases the concurrency of retester to allow it to run the tests\nfaster\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-06T13:29:22Z",
-          "tree_id": "3f51c8806d07963bf8cca45968e47778a9eb980f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/80ba4a3febadfc98552b094d28a3c08cf2becc1f"
-        },
-        "date": 1762441186063,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01331999869333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007239087886666649,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022612931893333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15989317396666675,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01037144535999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "40f9a5ddbe62c0b797a4be9beb35fba93e6d6336",
+          "message": "txpool: maintain on all blocks (#12433)\n\nSlot-based collators under heavy forking frequently import blocks that\nare **not** the best block, and then build on top of them. The\nfork-aware pool only maintains a view per **best** block, so when the\nblock builder asks for `ready_at(fork_block)` there is no view for that\nfork and it falls back to `ready_at_light`.\n\n`ready_at_light` does **not** collect the full set of ready transactions\nfor the fork: it walks up to the nearest ancestor that still has a view\n(typically the fork's common root), reuses that view's ready set and\nmerely prunes the extrinsics already included on the way to\n`fork_block`. It never re-validates the mempool against the fork, so any\ntransaction that is not already in that ancestor view is missing —\nresulting in under-filled / empty blocks on forks.\n\nMaintaining the pool on every imported block means a proper view already\nexists for the fork, so the block builder gets the complete ready set\ninstead of the light fallback.\n\n#### Example\n\n```text\n      B1 - B2[tx] - B3 - B4           <- imported as best\n    /\nB0\n    \\\n      B'1 - B'2 - B'3 - B'4 - B'5[tx] <- imported as non-best, until B'5 becomes best\n```\n\n`tx` enters the pool and is included in `B2` on the best chain. The `B'`\nfork is imported but never notified as best, so the pool keeps no views\nfor `B'1..B'4`. While building on that fork, `ready_at` has no view and\nfalls back to `ready_at_light`, which reuses the nearest ancestor view\n(`B0`) and only prunes already-included txs — it never re-collects the\nmempool, so `tx` (which arrived after `B0`'s view went inactive) is\nmissing. `tx` is only included once the fork wins and `B'5` becomes\nbest, at which point a full view is finally built — i.e. inclusion is\n**delayed** by the length of the fork.\n\nWith this change a view is built for every `B'n` as it is imported, so\n`tx` is ready on the fork from the start.\n\n#### Notes for reviewers\n\n- The pool is now informed about **every** imported block, not only best\nblocks. The fork-aware pool builds a view for each imported block, so it\nis aware of all forks.\n- New `ChainEvent::NewBlock` event represents a non-best import; the\nfork-aware pool handles it like `NewBestBlock` (builds a view).\n`notification_future` subscribes to `every_import_notification_stream()`\ninstead of `import_notification_stream()`.\n- New `--pool-best-blocks-only` flag restores the previous behavior (act\non best blocks only). Only affects the fork-aware pool; the single-state\npool is unchanged. This is intended to act as a legacy fallback.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-29T13:30:13Z",
+          "tree_id": "491abfb5af2e9afcac340ffc34c823b3e4e0d28a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/40f9a5ddbe62c0b797a4be9beb35fba93e6d6336"
+        },
+        "date": 1782748471473,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14805998672000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009936876319999975,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007611195906666669,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023826766933333333,
             "unit": "seconds"
           }
         ]
