@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782758774986,
+  "lastUpdate": 1782767860181,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -184127,6 +184127,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2441477429,
             "range": "± 69680217",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fba8b6f3a5d705d6e18db62f17bd27aa5ec5bd9a",
+          "message": "[pallet-revive]: Typegraph Generation (#11957)\n\n# Description\n\nThis PR is part of\nhttps://github.com/paritytech/polkadot-sdk/issues/11923 and closes\nhttps://github.com/paritytech/polkadot-sdk/issues/11926.\n\nThis PR adds a single script to the `types` crate of pallet-revive to\nallow us to generate SVG type-graphs of all of the types defined in the\ncrate.\n\nWe need this to be able to easily answer the following question: \"I just\nmade a change to model X in the `types` crate. What other models do I\nneed to change as a result of this change?\"\n\nThe generated type-graph looks like the following:\n\n<img width=\"2672\" height=\"1522\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/62ea62a9-8a0d-4cbb-bb86-bd058c851d6a\"\n/>\n\nLet's take this PR https://github.com/paritytech/polkadot-sdk/pull/11532\nas an example of how this type-graph can be used which adds a new field\nto the `CallLog` type. After generating the type-graph, we can find that\nnode and click it which produces the following:\n\n<img width=\"2672\" height=\"1522\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/88c91d34-d17f-4b7a-8aa2-a8ce314e356d\"\n/>\n\nThis immedietly tells us that we would need to:\n\n- Update the `CallTrace` type to include the new `CallLog`.\n- Update the `IndexedTrace` type to include the new `CallTrace`.\n- Update the following runtime API functions with the new data being\nreturned by the runtime API:\n    - `trace_call`\n    - `trace_tx`\n    - `trace_block`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-06-29T19:50:44Z",
+          "tree_id": "e90cebb245899d89bba660a654a0e1c436bc7e02",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fba8b6f3a5d705d6e18db62f17bd27aa5ec5bd9a"
+        },
+        "date": 1782767829972,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4618184,
+            "range": "± 58157",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 307033,
+            "range": "± 5984",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4728894,
+            "range": "± 24448",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 376942,
+            "range": "± 6057",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5592581,
+            "range": "± 56627",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 903082,
+            "range": "± 12300",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10961771,
+            "range": "± 106657",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5002757,
+            "range": "± 64018",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 46578487,
+            "range": "± 320474",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 39873126,
+            "range": "± 395639",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 387046130,
+            "range": "± 4940617",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 314131697,
+            "range": "± 7726221",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2725412697,
+            "range": "± 14464169",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2828497037,
+            "range": "± 80130250",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3618844,
+            "range": "± 56214",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1860658,
+            "range": "± 13905",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3709816,
+            "range": "± 27285",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1915068,
+            "range": "± 6136",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4248513,
+            "range": "± 65949",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2217761,
+            "range": "± 10360",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8262346,
+            "range": "± 111886",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5379628,
+            "range": "± 71798",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 39197465,
+            "range": "± 283408",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37553987,
+            "range": "± 423899",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 332719659,
+            "range": "± 3551550",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 283568036,
+            "range": "± 2001287",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2509648335,
+            "range": "± 13108461",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2277813028,
+            "range": "± 25238267",
             "unit": "ns/iter"
           }
         ]
