@@ -317,22 +317,33 @@ where
 			let included_header_at_execution = match v3_enabled {
 				false => parent_search_result.included_at_scheduling,
 				true => {
-					let Ok(Some((included_header, _))) = fetch_included_from_relay_chain(
+					match fetch_included_from_relay_chain(
 						&relay_client,
 						&*para_backend,
 						relay_parent_hash,
 						para_id,
 					)
 					.await
-					else {
-						tracing::error!(
-							target: LOG_TARGET,
-							"Failed to fetch the included header at execution \
-							from the relay chain."
-						);
-						continue;
-					};
-					included_header
+					{
+						Ok(Some((header, _))) => header,
+						Ok(None) => {
+							tracing::error!(
+								target: LOG_TARGET,
+								"Failed to fetch the included header at execution \
+								from the relay chain."
+							);
+							continue;
+						},
+						Err(error) => {
+							tracing::error!(
+								target: LOG_TARGET,
+								?error,
+								"Failed to fetch the included header at execution \
+								from the relay chain."
+							);
+							continue;
+						},
+					}
 				},
 			};
 			let initial_parent_hash = parent_search_result.best_parent_header.hash();
