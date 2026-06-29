@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782724627028,
+  "lastUpdate": 1782732459019,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a4f007cd7c3643519de40ba33b6db08b38e1ac19",
-          "message": "[v2] pallet-revive: support uploading EVM bytecode via upload_code extrinsic. (#10193)\n\nFixes https://github.com/paritytech/contract-issues/issues/182\n\nAdd support for EVM bytecode to the upload_code extrinsic. \nTests in issue https://github.com/paritytech/contract-issues/issues/182\nsend hardhat_setCode, which uses revive's upload_code API; this change\nmakes that flow accept and store the EVM bytecode using upload_code\nextrinsic.\n\nThis PR deprecates PR:\nhttps://github.com/paritytech/polkadot-sdk/pull/10095\n\nComment explaining test configuration requirements:\nhttps://github.com/paritytech/polkadot-sdk/pull/10095#issuecomment-3456450460\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-06T09:20:31Z",
-          "tree_id": "a6ae4894fcd0a36f64c0c9e86cd5833069e5491a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a4f007cd7c3643519de40ba33b6db08b38e1ac19"
-        },
-        "date": 1762424732749,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02276653903999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007556924046666648,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013189481393333329,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1605990168800001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14864756372000007,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9107f88f83300b98af2d212463c83c659596261c",
+          "message": "[CI/CD ]Add eth-rpc image build to  Binary and Docker image Build for testing flow (#12494)\n\nThis PR adds a job that will allow building custom eth-rpc image for the\ntesting purposes from any `polkadot-sdk` commit",
+          "timestamp": "2026-06-29T09:45:09Z",
+          "tree_id": "7ec01332244c5f1272063bbe0b5555ca5cbdb876",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9107f88f83300b98af2d212463c83c659596261c"
+        },
+        "date": 1782732429330,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007788112626666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1479930809533334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023896249953333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01037144535999998,
             "unit": "seconds"
           }
         ]
