@@ -248,7 +248,9 @@ impl<T: Config> InboundDownwardQueue<T> {
 		// v1 is head
 		if let Some(meta) = Self::meta(para) {
 			for i in meta.first_full..meta.first_free {
-				messages.push(DownwardMessageQueuePages::<T>::get(para, i).unwrap());
+				if let Some(page) = DownwardMessageQueuePages::<T>::get(para, i).defensive() {
+					messages.push(page);
+				}
 			}
 		};
 
