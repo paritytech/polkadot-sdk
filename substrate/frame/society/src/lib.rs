@@ -2118,17 +2118,24 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			return;
 		}
 		if let Some(MemberRecord { rank: 0, .. }) = Members::<T, I>::get(who) {
-			Payouts::<T, I>::mutate(who, |record| {
+			let recorded = Payouts::<T, I>::mutate(who, |record| {
 				// Members of rank 1 never get payouts.
 				match record.payouts.binary_search_by_key(&when, |x| x.0) {
-					Ok(index) => record.payouts[index].1.saturating_accrue(value),
+					Ok(index) => {
+						record.payouts[index].1.saturating_accrue(value);
+						true
+					},
 					Err(index) => {
-						// If they have too many pending payouts, then we take discard the payment.
-						let _ = record.payouts.try_insert(index, (when, value));
+						// If they have too many pending payouts, discard the payment.
+						record.payouts.try_insert(index, (when, value)).is_ok()
 					},
 				}
 			});
-			Self::reserve_payout(value);
+			// Only move funds to the payouts sub-account when a record was actually created or
+			// updated; otherwise the funds would be trapped with no claimable entry.
+			if recorded {
+				Self::reserve_payout(value);
+			}
 		}
 	}
 

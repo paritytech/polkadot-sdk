@@ -1727,3 +1727,40 @@ fn founder_cannot_kick_head() {
 		assert_noop!(Society::kick_member(Origin::signed(10), 20), Error::<Test>::Head);
 	});
 }
+
+#[test]
+fn bump_payout_does_not_trap_funds_when_max_payouts_reached() {
+	EnvBuilder::new().execute(|| {
+		place_members([20]);
+
+		let max = <Test as Config>::MaxPayouts::get();
+
+		// Fill the payout queue to capacity using distinct block numbers.
+		for i in 0..max {
+			Society::bump_payout(&20, i as u64 + 1, 50);
+		}
+
+		let payouts_before = Balances::free_balance(Society::payouts());
+		let pot_before = Pot::<Test>::get();
+
+		// Attempt one more bump_payout beyond the limit.
+		Society::bump_payout(&20, max as u64 + 1, 50);
+
+		// Neither the payouts sub-account nor the Pot should have changed — the overflow
+		// payout must be silently dropped rather than trapping the 50 units.
+		assert_eq!(
+			Balances::free_balance(Society::payouts()),
+			payouts_before,
+			"payouts sub-account balance should not increase when MaxPayouts is exceeded"
+		);
+		assert_eq!(
+			Pot::<Test>::get(),
+			pot_before,
+			"Pot should not decrease when MaxPayouts is exceeded"
+		);
+
+		// The payout record itself is still at capacity with the original entries.
+		let record = Payouts::<Test>::get(20);
+		assert_eq!(record.payouts.len() as u32, max);
+	});
+}
