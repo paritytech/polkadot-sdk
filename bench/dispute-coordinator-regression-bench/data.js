@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782760014327,
+  "lastUpdate": 1782768982352,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b365061a52d56f1efa11565fb4e9b777206e4519",
-          "message": "Run differential tests for PolkaVM and REVM (#10205)\n\n# Description\n\nThis is a PR that builds on PR #10071 making the differential testing\nframework run the tests for both REVM and PolkaVM.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-05T10:25:46Z",
-          "tree_id": "6fdaf770e376c30943adee1ffc9e11c08b37da88",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b365061a52d56f1efa11565fb4e9b777206e4519"
-        },
-        "date": 1762342461302,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026487524900000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005044758399999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008650091309999993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0100016444,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fba8b6f3a5d705d6e18db62f17bd27aa5ec5bd9a",
+          "message": "[pallet-revive]: Typegraph Generation (#11957)\n\n# Description\n\nThis PR is part of\nhttps://github.com/paritytech/polkadot-sdk/issues/11923 and closes\nhttps://github.com/paritytech/polkadot-sdk/issues/11926.\n\nThis PR adds a single script to the `types` crate of pallet-revive to\nallow us to generate SVG type-graphs of all of the types defined in the\ncrate.\n\nWe need this to be able to easily answer the following question: \"I just\nmade a change to model X in the `types` crate. What other models do I\nneed to change as a result of this change?\"\n\nThe generated type-graph looks like the following:\n\n<img width=\"2672\" height=\"1522\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/62ea62a9-8a0d-4cbb-bb86-bd058c851d6a\"\n/>\n\nLet's take this PR https://github.com/paritytech/polkadot-sdk/pull/11532\nas an example of how this type-graph can be used which adds a new field\nto the `CallLog` type. After generating the type-graph, we can find that\nnode and click it which produces the following:\n\n<img width=\"2672\" height=\"1522\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/88c91d34-d17f-4b7a-8aa2-a8ce314e356d\"\n/>\n\nThis immedietly tells us that we would need to:\n\n- Update the `CallTrace` type to include the new `CallLog`.\n- Update the `IndexedTrace` type to include the new `CallTrace`.\n- Update the following runtime API functions with the new data being\nreturned by the runtime API:\n    - `trace_call`\n    - `trace_tx`\n    - `trace_block`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-06-29T19:50:44Z",
+          "tree_id": "e90cebb245899d89bba660a654a0e1c436bc7e02",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fba8b6f3a5d705d6e18db62f17bd27aa5ec5bd9a"
+        },
+        "date": 1782768952551,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010400421879999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002542039980000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00928206090999998,
             "unit": "seconds"
           }
         ]
