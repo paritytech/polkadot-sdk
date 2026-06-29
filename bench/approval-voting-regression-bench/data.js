@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782732497994,
+  "lastUpdate": 1782748538757,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a4f007cd7c3643519de40ba33b6db08b38e1ac19",
-          "message": "[v2] pallet-revive: support uploading EVM bytecode via upload_code extrinsic. (#10193)\n\nFixes https://github.com/paritytech/contract-issues/issues/182\n\nAdd support for EVM bytecode to the upload_code extrinsic. \nTests in issue https://github.com/paritytech/contract-issues/issues/182\nsend hardhat_setCode, which uses revive's upload_code API; this change\nmakes that flow accept and store the EVM bytecode using upload_code\nextrinsic.\n\nThis PR deprecates PR:\nhttps://github.com/paritytech/polkadot-sdk/pull/10095\n\nComment explaining test configuration requirements:\nhttps://github.com/paritytech/polkadot-sdk/pull/10095#issuecomment-3456450460\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-06T09:20:31Z",
-          "tree_id": "a6ae4894fcd0a36f64c0c9e86cd5833069e5491a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a4f007cd7c3643519de40ba33b6db08b38e1ac19"
-        },
-        "date": 1762424764538,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63641.94,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4292404534800019,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.031315356189998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.3843063548100014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001779689,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.409754983209998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001779689,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0059019165600000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000019707,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.3987511752300006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000019707,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4290212969500007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9743391759499953,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7254717077810096,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution/test-environment",
             "value": 0.000023375619999999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "40f9a5ddbe62c0b797a4be9beb35fba93e6d6336",
+          "message": "txpool: maintain on all blocks (#12433)\n\nSlot-based collators under heavy forking frequently import blocks that\nare **not** the best block, and then build on top of them. The\nfork-aware pool only maintains a view per **best** block, so when the\nblock builder asks for `ready_at(fork_block)` there is no view for that\nfork and it falls back to `ready_at_light`.\n\n`ready_at_light` does **not** collect the full set of ready transactions\nfor the fork: it walks up to the nearest ancestor that still has a view\n(typically the fork's common root), reuses that view's ready set and\nmerely prunes the extrinsics already included on the way to\n`fork_block`. It never re-validates the mempool against the fork, so any\ntransaction that is not already in that ancestor view is missing —\nresulting in under-filled / empty blocks on forks.\n\nMaintaining the pool on every imported block means a proper view already\nexists for the fork, so the block builder gets the complete ready set\ninstead of the light fallback.\n\n#### Example\n\n```text\n      B1 - B2[tx] - B3 - B4           <- imported as best\n    /\nB0\n    \\\n      B'1 - B'2 - B'3 - B'4 - B'5[tx] <- imported as non-best, until B'5 becomes best\n```\n\n`tx` enters the pool and is included in `B2` on the best chain. The `B'`\nfork is imported but never notified as best, so the pool keeps no views\nfor `B'1..B'4`. While building on that fork, `ready_at` has no view and\nfalls back to `ready_at_light`, which reuses the nearest ancestor view\n(`B0`) and only prunes already-included txs — it never re-collects the\nmempool, so `tx` (which arrived after `B0`'s view went inactive) is\nmissing. `tx` is only included once the fork wins and `B'5` becomes\nbest, at which point a full view is finally built — i.e. inclusion is\n**delayed** by the length of the fork.\n\nWith this change a view is built for every `B'n` as it is imported, so\n`tx` is ready on the fork from the start.\n\n#### Notes for reviewers\n\n- The pool is now informed about **every** imported block, not only best\nblocks. The fork-aware pool builds a view for each imported block, so it\nis aware of all forks.\n- New `ChainEvent::NewBlock` event represents a non-best import; the\nfork-aware pool handles it like `NewBestBlock` (builds a view).\n`notification_future` subscribes to `every_import_notification_stream()`\ninstead of `import_notification_stream()`.\n- New `--pool-best-blocks-only` flag restores the previous behavior (act\non best blocks only). Only affects the fork-aware pool; the single-state\npool is unchanged. This is intended to act as a legacy fallback.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-29T13:30:13Z",
+          "tree_id": "491abfb5af2e9afcac340ffc34c823b3e4e0d28a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/40f9a5ddbe62c0b797a4be9beb35fba93e6d6336"
+        },
+        "date": 1782748508947,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63596.95,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000022508859999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000022508859999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005111062099999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7913202931899987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7471354723899992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8278188809400038,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7780914855499328,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.555172958722992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7508526258499986,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002051317,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.277885583629935,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.377555763610003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002051317,
             "unit": "seconds"
           }
         ]
