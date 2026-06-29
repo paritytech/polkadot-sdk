@@ -67,7 +67,11 @@ use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance}
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{generic::Era, traits::{MaybeEquivalence, TryConvertInto}, Either, MultiAddress, MultiSignature};
+use sp_runtime::{
+	generic::Era,
+	traits::{MaybeEquivalence, TryConvertInto},
+	Either, MultiAddress, MultiSignature,
+};
 use sp_tracing::capture_test_logs;
 use std::convert::Into;
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS};

@@ -21,24 +21,24 @@ use core::{cell::RefCell, marker::PhantomData};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types, sp_runtime,
 	sp_runtime::{
-		BuildStorage, SaturatedConversion,
 		traits::{Get, IdentityLookup, MaybeEquivalence, TryConvert, TryConvertInto},
+		BuildStorage, SaturatedConversion,
 	},
 	traits::{
-		AsEnsureOriginWithArg, ConstU32, ConstU128, Contains, ContainsPair, Disabled, Everything,
+		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, ContainsPair, Disabled, Everything,
 		Nothing, OriginTrait,
 	},
 	weights::WeightToFee as WeightToFeeT,
 };
 use frame_system::{EnsureRoot, RawOrigin as SystemRawOrigin};
 use pallet_xcm::TestWeightInfo;
-use xcm::{Version as XcmVersion, prelude::*};
+use xcm::{prelude::*, Version as XcmVersion};
 use xcm_builder::{
 	AllowTopLevelPaidExecutionFrom, ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible,
 	FixedWeightBounds, FungibleAdapter, FungiblesAdapter, InspectMessageQueues, IsConcrete,
 	MintLocation, NoChecking, TakeWeightCredit,
 };
-use xcm_executor::{XcmExecutor, traits::ConvertLocation};
+use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 use xcm_runtime_apis::{
 	conversions::{Error as LocationToAccountApiError, LocationToAccountApi},
@@ -261,11 +261,7 @@ impl MaybeEquivalence<Location, AssetIdForAssetsPallet> for LocationToAssetIdFor
 			(1, []) => Some(1 as AssetIdForAssetsPallet),
 			(
 				1,
-				[
-					Parachain(ASSET_HUB_PARA_ID),
-					PalletInstance(ASSET_HUB_ASSETS_PALLET_INSTANCE),
-					GeneralIndex(asset_id),
-				],
+				[Parachain(ASSET_HUB_PARA_ID), PalletInstance(ASSET_HUB_ASSETS_PALLET_INSTANCE), GeneralIndex(asset_id)],
 			) if *asset_id == USDT_ID.into() => Some(USDT_ID as AssetIdForAssetsPallet),
 			_ => None,
 		}

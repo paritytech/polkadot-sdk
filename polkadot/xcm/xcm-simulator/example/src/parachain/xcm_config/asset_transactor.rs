@@ -15,8 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::parachain::{
-	AccountId, Balances, ForeignUniques, constants::KsmLocation,
-	location_converter::LocationConverter,
+	constants::KsmLocation, location_converter::LocationConverter, AccountId, Balances,
+	ForeignUniques,
 };
 use sp_runtime::traits::TryConvertInto;
 use xcm::latest::prelude::*;
