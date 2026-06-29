@@ -7,22 +7,22 @@ doc:
     Part of #11561
 crates:
 - name: asset-hub-rococo-runtime
-  bump: major
+  bump: patch
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: patch
 - name: assets-common
-  bump: major
+  bump: patch
 - name: pallet-xcm-precompiles
-  bump: major
+  bump: patch
 - name: pallet-xcm
-  bump: major
+  bump: patch
 - name: staging-xcm-builder
-  bump: major
+  bump: patch
 - name: staging-xcm-executor
   bump: major
 - name: xcm-runtime-apis
-  bump: major
+  bump: patch
 - name: xcm-simulator-example
-  bump: major
+  bump: patch
 - name: pallet-contracts-mock-network
-  bump: major
+  bump: patch
