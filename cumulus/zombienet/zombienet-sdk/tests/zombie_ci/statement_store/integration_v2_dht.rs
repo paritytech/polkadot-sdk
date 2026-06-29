@@ -168,7 +168,6 @@ async fn local_submission_retention_works() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-
 /// A statement is stored only by the `K` nodes with DHT affinity to its topic, wherever it is
 /// submitted.
 ///
