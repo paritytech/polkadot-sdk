@@ -79,28 +79,19 @@ mod tests {
 	#[test]
 	fn protocol_name_with_fork_id() {
 		let hash = [0xde, 0xad];
-		assert_eq!(
-			String::from(protocol_name(&hash, Some("foo"))),
-			"/dead/foo/mixnet/1",
-		);
+		assert_eq!(String::from(protocol_name(&hash, Some("foo"))), "/dead/foo/mixnet/1",);
 	}
 
 	#[test]
 	fn protocol_name_without_fork_id() {
 		let hash = [0xde, 0xad];
-		assert_eq!(
-			String::from(protocol_name(&hash, None)),
-			"/dead/mixnet/1",
-		);
+		assert_eq!(String::from(protocol_name(&hash, None)), "/dead/mixnet/1",);
 	}
 
 	#[test]
 	fn protocol_name_empty_fork_id_treated_as_none() {
 		let hash = [0xde, 0xad];
 		// Some("") must produce the same name as None — no double slash.
-		assert_eq!(
-			protocol_name(&hash, Some("")),
-			protocol_name(&hash, None),
-		);
+		assert_eq!(protocol_name(&hash, Some("")), protocol_name(&hash, None),);
 	}
 }
