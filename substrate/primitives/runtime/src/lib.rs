@@ -501,6 +501,24 @@ impl Verify for MultiSignature {
 	}
 }
 
+// TODO: This is a bit controversial, as a weight only makes sense on a reference hardware.
+// We can use polkadot reference hardware here, and given that signed transaction are slowly
+// deprecated we don't have a strong maintainance burden here.
+// We can also make this type generic `MultiSignature<WeightProvider = PolkadotWeightProvider>` so
+// other can implement their own weight provider. Though I think we can just write this genericity
+// in a comment and implement if a solo-chain wants it.
+// After all this is polkadot-sdk and polkadot reference hardware should be determined.
+impl traits::SignatureWeight for MultiSignature {
+	fn weight(&self) -> Weight {
+		match self {
+			Self::Ed25519(sig) => traits::SignatureWeight::weight(sig),
+			Self::Sr25519(sig) => traits::SignatureWeight::weight(sig),
+			Self::Ecdsa(sig) => traits::SignatureWeight::weight(sig),
+			Self::Eth(sig) => traits::SignatureWeight::weight(sig),
+		}
+	}
+}
+
 /// Signature verify that can work with any known signature types..
 #[derive(Eq, PartialEq, Clone, Default, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

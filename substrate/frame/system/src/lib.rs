@@ -171,7 +171,6 @@ pub mod migrations;
 
 pub use extensions::{
 	authorize_call::AuthorizeCall,
-	charge_signature_weight::{ChargeSignatureWeight, ZeroWeight},
 	check_genesis::CheckGenesis,
 	check_mortality::CheckMortality,
 	check_non_zero_sender::CheckNonZeroSender,
@@ -342,7 +341,6 @@ pub mod pallet {
 			type OnKilledAccount = ();
 			type SystemWeightInfo = ();
 			type ExtensionsWeightInfo = ();
-			type SignatureWeight = crate::ZeroWeight;
 			type SS58Prefix = ();
 			type Version = ();
 			type BlockWeights = ();
@@ -417,9 +415,6 @@ pub mod pallet {
 
 			/// Weight information for the extensions of this pallet.
 			type ExtensionsWeightInfo = ();
-
-			/// Signature verification weight charged for signed extrinsics.
-			type SignatureWeight = crate::ZeroWeight;
 
 			/// This is used as an identifier of the chain.
 			type SS58Prefix = ();
@@ -637,14 +632,6 @@ pub mod pallet {
 
 		/// Weight information for the transaction extensions of this pallet.
 		type ExtensionsWeightInfo: extensions::WeightInfo;
-
-		/// Weight of signature verification for signed extrinsics.
-		///
-		/// Should match the value subtracted from
-		/// [`frame_support::weights::constants::ExtrinsicBaseWeight`] during overhead
-		/// benchmarking. Re-added for signed transactions via [`ChargeSignatureWeight`].
-		#[pallet::constant]
-		type SignatureWeight: Get<Weight>;
 
 		/// The designated SS58 prefix of this chain.
 		///

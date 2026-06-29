@@ -212,6 +212,8 @@ where
 
 impl<Address, Signature, E: EthExtra> GetDispatchInfo
 	for UncheckedExtrinsic<Address, Signature, E>
+where
+	Signature: sp_runtime::traits::SignatureWeight,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		self.0.get_dispatch_info()
@@ -431,6 +433,9 @@ pub trait EthExtra {
 			format: ExtrinsicFormat::Signed(
 				signer.into(),
 				Self::get_eth_extension(nonce, Zero::zero()),
+				// Eth transactions are metered via their own gas/weight model; no extra preamble
+				// signature weight is charged here.
+				Weight::zero(),
 			),
 			function: call_info.call,
 		})
@@ -576,7 +581,7 @@ mod test {
 				let encoded_len = uxt.encoded_size();
 				let result: CheckedExtrinsic<_, _, _> = uxt.check(&TestContext {})?;
 				let (account_id, extra): (AccountId32, SignedExtra) = match result.format {
-					ExtrinsicFormat::Signed(signer, extra) => (signer, extra),
+					ExtrinsicFormat::Signed(signer, extra, _) => (signer, extra),
 					_ => unreachable!(),
 				};
 

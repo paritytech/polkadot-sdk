@@ -169,6 +169,60 @@ impl Verify for sp_core::ecdsa_bls381::Signature {
 	}
 }
 
+/// The static weight of verifying a signature.
+///
+/// Signature verification happens while converting an `UncheckedExtrinsic` into a
+/// `CheckedExtrinsic`, i.e. as part of the extrinsic preamble. Its cost is a static property of the
+/// concrete signature type (the crypto scheme), so it is exposed here rather than configured per
+/// runtime. The returned weight only has a `ref_time` component (signature verification touches no
+/// storage).
+pub trait SignatureWeight {
+	/// The weight of verifying a signature of this type.
+	fn weight(&self) -> sp_weights::Weight;
+}
+
+impl SignatureWeight for sp_core::ed25519::Signature {
+	fn weight(&self) -> sp_weights::Weight {
+		// TODO: calibrate via the `overhead` benchmark; must match the value it subtracts.
+		sp_weights::Weight::from_parts(
+			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(47_000),
+			0,
+		)
+	}
+}
+
+impl SignatureWeight for sp_core::sr25519::Signature {
+	fn weight(&self) -> sp_weights::Weight {
+		// TODO: calibrate via the `overhead` benchmark; must match the value it subtracts.
+		sp_weights::Weight::from_parts(
+			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(47_000),
+			0,
+		)
+	}
+}
+
+impl SignatureWeight for sp_core::ecdsa::Signature {
+	fn weight(&self) -> sp_weights::Weight {
+		// ECDSA verification additionally recovers the public key, so it is heavier.
+		// TODO: calibrate via the `overhead` benchmark; must match the value it subtracts.
+		sp_weights::Weight::from_parts(
+			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(78_000),
+			0,
+		)
+	}
+}
+
+impl SignatureWeight for sp_core::ecdsa::KeccakSignature {
+	fn weight(&self) -> sp_weights::Weight {
+		// Same ECDSA recovery cost as `ecdsa::Signature`, with a Keccak digest.
+		// TODO: calibrate via the `overhead` benchmark; must match the value it subtracts.
+		sp_weights::Weight::from_parts(
+			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(78_000),
+			0,
+		)
+	}
+}
+
 /// Means of signature verification of an application key.
 pub trait AppVerify {
 	/// Type of the signer.
