@@ -1291,24 +1291,32 @@ where
 									self.on_statements(peer, statements);
 								},
 								StatementMessage::ExplicitTopicAffinity(filter) => {
+									if peer_data.rate_limiter.is_flooding(1) {
+										log::debug!(
+											target: LOG_TARGET,
+											"Rate-limiting ExplicitTopicAffinity from {peer}"
+										);
+										self.network.report_peer(peer, rep::BAD_MESSAGE);
+										return;
+									}
 									if v2dht_enabled() {
-										self.v2dht.on_peer_filter_update(peer, filter);
-									} else if let Some(peer_data) = self.peers.get_mut(&peer) {
-										if peer_data.rate_limiter.is_flooding(1) {
-											log::debug!(
-												target: LOG_TARGET,
-												"Rate-limiting ExplicitTopicAffinity from {peer}"
-											);
-											self.network.report_peer(peer, rep::BAD_MESSAGE);
-										} else {
-											log::debug!(
-												target: LOG_TARGET,
-												"Received topic affinity filter from {peer}"
-											);
-											// Defer both the affinity update and sync scheduling
-											// to the main loop tick.
-											peer_data.pending_topic_affinity = Some(filter);
-										}
+										self.v2dht.on_peer_filter_update(peer, filter.clone());
+									}
+
+									// Record the filter for propagation decisions, and route it
+									// through the pending-affinity path so
+									// `schedule_initial_sync_for_peer` replays the matching
+									// already-stored statements (filtered by `topic_affinity`).
+									// Without this a late subscriber sees only the statements
+									// that arrive after it subscribes.
+									if let Some(peer_data) = self.peers.get_mut(&peer) {
+										log::debug!(
+											target: LOG_TARGET,
+											"Received topic affinity filter from {peer}"
+										);
+										// Defer both the affinity update and sync scheduling
+										// to the main loop tick.
+										peer_data.pending_topic_affinity = Some(filter);
 									}
 								},
 							}
