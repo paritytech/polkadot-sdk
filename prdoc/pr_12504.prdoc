@@ -4,7 +4,6 @@ doc:
   description: |-
     ## Summary
     Removes the deprecated `UnpaidLocalExporter` from `staging-xcm-builder`. Use `LocalExporter` instead.
-    Part of #11561
 crates:
 - name: staging-xcm-builder
   bump: major
