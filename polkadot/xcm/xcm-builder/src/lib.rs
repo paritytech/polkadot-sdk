@@ -85,8 +85,7 @@ pub use location_conversion::{
 	DescribeLocation, DescribePalletTerminal, DescribeTerminus, DescribeTreasuryVoiceTerminal,
 	ExternalConsensusLocationsConverterFor, GlobalConsensusConvertsFor,
 	GlobalConsensusParachainConvertsFor, HashedDescription, LegacyDescribeForeignChainAccount,
-	LocalTreasuryVoiceConvertsVia,
-	ParentIsPreset, SiblingParachainConvertsVia,
+	LocalTreasuryVoiceConvertsVia, ParentIsPreset, SiblingParachainConvertsVia,
 };
 
 mod matches_location;
