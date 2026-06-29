@@ -39,6 +39,9 @@ pub use block::*;
 mod transaction;
 pub use transaction::*;
 
+mod state_overrides;
+pub use state_overrides::*;
+
 #[cfg(feature = "std")]
 mod account;
 
