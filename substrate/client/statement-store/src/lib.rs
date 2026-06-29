@@ -368,6 +368,9 @@ pub struct Store {
 	query_index: RwLock<QueryIndex>,
 	read_allowance_fn:
 		Box<dyn Fn(&AccountId, AllowanceBlock) -> Result<Option<StatementAllowance>> + Send + Sync>,
+	/// Derives the retention mask for each submitted statement.
+	/// By default every submission is persisted unconditionally.
+	retention_fn: std::sync::OnceLock<Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync>>,
 	subscription_manager: SubscriptionsHandle,
 	keystore: Arc<LocalKeystore>,
 	// Used for testing
@@ -813,6 +816,7 @@ impl Store {
 			submit_index: RwLock::new(SubmitIndex::new(config)),
 			query_index: RwLock::new(QueryIndex::default()),
 			read_allowance_fn,
+			retention_fn: std::sync::OnceLock::new(),
 			keystore,
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
@@ -823,6 +827,16 @@ impl Store {
 		};
 		store.populate()?;
 		Ok(store)
+	}
+
+	/// Install the resolver that derives the retention mask for each submitted statement.
+	///
+	/// Without it, the store persists every submission.
+	pub fn set_retention_resolver(
+		&self,
+		resolver: Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync>,
+	) {
+		let _ = self.retention_fn.set(resolver);
 	}
 
 	/// Create memory index from the data.
@@ -1388,18 +1402,13 @@ impl StatementStore for Store {
 		})
 	}
 
-	/// Submit a persistent statement to the store.
+	/// Submit a statement to the store.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
-		self.submit_with_retention_mask(statement, source, RetentionReasonMask::persistent())
-	}
+		let mask = self
+			.retention_fn
+			.get()
+			.map_or_else(RetentionReasonMask::persistent, |resolver| resolver(&statement));
 
-	/// Submit a statement to the store. Validates the statement and returns validation result.
-	fn submit_with_retention_mask(
-		&self,
-		statement: Statement,
-		source: StatementSource,
-		mask: RetentionReasonMask,
-	) -> SubmitResult {
 		let _histogram_submit_start_timer = self.metrics.start_submit_timer();
 		let hash = statement.hash();
 		// Get unix timestamp
@@ -2088,17 +2097,11 @@ mod tests {
 	#[test]
 	fn transient_statement_is_served_once_then_dropped() {
 		let (store, _temp) = test_store();
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
 		let statement = signed_statement(0);
 		let hash = statement.hash();
 
-		assert_eq!(
-			store.submit_with_retention_mask(
-				statement.clone(),
-				StatementSource::Network,
-				RetentionReasonMask::TRANSIENT,
-			),
-			SubmitResult::New,
-		);
+		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New,);
 
 		// Invisible to the query API: the store behaves as if it holds no transient statement.
 		assert!(!store.has_statement(&hash));
@@ -2119,24 +2122,21 @@ mod tests {
 	#[test]
 	fn resubmitting_transient_statement_reports_known() {
 		let (store, _temp) = test_store();
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
 		let statement = signed_statement(0);
 
-		assert_eq!(
-			store.submit_with_retention_mask(
-				statement.clone(),
-				StatementSource::Network,
-				RetentionReasonMask::TRANSIENT,
-			),
-			SubmitResult::New,
-		);
-		assert_eq!(
-			store.submit_with_retention_mask(
-				statement,
-				StatementSource::Network,
-				RetentionReasonMask::TRANSIENT,
-			),
-			SubmitResult::Known,
-		);
+		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New,);
+		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::Known);
+	}
+
+	#[test]
+	fn submit_persists_without_a_resolver() {
+		let (store, _temp) = test_store();
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+
+		assert_eq!(store.submit(statement, StatementSource::Local), SubmitResult::New);
+		assert!(store.has_statement(&hash));
 	}
 
 	#[test]
