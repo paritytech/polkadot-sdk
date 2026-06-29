@@ -31,9 +31,9 @@ async fn main() -> anyhow::Result<()> {
 	let value = 1_000_000_000_000_000_000_000u128.into();
 
 	let print_balance = || async {
-		let balance = client.get_balance(alith_address, BlockNumberOrTag::Latest.into()).await?;
+		let balance = client.get_balance(alith_address, Default::default()).await?;
 		println!("Alith     {alith_address:?} balance: {balance:?}");
-		let balance = client.get_balance(ethan.address(), BlockNumberOrTag::Latest.into()).await?;
+		let balance = client.get_balance(ethan.address(), Default::default()).await?;
 		println!("ethan {:?} balance: {balance:?}", ethan.address());
 		anyhow::Result::<()>::Ok(())
 	};

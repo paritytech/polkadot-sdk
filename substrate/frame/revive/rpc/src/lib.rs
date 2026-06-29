@@ -316,7 +316,7 @@ impl EthRpcServer for EthRpcServerImpl {
 
 		if transaction.nonce.is_none() {
 			transaction.nonce =
-				Some(self.get_transaction_count(from, BlockNumberOrTag::Latest.into()).await?);
+				Some(self.get_transaction_count(from, Default::default()).await?);
 		}
 
 		if transaction.chain_id.is_none() {
@@ -352,7 +352,7 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 
 	async fn gas_price(&self) -> RpcResult<U256> {
-		let hash = self.client.block_hash_for_tag(BlockNumberOrTag::Latest.into()).await?;
+		let hash = self.client.block_hash_for_tag(Default::default()).await?;
 		let runtime_api = self.client.runtime_api(hash);
 		Ok(runtime_api.gas_price().await?)
 	}

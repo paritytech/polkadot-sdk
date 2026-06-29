@@ -138,9 +138,9 @@ async fn test_eth_rpc(rpc_url: &str) -> anyhow::Result<()> {
 	let client = Arc::new(HttpClientBuilder::default().build(rpc_url)?);
 
 	let nonce = client
-		.get_transaction_count(account.address(), BlockNumberOrTag::Latest.into())
+		.get_transaction_count(account.address(), Default::default())
 		.await?;
-	let balance = client.get_balance(account.address(), BlockNumberOrTag::Latest.into()).await?;
+	let balance = client.get_balance(account.address(), Default::default()).await?;
 	println!("-  nonce: {nonce:?}");
 	println!("-  balance: {balance:?}");
 

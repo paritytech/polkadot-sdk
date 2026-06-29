@@ -40,9 +40,7 @@ async fn main() -> anyhow::Result<()> {
 
 	println!("\n\n=== Deploying contract ===\n\n");
 
-	let nonce = client
-		.get_transaction_count(account.address(), BlockNumberOrTag::Latest.into())
-		.await?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx = TransactionBuilder::new(client.clone())
 		.value(5_000_000_000_000u128.into())
 		.input(input)
@@ -61,7 +59,7 @@ async fn main() -> anyhow::Result<()> {
 	println!("- Gas estimated:    {}", tx.gas());
 	println!("- Gas used:         {gas_used}");
 	println!("- Contract address: {contract_address:?}");
-	let balance = client.get_balance(contract_address, BlockNumberOrTag::Latest.into()).await?;
+	let balance = client.get_balance(contract_address, Default::default()).await?;
 	println!("- Contract balance: {balance:?}");
 
 	if std::env::var("SKIP_CALL").is_ok() {

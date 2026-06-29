@@ -30,11 +30,11 @@ async fn main() -> anyhow::Result<()> {
 	println!("Latest block: {block:#?}");
 
 	let nonce = client
-		.get_transaction_count(account.address(), BlockNumberOrTag::Latest.into())
+		.get_transaction_count(account.address(), Default::default())
 		.await?;
 	println!("Account nonce: {nonce:?}");
 
-	let balance = client.get_balance(account.address(), BlockNumberOrTag::Latest.into()).await?;
+	let balance = client.get_balance(account.address(), Default::default()).await?;
 	println!("Account balance: {balance:?}");
 
 	let sync_state = client.syncing().await?;
