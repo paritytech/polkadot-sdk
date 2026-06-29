@@ -1187,7 +1187,10 @@ mod tests {
 		let PersistedEpoch::Regular(inner) = stored else {
 			panic!("expected PersistedEpoch::Regular");
 		};
-		assert_eq!(inner.start_slot, 100, "duplicate import must not overwrite existing epoch entry");
+		assert_eq!(
+			inner.start_slot, 100,
+			"duplicate import must not overwrite existing epoch entry"
+		);
 		assert_eq!(inner.duration, 100);
 	}
 }
