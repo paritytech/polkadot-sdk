@@ -128,12 +128,7 @@ impl<T: Config> Eras<T> {
 		};
 
 		// Zero reward points means a payout transfers nothing, so there is nothing to claim.
-		let reward_points = Self::get_reward_points(era)
-			.individual
-			.get(validator)
-			.copied()
-			.unwrap_or_default();
-		if reward_points.is_zero() {
+		if Self::get_reward_points_for_validator(era, validator).is_zero() {
 			return false;
 		}
 
