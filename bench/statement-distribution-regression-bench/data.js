@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782732536648,
+  "lastUpdate": 1782748577802,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "23d90a0426b76ce9ff94e7cef38a51f4024ebec3",
-          "message": "revive fix reported gas used (#10148)\n\nFix `gas_used` calculation introduced in #9418 to use the actual gas\ninstead of just `ref_time`.\n\nWith these changes we now guarantee that `tx_cost = effective_gas_price\n* gas`.\nNote that since we compute gas as `fee / gas_price`, this can lead to\nrounding errors when the chain uses `SlowAdjustingFeeUpdate` (i.e. the\nfee is not a multiple of the gas price).\nThe changes in this PR ensure the fee still matches by burning the\nrounding remainder.\n\nThis PR also fixes how the actual fee is computed and introduces a new\n`compute_actual_fee` in `Config::FeeInfo`.\nThe previous fee calculation was skipping the `extension_weight` in the\nfee calculation.\n\nThe updated tests ensure that the tx cost reported in the receipt\nmatches the fees deducted from the user account:\n\n\nhttps://github.com/paritytech/evm-test-suite/blob/460b2c9aa3a3019d3508bb5a34a2498ea86035ff/src/gas.test.ts?plain=1#L31-L61\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-04T19:38:28Z",
-          "tree_id": "117ca9a6e866e88e48d7f0638c4b4c2ddaf5ab07",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/23d90a0426b76ce9ff94e7cef38a51f4024ebec3"
-        },
-        "date": 1762289247350,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.95199999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035026807275999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04460105268399994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08544860083399997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "40f9a5ddbe62c0b797a4be9beb35fba93e6d6336",
+          "message": "txpool: maintain on all blocks (#12433)\n\nSlot-based collators under heavy forking frequently import blocks that\nare **not** the best block, and then build on top of them. The\nfork-aware pool only maintains a view per **best** block, so when the\nblock builder asks for `ready_at(fork_block)` there is no view for that\nfork and it falls back to `ready_at_light`.\n\n`ready_at_light` does **not** collect the full set of ready transactions\nfor the fork: it walks up to the nearest ancestor that still has a view\n(typically the fork's common root), reuses that view's ready set and\nmerely prunes the extrinsics already included on the way to\n`fork_block`. It never re-validates the mempool against the fork, so any\ntransaction that is not already in that ancestor view is missing —\nresulting in under-filled / empty blocks on forks.\n\nMaintaining the pool on every imported block means a proper view already\nexists for the fork, so the block builder gets the complete ready set\ninstead of the light fallback.\n\n#### Example\n\n```text\n      B1 - B2[tx] - B3 - B4           <- imported as best\n    /\nB0\n    \\\n      B'1 - B'2 - B'3 - B'4 - B'5[tx] <- imported as non-best, until B'5 becomes best\n```\n\n`tx` enters the pool and is included in `B2` on the best chain. The `B'`\nfork is imported but never notified as best, so the pool keeps no views\nfor `B'1..B'4`. While building on that fork, `ready_at` has no view and\nfalls back to `ready_at_light`, which reuses the nearest ancestor view\n(`B0`) and only prunes already-included txs — it never re-collects the\nmempool, so `tx` (which arrived after `B0`'s view went inactive) is\nmissing. `tx` is only included once the fork wins and `B'5` becomes\nbest, at which point a full view is finally built — i.e. inclusion is\n**delayed** by the length of the fork.\n\nWith this change a view is built for every `B'n` as it is imported, so\n`tx` is ready on the fork from the start.\n\n#### Notes for reviewers\n\n- The pool is now informed about **every** imported block, not only best\nblocks. The fork-aware pool builds a view for each imported block, so it\nis aware of all forks.\n- New `ChainEvent::NewBlock` event represents a non-best import; the\nfork-aware pool handles it like `NewBestBlock` (builds a view).\n`notification_future` subscribes to `every_import_notification_stream()`\ninstead of `import_notification_stream()`.\n- New `--pool-best-blocks-only` flag restores the previous behavior (act\non best blocks only). Only affects the fork-aware pool; the single-state\npool is unchanged. This is intended to act as a legacy fallback.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-29T13:30:13Z",
+          "tree_id": "491abfb5af2e9afcac340ffc34c823b3e4e0d28a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/40f9a5ddbe62c0b797a4be9beb35fba93e6d6336"
+        },
+        "date": 1782748548245,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.06999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0787465027379999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038119383259999993,
             "unit": "seconds"
           }
         ]
