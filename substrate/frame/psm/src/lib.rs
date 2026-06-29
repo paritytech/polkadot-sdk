@@ -212,7 +212,7 @@ pub mod pallet {
 		#[default]
 		Full,
 		/// Emergency access, held by the instance's `emergency_admin`.
-		/// Can modify circuit breaker status, the debt ceiling, and asset ceiling weights.
+		/// Can modify circuit breaker status.
 		Emergency,
 	}
 
@@ -229,15 +229,15 @@ pub mod pallet {
 		}
 
 		/// Whether this level allows modifying the PSM debt ceiling.
-		/// Both Full and Emergency levels can set the max debt.
+		/// Only Full can set the debt ceiling.
 		pub const fn can_set_max_debt(&self) -> bool {
-			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
+			matches!(self, PsmManagerLevel::Full)
 		}
 
 		/// Whether this level allows modifying per-asset ceiling weights.
-		/// Both Full and Emergency levels can set asset ceilings.
+		/// Only Full can set asset ceiling weights.
 		pub const fn can_set_asset_ceiling(&self) -> bool {
-			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
+			matches!(self, PsmManagerLevel::Full)
 		}
 
 		/// Whether this level allows adding or removing external assets.
@@ -1158,8 +1158,8 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must match the PSM instance's `full_admin` or `emergency_admin`; either the
-		/// `Full` or `Emergency` privilege level may use this call.
+		/// Must match the PSM instance's `full_admin`; only the `Full` privilege level may use
+		/// this call.
 		///
 		/// ## Parameters
 		///
@@ -1251,8 +1251,8 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must match the PSM instance's `full_admin` or `emergency_admin`; either the
-		/// `Full` or `Emergency` privilege level may use this call.
+		/// Must match the PSM instance's `full_admin`; only the `Full` privilege level may use
+		/// this call.
 		///
 		/// ## Parameters
 		///

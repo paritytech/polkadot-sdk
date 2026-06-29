@@ -1407,35 +1407,41 @@ mod governance {
 	}
 
 	#[test]
-	fn emergency_origin_can_set_max_debt() {
+	fn emergency_origin_cannot_set_max_debt() {
 		new_test_ext().execute_with(|| {
-			let new_value = 5_000_000 * INTERNAL_UNIT;
+			let old_value = psm_max_debt();
 
-			assert_ok!(Psm::set_max_debt(
-				RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
-				INTERNAL_ASSET_ID,
-				new_value,
-			));
+			assert_noop!(
+				Psm::set_max_debt(
+					RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
+					INTERNAL_ASSET_ID,
+					old_value - INTERNAL_UNIT,
+				),
+				Error::<Test>::InsufficientPrivilege
+			);
 
-			assert_eq!(psm_max_debt(), new_value);
+			assert_eq!(psm_max_debt(), old_value);
 		});
 	}
 
 	#[test]
-	fn emergency_origin_can_set_asset_ceiling_weight() {
+	fn emergency_origin_cannot_set_asset_ceiling_weight() {
 		new_test_ext().execute_with(|| {
-			let new_ratio = Permill::from_percent(80);
+			let old_ratio = AssetCeilingWeight::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
 
-			assert_ok!(Psm::set_asset_ceiling_weight(
-				RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
-				INTERNAL_ASSET_ID,
-				USDC_ASSET_ID,
-				new_ratio
-			));
+			assert_noop!(
+				Psm::set_asset_ceiling_weight(
+					RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					Permill::from_percent(30),
+				),
+				Error::<Test>::InsufficientPrivilege
+			);
 
 			assert_eq!(
 				AssetCeilingWeight::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID),
-				new_ratio
+				old_ratio
 			);
 		});
 	}
@@ -2153,8 +2159,8 @@ mod cycles {
 
 			let total_fees = total_mint_fees + total_redeem_fees;
 			let if_increase = if_internal_after - if_internal_before;
-			let user_decrease = user_external_before - user_external_after + user_internal_before -
-				user_internal_after;
+			let user_decrease = user_external_before - user_external_after + user_internal_before
+				- user_internal_after;
 
 			println!("\n=== Verification ===");
 			println!("Total fees collected: {:.2}", total_fees as f64 / unit);
@@ -2345,8 +2351,8 @@ mod cycles {
 
 			let total_fees = total_mint_fees + total_redeem_fees;
 			let if_increase = if_internal_after - if_internal_before;
-			let user_decrease = user_external_before - user_external_after + user_internal_before -
-				user_internal_after;
+			let user_decrease = user_external_before - user_external_after + user_internal_before
+				- user_internal_after;
 
 			println!("\n=== Verification ===");
 			println!("Total fees collected: {:.2}", total_fees as f64 / unit);
@@ -2395,8 +2401,8 @@ mod cycles {
 
 			let total_fees = total_mint_fees + total_redeem_fees;
 			let if_increase = if_internal_after - if_internal_before;
-			let user_decrease = user_external_before - user_external_after + user_internal_before -
-				user_internal_after;
+			let user_decrease = user_external_before - user_external_after + user_internal_before
+				- user_internal_after;
 
 			println!("\n=== Final State ===");
 			println!("Total cycles: {}", cycle);
