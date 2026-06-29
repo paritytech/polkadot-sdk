@@ -708,3 +708,124 @@ fn deserialize_input_or_data<'d, D: Deserializer<'d>>(d: D) -> Result<InputOrDat
 		_ => Ok(value),
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use crate::evm::*;
+
+	#[test]
+	fn test_transaction_info_deserialize_from_value() {
+		// This tests the custom deserializer for TransactionInfo
+		// which works around serde's limitation with flatten + untagged enums from Value
+		let tx_info_expected = serde_json::json!({
+			"blockHash": "0xfb8c980d1da1a75e68c2ea4d55cb88d62dedbbb5eaf69df8fe337e9f6922b73a",
+			"blockNumber": "0x161bd0f",
+			"from": "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97",
+			"hash": "0x2c522d01183e9ed70caaf75c940ba9908d573cfc9996b3e7adc90313798279c8",
+			"transactionIndex": "0x7a",
+			"chainId": "0x1",
+			"gas": "0x565f",
+			"gasPrice": "0x23cf3fd4",
+			"input": "0x",
+			"nonce": "0x2c5ce1",
+			"r": "0x4a5703e4d8daf045f021cb32897a25b17d61b9ab629a59f0731ef4cce63f93d6",
+			"s": "0x711812237c1fed6aaf08e9f47fc47e547fdaceba9ab7507e62af29a945354fb6",
+			"to": "0x388c818ca8b9251b393131c08a736a67ccb19297",
+			"type": "0x0",
+			"v": "0x1",
+			"value": "0x12bf92aae0c2e70"
+		});
+
+		// Test deserializing from Value (this was failing before the custom deserializer) with
+		// below error:
+		// ```
+		// Failed to deserialize from Value: Some(Error("data did not match any variant of untagged enum TransactionSigned", line: 0, column: 0))
+		// ```
+		let tx_info_from_value: Result<TransactionInfo, serde_json::Error> =
+			serde_json::from_value(tx_info_expected.clone());
+		assert!(
+			tx_info_from_value.is_ok(),
+			"Failed to deserialize from Value: {:?}",
+			tx_info_from_value.err()
+		);
+
+		// Test deserializing from string (this was always working)
+		let json_str = serde_json::to_string(&tx_info_expected).unwrap();
+		let tx_info_from_str: Result<TransactionInfo, serde_json::Error> =
+			serde_json::from_str(&json_str);
+		assert!(
+			tx_info_from_str.is_ok(),
+			"Failed to deserialize from string: {:?}",
+			tx_info_from_str.err()
+		);
+
+		// Verify both methods produce the same result
+		let tx_info_from_value = tx_info_from_value.unwrap();
+		let tx_info_from_str = tx_info_from_str.unwrap();
+		assert_eq!(
+			tx_info_from_value, tx_info_from_str,
+			"Value and string deserialization should match"
+		);
+
+		// Serialize it back to JSON
+		let tx_info_serialized = serde_json::to_value(&tx_info_from_value);
+		assert!(
+			tx_info_serialized.is_ok(),
+			"Failed to serialize to value: {:?}",
+			tx_info_serialized.err()
+		);
+		let tx_info_serialized = tx_info_serialized.unwrap();
+
+		// Verify that deserializing and serializing leads to the same result
+		assert_eq!(tx_info_serialized, tx_info_expected);
+	}
+
+	#[test]
+	fn test_transaction_hashes_deserialization() {
+		let json = r#"["0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"]"#;
+		let result: HashesOrTransactionInfos = serde_json::from_str(json).unwrap();
+		assert!(matches!(result, HashesOrTransactionInfos::Hashes(_)));
+
+		let json = r#"[]"#;
+		let result: HashesOrTransactionInfos = serde_json::from_str(json).unwrap();
+		assert!(matches!(result, HashesOrTransactionInfos::Hashes(_)));
+
+		let json = r#"[{"invalid": "data"}]"#;
+		let result: Result<HashesOrTransactionInfos, _> = serde_json::from_str(json);
+		assert!(result.is_err());
+	}
+
+	#[test]
+	fn test_transaction_infos_deserialization() {
+		let json = r#"[{
+			"accessList": [{
+				"address": "0x9008d19f58aabd9ed0d60971565aa8510560ab41",
+				"storageKeys": [
+					"0x0000000000000000000000000000000000000000000000000000000000000001"
+				]
+			}],
+			"blockHash": "0xfb8c980d1da1a75e68c2ea4d55cb88d62dedbbb5eaf69df8fe337e9f6922b73a",
+			"blockNumber": "0x161bd0f",
+			"chainId": "0x1",
+			"from": "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97",
+			"gas": "0x565f",
+			"gasPrice": "0x23cf3fd4",
+			"hash": "0x2c522d01183e9ed70caaf75c940ba9908d573cfc9996b3e7adc90313798279c8",
+			"input": "0x",
+			"maxFeePerGas": "0x23cf3fd4",
+			"maxPriorityFeePerGas": "0x0",
+			"nonce": "0x2c5ce1",
+			"r": "0x4a5703e4d8daf045f021cb32897a25b17d61b9ab629a59f0731ef4cce63f93d6",
+			"s": "0x711812237c1fed6aaf08e9f47fc47e547fdaceba9ab7507e62af29a945354fb6",
+			"to": "0x388c818ca8b9251b393131c08a736a67ccb19297",
+			"transactionIndex": "0x7a",
+			"type": "0x2",
+			"v": "0x0",
+			"value": "0x12bf92aae0c2e70",
+			"yParity": "0x0"
+			}]
+		"#;
+		let result: HashesOrTransactionInfos = serde_json::from_str(json).unwrap();
+		assert!(matches!(result, HashesOrTransactionInfos::TransactionInfos(_)));
+	}
+}
