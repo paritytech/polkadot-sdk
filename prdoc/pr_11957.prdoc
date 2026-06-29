@@ -28,4 +28,4 @@ doc:
         - `trace_block`
 crates:
 - name: pallet-revive-types
-  bump: major
+  bump: patch
