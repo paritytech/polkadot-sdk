@@ -30,9 +30,6 @@ mod export;
 pub use export::{export_xcm, validate_export, ExportXcm};
 mod fee_manager;
 pub use fee_manager::{FeeManager, FeeReason, WaiveDeliveryFees};
-mod filter_asset_location;
-#[allow(deprecated)]
-pub use filter_asset_location::FilterAssetLocation;
 mod token_matching;
 pub use token_matching::{
 	Error, MatchesFungible, MatchesFungibles, MatchesInstance, MatchesNonFungible,
