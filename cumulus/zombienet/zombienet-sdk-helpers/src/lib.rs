@@ -4,7 +4,7 @@
 use anyhow::anyhow;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{BlockBundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
-use futures::stream::StreamExt;
+use futures::{future::try_join_all, stream::StreamExt};
 use polkadot_primitives::{BlakeTwo256, CandidateReceiptV2, HashT, Id as ParaId};
 use std::{
 	cmp::max,
@@ -1015,13 +1015,13 @@ pub async fn wait_for_pallet_in_metadata(
 	}
 }
 
-/// Read the live `AuthorityDiscovery.Keys` set as a `HashSet` of 32-byte vectors.
+/// Read the live `AuthorityDiscovery.Keys` set as a `HashSet` of 32-byte arrays.
 ///
 /// Returns an empty set if the storage value is absent (e.g. the AD pallet is not present
 /// in the runtime's metadata).
 pub async fn read_authority_discovery_authorities(
 	para_client: &OnlineClient<PolkadotConfig>,
-) -> anyhow::Result<HashSet<Vec<u8>>> {
+) -> anyhow::Result<HashSet<[u8; 32]>> {
 	let query = subxt::dynamic::storage("AuthorityDiscovery", "Keys", Vec::<Value>::new());
 	let Some(thunk) = para_client.storage().at_latest().await?.fetch(&query).await? else {
 		log::warn!("AuthorityDiscovery.Keys storage returned None — treating as empty set");
@@ -1029,10 +1029,10 @@ pub async fn read_authority_discovery_authorities(
 	};
 
 	let raw = thunk.into_encoded();
-	let keys_array: Vec<[u8; 32]> =
-		Decode::decode(&mut &raw[..]).map_err(|e| anyhow!("decode AD keys: {e}"))?;
-
-	let keys: HashSet<Vec<u8>> = keys_array.into_iter().map(|k| k.to_vec()).collect();
+	let keys: HashSet<[u8; 32]> = Vec::<[u8; 32]>::decode(&mut &raw[..])
+		.map_err(|e| anyhow!("decode AD keys: {e}"))?
+		.into_iter()
+		.collect();
 	log::info!("AuthorityDiscovery.Keys: {} entries decoded", keys.len());
 	Ok(keys)
 }
@@ -1040,10 +1040,10 @@ pub async fn read_authority_discovery_authorities(
 /// Poll `AuthorityDiscovery.Keys` until it differs from `initial` or `timeout` fires.
 pub async fn wait_for_authority_discovery_keys_change(
 	para_client: &OnlineClient<PolkadotConfig>,
-	initial: &HashSet<Vec<u8>>,
+	initial: &HashSet<[u8; 32]>,
 	timeout: Duration,
 	poll_interval: Duration,
-) -> anyhow::Result<HashSet<Vec<u8>>> {
+) -> anyhow::Result<HashSet<[u8; 32]>> {
 	let deadline = Instant::now() + timeout;
 	loop {
 		if Instant::now() >= deadline {
@@ -1086,11 +1086,12 @@ pub async fn assert_full_collator_mesh(
 	let expected = (names.len() - 1) as f64;
 	let per_node_timeout = timeout.as_secs();
 
-	// Step 1: resolved reserved peers.
-	for &name in names {
-		let collator = network.get_node(name)?;
-		log::info!("Asserting `{name}` has resolved >= {expected} reserved peers");
-		assert!(
+	// Step 1: resolved reserved peers — all nodes checked in parallel.
+	try_join_all(names.iter().map(|&name| {
+		let collator = network.get_node(name);
+		async move {
+			let collator = collator?;
+			log::info!("Asserting `{name}` has resolved >= {expected} reserved peers");
 			collator
 				.wait_metric_with_timeout(
 					"collator_discovery_resolved_peers",
@@ -1098,16 +1099,21 @@ pub async fn assert_full_collator_mesh(
 					per_node_timeout,
 				)
 				.await
-				.is_ok(),
-			"`{name}` did not reach {expected} resolved reserved peers within the timeout",
-		);
-	}
+				.map_err(|e| {
+					anyhow!(
+						"`{name}` did not reach {expected} resolved reserved peers within the timeout: {e}"
+					)
+				})
+		}
+	}))
+	.await?;
 
-	// Step 2: libp2p peer count.
-	for &name in names {
-		let collator = network.get_node(name)?;
-		log::info!("Asserting `{name}` has >= {expected} connected libp2p peers");
-		assert!(
+	// Step 2: libp2p peer count — all nodes checked in parallel.
+	try_join_all(names.iter().map(|&name| {
+		let collator = network.get_node(name);
+		async move {
+			let collator = collator?;
+			log::info!("Asserting `{name}` has >= {expected} connected libp2p peers");
 			collator
 				.wait_metric_with_timeout(
 					"substrate_sub_libp2p_peers_count",
@@ -1115,11 +1121,15 @@ pub async fn assert_full_collator_mesh(
 					per_node_timeout,
 				)
 				.await
-				.is_ok(),
-			"`{name}` did not reach {expected} connected peers — the reserved-mesh bypass of the \
-			 non-reserved budget is not delivering full collator-to-collator connectivity",
-		);
-	}
+				.map_err(|e| {
+					anyhow!(
+						"`{name}` did not reach {expected} connected peers — the reserved-mesh bypass of \
+						 the non-reserved budget is not delivering full collator-to-collator connectivity: {e}"
+					)
+				})
+		}
+	}))
+	.await?;
 
 	// Step 3: full (i, j) peer-id mesh check via `system_peers`.
 	let mut peer_ids: HashMap<&str, String> = HashMap::new();
@@ -1179,111 +1189,4 @@ pub async fn assert_full_collator_mesh(
 		log::info!("Mesh not yet full; retrying in {poll_interval:?}");
 		sleep(poll_interval).await;
 	}
-}
-
-/// Insert a session key of the given type into a node's keystore via `author_insertKey`,
-/// using `suri` as the secret URI (e.g. `//Alice`) and `public_key` as its raw bytes.
-pub async fn insert_session_key(
-	network: &Network<LocalFileSystem>,
-	node_name: &str,
-	key_type: &str,
-	suri: &str,
-	public_key: &[u8; 32],
-) -> anyhow::Result<()> {
-	use zombienet_sdk::subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params};
-
-	let pub_hex = format!("0x{}", hex_encode(public_key));
-	let rpc: RpcClient = network.get_node(node_name)?.rpc().await?;
-	rpc.request::<()>("author_insertKey", rpc_params![key_type, suri, &pub_hex])
-		.await?;
-	log::info!("inserted `{key_type}` key {pub_hex} into `{node_name}` keystore (suri {suri})");
-	Ok(())
-}
-
-/// Rotate session keys on a node via `author_rotateKeysWithOwner`, then submit
-/// `Session::set_keys(keys, proof)` signed by `signer`. `owner` is the SCALE-encoded account
-/// id passed to the RPC (usually equal to the signer's account id).
-///
-/// Generic over the runtime's `SessionKeys` shape: the SCALE-encoded `keys` returned by the
-/// node are decoded against runtime metadata into a `scale_value::Value` and submitted via
-/// subxt's dynamic transaction API.
-pub async fn rotate_session_keys<S>(
-	network: &Network<LocalFileSystem>,
-	para_client: &OnlineClient<PolkadotConfig>,
-	node_name: &str,
-	signer: &S,
-	owner: &[u8],
-) -> anyhow::Result<()>
-where
-	S: Signer<PolkadotConfig>,
-{
-	use zombienet_sdk::subxt::{
-		backend::rpc::RpcClient,
-		ext::{scale_value, subxt_rpcs::rpc_params},
-	};
-
-	let owner_hex = format!("0x{}", hex_encode(owner));
-	let rpc: RpcClient = network.get_node(node_name)?.rpc().await?;
-	let resp: serde_json::Value =
-		rpc.request("author_rotateKeysWithOwner", rpc_params![owner_hex]).await?;
-
-	let keys_hex = resp
-		.get("keys")
-		.and_then(|v| v.as_str())
-		.ok_or_else(|| anyhow!("author_rotateKeysWithOwner response missing `keys` field"))?;
-	let proof_hex = resp.get("proof").and_then(|v| v.as_str()).ok_or_else(|| {
-		anyhow!("runtime did not return a POP proof from author_rotateKeysWithOwner")
-	})?;
-	let keys_bytes = parse_hex(keys_hex)?;
-	let proof_bytes = parse_hex(proof_hex)?;
-
-	let meta = para_client.metadata();
-	let pallet = meta
-		.pallet_by_name("Session")
-		.ok_or_else(|| anyhow!("Session pallet not found in metadata"))?;
-	let call_variant = pallet
-		.call_variant_by_name("set_keys")
-		.ok_or_else(|| anyhow!("Session::set_keys call not found in metadata"))?;
-	let keys_type_id = call_variant
-		.fields
-		.first()
-		.ok_or_else(|| anyhow!("Session::set_keys has no fields"))?
-		.ty
-		.id;
-
-	let keys_value =
-		scale_value::scale::decode_as_type(&mut &keys_bytes[..], keys_type_id, meta.types())
-			.map_err(|e| anyhow!("decode generated session keys against runtime metadata: {e}"))?
-			.remove_context();
-
-	let call =
-		subxt::dynamic::tx("Session", "set_keys", vec![keys_value, Value::from_bytes(proof_bytes)]);
-
-	submit_extrinsic_and_wait_for_finalization_success(para_client, &call, signer).await?;
-	log::info!("`{node_name}` session keys rotated and set_keys finalised");
-	Ok(())
-}
-
-fn parse_hex(s: &str) -> anyhow::Result<Vec<u8>> {
-	let stripped = s.strip_prefix("0x").unwrap_or(s);
-	if !stripped.len().is_multiple_of(2) {
-		return Err(anyhow!("odd-length hex string: {s}"));
-	}
-	(0..stripped.len())
-		.step_by(2)
-		.map(|i| {
-			u8::from_str_radix(&stripped[i..i + 2], 16)
-				.map_err(|e| anyhow!("invalid hex `{s}`: {e}"))
-		})
-		.collect()
-}
-
-fn hex_encode(bytes: &[u8]) -> String {
-	const HEX: &[u8; 16] = b"0123456789abcdef";
-	let mut out = String::with_capacity(bytes.len() * 2);
-	for b in bytes {
-		out.push(HEX[(b >> 4) as usize] as char);
-		out.push(HEX[(b & 0x0f) as usize] as char);
-	}
-	out
 }

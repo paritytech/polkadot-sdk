@@ -173,16 +173,7 @@ fn test_buy_and_refund_weight_in_native() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys {
-				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-				authority_discovery: AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(ALICE),
-				),
-			},
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
@@ -254,16 +245,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys {
-				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-				authority_discovery: AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(ALICE),
-				),
-			},
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
@@ -385,16 +367,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys {
-				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-				authority_discovery: AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(ALICE),
-				),
-			},
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
@@ -518,16 +491,7 @@ fn test_asset_xcm_take_first_trader_refund_not_possible_since_amount_less_than_e
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys {
-				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-				authority_discovery: AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(ALICE),
-				),
-			},
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			// We need root origin to create a sufficient asset
@@ -606,16 +570,7 @@ fn test_asset_xcm_take_first_trader_not_possible_for_non_sufficient_assets() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys {
-				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-				authority_discovery: AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(ALICE),
-				),
-			},
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			// Create a non-sufficient asset with specific existential deposit
@@ -698,16 +653,7 @@ fn test_nft_asset_transactor_works<T: TransactAsset>() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys {
-				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-				authority_discovery: AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(ALICE),
-				),
-			},
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let collection_id = 42;
@@ -874,16 +820,7 @@ fn test_assets_balances_api_works() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys {
-				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-				authority_discovery: AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(ALICE),
-				),
-			},
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let local_asset_id = 1;
@@ -1003,16 +940,7 @@ fn authorized_aliases_work() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys {
-				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-				authority_discovery: AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(ALICE),
-				),
-			},
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let alice: AccountId = ALICE.into();
@@ -2368,16 +2296,7 @@ fn pure_proxy_stash_can_delegate_to_staking_operator() {
 
 	ExtBuilder::<Runtime>::default()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys {
-				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-				authority_discovery: AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(ALICE),
-				),
-			},
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			// GIVEN: fund controller and operator
@@ -2593,14 +2512,7 @@ mod dap {
 
 		ExtBuilder::<Runtime>::default()
 			.with_collators(vec![alice.clone()])
-			.with_session_keys(vec![(
-				alice.clone(),
-				alice.clone(),
-				SessionKeys {
-					aura: AuraId::from(Sr25519Keyring::Alice.public()),
-					authority_discovery: AuthorityDiscoveryId::from(Sr25519Keyring::Alice.public()),
-				},
-			)])
+			.with_session_keys(collator_session_keys().session_keys())
 			.with_balances(vec![
 				(alice.clone(), 100 * ed),
 				(buffer.clone(), ed),
@@ -2654,16 +2566,7 @@ mod dap {
 
 		ExtBuilder::<Runtime>::default()
 			.with_collators(vec![AccountId::from(ALICE)])
-			.with_session_keys(vec![(
-				AccountId::from(ALICE),
-				AccountId::from(ALICE),
-				SessionKeys {
-					aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-					authority_discovery: AuthorityDiscoveryId::from(
-						sp_core::sr25519::Public::from_raw(ALICE),
-					),
-				},
-			)])
+			.with_session_keys(collator_session_keys().session_keys())
 			.build()
 			.execute_with(|| {
 				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&bob, ed + dust));

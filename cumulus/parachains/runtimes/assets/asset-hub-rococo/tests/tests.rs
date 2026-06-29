@@ -119,16 +119,7 @@ fn slot_durations() -> SlotDurations {
 fn test_buy_and_refund_weight_in_native() {
 	ExtBuilder::<Runtime>::default()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys {
-				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-				authority_discovery: AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(ALICE),
-				),
-			},
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
@@ -186,16 +177,7 @@ fn test_buy_and_refund_weight_in_native() {
 fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 	ExtBuilder::<Runtime>::default()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys {
-				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-				authority_discovery: AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(ALICE),
-				),
-			},
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
@@ -291,16 +273,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 	ExtBuilder::<Runtime>::default()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys {
-				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-				authority_discovery: AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(ALICE),
-				),
-			},
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
@@ -403,16 +376,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 fn test_asset_xcm_take_first_trader_refund_not_possible_since_amount_less_than_ed() {
 	ExtBuilder::<Runtime>::default()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys {
-				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-				authority_discovery: AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(ALICE),
-				),
-			},
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			// We need root origin to create a sufficient asset
@@ -490,16 +454,7 @@ fn test_asset_xcm_take_first_trader_refund_not_possible_since_amount_less_than_e
 fn test_asset_xcm_trader_not_possible_for_non_sufficient_assets() {
 	ExtBuilder::<Runtime>::default()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys {
-				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-				authority_discovery: AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(ALICE),
-				),
-			},
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			// Create a non-sufficient asset with specific existential deposit
@@ -584,16 +539,7 @@ fn test_assets_balances_api_works() {
 
 	ExtBuilder::<Runtime>::default()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys {
-				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
-				authority_discovery: AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(ALICE),
-				),
-			},
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let local_asset_id = 1;

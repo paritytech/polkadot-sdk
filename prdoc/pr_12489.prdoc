@@ -13,8 +13,9 @@ doc:
       not part of the AD mesh.
 
       How to tell if a collator has rotated: query `session.nextKeys(<account>)`.
-      If the `authority_discovery` field is zeroed, that collator has not
-      rotated yet.
+      If the `authority_discovery` field equals the `aura` field, that collator
+      has not rotated yet (the migration installs a placeholder equal to your
+      aura key bytes; rotation replaces it with a real audi key).
 
 crates:
   - name: parachains-common

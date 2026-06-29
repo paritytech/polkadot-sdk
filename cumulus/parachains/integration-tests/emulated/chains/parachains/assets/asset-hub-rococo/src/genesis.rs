@@ -77,9 +77,8 @@ pub fn genesis() -> Storage {
 			keys: collators::invulnerables()
 				.into_iter()
 				.map(|(acc, aura)| {
-					let raw: [u8; 32] = sp_core::sr25519::Public::from(aura.clone()).0;
-					let authority_discovery: sp_authority_discovery::AuthorityId =
-						sp_core::sr25519::Public::from_raw(raw).into();
+					let authority_discovery =
+						parachains_common::authority_discovery_id_from_aura(aura.clone());
 					(
 						acc.clone(), // account id
 						acc,         // validator id

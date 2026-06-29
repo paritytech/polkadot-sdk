@@ -14,8 +14,16 @@
 // limitations under the License.
 
 //! One-shot migration that extends each existing `pallet_session::SessionKeys`
-//! entry with a new `authority_discovery: AuthorityDiscoveryId` field set to
-//! a 32-byte zero placeholder.
+//! entry with a new `authority_discovery: AuthorityDiscoveryId` field derived
+//! from the validator's existing aura key bytes.
+//!
+//! Why the placeholder is aura-derived rather than zero: the all-zero
+//! sr25519::Public is the Ristretto identity element, which schnorrkel accepts
+//! and against which any Schnorr signature is trivially forgeable. A zero 
+//! placeholder would also be shared by every validator across every adopting chain 
+//! until they each rotated, letting any attacker take over the entire 
+//! authority-discovery mesh.
+
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
@@ -23,6 +31,8 @@ use alloc::vec::Vec;
 use codec::DecodeAll;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
+#[cfg(feature = "try-runtime")]
+use frame_support::{pallet_prelude::OptionQuery, Twox64Concat};
 use frame_support::{
 	traits::{Get, OnRuntimeUpgrade},
 	weights::Weight,
@@ -31,6 +41,16 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_io::storage;
 use sp_runtime::{traits::OpaqueKeys, KeyTypeId, RuntimeAppPublic};
+
+#[cfg(feature = "try-runtime")]
+#[frame_support::storage_alias]
+type OldNextKeys<R: pallet_session::Config> = StorageMap<
+	pallet_session::Pallet<R>,
+	Twox64Concat,
+	<R as pallet_session::Config>::ValidatorId,
+	AuraId,
+	OptionQuery,
+>;
 
 const LOG_TARGET: &str = "runtime::ad_migration";
 
@@ -64,10 +84,6 @@ impl OpaqueKeys for OldSessionKeys {
 	}
 }
 
-fn zero_audi() -> AuthorityDiscoveryId {
-	AuthorityDiscoveryId::from(sp_core::sr25519::Public::from_raw([0u8; 32]))
-}
-
 fn migration_done() -> bool {
 	storage::get(MIGRATION_DONE_KEY).is_some()
 }
@@ -76,11 +92,6 @@ fn migration_done() -> bool {
 fn layout_matches<R: pallet_session::Config>() -> bool {
 	<<R as pallet_session::Config>::Keys as OpaqueKeys>::key_ids() ==
 		[<AuraId as RuntimeAppPublic>::ID, <AuthorityDiscoveryId as RuntimeAppPublic>::ID]
-}
-
-#[cfg(feature = "try-runtime")]
-fn next_keys_prefix<R: pallet_session::Config>() -> [u8; 32] {
-	<pallet_session::NextKeys<R> as frame_support::storage::StoragePrefixedMap<_>>::final_prefix()
 }
 
 #[cfg(feature = "try-runtime")]
@@ -117,15 +128,14 @@ where
 			return db.reads(1);
 		}
 
-		let zeros = zero_audi();
-
 		pallet_session::Pallet::<R>::upgrade_keys::<OldSessionKeys, _>(|collator, old| {
 			log::info!(
 				target: LOG_TARGET,
-				"Collator {:?}: authority-discovery key set to zero",
+				"Collator {:?}: authority-discovery key derived from aura raw bytes",
 				collator,
 			);
-			let bytes = (old.aura, zeros.clone()).encode();
+			let audi = crate::authority_discovery_id_from_aura(old.aura.clone());
+			let bytes = (old.aura, audi).encode();
 			<R as pallet_session::Config>::Keys::decode(&mut &bytes[..])
 				.expect("R::Keys::key_ids() verified above; qed")
 		});
@@ -135,19 +145,20 @@ where
 		let n = pallet_session::Validators::<R>::get().len() as u64;
 		log::info!(
 			target: LOG_TARGET,
-			"AppendAuthorityDiscoveryKeys: migrated ~{} collator(s) with zero placeholder keys",
+			"AppendAuthorityDiscoveryKeys: migrated ~{} collator(s) with aura-derived placeholder keys",
 			n,
 		);
 
-		// Weight: `upgrade_keys` reads/writes per-collator across NextKeys + KeyOwner
-		// (old & new), plus one read/write for QueuedKeys, plus flag + Validators read.
-		// `n` uses `Validators::get().len()` as a proxy to avoid a full `NextKeys` scan.
-		// A chain with a pending validator rotation can have one queued set's worth of
-		// extra `NextKeys` entries; the `+3 reads / +1 write` constant ops absorb that
-		// discrepancy on every realistic system-chain validator set.
+		// Weight: per validator `upgrade_keys`:
+		//   - 1 read  + 1 write : NextKeys translate
+		//   - 1 write           : KeyOwner remove (old aura)
+		//   - 2 writes          : KeyOwner insert (new aura + new audi)
+		// Plus constant ops: QueuedKeys translate (1R + 1W), flag write (1W),
+		// Validators::get() (1R), migration_done() check (1R).
+		// Total: (n × 1 + 3) reads, (n × 4 + 2) writes.
 		db.reads_writes(
-			n.saturating_mul(4).saturating_add(3),
-			n.saturating_mul(4).saturating_add(1),
+			n.saturating_mul(2).saturating_add(3),
+			n.saturating_mul(4).saturating_add(2),
 		)
 	}
 
@@ -167,25 +178,17 @@ where
 			));
 		}
 
-		// Snapshot every NextKeys entry under the OLD (32-byte AuraId) layout. `DecodeAll`
-		// rejects trailing bytes so we also fail if storage is already in the new layout.
-		let prefix = next_keys_prefix::<R>();
-		let mut next_keys_state: Vec<(Vec<u8>, AuraId)> = Vec::new();
-		let mut cursor = prefix.to_vec();
-		while let Some(next_key) = storage::next_key(&cursor) {
-			if !next_key.starts_with(&prefix) {
-				break;
-			}
-			cursor = next_key.clone();
-			if let Some(raw) = storage::get(&next_key) {
-				let aura = AuraId::decode_all(&mut &raw[..]).map_err(|_| {
-					sp_runtime::TryRuntimeError::Other(
-						"pre_upgrade: NextKeys entry not decodable as AuraId",
-					)
-				})?;
-				next_keys_state.push((next_key, aura));
-			}
-		}
+		// Snapshot all NextKeys entries under the OLD single-AuraId layout.
+		//
+		// `OldNextKeys` declares the same hasher (Twox64Concat) and prefix as
+		// `pallet_session::NextKeys`, but with `AuraId` as the value type, so
+		// `iter()` decodes only the 32-byte aura field and ignores nothing further
+		// — if any entry is already in the new (64-byte) layout, the decode will
+		// succeed but yield a silently truncated value.  That edge-case is already
+		// covered: the `migration_done()` flag check above is the authoritative
+		// guard against re-runs; this snapshot is for post-upgrade verification only.
+		let next_keys_state: Vec<(<R as pallet_session::Config>::ValidatorId, AuraId)> =
+			OldNextKeys::<R>::iter().collect();
 
 		let queued_key = queued_keys_key::<R>();
 		let queued_present = storage::get(&queued_key).is_some();
@@ -205,18 +208,18 @@ where
 		if state.is_empty() {
 			if !migration_done() {
 				return Err(sp_runtime::TryRuntimeError::Other(
-					"post_upgrade: sentinel missing after a detected re-run",
+					"post_upgrade: flag missing after a detected re-run",
 				));
 			}
 			return Ok(());
 		}
 
-		let (pre_next_keys, queued_present): (Vec<(Vec<u8>, AuraId)>, bool) =
-			DecodeAll::decode_all(&mut &state[..]).map_err(|_| {
-				sp_runtime::TryRuntimeError::Other(
-					"post_upgrade: invalid pre-upgrade state encoding",
-				)
-			})?;
+		let (pre_next_keys, queued_present): (
+			Vec<(<R as pallet_session::Config>::ValidatorId, AuraId)>,
+			bool,
+		) = DecodeAll::decode_all(&mut &state[..]).map_err(|_| {
+			sp_runtime::TryRuntimeError::Other("post_upgrade: invalid pre-upgrade state encoding")
+		})?;
 
 		if !migration_done() {
 			return Err(sp_runtime::TryRuntimeError::Other(
@@ -224,30 +227,24 @@ where
 			));
 		}
 
-		// (b) Every NextKeys raw key from pre-upgrade must now decode as R::Keys, preserve
-		// the original aura field, and carry a zero authority-discovery placeholder.
-		let zero = zero_audi();
-		let zero_bytes: &[u8] = zero.as_ref();
-		for (raw_key, aura) in &pre_next_keys {
-			let raw = storage::get(raw_key).ok_or(sp_runtime::TryRuntimeError::Other(
-				"post_upgrade: NextKeys entry missing after migration",
-			))?;
-			let keys =
-				<<R as pallet_session::Config>::Keys as DecodeAll>::decode_all(&mut &raw[..])
-					.map_err(|_| {
-						sp_runtime::TryRuntimeError::Other(
-							"post_upgrade: NextKeys entry does not decode under new SessionKeys layout",
-						)
-					})?;
+		// Every ValidatorId from pre-upgrade must still have a NextKeys entry that
+		// preserves the original aura key and carries an aura-derived placeholder for
+		// authority-discovery (same 32 raw bytes as the aura key).
+		for (id, aura) in &pre_next_keys {
+			let keys = pallet_session::NextKeys::<R>::get(id).ok_or(
+				sp_runtime::TryRuntimeError::Other(
+					"post_upgrade: NextKeys entry missing after migration",
+				),
+			)?;
 			let aura_bytes: &[u8] = aura.as_ref();
 			if keys.get_raw(<AuraId as RuntimeAppPublic>::ID) != aura_bytes {
 				return Err(sp_runtime::TryRuntimeError::Other(
 					"post_upgrade: aura key not preserved by migration",
 				));
 			}
-			if keys.get_raw(<AuthorityDiscoveryId as RuntimeAppPublic>::ID) != zero_bytes {
+			if keys.get_raw(<AuthorityDiscoveryId as RuntimeAppPublic>::ID) != aura_bytes {
 				return Err(sp_runtime::TryRuntimeError::Other(
-					"post_upgrade: authority-discovery field is not the zero placeholder",
+					"post_upgrade: authority-discovery field is not the aura-derived placeholder",
 				));
 			}
 		}
@@ -290,8 +287,21 @@ mod tests {
 	use frame_support::{derive_impl, parameter_types};
 	use sp_runtime::BuildStorage;
 
+	pub type AccountId = u64;
+
+	parameter_types! {
+		pub const Period: u64 = 10;
+		pub const Offset: u64 = 0;
+	}
+
+	pub struct IdentityValidator;
+	impl sp_runtime::traits::Convert<AccountId, Option<AccountId>> for IdentityValidator {
+		fn convert(account: AccountId) -> Option<AccountId> {
+			Some(account)
+		}
+	}
+
 	type Block = frame_system::mocking::MockBlock<Test>;
-	type AccountId = u64;
 
 	sp_runtime::impl_opaque_keys! {
 		pub struct MockSessionKeys {
@@ -318,18 +328,6 @@ mod tests {
 	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
 		type AccountStore = System;
-	}
-
-	parameter_types! {
-		pub const Period: u64 = 10;
-		pub const Offset: u64 = 0;
-	}
-
-	pub struct IdentityValidator;
-	impl sp_runtime::traits::Convert<AccountId, Option<AccountId>> for IdentityValidator {
-		fn convert(account: AccountId) -> Option<AccountId> {
-			Some(account)
-		}
 	}
 
 	pub struct TestSessionHandler;
@@ -399,8 +397,9 @@ mod tests {
 
 			for v in validators {
 				let keys = pallet_session::NextKeys::<Test>::get(v).expect("entry must remain");
+				let expected_audi = crate::authority_discovery_id_from_aura(aura_key(v));
 				assert_eq!(keys.aura, aura_key(v));
-				assert_eq!(keys.authority_discovery, zero_audi());
+				assert_eq!(keys.authority_discovery, expected_audi);
 				assert_eq!(
 					pallet_session::KeyOwner::<Test>::get((
 						<AuraId as RuntimeAppPublic>::ID,
@@ -408,20 +407,25 @@ mod tests {
 					)),
 					Some(v),
 				);
+				// Each validator has its own per-validator KeyOwner entry for the
+				// aura-derived audi placeholder — no last-writer-wins collision.
+				assert_eq!(
+					pallet_session::KeyOwner::<Test>::get((
+						<AuthorityDiscoveryId as RuntimeAppPublic>::ID,
+						expected_audi.encode(),
+					)),
+					Some(v),
+				);
 			}
-
-			// The shared zero placeholder maps to a single owner (last writer wins).
-			let zero_owner = pallet_session::KeyOwner::<Test>::get((
-				<AuthorityDiscoveryId as RuntimeAppPublic>::ID,
-				zero_audi().encode(),
-			));
-			assert!(zero_owner.is_some_and(|v| validators.contains(&v)));
 
 			let queued = pallet_session::QueuedKeys::<Test>::get();
 			assert_eq!(queued.len(), validators.len());
 			for (v, keys) in &queued {
 				assert_eq!(keys.aura, aura_key(*v));
-				assert_eq!(keys.authority_discovery, zero_audi());
+				assert_eq!(
+					keys.authority_discovery,
+					crate::authority_discovery_id_from_aura(aura_key(*v))
+				);
 			}
 
 			assert!(migration_done());
@@ -467,12 +471,12 @@ mod tests {
 	/// fields swapped to `{authority_discovery, aura}`. Exercises the `layout_matches`
 	/// guard's abort-without-touching-storage path.
 	mod wrong_layout {
-		use super::super::*;
-		use frame_support::{derive_impl, parameter_types};
+		use super::{super::*, IdentityValidator, Offset, Period};
+		use frame_support::derive_impl;
 		use sp_runtime::BuildStorage;
 
+		type AccountId = super::AccountId;
 		type Block = frame_system::mocking::MockBlock<Test>;
-		type AccountId = u64;
 
 		sp_runtime::impl_opaque_keys! {
 			pub struct WrongSessionKeys {
@@ -501,18 +505,7 @@ mod tests {
 			type AccountStore = System;
 		}
 
-		parameter_types! {
-			pub const Period: u64 = 10;
-			pub const Offset: u64 = 0;
-		}
-
-		pub struct IdentityValidator;
-		impl sp_runtime::traits::Convert<AccountId, Option<AccountId>> for IdentityValidator {
-			fn convert(account: AccountId) -> Option<AccountId> {
-				Some(account)
-			}
-		}
-
+		// KEY_TYPE_IDS is reversed compared to the outer TestSessionHandler; keep local.
 		pub struct TestSessionHandler;
 		impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
 			const KEY_TYPE_IDS: &'static [KeyTypeId] =
