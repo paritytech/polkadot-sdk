@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782681329027,
+  "lastUpdate": 1782724587344,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "80ba4a3febadfc98552b094d28a3c08cf2becc1f",
-          "message": "Increase the concurrency of retester in CI (#10213)\n\n# Description\n\nThis PR bumps the commit hash of the revive differential tests repo\nallowing us to pull in some tests that needed to be fixed. Additionally,\nit increases the concurrency of retester to allow it to run the tests\nfaster\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-06T13:29:22Z",
-          "tree_id": "3f51c8806d07963bf8cca45968e47778a9eb980f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/80ba4a3febadfc98552b094d28a3c08cf2becc1f"
-        },
-        "date": 1762441157993,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.697558207499998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20175877193333336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14428414679999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dev@jessechejieh.com",
+            "name": "jessechejieh",
+            "username": "jessechejieh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2808e5b127f77ef7b5423d0f0100404a0f53defd",
+          "message": "[FRAME] Auto-bound `RuntimeTask: From<Task<Self>>` (#12227)\n\nresolves #6462\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>",
+          "timestamp": "2026-06-29T07:31:45Z",
+          "tree_id": "8aa8b909a3a9b07ee9dc33555cb209e50b4ab931",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2808e5b127f77ef7b5423d0f0100404a0f53defd"
+        },
+        "date": 1782724557511,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.03054706043333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13890499866666667,
             "unit": "seconds"
           }
         ]
