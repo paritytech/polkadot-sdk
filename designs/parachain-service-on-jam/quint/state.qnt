@@ -39,10 +39,7 @@ module state {
   }
 
   // --- Per-parachain log (design §3.1, capacity-bounded) -----------------
-  //
-  /// Modeled as a map keyed by timeslot; the bound (ParachainLogCapacity = 8)
-  /// is enforced by an invariant in `main.qnt`, not by the type.
-  type ParachainLog = Timeslot -> LogEntry
+  type ParachainLog = List[(Timeslot, LogEntry)]
 
   // --- Top-level service state -------------------------------------------
 
@@ -97,7 +94,26 @@ module state {
 
   pure def paraLog(s: ParachainServiceState, para_id: ParaId): ParachainLog =
   if (s.parachainLog.keys().contains(para_id)) s.parachainLog.get(para_id)
-  else Map()
+  else List()
+
+  /// Append `e`; if that exceeds `ParachainLogCapacity`, evict one entry,
+  /// preferring the oldest `RefineLogEntry` so `AccumulateLogEntry`s are
+  /// retained. Only when no refine entry remains is the oldest entry dropped.
+  pure def pushLogEntry(log: ParachainLog, e: (Timeslot, LogEntry)): ParachainLog = {
+    val appended = log.append(e)
+    if (appended.length() <= ParachainLogCapacity) appended
+    else {
+      val refineIdx = range(0, appended.length()).foldl(-1, (acc, i) =>
+        if (acc >= 0) acc
+        else match appended.nth(i)._2 {
+          | RefineLogEntry(_) => i
+          | AccumulateLogEntry(_) => acc
+        })
+      val dropIdx = if (refineIdx >= 0) refineIdx else 0
+      range(0, appended.length()).foldl(List(), (acc, i) =>
+        if (i == dropIdx) acc else acc.append(appended.nth(i)))
+    }
+  }
 
   /// Append a `RefineLogEntry` for a failed Refine at timeslot `now`
   /// (design §3.3). No-op for an unregistered para — there is no
@@ -112,14 +128,12 @@ module state {
   if (not(s.isLive(para_id))) s
   else {
     val log = s.paraLog(para_id)
-    val entry = RefineLogEntry({ error: error, authTrace: authTrace })
-    { ...s, parachainLog: s.parachainLog.put(para_id, log.put(now, entry)) }
+    val entry = (now, RefineLogEntry({ error: error, authTrace: authTrace }))
+    { ...s, parachainLog: s.parachainLog.put(para_id, pushLogEntry(log, entry)) }
   }
 
-  /// Merge `entries` into the `AccumulateLogEntry` at timeslot `now` for a
-  /// live para (design §5.1). Existing accumulate entries at `now` are
-  /// preserved and appended to; a refine entry at the same slot is replaced
-  /// (the two never co-occur in a single block in this model). No-op for an
+  /// Append one batched `AccumulateLogEntry` (up to AccumulateLogCapacity
+  /// events) at timeslot `now` for a live para (design §5.1). No-op for an
   /// unregistered para and for an empty `entries` list.
   pure def appendAccumulateLogs(
     s: ParachainServiceState,
@@ -130,14 +144,6 @@ module state {
   if (not(s.isLive(para_id)) or entries == List()) s
   else {
     val log = s.paraLog(para_id)
-    val prior =
-      if (log.keys().contains(now))
-        match log.get(now) {
-          | AccumulateLogEntry(es) => es
-          | RefineLogEntry(_) => List()
-        }
-      else List()
-    val merged = AccumulateLogEntry(prior.concat(entries))
-    { ...s, parachainLog: s.parachainLog.put(para_id, log.put(now, merged)) }
+    { ...s, parachainLog: s.parachainLog.put(para_id, pushLogEntry(log, (now, AccumulateLogEntry(entries)))) }
   }
 }

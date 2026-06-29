@@ -175,6 +175,33 @@ module tests {
       }))
   }
 
+  // --- Parachain log eviction --------------------------------------------
+
+  /// When over capacity, evict the oldest Refine entry first and preserve
+  /// older Accumulate entries if any Refine entry remains.
+  run evictionPrefersDroppingRefineTest = {
+    val full = range(0, ParachainLogCapacity).foldl(List(), (acc, i) =>
+      if (i == 0) acc.append((i, AccumulateLogEntry(List(InvalidCodeHashAcc({ vchBytes: 7 })))))
+      else acc.append((i, RefineLogEntry({ error: InvalidCodeHash, authTrace: 0 }))))
+    val after = pushLogEntry(
+      full,
+      (ParachainLogCapacity, RefineLogEntry({ error: InvalidCodeHash, authTrace: 0 }))
+    )
+    val accCount = after.foldl(0, (n, pair) => match pair._2 {
+      | AccumulateLogEntry(_) => n + 1
+      | RefineLogEntry(_) => n
+    })
+    all {
+      assert(after.length() == ParachainLogCapacity),
+      assert(match after.nth(0)._2 {
+        | AccumulateLogEntry(_) => true
+        | RefineLogEntry(_) => false
+      }),
+      assert(accCount == 1),
+      init
+    }
+  }
+
   // --- Code upgrade lifecycle --------------------------------------------
 
   /// 1. Coretime registers para 3 with balance headroom for the new code.
@@ -348,6 +375,34 @@ module tests {
   }
 
   // --- Missing head declaration (§4.2) -----------------------------------
+
+  /// Two distinct Refine errors appended at the SAME timeslot for the SAME
+  /// para must both be retained as separate entries in the flat log.
+  run multiSameTimeslotRefineErrorsTest = {
+    val para = CoretimeParaId
+    val s0 = initialState
+    // Append two distinct refine errors at the same timeslot (now=0).
+    val s1 = s0.appendRefineLog(para, 0, InvalidCodeHash, 0)
+    val s2 = s1.appendRefineLog(para, 0, MissingHeadDeclaration, 0)
+    val log = s2.paraLog(para)
+    // Both errors must be present as separate entries at timeslot 0.
+    val hasInvalidCodeHash = log.foldl(false, (acc, pair) =>
+      acc or (pair._1 == 0 and match pair._2 {
+        | RefineLogEntry(e) => e.error == InvalidCodeHash
+        | AccumulateLogEntry(_) => false
+      }))
+    val hasMissingHead = log.foldl(false, (acc, pair) =>
+      acc or (pair._1 == 0 and match pair._2 {
+        | RefineLogEntry(e) => e.error == MissingHeadDeclaration
+        | AccumulateLogEntry(_) => false
+      }))
+    all {
+      assert(hasInvalidCodeHash),
+      assert(hasMissingHead),
+      assert(log.length() == 2),
+      init
+    }
+  }
 
   /// An otherwise-valid candidate whose PVF skipped `set_parent_head_hash`
   /// and/or `set_head` is rejected by Refine with `MissingHeadDeclaration`.

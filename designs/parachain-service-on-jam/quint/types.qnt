@@ -80,10 +80,10 @@ module types {
   /// §5.2 — pending-upgrade deadline relative to current timeslot (24 h at 6 s).
   pure val UpgradeTimeoutTimeslots: int = 24 * 3600 / 6
 
-  /// Per-parachain log capacity (design §3.1).
-  pure val ParachainLogCapacity: int = 8
+  /// Bounds the flat per-para log vec (entries, not timeslots).
+  pure val ParachainLogCapacity: int = 64
 
-  /// §3.1: at most 30 AccumulateLog entries per timeslot per para.
+  /// §3.1: at most 30 AccumulateLog events batched in one log entry.
   pure val AccumulateLogCapacity: int = 30
 
   /// §3.1: report_error opaque payload cap.

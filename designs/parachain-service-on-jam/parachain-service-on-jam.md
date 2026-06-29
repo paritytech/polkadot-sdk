@@ -163,11 +163,13 @@ struct ParachainServiceState {
     /// See §5.1.
     incoming_transfers: BoundedVec<(ServiceId, Amount, Memo), 1000>,
 
-    /// Per-parachain log. Records both Refine failures (with the
-    /// originating authorizer trace) and events recorded during Accumulate
-    /// (both errors and positive events). Each parachain keeps at most
-    /// 8 entries.
-    parachain_log: Map<ParaId, CountedMap<Timeslot, LogEntry, 8>>,
+    /// Per-parachain log, keyed only by ParaId. Each entry carries its
+    /// Timeslot inline; once the `BoundedVec` is full the oldest `Refine`
+    /// entry is evicted first so `Accumulate` entries are retained when
+    /// possible, falling back to the oldest entry overall only when no
+    /// refine entry remains. Multiple entries may share a timeslot (e.g.
+    /// several work packages at the same height each producing a refine error).
+    parachain_log: Map<ParaId, BoundedVec<(Timeslot, LogEntry), 64>>,
 
     /// Pending authorizer queue updates that should be applied once the
     /// current 80-slot queue has been consumed.
@@ -202,6 +204,13 @@ struct RefineLogEntry {
     auth_trace: BoundedVec<u8, 256>,
 }
 
+struct AccumulateLogEntry {
+    /// Events recorded while Accumulating a work digest for this parachain.
+    /// Capped at 30 — further events in the same Accumulate invocation
+    /// are dropped.
+    entries: BoundedVec<AccumulateLog, 30>,
+}
+
 enum RefineLog {
     /// `historical_lookup(validation_code_hash)` returned `None`: the
     /// validation code preimage is not available in the service's store
@@ -232,13 +241,6 @@ enum RefineLog {
     /// The PVF exited without calling `set_parent_head_hash` and/or `set_head`
     /// exactly once. Both head declarations are mandatory. See §4.2.
     MissingHeadDeclaration,
-}
-
-struct AccumulateLogEntry {
-    /// Events recorded while Accumulating a work digest for this parachain.
-    /// Capped at 30 — further entries in the same Accumulate invocation
-    /// are dropped.
-    entries: BoundedVec<AccumulateLog, 30>,
 }
 
 /// Why a state-balance reservation failed (see §6.1).
@@ -587,16 +589,18 @@ Performed once for each work package that is being accumulated in this block, in
 4. **Validation code check**: This is the authoritative check. Verify the work
    result's `validation_code_hash` matches either `ParaInfo.validation_code.hash` or
    the pending upgrade's code hash. If it matches
-   neither, the candidate is rejected and `AccumulateLog::InvalidCodeHash { hash }`
-   is recorded in the parachain's `LogEntry::Accumulate` for this timeslot.
+    neither, the candidate is rejected and `AccumulateLog::InvalidCodeHash { hash }`
+    is recorded in one batched `LogEntry::Accumulate` for this work package. Each
+    accumulated work package produces its own batched entry, so several work
+    packages at the same timeslot yield several `LogEntry::Accumulate` entries.
 5. **Head data update + code upgrade check**: Writes the new `head_data` from the
    work digest into `ParaInfo` for the parachain and immediately checks whether the
    candidate was validated with the pending new PVF code. If so, activate the new
    code, release the old code (see §6.1), and clear `pending_upgrade`. This must
    happen here because later candidates from the same parachain in the same block
-   may already use the new code. Any entries in `parachain_log[para_id]` whose key
-   (timeslot) is strictly less than the current candidate's lookup-anchor timeslot
-   are also pruned here.
+   may already use the new code. Any entries in `parachain_log[para_id]` whose
+   inline timeslot is strictly less than the current candidate's lookup-anchor
+   timeslot are also pruned here.
 6. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
    the work digest, applying the effects of each side-effect host function the PVF
    invoked during Refine (code upgrades, transfers, authorizer queue updates, validator
@@ -895,12 +899,12 @@ used_state_balance: Balance                                               =     
 ```
 
 `(ParaId, parachain_log[para_id])` entry, with `parachain_log[para_id]` typed as
-`CountedMap<Timeslot, LogEntry, 8>`:
+`BoundedVec<(Timeslot, LogEntry), 64>`:
 
 ```
 LogEntry, Accumulate variant (dominates Refine variant at 1 286 B):
   enum discriminant                                                       =       1 B
-  AccumulateLogEntry.entries: BoundedVec<AccumulateLog, 30>
+  AccumulateLogEntry: BoundedVec<AccumulateLog, 30>
     compact length prefix                                                 =       1 B
     AccumulateLog largest variant — StateBalanceUpdateRejected:
       enum discriminant                                                   =       1 B
@@ -911,17 +915,15 @@ LogEntry, Accumulate variant (dominates Refine variant at 1 286 B):
                                                                             -------
                                                                               1 472 B
 
-per slot: Timeslot + LogEntry = 4 + 1 472                               =   1 476 B
-8 slots                                                                   =  11 808 B
-CountedMap compact length prefix                                          =       1 B
+per entry: Timeslot + LogEntry = 4 + 1 472                               =   1 476 B
+64 entries                                                                =  94 464 B
+BoundedVec compact length prefix                                          =       1 B
 ParaId key                                                                =       4 B
                                                                             -------
-                                                                             11 813 B
+                                                                              94 469 B
 ```
 
-**`baseline_footprint = 4 205 + 11 813 = 16 018 B`** per parachain. Coretime
-should hardcode this value with some headroom to make room for future
-changes to the Service's layout.
+**`baseline_footprint = 4 205 + 94 469 = 98 674 B`** per parachain.
 
 #### Asset Hub baseline footprint
 

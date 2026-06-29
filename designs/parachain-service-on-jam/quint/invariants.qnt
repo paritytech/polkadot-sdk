@@ -201,130 +201,61 @@ module invariants {
       })
     )
 
-  /// When Refine fails for a *registered* para, Accumulate must record a
-  /// `RefineLogEntry` carrying that error in the para's `parachain_log`
-  /// (design §3.3). This invariant checks that record exists after a step.
-  ///
-  /// Two facts let the check find the entry by reading `parachain_log[p]`
-  /// at `now`:
-  ///   - `parachain_log[p]` is a `Map[Timeslot, LogEntry]`, and Accumulate
-  ///     files each entry under the timeslot it ran in.
-  ///   - `stepRefineAccumulate` does not advance time, so the timeslot the
-  ///     entry was filed under equals the value of `now` we read here.
-  /// Hence: the matching entry, if present, lives at `parachain_log[p][now]`.
-  ///
-  /// Two cases are deliberately NOT required to hold:
-  ///   - Unregistered-para errors: there is no `parachain_log[p]` to append
-  ///     to (§5.1 step 1), so they are exempt.
-  ///   - Each timeslot holds at most one `LogEntry` (§3.1
-  ///     `CountedMap[Timeslot, LogEntry, 8]`), so when a para has several
-  ///     results in one step the *last* writer wins that slot. We therefore
-  ///     only require the entry for the para's LAST result: if that result
-  ///     is an `Err`, the slot must hold a matching `RefineLogEntry`. A
-  ///     later `Ok` for the same para legitimately overwrites an earlier
-  ///     refine entry with an accumulate one — covered by `acc_error_logged`.
-  val refine_error_logged: bool = {
-    val erredLiveParas =
-      lastStepWorkResults.foldl(Set(), (acc, r) => match r.result {
-        | WorkErr => acc
-        | WorkOk(digest) => match digest {
-          | Ok(_) => acc
-          | Err(e) => if (svc.isLive(e.paraId)) acc.union(Set(e.paraId)) else acc
-        }
-      })
-    erredLiveParas.forall(p => {
-      // Last result for this para; `None` once any later result exists that
-      // is not an Err for `p` (an Ok write would have superseded the slot).
-      val lastForPara =
-        lastStepWorkResults.foldl(None, (acc, r) => match r.result {
-          | WorkErr => acc
-          | WorkOk(digest) => match digest {
-            | Ok(ok) => if (ok.paraId == p) None else acc
-            | Err(e) => if (e.paraId == p) Some(e.error) else acc
-          }
-        })
-      match lastForPara {
-        | None => true  // superseded by a later Ok for the same para
-        | Some(err) =>
-          val log = svc.paraLog(p)
-          log.keys().contains(now) and
-          (match log.get(now) {
-            | RefineLogEntry(entry) => entry.error == err
-            | AccumulateLogEntry(_) => false
-          })
+  /// For every Refine Err in lastStepWorkResults targeting a registered para,
+  /// a matching RefineLogEntry must exist in the flat log at timeslot now. The
+  /// flat vec supports multiple entries per timeslot so ALL errors must be
+  /// present — no last-writer-wins.
+  val refine_error_logged: bool =
+    lastStepWorkResults.foldl(true, (acc, r) => acc and match r.result {
+      | WorkErr => true
+      | WorkOk(digest) => match digest {
+        | Ok(_) => true
+        | Err(e) =>
+          if (not(svc.isLive(e.paraId))) true
+          else svc.paraLog(e.paraId).foldl(false, (found, pair) =>
+            found or (pair._1 == now and match pair._2 {
+              | RefineLogEntry(entry) => entry.error == e.error
+              | AccumulateLogEntry(_) => false
+            }))
       }
     })
-  }
 
-  /// An `Ok` candidate that fails the authoritative validation-code check
-  /// (§5.1 step 3 — its `validationCodeHash` matches neither the active nor
-  /// the pending code) must surface an `InvalidCodeHash` accumulate event in
-  /// the para's `parachain_log` at the current timeslot (§5.1, §3.1). We
-  /// check this against `prevSvc` — the pre-step code state the check ran
-  /// against — and only for the para's LAST result this step (last writer
-  /// wins per slot). Paras whose code check would have passed are exempt;
-  /// other accumulate-log causes (insufficient balance, designate rejection)
-  /// are pinned by `used_balance_consistency` / `designate_only_valid_lengths`
-  /// rather than re-derived here.
-  val acc_error_logged: bool = {
-    val okLiveParas =
-      lastStepWorkResults.foldl(Set(), (acc, r) => match r.result {
-        | WorkErr => acc
-        | WorkOk(digest) => match digest {
-          | Err(_) => acc
-          | Ok(ok) => if (prevSvc.isLive(ok.paraId)) acc.union(Set(ok.paraId)) else acc
-        }
-      })
-    okLiveParas.forall(p => {
-      // Last result for this para, and whether it is an Ok with a code
-      // hash matching neither active nor pending in the PRE-step state.
-      val lastBadCode =
-        lastStepWorkResults.foldl(None, (acc, r) => match r.result {
-          | WorkErr => acc
-          | WorkOk(digest) => match digest {
-            | Err(_) => acc
-            | Ok(ok) =>
-              if (ok.paraId != p) acc
-              else {
-                val pi = prevSvc.paraInfo(p)
-                val matchesActive = ok.validationCodeHash == pi.validationCode.hash
-                // The lazy reap (§5.1 step 2) runs BEFORE the code check and
-                // can drop a timed-out pending upgrade. If the pre-step pending
-                // deadline had passed we cannot decide the post-reap code state
-                // from `prevSvc` alone, so we exempt that case (`None`).
-                val reapable =
-                  match pi.pendingUpgrade {
-                    | None => false
-                    | Some(pair) => pair._2 <= now
-                  }
-                val matchesPending =
-                  match pi.pendingUpgrade {
-                    | None => false
-                    | Some(pair) => ok.validationCodeHash == pair._1.hash
-                  }
-                if (reapable) None
-                else Some(not(matchesActive) and not(matchesPending))
+  /// For every bad-code Ok result (code matches neither active nor pending in
+  /// prevSvc, not reapable), an InvalidCodeHashAcc AccumulateLogEntry must
+  /// exist in the flat log at now. Per-result check — all bad-code results must
+  /// be logged.
+  val acc_error_logged: bool =
+    lastStepWorkResults.foldl(true, (acc, r) => acc and match r.result {
+      | WorkErr => true
+      | WorkOk(digest) => match digest {
+        | Err(_) => true
+        | Ok(ok) =>
+          if (not(prevSvc.isLive(ok.paraId))) true
+          else {
+            val pi = prevSvc.paraInfo(ok.paraId)
+            val matchesActive = ok.validationCodeHash == pi.validationCode.hash
+            val reapable =
+              match pi.pendingUpgrade {
+                | None => false
+                | Some(pair) => pair._2 <= now
               }
-          }
-        })
-      match lastBadCode {
-        | None => true
-        | Some(bad) =>
-          not(bad) or {
-            val log = svc.paraLog(p)
-            log.keys().contains(now) and
-            (match log.get(now) {
-              | AccumulateLogEntry(es) =>
-                es.foldl(false, (a, e) => match e {
+            val matchesPending =
+              match pi.pendingUpgrade {
+                | None => false
+                | Some(pair) => ok.validationCodeHash == pair._1.hash
+              }
+            if (reapable or matchesActive or matchesPending) true
+            else svc.paraLog(ok.paraId).foldl(false, (found, pair) =>
+              found or (pair._1 == now and match pair._2 {
+                | AccumulateLogEntry(evs) => evs.foldl(false, (a, e) => match e {
                   | InvalidCodeHashAcc(_) => true
                   | _ => a
                 })
-              | RefineLogEntry(_) => false
-            })
+                | RefineLogEntry(_) => false
+              }))
           }
       }
     })
-  }
 
   /// `incoming_transfers` must never exceed its cap; overflow is bounced
   /// at ingress in `stepIncomingTransfer`.
@@ -340,6 +271,23 @@ module invariants {
   /// length (`MaxStagedValidatorKeys = 1023`).
   val staged_validator_keys_bounded: bool =
     svc.stagedValidatorKeys.length() <= MaxStagedValidatorKeys
+
+  /// Every batched `AccumulateLogEntry` in a parachain's log is non-empty and
+  /// within `AccumulateLogCapacity`. `appendAccumulateLogs` never stores an
+  /// empty batch (it short-circuits `entries == List()`); this pins that.
+  val accumulate_log_batch_bounded: bool =
+    svc.parachainLog.keys().forall(p =>
+      svc.paraLog(p).foldl(true, (acc, pair) =>
+        acc and match pair._2 {
+          | AccumulateLogEntry(evs) =>
+            evs != List() and evs.length() <= AccumulateLogCapacity
+          | RefineLogEntry(_) => true
+        }))
+
+  /// The log never exceeds its capacity.
+  val parachain_log_within_capacity: bool =
+    svc.parachainLog.keys().forall(p =>
+      svc.paraLog(p).length() <= ParachainLogCapacity)
 
   /// Composite invariant — every invariant above must hold simultaneously.
   val invariants: bool = and {
@@ -361,6 +309,8 @@ module invariants {
     acc_error_logged,
     incoming_transfers_bounded,
     pending_authorizer_queue_bounded,
-    staged_validator_keys_bounded
+    staged_validator_keys_bounded,
+    accumulate_log_batch_bounded,
+    parachain_log_within_capacity
   }
 }
