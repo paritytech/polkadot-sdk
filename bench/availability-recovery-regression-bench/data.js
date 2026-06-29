@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782748463296,
+  "lastUpdate": 1782759855221,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "monicachenjin@gmail.com",
-            "name": "Monica Jin",
-            "username": "mokita-j"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1bd929bd766154fcc88adcae6ab0c90aa31515ea",
-          "message": "pallet_revive: Add dry-run timestamp override support (#10191)\n\n# Description\n\nThis PR updates `pallet-revive` to **support overriding the block\ntimestamp during dry-run calls**.\nThe dry-run execution now uses the following configuration for\n`eth_estimateGas` and `eth_call` when the block tag is `pending`:\n\n```text\nblock.timestamp = max(rpc_timestamp, latest_block.timestamp + 1)\nblock.number = latest_block.number + 1\n```\n\nFixes [#153](https://github.com/paritytech/contract-issues/issues/153),\n[#205](https://github.com/paritytech/contract-issues/issues/205)\n\n## Integration\n\nDownstream projects using the `ReviveApi::eth_transact` runtime API\nshould either provide a `timestamp` or pass `None`.\n\n## Review Notes\n- Added dry run timestamp to `ExecConfig`.\n- Added a new parameter to `ReviveApi::eth_transact` for passing the\ncurrent RPC timestamp.\n- `eth_estimateGas` and `eth_call` with `pending` block tag will dry run\nthe transaction with the block timestamp set to `max(rpc_timestamp,\nlatest_block.timestamp + 1)` and block number set to\n`latest_block.number + 1`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
-          "timestamp": "2025-11-07T04:49:45Z",
-          "tree_id": "d82cb9b083d8ba24dff7a8407290faacc8ef6d15",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1bd929bd766154fcc88adcae6ab0c90aa31515ea"
-        },
-        "date": 1762495481734,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20457278623333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.604565359333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13476235743333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "81c6db69432b41622d1054b4d3b53068f60bccde",
+          "message": "ci: add parity-default-persistent runners for mq (#12507)\n\ncc https://github.com/paritytech/devops/issues/5413",
+          "timestamp": "2026-06-29T16:07:05Z",
+          "tree_id": "bf6c4c1b01ca5ff85fbb8bd9cb2059da6fc86600",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/81c6db69432b41622d1054b4d3b53068f60bccde"
+        },
+        "date": 1782759823914,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13903530666666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.793281700966665,
             "unit": "seconds"
           }
         ]
