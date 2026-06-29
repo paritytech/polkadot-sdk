@@ -1181,11 +1181,13 @@ mod tests {
 			.import(&is_descendent_of, *b"A", 1, Default::default(), IncrementedEpoch(epoch_b))
 			.unwrap();
 
-		// epochs map must still hold epoch_a; overwriting it would desync from ForkTree.
-		assert_eq!(
-			epoch_changes.epochs.get(&(*b"A", 1u64)),
-			Some(&epoch_a),
-			"duplicate import must not overwrite existing epoch entry"
-		);
+		// epochs map must still hold epoch_a (start_slot=100); overwriting it would desync from
+		// ForkTree. PersistedEpoch doesn't derive PartialEq, so check the inner field directly.
+		let stored = epoch_changes.epochs.get(&(*b"A", 1u64)).expect("entry must exist");
+		let PersistedEpoch::Regular(inner) = stored else {
+			panic!("expected PersistedEpoch::Regular");
+		};
+		assert_eq!(inner.start_slot, 100, "duplicate import must not overwrite existing epoch entry");
+		assert_eq!(inner.duration, 100);
 	}
 }
