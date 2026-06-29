@@ -770,7 +770,7 @@ where
 
 		// If interval is nonzero we backoff if the current slot isn't far enough ahead of the chain
 		// head.
-		if *slot_now <= *chain_head_slot + interval {
+		if *slot_now <= (*chain_head_slot).saturating_add(interval) {
 			info!(
 				target: logging_target,
 				"Backing off claiming new slot for block authorship: finality is lagging.",
@@ -1215,6 +1215,21 @@ mod test {
 		assert_eq!((block_for_max_interval, time_to_reach_limit), expected);
 		// Note: 16 hours is 57600 sec
 		assert_eq!((block_for_max_interval, time_to_reach_limit), (205, 60636));
+	}
+
+	#[test]
+	fn should_backoff_does_not_overflow_near_u64_max_slot() {
+		let strategy = BackoffAuthoringOnFinalizedHeadLagging::<NumberFor<Block>> {
+			max_interval: 100,
+			unfinalized_slack: 5,
+			authoring_bias: 2,
+		};
+		// chain_head_slot near u64::MAX; slot_now just above it — must not panic or wrap.
+		let chain_head_slot = Slot::from(u64::MAX - 1);
+		let slot_now = Slot::from(u64::MAX);
+		let result = strategy.should_backoff(10u64, chain_head_slot, 0u64, slot_now, "test");
+		// saturating_add clamps the sum at u64::MAX, so slot_now <= u64::MAX is true → backs off.
+		assert!(result);
 	}
 
 	#[test]
