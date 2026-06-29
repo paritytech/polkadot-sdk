@@ -618,8 +618,6 @@ fn refund_routes_to_set_payer_not_clear_submitter() {
 /// lands back in the pot rather than being bound to `set_payer`. Run with `--ignored`; it is
 /// expected to FAIL against current code (that failure IS the repro).
 #[test]
-#[ignore = "repro: payer-change refund leaks released deposit to the fee pot under eth-tx \
-            instead of earmarking it to the original payer (reviewer finding)"]
 fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
