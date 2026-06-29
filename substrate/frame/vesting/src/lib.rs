@@ -216,8 +216,9 @@ pub mod pallet {
 
 		/// Maximum number of vesting schedules an account may hold from the permissionless
 		/// `vested_transfer` extrinsic. Must not exceed `MAX_VESTING_SCHEDULES`.
-		/// Defaults to `MAX_VESTING_SCHEDULES` (no separation).
-		const MAX_PUBLIC_VESTING_SCHEDULES: u32 = Self::MAX_VESTING_SCHEDULES;
+		/// Defaults to half of `MAX_VESTING_SCHEDULES`, reserving the other half for
+		/// trusted system callers.
+		const MAX_PUBLIC_VESTING_SCHEDULES: u32 = Self::MAX_VESTING_SCHEDULES / 2;
 
 		/// Returns the slot cap for a given [`VestingKind`].
 		fn slot_cap(kind: VestingKind) -> u32 {
