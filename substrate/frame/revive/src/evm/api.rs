@@ -33,6 +33,9 @@ pub use rpc_types::{DryRunConfig, TracingConfig};
 mod rpc_types_gen;
 pub use rpc_types_gen::*;
 
+mod block;
+pub use block::*;
+
 #[cfg(feature = "std")]
 mod account;
 

@@ -18,7 +18,8 @@
 #![allow(missing_docs)]
 
 use super::{
-	Byte, Bytes, Bytes8, Bytes256, TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy,
+	Block, Byte, Bytes, Bytes8, Bytes256, TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702,
+	TypeLegacy,
 };
 use alloc::{
 	boxed::Box,
@@ -82,70 +83,6 @@ fn deserialize_input_or_data<'d, D: Deserializer<'d>>(d: D) -> Result<InputOrDat
 		},
 		_ => Ok(value),
 	}
-}
-
-/// Block object
-#[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
-)]
-#[serde(rename_all = "camelCase")]
-pub struct Block {
-	/// Base fee per gas
-	pub base_fee_per_gas: U256,
-	/// Blob gas used
-	pub blob_gas_used: U256,
-	/// Difficulty
-	pub difficulty: U256,
-	/// Excess blob gas
-	pub excess_blob_gas: U256,
-	/// Extra data
-	pub extra_data: Bytes,
-	/// Gas limit
-	pub gas_limit: U256,
-	/// Gas used
-	pub gas_used: U256,
-	/// Hash
-	pub hash: H256,
-	/// Bloom filter
-	pub logs_bloom: Bytes256,
-	/// Coinbase
-	pub miner: Address,
-	/// Mix hash
-	pub mix_hash: H256,
-	/// Nonce
-	pub nonce: Bytes8,
-	/// Number
-	pub number: U256,
-	/// Parent Beacon Block Root
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub parent_beacon_block_root: Option<H256>,
-	/// Parent block hash
-	pub parent_hash: H256,
-	/// Receipts root
-	pub receipts_root: H256,
-	/// Requests root
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub requests_hash: Option<H256>,
-	/// Ommers hash
-	pub sha_3_uncles: H256,
-	/// Block size
-	pub size: U256,
-	/// State root
-	pub state_root: H256,
-	/// Timestamp
-	pub timestamp: U256,
-	/// Total difficulty
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub total_difficulty: Option<U256>,
-	pub transactions: HashesOrTransactionInfos,
-	/// Transactions root
-	pub transactions_root: H256,
-	/// Uncles
-	pub uncles: Vec<H256>,
-	/// Withdrawals
-	pub withdrawals: Vec<Withdrawal>,
-	/// Withdrawals root
-	pub withdrawals_root: H256,
 }
 
 /// Block header object returned by `newHeads` subscriptions.
@@ -942,22 +879,6 @@ impl Default for TransactionSigned {
 	fn default() -> Self {
 		TransactionSigned::TransactionLegacySigned(Default::default())
 	}
-}
-
-/// Validator withdrawal
-#[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
-)]
-#[serde(rename_all = "camelCase")]
-pub struct Withdrawal {
-	/// recipient address for withdrawal value
-	pub address: Address,
-	/// value contained in withdrawal
-	pub amount: U256,
-	/// index of withdrawal
-	pub index: U256,
-	/// index of validator that generated withdrawal
-	pub validator_index: U256,
 }
 
 /// Access list entry
