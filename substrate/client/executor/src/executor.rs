@@ -795,7 +795,12 @@ impl<D: NativeExecutionDispatch> Clone for NativeElseWasmExecutor<D> {
 #[allow(deprecated)]
 impl<D: NativeExecutionDispatch> WithExecutionTimeout for NativeElseWasmExecutor<D> {
 	fn with_execution_timeout(&self, timeout: Duration) -> Self {
-		NativeElseWasmExecutor { wasm: self.wasm.with_execution_timeout(timeout), ..self.clone() }
+		NativeElseWasmExecutor {
+			wasm: self.wasm.with_execution_timeout(timeout),
+			// Force wasm execution: native calls bypass epoch interruption and escape the timeout.
+			use_native: false,
+			..self.clone()
+		}
 	}
 }
 
