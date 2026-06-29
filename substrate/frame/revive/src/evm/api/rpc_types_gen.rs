@@ -17,7 +17,6 @@
 //! Generated JSON-RPC types.
 #![allow(missing_docs)]
 
-use super::Bytes;
 use alloc::vec::Vec;
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
@@ -117,21 +116,6 @@ pub struct Filter {
 	pub topics: Option<FilterTopics>,
 }
 
-/// Filter results
-#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
-#[serde(untagged)]
-pub enum FilterResults {
-	/// new block or transaction hashes
-	Hashes(Vec<H256>),
-	/// new logs
-	Logs(Vec<Log>),
-}
-impl Default for FilterResults {
-	fn default() -> Self {
-		FilterResults::Hashes(Default::default())
-	}
-}
-
 /// Address(es)
 #[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
@@ -173,33 +157,6 @@ pub enum BlockTag {
 
 /// Filter Topics
 pub type FilterTopics = Vec<FilterTopic>;
-
-/// log
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct Log {
-	/// address
-	pub address: Address,
-	/// block hash
-	pub block_hash: H256,
-	/// block number
-	pub block_number: U256,
-	/// data
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub data: Option<Bytes>,
-	/// log index
-	pub log_index: U256,
-	/// removed
-	#[serde(default)]
-	pub removed: bool,
-	/// topics
-	#[serde(default)]
-	pub topics: Vec<H256>,
-	/// transaction hash
-	pub transaction_hash: H256,
-	/// transaction index
-	pub transaction_index: U256,
-}
 
 /// Filter Topic List Entry
 #[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]

@@ -16,16 +16,15 @@
 // limitations under the License.
 
 mod fee_history;
-pub use fee_history::*;
-
-mod subscription;
-pub use subscription::*;
-
-mod sync;
-pub use sync::*;
-
+mod log;
 mod receipt;
-pub use receipt::*;
-
+mod subscription;
+mod sync;
 mod trace;
+
+pub use fee_history::*;
+pub use log::*;
+pub use receipt::*;
+pub use subscription::*;
+pub use sync::*;
 pub use trace::*;

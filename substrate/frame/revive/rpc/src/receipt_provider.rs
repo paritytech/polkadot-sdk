@@ -16,12 +16,12 @@
 // limitations under the License.
 use crate::{
 	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, Bytes, ChainMetadata,
-	ClientError, FilterTopic, ReceiptExtractor, ReceiptInfo, SubxtBlockInfoProvider, SyncLabel,
-	SyncStateKey,
+	ClientError, FilterTopic, Log, ReceiptExtractor, ReceiptInfo, SubxtBlockInfoProvider,
+	SyncLabel, SyncStateKey,
 	block_sync::SyncCheckpoint,
 	client::{SubstrateBlock, SubstrateBlockNumber},
 };
-use pallet_revive::evm::{Filter, Log, TransactionSigned};
+use pallet_revive::evm::{Filter, TransactionSigned};
 use sp_core::{H256, U256};
 use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool, query};
 use std::{

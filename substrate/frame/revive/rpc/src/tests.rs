@@ -20,8 +20,8 @@
 
 use crate::{
 	BlockHeader, BlockInfoProvider, BoundedOneOrMany, ChainMetadata, DbContext, DebugRpcClient,
-	EthRpcClient, ReceiptExtractor, ReceiptProvider, SubscriptionItem, SubscriptionKind,
-	SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
+	EthRpcClient, FilterResults, Log, ReceiptExtractor, ReceiptProvider, SubscriptionItem,
+	SubscriptionKind, SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
 	client::{Client, GapFillRequest, SubscriptionGapQueue, connect},
 	example::TransactionBuilder,
@@ -46,8 +46,8 @@ use jsonrpsee::{
 use pallet_revive::{
 	create1,
 	evm::{
-		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag, Filter, FilterResults,
-		GenericTransaction, H256, HashesOrTransactionInfos, Log, TransactionUnsigned, U256,
+		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag, Filter,
+		GenericTransaction, H256, HashesOrTransactionInfos, TransactionUnsigned, U256,
 	},
 	precompiles::alloy::{
 		self,

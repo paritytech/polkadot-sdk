@@ -21,7 +21,7 @@ pub(crate) mod runtime_api;
 pub(crate) mod storage_api;
 
 use crate::{
-	BlockInfoProvider, BlockTag, FeeHistoryProvider, FeeHistoryResult, ReceiptInfo,
+	BlockInfoProvider, BlockTag, FeeHistoryProvider, FeeHistoryResult, Log, ReceiptInfo,
 	ReceiptProvider, SubxtBlockInfoProvider, SyncLabel, SyncingProgress, SyncingStatus,
 	TransactionTrace,
 	block_sync::SyncCheckpoint,
@@ -33,8 +33,7 @@ use pallet_revive::{
 	EthTransactError,
 	evm::{
 		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Filter, GenericTransaction, H256,
-		HashesOrTransactionInfos, Log, StateOverrideSet, TransactionSigned, U256,
-		decode_revert_reason,
+		HashesOrTransactionInfos, StateOverrideSet, TransactionSigned, U256, decode_revert_reason,
 	},
 };
 use pallet_revive_types::runtime_api::*;
