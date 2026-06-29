@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782759855221,
+  "lastUpdate": 1782768829431,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "2ae82987ae22b5379c1a005f7fc25d2823d8d5e2",
-          "message": "pallet_revive: use real storage when building the eth genesis block (#10225)\n\nWhen building the eth genesis block, query the real storage items that\nstore the timestamp and block number instead of using the zeroed items.\n\nIf the chainspec does not customise these, they will remain zeroed.\n\nHowever, anvil does customise these if requested by the user.\nNeeded in order to merge\nhttps://github.com/paritytech/foundry-polkadot/pull/391",
-          "timestamp": "2025-11-07T08:31:30Z",
-          "tree_id": "33ec6d8c1ed692e00d06c081dfc8e5bee816aad6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ae82987ae22b5379c1a005f7fc25d2823d8d5e2"
-        },
-        "date": 1762509033234,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.679081786299998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2033145401,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.793281700966665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fba8b6f3a5d705d6e18db62f17bd27aa5ec5bd9a",
+          "message": "[pallet-revive]: Typegraph Generation (#11957)\n\n# Description\n\nThis PR is part of\nhttps://github.com/paritytech/polkadot-sdk/issues/11923 and closes\nhttps://github.com/paritytech/polkadot-sdk/issues/11926.\n\nThis PR adds a single script to the `types` crate of pallet-revive to\nallow us to generate SVG type-graphs of all of the types defined in the\ncrate.\n\nWe need this to be able to easily answer the following question: \"I just\nmade a change to model X in the `types` crate. What other models do I\nneed to change as a result of this change?\"\n\nThe generated type-graph looks like the following:\n\n<img width=\"2672\" height=\"1522\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/62ea62a9-8a0d-4cbb-bb86-bd058c851d6a\"\n/>\n\nLet's take this PR https://github.com/paritytech/polkadot-sdk/pull/11532\nas an example of how this type-graph can be used which adds a new field\nto the `CallLog` type. After generating the type-graph, we can find that\nnode and click it which produces the following:\n\n<img width=\"2672\" height=\"1522\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/88c91d34-d17f-4b7a-8aa2-a8ce314e356d\"\n/>\n\nThis immedietly tells us that we would need to:\n\n- Update the `CallTrace` type to include the new `CallLog`.\n- Update the `IndexedTrace` type to include the new `CallTrace`.\n- Update the following runtime API functions with the new data being\nreturned by the runtime API:\n    - `trace_call`\n    - `trace_tx`\n    - `trace_block`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-06-29T19:50:44Z",
+          "tree_id": "e90cebb245899d89bba660a654a0e1c436bc7e02",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fba8b6f3a5d705d6e18db62f17bd27aa5ec5bd9a"
+        },
+        "date": 1782768799479,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14161841643333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.048218488366668,
             "unit": "seconds"
           }
         ]
