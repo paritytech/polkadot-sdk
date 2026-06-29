@@ -32,11 +32,13 @@ const LOG_TARGET: &str = "consensus::common::parent_search";
 
 #[derive(Clone, Debug)]
 pub enum ParentSearchParams {
+	/// Candidate version V2
 	V2 {
 		/// The scheduling-parent that is intended to be used.
 		/// For V2, the scheduling parent is equal to the relay parent.
 		scheduling_parent: RelayHash,
 	},
+	/// Candidate version V3
 	V3 {
 		/// The scheduling-parent that is intended to be used.
 		scheduling_parent: RelayHash,
@@ -152,7 +154,7 @@ async fn build_relay_parent_ancestry(
 		// Respect the relay-chain rule not to cross session boundaries.
 		if contains_epoch_change::<RelayBlock>(&header) {
 			break;
-		};
+		}
 
 		// don't iterate back into the genesis block.
 		if header.number == 1 {

@@ -315,11 +315,6 @@ impl<T: Config> Pallet<T> {
 		session_index: SessionIndex,
 		relay_parent: T::Hash,
 	) -> Option<RelayParentInfo<T::Hash, BlockNumberFor<T>>> {
-		let oldest_stored = OldestRelayParentSession::<T>::get();
-		if session_index < oldest_stored {
-			return None;
-		}
-
 		AllowedRelayParents::<T>::get(session_index, relay_parent)
 	}
 

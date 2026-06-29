@@ -325,6 +325,11 @@ where
 					)
 					.await
 					else {
+						tracing::error!(
+							target: LOG_TARGET,
+							"Failed to fetch the included header at execution \
+							from the relay chain."
+						);
 						continue;
 					};
 					included_header

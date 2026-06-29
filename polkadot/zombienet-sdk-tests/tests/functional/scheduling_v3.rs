@@ -126,6 +126,8 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 	let para_v3 = ParaId::from(2700);
 	let para_v2 = ParaId::from(2500);
 
+	wait_for_pvf_prepare(&network, 2).await?;
+
 	// Verify both V3 and V2 candidates are backed in the same relay chain block window.
 	assert_para_throughput_with(
 		&relay_client,

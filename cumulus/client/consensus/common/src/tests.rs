@@ -63,8 +63,8 @@ struct RelaychainInner {
 	finalized_heads: Option<mpsc::UnboundedReceiver<Header>>,
 	new_best_heads_sender: mpsc::UnboundedSender<Header>,
 	finalized_heads_sender: mpsc::UnboundedSender<Header>,
-	relay_chain_hash_to_header: HashMap<PHash, Header>,
-	relay_chain_hash_to_header_pending: HashMap<PHash, Header>,
+	included_pvd_header_at: HashMap<PHash, Header>,
+	pending_pvd_header_at: HashMap<PHash, Header>,
 }
 
 impl RelaychainInner {
@@ -77,8 +77,8 @@ impl RelaychainInner {
 			finalized_heads_sender,
 			new_best_heads: Some(new_best_heads),
 			finalized_heads: Some(finalized_heads),
-			relay_chain_hash_to_header: Default::default(),
-			relay_chain_hash_to_header_pending: Default::default(),
+			included_pvd_header_at: Default::default(),
+			pending_pvd_header_at: Default::default(),
 		}
 	}
 }
@@ -87,11 +87,16 @@ impl RelaychainInner {
 struct Relaychain {
 	inner: Arc<Mutex<RelaychainInner>>,
 	scheduling_lookahead: Option<u32>,
+	allowed_relay_parents_at: HashMap<PHash, Vec<PHash>>,
 }
 
 impl Relaychain {
 	fn new() -> Self {
-		Self { inner: Arc::new(Mutex::new(RelaychainInner::new())), scheduling_lookahead: None }
+		Self {
+			inner: Arc::new(Mutex::new(RelaychainInner::new())),
+			scheduling_lookahead: None,
+			allowed_relay_parents_at: Default::default(),
+		}
 	}
 }
 
@@ -132,11 +137,14 @@ impl RelayChainInterface for Relaychain {
 		assumption: OccupiedCoreAssumption,
 	) -> RelayChainResult<Option<PersistedValidationData>> {
 		let inner = self.inner.lock().unwrap();
-		let relay_to_header = match assumption {
-			OccupiedCoreAssumption::Included => &inner.relay_chain_hash_to_header_pending,
-			_ => &inner.relay_chain_hash_to_header,
+		let pvd_headers_map = match assumption {
+			OccupiedCoreAssumption::Included => &inner.pending_pvd_header_at,
+			OccupiedCoreAssumption::TimedOut => &inner.included_pvd_header_at,
+			_ => {
+				unimplemented!("Not needed for test")
+			},
 		};
-		let Some(parent_head) = relay_to_header.get(&hash).map(|head| head.encode().into()) else {
+		let Some(parent_head) = pvd_headers_map.get(&hash).map(|head| head.encode().into()) else {
 			return Ok(None);
 		};
 		Ok(Some(PersistedValidationData { parent_head, ..Default::default() }))
@@ -190,7 +198,7 @@ impl RelayChainInterface for Relaychain {
 			.unwrap()
 			.map(move |h| {
 				// Let's abuse the "parachain header" directly as relay chain header.
-				inner.lock().unwrap().relay_chain_hash_to_header.insert(h.hash(), h.clone());
+				inner.lock().unwrap().included_pvd_header_at.insert(h.hash(), h.clone());
 				h
 			})
 			.boxed())
@@ -246,7 +254,7 @@ impl RelayChainInterface for Relaychain {
 			.unwrap()
 			.map(move |h| {
 				// Let's abuse the "parachain header" directly as relay chain header.
-				inner.lock().unwrap().relay_chain_hash_to_header.insert(h.hash(), h.clone());
+				inner.lock().unwrap().included_pvd_header_at.insert(h.hash(), h.clone());
 				h
 			})
 			.boxed())
@@ -320,11 +328,26 @@ impl RelayChainInterface for Relaychain {
 
 	async fn ancestor_relay_parent_info(
 		&self,
-		_at: PHash,
-		_session_index: SessionIndex,
-		_relay_parent: PHash,
+		at: PHash,
+		session_index: SessionIndex,
+		relay_parent: PHash,
 	) -> RelayChainResult<Option<RelayParentInfo<PHash, BlockNumber>>> {
-		todo!()
+		if session_index != 0 {
+			unimplemented!("Not needed for test");
+		}
+
+		let Some(allowed_relay_parents) = self.allowed_relay_parents_at.get(&at) else {
+			return Ok(None);
+		};
+
+		if allowed_relay_parents.contains(&relay_parent) {
+			return Ok(Some(RelayParentInfo {
+				number: Default::default(),
+				state_root: Default::default(),
+			}));
+		}
+
+		Ok(None)
 	}
 }
 
@@ -1001,93 +1024,6 @@ fn restore_limit_monitor() {
 	assert_eq!(*monitor.freshness.get(&block13.header.hash()).unwrap(), monitor.import_counter);
 }
 
-/// Tests that the best parent is found within allowed ancestry.
-#[test]
-fn find_best_parent_in_allowed_ancestry() {
-	sp_tracing::try_init_simple();
-
-	let backend = Arc::new(Backend::new_test(1000, 1));
-	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
-	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
-
-	let relay_parent = relay_hash_from_block_num(10);
-	let included_block = build_and_import_block_ext(
-		&client,
-		BlockOrigin::Own,
-		true,
-		&mut para_import,
-		None,
-		None,
-		Some(relay_parent),
-	);
-
-	let mut relay_chain = Relaychain::new();
-	{
-		let included_map = &mut relay_chain.inner.lock().unwrap().relay_chain_hash_to_header;
-		included_map.insert(relay_parent, included_block.header().clone());
-	}
-
-	// When there's only the included block, it should be the best parent.
-	relay_chain.scheduling_lookahead = Some(1);
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		ParentSearchParams::V2 { scheduling_parent: relay_parent },
-	))
-	.unwrap()
-	.expect("Should find a parent");
-
-	assert_eq!(result.best_parent_header.hash(), included_block.hash());
-	assert_eq!(&result.best_parent_header, included_block.header());
-	assert_eq!(&result.included_at_scheduling, included_block.header());
-
-	// Add a child block with a different relay parent.
-	let block_relay_parent = relay_hash_from_block_num(11);
-	let search_relay_parent = relay_hash_from_block_num(13);
-	{
-		let included_map = &mut relay_chain.inner.lock().unwrap().relay_chain_hash_to_header;
-		included_map.insert(search_relay_parent, included_block.header().clone());
-	}
-	let child_block = build_and_import_block_ext(
-		&client,
-		BlockOrigin::Own,
-		true,
-		&mut para_import,
-		Some(included_block.header().hash()),
-		None,
-		Some(block_relay_parent),
-	);
-
-	// With ancestry_lookback: 2, the child block should be the best parent.
-	relay_chain.scheduling_lookahead = Some(3);
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
-	))
-	.unwrap()
-	.expect("Should find a parent");
-
-	assert_eq!(result.best_parent_header.hash(), child_block.hash());
-	assert_eq!(&result.best_parent_header, child_block.header());
-
-	// With ancestry_lookback: 0, child block's relay parent is too old,
-	// so included block should be the best parent.
-	relay_chain.scheduling_lookahead = Some(1);
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
-	))
-	.unwrap()
-	.expect("Should find a parent");
-
-	assert_eq!(result.best_parent_header.hash(), included_block.hash());
-}
-
 /// Tests that pending availability block is used as starting point for search.
 #[test]
 fn find_best_parent_with_pending() {
@@ -1123,10 +1059,10 @@ fn find_best_parent_with_pending() {
 	{
 		let relay_inner = &mut relay_chain.inner.lock().unwrap();
 		relay_inner
-			.relay_chain_hash_to_header
+			.included_pvd_header_at
 			.insert(search_relay_parent, included_block.header().clone());
 		relay_inner
-			.relay_chain_hash_to_header_pending
+			.pending_pvd_header_at
 			.insert(search_relay_parent, pending_block.header().clone());
 	}
 
@@ -1163,7 +1099,7 @@ fn find_best_parent_unknown_included_returns_none() {
 	{
 		let relay_inner = &mut relay_chain.inner.lock().unwrap();
 		relay_inner
-			.relay_chain_hash_to_header
+			.included_pvd_header_at
 			.insert(search_relay_parent, included_but_unknown.header().clone());
 	}
 
@@ -1213,10 +1149,10 @@ fn find_best_parent_unknown_pending_returns_none() {
 	{
 		let relay_inner = &mut relay_chain.inner.lock().unwrap();
 		relay_inner
-			.relay_chain_hash_to_header
+			.included_pvd_header_at
 			.insert(search_relay_parent, included_block.header().clone());
 		relay_inner
-			.relay_chain_hash_to_header_pending
+			.pending_pvd_header_at
 			.insert(search_relay_parent, pending_but_unknown.header().clone());
 	}
 
@@ -1230,6 +1166,129 @@ fn find_best_parent_unknown_pending_returns_none() {
 	.unwrap();
 
 	assert!(result.is_none());
+}
+
+/// Tests that the best parent is found within allowed ancestry.
+#[test]
+fn find_best_parent_in_allowed_ancestry() {
+	sp_tracing::try_init_simple();
+
+	let backend = Arc::new(Backend::new_test(1000, 1));
+	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
+	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+
+	let relay_parent = relay_hash_from_block_num(10);
+	let included_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		None,
+		None,
+		Some(relay_parent),
+	);
+
+	let mut relay_chain = Relaychain::new();
+	{
+		let included_map = &mut relay_chain.inner.lock().unwrap().included_pvd_header_at;
+		included_map.insert(relay_parent, included_block.header().clone());
+	}
+
+	// When there's only the included block, it should be the best parent.
+	relay_chain.scheduling_lookahead = Some(1);
+	let result = block_on(find_parent_for_building(
+		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		ParentSearchParams::V2 { scheduling_parent: relay_parent },
+	))
+	.unwrap()
+	.expect("Should find a parent");
+	assert_eq!(result.best_parent_header.hash(), included_block.hash());
+	assert_eq!(&result.best_parent_header, included_block.header());
+	assert_eq!(&result.included_at_scheduling, included_block.header());
+	// Same check for V3
+	let result = block_on(find_parent_for_building(
+		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		ParentSearchParams::V3 { scheduling_parent: relay_parent },
+	))
+	.unwrap()
+	.expect("Should find a parent");
+	assert_eq!(result.best_parent_header.hash(), included_block.hash());
+	assert_eq!(&result.best_parent_header, included_block.header());
+	assert_eq!(&result.included_at_scheduling, included_block.header());
+
+	// Add a child block with a different relay parent.
+	let block_relay_parent = relay_hash_from_block_num(11);
+	let search_relay_parent = relay_hash_from_block_num(13);
+	{
+		let included_map = &mut relay_chain.inner.lock().unwrap().included_pvd_header_at;
+		included_map.insert(search_relay_parent, included_block.header().clone());
+	}
+	let child_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		Some(included_block.header().hash()),
+		None,
+		Some(block_relay_parent),
+	);
+
+	// With ancestry_lookback: 2, the child block should be the best parent.
+	relay_chain.scheduling_lookahead = Some(3);
+	let result = block_on(find_parent_for_building(
+		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
+	))
+	.unwrap()
+	.expect("Should find a parent");
+	assert_eq!(result.best_parent_header.hash(), child_block.hash());
+	assert_eq!(&result.best_parent_header, child_block.header());
+	// Same check for V3
+	relay_chain
+		.allowed_relay_parents_at
+		.entry(search_relay_parent)
+		.or_default()
+		.push(block_relay_parent);
+	let result = block_on(find_parent_for_building(
+		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
+	))
+	.unwrap()
+	.expect("Should find a parent");
+	assert_eq!(result.best_parent_header.hash(), child_block.hash());
+	assert_eq!(&result.best_parent_header, child_block.header());
+
+	// With ancestry_lookback: 0, child block's relay parent is too old,
+	// so included block should be the best parent.
+	relay_chain.scheduling_lookahead = Some(1);
+	let result = block_on(find_parent_for_building(
+		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
+	))
+	.unwrap()
+	.expect("Should find a parent");
+	assert_eq!(result.best_parent_header.hash(), included_block.hash());
+	// Same check for V3
+	relay_chain.allowed_relay_parents_at.insert(search_relay_parent, vec![]);
+	let result = block_on(find_parent_for_building(
+		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
+	))
+	.unwrap()
+	.expect("Should find a parent");
+	assert_eq!(result.best_parent_header.hash(), included_block.hash());
 }
 
 /// Tests that the deepest block is found when there are multiple forks.
@@ -1267,10 +1326,10 @@ fn find_best_parent_with_forks_returns_deepest() {
 	{
 		let relay_inner = &mut relay_chain.inner.lock().unwrap();
 		relay_inner
-			.relay_chain_hash_to_header
+			.included_pvd_header_at
 			.insert(search_relay_parent, included_block.header().clone());
 		relay_inner
-			.relay_chain_hash_to_header_pending
+			.pending_pvd_header_at
 			.insert(search_relay_parent, pending_block.header().clone());
 	}
 
@@ -1280,6 +1339,8 @@ fn find_best_parent_with_forks_returns_deepest() {
 	//                      \-> fork2_block1 -> fork2_block2 -> fork2_block3 (depth 3, deepest)
 	//                      \-> fork3_block1 (depth 1)
 
+	let allowed_relay_parents =
+		relay_chain.allowed_relay_parents_at.entry(search_relay_parent).or_default();
 	// Fork 1: depth 2
 	let fork1_block1 = build_and_import_block_ext(
 		&client,
@@ -1290,6 +1351,8 @@ fn find_best_parent_with_forks_returns_deepest() {
 		None,
 		Some(relay_hash_from_block_num(12)),
 	);
+	allowed_relay_parents.push(relay_hash_from_block_num(12));
+
 	let _fork1_block2 = build_and_import_block_ext(
 		&client,
 		BlockOrigin::Own,
@@ -1299,6 +1362,7 @@ fn find_best_parent_with_forks_returns_deepest() {
 		None,
 		Some(relay_hash_from_block_num(13)),
 	);
+	allowed_relay_parents.push(relay_hash_from_block_num(13));
 
 	// Fork 2: depth 3 (deepest)
 	let fork2_block1 = build_and_import_block_ext(
@@ -1310,6 +1374,7 @@ fn find_best_parent_with_forks_returns_deepest() {
 		None,
 		Some(relay_hash_from_block_num(14)),
 	);
+	allowed_relay_parents.push(relay_hash_from_block_num(14));
 	let fork2_block2 = build_and_import_block_ext(
 		&client,
 		BlockOrigin::Own,
@@ -1319,6 +1384,7 @@ fn find_best_parent_with_forks_returns_deepest() {
 		None,
 		Some(relay_hash_from_block_num(15)),
 	);
+	allowed_relay_parents.push(relay_hash_from_block_num(15));
 	let fork2_block3 = build_and_import_block_ext(
 		&client,
 		BlockOrigin::Own,
@@ -1328,6 +1394,7 @@ fn find_best_parent_with_forks_returns_deepest() {
 		None,
 		Some(relay_hash_from_block_num(16)),
 	);
+	allowed_relay_parents.push(relay_hash_from_block_num(16));
 
 	// Fork 3: depth 1
 	let _fork3_block1 = build_and_import_block_ext(
@@ -1339,7 +1406,9 @@ fn find_best_parent_with_forks_returns_deepest() {
 		None,
 		Some(relay_hash_from_block_num(17)),
 	);
+	allowed_relay_parents.push(relay_hash_from_block_num(12));
 
+	// The deepest block (fork2_block3) should be the best parent.
 	relay_chain.scheduling_lookahead = Some(11);
 	let result = block_on(find_parent_for_building(
 		&relay_chain,
@@ -1349,8 +1418,18 @@ fn find_best_parent_with_forks_returns_deepest() {
 	))
 	.unwrap()
 	.expect("Should find a parent");
-
-	// The deepest block (fork2_block3) should be the best parent.
+	assert_eq!(result.best_parent_header.hash(), fork2_block3.hash());
+	assert_eq!(&result.best_parent_header, fork2_block3.header());
+	assert_eq!(&result.included_at_scheduling, included_block.header());
+	// Same check for V3.
+	let result = block_on(find_parent_for_building(
+		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
+	))
+	.unwrap()
+	.expect("Should find a parent");
 	assert_eq!(result.best_parent_header.hash(), fork2_block3.hash());
 	assert_eq!(&result.best_parent_header, fork2_block3.header());
 	assert_eq!(&result.included_at_scheduling, included_block.header());
@@ -1393,10 +1472,10 @@ fn find_best_parent_returns_deepest_block() {
 	{
 		let relay_inner = &mut relay_chain.inner.lock().unwrap();
 		relay_inner
-			.relay_chain_hash_to_header
+			.included_pvd_header_at
 			.insert(search_relay_parent, included_block.header().clone());
 		relay_inner
-			.relay_chain_hash_to_header_pending
+			.pending_pvd_header_at
 			.insert(search_relay_parent, pending_block.header().clone());
 	}
 
@@ -1415,6 +1494,7 @@ fn find_best_parent_returns_deepest_block() {
 		last_block = block;
 	}
 
+	// The deepest block should be the best parent.
 	relay_chain.scheduling_lookahead = Some(2);
 	let result = block_on(find_parent_for_building(
 		&relay_chain,
@@ -1424,8 +1504,21 @@ fn find_best_parent_returns_deepest_block() {
 	))
 	.unwrap()
 	.expect("Should find a parent");
-
-	// The deepest block should be the best parent.
+	assert_eq!(result.best_parent_header.hash(), last_block.hash());
+	assert_eq!(&result.best_parent_header, last_block.header());
+	assert_eq!(&result.included_at_scheduling, included_block.header());
+	// Same check for V3.
+	let allowed_relay_parents =
+		relay_chain.allowed_relay_parents_at.entry(search_relay_parent).or_default();
+	allowed_relay_parents.push(relay_parent);
+	let result = block_on(find_parent_for_building(
+		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
+	))
+	.unwrap()
+	.expect("Should find a parent");
 	assert_eq!(result.best_parent_header.hash(), last_block.hash());
 	assert_eq!(&result.best_parent_header, last_block.header());
 	assert_eq!(&result.included_at_scheduling, included_block.header());
