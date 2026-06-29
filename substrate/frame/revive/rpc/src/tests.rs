@@ -2056,6 +2056,7 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		receipt_provider,
 		true,
 		subscription_gap_queue,
+		0,
 	)
 	.await?;
 	Ok((client, gap_fill_rx))

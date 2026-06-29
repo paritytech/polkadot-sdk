@@ -140,6 +140,10 @@ pub struct CliCommand {
 	#[clap(long, default_value = "archive")]
 	pub eth_pruning: EthPruningMode,
 
+	/// Max blocks per second during backward sync (backfill). 0 disables the limit.
+	#[clap(long, default_value_t = 50)]
+	pub backfill_max_blocks_per_sec: u32,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub shared_params: SharedParams,
@@ -260,6 +264,7 @@ fn build_client(
 	max_response_size: u32,
 	abort_signal: Signals,
 	subscription_gap_queue: SubscriptionGapQueue,
+	backfill_max_blocks_per_sec: u32,
 ) -> anyhow::Result<Client> {
 	let fut = async {
 		let (api, rpc_client, rpc) =
@@ -304,6 +309,7 @@ fn build_client(
 			receipt_provider,
 			eth_pruning.is_archive(),
 			subscription_gap_queue,
+			backfill_max_blocks_per_sec,
 		)
 		.await?;
 
@@ -328,6 +334,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		eth_pruning,
 		shared_params,
 		allow_unprotected_txs,
+		backfill_max_blocks_per_sec,
 		..
 	} = cmd;
 
@@ -388,6 +395,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		rpc_config.max_response_size * 1024 * 1024,
 		tokio_runtime.block_on(async { Signals::capture() })?,
 		subscription_gap_queue,
+		backfill_max_blocks_per_sec,
 	)?;
 
 	// Prometheus metrics.

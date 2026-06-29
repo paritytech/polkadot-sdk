@@ -22,6 +22,7 @@ use crate::{
 	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber},
 };
 use pallet_revive::evm::H256;
+use std::time::Duration;
 use tokio::sync::mpsc;
 
 const LOG_TARGET: &str = "eth-rpc::block-sync";
@@ -307,7 +308,19 @@ impl Client {
 		let at_checkpoint =
 			|synced: u64| synced <= 1 || synced.is_multiple_of(u64::from(BLOCK_INTERVAL));
 
+		let mut rate_limiter = Duration::from_secs(1)
+			.checked_div(self.backfill_max_blocks_per_sec())
+			.map(|period| {
+				let mut interval = tokio::time::interval(period);
+				interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+				interval
+			});
+
 		let loop_result: Result<(), ClientError> = loop {
+			if let Some(limiter) = rate_limiter.as_mut() {
+				limiter.tick().await;
+			}
+
 			let block_number = block.number();
 			let block_hash = block.hash();
 
