@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782748500368,
+  "lastUpdate": 1782759894674,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "eb53cda54c1384ce7cdd51d3a30772e1e95cb568",
-          "message": "Notify when there is a new best block (#10220)\n\n# Description\n\nModify the tx_notifier to send the block hash to the subscribers instead\nof all transactions hashes.\nModify the send_raw_transaction to look for the transaction hash in the\ntransactions field of the evm block.\n\nWe need this changes in anvil-polkadot:\n* https://github.com/paritytech/foundry-polkadot/pull/389\n* to be able to implement some RPCs like : send_transaction_sync and the\nfilters logic\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-06T15:00:23Z",
-          "tree_id": "53e26ba861384add37c4831a831f7af88485b4e4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eb53cda54c1384ce7cdd51d3a30772e1e95cb568"
-        },
-        "date": 1762445904074,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013541809713333339,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022964336986666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1622603028933334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007609558846666635,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.023826766933333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "81c6db69432b41622d1054b4d3b53068f60bccde",
+          "message": "ci: add parity-default-persistent runners for mq (#12507)\n\ncc https://github.com/paritytech/devops/issues/5413",
+          "timestamp": "2026-06-29T16:07:05Z",
+          "tree_id": "bf6c4c1b01ca5ff85fbb8bd9cb2059da6fc86600",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/81c6db69432b41622d1054b4d3b53068f60bccde"
+        },
+        "date": 1782759863603,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0076050770533333326,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010254932299999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02386361922666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14824364153333333,
             "unit": "seconds"
           }
         ]
