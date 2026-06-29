@@ -1,0 +1,24 @@
+title: Cap light client execution proof request processing time
+doc:
+- audience: Node Dev
+  description: |-
+    Introduce a capped WASM executor using epoch-based wasmtime interruption mechanism and use it for serving light client execution proof requests.
+
+    The execution is bounded by 10ms per runtime call. This matches paseo-bulletin metrics over last 30 days: most of the requests took under 1ms, just a few 2-4ms, and outliers in the higher buckets up to 16-32s.
+crates:
+- name: polkadot-node-core-pvf-common
+  bump: major
+- name: sc-executor
+  bump: major
+- name: sc-executor-wasmtime
+  bump: major
+- name: frame-benchmarking-cli
+  bump: major
+- name: sc-client-api
+  bump: major
+- name: sc-cli
+  bump: major
+- name: sc-network-light
+  bump: major
+- name: sc-service
+  bump: major
