@@ -23,7 +23,7 @@
 //!   0`). A zero placeholder is also shared by every validator across every adopting chain until
 //!   they each rotate, letting any attacker squat the entire authority-discovery mesh.
 //! - Reusing the aura raw bytes directly would tie the audi placeholder to the validator's aura
-//!   secret, giving an unwanted cross-protocol key reuse for the duration of the rotation grace 
+//!   secret, giving an unwanted cross-protocol key reuse for the duration of the rotation grace
 //!   period.
 //!
 //! The hashed derivation is unique per validator and unforgeable.
