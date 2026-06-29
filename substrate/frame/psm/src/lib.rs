@@ -791,7 +791,9 @@ pub mod pallet {
 		/// to the instance's [`PsmInfo::fee_destination`]), then transfers the resulting
 		/// amount in `external_asset` from the PSM reserve to the caller. The fee is
 		/// calculated using ceiling rounding (`mul_ceil`), ensuring the protocol never
-		/// undercharges.
+		/// undercharges. Redemptions use the decimals snapshotted when the PSM/external pair
+		/// was registered, allowing existing positions to unwind even if live metadata later
+		/// changes.
 		///
 		/// ## Parameters
 		///
@@ -811,8 +813,6 @@ pub mod pallet {
 		/// - [`Error::FeeTooHigh`]: If the configured redemption fee exceeds `max_fee`.
 		/// - [`Error::InsufficientReserve`]: If the PSM holds less of `external_asset` than the
 		///   redemption requires.
-		/// - [`Error::DecimalsMismatch`]: If live decimals diverged from the snapshot taken at
-		///   registration.
 		/// - [`Error::AmountTooSmallAfterConversion`]: If the conversion to the counter-asset
 		///   rounds to zero; swap would transfer nothing.
 		///
@@ -835,8 +835,8 @@ pub mod pallet {
 				.ok_or(Error::<T>::UnsupportedAsset)?;
 			ensure!(external.status.allows_redemption(), Error::<T>::AllSwapsStopped);
 
-			let (ext_decimals, internal_decimals) =
-				Self::ensure_decimals_match(&info, &internal_asset, &external_asset, &external)?;
+			let ext_decimals = external.decimals;
+			let internal_decimals = info.internal_decimals;
 
 			ensure!(internal_amount >= info.min_swap_amount, Error::<T>::BelowMinimumSwap);
 

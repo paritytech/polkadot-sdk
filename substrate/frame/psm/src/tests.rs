@@ -1305,6 +1305,51 @@ mod governance {
 	}
 
 	#[test]
+	fn remove_external_asset_succeeds_after_debt_drained_with_external_decimal_drift() {
+		new_test_ext().execute_with(|| {
+			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
+			set_minting_fee(USDX_ASSET_ID, Permill::zero());
+			set_redemption_fee(USDX_ASSET_ID, Permill::zero());
+
+			let usdx_raw = 10_000 * USDX_UNIT;
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDX_ASSET_ID,
+				usdx_raw,
+				Permill::zero()
+			));
+			assert_noop!(
+				Psm::remove_external_asset(RuntimeOrigin::root(), INTERNAL_ASSET_ID, USDX_ASSET_ID),
+				Error::<Test>::AssetHasDebt
+			);
+
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				USDX_ASSET_ID,
+				b"USDX".to_vec(),
+				b"USDX".to_vec(),
+				4
+			));
+
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDX_ASSET_ID,
+				10_000 * INTERNAL_UNIT,
+				Permill::zero()
+			));
+			assert_eq!(PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDX_ASSET_ID), 0);
+			assert_ok!(Psm::remove_external_asset(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				USDX_ASSET_ID
+			));
+			assert!(!ExternalAssets::<Test>::contains_key(INTERNAL_ASSET_ID, USDX_ASSET_ID));
+		});
+	}
+
+	#[test]
 	fn emergency_origin_can_set_asset_status() {
 		new_test_ext().execute_with(|| {
 			let new_status = CircuitBreakerLevel::MintingDisabled;
@@ -2916,7 +2961,7 @@ mod decimal_scaling {
 	}
 
 	#[test]
-	fn redeem_halts_when_asset_decimals_drift() {
+	fn redeem_uses_snapshot_when_asset_decimals_drift() {
 		new_test_ext().execute_with(|| {
 			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
 			set_zero_fees(USDX_ASSET_ID);
@@ -2937,15 +2982,29 @@ mod decimal_scaling {
 				4
 			));
 
-			assert_noop!(
-				Psm::redeem(
-					RuntimeOrigin::signed(ALICE),
-					INTERNAL_ASSET_ID,
-					USDX_ASSET_ID,
-					100 * INTERNAL_UNIT,
-					Permill::zero()
-				),
-				Error::<Test>::DecimalsMismatch
+			let alice_usdx_before = get_asset_balance(USDX_ASSET_ID, ALICE);
+			let alice_internal_before = get_asset_balance(INTERNAL_ASSET_ID, ALICE);
+			let debt_before = PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDX_ASSET_ID);
+
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDX_ASSET_ID,
+				100 * INTERNAL_UNIT,
+				Permill::zero()
+			));
+
+			assert_eq!(
+				get_asset_balance(USDX_ASSET_ID, ALICE),
+				alice_usdx_before + 100 * USDX_UNIT
+			);
+			assert_eq!(
+				get_asset_balance(INTERNAL_ASSET_ID, ALICE),
+				alice_internal_before - 100 * INTERNAL_UNIT
+			);
+			assert_eq!(
+				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDX_ASSET_ID),
+				debt_before - 100 * INTERNAL_UNIT
 			);
 		});
 	}
@@ -2977,7 +3036,7 @@ mod decimal_scaling {
 	}
 
 	#[test]
-	fn redeem_halts_when_internal_decimals_drift() {
+	fn redeem_uses_snapshot_when_internal_decimals_drift() {
 		new_test_ext().execute_with(|| {
 			// Seed ALICE's internal balance and PSM reserve with a prior mint, then
 			// drift the internal asset's decimals.
@@ -2996,15 +3055,31 @@ mod decimal_scaling {
 				8
 			));
 
-			assert_noop!(
-				Psm::redeem(
-					RuntimeOrigin::signed(ALICE),
-					INTERNAL_ASSET_ID,
-					USDC_ASSET_ID,
-					100 * INTERNAL_UNIT,
-					Permill::from_percent(1)
-				),
-				Error::<Test>::DecimalsMismatch
+			let alice_usdc_before = get_asset_balance(USDC_ASSET_ID, ALICE);
+			let alice_internal_before = get_asset_balance(INTERNAL_ASSET_ID, ALICE);
+			let insurance_internal_before = get_asset_balance(INTERNAL_ASSET_ID, INSURANCE_FUND);
+			let debt_before = PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+			let redeem = 100 * INTERNAL_UNIT;
+			let fee = Permill::from_percent(1).mul_ceil(redeem);
+			let external_out = redeem - fee;
+
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				redeem,
+				Permill::from_percent(1)
+			));
+
+			assert_eq!(get_asset_balance(USDC_ASSET_ID, ALICE), alice_usdc_before + external_out);
+			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, ALICE), alice_internal_before - redeem);
+			assert_eq!(
+				get_asset_balance(INTERNAL_ASSET_ID, INSURANCE_FUND),
+				insurance_internal_before + fee
+			);
+			assert_eq!(
+				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID),
+				debt_before - external_out
 			);
 		});
 	}
