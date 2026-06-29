@@ -1,0 +1,14 @@
+title: '[RWF] `sc-consensus-slots`: fix `SlotProportion::new` allowing NaN to escape
+  clamp'
+doc:
+- audience: Runtime Dev
+  description: "Closes #12459.\n\n### Problem\n\n`SlotProportion::new` called `f32::clamp(0.0,\
+    \ 1.0)` to enforce the `[0, 1]` invariant on `get()`. Per the Rust spec, `f32::clamp`\
+    \ is a no-op for NaN: it returns NaN unchanged. A caller passing `f32::NAN` would\
+    \ silently get a `SlotProportion` whose `get()` returned NaN, violating the documented\
+    \ guarantee, and feeding an unexpected value into `Duration::mul_f32` inside `proposing_remaining_duration`.\n\
+    \n### Fix\n\nAdd an explicit NaN guard in `new`: map `NaN \u2192 0.0` before clamping.\
+    \ A unit test `slot_proportion_clamps_nan_to_zero` pins the corrected behaviour."
+crates:
+- name: sc-consensus-slots
+  bump: patch
