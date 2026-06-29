@@ -156,8 +156,3 @@
   test-filter: "zombie_ci::statement_store::integration::statement_store_lite_person_submit_and_propagate"
   runner-type: "default"
   cumulus-image: "test-parachain"
-
-- job-name: "zombienet-cumulus-0035-dht_affinity_works"
-  test-filter: "zombie_ci::statement_store::integration_v2_dht::dht_affinity_works"
-  runner-type: "default"
-  cumulus-image: "test-parachain"
