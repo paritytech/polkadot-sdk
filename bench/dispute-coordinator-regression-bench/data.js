@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782681490715,
+  "lastUpdate": 1782724743275,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "490aa7fa021335a1895ba9aedddccdeeaa2bb6f2",
-          "message": "omni-node: Enable storage monitor (#10202)\n\nThe storage monitor shuts down the node when the available DB space is\nfalling below a configured minimum (1GB by default). This prevents that\na database gets corrupted when a disk is filling up.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-04T12:06:54Z",
-          "tree_id": "22c9a8aab5ace8cd130cc8ab0da258b86d2b86e5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/490aa7fa021335a1895ba9aedddccdeeaa2bb6f2"
-        },
-        "date": 1762264000363,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005367869359999991,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002801025660000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009082671969999987,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009177584169999985,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dev@jessechejieh.com",
+            "name": "jessechejieh",
+            "username": "jessechejieh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2808e5b127f77ef7b5423d0f0100404a0f53defd",
+          "message": "[FRAME] Auto-bound `RuntimeTask: From<Task<Self>>` (#12227)\n\nresolves #6462\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>",
+          "timestamp": "2026-06-29T07:31:45Z",
+          "tree_id": "8aa8b909a3a9b07ee9dc33555cb209e50b4ab931",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2808e5b127f77ef7b5423d0f0100404a0f53defd"
+        },
+        "date": 1782724713198,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010825730929999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009374380299999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002516491789999999,
             "unit": "seconds"
           }
         ]
