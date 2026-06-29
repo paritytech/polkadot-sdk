@@ -7,9 +7,7 @@ doc:
     # Description
 
     This PR refines the calculation of `ExtrinsicBaseWeight` in the `overhead` benchmark by switching from an isolation model to a **"Subtraction" model**.
-
     Previously, `ExtrinsicBaseWeight` often double-counted the overhead charged by `TransactionExtensions` because the benchmark measured a signed extrinsic without accounting for the extension weights that are already defined elsewhere.
-
     To resolve this, we now continue to use a standard signed `System::remark` (ensuring we benchmark the real production code path including `Executive::apply_extrinsic`), but we subtract the known weights of the signature verification and included extensions from the final result.
 
     ## Signature weight

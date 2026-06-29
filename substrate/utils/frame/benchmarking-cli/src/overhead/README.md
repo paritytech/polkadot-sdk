@@ -164,6 +164,18 @@ extrinsics during signature verification.
 Ensure the value passed as `--signature-weight` matches the weight returned by
 `SignatureWeight::weight()` for your runtime's signature type.
 
+### Calibrating signature weight
+
+The ref-time value for `SignatureWeight` and `--signature-weight` should come from the
+`pallet_verify_signature::verify_signature` benchmark (not from this overhead benchmark).
+That benchmark measures the same signature-verification work; use only its `ref_time`
+component (no proof size or storage cost).
+
+1. Run `benchmark pallet` for `pallet_verify_signature` on reference hardware.
+2. Hardcode the `ref_time` in the `SignatureWeight` impl for your signature type
+   (`sp-runtime`, typically `MultiSignature` / `sr25519`).
+3. Pass the same value to `--signature-weight` when running `benchmark overhead`.
+
 License: Apache-2.0
 
 <!-- LINKS -->

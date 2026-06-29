@@ -183,9 +183,10 @@ pub trait SignatureWeight {
 
 impl SignatureWeight for sp_core::ed25519::Signature {
 	fn weight(&self) -> sp_weights::Weight {
-		// TODO: calibrate via the `overhead` benchmark; must match the value it subtracts.
+		// Calibrated from `pallet_verify_signature::verify_signature` on reference hardware
+		// (kitchensink-runtime, sr25519). Must match `--signature-weight` for overhead.
 		sp_weights::Weight::from_parts(
-			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(47_000),
+			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(42_814),
 			0,
 		)
 	}
@@ -193,9 +194,10 @@ impl SignatureWeight for sp_core::ed25519::Signature {
 
 impl SignatureWeight for sp_core::sr25519::Signature {
 	fn weight(&self) -> sp_weights::Weight {
-		// TODO: calibrate via the `overhead` benchmark; must match the value it subtracts.
+		// Calibrated from `pallet_verify_signature::verify_signature` on reference hardware
+		// (kitchensink-runtime). Must match `--signature-weight` for overhead.
 		sp_weights::Weight::from_parts(
-			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(47_000),
+			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(42_814),
 			0,
 		)
 	}
@@ -204,7 +206,7 @@ impl SignatureWeight for sp_core::sr25519::Signature {
 impl SignatureWeight for sp_core::ecdsa::Signature {
 	fn weight(&self) -> sp_weights::Weight {
 		// ECDSA verification additionally recovers the public key, so it is heavier.
-		// TODO: calibrate via the `overhead` benchmark; must match the value it subtracts.
+		// TODO: calibrate via a dedicated benchmark; must match `--signature-weight` for overhead.
 		sp_weights::Weight::from_parts(
 			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(78_000),
 			0,
@@ -215,7 +217,7 @@ impl SignatureWeight for sp_core::ecdsa::Signature {
 impl SignatureWeight for sp_core::ecdsa::KeccakSignature {
 	fn weight(&self) -> sp_weights::Weight {
 		// Same ECDSA recovery cost as `ecdsa::Signature`, with a Keccak digest.
-		// TODO: calibrate via the `overhead` benchmark; must match the value it subtracts.
+		// TODO: calibrate via a dedicated benchmark; must match `--signature-weight` for overhead.
 		sp_weights::Weight::from_parts(
 			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(78_000),
 			0,

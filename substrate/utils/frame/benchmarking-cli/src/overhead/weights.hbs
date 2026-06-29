@@ -30,10 +30,10 @@ parameter_types! {
 	/// code. If subtraction is enabled, this generated constant explicitly subtracts the configured
 	/// signature and extension weights.
 	///
-	/// For signed transactions, ensure signature/extension costs are re-accounted in transaction
-	/// extension validation/dispatch weights where applicable. Production runtimes should include
-	/// [`frame_system::ChargeSignatureWeight`] in their transaction-extension tuple and set
-	/// [`frame_system::Config::SignatureWeight`] to the benchmarked signature weight.
+	/// For signed transactions, ensure signature/extension costs are re-accounted at runtime.
+	/// Signature verification weight is a static property of the signature type via
+	/// [`sp_runtime::traits::SignatureWeight`]. Pass the same ref-time value as
+	/// `--signature-weight` when running this benchmark.
 	{{/if}}
 	/// Calculated by multiplying the *{{params.weight.weight_metric}}* with `{{params.weight.weight_mul}}` and adding `{{params.weight.weight_add}}`.
 	///
