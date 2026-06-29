@@ -86,6 +86,7 @@ Located in `polkadot/xcm/`. XCM is the messaging format for cross-chain communic
 - `polkadot/node/` - Polkadot validator node subsystems
 - `cumulus/pallets/parachain-system/` - Core parachain runtime support
 - `cumulus/parachains/runtimes/` - System parachain runtimes (Asset Hub, Bridge Hub, etc.)
+- `substrate/client/statement-store/` - Statement store (off-chain signed-statement gossip store);
 
 ## Code Style
 
