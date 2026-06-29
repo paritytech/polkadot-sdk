@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::{Bytes, Bytes8, Bytes256, HashesOrTransactionInfos};
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use ethereum_types::*;
 use scale_info::TypeInfo;

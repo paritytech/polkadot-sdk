@@ -21,6 +21,7 @@ use super::{
 	Byte, Bytes, TYPE_EIP1559, TYPE_EIP2930, TYPE_EIP4844, TYPE_EIP7702, TYPE_LEGACY, TypeEip1559,
 	TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy,
 };
+use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use derive_more::{From, TryInto};
 use ethereum_types::*;
