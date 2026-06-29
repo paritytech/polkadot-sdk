@@ -70,6 +70,7 @@ impl V2DhtOrchestrator {
 			metrics.set_topology_size(
 				self.peers_topology.known_peers_count(),
 				self.peers_topology.connected_peers().count(),
+				self.peers_topology.dht_eligible_peers_count(),
 			);
 		}
 	}
