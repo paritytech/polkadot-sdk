@@ -44,7 +44,7 @@ pub mod signature_verifier;
 #[cfg(test)]
 mod test;
 
-pub use consensus_hook::FixedVelocityConsensusHook;
+pub use consensus_hook::{DynamicVelocityConsensusHook, FixedVelocityConsensusHook};
 pub use signature_verifier::AuraSchedulingVerifier;
 
 type Aura<T> = pallet_aura::Pallet<T>;

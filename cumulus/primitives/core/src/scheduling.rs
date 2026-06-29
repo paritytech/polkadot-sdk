@@ -129,7 +129,21 @@ impl SchedulingProof {
 /// attached to a candidate (via [`Self::verify`]).
 pub trait VerifySchedulingSignature {
 	/// Whether V3 scheduling validation is enabled.
+	///
+	/// This is a `const` so that it can be read in contexts where storage externalities
+	/// are NOT available (e.g. early in `validate_block`). For dynamic on-chain reads
+	/// where externalities ARE available, prefer [`Self::scheduling_v3_enabled`].
 	const V3_SCHEDULING_ENABLED: bool;
+
+	/// Dynamic version of [`Self::V3_SCHEDULING_ENABLED`] for callsites where externalities
+	/// are available. Defaults to [`Self::V3_SCHEDULING_ENABLED`].
+	///
+	/// Implementors backed by runtime storage (e.g. `pallet_parameters`) should override
+	/// this to return the live value. Implementors with a compile-time fixed value should
+	/// leave the default.
+	fn scheduling_v3_enabled() -> bool {
+		Self::V3_SCHEDULING_ENABLED
+	}
 
 	/// Verifies `signed_info` against the author eligible at `relay_slot` (the slot of the
 	/// internal scheduling parent)

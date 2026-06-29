@@ -17,7 +17,7 @@
 
 use anyhow::anyhow;
 use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
-use cumulus_test_runtime::block_bundling::WASM_BINARY;
+use cumulus_test_runtime::WASM_BINARY;
 use cumulus_zombienet_sdk_helpers::{
 	assign_cores, ensure_is_only_block_in_core, submit_extrinsic_and_wait_for_finalization_success,
 	submit_unsigned_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,

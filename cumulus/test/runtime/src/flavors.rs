@@ -14,128 +14,31 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+//! WASM blob accessors for the additional variants built by `build.rs`.
+//!
+//! Most consensus parameters (slot duration, block-processing velocity, relay-parent offset,
+//! `AllowMultipleBlocksPerSlot`, scheduling V3) are now runtime-configurable via
+//! `pallet_parameters` and seeded by named GenesisBuilder presets — they no longer require
+//! distinct WASM artifacts. Only two extra WASM blobs are produced beyond the default
+//! [`crate::WASM_BINARY`]:
+//!
+//! - [`spec_version_incremented`] — behaviour-identical to the default WASM but with
+//!   `spec_version` bumped by one. Used by runtime-upgrade tests that need to observe a
+//!   `set_code` transition.
+//! - [`with_authority_discovery`] — structural variant adding `pallet_session` +
+//!   `pallet_authority_discovery`. Used by the authority-discovery upgrade test.
+
+/// Same runtime as [`crate::WASM_BINARY`] but with `spec_version` bumped by one — used by
+/// runtime-upgrade tests to observe a `set_code` transition.
 pub mod spec_version_incremented {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
 }
 
-pub mod relay_parent_offset {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_relay_parent_offset.rs"));
-}
-
-pub mod elastic_scaling_500ms {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_500ms.rs"));
-}
-
-pub mod elastic_scaling {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling.rs"));
-}
-
-pub mod elastic_scaling_12s_slot {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_12s_slot.rs"));
-}
-
-pub mod block_bundling {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_block_bundling.rs"));
-}
-
-pub mod sync_backing {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_sync_backing.rs"));
-}
-
-pub mod async_backing {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
-}
-
-pub mod async_backing_v3 {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_async_backing_v3.rs"));
-}
-
-pub mod async_backing_v3_rpo {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_async_backing_v3_rpo.rs"));
-}
-
-pub mod elastic_scaling_v3 {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_v3.rs"));
-}
-
-pub mod slot_duration_18s {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_slot_duration_18s.rs"));
-}
-
+/// Structural runtime variant: adds `pallet_session` + `pallet_authority_discovery` and runs
+/// the `EnableAuthorityDiscovery` migration on upgrade. Used by the authority-discovery
+/// upgrade test.
 pub mod with_authority_discovery {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_with_authority_discovery.rs"));
-}
-
-pub(crate) const SCHEDULING_V3_ENABLED: bool = cfg!(feature = "v3-descriptor");
-
-pub(crate) const fn relay_parent_offset() -> u32 {
-	if cfg!(feature = "relay-parent-offset-2") {
-		return 2;
-	}
-
-	if cfg!(feature = "with-authority-discovery") {
-		return 2;
-	}
-
-	0
-}
-
-pub(crate) const fn slot_duration() -> u64 {
-	if cfg!(feature = "18s-slot") {
-		return 18000;
-	}
-
-	if cfg!(feature = "12s-slot") {
-		return 12000;
-	}
-
-	6000
-}
-
-pub(crate) const fn block_processing_velocity() -> u32 {
-	if cfg!(feature = "velocity-12") {
-		return 12;
-	}
-
-	if cfg!(feature = "velocity-6") {
-		return 6;
-	}
-
-	if cfg!(feature = "velocity-3") {
-		return 3;
-	}
-
-	1
-}
-
-pub(crate) const fn unincluded_segment_capacity() -> u32 {
-	if cfg!(feature = "sync-backing") {
-		return 1;
-	}
-
-	// Without sync backing, the block flow is the following:
-	//
-	// - Collator produces the block(s) on relay chain block `X`
-	// - In the meantime the relay chain is building block `X + 1`
-	// - The collator sends the collation to the relay chain, and it gets backed on chain in relay
-	//   block `X + 2`
-	// - The collation then gets included on chain in relay block `X + 3`
-	//
-	// With `relay_parent_offset() = N`, the collator builds on relay tip `R - N` while the
-	// chain is at `R`, so the buffer must additionally absorb `N * velocity` parablocks worth
-	// of in-flight blocks between the relay parent and the relay tip.
-	block_processing_velocity() * (3 + relay_parent_offset())
 }

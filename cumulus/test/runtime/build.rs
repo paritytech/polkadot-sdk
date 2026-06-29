@@ -14,87 +14,38 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Build script for `cumulus-test-runtime`.
+//!
+//! Three WASM blobs are produced:
+//!
+//! 1. The default runtime ([`crate::WASM_BINARY`]).
+//! 2. A spec-version-bumped variant used by runtime-upgrade tests. Behaviour-identical to the
+//!    default WASM except `spec_version` is increased by one, so a `set_code` upgrade is
+//!    observable on-chain.
+//! 3. A structural `with-authority-discovery` variant that wires in `pallet_session` +
+//!    `pallet_authority_discovery` and runs an on-chain migration. This is the only variant
+//!    that genuinely needs its own WASM (different runtime topology).
+//!
+//! All other consensus parameters — slot duration, block-processing velocity, relay-parent
+//! offset, allow-multiple-blocks-per-slot, scheduling V3 toggle — are runtime-configurable
+//! via `pallet_parameters` and seeded by named GenesisBuilder presets, so they no longer
+//! require their own WASM artifacts.
+
 #[cfg(feature = "std")]
 fn main() {
 	use substrate_wasm_builder::WasmBuilder;
 
-	// A runtime with 6s slot duration which only authors one block per slot.
+	// 1. Default runtime — used by every consensus chain-spec preset.
 	WasmBuilder::init_with_defaults().build();
 
+	// 2. Spec-version-bumped variant for `set_code` runtime-upgrade tests.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("increment-spec-version")
 		.set_file_name("wasm_binary_spec_version_incremented.rs")
 		.build();
 
-	WasmBuilder::init_with_defaults()
-		.enable_feature("velocity-3")
-		.enable_feature("increment-spec-version")
-		.set_file_name("wasm_binary_elastic_scaling.rs")
-		.build();
-
-	// A runtime with 6s slots and block velocity 12.
-	// Coupled with 12 cores it can produce a block every 500ms.
-	WasmBuilder::init_with_defaults()
-		.enable_feature("velocity-12")
-		.set_file_name("wasm_binary_elastic_scaling_500ms.rs")
-		.build();
-
-	// A runtime with a slot duration of 6s but parameters that allow multiple blocks per slot.
-	WasmBuilder::init_with_defaults()
-		.enable_feature("velocity-6")
-		.set_file_name("wasm_binary_elastic_scaling_multi_block_slot.rs")
-		.build();
-
-	// A runtime that uses a relay parent offset of 2.
-	WasmBuilder::init_with_defaults()
-		.enable_feature("relay-parent-offset-2")
-		.set_file_name("wasm_binary_relay_parent_offset.rs")
-		.build();
-
-	WasmBuilder::init_with_defaults()
-		.enable_feature("sync-backing")
-		.enable_feature("12s-slot")
-		.set_file_name("wasm_binary_sync_backing.rs")
-		.build();
-
-	// An elastic scaling runtime with 12s slots.
-	WasmBuilder::init_with_defaults()
-		.enable_feature("12s-slot")
-		.enable_feature("velocity-3")
-		.enable_feature("increment-spec-version")
-		.set_file_name("wasm_binary_elastic_scaling_12s_slot.rs")
-		.build();
-
-	// A runtime that uses block-bundling.
-	WasmBuilder::init_with_defaults()
-		.enable_feature("velocity-12")
-		.set_file_name("wasm_binary_block_bundling.rs")
-		.build();
-
-	WasmBuilder::init_with_defaults()
-		.enable_feature("v3-descriptor")
-		.set_file_name("wasm_binary_async_backing_v3.rs")
-		.build();
-
-	WasmBuilder::init_with_defaults()
-		.enable_feature("v3-descriptor")
-		.enable_feature("relay-parent-offset-2")
-		.set_file_name("wasm_binary_async_backing_v3_rpo.rs")
-		.build();
-
-	WasmBuilder::init_with_defaults()
-		.enable_feature("v3-descriptor")
-		.enable_feature("velocity-3")
-		.set_file_name("wasm_binary_elastic_scaling_v3.rs")
-		.build();
-
-	// A runtime with 18s slot duration with increased spec version for runtime upgrade testing.
-	WasmBuilder::init_with_defaults()
-		.enable_feature("18s-slot")
-		.enable_feature("increment-spec-version")
-		.set_file_name("wasm_binary_slot_duration_18s.rs")
-		.build();
-
+	// 3. Structural variant: adds `pallet_session` + `pallet_authority_discovery` and runs the
+	// `EnableAuthorityDiscovery` migration on upgrade.
 	WasmBuilder::new()
 		.with_current_project()
 		.enable_feature("with-authority-discovery")

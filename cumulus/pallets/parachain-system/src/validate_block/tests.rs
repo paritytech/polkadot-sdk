@@ -79,14 +79,16 @@ fn call_validate_block(
 }
 
 /// Call `validate_block` in the runtime with `elastic-scaling` activated.
+///
+/// Uses the default test-runtime WASM; velocity = 12 is wired in at genesis via the
+/// `ELASTIC_SCALING_500MS_PRESET` (see [`create_elastic_scaling_test_client`]).
 fn call_validate_block_elastic_scaling(
 	parent_head: Header,
 	block_data: ParachainBlockData<Block>,
 	relay_parent_storage_root: Hash,
 ) -> cumulus_test_client::ExecutorResult<Header> {
 	call_validate_block_validation_result(
-		test_runtime::elastic_scaling_500ms::WASM_BINARY
-			.expect("You need to build the WASM binaries to run the tests!"),
+		WASM_BINARY.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
 		block_data,
 		relay_parent_storage_root,
@@ -106,14 +108,13 @@ fn create_test_client() -> (Client, Header) {
 	(client, genesis_header)
 }
 
-/// Create test client using the runtime with `elastic-scaling` feature enabled.
+/// Create test client using the runtime seeded with the elastic-scaling-500ms preset
+/// (velocity = 12). Mirrors the pre-refactor behaviour where the `elastic_scaling_500ms`
+/// WASM had `velocity-12` baked in at compile time.
 fn create_elastic_scaling_test_client() -> (Client, Header) {
 	let mut builder = TestClientBuilder::new();
-	builder.genesis_init_mut().wasm = Some(
-		test_runtime::elastic_scaling_500ms::WASM_BINARY
-			.expect("You need to build the WASM binaries to run the tests!")
-			.to_vec(),
-	);
+	builder.genesis_init_mut().preset =
+		test_runtime::genesis_config_presets::ELASTIC_SCALING_500MS_PRESET;
 	let client = builder.enable_import_proof_recording().build();
 
 	let genesis_header = client
@@ -657,7 +658,7 @@ fn validate_block_handles_ump_signal() {
 	);
 
 	let upward_messages = call_validate_block_validation_result(
-		test_runtime::elastic_scaling_500ms::WASM_BINARY
+		test_runtime::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
 		block,
@@ -722,7 +723,7 @@ fn rejects_blocks_in_bundle_after_block_marked_as_last() {
 	if env::var("RUN_TEST").is_ok() {
 		let (client, genesis_head) = create_elastic_scaling_test_client();
 
-		let code = test_runtime::elastic_scaling_500ms::WASM_BINARY
+		let code = test_runtime::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!")
 			.to_vec();
 		let code_len = code.len() as u32;
@@ -1049,7 +1050,7 @@ fn validate_block_with_max_ump_messages_and_4_blocks_per_pov() {
 
 	let header = block.blocks().last().unwrap().header().clone();
 	let result = call_validate_block_validation_result(
-		test_runtime::elastic_scaling_500ms::WASM_BINARY
+		test_runtime::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
 		block,
@@ -1111,7 +1112,7 @@ fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
 
 	let header = block.blocks().last().unwrap().header().clone();
 	let result = call_validate_block_validation_result(
-		test_runtime::elastic_scaling_500ms::WASM_BINARY
+		test_runtime::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
 		block,
@@ -1170,7 +1171,7 @@ fn validate_block_hrmp_messages_sorted_across_blocks_in_bundle() {
 	);
 
 	let result = call_validate_block_validation_result(
-		test_runtime::elastic_scaling_500ms::WASM_BINARY
+		test_runtime::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
 		block,
@@ -1229,7 +1230,7 @@ fn validate_block_hrmp_duplicate_recipient_across_blocks_in_bundle() {
 		);
 
 	let pov1_result = call_validate_block_validation_result(
-		test_runtime::elastic_scaling_500ms::WASM_BINARY
+		test_runtime::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
 		pov1_block.clone(),
@@ -1259,7 +1260,7 @@ fn validate_block_hrmp_duplicate_recipient_across_blocks_in_bundle() {
 		);
 
 	let pov2_result = call_validate_block_validation_result(
-		test_runtime::elastic_scaling_500ms::WASM_BINARY
+		test_runtime::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
 		pov2_parent_head,
 		pov2_block,
@@ -1313,7 +1314,7 @@ fn validate_block_with_ump_size_constraint_and_4_blocks_per_pov() {
 
 	let header = block.blocks().last().unwrap().header().clone();
 	let result = call_validate_block_validation_result(
-		test_runtime::elastic_scaling_500ms::WASM_BINARY
+		test_runtime::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
 		block,
@@ -1367,7 +1368,7 @@ fn validate_block_with_ump_capacity_constraint_and_4_blocks_per_pov() {
 
 	let header = block.blocks().last().unwrap().header().clone();
 	let result = call_validate_block_validation_result(
-		test_runtime::elastic_scaling_500ms::WASM_BINARY
+		test_runtime::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
 		block,

@@ -18,23 +18,35 @@
 
 use cumulus_client_service::ParachainHostFunctions;
 use cumulus_primitives_core::ParaId;
-use cumulus_test_runtime::AccountId;
+use cumulus_test_runtime::{
+	genesis_config_presets::{
+		ASYNC_BACKING_PRESET, ASYNC_BACKING_V3_PRESET, ASYNC_BACKING_V3_RPO_PRESET,
+		BLOCK_BUNDLING_PRESET, ELASTIC_SCALING_500MS_PRESET, ELASTIC_SCALING_PRESET,
+		ELASTIC_SCALING_V3_PRESET, RELAY_PARENT_OFFSET_PRESET, SYNC_BACKING_PRESET,
+		WITH_AUTHORITY_DISCOVERY_PRESET,
+	},
+	AccountId,
+};
 use sc_chain_spec::GenesisConfigBuilderRuntimeCaller;
 use sc_service::{ChainType, GenericChainSpec};
 use serde_json::json;
 
-/// Get the chain spec for a specific parachain ID.
-/// The given accounts are initialized with funds in addition
-/// to the default known accounts.
+/// Get a chain spec for a specific parachain ID using a named GenesisBuilder preset.
+///
+/// `preset_id` selects which preset to instantiate (controls consensus parameters such as
+/// slot duration, block-processing velocity, relay-parent offset, etc. — see
+/// [`cumulus_test_runtime::genesis_config_presets`] for the full set). `extra_endowed_accounts`
+/// are added on top of the preset's default endowments.
 pub fn get_chain_spec_with_extra_endowed(
 	id: Option<ParaId>,
 	extra_endowed_accounts: Vec<AccountId>,
 	code: &[u8],
+	preset_id: &str,
 ) -> GenericChainSpec {
 	let runtime_caller = GenesisConfigBuilderRuntimeCaller::<ParachainHostFunctions>::new(code);
 	let mut development_preset = runtime_caller
-		.get_named_preset(Some(&sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET.to_string()))
-		.expect("development preset is available on test runtime; qed");
+		.get_named_preset(Some(&preset_id.to_string()))
+		.unwrap_or_else(|_| panic!("preset `{preset_id}` is available on test runtime; qed"));
 
 	// Extract existing balances
 	let existing_balances = development_preset
@@ -77,112 +89,104 @@ pub fn get_chain_spec_with_extra_endowed(
 		.build()
 }
 
-/// Get the chain spec for a specific parachain ID.
-pub fn get_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
-	get_chain_spec_with_extra_endowed(
-		id,
-		Default::default(),
-		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-	)
+/// Resolve the default WASM blob, panicking with a helpful message if it was not built.
+fn default_wasm() -> &'static [u8] {
+	cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!")
 }
 
-/// Get the chain spec for a specific parachain ID.
+/// Default chain spec — async-backing parachain with no consensus-parameter overrides.
+pub fn get_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
+	get_chain_spec_with_extra_endowed(id, Default::default(), default_wasm(), ASYNC_BACKING_PRESET)
+}
+
+/// Elastic-scaling chain spec (velocity = 3).
 pub fn get_elastic_scaling_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
-		cumulus_test_runtime::elastic_scaling::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
+		default_wasm(),
+		ELASTIC_SCALING_PRESET,
 	)
 }
 
+/// Chain spec with `relay_parent_offset = 2`.
 pub fn get_relay_parent_offset_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
-		cumulus_test_runtime::relay_parent_offset::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
+		default_wasm(),
+		RELAY_PARENT_OFFSET_PRESET,
 	)
 }
 
-/// Get the chain spec for a specific parachain ID.
+/// Elastic-scaling 500ms chain spec (velocity = 12).
 pub fn get_elastic_scaling_500ms_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
-		cumulus_test_runtime::elastic_scaling_500ms::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
+		default_wasm(),
+		ELASTIC_SCALING_500MS_PRESET,
 	)
 }
 
+/// Block-bundling chain spec (velocity = 12, same throughput as elastic-scaling 500ms).
 pub fn get_block_bundling_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
-	get_chain_spec_with_extra_endowed(
-		id,
-		Default::default(),
-		cumulus_test_runtime::block_bundling::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
-	)
+	get_chain_spec_with_extra_endowed(id, Default::default(), default_wasm(), BLOCK_BUNDLING_PRESET)
 }
 
+/// Sync-backing chain spec (slot = 12s, `AllowMultipleBlocksPerSlot` = false).
 pub fn get_sync_backing_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
-	get_chain_spec_with_extra_endowed(
-		id,
-		Default::default(),
-		cumulus_test_runtime::sync_backing::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
-	)
+	get_chain_spec_with_extra_endowed(id, Default::default(), default_wasm(), SYNC_BACKING_PRESET)
 }
 
-// Async backing with scheduling V3 enabled.
+/// Async-backing chain spec with scheduling V3 enabled.
 pub fn get_async_backing_v3_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
-		cumulus_test_runtime::async_backing_v3::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
+		default_wasm(),
+		ASYNC_BACKING_V3_PRESET,
 	)
 }
 
-// Async backing with scheduling V3 and relay parent offset enabled.
+/// Async-backing chain spec with scheduling V3 and relay-parent offset = 2.
 pub fn get_async_backing_v3_rpo_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
-		cumulus_test_runtime::async_backing_v3_rpo::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
+		default_wasm(),
+		ASYNC_BACKING_V3_RPO_PRESET,
 	)
 }
 
-// Elastic scaling with scheduling V3 enabled.
+/// Elastic-scaling chain spec with scheduling V3 enabled (velocity = 3).
 pub fn get_elastic_scaling_v3_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
-		cumulus_test_runtime::elastic_scaling_v3::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
+		default_wasm(),
+		ELASTIC_SCALING_V3_PRESET,
 	)
 }
 
+/// Async-backing chain spec — alias for the default `get_chain_spec`.
 pub fn get_async_backing_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
-	get_chain_spec_with_extra_endowed(
-		id,
-		Default::default(),
-		cumulus_test_runtime::async_backing::WASM_BINARY
-			.expect("WASM binary was not built, please build it!"),
-	)
+	get_chain_spec_with_extra_endowed(id, Default::default(), default_wasm(), ASYNC_BACKING_PRESET)
 }
 
-/// Get the chain spec for the authority-discovery collator-discovery test.
+/// Chain spec for the authority-discovery / collator-discovery test.
 ///
-/// Uses the `with-authority-discovery` variant WASM which includes `pallet_session` +
-/// `pallet_authority_discovery` and carries a higher `spec_version` (4 vs 2) so that
-/// a `set_code` upgrade from the default WASM triggers the `EnableAuthorityDiscovery`
-/// migration.
+/// Uses the structural `with-authority-discovery` WASM variant which includes
+/// `pallet_session` + `pallet_authority_discovery` and carries a higher `spec_version` (4 vs
+/// 2) so a `set_code` upgrade from the default WASM triggers the `EnableAuthorityDiscovery`
+/// migration. The matching preset additionally pins `relay_parent_offset = 2`, mirroring the
+/// pre-refactor behaviour where the `with-authority-discovery` cargo feature implied RPO=2.
 pub fn get_with_authority_discovery_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
 		cumulus_test_runtime::with_authority_discovery::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
+		WITH_AUTHORITY_DISCOVERY_PRESET,
 	)
 }

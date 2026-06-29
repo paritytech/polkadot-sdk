@@ -25,6 +25,7 @@ pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-glutton = { workspace = true }
 pallet-message-queue = { workspace = true }
+pallet-parameters = { workspace = true }
 pallet-session = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
@@ -35,6 +36,7 @@ sp-authority-discovery = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
+sp-externalities = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
@@ -80,6 +82,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-glutton/std",
 	"pallet-message-queue/std",
+	"pallet-parameters/std",
 	"pallet-session/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
@@ -94,6 +97,7 @@ std = [
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
+	"sp-externalities/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",
@@ -107,33 +111,13 @@ std = [
 	"tracing/std",
 ]
 
+# Bump `spec_version` by one without changing any other behaviour. Used by runtime-upgrade
+# tests that need to observe a `set_code` transition.
 increment-spec-version = []
 
-# The default parachain slot duration is 6s. The following features can be used to change this value:
-# Change the parachain slot duration to 12s
-12s-slot = []
-# Change the parachain slot duration to 18s
-18s-slot = []
-
-# Configure the runtime to use sync backing. More specifically, this leads to:
-# - setting `AllowMultipleBlocksPerSlot` to `false`
-# - setting the unincluded segment capacity to 1
-sync-backing = []
-
-# The default block processing velocity is 1. The following features can be used to change this value:
-# Change the block processing velocity to 3
-velocity-3 = []
-# Change the block processing velocity to 6
-velocity-6 = []
-# Change the block processing velocity to 12
-velocity-12 = []
-
-# The default relay parent offset is 0. The following features can be used to change this value:
-# Change the relay parent offset to 2
-relay-parent-offset-2 = []
-
-# Configure the runtime to use scheduling V3
-v3-descriptor = []
-# A runtime variant that enables pallet_session + pallet_authority_discovery and bumps
-# spec_version so that a set_code upgrade from the default runtime triggers migrations.
+# Structural runtime variant: adds `pallet_session` + `pallet_authority_discovery` and runs
+# the `EnableAuthorityDiscovery` migration on upgrade. The only variant whose WASM topology
+# genuinely differs from the default; consensus parameters that used to require a separate
+# WASM (slot duration, block-processing velocity, relay-parent offset, etc.) are now
+# runtime-configurable via `pallet_parameters`.
 with-authority-discovery = []

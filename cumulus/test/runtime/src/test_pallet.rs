@@ -24,6 +24,38 @@ use codec::Encode;
 /// [`OnRuntimeUpgrade`](frame_support::traits::OnRuntimeUpgrade) works as expected.
 pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
 
+/// Initial values to seed into `pallet_parameters::Parameters` at genesis time.
+///
+/// Each field is `Option<T>`; `Some(v)` writes `v` to the corresponding dynamic
+/// parameter, `None` leaves it at its `static` default (defined by the
+/// `#[dynamic_pallet_params]` macro in `lib.rs`).
+///
+/// This is a plain serde struct on purpose: the `#[dynamic_params]`-generated
+/// `RuntimeParameters` enum does NOT derive serde, so it cannot be embedded in
+/// the chain-spec JSON directly. We translate this struct into `RuntimeParameters`
+/// inside `GenesisConfig::build`.
+#[derive(
+	Clone,
+	Debug,
+	Default,
+	PartialEq,
+	Eq,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	scale_info::TypeInfo,
+	frame_support::Serialize,
+	frame_support::Deserialize,
+)]
+#[serde(crate = "frame_support::__private::serde")]
+pub struct InitialConsensusParameters {
+	pub slot_duration_millis: Option<u64>,
+	pub block_processing_velocity: Option<u32>,
+	pub relay_parent_offset: Option<u32>,
+	pub allow_multiple_blocks_per_slot: Option<bool>,
+	pub scheduling_v3_enabled: Option<bool>,
+}
+
 /// Generates the storage key for Alice's account on the relay chain.
 pub fn relay_alice_account_key() -> alloc::vec::Vec<u8> {
 	use sp_keyring::Sr25519Keyring;
@@ -370,6 +402,10 @@ pub mod pallet {
 		pub enable_big_value_move: bool,
 		/// Activate HRMP sending with descending recipients from genesis.
 		pub enable_hrmp_sending: bool,
+		/// Initial values for runtime-configurable consensus parameters.
+		/// Each `Some` field is written to `pallet_parameters::Parameters` at genesis;
+		/// `None` leaves the parameter at its `static` default.
+		pub initial_consensus_parameters: super::InitialConsensusParameters,
 	}
 
 	#[pallet::genesis_build]
@@ -383,6 +419,68 @@ pub mod pallet {
 
 			if self.enable_hrmp_sending {
 				HrmpSendingActive::<T>::set(true);
+			}
+
+			use crate::dynamic_params::consensus;
+			let icp = &self.initial_consensus_parameters;
+
+			if let Some(v) = icp.slot_duration_millis {
+				pallet_parameters::Parameters::<crate::Runtime>::insert(
+					crate::RuntimeParametersKey::Consensus(
+						consensus::ParametersKey::SlotDurationMillis(consensus::SlotDurationMillis),
+					),
+					crate::RuntimeParametersValue::Consensus(
+						consensus::ParametersValue::SlotDurationMillis(v),
+					),
+				);
+			}
+			if let Some(v) = icp.block_processing_velocity {
+				pallet_parameters::Parameters::<crate::Runtime>::insert(
+					crate::RuntimeParametersKey::Consensus(
+						consensus::ParametersKey::BlockProcessingVelocity(
+							consensus::BlockProcessingVelocity,
+						),
+					),
+					crate::RuntimeParametersValue::Consensus(
+						consensus::ParametersValue::BlockProcessingVelocity(v),
+					),
+				);
+			}
+			if let Some(v) = icp.relay_parent_offset {
+				pallet_parameters::Parameters::<crate::Runtime>::insert(
+					crate::RuntimeParametersKey::Consensus(
+						consensus::ParametersKey::RelayParentOffset(
+							consensus::RelayParentOffset,
+						),
+					),
+					crate::RuntimeParametersValue::Consensus(
+						consensus::ParametersValue::RelayParentOffset(v),
+					),
+				);
+			}
+			if let Some(v) = icp.allow_multiple_blocks_per_slot {
+				pallet_parameters::Parameters::<crate::Runtime>::insert(
+					crate::RuntimeParametersKey::Consensus(
+						consensus::ParametersKey::AllowMultipleBlocksPerSlot(
+							consensus::AllowMultipleBlocksPerSlot,
+						),
+					),
+					crate::RuntimeParametersValue::Consensus(
+						consensus::ParametersValue::AllowMultipleBlocksPerSlot(v),
+					),
+				);
+			}
+			if let Some(v) = icp.scheduling_v3_enabled {
+				pallet_parameters::Parameters::<crate::Runtime>::insert(
+					crate::RuntimeParametersKey::Consensus(
+						consensus::ParametersKey::SchedulingV3Enabled(
+							consensus::SchedulingV3Enabled,
+						),
+					),
+					crate::RuntimeParametersValue::Consensus(
+						consensus::ParametersValue::SchedulingV3Enabled(v),
+					),
+				);
 			}
 		}
 	}

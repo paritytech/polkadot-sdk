@@ -164,3 +164,111 @@ impl<
 		}
 	}
 }
+
+/// A consensus hook identical to [`FixedVelocityConsensusHook`] but reads velocity (`V`) and
+/// unincluded-segment capacity (`C`) from [`Get<u32>`] impls instead of `const u32`.
+///
+/// This allows the velocity and segment capacity to be configured at runtime (e.g. via
+/// `pallet_parameters` or any other [`Get<u32>`] source) instead of being baked at compile time.
+///
+/// # Type Parameters
+/// - `T` - The runtime configuration trait
+/// - `RELAY_CHAIN_SLOT_DURATION_MILLIS` - Duration of relay chain slots in milliseconds
+/// - `V` - A [`Get<u32>`] source for the maximum number of blocks per relay chain parent (velocity)
+/// - `C` - A [`Get<u32>`] source for the maximum capacity of the unincluded segment
+pub struct DynamicVelocityConsensusHook<
+	T,
+	const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32,
+	V,
+	C,
+>(PhantomData<(T, V, C)>);
+
+impl<
+		T: pallet::Config,
+		const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32,
+		V: Get<u32>,
+		C: Get<u32>,
+	> ConsensusHook for DynamicVelocityConsensusHook<T, RELAY_CHAIN_SLOT_DURATION_MILLIS, V, C>
+where
+	<T as pallet_timestamp::Config>::Moment: Into<u64>,
+{
+	fn on_state_proof(state_proof: &RelayChainStateProof) -> (Weight, UnincludedSegmentCapacity) {
+		let velocity = V::get().max(1);
+		let relay_chain_slot = state_proof.read_slot().expect("failed to read relay chain slot");
+
+		let (relay_chain_slot, authored_in_relay) = match pallet::RelaySlotInfo::<T>::get() {
+			Some((slot, authored)) if slot == relay_chain_slot => (slot, authored),
+			Some((slot, _)) if slot < relay_chain_slot => (relay_chain_slot, 0),
+			Some((slot, _)) => {
+				panic!("Slot moved backwards: stored_slot={slot:?}, relay_chain_slot={relay_chain_slot:?}")
+			},
+			None => (relay_chain_slot, 0),
+		};
+
+		if authored_in_relay > velocity {
+			panic!("authored blocks limit is reached for the slot: relay_chain_slot={relay_chain_slot:?}, authored={authored_in_relay:?}, velocity={velocity:?}");
+		}
+
+		pallet::RelaySlotInfo::<T>::put((relay_chain_slot, authored_in_relay + 1));
+
+		let para_slot = pallet_aura::CurrentSlot::<T>::get();
+
+		let relay_chain_timestamp =
+			u64::from(RELAY_CHAIN_SLOT_DURATION_MILLIS).saturating_mul(*relay_chain_slot);
+
+		let para_slot_duration = SlotDuration::from_millis(Aura::<T>::slot_duration().into());
+		let para_slot_from_relay =
+			Slot::from_timestamp(relay_chain_timestamp.into(), para_slot_duration);
+
+		if *para_slot != *para_slot_from_relay {
+			panic!(
+				"Parachain slot must match relay-derived slot: parachain_slot={:?}, derived_from_relay_slot={:?} velocity={:?}, relay_chain_slot={:?}",
+				para_slot,
+				para_slot_from_relay,
+				velocity,
+				relay_chain_slot
+			);
+		}
+
+		let weight = T::DbWeight::get().reads(1);
+
+		(
+			weight,
+			NonZeroU32::new(core::cmp::max(C::get(), 1))
+				.expect("1 is the minimum value and non-zero; qed")
+				.into(),
+		)
+	}
+}
+
+impl<
+		T: pallet::Config + parachain_system::Config,
+		const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32,
+		V: Get<u32>,
+		C: Get<u32>,
+	> DynamicVelocityConsensusHook<T, RELAY_CHAIN_SLOT_DURATION_MILLIS, V, C>
+{
+	/// Whether it is legal to extend the chain, assuming the given block is the most
+	/// recently included one as-of the relay parent that will be built against, and
+	/// the given slot.
+	pub fn can_build_upon(included_hash: T::Hash, new_slot: Slot) -> bool {
+		let velocity = V::get().max(1);
+		let (last_slot, authored_so_far) = match pallet::RelaySlotInfo::<T>::get() {
+			None => return true,
+			Some(x) => x,
+		};
+
+		let size_after_included =
+			parachain_system::Pallet::<T>::unincluded_segment_size_after(included_hash);
+
+		if size_after_included >= C::get() {
+			return false;
+		}
+
+		if last_slot == new_slot {
+			authored_so_far < velocity + 1
+		} else {
+			last_slot < new_slot
+		}
+	}
+}

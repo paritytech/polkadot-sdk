@@ -73,10 +73,25 @@ pub type LongestChain = sc_consensus::LongestChain<Backend, Block>;
 pub type Client = client::Client<Backend, Executor, Block, runtime::RuntimeApi>;
 
 /// Parameters of test-client builder with test-runtime.
-#[derive(Default)]
+///
+/// `preset` controls which named GenesisBuilder preset seeds the runtime-configurable
+/// consensus parameters (slot duration, block-processing velocity, etc.) at genesis time.
+/// Defaults to [`cumulus_test_runtime::genesis_config_presets::ASYNC_BACKING_PRESET`] which
+/// matches the runtime's static defaults (velocity = 1, slot = 6s).
 pub struct GenesisParameters {
 	pub endowed_accounts: Vec<cumulus_test_runtime::AccountId>,
 	pub wasm: Option<Vec<u8>>,
+	pub preset: &'static str,
+}
+
+impl Default for GenesisParameters {
+	fn default() -> Self {
+		Self {
+			endowed_accounts: Default::default(),
+			wasm: None,
+			preset: cumulus_test_runtime::genesis_config_presets::ASYNC_BACKING_PRESET,
+		}
+	}
 }
 
 impl substrate_test_client::GenesisInit for GenesisParameters {
@@ -87,6 +102,7 @@ impl substrate_test_client::GenesisInit for GenesisParameters {
 			self.wasm.as_deref().unwrap_or_else(|| {
 				cumulus_test_runtime::WASM_BINARY.expect("WASM binary not compiled!")
 			}),
+			self.preset,
 		)
 		.build_storage()
 		.expect("Builds test runtime genesis storage")

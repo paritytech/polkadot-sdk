@@ -23,17 +23,22 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod flavors;
-mod genesis_config_presets;
+pub mod genesis_config_presets;
 pub mod test_pallet;
 
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
+use frame_support::{
+	derive_impl,
+	dynamic_params::{dynamic_pallet_params, dynamic_params},
+	traits::OnRuntimeUpgrade,
+	PalletId,
+};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{ConstBool, ConstU32, ConstU64, Get, OpaqueMetadata};
+use sp_core::{ConstU32, Get, OpaqueMetadata};
 
 use sp_runtime::{
 	generic, impl_opaque_keys,
@@ -98,6 +103,100 @@ impl_opaque_keys! {
 pub const PARACHAIN_ID: u32 = 100;
 
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
+
+/// Default values for dynamic consensus parameters. Match today's no-feature build.
+pub mod consensus_defaults {
+	pub const SLOT_DURATION_MILLIS: u64 = 6000;
+	pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
+	pub const RELAY_PARENT_OFFSET: u32 = 0;
+	pub const ALLOW_MULTIPLE_BLOCKS_PER_SLOT: bool = true;
+	pub const SCHEDULING_V3_ENABLED: bool = false;
+}
+
+/// Dynamic runtime parameters that control consensus behavior of this test runtime.
+///
+/// Codec indices are part of the on-chain ABI; only APPEND new variants, never reorder.
+#[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Runtime>)]
+pub mod dynamic_params {
+	use super::*;
+
+	/// Consensus-related parameters: slot duration, block processing velocity,
+	/// relay parent offset, allow-multi-block-per-slot flag, V3 scheduling flag.
+	#[dynamic_pallet_params]
+	#[codec(index = 0)]
+	pub mod consensus {
+		#[codec(index = 0)]
+		pub static SlotDurationMillis: u64 = consensus_defaults::SLOT_DURATION_MILLIS;
+
+		#[codec(index = 1)]
+		pub static BlockProcessingVelocity: u32 = consensus_defaults::BLOCK_PROCESSING_VELOCITY;
+
+		#[codec(index = 2)]
+		pub static RelayParentOffset: u32 = consensus_defaults::RELAY_PARENT_OFFSET;
+
+		#[codec(index = 3)]
+		pub static AllowMultipleBlocksPerSlot: bool =
+			consensus_defaults::ALLOW_MULTIPLE_BLOCKS_PER_SLOT;
+
+		#[codec(index = 4)]
+		pub static SchedulingV3Enabled: bool = consensus_defaults::SCHEDULING_V3_ENABLED;
+	}
+}
+
+/// Externalities-safe view of [`dynamic_params::consensus::RelayParentOffset`].
+///
+/// `parachain_system::Config::RelayParentOffset` is read by `validate_block` BEFORE trie
+/// externalities are set up (see `validate_block/implementation.rs:147` where
+/// `validate_v3_scheduling` consumes it). A bare `dynamic_params` storage read panics in
+/// that context. This wrapper peeks at whether externalities are set (without holding the
+/// `ext` `RefCell` borrow that would block the inner storage read) and either delegates to
+/// the dynamic-params `Get` impl or falls back to [`consensus_defaults::RELAY_PARENT_OFFSET`].
+///
+/// IMPORTANT: do NOT wrap the inner `RelayParentOffset::get()` inside a
+/// `with_externalities` closure — that holds the `ext` `RefCell` borrow for the closure
+/// duration, and the inner storage read tries to re-borrow the same cell, panicking with
+/// `core::cell::panic_already_borrowed`. Peek-then-act is the only safe shape.
+///
+/// All other dynamic-param `Get<u32>` slots in this runtime are only read INSIDE
+/// externalities (`on_state_proof`, `MaxParachainBlockWeight`, runtime APIs), so they do
+/// not need this guard.
+pub struct ExternalitiesAwareRelayParentOffset;
+impl Get<u32> for ExternalitiesAwareRelayParentOffset {
+	fn get() -> u32 {
+		if externalities_are_set() {
+			dynamic_params::consensus::RelayParentOffset::get()
+		} else {
+			consensus_defaults::RELAY_PARENT_OFFSET
+		}
+	}
+}
+
+/// Returns `true` if a `sp_externalities` scope is currently active on the current thread.
+///
+/// Uses an empty `with_externalities` closure (does no storage access) — the closure
+/// returns immediately, releasing the `ext` `RefCell` borrow before any caller-side code
+/// runs. This is the only safe way to PEEK at externalities availability without blocking
+/// subsequent storage reads.
+fn externalities_are_set() -> bool {
+	sp_externalities::with_externalities(|_| ()).is_some()
+}
+
+/// Computed unincluded-segment capacity, derived from `AllowMultipleBlocksPerSlot`,
+/// `BlockProcessingVelocity`, and `RelayParentOffset`. Returns 1 in sync-backing mode
+/// (no multi-block-per-slot), otherwise `velocity * (3 + relay_parent_offset)`.
+///
+/// This mirrors the formula previously hardcoded in `flavors::unincluded_segment_capacity`.
+pub struct DerivedUnincludedSegmentCapacity;
+impl Get<u32> for DerivedUnincludedSegmentCapacity {
+	fn get() -> u32 {
+		if !dynamic_params::consensus::AllowMultipleBlocksPerSlot::get() {
+			return 1;
+		}
+		let velocity = dynamic_params::consensus::BlockProcessingVelocity::get();
+		let rpo = dynamic_params::consensus::RelayParentOffset::get();
+		velocity.saturating_mul(3u32.saturating_add(rpo))
+	}
+}
 
 // The only difference between the two declarations below is the `spec_version`. With the
 // `increment-spec-version` feature enabled `spec_version` should be greater than the one of without
@@ -165,7 +264,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
 
 // These time units are defined in number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (slot_duration() as BlockNumber);
+pub const MINUTES: BlockNumber =
+	(60_000u64 / consensus_defaults::SLOT_DURATION_MILLIS) as BlockNumber;
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
@@ -187,7 +287,7 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
 type MaximumBlockWeight = cumulus_pallet_parachain_system::block_weight::MaxParachainBlockWeight<
 	Runtime,
-	ConstU32<{ block_processing_velocity() }>,
+	dynamic_params::consensus::BlockProcessingVelocity,
 >;
 
 parameter_types! {
@@ -241,7 +341,7 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type PreInherents = cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeightHooks<
 		Runtime,
-		ConstU32<{ block_processing_velocity() }>,
+		dynamic_params::consensus::BlockProcessingVelocity,
 	>;
 	type SingleBlockMigrations = SingleBlockMigrations;
 }
@@ -326,6 +426,13 @@ impl pallet_glutton::Config for Runtime {
 	type WeightInfo = pallet_glutton::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_parameters::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeParameters = RuntimeParameters;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = ();
+}
+
 /// Scheduling-info verifier used by `cumulus-test-runtime`.
 ///
 /// Accepts any signature; `V3_SCHEDULING_ENABLED` is gated on the `v3-descriptor` cargo
@@ -334,7 +441,22 @@ impl pallet_glutton::Config for Runtime {
 pub struct NoVerification;
 
 impl VerifySchedulingSignature for NoVerification {
-	const V3_SCHEDULING_ENABLED: bool = SCHEDULING_V3_ENABLED;
+	const V3_SCHEDULING_ENABLED: bool = consensus_defaults::SCHEDULING_V3_ENABLED;
+
+	/// `validate_block` calls `T::SchedulingSignatureVerifier::scheduling_v3_enabled()` from
+	/// multiple sites in `parachain-system/src/lib.rs` BEFORE setting up trie externalities
+	/// (see `validate_block/implementation.rs:143`). Mirror
+	/// [`ExternalitiesAwareRelayParentOffset`]: peek at whether externalities are set
+	/// (without holding the `ext` borrow, which would block the inner storage read),
+	/// delegate to the dynamic-params `Get` impl when they are, fall back to the static
+	/// default otherwise.
+	fn scheduling_v3_enabled() -> bool {
+		if externalities_are_set() {
+			dynamic_params::consensus::SchedulingV3Enabled::get()
+		} else {
+			consensus_defaults::SCHEDULING_V3_ENABLED
+		}
+	}
 
 	fn verify(
 		_signed_info: &cumulus_primitives_core::SignedSchedulingInfo,
@@ -344,11 +466,11 @@ impl VerifySchedulingSignature for NoVerification {
 	}
 }
 
-type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
+type ConsensusHook = cumulus_pallet_aura_ext::DynamicVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	{ block_processing_velocity() },
-	{ unincluded_segment_capacity() },
+	dynamic_params::consensus::BlockProcessingVelocity,
+	DerivedUnincludedSegmentCapacity,
 >;
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();
@@ -364,7 +486,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber =
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type RelayParentOffset = ConstU32<{ relay_parent_offset() }>;
+	type RelayParentOffset = ExternalitiesAwareRelayParentOffset;
 	type SchedulingSignatureVerifier = NoVerification;
 }
 
@@ -374,8 +496,8 @@ impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<32>;
-	type AllowMultipleBlocksPerSlot = ConstBool<{ !cfg!(feature = "sync-backing") }>;
-	type SlotDuration = ConstU64<{ slot_duration() }>;
+	type AllowMultipleBlocksPerSlot = dynamic_params::consensus::AllowMultipleBlocksPerSlot;
+	type SlotDuration = dynamic_params::consensus::SlotDurationMillis;
 }
 
 impl test_pallet::Config for Runtime {}
@@ -409,6 +531,7 @@ construct_runtime! {
 	pub enum Runtime
 	{
 		System: frame_system,
+		Parameters: pallet_parameters,
 		ParachainSystem: cumulus_pallet_parachain_system,
 		Timestamp: pallet_timestamp,
 		ParachainInfo: parachain_info,
@@ -473,7 +596,7 @@ pub type TxExtension = cumulus_pallet_parachain_system::block_weight::DynamicMax
 			test_pallet::TestTransactionExtension<Runtime>,
 		),
 	>,
-	ConstU32<{ block_processing_velocity() }>,
+	dynamic_params::consensus::BlockProcessingVelocity,
 >;
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -755,7 +878,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
-			relay_parent_offset()
+			dynamic_params::consensus::RelayParentOffset::get()
 		}
 
 		fn max_claim_queue_offset() -> u8 {
@@ -765,13 +888,13 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
 		fn scheduling_v3_enabled() -> bool {
-			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::scheduling_v3_enabled()
 		}
 	}
 
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(slot_duration())
+			sp_consensus_aura::SlotDuration::from_millis(dynamic_params::consensus::SlotDurationMillis::get())
 		}
 
 		fn authorities() -> Vec<AuraId> {
@@ -882,7 +1005,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
-			block_processing_velocity()
+			dynamic_params::consensus::BlockProcessingVelocity::get()
 		}
 	}
 

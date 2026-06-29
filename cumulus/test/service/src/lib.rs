@@ -806,6 +806,7 @@ pub fn node_config(
 		Some(para_id),
 		endowed_accounts,
 		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		cumulus_test_runtime::genesis_config_presets::ASYNC_BACKING_PRESET,
 	));
 
 	let mut storage = spec.as_storage_builder().build_storage().expect("could not build storage");
