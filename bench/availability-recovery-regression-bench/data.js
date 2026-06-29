@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782732420201,
+  "lastUpdate": 1782748463296,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "812872a744b2666e5b75ff7b3dac1583c0d75e66",
-          "message": "[pallet-revive] Only fund new accounts with ED (#10233)\n\nfixes https://github.com/paritytech/contract-issues/issues/179\n\nIn case an account is created by transferring funds to it, and after\nthat a contract is deployed to that account, it will receive the\nexistential deposit twice. This can be done using create2.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>",
-          "timestamp": "2025-11-06T20:15:43Z",
-          "tree_id": "edb02837209e2c16049d7c675a7cc64b35c75f39",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/812872a744b2666e5b75ff7b3dac1583c0d75e66"
-        },
-        "date": 1762464132392,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.710235717700002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2058454646,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.963095671800003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "40f9a5ddbe62c0b797a4be9beb35fba93e6d6336",
+          "message": "txpool: maintain on all blocks (#12433)\n\nSlot-based collators under heavy forking frequently import blocks that\nare **not** the best block, and then build on top of them. The\nfork-aware pool only maintains a view per **best** block, so when the\nblock builder asks for `ready_at(fork_block)` there is no view for that\nfork and it falls back to `ready_at_light`.\n\n`ready_at_light` does **not** collect the full set of ready transactions\nfor the fork: it walks up to the nearest ancestor that still has a view\n(typically the fork's common root), reuses that view's ready set and\nmerely prunes the extrinsics already included on the way to\n`fork_block`. It never re-validates the mempool against the fork, so any\ntransaction that is not already in that ancestor view is missing —\nresulting in under-filled / empty blocks on forks.\n\nMaintaining the pool on every imported block means a proper view already\nexists for the fork, so the block builder gets the complete ready set\ninstead of the light fallback.\n\n#### Example\n\n```text\n      B1 - B2[tx] - B3 - B4           <- imported as best\n    /\nB0\n    \\\n      B'1 - B'2 - B'3 - B'4 - B'5[tx] <- imported as non-best, until B'5 becomes best\n```\n\n`tx` enters the pool and is included in `B2` on the best chain. The `B'`\nfork is imported but never notified as best, so the pool keeps no views\nfor `B'1..B'4`. While building on that fork, `ready_at` has no view and\nfalls back to `ready_at_light`, which reuses the nearest ancestor view\n(`B0`) and only prunes already-included txs — it never re-collects the\nmempool, so `tx` (which arrived after `B0`'s view went inactive) is\nmissing. `tx` is only included once the fork wins and `B'5` becomes\nbest, at which point a full view is finally built — i.e. inclusion is\n**delayed** by the length of the fork.\n\nWith this change a view is built for every `B'n` as it is imported, so\n`tx` is ready on the fork from the start.\n\n#### Notes for reviewers\n\n- The pool is now informed about **every** imported block, not only best\nblocks. The fork-aware pool builds a view for each imported block, so it\nis aware of all forks.\n- New `ChainEvent::NewBlock` event represents a non-best import; the\nfork-aware pool handles it like `NewBestBlock` (builds a view).\n`notification_future` subscribes to `every_import_notification_stream()`\ninstead of `import_notification_stream()`.\n- New `--pool-best-blocks-only` flag restores the previous behavior (act\non best blocks only). Only affects the fork-aware pool; the single-state\npool is unchanged. This is intended to act as a legacy fallback.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-29T13:30:13Z",
+          "tree_id": "491abfb5af2e9afcac340ffc34c823b3e4e0d28a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/40f9a5ddbe62c0b797a4be9beb35fba93e6d6336"
+        },
+        "date": 1782748434249,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.838394515566666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13476235743333334,
             "unit": "seconds"
           }
         ]
