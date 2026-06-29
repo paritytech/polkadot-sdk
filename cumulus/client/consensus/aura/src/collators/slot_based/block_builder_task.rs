@@ -298,11 +298,13 @@ where
 			let relay_parent_header = relay_parent_data.relay_parent().clone();
 			let relay_parent_hash = relay_parent_header.hash();
 
-			let scheduling_lookahead = relay_chain_data_cache
-				.get_session_data(relay_parent_hash)
-				.await
+			let session_data = relay_chain_data_cache.get_session_data(relay_parent_hash).await;
+			let scheduling_lookahead = session_data
 				.map(|data| data.scheduling_lookahead)
 				.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD);
+			let Ok(max_pov_size) = session_data.map(|data| data.max_pov_size) else {
+				continue;
+			};
 
 			let Some(parent_search_result) = crate::collators::find_parent(
 				relay_parent_hash,
@@ -342,14 +344,6 @@ where
 				relay_chain_slot_duration,
 				para_slot_duration,
 			) else {
-				continue;
-			};
-
-			let Ok(max_pov_size) = relay_chain_data_cache
-				.get_session_data(relay_parent_hash)
-				.await
-				.map(|d| d.max_pov_size)
-			else {
 				continue;
 			};
 

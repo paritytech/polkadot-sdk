@@ -18,7 +18,7 @@
 //! Utility for caching [`RelayChainData`] for different relay blocks.
 
 use crate::collators::claim_queue_at;
-use cumulus_relay_chain_interface::RelayChainInterface;
+use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	node_features::FeatureIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
@@ -54,6 +54,17 @@ impl SessionData {
 	pub fn is_v3_enabled(&self) -> bool {
 		FeatureIndex::CandidateReceiptV3.is_set(&self.node_features)
 	}
+}
+
+/// Error that can occur while fetching [`SessionData`] from the relay chain.
+#[derive(Debug, thiserror::Error)]
+pub enum SessionDataError {
+	/// A relay chain runtime/client call failed.
+	#[error("relay chain error: {0}")]
+	RelayChain(#[from] RelayChainError),
+	/// The relay chain did not return persisted validation data for the parachain.
+	#[error("relay chain did not return persisted validation data for the parachain")]
+	MissingPersistedValidationData,
 }
 
 /// Helper to fetch and cache relay chain data.
@@ -93,7 +104,7 @@ where
 		let insert_data = if self.cached_data.peek(&relay_hash).is_some() {
 			None
 		} else {
-			Some(self.fetch_data(relay_header).await?)
+			Some(self.fetch_relay_block_data(relay_header).await?)
 		};
 
 		Ok(self
@@ -129,10 +140,17 @@ where
 	pub async fn get_session_data(&mut self, relay_hash: RelayHash) -> Result<&SessionData, ()> {
 		let session_index = self.get_by_hash(relay_hash).await?.session_index;
 
-		let insert_data = if self.session_cache.peek(&session_index).is_some() {
+		let insert_data = if self.session_cache.get(&session_index).is_some() {
 			None
 		} else {
-			Some(self.fetch_session_data(relay_hash).await?)
+			Some(self.fetch_session_data(relay_hash).await.map_err(|err| {
+				tracing::error!(
+					target: crate::LOG_TARGET,
+					?relay_hash,
+					?err,
+					"Failed to fetch session data from the relay chain."
+				);
+			})?)
 		};
 
 		Ok(self
@@ -161,65 +179,36 @@ where
 	}
 
 	/// Fetch fresh session-scoped configuration from the relay chain.
-	async fn fetch_session_data(&self, relay_hash: RelayHash) -> Result<SessionData, ()> {
-		let scheduling_lookahead =
-			self.relay_client.scheduling_lookahead(relay_hash).await.map_err(|err| {
-				tracing::error!(
-					target: crate::LOG_TARGET,
-					?relay_hash,
-					?err,
-					"Unable to fetch the scheduling lookahead."
-				);
-			})?;
-		let max_relay_parent_session_age = self
-			.relay_client
-			.max_relay_parent_session_age(relay_hash)
-			.await
-			.map_err(|err| {
-				tracing::error!(
-					target: crate::LOG_TARGET,
-					?relay_hash,
-					?err,
-					"Unable to fetch the max relay parent session age."
-				);
-			})?;
-		let node_features = self.relay_client.node_features(relay_hash).await.map_err(|err| {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				?relay_hash,
-				?err,
-				"Unable to fetch relay chain node features."
-			);
-		})?;
-
-		let max_pov_size = match self
-			.relay_client
-			.persisted_validation_data(relay_hash, self.para_id, OccupiedCoreAssumption::Included)
-			.await
-		{
-			Ok(Some(pvd)) => pvd.max_pov_size,
-			Ok(None) => return Err(()),
-			Err(err) => {
-				tracing::error!(
-					target: crate::LOG_TARGET,
-					?relay_hash,
-					?err,
-					"Failed to fetch pvd from relay-client."
-				);
-				return Err(());
-			},
-		};
+	async fn fetch_session_data(
+		&self,
+		relay_hash: RelayHash,
+	) -> Result<SessionData, SessionDataError> {
+		let (scheduling_lookahead, max_relay_parent_session_age, node_features, pvd) = futures::join!(
+			self.relay_client.scheduling_lookahead(relay_hash),
+			self.relay_client.max_relay_parent_session_age(relay_hash),
+			self.relay_client.node_features(relay_hash),
+			self.relay_client.persisted_validation_data(
+				relay_hash,
+				self.para_id,
+				OccupiedCoreAssumption::Included
+			),
+		);
+		let max_pov_size =
+			pvd?.ok_or(SessionDataError::MissingPersistedValidationData)?.max_pov_size;
 
 		Ok(SessionData {
-			scheduling_lookahead,
-			max_relay_parent_session_age,
-			node_features,
+			scheduling_lookahead: scheduling_lookahead?,
+			max_relay_parent_session_age: max_relay_parent_session_age?,
+			node_features: node_features?,
 			max_pov_size,
 		})
 	}
 
 	/// Fetch fresh data from the relay chain for the given relay parent.
-	async fn fetch_data(&self, relay_header: RelayHeader) -> Result<RelayChainData, ()> {
+	async fn fetch_relay_block_data(
+		&self,
+		relay_header: RelayHeader,
+	) -> Result<RelayChainData, ()> {
 		let relay_hash = relay_header.hash();
 
 		tracing::trace!(
