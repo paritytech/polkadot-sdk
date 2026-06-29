@@ -30,8 +30,6 @@ mod tests;
 pub mod test_utils;
 
 mod asset_conversion;
-#[allow(deprecated)]
-pub use asset_conversion::ConvertedConcreteAssetId;
 pub use asset_conversion::{
 	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchClasslessInstances, MatchInClassInstances,
 	MatchedConvertedConcreteId,
