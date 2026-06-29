@@ -1,0 +1,20 @@
+title: '[RWF] pallet-society: Fix `bump_payout` logic to prevent trapped funds'
+doc:
+- audience: Runtime Dev
+  description: "Closes #12458\n\n## Summary\n\n`bump_payout` unconditionally called\
+    \ `reserve_payout` after mutating the `Payouts` storage entry, even when `try_insert`\
+    \ failed because the member's payout queue was already at `MaxPayouts` capacity.\
+    \ This moved funds from the society pot into the payouts sub-account with no corresponding\
+    \ payout record for the member to claim against \u2014 permanently trapping those\
+    \ funds.\n\n## Fix\n\nReturn a boolean from the `mutate` closure indicating whether\
+    \ the payout was actually recorded (either inserted or accrued onto an existing\
+    \ entry). Only call `reserve_payout` when the closure returns `true`. When the\
+    \ queue is full the overflow payout is silently dropped and no funds move, keeping\
+    \ the payouts sub-account balance in sync with recorded obligations at all times.\n\
+    \nA regression test (`bump_payout_does_not_trap_funds_when_max_payouts_reached`)\
+    \ verifies that filling a member's payout queue to `MaxPayouts` and then calling\
+    \ `bump_payout` one more time leaves both the payouts sub-account balance and\
+    \ the `Pot` unchanged."
+crates:
+- name: pallet-society
+  bump: patch
