@@ -210,20 +210,29 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#60 id=60 data-nosnippet>60</a>	<span class="doccomment">/// The type of transaction pool to be instantiated.
 <a href=#61 id=61 data-nosnippet>61</a>	</span><span class="attr">#[arg(long, value_enum, default_value_t = TransactionPoolType::ForkAware)]
 <a href=#62 id=62 data-nosnippet>62</a>	</span><span class="kw">pub </span>pool_type: TransactionPoolType,
-<a href=#63 id=63 data-nosnippet>63</a>}
-<a href=#64 id=64 data-nosnippet>64</a>
-<a href=#65 id=65 data-nosnippet>65</a><span class="kw">impl </span>TransactionPoolParams {
-<a href=#66 id=66 data-nosnippet>66</a>	<span class="doccomment">/// Fill the given `PoolConfiguration` by looking at the cli parameters.
-<a href=#67 id=67 data-nosnippet>67</a>	</span><span class="kw">pub fn </span>transaction_pool(<span class="kw-2">&amp;</span><span class="self">self</span>, is_dev: bool) -&gt; TransactionPoolOptions {
-<a href=#68 id=68 data-nosnippet>68</a>		TransactionPoolOptions::new_with_params(
-<a href=#69 id=69 data-nosnippet>69</a>			<span class="self">self</span>.pool_limit,
-<a href=#70 id=70 data-nosnippet>70</a>			<span class="self">self</span>.pool_kbytes * <span class="number">1024</span>,
-<a href=#71 id=71 data-nosnippet>71</a>			<span class="self">self</span>.tx_ban_seconds,
-<a href=#72 id=72 data-nosnippet>72</a>			<span class="self">self</span>.pool_type.into(),
-<a href=#73 id=73 data-nosnippet>73</a>			is_dev,
-<a href=#74 id=74 data-nosnippet>74</a>		)
-<a href=#75 id=75 data-nosnippet>75</a>	}
-<a href=#76 id=76 data-nosnippet>76</a>}
+<a href=#63 id=63 data-nosnippet>63</a>
+<a href=#64 id=64 data-nosnippet>64</a>	<span class="doccomment">/// Maintain the transaction pool only on best blocks, ignoring non-best forks.
+<a href=#65 id=65 data-nosnippet>65</a>	///
+<a href=#66 id=66 data-nosnippet>66</a>	/// Escape hatch restoring the legacy best-blocks-only behavior (the pool is maintained on
+<a href=#67 id=67 data-nosnippet>67</a>	/// every imported block by default). Expected to degrade performance under forking; only use
+<a href=#68 id=68 data-nosnippet>68</a>	/// it as a fallback if you know what you are doing. No effect on the single-state pool.
+<a href=#69 id=69 data-nosnippet>69</a>	</span><span class="attr">#[arg(long, default_value_t = <span class="bool-val">false</span>)]
+<a href=#70 id=70 data-nosnippet>70</a>	</span><span class="kw">pub </span>pool_best_blocks_only: bool,
+<a href=#71 id=71 data-nosnippet>71</a>}
+<a href=#72 id=72 data-nosnippet>72</a>
+<a href=#73 id=73 data-nosnippet>73</a><span class="kw">impl </span>TransactionPoolParams {
+<a href=#74 id=74 data-nosnippet>74</a>	<span class="doccomment">/// Fill the given `PoolConfiguration` by looking at the cli parameters.
+<a href=#75 id=75 data-nosnippet>75</a>	</span><span class="kw">pub fn </span>transaction_pool(<span class="kw-2">&amp;</span><span class="self">self</span>, is_dev: bool) -&gt; TransactionPoolOptions {
+<a href=#76 id=76 data-nosnippet>76</a>		TransactionPoolOptions::new_with_params(
+<a href=#77 id=77 data-nosnippet>77</a>			<span class="self">self</span>.pool_limit,
+<a href=#78 id=78 data-nosnippet>78</a>			<span class="self">self</span>.pool_kbytes * <span class="number">1024</span>,
+<a href=#79 id=79 data-nosnippet>79</a>			<span class="self">self</span>.tx_ban_seconds,
+<a href=#80 id=80 data-nosnippet>80</a>			<span class="self">self</span>.pool_type.into(),
+<a href=#81 id=81 data-nosnippet>81</a>			is_dev,
+<a href=#82 id=82 data-nosnippet>82</a>			<span class="self">self</span>.pool_best_blocks_only,
+<a href=#83 id=83 data-nosnippet>83</a>		)
+<a href=#84 id=84 data-nosnippet>84</a>	}
+<a href=#85 id=85 data-nosnippet>85</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

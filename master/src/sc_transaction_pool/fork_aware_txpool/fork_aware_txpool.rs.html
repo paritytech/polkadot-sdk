@@ -1225,7 +1225,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#1075 id=1075 data-nosnippet>1075</a>	</span><span class="doccomment">/// Returns the pool status which includes information like the number of ready and future
 <a href=#1076 id=1076 data-nosnippet>1076</a>	/// transactions.
 <a href=#1077 id=1077 data-nosnippet>1077</a>	///
-<a href=#1078 id=1078 data-nosnippet>1078</a>	/// Currently the status for the most recently notified best block is returned (for which
+<a href=#1078 id=1078 data-nosnippet>1078</a>	/// Currently the status for the most recently notified block is returned (for which
 <a href=#1079 id=1079 data-nosnippet>1079</a>	/// maintain process was accomplished).
 <a href=#1080 id=1080 data-nosnippet>1080</a>	</span><span class="kw">fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PoolStatus {
 <a href=#1081 id=1081 data-nosnippet>1081</a>		<span class="self">self</span>.view_store
@@ -1256,7 +1256,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#1106 id=1106 data-nosnippet>1106</a>
 <a href=#1107 id=1107 data-nosnippet>1107</a>	<span class="doccomment">/// Return specific ready transaction by hash, if there is one.
 <a href=#1108 id=1108 data-nosnippet>1108</a>	///
-<a href=#1109 id=1109 data-nosnippet>1109</a>	/// Currently the ready transaction is returned if it exists for the most recently notified best
+<a href=#1109 id=1109 data-nosnippet>1109</a>	/// Currently the ready transaction is returned if it exists for the most recently notified
 <a href=#1110 id=1110 data-nosnippet>1110</a>	/// block (for which maintain process was accomplished).
 <a href=#1111 id=1111 data-nosnippet>1111</a>	</span><span class="comment">// todo [#5491]: api change: we probably should have at here?
 <a href=#1112 id=1112 data-nosnippet>1112</a>	</span><span class="kw">fn </span>ready_transaction(<span class="kw-2">&amp;</span><span class="self">self</span>, tx_hash: <span class="kw-2">&amp;</span>TxHash&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="self">Self</span>::InPoolTransaction&gt;&gt; {
@@ -2211,7 +2211,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#2061 id=2061 data-nosnippet>2061</a>		};
 <a href=#2062 id=2062 data-nosnippet>2062</a>
 <a href=#2063 id=2063 data-nosnippet>2063</a>		<span class="kw">match </span>event {
-<a href=#2064 id=2064 data-nosnippet>2064</a>			ChainEvent::NewBestBlock { .. } =&gt; {},
+<a href=#2064 id=2064 data-nosnippet>2064</a>			ChainEvent::NewBlock { .. } | ChainEvent::NewBestBlock { .. } =&gt; {},
 <a href=#2065 id=2065 data-nosnippet>2065</a>			ChainEvent::Finalized { hash, <span class="kw-2">ref </span>tree_route } =&gt; {
 <a href=#2066 id=2066 data-nosnippet>2066</a>				<span class="self">self</span>.handle_finalized(hash, tree_route).<span class="kw">await</span>;
 <a href=#2067 id=2067 data-nosnippet>2067</a>

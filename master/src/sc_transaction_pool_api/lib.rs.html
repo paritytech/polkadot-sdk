@@ -523,238 +523,248 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#373 id=373 data-nosnippet>373</a><span class="doccomment">/// Events that the transaction pool listens for.
 <a href=#374 id=374 data-nosnippet>374</a></span><span class="attr">#[derive(Debug)]
 <a href=#375 id=375 data-nosnippet>375</a></span><span class="kw">pub enum </span>ChainEvent&lt;B: BlockT&gt; {
-<a href=#376 id=376 data-nosnippet>376</a>	<span class="doccomment">/// New best block have been added to the chain.
-<a href=#377 id=377 data-nosnippet>377</a>	</span>NewBestBlock {
-<a href=#378 id=378 data-nosnippet>378</a>		<span class="doccomment">/// Hash of the block.
-<a href=#379 id=379 data-nosnippet>379</a>		</span>hash: B::Hash,
-<a href=#380 id=380 data-nosnippet>380</a>		<span class="doccomment">/// Tree route from old best to new best parent that was calculated on import.
-<a href=#381 id=381 data-nosnippet>381</a>		///
-<a href=#382 id=382 data-nosnippet>382</a>		/// If `None`, no re-org happened on import.
-<a href=#383 id=383 data-nosnippet>383</a>		</span>tree_route: <span class="prelude-ty">Option</span>&lt;Arc&lt;sp_blockchain::TreeRoute&lt;B&gt;&gt;&gt;,
-<a href=#384 id=384 data-nosnippet>384</a>	},
-<a href=#385 id=385 data-nosnippet>385</a>	<span class="doccomment">/// An existing block has been finalized.
-<a href=#386 id=386 data-nosnippet>386</a>	</span>Finalized {
-<a href=#387 id=387 data-nosnippet>387</a>		<span class="doccomment">/// Hash of just finalized block.
-<a href=#388 id=388 data-nosnippet>388</a>		</span>hash: B::Hash,
-<a href=#389 id=389 data-nosnippet>389</a>		<span class="doccomment">/// Path from old finalized to new finalized parent.
-<a href=#390 id=390 data-nosnippet>390</a>		</span>tree_route: Arc&lt;[B::Hash]&gt;,
-<a href=#391 id=391 data-nosnippet>391</a>	},
-<a href=#392 id=392 data-nosnippet>392</a>}
-<a href=#393 id=393 data-nosnippet>393</a>
-<a href=#394 id=394 data-nosnippet>394</a><span class="kw">impl</span>&lt;B: BlockT&gt; ChainEvent&lt;B&gt; {
-<a href=#395 id=395 data-nosnippet>395</a>	<span class="doccomment">/// Returns the block hash associated to the event.
-<a href=#396 id=396 data-nosnippet>396</a>	</span><span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; B::Hash {
-<a href=#397 id=397 data-nosnippet>397</a>		<span class="kw">match </span><span class="self">self </span>{
-<a href=#398 id=398 data-nosnippet>398</a>			<span class="self">Self</span>::NewBestBlock { hash, .. } | <span class="self">Self</span>::Finalized { hash, .. } =&gt; <span class="kw-2">*</span>hash,
-<a href=#399 id=399 data-nosnippet>399</a>		}
-<a href=#400 id=400 data-nosnippet>400</a>	}
+<a href=#376 id=376 data-nosnippet>376</a>	<span class="doccomment">/// A new block (which is not the new best block) was added to the chain.
+<a href=#377 id=377 data-nosnippet>377</a>	///
+<a href=#378 id=378 data-nosnippet>378</a>	/// It allows the transaction pool to maintain views for all forks, not only the best
+<a href=#379 id=379 data-nosnippet>379</a>	/// chain. Pools that only care about the best chain may ignore this event.
+<a href=#380 id=380 data-nosnippet>380</a>	</span>NewBlock {
+<a href=#381 id=381 data-nosnippet>381</a>		<span class="doccomment">/// Hash of the block.
+<a href=#382 id=382 data-nosnippet>382</a>		</span>hash: B::Hash,
+<a href=#383 id=383 data-nosnippet>383</a>	},
+<a href=#384 id=384 data-nosnippet>384</a>	<span class="doccomment">/// New best block have been added to the chain.
+<a href=#385 id=385 data-nosnippet>385</a>	</span>NewBestBlock {
+<a href=#386 id=386 data-nosnippet>386</a>		<span class="doccomment">/// Hash of the block.
+<a href=#387 id=387 data-nosnippet>387</a>		</span>hash: B::Hash,
+<a href=#388 id=388 data-nosnippet>388</a>		<span class="doccomment">/// Tree route from old best to new best parent that was calculated on import.
+<a href=#389 id=389 data-nosnippet>389</a>		///
+<a href=#390 id=390 data-nosnippet>390</a>		/// If `None`, no re-org happened on import.
+<a href=#391 id=391 data-nosnippet>391</a>		</span>tree_route: <span class="prelude-ty">Option</span>&lt;Arc&lt;sp_blockchain::TreeRoute&lt;B&gt;&gt;&gt;,
+<a href=#392 id=392 data-nosnippet>392</a>	},
+<a href=#393 id=393 data-nosnippet>393</a>	<span class="doccomment">/// An existing block has been finalized.
+<a href=#394 id=394 data-nosnippet>394</a>	</span>Finalized {
+<a href=#395 id=395 data-nosnippet>395</a>		<span class="doccomment">/// Hash of just finalized block.
+<a href=#396 id=396 data-nosnippet>396</a>		</span>hash: B::Hash,
+<a href=#397 id=397 data-nosnippet>397</a>		<span class="doccomment">/// Path from old finalized to new finalized parent.
+<a href=#398 id=398 data-nosnippet>398</a>		</span>tree_route: Arc&lt;[B::Hash]&gt;,
+<a href=#399 id=399 data-nosnippet>399</a>	},
+<a href=#400 id=400 data-nosnippet>400</a>}
 <a href=#401 id=401 data-nosnippet>401</a>
-<a href=#402 id=402 data-nosnippet>402</a>	<span class="doccomment">/// Is `self == Self::Finalized`?
-<a href=#403 id=403 data-nosnippet>403</a>	</span><span class="kw">pub fn </span>is_finalized(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#404 id=404 data-nosnippet>404</a>		<span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Finalized { .. })
-<a href=#405 id=405 data-nosnippet>405</a>	}
-<a href=#406 id=406 data-nosnippet>406</a>}
-<a href=#407 id=407 data-nosnippet>407</a>
-<a href=#408 id=408 data-nosnippet>408</a><span class="doccomment">/// Trait for transaction pool maintenance.
-<a href=#409 id=409 data-nosnippet>409</a></span><span class="attr">#[async_trait]
-<a href=#410 id=410 data-nosnippet>410</a></span><span class="kw">pub trait </span>MaintainedTransactionPool: TransactionPool {
-<a href=#411 id=411 data-nosnippet>411</a>	<span class="doccomment">/// Perform maintenance
-<a href=#412 id=412 data-nosnippet>412</a>	</span><span class="kw">async fn </span>maintain(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ChainEvent&lt;<span class="self">Self</span>::Block&gt;);
-<a href=#413 id=413 data-nosnippet>413</a>}
-<a href=#414 id=414 data-nosnippet>414</a>
-<a href=#415 id=415 data-nosnippet>415</a><span class="doccomment">/// Transaction pool interface for submitting local transactions that exposes a
-<a href=#416 id=416 data-nosnippet>416</a>/// blocking interface for submission.
-<a href=#417 id=417 data-nosnippet>417</a></span><span class="kw">pub trait </span>LocalTransactionPool: Send + Sync {
-<a href=#418 id=418 data-nosnippet>418</a>	<span class="doccomment">/// Block type.
-<a href=#419 id=419 data-nosnippet>419</a>	</span><span class="kw">type </span>Block: BlockT;
-<a href=#420 id=420 data-nosnippet>420</a>	<span class="doccomment">/// Transaction hash type.
-<a href=#421 id=421 data-nosnippet>421</a>	</span><span class="kw">type </span>Hash: Hash + Eq + Member + Serialize;
-<a href=#422 id=422 data-nosnippet>422</a>	<span class="doccomment">/// Error type.
-<a href=#423 id=423 data-nosnippet>423</a>	</span><span class="kw">type </span>Error: From&lt;<span class="kw">crate</span>::error::Error&gt; + <span class="kw">crate</span>::error::IntoPoolError;
+<a href=#402 id=402 data-nosnippet>402</a><span class="kw">impl</span>&lt;B: BlockT&gt; ChainEvent&lt;B&gt; {
+<a href=#403 id=403 data-nosnippet>403</a>	<span class="doccomment">/// Returns the block hash associated to the event.
+<a href=#404 id=404 data-nosnippet>404</a>	</span><span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; B::Hash {
+<a href=#405 id=405 data-nosnippet>405</a>		<span class="kw">match </span><span class="self">self </span>{
+<a href=#406 id=406 data-nosnippet>406</a>			<span class="self">Self</span>::NewBlock { hash } |
+<a href=#407 id=407 data-nosnippet>407</a>			<span class="self">Self</span>::NewBestBlock { hash, .. } |
+<a href=#408 id=408 data-nosnippet>408</a>			<span class="self">Self</span>::Finalized { hash, .. } =&gt; <span class="kw-2">*</span>hash,
+<a href=#409 id=409 data-nosnippet>409</a>		}
+<a href=#410 id=410 data-nosnippet>410</a>	}
+<a href=#411 id=411 data-nosnippet>411</a>
+<a href=#412 id=412 data-nosnippet>412</a>	<span class="doccomment">/// Is `self == Self::Finalized`?
+<a href=#413 id=413 data-nosnippet>413</a>	</span><span class="kw">pub fn </span>is_finalized(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#414 id=414 data-nosnippet>414</a>		<span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Finalized { .. })
+<a href=#415 id=415 data-nosnippet>415</a>	}
+<a href=#416 id=416 data-nosnippet>416</a>}
+<a href=#417 id=417 data-nosnippet>417</a>
+<a href=#418 id=418 data-nosnippet>418</a><span class="doccomment">/// Trait for transaction pool maintenance.
+<a href=#419 id=419 data-nosnippet>419</a></span><span class="attr">#[async_trait]
+<a href=#420 id=420 data-nosnippet>420</a></span><span class="kw">pub trait </span>MaintainedTransactionPool: TransactionPool {
+<a href=#421 id=421 data-nosnippet>421</a>	<span class="doccomment">/// Perform maintenance
+<a href=#422 id=422 data-nosnippet>422</a>	</span><span class="kw">async fn </span>maintain(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ChainEvent&lt;<span class="self">Self</span>::Block&gt;);
+<a href=#423 id=423 data-nosnippet>423</a>}
 <a href=#424 id=424 data-nosnippet>424</a>
-<a href=#425 id=425 data-nosnippet>425</a>	<span class="doccomment">/// Submits the given local unverified transaction to the pool blocking the
-<a href=#426 id=426 data-nosnippet>426</a>	/// current thread for any necessary pre-verification.
-<a href=#427 id=427 data-nosnippet>427</a>	/// NOTE: It MUST NOT be used for transactions that originate from the
-<a href=#428 id=428 data-nosnippet>428</a>	/// network or RPC, since the validation is performed with
-<a href=#429 id=429 data-nosnippet>429</a>	/// `TransactionSource::Local`.
-<a href=#430 id=430 data-nosnippet>430</a>	</span><span class="kw">fn </span>submit_local(
-<a href=#431 id=431 data-nosnippet>431</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#432 id=432 data-nosnippet>432</a>		at: &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Hash,
-<a href=#433 id=433 data-nosnippet>433</a>		xt: LocalTransactionFor&lt;<span class="self">Self</span>&gt;,
-<a href=#434 id=434 data-nosnippet>434</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Hash, <span class="self">Self</span>::Error&gt;;
-<a href=#435 id=435 data-nosnippet>435</a>}
-<a href=#436 id=436 data-nosnippet>436</a>
-<a href=#437 id=437 data-nosnippet>437</a><span class="kw">impl</span>&lt;T: LocalTransactionPool&gt; LocalTransactionPool <span class="kw">for </span>Arc&lt;T&gt; {
-<a href=#438 id=438 data-nosnippet>438</a>	<span class="kw">type </span>Block = T::Block;
-<a href=#439 id=439 data-nosnippet>439</a>
-<a href=#440 id=440 data-nosnippet>440</a>	<span class="kw">type </span>Hash = T::Hash;
-<a href=#441 id=441 data-nosnippet>441</a>
-<a href=#442 id=442 data-nosnippet>442</a>	<span class="kw">type </span>Error = T::Error;
-<a href=#443 id=443 data-nosnippet>443</a>
-<a href=#444 id=444 data-nosnippet>444</a>	<span class="kw">fn </span>submit_local(
-<a href=#445 id=445 data-nosnippet>445</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#446 id=446 data-nosnippet>446</a>		at: &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Hash,
-<a href=#447 id=447 data-nosnippet>447</a>		xt: LocalTransactionFor&lt;<span class="self">Self</span>&gt;,
-<a href=#448 id=448 data-nosnippet>448</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Hash, <span class="self">Self</span>::Error&gt; {
-<a href=#449 id=449 data-nosnippet>449</a>		(<span class="kw-2">**</span><span class="self">self</span>).submit_local(at, xt)
-<a href=#450 id=450 data-nosnippet>450</a>	}
-<a href=#451 id=451 data-nosnippet>451</a>}
-<a href=#452 id=452 data-nosnippet>452</a>
-<a href=#453 id=453 data-nosnippet>453</a><span class="doccomment">/// An abstraction for [`LocalTransactionPool`]
-<a href=#454 id=454 data-nosnippet>454</a>///
-<a href=#455 id=455 data-nosnippet>455</a>/// We want to use a transaction pool in [`OffchainTransactionPoolFactory`] in a `Arc` without
-<a href=#456 id=456 data-nosnippet>456</a>/// bleeding the associated types besides the `Block`. Thus, this abstraction here exists to achieve
-<a href=#457 id=457 data-nosnippet>457</a>/// the wrapping in a `Arc`.
-<a href=#458 id=458 data-nosnippet>458</a></span><span class="kw">trait </span>OffchainSubmitTransaction&lt;Block: BlockT&gt;: Send + Sync {
-<a href=#459 id=459 data-nosnippet>459</a>	<span class="doccomment">/// Submit transaction.
-<a href=#460 id=460 data-nosnippet>460</a>	///
-<a href=#461 id=461 data-nosnippet>461</a>	/// The transaction will end up in the pool and be propagated to others.
-<a href=#462 id=462 data-nosnippet>462</a>	</span><span class="kw">fn </span>submit_at(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Block::Hash, extrinsic: Block::Extrinsic) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt;;
-<a href=#463 id=463 data-nosnippet>463</a>}
-<a href=#464 id=464 data-nosnippet>464</a>
-<a href=#465 id=465 data-nosnippet>465</a><span class="kw">impl</span>&lt;TPool: LocalTransactionPool&gt; OffchainSubmitTransaction&lt;TPool::Block&gt; <span class="kw">for </span>TPool {
-<a href=#466 id=466 data-nosnippet>466</a>	<span class="kw">fn </span>submit_at(
-<a href=#467 id=467 data-nosnippet>467</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#468 id=468 data-nosnippet>468</a>		at: &lt;TPool::Block <span class="kw">as </span>BlockT&gt;::Hash,
-<a href=#469 id=469 data-nosnippet>469</a>		extrinsic: &lt;TPool::Block <span class="kw">as </span>BlockT&gt;::Extrinsic,
-<a href=#470 id=470 data-nosnippet>470</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-<a href=#471 id=471 data-nosnippet>471</a>		<span class="macro">log::trace!</span>(
-<a href=#472 id=472 data-nosnippet>472</a>			target: LOG_TARGET,
-<a href=#473 id=473 data-nosnippet>473</a>			<span class="string">"(offchain call) Submitting a transaction to the pool: {:?}"</span>,
-<a href=#474 id=474 data-nosnippet>474</a>			extrinsic
-<a href=#475 id=475 data-nosnippet>475</a>		);
-<a href=#476 id=476 data-nosnippet>476</a>
-<a href=#477 id=477 data-nosnippet>477</a>		<span class="kw">let </span>result = <span class="self">self</span>.submit_local(at, extrinsic);
-<a href=#478 id=478 data-nosnippet>478</a>
-<a href=#479 id=479 data-nosnippet>479</a>		result.map(|<span class="kw">_</span>| ()).map_err(|e| {
-<a href=#480 id=480 data-nosnippet>480</a>			<span class="macro">log::warn!</span>(
-<a href=#481 id=481 data-nosnippet>481</a>				target: LOG_TARGET,
-<a href=#482 id=482 data-nosnippet>482</a>				<span class="string">"(offchain call) Error submitting a transaction to the pool: {}"</span>,
-<a href=#483 id=483 data-nosnippet>483</a>				e
-<a href=#484 id=484 data-nosnippet>484</a>			)
-<a href=#485 id=485 data-nosnippet>485</a>		})
-<a href=#486 id=486 data-nosnippet>486</a>	}
-<a href=#487 id=487 data-nosnippet>487</a>}
+<a href=#425 id=425 data-nosnippet>425</a><span class="doccomment">/// Transaction pool interface for submitting local transactions that exposes a
+<a href=#426 id=426 data-nosnippet>426</a>/// blocking interface for submission.
+<a href=#427 id=427 data-nosnippet>427</a></span><span class="kw">pub trait </span>LocalTransactionPool: Send + Sync {
+<a href=#428 id=428 data-nosnippet>428</a>	<span class="doccomment">/// Block type.
+<a href=#429 id=429 data-nosnippet>429</a>	</span><span class="kw">type </span>Block: BlockT;
+<a href=#430 id=430 data-nosnippet>430</a>	<span class="doccomment">/// Transaction hash type.
+<a href=#431 id=431 data-nosnippet>431</a>	</span><span class="kw">type </span>Hash: Hash + Eq + Member + Serialize;
+<a href=#432 id=432 data-nosnippet>432</a>	<span class="doccomment">/// Error type.
+<a href=#433 id=433 data-nosnippet>433</a>	</span><span class="kw">type </span>Error: From&lt;<span class="kw">crate</span>::error::Error&gt; + <span class="kw">crate</span>::error::IntoPoolError;
+<a href=#434 id=434 data-nosnippet>434</a>
+<a href=#435 id=435 data-nosnippet>435</a>	<span class="doccomment">/// Submits the given local unverified transaction to the pool blocking the
+<a href=#436 id=436 data-nosnippet>436</a>	/// current thread for any necessary pre-verification.
+<a href=#437 id=437 data-nosnippet>437</a>	/// NOTE: It MUST NOT be used for transactions that originate from the
+<a href=#438 id=438 data-nosnippet>438</a>	/// network or RPC, since the validation is performed with
+<a href=#439 id=439 data-nosnippet>439</a>	/// `TransactionSource::Local`.
+<a href=#440 id=440 data-nosnippet>440</a>	</span><span class="kw">fn </span>submit_local(
+<a href=#441 id=441 data-nosnippet>441</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#442 id=442 data-nosnippet>442</a>		at: &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Hash,
+<a href=#443 id=443 data-nosnippet>443</a>		xt: LocalTransactionFor&lt;<span class="self">Self</span>&gt;,
+<a href=#444 id=444 data-nosnippet>444</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Hash, <span class="self">Self</span>::Error&gt;;
+<a href=#445 id=445 data-nosnippet>445</a>}
+<a href=#446 id=446 data-nosnippet>446</a>
+<a href=#447 id=447 data-nosnippet>447</a><span class="kw">impl</span>&lt;T: LocalTransactionPool&gt; LocalTransactionPool <span class="kw">for </span>Arc&lt;T&gt; {
+<a href=#448 id=448 data-nosnippet>448</a>	<span class="kw">type </span>Block = T::Block;
+<a href=#449 id=449 data-nosnippet>449</a>
+<a href=#450 id=450 data-nosnippet>450</a>	<span class="kw">type </span>Hash = T::Hash;
+<a href=#451 id=451 data-nosnippet>451</a>
+<a href=#452 id=452 data-nosnippet>452</a>	<span class="kw">type </span>Error = T::Error;
+<a href=#453 id=453 data-nosnippet>453</a>
+<a href=#454 id=454 data-nosnippet>454</a>	<span class="kw">fn </span>submit_local(
+<a href=#455 id=455 data-nosnippet>455</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#456 id=456 data-nosnippet>456</a>		at: &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Hash,
+<a href=#457 id=457 data-nosnippet>457</a>		xt: LocalTransactionFor&lt;<span class="self">Self</span>&gt;,
+<a href=#458 id=458 data-nosnippet>458</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Hash, <span class="self">Self</span>::Error&gt; {
+<a href=#459 id=459 data-nosnippet>459</a>		(<span class="kw-2">**</span><span class="self">self</span>).submit_local(at, xt)
+<a href=#460 id=460 data-nosnippet>460</a>	}
+<a href=#461 id=461 data-nosnippet>461</a>}
+<a href=#462 id=462 data-nosnippet>462</a>
+<a href=#463 id=463 data-nosnippet>463</a><span class="doccomment">/// An abstraction for [`LocalTransactionPool`]
+<a href=#464 id=464 data-nosnippet>464</a>///
+<a href=#465 id=465 data-nosnippet>465</a>/// We want to use a transaction pool in [`OffchainTransactionPoolFactory`] in a `Arc` without
+<a href=#466 id=466 data-nosnippet>466</a>/// bleeding the associated types besides the `Block`. Thus, this abstraction here exists to achieve
+<a href=#467 id=467 data-nosnippet>467</a>/// the wrapping in a `Arc`.
+<a href=#468 id=468 data-nosnippet>468</a></span><span class="kw">trait </span>OffchainSubmitTransaction&lt;Block: BlockT&gt;: Send + Sync {
+<a href=#469 id=469 data-nosnippet>469</a>	<span class="doccomment">/// Submit transaction.
+<a href=#470 id=470 data-nosnippet>470</a>	///
+<a href=#471 id=471 data-nosnippet>471</a>	/// The transaction will end up in the pool and be propagated to others.
+<a href=#472 id=472 data-nosnippet>472</a>	</span><span class="kw">fn </span>submit_at(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Block::Hash, extrinsic: Block::Extrinsic) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt;;
+<a href=#473 id=473 data-nosnippet>473</a>}
+<a href=#474 id=474 data-nosnippet>474</a>
+<a href=#475 id=475 data-nosnippet>475</a><span class="kw">impl</span>&lt;TPool: LocalTransactionPool&gt; OffchainSubmitTransaction&lt;TPool::Block&gt; <span class="kw">for </span>TPool {
+<a href=#476 id=476 data-nosnippet>476</a>	<span class="kw">fn </span>submit_at(
+<a href=#477 id=477 data-nosnippet>477</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#478 id=478 data-nosnippet>478</a>		at: &lt;TPool::Block <span class="kw">as </span>BlockT&gt;::Hash,
+<a href=#479 id=479 data-nosnippet>479</a>		extrinsic: &lt;TPool::Block <span class="kw">as </span>BlockT&gt;::Extrinsic,
+<a href=#480 id=480 data-nosnippet>480</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+<a href=#481 id=481 data-nosnippet>481</a>		<span class="macro">log::trace!</span>(
+<a href=#482 id=482 data-nosnippet>482</a>			target: LOG_TARGET,
+<a href=#483 id=483 data-nosnippet>483</a>			<span class="string">"(offchain call) Submitting a transaction to the pool: {:?}"</span>,
+<a href=#484 id=484 data-nosnippet>484</a>			extrinsic
+<a href=#485 id=485 data-nosnippet>485</a>		);
+<a href=#486 id=486 data-nosnippet>486</a>
+<a href=#487 id=487 data-nosnippet>487</a>		<span class="kw">let </span>result = <span class="self">self</span>.submit_local(at, extrinsic);
 <a href=#488 id=488 data-nosnippet>488</a>
-<a href=#489 id=489 data-nosnippet>489</a><span class="doccomment">/// Factory for creating [`TransactionPoolExt`]s.
-<a href=#490 id=490 data-nosnippet>490</a>///
-<a href=#491 id=491 data-nosnippet>491</a>/// This provides an easy way for creating [`TransactionPoolExt`] extensions for registering them in
-<a href=#492 id=492 data-nosnippet>492</a>/// the wasm execution environment to send transactions from an offchain call to the  runtime.
-<a href=#493 id=493 data-nosnippet>493</a></span><span class="attr">#[derive(Clone)]
-<a href=#494 id=494 data-nosnippet>494</a></span><span class="kw">pub struct </span>OffchainTransactionPoolFactory&lt;Block: BlockT&gt; {
-<a href=#495 id=495 data-nosnippet>495</a>	pool: Arc&lt;<span class="kw">dyn </span>OffchainSubmitTransaction&lt;Block&gt;&gt;,
-<a href=#496 id=496 data-nosnippet>496</a>}
-<a href=#497 id=497 data-nosnippet>497</a>
-<a href=#498 id=498 data-nosnippet>498</a><span class="kw">impl</span>&lt;Block: BlockT&gt; OffchainTransactionPoolFactory&lt;Block&gt; {
-<a href=#499 id=499 data-nosnippet>499</a>	<span class="doccomment">/// Creates a new instance using the given `tx_pool`.
-<a href=#500 id=500 data-nosnippet>500</a>	</span><span class="kw">pub fn </span>new&lt;T: LocalTransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static</span>&gt;(tx_pool: T) -&gt; <span class="self">Self </span>{
-<a href=#501 id=501 data-nosnippet>501</a>		<span class="self">Self </span>{ pool: Arc::new(tx_pool) <span class="kw">as </span>Arc&lt;<span class="kw">_</span>&gt; }
-<a href=#502 id=502 data-nosnippet>502</a>	}
-<a href=#503 id=503 data-nosnippet>503</a>
-<a href=#504 id=504 data-nosnippet>504</a>	<span class="doccomment">/// Returns an instance of [`TransactionPoolExt`] bound to the given `block_hash`.
-<a href=#505 id=505 data-nosnippet>505</a>	///
-<a href=#506 id=506 data-nosnippet>506</a>	/// Transactions that are being submitted by this instance will be submitted with `block_hash`
-<a href=#507 id=507 data-nosnippet>507</a>	/// as context for validation.
-<a href=#508 id=508 data-nosnippet>508</a>	</span><span class="kw">pub fn </span>offchain_transaction_pool(<span class="kw-2">&amp;</span><span class="self">self</span>, block_hash: Block::Hash) -&gt; TransactionPoolExt {
-<a href=#509 id=509 data-nosnippet>509</a>		TransactionPoolExt::new(OffchainTransactionPool { pool: <span class="self">self</span>.pool.clone(), block_hash })
-<a href=#510 id=510 data-nosnippet>510</a>	}
-<a href=#511 id=511 data-nosnippet>511</a>}
-<a href=#512 id=512 data-nosnippet>512</a>
-<a href=#513 id=513 data-nosnippet>513</a><span class="doccomment">/// Wraps a `pool` and `block_hash` to implement [`sp_core::offchain::TransactionPool`].
-<a href=#514 id=514 data-nosnippet>514</a></span><span class="kw">struct </span>OffchainTransactionPool&lt;Block: BlockT&gt; {
-<a href=#515 id=515 data-nosnippet>515</a>	block_hash: Block::Hash,
-<a href=#516 id=516 data-nosnippet>516</a>	pool: Arc&lt;<span class="kw">dyn </span>OffchainSubmitTransaction&lt;Block&gt;&gt;,
-<a href=#517 id=517 data-nosnippet>517</a>}
-<a href=#518 id=518 data-nosnippet>518</a>
-<a href=#519 id=519 data-nosnippet>519</a><span class="kw">impl</span>&lt;Block: BlockT&gt; sp_core::offchain::TransactionPool <span class="kw">for </span>OffchainTransactionPool&lt;Block&gt; {
-<a href=#520 id=520 data-nosnippet>520</a>	<span class="kw">fn </span>submit_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>, extrinsic: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-<a href=#521 id=521 data-nosnippet>521</a>		<span class="kw">let </span>extrinsic = <span class="kw">match </span>codec::Decode::decode(<span class="kw-2">&amp;mut &amp;</span>extrinsic[..]) {
-<a href=#522 id=522 data-nosnippet>522</a>			<span class="prelude-val">Ok</span>(t) =&gt; t,
-<a href=#523 id=523 data-nosnippet>523</a>			<span class="prelude-val">Err</span>(e) =&gt; {
-<a href=#524 id=524 data-nosnippet>524</a>				<span class="macro">log::error!</span>(
-<a href=#525 id=525 data-nosnippet>525</a>					target: LOG_TARGET,
-<a href=#526 id=526 data-nosnippet>526</a>					<span class="string">"Failed to decode extrinsic in `OffchainTransactionPool::submit_transaction`: {e:?}"
-<a href=#527 id=527 data-nosnippet>527</a>				</span>);
+<a href=#489 id=489 data-nosnippet>489</a>		result.map(|<span class="kw">_</span>| ()).map_err(|e| {
+<a href=#490 id=490 data-nosnippet>490</a>			<span class="macro">log::warn!</span>(
+<a href=#491 id=491 data-nosnippet>491</a>				target: LOG_TARGET,
+<a href=#492 id=492 data-nosnippet>492</a>				<span class="string">"(offchain call) Error submitting a transaction to the pool: {}"</span>,
+<a href=#493 id=493 data-nosnippet>493</a>				e
+<a href=#494 id=494 data-nosnippet>494</a>			)
+<a href=#495 id=495 data-nosnippet>495</a>		})
+<a href=#496 id=496 data-nosnippet>496</a>	}
+<a href=#497 id=497 data-nosnippet>497</a>}
+<a href=#498 id=498 data-nosnippet>498</a>
+<a href=#499 id=499 data-nosnippet>499</a><span class="doccomment">/// Factory for creating [`TransactionPoolExt`]s.
+<a href=#500 id=500 data-nosnippet>500</a>///
+<a href=#501 id=501 data-nosnippet>501</a>/// This provides an easy way for creating [`TransactionPoolExt`] extensions for registering them in
+<a href=#502 id=502 data-nosnippet>502</a>/// the wasm execution environment to send transactions from an offchain call to the  runtime.
+<a href=#503 id=503 data-nosnippet>503</a></span><span class="attr">#[derive(Clone)]
+<a href=#504 id=504 data-nosnippet>504</a></span><span class="kw">pub struct </span>OffchainTransactionPoolFactory&lt;Block: BlockT&gt; {
+<a href=#505 id=505 data-nosnippet>505</a>	pool: Arc&lt;<span class="kw">dyn </span>OffchainSubmitTransaction&lt;Block&gt;&gt;,
+<a href=#506 id=506 data-nosnippet>506</a>}
+<a href=#507 id=507 data-nosnippet>507</a>
+<a href=#508 id=508 data-nosnippet>508</a><span class="kw">impl</span>&lt;Block: BlockT&gt; OffchainTransactionPoolFactory&lt;Block&gt; {
+<a href=#509 id=509 data-nosnippet>509</a>	<span class="doccomment">/// Creates a new instance using the given `tx_pool`.
+<a href=#510 id=510 data-nosnippet>510</a>	</span><span class="kw">pub fn </span>new&lt;T: LocalTransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static</span>&gt;(tx_pool: T) -&gt; <span class="self">Self </span>{
+<a href=#511 id=511 data-nosnippet>511</a>		<span class="self">Self </span>{ pool: Arc::new(tx_pool) <span class="kw">as </span>Arc&lt;<span class="kw">_</span>&gt; }
+<a href=#512 id=512 data-nosnippet>512</a>	}
+<a href=#513 id=513 data-nosnippet>513</a>
+<a href=#514 id=514 data-nosnippet>514</a>	<span class="doccomment">/// Returns an instance of [`TransactionPoolExt`] bound to the given `block_hash`.
+<a href=#515 id=515 data-nosnippet>515</a>	///
+<a href=#516 id=516 data-nosnippet>516</a>	/// Transactions that are being submitted by this instance will be submitted with `block_hash`
+<a href=#517 id=517 data-nosnippet>517</a>	/// as context for validation.
+<a href=#518 id=518 data-nosnippet>518</a>	</span><span class="kw">pub fn </span>offchain_transaction_pool(<span class="kw-2">&amp;</span><span class="self">self</span>, block_hash: Block::Hash) -&gt; TransactionPoolExt {
+<a href=#519 id=519 data-nosnippet>519</a>		TransactionPoolExt::new(OffchainTransactionPool { pool: <span class="self">self</span>.pool.clone(), block_hash })
+<a href=#520 id=520 data-nosnippet>520</a>	}
+<a href=#521 id=521 data-nosnippet>521</a>}
+<a href=#522 id=522 data-nosnippet>522</a>
+<a href=#523 id=523 data-nosnippet>523</a><span class="doccomment">/// Wraps a `pool` and `block_hash` to implement [`sp_core::offchain::TransactionPool`].
+<a href=#524 id=524 data-nosnippet>524</a></span><span class="kw">struct </span>OffchainTransactionPool&lt;Block: BlockT&gt; {
+<a href=#525 id=525 data-nosnippet>525</a>	block_hash: Block::Hash,
+<a href=#526 id=526 data-nosnippet>526</a>	pool: Arc&lt;<span class="kw">dyn </span>OffchainSubmitTransaction&lt;Block&gt;&gt;,
+<a href=#527 id=527 data-nosnippet>527</a>}
 <a href=#528 id=528 data-nosnippet>528</a>
-<a href=#529 id=529 data-nosnippet>529</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(());
-<a href=#530 id=530 data-nosnippet>530</a>			},
-<a href=#531 id=531 data-nosnippet>531</a>		};
-<a href=#532 id=532 data-nosnippet>532</a>
-<a href=#533 id=533 data-nosnippet>533</a>		<span class="self">self</span>.pool.submit_at(<span class="self">self</span>.block_hash, extrinsic)
-<a href=#534 id=534 data-nosnippet>534</a>	}
-<a href=#535 id=535 data-nosnippet>535</a>}
-<a href=#536 id=536 data-nosnippet>536</a>
-<a href=#537 id=537 data-nosnippet>537</a><span class="doccomment">/// Wrapper functions to keep the API backwards compatible over the wire for the old RPC spec.
-<a href=#538 id=538 data-nosnippet>538</a></span><span class="kw">mod </span>v1_compatible {
-<a href=#539 id=539 data-nosnippet>539</a>	<span class="kw">use </span>serde::{Deserialize, Deserializer, Serialize, Serializer};
-<a href=#540 id=540 data-nosnippet>540</a>
-<a href=#541 id=541 data-nosnippet>541</a>	<span class="kw">pub fn </span>serialize&lt;S, H&gt;(data: <span class="kw-2">&amp;</span>(H, usize), serializer: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
-<a href=#542 id=542 data-nosnippet>542</a>	<span class="kw">where
-<a href=#543 id=543 data-nosnippet>543</a>		</span>S: Serializer,
-<a href=#544 id=544 data-nosnippet>544</a>		H: Serialize,
-<a href=#545 id=545 data-nosnippet>545</a>	{
-<a href=#546 id=546 data-nosnippet>546</a>		<span class="kw">let </span>(hash, <span class="kw">_</span>) = data;
-<a href=#547 id=547 data-nosnippet>547</a>		serde::Serialize::serialize(<span class="kw-2">&amp;</span>hash, serializer)
-<a href=#548 id=548 data-nosnippet>548</a>	}
-<a href=#549 id=549 data-nosnippet>549</a>
-<a href=#550 id=550 data-nosnippet>550</a>	<span class="kw">pub fn </span>deserialize&lt;<span class="lifetime">'de</span>, D, H&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;(H, usize), D::Error&gt;
-<a href=#551 id=551 data-nosnippet>551</a>	<span class="kw">where
-<a href=#552 id=552 data-nosnippet>552</a>		</span>D: Deserializer&lt;<span class="lifetime">'de</span>&gt;,
-<a href=#553 id=553 data-nosnippet>553</a>		H: Deserialize&lt;<span class="lifetime">'de</span>&gt;,
-<a href=#554 id=554 data-nosnippet>554</a>	{
-<a href=#555 id=555 data-nosnippet>555</a>		<span class="kw">let </span>hash: H = serde::Deserialize::deserialize(deserializer)<span class="question-mark">?</span>;
-<a href=#556 id=556 data-nosnippet>556</a>		<span class="prelude-val">Ok</span>((hash, <span class="number">0</span>))
-<a href=#557 id=557 data-nosnippet>557</a>	}
-<a href=#558 id=558 data-nosnippet>558</a>}
+<a href=#529 id=529 data-nosnippet>529</a><span class="kw">impl</span>&lt;Block: BlockT&gt; sp_core::offchain::TransactionPool <span class="kw">for </span>OffchainTransactionPool&lt;Block&gt; {
+<a href=#530 id=530 data-nosnippet>530</a>	<span class="kw">fn </span>submit_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>, extrinsic: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+<a href=#531 id=531 data-nosnippet>531</a>		<span class="kw">let </span>extrinsic = <span class="kw">match </span>codec::Decode::decode(<span class="kw-2">&amp;mut &amp;</span>extrinsic[..]) {
+<a href=#532 id=532 data-nosnippet>532</a>			<span class="prelude-val">Ok</span>(t) =&gt; t,
+<a href=#533 id=533 data-nosnippet>533</a>			<span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#534 id=534 data-nosnippet>534</a>				<span class="macro">log::error!</span>(
+<a href=#535 id=535 data-nosnippet>535</a>					target: LOG_TARGET,
+<a href=#536 id=536 data-nosnippet>536</a>					<span class="string">"Failed to decode extrinsic in `OffchainTransactionPool::submit_transaction`: {e:?}"
+<a href=#537 id=537 data-nosnippet>537</a>				</span>);
+<a href=#538 id=538 data-nosnippet>538</a>
+<a href=#539 id=539 data-nosnippet>539</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(());
+<a href=#540 id=540 data-nosnippet>540</a>			},
+<a href=#541 id=541 data-nosnippet>541</a>		};
+<a href=#542 id=542 data-nosnippet>542</a>
+<a href=#543 id=543 data-nosnippet>543</a>		<span class="self">self</span>.pool.submit_at(<span class="self">self</span>.block_hash, extrinsic)
+<a href=#544 id=544 data-nosnippet>544</a>	}
+<a href=#545 id=545 data-nosnippet>545</a>}
+<a href=#546 id=546 data-nosnippet>546</a>
+<a href=#547 id=547 data-nosnippet>547</a><span class="doccomment">/// Wrapper functions to keep the API backwards compatible over the wire for the old RPC spec.
+<a href=#548 id=548 data-nosnippet>548</a></span><span class="kw">mod </span>v1_compatible {
+<a href=#549 id=549 data-nosnippet>549</a>	<span class="kw">use </span>serde::{Deserialize, Deserializer, Serialize, Serializer};
+<a href=#550 id=550 data-nosnippet>550</a>
+<a href=#551 id=551 data-nosnippet>551</a>	<span class="kw">pub fn </span>serialize&lt;S, H&gt;(data: <span class="kw-2">&amp;</span>(H, usize), serializer: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
+<a href=#552 id=552 data-nosnippet>552</a>	<span class="kw">where
+<a href=#553 id=553 data-nosnippet>553</a>		</span>S: Serializer,
+<a href=#554 id=554 data-nosnippet>554</a>		H: Serialize,
+<a href=#555 id=555 data-nosnippet>555</a>	{
+<a href=#556 id=556 data-nosnippet>556</a>		<span class="kw">let </span>(hash, <span class="kw">_</span>) = data;
+<a href=#557 id=557 data-nosnippet>557</a>		serde::Serialize::serialize(<span class="kw-2">&amp;</span>hash, serializer)
+<a href=#558 id=558 data-nosnippet>558</a>	}
 <a href=#559 id=559 data-nosnippet>559</a>
-<a href=#560 id=560 data-nosnippet>560</a><span class="doccomment">/// Transaction pool that rejects all submitted transactions.
-<a href=#561 id=561 data-nosnippet>561</a>///
-<a href=#562 id=562 data-nosnippet>562</a>/// Could be used for example in tests.
-<a href=#563 id=563 data-nosnippet>563</a></span><span class="kw">pub struct </span>RejectAllTxPool&lt;Block&gt;(PhantomData&lt;Block&gt;);
-<a href=#564 id=564 data-nosnippet>564</a>
-<a href=#565 id=565 data-nosnippet>565</a><span class="kw">impl</span>&lt;Block&gt; Default <span class="kw">for </span>RejectAllTxPool&lt;Block&gt; {
-<a href=#566 id=566 data-nosnippet>566</a>	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-<a href=#567 id=567 data-nosnippet>567</a>		<span class="self">Self</span>(PhantomData)
-<a href=#568 id=568 data-nosnippet>568</a>	}
-<a href=#569 id=569 data-nosnippet>569</a>}
-<a href=#570 id=570 data-nosnippet>570</a>
-<a href=#571 id=571 data-nosnippet>571</a><span class="kw">impl</span>&lt;Block: BlockT&gt; LocalTransactionPool <span class="kw">for </span>RejectAllTxPool&lt;Block&gt; {
-<a href=#572 id=572 data-nosnippet>572</a>	<span class="kw">type </span>Block = Block;
-<a href=#573 id=573 data-nosnippet>573</a>
-<a href=#574 id=574 data-nosnippet>574</a>	<span class="kw">type </span>Hash = Block::Hash;
-<a href=#575 id=575 data-nosnippet>575</a>
-<a href=#576 id=576 data-nosnippet>576</a>	<span class="kw">type </span>Error = error::Error;
-<a href=#577 id=577 data-nosnippet>577</a>
-<a href=#578 id=578 data-nosnippet>578</a>	<span class="kw">fn </span>submit_local(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: Block::Hash, <span class="kw">_</span>: Block::Extrinsic) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Hash, <span class="self">Self</span>::Error&gt; {
-<a href=#579 id=579 data-nosnippet>579</a>		<span class="prelude-val">Err</span>(error::Error::ImmediatelyDropped)
-<a href=#580 id=580 data-nosnippet>580</a>	}
-<a href=#581 id=581 data-nosnippet>581</a>}
-<a href=#582 id=582 data-nosnippet>582</a>
-<a href=#583 id=583 data-nosnippet>583</a><span class="attr">#[cfg(test)]
-<a href=#584 id=584 data-nosnippet>584</a></span><span class="kw">mod </span>tests {
-<a href=#585 id=585 data-nosnippet>585</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#586 id=586 data-nosnippet>586</a>
-<a href=#587 id=587 data-nosnippet>587</a>	<span class="attr">#[test]
-<a href=#588 id=588 data-nosnippet>588</a>	</span><span class="kw">fn </span>tx_status_compatibility() {
-<a href=#589 id=589 data-nosnippet>589</a>		<span class="kw">let </span>event: TransactionStatus&lt;u8, u8&gt; = TransactionStatus::InBlock((<span class="number">1</span>, <span class="number">2</span>));
-<a href=#590 id=590 data-nosnippet>590</a>		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-<a href=#591 id=591 data-nosnippet>591</a>
-<a href=#592 id=592 data-nosnippet>592</a>		<span class="kw">let </span>exp = <span class="string">r#"{"inBlock":1}"#</span>;
-<a href=#593 id=593 data-nosnippet>593</a>		<span class="macro">assert_eq!</span>(ser, exp);
-<a href=#594 id=594 data-nosnippet>594</a>
-<a href=#595 id=595 data-nosnippet>595</a>		<span class="kw">let </span>event_dec: TransactionStatus&lt;u8, u8&gt; = serde_json::from_str(exp).unwrap();
-<a href=#596 id=596 data-nosnippet>596</a>		<span class="macro">assert_eq!</span>(event_dec, TransactionStatus::InBlock((<span class="number">1</span>, <span class="number">0</span>)));
-<a href=#597 id=597 data-nosnippet>597</a>
-<a href=#598 id=598 data-nosnippet>598</a>		<span class="kw">let </span>event: TransactionStatus&lt;u8, u8&gt; = TransactionStatus::Finalized((<span class="number">1</span>, <span class="number">2</span>));
-<a href=#599 id=599 data-nosnippet>599</a>		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-<a href=#600 id=600 data-nosnippet>600</a>
-<a href=#601 id=601 data-nosnippet>601</a>		<span class="kw">let </span>exp = <span class="string">r#"{"finalized":1}"#</span>;
-<a href=#602 id=602 data-nosnippet>602</a>		<span class="macro">assert_eq!</span>(ser, exp);
-<a href=#603 id=603 data-nosnippet>603</a>
-<a href=#604 id=604 data-nosnippet>604</a>		<span class="kw">let </span>event_dec: TransactionStatus&lt;u8, u8&gt; = serde_json::from_str(exp).unwrap();
-<a href=#605 id=605 data-nosnippet>605</a>		<span class="macro">assert_eq!</span>(event_dec, TransactionStatus::Finalized((<span class="number">1</span>, <span class="number">0</span>)));
-<a href=#606 id=606 data-nosnippet>606</a>	}
-<a href=#607 id=607 data-nosnippet>607</a>}
+<a href=#560 id=560 data-nosnippet>560</a>	<span class="kw">pub fn </span>deserialize&lt;<span class="lifetime">'de</span>, D, H&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;(H, usize), D::Error&gt;
+<a href=#561 id=561 data-nosnippet>561</a>	<span class="kw">where
+<a href=#562 id=562 data-nosnippet>562</a>		</span>D: Deserializer&lt;<span class="lifetime">'de</span>&gt;,
+<a href=#563 id=563 data-nosnippet>563</a>		H: Deserialize&lt;<span class="lifetime">'de</span>&gt;,
+<a href=#564 id=564 data-nosnippet>564</a>	{
+<a href=#565 id=565 data-nosnippet>565</a>		<span class="kw">let </span>hash: H = serde::Deserialize::deserialize(deserializer)<span class="question-mark">?</span>;
+<a href=#566 id=566 data-nosnippet>566</a>		<span class="prelude-val">Ok</span>((hash, <span class="number">0</span>))
+<a href=#567 id=567 data-nosnippet>567</a>	}
+<a href=#568 id=568 data-nosnippet>568</a>}
+<a href=#569 id=569 data-nosnippet>569</a>
+<a href=#570 id=570 data-nosnippet>570</a><span class="doccomment">/// Transaction pool that rejects all submitted transactions.
+<a href=#571 id=571 data-nosnippet>571</a>///
+<a href=#572 id=572 data-nosnippet>572</a>/// Could be used for example in tests.
+<a href=#573 id=573 data-nosnippet>573</a></span><span class="kw">pub struct </span>RejectAllTxPool&lt;Block&gt;(PhantomData&lt;Block&gt;);
+<a href=#574 id=574 data-nosnippet>574</a>
+<a href=#575 id=575 data-nosnippet>575</a><span class="kw">impl</span>&lt;Block&gt; Default <span class="kw">for </span>RejectAllTxPool&lt;Block&gt; {
+<a href=#576 id=576 data-nosnippet>576</a>	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href=#577 id=577 data-nosnippet>577</a>		<span class="self">Self</span>(PhantomData)
+<a href=#578 id=578 data-nosnippet>578</a>	}
+<a href=#579 id=579 data-nosnippet>579</a>}
+<a href=#580 id=580 data-nosnippet>580</a>
+<a href=#581 id=581 data-nosnippet>581</a><span class="kw">impl</span>&lt;Block: BlockT&gt; LocalTransactionPool <span class="kw">for </span>RejectAllTxPool&lt;Block&gt; {
+<a href=#582 id=582 data-nosnippet>582</a>	<span class="kw">type </span>Block = Block;
+<a href=#583 id=583 data-nosnippet>583</a>
+<a href=#584 id=584 data-nosnippet>584</a>	<span class="kw">type </span>Hash = Block::Hash;
+<a href=#585 id=585 data-nosnippet>585</a>
+<a href=#586 id=586 data-nosnippet>586</a>	<span class="kw">type </span>Error = error::Error;
+<a href=#587 id=587 data-nosnippet>587</a>
+<a href=#588 id=588 data-nosnippet>588</a>	<span class="kw">fn </span>submit_local(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: Block::Hash, <span class="kw">_</span>: Block::Extrinsic) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Hash, <span class="self">Self</span>::Error&gt; {
+<a href=#589 id=589 data-nosnippet>589</a>		<span class="prelude-val">Err</span>(error::Error::ImmediatelyDropped)
+<a href=#590 id=590 data-nosnippet>590</a>	}
+<a href=#591 id=591 data-nosnippet>591</a>}
+<a href=#592 id=592 data-nosnippet>592</a>
+<a href=#593 id=593 data-nosnippet>593</a><span class="attr">#[cfg(test)]
+<a href=#594 id=594 data-nosnippet>594</a></span><span class="kw">mod </span>tests {
+<a href=#595 id=595 data-nosnippet>595</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#596 id=596 data-nosnippet>596</a>
+<a href=#597 id=597 data-nosnippet>597</a>	<span class="attr">#[test]
+<a href=#598 id=598 data-nosnippet>598</a>	</span><span class="kw">fn </span>tx_status_compatibility() {
+<a href=#599 id=599 data-nosnippet>599</a>		<span class="kw">let </span>event: TransactionStatus&lt;u8, u8&gt; = TransactionStatus::InBlock((<span class="number">1</span>, <span class="number">2</span>));
+<a href=#600 id=600 data-nosnippet>600</a>		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
+<a href=#601 id=601 data-nosnippet>601</a>
+<a href=#602 id=602 data-nosnippet>602</a>		<span class="kw">let </span>exp = <span class="string">r#"{"inBlock":1}"#</span>;
+<a href=#603 id=603 data-nosnippet>603</a>		<span class="macro">assert_eq!</span>(ser, exp);
+<a href=#604 id=604 data-nosnippet>604</a>
+<a href=#605 id=605 data-nosnippet>605</a>		<span class="kw">let </span>event_dec: TransactionStatus&lt;u8, u8&gt; = serde_json::from_str(exp).unwrap();
+<a href=#606 id=606 data-nosnippet>606</a>		<span class="macro">assert_eq!</span>(event_dec, TransactionStatus::InBlock((<span class="number">1</span>, <span class="number">0</span>)));
+<a href=#607 id=607 data-nosnippet>607</a>
+<a href=#608 id=608 data-nosnippet>608</a>		<span class="kw">let </span>event: TransactionStatus&lt;u8, u8&gt; = TransactionStatus::Finalized((<span class="number">1</span>, <span class="number">2</span>));
+<a href=#609 id=609 data-nosnippet>609</a>		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
+<a href=#610 id=610 data-nosnippet>610</a>
+<a href=#611 id=611 data-nosnippet>611</a>		<span class="kw">let </span>exp = <span class="string">r#"{"finalized":1}"#</span>;
+<a href=#612 id=612 data-nosnippet>612</a>		<span class="macro">assert_eq!</span>(ser, exp);
+<a href=#613 id=613 data-nosnippet>613</a>
+<a href=#614 id=614 data-nosnippet>614</a>		<span class="kw">let </span>event_dec: TransactionStatus&lt;u8, u8&gt; = serde_json::from_str(exp).unwrap();
+<a href=#615 id=615 data-nosnippet>615</a>		<span class="macro">assert_eq!</span>(event_dec, TransactionStatus::Finalized((<span class="number">1</span>, <span class="number">0</span>)));
+<a href=#616 id=616 data-nosnippet>616</a>	}
+<a href=#617 id=617 data-nosnippet>617</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
