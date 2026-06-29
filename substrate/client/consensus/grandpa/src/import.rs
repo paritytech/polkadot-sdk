@@ -782,7 +782,7 @@ where
 	///
 	/// If `enacts_change` is set to true, then finalizing this block *must*
 	/// enact an authority set change, the function will panic otherwise.
-	fn import_justification(
+	pub(crate) fn import_justification(
 		&self,
 		hash: Block::Hash,
 		number: NumberFor<Block>,
@@ -799,11 +799,23 @@ where
 			return Ok(());
 		}
 
+		// Hold the authority set lock for the whole verification + finalization
+		// sequence. This makes the check we perform here (verifying the
+		// justification against the current set id) atomic with respect to the
+		// finalization that `environment::finalize_block` applies below. Without
+		// holding it continuously, another finalizer (e.g. the voter acting on a
+		// gossiped commit) could finalize this same block in the window between
+		// the verification and `finalize_block` re-acquiring the lock, after
+		// which `finalize_block` would short-circuit on its "already finalized"
+		// guard and report no change to enact even though `enacts_change` was
+		// `true` — previously tripping the assertion below.
+		let authority_set = self.authority_set.inner();
+
 		let justification = GrandpaJustification::decode_and_verify_finalizes(
 			&justification.1,
 			(hash, number),
-			self.authority_set.set_id(),
-			&self.authority_set.current_authorities(),
+			authority_set.set_id,
+			&authority_set.current_voter_set(),
 		);
 
 		let justification = match justification {
@@ -820,7 +832,7 @@ where
 
 		let result = environment::finalize_block(
 			self.inner.clone(),
-			&self.authority_set,
+			authority_set,
 			None,
 			hash,
 			number,
@@ -856,6 +868,15 @@ where
 				})
 			},
 			Ok(_) => {
+				// Holding the authority set lock across the justification verification
+				// above and this finalization makes the two atomic: a concurrent
+				// finalizer (e.g. the voter acting on a gossiped commit) can no longer
+				// finalize this block in between. Either it finalized the block before
+				// we took the lock — bumping the set id, so verification above failed
+				// with `OutdatedJustification` and we never get here — or we hold the
+				// lock first, in which case the pending change is still present and
+				// `finalize_block` enacts it (returning a `VoterCommand` above). Hence
+				// reaching this arm with `enacts_change` set would be a genuine bug.
 				assert!(
 					!enacts_change,
 					"returns Ok when no authority set change should be enacted; qed;"
