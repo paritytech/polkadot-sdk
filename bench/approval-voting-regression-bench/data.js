@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782759934637,
+  "lastUpdate": 1782768905961,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "eb53cda54c1384ce7cdd51d3a30772e1e95cb568",
-          "message": "Notify when there is a new best block (#10220)\n\n# Description\n\nModify the tx_notifier to send the block hash to the subscribers instead\nof all transactions hashes.\nModify the send_raw_transaction to look for the transaction hash in the\ntransactions field of the evm block.\n\nWe need this changes in anvil-polkadot:\n* https://github.com/paritytech/foundry-polkadot/pull/389\n* to be able to implement some RPCs like : send_transaction_sync and the\nfilters logic\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-06T15:00:23Z",
-          "tree_id": "53e26ba861384add37c4831a831f7af88485b4e4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eb53cda54c1384ce7cdd51d3a30772e1e95cb568"
-        },
-        "date": 1762445937920,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63626.590000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.417897032150001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43958552170000187,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.3913753531500013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9609519435199982,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.8275368735609954,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020076539999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001991095,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.051746711960002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020076539999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4401874812,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.395920394390001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0058289858500000045,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001991095,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.7566916387000022,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fba8b6f3a5d705d6e18db62f17bd27aa5ec5bd9a",
+          "message": "[pallet-revive]: Typegraph Generation (#11957)\n\n# Description\n\nThis PR is part of\nhttps://github.com/paritytech/polkadot-sdk/issues/11923 and closes\nhttps://github.com/paritytech/polkadot-sdk/issues/11926.\n\nThis PR adds a single script to the `types` crate of pallet-revive to\nallow us to generate SVG type-graphs of all of the types defined in the\ncrate.\n\nWe need this to be able to easily answer the following question: \"I just\nmade a change to model X in the `types` crate. What other models do I\nneed to change as a result of this change?\"\n\nThe generated type-graph looks like the following:\n\n<img width=\"2672\" height=\"1522\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/62ea62a9-8a0d-4cbb-bb86-bd058c851d6a\"\n/>\n\nLet's take this PR https://github.com/paritytech/polkadot-sdk/pull/11532\nas an example of how this type-graph can be used which adds a new field\nto the `CallLog` type. After generating the type-graph, we can find that\nnode and click it which produces the following:\n\n<img width=\"2672\" height=\"1522\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/88c91d34-d17f-4b7a-8aa2-a8ce314e356d\"\n/>\n\nThis immedietly tells us that we would need to:\n\n- Update the `CallTrace` type to include the new `CallLog`.\n- Update the `IndexedTrace` type to include the new `CallTrace`.\n- Update the following runtime API functions with the new data being\nreturned by the runtime API:\n    - `trace_call`\n    - `trace_tx`\n    - `trace_block`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-06-29T19:50:44Z",
+          "tree_id": "e90cebb245899d89bba660a654a0e1c436bc7e02",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fba8b6f3a5d705d6e18db62f17bd27aa5ec5bd9a"
+        },
+        "date": 1782768875938,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63598.82000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7489290441000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.245411725109927,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.791300685809999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000025158229999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005373667600000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8314691766300006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000025158229999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4224586014800007,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.299480884592567,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7243229490999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002127394,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7215576003899272,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002127394,
             "unit": "seconds"
           }
         ]
