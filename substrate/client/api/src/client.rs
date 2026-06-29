@@ -418,14 +418,12 @@ pub struct FinalityNotification<Block: BlockT> {
 	unpin_handle: UnpinHandle<Block>,
 }
 
-impl<B: BlockT> TryFrom<BlockImportNotification<B>> for ChainEvent<B> {
-	type Error = ();
-
-	fn try_from(n: BlockImportNotification<B>) -> Result<Self, ()> {
+impl<B: BlockT> From<BlockImportNotification<B>> for ChainEvent<B> {
+	fn from(n: BlockImportNotification<B>) -> Self {
 		if n.is_new_best {
-			Ok(Self::NewBestBlock { hash: n.hash, tree_route: n.tree_route })
+			Self::NewBestBlock { hash: n.hash, tree_route: n.tree_route }
 		} else {
-			Err(())
+			Self::NewBlock { hash: n.hash }
 		}
 	}
 }
