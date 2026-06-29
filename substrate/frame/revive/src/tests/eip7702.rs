@@ -602,6 +602,113 @@ fn refund_routes_to_set_payer_not_clear_submitter() {
 	});
 }
 
+/// Repro (reviewer finding): under the production `new_eth_tx` config, the payer-change refund is
+/// routed via `exec_config.funds(old_payer)` → `Funds::TxFee`, whose native arm
+/// ([`deposit_payment`] line ~230) *drops the recipient* and returns the released deposit to the
+/// shared fee pot instead of earmarking it to the original payer. The substrate-tx test
+/// `refund_routes_to_set_payer_not_clear_submitter` cannot see this: `Funds::Balance` moves the
+/// deposit through real account balances, so it observes `set_payer` being made whole.
+///
+/// SCOPE / why this is `#[ignore]`d rather than a normal failing test: at the
+/// `process_authorizations` layer the charge *and* the refund both flow through the *same* pot
+/// (under eth-tx the charge is drawn from the pot too, not from the payer's free balance), so
+/// within one shared pot the deposit nets out and no single account is debited/credited. The real
+/// economic loss is a *cross-transaction* effect — in production the set and the clear are two
+/// separate eth transactions with two separate prepaid gas pools, each reconciled to its own
+/// sender: `set_payer`'s pool permanently loses the deposit while `clear_submitter`'s pool gains
+/// it. This test pins the observable half of that mechanism: on the clear, the released deposit
+/// lands back in the pot rather than being bound to `set_payer`. Run with `--ignored`; it is
+/// expected to FAIL against current code (that failure IS the repro).
+#[test]
+#[ignore = "repro: payer-change refund leaks released deposit to the fee pot under eth-tx \
+            instead of earmarking it to the original payer (reviewer finding)"]
+fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+		// Seed the fee pot so eth-tx charges have somewhere to draw from.
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
+
+		// Real contract → the delegation carries a non-zero base deposit.
+		let target = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+			.build_and_unwrap_contract();
+		let deposit = get_contract(&target.addr).storage_base_deposit();
+		assert!(deposit > 0, "delegation target must carry a non-zero base deposit");
+
+		// Two distinct relayers and a pre-funded authority (ED path must not perturb the pot).
+		let set_payer = <Test as Config>::AddressMapper::to_account_id(&H160::from([0xAA; 20]));
+		let clear_submitter =
+			<Test as Config>::AddressMapper::to_account_id(&H160::from([0xBB; 20]));
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&set_payer, 100_000_000);
+		let _ =
+			<<Test as Config>::Currency as Mutate<_>>::set_balance(&clear_submitter, 100_000_000);
+		let signer = TestSigner::new(&[1u8; 32]);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&signer.address);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
+
+		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		// Production config: deposits flow through the tx-fee pot (`Funds::TxFee`).
+		let eth_tx = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
+
+		// Step 1: `set_payer` relays the set. Under eth-tx the deposit is drawn from the pot, not
+		// from `set_payer`'s free balance, and the payer is recorded for refund routing.
+		let pot_before = <Test as Config>::FeeInfo::remaining_txfee();
+		let set_payer_before = <<Test as Config>::Currency as Inspect<_>>::balance(&set_payer);
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
+		let auth_set = signer.sign_authorization(chain_id, target.addr, nonce);
+		let _ = crate::evm::eip7702::process_authorizations::<Test>(
+			&[auth_set],
+			&set_payer,
+			&eth_tx,
+		);
+		assert!(AccountInfo::<Test>::is_delegated(&signer.address));
+		let pot_after_set = <Test as Config>::FeeInfo::remaining_txfee();
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&set_payer),
+			set_payer_before,
+			"eth-tx charge is drawn from the fee pot, not the payer's free balance",
+		);
+		assert_eq!(
+			pot_before.saturating_sub(pot_after_set),
+			deposit,
+			"the deposit must have been drawn from the fee pot",
+		);
+		assert_eq!(
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id),
+			deposit,
+			"hold must equal the deposit after delegation",
+		);
+
+		// Step 2: a *different* relayer clears. The payer-change branch refunds `old_payer`
+		// (`set_payer`) via `funds(set_payer)` = `Funds::TxFee(set_payer)`.
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
+		let auth_clear = signer.sign_authorization(chain_id, H160::zero(), nonce);
+		let _ = crate::evm::eip7702::process_authorizations::<Test>(
+			&[auth_clear],
+			&clear_submitter,
+			&eth_tx,
+		);
+		assert!(!AccountInfo::<Test>::is_delegated(&signer.address));
+		assert_eq!(
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id),
+			0,
+			"hold must be fully released after clear",
+		);
+		let pot_after_clear = <Test as Config>::FeeInfo::remaining_txfee();
+
+		// THE DEFECT: the released deposit returned to the shared fee pot. The recipient named in
+		// `Funds::TxFee(set_payer)` was dropped by the native refund arm. The intended invariant
+		// (holds under substrate-tx) is that the refund is bound to the original payer, so the pot
+		// must NOT recover the deposit here. Under current code `pot_after_clear == pot_after_set +
+		// deposit`, so this assertion FAILS — which is the repro.
+		assert_eq!(
+			pot_after_clear, pot_after_set,
+			"payer-change refund leaked to the fee pot: the released deposit ({}) returned to the \
+			 shared pot instead of being earmarked to the original payer (set_payer)",
+			pot_after_clear.saturating_sub(pot_after_set),
+		);
+	});
+}
+
 /// Payer-change *re-delegation* (both deposit legs non-zero): when a second relayer re-points an
 /// existing delegation, the old payer must be fully refunded, the new submitter must be charged
 /// the new deposit in full, and the net deposit reported to the new submitter's metering budget

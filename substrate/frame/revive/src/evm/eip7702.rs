@@ -210,10 +210,15 @@ pub fn process_authorizations<T: Config>(
 							.as_ref()
 							.expect("old_payer is Some in this branch; qed");
 						if !previous.is_zero() {
+							// Refund the recorded payer directly to their balance. Under eth-tx
+							// `exec_config.funds(old_payer)` collapses to `Funds::TxFee`, whose
+							// native arm drops the recipient and returns the deposit to the fee pot
+							// (→ the current submitter), so a relayed clear/redelegate would never
+							// reach `old_payer`. A direct `Funds::Balance` transfer honours the payer.
 							Pallet::<T>::refund_deposit(
 								HoldReason::StorageDepositReserve,
 								&account_id,
-								exec_config.funds(old_payer),
+								crate::deposit_payment::Funds::Balance(old_payer),
 								previous,
 							)?;
 						}
