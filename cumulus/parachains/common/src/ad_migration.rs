@@ -14,16 +14,19 @@
 // limitations under the License.
 
 //! One-shot migration that extends each existing `pallet_session::SessionKeys`
-//! entry with a new `authority_discovery: AuthorityDiscoveryId` field derived
-//! from the validator's existing aura key bytes.
+//! entry with a new `authority_discovery: AuthorityDiscoveryId` field set to a
+//! per-validator placeholder derived from the validator's aura raw bytes.
 //!
-//! Why the placeholder is aura-derived rather than zero: the all-zero
-//! sr25519::Public is the Ristretto identity element, which schnorrkel accepts
-//! and against which any Schnorr signature is trivially forgeable. A zero 
-//! placeholder would also be shared by every validator across every adopting chain 
-//! until they each rotated, letting any attacker take over the entire 
-//! authority-discovery mesh.
-
+//! Why a hashed placeholder rather than zero or aura-raw:
+//! - The all-zero `sr25519::Public` is the Ristretto identity element, which schnorrkel accepts and
+//!   against which any Schnorr signature is trivially forgeable (`s·B == R` collapses when `P ==
+//!   0`). A zero placeholder is also shared by every validator across every adopting chain until
+//!   they each rotate, letting any attacker squat the entire authority-discovery mesh.
+//! - Reusing the aura raw bytes directly would tie the audi placeholder to the validator's aura
+//!   secret, giving an unwanted cross-protocol key reuse for the duration of the rotation grace 
+//!   period.
+//!
+//! The hashed derivation is unique per validator and unforgeable.
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
@@ -88,6 +91,13 @@ fn migration_done() -> bool {
 	storage::get(MIGRATION_DONE_KEY).is_some()
 }
 
+/// Per-validator placeholder authority-discovery key.
+fn placeholder_audi(aura: &AuraId) -> AuthorityDiscoveryId {
+	let aura_raw: [u8; 32] = sp_core::sr25519::Public::from(aura.clone()).0;
+	let hash = sp_io::hashing::blake2_256(&aura_raw);
+	sp_core::sr25519::Public::from_raw(hash).into()
+}
+
 /// `true` iff `R::Keys` exposes exactly `[aura, authority_discovery]`.
 fn layout_matches<R: pallet_session::Config>() -> bool {
 	<<R as pallet_session::Config>::Keys as OpaqueKeys>::key_ids() ==
@@ -131,10 +141,10 @@ where
 		pallet_session::Pallet::<R>::upgrade_keys::<OldSessionKeys, _>(|collator, old| {
 			log::info!(
 				target: LOG_TARGET,
-				"Collator {:?}: authority-discovery key derived from aura raw bytes",
+				"Collator {:?}: authority-discovery placeholder installed; rotate to activate",
 				collator,
 			);
-			let audi = crate::authority_discovery_id_from_aura(old.aura.clone());
+			let audi = placeholder_audi(&old.aura);
 			let bytes = (old.aura, audi).encode();
 			<R as pallet_session::Config>::Keys::decode(&mut &bytes[..])
 				.expect("R::Keys::key_ids() verified above; qed")
@@ -145,7 +155,7 @@ where
 		let n = pallet_session::Validators::<R>::get().len() as u64;
 		log::info!(
 			target: LOG_TARGET,
-			"AppendAuthorityDiscoveryKeys: migrated ~{} collator(s) with aura-derived placeholder keys",
+			"AppendAuthorityDiscoveryKeys: migrated ~{} collator(s) with hashed placeholder keys",
 			n,
 		);
 
@@ -228,8 +238,7 @@ where
 		}
 
 		// Every ValidatorId from pre-upgrade must still have a NextKeys entry that
-		// preserves the original aura key and carries an aura-derived placeholder for
-		// authority-discovery (same 32 raw bytes as the aura key).
+		// preserves the original aura key and carries the hashed `placeholder_audi`.
 		for (id, aura) in &pre_next_keys {
 			let keys = pallet_session::NextKeys::<R>::get(id).ok_or(
 				sp_runtime::TryRuntimeError::Other(
@@ -242,9 +251,11 @@ where
 					"post_upgrade: aura key not preserved by migration",
 				));
 			}
-			if keys.get_raw(<AuthorityDiscoveryId as RuntimeAppPublic>::ID) != aura_bytes {
+			let expected_audi = placeholder_audi(aura);
+			let expected_audi_bytes: &[u8] = expected_audi.as_ref();
+			if keys.get_raw(<AuthorityDiscoveryId as RuntimeAppPublic>::ID) != expected_audi_bytes {
 				return Err(sp_runtime::TryRuntimeError::Other(
-					"post_upgrade: authority-discovery field is not the aura-derived placeholder",
+					"post_upgrade: authority-discovery field is not the expected placeholder",
 				));
 			}
 		}
@@ -397,7 +408,7 @@ mod tests {
 
 			for v in validators {
 				let keys = pallet_session::NextKeys::<Test>::get(v).expect("entry must remain");
-				let expected_audi = crate::authority_discovery_id_from_aura(aura_key(v));
+				let expected_audi = placeholder_audi(&aura_key(v));
 				assert_eq!(keys.aura, aura_key(v));
 				assert_eq!(keys.authority_discovery, expected_audi);
 				assert_eq!(
@@ -422,10 +433,7 @@ mod tests {
 			assert_eq!(queued.len(), validators.len());
 			for (v, keys) in &queued {
 				assert_eq!(keys.aura, aura_key(*v));
-				assert_eq!(
-					keys.authority_discovery,
-					crate::authority_discovery_id_from_aura(aura_key(*v))
-				);
+				assert_eq!(keys.authority_discovery, placeholder_audi(&aura_key(*v)));
 			}
 
 			assert!(migration_done());
