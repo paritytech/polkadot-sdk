@@ -15,14 +15,14 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::parachain::{
-	constants::KsmLocation, location_converter::LocationConverter, AccountId, Balances,
-	ForeignUniques,
+	AccountId, Balances, ForeignUniques, constants::KsmLocation,
+	location_converter::LocationConverter,
 };
+use sp_runtime::traits::TryConvertInto;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	ConvertedConcreteId, FungibleAdapter, IsConcrete, NoChecking, NonFungiblesAdapter,
 };
-use sp_runtime::traits::TryConvertInto;
 
 type LocalAssetTransactor = (
 	FungibleAdapter<Balances, IsConcrete<KsmLocation>, LocationConverter, AccountId, ()>,

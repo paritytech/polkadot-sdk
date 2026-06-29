@@ -38,6 +38,10 @@ use frame_support::traits::{Contains, Equals, EverythingBut};
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
 use sp_core::H160;
 use sp_runtime::traits::{MaybeEquivalence, TryConvertInto};
+use xcm::prelude::*;
+use xcm_builder::{
+	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, WithLatestLocationConverter,
+};
 
 /// `Location` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
 pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, L = Location> =
