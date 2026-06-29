@@ -4,7 +4,6 @@ doc:
   description: |-
     ## Summary
     Removes the deprecated `CurrencyAdapter` from `staging-xcm-builder`. Use `FungibleAdapter` instead.
-    Part of #11561
 crates:
 - name: staging-xcm-builder
   bump: major
