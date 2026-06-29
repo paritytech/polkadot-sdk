@@ -78,8 +78,6 @@ pub use fungibles_adapter::{
 };
 
 mod location_conversion;
-#[allow(deprecated)]
-pub use location_conversion::ForeignChainAliasAccount;
 pub use location_conversion::{
 	Account32Hash, AccountId32Aliases, AccountKey20Aliases, AliasesIntoAccountId32,
 	ChildParachainConvertsVia, DescribeAccountId32Terminal, DescribeAccountIdTerminal,

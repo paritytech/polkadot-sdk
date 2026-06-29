@@ -269,10 +269,6 @@ impl LegacyDescribeForeignChainAccount {
 ///
 /// Note that the alias accounts have overlaps but never on the same
 /// chain when the sender comes from different chains.
-#[deprecated = "Use `HashedDescription<AccountId, LegacyDescribeForeignChainAccount>` instead"]
-pub type ForeignChainAliasAccount<AccountId> =
-	HashedDescription<AccountId, LegacyDescribeForeignChainAccount>;
-
 pub struct Account32Hash<Network, AccountId>(PhantomData<(Network, AccountId)>);
 impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]> + Clone>
 	ConvertLocation<AccountId> for Account32Hash<Network, AccountId>
