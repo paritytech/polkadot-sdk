@@ -22,8 +22,8 @@ use frame_system::offchain::AppCrypto;
 use polkadot_sdk::*;
 use sc_executor::error::Result;
 use sp_consensus_babe::{
+	BABE_ENGINE_ID, Slot,
 	digests::{PreDigest, SecondaryPlainPreDigest},
-	Slot, BABE_ENGINE_ID,
 };
 use sp_core::{
 	crypto::KeyTypeId,
@@ -31,14 +31,14 @@ use sp_core::{
 	traits::{CallContext, CodeExecutor, RuntimeCode},
 };
 use sp_runtime::{
-	traits::{BlakeTwo256, Header as HeaderT},
 	ApplyExtrinsicResult, Digest, DigestItem, MultiSignature, MultiSigner,
+	traits::{BlakeTwo256, Header as HeaderT},
 };
 use sp_state_machine::TestExternalities as CoreTestExternalities;
 
 use kitchensink_runtime::{
-	constants::currency::*, Block, BuildStorage, CheckedExtrinsic, Header, Runtime,
-	UncheckedExtrinsic,
+	Block, BuildStorage, CheckedExtrinsic, Header, Runtime, UncheckedExtrinsic,
+	constants::currency::*,
 };
 use node_primitives::{BlockNumber, Hash};
 use node_testing::keyring::*;

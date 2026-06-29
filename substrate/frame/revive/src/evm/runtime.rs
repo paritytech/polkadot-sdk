@@ -210,8 +210,7 @@ where
 	}
 }
 
-impl<Address, Signature, E: EthExtra> GetDispatchInfo
-	for UncheckedExtrinsic<Address, Signature, E>
+impl<Address, Signature, E: EthExtra> GetDispatchInfo for UncheckedExtrinsic<Address, Signature, E>
 where
 	Signature: sp_runtime::traits::SignatureWeight,
 {
