@@ -672,38 +672,46 @@ impl Client {
 		.await
 	}
 
+	/// Build a resolver mapping any [`BlockNumberOrTag`] to a concrete block number.
+	///
+	/// The tag → number mapping (`earliest`/`latest`/`finalized`, plus the `safe`/`pending`
+	/// aliases) is computed once here and returned as a closure, so every caller — `logs`,
+	/// `block_hash_for_tag`, ... — resolves tags through the same canonical logic rather than
+	/// duplicating it.
+	pub async fn get_block_resolution_function(
+		&self,
+	) -> Result<impl Fn(BlockNumberOrTag) -> U256 + 'static, ClientError> {
+		let earliest = U256::from(self.earliest_block_number());
+		let latest = U256::from(self.latest_block().await.number());
+		let finalized = U256::from(self.latest_finalized_block().await.number());
+		Ok(move |block: BlockNumberOrTag| {
+			resolve_block_number_for_tag(block, earliest, latest, finalized)
+		})
+	}
+
 	/// Get the block hash for the given block number or tag.
 	pub async fn block_hash_for_tag(
 		&self,
 		at: BlockNumberOrTagOrHash,
 	) -> Result<SubstrateBlockHash, ClientError> {
-		match at {
-			BlockNumberOrTagOrHash::BlockHash(hash) => self
-				.resolve_substrate_hash(&hash)
-				.await
-				.ok_or(ClientError::EthereumBlockNotFound),
-			BlockNumberOrTagOrHash::BlockNumber(block_number) => {
-				let n: SubstrateBlockNumber =
-					(block_number).try_into().map_err(|_| ClientError::ConversionFailed)?;
-				let hash = self.get_block_hash(n).await?.ok_or(ClientError::BlockNotFound)?;
-				Ok(hash)
+		// Resolve to a concrete block number through the canonical resolver shared with
+		// `logs`, then look up its hash. A raw block hash needs no resolution.
+		let number = match at {
+			BlockNumberOrTagOrHash::BlockHash(hash) => {
+				return self
+					.resolve_substrate_hash(&hash)
+					.await
+					.ok_or(ClientError::EthereumBlockNotFound);
 			},
-			BlockNumberOrTagOrHash::BlockTag(BlockTag::Finalized | BlockTag::Safe) => {
-				let block = self.latest_finalized_block().await;
-				Ok(block.hash())
+			BlockNumberOrTagOrHash::BlockNumber(block_number) => block_number,
+			BlockNumberOrTagOrHash::BlockTag(tag) => {
+				let resolve = self.get_block_resolution_function().await?;
+				resolve(BlockNumberOrTag::BlockTag(tag))
 			},
-			BlockNumberOrTagOrHash::BlockTag(BlockTag::Earliest) => {
-				let hash = self
-					.get_block_hash(self.earliest_block_number())
-					.await?
-					.ok_or(ClientError::BlockNotFound)?;
-				Ok(hash)
-			},
-			BlockNumberOrTagOrHash::BlockTag(_) => {
-				let block = self.latest_block().await;
-				Ok(block.hash())
-			},
-		}
+		};
+		let n: SubstrateBlockNumber =
+			number.try_into().map_err(|_| ClientError::ConversionFailed)?;
+		self.get_block_hash(n).await?.ok_or(ClientError::BlockNotFound)
 	}
 
 	/// Get the storage API for the given block.
@@ -1120,12 +1128,9 @@ impl Client {
 
 	/// Get the logs matching the given filter.
 	pub async fn logs(&self, filter: Option<Filter>) -> Result<Vec<Log>, ClientError> {
-		let earliest = U256::from(self.earliest_block_number());
-		let latest = U256::from(self.latest_block().await.number());
-		let finalized = U256::from(self.latest_finalized_block().await.number());
-		let resolve_block_number = |block: BlockNumberOrTag| -> anyhow::Result<U256> {
-			Ok(resolve_filter_block_number(block, earliest, latest, finalized))
-		};
+		let resolve = self.get_block_resolution_function().await?;
+		let resolve_block_number =
+			move |block: BlockNumberOrTag| -> anyhow::Result<U256> { Ok(resolve(block)) };
 
 		let logs = self
 			.receipt_provider
@@ -1176,11 +1181,12 @@ fn to_hex(bytes: impl AsRef<[u8]>) -> String {
 	format!("0x{}", hex::encode(bytes.as_ref()))
 }
 
-/// Resolve a block number or tag from an `eth_getLogs` filter to a concrete block number.
+/// Resolve a [`BlockNumberOrTag`] to a concrete block number.
 ///
-/// `safe` and `finalized` resolve to the latest finalized block, and `pending` resolves to
-/// `latest`, consistent with [`Client::block_hash_for_tag`].
-fn resolve_filter_block_number(
+/// This is the canonical tag → number mapping used across the client (see
+/// [`Client::get_block_resolution_function`]): `safe`/`finalized` resolve to the latest
+/// finalized block and `latest`/`pending` to the best block.
+fn resolve_block_number_for_tag(
 	block: BlockNumberOrTag,
 	earliest: U256,
 	latest: U256,
@@ -1199,11 +1205,11 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn resolve_filter_block_number_supports_all_block_tags() {
+	fn resolve_block_number_for_tag_supports_all_block_tags() {
 		let earliest = U256::from(1u32);
 		let latest = U256::from(100u32);
 		let finalized = U256::from(90u32);
-		let resolve = |block| resolve_filter_block_number(block, earliest, latest, finalized);
+		let resolve = |block| resolve_block_number_for_tag(block, earliest, latest, finalized);
 
 		// Explicit block numbers are returned as-is.
 		assert_eq!(resolve(BlockNumberOrTag::U256(U256::from(42u32))), U256::from(42u32));
