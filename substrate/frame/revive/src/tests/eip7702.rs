@@ -600,23 +600,11 @@ fn refund_routes_to_set_payer_not_clear_submitter() {
 	});
 }
 
-/// Repro (reviewer finding): under the production `new_eth_tx` config, the payer-change refund is
-/// routed via `exec_config.funds(old_payer)` → `Funds::TxFee`, whose native arm
-/// ([`deposit_payment`] line ~230) *drops the recipient* and returns the released deposit to the
-/// shared fee pot instead of earmarking it to the original payer. The substrate-tx test
-/// `refund_routes_to_set_payer_not_clear_submitter` cannot see this: `Funds::Balance` moves the
-/// deposit through real account balances, so it observes `set_payer` being made whole.
-///
-/// SCOPE / why this is `#[ignore]`d rather than a normal failing test: at the
-/// `process_authorizations` layer the charge *and* the refund both flow through the *same* pot
-/// (under eth-tx the charge is drawn from the pot too, not from the payer's free balance), so
-/// within one shared pot the deposit nets out and no single account is debited/credited. The real
-/// economic loss is a *cross-transaction* effect — in production the set and the clear are two
-/// separate eth transactions with two separate prepaid gas pools, each reconciled to its own
-/// sender: `set_payer`'s pool permanently loses the deposit while `clear_submitter`'s pool gains
-/// it. This test pins the observable half of that mechanism: on the clear, the released deposit
-/// lands back in the pot rather than being bound to `set_payer`. Run with `--ignored`; it is
-/// expected to FAIL against current code (that failure IS the repro).
+/// Under eth-tx, a payer-change refund must reach the recorded payer, not the fee pot. The
+/// `Funds::TxFee` rail drops the recipient and returns the deposit to the pot (→ the current
+/// submitter); the fix forces a `Funds::Balance` transfer to `old_payer`. This pins the
+/// observable half at the `process_authorizations` layer: on the clear the pot must NOT recover
+/// the deposit. (Full cross-tx loss needs two separate gas pools, out of scope here.)
 #[test]
 fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -645,8 +633,7 @@ fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
 		// Production config: deposits flow through the tx-fee pot (`Funds::TxFee`).
 		let eth_tx = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
 
-		// Step 1: `set_payer` relays the set. Under eth-tx the deposit is drawn from the pot, not
-		// from `set_payer`'s free balance, and the payer is recorded for refund routing.
+		// Step 1: `set_payer` relays the set. Deposit drawn from the pot, payer recorded.
 		let pot_before = <Test as Config>::FeeInfo::remaining_txfee();
 		let set_payer_before = <<Test as Config>::Currency as Inspect<_>>::balance(&set_payer);
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
@@ -671,8 +658,7 @@ fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
 			"hold must equal the deposit after delegation",
 		);
 
-		// Step 2: a *different* relayer clears. The payer-change branch refunds `old_payer`
-		// (`set_payer`) via `funds(set_payer)` = `Funds::TxFee(set_payer)`.
+		// Step 2: a *different* relayer clears, triggering the payer-change refund to `set_payer`.
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 		let auth_clear = signer.sign_authorization(chain_id, H160::zero(), nonce);
 		let _ = crate::evm::eip7702::process_authorizations::<Test>(
@@ -688,11 +674,7 @@ fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
 		);
 		let pot_after_clear = <Test as Config>::FeeInfo::remaining_txfee();
 
-		// THE DEFECT: the released deposit returned to the shared fee pot. The recipient named in
-		// `Funds::TxFee(set_payer)` was dropped by the native refund arm. The intended invariant
-		// (holds under substrate-tx) is that the refund is bound to the original payer, so the pot
-		// must NOT recover the deposit here. Under current code `pot_after_clear == pot_after_set +
-		// deposit`, so this assertion FAILS — which is the repro.
+		// The refund must be earmarked to `set_payer`, so the pot must NOT recover the deposit.
 		assert_eq!(
 			pot_after_clear,
 			pot_after_set,
