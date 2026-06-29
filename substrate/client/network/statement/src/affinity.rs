@@ -133,7 +133,7 @@ impl TryFrom<EncodedBloomFilter> for AffinityFilter {
 ///
 /// It is only a sender-side hint: the node advertises additional topics of interest.
 /// Doesn't gate inbound statements — the node accepts and relays everything.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct AffinityFilter {
 	/// Bloom filter bytes representing the topics this peer is interested in.
 	bloom: BloomFilter<PortableBuildHasher>,

@@ -27,6 +27,9 @@ pub(crate) struct V2DhtMetrics {
 	known_peers: Gauge<U64>,
 	/// Statement-store peers with an open statement notification substream.
 	connected_peers: Gauge<U64>,
+	/// Known peers with confirmed statement-protocol support: the DHT storage, affinity and
+	/// forwarding candidates.
+	eligible_peers: Gauge<U64>,
 }
 
 impl V2DhtMetrics {
@@ -46,11 +49,24 @@ impl V2DhtMetrics {
 				)?,
 				r,
 			)?,
+			eligible_peers: register(
+				Gauge::new(
+					"substrate_sync_statement_v2dht_eligible_peers",
+					"Known statement-store peers with confirmed protocol support, the DHT storage, affinity and forwarding candidates",
+				)?,
+				r,
+			)?,
 		})
 	}
 
-	pub(crate) fn set_topology_size(&self, known_peers: usize, connected_peers: usize) {
+	pub(crate) fn set_topology_size(
+		&self,
+		known_peers: usize,
+		connected_peers: usize,
+		eligible_peers: usize,
+	) {
 		self.known_peers.set(known_peers as u64);
 		self.connected_peers.set(connected_peers as u64);
+		self.eligible_peers.set(eligible_peers as u64);
 	}
 }
