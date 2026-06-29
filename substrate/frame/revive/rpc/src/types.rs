@@ -26,3 +26,6 @@ pub use sync::*;
 
 mod receipt;
 pub use receipt::*;
+
+mod trace;
+pub use trace::*;

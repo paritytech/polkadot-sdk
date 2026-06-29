@@ -25,7 +25,9 @@ use jsonrpsee::{
 	types::{ErrorCode, ErrorObjectOwned},
 };
 use pallet_revive::evm::*;
-use pallet_revive_types::runtime_api::{ReceiptGasInfoV1, TraceV1};
+use pallet_revive_types::runtime_api::{
+	ExecutionTracerConfigV1, ReceiptGasInfoV1, TraceV1, TracerTypeV1,
+};
 use sp_core::{H160, H256, U256};
 use sp_crypto_hashing::keccak_256;
 use subxt::backend::legacy::rpc_methods::TransactionStatus;
