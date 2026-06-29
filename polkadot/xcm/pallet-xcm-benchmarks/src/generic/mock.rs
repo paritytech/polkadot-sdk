@@ -195,7 +195,12 @@ impl generic::Config for Test {
 		Err(BenchmarkError::Skip)
 	}
 
-	fn worst_case_barrier_check() -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError> {
+	fn worst_case_barrier_check_ref_time() -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError> {
+		Ok((Location::parent(), Xcm(vec![ClearOrigin])))
+	}
+
+	fn worst_case_barrier_check_proof_size() -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError>
+	{
 		Ok((Location::parent(), Xcm(vec![ClearOrigin])))
 	}
 

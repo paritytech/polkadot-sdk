@@ -97,11 +97,37 @@ pub mod pallet {
 		/// If set to `Err`, benchmarks which rely on a universal alias will be skipped.
 		fn alias_origin() -> Result<(Location, Location), BenchmarkError>;
 
-		/// The `(origin, message)` pair that causes the most runtime weight when checked by the
-		/// runtime's XCM barrier.
+		/// The `(origin, message)` that causes the most `ref_time` when checked by the runtime's
+		/// XCM barrier.
 		///
-		/// If set to `Err`, the `barrier_check` benchmark will be skipped.
-		fn worst_case_barrier_check(
+		/// A barrier's worst case can have *disjoint* paths that are each worst in a different
+		/// weight dimension — e.g. a compute-heavy origin-descent path (high `ref_time`, no
+		/// storage) and a storage-reading query-response path (high `proof_size`). This method
+		/// returns the `ref_time`-dominant message; [`Self::worst_case_barrier_check_proof_size`]
+		/// returns the `proof_size`-dominant one. The `barrier_check_ref_time` and
+		/// `barrier_check_proof_size` benchmarks each measure a full `Weight`, and the runtime
+		/// combines them with a component-wise [`Weight::max`](sp_weights::Weight::max), yielding a
+		/// safe and tight bound over either path.
+		///
+		/// If one message is worst in *both* dimensions, implement only one of the two methods and
+		/// let the other stay `Err(Skip)`: the implemented benchmark already bounds both
+		/// dimensions, so the runtime can use it on its own.
+		///
+		/// If set to `Err`, the `barrier_check_ref_time` benchmark will be skipped.
+		fn worst_case_barrier_check_ref_time(
+		) -> Result<(Location, Xcm<<Self as Config<I>>::RuntimeCall>), BenchmarkError> {
+			Err(BenchmarkError::Skip)
+		}
+
+		/// The `(origin, message)` that causes the most `proof_size` when checked by the runtime's
+		/// XCM barrier. See [`Self::worst_case_barrier_check_ref_time`] for how the two benchmarks
+		/// are combined and when only one need be implemented.
+		///
+		/// Implementations must perform any storage setup this path relies on (e.g. inserting a
+		/// `Queries` entry so a `QueryResponse` is recognised as expected) so the read is recorded.
+		///
+		/// If set to `Err`, the `barrier_check_proof_size` benchmark will be skipped.
+		fn worst_case_barrier_check_proof_size(
 		) -> Result<(Location, Xcm<<Self as Config<I>>::RuntimeCall>), BenchmarkError> {
 			Err(BenchmarkError::Skip)
 		}

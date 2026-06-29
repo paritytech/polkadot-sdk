@@ -43,16 +43,16 @@ use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
-	DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter,
-	HashedDescription, IsConcrete, IsParentsOnly, LocationAsSuperuser, NonFungibleAdapter,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
+	BarrierWeightBounds, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
+	DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor,
+	FungibleAdapter, HashedDescription, IsConcrete, IsParentsOnly, LocationAsSuperuser,
+	NonFungibleAdapter, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
 	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
 	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
 	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
-use xcm_executor::{traits::WeightBounds, XcmExecutor};
+use xcm_executor::XcmExecutor;
 
 // Re-export
 pub use testnet_parachains_constants::westend::locations::GovernanceLocation;
@@ -153,10 +153,6 @@ impl Contains<Location> for FellowsPlurality {
 	}
 }
 
-/// Maximum number of origin-altering instructions [`WithComputedOrigin`] will process before
-/// giving up. Also the worst case for the barrier-check benchmark.
-pub const MAX_COMPUTED_ORIGIN_PREFIXES: u32 = 8;
-
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
 		DenyRecursively<DenyReserveTransferToRelayChain>,
@@ -184,7 +180,7 @@ pub type Barrier = TrailingSetTopicAsId<
 					AllowHrmpNotificationsFromRelayChain,
 				),
 				UniversalLocation,
-				ConstU32<MAX_COMPUTED_ORIGIN_PREFIXES>,
+				ConstU32<{ testnet_parachains_constants::MAX_XCM_COMPUTED_ORIGIN_PREFIXES }>,
 			>,
 		),
 	>,
@@ -230,24 +226,21 @@ type CoretimeWestendWeightBounds = WeightInfoBounds<
 	MaxInstructions,
 >;
 
-/// Weigher that delegates message/instruction weighing to `CoretimeWestendWeightBounds` and, in
-/// addition, reports the benchmarked weight of a barrier check so barrier rejections are
-/// charged precisely instead of the full message weight.
-pub struct CoretimeWestendWeigher;
-impl WeightBounds<RuntimeCall> for CoretimeWestendWeigher {
-	fn weight(
-		message: &mut Xcm<RuntimeCall>,
-		weight_limit: Weight,
-	) -> Result<Weight, InstructionError> {
-		CoretimeWestendWeightBounds::weight(message, weight_limit)
-	}
-	fn instr_weight(instruction: &mut Instruction<RuntimeCall>) -> Result<Weight, XcmError> {
-		CoretimeWestendWeightBounds::instr_weight(instruction)
-	}
-	fn barrier_check_weight() -> Option<Weight> {
-		Some(crate::weights::xcm::XcmGeneric::<Runtime>::barrier_check())
-	}
+parameter_types! {
+	/// Benchmarked weight of a single barrier check, charged on barrier rejection.
+	// Worst case over the two disjoint barrier paths: take the component-wise max of the
+	// `ref_time`-dominant and `proof_size`-dominant benchmarks so neither dimension is
+	// under-charged. (A runtime with one message worst in both dimensions could use a single
+	// benchmark here instead.)
+	pub BarrierCheckWeight: Weight = crate::weights::xcm::XcmGeneric::<Runtime>::barrier_check_ref_time()
+		.max(crate::weights::xcm::XcmGeneric::<Runtime>::barrier_check_proof_size());
 }
+
+/// Weigher that delegates message/instruction weighing to `CoretimeWestendWeightBounds` and, in
+/// addition, reports the benchmarked weight of a barrier check so barrier rejections are charged
+/// precisely instead of the full message weight.
+pub type CoretimeWestendWeigher =
+	BarrierWeightBounds<CoretimeWestendWeightBounds, BarrierCheckWeight>;
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {

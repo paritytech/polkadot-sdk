@@ -40,16 +40,16 @@ use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
-	DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter,
-	HashedDescription, IsConcrete, IsParentsOnly, LocatableAssetId, LocationAsSuperuser,
-	OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	BarrierWeightBounds, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
+	DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor,
+	FungibleAdapter, HashedDescription, IsConcrete, IsParentsOnly, LocatableAssetId,
+	LocationAsSuperuser, OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset,
+	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
-use xcm_executor::{traits::WeightBounds, XcmExecutor};
+use xcm_executor::XcmExecutor;
 
 // Re-export
 pub use testnet_parachains_constants::westend::locations::GovernanceLocation;
@@ -157,10 +157,6 @@ impl Contains<Location> for LocalPlurality {
 	}
 }
 
-/// Maximum number of origin-altering instructions [`WithComputedOrigin`] will process before
-/// giving up. Also the worst case for the barrier-check benchmark.
-pub const MAX_COMPUTED_ORIGIN_PREFIXES: u32 = 8;
-
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
 		DenyRecursively<DenyReserveTransferToRelayChain>,
@@ -187,7 +183,7 @@ pub type Barrier = TrailingSetTopicAsId<
 					AllowHrmpNotificationsFromRelayChain,
 				),
 				UniversalLocation,
-				ConstU32<MAX_COMPUTED_ORIGIN_PREFIXES>,
+				ConstU32<{ testnet_parachains_constants::MAX_XCM_COMPUTED_ORIGIN_PREFIXES }>,
 			>,
 		),
 	>,
@@ -231,24 +227,21 @@ type CollectivesWestendWeightBounds = WeightInfoBounds<
 	MaxInstructions,
 >;
 
-/// Weigher that delegates message/instruction weighing to `CollectivesWestendWeightBounds` and,
-/// in addition, reports the benchmarked weight of a barrier check so barrier rejections are
-/// charged precisely instead of the full message weight.
-pub struct CollectivesWestendWeigher;
-impl WeightBounds<RuntimeCall> for CollectivesWestendWeigher {
-	fn weight(
-		message: &mut Xcm<RuntimeCall>,
-		weight_limit: Weight,
-	) -> Result<Weight, InstructionError> {
-		CollectivesWestendWeightBounds::weight(message, weight_limit)
-	}
-	fn instr_weight(instruction: &mut Instruction<RuntimeCall>) -> Result<Weight, XcmError> {
-		CollectivesWestendWeightBounds::instr_weight(instruction)
-	}
-	fn barrier_check_weight() -> Option<Weight> {
-		Some(crate::weights::xcm::XcmGeneric::<Runtime>::barrier_check())
-	}
+parameter_types! {
+	/// Benchmarked weight of a single barrier check, charged on barrier rejection.
+	// Worst case over the two disjoint barrier paths: take the component-wise max of the
+	// `ref_time`-dominant and `proof_size`-dominant benchmarks so neither dimension is
+	// under-charged. (A runtime with one message worst in both dimensions could use a single
+	// benchmark here instead.)
+	pub BarrierCheckWeight: Weight = crate::weights::xcm::XcmGeneric::<Runtime>::barrier_check_ref_time()
+		.max(crate::weights::xcm::XcmGeneric::<Runtime>::barrier_check_proof_size());
 }
+
+/// Weigher that delegates message/instruction weighing to `CollectivesWestendWeightBounds` and, in
+/// addition, reports the benchmarked weight of a barrier check so barrier rejections are charged
+/// precisely instead of the full message weight.
+pub type CollectivesWestendWeigher =
+	BarrierWeightBounds<CollectivesWestendWeightBounds, BarrierCheckWeight>;
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {

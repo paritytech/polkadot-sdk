@@ -1006,10 +1006,45 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// The barrier's worst case is benchmarked along two disjoint paths, each worst in a
+	// *different* weight dimension (a single message rarely maximises both). Both benchmarks
+	// measure a full `Weight`; the runtime combines them with a component-wise `Weight::max`, so
+	// the recorded barrier weight is a safe and tight upper bound over either path. A runtime
+	// whose barrier has one message that is worst in both dimensions may implement just one of
+	// the two `worst_case_barrier_check_*` config methods and skip the other.
 	#[benchmark]
-	fn barrier_check() -> Result<(), BenchmarkError> {
+	fn barrier_check_ref_time() -> Result<(), BenchmarkError> {
 		let (origin, mut message) =
-			T::worst_case_barrier_check().map_err(|_| BenchmarkError::Skip)?;
+			T::worst_case_barrier_check_ref_time().map_err(|_| BenchmarkError::Skip)?;
+
+		// Build everything outside the measured block so only the `should_execute` call is timed.
+		// The benchmarked weight is the one charged *on rejection*; the worst-case message returned
+		// by `worst_case_barrier_check_ref_time` is rejected by construction on real runtimes (the
+		// result is ignored here because the trivial benchmark mock barrier accepts everything).
+		let mut properties =
+			xcm_executor::traits::Properties { weight_credit: Weight::zero(), message_id: None };
+
+		#[block]
+		{
+			let _ = <T::XcmConfig as xcm_executor::Config>::Barrier::should_execute(
+				&origin,
+				message.inner_mut(),
+				Weight::MAX,
+				&mut properties,
+			);
+		}
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn barrier_check_proof_size() -> Result<(), BenchmarkError> {
+		let (origin, mut message) =
+			T::worst_case_barrier_check_proof_size().map_err(|_| BenchmarkError::Skip)?;
+
+		// Build everything outside the measured block so only the `should_execute` call is timed.
+		// See `barrier_check_ref_time`: the worst-case message is rejected by construction on real
+		// runtimes; the result is ignored because the benchmark mock barrier accepts everything.
 		let mut properties =
 			xcm_executor::traits::Properties { weight_credit: Weight::zero(), message_id: None };
 

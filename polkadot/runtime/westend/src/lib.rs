@@ -3160,22 +3160,39 @@ sp_api::impl_runtime_apis! {
 					Ok((origin, target))
 				}
 
-				fn worst_case_barrier_check() -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError> {
+				fn worst_case_barrier_check_ref_time(
+				) -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError> {
 					use xcm::latest::prelude::*;
-					let origin = Location::new(1, [Parachain(1000)]);
-					let mut instructions: Vec<Instruction<RuntimeCall>> =
-						(0..xcm_config::MAX_COMPUTED_ORIGIN_PREFIXES)
-							.map(|i| DescendOrigin(Parachain(i + 1000).into()))
-							.collect();
-					instructions.push(WithdrawAsset(
-						(xcm_config::TokenLocation::get(), UNITS).into(),
-					));
-					instructions.push(BuyExecution {
-						fees: (xcm_config::TokenLocation::get(), UNITS).into(),
-						weight_limit: Unlimited,
-					});
-					instructions.push(SetTopic([0u8; 32]));
-					Ok((origin, Xcm(instructions)))
+					// Compute path: make `WithComputedOrigin` perform its maximum number of
+					// origin-append steps. Each `DescendOrigin` appends one junction; starting from an
+					// empty interior keeps every append within the junction limit so all are processed.
+					// A trailing `UnpaidExecution` exercises the inner barrier once prefixes are consumed.
+					let mut compute = Vec::new();
+					for _ in 0..xcm_config::MAX_COMPUTED_ORIGIN_PREFIXES {
+						compute.push(DescendOrigin([PalletInstance(0)].into()));
+					}
+					compute.push(UnpaidExecution { weight_limit: Unlimited, check_origin: None });
+					Ok((Location::here(), Xcm(compute)))
+				}
+
+				fn worst_case_barrier_check_proof_size(
+				) -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError> {
+					use xcm::latest::prelude::*;
+					use xcm_executor::traits::QueryHandler;
+					// Storage-read path: `AllowKnownQueryResponses` reads the `Queries` map in
+					// `expecting_response`. Register a pending query whose responder differs from
+					// `origin` so the read is performed before the message is rejected.
+					let origin = Location::new(0, [Parachain(1000)]);
+					let responder = Location::new(0, [Parachain(1001)]);
+					let query_id =
+						<XcmPallet as QueryHandler>::new_query(responder, 1u32.into(), Here);
+					let query_response = Xcm(vec![QueryResponse {
+						query_id,
+						response: Response::Null,
+						max_weight: Weight::zero(),
+						querier: None,
+					}]);
+					Ok((origin, query_response))
 				}
 			}
 

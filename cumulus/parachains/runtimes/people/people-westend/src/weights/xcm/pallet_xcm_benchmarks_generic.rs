@@ -372,7 +372,18 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Minimum execution time: 671_000 picoseconds.
 		Weight::from_parts(753_000, 0)
 	}
-	pub fn barrier_check() -> Weight {
+	// NOTE: placeholder reusing the previous `barrier_check` measurement; regenerate
+	// the two barrier benchmarks with `/cmd bench` for `pallet_xcm_benchmarks::generic`.
+	pub fn barrier_check_ref_time() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 495_000 picoseconds.
+		Weight::from_parts(600_000, 0)
+	}
+	// NOTE: placeholder reusing the previous `barrier_check` measurement; regenerate
+	// the two barrier benchmarks with `/cmd bench` for `pallet_xcm_benchmarks::generic`.
+	pub fn barrier_check_proof_size() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

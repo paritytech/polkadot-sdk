@@ -49,7 +49,7 @@ thread_local! {
 pub fn sent_xcm() -> Vec<(Location, opaque::Xcm, XcmHash)> {
 	SENT_XCM.with(|q| (*q.borrow()).clone())
 }
-#[allow(dead_code)]
+#[cfg(feature = "runtime-benchmarks")]
 pub fn clear_sent_xcm() {
 	SENT_XCM.with(|q| q.borrow_mut().clear());
 }

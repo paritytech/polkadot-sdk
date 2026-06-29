@@ -8,22 +8,29 @@ doc:
     executor charges that precise weight on barrier rejection; otherwise it falls back to the
     previous full-message-weight behaviour, so existing `XcmConfig`s are unaffected.
 
-    A `barrier_check` benchmark is added to `pallet_xcm_benchmarks::generic` (driven by a new
-    `worst_case_barrier_check()` config method) to measure that weight. Westend and the Westend
-    system parachains (Asset Hub, Bridge Hub, Collectives, Coretime, People) wire their executor
-    `Weigher` to report the benchmarked value.
+    Two benchmarks are added to `pallet_xcm_benchmarks::generic` to measure that weight:
+    `barrier_check_ref_time` and `barrier_check_proof_size` (driven by new
+    `worst_case_barrier_check_ref_time()` / `worst_case_barrier_check_proof_size()` config
+    methods). A barrier's worst case can have disjoint paths that are each worst in a different
+    weight dimension (e.g. a compute-heavy origin-descent path and a storage-reading
+    query-response path that no single message can combine), so each path is benchmarked on its
+    own and the runtime combines the two results with a component-wise `Weight::max` — a safe and
+    tight bound over either path. A runtime whose barrier has a single message that is worst in
+    both dimensions can implement just one of the two config methods and use that benchmark alone.
+    Westend and the Westend system parachains (Asset Hub, Bridge Hub, Collectives, Coretime,
+    People) wire their executor `Weigher` to report the benchmarked value.
 
     Closes #7965.
 crates:
 - name: staging-xcm-executor
   bump: minor
 - name: staging-xcm-builder
-  bump: none
+  bump: minor
 - name: pallet-xcm-benchmarks
   bump: minor
-- name: parachains-common
+- name: testnet-parachains-constants
   bump: minor
-- name: bridge-hub-common
+- name: parachains-common
   bump: minor
 - name: westend-runtime
   bump: minor
