@@ -45,7 +45,16 @@ impl SystemHealthRpcServerImpl {
 impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 	async fn system_health(&self) -> RpcResult<Health> {
 		let (sync_state, health) =
-			tokio::try_join!(self.client.sync_state(), self.client.system_health())?;
+			match tokio::try_join!(self.client.sync_state(), self.client.system_health()) {
+				Ok(state) => state,
+				Err(err) => {
+					log::warn!(
+						target: LOG_TARGET,
+						"system_health: failed to query node sync state/health: {err:?}"
+					);
+					return Err(err.into());
+				},
+			};
 
 		let latest = self.client.latest_block().await.number();
 
