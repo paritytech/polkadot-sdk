@@ -41,6 +41,16 @@ use sp_core::traits::{CallContext, CodeExecutor, Externalities, RuntimeCode};
 use sp_version::{GetNativeVersion, NativeVersion, RuntimeVersion};
 use sp_wasm_interface::{ExtendedHostFunctions, HostFunctions};
 
+/// Number of runtime instances kept warm by a capped (execution-timeout) executor.
+///
+/// Only light request handler uses the capped executor, and request handling is currently serial
+/// there, so 1 instance is enough.
+// TODO: update this to match light request handler concurrency once it's is implemented.
+const CAPPED_EXECUTOR_MAX_RUNTIME_INSTANCES: usize = 1;
+/// Number of distinct runtime versions cached by a capped (execution-timeout) executor. Covers the
+/// latest runtime and the previous runtime during the runtime upgrade.
+const CAPPED_EXECUTOR_RUNTIME_CACHE_SIZE: u8 = 2;
+
 /// Set up the externalities and safe calling environment to execute runtime calls.
 ///
 /// If the inner closure panics, it will be caught and return an error.
@@ -324,11 +334,6 @@ impl<H> WasmExecutor<H> {
 		self.allow_missing_host_functions = allow_missing_host_functions
 	}
 }
-
-/// Number of runtime instances kept warm by a capped (execution-timeout) executor.
-const CAPPED_EXECUTOR_MAX_RUNTIME_INSTANCES: usize = 4;
-/// Number of distinct runtime versions cached by a capped (execution-timeout) executor.
-const CAPPED_EXECUTOR_RUNTIME_CACHE_SIZE: u8 = 2;
 
 /// Derive a variant of an executor that enforces a wall-clock limit on each runtime call.
 ///
