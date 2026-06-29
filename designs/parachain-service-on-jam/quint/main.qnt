@@ -215,7 +215,8 @@ module main {
   /// `lastStepBouncedTransfers` (the Parachain Service must emit a
   /// matching outgoing JAM transfer back to the sender with the same memo).
   action stepIncomingTransfer = {
-    nondet senderId = oneOf(Set(MkServiceId(0), MkServiceId(3), MkServiceId(7)))
+    val senderPool: Set[ServiceId] = Set(MkServiceId(0), MkServiceId(3), MkServiceId(7))
+    nondet senderId = oneOf(senderPool)
     nondet amount = oneOf(Set(100, 1000, 10000))
     nondet memo = oneOf(Set(0, 1, 2))
     val incoming = { from: senderId, amount: amount, memo: memo }

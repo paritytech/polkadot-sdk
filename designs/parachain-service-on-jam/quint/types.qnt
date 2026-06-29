@@ -22,8 +22,12 @@ module types {
   /// Opaque 336-octet validator-key blob; see design §5.3.
   type ValidatorKey = int
 
-  type ParaId = MkParaId(int)
-  type ServiceId = MkServiceId(int)
+  // Sentinels exist only to force closure of the row-polymorphic variant
+  // type so Apalache's QuintIR converter accepts these in `quint verify`
+  // (Quint's typechecker accepts single-constructor variants as open).
+  // The sentinel constructors are never constructed by the model.
+  type ParaId = MkParaId(int) | _ParaIdSentinel
+  type ServiceId = MkServiceId(int) | _ServiceIdSentinel
 
   /// The two privileged chains, modeled as fixed parachain IDs. The
   /// Coretime chain owns parachain management (§6); Asset Hub owns
