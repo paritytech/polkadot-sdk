@@ -26,6 +26,8 @@ use sp_runtime::{
 	TokenError,
 };
 
+use strum::IntoEnumIterator;
+
 use super::{Vesting as VestingStorage, *};
 use crate::mock::{vesting_events_since_last_call, Balances, ExtBuilder, System, Test, Vesting};
 
@@ -1622,7 +1624,7 @@ fn assert_at_max_per_kind_returns_error(kind: VestingKind, cap: u32) {
 
 #[test]
 fn add_to_vesting_at_per_kind_max_returns_error() {
-	for kind in [VestingKind::Public, VestingKind::System] {
+	for kind in VestingKind::iter() {
 		ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 			assert_at_max_per_kind_returns_error(kind, <Test as Config>::slot_cap(kind));
 		});
@@ -1668,14 +1670,13 @@ fn add_to_vesting_quotas_are_partitioned() {
 /// an extremely long vesting schedule from prolonging the system-related schedules.
 #[test]
 fn add_to_vesting_only_merges_within_same_kind() {
-	let kinds: [VestingKind; 2] = [VestingKind::Public, VestingKind::System];
 	let source = 13u64;
 	let dest = 4u64;
 	let start_at = 50u64;
 	let amount = ED * 4;
 
-	for &existing in &kinds {
-		for &incoming in &kinds {
+	for existing in VestingKind::iter() {
+		for incoming in VestingKind::iter() {
 			ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 				// SETUP: insert one schedule of `existing` kind at `start_at` directly into
 				// storage (bypasses caps so we can construct any starting state cleanly).

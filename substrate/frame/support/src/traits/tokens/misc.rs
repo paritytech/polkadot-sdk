@@ -437,7 +437,15 @@ pub struct IdAmount<Id, Balance> {
 
 /// The kind (which indicates the origin) of a vesting schedule.
 #[derive(
-	Copy, Clone, PartialEq, Debug, codec::Encode, codec::Decode, MaxEncodedLen, scale_info::TypeInfo,
+	Copy,
+	Clone,
+	PartialEq,
+	Debug,
+	codec::Encode,
+	codec::Decode,
+	MaxEncodedLen,
+	scale_info::TypeInfo,
+	strum::EnumIter,
 )]
 pub enum VestingKind {
 	/// The permissionless `vested_transfer` extrinsic.
