@@ -1,0 +1,28 @@
+title: Remove deprecated JustTry and Identity re-exports from xcm-executor
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+    Removes deprecated `JustTry` and `Identity` re-exports from `xcm_executor::traits`. Callers now use `sp_runtime::traits::{TryConvertInto, Identity}` directly.
+    Part of #11561
+crates:
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: assets-common
+  bump: major
+- name: pallet-xcm-precompiles
+  bump: major
+- name: pallet-xcm
+  bump: major
+- name: staging-xcm-builder
+  bump: major
+- name: staging-xcm-executor
+  bump: major
+- name: xcm-runtime-apis
+  bump: major
+- name: xcm-simulator-example
+  bump: major
+- name: pallet-contracts-mock-network
+  bump: major
