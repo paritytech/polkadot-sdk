@@ -1095,6 +1095,16 @@ pub mod pallet {
 	#[pallet::whitelist_storage]
 	pub(super) type ExecutionPhase<T: Config> = StorageValue<_, Phase>;
 
+	/// The context in which the runtime is currently being executed, i.e. whether the runtime is
+	/// executing a block or validating a transaction for the transaction pool. See
+	/// [`ExecutionContext`](crate::ExecutionContext).
+	///
+	/// It is set by the executive at the start of each entry point and is transient (killed in
+	/// [`finalize`](Pallet::finalize)).
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub(super) type ExecutionContext<T: Config> = StorageValue<_, super::ExecutionContext>;
+
 	/// `Some` if a code upgrade has been authorized.
 	#[pallet::storage]
 	#[pallet::getter(fn authorized_upgrade)]
@@ -1200,6 +1210,32 @@ impl Default for Phase {
 	fn default() -> Self {
 		Self::Initialization
 	}
+}
+
+/// The context in which the runtime is currently being executed.
+///
+/// Unlike [`Phase`], which tracks *where* in a block's lifecycle execution currently is, this
+/// tracks *why* the runtime is being executed: as part of authoring or importing a block, or as
+/// part of validating a transaction for the transaction pool.
+///
+/// The context is only set on entry points that establish it (block execution/construction and
+/// transaction validation). When it has not been set — e.g. during an offchain worker or a runtime
+/// API that does not initialize a block — [`execution_context`](Pallet::execution_context) returns
+/// `None`. Consumers should decide explicitly how to treat an unknown context rather than assuming
+/// a particular state.
+#[derive(Encode, Decode, Debug, Copy, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[cfg_attr(feature = "std", derive(Serialize))]
+pub enum ExecutionContext {
+	/// The runtime is executing a block, either while authoring it (block construction) or while
+	/// importing/re-executing it (block execution).
+	///
+	/// Block construction is intentionally treated the same as block execution so that the state
+	/// transition function is identical in both cases.
+	BlockExecution,
+	/// The runtime is validating a transaction on behalf of the transaction pool.
+	///
+	/// State changes performed in this context are discarded and never committed to the chain.
+	TransactionValidation,
 }
 
 /// Record of an event happening.
@@ -1940,6 +1976,24 @@ impl<T: Config> Pallet<T> {
 		ExecutionPhase::<T>::get()
 	}
 
+	/// Returns the [`ExecutionContext`] the runtime is currently being executed in, i.e. whether
+	/// it is executing a block or validating a transaction for the transaction pool.
+	///
+	/// Returns `None` when no context has been set, e.g. outside of block execution and transaction
+	/// validation (such as during an offchain worker).
+	pub fn execution_context() -> Option<ExecutionContext> {
+		pallet::ExecutionContext::<T>::get()
+	}
+
+	/// Set the [`ExecutionContext`] the runtime is currently being executed in.
+	///
+	/// This is meant to be called by the executive at the start of each entry point to record
+	/// why the runtime is being executed. Pallets should treat the context as read-only via
+	/// [`execution_context`](Self::execution_context) and never call this.
+	pub fn set_execution_context(context: ExecutionContext) {
+		pallet::ExecutionContext::<T>::put(context);
+	}
+
 	/// Inform the system pallet of some additional weight that should be accounted for, in the
 	/// current block.
 	///
@@ -1973,6 +2027,9 @@ impl<T: Config> Pallet<T> {
 
 		// populate environment
 		ExecutionPhase::<T>::put(Phase::Initialization);
+		// Mark that we are executing a block. The executive overrides this with
+		// `ExecutionContext::TransactionValidation` when validating a transaction for the pool.
+		pallet::ExecutionContext::<T>::put(ExecutionContext::BlockExecution);
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &0u32);
 		Self::initialize_intra_block_entropy(parent_hash);
 		<Number<T>>::put(number);
@@ -2072,6 +2129,7 @@ impl<T: Config> Pallet<T> {
 	pub fn finalize() -> HeaderFor<T> {
 		Self::resource_usage_report();
 		ExecutionPhase::<T>::kill();
+		pallet::ExecutionContext::<T>::kill();
 		BlockSize::<T>::kill();
 		storage::unhashed::kill(well_known_keys::INTRABLOCK_ENTROPY);
 		InherentsApplied::<T>::kill();

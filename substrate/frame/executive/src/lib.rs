@@ -962,6 +962,11 @@ where
 			&block_hash,
 			&Default::default(),
 		);
+		// We are validating a transaction for the transaction pool, not executing a block. Override
+		// the context that `initialize` defaulted to `BlockExecution`.
+		<frame_system::Pallet<System>>::set_execution_context(
+			frame_system::ExecutionContext::TransactionValidation,
+		);
 
 		enter_span! { sp_tracing::Level::TRACE, "validate_transaction" };
 
