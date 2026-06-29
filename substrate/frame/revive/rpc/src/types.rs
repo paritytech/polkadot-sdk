@@ -17,3 +17,6 @@
 
 mod fee_history;
 pub use fee_history::*;
+
+mod subscription;
+pub use subscription::*;
