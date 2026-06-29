@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782731326571,
+  "lastUpdate": 1782747410093,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -183743,6 +183743,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2256958485,
             "range": "± 12906584",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "40f9a5ddbe62c0b797a4be9beb35fba93e6d6336",
+          "message": "txpool: maintain on all blocks (#12433)\n\nSlot-based collators under heavy forking frequently import blocks that\nare **not** the best block, and then build on top of them. The\nfork-aware pool only maintains a view per **best** block, so when the\nblock builder asks for `ready_at(fork_block)` there is no view for that\nfork and it falls back to `ready_at_light`.\n\n`ready_at_light` does **not** collect the full set of ready transactions\nfor the fork: it walks up to the nearest ancestor that still has a view\n(typically the fork's common root), reuses that view's ready set and\nmerely prunes the extrinsics already included on the way to\n`fork_block`. It never re-validates the mempool against the fork, so any\ntransaction that is not already in that ancestor view is missing —\nresulting in under-filled / empty blocks on forks.\n\nMaintaining the pool on every imported block means a proper view already\nexists for the fork, so the block builder gets the complete ready set\ninstead of the light fallback.\n\n#### Example\n\n```text\n      B1 - B2[tx] - B3 - B4           <- imported as best\n    /\nB0\n    \\\n      B'1 - B'2 - B'3 - B'4 - B'5[tx] <- imported as non-best, until B'5 becomes best\n```\n\n`tx` enters the pool and is included in `B2` on the best chain. The `B'`\nfork is imported but never notified as best, so the pool keeps no views\nfor `B'1..B'4`. While building on that fork, `ready_at` has no view and\nfalls back to `ready_at_light`, which reuses the nearest ancestor view\n(`B0`) and only prunes already-included txs — it never re-collects the\nmempool, so `tx` (which arrived after `B0`'s view went inactive) is\nmissing. `tx` is only included once the fork wins and `B'5` becomes\nbest, at which point a full view is finally built — i.e. inclusion is\n**delayed** by the length of the fork.\n\nWith this change a view is built for every `B'n` as it is imported, so\n`tx` is ready on the fork from the start.\n\n#### Notes for reviewers\n\n- The pool is now informed about **every** imported block, not only best\nblocks. The fork-aware pool builds a view for each imported block, so it\nis aware of all forks.\n- New `ChainEvent::NewBlock` event represents a non-best import; the\nfork-aware pool handles it like `NewBestBlock` (builds a view).\n`notification_future` subscribes to `every_import_notification_stream()`\ninstead of `import_notification_stream()`.\n- New `--pool-best-blocks-only` flag restores the previous behavior (act\non best blocks only). Only affects the fork-aware pool; the single-state\npool is unchanged. This is intended to act as a legacy fallback.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-29T13:30:13Z",
+          "tree_id": "491abfb5af2e9afcac340ffc34c823b3e4e0d28a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/40f9a5ddbe62c0b797a4be9beb35fba93e6d6336"
+        },
+        "date": 1782747377491,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4620895,
+            "range": "± 32520",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 308354,
+            "range": "± 9020",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4534731,
+            "range": "± 38657",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 389469,
+            "range": "± 6427",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5665448,
+            "range": "± 35684",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 927102,
+            "range": "± 11270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10987173,
+            "range": "± 107494",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4825083,
+            "range": "± 51984",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 43841417,
+            "range": "± 244577",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38025884,
+            "range": "± 516608",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 374812320,
+            "range": "± 2011422",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 303313547,
+            "range": "± 2882655",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2646791477,
+            "range": "± 14184058",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2366815700,
+            "range": "± 15439964",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3339748,
+            "range": "± 11344",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1791054,
+            "range": "± 7138",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3420599,
+            "range": "± 15073",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1859408,
+            "range": "± 10471",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3953854,
+            "range": "± 22835",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2187665,
+            "range": "± 36970",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7936399,
+            "range": "± 51251",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5092794,
+            "range": "± 51503",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 36722241,
+            "range": "± 248949",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 35642237,
+            "range": "± 257572",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 321244611,
+            "range": "± 4125071",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 278803429,
+            "range": "± 2298476",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2455740344,
+            "range": "± 20376673",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2253458455,
+            "range": "± 70579510",
             "unit": "ns/iter"
           }
         ]
