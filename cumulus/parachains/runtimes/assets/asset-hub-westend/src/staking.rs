@@ -312,6 +312,7 @@ impl pallet_staking_async::Config for Runtime {
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
+	type IsValidatorInactive = ();
 }
 
 // Relay Chain session keys type for validating session keys on AssetHub.

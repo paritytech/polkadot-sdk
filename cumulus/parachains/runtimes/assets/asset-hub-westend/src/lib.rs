@@ -2027,6 +2027,10 @@ pub type Migrations = (
 		staking::StakingPotsPalletId,
 		staking::StakingStakerRewardKind,
 	>,
+	// Records the cutoff era from which the weighted-points validator self-stake
+	// incentive formula applies; pending pre-cutoff eras keep the legacy
+	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.
+	pallet_staking_async::migrations::SetWeightedPointsFormulaStartEra<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
