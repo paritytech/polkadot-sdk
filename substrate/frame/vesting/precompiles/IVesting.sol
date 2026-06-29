@@ -38,4 +38,20 @@ interface IVesting {
 	/// The returned value is in native (Substrate) denomination.
 	/// Returns 0 if `target` has no vesting schedule or is fully vested.
 	function vestingBalanceOf(address target) external view returns (uint256);
+
+	/// Transfer funds from the caller to `target` with an attached vesting schedule.
+	///
+	/// The caller must have sufficient free balance to cover `locked`.
+	/// A new vesting schedule is created for `target` that linearly unlocks
+	/// `perBlock` tokens per block starting at `startingBlock`.
+	///
+	/// Reverts if `locked` is below the runtime's `MinVestedTransfer`, if
+	/// `perBlock` is zero, or if `target` already has the maximum number of
+	/// vesting schedules.
+	function vestedTransfer(
+		address target,
+		uint256 locked,
+		uint256 perBlock,
+		uint256 startingBlock
+	) external;
 }

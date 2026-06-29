@@ -22,17 +22,22 @@
 
 extern crate alloc;
 
+mod access_list;
 mod address;
 mod benchmarking;
 #[cfg(any(feature = "runtime-benchmarks", test))]
 pub mod call_builder;
 mod debug;
+mod deposit_payment;
 mod exec;
 mod impl_fungibles;
 mod limits;
 mod metering;
 mod primitives;
-mod state_overrides;
+#[doc(hidden)]
+pub mod runtime_api;
+#[doc(hidden)]
+pub mod state_overrides;
 mod storage;
 #[cfg(test)]
 mod tests;
@@ -49,9 +54,10 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
+	access_list::{StorageAccessKind, Warmth},
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
-		TYPE_EIP1559, Trace, Tracer, TracerType, block_hash::EthereumBlockBuilderIR, block_storage,
+		TYPE_EIP1559, Tracer, TracerType, block_hash::EthereumBlockBuilderIR, block_storage,
 		fees::InfoT as FeeInfo, runtime::SetWeightLimit,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
@@ -74,7 +80,8 @@ use frame_support::{
 	pallet_prelude::DispatchClass,
 	storage::with_transaction,
 	traits::{
-		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OnUnbalanced, OriginTrait,
+		ConstU32, ConstU64, DefensiveResult, EnsureOrigin, Get, IsSubType, IsType, OnUnbalanced,
+		OriginTrait,
 		fungible::{Balanced, Credit, Inspect, Mutate, MutateHold},
 		tokens::Balance,
 	},
@@ -84,6 +91,7 @@ use frame_system::{
 	Pallet as System, ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
 };
+use pallet_revive_types::runtime_api::*;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	AccountId32, DispatchError, FixedPointNumber, FixedU128, SaturatedConversion,
@@ -96,8 +104,9 @@ use sp_runtime::{
 pub use crate::{
 	address::{AccountId32Mapper, AddressMapper, AutoMapper, TestAccountMapper, create1, create2},
 	debug::DebugSettings,
+	deposit_payment::{Deposit, PGasDeposit},
 	evm::{
-		Address as EthAddress, Block as EthBlock, DryRunConfig, ReceiptInfo,
+		Address as EthAddress, Block as EthBlock, DryRunConfig, ReceiptInfo, TracingConfig,
 		block_hash::ReceiptGasInfo,
 	},
 	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
@@ -112,12 +121,17 @@ pub use crate::{
 	vm::{BytecodeType, ContractBlob},
 };
 pub use codec;
+use frame_support::traits::tokens::Precision;
 pub use frame_support::{self, dispatch::DispatchInfo, traits::Time, weights::Weight};
 pub use frame_system::{self, limits::BlockWeights};
 pub use primitives::*;
-pub use sp_core::{H160, H256, U256, keccak_256};
+pub use sp_core::{H160, H256, U256};
+pub use sp_crypto_hashing::keccak_256;
 pub use sp_runtime;
 pub use weights::WeightInfo;
+
+// Types re-export, needed to make it easier for runtimes to implement the pallet-revive runtime API
+pub extern crate pallet_revive_types;
 
 #[cfg(doc)]
 pub use crate::vm::pvm::SyscallDoc;
@@ -330,6 +344,11 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type FeeInfo: FeeInfo<Self>;
 
+		/// Payment backend used to charge storage deposits.
+		/// The default `()` binding always uses the native currency.
+		#[pallet::no_default_bounds]
+		type Deposit: Deposit<Self>;
+
 		/// The fraction the maximum extrinsic weight `eth_transact` extrinsics are capped to.
 		///
 		/// This is not a security measure but a requirement due to how we map gas to `(Weight,
@@ -458,6 +477,7 @@ pub mod pallet {
 			type NativeToEthRatio = ConstU32<1_000_000>;
 			type FindAuthor = ();
 			type FeeInfo = ();
+			type Deposit = ();
 			type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 			type DebugEnabled = ConstBool<false>;
 			type AutoMap = ConstBool<false>;
@@ -638,6 +658,10 @@ pub mod pallet {
 		EcdsaRecoveryFailed = 0x41,
 		/// Manual mapping is disabled when auto-mapping is enabled.
 		AutoMappingEnabled = 0x42,
+		/// A contract cannot be created at this address: it still has uncleared
+		/// [`NativeDepositOf`] entries from a previously terminated contract that the deletion
+		/// queue has not yet drained.
+		PendingDepositCleanup = 0x43,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -652,6 +676,16 @@ pub mod pallet {
 		StorageDepositReserve,
 		/// Deposit for creating an address mapping in [`OriginalAccount`].
 		AddressMapping,
+	}
+
+	/// A reason for the pallet revive placing a freeze on PGAS funds.
+	#[pallet::composite_enum]
+	pub enum FreezeReason {
+		/// Pins the PGAS existential deposit minted into a contract account so it cannot be
+		/// transferred or burned by the contract while it is alive. Without this freeze, a
+		/// contract could call the PGAS ERC20 precompile with `Preservation::Expendable` and
+		/// drain its own ED.
+		PGasMinBalance,
 	}
 
 	#[derive(
@@ -677,16 +711,39 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type AccountInfoOf<T: Config> = StorageMap<_, Identity, H160, AccountInfo<T>>;
 
+	/// Native currency storage deposit contributed by a user into a contract.
+	///
+	/// Bounds how much native value the user can receive back from that contract's
+	/// storage deposit.
+	///
+	/// Keys: `(holder, contributor) -> amount`
+	/// - `holder`: account on which the deposit is held (a contract, or the pallet's own account
+	///   for code-upload deposits).
+	/// - `contributor`: user that funded the deposit. Receives the native portion on refund, capped
+	///   at this entry's `amount`.
+	#[pallet::storage]
+	pub(crate) type NativeDepositOf<T: Config> = StorageDoubleMap<
+		_,
+		Identity,
+		T::AccountId,
+		Identity,
+		T::AccountId,
+		BalanceOf<T>,
+		ValueQuery,
+	>;
+
 	/// The immutable data associated with a given account.
 	#[pallet::storage]
 	pub(crate) type ImmutableDataOf<T: Config> = StorageMap<_, Identity, H160, ImmutableData>;
 
-	/// Evicted contracts that await child trie deletion.
+	/// Terminated contracts that await lazy cleanup.
 	///
-	/// Child trie deletion is a heavy operation depending on the amount of storage items
-	/// stored in said trie. Therefore this operation is performed lazily in `on_idle`.
+	/// Each entry pairs a child trie ID with the contract account so that `on_idle` can
+	/// drain both the child trie and any [`NativeDepositOf`] entries that named the contract
+	/// as `holder`. Both can be arbitrarily large, so cleanup runs lazily in `on_idle`.
 	#[pallet::storage]
-	pub(crate) type DeletionQueue<T: Config> = StorageMap<_, Twox64Concat, u32, TrieId>;
+	pub(crate) type DeletionQueue<T: Config> =
+		StorageMap<_, Twox64Concat, u32, crate::storage::DeletionQueueItem<T>>;
 
 	/// A pair of monotonic counters used to track the latest contract marked for deletion
 	/// and the latest deleted contract in queue.
@@ -813,7 +870,7 @@ pub mod pallet {
 			}
 
 			for id in &self.mapped_accounts {
-				if let Err(err) = T::AddressMapper::map_no_deposit(id) {
+				if let Err(err) = T::AddressMapper::map_no_deposit_unchecked(id) {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
 				}
 			}
@@ -1052,12 +1109,13 @@ pub mod pallet {
 			);
 
 			// We can use storage to store items using the available block ref_time with the
-			// `set_storage` host function.
+			// `set_storage` host function. A revertible cold access is the worst case.
 			let max_storage_size = max_block_weight
 				.checked_div_per_component(
 					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::SetStorage {
 						new_bytes: limits::STORAGE_BYTES,
 						old_bytes: 0,
+						kind: StorageAccessKind::Persistent(Warmth::Cold { revertible: true }),
 					})
 					.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size)),
 				)
@@ -1283,6 +1341,7 @@ pub mod pallet {
 		#[pallet::weight(
 			<T as Config>::WeightInfo::eth_instantiate_with_code(code.len() as u32, data.len() as u32, Pallet::<T>::has_dust(*value).into())
 			.saturating_add(*weight_limit)
+			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
 		)]
 		pub fn eth_instantiate_with_code(
 			origin: OriginFor<T>,
@@ -1429,7 +1488,11 @@ pub mod pallet {
 		/// * `call`: The Substrate runtime call to execute.
 		/// * `transaction_encoded`: The RLP encoding of the Ethereum transaction,
 		#[pallet::call_index(12)]
-		#[pallet::weight(T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32).saturating_add(call.get_dispatch_info().call_weight))]
+		#[pallet::weight(
+			T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32)
+			.saturating_add(call.get_dispatch_info().call_weight)
+			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
+		)]
 		pub fn eth_substrate_call(
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
@@ -1438,8 +1501,10 @@ pub mod pallet {
 			// Note that the inner dispatch uses `RawOrigin::Signed`, which cannot
 			// re-enter `eth_substrate_call` (which requires `Origin::EthTransaction`).
 			let signer = Self::ensure_eth_signed(origin)?;
-			let weight_overhead =
-				T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32);
+			Self::ensure_non_contract_if_signed(&OriginFor::<T>::signed(signer.clone()))?;
+			let tx_len = transaction_encoded.len() as u32;
+			let weight_overhead = T::WeightInfo::eth_substrate_call(tx_len)
+				.saturating_add(T::WeightInfo::on_finalize_block_per_tx(tx_len));
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 				let call_weight = call.get_dispatch_info().call_weight;
@@ -1562,6 +1627,74 @@ pub mod pallet {
 			T::AddressMapper::map(&origin)
 		}
 
+		/// Map many accounts and make the TX free if at least 90% were unmapped or held deposits.
+		#[pallet::call_index(13)]
+		#[pallet::weight(<T as Config>::WeightInfo::batch_map_accounts(accounts.len().saturated_into::<u32>()))]
+		pub fn batch_map_accounts(
+			origin: OriginFor<T>,
+			accounts: Vec<T::AccountId>,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin.clone())?;
+			Self::ensure_non_contract_if_signed(&origin)?;
+
+			let total: u32 = accounts.len().saturated_into();
+			let mut mapped = 0;
+
+			for account_id in accounts
+				.iter()
+				// Eth-derived accounts are stateless mapped, nothing to do.
+				.filter(|&a| !T::AddressMapper::is_eth_derived(a))
+				// Skip non-existent accounts: otherwise any caller could permanently
+				// insert mappings for arbitrary AccountIds at no cost.
+				.filter(|&a| frame_system::Pallet::<T>::account_exists(a))
+			{
+				let mut useful = false;
+
+				match T::AddressMapper::map_no_deposit_unchecked(account_id) {
+					Ok(()) => {
+						useful = true;
+					},
+					Err(err) => log::debug!(
+						target: LOG_TARGET,
+						"Failed to map account {account_id:?}: {err:?}",
+					),
+				}
+
+				match T::Currency::release_all(
+					&HoldReason::AddressMapping.into(),
+					account_id,
+					Precision::BestEffort,
+				) {
+					// `release_all` returns `Ok(0)` when there is no hold to release,
+					// which is not useful work and must not earn a fee refund.
+					Ok(released) if !released.is_zero() => {
+						useful = true;
+					},
+					Ok(_) => {},
+					Err(err) => log::debug!(
+						target: LOG_TARGET,
+						"Failed to release mapping deposit for {account_id:?}: {err:?}",
+					),
+				}
+
+				if useful {
+					mapped = mapped.saturating_add(1);
+				}
+			}
+
+			// guard against 0 division below
+			if total == 0 || mapped == 0 {
+				return Ok(Pays::Yes.into());
+			}
+
+			let proportion_mapped = Perbill::from_rational(mapped, total);
+			if proportion_mapped >= Perbill::from_percent(90) {
+				Ok(Pays::No.into())
+			} else {
+				Ok(Pays::Yes.into())
+			}
+		}
+
 		/// Unregister the callers account id in order to free the deposit.
 		///
 		/// There is no reason to ever call this function other than freeing up the deposit.
@@ -1592,14 +1725,16 @@ pub mod pallet {
 			)
 		})]
 		pub fn dispatch_as_fallback_account(
-			origin: OriginFor<T>,
+			mut origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_non_contract_if_signed(&origin)?;
-			let origin = ensure_signed(origin)?;
-			let unmapped_account =
-				T::AddressMapper::to_fallback_account_id(&T::AddressMapper::to_address(&origin));
-			call.dispatch(RawOrigin::Signed(unmapped_account).into())
+			let account_id = origin.as_signer().ok_or(DispatchError::BadOrigin)?;
+			let unmapped_account = T::AddressMapper::to_fallback_account_id(
+				&T::AddressMapper::to_address(&account_id),
+			);
+			origin.set_caller_from(RawOrigin::Signed(unmapped_account));
+			call.dispatch(origin)
 		}
 	}
 }
@@ -1695,6 +1830,12 @@ impl<T: Config> Pallet<T> {
 		// Bump the  nonce to simulate what would happen
 		// `pre-dispatch` if the transaction was executed.
 		frame_system::Pallet::<T>::inc_account_nonce(account);
+
+		// Map the account if it is not mapped already so we don't hit
+		// `AccountUnmapped` from the origin when dry-running.
+		if !T::AddressMapper::is_mapped(account) {
+			let _ = T::AddressMapper::map_no_deposit_unchecked(account);
+		}
 	}
 
 	/// A generalized version of [`Self::instantiate`] or [`Self::instantiate_with_code`].
@@ -1848,26 +1989,51 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		// TODO: Implement a short circuit for simple transfers. We just need to determine the gas
-		// needed for it.
-
-		// Perform the first dry run with the gas limit of the binary search's high bound. If it
-		// fails then we attempt again with the max extrinsic weight in gas which we do since some
-		// transactions fail the dry run with the highest gas limit. If both of these fail then we
-		// return early as it means that the transaction simply can't succeed.
-		let dry_run_results = [high, Self::evm_max_extrinsic_weight_in_gas()].map(|gas_limit| {
+		// Run one gas probe in a rolled-back transaction. Overrides ride along in `config` so
+		// `dry_run_eth_transact` applies them *after* `prepare_dry_run` bumps the nonce, keeping a
+		// nonce override at the exact value it sets.
+		let dry_run_at = |gas: U256| {
 			let mut transaction = tx.clone();
-			transaction.gas = Some(gas_limit);
+			transaction.gas = Some(gas);
 			let dry_run_config = config.clone().with_perform_balance_checks(perform_balance_checks);
-			let eth_transact_result = with_transaction(|| {
+			with_transaction(|| {
 				TransactionOutcome::Rollback(Ok::<_, DispatchError>(Self::dry_run_eth_transact(
 					transaction,
 					dry_run_config,
 				)))
 			})
-			.expect("Rollback shouldn't error out");
-			(gas_limit, eth_transact_result)
-		});
+			.expect("Rollback shouldn't error out")
+		};
+
+		// Classify against post-override state (a code override can make the destination a
+		// contract) in a rolled-back probe, so the overrides don't leak into the dry runs.
+		let is_simple_transfer = with_transaction(|| {
+			let probe = config
+				.state_overrides
+				.clone()
+				.map_or(Ok(()), state_overrides::apply_state_overrides::<T>)
+				.map(|()| Self::is_simple_transfer(&tx));
+			TransactionOutcome::Rollback(Ok::<_, DispatchError>(probe))
+		})
+		.expect("Rollback shouldn't error out")?;
+
+		if is_simple_transfer {
+			let dry_run_result = dry_run_at(high)?;
+			log::trace!(
+				target: LOG_TARGET,
+				"eth_estimate_gas short-circuited simple transfer to {:?} with eth_gas={}",
+				tx.to,
+				dry_run_result.eth_gas,
+			);
+			return Ok(dry_run_result.eth_gas);
+		}
+
+		// Perform the first dry run with the gas limit of the binary search's high bound. If it
+		// fails then we attempt again with the max extrinsic weight in gas which we do since some
+		// transactions fail the dry run with the highest gas limit. If both of these fail then we
+		// return early as it means that the transaction simply can't succeed.
+		let dry_run_results = [high, Self::evm_max_extrinsic_weight_in_gas()]
+			.map(|gas_limit| (gas_limit, dry_run_at(gas_limit)));
 		let (gas_limit, first_dry_run_result) = match dry_run_results {
 			[(gas_limit1, Ok(dry_run_result1)), (gas_limit2, Ok(dry_run_result2))] => {
 				if dry_run_result2.eth_gas >= gas_limit2 {
@@ -1925,16 +2091,7 @@ impl<T: Config> Pallet<T> {
 				}
 			};
 
-			let mut transaction = tx.clone();
-			transaction.gas = Some(midpoint);
-			let dry_run_config = config.clone().with_perform_balance_checks(perform_balance_checks);
-			let dry_run_result = with_transaction(|| {
-				TransactionOutcome::Rollback(Ok::<_, DispatchError>(Self::dry_run_eth_transact(
-					transaction,
-					dry_run_config,
-				)))
-			})
-			.expect("Rollback shouldn't error out");
+			let dry_run_result = dry_run_at(midpoint);
 			log::trace!(target: LOG_TARGET, "eth_estimate_gas dry run result with midpoint={midpoint} is dry_run_result={dry_run_result:?}");
 			match dry_run_result {
 				Ok(..) => {
@@ -1950,6 +2107,58 @@ impl<T: Config> Pallet<T> {
 
 		log::trace!(target: LOG_TARGET, "eth_estimate_gas completed. high={high}");
 		Ok(high)
+	}
+
+	/// Returns true when `tx` is a plain value transfer that executes no code at its destination.
+	pub(crate) fn is_simple_transfer(tx: &GenericTransaction) -> bool {
+		tx.to
+			.map(|to| tx.has_simple_transfer_fields() && Self::address_runs_no_code(&to))
+			.unwrap_or(false)
+	}
+
+	/// Returns true when a value transfer can target `address` without triggering any code
+	/// execution: it is neither the runtime pallets address, a precompile, nor a contract.
+	fn address_runs_no_code(address: &H160) -> bool {
+		// TODO(eip-7702): also reject delegated (authorized) destinations once EIP-7702
+		// delegations land, since a transfer to one executes the delegate's code.
+		*address != RUNTIME_PALLETS_ADDR &&
+			!exec::is_precompile::<T, ContractBlob<T>>(address) &&
+			!<AccountInfo<T>>::is_contract(address)
+	}
+
+	/// Return the pre-dispatch weight booked for the signed Ethereum transaction payload.
+	///
+	/// This matches the weight contribution that `frame_system::CheckWeight` would add for the
+	/// transaction on an otherwise empty block:
+	/// - the revive call's total dispatch weight, including extension weight,
+	/// - the dispatch class base extrinsic weight,
+	/// - and the extrinsic-length proof-size charge.
+	pub fn eth_pre_dispatch_weight(transaction_encoded: Vec<u8>) -> Result<Weight, EthTransactError>
+	where
+		CallOf<T>: SetWeightLimit,
+	{
+		let signed_tx =
+			crate::evm::TransactionSigned::decode(&transaction_encoded).map_err(|err| {
+				EthTransactError::Message(format!("Failed to decode transaction: {err:?}"))
+			})?;
+		let signer_addr = signed_tx.recover_eth_address().map_err(|err| {
+			EthTransactError::Message(format!("Failed to recover signer: {err:?}"))
+		})?;
+		let tx =
+			GenericTransaction::from_signed(signed_tx, Self::evm_base_fee(), Some(signer_addr));
+		let encoded_len = T::FeeInfo::encoded_len(
+			crate::Call::<T>::eth_transact { payload: transaction_encoded.clone() }.into(),
+		);
+		let call_info = tx
+			.into_call::<T>(CreateCallMode::ExtrinsicExecution(encoded_len, transaction_encoded))
+			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
+		let info = T::FeeInfo::dispatch_info(&call_info.call);
+
+		Ok(frame_system::calculate_consumed_extrinsic_weight::<CallOf<T>>(
+			&T::BlockWeights::get(),
+			&info,
+			call_info.encoded_len as usize,
+		))
 	}
 
 	/// Dry-run Ethereum calls.
@@ -2558,112 +2767,53 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	/// Transfer a deposit from some account to another.
+	/// Transfer a deposit from some account to another and place it on hold under `hold_reason`.
 	///
 	/// `from` is usually the transaction origin and `to` a contract or
 	/// the pallets own account.
 	fn charge_deposit(
-		hold_reason: Option<HoldReason>,
+		hold_reason: HoldReason,
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
 		exec_config: &ExecConfig<T>,
 	) -> DispatchResult {
-		use frame_support::traits::tokens::{Fortitude, Precision, Preservation};
-
 		if amount.is_zero() {
 			return Ok(());
 		}
 
-		match (exec_config.collect_deposit_from_hold.is_some(), hold_reason) {
-			(true, hold_reason) => {
-				T::FeeInfo::withdraw_txfee(amount)
-					.ok_or(())
-					.and_then(|credit| T::Currency::resolve(to, credit).map_err(|_| ()))
-					.and_then(|_| {
-						if let Some(hold_reason) = hold_reason {
-							T::Currency::hold(&hold_reason.into(), to, amount).map_err(|_| ())?;
-						}
-						Ok(())
-					})
-					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
-			},
-			(false, Some(hold_reason)) => {
-				T::Currency::transfer_and_hold(
-					&hold_reason.into(),
-					from,
-					to,
-					amount,
-					Precision::Exact,
-					Preservation::Preserve,
-					Fortitude::Polite,
-				)
-				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
-			},
-			(false, None) => {
-				T::Currency::transfer(from, to, amount, Preservation::Preserve)
-					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
-			},
-		}
+		T::Deposit::charge_and_hold(hold_reason, exec_config.funds(from), to, amount)
+			.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 		Ok(())
 	}
 
 	/// Refund a deposit.
 	///
-	/// `to` is usually the transaction origin and `from` a contract or
+	/// `dst` is usually the transaction origin and `from` a contract or
 	/// the pallets own account.
 	fn refund_deposit(
 		hold_reason: HoldReason,
 		from: &T::AccountId,
-		to: &T::AccountId,
+		dst: deposit_payment::Funds<T::AccountId>,
 		amount: BalanceOf<T>,
-		exec_config: Option<&ExecConfig<T>>,
 	) -> Result<(), DispatchError> {
-		use frame_support::traits::{
-			fungible::InspectHold,
-			tokens::{Fortitude, Precision, Preservation, Restriction},
-		};
-
 		if amount.is_zero() {
 			return Ok(());
 		}
 
-		let hold_reason = hold_reason.into();
-		let result = if exec_config.map(|c| c.collect_deposit_from_hold.is_some()).unwrap_or(false)
-		{
-			T::Currency::release(&hold_reason, from, amount, Precision::Exact)
-				.and_then(|amount| {
-					T::Currency::withdraw(
-						from,
-						amount,
-						Precision::Exact,
-						Preservation::Preserve,
-						Fortitude::Polite,
-					)
-				})
-				.map(T::FeeInfo::deposit_txfee)
-		} else {
-			T::Currency::transfer_on_hold(
-				&hold_reason,
-				from,
-				to,
-				amount,
-				Precision::Exact,
-				Restriction::Free,
-				Fortitude::Polite,
-			)
-			.map(|_| ())
+		let to = match &dst {
+			deposit_payment::Funds::Balance(to) | deposit_payment::Funds::TxFee(to) => *to,
 		};
+		let result = T::Deposit::refund_on_hold(hold_reason, from, dst, amount);
 
-		result.map_err(|_| {
-			let available = T::Currency::balance_on_hold(&hold_reason, from);
+		result.defensive_map_err(|err| {
+			let available = T::Deposit::total_on_hold(hold_reason, from);
 			if available < amount {
 				// The storage deposit accounting got out of sync with the balance: This would be a
 				// straight up bug in this pallet.
 				log::error!(
 					target: LOG_TARGET,
-					"Failed to refund storage deposit {:?} from contract {:?} to origin {:?}. Not enough deposit: {:?}. This is a bug.",
-					amount, from, to, available,
+					"Failed to refund storage deposit {amount:?} from contract {from:?} to origin {to:?}. Not enough deposit: {available:?}. This is a bug.",
 				);
 				Error::<T>::StorageRefundNotEnoughFunds.into()
 			} else {
@@ -2673,8 +2823,7 @@ impl<T: Config> Pallet<T> {
 				// reducing the lock.
 				log::warn!(
 					target: LOG_TARGET,
-					"Failed to refund storage deposit {:?} from contract {:?} to origin {:?}. First remove locks (staking, governance) from the contracts account.",
-					amount, from, to,
+					"Failed to refund storage deposit {amount:?} from contract {from:?} to origin {to:?}: {err:?}. First remove locks (staking, governance) from the contracts account.",
 				);
 				Error::<T>::StorageRefundLocked.into()
 			}
@@ -2692,6 +2841,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Return the existential deposit of [`Config::Currency`].
+	#[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime", test))]
 	fn min_balance() -> BalanceOf<T> {
 		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
 	}
@@ -2752,7 +2902,7 @@ environmental!(executing_contract: bool);
 
 sp_api::decl_runtime_apis! {
 	/// The API used to dry-run contract interactions.
-	#[api_version(1)]
+	#[api_version(2)]
 	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber, Moment> where
 		AccountId: Codec,
 		Balance: Codec,
@@ -2840,6 +2990,9 @@ sp_api::decl_runtime_apis! {
 			config: DryRunConfig<Moment>
 		) -> Result<U256, EthTransactError>;
 
+		/// Return the pre-dispatch weight booked for the signed Ethereum transaction payload.
+		fn eth_pre_dispatch_weight(tx: Vec<u8>) -> Result<Weight, EthTransactError>;
+
 		/// Upload new code without instantiating a contract from it.
 		///
 		/// See [`crate::Pallet::bare_upload_code`].
@@ -2875,10 +3028,11 @@ sp_api::decl_runtime_apis! {
 		/// parent block.
 		///
 		/// See eth-rpc `debug_traceBlockByNumber` for usage.
+		#[deprecated(note = "Use the versioned equivalent `trace_block_versioned` if available on your runtime")]
 		fn trace_block(
 			block: Block,
-			config: TracerType
-		) -> Vec<(u32, Trace)>;
+			config: TracerTypeV1
+		) -> Vec<(u32, TraceV1)>;
 
 		/// Traces the execution of a specific transaction within a block.
 		///
@@ -2889,13 +3043,24 @@ sp_api::decl_runtime_apis! {
 		fn trace_tx(
 			block: Block,
 			tx_index: u32,
-			config: TracerType
-		) -> Option<Trace>;
+			config: TracerTypeV1
+		) -> Option<TraceV1>;
 
 		/// Dry run and return the trace of the given call.
 		///
 		/// See eth-rpc `debug_traceCall` for usage.
-		fn trace_call(tx: GenericTransaction, config: TracerType) -> Result<Trace, EthTransactError>;
+		fn trace_call(tx: GenericTransaction, config: TracerTypeV1) -> Result<TraceV1, EthTransactError>;
+
+		/// Dry run and return the trace of the given call with additional configuration.
+		///
+		/// Like [`Self::trace_call`], but accepts a [`TracingConfig`] that can carry state
+		/// overrides and future extensibility. The config must be the **last argument** for
+		/// backwards compatibility — see [`TracingConfig`] documentation.
+		fn trace_call_with_config(
+			tx: GenericTransaction,
+			tracer_type: TracerTypeV1,
+			config: TracingConfig,
+		) -> Result<TraceV1, EthTransactError>;
 
 		/// The address of the validator that produced the current block.
 		fn block_author() -> H160;
@@ -2914,6 +3079,11 @@ sp_api::decl_runtime_apis! {
 
 		/// Construct the new balance and dust components of this EVM balance.
 		fn new_balance_with_dust(balance: U256) -> Result<(Balance, u32), BalanceConversionError>;
+
+		/* Versioned Runtime APIs */
+
+		#[api_version(2)]
+		fn trace_block_versioned(input: TraceBlockVersionedInputPayload<Block>) -> TraceBlockVersionedOutputPayload;
 	}
 }
 
@@ -2956,7 +3126,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 		impl_runtime_apis! {
 			$($rest)*
 
-
+			#[api_version(2)]
 			impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, __ReviveMacroMoment> for $Runtime
 			{
 				fn eth_block() -> $crate::EthBlock {
@@ -3035,6 +3205,12 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						sp_runtime::traits::Block as BlockT
 					};
 					$crate::Pallet::<Self>::eth_estimate_gas(tx, config)
+				}
+
+				fn eth_pre_dispatch_weight(
+					tx: Vec<u8>,
+				) -> Result<$crate::Weight, $crate::EthTransactError> {
+					$crate::Pallet::<Self>::eth_pre_dispatch_weight(tx)
 				}
 
 				fn call(
@@ -3118,39 +3294,28 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 				fn trace_block(
 					block: Block,
-					tracer_type: $crate::evm::TracerType,
-				) -> Vec<(u32, $crate::evm::Trace)> {
-					use $crate::{sp_runtime::traits::Block, tracing::trace};
+					tracer_type: $crate::pallet_revive_types::runtime_api::TracerTypeV1,
+				) -> Vec<(u32, $crate::pallet_revive_types::runtime_api::TraceV1)> {
+					use $crate::pallet_revive_types::runtime_api::*;
 
-					if matches!(tracer_type, $crate::evm::TracerType::ExecutionTracer(_)) &&
-						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
-					{
-						return Default::default()
-					}
-
-					let mut traces = vec![];
-					let (header, extrinsics) = block.deconstruct();
-					<$Executive>::initialize_block(&header);
-					for (index, ext) in extrinsics.into_iter().enumerate() {
-						let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type.clone());
-						let t = tracer.as_tracing();
-						let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
-
-						if let Some(tx_trace) = tracer.collect_trace() {
-							traces.push((index as u32, tx_trace));
-						}
-					}
-
-					traces
+					let input = TraceBlockVersionedInputPayload::from(TraceBlockInputPayloadV1 {
+						block,
+						config: tracer_type
+					});
+					let output = Self::trace_block_versioned(input);
+					TraceBlockOutputPayloadV1::try_from(output)
+						.expect("qed; v1 input must produce v1 output")
+						.traces
 				}
 
 				fn trace_tx(
 					block: Block,
 					tx_index: u32,
-					tracer_type: $crate::evm::TracerType,
-				) -> Option<$crate::evm::Trace> {
+					tracer_type: $crate::pallet_revive_types::runtime_api::TracerTypeV1,
+				) -> Option<$crate::pallet_revive_types::runtime_api::TraceV1> {
 					use $crate::{sp_runtime::traits::Block, tracing::trace};
 
+					let tracer_type = $crate::evm::TracerType::from(tracer_type);
 					if matches!(tracer_type, $crate::evm::TracerType::ExecutionTracer(_)) &&
 						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
 					{
@@ -3171,15 +3336,16 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						}
 					}
 
-					tracer.collect_trace()
+					tracer.collect_trace().map(Into::into)
 				}
 
 				fn trace_call(
 					tx: $crate::evm::GenericTransaction,
-					tracer_type: $crate::evm::TracerType,
-				) -> Result<$crate::evm::Trace, $crate::EthTransactError> {
+					tracer_type: $crate::pallet_revive_types::runtime_api::TracerTypeV1,
+				) -> Result<$crate::pallet_revive_types::runtime_api::TraceV1, $crate::EthTransactError> {
 					use $crate::tracing::trace;
 
+					let tracer_type = $crate::evm::TracerType::from(tracer_type);
 					if matches!(tracer_type, $crate::evm::TracerType::ExecutionTracer(_)) &&
 						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
 					{
@@ -3200,6 +3366,21 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					} else {
 						Ok($crate::Pallet::<Self>::evm_tracer(tracer_type).empty_trace())
 					}
+					.map(Into::into)
+				}
+
+				fn trace_call_with_config(
+					tx: $crate::evm::GenericTransaction,
+					tracer_type: $crate::pallet_revive_types::runtime_api::TracerTypeV1,
+					config: $crate::evm::TracingConfig,
+				) -> Result<$crate::pallet_revive_types::runtime_api::TraceV1, $crate::EthTransactError> {
+					let $crate::evm::TracingConfig { state_overrides } = config;
+
+					if let Some(overrides) = state_overrides {
+						$crate::state_overrides::apply_state_overrides::<Runtime>(overrides)?;
+					}
+
+					Self::trace_call(tx, tracer_type)
 				}
 
 				fn runtime_pallets_address() -> $crate::H160 {
@@ -3217,6 +3398,52 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 				fn new_balance_with_dust(balance: $crate::U256) -> Result<(Balance, u32), $crate::BalanceConversionError> {
 					$crate::Pallet::<Self>::new_balance_with_dust(balance)
+				}
+
+				/* Versioned Runtime APIs */
+				fn trace_block_versioned(
+					input: $crate::pallet_revive_types::runtime_api::TraceBlockVersionedInputPayload<Block>
+				) -> $crate::pallet_revive_types::runtime_api::TraceBlockVersionedOutputPayload {
+					use $crate::{
+						sp_runtime::traits::Block,
+						tracing::trace,
+						runtime_api::*,
+						pallet_revive_types::runtime_api::*
+					};
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (_, Box<dyn Fn(TraceBlockOutputPayload) -> TraceBlockVersionedOutputPayload>) = match input {
+						TraceBlockVersionedInputPayload::V1(payload) => (
+							TraceBlockInputPayload::from(payload),
+							Box::new(|output| TraceBlockVersionedOutputPayload::V1(output.into()))
+						),
+						TraceBlockVersionedInputPayload::V2(payload) => (
+							TraceBlockInputPayload::from(payload),
+							Box::new(|output| TraceBlockVersionedOutputPayload::V2(output.into()))
+						),
+					};
+
+					if matches!(input.config, $crate::evm::TracerType::ExecutionTracer(_)) &&
+						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
+					{
+						return output_wrapper(Default::default())
+					}
+
+					let mut traces = vec![];
+					let (header, extrinsics) = input.block.deconstruct();
+					<$Executive>::initialize_block(&header);
+					for (index, ext) in extrinsics.into_iter().enumerate() {
+						let mut tracer = $crate::Pallet::<Self>::evm_tracer(input.config.clone());
+						let t = tracer.as_tracing();
+						let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
+
+						if let Some(tx_trace) = tracer.collect_trace() {
+							traces.push((index as u32, tx_trace));
+						}
+					}
+
+					let output = TraceBlockOutputPayload { traces };
+					output_wrapper(output)
 				}
 			}
 		}

@@ -20,6 +20,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::{H160, U256};
+use sp_crypto_hashing::keccak_256;
 
 /// Configuration specific to a dry-run execution.
 ///
@@ -141,6 +142,70 @@ impl<Moment> DryRunConfig<Moment> {
 	}
 }
 
+/// Configuration specific to a tracing execution.
+///
+/// Passed as the last argument to the `trace_call_with_config` runtime API method. Contains
+/// optional overrides that affect how the traced execution is performed.
+///
+/// # Backwards Compatibility
+///
+/// This type follows the same backwards compatibility strategy as [`DryRunConfig`]. SCALE is a
+/// non-self-describing format: fields are encoded sequentially with no names or delimiters. This
+/// type uses a custom [`Decode`] implementation that defaults missing trailing fields, and relies
+/// on `sp_api`'s use of `Decode::decode` (not `decode_all`) to silently discard trailing bytes
+/// that an old runtime does not recognize.
+///
+/// ## Constraints on fields
+///
+/// - New fields **must** be appended to the end. Inserting or reordering fields breaks the byte
+///   layout in both directions.
+/// - New fields **must** implement `Default` so the custom `Decode` fallback can produce a sensible
+///   value when the field is absent from the input.
+///
+/// ## Constraints on runtime API placement
+///
+/// `TracingConfig` must be the **last argument** of any runtime API method that uses it. If it
+/// were placed before another argument, extra bytes from newly appended fields would shift the
+/// decoding offset and corrupt the subsequent argument.
+#[derive(Debug, Default, Encode, TypeInfo, Clone)]
+pub struct TracingConfig {
+	/// Optional state overrides to apply before executing the traced call. Each entry maps an
+	/// account address to a set of fields (balance, nonce, code, storage) that should be
+	/// temporarily replaced for the duration of the trace.
+	pub state_overrides: Option<StateOverrideSet>,
+}
+
+/// A custom implementation of [`Decode`] to ensure forward and backward compatibility of the
+/// [`TracingConfig`] type.
+///
+/// # Backwards Compatibility
+///
+/// Please review the documentation on [`TracingConfig`] for more information about how we manage
+/// and handle compatibility for this type and instructions on what you should do when adding a
+/// new field.
+impl Decode for TracingConfig {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		let state_overrides = Option::<StateOverrideSet>::decode(input).unwrap_or_default();
+		Ok(Self { state_overrides })
+	}
+}
+
+impl TracingConfig {
+	/// Create a new `TracingConfig` with default values.
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	/// A builder method which consumes the object and sets the state overrides.
+	pub fn with_state_overrides(
+		mut self,
+		state_overrides: impl Into<Option<StateOverrideSet>>,
+	) -> Self {
+		self.state_overrides = state_overrides.into();
+		self
+	}
+}
+
 impl From<BlockNumberOrTag> for BlockNumberOrTagOrHash {
 	fn from(b: BlockNumberOrTag) -> Self {
 		match b {
@@ -236,7 +301,7 @@ impl ReceiptInfo {
 ///
 /// [ref]: https://ethereum.github.io/yellowpaper/paper.pdf
 fn m3_2048(bloom: &mut [u8; 256], bytes: &[u8]) {
-	let hash = sp_core::keccak_256(bytes);
+	let hash = keccak_256(bytes);
 	for i in [0, 2, 4] {
 		let bit = (hash[i + 1] as usize + ((hash[i] as usize) << 8)) & 0x7FF;
 		bloom[256 - 1 - bit / 8] |= 1 << (bit % 8);
@@ -329,6 +394,18 @@ impl GenericTransaction {
 	/// Create a new [`GenericTransaction`] from a signed transaction.
 	pub fn from_signed(tx: TransactionSigned, base_gas_price: U256, from: Option<H160>) -> Self {
 		Self::from_unsigned(tx.into(), base_gas_price, from)
+	}
+
+	/// Returns `true` when the transaction's payload fields look like those of a simple value
+	/// transfer: empty calldata, no access list, no EIP-7702 authorization list, no EIP-4844 blob
+	/// payload, and no blob gas fee. The destination address is validated separately by the caller.
+	pub fn has_simple_transfer_fields(&self) -> bool {
+		self.input.is_empty() &&
+			self.access_list.as_ref().is_none_or(|list| list.is_empty()) &&
+			self.authorization_list.is_empty() &&
+			self.blob_versioned_hashes.is_empty() &&
+			self.blobs.is_empty() &&
+			self.max_fee_per_blob_gas.is_none()
 	}
 
 	/// The gas price that is actually paid (including priority fee).

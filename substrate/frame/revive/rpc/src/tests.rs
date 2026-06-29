@@ -19,7 +19,7 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
-	BlockInfoProvider, ChainMetadata, DebugRpcClient, EthRpcClient, ReceiptExtractor,
+	BlockInfoProvider, ChainMetadata, DbContext, DebugRpcClient, EthRpcClient, ReceiptExtractor,
 	ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
 	client::{Client, GapFillRequest, SubscriptionGapQueue, connect},
@@ -30,7 +30,7 @@ use crate::{
 };
 use alloy_network::EthereumWallet;
 use alloy_primitives::{Address as AlloyAddress, B256, Bytes as AlloyBytes, U256 as AlloyU256};
-use alloy_provider::{Provider, ProviderBuilder};
+use alloy_provider::{Provider, ProviderBuilder, ext::DebugApi as _};
 use alloy_rpc_types::{
 	TransactionRequest,
 	state::{AccountOverride, StateOverride},
@@ -48,14 +48,19 @@ use pallet_revive::{
 		Account, Block, BlockHeader, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag,
 		BoundedOneOrMany, Filter, FilterResults, GenericTransaction, H256,
 		HashesOrTransactionInfos, Log, SubscriptionItem, SubscriptionKind, SubscriptionOptions,
-		Trace, TransactionInfo, TransactionUnsigned, U256,
+		TransactionInfo, TransactionUnsigned, U256,
 	},
 	precompiles::alloy::{
 		self,
-		sol_types::{SolCall, SolConstructor, SolEvent},
+		sol_types::{SolCall, SolConstructor, SolEvent, SolInterface},
 	},
 };
 use pallet_revive_fixtures::{Callee, Counter, TwoSlots};
+use pallet_revive_types::runtime_api::{
+	CallTracerConfigV1, TraceBlockInputPayloadV1, TraceBlockInputPayloadV2,
+	TraceBlockVersionedInputPayload, TraceBlockVersionedOutputPayload, TraceV1, TraceV2,
+	TracerTypeV1,
+};
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::{sync::Arc, thread};
@@ -344,10 +349,10 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 
 	run_tests!(
 		test_fibonacci_call_via_runtime_api,
+		test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input,
 		test_transfer,
 		test_deploy_and_call,
-		test_receipt_deploy_and_revert,
-		test_receipt_multiple_logs,
+		test_receipt_mixed_revert_and_logs_same_block,
 		test_runtime_api_dry_run_addr_works,
 		test_invalid_transaction,
 		test_evm_blocks_should_match,
@@ -401,6 +406,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_state_override_empty_set,
 		test_state_override_storage_on_eoa_fails,
 		test_state_override_balance_zero,
+		test_state_override_trace_call,
 		test_subscription_gap_filler_backfills_queued_range,
 	);
 
@@ -533,95 +539,118 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 	Ok(())
 }
 
-/// Verify receipt correctness for deploy (contractAddress, status=success)
-/// and reverted calls (status=0x0).
-async fn test_receipt_deploy_and_revert() -> anyhow::Result<()> {
+/// Verify that a reverted transaction and a log-emitting transaction in the same block
+/// produce correct, independent receipts: revert status and logs are not mixed up.
+/// Also exercises eth_getTransactionByBlockNumberAndIndex for both transactions.
+async fn test_receipt_mixed_revert_and_logs_same_block() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let account = Account::default();
 
-	// Deploy ok_trap_revert (reverts when called with input byte 1)
-	let (bytes, _) = pallet_revive_fixtures::compile_module("ok_trap_revert")?;
-	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let tx = TransactionBuilder::new(client.clone()).input(bytes).send().await?;
-	let receipt = tx.wait_for_receipt().await?;
-	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
-	assert_eq!(
-		Some(contract_address),
-		receipt.contract_address,
-		"Deploy should set contractAddress"
-	);
-	assert!(receipt.is_success(), "Deploy should succeed");
+	let deploy = |name, fixture_type| {
+		let client = client.clone();
+		let address = account.address();
+		async move {
+			let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(name, fixture_type)?;
+			let nonce = client.get_transaction_count(address, BlockTag::Latest.into()).await?;
+			let tx = TransactionBuilder::new(client).input(bytes).send().await?;
+			tx.wait_for_receipt().await?;
+			Ok::<_, anyhow::Error>(create1(&address, nonce.try_into().unwrap()))
+		}
+	};
 
-	// Send a reverting call with explicit gas (eth_estimateGas would revert).
-	let receipt = TransactionBuilder::new(client.clone())
-		.to(contract_address)
-		.input(vec![1, 0, 0, 0])
-		.gas(U256::from(1_000_000))
-		.send()
-		.await?
-		.wait_for_receipt_any()
-		.await?;
+	let revert_contract =
+		deploy("ok_trap_revert", pallet_revive_fixtures::FixtureType::Rust).await?;
+	let event_contract = deploy("MultiEvent", pallet_revive_fixtures::FixtureType::Solc).await?;
 
-	assert!(!receipt.is_success(), "Reverted call should have status=0x0");
-	assert!(receipt.logs.is_empty(), "Reverted call should produce no logs");
-	assert_eq!(Some(contract_address), receipt.to);
-
-	Ok(())
-}
-
-/// Verify that multiple ContractEmitted events in a single transaction
-/// are all collected into the receipt logs.
-async fn test_receipt_multiple_logs() -> anyhow::Result<()> {
-	let client = Arc::new(SharedResources::client().await);
-	let account = Account::default();
-
-	// Deploy MultiEvent contract
-	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
-		"MultiEvent",
-		pallet_revive_fixtures::FixtureType::Solc,
-	)?;
-	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let tx = TransactionBuilder::new(client.clone()).input(bytes).send().await?;
-	let receipt = tx.wait_for_receipt().await?;
-	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
-	assert_eq!(Some(contract_address), receipt.contract_address);
-
-	// Call emitMultiple(1, 2) — should emit two events (Ping and Pong)
 	alloy::sol! {
 		function emitMultiple(uint64 a, uint64 b);
 		event Ping(uint64 value);
 		event Pong(uint64 value);
 	}
-	let input = emitMultipleCall { a: 1, b: 2 }.abi_encode();
 
-	let tx = TransactionBuilder::new(client.clone())
-		.to(contract_address)
-		.input(input)
+	// Get the current nonce and submit two transactions with descending nonces
+	// so they land in the same block.
+	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+
+	let revert_tx = TransactionBuilder::new(client.clone())
+		.to(revert_contract)
+		.input(vec![1, 0, 0, 0])
+		.gas(U256::from(1_000_000))
+		.nonce(nonce.saturating_add(U256::from(1)))
 		.send()
 		.await?;
-	let receipt = tx.wait_for_receipt().await?;
 
-	assert!(receipt.is_success(), "emitMultiple call should succeed");
-	assert_eq!(receipt.logs.len(), 2, "Receipt should contain exactly 2 logs");
-	assert_eq!(receipt.logs[0].address, contract_address);
-	assert_eq!(receipt.logs[1].address, contract_address);
+	let emit_input = emitMultipleCall { a: 1, b: 2 }.abi_encode();
+	let emit_tx = TransactionBuilder::new(client.clone())
+		.to(event_contract)
+		.input(emit_input)
+		.gas(U256::from(1_000_000))
+		.nonce(nonce)
+		.send()
+		.await?;
+
+	let emit_receipt = emit_tx.wait_for_receipt().await?;
+	let revert_receipt = revert_tx.wait_for_receipt_any().await?;
+
+	// Both should be in the same block
+	assert_eq!(
+		emit_receipt.block_number, revert_receipt.block_number,
+		"Both transactions should be in the same block"
+	);
+
+	// Reverted transaction: status=0, no logs
+	assert!(!revert_receipt.is_success(), "Reverted call should have status=0x0");
+	assert!(revert_receipt.logs.is_empty(), "Reverted call should produce no logs");
+
+	// Successful transaction: status=1, 2 logs correctly attributed
+	assert!(emit_receipt.is_success(), "emitMultiple call should succeed");
+	assert_eq!(emit_receipt.logs.len(), 2, "Receipt should contain exactly 2 logs");
+	assert_eq!(emit_receipt.logs[0].address, event_contract);
+	assert_eq!(emit_receipt.logs[1].address, event_contract);
 
 	let ping_sig = H256(Ping::SIGNATURE_HASH.0);
 	let pong_sig = H256(Pong::SIGNATURE_HASH.0);
-	assert_eq!(receipt.logs[0].topics[0], ping_sig, "First log should be Ping");
-	assert_eq!(receipt.logs[1].topics[0], pong_sig, "Second log should be Pong");
+	assert_eq!(emit_receipt.logs[0].topics[0], ping_sig, "First log should be Ping");
+	assert_eq!(emit_receipt.logs[1].topics[0], pong_sig, "Second log should be Pong");
 
-	let ping_data = &receipt.logs[0].data.as_ref().unwrap().0;
-	let pong_data = &receipt.logs[1].data.as_ref().unwrap().0;
+	for log in &emit_receipt.logs {
+		assert_eq!(
+			log.transaction_hash, emit_receipt.transaction_hash,
+			"Logs should belong to the emitting transaction"
+		);
+	}
+
+	// Verify log data values
+	let ping_data = &emit_receipt.logs[0].data.as_ref().unwrap().0;
+	let pong_data = &emit_receipt.logs[1].data.as_ref().unwrap().0;
 	let ping = Ping::abi_decode_data(ping_data).expect("decode Ping data");
 	let pong = Pong::abi_decode_data(pong_data).expect("decode Pong data");
 	assert_eq!(ping.0, 1, "Ping value should be 1");
 	assert_eq!(pong.0, 2, "Pong value should be 2");
 
+	// log_index must be monotonically increasing within the block
 	assert!(
-		receipt.logs[0].log_index < receipt.logs[1].log_index,
+		emit_receipt.logs[0].log_index < emit_receipt.logs[1].log_index,
 		"log_index values should be monotonically increasing"
 	);
+
+	let block_number = emit_receipt.block_number;
+	// Verify eth_getTransactionByBlockNumberAndIndex for both
+	let tx0 = client
+		.get_transaction_by_block_number_and_index(
+			block_number.try_into().unwrap(),
+			emit_receipt.transaction_index,
+		)
+		.await?;
+	assert_eq!(tx0.unwrap().hash, emit_receipt.transaction_hash);
+
+	let tx1 = client
+		.get_transaction_by_block_number_and_index(
+			block_number.try_into().unwrap(),
+			revert_receipt.transaction_index,
+		)
+		.await?;
+	assert_eq!(tx1.unwrap().hash, revert_receipt.transaction_hash);
 
 	Ok(())
 }
@@ -966,7 +995,7 @@ async fn test_earliest_block_tag() -> anyhow::Result<()> {
 	let trace =
 		DebugRpcClient::trace_call(&*client, tx.clone(), BlockTag::Earliest.into(), None).await?;
 	assert!(
-		matches!(trace, Trace::Call(_) | Trace::Execution(_)),
+		matches!(trace, TraceV1::Call(_) | TraceV1::Execution(_)),
 		"traceCall should return a trace"
 	);
 
@@ -1820,6 +1849,111 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 	Ok(())
 }
 
+async fn test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input()
+-> anyhow::Result<()> {
+	use pallet_revive_fixtures::Host;
+
+	type SubstrateTracingBlock = sp_runtime::generic::Block<
+		sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
+		sp_runtime::OpaqueExtrinsic,
+	>;
+
+	let client = Arc::new(SharedResources::client().await);
+	let node_client = SharedResources::node_client().await;
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Host",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let deploy_receipt = TransactionBuilder::new(client.clone())
+		.input(code)
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	let contract_address = deploy_receipt
+		.contract_address
+		.ok_or_else(|| anyhow!("deployment should return a contract address"))?;
+
+	let receipt = TransactionBuilder::new(client)
+		.to(contract_address)
+		.input(Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode())
+		.gas(U256::from(1_000_000))
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	assert!(receipt.is_success());
+	assert_eq!(receipt.logs.len(), 5);
+
+	let receipt_block_number = u32::try_from(receipt.block_number)
+		.map_err(|_| anyhow!("receipt block number should fit in u32"))?;
+	let subxt_block = node_client.blocks().at_latest().await?;
+	assert_eq!(subxt_block.number(), receipt_block_number);
+
+	let parent_hash = subxt_block.header().parent_hash;
+	let header = codec::Decode::decode(&mut &codec::Encode::encode(subxt_block.header())[..])?;
+	let extrinsics = subxt_block
+		.extrinsics()
+		.await?
+		.iter()
+		.map(|extrinsic| sp_runtime::OpaqueExtrinsic::try_from_encoded_extrinsic(extrinsic.bytes()))
+		.collect::<Result<Vec<_>, _>>()?;
+	let block = SubstrateTracingBlock { header, extrinsics };
+	let config = TracerTypeV1::CallTracer(Some(CallTracerConfigV1 {
+		with_logs: true,
+		only_top_call: false,
+	}));
+
+	let v1_input = TraceBlockVersionedInputPayload::V1(TraceBlockInputPayloadV1 {
+		block: subxt::utils::Static(block.clone()),
+		config: config.clone(),
+	});
+	let v1_payload = subxt_client::apis()
+		.revive_api()
+		.trace_block_versioned(subxt::utils::Static(v1_input))
+		.unvalidated();
+	let v1_output = node_client.runtime_api().at(parent_hash).call(v1_payload).await?.0;
+	let TraceBlockVersionedOutputPayload::V1(v1_output) = v1_output else {
+		return Err(anyhow!("V1 trace_block input should return V1 output"));
+	};
+	let (_, trace_v1) = v1_output
+		.traces
+		.into_iter()
+		.find(|(_, trace)| matches!(trace, TraceV1::Call(call) if !call.logs.is_empty()))
+		.ok_or_else(|| anyhow!("V1 output should include a call trace with logs"))?;
+	let TraceV1::Call(call_v1) = trace_v1 else {
+		return Err(anyhow!("V1 output should include a call trace"));
+	};
+	assert_eq!(call_v1.logs.len(), 5);
+	assert!(serde_json::to_value(&call_v1.logs[0])?.get("index").is_none());
+
+	let v2_input = TraceBlockVersionedInputPayload::V2(TraceBlockInputPayloadV2 {
+		block: subxt::utils::Static(block),
+		config,
+	});
+	let v2_payload = subxt_client::apis()
+		.revive_api()
+		.trace_block_versioned(subxt::utils::Static(v2_input))
+		.unvalidated();
+	let v2_output = node_client.runtime_api().at(parent_hash).call(v2_payload).await?.0;
+	let TraceBlockVersionedOutputPayload::V2(v2_output) = v2_output else {
+		return Err(anyhow!("V2 trace_block input should return V2 output"));
+	};
+	let (_, trace_v2) = v2_output
+		.traces
+		.into_iter()
+		.find(|(_, trace)| matches!(trace, TraceV2::Call(call) if !call.logs.is_empty()))
+		.ok_or_else(|| anyhow!("V2 output should include a call trace with logs"))?;
+	let TraceV2::Call(call_v2) = trace_v2 else {
+		return Err(anyhow!("V2 output should include a call trace"));
+	};
+	let indexes = call_v2.logs.iter().map(|log| log.index).collect::<Vec<_>>();
+	assert_eq!(indexes, vec![3, 4, 5, 6, 7]);
+
+	Ok(())
+}
+
 async fn test_gas_estimation_with_no_funds_no_gas_specified() -> anyhow::Result<()> {
 	// Arrange
 	let code = pallet_revive_fixtures::compile_module_with_type(
@@ -1905,8 +2039,13 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		.await?;
 
 	let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
-	let receipt_provider =
-		ReceiptProvider::new(pool, block_provider.clone(), receipt_extractor, None).await?;
+	let receipt_provider = ReceiptProvider::new(
+		DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
+		block_provider.clone(),
+		receipt_extractor,
+		None,
+	)
+	.await?;
 
 	let (subscription_gap_queue, gap_fill_rx) = SubscriptionGapQueue::new();
 	let client = Client::new(
@@ -3195,6 +3334,56 @@ async fn test_state_override_balance_zero() -> anyhow::Result<()> {
 		result.is_err(),
 		"call transferring value with balance overridden to zero should fail: {result:?}"
 	);
+
+	Ok(())
+}
+
+/// Verifies that `debug_traceCall` works with state overrides by injecting code onto an empty
+/// address and tracing a call to it. Uses alloy's `DebugApi` to ensure wire-format compatibility
+/// with the wider Ethereum ecosystem.
+async fn test_state_override_trace_call() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target = AlloyAddress::from([0xE1; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let call_data = Callee::echoCall { _data: 42 }.abi_encode();
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	let trace_options = alloy_rpc_types::trace::geth::GethDebugTracingCallOptions {
+		tracing_options: alloy_rpc_types::trace::geth::GethDebugTracingOptions {
+			tracer: Some(alloy_rpc_types::trace::geth::GethDebugTracerType::BuiltInTracer(
+				alloy_rpc_types::trace::geth::GethDebugBuiltInTracerType::CallTracer,
+			)),
+			..Default::default()
+		},
+		state_overrides: Some(overrides),
+		..Default::default()
+	};
+
+	// Act
+	let result = provider
+		.debug_trace_call_callframe(tx, alloy_rpc_types::BlockId::latest(), trace_options)
+		.await;
+
+	// Assert
+	assert!(result.is_ok(), "debug_traceCall with state overrides should succeed: {result:?}");
+	let frame = result.unwrap();
+	assert!(frame.output.is_some(), "trace should have output from echo(42)");
 
 	Ok(())
 }

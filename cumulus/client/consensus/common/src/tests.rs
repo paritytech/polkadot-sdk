@@ -22,7 +22,7 @@ use async_trait::async_trait;
 use codec::Encode;
 use cumulus_client_pov_recovery::RecoveryKind;
 use cumulus_primitives_core::{
-	relay_chain::{BlockId, BlockNumber, CoreState},
+	relay_chain::{BlockId, BlockNumber, CoreState, Hash},
 	CumulusDigestItem, InboundDownwardMessage, InboundHrmpMessage, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{
@@ -31,13 +31,13 @@ use cumulus_relay_chain_interface::{
 	ValidatorId,
 };
 use cumulus_test_client::{
-	runtime::{Block, Hash, Header},
-	Backend, Client, InitBlockBuilder, TestClientBuilder, TestClientBuilderExt,
+	runtime::{Block, Header},
+	Backend, BuildBlockBuilder, Client, TestClientBuilder, TestClientBuilderExt,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use futures::{channel::mpsc, executor::block_on, select, FutureExt, Stream, StreamExt};
 use futures_timer::Delay;
-use polkadot_primitives::{CandidateEvent, HeadData};
+use polkadot_primitives::{CandidateEvent, HeadData, NodeFeatures};
 use sc_client_api::{Backend as _, UsageProvider};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_blockchain::Backend as BlockchainBackend;
@@ -86,11 +86,12 @@ impl RelaychainInner {
 #[derive(Clone)]
 struct Relaychain {
 	inner: Arc<Mutex<RelaychainInner>>,
+	scheduling_lookahead: Option<u32>,
 }
 
 impl Relaychain {
 	fn new() -> Self {
-		Self { inner: Arc::new(Mutex::new(RelaychainInner::new())) }
+		Self { inner: Arc::new(Mutex::new(RelaychainInner::new())), scheduling_lookahead: None }
 	}
 }
 
@@ -298,10 +299,22 @@ impl RelayChainInterface for Relaychain {
 	}
 
 	async fn scheduling_lookahead(&self, _: PHash) -> RelayChainResult<u32> {
+		if let Some(scheduling_lookahead) = self.scheduling_lookahead {
+			return Ok(scheduling_lookahead);
+		}
+
 		unimplemented!("Not needed for test")
 	}
 
 	async fn candidate_events(&self, _: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn max_relay_parent_session_age(&self, _at: PHash) -> RelayChainResult<u32> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn node_features(&self, _at: Hash) -> RelayChainResult<NodeFeatures> {
 		unimplemented!("Not needed for test")
 	}
 }
@@ -324,19 +337,22 @@ fn sproof_with_parent(parent: HeadData) -> RelayStateSproofBuilder {
 	x
 }
 
-fn build_block<B: InitBlockBuilder>(
+fn build_block<B: BuildBlockBuilder>(
 	builder: &B,
 	sproof: RelayStateSproofBuilder,
 	at: Option<Hash>,
 	timestamp: Option<u64>,
 	relay_parent: Option<PHash>,
 ) -> Block {
-	let cumulus_test_client::BlockBuilderAndSupportData { block_builder, .. } = match at {
-		Some(at) => match timestamp {
-			Some(ts) => builder.init_block_builder_with_timestamp(at, None, sproof, ts),
-			None => builder.init_block_builder_at(at, None, sproof),
-		},
-		None => builder.init_block_builder(None, sproof),
+	let cumulus_test_client::BlockBuilderAndSupportData { block_builder, .. } = {
+		let mut bb = builder.init_block_builder_builder().with_relay_sproof_builder(sproof);
+		if let Some(at) = at {
+			bb = bb.at(at);
+		}
+		if let Some(ts) = timestamp {
+			bb = bb.with_timestamp(ts);
+		}
+		bb.build()
 	};
 
 	let mut block = block_builder.build().unwrap().block;
@@ -570,7 +586,12 @@ async fn follow_finalized_does_not_stop_on_unknown_block() {
 
 	let unknown_block = {
 		let sproof = sproof_with_parent_by_hash(&client, block.hash());
-		let block_builder = client.init_block_builder_at(block.hash(), None, sproof).block_builder;
+		let block_builder = client
+			.init_block_builder_builder()
+			.at(block.hash())
+			.with_relay_sproof_builder(sproof)
+			.build()
+			.block_builder;
 		block_builder.build().unwrap().block
 	};
 
@@ -625,7 +646,12 @@ async fn follow_new_best_sets_best_after_it_is_imported() {
 
 	let unknown_block = {
 		let sproof = sproof_with_parent_by_hash(&client, block.hash());
-		let block_builder = client.init_block_builder_at(block.hash(), None, sproof).block_builder;
+		let block_builder = client
+			.init_block_builder_builder()
+			.at(block.hash())
+			.with_relay_sproof_builder(sproof)
+			.build()
+			.block_builder;
 		block_builder.build().unwrap().block
 	};
 
@@ -986,17 +1012,19 @@ fn find_best_parent_in_allowed_ancestry() {
 		Some(relay_parent),
 	);
 
-	let relay_chain = Relaychain::new();
+	let mut relay_chain = Relaychain::new();
 	{
 		let included_map = &mut relay_chain.inner.lock().unwrap().relay_chain_hash_to_header;
 		included_map.insert(relay_parent, included_block.header().clone());
 	}
 
 	// When there's only the included block, it should be the best parent.
+	relay_chain.scheduling_lookahead = Some(1);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams { relay_parent, para_id: ParaId::from(100), ancestry_lookback: 0 },
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		relay_parent,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1023,14 +1051,12 @@ fn find_best_parent_in_allowed_ancestry() {
 	);
 
 	// With ancestry_lookback: 2, the child block should be the best parent.
+	relay_chain.scheduling_lookahead = Some(3);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams {
-			relay_parent: search_relay_parent,
-			para_id: ParaId::from(100),
-			ancestry_lookback: 2,
-		},
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		search_relay_parent,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1040,14 +1066,12 @@ fn find_best_parent_in_allowed_ancestry() {
 
 	// With ancestry_lookback: 0, child block's relay parent is too old,
 	// so included block should be the best parent.
+	relay_chain.scheduling_lookahead = Some(1);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams {
-			relay_parent: search_relay_parent,
-			para_id: ParaId::from(100),
-			ancestry_lookback: 0,
-		},
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		search_relay_parent,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1085,7 +1109,7 @@ fn find_best_parent_with_pending() {
 		Some(relay_parent),
 	);
 
-	let relay_chain = Relaychain::new();
+	let mut relay_chain = Relaychain::new();
 	let search_relay_parent = relay_hash_from_block_num(15);
 	{
 		let relay_inner = &mut relay_chain.inner.lock().unwrap();
@@ -1097,14 +1121,12 @@ fn find_best_parent_with_pending() {
 			.insert(search_relay_parent, pending_block.header().clone());
 	}
 
+	relay_chain.scheduling_lookahead = Some(1);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams {
-			relay_parent: search_relay_parent,
-			para_id: ParaId::from(100),
-			ancestry_lookback: 0,
-		},
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		search_relay_parent,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1128,7 +1150,7 @@ fn find_best_parent_unknown_included_returns_none() {
 	let sproof = sproof_with_best_parent(&client);
 	let included_but_unknown = build_block(&*client, sproof, None, None, Some(relay_parent));
 
-	let relay_chain = Relaychain::new();
+	let mut relay_chain = Relaychain::new();
 	{
 		let relay_inner = &mut relay_chain.inner.lock().unwrap();
 		relay_inner
@@ -1136,14 +1158,12 @@ fn find_best_parent_unknown_included_returns_none() {
 			.insert(search_relay_parent, included_but_unknown.header().clone());
 	}
 
+	relay_chain.scheduling_lookahead = Some(2);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams {
-			relay_parent: search_relay_parent,
-			para_id: ParaId::from(100),
-			ancestry_lookback: 1,
-		},
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		search_relay_parent,
 	))
 	.unwrap();
 
@@ -1180,7 +1200,7 @@ fn find_best_parent_unknown_pending_returns_none() {
 		Some(relay_parent),
 	);
 
-	let relay_chain = Relaychain::new();
+	let mut relay_chain = Relaychain::new();
 	{
 		let relay_inner = &mut relay_chain.inner.lock().unwrap();
 		relay_inner
@@ -1191,14 +1211,12 @@ fn find_best_parent_unknown_pending_returns_none() {
 			.insert(search_relay_parent, pending_but_unknown.header().clone());
 	}
 
+	relay_chain.scheduling_lookahead = Some(2);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams {
-			relay_parent: search_relay_parent,
-			para_id: ParaId::from(100),
-			ancestry_lookback: 1,
-		},
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		search_relay_parent,
 	))
 	.unwrap();
 
@@ -1236,7 +1254,7 @@ fn find_best_parent_with_forks_returns_deepest() {
 		Some(relay_hash_from_block_num(11)),
 	);
 
-	let relay_chain = Relaychain::new();
+	let mut relay_chain = Relaychain::new();
 	{
 		let relay_inner = &mut relay_chain.inner.lock().unwrap();
 		relay_inner
@@ -1313,14 +1331,12 @@ fn find_best_parent_with_forks_returns_deepest() {
 		Some(relay_hash_from_block_num(17)),
 	);
 
+	relay_chain.scheduling_lookahead = Some(11);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams {
-			relay_parent: search_relay_parent,
-			para_id: ParaId::from(100),
-			ancestry_lookback: 10,
-		},
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		search_relay_parent,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1364,7 +1380,7 @@ fn find_best_parent_returns_deepest_block() {
 		Some(relay_parent),
 	);
 
-	let relay_chain = Relaychain::new();
+	let mut relay_chain = Relaychain::new();
 	{
 		let relay_inner = &mut relay_chain.inner.lock().unwrap();
 		relay_inner
@@ -1390,14 +1406,12 @@ fn find_best_parent_returns_deepest_block() {
 		last_block = block;
 	}
 
+	relay_chain.scheduling_lookahead = Some(2);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams {
-			relay_parent: search_relay_parent,
-			para_id: ParaId::from(100),
-			ancestry_lookback: 1,
-		},
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		search_relay_parent,
 	))
 	.unwrap()
 	.expect("Should find a parent");

@@ -22,12 +22,13 @@ use crate::{
 };
 use futures::{StreamExt, TryFutureExt, stream};
 use pallet_revive::{
-	DryRunConfig, EthTransactInfo,
+	DryRunConfig, EthTransactInfo, TracingConfig,
 	evm::{
 		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, H160,
-		ReceiptGasInfo, StateOverrideSet, Trace, U256,
+		ReceiptGasInfo, StateOverrideSet, U256,
 	},
 };
+use pallet_revive_types::runtime_api::*;
 use sp_core::H256;
 use sp_timestamp::Timestamp;
 use subxt::{Error::Metadata, OnlineClient, error::MetadataError, ext::subxt_rpcs::UserError};
@@ -235,8 +236,8 @@ impl RuntimeApi {
 			sp_runtime::OpaqueExtrinsic,
 		>,
 		transaction_index: u32,
-		tracer_type: crate::TracerType,
-	) -> Result<Trace, ClientError> {
+		tracer_type: TracerTypeV1,
+	) -> Result<TraceV1, ClientError> {
 		let payload = subxt_client::apis()
 			.revive_api()
 			.trace_tx(block.into(), transaction_index, tracer_type.into())
@@ -253,8 +254,8 @@ impl RuntimeApi {
 			sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
 			sp_runtime::OpaqueExtrinsic,
 		>,
-		tracer_type: crate::TracerType,
-	) -> Result<Vec<(u32, Trace)>, ClientError> {
+		tracer_type: TracerTypeV1,
+	) -> Result<Vec<(u32, TraceV1)>, ClientError> {
 		let payload = subxt_client::apis()
 			.revive_api()
 			.trace_block(block.into(), tracer_type.into())
@@ -265,18 +266,35 @@ impl RuntimeApi {
 	}
 
 	/// Get the trace for the given call.
+	///
+	/// If `state_overrides` are provided, uses the `trace_call_with_config` runtime API
+	/// which supports state overrides. Otherwise falls back to the original `trace_call`
+	/// for backwards compatibility with older runtimes.
 	pub async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
-		tracer_type: crate::TracerType,
-	) -> Result<Trace, ClientError> {
-		let payload = subxt_client::apis()
-			.revive_api()
-			.trace_call(transaction.into(), tracer_type.into())
-			.unvalidated();
+		tracer_type: TracerTypeV1,
+		state_overrides: Option<StateOverrideSet>,
+	) -> Result<TraceV1, ClientError> {
+		let result = if let Some(overrides) = state_overrides {
+			let config = TracingConfig::new().with_state_overrides(overrides);
+			let payload = subxt_client::apis()
+				.revive_api()
+				.trace_call_with_config(transaction.into(), tracer_type.into(), config.into())
+				.unvalidated();
+			self.0.call(payload).await?
+		} else {
+			let payload = subxt_client::apis()
+				.revive_api()
+				.trace_call(transaction.into(), tracer_type.into())
+				.unvalidated();
+			self.0.call(payload).await?
+		};
 
-		let trace = self.0.call(payload).await?.map_err(|err| ClientError::TransactError(err.0))?;
-		Ok(trace.0)
+		match result {
+			Err(err) => Err(ClientError::TransactError(err.0)),
+			Ok(trace) => Ok(trace.0),
+		}
 	}
 
 	/// Get the code of the given address.
