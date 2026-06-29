@@ -20,3 +20,6 @@ pub use fee_history::*;
 
 mod subscription;
 pub use subscription::*;
+
+mod sync;
+pub use sync::*;

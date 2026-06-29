@@ -22,7 +22,7 @@ pub(crate) mod storage_api;
 
 use crate::{
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, FeeHistoryResult, ReceiptProvider,
-	SubxtBlockInfoProvider, SyncLabel, TransactionInfo,
+	SubxtBlockInfoProvider, SyncLabel, SyncingProgress, SyncingStatus, TransactionInfo,
 	block_sync::SyncCheckpoint,
 	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
@@ -32,8 +32,8 @@ use pallet_revive::{
 	EthTransactError,
 	evm::{
 		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Filter, GenericTransaction, H256,
-		HashesOrTransactionInfos, Log, ReceiptInfo, StateOverrideSet, SyncingProgress,
-		SyncingStatus, TransactionSigned, TransactionTrace, U256, decode_revert_reason,
+		HashesOrTransactionInfos, Log, ReceiptInfo, StateOverrideSet, TransactionSigned,
+		TransactionTrace, U256, decode_revert_reason,
 	},
 };
 use pallet_revive_types::runtime_api::*;
@@ -820,12 +820,11 @@ impl Client {
 
 		let status = if health.is_syncing {
 			let sync_state = self.sync_state().await?;
-			SyncingProgress {
+			SyncingStatus::SyncingProgress(SyncingProgress {
 				current_block: Some(sync_state.current_block.into()),
 				highest_block: Some(sync_state.highest_block.into()),
 				starting_block: Some(sync_state.starting_block.into()),
-			}
-			.into()
+			})
 		} else {
 			SyncingStatus::Bool(false)
 		};
