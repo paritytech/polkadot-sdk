@@ -79,13 +79,13 @@ mod tests {
 	#[test]
 	fn protocol_name_with_fork_id() {
 		let hash = [0xde, 0xad];
-		assert_eq!(String::from(protocol_name(&hash, Some("foo"))), "/dead/foo/mixnet/1",);
+		assert_eq!(protocol_name(&hash, Some("foo")).as_ref(), "/dead/foo/mixnet/1");
 	}
 
 	#[test]
 	fn protocol_name_without_fork_id() {
 		let hash = [0xde, 0xad];
-		assert_eq!(String::from(protocol_name(&hash, None)), "/dead/mixnet/1",);
+		assert_eq!(protocol_name(&hash, None).as_ref(), "/dead/mixnet/1");
 	}
 
 	#[test]
