@@ -20,17 +20,17 @@ use codec::{Encode, Joiner};
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	traits::Currency,
-	weights::{IdentityFee, WeightToFee, constants::ExtrinsicBaseWeight},
+	weights::{constants::ExtrinsicBaseWeight, IdentityFee, WeightToFee},
 };
 use kitchensink_runtime::{
+	constants::{currency::*, time::SLOT_DURATION},
 	Balances, CheckedExtrinsic, Multiplier, Runtime, RuntimeCall, TransactionByteFee,
 	TransactionPayment,
-	constants::{currency::*, time::SLOT_DURATION},
 };
 use node_primitives::Balance;
 use node_testing::keyring::*;
 use polkadot_sdk::*;
-use sp_runtime::{Perbill, traits::One};
+use sp_runtime::{traits::One, Perbill};
 
 pub mod common;
 use self::common::{sign, *};

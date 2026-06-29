@@ -26,13 +26,13 @@ use frame_system::{self, AccountInfo, DispatchEventInfo, EventRecord, Phase};
 use polkadot_sdk::*;
 use sp_core::{storage::well_known_keys, traits::Externalities};
 use sp_runtime::{
-	ApplyExtrinsicResult, traits::Hash as HashT, transaction_validity::InvalidTransaction,
+	traits::Hash as HashT, transaction_validity::InvalidTransaction, ApplyExtrinsicResult,
 };
 
 use kitchensink_runtime::{
+	constants::{currency::*, time::SLOT_DURATION},
 	Balances, CheckedExtrinsic, Header, Runtime, RuntimeCall, RuntimeEvent, System,
 	TransactionPayment, Treasury, UncheckedExtrinsic,
-	constants::{currency::*, time::SLOT_DURATION},
 };
 use node_primitives::{Balance, Hash};
 use node_testing::keyring::*;
