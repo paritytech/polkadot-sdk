@@ -155,14 +155,14 @@ they are significantly non-zero in your runtime.
 
 ## Runtime integration
 
-Subtracting signature weight from generated `ExtrinsicBaseWeight` only works if signed extrinsics
-re-charge that weight at runtime:
+Subtracting signature weight from the generated `ExtrinsicBaseWeight` only works if signed
+extrinsics re-charge that weight at runtime. This is now automatic: the cost is a static property of
+the signature type, exposed via the `sp_runtime::traits::SignatureWeight` trait (implemented for
+`MultiSignature` and the primitive signature types) and folded into the dispatch weight of signed
+extrinsics during signature verification.
 
-1. Set `frame_system::Config::SignatureWeight` to the value passed as `--signature-weight` when
-   running the overhead benchmark.
-2. Add `frame_system::ChargeSignatureWeight` to the runtime `TxExtension` tuple.
-3. Construct signed extrinsics with `ChargeSignatureWeight::signed()` and general/unsigned
-   extrinsics with `ChargeSignatureWeight::unsigned()` (or `Default`).
+Ensure the value passed as `--signature-weight` matches the weight returned by
+`SignatureWeight::weight()` for your runtime's signature type.
 
 License: Apache-2.0
 

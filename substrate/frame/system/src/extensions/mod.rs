@@ -16,7 +16,6 @@
 // limitations under the License.
 
 pub mod authorize_call;
-pub mod charge_signature_weight;
 pub mod check_genesis;
 pub mod check_mortality;
 pub mod check_non_zero_sender;
