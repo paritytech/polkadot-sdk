@@ -1443,39 +1443,38 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1293 id=1293 data-nosnippet>1293</a>		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
 <a href=#1294 id=1294 data-nosnippet>1294</a>			candidates,
 <a href=#1295 id=1295 data-nosnippet>1295</a>		)) =&gt; {
-<a href=#1296 id=1296 data-nosnippet>1296</a>			<span class="kw">if </span>max_approval_coalesce_count &gt; <span class="number">1 </span>&amp;&amp;
-<a href=#1297 id=1297 data-nosnippet>1297</a>				candidates.len() &lt;= max_approval_coalesce_count <span class="kw">as </span>usize &amp;&amp;
-<a href=#1298 id=1298 data-nosnippet>1298</a>				candidates.contains(<span class="kw-2">&amp;</span>candidate_hash)
-<a href=#1299 id=1299 data-nosnippet>1299</a>			{
-<a href=#1300 id=1300 data-nosnippet>1300</a>				ApprovalVoteMultipleCandidates(candidates).signing_payload(session)
-<a href=#1301 id=1301 data-nosnippet>1301</a>			} <span class="kw">else </span>{
-<a href=#1302 id=1302 data-nosnippet>1302</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(());
-<a href=#1303 id=1303 data-nosnippet>1303</a>			}
-<a href=#1304 id=1304 data-nosnippet>1304</a>		},
-<a href=#1305 id=1305 data-nosnippet>1305</a>		DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) =&gt; {
-<a href=#1306 id=1306 data-nosnippet>1306</a>			ExplicitDisputeStatement { valid: <span class="bool-val">false</span>, candidate_hash, session }.signing_payload()
-<a href=#1307 id=1307 data-nosnippet>1307</a>		},
-<a href=#1308 id=1308 data-nosnippet>1308</a>	};
-<a href=#1309 id=1309 data-nosnippet>1309</a>
-<a href=#1310 id=1310 data-nosnippet>1310</a>	<span class="kw">let </span>start = get_current_time();
-<a href=#1311 id=1311 data-nosnippet>1311</a>
-<a href=#1312 id=1312 data-nosnippet>1312</a>	<span class="kw">let </span>res =
-<a href=#1313 id=1313 data-nosnippet>1313</a>		<span class="kw">if </span>validator_signature.verify(<span class="kw-2">&amp;</span>payload[..], <span class="kw-2">&amp;</span>validator_public) { <span class="prelude-val">Ok</span>(()) } <span class="kw">else </span>{ <span class="prelude-val">Err</span>(()) };
-<a href=#1314 id=1314 data-nosnippet>1314</a>
-<a href=#1315 id=1315 data-nosnippet>1315</a>	<span class="kw">let </span>end = get_current_time();
-<a href=#1316 id=1316 data-nosnippet>1316</a>
-<a href=#1317 id=1317 data-nosnippet>1317</a>	METRICS.on_signature_check_complete(end.saturating_sub(start)); <span class="comment">// ns
-<a href=#1318 id=1318 data-nosnippet>1318</a>
-<a href=#1319 id=1319 data-nosnippet>1319</a>	</span>res
-<a href=#1320 id=1320 data-nosnippet>1320</a>}
-<a href=#1321 id=1321 data-nosnippet>1321</a>
-<a href=#1322 id=1322 data-nosnippet>1322</a><span class="attr">#[cfg(all(not(feature = <span class="string">"runtime-benchmarks"</span>), test))]
-<a href=#1323 id=1323 data-nosnippet>1323</a></span><span class="comment">// Test helper for clearing the on-chain dispute data.
-<a href=#1324 id=1324 data-nosnippet>1324</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>clear_dispute_storage&lt;T: Config&gt;() {
-<a href=#1325 id=1325 data-nosnippet>1325</a>	<span class="kw">let _ </span>= Disputes::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
-<a href=#1326 id=1326 data-nosnippet>1326</a>	<span class="kw">let _ </span>= BackersOnDisputes::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
-<a href=#1327 id=1327 data-nosnippet>1327</a>	<span class="kw">let _ </span>= Included::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
-<a href=#1328 id=1328 data-nosnippet>1328</a>}
+<a href=#1296 id=1296 data-nosnippet>1296</a>			<span class="kw">if </span>candidates.len() &lt;= max_approval_coalesce_count <span class="kw">as </span>usize &amp;&amp;
+<a href=#1297 id=1297 data-nosnippet>1297</a>				candidates.contains(<span class="kw-2">&amp;</span>candidate_hash)
+<a href=#1298 id=1298 data-nosnippet>1298</a>			{
+<a href=#1299 id=1299 data-nosnippet>1299</a>				ApprovalVoteMultipleCandidates(candidates).signing_payload(session)
+<a href=#1300 id=1300 data-nosnippet>1300</a>			} <span class="kw">else </span>{
+<a href=#1301 id=1301 data-nosnippet>1301</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(());
+<a href=#1302 id=1302 data-nosnippet>1302</a>			}
+<a href=#1303 id=1303 data-nosnippet>1303</a>		},
+<a href=#1304 id=1304 data-nosnippet>1304</a>		DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) =&gt; {
+<a href=#1305 id=1305 data-nosnippet>1305</a>			ExplicitDisputeStatement { valid: <span class="bool-val">false</span>, candidate_hash, session }.signing_payload()
+<a href=#1306 id=1306 data-nosnippet>1306</a>		},
+<a href=#1307 id=1307 data-nosnippet>1307</a>	};
+<a href=#1308 id=1308 data-nosnippet>1308</a>
+<a href=#1309 id=1309 data-nosnippet>1309</a>	<span class="kw">let </span>start = get_current_time();
+<a href=#1310 id=1310 data-nosnippet>1310</a>
+<a href=#1311 id=1311 data-nosnippet>1311</a>	<span class="kw">let </span>res =
+<a href=#1312 id=1312 data-nosnippet>1312</a>		<span class="kw">if </span>validator_signature.verify(<span class="kw-2">&amp;</span>payload[..], <span class="kw-2">&amp;</span>validator_public) { <span class="prelude-val">Ok</span>(()) } <span class="kw">else </span>{ <span class="prelude-val">Err</span>(()) };
+<a href=#1313 id=1313 data-nosnippet>1313</a>
+<a href=#1314 id=1314 data-nosnippet>1314</a>	<span class="kw">let </span>end = get_current_time();
+<a href=#1315 id=1315 data-nosnippet>1315</a>
+<a href=#1316 id=1316 data-nosnippet>1316</a>	METRICS.on_signature_check_complete(end.saturating_sub(start)); <span class="comment">// ns
+<a href=#1317 id=1317 data-nosnippet>1317</a>
+<a href=#1318 id=1318 data-nosnippet>1318</a>	</span>res
+<a href=#1319 id=1319 data-nosnippet>1319</a>}
+<a href=#1320 id=1320 data-nosnippet>1320</a>
+<a href=#1321 id=1321 data-nosnippet>1321</a><span class="attr">#[cfg(all(not(feature = <span class="string">"runtime-benchmarks"</span>), test))]
+<a href=#1322 id=1322 data-nosnippet>1322</a></span><span class="comment">// Test helper for clearing the on-chain dispute data.
+<a href=#1323 id=1323 data-nosnippet>1323</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>clear_dispute_storage&lt;T: Config&gt;() {
+<a href=#1324 id=1324 data-nosnippet>1324</a>	<span class="kw">let _ </span>= Disputes::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
+<a href=#1325 id=1325 data-nosnippet>1325</a>	<span class="kw">let _ </span>= BackersOnDisputes::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
+<a href=#1326 id=1326 data-nosnippet>1326</a>	<span class="kw">let _ </span>= Included::&lt;T&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
+<a href=#1327 id=1327 data-nosnippet>1327</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
