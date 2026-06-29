@@ -38,11 +38,6 @@ use frame_support::traits::{Contains, Equals, EverythingBut};
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
 use sp_core::H160;
 use sp_runtime::traits::{MaybeEquivalence, TryConvertInto};
-use xcm::prelude::*;
-use xcm_builder::{
-	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, WithLatestLocationConverter,
-};
-use xcm_executor::traits::JustTry;
 
 /// `Location` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
 pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, L = Location> =
@@ -158,7 +153,7 @@ impl MaybeEquivalence<Location, H160> for AccountKey20ToH160 {
 /// [`xcm_executor::traits::MatchesFungibles`] implementation that matches
 /// ERC20 tokens.
 pub type ERC20Matcher =
-	MatchedConvertedConcreteId<H160, u128, IsLocalAccountKey20, AccountKey20ToH160, JustTry>;
+	MatchedConvertedConcreteId<H160, u128, IsLocalAccountKey20, AccountKey20ToH160, TryConvertInto>;
 
 pub type AssetIdForPoolAssets = u32;
 

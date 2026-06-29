@@ -22,13 +22,13 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	ConvertedConcreteId, FungibleAdapter, IsConcrete, NoChecking, NonFungiblesAdapter,
 };
-use xcm_executor::traits::JustTry;
+use sp_runtime::traits::TryConvertInto;
 
 type LocalAssetTransactor = (
 	FungibleAdapter<Balances, IsConcrete<KsmLocation>, LocationConverter, AccountId, ()>,
 	NonFungiblesAdapter<
 		ForeignUniques,
-		ConvertedConcreteId<Location, AssetInstance, JustTry, JustTry>,
+		ConvertedConcreteId<Location, AssetInstance, TryConvertInto, TryConvertInto>,
 		LocationConverter,
 		AccountId,
 		NoChecking,

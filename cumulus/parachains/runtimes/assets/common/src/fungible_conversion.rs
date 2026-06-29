@@ -152,9 +152,9 @@ mod tests {
 	use frame_support::traits::Everything;
 
 	use xcm::latest::prelude::*;
-	use xcm_executor::traits::{Identity, JustTry};
+	use sp_runtime::traits::{Identity, TryConvertInto};
 
-	type Converter = MatchedConvertedConcreteId<Location, u64, Everything, Identity, JustTry>;
+	type Converter = MatchedConvertedConcreteId<Location, u64, Everything, Identity, TryConvertInto>;
 
 	#[test]
 	fn converted_concrete_id_fungible_multi_asset_conversion_roundtrip_works() {
