@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782723363692,
+  "lastUpdate": 1782728831905,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -102491,6 +102491,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2879839031,
             "range": "± 100018010",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f2f3aa6a8fda8ea52282da9711b3c5da4ba82529",
+          "message": "approval-voting: accept ApprovalVoteMultipleCandidates when max_approval_coalesce_count is 1 (#12430)\n\nAll validators are now supporting ApprovalVoteMultipleCandidates, so\nthere is no reason to reject the message anymore.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-06-29T08:58:56Z",
+          "tree_id": "171224e43bc8682f1aaff03ef457654da8e2ee4b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f2f3aa6a8fda8ea52282da9711b3c5da4ba82529"
+        },
+        "date": 1782728801923,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20249225,
+            "range": "± 286248",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20135088,
+            "range": "± 261703",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22148790,
+            "range": "± 217069",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27248053,
+            "range": "± 220337",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60661222,
+            "range": "± 731174",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 365957805,
+            "range": "± 5700677",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2612433892,
+            "range": "± 89417486",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17402070,
+            "range": "± 134156",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17866312,
+            "range": "± 132989",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18207681,
+            "range": "± 187198",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22929963,
+            "range": "± 191008",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63218898,
+            "range": "± 701091",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 353020014,
+            "range": "± 6540448",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2706547529,
+            "range": "± 18808585",
             "unit": "ns/iter"
           }
         ]
