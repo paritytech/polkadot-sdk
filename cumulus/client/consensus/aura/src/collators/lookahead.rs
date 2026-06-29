@@ -45,9 +45,7 @@ use sp_consensus::Environment;
 use polkadot_node_primitives::SubmitCollationParams;
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{
-	CollatorPair, Id as ParaId, OccupiedCoreAssumption, DEFAULT_SCHEDULING_LOOKAHEAD,
-};
+use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
 use crate::{
 	collator as collator_util,
@@ -335,18 +333,11 @@ where
 					},
 				};
 
-			let scheduling_lookahead = params
-				.relay_client
-				.scheduling_lookahead(relay_parent)
-				.await
-				.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD);
-
 			let parent_search_result = match crate::collators::find_parent(
-				relay_parent,
-				params.para_id,
-				&*params.para_backend,
 				&params.relay_client,
-				scheduling_lookahead,
+				&*params.para_backend,
+				params.para_id,
+				relay_parent,
 				|_| true,
 			)
 			.await

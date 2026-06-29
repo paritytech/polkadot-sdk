@@ -23,7 +23,7 @@
 
 use crate::collator::SlotClaim;
 use codec::Codec;
-use cumulus_client_consensus_common::{self as consensus_common, ParentSearchParams};
+use cumulus_client_consensus_common::{self as consensus_common};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	relay_chain::Header as RelayHeader, BlockT, KeyToIncludeInRelayProof, RelayProofRequest,
@@ -237,23 +237,20 @@ where
 /// If the best parent does not pass `filter_parent`, walks backwards through ancestors
 /// until finding one that does, or reaching the included block.
 async fn find_parent<Block>(
-	relay_parent: RelayHash,
-	para_id: ParaId,
-	para_backend: &impl sc_client_api::Backend<Block>,
 	relay_client: &impl RelayChainInterface,
-	scheduling_lookahead: u32,
+	para_backend: &impl sc_client_api::Backend<Block>,
+	para_id: ParaId,
+	relay_parent: RelayHash,
 	filter_parent: impl Fn(&Block::Header) -> bool,
 ) -> Option<consensus_common::ParentSearchResult<Block>>
 where
 	Block: BlockT,
 {
-	let ancestry_lookback = scheduling_lookahead.saturating_sub(1) as usize;
-	let parent_search_params = ParentSearchParams { relay_parent, para_id, ancestry_lookback };
-
 	let mut result = match cumulus_client_consensus_common::find_parent_for_building::<Block>(
-		parent_search_params,
-		para_backend,
 		relay_client,
+		para_backend,
+		para_id,
+		relay_parent,
 	)
 	.await
 	{

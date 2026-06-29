@@ -43,10 +43,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
-use polkadot_primitives::{
-	Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
-};
+use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
@@ -298,20 +295,19 @@ where
 			let relay_parent_header = relay_parent_data.relay_parent().clone();
 			let relay_parent_hash = relay_parent_header.hash();
 
-			let session_data = relay_chain_data_cache.get_session_data(relay_parent_hash).await;
-			let scheduling_lookahead = session_data
-				.map(|data| data.scheduling_lookahead)
-				.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD);
-			let Ok(max_pov_size) = session_data.map(|data| data.max_pov_size) else {
+			let Ok(max_pov_size) = relay_chain_data_cache
+				.get_session_data(relay_parent_hash)
+				.await
+				.map(|data| data.max_pov_size)
+			else {
 				continue;
 			};
 
 			let Some(parent_search_result) = crate::collators::find_parent(
-				relay_parent_hash,
-				para_id,
-				&*para_backend,
 				&relay_client,
-				scheduling_lookahead,
+				&*para_backend,
+				para_id,
+				relay_parent_hash,
 				|parent| {
 					// We never want to build on any "middle block" that isn't the last block in a
 					// core.
