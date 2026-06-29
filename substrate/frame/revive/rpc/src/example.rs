@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Example utilities
-use crate::{BlockNumberOrTag, EthRpcClient, ReceiptInfo};
+use crate::{EthRpcClient, ReceiptInfo};
 use anyhow::Context;
 use pallet_revive::evm::*;
 use std::sync::Arc;
