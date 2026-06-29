@@ -174,9 +174,7 @@ async fn prepare_evm_transactions<Client: EthRpcClient + Sync + Send>(
 	amount: U256,
 	count: usize,
 ) -> anyhow::Result<Vec<TransactionBuilder<Client>>> {
-	let start_nonce = client
-		.get_transaction_count(signer.address(), Default::default())
-		.await?;
+	let start_nonce = client.get_transaction_count(signer.address(), Default::default()).await?;
 
 	let mut transactions = Vec::new();
 	for i in (0..count).rev() {
@@ -417,8 +415,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 async fn test_transfer() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
-	let initial_balance =
-		client.get_balance(ethan.address(), Default::default()).await?;
+	let initial_balance = client.get_balance(ethan.address(), Default::default()).await?;
 
 	let value = 1_000_000_000_000_000_000_000u128.into();
 	let tx = TransactionBuilder::new(client.clone())
@@ -450,8 +447,7 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 
 	// Balance transfer
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
-	let initial_balance =
-		client.get_balance(ethan.address(), Default::default()).await?;
+	let initial_balance = client.get_balance(ethan.address(), Default::default()).await?;
 	let value = 1_000_000_000_000_000_000_000u128.into();
 	let tx = TransactionBuilder::new(client.clone())
 		.value(value)
@@ -479,9 +475,7 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 	let value = U256::from(5_000_000_000_000u128);
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let input = bytes.into_iter().chain(data.clone()).collect::<Vec<u8>>();
-	let nonce = client
-		.get_transaction_count(account.address(), Default::default())
-		.await?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx = TransactionBuilder::new(client.clone()).value(value).input(input).send().await?;
 	let receipt = tx.wait_for_receipt().await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
@@ -491,14 +485,12 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 		"Contract should be deployed at {contract_address:?}."
 	);
 
-	let nonce_after_deploy = client
-		.get_transaction_count(account.address(), Default::default())
-		.await?;
+	let nonce_after_deploy =
+		client.get_transaction_count(account.address(), Default::default()).await?;
 
 	assert_eq!(nonce_after_deploy - nonce, U256::from(1), "Nonce should have increased by 1");
 
-	let initial_balance =
-		client.get_balance(contract_address, Default::default()).await?;
+	let initial_balance = client.get_balance(contract_address, Default::default()).await?;
 	assert_eq!(
 		value, initial_balance,
 		"Contract {contract_address:?} balance should be the same as the value sent ({value})."
@@ -526,8 +518,7 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 	);
 
 	// Balance transfer to contract
-	let initial_balance =
-		client.get_balance(contract_address, Default::default()).await?;
+	let initial_balance = client.get_balance(contract_address, Default::default()).await?;
 	let tx = TransactionBuilder::new(client.clone())
 		.value(value)
 		.to(contract_address)
@@ -558,8 +549,7 @@ async fn test_receipt_mixed_revert_and_logs_same_block() -> anyhow::Result<()> {
 		let address = account.address();
 		async move {
 			let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(name, fixture_type)?;
-			let nonce =
-				client.get_transaction_count(address, Default::default()).await?;
+			let nonce = client.get_transaction_count(address, Default::default()).await?;
 			let tx = TransactionBuilder::new(client).input(bytes).send().await?;
 			tx.wait_for_receipt().await?;
 			Ok::<_, anyhow::Error>(create1(&address, nonce.try_into().unwrap()))
@@ -578,9 +568,7 @@ async fn test_receipt_mixed_revert_and_logs_same_block() -> anyhow::Result<()> {
 
 	// Get the current nonce and submit two transactions with descending nonces
 	// so they land in the same block.
-	let nonce = client
-		.get_transaction_count(account.address(), Default::default())
-		.await?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
 
 	let revert_tx = TransactionBuilder::new(client.clone())
 		.to(revert_contract)
@@ -1208,9 +1196,7 @@ async fn test_subscribe_logs() -> anyhow::Result<()> {
 		"SimpleReceiver",
 		pallet_revive_fixtures::FixtureType::Solc,
 	)?;
-	let nonce = client
-		.get_transaction_count(account.address(), Default::default())
-		.await?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt = tx.wait_for_receipt().await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
@@ -1275,9 +1261,7 @@ async fn test_subscribe_logs_with_address_filter() -> anyhow::Result<()> {
 		"SimpleReceiver",
 		pallet_revive_fixtures::FixtureType::Solc,
 	)?;
-	let nonce = client
-		.get_transaction_count(account.address(), Default::default())
-		.await?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt = tx.wait_for_receipt().await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
@@ -1327,9 +1311,7 @@ async fn test_subscribe_logs_with_topic_filter() -> anyhow::Result<()> {
 		"SimpleReceiver",
 		pallet_revive_fixtures::FixtureType::Solc,
 	)?;
-	let nonce = client
-		.get_transaction_count(account.address(), Default::default())
-		.await?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt = tx.wait_for_receipt().await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
@@ -1455,17 +1437,13 @@ async fn test_subscribe_logs_address_filter_excludes_non_matching() -> anyhow::R
 		pallet_revive_fixtures::FixtureType::Solc,
 	)?;
 
-	let nonce_a = client
-		.get_transaction_count(account.address(), Default::default())
-		.await?;
+	let nonce_a = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx_a = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt_a = tx_a.wait_for_receipt().await?;
 	let contract_a = create1(&account.address(), nonce_a.try_into().unwrap());
 	assert_eq!(Some(contract_a), receipt_a.contract_address);
 
-	let nonce_b = client
-		.get_transaction_count(account.address(), Default::default())
-		.await?;
+	let nonce_b = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx_b = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt_b = tx_b.wait_for_receipt().await?;
 	let contract_b = create1(&account.address(), nonce_b.try_into().unwrap());
@@ -1528,17 +1506,13 @@ async fn test_subscribe_logs_with_multiple_addresses_filter() -> anyhow::Result<
 		pallet_revive_fixtures::FixtureType::Solc,
 	)?;
 
-	let nonce_a = client
-		.get_transaction_count(account.address(), Default::default())
-		.await?;
+	let nonce_a = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx_a = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt_a = tx_a.wait_for_receipt().await?;
 	let contract_a = create1(&account.address(), nonce_a.try_into().unwrap());
 	assert_eq!(Some(contract_a), receipt_a.contract_address);
 
-	let nonce_b = client
-		.get_transaction_count(account.address(), Default::default())
-		.await?;
+	let nonce_b = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx_b = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt_b = tx_b.wait_for_receipt().await?;
 	let contract_b = create1(&account.address(), nonce_b.try_into().unwrap());
@@ -1613,9 +1587,7 @@ async fn test_subscribe_logs_no_event_transaction_ignored() -> anyhow::Result<()
 		"SimpleReceiver",
 		pallet_revive_fixtures::FixtureType::Solc,
 	)?;
-	let nonce = client
-		.get_transaction_count(account.address(), Default::default())
-		.await?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt = tx.wait_for_receipt().await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
@@ -1712,11 +1684,7 @@ async fn test_estimate_gas_of_contract_with_consume_all_gas() -> anyhow::Result<
 		input: test_function_selector.into(),
 		to: Some(contract_address),
 		chain_id: Some(client.chain_id().await?),
-		nonce: Some(
-			client
-				.get_transaction_count(account.address(), Default::default())
-				.await?,
-		),
+		nonce: Some(client.get_transaction_count(account.address(), Default::default()).await?),
 		r#type: Some(0u8.into()),
 		..Default::default()
 	};
@@ -2013,11 +1981,7 @@ async fn test_gas_estimation_with_no_funds_no_gas_specified() -> anyhow::Result<
 		input: test_function_selector.into(),
 		to: Some(contract_address),
 		chain_id: Some(client.chain_id().await?),
-		nonce: Some(
-			client
-				.get_transaction_count(account.address(), Default::default())
-				.await?,
-		),
+		nonce: Some(client.get_transaction_count(account.address(), Default::default()).await?),
 		r#type: Some(0u8.into()),
 		..Default::default()
 	};
@@ -2217,11 +2181,7 @@ async fn test_gas_estimation_with_no_funds_and_with_gas_specified() -> anyhow::R
 		input: test_function_selector.into(),
 		to: Some(contract_address),
 		chain_id: Some(client.chain_id().await?),
-		nonce: Some(
-			client
-				.get_transaction_count(account.address(), Default::default())
-				.await?,
-		),
+		nonce: Some(client.get_transaction_count(account.address(), Default::default()).await?),
 		r#type: Some(0u8.into()),
 		gas: Some(U256::from(100_000_000u64)),
 		..Default::default()

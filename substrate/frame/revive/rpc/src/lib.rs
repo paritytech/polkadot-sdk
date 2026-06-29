@@ -315,8 +315,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		}
 
 		if transaction.nonce.is_none() {
-			transaction.nonce =
-				Some(self.get_transaction_count(from, Default::default()).await?);
+			transaction.nonce = Some(self.get_transaction_count(from, Default::default()).await?);
 		}
 
 		if transaction.chain_id.is_none() {
