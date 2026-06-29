@@ -362,8 +362,8 @@ impl StatementHandlerPrototype {
 			MAX_STATEMENT_NOTIFICATION_SIZE,
 			None,
 			SetConfig {
-				in_peers: 0,
-				out_peers: 0,
+				in_peers: 50,
+				out_peers: 50,
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Deny,
 			},
