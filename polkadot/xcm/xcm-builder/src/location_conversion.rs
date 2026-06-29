@@ -156,6 +156,9 @@ impl<AccountId: From<[u8; 32]> + Clone, Describe: DescribeLocation> ConvertLocat
 
 /// This is a describer for legacy support of the `ForeignChainAliasAccount` preimage. New chains
 /// are recommended to use the more extensible `HashedDescription` type.
+///
+/// Kept for chains using `HashedDescription<AccountId, LegacyDescribeForeignChainAccount>`.
+#[allow(dead_code)]
 pub struct LegacyDescribeForeignChainAccount;
 impl DescribeLocation for LegacyDescribeForeignChainAccount {
 	fn describe_location(location: &Location) -> Option<Vec<u8>> {
@@ -193,16 +196,20 @@ impl DescribeLocation for LegacyDescribeForeignChainAccount {
 
 /// Prefix for generating alias account for accounts coming
 /// from chains that use 32 byte long representations.
+#[allow(dead_code)]
 pub const FOREIGN_CHAIN_PREFIX_PARA_32: [u8; 37] = *b"ForeignChainAliasAccountPrefix_Para32";
 
 /// Prefix for generating alias account for accounts coming
 /// from chains that use 20 byte long representations.
+#[allow(dead_code)]
 pub const FOREIGN_CHAIN_PREFIX_PARA_20: [u8; 37] = *b"ForeignChainAliasAccountPrefix_Para20";
 
 /// Prefix for generating alias account for accounts coming
 /// from the relay chain using 32 byte long representations.
+#[allow(dead_code)]
 pub const FOREIGN_CHAIN_PREFIX_RELAY: [u8; 36] = *b"ForeignChainAliasAccountPrefix_Relay";
 
+#[allow(dead_code)]
 impl LegacyDescribeForeignChainAccount {
 	fn from_para_32(para_id: &u32, id: &[u8; 32], parents: u8) -> Vec<u8> {
 		(FOREIGN_CHAIN_PREFIX_PARA_32, para_id, id, parents).encode()

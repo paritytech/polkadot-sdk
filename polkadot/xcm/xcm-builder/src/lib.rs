@@ -84,7 +84,8 @@ pub use location_conversion::{
 	DescribeAccountKey20Terminal, DescribeAllTerminal, DescribeBodyTerminal, DescribeFamily,
 	DescribeLocation, DescribePalletTerminal, DescribeTerminus, DescribeTreasuryVoiceTerminal,
 	ExternalConsensusLocationsConverterFor, GlobalConsensusConvertsFor,
-	GlobalConsensusParachainConvertsFor, HashedDescription, LocalTreasuryVoiceConvertsVia,
+	GlobalConsensusParachainConvertsFor, HashedDescription, LegacyDescribeForeignChainAccount,
+	LocalTreasuryVoiceConvertsVia,
 	ParentIsPreset, SiblingParachainConvertsVia,
 };
 
