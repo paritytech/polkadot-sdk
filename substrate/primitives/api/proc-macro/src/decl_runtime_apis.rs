@@ -458,11 +458,7 @@ impl<'a> ToClientSideDecl<'a> {
 			{
 				let __runtime_api_impl_params_encoded__ = {
 					let mut __params__ = std::vec::Vec::new();
-					#(
-						// `#params` is bound by `EncodeLike<#param_types>`, so encoding it
-						// directly yields the same bytes as the declared parameter type.
-						#crate_::Encode::encode_to(&#params, &mut __params__);
-					)*
+					#( #crate_::Encode::encode_to(&#params, &mut __params__); )*
 					__params__
 				};
 

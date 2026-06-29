@@ -2284,11 +2284,16 @@ fn use_dalek_ext_works() {
 	// On block zero it will use dalek and then on block 1 it will use zebra
 	assert!(!client
 		.runtime_api()
-		.verify_ed25519(client.chain_info().genesis_hash, zero_ed_sig(), zero_ed_pub(), vec![])
+		.verify_ed25519(
+			client.chain_info().genesis_hash,
+			zero_ed_sig(),
+			zero_ed_pub(),
+			Vec::<u8>::new(),
+		)
 		.unwrap());
 	assert!(client
 		.runtime_api()
-		.verify_ed25519(a1.hash(), zero_ed_sig(), zero_ed_pub(), vec![])
+		.verify_ed25519(a1.hash(), zero_ed_sig(), zero_ed_pub(), Vec::<u8>::new())
 		.unwrap());
 }
 

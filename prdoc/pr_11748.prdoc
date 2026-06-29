@@ -31,11 +31,48 @@ doc:
     `.into()` conversions to `LazyBlock` are no longer needed.
 
 crates:
+# Crates whose generated runtime API traits or public bounds changed. The new generic
+# parameters and `EncodeLike` marker bounds are satisfied by every type that already derives
+# `Encode`, so no implementor changes are required; hence `validate: false`.
 - name: sp-api
   bump: major
+  validate: false
 - name: sp-api-proc-macro
   bump: patch
 - name: sp-runtime
   bump: major
+  validate: false
 - name: sp-consensus-beefy
   bump: major
+  validate: false
+- name: sp-block-builder
+  bump: major
+  validate: false
+- name: sp-session
+  bump: major
+  validate: false
+- name: mmr-rpc
+  bump: major
+  validate: false
+- name: substrate-frame-rpc-system
+  bump: major
+  validate: false
+# Crates that only adjusted internal call sites to the runtime APIs.
+- name: sc-service
+  bump: none
+- name: sc-rpc
+  bump: none
+- name: sc-transaction-pool
+  bump: none
+- name: sc-basic-authorship
+  bump: none
+- name: sc-tracing
+  bump: none
+- name: frame-benchmarking-cli
+  bump: none
+- name: cumulus-client-consensus-aura
+  bump: none
+- name: cumulus-client-service
+  bump: none
+- name: cumulus-pallet-parachain-system
+  bump: none

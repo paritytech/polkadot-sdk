@@ -298,7 +298,6 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 					(quote_spanned!(ty.span() => #borrow #ty), v.2.is_some())
 				})
 				.collect();
-			// Inner types (without borrow) and borrow flags, used for EncodeLike bounds/decoding.
 			let mut param_inner_types: Vec<Type> =
 				extracted_params.iter().map(|v| v.1.clone()).collect();
 			let mut param_is_borrow: Vec<bool> =
@@ -321,7 +320,7 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 				},
 			};
 
-			// Mirror the removal done by get_at_param_name when in advanced mode.
+			// In advanced mode `get_at_param_name` removed the first parameter (the hash).
 			if is_advanced && !param_inner_types.is_empty() {
 				param_inner_types.remove(0);
 				param_is_borrow.remove(0);
@@ -330,21 +329,17 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 			let param_count = param_names.len();
 			let generic_names: Vec<Ident> =
 				(0..param_count).map(|i| format_ident!("__SrApiParam{}__", i)).collect();
-			// Raw names used in the function signature to avoid shadowing the user's param names.
 			let raw_param_names: Vec<Ident> =
 				(0..param_count).map(|i| format_ident!("__mock_api_param_{}__", i)).collect();
-			// Temporary names for decoded values when the original type was a reference.
 			let tmp_param_names: Vec<Ident> =
 				(0..param_count).map(|i| format_ident!("__mock_api_decoded_{}__", i)).collect();
 
-			// Add `EncodeLike` bounds to the method generics for each parameter.
 			for (generic_name, inner_type) in generic_names.iter().zip(param_inner_types.iter()) {
 				input.sig.generics.params.push(parse_quote!(
 					#generic_name: #crate_::EncodeLike<#inner_type>
 				));
 			}
 
-			// Rewrite the input parameters using generic types and raw names.
 			input.sig.inputs = parse_quote! {
 				&self,
 				#at_param_name: #hash_type,
@@ -359,7 +354,7 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 				.zip(tmp_param_names.iter())
 				.map(|((((raw_name, param_name), inner_type), is_borrow), tmp_name)| {
 					if *is_borrow {
-						// Original was a reference: decode to the inner type, then reborrow.
+						// Original parameter was a reference: decode the inner type, then reborrow.
 						quote! {
 							let #tmp_name: #inner_type = #crate_::Decode::decode(
 								&mut &#crate_::Encode::encode(&#raw_name)[..]

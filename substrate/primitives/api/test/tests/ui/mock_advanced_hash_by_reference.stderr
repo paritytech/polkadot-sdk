@@ -10,3 +10,36 @@ error: `Hash` needs to be taken by value and not by reference!
    | |_^
    |
    = note: this error originates in the macro `sp_api::mock_impl_runtime_apis` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0425]: cannot find type `__SrApiParam0__` in this scope
+  --> tests/ui/mock_advanced_hash_by_reference.rs:29:1
+   |
+29 | / sp_api::mock_impl_runtime_apis! {
+30 | |     impl Api<Block> for MockApi {
+31 | |         #[advanced]
+32 | |         fn test(&self, _: &Hash) -> Result<(), ApiError> {
+...  |
+36 | | }
+   | |_^ not found in this scope
+   |
+   = note: this error originates in the macro `sp_api::mock_impl_runtime_apis` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0050]: method `test` has 3 parameters but the declaration in trait `Api::test` has 2
+  --> tests/ui/mock_advanced_hash_by_reference.rs:29:1
+   |
+21 | / sp_api::decl_runtime_apis! {
+22 | |     pub trait Api {
+23 | |         fn test();
+24 | |     }
+25 | | }
+   | |_- trait requires 2 parameters
+...
+29 | / sp_api::mock_impl_runtime_apis! {
+30 | |     impl Api<Block> for MockApi {
+31 | |         #[advanced]
+32 | |         fn test(&self, _: &Hash) -> Result<(), ApiError> {
+...  |
+36 | | }
+   | |_^ expected 2 parameters, found 3
+   |
+   = note: this error originates in the macro `sp_api::mock_impl_runtime_apis` (in Nightly builds, run with -Z macro-backtrace for more info)
