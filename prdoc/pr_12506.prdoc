@@ -16,10 +16,6 @@ doc:
     to be enacted, tripping the assertion. The window was widened by anything delaying block
     import relative to finality, making it most likely at session-rotation blocks.
 
-    The authority-set lock is now held continuously across both the justification verification
-    and the finalization, so the check and the enactment are atomic with respect to any other
-    finalizer and the spurious `Ok` state can no longer occur.
-
 crates:
 - name: sc-consensus-grandpa
-  bump: patch
+  bump: minor
