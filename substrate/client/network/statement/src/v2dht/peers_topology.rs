@@ -167,6 +167,8 @@ impl PeersTopology {
 	///
 	/// Clones only the data the decision needs — the statement-protocol peer index and the local
 	/// identity — not the full topology.
+	///
+	/// TODO: deep-copies the index on every peer-churn event that republishes the oracle.
 	pub fn dht_affinity(&self) -> DhtAffinity {
 		DhtAffinity {
 			index: self.discovered_index.clone(),
@@ -317,23 +319,25 @@ impl DhtAffinity {
 	/// Whether the local node is one of the closest DHT storage replicas for any of the statement's
 	/// topics, over the locally learned statement-store peers.
 	pub fn is_affine(&self, stmt: &Statement) -> bool {
-		stmt.topics().iter().any(|topic| {
-			let topic = *topic;
-			let local_distance = xor_distance(*topic, self.local_key);
-			let replication_factor = self.replication_factor.get();
-			// The descent yields candidates in `(distance, peer)` order, so the candidates ranked
-			// before the local node form a prefix; the local node is a replica when that prefix is
-			// shorter than the replication factor.
-			let closer_count = self
-				.index
-				.closest(*topic)
-				.take_while(|(peer, key)| {
-					(xor_distance(*topic, *key), *peer) < (local_distance, self.local_peer)
-				})
-				.take(replication_factor)
-				.count();
-			closer_count < replication_factor
-		})
+		stmt.topics().iter().any(|topic| self.is_topic_affine(*topic))
+	}
+
+	/// Whether the local node is one of the closest DHT storage replicas for `topic`.
+	fn is_topic_affine(&self, topic: Topic) -> bool {
+		let local_distance = xor_distance(*topic, self.local_key);
+		let replication_factor = self.replication_factor.get();
+		// The descent yields candidates in `(distance, peer)` order, so the candidates ranked
+		// before the local node form a prefix; the local node is a replica when that prefix is
+		// shorter than the replication factor.
+		let closer_count = self
+			.index
+			.closest(*topic)
+			.take_while(|(peer, key)| {
+				(xor_distance(*topic, *key), *peer) < (local_distance, self.local_peer)
+			})
+			.take(replication_factor)
+			.count();
+		closer_count < replication_factor
 	}
 }
 
