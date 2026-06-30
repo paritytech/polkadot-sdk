@@ -1457,6 +1457,7 @@ impl pallet_migrations::Config for Runtime {
 			ForeignAssetsInstance,
 			migrations::AssetHubWestendForeignAssetsReservesProvider,
 		>,
+		pallet_preimage::migration::v2::LazyMigrationV1ToV2<Runtime, Balances>,
 		pallet_assets_precompiles::MigrateForeignAssetPrecompileMappings<
 			Runtime,
 			ForeignAssetsInstance,
@@ -1506,7 +1507,6 @@ parameter_types! {
 impl pallet_preimage::Config for Runtime {
 	type WeightInfo = weights::pallet_preimage::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<AccountId>;
 	type Consideration = HoldConsideration<
 		AccountId,
