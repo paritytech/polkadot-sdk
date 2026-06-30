@@ -20,7 +20,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "512"]
 
-// Make the WASM binary available.
+extern crate alloc; // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
@@ -37,8 +37,6 @@ mod migrations;
 pub mod staking;
 
 use governance::{pallet_custom_origins, GeneralAdmin, StakingAdmin};
-
-extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 pub use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
@@ -1456,6 +1454,11 @@ impl pallet_migrations::Config for Runtime {
 			Runtime,
 			ForeignAssetsInstance,
 			migrations::AssetHubWestendForeignAssetsReservesProvider,
+		>,
+		pallet_treasury::migration::LazyMigrationV0ToV1<
+			Runtime,
+			(),
+			governance::TreasuryLazyMigrationV0ToV1Config,
 		>,
 		pallet_assets_precompiles::MigrateForeignAssetPrecompileMappings<
 			Runtime,

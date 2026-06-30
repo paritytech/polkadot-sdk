@@ -1,0 +1,127 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Migrate `pallet-treasury` from `Currency` to `Fungible`, and remove deprecated `Proposals` mechanism.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces breaking changes to `pallet-treasury` by migrating it from using the `Currency` trait to the `Fungible` trait and removing the legacy `Proposals` mechanism.
+      
+      ### Key Changes
+      - **pallet-treasury**: 
+        - Migrated to the `Fungible` trait.
+        - The legacy `Proposals` system (which has been deprecated for a couple of years and scheduled for deletion in mid-2025) and the `spend_local` call have been completely removed.
+        - Removed `RuntimeEvent` from `pallet_treasury::Config`, which is now bound in `frame_system::Config`.
+      - **Associated Pallets**: Applied `pallet-treasury` migration changes to: `pallet-bounties`, `pallet-child-bounties`, and `pallet-tips`.
+      - **pallet-balances**: Added `HandleNegativeImbalanceAsCredit` and `HandlePositiveImbalanceAsDebt` types. These bridge the `OnUnbalanced` behavior, allowing pallets that still use `Currency` (and thus `NegativeImbalance`/`PositiveImbalance`) to use `pallet_treasury` (which now handles `Credit` and `Debt`) as their `OnUnbalanced` handler.
+      - **Runtime Configuration**: Made `LazyMigrationV0ToV1Config` an associated type in the `pallet_treasury::Config` rather than a bound trait for the migration.
+      
+      ### Runtime Adjustments
+      To adjust your runtimes to these changes, you will need to apply the following config adjustments:
+      
+      ```diff
+      +pub struct TreasuryLazyMigrationV0ToV1Config;
+      +impl pallet_treasury::migration::LazyMigrationV0ToV1Config<Runtime>
+      +	for TreasuryLazyMigrationV0ToV1Config
+      +{
+      +	type MaxApprovals = MaxApprovals;
+      +	type Currency = Balances; // Note: Or whatever you passed into `pallet_treasury::Config`
+      +}
+      +
+       impl pallet_treasury::Config for Runtime {
+      - type Currency = Balances;
+      + type Fungible = Balances;
+           /* ... */
+      - type RuntimeEvent = RuntimeEvent;
+           /* ... */
+      - type MaxApprovals = MaxApprovals;
+           /* ... */
+      +	type LazyMigrationV0ToV1Config = TreasuryLazyMigrationV0ToV1Config;
+       }
+
+      impl pallet_migrations::Config for Runtime {
+           /* ... */
+          type Migrations = (
+             /* ... */
+      +      pallet_treasury::migration::LazyMigrationV0ToV1<Runtime, (), TreasuryLazyMigrationV0ToV1Config>, // () or whichever instance you use for Treasury
+           )
+       }
+       
+       // And similar pallets that use Treasury as `Slash`, and still use `Currency` instead of `Fungible`.
+       impl pallet_referenda::Config for Runtime {
+           /* ... */
+      -	type Slash = Treasury;
+      +	type Slash = pallet_balances::HandlePositiveImbalanceAsDebt<Treasury, Runtime>;
+       }
+      ```
+
+crates:
+  - name: pallet-balances
+    bump: minor
+    note: |
+        - Add `HandleNegativeImbalanceAsCredit` and `HandlePositiveImbalanceAsDebt` types.
+  - name: pallet-treasury
+    bump: major
+    note: |
+        - Migrated to the `Fungible` trait.
+        - Remove the already deprecated `Proposals` system and `spend_local`.
+        - Refactor migration to be a `SteppedMigration` which spends already approved proposals, and removes old, unapproved proposals.
+        - Small adjustments in `Config`.
+  - name: pallet-bounties
+    bump: major
+    note: |
+        - Moved `Currency` from `pallet-treasury` configuration to `pallet-bounties` configuration.
+        - Add lazy migration of reserves on bounty deposits' slashing.
+        - Add lazy migration of reserves on curator deposits' slashing.
+        - Removed `deprecated` calls and assertions from tests.
+  - name: pallet-child-bounties
+    bump: minor
+    note: |
+        - Add lazy migration of reserves on curator deposits' slashing.
+        - Removed `deprecated` assertions from tests.
+  - name: pallet-tips
+    bump: major
+    note: |
+        - Moved `Currency` from `pallet-treasury` configuration to `pallet-tips` configuration.
+        - Add lazy migration of reserves on finder deposits' slashing.
+  - name: asset-hub-westend-runtime
+    bump: minor
+    note: |
+        - Added lazy migrations for Treasury.
+        - Adjusted `Slash` and `OnSlash` configurations on some pallets.
+  - name: collectives-westend-runtime
+    bump: major
+    note: |
+        - Added `MultiBlockMigrations`.
+        - Adjusted `Slash` and `OnSlash` configurations on some pallets.
+        - Added lazy migrations for Fellowship Treasury.
+  - name: rococo-runtime
+    bump: major
+    note: |
+        - Added lazy migrations for Fellowship Treasury.
+        - Adjusted `Slash` and `OnSlash` configurations on some pallets.
+        - Removed (now refactored) `pallet-treasury` single block migration.
+  - name: westend-runtime
+    bump: minor
+    note: |
+        - Added lazy migrations for Treasury.
+        - Adjusted `Slash` and `OnSlash` configurations on some pallets.
+  - name: kitchensink-runtime
+    bump: patch
+    note: |
+        - Adjusted treasury config.
+        - Adjusted `Slash` and `OnSlash` configurations on some pallets.
+  - name: pallet-staking-async-parachain-runtime
+    bump: patch
+    note: |
+        - Added lazy migrations for Treasury.
+        - Adjusted `Slash` and `OnSlash` configurations on some pallets.
+  - name: pallet-staking-async-rc-runtime
+    bump: patch
+    note: |
+        - Added lazy migrations for Treasury.
+        - Adjusted `Slash` and `OnSlash` configurations on some pallets.
+  - name: polkadot-runtime-common
+    bump: patch
+    note: Changed treasury config.

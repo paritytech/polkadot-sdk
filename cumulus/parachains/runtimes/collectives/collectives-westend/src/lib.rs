@@ -198,6 +198,7 @@ impl frame_system::Config for Runtime {
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type SingleBlockMigrations = Migrations;
+	type MultiBlockMigrator = MultiBlockMigrations;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -262,6 +263,29 @@ impl pallet_transaction_payment::Config for Runtime {
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightInfo = weights::pallet_transaction_payment::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
+}
+
+impl pallet_migrations::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Migrations = pallet_treasury::migration::LazyMigrationV0ToV1<
+		Runtime,
+		fellowship::FellowshipTreasuryInstance,
+		fellowship::FellowshipTreasuryLazyMigrationV0ToV1Config,
+	>;
+	// Benchmarks need mocked migrations to guarantee that they succeed.
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+	type CursorMaxLen = ConstU32<65_536>;
+	type IdentifierMaxLen = ConstU32<256>;
+	type MigrationStatusHandler = ();
+	type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
+	type MaxServiceWeight = MbmServiceWeight;
+	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -749,6 +773,7 @@ construct_runtime!(
 		Timestamp: pallet_timestamp = 2,
 		ParachainInfo: parachain_info = 3,
 		WeightReclaim: cumulus_pallet_weight_reclaim = 4,
+		MultiBlockMigrations: pallet_migrations = 5,
 
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
@@ -882,6 +907,7 @@ mod benches {
 		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_message_queue, MessageQueue]
+		[pallet_migrations, MultiBlockMigrations]
 		[pallet_multisig, Multisig]
 		[pallet_proxy, Proxy]
 		[pallet_session, SessionBench::<Runtime>]

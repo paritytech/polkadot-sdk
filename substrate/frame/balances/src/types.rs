@@ -17,9 +17,9 @@
 
 //! Types used in the pallet.
 
-use crate::{Config, CreditOf, Event, Pallet};
+use crate::{Config, CreditOf, DebtOf, Event, NegativeImbalance, Pallet, PositiveImbalance};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use core::ops::BitOr;
+use core::{marker::PhantomData, ops::BitOr};
 use frame_support::traits::{Imbalance, LockIdentifier, OnUnbalanced, WithdrawReasons};
 use scale_info::TypeInfo;
 use sp_runtime::Saturating;
@@ -181,4 +181,50 @@ pub enum AdjustmentDirection {
 	Increase,
 	/// Decrease the amount.
 	Decrease,
+}
+
+/// Allows receiving an [`OnUnbalanced`] that uses [`CreditOf`] on a handler that requires a
+/// [`NegativeImbalance`].
+///
+/// This is a temporary handler, and must be removed once the migration from Currency to
+/// Fungibles (<https://github.com/paritytech/polkadot-sdk/issue/226>) is completed.
+pub struct HandleNegativeImbalanceAsCredit<O, T, I = ()>(PhantomData<(O, T, I)>);
+
+impl<O, T, I: 'static> OnUnbalanced<NegativeImbalance<T, I>>
+	for HandleNegativeImbalanceAsCredit<O, T, I>
+where
+	T: Config<I>,
+	O: OnUnbalanced<CreditOf<T, I>>,
+{
+	fn on_unbalanced(imbalance: NegativeImbalance<T, I>) {
+		use frame_support::traits::tokens::fungible::Balanced;
+		let amount = imbalance.peek();
+		drop(imbalance);
+		let (credit, debt) = (Pallet::<T, I>::issue(amount), Pallet::<T, I>::rescind(amount));
+		drop(debt);
+		O::on_unbalanced(credit);
+	}
+}
+
+/// Allows receiving an [`OnUnbalanced`] that uses [`DebtOf`] on a handler that requires a
+/// [`PositiveImbalance`].
+///
+/// This is a temporary handler, and must be removed once the migration from Currency to
+/// Fungibles (<https://github.com/paritytech/polkadot-sdk/issue/226>) is completed.
+pub struct HandlePositiveImbalanceAsDebt<O, T, I = ()>(PhantomData<(O, T, I)>);
+
+impl<O, T, I: 'static> OnUnbalanced<PositiveImbalance<T, I>>
+	for HandlePositiveImbalanceAsDebt<O, T, I>
+where
+	T: Config<I>,
+	O: OnUnbalanced<DebtOf<T, I>>,
+{
+	fn on_unbalanced(imbalance: PositiveImbalance<T, I>) {
+		use frame_support::traits::tokens::fungible::Balanced;
+		let amount = imbalance.peek();
+		drop(imbalance);
+		let (credit, debt) = (Pallet::<T, I>::issue(amount), Pallet::<T, I>::rescind(amount));
+		drop(credit);
+		O::on_unbalanced(debt);
+	}
 }

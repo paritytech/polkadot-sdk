@@ -92,17 +92,26 @@ parameter_types! {
 	pub const SpendLimit: Balance = u64::MAX;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct TreasuryLazyMigrationV0ToV1Config;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_treasury::migration::LazyMigrationV0ToV1Config<Test>
+	for TreasuryLazyMigrationV0ToV1Config
+{
+	type MaxApprovals = ConstU32<100>;
+	type Currency = Balances;
+}
+
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
-	type Currency = pallet_balances::Pallet<Test>;
+	type Fungible = pallet_balances::Pallet<Test>;
 	type RejectOrigin = frame_system::EnsureRoot<AccountId>;
-	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = ();
 	type WeightInfo = ();
 	type SpendFunds = Bounties;
-	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_system::EnsureRootWithSuccess<Self::AccountId, SpendLimit>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
@@ -113,7 +122,10 @@ impl pallet_treasury::Config for Test {
 	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type LazyMigrationV0ToV1Config = TreasuryLazyMigrationV0ToV1Config;
 }
+
 parameter_types! {
 	// This will be 50% of the bounty fee.
 	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
@@ -136,6 +148,8 @@ impl pallet_bounties::Config for Test {
 	type ChildBountyManager = ChildBounties;
 	type OnSlash = ();
 	type TransferAllAssets = ();
+	type Currency = pallet_balances::Pallet<Test>;
+	type MaxApprovals = ConstU32<100>;
 }
 impl pallet_child_bounties::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -169,11 +183,9 @@ fn last_event() -> ChildBountiesEvent<Test> {
 }
 
 #[test]
-#[allow(deprecated)]
 fn genesis_config_works() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(Treasury::proposal_count(), 0);
 	});
 }
 

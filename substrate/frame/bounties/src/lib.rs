@@ -85,17 +85,20 @@
 #![recursion_limit = "512"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod migrations;
 mod tests;
 pub mod weights;
 
-extern crate alloc;
-
 use alloc::vec::Vec;
 
 use frame_support::traits::{
+	fungible::{
+		Balanced as FungibleBalanced, BalancedHold as FungibleBalancedHold,
+		Inspect as FungibleInspect, MutateHold as FungibleMutateHold,
+	},
 	fungibles::{Inspect as FungiblesInspect, Mutate as FungiblesMutate},
 	tokens::{Fortitude, Preservation},
 	Currency,
@@ -109,7 +112,9 @@ use sp_runtime::{
 };
 
 use frame_support::{
-	dispatch::DispatchResultWithPostInfo, pallet_prelude::*, traits::EnsureOrigin,
+	dispatch::DispatchResultWithPostInfo,
+	pallet_prelude::*,
+	traits::{tokens::Precision, EnsureOrigin},
 };
 use frame_system::pallet_prelude::{
 	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
@@ -273,7 +278,14 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(_);
 
 	#[pallet::config]
-	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_treasury::Config<I> {
+	pub trait Config<I: 'static = ()>:
+		frame_system::Config
+		+ pallet_treasury::Config<
+			I,
+			Fungible: FungibleMutateHold<Self::AccountId, Reason: From<HoldReason>>
+			              + FungibleBalancedHold<Self::AccountId>,
+		>
+	{
 		/// The amount held on deposit for placing a bounty proposal.
 		#[pallet::constant]
 		type BountyDepositBase: Get<BalanceOf<Self, I>>;
@@ -339,6 +351,19 @@ pub mod pallet {
 		/// This is only used for bounty closure to ensure that all assets are returned to the
 		/// treasury.
 		type TransferAllAssets: TransferAllAssets<Self::AccountId>;
+
+		/// The system in charge of managing the `Currency`.
+		///
+		/// DEPRECATED: This trait is deprecated, and bounty systems should migrate to
+		/// [`Self::Fungible`][`pallet_treasury::Config::Fungible`] instead.
+		type Currency: Currency<
+				Self::AccountId,
+				Balance = <Self::Fungible as FungibleInspect<Self::AccountId>>::Balance,
+			> + ReservableCurrency<Self::AccountId>;
+
+		/// The maximum number of approvals that can wait in the spending queue.
+		#[pallet::constant]
+		type MaxApprovals: Get<u32>;
 	}
 
 	#[pallet::error]
@@ -402,6 +427,14 @@ pub mod pallet {
 			old_deposit: BalanceOf<T, I>,
 			new_deposit: BalanceOf<T, I>,
 		},
+	}
+
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		/// Holds an amount for registering a Bounty.
+		Bounty,
+		/// Hold an amount for registering an account as a Bounty Curator.
+		Curator,
 	}
 
 	/// Number of bounty proposals that have been made.
@@ -558,12 +591,33 @@ pub mod pallet {
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
-				let slash_curator =
-					|curator: &T::AccountId, curator_deposit: &mut BalanceOf<T, I>| {
-						let imbalance = T::Currency::slash_reserved(curator, *curator_deposit).0;
-						T::OnSlash::on_unbalanced(imbalance);
-						*curator_deposit = Zero::zero();
-					};
+				let slash_curator = |curator: &T::AccountId,
+				                     curator_deposit: &mut BalanceOf<T, I>|
+				 -> DispatchResult {
+					// This is a "hack" to avoid handling weird imbalance conversions (which
+					// turn out to be quite complicated). Instead, we'll use both `Currency` and
+					// `Fungible`.
+					//
+					// Consider this hack as the first step to actively migrate some of the
+					// deposits.
+					// TODO: Migrate from `Currency` to `Fungible` completely.
+					let err_amount = T::Currency::unreserve(curator, *curator_deposit);
+					debug_assert!(err_amount.is_zero());
+
+					T::Fungible::set_on_hold(
+						&HoldReason::Curator.into(),
+						curator,
+						*curator_deposit,
+					)?;
+
+					let (imbalance, remaining) =
+						T::Fungible::slash(&HoldReason::Curator.into(), curator, *curator_deposit);
+
+					T::OnSlash::on_unbalanced(imbalance);
+					*curator_deposit = remaining;
+
+					Ok(())
+				};
 
 				match bounty.status {
 					BountyStatus::Proposed | BountyStatus::Approved | BountyStatus::Funded => {
@@ -589,7 +643,7 @@ pub mod pallet {
 						match maybe_sender {
 							// If the `RejectOrigin` is calling this function, slash the curator.
 							None => {
-								slash_curator(curator, &mut bounty.curator_deposit);
+								slash_curator(curator, &mut bounty.curator_deposit)?;
 								// Continue to change bounty status below...
 							},
 							Some(sender) => {
@@ -598,7 +652,7 @@ pub mod pallet {
 								if sender != *curator {
 									let block_number = Self::treasury_block_number();
 									if *update_due < block_number {
-										slash_curator(curator, &mut bounty.curator_deposit);
+										slash_curator(curator, &mut bounty.curator_deposit)?;
 									// Continue to change bounty status below...
 									} else {
 										// Curator has more time to give an update.
@@ -621,7 +675,7 @@ pub mod pallet {
 						// By doing so, they are claiming the curator is acting maliciously, so
 						// we slash the curator.
 						ensure!(maybe_sender.is_none(), BadOrigin);
-						slash_curator(curator, &mut bounty.curator_deposit);
+						slash_curator(curator, &mut bounty.curator_deposit)?;
 						// Continue to change bounty status below...
 					},
 				};
@@ -819,7 +873,30 @@ pub mod pallet {
 							// The reject origin would like to cancel a proposed bounty.
 							BountyDescriptions::<T, I>::remove(bounty_id);
 							let value = bounty.bond;
-							let imbalance = T::Currency::slash_reserved(&bounty.proposer, value).0;
+
+							// This is a "hack" to avoid handling weird imbalance conversions (which
+							// turn out to be quite complicated). Instead, we'll use both `Currency`
+							// and `Fungible`.
+							//
+							// Consider this hack as the first step to actively migrate some of the
+							// deposits.
+							// TODO: Migrate from `Currency` to `Fungible` completely.
+							let amount_to_hold = bounty
+								.bond
+								.saturating_sub(T::Currency::unreserve(&bounty.proposer, value));
+							T::Fungible::set_on_hold(
+								&HoldReason::Bounty.into(),
+								&bounty.proposer,
+								amount_to_hold,
+							)?;
+
+							let imbalance = T::Fungible::slash(
+								&HoldReason::Bounty.into(),
+								&bounty.proposer,
+								amount_to_hold,
+							)
+							.0;
+
 							T::OnSlash::on_unbalanced(imbalance);
 							*maybe_bounty = None;
 
@@ -1174,8 +1251,6 @@ impl<T: Config<I>, I: 'static> pallet_treasury::SpendFunds<T, I> for Pallet<T, I
 					// Should always be true, but shouldn't panic if false or we're screwed.
 					if let Some(bounty) = bounty {
 						if bounty.value <= *budget_remaining {
-							*budget_remaining -= bounty.value;
-
 							// jump through the funded phase if we're already approved with curator
 							if let BountyStatus::ApprovedWithCurator { curator } = &bounty.status {
 								bounty.status =
@@ -1189,13 +1264,22 @@ impl<T: Config<I>, I: 'static> pallet_treasury::SpendFunds<T, I> for Pallet<T, I
 							debug_assert!(err_amount.is_zero());
 
 							// fund the bounty account
-							imbalance.subsume(T::Currency::deposit_creating(
+							if let Ok(debt) = T::Fungible::deposit(
 								&Self::bounty_account_id(index),
 								bounty.value,
-							));
+								Precision::Exact,
+							) {
+								// Depositing via `Fungible` is not infallible, thus we must reduce
+								// the remaining budget once we've funded the bounty.
+								*budget_remaining -= bounty.value;
+								imbalance.subsume(debt);
 
-							Self::deposit_event(Event::<T, I>::BountyBecameActive { index });
-							false
+								Self::deposit_event(Event::<T, I>::BountyBecameActive { index });
+								false
+							} else {
+								*missed_any = true;
+								true
+							}
 						} else {
 							*missed_any = true;
 							true

@@ -54,13 +54,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
 mod benchmarking;
 mod tests;
 
 pub mod migrations;
 pub mod weights;
-
-extern crate alloc;
 
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, Hash, StaticLookup, TrailingZeroInput, Zero},
@@ -73,8 +72,13 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		ContainsLengthBound, Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get,
-		OnUnbalanced, ReservableCurrency, SortedMembers,
+		fungible::{
+			BalancedHold as FungibleBalancedHold, Inspect as FungibleInspect,
+			MutateHold as FungibleMutateHold,
+		},
+		ContainsLengthBound, Currency, EnsureOrigin,
+		ExistenceRequirement::KeepAlive,
+		Get, OnUnbalanced, ReservableCurrency, SortedMembers,
 	},
 	Parameter,
 };
@@ -134,7 +138,14 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(_);
 
 	#[pallet::config]
-	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_treasury::Config<I> {
+	pub trait Config<I: 'static = ()>:
+		frame_system::Config
+		+ pallet_treasury::Config<
+			I,
+			Fungible: FungibleMutateHold<Self::AccountId, Reason: From<HoldReason>>
+			              + FungibleBalancedHold<Self::AccountId>,
+		>
+	{
 		/// The overarching event type.
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
@@ -178,6 +189,21 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// The system in charge of managing the `Currency`.
+		///
+		/// DEPRECATED: This trait is deprecated, and bounty systems should migrate to
+		/// [`Self::Fungible`][`pallet_treasury::Config::Fungible`] instead.
+		type Currency: Currency<
+				Self::AccountId,
+				Balance = <Self::Fungible as FungibleInspect<Self::AccountId>>::Balance,
+			> + ReservableCurrency<Self::AccountId>;
+	}
+
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		/// Holds an amount for registering a Finder.
+		Finder,
 	}
 
 	/// TipsMap that are not yet completed. Keyed by the hash of `(reason, who)` from the value.
@@ -463,7 +489,21 @@ pub mod pallet {
 			let tip = Tips::<T, I>::take(hash).ok_or(Error::<T, I>::UnknownTip)?;
 
 			if !tip.deposit.is_zero() {
-				let imbalance = T::Currency::slash_reserved(&tip.finder, tip.deposit).0;
+				// This is a "hack" to avoid handling weird imbalance conversions (which
+				// turn out to be quite complicated). Instead, we'll use both `Currency` and
+				// `Fungible`.
+				//
+				// Consider this hack as the first step to actively migrate some of the
+				// deposits.
+				// TODO: Migrate from `Currency` to `Fungible` completely.
+				let err_amount = T::Currency::unreserve(&tip.finder, tip.deposit);
+				debug_assert!(err_amount.is_zero());
+
+				T::Fungible::set_on_hold(&HoldReason::Finder.into(), &tip.finder, tip.deposit)?;
+
+				let (imbalance, _) =
+					T::Fungible::slash(&HoldReason::Finder.into(), &tip.finder, tip.deposit);
+
 				T::OnSlash::on_unbalanced(imbalance);
 			}
 			Reasons::<T, I>::remove(&tip.reason);

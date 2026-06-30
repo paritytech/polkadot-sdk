@@ -130,17 +130,24 @@ pub type TreasuryBalanceConverter = UnityOrOuterConversion<
 	AssetRate,
 >;
 
+pub struct TreasuryLazyMigrationV0ToV1Config;
+
+impl pallet_treasury::migration::LazyMigrationV0ToV1Config<Runtime>
+	for TreasuryLazyMigrationV0ToV1Config
+{
+	type MaxApprovals = MaxApprovals;
+	type Currency = Balances;
+}
+
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type RejectOrigin = EitherOfDiverse<EnsureRoot<AccountId>, Treasurer>;
-	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = SpendPeriod;
 	// NOTE: Treasury burn is currently disabled. If ever enabled (`Burn > 0`), wire
 	// `BurnDestination = Dap` so burned funds flow to the DAP buffer instead of being destroyed.
 	type Burn = ();
 	type BurnDestination = ();
-	type MaxApprovals = MaxApprovals;
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type SpendFunds = ();
 	type SpendOrigin = TreasurySpender;
@@ -155,6 +162,8 @@ impl pallet_treasury::Config for Runtime {
 	type BenchmarkHelper = parachains_common::pay::benchmarks::LocalPayArguments<
 		xcm_config::TrustBackedAssetsPalletIndex,
 	>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type LazyMigrationV0ToV1Config = TreasuryLazyMigrationV0ToV1Config;
 }
 
 impl pallet_asset_rate::Config for Runtime {

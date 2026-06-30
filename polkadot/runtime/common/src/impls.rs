@@ -381,16 +381,25 @@ mod tests {
 		pub TreasuryAccount: AccountId = Treasury::account_id();
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	pub struct TreasuryLazyMigrationV0ToV1Config;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl pallet_treasury::migration::LazyMigrationV0ToV1Config<Test>
+		for TreasuryLazyMigrationV0ToV1Config
+	{
+		type MaxApprovals = MaxApprovals;
+		type Currency = Balances;
+	}
+
 	impl pallet_treasury::Config for Test {
-		type Currency = pallet_balances::Pallet<Test>;
+		type Fungible = pallet_balances::Pallet<Test>;
 		type RejectOrigin = frame_system::EnsureRoot<AccountId>;
-		type RuntimeEvent = RuntimeEvent;
 		type SpendPeriod = ();
 		type Burn = ();
 		type BurnDestination = ();
 		type PalletId = TreasuryPalletId;
 		type SpendFunds = ();
-		type MaxApprovals = MaxApprovals;
 		type WeightInfo = ();
 		type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
 		type AssetKind = ();
@@ -402,6 +411,8 @@ mod tests {
 		type BlockNumberProvider = System;
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper = ();
+		#[cfg(feature = "runtime-benchmarks")]
+		type LazyMigrationV0ToV1Config = TreasuryLazyMigrationV0ToV1Config;
 	}
 
 	pub struct OneAuthor;

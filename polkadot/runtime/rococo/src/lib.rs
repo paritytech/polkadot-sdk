@@ -534,15 +534,37 @@ parameter_types! {
 	pub const MaxBalance: Balance = Balance::max_value();
 }
 
+pub struct TreasuryLazyMigrationV0ToV1Config;
+
+impl pallet_treasury::migration::LazyMigrationV0ToV1Config<Runtime>
+	for TreasuryLazyMigrationV0ToV1Config
+{
+	type MaxApprovals = MaxApprovals;
+	type Currency = Balances;
+}
+
+use frame_support::traits::{fungible::Credit, Imbalance, OnUnbalanced};
+use pallet_balances::NegativeImbalance;
+
+pub struct HandleCreditAsNegativeImbalance<O>(core::marker::PhantomData<O>);
+impl<O> OnUnbalanced<Credit<AccountId, Balances>> for HandleCreditAsNegativeImbalance<O>
+where
+	O: OnUnbalanced<NegativeImbalance<Runtime>>,
+{
+	fn on_unbalanced(credit: Credit<AccountId, Balances>) {
+		let amount = credit.peek();
+		drop(credit);
+		O::on_unbalanced(NegativeImbalance::new(amount))
+	}
+}
+
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type RejectOrigin = EitherOfDiverse<EnsureRoot<AccountId>, Treasurer>;
-	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = SpendPeriod;
 	type Burn = Burn;
-	type BurnDestination = Society;
-	type MaxApprovals = MaxApprovals;
+	type BurnDestination = HandleCreditAsNegativeImbalance<Society>;
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type SpendFunds = Bounties;
 	type SpendOrigin = TreasurySpender;
@@ -572,6 +594,8 @@ impl pallet_treasury::Config for Runtime {
 	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
+	#[cfg(feature = "runtime-benchmarks")]
+	type LazyMigrationV0ToV1Config = TreasuryLazyMigrationV0ToV1Config;
 }
 
 parameter_types! {
@@ -600,6 +624,8 @@ impl pallet_bounties::Config for Runtime {
 	type WeightInfo = weights::pallet_bounties::WeightInfo<Runtime>;
 	type OnSlash = Treasury;
 	type TransferAllAssets = ();
+	type Currency = Balances;
+	type MaxApprovals = MaxApprovals;
 }
 
 parameter_types! {
@@ -781,7 +807,7 @@ impl pallet_identity::Config for Runtime {
 	type MaxSubAccounts = MaxSubAccounts;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
-	type Slashed = Treasury;
+	type Slashed = pallet_balances::HandleNegativeImbalanceAsCredit<Treasury, Runtime>;
 	type ForceOrigin = EitherOf<EnsureRoot<Self::AccountId>, GeneralAdmin>;
 	type RegistrarOrigin = EitherOf<EnsureRoot<Self::AccountId>, GeneralAdmin>;
 	type OffchainSignature = Signature;
@@ -1461,7 +1487,14 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>;
+	type Migrations = (
+		pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>,
+		pallet_treasury::migration::LazyMigrationV0ToV1<
+			Runtime,
+			(),
+			TreasuryLazyMigrationV0ToV1Config,
+		>,
+	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
@@ -1735,36 +1768,35 @@ pub mod migrations {
 
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
-        pallet_society::migrations::MigrateToV2<Runtime, (), ()>,
-        parachains_configuration::migration::v7::MigrateToV7<Runtime>,
-        assigned_slots::migration::v1::MigrateToV1<Runtime>,
-        parachains_configuration::migration::v8::MigrateToV8<Runtime>,
-        parachains_configuration::migration::v9::MigrateToV9<Runtime>,
-        paras_registrar::migration::MigrateToV1<Runtime, ()>,
-        pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
-        pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, pallet_referenda::Instance2>,
-        pallet_child_bounties::migration::MigrateV0ToV1<Runtime, BalanceTransferAllowDeath>,
+		pallet_society::migrations::MigrateToV2<Runtime, (), ()>,
+		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
+		assigned_slots::migration::v1::MigrateToV1<Runtime>,
+		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
+		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
+		paras_registrar::migration::MigrateToV1<Runtime, ()>,
+		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
+		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, pallet_referenda::Instance2>,
+		pallet_child_bounties::migration::MigrateV0ToV1<Runtime, BalanceTransferAllowDeath>,
 
-        // Unlock & unreserve Gov1 funds
+		// Unlock & unreserve Gov1 funds
 
-        pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
-        pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
-        pallet_tips::migrations::unreserve_deposits::UnreserveDeposits<UnlockConfig, ()>,
-        pallet_treasury::migration::cleanup_proposals::Migration<Runtime, (), BalanceUnreserveWeight>,
+		pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
+		pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
+		pallet_tips::migrations::unreserve_deposits::UnreserveDeposits<UnlockConfig, ()>,
 
-        // Delete all Gov v1 pallet storage key/values.
+		// Delete all Gov v1 pallet storage key/values.
 
-        frame_support::migrations::RemovePallet<DemocracyPalletName, <Runtime as frame_system::Config>::DbWeight>,
-        frame_support::migrations::RemovePallet<CouncilPalletName, <Runtime as frame_system::Config>::DbWeight>,
-        frame_support::migrations::RemovePallet<TechnicalCommitteePalletName, <Runtime as frame_system::Config>::DbWeight>,
-        frame_support::migrations::RemovePallet<PhragmenElectionPalletName, <Runtime as frame_system::Config>::DbWeight>,
-        frame_support::migrations::RemovePallet<TechnicalMembershipPalletName, <Runtime as frame_system::Config>::DbWeight>,
-        frame_support::migrations::RemovePallet<TipsPalletName, <Runtime as frame_system::Config>::DbWeight>,
-        pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
-        parachains_configuration::migration::v10::MigrateToV10<Runtime>,
+		frame_support::migrations::RemovePallet<DemocracyPalletName, <Runtime as frame_system::Config>::DbWeight>,
+		frame_support::migrations::RemovePallet<CouncilPalletName, <Runtime as frame_system::Config>::DbWeight>,
+		frame_support::migrations::RemovePallet<TechnicalCommitteePalletName, <Runtime as frame_system::Config>::DbWeight>,
+		frame_support::migrations::RemovePallet<PhragmenElectionPalletName, <Runtime as frame_system::Config>::DbWeight>,
+		frame_support::migrations::RemovePallet<TechnicalMembershipPalletName, <Runtime as frame_system::Config>::DbWeight>,
+		frame_support::migrations::RemovePallet<TipsPalletName, <Runtime as frame_system::Config>::DbWeight>,
+		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
+		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
 
-        // Migrate Identity pallet for Usernames
-        pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
+		// Migrate Identity pallet for Usernames
+		pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
 
 		// migrates session storage item
 		pallet_session::migrations::v1::MigrateV0ToV1<Runtime, pallet_session::migrations::v1::InitOffenceSeverity<Runtime>>,
@@ -1776,10 +1808,10 @@ pub mod migrations {
 		parachains_configuration::migration::v13::MigrateToV13<Runtime>,
 		parachains_shared::migration::MigrateToV2<Runtime>,
 
-        // permanent
-        pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
-        parachains_inclusion::migration::MigrateToV1<Runtime>,
-    );
+		// permanent
+		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+		parachains_inclusion::migration::MigrateToV1<Runtime>,
+	);
 }
 
 /// Executive: handles dispatch to the various modules.

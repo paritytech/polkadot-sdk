@@ -83,6 +83,7 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 parameter_types! {
 	pub static Burn: Permill = Permill::from_percent(50);
@@ -94,17 +95,28 @@ parameter_types! {
 	pub TreasuryInstance1Account: u128 = Treasury1::account_id();
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct TreasuryLazyMigrationV0ToV1Config<I = ()>(PhantomData<I>);
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<I: 'static> pallet_treasury::migration::LazyMigrationV0ToV1Config<Test, I>
+	for TreasuryLazyMigrationV0ToV1Config<I>
+where
+	Test: pallet_treasury::Config<I, Fungible = Balances>,
+{
+	type MaxApprovals = ConstU32<100>;
+	type Currency = Balances;
+}
+
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
-	type Currency = pallet_balances::Pallet<Test>;
+	type Fungible = Balances;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
-	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
 	type SpendFunds = Bounties;
-	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_system::EnsureRootWithSuccess<Self::AccountId, SpendLimit>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
@@ -115,19 +127,19 @@ impl pallet_treasury::Config for Test {
 	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type LazyMigrationV0ToV1Config = TreasuryLazyMigrationV0ToV1Config;
 }
 
 impl pallet_treasury::Config<Instance1> for Test {
 	type PalletId = TreasuryPalletId2;
-	type Currency = pallet_balances::Pallet<Test>;
+	type Fungible = Balances;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
-	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
 	type SpendFunds = Bounties1;
-	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_system::EnsureRootWithSuccess<Self::AccountId, SpendLimit1>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
@@ -138,6 +150,8 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type LazyMigrationV0ToV1Config = TreasuryLazyMigrationV0ToV1Config<Instance1>;
 }
 
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
@@ -182,6 +196,8 @@ impl Config for Test {
 	type ChildBountyManager = ();
 	type OnSlash = ();
 	type TransferAllAssets = TransferAllFungibles<AccountId, NativeAndAssets, RelevantAssets>;
+	type Currency = Balances;
+	type MaxApprovals = ConstU32<100>;
 }
 
 impl Config<Instance1> for Test {
@@ -199,6 +215,8 @@ impl Config<Instance1> for Test {
 	type ChildBountyManager = ();
 	type OnSlash = ();
 	type TransferAllAssets = ();
+	type Currency = Balances;
+	type MaxApprovals = ConstU32<100>;
 }
 
 type TreasuryError = pallet_treasury::Error<Test>;
@@ -274,11 +292,9 @@ fn expect_events(e: Vec<BountiesEvent<Test>>) {
 }
 
 #[test]
-#[allow(deprecated)]
 fn genesis_config_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(Treasury::proposal_count(), 0);
 	});
 }
 
@@ -287,20 +303,6 @@ fn minting_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Check that accumulate works when we have Some value in Dummy already.
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-	});
-}
-
-#[test]
-#[allow(deprecated)]
-fn accepted_spend_proposal_ignored_outside_spend_period() {
-	ExtBuilder::default().build_and_execute(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 100, 3) });
-
-		go_to_block(1);
-		assert_eq!(Balances::free_balance(3), 0);
 		assert_eq!(Treasury::pot(), 100);
 	});
 }
@@ -315,100 +317,6 @@ fn unused_pot_should_diminish() {
 		go_to_block(2);
 		assert_eq!(Treasury::pot(), 50);
 		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), init_total_issuance + 50);
-	});
-}
-
-#[test]
-#[allow(deprecated)]
-fn accepted_spend_proposal_enacted_on_spend_period() {
-	ExtBuilder::default().build_and_execute(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 100, 3) });
-
-		go_to_block(2);
-		assert_eq!(Balances::free_balance(3), 100);
-		assert_eq!(Treasury::pot(), 0);
-	});
-}
-
-#[test]
-#[allow(deprecated)]
-fn pot_underflow_should_not_diminish() {
-	ExtBuilder::default().build_and_execute(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 150, 3) });
-
-		go_to_block(2);
-		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
-
-		assert_ok!(Balances::deposit_into_existing(&Treasury::account_id(), 100));
-		go_to_block(4);
-		assert_eq!(Balances::free_balance(3), 150); // Fund has been spent
-		assert_eq!(Treasury::pot(), 25); // Pot has finally changed
-	});
-}
-
-// Treasury account doesn't get deleted if amount approved to spend is all its free balance.
-// i.e. pot should not include existential deposit needed for account survival.
-#[test]
-#[allow(deprecated)]
-fn treasury_account_doesnt_get_deleted() {
-	ExtBuilder::default().build_and_execute(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-		let treasury_balance = Balances::free_balance(&Treasury::account_id());
-
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), treasury_balance, 3) });
-
-		go_to_block(2);
-		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
-
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), Treasury::pot(), 3) });
-
-		go_to_block(4);
-		assert_eq!(Treasury::pot(), 0); // Pot is emptied
-		assert_eq!(Balances::free_balance(Treasury::account_id()), 1); // but the account is still there
-	});
-}
-
-// In case treasury account is not existing then it works fine.
-// This is useful for chain that will just update runtime.
-#[test]
-#[allow(deprecated)]
-fn inexistent_account_works() {
-	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(0, 100), (1, 99), (2, 1)],
-		..Default::default()
-	}
-	.assimilate_storage(&mut t)
-	.unwrap();
-	// Treasury genesis config is not build thus treasury account does not exist
-	let mut t: sp_io::TestExternalities = t.into();
-
-	t.execute_with(|| {
-		assert_eq!(Balances::free_balance(Treasury::account_id()), 0); // Account does not exist
-		assert_eq!(Treasury::pot(), 0); // Pot is empty
-
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 99, 3) });
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 1, 3) });
-		go_to_block(2);
-
-		assert_eq!(Treasury::pot(), 0); // Pot hasn't changed
-		assert_eq!(Balances::free_balance(3), 0); // Balance of `3` hasn't changed
-
-		Balances::make_free_balance_be(&Treasury::account_id(), 100);
-		assert_eq!(Treasury::pot(), 99); // Pot now contains funds
-		assert_eq!(Balances::free_balance(Treasury::account_id()), 100); // Account does exist
-
-		go_to_block(4);
-
-		assert_eq!(Treasury::pot(), 0); // Pot has changed
-		assert_eq!(Balances::free_balance(3), 99); // Balance of `3` has changed
 	});
 }
 
@@ -493,8 +401,6 @@ fn close_bounty_works() {
 		assert_eq!(Balances::free_balance(0), 100 - deposit);
 
 		assert_eq!(pallet_bounties::Bounties::<Test>::get(0), None);
-		assert!(!pallet_treasury::Proposals::<Test>::contains_key(0));
-
 		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0), None);
 	});
 }

@@ -265,11 +265,11 @@ mod test {
 		let tip_1_reason = b"pineapple_on_pizza".to_vec();
 		new_test_ext().execute_with(|| {
 			// Set up
-			assert_ok!(<Test as pallet_treasury::Config>::Currency::reserve(
+			assert_ok!(<<Test as crate::Config>::Currency as ReservableCurrency<u128>>::reserve(
 				&tipper_0,
 				tipper_0_initial_reserved
 			));
-			assert_ok!(<Test as pallet_treasury::Config>::Currency::reserve(
+			assert_ok!(<<Test as crate::Config>::Currency as ReservableCurrency<u128>>::reserve(
 				&tipper_1,
 				tipper_1_initial_reserved
 			));
@@ -288,14 +288,18 @@ mod test {
 
 			// Verify the expected amount is reserved
 			assert_eq!(
-				<Test as pallet_treasury::Config>::Currency::reserved_balance(&tipper_0),
+				<<Test as crate::Config>::Currency as ReservableCurrency<u128>>::reserved_balance(
+					&tipper_0
+				),
 				tipper_0_initial_reserved +
 					<Test as crate::Config>::TipReportDepositBase::get() +
 					<Test as crate::Config>::DataDepositPerByte::get() *
 						tip_0_reason.len() as u64
 			);
 			assert_eq!(
-				<Test as pallet_treasury::Config>::Currency::reserved_balance(&tipper_1),
+				<<Test as crate::Config>::Currency as ReservableCurrency<u128>>::reserved_balance(
+					&tipper_1
+				),
 				tipper_1_initial_reserved +
 					<Test as crate::Config>::TipReportDepositBase::get() +
 					<Test as crate::Config>::DataDepositPerByte::get() *
@@ -312,11 +316,15 @@ mod test {
 
 			// Check the deposits were were unreserved
 			assert_eq!(
-				<Test as pallet_treasury::Config>::Currency::reserved_balance(&tipper_0),
+				<<Test as crate::Config>::Currency as ReservableCurrency<u128>>::reserved_balance(
+					&tipper_0
+				),
 				tipper_0_initial_reserved
 			);
 			assert_eq!(
-				<Test as pallet_treasury::Config>::Currency::reserved_balance(&tipper_1),
+				<<Test as crate::Config>::Currency as ReservableCurrency<u128>>::reserved_balance(
+					&tipper_1
+				),
 				tipper_1_initial_reserved
 			);
 		});

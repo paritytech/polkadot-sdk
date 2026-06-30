@@ -48,9 +48,7 @@
 //!
 //! ### Example
 //!
-//! 1. Multiple local spends approved by spend origins and received by a beneficiary.
-#![doc = docify::embed!("src/tests.rs", spend_local_origin_works)]
-//! 2. Approve a spend of some asset kind and claim it.
+//! 1. Approve a spend of some asset kind and claim it.
 #![doc = docify::embed!("src/tests.rs", spend_payout_works)]
 //! ## Pallet API
 //!
@@ -70,6 +68,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
 mod benchmarking;
 pub mod migration;
 #[cfg(test)]
@@ -79,8 +78,6 @@ use core::marker::PhantomData;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::ArgumentsFactory;
-
-extern crate alloc;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
@@ -98,8 +95,9 @@ use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	ensure, print,
 	traits::{
-		tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
-		ReservableCurrency, WithdrawReasons,
+		fungible::{Balanced, Credit, Debt, Inspect, Mutate, Unbalanced},
+		tokens::{Fortitude, Pay, Preservation},
+		Get, Imbalance, OnUnbalanced,
 	},
 	weights::Weight,
 	BoundedVec, PalletId,
@@ -110,15 +108,12 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 pub type BalanceOf<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config<I>>::Fungible as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 pub type AssetBalanceOf<T, I> = <<T as Config<I>>::Paymaster as Pay>::Balance;
-pub type PositiveImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::PositiveImbalance;
-pub type NegativeImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+pub type PositiveImbalanceOf<T, I = ()> =
+	Debt<<T as frame_system::Config>::AccountId, <T as Config<I>>::Fungible>;
+pub type NegativeImbalanceOf<T, I = ()> =
+	Credit<<T as frame_system::Config>::AccountId, <T as Config<I>>::Fungible>;
 type BeneficiaryLookupOf<T, I> = <<T as Config<I>>::BeneficiaryLookup as StaticLookup>::Source;
 pub type BlockNumberFor<T, I = ()> =
 	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
@@ -142,25 +137,6 @@ pub trait SpendFunds<T: Config<I>, I: 'static = ()> {
 		total_weight: &mut Weight,
 		missed_any: &mut bool,
 	);
-}
-
-/// An index of a proposal. Just a `u32`.
-pub type ProposalIndex = u32;
-
-/// A spending proposal.
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo,
-)]
-pub struct Proposal<AccountId, Balance> {
-	/// The account proposing it.
-	pub proposer: AccountId,
-	/// The (total) amount that should be paid if the proposal is accepted.
-	pub value: Balance,
-	/// The account to whom the payment should be made if the proposal is accepted.
-	pub beneficiary: AccountId,
-	/// The amount held on deposit (reserved) for making this proposal.
-	pub bond: Balance,
 }
 
 /// The state of the payment claim.
@@ -210,21 +186,23 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::{ensure_signed, OriginFor};
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]
-	pub trait Config<I: 'static = ()>: frame_system::Config {
+	pub trait Config<I: 'static = ()>:
+		frame_system::Config<RuntimeEvent: From<Event<Self, I>>>
+	{
 		/// The staking balance.
-		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+		type Fungible: Inspect<Self::AccountId>
+			+ Balanced<Self::AccountId>
+			+ Mutate<Self::AccountId>;
 
 		/// Origin from which rejections must come.
 		type RejectOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
-		/// The overarching event type.
-		#[allow(deprecated)]
-		type RuntimeEvent: From<Event<Self, I>>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Period between successive spends.
 		#[pallet::constant]
@@ -246,15 +224,6 @@ pub mod pallet {
 
 		/// Runtime hooks to external pallet using treasury to compute spend funds.
 		type SpendFunds: SpendFunds<Self, I>;
-
-		/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
-		/// Refer to <https://github.com/paritytech/polkadot-sdk/pull/5961> for migration to `spend`.
-		///
-		/// The maximum number of approvals that can wait in the spending queue.
-		///
-		/// NOTE: This parameter is also used within the Bounties Pallet extension if enabled.
-		#[pallet::constant]
-		type MaxApprovals: Get<u32>;
 
 		/// The origin required for approving spends from the treasury outside of the proposal
 		/// process. The `Success` value is the maximum amount in a native asset that this origin
@@ -290,6 +259,10 @@ pub mod pallet {
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
 
+		/// Helper type for migration to v1.
+		#[cfg(feature = "runtime-benchmarks")]
+		type LazyMigrationV0ToV1Config: migration::LazyMigrationV0ToV1Config<Self, I>;
+
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider;
 	}
@@ -302,38 +275,10 @@ pub mod pallet {
 		}
 	}
 
-	/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
-	/// Refer to <https://github.com/paritytech/polkadot-sdk/pull/5961> for migration to `spend`.
-	///
-	/// Number of proposals that have been made.
-	#[pallet::storage]
-	pub type ProposalCount<T, I = ()> = StorageValue<_, ProposalIndex, ValueQuery>;
-
-	/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
-	/// Refer to <https://github.com/paritytech/polkadot-sdk/pull/5961> for migration to `spend`.
-	///
-	/// Proposals that have been made.
-	#[pallet::storage]
-	pub type Proposals<T: Config<I>, I: 'static = ()> = StorageMap<
-		_,
-		Twox64Concat,
-		ProposalIndex,
-		Proposal<T::AccountId, BalanceOf<T, I>>,
-		OptionQuery,
-	>;
-
 	/// The amount which has been reported as inactive to Currency.
 	#[pallet::storage]
 	pub type Deactivated<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BalanceOf<T, I>, ValueQuery>;
-
-	/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
-	/// Refer to <https://github.com/paritytech/polkadot-sdk/pull/5961> for migration to `spend`.
-	///
-	/// Proposal indices that have been approved but not yet awarded.
-	#[pallet::storage]
-	pub type Approvals<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, BoundedVec<ProposalIndex, T::MaxApprovals>, ValueQuery>;
 
 	/// The count of spends that have been made.
 	#[pallet::storage]
@@ -372,9 +317,9 @@ pub mod pallet {
 		fn build(&self) {
 			// Create Treasury account
 			let account_id = Pallet::<T, I>::account_id();
-			let min = T::Currency::minimum_balance();
-			if T::Currency::free_balance(&account_id) < min {
-				let _ = T::Currency::make_free_balance_be(&account_id, min);
+			let min = T::Fungible::minimum_balance();
+			if T::Fungible::total_balance(&account_id) < min {
+				let _ = T::Fungible::mint_into(&account_id, min);
 			}
 		}
 	}
@@ -385,7 +330,10 @@ pub mod pallet {
 		/// We have ended a spend period and will now allocate funds.
 		Spending { budget_remaining: BalanceOf<T, I> },
 		/// Some funds have been allocated.
-		Awarded { proposal_index: ProposalIndex, award: BalanceOf<T, I>, account: T::AccountId },
+		#[deprecated(
+			note = "This event is kept for SCALE compatibility reasons. However, it is not used anymore in the pallet."
+		)]
+		Awarded { proposal_index: u32, award: BalanceOf<T, I>, account: T::AccountId },
 		/// Some of our funds have been burnt.
 		Burnt { burnt_funds: BalanceOf<T, I> },
 		/// Spending has finished; this is the amount that rolls over until next spend.
@@ -393,11 +341,10 @@ pub mod pallet {
 		/// Some funds have been deposited.
 		Deposit { value: BalanceOf<T, I> },
 		/// A new spend proposal has been approved.
-		SpendApproved {
-			proposal_index: ProposalIndex,
-			amount: BalanceOf<T, I>,
-			beneficiary: T::AccountId,
-		},
+		#[deprecated(
+			note = "This event is kept for SCALE compatibility reasons. However, it is not used anymore in the pallet."
+		)]
+		SpendApproved { proposal_index: u32, amount: BalanceOf<T, I>, beneficiary: T::AccountId },
 		/// The inactive funds of the pallet have been updated.
 		UpdatedInactive { reactivated: BalanceOf<T, I>, deactivated: BalanceOf<T, I> },
 		/// A new asset spend proposal has been approved.
@@ -426,11 +373,17 @@ pub mod pallet {
 		/// No proposal, bounty or spend at that index.
 		InvalidIndex,
 		/// Too many approvals in the queue.
+		#[deprecated(
+			note = "This error is kept for SCALE compatibility reasons. However, it is not used anymore in the pallet."
+		)]
 		TooManyApprovals,
 		/// The spend origin is valid but the amount it is allowed to spend is lower than the
 		/// amount to be spent.
 		InsufficientPermission,
 		/// Proposal has not been approved.
+		#[deprecated(
+			note = "This error is kept for SCALE compatibility reasons. However, it is not used anymore in the pallet."
+		)]
 		ProposalNotApproved,
 		/// The balance of the asset kind is not convertible to the balance of the native asset.
 		FailedToConvertBalance,
@@ -457,8 +410,8 @@ pub mod pallet {
 			let pot = Self::pot();
 			let deactivated = Deactivated::<T, I>::get();
 			if pot != deactivated {
-				T::Currency::reactivate(deactivated);
-				T::Currency::deactivate(pot);
+				T::Fungible::reactivate(deactivated);
+				T::Fungible::deactivate(pot);
 				Deactivated::<T, I>::put(&pot);
 				Self::deposit_event(Event::<T, I>::UpdatedInactive {
 					reactivated: deactivated,
@@ -502,124 +455,6 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		/// Propose and approve a spend of treasury funds.
-		///
-		/// ## Dispatch Origin
-		///
-		/// Must be [`Config::SpendOrigin`] with the `Success` value being at least `amount`.
-		///
-		/// ### Details
-		/// NOTE: For record-keeping purposes, the proposer is deemed to be equivalent to the
-		/// beneficiary.
-		///
-		/// ### Parameters
-		/// - `amount`: The amount to be transferred from the treasury to the `beneficiary`.
-		/// - `beneficiary`: The destination account for the transfer.
-		///
-		/// ## Events
-		///
-		/// Emits [`Event::SpendApproved`] if successful.
-		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::spend_local())]
-		#[deprecated(
-			note = "The `spend_local` call will be removed by May 2025. Migrate to the new flow and use the `spend` call."
-		)]
-		#[allow(deprecated)]
-		pub fn spend_local(
-			origin: OriginFor<T>,
-			#[pallet::compact] amount: BalanceOf<T, I>,
-			beneficiary: AccountIdLookupOf<T>,
-		) -> DispatchResult {
-			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
-			ensure!(amount <= max_amount, Error::<T, I>::InsufficientPermission);
-
-			with_context::<SpendContext<BalanceOf<T, I>>, _>(|v| {
-				let context = v.or_default();
-
-				// We group based on `max_amount`, to distinguish between different kind of
-				// origins. (assumes that all origins have different `max_amount`)
-				//
-				// Worst case is that we reject some "valid" request.
-				let spend = context.spend_in_context.entry(max_amount).or_default();
-
-				// Ensure that we don't overflow nor use more than `max_amount`
-				if spend.checked_add(&amount).map(|s| s > max_amount).unwrap_or(true) {
-					Err(Error::<T, I>::InsufficientPermission)
-				} else {
-					*spend = spend.saturating_add(amount);
-
-					Ok(())
-				}
-			})
-			.unwrap_or(Ok(()))?;
-
-			let beneficiary = T::Lookup::lookup(beneficiary)?;
-			#[allow(deprecated)]
-			let proposal_index = ProposalCount::<T, I>::get();
-			#[allow(deprecated)]
-			Approvals::<T, I>::try_append(proposal_index)
-				.map_err(|_| Error::<T, I>::TooManyApprovals)?;
-			let proposal = Proposal {
-				proposer: beneficiary.clone(),
-				value: amount,
-				beneficiary: beneficiary.clone(),
-				bond: Default::default(),
-			};
-			#[allow(deprecated)]
-			Proposals::<T, I>::insert(proposal_index, proposal);
-			#[allow(deprecated)]
-			ProposalCount::<T, I>::put(proposal_index + 1);
-
-			Self::deposit_event(Event::SpendApproved { proposal_index, amount, beneficiary });
-			Ok(())
-		}
-
-		/// Force a previously approved proposal to be removed from the approval queue.
-		///
-		/// ## Dispatch Origin
-		///
-		/// Must be [`Config::RejectOrigin`].
-		///
-		/// ## Details
-		///
-		/// The original deposit will no longer be returned.
-		///
-		/// ### Parameters
-		/// - `proposal_id`: The index of a proposal
-		///
-		/// ### Complexity
-		/// - O(A) where `A` is the number of approvals
-		///
-		/// ### Errors
-		/// - [`Error::ProposalNotApproved`]: The `proposal_id` supplied was not found in the
-		///   approval queue, i.e., the proposal has not been approved. This could also mean the
-		///   proposal does not exist altogether, thus there is no way it would have been approved
-		///   in the first place.
-		#[pallet::call_index(4)]
-		#[pallet::weight((T::WeightInfo::remove_approval(), DispatchClass::Operational))]
-		#[deprecated(
-			note = "The `remove_approval` call will be removed by May 2025. It associated with the deprecated `spend_local` call."
-		)]
-		#[allow(deprecated)]
-		pub fn remove_approval(
-			origin: OriginFor<T>,
-			#[pallet::compact] proposal_id: ProposalIndex,
-		) -> DispatchResult {
-			T::RejectOrigin::ensure_origin(origin)?;
-
-			#[allow(deprecated)]
-			Approvals::<T, I>::try_mutate(|v| -> DispatchResult {
-				if let Some(index) = v.iter().position(|x| x == &proposal_id) {
-					v.remove(index);
-					Ok(())
-				} else {
-					Err(Error::<T, I>::ProposalNotApproved.into())
-				}
-			})?;
-
-			Ok(())
-		}
-
 		/// Propose and approve a spend of treasury funds.
 		///
 		/// ## Dispatch Origin
@@ -876,33 +711,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		last_spend_period
 	}
 
-	/// Public function to proposal_count storage.
-	#[deprecated(
-		note = "This function will be removed by May 2025. Configure pallet to use PayFromAccount for Paymaster type instead"
-	)]
-	pub fn proposal_count() -> ProposalIndex {
-		#[allow(deprecated)]
-		ProposalCount::<T, I>::get()
-	}
-
-	/// Public function to proposals storage.
-	#[deprecated(
-		note = "This function will be removed by May 2025. Configure pallet to use PayFromAccount for Paymaster type instead"
-	)]
-	pub fn proposals(index: ProposalIndex) -> Option<Proposal<T::AccountId, BalanceOf<T, I>>> {
-		#[allow(deprecated)]
-		Proposals::<T, I>::get(index)
-	}
-
-	/// Public function to approvals storage.
-	#[deprecated(
-		note = "This function will be removed by May 2025. Configure pallet to use PayFromAccount for Paymaster type instead"
-	)]
-	#[allow(deprecated)]
-	pub fn approvals() -> BoundedVec<ProposalIndex, T::MaxApprovals> {
-		Approvals::<T, I>::get()
-	}
-
 	/// Spend some money! returns number of approvals before spend.
 	pub fn spend_funds(
 		spend_periods_passed: BlockNumberFor<T, I>,
@@ -917,41 +725,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let mut missed_any = false;
 		let mut imbalance = PositiveImbalanceOf::<T, I>::zero();
-		#[allow(deprecated)]
-		let proposals_len = Approvals::<T, I>::mutate(|v| {
-			let proposals_approvals_len = v.len() as u32;
-			v.retain(|&index| {
-				// Should always be true, but shouldn't panic if false or we're screwed.
-				if let Some(p) = Proposals::<T, I>::get(index) {
-					if p.value <= budget_remaining {
-						budget_remaining -= p.value;
-						Proposals::<T, I>::remove(index);
-
-						// return their deposit.
-						let err_amount = T::Currency::unreserve(&p.proposer, p.bond);
-						debug_assert!(err_amount.is_zero());
-
-						// provide the allocation.
-						imbalance.subsume(T::Currency::deposit_creating(&p.beneficiary, p.value));
-
-						Self::deposit_event(Event::Awarded {
-							proposal_index: index,
-							award: p.value,
-							account: p.beneficiary,
-						});
-						false
-					} else {
-						missed_any = true;
-						true
-					}
-				} else {
-					false
-				}
-			});
-			proposals_approvals_len
-		});
-
-		total_weight += T::WeightInfo::on_initialize_proposals(proposals_len);
 
 		// Call Runtime hooks to external pallet using treasury to compute spend funds.
 		T::SpendFunds::spend_funds(
@@ -962,28 +735,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		);
 
 		if !missed_any && !T::Burn::get().is_zero() {
-			// Get the amount of treasury that should be left after potentially multiple spend
-			// periods have passed.
-			let one_minus_burn = T::Burn::get().left_from_one();
-			let percent_left =
-				one_minus_burn.saturating_pow(spend_periods_passed.unique_saturated_into());
-			let new_budget_remaining = percent_left * budget_remaining;
-			let burn = budget_remaining.saturating_sub(new_budget_remaining);
-			budget_remaining = new_budget_remaining;
-
-			let (debit, credit) = T::Currency::pair(burn);
-			imbalance.subsume(debit);
-			T::BurnDestination::on_unbalanced(credit);
-			Self::deposit_event(Event::Burnt { burnt_funds: burn })
+			total_weight +=
+				Self::burn_funds(&mut budget_remaining, &mut imbalance, spend_periods_passed);
 		}
 
 		// Must never be an error, but better to be safe.
 		// proof: budget_remaining is account free balance minus ED;
 		// Thus we can't spend more than account free balance minus ED;
 		// Thus account is kept alive; qed;
-		if let Err(problem) =
-			T::Currency::settle(&account_id, imbalance, WithdrawReasons::TRANSFER, KeepAlive)
-		{
+		if let Err(problem) = T::Fungible::settle(&account_id, imbalance, Preservation::Preserve) {
 			print("Inconsistent state - couldn't settle imbalance for funds spent by treasury");
 			// Nothing else to do here.
 			drop(problem);
@@ -994,55 +754,44 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		total_weight
 	}
 
+	pub fn burn_funds(
+		budget_remaining: &mut BalanceOf<T, I>,
+		imbalance: &mut PositiveImbalanceOf<T, I>,
+		spend_periods_passed: BlockNumberFor<T, I>,
+	) -> Weight {
+		// Get the amount of treasury that should be left after potentially multiple spend
+		// periods have passed.
+		let one_minus_burn = T::Burn::get().left_from_one();
+		let percent_left =
+			one_minus_burn.saturating_pow(spend_periods_passed.unique_saturated_into());
+		let new_budget_remaining = percent_left * *budget_remaining;
+		let burn = budget_remaining.saturating_sub(new_budget_remaining);
+		*budget_remaining = new_budget_remaining;
+
+		let Ok((debit, credit)) = T::Fungible::pair(burn) else {
+			return T::WeightInfo::burn_funds();
+		};
+		imbalance.subsume(debit);
+		T::BurnDestination::on_unbalanced(credit);
+		Self::deposit_event(Event::Burnt { burnt_funds: burn });
+
+		T::WeightInfo::burn_funds()
+	}
+
 	/// Return the amount of money in the pot.
 	// The existential deposit is not part of the pot so treasury account never gets deleted.
 	pub fn pot() -> BalanceOf<T, I> {
-		T::Currency::free_balance(&Self::account_id())
-			// Must never be less than 0 but better be safe.
-			.saturating_sub(T::Currency::minimum_balance())
+		T::Fungible::reducible_balance(
+			&Self::account_id(),
+			Preservation::Preserve,
+			Fortitude::Polite,
+		)
 	}
 
 	/// Ensure the correctness of the state of this pallet.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		Self::try_state_proposals()?;
 		Self::try_state_spends()?;
-
-		Ok(())
-	}
-
-	/// ### Invariants of proposal storage items
-	///
-	/// 1. [`ProposalCount`] >= Number of elements in [`Proposals`].
-	/// 2. Each entry in [`Proposals`] should be saved under a key strictly less than current
-	/// [`ProposalCount`].
-	/// 3. Each [`ProposalIndex`] contained in [`Approvals`] should exist in [`Proposals`].
-	/// Note, that this automatically implies [`Approvals`].count() <= [`Proposals`].count().
-	#[cfg(any(feature = "try-runtime", test))]
-	fn try_state_proposals() -> Result<(), sp_runtime::TryRuntimeError> {
-		let current_proposal_count = ProposalCount::<T, I>::get();
-		ensure!(
-			current_proposal_count as usize >= Proposals::<T, I>::iter().count(),
-			"Actual number of proposals exceeds `ProposalCount`."
-		);
-
-		Proposals::<T, I>::iter_keys().try_for_each(|proposal_index| -> DispatchResult {
-			ensure!(
-				current_proposal_count as u32 > proposal_index,
-				"`ProposalCount` should by strictly greater than any ProposalIndex used as a key for `Proposals`."
-			);
-			Ok(())
-		})?;
-
-		Approvals::<T, I>::get()
-			.iter()
-			.try_for_each(|proposal_index| -> DispatchResult {
-				ensure!(
-					Proposals::<T, I>::contains_key(proposal_index),
-					"Proposal indices in `Approvals` must also be contained in `Proposals`."
-				);
-				Ok(())
-			})?;
 
 		Ok(())
 	}
@@ -1083,11 +832,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Pallet<T, I> {
-	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T, I>) {
-		let numeric_amount = amount.peek();
+	fn on_nonzero_unbalanced(credit: NegativeImbalanceOf<T, I>) {
+		let numeric_amount = credit.peek();
 
 		// Must resolve into existing but better to be safe.
-		let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
+		let _ = T::Fungible::resolve(&Self::account_id(), credit);
 
 		Self::deposit_event(Event::Deposit { value: numeric_amount });
 	}

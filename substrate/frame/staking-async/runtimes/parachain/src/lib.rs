@@ -21,7 +21,7 @@
 #![allow(non_local_definitions)]
 #![recursion_limit = "512"]
 
-// Make the WASM binary available.
+extern crate alloc; // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
@@ -33,8 +33,6 @@ pub mod xcm_config;
 mod bag_thresholds;
 pub mod governance;
 mod staking;
-
-extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use assets_common::{
@@ -1104,7 +1102,11 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = ();
+	type Migrations = pallet_treasury::migration::LazyMigrationV0ToV1<
+		Runtime,
+		(),
+		governance::TreasuryLazyMigrationV0ToV1Config,
+	>;
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;

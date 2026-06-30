@@ -284,15 +284,23 @@ pub type FellowshipTreasuryPaymaster = PayOverXcm<
 
 pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
 
+pub struct FellowshipTreasuryLazyMigrationV0ToV1Config;
+
+impl pallet_treasury::migration::LazyMigrationV0ToV1Config<Runtime, FellowshipTreasuryInstance>
+	for FellowshipTreasuryLazyMigrationV0ToV1Config
+{
+	type MaxApprovals = ConstU32<100>;
+	type Currency = Balances;
+}
+
 impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type PalletId = FellowshipTreasuryPalletId;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type RejectOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
 		EitherOfDiverse<EnsureXcm<IsVoiceOfBody<GovernanceLocation, TreasurerBodyId>>, Fellows>,
 	>;
-	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = ConstU32<{ 7 * DAYS }>;
 	type Burn = Burn;
 	// NOTE: Treasury burn is currently disabled (`Burn = 0`). If ever enabled, wire
@@ -302,7 +310,6 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	// path.
 	type BurnDestination = ();
 	type SpendFunds = ();
-	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = EitherOf<
 		EitherOf<
 			EnsureRootWithSuccess<AccountId, MaxBalance>,
@@ -338,5 +345,7 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 		sp_core::ConstU8<1>,
 		ConstU32<1000>,
 	>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type LazyMigrationV0ToV1Config = FellowshipTreasuryLazyMigrationV0ToV1Config;
 	type BlockNumberProvider = crate::System;
 }

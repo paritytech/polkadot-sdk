@@ -52,12 +52,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
 mod benchmarking;
 pub mod migration;
 mod tests;
 pub mod weights;
-
-extern crate alloc;
 
 /// The log target for this pallet.
 const LOG_TARGET: &str = "runtime::child-bounties";
@@ -65,6 +64,7 @@ const LOG_TARGET: &str = "runtime::child-bounties";
 use alloc::vec::Vec;
 
 use frame_support::traits::{
+	fungible::{BalancedHold, MutateHold},
 	Currency,
 	ExistenceRequirement::{AllowDeath, KeepAlive},
 	Get, OnUnbalanced, ReservableCurrency, WithdrawReasons,
@@ -139,7 +139,6 @@ pub enum ChildBountyStatus<AccountId, BlockNumber> {
 
 #[frame_support::pallet]
 pub mod pallet {
-
 	use super::*;
 
 	/// The in-code storage version.
@@ -151,7 +150,9 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-		frame_system::Config + pallet_treasury::Config + pallet_bounties::Config
+		frame_system::Config
+		+ pallet_treasury::Config
+		+ pallet_bounties::Config<Fungible: MutateHold<Self::AccountId, Reason: From<HoldReason>>>
 	{
 		/// Maximum number of child bounties that can be added to a parent bounty.
 		#[pallet::constant]
@@ -167,6 +168,12 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+	}
+
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Hold an amount for registering an account as a Child Bounty Curator.
+		Curator,
 	}
 
 	#[pallet::error]
@@ -516,13 +523,35 @@ pub mod pallet {
 					let child_bounty =
 						maybe_child_bounty.as_mut().ok_or(BountiesError::<T>::InvalidIndex)?;
 
-					let slash_curator =
-						|curator: &T::AccountId, curator_deposit: &mut BalanceOf<T>| {
-							let imbalance =
-								T::Currency::slash_reserved(curator, *curator_deposit).0;
-							T::OnSlash::on_unbalanced(imbalance);
-							*curator_deposit = Zero::zero();
-						};
+					let slash_curator = |curator: &T::AccountId,
+					                     curator_deposit: &mut BalanceOf<T>|
+					 -> DispatchResult {
+						// This is a "hack" to avoid handling weird imbalance conversions (which
+						// turn out to be quite complicated). Instead, we'll use both `Currency`
+						// and `Fungible`.
+						//
+						// Consider this hack as the first step to actively migrate some of the
+						// deposits.
+						// TODO: Migrate from `Currency` to `Fungible` completely.
+						let err_amount = T::Currency::unreserve(curator, *curator_deposit);
+						debug_assert!(err_amount.is_zero());
+
+						T::Fungible::set_on_hold(
+							&HoldReason::Curator.into(),
+							curator,
+							*curator_deposit,
+						)?;
+
+						let (imbalance, remaining) = T::Fungible::slash(
+							&HoldReason::Curator.into(),
+							curator,
+							*curator_deposit,
+						);
+
+						T::OnSlash::on_unbalanced(imbalance);
+						*curator_deposit = remaining;
+						Ok(())
+					};
 
 					match child_bounty.status {
 						ChildBountyStatus::Added => {
@@ -551,7 +580,7 @@ pub mod pallet {
 								// If the `RejectOrigin` is calling this function, slash the curator
 								// deposit.
 								None => {
-									slash_curator(curator, &mut child_bounty.curator_deposit);
+									slash_curator(curator, &mut child_bounty.curator_deposit)?;
 									// Continue to change child-bounty status below.
 								},
 								Some(sender) if sender == *curator => {
@@ -571,7 +600,7 @@ pub mod pallet {
 										// Slash the child-bounty curator if
 										// + the call is made by the parent bounty curator.
 										// + or the curator is inactive.
-										slash_curator(curator, &mut child_bounty.curator_deposit);
+										slash_curator(curator, &mut child_bounty.curator_deposit)?;
 									// Continue to change bounty status below.
 									} else {
 										// Curator has more time to give an update.
@@ -586,7 +615,7 @@ pub mod pallet {
 								maybe_sender.map_or(true, |sender| parent_curator == sender),
 								BadOrigin,
 							);
-							slash_curator(curator, &mut child_bounty.curator_deposit);
+							slash_curator(curator, &mut child_bounty.curator_deposit)?;
 							// Continue to change child-bounty status below.
 						},
 					};

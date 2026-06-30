@@ -101,17 +101,28 @@ parameter_types! {
 	pub TreasuryInstance1Account: u128 = Treasury1::account_id();
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct TreasuryLazyMigrationV0ToV1Config<I = ()>(core::marker::PhantomData<I>);
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<I: 'static> pallet_treasury::migration::LazyMigrationV0ToV1Config<Test, I>
+	for TreasuryLazyMigrationV0ToV1Config<I>
+where
+	Test: pallet_treasury::Config<I, Fungible = pallet_balances::Pallet<Test>>,
+{
+	type MaxApprovals = ConstU32<100>;
+	type Currency = pallet_balances::Pallet<Test>;
+}
+
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
-	type Currency = pallet_balances::Pallet<Test>;
+	type Fungible = pallet_balances::Pallet<Test>;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
-	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
 	type SpendFunds = ();
-	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
@@ -122,19 +133,19 @@ impl pallet_treasury::Config for Test {
 	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type LazyMigrationV0ToV1Config = TreasuryLazyMigrationV0ToV1Config;
 }
 
 impl pallet_treasury::Config<Instance1> for Test {
 	type PalletId = TreasuryPalletId2;
-	type Currency = pallet_balances::Pallet<Test>;
+	type Fungible = pallet_balances::Pallet<Test>;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
-	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
 	type SpendFunds = ();
-	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
@@ -145,6 +156,8 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type LazyMigrationV0ToV1Config = TreasuryLazyMigrationV0ToV1Config<Instance1>;
 }
 
 parameter_types! {
@@ -162,6 +175,7 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OnSlash = ();
 	type WeightInfo = ();
+	type Currency = pallet_balances::Pallet<Test>;
 }
 
 impl Config<Instance1> for Test {
@@ -175,6 +189,7 @@ impl Config<Instance1> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OnSlash = ();
 	type WeightInfo = ();
+	type Currency = pallet_balances::Pallet<Test>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -212,11 +227,9 @@ fn last_event() -> TipEvent<Test> {
 }
 
 #[test]
-#[allow(deprecated)]
 fn genesis_config_works() {
 	build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(Treasury::proposal_count(), 0);
 	});
 }
 
@@ -629,7 +642,10 @@ fn genesis_funding_works() {
 
 	t.execute_with(|| {
 		assert_eq!(Balances::free_balance(Treasury::account_id()), initial_funding);
-		assert_eq!(Treasury::pot(), initial_funding - Balances::minimum_balance());
+		assert_eq!(
+			Treasury::pot(),
+			initial_funding - <Balances as FungibleInspect<u128>>::minimum_balance()
+		);
 	});
 }
 

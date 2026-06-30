@@ -1017,15 +1017,22 @@ parameter_types! {
 	pub const MaxBalance: Balance = Balance::max_value();
 }
 
+pub struct TreasuryLazyMigrationV0ToV1Config;
+
+impl pallet_treasury::migration::LazyMigrationV0ToV1Config<Runtime>
+	for TreasuryLazyMigrationV0ToV1Config
+{
+	type MaxApprovals = MaxApprovals;
+	type Currency = Balances;
+}
+
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type RejectOrigin = EitherOfDiverse<EnsureRoot<AccountId>, Treasurer>;
-	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = SpendPeriod;
 	type Burn = Burn;
 	type BurnDestination = ();
-	type MaxApprovals = MaxApprovals;
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type SpendFunds = ();
 	type SpendOrigin = TreasurySpender;
@@ -1055,6 +1062,8 @@ impl pallet_treasury::Config for Runtime {
 	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
+	#[cfg(feature = "runtime-benchmarks")]
+	type LazyMigrationV0ToV1Config = TreasuryLazyMigrationV0ToV1Config;
 }
 
 impl pallet_offences::Config for Runtime {
@@ -1740,7 +1749,14 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>;
+	type Migrations = (
+		pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>,
+		pallet_treasury::migration::LazyMigrationV0ToV1<
+			Runtime,
+			(),
+			TreasuryLazyMigrationV0ToV1Config,
+		>,
+	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
