@@ -100,18 +100,12 @@ pub mod pallet {
 		/// The `(origin, message)` that causes the most `ref_time` when checked by the runtime's
 		/// XCM barrier.
 		///
-		/// A barrier's worst case can have *disjoint* paths that are each worst in a different
-		/// weight dimension — e.g. a compute-heavy origin-descent path (high `ref_time`, no
-		/// storage) and a storage-reading query-response path (high `proof_size`). This method
-		/// returns the `ref_time`-dominant message; [`Self::worst_case_barrier_check_proof_size`]
-		/// returns the `proof_size`-dominant one. The `barrier_check_ref_time` and
-		/// `barrier_check_proof_size` benchmarks each measure a full `Weight`, and the runtime
-		/// combines them with a component-wise [`Weight::max`](sp_weights::Weight::max), yielding a
-		/// safe and tight bound over either path.
-		///
-		/// If one message is worst in *both* dimensions, implement only one of the two methods and
-		/// let the other stay `Err(Skip)`: the implemented benchmark already bounds both
-		/// dimensions, so the runtime can use it on its own.
+		/// A barrier's worst case can split into disjoint paths, each worst in a different
+		/// dimension: this method returns the `ref_time`-dominant message and
+		/// [`Self::worst_case_barrier_check_proof_size`] the `proof_size`-dominant one. Both
+		/// `barrier_check_*` benchmarks measure a full `Weight`, which the runtime combines with a
+		/// component-wise [`Weight::max`](sp_weights::Weight::max). If one message is worst in both
+		/// dimensions, implement only one method and leave the other `Err(Skip)`.
 		///
 		/// If set to `Err`, the `barrier_check_ref_time` benchmark will be skipped.
 		fn worst_case_barrier_check_ref_time(

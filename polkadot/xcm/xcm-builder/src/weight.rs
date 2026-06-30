@@ -227,13 +227,9 @@ where
 /// reports a precise barrier-check weight via [`WeightBounds::barrier_check_weight`], so the
 /// executor charges that exact weight on barrier rejection instead of the full message weight.
 ///
-/// `BarrierCheckWeight` should yield the runtime's barrier-check benchmark weight, supplied
-/// through a `Get<Weight>`. The barrier has two disjoint worst-case paths benchmarked separately
-/// (`barrier_check_ref_time` and `barrier_check_proof_size`); combine them with a component-wise
-/// `Weight::max`, e.g. a `parameter_types!` returning
-/// `XcmGeneric::<Runtime>::barrier_check_ref_time().
-/// max(XcmGeneric::<Runtime>::barrier_check_proof_size())`. A runtime whose barrier has a single
-/// message that is worst in both dimensions can supply just that one benchmark instead.
+/// `BarrierCheckWeight` is a `Get<Weight>` yielding the runtime's barrier-check benchmark weight —
+/// typically the component-wise `Weight::max` of the `barrier_check_ref_time` and
+/// `barrier_check_proof_size` benchmarks (a barrier worst in both dimensions can supply just one).
 pub struct BarrierWeightBounds<Inner, BarrierCheckWeight>(PhantomData<(Inner, BarrierCheckWeight)>);
 
 impl<Call, Inner, BarrierCheckWeight> WeightBounds<Call>

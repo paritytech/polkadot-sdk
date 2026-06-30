@@ -20,29 +20,18 @@ use alloc::{vec, vec::Vec};
 use xcm::latest::prelude::*;
 use xcm_executor::RECURSION_LIMIT;
 
-/// Worst-case `(origin, message)` for the standard parachain XCM barrier's heaviest `ref_time`
-/// path.
+/// Worst-case `(origin, message)` for a standard parachain barrier's heaviest `ref_time` path (the
+/// matching `proof_size` path is [`worst_case_barrier_check_proof_size`]).
 ///
-/// The barrier has two paths that are each worst in a *different* weight dimension. This is the
-/// **compute / scan** path; the matching `proof_size` path is
-/// [`worst_case_barrier_check_proof_size`].
+/// The barrier is `DenyThenTry<DenyRecursively<..>, (.., WithComputedOrigin<.., MaxPrefixes>)>`.
+/// One rejected message maximises both `ref_time` drivers: `max_origin_prefixes` leading
+/// `DescendOrigin`s drive `WithComputedOrigin` (an empty `Location::here()` interior keeps every
+/// append within the junction limit), and the message is padded to `max_instructions` so
+/// `DenyRecursively` performs its full scan. The nested chain carries no reserve transfer to the
+/// relay, so the scan is never short-circuited by a denied instruction.
 ///
-/// The standard parachain barrier is
-/// `DenyThenTry<DenyRecursively<..>, (.., WithComputedOrigin<.., MaxPrefixes>)>`, which has two
-/// `ref_time` cost drivers that this single rejected message maximises together:
-///
-/// * **`WithComputedOrigin`** appends one junction per leading `DescendOrigin`, up to
-///   `max_origin_prefixes`. Starting from an empty interior (`Location::here()`) keeps every append
-///   within the junction limit so all prefixes are processed.
-/// * **`DenyRecursively`** scans *every* instruction in the message (recursing through nesting
-///   instructions up to [`RECURSION_LIMIT`]) before the message is finally rejected, so its cost
-///   scales with the total instruction count. The runtime caps that count at `max_instructions`
-///   (the weigher rejects longer messages *before* the barrier runs), so the message is filled to
-///   exactly that many instructions — including one deeply nested benign chain that contains no
-///   reserve transfer to the relay, so the scan never short-circuits on a denied instruction.
-///
-/// `max_origin_prefixes` must match the runtime's `WithComputedOrigin` bound (e.g. its
-/// `ConstU32<..>`) and `max_instructions` its `MaxInstructions`.
+/// `max_origin_prefixes` and `max_instructions` must match the runtime's `WithComputedOrigin` bound
+/// and `MaxInstructions`.
 pub fn worst_case_barrier_check_ref_time<Call>(
 	max_origin_prefixes: u32,
 	max_instructions: u32,
@@ -54,8 +43,8 @@ pub fn worst_case_barrier_check_ref_time<Call>(
 		instructions.push(DescendOrigin([PalletInstance(0)].into()));
 	}
 
-	// One benign nested chain, kept safely below `RECURSION_LIMIT` so `DenyRecursively` performs
-	// its full recursive scan instead of bailing out early with `StackLimitReached`.
+	// Benign nested chain kept below `RECURSION_LIMIT`, so `DenyRecursively` scans it fully instead
+	// of bailing out early with `StackLimitReached`.
 	let nesting_depth = (RECURSION_LIMIT as u32).saturating_sub(2).max(1);
 	let mut nested = Xcm::<Call>(vec![ClearOrigin]);
 	for level in 1..nesting_depth {
@@ -67,9 +56,8 @@ pub fn worst_case_barrier_check_ref_time<Call>(
 	}
 	instructions.append(&mut nested.0);
 
-	// Pad with benign top-level instructions until the total instruction count (nested included)
-	// reaches `max_instructions`, maximising `DenyRecursively`'s scan. `ClearOrigin` matches none
-	// of the inner allow-barriers, so the message is ultimately rejected.
+	// Pad to `max_instructions` total (nested included) to maximise the scan. `ClearOrigin` matches
+	// no inner allow-barrier, so the message is ultimately rejected.
 	let used = max_origin_prefixes.saturating_add(nesting_depth);
 	for _ in used..max_instructions {
 		instructions.push(ClearOrigin);

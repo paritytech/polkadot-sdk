@@ -2,23 +2,23 @@ title: 'fix(xcm): charge precise barrier-check weight on barrier rejection'
 doc:
 - audience: Runtime Dev
   description: |-
-    When a barrier rejects an XCM, the executor previously reported the full message weight as
-    `used`, over-estimating the work actually done. This adds an optional
-    `WeightBounds::barrier_check_weight()` hook (default `None`): when a weigher provides it, the
-    executor charges that precise weight on barrier rejection; otherwise it falls back to the
-    previous full-message-weight behaviour, so existing `XcmConfig`s are unaffected.
+    On barrier rejection the executor previously charged the full message weight, over-estimating
+    the work done. This adds an optional `WeightBounds::barrier_check_weight()` hook (default
+    `None`): a weigher that provides it has that precise weight charged on rejection, otherwise the
+    previous behaviour is kept, so existing `XcmConfig`s are unaffected.
 
-    Two benchmarks are added to `pallet_xcm_benchmarks::generic` to measure that weight:
+    The weight is measured by two `pallet_xcm_benchmarks::generic` benchmarks,
     `barrier_check_ref_time` and `barrier_check_proof_size` (driven by new
-    `worst_case_barrier_check_ref_time()` / `worst_case_barrier_check_proof_size()` config
-    methods). A barrier's worst case can have disjoint paths that are each worst in a different
-    weight dimension (e.g. a compute-heavy origin-descent path and a storage-reading
-    query-response path that no single message can combine), so each path is benchmarked on its
-    own and the runtime combines the two results with a component-wise `Weight::max` — a safe and
-    tight bound over either path. A runtime whose barrier has a single message that is worst in
-    both dimensions can implement just one of the two config methods and use that benchmark alone.
-    Westend and the Westend system parachains (Asset Hub, Bridge Hub, Collectives, Coretime,
-    People) wire their executor `Weigher` to report the benchmarked value.
+    `worst_case_barrier_check_ref_time` / `worst_case_barrier_check_proof_size` config methods).
+    A barrier's worst case can split into disjoint paths each worst in a different dimension, so
+    each is benchmarked separately and combined with a component-wise `Weight::max`; a barrier
+    worst in both dimensions can implement just one method. Westend and its system parachains
+    (Asset Hub, Bridge Hub, Collectives, Coretime, People) wire this into their `Weigher`.
+
+    Since this weight is a worst-case constant it can exceed a cheap message's execution weight, so
+    `PreparedMessage::weight_of()` now reports the maximum of the two. This keeps it an upper bound
+    on what the executor consumes, so a caller reserving `weight_of()` (e.g. the `MessageQueue`)
+    never over-consumes on rejection; weighers without `barrier_check_weight()` are unaffected.
 
     Closes #7965.
 crates:

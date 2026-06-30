@@ -33,13 +33,11 @@ pub trait WeightBounds<RuntimeCall> {
 
 	/// Return the weight consumed by a barrier check for an XCM, or `None` if not applicable.
 	///
-	/// Implementers should return the weight produced by their barrier-check benchmarks, combining
-	/// the `ref_time`- and `proof_size`-dominant paths with a component-wise `Weight::max`, e.g.
-	/// `Some(XcmGeneric::<Runtime>::barrier_check_ref_time().
-	/// max(XcmGeneric::<Runtime>::barrier_check_proof_size()))`.
+	/// Implementers should return their barrier-check benchmark weight — the component-wise
+	/// `Weight::max` of the `ref_time`- and `proof_size`-dominant paths.
 	///
-	/// If `None` is returned, the weigher will fall back to the overall XCM weight bound returned
-	/// by `WeightBounds::weight()`, which may over-estimate.
+	/// If `None`, the weigher falls back to the overall XCM weight from `WeightBounds::weight()`,
+	/// which may over-estimate.
 	fn barrier_check_weight() -> Option<Weight> {
 		None
 	}

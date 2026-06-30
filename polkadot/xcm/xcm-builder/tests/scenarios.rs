@@ -42,13 +42,11 @@ fn assert_teleport_outcome(
 	);
 	#[cfg(feature = "runtime-benchmarks")]
 	{
-		// Under `runtime-benchmarks` the executor skips the `IsTeleporter`/`IsReserve` trust checks
-		// (see `xcm-executor`), so the otherwise-untrusted teleport executes to completion instead
-		// of being rejected; the expected rejection index/error therefore cannot be asserted here.
-		// That trust-rejection coverage lives solely in the `not(runtime-benchmarks)` build above.
-		// We still verify the teleport path actually ran — completed with the expected weight *and*
-		// dispatched the onward message — rather than only checking the weight, then clear the sent
-		// message so the trusted-teleport assertion below sees only its own.
+		// Under `runtime-benchmarks` the executor skips the `IsTeleporter`/`IsReserve` trust
+		// checks, so the teleport completes instead of being rejected (rejection coverage lives
+		// in the `not(runtime-benchmarks)` build above). Still verify it ran — completed and
+		// dispatched the onward message — then clear it so the trusted-teleport assertion below
+		// sees only its own.
 		let _ = (instruction_index, expected_error);
 		assert_eq!(r, Outcome::Complete { used: weight });
 		assert!(!mock::sent_xcm().is_empty(), "teleport should have dispatched an onward message");
