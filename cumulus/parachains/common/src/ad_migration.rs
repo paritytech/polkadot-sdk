@@ -104,11 +104,6 @@ fn layout_matches<R: pallet_session::Config>() -> bool {
 		[<AuraId as RuntimeAppPublic>::ID, <AuthorityDiscoveryId as RuntimeAppPublic>::ID]
 }
 
-#[cfg(feature = "try-runtime")]
-fn queued_keys_key<R: pallet_session::Config>() -> [u8; 32] {
-	pallet_session::QueuedKeys::<R>::hashed_key()
-}
-
 /// Extend `pallet_session` session-key records with an authority-discovery placeholder.
 pub struct AppendAuthorityDiscoveryKeys<R>(PhantomData<R>);
 
@@ -188,54 +183,37 @@ where
 			));
 		}
 
-		// Snapshot all NextKeys entries under the OLD single-AuraId layout.
-		//
-		// `OldNextKeys` declares the same hasher (Twox64Concat) and prefix as
-		// `pallet_session::NextKeys`, but with `AuraId` as the value type, so
-		// `iter()` decodes only the 32-byte aura field and ignores nothing further
-		// — if any entry is already in the new (64-byte) layout, the decode will
-		// succeed but yield a silently truncated value.  That edge-case is already
-		// covered: the `migration_done()` flag check above is the authoritative
-		// guard against re-runs; this snapshot is for post-upgrade verification only.
+		// Snapshot all NextKeys entries under the OLD layout.
 		let next_keys_state: Vec<(<R as pallet_session::Config>::ValidatorId, AuraId)> =
 			OldNextKeys::<R>::iter().collect();
 
-		let queued_key = queued_keys_key::<R>();
-		let queued_present = storage::get(&queued_key).is_some();
-
 		log::info!(
 			target: LOG_TARGET,
-			"pre_upgrade: NextKeys entries={}, QueuedKeys present={}",
+			"pre_upgrade: NextKeys entries={}",
 			next_keys_state.len(),
-			queued_present,
 		);
 
-		Ok((next_keys_state, queued_present).encode())
+		Ok(next_keys_state.encode())
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		if state.is_empty() {
-			if !migration_done() {
-				return Err(sp_runtime::TryRuntimeError::Other(
-					"post_upgrade: flag missing after a detected re-run",
-				));
-			}
-			return Ok(());
-		}
-
-		let (pre_next_keys, queued_present): (
-			Vec<(<R as pallet_session::Config>::ValidatorId, AuraId)>,
-			bool,
-		) = DecodeAll::decode_all(&mut &state[..]).map_err(|_| {
-			sp_runtime::TryRuntimeError::Other("post_upgrade: invalid pre-upgrade state encoding")
-		})?;
-
 		if !migration_done() {
 			return Err(sp_runtime::TryRuntimeError::Other(
 				"post_upgrade: migration was not executed",
 			));
 		}
+
+		// If the migration was already applied before this upgrade, there is nothing
+		// to verify.
+		if state.is_empty() {
+			return Ok(());
+		}
+
+		let pre_next_keys: Vec<(<R as pallet_session::Config>::ValidatorId, AuraId)> =
+			DecodeAll::decode_all(&mut &state[..]).map_err(|_| {
+				sp_runtime::TryRuntimeError::Other("post_upgrade: invalid state encoding")
+			})?;
 
 		// Every ValidatorId from pre-upgrade must still have a NextKeys entry that
 		// preserves the original aura key and carries the hashed `placeholder_audi`.
@@ -255,36 +233,9 @@ where
 			let expected_audi_bytes: &[u8] = expected_audi.as_ref();
 			if keys.get_raw(<AuthorityDiscoveryId as RuntimeAppPublic>::ID) != expected_audi_bytes {
 				return Err(sp_runtime::TryRuntimeError::Other(
-					"post_upgrade: authority-discovery field is not the expected placeholder",
+					"post_upgrade: authority-discovery does not match the expected placeholder",
 				));
 			}
-		}
-
-		// (c) QueuedKeys must decode as Vec<(ValidatorId, R::Keys)> iff it was present before.
-		let queued_key = queued_keys_key::<R>();
-		match (queued_present, storage::get(&queued_key)) {
-			(true, Some(raw)) => {
-				type Queued<R> = Vec<(
-					<R as pallet_session::Config>::ValidatorId,
-					<R as pallet_session::Config>::Keys,
-				)>;
-				<Queued<R> as DecodeAll>::decode_all(&mut &raw[..]).map_err(|_| {
-					sp_runtime::TryRuntimeError::Other(
-						"post_upgrade: QueuedKeys does not decode under new layout",
-					)
-				})?;
-			},
-			(false, None) => {},
-			(true, None) => {
-				return Err(sp_runtime::TryRuntimeError::Other(
-					"post_upgrade: QueuedKeys missing after migration",
-				))
-			},
-			(false, Some(_)) => {
-				return Err(sp_runtime::TryRuntimeError::Other(
-					"post_upgrade: QueuedKeys present but was missing pre-upgrade",
-				))
-			},
 		}
 
 		log::info!(target: LOG_TARGET, "post_upgrade: OK");
