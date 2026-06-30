@@ -103,13 +103,13 @@ fn function_no_std_impl(
 	is_wasm_only: bool,
 ) -> Result<TokenStream> {
 	let should_trap_on_return = method.should_trap_on_return();
-	let is_wrapped = method.is_wrapped();
+	let is_raw_api = method.is_raw_api();
 	let mut method = (*method).clone();
 	crate::utils::unpack_inner_types_in_signature(&mut method.sig);
 
-	let (function_name, maybe_allow_non_snake) = if is_wrapped {
+	let (function_name, maybe_allow_non_snake) = if is_raw_api {
 		(
-			Ident::new(&format!("{}__wrapped", &method.sig.ident), method.sig.ident.span()),
+			Ident::new(&format!("{}__raw", &method.sig.ident), method.sig.ident.span()),
 			quote! { #[allow(non_snake_case)] },
 		)
 	} else {
@@ -185,9 +185,9 @@ fn function_std_latest_impl(
 	method: &RuntimeInterfaceFunction,
 	latest_version: u32,
 ) -> Result<TokenStream> {
-	let (function_name, maybe_allow_non_snake) = if method.is_wrapped() {
+	let (function_name, maybe_allow_non_snake) = if method.is_raw_api() {
 		(
-			Ident::new(&format!("{}__wrapped", &method.sig.ident), method.sig.ident.span()),
+			Ident::new(&format!("{}__raw", &method.sig.ident), method.sig.ident.span()),
 			quote! { #[allow(non_snake_case)] },
 		)
 	} else {

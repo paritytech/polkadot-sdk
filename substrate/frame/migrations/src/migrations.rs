@@ -23,7 +23,7 @@ use frame_support::{
 	traits::{GetStorageVersion, PalletInfoAccess},
 	weights::WeightMeter,
 };
-use sp_core::{twox_128, Get};
+use sp_core::Get;
 use sp_io::storage::clear_prefix;
 use sp_runtime::SaturatedConversion;
 
@@ -64,7 +64,7 @@ where
 	type Identifier = [u8; 16];
 
 	fn id() -> Self::Identifier {
-		("RemovePallet::", P::name()).using_encoded(twox_128)
+		("RemovePallet::", P::name()).using_encoded(sp_io::hashing::twox_128)
 	}
 
 	fn step(
