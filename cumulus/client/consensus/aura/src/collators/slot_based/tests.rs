@@ -745,13 +745,13 @@ async fn session_data_is_cached_per_session() {
 
 	// First call: fetches session data for session 0 and caches it (one query of each item).
 	assert_eq!(
-		cache.get_session_data(header_a.hash()).await,
-		Ok(&SessionData {
+		cache.get_session_data(header_a.hash()).await.expect("first call must succeed"),
+		&SessionData {
 			scheduling_lookahead: 5,
 			max_relay_parent_session_age: 7,
 			node_features: NodeFeatures::default(),
 			max_pov_size: 1024 * 1024,
-		}),
+		},
 		"get_session_data should return values from TestRelayClient"
 	);
 	assert_eq!(client.scheduling_lookahead_calls(), 1);

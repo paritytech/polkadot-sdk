@@ -41,9 +41,8 @@ use cumulus_primitives_core::{
 	PersistedValidationData, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
 	TargetBlockRate,
 };
-use cumulus_relay_chain_interface::RelayChainInterface;
+use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use futures::prelude::*;
-use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
@@ -229,11 +228,17 @@ where
 
 		let (_para_best_hash, v3_enabled_on_para) = get_best_hash_and_v3_status(&para_client);
 		let v3_enabled = match maybe_best_relay_hash {
-			Some(best_relay_hash) => {
-				relay_chain_data_cache
-					.v3_scheduling_active(best_relay_hash, v3_enabled_on_para)
-					.await
-			},
+			Some(best_relay_hash) => relay_chain_data_cache
+				.v3_scheduling_active(best_relay_hash, v3_enabled_on_para)
+				.await
+				.unwrap_or_else(|err| {
+					tracing::warn!(
+						target: LOG_TARGET,
+						?err,
+						"Falling back to V2 scheduling: could not fetch session data."
+					);
+					false
+				}),
 			None => false,
 		};
 		slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
@@ -488,10 +493,11 @@ where
 					);
 					continue;
 				},
-				Err(()) => {
+				Err(err) => {
 					tracing::error!(
 						target: LOG_TARGET,
 						relay_parent = ?relay_parent_hash,
+						?err,
 						"Failed to determine cores."
 					);
 
@@ -1001,8 +1007,9 @@ fn adjust_para_to_relay_parent_slot(
 /// descendants.
 ///
 /// # Returns
-/// * `Ok(RelayParentData)` - Contains the target relay parent and its ordered list of descendants
-/// * `Err(())` - If any relay chain block header cannot be retrieved
+/// * `Ok(Some(RelayParentData))` - The target relay parent and its ordered list of descendants
+/// * `Ok(None)` - No suitable relay parent within the allowed session age
+/// * `Err(_)` - If a relay chain block header cannot be retrieved
 ///
 /// The function traverses backwards from the best block until it finds the block at the specified
 /// offset, collecting all blocks in between to maintain the chain of ancestry.
@@ -1011,7 +1018,7 @@ pub async fn offset_relay_parent_find_descendants<RelayClient>(
 	scheduling_parent: RelayHeader,
 	relay_parent_offset: u32,
 	max_relay_parent_session_age: u32,
-) -> Result<Option<RelayParentData>, ()>
+) -> RelayChainResult<Option<RelayParentData>>
 where
 	RelayClient: RelayChainInterface + 'static,
 {
@@ -1266,17 +1273,15 @@ pub async fn determine_cores<RI: RelayChainInterface + 'static>(
 	scheduling_parent: &RelayHeader,
 	para_id: ParaId,
 	relay_parent_offset: u32,
-) -> Result<Option<Cores>, ()> {
-	let claim_queue = ClaimQueueSnapshot::from(
-		relay_chain_data_cache
-			.get_by_hash(scheduling_parent.hash())
-			.await?
-			.claim_queue
-			.clone(),
-	);
-
-	let core_indices = claim_queue
-		.iter_claims_at_depth_for_para(relay_parent_offset as _, para_id)
+) -> RelayChainResult<Option<Cores>> {
+	let relay_data = relay_chain_data_cache.get_by_hash(scheduling_parent.hash()).await?;
+	let depth = relay_parent_offset as usize;
+	let core_indices = relay_data
+		.claim_queue
+		.iter()
+		.filter_map(|(core_index, ids)| {
+			ids.get(depth).filter(|id| **id == para_id).map(|_| *core_index)
+		})
 		.collect::<Vec<_>>();
 
 	Ok(if core_indices.is_empty() {

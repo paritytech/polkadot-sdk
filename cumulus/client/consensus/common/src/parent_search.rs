@@ -140,11 +140,11 @@ async fn build_relay_parent_ancestry<RI: RelayChainInterface + 'static>(
 	let mut ancestry = Vec::with_capacity(ancestry_lookback + 1);
 	let mut current_rp = relay_parent;
 	while ancestry.len() <= ancestry_lookback {
-		// Best-effort ancestry walk: `header()` logs and returns `Err(())` for *either* a missing
-		// header or a hard relay-chain fetch error, and we stop the walk in both cases. This is
-		// more lenient than the previous code, which propagated hard fetch errors up. A truncated
-		// ancestry only ever yields a shallower (still valid) parent, never an invalid one.
-		let Ok(header) = relay_chain_data.header(current_rp).await else { break };
+		let header = match relay_chain_data.header(current_rp).await {
+			Ok(Some(h)) => h,
+			Ok(None) => break,
+			Err(e) => return Err(e),
+		};
 
 		ancestry.push((current_rp, *header.state_root()));
 		current_rp = *header.parent_hash();

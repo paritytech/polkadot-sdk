@@ -194,7 +194,15 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 
 			let v3_enabled = relay_chain_data_cache
 				.v3_scheduling_active(best_relay_hash, v3_enabled_on_para)
-				.await;
+				.await
+				.unwrap_or_else(|err| {
+					tracing::warn!(
+						target: crate::LOG_TARGET,
+						?err,
+						"Falling back to V2 scheduling: could not fetch session data."
+					);
+					false
+				});
 			if v3_enabled {
 				// For scheduling v3 we don't need to loop since we need to return a
 				// scheduling parent associated with a finished slot.

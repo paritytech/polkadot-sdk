@@ -44,10 +44,6 @@ pub struct RelayChainData {
 	/// Current relay chain header.
 	pub relay_header: RelayHeader,
 	/// The claim queue at the relay parent.
-	///
-	/// Stored as the raw runtime representation (mapping cores to their queued paras). Consumers
-	/// that need richer access wrap it in `ClaimQueueSnapshot` themselves; keeping the raw map
-	/// here avoids pulling node-subsystem types into this crate.
 	pub claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	/// The session index this relay block belongs to.
 	pub session_index: SessionIndex,
@@ -91,21 +87,15 @@ pub enum SessionDataError {
 pub struct RelayChainDataCache<RI> {
 	relay_client: RI,
 	para_id: ParaId,
+	/// Per-relay-block data (claim queue + session index), keyed by relay block hash.
 	cached_data: schnellru::LruMap<RelayHash, RelayChainData>,
+	/// Session-constant configuration, keyed by session index.
 	session_cache: schnellru::LruMap<SessionIndex, SessionData>,
-	/// Relay chain headers keyed by hash. Kept separate from [`Self::cached_data`] so that a pure
-	/// header lookup (e.g. walking the relay ancestry) does not trigger the more expensive
-	/// claim-queue / session-index fetches that building a full [`RelayChainData`] requires.
+	/// Relay headers, kept separate so a header-only lookup skips the heavier full fetch.
 	headers: schnellru::LruMap<RelayHash, RelayHeader>,
 	/// Persisted validation data keyed by `(relay block hash, assumption)`.
 	pvd: schnellru::LruMap<(RelayHash, OccupiedCoreAssumption), Option<PersistedValidationData>>,
-	/// Scheduling lookahead keyed by relay block hash.
-	///
-	/// This value is session-constant and is also available via
-	/// [`SessionData::scheduling_lookahead`], but the parent-search path needs *only* this number.
-	/// Caching it directly by relay hash lets that path avoid the heavier
-	/// [`Self::get_session_data`] fetch, which additionally queries node features, the max
-	/// relay-parent session age and a PVD.
+	/// Scheduling lookahead by relay hash; lets the parent-search path skip `get_session_data`.
 	scheduling_lookahead: schnellru::LruMap<RelayHash, u32>,
 }
 
@@ -122,8 +112,6 @@ where
 			// 10 sessions are enough for the per-session config cache.
 			session_cache: schnellru::LruMap::new(schnellru::ByLength::new(10)),
 			headers: schnellru::LruMap::new(schnellru::ByLength::new(50)),
-			// Keyed by `(hash, assumption)`, so 100 entries cover ~50 relay blocks across both
-			// the `Included` and `TimedOut` assumptions used by the parent search.
 			pvd: schnellru::LruMap::new(schnellru::ByLength::new(100)),
 			scheduling_lookahead: schnellru::LruMap::new(schnellru::ByLength::new(50)),
 		}
@@ -143,22 +131,18 @@ where
 	///
 	/// Unlike [`Self::get_by_hash`] this only fetches the header itself and does not pull the
 	/// claim queue or session index, making it cheap enough for relay ancestry walks.
-	pub async fn header(&mut self, relay_hash: RelayHash) -> Result<RelayHeader, ()> {
+	pub async fn header(&mut self, relay_hash: RelayHash) -> RelayChainResult<Option<RelayHeader>> {
 		if let Some(header) = self.headers.peek(&relay_hash) {
-			return Ok(header.clone());
+			return Ok(Some(header.clone()));
 		}
 
-		let Ok(Some(header)) = self.relay_client.header(BlockId::Hash(relay_hash)).await else {
-			tracing::warn!(
-				target: LOG_TARGET,
-				?relay_hash,
-				"Unable to fetch relay chain block header."
-			);
-			return Err(());
-		};
-
-		self.headers.insert(relay_hash, header.clone());
-		Ok(header)
+		match self.relay_client.header(BlockId::Hash(relay_hash)).await? {
+			None => Ok(None),
+			Some(header) => {
+				self.headers.insert(relay_hash, header.clone());
+				Ok(Some(header))
+			},
+		}
 	}
 
 	/// Fetch the persisted validation data for the parachain at the given relay block under the
@@ -201,7 +185,7 @@ where
 	pub async fn get_by_header(
 		&mut self,
 		relay_header: RelayHeader,
-	) -> Result<&RelayChainData, ()> {
+	) -> RelayChainResult<&RelayChainData> {
 		let relay_hash = relay_header.hash();
 
 		// Keep the standalone header cache populated too, so a subsequent header-only lookup hits.
@@ -226,31 +210,38 @@ where
 	/// Fetch required [`RelayChainData`] from the relay chain.
 	/// If this data has been fetched in the past for the incoming hash, it will reuse
 	/// cached data.
-	pub async fn get_by_hash(&mut self, relay_hash: RelayHash) -> Result<&RelayChainData, ()> {
+	pub async fn get_by_hash(
+		&mut self,
+		relay_hash: RelayHash,
+	) -> RelayChainResult<&RelayChainData> {
 		if self.cached_data.peek(&relay_hash).is_none() {
-			let relay_header = self.header(relay_hash).await?;
+			let relay_header = self.header(relay_hash).await?.ok_or_else(|| {
+				RelayChainError::GenericError(format!(
+					"Relay chain block header not found for hash {relay_hash:?}."
+				))
+			})?;
 			return self.get_by_header(relay_header).await;
 		}
 
-		self.cached_data.get(&relay_hash).map(|data| &*data).ok_or(())
+		Ok(self
+			.cached_data
+			.get(&relay_hash)
+			.map(|data| &*data)
+			.expect("`relay_hash` is present in the cache, checked above; qed"))
 	}
 
 	/// Fetch the session-scoped relay chain configuration for the session that `relay_hash`
 	/// belongs to, caching it per session.
-	pub async fn get_session_data(&mut self, relay_hash: RelayHash) -> Result<&SessionData, ()> {
+	pub async fn get_session_data(
+		&mut self,
+		relay_hash: RelayHash,
+	) -> Result<&SessionData, SessionDataError> {
 		let session_index = self.get_by_hash(relay_hash).await?.session_index;
 
 		let insert_data = if self.session_cache.get(&session_index).is_some() {
 			None
 		} else {
-			Some(self.fetch_session_data(relay_hash).await.map_err(|err| {
-				tracing::error!(
-					target: LOG_TARGET,
-					?relay_hash,
-					?err,
-					"Failed to fetch session data from the relay chain."
-				);
-			})?)
+			Some(self.fetch_session_data(relay_hash).await?)
 		};
 
 		Ok(self
@@ -264,18 +255,16 @@ where
 	/// Whether V3 scheduling is active for the session that `relay_hash` belongs to.
 	///
 	/// V3 is active if it is enabled on the parachain runtime (`v3_enabled_on_para`) *and* the
-	/// relay chain has the `CandidateReceiptV3` node feature set for this session. Defaults to
-	/// `false` if the session data cannot be fetched.
+	/// relay chain has the `CandidateReceiptV3` node feature set for this session.
 	pub async fn v3_scheduling_active(
 		&mut self,
 		relay_hash: RelayHash,
 		v3_enabled_on_para: bool,
-	) -> bool {
-		v3_enabled_on_para &&
-			self.get_session_data(relay_hash)
-				.await
-				.map(|data| data.is_v3_enabled())
-				.unwrap_or(false)
+	) -> Result<bool, SessionDataError> {
+		if !v3_enabled_on_para {
+			return Ok(false);
+		}
+		Ok(self.get_session_data(relay_hash).await?.is_v3_enabled())
 	}
 
 	/// Fetch fresh session-scoped configuration from the relay chain.
@@ -308,7 +297,7 @@ where
 	async fn fetch_relay_block_data(
 		&self,
 		relay_header: RelayHeader,
-	) -> Result<RelayChainData, ()> {
+	) -> RelayChainResult<RelayChainData> {
 		let relay_hash = relay_header.hash();
 
 		tracing::trace!(
@@ -331,18 +320,7 @@ where
 		};
 
 		let session_index =
-			match self.relay_client.session_index_for_child(*relay_header.parent_hash()).await {
-				Ok(session_index) => session_index,
-				Err(err) => {
-					tracing::error!(
-						target: LOG_TARGET,
-						?relay_hash,
-						?err,
-						"Unable to fetch the session index for the relay chain block."
-					);
-					return Err(());
-				},
-			};
+			self.relay_client.session_index_for_child(*relay_header.parent_hash()).await?;
 
 		Ok(RelayChainData { relay_header, claim_queue, session_index })
 	}
