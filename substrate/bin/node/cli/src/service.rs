@@ -800,6 +800,13 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			spawn_handle.spawn("network-statement-validator", Some("networking"), fut);
 		})
 	};
+	let retention = sc_network_statement::RetentionHandle::new(
+		network.local_peer_id(),
+		statement_replication_factor.get(),
+	);
+	if sc_network_statement::v2dht_enabled() {
+		statement_store.set_retention_resolver(retention.resolver());
+	}
 	let statement_handler = statement_handler_proto.build(
 		network.clone(),
 		sync_service.clone(),
@@ -811,6 +818,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		&statement_affinity_topics,
 		statement_replication_factor,
 		statement_gossip_target,
+		retention,
 	)?;
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",
