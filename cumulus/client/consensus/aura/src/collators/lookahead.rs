@@ -35,7 +35,7 @@
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
-	self as consensus_common, ParachainBlockImportMarker, RelayChainDataCache,
+	self as consensus_common, ParachainBlockImportMarker, ParentSearchParams, RelayChainDataCache,
 };
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{
@@ -341,7 +341,7 @@ where
 			let parent_search_result = match crate::collators::find_parent(
 				&mut relay_chain_data_cache,
 				&*params.para_backend,
-				relay_parent,
+				ParentSearchParams::V2 { scheduling_parent: relay_parent },
 				|_| true,
 			)
 			.await
@@ -350,7 +350,7 @@ where
 				None => continue,
 			};
 
-			let included_header = &parent_search_result.included_header;
+			let included_header = &parent_search_result.included_at_scheduling;
 			let para_client = &*params.para_client;
 			let keystore = &params.keystore;
 			let included_block_hash = included_header.hash();

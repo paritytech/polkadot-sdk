@@ -134,6 +134,11 @@ where
 		self.para_id
 	}
 
+	/// Access the underlying relay chain client, for calls that are not (yet) cached.
+	pub fn relay_client(&self) -> &RI {
+		&self.relay_client
+	}
+
 	/// Fetch a relay chain header by hash, caching it.
 	///
 	/// Unlike [`Self::get_by_hash`] this only fetches the header itself and does not pull the
