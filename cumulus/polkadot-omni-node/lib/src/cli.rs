@@ -284,6 +284,10 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, value_name = "N", default_value_t = sc_statement_store::DEFAULT_GOSSIP_TARGET)]
 	pub statement_gossip_target: std::num::NonZeroUsize,
 
+	/// Upper bound on collator reserved-peer slots.
+	#[arg(long, value_name = "N", default_value_t = 32)]
+	pub collator_reserved_slots: usize,
+
 	/// HOP (Hand-Off Protocol) configuration parameters.
 	#[command(flatten)]
 	pub hop: sc_hop::HopParams,
@@ -345,6 +349,7 @@ impl<Config: CliConfig> Cli<Config> {
 				},
 			),
 			storage_monitor: self.storage_monitor.clone(),
+			collator_reserved_slots: self.collator_reserved_slots,
 			hop: self.hop.enabled.then(|| self.hop.clone()),
 		}
 	}
