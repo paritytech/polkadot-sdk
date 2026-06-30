@@ -3101,6 +3101,9 @@ sp_api::decl_runtime_apis! {
 		/* Versioned Runtime APIs */
 
 		#[api_version(2)]
+		fn version_declarations() -> ReviveRuntimeApiVersionDeclarations;
+
+		#[api_version(2)]
 		fn eth_block_hash_versioned(input: BlockHashVersionedInputPayload) -> BlockHashVersionedOutputPayload;
 
 		#[api_version(2)]
@@ -3583,6 +3586,33 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				/* Versioned Runtime APIs */
+
+				fn version_declarations()
+					-> $crate::pallet_revive_types::runtime_api::ReviveRuntimeApiVersionDeclarations
+				{
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					ReviveRuntimeApiVersionDeclarations::new()
+						.insert("eth_block_hash_versioned", 1)
+						.insert("eth_receipt_data_versioned", 1)
+						.insert("block_gas_limit_versioned", 1)
+						.insert("max_extrinsic_weight_in_gas_versioned", 1)
+						.insert("balance_versioned", 1)
+						.insert("gas_price_versioned", 1)
+						.insert("nonce_versioned", 1)
+						.insert("eth_pre_dispatch_weight_versioned", 1)
+						.insert("upload_code_versioned", 1)
+						.insert("get_storage_versioned", 1)
+						.insert("runtime_pallets_address_versioned", 1)
+						.insert("code_versioned", 1)
+						.insert("account_id_versioned", 1)
+						.insert("new_balance_with_dust_versioned", 1)
+						.insert("block_author_versioned", 1)
+						.insert("address_versioned", 1)
+						.insert("trace_block_versioned", 2)
+						.insert("trace_tx_versioned", 2)
+				}
+
 				fn eth_block_hash_versioned(
 					input: $crate::pallet_revive_types::runtime_api::BlockHashVersionedInputPayload
 				) -> $crate::pallet_revive_types::runtime_api::BlockHashVersionedOutputPayload {
