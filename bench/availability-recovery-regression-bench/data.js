@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782768829431,
+  "lastUpdate": 1782823008914,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e470758daaf1b49fc20bf0e597786923631ea94a",
-          "message": "statement-store performance benchmarks (#9763)\n\n# Description\n\nAdds benchmarks to measure the performance of the statement-store:\n- Message Exchange Scenario: interaction with one or many nodes.\n- Memory Stress Test Scenario.\n\n## Results\n\n**Key improvements made to improve the performance:**\n- [Fixed a\ndeadlock](https://github.com/paritytech/polkadot-sdk/pull/9868)\n- [Increased statements\nlimits](https://github.com/paritytech/polkadot-sdk/pull/9894)\n- [Improved\ngossiping](https://github.com/paritytech/polkadot-sdk/pull/9912)\n\n**Hardware**\nAll benchmarks were run on a MacBook Pro M2\n\n### 1. Message Exchange Scenario\n**Test Configuration**\n- Total participants: 49_998\n- Group size: 6 participants per group\n- Total groups: 8_333\n- Statement payload size: 512 KB\n- Propagation delay: 2 seconds (empirically determined)\n- Parachain network tested with: 2, 3, 6, 12 nodes\n\n**Network Topologies**\nWe tested two distribution patterns:\n1. **To one RPC:** All participants send statements to a single RPC node\n2. **To all RPC:** Participants distribute statements across all nodes\n(slower due to gossiping overhead)\n\n**Participant Flow**\n- Sends a statement with their key for an exchange session (1 sent)\n- Waits 2 seconds for statement propagation\n- Receives session keys from other members in the group (5 received)\n- Sends statements containing a 512KB message to each member in the\ngroup (5 sent)\n- Waits 2 seconds for statement propagation\n- Receives messages from other members (5 received)\n- Total: 6 sent, 10 received.\n\n\n**Results**\n\n| Collators      | Avg time | Max time | Memory |\n| -------------- | -------- | -------- | ------ |\n| **To one RPC** |          |          |        |\n| 2              | 35s      | 35s      | 2.1GB  |\n| 6              | 48s      | 50s      | 1.7GB  |\n| **To all RPC** |          |          |        |\n| 3              | 41s      | 51s      | 1.9GB  |\n| 6              | 61s      | 71s      | 1.4GB  |\n| 12             | 94s      | 119s     | 1.9GB  |\n\n**Observations**\n- Sending to one RPC node is faster but creates a bottleneck\n- Distributing across all nodes takes longer due to gossiping overhead\n- More collators increase gossiping load, resulting in slower completion\ntimes\n- Memory usage per node remains around 2GB.\n\n\n### 2. Memory Stress Test Scenario\n\n**Test Configuration**\nWe prepared one more scenario to check how much memory nodes use with a\nfull store after we increased the limits. To maximize memory usage for\nindex usage, we submitted statements with all unique topics; other\nfields (e.g., proofs) were not used.\n- Total tasks: 100,000 concurrent\n- Statement size: 1 KB per statement\n- Network size: 6 collators\n\n**Test Flow**\n1. Spawn 100,000 concurrent tasks\n2. Each task sends statements with 1KB payload to one node until store\nis full\n3. Statements are gossiped across the network to the other 5 collators\n4. Test completes when all collator stores are full\n\n**Results**\nDuring the tests, each node used up to 4.5GB of memory.",
-          "timestamp": "2025-11-07T09:19:46Z",
-          "tree_id": "6698fe080ce19b64baf47e557490c7ee508bd14f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e470758daaf1b49fc20bf0e597786923631ea94a"
-        },
-        "date": 1762512408036,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2004781702333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.616091895500004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.048218488366668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6fc92492006c250f726c6bf57865793d5005a7fd",
+          "message": "Cumulus v3: `find_parent()` adjustments (#12296)\n\nImplements the main changes discussed in\nhttps://github.com/paritytech/polkadot-sdk/issues/11624\n\nAdjusts the `find_parent()` logic in order to also support V3 candidates\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-30T10:54:40Z",
+          "tree_id": "cf8c1beaf343fc5c7c5362e8165129165f71f271",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6fc92492006c250f726c6bf57865793d5005a7fd"
+        },
+        "date": 1782822978501,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.048089252833332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13697422116666666,
             "unit": "seconds"
           }
         ]
