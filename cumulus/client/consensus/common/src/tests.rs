@@ -1024,65 +1024,6 @@ fn restore_limit_monitor() {
 	assert_eq!(*monitor.freshness.get(&block13.header.hash()).unwrap(), monitor.import_counter);
 }
 
-/// Tests that pending availability block is used as starting point for search.
-#[test]
-fn find_best_parent_with_pending() {
-	sp_tracing::try_init_simple();
-
-	let backend = Arc::new(Backend::new_test(1000, 1));
-	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
-	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
-
-	let relay_parent = relay_hash_from_block_num(10);
-	let included_block = build_and_import_block_ext(
-		&client,
-		BlockOrigin::Own,
-		true,
-		&mut para_import,
-		None,
-		None,
-		Some(relay_parent),
-	);
-	let relay_parent = relay_hash_from_block_num(12);
-	let pending_block = build_and_import_block_ext(
-		&client,
-		BlockOrigin::Own,
-		true,
-		&mut para_import,
-		Some(included_block.header().hash()),
-		None,
-		Some(relay_parent),
-	);
-
-	let mut relay_chain = Relaychain::new();
-	let search_relay_parent = relay_hash_from_block_num(15);
-	{
-		let relay_inner = &mut relay_chain.inner.lock().unwrap();
-		relay_inner
-			.included_pvd_header_at
-			.insert(search_relay_parent, included_block.header().clone());
-		relay_inner
-			.pending_pvd_header_at
-			.insert(search_relay_parent, pending_block.header().clone());
-	}
-
-	relay_chain.scheduling_lookahead = Some(1);
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
-	))
-	.unwrap()
-	.expect("Should find a parent");
-
-	// Best parent should be the pending block.
-	assert_eq!(result.best_parent_header.hash(), pending_block.hash());
-	assert_eq!(&result.best_parent_header, pending_block.header());
-	// Included header should be the included block.
-	assert_eq!(&result.included_at_scheduling, included_block.header());
-}
-
 #[test]
 fn find_best_parent_unknown_included_returns_none() {
 	sp_tracing::try_init_simple();
@@ -1166,6 +1107,75 @@ fn find_best_parent_unknown_pending_returns_none() {
 	.unwrap();
 
 	assert!(result.is_none());
+}
+
+/// Tests that pending availability block is used as starting point for search.
+#[test]
+fn find_best_parent_with_pending() {
+	sp_tracing::try_init_simple();
+
+	let backend = Arc::new(Backend::new_test(1000, 1));
+	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
+	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+
+	let relay_parent = relay_hash_from_block_num(10);
+	let included_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		None,
+		None,
+		Some(relay_parent),
+	);
+	let relay_parent = relay_hash_from_block_num(12);
+	let pending_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::Own,
+		true,
+		&mut para_import,
+		Some(included_block.header().hash()),
+		None,
+		Some(relay_parent),
+	);
+
+	let mut relay_chain = Relaychain::new();
+	let search_relay_parent = relay_hash_from_block_num(15);
+	{
+		let relay_inner = &mut relay_chain.inner.lock().unwrap();
+		relay_inner
+			.included_pvd_header_at
+			.insert(search_relay_parent, included_block.header().clone());
+		relay_inner
+			.pending_pvd_header_at
+			.insert(search_relay_parent, pending_block.header().clone());
+	}
+
+	// Best parent should be the pending block.
+	relay_chain.scheduling_lookahead = Some(1);
+	let result = block_on(find_parent_for_building(
+		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		ParentSearchParams::V2 { scheduling_parent: search_relay_parent },
+	))
+	.unwrap()
+	.expect("Should find a parent");
+	assert_eq!(result.best_parent_header.hash(), pending_block.hash());
+	assert_eq!(&result.best_parent_header, pending_block.header());
+	assert_eq!(&result.included_at_scheduling, included_block.header());
+	// Same check for V3
+	let result = block_on(find_parent_for_building(
+		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
+	))
+	.unwrap()
+	.expect("Should find a parent");
+	assert_eq!(result.best_parent_header.hash(), pending_block.hash());
+	assert_eq!(&result.best_parent_header, pending_block.header());
+	assert_eq!(&result.included_at_scheduling, included_block.header());
 }
 
 /// Tests that the best parent is found within allowed ancestry.
