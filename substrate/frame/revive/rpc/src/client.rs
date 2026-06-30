@@ -264,7 +264,7 @@ pub struct Client {
 	/// Queue for backfilling blocks missed during subscription reconnects.
 	subscription_gap_queue: SubscriptionGapQueue,
 	/// Cap on blocks/sec during backward sync; `0` means no limit.
-	backfill_max_blocks_per_sec: u32,
+	backward_sync_max_blocks_per_sec: u32,
 }
 
 /// A request to backfill a range of missed blocks (both bounds inclusive).
@@ -401,7 +401,7 @@ impl Client {
 		receipt_provider: ReceiptProvider,
 		is_archive: bool,
 		subscription_gap_queue: SubscriptionGapQueue,
-		backfill_max_blocks_per_sec: u32,
+		backward_sync_max_blocks_per_sec: u32,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight, automine) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api), async {
@@ -442,7 +442,7 @@ impl Client {
 			is_archive,
 			backfill_complete: Arc::new(AtomicBool::new(false)),
 			subscription_gap_queue,
-			backfill_max_blocks_per_sec,
+			backward_sync_max_blocks_per_sec,
 		};
 
 		Ok(client)
@@ -454,8 +454,8 @@ impl Client {
 	}
 
 	/// The configured backward-sync rate cap in blocks per second (`0` means no limit).
-	pub(crate) fn backfill_max_blocks_per_sec(&self) -> u32 {
-		self.backfill_max_blocks_per_sec
+	pub(crate) fn backward_sync_max_blocks_per_sec(&self) -> u32 {
+		self.backward_sync_max_blocks_per_sec
 	}
 
 	/// Advance the sync_state head label if safe to do so.

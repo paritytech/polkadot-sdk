@@ -309,7 +309,7 @@ impl Client {
 			|synced: u64| synced <= 1 || synced.is_multiple_of(u64::from(BLOCK_INTERVAL));
 
 		let mut rate_limiter = Duration::from_secs(1)
-			.checked_div(self.backfill_max_blocks_per_sec())
+			.checked_div(self.backward_sync_max_blocks_per_sec())
 			.map(|period| {
 				let mut interval = tokio::time::interval(period);
 				interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);

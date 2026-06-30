@@ -47,9 +47,6 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 	async fn system_health(&self) -> RpcResult<Health> {
 		log::debug!(target: LOG_TARGET, "system_health: called");
 
-		// The node's block import is usually steady, but can come in bursts; tolerate ~4 minutes
-		// of drift before reporting unhealthy.
-		const MAX_BLOCK_DRIFT: u32 = 128;
 		// Cap the wait on the node so a slow node logs an error, instead of a silent probe timeout.
 		const NODE_QUERY_TIMEOUT: Duration = Duration::from_secs(3);
 
@@ -83,6 +80,9 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 			.number()
 			.max(self.client.latest_finalized_block().await.number());
 
+		// The node's block import is usually steady, but can come in bursts; tolerate ~4 minutes
+		// of drift before reporting unhealthy.
+		const MAX_BLOCK_DRIFT: u32 = 128;
 		if sync_state.current_block > latest.saturating_add(MAX_BLOCK_DRIFT) {
 			log::warn!(
 				target: LOG_TARGET,
