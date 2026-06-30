@@ -1469,6 +1469,7 @@ impl pallet_migrations::Config for Runtime {
 			pallet_assets_precompiles::weights::SubstrateWeight<Runtime>,
 		>,
 		pallet_revive::migrations::v3::Migration<Runtime>,
+		parachains_common::ad_migration::AppendAuthorityDiscoveryKeys<Runtime>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
@@ -2034,7 +2035,6 @@ pub type Migrations = (
 		staking::StakingPotsPalletId,
 		staking::StakingStakerRewardKind,
 	>,
-	parachains_common::ad_migration::AppendAuthorityDiscoveryKeys<Runtime>,
 	// Records the cutoff era from which the weighted-points validator self-stake
 	// incentive formula applies; pending pre-cutoff eras keep the legacy
 	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.

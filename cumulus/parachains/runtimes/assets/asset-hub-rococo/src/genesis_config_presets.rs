@@ -55,9 +55,11 @@ fn asset_hub_rococo_genesis(
 			keys: invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
-					let authority_discovery =
-						parachains_common::authority_discovery_id_from_aura(aura.clone());
-					(acc.clone(), acc, SessionKeys { aura, authority_discovery })
+					(
+						acc.clone(),          // account id
+						acc,                  // validator id
+						SessionKeys { aura }, // session keys
+					)
 				})
 				.collect(),
 		},

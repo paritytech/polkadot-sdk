@@ -13,9 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! One-shot migration that extends each existing `pallet_session::SessionKeys`
-//! entry with a new `authority_discovery: AuthorityDiscoveryId` field set to a
-//! per-validator placeholder derived from the validator's aura raw bytes.
+//! Single-step multi-block migration that extends each existing
+//! `pallet_session::SessionKeys` entry with a new `authority_discovery:
+//! AuthorityDiscoveryId` field set to a per-validator placeholder derived from
+//! the validator's aura raw bytes.
 //!
 //! Why a hashed placeholder rather than zero or aura-raw:
 //! - The all-zero `sr25519::Public` is the Ristretto identity element, which schnorrkel accepts and
@@ -34,15 +35,15 @@ use alloc::vec::Vec;
 use codec::DecodeAll;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
+use frame_support::{
+	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
+	traits::Get,
+	weights::WeightMeter,
+};
 #[cfg(feature = "try-runtime")]
 use frame_support::{pallet_prelude::OptionQuery, Twox64Concat};
-use frame_support::{
-	traits::{Get, OnRuntimeUpgrade},
-	weights::Weight,
-};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_io::storage;
 use sp_runtime::{traits::OpaqueKeys, KeyTypeId, RuntimeAppPublic};
 
 #[cfg(feature = "try-runtime")]
@@ -57,8 +58,10 @@ type OldNextKeys<R: pallet_session::Config> = StorageMap<
 
 const LOG_TARGET: &str = "runtime::ad_migration";
 
-/// If set it means this migration was already executed.
-const MIGRATION_DONE_KEY: &[u8] = b":parachains_common:ad_migration:done";
+/// Unique pallet identifier for this authority-discovery key migration.
+///
+/// Used to build the [`MigrationId`] the framework records once the migration completes.
+const MIGRATION_ID: &[u8; 16] = b"para_cmn_add_adi";
 
 /// `SessionKeys` layout before `pallet-authority-discovery` was added.
 #[derive(Clone, Eq, PartialEq, Debug, Decode)]
@@ -87,10 +90,6 @@ impl OpaqueKeys for OldSessionKeys {
 	}
 }
 
-fn migration_done() -> bool {
-	storage::get(MIGRATION_DONE_KEY).is_some()
-}
-
 /// Per-validator placeholder authority-discovery key.
 fn placeholder_audi(aura: &AuraId) -> AuthorityDiscoveryId {
 	let aura_raw: [u8; 32] = sp_core::sr25519::Public::from(aura.clone()).0;
@@ -105,33 +104,63 @@ fn layout_matches<R: pallet_session::Config>() -> bool {
 }
 
 /// Extend `pallet_session` session-key records with an authority-discovery placeholder.
+///
+/// Implemented as a single-step [`SteppedMigration`]: it completes in exactly one
+/// [`step`](SteppedMigration::step) and returns a `None` cursor, after which the
+/// multi-block migration framework records it as done and never calls it again.
 pub struct AppendAuthorityDiscoveryKeys<R>(PhantomData<R>);
 
-impl<R> OnRuntimeUpgrade for AppendAuthorityDiscoveryKeys<R>
+impl<R> SteppedMigration for AppendAuthorityDiscoveryKeys<R>
 where
 	R: pallet_session::Config,
 {
-	fn on_runtime_upgrade() -> Weight {
-		let db = <R as frame_system::Config>::DbWeight::get();
+	// Single step, no progress state to carry between steps.
+	type Cursor = ();
+	type Identifier = MigrationId<16>;
 
-		// Skip if migration is done already.
-		if migration_done() {
-			log::info!(
-				target: LOG_TARGET,
-				"AppendAuthorityDiscoveryKeys: already executed, skipping",
-			);
-			return db.reads(1);
+	fn id() -> Self::Identifier {
+		MigrationId { pallet_id: *MIGRATION_ID, version_from: 0, version_to: 1 }
+	}
+
+	fn max_steps() -> Option<u32> {
+		Some(1)
+	}
+
+	fn step(
+		cursor: Option<Self::Cursor>,
+		meter: &mut WeightMeter,
+	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		if cursor.is_some() {
+			return Ok(None);
 		}
 
-		// Refuse to touch storage unless R::Keys exposes exactly [aura, authority_discovery].
+		// Refuse to touch storage unless `R::Keys` exposes exactly `[aura, authority_discovery]`.
 		if !layout_matches::<R>() {
 			log::error!(
 				target: LOG_TARGET,
 				"AppendAuthorityDiscoveryKeys: R::Keys::key_ids() != [aura, authority_discovery]; \
 				 aborting without touching storage",
 			);
-			return db.reads(1);
+			return Err(SteppedMigrationError::Failed);
 		}
+
+		// Compute the worst-case weight before doing any work, then charge the meter. `decode_len`
+		// reads only the length-prefix of `Validators`, not the whole vector.
+		let db = <R as frame_system::Config>::DbWeight::get();
+		let n = pallet_session::Validators::<R>::decode_len().unwrap_or_default() as u64;
+		// Weight: per validator `upgrade_keys`:
+		//   - 1 read  + 1 write : NextKeys translate
+		//   - 1 write           : KeyOwner remove (old aura)
+		//   - 2 writes          : KeyOwner insert (new aura + new audi)
+		// Plus constant ops: QueuedKeys translate (1R + 1W) and the Validators length read (1R).
+		// Total: (n × 1 + 2) reads, (n × 4 + 1) writes.
+		let weight = db.reads_writes(
+			n.saturating_mul(1).saturating_add(2),
+			n.saturating_mul(4).saturating_add(1),
+		);
+		meter
+			.try_consume(weight)
+			.map_err(|_| SteppedMigrationError::InsufficientWeight { required: weight })?;
 
 		pallet_session::Pallet::<R>::upgrade_keys::<OldSessionKeys, _>(|collator, old| {
 			log::info!(
@@ -145,38 +174,18 @@ where
 				.expect("R::Keys::key_ids() verified above; qed")
 		});
 
-		storage::set(MIGRATION_DONE_KEY, &[1u8]);
-
-		let n = pallet_session::Validators::<R>::get().len() as u64;
 		log::info!(
 			target: LOG_TARGET,
 			"AppendAuthorityDiscoveryKeys: migrated ~{} collator(s) with hashed placeholder keys",
 			n,
 		);
 
-		// Weight: per validator `upgrade_keys`:
-		//   - 1 read  + 1 write : NextKeys translate
-		//   - 1 write           : KeyOwner remove (old aura)
-		//   - 2 writes          : KeyOwner insert (new aura + new audi)
-		// Plus constant ops: QueuedKeys translate (1R + 1W), flag write (1W),
-		// Validators::get() (1R), migration_done() check (1R).
-		// Total: (n × 1 + 3) reads, (n × 4 + 2) writes.
-		db.reads_writes(
-			n.saturating_mul(2).saturating_add(3),
-			n.saturating_mul(4).saturating_add(2),
-		)
+		// Single step: signal completion.
+		Ok(None)
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		if migration_done() {
-			log::info!(
-				target: LOG_TARGET,
-				"pre_upgrade: migration already executed on this chain; treating as a no-op",
-			);
-			return Ok(Vec::new());
-		}
-
 		if !layout_matches::<R>() {
 			return Err(sp_runtime::TryRuntimeError::Other(
 				"pre_upgrade: R::Keys::key_ids() != [aura, authority_discovery]",
@@ -198,18 +207,6 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		if !migration_done() {
-			return Err(sp_runtime::TryRuntimeError::Other(
-				"post_upgrade: migration was not executed",
-			));
-		}
-
-		// If the migration was already applied before this upgrade, there is nothing
-		// to verify.
-		if state.is_empty() {
-			return Ok(());
-		}
-
 		let pre_next_keys: Vec<(<R as pallet_session::Config>::ValidatorId, AuraId)> =
 			DecodeAll::decode_all(&mut &state[..]).map_err(|_| {
 				sp_runtime::TryRuntimeError::Other("post_upgrade: invalid state encoding")
@@ -330,23 +327,32 @@ mod tests {
 		let queued: Vec<(AccountId, AuraId)> =
 			validators.iter().map(|v| (*v, aura_key(*v))).collect();
 		for (v, aura) in &queued {
-			storage::set(&pallet_session::NextKeys::<Test>::hashed_key_for(v), &aura.encode());
+			sp_io::storage::set(
+				&pallet_session::NextKeys::<Test>::hashed_key_for(v),
+				&aura.encode(),
+			);
 			pallet_session::KeyOwner::<Test>::insert(
 				(<AuraId as RuntimeAppPublic>::ID, aura.encode()),
 				v,
 			);
 		}
-		storage::set(&pallet_session::QueuedKeys::<Test>::hashed_key(), &queued.encode());
+		sp_io::storage::set(&pallet_session::QueuedKeys::<Test>::hashed_key(), &queued.encode());
 		pallet_session::Validators::<Test>::put(validators.to_vec());
 	}
 
-	/// Run the migration through the try-runtime hooks when available, mirroring what
-	/// `try-runtime on-runtime-upgrade` does in CI.
+	/// Drive the single-step migration. Asserts it completes in one step (`Ok(None)`), and when
+	/// `try-runtime` is enabled also exercises the `pre_upgrade` → `step` → `post_upgrade` hooks
+	/// the multi-block migration framework runs in CI.
 	fn run_migration() {
 		#[cfg(feature = "try-runtime")]
-		AppendAuthorityDiscoveryKeys::<Test>::try_on_runtime_upgrade(true).unwrap();
-		#[cfg(not(feature = "try-runtime"))]
-		AppendAuthorityDiscoveryKeys::<Test>::on_runtime_upgrade();
+		let state = AppendAuthorityDiscoveryKeys::<Test>::pre_upgrade().unwrap();
+
+		let cursor =
+			AppendAuthorityDiscoveryKeys::<Test>::step(None, &mut WeightMeter::new()).unwrap();
+		assert_eq!(cursor, None, "single-step migration must complete in one step");
+
+		#[cfg(feature = "try-runtime")]
+		AppendAuthorityDiscoveryKeys::<Test>::post_upgrade(state).unwrap();
 	}
 
 	#[test]
@@ -386,35 +392,20 @@ mod tests {
 				assert_eq!(keys.aura, aura_key(*v));
 				assert_eq!(keys.authority_discovery, placeholder_audi(&aura_key(*v)));
 			}
-
-			assert!(migration_done());
 		});
 	}
 
 	#[test]
-	fn second_run_is_a_noop() {
+	fn completes_in_a_single_step() {
 		new_test_ext().execute_with(|| {
 			let validators = [1, 2];
 			seed_old_layout(&validators);
-			run_migration();
 
-			let before: Vec<_> =
-				validators.iter().map(|v| pallet_session::NextKeys::<Test>::get(v)).collect();
-
-			let weight = AppendAuthorityDiscoveryKeys::<Test>::on_runtime_upgrade();
-			assert_eq!(weight, <Test as frame_system::Config>::DbWeight::get().reads(1));
-
-			let after: Vec<_> =
-				validators.iter().map(|v| pallet_session::NextKeys::<Test>::get(v)).collect();
-			assert_eq!(before, after);
-
-			// try-runtime re-runs.
-			#[cfg(feature = "try-runtime")]
-			{
-				let state = AppendAuthorityDiscoveryKeys::<Test>::pre_upgrade().unwrap();
-				assert!(state.is_empty());
-				AppendAuthorityDiscoveryKeys::<Test>::post_upgrade(state).unwrap();
-			}
+			// The first (and only) step signals completion by returning a `None` cursor; the
+			// framework then records the migration as done and never calls it again.
+			let cursor =
+				AppendAuthorityDiscoveryKeys::<Test>::step(None, &mut WeightMeter::new()).unwrap();
+			assert_eq!(cursor, None);
 		});
 	}
 
@@ -422,7 +413,7 @@ mod tests {
 	fn works_with_empty_session_storage() {
 		new_test_ext().execute_with(|| {
 			run_migration();
-			assert!(migration_done());
+			assert!(pallet_session::Validators::<Test>::get().is_empty());
 		});
 	}
 
@@ -496,9 +487,12 @@ mod tests {
 		#[test]
 		fn aborts_without_touching_storage() {
 			new_test_ext().execute_with(|| {
-				let weight = AppendAuthorityDiscoveryKeys::<Test>::on_runtime_upgrade();
-				assert_eq!(weight, <Test as frame_system::Config>::DbWeight::get().reads(1));
-				assert!(!migration_done());
+				let mut meter = WeightMeter::new();
+				let result = AppendAuthorityDiscoveryKeys::<Test>::step(None, &mut meter);
+				assert_eq!(result, Err(SteppedMigrationError::Failed));
+				// Aborted before charging the meter or writing anything.
+				assert_eq!(meter.consumed(), frame_support::weights::Weight::zero());
+				assert!(pallet_session::QueuedKeys::<Test>::get().is_empty());
 			});
 		}
 	}

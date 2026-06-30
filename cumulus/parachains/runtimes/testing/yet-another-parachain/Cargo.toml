@@ -24,6 +24,7 @@ polkadot-sdk = { workspace = true, default-features = false, features = [
 	"pallet-authorship",
 	"pallet-balances",
 	"pallet-message-queue",
+	"pallet-migrations",
 	"pallet-session",
 	"pallet-sudo",
 	"pallet-timestamp",
