@@ -38,6 +38,7 @@ pub mod pallet_bridge_relayers_legacy;
 pub mod pallet_bridge_relayers_permissionless_lanes;
 pub mod pallet_collator_selection;
 pub mod pallet_message_queue;
+pub mod pallet_migrations;
 pub mod pallet_multisig;
 pub mod pallet_session;
 pub mod pallet_timestamp;

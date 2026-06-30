@@ -30,6 +30,7 @@ pub mod pallet_broker;
 pub mod pallet_collator_selection;
 pub mod pallet_message_queue;
 pub mod pallet_meta_tx;
+pub mod pallet_migrations;
 pub mod pallet_multisig;
 pub mod pallet_proxy;
 pub mod pallet_session;

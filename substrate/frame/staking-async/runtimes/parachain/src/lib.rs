@@ -604,12 +604,11 @@ parameter_types! {
 impl pallet_multisig::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type DepositBase = DepositBase;
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = MaxSignatories;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
-	// TODO add migration.
 	type BlockNumberProvider = RelayChainBlockNumberProvider;
 }
 
@@ -1104,7 +1103,7 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = ();
+	type Migrations = pallet_multisig::migrations::v2::LazyMigrationV1ToV2<Runtime, Balances>;
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;

@@ -79,6 +79,7 @@ pub trait WeightInfo {
 	fn approve_as_multi_approve(s: u32, ) -> Weight;
 	fn cancel_as_multi(s: u32, ) -> Weight;
 	fn poke_deposit(s: u32, ) -> Weight;
+	fn v2_migration_step(s: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_multisig` using the Substrate node and recommended hardware.
@@ -212,6 +213,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `Multisig::Multisigs` (r:1 w:0)
+	/// Proof: `Multisig::Multisigs` (`max_values`: None, `max_size`: Some(3346), added: 5821, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// The range of component `s` is `[2, 100]`.
+	fn v2_migration_step(s: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `357 + s * (1 ±0)`
+		//  Estimated: `6811`
+		// Minimum execution time: 25_000_000 picoseconds.
+		Weight::from_parts(26_000_000, 6811)
+			// Standard Error: 1_500
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -343,5 +360,21 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(121_813, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Multisig::Multisigs` (r:1 w:0)
+	/// Proof: `Multisig::Multisigs` (`max_values`: None, `max_size`: Some(3346), added: 5821, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// The range of component `s` is `[2, 100]`.
+	fn v2_migration_step(s: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `357 + s * (1 ±0)`
+		//  Estimated: `6811`
+		// Minimum execution time: 25_000_000 picoseconds.
+		Weight::from_parts(26_000_000, 6811)
+			// Standard Error: 1_500
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(s.into()))
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 }

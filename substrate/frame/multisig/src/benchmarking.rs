@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame::benchmarking::prelude::*;
+use frame::{benchmarking::prelude::*, traits::ReservableCurrency};
 
 use crate::Pallet as Multisig;
 
@@ -31,11 +31,14 @@ fn setup_multi<T: Config>(
 	z: u32,
 ) -> Result<(Vec<T::AccountId>, Box<<T as Config>::RuntimeCall>), &'static str> {
 	let mut signatories: Vec<T::AccountId> = Vec::new();
+	// Per-account mint must stay below `max_value / MaxSignatories` so that the cumulative
+	// total issuance does not saturate - `fungible::Mutate::set_balance` silently no-ops
+	// once total issuance overflows, leaving later signatories with zero balance.
+	let max_sigs: u32 = T::MaxSignatories::get().max(1);
+	let balance = BalanceOf::<T>::max_value() / max_sigs.saturating_mul(2).into();
 	for i in 0..s {
 		let signatory = account("signatory", i, SEED);
-		// Give them some balance for a possible deposit
-		let balance = BalanceOf::<T>::max_value();
-		T::Currency::make_free_balance_be(&signatory, balance);
+		let _ = T::Fungible::set_balance(&signatory, balance);
 		signatories.push(signatory);
 	}
 	signatories.sort();
@@ -45,7 +48,7 @@ fn setup_multi<T: Config>(
 	Ok((signatories, Box::new(call)))
 }
 
-#[benchmarks]
+#[benchmarks(where T::Fungible: ReservableCurrency<T::AccountId, Balance = BalanceOf<T>>)]
 mod benchmarks {
 	use super::*;
 
@@ -320,14 +323,20 @@ mod benchmarks {
 			.ok_or("multisig not created")?;
 		// The original deposit
 		let old_deposit = multisig.deposit;
-		assert_eq!(T::Currency::reserved_balance(&caller), old_deposit);
+		assert_eq!(
+			T::Fungible::balance_on_hold(&HoldReason::MultisigOperation.into(), &caller),
+			old_deposit
+		);
 
 		let additional_amount = 2u32.into();
 		let new_deposit = old_deposit.saturating_add(additional_amount);
 
-		// Reserve the additional amount from the caller's balance
-		T::Currency::reserve(&caller, additional_amount)?;
-		assert_eq!(T::Currency::reserved_balance(&caller), new_deposit);
+		// Hold the additional amount from the caller's balance
+		T::Fungible::hold(&HoldReason::MultisigOperation.into(), &caller, additional_amount)?;
+		assert_eq!(
+			T::Fungible::balance_on_hold(&HoldReason::MultisigOperation.into(), &caller),
+			new_deposit
+		);
 		// Update the storage with the new deposit
 		Multisigs::<T>::try_mutate(
 			&multi_account_id,
@@ -355,7 +364,86 @@ mod benchmarks {
 		let multisig = Multisigs::<T>::get(multi_account_id.clone(), call_hash)
 			.ok_or("Multisig not created")?;
 		assert_eq!(multisig.deposit, old_deposit);
-		assert_eq!(T::Currency::reserved_balance(&caller), old_deposit);
+		assert_eq!(
+			T::Fungible::balance_on_hold(&HoldReason::MultisigOperation.into(), &caller),
+			old_deposit
+		);
+		Ok(())
+	}
+
+	/// Benchmark for the v2 migration step.
+	/// This benchmarks the core operations of a migration step:
+	/// - Reading a Multisigs entry via iterator
+	/// - Unreserving old balance (OldCurrency::unreserve)
+	/// - Creating a new hold (T::Fungible::hold)
+	/// - Generating cursor key for next iteration
+	#[benchmark]
+	fn v2_migration_step(s: Linear<2, { T::MaxSignatories::get() }>) -> Result<(), BenchmarkError> {
+		let call_len = 10_000;
+		let (mut signatories, call) = setup_multi::<T>(s, call_len)?;
+		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
+		let caller = signatories.pop().ok_or("signatories should have len 2 or more")?;
+		let call_hash = call.using_encoded(blake2_256);
+		let deposit = Multisig::<T>::deposit(s as u16);
+		let timepoint = Multisig::<T>::timepoint();
+
+		// Insert a multisig entry directly into storage to simulate existing state
+		Multisigs::<T>::insert(
+			&multi_account_id,
+			call_hash,
+			crate::Multisig {
+				when: timepoint,
+				deposit,
+				depositor: caller.clone(),
+				approvals: BoundedVec::try_from(vec![caller.clone()])
+					.map_err(|_| "too many signatories")?,
+			},
+		);
+
+		// Reserve funds using ReservableCurrency (simulating pre-migration state)
+		<T::Fungible as ReservableCurrency<T::AccountId>>::reserve(&caller, deposit)
+			.map_err(|_| "failed to reserve")?;
+
+		// Whitelist caller account
+		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
+		add_to_whitelist(caller_key.into());
+
+		#[block]
+		{
+			// Step 1: Use iterator to get entry (matching migration logic)
+			let mut iter = Multisigs::<T>::iter();
+			let (iter_multi_account, iter_call_hash, multisig_data) =
+				iter.next().ok_or("no multisig entry found")?;
+
+			if !multisig_data.deposit.is_zero() {
+				let depositor = &multisig_data.depositor;
+				let deposit = multisig_data.deposit;
+
+				// Step 2: Unreserve old balance (simulating OldCurrency::unreserve)
+				let remaining = <T::Fungible as ReservableCurrency<T::AccountId>>::unreserve(
+					depositor, deposit,
+				);
+
+				// Step 3: Calculate amount to hold (same as migration)
+				let to_hold = deposit.saturating_sub(remaining);
+
+				// Step 4: Hold with fungible trait
+				if !to_hold.is_zero() {
+					T::Fungible::hold(&HoldReason::MultisigOperation.into(), depositor, to_hold)
+						.map_err(|_| "failed to hold")?;
+				}
+			}
+
+			// Step 5: Generate cursor key (matching migration logic)
+			let _raw_key = Multisigs::<T>::hashed_key_for(&iter_multi_account, &iter_call_hash);
+		}
+
+		// Verify the hold was created
+		assert_eq!(
+			T::Fungible::balance_on_hold(&HoldReason::MultisigOperation.into(), &caller),
+			deposit
+		);
+
 		Ok(())
 	}
 

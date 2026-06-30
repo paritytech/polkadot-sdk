@@ -678,7 +678,7 @@ parameter_types! {
 impl pallet_multisig::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type DepositBase = DepositBase;
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = MaxSignatories;
@@ -1457,6 +1457,7 @@ impl pallet_migrations::Config for Runtime {
 			ForeignAssetsInstance,
 			migrations::AssetHubWestendForeignAssetsReservesProvider,
 		>,
+		pallet_multisig::migrations::v2::LazyMigrationV1ToV2<Runtime, Balances>,
 		pallet_assets_precompiles::MigrateForeignAssetPrecompileMappings<
 			Runtime,
 			ForeignAssetsInstance,
@@ -1968,7 +1969,7 @@ pub type Migrations = (
 	// unreleased
 	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
 	// unreleased
-	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+	pallet_multisig::migrations::v1::MigrateToV1<Runtime, Balances>,
 	// unreleased
 	InitStorageVersions,
 	// unreleased

@@ -45,6 +45,7 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 pub struct TestBaseCallFilter;
@@ -67,7 +68,7 @@ parameter_types! {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type DepositBase = MultisigDepositBase;
 	type DepositFactor = MultisigDepositFactor;
 	type MaxSignatories = ConstU32<3>;
@@ -75,7 +76,7 @@ impl Config for Test {
 	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
-use pallet_balances::{Call as BalancesCall, Error as BalancesError};
+use pallet_balances::Call as BalancesCall;
 
 pub fn new_test_ext() -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -117,7 +118,7 @@ fn multisig_deposit_is_taken_and_returned() {
 			Weight::zero()
 		));
 		assert_eq!(Balances::free_balance(1), 2);
-		assert_eq!(Balances::reserved_balance(1), 3);
+		assert_eq!(Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1), 3);
 
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(2),
@@ -128,7 +129,7 @@ fn multisig_deposit_is_taken_and_returned() {
 			call_weight
 		));
 		assert_eq!(Balances::free_balance(1), 5);
-		assert_eq!(Balances::reserved_balance(1), 0);
+		assert_eq!(Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1), 0);
 	});
 }
 
@@ -154,10 +155,10 @@ fn cancel_multisig_returns_deposit() {
 			Weight::zero()
 		));
 		assert_eq!(Balances::free_balance(1), 6);
-		assert_eq!(Balances::reserved_balance(1), 4);
+		assert_eq!(Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1), 4);
 		assert_ok!(Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 3, vec![2, 3], now(), hash));
 		assert_eq!(Balances::free_balance(1), 10);
-		assert_eq!(Balances::reserved_balance(1), 0);
+		assert_eq!(Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1), 0);
 	});
 }
 
@@ -1232,7 +1233,7 @@ fn poke_deposit_charges_fee_when_deposit_unchanged() {
 			Weight::zero()
 		));
 
-		let initial_deposit = Balances::reserved_balance(1);
+		let initial_deposit = Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1);
 		let initial_free = Balances::free_balance(1);
 
 		// Poke without changing deposit requirements
@@ -1242,7 +1243,10 @@ fn poke_deposit_charges_fee_when_deposit_unchanged() {
 		assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 
 		// Verify balances unchanged (except for fee)
-		assert_eq!(Balances::reserved_balance(1), initial_deposit);
+		assert_eq!(
+			Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1),
+			initial_deposit
+		);
 		assert!(Balances::free_balance(1) <= initial_free);
 
 		// Verify no event was emitted
@@ -1271,7 +1275,7 @@ fn poke_deposit_works_when_deposit_increases() {
 		));
 
 		// Record initial balances
-		let initial_deposit = Balances::reserved_balance(1);
+		let initial_deposit = Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1);
 		let initial_free = Balances::free_balance(1);
 		let initial_base: u64 = MultisigDepositBase::get();
 		let initial_factor: u64 = MultisigDepositFactor::get();
@@ -1300,7 +1304,7 @@ fn poke_deposit_works_when_deposit_increases() {
 
 		// Verify exact balance changes
 		assert_eq!(
-			Balances::reserved_balance(1),
+			Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1),
 			expected_new_deposit,
 			"Reserved balance should be exactly base(3) + factor(2) * threshold(2) = 7"
 		);
@@ -1344,7 +1348,7 @@ fn poke_deposit_works_when_deposit_decreases() {
 			Weight::zero()
 		));
 
-		let initial_deposit = Balances::reserved_balance(1);
+		let initial_deposit = Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1);
 		let initial_free = Balances::free_balance(1);
 
 		// Verify initial deposit calculation (3 + 2 * 2 = 7)
@@ -1375,7 +1379,7 @@ fn poke_deposit_works_when_deposit_decreases() {
 		let deposit_decrease = initial_deposit.saturating_sub(expected_new_deposit);
 
 		assert_eq!(
-			Balances::reserved_balance(1),
+			Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1),
 			expected_new_deposit,
 			"Reserved balance should be exactly base(1) + factor(1) * threshold(2) = 3"
 		);
@@ -1422,7 +1426,123 @@ fn poke_deposit_handles_insufficient_balance() {
 		// Should fail due to insufficient balance
 		assert_noop!(
 			Multisig::poke_deposit(RuntimeOrigin::signed(4), threshold, other_signatories, hash),
-			BalancesError::<Test, _>::InsufficientBalance
+			frame::runtime::prelude::TokenError::FundsUnavailable
 		);
 	});
+}
+
+#[cfg(feature = "try-runtime")]
+mod migration_v1_to_v2_tests {
+	use super::*;
+	use crate::migrations::v2::LazyMigrationV1ToV2;
+	use frame::deps::frame_support::{
+		migrations::SteppedMigration, traits::ReservableCurrency, weights::WeightMeter,
+	};
+
+	type Migration = LazyMigrationV1ToV2<Test, Balances>;
+
+	fn insert_multisig_entry(multisig: u64, depositor: u64, deposit: u64, salt: u8) {
+		let call_hash = [salt; 32];
+		// `Multisig` in this scope is the runtime alias from `construct_runtime!`;
+		// the data struct lives at `crate::Multisig`.
+		let entry = crate::Multisig::<u32, u64, u64, ConstU32<3>> {
+			when: Timepoint { height: 1, index: 0 },
+			deposit,
+			depositor,
+			approvals: Default::default(),
+		};
+		Multisigs::<Test>::insert(multisig, call_hash, entry);
+	}
+
+	fn run_migration_to_completion() {
+		let mut cursor = None;
+		let mut meter = WeightMeter::new();
+		// One step is enough with an unbounded meter, but loop defensively in case
+		// the implementation ever changes.
+		for _ in 0..16 {
+			match Migration::step(cursor, &mut meter).expect("step succeeds") {
+				Some(c) => cursor = Some(c),
+				None => return,
+			}
+		}
+		panic!("migration did not converge");
+	}
+
+	#[test]
+	fn full_reserve_migrates_and_post_upgrade_passes() {
+		new_test_ext().execute_with(|| {
+			// Account 1 has free balance 10. Reserve exactly the recorded deposit.
+			let depositor = 1u64;
+			let deposit = 5u64;
+			assert_ok!(<Balances as ReservableCurrency<_>>::reserve(&depositor, deposit));
+
+			let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
+			insert_multisig_entry(multi, depositor, deposit, 0xAA);
+
+			let pre_state = Migration::pre_upgrade().expect("pre_upgrade ok");
+			run_migration_to_completion();
+
+			// The full deposit ended up in a typed hold under MultisigOperation.
+			assert_eq!(
+				Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &depositor),
+				deposit,
+			);
+			Migration::post_upgrade(pre_state).expect("post_upgrade ok");
+		});
+	}
+
+	#[test]
+	fn partial_reserve_does_not_panic_post_upgrade() {
+		// Regression for "Hold amount insufficient for depositor": when a
+		// depositor's reserved balance is smaller than the recorded deposit
+		// (e.g. account reaped or reserves slashed since deposit creation),
+		// the migration holds only what `unreserve` actually freed and the
+		// post-upgrade check must tolerate that under-migration.
+		new_test_ext().execute_with(|| {
+			let depositor = 1u64;
+			let actual_reserved = 3u64;
+			let recorded_deposit = 8u64;
+			assert!(actual_reserved < recorded_deposit);
+
+			assert_ok!(<Balances as ReservableCurrency<_>>::reserve(&depositor, actual_reserved));
+
+			let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
+			insert_multisig_entry(multi, depositor, recorded_deposit, 0xBB);
+
+			let pre_state = Migration::pre_upgrade().expect("pre_upgrade ok");
+			run_migration_to_completion();
+
+			// The hold equals what was actually reserved, not the recorded deposit.
+			assert_eq!(
+				Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &depositor),
+				actual_reserved,
+			);
+			// Pre-fix this would panic with "Hold amount insufficient for depositor".
+			Migration::post_upgrade(pre_state).expect("post_upgrade tolerates partial migration");
+		});
+	}
+
+	#[test]
+	fn multiple_entries_per_depositor_aggregate() {
+		new_test_ext().execute_with(|| {
+			let depositor = 1u64;
+			let deposit_per_entry = 3u64;
+			let total = deposit_per_entry * 2;
+			assert_ok!(<Balances as ReservableCurrency<_>>::reserve(&depositor, total));
+
+			let multi_a = Multisig::multi_account_id(&[1, 2, 3][..], 2);
+			let multi_b = Multisig::multi_account_id(&[1, 2, 3][..], 3);
+			insert_multisig_entry(multi_a, depositor, deposit_per_entry, 0x01);
+			insert_multisig_entry(multi_b, depositor, deposit_per_entry, 0x02);
+
+			let pre_state = Migration::pre_upgrade().expect("pre_upgrade ok");
+			run_migration_to_completion();
+
+			assert_eq!(
+				Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &depositor),
+				total,
+			);
+			Migration::post_upgrade(pre_state).expect("post_upgrade ok");
+		});
+	}
 }
