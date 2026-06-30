@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782768867711,
+  "lastUpdate": 1782823048595,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "monicachenjin@gmail.com",
-            "name": "Monica Jin",
-            "username": "mokita-j"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1bd929bd766154fcc88adcae6ab0c90aa31515ea",
-          "message": "pallet_revive: Add dry-run timestamp override support (#10191)\n\n# Description\n\nThis PR updates `pallet-revive` to **support overriding the block\ntimestamp during dry-run calls**.\nThe dry-run execution now uses the following configuration for\n`eth_estimateGas` and `eth_call` when the block tag is `pending`:\n\n```text\nblock.timestamp = max(rpc_timestamp, latest_block.timestamp + 1)\nblock.number = latest_block.number + 1\n```\n\nFixes [#153](https://github.com/paritytech/contract-issues/issues/153),\n[#205](https://github.com/paritytech/contract-issues/issues/205)\n\n## Integration\n\nDownstream projects using the `ReviveApi::eth_transact` runtime API\nshould either provide a `timestamp` or pass `None`.\n\n## Review Notes\n- Added dry run timestamp to `ExecConfig`.\n- Added a new parameter to `ReviveApi::eth_transact` for passing the\ncurrent RPC timestamp.\n- `eth_estimateGas` and `eth_call` with `pending` block tag will dry run\nthe transaction with the block timestamp set to `max(rpc_timestamp,\nlatest_block.timestamp + 1)` and block number set to\n`latest_block.number + 1`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
-          "timestamp": "2025-11-07T04:49:45Z",
-          "tree_id": "d82cb9b083d8ba24dff7a8407290faacc8ef6d15",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1bd929bd766154fcc88adcae6ab0c90aa31515ea"
-        },
-        "date": 1762495515515,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15984703218,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013419075933333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007537025466666646,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022818077680000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007525856106666669,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6fc92492006c250f726c6bf57865793d5005a7fd",
+          "message": "Cumulus v3: `find_parent()` adjustments (#12296)\n\nImplements the main changes discussed in\nhttps://github.com/paritytech/polkadot-sdk/issues/11624\n\nAdjusts the `find_parent()` logic in order to also support V3 candidates\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-30T10:54:40Z",
+          "tree_id": "cf8c1beaf343fc5c7c5362e8165129165f71f271",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6fc92492006c250f726c6bf57865793d5005a7fd"
+        },
+        "date": 1782823017976,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14922798071333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007863911293333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024032629006666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010490633113333304,
             "unit": "seconds"
           }
         ]
