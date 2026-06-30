@@ -131,13 +131,22 @@ pub enum EthRpcError {
 	TransactionTypeNotSupported(Byte),
 }
 
-// TODO use https://eips.ethereum.org/EIPS/eip-1474#error-codes
 impl From<EthRpcError> for ErrorObjectOwned {
 	fn from(value: EthRpcError) -> Self {
-		match value {
-			EthRpcError::ClientError(err) => Self::from(err),
-			_ => Self::owned::<String>(ErrorCode::InvalidRequest.code(), value.to_string(), None),
-		}
+		use jsonrpsee::types::error::CALL_EXECUTION_FAILED_CODE;
+		let message = value.to_string();
+		let code = match value {
+			// `ClientError` already produces a fully formed JSON-RPC error object.
+			EthRpcError::ClientError(err) => return Self::from(err),
+			EthRpcError::ConversionError => ErrorCode::InvalidParams.code(),
+			// Matches Geth/Nethermind, which return `-32000` for these execution-time errors.
+			EthRpcError::RlpError(_) |
+			EthRpcError::InvalidSignature |
+			EthRpcError::AccountNotFound(_) |
+			EthRpcError::InvalidTransaction |
+			EthRpcError::TransactionTypeNotSupported(_) => CALL_EXECUTION_FAILED_CODE,
+		};
+		Self::owned::<String>(code, message, None)
 	}
 }
 
@@ -598,6 +607,34 @@ impl EthRpcServerImpl {
 					}
 				}
 			}
+		}
+	}
+}
+
+#[cfg(test)]
+mod error_codes_tests {
+	use super::*;
+	use jsonrpsee::types::error::{CALL_EXECUTION_FAILED_CODE, INVALID_PARAMS_CODE};
+
+	#[test]
+	fn eth_rpc_error_maps_to_expected_code_and_message() {
+		let cases: Vec<(EthRpcError, i32)> = vec![
+			(EthRpcError::RlpError(rlp::DecoderError::RlpIsTooShort), CALL_EXECUTION_FAILED_CODE),
+			(EthRpcError::ConversionError, INVALID_PARAMS_CODE),
+			(EthRpcError::InvalidSignature, CALL_EXECUTION_FAILED_CODE),
+			(EthRpcError::AccountNotFound(H160::repeat_byte(0xab)), CALL_EXECUTION_FAILED_CODE),
+			(EthRpcError::InvalidTransaction, CALL_EXECUTION_FAILED_CODE),
+			(
+				EthRpcError::TransactionTypeNotSupported(Byte::from(0x7eu8)),
+				CALL_EXECUTION_FAILED_CODE,
+			),
+		];
+
+		for (err, expected_code) in cases {
+			let expected_message = err.to_string();
+			let obj = ErrorObjectOwned::from(err);
+			assert_eq!(obj.code(), expected_code, "unexpected code for `{expected_message}`");
+			assert_eq!(obj.message(), expected_message);
 		}
 	}
 }
