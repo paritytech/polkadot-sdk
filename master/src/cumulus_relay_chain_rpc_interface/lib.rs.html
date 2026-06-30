@@ -188,7 +188,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#38 id=38 data-nosnippet>38</a><span class="kw">use </span>sp_version::RuntimeVersion;
 <a href=#39 id=39 data-nosnippet>39</a><span class="kw">use </span>std::{collections::btree_map::BTreeMap, pin::Pin};
 <a href=#40 id=40 data-nosnippet>40</a>
-<a href=#41 id=41 data-nosnippet>41</a><span class="kw">use </span>cumulus_primitives_core::relay_chain::{BlockId, NodeFeatures};
+<a href=#41 id=41 data-nosnippet>41</a><span class="kw">use </span>cumulus_primitives_core::relay_chain::{vstaging::RelayParentInfo, BlockId, NodeFeatures};
 <a href=#42 id=42 data-nosnippet>42</a><span class="kw">pub use </span>url::Url;
 <a href=#43 id=43 data-nosnippet>43</a>
 <a href=#44 id=44 data-nosnippet>44</a><span class="kw">mod </span>metrics;
@@ -464,7 +464,18 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#314 id=314 data-nosnippet>314</a>	<span class="kw">async fn </span>node_features(<span class="kw-2">&amp;</span><span class="self">self</span>, at: RelayHash) -&gt; RelayChainResult&lt;NodeFeatures&gt; {
 <a href=#315 id=315 data-nosnippet>315</a>		<span class="self">self</span>.rpc_client.parachain_host_node_features(at).<span class="kw">await
 <a href=#316 id=316 data-nosnippet>316</a>	</span>}
-<a href=#317 id=317 data-nosnippet>317</a>}
+<a href=#317 id=317 data-nosnippet>317</a>
+<a href=#318 id=318 data-nosnippet>318</a>	<span class="kw">async fn </span>ancestor_relay_parent_info(
+<a href=#319 id=319 data-nosnippet>319</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#320 id=320 data-nosnippet>320</a>		at: RelayHash,
+<a href=#321 id=321 data-nosnippet>321</a>		session_index: SessionIndex,
+<a href=#322 id=322 data-nosnippet>322</a>		relay_parent: RelayHash,
+<a href=#323 id=323 data-nosnippet>323</a>	) -&gt; RelayChainResult&lt;<span class="prelude-ty">Option</span>&lt;RelayParentInfo&lt;RelayHash, BlockNumber&gt;&gt;&gt; {
+<a href=#324 id=324 data-nosnippet>324</a>		<span class="self">self</span>.rpc_client
+<a href=#325 id=325 data-nosnippet>325</a>			.parachain_host_ancestor_relay_parent_info(at, session_index, relay_parent)
+<a href=#326 id=326 data-nosnippet>326</a>			.<span class="kw">await
+<a href=#327 id=327 data-nosnippet>327</a>	</span>}
+<a href=#328 id=328 data-nosnippet>328</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

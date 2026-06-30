@@ -173,7 +173,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#23 id=23 data-nosnippet>23</a>
 <a href=#24 id=24 data-nosnippet>24</a></span><span class="kw">use </span><span class="kw">crate</span>::collator::SlotClaim;
 <a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>codec::Codec;
-<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>cumulus_client_consensus_common::{<span class="self">self </span><span class="kw">as </span>consensus_common};
+<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>cumulus_client_consensus_common::{<span class="self">self </span><span class="kw">as </span>consensus_common, ParentSearchParams};
 <a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 <a href=#28 id=28 data-nosnippet>28</a><span class="kw">use </span>cumulus_primitives_core::{
 <a href=#29 id=29 data-nosnippet>29</a>	relay_chain::Header <span class="kw">as </span>RelayHeader, BlockT, KeyToIncludeInRelayProof, RelayProofRequest,
@@ -390,7 +390,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#240 id=240 data-nosnippet>240</a>	relay_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>RelayChainInterface,
 <a href=#241 id=241 data-nosnippet>241</a>	para_backend: <span class="kw-2">&amp;</span><span class="kw">impl </span>sc_client_api::Backend&lt;Block&gt;,
 <a href=#242 id=242 data-nosnippet>242</a>	para_id: ParaId,
-<a href=#243 id=243 data-nosnippet>243</a>	relay_parent: RelayHash,
+<a href=#243 id=243 data-nosnippet>243</a>	params: ParentSearchParams,
 <a href=#244 id=244 data-nosnippet>244</a>	filter_parent: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>Block::Header) -&gt; bool,
 <a href=#245 id=245 data-nosnippet>245</a>) -&gt; <span class="prelude-ty">Option</span>&lt;consensus_common::ParentSearchResult&lt;Block&gt;&gt;
 <a href=#246 id=246 data-nosnippet>246</a><span class="kw">where
@@ -400,7 +400,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#250 id=250 data-nosnippet>250</a>		relay_client,
 <a href=#251 id=251 data-nosnippet>251</a>		para_backend,
 <a href=#252 id=252 data-nosnippet>252</a>		para_id,
-<a href=#253 id=253 data-nosnippet>253</a>		relay_parent,
+<a href=#253 id=253 data-nosnippet>253</a>		params.clone(),
 <a href=#254 id=254 data-nosnippet>254</a>	)
 <a href=#255 id=255 data-nosnippet>255</a>	.<span class="kw">await
 <a href=#256 id=256 data-nosnippet>256</a>	</span>{
@@ -408,7 +408,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#258 id=258 data-nosnippet>258</a>		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
 <a href=#259 id=259 data-nosnippet>259</a>			<span class="macro">tracing::warn!</span>(
 <a href=#260 id=260 data-nosnippet>260</a>				target: <span class="kw">crate</span>::LOG_TARGET,
-<a href=#261 id=261 data-nosnippet>261</a>				<span class="question-mark">?</span>relay_parent,
+<a href=#261 id=261 data-nosnippet>261</a>				<span class="question-mark">?</span>params,
 <a href=#262 id=262 data-nosnippet>262</a>				<span class="string">"Could not find parent to build upon."</span>,
 <a href=#263 id=263 data-nosnippet>263</a>			);
 <a href=#264 id=264 data-nosnippet>264</a>			<span class="kw">return </span><span class="prelude-val">None</span>;
@@ -416,7 +416,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#266 id=266 data-nosnippet>266</a>		<span class="prelude-val">Err</span>(e) =&gt; {
 <a href=#267 id=267 data-nosnippet>267</a>			<span class="macro">tracing::error!</span>(
 <a href=#268 id=268 data-nosnippet>268</a>				target: <span class="kw">crate</span>::LOG_TARGET,
-<a href=#269 id=269 data-nosnippet>269</a>				<span class="question-mark">?</span>relay_parent,
+<a href=#269 id=269 data-nosnippet>269</a>				<span class="question-mark">?</span>params,
 <a href=#270 id=270 data-nosnippet>270</a>				err = <span class="question-mark">?</span>e,
 <a href=#271 id=271 data-nosnippet>271</a>				<span class="string">"Could not find parent to build upon"
 <a href=#272 id=272 data-nosnippet>272</a>			</span>);
@@ -433,12 +433,12 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#283 id=283 data-nosnippet>283</a>		<span class="kw">match </span>para_backend.blockchain().header(parent_hash) {
 <a href=#284 id=284 data-nosnippet>284</a>			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(header)) =&gt; {
 <a href=#285 id=285 data-nosnippet>285</a>				result.best_parent_header = header;
-<a href=#286 id=286 data-nosnippet>286</a>				<span class="kw">if </span>parent_hash == result.included_header.hash() {
+<a href=#286 id=286 data-nosnippet>286</a>				<span class="kw">if </span>parent_hash == result.included_at_scheduling.hash() {
 <a href=#287 id=287 data-nosnippet>287</a>					<span class="kw">break</span>;
 <a href=#288 id=288 data-nosnippet>288</a>				}
 <a href=#289 id=289 data-nosnippet>289</a>			},
 <a href=#290 id=290 data-nosnippet>290</a>			<span class="kw">_ </span>=&gt; {
-<a href=#291 id=291 data-nosnippet>291</a>				result.best_parent_header = result.included_header.clone();
+<a href=#291 id=291 data-nosnippet>291</a>				result.best_parent_header = result.included_at_scheduling.clone();
 <a href=#292 id=292 data-nosnippet>292</a>				<span class="kw">break</span>;
 <a href=#293 id=293 data-nosnippet>293</a>			},
 <a href=#294 id=294 data-nosnippet>294</a>		}
