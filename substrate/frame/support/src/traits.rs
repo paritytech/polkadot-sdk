@@ -94,12 +94,10 @@ pub use hooks::{
 pub mod schedule;
 pub mod time_schedule;
 mod storage;
-#[cfg(feature = "experimental")]
-pub use storage::MaybeConsideration;
 pub use storage::{
 	Consideration, ConstantStoragePrice, Disabled, Footprint, Incrementable, Instance,
-	LinearStoragePrice, NoDrop, PartialStorageInfoTrait, StorageInfo, StorageInfoTrait,
-	StorageInstance, SuppressedDrop, TrackedStorageKey, WhitelistedStorageKeys,
+	LinearStoragePrice, MaybeConsideration, NoDrop, PartialStorageInfoTrait, StorageInfo,
+	StorageInfoTrait, StorageInstance, SuppressedDrop, TrackedStorageKey, WhitelistedStorageKeys,
 };
 
 mod dispatch;
