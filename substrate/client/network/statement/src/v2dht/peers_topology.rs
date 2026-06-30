@@ -172,7 +172,7 @@ impl PeersTopology {
 			index: self.discovered_index.clone(),
 			local_peer: self.local_peer,
 			local_key: self.local_key,
-			replication_factor: self.config.replication_factor.get(),
+			replication_factor: self.config.replication_factor,
 		}
 	}
 
@@ -300,12 +300,12 @@ pub struct DhtAffinity {
 	index: PeersIndex,
 	local_peer: PeerId,
 	local_key: Key,
-	replication_factor: usize,
+	replication_factor: NonZeroUsize,
 }
 
 impl DhtAffinity {
 	/// An oracle that knows no peers yet, so the local node is the sole replica for every topic.
-	pub fn empty(local_peer: PeerId, replication_factor: usize) -> Self {
+	pub fn empty(local_peer: PeerId, replication_factor: NonZeroUsize) -> Self {
 		Self {
 			index: PeersIndex::default(),
 			local_peer,
@@ -320,15 +320,16 @@ impl DhtAffinity {
 		stmt.topics().iter().any(|topic| {
 			let topic = *topic;
 			let local_distance = xor_distance(*topic, self.local_key);
+			let replication_factor = self.replication_factor.get();
 			let closer_count = self
 				.index
 				.closest(*topic)
 				.take_while(|(peer, key)| {
 					(xor_distance(*topic, *key), *peer) < (local_distance, self.local_peer)
 				})
-				.take(self.replication_factor)
+				.take(replication_factor)
 				.count();
-			closer_count < self.replication_factor
+			closer_count < replication_factor
 		})
 	}
 }

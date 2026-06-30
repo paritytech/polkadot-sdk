@@ -87,7 +87,7 @@ pub(crate) fn build_statement_store<
 		})
 	};
 	let retention =
-		sc_network_statement::RetentionHandle::new(network.local_peer_id(), replication_factor.get());
+		sc_network_statement::RetentionHandle::new(network.local_peer_id(), replication_factor);
 	if sc_network_statement::v2dht_enabled() {
 		statement_store.set_retention_resolver(retention.resolver());
 	}

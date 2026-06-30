@@ -831,12 +831,18 @@ impl Store {
 
 	/// Install the resolver that derives the retention mask for each submitted statement.
 	///
-	/// Without it, the store persists every submission.
+	/// Without it, the store persists every submission. Installation is first-wins: the resolver is
+	/// wired once at node startup, so a second install means a wiring bug and is rejected loudly.
 	pub fn set_retention_resolver(
 		&self,
 		resolver: Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync>,
 	) {
-		let _ = self.retention_fn.set(resolver);
+		if self.retention_fn.set(resolver).is_err() {
+			log::error!(
+				target: LOG_TARGET,
+				"retention resolver already installed; ignoring the second install (wiring bug)",
+			);
+		}
 	}
 
 	/// Create memory index from the data.
@@ -2137,6 +2143,19 @@ mod tests {
 
 		assert_eq!(store.submit(statement, StatementSource::Local), SubmitResult::New);
 		assert!(store.has_statement(&hash));
+	}
+
+	#[test]
+	fn set_retention_resolver_is_first_wins() {
+		let (store, _temp) = test_store();
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
+		// The second install is rejected; the first resolver stays in force.
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::persistent()));
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+
+		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+		assert!(!store.has_statement(&hash), "the first, transient resolver still applies");
 	}
 
 	#[test]

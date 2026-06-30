@@ -802,7 +802,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	};
 	let retention = sc_network_statement::RetentionHandle::new(
 		network.local_peer_id(),
-		statement_replication_factor.get(),
+		statement_replication_factor,
 	);
 	if sc_network_statement::v2dht_enabled() {
 		statement_store.set_retention_resolver(retention.resolver());

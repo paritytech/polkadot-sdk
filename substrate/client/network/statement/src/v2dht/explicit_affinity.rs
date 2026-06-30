@@ -232,7 +232,7 @@ impl ExplicitAffinity {
 	}
 }
 
-// TODO: Rewrite this oracles as a general interface for not PoC
+// TODO: Replace these ad-hoc oracles with an interface before this leaves PoC.
 /// Standalone explicit-affinity oracle: the local topic set, shared with the store so it decides
 /// retention without the full [`ExplicitAffinity`].
 #[derive(Clone, Default)]
@@ -423,6 +423,10 @@ mod tests {
 
 		assert!(affinity.is_affine(&statement_on(topic(1))));
 		assert!(!affinity.is_affine(&statement_on(topic(2))));
+
+		let mut topicless = Statement::new();
+		topicless.set_plain_data(b"broadcast".to_vec());
+		assert!(!affinity.is_affine(&topicless), "a topicless statement is never affine");
 	}
 
 	#[test]

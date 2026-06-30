@@ -35,6 +35,7 @@ use sc_network_types::PeerId;
 use sp_statement_store::{Hash, RetentionReasonMask, Statement, SubmitResult, Topic};
 use std::{
 	collections::{HashMap, HashSet},
+	num::NonZeroUsize,
 	sync::{Arc, RwLock},
 };
 
@@ -47,9 +48,9 @@ pub struct RetentionHandle {
 }
 
 impl RetentionHandle {
-	/// A handle seeded with an empty topology, so its resolver persists everything until the
-	/// orchestrator publishes the learned affinity.
-	pub fn new(local_peer: PeerId, replication_factor: usize) -> Self {
+	/// A handle seeded with an empty topology, so its resolver persists every statement carrying a
+	/// topic until the orchestrator publishes the learned affinity.
+	pub fn new(local_peer: PeerId, replication_factor: NonZeroUsize) -> Self {
 		Self {
 			dht_affinity: Arc::new(RwLock::new(DhtAffinity::empty(local_peer, replication_factor))),
 			topic_affinity: Arc::new(RwLock::new(TopicAffinity::default())),
@@ -61,9 +62,11 @@ impl RetentionHandle {
 		let dht_affinity = self.dht_affinity.clone();
 		let topic_affinity = self.topic_affinity.clone();
 		Box::new(move |stmt| {
-			// A poisoned lock can't happen (the writers never panic); persist defensively if it
-			// does, since dropping a statement is worse than keeping one.
 			let (Ok(dht), Ok(topics)) = (dht_affinity.read(), topic_affinity.read()) else {
+				log::error!(
+					target: LOG_TARGET,
+					"v2dht: retention affinity lock poisoned; persisting statement defensively",
+				);
 				return RetentionReasonMask::persistent();
 			};
 			let mut mask = RetentionReasonMask::TRANSIENT;
@@ -128,6 +131,10 @@ impl V2DhtOrchestrator {
 	/// Install the handle the store reads to decide statement retention.
 	pub(crate) fn set_retention_handle(&mut self, handle: RetentionHandle) {
 		self.retention = Some(handle);
+		// Seed both oracles from the current state so configured topics and the learned topology
+		// drive retention before the first peer or subscription event publishes them.
+		self.publish_dht_affinity();
+		self.publish_topic_affinity();
 	}
 
 	/// Refresh the store's DHT-affinity oracle
@@ -307,7 +314,7 @@ impl V2DhtOrchestrator {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::test_helpers::{filter_over, peer, statement_on, topic, topology_config};
+	use crate::test_helpers::{filter_over, nz, peer, statement_on, topic, topology_config};
 
 	fn orchestrator() -> V2DhtOrchestrator {
 		V2DhtOrchestrator::new(
@@ -414,15 +421,14 @@ mod tests {
 	#[test]
 	fn resolver_persists_with_an_empty_seeded_topology() {
 		// Knowing no peers, the local node is the sole replica for every topic, so it persists.
-		assert!(
-			RetentionHandle::new(peer(1), 1).resolver()(&statement_on(topic(1))).is_persistent()
-		);
+		assert!(RetentionHandle::new(peer(1), nz(1)).resolver()(&statement_on(topic(1)))
+			.is_persistent());
 	}
 
 	#[test]
 	fn resolver_marks_explicit_affinity() {
 		let (dht, topic) = dht_without_local_affinity();
-		let handle = RetentionHandle::new(peer(1), 1);
+		let handle = RetentionHandle::new(peer(1), nz(1));
 		handle.set_dht_affinity(dht);
 		handle.set_topic_affinity(ExplicitAffinity::new(&[topic]).topic_affinity());
 
@@ -436,7 +442,7 @@ mod tests {
 	#[test]
 	fn resolver_marks_dht_affinity_when_local_is_a_replica() {
 		// An empty topology makes the local node a replica for every topic.
-		let handle = RetentionHandle::new(peer(1), 1);
+		let handle = RetentionHandle::new(peer(1), nz(1));
 		handle.set_dht_affinity(PeersTopology::new(peer(1), topology_config(20, 1)).dht_affinity());
 
 		let mask = handle.resolver()(&statement_on(topic(9)));
@@ -448,7 +454,7 @@ mod tests {
 	#[test]
 	fn resolver_is_transient_without_any_affinity() {
 		let (dht, topic) = dht_without_local_affinity();
-		let handle = RetentionHandle::new(peer(1), 1);
+		let handle = RetentionHandle::new(peer(1), nz(1));
 		handle.set_dht_affinity(dht);
 
 		assert_eq!(handle.resolver()(&statement_on(topic)), RetentionReasonMask::TRANSIENT);
@@ -463,7 +469,7 @@ mod tests {
 			"/statement/test".into(),
 			None,
 		);
-		let handle = RetentionHandle::new(peer(1), 1);
+		let handle = RetentionHandle::new(peer(1), nz(1));
 		orchestrator.set_retention_handle(handle.clone());
 
 		// Identify enough peers that the local node loses DHT affinity for some topic; each
@@ -480,6 +486,60 @@ mod tests {
 			.find(|topic| !dht.is_affine(&statement_on(*topic)))
 			.expect("199 peers leave some topic without local DHT affinity");
 		assert_eq!(handle.resolver()(&statement_on(non_affine)), RetentionReasonMask::TRANSIENT);
+	}
+
+	#[test]
+	fn set_retention_handle_publishes_configured_topics() {
+		// Configured topics must drive retention from the moment the handle is installed, before
+		// any peer or subscription event.
+		let mut orchestrator = V2DhtOrchestrator::new(
+			&[topic(1)],
+			peer(1),
+			topology_config(1, 1),
+			"/statement/test".into(),
+			None,
+		);
+		let handle = RetentionHandle::new(peer(1), nz(1));
+		orchestrator.set_retention_handle(handle.clone());
+
+		assert!(handle.resolver()(&statement_on(topic(1)))
+			.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+	}
+
+	#[test]
+	fn set_rpc_subscription_topics_publishes_topic_affinity() {
+		let mut orchestrator = V2DhtOrchestrator::new(
+			&[],
+			peer(1),
+			topology_config(1, 1),
+			"/statement/test".into(),
+			None,
+		);
+		let handle = RetentionHandle::new(peer(1), nz(1));
+		orchestrator.set_retention_handle(handle.clone());
+		assert!(!handle.resolver()(&statement_on(topic(1)))
+			.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+
+		// A subscription change reaches the store's oracle.
+		orchestrator.set_rpc_subscription_topics(&HashSet::from([topic(1)]));
+
+		assert!(handle.resolver()(&statement_on(topic(1)))
+			.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+	}
+
+	#[test]
+	fn resolver_marks_both_affinities() {
+		// An empty topology makes the local node a DHT replica for every topic; configure the same
+		// topic so both retention reasons hold at once.
+		let handle = RetentionHandle::new(peer(1), nz(1));
+		handle.set_dht_affinity(PeersTopology::new(peer(1), topology_config(20, 1)).dht_affinity());
+		handle.set_topic_affinity(ExplicitAffinity::new(&[topic(9)]).topic_affinity());
+
+		let mask = handle.resolver()(&statement_on(topic(9)));
+
+		assert!(mask.contains(RetentionReasonMask::DHT_AFFINITY));
+		assert!(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+		assert!(mask.is_persistent());
 	}
 
 	#[test]

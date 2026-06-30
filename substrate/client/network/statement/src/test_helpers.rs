@@ -28,6 +28,11 @@ pub(crate) fn topic(n: u8) -> Topic {
 	Topic([n; 32])
 }
 
+/// A `NonZeroUsize`, for terse test fixtures.
+pub(crate) fn nz(n: usize) -> NonZeroUsize {
+	NonZeroUsize::new(n).expect("non-zero")
+}
+
 /// A deterministic peer whose identity multihash is seeded by `seed`.
 pub(crate) fn peer(seed: u8) -> PeerId {
 	let mut bytes = [seed; 34];
