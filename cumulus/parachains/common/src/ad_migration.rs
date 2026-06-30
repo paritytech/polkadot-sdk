@@ -40,21 +40,9 @@ use frame_support::{
 	traits::Get,
 	weights::WeightMeter,
 };
-#[cfg(feature = "try-runtime")]
-use frame_support::{pallet_prelude::OptionQuery, Twox64Concat};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_runtime::{traits::OpaqueKeys, KeyTypeId, RuntimeAppPublic};
-
-#[cfg(feature = "try-runtime")]
-#[frame_support::storage_alias]
-type OldNextKeys<R: pallet_session::Config> = StorageMap<
-	pallet_session::Pallet<R>,
-	Twox64Concat,
-	<R as pallet_session::Config>::ValidatorId,
-	AuraId,
-	OptionQuery,
->;
 
 const LOG_TARGET: &str = "runtime::ad_migration";
 
@@ -192,9 +180,16 @@ where
 			));
 		}
 
-		// Snapshot all NextKeys entries under the OLD layout.
+		// Snapshot the pre-migration NextKeys, decoding the existing values with the same
+		// `OldSessionKeys` type that `upgrade_keys` consumes.
 		let next_keys_state: Vec<(<R as pallet_session::Config>::ValidatorId, AuraId)> =
-			OldNextKeys::<R>::iter().collect();
+			pallet_session::NextKeys::<R>::iter_keys()
+				.filter_map(|id| {
+					let key = pallet_session::NextKeys::<R>::hashed_key_for(&id);
+					frame_support::storage::unhashed::get::<OldSessionKeys>(&key)
+						.map(|old| (id, old.aura))
+				})
+				.collect();
 
 		log::info!(
 			target: LOG_TARGET,
