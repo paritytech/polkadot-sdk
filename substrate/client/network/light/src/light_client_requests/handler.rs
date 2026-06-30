@@ -130,8 +130,8 @@ where
 				// metadata format (what newer clients fetch). The probe also compiles the current
 				// runtime, so the timed iterations are warm.
 				const METADATA_BENCH_ITERS: usize = 100;
-				const MAX_WAIT_ATTEMPTS: usize = 240; // ~20 min at 5s; covers warp sync
-				for attempt in 1..=MAX_WAIT_ATTEMPTS {
+				// No attempt cap: warp sync on big chains (e.g. Moonbeam) can take tens of minutes.
+				loop {
 					let hash = client.info().best_hash;
 					let number = client.info().best_number;
 
@@ -145,8 +145,8 @@ where
 						Err(e) => {
 							debug!(
 								target: LOG_TARGET,
-								"light-metadata-bench: waiting for synced runtime (attempt {}/{}, best {:?}): {}",
-								attempt, MAX_WAIT_ATTEMPTS, hash, e,
+								"light-metadata-bench: waiting for synced runtime (best {:?}): {}",
+								hash, e,
 							);
 							std::thread::sleep(Duration::from_secs(5));
 							continue;
@@ -215,7 +215,19 @@ where
 							chain, version, samples[0], pct(50), pct(90), samples[n - 1],
 						);
 					}
-					break;
+
+					// Terminate the node after the benchmark so the operator can move to the next
+					// chain without Ctrl-C — but only when this is NOT a relay chain. On a parachain
+					// node the in-process relay chain runs this handler too; relay chains expose the
+					// no-arg `ParachainHost::validators` API while parachains/solo chains don't, so a
+					// successful probe means "relay" and we leave that node running.
+					let is_relay =
+						client.execution_proof(hash, "ParachainHost_validators", &[]).is_ok();
+					if is_relay {
+						info!(target: LOG_TARGET, "light-metadata-bench: relay chain detected, leaving node running");
+						break;
+					}
+					std::process::exit(0);
 				}
 			}
 			.boxed(),
