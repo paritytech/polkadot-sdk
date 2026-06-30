@@ -2447,12 +2447,13 @@ async fn concurrent_finalization_of_change_block_doesnt_panic() {
 	// chain" guard and returns `Ok(())` — while `import_justification` was told the
 	// block enacts a change (`enacts_change == true`), tripping the assertion.
 	//
-	// The fix holds the authority set lock across both the verification and the
-	// finalization, so the two are atomic with respect to any other finalizer. This
-	// test drives two finalizers at the same change block concurrently; with the lock
-	// held continuously neither can observe an inconsistent (verified-old-set but
-	// already-finalized) state, so the node must not panic and the change must be
-	// enacted exactly once.
+	// The fix decodes the justification without holding the authority-set lock and
+	// verifies it under the lock used for finalization. This test drives two
+	// drives two justification importers at the same change block concurrently. It
+	// does not force the exact historical interleaving, but it checks the intended
+	// stable outcome: one importer enacts the change, while the importer that lost
+	// the race observes its old-set justification as stale instead of panicking or
+	// finalizing the change twice.
 	let peers = &[Ed25519Keyring::Alice];
 	let voters = make_ids(peers);
 	let api = TestApi::new(voters);
@@ -2523,14 +2524,14 @@ async fn concurrent_finalization_of_change_block_doesnt_panic() {
 	};
 	let justification = justification.encode();
 
-	// Drive two finalizers at the same change block concurrently:
-	//  - one with `enacts_change = false`, standing in for the voter / a sync justification import
-	//    that finalizes the block and enacts the change;
+	// Drive two justification importers at the same change block concurrently:
+	//  - one with `enacts_change = false`, standing in for a sync justification import that
+	//    finalizes the block and enacts the change;
 	//  - one with `enacts_change = true`, standing in for the block-import path that expects to
 	//    enact the change and which carries the assertion.
-	// Both go through `finalize_block` against the same shared authority set. Without
-	// the lock held across verification + finalization the `enacts_change = true`
-	// path could verify against set 0, get overtaken, and then trip the assertion.
+	// Both go through `finalize_block` against the same shared authority set. The
+	// `enacts_change = true` path must not be able to verify against set 0, get
+	// overtaken, and then trip the assertion.
 	let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
 
 	let other_finalizer = {

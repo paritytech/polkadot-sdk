@@ -1370,11 +1370,11 @@ where
 /// must be held for the whole duration of finalization (i.e. through writing to
 /// the DB) to avoid races, and it also implicitly synchronizes the check for the
 /// last finalized number below. Crucially, callers that take a decision based on
-/// the authority set state *before* calling this function (e.g. verifying a
+/// authority-set state *before* calling this function (e.g. verifying a
 /// justification against the current set id, or computing whether a block enacts
-/// a change) must acquire the lock before that decision and keep holding it when
-/// calling here, so that the decision and its enactment are atomic with respect
-/// to other finalizers (e.g. the voter).
+/// a change) must either keep holding the lock or revalidate that authority-set
+/// state after re-acquiring it before calling here, so that the decision and its
+/// enactment are consistent with respect to other finalizers (e.g. the voter).
 pub(crate) fn finalize_block<BE, Block, Client>(
 	client: Arc<Client>,
 	mut authority_set: MappedMutexGuard<'_, AuthoritySet<Block::Hash, NumberFor<Block>>>,

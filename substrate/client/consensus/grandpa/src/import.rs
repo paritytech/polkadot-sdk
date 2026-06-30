@@ -799,36 +799,25 @@ where
 			return Ok(());
 		}
 
-		// Hold the authority set lock for the whole verification + finalization
-		// sequence. This makes the check we perform here (verifying the
-		// justification against the current set id) atomic with respect to the
-		// finalization that `environment::finalize_block` applies below. Without
-		// holding it continuously, another finalizer (e.g. the voter acting on a
-		// gossiped commit) could finalize this same block in the window between
-		// the verification and `finalize_block` re-acquiring the lock, after
-		// which `finalize_block` would short-circuit on its "already finalized"
-		// guard and report no change to enact even though `enacts_change` was
-		// `true` — previously tripping the assertion below.
+		// Decode without holding the authority-set lock; verification must happen
+		// under the lock so it is atomic with the finalization below.
+		let justification = GrandpaJustification::decode(&justification.1)
+			.map_err(|e| ConsensusError::ClientImport(e.to_string()))?;
+
 		let authority_set = self.authority_set.inner();
 
-		let justification = GrandpaJustification::decode_and_verify_finalizes(
-			&justification.1,
-			(hash, number),
-			authority_set.set_id,
-			&authority_set.current_voter_set(),
-		);
-
-		let justification = match justification {
-			Err(e) => {
-				return match e {
-					sp_blockchain::Error::OutdatedJustification => {
-						Err(ConsensusError::OutdatedJustification)
-					},
-					_ => Err(ConsensusError::ClientImport(e.to_string())),
-				};
-			},
-			Ok(justification) => justification,
-		};
+		justification
+			.verify_finalizes(
+				(hash, number),
+				authority_set.set_id,
+				&authority_set.current_voter_set(),
+			)
+			.map_err(|e| match e {
+				sp_blockchain::Error::OutdatedJustification => {
+					ConsensusError::OutdatedJustification
+				},
+				_ => ConsensusError::ClientImport(e.to_string()),
+			})?;
 
 		let result = environment::finalize_block(
 			self.inner.clone(),
@@ -868,15 +857,9 @@ where
 				})
 			},
 			Ok(_) => {
-				// Holding the authority set lock across the justification verification
-				// above and this finalization makes the two atomic: a concurrent
-				// finalizer (e.g. the voter acting on a gossiped commit) can no longer
-				// finalize this block in between. Either it finalized the block before
-				// we took the lock — bumping the set id, so verification above failed
-				// with `OutdatedJustification` and we never get here — or we hold the
-				// lock first, in which case the pending change is still present and
-				// `finalize_block` enacts it (returning a `VoterCommand` above). Hence
-				// reaching this arm with `enacts_change` set would be a genuine bug.
+				// Verification above and finalization below share the same authority-set
+				// lock, so a competing finalizer cannot advance the set in between.
+				// Reaching this arm with `enacts_change` set would be a genuine bug.
 				assert!(
 					!enacts_change,
 					"returns Ok when no authority set change should be enacted; qed;"
