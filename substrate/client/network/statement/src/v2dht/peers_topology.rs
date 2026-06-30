@@ -321,6 +321,9 @@ impl DhtAffinity {
 			let topic = *topic;
 			let local_distance = xor_distance(*topic, self.local_key);
 			let replication_factor = self.replication_factor.get();
+			// The descent yields candidates in `(distance, peer)` order, so the candidates ranked
+			// before the local node form a prefix; the local node is a replica when that prefix is
+			// shorter than the replication factor.
 			let closer_count = self
 				.index
 				.closest(*topic)
