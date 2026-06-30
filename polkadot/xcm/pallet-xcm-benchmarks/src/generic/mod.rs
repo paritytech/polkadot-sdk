@@ -104,7 +104,7 @@ pub mod pallet {
 		/// dimension: this method returns the `ref_time`-dominant message and
 		/// [`Self::worst_case_barrier_check_proof_size`] the `proof_size`-dominant one. Both
 		/// `barrier_check_*` benchmarks measure a full `Weight`, which the runtime combines with a
-		/// component-wise [`Weight::max`](sp_weights::Weight::max). If one message is worst in both
+		/// component-wise [`Weight::max`](frame_support::pallet_prelude::Weight::max). If one message is worst in both
 		/// dimensions, implement only one method and leave the other `Err(Skip)`.
 		///
 		/// If set to `Err`, the `barrier_check_ref_time` benchmark will be skipped.
