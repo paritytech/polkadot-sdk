@@ -92,10 +92,6 @@ fn layout_matches<R: pallet_session::Config>() -> bool {
 }
 
 /// Extend `pallet_session` session-key records with an authority-discovery placeholder.
-///
-/// Implemented as a single-step [`SteppedMigration`]: it completes in exactly one
-/// [`step`](SteppedMigration::step) and returns a `None` cursor, after which the
-/// multi-block migration framework records it as done and never calls it again.
 pub struct AppendAuthorityDiscoveryKeys<R>(PhantomData<R>);
 
 impl<R> SteppedMigration for AppendAuthorityDiscoveryKeys<R>
