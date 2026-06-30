@@ -48,14 +48,19 @@ use pallet_revive::{
 		Account, Block, BlockHeader, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag,
 		BoundedOneOrMany, Filter, FilterResults, GenericTransaction, H256,
 		HashesOrTransactionInfos, Log, SubscriptionItem, SubscriptionKind, SubscriptionOptions,
-		Trace, TransactionInfo, TransactionUnsigned, U256,
+		TransactionInfo, TransactionUnsigned, U256,
 	},
 	precompiles::alloy::{
 		self,
-		sol_types::{SolCall, SolConstructor, SolEvent},
+		sol_types::{SolCall, SolConstructor, SolEvent, SolInterface},
 	},
 };
 use pallet_revive_fixtures::{Callee, Counter, TwoSlots};
+use pallet_revive_types::runtime_api::{
+	CallTracerConfigV1, TraceBlockInputPayloadV1, TraceBlockInputPayloadV2,
+	TraceBlockVersionedInputPayload, TraceBlockVersionedOutputPayload, TraceV1, TraceV2,
+	TracerTypeV1,
+};
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::{sync::Arc, thread};
@@ -344,6 +349,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 
 	run_tests!(
 		test_fibonacci_call_via_runtime_api,
+		test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input,
 		test_transfer,
 		test_deploy_and_call,
 		test_receipt_mixed_revert_and_logs_same_block,
@@ -989,7 +995,7 @@ async fn test_earliest_block_tag() -> anyhow::Result<()> {
 	let trace =
 		DebugRpcClient::trace_call(&*client, tx.clone(), BlockTag::Earliest.into(), None).await?;
 	assert!(
-		matches!(trace, Trace::Call(_) | Trace::Execution(_)),
+		matches!(trace, TraceV1::Call(_) | TraceV1::Execution(_)),
 		"traceCall should return a trace"
 	);
 
@@ -1839,6 +1845,111 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 	assert!(result.is_ok(), "Runtime API call failed: {result:?}");
 	let call_result = result.unwrap();
 	assert!(call_result.result.is_err(), "fib(100) should run out of gas");
+
+	Ok(())
+}
+
+async fn test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input()
+-> anyhow::Result<()> {
+	use pallet_revive_fixtures::Host;
+
+	type SubstrateTracingBlock = sp_runtime::generic::Block<
+		sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
+		sp_runtime::OpaqueExtrinsic,
+	>;
+
+	let client = Arc::new(SharedResources::client().await);
+	let node_client = SharedResources::node_client().await;
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Host",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let deploy_receipt = TransactionBuilder::new(client.clone())
+		.input(code)
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	let contract_address = deploy_receipt
+		.contract_address
+		.ok_or_else(|| anyhow!("deployment should return a contract address"))?;
+
+	let receipt = TransactionBuilder::new(client)
+		.to(contract_address)
+		.input(Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode())
+		.gas(U256::from(1_000_000))
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	assert!(receipt.is_success());
+	assert_eq!(receipt.logs.len(), 5);
+
+	let receipt_block_number = u32::try_from(receipt.block_number)
+		.map_err(|_| anyhow!("receipt block number should fit in u32"))?;
+	let subxt_block = node_client.blocks().at_latest().await?;
+	assert_eq!(subxt_block.number(), receipt_block_number);
+
+	let parent_hash = subxt_block.header().parent_hash;
+	let header = codec::Decode::decode(&mut &codec::Encode::encode(subxt_block.header())[..])?;
+	let extrinsics = subxt_block
+		.extrinsics()
+		.await?
+		.iter()
+		.map(|extrinsic| sp_runtime::OpaqueExtrinsic::try_from_encoded_extrinsic(extrinsic.bytes()))
+		.collect::<Result<Vec<_>, _>>()?;
+	let block = SubstrateTracingBlock { header, extrinsics };
+	let config = TracerTypeV1::CallTracer(Some(CallTracerConfigV1 {
+		with_logs: true,
+		only_top_call: false,
+	}));
+
+	let v1_input = TraceBlockVersionedInputPayload::V1(TraceBlockInputPayloadV1 {
+		block: subxt::utils::Static(block.clone()),
+		config: config.clone(),
+	});
+	let v1_payload = subxt_client::apis()
+		.revive_api()
+		.trace_block_versioned(subxt::utils::Static(v1_input))
+		.unvalidated();
+	let v1_output = node_client.runtime_api().at(parent_hash).call(v1_payload).await?.0;
+	let TraceBlockVersionedOutputPayload::V1(v1_output) = v1_output else {
+		return Err(anyhow!("V1 trace_block input should return V1 output"));
+	};
+	let (_, trace_v1) = v1_output
+		.traces
+		.into_iter()
+		.find(|(_, trace)| matches!(trace, TraceV1::Call(call) if !call.logs.is_empty()))
+		.ok_or_else(|| anyhow!("V1 output should include a call trace with logs"))?;
+	let TraceV1::Call(call_v1) = trace_v1 else {
+		return Err(anyhow!("V1 output should include a call trace"));
+	};
+	assert_eq!(call_v1.logs.len(), 5);
+	assert!(serde_json::to_value(&call_v1.logs[0])?.get("index").is_none());
+
+	let v2_input = TraceBlockVersionedInputPayload::V2(TraceBlockInputPayloadV2 {
+		block: subxt::utils::Static(block),
+		config,
+	});
+	let v2_payload = subxt_client::apis()
+		.revive_api()
+		.trace_block_versioned(subxt::utils::Static(v2_input))
+		.unvalidated();
+	let v2_output = node_client.runtime_api().at(parent_hash).call(v2_payload).await?.0;
+	let TraceBlockVersionedOutputPayload::V2(v2_output) = v2_output else {
+		return Err(anyhow!("V2 trace_block input should return V2 output"));
+	};
+	let (_, trace_v2) = v2_output
+		.traces
+		.into_iter()
+		.find(|(_, trace)| matches!(trace, TraceV2::Call(call) if !call.logs.is_empty()))
+		.ok_or_else(|| anyhow!("V2 output should include a call trace with logs"))?;
+	let TraceV2::Call(call_v2) = trace_v2 else {
+		return Err(anyhow!("V2 output should include a call trace"));
+	};
+	let indexes = call_v2.logs.iter().map(|log| log.index).collect::<Vec<_>>();
+	assert_eq!(indexes, vec![3, 4, 5, 6, 7]);
 
 	Ok(())
 }

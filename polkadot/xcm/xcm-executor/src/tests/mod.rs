@@ -21,6 +21,7 @@
 //! These tests deal with internal state changes of the XCVM.
 
 mod barrier_weight;
+mod deposit_with_retry;
 mod initiate_transfer;
 pub(crate) mod mock;
 mod pay_fees;
