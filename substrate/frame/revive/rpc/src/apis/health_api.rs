@@ -71,33 +71,28 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 			},
 		};
 
-		// Best and finalized come from independent subscriptions that update out of order, and best
-		// isn't gap-filled (finalized is), so the best cache can trail finalized. Take the higher.
-		let latest = self
-			.client
-			.latest_block()
-			.await
-			.number()
-			.max(self.client.latest_finalized_block().await.number());
+		let local_best = self.client.latest_block().await;
 
 		// The node's block import is usually steady, but can come in bursts; tolerate ~4 minutes
 		// of drift before reporting unhealthy.
 		const MAX_BLOCK_DRIFT: u32 = 128;
-		if sync_state.current_block > latest.saturating_add(MAX_BLOCK_DRIFT) {
+		if sync_state.current_block > local_best.number().saturating_add(MAX_BLOCK_DRIFT) {
 			log::warn!(
 				target: LOG_TARGET,
-				"Client is out of sync. Current block: {}, latest cache block: {latest}",
+				"Client is out of sync. Node best: #{}, local best: #{}",
 				sync_state.current_block,
+				local_best.number(),
 			);
 			return Err(ErrorCode::InternalError.into());
 		}
 
 		log::debug!(
 			target: LOG_TARGET,
-			"Client is in sync. peers: {}, is_syncing: {}, should_have_peers: {}, latest cache block: {latest}, current block: {}",
+			"Client is in sync. peers: {}, is_syncing: {}, should_have_peers: {}, local best: #{}, node best: #{}",
 			health.peers,
 			health.is_syncing,
 			health.should_have_peers,
+			local_best.number(),
 			sync_state.current_block,
 		);
 
