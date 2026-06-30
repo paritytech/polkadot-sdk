@@ -1,37 +1,28 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// The test sets up a network with 4 validators and 1 collator, then changes the slot duration
-// of the parachain at runtime via `pallet_parameters::set_parameter` (the slot-duration setting
-// used to ship as a separate WASM blob — `slot_duration_18s` — that the test installed via
-// `set_code`; after the consensus-parameter refactor it is a dynamic runtime parameter). To
-// still exercise the runtime-upgrade path (PVF preparation, spec_version change), the test
-// also performs a `set_code` upgrade to the `spec_version_incremented` WASM. The test
-// verifies that the relay chain is working and finalizing, and the parachain is producing
-// blocks with the new slot duration.
+// The test sets up a network with 4 validators and 1 collator, then performs a runtime upgrade
+// of the parachain to a runtime with an increased version that runs an `OnRuntimeUpgrade`
+// migration writing `SlotDurationMillis = 18000` into `pallet_parameters::Parameters`. It
+// waits for the upgrade to complete and verifies that the relay chain is working and
+// finalizing, and the parachain is producing blocks with the new slot duration.
 
 use crate::utils::initialize_network;
 use anyhow::anyhow;
-use cumulus_test_runtime::spec_version_incremented::WASM_BINARY as WASM_SPEC_VERSION_INCREMENTED;
+use cumulus_test_runtime::slot_duration_18s::WASM_BINARY as WASM_WITH_SLOT_DURATION_18S;
 use cumulus_zombienet_sdk_helpers::{
-	assert_blocks_are_being_finalized, assert_para_throughput,
-	submit_extrinsic_and_wait_for_finalization_success, submit_sudo_runtime_upgrade,
+	assert_blocks_are_being_finalized, assert_para_throughput, submit_sudo_runtime_upgrade,
 	wait_for_pvf_prepare, wait_for_runtime_upgrade,
 };
 use futures::StreamExt;
 use polkadot_primitives::Id as ParaId;
 use zombienet_sdk::{
-	subxt::{
-		ext::scale_value::value,
-		tx::{dynamic, DynamicPayload},
-		OnlineClient, PolkadotConfig,
-	},
+	subxt::{OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder,
 };
 
 const PARA_ID: u32 = 2000;
-const TARGET_SLOT_DURATION_MS: u64 = 18_000;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Error> {
@@ -49,30 +40,13 @@ async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Err
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let collator_client: OnlineClient<PolkadotConfig> = collator_node.wait_client().await?;
 
+	let wasm = WASM_WITH_SLOT_DURATION_18S
+		.expect("WASM binary for slot-duration-18s runtime should be available");
+
 	let initial_slot_duration = get_slot_duration(&collator_client).await?;
-	log::info!("Initial slot duration: {initial_slot_duration} ms");
 
-	// 1. Change the slot duration at runtime via `pallet_parameters::set_parameter`. Today the
-	//    runtime ships a single WASM blob whose consensus parameters are configurable from
-	//    storage; this used to require a dedicated `slot_duration_18s` WASM.
-	let alice = dev::alice();
-	let set_slot_duration_call =
-		sudo_set_consensus_slot_duration_millis_call(TARGET_SLOT_DURATION_MS);
-	log::info!("Submitting sudo set_parameter(SlotDurationMillis = {TARGET_SLOT_DURATION_MS})");
-	submit_extrinsic_and_wait_for_finalization_success(
-		&collator_client,
-		&set_slot_duration_call,
-		&alice,
-	)
-	.await?;
-
-	// 2. Perform a no-behaviour `set_code` upgrade to the spec-version-incremented WASM so the
-	//    test still exercises the PVF preparation and runtime-upgrade paths that the prior
-	//    variant WASM provided.
-	let wasm = WASM_SPEC_VERSION_INCREMENTED
-		.expect("WASM binary for spec_version_incremented runtime should be available");
-	log::info!("Performing runtime upgrade for parachain {PARA_ID}");
-	submit_sudo_runtime_upgrade(&collator_client, wasm, &alice).await?;
+	log::info!("Performing runtime upgrade for parachain {}", PARA_ID);
+	submit_sudo_runtime_upgrade(&collator_client, wasm, &dev::alice()).await?;
 
 	let block_hash_of_upgrade = wait_for_runtime_upgrade(&collator_client).await?;
 
@@ -94,13 +68,14 @@ async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Err
 	let slot_duration = get_slot_duration(&collator_client).await?;
 	assert_ne!(
 		initial_slot_duration, slot_duration,
-		"Slot duration should have changed after the parameter update"
+		"Slot duration should have changed between the runtime upgrades"
 	);
 	assert_eq!(
-		slot_duration, TARGET_SLOT_DURATION_MS,
-		"Expected slot duration to be {TARGET_SLOT_DURATION_MS} ms, but got {slot_duration} ms",
+		slot_duration, 18000,
+		"Expected slot duration to be 18000 ms (18 seconds), but got {} ms",
+		slot_duration
 	);
-	log::info!("Slot duration verified: {slot_duration} ms");
+	log::info!("Slot duration verified: {} ms", slot_duration);
 
 	log::info!("Checking that parachain continues producing blocks after upgrade...");
 
@@ -112,18 +87,6 @@ async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Err
 	log::info!("Checking that relay chain is finalizing blocks...");
 	assert_blocks_are_being_finalized(&relay_client).await?;
 	Ok(())
-}
-
-/// Build a `Sudo::sudo(Parameters::set_parameter(Consensus::SlotDurationMillis(Some(value))))`
-/// dynamic extrinsic for the `cumulus-test-runtime`.
-///
-/// The shape of the inner `RuntimeParameters` value mirrors the enum that `#[dynamic_params]`
-/// generates in `cumulus/test/runtime/src/lib.rs`:
-///   `RuntimeParameters::Consensus(consensus::Parameters::SlotDurationMillis(<unit>, Some(v)))`
-fn sudo_set_consensus_slot_duration_millis_call(value_ms: u64) -> DynamicPayload {
-	let runtime_parameter = value!(Consensus(SlotDurationMillis({}, Some(value_ms))));
-	let set_parameter_call = dynamic("Parameters", "set_parameter", vec![runtime_parameter]);
-	dynamic("Sudo", "sudo", vec![set_parameter_call.into_value()])
 }
 
 async fn get_slot_duration(client: &OnlineClient<PolkadotConfig>) -> Result<u64, anyhow::Error> {

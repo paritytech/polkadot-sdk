@@ -143,44 +143,6 @@ pub mod dynamic_params {
 	}
 }
 
-/// Externalities-safe view of [`dynamic_params::consensus::RelayParentOffset`].
-///
-/// `parachain_system::Config::RelayParentOffset` is read by `validate_block` BEFORE trie
-/// externalities are set up (see `validate_block/implementation.rs:147` where
-/// `validate_v3_scheduling` consumes it). A bare `dynamic_params` storage read panics in
-/// that context. This wrapper peeks at whether externalities are set (without holding the
-/// `ext` `RefCell` borrow that would block the inner storage read) and either delegates to
-/// the dynamic-params `Get` impl or falls back to [`consensus_defaults::RELAY_PARENT_OFFSET`].
-///
-/// IMPORTANT: do NOT wrap the inner `RelayParentOffset::get()` inside a
-/// `with_externalities` closure — that holds the `ext` `RefCell` borrow for the closure
-/// duration, and the inner storage read tries to re-borrow the same cell, panicking with
-/// `core::cell::panic_already_borrowed`. Peek-then-act is the only safe shape.
-///
-/// All other dynamic-param `Get<u32>` slots in this runtime are only read INSIDE
-/// externalities (`on_state_proof`, `MaxParachainBlockWeight`, runtime APIs), so they do
-/// not need this guard.
-pub struct ExternalitiesAwareRelayParentOffset;
-impl Get<u32> for ExternalitiesAwareRelayParentOffset {
-	fn get() -> u32 {
-		if externalities_are_set() {
-			dynamic_params::consensus::RelayParentOffset::get()
-		} else {
-			consensus_defaults::RELAY_PARENT_OFFSET
-		}
-	}
-}
-
-/// Returns `true` if a `sp_externalities` scope is currently active on the current thread.
-///
-/// Uses an empty `with_externalities` closure (does no storage access) — the closure
-/// returns immediately, releasing the `ext` `RefCell` borrow before any caller-side code
-/// runs. This is the only safe way to PEEK at externalities availability without blocking
-/// subsequent storage reads.
-fn externalities_are_set() -> bool {
-	sp_externalities::with_externalities(|_| ()).is_some()
-}
-
 /// Computed unincluded-segment capacity, derived from `AllowMultipleBlocksPerSlot`,
 /// `BlockProcessingVelocity`, and `RelayParentOffset`. Returns 1 in sync-backing mode
 /// (no multi-block-per-slot), otherwise `velocity * (3 + relay_parent_offset)`.
@@ -209,17 +171,22 @@ impl Get<u32> for DerivedUnincludedSegmentCapacity {
 // details. Since macro kicks in early, it operates on AST. Thus you cannot use constants.
 // Macros are expanded top to bottom, meaning we also cannot use `cfg` here.
 
-// Three compile-time variants exist for `VERSION`; each is active under exactly one feature
-// combination:
+// Three compile-time variants exist for `VERSION`. Each WASM produced by `build.rs` enables
+// at most one of the variant features; the cfg gates encode the resulting `spec_version`:
 //
-//   default (neither `increment-spec-version` nor `with-authority-discovery`)
-//     → spec_version 2
-//   `increment-spec-version` (without `with-authority-discovery`)
-//     → spec_version 3
-//   `with-authority-discovery`
-//     → spec_version 4  (must be > 2 so a set_code upgrade from default triggers migrations)
+//   default                              → spec_version 2
+//   `increment-spec-version`              → spec_version 3
+//   `slot-duration-18s`                   → spec_version 3 (carries OnRuntimeUpgrade migration)
+//   `elastic-scaling`                     → spec_version 3 (carries OnRuntimeUpgrade migration)
+//   `with-authority-discovery`            → spec_version 4 (must be > 3 so a set_code upgrade
+//                                            from any other variant still triggers migrations)
 
-#[cfg(all(not(feature = "increment-spec-version"), not(feature = "with-authority-discovery"),))]
+#[cfg(not(any(
+	feature = "increment-spec-version",
+	feature = "slot-duration-18s",
+	feature = "elastic-scaling",
+	feature = "with-authority-discovery",
+)))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
@@ -233,7 +200,14 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 3,
 };
 
-#[cfg(all(feature = "increment-spec-version", not(feature = "with-authority-discovery"),))]
+#[cfg(all(
+	any(
+		feature = "increment-spec-version",
+		feature = "slot-duration-18s",
+		feature = "elastic-scaling",
+	),
+	not(feature = "with-authority-discovery"),
+))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
@@ -443,19 +417,8 @@ pub struct NoVerification;
 impl VerifySchedulingSignature for NoVerification {
 	const V3_SCHEDULING_ENABLED: bool = consensus_defaults::SCHEDULING_V3_ENABLED;
 
-	/// `validate_block` calls `T::SchedulingSignatureVerifier::scheduling_v3_enabled()` from
-	/// multiple sites in `parachain-system/src/lib.rs` BEFORE setting up trie externalities
-	/// (see `validate_block/implementation.rs:143`). Mirror
-	/// [`ExternalitiesAwareRelayParentOffset`]: peek at whether externalities are set
-	/// (without holding the `ext` borrow, which would block the inner storage read),
-	/// delegate to the dynamic-params `Get` impl when they are, fall back to the static
-	/// default otherwise.
 	fn scheduling_v3_enabled() -> bool {
-		if externalities_are_set() {
-			dynamic_params::consensus::SchedulingV3Enabled::get()
-		} else {
-			consensus_defaults::SCHEDULING_V3_ENABLED
-		}
+		dynamic_params::consensus::SchedulingV3Enabled::get()
 	}
 
 	fn verify(
@@ -486,7 +449,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber =
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type RelayParentOffset = ExternalitiesAwareRelayParentOffset;
+	type RelayParentOffset = dynamic_params::consensus::RelayParentOffset;
 	type SchedulingSignatureVerifier = NoVerification;
 }
 
@@ -633,10 +596,73 @@ impl OnRuntimeUpgrade for VerifyRuntimeUpgrade {
 ///
 /// These migrations execute immediately and entirely at the beginning of the block following
 /// a runtime upgrade. They must be lightweight enough to complete within a single block.
+///
+/// Each variant feature contributes its own migration. Variant features are mutually
+/// exclusive at build time (every `WasmBuilder` call in `build.rs` enables at most one).
 #[cfg(feature = "with-authority-discovery")]
 pub type SingleBlockMigrations = (VerifyRuntimeUpgrade, migrations::EnableAuthorityDiscovery);
-#[cfg(not(feature = "with-authority-discovery"))]
+#[cfg(feature = "slot-duration-18s")]
+pub type SingleBlockMigrations = (VerifyRuntimeUpgrade, migrations::SetSlotDuration18s);
+#[cfg(feature = "elastic-scaling")]
+pub type SingleBlockMigrations = (VerifyRuntimeUpgrade, migrations::SetBlockProcessingVelocity3);
+#[cfg(not(any(
+	feature = "with-authority-discovery",
+	feature = "slot-duration-18s",
+	feature = "elastic-scaling",
+)))]
 pub type SingleBlockMigrations = (VerifyRuntimeUpgrade,);
+
+/// One-shot migration writing `SlotDurationMillis = 18000` into `pallet_parameters::Parameters`.
+///
+/// Used by the `slot-duration-18s` WASM variant to lock the new slot duration *via runtime
+/// upgrade*, which is the property the zombienet `parachain_runtime_upgrade_slot_duration_18s`
+/// test asserts on.
+#[cfg(feature = "slot-duration-18s")]
+pub mod migrations {
+	use super::*;
+
+	pub struct SetSlotDuration18s;
+
+	impl OnRuntimeUpgrade for SetSlotDuration18s {
+		fn on_runtime_upgrade() -> Weight {
+			pallet_parameters::Parameters::<Runtime>::insert(
+				RuntimeParametersKey::Consensus(dynamic_params::consensus::ParametersKey::SlotDurationMillis(
+					dynamic_params::consensus::SlotDurationMillis,
+				)),
+				RuntimeParametersValue::Consensus(dynamic_params::consensus::ParametersValue::SlotDurationMillis(18_000)),
+			);
+			let db: frame_support::weights::RuntimeDbWeight =
+				<Runtime as frame_system::Config>::DbWeight::get();
+			db.writes(1)
+		}
+	}
+}
+
+/// One-shot migration writing `BlockProcessingVelocity = 3` into `pallet_parameters::Parameters`.
+///
+/// Used by the `elastic-scaling` WASM variant. The starting chain-spec preset already sets
+/// the correct slot duration (6s for async-backing, 12s for sync-backing); only the velocity
+/// changes via this upgrade.
+#[cfg(feature = "elastic-scaling")]
+pub mod migrations {
+	use super::*;
+
+	pub struct SetBlockProcessingVelocity3;
+
+	impl OnRuntimeUpgrade for SetBlockProcessingVelocity3 {
+		fn on_runtime_upgrade() -> Weight {
+			pallet_parameters::Parameters::<Runtime>::insert(
+				RuntimeParametersKey::Consensus(dynamic_params::consensus::ParametersKey::BlockProcessingVelocity(
+					dynamic_params::consensus::BlockProcessingVelocity,
+				)),
+				RuntimeParametersValue::Consensus(dynamic_params::consensus::ParametersValue::BlockProcessingVelocity(3)),
+			);
+			let db: frame_support::weights::RuntimeDbWeight =
+				<Runtime as frame_system::Config>::DbWeight::get();
+			db.writes(1)
+		}
+	}
+}
 
 /// One-shot migration that seeds `pallet_session` from `pallet_aura::Authorities` when a
 /// default (no-AD) chain upgrades to the `with-authority-discovery` variant.

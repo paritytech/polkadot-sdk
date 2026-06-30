@@ -36,7 +36,6 @@ sp-authority-discovery = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
-sp-externalities = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
@@ -97,7 +96,6 @@ std = [
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
-	"sp-externalities/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",
@@ -114,6 +112,18 @@ std = [
 # Bump `spec_version` by one without changing any other behaviour. Used by runtime-upgrade
 # tests that need to observe a `set_code` transition.
 increment-spec-version = []
+
+# Upgrade-target variant: an OnRuntimeUpgrade migration writes `SlotDurationMillis = 18000`
+# to `pallet_parameters::Parameters`. Used by zombienet tests asserting that a runtime
+# upgrade can change the parachain's slot duration.
+slot-duration-18s = []
+
+# Upgrade-target variant: an OnRuntimeUpgrade migration writes `BlockProcessingVelocity = 3`
+# to `pallet_parameters::Parameters`. Used by zombienet tests asserting that a runtime
+# upgrade switches the parachain into elastic scaling. The same WASM is reused for both the
+# async-backing and the sync-backing starting state — the slot duration is already set
+# correctly by the starting chain-spec preset, so only velocity needs to change.
+elastic-scaling = []
 
 # Structural runtime variant: adds `pallet_session` + `pallet_authority_discovery` and runs
 # the `EnableAuthorityDiscovery` migration on upgrade. The only variant whose WASM topology

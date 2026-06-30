@@ -25,6 +25,23 @@ pub mod spec_version_incremented {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
 }
 
+/// Bumps `spec_version` and runs an `OnRuntimeUpgrade` migration that writes
+/// `SlotDurationMillis = 18000` into `pallet_parameters::Parameters`. Used by the zombienet
+/// `parachain_runtime_upgrade_slot_duration_18s` test, which asserts that a runtime upgrade
+/// can change the parachain's slot duration.
+pub mod slot_duration_18s {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_slot_duration_18s.rs"));
+}
+
+/// Bumps `spec_version` and runs an `OnRuntimeUpgrade` migration that writes
+/// `BlockProcessingVelocity = 3` into `pallet_parameters::Parameters`. Used by the zombienet
+/// `upgrade_to_3_cores` test (both async-backing and sync-backing cases).
+pub mod elastic_scaling {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling.rs"));
+}
+
 /// Structural runtime variant: adds `pallet_session` + `pallet_authority_discovery` and runs
 /// the `EnableAuthorityDiscovery` migration on upgrade. Used by the authority-discovery
 /// upgrade test.

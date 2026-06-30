@@ -137,27 +137,6 @@ where
 		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
 	);
 
-	// V3 scheduling validation (chain-shape only). Signature verification of
-	// `signed_scheduling_info` happens here at the call site so the verifier wiring
-	// stays out of the pure shape check.
-	let validated_scheduling = scheduling::validate_v3_scheduling(
-		PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED,
-		&extension.0,
-		block_data.scheduling_proof(),
-		PSC::RelayParentOffset::get(),
-		crate::Pallet::<PSC>::max_claim_queue_offset(),
-	);
-
-	// The override inputs (signed payload + the ISP header), present whenever the proof carried a
-	// `signed_scheduling_info`. The signature is verified later, inside the externalities scope
-	// below, since it needs to read `Authorities::<T>` from parachain state.
-	let scheduling_override_inputs: Option<(SignedSchedulingInfo, RelayChainHeader)> =
-		validated_scheduling.and_then(|validated| {
-			validated
-				.signed_scheduling_info
-				.map(|signed_info| (signed_info, validated.internal_scheduling_parent_header))
-		});
-
 	// Initialize hashmaps randomness.
 	sp_trie::add_extra_randomness(build_seed_from_head_data::<B>(
 		&block_data,
@@ -167,6 +146,7 @@ where
 	let mut parent_header =
 		codec::decode_from_bytes::<B::Header>(parachain_head.clone()).expect("Invalid parent head");
 
+	let scheduling_proof = block_data.scheduling_proof().cloned();
 	let (blocks, proof) = block_data.into_inner();
 
 	verify_blocks_form_chain::<B>(&blocks, &parent_header);
@@ -191,40 +171,55 @@ where
 	let cache_provider = trie_cache::CacheProvider::new();
 	let seen_nodes = SeenNodes::<HashingFor<B>>::default();
 
-	// Verify the V3 scheduling signature override. Only set up the backend and externalities
-	// when there's actually an override to check.
-	if let Some((signed_info, isp_header)) = scheduling_override_inputs.as_ref() {
-		let relay_slot = scheduling::relay_slot_from_header(isp_header).expect(
-			"internal_scheduling_parent header must carry a BABE pre-digest; \
-			 the relay chain runs BABE; qed",
-		);
+	// V3 scheduling validation runs inside externalities so storage-backed reads
+	// (`RelayParentOffset`, `scheduling_v3_enabled`, `max_claim_queue_offset`) work
+	// regardless of whether the runtime backs those by `const`s or `pallet_parameters`.
+	// The signature verification of `signed_scheduling_info` also lives in this scope
+	// because it needs to read `Authorities::<T>` from parachain state.
+	let parent_backend: sp_state_machine::TrieBackend<
+		_,
+		HashingFor<B>,
+		_,
+		SizeOnlyRecorderProvider<HashingFor<B>>,
+	> = sp_state_machine::TrieBackendBuilder::new_with_cache(
+		&db,
+		*parent_header.state_root(),
+		&cache_provider,
+	)
+	.build();
+	let mut scheduling_override_inputs: Option<(SignedSchedulingInfo, RelayChainHeader)> = None;
+	run_with_externalities_and_recorder::<B, _, _>(
+		&parent_backend,
+		&mut Default::default(),
+		&mut Default::default(),
+		|| {
+			let validated_scheduling = scheduling::validate_v3_scheduling(
+				PSC::SchedulingSignatureVerifier::scheduling_v3_enabled(),
+				&extension.0,
+				scheduling_proof.as_ref(),
+				PSC::RelayParentOffset::get(),
+				crate::Pallet::<PSC>::max_claim_queue_offset(),
+			);
 
-		let parent_backend: sp_state_machine::TrieBackend<
-			_,
-			HashingFor<B>,
-			_,
-			SizeOnlyRecorderProvider<HashingFor<B>>,
-		> = sp_state_machine::TrieBackendBuilder::new_with_cache(
-			&db,
-			*parent_header.state_root(),
-			&cache_provider,
-		)
-		.build();
-		run_with_externalities_and_recorder::<B, _, _>(
-			&parent_backend,
-			&mut Default::default(),
-			&mut Default::default(),
-			|| {
-				if !PSC::SchedulingSignatureVerifier::verify(signed_info, relay_slot) {
-					panic!(
-						"V3 scheduling validation failed: invalid \
-						 signed_scheduling_info (ISP: {:?})",
-						isp_header.hash(),
+			if let Some(validated) = validated_scheduling {
+				if let Some(signed_info) = validated.signed_scheduling_info {
+					let isp_header = validated.internal_scheduling_parent_header;
+					let relay_slot = scheduling::relay_slot_from_header(&isp_header).expect(
+						"internal_scheduling_parent header must carry a BABE pre-digest; \
+						 the relay chain runs BABE; qed",
 					);
+					if !PSC::SchedulingSignatureVerifier::verify(&signed_info, relay_slot) {
+						panic!(
+							"V3 scheduling validation failed: invalid \
+							 signed_scheduling_info (ISP: {:?})",
+							isp_header.hash(),
+						);
+					}
+					scheduling_override_inputs = Some((signed_info, isp_header));
 				}
-			},
-		);
-	}
+			}
+		},
+	);
 
 	for (block_index, mut block) in blocks.into_iter().enumerate() {
 		// We use the storage root of the `parent_head` to ensure that it is the correct root.

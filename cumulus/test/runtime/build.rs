@@ -16,20 +16,28 @@
 
 //! Build script for `cumulus-test-runtime`.
 //!
-//! Three WASM blobs are produced:
+//! Five WASM blobs are produced:
 //!
 //! 1. The default runtime ([`crate::WASM_BINARY`]).
-//! 2. A spec-version-bumped variant used by runtime-upgrade tests. Behaviour-identical to the
-//!    default WASM except `spec_version` is increased by one, so a `set_code` upgrade is
-//!    observable on-chain.
-//! 3. A structural `with-authority-discovery` variant that wires in `pallet_session` +
-//!    `pallet_authority_discovery` and runs an on-chain migration. This is the only variant
-//!    that genuinely needs its own WASM (different runtime topology).
+//! 2. `spec_version_incremented` — behaviour-identical to the default WASM except
+//!    `spec_version` is bumped by one. Used by runtime-upgrade tests that need to observe a
+//!    `set_code` transition without any other behavioural change.
+//! 3. `slot_duration_18s` — bumped `spec_version` plus an `OnRuntimeUpgrade` migration that
+//!    writes `SlotDurationMillis = 18000` into `pallet_parameters::Parameters`. Used by the
+//!    zombienet `parachain_runtime_upgrade_slot_duration_18s` test.
+//! 4. `elastic_scaling` — bumped `spec_version` plus an `OnRuntimeUpgrade` migration that
+//!    writes `BlockProcessingVelocity = 3`. Used by the zombienet `upgrade_to_3_cores` test
+//!    (both async-backing and sync-backing cases — only velocity needs to change; slot
+//!    duration is already correct from the starting chain-spec preset).
+//! 5. `with_authority_discovery` — structural variant adding `pallet_session` +
+//!    `pallet_authority_discovery`, with the `EnableAuthorityDiscovery` migration.
 //!
 //! All other consensus parameters — slot duration, block-processing velocity, relay-parent
 //! offset, allow-multiple-blocks-per-slot, scheduling V3 toggle — are runtime-configurable
-//! via `pallet_parameters` and seeded by named GenesisBuilder presets, so they no longer
-//! require their own WASM artifacts.
+//! via `pallet_parameters` and seeded by named GenesisBuilder presets at genesis time, so
+//! they no longer require their own WASM artifacts. Variants 3 and 4 exist only to lock in
+//! a parameter change *via runtime upgrade*, which is the property those zombienet tests
+//! assert on.
 
 #[cfg(feature = "std")]
 fn main() {
@@ -44,7 +52,19 @@ fn main() {
 		.set_file_name("wasm_binary_spec_version_incremented.rs")
 		.build();
 
-	// 3. Structural variant: adds `pallet_session` + `pallet_authority_discovery` and runs the
+	// 3. Upgrade-target: writes `SlotDurationMillis = 18000` via OnRuntimeUpgrade.
+	WasmBuilder::init_with_defaults()
+		.enable_feature("slot-duration-18s")
+		.set_file_name("wasm_binary_slot_duration_18s.rs")
+		.build();
+
+	// 4. Upgrade-target: writes `BlockProcessingVelocity = 3` via OnRuntimeUpgrade.
+	WasmBuilder::init_with_defaults()
+		.enable_feature("elastic-scaling")
+		.set_file_name("wasm_binary_elastic_scaling.rs")
+		.build();
+
+	// 5. Structural variant: adds `pallet_session` + `pallet_authority_discovery` and runs the
 	// `EnableAuthorityDiscovery` migration on upgrade.
 	WasmBuilder::new()
 		.with_current_project()
