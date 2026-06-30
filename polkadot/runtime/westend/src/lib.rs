@@ -988,8 +988,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::Slots(..) |
 				RuntimeCall::Auctions(..) // Specifically omitting the entire XCM Pallet
 			),
-			// Staking has moved to AssetHub post-AHM, but session keys are still set on the RC.
-			ProxyType::Staking => matches!(c, RuntimeCall::Session(..) | RuntimeCall::Utility(..)),
+			// Staking and session key management have moved to Asset Hub; this proxy is
+			// no longer needed, but we keep it so that on-chain proxy entries still decode.
+			ProxyType::Staking => false,
 			ProxyType::NominationPools => false,
 			ProxyType::SudoBalances => match c {
 				RuntimeCall::Sudo(pallet_sudo::Call::sudo { call: ref x }) => {
