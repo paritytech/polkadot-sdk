@@ -284,7 +284,58 @@ fn build_client(
 			},
 		};
 
-		let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
+		// Foreign-asset index table: resolves a foreign asset's `Location -> u32` precompile index.
+		// It is owned and maintained by the indexing layer (seeded here, kept current from
+		// `pallet-assets` events as blocks are indexed), so the extractor only ever reads it and
+		// extraction stays a pure function of the block. The closure reads
+		// `ForeignAssetIdToAssetIndex` at latest state to learn a newly-created asset's index.
+		let foreign_index = {
+			let fetch_index: crate::FetchStorageRawFn = {
+				let api = api.clone();
+				std::sync::Arc::new(move |key: Vec<u8>| {
+					let api = api.clone();
+					Box::pin(async move {
+						let storage = api.storage().at_latest().await.map_err(|_| ())?;
+						storage.fetch_raw(key).await.map_err(|_| ())
+					})
+				})
+			};
+			let foreign_index =
+				std::sync::Arc::new(crate::ForeignAssetIndex::new(Default::default(), fetch_index));
+
+			// Seed from current chain state via a paged raw-key scan of the map. Best-effort: if it
+			// fails (e.g. node not ready), the table still fills from create events as blocks index.
+			let seed = async {
+				let storage = api.storage().at_latest().await?;
+				let mut keys = storage.fetch_raw_keys(crate::foreign_index_prefix()).await?;
+				let mut entries = Vec::new();
+				while let Some(key) = keys.next().await {
+					let key = key?;
+					let Some(location) = crate::location_from_foreign_index_key(&key) else {
+						continue;
+					};
+					if let Some(raw) = storage.fetch_raw(key).await? {
+						if let Some(index) = crate::decode_foreign_index(&raw) {
+							entries.push((location, index));
+						}
+					}
+				}
+				Ok::<_, anyhow::Error>(entries)
+			}
+			.await;
+			match seed {
+				Ok(entries) => {
+					log::info!(target: LOG_TARGET,
+						"Seeded foreign-asset index with {} entries", entries.len());
+					foreign_index.seed(entries).await;
+				},
+				Err(err) => log::warn!(target: LOG_TARGET,
+					"Foreign-asset index seed failed ({err:?}); will fill from events as blocks index"),
+			}
+			foreign_index
+		};
+
+		let receipt_extractor = ReceiptExtractor::new(api.clone(), foreign_index).await?;
 		let max_variable_number = sqlite_db_query_max_variable_number(&pool).await;
 		let db_ctx = DbContext::new(pool, max_variable_number);
 

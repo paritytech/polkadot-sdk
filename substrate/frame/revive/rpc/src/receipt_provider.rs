@@ -15,13 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, Bytes, ChainMetadata,
-	ClientError, FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider, SyncLabel, SyncStateKey,
-	block_sync::SyncCheckpoint,
+	Address, AddressOrAddresses, AssetTransfer, BlockInfoProvider, BlockNumberOrTag, Bytes,
+	ChainMetadata, ClientError, FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider, SyncLabel,
+	SyncStateKey, block_sync::SyncCheckpoint,
 	client::{SubstrateBlock, SubstrateBlockNumber},
+	signer_h160_from_address_bytes, synthetic_transaction, synthetic_tx_hash,
 };
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
-use sp_core::{H256, U256};
+use sp_core::{H160, H256, U256};
 use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool, query};
 use std::{
 	collections::{BTreeMap, HashMap},
@@ -62,6 +63,72 @@ fn parse_log_row(row: sqlx::sqlite::SqliteRow) -> Result<Log, sqlx::Error> {
 		transaction_index: U256::from(transaction_index as u64),
 		removed: false,
 	})
+}
+
+/// Recover the [`AssetTransfer`] encoded by a synthesized ERC-20 `Transfer` log:
+/// `topics = [Transfer, from, to]`, `data = amount` (32-byte big-endian word).
+fn asset_transfer_from_log(log: &Log) -> Option<AssetTransfer> {
+	if log.topics.len() < 3 {
+		return None;
+	}
+	let from = H160::from_slice(&log.topics[1].as_bytes()[12..]);
+	let to = H160::from_slice(&log.topics[2].as_bytes()[12..]);
+	let data = log.data.as_ref()?;
+	if data.0.len() < 32 {
+		return None;
+	}
+	// The amount was synthesized from a `u128`, so it fits.
+	let amount = U256::from_big_endian(&data.0).low_u128();
+	Some(AssetTransfer { token: H160::from_slice(log.address.as_ref()), from, to, amount })
+}
+
+/// Rebuild the synthetic `(transaction, receipt)` for an asset-transfer extrinsic purely from its
+/// persisted ERC-20 `Transfer` logs (plus the resolved signer). This is the read-side counterpart
+/// to indexing: the token address was resolved once at index time and frozen into the logs, so
+/// reads never re-resolve against live chain state (which can no longer map a destroyed foreign
+/// asset). Returns `None` if no logs were ever indexed for this hash (e.g. the transfer was
+/// dropped at index time because its foreign asset was already gone).
+fn reconstruct_synthetic_asset_receipt(
+	logs: Vec<Log>,
+	transaction_hash: H256,
+	transaction_index: usize,
+	from: Option<H160>,
+) -> Option<(TransactionSigned, ReceiptInfo)> {
+	let first = asset_transfer_from_log(logs.first()?)?;
+	// The extrinsic signer when known (derived from the immutable block), else the transfer's own
+	// sender — so a real transfer is never attributed to the zero address. Mirrors index time.
+	let from = from.unwrap_or(first.from);
+	// `to` is the (first) token, matching the synthetic tx; logs carry the full per-token detail.
+	let to = Some(first.token);
+	let eth_block_hash = logs[0].block_hash;
+	let eth_block_number = logs[0].block_number;
+	let signed_tx = synthetic_transaction(&first);
+	let receipt = ReceiptInfo::new(
+		eth_block_hash,
+		eth_block_number,
+		None,
+		from,
+		logs,
+		to,
+		U256::zero(),
+		U256::zero(),
+		// `Transferred` is only emitted on a successful transfer.
+		true,
+		transaction_hash,
+		transaction_index.into(),
+		Default::default(),
+	);
+	Some((signed_tx, receipt))
+}
+
+/// The extrinsic signer at `transaction_index`, derived from the immutable block (pure — no chain
+/// state), used as the `from` of a reconstructed synthetic asset receipt.
+async fn synthetic_asset_signer(block: &SubstrateBlock, transaction_index: usize) -> Option<H160> {
+	let extrinsics = block.extrinsics().await.ok()?;
+	extrinsics
+		.iter()
+		.nth(transaction_index)
+		.and_then(|ext| signer_h160_from_address_bytes(ext.address_bytes()))
 }
 
 /// SQLite connection pool with precomputed bulk-insert chunk sizes.
@@ -516,7 +583,47 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.map(|entry| entry.ethereum_hash)
 	}
 
-	/// Fetch receipts from the given block, using a pre-fetched ethereum block hash.
+	/// Apply this block's foreign-asset **creations** (`Created`/`ForceCreated`) to the index. Call
+	/// *before* extraction so a transfer of a freshly-created asset in the same block resolves.
+	///
+	/// Forward live-indexing only ([`crate::Client::process_block`]). Deliberately NOT called on
+	/// reads (`receipts_from_block` is also a read path) nor on backward historic sync
+	/// ([`Self::insert_block_receipts_past`]) — the table reflects *current* chain state, so an old
+	/// block must not rewrite it.
+	pub(crate) async fn apply_foreign_index_creations(&self, block: &SubstrateBlock) {
+		self.apply_foreign_index_events(block, crate::is_foreign_creation).await;
+	}
+
+	/// Apply this block's foreign-asset **destructions** (`Destroyed`) to the index. Call *after*
+	/// extraction, so a transfer earlier in the same block still resolves against the then-live
+	/// mapping. Forward live-indexing only — see [`Self::apply_foreign_index_creations`].
+	pub(crate) async fn apply_foreign_index_destructions(&self, block: &SubstrateBlock) {
+		self.apply_foreign_index_events(block, crate::is_foreign_destruction).await;
+	}
+
+	/// Forward each block event whose variant satisfies `select` to the foreign-asset index. The
+	/// index lives in the indexing layer (here), not the extractor, which only reads it.
+	async fn apply_foreign_index_events(&self, block: &SubstrateBlock, select: fn(&str) -> bool) {
+		let Ok(events) = block.events().await else {
+			log::debug!(target: LOG_TARGET,
+				"foreign-index maintenance: events unavailable for block {:?}", block.hash());
+			return;
+		};
+		let foreign_index = self.receipt_extractor.foreign_index();
+		for event in events.iter() {
+			let Ok(event) = event else { continue };
+			if select(event.variant_name()) {
+				foreign_index
+					.apply_event(event.pallet_name(), event.variant_name(), event.field_bytes())
+					.await;
+			}
+		}
+	}
+
+	/// Fetch receipts from the given block, using a pre-fetched ethereum block hash. Pure with
+	/// respect to the foreign-asset index (read-safe): extraction only *reads* the index. Index
+	/// maintenance happens on the forward indexing path (see `apply_foreign_index_*`), not here —
+	/// this is also a read path (hydrated `eth_getBlock*`).
 	pub async fn receipts_from_block(
 		&self,
 		block: &SubstrateBlock,
@@ -529,6 +636,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
 	/// Used for historic sync where fork detection is unnecessary.
+	///
+	/// Does NOT maintain the foreign-asset index: this is backward sync over *old* blocks, and the
+	/// index tracks current state — old creates/destroys must not rewrite it. Foreign transfers in
+	/// these blocks resolve against the seed + forward-maintained table (a since-destroyed asset is
+	/// dropped, the documented limitation).
 	pub async fn insert_block_receipts_past(
 		&self,
 		block: &SubstrateBlock,
@@ -883,6 +995,27 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Some(receipt)
 	}
 
+	/// Fetch all persisted logs for a transaction hash, ordered by `log_index`. Returns `Err` on a
+	/// query failure — callers must distinguish that from `Ok(vec![])` ("genuinely no logs"), so a
+	/// transient DB error doesn't make an indexed synthetic tx look absent.
+	async fn logs_by_transaction_hash(
+		&self,
+		transaction_hash: &H256,
+	) -> Result<Vec<Log>, sqlx::Error> {
+		query("SELECT * FROM logs WHERE transaction_hash = ? ORDER BY log_index ASC")
+			.bind(transaction_hash.as_ref())
+			.try_map(parse_log_row)
+			.fetch_all(&self.db_ctx.pool)
+			.await
+	}
+
+	/// `true` if `transaction_hash` is a synthesized `pallet-assets` transfer at this slot, rather
+	/// than an `eth_transact`. The synthetic hash is a pure function of the substrate block hash and
+	/// extrinsic index, so this needs no chain access and cannot collide with a real eth tx hash.
+	fn is_synthetic_asset_tx(transaction_hash: &H256, block_hash: H256, transaction_index: usize) -> bool {
+		*transaction_hash == synthetic_tx_hash(block_hash, transaction_index)
+	}
+
 	/// Get the receipt for the given transaction hash.
 	pub async fn receipt_by_hash(&self, transaction_hash: &H256) -> Option<ReceiptInfo> {
 		let (block_hash, transaction_index) = self.find_transaction(transaction_hash).await?;
@@ -901,6 +1034,29 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			},
 		};
 
+		// A synthesized asset-transfer receipt is served from the persisted logs, not re-derived
+		// against live state (a foreign asset destroyed since the transfer can no longer resolve).
+		if Self::is_synthetic_asset_tx(transaction_hash, block_hash, transaction_index) {
+			let logs = match self.logs_by_transaction_hash(transaction_hash).await {
+				Ok(logs) => logs,
+				Err(err) => {
+					// Transient DB error — not the same as "absent"; surface it rather than
+					// reporting the tx as non-existent.
+					log::warn!(target: LOG_TARGET,
+						"receipt_by_hash: log query failed for synthetic tx {transaction_hash:?}: {err:?}");
+					return None;
+				},
+			};
+			let from = synthetic_asset_signer(&block, transaction_index).await;
+			return reconstruct_synthetic_asset_receipt(
+				logs,
+				*transaction_hash,
+				transaction_index,
+				from,
+			)
+			.map(|(_, receipt)| receipt);
+		}
+
 		match self.receipt_extractor.extract_from_transaction(&block, transaction_index).await {
 			Ok((_, receipt)) => Some(receipt),
 			Err(err) => {
@@ -916,6 +1072,28 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		let (block_hash, transaction_index) = self.find_transaction(transaction_hash).await?;
 
 		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
+
+		// Synthesized asset transfers are reconstructed from the persisted logs (see
+		// `receipt_by_hash`); only `eth_transact` txs are re-derived from the block.
+		if Self::is_synthetic_asset_tx(transaction_hash, block_hash, transaction_index) {
+			let logs = match self.logs_by_transaction_hash(transaction_hash).await {
+				Ok(logs) => logs,
+				Err(err) => {
+					log::warn!(target: LOG_TARGET,
+						"signed_tx_by_hash: log query failed for synthetic tx {transaction_hash:?}: {err:?}");
+					return None;
+				},
+			};
+			let from = synthetic_asset_signer(&block, transaction_index).await;
+			return reconstruct_synthetic_asset_receipt(
+				logs,
+				*transaction_hash,
+				transaction_index,
+				from,
+			)
+			.map(|(signed_tx, _)| signed_tx);
+		}
+
 		let (signed_tx, _) = self
 			.receipt_extractor
 			.extract_from_transaction(&block, transaction_index)
@@ -1870,6 +2048,185 @@ mod tests {
 			"EVM receipt permanently lost: partial round-1 insert committed the block mapping, \
 			 and the insert_into_db EXISTS guard skipped the complete round-2 re-index",
 		);
+
+		Ok(())
+	}
+
+	/// A synthesized `pallet-assets` transfer must remain coherent across `eth_getLogs`,
+	/// `eth_getTransactionReceipt`, and `eth_getTransactionByHash` even after its foreign asset is
+	/// destroyed: the receipt/tx are rebuilt from the persisted log (a pure function of the block),
+	/// never re-resolved against live chain state. Here we index the transfer, then reconstruct
+	/// straight from the stored logs — exactly what the read path does — and assert the receipt
+	/// matches what `eth_getLogs` returns, with no chain lookup.
+	#[sqlx::test]
+	async fn synthetic_asset_receipt_reconstructed_from_logs(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
+		let block = MockBlockInfo { hash: H256::from([0xB1; 32]), number: 100 };
+		let ethereum_hash = H256::from([0xE7; 32]);
+
+		let token = H160::from([0x12; 20]);
+		let sender = H160::from([0x34; 20]); // the transfer's own `from` (ERC-20 topic_1)
+		let recipient = H160::from([0x56; 20]);
+		let amount = 999u128;
+		let tx_index = 3usize;
+		let tx_hash = synthetic_tx_hash(block.hash, tx_index);
+
+		// Index the transfer (as the ingest path does): an ERC-20 Transfer log + synthetic tx.
+		let transfer = AssetTransfer { token, from: sender, to: recipient, amount };
+		let log = transfer.to_log(U256::from(100), ethereum_hash, tx_hash, tx_index, 7);
+		let receipt = ReceiptInfo {
+			transaction_hash: tx_hash,
+			transaction_index: U256::from(tx_index as u64),
+			logs: vec![log],
+			..Default::default()
+		};
+		provider
+			.insert(&block, &[(synthetic_transaction(&transfer), receipt)], &ethereum_hash)
+			.await?;
+
+		// The discriminator recognizes the synthetic tx and rejects an unrelated hash.
+		assert!(ReceiptProvider::<MockBlockInfoProvider>::is_synthetic_asset_tx(
+			&tx_hash, block.hash, tx_index
+		));
+		assert!(!ReceiptProvider::<MockBlockInfoProvider>::is_synthetic_asset_tx(
+			&H256::from([0xFF; 32]),
+			block.hash,
+			tx_index
+		));
+
+		// What `eth_getLogs` would return for this tx.
+		let logs = provider.logs_by_transaction_hash(&tx_hash).await.expect("log query ok");
+		assert_eq!(logs.len(), 1);
+		assert_eq!(logs[0].address, token);
+
+		// Reconstruct with a known extrinsic signer: `from` is that signer, everything else matches.
+		let signer = H160::from([0x99; 20]);
+		let (signed, rec) = reconstruct_synthetic_asset_receipt(
+			logs.clone(),
+			tx_hash,
+			tx_index,
+			Some(signer),
+		)
+		.expect("reconstructs from logs");
+		assert_eq!(rec.transaction_hash, tx_hash);
+		assert_eq!(rec.transaction_index, U256::from(tx_index as u64));
+		assert_eq!(rec.to, Some(token));
+		assert_eq!(rec.from, signer);
+		assert!(rec.is_success());
+		// The receipt's logs are exactly the persisted logs `eth_getLogs` serves.
+		assert_eq!(rec.logs, logs);
+		assert!(matches!(signed, TransactionSigned::TransactionLegacySigned(_)));
+
+		// With no resolvable signer, `from` falls back to the transfer's own sender (never zero).
+		let (_, rec_no_signer) =
+			reconstruct_synthetic_asset_receipt(logs, tx_hash, tx_index, None).expect("reconstructs");
+		assert_eq!(rec_no_signer.from, sender);
+
+		Ok(())
+	}
+
+	#[test]
+	fn reconstruct_multi_token_batch_to_is_first_token() {
+		// A batch touching two token addresses: `to` is the first token (never None), the synthetic
+		// tx targets that same token, and every per-token log is preserved.
+		let t1 = AssetTransfer {
+			token: H160::from([0x11; 20]),
+			from: H160::from([0x34; 20]),
+			to: H160::from([0x56; 20]),
+			amount: 1,
+		};
+		let t2 = AssetTransfer {
+			token: H160::from([0x22; 20]),
+			from: H160::from([0x34; 20]),
+			to: H160::from([0x78; 20]),
+			amount: 2,
+		};
+		let eth_hash = H256::from([0xAB; 32]);
+		let tx_hash = H256::from([0xEF; 32]);
+		let logs = vec![
+			t1.to_log(U256::from(10), eth_hash, tx_hash, 4, 5),
+			t2.to_log(U256::from(10), eth_hash, tx_hash, 4, 6),
+		];
+
+		let (signed, rec) =
+			reconstruct_synthetic_asset_receipt(logs.clone(), tx_hash, 4, Some(H160::from([0x99; 20])))
+				.expect("reconstructs");
+
+		assert_eq!(rec.to, Some(H160::from([0x11; 20])), "batch `to` is the first token");
+		assert_eq!(rec.from, H160::from([0x99; 20]));
+		assert_eq!(rec.logs, logs, "all per-token logs preserved, unchanged");
+		let TransactionSigned::TransactionLegacySigned(tx) = signed else { panic!("expected legacy") };
+		assert_eq!(
+			tx.transaction_legacy_unsigned.to,
+			rec.to,
+			"synthetic tx targets the same first token as the receipt"
+		);
+	}
+
+	#[test]
+	fn asset_transfer_from_log_rejects_malformed_logs() {
+		// Fewer than 3 topics (no from/to) -> None.
+		let too_few_topics = Log {
+			topics: vec![H256::zero(), H256::zero()],
+			data: Some(Bytes(vec![0u8; 32])),
+			..Default::default()
+		};
+		assert!(asset_transfer_from_log(&too_few_topics).is_none());
+
+		// Data shorter than a 32-byte amount word -> None.
+		let short_data = Log {
+			topics: vec![H256::zero(), H256::zero(), H256::zero()],
+			data: Some(Bytes(vec![0u8; 16])),
+			..Default::default()
+		};
+		assert!(asset_transfer_from_log(&short_data).is_none());
+
+		// Missing data -> None.
+		let no_data = Log {
+			topics: vec![H256::zero(), H256::zero(), H256::zero()],
+			data: None,
+			..Default::default()
+		};
+		assert!(asset_transfer_from_log(&no_data).is_none());
+	}
+
+	// Review minor (repro): `logs_by_transaction_hash` must report a genuinely-absent tx as
+	// `Ok(empty)`, NOT conflate it with a query error. The fix returns `Result`, so callers treat a
+	// real DB failure (`Err`) as a transient miss (None + warn) rather than "tx doesn't exist".
+	// This locks the absent → `Ok(empty)` half (a present tx returns its logs); inducing the `Err`
+	// path needs a broken pool, out of scope for a unit test.
+	#[sqlx::test]
+	async fn logs_by_transaction_hash_absent_is_ok_empty(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
+		let block = MockBlockInfo { hash: H256::from([0xB2; 32]), number: 50 };
+		let ethereum_hash = H256::from([0xE2; 32]);
+
+		let present = H256::from([0xAA; 32]);
+		let receipt = ReceiptInfo {
+			transaction_hash: present,
+			transaction_index: U256::from(0),
+			logs: vec![Log {
+				block_hash: ethereum_hash,
+				transaction_hash: present,
+				..Default::default()
+			}],
+			..Default::default()
+		};
+		provider
+			.insert(&block, &[(TransactionSigned::default(), receipt)], &ethereum_hash)
+			.await?;
+
+		// Present tx -> Ok with its logs.
+		assert_eq!(
+			provider.logs_by_transaction_hash(&present).await.expect("query ok").len(),
+			1
+		);
+		// Absent tx -> Ok(empty), NOT Err.
+		assert!(provider
+			.logs_by_transaction_hash(&H256::from([0xFF; 32]))
+			.await
+			.expect("query ok")
+			.is_empty());
 
 		Ok(())
 	}

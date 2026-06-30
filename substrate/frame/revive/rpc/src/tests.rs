@@ -1927,7 +1927,8 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		.connect_with(SqliteConnectOptions::new().in_memory(true))
 		.await?;
 
-	let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
+	let receipt_extractor =
+		ReceiptExtractor::new(api.clone(), Arc::new(crate::ForeignAssetIndex::disabled())).await?;
 	let receipt_provider = ReceiptProvider::new(
 		DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
 		block_provider.clone(),

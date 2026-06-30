@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	AssetTransfer, AssetTransferConfig, ClientError, H160, LOG_TARGET,
+	AssetTransfer, AssetTransferConfig, ClientError, ForeignAssetIndex, H160, LOG_TARGET,
 	asset_transfers::{
-		asset_transfer_logs, decode_asset_transfer, decode_foreign_index,
-		decode_foreign_transfer_parts, foreign_asset_transfer, foreign_index_storage_key,
-		signer_h160_from_address_bytes, synthetic_transaction, synthetic_tx_hash,
+		asset_transfer_logs, decode_asset_transfer, decode_foreign_transfer_parts,
+		foreign_asset_transfer, signer_h160_from_address_bytes, synthetic_transaction,
+		synthetic_tx_hash,
 	},
 	client::{SubstrateBlock, SubstrateBlockNumber, runtime_api::RuntimeApi},
 	subxt_client::{
@@ -202,18 +202,6 @@ type FetchEthBlockHashFn =
 
 type RecoverEthAddressFn = Arc<dyn Fn(&TransactionSigned) -> Result<H160, ()> + Send + Sync>;
 
-/// Fetch a raw storage value at the latest block, used to resolve a foreign asset's
-/// `Location -> u32 index` mapping. Read at latest (not the indexed block) to dodge pruning;
-/// the trade-off is that an asset destroyed since the transfer no longer resolves.
-///
-/// `Err(())` is a transient fetch failure, distinct from `Ok(None)` (no such key) — the caller
-/// must not cache it. See [`ReceiptExtractor::resolve_foreign_index`].
-type FetchStorageRawFn = Arc<
-	dyn Fn(Vec<u8>) -> Pin<Box<dyn Future<Output = Result<Option<Vec<u8>>, ()>> + Send>>
-		+ Send
-		+ Sync,
->;
-
 /// Utility to extract receipts from extrinsics.
 #[derive(Clone)]
 pub struct ReceiptExtractor {
@@ -235,22 +223,22 @@ pub struct ReceiptExtractor {
 	/// used to synthesize ERC-20 `Transfer` logs/receipts for asset-transfer extrinsics.
 	asset_config: AssetTransferConfig,
 
-	/// Fetch raw storage (for resolving foreign-asset indices).
-	fetch_storage_raw: FetchStorageRawFn,
-
-	/// Cache of `foreign asset Location (SCALE bytes) -> resolved u32 index`. Caches resolved
-	/// indices only. A non-resolution (absent key, undecodable value, or transient fetch error)
-	/// is never cached, so a later block re-attempts the lookup — the index for a `Location` can
-	/// appear after a transfer was first seen (e.g. an asset destroyed then re-registered).
-	foreign_index_cache: Arc<tokio::sync::Mutex<HashMap<Vec<u8>, u32>>>,
+	/// Resolves a foreign asset's `Location -> u32` precompile index. This is a read-only handle:
+	/// the table is seeded and maintained by the indexing layer (see [`ForeignAssetIndex`]), so
+	/// extraction stays a pure function of the block — it never reads chain state.
+	foreign_index: Arc<ForeignAssetIndex>,
 }
 
 impl ReceiptExtractor {
 	/// Create a new `ReceiptExtractor`.
-	pub async fn new(api: OnlineClient<SrcChainConfig>) -> Result<Self, ClientError> {
+	pub async fn new(
+		api: OnlineClient<SrcChainConfig>,
+		foreign_index: Arc<ForeignAssetIndex>,
+	) -> Result<Self, ClientError> {
 		Self::new_with_custom_address_recovery(
 			api,
 			Arc::new(|signed_tx: &TransactionSigned| signed_tx.recover_eth_address()),
+			foreign_index,
 		)
 		.await
 	}
@@ -262,6 +250,7 @@ impl ReceiptExtractor {
 	pub async fn new_with_custom_address_recovery(
 		api: OnlineClient<SrcChainConfig>,
 		recover_eth_address_fn: RecoverEthAddressFn,
+		foreign_index: Arc<ForeignAssetIndex>,
 	) -> Result<Self, ClientError> {
 		let api_inner = api.clone();
 		let fetch_eth_block_hash = Arc::new(move |block_hash, block_number| {
@@ -287,24 +276,13 @@ impl ReceiptExtractor {
 			Box::pin(fut) as Pin<Box<_>>
 		});
 
-		let api_inner = api.clone();
-		let fetch_storage_raw = Arc::new(move |key: Vec<u8>| {
-			let api_inner = api_inner.clone();
-			let fut = async move {
-				let storage = api_inner.storage().at_latest().await.map_err(|_| ())?;
-				storage.fetch_raw(key).await.map_err(|_| ())
-			};
-			Box::pin(fut) as Pin<Box<_>>
-		});
-
 		Ok(Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
 			first_evm_block: Arc::new(AtomicU32::new(u32::MAX)),
 			recover_eth_address: recover_eth_address_fn,
 			asset_config: AssetTransferConfig::default(),
-			fetch_storage_raw,
-			foreign_index_cache: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+			foreign_index,
 		})
 	}
 
@@ -327,10 +305,15 @@ impl ReceiptExtractor {
 				signed_tx.recover_eth_address()
 			}),
 			asset_config: AssetTransferConfig::default(),
-			// Mock resolver: no foreign index.
-			fetch_storage_raw: Arc::new(|_| Box::pin(std::future::ready(Ok(None))) as Pin<Box<_>>),
-			foreign_index_cache: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+			// Empty foreign-index table; tests seed it directly when they exercise foreign assets.
+			foreign_index: Arc::new(ForeignAssetIndex::disabled()),
 		}
+	}
+
+	/// Read-only handle to the foreign-asset index table, so the indexing layer can seed and
+	/// maintain it (the extractor itself only ever reads it).
+	pub fn foreign_index(&self) -> Arc<ForeignAssetIndex> {
+		self.foreign_index.clone()
 	}
 
 	/// Check if the block is before the `first_evm_block` floor.
@@ -475,7 +458,9 @@ impl ReceiptExtractor {
 				variant,
 				event.field_bytes(),
 			) {
-				if let Some(index) = self.resolve_foreign_index(&parts.asset_id_key).await {
+				// Pure table lookup — the index was resolved at ingest and is maintained by the
+				// indexing layer (see [`ForeignAssetIndex`]); no chain read happens here.
+				if let Some(index) = self.foreign_index.get(&parts.asset_id_key).await {
 					let event_index = event.index();
 					out.entry(extrinsic_index)
 						.or_default()
@@ -489,31 +474,6 @@ impl ReceiptExtractor {
 			}
 		}
 		out
-	}
-
-	/// Resolve (and cache) a foreign asset's `u32` index from its SCALE-encoded `Location`.
-	/// Only a successfully-resolved index is cached; every non-resolution (absent key,
-	/// undecodable value, or transient fetch error) returns `None` uncached so the next block
-	/// retries — none of those outcomes is durable, since a `Location`'s index can appear later.
-	async fn resolve_foreign_index(&self, asset_id_key: &[u8]) -> Option<u32> {
-		if let Some(cached) = self.foreign_index_cache.lock().await.get(asset_id_key) {
-			return Some(*cached);
-		}
-		let key = foreign_index_storage_key(asset_id_key);
-		let raw = match (self.fetch_storage_raw)(key).await {
-			Ok(Some(raw)) => raw,
-			Ok(None) => return None,
-			Err(()) => {
-				log::debug!(target: LOG_TARGET, "Foreign asset index read failed; will retry");
-				return None;
-			},
-		};
-		let Some(index) = decode_foreign_index(&raw) else {
-			log::debug!(target: LOG_TARGET, "Foreign asset index undecodable; will retry");
-			return None;
-		};
-		self.foreign_index_cache.lock().await.insert(asset_id_key.to_vec(), index);
-		Some(index)
 	}
 
 	/// Build a synthetic transaction + receipt for an extrinsic that moved assets but is not
@@ -1004,6 +964,61 @@ mod tests {
 			duplicates, 1,
 			"contract->precompile transfer must not yield duplicate ERC-20 Transfer logs (got {duplicates})"
 		);
+
+		// doc #6 (open question): the surviving log currently keeps the `ContractEmitted` index (8 —
+		// the EVM log-emission position), NOT the earlier `pallet_assets::Transferred` event index
+		// (7 = min). Whether the EVM-emission index or the substrate-event index is the canonical
+		// `log_index` is undecided; this locks the CURRENT behavior so a deliberate change to
+		// `min(log_index)` is a visible, reviewed diff rather than a silent shift.
+		let surviving = logs
+			.iter()
+			.find(|log| {
+				log.address == precompile_log.address &&
+					log.topics == precompile_log.topics &&
+					log.data == precompile_log.data
+			})
+			.expect("one log survives");
+		assert_eq!(
+			surviving.log_index,
+			U256::from(8),
+			"currently keeps the ContractEmitted (EVM-emission) log_index; see doc #6"
+		);
+	}
+
+	// doc #5 (KNOWN GAP — ignored): two GENUINELY DISTINCT transfers in one `eth_transact`
+	// extrinsic with byte-identical `(token, from, to, amount)` and NO precompile `ContractEmitted`
+	// log collapse into a single log, because the dedup matches against logs pushed earlier in this
+	// same merge. Correct behavior keeps both. The fix is count-based (dedup only against logs that
+	// pre-existed the merge, and handle mixed precompile/non-precompile counts) and the finding's
+	// reachability — a non-precompile contract→pallet-assets path that emits `Transferred` without
+	// `ContractEmitted` — is unconfirmed. Ignored until that decision; asserts the intended behavior
+	// so it flips green once fixed.
+	#[test]
+	#[ignore = "merge_asset_logs collapses two genuine identical transfers; count-based fix + reachability pending (doc #5)"]
+	fn merge_asset_logs_keeps_two_genuine_identical_transfers() {
+		let mk = || AssetTransfer {
+			token: H160::from([0x12; 20]),
+			from: H160::from([0x34; 20]),
+			to: H160::from([0x56; 20]),
+			amount: 999,
+		};
+		let eth_block_number = U256::from(10);
+		let eth_block_hash = H256::from([0xAB; 32]);
+		let tx_hash = H256::from([0xEF; 32]);
+		let tx_index = 4;
+
+		// No pre-existing precompile log: two independent, byte-identical transfers (event indices
+		// 6 and 7) that did NOT go through the assets precompile.
+		let mut logs = vec![];
+		merge_asset_logs(
+			&mut logs,
+			&[(mk(), 6), (mk(), 7)],
+			eth_block_number,
+			eth_block_hash,
+			tx_hash,
+			tx_index,
+		);
+		assert_eq!(logs.len(), 2, "two genuine identical transfers must each yield a log");
 	}
 
 	#[test]
@@ -1047,66 +1062,6 @@ mod tests {
 			)
 			.unwrap_err();
 		assert!(matches!(err, ClientError::RecoverEthAddressFailed));
-	}
-
-	#[test]
-	fn foreign_index_cache_not_poisoned_by_transient_error() {
-		use std::sync::atomic::{AtomicU32, Ordering};
-
-		// Fails once, then resolves to index 7 (SCALE u32, little-endian).
-		let calls = Arc::new(AtomicU32::new(0));
-		let calls_in = calls.clone();
-		let resolver: FetchStorageRawFn = Arc::new(move |_key: Vec<u8>| {
-			let out: Result<Option<Vec<u8>>, ()> = if calls_in.fetch_add(1, Ordering::SeqCst) == 0 {
-				Err(())
-			} else {
-				Ok(Some(vec![7, 0, 0, 0]))
-			};
-			Box::pin(std::future::ready(out)) as Pin<Box<_>>
-		});
-		let extractor =
-			ReceiptExtractor { fetch_storage_raw: resolver, ..ReceiptExtractor::new_mock() };
-
-		let key = vec![1u8, 2, 3];
-		futures::executor::block_on(async {
-			// Error -> None, uncached; retry resolves; third call is a cache hit.
-			assert_eq!(extractor.resolve_foreign_index(&key).await, None);
-			assert_eq!(extractor.resolve_foreign_index(&key).await, Some(7));
-			assert_eq!(extractor.resolve_foreign_index(&key).await, Some(7));
-		});
-		assert_eq!(calls.load(Ordering::SeqCst), 2);
-	}
-
-	#[test]
-	fn foreign_index_absent_or_undecodable_is_not_cached() {
-		use std::sync::atomic::{AtomicU32, Ordering};
-
-		// Call 0: key absent (`Ok(None)`). Call 1: present but undecodable (3 bytes, not a u32).
-		// Call 2: resolves to index 9. Neither non-resolution must be cached, so the resolver is
-		// reached on every call until it returns a decodable value — otherwise a `Location` that
-		// gains a mapping later (e.g. destroyed then re-registered) would be dropped forever.
-		let calls = Arc::new(AtomicU32::new(0));
-		let calls_in = calls.clone();
-		let resolver: FetchStorageRawFn = Arc::new(move |_key: Vec<u8>| {
-			let out: Result<Option<Vec<u8>>, ()> = match calls_in.fetch_add(1, Ordering::SeqCst) {
-				0 => Ok(None),                   // absent
-				1 => Ok(Some(vec![1, 2, 3])),    // present but not a valid u32
-				_ => Ok(Some(vec![9, 0, 0, 0])), // resolves to 9
-			};
-			Box::pin(std::future::ready(out)) as Pin<Box<_>>
-		});
-		let extractor =
-			ReceiptExtractor { fetch_storage_raw: resolver, ..ReceiptExtractor::new_mock() };
-
-		let key = vec![4u8, 5, 6];
-		futures::executor::block_on(async {
-			assert_eq!(extractor.resolve_foreign_index(&key).await, None); // absent, uncached
-			assert_eq!(extractor.resolve_foreign_index(&key).await, None); // undecodable, uncached
-			assert_eq!(extractor.resolve_foreign_index(&key).await, Some(9)); // resolves, cached
-			assert_eq!(extractor.resolve_foreign_index(&key).await, Some(9)); // cache hit
-		});
-		// Resolver reached for all three pre-resolution calls; the 4th is served from cache.
-		assert_eq!(calls.load(Ordering::SeqCst), 3);
 	}
 
 	#[test]

@@ -258,16 +258,33 @@ pub fn decode_foreign_transfer_parts(
 	Some((prefix, ForeignTransferParts { asset_id_key, from, to, amount }))
 }
 
+/// The 32-byte storage prefix (`twox128(pallet) ++ twox128(entry)`) of the
+/// `FOREIGN_INDEX_PALLET::FOREIGN_INDEX_ENTRY` map. Used to enumerate every entry (for the
+/// startup seed) via a paged raw-key query.
+pub fn foreign_index_prefix() -> Vec<u8> {
+	let mut prefix = Vec::with_capacity(16 + 16);
+	prefix.extend_from_slice(&twox_128(FOREIGN_INDEX_PALLET.as_bytes()));
+	prefix.extend_from_slice(&twox_128(FOREIGN_INDEX_ENTRY.as_bytes()));
+	prefix
+}
+
 /// Build the full storage key for the `Blake2_128Concat`
 /// `FOREIGN_INDEX_PALLET::FOREIGN_INDEX_ENTRY` map, keyed by the SCALE-encoded asset `Location`.
 /// The eth-rpc reads this raw key via `fetch_raw` to resolve a foreign asset's `u32` index.
 pub fn foreign_index_storage_key(asset_id_key: &[u8]) -> Vec<u8> {
-	let mut key = Vec::with_capacity(16 + 16 + 16 + asset_id_key.len());
-	key.extend_from_slice(&twox_128(FOREIGN_INDEX_PALLET.as_bytes()));
-	key.extend_from_slice(&twox_128(FOREIGN_INDEX_ENTRY.as_bytes()));
+	let mut key = foreign_index_prefix();
+	key.reserve(16 + asset_id_key.len());
 	key.extend_from_slice(&blake2_128(asset_id_key));
 	key.extend_from_slice(asset_id_key);
 	key
+}
+
+/// Recover the SCALE-encoded `Location` from a full `ForeignAssetIdToAssetIndex` storage key, by
+/// stripping the 32-byte map prefix and the 16-byte `Blake2_128` hash (`Blake2_128Concat` appends
+/// the raw key after its hash). Returns `None` if the key is too short to be one of this map's.
+pub fn location_from_foreign_index_key(full_key: &[u8]) -> Option<Vec<u8>> {
+	// twox128(pallet) ++ twox128(entry) ++ blake2_128(loc) ++ loc
+	full_key.get(48..).map(|loc| loc.to_vec())
 }
 
 /// Decode the `u32` asset index from a raw `ForeignAssetIdToAssetIndex` storage value.
@@ -475,6 +492,18 @@ mod tests {
 		assert_eq!(&key[16..32], &twox_128(b"ForeignAssetIdToAssetIndex"));
 		assert_eq!(&key[32..48], &blake2_128(&loc));
 		assert_eq!(&key[48..], &loc[..]);
+	}
+
+	#[test]
+	fn location_round_trips_through_storage_key() {
+		// The startup seed enumerates the map by prefix and recovers each `Location` from the full
+		// key, so building a key and recovering the location must round-trip.
+		let loc = vec![0x01, 0x02, 0x00, 0xCA, 0xFE];
+		let key = foreign_index_storage_key(&loc);
+		assert_eq!(&key[..32], &foreign_index_prefix()[..]);
+		assert_eq!(location_from_foreign_index_key(&key), Some(loc));
+		// A key shorter than prefix(32) + hash(16) is not one of this map's entries.
+		assert_eq!(location_from_foreign_index_key(&[0u8; 47]), None);
 	}
 
 	#[test]

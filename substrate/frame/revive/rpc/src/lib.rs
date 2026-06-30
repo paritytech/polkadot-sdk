@@ -57,6 +57,9 @@ pub use receipt_extractor::*;
 mod asset_transfers;
 pub use asset_transfers::*;
 
+mod foreign_asset_index;
+pub use foreign_asset_index::*;
+
 mod apis;
 pub use apis::*;
 
