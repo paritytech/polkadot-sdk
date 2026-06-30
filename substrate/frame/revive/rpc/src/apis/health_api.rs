@@ -45,6 +45,8 @@ impl SystemHealthRpcServerImpl {
 #[async_trait]
 impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 	async fn system_health(&self) -> RpcResult<Health> {
+		log::debug!(target: LOG_TARGET, "system_health: called");
+
 		// The node's block import is usually steady, but can come in bursts; tolerate ~4 minutes
 		// of drift before reporting unhealthy.
 		const MAX_BLOCK_DRIFT: u32 = 128;
@@ -89,6 +91,15 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 			);
 			return Err(ErrorCode::InternalError.into());
 		}
+
+		log::debug!(
+			target: LOG_TARGET,
+			"Client is in sync. peers: {}, is_syncing: {}, should_have_peers: {}, latest cache block: {latest}, current block: {}",
+			health.peers,
+			health.is_syncing,
+			health.should_have_peers,
+			sync_state.current_block,
+		);
 
 		Ok(Health {
 			peers: health.peers,
