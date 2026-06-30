@@ -49,9 +49,9 @@
 //!    The store owns the subscription set, so the poll cannot drift and the RPC layer stays
 //!    untouched. Needs step 3. Closes "track affinity from active subscriptions" ([#12339]).
 //! 6. [x] **Local queries.** Over the fed topic set, implement `local_filter()` (advertised
-//!    [`AffinityFilter`] built from the topics) and `local_has_explicit_affinity(stmt)` (does any
-//!    of the statement's topics sit in the set). Configured and subscribed topics start being
-//!    advertised here. Tests: filter contents and membership ([#12340]).
+//!    [`AffinityFilter`] built from the topics) and a membership query — does any of a statement's
+//!    topics sit in the set. Configured and subscribed topics start being advertised here. Tests:
+//!    filter contents and membership ([#12340]).
 //! 7. [x] **Peer filters.** `update_peer_filter`/`on_peer_disconnected` maintain a `HashMap<PeerId,
 //!    AffinityFilter>`; `peer_has_explicit_affinity(peer, stmt)` reads it for the forward decision.
 //!    Independent of the local side. The overlapping `Peer::topic_affinity` in `lib.rs` stays until
@@ -59,11 +59,16 @@
 //!    disconnect ([#12342]).
 //!
 //! After step 7 the module is complete. The store and forward decisions live in the orchestrator
-//! (#11937), not here. For storage it stores a statement permanently when affinity holds —
-//! `local_has_explicit_affinity` from this module OR the DHT-closeness half from peers-topology
-//! (#11933) — and otherwise keeps it only until the next propagation, the retention the store
-//! enforces (#11936). It feeds `peer_has_explicit_affinity` into the forward decision and retires
+//! (#11937), not here. For storage it stores a statement permanently when affinity holds — explicit
+//! topic affinity from this module OR the DHT-closeness half from peers-topology (#11933) — and
+//! otherwise keeps it only until the next propagation, the retention the store enforces (#11936).
+//! It feeds `peer_has_explicit_affinity` into the forward decision and retires
 //! `Peer::topic_affinity`.
+//!
+//! Retention runs on the store's thread, not the handler's, so the orchestrator can't be queried
+//! live. Instead it publishes detached oracles — [`TopicAffinity`] here and `DhtAffinity` from
+//! peers-topology — into the store's retention handle, each answering `is_affine(stmt)`. The
+//! store's resolver ORs the two into the statement's retention mask.
 //!
 //! [#12276]: https://github.com/paritytech/polkadot-sdk/pull/12276
 //! [#12278]: https://github.com/paritytech/polkadot-sdk/pull/12278
@@ -161,12 +166,12 @@ impl ExplicitAffinity {
 		}
 	}
 
-	/// Replaces topics with exact source.
+	/// Replaces topics with exact source. Returns whether the source's topic set changed.
 	pub(crate) fn replace_source_topics(
 		&mut self,
 		source: AffinitySource,
 		desired: &HashSet<Topic>,
-	) {
+	) -> bool {
 		let current: HashSet<Topic> = self
 			.local
 			.iter()
@@ -178,11 +183,17 @@ impl ExplicitAffinity {
 		let to_add: Vec<Topic> = desired.difference(&current).copied().collect();
 		self.remove_topics(source, &to_remove);
 		self.add_topics(source, &to_add);
+		!to_remove.is_empty() || !to_add.is_empty()
 	}
 
 	/// The topics this node currently has affinity for
 	pub(crate) fn topics(&self) -> Vec<Topic> {
 		self.local.keys().copied().collect()
+	}
+
+	/// A standalone explicit-affinity oracle, answering topic membership off the handler thread.
+	pub(crate) fn topic_affinity(&self) -> TopicAffinity {
+		TopicAffinity { topics: self.local.keys().copied().collect() }
 	}
 
 	// === Advertise ===
@@ -215,16 +226,25 @@ impl ExplicitAffinity {
 
 	// === Queries ===
 
-	/// Whether any of the statement's topics sits in the local topic set.
-	///
-	/// Reads the exact set, not [`Self::local_filter`] to skip bloom false positives.
-	pub(crate) fn local_has_explicit_affinity(&self, stmt: &Statement) -> bool {
-		stmt.topics().iter().any(|topic| self.local.contains_key(topic))
-	}
-
 	/// Whether the peer's advertised filter accepts the statement.
 	pub(crate) fn peer_has_explicit_affinity(&self, peer: PeerId, stmt: &Statement) -> bool {
 		self.peers.get(&peer).is_some_and(|filter| filter.matches_statement(stmt))
+	}
+}
+
+// TODO: Replace these ad-hoc oracles with an interface before this leaves PoC.
+/// Standalone explicit-affinity oracle: the local topic set, shared with the store so it decides
+/// retention without the full [`ExplicitAffinity`].
+#[derive(Clone, Default)]
+pub(crate) struct TopicAffinity {
+	topics: HashSet<Topic>,
+}
+
+impl TopicAffinity {
+	/// Whether any of the statement's topics sits in the local topic set. Reads the exact set, not
+	/// the advertised bloom filter, so there are no false positives.
+	pub(crate) fn is_affine(&self, stmt: &Statement) -> bool {
+		stmt.topics().iter().any(|topic| self.topics.contains(topic))
 	}
 }
 
@@ -398,20 +418,15 @@ mod tests {
 	}
 
 	#[test]
-	fn local_has_explicit_affinity_tracks_membership() {
-		let affinity = ExplicitAffinity::new(&[topic(1)]);
+	fn topic_affinity_tracks_membership() {
+		let affinity = ExplicitAffinity::new(&[topic(1)]).topic_affinity();
 
-		assert!(affinity.local_has_explicit_affinity(&statement_on(topic(1))));
-		assert!(!affinity.local_has_explicit_affinity(&statement_on(topic(2))));
-	}
+		assert!(affinity.is_affine(&statement_on(topic(1))));
+		assert!(!affinity.is_affine(&statement_on(topic(2))));
 
-	#[test]
-	fn local_has_explicit_affinity_false_for_topicless_statement() {
-		let affinity = ExplicitAffinity::new(&[topic(1)]);
-
-		let mut broadcast = Statement::new();
-		broadcast.set_plain_data(b"broadcast".to_vec());
-		assert!(!affinity.local_has_explicit_affinity(&broadcast));
+		let mut topicless = Statement::new();
+		topicless.set_plain_data(b"broadcast".to_vec());
+		assert!(!affinity.is_affine(&topicless), "a topicless statement is never affine");
 	}
 
 	#[test]

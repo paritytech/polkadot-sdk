@@ -95,8 +95,7 @@ use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
-	FilterDecision, Hash, RetentionReasonMask, Statement, StatementSource, StatementStore,
-	SubmitResult, Topic,
+	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult, Topic,
 };
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
@@ -107,6 +106,7 @@ use std::{
 	time::Instant,
 };
 use tokio::time::timeout;
+pub use v2dht::RetentionHandle;
 use v2dht::{V2DhtMetrics, V2DhtOrchestrator};
 pub mod config;
 #[cfg(test)]
@@ -198,8 +198,9 @@ const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from
 
 /// Feature-flag to switch between the legacy flood path and the new DHT-targeted path.
 ///
-/// Off by default; enable the v2 DHT path by setting `STATEMENT_STORE_V2_DHT_ENABLED=1`.
-fn v2dht_enabled() -> bool {
+/// Off by default; enable the v2 DHT path by setting `STATEMENT_STORE_V2_DHT_ENABLED=1`. The node
+/// also reads this to gate v2-only wiring, such as the store's affinity-based retention resolver.
+pub fn v2dht_enabled() -> bool {
 	std::env::var_os("STATEMENT_STORE_V2_DHT_ENABLED").map_or(false, |value| value == "1")
 }
 
@@ -423,6 +424,7 @@ impl StatementHandlerPrototype {
 		configured_topics: &[Topic],
 		replication_factor: std::num::NonZeroUsize,
 		gossip_target: std::num::NonZeroUsize,
+		retention: RetentionHandle,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
 		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
@@ -462,19 +464,12 @@ impl StatementHandlerPrototype {
 			executor(
 				async move {
 					loop {
-						let task: Option<(
-							Statement,
-							RetentionReasonMask,
-							oneshot::Sender<SubmitResult>,
-						)> = queue_receiver.next().await;
+						let task: Option<(Statement, oneshot::Sender<SubmitResult>)> =
+							queue_receiver.next().await;
 						match task {
 							None => return,
-							Some((statement, mask, completion)) => {
-								let result = store.submit_with_retention_mask(
-									statement,
-									StatementSource::Network,
-									mask,
-								);
+							Some((statement, completion)) => {
+								let result = store.submit(statement, StatementSource::Network);
 								if completion.send(result).is_err() {
 									log::debug!(
 										target: LOG_TARGET,
@@ -502,13 +497,14 @@ impl StatementHandlerPrototype {
 		} else {
 			futures::stream::pending::<Event>().boxed()
 		};
-		let v2dht = V2DhtOrchestrator::new(
+		let mut v2dht = V2DhtOrchestrator::new(
 			configured_topics,
 			network.local_peer_id(),
 			PeersTopologyConfig { replication_factor, gossip_target },
 			self.protocol_name.clone(),
 			v2dht_metrics,
 		);
+		v2dht.set_retention_handle(retention);
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
 			notification_service: self.notification_service,
@@ -572,8 +568,7 @@ pub struct StatementHandler<
 	// All connected peers
 	peers: HashMap<PeerId, Peer>,
 	statement_store: Arc<dyn StatementStore>,
-	queue_sender:
-		async_channel::Sender<(Statement, RetentionReasonMask, oneshot::Sender<SubmitResult>)>,
+	queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
 	/// Maximum statements per second per peer.
 	statements_per_second: NonZeroU32,
 	/// Prometheus metrics.
@@ -784,11 +779,7 @@ where
 		sync_event_stream: stream::Fuse<Pin<Box<dyn Stream<Item = SyncEvent> + Send>>>,
 		peers: HashMap<PeerId, Peer>,
 		statement_store: Arc<dyn StatementStore>,
-		queue_sender: async_channel::Sender<(
-			Statement,
-			RetentionReasonMask,
-			oneshot::Sender<SubmitResult>,
-		)>,
+		queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
 		statements_per_second: NonZeroU32,
 	) -> Self {
 		let local_peer = network.local_peer_id();
@@ -1459,13 +1450,8 @@ where
 
 				match self.pending_statements_peers.entry(hash) {
 					Entry::Vacant(entry) => {
-						let mask = if v2dht_enabled() {
-							self.v2dht.retention_reasons_for(&s)
-						} else {
-							RetentionReasonMask::persistent()
-						};
 						let (completion_sender, completion_receiver) = oneshot::channel();
-						match self.queue_sender.try_send((s, mask, completion_sender)) {
+						match self.queue_sender.try_send((s, completion_sender)) {
 							Ok(()) => {
 								self.pending_statements.push(
 									async move {
@@ -2253,23 +2239,10 @@ mod tests {
 		fn submit(
 			&self,
 			statement: sp_statement_store::Statement,
-			source: sp_statement_store::StatementSource,
-		) -> sp_statement_store::SubmitResult {
-			self.submit_with_retention_mask(statement, source, RetentionReasonMask::persistent())
-		}
-
-		fn submit_with_retention_mask(
-			&self,
-			statement: sp_statement_store::Statement,
 			_source: sp_statement_store::StatementSource,
-			mask: RetentionReasonMask,
 		) -> sp_statement_store::SubmitResult {
 			let hash = statement.hash();
-			// A persistent statement is kept; a transient one is held only for the next
-			// propagation. Both are forwarded once via `recent_statements`.
-			if mask.is_persistent() {
-				self.statements.lock().unwrap().insert(hash, statement.clone());
-			}
+			self.statements.lock().unwrap().insert(hash, statement.clone());
 			self.recent_statements.lock().unwrap().insert(hash, statement);
 			SubmitResult::New
 		}
@@ -2290,7 +2263,7 @@ mod tests {
 		TestStatementStore,
 		TestNetwork,
 		TestNotificationService,
-		async_channel::Receiver<(Statement, RetentionReasonMask, oneshot::Sender<SubmitResult>)>,
+		async_channel::Receiver<(Statement, oneshot::Sender<SubmitResult>)>,
 		Vec<PeerId>,
 	) {
 		let statement_store = TestStatementStore::new();
@@ -2426,7 +2399,7 @@ mod tests {
 		handler.on_statements(peer_id, vec![statement1.clone()]);
 		{
 			// Manually process statements submission
-			let (s, _, _) = queue_receiver.try_recv().unwrap();
+			let (s, _) = queue_receiver.try_recv().unwrap();
 			let _ = statement_store.statements.lock().unwrap().insert(s.hash(), s);
 			handler.network.report_peer(peer_id, rep::ANY_STATEMENT_REFUND);
 		}
@@ -3438,7 +3411,7 @@ mod tests {
 			})
 			.await;
 
-		let (received, _, _) = queue_receiver.try_recv().unwrap();
+		let (received, _) = queue_receiver.try_recv().unwrap();
 		assert_eq!(received.hash(), hash, "V1 peer's raw statement should be decoded correctly");
 	}
 
@@ -3475,7 +3448,7 @@ mod tests {
 			})
 			.await;
 
-		let (received, _, _) = queue_receiver.try_recv().unwrap();
+		let (received, _) = queue_receiver.try_recv().unwrap();
 		assert_eq!(received.hash(), hash, "V2 peer's StatementMessage should be decoded correctly");
 	}
 

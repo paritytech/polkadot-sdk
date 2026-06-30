@@ -341,19 +341,6 @@ pub trait StatementStore: Send + Sync {
 	/// Submit a statement.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult;
 
-	/// Submit a statement with the reasons it is worth storing.
-	///
-	/// The default ignores the mask and defers to [`Self::submit`], so stores that do
-	/// not distinguish transient statements keep their behavior. See [`RetentionReasonMask`].
-	fn submit_with_retention_mask(
-		&self,
-		statement: Statement,
-		source: StatementSource,
-		_mask: RetentionReasonMask,
-	) -> SubmitResult {
-		self.submit(statement, source)
-	}
-
 	/// Remove a statement from the store.
 	fn remove(&self, hash: &Hash) -> Result<()>;
 
