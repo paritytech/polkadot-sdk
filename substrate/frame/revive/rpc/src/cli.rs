@@ -141,7 +141,7 @@ pub struct CliCommand {
 	pub eth_pruning: EthPruningMode,
 
 	/// Max blocks per second during backward sync (backfill). 0 disables the limit.
-	#[clap(long, default_value_t = 50)]
+	#[clap(long, default_value_t = 30)]
 	pub backfill_max_blocks_per_sec: u32,
 
 	#[allow(missing_docs)]

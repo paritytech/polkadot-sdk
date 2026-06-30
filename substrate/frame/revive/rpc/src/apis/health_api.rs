@@ -45,9 +45,9 @@ impl SystemHealthRpcServerImpl {
 #[async_trait]
 impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 	async fn system_health(&self) -> RpcResult<Health> {
-		// The node's block import is usually steady, but can come in bursts; tolerate ~2 minutes
+		// The node's block import is usually steady, but can come in bursts; tolerate ~4 minutes
 		// of drift before reporting unhealthy.
-		const MAX_BLOCK_DRIFT: u32 = 60;
+		const MAX_BLOCK_DRIFT: u32 = 128;
 		// Cap the wait on the node so a slow node logs an error, instead of a silent probe timeout.
 		const NODE_QUERY_TIMEOUT: Duration = Duration::from_secs(3);
 
@@ -72,8 +72,8 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 			},
 		};
 
-		// Best and finalized are tracked from independent subscriptions; the best stream is lossy,
-		// so its cache can trail finalized. Use whichever is higher as our processed height.
+		// Best and finalized come from independent subscriptions that update out of order, and best
+		// isn't gap-filled (finalized is), so the best cache can trail finalized. Take the higher.
 		let latest = self
 			.client
 			.latest_block()
