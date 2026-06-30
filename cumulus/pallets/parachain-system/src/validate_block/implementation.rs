@@ -212,6 +212,7 @@ where
 			&parent_backend,
 			&mut Default::default(),
 			&mut Default::default(),
+			state_version,
 			|| {
 				if !PSC::SchedulingSignatureVerifier::verify(signed_info, relay_slot) {
 					panic!(
