@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782768944391,
+  "lastUpdate": 1782823126649,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "45a0ea734fed1ed2b323e4b1bd8f44d53f4db598",
-          "message": "Require only one review from the smart contracts team (#10212)",
-          "timestamp": "2025-11-05T22:46:32Z",
-          "tree_id": "3b274a2851ddf70f42b10678137848ea1c8d7222",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/45a0ea734fed1ed2b323e4b1bd8f44d53f4db598"
-        },
-        "date": 1762386842610,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95599999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03513830575800001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044177532407999945,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038345820982000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6fc92492006c250f726c6bf57865793d5005a7fd",
+          "message": "Cumulus v3: `find_parent()` adjustments (#12296)\n\nImplements the main changes discussed in\nhttps://github.com/paritytech/polkadot-sdk/issues/11624\n\nAdjusts the `find_parent()` logic in order to also support V3 candidates\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-30T10:54:40Z",
+          "tree_id": "cf8c1beaf343fc5c7c5362e8165129165f71f271",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6fc92492006c250f726c6bf57865793d5005a7fd"
+        },
+        "date": 1782823096206,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.14799999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08410260428799994,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03838116843399999,
             "unit": "seconds"
           }
         ]
