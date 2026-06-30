@@ -19,7 +19,9 @@ use crate::{
 	DbContext, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
 	PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
 	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
-	client::{Client, ClientError, SubscriptionGapQueue, SubscriptionType, connect},
+	client::{
+		Client, ClientError, SubscriptionGapQueue, SubscriptionType, SubstrateBlockHash, connect,
+	},
 };
 use clap::{CommandFactory, FromArgMatches, Parser};
 use futures::{FutureExt, future::BoxFuture, pin_mut};
@@ -284,29 +286,39 @@ fn build_client(
 			},
 		};
 
-		// Foreign-asset index table: resolves a foreign asset's `Location -> u32` precompile index.
-		// It is owned and maintained by the indexing layer (seeded here, kept current from
-		// `pallet-assets` events as blocks are indexed), so the extractor only ever reads it and
-		// extraction stays a pure function of the block. The closure reads
-		// `ForeignAssetIdToAssetIndex` at latest state to learn a newly-created asset's index.
+		// Foreign-asset index journal: resolves a foreign asset's `Location -> u32` precompile
+		// index *as of a given block*. It is owned and maintained by the indexing layer
+		// (populated from `pallet-assets` lifecycle events as blocks are indexed, and from
+		// on-miss reads), so the extractor only ever reads it and extraction stays a pure
+		// function of the block. The closure reads `ForeignAssetIdToAssetIndex` **at a given
+		// block** (not `at_latest`) to learn a freshly-created asset's index and to resolve a
+		// lookup miss as of the transfer's block. Pruned/live mode then seeds a baseline at the
+		// live cutover block (below); archive mode does not seed (it builds full history, so a
+		// current-state seed would pollute historic resolution).
 		let foreign_index = {
 			let fetch_index: crate::FetchStorageRawFn = {
 				let api = api.clone();
-				std::sync::Arc::new(move |key: Vec<u8>| {
+				std::sync::Arc::new(move |key: Vec<u8>, at: SubstrateBlockHash| {
 					let api = api.clone();
 					Box::pin(async move {
-						let storage = api.storage().at_latest().await.map_err(|_| ())?;
+						let storage = api.storage().at(at);
 						storage.fetch_raw(key).await.map_err(|_| ())
 					})
 				})
 			};
-			let foreign_index =
-				std::sync::Arc::new(crate::ForeignAssetIndex::new(Default::default(), fetch_index));
+			std::sync::Arc::new(crate::ForeignAssetIndex::new(Default::default(), fetch_index))
+		};
 
-			// Seed from current chain state via a paged raw-key scan of the map. Best-effort: if it
-			// fails (e.g. node not ready), the table still fills from create events as blocks index.
+		// Pruned/live mode indexes forward from a live cutover block, so seed the journal once with
+		// the foreign-asset mappings live at that block, stamped at the cutover; forward lifecycle
+		// events maintain it thereafter. Archive mode is skipped: it reconstructs full versioned
+		// history and a current-state seed would pollute historic resolution. Best-effort — on
+		// failure the on-miss read path still resolves cold lookups.
+		if !eth_pruning.is_archive() {
 			let seed = async {
-				let storage = api.storage().at_latest().await?;
+				let block = api.blocks().at_latest().await?;
+				let (cutover, cutover_hash) = (block.number(), block.hash());
+				let storage = api.storage().at(cutover_hash);
 				let mut keys = storage.fetch_raw_keys(crate::foreign_index_prefix()).await?;
 				let mut entries = Vec::new();
 				while let Some(key) = keys.next().await {
@@ -320,20 +332,20 @@ fn build_client(
 						}
 					}
 				}
-				Ok::<_, anyhow::Error>(entries)
+				Ok::<_, anyhow::Error>((cutover, entries))
 			}
 			.await;
 			match seed {
-				Ok(entries) => {
+				Ok((cutover, entries)) => {
 					log::info!(target: LOG_TARGET,
-						"Seeded foreign-asset index with {} entries", entries.len());
-					foreign_index.seed(entries).await;
+						"Seeded foreign-asset index with {} entries at cutover block #{cutover}",
+						entries.len());
+					foreign_index.seed_at_block(cutover, entries).await;
 				},
 				Err(err) => log::warn!(target: LOG_TARGET,
-					"Foreign-asset index seed failed ({err:?}); will fill from events as blocks index"),
+					"Foreign-asset index seed failed ({err:?}); on-miss reads will resolve cold lookups"),
 			}
-			foreign_index
-		};
+		}
 
 		let receipt_extractor = ReceiptExtractor::new(api.clone(), foreign_index).await?;
 		let max_variable_number = sqlite_db_query_max_variable_number(&pool).await;

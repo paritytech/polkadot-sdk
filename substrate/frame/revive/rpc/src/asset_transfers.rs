@@ -259,8 +259,8 @@ pub fn decode_foreign_transfer_parts(
 }
 
 /// The 32-byte storage prefix (`twox128(pallet) ++ twox128(entry)`) of the
-/// `FOREIGN_INDEX_PALLET::FOREIGN_INDEX_ENTRY` map. Used to enumerate every entry (for the
-/// startup seed) via a paged raw-key query.
+/// `FOREIGN_INDEX_PALLET::FOREIGN_INDEX_ENTRY` map — the leading bytes of every key in it (see
+/// [`foreign_index_storage_key`]).
 pub fn foreign_index_prefix() -> Vec<u8> {
 	let mut prefix = Vec::with_capacity(16 + 16);
 	prefix.extend_from_slice(&twox_128(FOREIGN_INDEX_PALLET.as_bytes()));
@@ -282,6 +282,7 @@ pub fn foreign_index_storage_key(asset_id_key: &[u8]) -> Vec<u8> {
 /// Recover the SCALE-encoded `Location` from a full `ForeignAssetIdToAssetIndex` storage key, by
 /// stripping the 32-byte map prefix and the 16-byte `Blake2_128` hash (`Blake2_128Concat` appends
 /// the raw key after its hash). Returns `None` if the key is too short to be one of this map's.
+/// Used by the pruned/live-mode cutover seed, which enumerates the map by prefix.
 pub fn location_from_foreign_index_key(full_key: &[u8]) -> Option<Vec<u8>> {
 	// twox128(pallet) ++ twox128(entry) ++ blake2_128(loc) ++ loc
 	full_key.get(48..).map(|loc| loc.to_vec())
@@ -496,7 +497,7 @@ mod tests {
 
 	#[test]
 	fn location_round_trips_through_storage_key() {
-		// The startup seed enumerates the map by prefix and recovers each `Location` from the full
+		// The cutover seed enumerates the map by prefix and recovers each `Location` from the full
 		// key, so building a key and recovering the location must round-trip.
 		let loc = vec![0x01, 0x02, 0x00, 0xCA, 0xFE];
 		let key = foreign_index_storage_key(&loc);

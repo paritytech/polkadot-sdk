@@ -589,10 +589,12 @@ impl Client {
 
 		let eth_block = time!("eth_block", self.runtime_api(hash).eth_block().await?);
 
-		// Foreign-asset index maintenance runs only on this forward live-indexing path. Apply
-		// creations BEFORE extraction so a transfer of a freshly-created asset in this block
-		// resolves; apply destructions AFTER, so a transfer earlier in this block still resolves
-		// against the then-live mapping.
+		// Foreign-asset index maintenance on this forward live-indexing path. Apply creations
+		// BEFORE extraction so a transfer of a freshly-created asset in this block resolves
+		// against the journal; apply destructions AFTER, so a transfer earlier in this block
+		// still resolves against the then-live mapping. Live extraction resolves foreign
+		// transfers via the journal (see `receipts_from_block`); archive backfill resolves from
+		// storage at the block instead.
 		self.receipt_provider.apply_foreign_index_creations(block).await;
 		let receipts = time!(
 			"receipts_from_block",

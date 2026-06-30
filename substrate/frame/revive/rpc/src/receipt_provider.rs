@@ -16,8 +16,9 @@
 // limitations under the License.
 use crate::{
 	Address, AddressOrAddresses, AssetTransfer, BlockInfoProvider, BlockNumberOrTag, Bytes,
-	ChainMetadata, ClientError, FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider, SyncLabel,
-	SyncStateKey, block_sync::SyncCheckpoint,
+	ChainMetadata, ClientError, FilterTopic, ForeignIndexSource, ReceiptExtractor,
+	SubxtBlockInfoProvider, SyncLabel, SyncStateKey,
+	block_sync::SyncCheckpoint,
 	client::{SubstrateBlock, SubstrateBlockNumber},
 	signer_h160_from_address_bytes, synthetic_transaction, synthetic_tx_hash,
 };
@@ -583,20 +584,22 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.map(|entry| entry.ethereum_hash)
 	}
 
-	/// Apply this block's foreign-asset **creations** (`Created`/`ForceCreated`) to the index. Call
-	/// *before* extraction so a transfer of a freshly-created asset in the same block resolves.
+	/// Record this block's foreign-asset **creations** (`Created`/`ForceCreated`) in the journal,
+	/// stamped at this block. Call *before* extraction so a same-block transfer resolves.
 	///
-	/// Forward live-indexing only ([`crate::Client::process_block`]). Deliberately NOT called on
-	/// reads (`receipts_from_block` is also a read path) nor on backward historic sync
-	/// ([`Self::insert_block_receipts_past`]) — the table reflects *current* chain state, so an old
-	/// block must not rewrite it.
+	/// Runs on every indexing path that writes receipts — forward live
+	/// ([`crate::Client::process_block`]) and backward historic sync
+	/// ([`Self::insert_block_receipts_past`]) — so the journal is populated wherever blocks are
+	/// indexed. Entries are block-stamped facts, so insertion order is irrelevant. Not called on
+	/// read paths: [`ForeignAssetIndex::get`] is a pure lookup, so a read never mutates the
+	/// journal.
 	pub(crate) async fn apply_foreign_index_creations(&self, block: &SubstrateBlock) {
 		self.apply_foreign_index_events(block, crate::is_foreign_creation).await;
 	}
 
 	/// Apply this block's foreign-asset **destructions** (`Destroyed`) to the index. Call *after*
 	/// extraction, so a transfer earlier in the same block still resolves against the then-live
-	/// mapping. Forward live-indexing only — see [`Self::apply_foreign_index_creations`].
+	/// mapping. Runs on the same indexing paths — see [`Self::apply_foreign_index_creations`].
 	pub(crate) async fn apply_foreign_index_destructions(&self, block: &SubstrateBlock) {
 		self.apply_foreign_index_events(block, crate::is_foreign_destruction).await;
 	}
@@ -610,46 +613,62 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			return;
 		};
 		let foreign_index = self.receipt_extractor.foreign_index();
+		let (block_number, block_hash) = (block.number(), block.hash());
 		for event in events.iter() {
 			let Ok(event) = event else { continue };
 			if select(event.variant_name()) {
 				foreign_index
-					.apply_event(event.pallet_name(), event.variant_name(), event.field_bytes())
+					.apply_event(
+						event.pallet_name(),
+						event.variant_name(),
+						event.field_bytes(),
+						block_number,
+						block_hash,
+					)
 					.await;
 			}
 		}
 	}
 
-	/// Fetch receipts from the given block, using a pre-fetched ethereum block hash. Pure with
-	/// respect to the foreign-asset index (read-safe): extraction only *reads* the index. Index
-	/// maintenance happens on the forward indexing path (see `apply_foreign_index_*`), not here —
-	/// this is also a read path (hydrated `eth_getBlock*`).
+	/// Fetch receipts from the given block, using a pre-fetched ethereum block hash. Resolves
+	/// foreign-asset transfers against the in-memory journal ([`ForeignIndexSource::Journal`]) — a
+	/// pure read, no chain access. Used by the forward live path and read paths (hydrated
+	/// `eth_getBlock*`); journal maintenance happens via `apply_foreign_index_*`, not here.
 	pub async fn receipts_from_block(
 		&self,
 		block: &SubstrateBlock,
 		ethereum_hash: H256,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
 		self.receipt_extractor
-			.extract_from_block_with_eth_hash(block, ethereum_hash)
+			.extract_from_block_with_eth_hash(block, ethereum_hash, ForeignIndexSource::Journal)
 			.await
 	}
 
 	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
 	/// Used for historic sync where fork detection is unnecessary.
 	///
-	/// Does NOT maintain the foreign-asset index: this is backward sync over *old* blocks, and the
-	/// index tracks current state — old creates/destroys must not rewrite it. Foreign transfers in
-	/// these blocks resolve against the seed + forward-maintained table (a since-destroyed asset is
-	/// dropped, the documented limitation).
+	/// Resolves foreign-asset transfers from **chain storage at this block**
+	/// ([`ForeignIndexSource::StorageAtBlock`]), not from the journal: during backward backfill the
+	/// journal isn't yet populated for historic blocks, and the persisted synthetic logs must
+	/// reflect the `Location -> index` mapping as it was at the block. Separately, it still
+	/// maintains the journal from this block's lifecycle events (creations *before*, destructions
+	/// *after*) so the journal is correct for later live/read lookups — that journal is *not* the
+	/// source for these historical logs.
 	pub async fn insert_block_receipts_past(
 		&self,
 		block: &SubstrateBlock,
 		ethereum_hash: &H256,
 	) -> Result<(), ClientError> {
+		self.apply_foreign_index_creations(block).await;
 		let receipts = self
 			.receipt_extractor
-			.extract_from_block_with_eth_hash(block, *ethereum_hash)
+			.extract_from_block_with_eth_hash(
+				block,
+				*ethereum_hash,
+				ForeignIndexSource::StorageAtBlock,
+			)
 			.await?;
+		self.apply_foreign_index_destructions(block).await;
 		self.insert_into_db(block, &receipts, ethereum_hash).await?;
 		Ok(())
 	}
@@ -1010,9 +1029,14 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// `true` if `transaction_hash` is a synthesized `pallet-assets` transfer at this slot, rather
-	/// than an `eth_transact`. The synthetic hash is a pure function of the substrate block hash and
-	/// extrinsic index, so this needs no chain access and cannot collide with a real eth tx hash.
-	fn is_synthetic_asset_tx(transaction_hash: &H256, block_hash: H256, transaction_index: usize) -> bool {
+	/// than an `eth_transact`. The synthetic hash is a pure function of the substrate block hash
+	/// and extrinsic index, so this needs no chain access and cannot collide with a real eth tx
+	/// hash.
+	fn is_synthetic_asset_tx(
+		transaction_hash: &H256,
+		block_hash: H256,
+		transaction_index: usize,
+	) -> bool {
 		*transaction_hash == synthetic_tx_hash(block_hash, transaction_index)
 	}
 
@@ -2059,7 +2083,9 @@ mod tests {
 	/// straight from the stored logs — exactly what the read path does — and assert the receipt
 	/// matches what `eth_getLogs` returns, with no chain lookup.
 	#[sqlx::test]
-	async fn synthetic_asset_receipt_reconstructed_from_logs(pool: SqlitePool) -> anyhow::Result<()> {
+	async fn synthetic_asset_receipt_reconstructed_from_logs(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
 		let block = MockBlockInfo { hash: H256::from([0xB1; 32]), number: 100 };
 		let ethereum_hash = H256::from([0xE7; 32]);
@@ -2099,15 +2125,12 @@ mod tests {
 		assert_eq!(logs.len(), 1);
 		assert_eq!(logs[0].address, token);
 
-		// Reconstruct with a known extrinsic signer: `from` is that signer, everything else matches.
+		// Reconstruct with a known extrinsic signer: `from` is that signer, everything else
+		// matches.
 		let signer = H160::from([0x99; 20]);
-		let (signed, rec) = reconstruct_synthetic_asset_receipt(
-			logs.clone(),
-			tx_hash,
-			tx_index,
-			Some(signer),
-		)
-		.expect("reconstructs from logs");
+		let (signed, rec) =
+			reconstruct_synthetic_asset_receipt(logs.clone(), tx_hash, tx_index, Some(signer))
+				.expect("reconstructs from logs");
 		assert_eq!(rec.transaction_hash, tx_hash);
 		assert_eq!(rec.transaction_index, U256::from(tx_index as u64));
 		assert_eq!(rec.to, Some(token));
@@ -2118,8 +2141,8 @@ mod tests {
 		assert!(matches!(signed, TransactionSigned::TransactionLegacySigned(_)));
 
 		// With no resolvable signer, `from` falls back to the transfer's own sender (never zero).
-		let (_, rec_no_signer) =
-			reconstruct_synthetic_asset_receipt(logs, tx_hash, tx_index, None).expect("reconstructs");
+		let (_, rec_no_signer) = reconstruct_synthetic_asset_receipt(logs, tx_hash, tx_index, None)
+			.expect("reconstructs");
 		assert_eq!(rec_no_signer.from, sender);
 
 		Ok(())
@@ -2148,17 +2171,22 @@ mod tests {
 			t2.to_log(U256::from(10), eth_hash, tx_hash, 4, 6),
 		];
 
-		let (signed, rec) =
-			reconstruct_synthetic_asset_receipt(logs.clone(), tx_hash, 4, Some(H160::from([0x99; 20])))
-				.expect("reconstructs");
+		let (signed, rec) = reconstruct_synthetic_asset_receipt(
+			logs.clone(),
+			tx_hash,
+			4,
+			Some(H160::from([0x99; 20])),
+		)
+		.expect("reconstructs");
 
 		assert_eq!(rec.to, Some(H160::from([0x11; 20])), "batch `to` is the first token");
 		assert_eq!(rec.from, H160::from([0x99; 20]));
 		assert_eq!(rec.logs, logs, "all per-token logs preserved, unchanged");
-		let TransactionSigned::TransactionLegacySigned(tx) = signed else { panic!("expected legacy") };
+		let TransactionSigned::TransactionLegacySigned(tx) = signed else {
+			panic!("expected legacy")
+		};
 		assert_eq!(
-			tx.transaction_legacy_unsigned.to,
-			rec.to,
+			tx.transaction_legacy_unsigned.to, rec.to,
 			"synthetic tx targets the same first token as the receipt"
 		);
 	}
@@ -2217,16 +2245,15 @@ mod tests {
 			.await?;
 
 		// Present tx -> Ok with its logs.
-		assert_eq!(
-			provider.logs_by_transaction_hash(&present).await.expect("query ok").len(),
-			1
-		);
+		assert_eq!(provider.logs_by_transaction_hash(&present).await.expect("query ok").len(), 1);
 		// Absent tx -> Ok(empty), NOT Err.
-		assert!(provider
-			.logs_by_transaction_hash(&H256::from([0xFF; 32]))
-			.await
-			.expect("query ok")
-			.is_empty());
+		assert!(
+			provider
+				.logs_by_transaction_hash(&H256::from([0xFF; 32]))
+				.await
+				.expect("query ok")
+				.is_empty()
+		);
 
 		Ok(())
 	}

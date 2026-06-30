@@ -15,23 +15,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! In-memory `foreign asset Location -> u32 precompile index` table.
+//! In-memory journal of a foreign asset's `Location -> u32 precompile index` mapping *over time*.
 //!
 //! The precompile index a foreign asset's ERC-20 address is derived from lives only in chain
-//! storage (`AssetsPrecompiles::ForeignAssetIdToAssetIndex`) — it is in no event. Rather than
-//! reading that storage per transfer (and at `at_latest`, which made historical resolution
-//! time-dependent), this table is **seeded once at startup** and then **kept current from
-//! `pallet-assets` lifecycle events**: the mapping is only ever changed by the create/destroy
-//! callbacks, which always emit `Created` / `ForceCreated` (add) or `Destroyed` (remove). So
-//! resolving a transfer is a pure table lookup, and the only chain reads are the one-time seed
-//! plus one read per asset *creation* (the create event omits the assigned index).
+//! storage (`AssetsPrecompiles::ForeignAssetIdToAssetIndex`) — it is in no event. A transfer in
+//! block `N` must be resolved against the mapping **as it was at block `N`**, not the current one:
+//! an asset can be destroyed (and the `Location` later recreated with a *different* index), so a
+//! current-state table would mis-resolve historic transfers.
 //!
-//! This deliberately lives outside [`crate::ReceiptExtractor`]: extraction is a pure function of
-//! the block, and maintaining a view of mutable chain state is a separate concern owned by the
-//! indexing layer, which calls [`ForeignAssetIndex::apply_event`] as it processes each block.
+//! So instead of a current-state map, this keeps a per-`Location` journal of mapping *changes*,
+//! each stamped with the block it took effect at:
+//!
+//! ```text
+//! Location -> { block_number -> Option<index> }   // Some = (re)created, None = destroyed/absent
+//! ```
+//!
+//! Resolving a transfer at block `N` is the greatest journal entry with `block_number <= N`. A
+//! journal entry is a *fact* keyed by block, so the order entries are inserted in is irrelevant —
+//! forward live-indexing and backward historic backfill can populate it in any order. Entries come
+//! from `pallet-assets` lifecycle events (`Created`/`ForceCreated` add, `Destroyed` removes), each
+//! stamped at the block that emitted it, plus a startup cutover seed in pruned/live mode.
+//!
+//! This deliberately lives outside [`crate::ReceiptExtractor`]: lookups
+//! ([`ForeignAssetIndex::get`]) are a pure journal read with no chain access, so extraction stays a
+//! pure function of the block. Maintaining the journal is a separate concern owned by the indexing
+//! layer, which calls [`ForeignAssetIndex::apply_event`] as it processes each block (the create
+//! events omit the assigned index, so *that* — and only that — reads chain storage, on the
+//! write/index path).
 
-use crate::{AssetTransferConfig, decode_foreign_index, foreign_index_storage_key};
-use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
+use crate::{
+	AssetTransferConfig,
+	client::{SubstrateBlockHash, SubstrateBlockNumber},
+	decode_foreign_index, foreign_index_storage_key,
+};
+use std::{
+	collections::{BTreeMap, HashMap},
+	future::Future,
+	pin::Pin,
+	sync::Arc,
+};
 
 const LOG_TARGET: &str = "eth-rpc::foreign_asset_index";
 
@@ -53,54 +75,89 @@ pub fn is_foreign_destruction(variant: &str) -> bool {
 	variant == DESTROYED
 }
 
-/// Read a raw storage value. `Ok(Some)` = present, `Ok(None)` = absent, `Err(())` = transient
-/// fetch failure. Used to read a newly-created foreign asset's index (which the create event omits)
-/// and to seed the table.
+/// Read a raw storage value **at a given block**. `Ok(Some)` = present, `Ok(None)` = absent,
+/// `Err(())` = transient fetch failure. Used to read a newly-created foreign asset's index (which
+/// the create event omits) at the block it was created, and — during archive backfill — to resolve
+/// a transfer's mapping as it was at the block being indexed (see [`Self::resolve_from_storage`]).
 pub type FetchStorageRawFn = Arc<
-	dyn Fn(Vec<u8>) -> Pin<Box<dyn Future<Output = Result<Option<Vec<u8>>, ()>> + Send>>
+	dyn Fn(
+			Vec<u8>,
+			SubstrateBlockHash,
+		) -> Pin<Box<dyn Future<Output = Result<Option<Vec<u8>>, ()>> + Send>>
 		+ Send
 		+ Sync,
 >;
 
-/// In-memory map of a foreign asset's SCALE-encoded `Location` to its `u32` precompile index.
-///
-/// Seeded at startup and maintained from lifecycle events; [`Self::get`] is a pure lookup.
+/// In-memory journal of a foreign asset's SCALE-encoded `Location` to its `u32` precompile index
+/// *over block height*. See the module docs: resolution is the latest change at or before a block.
 #[derive(Clone)]
 pub struct ForeignAssetIndex {
-	/// `Location (SCALE bytes) -> u32 index`.
-	cache: Arc<tokio::sync::Mutex<HashMap<Vec<u8>, u32>>>,
+	/// `Location (SCALE bytes) -> { block_number -> Option<u32> }`. Each entry records the mapping
+	/// as of that block: `Some(index)` on (re)creation, `None` on destruction (or read-as-absent).
+	journal: Arc<tokio::sync::Mutex<HashMap<Vec<u8>, BTreeMap<SubstrateBlockNumber, Option<u32>>>>>,
 	/// Which metadata pallet names are foreign-assets instances (and their address prefix).
 	config: AssetTransferConfig,
-	/// Reads `ForeignAssetIdToAssetIndex[Location]` to learn a freshly-created asset's index.
+	/// Reads `ForeignAssetIdToAssetIndex[Location]` at a given block — to learn a freshly-created
+	/// asset's index (for the journal), and, during archive backfill, to resolve a transfer's
+	/// mapping as of the block being indexed (see [`Self::resolve_from_storage`]).
 	fetch_index: FetchStorageRawFn,
 }
 
 impl ForeignAssetIndex {
-	/// Build an empty table. Call [`Self::seed`] before serving to populate it from current state.
+	/// Build an empty journal. Populated from `pallet-assets` lifecycle events (and, in pruned/live
+	/// mode, a startup cutover seed); archive backfill resolves its logs via
+	/// [`Self::resolve_from_storage`].
 	pub fn new(config: AssetTransferConfig, fetch_index: FetchStorageRawFn) -> Self {
-		Self { cache: Arc::new(tokio::sync::Mutex::new(HashMap::new())), config, fetch_index }
+		Self { journal: Arc::new(tokio::sync::Mutex::new(HashMap::new())), config, fetch_index }
 	}
 
-	/// A genuinely inert table — for tests and mocks that do not exercise foreign-asset resolution.
-	/// Empty instance lists so `apply_event` matches nothing, and a resolver that reports "absent"
-	/// so `get` is always `None`.
+	/// A genuinely inert journal — for tests and mocks that do not exercise foreign-asset
+	/// resolution. Empty instance lists so `apply_event` matches nothing, and a resolver that
+	/// reports "absent" so a lookup miss resolves to `None`.
 	pub fn disabled() -> Self {
 		let config = AssetTransferConfig { u32_instances: vec![], foreign_instances: vec![] };
-		Self::new(config, Arc::new(|_| Box::pin(std::future::ready(Ok(None)))))
+		Self::new(config, Arc::new(|_, _| Box::pin(std::future::ready(Ok(None)))))
 	}
 
-	/// Look up the precompile index for a foreign asset's SCALE-encoded `Location`. Pure: a table
-	/// read, no chain access. Returns `None` if the `Location` is not (yet) known.
-	pub async fn get(&self, asset_id_key: &[u8]) -> Option<u32> {
-		self.cache.lock().await.get(asset_id_key).copied()
+	/// Seed the journal with the mappings live at `block`, each recorded as `Some(index)` stamped
+	/// at `block`. Used once at startup in **pruned/live mode**, where indexing begins at a live
+	/// cutover block rather than reconstructing history: this establishes a deterministic baseline
+	/// at the cutover, after which forward lifecycle events maintain the journal. **Archive mode
+	/// does not seed** — it resolves historic logs from storage at the block (see
+	/// [`Self::resolve_from_storage`]), so a current-state seed would pollute resolution. Entries
+	/// are stamped at the cutover, so a transfer at any later block resolves against them unless a
+	/// forward event supersedes.
+	pub async fn seed_at_block(
+		&self,
+		block: SubstrateBlockNumber,
+		entries: impl IntoIterator<Item = (Vec<u8>, u32)>,
+	) {
+		let mut journal = self.journal.lock().await;
+		for (location, index) in entries {
+			journal.entry(location).or_default().insert(block, Some(index));
+		}
 	}
 
-	/// Replace the table with a freshly-read snapshot (startup seed). `entries` is every
-	/// `(Location bytes, index)` pair currently in `ForeignAssetIdToAssetIndex`.
-	pub async fn seed(&self, entries: impl IntoIterator<Item = (Vec<u8>, u32)>) {
-		let mut map = self.cache.lock().await;
-		map.clear();
-		map.extend(entries);
+	/// Look up the precompile index for a foreign asset's SCALE-encoded `Location` **as of
+	/// `at_block`**: the latest recorded change at or before `at_block`. A pure journal lookup — no
+	/// chain access — so extraction stays a pure function of the block. Returns `None` if the
+	/// `Location` had no mapping at that height (the journal is populated by the indexing layer via
+	/// [`Self::apply_event`] as it processes each block, plus the startup cutover seed).
+	pub async fn get(&self, asset_id_key: &[u8], at_block: SubstrateBlockNumber) -> Option<u32> {
+		let journal = self.journal.lock().await;
+		let history = journal.get(asset_id_key)?;
+		let (_, mapping) = history.range(..=at_block).next_back()?;
+		*mapping
+	}
+
+	/// Record that, as of `block`, `location` mapped to `mapping` (`Some(index)` / `None`).
+	async fn record_change(
+		&self,
+		location: Vec<u8>,
+		block: SubstrateBlockNumber,
+		mapping: Option<u32>,
+	) {
+		self.journal.lock().await.entry(location).or_default().insert(block, mapping);
 	}
 
 	/// `true` if `pallet` is a configured foreign-assets instance.
@@ -108,13 +165,23 @@ impl ForeignAssetIndex {
 		self.config.foreign_instances.iter().any(|(name, _)| *name == pallet)
 	}
 
-	/// Apply one decoded block event to the table: add on `Created`/`ForceCreated`, remove on
-	/// `Destroyed`. A no-op for any other event or for non-foreign pallets. Callers iterate a
-	/// block's events (in order) and call this for each.
+	/// Apply one decoded block event to the journal, stamped at `block`: record a `Some(index)` on
+	/// `Created`/`ForceCreated`, a `None` on `Destroyed`. A no-op for any other event or for
+	/// non-foreign pallets. Callers iterate a block's events (in order) and call this for each,
+	/// with the block's number and hash.
 	///
-	/// The create events do not carry the assigned index, so it is read from storage here. A
-	/// transient read failure leaves the entry absent; the next seed/restart recovers it.
-	pub async fn apply_event(&self, pallet: &str, variant: &str, field_bytes: &[u8]) {
+	/// The create events do not carry the assigned index, so it is read from storage **at this
+	/// block** (`block_hash`) — reading at the creating block, not `at_latest`, so a `Location`
+	/// recreated with a different index records the index it had at the time. A transient read
+	/// failure records nothing; a later lookup-miss read recovers it.
+	pub async fn apply_event(
+		&self,
+		pallet: &str,
+		variant: &str,
+		field_bytes: &[u8],
+		block: SubstrateBlockNumber,
+		block_hash: SubstrateBlockHash,
+	) {
 		if !self.is_foreign_instance(pallet) {
 			return;
 		}
@@ -126,26 +193,45 @@ impl ForeignAssetIndex {
 				let trailing = if variant == CREATED { 64 } else { 32 };
 				let Some(split) = field_bytes.len().checked_sub(trailing) else { return };
 				let location = &field_bytes[..split];
-				match (self.fetch_index)(foreign_index_storage_key(location)).await {
-					Ok(Some(raw)) =>
+				match (self.fetch_index)(foreign_index_storage_key(location), block_hash).await {
+					Ok(Some(raw)) => {
 						if let Some(index) = decode_foreign_index(&raw) {
-							self.cache.lock().await.insert(location.to_vec(), index);
+							self.record_change(location.to_vec(), block, Some(index)).await;
 						} else {
-							log::debug!(target: LOG_TARGET, "{pallet}::{variant}: index undecodable, not added");
-						},
+							log::debug!(target: LOG_TARGET, "{pallet}::{variant} #{block}: index undecodable, not recorded");
+						}
+					},
 					Ok(None) => {
-						log::debug!(target: LOG_TARGET, "{pallet}::{variant}: no index in storage, not added");
+						log::debug!(target: LOG_TARGET, "{pallet}::{variant} #{block}: no index in storage, not recorded");
 					},
 					Err(()) => {
-						log::debug!(target: LOG_TARGET, "{pallet}::{variant}: index read failed, not added; reseed/restart recovers");
+						log::debug!(target: LOG_TARGET, "{pallet}::{variant} #{block}: index read failed, not recorded; miss read recovers");
 					},
 				}
 			},
 			// `Destroyed { asset_id: Location }` — the whole field is the `Location`.
 			DESTROYED => {
-				self.cache.lock().await.remove(field_bytes);
+				self.record_change(field_bytes.to_vec(), block, None).await;
 			},
 			_ => {},
+		}
+	}
+
+	/// Resolve a foreign asset's precompile index by reading `ForeignAssetIdToAssetIndex[Location]`
+	/// directly from chain storage **at `block_hash`**, bypassing the journal entirely.
+	///
+	/// Used for archive backfill log construction: a historic block's synthetic ERC-20 logs must
+	/// reflect the mapping as it was at that block, and the in-memory journal is not the source of
+	/// truth for historic reconstruction (it may not yet be populated, and is built for live/read
+	/// lookups). Returns `None` if the mapping is absent, undecodable, or the read fails.
+	pub async fn resolve_from_storage(
+		&self,
+		asset_id_key: &[u8],
+		block_hash: SubstrateBlockHash,
+	) -> Option<u32> {
+		match (self.fetch_index)(foreign_index_storage_key(asset_id_key), block_hash).await {
+			Ok(Some(raw)) => decode_foreign_index(&raw),
+			Ok(None) | Err(()) => None,
 		}
 	}
 }
@@ -155,59 +241,40 @@ mod tests {
 	use super::*;
 	use std::sync::atomic::{AtomicU32, Ordering};
 
-	/// A resolver that returns a fixed index (SCALE u32, little-endian) and counts its calls.
+	/// A distinct block hash per `n`, so a storage-aware resolver can answer by block.
+	fn hash(n: u64) -> SubstrateBlockHash {
+		SubstrateBlockHash::from_low_u64_be(n)
+	}
+
+	/// A resolver that returns a fixed index (SCALE u32, little-endian) for any key/block and
+	/// counts its calls.
 	fn fixed_index_resolver(index: u32) -> (FetchStorageRawFn, Arc<AtomicU32>) {
 		let calls = Arc::new(AtomicU32::new(0));
 		let calls_in = calls.clone();
-		let resolver: FetchStorageRawFn = Arc::new(move |_key: Vec<u8>| {
-			calls_in.fetch_add(1, Ordering::SeqCst);
-			let raw = index.to_le_bytes().to_vec();
-			Box::pin(std::future::ready(Ok(Some(raw)))) as Pin<Box<_>>
-		});
+		let resolver: FetchStorageRawFn =
+			Arc::new(move |_key: Vec<u8>, _at: SubstrateBlockHash| {
+				calls_in.fetch_add(1, Ordering::SeqCst);
+				let raw = index.to_le_bytes().to_vec();
+				Box::pin(std::future::ready(Ok(Some(raw)))) as Pin<Box<_>>
+			});
 		(resolver, calls)
 	}
 
-	#[test]
-	fn seed_then_lookup() {
-		let (resolver, _) = fixed_index_resolver(0);
-		let index = ForeignAssetIndex::new(AssetTransferConfig::default(), resolver);
-		futures::executor::block_on(async {
-			index.seed([(vec![1, 2, 3], 7), (vec![4, 5], 9)]).await;
-			assert_eq!(index.get(&[1, 2, 3]).await, Some(7));
-			assert_eq!(index.get(&[4, 5]).await, Some(9));
-			assert_eq!(index.get(&[9, 9]).await, None);
-		});
-	}
-
-	#[test]
-	fn created_adds_force_created_adds_destroyed_removes() {
-		let (resolver, calls) = fixed_index_resolver(42);
-		let index = ForeignAssetIndex::new(AssetTransferConfig::default(), resolver);
-		let location = vec![0x01, 0x02, 0xCA, 0xFE];
-
-		futures::executor::block_on(async {
-			// `Created { location, creator(32), owner(32) }` -> trailing 64 bytes stripped.
-			let mut created = location.clone();
-			created.extend_from_slice(&[0xAA; 64]);
-			index.apply_event("ForeignAssets", "Created", &created).await;
-			assert_eq!(index.get(&location).await, Some(42), "Created adds the mapping");
-
-			// Destroyed removes it.
-			index.apply_event("ForeignAssets", "Destroyed", &location).await;
-			assert_eq!(index.get(&location).await, None, "Destroyed removes the mapping");
-
-			// `ForceCreated { location, owner(32) }` -> trailing 32 bytes stripped.
-			let mut force_created = location.clone();
-			force_created.extend_from_slice(&[0xBB; 32]);
-			index.apply_event("ForeignAssets", "ForceCreated", &force_created).await;
-			assert_eq!(index.get(&location).await, Some(42), "ForceCreated adds the mapping");
-		});
-		// One storage read per creation event (Created + ForceCreated); Destroyed reads nothing.
-		assert_eq!(calls.load(Ordering::SeqCst), 2);
+	/// A resolver that always reports the mapping as absent (`Ok(None)`) and counts its calls. Lets
+	/// a test observe lookup misses without the resolver inventing an index.
+	fn absent_resolver() -> (FetchStorageRawFn, Arc<AtomicU32>) {
+		let calls = Arc::new(AtomicU32::new(0));
+		let calls_in = calls.clone();
+		let resolver: FetchStorageRawFn =
+			Arc::new(move |_key: Vec<u8>, _at: SubstrateBlockHash| {
+				calls_in.fetch_add(1, Ordering::SeqCst);
+				Box::pin(std::future::ready(Ok(None))) as Pin<Box<_>>
+			});
+		(resolver, calls)
 	}
 
 	/// A resolver that returns a queue of canned responses (one per call, in order); once drained
-	/// it returns `Ok(None)`. Lets a test vary the resolved index across successive create events.
+	/// it returns `Ok(None)`. Lets a test vary the resolved index across successive reads.
 	fn queued_resolver(
 		responses: Vec<Result<Option<Vec<u8>>, ()>>,
 	) -> (FetchStorageRawFn, Arc<AtomicU32>) {
@@ -215,80 +282,145 @@ mod tests {
 		let calls = Arc::new(AtomicU32::new(0));
 		let calls_in = calls.clone();
 		let queue = Arc::new(Mutex::new(VecDeque::from(responses)));
-		let resolver: FetchStorageRawFn = Arc::new(move |_key: Vec<u8>| {
-			calls_in.fetch_add(1, Ordering::SeqCst);
-			let out = queue.lock().unwrap().pop_front().unwrap_or(Ok(None));
-			Box::pin(std::future::ready(out)) as Pin<Box<_>>
-		});
+		let resolver: FetchStorageRawFn =
+			Arc::new(move |_key: Vec<u8>, _at: SubstrateBlockHash| {
+				calls_in.fetch_add(1, Ordering::SeqCst);
+				let out = queue.lock().unwrap().pop_front().unwrap_or(Ok(None));
+				Box::pin(std::future::ready(out)) as Pin<Box<_>>
+			});
 		(resolver, calls)
 	}
 
+	/// The core of the journal: a transfer at block `N` resolves to the latest change at or before
+	/// `N`. Entries are inserted directly (order-independent), and `absent_resolver` makes any
+	/// genuine miss observable as `None`.
 	#[test]
-	fn destroyed_then_recreated_uses_new_index() {
-		// First creation resolves to index 7; after destruction, a re-creation resolves to a *new*
-		// index 8 (NextAssetIndex is monotonic). The stale 7 must not linger.
-		let (resolver, _) = queued_resolver(vec![
+	fn resolves_latest_change_at_or_before_block() {
+		let (resolver, _) = absent_resolver();
+		let index = ForeignAssetIndex::new(AssetTransferConfig::default(), resolver);
+		let loc = vec![0xCA, 0xFE];
+
+		futures::executor::block_on(async {
+			// Created@10 -> 7, Destroyed@20, recreated@30 -> 8.
+			index.record_change(loc.clone(), 10, Some(7)).await;
+			index.record_change(loc.clone(), 20, None).await;
+			index.record_change(loc.clone(), 30, Some(8)).await;
+
+			assert_eq!(index.get(&loc, 9).await, None, "before creation: absent");
+			assert_eq!(index.get(&loc, 10).await, Some(7), "at creation");
+			assert_eq!(index.get(&loc, 15).await, Some(7), "between create and destroy");
+			assert_eq!(index.get(&loc, 20).await, None, "at destruction");
+			assert_eq!(index.get(&loc, 25).await, None, "after destruction");
+			assert_eq!(index.get(&loc, 30).await, Some(8), "at recreation: new index");
+			assert_eq!(index.get(&loc, 99).await, Some(8), "after recreation");
+		});
+	}
+
+	/// A lookup is pure: an unknown `Location` (or a block before any recorded change) resolves to
+	/// `None`, and `get` never invokes the resolver — extraction does no chain I/O.
+	#[test]
+	fn lookup_is_pure_and_never_reads_chain() {
+		let (resolver, calls) = fixed_index_resolver(7);
+		let index = ForeignAssetIndex::new(AssetTransferConfig::default(), resolver);
+		let loc = vec![0x01];
+
+		futures::executor::block_on(async {
+			assert_eq!(index.get(&loc, 50).await, None, "unknown location resolves to None");
+			index.record_change(loc.clone(), 40, Some(7)).await;
+			assert_eq!(index.get(&loc, 39).await, None, "before the recorded change: None");
+			assert_eq!(index.get(&loc, 50).await, Some(7), "at/after the recorded change");
+			assert_eq!(calls.load(Ordering::SeqCst), 0, "get never invokes the resolver");
+		});
+	}
+
+	/// `Created`/`ForceCreated` record the index read at the *event's* block; `Destroyed` records a
+	/// `None`. Reading at the event block (not `at_latest`) is what lets a recreated `Location`
+	/// keep distinct historic indices.
+	#[test]
+	fn create_records_index_at_event_block_destroy_records_none() {
+		let (resolver, calls) = queued_resolver(vec![
 			Ok(Some(7u32.to_le_bytes().to_vec())),
 			Ok(Some(8u32.to_le_bytes().to_vec())),
 		]);
 		let index = ForeignAssetIndex::new(AssetTransferConfig::default(), resolver);
-		let location = vec![0xDE, 0xAD];
-		let mut created = location.clone();
+		let loc = vec![0xDE, 0xAD];
+		let mut created = loc.clone();
+		created.extend_from_slice(&[0u8; 64]);
+		let mut force_created = loc.clone();
+		force_created.extend_from_slice(&[0u8; 32]);
+
+		futures::executor::block_on(async {
+			index.apply_event("ForeignAssets", "Created", &created, 10, hash(10)).await;
+			index.apply_event("ForeignAssets", "Destroyed", &loc, 20, hash(20)).await;
+			index
+				.apply_event("ForeignAssets", "ForceCreated", &force_created, 30, hash(30))
+				.await;
+
+			// One read per creation (Created + ForceCreated); Destroyed reads nothing.
+			assert_eq!(calls.load(Ordering::SeqCst), 2);
+
+			assert_eq!(index.get(&loc, 15).await, Some(7), "historic index preserved");
+			assert_eq!(index.get(&loc, 25).await, None, "destroyed window");
+			assert_eq!(index.get(&loc, 35).await, Some(8), "recreated with new index");
+		});
+	}
+
+	/// A create whose index is absent or undecodable in storage records nothing — the journal holds
+	/// resolved changes only, so a later (miss) read can still populate it.
+	#[test]
+	fn create_with_absent_or_undecodable_index_records_nothing() {
+		let (resolver, calls) = queued_resolver(vec![Ok(None), Ok(Some(vec![1, 2, 3]))]);
+		let index = ForeignAssetIndex::new(AssetTransferConfig::default(), resolver);
+		let loc = vec![0x11];
+		let mut created = loc.clone();
 		created.extend_from_slice(&[0u8; 64]);
 
 		futures::executor::block_on(async {
-			index.apply_event("ForeignAssets", "Created", &created).await;
-			assert_eq!(index.get(&location).await, Some(7));
-
-			index.apply_event("ForeignAssets", "Destroyed", &location).await;
-			assert_eq!(index.get(&location).await, None);
-
-			index.apply_event("ForeignAssets", "Created", &created).await;
-			assert_eq!(
-				index.get(&location).await,
-				Some(8),
-				"re-creation must use the new index, not the stale one"
+			index.apply_event("ForeignAssets", "Created", &created, 10, hash(10)).await; // Ok(None)
+			index.apply_event("ForeignAssets", "Created", &created, 11, hash(11)).await; // undecodable
+			assert_eq!(calls.load(Ordering::SeqCst), 2);
+			assert!(
+				index.journal.lock().await.get(&loc).is_none(),
+				"nothing recorded for an absent/undecodable create index"
 			);
 		});
 	}
 
+	/// Destructions are applied *after* extraction: a transfer earlier in a block resolves against
+	/// the then-live mapping, and the `None` stamped at that block only shadows it for later reads.
 	#[test]
-	fn apply_event_does_not_add_on_absent_or_undecodable_index() {
-		// Call 0: `Ok(None)` (mapping not in storage). Call 1: `Ok(Some(undecodable))` (3 bytes, not
-		// a u32). Neither is a resolved index, so neither is added — the table holds resolved
-		// indices only, so a later real creation can still populate it.
-		let (resolver, calls) =
-			queued_resolver(vec![Ok(None), Ok(Some(vec![1, 2, 3]))]);
+	fn destruction_applied_after_extraction_preserves_same_block_transfer() {
+		let (resolver, _) = absent_resolver();
 		let index = ForeignAssetIndex::new(AssetTransferConfig::default(), resolver);
-		let location = vec![0x11];
-		let mut created = location.clone();
-		created.extend_from_slice(&[0u8; 64]);
+		let loc = vec![0xCA, 0xFE];
 
 		futures::executor::block_on(async {
-			index.apply_event("ForeignAssets", "Created", &created).await; // Ok(None)
-			assert_eq!(index.get(&location).await, None, "absent index must not be added");
-			index.apply_event("ForeignAssets", "Created", &created).await; // undecodable
-			assert_eq!(index.get(&location).await, None, "undecodable index must not be added");
+			index.record_change(loc.clone(), 1, Some(5)).await; // created earlier
+
+			// Extraction-time read of the transfer in block 10, before the destroy is applied.
+			assert_eq!(index.get(&loc, 10).await, Some(5), "resolves at extraction time");
+
+			// Destruction (a later extrinsic in block 10) is applied only now, after extraction.
+			index.apply_event("ForeignAssets", "Destroyed", &loc, 10, hash(10)).await;
+			assert_eq!(index.get(&loc, 10).await, None, "destruction shadows afterwards");
 		});
-		assert_eq!(calls.load(Ordering::SeqCst), 2);
 	}
 
 	#[test]
 	fn maintains_every_configured_foreign_instance() {
-		// A runtime can wire more than one foreign-assets instance; all configured ones are tracked.
 		let (resolver, _) = fixed_index_resolver(3);
 		let config = AssetTransferConfig {
 			foreign_instances: vec![("ForeignAssets", 0x0220), ("OtherForeign", 0x0420)],
 			..AssetTransferConfig::default()
 		};
 		let index = ForeignAssetIndex::new(config, resolver);
-		let location = vec![0x55];
-		let mut created = location.clone();
+		let loc = vec![0x55];
+		let mut created = loc.clone();
 		created.extend_from_slice(&[0u8; 64]);
 
 		futures::executor::block_on(async {
-			index.apply_event("OtherForeign", "Created", &created).await;
-			assert_eq!(index.get(&location).await, Some(3), "second foreign instance is tracked");
+			index.apply_event("OtherForeign", "Created", &created, 10, hash(10)).await;
+			assert_eq!(index.get(&loc, 10).await, Some(3), "second foreign instance tracked");
 		});
 	}
 
@@ -296,25 +428,48 @@ mod tests {
 	fn ignores_unrelated_pallets_and_variants() {
 		let (resolver, calls) = fixed_index_resolver(1);
 		let index = ForeignAssetIndex::new(AssetTransferConfig::default(), resolver);
-		let location = vec![0x07];
-		let mut created = location.clone();
+		let loc = vec![0x07];
+		let mut created = loc.clone();
 		created.extend_from_slice(&[0u8; 64]);
 
 		futures::executor::block_on(async {
 			// `Assets` is a u32-id instance, not a foreign instance -> ignored.
-			index.apply_event("Assets", "Created", &created).await;
+			index.apply_event("Assets", "Created", &created, 10, hash(10)).await;
 			// Unrelated variant on a foreign instance -> ignored.
-			index.apply_event("ForeignAssets", "Issued", &created).await;
-			assert_eq!(index.get(&location).await, None);
+			index.apply_event("ForeignAssets", "Issued", &created, 10, hash(10)).await;
+			assert!(index.journal.lock().await.get(&loc).is_none());
 		});
 		assert_eq!(calls.load(Ordering::SeqCst), 0, "no storage read for ignored events");
 	}
 
-	// ---- repro tests for the fixes from the external review ----
+	// A pruned/live-mode cutover seed records its mappings stamped at the cutover block: they
+	// resolve for any block at or after the cutover, not before, and forward events still
+	// supersede.
+	#[test]
+	fn cutover_seed_is_stamped_at_the_cutover_block() {
+		let (resolver, _) = absent_resolver();
+		let index = ForeignAssetIndex::new(AssetTransferConfig::default(), resolver);
+		let loc = vec![0xAB];
 
-	// Same-block destroy ordering (review Medium #1): the indexing layer classifies events with
-	// `is_foreign_creation` / `is_foreign_destruction` so it can apply creations BEFORE extraction
-	// and destructions AFTER. These predicates are what route each variant to the right phase.
+		futures::executor::block_on(async {
+			index.seed_at_block(100, [(loc.clone(), 7)]).await;
+
+			assert_eq!(index.get(&loc, 99).await, None, "not resolved before the cutover");
+			assert_eq!(index.get(&loc, 100).await, Some(7), "resolved at the cutover");
+			assert_eq!(index.get(&loc, 150).await, Some(7), "resolved after the cutover");
+
+			// A forward destruction supersedes the seed for later blocks.
+			index.apply_event("ForeignAssets", "Destroyed", &loc, 200, hash(200)).await;
+			assert_eq!(index.get(&loc, 150).await, Some(7), "still live before destroy");
+			assert_eq!(index.get(&loc, 200).await, None, "destroyed from its block on");
+		});
+	}
+
+	// ---- event-variant phase classification ----
+
+	// The indexing layer classifies events with `is_foreign_creation` / `is_foreign_destruction` so
+	// it can apply creations BEFORE extraction and destructions AFTER. These predicates route each
+	// variant to the right phase.
 	#[test]
 	fn event_variant_phase_classification() {
 		assert!(is_foreign_creation("Created"));
@@ -327,79 +482,94 @@ mod tests {
 		assert!(!is_foreign_destruction("ForceCreated"));
 	}
 
-	// Same-block destroy ordering (review Medium #1): a transfer earlier in a block must still
-	// resolve when the asset is destroyed later in the SAME block. The provider applies
-	// destructions only AFTER extraction, so at extraction time the mapping is still present; the
-	// destruction then takes effect for subsequent blocks. (The buggy "apply all events before
-	// extraction" would have removed the mapping before the transfer could resolve.)
-	#[test]
-	fn destruction_applied_after_extraction_preserves_same_block_transfer() {
-		let (resolver, _) = fixed_index_resolver(0);
-		let index = ForeignAssetIndex::new(AssetTransferConfig::default(), resolver);
-		let location = vec![0xCA, 0xFE];
-
-		futures::executor::block_on(async {
-			index.seed([(location.clone(), 5)]).await;
-
-			// Extraction-time read (the transfer at extrinsic i): resolves against the live mapping.
-			assert_eq!(index.get(&location).await, Some(5), "transfer resolves at extraction time");
-
-			// Destruction (extrinsic j > i) is applied only now, after extraction.
-			index.apply_event("ForeignAssets", "Destroyed", &location).await;
-			assert_eq!(index.get(&location).await, None, "destruction takes effect afterwards");
-		});
-	}
-
-	// disabled() must be genuinely inert (review minor): empty instance lists, so `apply_event`
-	// matches nothing even for a real foreign pallet name, and `get` is always None.
+	// `disabled()` must be genuinely inert: empty instance lists, so `apply_event` matches nothing
+	// even for a real foreign pallet name, and the resolver reports absent so `get` is always None.
 	#[test]
 	fn disabled_is_truly_inert() {
 		let index = ForeignAssetIndex::disabled();
-		let location = vec![0x01];
-		let mut created = location.clone();
+		let loc = vec![0x01];
+		let mut created = loc.clone();
 		created.extend_from_slice(&[0u8; 64]);
 
 		futures::executor::block_on(async {
-			index.apply_event("ForeignAssets", "Created", &created).await;
-			assert_eq!(index.get(&location).await, None, "disabled() never adds, even for ForeignAssets");
+			index.apply_event("ForeignAssets", "Created", &created, 10, hash(10)).await;
+			assert!(index.journal.lock().await.get(&loc).is_none(), "disabled() records nothing");
+			assert_eq!(index.get(&loc, 10).await, None, "disabled() resolves to None");
 		});
 	}
 
-	// And the underlying mechanism: an empty `foreign_instances` config matches no pallet, so even
-	// a resolver that WOULD return an index never adds one.
+	// An empty `foreign_instances` config matches no pallet, so even a resolver that WOULD return
+	// an index never records one from an event.
 	#[test]
 	fn empty_foreign_config_matches_nothing() {
 		let (resolver, calls) = fixed_index_resolver(7);
 		let config = AssetTransferConfig { u32_instances: vec![], foreign_instances: vec![] };
 		let index = ForeignAssetIndex::new(config, resolver);
-		let location = vec![0x02];
-		let mut created = location.clone();
+		let loc = vec![0x02];
+		let mut created = loc.clone();
 		created.extend_from_slice(&[0u8; 64]);
 
 		futures::executor::block_on(async {
-			index.apply_event("ForeignAssets", "Created", &created).await;
-			assert_eq!(index.get(&location).await, None);
+			index.apply_event("ForeignAssets", "Created", &created, 10, hash(10)).await;
+			assert!(index.journal.lock().await.get(&loc).is_none());
 		});
 		assert_eq!(calls.load(Ordering::SeqCst), 0, "no resolver call when nothing matches");
 	}
 
-	// Read purity (supports review Blocking): `get` never mutates the table — the read primitive
-	// the extractor uses is side-effect-free, so a read path can't change shared state through it.
-	// (The end-to-end "receipts_from_block doesn't mutate" guarantee is structural — maintenance is
-	// only invoked from the forward indexing path — and is exercised by the Tier 3 fixture.)
+	// `resolve_from_storage` reads the mapping directly from chain storage at the block, bypassing
+	// the journal (archive-backfill log construction). It never touches or mutates the journal.
 	#[test]
-	fn get_does_not_mutate() {
-		let (resolver, _) = fixed_index_resolver(0);
+	fn resolve_from_storage_reads_at_block_and_bypasses_journal() {
+		let (resolver, calls) = fixed_index_resolver(7);
 		let index = ForeignAssetIndex::new(AssetTransferConfig::default(), resolver);
+		let loc = vec![0xCA, 0xFE];
 
 		futures::executor::block_on(async {
-			index.seed([(vec![1, 2, 3], 9)]).await;
+			assert_eq!(index.resolve_from_storage(&loc, hash(50)).await, Some(7), "reads storage");
+			assert_eq!(calls.load(Ordering::SeqCst), 1);
+			// Each call reads again (no memoization) and the journal stays empty.
+			assert_eq!(index.resolve_from_storage(&loc, hash(60)).await, Some(7));
+			assert_eq!(calls.load(Ordering::SeqCst), 2, "reads storage on every call");
+			assert!(index.journal.lock().await.get(&loc).is_none(), "never writes the journal");
+			assert_eq!(index.get(&loc, 50).await, None, "journal lookup is unaffected");
+		});
+	}
+
+	// An absent or failed storage read resolves to `None`.
+	#[test]
+	fn resolve_from_storage_absent_is_none() {
+		let (resolver, _) = queued_resolver(vec![Ok(None), Err(())]);
+		let index = ForeignAssetIndex::new(AssetTransferConfig::default(), resolver);
+		let loc = vec![0x07];
+
+		futures::executor::block_on(async {
+			assert_eq!(index.resolve_from_storage(&loc, hash(10)).await, None, "absent -> None");
+			assert_eq!(
+				index.resolve_from_storage(&loc, hash(11)).await,
+				None,
+				"read failure -> None"
+			);
+		});
+	}
+
+	// A `get` that hits a recorded change is a pure read: repeated hits never alter the journal.
+	#[test]
+	fn get_hit_is_pure() {
+		let (resolver, calls) = absent_resolver();
+		let index = ForeignAssetIndex::new(AssetTransferConfig::default(), resolver);
+		let loc = vec![1, 2, 3];
+
+		futures::executor::block_on(async {
+			index.record_change(loc.clone(), 5, Some(9)).await;
 			for _ in 0..5 {
-				let _ = index.get(&[1, 2, 3]).await; // hit
-				let _ = index.get(&[9, 9, 9]).await; // miss
+				assert_eq!(index.get(&loc, 10).await, Some(9));
 			}
-			assert_eq!(index.get(&[1, 2, 3]).await, Some(9), "hits unchanged after repeated reads");
-			assert_eq!(index.get(&[9, 9, 9]).await, None, "misses never insert");
+			assert_eq!(calls.load(Ordering::SeqCst), 0, "hits never read storage");
+			assert_eq!(
+				index.journal.lock().await.get(&loc).map(BTreeMap::len),
+				Some(1),
+				"unchanged"
+			);
 		});
 	}
 }

@@ -21,7 +21,7 @@ use crate::{
 		foreign_asset_transfer, signer_h160_from_address_bytes, synthetic_transaction,
 		synthetic_tx_hash,
 	},
-	client::{SubstrateBlock, SubstrateBlockNumber, runtime_api::RuntimeApi},
+	client::{SubstrateBlock, SubstrateBlockHash, SubstrateBlockNumber, runtime_api::RuntimeApi},
 	subxt_client::{
 		SrcChainConfig,
 		revive::{
@@ -202,6 +202,19 @@ type FetchEthBlockHashFn =
 
 type RecoverEthAddressFn = Arc<dyn Fn(&TransactionSigned) -> Result<H160, ()> + Send + Sync>;
 
+/// How a foreign asset's `Location -> index` mapping is resolved while building the synthetic
+/// ERC-20 logs for `pallet-assets` `Transferred` events.
+#[derive(Clone, Copy)]
+pub enum ForeignIndexSource {
+	/// Pure lookup in the in-memory journal as of the block — no chain access. Used on the forward
+	/// live-indexing path and all read paths; the journal is maintained separately by the indexer.
+	Journal,
+	/// Read `ForeignAssetIdToAssetIndex[Location]` from chain storage **at the block being
+	/// indexed**. Used during archive backfill, where the historic block's logs must reflect the
+	/// mapping as it was at that block and the journal is not the source of truth for that.
+	StorageAtBlock,
+}
+
 /// Utility to extract receipts from extrinsics.
 #[derive(Clone)]
 pub struct ReceiptExtractor {
@@ -223,9 +236,11 @@ pub struct ReceiptExtractor {
 	/// used to synthesize ERC-20 `Transfer` logs/receipts for asset-transfer extrinsics.
 	asset_config: AssetTransferConfig,
 
-	/// Resolves a foreign asset's `Location -> u32` precompile index. This is a read-only handle:
-	/// the table is seeded and maintained by the indexing layer (see [`ForeignAssetIndex`]), so
-	/// extraction stays a pure function of the block — it never reads chain state.
+	/// Resolves a foreign asset's `Location -> u32` precompile index *as of a block*. This is a
+	/// read-only handle: the journal is maintained by the indexing layer (see
+	/// [`ForeignAssetIndex`]) and resolution is a lookup keyed by block, so extraction stays a
+	/// pure function of the block. A journal miss reads storage at that same block, so the result
+	/// is still block-deterministic.
 	foreign_index: Arc<ForeignAssetIndex>,
 }
 
@@ -433,6 +448,9 @@ impl ReceiptExtractor {
 	async fn extract_asset_transfers(
 		&self,
 		block_events: &subxt::events::Events<SrcChainConfig>,
+		block_number: SubstrateBlockNumber,
+		block_hash: SubstrateBlockHash,
+		foreign_source: ForeignIndexSource,
 	) -> HashMap<usize, Vec<(AssetTransfer, u32)>> {
 		let mut out: HashMap<usize, Vec<(AssetTransfer, u32)>> = HashMap::new();
 		for event_result in block_events.iter() {
@@ -451,16 +469,26 @@ impl ReceiptExtractor {
 				continue;
 			}
 
-			// Foreign instances: resolve the u32 index from chain storage (cached).
+			// Foreign instances: resolve the u32 index as of *this block*. Live/read paths use the
+			// pure journal lookup; archive backfill reads `ForeignAssetIdToAssetIndex` from chain
+			// storage at this block (see [`ForeignIndexSource`]).
 			if let Some((prefix, parts)) = decode_foreign_transfer_parts(
 				&self.asset_config,
 				pallet,
 				variant,
 				event.field_bytes(),
 			) {
-				// Pure table lookup — the index was resolved at ingest and is maintained by the
-				// indexing layer (see [`ForeignAssetIndex`]); no chain read happens here.
-				if let Some(index) = self.foreign_index.get(&parts.asset_id_key).await {
+				let resolved = match foreign_source {
+					ForeignIndexSource::Journal => {
+						self.foreign_index.get(&parts.asset_id_key, block_number).await
+					},
+					ForeignIndexSource::StorageAtBlock => {
+						self.foreign_index
+							.resolve_from_storage(&parts.asset_id_key, block_hash)
+							.await
+					},
+				};
+				if let Some(index) = resolved {
 					let event_index = event.index();
 					out.entry(extrinsic_index)
 						.or_default()
@@ -529,22 +557,26 @@ impl ReceiptExtractor {
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
 		let eth_block_hash = self.resolve_eth_block_hash(block.hash(), block.number() as u64).await;
 
-		self.extract_from_block_with_eth_hash(block, eth_block_hash).await
+		self.extract_from_block_with_eth_hash(block, eth_block_hash, ForeignIndexSource::Journal)
+			.await
 	}
 
-	/// Extract receipts from block, using a pre-fetched ethereum block hash.
+	/// Extract receipts from block, using a pre-fetched ethereum block hash. `foreign_source`
+	/// selects how foreign-asset transfers resolve their precompile index (journal vs
+	/// storage-at-block).
 	///
 	/// Fetches block events once in a single pass before building receipts.
 	pub async fn extract_from_block_with_eth_hash(
 		&self,
 		block: &SubstrateBlock,
 		eth_block_hash: H256,
+		foreign_source: ForeignIndexSource,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
 		if self.is_before_first_evm_block(block.number()) {
 			return Ok(vec![]);
 		}
 
-		self.build_receipts(block, eth_block_hash, None).await
+		self.build_receipts(block, eth_block_hash, None, foreign_source).await
 	}
 
 	/// Build the `(transaction, receipt)` pairs for a block — shared core of
@@ -558,6 +590,7 @@ impl ReceiptExtractor {
 		block: &SubstrateBlock,
 		eth_block_hash: H256,
 		only_index: Option<usize>,
+		foreign_source: ForeignIndexSource,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
 		let substrate_block_number = block.number();
 		let eth_block_number: U256 = substrate_block_number.into();
@@ -565,7 +598,14 @@ impl ReceiptExtractor {
 			log::debug!(target: LOG_TARGET, "Error fetching events for block #{substrate_block_number}: {err:?}");
 		})?;
 
-		let mut asset_transfers = self.extract_asset_transfers(&block_events).await;
+		let mut asset_transfers = self
+			.extract_asset_transfers(
+				&block_events,
+				substrate_block_number,
+				block.hash(),
+				foreign_source,
+			)
+			.await;
 
 		// A `get_block_extrinsics` error must propagate (the block is retried), never be swallowed
 		// into an asset-only result: a block with no EVM activity does NOT error here
@@ -713,16 +753,21 @@ impl ReceiptExtractor {
 		transaction_index: usize,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let eth_block_hash = self.resolve_eth_block_hash(block.hash(), block.number() as u64).await;
-		self.build_receipts(block, eth_block_hash, Some(transaction_index))
-			.await?
-			.into_iter()
-			.next()
-			.ok_or_else(|| {
-				log::trace!(target: LOG_TARGET,
+		self.build_receipts(
+			block,
+			eth_block_hash,
+			Some(transaction_index),
+			ForeignIndexSource::Journal,
+		)
+		.await?
+		.into_iter()
+		.next()
+		.ok_or_else(|| {
+			log::trace!(target: LOG_TARGET,
 					"extract_from_transaction: no EVM extrinsic at tx_index {transaction_index} \
 					 in block #{} ({:?})", block.number(), block.hash());
-				ClientError::EthExtrinsicNotFound
-			})
+			ClientError::EthExtrinsicNotFound
+		})
 	}
 
 	/// Get the Ethereum block hash for the Substrate block with specific hash.
@@ -965,11 +1010,11 @@ mod tests {
 			"contract->precompile transfer must not yield duplicate ERC-20 Transfer logs (got {duplicates})"
 		);
 
-		// doc #6 (open question): the surviving log currently keeps the `ContractEmitted` index (8 —
-		// the EVM log-emission position), NOT the earlier `pallet_assets::Transferred` event index
-		// (7 = min). Whether the EVM-emission index or the substrate-event index is the canonical
-		// `log_index` is undecided; this locks the CURRENT behavior so a deliberate change to
-		// `min(log_index)` is a visible, reviewed diff rather than a silent shift.
+		// doc #6 (open question): the surviving log currently keeps the `ContractEmitted` index (8
+		// — the EVM log-emission position), NOT the earlier `pallet_assets::Transferred` event
+		// index (7 = min). Whether the EVM-emission index or the substrate-event index is the
+		// canonical `log_index` is undecided; this locks the CURRENT behavior so a deliberate
+		// change to `min(log_index)` is a visible, reviewed diff rather than a silent shift.
 		let surviving = logs
 			.iter()
 			.find(|log| {
@@ -991,8 +1036,8 @@ mod tests {
 	// same merge. Correct behavior keeps both. The fix is count-based (dedup only against logs that
 	// pre-existed the merge, and handle mixed precompile/non-precompile counts) and the finding's
 	// reachability — a non-precompile contract→pallet-assets path that emits `Transferred` without
-	// `ContractEmitted` — is unconfirmed. Ignored until that decision; asserts the intended behavior
-	// so it flips green once fixed.
+	// `ContractEmitted` — is unconfirmed. Ignored until that decision; asserts the intended
+	// behavior so it flips green once fixed.
 	#[test]
 	#[ignore = "merge_asset_logs collapses two genuine identical transfers; count-based fix + reachability pending (doc #5)"]
 	fn merge_asset_logs_keeps_two_genuine_identical_transfers() {
