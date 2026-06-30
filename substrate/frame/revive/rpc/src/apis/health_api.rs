@@ -19,6 +19,7 @@
 use crate::*;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sc_rpc_api::system::helpers::Health;
+use std::time::Duration;
 
 #[rpc(server, client)]
 pub trait SystemHealthRpc {
@@ -44,23 +45,36 @@ impl SystemHealthRpcServerImpl {
 #[async_trait]
 impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 	async fn system_health(&self) -> RpcResult<Health> {
-		let (sync_state, health) =
-			match tokio::try_join!(self.client.sync_state(), self.client.system_health()) {
-				Ok(state) => state,
-				Err(err) => {
-					log::warn!(
-						target: LOG_TARGET,
-						"system_health: failed to query node sync state/health: {err:?}"
-					);
-					return Err(err.into());
-				},
-			};
+		// The node's block import is usually steady, but can come in bursts; tolerate ~1 minute
+		// of drift before reporting unhealthy.
+		const MAX_BLOCK_DRIFT: u32 = 30;
+		// Cap the wait on the node so a slow node logs an error, instead of a silent probe timeout.
+		const NODE_QUERY_TIMEOUT: Duration = Duration::from_secs(3);
+
+		let node_query =
+			async { tokio::try_join!(self.client.sync_state(), self.client.system_health()) };
+		let (sync_state, health) = match tokio::time::timeout(NODE_QUERY_TIMEOUT, node_query).await
+		{
+			Ok(Ok(state)) => state,
+			Ok(Err(err)) => {
+				log::warn!(
+					target: LOG_TARGET,
+					"health: node query failed: {err:?}"
+				);
+				return Err(err.into());
+			},
+			Err(_) => {
+				log::warn!(
+					target: LOG_TARGET,
+					"health: node query timed out after {NODE_QUERY_TIMEOUT:?}"
+				);
+				return Err(ErrorCode::InternalError.into());
+			},
+		};
 
 		let latest = self.client.latest_block().await.number();
 
-		// Compare against `latest + 1` to avoid a false positive if the health check runs
-		// immediately after a new block is produced but before the cache updates.
-		if sync_state.current_block > latest + 1 {
+		if sync_state.current_block > latest.saturating_add(MAX_BLOCK_DRIFT) {
 			log::warn!(
 				target: LOG_TARGET,
 				"Client is out of sync. Current block: {}, latest cache block: {latest}",
