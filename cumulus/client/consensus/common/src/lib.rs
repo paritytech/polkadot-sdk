@@ -33,10 +33,14 @@ use std::{sync::Arc, time::Duration};
 mod level_monitor;
 mod parachain_consensus;
 mod parent_search;
+mod relay_chain_data_cache;
 #[cfg(test)]
 mod tests;
 
 pub use parent_search::*;
+pub use relay_chain_data_cache::{
+	RelayChainData, RelayChainDataCache, SessionData, SessionDataError,
+};
 
 pub use cumulus_relay_chain_streams::finalized_heads;
 pub use parachain_consensus::spawn_parachain_consensus_tasks;

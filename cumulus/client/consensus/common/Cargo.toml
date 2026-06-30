@@ -11,12 +11,16 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[features]
+test-helpers = []
+
 [dependencies]
 async-trait = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 dyn-clone = { workspace = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
+thiserror = { workspace = true }
 tracing = { workspace = true, default-features = true }
 
 # Substrate

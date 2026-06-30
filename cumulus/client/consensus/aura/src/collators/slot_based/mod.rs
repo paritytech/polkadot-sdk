@@ -106,7 +106,6 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 mod block_builder_task;
 mod block_import;
 mod collation_task;
-mod relay_chain_data_cache;
 mod scheduling;
 mod slot_timer;
 

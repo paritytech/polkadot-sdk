@@ -15,13 +15,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
+use crate::relay_chain_data_cache::RelayChainDataCache;
 use codec::Decode;
 use polkadot_primitives::{Block as RelayBlock, Hash as RelayHash, DEFAULT_SCHEDULING_LOOKAHEAD};
 
-use cumulus_primitives_core::{
-	relay_chain::{BlockId as RBlockId, OccupiedCoreAssumption},
-	ParaId,
-};
+use cumulus_primitives_core::relay_chain::OccupiedCoreAssumption;
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 
 use sc_client_api::{Backend, HeaderBackend};
@@ -66,14 +64,13 @@ fn get_para_header<Block: BlockT>(
 	Some(header)
 }
 
-async fn fetch_pvd_header<Block: BlockT>(
-	relay_client: &impl RelayChainInterface,
+async fn fetch_pvd_header<Block: BlockT, RI: RelayChainInterface + 'static>(
+	relay_chain_data: &mut RelayChainDataCache<RI>,
 	at: RelayHash,
-	para_id: ParaId,
 	occupied_core_assumption: OccupiedCoreAssumption,
 ) -> RelayChainResult<Option<Block::Header>> {
-	let maybe_header = relay_client
-		.persisted_validation_data(at, para_id, occupied_core_assumption)
+	let maybe_header = relay_chain_data
+		.persisted_validation_data(at, occupied_core_assumption)
 		.await?
 		.and_then(|pvd| Block::Header::decode(&mut &pvd.parent_head.0[..]).ok());
 
@@ -81,17 +78,16 @@ async fn fetch_pvd_header<Block: BlockT>(
 }
 
 /// Fetch the included block from the relay chain.
-pub async fn fetch_included_from_relay_chain<B: BlockT>(
-	relay_client: &impl RelayChainInterface,
+pub async fn fetch_included_from_relay_chain<B: BlockT, RI: RelayChainInterface + 'static>(
+	relay_chain_data: &mut RelayChainDataCache<RI>,
 	backend: &impl Backend<B>,
 	at: RelayHash,
-	para_id: ParaId,
 ) -> Result<Option<(B::Header, B::Hash)>, RelayChainError> {
 	// Fetch the pending header from the relay chain. We use `OccupiedCoreAssumption::TimedOut`
 	// so that even if there is a pending candidate, we assume it is timed out, and we get the
 	// included head.
 	let Some(included_header) =
-		fetch_pvd_header::<B>(relay_client, at, para_id, OccupiedCoreAssumption::TimedOut).await?
+		fetch_pvd_header::<B, RI>(relay_chain_data, at, OccupiedCoreAssumption::TimedOut).await?
 	else {
 		return Ok(None);
 	};
@@ -113,15 +109,15 @@ pub async fn fetch_included_from_relay_chain<B: BlockT>(
 ///
 /// On success, returns a vector of `(header_hash, state_root)` of the relevant relay chain
 /// ancestry blocks.
-async fn build_relay_parent_ancestry(
-	relay_client: &impl RelayChainInterface,
+async fn build_relay_parent_ancestry<RI: RelayChainInterface + 'static>(
+	relay_chain_data: &mut RelayChainDataCache<RI>,
 	relay_parent: RelayHash,
 	ancestry_lookback: usize,
 ) -> Result<Vec<(RelayHash, RelayHash)>, RelayChainError> {
 	let mut ancestry = Vec::with_capacity(ancestry_lookback + 1);
 	let mut current_rp = relay_parent;
 	while ancestry.len() <= ancestry_lookback {
-		let Some(header) = relay_client.header(RBlockId::hash(current_rp)).await? else { break };
+		let Ok(header) = relay_chain_data.header(current_rp).await else { break };
 
 		ancestry.push((current_rp, *header.state_root()));
 		current_rp = *header.parent_hash();
@@ -208,12 +204,12 @@ fn find_deepest_valid_parent<Block: BlockT>(
 /// and finds the deepest descendant whose relay-parent is within the allowed ancestry.
 ///
 /// Returns `None` if no suitable parent can be found (e.g., included block unknown locally).
-pub async fn find_parent_for_building<Block: BlockT>(
-	relay_client: &impl RelayChainInterface,
+pub async fn find_parent_for_building<Block: BlockT, RI: RelayChainInterface + 'static>(
+	relay_chain_data: &mut RelayChainDataCache<RI>,
 	backend: &impl Backend<Block>,
-	para_id: ParaId,
 	relay_parent: RelayHash,
 ) -> RelayChainResult<Option<ParentSearchResult<Block>>> {
+	let para_id = relay_chain_data.para_id();
 	tracing::trace!(
 		target: LOG_TARGET,
 		?para_id,
@@ -223,7 +219,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 
 	// Get the included block.
 	let Some((included_header, included_hash)) =
-		fetch_included_from_relay_chain(relay_client, backend, relay_parent, para_id).await?
+		fetch_included_from_relay_chain(relay_chain_data, backend, relay_parent).await?
 	else {
 		return Ok(None);
 	};
@@ -233,10 +229,9 @@ pub async fn find_parent_for_building<Block: BlockT>(
 		// Fetch the most recent pending header from the relay chain. We use
 		// `OccupiedCoreAssumption::Included` so the candidate pending availability gets enacted
 		// before being returned to us.
-		let maybe_header = fetch_pvd_header::<Block>(
-			relay_client,
+		let maybe_header = fetch_pvd_header::<Block, RI>(
+			relay_chain_data,
 			relay_parent,
-			para_id,
 			OccupiedCoreAssumption::Included,
 		)
 		.await?
@@ -257,14 +252,14 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	let (start_header, start_hash) =
 		maybe_pending.unwrap_or((included_header.clone(), included_hash));
 
-	let ancestry_lookback = relay_client
+	let ancestry_lookback = relay_chain_data
 		.scheduling_lookahead(relay_parent)
 		.await
 		.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
 		.saturating_sub(1) as usize;
 	// Build up the ancestry record of the relay chain to compare against.
 	let rp_ancestry =
-		build_relay_parent_ancestry(relay_client, relay_parent, ancestry_lookback).await?;
+		build_relay_parent_ancestry(relay_chain_data, relay_parent, ancestry_lookback).await?;
 
 	// Search for the deepest valid parent starting from the pending/included block.
 	let best_parent_header =

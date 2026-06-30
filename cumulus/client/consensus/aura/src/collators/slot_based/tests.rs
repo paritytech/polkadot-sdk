@@ -15,16 +15,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use super::{
-	block_builder_task::{determine_cores, offset_relay_parent_find_descendants},
-	relay_chain_data_cache::{RelayChainData, RelayChainDataCache, SessionData},
-};
+use super::block_builder_task::{determine_cores, offset_relay_parent_find_descendants};
 use async_trait::async_trait;
 use codec::Encode;
+use cumulus_client_consensus_common::{RelayChainData, RelayChainDataCache, SessionData};
 use cumulus_primitives_core::CoreSelector;
 use cumulus_relay_chain_interface::*;
 use futures::Stream;
-use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	CandidateEvent, CommittedCandidateReceiptV2, CoreIndex, Hash as RelayHash,
 	Header as RelayHeader, Id as ParaId, NodeFeatures, DEFAULT_SCHEDULING_LOOKAHEAD,
@@ -629,11 +626,28 @@ fn create_header_chain() -> (HashMap<RelayHash, RelayHeader>, RelayHeader) {
 	(headers, last_header)
 }
 
-// Test extension for RelayChainDataCache
-impl RelayChainDataCache<TestRelayClient> {
+/// Test-only extension for seeding [`RelayChainDataCache`].
+pub trait RelayChainDataCacheTestExt {
+	fn set_test_data(
+		&mut self,
+		relay_parent_header: RelayHeader,
+		cores: Vec<CoreIndex>,
+		node_features: NodeFeatures,
+	);
+
+	fn set_test_data_for_session(
+		&mut self,
+		relay_parent_header: RelayHeader,
+		cores: Vec<CoreIndex>,
+		node_features: NodeFeatures,
+		session_index: SessionIndex,
+	);
+}
+
+impl RelayChainDataCacheTestExt for RelayChainDataCache<TestRelayClient> {
 	/// Seed the per-block `RelayChainData` (for `session_index == 0`) and the per-session
 	/// `SessionData` (carrying `node_features`) for the given relay header.
-	pub fn set_test_data(
+	fn set_test_data(
 		&mut self,
 		relay_parent_header: RelayHeader,
 		cores: Vec<CoreIndex>,
@@ -646,7 +660,7 @@ impl RelayChainDataCache<TestRelayClient> {
 	/// cache entry) to an explicit `session_index`. `node_features` now lives on the
 	/// per-session `SessionData`, so it is seeded into the session cache rather than onto the
 	/// per-block `RelayChainData`.
-	pub fn set_test_data_for_session(
+	fn set_test_data_for_session(
 		&mut self,
 		relay_parent_header: RelayHeader,
 		cores: Vec<CoreIndex>,
@@ -660,13 +674,7 @@ impl RelayChainDataCache<TestRelayClient> {
 			claim_queue.insert(core_index, [ParaId::from(1)].into());
 		}
 
-		let claim_queue_snapshot = ClaimQueueSnapshot::from(claim_queue);
-
-		let data = RelayChainData {
-			relay_header: relay_parent_header,
-			claim_queue: claim_queue_snapshot,
-			session_index,
-		};
+		let data = RelayChainData { relay_header: relay_parent_header, claim_queue, session_index };
 
 		self.insert_test_data(relay_parent_hash, data);
 		self.insert_test_session_data(

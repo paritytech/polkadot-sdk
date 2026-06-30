@@ -15,11 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::collators::{
-	slot_based::relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
-	RelayHeader,
-};
-use cumulus_client_consensus_common::get_relay_slot;
+use crate::collators::RelayHeader;
+use cumulus_client_consensus_common::{get_relay_slot, RelayChainData, RelayChainDataCache};
 use cumulus_primitives_aura::Slot;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::{
@@ -243,7 +240,7 @@ mod tests {
 	use super::*;
 	use crate::collators::slot_based::{
 		tests,
-		tests::{babe_epoch_change_digest_item, TestRelayClient},
+		tests::{babe_epoch_change_digest_item, RelayChainDataCacheTestExt, TestRelayClient},
 	};
 	use polkadot_primitives::{node_features::FeatureIndex, NodeFeatures};
 	use std::collections::HashMap;

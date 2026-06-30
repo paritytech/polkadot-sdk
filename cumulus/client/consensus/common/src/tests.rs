@@ -1020,14 +1020,10 @@ fn find_best_parent_in_allowed_ancestry() {
 
 	// When there's only the included block, it should be the best parent.
 	relay_chain.scheduling_lookahead = Some(1);
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		relay_parent,
-	))
-	.unwrap()
-	.expect("Should find a parent");
+	let mut cache = RelayChainDataCache::new(relay_chain.clone(), ParaId::from(100));
+	let result = block_on(find_parent_for_building(&mut cache, &*backend, relay_parent))
+		.unwrap()
+		.expect("Should find a parent");
 
 	assert_eq!(result.best_parent_header.hash(), included_block.hash());
 	assert_eq!(&result.best_parent_header, included_block.header());
@@ -1052,14 +1048,10 @@ fn find_best_parent_in_allowed_ancestry() {
 
 	// With ancestry_lookback: 2, the child block should be the best parent.
 	relay_chain.scheduling_lookahead = Some(3);
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		search_relay_parent,
-	))
-	.unwrap()
-	.expect("Should find a parent");
+	let mut cache = RelayChainDataCache::new(relay_chain.clone(), ParaId::from(100));
+	let result = block_on(find_parent_for_building(&mut cache, &*backend, search_relay_parent))
+		.unwrap()
+		.expect("Should find a parent");
 
 	assert_eq!(result.best_parent_header.hash(), child_block.hash());
 	assert_eq!(&result.best_parent_header, child_block.header());
@@ -1067,14 +1059,10 @@ fn find_best_parent_in_allowed_ancestry() {
 	// With ancestry_lookback: 0, child block's relay parent is too old,
 	// so included block should be the best parent.
 	relay_chain.scheduling_lookahead = Some(1);
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		search_relay_parent,
-	))
-	.unwrap()
-	.expect("Should find a parent");
+	let mut cache = RelayChainDataCache::new(relay_chain.clone(), ParaId::from(100));
+	let result = block_on(find_parent_for_building(&mut cache, &*backend, search_relay_parent))
+		.unwrap()
+		.expect("Should find a parent");
 
 	assert_eq!(result.best_parent_header.hash(), included_block.hash());
 }
@@ -1122,14 +1110,10 @@ fn find_best_parent_with_pending() {
 	}
 
 	relay_chain.scheduling_lookahead = Some(1);
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		search_relay_parent,
-	))
-	.unwrap()
-	.expect("Should find a parent");
+	let mut cache = RelayChainDataCache::new(relay_chain.clone(), ParaId::from(100));
+	let result = block_on(find_parent_for_building(&mut cache, &*backend, search_relay_parent))
+		.unwrap()
+		.expect("Should find a parent");
 
 	// Best parent should be the pending block.
 	assert_eq!(result.best_parent_header.hash(), pending_block.hash());
@@ -1159,13 +1143,9 @@ fn find_best_parent_unknown_included_returns_none() {
 	}
 
 	relay_chain.scheduling_lookahead = Some(2);
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		search_relay_parent,
-	))
-	.unwrap();
+	let mut cache = RelayChainDataCache::new(relay_chain.clone(), ParaId::from(100));
+	let result =
+		block_on(find_parent_for_building(&mut cache, &*backend, search_relay_parent)).unwrap();
 
 	assert!(result.is_none());
 }
@@ -1212,13 +1192,9 @@ fn find_best_parent_unknown_pending_returns_none() {
 	}
 
 	relay_chain.scheduling_lookahead = Some(2);
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		search_relay_parent,
-	))
-	.unwrap();
+	let mut cache = RelayChainDataCache::new(relay_chain.clone(), ParaId::from(100));
+	let result =
+		block_on(find_parent_for_building(&mut cache, &*backend, search_relay_parent)).unwrap();
 
 	assert!(result.is_none());
 }
@@ -1332,14 +1308,10 @@ fn find_best_parent_with_forks_returns_deepest() {
 	);
 
 	relay_chain.scheduling_lookahead = Some(11);
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		search_relay_parent,
-	))
-	.unwrap()
-	.expect("Should find a parent");
+	let mut cache = RelayChainDataCache::new(relay_chain.clone(), ParaId::from(100));
+	let result = block_on(find_parent_for_building(&mut cache, &*backend, search_relay_parent))
+		.unwrap()
+		.expect("Should find a parent");
 
 	// The deepest block (fork2_block3) should be the best parent.
 	assert_eq!(result.best_parent_header.hash(), fork2_block3.hash());
@@ -1407,14 +1379,10 @@ fn find_best_parent_returns_deepest_block() {
 	}
 
 	relay_chain.scheduling_lookahead = Some(2);
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		search_relay_parent,
-	))
-	.unwrap()
-	.expect("Should find a parent");
+	let mut cache = RelayChainDataCache::new(relay_chain.clone(), ParaId::from(100));
+	let result = block_on(find_parent_for_building(&mut cache, &*backend, search_relay_parent))
+		.unwrap()
+		.expect("Should find a parent");
 
 	// The deepest block should be the best parent.
 	assert_eq!(result.best_parent_header.hash(), last_block.hash());

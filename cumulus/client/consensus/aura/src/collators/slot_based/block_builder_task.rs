@@ -21,7 +21,6 @@ use crate::{
 	collators::{
 		check_validation_code_or_log,
 		slot_based::{
-			relay_chain_data_cache::RelayChainDataCache,
 			scheduling::SchedulingInfo,
 			slot_timer::{SlotInfo, SlotTimer},
 		},
@@ -32,7 +31,7 @@ use crate::{
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
-	self as consensus_common, get_relay_slot, ParachainBlockImportMarker,
+	self as consensus_common, get_relay_slot, ParachainBlockImportMarker, RelayChainDataCache,
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
@@ -43,6 +42,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
+use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
@@ -304,9 +304,8 @@ where
 			};
 
 			let Some(parent_search_result) = crate::collators::find_parent(
-				&relay_client,
+				&mut relay_chain_data_cache,
 				&*para_backend,
-				para_id,
 				relay_parent_hash,
 				|parent| {
 					// We never want to build on any "middle block" that isn't the last block in a
@@ -1226,8 +1225,13 @@ pub async fn determine_cores<RI: RelayChainInterface + 'static>(
 	para_id: ParaId,
 	relay_parent_offset: u32,
 ) -> Result<Option<Cores>, ()> {
-	let claim_queue =
-		&relay_chain_data_cache.get_by_hash(scheduling_parent.hash()).await?.claim_queue;
+	let claim_queue = ClaimQueueSnapshot::from(
+		relay_chain_data_cache
+			.get_by_hash(scheduling_parent.hash())
+			.await?
+			.claim_queue
+			.clone(),
+	);
 
 	let core_indices = claim_queue
 		.iter_claims_at_depth_for_para(relay_parent_offset as _, para_id)
