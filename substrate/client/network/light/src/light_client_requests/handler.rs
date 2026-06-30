@@ -25,7 +25,7 @@
 use crate::schema;
 use codec::{self, Decode, Encode};
 use futures::{prelude::*, select};
-use log::{debug, trace};
+use log::{debug, info, trace};
 use prost::Message;
 use sc_client_api::{BlockBackend, BlockchainEvents, ProofProvider};
 use sc_network::{
@@ -41,7 +41,11 @@ use sp_core::{
 	traits::SpawnNamed,
 };
 use sp_runtime::traits::Block;
-use std::{marker::PhantomData, sync::Arc};
+use std::{
+	marker::PhantomData,
+	sync::Arc,
+	time::{Duration, Instant},
+};
 
 const LOG_TARGET: &str = "light-client-request-handler";
 
@@ -112,6 +116,99 @@ where
 						target: LOG_TARGET,
 						"Light client capped-runtime pre-warm failed: {}", e,
 					);
+				}
+
+				// TEMPORARY BENCHMARK (do not merge): measure `Metadata_metadata` generation time
+				// through the execution-proof path, to calibrate the light-request execution cap.
+				// Run with a high/disabled cap to avoid trapping, e.g.
+				// `--light-request-execution-timeout-ms 60000`. Grep logs for `light-metadata-bench`.
+				//
+				// IMPORTANT: must measure the CURRENT runtime, not the genesis/pre-sync one. At
+				// startup `best_hash` is genesis until the node syncs, and old runtimes lack
+				// `Metadata_metadata_at_version` (Metadata API v2). So poll `best_hash` until that
+				// call is available (⇒ synced to a recent runtime), then measure against it. The
+				// first successful probe also compiles the current runtime, so the timed iterations
+				// are warm. `Metadata_metadata` returns V14 (no args); `Metadata_metadata_at_version`
+				// takes a SCALE `u32` version and returns the richer V15 modern clients fetch (its
+				// encoded result includes the `Option`/`Some` tag).
+				const METADATA_BENCH_ITERS: usize = 100;
+				const MAX_WAIT_ATTEMPTS: usize = 240; // ~20 min at 5s; covers warp sync
+				let v15_arg = codec::Encode::encode(&15u32);
+				for attempt in 1..=MAX_WAIT_ATTEMPTS {
+					let hash = client.info().best_hash;
+					let number = client.info().best_number;
+
+					// Probe + warm-up: `Metadata_metadata_at_version` only exists from Metadata API
+					// v2, so a success means the runtime at the best block is recent (synced), and it
+					// compiles the runtime so the timed iterations below are warm. On a
+					// genesis/pre-sync (API v1) runtime it errors → retry.
+					if let Err(e) = client.execution_proof(hash, "Metadata_metadata_at_version", &v15_arg)
+					{
+						debug!(
+							target: LOG_TARGET,
+							"light-metadata-bench: waiting for synced runtime (attempt {}/{}, best {:?}): {}",
+							attempt, MAX_WAIT_ATTEMPTS, hash, e,
+						);
+						std::thread::sleep(Duration::from_secs(5));
+						continue;
+					}
+
+					// Identify the chain by the runtime's `spec_name` (e.g. "polkadot", "kusama",
+					// "statemint"). The handler can't see the chain spec, but `spec_name` is the first
+					// field of the `Core_version` result, decodable as a leading SCALE string without
+					// depending on sp-version.
+					let chain = client
+						.execution_proof(hash, "Core_version", &[])
+						.ok()
+						.and_then(|(result, _)| <String as codec::Decode>::decode(&mut &result[..]).ok())
+						.unwrap_or_else(|| "?".into());
+
+					info!(
+						target: LOG_TARGET,
+						"light-metadata-bench: measuring Metadata_metadata_at_version(15) for '{}' at best block #{} ({:?})",
+						chain, number, hash,
+					);
+
+					let mut samples = Vec::with_capacity(METADATA_BENCH_ITERS);
+					let (mut result_len, mut proof_len) = (0usize, 0usize);
+					for _ in 0..METADATA_BENCH_ITERS {
+						let start = Instant::now();
+						match client.execution_proof(hash, "Metadata_metadata_at_version", &v15_arg) {
+							// An unsupported format returns `Ok(None)` (1-byte SCALE `Option`), which
+							// is not a real metadata generation — abort rather than record noise.
+							Ok((result, _)) if result.len() <= 1 => {
+								info!(target: LOG_TARGET, "light-metadata-bench: v15 returned None (unsupported?), aborting");
+								break;
+							},
+							Ok((result, proof)) => {
+								samples.push(start.elapsed());
+								(result_len, proof_len) = (result.len(), proof.encoded_size());
+							},
+							Err(e) => {
+								info!(target: LOG_TARGET, "light-metadata-bench: v15 call failed after {:?} (cap hit?): {}", start.elapsed(), e);
+								break;
+							},
+						}
+					}
+
+					if samples.is_empty() {
+						info!(target: LOG_TARGET, "light-metadata-bench: no valid v15 samples");
+					} else {
+						samples.sort_unstable();
+						let n = samples.len();
+						let pct = |p: usize| samples[(n * p / 100).min(n - 1)];
+						info!(
+							target: LOG_TARGET,
+							"light-metadata-bench: v15 N={} result {} bytes proof {} bytes (columns: chain | min | median | p90 | max)",
+							n, result_len, proof_len,
+						);
+						info!(
+							target: LOG_TARGET,
+							"light-metadata-bench-row | {} | {:?} | {:?} | {:?} | {:?} |",
+							chain, samples[0], pct(50), pct(90), samples[n - 1],
+						);
+					}
+					break;
 				}
 			}
 			.boxed(),
