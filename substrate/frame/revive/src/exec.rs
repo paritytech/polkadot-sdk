@@ -619,8 +619,12 @@ pub trait Executable<T: Config>: Sized {
 	/// The code info of the executable.
 	fn code_info(&self) -> &CodeInfo<T>;
 
-	/// The raw code of the executable.
-	fn code(&self) -> &[u8];
+	/// The raw code of the executable, if the implementation holds the bytes.
+	///
+	/// `None` for a JIT-loaded blob, whose bytes are only read from `PristineCode` on a
+	/// compile-cache miss. Callers that need the bytes for address derivation or storage must
+	/// fetch them from [`crate::pristine_code`] when this returns `None`.
+	fn code(&self) -> Option<&[u8]>;
 
 	/// The code hash of the executable.
 	fn code_hash(&self) -> &H256;
@@ -1148,7 +1152,23 @@ where
 				let deployer = T::AddressMapper::to_address(&sender);
 				let account_nonce = <System<T>>::account_nonce(&sender);
 				let address = if let Some(salt) = salt {
-					address::create2(&deployer, executable.code(), input_data, salt)
+					// The JIT load path returns a blob whose `code()` is `None`
+					// (the runtime only reads the bytes on a compile-cache
+					// miss). Fall back to a `PristineCode` read so create2
+					// sees the actual bytecode. One extra storage read on the
+					// rare `Code::Existing` + create2 instantiate path; the
+					// JIT compile and cache pre-warm for subsequent calls stay
+					// intact.
+					let fallback;
+					let code: &[u8] = match executable.code() {
+						Some(c) => c,
+						None => {
+							fallback = crate::pristine_code::get::<T>(executable.code_hash())
+								.unwrap_or_default();
+							&fallback
+						},
+					};
+					address::create2(&deployer, code, input_data, salt)
 				} else {
 					use sp_runtime::Saturating;
 					address::create1(
@@ -2547,7 +2567,7 @@ where
 		}
 
 		let code_hash = self.code_hash(address);
-		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
+		let code = crate::pristine_code::get::<T>(&code_hash).unwrap_or_default();
 
 		let len = len.min(code.len().saturating_sub(code_offset));
 		if len > 0 {

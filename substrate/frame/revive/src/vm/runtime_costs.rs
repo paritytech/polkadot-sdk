@@ -23,7 +23,133 @@ use crate::{
 	weightinfo_extension::OnFinalizeBlockParts,
 	weights::WeightInfo,
 };
+use core::marker::PhantomData;
 use frame_support::weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND};
+
+#[cfg(test)]
+use frame_support::{DebugNoBound, EqNoBound, PartialEqNoBound};
+
+/// Identifies a contract execution backend and exposes the parts of the cost
+/// schedule that genuinely diverge between backends.
+///
+/// Implemented by zero-sized marker types ([`InterpreterBackend`],
+/// [`super::JitBackend`], [`EvmBackend`]). All dispatch is monomorphized —
+/// picking a backend at a sync site costs nothing at runtime. Add a method
+/// here when another host-call base cost is found to differ between
+/// backends.
+pub trait WeightBackend<T: Config> {
+	/// Base cost of `seal_call` for this backend.
+	fn call_base_weight() -> Weight;
+
+	/// Base cost of `seal_delegate_call` for this backend.
+	fn delegate_call_base_weight() -> Weight;
+
+	/// Per-ecall dispatch overhead for this backend.
+	///
+	/// Derived from the per-call slope of the `noop_host_fn` family of
+	/// benchmarks (one per backend). Charged once per ecall in the proc-macro
+	/// emitted `handle_ecall` prelude.
+	fn host_fn_weight() -> Weight;
+}
+
+/// PolkaVM-only weight policy.
+///
+/// Required by paths that translate between engine fuel and substrate
+/// `ref_time` — the engine ↔ meter sync paths only ever run for polkavm
+/// contracts.
+pub trait PolkaVmWeightBackend<T: Config>: WeightBackend<T> {
+	/// How much substrate `ref_time` corresponds to one PolkaVM engine fuel unit.
+	fn ref_time_per_fuel() -> u64;
+}
+
+/// Marker for the in-tree polkavm interpreter backend.
+///
+/// The interpreter's `ref_time_per_fuel` ratio is benchmark-derived from
+/// `WeightInfo::instr` / `WeightInfo::instr_empty_loop`.
+pub struct InterpreterBackend;
+
+/// Marker for the EVM bytecode interpreter (revm) backend.
+pub struct EvmBackend;
+
+impl<T: Config> WeightBackend<T> for InterpreterBackend {
+	fn call_base_weight() -> Weight {
+		T::WeightInfo::seal_call(0, 0, 0)
+	}
+
+	fn delegate_call_base_weight() -> Weight {
+		T::WeightInfo::seal_delegate_call()
+	}
+
+	fn host_fn_weight() -> Weight {
+		T::WeightInfo::noop_host_fn(1).saturating_sub(T::WeightInfo::noop_host_fn(0))
+	}
+}
+
+impl<T: Config> PolkaVmWeightBackend<T> for InterpreterBackend {
+	fn ref_time_per_fuel() -> u64 {
+		let loop_iteration =
+			T::WeightInfo::instr(1).saturating_sub(T::WeightInfo::instr(0)).ref_time();
+		let empty_loop_iteration = T::WeightInfo::instr_empty_loop(1)
+			.saturating_sub(T::WeightInfo::instr_empty_loop(0))
+			.ref_time();
+		loop_iteration.saturating_sub(empty_loop_iteration)
+	}
+}
+
+impl<T: Config> WeightBackend<T> for EvmBackend {
+	fn call_base_weight() -> Weight {
+		T::WeightInfo::evm_call()
+	}
+
+	/// Preserves the pre-`BackendCosts` charging for the EVM `DELEGATECALL` opcode.
+	///
+	/// The old `RuntimeCosts::DelegateCallBase` token resolved to
+	/// `seal_delegate_call()` regardless of backend; that stays the source of
+	/// truth for the EVM opcode until a dedicated `evm_delegate_call` bench
+	/// specializes it the same way `evm_call` specializes `call_base_weight`.
+	fn delegate_call_base_weight() -> Weight {
+		T::WeightInfo::seal_delegate_call()
+	}
+
+	/// Currently zero — EVM dispatch overhead is uncharged.
+	///
+	/// TODO: EVM `seal_*` benchmarks measure only the raw syscall body, so
+	/// there is no analog of `InterpreterBackend::host_fn_weight` to charge
+	/// from. A dedicated `noop_host_fn_evm` bench would let us charge the
+	/// actual EVM dispatch slope here.
+	fn host_fn_weight() -> Weight {
+		Weight::zero()
+	}
+}
+
+/// Costs that genuinely differ by execution backend.
+///
+/// Implements [`Token<T>`] directly through [`WeightBackend`], so it slots
+/// into `charge` / `charge_or_halt` / `adjust_weight` wherever the backend
+/// type is in scope. Add a new variant when another host-call cost is found
+/// to diverge between backends.
+#[cfg_attr(test, derive(DebugNoBound, PartialEqNoBound, EqNoBound))]
+pub enum BackendCosts<B> {
+	/// Base cost of `seal_call`.
+	CallBase,
+	/// Base cost of `seal_delegate_call`.
+	DelegateCallBase,
+	/// Per-ecall dispatch overhead.
+	HostFn,
+	#[doc(hidden)]
+	_Phantom(PhantomData<B>),
+}
+
+impl<T: Config, B: WeightBackend<T> + 'static> Token<T> for BackendCosts<B> {
+	fn weight(&self) -> Weight {
+		match self {
+			Self::CallBase => B::call_base_weight(),
+			Self::DelegateCallBase => B::delegate_call_base_weight(),
+			Self::HostFn => B::host_fn_weight(),
+			Self::_Phantom(_) => unreachable!(),
+		}
+	}
+}
 
 /// Current approximation of the gas/s consumption considering
 /// EVM execution over compiled WASM (on 4.4Ghz CPU).
@@ -39,8 +165,6 @@ const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
 pub enum RuntimeCosts {
-	/// Base Weight of calling a host function.
-	HostFn,
 	/// Weight charged for executing the extcodecopy instruction.
 	ExtCodeCopy(u32),
 	/// Weight charged for copying data from the sandbox.
@@ -116,10 +240,6 @@ pub enum RuntimeCosts {
 	GetStorage { len: u32, kind: StorageAccessKind },
 	/// Weight of the `takeStorage` precompile / `seal_take_transient_storage`.
 	TakeStorage { len: u32, kind: StorageAccessKind },
-	/// Base weight of calling `seal_call`.
-	CallBase,
-	/// Weight of calling `seal_delegate_call` for the given input size.
-	DelegateCallBase,
 	/// Weight of calling a precompile.
 	PrecompileBase,
 	/// Weight of calling a precompile that has a contract info.
@@ -254,14 +374,9 @@ impl RuntimeCosts {
 }
 
 impl<T: Config> Token<T> for RuntimeCosts {
-	fn influence_lowest_weight_limit(&self) -> bool {
-		true
-	}
-
 	fn weight(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match *self {
-			HostFn => cost_args!(noop_host_fn, 1),
 			// `extcodecopy` charges `CodeSize` separately; subtract it so its read isn't counted
 			// twice.
 			ExtCodeCopy(len) => {
@@ -341,8 +456,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| T::WeightInfo::take_storage_hot(len),
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
-			CallBase => T::WeightInfo::seal_call(0, 0, 0),
-			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),

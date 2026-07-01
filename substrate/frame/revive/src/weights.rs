@@ -191,6 +191,12 @@ pub trait WeightInfo {
 	fn on_finalize_per_transaction_data(d: u32, ) -> Weight;
 	fn on_finalize_per_event(e: u32, ) -> Weight;
 	fn on_finalize_per_event_data(d: u32, ) -> Weight;
+	fn call_with_pvm_jit_cold_cache_per_byte(c: u32, ) -> Weight;
+	fn call_with_pvm_jit_warm_cache_per_byte(c: u32, ) -> Weight;
+	fn noop_host_fn_jit(r: u32, ) -> Weight;
+	fn seal_call_jit() -> Weight;
+	fn evm_call() -> Weight;
+	fn seal_delegate_call_jit() -> Weight;
 }
 
 /// Weights for `pallet_revive` using the Substrate node and recommended hardware.
@@ -1746,6 +1752,108 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}
+	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
+	/// Storage: `Revive::OriginalAccount` (r:2 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d24d6c2b03b90028f3bf407eb433e96389` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d24d6c2b03b90028f3bf407eb433e96389` (r:1 w:0)
+	/// The range of component `c` is `[0, 102400]`.
+	fn call_with_pvm_jit_cold_cache_per_byte(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1269 + c * (1 ±0)`
+		//  Estimated: `7220 + c * (1 ±0)`
+		// Minimum execution time: 94_266_000 picoseconds.
+		Weight::from_parts(164_391_605, 7220)
+			// Standard Error: 8
+			.saturating_add(Weight::from_parts(341, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(8_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(Weight::from_parts(0, 1).saturating_mul(c.into()))
+	}
+	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
+	/// Storage: `Revive::OriginalAccount` (r:2 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// The range of component `c` is `[0, 102400]`.
+	fn call_with_pvm_jit_warm_cache_per_byte(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1161`
+		//  Estimated: `7113`
+		// Minimum execution time: 92_436_000 picoseconds.
+		Weight::from_parts(160_228_928, 7113)
+			// Standard Error: 8
+			.saturating_add(Weight::from_parts(270, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(7_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	/// The range of component `r` is `[0, 1600]`.
+	fn noop_host_fn_jit(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 11_675_000 picoseconds.
+		Weight::from_parts(14_659_120, 0)
+			// Standard Error: 162
+			.saturating_add(Weight::from_parts(402_956, 0).saturating_mul(r.into()))
+	}
+	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d24d6c2b03b90028f3bf407eb433e96389` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d24d6c2b03b90028f3bf407eb433e96389` (r:1 w:0)
+	fn seal_call_jit() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1055`
+		//  Estimated: `4520`
+		// Minimum execution time: 29_649_000 picoseconds.
+		Weight::from_parts(31_766_000, 4520)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
+	/// Storage: `Revive::OriginalAccount` (r:2 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d24d6c2b03b90028f3bf407eb433e96389` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d24d6c2b03b90028f3bf407eb433e96389` (r:1 w:0)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	fn evm_call() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1189`
+		//  Estimated: `7129`
+		// Minimum execution time: 92_046_000 picoseconds.
+		Weight::from_parts(97_965_000, 7129)
+			.saturating_add(T::DbWeight::get().reads(8_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	/// Placeholder weight for the JIT-specific delegate call.
+	///
+	/// Overwritten by `frame-omni-bencher` when re-running the JIT benchmarks.
+	fn seal_delegate_call_jit() -> Weight {
+		Weight::from_parts(28_983_000, 4212)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -3299,5 +3407,107 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(2, 0).saturating_mul(d.into()))
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
+	}
+	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
+	/// Storage: `Revive::OriginalAccount` (r:2 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d24d6c2b03b90028f3bf407eb433e96389` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d24d6c2b03b90028f3bf407eb433e96389` (r:1 w:0)
+	/// The range of component `c` is `[0, 102400]`.
+	fn call_with_pvm_jit_cold_cache_per_byte(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1269 + c * (1 ±0)`
+		//  Estimated: `7220 + c * (1 ±0)`
+		// Minimum execution time: 94_266_000 picoseconds.
+		Weight::from_parts(164_391_605, 7220)
+			// Standard Error: 8
+			.saturating_add(Weight::from_parts(341, 0).saturating_mul(c.into()))
+			.saturating_add(RocksDbWeight::get().reads(8_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(Weight::from_parts(0, 1).saturating_mul(c.into()))
+	}
+	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
+	/// Storage: `Revive::OriginalAccount` (r:2 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// The range of component `c` is `[0, 102400]`.
+	fn call_with_pvm_jit_warm_cache_per_byte(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1161`
+		//  Estimated: `7113`
+		// Minimum execution time: 92_436_000 picoseconds.
+		Weight::from_parts(160_228_928, 7113)
+			// Standard Error: 8
+			.saturating_add(Weight::from_parts(270, 0).saturating_mul(c.into()))
+			.saturating_add(RocksDbWeight::get().reads(7_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// The range of component `r` is `[0, 1600]`.
+	fn noop_host_fn_jit(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 11_675_000 picoseconds.
+		Weight::from_parts(14_659_120, 0)
+			// Standard Error: 162
+			.saturating_add(Weight::from_parts(402_956, 0).saturating_mul(r.into()))
+	}
+	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d24d6c2b03b90028f3bf407eb433e96389` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d24d6c2b03b90028f3bf407eb433e96389` (r:1 w:0)
+	fn seal_call_jit() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1055`
+		//  Estimated: `4520`
+		// Minimum execution time: 29_649_000 picoseconds.
+		Weight::from_parts(31_766_000, 4520)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
+	/// Storage: `Revive::OriginalAccount` (r:2 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d24d6c2b03b90028f3bf407eb433e96389` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x735f040a5d490f1107ad9c56f5ca00d24d6c2b03b90028f3bf407eb433e96389` (r:1 w:0)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	fn evm_call() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1189`
+		//  Estimated: `7129`
+		// Minimum execution time: 92_046_000 picoseconds.
+		Weight::from_parts(97_965_000, 7129)
+			.saturating_add(RocksDbWeight::get().reads(8_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// Placeholder weight for the JIT-specific delegate call.
+	///
+	/// Overwritten by `frame-omni-bencher` when re-running the JIT benchmarks.
+	fn seal_delegate_call_jit() -> Weight {
+		Weight::from_parts(28_983_000, 4212)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
 	}
 }

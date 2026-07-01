@@ -16,7 +16,6 @@
 // limitations under the License.
 use crate::{
 	DispatchError, Error, Key, LOG_TARGET, RuntimeCosts, U256, limits,
-	metering::Token,
 	storage::WriteOutcome,
 	vec::Vec,
 	vm::{
@@ -298,9 +297,7 @@ pub fn selfdestruct<'ext, E: Ext>(interpreter: &mut Interpreter<'ext, E>) -> Con
 			// halt execution on successful selfdestruct
 			if matches!(code_removed, crate::CodeRemoved::No) {
 				let actual_cost = RuntimeCosts::Terminate { code_removed: false };
-				interpreter
-					.ext
-					.adjust_gas(charged, <RuntimeCosts as Token<E::T>>::weight(&actual_cost));
+				interpreter.ext.frame_meter_mut().adjust_weight(charged, actual_cost);
 			}
 			ControlFlow::Break(Halt::Return(Vec::default()))
 		},

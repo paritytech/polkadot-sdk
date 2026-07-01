@@ -25,7 +25,10 @@ mod tests;
 
 use crate::{
 	BalanceOf, Config, Error, ExecConfig, ExecOrigin as Origin, LOG_TARGET, StorageDeposit,
-	evm::fees::InfoT, exec::CallResources, storage::ContractInfo, vm::evm::Halt,
+	evm::fees::InfoT,
+	exec::CallResources,
+	storage::ContractInfo,
+	vm::{PolkaVmWeightBackend, evm::Halt},
 };
 
 pub use gas::SignedGas;
@@ -306,19 +309,22 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// Synchronize meter state with PolkaVM executor's fuel consumption.
 	///
 	/// Maps the VM's internal fuel accounting to weight consumption:
-	/// - Converts engine fuel units to weight units
+	/// - Converts engine fuel units to weight units using `B`'s ratio
 	/// - Updates meter state to match actual VM resource usage
-	pub fn sync_from_executor(&mut self, engine_fuel: polkavm::Gas) -> Result<(), DispatchError> {
-		self.weight.sync_from_executor(engine_fuel)
+	pub fn sync_from_executor<B: PolkaVmWeightBackend<T>>(
+		&mut self,
+		engine_fuel: polkavm::Gas,
+	) -> Result<(), DispatchError> {
+		self.weight.sync_from_executor::<B>(engine_fuel)
 	}
 
 	/// Convert meter state to PolkaVM executor fuel units.
 	///
 	/// Prepares for VM execution by:
 	/// - Computing remaining available weight
-	/// - Converting weight units to VM fuel units and return
-	pub fn sync_to_executor(&mut self) -> polkavm::Gas {
-		self.weight.sync_to_executor()
+	/// - Converting weight units to VM fuel units using `B`'s ratio and returning
+	pub fn sync_to_executor<B: PolkaVmWeightBackend<T>>(&mut self) -> polkavm::Gas {
+		self.weight.sync_to_executor::<B>()
 	}
 
 	/// Consume all remaining weight in the meter.

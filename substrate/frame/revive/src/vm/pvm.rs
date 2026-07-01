@@ -18,25 +18,70 @@
 //! Environment definition of the vm smart-contract runtime.
 
 pub mod env;
+#[cfg(any(revive_jit, feature = "runtime-benchmarks"))]
+mod jit;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub use jit::with_jit_override;
+#[cfg(any(revive_jit, feature = "runtime-benchmarks"))]
+pub use jit::{JitInstance, is_jit};
 
 use crate::{
-	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
+	AccountIdOf, Code, CodeInfo, Config, ContractBlob, DebugSettings, Error, LOG_TARGET, Pallet,
+	ReentrancyProtection, RuntimeCosts, SENTINEL,
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
-	metering::ChargedAmount,
+	metering::{ChargedAmount, Token},
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
 	tracing::FrameTraceInfo,
+	vm::{
+		BackendCosts, BytecodeType, ExportedFunction, InterpreterBackend, PolkaVmWeightBackend,
+		calculate_code_deposit,
+	},
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
 use core::{fmt, marker::PhantomData, mem};
 #[cfg(doc)]
 pub use env::SyscallDoc;
+use env::list_syscalls;
 use frame_support::{ensure, weights::Weight};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
 use sp_runtime::DispatchError;
+
+impl<T: Config> ContractBlob<T> {
+	/// Construct a [`ContractBlob`] from freshly uploaded PVM bytes.
+	///
+	/// Validates the upload against the current syscall set and code limits.
+	/// Validation runs only on freshly uploaded code so the limits can be
+	/// relaxed later without affecting already deployed contracts.
+	///
+	/// The bytes are carried verbatim regardless of backend: [`ContractBlob::store_code`]
+	/// writes them to `PristineCode`, and under JIT `PreparedCall::new_jit` feeds
+	/// them to the host compile keyed by the storage key, so a later `from_storage`
+	/// load hits warm. The backend decision is consulted at execute time via
+	/// `is_jit`, not encoded on the blob.
+	pub fn from_pvm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
+		let available_syscalls = list_syscalls();
+		let code = limits::code::enforce::<T>(code, available_syscalls)?;
+
+		let code_len = code.len() as u32;
+		let deposit = calculate_code_deposit::<T>(code_len);
+
+		let code_info = CodeInfo {
+			owner,
+			deposit,
+			refcount: 0,
+			code_len,
+			code_type: BytecodeType::Pvm,
+			behaviour_version: Default::default(),
+		};
+		let code_hash = H256(sp_io::hashing::keccak_256(&code));
+		Ok(ContractBlob { code: Some(code), code_info, code_hash })
+	}
+}
 
 /// Extracts the code and data from a given program blob.
 pub fn extract_code_and_data(data: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
@@ -52,6 +97,17 @@ pub fn extract_code_and_data(data: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
 /// benchmarking them. In that case we have direct access to the contract's memory. However, when
 /// running within PolkaVM we need to resort to copying as we can't map the contracts memory into
 /// the host (as of now).
+/// Selects the weight policy applied when host-function bodies charge gas.
+///
+/// Carried alongside the `Memory` bound on the runtime — every type used as the
+/// runtime's `M` parameter (`InterpreterInstance`, `JitInstance`, and the bench
+/// stand-in `[u8]`) must declare which [`PolkaVmWeightBackend`] resolves its
+/// weights. Selected once per frame; nested frames inherit the parent's backend.
+pub trait MeterBackend<T: Config> {
+	/// The concrete execution backend that owns the per-syscall weight policy.
+	type Backend: PolkaVmWeightBackend<T> + 'static;
+}
+
 pub trait Memory<T: Config> {
 	/// Read designated chunk from the sandbox memory into the supplied buffer.
 	///
@@ -126,16 +182,48 @@ pub trait Memory<T: Config> {
 	}
 }
 
+/// The outcome of a single execution step.
+///
+/// This is the backend-agnostic interrupt type used by both the interpreter
+/// and the JIT backend. Backend-specific details (e.g. polkavm `Segfault`,
+/// `Step`) are translated into these variants by each backend's `run()`.
+pub enum Interrupt {
+	/// Execution finished normally.
+	Finished,
+	/// Contract trapped.
+	Trap,
+	/// Ran out of gas.
+	OutOfGas,
+	/// A syscall was triggered.
+	Ecalli(u32),
+	/// An unexpected execution error.
+	Error(DispatchError),
+}
+
 /// Allows syscalls access to the PolkaVM instance they are executing in.
 ///
 /// In case a contract is executing within PolkaVM its `memory` argument will also implement
 /// this trait. The benchmarking implementation of syscalls will only require `Memory`
 /// to be implemented.
-pub trait PolkaVmInstance<T: Config>: Memory<T> {
+pub trait PolkaVmInstance<T: Config>: Memory<T> + MeterBackend<T> {
 	fn gas(&self) -> polkavm::Gas;
 	fn set_gas(&mut self, gas: polkavm::Gas);
 	fn read_input_regs(&self) -> (u64, u64, u64, u64, u64, u64);
 	fn write_output(&mut self, output: u64);
+
+	/// Execute until the next interrupt.
+	fn run(&mut self) -> Interrupt;
+
+	/// Resolve an import index to its symbol bytes.
+	///
+	/// Returns `None` when `idx` is out of range. The returned slice borrows
+	/// from the instance's own symbol storage; no copy is performed.
+	fn resolve_import(&self, idx: u32) -> Option<&[u8]>;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config> MeterBackend<T> for [u8] {
+	type Backend = InterpreterBackend;
 }
 
 // Memory implementation used in benchmarking where guest memory is mapped into the host.
@@ -169,48 +257,87 @@ impl<T: Config> Memory<T> for [u8] {
 	fn reset_interpreter_cache(&mut self) {}
 }
 
-impl<T: Config> Memory<T> for polkavm::RawInstance {
+/// Wraps a [`polkavm::RawInstance`] and its [`polkavm::Module`] into a single
+/// type that implements [`PolkaVmInstance`].
+pub struct InterpreterInstance {
+	instance: polkavm::RawInstance,
+	module: polkavm::Module,
+}
+
+impl InterpreterInstance {
+	pub fn new(instance: polkavm::RawInstance, module: polkavm::Module) -> Self {
+		Self { instance, module }
+	}
+}
+
+impl<T: Config> MeterBackend<T> for InterpreterInstance {
+	type Backend = InterpreterBackend;
+}
+
+impl<T: Config> Memory<T> for InterpreterInstance {
 	fn read_into_buf(&mut self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
-		self.read_memory_into(ptr, buf)
+		self.instance
+			.read_memory_into(ptr, buf)
 			.map(|_| ())
 			.map_err(|_| Error::<T>::OutOfBounds.into())
 	}
 
 	fn write(&mut self, ptr: u32, buf: &[u8]) -> Result<(), DispatchError> {
-		self.write_memory(ptr, buf).map_err(|_| Error::<T>::OutOfBounds.into())
+		self.instance.write_memory(ptr, buf).map_err(|_| Error::<T>::OutOfBounds.into())
 	}
 
 	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError> {
-		self.zero_memory(ptr, len).map_err(|_| Error::<T>::OutOfBounds.into())
+		self.instance.zero_memory(ptr, len).map_err(|_| Error::<T>::OutOfBounds.into())
 	}
 
 	fn reset_interpreter_cache(&mut self) {
-		self.reset_interpreter_cache();
+		self.instance.reset_interpreter_cache();
 	}
 }
 
-impl<T: Config> PolkaVmInstance<T> for polkavm::RawInstance {
+impl<T: Config> PolkaVmInstance<T> for InterpreterInstance {
 	fn gas(&self) -> polkavm::Gas {
-		self.gas()
+		self.instance.gas()
 	}
 
 	fn set_gas(&mut self, gas: polkavm::Gas) {
-		self.set_gas(gas)
+		self.instance.set_gas(gas)
 	}
 
 	fn read_input_regs(&self) -> (u64, u64, u64, u64, u64, u64) {
 		(
-			self.reg(polkavm::Reg::A0),
-			self.reg(polkavm::Reg::A1),
-			self.reg(polkavm::Reg::A2),
-			self.reg(polkavm::Reg::A3),
-			self.reg(polkavm::Reg::A4),
-			self.reg(polkavm::Reg::A5),
+			self.instance.reg(polkavm::Reg::A0),
+			self.instance.reg(polkavm::Reg::A1),
+			self.instance.reg(polkavm::Reg::A2),
+			self.instance.reg(polkavm::Reg::A3),
+			self.instance.reg(polkavm::Reg::A4),
+			self.instance.reg(polkavm::Reg::A5),
 		)
 	}
 
 	fn write_output(&mut self, output: u64) {
-		self.set_reg(polkavm::Reg::A0, output);
+		self.instance.set_reg(polkavm::Reg::A0, output);
+	}
+
+	fn run(&mut self) -> Interrupt {
+		match self.instance.run() {
+			Ok(polkavm::InterruptKind::Finished) => Interrupt::Finished,
+			Ok(polkavm::InterruptKind::Trap) => Interrupt::Trap,
+			Ok(polkavm::InterruptKind::NotEnoughGas) => Interrupt::OutOfGas,
+			Ok(polkavm::InterruptKind::Ecalli(idx)) => Interrupt::Ecalli(idx),
+			Ok(polkavm::InterruptKind::Segfault(_)) => {
+				Interrupt::Error(Error::<T>::ExecutionFailed.into())
+			},
+			Ok(polkavm::InterruptKind::Step) => Interrupt::Finished,
+			Err(error) => {
+				log::error!(target: LOG_TARGET, "polkavm execution error: {error}");
+				Interrupt::Error(Error::<T>::ExecutionFailed.into())
+			},
+		}
+	}
+
+	fn resolve_import(&self, idx: u32) -> Option<&[u8]> {
+		Some(self.module.imports().get(idx)?.into_inner())
 	}
 }
 
@@ -260,14 +387,6 @@ impl fmt::Display for TrapReason {
 	}
 }
 
-/// Same as [`Runtime::charge_gas`].
-///
-/// We need this access as a macro because sometimes hiding the lifetimes behind
-/// a function won't work out.
-macro_rules! charge_gas {
-	($runtime:expr, $costs:expr) => {{ $runtime.ext.frame_meter_mut().charge_weight_token($costs) }};
-}
-
 /// The kind of call that should be performed.
 enum CallType {
 	/// Execute another instantiated contract
@@ -275,15 +394,6 @@ enum CallType {
 	/// Execute another contract code in the context (storage, account ID, value) of the caller
 	/// contract
 	DelegateCall,
-}
-
-impl CallType {
-	fn cost(&self) -> RuntimeCosts {
-		match self {
-			CallType::Call { .. } => RuntimeCosts::CallBase,
-			CallType::DelegateCall => RuntimeCosts::DelegateCallBase,
-		}
-	}
 }
 
 /// This is only appropriate when writing out data of constant size that does not depend on user
@@ -328,7 +438,7 @@ pub struct Runtime<'a, E: Ext, M: ?Sized> {
 	_phantom_data: PhantomData<M>,
 }
 
-impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
+impl<'a, E: Ext, M: ?Sized + Memory<E::T> + MeterBackend<E::T>> Runtime<'a, E, M> {
 	pub fn new(ext: &'a mut E, input_data: Vec<u8>) -> Self {
 		Self { ext, input_data: Some(input_data), _phantom_data: Default::default() }
 	}
@@ -338,19 +448,21 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		self.ext
 	}
 
-	/// Charge the gas meter with the specified token.
+	/// Charge the gas meter with the weight of the given token.
 	///
-	/// Returns `Err(HostError)` if there is not enough gas.
-	fn charge_gas(&mut self, costs: RuntimeCosts) -> Result<ChargedAmount, DispatchError> {
-		charge_gas!(self, costs)
+	/// Accepts both backend-agnostic [`RuntimeCosts`] and backend-aware
+	/// [`BackendCosts<M::Backend>`]. Returns `Err(HostError)` if there is not
+	/// enough gas.
+	fn charge_gas<Tok: Token<E::T>>(&mut self, token: Tok) -> Result<ChargedAmount, DispatchError> {
+		self.ext.frame_meter_mut().charge_weight_token(token)
 	}
 
 	/// Adjust a previously charged amount down to its actual amount.
 	///
 	/// This is when a maximum a priori amount was charged and then should be partially
 	/// refunded to match the actual amount.
-	fn adjust_gas(&mut self, charged: ChargedAmount, actual_costs: RuntimeCosts) {
-		self.ext.frame_meter_mut().adjust_weight(charged, actual_costs);
+	fn adjust_gas<Tok: Token<E::T>>(&mut self, charged: ChargedAmount, token: Tok) {
+		self.ext.frame_meter_mut().adjust_weight(charged, token);
 	}
 
 	/// Write the given buffer and its length to the designated locations in sandbox memory and
@@ -645,7 +757,14 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?
 			},
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
-			None => self.charge_gas(call_type.cost())?,
+			None => match &call_type {
+				CallType::Call { .. } => {
+					self.charge_gas(BackendCosts::<<M as MeterBackend<E::T>>::Backend>::CallBase)?
+				},
+				CallType::DelegateCall => self.charge_gas(
+					BackendCosts::<<M as MeterBackend<E::T>>::Backend>::DelegateCallBase,
+				)?,
+			},
 		};
 
 		// we do check this in exec.rs but we want to error out early
@@ -654,9 +773,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		}
 
 		let input_data = if flags.contains(CallFlags::CLONE_INPUT) {
-			let input = self.input_data.as_ref().ok_or(Error::<E::T>::InputForwarded)?;
-			charge_gas!(self, RuntimeCosts::CallInputCloned(input.len() as u32))?;
-			input.clone()
+			let input_len =
+				self.input_data.as_ref().ok_or(Error::<E::T>::InputForwarded)?.len() as u32;
+			self.charge_gas(RuntimeCosts::CallInputCloned(input_len))?;
+			self.input_data.as_ref().expect("checked above; qed").clone()
 		} else if flags.contains(CallFlags::FORWARD_INPUT) {
 			self.input_data.take().ok_or(Error::<E::T>::InputForwarded)?
 		} else {
@@ -831,18 +951,16 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> FrameTraceInfo for Runtime<'a, E, M> 
 	}
 }
 
-pub struct PreparedCall<'a, E: Ext> {
-	module: polkavm::Module,
-	instance: polkavm::RawInstance,
-	runtime: Runtime<'a, E, polkavm::RawInstance>,
+pub struct PreparedCall<'a, E: Ext, I: PolkaVmInstance<E::T>> {
+	instance: I,
+	runtime: Runtime<'a, E, I>,
 }
 
-impl<'a, E: Ext> PreparedCall<'a, E> {
+impl<'a, E: Ext, I: PolkaVmInstance<E::T>> PreparedCall<'a, E, I> {
 	pub fn call(mut self) -> ExecResult {
 		let exec_result = loop {
 			let interrupt = self.instance.run();
-			if let Some(exec_result) =
-				self.runtime.handle_interrupt(interrupt, &self.module, &mut self.instance)
+			if let Some(exec_result) = self.runtime.handle_interrupt(interrupt, &mut self.instance)
 			{
 				break exec_result;
 			}
@@ -850,17 +968,91 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 		crate::tracing::if_tracing(|tracer| {
 			tracer.enter_ecall(crate::tracing::PVM_FUEL_NAME, &[], &self.runtime)
 		});
-		let sync_result =
-			self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas());
+		let sync_result = self
+			.runtime
+			.ext()
+			.frame_meter_mut()
+			.sync_from_executor::<<I as MeterBackend<E::T>>::Backend>(self.instance.gas());
 		crate::tracing::if_tracing(|tracer| tracer.exit_step(&self.runtime, None));
 		sync_result?;
 		exec_result
+	}
+}
+
+impl<'a, E: Ext> PreparedCall<'a, E, InterpreterInstance> {
+	/// Compile and instantiate contract using the native PolkaVM interpreter.
+	///
+	/// `aux_data_size` is only used for runtime benchmarks. Real contracts
+	/// don't make use of this buffer. Hence this should not be set to anything
+	/// other than `0` when not used for benchmarking.
+	pub fn new_interpreter(
+		bytecode: Vec<u8>,
+		mut runtime: Runtime<'a, E, InterpreterInstance>,
+		entry_point: ExportedFunction,
+		aux_data_size: u32,
+	) -> Result<Self, ExecError> {
+		let mut config = polkavm::Config::default();
+		// Log filtering by level with log::enabled! returns always true,
+		// passing all logs through impacting performance \
+		// (more details: https://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3499548774)
+		// By default, disable polkavm logging unless pvm_logs debug setting is enabled.
+		let pvm_logs_enabled = DebugSettings::is_pvm_logs_enabled::<E::T>();
+		config.set_imperfect_logger_filtering_workaround(!pvm_logs_enabled);
+		config.set_backend(Some(polkavm::BackendKind::Interpreter));
+		config.set_cache_enabled(false);
+		#[cfg(feature = "std")]
+		if std::env::var_os("REVIVE_USE_COMPILER").is_some() {
+			log::warn!(target: LOG_TARGET, "Using PolkaVM compiler backend because env var REVIVE_USE_COMPILER is set");
+			config.set_backend(Some(polkavm::BackendKind::Compiler));
+		}
+		let engine = polkavm::Engine::new(&config).expect(
+			"on-chain (no_std) use of interpreter is hard coded.
+				interpreter is available on all platforms; qed",
+		);
+
+		let mut module_config = polkavm::ModuleConfig::new();
+		module_config.set_page_size(limits::PAGE_SIZE);
+		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
+		module_config.set_aux_data_size(aux_data_size);
+		let module =
+			polkavm::Module::new(&engine, &module_config, bytecode.into()).map_err(|err| {
+				log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
+				Error::<E::T>::CodeRejected
+			})?;
+
+		let entry_program_counter = module
+			.exports()
+			.find(|export| export.symbol().as_bytes() == entry_point.identifier())
+			.ok_or_else(|| <Error<E::T>>::CodeRejected)?
+			.program_counter();
+
+		let gas_limit_polkavm: polkavm::Gas =
+			runtime.ext().frame_meter_mut().sync_to_executor::<InterpreterBackend>();
+
+		let mut instance = module.instantiate().map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to instantiate polkavm module: {err:?}");
+			Error::<E::T>::CodeRejected
+		})?;
+
+		instance.set_gas(gas_limit_polkavm);
+		instance
+			.set_interpreter_cache_size_limit(Some(polkavm::SetCacheSizeLimitArgs {
+				max_block_size: limits::code::BASIC_BLOCK_SIZE,
+				max_cache_size_bytes: limits::code::INTERPRETER_CACHE_BYTES
+					.try_into()
+					.map_err(|_| Error::<E::T>::CodeRejected)?,
+			}))
+			.map_err(|_| Error::<E::T>::CodeRejected)?;
+		instance.prepare_call_untyped(entry_program_counter, &[]);
+
+		let instance = InterpreterInstance::new(instance, module);
+		Ok(PreparedCall { instance, runtime })
 	}
 
 	/// The guest memory address at which the aux data is located.
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn aux_data_base(&self) -> u32 {
-		self.instance.module().memory_map().aux_data_address()
+		self.instance.instance.module().memory_map().aux_data_address()
 	}
 
 	/// Copies `data` to the aux data at address `offset`.
@@ -877,12 +1069,12 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 		a1: u64,
 	) -> frame_support::dispatch::DispatchResult {
 		let a0 = self.aux_data_base().saturating_add(offset);
-		self.instance.write_memory(a0, data).map_err(|err| {
+		self.instance.instance.write_memory(a0, data).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to write aux data: {err:?}");
 			Error::<E::T>::CodeRejected
 		})?;
-		self.instance.set_reg(polkavm::Reg::A0, a0.into());
-		self.instance.set_reg(polkavm::Reg::A1, a1);
+		self.instance.instance.set_reg(polkavm::Reg::A0, a0.into());
+		self.instance.instance.set_reg(polkavm::Reg::A1, a1);
 		Ok(())
 	}
 }

@@ -200,9 +200,7 @@ fn extcodecopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 
 		let contract_info = test_utils::get_contract(&dummy_addr);
 		let code_hash = contract_info.code_hash;
-		let full_code = crate::PristineCode::<Test>::get(&code_hash)
-			.map(|bounded_vec| bounded_vec.to_vec())
-			.unwrap_or_default();
+		let full_code = crate::pristine_code::get::<Test>(&code_hash).unwrap_or_default();
 
 		struct TestCase {
 			description: &'static str,

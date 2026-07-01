@@ -34,10 +34,10 @@
 
 use crate::{
 	AccountInfoOf, AccountType, CodeInfoOf, Config, EthTransactError, LOG_TARGET, Pallet,
-	PristineCode,
 	address::AddressMapper,
 	evm::{StateOverride, StateOverrideSet, StorageOverride},
 	exec::{Executable, Key},
+	pristine_code,
 	storage::{AccountInfo, ContractInfo},
 	vm::ContractBlob,
 };
@@ -175,7 +175,14 @@ fn apply_code_override<T: Config>(address: &H160, code: Vec<u8>) -> Result<(), E
 	let code_hash = *module.code_hash();
 
 	if !<CodeInfoOf<T>>::contains_key(code_hash) {
-		<PristineCode<T>>::insert(code_hash, module.code());
+		// State-override blobs come from `from_pvm_code` /
+		// `from_evm_runtime_code` above, so the bytes are always carried
+		// — `code()` returns the raw bytes whether the blob landed in
+		// the `Interpreter` or the JIT-with-bytes variant.
+		let code = module.code().expect(
+			"state-override blobs carry their bytes (constructed from raw bytes above); qed",
+		);
+		pristine_code::insert::<T>(&code_hash, code);
 		<CodeInfoOf<T>>::insert(code_hash, module.code_info().clone());
 	}
 
