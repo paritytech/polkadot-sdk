@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782926198223,
+  "lastUpdate": 1782932736859,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5d5a639ea7de2b74628232427d5d8d7ce9fb5e8e",
-          "message": "Send PeerId via UMP (#10145)\n\nResolves https://github.com/paritytech/polkadot-sdk/issues/7749\n\nThis PR propagates the network `PeerId` of the collator to the parachain\ninherent. Then the parachain runtime emits a UMP signal containing the\ncollator `PeerId`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-07T15:56:02Z",
-          "tree_id": "d2d457548ebffc157540547d7fb505316dd3d033",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5d5a639ea7de2b74628232427d5d8d7ce9fb5e8e"
-        },
-        "date": 1762535620800,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013260629013333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022589951773333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007463045946666644,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1593810733866667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14787112082666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b018f456e08863df9e2d0742e577ebbc29f0fb24",
+          "message": "[pallet-revive] Version Trivial Runtime API Functions (#12447)\n\n# Description\n\nThis PR versions all of the runtime API functions in pallet-revive which\nhave a trivial interface and therefore doesn't require us to add a lot\nof new wire types or move too many things around. Any runtime API\nfunction which required a complex wire type to be defined for it is\nintentionally not versioned in this PR.\n\nThe following checklist shows all of the runtime API functions we have\nin pallet-revive. The checked-off functions are the ones which have been\nversioned in this PR (plus the `trace_block` function which was\nversioned in #12244).\n\n- [ ] `eth_block`\n- [x] `eth_block_hash`\n- [x] `eth_receipt_data`\n- [x] `balance`\n- [x] `block_author`\n- [x] `block_gas_limit`\n- [x] `max_extrinsic_weight_in_gas`\n- [x] `gas_price`\n- [x] `nonce`\n- [x] `address`\n- [ ] `eth_transact`\n- [ ] `eth_transact_with_config`\n- [ ] `eth_estimate_gas`\n- [x] `eth_pre_dispatch_weight`\n- [ ] `call`\n- [ ] `instantiate`\n- [x] `upload_code`\n- [x] `get_storage_var_key`\n- [x] `get_storage`\n- [x] `trace_block`\n- [x] `trace_tx`\n- [ ] `trace_call`\n- [ ] `trace_call_with_config`\n- [x] `runtime_pallets_address`\n- [x] `code`\n- [x] `account_id`\n- [x] `new_balance_with_dust`\n\nMost notably is that all of the functions which make use of\n`GenericTransaction` or of `Block` have not been versioned yet. This is\nplanned in an upcoming PR.\n\nAlso, this PR adds a `GUIDE.md` file into the `pallet-revive-types`\ncrate which serves as a guide on how versioning can be done. This file\nwas written such that it can be consumed by us or by agents to do all of\nthe mechanical work needed to version any runtime API function. It\ncurrently contains a guide on how to version an unversioned runtime API\nfunction and I'm planning on adding a section on updating a versioned\nruntime API function in the future.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-01T17:09:47Z",
+          "tree_id": "e71c7e4a2c4b59da14f58ef78e17bb81128041f5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b018f456e08863df9e2d0742e577ebbc29f0fb24"
+        },
+        "date": 1782932708807,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007461798299999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14910050586,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0103300072133333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023743828526666667,
             "unit": "seconds"
           }
         ]
