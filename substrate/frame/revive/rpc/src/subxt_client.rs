@@ -40,10 +40,6 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive::EthTransactError>"
 	),
 	substitute_type(
-		path = "pallet_revive::primitives::ExecReturnValue",
-		with = "::subxt::utils::Static<::pallet_revive::ExecReturnValue>"
-	),
-	substitute_type(
 		path = "sp_weights::weight_v2::Weight",
 		with = "::subxt::utils::Static<::sp_weights::Weight>"
 	),
@@ -166,6 +162,26 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::DryRunConfigV1<Moment>>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::contract::ContractResultV1<R, Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ContractResultV1<R, Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::contract::StorageDepositV1<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::StorageDepositV1<Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::contract::ExecReturnValueV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecReturnValueV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::contract::InstantiateReturnValueV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::InstantiateReturnValueV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::contract::CodeV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CodeV1>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::balance::BalanceInputPayloadV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BalanceInputPayloadV1>"
 	),
@@ -212,6 +228,38 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::nonce::NonceVersionedOutputPayload<Nonce>",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NonceVersionedOutputPayload<Nonce>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::call::CallInputPayloadV1<AccountId, Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallInputPayloadV1<AccountId, Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::call::CallVersionedInputPayload<AccountId, Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallVersionedInputPayload<AccountId, Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::call::CallOutputPayloadV1<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallOutputPayloadV1<Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::call::CallVersionedOutputPayload<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CallVersionedOutputPayload<Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::instantiate::InstantiateInputPayloadV1<AccountId, Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::InstantiateInputPayloadV1<AccountId, Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::instantiate::InstantiateVersionedInputPayload<AccountId, Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::InstantiateVersionedInputPayload<AccountId, Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::instantiate::InstantiateOutputPayloadV1<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::InstantiateOutputPayloadV1<Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::instantiate::InstantiateVersionedOutputPayload<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::InstantiateVersionedOutputPayload<Balance>>"
 	),
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::eth_transact::EthTransactInputPayloadV1<Moment>",

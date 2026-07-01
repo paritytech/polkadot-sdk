@@ -20,10 +20,12 @@ codec = { workspace = true, features = ["derive", "max-encoded-len"] }
 derive_more = { workspace = true, features = ["from", "try_into"] }
 num-traits = { workspace = true }
 num_enum = { workspace = true }
+pallet-revive-uapi = { workspace = true, features = ["scale"] }
 revm-bytecode = { workspace = true, features = ["parse"] }
 scale-info = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["alloc", "derive"] }
 sp-core = { workspace = true, features = ["serde"] }
+sp-runtime = { workspace = true }
 sp-weights = { workspace = true, features = ["serde"] }
 strum = { workspace = true, features = ["derive"] }
 
@@ -39,6 +41,7 @@ std = [
 	"serde/std",
 	"serde_json/std",
 	"sp-core/std",
+	"sp-runtime/std",
 	"sp-weights/std",
 	"strum/std",
 ]

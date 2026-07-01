@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod contract;
 mod dry_run;
 mod receipt;
 mod state_overrides;
@@ -24,6 +25,7 @@ mod traces;
 mod transaction;
 mod upload;
 
+pub use contract::*;
 pub use dry_run::*;
 pub use receipt::*;
 pub use state_overrides::*;

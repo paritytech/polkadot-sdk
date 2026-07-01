@@ -2950,6 +2950,7 @@ sp_api::decl_runtime_apis! {
 		/// Perform a call from a specified account to a given contract.
 		///
 		/// See [`crate::Pallet::bare_call`].
+		#[deprecated(note = "Use the versioned equivalent `call_versioned` if available on your runtime")]
 		fn call(
 			origin: AccountId,
 			dest: H160,
@@ -2957,20 +2958,21 @@ sp_api::decl_runtime_apis! {
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
 			input_data: Vec<u8>,
-		) -> ContractResult<ExecReturnValue, Balance>;
+		) -> ContractResultV1<ExecReturnValueV1, Balance>;
 
 		/// Instantiate a new contract.
 		///
 		/// See `[crate::Pallet::bare_instantiate]`.
+		#[deprecated(note = "Use the versioned equivalent `instantiate_versioned` if available on your runtime")]
 		fn instantiate(
 			origin: AccountId,
 			value: Balance,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
-			code: Code,
+			code: CodeV1,
 			data: Vec<u8>,
 			salt: Option<[u8; 32]>,
-		) -> ContractResult<InstantiateReturnValue, Balance>;
+		) -> ContractResultV1<InstantiateReturnValueV1, Balance>;
 
 
 		/// Perform an Ethereum call.
@@ -3130,6 +3132,16 @@ sp_api::decl_runtime_apis! {
 
 		#[api_version(2)]
 		fn nonce_versioned(input: NonceVersionedInputPayload) -> NonceVersionedOutputPayload<Nonce>;
+
+		#[api_version(2)]
+		fn call_versioned(
+			input: CallVersionedInputPayload<AccountId, Balance>
+		) -> CallVersionedOutputPayload<Balance>;
+
+		#[api_version(2)]
+		fn instantiate_versioned(
+			input: InstantiateVersionedInputPayload<AccountId, Balance>
+		) -> InstantiateVersionedOutputPayload<Balance>;
 
 		#[api_version(2)]
 		fn eth_transact_versioned(
@@ -3416,23 +3428,24 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					weight_limit: Option<$crate::Weight>,
 					storage_deposit_limit: Option<Balance>,
 					input_data: Vec<u8>,
-				) -> $crate::ContractResult<$crate::ExecReturnValue, Balance> {
-					use $crate::frame_support::traits::Get;
-					let blockweights: $crate::BlockWeights =
-						<Self as $crate::frame_system::Config>::BlockWeights::get();
+				) -> $crate::pallet_revive_types::runtime_api::ContractResultV1<
+					$crate::pallet_revive_types::runtime_api::ExecReturnValueV1,
+					Balance
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
 
-					$crate::Pallet::<Self>::prepare_dry_run(&origin);
-					$crate::Pallet::<Self>::bare_call(
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
+					let input = CallVersionedInputPayload::from(CallInputPayloadV1 {
+						origin,
 						dest,
-						$crate::Pallet::<Self>::convert_native_to_evm(value),
-						$crate::TransactionLimits::WeightAndDeposit {
-							weight_limit: weight_limit.unwrap_or(blockweights.max_block),
-							deposit_limit: storage_deposit_limit.unwrap_or(u128::MAX),
-						},
-						input_data,
-						&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
-					)
+						value,
+						gas_limit: weight_limit,
+						storage_deposit_limit,
+						input_data
+					});
+					let output = Self::call_versioned(input);
+					CallOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.contract_result
 				}
 
 				fn instantiate(
@@ -3440,27 +3453,28 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					value: Balance,
 					weight_limit: Option<$crate::Weight>,
 					storage_deposit_limit: Option<Balance>,
-					code: $crate::Code,
+					code: $crate::pallet_revive_types::runtime_api::CodeV1,
 					data: Vec<u8>,
 					salt: Option<[u8; 32]>,
-				) -> $crate::ContractResult<$crate::InstantiateReturnValue, Balance> {
-					use $crate::frame_support::traits::Get;
-					let blockweights: $crate::BlockWeights =
-						<Self as $crate::frame_system::Config>::BlockWeights::get();
+				) -> $crate::pallet_revive_types::runtime_api::ContractResultV1<
+					$crate::pallet_revive_types::runtime_api::InstantiateReturnValueV1,
+					Balance
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
 
-					$crate::Pallet::<Self>::prepare_dry_run(&origin);
-					$crate::Pallet::<Self>::bare_instantiate(
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
-						$crate::Pallet::<Self>::convert_native_to_evm(value),
-						$crate::TransactionLimits::WeightAndDeposit {
-							weight_limit: weight_limit.unwrap_or(blockweights.max_block),
-							deposit_limit: storage_deposit_limit.unwrap_or(u128::MAX),
-						},
+					let input = InstantiateVersionedInputPayload::from(InstantiateInputPayloadV1 {
+						origin,
+						value,
+						gas_limit: weight_limit,
+						storage_deposit_limit,
 						code,
 						data,
-						salt,
-						&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
-					)
+						salt
+					});
+					let output = Self::instantiate_versioned(input);
+					InstantiateOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.contract_result
 				}
 
 				fn upload_code(
@@ -3813,6 +3827,83 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let output = NonceOutputPayload {
 						nonce: $crate::frame_system::Pallet::<Self>::account_nonce(account)
 					};
+					output_wrapper(output)
+				}
+
+				fn call_versioned(
+					input: $crate::pallet_revive_types::runtime_api::CallVersionedInputPayload<AccountId, Balance>
+				) -> $crate::pallet_revive_types::runtime_api::CallVersionedOutputPayload<Balance> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use $crate::frame_support::traits::Get;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(CallOutputPayload<Balance>) -> CallVersionedOutputPayload<Balance>>,
+					) = match input {
+						CallVersionedInputPayload::V1(payload) => (
+							CallInputPayload::from(payload),
+							Box::new(|output| CallVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let blockweights: $crate::BlockWeights =
+						<Self as $crate::frame_system::Config>::BlockWeights::get();
+
+					$crate::Pallet::<Self>::prepare_dry_run(&input.origin);
+					let contract_result = $crate::Pallet::<Self>::bare_call(
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin),
+						input.dest,
+						$crate::Pallet::<Self>::convert_native_to_evm(input.value),
+						$crate::TransactionLimits::WeightAndDeposit {
+							weight_limit: input.gas_limit.unwrap_or(blockweights.max_block),
+							deposit_limit: input.storage_deposit_limit.unwrap_or(u128::MAX),
+						},
+						input.input_data,
+						&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
+					);
+
+					let output = CallOutputPayload { contract_result };
+					output_wrapper(output)
+				}
+
+				fn instantiate_versioned(
+					input: $crate::pallet_revive_types::runtime_api::InstantiateVersionedInputPayload<AccountId, Balance>
+				) -> $crate::pallet_revive_types::runtime_api::InstantiateVersionedOutputPayload<Balance> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use $crate::frame_support::traits::Get;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(InstantiateOutputPayload<Balance>) -> InstantiateVersionedOutputPayload<Balance>>,
+					) = match input {
+						InstantiateVersionedInputPayload::V1(payload) => (
+							InstantiateInputPayload::from(payload),
+							Box::new(|output| InstantiateVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let blockweights: $crate::BlockWeights =
+						<Self as $crate::frame_system::Config>::BlockWeights::get();
+
+					$crate::Pallet::<Self>::prepare_dry_run(&input.origin);
+					let contract_result = $crate::Pallet::<Self>::bare_instantiate(
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin),
+						$crate::Pallet::<Self>::convert_native_to_evm(input.value),
+						$crate::TransactionLimits::WeightAndDeposit {
+							weight_limit: input.gas_limit.unwrap_or(blockweights.max_block),
+							deposit_limit: input.storage_deposit_limit.unwrap_or(u128::MAX),
+						},
+						input.code,
+						input.data,
+						input.salt,
+						&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
+					);
+
+					let output = InstantiateOutputPayload { contract_result };
 					output_wrapper(output)
 				}
 
