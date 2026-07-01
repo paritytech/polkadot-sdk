@@ -18,6 +18,10 @@
 fn main() {
 	#[cfg(feature = "std")]
 	{
-		polkadot_sdk::substrate_wasm_builder::WasmBuilder::build_using_defaults();
+		let mut builder = polkadot_sdk::substrate_wasm_builder::WasmBuilder::init_with_defaults();
+		if std::env::var_os("CARGO_CFG_REVIVE_JIT").is_some() {
+			builder = builder.append_to_rust_flags("--cfg revive_jit");
+		}
+		builder.build();
 	}
 }

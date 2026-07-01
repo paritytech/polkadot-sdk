@@ -178,9 +178,9 @@ impl Executable<Test> for MockExecutable {
 		}
 	}
 
-	fn code(&self) -> &[u8] {
-		// The mock executable doesn't have code", so we return the code hash.
-		self.code_hash.as_ref()
+	fn code(&self) -> Option<&[u8]> {
+		// The mock executable doesn't have code, so we return the code hash.
+		Some(self.code_hash.as_ref())
 	}
 
 	fn code_hash(&self) -> &H256 {

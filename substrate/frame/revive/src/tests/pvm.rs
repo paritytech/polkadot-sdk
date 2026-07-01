@@ -34,6 +34,7 @@ use crate::{
 		SolType,
 		sol_data::{Bool, FixedBytes},
 	},
+	pristine_code,
 	storage::{DeletionQueueManager, WriteOutcome},
 	test_utils::{WEIGHT_LIMIT, builder::Contract},
 	tests::{
@@ -418,6 +419,11 @@ fn gas_syncs_work() {
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let contract = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Warm the JIT compile cache so the n=0 baseline below pays the same
+		// `JitCodeLoadToken::warm` cost as the n=1/n=2 measurements (otherwise
+		// the cold→warm delta skews the linearity check at the end).
+		let _ = builder::bare_call(contract.addr).data(0u32.encode()).build();
 
 		let result = builder::bare_call(contract.addr).data(0u32.encode()).build();
 		assert_ok!(result.result);
@@ -1029,7 +1035,7 @@ fn self_destruct_by_precompile_works() {
 		assert_matches!(builder::call(contract.addr).build(), Ok(_));
 
 		// Check that the code is gone
-		assert!(PristineCode::<Test>::get(&code_hash).is_none());
+		assert!(pristine_code::get::<Test>(&code_hash).is_none());
 
 		// Check that account is gone
 		assert!(get_contract_checked(&contract.addr).is_none());
@@ -1156,7 +1162,7 @@ fn self_destruct_by_syscall_does_not_delete_code() {
 		assert_matches!(builder::call(contract.addr).build(), Ok(_));
 
 		// Check that the code still exists
-		assert!(PristineCode::<Test>::get(&code_hash).is_some());
+		assert!(pristine_code::get::<Test>(&code_hash).is_some());
 
 		// Check that account still exists
 		assert!(get_contract_checked(&contract.addr).is_some());
@@ -1915,11 +1921,11 @@ fn refcounter() {
 		assert_refcount!(code_hash, 1);
 
 		// Pristine code should still be there
-		PristineCode::<Test>::get(code_hash).unwrap();
+		pristine_code::get::<Test>(&code_hash).unwrap();
 
 		// remove the last contract
 		assert_ok!(builder::call(addr2).build());
-		assert!(PristineCode::<Test>::get(&code_hash).is_none());
+		assert!(pristine_code::get::<Test>(&code_hash).is_none());
 	});
 }
 
@@ -1939,6 +1945,21 @@ fn gas_estimation_for_subcalls() {
 		let Contract { addr: addr_dummy, .. } = builder::bare_instantiate(Code::Upload(dummy_code))
 			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
+
+		// Warm the JIT compile cache for both the caller and the dummy callee.
+		// Without this, the dry-run below would be the first call to each
+		// contract within the block and would pay `JitCodeLoadToken::cold`,
+		// while the subsequent real call (with the dry-run-derived budget)
+		// hits the warm cache and pays less — so `weight_required - 1` would
+		// still have budget and the `OutOfGas` assertion wouldn't fire.
+		let warmup_input: Vec<u8> = addr_dummy
+			.as_ref()
+			.iter()
+			.cloned()
+			.chain(WEIGHT_LIMIT.ref_time().to_le_bytes())
+			.chain(WEIGHT_LIMIT.proof_size().to_le_bytes())
+			.collect();
+		let _ = builder::bare_call(addr_caller).data(warmup_input).build();
 
 		// Run the test for all of those weight limits for the subcall
 		let weights = [
@@ -2052,7 +2073,7 @@ fn upload_code_works() {
 		// Drop previous events
 		initialize_block(2);
 
-		assert!(!PristineCode::<Test>::contains_key(&code_hash));
+		assert!(!pristine_code::exists::<Test>(&code_hash));
 		assert_ok!(Contracts::upload_code(RuntimeOrigin::signed(ALICE), binary, 1_000,));
 		// Ensure the contract was stored and get expected deposit amount to be reserved.
 		expected_deposit(ensure_stored(code_hash));
@@ -2576,7 +2597,7 @@ fn set_code_extrinsic() {
 		// successful call
 		assert_ok!(Contracts::set_code(RuntimeOrigin::root(), addr, new_code_hash));
 		assert_eq!(get_contract(&addr).code_hash, new_code_hash);
-		assert!(PristineCode::<Test>::get(&code_hash).is_none());
+		assert!(pristine_code::get::<Test>(&code_hash).is_none());
 		assert_refcount!(&new_code_hash, 1);
 	});
 }
@@ -3310,6 +3331,11 @@ fn weight_consumed_is_linear_for_nested_calls() {
 
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Warm the JIT compile cache so every measurement below pays the
+		// uniform `JitCodeLoadToken::warm` cost (gas_0 would otherwise carry
+		// an extra cold→warm delta the gas_per_recursion derivation can't see).
+		let _ = builder::bare_call(addr).data(0u32.encode()).build();
 
 		let [gas_0, gas_1, gas_2, gas_max] = {
 			[0u32, 1u32, 2u32, limits::CALL_STACK_DEPTH]

@@ -1,0 +1,25 @@
+title: 'pallet-revive: JIT contract execution via sp-virtualization'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Contracts can now be JIT compiled instead of interpreted. The feature is an
+    experimental opt-in gated behind the `revive_jit` rustc cfg: runtimes built
+    with `--cfg revive_jit` (forwarded into the WASM build by their `build.rs`)
+    select the JIT backend at execution time and fall back to the interpreter
+    otherwise. Execution is delegated to the node through the pre-existing
+    sp-virtualization host functions, backed by a PolkaVM engine running on the
+    generic (in-process) sandbox.
+
+    `PristineCode` is now stored as the raw blob (no SCALE length prefix) under
+    a manually derived storage key. Weight metering is split per execution
+    backend (interpreter/JIT/EVM) with dedicated benchmarks for the JIT
+    dispatch and compile-cache costs.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-proc-macro
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: none
+- name: asset-hub-westend-runtime
+  bump: patch
