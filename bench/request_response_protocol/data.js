@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782912978111,
+  "lastUpdate": 1782914271064,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -103355,6 +103355,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2656427634,
             "range": "± 46725631",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c8c3e3f1d9d535e9c29f2cd505ef79266a821bed",
+          "message": "[Release|CI/CD] Publish release draft as empty when body length exceeds github requirements (#12526)\n\nThis PR fixes a following issue:\nWhen release draft body is too long and exceeds GitHub requirements of\n125000 chars, Create Release Draft job fails and draft is not published.\nWhich leads to manual creation of the draft and manual attachment of all\nthe artefacts that we publish.\n\nWith this fix, job should not fail, but publish a draft with some\nwarning message and all the artefacts attached to the draft.\n\ncloses: https://github.com/paritytech/release-engineering/issues/297",
+          "timestamp": "2026-07-01T12:25:32Z",
+          "tree_id": "f8b2dc4d03a25857f115a283dc96d74c21c322b7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c8c3e3f1d9d535e9c29f2cd505ef79266a821bed"
+        },
+        "date": 1782914241190,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19289367,
+            "range": "± 57896",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19202582,
+            "range": "± 225485",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20798446,
+            "range": "± 118559",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25893976,
+            "range": "± 142488",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59801816,
+            "range": "± 912420",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 383827339,
+            "range": "± 6180788",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2693337591,
+            "range": "± 63145476",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16789254,
+            "range": "± 190301",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16886514,
+            "range": "± 171685",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17455432,
+            "range": "± 176548",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22094799,
+            "range": "± 80092",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62415699,
+            "range": "± 820958",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 365083669,
+            "range": "± 4963252",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2625969925,
+            "range": "± 11189625",
             "unit": "ns/iter"
           }
         ]
