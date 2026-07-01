@@ -993,6 +993,14 @@ impl CollationManager {
 	fn park_blocked_collation(&mut self, parent_head_data_hash: Hash, collation: FetchedCollation) {
 		let parked: usize = self.blocked_from_seconding.values().map(Vec::len).sum();
 		if parked >= MAX_BLOCKED_COLLATIONS {
+			gum::debug!(
+				target: LOG_TARGET,
+				?parent_head_data_hash,
+				para_id = ?collation.candidate_receipt.descriptor.para_id(),
+				candidate_hash = ?collation.candidate_receipt.hash(),
+				max = MAX_BLOCKED_COLLATIONS,
+				"Blocked-collation park is full; dropping this collation (will rely on re-fetch)",
+			);
 			return;
 		}
 		self.blocked_from_seconding
@@ -1217,15 +1225,13 @@ impl LeafCoreCq {
 struct PerSchedulingParent {
 	// Per-collator-peer state.
 	peer_advertisements: HashMap<PeerId, PeerAdvertisementState>,
-	// Candidates we have successfully fetched at this scheduling parent, keyed by candidate
-	// hash (which is the canonical post-fetch identity of the collation, independent of who
-	// served it). The stored `peer_id` is the *peer we fetched from* — the only peer
-	// liable for slashing/credit on this candidate, even if other peers had advertised the
-	// same hash. Kept until the scheduling parent leaves view, so that:
-	// - duplicate advertisements are rejected (`try_accept_advertisement`),
-	// - we know who to punish for supplying an invalid collation (returned by `release_slot`),
-	// - and capacity tracking knows which slots are consumed (`build_leaf_core_cqs`).
-	// On rejection (validation failure, blocked-on-parent timeout, etc.) entries are removed.
+	// Verified collations fetched at this scheduling parent, keyed by candidate hash (the
+	// post-fetch identity, independent of who served it). The stored `peer_id` is the peer we
+	// fetched from — the one to credit or slash for this candidate. Recorded in
+	// `record_fetched_collation`, removed in `release_slot` if seconding later fails. Used to:
+	// - skip fetching a candidate we already hold (`eligible_advertisements`),
+	// - attribute slash/credit (`release_slot` returns the fetcher's `peer_id`),
+	// - count consumed claim-queue slots (`build_leaf_core_cqs`).
 	fetched_collations: HashMap<CandidateHash, FetchedCollationInfo>,
 	session_index: SessionIndex,
 	// The core our group is assigned to at this scheduling parent. We look this up once at
