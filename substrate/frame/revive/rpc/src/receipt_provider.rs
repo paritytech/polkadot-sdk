@@ -784,8 +784,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					FilterTopic::Single(hash) => {
 						qb.push(format_args!(" AND topic_{i} = ")).push_bind(hash.0.to_vec());
 					},
-					// An empty topic list is a wildcard at this position (match any topic). Skip
-					// the constraint: SQLite treats `IN ()` as always-false, matching no logs.
 					FilterTopic::Multiple(hashes) if !hashes.is_empty() => {
 						qb.push(format_args!(" AND topic_{i} IN ("));
 						let mut separated = qb.separated(", ");
@@ -794,7 +792,12 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 						}
 						separated.push_unseparated(")");
 					},
-					FilterTopic::Multiple(_) => {},
+					// An empty topic list matches any value at this position, but the position
+					// must still exist: go-ethereum requires a log to have at least as many topics
+					// as the filter, so `[[]]` does not match a topic-less log.
+					FilterTopic::Multiple(_) => {
+						qb.push(format_args!(" AND topic_{i} IS NOT NULL"));
+					},
 				}
 			}
 		}
@@ -1422,7 +1425,8 @@ mod tests {
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 
-		// Empty topic list at a position is a wildcard (matches any), not always-false `IN ()`.
+		// An empty topic list is a wildcard at that position but still requires the topic to
+		// exist; both logs have a first topic, so both match.
 		let logs = provider
 			.logs(
 				Some(Filter {
@@ -1434,6 +1438,25 @@ mod tests {
 			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
+
+		// An empty list at a position past a log's topics excludes it: go-ethereum matches only
+		// logs with at least as many topics as the filter. `[topic0, topic1, []]` requires a
+		// third topic, so log1 (which has exactly two) is excluded.
+		let logs = provider
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					topics: Some(vec![
+						FilterTopic::Single(log1.topics[0]),
+						FilterTopic::Single(log1.topics[1]),
+						FilterTopic::Multiple(vec![]),
+					]),
+					..Default::default()
+				}),
+				&resolve_block_number,
+			)
+			.await?;
+		assert!(logs.is_empty());
 		Ok(())
 	}
 

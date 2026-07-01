@@ -5,8 +5,10 @@ doc:
     An `eth_getLogs` filter with an empty address list (`"address": []`) or an empty topic
     list at a position (`"topics": [[]]`) built an `IN ()` SQL clause. SQLite evaluates
     `IN ()` as always-false, so the filter silently returned zero logs. Such filters are
-    valid Ethereum requests and, as in other Ethereum clients, an empty list is a wildcard:
-    it now imposes no constraint (matches any address/topic) instead of dropping all logs.
+    valid Ethereum requests: an empty list is a wildcard that matches any value. An empty
+    address list now matches any address, and an empty topic list matches any value at that
+    position while still requiring the topic to exist — so, as in go-ethereum, a filter of
+    length N only matches logs with at least N topics.
 crates:
 - name: pallet-revive-eth-rpc
   bump: patch
