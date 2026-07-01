@@ -95,6 +95,11 @@ pub struct RelayChainDataCache<RI> {
 	pvd: schnellru::LruMap<(RelayHash, OccupiedCoreAssumption), Option<PersistedValidationData>>,
 	/// Scheduling lookahead by relay hash.
 	scheduling_lookahead: schnellru::LruMap<RelayHash, u32>,
+	/// Session index for the child of a relay block, keyed by relay block hash.
+	session_index_for_child: schnellru::LruMap<RelayHash, SessionIndex>,
+	/// Whether a relay parent is an allowed relay parent for a given scheduling parent, keyed by
+	/// `(scheduling_parent, relay_parent)`. Used by the V3 parent-search validity check.
+	allowed_relay_parent: schnellru::LruMap<(RelayHash, RelayHash), bool>,
 }
 
 impl<RI> RelayChainDataCache<RI>
@@ -112,6 +117,8 @@ where
 			headers: schnellru::LruMap::new(schnellru::ByLength::new(50)),
 			pvd: schnellru::LruMap::new(schnellru::ByLength::new(100)),
 			scheduling_lookahead: schnellru::LruMap::new(schnellru::ByLength::new(50)),
+			session_index_for_child: schnellru::LruMap::new(schnellru::ByLength::new(50)),
+			allowed_relay_parent: schnellru::LruMap::new(schnellru::ByLength::new(100)),
 		}
 	}
 
@@ -177,6 +184,46 @@ where
 		Ok(value)
 	}
 
+	/// Fetch the session index for the child of `relay_hash`, caching it.
+	pub async fn session_index_for_child(
+		&mut self,
+		relay_hash: RelayHash,
+	) -> RelayChainResult<SessionIndex> {
+		if let Some(session_index) = self.session_index_for_child.peek(&relay_hash) {
+			return Ok(*session_index);
+		}
+
+		let session_index = self.relay_client.session_index_for_child(relay_hash).await?;
+		self.session_index_for_child.insert(relay_hash, session_index);
+		Ok(session_index)
+	}
+
+	/// Whether `relay_parent` is an allowed relay parent when building on `scheduling_parent`,
+	/// caching the result (immutable for a fixed `(scheduling_parent, relay_parent)` pair).
+	pub async fn is_allowed_relay_parent(
+		&mut self,
+		scheduling_parent: RelayHash,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<bool> {
+		if relay_parent == scheduling_parent {
+			return Ok(true);
+		}
+
+		let key = (scheduling_parent, relay_parent);
+		if let Some(allowed) = self.allowed_relay_parent.peek(&key) {
+			return Ok(*allowed);
+		}
+
+		let session_index = self.session_index_for_child(relay_parent).await?;
+		let allowed = self
+			.relay_client
+			.ancestor_relay_parent_info(scheduling_parent, session_index, relay_parent)
+			.await?
+			.is_some();
+		self.allowed_relay_parent.insert(key, allowed);
+		Ok(allowed)
+	}
+
 	/// Fetch required [`RelayChainData`] from the relay chain.
 	/// If this data has been fetched in the past for the incoming hash, it will reuse
 	/// cached data.
@@ -186,7 +233,6 @@ where
 	) -> RelayChainResult<&RelayChainData> {
 		let relay_hash = relay_header.hash();
 
-		// Keep the standalone header cache populated too, so a subsequent header-only lookup hits.
 		if self.headers.peek(&relay_hash).is_none() {
 			self.headers.insert(relay_hash, relay_header.clone());
 		}

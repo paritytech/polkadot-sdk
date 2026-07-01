@@ -379,8 +379,6 @@ where
 				continue;
 			};
 
-			// `max_pov_size` is session-constant, so it lives on the per-session `SessionData`
-			// rather than on the per-block `RelayChainData`.
 			let Ok(max_pov_size) = relay_chain_data_cache
 				.get_session_data(relay_parent_hash)
 				.await
