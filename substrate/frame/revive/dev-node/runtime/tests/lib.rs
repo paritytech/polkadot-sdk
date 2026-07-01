@@ -138,11 +138,11 @@ fn test_versioned_runtime_api_invariants() {
 		let input_type = metadata
 			.types
 			.resolve(input.ty.id)
-			.expect("qed; impossible on well-formed metadata");
+			.expect("impossible on well-formed metadata; qed");
 		let output_type = metadata
 			.types
 			.resolve(output.id)
-			.expect("qed; impossible on well-formed metadata");
+			.expect("impossible on well-formed metadata; qed");
 		let output_type = if let TypeDef::Variant(ref variants) = output_type.type_def {
 			if output_type.path.ident().is_some_and(|ident| ident == "Result") {
 				if let [variant1, _] = variants.variants.as_slice() {
@@ -151,7 +151,7 @@ fn test_versioned_runtime_api_invariants() {
 							metadata
 								.types
 								.resolve(field.ty.id)
-								.expect("qed; impossible on well-formed metadata")
+								.expect("impossible on well-formed metadata; qed")
 						} else {
 							output_type
 						}
@@ -168,8 +168,8 @@ fn test_versioned_runtime_api_invariants() {
 			output_type
 		};
 
-		let input_type_name = input_type.path.ident().expect("qed; an input type has an ident");
-		let output_type_name = output_type.path.ident().expect("qed; an output type has an ident");
+		let input_type_name = input_type.path.ident().expect("an input type has an ident; qed");
+		let output_type_name = output_type.path.ident().expect("an output type has an ident; qed");
 
 		assert_eq!(
 			input_type_name,
@@ -277,16 +277,16 @@ fn test_versioned_runtime_api_invariants() {
 			let input_field_type = metadata
 				.types
 				.resolve(input_field.ty.id)
-				.expect("qed; impossible on well-formed metadata");
+				.expect("impossible on well-formed metadata; qed");
 			let output_field_type = metadata
 				.types
 				.resolve(output_field.ty.id)
-				.expect("qed; impossible on well-formed metadata");
+				.expect("impossible on well-formed metadata; qed");
 
 			let input_field_type_name =
-				input_field_type.path.ident().expect("qed; an input type has an ident");
+				input_field_type.path.ident().expect("an input type has an ident; qed");
 			let output_field_type_name =
-				output_field_type.path.ident().expect("qed; an output type has an ident");
+				output_field_type.path.ident().expect("an output type has an ident; qed");
 
 			assert_eq!(
 				input_field_type_name,
