@@ -1758,99 +1758,107 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1608 id=1608 data-nosnippet>1608</a>		// proof era (`l - 1`) stays below the active era.
 <a href=#1609 id=1609 data-nosnippet>1609</a>		</span>set_active_era::&lt;T&gt;(l);
 <a href=#1610 id=1610 data-nosnippet>1610</a>
-<a href=#1611 id=1611 data-nosnippet>1611</a>		<span class="comment">// Set the validator has been inactive for `l` eras.
-<a href=#1612 id=1612 data-nosnippet>1612</a>		</span><span class="kw">let </span>proof = (<span class="number">0</span>..l)
-<a href=#1613 id=1613 data-nosnippet>1613</a>			.inspect(|<span class="kw-2">&amp;</span>era| {
-<a href=#1614 id=1614 data-nosnippet>1614</a>				ErasRewardPoints::&lt;T&gt;::insert(
-<a href=#1615 id=1615 data-nosnippet>1615</a>					era,
-<a href=#1616 id=1616 data-nosnippet>1616</a>					EraRewardPoints { total: <span class="number">0</span>, individual: BoundedBTreeMap::new() },
-<a href=#1617 id=1617 data-nosnippet>1617</a>				);
-<a href=#1618 id=1618 data-nosnippet>1618</a>				Eras::&lt;T&gt;::upsert_exposure(era, <span class="kw-2">&amp;</span>stash, Exposure::default());
-<a href=#1619 id=1619 data-nosnippet>1619</a>			})
-<a href=#1620 id=1620 data-nosnippet>1620</a>			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-<a href=#1621 id=1621 data-nosnippet>1621</a>		<span class="kw">let </span>proof = BoundedVec::truncate_from(proof);
-<a href=#1622 id=1622 data-nosnippet>1622</a>
-<a href=#1623 id=1623 data-nosnippet>1623</a>		<span class="macro">assert!</span>(Validators::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>stash));
-<a href=#1624 id=1624 data-nosnippet>1624</a>
-<a href=#1625 id=1625 data-nosnippet>1625</a>		<span class="attr">#[extrinsic_call]
-<a href=#1626 id=1626 data-nosnippet>1626</a>		</span><span class="kw">_</span>(RawOrigin::Signed(caller), stash.clone(), proof);
-<a href=#1627 id=1627 data-nosnippet>1627</a>
-<a href=#1628 id=1628 data-nosnippet>1628</a>		<span class="macro">assert!</span>(!Validators::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>stash));
-<a href=#1629 id=1629 data-nosnippet>1629</a>
-<a href=#1630 id=1630 data-nosnippet>1630</a>		<span class="prelude-val">Ok</span>(())
-<a href=#1631 id=1631 data-nosnippet>1631</a>	}
+<a href=#1611 id=1611 data-nosnippet>1611</a>		<span class="comment">// Fill the `EraRewardPoints::individual` to hit the worst-case scenario.
+<a href=#1612 id=1612 data-nosnippet>1612</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>individual_points = BoundedBTreeMap::new();
+<a href=#1613 id=1613 data-nosnippet>1613</a>		<span class="kw">for </span>index <span class="kw">in </span><span class="number">0</span>..T::MaxValidatorSet::get() {
+<a href=#1614 id=1614 data-nosnippet>1614</a>			individual_points
+<a href=#1615 id=1615 data-nosnippet>1615</a>				.try_insert(account::&lt;T::AccountId&gt;(<span class="string">"validator"</span>, index, <span class="number">0</span>), <span class="number">100</span>)
+<a href=#1616 id=1616 data-nosnippet>1616</a>				.unwrap();
+<a href=#1617 id=1617 data-nosnippet>1617</a>		}
+<a href=#1618 id=1618 data-nosnippet>1618</a>
+<a href=#1619 id=1619 data-nosnippet>1619</a>		<span class="comment">// Set the validator has been inactive for `l` eras.
+<a href=#1620 id=1620 data-nosnippet>1620</a>		</span><span class="kw">let </span>proof = (<span class="number">0</span>..l)
+<a href=#1621 id=1621 data-nosnippet>1621</a>			.inspect(|<span class="kw-2">&amp;</span>era| {
+<a href=#1622 id=1622 data-nosnippet>1622</a>				ErasRewardPoints::&lt;T&gt;::insert(
+<a href=#1623 id=1623 data-nosnippet>1623</a>					era,
+<a href=#1624 id=1624 data-nosnippet>1624</a>					EraRewardPoints { total: <span class="number">0</span>, individual: individual_points.clone() },
+<a href=#1625 id=1625 data-nosnippet>1625</a>				);
+<a href=#1626 id=1626 data-nosnippet>1626</a>				Eras::&lt;T&gt;::upsert_exposure(era, <span class="kw-2">&amp;</span>stash, Exposure::default());
+<a href=#1627 id=1627 data-nosnippet>1627</a>			})
+<a href=#1628 id=1628 data-nosnippet>1628</a>			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+<a href=#1629 id=1629 data-nosnippet>1629</a>		<span class="kw">let </span>proof = BoundedVec::truncate_from(proof);
+<a href=#1630 id=1630 data-nosnippet>1630</a>
+<a href=#1631 id=1631 data-nosnippet>1631</a>		<span class="macro">assert!</span>(Validators::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>stash));
 <a href=#1632 id=1632 data-nosnippet>1632</a>
-<a href=#1633 id=1633 data-nosnippet>1633</a>	<span class="macro">impl_benchmark_test_suite!</span>(
-<a href=#1634 id=1634 data-nosnippet>1634</a>		Staking,
-<a href=#1635 id=1635 data-nosnippet>1635</a>		<span class="kw">crate</span>::mock::ExtBuilder::default().has_stakers(<span class="bool-val">true</span>),
-<a href=#1636 id=1636 data-nosnippet>1636</a>		<span class="kw">crate</span>::mock::Test,
-<a href=#1637 id=1637 data-nosnippet>1637</a>		exec_name = build_and_execute
-<a href=#1638 id=1638 data-nosnippet>1638</a>	);
-<a href=#1639 id=1639 data-nosnippet>1639</a>}
+<a href=#1633 id=1633 data-nosnippet>1633</a>		<span class="attr">#[extrinsic_call]
+<a href=#1634 id=1634 data-nosnippet>1634</a>		</span><span class="kw">_</span>(RawOrigin::Signed(caller), stash.clone(), proof);
+<a href=#1635 id=1635 data-nosnippet>1635</a>
+<a href=#1636 id=1636 data-nosnippet>1636</a>		<span class="macro">assert!</span>(!Validators::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>stash));
+<a href=#1637 id=1637 data-nosnippet>1637</a>
+<a href=#1638 id=1638 data-nosnippet>1638</a>		<span class="prelude-val">Ok</span>(())
+<a href=#1639 id=1639 data-nosnippet>1639</a>	}
 <a href=#1640 id=1640 data-nosnippet>1640</a>
-<a href=#1641 id=1641 data-nosnippet>1641</a><span class="attr">#[cfg(test)]
-<a href=#1642 id=1642 data-nosnippet>1642</a></span><span class="kw">mod </span>tests {
-<a href=#1643 id=1643 data-nosnippet>1643</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#1644 id=1644 data-nosnippet>1644</a>	<span class="kw">use </span><span class="kw">crate</span>::mock::{ExtBuilder, RuntimeOrigin, Staking, Test};
-<a href=#1645 id=1645 data-nosnippet>1645</a>	<span class="kw">use </span>frame_support::assert_ok;
-<a href=#1646 id=1646 data-nosnippet>1646</a>
-<a href=#1647 id=1647 data-nosnippet>1647</a>	<span class="attr">#[test]
-<a href=#1648 id=1648 data-nosnippet>1648</a>	</span><span class="kw">fn </span>create_validators_with_nominators_for_era_works() {
-<a href=#1649 id=1649 data-nosnippet>1649</a>		ExtBuilder::default().build_and_execute(|| {
-<a href=#1650 id=1650 data-nosnippet>1650</a>			<span class="kw">let </span>v = <span class="number">10</span>;
-<a href=#1651 id=1651 data-nosnippet>1651</a>			<span class="kw">let </span>n = <span class="number">100</span>;
-<a href=#1652 id=1652 data-nosnippet>1652</a>
-<a href=#1653 id=1653 data-nosnippet>1653</a>			create_validators_with_nominators_for_era::&lt;Test&gt;(
-<a href=#1654 id=1654 data-nosnippet>1654</a>				v,
-<a href=#1655 id=1655 data-nosnippet>1655</a>				n,
-<a href=#1656 id=1656 data-nosnippet>1656</a>				MaxNominationsOf::&lt;Test&gt;::get() <span class="kw">as </span>usize,
-<a href=#1657 id=1657 data-nosnippet>1657</a>				<span class="bool-val">false</span>,
-<a href=#1658 id=1658 data-nosnippet>1658</a>				<span class="prelude-val">None</span>,
-<a href=#1659 id=1659 data-nosnippet>1659</a>			)
-<a href=#1660 id=1660 data-nosnippet>1660</a>			.unwrap();
-<a href=#1661 id=1661 data-nosnippet>1661</a>
-<a href=#1662 id=1662 data-nosnippet>1662</a>			<span class="kw">let </span>count_validators = Validators::&lt;Test&gt;::iter().count();
-<a href=#1663 id=1663 data-nosnippet>1663</a>			<span class="kw">let </span>count_nominators = Nominators::&lt;Test&gt;::iter().count();
-<a href=#1664 id=1664 data-nosnippet>1664</a>
-<a href=#1665 id=1665 data-nosnippet>1665</a>			<span class="macro">assert_eq!</span>(count_validators, Validators::&lt;Test&gt;::count() <span class="kw">as </span>usize);
-<a href=#1666 id=1666 data-nosnippet>1666</a>			<span class="macro">assert_eq!</span>(count_nominators, Nominators::&lt;Test&gt;::count() <span class="kw">as </span>usize);
-<a href=#1667 id=1667 data-nosnippet>1667</a>
-<a href=#1668 id=1668 data-nosnippet>1668</a>			<span class="macro">assert_eq!</span>(count_validators, v <span class="kw">as </span>usize);
-<a href=#1669 id=1669 data-nosnippet>1669</a>			<span class="macro">assert_eq!</span>(count_nominators, n <span class="kw">as </span>usize);
-<a href=#1670 id=1670 data-nosnippet>1670</a>		});
-<a href=#1671 id=1671 data-nosnippet>1671</a>	}
+<a href=#1641 id=1641 data-nosnippet>1641</a>	<span class="macro">impl_benchmark_test_suite!</span>(
+<a href=#1642 id=1642 data-nosnippet>1642</a>		Staking,
+<a href=#1643 id=1643 data-nosnippet>1643</a>		<span class="kw">crate</span>::mock::ExtBuilder::default().has_stakers(<span class="bool-val">true</span>),
+<a href=#1644 id=1644 data-nosnippet>1644</a>		<span class="kw">crate</span>::mock::Test,
+<a href=#1645 id=1645 data-nosnippet>1645</a>		exec_name = build_and_execute
+<a href=#1646 id=1646 data-nosnippet>1646</a>	);
+<a href=#1647 id=1647 data-nosnippet>1647</a>}
+<a href=#1648 id=1648 data-nosnippet>1648</a>
+<a href=#1649 id=1649 data-nosnippet>1649</a><span class="attr">#[cfg(test)]
+<a href=#1650 id=1650 data-nosnippet>1650</a></span><span class="kw">mod </span>tests {
+<a href=#1651 id=1651 data-nosnippet>1651</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#1652 id=1652 data-nosnippet>1652</a>	<span class="kw">use </span><span class="kw">crate</span>::mock::{ExtBuilder, RuntimeOrigin, Staking, Test};
+<a href=#1653 id=1653 data-nosnippet>1653</a>	<span class="kw">use </span>frame_support::assert_ok;
+<a href=#1654 id=1654 data-nosnippet>1654</a>
+<a href=#1655 id=1655 data-nosnippet>1655</a>	<span class="attr">#[test]
+<a href=#1656 id=1656 data-nosnippet>1656</a>	</span><span class="kw">fn </span>create_validators_with_nominators_for_era_works() {
+<a href=#1657 id=1657 data-nosnippet>1657</a>		ExtBuilder::default().build_and_execute(|| {
+<a href=#1658 id=1658 data-nosnippet>1658</a>			<span class="kw">let </span>v = <span class="number">10</span>;
+<a href=#1659 id=1659 data-nosnippet>1659</a>			<span class="kw">let </span>n = <span class="number">100</span>;
+<a href=#1660 id=1660 data-nosnippet>1660</a>
+<a href=#1661 id=1661 data-nosnippet>1661</a>			create_validators_with_nominators_for_era::&lt;Test&gt;(
+<a href=#1662 id=1662 data-nosnippet>1662</a>				v,
+<a href=#1663 id=1663 data-nosnippet>1663</a>				n,
+<a href=#1664 id=1664 data-nosnippet>1664</a>				MaxNominationsOf::&lt;Test&gt;::get() <span class="kw">as </span>usize,
+<a href=#1665 id=1665 data-nosnippet>1665</a>				<span class="bool-val">false</span>,
+<a href=#1666 id=1666 data-nosnippet>1666</a>				<span class="prelude-val">None</span>,
+<a href=#1667 id=1667 data-nosnippet>1667</a>			)
+<a href=#1668 id=1668 data-nosnippet>1668</a>			.unwrap();
+<a href=#1669 id=1669 data-nosnippet>1669</a>
+<a href=#1670 id=1670 data-nosnippet>1670</a>			<span class="kw">let </span>count_validators = Validators::&lt;Test&gt;::iter().count();
+<a href=#1671 id=1671 data-nosnippet>1671</a>			<span class="kw">let </span>count_nominators = Nominators::&lt;Test&gt;::iter().count();
 <a href=#1672 id=1672 data-nosnippet>1672</a>
-<a href=#1673 id=1673 data-nosnippet>1673</a>	<span class="attr">#[test]
-<a href=#1674 id=1674 data-nosnippet>1674</a>	</span><span class="kw">fn </span>create_validator_with_nominators_works() {
-<a href=#1675 id=1675 data-nosnippet>1675</a>		ExtBuilder::default().build_and_execute(|| {
-<a href=#1676 id=1676 data-nosnippet>1676</a>			<span class="kw">let </span>n = <span class="number">10</span>;
-<a href=#1677 id=1677 data-nosnippet>1677</a>
-<a href=#1678 id=1678 data-nosnippet>1678</a>			<span class="kw">let </span>(validator_stash, nominators, current_era) =
-<a href=#1679 id=1679 data-nosnippet>1679</a>				create_validator_with_nominators::&lt;Test&gt;(
-<a href=#1680 id=1680 data-nosnippet>1680</a>					n,
-<a href=#1681 id=1681 data-nosnippet>1681</a>					&lt;&lt;Test <span class="kw">as </span>Config&gt;::MaxExposurePageSize <span class="kw">as </span>Get&lt;<span class="kw">_</span>&gt;&gt;::get(),
-<a href=#1682 id=1682 data-nosnippet>1682</a>					<span class="bool-val">false</span>,
-<a href=#1683 id=1683 data-nosnippet>1683</a>					<span class="bool-val">false</span>,
-<a href=#1684 id=1684 data-nosnippet>1684</a>					RewardDestination::Staked,
-<a href=#1685 id=1685 data-nosnippet>1685</a>				)
-<a href=#1686 id=1686 data-nosnippet>1686</a>				.unwrap();
-<a href=#1687 id=1687 data-nosnippet>1687</a>
-<a href=#1688 id=1688 data-nosnippet>1688</a>			<span class="macro">assert_eq!</span>(nominators.len() <span class="kw">as </span>u32, n);
-<a href=#1689 id=1689 data-nosnippet>1689</a>
-<a href=#1690 id=1690 data-nosnippet>1690</a>			<span class="kw">let </span>original_stakeable_balance = asset::stakeable_balance::&lt;Test&gt;(<span class="kw-2">&amp;</span>validator_stash);
-<a href=#1691 id=1691 data-nosnippet>1691</a>			<span class="macro">assert_ok!</span>(Staking::payout_stakers_by_page(
-<a href=#1692 id=1692 data-nosnippet>1692</a>				RuntimeOrigin::signed(<span class="number">1337</span>),
-<a href=#1693 id=1693 data-nosnippet>1693</a>				validator_stash,
-<a href=#1694 id=1694 data-nosnippet>1694</a>				current_era,
-<a href=#1695 id=1695 data-nosnippet>1695</a>				<span class="number">0
-<a href=#1696 id=1696 data-nosnippet>1696</a>			</span>));
-<a href=#1697 id=1697 data-nosnippet>1697</a>			<span class="kw">let </span>new_stakeable_balance = asset::stakeable_balance::&lt;Test&gt;(<span class="kw-2">&amp;</span>validator_stash);
-<a href=#1698 id=1698 data-nosnippet>1698</a>
-<a href=#1699 id=1699 data-nosnippet>1699</a>			<span class="comment">// reward increases stakeable balance
-<a href=#1700 id=1700 data-nosnippet>1700</a>			</span><span class="macro">assert!</span>(original_stakeable_balance &lt; new_stakeable_balance);
-<a href=#1701 id=1701 data-nosnippet>1701</a>		});
-<a href=#1702 id=1702 data-nosnippet>1702</a>	}
-<a href=#1703 id=1703 data-nosnippet>1703</a>}
+<a href=#1673 id=1673 data-nosnippet>1673</a>			<span class="macro">assert_eq!</span>(count_validators, Validators::&lt;Test&gt;::count() <span class="kw">as </span>usize);
+<a href=#1674 id=1674 data-nosnippet>1674</a>			<span class="macro">assert_eq!</span>(count_nominators, Nominators::&lt;Test&gt;::count() <span class="kw">as </span>usize);
+<a href=#1675 id=1675 data-nosnippet>1675</a>
+<a href=#1676 id=1676 data-nosnippet>1676</a>			<span class="macro">assert_eq!</span>(count_validators, v <span class="kw">as </span>usize);
+<a href=#1677 id=1677 data-nosnippet>1677</a>			<span class="macro">assert_eq!</span>(count_nominators, n <span class="kw">as </span>usize);
+<a href=#1678 id=1678 data-nosnippet>1678</a>		});
+<a href=#1679 id=1679 data-nosnippet>1679</a>	}
+<a href=#1680 id=1680 data-nosnippet>1680</a>
+<a href=#1681 id=1681 data-nosnippet>1681</a>	<span class="attr">#[test]
+<a href=#1682 id=1682 data-nosnippet>1682</a>	</span><span class="kw">fn </span>create_validator_with_nominators_works() {
+<a href=#1683 id=1683 data-nosnippet>1683</a>		ExtBuilder::default().build_and_execute(|| {
+<a href=#1684 id=1684 data-nosnippet>1684</a>			<span class="kw">let </span>n = <span class="number">10</span>;
+<a href=#1685 id=1685 data-nosnippet>1685</a>
+<a href=#1686 id=1686 data-nosnippet>1686</a>			<span class="kw">let </span>(validator_stash, nominators, current_era) =
+<a href=#1687 id=1687 data-nosnippet>1687</a>				create_validator_with_nominators::&lt;Test&gt;(
+<a href=#1688 id=1688 data-nosnippet>1688</a>					n,
+<a href=#1689 id=1689 data-nosnippet>1689</a>					&lt;&lt;Test <span class="kw">as </span>Config&gt;::MaxExposurePageSize <span class="kw">as </span>Get&lt;<span class="kw">_</span>&gt;&gt;::get(),
+<a href=#1690 id=1690 data-nosnippet>1690</a>					<span class="bool-val">false</span>,
+<a href=#1691 id=1691 data-nosnippet>1691</a>					<span class="bool-val">false</span>,
+<a href=#1692 id=1692 data-nosnippet>1692</a>					RewardDestination::Staked,
+<a href=#1693 id=1693 data-nosnippet>1693</a>				)
+<a href=#1694 id=1694 data-nosnippet>1694</a>				.unwrap();
+<a href=#1695 id=1695 data-nosnippet>1695</a>
+<a href=#1696 id=1696 data-nosnippet>1696</a>			<span class="macro">assert_eq!</span>(nominators.len() <span class="kw">as </span>u32, n);
+<a href=#1697 id=1697 data-nosnippet>1697</a>
+<a href=#1698 id=1698 data-nosnippet>1698</a>			<span class="kw">let </span>original_stakeable_balance = asset::stakeable_balance::&lt;Test&gt;(<span class="kw-2">&amp;</span>validator_stash);
+<a href=#1699 id=1699 data-nosnippet>1699</a>			<span class="macro">assert_ok!</span>(Staking::payout_stakers_by_page(
+<a href=#1700 id=1700 data-nosnippet>1700</a>				RuntimeOrigin::signed(<span class="number">1337</span>),
+<a href=#1701 id=1701 data-nosnippet>1701</a>				validator_stash,
+<a href=#1702 id=1702 data-nosnippet>1702</a>				current_era,
+<a href=#1703 id=1703 data-nosnippet>1703</a>				<span class="number">0
+<a href=#1704 id=1704 data-nosnippet>1704</a>			</span>));
+<a href=#1705 id=1705 data-nosnippet>1705</a>			<span class="kw">let </span>new_stakeable_balance = asset::stakeable_balance::&lt;Test&gt;(<span class="kw-2">&amp;</span>validator_stash);
+<a href=#1706 id=1706 data-nosnippet>1706</a>
+<a href=#1707 id=1707 data-nosnippet>1707</a>			<span class="comment">// reward increases stakeable balance
+<a href=#1708 id=1708 data-nosnippet>1708</a>			</span><span class="macro">assert!</span>(original_stakeable_balance &lt; new_stakeable_balance);
+<a href=#1709 id=1709 data-nosnippet>1709</a>		});
+<a href=#1710 id=1710 data-nosnippet>1710</a>	}
+<a href=#1711 id=1711 data-nosnippet>1711</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
