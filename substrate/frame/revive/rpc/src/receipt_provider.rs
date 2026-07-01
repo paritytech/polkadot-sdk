@@ -777,13 +777,17 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			}
 
 			for (i, topic) in topics.into_iter().enumerate() {
-				// A `null` topic imposes no constraint at this position: it matches any value.
-				let Some(topic) = topic else { continue };
 				match topic {
-					FilterTopic::Single(hash) => {
+					// A `null` topic matches any value at this position, but the position must
+					// still exist: go-ethereum requires a log to have at least as many topics
+					// as the filter, so e.g. `[topic0, null]` does not match a single-topic log.
+					None => {
+						qb.push(format_args!(" AND topic_{i} IS NOT NULL"));
+					},
+					Some(FilterTopic::Single(hash)) => {
 						qb.push(format_args!(" AND topic_{i} = ")).push_bind(hash.0.to_vec());
 					},
-					FilterTopic::Multiple(hashes) => {
+					Some(FilterTopic::Multiple(hashes)) => {
 						qb.push(format_args!(" AND topic_{i} IN ("));
 						let mut separated = qb.separated(", ");
 						for hash in hashes {
@@ -1424,6 +1428,39 @@ mod tests {
 			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
+
+		// `[topic0, null]` matches log1: topic_0 matches and log1 has a second topic that
+		// satisfies the null position's length requirement.
+		let logs = provider
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					topics: Some(vec![Some(FilterTopic::Single(log1.topics[0])), None]),
+					..Default::default()
+				}),
+				&resolve_block_number,
+			)
+			.await?;
+		assert_eq!(logs, vec![log1.clone()]);
+
+		// A `null` at a position past a log's topics excludes it: go-ethereum matches only logs
+		// with at least as many topics as the filter. `[topic0, topic1, null]` requires a third
+		// topic, so log1 (which has exactly two) is excluded.
+		let logs = provider
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					topics: Some(vec![
+						Some(FilterTopic::Single(log1.topics[0])),
+						Some(FilterTopic::Single(log1.topics[1])),
+						None,
+					]),
+					..Default::default()
+				}),
+				&resolve_block_number,
+			)
+			.await?;
+		assert!(logs.is_empty());
 		Ok(())
 	}
 

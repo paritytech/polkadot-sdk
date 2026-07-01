@@ -7,7 +7,9 @@ doc:
     `FilterTopic` had no representation for `null`, so any such filter failed to deserialize and
     the request was rejected, even though it is a standard Ethereum log filter (and the
     `eth_subscribe` logs path already supported it). The `FilterTopics` type is now
-    `Vec<Option<FilterTopic>>`, where a `None`/`null` entry matches any value at that position.
+    `Vec<Option<FilterTopic>>`, where a `None`/`null` entry matches any value at that position
+    while still requiring the log to have a topic there, so a filter of length N only matches
+    logs with at least N topics, as in go-ethereum.
 crates:
 - name: pallet-revive
   bump: major
