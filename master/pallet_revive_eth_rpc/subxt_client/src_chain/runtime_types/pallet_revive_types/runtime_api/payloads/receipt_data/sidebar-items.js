@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ReceiptDataVersionedInputPayload","ReceiptDataVersionedOutputPayload"],"struct":["ReceiptDataInputPayloadV1","ReceiptDataOutputPayloadV1"]};

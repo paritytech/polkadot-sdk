@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["types"]};
+window.SIDEBAR_ITEMS = {"mod":["payloads","types"]};

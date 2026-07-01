@@ -175,7 +175,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#25 id=25 data-nosnippet>25</a>	DryRunConfig, EthTransactInfo, TracingConfig,
 <a href=#26 id=26 data-nosnippet>26</a>	evm::{
 <a href=#27 id=27 data-nosnippet>27</a>		Block <span class="kw">as </span>EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, H160,
-<a href=#28 id=28 data-nosnippet>28</a>		ReceiptGasInfo, StateOverrideSet, U256,
+<a href=#28 id=28 data-nosnippet>28</a>		StateOverrideSet, U256,
 <a href=#29 id=29 data-nosnippet>29</a>	},
 <a href=#30 id=30 data-nosnippet>30</a>};
 <a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>pallet_revive_types::runtime_api::<span class="kw-2">*</span>;
@@ -473,7 +473,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#323 id=323 data-nosnippet>323</a>	}
 <a href=#324 id=324 data-nosnippet>324</a>
 <a href=#325 id=325 data-nosnippet>325</a>	<span class="doccomment">/// Get the receipt data for the current block.
-<a href=#326 id=326 data-nosnippet>326</a>	</span><span class="kw">pub async fn </span>eth_receipt_data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ReceiptGasInfo&gt;, ClientError&gt; {
+<a href=#326 id=326 data-nosnippet>326</a>	</span><span class="kw">pub async fn </span>eth_receipt_data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ReceiptGasInfoV1&gt;, ClientError&gt; {
 <a href=#327 id=327 data-nosnippet>327</a>		<span class="kw">let </span>payload = subxt_client::apis().revive_api().eth_receipt_data().unvalidated();
 <a href=#328 id=328 data-nosnippet>328</a>		<span class="kw">let </span>receipt_data = <span class="self">self</span>.<span class="number">0</span>.call(payload).<span class="kw">await</span>.inspect_err(|err| {
 <a href=#329 id=329 data-nosnippet>329</a>			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"eth_receipt_data runtime call failed: {err:?}"</span>);

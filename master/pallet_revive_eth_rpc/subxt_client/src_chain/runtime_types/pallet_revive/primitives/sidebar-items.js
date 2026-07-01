@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["BalanceConversionError","Code","ContractAccessError","StorageDeposit"],"struct":["CodeUploadReturnValue","ContractResult","InstantiateReturnValue"]};
+window.SIDEBAR_ITEMS = {"enum":["BalanceConversionError","Code","ContractAccessError","StorageDeposit"],"struct":["ContractResult","InstantiateReturnValue"]};

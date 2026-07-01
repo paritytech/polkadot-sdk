@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BlockHashVersionedInputPayload","BlockHashVersionedOutputPayload"],"struct":["BlockHashInputPayloadV1","BlockHashOutputPayloadV1"]};
