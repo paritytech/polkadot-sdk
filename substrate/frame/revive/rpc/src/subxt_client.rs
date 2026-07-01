@@ -230,6 +230,22 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthTransactVersionedOutputPayload<Balance>>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_estimate_gas::EstimateGasInputPayloadV1<Moment>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EstimateGasInputPayloadV1<Moment>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_estimate_gas::EstimateGasVersionedInputPayload<Moment>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EstimateGasVersionedInputPayload<Moment>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_estimate_gas::EstimateGasOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EstimateGasOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_estimate_gas::EstimateGasVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EstimateGasVersionedOutputPayload>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::PreDispatchWeightInputPayloadV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PreDispatchWeightInputPayloadV1>"
 	),

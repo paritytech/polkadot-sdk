@@ -2993,6 +2993,7 @@ sp_api::decl_runtime_apis! {
 		/// This function estimates the gas of the transaction according to the same binary search
 		/// algorithm that's implemented in Geth. It stops when with an acceptable error ratio of
 		/// 1.5% so that the algorithm terminates early.
+		#[deprecated(note = "Use the versioned equivalent `eth_estimate_gas_versioned` if available on your runtime")]
 		fn eth_estimate_gas(
 			tx: GenericTransactionV1,
 			config: DryRunConfigV1<Moment>
@@ -3134,6 +3135,11 @@ sp_api::decl_runtime_apis! {
 		fn eth_transact_versioned(
 			input: EthTransactVersionedInputPayload<Moment>
 		) -> Result<EthTransactVersionedOutputPayload<Balance>, EthTransactError>;
+
+		#[api_version(2)]
+		fn eth_estimate_gas_versioned(
+			input: EstimateGasVersionedInputPayload<Moment>
+		) -> Result<EstimateGasVersionedOutputPayload, EthTransactError>;
 
 		#[api_version(2)]
 		fn eth_pre_dispatch_weight_versioned(
@@ -3374,20 +3380,19 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					config: $crate::pallet_revive_types::runtime_api::DryRunConfigV1<__ReviveMacroMoment>,
 				) -> Result<$crate::U256, $crate::EthTransactError>  {
 					use $crate::pallet_revive_types::runtime_api::*;
-					use $crate::{
-						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
-						sp_runtime::traits::TransactionExtension,
-						sp_runtime::traits::Block as BlockT
-					};
 
-					let tx = $crate::evm::GenericTransaction::from(tx);
 					let DryRunConfigV1 { timestamp_override, perform_balance_checks: _, state_overrides } =
 						config;
-					$crate::Pallet::<Self>::eth_estimate_gas(
+
+					let input = EstimateGasVersionedInputPayload::from(EstimateGasInputPayloadV1 {
 						tx,
 						timestamp_override,
-						state_overrides.map(Into::into),
-					)
+						state_overrides
+					});
+					let output = Self::eth_estimate_gas_versioned(input)?;
+					Ok(EstimateGasOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.gas_estimate)
 				}
 
 				fn eth_pre_dispatch_weight(
@@ -3843,6 +3848,40 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						input.state_overrides,
 					)?;
 					let output = EthTransactOutputPayload { transact_info };
+					Ok(output_wrapper(output))
+				}
+
+				fn eth_estimate_gas_versioned(
+					input: $crate::pallet_revive_types::runtime_api::EstimateGasVersionedInputPayload<__ReviveMacroMoment>
+				) -> Result<
+					$crate::pallet_revive_types::runtime_api::EstimateGasVersionedOutputPayload,
+					$crate::EthTransactError
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use $crate::{
+						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
+						sp_runtime::traits::TransactionExtension,
+						sp_runtime::traits::Block as BlockT
+					};
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(EstimateGasOutputPayload) -> EstimateGasVersionedOutputPayload>,
+					) = match input {
+						EstimateGasVersionedInputPayload::V1(payload) => (
+							EstimateGasInputPayload::from(payload),
+							Box::new(|output| EstimateGasVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let gas_estimate = $crate::Pallet::<Self>::eth_estimate_gas(
+						input.tx,
+						input.timestamp_override,
+						input.state_overrides,
+					)?;
+					let output = EstimateGasOutputPayload { gas_estimate };
 					Ok(output_wrapper(output))
 				}
 
