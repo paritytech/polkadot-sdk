@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782926162035,
+  "lastUpdate": 1782932699346,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "giuseppe.re@parity.io",
-            "name": "Giuseppe Re",
-            "username": "re-gius"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2dc25d2298a83008b37734548c111627687ab413",
-          "message": "Remove outdated comment on Tracer Type (#10246)\n\nPrestate tracer type is now supported",
-          "timestamp": "2025-11-08T07:56:03Z",
-          "tree_id": "5b7454be4a0f0232968e4312e72a1dd2d3ff61fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2dc25d2298a83008b37734548c111627687ab413"
-        },
-        "date": 1762592944497,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.301333295833334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20024827056666675,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.046264739366666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b018f456e08863df9e2d0742e577ebbc29f0fb24",
+          "message": "[pallet-revive] Version Trivial Runtime API Functions (#12447)\n\n# Description\n\nThis PR versions all of the runtime API functions in pallet-revive which\nhave a trivial interface and therefore doesn't require us to add a lot\nof new wire types or move too many things around. Any runtime API\nfunction which required a complex wire type to be defined for it is\nintentionally not versioned in this PR.\n\nThe following checklist shows all of the runtime API functions we have\nin pallet-revive. The checked-off functions are the ones which have been\nversioned in this PR (plus the `trace_block` function which was\nversioned in #12244).\n\n- [ ] `eth_block`\n- [x] `eth_block_hash`\n- [x] `eth_receipt_data`\n- [x] `balance`\n- [x] `block_author`\n- [x] `block_gas_limit`\n- [x] `max_extrinsic_weight_in_gas`\n- [x] `gas_price`\n- [x] `nonce`\n- [x] `address`\n- [ ] `eth_transact`\n- [ ] `eth_transact_with_config`\n- [ ] `eth_estimate_gas`\n- [x] `eth_pre_dispatch_weight`\n- [ ] `call`\n- [ ] `instantiate`\n- [x] `upload_code`\n- [x] `get_storage_var_key`\n- [x] `get_storage`\n- [x] `trace_block`\n- [x] `trace_tx`\n- [ ] `trace_call`\n- [ ] `trace_call_with_config`\n- [x] `runtime_pallets_address`\n- [x] `code`\n- [x] `account_id`\n- [x] `new_balance_with_dust`\n\nMost notably is that all of the functions which make use of\n`GenericTransaction` or of `Block` have not been versioned yet. This is\nplanned in an upcoming PR.\n\nAlso, this PR adds a `GUIDE.md` file into the `pallet-revive-types`\ncrate which serves as a guide on how versioning can be done. This file\nwas written such that it can be consumed by us or by agents to do all of\nthe mechanical work needed to version any runtime API function. It\ncurrently contains a guide on how to version an unversioned runtime API\nfunction and I'm planning on adding a section on updating a versioned\nruntime API function in the future.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-01T17:09:47Z",
+          "tree_id": "e71c7e4a2c4b59da14f58ef78e17bb81128041f5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b018f456e08863df9e2d0742e577ebbc29f0fb24"
+        },
+        "date": 1782932671466,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13740958886666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.147939273500002,
             "unit": "seconds"
           }
         ]
