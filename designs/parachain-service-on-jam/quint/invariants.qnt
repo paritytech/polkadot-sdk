@@ -284,10 +284,10 @@ module invariants {
           | RefineLogEntry(_) => true
         }))
 
-  /// The log never exceeds its capacity.
+  /// Every para's log total encoded size stays within the 64 KiB byte cap.
   val parachain_log_within_capacity: bool =
     svc.parachainLog.keys().forall(p =>
-      svc.paraLog(p).length() <= ParachainLogCapacity)
+      parachainLogSize(svc.paraLog(p)) <= ParachainLogByteCap)
 
   /// Composite invariant — every invariant above must hold simultaneously.
   val invariants: bool = and {

@@ -13,9 +13,9 @@ module state_balance {
 
   // --- Per-parachain footprint primitives --------------------------------
 
-  /// Per-para baseline footprint: 4 205 B ParaInfo + 94 469 B log reserve.
-  /// Full byte-by-byte derivation lives in design §6.1.
-  pure val BaselineFootprint: int = 98674
+   /// Per-para baseline footprint: 4 205 B ParaInfo + 65 536 B log reserve (flat 64 KiB cap).
+   /// Full derivation lives in design §6.1.
+   pure val BaselineFootprint: int = 69741
 
   /// The single-referencer footprint a parachain pays for a solicited
   /// preimage of length `len`. Combines the entry-side cost (hash, len,

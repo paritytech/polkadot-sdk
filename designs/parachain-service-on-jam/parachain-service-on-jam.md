@@ -164,12 +164,11 @@ struct ParachainServiceState {
     incoming_transfers: BoundedVec<(ServiceId, Amount, Memo), 1000>,
 
     /// Per-parachain log, keyed only by ParaId. Each entry carries its
-    /// Timeslot inline; once the `BoundedVec` is full the oldest `Refine`
-    /// entry is evicted first so `Accumulate` entries are retained when
-    /// possible, falling back to the oldest entry overall only when no
-    /// refine entry remains. Multiple entries may share a timeslot (e.g.
-    /// several work packages at the same height each producing a refine error).
-    parachain_log: Map<ParaId, BoundedVec<(Timeslot, LogEntry), 64>>,
+    /// Timeslot inline; multiple entries may share a timeslot (e.g. several
+    /// work packages at the same height each producing a refine error). The
+    /// log's total encoded size is bounded to 64 KiB; entries are evicted and
+    /// pruned during Accumulate (see §5.1).
+    parachain_log: Map<ParaId, Vec<(Timeslot, LogEntry)>>,
 
     /// Pending authorizer queue updates that should be applied once the
     /// current 80-slot queue has been consumed.
@@ -200,7 +199,8 @@ enum LogEntry {
 struct RefineLogEntry {
     /// What went wrong during Refine.
     error: RefineLog,
-    /// Authorizer trace from the work-report that produced this failure.
+    /// Authorizer trace from the work-report that produced this failure,
+    /// truncated to 256 bytes.
     auth_trace: BoundedVec<u8, 256>,
 }
 
@@ -543,7 +543,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
 | `consume_transfers_up_to(index: u32)` | `()` | Mark all incoming transfers up to `index` as consumed; Accumulate prunes those entries. (Asset Hub only) |
 | `parachain_service_upgrade(code_hash: Hash, min_item_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_item_gas, min_memo_gas)` (Asset Hub only). Accumulate rejects the call with `AccumulateLog::ServiceUpgradePreimageMissing` if the new code's preimage is not in the Parachain Service's preimage store. See §5.4. |
-| `report_error(data: BoundedVec<u8, 1024>)` | `()` | Provide an opaque error payload (max 1024 bytes) before aborting the execution of the PVF. Stored per-parachain by Accumulate (see §3.3). |
+| `report_error(data: BoundedVec<u8, 1024>)` | `()` | Provide an opaque error payload before aborting the execution of the PVF; any bytes beyond 1024 are truncated. Stored per-parachain by Accumulate (see §3.3). |
 | `parachain_set_head(para_id: ParaId, new_head: HeadData)` | `()` | Upsert a parachain's head data (Coretime chain only). Used for both initial registration and recovery from a stuck chain. See §6. |
 | `parachain_set_validation_code(para_id: ParaId, new_validation_code_hash: ValidationCodeHash, new_validation_code_len: u32)` | `()` | Upsert a parachain's validation code, bypassing the normal upgrade lifecycle (Coretime chain only). `new_validation_code_len` is the byte length of the PVF preimage, used by the service to solicit the preimage from JAM and to charge the para's `used_state_balance` for it. Used for both initial registration and forced code replacement. See §6. |
 | `parachain_clean_up(para_id: ParaId)` | `()` | Remove all per-parachain state (Coretime chain only). See §6. |
@@ -568,7 +568,10 @@ by JAM natively (see §2). The work splits into two categories:
 
 #### Per-work-package work
 
-Performed once for each work package that is being accumulated in this block, in order:
+Performed once for each work package that is being accumulated in this block, in order.
+A work result of gray-paper `WorkExecResult::Error` indicates a bug in the parachain
+service's `refine` and is skipped entirely here — no `parachain_log` entry, no state
+change, and it never reaches the steps below. Otherwise:
 
 1. **Registration check**: If `para_id` is not in `parachains`, reject the work-package
    immediately and stop processing. In practice the work-report should already have
@@ -578,33 +581,51 @@ Performed once for each work package that is being accumulated in this block, in
    at Accumulate for a parachain the Coretime chain cleaned up between guarantee and
    accumulation; this check is the earliest possible reject. No `parachain_log` entry
    is recorded — there is no `parachain_log[para_id]` to append to.
-2. **Parent head check**: Verify the work digest's `parent_head_hash` equals
+2. **Refine-result dispatch**: If the work digest is a **Refine failure**
+   (`ParachainWorkDigest::Err`, where `refine` completed and returned an error digest —
+   see §3.3), forward its `RefineLog` into a `RefineLogEntry` appended to
+   `parachain_log[para_id]` (the work-report's authorizer trace is already attached)
+   under the eviction rules below, then stop — no further steps run. A **Refine success**
+   (`ParachainWorkDigest::Ok`) proceeds through the remaining steps.
+3. **Parent head check**: Verify the work digest's `parent_head_hash` equals
    `hash(ParaInfo[para_id].head_data)`. If not, the candidate is rejected. This prevents
    a collator from including a candidate that was built on top of a stale, skipped, or
    non-canonical parent head.
-3. **Reap timed-out pending upgrade (lazy)**: If `ParaInfo.pending_upgrade` is set
+4. **Reap timed-out pending upgrade**: If `ParaInfo.pending_upgrade` is set
    and its deadline timeslot is `<=` the current timeslot, the upgrade is expired
    before this candidate is considered: release the new code (see §6.1) and clear
    `pending_upgrade`.
-4. **Validation code check**: This is the authoritative check. Verify the work
+5. **Validation code check**: This is the authoritative check. Verify the work
    result's `validation_code_hash` matches either `ParaInfo.validation_code.hash` or
-   the pending upgrade's code hash. If it matches
-    neither, the candidate is rejected and `AccumulateLog::InvalidCodeHash { hash }`
-    is recorded in one batched `LogEntry::Accumulate` for this work package. Each
-    accumulated work package produces its own batched entry, so several work
-    packages at the same timeslot yield several `LogEntry::Accumulate` entries.
-5. **Head data update + code upgrade check**: Writes the new `head_data` from the
+   the pending upgrade's code hash. If it matches neither, the candidate is rejected and
+   an `AccumulateLog::InvalidCodeHash { hash }` event is emitted for this work package.
+6. **Head data update + code upgrade check**: Writes the new `head_data` from the
    work digest into `ParaInfo` for the parachain and immediately checks whether the
    candidate was validated with the pending new PVF code. If so, activate the new
    code, release the old code (see §6.1), and clear `pending_upgrade`. This must
    happen here because later candidates from the same parachain in the same block
-   may already use the new code. Any entries in `parachain_log[para_id]` whose
-   inline timeslot is strictly less than the current candidate's lookup-anchor
-   timeslot are also pruned here.
-6. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
+   may already use the new code.
+7. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
    the work digest, applying the effects of each side-effect host function the PVF
    invoked during Refine (code upgrades, transfers, authorizer queue updates, validator
    key updates, etc.). See the side-effect host function table in §4.3 for the full list.
+   This replay may itself emit further `AccumulateLog` events for the work package.
+
+All `AccumulateLog` events emitted while processing a work package — the code-hash
+mismatch from step 5 and any from the step 7 replay — are collected and appended to
+`parachain_log[para_id]` as a single `LogEntry::Accumulate`. Every append to
+`parachain_log[para_id]`, whether the `RefineLogEntry` from step 2 or this
+`LogEntry::Accumulate`, is subject to the eviction rules below.
+
+**Log pruning and eviction.** The per-parachain `parachain_log` is kept bounded
+during Accumulate. After a candidate is processed, entries whose inline timeslot
+is strictly less than the candidate's lookup-anchor timeslot are pruned. The log
+is additionally bounded to a 64 KiB total encoded size (not a fixed entry count),
+so each entry is charged only its actual size; whenever a new entry would push the
+log over 64 KiB, entries are evicted until it fits — the oldest `RefineLogEntry` is
+dropped first (Refine failures are the most disposable), and only once no refine
+entry remains is the oldest entry overall dropped, so accumulate events are
+retained under capacity pressure.
 
 #### General (always-accumulate) work
 
@@ -898,32 +919,20 @@ used_state_balance: Balance                                               =     
                                                                               4 205 B
 ```
 
-`(ParaId, parachain_log[para_id])` entry, with `parachain_log[para_id]` typed as
-`BoundedVec<(Timeslot, LogEntry), 64>`:
+`(ParaId, parachain_log[para_id])` entry — bounded by a 64 KiB byte cap:
 
 ```
-LogEntry, Accumulate variant (dominates Refine variant at 1 286 B):
-  enum discriminant                                                       =       1 B
-  AccumulateLogEntry: BoundedVec<AccumulateLog, 30>
-    compact length prefix                                                 =       1 B
-    AccumulateLog largest variant — StateBalanceUpdateRejected:
-      enum discriminant                                                   =       1 B
-      attempted, current_total, current_used: 3 × Balance (16 B)          =      48 B
-                                                                            -------
-                                                                              49 B
-    30 × 49 B                                                             =   1 470 B
-                                                                            -------
-                                                                              1 472 B
+The log is bounded by exact encoded size (entries sized by actual SCALE length,
+not worst-case). The 64 KiB cap covers the entire entry — every log element plus
+the vector's own length prefix and the ParaId map key — so the service reserves a
+flat 64 KiB regardless of current contents.
 
-per entry: Timeslot + LogEntry = 4 + 1 472                               =   1 476 B
-64 entries                                                                =  94 464 B
-BoundedVec compact length prefix                                          =       1 B
-ParaId key                                                                =       4 B
+parachain_log entry (flat cap): 64 KiB = 65 536 B
                                                                             -------
-                                                                              94 469 B
+                                                                              65 536 B
 ```
 
-**`baseline_footprint = 4 205 + 94 469 = 98 674 B`** per parachain.
+**`baseline_footprint = 4 205 + 65 536 = 69 741 B`** per parachain.
 
 #### Asset Hub baseline footprint
 

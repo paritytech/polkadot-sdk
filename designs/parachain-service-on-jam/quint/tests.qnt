@@ -123,12 +123,10 @@ module tests {
   // --- Bounce-on-full -----------------------------------------------------
 
   /// Pre-built `incoming_transfers` at capacity for `testBounceOnFull`.
-  /// Order is unspecified (Set.fold); the test only asserts on length and
-  /// on the bounce ghost.
   pure val fullIncomingTransfersFixture: List[{
     from: ServiceId, amount: Balance, memo: Memo
   }] =
-    0.to(IncomingTransfersMaxLen - 1).fold(List(), (acc, i) =>
+    range(0, IncomingTransfersMaxLen).foldl(List(), (acc, i) =>
       acc.append({ from: MkServiceId(0), amount: i, memo: 0 }))
 
   /// Sets `svc.incomingTransfers` to the full fixture without going through
@@ -180,24 +178,59 @@ module tests {
   /// When over capacity, evict the oldest Refine entry first and preserve
   /// older Accumulate entries if any Refine entry remains.
   run evictionPrefersDroppingRefineTest = {
-    val full = range(0, ParachainLogCapacity).foldl(List(), (acc, i) =>
+    // Opaque(1024) ≈ 1033 B per entry; 1 acc + 63 refine fits under the cap,
+    // so pushing one more triggers byte-cap eviction of the oldest Refine entry.
+    val full = range(0, 64).foldl(List(), (acc, i) =>
       if (i == 0) acc.append((i, AccumulateLogEntry(List(InvalidCodeHashAcc({ vchBytes: 7 })))))
-      else acc.append((i, RefineLogEntry({ error: InvalidCodeHash, authTrace: 0 }))))
+      else acc.append((i, RefineLogEntry({ error: Opaque(1024), authTrace: 0 }))))
     val after = pushLogEntry(
       full,
-      (ParachainLogCapacity, RefineLogEntry({ error: InvalidCodeHash, authTrace: 0 }))
+      (64, RefineLogEntry({ error: Opaque(1024), authTrace: 0 }))
     )
     val accCount = after.foldl(0, (n, pair) => match pair._2 {
       | AccumulateLogEntry(_) => n + 1
       | RefineLogEntry(_) => n
     })
     all {
-      assert(after.length() == ParachainLogCapacity),
+      assert(after.length() == 64),
       assert(match after.nth(0)._2 {
         | AccumulateLogEntry(_) => true
         | RefineLogEntry(_) => false
       }),
       assert(accCount == 1),
+      init
+    }
+  }
+
+  /// A 1-event AccumulateLogEntry with an InvalidCodeHashAcc costs 39 B
+  /// (4 timeslot + 1 LogEntry disc + 1 vec prefix + 33 event), not the worst case.
+  run bytecapSmallEntryCostTest = {
+    val entry = (0, AccumulateLogEntry(List(InvalidCodeHashAcc({ vchBytes: 1 }))))
+    val entrySize = logEntrySize(entry)
+    all {
+      assert(entrySize < 100),
+      assert(entrySize > 0),
+      init
+    }
+  }
+
+  /// Fill a log with large Refine entries until near the byte cap, push one
+  /// more, and verify the cap holds and the Accumulate entry survived eviction.
+  run bytecapEvictionTest = {
+    val bigAcc = (1, AccumulateLogEntry(List(InvalidCodeHashAcc({ vchBytes: 1 }))))
+    val withAcc = pushLogEntry(List(), bigAcc)
+    // Each Refine entry with Opaque(1014) ≈ 1023 B; after 64 pushes the
+    // log wraps once (oldest Refine evicted), leaving the Accumulate intact.
+    val nearFull = range(0, 64).foldl(withAcc, (log, i) =>
+      pushLogEntry(log, (i + 2, RefineLogEntry({ error: Opaque(1014), authTrace: 0 }))))
+    val after = pushLogEntry(nearFull, (100, RefineLogEntry({ error: Opaque(1014), authTrace: 0 })))
+    val accCount = after.foldl(0, (n, pair) => match pair._2 {
+      | AccumulateLogEntry(_) => n + 1
+      | RefineLogEntry(_) => n
+    })
+    all {
+      assert(parachainLogSize(after) <= ParachainLogByteCap),
+      assert(accCount >= 1),
       init
     }
   }

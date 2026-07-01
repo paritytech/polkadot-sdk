@@ -137,9 +137,17 @@ module messages {
     authTrace: AuthTrace
   }
 
-  /// The originating authorizer trace from the work-report. Carried by Err
+  /// The originating authorizer trace from the work-report, carried by Err
   /// results into the parachain_log (design §3.3).
   type AuthTrace = int
+
+  /// Service-chosen cap on the auth-trace bytes stored in `parachain_log`.
+  pure val StoredAuthTraceCap: int = 256
+
+  /// Truncate an auth trace to `StoredAuthTraceCap` before the service stores
+  /// it in a `RefineLogEntry` (design §3.3).
+  pure def truncateAuthTrace(t: AuthTrace): AuthTrace =
+  if (t > StoredAuthTraceCap) StoredAuthTraceCap else t
 
   // --- Per-parachain log entries (design §3.1) ---------------------------
 

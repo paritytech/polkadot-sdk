@@ -341,10 +341,12 @@ module accumulate {
         match digest {
           | Err(e) =>
             // §3.3: a failed Refine digest is logged with the work-report's
-            // authorizer trace. No-op inside `appendRefineLog` for an
+            // authorizer trace, truncated to `StoredAuthTraceCap` before
+            // storing to keep the log bounded (the Gray Paper only caps the
+            // 48 KiB combined budget). No-op inside `appendRefineLog` for an
             // unregistered para (§5.1 step 1).
             {
-              state: state.appendRefineLog(e.paraId, now, e.error, wr.authTrace),
+              state: state.appendRefineLog(e.paraId, now, e.error, truncateAuthTrace(wr.authTrace)),
               solicited: solicited,
               jamDesignate: prevDesignate
             }

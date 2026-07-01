@@ -96,23 +96,82 @@ module state {
   if (s.parachainLog.keys().contains(para_id)) s.parachainLog.get(para_id)
   else List()
 
-  /// Append `e`; if that exceeds `ParachainLogCapacity`, evict one entry,
-  /// preferring the oldest `RefineLogEntry` so `AccumulateLogEntry`s are
-  /// retained. Only when no refine entry remains is the oldest entry dropped.
+  /// Byte width of a SCALE compact-encoded length `n`: 1 B for n < 64,
+  /// 2 B for n < 2^14, 4 B for n < 2^30, else 5+ B.
+  pure def compactLen(n: int): int =
+  if (n < 64) 1
+  else if (n < 16384) 2
+  else if (n < 1073741824) 4
+  else 5
+
+  /// Exact SCALE size of one AccumulateLog event: 1 B discriminant + body.
+  /// Hash/ValidationCodeHash = 32 B, Balance = 16 B, u32 = 4 B. The
+  /// InsufficientStateBalance body is its reason's 1 B discriminant plus
+  /// FromSolicit's 32 B hash (FromValidatorKeys is nullary).
+  pure def accumulateLogSize(e: AccumulateLog): int =
+  1 + match e {
+    | InvalidCodeHashAcc(_) => 32
+    | InsufficientStateBalance(r) =>
+      1 + match r {
+        | FromSolicit(_) => 32
+        | FromValidatorKeys => 0
+      }
+    | StateBalanceUpdateRejected(_) => 48
+    | DesignateRejected(_) => 4
+    | ServiceUpgradePreimageMissing(_) => 32
+  }
+
+  /// SCALE size of a RefineLog variant. Nullary variants = 1 B (discriminant only).
+  /// Opaque(payload) = 1 (discriminant) + compact-len prefix + payload length.
+  /// The model represents the Opaque payload as an int (the actual byte length);
+  /// we measure it directly rather than charging the 1024 cap.
+  pure def refineLogSize(r: RefineLog): int =
+  match r {
+    | Opaque(payload) => 1 + compactLen(payload) + payload
+    | _ => 1
+  }
+
+  /// SCALE size of one (Timeslot, LogEntry) pair:
+  ///   4 B timeslot + 1 B LogEntry discriminant + variant body.
+  /// RefineLogEntry body: refineLogSize(error) + auth_trace compact-len + authTrace.
+  /// AccumulateLogEntry body: 1 (vec compact-len prefix) + Σ accumulateLogSize per event.
+  /// authTrace is an int (abstract length proxy) bounded to 256 by its type.
+  pure def logEntrySize(e: (Timeslot, LogEntry)): int =
+  4 + 1 + match e._2 {
+    | RefineLogEntry(r) =>
+      refineLogSize(r.error) + compactLen(r.authTrace) + r.authTrace
+    | AccumulateLogEntry(evs) =>
+      1 + evs.foldl(0, (a, ev) => a + accumulateLogSize(ev))
+  }
+
+  /// Total SCALE byte size of a ParachainLog: the outer `Vec` compact-length
+  /// prefix (over the entry count) plus the sum of all entry sizes.
+  pure def parachainLogSize(log: ParachainLog): int =
+  compactLen(log.length()) + log.foldl(0, (a, e) => a + logEntrySize(e))
+
+  /// Append `e`; then evict entries one at a time (oldest RefineLogEntry first,
+  /// else oldest overall) until `parachainLogSize` is within `ParachainLogByteCap`.
+  /// Uses a bounded fold (at most log.length()+1 iterations) since Quint has no
+  /// while-loop; iterations that find the log already under cap are no-ops.
+  pure def evictOneEntry(log: ParachainLog): ParachainLog = {
+    val refineIdx = range(0, log.length()).foldl(-1, (acc, i) =>
+      if (acc >= 0) acc
+      else match log.nth(i)._2 {
+        | RefineLogEntry(_) => i
+        | AccumulateLogEntry(_) => acc
+      })
+    val dropIdx = if (refineIdx >= 0) refineIdx else 0
+    range(0, log.length()).foldl(List(), (acc, i) =>
+      if (i == dropIdx) acc else acc.append(log.nth(i)))
+  }
+
   pure def pushLogEntry(log: ParachainLog, e: (Timeslot, LogEntry)): ParachainLog = {
     val appended = log.append(e)
-    if (appended.length() <= ParachainLogCapacity) appended
-    else {
-      val refineIdx = range(0, appended.length()).foldl(-1, (acc, i) =>
-        if (acc >= 0) acc
-        else match appended.nth(i)._2 {
-          | RefineLogEntry(_) => i
-          | AccumulateLogEntry(_) => acc
-        })
-      val dropIdx = if (refineIdx >= 0) refineIdx else 0
-      range(0, appended.length()).foldl(List(), (acc, i) =>
-        if (i == dropIdx) acc else acc.append(appended.nth(i)))
-    }
+    // Evict until under the byte cap. The fold runs at most log.length()+1 times;
+    // once under cap the state is passed through unchanged.
+    range(0, appended.length()).foldl(appended, (cur, _) =>
+      if (parachainLogSize(cur) <= ParachainLogByteCap) cur
+      else evictOneEntry(cur))
   }
 
   /// Append a `RefineLogEntry` for a failed Refine at timeslot `now`
