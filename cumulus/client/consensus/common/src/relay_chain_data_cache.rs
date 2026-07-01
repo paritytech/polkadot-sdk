@@ -52,8 +52,6 @@ pub struct RelayChainData {
 /// Relay chain configuration items that are constant within a session.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SessionData {
-	/// The scheduling lookahead configured on the relay chain.
-	pub scheduling_lookahead: u32,
 	/// The maximum allowed relay parent session age.
 	pub max_relay_parent_session_age: u32,
 	/// The node features for this session.
@@ -95,7 +93,7 @@ pub struct RelayChainDataCache<RI> {
 	headers: schnellru::LruMap<RelayHash, RelayHeader>,
 	/// Persisted validation data keyed by `(relay block hash, assumption)`.
 	pvd: schnellru::LruMap<(RelayHash, OccupiedCoreAssumption), Option<PersistedValidationData>>,
-	/// Scheduling lookahead by relay hash; lets the parent-search path skip `get_session_data`.
+	/// Scheduling lookahead by relay hash.
 	scheduling_lookahead: schnellru::LruMap<RelayHash, u32>,
 }
 
@@ -272,8 +270,7 @@ where
 		&self,
 		relay_hash: RelayHash,
 	) -> Result<SessionData, SessionDataError> {
-		let (scheduling_lookahead, max_relay_parent_session_age, node_features, pvd) = futures::join!(
-			self.relay_client.scheduling_lookahead(relay_hash),
+		let (max_relay_parent_session_age, node_features, pvd) = futures::join!(
 			self.relay_client.max_relay_parent_session_age(relay_hash),
 			self.relay_client.node_features(relay_hash),
 			self.relay_client.persisted_validation_data(
@@ -286,7 +283,6 @@ where
 			pvd?.ok_or(SessionDataError::MissingPersistedValidationData)?.max_pov_size;
 
 		Ok(SessionData {
-			scheduling_lookahead: scheduling_lookahead?,
 			max_relay_parent_session_age: max_relay_parent_session_age?,
 			node_features: node_features?,
 			max_pov_size,

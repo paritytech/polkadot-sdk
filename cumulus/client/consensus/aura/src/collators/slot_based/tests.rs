@@ -25,7 +25,6 @@ use futures::Stream;
 use polkadot_primitives::{
 	vstaging::RelayParentInfo, CandidateEvent, CommittedCandidateReceiptV2, CoreIndex,
 	Hash as RelayHash, Header as RelayHeader, Id as ParaId, NodeFeatures,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use sc_consensus_babe::{
 	AuthorityId, ConsensusLog as BabeConsensusLog, NextEpochDescriptor, BABE_ENGINE_ID,
@@ -287,10 +286,11 @@ pub struct TestRelayClient {
 	headers: HashMap<RelayHash, RelayHeader>,
 	best_hash: Arc<Mutex<Option<RelayHash>>>,
 	best_notifications: Arc<Mutex<Option<Pin<Box<dyn Stream<Item = RelayHeader> + Send + Sync>>>>>,
-	scheduling_lookahead_calls: Arc<AtomicU32>,
 	max_relay_parent_session_age_calls: Arc<AtomicU32>,
 	node_features_calls: Arc<AtomicU32>,
 	persisted_validation_data_calls: Arc<AtomicU32>,
+	session_index_for_child_calls: Arc<AtomicU32>,
+	claim_queue_calls: Arc<AtomicU32>,
 	/// Maps the hash passed to `session_index_for_child` to the session index it returns.
 	/// Hashes that are not present default to session `0`.
 	session_indices: Arc<Mutex<HashMap<RelayHash, SessionIndex>>>,
@@ -302,10 +302,11 @@ impl TestRelayClient {
 			headers,
 			best_hash: Default::default(),
 			best_notifications: Arc::new(Mutex::new(None)),
-			scheduling_lookahead_calls: Arc::new(AtomicU32::new(0)),
 			max_relay_parent_session_age_calls: Arc::new(AtomicU32::new(0)),
 			node_features_calls: Arc::new(AtomicU32::new(0)),
 			persisted_validation_data_calls: Arc::new(AtomicU32::new(0)),
+			session_index_for_child_calls: Arc::new(AtomicU32::new(0)),
+			claim_queue_calls: Arc::new(AtomicU32::new(0)),
 			session_indices: Default::default(),
 		}
 	}
@@ -314,10 +315,6 @@ impl TestRelayClient {
 		let mut client = Self::new(headers);
 		client.best_hash = Arc::new(Mutex::new(Some(best_hash)));
 		client
-	}
-
-	pub fn scheduling_lookahead_calls(&self) -> u32 {
-		self.scheduling_lookahead_calls.load(Ordering::Relaxed)
 	}
 
 	pub fn max_relay_parent_session_age_calls(&self) -> u32 {
@@ -330,6 +327,14 @@ impl TestRelayClient {
 
 	pub fn persisted_validation_data_calls(&self) -> u32 {
 		self.persisted_validation_data_calls.load(Ordering::Relaxed)
+	}
+
+	pub fn session_index_for_child_calls(&self) -> u32 {
+		self.session_index_for_child_calls.load(Ordering::Relaxed)
+	}
+
+	pub fn claim_queue_calls(&self) -> u32 {
+		self.claim_queue_calls.load(Ordering::Relaxed)
 	}
 
 	/// Configure the session index returned by `session_index_for_child` for the given hash.
@@ -429,6 +434,7 @@ impl RelayChainInterface for TestRelayClient {
 	}
 
 	async fn session_index_for_child(&self, hash: RelayHash) -> RelayChainResult<SessionIndex> {
+		self.session_index_for_child_calls.fetch_add(1, Ordering::Relaxed);
 		Ok(self.session_indices.lock().unwrap().get(&hash).copied().unwrap_or(0))
 	}
 
@@ -515,6 +521,7 @@ impl RelayChainInterface for TestRelayClient {
 		&self,
 		_: RelayHash,
 	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+		self.claim_queue_calls.fetch_add(1, Ordering::Relaxed);
 		// Return empty claim queue for offset tests
 		Ok(BTreeMap::new())
 	}
@@ -529,7 +536,6 @@ impl RelayChainInterface for TestRelayClient {
 	}
 
 	async fn scheduling_lookahead(&self, _: RelayHash) -> RelayChainResult<u32> {
-		self.scheduling_lookahead_calls.fetch_add(1, Ordering::Relaxed);
 		Ok(5)
 	}
 
@@ -690,7 +696,6 @@ impl RelayChainDataCacheTestExt for RelayChainDataCache<TestRelayClient> {
 		self.insert_test_session_data(
 			session_index,
 			SessionData {
-				scheduling_lookahead: DEFAULT_SCHEDULING_LOOKAHEAD,
 				max_relay_parent_session_age: 7,
 				node_features,
 				max_pov_size: 1024 * 1024,
@@ -747,23 +752,22 @@ async fn session_data_is_cached_per_session() {
 	assert_eq!(
 		cache.get_session_data(header_a.hash()).await.expect("first call must succeed"),
 		&SessionData {
-			scheduling_lookahead: 5,
 			max_relay_parent_session_age: 7,
 			node_features: NodeFeatures::default(),
 			max_pov_size: 1024 * 1024,
 		},
 		"get_session_data should return values from TestRelayClient"
 	);
-	assert_eq!(client.scheduling_lookahead_calls(), 1);
 	assert_eq!(client.max_relay_parent_session_age_calls(), 1);
 	assert_eq!(client.node_features_calls(), 1);
 	assert_eq!(client.persisted_validation_data_calls(), 1);
+	assert_eq!(client.claim_queue_calls(), 1);
+	assert_eq!(client.session_index_for_child_calls(), 1);
 
 	// Second call for the same session (header_a again) and a different block in the same session
-	// (header_b): must reuse the cached entry, no new queries.
+	// (header_b): must reuse the cached `SessionData`, no new per-session queries.
 	let _ = cache.get_session_data(header_a.hash()).await.expect("second call must succeed");
 	let _ = cache.get_session_data(header_b.hash()).await.expect("third call must succeed");
-	assert_eq!(client.scheduling_lookahead_calls(), 1, "no re-query within the same session");
 	assert_eq!(
 		client.max_relay_parent_session_age_calls(),
 		1,
@@ -771,13 +775,14 @@ async fn session_data_is_cached_per_session() {
 	);
 	assert_eq!(client.node_features_calls(), 1, "no re-query within the same session");
 	assert_eq!(client.persisted_validation_data_calls(), 1, "no re-query within the same session");
+	assert_eq!(client.claim_queue_calls(), 2, "one extra per-block fetch for header_b");
+	assert_eq!(client.session_index_for_child_calls(), 2, "one extra per-block fetch for header_b");
 
 	// Crossing into session 1 (header_c) triggers exactly one additional fetch of each item.
 	let _ = cache
 		.get_session_data(header_c.hash())
 		.await
 		.expect("new-session call must succeed");
-	assert_eq!(client.scheduling_lookahead_calls(), 2, "one extra query for the new session");
 	assert_eq!(
 		client.max_relay_parent_session_age_calls(),
 		2,
@@ -785,4 +790,6 @@ async fn session_data_is_cached_per_session() {
 	);
 	assert_eq!(client.node_features_calls(), 2, "one extra query for the new session");
 	assert_eq!(client.persisted_validation_data_calls(), 2, "one extra query for the new session");
+	assert_eq!(client.claim_queue_calls(), 3, "one extra per-block fetch for header_c");
+	assert_eq!(client.session_index_for_child_calls(), 3, "one extra per-block fetch for header_c");
 }
