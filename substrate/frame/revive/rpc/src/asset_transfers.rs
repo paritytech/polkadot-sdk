@@ -33,7 +33,7 @@ use pallet_revive::evm::{
 	Bytes, H256, Log, TransactionLegacySigned, TransactionLegacyUnsigned, TransactionSigned, U256,
 };
 use sp_core::{H160, crypto::AccountId32};
-use sp_crypto_hashing::{blake2_128, keccak_256, twox_128};
+use sp_crypto_hashing::keccak_256;
 use sp_runtime::MultiAddress;
 
 /// topic0 of an ERC-20 `Transfer` — sourced from the same `IERC20` ABI the assets precompile
@@ -43,11 +43,6 @@ pub const ERC20_TRANSFER_TOPIC: H256 = H256(IERC20::Transfer::SIGNATURE_HASH.0);
 /// The ERC-20 `transfer(address,uint256)` selector, from the same `IERC20` ABI.
 const ERC20_TRANSFER_SELECTOR: [u8; 4] = IERC20::transferCall::SELECTOR;
 
-/// Storage location of the foreign-asset `Location -> u32 index` map, in the
-/// `pallet-assets-precompiles` index pallet. Fixed across runtimes that wire that pallet.
-const FOREIGN_INDEX_PALLET: &str = "AssetsPrecompiles";
-const FOREIGN_INDEX_ENTRY: &str = "ForeignAssetIdToAssetIndex";
-
 /// Maps `pallet-assets` instances (by metadata pallet name) to their precompile address prefix.
 ///
 /// Prefixes are a per-runtime choice, not a protocol constant; defaults target Asset Hub and
@@ -55,8 +50,9 @@ const FOREIGN_INDEX_ENTRY: &str = "ForeignAssetIdToAssetIndex";
 ///
 /// `u32_instances`: `AssetId` is a `u32`, so the address is computed statelessly.
 /// `foreign_instances`: `AssetId` is an XCM `Location`; the event carries the `Location`, not
-/// the `u32` index the address needs, so the index is looked up from `FOREIGN_INDEX_ENTRY`
-/// (see [`foreign_index_storage_key`]).
+/// the `u32` index the address needs, so the index is looked up from the
+/// `AssetsPrecompiles::ForeignAssetIdToAssetIndex` storage map (see
+/// [`crate::foreign_asset_index`]).
 #[derive(Clone)]
 pub struct AssetTransferConfig {
 	/// `(pallet name, address prefix)` for instances whose `AssetId` is a `u32`.
@@ -258,41 +254,6 @@ pub fn decode_foreign_transfer_parts(
 	Some((prefix, ForeignTransferParts { asset_id_key, from, to, amount }))
 }
 
-/// The 32-byte storage prefix (`twox128(pallet) ++ twox128(entry)`) of the
-/// `FOREIGN_INDEX_PALLET::FOREIGN_INDEX_ENTRY` map — the leading bytes of every key in it (see
-/// [`foreign_index_storage_key`]).
-pub fn foreign_index_prefix() -> Vec<u8> {
-	let mut prefix = Vec::with_capacity(16 + 16);
-	prefix.extend_from_slice(&twox_128(FOREIGN_INDEX_PALLET.as_bytes()));
-	prefix.extend_from_slice(&twox_128(FOREIGN_INDEX_ENTRY.as_bytes()));
-	prefix
-}
-
-/// Build the full storage key for the `Blake2_128Concat`
-/// `FOREIGN_INDEX_PALLET::FOREIGN_INDEX_ENTRY` map, keyed by the SCALE-encoded asset `Location`.
-/// The eth-rpc reads this raw key via `fetch_raw` to resolve a foreign asset's `u32` index.
-pub fn foreign_index_storage_key(asset_id_key: &[u8]) -> Vec<u8> {
-	let mut key = foreign_index_prefix();
-	key.reserve(16 + asset_id_key.len());
-	key.extend_from_slice(&blake2_128(asset_id_key));
-	key.extend_from_slice(asset_id_key);
-	key
-}
-
-/// Recover the SCALE-encoded `Location` from a full `ForeignAssetIdToAssetIndex` storage key, by
-/// stripping the 32-byte map prefix and the 16-byte `Blake2_128` hash (`Blake2_128Concat` appends
-/// the raw key after its hash). Returns `None` if the key is too short to be one of this map's.
-/// Used by the pruned/live-mode cutover seed, which enumerates the map by prefix.
-pub fn location_from_foreign_index_key(full_key: &[u8]) -> Option<Vec<u8>> {
-	// twox128(pallet) ++ twox128(entry) ++ blake2_128(loc) ++ loc
-	full_key.get(48..).map(|loc| loc.to_vec())
-}
-
-/// Decode the `u32` asset index from a raw `ForeignAssetIdToAssetIndex` storage value.
-pub fn decode_foreign_index(mut raw: &[u8]) -> Option<u32> {
-	u32::decode(&mut raw).ok()
-}
-
 /// Build an [`AssetTransfer`] for a foreign asset, given its address prefix and resolved index.
 pub fn foreign_asset_transfer(
 	prefix: u16,
@@ -481,36 +442,6 @@ mod tests {
 			decode_foreign_transfer_parts(&cfg, "ForeignAssets", "Transferred", &[0u8; 10])
 				.is_none()
 		);
-	}
-
-	#[test]
-	fn foreign_index_storage_key_layout() {
-		let loc = vec![0xDE, 0xAD, 0xBE, 0xEF];
-		let key = foreign_index_storage_key(&loc);
-		// twox128(pallet) ++ twox128(entry) ++ blake2_128(loc) ++ loc
-		assert_eq!(key.len(), 16 + 16 + 16 + loc.len());
-		assert_eq!(&key[..16], &twox_128(b"AssetsPrecompiles"));
-		assert_eq!(&key[16..32], &twox_128(b"ForeignAssetIdToAssetIndex"));
-		assert_eq!(&key[32..48], &blake2_128(&loc));
-		assert_eq!(&key[48..], &loc[..]);
-	}
-
-	#[test]
-	fn location_round_trips_through_storage_key() {
-		// The cutover seed enumerates the map by prefix and recovers each `Location` from the full
-		// key, so building a key and recovering the location must round-trip.
-		let loc = vec![0x01, 0x02, 0x00, 0xCA, 0xFE];
-		let key = foreign_index_storage_key(&loc);
-		assert_eq!(&key[..32], &foreign_index_prefix()[..]);
-		assert_eq!(location_from_foreign_index_key(&key), Some(loc));
-		// A key shorter than prefix(32) + hash(16) is not one of this map's entries.
-		assert_eq!(location_from_foreign_index_key(&[0u8; 47]), None);
-	}
-
-	#[test]
-	fn decodes_foreign_index_u32() {
-		let raw = 12345u32.encode();
-		assert_eq!(decode_foreign_index(&raw), Some(12345));
 	}
 
 	#[test]

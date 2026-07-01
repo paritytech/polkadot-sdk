@@ -46,8 +46,9 @@
 use crate::{
 	AssetTransferConfig,
 	client::{SubstrateBlockHash, SubstrateBlockNumber},
-	decode_foreign_index, foreign_index_storage_key,
 };
+use codec::Decode;
+use sp_crypto_hashing::{blake2_128, twox_128};
 use std::{
 	collections::{BTreeMap, HashMap},
 	future::Future,
@@ -73,6 +74,52 @@ pub fn is_foreign_creation(variant: &str) -> bool {
 /// block still resolves against the (then-live) mapping.
 pub fn is_foreign_destruction(variant: &str) -> bool {
 	variant == DESTROYED
+}
+
+// ---- `AssetsPrecompiles::ForeignAssetIdToAssetIndex` storage-map codec ----
+//
+// The foreign `Location -> u32 index` mapping lives only in this on-chain map. These build the raw
+// storage keys the journal reads (via its `fetch_index` accessor) and that the pruned/live cutover
+// seed enumerates by prefix, plus decode the raw value.
+
+/// Storage location of the foreign-asset `Location -> u32 index` map, in the
+/// `pallet-assets-precompiles` index pallet. Fixed across runtimes that wire that pallet.
+const FOREIGN_INDEX_PALLET: &str = "AssetsPrecompiles";
+const FOREIGN_INDEX_ENTRY: &str = "ForeignAssetIdToAssetIndex";
+
+/// The 32-byte storage prefix (`twox128(pallet) ++ twox128(entry)`) of the
+/// `FOREIGN_INDEX_PALLET::FOREIGN_INDEX_ENTRY` map — the leading bytes of every key in it (see
+/// [`foreign_index_storage_key`]).
+pub fn foreign_index_prefix() -> Vec<u8> {
+	let mut prefix = Vec::with_capacity(16 + 16);
+	prefix.extend_from_slice(&twox_128(FOREIGN_INDEX_PALLET.as_bytes()));
+	prefix.extend_from_slice(&twox_128(FOREIGN_INDEX_ENTRY.as_bytes()));
+	prefix
+}
+
+/// Build the full storage key for the `Blake2_128Concat`
+/// `FOREIGN_INDEX_PALLET::FOREIGN_INDEX_ENTRY` map, keyed by the SCALE-encoded asset `Location`.
+/// The eth-rpc reads this raw key via `fetch_raw` to resolve a foreign asset's `u32` index.
+pub fn foreign_index_storage_key(asset_id_key: &[u8]) -> Vec<u8> {
+	let mut key = foreign_index_prefix();
+	key.reserve(16 + asset_id_key.len());
+	key.extend_from_slice(&blake2_128(asset_id_key));
+	key.extend_from_slice(asset_id_key);
+	key
+}
+
+/// Recover the SCALE-encoded `Location` from a full `ForeignAssetIdToAssetIndex` storage key, by
+/// stripping the 32-byte map prefix and the 16-byte `Blake2_128` hash (`Blake2_128Concat` appends
+/// the raw key after its hash). Returns `None` if the key is too short to be one of this map's.
+/// Used by the pruned/live-mode cutover seed, which enumerates the map by prefix.
+pub fn location_from_foreign_index_key(full_key: &[u8]) -> Option<Vec<u8>> {
+	// twox128(pallet) ++ twox128(entry) ++ blake2_128(loc) ++ loc
+	full_key.get(48..).map(|loc| loc.to_vec())
+}
+
+/// Decode the `u32` asset index from a raw `ForeignAssetIdToAssetIndex` storage value.
+pub fn decode_foreign_index(mut raw: &[u8]) -> Option<u32> {
+	u32::decode(&mut raw).ok()
 }
 
 /// Read a raw storage value **at a given block**. `Ok(Some)` = present, `Ok(None)` = absent,
@@ -148,6 +195,22 @@ impl ForeignAssetIndex {
 		let history = journal.get(asset_id_key)?;
 		let (_, mapping) = history.range(..=at_block).next_back()?;
 		*mapping
+	}
+
+	/// Forget every journal change stamped at one of `blocks`. Called when those heights are
+	/// orphaned by a reorg (see [`crate::ReceiptProvider::prune_blocks`]): the fork's `Created`/
+	/// `Destroyed` facts must not keep resolving canonical-chain transfers. A `Location` left with
+	/// no remaining changes is dropped entirely. The canonical block at each height re-records its
+	/// own facts when it is indexed, so this only removes the dead fork's view.
+	pub async fn forget_blocks(&self, blocks: &[SubstrateBlockNumber]) {
+		if blocks.is_empty() {
+			return;
+		}
+		let mut journal = self.journal.lock().await;
+		journal.retain(|_location, history| {
+			history.retain(|block, _| !blocks.contains(block));
+			!history.is_empty()
+		});
 	}
 
 	/// Record that, as of `block`, `location` mapped to `mapping` (`Some(index)` / `None`).
@@ -571,5 +634,72 @@ mod tests {
 				"unchanged"
 			);
 		});
+	}
+
+	// `forget_blocks` removes journal facts stamped at orphaned-fork heights (and only those), so a
+	// reorg can't leave a dead fork's `Created`/`Destroyed` resolving canonical-chain transfers. A
+	// `Location` whose every change is forgotten is dropped entirely.
+	#[test]
+	fn forget_blocks_removes_only_named_heights() {
+		let (resolver, _) = absent_resolver();
+		let index = ForeignAssetIndex::new(AssetTransferConfig::default(), resolver);
+		let loc = vec![0xCA, 0xFE];
+
+		futures::executor::block_on(async {
+			index.record_change(loc.clone(), 10, Some(7)).await;
+			index.record_change(loc.clone(), 20, None).await;
+			index.record_change(loc.clone(), 30, Some(8)).await;
+
+			// Forget only the orphaned height 30; earlier heights are untouched.
+			index.forget_blocks(&[30]).await;
+			assert_eq!(
+				index.get(&loc, 35).await,
+				None,
+				"height-20 destruction stands after 30 is forgotten"
+			);
+			assert_eq!(index.get(&loc, 15).await, Some(7), "untouched heights remain");
+
+			// An empty input list is a no-op.
+			index.forget_blocks(&[]).await;
+			assert_eq!(index.get(&loc, 15).await, Some(7));
+
+			// Forgetting every remaining height drops the location entirely.
+			index.forget_blocks(&[10, 20]).await;
+			assert!(
+				index.journal.lock().await.get(&loc).is_none(),
+				"location dropped once it has no remaining changes"
+			);
+		});
+	}
+
+	#[test]
+	fn foreign_index_storage_key_layout() {
+		let loc = vec![0xDE, 0xAD, 0xBE, 0xEF];
+		let key = foreign_index_storage_key(&loc);
+		// twox128(pallet) ++ twox128(entry) ++ blake2_128(loc) ++ loc
+		assert_eq!(key.len(), 16 + 16 + 16 + loc.len());
+		assert_eq!(&key[..16], &twox_128(b"AssetsPrecompiles"));
+		assert_eq!(&key[16..32], &twox_128(b"ForeignAssetIdToAssetIndex"));
+		assert_eq!(&key[32..48], &blake2_128(&loc));
+		assert_eq!(&key[48..], &loc[..]);
+	}
+
+	#[test]
+	fn location_round_trips_through_storage_key() {
+		// The cutover seed enumerates the map by prefix and recovers each `Location` from the full
+		// key, so building a key and recovering the location must round-trip.
+		let loc = vec![0x01, 0x02, 0x00, 0xCA, 0xFE];
+		let key = foreign_index_storage_key(&loc);
+		assert_eq!(&key[..32], &foreign_index_prefix()[..]);
+		assert_eq!(location_from_foreign_index_key(&key), Some(loc));
+		// A key shorter than prefix(32) + hash(16) is not one of this map's entries.
+		assert_eq!(location_from_foreign_index_key(&[0u8; 47]), None);
+	}
+
+	#[test]
+	fn decodes_foreign_index_u32() {
+		use codec::Encode;
+		let raw = 12345u32.encode();
+		assert_eq!(decode_foreign_index(&raw), Some(12345));
 	}
 }

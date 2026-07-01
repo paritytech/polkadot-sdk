@@ -315,35 +315,59 @@ fn build_client(
 		// history and a current-state seed would pollute historic resolution. Best-effort — on
 		// failure the on-miss read path still resolves cold lookups.
 		if !eth_pruning.is_archive() {
-			let seed = async {
-				let block = api.blocks().at_latest().await?;
+			// Collect the live mappings, returning whatever was gathered even if the stream errors
+			// mid-iteration: a transient failure partway through must NOT discard the entries
+			// already collected (which would leave the journal empty for live assets until each is
+			// re-read on demand). `cutover` is `None` only if we can't even resolve the latest
+			// block — then there is nothing to stamp a seed at.
+			let (cutover, entries, seed_err) = async {
+				let block = match api.blocks().at_latest().await {
+					Ok(block) => block,
+					Err(err) => return (None, Vec::new(), Some(anyhow::Error::from(err))),
+				};
 				let (cutover, cutover_hash) = (block.number(), block.hash());
 				let storage = api.storage().at(cutover_hash);
-				let mut keys = storage.fetch_raw_keys(crate::foreign_index_prefix()).await?;
 				let mut entries = Vec::new();
+				let mut keys = match storage.fetch_raw_keys(crate::foreign_index_prefix()).await {
+					Ok(keys) => keys,
+					Err(err) => return (Some(cutover), entries, Some(err.into())),
+				};
 				while let Some(key) = keys.next().await {
-					let key = key?;
+					let key = match key {
+						Ok(key) => key,
+						Err(err) => return (Some(cutover), entries, Some(err.into())),
+					};
 					let Some(location) = crate::location_from_foreign_index_key(&key) else {
 						continue;
 					};
-					if let Some(raw) = storage.fetch_raw(key).await? {
-						if let Some(index) = crate::decode_foreign_index(&raw) {
-							entries.push((location, index));
-						}
+					match storage.fetch_raw(key).await {
+						Ok(Some(raw)) =>
+							if let Some(index) = crate::decode_foreign_index(&raw) {
+								entries.push((location, index));
+							},
+						Ok(None) => {},
+						Err(err) => return (Some(cutover), entries, Some(err.into())),
 					}
 				}
-				Ok::<_, anyhow::Error>((cutover, entries))
+				(Some(cutover), entries, None)
 			}
 			.await;
-			match seed {
-				Ok((cutover, entries)) => {
+			match (cutover, seed_err) {
+				(Some(cutover), None) => {
 					log::info!(target: LOG_TARGET,
 						"Seeded foreign-asset index with {} entries at cutover block #{cutover}",
 						entries.len());
 					foreign_index.seed_at_block(cutover, entries).await;
 				},
-				Err(err) => log::warn!(target: LOG_TARGET,
-					"Foreign-asset index seed failed ({err:?}); on-miss reads will resolve cold lookups"),
+				(Some(cutover), Some(err)) => {
+					// Seed the partial set anyway; the on-miss read path resolves the rest.
+					log::warn!(target: LOG_TARGET,
+						"Foreign-asset index seed truncated ({err:?}); seeding {} entries collected before the error at cutover block #{cutover}; on-miss reads resolve the rest",
+						entries.len());
+					foreign_index.seed_at_block(cutover, entries).await;
+				},
+				(None, err) => log::warn!(target: LOG_TARGET,
+					"Foreign-asset index seed failed to resolve cutover block ({err:?}); on-miss reads will resolve cold lookups"),
 			}
 		}
 

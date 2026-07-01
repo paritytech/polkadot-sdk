@@ -163,8 +163,13 @@ fn extract_revive_events(
 /// A contract can only reach `pallet-assets` through the assets precompile, which already emits
 /// the canonical ERC-20 `Transfer` log (surfaced via `ContractEmitted` in
 /// [`extract_revive_events`]). The matching `pallet_assets::Transferred` event would synthesize a
-/// byte-identical log, so an asset log is appended only when no existing log already carries the
-/// same `(address, topics, data)` — otherwise the same transfer would be counted twice.
+/// byte-identical log, so each pre-existing precompile log suppresses exactly *one* asset log with
+/// the same `(address, topics, data)` — otherwise that transfer would be counted twice.
+///
+/// The match is consumed against a snapshot of the logs that existed *before* this merge (the
+/// `logs[..preexisting]` prefix), each at most once. Asset logs are never compared against logs
+/// pushed earlier in this same merge, so two genuinely distinct but byte-identical transfers (same
+/// token/from/to/amount) are both kept rather than collapsed into one.
 fn merge_asset_logs(
 	logs: &mut Vec<Log>,
 	transfers: &[(AssetTransfer, u32)],
@@ -180,14 +185,20 @@ fn merge_asset_logs(
 		transaction_hash,
 		transaction_index,
 	);
+	let preexisting = logs.len();
+	// Tracks which pre-existing (precompile-emitted) logs have already cancelled an asset log, so a
+	// single precompile log can't suppress more than one identical asset transfer.
+	let mut consumed = vec![false; preexisting];
 	for log in asset_logs {
-		let already_emitted = logs.iter().any(|existing| {
-			existing.address == log.address &&
-				existing.topics == log.topics &&
-				existing.data == log.data
+		let dup_of_preexisting = (0..preexisting).find(|&i| {
+			!consumed[i] &&
+				logs[i].address == log.address &&
+				logs[i].topics == log.topics &&
+				logs[i].data == log.data
 		});
-		if !already_emitted {
-			logs.push(log);
+		match dup_of_preexisting {
+			Some(i) => consumed[i] = true,
+			None => logs.push(log),
 		}
 	}
 	logs.sort_by_key(|log| log.log_index);
@@ -470,8 +481,10 @@ impl ReceiptExtractor {
 			}
 
 			// Foreign instances: resolve the u32 index as of *this block*. Live/read paths use the
-			// pure journal lookup; archive backfill reads `ForeignAssetIdToAssetIndex` from chain
-			// storage at this block (see [`ForeignIndexSource`]).
+			// journal lookup, falling back to a storage read at this block on a miss (so a missed
+			// creation can't permanently drop transfers); archive backfill always reads
+			// `ForeignAssetIdToAssetIndex` from chain storage at this block (see
+			// [`ForeignIndexSource`]).
 			if let Some((prefix, parts)) = decode_foreign_transfer_parts(
 				&self.asset_config,
 				pallet,
@@ -480,7 +493,21 @@ impl ReceiptExtractor {
 			) {
 				let resolved = match foreign_source {
 					ForeignIndexSource::Journal => {
-						self.foreign_index.get(&parts.asset_id_key, block_number).await
+						match self.foreign_index.get(&parts.asset_id_key, block_number).await {
+							Some(index) => Some(index),
+							// Journal miss: the creation entry may never have been recorded (a
+							// transient storage error while resolving the assigned index in
+							// `apply_event`, or a failed `block.events()` fetch during journal
+							// maintenance). Recover by reading `ForeignAssetIdToAssetIndex` at this
+							// block, so a one-off failure cannot *permanently* drop the asset's
+							// transfers. On a pruned node whose state for this block is gone the
+							// read returns `None` and the transfer is dropped, as before.
+							None => {
+								self.foreign_index
+									.resolve_from_storage(&parts.asset_id_key, block_hash)
+									.await
+							},
+						}
 					},
 					ForeignIndexSource::StorageAtBlock => {
 						self.foreign_index
@@ -1030,16 +1057,11 @@ mod tests {
 		);
 	}
 
-	// doc #5 (KNOWN GAP — ignored): two GENUINELY DISTINCT transfers in one `eth_transact`
-	// extrinsic with byte-identical `(token, from, to, amount)` and NO precompile `ContractEmitted`
-	// log collapse into a single log, because the dedup matches against logs pushed earlier in this
-	// same merge. Correct behavior keeps both. The fix is count-based (dedup only against logs that
-	// pre-existed the merge, and handle mixed precompile/non-precompile counts) and the finding's
-	// reachability — a non-precompile contract→pallet-assets path that emits `Transferred` without
-	// `ContractEmitted` — is unconfirmed. Ignored until that decision; asserts the intended
-	// behavior so it flips green once fixed.
+	// Two GENUINELY DISTINCT transfers in one extrinsic with byte-identical `(token, from, to,
+	// amount)` and NO precompile `ContractEmitted` log must BOTH survive: the dedup only cancels
+	// against logs that pre-existed the merge (each at most once), never against asset logs pushed
+	// earlier in this same merge. (Regression guard for the former collapse-to-one behaviour.)
 	#[test]
-	#[ignore = "merge_asset_logs collapses two genuine identical transfers; count-based fix + reachability pending (doc #5)"]
 	fn merge_asset_logs_keeps_two_genuine_identical_transfers() {
 		let mk = || AssetTransfer {
 			token: H160::from([0x12; 20]),
