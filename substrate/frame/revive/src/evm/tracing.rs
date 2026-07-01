@@ -62,11 +62,8 @@ where
 		}
 	}
 
-	/// Collect the traces, or `None` if nothing ran — uniformly, a trace equal to
-	/// [`empty_trace`](Self::empty_trace) is reported as nothing.
-	///
-	/// NOTE: This assumes a tracer that runs always traces something. A tracer that can run yet
-	/// stay empty would be wrongly dropped here, and must instead report whether it was invoked.
+	/// Collect the trace, or `None` when it is empty. A tracer can run and still produce an empty
+	/// trace (e.g. a prestate diff with no state changes), so the caller decides what `None` means.
 	pub fn collect_trace(self) -> Option<Trace> {
 		let empty = self.empty_trace();
 		let trace = match self {
