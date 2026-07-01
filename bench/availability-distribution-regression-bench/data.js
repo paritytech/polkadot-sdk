@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782915346429,
+  "lastUpdate": 1782926198223,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fe0113539b123b282654ddaa7c7d548a1b59a58b",
-          "message": "Upgrade kvdb-rocksdb (#10242)\n\nThis includes a fix for when we are writing a lot of state, e.g. after a\nwarp sync. In this case the rocksdb will compact its own db to improve\nread speed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-07T13:57:37Z",
-          "tree_id": "ff2f6f74917708c0ef3a8bf354f479adfeb09a1a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/fe0113539b123b282654ddaa7c7d548a1b59a58b"
-        },
-        "date": 1762528125462,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022660490579999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013194815799999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007270232339999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15845092157333343,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007661836193333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mertwole@gmail.com",
+            "name": "mertwole",
+            "username": "mertwole"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a2ecbe9b700746b6a7b74ab14dc3d6c1d1173b9a",
+          "message": "[pallet-staking-async] fix `chill_inactive` benchmark (#12525)\n\nThe benchmark that was introduced in #12381 didn't hit the worst-case\nscenario, which is fixed in this PR\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-01T14:59:26Z",
+          "tree_id": "964ac72d2133669be73d050ca63c25c0d45e87d2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a2ecbe9b700746b6a7b74ab14dc3d6c1d1173b9a"
+        },
+        "date": 1782926170803,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007457896626666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010388409479999978,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02374701362,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14787112082666667,
             "unit": "seconds"
           }
         ]
