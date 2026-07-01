@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782905724697,
+  "lastUpdate": 1782915346429,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e470758daaf1b49fc20bf0e597786923631ea94a",
-          "message": "statement-store performance benchmarks (#9763)\n\n# Description\n\nAdds benchmarks to measure the performance of the statement-store:\n- Message Exchange Scenario: interaction with one or many nodes.\n- Memory Stress Test Scenario.\n\n## Results\n\n**Key improvements made to improve the performance:**\n- [Fixed a\ndeadlock](https://github.com/paritytech/polkadot-sdk/pull/9868)\n- [Increased statements\nlimits](https://github.com/paritytech/polkadot-sdk/pull/9894)\n- [Improved\ngossiping](https://github.com/paritytech/polkadot-sdk/pull/9912)\n\n**Hardware**\nAll benchmarks were run on a MacBook Pro M2\n\n### 1. Message Exchange Scenario\n**Test Configuration**\n- Total participants: 49_998\n- Group size: 6 participants per group\n- Total groups: 8_333\n- Statement payload size: 512 KB\n- Propagation delay: 2 seconds (empirically determined)\n- Parachain network tested with: 2, 3, 6, 12 nodes\n\n**Network Topologies**\nWe tested two distribution patterns:\n1. **To one RPC:** All participants send statements to a single RPC node\n2. **To all RPC:** Participants distribute statements across all nodes\n(slower due to gossiping overhead)\n\n**Participant Flow**\n- Sends a statement with their key for an exchange session (1 sent)\n- Waits 2 seconds for statement propagation\n- Receives session keys from other members in the group (5 received)\n- Sends statements containing a 512KB message to each member in the\ngroup (5 sent)\n- Waits 2 seconds for statement propagation\n- Receives messages from other members (5 received)\n- Total: 6 sent, 10 received.\n\n\n**Results**\n\n| Collators      | Avg time | Max time | Memory |\n| -------------- | -------- | -------- | ------ |\n| **To one RPC** |          |          |        |\n| 2              | 35s      | 35s      | 2.1GB  |\n| 6              | 48s      | 50s      | 1.7GB  |\n| **To all RPC** |          |          |        |\n| 3              | 41s      | 51s      | 1.9GB  |\n| 6              | 61s      | 71s      | 1.4GB  |\n| 12             | 94s      | 119s     | 1.9GB  |\n\n**Observations**\n- Sending to one RPC node is faster but creates a bottleneck\n- Distributing across all nodes takes longer due to gossiping overhead\n- More collators increase gossiping load, resulting in slower completion\ntimes\n- Memory usage per node remains around 2GB.\n\n\n### 2. Memory Stress Test Scenario\n\n**Test Configuration**\nWe prepared one more scenario to check how much memory nodes use with a\nfull store after we increased the limits. To maximize memory usage for\nindex usage, we submitted statements with all unique topics; other\nfields (e.g., proofs) were not used.\n- Total tasks: 100,000 concurrent\n- Statement size: 1 KB per statement\n- Network size: 6 collators\n\n**Test Flow**\n1. Spawn 100,000 concurrent tasks\n2. Each task sends statements with 1KB payload to one node until store\nis full\n3. Statements are gossiped across the network to the other 5 collators\n4. Test completes when all collator stores are full\n\n**Results**\nDuring the tests, each node used up to 4.5GB of memory.",
-          "timestamp": "2025-11-07T09:19:46Z",
-          "tree_id": "6698fe080ce19b64baf47e557490c7ee508bd14f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e470758daaf1b49fc20bf0e597786923631ea94a"
-        },
-        "date": 1762512441519,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007097982453333321,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16001983368000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013195523893333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022571268266666663,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010282959979999983,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c8c3e3f1d9d535e9c29f2cd505ef79266a821bed",
+          "message": "[Release|CI/CD] Publish release draft as empty when body length exceeds github requirements (#12526)\n\nThis PR fixes a following issue:\nWhen release draft body is too long and exceeds GitHub requirements of\n125000 chars, Create Release Draft job fails and draft is not published.\nWhich leads to manual creation of the draft and manual attachment of all\nthe artefacts that we publish.\n\nWith this fix, job should not fail, but publish a draft with some\nwarning message and all the artefacts attached to the draft.\n\ncloses: https://github.com/paritytech/release-engineering/issues/297",
+          "timestamp": "2026-07-01T12:25:32Z",
+          "tree_id": "f8b2dc4d03a25857f115a283dc96d74c21c322b7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c8c3e3f1d9d535e9c29f2cd505ef79266a821bed"
+        },
+        "date": 1782915315298,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14989822333999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010146165979999977,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023897354066666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007661836193333332,
             "unit": "seconds"
           }
         ]
