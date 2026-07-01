@@ -62,6 +62,10 @@ mod benchmarks {
 	/// iter probe without doing any per-para work.
 	#[benchmark]
 	fn migrate_v0_to_v1_step_base() {
+		// A real runtime writes the current version at genesis; rewind so `step` runs the
+		// migration path instead of short-circuiting on the version check.
+		StorageVersion::new(0).put::<Pallet<T>>();
+
 		let mut meter = WeightMeter::new();
 
 		#[block]
@@ -72,6 +76,10 @@ mod benchmarks {
 
 	#[benchmark]
 	fn migrate_v0_to_v1_step_iter() {
+		// A real runtime writes the current version at genesis; rewind so `step` runs the
+		// migration path instead of short-circuiting on the version check.
+		StorageVersion::new(0).put::<Pallet<T>>();
+
 		let para = ParaId::from(1);
 		let max_size = configuration::ActiveConfig::<T>::get().max_downward_message_size;
 		let payload = vec![0u8; max_size as usize];
