@@ -76,7 +76,9 @@ pub(super) async fn expect_statement(
 	loop {
 		let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
 		if remaining.is_zero() {
-			return Err(anyhow!("Timeout after {timeout_secs}s waiting for the expected statement"));
+			return Err(anyhow!(
+				"Timeout after {timeout_secs}s waiting for the expected statement"
+			));
 		}
 		let item = tokio::time::timeout(remaining, subscription.next())
 			.await

@@ -184,7 +184,7 @@ impl PeersTopology {
 	/// non-replica, only to those closer to the topic than itself.
 	pub fn routing_targets(&self, topic: Topic) -> Vec<PeerId> {
 		let local_distance = xor_distance(*topic, self.local_key);
-		let is_replica = local_is_replica(
+		let is_replica = is_local_replica(
 			&self.discovered_index,
 			self.local_key,
 			self.local_peer,
@@ -303,7 +303,7 @@ fn xor_distance(a: Key, b: Key) -> Key {
 
 /// Whether `local_peer`, at `local_key`, is among the `k` closest entries of `index` to `topic` —
 /// i.e. a DHT storage replica for it.
-fn local_is_replica(
+fn is_local_replica(
 	index: &PeersIndex,
 	local_key: Key,
 	local_peer: PeerId,
@@ -351,7 +351,7 @@ impl DhtAffinity {
 
 	/// Whether the local node is one of the closest DHT storage replicas for `topic`.
 	fn is_topic_affine(&self, topic: Topic) -> bool {
-		local_is_replica(
+		is_local_replica(
 			&self.index,
 			self.local_key,
 			self.local_peer,
