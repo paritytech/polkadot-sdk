@@ -18,7 +18,9 @@
 use super::resubmission::resolve_session_and_pvd;
 use crate::LOG_TARGET;
 use codec::{Decode, Encode};
-use cumulus_client_consensus_common::old_finalized_hash;
+use cumulus_client_consensus_common::{
+	old_finalized_hash, parent_search::extract_relay_parent_or_lookup,
+};
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_client_resubmission_store::{now_unix_ms, prepare_resubmission_aux_data};
 use cumulus_primitives_core::{
@@ -227,18 +229,35 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 	}
 
 	/// Resolve, from the relay chain, the data needed to record a resubmission entry for an
-	/// imported block built against the relay parent in `relay_block_identifier`.
+	/// imported block. The relay parent is recovered from the block's header digest — either the
+	/// direct `RelayParent(hash)` digest or, for slot-based blocks, the RPSR storage-root digest
+	/// (looked up by number and verified against the encoded storage root).
 	async fn resolve_resubmission_data(
 		&self,
-		relay_block_identifier: &RelayBlockIdentifier,
+		digest: &sp_runtime::Digest,
 	) -> Option<(RelayHeader, SessionIndex, PersistedValidationData)> {
-		let RelayBlockIdentifier::ByHash(relay_parent) = relay_block_identifier else {
-			return None;
-		};
-		let relay_parent = *relay_parent;
-
 		let (relay_client, para_id) = self.relay_data_source.get()?;
 		let para_id = *para_id;
+
+		let relay_parent =
+			match extract_relay_parent_or_lookup::<Block, _>(digest, &**relay_client).await {
+				Ok(Some(relay_parent)) => relay_parent,
+				Ok(None) => {
+					tracing::debug!(
+						target: LOG_TARGET,
+						"Relay parent could not be resolved from digest; skipping resubmission entry.",
+					);
+					return None;
+				},
+				Err(err) => {
+					tracing::debug!(
+						target: LOG_TARGET,
+						?err,
+						"Error resolving relay parent from digest; skipping resubmission entry.",
+					);
+					return None;
+				},
+			};
 
 		let relay_parent_header = match relay_client.header(BlockId::Hash(relay_parent)).await {
 			Ok(Some(header)) => header,
@@ -383,7 +402,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 		}
 
 		if let Some((relay_parent_header, relay_parent_session, persisted_validation_data)) =
-			self.resolve_resubmission_data(&relay_block_identifier).await
+			self.resolve_resubmission_data(params.header.digest()).await
 		{
 			let time_ms = now_unix_ms();
 			prepare_resubmission_aux_data::<Block>(

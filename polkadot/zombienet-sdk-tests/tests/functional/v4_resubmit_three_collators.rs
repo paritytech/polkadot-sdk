@@ -43,6 +43,7 @@ async fn v4_resubmit_three_collators() -> Result<(), anyhow::Error> {
 			"--".into(),
 			"--state-pruning=archive".into(),
 			"--blocks-pruning=archive".into(),
+			("--network-backend=libp2p").into(),
 		]
 	}
 
@@ -55,12 +56,13 @@ async fn v4_resubmit_three_collators() -> Result<(), anyhow::Error> {
 				.with_default_args(vec![
 					("-lparachain=debug,runtime=debug,parachain::collator-protocol=trace,parachain::candidate-backing=debug,parachain::statement-distribution=debug,parachain::prospective-parachains=trace").into(),
 					"--experimental-collator-protocol".into(),
+					("--network-backend=libp2p").into(),
 				])
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
 							"scheduler_params": {
-								"num_cores": 2,
+								"num_cores": 1,
 								"max_validators_per_core": 2,
 								"group_rotation_frequency": 4,
 								"lookahead": 5
@@ -72,7 +74,7 @@ async fn v4_resubmit_three_collators() -> Result<(), anyhow::Error> {
 				}))
 				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..6).fold(r, |acc, i| {
+			(1..2).fold(r, |acc, i| {
 				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
 			})
 		})

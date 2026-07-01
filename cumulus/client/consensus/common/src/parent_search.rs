@@ -185,9 +185,9 @@ fn find_deepest_valid_parent_v2<Block: BlockT>(
 ///
 /// Returns `Ok(None)` if neither digest yields a relay parent (either both digests are missing,
 /// or the RPSR-pointed relay block is unknown/inconsistent with the encoded storage root).
-pub async fn extract_relay_parent_or_lookup<Block: BlockT>(
+pub async fn extract_relay_parent_or_lookup<Block: BlockT, R: RelayChainInterface + ?Sized>(
 	digest: &sp_runtime::Digest,
-	relay_client: &impl RelayChainInterface,
+	relay_client: &R,
 ) -> RelayChainResult<Option<RelayHash>> {
 	if let Some(relay_parent) = cumulus_primitives_core::extract_relay_parent(digest) {
 		return Ok(Some(relay_parent));
@@ -214,7 +214,7 @@ async fn has_ancestor_relay_parent_info<Block: BlockT>(
 	header: &Block::Header,
 ) -> RelayChainResult<bool> {
 	let Some(relay_parent) =
-		extract_relay_parent_or_lookup::<Block>(header.digest(), relay_client).await?
+		extract_relay_parent_or_lookup::<Block, _>(header.digest(), relay_client).await?
 	else {
 		return Ok(false);
 	};

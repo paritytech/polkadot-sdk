@@ -66,18 +66,12 @@ where
 {
 	let mut entries = Vec::with_capacity(headers.len());
 	for header in headers {
-		let block_number = *header.number();
-		let block_hash = header.hash();
-		match build_entry(header, para_backend, code_hash_provider, store, relay_chain_data_cache)
-			.await
+		// `build_entry` logs the specific missing input on failure.
+		if let Some(entry) =
+			build_entry(header, para_backend, code_hash_provider, store, relay_chain_data_cache)
+				.await
 		{
-			Some(entry) => entries.push(entry),
-			None => tracing::warn!(
-				target: LOG_TARGET,
-				?block_number,
-				?block_hash,
-				"Skipping unincluded-segment entry: could not hydrate header (missing body/proof/relay data).",
-			),
+			entries.push(entry);
 		}
 	}
 	entries
@@ -105,22 +99,79 @@ where
 {
 	let block_hash = header.hash();
 	let parent_hash = *header.parent_hash();
+	let block_number = *header.number();
 
-	let relay_parent: RelayHash = extract_relay_parent_or_lookup::<Block>(
+	let Some(relay_parent) = extract_relay_parent_or_lookup::<Block, _>(
 		header.digest(),
 		relay_chain_data_cache.relay_client(),
 	)
 	.await
 	.ok()
-	.flatten()?;
+	.flatten() else {
+		tracing::warn!(
+			target: LOG_TARGET,
+			?block_number,
+			?block_hash,
+			"hydrate skip: relay parent not in digest, lookup failed",
+		);
+		return None;
+	};
 
-	let parent_header = para_backend.blockchain().header(parent_hash).ok().flatten()?;
-	let body = para_backend.blockchain().body(block_hash).ok().flatten()?;
+	let Some(parent_header) = para_backend.blockchain().header(parent_hash).ok().flatten() else {
+		tracing::warn!(
+			target: LOG_TARGET,
+			?block_number,
+			?block_hash,
+			?parent_hash,
+			"hydrate skip: parent header missing from backend",
+		);
+		return None;
+	};
+
+	let Some(body) = para_backend.blockchain().body(block_hash).ok().flatten() else {
+		tracing::warn!(
+			target: LOG_TARGET,
+			?block_number,
+			?block_hash,
+			"hydrate skip: block body missing from backend (pruned?)",
+		);
+		return None;
+	};
 	let block = Block::new(header, body);
 
-	let stored = store.load(block_hash).ok().flatten()?;
+	let stored = match store.load(block_hash) {
+		Ok(Some(stored)) => stored,
+		Ok(None) => {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?block_number,
+				?block_hash,
+				"hydrate skip: no resubmission proof entry (import-path write skipped or pruned)",
+			);
+			return None;
+		},
+		Err(e) => {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?block_number,
+				?block_hash,
+				?e,
+				"hydrate skip: resubmission store load error",
+			);
+			return None;
+		},
+	};
 
-	let relay_data = relay_chain_data_cache.get_by_hash(relay_parent).await.ok()?;
+	let Ok(relay_data) = relay_chain_data_cache.get_by_hash(relay_parent).await else {
+		tracing::warn!(
+			target: LOG_TARGET,
+			?block_number,
+			?block_hash,
+			?relay_parent,
+			"hydrate skip: relay data unavailable",
+		);
+		return None;
+	};
 	let validation_data = PersistedValidationData {
 		parent_head: parent_header.encode().into(),
 		relay_parent_number: *relay_data.relay_header.number(),
@@ -128,7 +179,16 @@ where
 		max_pov_size: relay_data.max_pov_size,
 	};
 
-	let validation_code_hash = code_hash_provider.code_hash_at(parent_hash)?;
+	let Some(validation_code_hash) = code_hash_provider.code_hash_at(parent_hash) else {
+		tracing::warn!(
+			target: LOG_TARGET,
+			?block_number,
+			?block_hash,
+			?parent_hash,
+			"hydrate skip: validation code hash missing",
+		);
+		return None;
+	};
 
 	Some(SegmentEntry {
 		relay_parent,

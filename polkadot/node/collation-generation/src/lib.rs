@@ -111,7 +111,7 @@ use polkadot_primitives::{
 };
 use schnellru::{ByLength, LruMap};
 use sp_core::bounded::BoundedVec;
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc, time::Instant};
 
 mod error;
 
@@ -314,6 +314,7 @@ impl CollationGenerationSubsystem {
 			.await?;
 
 		let transposed_queue = &transpose_claim_queue(claim_queue);
+		let build_start = Instant::now();
 		let mut segment_entries = vec![];
 		for entry in collations {
 			let SegmentCollation {
@@ -346,6 +347,17 @@ impl CollationGenerationSubsystem {
 		}
 		let sender = ctx.sender();
 		let len = segment_entries.len();
+		let build_elapsed = build_start.elapsed();
+		let total_pov_bytes: usize = segment_entries.iter().map(|e| e.pov.block_data.0.len()).sum();
+		gum::info!(
+			target: LOG_TARGET,
+			?scheduling_parent,
+			?core_index,
+			count = len,
+			total_pov_bytes,
+			elapsed = ?build_elapsed,
+			"Built segment receipts",
+		);
 		let candidates =
 			BoundedVec::try_from(segment_entries).map_err(|_| Error::InvalidSegmentSize(len))?;
 		sender

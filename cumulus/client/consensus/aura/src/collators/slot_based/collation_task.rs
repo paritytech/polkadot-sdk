@@ -299,6 +299,7 @@ async fn handle_resubmit_segment<Block, B, Client, RClient, CHP>(
 		"Received resubmit segment.",
 	);
 
+	let requested = unincluded_segment.len();
 	let entries = hydrate_segment(
 		unincluded_segment,
 		para_backend,
@@ -307,6 +308,7 @@ async fn handle_resubmit_segment<Block, B, Client, RClient, CHP>(
 		relay_chain_data_cache,
 	)
 	.await;
+	let hydrated = entries.len();
 
 	let mut collations = Vec::with_capacity(entries.len() + bundle.is_some() as usize);
 
@@ -368,8 +370,27 @@ async fn handle_resubmit_segment<Block, B, Client, RClient, CHP>(
 	}
 
 	if collations.is_empty() {
+		tracing::warn!(
+			target: LOG_TARGET,
+			?scheduling_parent,
+			?core_index,
+			requested,
+			hydrated,
+			"Resubmit segment produced no collations; all entries failed to hydrate or build. Nothing to submit.",
+		);
 		return;
 	}
+
+	let built = collations.len();
+	tracing::info!(
+		target: LOG_TARGET,
+		?scheduling_parent,
+		?core_index,
+		requested,
+		hydrated,
+		built,
+		"Resubmit segment funnel: submitting segment.",
+	);
 
 	overseer_handle
 		.send_msg(
@@ -399,12 +420,25 @@ async fn build_segment_collation<Block: BlockT, RClient: RelayChainInterface + C
 	validation_code_hash: polkadot_primitives::ValidationCodeHash,
 	validation_data: cumulus_primitives_core::PersistedValidationData,
 ) -> Option<SegmentCollation> {
-	let (mut collation, block_data) = collator_service.build_multi_block_collation(
+	let block_numbers: Vec<_> = blocks.iter().map(|b| *b.header().number()).collect();
+	let (mut collation, block_data) = match collator_service.build_multi_block_collation(
 		&parent_header,
 		blocks,
 		proof,
 		Some(scheduling_proof.clone()),
-	)?;
+	) {
+		Some(built) => built,
+		None => {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?core_index,
+				?relay_parent,
+				?block_numbers,
+				"build_segment_collation: build_multi_block_collation returned None; dropping entry (likely outside backable window).",
+			);
+			return None;
+		},
+	};
 
 	// Pre-apply the PVF's UMP-signal override locally. The PVF replaces the block's emitted
 	// `SelectCore`/`ApprovedPeer` signals wholesale with the ones in `signed_scheduling_info`
