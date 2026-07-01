@@ -99,6 +99,18 @@ impl GenericTransaction {
 		Self::from_unsigned(tx.into(), base_gas_price, from)
 	}
 
+	/// Returns `true` when the transaction's payload fields look like those of a simple value
+	/// transfer: empty calldata, no access list, no EIP-7702 authorization list, no EIP-4844 blob
+	/// payload, and no blob gas fee. The destination address is validated separately by the caller.
+	pub fn has_simple_transfer_fields(&self) -> bool {
+		self.input.is_empty() &&
+			self.access_list.as_ref().is_none_or(|list| list.is_empty()) &&
+			self.authorization_list.is_empty() &&
+			self.blob_versioned_hashes.is_empty() &&
+			self.blobs.is_empty() &&
+			self.max_fee_per_blob_gas.is_none()
+	}
+
 	/// The gas price that is actually paid (including priority fee).
 	pub fn effective_gas_price(&self, base_gas_price: U256) -> Option<U256> {
 		let effective_gas_price = if let Some(prio_price) = self.max_priority_fee_per_gas {
@@ -888,6 +900,20 @@ impl InputOrData {
 	/// Get the input as `Vec<u8>`.
 	pub fn to_vec(self) -> Vec<u8> {
 		self.to_bytes().0
+	}
+
+	/// Returns the input as a byte slice, preferring `input` over `data`.
+	pub fn as_slice(&self) -> &[u8] {
+		self.input
+			.as_ref()
+			.or(self.data.as_ref())
+			.map(|bytes| bytes.0.as_slice())
+			.unwrap_or_default()
+	}
+
+	/// Returns true if the input carries no bytes.
+	pub fn is_empty(&self) -> bool {
+		self.as_slice().is_empty()
 	}
 }
 
