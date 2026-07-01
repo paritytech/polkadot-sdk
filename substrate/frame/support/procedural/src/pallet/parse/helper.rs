@@ -503,13 +503,12 @@ pub fn check_genesis_builder_usage(type_: &syn::Path) -> syn::Result<Option<Inst
 		}
 	}
 
-	syn::parse2::<Checker>(type_.to_token_stream())
-		.map_err(|e| {
-			let msg = format!("Invalid genesis builder: {}", expected);
-			let mut err = syn::Error::new(type_.span(), msg);
-			err.combine(e);
-			err
-		})?;
+	syn::parse2::<Checker>(type_.to_token_stream()).map_err(|e| {
+		let msg = format!("Invalid genesis builder: {}", expected);
+		let mut err = syn::Error::new(type_.span(), msg);
+		err.combine(e);
+		err
+	})?;
 
 	Ok(None)
 }
