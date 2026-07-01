@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782905766627,
+  "lastUpdate": 1782915386907,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "2ae82987ae22b5379c1a005f7fc25d2823d8d5e2",
-          "message": "pallet_revive: use real storage when building the eth genesis block (#10225)\n\nWhen building the eth genesis block, query the real storage items that\nstore the timestamp and block number instead of using the zeroed items.\n\nIf the chainspec does not customise these, they will remain zeroed.\n\nHowever, anvil does customise these if requested by the user.\nNeeded in order to merge\nhttps://github.com/paritytech/foundry-polkadot/pull/391",
-          "timestamp": "2025-11-07T08:31:30Z",
-          "tree_id": "33ec6d8c1ed692e00d06c081dfc8e5bee816aad6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ae82987ae22b5379c1a005f7fc25d2823d8d5e2"
-        },
-        "date": 1762509099084,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63627.68000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000023043359999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000023043359999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.392972367169998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000024161049999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4394144298800025,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000024161049999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9547662605199876,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0055946323500000025,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4188018059400007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.42731568844000145,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.820708283991024,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.041728375769988,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4028631914700003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.756365291870001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c8c3e3f1d9d535e9c29f2cd505ef79266a821bed",
+          "message": "[Release|CI/CD] Publish release draft as empty when body length exceeds github requirements (#12526)\n\nThis PR fixes a following issue:\nWhen release draft body is too long and exceeds GitHub requirements of\n125000 chars, Create Release Draft job fails and draft is not published.\nWhich leads to manual creation of the draft and manual attachment of all\nthe artefacts that we publish.\n\nWith this fix, job should not fail, but publish a draft with some\nwarning message and all the artefacts attached to the draft.\n\ncloses: https://github.com/paritytech/release-engineering/issues/297",
+          "timestamp": "2026-07-01T12:25:32Z",
+          "tree_id": "f8b2dc4d03a25857f115a283dc96d74c21c322b7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c8c3e3f1d9d535e9c29f2cd505ef79266a821bed"
+        },
+        "date": 1782915355774,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63608.55,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.739377253299998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7616452665100004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7849986716700004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000029003979999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.80844696814,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.390053089460014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000029895169999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000029003979999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005392482840000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7460040876299259,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.437148295152683,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000029895169999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.23591781954994,
             "unit": "seconds"
           }
         ]
