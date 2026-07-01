@@ -220,9 +220,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 /// Carries two weights: the `reserve` weight is the worst case over *processing* the message — the
 /// maximum of executing it in full and rejecting it at the barrier (`barrier_check_weight`) — and
 /// is what [`PreparedMessage::weight_of`] reports, so callers reserve enough for either outcome.
-/// The `exec` weight is the message's execution weight; it is used internally by [`Self::execute`]
-/// as the barrier's `max_weight` and as the VM's `message_weight`, and must not be inflated by the
-/// barrier-check weight (doing so would change barrier decisions and corrupt surplus accounting).
+/// The `exec` weight is the message's execution weight; it is used internally by
+/// [`XcmExecutor::execute`] as the barrier's `max_weight` and as the VM's `message_weight`, and
+/// must not be inflated by the barrier-check weight (doing so would change barrier decisions and
+/// corrupt surplus accounting).
 pub struct WeighedMessage<Call>(Weight, Weight, Xcm<Call>);
 impl<C> PreparedMessage for WeighedMessage<C> {
 	fn weight_of(&self) -> Weight {
