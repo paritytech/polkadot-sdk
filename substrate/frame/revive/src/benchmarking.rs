@@ -20,6 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	Pallet as Contracts,
+	access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES},
 	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
@@ -1418,18 +1419,97 @@ mod benchmarks {
 		);
 	}
 
+	enum TrieFill {
+		Empty,
+		Full,
+	}
+
+	enum SlotAccess {
+		Cold,
+		Hot,
+	}
+
+	enum StorageOp {
+		Read,
+		Write,
+	}
+
+	fn build_storage_contract<T: Config>(
+		op: StorageOp,
+		fill: TrieFill,
+	) -> Result<(ContractInfo<T>, Vec<u8>, Vec<u8>), BenchmarkError> {
+		let key = vec![0u8; limits::STORAGE_KEY_BYTES as usize];
+		let value = vec![1u8; limits::STORAGE_BYTES as usize];
+		let initial_value = match op {
+			StorageOp::Read => value.clone(),
+			StorageOp::Write => vec![42u8; limits::STORAGE_BYTES as usize],
+		};
+
+		let instance = match fill {
+			TrieFill::Full => {
+				Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?
+			},
+			TrieFill::Empty => Contract::<T>::new(VmBinaryModule::dummy(), vec![])?,
+		};
+		let info = instance.info()?;
+		info.bench_write_raw(&key, Some(initial_value), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+		Ok((info, key, value))
+	}
+
+	enum StorageCall {
+		Clear,
+		Contains,
+		Take,
+	}
+
+	fn setup_precompile_bench<T: Config>(
+		op: StorageCall,
+		key_byte: u8,
+		access: SlotAccess,
+	) -> Result<(CallSetup<T>, Key, Vec<u8>), BenchmarkError> {
+		let max_key_len = limits::STORAGE_KEY_BYTES;
+		let key = Key::try_from_var(vec![key_byte; max_key_len as usize])
+			.map_err(|_| "Key has wrong length")?;
+		let raw_key = vec![key_byte; max_key_len as usize].into();
+		let input_bytes = match op {
+			StorageCall::Clear => {
+				IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
+					flags: StorageFlags::empty().bits(),
+					key: raw_key,
+					isFixedKey: false,
+				})
+			},
+			StorageCall::Contains => {
+				IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
+					flags: StorageFlags::empty().bits(),
+					key: raw_key,
+					isFixedKey: false,
+				})
+			},
+			StorageCall::Take => IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
+				flags: StorageFlags::empty().bits(),
+				key: raw_key,
+				isFixedKey: false,
+			}),
+		}
+		.abi_encode();
+
+		let call_setup = CallSetup::<T>::default();
+		if matches!(access, SlotAccess::Hot) {
+			let info = call_setup.contract().info()?;
+			frame_benchmarking::add_to_whitelist_child(
+				info.child_trie_info().storage_key().to_vec(),
+				key.hash(),
+			);
+		}
+		Ok((call_setup, key, input_bytes))
+	}
+
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn get_storage_empty() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES as usize;
-		let value = vec![1u8; max_value_len];
-
-		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
-		let info = instance.info()?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Read, TrieFill::Empty)?;
 		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(value.clone()), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
 		#[block]
@@ -1443,16 +1523,8 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn get_storage_full() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES;
-		let value = vec![1u8; max_value_len as usize];
-
-		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
-		let info = instance.info()?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Read, TrieFill::Full)?;
 		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(value.clone()), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
 		#[block]
@@ -1466,16 +1538,7 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn set_storage_empty() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES as usize;
-		let value = vec![1u8; max_value_len];
-
-		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
-		let info = instance.info()?;
-		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(vec![42u8; max_value_len]), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Write, TrieFill::Empty)?;
 
 		let val = Some(value.clone());
 		let result;
@@ -1485,22 +1548,13 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert_eq!(child::get_raw(&child_trie_info, &key).unwrap(), value);
+		assert_eq!(child::get_raw(&info.child_trie_info(), &key).unwrap(), value);
 		Ok(())
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn set_storage_full() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES;
-		let value = vec![1u8; max_value_len as usize];
-
-		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
-		let info = instance.info()?;
-		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(vec![42u8; max_value_len as usize]), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Write, TrieFill::Full)?;
 
 		let val = Some(value.clone());
 		let result;
@@ -1510,7 +1564,7 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert_eq!(child::get_raw(&child_trie_info, &key).unwrap(), value);
+		assert_eq!(child::get_raw(&info.child_trie_info(), &key).unwrap(), value);
 		Ok(())
 	}
 
@@ -1551,22 +1605,81 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn clear_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+	fn seal_set_storage_hot(
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+		o: Linear<0, { limits::STORAGE_BYTES }>,
+	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
+		let value = vec![1u8; n as usize];
 
-		let input_bytes = IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![0u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
+		build_runtime!(runtime, instance, memory: [ key.unhashed(), value.clone(), ]);
+		let info = instance.info()?;
 
-		let mut call_setup = CallSetup::<T>::default();
+		info.write(&key, Some(vec![42u8; o as usize]), None, false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		frame_benchmarking::add_to_whitelist_child(
+			info.child_trie_info().storage_key().to_vec(),
+			key.hash(),
+		);
+
+		// Add the key to access list so the op's touch is hot.
+		runtime.ext().touch_storage_access(false, &key);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_set_storage(
+				memory.as_mut_slice(),
+				StorageFlags::empty().bits(),
+				0,           // key_ptr
+				max_key_len, // key_len
+				max_key_len, // value_ptr
+				n,           // value_len
+			);
+		}
+
+		assert_ok!(result);
+		assert_eq!(info.read(&key).unwrap(), value);
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn clear_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Clear, key_byte, SlotAccess::Cold)?;
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		assert_ok!(result);
+		assert!(ext.get_storage(&key).is_none());
+
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn clear_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Clear, key_byte, SlotAccess::Hot)?;
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		ext.touch_storage_access(false, &key);
 
 		let result;
 		#[block]
@@ -1614,18 +1727,47 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn contains_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+	fn seal_get_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		let input_bytes = IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![0u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
+		build_runtime!(runtime, instance, memory: [ key.unhashed(), n.to_le_bytes(), vec![0u8; n as _], ]);
+		let info = instance.info()?;
 
-		let mut call_setup = CallSetup::<T>::default();
+		info.write(&key, Some(vec![42u8; n as usize]), None, false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		frame_benchmarking::add_to_whitelist_child(
+			info.child_trie_info().storage_key().to_vec(),
+			key.hash(),
+		);
+
+		runtime.ext().touch_storage_access(false, &key);
+
+		let out_ptr = max_key_len + 4;
+		let result;
+		#[block]
+		{
+			result = runtime.bench_get_storage(
+				memory.as_mut_slice(),
+				StorageFlags::empty().bits(),
+				0,           // key_ptr
+				max_key_len, // key_len
+				out_ptr,     // out_ptr
+				max_key_len, // out_len_ptr
+			);
+		}
+
+		assert_ok!(result);
+		assert_eq!(&info.read(&key).unwrap(), &memory[out_ptr as usize..]);
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn contains_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Contains, key_byte, SlotAccess::Cold)?;
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
@@ -1646,19 +1788,36 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn contains_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Contains, key_byte, SlotAccess::Hot)?;
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		ext.touch_storage_access(false, &key);
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		assert_ok!(result);
+		assert!(ext.get_storage(&key).is_some());
+
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn take_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = Key::try_from_var(vec![3u8; max_key_len as usize])
-			.map_err(|_| "Key has wrong length")?;
-
-		let input_bytes = IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![3u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
-
-		let mut call_setup = CallSetup::<T>::default();
+		let key_byte = 3;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Take, key_byte, SlotAccess::Cold)?;
 		let (mut ext, _) = call_setup.ext();
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
@@ -1675,6 +1834,122 @@ mod benchmarks {
 		assert_ok!(result);
 		assert!(ext.get_storage(&key).is_none());
 
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn take_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 3;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Take, key_byte, SlotAccess::Hot)?;
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		ext.touch_storage_access(false, &key);
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		assert_ok!(result);
+		assert!(ext.get_storage(&key).is_none());
+
+		Ok(())
+	}
+
+	fn worst_case_slot() -> crate::access_list::Slot {
+		let key = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
+			.expect("key fits STORAGE_KEY_BYTES bound; qed");
+		crate::access_list::Slot::from(&key)
+	}
+
+	fn near_full_access_list() -> crate::access_list::AccessList {
+		let mut al = AccessList::new();
+		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
+			al.touch(AccessEntry {
+				slot: worst_case_slot(),
+				address: H160::from_low_u64_be(i as u64),
+			});
+		}
+		al
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
+		let mut al = near_full_access_list();
+		// Insert a new entry (u64::MAX is past the fill range, so the touch is cold).
+		let entry =
+			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry);
+		}
+		assert!(outcome.is_cold());
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
+		let mut al = near_full_access_list();
+		// Re-touch an entry that is already present (address zero is in the fill range).
+		let entry = AccessEntry { slot: worst_case_slot(), address: H160::zero() };
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry);
+		}
+		assert!(!outcome.is_cold());
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_empty() -> Result<(), BenchmarkError> {
+		let mut al = AccessList::new();
+		let entry =
+			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry);
+		}
+		assert!(outcome.is_cold());
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_single_element() -> Result<(), BenchmarkError> {
+		let mut al = AccessList::new();
+		let entry =
+			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		al.touch(entry.clone());
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry);
+		}
+		assert!(!outcome.is_cold());
+		Ok(())
+	}
+
+	// Per-entry rollback cost, prepaid by every cold touch since a frame revert
+	// can't charge gas itself. Isolated by reverting a frame with exactly one
+	// journaled entry on top of a near-full `AccessList`.
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
+		let mut al = near_full_access_list();
+		al.enter_frame();
+		al.touch(AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) });
+		#[block]
+		{
+			al.rollback_frame();
+		}
 		Ok(())
 	}
 
@@ -2701,10 +2976,11 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn extcodecopy(n: Linear<1_000, 10_000>) -> Result<(), BenchmarkError> {
-		let module = VmBinaryModule::sized(n);
-		let mut setup = CallSetup::<T>::new(module);
-		let contract = setup.contract();
+	fn extcodecopy(n: Linear<1_000, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+		// The caller contract; `CallSetup` whitelists its `AccountInfoOf`.
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::dummy());
+		// Copy a contract other than the caller, so its `AccountInfoOf` read is counted.
+		let target = Contract::<T>::with_index(1, VmBinaryModule::sized(n), vec![])?;
 
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
@@ -2713,7 +2989,7 @@ mod benchmarks {
 		let _ = interpreter.stack.push(U256::from(n));
 		let _ = interpreter.stack.push(U256::from(0u32));
 		let _ = interpreter.stack.push(U256::from(0u32));
-		let _ = interpreter.stack.push(contract.address);
+		let _ = interpreter.stack.push(target.address);
 
 		let result;
 		#[block]
@@ -2724,8 +3000,8 @@ mod benchmarks {
 		assert!(result.is_continue());
 		assert_eq!(
 			*interpreter.memory.slice(0..n as usize),
-			PristineCode::<T>::get(contract.info()?.code_hash).unwrap()[0..n as usize],
-			"Memory should contain the contract's code after extcodecopy"
+			PristineCode::<T>::get(target.info()?.code_hash).unwrap()[0..n as usize],
+			"Memory should contain the target contract's code after extcodecopy"
 		);
 
 		Ok(())

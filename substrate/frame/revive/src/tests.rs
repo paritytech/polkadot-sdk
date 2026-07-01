@@ -17,6 +17,7 @@
 
 mod block_hash;
 mod deposit_payment;
+mod eth_estimate_gas;
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
