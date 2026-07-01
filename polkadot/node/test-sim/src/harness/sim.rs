@@ -360,20 +360,26 @@ where
 		F: Fn(&Effect) -> bool,
 	{
 		self.drain();
-		self.recorder.find_effect_from(barrier.index(), &predicate).cloned().unwrap_or_else(|| {
-			let location = std::panic::Location::caller();
-			let report = TimelineReport {
-				expected: expected.to_string(),
-				actual: format!("no matching effect recorded at sim_t = {}ms", self.now_sim_t().as_millis()),
-				window_start: self.now_sim_t(),
-				window: Duration::ZERO,
-				recorder: &self.recorder,
-				replay_seed: None,
-				at: Some(&format!("{}:{}", location.file(), location.line())),
-				hint: None,
-			};
-			panic!("assertion failed:\n{}", report);
-		})
+		self.recorder
+			.find_effect_from(barrier.index(), &predicate)
+			.cloned()
+			.unwrap_or_else(|| {
+				let location = std::panic::Location::caller();
+				let report = TimelineReport {
+					expected: expected.to_string(),
+					actual: format!(
+						"no matching effect recorded at sim_t = {}ms",
+						self.now_sim_t().as_millis()
+					),
+					window_start: self.now_sim_t(),
+					window: Duration::ZERO,
+					recorder: &self.recorder,
+					replay_seed: None,
+					at: Some(&format!("{}:{}", location.file(), location.line())),
+					hint: None,
+				};
+				panic!("assertion failed:\n{}", report);
+			})
 	}
 
 	/// Register an auxiliary subsystem slot whose outbound stream the harness should drain.

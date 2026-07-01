@@ -160,10 +160,10 @@ impl<'a, R: AnswerQuery + ?Sized> Dispatcher<'a, R> {
 	/// - `sim_t` (from `Clock::duration_since_epoch`) is elapsed-since-scenario-start at
 	///   millisecond resolution. It only *stamps* recorded effects, so tests can make windowed
 	///   assertions in the same units they advance the clock with.
-	/// - `now` (from `Clock::now`) is the clock's monotonic [`Instant`] at full precision. It
-	///   is used by `classify` to anchor request-timeout deadlines (`now + request_timeout`),
-	///   which must live on the same monotonic channel as the executor's `delay()` wakeups so
-	///   the sim can step to and fire them at the exact deadline (see `Sim::advance`).
+	/// - `now` (from `Clock::now`) is the clock's monotonic [`Instant`] at full precision. It is
+	///   used by `classify` to anchor request-timeout deadlines (`now + request_timeout`), which
+	///   must live on the same monotonic channel as the executor's `delay()` wakeups so the sim can
+	///   step to and fire them at the exact deadline (see `Sim::advance`).
 	///
 	/// [`MockClock`]: crate::runtime::MockClock
 	pub fn dispatch(&mut self, sim_t: Duration, now: Instant, msg: AllMessages) {
