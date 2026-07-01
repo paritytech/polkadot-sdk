@@ -3188,7 +3188,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					});
 					let output = Self::eth_block_hash_versioned(input);
 					BlockHashOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.block_hash
 				}
 
@@ -3198,7 +3198,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let input = ReceiptDataVersionedInputPayload::from(ReceiptDataInputPayloadV1);
 					let output = Self::eth_receipt_data_versioned(input);
 					ReceiptDataOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.receipt_data
 				}
 
@@ -3208,7 +3208,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let input = BalanceVersionedInputPayload::from(BalanceInputPayloadV1 { address });
 					let output = Self::balance_versioned(input);
 					BalanceOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.balance
 				}
 
@@ -3218,7 +3218,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let input = BlockAuthorVersionedInputPayload::from(BlockAuthorInputPayloadV1);
 					let output = Self::block_author_versioned(input);
 					BlockAuthorOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.block_author
 				}
 
@@ -3228,7 +3228,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let input = BlockGasLimitVersionedInputPayload::from(BlockGasLimitInputPayloadV1);
 					let output = Self::block_gas_limit_versioned(input);
 					BlockGasLimitOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.block_gas_limit
 				}
 
@@ -3240,7 +3240,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					);
 					let output = Self::max_extrinsic_weight_in_gas_versioned(input);
 					MaxExtrinsicWeightInGasOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.max_extrinsic_weight_in_gas
 				}
 
@@ -3250,7 +3250,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let input = GasPriceVersionedInputPayload::from(GasPriceInputPayloadV1);
 					let output = Self::gas_price_versioned(input);
 					GasPriceOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.gas_price
 				}
 
@@ -3260,7 +3260,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let input = NonceVersionedInputPayload::from(NonceInputPayloadV1 { address });
 					let output = Self::nonce_versioned(input);
 					NonceOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.nonce
 				}
 
@@ -3270,7 +3270,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let input = AddressVersionedInputPayload::from(AddressInputPayloadV1 { account_id });
 					let output = Self::address_versioned(input);
 					AddressOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.address
 				}
 
@@ -3319,7 +3319,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					);
 					let output = Self::eth_pre_dispatch_weight_versioned(input)?;
 					Ok(EthPreDispatchWeightOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.weight)
 				}
 
@@ -3391,7 +3391,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					});
 					let output = Self::upload_code_versioned(input)?;
 					Ok(UploadCodeOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.code_upload_return_value)
 				}
 
@@ -3407,7 +3407,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					});
 					let output = Self::get_storage_versioned(input)?;
 					Ok(GetStorageOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.storage)
 				}
 
@@ -3420,7 +3420,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					});
 					let output = Self::get_storage_versioned(input)?;
 					Ok(GetStorageOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.storage)
 				}
 
@@ -3436,7 +3436,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					});
 					let output = Self::trace_block_versioned(input);
 					TraceBlockOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.traces
 				}
 
@@ -3454,7 +3454,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					});
 					let output = Self::trace_tx_versioned(input);
 					TraceTxOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.trace
 				}
 
@@ -3510,7 +3510,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					);
 					let output = Self::runtime_pallets_address_versioned(input);
 					RuntimePalletsAddressOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.runtime_pallets_address
 				}
 
@@ -3520,7 +3520,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let input = CodeVersionedInputPayload::from(CodeInputPayloadV1 { address });
 					let output = Self::code_versioned(input);
 					CodeOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.code
 				}
 
@@ -3530,7 +3530,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let input = AccountIdVersionedInputPayload::from(AccountIdInputPayloadV1 { address });
 					let output = Self::account_id_versioned(input);
 					AccountIdOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output")
+						.expect("v1 input must produce v1 output; qed")
 						.account_id
 				}
 
@@ -3542,7 +3542,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					);
 					let output = Self::new_balance_with_dust_versioned(input)?;
 					let output = NewBalanceWithDustOutputPayloadV1::try_from(output)
-						.expect("qed; v1 input must produce v1 output");
+						.expect("v1 input must produce v1 output; qed");
 					Ok((output.new_balance, output.dust))
 				}
 

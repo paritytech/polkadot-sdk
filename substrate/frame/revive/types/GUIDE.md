@@ -230,7 +230,7 @@ Let's assume that we want to version a runtime API function called `${function-n
       });
       let output = Self::function_name_versioned(input);
       FunctionNameOutputPayloadV1::try_from(output)
-          .expect("qed; v1 input must produce v1 output")
+          .expect("v1 input must produce v1 output; qed")
           .output
   }
   ```
