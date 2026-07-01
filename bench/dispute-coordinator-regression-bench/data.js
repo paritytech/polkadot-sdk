@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782926306392,
+  "lastUpdate": 1782932848345,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "812872a744b2666e5b75ff7b3dac1583c0d75e66",
-          "message": "[pallet-revive] Only fund new accounts with ED (#10233)\n\nfixes https://github.com/paritytech/contract-issues/issues/179\n\nIn case an account is created by transferring funds to it, and after\nthat a contract is deployed to that account, it will receive the\nexistential deposit twice. This can be done using create2.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>",
-          "timestamp": "2025-11-06T20:15:43Z",
-          "tree_id": "edb02837209e2c16049d7c675a7cc64b35c75f39",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/812872a744b2666e5b75ff7b3dac1583c0d75e66"
-        },
-        "date": 1762464245835,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026502808599999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008728452789999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005193690579999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025176666500000013,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b018f456e08863df9e2d0742e577ebbc29f0fb24",
+          "message": "[pallet-revive] Version Trivial Runtime API Functions (#12447)\n\n# Description\n\nThis PR versions all of the runtime API functions in pallet-revive which\nhave a trivial interface and therefore doesn't require us to add a lot\nof new wire types or move too many things around. Any runtime API\nfunction which required a complex wire type to be defined for it is\nintentionally not versioned in this PR.\n\nThe following checklist shows all of the runtime API functions we have\nin pallet-revive. The checked-off functions are the ones which have been\nversioned in this PR (plus the `trace_block` function which was\nversioned in #12244).\n\n- [ ] `eth_block`\n- [x] `eth_block_hash`\n- [x] `eth_receipt_data`\n- [x] `balance`\n- [x] `block_author`\n- [x] `block_gas_limit`\n- [x] `max_extrinsic_weight_in_gas`\n- [x] `gas_price`\n- [x] `nonce`\n- [x] `address`\n- [ ] `eth_transact`\n- [ ] `eth_transact_with_config`\n- [ ] `eth_estimate_gas`\n- [x] `eth_pre_dispatch_weight`\n- [ ] `call`\n- [ ] `instantiate`\n- [x] `upload_code`\n- [x] `get_storage_var_key`\n- [x] `get_storage`\n- [x] `trace_block`\n- [x] `trace_tx`\n- [ ] `trace_call`\n- [ ] `trace_call_with_config`\n- [x] `runtime_pallets_address`\n- [x] `code`\n- [x] `account_id`\n- [x] `new_balance_with_dust`\n\nMost notably is that all of the functions which make use of\n`GenericTransaction` or of `Block` have not been versioned yet. This is\nplanned in an upcoming PR.\n\nAlso, this PR adds a `GUIDE.md` file into the `pallet-revive-types`\ncrate which serves as a guide on how versioning can be done. This file\nwas written such that it can be consumed by us or by agents to do all of\nthe mechanical work needed to version any runtime API function. It\ncurrently contains a guide on how to version an unversioned runtime API\nfunction and I'm planning on adding a section on updating a versioned\nruntime API function in the future.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-01T17:09:47Z",
+          "tree_id": "e71c7e4a2c4b59da14f58ef78e17bb81128041f5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b018f456e08863df9e2d0742e577ebbc29f0fb24"
+        },
+        "date": 1782932820551,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002563142010000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010382290339999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009144226949999988,
             "unit": "seconds"
           }
         ]
