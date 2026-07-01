@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782915467701,
+  "lastUpdate": 1782926306392,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "eb53cda54c1384ce7cdd51d3a30772e1e95cb568",
-          "message": "Notify when there is a new best block (#10220)\n\n# Description\n\nModify the tx_notifier to send the block hash to the subscribers instead\nof all transactions hashes.\nModify the send_raw_transaction to look for the transaction hash in the\ntransactions field of the evm block.\n\nWe need this changes in anvil-polkadot:\n* https://github.com/paritytech/foundry-polkadot/pull/389\n* to be able to implement some RPCs like : send_transaction_sync and the\nfilters logic\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-06T15:00:23Z",
-          "tree_id": "53e26ba861384add37c4831a831f7af88485b4e4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eb53cda54c1384ce7cdd51d3a30772e1e95cb568"
-        },
-        "date": 1762446004799,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00268419788,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0052128572499999925,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008668620779999988,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009157574889999975,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mertwole@gmail.com",
+            "name": "mertwole",
+            "username": "mertwole"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a2ecbe9b700746b6a7b74ab14dc3d6c1d1173b9a",
+          "message": "[pallet-staking-async] fix `chill_inactive` benchmark (#12525)\n\nThe benchmark that was introduced in #12381 didn't hit the worst-case\nscenario, which is fixed in this PR\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-01T14:59:26Z",
+          "tree_id": "964ac72d2133669be73d050ca63c25c0d45e87d2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a2ecbe9b700746b6a7b74ab14dc3d6c1d1173b9a"
+        },
+        "date": 1782926279268,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00929106272999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01059942947,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025176666500000013,
             "unit": "seconds"
           }
         ]
