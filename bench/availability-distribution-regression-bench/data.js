@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782823048595,
+  "lastUpdate": 1782905724697,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "2ae82987ae22b5379c1a005f7fc25d2823d8d5e2",
-          "message": "pallet_revive: use real storage when building the eth genesis block (#10225)\n\nWhen building the eth genesis block, query the real storage items that\nstore the timestamp and block number instead of using the zeroed items.\n\nIf the chainspec does not customise these, they will remain zeroed.\n\nHowever, anvil does customise these if requested by the user.\nNeeded in order to merge\nhttps://github.com/paritytech/foundry-polkadot/pull/391",
-          "timestamp": "2025-11-07T08:31:30Z",
-          "tree_id": "33ec6d8c1ed692e00d06c081dfc8e5bee816aad6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ae82987ae22b5379c1a005f7fc25d2823d8d5e2"
-        },
-        "date": 1762509066503,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007262632519999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16056559413333343,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022502246880000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013178153100000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010490633113333304,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ceea8fe5116c2c721b3ee190016e98400296f4a3",
+          "message": "[Staking] Fix pendingRewards returning true for exposed validators with zero points (#12441)\n\ncloses #12435\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-07-01T08:51:09Z",
+          "tree_id": "3dc52ee8fb93900eed5317194d41cf2738b6df11",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ceea8fe5116c2c721b3ee190016e98400296f4a3"
+        },
+        "date": 1782905691864,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02396144082,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0075357670066666695,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15050677652000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010282959979999983,
             "unit": "seconds"
           }
         ]
