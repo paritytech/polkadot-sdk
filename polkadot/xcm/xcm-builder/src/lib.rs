@@ -30,8 +30,6 @@ mod tests;
 pub mod test_utils;
 
 mod asset_conversion;
-#[allow(deprecated)]
-pub use asset_conversion::ConvertedConcreteAssetId;
 pub use asset_conversion::{
 	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchClasslessInstances, MatchInClassInstances,
 	MatchedConvertedConcreteId,
@@ -54,10 +52,6 @@ pub use controller::{
 	Controller, ExecuteController, ExecuteControllerWeightInfo, QueryController,
 	QueryControllerWeightInfo, QueryHandler, SendController, SendControllerWeightInfo,
 };
-
-mod currency_adapter;
-#[allow(deprecated)]
-pub use currency_adapter::CurrencyAdapter;
 
 mod forwarder;
 pub use forwarder::TeleportForwarderForAccountId32;
