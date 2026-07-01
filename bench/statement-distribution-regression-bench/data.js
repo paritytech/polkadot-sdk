@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782823126649,
+  "lastUpdate": 1782905808387,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a4f007cd7c3643519de40ba33b6db08b38e1ac19",
-          "message": "[v2] pallet-revive: support uploading EVM bytecode via upload_code extrinsic. (#10193)\n\nFixes https://github.com/paritytech/contract-issues/issues/182\n\nAdd support for EVM bytecode to the upload_code extrinsic. \nTests in issue https://github.com/paritytech/contract-issues/issues/182\nsend hardhat_setCode, which uses revive's upload_code API; this change\nmakes that flow accept and store the EVM bytecode using upload_code\nextrinsic.\n\nThis PR deprecates PR:\nhttps://github.com/paritytech/polkadot-sdk/pull/10095\n\nComment explaining test configuration requirements:\nhttps://github.com/paritytech/polkadot-sdk/pull/10095#issuecomment-3456450460\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-06T09:20:31Z",
-          "tree_id": "a6ae4894fcd0a36f64c0c9e86cd5833069e5491a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a4f007cd7c3643519de40ba33b6db08b38e1ac19"
-        },
-        "date": 1762424796931,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94199999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04414888055199992,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035184536879999985,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03838116843399999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ceea8fe5116c2c721b3ee190016e98400296f4a3",
+          "message": "[Staking] Fix pendingRewards returning true for exposed validators with zero points (#12441)\n\ncloses #12435\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-07-01T08:51:09Z",
+          "tree_id": "3dc52ee8fb93900eed5317194d41cf2738b6df11",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ceea8fe5116c2c721b3ee190016e98400296f4a3"
+        },
+        "date": 1782905775802,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.23599999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0882970374299999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03829076497400001,
             "unit": "seconds"
           }
         ]
