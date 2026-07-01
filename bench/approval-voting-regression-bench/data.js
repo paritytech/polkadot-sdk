@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782926234573,
+  "lastUpdate": 1782932774048,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fe0113539b123b282654ddaa7c7d548a1b59a58b",
-          "message": "Upgrade kvdb-rocksdb (#10242)\n\nThis includes a fix for when we are writing a lot of state, e.g. after a\nwarp sync. In this case the rocksdb will compact its own db to improve\nread speed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-07T13:57:37Z",
-          "tree_id": "ff2f6f74917708c0ef3a8bf354f479adfeb09a1a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/fe0113539b123b282654ddaa7c7d548a1b59a58b"
-        },
-        "date": 1762528158258,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52943,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63628.12999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002047228,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.5301964373300025,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.564216096459997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.74995301844093,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.546680166379999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002047228,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.5164629427900005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00594679597,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001910184,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5685056548600014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9511910559599976,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4452330431699954,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001910184,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.005601227480000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b018f456e08863df9e2d0742e577ebbc29f0fb24",
+          "message": "[pallet-revive] Version Trivial Runtime API Functions (#12447)\n\n# Description\n\nThis PR versions all of the runtime API functions in pallet-revive which\nhave a trivial interface and therefore doesn't require us to add a lot\nof new wire types or move too many things around. Any runtime API\nfunction which required a complex wire type to be defined for it is\nintentionally not versioned in this PR.\n\nThe following checklist shows all of the runtime API functions we have\nin pallet-revive. The checked-off functions are the ones which have been\nversioned in this PR (plus the `trace_block` function which was\nversioned in #12244).\n\n- [ ] `eth_block`\n- [x] `eth_block_hash`\n- [x] `eth_receipt_data`\n- [x] `balance`\n- [x] `block_author`\n- [x] `block_gas_limit`\n- [x] `max_extrinsic_weight_in_gas`\n- [x] `gas_price`\n- [x] `nonce`\n- [x] `address`\n- [ ] `eth_transact`\n- [ ] `eth_transact_with_config`\n- [ ] `eth_estimate_gas`\n- [x] `eth_pre_dispatch_weight`\n- [ ] `call`\n- [ ] `instantiate`\n- [x] `upload_code`\n- [x] `get_storage_var_key`\n- [x] `get_storage`\n- [x] `trace_block`\n- [x] `trace_tx`\n- [ ] `trace_call`\n- [ ] `trace_call_with_config`\n- [x] `runtime_pallets_address`\n- [x] `code`\n- [x] `account_id`\n- [x] `new_balance_with_dust`\n\nMost notably is that all of the functions which make use of\n`GenericTransaction` or of `Block` have not been versioned yet. This is\nplanned in an upcoming PR.\n\nAlso, this PR adds a `GUIDE.md` file into the `pallet-revive-types`\ncrate which serves as a guide on how versioning can be done. This file\nwas written such that it can be consumed by us or by agents to do all of\nthe mechanical work needed to version any runtime API function. It\ncurrently contains a guide on how to version an unversioned runtime API\nfunction and I'm planning on adding a section on updating a versioned\nruntime API function in the future.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-01T17:09:47Z",
+          "tree_id": "e71c7e4a2c4b59da14f58ef78e17bb81128041f5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b018f456e08863df9e2d0742e577ebbc29f0fb24"
+        },
+        "date": 1782932746094,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63604.93999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0052284479399999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.815065822650001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.725270755759998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.40316552339,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.324632841222777,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002276029,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002276029,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001971065,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001971065,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.211387809779916,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7649717084899983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7434501126700006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7542354388799197,
             "unit": "seconds"
           }
         ]
