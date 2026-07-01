@@ -1494,7 +1494,7 @@ mod tests {
 
 			let mut keys = t.into_storages().top.keys().cloned().map(hex).collect::<Vec<String>>();
 
-			// following keys are not placed during `<RuntimeGenesisConfig as GenesisBuild>::build`
+			// following keys are not placed during `<RuntimeGenesisConfig as BuildGenesisConfig>::build`
 			// process, add them `keys` to assert against known keys.
 			keys.push(hex(b":code"));
 			keys.sort();
