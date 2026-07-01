@@ -25,15 +25,18 @@
 // benchmarks.
 #![cfg_attr(test, allow(dead_code))]
 
+#[cfg(any(revive_jit, feature = "runtime-benchmarks"))]
+use crate::vm::pvm::JitInstance;
 use crate::{
 	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
-	Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts, PristineCode, Weight,
+	Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts, Weight,
 	address::AddressMapper,
-	exec::{ExportedFunction, Key, PrecompileExt, Stack},
+	exec::{Executable, ExportedFunction, Key, PrecompileExt, Stack},
 	limits,
 	metering::{TransactionLimits, TransactionMeter},
+	pristine_code,
 	transient_storage::MeterEntry,
-	vm::pvm::{PreparedCall, Runtime},
+	vm::pvm::{InterpreterInstance, PreparedCall, Runtime},
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -179,16 +182,30 @@ where
 		ext
 	}
 
-	/// Prepare a call to the module.
-	pub fn prepare_call<'a>(
+	/// Prepare an interpreter-backed call to the module.
+	pub fn prepare_call_interpreter<'a>(
 		ext: &'a mut StackExt<'a, T>,
-		module: ContractBlob<T>,
+		module: &ContractBlob<T>,
 		input: Vec<u8>,
 		aux_data_size: u32,
-	) -> PreparedCall<'a, StackExt<'a, T>> {
-		module
-			.prepare_call(Runtime::new(ext, input), ExportedFunction::Call, aux_data_size)
-			.unwrap()
+	) -> PreparedCall<'a, StackExt<'a, T>, InterpreterInstance> {
+		PreparedCall::new_interpreter(
+			module.code().unwrap().to_vec(),
+			Runtime::new(ext, input),
+			ExportedFunction::Call,
+			aux_data_size,
+		)
+		.unwrap()
+	}
+
+	/// Prepare a JIT-backed call to the module.
+	#[cfg(any(revive_jit, feature = "runtime-benchmarks"))]
+	pub fn prepare_call_jit<'a>(
+		ext: &'a mut StackExt<'a, T>,
+		module: &ContractBlob<T>,
+		input: Vec<u8>,
+	) -> PreparedCall<'a, StackExt<'a, T>, JitInstance> {
+		PreparedCall::new_jit(module, Runtime::new(ext, input), ExportedFunction::Call).unwrap()
 	}
 
 	/// Add transient_storage
@@ -385,12 +402,12 @@ where
 
 	/// Returns `true` iff all storage entries related to code storage exist.
 	pub fn code_exists(hash: &sp_core::H256) -> bool {
-		<PristineCode<T>>::contains_key(hash) && <CodeInfoOf<T>>::contains_key(&hash)
+		pristine_code::exists::<T>(hash) && <CodeInfoOf<T>>::contains_key(&hash)
 	}
 
 	/// Returns `true` iff no storage entry related to code storage exist.
 	pub fn code_removed(hash: &sp_core::H256) -> bool {
-		!<PristineCode<T>>::contains_key(hash) && !<CodeInfoOf<T>>::contains_key(&hash)
+		!pristine_code::exists::<T>(hash) && !<CodeInfoOf<T>>::contains_key(&hash)
 	}
 }
 
@@ -459,31 +476,42 @@ impl VmBinaryModule {
 	/// All the code will be put into the "call" export. Hence this code can be safely used for the
 	/// `instantiate_with_code` benchmark where no compilation of any block should be measured.
 	pub fn with_num_instructions(num_instructions: u32) -> Self {
-		use alloc::{fmt::Write, string::ToString};
-		let mut text = "
-		pub @deploy:
-		ret
-		pub @call:
-		"
-		.to_string();
+		use polkavm_common::{
+			program::{Instruction, InstructionSetKind, Reg},
+			writer::ProgramBlobBuilder,
+		};
+
+		let ret = Instruction::jump_indirect(Reg::RA.into(), 0);
+		let seal_return_idx: i32 = 0;
+
+		let mut builder = ProgramBlobBuilder::new(InstructionSetKind::ReviveV1);
+		builder.add_import(b"seal_return");
+
+		let mut code = Vec::new();
+
+		// @deploy: ret (basic block 0)
+		code.push(ret);
+
+		// @call: (basic block 1)
 		for i in 0..num_instructions {
 			match i {
-				// return execution right away without breaking up basic block
-				// SENTINEL is a hard coded syscall that terminates execution
-				0 => writeln!(text, "ecalli {}", crate::SENTINEL).unwrap(),
+				// Return execution right away without breaking up basic block.
+				// Registers default to 0, so this calls seal_return(0, 0, 0)
+				// which returns an empty buffer with no revert.
+				0 => code.push(Instruction::ecalli(seal_return_idx)),
 				i if i % (limits::code::BASIC_BLOCK_SIZE - 1) == 0 => {
-					text.push_str("fallthrough\n")
+					code.push(Instruction::fallthrough)
 				},
-				_ => text.push_str("a0 = a1 + a2\n"),
+				_ => code.push(Instruction::add_64(Reg::A0.into(), Reg::A1.into(), Reg::A2.into())),
 			}
 		}
-		text.push_str("ret\n");
-		let code = polkavm_common::assembler::assemble(
-			Some(polkavm_common::program::InstructionSetKind::ReviveV1),
-			&text,
-		)
-		.unwrap();
-		Self::new(code)
+		code.push(ret);
+
+		builder.set_code(&code, &[]);
+		builder.add_export_by_basic_block(0, b"deploy");
+		builder.add_export_by_basic_block(1, b"call");
+
+		Self::new(builder.to_vec().expect("valid benchmark program; qed"))
 	}
 
 	/// A contract code that calls the "noop" host function in a loop depending in the input.

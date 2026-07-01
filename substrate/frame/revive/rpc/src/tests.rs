@@ -1223,13 +1223,16 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 		"Transaction should be successful"
 	);
 
-	// Step 5: Verify the code was actually uploaded
+	// Step 5: Verify the code was actually uploaded.
+	//
+	// pallet-revive doesn't declare `PristineCode` via `#[pallet::storage]`,
+	// so the subxt-generated typed storage accessor isn't available. Use the
+	// `pristine_code` runtime API instead.
 	let code_hash = H256(sp_io::hashing::keccak_256(&bytecode));
-	let query = subxt_client::storage().revive().pristine_code();
+	let payload = subxt_client::runtime_apis().revive_api().pristine_code(code_hash);
 	let block_hash: sp_core::H256 = get_substrate_block_hash(receipt.block_number).await?;
-	let at_block = node_client.at_block(block_hash).await?;
-	let stored_code = at_block.storage().try_fetch(query, (code_hash,)).await?;
-	let stored_code = stored_code.map(|v| v.decode()).transpose()?;
+	let stored_code =
+		node_client.at_block(block_hash).await?.runtime_apis().call(payload).await?;
 	assert!(stored_code.is_some(), "Code with hash {code_hash:?} should exist in storage");
 	assert_eq!(stored_code.unwrap(), bytecode, "Stored code should match the uploaded bytecode");
 

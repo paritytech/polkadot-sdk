@@ -67,6 +67,7 @@ sp-crypto-hashing = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-version = { workspace = true }
+sp-virtualization = { workspace = true }
 subxt-signer = { workspace = true, optional = true, features = [
 	"unstable-eth",
 ] }
@@ -77,6 +78,7 @@ array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 itertools = { workspace = true }
 pretty_assertions = { workspace = true }
+sc-virtualization = { workspace = true, default-features = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
@@ -142,6 +144,7 @@ std = [
 	"sp-runtime/std",
 	"sp-state-machine/std",
 	"sp-version/std",
+	"sp-virtualization/std",
 	"strum/std",
 	"subxt-signer",
 ]

@@ -22,14 +22,18 @@ pub mod evm;
 pub mod pvm;
 mod runtime_costs;
 
-pub use runtime_costs::RuntimeCosts;
+pub use runtime_costs::{
+	BackendCosts, EvmBackend, InterpreterBackend, PolkaVmWeightBackend, RuntimeCosts,
+};
 
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
-	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight, deposit_payment,
+	HoldReason, LOG_TARGET, Pallet, StorageDeposit, Weight, deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
 	metering::{ResourceMeter, State, Token},
+	pristine_code,
+	vm::pvm::PreparedCall,
 	weights::WeightInfo,
 };
 use alloc::vec::Vec;
@@ -39,18 +43,21 @@ use pallet_revive_uapi::ReturnErrorCode;
 use sp_core::{Get, H256};
 use sp_runtime::{DispatchError, Saturating, traits::BadOrigin};
 
+#[cfg(feature = "runtime-benchmarks")]
+pub use pvm::with_jit_override;
+
 /// Validated Vm module ready for execution.
-/// This data structure is immutable once created and stored.
-#[derive(Encode, Decode, scale_info::TypeInfo)]
-#[codec(mel_bound())]
-#[scale_info(skip_type_params(T))]
+///
+/// This data structure is immutable once created and stored. `code` is
+/// `Some(bytes)` on the fresh-upload, interpreter-load and EVM paths and
+/// `None` on the JIT load-from-storage path, where `PreparedCall::new_jit`
+/// loads `PristineCode` in the runtime only when the per-block compile
+/// cache misses. The backend (interpreter vs host JIT) is consulted at
+/// execute time via `pvm::is_jit`, not encoded here.
 pub struct ContractBlob<T: Config> {
-	code: Vec<u8>,
-	// This isn't needed for contract execution and is not stored alongside it.
-	#[codec(skip)]
+	code: Option<Vec<u8>>,
 	code_info: CodeInfo<T>,
 	// This is for not calculating the hash every time we need it.
-	#[codec(skip)]
 	code_hash: H256,
 }
 
@@ -109,10 +116,10 @@ pub fn calculate_code_deposit<T: Config>(code_len: u32) -> BalanceOf<T> {
 
 impl ExportedFunction {
 	/// The vm export name for the function.
-	fn identifier(&self) -> &str {
+	fn identifier(&self) -> &[u8] {
 		match self {
-			Self::Constructor => "deploy",
-			Self::Call => "call",
+			Self::Constructor => b"deploy",
+			Self::Call => b"call",
 		}
 	}
 }
@@ -171,7 +178,7 @@ impl<T: Config> ContractBlob<T> {
 					code_info.deposit,
 				)?;
 				*existing = None;
-				<PristineCode<T>>::remove(&code_hash);
+				pristine_code::kill::<T>(&code_hash);
 				Ok(())
 			} else {
 				Err(<Error<T>>::CodeNotFound.into())
@@ -212,7 +219,10 @@ impl<T: Config> ContractBlob<T> {
 
 					meter.charge_deposit(&StorageDeposit::Charge(deposit))?;
 
-					<PristineCode<T>>::insert(code_hash, &self.code.to_vec());
+					// `store_code` only ever runs against freshly-uploaded
+					// contracts, so the blob always carries the raw bytes here.
+					let bytes = self.code.as_deref().ok_or(<Error<T>>::CodeRejected)?;
+					pristine_code::insert::<T>(&code_hash, bytes);
 					*stored_code_info = Some(self.code_info.clone());
 					Ok(deposit)
 				},
@@ -308,7 +318,7 @@ impl<T: Config> CodeInfo<T> {
 				)?;
 
 				*existing = None;
-				<PristineCode<T>>::remove(&code_hash);
+				pristine_code::kill::<T>(&code_hash);
 
 				Ok(CodeRemoved::Yes)
 			} else {
@@ -328,9 +338,15 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		meter: &mut ResourceMeter<T, S>,
 	) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
+
+		#[cfg(any(revive_jit, feature = "runtime-benchmarks"))]
+		if pvm::is_jit() && code_info.is_pvm() {
+			return Ok(Self { code: None, code_info, code_hash });
+		}
+
 		meter.charge_weight_token(CodeLoadToken::from_code_info(&code_info))?;
-		let code = <PristineCode<T>>::get(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		Ok(Self { code, code_info, code_hash })
+		let code = pristine_code::get::<T>(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
+		Ok(Self { code: Some(code), code_info, code_hash })
 	}
 
 	fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
@@ -344,20 +360,32 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		input_data: Vec<u8>,
 	) -> ExecResult {
 		if self.code_info().is_pvm() {
-			let prepared_call =
-				self.prepare_call(pvm::Runtime::new(ext, input_data), function, 0)?;
+			#[cfg(any(revive_jit, feature = "runtime-benchmarks"))]
+			if pvm::is_jit() {
+				let prepared_call =
+					PreparedCall::new_jit(&self, pvm::Runtime::new(ext, input_data), function)?;
+				return prepared_call.call();
+			}
+			let code = self.code.ok_or(<Error<T>>::CodeRejected)?;
+			let prepared_call = PreparedCall::new_interpreter(
+				code,
+				pvm::Runtime::new(ext, input_data),
+				function,
+				0,
+			)?;
 			prepared_call.call()
 		} else if T::AllowEVMBytecode::get() {
 			use revm::bytecode::Bytecode;
-			let bytecode = Bytecode::new_raw(self.code.into());
+			let bytes = self.code.ok_or(<Error<T>>::CodeRejected)?;
+			let bytecode = Bytecode::new_raw(bytes.into());
 			evm::call(bytecode, ext, input_data)
 		} else {
 			Err(Error::<T>::CodeRejected.into())
 		}
 	}
 
-	fn code(&self) -> &[u8] {
-		self.code.as_ref()
+	fn code(&self) -> Option<&[u8]> {
+		self.code.as_deref()
 	}
 
 	fn code_hash(&self) -> &H256 {

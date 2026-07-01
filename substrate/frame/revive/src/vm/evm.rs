@@ -92,7 +92,7 @@ impl<T: Config> ContractBlob<T> {
 
 		// Code hash is not relevant for init code, since it is not stored on-chain.
 		let code_hash = H256::default();
-		Ok(ContractBlob { code, code_info, code_hash })
+		Ok(ContractBlob { code: Some(code), code_info, code_hash })
 	}
 
 	/// Create a new contract from EVM runtime code.
@@ -141,7 +141,7 @@ impl<T: Config> ContractBlob<T> {
 		})?;
 
 		let code_hash = H256(sp_io::hashing::keccak_256(&code));
-		Ok(ContractBlob { code, code_info, code_hash })
+		Ok(ContractBlob { code: Some(code), code_info, code_hash })
 	}
 }
 
