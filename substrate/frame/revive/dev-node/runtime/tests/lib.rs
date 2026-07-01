@@ -27,8 +27,11 @@ use polkadot_sdk::{
 	pallet_revive::{
 		pallet_revive_types::runtime_api::ReviveRuntimeApiVersionDeclarations,
 		runtime_decl_for_revive_api::ReviveApi,
-	}, polkadot_sdk_frame::runtime::apis::runtime_decl_for_core::runtime_decl_for_metadata::runtime_decl_for_metadata::runtime_decl_for_metadata::__private::metadata::v16::ItemDeprecationInfo, sp_io::TestExternalities, sp_metadata_ir::frame_metadata::{
-		RuntimeMetadata, RuntimeMetadataPrefixed, v16::{RuntimeApiMetadata, RuntimeMetadataV16},
+	},
+	sp_io::TestExternalities,
+	sp_metadata_ir::frame_metadata::{
+		v16::{ItemDeprecationInfo, RuntimeApiMetadata, RuntimeMetadataV16},
+		RuntimeMetadata, RuntimeMetadataPrefixed,
 	},
 };
 use scale_info::{form::PortableForm, Field, TypeDef};
