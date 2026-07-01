@@ -419,6 +419,9 @@ async fn distribute_segment_with_receipts(
 	virtual_overseer: &mut VirtualOverseer,
 	expected_connected: Vec<AuthorityDiscoveryId>,
 	items: Vec<(CandidateReceipt, PoV, Hash)>,
+	scheduling_parent: Hash,
+	core_index: CoreIndex,
+	candidates_descriptor_version: CandidateDescriptorVersion,
 ) -> Vec<DistributeCollation> {
 	let candidates: Vec<SegmentEntry> = items
 		.iter()
@@ -428,12 +431,19 @@ async fn distribute_segment_with_receipts(
 			pov: pov.clone(),
 			parent_head_data: HeadData(vec![1, 2, 3]),
 			result_sender: None,
-			core_index: receipt.descriptor.core_index().unwrap(),
 		})
 		.collect();
 	let candidates = BoundedVec::try_from(candidates).unwrap();
-	overseer_send(virtual_overseer, CollatorProtocolMessage::DistributeSegment { candidates })
-		.await;
+	overseer_send(
+		virtual_overseer,
+		CollatorProtocolMessage::DistributeSegment {
+			scheduling_parent,
+			core_index,
+			candidates_descriptor_version,
+			candidates,
+		},
+	)
+	.await;
 	check_connected_to_validators(virtual_overseer, expected_connected).await;
 	items
 		.into_iter()
@@ -470,7 +480,15 @@ async fn distribute_segment(
 		.build_v3();
 		items.push((candidate, pov_block, parent_head_data_hash));
 	}
-	distribute_segment_with_receipts(virtual_overseer, expected_connected, items).await
+	distribute_segment_with_receipts(
+		virtual_overseer,
+		expected_connected,
+		items,
+		scheduling_parent,
+		core_index,
+		CandidateDescriptorVersion::V3,
+	)
+	.await
 }
 
 /// Connect a peer

@@ -30,16 +30,17 @@ use futures::Future;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use polkadot_primitives::{
-	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair,
-	CommittedCandidateReceiptError, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	CompactStatement, CoreIndex, EncodeAs, Hash, HashT, HeadData, Id as ParaId,
-	PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
-	ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
+	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateDescriptorVersion, CandidateHash,
+	ChunkIndex, CollatorPair, CommittedCandidateReceiptError,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CompactStatement, CoreIndex,
+	EncodeAs, Hash, HashT, HeadData, Id as ParaId, PersistedValidationData, SessionIndex, Signed,
+	UncheckedSigned, ValidationCode, ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 pub use sp_consensus_babe::{
 	AllowedSlots as BabeAllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
 	Randomness as BabeRandomness,
 };
+use sp_runtime::{self, traits::ConstU32};
 
 pub use polkadot_parachain_primitives::primitives::{
 	BlockData, HorizontalMessages, UpwardMessages,
@@ -68,6 +69,12 @@ pub const NODE_VERSION: &'static str = "1.22.3";
 const MERKLE_NODE_MAX_SIZE: usize = 512 + 100;
 // 16-ary Merkle Prefix Trie for 32-bit ValidatorIndex has depth at most 8.
 const MERKLE_PROOF_MAX_DEPTH: usize = 8;
+
+/// Hard upper bound on `AdvertiseSegment::candidates`.
+/// The bound is enforced by SCALE decoding via `BoundedVec`,
+/// so oversized advertisements are rejected at parse time
+/// without allocation.
+pub const MAX_SEGMENT_LEN: u32 = 100;
 
 /// The bomb limit for decompressing code blobs.
 #[deprecated(
@@ -592,17 +599,20 @@ pub struct SegmentCollation {
 /// segment (relay parent, collation payload, validation data, etc.).
 #[derive(Debug)]
 pub struct SubmitSegmentParams {
-	/// The scheduling parent for V3 candidate descriptors, shared by all collations in the
-	/// segment. If set, every candidate descriptor will use this as the scheduling parent
-	/// (creating V3 descriptors). If `None`, each collation's `relay_parent` is used (V2
-	/// descriptors).
+	/// The scheduling parent shared by all collations in the segment.
 	///
-	/// WARNING: Should only be set if the `CandidateReceiptV3` node feature is set.
-	pub scheduling_parent: Option<Hash>,
+	/// For V2 segments this is the collations' relay parent.For V3 segments it
+	/// is the explicit scheduling parent written into every candidate descriptor.
+	///
+	/// WARNING: A scheduling parent distinct from the relay parent (i.e. a V3 segment)
+	/// requires the `CandidateReceiptV3` node feature to be set.
+	pub scheduling_parent: Hash,
 	/// The core index on which the resulting candidates should be backed.
 	pub core_index: CoreIndex,
+	/// Version of the candidates in the segment
+	pub candidates_descriptor_version: CandidateDescriptorVersion,
 	/// The collations in this segment, in the order they should be submitted.
-	pub collations: Vec<SegmentCollation>,
+	pub collations: sp_runtime::BoundedVec<SegmentCollation, ConstU32<MAX_SEGMENT_LEN>>,
 }
 
 /// This is the data we keep available for each candidate included in the relay chain.

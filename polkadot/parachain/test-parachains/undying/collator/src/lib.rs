@@ -26,9 +26,9 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, SegmentEntry};
 use polkadot_primitives::{
-	CandidateCommitments, CandidateDescriptorV2, CandidateReceiptV2, ClaimQueueOffset, CollatorId,
-	CollatorPair, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
-	DEFAULT_CLAIM_QUEUE_OFFSET,
+	CandidateCommitments, CandidateDescriptorV2, CandidateDescriptorVersion, CandidateReceiptV2,
+	ClaimQueueOffset, CollatorId, CollatorPair, CoreIndex, Hash, Id as ParaId,
+	OccupiedCoreAssumption, DEFAULT_CLAIM_QUEUE_OFFSET,
 };
 use polkadot_service::{Handle, NewFull, ParachainHost};
 use sc_client_api::client::BlockchainEvents;
@@ -642,7 +642,12 @@ impl Collator {
 						.expect("len 1 should fit");
 						overseer_handle
 							.send_msg(
-								CollatorProtocolMessage::DistributeSegment { candidates },
+								CollatorProtocolMessage::DistributeSegment {
+									scheduling_parent: relay_parent,
+									core_index: *core_index,
+									candidates_descriptor_version: CandidateDescriptorVersion::V2,
+									candidates,
+								},
 								"Collator",
 							)
 							.await;

@@ -42,12 +42,13 @@ use cumulus_primitives_core::{
 	CollectCollationInfo, KeyToIncludeInRelayProof, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
-use sp_consensus::Environment;
-
-use polkadot_node_primitives::SubmitCollationParams;
+use polkadot_node_primitives::{SegmentCollation, SubmitSegmentParams};
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
+use polkadot_primitives::{
+	CandidateDescriptorVersion, CollatorPair, Id as ParaId, OccupiedCoreAssumption,
+};
+use sp_consensus::Environment;
 
 use crate::{
 	collator as collator_util,
@@ -67,7 +68,7 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, Member},
-	Saturating,
+	BoundedVec, Saturating,
 };
 use sp_timestamp::Timestamp;
 use std::{path::PathBuf, sync::Arc, time::Duration};
@@ -527,18 +528,20 @@ where
 						// import notification.
 						overseer_handle
 							.send_msg(
-								CollationGenerationMessage::SubmitCollations(
-									vec![SubmitCollationParams {
+								CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+									scheduling_parent: relay_parent,
+									core_index,
+									candidates_descriptor_version: CandidateDescriptorVersion::V2,
+									collations: BoundedVec::try_from(vec![SegmentCollation {
 										relay_parent,
 										collation,
 										validation_code_hash,
 										result_sender: None,
-										core_index,
-										scheduling_parent: None,
 										session_index,
 										validation_data,
-									}],
-								),
+									}])
+									.expect("One element segment should fit;qed!"),
+								}),
 								"SubmitCollation",
 							)
 							.await;
