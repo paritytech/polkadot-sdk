@@ -58,9 +58,8 @@ use schnellru::{ByLength, LruMap};
 use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
-	collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
+	collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
 	sync::Arc,
-	time::Instant,
 };
 
 mod requests;
@@ -86,51 +85,24 @@ pub enum AdvertisementError {
 /// docs for why this legacy path exists and why one is enough.
 const MAX_BLOCKED_COLLATIONS: usize = 1;
 
-/// Tracks which collations the validator is fetching and which it already holds, and decides
-/// what to fetch next.
+/// Decides which advertised collations to fetch, drives those fetches, and tracks what has
+/// been fetched so far.
 ///
-/// # What to fetch
+/// State is organised per **scheduling parent**:
+/// each carries our group's assigned core, the claim-queue slots on that core, the peer
+/// advertisements seen, and the collations already fetched there ([`PerSchedulingParent`]).
 ///
-/// Several peers may advertise a collation for the same claim-queue slot. The differentiator
-/// for *whom* to fetch from is peer reputation (highest first), bounded by a per-peer
-/// advertisement limit. It is deliberately not the candidate's identity: a candidate hash is
-/// only trustworthy once the collation has been fetched and verified, so it can't drive the
-/// decision of what to fetch.
+/// The fetch decision keys on **peer reputation**, not candidate identity: for a free
+/// claim-queue slot we fetch from the highest-rep peer advertising it. A candidate hash means
+/// nothing until the collation is fetched and verified, so it can't drive what to fetch — it
+/// only becomes authoritative *after* the fetch.
 ///
-/// Collapsing several advertisements of the same collation into a single in-flight fetch is a
-/// best-effort optimisation for honest peers — **no correctness property is derived from it**.
-/// It can legitimately fail (e.g. peers advertising the same candidate over different protocol
-/// versions, or a peer misstating fields not bound by the candidate hash); the only
-/// consequence is a redundant fetch, which is acceptable. Correctness — slot accounting and
-/// slash/credit attribution — comes entirely from the *post-fetch* path keyed by the verified
-/// candidate hash (see below), never from this dedup.
-///
-/// (The right dedup key would be the candidate's claim-queue position, which the current
-/// protocol does not advertise — so a candidate is eligible at every reachable position and we
-/// approximate with its hash. A future protocol version carrying the position, and/or assuming
-/// at most one collation per scheduling-parent-and-core, would let this be exact.)
-///
-/// # What we already hold
-///
-/// A fetched collation is recorded as occupying a claim-queue slot (`fetched_collations`) only
-/// once it is **verified**: it is the advertised candidate and its persisted validation data
-/// checks out. From that point a re-fetch is pointless, so we record it and move on, also
-/// remembering which peer served it (to credit it on inclusion, or slash it if the collation
-/// turns out invalid).
-///
-/// Recording only on verification is what keeps slot accounting honest:
-/// - A fetch that fails verification records nothing, so it cannot overwrite or release the slot of
-///   a *different* peer's valid fetch of the same candidate (which would let a peer misattribute or
-///   drop a slot it doesn't own).
-/// - A fetch that *cannot* be verified — its parent isn't seconded yet so its validation data can't
-///   be reconstructed — is "blocked", parked for retry but recording no slot. It must not consume
-///   capacity: it is unverified and may never become seconding-able, so counting it would let a
-///   peer occupy capacity it never fills. Parking is bounded and a legacy path; see
-///   `blocked_from_seconding`.
-///
-/// Slot accounting is a local optimisation to avoid pointless fetches and seconding attempts;
-/// the authority on claim-queue capacity is the backing subsystem, which rejects seconds that
-/// don't fit.
+/// That post-fetch, verified state is the single source of truth for both slot accounting
+/// (which slots are consumed) and slash/credit attribution (which peer served the candidate).
+/// Collapsing duplicate advertisements into one in-flight fetch is a best-effort optimisation
+/// on top; correctness never depends on it (worst case: a redundant fetch). See
+/// [`PerSchedulingParent::fetched_collations`] for the verification-gated recording rule and
+/// [`Self::blocked_from_seconding`] for collations that fetch but can't yet be verified.
 pub struct CollationManager {
 	// The backing implicit view, which is used to track the active leaves and their implicit
 	// ancestors.
@@ -143,21 +115,20 @@ pub struct CollationManager {
 	// (`unfulfilled_claim_queue_entries`, `slots_available`).
 	leaf_claim_queues: HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 
-	// Fetched collations we cannot second yet because their parent head data is unknown:
-	// prospective-parachains can't supply it (the parent isn't seconded) and the collator did
-	// not include it in the fetch response. Keyed by `(para_id, parent_head_data_hash)` so that
-	// seconding a candidate with that output head unblocks them.
+	// Fetched collations we can't second yet because we don't have their parent's head data.
+	// Seconding needs it; normally prospective-parachains supplies it, but it can't until the
+	// parent is itself seconded. We park the collation here, keyed by the parent it waits on
+	// (`(para_id, parent_head_data_hash)`), and release it once a candidate with that output
+	// head gets seconded.
 	//
-	// Legacy path: collators that send the parent head data inline (`CollationWithParentHeadData`,
-	// required for and shipped with elastic scaling) never end up here — we can second them
-	// straight away. This map only serves older collators that omit it; it can be removed once
-	// support for those is dropped.
+	// Only pre-elastic-scaling collators reach this map. Elastic-scaling collators send the
+	// parent head data inline (`CollationWithParentHeadData`), so we second them immediately.
+	// Remove this map once those older collators are unsupported.
 	//
-	// Bounded to `MAX_BLOCKED_COLLATIONS` total (see the parking site for why blocked collations
-	// must not count towards claim-queue capacity). One is enough: such a collator is
-	// pre-elastic-scaling, i.e. one candidate per relay parent (~6s apart), so a second blocked
-	// collation for the same chain only arrives long after the first has unblocked ...
-	// assuming normal operation.
+	// Bounded to `MAX_BLOCKED_COLLATIONS` total; parked collations must not count towards
+	// claim-queue capacity (see the parking site). One suffices: a pre-elastic-scaling collator
+	// produces one candidate per relay parent (~6s apart), so under normal operation the first
+	// parked collation unblocks long before a second would arrive.
 	blocked_from_seconding: HashMap<BlockedCollationId, Vec<FetchedCollation>>,
 
 	// Information kept per scheduling parent.
@@ -172,7 +143,7 @@ pub struct CollationManager {
 	// Key store.
 	keystore: KeystorePtr,
 	leaf_scheduling_info: HashMap<Hash, LeafSchedulingInfo>,
-	// Clock for time reads (V3 scheduling-parent slot validation, advertisement timestamps).
+	// Clock for time reads (V3 scheduling-parent slot validation).
 	clock: Arc<dyn Clock>,
 	// Rate-limiting state for the (potentially frequent) collation-fetch error warnings, so a
 	// flaky network or a buggy `Canceled` loop can't flood the logs.
@@ -277,7 +248,7 @@ impl CollationManager {
 					"Scheduling parent no longer reachable from any leaf; dropping it and cancelling its in-flight fetches",
 				);
 
-				for (peer_adv, _) in per_sp.all_advertisements() {
+				for peer_adv in per_sp.all_advertisements() {
 					self.fetching.cancel(&peer_adv.advertisement);
 				}
 				None
@@ -384,9 +355,12 @@ impl CollationManager {
 		sender: &mut Sender,
 		peer_adv: PeerAdvertisement,
 	) -> std::result::Result<(), AdvertisementError> {
-		let Advertisement { scheduling_parent, para_id, prospective_candidate } =
-			peer_adv.advertisement;
-		let advertised_descriptor_version = peer_adv.advertised_descriptor_version;
+		let Advertisement {
+			scheduling_parent,
+			para_id,
+			prospective_candidate,
+			advertised_descriptor_version,
+		} = peer_adv.advertisement;
 
 		// V1 advertisements are only allowed on active leaves.
 		if prospective_candidate.is_none() && !self.implicit_view.contains_leaf(&scheduling_parent)
@@ -421,7 +395,7 @@ impl CollationManager {
 			return Err(AdvertisementError::BlockedByBacking);
 		}
 
-		per_sp.add_advertisement(peer_adv, self.clock.now());
+		per_sp.add_advertisement(peer_adv);
 
 		Ok(())
 	}
@@ -816,7 +790,7 @@ impl CollationManager {
 		&'a self,
 		sp: Hash,
 		para_id: ParaId,
-	) -> impl Iterator<Item = (PeerAdvertisement, &'a Instant)> {
+	) -> impl Iterator<Item = PeerAdvertisement> + 'a {
 		// `Either` unifies the two iterator types into one `impl Iterator`: empty for an
 		// untracked SP, the filter chain otherwise.
 		let per_sp = match self.per_scheduling_parent.get(&sp) {
@@ -838,7 +812,7 @@ impl CollationManager {
 			per_sp.fetched_collations.values().any(|info| info.para_id == para_id);
 
 		let fetching = &self.fetching;
-		Either::Right(per_sp.all_advertisements().filter(move |(peer_adv, _)| {
+		Either::Right(per_sp.all_advertisements().filter(move |peer_adv| {
 			if peer_adv.para_id() != para_id {
 				return false;
 			}
@@ -854,8 +828,7 @@ impl CollationManager {
 		}))
 	}
 
-	/// Picks the best (= highest-scored, earliest, in that order) peer-advertisement for
-	/// `para_id` among `candidate_sps`.
+	/// Picks the best (= highest-scored) peer-advertisement for `para_id` among `candidate_sps`.
 	///
 	/// When several peers advertise the same `Advertisement`, this is also where reputation
 	/// arbitration happens: each `PeerAdvertisement` contributes one entry to the candidate
@@ -868,11 +841,10 @@ impl CollationManager {
 	) -> Option<PeerAdvertisement> {
 		let advertisements: BTreeSet<AcceptedAdvertisement> = candidate_sps
 			.flat_map(|sp| {
-				self.eligible_advertisements(sp, para_id).filter_map(|(peer_adv, timestamp)| {
+				self.eligible_advertisements(sp, para_id).filter_map(|peer_adv| {
 					Some(AcceptedAdvertisement {
 						score: connected_rep_query_fn(&peer_adv.peer_id, &peer_adv.para_id())?,
 						peer_adv,
-						timestamp,
 					})
 				})
 			})
@@ -1075,7 +1047,7 @@ impl CollationManager {
 	pub fn advertisements(&self) -> BTreeSet<PeerAdvertisement> {
 		self.per_scheduling_parent
 			.values()
-			.flat_map(|per_sp| per_sp.all_advertisements().map(|(peer_adv, _)| peer_adv))
+			.flat_map(|per_sp| per_sp.all_advertisements())
 			.collect()
 	}
 }
@@ -1150,7 +1122,7 @@ impl FetchedCollation {
 		if advertised.scheduling_parent != candidate_receipt.descriptor.scheduling_parent() {
 			return Err(SecondingError::SchedulingParentMismatch);
 		}
-		if let Some(advertised_version) = &peer_adv.advertised_descriptor_version {
+		if let Some(advertised_version) = &advertised.advertised_descriptor_version {
 			let fetched_version = candidate_receipt.descriptor().version();
 			if advertised_version != &fetched_version {
 				return Err(SecondingError::DescriptorVersionMismatch(
@@ -1167,26 +1139,24 @@ impl FetchedCollation {
 /// A peer-advertisement paired with the per-(peer, para) score used for fetch arbitration.
 /// Supports ordering.
 ///
-/// Ordering priority: score (descending), then timestamp (ascending), then peer-advertisement
-/// as tiebreaker. Higher scores come first so that `BTreeSet::first()` returns the best.
+/// Ordering priority: score (descending), then peer-advertisement as a deterministic
+/// tiebreaker. Higher scores come first so that `BTreeSet::first()` returns the best.
 #[derive(PartialEq, Eq)]
-struct AcceptedAdvertisement<'a> {
+struct AcceptedAdvertisement {
 	peer_adv: PeerAdvertisement,
 	score: Score,
-	timestamp: &'a Instant,
 }
 
-impl<'a> Ord for AcceptedAdvertisement<'a> {
+impl Ord for AcceptedAdvertisement {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
 		other
 			.score
 			.cmp(&self.score) // Descending: higher score comes first
-			.then_with(|| self.timestamp.cmp(other.timestamp)) // Ascending: earlier timestamp comes first
 			.then_with(|| self.peer_adv.cmp(&other.peer_adv))
 	}
 }
 
-impl<'a> PartialOrd for AcceptedAdvertisement<'a> {
+impl PartialOrd for AcceptedAdvertisement {
 	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
 		Some(self.cmp(other))
 	}
@@ -1273,18 +1243,12 @@ impl PerSchedulingParent {
 		}
 	}
 
-	/// Every advertisement at this scheduling parent paired with the time it arrived.
-	fn all_advertisements<'a>(&'a self) -> impl Iterator<Item = (PeerAdvertisement, &'a Instant)> {
+	/// Every advertisement at this scheduling parent.
+	fn all_advertisements(&self) -> impl Iterator<Item = PeerAdvertisement> + '_ {
 		self.peer_advertisements.iter().flat_map(|(peer_id, list)| {
-			list.advertisements.iter().map(move |(advertisement, entry)| {
-				(
-					PeerAdvertisement {
-						advertisement: *advertisement,
-						peer_id: *peer_id,
-						advertised_descriptor_version: entry.advertised_descriptor_version,
-					},
-					&entry.timestamp,
-				)
+			list.advertisements.iter().map(move |advertisement| PeerAdvertisement {
+				advertisement: *advertisement,
+				peer_id: *peer_id,
 			})
 		})
 	}
@@ -1305,25 +1269,19 @@ impl PerSchedulingParent {
 			return Err(AdvertisementError::PeerLimitReached);
 		}
 
-		if peer_advertisements.advertisements.contains_key(&peer_adv.advertisement) {
+		if peer_advertisements.advertisements.contains(&peer_adv.advertisement) {
 			return Err(AdvertisementError::Duplicate);
 		}
 
 		Ok(())
 	}
 
-	fn add_advertisement(&mut self, peer_adv: PeerAdvertisement, now: Instant) {
+	fn add_advertisement(&mut self, peer_adv: PeerAdvertisement) {
 		self.peer_advertisements
 			.entry(peer_adv.peer_id)
 			.or_default()
 			.advertisements
-			.insert(
-				peer_adv.advertisement,
-				AdvertisementEntry {
-					timestamp: now,
-					advertised_descriptor_version: peer_adv.advertised_descriptor_version,
-				},
-			);
+			.insert(peer_adv.advertisement);
 	}
 
 	fn remove_advertisement(&mut self, peer_adv: &PeerAdvertisement) {
@@ -1337,15 +1295,6 @@ impl PerSchedulingParent {
 	}
 }
 
-/// Stored entry for a kept advertisement: arrival time plus the descriptor version asserted by
-/// the carrier (`None` for V1/V2-protocol carriers, `Some(_)` for V3-protocol carriers). Kept
-/// out of the [`Advertisement`] key on purpose — see [`PeerAdvertisement`].
-#[derive(Copy, Clone)]
-struct AdvertisementEntry {
-	timestamp: Instant,
-	advertised_descriptor_version: Option<CandidateDescriptorVersion>,
-}
-
 /// One peer's advertisement state at a single SP.
 ///
 /// `accept_attempts` includes rejected attempts so a peer can't spam past its cap with bad
@@ -1353,7 +1302,7 @@ struct AdvertisementEntry {
 /// `advertisements` but still bumps `accept_attempts`.
 #[derive(Default)]
 struct PeerAdvertisementState {
-	advertisements: HashMap<Advertisement, AdvertisementEntry>,
+	advertisements: HashSet<Advertisement>,
 	accept_attempts: usize,
 }
 
@@ -1540,15 +1489,13 @@ fn process_collation_fetch_result(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::{sync::Arc, time::Duration};
+	use std::sync::Arc;
 
 	#[test]
 	fn accepted_advertisement_ordering() {
 		use std::cmp::Ordering;
 
 		let score = |val: u16| Score::new(val);
-		let now = Instant::now();
-		let later = now + Duration::from_secs(1);
 
 		let scheduling_parent = Hash::random();
 		let para_id = ParaId::new(1);
@@ -1558,9 +1505,9 @@ mod tests {
 				scheduling_parent,
 				para_id,
 				prospective_candidate: None,
+				advertised_descriptor_version: None,
 			},
 			peer_id,
-			advertised_descriptor_version: None,
 		};
 
 		let peer_1 = PeerId::random();
@@ -1571,32 +1518,17 @@ mod tests {
 
 		// Different scores - higher score comes first (is "less").
 		{
-			let high_score =
-				AcceptedAdvertisement { peer_adv: adv_1, score: score(100), timestamp: &now };
-			let low_score =
-				AcceptedAdvertisement { peer_adv: adv_2, score: score(50), timestamp: &now };
+			let high_score = AcceptedAdvertisement { peer_adv: adv_1, score: score(100) };
+			let low_score = AcceptedAdvertisement { peer_adv: adv_2, score: score(50) };
 
 			assert_eq!(high_score.cmp(&low_score), Ordering::Less,);
 			assert_eq!(low_score.cmp(&high_score), Ordering::Greater);
 		}
 
-		// Same score, different timestamps - earlier timestamp comes first.
+		// Same score, different peers - falls back to peer-advertisement comparison.
 		{
-			let earlier =
-				AcceptedAdvertisement { peer_adv: adv_1, score: score(100), timestamp: &now };
-			let later =
-				AcceptedAdvertisement { peer_adv: adv_2, score: score(100), timestamp: &later };
-
-			assert_eq!(earlier.cmp(&later), Ordering::Less);
-			assert_eq!(later.cmp(&earlier), Ordering::Greater);
-		}
-
-		// Same score, same timestamp - falls back to peer-advertisement comparison.
-		{
-			let acc_1 =
-				AcceptedAdvertisement { peer_adv: adv_1, score: score(100), timestamp: &now };
-			let acc_2 =
-				AcceptedAdvertisement { peer_adv: adv_2, score: score(100), timestamp: &now };
+			let acc_1 = AcceptedAdvertisement { peer_adv: adv_1, score: score(100) };
+			let acc_2 = AcceptedAdvertisement { peer_adv: adv_2, score: score(100) };
 
 			// Result depends on peer-advertisement Ord, but must be consistent and not Equal.
 			let cmp_result = acc_1.cmp(&acc_2);
@@ -1604,12 +1536,10 @@ mod tests {
 			assert_eq!(acc_2.cmp(&acc_1), cmp_result.reverse());
 		}
 
-		// Same peer-advertisement, same score, same timestamp - should be Equal.
+		// Same peer-advertisement, same score - should be Equal.
 		{
-			let acc_1 =
-				AcceptedAdvertisement { peer_adv: adv_1, score: score(100), timestamp: &now };
-			let acc_2 =
-				AcceptedAdvertisement { peer_adv: adv_1, score: score(100), timestamp: &now };
+			let acc_1 = AcceptedAdvertisement { peer_adv: adv_1, score: score(100) };
+			let acc_2 = AcceptedAdvertisement { peer_adv: adv_1, score: score(100) };
 
 			assert_eq!(acc_1.cmp(&acc_2), Ordering::Equal);
 		}
@@ -1620,33 +1550,16 @@ mod tests {
 			let adv_4 = make_adv(PeerId::random());
 
 			let advertisements = [
-				AcceptedAdvertisement { peer_adv: adv_1, score: score(50), timestamp: &now },
-				AcceptedAdvertisement { peer_adv: adv_2, score: score(200), timestamp: &now },
-				AcceptedAdvertisement { peer_adv: adv_3, score: score(100), timestamp: &now },
-				AcceptedAdvertisement { peer_adv: adv_4, score: score(150), timestamp: &later },
+				AcceptedAdvertisement { peer_adv: adv_1, score: score(50) },
+				AcceptedAdvertisement { peer_adv: adv_2, score: score(200) },
+				AcceptedAdvertisement { peer_adv: adv_3, score: score(100) },
+				AcceptedAdvertisement { peer_adv: adv_4, score: score(150) },
 			]
 			.into_iter()
 			.collect::<BTreeSet<_>>();
 
 			let first = advertisements.first().unwrap();
 			assert_eq!(first.score, score(200));
-		}
-
-		// BTreeSet with same scores - first() returns earliest timestamp.
-		{
-			let adv_3 = make_adv(PeerId::random());
-
-			let advertisements: BTreeSet<_> = [
-				AcceptedAdvertisement { peer_adv: adv_1, score: score(100), timestamp: &later },
-				AcceptedAdvertisement { peer_adv: adv_2, score: score(100), timestamp: &now },
-				AcceptedAdvertisement { peer_adv: adv_3, score: score(50), timestamp: &now },
-			]
-			.into_iter()
-			.collect();
-
-			let first = advertisements.first().unwrap();
-			assert_eq!(first.score, score(100), "First should have score 100");
-			assert_eq!(first.timestamp, &now, "First should have earlier timestamp");
 		}
 	}
 
@@ -1655,8 +1568,6 @@ mod tests {
 		let scheduling_parent = Hash::random();
 		let para_id = ParaId::new(1);
 		let score = |val: u16| Score::new(val);
-
-		let now = Instant::now();
 
 		let peer_a = PeerId::random();
 		let peer_b = PeerId::random();
@@ -1669,9 +1580,13 @@ mod tests {
 			parent_head_data_hash: Hash::repeat_byte(0xcd),
 		});
 		let make_adv = |peer: PeerId| PeerAdvertisement {
-			advertisement: Advertisement { scheduling_parent, para_id, prospective_candidate },
+			advertisement: Advertisement {
+				scheduling_parent,
+				para_id,
+				prospective_candidate,
+				advertised_descriptor_version: None,
+			},
 			peer_id: peer,
-			advertised_descriptor_version: None,
 		};
 
 		let new_collation_manager_instance = || CollationManager {
@@ -1715,7 +1630,7 @@ mod tests {
 				.per_scheduling_parent
 				.get_mut(&scheduling_parent)
 				.unwrap()
-				.add_advertisement(make_adv(peer_a), now);
+				.add_advertisement(make_adv(peer_a));
 
 			assert_eq!(
 				collation_manager.pick_best_advertisement(
@@ -1747,32 +1662,9 @@ mod tests {
 
 			let per_sp =
 				collation_manager.per_scheduling_parent.get_mut(&scheduling_parent).unwrap();
-			per_sp.add_advertisement(make_adv(peer_a), now);
-			per_sp.add_advertisement(make_adv(peer_b), now);
-			per_sp.add_advertisement(make_adv(peer_c), now);
-
-			assert_eq!(
-				collation_manager.pick_best_advertisement(
-					para_id,
-					std::iter::once(scheduling_parent),
-					&get_rep,
-				),
-				Some(make_adv(peer_b))
-			);
-		}
-
-		// Same score - picks earlier timestamp.
-		{
-			let mut collation_manager = new_collation_manager_instance();
-			let get_rep = |_: &PeerId, _: &ParaId| Some(score(100));
-
-			let earlier = now;
-			let later = now + Duration::from_secs(1);
-
-			let per_sp =
-				collation_manager.per_scheduling_parent.get_mut(&scheduling_parent).unwrap();
-			per_sp.add_advertisement(make_adv(peer_a), later);
-			per_sp.add_advertisement(make_adv(peer_b), earlier);
+			per_sp.add_advertisement(make_adv(peer_a));
+			per_sp.add_advertisement(make_adv(peer_b));
+			per_sp.add_advertisement(make_adv(peer_c));
 
 			assert_eq!(
 				collation_manager.pick_best_advertisement(
@@ -1793,7 +1685,7 @@ mod tests {
 				.per_scheduling_parent
 				.get_mut(&scheduling_parent)
 				.unwrap()
-				.add_advertisement(make_adv(peer_a), now);
+				.add_advertisement(make_adv(peer_a));
 
 			assert_eq!(
 				collation_manager.pick_best_advertisement(

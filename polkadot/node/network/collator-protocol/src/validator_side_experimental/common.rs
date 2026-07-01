@@ -209,6 +209,12 @@ pub struct Advertisement {
 	/// Optional candidate hash and parent head-data hash if were
 	/// supplied in advertisement.
 	pub prospective_candidate: Option<ProspectiveCandidate>,
+	/// Descriptor version claimed by the advertisement, shaped by the protocol version of the
+	/// carrying message: `None` for V1/V2 messages (which don't carry it), `Some(version)` for
+	/// V3. Like `prospective_candidate`, this is part of what the collator asserts about the
+	/// collation, so it belongs to the collation's identity — the fetched receipt's version is
+	/// checked against it (`ensure_matches_advertisement`).
+	pub advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 }
 
 impl Advertisement {
@@ -222,22 +228,14 @@ impl Advertisement {
 /// Used wherever the delivering peer matters: rate limiting per `(peer, sp)`, reputation
 /// arbitration when picking who to fetch from, and slashing the served-from peer if the
 /// collation turns out invalid. The same [`Advertisement`] may yield several
-/// `PeerAdvertisement`s when multiple peers advertise it.
-///
-/// `advertised_descriptor_version` lives here rather than on [`Advertisement`] because it is a
-/// peer-asserted hint shaped by the protocol version of the carrier: V1/V2 protocol messages do
-/// not carry the field (encoded as `None`), V3 protocol messages do (`Some(version)`). Including
-/// it in [`Advertisement`]'s identity would let an attacker controlling peers on both protocol
-/// versions bypass the in-flight fetch dedup for the same candidate hash.
+/// `PeerAdvertisement`s when multiple peers advertise it — `peer_id` is the only field that
+/// distinguishes them; everything the collator asserts lives on the [`Advertisement`].
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, Hash, PartialEq)]
 pub struct PeerAdvertisement {
 	/// The advertised collation.
 	pub advertisement: Advertisement,
 	/// Peer that delivered this advertisement.
 	pub peer_id: PeerId,
-	/// Advertised candidate descriptor version (for V3 protocol).
-	/// None for V1/V2 protocols.
-	pub advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 }
 
 impl PeerAdvertisement {

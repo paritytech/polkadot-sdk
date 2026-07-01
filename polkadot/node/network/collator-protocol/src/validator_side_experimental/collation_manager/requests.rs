@@ -35,13 +35,11 @@ use polkadot_node_network_protocol::{
 	PeerId,
 };
 use polkadot_node_subsystem_util::metrics::prometheus::prometheus::HistogramTimer;
-use polkadot_primitives::CandidateDescriptorVersion;
 use std::{collections::HashMap, future::Future, pin::Pin};
 use tokio_util::sync::CancellationToken;
 
 struct InFlight {
 	peer_id: PeerId,
-	advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 	cancellation_token: CancellationToken,
 }
 
@@ -101,11 +99,7 @@ impl PendingRequests {
 
 		self.cancellation_tokens.insert(
 			peer_adv.advertisement,
-			InFlight {
-				peer_id: peer_adv.peer_id,
-				advertised_descriptor_version: peer_adv.advertised_descriptor_version,
-				cancellation_token: cancellation_token.clone(),
-			},
+			InFlight { peer_id: peer_adv.peer_id, cancellation_token: cancellation_token.clone() },
 		);
 		self.futures.push(CollationFetchRequest {
 			peer_adv: *peer_adv,
@@ -124,7 +118,6 @@ impl PendingRequests {
 			.map(|(advertisement, in_flight)| PeerAdvertisement {
 				advertisement: *advertisement,
 				peer_id: in_flight.peer_id,
-				advertised_descriptor_version: in_flight.advertised_descriptor_version,
 			})
 	}
 

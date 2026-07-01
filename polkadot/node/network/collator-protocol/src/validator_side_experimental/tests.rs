@@ -137,9 +137,9 @@ fn dummy_candidate(
 				para_id,
 				scheduling_parent: relay_parent,
 				prospective_candidate,
+				advertised_descriptor_version: None,
 			},
 			peer_id,
-			advertised_descriptor_version: None,
 		},
 	)
 }
@@ -169,9 +169,13 @@ fn dummy_candidate_v3(
 	(
 		ccr,
 		PeerAdvertisement {
-			advertisement: Advertisement { para_id, scheduling_parent, prospective_candidate },
+			advertisement: Advertisement {
+				para_id,
+				scheduling_parent,
+				prospective_candidate,
+				advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+			},
 			peer_id,
-			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
 		},
 	)
 }
@@ -674,7 +678,7 @@ impl TestState {
 				adv.peer_id,
 				adv.scheduling_parent(),
 				adv.advertisement.prospective_candidate,
-				adv.advertised_descriptor_version
+				adv.advertisement.advertised_descriptor_version
 			),
 			async move {
 				if adv.advertisement.prospective_candidate.is_some() {
@@ -1995,9 +1999,9 @@ async fn test_advertisement_rejections() {
 			para_id: 100.into(),
 			scheduling_parent: active_leaf,
 			prospective_candidate,
+			advertised_descriptor_version: None,
 		},
 		peer_id,
-		advertised_descriptor_version: None,
 	};
 	test_state.handle_advertisement(&mut state, adv).await;
 	assert_eq!(state.advertisements(), [adv].into());
@@ -2117,9 +2121,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate,
+				advertised_descriptor_version: None,
 			},
 			peer_id,
-			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2150,9 +2154,9 @@ async fn test_collation_fetch_failure() {
 				} else {
 					None
 				},
+				advertised_descriptor_version: None,
 			},
 			peer_id,
-			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, version).await;
@@ -2182,9 +2186,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate,
+				advertised_descriptor_version: None,
 			},
 			peer_id,
-			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2221,9 +2225,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate,
+				advertised_descriptor_version: None,
 			},
 			peer_id,
-			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2258,9 +2262,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate,
+				advertised_descriptor_version: None,
 			},
 			peer_id,
-			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2289,9 +2293,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate: None,
+				advertised_descriptor_version: None,
 			},
 			peer_id,
-			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V1).await;
@@ -2331,9 +2335,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate,
+				advertised_descriptor_version: None,
 			},
 			peer_id,
-			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2377,9 +2381,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate,
+				advertised_descriptor_version: None,
 			},
 			peer_id,
-			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2418,9 +2422,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate,
+				advertised_descriptor_version: None,
 			},
 			peer_id,
-			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2562,9 +2566,9 @@ async fn v1_descriptor_compatibility() {
 			para_id: 100.into(),
 			scheduling_parent: active_leaf,
 			prospective_candidate,
+			advertised_descriptor_version: None,
 		},
 		peer_id,
-		advertised_descriptor_version: None,
 	};
 
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2760,9 +2764,9 @@ async fn test_outdated_blocked_collations_are_pruned() {
 			para_id,
 			scheduling_parent: active_leaf,
 			prospective_candidate,
+			advertised_descriptor_version: None,
 		},
 		peer_id: peer,
-		advertised_descriptor_version: None,
 	};
 
 	state.handle_peer_connected(&mut sender, peer, CollationVersion::V2).await;
@@ -3298,9 +3302,9 @@ async fn v3_descriptor_rejected_via_v2_protocol() {
 				candidate_hash: receipt.hash(),
 				parent_head_data_hash: dummy_pvd().parent_head.hash(),
 			}),
+			advertised_descriptor_version: None,
 		},
 		peer_id,
-		advertised_descriptor_version: None,
 	};
 
 	test_state.handle_advertisement(&mut state, adv).await;
@@ -3369,9 +3373,9 @@ async fn v3_advertised_but_v2_fetched_descriptor_version_mismatch() {
 				candidate_hash: receipt.hash(),
 				parent_head_data_hash: dummy_pvd().parent_head.hash(),
 			}),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
 		},
 		peer_id,
-		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
 	};
 
 	test_state.handle_advertisement(&mut state, adv).await;
@@ -3427,9 +3431,9 @@ async fn v3_descriptor_unknown_rejected_when_v3_disabled() {
 				candidate_hash: receipt.hash(),
 				parent_head_data_hash: dummy_pvd().parent_head.hash(),
 			}),
+			advertised_descriptor_version: None,
 		},
 		peer_id,
-		advertised_descriptor_version: None,
 	};
 	test_state.handle_advertisement(&mut state, adv).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -3652,9 +3656,9 @@ async fn core_rotation_accepts_candidates_for_both_cores() {
 				candidate_hash: receipt_a2.hash(),
 				parent_head_data_hash: pvd_a2.parent_head.hash(),
 			}),
+			advertised_descriptor_version: None,
 		},
 		peer_id: peer_a,
-		advertised_descriptor_version: None,
 	};
 
 	test_state.handle_advertisement(&mut state, adv_a2).await;
