@@ -135,11 +135,11 @@ impl sp_consensus::SyncOracle for MockSyncOracle {
 	}
 }
 
-/// Blake2b-256 multihash code.
-const BLAKE2B_256: u64 = 0xb220;
-
-/// Sha2-256 multihash code.
+// Standard multihash codes.
+// See <https://github.com/multiformats/multicodec/blob/master/table.csv>
 const SHA2_256: u64 = 0x12;
+const BLAKE2B_256: u64 = 0xb220;
+const KECCAK_256: u64 = 0x1b;
 
 /// Create a CIDv1 string from a 32-byte hash digest.
 fn make_cid_v1(code: u64, digest: &[u8; 32]) -> String {
@@ -172,7 +172,8 @@ fn make_cid_v1_short_digest() -> String {
 /// Create a CIDv1 string with unsupported multihash code.
 fn make_cid_v1_unsupported_hash_function() -> String {
 	let digest = [0u8; 32];
-	let mh = cid::multihash::Multihash::<64>::wrap(0x1b, &digest)
+	// 0x16 = sha3-256, not in the supported set.
+	let mh = cid::multihash::Multihash::<64>::wrap(0x16, &digest)
 		.expect("32 bytes fits in Multihash<64>");
 	// codec 0x70 = dag-pb
 	let c = cid::Cid::new_v1(0x70, mh);
@@ -220,6 +221,20 @@ async fn valid_cid_data_found_blake2b() {
 	mock_client.insert_transaction(H256::from(digest), data.clone());
 
 	let cid_str = make_cid_v1(BLAKE2B_256, &digest);
+	let result: String = ws_client.request("bitswap_v1_get", rpc_params![cid_str]).await.unwrap();
+
+	assert_eq!(result, crate::hex_string(&data));
+}
+
+#[tokio::test]
+async fn valid_cid_data_found_keccak256() {
+	let (ws_client, _handle, mock_client) = setup(false).await;
+
+	let data = vec![1u8, 2, 3, 4, 5];
+	let digest = sp_crypto_hashing::keccak_256(&data);
+	mock_client.insert_transaction(H256::from(digest), data.clone());
+
+	let cid_str = make_cid_v1(KECCAK_256, &digest);
 	let result: String = ws_client.request("bitswap_v1_get", rpc_params![cid_str]).await.unwrap();
 
 	assert_eq!(result, crate::hex_string(&data));

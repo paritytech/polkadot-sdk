@@ -6,16 +6,17 @@ doc:
       Adds `sc-hop` and `sp-hop` crates implementing the Hand-Off Protocol (HOP)
       node service. HOP enables peer-to-peer data sharing when recipients are
       offline by holding data in a temporary node-side pool until it is either
-      claimed or promoted to on-chain storage.
+      claimed or promoted to on-chain storage via the `HopRuntimeApi` runtime
+      API defined in `sp-hop`.
 
       **`sc-hop`** provides:
       - Disk-backed data pool (`HopDataPool`) with 256-way sharded blob/meta storage
         and crash-recovery from disk on restart.
       - RPC interface: `hop_submit`, `hop_claim`, `hop_ack`, `hop_poolStatus`.
       - Submission gated by `HopRuntimeApi::can_account_promote(who, data_len)` —
-        the runtime defines its own authorization policy; the node is agnostic.
-      - Data size validated against `HopRuntimeApi::max_promotion_size` (crate-level
-        upper bound: 8 MiB).
+        the runtime defines its own authorization policy (including any
+        size-tiered rules) and the node is agnostic; bounded by the crate-level
+        `MAX_DATA_SIZE` (8 MiB).
       - Recipient fan-out capped at `MAX_RECIPIENTS` (256) via a type-level
         `BoundedVec` (`RecipientVec`) so oversized lists are rejected before
         SCALE decoding and signature verification. Duplicate recipients are also
@@ -32,33 +33,32 @@ doc:
         entries to on-chain storage, garbage-collects expired ones, and evicts
         stale per-sender rate-limit state.
 
-      **`sp-hop`** defines the `HopRuntimeApi` runtime API trait: `can_account_promote`,
-      `create_promotion_extrinsic`, and `max_promotion_size`. The promotion extrinsic
-      carries the submitter's `MultiSigner`, `hop_submit`-time `MultiSignature`, and
-      `submit_timestamp` (ms since unix epoch) so the runtime pallet can re-verify
-      the user's consent on-chain instead of trusting the collator. "Submit implies
-      consent to promote" is the protocol semantic, so the signature is reused — no
-      second user signature is needed. The timestamp is bound into the signed
-      payload (`blake2_256(HOP_SUBMIT_CONTEXT || blake2_256(data) || submit_timestamp.to_le_bytes())`)
-      so the runtime can reject signatures whose submit time is too far from the
-      on-chain clock, preventing indefinite replay of an old `(data, signer, signature)`
-      tuple.
+      **`sp-hop`** defines the `HopRuntimeApi` runtime API trait:
+      `can_account_promote` and `create_promotion_extrinsic`. The promotion
+      extrinsic carries the submitter's `MultiSigner`, `hop_submit`-time
+      `MultiSignature`, and `submit_timestamp` (ms since unix epoch) so the
+      runtime pallet can re-verify the user's consent on-chain instead of
+      trusting the collator. "Submit implies consent to promote" is the
+      protocol semantic, so the signature is reused — no second user signature
+      is needed. The timestamp is bound into the signed payload
+      (`blake2_256(HOP_SUBMIT_CONTEXT || blake2_256(data) || submit_timestamp.to_le_bytes())`)
+      so the runtime can reject signatures whose submit time is too far from
+      the on-chain clock, preventing indefinite replay of an old `(data,
+      signer, signature)` tuple.
 
-      `hop_submit` now takes `submit_timestamp` as an additional argument; clients
+      `hop_submit` takes `submit_timestamp` as an additional argument; clients
       must include the timestamp they signed over.
+
 
       Integration requires flattening `HopParams` into your CLI, constructing a
       `HopDataPool`, and merging `HopRpcServer` into the RPC module. See `sc-hop`
       crate docs for a step-by-step guide.
 
-      **Breaking change for `polkadot-omni-node` parachain runtimes.** `HopRuntimeApi`
-      is now a supertrait bound on `NodeRuntimeApi`, so every runtime built against
-      `polkadot-omni-node-lib` must implement it (same convention as
-      `TransactionStorageApi`). Runtimes that **do not** want HOP must add a no-op
-      stub inside their `impl_runtime_apis!` block — see the canonical example in
-      `sp_hop::HopRuntimeApi`'s rustdoc. The same stub is shipped in
-      `cumulus/polkadot-omni-node/lib/src/fake_runtime_api/utils.rs` for runtimes
-      using the omni-node fake-runtime helper.
+      No runtime changes are required to deploy an HOP-enabled node:
+      `HopRuntimeApi` support is detected dynamically at startup via
+      `ApiExt::has_api_with`, and runtimes that do not implement it cause the
+      maintenance task to fall back to cleanup-only (no promotion). This lets
+      operators roll out HOP nodes ahead of the runtime upgrade that adds the API.
 
   - audience: Node Operator
     description: |
@@ -66,10 +66,10 @@ doc:
       peer-to-peer data exchange. Related flags:
       - `--hop-max-pool-size <MiB>` — pool capacity (default: 10240 MiB / 10 GiB)
       - `--hop-max-user-size <MiB>` — per-user hard cap (default: 256 MiB)
-      - `--hop-retention-blocks <blocks>` — data lifetime (default: 14400, ~24h at 6s blocks)
+      - `--hop-retention-secs <seconds>` — data lifetime (default: 86400, 24h)
       - `--hop-check-interval <seconds>` — maintenance cycle (default: 300, 5 minutes)
-      - `--hop-promotion-buffer-blocks <blocks>` — start promoting this many blocks
-        before expiry (default: 1200, ~2h at 6s blocks)
+      - `--hop-promotion-buffer-secs <seconds>` — start promoting this many seconds
+        before expiry (default: 7200, 2h)
       - `--hop-submit-rate-per-min <requests>` — sustained submit rate (default: 60)
       - `--hop-submit-burst <requests>` — submit burst (default: 120)
       - `--hop-bandwidth-per-min-mib <MiB>` — sustained bandwidth (default: 128)
@@ -78,10 +78,7 @@ doc:
       - `--hop-data-dir <path>` — storage directory (default: `<chain-data>/hop`)
 
       Pool state (blobs + metadata) persists across restarts. Orphan and corrupt
-      files are cleaned up automatically on startup. HOP RPC clients from earlier
-      branches must be updated: the on-wire signing payload now includes a
-      domain-separator prefix (`hop-submit-v1:`, `hop-claim-v1:`, `hop-ack-v1:`)
-      wrapped in a `blake2_256` hash — old signatures will fail verification.
+      files are cleaned up automatically on startup.
 
 crates:
   - name: sc-hop

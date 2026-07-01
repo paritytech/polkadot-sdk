@@ -262,6 +262,10 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, default_value_t = sc_statement_store::DEFAULT_PURGE_AFTER_SEC)]
 	pub statement_store_purge_after_sec: u64,
 
+	/// Upper bound on collator reserved-peer slots.
+	#[arg(long, value_name = "N", default_value_t = 32)]
+	pub collator_reserved_slots: usize,
+
 	/// HOP (Hand-Off Protocol) configuration parameters.
 	#[command(flatten)]
 	pub hop: sc_hop::HopParams,
@@ -320,7 +324,8 @@ impl<Config: CliConfig> Cli<Config> {
 				},
 			),
 			storage_monitor: self.storage_monitor.clone(),
-			hop: self.hop.enable_hop.then(|| self.hop.clone()),
+			collator_reserved_slots: self.collator_reserved_slots,
+			hop: self.hop.enabled.then(|| self.hop.clone()),
 		}
 	}
 

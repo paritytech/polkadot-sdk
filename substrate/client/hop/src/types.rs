@@ -19,7 +19,8 @@
 use codec::{Decode, Encode};
 use polkadot_primitives::{BlockNumber, Hash};
 use serde::{Deserialize, Serialize};
-use sp_core::{bounded_vec::BoundedVec, hashing::blake2_256, ConstU32};
+use sp_core::{bounded_vec::BoundedVec, ConstU32};
+use sp_crypto_hashing::blake2_256;
 use sp_runtime::{MultiSignature, MultiSigner};
 
 /// Block number type used by HOP.
@@ -254,9 +255,9 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 	}
 }
 
-/// Crate-level upper bound on a HOP entry's data size (8 MiB). The effective
-/// cap is whatever `HopRuntimeApi::max_promotion_size()` reports on the current
-/// runtime; this constant just anchors the worst case.
+/// Crate-level upper bound on a HOP entry's data size (8 MiB). Used to
+/// validate pool configuration (e.g. that `bandwidth_burst >= MAX_DATA_SIZE`)
+/// so a single submission cannot overshoot a bandwidth bucket by construction.
 pub const MAX_DATA_SIZE: u64 = 8 * 1024 * 1024;
 
 /// Default retention period in seconds (24 hours).

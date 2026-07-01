@@ -36,7 +36,8 @@ use jsonrpsee::{
 };
 use sp_api::CallApiAt;
 use sp_blockchain::HeaderBackend;
-use sp_core::{hashing::blake2_256, Bytes, H256};
+use sp_core::{Bytes, H256};
+use sp_crypto_hashing::blake2_256;
 use sp_runtime::{
 	traits::{Block as BlockT, IdentifyAccount, Verify},
 	AccountId32, MultiSignature, MultiSigner,
