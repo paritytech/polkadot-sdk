@@ -228,12 +228,10 @@ pub mod pallet {
 
 	#[cfg(any(feature = "try-runtime", test))]
 	impl<T: Config> Pallet<T> {
-		/// Ensure the correctness of the state of this pallet, used by the `try_state` hook and the
-		/// tests.
+		/// Ensure the state of this pallet is correct, used by the `try_state` hook and tests.
 		///
-		/// Invariant: every whitelisted call has a requested preimage. The pallet requests the
-		/// preimage when a call is whitelisted and unrequests it when the call is removed or
-		/// dispatched, so the two must stay in lock-step.
+		/// Invariant: every whitelisted call has a requested preimage (requested on whitelist,
+		/// unrequested on removal or dispatch).
 		pub fn do_try_state() -> Result<(), TryRuntimeError> {
 			for (call_hash, _) in WhitelistedCall::<T>::iter() {
 				ensure!(
