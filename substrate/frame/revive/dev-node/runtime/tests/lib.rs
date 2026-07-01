@@ -346,26 +346,35 @@ fn version_declarations() -> ReviveRuntimeApiVersionDeclarations {
 }
 
 fn snake_to_camel(string: &str) -> String {
-	unsafe fn internal(string: &str, acc: &mut String) {
-		match string.as_bytes() {
-			[b'_', c, remaining @ ..] => {
-				let char = *c as char;
-				let uppercase_char = char.to_ascii_uppercase();
-				acc.push(uppercase_char);
-				internal(str::from_utf8_unchecked(remaining), acc);
-			},
-			[c, remaining @ ..] => {
-				let char =
-					if acc.is_empty() { (*c as char).to_ascii_uppercase() } else { *c as char };
+	fn internal(
+		mut chars: core::iter::Peekable<impl Iterator<Item = char>>,
+		mut acc: String,
+	) -> String {
+		let char1 = chars.next();
+		let char2 = chars.peek().copied();
+
+		match (char1, char2) {
+			(Some('_'), Some(char2)) => {
+				let _ = chars.next().expect("peek succeeded, next must succeed; qed");
+				let char = char2.to_ascii_uppercase();
 				acc.push(char);
-				internal(str::from_utf8_unchecked(remaining), acc);
+				internal(chars, acc)
 			},
-			[] => {},
+			(Some(char1), Some(_) | None) => {
+				let char1 = if acc.is_empty() { char1.to_ascii_uppercase() } else { char1 };
+				acc.push(char1);
+				internal(chars, acc)
+			},
+			(None, None) => acc,
+			(None, Some(_)) => {
+				unreachable!(
+					"First pull from the iterator can't fail while subsequent one succeeds"
+				)
+			},
 		}
 	}
-	let mut acc = String::new();
-	unsafe { internal(string, &mut acc) };
-	acc
+
+	internal(string.chars().peekable(), String::new())
 }
 
 fn extract_ok_type_from_result<'a>(
