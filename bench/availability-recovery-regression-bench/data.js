@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782915306240,
+  "lastUpdate": 1782926162035,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bce9296825651a5b173719776d080ea07d77ea21",
-          "message": "remote-externalities: Remove old code (#10249)\n\nThe underlying issue was solved by now.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-07T18:54:56Z",
-          "tree_id": "9dd3aaceade788ebf69319f377ff77a415954645",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bce9296825651a5b173719776d080ea07d77ea21"
-        },
-        "date": 1762545762058,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.334231777133335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2051377545,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.011205544466668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mertwole@gmail.com",
+            "name": "mertwole",
+            "username": "mertwole"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a2ecbe9b700746b6a7b74ab14dc3d6c1d1173b9a",
+          "message": "[pallet-staking-async] fix `chill_inactive` benchmark (#12525)\n\nThe benchmark that was introduced in #12381 didn't hit the worst-case\nscenario, which is fixed in this PR\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-01T14:59:26Z",
+          "tree_id": "964ac72d2133669be73d050ca63c25c0d45e87d2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a2ecbe9b700746b6a7b74ab14dc3d6c1d1173b9a"
+        },
+        "date": 1782926135079,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1445592896666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.046264739366666,
             "unit": "seconds"
           }
         ]
