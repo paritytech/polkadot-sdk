@@ -24,8 +24,8 @@
 //! and [`ExtensionsFactory`] convenience types defined below.
 
 use polkavm::{
-	CacheModel, CompileError, Config, CostModelKind, Engine, GasMeteringKind, InterruptKind,
-	MemoryAccessError, Module, ModuleConfig, ProgramCounter, RawInstance, Reg,
+	CacheModel, CompileError, Config, CorePinning, CostModelKind, Engine, GasMeteringKind,
+	InterruptKind, MemoryAccessError, Module, ModuleConfig, ProgramCounter, RawInstance, Reg,
 };
 use polkavm_common::{
 	program::{asm, InstructionSetKind},
@@ -106,6 +106,10 @@ static ENGINE: LazyLock<Engine> = LazyLock::new(|| {
 	let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
 	config.set_worker_count(MAX_LIVE_INSTANCES.div_ceil(cores));
 	config.set_default_cost_model(Some(CostModelKind::Full(CacheModel::L2Hit)));
+	// during benchmarking we run multiple nodes on the same machine - this leads
+	// to multiple engines which breaks core pinning's assumptions to be alone
+	// on the machine - this will be removed eventually
+	config.set_core_pinning(CorePinning::Disabled);
 	let engine = Engine::new(&config).expect("Failed to initialize PolkaVM.");
 	warm_up_sandbox_pool(&engine);
 	engine
