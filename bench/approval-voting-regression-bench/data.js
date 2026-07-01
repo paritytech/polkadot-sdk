@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782915386907,
+  "lastUpdate": 1782926234573,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e470758daaf1b49fc20bf0e597786923631ea94a",
-          "message": "statement-store performance benchmarks (#9763)\n\n# Description\n\nAdds benchmarks to measure the performance of the statement-store:\n- Message Exchange Scenario: interaction with one or many nodes.\n- Memory Stress Test Scenario.\n\n## Results\n\n**Key improvements made to improve the performance:**\n- [Fixed a\ndeadlock](https://github.com/paritytech/polkadot-sdk/pull/9868)\n- [Increased statements\nlimits](https://github.com/paritytech/polkadot-sdk/pull/9894)\n- [Improved\ngossiping](https://github.com/paritytech/polkadot-sdk/pull/9912)\n\n**Hardware**\nAll benchmarks were run on a MacBook Pro M2\n\n### 1. Message Exchange Scenario\n**Test Configuration**\n- Total participants: 49_998\n- Group size: 6 participants per group\n- Total groups: 8_333\n- Statement payload size: 512 KB\n- Propagation delay: 2 seconds (empirically determined)\n- Parachain network tested with: 2, 3, 6, 12 nodes\n\n**Network Topologies**\nWe tested two distribution patterns:\n1. **To one RPC:** All participants send statements to a single RPC node\n2. **To all RPC:** Participants distribute statements across all nodes\n(slower due to gossiping overhead)\n\n**Participant Flow**\n- Sends a statement with their key for an exchange session (1 sent)\n- Waits 2 seconds for statement propagation\n- Receives session keys from other members in the group (5 received)\n- Sends statements containing a 512KB message to each member in the\ngroup (5 sent)\n- Waits 2 seconds for statement propagation\n- Receives messages from other members (5 received)\n- Total: 6 sent, 10 received.\n\n\n**Results**\n\n| Collators      | Avg time | Max time | Memory |\n| -------------- | -------- | -------- | ------ |\n| **To one RPC** |          |          |        |\n| 2              | 35s      | 35s      | 2.1GB  |\n| 6              | 48s      | 50s      | 1.7GB  |\n| **To all RPC** |          |          |        |\n| 3              | 41s      | 51s      | 1.9GB  |\n| 6              | 61s      | 71s      | 1.4GB  |\n| 12             | 94s      | 119s     | 1.9GB  |\n\n**Observations**\n- Sending to one RPC node is faster but creates a bottleneck\n- Distributing across all nodes takes longer due to gossiping overhead\n- More collators increase gossiping load, resulting in slower completion\ntimes\n- Memory usage per node remains around 2GB.\n\n\n### 2. Memory Stress Test Scenario\n\n**Test Configuration**\nWe prepared one more scenario to check how much memory nodes use with a\nfull store after we increased the limits. To maximize memory usage for\nindex usage, we submitted statements with all unique topics; other\nfields (e.g., proofs) were not used.\n- Total tasks: 100,000 concurrent\n- Statement size: 1 KB per statement\n- Network size: 6 collators\n\n**Test Flow**\n1. Spawn 100,000 concurrent tasks\n2. Each task sends statements with 1KB payload to one node until store\nis full\n3. Statements are gossiped across the network to the other 5 collators\n4. Test completes when all collator stores are full\n\n**Results**\nDuring the tests, each node used up to 4.5GB of memory.",
-          "timestamp": "2025-11-07T09:19:46Z",
-          "tree_id": "6698fe080ce19b64baf47e557490c7ee508bd14f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e470758daaf1b49fc20bf0e597786923631ea94a"
-        },
-        "date": 1762512473868,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63629.280000000006,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52942.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000023313340000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.8076733110410306,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.435229834670001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4016541998600007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021161879999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9519319838100102,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.42160171895999826,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000023313340000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.014383865150013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021161879999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4039514899700003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006152794200000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.393861843680002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.23591781954994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mertwole@gmail.com",
+            "name": "mertwole",
+            "username": "mertwole"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a2ecbe9b700746b6a7b74ab14dc3d6c1d1173b9a",
+          "message": "[pallet-staking-async] fix `chill_inactive` benchmark (#12525)\n\nThe benchmark that was introduced in #12381 didn't hit the worst-case\nscenario, which is fixed in this PR\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-01T14:59:26Z",
+          "tree_id": "964ac72d2133669be73d050ca63c25c0d45e87d2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a2ecbe9b700746b6a7b74ab14dc3d6c1d1173b9a"
+        },
+        "date": 1782926207104,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63599.06999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.230558658829938,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000021894460000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7833965545999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000021894460000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7490627015300007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7345132352699295,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000022647690000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.824521920970001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.389449957600007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000022647690000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.2910280551426645,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7440130613800013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005601227480000003,
             "unit": "seconds"
           }
         ]
