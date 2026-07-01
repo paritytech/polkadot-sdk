@@ -3,7 +3,9 @@ title: Fix `chill_inactive` benchmark in `pallet-staking-async`
 doc:
   - audience: Runtime Dev
     description: |
-      `chill_inactive` extrinsic was inproperly benched (worst-case scenario wasn't considered), which is fixed now.
+      `chill_inactive` extrinsic was improperly benched (worst-case scenario wasn't considered), which is fixed now.
 crates:
   - name: pallet-staking-async
+    bump: patch
+  - name: asset-hub-westend-runtime
     bump: patch
