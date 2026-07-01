@@ -30,7 +30,8 @@ use alloy_core::sol_types::{SolCall, SolEvent};
 use codec::Decode;
 use ethereum_standards::IERC20;
 use pallet_revive::evm::{
-	Bytes, H256, Log, TransactionLegacySigned, TransactionLegacyUnsigned, TransactionSigned, U256,
+	Bytes, H256, Log, ReceiptInfo, TransactionLegacySigned, TransactionLegacyUnsigned,
+	TransactionSigned, U256,
 };
 use sp_core::{H160, crypto::AccountId32};
 use sp_crypto_hashing::keccak_256;
@@ -184,6 +185,66 @@ pub fn asset_transfer_logs(
 			)
 		})
 		.collect()
+}
+
+/// Recover the [`AssetTransfer`] encoded by a synthesized ERC-20 `Transfer` log (the inverse of
+/// [`AssetTransfer::to_log`]): `topics = [Transfer, from, to]`, `data = amount` (32-byte
+/// big-endian word).
+pub fn asset_transfer_from_log(log: &Log) -> Option<AssetTransfer> {
+	if log.topics.len() < 3 {
+		return None;
+	}
+	let from = H160::from_slice(&log.topics[1].as_bytes()[12..]);
+	let to = H160::from_slice(&log.topics[2].as_bytes()[12..]);
+	let data = log.data.as_ref()?;
+	// A synthesized amount is always exactly a 32-byte word (`u128_be32`). Reject anything else:
+	// `< 32` would be truncated and `> 32` would panic `U256::from_big_endian` (it asserts the
+	// slice fits in 32 bytes), so a malformed/foreign log row must not reach the conversion.
+	if data.0.len() != 32 {
+		return None;
+	}
+	// The amount was synthesized from a `u128`, so it fits.
+	let amount = U256::from_big_endian(&data.0).low_u128();
+	Some(AssetTransfer { token: H160::from_slice(log.address.as_ref()), from, to, amount })
+}
+
+/// Rebuild the synthetic `(transaction, receipt)` for an asset-transfer extrinsic purely from its
+/// persisted ERC-20 `Transfer` logs (plus the resolved signer). This is the read-side counterpart
+/// to indexing: the token address was resolved once at index time and frozen into the logs, so
+/// reads never re-resolve against live chain state (which can no longer map a destroyed foreign
+/// asset). Returns `None` if no logs were ever indexed for this hash (e.g. the transfer was
+/// dropped at index time because its foreign asset was already gone).
+pub fn reconstruct_synthetic_asset_receipt(
+	logs: Vec<Log>,
+	transaction_hash: H256,
+	transaction_index: usize,
+	from: Option<H160>,
+) -> Option<(TransactionSigned, ReceiptInfo)> {
+	let first = asset_transfer_from_log(logs.first()?)?;
+	// The extrinsic signer when known (derived from the immutable block), else the transfer's own
+	// sender — so a real transfer is never attributed to the zero address. Mirrors index time.
+	let from = from.unwrap_or(first.from);
+	// `to` is the (first) token, matching the synthetic tx; logs carry the full per-token detail.
+	let to = Some(first.token);
+	let eth_block_hash = logs[0].block_hash;
+	let eth_block_number = logs[0].block_number;
+	let signed_tx = synthetic_transaction(&first);
+	let receipt = ReceiptInfo::new(
+		eth_block_hash,
+		eth_block_number,
+		None,
+		from,
+		logs,
+		to,
+		U256::zero(),
+		U256::zero(),
+		// `Transferred` is only emitted on a successful transfer.
+		true,
+		transaction_hash,
+		transaction_index.into(),
+		Default::default(),
+	);
+	Some((signed_tx, receipt))
 }
 
 /// Try to decode an asset-transfer from a raw event (pallet name, variant name, SCALE
@@ -523,6 +584,84 @@ mod tests {
 			signer_h160_from_address_bytes(Some(&address32)),
 			Some(account_to_h160(&AccountId32::new([0xAB; 32]))),
 			"Address32 origin must map via the AccountId32 rule, not 0x0"
+		);
+	}
+
+	#[test]
+	fn asset_transfer_from_log_rejects_malformed_logs() {
+		// Fewer than 3 topics (no from/to) -> None.
+		let too_few_topics = Log {
+			topics: vec![H256::zero(), H256::zero()],
+			data: Some(Bytes(vec![0u8; 32])),
+			..Default::default()
+		};
+		assert!(asset_transfer_from_log(&too_few_topics).is_none());
+
+		// Data shorter than a 32-byte amount word -> None.
+		let short_data = Log {
+			topics: vec![H256::zero(), H256::zero(), H256::zero()],
+			data: Some(Bytes(vec![0u8; 16])),
+			..Default::default()
+		};
+		assert!(asset_transfer_from_log(&short_data).is_none());
+
+		// Data longer than a 32-byte word -> None (must not panic `U256::from_big_endian`).
+		let long_data = Log {
+			topics: vec![H256::zero(), H256::zero(), H256::zero()],
+			data: Some(Bytes(vec![0u8; 33])),
+			..Default::default()
+		};
+		assert!(asset_transfer_from_log(&long_data).is_none());
+
+		// Missing data -> None.
+		let no_data = Log {
+			topics: vec![H256::zero(), H256::zero(), H256::zero()],
+			data: None,
+			..Default::default()
+		};
+		assert!(asset_transfer_from_log(&no_data).is_none());
+	}
+
+	#[test]
+	fn reconstruct_multi_token_batch_to_is_first_token() {
+		// A batch touching two token addresses: `to` is the first token (never None), the synthetic
+		// tx targets that same token, and every per-token log is preserved.
+		let t1 = AssetTransfer {
+			token: H160::from([0x11; 20]),
+			from: H160::from([0x34; 20]),
+			to: H160::from([0x56; 20]),
+			amount: 1,
+		};
+		let t2 = AssetTransfer {
+			token: H160::from([0x22; 20]),
+			from: H160::from([0x34; 20]),
+			to: H160::from([0x78; 20]),
+			amount: 2,
+		};
+		let eth_hash = H256::from([0xAB; 32]);
+		let tx_hash = H256::from([0xEF; 32]);
+		let logs = vec![
+			t1.to_log(U256::from(10), eth_hash, tx_hash, 4, 5),
+			t2.to_log(U256::from(10), eth_hash, tx_hash, 4, 6),
+		];
+
+		let (signed, rec) = reconstruct_synthetic_asset_receipt(
+			logs.clone(),
+			tx_hash,
+			4,
+			Some(H160::from([0x99; 20])),
+		)
+		.expect("reconstructs");
+
+		assert_eq!(rec.to, Some(H160::from([0x11; 20])), "batch `to` is the first token");
+		assert_eq!(rec.from, H160::from([0x99; 20]));
+		assert_eq!(rec.logs, logs, "all per-token logs preserved, unchanged");
+		let TransactionSigned::TransactionLegacySigned(tx) = signed else {
+			panic!("expected legacy")
+		};
+		assert_eq!(
+			tx.transaction_legacy_unsigned.to, rec.to,
+			"synthetic tx targets the same first token as the receipt"
 		);
 	}
 }
