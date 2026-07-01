@@ -18,13 +18,8 @@
 use super::*;
 
 use crate::{
-	AccountIdOf, CodeInfo, Config, ContractBlob, Error, SENTINEL, Weight,
-	address::AddressMapper,
-	debug::DebugSettings,
-	exec::Ext,
-	limits,
-	primitives::ExecReturnValue,
-	vm::{BytecodeType, ExportedFunction, RuntimeCosts, calculate_code_deposit},
+	Config, Error, Weight, address::AddressMapper, exec::Ext, limits, primitives::ExecReturnValue,
+	vm::RuntimeCosts,
 };
 use alloc::vec::Vec;
 use core::mem;
@@ -33,138 +28,35 @@ use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags};
 use sp_core::U256;
 use sp_io::hashing::keccak_256;
-use sp_runtime::{DispatchError, SaturatedConversion};
-
-impl<T: Config> ContractBlob<T> {
-	/// Compile and instantiate contract.
-	///
-	/// `aux_data_size` is only used for runtime benchmarks. Real contracts
-	/// don't make use of this buffer. Hence this should not be set to anything
-	/// other than `0` when not used for benchmarking.
-	pub fn prepare_call<E: Ext<T = T>>(
-		self,
-		mut runtime: Runtime<E, polkavm::RawInstance>,
-		entry_point: ExportedFunction,
-		aux_data_size: u32,
-	) -> Result<PreparedCall<E>, ExecError> {
-		let mut config = polkavm::Config::default();
-		// Log filtering by level with log::enabled! returns always true,
-		// passing all logs through impacting performance \
-		// (more details: https://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3499548774)
-		// By default, disable polkavm logging unless pvm_logs debug setting is enabled.
-		let pvm_logs_enabled = DebugSettings::is_pvm_logs_enabled::<T>();
-		config.set_imperfect_logger_filtering_workaround(!pvm_logs_enabled);
-		config.set_backend(Some(polkavm::BackendKind::Interpreter));
-		config.set_cache_enabled(false);
-		#[cfg(feature = "std")]
-		if std::env::var_os("REVIVE_USE_COMPILER").is_some() {
-			log::warn!(target: LOG_TARGET, "Using PolkaVM compiler backend because env var REVIVE_USE_COMPILER is set");
-			config.set_backend(Some(polkavm::BackendKind::Compiler));
-		}
-		let engine = polkavm::Engine::new(&config).expect(
-			"on-chain (no_std) use of interpreter is hard coded.
-				interpreter is available on all platforms; qed",
-		);
-
-		let mut module_config = polkavm::ModuleConfig::new();
-		module_config.set_page_size(limits::PAGE_SIZE);
-		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
-		module_config.set_aux_data_size(aux_data_size);
-		let module =
-			polkavm::Module::new(&engine, &module_config, self.code.into()).map_err(|err| {
-				log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
-				Error::<T>::CodeRejected
-			})?;
-
-		let entry_program_counter = module
-			.exports()
-			.find(|export| export.symbol().as_bytes() == entry_point.identifier().as_bytes())
-			.ok_or_else(|| <Error<T>>::CodeRejected)?
-			.program_counter();
-
-		let gas_limit_polkavm: polkavm::Gas = runtime.ext().frame_meter_mut().sync_to_executor();
-
-		let mut instance = module.instantiate().map_err(|err| {
-			log::debug!(target: LOG_TARGET, "failed to instantiate polkavm module: {err:?}");
-			Error::<T>::CodeRejected
-		})?;
-
-		instance.set_gas(gas_limit_polkavm);
-		instance
-			.set_interpreter_cache_size_limit(Some(polkavm::SetCacheSizeLimitArgs {
-				max_block_size: limits::code::BASIC_BLOCK_SIZE,
-				max_cache_size_bytes: limits::code::INTERPRETER_CACHE_BYTES
-					.try_into()
-					.map_err(|_| Error::<T>::CodeRejected)?,
-			}))
-			.map_err(|_| Error::<T>::CodeRejected)?;
-		instance.prepare_call_untyped(entry_program_counter, &[]);
-
-		Ok(PreparedCall { module, instance, runtime })
-	}
-}
-
-impl<T: Config> ContractBlob<T> {
-	/// We only check for size and nothing else when the code is uploaded.
-	pub fn from_pvm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
-		// We do validation only when new code is deployed. This allows us to increase
-		// the limits later without affecting already deployed code.
-		let available_syscalls = list_syscalls();
-		let code = limits::code::enforce::<T>(code, available_syscalls)?;
-
-		let code_len = code.len() as u32;
-		let deposit = calculate_code_deposit::<T>(code_len);
-
-		let code_info = CodeInfo {
-			owner,
-			deposit,
-			refcount: 0,
-			code_len,
-			code_type: BytecodeType::Pvm,
-			behaviour_version: Default::default(),
-		};
-		let code_hash = H256(sp_io::hashing::keccak_256(&code));
-		Ok(ContractBlob { code, code_info, code_hash })
-	}
-}
+use sp_runtime::SaturatedConversion;
 
 impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 	pub fn handle_interrupt(
 		&mut self,
-		interrupt: Result<polkavm::InterruptKind, polkavm::Error>,
-		module: &polkavm::Module,
+		interrupt: Interrupt,
 		instance: &mut M,
 	) -> Option<ExecResult> {
-		use polkavm::InterruptKind::*;
-
 		match interrupt {
-			Err(error) => {
-				// in contrast to the other returns this "should" not happen: log level error
-				log::error!(target: LOG_TARGET, "polkavm execution error: {error}");
-				Some(Err(Error::<E::T>::ExecutionFailed.into()))
-			},
-			Ok(Finished) => {
+			Interrupt::Error(error) => Some(Err(error.into())),
+			Interrupt::Finished => {
 				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() }))
 			},
-			Ok(Trap) => Some(Err(Error::<E::T>::ContractTrapped.into())),
-			Ok(Segfault(_)) => Some(Err(Error::<E::T>::ExecutionFailed.into())),
-			Ok(NotEnoughGas) => Some(Err(Error::<E::T>::OutOfGas.into())),
-			Ok(Step) => None,
-			Ok(Ecalli(idx)) => {
-				// This is a special hard coded syscall index which is used by benchmarks
-				// to abort contract execution. It is used to terminate the execution without
-				// breaking up a basic block. The fixed index is used so that the benchmarks
-				// don't have to deal with import tables.
-				if cfg!(feature = "runtime-benchmarks") && idx == SENTINEL {
-					return Some(Ok(ExecReturnValue {
-						flags: ReturnFlags::empty(),
-						data: Vec::new(),
-					}));
-				}
-				let Some(syscall_symbol) = module.imports().get(idx) else {
-					return Some(Err(<Error<E::T>>::InvalidSyscall.into()));
+			Interrupt::Trap => Some(Err(Error::<E::T>::ContractTrapped.into())),
+			Interrupt::OutOfGas => Some(Err(Error::<E::T>::OutOfGas.into())),
+			Interrupt::Ecalli(idx) => {
+				// Resolve the symbol bytes (borrowed from `instance`) to a Copy
+				// syscall id inside a scoped block, so the immutable borrow on
+				// `instance` is released before `handle_ecall` takes it mutably.
+				let syscall_id: u32 = {
+					let Some(symbol) = instance.resolve_import(idx) else {
+						return Some(Err(<Error<E::T>>::InvalidSyscall.into()));
+					};
+					match env::lookup_syscall_index(symbol) {
+						Some(id) => id,
+						None => return Some(Err(<Error<E::T>>::InvalidSyscall.into())),
+					}
 				};
-				match self.handle_ecall(instance, syscall_symbol.as_bytes()) {
+				match self.handle_ecall(instance, syscall_id) {
 					Ok(None) => None,
 					Ok(Some(return_value)) => {
 						instance.write_output(return_value);

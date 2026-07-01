@@ -17,7 +17,7 @@
 
 //! The pallet-revive shared VM integration test suite.
 use crate::{
-	Code, Config, Error, H256, Key, PristineCode, System, U256,
+	Code, Config, Error, H256, Key, System, U256,
 	address::AddressMapper,
 	evm::fees::InfoT,
 	exec::EMPTY_CODE_HASH,
@@ -289,9 +289,8 @@ fn pallet_code_works() {
 				.build_and_unwrap_contract();
 
 		let pristine_code =
-			PristineCode::<Test>::get(test_utils::get_contract(&contract_addr).code_hash)
-				.unwrap()
-				.to_vec();
+			crate::pristine_code::get::<Test>(&test_utils::get_contract(&contract_addr).code_hash)
+				.unwrap();
 
 		<Test as Config>::Currency::set_balance(&CHARLIE, 100_000_000);
 		let delegated_eoa = create_delegated_eoa(&contract_addr);
@@ -365,9 +364,7 @@ fn extcodecopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 
 		let contract_info = test_utils::get_contract(&dummy_addr);
 		let code_hash = contract_info.code_hash;
-		let full_code = crate::PristineCode::<Test>::get(&code_hash)
-			.map(|bounded_vec| bounded_vec.to_vec())
-			.unwrap_or_default();
+		let full_code = crate::pristine_code::get::<Test>(&code_hash).unwrap_or_default();
 
 		let delegated_eoa = create_delegated_eoa(&dummy_addr);
 		let indicator = AccountInfo::<Test>::delegation_indicator(&dummy_addr).to_vec();
