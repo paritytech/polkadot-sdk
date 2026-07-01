@@ -1,0 +1,19 @@
+title: 'Omni-node: Manual-seal uses proper aura digests'
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: |-
+    Omni-node in dev mode is now operating closer to reality. The runtime is supplied with appropriate AURA digests.
+    Breaking changes:
+      - `sc-consensus-manual-seal`: The trait bounds have been relaxed, it should be easier to accomodate now. Code might break since the generics changed.
+      - `polkadot-omni-node-lib`: `DynNodeSpecExt` trait has been removed and can no longer be used. Implementers of the `NodeSpec` trait now need to provide an implementation for starting a dev node.
+crates:
+- name: polkadot-omni-node-lib
+  bump: major
+- name: sc-consensus-manual-seal
+  bump: major
+- name: frame-benchmarking-cli
+  bump: patch
+
+

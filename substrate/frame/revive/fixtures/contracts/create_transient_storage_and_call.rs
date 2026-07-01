@@ -18,9 +18,9 @@
 //! This calls another contract as passed as its account id. It also creates some transient storage.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::input;
-use uapi::{HostFn, HostFnImpl as api, StorageFlags};
+use uapi::{input, HostFn, HostFnImpl as api, StorageFlags};
 
 static BUFFER: [u8; 416] = [0u8; 416];
 

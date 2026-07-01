@@ -110,22 +110,23 @@ use sp_runtime::traits::TrailingZeroInput;
 use sp_runtime::{
 	generic,
 	traits::{
-		self, AtLeast32Bit, BadOrigin, BlockNumberProvider, Bounded, CheckEqual, Dispatchable,
-		Hash, Header, Lookup, LookupError, MaybeDisplay, MaybeSerializeDeserialize, Member, One,
-		Saturating, SimpleBitOps, StaticLookup, Zero,
+		self, AsTransactionAuthorizedOrigin, AtLeast32Bit, BadOrigin, BlockNumberProvider, Bounded,
+		CheckEqual, Dispatchable, Hash, Header, Lookup, LookupError, MaybeDisplay,
+		MaybeSerializeDeserialize, Member, One, Saturating, SimpleBitOps, StaticLookup, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	},
-	DispatchError, RuntimeDebug,
+	DispatchError,
 };
 use sp_version::RuntimeVersion;
 
-use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 #[cfg(feature = "std")]
 use frame_support::traits::BuildGenesisConfig;
 use frame_support::{
+	defensive,
 	dispatch::{
 		extract_actual_pays_fee, extract_actual_weight, DispatchClass, DispatchInfo,
 		DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PerDispatchClass,
@@ -148,7 +149,7 @@ use sp_runtime::{
 	traits::{DispatchInfoOf, PostDispatchInfoOf},
 	transaction_validity::TransactionValidityError,
 };
-use sp_weights::{RuntimeDbWeight, Weight};
+use sp_weights::{RuntimeDbWeight, Weight, WeightMeter};
 
 #[cfg(any(feature = "std", test))]
 use sp_io::TestExternalities;
@@ -169,15 +170,22 @@ pub mod weights;
 pub mod migrations;
 
 pub use extensions::{
-	check_genesis::CheckGenesis, check_mortality::CheckMortality,
-	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
-	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight, weight_reclaim::WeightReclaim, WeightInfo as ExtensionsWeightInfo,
+	authorize_call::AuthorizeCall,
+	check_genesis::CheckGenesis,
+	check_mortality::CheckMortality,
+	check_non_zero_sender::CheckNonZeroSender,
+	check_nonce::{CheckNonce, ValidNonceInfo},
+	check_spec_version::CheckSpecVersion,
+	check_tx_version::CheckTxVersion,
+	check_weight::{calculate_consumed_extrinsic_weight, CheckWeight},
+	weight_reclaim::WeightReclaim,
+	weights::SubstrateWeight as SubstrateExtensionsWeight,
+	WeightInfo as ExtensionsWeightInfo,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
 pub use frame_support::dispatch::RawOrigin;
-use frame_support::traits::{PostInherents, PostTransactions, PreInherents};
+use frame_support::traits::{Authorize, PostInherents, PostTransactions, PreInherents};
 use sp_core::storage::StateVersion;
 pub use weights::WeightInfo;
 
@@ -264,10 +272,22 @@ where
 	check_version: bool,
 }
 
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+impl<T> CodeUpgradeAuthorization<T>
+where
+	T: Config,
+{
+	pub fn code_hash(&self) -> &T::Hash {
+		&self.code_hash
+	}
+}
+
 /// Information about the dispatch of a call, to be displayed in the
 /// [`ExtrinsicSuccess`](Event::ExtrinsicSuccess) and [`ExtrinsicFailed`](Event::ExtrinsicFailed)
 /// events.
-#[derive(Clone, Copy, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(
+	Clone, Copy, Eq, PartialEq, Default, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo,
+)]
 pub struct DispatchEventInfo {
 	/// Weight of this transaction.
 	pub weight: Weight,
@@ -280,6 +300,7 @@ pub struct DispatchEventInfo {
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::{self as frame_system, pallet_prelude::*, *};
+	use codec::HasCompact;
 	use frame_support::pallet_prelude::*;
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -465,7 +486,7 @@ pub mod pallet {
 	}
 
 	/// System configuration trait. Implemented by runtime.
-	#[pallet::config(with_default)]
+	#[pallet::config(with_default, frame_system_config)]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: 'static + Eq + Clone {
 		/// The aggregated event type of the runtime.
@@ -502,7 +523,8 @@ pub mod pallet {
 		type RuntimeOrigin: Into<Result<RawOrigin<Self::AccountId>, Self::RuntimeOrigin>>
 			+ From<RawOrigin<Self::AccountId>>
 			+ Clone
-			+ OriginTrait<Call = Self::RuntimeCall, AccountId = Self::AccountId>;
+			+ OriginTrait<Call = Self::RuntimeCall, AccountId = Self::AccountId>
+			+ AsTransactionAuthorizedOrigin;
 
 		#[docify::export(system_runtime_call)]
 		/// The aggregated `RuntimeCall` type.
@@ -511,7 +533,8 @@ pub mod pallet {
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ Debug
 			+ GetDispatchInfo
-			+ From<Call<Self>>;
+			+ From<Call<Self>>
+			+ Authorize;
 
 		/// The aggregated `RuntimeTask` type.
 		#[pallet::no_default_bounds]
@@ -519,6 +542,7 @@ pub mod pallet {
 
 		/// This stores the number of previous transactions associated with a sender account.
 		type Nonce: Parameter
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Member
 			+ MaybeSerializeDeserialize
 			+ Debug
@@ -640,7 +664,7 @@ pub mod pallet {
 
 		/// The migrator that is used to run Multi-Block-Migrations.
 		///
-		/// Can be set to [`pallet-migrations`] or an alternative implementation of the interface.
+		/// Can be set to `pallet_migrations` or an alternative implementation of the interface.
 		/// The diagram in `frame_executive::block_flowchart` explains when it runs.
 		type MultiBlockMigrator: MultiStepMigrator;
 
@@ -671,7 +695,7 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::call]
+	#[pallet::call(weight = <T as Config>::SystemWeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// Make some on-chain remark.
 		///
@@ -698,7 +722,7 @@ pub mod pallet {
 		#[pallet::weight((T::SystemWeightInfo::set_code(), DispatchClass::Operational))]
 		pub fn set_code(origin: OriginFor<T>, code: Vec<u8>) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
-			Self::can_set_code(&code)?;
+			Self::can_set_code(&code, true).into_result()?;
 			T::OnSetCode::set_code(code)?;
 			// consume the rest of the block to prevent further transactions
 			Ok(Some(T::BlockWeights::get().max_block).into())
@@ -715,6 +739,7 @@ pub mod pallet {
 			code: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
+			Self::can_set_code(&code, false).into_result()?;
 			T::OnSetCode::set_code(code)?;
 			Ok(Some(T::BlockWeights::get().max_block).into())
 		}
@@ -787,13 +812,13 @@ pub mod pallet {
 		#[pallet::weight(task.weight())]
 		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			if !task.is_valid() {
-				return Err(Error::<T>::InvalidTask.into())
+				return Err(Error::<T>::InvalidTask.into());
 			}
 
 			Self::deposit_event(Event::TaskStarted { task: task.clone() });
 			if let Err(err) = task.run() {
 				Self::deposit_event(Event::TaskFailed { task, err });
-				return Err(Error::<T>::FailedTask.into())
+				return Err(Error::<T>::FailedTask.into());
 			}
 
 			// Emit a success event, if your design includes events for this pallet.
@@ -849,8 +874,33 @@ pub mod pallet {
 			_: OriginFor<T>,
 			code: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			let post = Self::do_apply_authorize_upgrade(code)?;
-			Ok(post)
+			let res = Self::validate_code_is_authorized(&code)?;
+			AuthorizedUpgrade::<T>::kill();
+
+			match Self::can_set_code(&code, res.check_version) {
+				CanSetCodeResult::Ok => {},
+				CanSetCodeResult::MultiBlockMigrationsOngoing => {
+					return Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+				},
+				CanSetCodeResult::InvalidVersion(error) => {
+					// The upgrade is invalid and there is no benefit in trying to apply this again.
+					Self::deposit_event(Event::RejectedInvalidAuthorizedUpgrade {
+						code_hash: res.code_hash,
+						error: error.into(),
+					});
+
+					// Not the fault of the caller of call.
+					return Ok(Pays::No.into());
+				},
+			};
+			T::OnSetCode::set_code(code)?;
+
+			Ok(PostDispatchInfo {
+				// consume the rest of the block to prevent further transactions
+				actual_weight: Some(T::BlockWeights::get().max_block),
+				// no fee for valid upgrade
+				pays_fee: Pays::No,
+			})
 		}
 	}
 
@@ -861,8 +911,8 @@ pub mod pallet {
 		ExtrinsicSuccess { dispatch_info: DispatchEventInfo },
 		/// An extrinsic failed.
 		ExtrinsicFailed { dispatch_error: DispatchError, dispatch_info: DispatchEventInfo },
-		/// `:code` was updated.
-		CodeUpdated,
+		/// `:code` was updated to the code with the given hash.
+		CodeUpdated { hash: T::Hash },
 		/// A new account was created.
 		NewAccount { account: T::AccountId },
 		/// An account was reaped.
@@ -880,6 +930,8 @@ pub mod pallet {
 		TaskFailed { task: T::RuntimeTask, err: DispatchError },
 		/// An upgrade was authorized.
 		UpgradeAuthorized { code_hash: T::Hash, check_version: bool },
+		/// An invalid authorized upgrade was rejected while trying to apply it.
+		RejectedInvalidAuthorizedUpgrade { code_hash: T::Hash, error: DispatchError },
 	}
 
 	/// Error for the System pallet
@@ -932,10 +984,12 @@ pub mod pallet {
 
 	/// Total extrinsics count for the current block.
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	pub(super) type ExtrinsicCount<T: Config> = StorageValue<_, u32>;
 
 	/// Whether all inherents have been applied.
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	pub type InherentsApplied<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// The current weight for the block.
@@ -944,10 +998,12 @@ pub mod pallet {
 	#[pallet::getter(fn block_weight)]
 	pub type BlockWeight<T: Config> = StorageValue<_, ConsumedWeight, ValueQuery>;
 
-	/// Total length (in bytes) for all extrinsics put together, for the current block.
+	/// Total size (in bytes) of the current block.
+	///
+	/// Tracks the size of the header and all extrinsics.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	pub type AllExtrinsicsLen<T: Config> = StorageValue<_, u32>;
+	pub type BlockSize<T: Config> = StorageValue<_, u32>;
 
 	/// Map of block numbers to block hashes.
 	#[pallet::storage]
@@ -1021,6 +1077,10 @@ pub mod pallet {
 	#[pallet::unbounded]
 	pub type LastRuntimeUpgrade<T: Config> = StorageValue<_, LastRuntimeUpgradeInfo>;
 
+	/// Number of blocks till the pending code upgrade is applied.
+	#[pallet::storage]
+	pub(super) type BlocksTillUpgrade<T: Config> = StorageValue<_, u8>;
+
 	/// True if we have upgraded so that `type RefCount` is `u32`. False (default) if not.
 	#[pallet::storage]
 	pub(super) type UpgradedToU32RefCount<T: Config> = StorageValue<_, bool, ValueQuery>;
@@ -1072,33 +1132,50 @@ pub mod pallet {
 		}
 	}
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
-	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			if let Call::apply_authorized_upgrade { ref code } = call {
-				if let Ok(hash) = Self::validate_authorized_upgrade(&code[..]) {
-					return Ok(ValidTransaction {
-						priority: 100,
-						requires: Vec::new(),
-						provides: vec![hash.as_ref().to_vec()],
-						longevity: TransactionLongevity::max_value(),
-						propagate: true,
-					})
+				if let Ok(res) = Self::validate_code_is_authorized(&code[..]) {
+					if Self::can_set_code(&code, false).is_ok() {
+						return Ok(ValidTransaction {
+							priority: u64::max_value(),
+							requires: Vec::new(),
+							provides: vec![res.code_hash.encode()],
+							longevity: TransactionLongevity::max_value(),
+							propagate: true,
+						});
+					}
 				}
 			}
+
 			#[cfg(feature = "experimental")]
 			if let Call::do_task { ref task } = call {
-				if task.is_valid() {
-					return Ok(ValidTransaction {
-						priority: u64::max_value(),
-						requires: Vec::new(),
-						provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
-						longevity: TransactionLongevity::max_value(),
-						propagate: true,
-					})
+				// If valid, the tasks provides the tag: hash of task.
+				// But it is allowed to have many task for a single process, e.g. a task that takes
+				// a limit on the number of item to migrate is valid from 1 to the limit while
+				// actually advancing a single migration process.
+				// In the transaction pool, transaction are identified by their provides tag.
+				// So in order to protect the transaction pool against spam, we only accept tasks
+				// from local source.
+				if source == TransactionSource::InBlock || source == TransactionSource::Local {
+					if task.is_valid() {
+						return Ok(ValidTransaction {
+							priority: u64::max_value(),
+							requires: Vec::new(),
+							provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
+							longevity: TransactionLongevity::max_value(),
+							propagate: false,
+						});
+					}
 				}
 			}
+
+			#[cfg(not(feature = "experimental"))]
+			let _ = source;
+
 			Err(InvalidTransaction::Call.into())
 		}
 	}
@@ -1108,7 +1185,7 @@ pub type Key = Vec<u8>;
 pub type KeyValue = (Vec<u8>, Vec<u8>);
 
 /// A phase of a block's execution.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, PartialEq, Eq, Clone))]
 pub enum Phase {
 	/// Applying an extrinsic.
@@ -1126,7 +1203,7 @@ impl Default for Phase {
 }
 
 /// Record of an event happening.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, PartialEq, Eq, Clone))]
 pub struct EventRecord<E: Parameter + Member, T> {
 	/// The phase of the block it happened in.
@@ -1155,7 +1232,7 @@ type EventIndex = u32;
 pub type RefCount = u32;
 
 /// Information of an account.
-#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Default, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct AccountInfo<Nonce, AccountData> {
 	/// The number of transactions this account has sent.
 	pub nonce: Nonce,
@@ -1175,7 +1252,7 @@ pub struct AccountInfo<Nonce, AccountData> {
 
 /// Stores the `spec_version` and `spec_name` of when the last runtime upgrade
 /// happened.
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct LastRuntimeUpgradeInfo {
 	pub spec_version: codec::Compact<u32>,
@@ -1199,20 +1276,18 @@ impl From<RuntimeVersion> for LastRuntimeUpgradeInfo {
 
 /// Ensure the origin is Root.
 pub struct EnsureRoot<AccountId>(core::marker::PhantomData<AccountId>);
-impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId>
-	EnsureOrigin<O> for EnsureRoot<AccountId>
-{
+impl<O: OriginTrait, AccountId> EnsureOrigin<O> for EnsureRoot<AccountId> {
 	type Success = ();
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Root => Ok(()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Root) => Ok(()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::Root))
+		Ok(O::root())
 	}
 }
 
@@ -1226,23 +1301,20 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 pub struct EnsureRootWithSuccess<AccountId, Success>(
 	core::marker::PhantomData<(AccountId, Success)>,
 );
-impl<
-		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
-		AccountId,
-		Success: TypedGet,
-	> EnsureOrigin<O> for EnsureRootWithSuccess<AccountId, Success>
+impl<O: OriginTrait, AccountId, Success: TypedGet> EnsureOrigin<O>
+	for EnsureRootWithSuccess<AccountId, Success>
 {
 	type Success = Success::Type;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Root => Ok(Success::get()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Root) => Ok(Success::get()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::Root))
+		Ok(O::root())
 	}
 }
 
@@ -1257,12 +1329,8 @@ pub struct EnsureWithSuccess<Ensure, AccountId, Success>(
 	core::marker::PhantomData<(Ensure, AccountId, Success)>,
 );
 
-impl<
-		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
-		Ensure: EnsureOrigin<O>,
-		AccountId,
-		Success: TypedGet,
-	> EnsureOrigin<O> for EnsureWithSuccess<Ensure, AccountId, Success>
+impl<O: OriginTrait, Ensure: EnsureOrigin<O>, AccountId, Success: TypedGet> EnsureOrigin<O>
+	for EnsureWithSuccess<Ensure, AccountId, Success>
 {
 	type Success = Success::Type;
 
@@ -1278,27 +1346,27 @@ impl<
 
 /// Ensure the origin is any `Signed` origin.
 pub struct EnsureSigned<AccountId>(core::marker::PhantomData<AccountId>);
-impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId: Decode>
-	EnsureOrigin<O> for EnsureSigned<AccountId>
+impl<O: OriginTrait<AccountId = AccountId>, AccountId: Decode + Clone> EnsureOrigin<O>
+	for EnsureSigned<AccountId>
 {
 	type Success = AccountId;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Signed(who) => Ok(who),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Signed(who)) => Ok(who.clone()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
 		let zero_account_id =
 			AccountId::decode(&mut TrailingZeroInput::zeroes()).map_err(|_| ())?;
-		Ok(O::from(RawOrigin::Signed(zero_account_id)))
+		Ok(O::signed(zero_account_id))
 	}
 }
 
 impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., AccountId: Decode, T } >
+	impl< { O: OriginTrait<AccountId = AccountId>, AccountId: Decode + Clone, T } >
 		EnsureOriginWithArg<O, T> for EnsureSigned<AccountId>
 	{}
 }
@@ -1306,17 +1374,17 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 /// Ensure the origin is `Signed` origin from the given `AccountId`.
 pub struct EnsureSignedBy<Who, AccountId>(core::marker::PhantomData<(Who, AccountId)>);
 impl<
-		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
+		O: OriginTrait<AccountId = AccountId>,
 		Who: SortedMembers<AccountId>,
 		AccountId: PartialEq + Clone + Ord + Decode,
 	> EnsureOrigin<O> for EnsureSignedBy<Who, AccountId>
 {
 	type Success = AccountId;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Signed(ref who) if Who::contains(who) => Ok(who.clone()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Signed(ref who)) if Who::contains(who) => Ok(who.clone()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1325,37 +1393,35 @@ impl<
 			Some(account) => account.clone(),
 			None => AccountId::decode(&mut TrailingZeroInput::zeroes()).map_err(|_| ())?,
 		};
-		Ok(O::from(RawOrigin::Signed(first_member)))
+		Ok(O::signed(first_member))
 	}
 }
 
 impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., Who: SortedMembers<AccountId>, AccountId: PartialEq + Clone + Ord + Decode, T } >
+	impl< { O: OriginTrait<AccountId = AccountId>, Who: SortedMembers<AccountId>, AccountId: PartialEq + Clone + Ord + Decode, T } >
 		EnsureOriginWithArg<O, T> for EnsureSignedBy<Who, AccountId>
 	{}
 }
 
 /// Ensure the origin is `None`. i.e. unsigned transaction.
 pub struct EnsureNone<AccountId>(core::marker::PhantomData<AccountId>);
-impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId>
-	EnsureOrigin<O> for EnsureNone<AccountId>
-{
+impl<O: OriginTrait<AccountId = AccountId>, AccountId> EnsureOrigin<O> for EnsureNone<AccountId> {
 	type Success = ();
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::None => Ok(()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::None) => Ok(()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::None))
+		Ok(O::none())
 	}
 }
 
 impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., AccountId, T } >
+	impl< { O: OriginTrait<AccountId = AccountId>, AccountId, T } >
 		EnsureOriginWithArg<O, T> for EnsureNone<AccountId>
 	{}
 }
@@ -1431,15 +1497,27 @@ where
 	}
 }
 
+/// Ensure that the origin `o` represents an extrinsic with authorized call. Returns `Ok` or an
+/// `Err` otherwise.
+pub fn ensure_authorized<OuterOrigin, AccountId>(o: OuterOrigin) -> Result<(), BadOrigin>
+where
+	OuterOrigin: Into<Result<RawOrigin<AccountId>, OuterOrigin>>,
+{
+	match o.into() {
+		Ok(RawOrigin::Authorized) => Ok(()),
+		_ => Err(BadOrigin),
+	}
+}
+
 /// Reference status; can be either referenced or unreferenced.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub enum RefStatus {
 	Referenced,
 	Unreferenced,
 }
 
 /// Some resultant status relevant to incrementing a provider/self-sufficient reference.
-#[derive(Eq, PartialEq, RuntimeDebug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum IncRefStatus {
 	/// Account was created.
 	Created,
@@ -1448,12 +1526,40 @@ pub enum IncRefStatus {
 }
 
 /// Some resultant status relevant to decrementing a provider/self-sufficient reference.
-#[derive(Eq, PartialEq, RuntimeDebug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum DecRefStatus {
 	/// Account was destroyed.
 	Reaped,
 	/// Account still exists.
 	Exists,
+}
+
+/// Result of [`Pallet::can_set_code`].
+pub enum CanSetCodeResult<T: Config> {
+	/// Everything is fine.
+	Ok,
+	/// Multi-block migrations are on-going.
+	MultiBlockMigrationsOngoing,
+	/// The runtime version is invalid or could not be fetched.
+	InvalidVersion(Error<T>),
+}
+
+impl<T: Config> CanSetCodeResult<T> {
+	/// Convert `Self` into a result.
+	pub fn into_result(self) -> Result<(), DispatchError> {
+		match self {
+			Self::Ok => Ok(()),
+			Self::MultiBlockMigrationsOngoing => {
+				Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+			},
+			Self::InvalidVersion(err) => Err(err.into()),
+		}
+	}
+
+	/// Is this `Ok`?
+	pub fn is_ok(&self) -> bool {
+		matches!(self, Self::Ok)
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -1480,15 +1586,52 @@ impl<T: Config> Pallet<T> {
 		Account::<T>::contains_key(who)
 	}
 
-	/// Write code to the storage and emit related events and digest items.
+	/// Write code to the storage and emit related events and digest items. Writes either directly
+	/// to the `:code` storage or to the `:pending_code` storage depending on the system version.
 	///
 	/// Note this function almost never should be used directly. It is exposed
 	/// for `OnSetCode` implementations that defer actual code being written to
 	/// the storage (for instance in case of parachains).
 	pub fn update_code_in_storage(code: &[u8]) {
-		storage::unhashed::put_raw(well_known_keys::CODE, code);
+		match T::Version::get().system_version {
+			0..=2 => {
+				storage::unhashed::put_raw(well_known_keys::CODE, code);
+			},
+			_ => {
+				BlocksTillUpgrade::<T>::put(2u8);
+				storage::unhashed::put_raw(well_known_keys::PENDING_CODE, code);
+			},
+		}
+		let hash = T::Hashing::hash(code);
+
 		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
-		Self::deposit_event(Event::CodeUpdated);
+		Self::deposit_event(Event::CodeUpdated { hash });
+	}
+
+	/// Replace code with pending code if scheduled to enact in this block and in that case emit
+	/// related events and digest items.
+	///
+	/// This method is expected to be called in `on_finalize`.
+	pub fn maybe_apply_pending_code_upgrade() {
+		let Some(remaining) = BlocksTillUpgrade::<T>::get() else { return };
+
+		let remaining = remaining.saturating_sub(1);
+
+		if remaining > 0 {
+			BlocksTillUpgrade::<T>::put(remaining);
+			return;
+		}
+
+		BlocksTillUpgrade::<T>::kill();
+
+		let Some(new_code) = storage::unhashed::get_raw(well_known_keys::PENDING_CODE) else {
+			// should never happen
+			defensive!("BlocksTillUpgrade is set but no pending code found");
+			return;
+		};
+
+		storage::unhashed::put_raw(well_known_keys::CODE, &new_code);
+		storage::unhashed::kill(well_known_keys::PENDING_CODE);
 	}
 
 	/// Whether all inherents have been applied.
@@ -1621,7 +1764,7 @@ impl<T: Config> Pallet<T> {
 						DecRefStatus::Reaped
 					},
 					(x, _) => {
-						account.sufficients = x - 1;
+						account.sufficients = x.saturating_sub(1);
 						*maybe_account = Some(account);
 						DecRefStatus::Exists
 					},
@@ -1751,7 +1894,7 @@ impl<T: Config> Pallet<T> {
 
 		// Don't populate events on genesis.
 		if block_number.is_zero() {
-			return
+			return;
 		}
 
 		let phase = ExecutionPhase::<T>::get().unwrap_or_default();
@@ -1787,8 +1930,14 @@ impl<T: Config> Pallet<T> {
 		ExtrinsicCount::<T>::get().unwrap_or_default()
 	}
 
-	pub fn all_extrinsics_len() -> u32 {
-		AllExtrinsicsLen::<T>::get().unwrap_or_default()
+	/// Gets the total size (in bytes) of the current block.
+	pub fn block_size() -> u32 {
+		BlockSize::<T>::get().unwrap_or_default()
+	}
+
+	/// Returns the current active execution phase.
+	pub fn execution_phase() -> Option<Phase> {
+		ExecutionPhase::<T>::get()
 	}
 
 	/// Inform the system pallet of some additional weight that should be accounted for, in the
@@ -1813,42 +1962,79 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Start the execution of a particular block.
+	///
+	/// # Panics
+	///
+	/// Panics when the given `number` is not `Self::block_number() + 1`. If you are using this in
+	/// tests, you can use [`Self::set_block_number`] to make the check succeed.
 	pub fn initialize(number: &BlockNumberFor<T>, parent_hash: &T::Hash, digest: &generic::Digest) {
+		let expected_block_number = Self::block_number() + One::one();
+		assert_eq!(expected_block_number, *number, "Block number must be strictly increasing.");
+
 		// populate environment
 		ExecutionPhase::<T>::put(Phase::Initialization);
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &0u32);
-		let entropy = (b"frame_system::initialize", parent_hash).using_encoded(blake2_256);
-		storage::unhashed::put_raw(well_known_keys::INTRABLOCK_ENTROPY, &entropy[..]);
+		Self::initialize_intra_block_entropy(parent_hash);
 		<Number<T>>::put(number);
 		<Digest<T>>::put(digest);
 		<ParentHash<T>>::put(parent_hash);
 		<BlockHash<T>>::insert(*number - One::one(), parent_hash);
-		<InherentsApplied<T>>::kill();
 
 		// Remove previous block data from storage
 		BlockWeight::<T>::kill();
+
+		// Account for digest size and empty header overhead in block length.
+		// This ensures block limits consider the full block size, not just extrinsics.
+		let digest_size = digest.encoded_size();
+		let empty_header = <<T as Config>::Block as traits::Block>::Header::new(
+			*number,
+			Default::default(),
+			Default::default(),
+			*parent_hash,
+			Default::default(),
+		);
+		let empty_header_size = empty_header.encoded_size();
+		let overhead = digest_size.saturating_add(empty_header_size) as u32;
+		BlockSize::<T>::put(overhead);
+
+		// Ensure inherent digests don't exceed the configured max header size
+		let max_total_header = T::BlockLength::get().max_header_size();
+		assert!(
+			overhead <= max_total_header as u32,
+			"Header size ({overhead}) exceeds max header size limit ({max_total_header})"
+		);
 	}
 
-	/// Remove temporary "environment" entries in storage, compute the storage root and return the
-	/// resulting header for this block.
-	pub fn finalize() -> HeaderFor<T> {
+	/// Initialize [`INTRABLOCK_ENTROPY`](well_known_keys::INTRABLOCK_ENTROPY).
+	///
+	/// Normally this is called internally [`initialize`](Self::initialize) at block initiation.
+	pub fn initialize_intra_block_entropy(parent_hash: &T::Hash) {
+		let entropy = (b"frame_system::initialize", parent_hash).using_encoded(blake2_256);
+		storage::unhashed::put_raw(well_known_keys::INTRABLOCK_ENTROPY, &entropy[..]);
+	}
+
+	/// Log the entire resouce usage report up until this point.
+	///
+	/// Uses `crate::LOG_TARGET`, level `debug` and prints the weight and block length usage.
+	pub fn resource_usage_report() {
 		log::debug!(
 			target: LOG_TARGET,
-			"[{:?}] {} extrinsics, length: {} (normal {}%, op: {}%, mandatory {}%) / normal weight:\
-			 {} ({}%) op weight {} ({}%) / mandatory weight {} ({}%)",
+			"[{:?}] {} extrinsics, block size: {} (normal {}%, op: {}%, mandatory {}%) / normal weight:\
+			 {} (ref_time: {}%, proof_size: {}%) op weight {} (ref_time {}%, proof_size {}%) / \
+			  mandatory weight {} (ref_time: {}%, proof_size: {}%)",
 			Self::block_number(),
 			Self::extrinsic_count(),
-			Self::all_extrinsics_len(),
+			Self::block_size(),
 			sp_runtime::Percent::from_rational(
-				Self::all_extrinsics_len(),
+				Self::block_size(),
 				*T::BlockLength::get().max.get(DispatchClass::Normal)
 			).deconstruct(),
 			sp_runtime::Percent::from_rational(
-				Self::all_extrinsics_len(),
+				Self::block_size(),
 				*T::BlockLength::get().max.get(DispatchClass::Operational)
 			).deconstruct(),
 			sp_runtime::Percent::from_rational(
-				Self::all_extrinsics_len(),
+				Self::block_size(),
 				*T::BlockLength::get().max.get(DispatchClass::Mandatory)
 			).deconstruct(),
 			Self::block_weight().get(DispatchClass::Normal),
@@ -1856,19 +2042,37 @@ impl<T: Config> Pallet<T> {
 				Self::block_weight().get(DispatchClass::Normal).ref_time(),
 				T::BlockWeights::get().get(DispatchClass::Normal).max_total.unwrap_or(Bounded::max_value()).ref_time()
 			).deconstruct(),
+			sp_runtime::Percent::from_rational(
+				Self::block_weight().get(DispatchClass::Normal).proof_size(),
+				T::BlockWeights::get().get(DispatchClass::Normal).max_total.unwrap_or(Bounded::max_value()).proof_size()
+			).deconstruct(),
 			Self::block_weight().get(DispatchClass::Operational),
 			sp_runtime::Percent::from_rational(
 				Self::block_weight().get(DispatchClass::Operational).ref_time(),
 				T::BlockWeights::get().get(DispatchClass::Operational).max_total.unwrap_or(Bounded::max_value()).ref_time()
+			).deconstruct(),
+			sp_runtime::Percent::from_rational(
+				Self::block_weight().get(DispatchClass::Operational).proof_size(),
+				T::BlockWeights::get().get(DispatchClass::Operational).max_total.unwrap_or(Bounded::max_value()).proof_size()
 			).deconstruct(),
 			Self::block_weight().get(DispatchClass::Mandatory),
 			sp_runtime::Percent::from_rational(
 				Self::block_weight().get(DispatchClass::Mandatory).ref_time(),
 				T::BlockWeights::get().get(DispatchClass::Mandatory).max_total.unwrap_or(Bounded::max_value()).ref_time()
 			).deconstruct(),
+			sp_runtime::Percent::from_rational(
+				Self::block_weight().get(DispatchClass::Mandatory).proof_size(),
+				T::BlockWeights::get().get(DispatchClass::Mandatory).max_total.unwrap_or(Bounded::max_value()).proof_size()
+			).deconstruct(),
 		);
+	}
+
+	/// Remove temporary "environment" entries in storage, compute the storage root and return the
+	/// resulting header for this block.
+	pub fn finalize() -> HeaderFor<T> {
+		Self::resource_usage_report();
 		ExecutionPhase::<T>::kill();
-		AllExtrinsicsLen::<T>::kill();
+		BlockSize::<T>::kill();
 		storage::unhashed::kill(well_known_keys::INTRABLOCK_ENTROPY);
 		InherentsApplied::<T>::kill();
 
@@ -1909,8 +2113,14 @@ impl<T: Config> Pallet<T> {
 		HeaderFor::<T>::new(number, extrinsics_root, storage_root, parent_hash, digest)
 	}
 
-	/// Deposits a log and ensures it matches the block's log data.
+	/// Deposits a log (digest) in the block's header.
+	///
+	/// Digests should not be directly controllable by external users as they increase the size of
+	/// the header.
 	pub fn deposit_log(item: generic::DigestItem) {
+		BlockSize::<T>::mutate(|len| {
+			*len = Some(len.unwrap_or(0).saturating_add(item.encoded_size() as u32));
+		});
 		<Digest<T>>::append(item);
 	}
 
@@ -2027,7 +2237,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Sets the index of extrinsic that is currently executing.
-	#[cfg(any(feature = "std", test))]
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	pub fn set_extrinsic_index(extrinsic_index: u32) {
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &extrinsic_index)
 	}
@@ -2045,7 +2255,7 @@ impl<T: Config> Pallet<T> {
 		BlockWeight::<T>::mutate(|current_weight| {
 			current_weight.set(weight, DispatchClass::Normal)
 		});
-		AllExtrinsicsLen::<T>::put(len as u32);
+		BlockSize::<T>::put(len as u32);
 	}
 
 	/// Reset events.
@@ -2160,7 +2370,7 @@ impl<T: Config> Pallet<T> {
 		log::trace!(
 			target: LOG_TARGET,
 			"Used block length: {:?}",
-			Pallet::<T>::all_extrinsics_len(),
+			Pallet::<T>::block_size(),
 		);
 
 		let next_extrinsic_index = Self::extrinsic_index().unwrap_or_default() + 1u32;
@@ -2199,71 +2409,55 @@ impl<T: Config> Pallet<T> {
 
 	/// Determine whether or not it is possible to update the code.
 	///
-	/// Checks the given code if it is a valid runtime wasm blob by instantiating
-	/// it and extracting the runtime version of it. It checks that the runtime version
-	/// of the old and new runtime has the same spec name and that the spec version is increasing.
-	pub fn can_set_code(code: &[u8]) -> Result<(), sp_runtime::DispatchError> {
+	/// - `check_version`: Should the runtime version be checked?
+	pub fn can_set_code(code: &[u8], check_version: bool) -> CanSetCodeResult<T> {
 		if T::MultiBlockMigrator::ongoing() {
-			return Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+			return CanSetCodeResult::MultiBlockMigrationsOngoing;
 		}
 
-		let current_version = T::Version::get();
-		let new_version = sp_io::misc::runtime_version(code)
-			.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())
-			.ok_or(Error::<T>::FailedToExtractRuntimeVersion)?;
+		if check_version {
+			let current_version = T::Version::get();
+			let Some(new_version) = sp_io::misc::runtime_version(code)
+				.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())
+			else {
+				return CanSetCodeResult::InvalidVersion(Error::<T>::FailedToExtractRuntimeVersion);
+			};
 
-		cfg_if::cfg_if! {
-			if #[cfg(all(feature = "runtime-benchmarks", not(test)))] {
+			cfg_if::cfg_if! {
+				if #[cfg(all(feature = "runtime-benchmarks", not(test)))] {
 					// Let's ensure the compiler doesn't optimize our fetching of the runtime version away.
 					core::hint::black_box((new_version, current_version));
-					Ok(())
-			} else {
-				if new_version.spec_name != current_version.spec_name {
-					return Err(Error::<T>::InvalidSpecName.into())
-				}
+				} else {
+					if new_version.spec_name != current_version.spec_name {
+						return CanSetCodeResult::InvalidVersion(Error::<T>::InvalidSpecName)
+					}
 
-				if new_version.spec_version <= current_version.spec_version {
-					return Err(Error::<T>::SpecVersionNeedsToIncrease.into())
+					if new_version.spec_version <= current_version.spec_version {
+						return CanSetCodeResult::InvalidVersion(Error::<T>::SpecVersionNeedsToIncrease)
+					}
 				}
-
-				Ok(())
 			}
 		}
+
+		CanSetCodeResult::Ok
 	}
 
-	/// To be called after any origin/privilege checks. Put the code upgrade authorization into
-	/// storage and emit an event. Infallible.
+	/// Authorize the given `code_hash` as upgrade.
 	pub fn do_authorize_upgrade(code_hash: T::Hash, check_version: bool) {
 		AuthorizedUpgrade::<T>::put(CodeUpgradeAuthorization { code_hash, check_version });
 		Self::deposit_event(Event::UpgradeAuthorized { code_hash, check_version });
 	}
 
-	/// Apply an authorized upgrade, performing any validation checks, and remove the authorization.
-	/// Whether or not the code is set directly depends on the `OnSetCode` configuration of the
-	/// runtime.
-	pub fn do_apply_authorize_upgrade(code: Vec<u8>) -> Result<PostDispatchInfo, DispatchError> {
-		Self::validate_authorized_upgrade(&code[..])?;
-		T::OnSetCode::set_code(code)?;
-		AuthorizedUpgrade::<T>::kill();
-		let post = PostDispatchInfo {
-			// consume the rest of the block to prevent further transactions
-			actual_weight: Some(T::BlockWeights::get().max_block),
-			// no fee for valid upgrade
-			pays_fee: Pays::No,
-		};
-		Ok(post)
-	}
-
-	/// Check that provided `code` can be upgraded to. Namely, check that its hash matches an
-	/// existing authorization and that it meets the specification requirements of `can_set_code`.
-	pub fn validate_authorized_upgrade(code: &[u8]) -> Result<T::Hash, DispatchError> {
+	/// Check that provided `code` is authorized as an upgrade.
+	///
+	/// Returns the [`CodeUpgradeAuthorization`].
+	fn validate_code_is_authorized(
+		code: &[u8],
+	) -> Result<CodeUpgradeAuthorization<T>, DispatchError> {
 		let authorization = AuthorizedUpgrade::<T>::get().ok_or(Error::<T>::NothingAuthorized)?;
 		let actual_hash = T::Hashing::hash(code);
 		ensure!(actual_hash == authorization.code_hash, Error::<T>::Unauthorized);
-		if authorization.check_version {
-			Self::can_set_code(code)?
-		}
-		Ok(actual_hash)
+		Ok(authorization)
 	}
 
 	/// Reclaim the weight for the extrinsic given info and post info.
@@ -2290,6 +2484,14 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(())
+	}
+
+	/// Returns the remaining weight of the block.
+	pub fn remaining_block_weight() -> WeightMeter {
+		let limit = T::BlockWeights::get().max_block;
+		let consumed = BlockWeight::<T>::get().total();
+
+		WeightMeter::with_consumed_and_limit(consumed, limit)
 	}
 }
 
@@ -2478,7 +2680,9 @@ where
 
 /// Prelude to be used alongside pallet macro, for ease of use.
 pub mod pallet_prelude {
-	pub use crate::{ensure_none, ensure_root, ensure_signed, ensure_signed_or_root};
+	pub use crate::{
+		ensure_authorized, ensure_none, ensure_root, ensure_signed, ensure_signed_or_root,
+	};
 
 	/// Type alias for the `Origin` associated type of system config.
 	pub type OriginFor<T> = <T as crate::Config>::RuntimeOrigin;
@@ -2496,4 +2700,7 @@ pub mod pallet_prelude {
 
 	/// Type alias for the `RuntimeCall` associated type of system config.
 	pub type RuntimeCallFor<T> = <T as crate::Config>::RuntimeCall;
+
+	/// Type alias for the `AccountId` associated type of system config.
+	pub type AccountIdFor<T> = <T as crate::Config>::AccountId;
 }

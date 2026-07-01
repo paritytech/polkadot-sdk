@@ -19,27 +19,25 @@ use super::*;
 use bitvec::order::Lsb0;
 use codec::{Decode, Encode};
 use polkadot_node_network_protocol::{
-	request_response::v2 as request_v2, v2::BackedCandidateManifest,
+	request_response::v2 as request_v2, v3::BackedCandidateManifest,
 };
-use polkadot_primitives_test_helpers::{make_candidate, make_candidate_v2};
+use polkadot_primitives_test_helpers::{make_candidate, make_candidate_v2, make_candidate_v3};
 use sc_network::config::{
 	IncomingRequest as RawIncomingRequest, OutgoingResponse as RawOutgoingResponse,
 };
 
-use polkadot_primitives::vstaging::MutateDescriptorV2;
+use polkadot_primitives::{
+	ClaimQueueOffset, CoreSelector, MutateDescriptorV2, UMPSignal, UMP_SEPARATOR,
+};
 use rstest::rstest;
 
 #[rstest]
 #[case(false)]
 #[case(true)]
-fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descriptors: bool) {
+fn cluster_peer_allowed_to_send_incomplete_statements(#[case] use_v3_descriptor: bool) {
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -53,27 +51,25 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descripto
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
-		let (candidate, pvd) = if allow_v2_descriptors {
-			let (mut candidate, pvd) = make_candidate_v2(
-				relay_parent,
-				1,
-				local_para,
-				test_leaf.para_data(local_para).head_data.clone(),
-				vec![4, 5, 6].into(),
-				Hash::repeat_byte(42).into(),
-			);
-			candidate.descriptor.set_core_index(CoreIndex(local_group_index.0));
-			(candidate, pvd)
-		} else {
-			make_candidate(
-				relay_parent,
-				1,
-				local_para,
-				test_leaf.para_data(local_para).head_data.clone(),
-				vec![4, 5, 6].into(),
-				Hash::repeat_byte(42).into(),
-			)
-		};
+		let (mut candidate, pvd) = make_candidate_v2(
+			relay_parent,
+			1,
+			local_para,
+			test_leaf.para_data(local_para).head_data.clone(),
+			vec![4, 5, 6].into(),
+			Hash::repeat_byte(42).into(),
+		);
+		candidate.descriptor.set_core_index(CoreIndex(local_group_index.0));
+		if use_v3_descriptor {
+			candidate.descriptor.set_version(1);
+			candidate.descriptor.set_scheduling_parent(relay_parent);
+			// V3 descriptors require UMP signals.
+			candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
+			candidate
+				.commitments
+				.upward_messages
+				.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
+		}
 
 		let candidate_hash = candidate.hash();
 
@@ -81,9 +77,9 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descripto
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -121,7 +117,7 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descripto
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -173,9 +169,9 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descripto
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::Statement(hash, statement),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::Statement(hash, statement),
 							),
 						),
 					)
@@ -197,12 +193,7 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descripto
 fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
 	// use a scheduling_lookahead of two to restrict the per-core seconding limit to 2.
 	let scheduling_lookahead = 2;
@@ -291,7 +282,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 		// Peer C advertises candidate 1.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash: candidate_hash_1,
 				group_index: other_group,
 				para_id: other_para,
@@ -305,7 +296,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -363,7 +354,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 		// Peer C advertises candidate 2.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash: candidate_hash_2,
 				group_index: other_group,
 				para_id: other_para,
@@ -377,7 +368,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -440,7 +431,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 		// would fail with "Un-requested Statement In Response".
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash: candidate_hash_3,
 				group_index: other_group,
 				para_id: other_para,
@@ -454,7 +445,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -476,12 +467,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 fn peer_reported_for_not_enough_statements() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
@@ -546,7 +532,7 @@ fn peer_reported_for_not_enough_statements() {
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -561,7 +547,7 @@ fn peer_reported_for_not_enough_statements() {
 		send_peer_message(
 			&mut overseer,
 			peer_c.clone(),
-			protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest.clone()),
+			protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest.clone()),
 		)
 		.await;
 
@@ -663,12 +649,8 @@ fn peer_reported_for_not_enough_statements() {
 #[test]
 fn peer_reported_for_duplicate_statements() {
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -696,9 +678,9 @@ fn peer_reported_for_duplicate_statements() {
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -736,7 +718,7 @@ fn peer_reported_for_duplicate_statements() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -793,9 +775,9 @@ fn peer_reported_for_duplicate_statements() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::Statement(hash, statement),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::Statement(hash, statement),
 							),
 						),
 					)
@@ -816,12 +798,8 @@ fn peer_reported_for_duplicate_statements() {
 #[test]
 fn peer_reported_for_providing_statements_with_invalid_signatures() {
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -850,9 +828,9 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -890,7 +868,7 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -947,12 +925,8 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 #[test]
 fn peer_reported_for_invalid_v2_descriptor() {
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: true,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -983,9 +957,9 @@ fn peer_reported_for_invalid_v2_descriptor() {
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -1023,7 +997,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1061,7 +1035,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			assert_matches!(
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_a && r == COST_INVALID_CORE_INDEX.into() => { }
+					if p == peer_a && r == COST_INVALID_UMP_SIGNALS.into() => { }
 			);
 		}
 
@@ -1086,7 +1060,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1147,7 +1121,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1202,8 +1176,8 @@ fn peer_reported_for_invalid_v2_descriptor() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-						protocol_v2::StatementDistributionMessage::Statement(
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
 						)
@@ -1222,19 +1196,226 @@ fn peer_reported_for_invalid_v2_descriptor() {
 	});
 }
 
-#[rstest]
-#[case(false)]
-#[case(true)]
-// Test if v2 descriptors are filtered and peers punished if the node feature is disabled.
-// Also test if the peer is rewarded for providing v2 descriptor if the node feature is enabled.
-fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
+#[test]
+// Test that V3 descriptors use scheduling_session() (session_index + offset) for validation,
+// not session_index() directly.
+fn v3_descriptor_scheduling_session_validation() {
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size, local_validator: LocalRole::Validator };
+
+	let relay_parent = Hash::repeat_byte(1);
+	let peer_a = PeerId::random();
+	let peer_b = PeerId::random();
+	let peer_c = PeerId::random();
+
+	test_harness(config, |state, mut overseer| async move {
+		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
+
+		let test_leaf = state.make_dummy_leaf(relay_parent);
+
+		// V3 candidate. Helper defaults: version=1, session_index=1, scheduling_session_offset=0
+		// → scheduling_session()=1 (matches session).
+		let (mut candidate, pvd) = make_candidate_v3(
+			relay_parent,
+			1,
+			relay_parent, // scheduling_parent = relay_parent
+			local_para,
+			test_leaf.para_data(local_para).head_data.clone(),
+			vec![4, 5, 6].into(),
+			Hash::repeat_byte(42).into(),
+		);
+		candidate.descriptor.set_core_index(CoreIndex(local_group_index.0));
+		// V3 descriptors require UMP signals.
+		candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
+		candidate
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
+
+		let candidate_hash = candidate.hash();
+
+		let other_group_validators = state.group_validators(local_group_index, true);
+		let v_a = other_group_validators[0];
+		let v_b = other_group_validators[1];
+
+		{
+			connect_peer(
+				&mut overseer,
+				peer_a.clone(),
+				Some(vec![state.discovery_id(v_a)].into_iter().collect()),
+			)
+			.await;
+
+			connect_peer(
+				&mut overseer,
+				peer_b.clone(),
+				Some(vec![state.discovery_id(v_b)].into_iter().collect()),
+			)
+			.await;
+
+			connect_peer(&mut overseer, peer_c.clone(), None).await;
+
+			send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
+			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
+		}
+
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
+
+		// V3 candidate with session_index=1, offset=0 → scheduling_session()=1.
+		// The session at the scheduling parent is 1, so this should be valid.
+		{
+			let a_seconded = state
+				.sign_statement(
+					v_a,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+
+			send_peer_message(
+				&mut overseer,
+				peer_a.clone(),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_STATEMENT_FIRST.into() => { }
+			);
+		}
+
+		// Send the valid V3 candidate — should succeed.
+		{
+			let b_seconded = state
+				.sign_statement(
+					v_b,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+			let statements = vec![b_seconded.clone()];
+
+			// v_a has only seconded 1 candidate, so not exhausted → mask is blank.
+			handle_sent_request(
+				&mut overseer,
+				peer_a.clone(),
+				candidate_hash,
+				StatementFilter::blank(group_size),
+				candidate.clone(),
+				pvd.clone(),
+				statements,
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_STATEMENT.into() => { }
+			);
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_RESPONSE.into() => { }
+			);
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+					peers,
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						protocol_v3::StatementDistributionMessage::Statement(
+							r,
+							s,
+						)
+					))
+				)) => {
+					assert_eq!(peers, vec![peer_a.clone()]);
+					assert_eq!(r, relay_parent);
+					assert_eq!(s.unchecked_payload(), &CompactStatement::Seconded(candidate_hash));
+					assert_eq!(s.unchecked_validator_index(), v_b);
+				}
+			);
+
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
+		}
+
+		// Now test with wrong scheduling_session: session_index=1, offset=5 →
+		// scheduling_session()=6 ≠ 1. Should be rejected.
+		candidate.descriptor.set_scheduling_session_offset(5);
+
+		let candidate_hash = candidate.hash();
+
+		{
+			let a_seconded = state
+				.sign_statement(
+					v_a,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+
+			send_peer_message(
+				&mut overseer,
+				peer_a.clone(),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_STATEMENT_FIRST.into() => { }
+			);
+		}
+
+		{
+			let b_seconded = state
+				.sign_statement(
+					v_b,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+			let statements = vec![b_seconded.clone()];
+
+			handle_sent_request(
+				&mut overseer,
+				peer_a,
+				candidate_hash,
+				StatementFilter::blank(group_size),
+				candidate.clone(),
+				pvd.clone(),
+				statements,
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == COST_INVALID_SESSION_INDEX.into() => { }
+			);
+		}
+
+		overseer
+	});
+}
+
+#[test]
+// Test that a v2 descriptor with an ApprovedPeer UMP signal is ok with v2 receipts node feature
+// enabled.
+fn approved_peer_ump_signal() {
+	let group_size = 3;
+	let config =
+		TestConfig { validator_count: 20, group_size, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -1257,8 +1438,17 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 			Hash::repeat_byte(42).into(),
 		);
 
-		// Makes the candidate invalid.
-		candidate.descriptor.set_core_index(CoreIndex(100));
+		candidate.descriptor.set_core_index(CoreIndex(local_group_index.0));
+		candidate.descriptor.set_session_index(1);
+		candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
+		candidate
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
+		candidate
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
 
 		let candidate_hash = candidate.hash();
 
@@ -1266,21 +1456,21 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 		let v_a = other_group_validators[0];
 		let v_b = other_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
 				peer_a.clone(),
-				Some(vec![state.discovery_id(other_group_validators[0])].into_iter().collect()),
+				Some(vec![state.discovery_id(v_a)].into_iter().collect()),
 			)
 			.await;
 
 			connect_peer(
 				&mut overseer,
 				peer_b.clone(),
-				Some(vec![state.discovery_id(other_group_validators[1])].into_iter().collect()),
+				Some(vec![state.discovery_id(v_b)].into_iter().collect()),
 			)
 			.await;
 
@@ -1306,7 +1496,7 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1317,10 +1507,9 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 			);
 		}
 
-		// Send a request to peer and mock its response to include a candidate with invalid core
-		// index.
+		// Send a request to peer and mock its response to include a valid candidate.
 		{
-			let b_seconded_invalid = state
+			let b_seconded = state
 				.sign_statement(
 					v_b,
 					CompactStatement::Seconded(candidate_hash),
@@ -1328,7 +1517,7 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 				)
 				.as_unchecked()
 				.clone();
-			let statements = vec![b_seconded_invalid.clone()];
+			let statements = vec![b_seconded.clone()];
 
 			handle_sent_request(
 				&mut overseer,
@@ -1341,30 +1530,46 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 			)
 			.await;
 
-			let expected_rep_change = if allow_v2_descriptors {
-				COST_INVALID_CORE_INDEX.into()
-			} else {
-				COST_UNSUPPORTED_DESCRIPTOR_VERSION.into()
-			};
 			assert_matches!(
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_a && r == expected_rep_change => { }
+					if p == peer_a && r == BENEFIT_VALID_STATEMENT.into() => { }
 			);
-		}
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_RESPONSE.into() => { }
+			);
 
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+					peers,
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						protocol_v3::StatementDistributionMessage::Statement(
+							r,
+							s,
+						)
+					))
+				)) => {
+					assert_eq!(peers, vec![peer_a.clone()]);
+					assert_eq!(r, relay_parent);
+					assert_eq!(s.unchecked_payload(), &CompactStatement::Seconded(candidate_hash));
+					assert_eq!(s.unchecked_validator_index(), v_b);
+				}
+			);
+
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
+		}
 		overseer
 	});
 }
+
 #[test]
 fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -1393,9 +1598,9 @@ fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 		let v_a = other_group_validators[0];
 		let v_c = next_group_validators[0];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -1433,7 +1638,7 @@ fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1489,12 +1694,8 @@ fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 #[test]
 fn disabled_validators_added_to_unwanted_mask() {
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_disabled = PeerId::random();
@@ -1523,8 +1724,8 @@ fn disabled_validators_added_to_unwanted_mask() {
 		);
 		let candidate_hash = candidate.hash();
 
-		// peer A is in group, has relay parent in view and disabled.
-		// peer B is in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view and disabled.
+		// peer B is in group, has scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -1565,7 +1766,7 @@ fn disabled_validators_added_to_unwanted_mask() {
 			send_peer_message(
 				&mut overseer,
 				peer_disabled.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
+				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					seconded_disabled.clone(),
 				),
@@ -1583,7 +1784,7 @@ fn disabled_validators_added_to_unwanted_mask() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
+				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					seconded_b.clone(),
 				),
@@ -1633,9 +1834,9 @@ fn disabled_validators_added_to_unwanted_mask() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::Statement(hash, statement),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::Statement(hash, statement),
 							),
 						),
 					)
@@ -1655,12 +1856,8 @@ fn disabled_validators_added_to_unwanted_mask() {
 #[test]
 fn disabling_works_from_relay_parent_not_the_latest_state() {
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size, local_validator: LocalRole::Validator };
 
 	let relay_1 = Hash::repeat_byte(1);
 	let relay_2 = Hash::repeat_byte(2);
@@ -1751,7 +1948,7 @@ fn disabling_works_from_relay_parent_not_the_latest_state() {
 			send_peer_message(
 				&mut overseer,
 				peer_disabled.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_1, seconded_1.clone()),
+				protocol_v3::StatementDistributionMessage::Statement(relay_1, seconded_1.clone()),
 			)
 			.await;
 
@@ -1795,7 +1992,7 @@ fn disabling_works_from_relay_parent_not_the_latest_state() {
 			send_peer_message(
 				&mut overseer,
 				peer_disabled.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_1, seconded_2.clone()),
+				protocol_v3::StatementDistributionMessage::Statement(relay_1, seconded_2.clone()),
 			)
 			.await;
 
@@ -1837,7 +2034,7 @@ fn disabling_works_from_relay_parent_not_the_latest_state() {
 			send_peer_message(
 				&mut overseer,
 				peer_disabled.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_2, seconded_3.clone()),
+				protocol_v3::StatementDistributionMessage::Statement(relay_2, seconded_3.clone()),
 			)
 			.await;
 
@@ -1854,12 +2051,8 @@ fn disabling_works_from_relay_parent_not_the_latest_state() {
 
 #[test]
 fn local_node_sanity_checks_incoming_requests() {
-	let config = TestConfig {
-		validator_count: 20,
-		group_size: 3,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size: 3, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -1884,9 +2077,9 @@ fn local_node_sanity_checks_incoming_requests() {
 		);
 		let candidate_hash = candidate.hash();
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
 		{
 			let other_group_validators = state.group_validators(local_group_index, true);
 
@@ -1956,8 +2149,8 @@ fn local_node_sanity_checks_incoming_requests() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-						protocol_v2::StatementDistributionMessage::Statement(
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
 						)
@@ -2055,12 +2248,8 @@ fn local_node_sanity_checks_incoming_requests() {
 
 #[test]
 fn local_node_checks_that_peer_can_request_before_responding() {
-	let config = TestConfig {
-		validator_count: 20,
-		group_size: 3,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config =
+		TestConfig { validator_count: 20, group_size: 3, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -2130,8 +2319,8 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				peers,
-				Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-					protocol_v2::StatementDistributionMessage::Statement(
+				ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+					protocol_v3::StatementDistributionMessage::Statement(
 						r,
 						s,
 					)
@@ -2190,7 +2379,7 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -2231,8 +2420,8 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-						protocol_v2::StatementDistributionMessage::Statement(
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
 						)
@@ -2254,12 +2443,7 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 fn local_node_respects_statement_mask() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -2292,10 +2476,10 @@ fn local_node_respects_statement_mask() {
 		let v_c = target_group_validators[0];
 		let v_d = target_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
-		// peer D is not in group, has no relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
+		// peer D is not in group, has no scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -2374,7 +2558,7 @@ fn local_node_respects_statement_mask() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
+				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					statement_a.clone(),
 				),
@@ -2401,7 +2585,7 @@ fn local_node_respects_statement_mask() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
+				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					statement_b.clone(),
 				),
@@ -2433,16 +2617,16 @@ fn local_node_respects_statement_mask() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 							),
 						),
 					)
 				) => {
 					assert_eq!(peers, vec![peer_c]);
 					assert_eq!(manifest, BackedCandidateManifest {
-						relay_parent,
+						scheduling_parent: relay_parent,
 						candidate_hash,
 						group_index: local_group_index,
 						para_id: local_para,
@@ -2496,12 +2680,7 @@ fn local_node_respects_statement_mask() {
 fn should_delay_before_retrying_dropped_requests() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
@@ -2580,7 +2759,7 @@ fn should_delay_before_retrying_dropped_requests() {
 		// Send a request about a candidate.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash: candidate_hash_1,
 				group_index: other_group,
 				para_id: other_para,
@@ -2595,7 +2774,7 @@ fn should_delay_before_retrying_dropped_requests() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -2626,7 +2805,7 @@ fn should_delay_before_retrying_dropped_requests() {
 		// We still send requests about different candidates as per usual.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash: candidate_hash_2,
 				group_index: other_group,
 				para_id: other_para,
@@ -2641,7 +2820,7 @@ fn should_delay_before_retrying_dropped_requests() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)

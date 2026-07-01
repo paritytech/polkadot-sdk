@@ -20,8 +20,6 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
-smallvec = { workspace = true, default-features = true }
-static_assertions = { workspace = true, default-features = true }
 
 binary-merkle-tree = { workspace = true }
 rococo-runtime-constants = { workspace = true }
@@ -116,7 +114,6 @@ remote-externalities = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
-sp-trie = { workspace = true, default-features = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]
@@ -247,6 +244,7 @@ runtime-benchmarks = [
 	"pallet-recovery/runtime-benchmarks",
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-society/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-state-trie-migration/runtime-benchmarks",

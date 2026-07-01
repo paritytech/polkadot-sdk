@@ -37,6 +37,7 @@ pub trait EthRpc {
 		&self,
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTagOrHash>,
+		state_overrides: Option<StateOverrideSet>,
 	) -> RpcResult<Bytes>;
 
 	/// Returns the chain ID of the current network.
@@ -59,7 +60,7 @@ pub trait EthRpc {
 	/// Returns the balance of the account of given address.
 	#[method(name = "eth_getBalance")]
 	async fn get_balance(&self, address: Address, block: BlockNumberOrTagOrHash)
-		-> RpcResult<U256>;
+	-> RpcResult<U256>;
 
 	/// Returns information about a block by hash.
 	#[method(name = "eth_getBlockByHash")]
@@ -163,7 +164,37 @@ pub trait EthRpc {
 	#[method(name = "eth_syncing")]
 	async fn syncing(&self) -> RpcResult<SyncingStatus>;
 
+	/// Returns true when the client is actively listening for network connections, otherwise false
+	#[method(name = "net_listening")]
+	async fn net_listening(&self) -> RpcResult<bool>;
+
 	/// The string value of current network id
 	#[method(name = "net_version")]
 	async fn net_version(&self) -> RpcResult<String>;
+
+	/// The string value of the current client version
+	#[method(name = "web3_clientVersion")]
+	async fn web3_client_version(&self) -> RpcResult<String>;
+
+	/// Returns transaction base fee per gas and effective priority fee per gas for the
+	/// requested/supported block range.
+	///
+	/// Transaction fee history, which is introduced in EIP-1159.
+	#[method(name = "eth_feeHistory")]
+	async fn fee_history(
+		&self,
+		block_count: U256,
+		newest_block: BlockNumberOrTag,
+		reward_percentiles: Option<Vec<f64>>,
+	) -> RpcResult<FeeHistoryResult>;
+
+	/// Creates a subscription to specific events, returning a subscription ID.
+	/// Notifications are sent for each event matching the subscription via
+	/// `eth_subscription`.
+	#[subscription(
+		name = "eth_subscribe" => "eth_subscription",
+		unsubscribe = "eth_unsubscribe",
+		item = SubscriptionItem
+	)]
+	async fn eth_subscribe(&self, kind: SubscriptionKind, options: Option<SubscriptionOptions>);
 }

@@ -1,0 +1,9 @@
+title: 'staking-async: handle uninitialized state in try-state checks'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Add early return in do_try_state when pallet is uninitialized
+    - Add test for empty state validation
+crates:
+- name: pallet-staking-async
+  bump: patch

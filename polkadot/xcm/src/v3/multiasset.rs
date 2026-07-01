@@ -34,7 +34,7 @@ use crate::v4::{
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
-use codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use codec::{self as codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::cmp::Ordering;
 use scale_info::TypeInfo;
 
@@ -48,6 +48,7 @@ use scale_info::TypeInfo;
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -256,6 +257,7 @@ impl TryFrom<AssetInstance> for u128 {
 	PartialOrd,
 	Debug,
 	Encode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -282,8 +284,9 @@ impl Decode for Fungibility {
 		match UncheckedFungibility::decode(input)? {
 			UncheckedFungibility::Fungible(a) if a != 0 => Ok(Self::Fungible(a)),
 			UncheckedFungibility::NonFungible(i) => Ok(Self::NonFungible(i)),
-			UncheckedFungibility::Fungible(_) =>
-				Err("Fungible asset of zero amount is not allowed".into()),
+			UncheckedFungibility::Fungible(_) => {
+				Err("Fungible asset of zero amount is not allowed".into())
+			},
 		}
 	}
 }
@@ -338,6 +341,7 @@ impl TryFrom<NewFungibility> for Fungibility {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -374,6 +378,7 @@ impl TryFrom<NewWildFungibility> for WildFungibility {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -451,6 +456,7 @@ impl AssetId {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -561,6 +567,7 @@ impl TryFrom<NewMultiAsset> for MultiAsset {
 	PartialOrd,
 	Debug,
 	Encode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	Default,
 	serde::Serialize,
@@ -619,8 +626,9 @@ impl From<Vec<MultiAsset>> for MultiAssets {
 						(
 							MultiAsset { fun: Fungibility::NonFungible(a_instance), id: a_id },
 							MultiAsset { fun: Fungibility::NonFungible(b_instance), id: b_id },
-						) if a_id == b_id && a_instance == b_instance =>
-							MultiAsset { fun: Fungibility::NonFungible(a_instance), id: a_id },
+						) if a_id == b_id && a_instance == b_instance => {
+							MultiAsset { fun: Fungibility::NonFungible(a_instance), id: a_id }
+						},
 						(to_push, to_remember) => {
 							res.push(to_push);
 							to_remember
@@ -654,7 +662,7 @@ impl MultiAssets {
 	/// `From::<Vec<MultiAsset>>::from` which is infallible.
 	pub fn from_sorted_and_deduplicated(r: Vec<MultiAsset>) -> Result<Self, ()> {
 		if r.is_empty() {
-			return Ok(Self(Vec::new()))
+			return Ok(Self(Vec::new()));
 		}
 		r.iter().skip(1).try_fold(&r[0], |a, b| -> Result<&MultiAsset, ()> {
 			if a.id < b.id || a < b && (a.is_non_fungible(None) || b.is_non_fungible(None)) {
@@ -696,11 +704,13 @@ impl MultiAssets {
 			match (&a.fun, &mut asset.fun) {
 				(Fungibility::Fungible(amount), Fungibility::Fungible(balance)) => {
 					*balance = balance.saturating_add(*amount);
-					return
+					return;
 				},
 				(Fungibility::NonFungible(inst1), Fungibility::NonFungible(inst2))
 					if inst1 == inst2 =>
-					return,
+				{
+					return
+				},
 				_ => (),
 			}
 		}
@@ -776,6 +786,7 @@ impl MultiAssets {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -807,8 +818,9 @@ impl TryFrom<NewWildMultiAsset> for WildMultiAsset {
 		use NewWildMultiAsset::*;
 		Ok(match new {
 			AllOf { id, fun } => Self::AllOf { id: id.try_into()?, fun: fun.try_into()? },
-			AllOfCounted { id, fun, count } =>
-				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count },
+			AllOfCounted { id, fun, count } => {
+				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count }
+			},
 			All => Self::All,
 			AllCounted(count) => Self::AllCounted(count),
 		})
@@ -821,8 +833,9 @@ impl WildMultiAsset {
 		use WildMultiAsset::*;
 		match self {
 			AllOfCounted { count: 0, .. } | AllCounted(0) => false,
-			AllOf { fun, id } | AllOfCounted { id, fun, .. } =>
-				inner.fun.is_kind(*fun) && &inner.id == id,
+			AllOf { fun, id } | AllOfCounted { id, fun, .. } => {
+				inner.fun.is_kind(*fun) && &inner.id == id
+			},
 			All | AllCounted(_) => true,
 		}
 	}
@@ -845,8 +858,9 @@ impl WildMultiAsset {
 	) -> Result<(), ()> {
 		use WildMultiAsset::*;
 		match self {
-			AllOf { ref mut id, .. } | AllOfCounted { ref mut id, .. } =>
-				id.reanchor(target, context),
+			AllOf { ref mut id, .. } | AllOfCounted { ref mut id, .. } => {
+				id.reanchor(target, context)
+			},
 			All | AllCounted(_) => Ok(()),
 		}
 	}
@@ -892,6 +906,7 @@ impl<A: Into<AssetId>, B: Into<WildFungibility>> From<(A, B)> for WildMultiAsset
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,

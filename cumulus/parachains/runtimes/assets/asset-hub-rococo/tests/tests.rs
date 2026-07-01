@@ -20,8 +20,7 @@
 use asset_hub_rococo_runtime::{
 	xcm_config,
 	xcm_config::{
-		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
-		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, LocationToAccountId, StakingPot,
+		bridging, CheckingAccount, GovernanceLocation, LocationToAccountId, StakingPot,
 		TokenLocation, TrustBackedAssetsPalletLocation, XcmConfig,
 	},
 	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, Block,
@@ -32,13 +31,11 @@ use asset_hub_rococo_runtime::{
 };
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
-	ExtBuilder, SlotDurations,
+	ExtBuilder, GovernanceOrigin, SlotDurations,
 };
 use codec::{Decode, Encode};
-use core::ops::Mul;
-use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_ok, parameter_types,
 	traits::{
 		fungible::{Inspect, Mutate},
 		fungibles::{
@@ -47,19 +44,46 @@ use frame_support::{
 	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
+use hex_literal::hex;
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
 use testnet_parachains_constants::rococo::{consensus::*, currency::UNITS, fee::WeightToFee};
-use xcm::latest::prelude::{Assets as XcmAssets, *};
+use xcm::latest::{
+	prelude::{Assets as XcmAssets, *},
+	WESTEND_GENESIS_HASH,
+};
 use xcm_builder::WithLatestLocationConverter;
-use xcm_executor::traits::{JustTry, WeightTrader};
+use xcm_executor::traits::{JustTry, TransactAsset, WeightTrader};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
+
+parameter_types! {
+	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Location(GovernanceLocation::get());
+}
+
+/// Helper to convert a single Asset into AssetsInHolding for tests
+/// This creates a proper AssetsInHolding by withdrawing from an account
+fn asset_to_holding_withdraw(asset: Asset, who: &AccountId) -> xcm_executor::AssetsInHolding {
+	use xcm_executor::traits::TransactAsset;
+	let who_location: Location =
+		Junction::AccountId32 { network: None, id: who.clone().into() }.into();
+	<XcmConfig as xcm_executor::Config>::AssetTransactor::withdraw_asset(
+		&asset,
+		&who_location,
+		None,
+	)
+	.expect("failed to withdraw asset")
+}
+
+/// Helper to convert a single Asset into AssetsInHolding for tests (mock version for error tests)
+fn asset_to_holding(asset: Asset) -> xcm_executor::AssetsInHolding {
+	xcm_executor::test_helpers::mock_asset_to_holding(asset)
+}
 
 type AssetIdForTrustBackedAssetsConvert =
 	assets_common::AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>;
@@ -83,52 +107,6 @@ fn slot_durations() -> SlotDurations {
 		relay: SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
 		para: SlotDuration::from_millis(SLOT_DURATION),
 	}
-}
-
-fn setup_pool_for_paying_fees_with_foreign_assets(
-	(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance): (
-		AccountId,
-		Location,
-		Balance,
-	),
-) {
-	let existential_deposit = ExistentialDeposit::get();
-
-	// setup a pool to pay fees with `foreign_asset_id_location` tokens
-	let pool_owner: AccountId = [14u8; 32].into();
-	let native_asset = Location::parent();
-	let pool_liquidity: Balance =
-		existential_deposit.max(foreign_asset_id_minimum_balance).mul(100_000);
-
-	let _ = Balances::force_set_balance(
-		RuntimeOrigin::root(),
-		pool_owner.clone().into(),
-		(existential_deposit + pool_liquidity).mul(2).into(),
-	);
-
-	assert_ok!(ForeignAssets::mint(
-		RuntimeOrigin::signed(foreign_asset_owner),
-		foreign_asset_id_location.clone().into(),
-		pool_owner.clone().into(),
-		(foreign_asset_id_minimum_balance + pool_liquidity).mul(2).into(),
-	));
-
-	assert_ok!(AssetConversion::create_pool(
-		RuntimeOrigin::signed(pool_owner.clone()),
-		Box::new(native_asset.clone().into()),
-		Box::new(foreign_asset_id_location.clone().into())
-	));
-
-	assert_ok!(AssetConversion::add_liquidity(
-		RuntimeOrigin::signed(pool_owner.clone()),
-		Box::new(native_asset.into()),
-		Box::new(foreign_asset_id_location.into()),
-		pool_liquidity,
-		pool_liquidity,
-		1,
-		1,
-		pool_owner,
-	));
 }
 
 #[test]
@@ -162,12 +140,15 @@ fn test_buy_and_refund_weight_in_native() {
 
 			// init trader and buy weight.
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
-			let unused_asset =
-				trader.buy_weight(weight, payment.into(), &ctx).expect("Expected Ok");
+			let unused_asset = trader
+				.buy_weight(weight, asset_to_holding_withdraw(payment, &bob), &ctx)
+				.expect("Expected Ok");
 
 			// assert.
-			let unused_amount =
-				unused_asset.fungible.get(&native_location.clone().into()).map_or(0, |a| *a);
+			let unused_amount = unused_asset
+				.fungible
+				.get(&native_location.clone().into())
+				.map_or(0, |a| a.amount());
 			assert_eq!(unused_amount, extra_amount);
 			assert_eq!(Balances::total_issuance(), total_issuance);
 
@@ -177,7 +158,8 @@ fn test_buy_and_refund_weight_in_native() {
 
 			// refund.
 			let actual_refund = trader.refund_weight(refund_weight, &ctx).unwrap();
-			assert_eq!(actual_refund, (native_location, refund).into());
+			let expected_refund = asset_to_holding((native_location, refund).into());
+			assert_eq!(actual_refund, expected_refund);
 
 			// assert.
 			assert_eq!(Balances::balance(&staking_pot), initial_balance);
@@ -185,7 +167,7 @@ fn test_buy_and_refund_weight_in_native() {
 			// account.
 			drop(trader);
 			assert_eq!(Balances::balance(&staking_pot), initial_balance + fee - refund);
-			assert_eq!(Balances::total_issuance(), total_issuance + fee - refund);
+			assert_eq!(Balances::total_issuance(), total_issuance);
 		})
 }
 
@@ -232,7 +214,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 				pool_liquidity,
 				1,
 				1,
-				bob,
+				bob.clone(),
 			));
 
 			// keep initial total issuance to assert later.
@@ -250,14 +232,17 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 
 			// init trader and buy weight.
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
-			let unused_asset =
-				trader.buy_weight(weight, payment.into(), &ctx).expect("Expected Ok");
+			let unused_asset = trader
+				.buy_weight(weight, asset_to_holding_withdraw(payment, &bob), &ctx)
+				.expect("Expected Ok");
 
 			// assert.
-			let unused_amount =
-				unused_asset.fungible.get(&asset_1_location.clone().into()).map_or(0, |a| *a);
+			let unused_amount = unused_asset
+				.fungible
+				.get(&asset_1_location.clone().into())
+				.map_or(0, |a| a.amount());
 			assert_eq!(unused_amount, extra_amount);
-			assert_eq!(Assets::total_issuance(asset_1), asset_total_issuance + asset_fee);
+			assert_eq!(Assets::total_issuance(asset_1), asset_total_issuance);
 
 			// prepare input to refund weight.
 			let refund_weight = Weight::from_parts(1_000_000_000, 0);
@@ -272,7 +257,8 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 
 			// refund.
 			let actual_refund = trader.refund_weight(refund_weight, &ctx).unwrap();
-			assert_eq!(actual_refund, (asset_1_location, asset_refund).into());
+			let expected_refund = asset_to_holding((asset_1_location, asset_refund).into());
+			assert_eq!(actual_refund, expected_refund);
 
 			// assert.
 			assert_eq!(Balances::balance(&staking_pot), initial_balance);
@@ -280,10 +266,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			// account.
 			drop(trader);
 			assert_eq!(Balances::balance(&staking_pot), initial_balance + fee - refund);
-			assert_eq!(
-				Assets::total_issuance(asset_1),
-				asset_total_issuance + asset_fee - asset_refund
-			);
+			assert_eq!(Assets::total_issuance(asset_1), asset_total_issuance);
 			assert_eq!(Balances::total_issuance(), native_total_issuance);
 		})
 }
@@ -338,7 +321,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 				pool_liquidity,
 				1,
 				1,
-				bob,
+				bob.clone(),
 			));
 
 			// keep initial total issuance to assert later.
@@ -356,16 +339,19 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 
 			// init trader and buy weight.
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
-			let unused_asset =
-				trader.buy_weight(weight, payment.into(), &ctx).expect("Expected Ok");
+			let unused_asset = trader
+				.buy_weight(weight, asset_to_holding_withdraw(payment, &bob), &ctx)
+				.expect("Expected Ok");
 
 			// assert.
-			let unused_amount =
-				unused_asset.fungible.get(&foreign_location.clone().into()).map_or(0, |a| *a);
+			let unused_amount = unused_asset
+				.fungible
+				.get(&foreign_location.clone().into())
+				.map_or(0, |a| a.amount());
 			assert_eq!(unused_amount, extra_amount);
 			assert_eq!(
 				ForeignAssets::total_issuance(foreign_location.clone()),
-				asset_total_issuance + asset_fee
+				asset_total_issuance
 			);
 
 			// prepare input to refund weight.
@@ -378,7 +364,8 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 
 			// refund.
 			let actual_refund = trader.refund_weight(refund_weight, &ctx).unwrap();
-			assert_eq!(actual_refund, (foreign_location.clone(), asset_refund).into());
+			let expected_refund = asset_to_holding((foreign_location.clone(), asset_refund).into());
+			assert_eq!(actual_refund, expected_refund);
 
 			// assert.
 			assert_eq!(Balances::balance(&staking_pot), initial_balance);
@@ -386,247 +373,9 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			// account.
 			drop(trader);
 			assert_eq!(Balances::balance(&staking_pot), initial_balance + fee - refund);
-			assert_eq!(
-				ForeignAssets::total_issuance(foreign_location),
-				asset_total_issuance + asset_fee - asset_refund
-			);
+			assert_eq!(ForeignAssets::total_issuance(foreign_location), asset_total_issuance);
 			assert_eq!(Balances::total_issuance(), native_total_issuance);
 		})
-}
-
-#[test]
-fn test_asset_xcm_take_first_trader() {
-	ExtBuilder::<Runtime>::default()
-		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
-		.build()
-		.execute_with(|| {
-			// We need root origin to create a sufficient asset
-			let minimum_asset_balance = 3333333_u128;
-			let local_asset_id = 1;
-			assert_ok!(Assets::force_create(
-				RuntimeHelper::root_origin(),
-				local_asset_id.into(),
-				AccountId::from(ALICE).into(),
-				true,
-				minimum_asset_balance
-			));
-
-			// We first mint enough asset for the account to exist for assets
-			assert_ok!(Assets::mint(
-				RuntimeHelper::origin_of(AccountId::from(ALICE)),
-				local_asset_id.into(),
-				AccountId::from(ALICE).into(),
-				minimum_asset_balance
-			));
-
-			// get asset id as location
-			let asset_location =
-				AssetIdForTrustBackedAssetsConvert::convert_back(&local_asset_id).unwrap();
-
-			// Set Alice as block author, who will receive fees
-			RuntimeHelper::run_to_block(2, AccountId::from(ALICE));
-
-			// We are going to buy 4e9 weight
-			let bought = Weight::from_parts(4_000_000_000u64, 0);
-
-			// Lets calculate amount needed
-			let asset_amount_needed =
-				AssetFeeAsExistentialDepositMultiplierFeeCharger::charge_weight_in_fungibles(
-					local_asset_id,
-					bought,
-				)
-				.expect("failed to compute");
-
-			// Lets pay with: asset_amount_needed + asset_amount_extra
-			let asset_amount_extra = 100_u128;
-			let asset: Asset =
-				(asset_location.clone(), asset_amount_needed + asset_amount_extra).into();
-
-			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
-			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
-
-			// Lets buy_weight and make sure buy_weight does not return an error
-			let unused_assets = trader.buy_weight(bought, asset.into(), &ctx).expect("Expected Ok");
-			// Check whether a correct amount of unused assets is returned
-			assert_ok!(unused_assets.ensure_contains(&(asset_location, asset_amount_extra).into()));
-
-			// Drop trader
-			drop(trader);
-
-			// Make sure author(Alice) has received the amount
-			assert_eq!(
-				Assets::balance(local_asset_id, AccountId::from(ALICE)),
-				minimum_asset_balance + asset_amount_needed
-			);
-
-			// We also need to ensure the total supply increased
-			assert_eq!(
-				Assets::total_supply(local_asset_id),
-				minimum_asset_balance + asset_amount_needed
-			);
-		});
-}
-
-#[test]
-fn test_foreign_asset_xcm_take_first_trader() {
-	ExtBuilder::<Runtime>::default()
-		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
-		.build()
-		.execute_with(|| {
-			// We need root origin to create a sufficient asset
-			let minimum_asset_balance = 3333333_u128;
-			let foreign_location = Location {
-				parents: 1,
-				interior: (Junction::Parachain(1234), Junction::GeneralIndex(12345)).into(),
-			};
-			assert_ok!(ForeignAssets::force_create(
-				RuntimeHelper::root_origin(),
-				foreign_location.clone().into(),
-				AccountId::from(ALICE).into(),
-				true,
-				minimum_asset_balance
-			));
-
-			// We first mint enough asset for the account to exist for assets
-			assert_ok!(ForeignAssets::mint(
-				RuntimeHelper::origin_of(AccountId::from(ALICE)),
-				foreign_location.clone().into(),
-				AccountId::from(ALICE).into(),
-				minimum_asset_balance
-			));
-
-			// Set Alice as block author, who will receive fees
-			RuntimeHelper::run_to_block(2, AccountId::from(ALICE));
-
-			// We are going to buy 4e9 weight
-			let bought = Weight::from_parts(4_000_000_000u64, 0);
-
-			// Lets calculate amount needed
-			let asset_amount_needed
-				= ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger::charge_weight_in_fungibles(
-					foreign_location.clone(),
-					bought
-				)
-			.expect("failed to compute");
-
-			// Lets pay with: asset_amount_needed + asset_amount_extra
-			let asset_amount_extra = 100_u128;
-			let asset: Asset =
-				(foreign_location.clone(), asset_amount_needed + asset_amount_extra).into();
-
-			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
-			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
-
-			// Lets buy_weight and make sure buy_weight does not return an error
-			let unused_assets = trader.buy_weight(bought, asset.into(), &ctx).expect("Expected Ok");
-			// Check whether a correct amount of unused assets is returned
-			assert_ok!(unused_assets
-				.ensure_contains(&(foreign_location.clone(), asset_amount_extra).into()));
-
-			// Drop trader
-			drop(trader);
-
-			// Make sure author(Alice) has received the amount
-			assert_eq!(
-				ForeignAssets::balance(foreign_location.clone(), AccountId::from(ALICE)),
-				minimum_asset_balance + asset_amount_needed
-			);
-
-			// We also need to ensure the total supply increased
-			assert_eq!(
-				ForeignAssets::total_supply(foreign_location),
-				minimum_asset_balance + asset_amount_needed
-			);
-		});
-}
-
-#[test]
-fn test_asset_xcm_take_first_trader_with_refund() {
-	ExtBuilder::<Runtime>::default()
-		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
-		.build()
-		.execute_with(|| {
-			// We need root origin to create a sufficient asset
-			// We set existential deposit to be identical to the one for Balances first
-			assert_ok!(Assets::force_create(
-				RuntimeHelper::root_origin(),
-				1.into(),
-				AccountId::from(ALICE).into(),
-				true,
-				ExistentialDeposit::get()
-			));
-
-			// We first mint enough asset for the account to exist for assets
-			assert_ok!(Assets::mint(
-				RuntimeHelper::origin_of(AccountId::from(ALICE)),
-				1.into(),
-				AccountId::from(ALICE).into(),
-				ExistentialDeposit::get()
-			));
-
-			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
-			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
-
-			// Set Alice as block author, who will receive fees
-			RuntimeHelper::run_to_block(2, AccountId::from(ALICE));
-
-			// We are going to buy 4e9 weight
-			let bought = Weight::from_parts(4_000_000_000u64, 0);
-			let asset_location = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
-
-			// lets calculate amount needed
-			let amount_bought = WeightToFee::weight_to_fee(&bought);
-
-			let asset: Asset = (asset_location.clone(), amount_bought).into();
-
-			// Make sure buy_weight does not return an error
-			assert_ok!(trader.buy_weight(bought, asset.clone().into(), &ctx));
-
-			// Make sure again buy_weight does return an error
-			// This assert relies on the fact, that we use `TakeFirstAssetTrader` in `WeightTrader`
-			// tuple chain, which cannot be called twice
-			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
-
-			// We actually use half of the weight
-			let weight_used = bought / 2;
-
-			// Make sure refund works.
-			let amount_refunded = WeightToFee::weight_to_fee(&(bought - weight_used));
-
-			assert_eq!(
-				trader.refund_weight(bought - weight_used, &ctx),
-				Some((asset_location, amount_refunded).into())
-			);
-
-			// Drop trader
-			drop(trader);
-
-			// We only should have paid for half of the bought weight
-			let fees_paid = WeightToFee::weight_to_fee(&weight_used);
-
-			assert_eq!(
-				Assets::balance(1, AccountId::from(ALICE)),
-				ExistentialDeposit::get() + fees_paid
-			);
-
-			// We also need to ensure the total supply increased
-			assert_eq!(Assets::total_supply(1), ExistentialDeposit::get() + fees_paid);
-		});
 }
 
 #[test]
@@ -668,81 +417,46 @@ fn test_asset_xcm_take_first_trader_refund_not_possible_since_amount_less_than_e
 				"we are testing what happens when the amount does not exceed ED"
 			);
 
-			let asset: Asset = (asset_location, amount_bought).into();
+			let asset: Asset = (asset_location.clone(), amount_bought).into();
 
-			// Buy weight should return an error
-			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
+			// Mint the asset to alice so we can withdraw it
+			// Need to mint at least ED to satisfy minimum balance requirement
+			let mint_amount = amount_bought.max(ExistentialDeposit::get() + 1);
+			assert_ok!(Assets::mint(
+				RuntimeHelper::origin_of(AccountId::from(ALICE)),
+				1.into(),
+				AccountId::from(ALICE).into(),
+				mint_amount
+			));
+
+			// Withdraw to create proper AssetsInHolding
+			let alice_location: Location =
+				Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+			let asset_holding =
+				<XcmConfig as xcm_executor::Config>::AssetTransactor::withdraw_asset(
+					&asset,
+					&alice_location,
+					Some(&ctx),
+				)
+				.expect("Failed to withdraw asset");
+
+			// Buy weight should return an error (asset is returned in error)
+			let result = trader.buy_weight(bought, asset_holding, &ctx);
+			assert!(result.is_err());
+			if let Err((returned_asset, xcm_error)) = result {
+				assert_eq!(xcm_error, XcmError::TooExpensive);
+				// The asset should be returned (we minted mint_amount, so expect that back)
+				assert_eq!(
+					returned_asset.fungible.get(&asset_location.into()).map_or(0, |a| a.amount()),
+					mint_amount
+				);
+			}
 
 			// not credited since the ED is higher than this value
 			assert_eq!(Assets::balance(1, AccountId::from(ALICE)), 0);
 
 			// We also need to ensure the total supply did not increase
 			assert_eq!(Assets::total_supply(1), 0);
-		});
-}
-
-#[test]
-fn test_that_buying_ed_refund_does_not_refund_for_take_first_trader() {
-	ExtBuilder::<Runtime>::default()
-		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
-		.build()
-		.execute_with(|| {
-			// We need root origin to create a sufficient asset
-			// We set existential deposit to be identical to the one for Balances first
-			assert_ok!(Assets::force_create(
-				RuntimeHelper::root_origin(),
-				1.into(),
-				AccountId::from(ALICE).into(),
-				true,
-				ExistentialDeposit::get()
-			));
-
-			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
-			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
-
-			// Set Alice as block author, who will receive fees
-			RuntimeHelper::run_to_block(2, AccountId::from(ALICE));
-
-			// We are gonna buy ED
-			let bought = Weight::from_parts(ExistentialDeposit::get().try_into().unwrap(), 0);
-
-			let asset_location = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
-
-			let amount_bought = WeightToFee::weight_to_fee(&bought);
-
-			assert!(
-				amount_bought < ExistentialDeposit::get(),
-				"we are testing what happens when the amount does not exceed ED"
-			);
-
-			// We know we will have to buy at least ED, so lets make sure first it will
-			// fail with a payment of less than ED
-			let asset: Asset = (asset_location.clone(), amount_bought).into();
-			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
-
-			// Now lets buy ED at least
-			let asset: Asset = (asset_location, ExistentialDeposit::get()).into();
-
-			// Buy weight should work
-			assert_ok!(trader.buy_weight(bought, asset.into(), &ctx));
-
-			// Should return None. We have a specific check making sure we dont go below ED for
-			// drop payment
-			assert_eq!(trader.refund_weight(bought, &ctx), None);
-
-			// Drop trader
-			drop(trader);
-
-			// Make sure author(Alice) has received the amount
-			assert_eq!(Assets::balance(1, AccountId::from(ALICE)), ExistentialDeposit::get());
-
-			// We also need to ensure the total supply increased
-			assert_eq!(Assets::total_supply(1), ExistentialDeposit::get());
 		});
 }
 
@@ -789,10 +503,38 @@ fn test_asset_xcm_trader_not_possible_for_non_sufficient_assets() {
 
 			let asset_location = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
 
-			let asset: Asset = (asset_location, asset_amount_needed).into();
+			let asset: Asset = (asset_location.clone(), asset_amount_needed).into();
 
-			// Make sure again buy_weight does return an error
-			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
+			// Mint additional asset to alice for this test
+			assert_ok!(Assets::mint(
+				RuntimeHelper::origin_of(AccountId::from(ALICE)),
+				1.into(),
+				AccountId::from(ALICE).into(),
+				asset_amount_needed
+			));
+
+			// Withdraw to create proper AssetsInHolding
+			let alice_location: Location =
+				Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+			let asset_holding =
+				<XcmConfig as xcm_executor::Config>::AssetTransactor::withdraw_asset(
+					&asset,
+					&alice_location,
+					Some(&ctx),
+				)
+				.expect("Failed to withdraw asset");
+
+			// Make sure buy_weight returns an error (asset is returned in error)
+			let result = trader.buy_weight(bought, asset_holding, &ctx);
+			assert!(result.is_err());
+			if let Err((returned_asset, xcm_error)) = result {
+				assert_eq!(xcm_error, XcmError::TooExpensive);
+				// The asset should be returned
+				assert_eq!(
+					returned_asset.fungible.get(&asset_location.into()).map_or(0, |a| a.amount()),
+					asset_amount_needed
+				);
+			}
 
 			// Drop trader
 			drop(trader);
@@ -920,7 +662,7 @@ asset_test_utils::include_teleports_for_native_asset_works!(
 	Runtime,
 	AllPalletsWithoutSystem,
 	XcmConfig,
-	CheckingAccount,
+	(),
 	WeightToFee,
 	ParachainSystem,
 	collator_session_keys(),
@@ -1071,14 +813,14 @@ fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
 		}),
 		bridging_configuration,
 		WeightLimit::Unlimited,
-		Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
+		None,
 		Some(xcm_config::TreasuryAccount::get()),
 	)
 }
 
 mod asset_hub_rococo_tests {
 	use super::*;
-	use asset_hub_rococo_runtime::PolkadotXcm;
+	use asset_hub_rococo_runtime::{ForeignAssetReserveData, PolkadotXcm};
 	use xcm::latest::WESTEND_GENESIS_HASH;
 	use xcm_executor::traits::ConvertLocation;
 
@@ -1110,15 +852,23 @@ mod asset_hub_rococo_tests {
 		let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 		let staking_pot = StakingPot::get();
 
-		let foreign_asset_id_location = Location::new(
-			2,
-			[Junction::GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH))],
-		);
+		let foreign_asset_id_location =
+			Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
+		let reserve_location =
+			Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)]);
+		let foreign_asset_reserve_data =
+			ForeignAssetReserveData { reserve: reserve_location, teleportable: false };
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as foreign asset owner (can be whoever for this scenario)
 		let foreign_asset_owner =
 			LocationToAccountId::convert_location(&Location::parent()).unwrap();
 		let foreign_asset_create_params = (
+			foreign_asset_owner.clone(),
+			foreign_asset_id_location.clone(),
+			foreign_asset_reserve_data,
+			foreign_asset_id_minimum_balance,
+		);
+		let pool_params = (
 			foreign_asset_owner,
 			foreign_asset_id_location.clone(),
 			foreign_asset_id_minimum_balance,
@@ -1135,11 +885,11 @@ mod asset_hub_rococo_tests {
 			AccountId::from([73; 32]),
 			block_author_account,
 			// receiving WNDs
-			foreign_asset_create_params.clone(),
+			foreign_asset_create_params,
 			1000000000000,
 			|| {
 				// setup pool for paying fees to touch `SwapFirstAssetTrader`
-				setup_pool_for_paying_fees_with_foreign_assets(foreign_asset_create_params);
+				asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), pool_params);
 				// staking pot account for collecting local native fees from `BuyExecution`
 				let _ = Balances::force_set_balance(RuntimeOrigin::root(), StakingPot::get().into(), ExistentialDeposit::get());
 				// prepare bridge configuration
@@ -1186,15 +936,23 @@ mod asset_hub_rococo_tests {
 		let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 		let staking_pot = StakingPot::get();
 
-		let foreign_asset_id_location = Location::new(
-			2,
-			[Junction::GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH))],
-		);
+		let foreign_asset_id_location =
+			Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
+		let reserve_location =
+			Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)]);
+		let foreign_asset_reserve_data =
+			ForeignAssetReserveData { reserve: reserve_location, teleportable: false };
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as foreign asset owner (can be whoever for this scenario)
 		let foreign_asset_owner =
 			LocationToAccountId::convert_location(&Location::parent()).unwrap();
 		let foreign_asset_create_params = (
+			foreign_asset_owner.clone(),
+			foreign_asset_id_location.clone(),
+			foreign_asset_reserve_data,
+			foreign_asset_id_minimum_balance,
+		);
+		let pool_params = (
 			foreign_asset_owner,
 			foreign_asset_id_location.clone(),
 			foreign_asset_id_minimum_balance,
@@ -1213,7 +971,10 @@ mod asset_hub_rococo_tests {
 			// receiving WNDs
 			foreign_asset_create_params,
 			1000000000000,
-			bridging_to_asset_hub_westend,
+			|| {
+				asset_test_utils::test_cases::setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(ExistentialDeposit::get(), pool_params);
+				bridging_to_asset_hub_westend()
+			},
 			(
 				[PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)].into(),
 				GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
@@ -1230,15 +991,16 @@ mod asset_hub_rococo_tests {
 				);
 			},
 			|| {
-				// `TakeFirstAssetTrader` puts fees to the block author
-				assert!(
+				// check staking pot has at least ED
+				assert!(Balances::free_balance(&staking_pot) >= ExistentialDeposit::get());
+				// check now foreign asset for staking pot
+				assert_eq!(
 					ForeignAssets::balance(
 						foreign_asset_id_location.clone().into(),
-						&block_author_account
-					) > 0
+						&staking_pot
+					),
+					0
 				);
-				// `SwapFirstAssetTrader` did not work
-				assert_eq!(Balances::free_balance(&staking_pot), 0);
 			}
 		)
 	}
@@ -1335,7 +1097,7 @@ fn change_xcm_bridge_hub_router_byte_fee_by_governance_works() {
 	>(
 		collator_session_keys(),
 		1000,
-		Box::new(|call| RuntimeCall::System(call).encode()),
+		Governance::get(),
 		|| {
 			(
 				bridging::XcmBridgeHubRouterByteFee::key().to_vec(),
@@ -1361,13 +1123,13 @@ fn change_xcm_bridge_hub_router_base_fee_by_governance_works() {
 	>(
 		collator_session_keys(),
 		1000,
-		Box::new(|call| RuntimeCall::System(call).encode()),
+		Governance::get(),
 		|| {
-			log::error!(
+			tracing::error!(
 				target: "bridges::estimate",
-				"`bridging::XcmBridgeHubRouterBaseFee` actual value: {} for runtime: {}",
-				bridging::XcmBridgeHubRouterBaseFee::get(),
-				<Runtime as frame_system::Config>::Version::get(),
+				actual_value=%bridging::XcmBridgeHubRouterBaseFee::get(),
+				runtime=%<Runtime as frame_system::Config>::Version::get(),
+				"`bridging::XcmBridgeHubRouterBaseFee`"
 			);
 			(
 				bridging::XcmBridgeHubRouterBaseFee::key().to_vec(),
@@ -1393,13 +1155,13 @@ fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 	>(
 		collator_session_keys(),
 		1000,
-		Box::new(|call| RuntimeCall::System(call).encode()),
+		Governance::get(),
 		|| {
-			log::error!(
+			tracing::error!(
 				target: "bridges::estimate",
-				"`bridging::BridgeHubEthereumBaseFee` actual value: {} for runtime: {}",
-				bridging::to_ethereum::BridgeHubEthereumBaseFee::get(),
-				<Runtime as frame_system::Config>::Version::get(),
+				actual_value=%bridging::to_ethereum::BridgeHubEthereumBaseFee::get(),
+				runtime=%<Runtime as frame_system::Config>::Version::get(),
+				"`bridging::BridgeHubEthereumBaseFee`"
 			);
 			(
 				bridging::to_ethereum::BridgeHubEthereumBaseFee::key().to_vec(),
@@ -1510,19 +1272,142 @@ fn location_conversion_works() {
 			),
 			expected_account_id_str: "5DBoExvojy8tYnHgLL97phNH975CyT45PWTZEeGoBZfAyRMH",
 		},
+		// ExternalConsensusLocationsConverterFor
+		TestCase {
+			description: "Describe Ethereum Location",
+			location: Location::new(2, [GlobalConsensus(Ethereum { chain_id: 11155111 })]),
+			expected_account_id_str: "5GjRnmh5o3usSYzVmsxBWzHEpvJyHK4tKNPhjpUR3ASrruBy",
+		},
+		TestCase {
+			description: "Describe Ethereum AccountKey",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(Ethereum { chain_id: 11155111 }),
+					AccountKey20 {
+						network: None,
+						key: hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d"),
+					},
+				],
+			),
+			expected_account_id_str: "5HV4j4AsqT349oLRZmTjhGKDofPBWmWaPUfWGaRkuvzkjW9i",
+		},
+		TestCase {
+			description: "Describe Westend Location",
+			location: Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]),
+			expected_account_id_str: "5Fb4pyqFuYLZ43USEAcVUBhFTfTckG9zv9kUaVnmR79YgBCe",
+		},
+		TestCase {
+			description: "Describe Westend AccountID",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					AccountId32 { network: None, id: AccountId::from(ALICE).into() },
+				],
+			),
+			expected_account_id_str: "5CpcvNFY6jkMJrd7XQt3yTweRD1WxUeHXvHnbWuVM1MHKHPe",
+		},
+		TestCase {
+			description: "Describe Westend AccountKey",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					AccountKey20 { network: None, key: [0u8; 20] },
+				],
+			),
+			expected_account_id_str: "5FzaTcFwUMyX5Sfe7wRGuc3zw1cbpGAGZpmAsxS4tBX6x6U3",
+		},
+		TestCase {
+			description: "Describe Westend Treasury Plurality",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Plurality { id: BodyId::Treasury, part: BodyPart::Voice },
+				],
+			),
+			expected_account_id_str: "5CpdRCmCYwnxS1mifwEddYHDJR8ydDfTpi1gwAQKQvfAjjzu",
+		},
+		TestCase {
+			description: "Describe Westend Parachain Location",
+			location: Location::new(
+				2,
+				[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)],
+			),
+			expected_account_id_str: "5CkWf1L181BiSbvoofnzfSg8ZLiBK3i1U4sknzETHk8QS2mA",
+		},
+		TestCase {
+			description: "Describe Westend Parachain AccountID",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(1000),
+					AccountId32 { network: None, id: AccountId::from(ALICE).into() },
+				],
+			),
+			expected_account_id_str: "5G6JJUm6tgsxJhRn76VGme8WGukdUNiBBK6ABUtH9YXEjEk9",
+		},
+		TestCase {
+			description: "Describe Westend Parachain AccountKey",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(1000),
+					AccountKey20 { network: None, key: [0u8; 20] },
+				],
+			),
+			expected_account_id_str: "5EFpSvq8BUAjdjY4tuGhGXZ66P16iQnX7nxsNoHy7TM6NhMa",
+		},
+		TestCase {
+			description: "Describe Westend Parachain Treasury Plurality",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(1000),
+					Plurality { id: BodyId::Treasury, part: BodyPart::Voice },
+				],
+			),
+			expected_account_id_str: "5GfwA4qaz9wpQPPHmf5MSKqvsPyrfx1yYeeZB1SUkqDuRuZ1",
+		},
+		TestCase {
+			description: "Describe Westend USDT Location",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(1000),
+					PalletInstance(50),
+					GeneralIndex(1984),
+				],
+			),
+			expected_account_id_str: "5Hd77ZjbVRrYiRXER8qo9DRDB8ZzaKtRswZoypMnMLdixzMs",
+		},
 	];
 
-	for tc in test_cases {
-		let expected =
-			AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.with_para_id(1000.into())
+		.build()
+		.execute_with(|| {
+			for tc in test_cases {
+				let expected = AccountId::from_string(tc.expected_account_id_str)
+					.expect("Invalid AccountId string");
 
-		let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
-			tc.location.into(),
-		)
-		.unwrap();
+				let got =
+					LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
+						tc.location.into(),
+					)
+					.unwrap();
 
-		assert_eq!(got, expected, "{}", tc.description);
-	}
+				assert_eq!(got, expected, "{}", tc.description);
+			}
+		});
 }
 
 #[test]
@@ -1532,11 +1417,22 @@ fn xcm_payment_api_works() {
 		RuntimeCall,
 		RuntimeOrigin,
 		Block,
+		WeightToFee,
 	>();
 	asset_test_utils::test_cases::xcm_payment_api_with_pools_works::<
 		Runtime,
 		RuntimeCall,
 		RuntimeOrigin,
 		Block,
+		WeightToFee,
 	>();
+
+	asset_test_utils::test_cases::xcm_payment_api_foreign_asset_pool_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		LocationToAccountId,
+		Block,
+		WeightToFee,
+	>(ExistentialDeposit::get(), WESTEND_GENESIS_HASH);
 }

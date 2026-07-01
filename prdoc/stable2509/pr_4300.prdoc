@@ -1,0 +1,26 @@
+title: "XCM NFT types that use Granular NFT traits"
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR provides new XCM types and tools for building NFT Asset Transactors.
+    The new types use general and granular NFT traits from #5620.
+    The new types use a more general approach, making integration into any chain with various NFT implementations easier.
+    Also, the new types provide greater flexibility for supporting derivative NFTs,
+    allowing several possible approaches depending on the given chain's team's goals or restrictions (see the pallet-derivatives crate docs and mock docs).
+
+crates:
+- name: frame-support
+  bump: minor
+- name: staging-xcm-builder
+  bump: minor
+- name: staging-xcm-executor
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-derivatives
+  bump: minor
+- name: polkadot-sdk
+  bump: minor

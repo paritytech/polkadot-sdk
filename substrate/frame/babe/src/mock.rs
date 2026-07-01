@@ -39,7 +39,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	testing::{Digest, DigestItem, Header, TestXt},
 	traits::{Header as _, OpaqueKeys},
-	BoundedVec, BuildStorage, Perbill,
+	BuildStorage, DispatchError, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 
@@ -76,11 +76,11 @@ where
 	type Extrinsic = TestXt<RuntimeCall, ()>;
 }
 
-impl<C> frame_system::offchain::CreateInherent<C> for Test
+impl<C> frame_system::offchain::CreateBare<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		TestXt::new_bare(call)
 	}
 }
@@ -94,18 +94,22 @@ impl_opaque_keys! {
 impl pallet_session::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
-	type ValidatorIdOf = pallet_staking::StashOf<Self>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <MockSessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = MockSessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = pallet_staking::Exposure<u64, u128>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Self>;
+	type RuntimeEvent = RuntimeEvent;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 impl pallet_authorship::Config for Test {
@@ -120,9 +124,10 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 
+type Balance = u128;
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = u128;
+	type Balance = Balance;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 }
@@ -299,6 +304,21 @@ pub fn new_test_ext(authorities_len: usize) -> sp_io::TestExternalities {
 	new_test_ext_with_pairs(authorities_len).1
 }
 
+pub fn build_and_execute(authorities_len: usize, test: impl FnOnce()) {
+	new_test_ext(authorities_len).execute_with(|| {
+		test();
+		Babe::do_try_state().expect("All invariants must hold after a test");
+	})
+}
+
+pub fn build_and_execute_with_pairs(authorities_len: usize, test: impl FnOnce(Vec<AuthorityPair>)) {
+	let (pairs, mut ext) = new_test_ext_with_pairs(authorities_len);
+	ext.execute_with(|| {
+		test(pairs);
+		Babe::do_try_state().expect("All invariants must hold after a test");
+	})
+}
+
 pub fn new_test_ext_with_pairs(
 	authorities_len: usize,
 ) -> (Vec<AuthorityPair>, sp_io::TestExternalities) {
@@ -312,6 +332,7 @@ pub fn new_test_ext_with_pairs(
 }
 
 pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::TestExternalities {
+	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let balances: Vec<_> = (0..authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
@@ -345,11 +366,21 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::Tes
 		validator_count: 8,
 		force_era: pallet_staking::Forcing::ForceNew,
 		minimum_validator_count: 0,
-		invulnerables: BoundedVec::new(),
+		invulnerables: vec![],
 		..Default::default()
 	};
 
 	staking_config.assimilate_storage(&mut t).unwrap();
+
+	pallet_babe::GenesisConfig::<Test> {
+		epoch_config: sp_consensus_babe::BabeEpochConfiguration {
+			c: (1, 4),
+			allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
+		},
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 
 	t.into()
 }
@@ -366,16 +397,24 @@ pub fn generate_equivocation_proof(
 	let current_slot = CurrentSlot::<Test>::get();
 
 	let make_header = || {
-		let parent_hash = System::parent_hash();
-		let pre_digest = make_secondary_plain_pre_digest(offender_authority_index, slot);
-		System::reset_events();
-		System::initialize(&current_block, &parent_hash, &pre_digest);
-		System::set_block_number(current_block);
-		Timestamp::set_timestamp(*current_slot * Babe::slot_duration());
-		System::finalize()
+		// We don't want to change any state, so we build the headers in a transaction and revert it
+		// afterward.
+		frame_support::storage::with_transaction(|| {
+			let parent_hash = System::parent_hash();
+			let pre_digest = make_secondary_plain_pre_digest(offender_authority_index, slot);
+			System::reset_events();
+			System::set_block_number(System::block_number() - 1);
+			System::initialize(&current_block, &parent_hash, &pre_digest);
+			System::set_block_number(current_block);
+			Timestamp::set_timestamp(*current_slot * Babe::slot_duration());
+			let header = System::finalize();
+
+			sp_runtime::TransactionOutcome::Rollback(Ok::<_, DispatchError>(header))
+		})
+		.unwrap()
 	};
 
-	// sign the header prehash and sign it, adding it to the block as the seal
+	// Sign the header prehash and sign it, adding it to the block as the seal
 	// digest item
 	let seal_header = |header: &mut Header| {
 		let prehash = header.hash();
@@ -385,15 +424,12 @@ pub fn generate_equivocation_proof(
 		header.digest_mut().push(seal);
 	};
 
-	// generate two headers at the current block
+	// Generate two headers at the current block
 	let mut h1 = make_header();
 	let mut h2 = make_header();
 
 	seal_header(&mut h1);
 	seal_header(&mut h2);
-
-	// restore previous runtime state
-	go_to_block(current_block, *current_slot);
 
 	sp_consensus_babe::EquivocationProof {
 		slot,

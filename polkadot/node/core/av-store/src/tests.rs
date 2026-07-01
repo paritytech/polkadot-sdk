@@ -21,7 +21,6 @@ use futures::{channel::oneshot, executor, future, Future};
 use util::availability_chunks::availability_chunk_index;
 
 use self::test_helpers::mock::new_leaf;
-use parking_lot::Mutex;
 use polkadot_node_primitives::{AvailableData, BlockData, PoV, Proof};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
@@ -31,8 +30,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{database::Database, TimeoutExt};
 use polkadot_primitives::{
-	node_features, vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, CoreIndex,
-	GroupIndex, HeadData, Header, PersistedValidationData, ValidatorId,
+	node_features, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex,
+	HeadData, Header, PersistedValidationData, ValidatorId,
 };
 use polkadot_primitives_test_helpers::TestCandidateBuilder;
 use sp_keyring::Sr25519Keyring;
@@ -49,32 +48,13 @@ const TEST_CONFIG: Config =
 type VirtualOverseer =
 	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<AvailabilityStoreMessage>;
 
-#[derive(Clone)]
-struct TestClock {
-	inner: Arc<Mutex<Duration>>,
-}
-
-impl TestClock {
-	fn now(&self) -> Duration {
-		*self.inner.lock()
-	}
-
-	fn inc(&self, by: Duration) {
-		*self.inner.lock() += by;
-	}
-}
-
-impl Clock for TestClock {
-	fn now(&self) -> Result<Duration, Error> {
-		Ok(TestClock::now(self))
-	}
-}
+use polkadot_node_clock::MockClock;
 
 #[derive(Clone)]
 struct TestState {
 	persisted_validation_data: PersistedValidationData,
 	pruning_config: PruningConfig,
-	clock: TestClock,
+	clock: MockClock,
 }
 
 impl TestState {
@@ -100,7 +80,7 @@ impl Default for TestState {
 			pruning_interval: Duration::from_millis(250),
 		};
 
-		let clock = TestClock { inner: Arc::new(Mutex::new(Duration::from_secs(0))) };
+		let clock = MockClock::default();
 
 		Self { persisted_validation_data, pruning_config, clock }
 	}
@@ -133,7 +113,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		store,
 		TEST_CONFIG,
 		state.pruning_config.clone(),
-		Box::new(state.clock),
+		Arc::new(state.clock),
 		Box::new(NoSyncOracle),
 		Metrics::default(),
 	);
@@ -510,12 +490,8 @@ fn store_pov_and_queries_work() {
 
 				let query_all_chunks_res = query_all_chunks(
 					&mut virtual_overseer,
-					availability_chunk_indices(
-						Some(&node_features),
-						n_validators as usize,
-						core_index,
-					)
-					.unwrap(),
+					availability_chunk_indices(&node_features, n_validators as usize, core_index)
+						.unwrap(),
 					candidate_hash,
 				)
 				.await;
@@ -596,12 +572,8 @@ fn store_pov_and_queries_work() {
 
 				let query_all_chunks_res = query_all_chunks(
 					&mut virtual_overseer,
-					availability_chunk_indices(
-						Some(&node_features),
-						n_validators as usize,
-						core_index,
-					)
-					.unwrap(),
+					availability_chunk_indices(&node_features, n_validators as usize, core_index)
+						.unwrap(),
 					candidate_hash,
 				)
 				.await;
@@ -618,7 +590,7 @@ fn store_pov_and_queries_work() {
 					.await
 					.unwrap();
 					let expected_chunk_index = availability_chunk_index(
-						Some(&node_features),
+						&node_features,
 						n_validators as usize,
 						core_index,
 						ValidatorIndex(validator_index),
@@ -723,7 +695,8 @@ fn query_all_chunks_works() {
 		}
 
 		let chunk_indices =
-			availability_chunk_indices(None, n_validators as usize, CoreIndex(0)).unwrap();
+			availability_chunk_indices(&NodeFeatures::EMPTY, n_validators as usize, CoreIndex(0))
+				.unwrap();
 
 		assert_eq!(
 			query_all_chunks(&mut virtual_overseer, chunk_indices.clone(), candidate_hash_1)
@@ -791,7 +764,7 @@ fn stored_but_not_included_data_is_pruned() {
 		);
 
 		// Wait until pruning.
-		test_state.clock.inc(test_state.pruning_config.keep_unavailable_for);
+		test_state.clock.advance(test_state.pruning_config.keep_unavailable_for);
 		test_state.wait_for_pruning().await;
 
 		// The block was not included by this point so it should be pruned now.
@@ -859,7 +832,7 @@ fn stored_data_kept_until_finalized() {
 		.await;
 
 		// Wait until unavailable data would definitely be pruned.
-		test_state.clock.inc(test_state.pruning_config.keep_unavailable_for * 10);
+		test_state.clock.advance(test_state.pruning_config.keep_unavailable_for * 10);
 		test_state.wait_for_pruning().await;
 
 		// At this point data should _still_ be in the store.
@@ -877,7 +850,7 @@ fn stored_data_kept_until_finalized() {
 		.await;
 
 		// Wait until unavailable data would definitely be pruned.
-		test_state.clock.inc(test_state.pruning_config.keep_finalized_for / 2);
+		test_state.clock.advance(test_state.pruning_config.keep_finalized_for / 2);
 		test_state.wait_for_pruning().await;
 
 		// At this point data should _still_ be in the store.
@@ -889,7 +862,7 @@ fn stored_data_kept_until_finalized() {
 		assert!(has_all_chunks(&mut virtual_overseer, candidate_hash, n_validators, true).await);
 
 		// Wait until it definitely should be gone.
-		test_state.clock.inc(test_state.pruning_config.keep_finalized_for);
+		test_state.clock.advance(test_state.pruning_config.keep_finalized_for);
 		test_state.wait_for_pruning().await;
 
 		// At this point data should be gone from the store.
@@ -1192,7 +1165,7 @@ fn forkfullness_works() {
 		assert!(has_all_chunks(&mut virtual_overseer, candidate_2_hash, n_validators, true).await);
 
 		// Candidate 2 should now be considered unavailable and will be pruned.
-		test_state.clock.inc(test_state.pruning_config.keep_unavailable_for);
+		test_state.clock.advance(test_state.pruning_config.keep_unavailable_for);
 		test_state.wait_for_pruning().await;
 
 		assert_eq!(
@@ -1207,7 +1180,7 @@ fn forkfullness_works() {
 		assert!(has_all_chunks(&mut virtual_overseer, candidate_2_hash, n_validators, false).await);
 
 		// Wait for longer than finalized blocks should be kept for
-		test_state.clock.inc(test_state.pruning_config.keep_finalized_for);
+		test_state.clock.advance(test_state.pruning_config.keep_finalized_for);
 		test_state.wait_for_pruning().await;
 
 		// Everything should be pruned now.
@@ -1276,7 +1249,7 @@ async fn has_all_chunks(
 		if query_chunk(virtual_overseer, candidate_hash, ValidatorIndex(i)).await.is_some() !=
 			expect_present
 		{
-			return false
+			return false;
 		}
 	}
 	true

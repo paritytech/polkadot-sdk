@@ -1,0 +1,42 @@
+[package]
+name = "frame-storage-access-test-runtime"
+description = "A runtime for testing storage access on block validation"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+build = "build.rs"
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+publish = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+cumulus-pallet-parachain-system = { workspace = true, optional = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-state-machine = { workspace = true }
+sp-trie = { workspace = true }
+
+[build-dependencies]
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+no_std = []
+std = [
+	"codec/std",
+	"cumulus-pallet-parachain-system/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-state-machine/std",
+	"sp-trie/std",
+	"substrate-wasm-builder",
+]
+runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

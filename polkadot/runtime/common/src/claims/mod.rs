@@ -19,7 +19,7 @@
 #[cfg(not(feature = "std"))]
 use alloc::{format, string::String};
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::{
 	ensure,
@@ -42,7 +42,6 @@ use sp_runtime::{
 		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
 		ValidTransaction,
 	},
-	RuntimeDebug,
 };
 
 type CurrencyOf<T> = <<T as Config>::VestingSchedule as VestingSchedule<
@@ -85,11 +84,12 @@ impl WeightInfo for TestWeightInfo {
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Clone,
 	Copy,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	Serialize,
 	Deserialize,
@@ -106,14 +106,16 @@ impl StatementKind {
 	/// Convert this to the (English) statement it represents.
 	fn to_text(self) -> &'static [u8] {
 		match self {
-			StatementKind::Regular =>
+			StatementKind::Regular => {
 				&b"I hereby agree to the terms of the statement whose SHA-256 multihash is \
 				Qmc1XYqT6S39WNp2UeiRUrZichUWUPpGEThDE6dAb3f6Ny. (This may be found at the URL: \
-				https://statement.polkadot.network/regular.html)"[..],
-			StatementKind::Saft =>
+				https://statement.polkadot.network/regular.html)"[..]
+			},
+			StatementKind::Saft => {
 				&b"I hereby agree to the terms of the statement whose SHA-256 multihash is \
 				QmXEkMahfhHJPzT3RjkXiZVFi77ZeVeuxtAjhojGRNYckz. (This may be found at the URL: \
-				https://statement.polkadot.network/saft.html)"[..],
+				https://statement.polkadot.network/saft.html)"[..]
+			},
 		}
 	}
 }
@@ -128,9 +130,19 @@ impl Default for StatementKind {
 ///
 /// This gets serialized to the 0x-prefixed hex representation.
 #[derive(
-	Clone, Copy, PartialEq, Eq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Default,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
 )]
-pub struct EthereumAddress([u8; 20]);
+pub struct EthereumAddress(pub [u8; 20]);
 
 impl Serialize for EthereumAddress {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -163,7 +175,13 @@ impl<'de> Deserialize<'de> for EthereumAddress {
 	}
 }
 
-#[derive(Encode, Decode, Clone, TypeInfo, MaxEncodedLen)]
+impl AsRef<[u8]> for EthereumAddress {
+	fn as_ref(&self) -> &[u8] {
+		&self.0[..]
+	}
+}
+
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, MaxEncodedLen)]
 pub struct EcdsaSignature(pub [u8; 65]);
 
 impl PartialEq for EcdsaSignature {
@@ -191,6 +209,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type VestingSchedule: VestingSchedule<Self::AccountId, Moment = BlockNumberFor<Self>>;
 		#[pallet::constant]
@@ -239,11 +258,11 @@ pub mod pallet {
 
 	/// The statement kind that must be signed, if any.
 	#[pallet::storage]
-	pub(super) type Signing<T> = StorageMap<_, Identity, EthereumAddress, StatementKind>;
+	pub type Signing<T> = StorageMap<_, Identity, EthereumAddress, StatementKind>;
 
 	/// Pre-claimed Ethereum accounts, by the Account ID that they are claimed to.
 	#[pallet::storage]
-	pub(super) type Preclaims<T: Config> = StorageMap<_, Identity, T::AccountId, EthereumAddress>;
+	pub type Preclaims<T: Config> = StorageMap<_, Identity, T::AccountId, EthereumAddress>;
 
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
@@ -477,6 +496,7 @@ pub mod pallet {
 		}
 	}
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
@@ -576,7 +596,7 @@ impl<T: Config> Pallet<T> {
 
 		let vesting = Vesting::<T>::get(&signer);
 		if vesting.is_some() && T::VestingSchedule::vesting_balance(&dest).is_some() {
-			return Err(Error::<T>::VestedBalanceExists.into())
+			return Err(Error::<T>::VestedBalanceExists.into());
 		}
 
 		// We first need to deposit the balance to ensure that the account exists.
@@ -608,7 +628,7 @@ impl<T: Config> Pallet<T> {
 
 /// Validate `attest` calls prior to execution. Needed to avoid a DoS attack since they are
 /// otherwise free to place on chain.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct PrevalidateAttests<T>(core::marker::PhantomData<fn(T)>);
 

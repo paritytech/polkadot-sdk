@@ -25,6 +25,7 @@ use sc_network_common::message::RequestId;
 
 /// Remote call response.
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+#[allow(dead_code)]
 pub struct RemoteCallResponse {
 	/// Id of a request this response was made for.
 	pub id: RequestId,
@@ -33,6 +34,7 @@ pub struct RemoteCallResponse {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+#[allow(dead_code)]
 /// Remote read response.
 pub struct RemoteReadResponse {
 	/// Id of a request this response was made for.
@@ -50,6 +52,7 @@ pub mod generic {
 
 	/// Consensus is mostly opaque to us
 	#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+	#[allow(dead_code)]
 	pub struct ConsensusMessage {
 		/// Identifies consensus engine.
 		pub protocol: ConsensusEngineId,
@@ -64,6 +67,7 @@ pub mod generic {
 	//
 	// and set MIN_VERSION to 6.
 	#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+	#[allow(dead_code)]
 	pub struct CompactStatus<Hash, Number> {
 		/// Protocol version.
 		pub version: u32,
@@ -81,6 +85,7 @@ pub mod generic {
 
 	/// Status sent on connection.
 	#[derive(Debug, PartialEq, Eq, Clone, Encode)]
+	#[allow(dead_code)]
 	pub struct Status<Hash, Number> {
 		/// Protocol version.
 		pub version: u32,
@@ -104,12 +109,13 @@ pub mod generic {
 			let compact = CompactStatus::decode(value)?;
 			let chain_status = match <Vec<u8>>::decode(value) {
 				Ok(v) => v,
-				Err(e) =>
+				Err(e) => {
 					if compact.version <= LAST_CHAIN_STATUS_VERSION {
-						return Err(e)
+						return Err(e);
 					} else {
 						Vec::new()
-					},
+					}
+				},
 			};
 
 			let CompactStatus {
@@ -134,6 +140,7 @@ pub mod generic {
 	}
 
 	#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+	#[allow(dead_code)]
 	/// Remote call request.
 	pub struct RemoteCallRequest<H> {
 		/// Unique request id.
@@ -147,6 +154,7 @@ pub mod generic {
 	}
 
 	#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+	#[allow(dead_code)]
 	/// Remote storage read request.
 	pub struct RemoteReadRequest<H> {
 		/// Unique request id.
@@ -158,6 +166,7 @@ pub mod generic {
 	}
 
 	#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+	#[allow(dead_code)]
 	/// Remote storage read child request.
 	pub struct RemoteReadChildRequest<H> {
 		/// Unique request id.
@@ -171,6 +180,7 @@ pub mod generic {
 	}
 
 	#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+	#[allow(dead_code)]
 	/// Remote header request.
 	pub struct RemoteHeaderRequest<N> {
 		/// Unique request id.
@@ -180,6 +190,7 @@ pub mod generic {
 	}
 
 	#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+	#[allow(dead_code)]
 	/// Remote header response.
 	pub struct RemoteHeaderResponse<Header> {
 		/// Id of a request this response was made for.
@@ -191,6 +202,7 @@ pub mod generic {
 	}
 
 	#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+	#[allow(dead_code)]
 	/// Remote changes request.
 	pub struct RemoteChangesRequest<H> {
 		/// Unique request id.
@@ -211,6 +223,7 @@ pub mod generic {
 	}
 
 	#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+	#[allow(dead_code)]
 	/// Remote changes response.
 	pub struct RemoteChangesResponse<N, H> {
 		/// Id of a request this response was made for.

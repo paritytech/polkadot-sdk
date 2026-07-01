@@ -64,7 +64,7 @@ benchmarks_instance_pallet! {
 		} else {
 			Default::default()
 		};
-		log::trace!(target: crate::LOG_TARGET, "=== {:?}", parachains.len());
+		tracing::trace!(target: crate::LOG_TARGET, "=== {:?}", parachains.len());
 		let (relay_block_number, relay_block_hash, parachain_heads_proof, parachains_heads) = T::prepare_parachain_heads_proof(
 			&parachains,
 			DEFAULT_PARACHAIN_HEAD_SIZE,

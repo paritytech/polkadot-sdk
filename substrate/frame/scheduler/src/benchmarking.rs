@@ -104,11 +104,11 @@ fn make_call<T: Config>(maybe_lookup_len: Option<u32>) -> BoundedCallOf<T> {
 			Some(x) => x,
 			None => {
 				len -= 1;
-				continue
+				continue;
 			},
 		};
 		if c.lookup_needed() == maybe_lookup_len.is_some() {
-			break c
+			break c;
 		}
 		if maybe_lookup_len.is_some() {
 			len += 1;
@@ -116,7 +116,7 @@ fn make_call<T: Config>(maybe_lookup_len: Option<u32>) -> BoundedCallOf<T> {
 			if len > 0 {
 				len -= 1;
 			} else {
-				break c
+				break c;
 			}
 		}
 	}
@@ -154,14 +154,14 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let now = BLOCK_NUMBER.into();
 		fill_schedule::<T>(now, s)?;
-		let mut executed = 0;
+		assert_eq!(Agenda::<T>::get(now).len() as u32, s);
 
 		#[block]
 		{
-			Pallet::<T>::service_agenda(&mut WeightMeter::new(), &mut executed, now, now, 0);
+			Pallet::<T>::service_agenda(&mut WeightMeter::new(), true, now, now, 0);
 		}
 
-		assert_eq!(executed, 0);
+		assert_eq!(Agenda::<T>::get(now).len() as u32, s);
 
 		Ok(())
 	}

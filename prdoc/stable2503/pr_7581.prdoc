@@ -1,0 +1,65 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Move validator disabling logic to pallet-session
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This decouples disabling logic from staking, and moves it to session. This ensures validators can be disabled
+      directly when staking transitions to the system parachain and offences are reported on RC, eliminating
+      cross-network hops.
+
+crates:
+- name: pallet-staking
+  bump: major
+- name: pallet-session
+  bump: major
+- name: pallet-authority-discovery
+  bump: patch
+- name: pallet-authority-discovery
+  bump: patch
+- name: pallet-babe
+  bump: patch
+- name: pallet-grandpa
+  bump: patch
+- name: westend-runtime
+  bump: minor
+- name: pallet-beefy
+  bump: patch
+- name: pallet-beefy-mmr
+  bump: patch
+- name: pallet-offences-benchmarking
+  bump: patch
+- name: pallet-im-online
+  bump: patch
+- name: pallet-session-benchmarking
+  bump: patch
+- name: rococo-runtime
+  bump: minor
+- name: pallet-collator-selection
+  bump: patch
+- name: pallet-root-offences
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: contracts-rococo-runtime
+  bump: minor

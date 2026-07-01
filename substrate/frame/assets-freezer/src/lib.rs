@@ -39,7 +39,7 @@
 //!
 //! This pallet provides the following functionality:
 //!
-//! - Pallet hooks allowing [`pallet-assets`] to know the frozen balance for an account on a given
+//! - Pallet hooks allowing `pallet-assets` to know the frozen balance for an account on a given
 //!   asset (see [`pallet_assets::FrozenBalance`]).
 //! - An implementation of [`fungibles::freeze::Inspect`](InspectFreeze) and
 //!   [`fungibles::freeze::Mutate`](MutateFreeze), allowing other pallets to manage freezes for the
@@ -81,6 +81,7 @@ pub mod pallet {
 
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
@@ -105,7 +106,7 @@ pub mod pallet {
 
 	/// A map that stores freezes applied on an account for a given AssetId.
 	#[pallet::storage]
-	pub(super) type Freezes<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type Freezes<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::AssetId,
@@ -120,7 +121,7 @@ pub mod pallet {
 
 	/// A map that stores the current total frozen balance for every account on a given AssetId.
 	#[pallet::storage]
-	pub(super) type FrozenBalances<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type FrozenBalances<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::AssetId,

@@ -11,16 +11,15 @@ repository.workspace = true
 [lints]
 workspace = true
 
-[build-dependencies]
-substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
-
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
+serde = { optional = true, features = [
+	"derive",
+], workspace = true, default-features = true }
 serde_json = { features = ["alloc"], workspace = true }
+tracing = { workspace = true }
 
 # Substrate
 frame-benchmarking = { optional = true, workspace = true }
@@ -31,6 +30,7 @@ frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
+pallet-accumulate-and-forward = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
@@ -45,6 +45,7 @@ sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
+sp-dap = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
@@ -96,7 +97,6 @@ bp-polkadot-core = { workspace = true }
 bp-relayers = { workspace = true }
 bp-rococo = { workspace = true }
 bp-runtime = { workspace = true }
-bp-westend = { workspace = true }
 bp-xcm-bridge-hub-router = { workspace = true }
 bridge-hub-common = { workspace = true }
 bridge-runtime-common = { workspace = true }
@@ -109,25 +109,36 @@ pallet-xcm-bridge-hub = { workspace = true }
 # Ethereum Bridge (Snowbridge)
 snowbridge-beacon-primitives = { workspace = true }
 snowbridge-core = { workspace = true }
+snowbridge-inbound-queue-primitives = { workspace = true }
+snowbridge-merkle-tree = { workspace = true }
+snowbridge-outbound-queue-primitives = { workspace = true }
 snowbridge-outbound-queue-runtime-api = { workspace = true }
+snowbridge-outbound-queue-v2-runtime-api = { workspace = true }
 snowbridge-pallet-ethereum-client = { workspace = true }
 snowbridge-pallet-inbound-queue = { workspace = true }
+snowbridge-pallet-inbound-queue-fixtures = { workspace = true }
+snowbridge-pallet-inbound-queue-v2 = { workspace = true }
+snowbridge-pallet-inbound-queue-v2-fixtures = { workspace = true }
 snowbridge-pallet-outbound-queue = { workspace = true }
+snowbridge-pallet-outbound-queue-v2 = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
-snowbridge-router-primitives = { workspace = true }
-snowbridge-runtime-common = { workspace = true }
+snowbridge-pallet-system-v2 = { workspace = true }
 snowbridge-system-runtime-api = { workspace = true }
-
+snowbridge-system-v2-runtime-api = { workspace = true }
 
 [dev-dependencies]
 bridge-hub-test-utils = { workspace = true, default-features = true }
-bridge-runtime-common = { features = ["integrity-test"], workspace = true, default-features = true }
+bridge-runtime-common = { features = [
+	"integrity-test",
+], workspace = true, default-features = true }
 pallet-bridge-relayers = { features = ["integrity-test"], workspace = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 snowbridge-runtime-test-common = { workspace = true, default-features = true }
 
+[build-dependencies]
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
+
 [features]
-default = ["std"]
 std = [
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",
@@ -140,7 +151,6 @@ std = [
 	"bp-relayers/std",
 	"bp-rococo/std",
 	"bp-runtime/std",
-	"bp-westend/std",
 	"bp-xcm-bridge-hub-router/std",
 	"bridge-hub-common/std",
 	"bridge-runtime-common/std",
@@ -162,7 +172,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime?/std",
-	"log/std",
+	"pallet-accumulate-and-forward/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
@@ -190,18 +200,27 @@ std = [
 	"serde_json/std",
 	"snowbridge-beacon-primitives/std",
 	"snowbridge-core/std",
+	"snowbridge-inbound-queue-primitives/std",
+	"snowbridge-merkle-tree/std",
+	"snowbridge-outbound-queue-primitives/std",
 	"snowbridge-outbound-queue-runtime-api/std",
+	"snowbridge-outbound-queue-v2-runtime-api/std",
 	"snowbridge-pallet-ethereum-client/std",
+	"snowbridge-pallet-inbound-queue-fixtures/std",
+	"snowbridge-pallet-inbound-queue-v2-fixtures/std",
+	"snowbridge-pallet-inbound-queue-v2/std",
 	"snowbridge-pallet-inbound-queue/std",
+	"snowbridge-pallet-outbound-queue-v2/std",
 	"snowbridge-pallet-outbound-queue/std",
+	"snowbridge-pallet-system-v2/std",
 	"snowbridge-pallet-system/std",
-	"snowbridge-router-primitives/std",
-	"snowbridge-runtime-common/std",
 	"snowbridge-system-runtime-api/std",
+	"snowbridge-system-v2-runtime-api/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
+	"sp-dap/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",
@@ -215,12 +234,14 @@ std = [
 	"sp-version/std",
 	"substrate-wasm-builder",
 	"testnet-parachains-constants/std",
+	"tracing/std",
 	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
 ]
+default = ["std"]
 
 runtime-benchmarks = [
 	"bridge-hub-common/runtime-benchmarks",
@@ -235,6 +256,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-accumulate-and-forward/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-grandpa/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
@@ -243,6 +265,7 @@ runtime-benchmarks = [
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
@@ -250,17 +273,23 @@ runtime-benchmarks = [
 	"pallet-xcm-bridge-hub/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
+	"parachains-runtimes-test-utils/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-inbound-queue-primitives/runtime-benchmarks",
 	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
+	"snowbridge-pallet-inbound-queue-fixtures/runtime-benchmarks",
+	"snowbridge-pallet-inbound-queue-v2-fixtures/runtime-benchmarks",
+	"snowbridge-pallet-inbound-queue-v2/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue/runtime-benchmarks",
+	"snowbridge-pallet-outbound-queue-v2/runtime-benchmarks",
 	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
+	"snowbridge-pallet-system-v2/runtime-benchmarks",
 	"snowbridge-pallet-system/runtime-benchmarks",
-	"snowbridge-router-primitives/runtime-benchmarks",
-	"snowbridge-runtime-common/runtime-benchmarks",
 	"snowbridge-runtime-test-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"westend-runtime-constants/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
@@ -268,6 +297,7 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
+	"bridge-hub-test-utils/try-runtime",
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
 	"cumulus-pallet-weight-reclaim/try-runtime",
@@ -277,6 +307,7 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-accumulate-and-forward/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
@@ -294,17 +325,26 @@ try-runtime = [
 	"pallet-xcm-bridge-hub/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
+	"parachains-common/try-runtime",
+	"parachains-runtimes-test-utils/try-runtime",
 	"polkadot-runtime-common/try-runtime",
+	"snowbridge-inbound-queue-primitives/try-runtime",
 	"snowbridge-pallet-ethereum-client/try-runtime",
+	"snowbridge-pallet-inbound-queue-v2/try-runtime",
 	"snowbridge-pallet-inbound-queue/try-runtime",
+	"snowbridge-pallet-outbound-queue-v2/try-runtime",
 	"snowbridge-pallet-outbound-queue/try-runtime",
+	"snowbridge-pallet-system-v2/try-runtime",
 	"snowbridge-pallet-system/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 
+# Enable the metadata hash generation in the wasm builder.
+metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
-on-chain-release-build = []
+on-chain-release-build = ["metadata-hash"]
 
 fast-runtime = []

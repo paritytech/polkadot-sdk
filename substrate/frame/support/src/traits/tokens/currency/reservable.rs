@@ -237,18 +237,18 @@ pub trait NamedReservableCurrency<AccountId>: ReservableCurrency<AccountId> {
 	}
 }
 
-/// Adapter to allow a `NamedReservableCurrency` to be passed as regular `ReservableCurrency`
+/// Adapter to allow a [`NamedReservableCurrency`] to be passed as regular [`ReservableCurrency`]
 /// together with an `Id`.
 ///
 /// All "anonymous" operations are then implemented as their named counterparts with the given `Id`.
-pub struct WithName<NamedReservable, Id, AccountId>(
+pub struct ReservableWithName<NamedReservable, Id, AccountId>(
 	core::marker::PhantomData<(NamedReservable, Id, AccountId)>,
 );
 impl<
 		NamedReservable: NamedReservableCurrency<AccountId>,
 		Id: Get<NamedReservable::ReserveIdentifier>,
 		AccountId,
-	> Currency<AccountId> for WithName<NamedReservable, Id, AccountId>
+	> Currency<AccountId> for ReservableWithName<NamedReservable, Id, AccountId>
 {
 	type Balance = <NamedReservable as Currency<AccountId>>::Balance;
 	type PositiveImbalance = <NamedReservable as Currency<AccountId>>::PositiveImbalance;
@@ -343,7 +343,7 @@ impl<
 		NamedReservable: NamedReservableCurrency<AccountId>,
 		Id: Get<NamedReservable::ReserveIdentifier>,
 		AccountId,
-	> ReservableCurrency<AccountId> for WithName<NamedReservable, Id, AccountId>
+	> ReservableCurrency<AccountId> for ReservableWithName<NamedReservable, Id, AccountId>
 {
 	fn can_reserve(who: &AccountId, value: Self::Balance) -> bool {
 		NamedReservable::can_reserve(who, value)

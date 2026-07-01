@@ -24,6 +24,7 @@ use frame_support::{
 	traits::{
 		fungible::{Balanced, Credit, Inspect, ItemOf, Mutate},
 		nonfungible::Inspect as NftInspect,
+		tokens::{Fortitude, Precision, Preservation},
 		EitherOfDiverse, Hooks, OnUnbalanced,
 	},
 	PalletId,
@@ -100,11 +101,16 @@ impl CoretimeInterface for TestCoretimeProvider {
 				}
 			})
 		});
+		// When the credit is spent, we mint this amount back into the pot (on a real network this
+		// will be a teleport).
 		mint_to_pot(total);
 		RevenueInbox::<Test>::put(OnDemandRevenueRecord { until: when, amount: total });
 	}
 	fn credit_account(who: Self::AccountId, amount: Self::Balance) {
+		// When the account is credited, we burn the associated funds in their account (on a real
+		// network this will be a teleport).
 		CoretimeCredit::mutate(|c| c.entry(who).or_default().saturating_accrue(amount));
+		burn_from_pot(amount);
 	}
 	fn assign_core(
 		core: CoreIndex,
@@ -127,10 +133,16 @@ impl CoretimeInterface for TestCoretimeProvider {
 }
 
 impl TestCoretimeProvider {
-	pub fn spend_instantaneous(_who: u64, price: u64) -> Result<(), ()> {
-		let c = CoretimeCredit::get();
-		ensure!(CoretimeInPool::get() > 0, ());
-		// c.insert(who, c.get(&who).ok_or(())?.checked_sub(price).ok_or(())?);
+	pub fn spend_instantaneous(who: u64, price: u64) -> Result<(), &'static str> {
+		let mut c = CoretimeCredit::get();
+		ensure!(CoretimeInPool::get() > 0, "None in pool");
+		c.insert(
+			who,
+			c.get(&who)
+				.ok_or("Account not there")?
+				.checked_sub(price)
+				.ok_or("Checked sub failed")?,
+		);
 		CoretimeCredit::set(c);
 		CoretimeSpending::mutate(|v| {
 			v.push((RCBlockNumberProviderOf::<Self>::current_block_number() as u32, price))
@@ -177,7 +189,7 @@ impl OnUnbalanced<Credit<u64, <Test as Config>::Currency>> for IntoZero {
 
 ord_parameter_types! {
 	pub const One: u64 = 1;
-	pub const MinimumCreditPurchase: u64 = 50;
+	pub const MinimumCreditPurchase: u64 = 20;
 }
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 
@@ -231,6 +243,17 @@ pub fn pot() -> u64 {
 pub fn mint_to_pot(amount: u64) {
 	let imb = <Test as crate::Config>::Currency::issue(amount);
 	let _ = <Test as crate::Config>::Currency::resolve(&Broker::account_id(), imb);
+}
+
+pub fn burn_from_pot(amount: u64) {
+	let _ = <Test as crate::Config>::Currency::burn_from(
+		&Broker::account_id(),
+		amount,
+		Preservation::Expendable,
+		Precision::Exact,
+		Fortitude::Polite,
+	)
+	.expect("Broker pot should have sufficient balance to burn.");
 }
 
 pub fn revenue() -> u64 {

@@ -1,0 +1,15 @@
+title: extend overseer to send priority messages
+doc:
+- audience: Node Dev
+  description: |-
+    Extend overseer to send priority messages, the new functionality is used for sending messages
+    on the grandpa call path when we call dispute-coordinator and approval-voting in
+    finality_target_with_longest_chain to make sure we don't block unnecessarily.
+
+crates:
+- name: polkadot-node-core-approval-voting-parallel
+  bump: patch
+- name: polkadot-overseer
+  bump: patch
+- name: polkadot-service
+  bump: patch

@@ -1,0 +1,19 @@
+title: '[revive] eth-rpc refactoring'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Refactor eth-rpc
+    - Get rid of the in memory-cache, we can just store receipts / logs into sqlite
+    - Track both best and finalized blocks so that we can properly index transactions in case of a relay chain re-org
+    - Keep reference to the latest finalized block so that we can use that for queries that use the finalized block tag
+    - use --index-last-n-blocks cli parameter to re-index the last n block when the server start
+    - Fix issue with gas_price calculation for EIP1559
+    -
+    tested changes with https://github.com/paritytech/evm-test-suite/pull/87
+
+    fix https://github.com/paritytech/contract-issues/issues/35 https://github.com/paritytech/contract-issues/issues/33
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: pallet-revive
+  bump: patch

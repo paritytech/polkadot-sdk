@@ -21,8 +21,8 @@
 
 extern crate alloc;
 
-use alloc::{borrow::Cow, vec, vec::Vec};
-use core::{iter::Iterator, marker::PhantomData, mem, result};
+use alloc::{borrow::Cow, string::String, vec, vec::Vec};
+use core::{iter::Iterator, marker::PhantomData, mem};
 
 #[cfg(not(all(feature = "std", feature = "wasmtime")))]
 #[macro_export]
@@ -47,10 +47,7 @@ if_wasmtime_is_enabled! {
 }
 
 /// Result type used by traits in this crate.
-#[cfg(feature = "std")]
-pub type Result<T> = result::Result<T, String>;
-#[cfg(not(feature = "std"))]
-pub type Result<T> = result::Result<T, &'static str>;
+pub type Result<T> = core::result::Result<T, String>;
 
 /// Value types supported by Substrate on the boundary between host/Wasm.
 #[derive(Copy, Clone, PartialEq, Debug, Eq)]
@@ -155,10 +152,17 @@ impl PointerType for u32 {}
 impl PointerType for u64 {}
 
 /// Type to represent a pointer in wasm at the host.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Pointer<T: PointerType> {
+#[derive(Debug, PartialEq, Eq)]
+pub struct Pointer<T> {
 	ptr: u32,
 	_marker: PhantomData<T>,
+}
+
+impl<T> Copy for Pointer<T> {}
+impl<T> Clone for Pointer<T> {
+	fn clone(&self) -> Self {
+		Pointer { ptr: self.ptr, _marker: PhantomData }
+	}
 }
 
 impl<T: PointerType> Pointer<T> {
@@ -293,13 +297,13 @@ impl PartialEq for dyn Function {
 /// Context used by `Function` to interact with the allocator and the memory of the wasm instance.
 pub trait FunctionContext {
 	/// Read memory from `address` into a vector.
-	fn read_memory(&self, address: Pointer<u8>, size: WordSize) -> Result<Vec<u8>> {
+	fn read_memory(&mut self, address: Pointer<u8>, size: WordSize) -> Result<Vec<u8>> {
 		let mut vec = vec![0; size as usize];
 		self.read_memory_into(address, &mut vec)?;
 		Ok(vec)
 	}
 	/// Read memory into the given `dest` buffer from `address`.
-	fn read_memory_into(&self, address: Pointer<u8>, dest: &mut [u8]) -> Result<()>;
+	fn read_memory_into(&mut self, address: Pointer<u8>, dest: &mut [u8]) -> Result<()>;
 	/// Write the given data at `address` into the memory.
 	fn write_memory(&mut self, address: Pointer<u8>, data: &[u8]) -> Result<()>;
 	/// Allocate a memory instance of `size` bytes.
@@ -338,7 +342,7 @@ if_wasmtime_is_enabled! {
 	/// host functions' definitions generated through the runtime interface macro,
 	/// and is not meant to be used directly.
 	pub trait HostFunctionRegistry {
-		type State;
+		type State: 'static;
 		type Error;
 		type FunctionContext: FunctionContext;
 

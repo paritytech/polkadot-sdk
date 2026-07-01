@@ -36,7 +36,6 @@ std = [
 	"sp-runtime/std",
 	"xcm/std",
 ]
-
 try-runtime = [
 	"cumulus-pallet-xcm/try-runtime",
 	"frame-support/try-runtime",

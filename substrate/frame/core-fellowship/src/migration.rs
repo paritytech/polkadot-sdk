@@ -35,7 +35,7 @@ mod v0 {
 
 	use super::*;
 
-	#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+	#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 	pub struct ParamsType<Balance, BlockNumber, const RANKS: usize> {
 		pub active_salary: [Balance; RANKS],
 		pub passive_salary: [Balance; RANKS],
@@ -84,8 +84,11 @@ pub mod v1 {
 		OptionQuery,
 	>;
 
-	pub type ParamsOf<T, I> =
-		ParamsType<<T as Config<I>>::Balance, LocalBlockNumberFor<T>, <T as Config<I>>::MaxRank>;
+	pub type ParamsOf<T, I> = ParamsType<
+		<T as Config<I>>::Balance,
+		LocalBlockNumberFor<T>,
+		ConvertU16ToU32<<T as Config<I>>::MaxRank>,
+	>;
 	/// V1 type for [`crate::Params`].
 	#[storage_alias]
 	pub type Params<T: Config<I>, I: 'static> =
@@ -96,7 +99,7 @@ pub mod v1 {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			ensure!(
-				T::MaxRank::get() >= v0::RANK_COUNT as u32,
+				T::MaxRank::get() as usize >= v0::RANK_COUNT,
 				"pallet-core-fellowship: new bound should not truncate"
 			);
 			Ok(Default::default())

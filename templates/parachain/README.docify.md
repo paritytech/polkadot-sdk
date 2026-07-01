@@ -87,29 +87,34 @@ be used to run the parachain template's runtime. `polkadot-omni-node` binary cra
 
 #### Install `polkadot-omni-node`
 
-Please see the installation section at [`crates.io/omni-node`](https://crates.io/crates/polkadot-omni-node).
+```sh
+cargo install polkadot-omni-node
+```
+
+> For more advanced options, please see the installation section at [`crates.io/omni-node`](https://crates.io/crates/polkadot-omni-node).
 
 #### Build `parachain-template-runtime`
 
 ```sh
-cargo build --release
+cargo build --profile production
 ```
 
 #### Install `staging-chain-spec-builder`
 
-Please see the installation section at [`crates.io/staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder).
+```sh
+cargo install staging-chain-spec-builder
+```
+
+> For more advanced options, please see the installation section at [`crates.io/staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder).
 
 #### Use `chain-spec-builder` to generate the `chain_spec.json` file
 
 ```sh
-chain-spec-builder create --relay-chain "rococo-local" --para-id {{PARACHAIN_ID}} --runtime \
+chain-spec-builder create --relay-chain "rococo-local" --runtime \
     target/release/wbuild/parachain-template-runtime/parachain_template_runtime.wasm named-preset development
 ```
 
-**Note**: the `relay-chain` and `para-id` flags are mandatory information required by
-Omni Node, and for parachain template case the value for `para-id` must be set to `{{PARACHAIN_ID}}`, since this
-is also the value injected through [ParachainInfo](https://docs.rs/staging-parachain-info/0.17.0/staging_parachain_info/)
-pallet into the `parachain-template-runtime`'s storage. The `relay-chain` value is set in accordance
+**Note**: the `relay-chain` flag is required by Omni Node. The `relay-chain` value is set in accordance
 with the relay chain ID where this instantiation of parachain-template will connect to.
 
 #### Run Omni Node
@@ -173,7 +178,7 @@ to `Omni Node`. Similarly, it requires setting up a relay chain, and we'll use `
 #### Install the `parachain-template-node`
 
 ```sh
-cargo install --path node
+cargo install --path node --locked
 ```
 
 #### Setup and start the network
@@ -224,7 +229,7 @@ Build the `parachain-template-runtime` as mentioned before in this guide and use
 again but this time by passing `--raw-storage` flag:
 
 ```sh
-chain-spec-builder create --raw-storage --relay-chain "rococo-local" --para-id {{PARACHAIN_ID}} --runtime \
+chain-spec-builder create --raw-storage --relay-chain "rococo-local" --runtime \
     target/release/wbuild/parachain-template-runtime/parachain_template_runtime.wasm named-preset development
 ```
 
@@ -252,10 +257,12 @@ relay chain network (see [Parachain Template node](#parachain-template-node) set
 
 ## Getting Help
 
-- 🧑‍🏫 To learn about Polkadot in general, [Polkadot.network](https://polkadot.network/) website is a good starting point.
+- 🧑‍🏫 To learn about Polkadot in general, [docs.Polkadot.com](https://docs.polkadot.com/) website is a good starting point.
 
 - 🧑‍🔧 For technical introduction, [here](https://github.com/paritytech/polkadot-sdk#-documentation) are
   the Polkadot SDK documentation resources.
 
 - 👥 Additionally, there are [GitHub issues](https://github.com/paritytech/polkadot-sdk/issues) and
   [Substrate StackExchange](https://substrate.stackexchange.com/).
+- 👥You can also reach out on the [Official Polkadot discord server](https://polkadot-discord.w3f.tools/)
+- 🧑Reach out on [Telegram](https://t.me/substratedevs) for more questions and discussions

@@ -302,8 +302,9 @@
 //! ```
 //!
 //! For scalability, a bound is maintained on the number of unbonding sub pools (see
-//! [`TotalUnbondingPools`]). An unbonding pool is removed once its older than `current_era -
-//! TotalUnbondingPools`. An unbonding pool is merged into the unbonded pool with
+//! [`Config::MaxUnbondingPools`]). An unbonding pool is removed (merged into the unbonded pool)
+//! once it is older than `active_era - (MaxUnbondingPools - bonding_duration)`. An
+//! unbonding pool is merged into the unbonded pool with
 //!
 //! ```text
 //! unbounded_pool.balance = unbounded_pool.balance + unbonding_pool.balance;
@@ -312,10 +313,10 @@
 //!
 //! This scheme "averages" out the points value in the unbonded pool.
 //!
-//! Once a members `unbonding_era` is older than `current_era -
+//! Once a members `unbonding_era` is older than `active_era -
 //! [sp_staking::StakingInterface::bonding_duration]`, it can can cash it's points out of the
-//! corresponding unbonding pool. If it's `unbonding_era` is older than `current_era -
-//! TotalUnbondingPools`, it can cash it's points from the unbonded pool.
+//! corresponding unbonding pool. If it's `unbonding_era` is older than the effective
+//! post-unbonding window, it can cash it's points from the unbonded pool.
 //!
 //! **Relevant extrinsics:**
 //!
@@ -355,7 +356,7 @@ extern crate alloc;
 
 use adapter::{Member, Pool, StakeStrategy};
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
-use codec::Codec;
+use codec::{Codec, DecodeWithMemTracking};
 use core::{fmt::Debug, ops::Div};
 use frame_support::{
 	defensive, defensive_assert, ensure,
@@ -364,7 +365,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
 		tokens::{Fortitude, Preservation},
-		Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
+		Contains, Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
 	},
 	DefaultNoBound, PalletError,
 };
@@ -422,7 +423,9 @@ pub type BlockNumberFor<T> =
 pub const POINTS_TO_BALANCE_INIT_RATIO: u32 = 1;
 
 /// Possible operations on the configuration values of this pallet.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, PartialEq, Clone)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone,
+)]
 pub enum ConfigOp<T: Codec + Debug> {
 	/// Don't change.
 	Noop,
@@ -441,7 +444,7 @@ pub enum BondType {
 }
 
 /// How to increase the bond of a member.
-#[derive(Encode, Decode, Clone, Copy, Debug, PartialEq, Eq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Copy, Debug, PartialEq, Eq, TypeInfo)]
 pub enum BondExtra<Balance> {
 	/// Take from the free balance.
 	FreeBalance(Balance),
@@ -457,7 +460,18 @@ enum AccountType {
 }
 
 /// The permission a pool member can set for other accounts to claim rewards on their behalf.
-#[derive(Encode, Decode, MaxEncodedLen, Clone, Copy, Debug, PartialEq, Eq, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	Clone,
+	Copy,
+	Debug,
+	PartialEq,
+	Eq,
+	TypeInfo,
+)]
 pub enum ClaimPermission {
 	/// Only the pool member themselves can claim their rewards.
 	Permissioned,
@@ -493,11 +507,13 @@ impl ClaimPermission {
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	CloneNoBound,
-	frame_support::PartialEqNoBound,
+	PartialEqNoBound,
+	EqNoBound,
 )]
 #[cfg_attr(feature = "std", derive(DefaultNoBound))]
 #[scale_info(skip_type_params(T))]
@@ -557,8 +573,8 @@ impl<T: Config> PoolMember<T> {
 	/// Total balance of the member, both active and unbonding.
 	/// Doesn't mutate state.
 	///
-	/// Worst case, iterates over [`TotalUnbondingPools`] member unbonding pools to calculate member
-	/// balance.
+	/// Worst case, iterates over [`Config::MaxUnbondingPools`] member unbonding pools to
+	/// calculate member balance.
 	pub fn total_balance(&self) -> BalanceOf<T> {
 		let pool = match BondedPool::<T>::get(self.pool_id) {
 			Some(pool) => pool,
@@ -622,9 +638,10 @@ impl<T: Config> PoolMember<T> {
 	) -> Result<(), Error<T>> {
 		if let Some(new_points) = self.points.checked_sub(&points_dissolved) {
 			match self.unbonding_eras.get_mut(&unbonding_era) {
-				Some(already_unbonding_points) =>
+				Some(already_unbonding_points) => {
 					*already_unbonding_points =
-						already_unbonding_points.saturating_add(points_issued),
+						already_unbonding_points.saturating_add(points_issued)
+				},
 				None => self
 					.unbonding_eras
 					.try_insert(unbonding_era, points_issued)
@@ -650,13 +667,13 @@ impl<T: Config> PoolMember<T> {
 	/// Infallible, noop if no unbonding eras exist.
 	fn withdraw_unlocked(
 		&mut self,
-		current_era: EraIndex,
+		active_era: EraIndex,
 	) -> BoundedBTreeMap<EraIndex, BalanceOf<T>, T::MaxUnbonding> {
 		// NOTE: if only drain-filter was stable..
 		let mut removed_points =
 			BoundedBTreeMap::<EraIndex, BalanceOf<T>, T::MaxUnbonding>::default();
 		self.unbonding_eras.retain(|e, p| {
-			if *e > current_era {
+			if *e > active_era {
 				true
 			} else {
 				removed_points
@@ -670,7 +687,17 @@ impl<T: Config> PoolMember<T> {
 }
 
 /// A pool's possible states.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, RuntimeDebugNoBound, Clone, Copy)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	PartialEq,
+	DebugNoBound,
+	Clone,
+	Copy,
+)]
 pub enum PoolState {
 	/// The pool is open to be joined, and is working normally.
 	Open,
@@ -688,7 +715,9 @@ pub enum PoolState {
 /// Any pool has a depositor, which can never change. But, all the other roles are optional, and
 /// cannot exist. Note that if `root` is set to `None`, it basically means that the roles of this
 /// pool can never change again (except via governance).
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Debug, PartialEq, Clone)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Debug, PartialEq, Clone,
+)]
 pub struct PoolRoles<AccountId> {
 	/// Creates the pool and is the initial member. They can only leave the pool once all other
 	/// members have left. Once they fully leave, the pool is destroyed.
@@ -703,7 +732,18 @@ pub struct PoolRoles<AccountId> {
 }
 
 // A pool's possible commission claiming permissions.
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Copy,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum CommissionClaimPermission<AccountId> {
 	Permissionless,
 	Account(AccountId),
@@ -722,7 +762,16 @@ pub enum CommissionClaimPermission<AccountId> {
 /// An optional commission `change_rate` allows the pool to set strict limits to how much commission
 /// can change in each update, and how often updates can take place.
 #[derive(
-	Encode, Decode, DefaultNoBound, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Copy, Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	DefaultNoBound,
+	MaxEncodedLen,
+	TypeInfo,
+	DebugNoBound,
+	PartialEq,
+	Copy,
+	Clone,
 )]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
@@ -757,13 +806,13 @@ impl<T: Config> Commission<T> {
 
 			// do not throttle if `to` is the same or a decrease in commission.
 			if *to <= commission_as_percent {
-				return false
+				return false;
 			}
 			// Test for `max_increase` throttling.
 			//
 			// Throttled if the attempted increase in commission is greater than `max_increase`.
 			if (*to).saturating_sub(commission_as_percent) > t.max_increase {
-				return true
+				return true;
 			}
 
 			// Test for `min_delay` throttling.
@@ -786,7 +835,7 @@ impl<T: Config> Commission<T> {
 						blocks_surpassed < t.min_delay
 					}
 				},
-			)
+			);
 		}
 		false
 	}
@@ -844,7 +893,7 @@ impl<T: Config> Commission<T> {
 		);
 		if let Some(old) = self.max.as_mut() {
 			if new_max > *old {
-				return Err(Error::<T>::MaxCommissionRestricted.into())
+				return Err(Error::<T>::MaxCommissionRestricted.into());
 			}
 			*old = new_max;
 		} else {
@@ -917,7 +966,9 @@ impl<T: Config> Commission<T> {
 /// blocks that must elapse before commission updates are allowed again.
 ///
 /// Commission change rates are not applied to decreases in commission.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Debug, PartialEq, Copy, Clone)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Debug, PartialEq, Copy, Clone,
+)]
 pub struct CommissionChangeRate<BlockNumber> {
 	/// The maximum amount the commission can be updated by per `min_delay` period.
 	pub max_increase: Perbill,
@@ -926,7 +977,9 @@ pub struct CommissionChangeRate<BlockNumber> {
 }
 
 /// Pool permissions and state
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone,
+)]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct BondedPoolInner<T: Config> {
@@ -946,7 +999,7 @@ pub struct BondedPoolInner<T: Config> {
 ///
 /// The main purpose of this is to wrap a [`BondedPoolInner`], with the account
 /// + id of the pool, for easier access.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 #[cfg_attr(feature = "std", derive(Clone, PartialEq))]
 pub struct BondedPool<T: Config> {
 	/// The identifier of the pool.
@@ -1221,8 +1274,14 @@ impl<T: Config> BondedPool<T> {
 				)
 			},
 			(false, true) => {
-				// the depositor can simply not be unbonded permissionlessly, period.
-				return Err(Error::<T>::DoesNotHavePermission.into())
+				// Permissionless depositor unbond is only allowed for a full unbond, and only when
+				// destroying with the depositor as sole remaining member. `is_full_unbond` is
+				// already guaranteed by the outer `ensure!` above.
+				debug_assert!(is_full_unbond);
+				ensure!(
+					self.is_destroying_and_only_depositor(target_member.active_points()),
+					Error::<T>::DoesNotHavePermission
+				);
 			},
 		};
 
@@ -1295,8 +1354,18 @@ impl<T: Config> BondedPool<T> {
 /// A reward pool is not so much a pool anymore, since it does not contain any shares or points.
 /// Rather, simply to fit nicely next to bonded pool and unbonding pools in terms of terminology. In
 /// reality, a reward pool is just a container for a few pool-dependent data related to the rewards.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound)]
-#[cfg_attr(feature = "std", derive(Clone, PartialEq, DefaultNoBound))]
+#[derive(
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
+	TypeInfo,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+	DebugNoBound,
+)]
+#[cfg_attr(feature = "std", derive(DefaultNoBound))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct RewardPool<T: Config> {
@@ -1304,19 +1373,19 @@ pub struct RewardPool<T: Config> {
 	///
 	/// This is updated ONLY when the points in the bonded pool change, which means `join`,
 	/// `bond_extra` and `unbond`, all of which is done through `update_recorded`.
-	last_recorded_reward_counter: T::RewardCounter,
+	pub last_recorded_reward_counter: T::RewardCounter,
 	/// The last recorded total payouts of the reward pool.
 	///
 	/// Payouts is essentially income of the pool.
 	///
 	/// Update criteria is same as that of `last_recorded_reward_counter`.
-	last_recorded_total_payouts: BalanceOf<T>,
+	pub last_recorded_total_payouts: BalanceOf<T>,
 	/// Total amount that this pool has paid out so far to the members.
-	total_rewards_claimed: BalanceOf<T>,
+	pub total_rewards_claimed: BalanceOf<T>,
 	/// The amount of commission pending to be claimed.
-	total_commission_pending: BalanceOf<T>,
+	pub total_commission_pending: BalanceOf<T>,
 	/// The amount of commission that has been claimed.
-	total_commission_claimed: BalanceOf<T>,
+	pub total_commission_claimed: BalanceOf<T>,
 }
 
 impl<T: Config> RewardPool<T> {
@@ -1455,15 +1524,25 @@ impl<T: Config> RewardPool<T> {
 }
 
 /// An unbonding pool. This is always mapped with an era.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DefaultNoBound, RuntimeDebugNoBound)]
-#[cfg_attr(feature = "std", derive(Clone, PartialEq, Eq))]
+#[derive(
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
+	TypeInfo,
+	DefaultNoBound,
+	DebugNoBound,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+)]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct UnbondPool<T: Config> {
 	/// The points in this pool.
-	points: BalanceOf<T>,
+	pub points: BalanceOf<T>,
 	/// The funds in the pool.
-	balance: BalanceOf<T>,
+	pub balance: BalanceOf<T>,
 }
 
 impl<T: Config> UnbondPool<T> {
@@ -1498,17 +1577,27 @@ impl<T: Config> UnbondPool<T> {
 	}
 }
 
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DefaultNoBound, RuntimeDebugNoBound)]
-#[cfg_attr(feature = "std", derive(Clone, PartialEq))]
+#[derive(
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
+	TypeInfo,
+	DefaultNoBound,
+	DebugNoBound,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+)]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct SubPools<T: Config> {
 	/// A general, era agnostic pool of funds that have fully unbonded. The pools
 	/// of `Self::with_era` will lazily be merged into into this pool if they are
-	/// older then `current_era - TotalUnbondingPools`.
-	no_era: UnbondPool<T>,
+	/// older than the effective post-unbonding window (see `SubPools::maybe_merge_pools`).
+	pub no_era: UnbondPool<T>,
 	/// Map of era in which a pool becomes unbonded in => unbond pools.
-	with_era: BoundedBTreeMap<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>,
+	pub with_era: BoundedBTreeMap<EraIndex, UnbondPool<T>, T::MaxUnbondingPools>,
 }
 
 impl<T: Config> SubPools<T> {
@@ -1516,12 +1605,12 @@ impl<T: Config> SubPools<T> {
 	///
 	/// This is often used whilst getting the sub-pool from storage, thus it consumes and returns
 	/// `Self` for ergonomic purposes.
-	fn maybe_merge_pools(mut self, current_era: EraIndex) -> Self {
-		// Ex: if `TotalUnbondingPools` is 5 and current era is 10, we only want to retain pools
-		// 6..=10. Note that in the first few eras where `checked_sub` is `None`, we don't remove
-		// anything.
-		if let Some(newest_era_to_remove) =
-			current_era.checked_sub(T::PostUnbondingPoolsWindow::get())
+	fn maybe_merge_pools(mut self, active_era: EraIndex) -> Self {
+		// Retain `with_era` pools for ~`MaxUnbondingPools` eras after unlock.
+		// E.g., if window is 2 and active era is 10, retain pools 9..=10.
+		let effective_post_unbonding_window =
+			T::MaxUnbondingPools::get().saturating_sub(T::StakeAdapter::bonding_duration());
+		if let Some(newest_era_to_remove) = active_era.checked_sub(effective_post_unbonding_window)
 		{
 			self.with_era.retain(|k, v| {
 				if *k > newest_era_to_remove {
@@ -1550,20 +1639,6 @@ impl<T: Config> SubPools<T> {
 	}
 }
 
-/// The maximum amount of eras an unbonding pool can exist prior to being merged with the
-/// `no_era` pool. This is guaranteed to at least be equal to the staking `UnbondingDuration`. For
-/// improved UX [`Config::PostUnbondingPoolsWindow`] should be configured to a non-zero value.
-pub struct TotalUnbondingPools<T: Config>(PhantomData<T>);
-
-impl<T: Config> Get<u32> for TotalUnbondingPools<T> {
-	fn get() -> u32 {
-		// NOTE: this may be dangerous in the scenario bonding_duration gets decreased because
-		// we would no longer be able to decode `BoundedBTreeMap::<EraIndex, UnbondPool<T>,
-		// TotalUnbondingPools<T>>`, which uses `TotalUnbondingPools` as the bound
-		T::StakeAdapter::bonding_duration() + T::PostUnbondingPoolsWindow::get()
-	}
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -1583,6 +1658,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -1643,12 +1719,14 @@ pub mod pallet {
 		/// Note: Switching to a new [`StakeStrategy`] might require a migration of the storage.
 		type StakeAdapter: StakeStrategy<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
 
-		/// The amount of eras a `SubPools::with_era` pool can exist before it gets merged into the
-		/// `SubPools::no_era` pool. In other words, this is the amount of eras a member will be
-		/// able to withdraw from an unbonding pool which is guaranteed to have the correct ratio of
-		/// points to balance; once the `with_era` pool is merged into the `no_era` pool, the ratio
-		/// can become skewed due to some slashed ratio getting merged in at some point.
-		type PostUnbondingPoolsWindow: Get<u32>;
+		/// The maximum number of distinct era-keyed unbonding sub-pools ([`SubPools::with_era`])
+		/// that may exist at once. This is also the basis for how long each sub-pool is kept on
+		/// its own (correct) points-to-balance ratio: a sub-pool is merged into the era-agnostic
+		/// [`SubPools::no_era`] pool only after `MaxUnbondingPools - bonding_duration` eras
+		/// have passed since its unlock era (see `SubPools::maybe_merge_pools`). Once merged
+		/// the ratio can become skewed due to some slashed ratio getting merged in at some point.
+		#[pallet::constant]
+		type MaxUnbondingPools: Get<u32>;
 
 		/// The maximum length, in bytes, that a pools metadata maybe.
 		type MaxMetadataLen: Get<u32>;
@@ -1658,6 +1736,9 @@ pub mod pallet {
 
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider;
+
+		/// Restrict some accounts from participating in a nomination pool.
+		type Filter: Contains<Self::AccountId>;
 	}
 
 	/// The sum of funds across all pools.
@@ -1978,9 +2059,12 @@ pub mod pallet {
 		NotMigrated,
 		/// This call is not allowed in the current state of the pallet.
 		NotSupported,
+		/// Account is restricted from participation in pools. This may happen if the account is
+		/// staking in another way already.
+		Restricted,
 	}
 
-	#[derive(Encode, Decode, PartialEq, TypeInfo, PalletError, RuntimeDebug)]
+	#[derive(Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, PalletError, Debug)]
 	pub enum DefensiveError {
 		/// There isn't enough space in the unbond pool.
 		NotEnoughSpaceInUnbondPool,
@@ -2015,8 +2099,9 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Stake funds with a pool. The amount to bond is transferred from the member to the pool
-		/// account and immediately increases the pools bond.
+		/// Stake funds with a pool. The amount to bond is delegated (or transferred based on
+		/// [`adapter::StakeStrategyType`]) from the member to the pool account and immediately
+		/// increases the pool's bond.
 		///
 		/// The method of transferring the amount to the pool account is determined by
 		/// [`adapter::StakeStrategyType`]. If the pool is configured to use
@@ -2040,6 +2125,9 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			// ensure pool is not in an un-migrated state.
 			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
+
+			// ensure account is not restricted from joining the pool.
+			ensure!(!T::Filter::contains(&who), Error::<T>::Restricted);
 
 			ensure!(amount >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
 			// If a member already exists that means they already belong to a pool
@@ -2192,15 +2280,15 @@ pub mod pallet {
 				bonded_pool.points,
 				bonded_pool.commission.current(),
 			)?;
-			let _ = Self::do_reward_payout(
+			Self::do_reward_payout(
 				&member_account,
 				&mut member,
 				&mut bonded_pool,
 				&mut reward_pool,
 			)?;
 
-			let current_era = T::StakeAdapter::current_era();
-			let unbond_era = T::StakeAdapter::bonding_duration().saturating_add(current_era);
+			let active_era = T::StakeAdapter::current_era();
+			let unbond_era = T::StakeAdapter::bonding_duration().saturating_add(active_era);
 
 			// Unbond in the actual underlying nominator.
 			let unbonding_balance = bonded_pool.dissolve(unbonding_points);
@@ -2209,7 +2297,7 @@ pub mod pallet {
 			// Note that we lazily create the unbonding pools here if they don't already exist
 			let mut sub_pools = SubPoolsStorage::<T>::get(member.pool_id)
 				.unwrap_or_default()
-				.maybe_merge_pools(current_era);
+				.maybe_merge_pools(active_era);
 
 			// Update the unbond pool associated with the current era with the unbonded funds. Note
 			// that we lazily create the unbond pool if it does not yet exist.
@@ -2261,7 +2349,7 @@ pub mod pallet {
 			pool_id: PoolId,
 			num_slashing_spans: u32,
 		) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			// ensure pool is not in an un-migrated state.
 			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
 
@@ -2319,7 +2407,7 @@ pub mod pallet {
 
 			let mut member =
 				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
-			let current_era = T::StakeAdapter::current_era();
+			let active_era = T::StakeAdapter::current_era();
 
 			let bonded_pool = BondedPool::<T>::get(member.pool_id)
 				.defensive_ok_or::<Error<T>>(DefensiveError::PoolNotFound.into())?;
@@ -2347,7 +2435,7 @@ pub mod pallet {
 			let pool_account = bonded_pool.bonded_account();
 
 			// NOTE: must do this after we have done the `ok_to_withdraw_unbonded_other_with` check.
-			let withdrawn_points = member.withdraw_unlocked(current_era);
+			let withdrawn_points = member.withdraw_unlocked(active_era);
 			ensure!(!withdrawn_points.is_empty(), Error::<T>::CannotWithdrawAny);
 
 			// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
@@ -2925,6 +3013,19 @@ pub mod pallet {
 
 			ensure!(bonded_pool.can_manage_commission(&who), Error::<T>::DoesNotHavePermission);
 
+			let mut reward_pool = RewardPools::<T>::get(pool_id)
+				.defensive_ok_or::<Error<T>>(DefensiveError::RewardPoolNotFound.into())?;
+			// IMPORTANT: snapshot rewards accrued at the current commission before `try_update_max`
+			// can force-lower it. Otherwise rewards accrued since the last snapshot would be
+			// re-rated at the new (lower) rate and the differential credited to members instead
+			// of the commission payee. Mirrors the ordering in `set_commission`.
+			reward_pool.update_records(
+				pool_id,
+				bonded_pool.points,
+				bonded_pool.commission.current(),
+			)?;
+			RewardPools::insert(pool_id, reward_pool);
+
 			bonded_pool.commission.try_update_max(pool_id, max_commission)?;
 			bonded_pool.put();
 
@@ -3075,12 +3176,16 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let _caller = ensure_signed(origin)?;
 
+			// ensure `DelegateStake` strategy is used.
 			ensure!(
 				T::StakeAdapter::strategy_type() == adapter::StakeStrategyType::Delegate,
 				Error::<T>::NotSupported
 			);
 
+			// ensure member is not restricted from joining the pool.
 			let member_account = T::Lookup::lookup(member_account)?;
+			ensure!(!T::Filter::contains(&member_account), Error::<T>::Restricted);
+
 			let member =
 				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
 
@@ -3163,7 +3268,7 @@ pub mod pallet {
 				"Minimum points to balance ratio must be greater than 0"
 			);
 			assert!(
-				T::StakeAdapter::bonding_duration() < TotalUnbondingPools::<T>::get(),
+				T::StakeAdapter::bonding_duration() < T::MaxUnbondingPools::get(),
 				"There must be more unbonding pools then the bonding duration /
 				so a slash can be applied to relevant unbonding pools. (We assume /
 				the bonding duration > slash deffer duration.",
@@ -3186,6 +3291,70 @@ impl<T: Config> Pallet<T> {
 			.max(MinJoinBond::<T>::get())
 			.max(T::Currency::minimum_balance())
 	}
+
+	/// Claim trapped balance for a pool member.
+	///
+	/// In rare scenarios, pool members may have excess held balance that is not accounted
+	/// for in their pool points. This can occur when points are incorrectly dissolved
+	/// without releasing the corresponding held funds.
+	///
+	/// If the pool has any pending slash, it will be applied to the member first before
+	/// claiming the trapped balance.
+	///
+	/// Safe to call multiple times or for non-existent members — returns `Ok(())` as a
+	/// no-op when there is nothing to do.
+	pub fn do_claim_trapped_balance(member_account: &T::AccountId) -> DispatchResult {
+		ensure!(
+			T::StakeAdapter::strategy_type() == adapter::StakeStrategyType::Delegate,
+			Error::<T>::NotSupported
+		);
+
+		// Apply any pending slash first. Ignore NothingToSlash and PoolMemberNotFound
+		// (member existence is validated below).
+		match Self::do_apply_slash(member_account, None, false) {
+			Ok(_) => {},
+			Err(e)
+				if e == Error::<T>::NothingToSlash.into() ||
+					e == Error::<T>::PoolMemberNotFound.into() => {},
+			Err(_) => {
+				return Err(Error::<T>::Defensive(DefensiveError::SlashNotApplied).into());
+			},
+		};
+
+		let member = match PoolMembers::<T>::get(member_account) {
+			Some(m) => m,
+			None => return Ok(()),
+		};
+
+		let expected_balance = member.total_balance();
+		let actual_balance =
+			T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()))
+				.unwrap_or_default();
+
+		let trapped_amount = actual_balance.saturating_sub(expected_balance);
+
+		if trapped_amount.is_zero() {
+			return Ok(());
+		}
+
+		T::StakeAdapter::member_withdraw(
+			Member::from(member_account.clone()),
+			Pool::from(Self::generate_bonded_account(member.pool_id)),
+			trapped_amount,
+			0,
+		)?;
+
+		log!(
+			info,
+			"Claimed trapped balance for member {:?}, pool {:?}, amount {:?}",
+			member_account,
+			member.pool_id,
+			trapped_amount
+		);
+
+		Ok(())
+	}
+
 	/// Remove everything related to the given bonded pool.
 	///
 	/// Metadata and all of the sub-pools are also deleted. All accounts are dusted and the leftover
@@ -3340,7 +3509,7 @@ impl<T: Config> Pallet<T> {
 		let balance = T::U256ToBalance::convert;
 		if current_balance.is_zero() || current_points.is_zero() || points.is_zero() {
 			// There is nothing to unbond
-			return Zero::zero()
+			return Zero::zero();
 		}
 
 		// Equivalent of (current_balance / current_points) * points
@@ -3377,7 +3546,7 @@ impl<T: Config> Pallet<T> {
 		// will be zero.
 		let pending_rewards = member.pending_rewards(current_reward_counter)?;
 		if pending_rewards.is_zero() {
-			return Ok(pending_rewards)
+			return Ok(pending_rewards);
 		}
 
 		// IFF the reward is non-zero alter the member and reward pool info.
@@ -3409,6 +3578,9 @@ impl<T: Config> Pallet<T> {
 		bouncer: AccountIdLookupOf<T>,
 		pool_id: PoolId,
 	) -> DispatchResult {
+		// ensure depositor is not restricted from joining the pool.
+		ensure!(!T::Filter::contains(&who), Error::<T>::Restricted);
+
 		let root = T::Lookup::lookup(root)?;
 		let nominator = T::Lookup::lookup(nominator)?;
 		let bouncer = T::Lookup::lookup(bouncer)?;
@@ -3482,6 +3654,9 @@ impl<T: Config> Pallet<T> {
 		member_account: T::AccountId,
 		extra: BondExtra<BalanceOf<T>>,
 	) -> DispatchResult {
+		// ensure account is not restricted from joining the pool.
+		ensure!(!T::Filter::contains(&member_account), Error::<T>::Restricted);
+
 		if signer != member_account {
 			ensure!(
 				ClaimPermissions::<T>::get(&member_account).can_bond_extra(),
@@ -3508,10 +3683,12 @@ impl<T: Config> Pallet<T> {
 		)?;
 
 		let (points_issued, bonded) = match extra {
-			BondExtra::FreeBalance(amount) =>
-				(bonded_pool.try_bond_funds(&member_account, amount, BondType::Extra)?, amount),
-			BondExtra::Rewards =>
-				(bonded_pool.try_bond_funds(&member_account, claimed, BondType::Extra)?, claimed),
+			BondExtra::FreeBalance(amount) => {
+				(bonded_pool.try_bond_funds(&member_account, amount, BondType::Extra)?, amount)
+			},
+			BondExtra::Rewards => {
+				(bonded_pool.try_bond_funds(&member_account, claimed, BondType::Extra)?, claimed)
+			},
 		};
 
 		bonded_pool.ok_to_be_open()?;
@@ -3586,12 +3763,7 @@ impl<T: Config> Pallet<T> {
 		let (mut member, mut bonded_pool, mut reward_pool) =
 			Self::get_member_with_pools(&member_account)?;
 
-		let _ = Self::do_reward_payout(
-			&member_account,
-			&mut member,
-			&mut bonded_pool,
-			&mut reward_pool,
-		)?;
+		Self::do_reward_payout(&member_account, &mut member, &mut bonded_pool, &mut reward_pool)?;
 
 		Self::put_member_with_pools(&member_account, member, bonded_pool, reward_pool);
 		Ok(())
@@ -3606,15 +3778,23 @@ impl<T: Config> Pallet<T> {
 		let min_balance = T::Currency::minimum_balance();
 
 		if pre_frozen_balance == min_balance {
-			return Err(Error::<T>::NothingToAdjust.into())
+			return Err(Error::<T>::NothingToAdjust.into());
 		}
 
 		// Update frozen amount with current ED.
 		Self::freeze_pool_deposit(reward_acc)?;
 
 		if pre_frozen_balance > min_balance {
+			// Ensure the caller is the depositor or the root.
+			ensure!(
+				who == bonded_pool.roles.depositor ||
+					bonded_pool.roles.root.as_ref().map_or(false, |root| &who == root),
+				Error::<T>::DoesNotHavePermission
+			);
+
 			// Transfer excess back to depositor.
 			let excess = pre_frozen_balance.saturating_sub(min_balance);
+
 			T::Currency::transfer(reward_acc, &who, excess, Preservation::Preserve)?;
 			Self::deposit_event(Event::<T>::MinBalanceExcessAdjusted {
 				pool_id: pool,
@@ -3677,7 +3857,7 @@ impl<T: Config> Pallet<T> {
 		// if the pool doesn't have any pending slash, it implies the member also does not have any
 		// pending slash.
 		if T::StakeAdapter::pending_slash(Pool::from(pool_account.clone())).is_zero() {
-			return Ok(Zero::zero())
+			return Ok(Zero::zero());
 		}
 
 		// this is their actual held balance that may or may not have been slashed.
@@ -3745,7 +3925,7 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 	pub fn do_try_state(level: u8) -> Result<(), TryRuntimeError> {
 		if level.is_zero() {
-			return Ok(())
+			return Ok(());
 		}
 		// note: while a bit wacky, since they have the same key, even collecting to vec should
 		// result in the same set of keys, in the same order.
@@ -3824,7 +4004,8 @@ impl<T: Config> Pallet<T> {
 			// If this happens, this is most likely due to an old bug and not a recent code change.
 			// We warn about this in try-runtime checks but do not panic.
 			if !pending_rewards_lt_leftover_bal {
-				log::warn!(
+				log!(
+					warn,
 					"pool {:?}, sum pending rewards = {:?}, remaining balance = {:?}",
 					id,
 					pools_members_pending_rewards.get(&id),
@@ -3835,7 +4016,13 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		let mut expected_tvl: BalanceOf<T> = Default::default();
+		let mut depositor_undermin: Vec<(PoolId, T::AccountId)> = Vec::new();
+		let mut depositor_undermin_total: u32 = 0;
+		let mut total_pools: u32 = 0;
+		const MAX_EXAMPLES: usize = 10;
+
 		BondedPools::<T>::iter().try_for_each(|(id, inner)| -> Result<(), TryRuntimeError> {
+			total_pools += 1;
 			let bonded_pool = BondedPool { id, inner };
 			ensure!(
 				pools_members.get(&id).copied().unwrap_or_default() ==
@@ -3849,12 +4036,23 @@ impl<T: Config> Pallet<T> {
 			);
 
 			let depositor = PoolMembers::<T>::get(&bonded_pool.roles.depositor).unwrap();
-			ensure!(
-				bonded_pool.is_destroying_and_only_depositor(depositor.active_points()) ||
-					depositor.active_points() >= MinCreateBond::<T>::get(),
-				"depositor must always have MinCreateBond stake in the pool, except for when the \
-				pool is being destroyed and the depositor is the last member",
-			);
+			let depositor_has_enough_stake = bonded_pool
+				.is_destroying_and_only_depositor(depositor.active_points()) ||
+				depositor.active_points() >= MinCreateBond::<T>::get();
+			if !depositor_has_enough_stake {
+				depositor_undermin_total += 1;
+				if depositor_undermin.len() < MAX_EXAMPLES {
+					depositor_undermin.push((id, bonded_pool.roles.depositor.clone()));
+				}
+				log!(
+					trace,
+					"pool {:?} has depositor {:?} with insufficient stake {:?}, minimum required is {:?}",
+					id,
+					bonded_pool.roles.depositor,
+					depositor.active_points(),
+					MinCreateBond::<T>::get()
+				);
+			}
 
 			ensure!(
 				bonded_pool.points >= bonded_pool.points_to_balance(bonded_pool.points),
@@ -3865,6 +4063,17 @@ impl<T: Config> Pallet<T> {
 
 			Ok(())
 		})?;
+
+		if depositor_undermin_total > 0 {
+			log!(
+				warn,
+				"{}/{} pools have depositor with insufficient stake, minimum required is {:?}. Examples: {:?}",
+				depositor_undermin_total,
+				total_pools,
+				MinCreateBond::<T>::get(),
+				depositor_undermin,
+			);
+		}
 
 		ensure!(
 			MaxPoolMembers::<T>::get().map_or(true, |max| all_members <= max),
@@ -3882,7 +4091,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		if level <= 1 {
-			return Ok(())
+			return Ok(());
 		}
 
 		for (pool_id, _pool) in BondedPools::<T>::iter() {
@@ -3891,25 +4100,28 @@ impl<T: Config> Pallet<T> {
 
 			let sum_unbonding_balance = subs.sum_unbonding_balance();
 			let bonded_balance = T::StakeAdapter::active_stake(Pool::from(pool_account.clone()));
+			// TODO: should be total_balance + unclaimed_withdrawals from delegated staking
 			let total_balance = T::StakeAdapter::total_balance(Pool::from(pool_account.clone()))
 				// At the time when StakeAdapter is changed to `DelegateStake` but pool is not yet
 				// migrated, the total balance would be none.
 				.unwrap_or(T::Currency::total_balance(&pool_account));
 
-			assert!(
-				total_balance >= bonded_balance + sum_unbonding_balance,
-				"faulty pool: {:?} / {:?}, total_balance {:?} >= bonded_balance {:?} + sum_unbonding_balance {:?}",
-				pool_id,
-				_pool,
-				total_balance,
-				bonded_balance,
-				sum_unbonding_balance
-			);
+			if total_balance < bonded_balance + sum_unbonding_balance {
+				log!(
+						warn,
+						"possibly faulty pool: {:?} / {:?}, total_balance {:?} >= bonded_balance {:?} + sum_unbonding_balance {:?}",
+						pool_id,
+						_pool,
+						total_balance,
+						bonded_balance,
+						sum_unbonding_balance
+					)
+			};
 		}
 
 		// Warn if any pool has incorrect ED frozen. We don't want to fail hard as this could be a
 		// result of an intentional ED change.
-		let _ = Self::check_ed_imbalance()?;
+		let _needs_adjust = Self::check_ed_imbalance()?;
 
 		Ok(())
 	}
@@ -3924,18 +4136,27 @@ impl<T: Config> Pallet<T> {
 		test,
 		debug_assertions
 	))]
-	pub fn check_ed_imbalance() -> Result<(), DispatchError> {
-		let mut failed: u32 = 0;
+	pub fn check_ed_imbalance() -> Result<u32, DispatchError> {
+		let mut needs_adjust: u32 = 0;
+		let mut total_pools: u32 = 0;
+		let mut ed_examples: Vec<PoolId> = Vec::new();
+		const MAX_EXAMPLES: usize = 10;
+
 		BondedPools::<T>::iter_keys().for_each(|id| {
+			total_pools += 1;
 			let reward_acc = Self::generate_reward_account(id);
 			let frozen_balance =
 				T::Currency::balance_frozen(&FreezeReason::PoolMinBalance.into(), &reward_acc);
 
 			let expected_frozen_balance = T::Currency::minimum_balance();
 			if frozen_balance != expected_frozen_balance {
-				failed += 1;
-				log::warn!(
-					"pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}",
+				needs_adjust += 1;
+				if ed_examples.len() < MAX_EXAMPLES {
+					ed_examples.push(id);
+				}
+				log!(
+					trace,
+					"pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}. Use `adjust_pool_deposit` to fix it",
 					id,
 					expected_frozen_balance,
 					frozen_balance,
@@ -3943,8 +4164,18 @@ impl<T: Config> Pallet<T> {
 			}
 		});
 
-		ensure!(failed == 0, "Some pools do not have correct ED frozen");
-		Ok(())
+		if needs_adjust > 0 {
+			log!(
+				warn,
+				"{}/{} pools have incorrect ED frozen (expected {:?}). Use `adjust_pool_deposit` to fix. Examples: {:?}",
+				needs_adjust,
+				total_pools,
+				T::Currency::minimum_balance(),
+				ed_examples,
+			);
+		}
+
+		Ok(needs_adjust)
 	}
 	/// Fully unbond the shares of `member`, when executed from `origin`.
 	///
@@ -3974,7 +4205,7 @@ impl<T: Config> Pallet<T> {
 				let (current_reward_counter, _) = reward_pool
 					.current_reward_counter(pool_member.pool_id, bonded_pool.points, commission)
 					.ok()?;
-				return pool_member.pending_rewards(current_reward_counter).ok()
+				return pool_member.pending_rewards(current_reward_counter).ok();
 			}
 		}
 
@@ -4033,12 +4264,12 @@ impl<T: Config> Pallet<T> {
 	pub fn api_pool_needs_delegate_migration(pool_id: PoolId) -> bool {
 		// if the `Delegate` strategy is not used in the pallet, then no migration required.
 		if T::StakeAdapter::strategy_type() != adapter::StakeStrategyType::Delegate {
-			return false
+			return false;
 		}
 
 		// if pool does not exist, return false.
 		if !BondedPools::<T>::contains_key(pool_id) {
-			return false
+			return false;
 		}
 
 		let pool_account = Self::generate_bonded_account(pool_id);
@@ -4056,14 +4287,14 @@ impl<T: Config> Pallet<T> {
 	pub fn api_member_needs_delegate_migration(who: T::AccountId) -> bool {
 		// if the `Delegate` strategy is not used in the pallet, then no migration required.
 		if T::StakeAdapter::strategy_type() != adapter::StakeStrategyType::Delegate {
-			return false
+			return false;
 		}
 
 		PoolMembers::<T>::get(who.clone())
 			.map(|pool_member| {
 				if Self::api_pool_needs_delegate_migration(pool_member.pool_id) {
 					// the pool needs to be migrated before members can be migrated.
-					return false
+					return false;
 				}
 
 				let member_balance = pool_member.total_balance();
@@ -4149,5 +4380,13 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 				tvl.saturating_reduce(amount);
 			});
 		}
+	}
+}
+
+/// A utility struct that provides a way to check if a given account is a pool member.
+pub struct AllPoolMembers<T: Config>(PhantomData<T>);
+impl<T: Config> Contains<T::AccountId> for AllPoolMembers<T> {
+	fn contains(t: &T::AccountId) -> bool {
+		PoolMembers::<T>::contains_key(t)
 	}
 }

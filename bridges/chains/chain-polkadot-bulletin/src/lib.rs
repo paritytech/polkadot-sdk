@@ -29,7 +29,7 @@ use bp_runtime::{
 	},
 	Chain, ChainId, TransactionEra,
 };
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
@@ -91,7 +91,7 @@ pub type TransactionExtensionSchema = GenericTransactionExtension<(
 )>;
 
 /// Transaction extension, used by Polkadot Bulletin.
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub struct TransactionExtension(TransactionExtensionSchema);
 
 impl<C> sp_runtime::traits::TransactionExtension<C> for TransactionExtension
@@ -166,10 +166,12 @@ parameter_types! {
 	// Note: Max transaction size is 8 MB. Set max block size to 10 MB to facilitate data storage.
 	// This is double the "normal" Relay Chain block length limit.
 	/// Maximal block length at Polkadot Bulletin chain.
-	pub BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(
-		10 * 1024 * 1024,
-		NORMAL_DISPATCH_RATIO,
-	);
+	pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+		.max_length(10 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * *m
+		})
+		.build();
 }
 
 /// Polkadot Bulletin Chain declaration.

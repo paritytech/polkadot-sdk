@@ -18,9 +18,9 @@
 //! This instantiates another contract and passes some input to its constructor.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api, StorageFlags};
+use uapi::{input, u256_bytes, HostFn, HostFnImpl as api, StorageFlags};
 
 static BUFFER: [u8; 16 * 1024 + 1] = [0u8; 16 * 1024 + 1];
 
@@ -43,7 +43,7 @@ pub extern "C" fn call() {
 	key[0] = 1;
 	api::set_storage(StorageFlags::empty(), &key, data);
 
-	let value = u256_bytes(10_000u64);
+	let value = u256_bytes(10_000_000_000u64);
 	let salt = [0u8; 32];
 	let mut address = [0u8; 20];
 	let mut deploy_input = [0; 32 + 4];
@@ -63,6 +63,10 @@ pub extern "C" fn call() {
 	if let Err(code) = ret {
 		api::return_value(uapi::ReturnFlags::REVERT, &(code as u32).to_le_bytes());
 	};
+
+	// fail in the caller
+	key[1] = 1;
+	api::set_storage(StorageFlags::empty(), &key, data);
 
 	// Return the deployed contract address.
 	api::return_value(uapi::ReturnFlags::empty(), &address);

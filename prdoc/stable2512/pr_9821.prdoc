@@ -1,0 +1,17 @@
+title: 'wasmtime: support for perfmap added'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR add  support for `perfmap` in wasmtime executor.
+
+    For more technical details refer to this [doc](https://docs.wasmtime.dev/examples-profiling-perf.html#profiling-with-perfmap).
+
+    Instruction on how to configure profiling on substrate nodes (tested with cumulus benchmarks) is [here](https://hackmd.io/o_Ghc86OT4KzCE4x04MeOg?view#Getting-the-right-flamegraph).
+
+    The following environment variable needs to be set when executing the node binary:
+    ```
+    export WASMTIME_PROFILING_STRATEGY=perfmap
+    ```
+crates:
+- name: sc-executor-wasmtime
+  bump: minor

@@ -36,21 +36,43 @@ impl LoadSpec for DiskChainSpecLoader {
 	}
 }
 
-/// Generic extensions for Parachain ChainSpecs.
+/// Generic extensions for Parachain ChainSpecs used for extracting the extensions from chain specs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecExtension)]
 pub struct Extensions {
-	/// The relay chain of the Parachain.
+	/// The relay chain of the Parachain. It is kept here only for compatibility reasons until
+	/// people migrate to using the new `Extensions` struct and associated logic in the node
+	/// corresponding to pulling the parachain id from the runtime.
 	#[serde(alias = "relayChain", alias = "RelayChain")]
-	pub relay_chain: String,
+	relay_chain: String,
 	/// The id of the Parachain.
 	#[serde(alias = "paraId", alias = "ParaId")]
-	pub para_id: u32,
+	para_id: Option<u32>,
 }
 
 impl Extensions {
 	/// Try to get the extension from the given `ChainSpec`.
 	pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
 		sc_chain_spec::get_extension(chain_spec.extensions())
+	}
+
+	/// Create the extensions only with the relay_chain.
+	pub fn new_with_relay_chain(relay_chain: String) -> Self {
+		Extensions { relay_chain, para_id: None }
+	}
+
+	/// Initialize extensions based on given parameters.
+	pub fn new(relay_chain: String, para_id: u32) -> Self {
+		Extensions { relay_chain, para_id: Some(para_id) }
+	}
+
+	/// Para id field getter
+	pub fn para_id(&self) -> Option<u32> {
+		self.para_id
+	}
+
+	/// Relay chain field getter
+	pub fn relay_chain(&self) -> String {
+		self.relay_chain.clone()
 	}
 }
 
@@ -66,12 +88,15 @@ mod tests {
 		let camel_case = r#"{"relayChain":"relay","paraId":1}"#;
 		let snake_case = r#"{"relay_chain":"relay","para_id":1}"#;
 		let pascal_case = r#"{"RelayChain":"relay","ParaId":1}"#;
+		let para_id_missing = r#"{"RelayChain":"westend"}"#;
 
 		let camel_case_extension: Extensions = serde_json::from_str(camel_case).unwrap();
 		let snake_case_extension: Extensions = serde_json::from_str(snake_case).unwrap();
 		let pascal_case_extension: Extensions = serde_json::from_str(pascal_case).unwrap();
-
+		let missing_paraid_extension: Extensions = serde_json::from_str(para_id_missing).unwrap();
 		assert_eq!(camel_case_extension, snake_case_extension);
 		assert_eq!(snake_case_extension, pascal_case_extension);
+		assert_eq!(missing_paraid_extension.relay_chain, "westend".to_string());
+		assert!(missing_paraid_extension.para_id.is_none());
 	}
 }

@@ -30,6 +30,7 @@ use sc_network::{
 
 use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NotificationService};
 use sc_network_common::{role::Roles, sync::message::BlockAnnouncesHandshake};
+use sc_network_sync::{block_announces_legacy_protocol_name, block_announces_protocol_name};
 use sc_service::{error::Error, Configuration, SpawnTaskHandle};
 
 use std::{iter, sync::Arc};
@@ -44,7 +45,7 @@ pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 	notification_metrics: NotificationMetrics,
 ) -> Result<(Arc<dyn NetworkService>, Arc<dyn sp_consensus::SyncOracle + Send + Sync>), Error> {
 	let protocol_id = config.protocol_id();
-	let (block_announce_config, _notification_service) = get_block_announce_proto_config::<Network>(
+	let (block_announce_config, notification_service) = get_block_announce_proto_config::<Network>(
 		protocol_id.clone(),
 		&None,
 		Roles::from(&config.role),
@@ -76,7 +77,7 @@ pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 		protocol_id,
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
-		bitswap_config: None,
+		ipfs_config: None,
 		notification_metrics,
 	};
 
@@ -90,7 +91,21 @@ pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 	// issue, and ideally we would like to fix the network future to take as little time as
 	// possible, but we also take the extra harm-prevention measure to execute the networking
 	// future using `spawn_blocking`.
-	spawn_handle.spawn_blocking("network-worker", Some("networking"), network_worker.run());
+	spawn_handle.spawn_blocking("network-worker", Some("networking"), async move {
+		// The notification service must be kept alive to allow litep2p to handle
+		// requests under the hood. It has been noted that without the notification
+		// service of the `/block-announces/1` protocol, collators are not advertised
+		// and their produced blocks do not propagate:
+		// https://github.com/paritytech/polkadot-sdk/issues/8474
+		//
+		// This is because the full nodes on the relay chain will attempt to establish
+		// a connection to the minimal relay chain. By dropping the notification service,
+		// litep2p would terminate the background task which handles the `/block-announces/1`
+		// notification protocol. The downstream effect of this is that the full node
+		// would ban and disconnect the the minimal relay chain node.
+		let _notification_service = notification_service;
+		network_worker.run().await;
+	});
 
 	Ok((network_service, Arc::new(SyncOracle {})))
 }
@@ -129,18 +144,11 @@ fn get_block_announce_proto_config<Network: NetworkBackend<Block, Hash>>(
 	metrics: NotificationMetrics,
 	peer_store_handle: Arc<dyn PeerStoreProvider>,
 ) -> (Network::NotificationProtocolConfig, Box<dyn NotificationService>) {
-	let block_announces_protocol = {
-		let genesis_hash = genesis_hash.as_ref();
-		if let Some(ref fork_id) = fork_id {
-			format!("/{}/{}/block-announces/1", array_bytes::bytes2hex("", genesis_hash), fork_id)
-		} else {
-			format!("/{}/block-announces/1", array_bytes::bytes2hex("", genesis_hash))
-		}
-	};
+	let block_announces_protocol = block_announces_protocol_name(genesis_hash, fork_id.as_deref());
 
 	Network::notification_config(
 		block_announces_protocol.into(),
-		iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into()).collect(),
+		iter::once(block_announces_legacy_protocol_name(&protocol_id).into()).collect(),
 		1024 * 1024,
 		Some(NotificationHandshake::new(BlockAnnouncesHandshake::<Block>::build(
 			roles,

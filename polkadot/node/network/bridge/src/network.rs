@@ -32,7 +32,7 @@ use sc_network::{
 use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet, ProtocolVersion, ValidationVersion},
 	request_response::{OutgoingRequest, Recipient, ReqProtocolNames, Requests},
-	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, PeerId,
+	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, v3_collation, PeerId,
 };
 use polkadot_primitives::AuthorityDiscoveryId;
 
@@ -40,26 +40,6 @@ use crate::{metrics::Metrics, validator_discovery::AuthorityDiscovery, WireMessa
 
 // network bridge network abstraction log target
 const LOG_TARGET: &'static str = "parachain::network-bridge-net";
-
-// Helper function to send a validation v1 message to a list of peers.
-// Messages are always sent via the main protocol, even legacy protocol messages.
-pub(crate) fn send_validation_message_v1(
-	peers: Vec<PeerId>,
-	message: WireMessage<protocol_v1::ValidationProtocol>,
-	metrics: &Metrics,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
-) {
-	gum::trace!(target: LOG_TARGET, ?peers, ?message, "Sending validation v1 message to peers",);
-
-	send_message(
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V1.into(),
-		message,
-		metrics,
-		notification_sinks,
-	);
-}
 
 // Helper function to send a validation v3 message to a list of peers.
 // Messages are always sent via the main protocol, even legacy protocol messages.
@@ -75,24 +55,6 @@ pub(crate) fn send_validation_message_v3(
 		peers,
 		PeerSet::Validation,
 		ValidationVersion::V3.into(),
-		message,
-		metrics,
-		notification_sinks,
-	);
-}
-
-// Helper function to send a validation v2 message to a list of peers.
-// Messages are always sent via the main protocol, even legacy protocol messages.
-pub(crate) fn send_validation_message_v2(
-	peers: Vec<PeerId>,
-	message: WireMessage<protocol_v2::ValidationProtocol>,
-	metrics: &Metrics,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
-) {
-	send_message(
-		peers,
-		PeerSet::Validation,
-		ValidationVersion::V2.into(),
 		message,
 		metrics,
 		notification_sinks,
@@ -135,6 +97,24 @@ pub(crate) fn send_collation_message_v2(
 	);
 }
 
+// Helper function to send a collation v3 message to a list of peers.
+// Messages are always sent via the main protocol, even legacy protocol messages.
+pub(crate) fn send_collation_message_v3(
+	peers: Vec<PeerId>,
+	message: WireMessage<v3_collation::CollationProtocol>,
+	metrics: &Metrics,
+	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
+) {
+	send_message(
+		peers,
+		PeerSet::Collation,
+		CollationVersion::V3.into(),
+		message,
+		metrics,
+		notification_sinks,
+	);
+}
+
 /// Lower level function that sends a message to the network using the main protocol version.
 ///
 /// This function is only used internally by the network-bridge, which is responsible to only send
@@ -151,7 +131,7 @@ fn send_message<M>(
 	M: Encode + Clone,
 {
 	if peers.is_empty() {
-		return
+		return;
 	}
 
 	let message = {
@@ -321,7 +301,7 @@ impl Network for Arc<dyn NetworkService> {
 					},
 					Ok(_) => {},
 				}
-				return
+				return;
 			},
 			Some(peer_id) => peer_id,
 		};

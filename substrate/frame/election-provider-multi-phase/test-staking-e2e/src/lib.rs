@@ -16,11 +16,14 @@
 // limitations under the License.
 
 #![cfg(test)]
+
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod mock;
 
 pub(crate) const LOG_TARGET: &str = "tests::e2e-epm";
 
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_err, assert_ok};
 use mock::*;
 use pallet_timestamp::Now;
 use sp_core::Get;
@@ -170,7 +173,7 @@ fn mass_slash_doesnt_enter_emergency_phase() {
 		}
 
 		// Ensure no more than disabling limit of validators (default 1/3) is disabled
-		let disabling_limit = pallet_staking::UpToLimitWithReEnablingDisablingStrategy::<
+		let disabling_limit = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy::<
 			SLASHING_DISABLING_FACTOR,
 		>::disable_limit(active_set_size_before_slash);
 		assert!(disabled.len() == disabling_limit);
@@ -250,18 +253,8 @@ fn ledger_consistency_active_balance_below_ed() {
 	execute_with(ext, || {
 		assert_eq!(Staking::ledger(11.into()).unwrap().active, 1000);
 
-		// unbonding total of active stake fails because the active ledger balance would fall
-		// below the `MinNominatorBond`.
-		assert_noop!(
-			Staking::unbond(RuntimeOrigin::signed(11), 1000),
-			Error::<Runtime>::InsufficientBond
-		);
-
-		// however, chilling works as expected.
-		assert_ok!(Staking::chill(RuntimeOrigin::signed(11)));
-
-		// now unbonding the full active balance works, since remainder of the active balance is
-		// not enforced to be below `MinNominatorBond` if the stash has been chilled.
+		// unbonding total of active stake passes because chill occurs implicitly when unbonding
+		// full amount.
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
 
 		// the active balance of the ledger entry is 0, while total balance is 1000 until

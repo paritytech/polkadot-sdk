@@ -19,21 +19,27 @@
 
 #![cfg(test)]
 
-use super::*;
 use crate as pallet_bounties;
+use crate::pallet::*;
 
+use crate::{Bounty, BountyStatus, TransferAllFungibles};
+use codec::Encode;
 use frame_support::{
-	assert_noop, assert_ok, derive_impl, parameter_types,
+	assert_noop, assert_ok, derive_impl, hypothetically, hypothetically_ok,
+	pallet_prelude::*,
+	parameter_types,
 	traits::{
+		fungible,
+		fungible::{NativeFromLeft, NativeOrWithId},
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		ConstU32, ConstU64, OnInitialize,
+		AsEnsureOriginWithArg, ConstU32, ConstU64, Currency, Imbalance, OnInitialize,
 	},
 	PalletId,
 };
-
+use frame_system::{pallet_prelude::*, EnsureSigned};
 use sp_runtime::{
 	traits::{BadOrigin, IdentityLookup},
-	BuildStorage, Perbill, Storage,
+	BuildStorage, Perbill, Permill, Storage,
 };
 
 use super::Event as BountiesEvent;
@@ -51,6 +57,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system,
 		Balances: pallet_balances,
+		Assets: pallet_assets,
 		Bounties: pallet_bounties,
 		Bounties1: pallet_bounties::<Instance1>,
 		Treasury: pallet_treasury,
@@ -63,10 +70,11 @@ parameter_types! {
 }
 
 type Balance = u64;
+type AccountId = u128;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type AccountId = u128; // u64 is not enough to hold bytes used to generate bounty account
+	type AccountId = AccountId; // u64 is not enough to hold bytes used to generate bounty account
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
@@ -132,44 +140,65 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type BenchmarkHelper = ();
 }
 
+#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
+impl pallet_assets::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<Self::AccountId>>;
+	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type AssetDeposit = ConstU64<1>;
+	type AssetAccountDeposit = ConstU64<10>;
+	type MetadataDepositBase = ConstU64<1>;
+	type MetadataDepositPerByte = ConstU64<1>;
+	type ApprovalDeposit = ConstU64<1>;
+}
+
+pub type NativeAndAssets =
+	fungible::UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
 parameter_types! {
 	// This will be 50% of the bounty fee.
 	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
 	pub const CuratorDepositMax: Balance = 1_000;
 	pub const CuratorDepositMin: Balance = 3;
-
+	pub static BountyUpdatePeriod: u64 = 20;
+	pub static DataDepositPerByte: u64 = 1;
+	// Native asset *not* last in the list to test our withdraw logic:
+	pub static RelevantAssets: Vec<NativeOrWithId<u32>> = vec![NativeOrWithId::WithId(1), NativeOrWithId::Native, NativeOrWithId::WithId(2)];
 }
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = ConstU64<80>;
 	type BountyDepositPayoutDelay = ConstU64<3>;
-	type BountyUpdatePeriod = ConstU64<20>;
+	type BountyUpdatePeriod = BountyUpdatePeriod;
 	type CuratorDepositMultiplier = CuratorDepositMultiplier;
 	type CuratorDepositMax = CuratorDepositMax;
 	type CuratorDepositMin = CuratorDepositMin;
 	type BountyValueMinimum = ConstU64<1>;
-	type DataDepositPerByte = ConstU64<1>;
+	type DataDepositPerByte = DataDepositPerByte;
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
 	type ChildBountyManager = ();
 	type OnSlash = ();
+	type TransferAllAssets = TransferAllFungibles<AccountId, NativeAndAssets, RelevantAssets>;
 }
 
 impl Config<Instance1> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = ConstU64<80>;
 	type BountyDepositPayoutDelay = ConstU64<3>;
-	type BountyUpdatePeriod = ConstU64<20>;
+	type BountyUpdatePeriod = BountyUpdatePeriod;
 	type CuratorDepositMultiplier = CuratorDepositMultiplier;
 	type CuratorDepositMax = CuratorDepositMax;
 	type CuratorDepositMin = CuratorDepositMin;
 	type BountyValueMinimum = ConstU64<1>;
-	type DataDepositPerByte = ConstU64<1>;
+	type DataDepositPerByte = DataDepositPerByte;
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
 	type ChildBountyManager = ();
 	type OnSlash = ();
+	type TransferAllAssets = ();
 }
 
 type TreasuryError = pallet_treasury::Error<Test>;
@@ -193,6 +222,17 @@ impl ExtBuilder {
 			},
 			treasury: Default::default(),
 			treasury_1: Default::default(),
+			assets: pallet_assets::GenesisConfig {
+				assets: vec![
+					(0, 0, false, 5),
+					(1, 0, false, 5),
+					(2, 0, true, 5),
+					(3, 0, false, 5),
+					(4, 0, true, 5),
+				],
+				accounts: vec![(0, 0, 100), (1, 0, 100), (2, 0, 100), (3, 0, 100), (4, 0, 100)],
+				..Default::default()
+			},
 		}
 		.build_storage()
 		.unwrap()
@@ -456,6 +496,150 @@ fn close_bounty_works() {
 		assert!(!pallet_treasury::Proposals::<Test>::contains_key(0));
 
 		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0), None);
+	});
+}
+
+#[test]
+#[allow(deprecated)]
+fn close_bounty_with_additional_assets_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		let pot = Bounties::bounty_account_id(0);
+		let ed = 1;
+
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 10, b"12345".to_vec()));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+		go_to_block(2);
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 0, 1));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(0), 0));
+
+		assert!(matches!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap().status,
+			BountyStatus::Active { .. }
+		));
+		// Send the Bounty account some funds
+		Balances::make_free_balance_be(&pot, 100);
+
+		// We *could* close the bounty now
+		hypothetically_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+
+		// If we send an insufficient asset to the bounty, then the reaping will preserve ED.
+		// Otherwise it will transfer out all balance.
+		// Case 1: Bounty acc is blocked
+		hypothetically!({
+			// Send irrelevant insufficient asset to the bounty account.
+			assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 0, pot, 10));
+
+			// Now we can close the bounty, but the account is not gone
+			assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+			// Bounty account must exist
+			assert!(frame_system::Account::<Test>::contains_key(pot));
+
+			assert_eq!(Balances::total_balance(&pot), ed, "ED is preserved");
+			// This ^ was fixed by #10728. Otherwise, instead of just ED, everything would remain.
+		});
+
+		// Case 2: Bounty acc is not blocked and transfers our all balances
+		hypothetically!({
+			assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+			assert!(!frame_system::Account::<Test>::contains_key(pot));
+			assert_eq!(Balances::total_balance(&pot), 0, "All balances are transferred");
+		});
+
+		// Case 3: Blocked by relevant asset (insufficient)
+		hypothetically!({
+			assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 1, pot, 10));
+
+			assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+			assert!(!frame_system::Account::<Test>::contains_key(pot));
+			assert_eq!(Balances::total_balance(&pot), 0, "All balances are transferred");
+		});
+
+		// Case 4: Blocked by relevant asset (sufficient)
+		hypothetically!({
+			assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 2, pot, 10));
+
+			assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+			assert!(!frame_system::Account::<Test>::contains_key(pot));
+			assert_eq!(Balances::total_balance(&pot), 0, "All balances are transferred");
+		});
+
+		// Case 5: Blocked by irrelevant asset (sufficient)
+		hypothetically!({
+			assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 4, pot, 10));
+
+			assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+			assert!(frame_system::Account::<Test>::contains_key(pot));
+			assert_eq!(Balances::total_balance(&pot), 0, "All balances are transferred");
+			assert_eq!(Assets::balance(4, &pot), 10);
+		});
+
+		// Case 6: Blocked by irrelevant asset (insufficient)
+		hypothetically!({
+			assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 3, pot, 10));
+
+			assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+			assert!(frame_system::Account::<Test>::contains_key(pot));
+			assert_eq!(Balances::total_balance(&pot), ed, "ED is preserved");
+			assert_eq!(Assets::balance(3, &pot), 10);
+		});
+	});
+}
+
+#[test]
+#[allow(deprecated)]
+fn close_bounty_with_random_references_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		let pot = Bounties::bounty_account_id(0);
+		let ed = 1;
+
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 10, b"12345".to_vec()));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+		go_to_block(2);
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 0, 1));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(0), 0));
+
+		assert!(matches!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap().status,
+			BountyStatus::Active { .. }
+		));
+		// Send some funds and assets to the bounty account
+		Balances::make_free_balance_be(&pot, 100);
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 0, pot, 10));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 1, pot, 10));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 2, pot, 10));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 3, pot, 10));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(0), 4, pot, 10));
+
+		for ((s, c), p) in (0..10).zip(0..10).zip(0..10) {
+			hypothetically!({
+				// Completely mess up the account's references and check that closing still works
+				frame_system::Account::<Test>::mutate(&pot, |a| {
+					a.sufficients = s;
+					a.consumers = c;
+					a.providers = p;
+				});
+
+				// Bounty acc has all the balances
+				assert_eq!(Balances::total_balance(&pot), 100);
+				assert_eq!(Assets::balance(0, &pot), 10);
+				assert_eq!(Assets::balance(1, &pot), 10);
+				assert_eq!(Assets::balance(2, &pot), 10);
+				assert_eq!(Assets::balance(3, &pot), 10);
+				assert_eq!(Assets::balance(4, &pot), 10);
+
+				assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+				// Native balance not more than ED
+				assert!(Balances::total_balance(&pot) <= ed);
+				// Only the non-relevant assets remain
+				assert_eq!(Assets::balance(0, &pot), 10);
+				assert_eq!(Assets::balance(1, &pot), 0);
+				assert_eq!(Assets::balance(2, &pot), 0);
+				assert_eq!(Assets::balance(3, &pot), 10);
+				assert_eq!(Assets::balance(4, &pot), 10);
+			});
+		}
 	});
 }
 
@@ -1414,5 +1598,427 @@ fn approve_bounty_with_curator_proposed_unassign_works() {
 			}
 		);
 		assert_eq!(last_event(), BountiesEvent::CuratorUnassigned { bounty_id: 0 });
+	});
+}
+
+#[test]
+fn accept_curator_sets_update_due_correctly() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given (BountyUpdatePeriod = 20)
+		let bounty_id = 0;
+		let proposer = 0;
+		let fee = 10;
+		let curator = 4;
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::make_free_balance_be(&curator, 12);
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(proposer),
+			50,
+			b"12345".to_vec()
+		));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+		go_to_block(4);
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), bounty_id, curator, fee));
+
+		// When
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(curator), bounty_id));
+
+		// Then
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap().status,
+			BountyStatus::Active { curator, update_due: 24 }
+		);
+
+		// Given (BountyUpdatePeriod = BlockNumber::max_value())
+		BountyUpdatePeriod::set(BlockNumberFor::<Test>::max_value());
+		Balances::make_free_balance_be(&Treasury1::account_id(), 101);
+		assert_ok!(Bounties1::propose_bounty(
+			RuntimeOrigin::signed(proposer),
+			50,
+			b"12345".to_vec()
+		));
+		assert_ok!(Bounties1::approve_bounty(RuntimeOrigin::root(), bounty_id));
+		go_to_block(6);
+		<Treasury1 as OnInitialize<u64>>::on_initialize(6);
+		assert_ok!(Bounties1::propose_curator(RuntimeOrigin::root(), bounty_id, curator, fee));
+
+		// When
+		assert_ok!(Bounties1::accept_curator(RuntimeOrigin::signed(curator), bounty_id));
+
+		// Then
+		assert_eq!(
+			pallet_bounties::Bounties::<Test, Instance1>::get(bounty_id).unwrap().status,
+			BountyStatus::Active { curator, update_due: BlockNumberFor::<Test>::max_value() }
+		);
+
+		// When
+		assert_ok!(Bounties1::extend_bounty_expiry(
+			RuntimeOrigin::signed(curator),
+			bounty_id,
+			Vec::new()
+		));
+
+		// Then
+		assert_eq!(
+			pallet_bounties::Bounties::<Test, Instance1>::get(bounty_id).unwrap().status,
+			BountyStatus::Active { curator, update_due: BlockNumberFor::<Test>::max_value() }
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_fails_for_insufficient_balance() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Create a description for the bounty
+		let description = b"12345".to_vec();
+		let bounded_description = description.clone().try_into().unwrap();
+		// Create a bounty
+		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, description.clone()));
+
+		// BountyDepositBase (80) + DataDepositPerByte (1) * description.len() (5)
+		let deposit =
+			pallet_bounties::Pallet::<Test>::calculate_bounty_deposit(&bounded_description);
+
+		// Verify initial state
+		assert_eq!(Balances::reserved_balance(0), deposit);
+		assert_eq!(Balances::free_balance(0), 100 - deposit);
+		assert_eq!(last_event(), BountiesEvent::BountyProposed { index: 0 });
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			Bounty {
+				proposer: 0,
+				value: 50,
+				fee: 0,
+				curator_deposit: 0,
+				bond: deposit,
+				status: BountyStatus::Proposed,
+			}
+		);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0).unwrap(), description);
+		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
+
+		// Increase the DataDepositPerByte to be more than the total balance of the proposer
+		DataDepositPerByte::set(20);
+
+		// Poke deposit should fail due to insufficient balance
+		assert_noop!(
+			Bounties::poke_deposit(RuntimeOrigin::signed(0), 0),
+			pallet_balances::Error::<Test>::InsufficientBalance
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_fails_for_unsigned_origin() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_noop!(Bounties::poke_deposit(RuntimeOrigin::none(), 0), DispatchError::BadOrigin);
+	});
+}
+
+#[test]
+fn poke_deposit_fails_for_non_existent_bounty() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_noop!(
+			Bounties::poke_deposit(RuntimeOrigin::signed(0), 0),
+			Error::<Test>::InvalidIndex
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_fails_for_any_status_other_than_proposed() {
+	ExtBuilder::default().build_and_execute(|| {
+		let bounty_id = 0;
+		let proposer = 0;
+		let curator = 4;
+		let deposit = 85;
+		let mut bounty = Bounty {
+			proposer,
+			value: 50,
+			fee: 0,
+			curator_deposit: 0,
+			bond: deposit,
+			status: BountyStatus::Proposed,
+		};
+		let description = b"12345".to_vec();
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(proposer),
+			50,
+			description.clone()
+		));
+
+		// Verify initial state
+		assert_eq!(Balances::reserved_balance(proposer), deposit);
+		assert_eq!(Balances::reserved_balance(1), 0);
+		assert_eq!(Balances::free_balance(proposer), 100 - deposit);
+		assert_eq!(last_event(), BountiesEvent::BountyProposed { index: bounty_id });
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(0).unwrap(), bounty);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0).unwrap(), description);
+		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
+
+		// Change status to approved
+		bounty.status = BountyStatus::Approved;
+		pallet_bounties::Bounties::<Test>::insert(bounty_id, &bounty);
+		// Poke deposit should fail due to invalid status
+		assert_noop!(
+			Bounties::poke_deposit(RuntimeOrigin::signed(proposer), bounty_id),
+			Error::<Test>::UnexpectedStatus
+		);
+
+		// Change status to funded
+		bounty.status = BountyStatus::Funded;
+		pallet_bounties::Bounties::<Test>::insert(bounty_id, &bounty);
+		// Poke deposit should fail due to invalid status
+		assert_noop!(
+			Bounties::poke_deposit(RuntimeOrigin::signed(proposer), bounty_id),
+			Error::<Test>::UnexpectedStatus
+		);
+
+		// Change status to curator proposed
+		bounty.status = BountyStatus::CuratorProposed { curator };
+		pallet_bounties::Bounties::<Test>::insert(bounty_id, &bounty);
+		// Poke deposit should fail due to invalid status
+		assert_noop!(
+			Bounties::poke_deposit(RuntimeOrigin::signed(proposer), bounty_id),
+			Error::<Test>::UnexpectedStatus
+		);
+
+		// Change status to active
+		bounty.status = BountyStatus::Active { curator, update_due: 24 };
+		pallet_bounties::Bounties::<Test>::insert(bounty_id, &bounty);
+		// Poke deposit should fail due to invalid status
+		assert_noop!(
+			Bounties::poke_deposit(RuntimeOrigin::signed(proposer), bounty_id),
+			Error::<Test>::UnexpectedStatus
+		);
+
+		// Change status to PendingPayout
+		bounty.status = BountyStatus::PendingPayout { curator, beneficiary: 0, unlock_at: 24 };
+		pallet_bounties::Bounties::<Test>::insert(bounty_id, &bounty);
+		// Poke deposit should fail due to invalid status
+		assert_noop!(
+			Bounties::poke_deposit(RuntimeOrigin::signed(proposer), bounty_id),
+			Error::<Test>::UnexpectedStatus
+		);
+
+		// Change status to ApprovedWithCurator
+		bounty.status = BountyStatus::ApprovedWithCurator { curator };
+		pallet_bounties::Bounties::<Test>::insert(bounty_id, &bounty);
+		// Poke deposit should fail due to invalid status
+		assert_noop!(
+			Bounties::poke_deposit(RuntimeOrigin::signed(proposer), bounty_id),
+			Error::<Test>::UnexpectedStatus
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_works_and_charges_fee_for_unchanged_deposit() {
+	ExtBuilder::default().build_and_execute(|| {
+		let bounty_id = 0;
+		let proposer = 0;
+		let description = b"12345".to_vec();
+		let bounded_description = description.clone().try_into().unwrap();
+		let deposit = Bounties::calculate_bounty_deposit(&bounded_description);
+		let bounty = Bounty {
+			proposer,
+			value: 50,
+			fee: 0,
+			curator_deposit: 0,
+			bond: deposit,
+			status: BountyStatus::Proposed,
+		};
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(proposer),
+			50,
+			description.clone()
+		));
+
+		// Verify initial state
+		assert_eq!(Balances::reserved_balance(proposer), deposit);
+		assert_eq!(Balances::free_balance(proposer), 100 - deposit);
+		assert_eq!(last_event(), BountiesEvent::BountyProposed { index: bounty_id });
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(0).unwrap(), bounty);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0).unwrap(), description);
+		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
+
+		// Poke deposit should charge fee
+		let result = Bounties::poke_deposit(RuntimeOrigin::signed(proposer), bounty_id);
+		assert_ok!(result.as_ref());
+		assert_eq!(result.unwrap(), Pays::Yes.into());
+
+		// Verify final state
+		assert_eq!(Balances::reserved_balance(proposer), deposit);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(0).unwrap(), bounty);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0).unwrap(), description);
+		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
+		assert_eq!(last_event(), BountiesEvent::BountyProposed { index: bounty_id });
+	});
+}
+
+#[test]
+fn poke_deposit_works_for_deposit_increase() {
+	ExtBuilder::default().build_and_execute(|| {
+		let bounty_id = 0;
+		let proposer = 0;
+		let description = b"12345".to_vec();
+		let bounded_description = description.clone().try_into().unwrap();
+		let deposit = Bounties::calculate_bounty_deposit(&bounded_description);
+		let mut bounty = Bounty {
+			proposer,
+			value: 50,
+			fee: 0,
+			curator_deposit: 0,
+			bond: deposit,
+			status: BountyStatus::Proposed,
+		};
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(proposer),
+			50,
+			description.clone()
+		));
+
+		// Verify initial state
+		assert_eq!(Balances::reserved_balance(proposer), deposit);
+		assert_eq!(Balances::free_balance(proposer), 100 - deposit);
+		assert_eq!(last_event(), BountiesEvent::BountyProposed { index: bounty_id });
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(0).unwrap(), bounty);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0).unwrap(), description);
+		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
+
+		// Increase the DataDepositPerByte
+		DataDepositPerByte::set(2);
+		// BountyDepositBase (80) + DataDepositPerByte (2) * description.len() (5)
+		let new_deposit = Bounties::calculate_bounty_deposit(&bounded_description);
+
+		// Poke deposit should increase reserve
+		let result = Bounties::poke_deposit(RuntimeOrigin::signed(proposer), bounty_id);
+		assert_ok!(result.as_ref());
+		assert_eq!(result.unwrap(), Pays::No.into());
+
+		// Verify final state
+		assert_eq!(Balances::reserved_balance(proposer), new_deposit);
+		assert_eq!(Balances::free_balance(proposer), 100 - new_deposit);
+		assert_eq!(
+			last_event(),
+			BountiesEvent::DepositPoked { bounty_id, proposer, old_deposit: deposit, new_deposit }
+		);
+		bounty.bond = new_deposit;
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(0).unwrap(), bounty);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0).unwrap(), description);
+		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
+	});
+}
+
+#[test]
+fn poke_deposit_works_for_deposit_decrease() {
+	ExtBuilder::default().build_and_execute(|| {
+		let bounty_id = 0;
+		let proposer = 0;
+		let description = b"12345".to_vec();
+		let bounded_description = description.clone().try_into().unwrap();
+		DataDepositPerByte::set(2);
+		let deposit = Bounties::calculate_bounty_deposit(&bounded_description);
+		let mut bounty = Bounty {
+			proposer,
+			value: 50,
+			fee: 0,
+			curator_deposit: 0,
+			bond: deposit,
+			status: BountyStatus::Proposed,
+		};
+
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(proposer),
+			50,
+			description.clone()
+		));
+
+		// Verify initial state
+		assert_eq!(Balances::reserved_balance(proposer), deposit);
+		assert_eq!(Balances::free_balance(proposer), 100 - deposit);
+		assert_eq!(last_event(), BountiesEvent::BountyProposed { index: bounty_id });
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(0).unwrap(), bounty);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0).unwrap(), description);
+		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
+
+		// Decrease the DataDepositPerByte
+		DataDepositPerByte::set(1);
+		// BountyDepositBase (80) + DataDepositPerByte (2) * description.len() (5)
+		let new_deposit = Bounties::calculate_bounty_deposit(&bounded_description);
+
+		// Poke deposit should increase reserve
+		let result = Bounties::poke_deposit(RuntimeOrigin::signed(proposer), bounty_id);
+		assert_ok!(result.as_ref());
+		assert_eq!(result.unwrap(), Pays::No.into());
+
+		// Verify final state
+		assert_eq!(Balances::reserved_balance(proposer), new_deposit);
+		assert_eq!(Balances::free_balance(proposer), 100 - new_deposit);
+		assert_eq!(
+			last_event(),
+			BountiesEvent::DepositPoked { bounty_id, proposer, old_deposit: deposit, new_deposit }
+		);
+		bounty.bond = new_deposit;
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(0).unwrap(), bounty);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0).unwrap(), description);
+		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
+	});
+}
+
+#[test]
+fn poke_deposit_works_for_non_proposer() {
+	ExtBuilder::default().build_and_execute(|| {
+		let bounty_id = 0;
+		let proposer = 0;
+		let non_proposer = 1;
+		let description = b"12345".to_vec();
+		let bounded_description = description.clone().try_into().unwrap();
+
+		DataDepositPerByte::set(2);
+		let deposit = Bounties::calculate_bounty_deposit(&bounded_description);
+		let mut bounty = Bounty {
+			proposer,
+			value: 50,
+			fee: 0,
+			curator_deposit: 0,
+			bond: deposit,
+			status: BountyStatus::Proposed,
+		};
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(proposer),
+			50,
+			description.clone()
+		));
+
+		// Verify initial state
+		assert_eq!(Balances::reserved_balance(proposer), deposit);
+		assert_eq!(Balances::free_balance(proposer), 100 - deposit);
+		assert_eq!(last_event(), BountiesEvent::BountyProposed { index: bounty_id });
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(0).unwrap(), bounty);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0).unwrap(), description);
+		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
+
+		// Decrease the DataDepositPerByte
+		DataDepositPerByte::set(1);
+		// BountyDepositBase (80) + DataDepositPerByte (2) * description.len() (5)
+		let new_deposit = Bounties::calculate_bounty_deposit(&bounded_description);
+
+		// Poke deposit should increase reserve
+		let result = Bounties::poke_deposit(RuntimeOrigin::signed(non_proposer), bounty_id);
+		assert_ok!(result.as_ref());
+		assert_eq!(result.unwrap(), Pays::No.into());
+
+		// Verify final state
+		assert_eq!(Balances::reserved_balance(proposer), new_deposit);
+		assert_eq!(Balances::free_balance(proposer), 100 - new_deposit);
+		assert_eq!(
+			last_event(),
+			BountiesEvent::DepositPoked { bounty_id, proposer, old_deposit: deposit, new_deposit }
+		);
+		bounty.bond = new_deposit;
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(0).unwrap(), bounty);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0).unwrap(), description);
+		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
 	});
 }

@@ -17,9 +17,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{input, u256_bytes, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -31,10 +31,11 @@ pub extern "C" fn call() {
 	input!(buffer: &[u8; 36],);
 
 	let err_code = match api::instantiate(
-		u64::MAX,       // How much ref_time weight to devote for the execution. u64::MAX = use all.
-		u64::MAX,       // How much proof_size weight to devote for the execution. u64::MAX = use all.
+		u64::MAX,       /* How much ref_time weight to devote for the execution. u64::MAX = use
+		                 * all. */
+		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
-		&u256_bytes(10_000u64), // Value to transfer.
+		&u256_bytes(10_000_000_000u64), // Value to transfer.
 		buffer,
 		None,
 		None,

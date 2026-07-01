@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: 'Asset Hub Westend: nfts pallet uses Relay Chain as block provider'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The nfts pallet collections uses the Relay Chain as block provider for the time range of
+      `mint.start_block` and `mint.end_block`
+
+crates:
+  - name: asset-hub-westend-runtime
+    bump: patch

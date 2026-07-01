@@ -17,14 +17,30 @@
 #![cfg(test)]
 
 use collectives_westend_runtime::{
-	xcm_config::LocationToAccountId, Block, Runtime, RuntimeCall, RuntimeOrigin,
+	xcm_config::{GovernanceLocation, LocationToAccountId},
+	Balances, Block, ExistentialDeposit, Runtime, RuntimeCall, RuntimeOrigin,
 };
-use parachains_common::AccountId;
+use frame_support::{assert_err, assert_ok, traits::fungible::Inspect};
+use parachains_common::{AccountId, AuraId};
+use parachains_runtimes_test_utils::{ExtBuilder, GovernanceOrigin};
 use sp_core::crypto::Ss58Codec;
+use sp_keyring::Sr25519Keyring;
+use sp_runtime::Either;
+use testnet_parachains_constants::westend::fee::WeightToFee;
 use xcm::latest::prelude::*;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const ALICE: [u8; 32] = [1u8; 32];
+
+fn collator_session_keys() -> parachains_runtimes_test_utils::CollatorSessionKeys<Runtime> {
+	parachains_runtimes_test_utils::CollatorSessionKeys::new(
+		AccountId::from(Sr25519Keyring::Alice),
+		AccountId::from(Sr25519Keyring::Alice),
+		collectives_westend_runtime::SessionKeys {
+			aura: AuraId::from(Sr25519Keyring::Alice.public()),
+		},
+	)
+}
 
 #[test]
 fn location_conversion_works() {
@@ -142,5 +158,125 @@ fn xcm_payment_api_works() {
 		RuntimeCall,
 		RuntimeOrigin,
 		Block,
+		WeightToFee,
 	>();
+}
+
+#[test]
+fn governance_authorize_upgrade_works() {
+	use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, COLLECTIVES_ID};
+
+	// no - random para
+	assert_err!(
+		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+			Runtime,
+			RuntimeOrigin,
+		>(GovernanceOrigin::Location(Location::new(1, Parachain(12334)))),
+		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
+	);
+	// ok - AssetHub
+	assert_ok!(parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+		Runtime,
+		RuntimeOrigin,
+	>(GovernanceOrigin::Location(Location::new(1, Parachain(ASSET_HUB_ID)))));
+	// no - Collectives (passes barrier as system parachain, but not root)
+	assert_err!(
+		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+			Runtime,
+			RuntimeOrigin,
+		>(GovernanceOrigin::Location(Location::new(1, Parachain(COLLECTIVES_ID)))),
+		Either::Right(InstructionError { index: 1, error: XcmError::BadOrigin })
+	);
+	// no - Collectives Voice of Fellows plurality (collectives-westend has no FellowsPlurality
+	// in its barrier, so the descended origin is rejected)
+	assert_err!(
+		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+			Runtime,
+			RuntimeOrigin,
+		>(GovernanceOrigin::LocationAndDescendOrigin(
+			Location::new(1, Parachain(COLLECTIVES_ID)),
+			Plurality { id: BodyId::Technical, part: BodyPart::Voice }.into()
+		)),
+		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
+	);
+
+	// ok - relaychain
+	assert_ok!(parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+		Runtime,
+		RuntimeOrigin,
+	>(GovernanceOrigin::Location(Location::parent())));
+
+	// ok - governance location
+	assert_ok!(parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+		Runtime,
+		RuntimeOrigin,
+	>(GovernanceOrigin::Location(GovernanceLocation::get())));
+}
+
+#[test]
+fn fees_go_to_accumulation_account() {
+	use frame_support::traits::{fungible::Balanced, tokens::imbalance::OnUnbalanced};
+
+	// Collectives has no ChargeTransactionPayment in its TxExtension, so extrinsics don't pay fees.
+	// Test the DealWithFeesAccumulate wiring via OnUnbalanced.
+	let accumulation_account =
+		pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account();
+	let ed = ExistentialDeposit::get();
+	let fee_amount = 1_000_000_000u128;
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.with_balances(vec![(accumulation_account.clone(), ed)])
+		.with_para_id(1001.into())
+		.build()
+		.execute_with(|| {
+			let accumulation_before =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
+
+			let credit = <Balances as Balanced<AccountId>>::issue(fee_amount);
+			<collectives_westend_runtime::AccumulateForward as OnUnbalanced<_>>::on_unbalanced(
+				credit,
+			);
+
+			let accumulation_after =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
+			assert_eq!(accumulation_after, accumulation_before + fee_amount);
+		});
+}
+
+#[test]
+fn dust_removal_goes_to_accumulation_account() {
+	let alice = AccountId::from(Sr25519Keyring::Alice);
+	let bob = AccountId::from(Sr25519Keyring::Bob);
+	let accumulation_account =
+		pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account();
+	let ed = ExistentialDeposit::get();
+	let dust = ed / 2;
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.with_balances(vec![
+			(alice.clone(), 100 * ed),
+			(bob.clone(), ed + dust),
+			(accumulation_account.clone(), ed),
+		])
+		.with_para_id(1001.into())
+		.build()
+		.execute_with(|| {
+			let accumulation_before =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
+
+			assert_ok!(Balances::transfer_allow_death(
+				RuntimeOrigin::signed(bob.clone()),
+				alice.clone().into(),
+				ed,
+			));
+
+			let accumulation_after =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
+			assert_eq!(accumulation_after, accumulation_before + dust);
+			assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
+		});
 }

@@ -7,6 +7,7 @@
 .local
 .lycheecache
 .vscode
+.zed
 .wasm-binaries
 *.adoc
 *.bin
@@ -39,6 +40,8 @@ rls*.log
 runtime/wasm/target/
 substrate.code-workspace
 target/
+target.noindex/
 *.scale
-justfile
 rustc-ice-*
+/.claude/settings.local.json
+*.local.md

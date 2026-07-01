@@ -2,8 +2,13 @@ error[E0277]: the trait bound `MyError: PalletError` is not satisfied
   --> tests/pallet_ui/error_does_not_derive_pallet_error.rs:29:15
    |
 29 |         CustomError(crate::MyError),
-   |                     ^^^^^^^^^^^^^^ the trait `PalletError` is not implemented for `MyError`
+   |                     ^^^^^^^^^^^^^^ unsatisfied trait bound
    |
+help: the trait `PalletError` is not implemented for `MyError`
+  --> tests/pallet_ui/error_does_not_derive_pallet_error.rs:34:1
+   |
+34 | enum MyError {}
+   | ^^^^^^^^^^^^
    = help: the following other types implement trait `PalletError`:
              ()
              (TupleElement0, TupleElement1)
@@ -11,6 +16,7 @@ error[E0277]: the trait bound `MyError: PalletError` is not satisfied
              (TupleElement0, TupleElement1, TupleElement2, TupleElement3)
              (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4)
              (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5)
-             (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6)
-             (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7)
+             (TupleElement0, TupleElement1, TupleElement2, ..., ..., ..., ...)
+             (TupleElement0, TupleElement1, TupleElement2, ..., ..., ..., ..., ...)
            and $N others
+   = note: consider using `--verbose` to print the full type name to the console

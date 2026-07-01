@@ -48,6 +48,7 @@ impl pallet_conviction_voting::Config for Runtime {
 		frame_support::traits::tokens::currency::ActiveIssuanceOf<Balances, Self::AccountId>;
 	type Polls = Referenda;
 	type BlockNumberProvider = System;
+	type VotingHooks = ();
 }
 
 parameter_types! {

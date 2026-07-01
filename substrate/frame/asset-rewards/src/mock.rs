@@ -80,6 +80,7 @@ impl pallet_assets::Config<Instance1> for MockRuntime {
 	type RemoveItemsLimit = ConstU32<1000>;
 	type AssetId = u32;
 	type AssetIdParameter = u32;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<Self::AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
@@ -90,6 +91,7 @@ impl pallet_assets::Config<Instance1> for MockRuntime {
 	type ApprovalDeposit = ConstU128<1>;
 	type StringLimit = ConstU32<50>;
 	type Freezer = AssetsFreezer;
+	type Holder = ();
 	type Extra = ();
 	type WeightInfo = ();
 	type CallbackHandle = ();
@@ -166,6 +168,7 @@ impl Config for MockRuntime {
 		CreationHoldReason,
 		LinearStoragePrice<ConstU128<100>, ConstU128<0>, u128>,
 	>;
+	type BlockNumberProvider = frame_system::Pallet<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
 }
@@ -195,6 +198,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 			(1, 20, 40000),
 		],
 		next_asset_id: None,
+		reserves: vec![],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

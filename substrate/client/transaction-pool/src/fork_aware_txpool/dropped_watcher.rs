@@ -67,6 +67,11 @@ impl<Hash> DroppedTransaction<Hash> {
 	pub fn new_invalid(tx_hash: Hash) -> Self {
 		Self { reason: DroppedReason::Invalid, tx_hash }
 	}
+
+	/// Creates a new instance with reason set to `DroppedReason::Viewless`.
+	pub fn new_viewless(tx_hash: Hash) -> Self {
+		Self { reason: DroppedReason::Viewless, tx_hash }
+	}
 }
 
 /// Provides reason of why transactions was dropped.
@@ -78,10 +83,19 @@ pub enum DroppedReason<Hash> {
 	LimitsEnforced,
 	/// Transaction was dropped because of being invalid.
 	Invalid,
+	/// Transaction lost all referencing views but remains in the mempool.
+	///
+	/// This is not a true drop — the transaction is still in the mempool. This signal indicates
+	/// that no active view currently considers this transaction ready, typically because the
+	/// transaction was banned in views due to a fork-specific validation error. The
+	/// `dropped_monitor_task` should mark this transaction for unbanning so that mempool
+	/// revalidation can clear stale bans.
+	Viewless,
 }
 
 /// Dropped-logic related event from the single view.
-pub type ViewStreamEvent<C> = crate::graph::TransactionStatusEvent<ExtrinsicHash<C>, BlockHash<C>>;
+pub type ViewStreamEvent<C> =
+	crate::fork_aware_txpool::view::TransactionStatusEvent<ExtrinsicHash<C>, BlockHash<C>>;
 
 /// Dropped-logic stream of events coming from the single view.
 type ViewStream<C> = Pin<Box<dyn futures::Stream<Item = ViewStreamEvent<C>> + Send>>;
@@ -112,8 +126,8 @@ where
 	RemoveView(BlockHash<ChainApi>),
 	/// Removes referencing views for given extrinsic hashes.
 	///
-	/// Intended to ba called on finalization.
-	RemoveFinalizedTxs(Vec<ExtrinsicHash<ChainApi>>),
+	/// Intended to ba called when transactions were finalized or their finality timed out.
+	RemoveTransactions(Vec<ExtrinsicHash<ChainApi>>),
 }
 
 impl<ChainApi> Debug for Command<ChainApi>
@@ -124,7 +138,7 @@ where
 		match self {
 			Command::AddView(..) => write!(f, "AddView"),
 			Command::RemoveView(..) => write!(f, "RemoveView"),
-			Command::RemoveFinalizedTxs(..) => write!(f, "RemoveFinalizedTxs"),
+			Command::RemoveTransactions(..) => write!(f, "RemoveTransactions"),
 		}
 	}
 }
@@ -148,8 +162,9 @@ where
 	/// For each transaction hash we keep the set of hashes representing the views that see this
 	/// transaction as ready or in_block.
 	///
-	/// Even if all views referencing a ready transactions are removed, we still want to keep
-	/// transaction, there can be a fork which sees the transaction as ready.
+	/// When all views referencing a ready transaction are removed, a [`DroppedReason::Viewless`]
+	/// event is emitted so the transaction can be considered for unbanning. The transaction
+	/// itself is not dropped from the mempool.
 	///
 	/// Once transaction is dropped, dropping view is removed from the set.
 	ready_transaction_views: HashMap<ExtrinsicHash<ChainApi>, HashSet<BlockHash<ChainApi>>>,
@@ -163,6 +178,10 @@ where
 
 	/// Transactions that need to be notified as dropped.
 	pending_dropped_transactions: Vec<ExtrinsicHash<ChainApi>>,
+
+	/// Ready transactions that lost all referencing views and need a
+	/// [`DroppedReason::Viewless`] notification.
+	pending_viewless_transactions: Vec<ExtrinsicHash<ChainApi>>,
 }
 
 impl<C> MultiViewDropWatcherContext<C>
@@ -174,15 +193,15 @@ where
 	fn transaction_views(
 		&mut self,
 		tx_hash: ExtrinsicHash<C>,
-	) -> Option<OccupiedEntry<ExtrinsicHash<C>, HashSet<BlockHash<C>>>> {
+	) -> Option<OccupiedEntry<'_, ExtrinsicHash<C>, HashSet<BlockHash<C>>>> {
 		if let Entry::Occupied(views_keeping_tx_valid) = self.ready_transaction_views.entry(tx_hash)
 		{
-			return Some(views_keeping_tx_valid)
+			return Some(views_keeping_tx_valid);
 		}
 		if let Entry::Occupied(views_keeping_tx_valid) =
 			self.future_transaction_views.entry(tx_hash)
 		{
-			return Some(views_keeping_tx_valid)
+			return Some(views_keeping_tx_valid);
 		}
 		None
 	}
@@ -213,6 +232,9 @@ where
 						views
 					);
 					views.remove(&key);
+					if views.is_empty() {
+						self.pending_viewless_transactions.push(*tx_hash);
+					}
 				});
 
 				self.future_transaction_views.iter_mut().for_each(|(tx_hash, views)| {
@@ -228,7 +250,7 @@ where
 					}
 				});
 			},
-			Command::RemoveFinalizedTxs(xts) => {
+			Command::RemoveTransactions(xts) => {
 				log_xt_trace!(
 					target: LOG_TARGET,
 					xts.clone(),
@@ -288,24 +310,25 @@ where
 				if let Some(mut views_keeping_tx_valid) = self.transaction_views(tx_hash) {
 					views_keeping_tx_valid.get_mut().remove(&block_hash);
 					if views_keeping_tx_valid.get().is_empty() {
-						return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
+						return Some(DroppedTransaction::new_enforced_by_limts(tx_hash));
 					}
 				} else {
 					debug!(target: LOG_TARGET, ?tx_hash, "dropped_watcher: removing (non-tracked dropped) tx");
-					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
+					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash));
 				}
 			},
-			TransactionStatus::Usurped(by) =>
-				return Some(DroppedTransaction::new_usurped(tx_hash, by)),
+			TransactionStatus::Usurped(by) => {
+				return Some(DroppedTransaction::new_usurped(tx_hash, by))
+			},
 			TransactionStatus::Invalid => {
 				if let Some(mut views_keeping_tx_valid) = self.transaction_views(tx_hash) {
 					views_keeping_tx_valid.get_mut().remove(&block_hash);
 					if views_keeping_tx_valid.get().is_empty() {
-						return Some(DroppedTransaction::new_invalid(tx_hash))
+						return Some(DroppedTransaction::new_invalid(tx_hash));
 					}
 				} else {
 					debug!(target: LOG_TARGET, ?tx_hash, "dropped_watcher: removing (non-tracked invalid) tx");
-					return Some(DroppedTransaction::new_invalid(tx_hash))
+					return Some(DroppedTransaction::new_invalid(tx_hash));
 				}
 			},
 			_ => {},
@@ -319,13 +342,30 @@ where
 			// never drop transaction that was seen as ready. It may not have a referencing
 			// view now, but such fork can appear.
 			if self.ready_transaction_views.get(&tx_hash).is_some() {
-				continue
+				continue;
 			}
 
 			if let Some(views) = self.future_transaction_views.get(&tx_hash) {
 				if views.is_empty() {
 					self.future_transaction_views.remove(&tx_hash);
-					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
+					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash));
+				}
+			}
+		}
+		None
+	}
+
+	/// Gets pending viewless transactions if any.
+	///
+	/// These are ready transactions that lost all referencing views. They are not dropped
+	/// from the mempool — instead a [`DroppedReason::Viewless`] event is emitted so the
+	/// `dropped_monitor_task` can mark them for unbanning.
+	fn get_pending_viewless_transaction(&mut self) -> Option<DroppedTransaction<ExtrinsicHash<C>>> {
+		while let Some(tx_hash) = self.pending_viewless_transactions.pop() {
+			// Only emit Viewless if the tx is still tracked as ready and still has no views.
+			if let Some(views) = self.ready_transaction_views.get(&tx_hash) {
+				if views.is_empty() {
+					return Some(DroppedTransaction::new_viewless(tx_hash));
 				}
 			}
 		}
@@ -338,7 +378,7 @@ where
 	/// transactions. Returns a tuple containing this stream and the controller for managing
 	/// this stream.
 	fn event_stream() -> (StreamOfDropped<C>, Controller<Command<C>>) {
-		//note: 64 allows to avoid warning messages during execution of unit tests.
+		// note: 64 allows to avoid warning messages during execution of unit tests.
 		const CHANNEL_SIZE: usize = 64;
 		let (sender, command_receiver) = sc_utils::mpsc::tracing_unbounded::<Command<C>>(
 			"tx-pool-dropped-watcher-cmd-stream",
@@ -351,6 +391,7 @@ where
 			ready_transaction_views: Default::default(),
 			future_transaction_views: Default::default(),
 			pending_dropped_transactions: Default::default(),
+			pending_viewless_transactions: Default::default(),
 		};
 
 		let stream_map = futures::stream::unfold(ctx, |mut ctx| async move {
@@ -358,6 +399,10 @@ where
 				if let Some(dropped) = ctx.get_pending_dropped_transaction() {
 					trace!("dropped_watcher: sending out (pending): {dropped:?}");
 					return Some((dropped, ctx));
+				}
+				if let Some(viewless) = ctx.get_pending_viewless_transaction() {
+					trace!("dropped_watcher: sending out (viewless): {viewless:?}");
+					return Some((viewless, ctx));
 				}
 				tokio::select! {
 					biased;
@@ -421,16 +466,16 @@ where
 		});
 	}
 
-	/// Removes status info for finalized transactions.
-	pub fn remove_finalized_txs(
+	/// Removes status info for transactions.
+	pub fn remove_transactions(
 		&self,
 		xts: impl IntoIterator<Item = ExtrinsicHash<ChainApi>> + Clone,
 	) {
 		let _ = self
 			.controller
-			.unbounded_send(Command::RemoveFinalizedTxs(xts.into_iter().collect()))
+			.unbounded_send(Command::RemoveTransactions(xts.into_iter().collect()))
 			.map_err(|e| {
-				trace!(target: LOG_TARGET, "dropped_watcher: remove_finalized_txs send message failed: {e}");
+				trace!(target: LOG_TARGET, "dropped_watcher: remove_transactions send message failed: {e}");
 			});
 	}
 }
@@ -541,8 +586,16 @@ mod dropped_watcher_tests {
 		watcher.remove_view(block_hash0);
 
 		watcher.add_view(block_hash1, view_stream1);
-		let handle = tokio::spawn(async move { output_stream.take(1).collect::<Vec<_>>().await });
-		assert_eq!(handle.await.unwrap(), vec![DroppedTransaction::new_enforced_by_limts(tx_hash)]);
+		let handle = tokio::spawn(async move { output_stream.take(2).collect::<Vec<_>>().await });
+		assert_eq!(
+			handle.await.unwrap(),
+			vec![
+				// Viewless fires first: view0 was removed, ready_views briefly empty.
+				DroppedTransaction::new_viewless(tx_hash),
+				// Then view1's Dropped event produces LimitsEnforced.
+				DroppedTransaction::new_enforced_by_limts(tx_hash),
+			]
+		);
 	}
 
 	#[tokio::test]

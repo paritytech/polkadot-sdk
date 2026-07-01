@@ -67,6 +67,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -244,7 +245,7 @@ pub mod pallet {
 
 			let mut members = Members::<T, I>::get();
 			let location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NotMember)?;
-			let _ = members.binary_search(&add).err().ok_or(Error::<T, I>::AlreadyMember)?;
+			members.binary_search(&add).err().ok_or(Error::<T, I>::AlreadyMember)?;
 			members[location] = add.clone();
 			members.sort();
 
@@ -300,7 +301,7 @@ pub mod pallet {
 			let mut members = Members::<T, I>::get();
 			let members_length = members.len() as u32;
 			let location = members.binary_search(&remove).ok().ok_or(Error::<T, I>::NotMember)?;
-			let _ = members.binary_search(&new).err().ok_or(Error::<T, I>::AlreadyMember)?;
+			members.binary_search(&new).err().ok_or(Error::<T, I>::AlreadyMember)?;
 			members[location] = new.clone();
 			members.sort();
 
@@ -350,6 +351,44 @@ pub mod pallet {
 			T::MembershipChanged::set_prime(None);
 			Ok(())
 		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_membership()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * `Prime` member must be part of `Members`
+	/// * Numbers of `Members` cannot be more than `MaxMember` allowed
+	fn try_state_membership() -> Result<(), sp_runtime::TryRuntimeError> {
+		use frame_support::ensure;
+		let members = Members::<T, I>::get();
+		if let Some(prime) = Prime::<T, I>::get() {
+			ensure!(members.contains(&prime), "`Prime` must be a member of  `Members` in storage");
+		}
+
+		ensure!(
+			Members::<T, I>::decode_len().unwrap_or(0) <= T::MaxMembers::get() as usize,
+			"`Member` cannot be greater than `MaxMember`"
+		);
+		Ok(())
 	}
 }
 

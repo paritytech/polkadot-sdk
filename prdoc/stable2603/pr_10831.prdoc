@@ -1,0 +1,20 @@
+title: Fix fee handling of pay-over-xcm trait(s)
+doc:
+- audience: Runtime Dev
+  description: |-
+    Changed how pay-over-xcm is handling delivery fees. The old behavior was effectively allowing free delivery for any origin, and it was either burning innexistent tokens (noop at the end of the day), or it was minting "protocol fees" into the treasury account out of thin air.
+
+    In practice, the traits were always used with waived fees configuration so this bug was never exploitable in production, but it was there nonetheless.
+
+    Changed transfer-over-xcm and pay-over-xcm implementations to use the runtime's XCM config, rather than custom Router and FeeHandler. This reduces the opportunity for misconfiguration since it relies on the message delivery and fee handling configurations at consolidated at the runtime configuration level.
+
+    Waived locations for some system pallets were also correctly configured to explicitly allow what was previously implicitly allowed by the buggy code.
+crates:
+- name: collectives-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: staging-xcm-builder
+  bump: major

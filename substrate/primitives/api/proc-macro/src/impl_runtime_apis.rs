@@ -82,7 +82,7 @@ fn generate_impl_call(
 		quote!(
 			if !#input.is_empty() {
 				panic!(
-					"Bad input data provided to {}: expected no parameters, but input buffer is not empty.",
+					"Bad input data provided to {}: expected no parameters, but input buffer is not empty. Nothing bad happened: someone sent an invalid transaction to the node.",
 					#fn_name_str
 				);
 			}
@@ -100,12 +100,11 @@ fn generate_impl_call(
 
 		quote!(
 			#let_binding =
-				match #c::DecodeLimit::decode_all_with_depth_limit(
-					#c::MAX_EXTRINSIC_DEPTH,
+				match #c::Decode::decode(
 					&mut #input,
 				) {
 					Ok(res) => res,
-					Err(e) => panic!("Bad input data provided to {}: {}", #fn_name_str, e),
+					Err(e) => panic!("Bad input data provided to {}: {}. Nothing bad happened: someone sent an invalid transaction to the node.", #fn_name_str, e),
 				};
 		)
 	};
@@ -173,10 +172,10 @@ fn generate_impl_calls(
 					&impl_trait,
 					&trait_api_ver,
 				)?;
-				let mut attrs = filter_cfg_attrs(&impl_.attrs);
+				let mut attrs = filter_cfg_and_allow_attrs(&impl_.attrs);
 
 				// Add any `#[cfg(feature = X)]` attributes of the method to result
-				attrs.extend(filter_cfg_attrs(&method.attrs));
+				attrs.extend(filter_cfg_and_allow_attrs(&method.attrs));
 
 				impl_calls.push((
 					impl_trait_ident.clone(),
@@ -300,7 +299,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					&self,
 					at: <Block as #crate_::BlockT>::Hash,
 				) -> std::result::Result<bool, #crate_::ApiError> where Self: Sized {
-					#crate_::CallApiAt::<Block>::runtime_version_at(self.call, at)
+					#crate_::CallApiAt::<Block>::runtime_version_at(self.call, at, self.call_context)
 					.map(|v| #crate_::RuntimeVersion::has_api_with(&v, &A::ID, |v| v == A::VERSION))
 				}
 
@@ -309,7 +308,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					at: <Block as #crate_::BlockT>::Hash,
 					pred: P,
 				) -> std::result::Result<bool, #crate_::ApiError> where Self: Sized {
-					#crate_::CallApiAt::<Block>::runtime_version_at(self.call, at)
+					#crate_::CallApiAt::<Block>::runtime_version_at(self.call, at, self.call_context)
 					.map(|v| #crate_::RuntimeVersion::has_api_with(&v, &A::ID, pred))
 				}
 
@@ -317,12 +316,16 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					&self,
 					at: <Block as #crate_::BlockT>::Hash,
 				) -> std::result::Result<Option<u32>, #crate_::ApiError> where Self: Sized {
-					#crate_::CallApiAt::<Block>::runtime_version_at(self.call, at)
+					#crate_::CallApiAt::<Block>::runtime_version_at(self.call, at, self.call_context)
 					.map(|v| #crate_::RuntimeVersion::api_version(&v, &A::ID))
 				}
 
 				fn record_proof(&mut self) {
 					self.recorder = std::option::Option::Some(std::default::Default::default());
+				}
+
+				fn record_proof_with_recorder(&mut self, recorder: #crate_::ProofRecorder<Block>) {
+					self.recorder = std::option::Option::Some(recorder);
 				}
 
 				fn proof_recorder(&self) -> std::option::Option<#crate_::ProofRecorder<Block>> {
@@ -346,7 +349,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					#crate_::StorageChanges<Block>,
 				String
 					> where Self: Sized {
-						let state_version = #crate_::CallApiAt::<Block>::runtime_version_at(self.call, std::clone::Clone::clone(&parent_hash))
+						let state_version = #crate_::CallApiAt::<Block>::runtime_version_at(self.call, std::clone::Clone::clone(&parent_hash), self.call_context)
 							.map(|v| #crate_::RuntimeVersion::state_version(&v))
 							.map_err(|e| format!("Failed to get state version: {}", e))?;
 
@@ -363,6 +366,10 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 
 				fn register_extension<E: #crate_::Extension>(&mut self, extension: E) {
 					std::cell::RefCell::borrow_mut(&self.extensions).register(extension);
+				}
+
+				fn set_overlayed_changes(&mut self, changes: #crate_::OverlayedChanges<#crate_::HashingFor<Block>>) {
+					*self.changes.borrow_mut() = changes;
 				}
 			}
 
@@ -409,6 +416,11 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 							&mut std::cell::RefCell::borrow_mut(&self.changes)
 						);
 
+						#crate_::Extensions::commit_transaction(
+							&mut std::cell::RefCell::borrow_mut(&self.extensions),
+							#crate_::TransactionType::Host,
+						);
+
 						// Will panic on an `Err` below, however we should call commit
 						// on the recorder and the changes together.
 						std::result::Result::and(res, std::result::Result::map_err(res2, drop))
@@ -421,6 +433,11 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 
 						let res2 = #crate_::OverlayedChanges::rollback_transaction(
 							&mut std::cell::RefCell::borrow_mut(&self.changes)
+						);
+
+						#crate_::Extensions::rollback_transaction(
+							&mut std::cell::RefCell::borrow_mut(&self.extensions),
+							#crate_::TransactionType::Host,
 						);
 
 						// Will panic on an `Err` below, however we should call commit
@@ -438,6 +455,11 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					if let Some(recorder) = &self.recorder {
 						#crate_::ProofRecorder::<Block>::start_transaction(&recorder);
 					}
+
+					#crate_::Extensions::start_transaction(
+						&mut std::cell::RefCell::borrow_mut(&self.extensions),
+						#crate_::TransactionType::Host,
+					);
 				}
 			}
 		}
@@ -503,7 +525,7 @@ fn generate_api_impl_for_runtime(impls: &[ItemImpl]) -> Result<TokenStream> {
 		let trait_api_ver = extract_api_version(&impl_.attrs, impl_.span())?;
 
 		let mut impl_ = impl_.clone();
-		impl_.attrs = filter_cfg_attrs(&impl_.attrs);
+		impl_.attrs = filter_cfg_and_allow_attrs(&impl_.attrs);
 
 		let trait_ = extract_impl_trait(&impl_, RequireQualifiedTraitPath::Yes)?.clone();
 		let trait_ = extend_with_runtime_decl_path(trait_);
@@ -571,6 +593,7 @@ impl<'a> ApiRuntimeImplToApiRuntimeApiImpl<'a> {
 					let version = #crate_::CallApiAt::<__SrApiBlock__>::runtime_version_at(
 						self.call,
 						at,
+						self.call_context,
 					)?;
 
 					match &mut *std::cell::RefCell::borrow_mut(&self.extensions_generated_for) {
@@ -653,7 +676,7 @@ impl<'a> Fold for ApiRuntimeImplToApiRuntimeApiImpl<'a> {
 
 		where_clause.predicates.push(parse_quote! { &'static RuntimeApiImplCall: Send });
 
-		input.attrs = filter_cfg_attrs(&input.attrs);
+		input.attrs = filter_cfg_and_allow_attrs(&input.attrs);
 
 		fold::fold_item_impl(self, input)
 	}
@@ -747,7 +770,7 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 		}
 
 		let id: Path = parse_quote!( #path ID );
-		let mut attrs = filter_cfg_attrs(&impl_.attrs);
+		let mut attrs = filter_cfg_and_allow_attrs(&impl_.attrs);
 
 		// Handle API versioning
 		// If feature gated version is set - handle it first
@@ -866,9 +889,13 @@ fn impl_runtime_apis_impl_inner(api_impls: &mut [ItemImpl]) -> Result<TokenStrea
 	Ok(impl_)
 }
 
-// Filters all attributes except the cfg ones.
-fn filter_cfg_attrs(attrs: &[Attribute]) -> Vec<Attribute> {
-	attrs.iter().filter(|a| a.path().is_ident("cfg")).cloned().collect()
+// Filters all attributes except the cfg and allow ones.
+fn filter_cfg_and_allow_attrs(attrs: &[Attribute]) -> Vec<Attribute> {
+	attrs
+		.iter()
+		.filter(|a| a.path().is_ident("cfg") || a.path().is_ident("allow"))
+		.cloned()
+		.collect()
 }
 
 #[cfg(test)]
@@ -879,6 +906,7 @@ mod tests {
 	fn filter_non_cfg_attributes() {
 		let cfg_std: Attribute = parse_quote!(#[cfg(feature = "std")]);
 		let cfg_benchmarks: Attribute = parse_quote!(#[cfg(feature = "runtime-benchmarks")]);
+		let allow: Attribute = parse_quote!(#[allow(non_camel_case_types)]);
 
 		let attrs = vec![
 			cfg_std.clone(),
@@ -888,10 +916,11 @@ mod tests {
 			parse_quote!(#[allow(non_camel_case_types)]),
 		];
 
-		let filtered = filter_cfg_attrs(&attrs);
-		assert_eq!(filtered.len(), 2);
+		let filtered = filter_cfg_and_allow_attrs(&attrs);
+		assert_eq!(filtered.len(), 3);
 		assert_eq!(cfg_std, filtered[0]);
 		assert_eq!(cfg_benchmarks, filtered[1]);
+		assert_eq!(allow, filtered[2]);
 	}
 
 	#[test]

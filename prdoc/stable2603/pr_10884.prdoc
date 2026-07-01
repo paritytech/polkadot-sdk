@@ -1,0 +1,20 @@
+title: '[benchmarking-cli] Add --keys-limit, --child-keys-limit and --random-seed to storage benchmarks'
+doc:
+- audience: Node Dev
+  description: |-
+    Adds three new CLI parameters to the `benchmark storage` subcommand:
+
+    - `--keys-limit=<N>`: Limits the number of top-level storage keys sampled for
+      read/write benchmarks. When omitted all keys are used (previous behaviour).
+    - `--child-keys-limit=<N>`: When `--include-child-trees` is set, limits how many
+      keys are sampled from each child trie (same semantics as `--keys-limit`).
+    - `--random-seed=<u64>`: Provides a deterministic seed for the random key
+      selection, allowing benchmarks to be reproduced under the same conditions.
+
+    These options are useful when benchmarking chains with very large state, where
+    iterating over every key is impractical. A shared `select_entries` helper was
+    extracted into `keys_selection.rs` to eliminate duplication between the read and
+    write benchmarking paths.
+crates:
+- name: frame-benchmarking-cli
+  bump: major

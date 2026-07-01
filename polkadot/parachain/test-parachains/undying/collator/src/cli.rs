@@ -94,6 +94,10 @@ pub struct RunCmd {
 	/// Specifies the malicious behavior of the collator.
 	#[arg(long, value_enum, default_value_t = MalusType::None)]
 	pub malus_type: MalusType,
+
+	/// Whether or not the collator should send the experimental ApprovedPeer UMP signal.
+	#[arg(long)]
+	pub experimental_send_approved_peer: bool,
 }
 
 #[allow(missing_docs)]
@@ -138,10 +142,12 @@ impl SubstrateCli for Cli {
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		let id = if id.is_empty() { "rococo" } else { id };
 		Ok(match id {
-			"rococo-staging" =>
-				Box::new(polkadot_service::chain_spec::rococo_staging_testnet_config()?),
-			"rococo-local" =>
-				Box::new(polkadot_service::chain_spec::rococo_local_testnet_config()?),
+			"rococo-staging" => {
+				Box::new(polkadot_service::chain_spec::rococo_staging_testnet_config()?)
+			},
+			"rococo-local" => {
+				Box::new(polkadot_service::chain_spec::rococo_local_testnet_config()?)
+			},
 			"rococo" => Box::new(polkadot_service::chain_spec::rococo_config()?),
 			path => {
 				let path = std::path::PathBuf::from(path);

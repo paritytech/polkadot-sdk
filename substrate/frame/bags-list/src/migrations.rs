@@ -111,14 +111,14 @@ impl<T: crate::Config<I>, I: 'static> OnRuntimeUpgrade for AddScore<T, I> {
 				prev: node.prev,
 				next: node.next,
 				bag_upper: node.bag_upper,
-				score,
+				score: score.unwrap_or_default(),
 				_phantom: node._phantom,
 			};
 
 			crate::ListNodes::<T, I>::insert(node.id, new_node);
 		}
 
-		return frame_support::weights::Weight::MAX
+		return frame_support::weights::Weight::MAX;
 	}
 
 	#[cfg(feature = "try-runtime")]

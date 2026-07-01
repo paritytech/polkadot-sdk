@@ -304,10 +304,25 @@ pub struct RunCmd {
 	)]
 	pub relay_chain_rpc_urls: Vec<Url>,
 
-	/// EXPERIMENTAL: Embed a light client for the relay chain. Only supported for full-nodes.
-	/// Will use the specified relay chain chainspec.
-	#[arg(long, conflicts_with_all = ["relay_chain_rpc_urls", "collator"])]
-	pub relay_chain_light_client: bool,
+	/// EXPERIMENTAL: This is meant to be used only if collator is overshooting the PoV size, and
+	/// building blocks that do not fit in the max_pov_size. It is a percentage of the max_pov_size
+	/// configuration of the relay-chain.
+	///
+	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
+	#[arg(long)]
+	pub experimental_max_pov_percentage: Option<u32>,
+
+	/// Disable embedded DHT bootnode.
+	///
+	/// Do not advertise the node as a parachain bootnode on the relay chain DHT.
+	#[arg(long)]
+	pub no_dht_bootnode: bool,
+
+	/// Disable DHT bootnode discovery.
+	///
+	/// Disable discovery of the parachain bootnodes via the relay chain DHT.
+	#[arg(long)]
+	pub no_dht_bootnode_discovery: bool,
 }
 
 impl RunCmd {
@@ -323,14 +338,17 @@ impl RunCmd {
 
 	/// Create [`CollatorOptions`] representing options only relevant to parachain collator nodes
 	pub fn collator_options(&self) -> CollatorOptions {
-		let relay_chain_mode =
-			match (self.relay_chain_light_client, !self.relay_chain_rpc_urls.is_empty()) {
-				(true, _) => RelayChainMode::LightClient,
-				(_, true) => RelayChainMode::ExternalRpc(self.relay_chain_rpc_urls.clone()),
-				_ => RelayChainMode::Embedded,
-			};
+		let relay_chain_mode = if self.relay_chain_rpc_urls.is_empty() {
+			RelayChainMode::Embedded
+		} else {
+			RelayChainMode::ExternalRpc(self.relay_chain_rpc_urls.clone())
+		};
 
-		CollatorOptions { relay_chain_mode }
+		CollatorOptions {
+			relay_chain_mode,
+			embedded_dht_bootnode: !self.no_dht_bootnode,
+			dht_bootnode_discovery: !self.no_dht_bootnode_discovery,
+		}
 	}
 }
 
@@ -341,15 +359,17 @@ pub enum RelayChainMode {
 	Embedded,
 	/// Connect to remote relay chain node via websocket RPC
 	ExternalRpc(Vec<Url>),
-	/// Spawn embedded relay chain light client
-	LightClient,
 }
 
-/// Options only relevant for collator nodes
+/// Options only relevant for collator/parachain nodes
 #[derive(Clone, Debug)]
 pub struct CollatorOptions {
 	/// How this collator retrieves relay chain information
 	pub relay_chain_mode: RelayChainMode,
+	/// Enable embedded DHT bootnode.
+	pub embedded_dht_bootnode: bool,
+	/// Enable DHT bootnode discovery.
+	pub dht_bootnode_discovery: bool,
 }
 
 /// A non-redundant version of the `RunCmd` that sets the `validator` field when the
@@ -430,6 +450,18 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 
 	fn rpc_methods(&self) -> sc_cli::Result<sc_service::config::RpcMethods> {
 		self.base.rpc_methods()
+	}
+
+	fn rpc_rate_limit(&self) -> sc_cli::Result<Option<std::num::NonZeroU32>> {
+		Ok(self.base.rpc_params.rpc_rate_limit)
+	}
+
+	fn rpc_rate_limit_whitelisted_ips(&self) -> sc_cli::Result<Vec<sc_service::config::IpNetwork>> {
+		Ok(self.base.rpc_params.rpc_rate_limit_whitelisted_ips.clone())
+	}
+
+	fn rpc_rate_limit_trust_proxy_headers(&self) -> sc_cli::Result<bool> {
+		Ok(self.base.rpc_params.rpc_rate_limit_trust_proxy_headers)
 	}
 
 	fn rpc_max_request_size(&self) -> sc_cli::Result<u32> {

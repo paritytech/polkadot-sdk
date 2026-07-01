@@ -53,7 +53,7 @@ use sp_core::{
 use sp_crypto_hashing::blake2_256;
 use sp_inherents::InherentData;
 use sp_runtime::{
-	generic::{self, ExtrinsicFormat, Preamble, EXTRINSIC_FORMAT_VERSION},
+	generic::{self, ExtrinsicFormat, Preamble},
 	traits::{Block as BlockT, IdentifyAccount, Verify},
 	OpaqueExtrinsic,
 };
@@ -95,7 +95,7 @@ pub fn drop_system_cache() {
 			target: "bench-logistics",
 			"Clearing system cache on windows is not supported. Benchmark might totally be wrong.",
 		);
-		return
+		return;
 	}
 
 	std::process::Command::new("sync")
@@ -275,7 +275,7 @@ impl<'a> BlockContentIterator<'a> {
 	fn new(content: BlockContent, keyring: &'a BenchKeyring, client: &Client) -> Self {
 		let genesis_hash = client.chain_info().genesis_hash;
 		let runtime_version = client
-			.runtime_version_at(genesis_hash)
+			.runtime_version_at(genesis_hash, sp_api::CallContext::Offchain)
 			.expect("There should be runtime version at 0");
 
 		BlockContentIterator { iteration: 0, content, keyring, runtime_version, genesis_hash }
@@ -287,7 +287,7 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		if self.content.size.map(|size| size <= self.iteration).unwrap_or(false) {
-			return None
+			return None;
 		}
 
 		let sender = self.keyring.at(self.iteration);
@@ -304,11 +304,12 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 					tx_ext(0, kitchensink_runtime::ExistentialDeposit::get() + 1),
 				),
 				function: match self.content.block_type {
-					BlockType::RandomTransfersKeepAlive =>
+					BlockType::RandomTransfersKeepAlive => {
 						RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
 							dest: sp_runtime::MultiAddress::Id(receiver),
 							value: kitchensink_runtime::ExistentialDeposit::get() + 1,
-						}),
+						})
+					},
 					BlockType::RandomTransfersReaping => {
 						RuntimeCall::Balances(BalancesCall::transfer_allow_death {
 							dest: sp_runtime::MultiAddress::Id(receiver),
@@ -318,8 +319,9 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 								(kitchensink_runtime::ExistentialDeposit::get() - 1),
 						})
 					},
-					BlockType::Noop =>
-						RuntimeCall::System(SystemCall::remark { remark: Vec::new() }),
+					BlockType::Noop => {
+						RuntimeCall::System(SystemCall::remark { remark: Vec::new() })
+					},
 				},
 			},
 			self.runtime_version.spec_version,
@@ -389,6 +391,8 @@ impl BenchDb {
 			state_pruning: Some(PruningMode::ArchiveAll),
 			source: database_type.into_settings(dir.into()),
 			blocks_pruning: sc_client_db::BlocksPruning::KeepAll,
+			pruning_filters: Default::default(),
+			metrics_registry: None,
 		};
 		let task_executor = TaskExecutor::new();
 
@@ -443,7 +447,11 @@ impl BenchDb {
 	}
 
 	/// Iterate over some block content with transaction signed using this database keyring.
-	pub fn block_content(&self, content: BlockContent, client: &Client) -> BlockContentIterator {
+	pub fn block_content(
+		&self,
+		content: BlockContent,
+		client: &Client,
+	) -> BlockContentIterator<'_> {
 		BlockContentIterator::new(content, &self.keyring, client)
 	}
 
@@ -586,26 +594,19 @@ impl BenchKeyring {
 						key.sign(b)
 					}
 				});
-				generic::UncheckedExtrinsic {
-					preamble: Preamble::Signed(
-						sp_runtime::MultiAddress::Id(signed),
-						signature,
-						tx_ext,
-					),
-					function: payload.0,
-				}
+				generic::UncheckedExtrinsic::new_signed(
+					payload.0,
+					sp_runtime::MultiAddress::Id(signed),
+					signature,
+					tx_ext,
+				)
 				.into()
 			},
-			ExtrinsicFormat::Bare => generic::UncheckedExtrinsic {
-				preamble: Preamble::Bare(EXTRINSIC_FORMAT_VERSION),
-				function: xt.function,
-			}
-			.into(),
-			ExtrinsicFormat::General(ext_version, tx_ext) => generic::UncheckedExtrinsic {
-				preamble: sp_runtime::generic::Preamble::General(ext_version, tx_ext),
-				function: xt.function,
-			}
-			.into(),
+			ExtrinsicFormat::Bare => generic::UncheckedExtrinsic::new_bare(xt.function).into(),
+			ExtrinsicFormat::General(tx_ext) => {
+				generic::UncheckedExtrinsic::from_parts(xt.function, Preamble::General(tx_ext))
+					.into()
+			},
 		}
 	}
 

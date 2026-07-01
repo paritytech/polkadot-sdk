@@ -11,17 +11,14 @@ description = "Exposes all the host functions that a contract can import."
 [lints]
 workspace = true
 
-[dependencies]
-bitflags = { workspace = true }
-codec = { features = [
-	"derive",
-	"max-encoded-len",
-], optional = true, workspace = true }
-paste = { workspace = true }
-scale-info = { features = ["derive"], optional = true, workspace = true }
-
 [package.metadata.docs.rs]
 targets = ["wasm32-unknown-unknown"]
+
+[dependencies]
+bitflags = { workspace = true }
+codec = { features = ["derive", "max-encoded-len"], optional = true, workspace = true }
+paste = { workspace = true }
+scale-info = { features = ["derive"], optional = true, workspace = true }
 
 [features]
 default = ["scale"]

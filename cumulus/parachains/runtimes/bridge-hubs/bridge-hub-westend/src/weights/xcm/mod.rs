@@ -45,8 +45,9 @@ impl WeighAssets for AssetFilter {
 					WildFungibility::Fungible => weight,
 					// Magic number 2 has to do with the fact that we could have up to 2 times
 					// MaxAssetsIntoHolding in the worst-case scenario.
-					WildFungibility::NonFungible =>
-						weight.saturating_mul((MaxAssetsIntoHolding::get() * 2) as u64),
+					WildFungibility::NonFungible => {
+						weight.saturating_mul((MaxAssetsIntoHolding::get() * 2) as u64)
+					},
 				},
 				AllCounted(count) => weight.saturating_mul(MAX_ASSETS.min(*count as u64)),
 				AllOfCounted { count, .. } => weight.saturating_mul(MAX_ASSETS.min(*count as u64)),
@@ -142,7 +143,7 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubWestendXcmWeight<Call> {
 		_dest: &Location,
 		remote_fees: &Option<AssetTransferFilter>,
 		_preserve_origin: &bool,
-		assets: &Vec<AssetTransferFilter>,
+		assets: &BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
 		_xcm: &Xcm<()>,
 	) -> Weight {
 		let mut weight = if let Some(remote_fees) = remote_fees {
@@ -264,8 +265,7 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubWestendXcmWeight<Call> {
 		XcmGeneric::<Runtime>::clear_topic()
 	}
 	fn alias_origin(_: &Location) -> Weight {
-		// XCM Executor does not currently support alias origin operations
-		Weight::MAX
+		XcmGeneric::<Runtime>::alias_origin()
 	}
 	fn unpaid_execution(_: &WeightLimit, _: &Option<Location>) -> Weight {
 		XcmGeneric::<Runtime>::unpaid_execution()

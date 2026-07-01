@@ -16,7 +16,7 @@
 // limitations under the License.
 //! Ethereum Typed Transaction types
 use super::Byte;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use paste::paste;
 use rlp::Decodable;
 use scale_info::TypeInfo;
@@ -27,7 +27,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 macro_rules! transaction_type {
 	($name:ident, $value:literal) => {
 		#[doc = concat!("Transaction type identifier: ", $value)]
-		#[derive(Clone, Default, Debug, Eq, PartialEq)]
+		#[derive(Clone, Default, Debug, Eq, PartialEq, DecodeWithMemTracking)]
 		pub struct $name;
 
 		// upper case const name
@@ -49,11 +49,7 @@ macro_rules! transaction_type {
 
 			/// Try to convert from Byte
 			pub fn try_from_byte(byte: Byte) -> Result<Self, Byte> {
-				if byte.0 == $value {
-					Ok(Self {})
-				} else {
-					Err(byte)
-				}
+				if byte.0 == $value { Ok(Self {}) } else { Err(byte) }
 			}
 		}
 
@@ -118,6 +114,7 @@ transaction_type!(TypeLegacy, 0);
 transaction_type!(TypeEip2930, 1);
 transaction_type!(TypeEip1559, 2);
 transaction_type!(TypeEip4844, 3);
+transaction_type!(TypeEip7702, 4);
 
 #[test]
 fn transaction_type() {

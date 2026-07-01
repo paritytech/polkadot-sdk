@@ -15,8 +15,8 @@
 // limitations under the License.
 
 pub(crate) mod imports {
-	pub use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector};
-	pub use parachains_common::{AccountId, Balance, Nonce};
+	pub use cumulus_primitives_core::{ParaId, RelayProofRequest};
+	pub use parachains_common_types::{AccountId, Balance, Nonce};
 	pub use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 	pub use sp_runtime::{
 		traits::Block as BlockT,
@@ -34,7 +34,7 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 
-				fn execute_block(_: $block) {
+				fn execute_block(_: <$block as BlockT>::LazyBlock) {
 					unimplemented!()
 				}
 
@@ -55,6 +55,22 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn metadata_versions() -> Vec<u32> {
+					unimplemented!()
+				}
+			}
+
+			impl cumulus_primitives_core::RelayParentOffsetApi<$block> for $runtime {
+				fn relay_parent_offset() -> u32 {
+					unimplemented!()
+				}
+
+				fn max_claim_queue_offset() -> u8 {
+					unimplemented!()
+				}
+			}
+
+			impl cumulus_primitives_core::SchedulingV3EnabledApi<$block> for $runtime {
+				fn scheduling_v3_enabled() -> bool {
 					unimplemented!()
 				}
 			}
@@ -94,7 +110,7 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn check_inherents(
-					_: $block,
+					_: <$block as BlockT>::LazyBlock,
 					_: sp_inherents::InherentData
 				) -> sp_inherents::CheckInherentsResult {
 					unimplemented!()
@@ -118,7 +134,7 @@ macro_rules! impl_node_runtime_apis {
 			}
 
 			impl sp_session::SessionKeys<$block> for $runtime {
-				fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
+				fn generate_session_keys(_owner: Vec<u8>, _seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
 					unimplemented!()
 				}
 
@@ -127,6 +143,7 @@ macro_rules! impl_node_runtime_apis {
 				) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
 					unimplemented!()
 				}
+
 			}
 
 			impl
@@ -163,8 +180,14 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
-			impl cumulus_primitives_core::GetCoreSelectorApi<$block> for $runtime {
-				fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+			impl cumulus_primitives_core::GetParachainInfo<$block> for $runtime {
+				fn parachain_id() -> ParaId {
+					unimplemented!()
+				}
+			}
+
+			impl cumulus_primitives_core::KeyToIncludeInRelayProof<$block> for $runtime {
+				fn keys_to_prove() -> RelayProofRequest {
 					unimplemented!()
 				}
 			}
@@ -178,7 +201,7 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn execute_block(
-					_: $block,
+					_: <$block as BlockT>::LazyBlock,
 					_: bool,
 					_: bool,
 					_: frame_try_runtime::TryStateSelect,
@@ -206,6 +229,7 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 
+				#[allow(non_local_definitions)]
 				fn dispatch_benchmark(
 					_: frame_benchmarking::BenchmarkConfig
 				) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, String> {
@@ -223,6 +247,30 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+					unimplemented!()
+				}
+			}
+
+			impl cumulus_primitives_core::TargetBlockRate<$block> for $runtime {
+				fn target_block_rate() -> u32 {
+					unimplemented!()
+				}
+			}
+
+			impl sp_transaction_storage_proof::runtime_api::TransactionStorageApi<$block> for $runtime {
+				fn retention_period() -> sp_runtime::traits::NumberFor<$block> {
+					unimplemented!()
+				}
+
+				fn indexed_transactions(
+					_block: sp_runtime::traits::NumberFor<$block>,
+				) -> Vec<sp_transaction_storage_proof::IndexedTransactionInfo> {
+					unimplemented!()
+				}
+			}
+
+			impl sp_authority_discovery::AuthorityDiscoveryApi<$block> for $runtime {
+				fn authorities() -> Vec<sp_authority_discovery::AuthorityId> {
 					unimplemented!()
 				}
 			}

@@ -17,11 +17,11 @@
 //! Code that allows `NamedReservableCurrency` to be used as a `StakeAndSlash`
 //! mechanism of the relayers pallet.
 
-use bp_relayers::{ExplicitOrAccountParams, PayRewardFromAccount, StakeAndSlash};
-use codec::{Codec, Decode, Encode};
+use bp_relayers::StakeAndSlash;
+use codec::Codec;
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::traits::{tokens::BalanceStatus, NamedReservableCurrency};
 use sp_runtime::{traits::Get, DispatchError, DispatchResult};
-use sp_std::{fmt::Debug, marker::PhantomData};
 
 /// `StakeAndSlash` that works with `NamedReservableCurrency` and uses named
 /// reservations.
@@ -53,20 +53,15 @@ where
 		Currency::unreserve_named(&ReserveId::get(), relayer, amount)
 	}
 
-	fn repatriate_reserved<LaneId: Decode + Encode>(
+	fn repatriate_reserved(
 		relayer: &AccountId,
-		beneficiary: ExplicitOrAccountParams<AccountId, LaneId>,
+		beneficiary: &AccountId,
 		amount: Currency::Balance,
 	) -> Result<Currency::Balance, DispatchError> {
-		let beneficiary_account = match beneficiary {
-			ExplicitOrAccountParams::Explicit(account) => account,
-			ExplicitOrAccountParams::Params(params) =>
-				PayRewardFromAccount::<(), AccountId, LaneId>::rewards_account(params),
-		};
 		Currency::repatriate_reserved_named(
 			&ReserveId::get(),
 			relayer,
-			&beneficiary_account,
+			&beneficiary,
 			amount,
 			BalanceStatus::Free,
 		)
@@ -77,8 +72,10 @@ where
 mod tests {
 	use super::*;
 	use crate::mock::*;
+	use bp_relayers::ExplicitOrAccountParams;
 
 	use frame_support::traits::fungible::Mutate;
+	use sp_runtime::traits::IdentifyAccount;
 
 	fn test_stake() -> ThisChainBalance {
 		Stake::get()
@@ -139,7 +136,7 @@ mod tests {
 			assert_eq!(
 				TestStakeAndSlash::repatriate_reserved(
 					&1,
-					ExplicitOrAccountParams::Params(beneficiary),
+					&(ExplicitOrAccountParams::Params(beneficiary).into_account()),
 					test_stake()
 				),
 				Ok(test_stake())
@@ -155,7 +152,7 @@ mod tests {
 			assert_eq!(
 				TestStakeAndSlash::repatriate_reserved(
 					&2,
-					ExplicitOrAccountParams::Params(beneficiary),
+					&(ExplicitOrAccountParams::Params(beneficiary).into_account()),
 					test_stake()
 				),
 				Ok(test_stake() - test_stake() / 3)
@@ -171,7 +168,7 @@ mod tests {
 			assert_eq!(
 				TestStakeAndSlash::repatriate_reserved(
 					&3,
-					ExplicitOrAccountParams::Params(beneficiary),
+					&(ExplicitOrAccountParams::Params(beneficiary).into_account()),
 					test_stake()
 				),
 				Ok(0)
@@ -193,7 +190,7 @@ mod tests {
 			TestStakeAndSlash::reserve(&3, test_stake()).unwrap();
 			assert!(TestStakeAndSlash::repatriate_reserved(
 				&3,
-				ExplicitOrAccountParams::Params(beneficiary),
+				&(ExplicitOrAccountParams::Params(beneficiary).into_account()),
 				test_stake()
 			)
 			.is_err());

@@ -1,0 +1,8 @@
+title: Remove whitespaces added by macros due to token re-parsing
+doc:
+- audience: Runtime Dev
+  description: |-
+    Normalize result of `stringify` in scenarios when used inside nested macros to stringify token streams for benchmarking framework
+crates:
+- name: frame-benchmarking
+  bump: patch

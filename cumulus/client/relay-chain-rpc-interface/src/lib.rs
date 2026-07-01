@@ -19,14 +19,15 @@ use async_trait::async_trait;
 use core::time::Duration;
 use cumulus_primitives_core::{
 	relay_chain::{
-		vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash as RelayHash,
-		Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
-		ValidationCodeHash, ValidatorId,
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
+		SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{
-	BlockNumber, CoreState, PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
+	BlockNumber, ChildInfo, CoreIndex, CoreState, PHeader, RelayChainError, RelayChainInterface,
+	RelayChainResult,
 };
 use futures::{FutureExt, Stream, StreamExt};
 use polkadot_overseer::Handle;
@@ -37,19 +38,14 @@ use sp_storage::StorageKey;
 use sp_version::RuntimeVersion;
 use std::{collections::btree_map::BTreeMap, pin::Pin};
 
-use cumulus_primitives_core::relay_chain::BlockId;
+use cumulus_primitives_core::relay_chain::{vstaging::RelayParentInfo, BlockId, NodeFeatures};
 pub use url::Url;
 
-mod light_client_worker;
 mod metrics;
 mod reconnecting_ws_client;
 mod rpc_client;
-mod tokio_platform;
 
-pub use rpc_client::{
-	create_client_and_start_light_client_worker, create_client_and_start_worker,
-	RelayChainRpcClient,
-};
+pub use rpc_client::{create_client_and_start_worker, RelayChainRpcClient};
 
 const TIMEOUT_IN_SECONDS: u64 = 6;
 
@@ -94,7 +90,7 @@ impl RelayChainInterface for RelayChainRpcInterface {
 				if let Some(hash) = self.rpc_client.chain_get_block_hash(Some(num)).await? {
 					hash
 				} else {
-					return Ok(None)
+					return Ok(None);
 				}
 			},
 		};
@@ -215,6 +211,24 @@ impl RelayChainInterface for RelayChainRpcInterface {
 			})
 	}
 
+	async fn prove_child_read(
+		&self,
+		relay_parent: RelayHash,
+		child_info: &ChildInfo,
+		child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof> {
+		let child_storage_key = child_info.prefixed_storage_key();
+		let storage_keys: Vec<StorageKey> =
+			child_keys.iter().map(|key| StorageKey(key.clone())).collect();
+
+		self.rpc_client
+			.state_get_child_read_proof(child_storage_key, storage_keys, Some(relay_parent))
+			.await
+			.map(|read_proof| {
+				StorageProof::new(read_proof.proof.into_iter().map(|bytes| bytes.to_vec()))
+			})
+	}
+
 	/// Wait for a given relay chain block
 	///
 	/// The hash of the block to wait for is passed. We wait for the block to arrive or return after
@@ -229,7 +243,7 @@ impl RelayChainInterface for RelayChainRpcInterface {
 		let mut head_stream = self.rpc_client.get_imported_heads_stream()?;
 
 		if self.rpc_client.chain_get_header(Some(wait_for_hash)).await?.is_some() {
-			return Ok(())
+			return Ok(());
 		}
 
 		let mut timeout = futures_timer::Delay::new(Duration::from_secs(TIMEOUT_IN_SECONDS)).fuse();
@@ -278,13 +292,37 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	async fn claim_queue(
 		&self,
 		relay_parent: RelayHash,
-	) -> RelayChainResult<
-		BTreeMap<cumulus_relay_chain_interface::CoreIndex, std::collections::VecDeque<ParaId>>,
-	> {
+	) -> RelayChainResult<BTreeMap<CoreIndex, std::collections::VecDeque<ParaId>>> {
 		self.rpc_client.parachain_host_claim_queue(relay_parent).await
 	}
 
 	async fn scheduling_lookahead(&self, relay_parent: RelayHash) -> RelayChainResult<u32> {
 		self.rpc_client.parachain_host_scheduling_lookahead(relay_parent).await
+	}
+
+	async fn candidate_events(
+		&self,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<Vec<CandidateEvent>> {
+		self.rpc_client.parachain_host_candidate_events(relay_parent).await
+	}
+
+	async fn max_relay_parent_session_age(&self, at: RelayHash) -> RelayChainResult<u32> {
+		self.rpc_client.parachain_host_max_relay_parent_session_age(at).await
+	}
+
+	async fn node_features(&self, at: RelayHash) -> RelayChainResult<NodeFeatures> {
+		self.rpc_client.parachain_host_node_features(at).await
+	}
+
+	async fn ancestor_relay_parent_info(
+		&self,
+		at: RelayHash,
+		session_index: SessionIndex,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<Option<RelayParentInfo<RelayHash, BlockNumber>>> {
+		self.rpc_client
+			.parachain_host_ancestor_relay_parent_info(at, session_index, relay_parent)
+			.await
 	}
 }

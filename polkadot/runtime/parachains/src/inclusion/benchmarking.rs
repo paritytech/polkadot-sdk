@@ -18,8 +18,8 @@ use bitvec::{bitvec, prelude::Lsb0};
 use frame_benchmarking::v2::*;
 use pallet_message_queue as mq;
 use polkadot_primitives::{
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateCommitments,
-	HrmpChannelId, OutboundHrmpMessage, SessionIndex,
+	CandidateCommitments, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, HrmpChannelId,
+	OutboundHrmpMessage, SessionIndex,
 };
 
 use super::*;

@@ -1,0 +1,11 @@
+title: "paras pallet: don't assign core if para_kind is ParaThread"
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Only force assign core to genesis para if declared as parachain.
+    For parathread, proceed only with registering the para.
+
+crates:
+- name: polkadot-runtime-parachains
+  bump: minor

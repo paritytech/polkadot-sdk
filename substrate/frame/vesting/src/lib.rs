@@ -59,7 +59,7 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::DispatchResult,
@@ -78,7 +78,7 @@ use sp_runtime::{
 		AtLeast32BitUnsigned, BlockNumberProvider, Bounded, Convert, MaybeSerializeDeserialize,
 		One, Saturating, StaticLookup, Zero,
 	},
-	DispatchError, RuntimeDebug,
+	DispatchError,
 };
 
 pub use pallet::*;
@@ -95,8 +95,8 @@ const VESTING_ID: LockIdentifier = *b"vesting ";
 
 // A value placed in storage that represents the current version of the Vesting storage.
 // This value is used by `on_runtime_upgrade` to determine whether we run storage migration logic.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
-enum Releases {
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, MaxEncodedLen, TypeInfo)]
+pub enum Releases {
 	V0,
 	V1,
 }
@@ -160,6 +160,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency trait.
@@ -179,7 +180,28 @@ pub mod pallet {
 		/// the unvested amount.
 		type UnvestedFundsAllowedWithdrawReasons: Get<WithdrawReasons>;
 
-		/// Provider for the block number.
+		/// Query the current block number.
+		///
+		/// Must return monotonically increasing values when called from consecutive blocks.
+		/// Can be configured to return either:
+		/// - the local block number of the runtime via `frame_system::Pallet`
+		/// - a remote block number, eg from the relay chain through `RelaychainDataProvider`
+		/// - an arbitrary value through a custom implementation of the trait
+		///
+		/// There is currently no migration provided to "hot-swap" block number providers and it may
+		/// result in undefined behavior when doing so. Parachains are therefore best off setting
+		/// this to their local block number provider if they have the pallet already deployed.
+		///
+		/// Suggested values:
+		/// - Solo- and Relay-chains: `frame_system::Pallet`
+		/// - Parachains that may produce blocks sparingly or only when needed (on-demand):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: `RelaychainDataProvider`
+		/// - Parachains with a reliably block production rate (PLO or bulk-coretime):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: no strong recommendation. Both local and remote
+		///     providers can be used. Relay provider can be a bit better in cases where the
+		///     parachain is lagging its block production to avoid clock skew.
 		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 
 		/// Maximum number of vesting schedules an account may have at a given moment.
@@ -197,7 +219,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
-			assert!(T::MAX_VESTING_SCHEDULES > 0, "`MaxVestingSchedules` must ge greater than 0");
+			assert!(T::MAX_VESTING_SCHEDULES > 0, "`MaxVestingSchedules` must be greater than 0");
 		}
 	}
 
@@ -214,7 +236,7 @@ pub mod pallet {
 	///
 	/// New networks start with latest version, as determined by the genesis build.
 	#[pallet::storage]
-	pub(crate) type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
+	pub type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -264,6 +286,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// A vesting schedule has been created.
+		VestingCreated { account: T::AccountId, schedule_index: u32 },
 		/// The amount vested has been updated. This could indicate a change in funds available.
 		/// The balance given is the amount which is left unvested (and thus locked).
 		VestingUpdated { account: T::AccountId, unvested: BalanceOf<T> },
@@ -418,7 +442,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			if schedule1_index == schedule2_index {
-				return Ok(())
+				return Ok(());
 			};
 			let schedule1_index = schedule1_index as usize;
 			let schedule2_index = schedule2_index as usize;
@@ -534,7 +558,7 @@ impl<T: Config> Pallet<T> {
 		// Validate user inputs.
 		ensure!(schedule.locked() >= T::MinVestedTransfer::get(), Error::<T>::AmountLow);
 		if !schedule.is_valid() {
-			return Err(Error::<T>::InvalidScheduleParams.into())
+			return Err(Error::<T>::InvalidScheduleParams.into());
 		};
 
 		// Check we can add to this account prior to any storage writes.
@@ -685,6 +709,42 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+impl<T: Config> frame_support::traits::tokens::VestedPayout<T::AccountId, BalanceOf<T>>
+	for Pallet<T>
+where
+	BalanceOf<T>: MaybeSerializeDeserialize + Debug,
+{
+	type BlockNumber = BlockNumberFor<T>;
+
+	fn vested_transfer(
+		source: &T::AccountId,
+		dest: &T::AccountId,
+		amount: BalanceOf<T>,
+		duration: BlockNumberFor<T>,
+		start_at: Option<BlockNumberFor<T>>,
+	) -> DispatchResult {
+		if amount.is_zero() {
+			return Ok(());
+		}
+
+		if duration.is_zero() {
+			// Zero duration means liquid transfer with no vesting schedule.
+			T::Currency::transfer(source, dest, amount, ExistenceRequirement::AllowDeath)
+		} else {
+			let starting_block =
+				start_at.unwrap_or_else(|| T::BlockNumberProvider::current_block_number());
+			let duration_as_balance = T::BlockNumberToBalance::convert(duration);
+			// Round up so that vesting completes within `duration` blocks, not longer.
+			let per_block =
+				((amount.saturating_add(duration_as_balance).saturating_sub(One::one())) /
+					duration_as_balance)
+					.max(One::one());
+			let schedule = VestingInfo::new(amount, per_block, starting_block);
+			Self::do_vested_transfer(source, dest, schedule)
+		}
+	}
+}
+
 impl<T: Config> VestingSchedule<T::AccountId> for Pallet<T>
 where
 	BalanceOf<T>: MaybeSerializeDeserialize + Debug,
@@ -714,7 +774,7 @@ where
 	/// reduction of the lock over time as it diminishes, the account owner must use `vest` or
 	/// `vest_other`.
 	///
-	/// Is a no-op if the amount to be vested is zero.
+	/// It is a no-op if the amount to be vested is zero.
 	///
 	/// NOTE: This doesn't alter the free balance of the account.
 	fn add_vesting_schedule(
@@ -724,13 +784,13 @@ where
 		starting_block: BlockNumberFor<T>,
 	) -> DispatchResult {
 		if locked.is_zero() {
-			return Ok(())
+			return Ok(());
 		}
 
 		let vesting_schedule = VestingInfo::new(locked, per_block, starting_block);
 		// Check for `per_block` or `locked` of 0.
 		if !vesting_schedule.is_valid() {
-			return Err(Error::<T>::InvalidScheduleParams.into())
+			return Err(Error::<T>::InvalidScheduleParams.into());
 		};
 
 		let mut schedules = Vesting::<T>::get(who).unwrap_or_default();
@@ -738,6 +798,13 @@ where
 		// NOTE: we must push the new schedule so that `exec_action`
 		// will give the correct new locked amount.
 		ensure!(schedules.try_push(vesting_schedule).is_ok(), Error::<T>::AtMaxVestingSchedules);
+
+		debug_assert!(schedules.len() > 0, "schedules cannot be empty after insertion");
+		let schedule_index = schedules.len() - 1;
+		Self::deposit_event(Event::<T>::VestingCreated {
+			account: who.clone(),
+			schedule_index: schedule_index as u32,
+		});
 
 		let (schedules, locked_now) =
 			Self::exec_action(schedules.to_vec(), VestingAction::Passive)?;
@@ -758,7 +825,7 @@ where
 	) -> DispatchResult {
 		// Check for `per_block` or `locked` of 0.
 		if !VestingInfo::new(locked, per_block, starting_block).is_valid() {
-			return Err(Error::<T>::InvalidScheduleParams.into())
+			return Err(Error::<T>::InvalidScheduleParams.into());
 		}
 
 		ensure!(

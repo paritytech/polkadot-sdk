@@ -118,10 +118,11 @@ pub fn executor_call(
 		heap_pages: heap_pages.and_then(|hp| Decode::decode(&mut &hp[..]).ok()),
 	};
 	sp_tracing::try_init_simple();
-	executor().call(&mut t, &runtime_code, method, data, CallContext::Onchain)
+	executor().call(&mut t, &runtime_code, method, data, CallContext::Onchain { import: false })
 }
 
 pub fn new_test_ext(code: &[u8]) -> TestExternalities<BlakeTwo256> {
+	sp_tracing::try_init_simple();
 	let ext = TestExternalities::new_with_code(
 		code,
 		node_testing::genesis::config().build_storage().unwrap(),

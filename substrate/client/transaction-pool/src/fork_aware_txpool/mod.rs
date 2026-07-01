@@ -73,6 +73,11 @@
 //! ```
 //! Please note that views are only created for the notified blocks.
 //!
+//! The pool can be notified either about every imported block (all forks), or only about the best
+//! blocks. In the former case views are created for all forks, keeping the pool ready to author on
+//! or switch to any fork without a cold-start re-validation; in the latter only the best chain is
+//! tracked.
+//!
 //!
 //! ### View store.
 //! [`ViewStore`] is the helper structure that provides means to perform some actions like
@@ -173,12 +178,14 @@
 //!
 //! ### Maintain
 //! The transaction pool exposes the [task][`notification_future`] that listens to the
-//! finalized and best block streams and executes the [`maintain`] procedure.
+//! finalized and block-import streams and executes the [`maintain`] procedure. The block-import
+//! stream may carry either every imported block (all forks) or best blocks only, depending on the
+//! pool configuration.
 //!
 //! The [`maintain`] is the main procedure of the transaction pool. It handles incoming
 //! [`ChainEvent`]s, as described in the following two sub-sections.
 //!
-//! #### Handling the new (best) block
+//! #### Handling the new block (best or non-best fork)
 //! If the new block actually needs to be handled, the following steps are
 //! executed:
 //! - [find][find_best_view] the best view and clone it to [create a new
@@ -209,14 +216,16 @@
 //! ### Light maintain
 //! The [maintain](#maintain) procedure can sometimes be quite heavy, and it may not be accomplished
 //! within the time window expected by the block builder. On top of that block builder may want to
-//! build few blocks in the raw, not giving the pool enough time to accomplish possible ongoing
+//! build few blocks in the row, not giving the pool enough time to accomplish possible ongoing
 //! maintain process.
 //!
 //! To address this, there is a [light version][`ready_at_light`] of the maintain procedure. It
-//! [finds the best view][find_best_view], clones it and prunes all the transactions that were
-//! included in enacted part of [tree route][`TreeRoute`] from the base view to the block at which a
-//! ready iterator was requested. No new [transaction validations][runtime_api::validate] are
-//! required to accomplish it.
+//! [finds the first descendent view][`find_view_descendent_up_to_number`] up to the recent
+//! finalized block, clones it and prunes all the transactions that were included in enacted part of
+//! the traversed route, from the base view to the block at which a ready iterator was requested. No
+//! new [transaction validations][runtime_api::validate] are required to accomplish it. If no view
+//! is found, it will return the ready transactions of the most recent view processed by the
+//! transaction pool.
 //!
 //! ### Providing ready transactions: `ready_at`
 //! The asynchronous [`ready_at`] function resolves to the [ready transactions
@@ -314,6 +323,7 @@
 //! [`ViewStore`]: crate::fork_aware_txpool::view_store::ViewStore
 //! [`finish_background_revalidations`]: crate::fork_aware_txpool::view_store::ViewStore::finish_background_revalidations
 //! [find_best_view]: crate::fork_aware_txpool::view_store::ViewStore::find_best_view
+//! [`find_view_descendent_up_to_number`]: crate::fork_aware_txpool::view_store::ViewStore::find_view_descendent_up_to_number
 //! [`active_views`]: crate::fork_aware_txpool::view_store::ViewStore::active_views
 //! [`inactive_views`]: crate::fork_aware_txpool::view_store::ViewStore::inactive_views
 //! [`TxMemPool`]: crate::fork_aware_txpool::tx_mem_pool::TxMemPool
@@ -323,7 +333,7 @@
 //! [`MultiViewListener`]: crate::fork_aware_txpool::multi_view_listener::MultiViewListener
 //! [`Pool`]: crate::graph::Pool
 //! [`Watcher`]: crate::graph::watcher::Watcher
-//! [`AggregatedStream`]: crate::graph::AggregatedStream
+//! [`AggregatedStream`]: crate::fork_aware_txpool::view::AggregatedStream
 //! [`Options`]: crate::graph::Options
 //! [`vp::import_notification_stream`]: ../graph/validated_pool/struct.ValidatedPool.html#method.import_notification_stream
 //! [`vp::enforce_limits`]: ../graph/validated_pool/struct.ValidatedPool.html#method.enforce_limits

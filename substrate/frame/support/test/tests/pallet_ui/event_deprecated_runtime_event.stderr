@@ -1,0 +1,33 @@
+error: unused import: `event`
+  --> tests/pallet_ui/event_deprecated_runtime_event.rs:38:12
+   |
+38 |     #[pallet::event]
+   |               ^^^^^
+   |
+   = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error: use of deprecated constant `pallet::RuntimeEvent::_w`:
+               It is deprecated to have `RuntimeEvent` associated type in the pallet config.
+               Please instead remove it as it is redundant since associated bound gets appended automatically:
+
+               pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> { }.
+
+               For more info see:
+                   <https://github.com/paritytech/polkadot-sdk/pull/7229>
+  --> tests/pallet_ui/event_deprecated_runtime_event.rs:26:8
+   |
+26 |         type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
+   |              ^^^^^^^^^^^^
+   |
+   = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`
+
+error: associated function `error_metadata` is never used
+  --> tests/pallet_ui/event_deprecated_runtime_event.rs:29:12
+   |
+29 |     #[pallet::pallet]
+   |               ^^^^^^ associated function in this implementation
+   |
+   = note: `-D dead-code` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(dead_code)]`

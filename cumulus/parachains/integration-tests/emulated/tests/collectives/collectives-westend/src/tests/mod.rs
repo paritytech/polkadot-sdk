@@ -13,7 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod fellowship;
-mod fellowship_salary;
+mod aliases;
+mod claim_assets;
+mod collectives_salary;
 mod fellowship_treasury;
 mod teleport;

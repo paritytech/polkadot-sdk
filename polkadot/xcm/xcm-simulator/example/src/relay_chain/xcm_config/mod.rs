@@ -34,6 +34,7 @@ pub struct XcmConfig;
 impl Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = ();
 	type AssetTransactor = asset_transactor::AssetTransactor;
 	type OriginConverter = origin_converter::OriginConverter;
 	type IsReserve = ();
@@ -46,7 +47,6 @@ impl Config for XcmConfig {
 	type AssetTrap = ();
 	type AssetLocker = XcmPallet;
 	type AssetExchanger = ();
-	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type FeeManager = ();

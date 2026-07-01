@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: XCM precompile - don't support older XCM versions (3 and 4)
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The latest XCM version is 5.
+      A lot of parachains are still running V3 or V4 which is why we haven't removed them, but the XCM precompile is new and should only have to deal with versions 5 and onwards.
+      No need to keep dragging 3 and 4 in contracts.
+      This is the default behavior, there's no need to configure anything in pallet-xcm.
+  - audience: Runtime User
+    description: |
+      The XCM precompile will only support XCM from version 5 (current) onwards.
+      Versions 3 and 4 won't be supported.
+
+crates:
+  - name: pallet-xcm
+    bump: patch

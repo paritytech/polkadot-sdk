@@ -1,0 +1,8 @@
+title: Replace `log` with `tracing` on `pallet-bridge-grandpa`
+doc:
+- audience: Runtime Dev
+  description: This PR replaces `log` with `tracing` instrumentation on `pallet-bridge-grandpa`
+    by providing structured logging.
+crates:
+- name: pallet-bridge-grandpa
+  bump: minor

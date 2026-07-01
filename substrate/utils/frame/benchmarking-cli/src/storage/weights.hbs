@@ -22,7 +22,11 @@ pub mod constants {
 	use sp_weights::RuntimeDbWeight;
 
 	parameter_types! {
-		{{#if (eq db_name "ParityDb")}}
+		{{#if (eq db_name "InMemoryDb")}}
+		/// `InMemoryDb` weights are measured in the context of the validation functions.
+		/// To avoid submitting overweight blocks to the relay chain this is the configuration
+		/// parachains should use.
+		{{else if (eq db_name "ParityDb")}}
 		/// `ParityDB` can be enabled with a feature flag, but is still experimental. These weights
 		/// are available for brave runtime engineers who may want to try this out as default.
 		{{else}}

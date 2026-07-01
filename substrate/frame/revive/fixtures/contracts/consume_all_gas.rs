@@ -1,0 +1,42 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#![no_std]
+#![no_main]
+include!("../panic_handler.rs");
+
+use uapi::{u64_output, HostFn, HostFnImpl as api, ReturnFlags};
+
+fn decide_my_fate() -> ! {
+	match u64_output!(api::value_transferred,) {
+		0 => api::consume_all_gas(),
+		1 => api::return_value(ReturnFlags::REVERT, &[]),
+		_ => api::return_value(ReturnFlags::empty(), &[]),
+	}
+}
+
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn deploy() {
+	decide_my_fate();
+}
+
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn call() {
+	decide_my_fate();
+}

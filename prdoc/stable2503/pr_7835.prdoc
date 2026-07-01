@@ -1,0 +1,37 @@
+title: 'XCM: Some weight fixes for `InitiateTransfer`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Added some base weight for `InitiateTransfer` no matter what.
+    - Short circuit on `AllCounted(0)` to not have to go through all fungibles.
+crates:
+- name: staging-xcm
+  bump: patch
+- name: staging-xcm-executor
+  bump: patch
+- name: xcm-procedural
+  bump: patch
+- name: pallet-xcm-benchmarks
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-rococo-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch

@@ -18,7 +18,7 @@
 //!
 //! Configuration can change only at session boundaries and is buffered until then.
 
-use crate::{inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND, shared};
+use crate::shared;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, DefaultNoBound};
@@ -28,8 +28,8 @@ use polkadot_parachain_primitives::primitives::{
 };
 use polkadot_primitives::{
 	ApprovalVotingParams, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
-	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
-	ON_DEMAND_MAX_QUEUE_MAX_SIZE,
+	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_COALESCE_APPROVALS, MAX_CODE_SIZE,
+	MAX_HEAD_DATA_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill, Percent};
 
@@ -42,7 +42,7 @@ mod benchmarking;
 pub mod migration;
 
 pub use pallet::*;
-use polkadot_primitives::SchedulerParams;
+use polkadot_primitives::vstaging::SchedulerParams;
 
 const LOG_TARGET: &str = "runtime::configuration";
 
@@ -50,13 +50,16 @@ const LOG_TARGET: &str = "runtime::configuration";
 // `polkadot_node_network_protocol::POV_RESPONSE_SIZE`.
 const POV_SIZE_HARD_LIMIT: u32 = 16 * 1024 * 1024;
 
+// The maximum compression ratio that we use to compute the maximum uncompressed code size.
+pub(crate) const MAX_VALIDATION_CODE_COMPRESSION_RATIO: u32 = 10;
+
 /// All configuration of the runtime with respect to paras.
 #[derive(
 	Clone,
 	Encode,
 	Decode,
 	PartialEq,
-	sp_core::RuntimeDebug,
+	Debug,
 	scale_info::TypeInfo,
 	serde::Serialize,
 	serde::Deserialize,
@@ -69,9 +72,7 @@ pub struct HostConfiguration<BlockNumber> {
 	// A parachain requested this struct can only depend on the subset of this struct.
 	// Specifically, only a first few fields can be depended upon. These fields cannot be changed
 	// without corresponding migration of the parachains.
-	/**
-	 * The parameters that are required for the parachains.
-	 */
+	/// The parameters that are required for the parachains.
 
 	/// The maximum validation code size, in bytes.
 	pub max_code_size: u32,
@@ -137,9 +138,7 @@ pub struct HostConfiguration<BlockNumber> {
 	/// Asynchronous backing parameters.
 	pub async_backing_params: AsyncBackingParams,
 
-	/**
-	 * The parameters that are not essential, but still may be of interest for parachains.
-	 */
+	/// The parameters that are not essential, but still may be of interest for parachains.
 
 	/// The maximum POV block size, in bytes.
 	pub max_pov_size: u32,
@@ -169,9 +168,7 @@ pub struct HostConfiguration<BlockNumber> {
 	/// The executor environment parameters
 	pub executor_params: ExecutorParams,
 
-	/**
-	 * Parameters that will unlikely be needed by parachains.
-	 */
+	/// Parameters that will unlikely be needed by parachains.
 
 	/// How long to keep code on-chain, in blocks. This should be sufficiently long that disputes
 	/// have concluded.
@@ -231,6 +228,8 @@ pub struct HostConfiguration<BlockNumber> {
 	pub approval_voting_params: ApprovalVotingParams,
 	/// Scheduler parameters
 	pub scheduler_params: SchedulerParams<BlockNumber>,
+	/// The maximum session age of a relay parent that a parachain block can build upon.
+	pub max_relay_parent_session_age: u32,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -274,6 +273,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			node_features: NodeFeatures::EMPTY,
 			scheduler_params: Default::default(),
+			max_relay_parent_session_age: 0,
 		};
 
 		#[cfg(feature = "runtime-benchmarks")]
@@ -316,6 +316,9 @@ pub enum InconsistentError<BlockNumber> {
 	MaxHeadDataSizeExceedHardLimit { max_head_data_size: u32 },
 	/// `max_pov_size` exceeds the hard limit of `POV_SIZE_HARD_LIMIT`.
 	MaxPovSizeExceedHardLimit { max_pov_size: u32 },
+	/// `approval_voting_params.max_approval_coalesce_count` exceeds the hard limit of
+	/// `MAX_COALESCE_APPROVALS`.
+	MaxApprovalCoalesceCountExceedHardLimit { max_approval_coalesce_count: u32 },
 	/// `minimum_validation_upgrade_delay` is less than `paras_availability_period`.
 	MinimumValidationUpgradeDelayLessThanChainAvailabilityPeriod {
 		minimum_validation_upgrade_delay: BlockNumber,
@@ -323,7 +326,9 @@ pub enum InconsistentError<BlockNumber> {
 	},
 	/// `validation_upgrade_delay` is less than or equal 1.
 	ValidationUpgradeDelayIsTooLow { validation_upgrade_delay: BlockNumber },
-	/// Maximum UMP message size ([`MAX_UPWARD_MESSAGE_SIZE_BOUND`]) exceeded.
+	/// Maximum UMP message size
+	/// ([`MAX_UPWARD_MESSAGE_SIZE_BOUND`](crate::inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND))
+	/// exceeded.
 	MaxUpwardMessageSizeExceeded { max_message_size: u32 },
 	/// Maximum HRMP message num ([`MAX_HORIZONTAL_MESSAGE_NUM`]) exceeded.
 	MaxHorizontalMessageNumExceeded { max_message_num: u32 },
@@ -358,29 +363,37 @@ where
 		use InconsistentError::*;
 
 		if self.scheduler_params.group_rotation_frequency.is_zero() {
-			return Err(ZeroGroupRotationFrequency)
+			return Err(ZeroGroupRotationFrequency);
 		}
 
 		if self.scheduler_params.paras_availability_period.is_zero() {
-			return Err(ZeroParasAvailabilityPeriod)
+			return Err(ZeroParasAvailabilityPeriod);
 		}
 
 		if self.no_show_slots.is_zero() {
-			return Err(ZeroNoShowSlots)
+			return Err(ZeroNoShowSlots);
 		}
 
 		if self.max_code_size > MAX_CODE_SIZE {
-			return Err(MaxCodeSizeExceedHardLimit { max_code_size: self.max_code_size })
+			return Err(MaxCodeSizeExceedHardLimit { max_code_size: self.max_code_size });
 		}
 
 		if self.max_head_data_size > MAX_HEAD_DATA_SIZE {
 			return Err(MaxHeadDataSizeExceedHardLimit {
 				max_head_data_size: self.max_head_data_size,
-			})
+			});
 		}
 
 		if self.max_pov_size > POV_SIZE_HARD_LIMIT {
-			return Err(MaxPovSizeExceedHardLimit { max_pov_size: self.max_pov_size })
+			return Err(MaxPovSizeExceedHardLimit { max_pov_size: self.max_pov_size });
+		}
+
+		if self.approval_voting_params.max_approval_coalesce_count > MAX_COALESCE_APPROVALS {
+			return Err(MaxApprovalCoalesceCountExceedHardLimit {
+				max_approval_coalesce_count: self
+					.approval_voting_params
+					.max_approval_coalesce_count,
+			});
 		}
 
 		if self.minimum_validation_upgrade_delay <= self.scheduler_params.paras_availability_period
@@ -388,60 +401,60 @@ where
 			return Err(MinimumValidationUpgradeDelayLessThanChainAvailabilityPeriod {
 				minimum_validation_upgrade_delay: self.minimum_validation_upgrade_delay.clone(),
 				paras_availability_period: self.scheduler_params.paras_availability_period.clone(),
-			})
+			});
 		}
 
 		if self.validation_upgrade_delay <= 1.into() {
 			return Err(ValidationUpgradeDelayIsTooLow {
 				validation_upgrade_delay: self.validation_upgrade_delay.clone(),
-			})
+			});
 		}
 
 		if self.max_upward_message_size > crate::inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND {
 			return Err(MaxUpwardMessageSizeExceeded {
 				max_message_size: self.max_upward_message_size,
-			})
+			});
 		}
 
 		if self.hrmp_max_message_num_per_candidate > MAX_HORIZONTAL_MESSAGE_NUM {
 			return Err(MaxHorizontalMessageNumExceeded {
 				max_message_num: self.hrmp_max_message_num_per_candidate,
-			})
+			});
 		}
 
 		if self.max_upward_message_num_per_candidate > MAX_UPWARD_MESSAGE_NUM {
 			return Err(MaxUpwardMessageNumExceeded {
 				max_message_num: self.max_upward_message_num_per_candidate,
-			})
+			});
 		}
 
 		if self.hrmp_max_parachain_outbound_channels > crate::hrmp::HRMP_MAX_OUTBOUND_CHANNELS_BOUND
 		{
-			return Err(MaxHrmpOutboundChannelsExceeded)
+			return Err(MaxHrmpOutboundChannelsExceeded);
 		}
 
 		if self.hrmp_max_parachain_inbound_channels > crate::hrmp::HRMP_MAX_INBOUND_CHANNELS_BOUND {
-			return Err(MaxHrmpInboundChannelsExceeded)
+			return Err(MaxHrmpInboundChannelsExceeded);
 		}
 
 		if self.minimum_backing_votes.is_zero() {
-			return Err(ZeroMinimumBackingVotes)
+			return Err(ZeroMinimumBackingVotes);
 		}
 
 		if let Err(inner) = self.executor_params.check_consistency() {
-			return Err(InconsistentExecutorParams { inner })
+			return Err(InconsistentExecutorParams { inner });
 		}
 
 		if self.scheduler_params.lookahead == 0 {
-			return Err(LookaheadZero)
+			return Err(LookaheadZero);
 		}
 
 		if self.scheduler_params.on_demand_queue_max_size > ON_DEMAND_MAX_QUEUE_MAX_SIZE {
-			return Err(OnDemandQueueSizeTooLarge)
+			return Err(OnDemandQueueSizeTooLarge);
 		}
 
 		if self.n_delay_tranches.is_zero() {
-			return Err(ZeroDelayTranches)
+			return Err(ZeroDelayTranches);
 		}
 
 		Ok(())
@@ -522,7 +535,8 @@ pub mod pallet {
 	/// v9-v10: <https://github.com/paritytech/polkadot-sdk/pull/2177>
 	/// v10-11: <https://github.com/paritytech/polkadot-sdk/pull/1191>
 	/// v11-12: <https://github.com/paritytech/polkadot-sdk/pull/3181>
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(12);
+	/// v12-13: added max_relay_parent_session_age to SchedulerParams
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(13);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -873,7 +887,6 @@ pub mod pallet {
 		))]
 		pub fn set_max_upward_queue_size(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(new <= MAX_UPWARD_MESSAGE_SIZE_BOUND, Error::<T>::InvalidNewValue);
 
 			Self::schedule_config_update(|config| {
 				config.max_upward_queue_size = new;
@@ -1241,6 +1254,19 @@ pub mod pallet {
 				config.scheduler_params = new;
 			})
 		}
+
+		/// Set the maximum relay parent session age.
+		#[pallet::call_index(56)]
+		#[pallet::weight((
+			T::WeightInfo::set_config_with_u32(),
+			DispatchClass::Operational,
+		))]
+		pub fn set_max_relay_parent_session_age(origin: OriginFor<T>, new: u32) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::schedule_config_update(|config| {
+				config.max_relay_parent_session_age = new;
+			})
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1298,7 +1324,7 @@ impl<T: Config> Pallet<T> {
 
 		// No pending configuration changes, so we're done.
 		if pending_configs.is_empty() {
-			return SessionChangeOutcome { prev_config, new_config: None }
+			return SessionChangeOutcome { prev_config, new_config: None };
 		}
 
 		let (mut past_and_present, future) = pending_configs
@@ -1344,13 +1370,16 @@ impl<T: Config> Pallet<T> {
 	/// will check if the previous configuration was valid. If it was invalid, we proceed with
 	/// updating the configuration, giving a chance to recover from such a condition.
 	///
-	/// The actual configuration change take place after a couple of sessions have passed. In case
-	/// this function is called more than once in a session, then the pending configuration change
-	/// will be updated and the changes will be applied at once.
-	// NOTE: Explicitly tell rustc not to inline this because otherwise heuristics note the incoming
-	// closure making it's attractive to inline. However, in this case, we will end up with lots of
-	// duplicated code (making this function to show up in the top of heaviest functions) only for
-	// the sake of essentially avoiding an indirect call. Doesn't worth it.
+	/// The actual configuration change takes place after a couple of sessions have passed. In case
+	/// this function is called more than once in the same session, then the pending configuration
+	/// change will be updated.
+	/// In other words, all the configuration changes made in the same session will be folded
+	/// together in the order they were made, and only once the scheduled session is reached will
+	/// the final pending configuration be applied.
+	// NOTE: Explicitly tell rustc not to inline this, because otherwise heuristics note the
+	// incoming closure make it attractive to inline. However, in that case, we will end up with
+	// lots of duplicated code (making this function show up on top of the heaviest functions) only
+	// for the sake of essentially avoiding an indirect call. It is not worth it.
 	#[inline(never)]
 	pub(crate) fn schedule_config_update(
 		updater: impl FnOnce(&mut HostConfiguration<BlockNumberFor<T>>),
@@ -1412,7 +1441,7 @@ impl<T: Config> Pallet<T> {
 					"Configuration change rejected due to invalid configuration: {:?}",
 					e,
 				);
-				return Err(Error::<T>::InvalidNewValue.into())
+				return Err(Error::<T>::InvalidNewValue.into());
 			} else {
 				// The configuration was already broken, so we can as well proceed with the update.
 				// You cannot break something that is already broken.

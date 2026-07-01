@@ -24,7 +24,7 @@ use codec::{Decode, Encode};
 use cumulus_primitives_core::ParaId;
 pub use pallet::*;
 use scale_info::TypeInfo;
-use sp_runtime::{traits::BadOrigin, RuntimeDebug};
+use sp_runtime::traits::BadOrigin;
 use xcm::latest::{ExecuteXcm, Outcome};
 
 #[frame_support::pallet]
@@ -39,6 +39,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
@@ -58,7 +59,9 @@ pub mod pallet {
 	}
 
 	/// Origin for the parachains module.
-	#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug, MaxEncodedLen)]
+	#[derive(
+		PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug, MaxEncodedLen,
+	)]
 	#[pallet::origin]
 	pub enum Origin {
 		/// It comes from the (parent) relay chain.

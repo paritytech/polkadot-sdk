@@ -48,6 +48,7 @@ parameter_types! {
 ord_parameter_types! {
 	pub const ChallengePeriod: u64 = 8;
 	pub const ClaimPeriod: u64 = 1;
+	pub const VotingPeriod: u64 = 3;
 	pub const FounderSetAccount: u128 = 1;
 	pub const SuspensionJudgementSetAccount: u128 = 2;
 	pub const MaxPayouts: u32 = 10;
@@ -75,7 +76,7 @@ impl Config for Test {
 	type Randomness = TestRandomness<Self>;
 	type GraceStrikes = ConstU32<1>;
 	type PeriodSpend = ConstU64<1000>;
-	type VotingPeriod = ConstU64<3>;
+	type VotingPeriod = VotingPeriod;
 	type ClaimPeriod = ClaimPeriod;
 	type MaxLockDuration = ConstU64<100>;
 	type FounderSetOrigin = EnsureSignedBy<FounderSetAccount, u128>;
@@ -124,6 +125,8 @@ impl EnvBuilder {
 			.unwrap();
 		let mut ext: sp_io::TestExternalities = t.into();
 		ext.execute_with(|| {
+			// Initialize the block number to 1 for event registration
+			System::set_block_number(1);
 			if self.founded {
 				let r = b"be cool".to_vec();
 				assert!(Society::found_society(Origin::signed(1), 10, 10, 8, 2, 25, r).is_ok());
@@ -181,7 +184,7 @@ pub fn conclude_intake(allow_resignation: bool, judge_intake: Option<bool>) {
 				Society::claim_membership(Origin::signed(who)),
 				Error::<Test>::NotCandidate
 			);
-			continue
+			continue;
 		}
 		if candidacy.tally.clear_rejection() && allow_resignation {
 			assert_noop!(
@@ -189,18 +192,18 @@ pub fn conclude_intake(allow_resignation: bool, judge_intake: Option<bool>) {
 				Error::<Test>::NotApproved
 			);
 			assert_ok!(Society::resign_candidacy(Origin::signed(who)));
-			continue
+			continue;
 		}
 		if let (Some(founder), Some(approve)) = (Founder::<Test>::get(), judge_intake) {
 			if !candidacy.tally.clear_approval() && !approve {
 				// can be rejected by founder
 				assert_ok!(Society::kick_candidate(Origin::signed(founder), who));
-				continue
+				continue;
 			}
 			if !candidacy.tally.clear_rejection() && approve {
 				// can be rejected by founder
 				assert_ok!(Society::bestow_membership(Origin::signed(founder), who));
-				continue
+				continue;
 			}
 		}
 		if candidacy.tally.clear_rejection() && round > candidacy.round + 1 {
@@ -213,7 +216,7 @@ pub fn conclude_intake(allow_resignation: bool, judge_intake: Option<bool>) {
 				Society::drop_candidate(Origin::signed(0), who),
 				Error::<Test>::NotCandidate
 			);
-			continue
+			continue;
 		}
 		if !candidacy.skeptic_struck {
 			assert_ok!(Society::punish_skeptic(Origin::signed(who)));
@@ -227,8 +230,10 @@ pub fn next_intake() {
 		Period::Voting { more, .. } => System::run_to_block::<AllPalletsWithSystem>(
 			System::block_number() + more + claim_period,
 		),
-		Period::Claim { more, .. } =>
-			System::run_to_block::<AllPalletsWithSystem>(System::block_number() + more),
+		Period::Claim { more, .. } => {
+			System::run_to_block::<AllPalletsWithSystem>(System::block_number() + more)
+		},
+		Period::Intake { .. } => {},
 	}
 }
 

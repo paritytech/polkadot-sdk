@@ -1,0 +1,38 @@
+[package]
+name = "cumulus-client-bootnodes"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "Parachain bootnodes registration and discovery."
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage.workspace = true
+repository.workspace = true
+build = "build.rs"
+
+[lints]
+workspace = true
+
+[build-dependencies]
+prost-build = { workspace = true }
+
+[dependencies]
+array-bytes = { workspace = true, default-features = true }
+async-channel = { workspace = true }
+codec = { workspace = true, default-features = true }
+futures = { workspace = true, default-features = true }
+hex = { workspace = true, default-features = true }
+ip_network = { workspace = true }
+log = { workspace = true, default-features = true }
+num-traits = { workspace = true, default-features = true }
+prost = { workspace = true }
+tokio = { workspace = true, default-features = true }
+
+# Substrate
+sc-network = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+
+# Cumulus
+cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-relay-chain-interface = { workspace = true, default-features = true }

@@ -1,0 +1,25 @@
+title: 'cumulus: `ParachainBlockData` support multiple blocks'
+doc:
+- audience: Node Dev
+  description: |-
+    This pull request adds support to `ParachainBlockData` to support multiple blocks at once. This basically means that cumulus based Parachains could start packaging multiple blocks into one `PoV`.
+    From the relay chain PoV nothing changes and these `PoV`s appear like any other `PoV`. Internally this `PoV` then executes the blocks sequentially. However, all these blocks together can use the same amount of resources like a single `PoV`.
+    This pull request is basically a preparation to support running parachains with a faster block time than the relay chain.
+
+    This changes the encoding of ParachainBlockData. However, encoding and decoding is made in a backwards and forwards compatible way. This means that there is no dependency between the collator and runtime upgrade.
+    
+crates:
+- name: cumulus-client-collator
+  bump: major
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: cumulus-client-pov-recovery
+  bump: major
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: cumulus-primitives-core
+  bump: major
+- name: polkadot-primitives
+  bump: major
+- name: cumulus-pov-validator
+  bump: major

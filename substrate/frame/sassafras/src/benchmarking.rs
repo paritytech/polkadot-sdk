@@ -150,7 +150,7 @@ mod benchmarks {
 		#[block]
 		{
 			Pallet::<T>::should_end_epoch(BlockNumberFor::<T>::from(3u32));
-			let next_authorities = Pallet::<T>::next_authorities();
+			let next_authorities = NextAuthorities::<T>::get();
 			// Using a different set of authorities triggers the recomputation of ring verifier.
 			Pallet::<T>::enact_epoch_change(Default::default(), next_authorities);
 		}

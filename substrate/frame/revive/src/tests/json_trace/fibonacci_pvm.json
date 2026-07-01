@@ -1,0 +1,70 @@
+{
+  "gas": 45538108,
+  "weightConsumed": {
+    "ref_time": 0,
+    "proof_size": 0
+  },
+  "baseCallWeight": {
+    "ref_time": 0,
+    "proof_size": 0
+  },
+  "failed": false,
+  "returnValue": "0x0000000000000000000000000000000000000000000000000000000000000002",
+  "structLogs": [
+    {
+      "gas": 249960283505,
+      "gasCost": 67180,
+      "weightCost": {
+        "ref_time": 671800,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249960198007,
+      "gasCost": 31800,
+      "weightCost": {
+        "ref_time": 318000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_size",
+      "returned": "0x24"
+    },
+    {
+      "gas": 249960166207,
+      "gasCost": 859904,
+      "weightCost": {
+        "ref_time": 8599040,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249959287984,
+      "gasCost": 33800,
+      "weightCost": {
+        "ref_time": 338000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdfec0",
+        "0x0"
+      ]
+    },
+    {
+      "gas": 249959254184,
+      "gasCost": 80616,
+      "weightCost": {
+        "ref_time": 806160,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "pvm_fuel"
+    }
+  ]
+}

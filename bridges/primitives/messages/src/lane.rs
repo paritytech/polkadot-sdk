@@ -16,10 +16,10 @@
 
 //! Primitives of messages module, that represents lane id.
 
-use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use sp_core::{RuntimeDebug, TypeId, H256};
+use sp_core::{TypeId, H256};
 use sp_io::hashing::blake2_256;
 use sp_std::fmt::Debug;
 
@@ -50,6 +50,7 @@ pub trait LaneIdType:
 	Clone,
 	Copy,
 	Decode,
+	DecodeWithMemTracking,
 	Default,
 	Encode,
 	Eq,
@@ -121,6 +122,7 @@ impl TypeId for LegacyLaneId {
 	Clone,
 	Copy,
 	Decode,
+	DecodeWithMemTracking,
 	Default,
 	Encode,
 	Eq,
@@ -197,7 +199,7 @@ impl TryFrom<Vec<u8>> for HashedLaneId {
 }
 
 /// Lane state.
-#[derive(Clone, Copy, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Clone, Copy, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen, Debug)]
 pub enum LaneState {
 	/// Lane is opened and messages may be sent/received over it.
 	Opened,

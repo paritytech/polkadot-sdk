@@ -146,6 +146,7 @@ pub trait NetworkBackend<B: BlockT + 'static, H: ExHashT>: Send + 'static {
 	/// Create Bitswap server.
 	fn bitswap_server(
 		client: Arc<dyn BlockBackend<B> + Send + Sync>,
+		metrics_registry: Option<Registry>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig);
 
 	/// Create notification protocol configuration and an associated `NotificationService`
@@ -215,6 +216,9 @@ where
 
 /// Provides access to the networking DHT.
 pub trait NetworkDHTProvider {
+	/// Start finding closest peers to the target.
+	fn find_closest_peers(&self, target: PeerId);
+
 	/// Start getting a value from the DHT.
 	fn get_value(&self, key: &KademliaKey);
 
@@ -250,6 +254,10 @@ where
 	T: ?Sized,
 	T: NetworkDHTProvider,
 {
+	fn find_closest_peers(&self, target: PeerId) {
+		T::find_closest_peers(self, target)
+	}
+
 	fn get_value(&self, key: &KademliaKey) {
 		T::get_value(self, key)
 	}
@@ -893,7 +901,6 @@ pub trait NotificationService: Debug + Send {
 	async fn open_substream(&mut self, peer: PeerId) -> Result<(), ()>;
 
 	/// Instruct `Notifications` to close substream for `peer`.
-	//
 	// NOTE: not offered by the current implementation
 	async fn close_substream(&mut self, peer: PeerId) -> Result<(), ()>;
 

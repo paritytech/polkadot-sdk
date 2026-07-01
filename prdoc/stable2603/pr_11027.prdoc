@@ -1,0 +1,8 @@
+title: Add functions to control statement store per-account allowances
+doc:
+- audience: Node Dev
+  description: 'The functions currently residing in `individuality`
+    are moved to Substrate to unify storage allowance control. '
+crates:
+- name: sp-statement-store
+  bump: major

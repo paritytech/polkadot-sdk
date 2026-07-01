@@ -17,6 +17,7 @@
 
 //! Mock file for offences benchmarking.
 
+use codec::Encode;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
@@ -33,7 +34,6 @@ use sp_runtime::{
 };
 
 type AccountId = u64;
-type Balance = u64;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -54,8 +54,9 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Test>;
+	type RuntimeEvent = RuntimeEvent;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -94,8 +95,19 @@ impl pallet_session::Config for Test {
 	type SessionHandler = TestSessionHandler;
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type ValidatorIdOf = pallet_staking::StashOf<Test>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
+}
+
+impl pallet_session_benchmarking::Config for Test {
+	fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+		let keys = SessionKeys::generate(&owner.encode(), None);
+
+		(keys.keys, keys.proof.encode())
+	}
 }
 
 pallet_staking_reward_curve::build! {
@@ -168,19 +180,34 @@ where
 	type RuntimeCall = RuntimeCall;
 }
 
-impl<T> frame_system::offchain::CreateInherent<T> for Test
+impl<T> frame_system::offchain::CreateTransaction<T> for Test
 where
 	RuntimeCall: From<T>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
-		UncheckedExtrinsic::new_bare(call)
+	type Extension = (frame_system::AuthorizeCall<Test>,);
+	fn create_transaction(call: RuntimeCall, extension: Self::Extension) -> UncheckedExtrinsic {
+		UncheckedExtrinsic::new_transaction(call, extension)
+	}
+}
+
+impl<T> frame_system::offchain::CreateAuthorizedTransaction<T> for Test
+where
+	RuntimeCall: From<T>,
+{
+	fn create_extension() -> Self::Extension {
+		(frame_system::AuthorizeCall::<Test>::new(),)
 	}
 }
 
 impl crate::Config for Test {}
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
+pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
+	u32,
+	RuntimeCall,
+	u64,
+	(frame_system::AuthorizeCall<Test>,),
+>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -189,13 +216,14 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking,
 		Session: pallet_session,
-		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
+		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, Config<T>},
 		Offences: pallet_offences::{Pallet, Storage, Event},
-		Historical: pallet_session_historical::{Pallet},
+		Historical: pallet_session_historical::{Pallet, Event<T>},
 	}
 );
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
+	sp_tracing::try_init_simple();
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	sp_io::TestExternalities::new(t)
 }

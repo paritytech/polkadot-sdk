@@ -1,0 +1,16 @@
+title: Upgrade wasmtime
+doc:
+- audience: Node Dev
+  description: This upgrades wasmtime to the latest version and also fixes backtraces
+    for `debug` builds.
+crates:
+- name: sc-executor-wasmtime
+  bump: major
+- name: substrate-wasm-builder
+  bump: major
+- name: sc-mixnet
+  bump: major
+- name: sp-state-machine
+  bump: major
+- name: polkadot-sdk
+  bump: major

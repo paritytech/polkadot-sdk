@@ -39,8 +39,9 @@ impl SubstrateCli for Cli {
 		Ok(match id {
 			"dev" => Box::new(chain_spec::development_chain_spec()?),
 			"" | "local" => Box::new(chain_spec::local_chain_spec()?),
-			path =>
-				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
+			path => {
+				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
+			},
 		})
 	}
 }
@@ -51,6 +52,7 @@ pub fn run() -> sc_cli::Result<()> {
 
 	match &cli.subcommand {
 		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
+		#[allow(deprecated)]
 		Some(Subcommand::BuildSpec(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
@@ -62,6 +64,10 @@ pub fn run() -> sc_cli::Result<()> {
 					service::new_partial(&config)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
+		},
+		Some(Subcommand::ExportChainSpec(cmd)) => {
+			let chain_spec = cli.load_spec(&cmd.chain)?;
+			cmd.run(chain_spec)
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -136,8 +142,9 @@ pub fn run() -> sc_cli::Result<()> {
 							service::new_partial(&config)?;
 						let db = backend.expose_db();
 						let storage = backend.expose_storage();
+						let shared_cache = backend.expose_shared_trie_cache();
 
-						cmd.run(config, client, db, storage)
+						cmd.run(config, client, db, storage, shared_cache)
 					},
 					BenchmarkCmd::Overhead(cmd) => {
 						let PartialComponents { client, .. } = service::new_partial(&config)?;
@@ -166,8 +173,9 @@ pub fn run() -> sc_cli::Result<()> {
 
 						cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)
 					},
-					BenchmarkCmd::Machine(cmd) =>
-						cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone()),
+					BenchmarkCmd::Machine(cmd) => {
+						cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())
+					},
 				}
 			})
 		},

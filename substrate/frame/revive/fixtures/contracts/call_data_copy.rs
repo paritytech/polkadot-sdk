@@ -20,8 +20,8 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-extern crate common;
 use uapi::{HostFn, HostFnImpl as api};
 
 const TEST_DATA: [u8; 32] = [

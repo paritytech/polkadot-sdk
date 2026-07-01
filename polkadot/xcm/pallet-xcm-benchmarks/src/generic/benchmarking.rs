@@ -26,9 +26,22 @@ use xcm::{
 	DoubleEncoded,
 };
 use xcm_executor::{
-	traits::{ConvertLocation, FeeReason},
-	ExecutorError, FeesMode,
+	traits::{ConvertLocation, FeeReason, TransactAsset},
+	AssetsInHolding, ExecutorError, FeesMode,
 };
+
+/// Helper function to convert Assets to AssetsInHolding by minting each asset.
+/// This is used for benchmark setup where we need to create imbalances.
+fn assets_to_holding<T: crate::Config>(assets: &Assets) -> Result<AssetsInHolding, XcmError> {
+	let context = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+	let mut holding = AssetsInHolding::new();
+	for asset in assets.inner() {
+		let transactor =
+			<T::XcmConfig as xcm_executor::Config>::AssetTransactor::mint_asset(asset, &context)?;
+		holding.subsume_assets(transactor);
+	}
+	Ok(holding)
+}
 
 #[benchmarks]
 mod benchmarks {
@@ -50,16 +63,32 @@ mod benchmarks {
 		// generate holding and add possible required fees
 		let holding = if let Some(expected_assets_in_holding) = expected_assets_in_holding {
 			let mut holding = T::worst_case_holding(expected_assets_in_holding.len() as u32);
-			for a in expected_assets_in_holding.into_inner() {
-				holding.push(a);
-			}
+			// Mint real assets for delivery fees and merge into holding
+			let real_assets = assets_to_holding::<T>(&expected_assets_in_holding).unwrap();
+			holding.subsume_assets(real_assets);
 			holding
 		} else {
 			T::worst_case_holding(0)
 		};
 
+		// Build Assets descriptor from AssetsInHolding for the instruction (before consuming
+		// holding)
+		let report_assets: Assets = {
+			let mut assets = Vec::new();
+			// Add fungible assets up to MAX_ITEMS_IN_ASSETS
+			for (asset_id, imbalance) in holding.fungible.iter().take(MAX_ITEMS_IN_ASSETS) {
+				assets.push(Asset { id: asset_id.clone(), fun: Fungible(imbalance.amount()) });
+			}
+			// Add non-fungible assets if we haven't hit the limit
+			let remaining = MAX_ITEMS_IN_ASSETS.saturating_sub(assets.len());
+			for (asset_id, instance) in holding.non_fungible.iter().take(remaining) {
+				assets.push(Asset { id: asset_id.clone(), fun: NonFungible(*instance) });
+			}
+			assets.into()
+		};
+
 		let mut executor = new_executor::<T>(sender_location);
-		executor.set_holding(holding.clone().into());
+		executor.set_holding(holding);
 		if let Some(expected_fees_mode) = expected_fees_mode {
 			executor.set_fees_mode(expected_fees_mode);
 		}
@@ -72,14 +101,7 @@ mod benchmarks {
 			},
 			// Worst case is looking through all holdings for every asset explicitly - respecting
 			// the limit `MAX_ITEMS_IN_ASSETS`.
-			assets: Definite(
-				holding
-					.into_inner()
-					.into_iter()
-					.take(MAX_ITEMS_IN_ASSETS)
-					.collect::<Vec<_>>()
-					.into(),
-			),
+			assets: Definite(report_assets),
 		};
 
 		let xcm = Xcm(vec![instruction]);
@@ -97,16 +119,18 @@ mod benchmarks {
 	// by the `deep` and `shallow` implementation.
 	#[benchmark]
 	fn buy_execution() -> Result<(), BenchmarkError> {
-		let holding = T::worst_case_holding(0).into();
+		let holding = T::worst_case_holding(0);
 
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding);
 
-		let fee_asset = AssetId(Here.into());
+		// The worst case we want for buy execution in terms of
+		// fee asset and weight
+		let (fee_asset, weight_limit) = T::worst_case_for_trader()?;
 
 		let instruction = Instruction::<XcmCallOf<T>>::BuyExecution {
-			fees: (fee_asset, 100_000_000u128).into(), // should be something inside of holding
-			weight_limit: WeightLimit::Unlimited,
+			fees: fee_asset,
+			weight_limit: weight_limit.into(),
 		};
 
 		let xcm = Xcm(vec![instruction]);
@@ -120,14 +144,14 @@ mod benchmarks {
 
 	#[benchmark]
 	fn pay_fees() -> Result<(), BenchmarkError> {
-		let holding = T::worst_case_holding(0).into();
+		let holding = T::worst_case_holding(0);
 
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding);
 		// Set some weight to be paid for.
 		executor.set_message_weight(Weight::from_parts(100_000_000, 100_000));
 
-		let fee_asset: Asset = T::fee_asset().unwrap();
+		let (fee_asset, _): (Asset, WeightLimit) = T::worst_case_for_trader().unwrap();
 
 		let instruction = Instruction::<XcmCallOf<T>>::PayFees { asset: fee_asset };
 
@@ -207,12 +231,13 @@ mod benchmarks {
 		let mut executor = new_executor::<T>(Default::default());
 		let holding_assets = T::worst_case_holding(1);
 		// We can already buy execution since we'll load the holding register manually
-		let asset_for_fees = T::fee_asset().unwrap();
+		let (asset_for_fees, _): (Asset, WeightLimit) = T::worst_case_for_trader().unwrap();
+
 		let previous_xcm = Xcm(vec![BuyExecution {
 			fees: asset_for_fees,
 			weight_limit: Limited(Weight::from_parts(1337, 1337)),
 		}]);
-		executor.set_holding(holding_assets.into());
+		executor.set_holding(holding_assets);
 		executor.set_total_surplus(Weight::from_parts(1337, 1337));
 		executor.set_total_refunded(Weight::zero());
 		executor
@@ -299,7 +324,9 @@ mod benchmarks {
 		let xcm = Xcm(vec![instruction]);
 		#[block]
 		{
-			executor.bench_process(xcm)?;
+			executor
+				.bench_process(xcm)
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		}
 		assert_eq!(executor.origin(), &Some(Location { parents: 0, interior: Here }),);
 
@@ -339,7 +366,7 @@ mod benchmarks {
 			executor.set_fees_mode(expected_fees_mode);
 		}
 		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
-			executor.set_holding(expected_assets_in_holding.into());
+			executor.set_holding(assets_to_holding::<T>(&expected_assets_in_holding).unwrap());
 		}
 		executor.set_error(Some((0u32, XcmError::Unimplemented)));
 
@@ -363,10 +390,11 @@ mod benchmarks {
 		let (origin, ticket, assets) = T::claimable_asset()?;
 
 		// We place some items into the asset trap to claim.
+		let context = XcmContext { origin: Some(origin.clone()), message_id: [0; 32], topic: None };
 		<T::XcmConfig as xcm_executor::Config>::AssetTrap::drop_assets(
 			&origin,
-			assets.clone().into(),
-			&XcmContext { origin: Some(origin.clone()), message_id: [0; 32], topic: None },
+			assets_to_holding::<T>(&assets).unwrap(),
+			&context,
 		);
 
 		// Assets should be in the trap now.
@@ -457,12 +485,23 @@ mod benchmarks {
 	#[benchmark]
 	fn burn_asset() -> Result<(), BenchmarkError> {
 		let holding = T::worst_case_holding(0);
-		let assets = holding.clone();
+
+		// Build Assets descriptor from AssetsInHolding for the instruction
+		let assets: Assets = {
+			let mut assets = Vec::new();
+			for (asset_id, imbalance) in holding.fungible.iter() {
+				assets.push(Asset { id: asset_id.clone(), fun: Fungible(imbalance.amount()) });
+			}
+			for (asset_id, instance) in holding.non_fungible.iter() {
+				assets.push(Asset { id: asset_id.clone(), fun: NonFungible(*instance) });
+			}
+			assets.into()
+		};
 
 		let mut executor = new_executor::<T>(Default::default());
-		executor.set_holding(holding.into());
+		executor.set_holding(holding);
 
-		let instruction = Instruction::BurnAsset(assets.into());
+		let instruction = Instruction::BurnAsset(assets);
 		let xcm = Xcm(vec![instruction]);
 		#[block]
 		{
@@ -475,12 +514,23 @@ mod benchmarks {
 	#[benchmark]
 	fn expect_asset() -> Result<(), BenchmarkError> {
 		let holding = T::worst_case_holding(0);
-		let assets = holding.clone();
+
+		// Build Assets descriptor from AssetsInHolding for the instruction
+		let assets: Assets = {
+			let mut assets = Vec::new();
+			for (asset_id, imbalance) in holding.fungible.iter() {
+				assets.push(Asset { id: asset_id.clone(), fun: Fungible(imbalance.amount()) });
+			}
+			for (asset_id, instance) in holding.non_fungible.iter() {
+				assets.push(Asset { id: asset_id.clone(), fun: NonFungible(*instance) });
+			}
+			assets.into()
+		};
 
 		let mut executor = new_executor::<T>(Default::default());
-		executor.set_holding(holding.into());
+		executor.set_holding(holding);
 
-		let instruction = Instruction::ExpectAsset(assets.into());
+		let instruction = Instruction::ExpectAsset(assets);
 		let xcm = Xcm(vec![instruction]);
 		#[block]
 		{
@@ -568,7 +618,7 @@ mod benchmarks {
 			executor.set_fees_mode(expected_fees_mode);
 		}
 		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
-			executor.set_holding(expected_assets_in_holding.into());
+			executor.set_holding(assets_to_holding::<T>(&expected_assets_in_holding).unwrap());
 		}
 
 		let valid_pallet = T::valid_pallet();
@@ -628,7 +678,7 @@ mod benchmarks {
 			executor.set_fees_mode(expected_fees_mode);
 		}
 		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
-			executor.set_holding(expected_assets_in_holding.into());
+			executor.set_holding(assets_to_holding::<T>(&expected_assets_in_holding).unwrap());
 		}
 		executor.set_transact_status(b"MyError".to_vec().into());
 
@@ -698,7 +748,7 @@ mod benchmarks {
 		let assets = give.clone();
 
 		let mut executor = new_executor::<T>(Default::default());
-		executor.set_holding(give.into());
+		executor.set_holding(assets_to_holding::<T>(&give).unwrap());
 		let instruction =
 			Instruction::ExchangeAsset { give: assets.into(), want: want.clone(), maximal: true };
 		let xcm = Xcm(vec![instruction]);
@@ -706,7 +756,7 @@ mod benchmarks {
 		{
 			executor.bench_process(xcm)?;
 		}
-		assert_eq!(executor.holding(), &want.into());
+		assert!(executor.holding().contains_assets(&want));
 		Ok(())
 	}
 
@@ -757,7 +807,7 @@ mod benchmarks {
 			executor.set_fees_mode(expected_fees_mode);
 		}
 		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
-			executor.set_holding(expected_assets_in_holding.into());
+			executor.set_holding(assets_to_holding::<T>(&expected_assets_in_holding).unwrap());
 		}
 		let xcm =
 			Xcm(vec![ExportMessage { network, destination: destination.clone(), xcm: inner_xcm }]);
@@ -804,7 +854,7 @@ mod benchmarks {
 		};
 
 		let mut executor = new_executor::<T>(owner);
-		executor.set_holding(holding.into());
+		executor.set_holding(assets_to_holding::<T>(&holding).unwrap());
 		if let Some(expected_fees_mode) = expected_fees_mode {
 			executor.set_fees_mode(expected_fees_mode);
 		}
@@ -908,7 +958,7 @@ mod benchmarks {
 			executor.set_fees_mode(expected_fees_mode);
 		}
 		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
-			executor.set_holding(expected_assets_in_holding.into());
+			executor.set_holding(assets_to_holding::<T>(&expected_assets_in_holding).unwrap());
 		}
 		let instruction = Instruction::RequestUnlock { asset, locker };
 		let xcm = Xcm(vec![instruction]);

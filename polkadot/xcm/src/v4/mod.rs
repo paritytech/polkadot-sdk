@@ -27,11 +27,11 @@ use super::{
 		QueryResponseInfo as NewQueryResponseInfo, Response as NewResponse, Xcm as NewXcm,
 	},
 };
-use crate::DoubleEncoded;
+use crate::{utils::decode_xcm_instructions, DoubleEncoded};
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
 use codec::{
-	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
+	self, Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input as CodecInput,
 	MaxEncodedLen,
 };
 use core::{fmt::Debug, result};
@@ -65,32 +65,16 @@ pub const VERSION: super::Version = 4;
 /// An identifier for a query.
 pub type QueryId = u64;
 
-#[derive(Default, Encode, TypeInfo)]
+#[derive(Default, Encode, DecodeWithMemTracking, TypeInfo)]
 #[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
-pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
-
-environmental::environmental!(instructions_count: u8);
-
 impl<Call> Decode for Xcm<Call> {
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
-		instructions_count::using_once(&mut 0, || {
-			let number_of_instructions: u32 = <Compact<u32>>::decode(input)?.into();
-			instructions_count::with(|count| {
-				*count = count.saturating_add(number_of_instructions as u8);
-				if *count > MAX_INSTRUCTIONS_TO_DECODE {
-					return Err(CodecError::from("Max instructions exceeded"))
-				}
-				Ok(())
-			})
-			.expect("Called in `using` context and thus can not return `None`; qed")?;
-			let decoded_instructions = decode_vec_with_len(input, number_of_instructions as usize)?;
-			Ok(Self(decoded_instructions))
-		})
+		Ok(Xcm(decode_xcm_instructions(input)?))
 	}
 }
 
@@ -232,7 +216,9 @@ parameter_types! {
 	pub MaxPalletsInfo: u32 = 64;
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub struct PalletInfo {
 	#[codec(compact)]
 	pub index: u32,
@@ -295,7 +281,9 @@ impl PalletInfo {
 }
 
 /// Response data to a query.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub enum Response {
 	/// No response. Serves as a neutral default.
 	Null,
@@ -325,8 +313,9 @@ impl TryFrom<OldResponse> for Response {
 		Ok(match old {
 			Null => Self::Null,
 			Assets(assets) => Self::Assets(assets.try_into()?),
-			ExecutionResult(result) =>
-				Self::ExecutionResult(result.map(|(num, old_error)| (num, old_error.into()))),
+			ExecutionResult(result) => {
+				Self::ExecutionResult(result.map(|(num, old_error)| (num, old_error.into())))
+			},
 			Version(version) => Self::Version(version),
 			PalletsInfo(pallet_info) => {
 				let inner = pallet_info
@@ -366,14 +355,15 @@ impl TryFrom<NewResponse> for Response {
 					BoundedVec::<PalletInfo, MaxPalletsInfo>::try_from(inner).map_err(|_| ())?,
 				)
 			},
-			DispatchResult(maybe_error) =>
-				Self::DispatchResult(maybe_error.try_into().map_err(|_| ())?),
+			DispatchResult(maybe_error) => {
+				Self::DispatchResult(maybe_error.try_into().map_err(|_| ())?)
+			},
 		})
 	}
 }
 
 /// Information regarding the composition of a query response.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct QueryResponseInfo {
 	/// The destination to which the query response message should be send.
 	pub destination: Location,
@@ -436,10 +426,18 @@ impl XcmContext {
 ///
 /// This is the inner XCM format and is version-sensitive. Messages are typically passed using the
 /// outer XCM format, known as `VersionedXcm`.
-#[derive(Encode, Decode, TypeInfo, xcm_procedural::XcmWeightInfoTrait, xcm_procedural::Builder)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	xcm_procedural::XcmWeightInfoTrait,
+	xcm_procedural::Builder,
+)]
 #[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
+#[codec(decode_with_mem_tracking_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 pub enum Instruction<Call> {
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
@@ -1115,24 +1113,30 @@ impl<Call> Instruction<Call> {
 			WithdrawAsset(assets) => WithdrawAsset(assets),
 			ReserveAssetDeposited(assets) => ReserveAssetDeposited(assets),
 			ReceiveTeleportedAsset(assets) => ReceiveTeleportedAsset(assets),
-			QueryResponse { query_id, response, max_weight, querier } =>
-				QueryResponse { query_id, response, max_weight, querier },
+			QueryResponse { query_id, response, max_weight, querier } => {
+				QueryResponse { query_id, response, max_weight, querier }
+			},
 			TransferAsset { assets, beneficiary } => TransferAsset { assets, beneficiary },
-			TransferReserveAsset { assets, dest, xcm } =>
-				TransferReserveAsset { assets, dest, xcm },
-			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
-				HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity },
+			TransferReserveAsset { assets, dest, xcm } => {
+				TransferReserveAsset { assets, dest, xcm }
+			},
+			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } => {
+				HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity }
+			},
 			HrmpChannelAccepted { recipient } => HrmpChannelAccepted { recipient },
-			HrmpChannelClosing { initiator, sender, recipient } =>
-				HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, require_weight_at_most, call } =>
-				Transact { origin_kind, require_weight_at_most, call: call.into() },
+			HrmpChannelClosing { initiator, sender, recipient } => {
+				HrmpChannelClosing { initiator, sender, recipient }
+			},
+			Transact { origin_kind, require_weight_at_most, call } => {
+				Transact { origin_kind, require_weight_at_most, call: call.into() }
+			},
 			ReportError(response_info) => ReportError(response_info),
 			DepositAsset { assets, beneficiary } => DepositAsset { assets, beneficiary },
 			DepositReserveAsset { assets, dest, xcm } => DepositReserveAsset { assets, dest, xcm },
 			ExchangeAsset { give, want, maximal } => ExchangeAsset { give, want, maximal },
-			InitiateReserveWithdraw { assets, reserve, xcm } =>
-				InitiateReserveWithdraw { assets, reserve, xcm },
+			InitiateReserveWithdraw { assets, reserve, xcm } => {
+				InitiateReserveWithdraw { assets, reserve, xcm }
+			},
 			InitiateTeleport { assets, dest, xcm } => InitiateTeleport { assets, dest, xcm },
 			ReportHolding { response_info, assets } => ReportHolding { response_info, assets },
 			BuyExecution { fees, weight_limit } => BuyExecution { fees, weight_limit },
@@ -1144,23 +1148,27 @@ impl<Call> Instruction<Call> {
 			ClearError => ClearError,
 			ClaimAsset { assets, ticket } => ClaimAsset { assets, ticket },
 			Trap(code) => Trap(code),
-			SubscribeVersion { query_id, max_response_weight } =>
-				SubscribeVersion { query_id, max_response_weight },
+			SubscribeVersion { query_id, max_response_weight } => {
+				SubscribeVersion { query_id, max_response_weight }
+			},
 			UnsubscribeVersion => UnsubscribeVersion,
 			BurnAsset(assets) => BurnAsset(assets),
 			ExpectAsset(assets) => ExpectAsset(assets),
 			ExpectOrigin(origin) => ExpectOrigin(origin),
 			ExpectError(error) => ExpectError(error),
 			ExpectTransactStatus(transact_status) => ExpectTransactStatus(transact_status),
-			QueryPallet { module_name, response_info } =>
-				QueryPallet { module_name, response_info },
-			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } =>
-				ExpectPallet { index, name, module_name, crate_major, min_crate_minor },
+			QueryPallet { module_name, response_info } => {
+				QueryPallet { module_name, response_info }
+			},
+			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } => {
+				ExpectPallet { index, name, module_name, crate_major, min_crate_minor }
+			},
 			ReportTransactStatus(response_info) => ReportTransactStatus(response_info),
 			ClearTransactStatus => ClearTransactStatus,
 			UniversalOrigin(j) => UniversalOrigin(j),
-			ExportMessage { network, destination, xcm } =>
-				ExportMessage { network, destination, xcm },
+			ExportMessage { network, destination, xcm } => {
+				ExportMessage { network, destination, xcm }
+			},
 			LockAsset { asset, unlocker } => LockAsset { asset, unlocker },
 			UnlockAsset { asset, target } => UnlockAsset { asset, target },
 			NoteUnlockable { asset, owner } => NoteUnlockable { asset, owner },
@@ -1169,8 +1177,9 @@ impl<Call> Instruction<Call> {
 			SetTopic(topic) => SetTopic(topic),
 			ClearTopic => ClearTopic,
 			AliasOrigin(location) => AliasOrigin(location),
-			UnpaidExecution { weight_limit, check_origin } =>
-				UnpaidExecution { weight_limit, check_origin },
+			UnpaidExecution { weight_limit, check_origin } => {
+				UnpaidExecution { weight_limit, check_origin }
+			},
 		}
 	}
 }
@@ -1183,27 +1192,34 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			WithdrawAsset(assets) => W::withdraw_asset(assets),
 			ReserveAssetDeposited(assets) => W::reserve_asset_deposited(assets),
 			ReceiveTeleportedAsset(assets) => W::receive_teleported_asset(assets),
-			QueryResponse { query_id, response, max_weight, querier } =>
-				W::query_response(query_id, response, max_weight, querier),
+			QueryResponse { query_id, response, max_weight, querier } => {
+				W::query_response(query_id, response, max_weight, querier)
+			},
 			TransferAsset { assets, beneficiary } => W::transfer_asset(assets, beneficiary),
-			TransferReserveAsset { assets, dest, xcm } =>
-				W::transfer_reserve_asset(&assets, dest, xcm),
-			Transact { origin_kind, require_weight_at_most, call } =>
-				W::transact(origin_kind, require_weight_at_most, call),
-			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
-				W::hrmp_new_channel_open_request(sender, max_message_size, max_capacity),
+			TransferReserveAsset { assets, dest, xcm } => {
+				W::transfer_reserve_asset(&assets, dest, xcm)
+			},
+			Transact { origin_kind, require_weight_at_most, call } => {
+				W::transact(origin_kind, require_weight_at_most, call)
+			},
+			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } => {
+				W::hrmp_new_channel_open_request(sender, max_message_size, max_capacity)
+			},
 			HrmpChannelAccepted { recipient } => W::hrmp_channel_accepted(recipient),
-			HrmpChannelClosing { initiator, sender, recipient } =>
-				W::hrmp_channel_closing(initiator, sender, recipient),
+			HrmpChannelClosing { initiator, sender, recipient } => {
+				W::hrmp_channel_closing(initiator, sender, recipient)
+			},
 			ClearOrigin => W::clear_origin(),
 			DescendOrigin(who) => W::descend_origin(who),
 			ReportError(response_info) => W::report_error(&response_info),
 			DepositAsset { assets, beneficiary } => W::deposit_asset(assets, beneficiary),
-			DepositReserveAsset { assets, dest, xcm } =>
-				W::deposit_reserve_asset(assets, dest, xcm),
+			DepositReserveAsset { assets, dest, xcm } => {
+				W::deposit_reserve_asset(assets, dest, xcm)
+			},
 			ExchangeAsset { give, want, maximal } => W::exchange_asset(give, want, maximal),
-			InitiateReserveWithdraw { assets, reserve, xcm } =>
-				W::initiate_reserve_withdraw(assets, reserve, xcm),
+			InitiateReserveWithdraw { assets, reserve, xcm } => {
+				W::initiate_reserve_withdraw(assets, reserve, xcm)
+			},
 			InitiateTeleport { assets, dest, xcm } => W::initiate_teleport(assets, dest, xcm),
 			ReportHolding { response_info, assets } => W::report_holding(&response_info, &assets),
 			BuyExecution { fees, weight_limit } => W::buy_execution(fees, weight_limit),
@@ -1213,23 +1229,27 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			ClearError => W::clear_error(),
 			ClaimAsset { assets, ticket } => W::claim_asset(assets, ticket),
 			Trap(code) => W::trap(code),
-			SubscribeVersion { query_id, max_response_weight } =>
-				W::subscribe_version(query_id, max_response_weight),
+			SubscribeVersion { query_id, max_response_weight } => {
+				W::subscribe_version(query_id, max_response_weight)
+			},
 			UnsubscribeVersion => W::unsubscribe_version(),
 			BurnAsset(assets) => W::burn_asset(assets),
 			ExpectAsset(assets) => W::expect_asset(assets),
 			ExpectOrigin(origin) => W::expect_origin(origin),
 			ExpectError(error) => W::expect_error(error),
 			ExpectTransactStatus(transact_status) => W::expect_transact_status(transact_status),
-			QueryPallet { module_name, response_info } =>
-				W::query_pallet(module_name, response_info),
-			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } =>
-				W::expect_pallet(index, name, module_name, crate_major, min_crate_minor),
+			QueryPallet { module_name, response_info } => {
+				W::query_pallet(module_name, response_info)
+			},
+			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } => {
+				W::expect_pallet(index, name, module_name, crate_major, min_crate_minor)
+			},
 			ReportTransactStatus(response_info) => W::report_transact_status(response_info),
 			ClearTransactStatus => W::clear_transact_status(),
 			UniversalOrigin(j) => W::universal_origin(j),
-			ExportMessage { network, destination, xcm } =>
-				W::export_message(network, destination, xcm),
+			ExportMessage { network, destination, xcm } => {
+				W::export_message(network, destination, xcm)
+			},
 			LockAsset { asset, unlocker } => W::lock_asset(asset, unlocker),
 			UnlockAsset { asset, target } => W::unlock_asset(asset, target),
 			NoteUnlockable { asset, owner } => W::note_unlockable(asset, owner),
@@ -1238,8 +1258,9 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			SetTopic(topic) => W::set_topic(topic),
 			ClearTopic => W::clear_topic(),
 			AliasOrigin(location) => W::alias_origin(location),
-			UnpaidExecution { weight_limit, check_origin } =>
-				W::unpaid_execution(weight_limit, check_origin),
+			UnpaidExecution { weight_limit, check_origin } => {
+				W::unpaid_execution(weight_limit, check_origin)
+			},
 		}
 	}
 }
@@ -1279,20 +1300,22 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 			WithdrawAsset(assets) => Self::WithdrawAsset(assets.try_into()?),
 			ReserveAssetDeposited(assets) => Self::ReserveAssetDeposited(assets.try_into()?),
 			ReceiveTeleportedAsset(assets) => Self::ReceiveTeleportedAsset(assets.try_into()?),
-			QueryResponse { query_id, response, max_weight, querier: Some(querier) } =>
+			QueryResponse { query_id, response, max_weight, querier: Some(querier) } => {
 				Self::QueryResponse {
 					query_id,
 					querier: querier.try_into()?,
 					response: response.try_into()?,
 					max_weight,
-				},
-			QueryResponse { query_id, response, max_weight, querier: None } =>
+				}
+			},
+			QueryResponse { query_id, response, max_weight, querier: None } => {
 				Self::QueryResponse {
 					query_id,
 					querier: None,
 					response: response.try_into()?,
 					max_weight,
-				},
+				}
+			},
 			TransferAsset { assets, beneficiary } => Self::TransferAsset {
 				assets: assets.try_into()?,
 				beneficiary: beneficiary.try_into()?,
@@ -1302,11 +1325,13 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 				dest: dest.try_into()?,
 				xcm: xcm.try_into()?,
 			},
-			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
-				Self::HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity },
+			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } => {
+				Self::HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity }
+			},
 			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
-			HrmpChannelClosing { initiator, sender, recipient } =>
-				Self::HrmpChannelClosing { initiator, sender, recipient },
+			HrmpChannelClosing { initiator, sender, recipient } => {
+				Self::HrmpChannelClosing { initiator, sender, recipient }
+			},
 			Transact { origin_kind, mut call, fallback_max_weight } => {
 				// We first try to decode the call, if we can't, we use the fallback weight,
 				// if there's no fallback, we just return `Weight::MAX`.
@@ -1314,11 +1339,11 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 					Ok(decoded) => decoded.get_dispatch_info().call_weight,
 					Err(error) => {
 						let fallback_weight = fallback_max_weight.unwrap_or(Weight::MAX);
-						log::debug!(
+						tracing::debug!(
 							target: "xcm::versions::v5Tov4",
-							"Couldn't decode call in Transact: {:?}, using fallback weight: {:?}",
-							error,
-							fallback_weight,
+							?error,
+							?fallback_weight,
+							"Couldn't decode call in Transact"
 						);
 						fallback_weight
 					},
@@ -1385,13 +1410,15 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 				Self::ClaimAsset { assets, ticket }
 			},
 			Trap(code) => Self::Trap(code),
-			SubscribeVersion { query_id, max_response_weight } =>
-				Self::SubscribeVersion { query_id, max_response_weight },
+			SubscribeVersion { query_id, max_response_weight } => {
+				Self::SubscribeVersion { query_id, max_response_weight }
+			},
 			UnsubscribeVersion => Self::UnsubscribeVersion,
 			BurnAsset(assets) => Self::BurnAsset(assets.try_into()?),
 			ExpectAsset(assets) => Self::ExpectAsset(assets.try_into()?),
-			ExpectOrigin(maybe_origin) =>
-				Self::ExpectOrigin(maybe_origin.map(|origin| origin.try_into()).transpose()?),
+			ExpectOrigin(maybe_origin) => {
+				Self::ExpectOrigin(maybe_origin.map(|origin| origin.try_into()).transpose()?)
+			},
 			ExpectError(maybe_error) => Self::ExpectError(
 				maybe_error
 					.map(|(num, new_error)| (num, new_error.try_into()))
@@ -1399,12 +1426,15 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 					.transpose()?,
 			),
 			ExpectTransactStatus(maybe_error_code) => Self::ExpectTransactStatus(maybe_error_code),
-			QueryPallet { module_name, response_info } =>
-				Self::QueryPallet { module_name, response_info: response_info.try_into()? },
-			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } =>
-				Self::ExpectPallet { index, name, module_name, crate_major, min_crate_minor },
-			ReportTransactStatus(response_info) =>
-				Self::ReportTransactStatus(response_info.try_into()?),
+			QueryPallet { module_name, response_info } => {
+				Self::QueryPallet { module_name, response_info: response_info.try_into()? }
+			},
+			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } => {
+				Self::ExpectPallet { index, name, module_name, crate_major, min_crate_minor }
+			},
+			ReportTransactStatus(response_info) => {
+				Self::ReportTransactStatus(response_info.try_into()?)
+			},
 			ClearTransactStatus => Self::ClearTransactStatus,
 			UniversalOrigin(junction) => Self::UniversalOrigin(junction.try_into()?),
 			ExportMessage { network, destination, xcm } => Self::ExportMessage {
@@ -1412,14 +1442,18 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 				destination: destination.try_into()?,
 				xcm: xcm.try_into()?,
 			},
-			LockAsset { asset, unlocker } =>
-				Self::LockAsset { asset: asset.try_into()?, unlocker: unlocker.try_into()? },
-			UnlockAsset { asset, target } =>
-				Self::UnlockAsset { asset: asset.try_into()?, target: target.try_into()? },
-			NoteUnlockable { asset, owner } =>
-				Self::NoteUnlockable { asset: asset.try_into()?, owner: owner.try_into()? },
-			RequestUnlock { asset, locker } =>
-				Self::RequestUnlock { asset: asset.try_into()?, locker: locker.try_into()? },
+			LockAsset { asset, unlocker } => {
+				Self::LockAsset { asset: asset.try_into()?, unlocker: unlocker.try_into()? }
+			},
+			UnlockAsset { asset, target } => {
+				Self::UnlockAsset { asset: asset.try_into()?, target: target.try_into()? }
+			},
+			NoteUnlockable { asset, owner } => {
+				Self::NoteUnlockable { asset: asset.try_into()?, owner: owner.try_into()? }
+			},
+			RequestUnlock { asset, locker } => {
+				Self::RequestUnlock { asset: asset.try_into()?, locker: locker.try_into()? }
+			},
 			SetFeesMode { jit_withdraw } => Self::SetFeesMode { jit_withdraw },
 			SetTopic(topic) => Self::SetTopic(topic),
 			ClearTopic => Self::ClearTopic,
@@ -1432,7 +1466,7 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 			PayFees { .. } |
 			SetHints { .. } |
 			ExecuteWithOrigin { .. } => {
-				log::debug!(target: "xcm::versions::v5tov4", "`{new_instruction:?}` not supported by v4");
+				tracing::debug!(target: "xcm::versions::v5tov4", ?new_instruction, "not supported by v4");
 				return Err(());
 			},
 		})
@@ -1448,20 +1482,22 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			WithdrawAsset(assets) => Self::WithdrawAsset(assets.try_into()?),
 			ReserveAssetDeposited(assets) => Self::ReserveAssetDeposited(assets.try_into()?),
 			ReceiveTeleportedAsset(assets) => Self::ReceiveTeleportedAsset(assets.try_into()?),
-			QueryResponse { query_id, response, max_weight, querier: Some(querier) } =>
+			QueryResponse { query_id, response, max_weight, querier: Some(querier) } => {
 				Self::QueryResponse {
 					query_id,
 					querier: querier.try_into()?,
 					response: response.try_into()?,
 					max_weight,
-				},
-			QueryResponse { query_id, response, max_weight, querier: None } =>
+				}
+			},
+			QueryResponse { query_id, response, max_weight, querier: None } => {
 				Self::QueryResponse {
 					query_id,
 					querier: None,
 					response: response.try_into()?,
 					max_weight,
-				},
+				}
+			},
 			TransferAsset { assets, beneficiary } => Self::TransferAsset {
 				assets: assets.try_into()?,
 				beneficiary: beneficiary.try_into()?,
@@ -1471,13 +1507,16 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 				dest: dest.try_into()?,
 				xcm: xcm.try_into()?,
 			},
-			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
-				Self::HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity },
+			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } => {
+				Self::HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity }
+			},
 			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
-			HrmpChannelClosing { initiator, sender, recipient } =>
-				Self::HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, require_weight_at_most, call } =>
-				Self::Transact { origin_kind, require_weight_at_most, call: call.into() },
+			HrmpChannelClosing { initiator, sender, recipient } => {
+				Self::HrmpChannelClosing { initiator, sender, recipient }
+			},
+			Transact { origin_kind, require_weight_at_most, call } => {
+				Self::Transact { origin_kind, require_weight_at_most, call: call.into() }
+			},
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
 				query_id: response_info.query_id,
 				destination: response_info.destination.try_into().map_err(|_| ())?,
@@ -1536,8 +1575,9 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 				Self::ClaimAsset { assets, ticket }
 			},
 			Trap(code) => Self::Trap(code),
-			SubscribeVersion { query_id, max_response_weight } =>
-				Self::SubscribeVersion { query_id, max_response_weight },
+			SubscribeVersion { query_id, max_response_weight } => {
+				Self::SubscribeVersion { query_id, max_response_weight }
+			},
 			UnsubscribeVersion => Self::UnsubscribeVersion,
 			BurnAsset(assets) => Self::BurnAsset(assets.try_into()?),
 			ExpectAsset(assets) => Self::ExpectAsset(assets.try_into()?),
@@ -1552,13 +1592,16 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 				module_name,
 				response_info: response_info.try_into().map_err(|_| ())?,
 			},
-			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } =>
-				Self::ExpectPallet { index, name, module_name, crate_major, min_crate_minor },
-			ReportTransactStatus(response_info) =>
-				Self::ReportTransactStatus(response_info.try_into().map_err(|_| ())?),
+			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } => {
+				Self::ExpectPallet { index, name, module_name, crate_major, min_crate_minor }
+			},
+			ReportTransactStatus(response_info) => {
+				Self::ReportTransactStatus(response_info.try_into().map_err(|_| ())?)
+			},
 			ClearTransactStatus => Self::ClearTransactStatus,
-			UniversalOrigin(junction) =>
-				Self::UniversalOrigin(junction.try_into().map_err(|_| ())?),
+			UniversalOrigin(junction) => {
+				Self::UniversalOrigin(junction.try_into().map_err(|_| ())?)
+			},
 			ExportMessage { network, destination, xcm } => Self::ExportMessage {
 				network: network.into(),
 				destination: destination.try_into().map_err(|_| ())?,
@@ -1598,9 +1641,12 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 #[cfg(test)]
 mod tests {
 	use super::{prelude::*, *};
-	use crate::v3::{
-		Junctions::Here as OldHere, MultiAssetFilter as OldMultiAssetFilter,
-		WildMultiAsset as OldWildMultiAsset,
+	use crate::{
+		v3::{
+			Junctions::Here as OldHere, MultiAssetFilter as OldMultiAssetFilter,
+			WildMultiAsset as OldWildMultiAsset,
+		},
+		MAX_INSTRUCTIONS_TO_DECODE,
 	};
 
 	#[test]

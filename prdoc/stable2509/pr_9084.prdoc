@@ -1,0 +1,8 @@
+title: Fix `MaxEncodedLen` implementation for `Error` enum
+doc:
+- audience: Runtime Dev
+  description: Updates the `MaxEncodedLen` implementation for the XCM `Error` enum to
+    correctly calculate the maximum encoded size.
+crates:
+- name: staging-xcm
+  bump: patch

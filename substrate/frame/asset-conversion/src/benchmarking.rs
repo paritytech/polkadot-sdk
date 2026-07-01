@@ -57,7 +57,7 @@ impl<AssetId: From<u32> + Ord> BenchmarkHelper<NativeOrWithId<AssetId>>
 	for NativeOrWithIdFactory<AssetId>
 {
 	fn create_pair(seed1: u32, seed2: u32) -> (NativeOrWithId<AssetId>, NativeOrWithId<AssetId>) {
-		if seed1 % 2 == 0 {
+		if seed1.is_multiple_of(2) {
 			(NativeOrWithId::WithId(seed2.into()), NativeOrWithId::Native)
 		} else {
 			(NativeOrWithId::Native, NativeOrWithId::WithId(seed2.into()))
@@ -408,6 +408,31 @@ mod benchmarks {
 		_(SystemOrigin::Signed(caller.clone()), Box::new(asset1.clone()), Box::new(asset2.clone()));
 
 		assert_last_event::<T>(Event::Touched { pool_id, who: caller }.into());
+	}
+
+	#[benchmark]
+	fn get_reserves() {
+		let caller: T::AccountId = whitelisted_caller();
+		let (asset1, asset2) = T::BenchmarkHelper::create_pair(0, 1);
+
+		create_fee_asset::<T>(&caller);
+		let (_, liquidity1, liquidity2) = create_asset_and_pool::<T>(&caller, &asset1, &asset2);
+
+		assert_ok!(AssetConversion::<T>::add_liquidity(
+			SystemOrigin::Signed(caller.clone()).into(),
+			Box::new(asset1.clone()),
+			Box::new(asset2.clone()),
+			liquidity1,
+			liquidity2,
+			T::Balance::one(),
+			T::Balance::zero(),
+			caller.clone(),
+		));
+
+		#[block]
+		{
+			AssetConversion::<T>::get_reserves(asset1, asset2).expect("pool has liquidity; qed");
+		}
 	}
 
 	impl_benchmark_test_suite!(AssetConversion, crate::mock::new_test_ext(), crate::mock::Test);

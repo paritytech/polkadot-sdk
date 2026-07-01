@@ -17,20 +17,21 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use codec::Decode;
-use frame_system::offchain::{SendSignedTransaction, Signer, SubmitTransaction};
-use kitchensink_runtime::{Executive, Indices, Runtime, UncheckedExtrinsic};
+use frame_system::offchain::{
+	CreateAuthorizedTransaction, SendSignedTransaction, Signer, SubmitTransaction,
+};
+use kitchensink_runtime::{Executive, ExistentialDeposit, Indices, Runtime, UncheckedExtrinsic};
 use polkadot_sdk::*;
 use sp_application_crypto::AppCrypto;
 use sp_core::offchain::{testing::TestTransactionPoolExt, TransactionPoolExt};
 use sp_keyring::sr25519::Keyring::Alice;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
-use sp_runtime::generic;
 
 pub mod common;
 use self::common::*;
 
 #[test]
-fn should_submit_unsigned_transaction() {
+fn should_submit_authorized_transaction() {
 	let mut t = new_test_ext(compact_code_unwrap());
 	let (pool, state) = TestTransactionPoolExt::new();
 	t.register_extension(TransactionPoolExt::new(pool));
@@ -46,7 +47,9 @@ fn should_submit_unsigned_transaction() {
 		};
 
 		let call = pallet_im_online::Call::heartbeat { heartbeat: heartbeat_data, signature };
-		let xt = generic::UncheckedExtrinsic::new_bare(call.into()).into();
+		let xt = <Runtime as CreateAuthorizedTransaction<
+			pallet_im_online::Call<Runtime>,
+		>>::create_authorized_transaction(call.into());
 		SubmitTransaction::<Runtime, pallet_im_online::Call<Runtime>>::submit_transaction(xt)
 			.unwrap();
 
@@ -133,7 +136,7 @@ fn should_submit_signed_twice_from_the_same_account() {
 		let s = state.read();
 		fn nonce(tx: UncheckedExtrinsic) -> frame_system::CheckNonce<Runtime> {
 			let extra = tx.0.preamble.to_signed().unwrap().2;
-			extra.5
+			extra.6
 		}
 		let nonce1 = nonce(UncheckedExtrinsic::decode(&mut &*s.transactions[0]).unwrap());
 		let nonce2 = nonce(UncheckedExtrinsic::decode(&mut &*s.transactions[1]).unwrap());
@@ -182,7 +185,7 @@ fn should_submit_signed_twice_from_all_accounts() {
 		let s = state.read();
 		fn nonce(tx: UncheckedExtrinsic) -> frame_system::CheckNonce<Runtime> {
 			let extra = tx.0.preamble.to_signed().unwrap().2;
-			extra.5
+			extra.6
 		}
 		let nonce1 = nonce(UncheckedExtrinsic::decode(&mut &*s.transactions[0]).unwrap());
 		let nonce2 = nonce(UncheckedExtrinsic::decode(&mut &*s.transactions[1]).unwrap());
@@ -240,7 +243,10 @@ fn submitted_transaction_should_be_valid() {
 		// add balance to the account
 		let author = extrinsic.0.preamble.clone().to_signed().clone().unwrap().0;
 		let address = Indices::lookup(author).unwrap();
-		let data = pallet_balances::AccountData { free: 5_000_000_000_000, ..Default::default() };
+		let data = pallet_balances::AccountData {
+			free: ExistentialDeposit::get() * 10,
+			..Default::default()
+		};
 		let account = frame_system::AccountInfo { providers: 1, data, ..Default::default() };
 		<frame_system::Account<Runtime>>::insert(&address, account);
 

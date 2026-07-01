@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+tracing = { workspace = true }
 
 # Substrate
 sp-api = { workspace = true }
@@ -37,6 +38,7 @@ std = [
 	"sp-api/std",
 	"sp-runtime/std",
 	"sp-trie/std",
+	"tracing/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [

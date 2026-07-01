@@ -48,6 +48,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		type RuntimeOrigin: From<<Self as SystemConfig>::RuntimeOrigin>
@@ -218,8 +219,9 @@ pub mod pallet {
 					fallback_max_weight: None,
 				}]),
 			) {
-				Ok((hash, cost)) =>
-					Self::deposit_event(Event::PongSent(para, seq, payload, hash, cost)),
+				Ok((hash, cost)) => {
+					Self::deposit_event(Event::PongSent(para, seq, payload, hash, cost))
+				},
 				Err(e) => Self::deposit_event(Event::ErrorSendingPong(e, para, seq, payload)),
 			}
 			Ok(())

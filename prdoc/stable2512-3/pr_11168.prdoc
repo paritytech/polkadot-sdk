@@ -1,0 +1,13 @@
+title: Add MinSetKeysBond check in rc_client::set_keys
+doc:
+- audience: Runtime Dev
+  description: |-
+   Add a configurable MinSetKeysBond threshold (hardcoded to 10 WND on asset-hub-westend) that rejects set_keys when active bond
+   is insufficient. Set to 0 to disable.
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-staking-async-rc-client
+  bump: major
+- name: pallet-staking-async
+  bump: major

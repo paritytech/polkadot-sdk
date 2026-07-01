@@ -33,6 +33,8 @@ pub trait VoteTally<Votes, Class> {
 	/// (e.g. conviction, ranks, etc.).
 	fn support(&self, class: Class) -> Perbill;
 	/// Returns the approval ratio (positive to total votes) for the tally.
+	///
+	/// If no votes have been cast (i.e. `ayes + nays == 0`), it should resolve to `0%`.
 	fn approval(&self, class: Class) -> Perbill;
 	/// Returns an instance of the tally representing a unanimous approval, for benchmarking
 	/// purposes.
@@ -128,12 +130,12 @@ pub trait Polling<Tally> {
 }
 
 /// NoOp polling is required if pallet-referenda functionality not needed.
-pub struct NoOpPoll;
-impl<Tally> Polling<Tally> for NoOpPoll {
+pub struct NoOpPoll<Moment>(core::marker::PhantomData<Moment>);
+impl<Tally, Moment> Polling<Tally> for NoOpPoll<Moment> {
 	type Index = u8;
 	type Votes = u32;
 	type Class = u16;
-	type Moment = u64;
+	type Moment = Moment;
 
 	fn classes() -> Vec<Self::Class> {
 		vec![]

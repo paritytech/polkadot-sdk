@@ -99,7 +99,7 @@ where
 {
 	// Skip if there is no minimum balance
 	if T::minimum_balance() == T::Balance::zero() {
-		return
+		return;
 	}
 
 	let initial_total_issuance = T::total_issuance();
@@ -293,7 +293,7 @@ where
 {
 	// Skip if there is no minimum balance
 	if T::minimum_balance() == T::Balance::zero() {
-		return
+		return;
 	}
 
 	let account = AccountId::from(10);
@@ -456,7 +456,7 @@ where
 	AccountId: AtLeast8BitUnsigned,
 {
 	if T::minimum_balance() == T::Balance::zero() {
-		return
+		return;
 	}
 
 	let account_0 = AccountId::from(10);
@@ -526,7 +526,7 @@ where
 {
 	// This test means nothing if there is no minimum balance
 	if T::minimum_balance() == T::Balance::zero() {
-		return
+		return;
 	}
 
 	let initial_total_issuance = T::total_issuance();
@@ -654,7 +654,7 @@ where
 {
 	// can_deposit always returns Success for amount 0
 	if T::minimum_balance() < 2.into() {
-		return
+		return;
 	}
 
 	let account = AccountId::from(10);
@@ -713,7 +713,7 @@ where
 	AccountId: AtLeast8BitUnsigned,
 {
 	if T::minimum_balance() == T::Balance::zero() {
-		return
+		return;
 	}
 
 	let account = AccountId::from(10);
@@ -734,7 +734,7 @@ where
 	AccountId: AtLeast8BitUnsigned,
 {
 	if T::minimum_balance() == T::Balance::zero() {
-		return
+		return;
 	}
 
 	let account = AccountId::from(10);

@@ -224,28 +224,30 @@ mod tests {
 		let config = sc_consensus_babe::configuration(&*client).expect("config available");
 		let slot_duration = config.slot_duration();
 
-		let (block_import, link) =
-			sc_consensus_babe::block_import(config.clone(), client.clone(), client.clone())
-				.expect("can initialize block-import");
+		let (block_import, link) = sc_consensus_babe::block_import(
+			config.clone(),
+			client.clone(),
+			client.clone(),
+			move |_, _| async move {
+				Ok((InherentDataProvider::from_timestamp_and_slot_duration(
+					0.into(),
+					slot_duration,
+				),))
+			},
+			longest_chain.clone(),
+			OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),
+		)
+		.expect("can initialize block-import");
 
 		let (_, babe_worker_handle) = sc_consensus_babe::import_queue(ImportQueueParams {
 			link: link.clone(),
 			block_import: block_import.clone(),
 			justification_import: None,
 			client: client.clone(),
-			select_chain: longest_chain.clone(),
-			create_inherent_data_providers: move |_, _| async move {
-				Ok((InherentDataProvider::from_timestamp_and_slot_duration(
-					0.into(),
-					slot_duration,
-				),))
-			},
+			slot_duration,
 			spawner: &task_executor,
 			registry: None,
 			telemetry: None,
-			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
-				RejectAllTxPool::default(),
-			),
 		})
 		.unwrap();
 

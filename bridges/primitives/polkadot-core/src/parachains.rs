@@ -23,11 +23,11 @@
 //! be two versions of polkadot crates included in the runtime. Which is bad.
 
 use bp_runtime::{raw_storage_proof_size, RawStorageProof, Size};
-use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
+use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::Hasher;
-use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
+use Debug;
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -41,6 +41,7 @@ use serde::{Deserialize, Serialize};
 	CompactAs,
 	Copy,
 	Decode,
+	DecodeWithMemTracking,
 	Default,
 	Encode,
 	Eq,
@@ -49,7 +50,7 @@ use serde::{Deserialize, Serialize};
 	Ord,
 	PartialEq,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 pub struct ParaId(pub u32);
@@ -66,7 +67,17 @@ impl From<u32> for ParaId {
 ///
 /// The parachain head means (at least in Cumulus) a SCALE-encoded parachain header.
 #[derive(
-	PartialEq, Eq, Clone, PartialOrd, Ord, Encode, Decode, RuntimeDebug, TypeInfo, Default,
+	PartialEq,
+	Eq,
+	Clone,
+	PartialOrd,
+	Ord,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	Default,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
 pub struct ParaHead(pub Vec<u8>);
@@ -85,7 +96,7 @@ pub type ParaHash = crate::Hash;
 pub type ParaHasher = crate::Hasher;
 
 /// Raw storage proof of parachain heads, stored in polkadot-like chain runtime.
-#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, Debug, TypeInfo)]
 pub struct ParaHeadsProof {
 	/// Unverified storage proof of finalized parachain heads.
 	pub storage_proof: RawStorageProof,

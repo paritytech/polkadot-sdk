@@ -1,0 +1,18 @@
+title: DeprecationInfo propagate or automatically add allow(deprecated) attributes in the generated code.
+
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+     Propagates or automatically adds allow(deprecated) attributes on `Constants`, `RuntimeApis`, `Runtime Calls` and enum variants
+     to reduce noise produced by warnings inside generated code.
+
+crates:
+  - name: frame-support-procedural
+    bump: none
+  - name: frame-support
+    bump: none
+  - name: sp-api-proc-macro
+    bump: none
+  - name: sp-api
+    bump: none
+    

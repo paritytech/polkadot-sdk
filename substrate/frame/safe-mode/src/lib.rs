@@ -52,13 +52,10 @@
 //!
 //! Entering safe mode with deposit:
 #![doc = docify::embed!("src/tests.rs", can_activate)]
-//!
 //! Entering safe mode via privileged origin:
 #![doc = docify::embed!("src/tests.rs", can_force_activate_with_config_origin)]
-//!
 //! Exiting safe mode via privileged origin:
 #![doc = docify::embed!("src/tests.rs", can_force_deactivate_with_config_origin)]
-//!
 //! ## Low Level / Implementation Details
 //!
 //! ### Use Cost
@@ -75,23 +72,13 @@ pub mod mock;
 mod tests;
 pub mod weights;
 
-use frame_support::{
-	defensive_assert,
-	pallet_prelude::*,
-	traits::{
-		fungible::{
-			self,
-			hold::{Inspect, Mutate},
-		},
-		tokens::{Fortitude, Precision},
-		CallMetadata, Contains, Defensive, GetCallMetadata, PalletInfoAccess, SafeModeNotify,
+use frame::{
+	prelude::{
+		fungible::hold::{Inspect, Mutate},
+		*,
 	},
-	weights::Weight,
-	DefaultNoBound,
+	traits::{fungible, CallMetadata, GetCallMetadata, SafeModeNotify},
 };
-use frame_system::pallet_prelude::*;
-use sp_arithmetic::traits::Zero;
-use sp_runtime::traits::Saturating;
 
 pub use pallet::*;
 pub use weights::*;
@@ -99,7 +86,7 @@ pub use weights::*;
 type BalanceOf<T> =
 	<<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -109,6 +96,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Currency type for this pallet, used for Deposits.
@@ -238,7 +226,18 @@ pub mod pallet {
 	}
 
 	/// The reason why the safe-mode was deactivated.
-	#[derive(Copy, Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	#[derive(
+		Copy,
+		Clone,
+		PartialEq,
+		Eq,
+		Debug,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
 	pub enum ExitReason {
 		/// The safe-mode was automatically deactivated after it's duration ran out.
 		Timeout,
@@ -449,7 +448,7 @@ pub mod pallet {
 		/// [`EnteredUntil`].
 		fn on_initialize(current: BlockNumberFor<T>) -> Weight {
 			let Some(limit) = EnteredUntil::<T>::get() else {
-				return T::WeightInfo::on_initialize_noop()
+				return T::WeightInfo::on_initialize_noop();
 			};
 
 			if current > limit {
@@ -564,7 +563,7 @@ impl<T: Config> Pallet<T> {
 	fn hold(who: T::AccountId, amount: BalanceOf<T>) -> Result<(), Error<T>> {
 		let block = <frame_system::Pallet<T>>::block_number();
 		if !T::Currency::balance_on_hold(&HoldReason::EnterOrExtend.into(), &who).is_zero() {
-			return Err(Error::<T>::AlreadyDeposited.into())
+			return Err(Error::<T>::AlreadyDeposited.into());
 		}
 
 		T::Currency::hold(&HoldReason::EnterOrExtend.into(), &who, amount)
@@ -588,7 +587,7 @@ impl<T: Config> Pallet<T> {
 		let CallMetadata { pallet_name, .. } = call.get_call_metadata();
 		// SAFETY: The `SafeMode` pallet is always allowed.
 		if pallet_name == <Pallet<T> as PalletInfoAccess>::name() {
-			return true
+			return true;
 		}
 
 		if Self::is_entered() {
@@ -609,7 +608,7 @@ where
 	}
 }
 
-impl<T: Config> frame_support::traits::SafeMode for Pallet<T> {
+impl<T: Config> frame::traits::SafeMode for Pallet<T> {
 	type BlockNumber = BlockNumberFor<T>;
 
 	fn is_entered() -> bool {
@@ -623,20 +622,20 @@ impl<T: Config> frame_support::traits::SafeMode for Pallet<T> {
 		})
 	}
 
-	fn enter(duration: BlockNumberFor<T>) -> Result<(), frame_support::traits::SafeModeError> {
+	fn enter(duration: BlockNumberFor<T>) -> Result<(), frame::traits::SafeModeError> {
 		Self::do_enter(None, duration).map_err(Into::into)
 	}
 
-	fn extend(duration: BlockNumberFor<T>) -> Result<(), frame_support::traits::SafeModeError> {
+	fn extend(duration: BlockNumberFor<T>) -> Result<(), frame::traits::SafeModeError> {
 		Self::do_extend(None, duration).map_err(Into::into)
 	}
 
-	fn exit() -> Result<(), frame_support::traits::SafeModeError> {
+	fn exit() -> Result<(), frame::traits::SafeModeError> {
 		Self::do_exit(ExitReason::Force).map_err(Into::into)
 	}
 }
 
-impl<T: Config> From<Error<T>> for frame_support::traits::SafeModeError {
+impl<T: Config> From<Error<T>> for frame::traits::SafeModeError {
 	fn from(err: Error<T>) -> Self {
 		match err {
 			Error::<T>::Entered => Self::AlreadyEntered,

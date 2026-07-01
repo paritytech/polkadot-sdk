@@ -17,9 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 aquamarine = { workspace = true }
-codec = { features = [
-	"derive",
-], workspace = true }
+codec = { features = ["derive"], workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
@@ -38,6 +36,7 @@ sp-core = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
 
 [features]
 default = ["std"]

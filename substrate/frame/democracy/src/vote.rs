@@ -18,16 +18,16 @@
 //! The vote datatype.
 
 use crate::{Conviction, Delegations, ReferendumIndex};
-use codec::{Decode, Encode, EncodeLike, Input, MaxEncodedLen, Output};
+use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, Input, MaxEncodedLen, Output};
 use frame_support::traits::Get;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	BoundedVec, RuntimeDebug,
+	BoundedVec, Debug,
 };
 
 /// A number of lock periods, plus a vote, one way or the other.
-#[derive(Copy, Clone, Eq, PartialEq, Default, RuntimeDebug)]
+#[derive(DecodeWithMemTracking, Copy, Clone, Eq, PartialEq, Default, Debug)]
 pub struct Vote {
 	pub aye: bool,
 	pub conviction: Conviction,
@@ -72,7 +72,18 @@ impl TypeInfo for Vote {
 }
 
 /// A vote for a referendum of a particular account.
-#[derive(Encode, MaxEncodedLen, Decode, Copy, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+	Encode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	Decode,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Debug,
+	TypeInfo,
+)]
 pub enum AccountVote<Balance> {
 	/// A standard vote, one-way (approve or reject) with a given amount of conviction.
 	Standard { vote: Vote, balance: Balance },
@@ -87,8 +98,9 @@ impl<Balance: Saturating> AccountVote<Balance> {
 	pub fn locked_if(self, approved: bool) -> Option<(u32, Balance)> {
 		// winning side: can only be removed after the lock period ends.
 		match self {
-			AccountVote::Standard { vote, balance } if vote.aye == approved =>
-				Some((vote.conviction.lock_periods(), balance)),
+			AccountVote::Standard { vote, balance } if vote.aye == approved => {
+				Some((vote.conviction.lock_periods(), balance))
+			},
 			_ => None,
 		}
 	}
@@ -123,7 +135,7 @@ impl<Balance: Saturating> AccountVote<Balance> {
 	PartialEq,
 	Ord,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 pub struct PriorLock<BlockNumber, Balance>(BlockNumber, Balance);
@@ -148,7 +160,7 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
 }
 
 /// An indicator for what an account is doing; it can either be delegating or voting.
-#[derive(Clone, Encode, Decode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, Eq, MaxEncodedLen, PartialEq, Debug, TypeInfo)]
 #[codec(mel_bound(skip_type_params(MaxVotes)))]
 #[scale_info(skip_type_params(MaxVotes))]
 pub enum Voting<Balance, AccountId, BlockNumber, MaxVotes: Get<u32>> {
@@ -204,8 +216,9 @@ impl<
 	/// The amount of this account's balance that must currently be locked due to voting.
 	pub fn locked_balance(&self) -> Balance {
 		match self {
-			Voting::Direct { votes, prior, .. } =>
-				votes.iter().map(|i| i.1.balance()).fold(prior.locked(), |a, i| a.max(i)),
+			Voting::Direct { votes, prior, .. } => {
+				votes.iter().map(|i| i.1.balance()).fold(prior.locked(), |a, i| a.max(i))
+			},
 			Voting::Delegating { balance, prior, .. } => *balance.max(&prior.locked()),
 		}
 	}

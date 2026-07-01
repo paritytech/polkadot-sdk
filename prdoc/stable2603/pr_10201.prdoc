@@ -1,0 +1,9 @@
+title: 'telemtry: Downgrade spam log to debug'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR downgrade the telemetry warning log to debug.
+    - The log is causing a lot of noise in our test nets: https://grafana.teleport.parity.io/goto/fjTQ_vzDg?orgId=1
+crates:
+- name: sc-telemetry
+  bump: patch

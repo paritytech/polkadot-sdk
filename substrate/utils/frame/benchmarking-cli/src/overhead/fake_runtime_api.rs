@@ -28,10 +28,13 @@ use sp_runtime::{
 };
 
 /// Block number
+#[allow(dead_code)]
 type BlockNumber = u32;
 /// Opaque block header type.
+#[allow(dead_code)]
 type Header = generic::Header<BlockNumber, BlakeTwo256>;
 /// Opaque block type.
+#[allow(dead_code)]
 type Block = generic::Block<Header, OpaqueExtrinsic>;
 
 #[allow(unused)]
@@ -43,7 +46,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn execute_block(_: Block) {
+		fn execute_block(_: <Block as BlockT>::LazyBlock) {
 			unimplemented!()
 		}
 
@@ -78,7 +81,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn check_inherents(_: Block, _: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
+		fn check_inherents(_: <Block as BlockT>::LazyBlock, _: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
 			unimplemented!()
 		}
 	}
@@ -103,6 +106,16 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+			unimplemented!()
+		}
+	}
+
+	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
+		fn relay_parent_offset() -> u32 {
+			unimplemented!()
+		}
+
+		fn max_claim_queue_offset() -> u8 {
 			unimplemented!()
 		}
 	}

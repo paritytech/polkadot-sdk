@@ -39,20 +39,21 @@ mod functions;
 mod impl_nonfungibles;
 mod types;
 
+pub mod asset_ops;
 pub mod migration;
 pub mod weights;
 
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::traits::{
 	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, ReservableCurrency,
 };
 use frame_system::Config as SystemConfig;
 use sp_runtime::{
 	traits::{Saturating, StaticLookup, Zero},
-	ArithmeticError, RuntimeDebug,
+	ArithmeticError, Debug,
 };
 
 pub use pallet::*;
@@ -96,6 +97,7 @@ pub mod pallet {
 	/// The module configuration trait.
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -182,7 +184,7 @@ pub mod pallet {
 	#[pallet::storage]
 	/// The items held by any given account; set out this way so that items owned by a single
 	/// account can be enumerated.
-	pub(super) type Account<T: Config<I>, I: 'static = ()> = StorageNMap<
+	pub type Account<T: Config<I>, I: 'static = ()> = StorageNMap<
 		_,
 		(
 			NMapKey<Blake2_128Concat, T::AccountId>, // owner
@@ -197,7 +199,7 @@ pub mod pallet {
 	#[pallet::storage_prefix = "ClassAccount"]
 	/// The collections owned by any given account; set out this way so that collections owned by
 	/// a single account can be enumerated.
-	pub(super) type CollectionAccount<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type CollectionAccount<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::AccountId,
@@ -246,7 +248,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Attributes of a collection.
-	pub(super) type Attribute<T: Config<I>, I: 'static = ()> = StorageNMap<
+	pub type Attribute<T: Config<I>, I: 'static = ()> = StorageNMap<
 		_,
 		(
 			NMapKey<Blake2_128Concat, T::CollectionId>,
@@ -271,7 +273,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Keeps track of the number of items a collection might have.
-	pub(super) type CollectionMaxSupply<T: Config<I>, I: 'static = ()> =
+	pub type CollectionMaxSupply<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, T::CollectionId, u32, OptionQuery>;
 
 	#[pallet::event]
@@ -422,6 +424,14 @@ pub mod pallet {
 		NotForSale,
 		/// The provided bid is too low.
 		BidTooLow,
+		/// No metadata is found.
+		NoMetadata,
+		/// Wrong metadata key/value bytes supplied.
+		WrongMetadata,
+		/// An attribute is not found.
+		AttributeNotFound,
+		/// Wrong attribute key/value bytes supplied.
+		WrongAttribute,
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -701,10 +711,10 @@ pub mod pallet {
 					if T::Currency::reserve(&collection_details.owner, deposit - old).is_err() {
 						// NOTE: No alterations made to collection_details in this iteration so far,
 						// so this is OK to do.
-						continue
+						continue;
 					}
 				} else {
-					continue
+					continue;
 				}
 				collection_details.total_deposit.saturating_accrue(deposit);
 				collection_details.total_deposit.saturating_reduce(old);
@@ -870,7 +880,7 @@ pub mod pallet {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::UnknownCollection)?;
 				ensure!(origin == details.owner, Error::<T, I>::NoPermission);
 				if details.owner == new_owner {
-					return Ok(())
+					return Ok(());
 				}
 
 				// Move the deposit to the new owner.
@@ -1123,8 +1133,9 @@ pub mod pallet {
 			}
 			let maybe_is_frozen = match maybe_item {
 				None => CollectionMetadataOf::<T, I>::get(collection.clone()).map(|v| v.is_frozen),
-				Some(item) =>
-					ItemMetadataOf::<T, I>::get(collection.clone(), item).map(|v| v.is_frozen),
+				Some(item) => {
+					ItemMetadataOf::<T, I>::get(collection.clone(), item).map(|v| v.is_frozen)
+				},
 			};
 			ensure!(!maybe_is_frozen.unwrap_or(false), Error::<T, I>::Frozen);
 
@@ -1186,8 +1197,9 @@ pub mod pallet {
 			}
 			let maybe_is_frozen = match maybe_item {
 				None => CollectionMetadataOf::<T, I>::get(collection.clone()).map(|v| v.is_frozen),
-				Some(item) =>
-					ItemMetadataOf::<T, I>::get(collection.clone(), item).map(|v| v.is_frozen),
+				Some(item) => {
+					ItemMetadataOf::<T, I>::get(collection.clone(), item).map(|v| v.is_frozen)
+				},
 			};
 			ensure!(!maybe_is_frozen.unwrap_or(false), Error::<T, I>::Frozen);
 

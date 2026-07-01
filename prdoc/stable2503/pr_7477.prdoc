@@ -1,0 +1,14 @@
+title: add genesis presets for the people chains
+doc:
+- audience: Runtime Dev
+  description: |-
+    Extracted from #7473.
+
+    Part of: https://github.com/paritytech/polkadot-sdk/issues/5704.
+crates:
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: polkadot-parachain-bin
+  bump: minor

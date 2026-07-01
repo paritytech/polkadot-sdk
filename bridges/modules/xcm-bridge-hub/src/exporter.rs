@@ -73,25 +73,32 @@ where
 		destination: &mut Option<InteriorLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> Result<(Self::Ticket, Assets), SendError> {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"Validate for network: {network:?}, channel: {channel:?}, universal_source: {universal_source:?}, destination: {destination:?}"
+			?network,
+			?channel,
+			?universal_source,
+			?destination,
+			"Validate for network"
 		);
 
 		// `HaulBlobExporter` may consume the `universal_source` and `destination` arguments, so
 		// let's save them before
 		let bridge_origin_universal_location =
-			universal_source.clone().take().ok_or(SendError::MissingArgument)?;
+			universal_source.clone().ok_or(SendError::MissingArgument)?;
 		// Note: watch out this is `ExportMessage::destination`, which is relative to the `network`,
 		// which means it does not contain `GlobalConsensus`, We need to find `BridgeId` with
 		// `Self::bridge_locations` which requires **universal** location for destination.
 		let bridge_destination_universal_location = {
-			let dest = destination.clone().take().ok_or(SendError::MissingArgument)?;
+			let dest = destination.clone().ok_or(SendError::MissingArgument)?;
 			match dest.global_consensus() {
 				Ok(dest_network) => {
-					log::trace!(
+					tracing::trace!(
 						target: LOG_TARGET,
-						"Destination: {dest:?} is already universal, checking dest_network: {dest_network:?} and network: {network:?} if matches: {:?}",
+						?dest,
+						?dest_network,
+						?network,
+						"Destination is already universal, checking if matches: {:?}",
 						dest_network == network
 					);
 					ensure!(dest_network == network, SendError::NotApplicable);
@@ -102,11 +109,9 @@ where
 					// `dest` is not a universal location, so we need to prepend it with
 					// `GlobalConsensus`.
 					dest.pushed_front_with(GlobalConsensus(network)).map_err(|error_data| {
-						log::error!(
-							target: LOG_TARGET,
-							"Destination: {:?} is not a universal and prepending with {:?} failed!",
-							error_data.0,
-							error_data.1,
+						tracing::error!(
+							target: LOG_TARGET, error=?error_data,
+							"Destination is not a universal and prepending failed!"
 						);
 						SendError::NotApplicable
 					})?
@@ -124,18 +129,18 @@ where
 			bridge_destination_universal_location.into(),
 		)
 		.map_err(|e| {
-			log::error!(
-				target: LOG_TARGET,
-				"Validate `bridge_locations` with error: {e:?}",
+			tracing::error!(
+				target: LOG_TARGET, error=?e,
+				"Validate `bridge_locations` with error"
 			);
 			SendError::NotApplicable
 		})?;
 		let bridge = Self::bridge(locations.bridge_id()).ok_or_else(|| {
-			log::error!(
+			tracing::error!(
 				target: LOG_TARGET,
-				"No opened bridge for requested bridge_origin_relative_location: {:?} and bridge_destination_universal_location: {:?}",
-				locations.bridge_origin_relative_location(),
-				locations.bridge_destination_universal_location(),
+				bridge_origin_relative_location=?locations.bridge_origin_relative_location(),
+				bridge_destination_universal_location=?locations.bridge_destination_universal_location(),
+				"No opened bridge for requested"
 			);
 			SendError::NotApplicable
 		})?;
@@ -154,22 +159,25 @@ where
 		let bridge_message = MessagesPallet::<T, I>::validate_message(bridge.lane_id, &blob)
 			.map_err(|e| {
 				match e {
-					Error::LanesManager(ref ei) =>
-						log::error!(target: LOG_TARGET, "LanesManager: {ei:?}"),
-					Error::MessageRejectedByPallet(ref ei) =>
-						log::error!(target: LOG_TARGET, "MessageRejectedByPallet: {ei:?}"),
-					Error::ReceptionConfirmation(ref ei) =>
-						log::error!(target: LOG_TARGET, "ReceptionConfirmation: {ei:?}"),
+					Error::LanesManager(ref ei) => {
+						tracing::error!(target: LOG_TARGET, error=?ei, "LanesManager")
+					},
+					Error::MessageRejectedByPallet(ref ei) => {
+						tracing::error!(target: LOG_TARGET, error=?ei, "MessageRejectedByPallet")
+					},
+					Error::ReceptionConfirmation(ref ei) => {
+						tracing::error!(target: LOG_TARGET, error=?ei, "ReceptionConfirmation")
+					},
 					_ => (),
 				};
 
-				log::error!(
+				tracing::error!(
 					target: LOG_TARGET,
-					"XCM message {:?} cannot be exported because of bridge error: {:?} on bridge {:?} and laneId: {:?}",
-					id,
-					e,
-					locations,
-					bridge.lane_id,
+					error=?e,
+					topic_id=?id,
+					bridge_id=?locations,
+					lane_id=?bridge.lane_id,
+					"XCM message cannot be exported"
 				);
 				SendError::Transport("BridgeValidateError")
 			})?;
@@ -182,13 +190,13 @@ where
 	) -> Result<XcmHash, SendError> {
 		let artifacts = MessagesPallet::<T, I>::send_message(bridge_message);
 
-		log::info!(
+		tracing::info!(
 			target: LOG_TARGET,
-			"XCM message {:?} has been enqueued at bridge {:?} and lane_id: {:?} with nonce {}",
-			id,
-			bridge_id,
-			bridge.lane_id,
-			artifacts.nonce,
+			topic_id=?id,
+			bridge_id=?bridge_id,
+			lane_id=?bridge.lane_id,
+			nonce=%artifacts.nonce,
+			"XCM message has been enqueued"
 		);
 
 		// maybe we need switch to congested state
@@ -214,7 +222,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// if the bridge queue is not congested, we don't want to do anything
 		let is_congested = enqueued_messages > OUTBOUND_LANE_CONGESTED_THRESHOLD;
 		if !is_congested {
-			return
+			return;
 		}
 
 		// TODO: https://github.com/paritytech/parity-bridges-common/issues/2006 we either need fishermens
@@ -224,45 +232,46 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// check if the lane is already suspended. If it is, do nothing. We still accept new
 		// messages to the suspended bridge, hoping that it'll be actually resumed soon
 		if bridge.state == BridgeState::Suspended {
-			return
+			return;
 		}
 
 		// else - suspend the bridge
-		let bridge_origin_relative_location = match bridge.bridge_origin_relative_location.try_as()
-		{
+		let result_bridge_origin_relative_location =
+			(*bridge.bridge_origin_relative_location).clone().try_into();
+		let bridge_origin_relative_location = match &result_bridge_origin_relative_location {
 			Ok(bridge_origin_relative_location) => bridge_origin_relative_location,
 			Err(_) => {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
-					"Failed to convert the bridge {:?} origin location {:?}",
-					bridge_id,
-					bridge.bridge_origin_relative_location,
+					?bridge_id,
+					origin_location=?bridge.bridge_origin_relative_location,
+					"Failed to convert"
 				);
 
-				return
+				return;
 			},
 		};
 		let suspend_result =
 			T::LocalXcmChannelManager::suspend_bridge(bridge_origin_relative_location, bridge_id);
 		match suspend_result {
 			Ok(_) => {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
-					"Suspended the bridge {:?}, originated by the {:?}",
-					bridge_id,
-					bridge.bridge_origin_relative_location,
+					?bridge_id,
+					originated_by=?bridge.bridge_origin_relative_location,
+					"Suspended"
 				);
 			},
 			Err(e) => {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
-					"Failed to suspended the bridge {:?}, originated by the {:?}: {:?}",
-					bridge_id,
-					bridge.bridge_origin_relative_location,
-					e,
+					error=?e,
+					?bridge_id,
+					originated_by=?bridge.bridge_origin_relative_location,
+					"Failed to suspended"
 				);
 
-				return
+				return;
 			},
 		}
 
@@ -277,7 +286,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// if the bridge queue is still congested, we don't want to do anything
 		let is_congested = enqueued_messages > OUTBOUND_LANE_UNCONGESTED_THRESHOLD;
 		if is_congested {
-			return
+			return;
 		}
 
 		// if we have not suspended the bridge before (or it is closed), we don't want to do
@@ -288,7 +297,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// if there is no bridge or it has been closed, then we don't need to send resume
 				// signal to the local origin - it has closed bridge itself, so it should have
 				// alrady pruned everything else
-				return
+				return;
 			},
 		};
 
@@ -297,15 +306,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let bridge_origin_relative_location = match bridge_origin_relative_location {
 			Ok(bridge_origin_relative_location) => bridge_origin_relative_location,
 			Err(e) => {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
-					"Failed to convert the bridge {:?} location for lane_id: {:?}, error {:?}",
-					bridge_id,
-					lane_id,
-					e,
+					error=?e,
+					?bridge_id,
+					?lane_id,
+					"Failed to convert",
 				);
 
-				return
+				return;
 			},
 		};
 
@@ -313,25 +322,25 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			T::LocalXcmChannelManager::resume_bridge(&bridge_origin_relative_location, bridge_id);
 		match resume_result {
 			Ok(_) => {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
-					"Resumed the bridge {:?} and lane_id: {:?}, originated by the {:?}",
-					bridge_id,
-					lane_id,
-					bridge_origin_relative_location,
+					?bridge_id,
+					?lane_id,
+					originated_by=?bridge_origin_relative_location,
+					"Resumed",
 				);
 			},
 			Err(e) => {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
-					"Failed to resume the bridge {:?} and lane_id: {:?}, originated by the {:?}: {:?}",
-					bridge_id,
-					lane_id,
-					bridge_origin_relative_location,
-					e,
+					error=?e,
+					?bridge_id,
+					?lane_id,
+					originated_by=?bridge_origin_relative_location,
+					"Failed to resume"
 				);
 
-				return
+				return;
 			},
 		}
 

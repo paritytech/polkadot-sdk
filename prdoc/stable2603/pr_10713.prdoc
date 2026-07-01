@@ -1,0 +1,23 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix off-by-one error in child bounty limit validation
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes an off-by-one error in `pallet-child-bounties` where the `add_child_bounty` 
+      function allowed creating `MaxActiveChildBountyCount + 1` child bounties instead of 
+      being capped at `MaxActiveChildBountyCount`.
+      
+      The validation check used `<=` instead of `<`, allowing the count to exceed the limit 
+      by one. This fix changes the comparison to `<` and removes an unnecessary type cast.
+      
+      This is a bug fix that ensures runtime configuration limits are properly enforced.
+      
+      Fixes #10652
+
+crates:
+  - name: pallet-child-bounties
+    bump: patch
+

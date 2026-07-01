@@ -33,7 +33,8 @@ use sc_transaction_pool_api::{
 	ImportNotificationStream, PoolStatus, ReadyTransactions, TransactionFor, TransactionSource,
 	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
-use sp_consensus::{Environment, Proposer};
+use sp_consensus::{Environment, ProposeArgs, Proposer};
+use sp_core::traits::CallContext;
 use sp_inherents::InherentDataProvider;
 use sp_runtime::OpaqueExtrinsic;
 
@@ -112,7 +113,7 @@ impl core::Benchmark for ConstructionBenchmark {
 
 		let _ = context
 			.client
-			.runtime_version_at(context.client.chain_info().genesis_hash)
+			.runtime_version_at(context.client.chain_info().genesis_hash, CallContext::Offchain)
 			.expect("Failed to get runtime version")
 			.spec_version;
 
@@ -144,11 +145,14 @@ impl core::Benchmark for ConstructionBenchmark {
 
 		let inherent_data = futures::executor::block_on(timestamp_provider.create_inherent_data())
 			.expect("Create inherent data failed");
-		let _block = futures::executor::block_on(proposer.propose(
-			inherent_data,
-			Default::default(),
-			std::time::Duration::from_secs(20),
-			None,
+		let _block = futures::executor::block_on(Proposer::propose(
+			proposer,
+			ProposeArgs {
+				inherent_data,
+				inherent_digests: Default::default(),
+				max_duration: std::time::Duration::from_secs(20),
+				..Default::default()
+			},
 		))
 		.map(|r| r.block)
 		.expect("Proposing failed");
@@ -271,7 +275,7 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 		unimplemented!()
 	}
 
-	fn report_invalid(
+	async fn report_invalid(
 		&self,
 		_at: Option<Self::Hash>,
 		_invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,

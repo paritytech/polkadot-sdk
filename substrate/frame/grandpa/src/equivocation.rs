@@ -122,7 +122,7 @@ impl<T, R, P, L>
 		(EquivocationProof<T::Hash, BlockNumberFor<T>>, T::KeyOwnerProof),
 	> for EquivocationReportSystem<T, R, P, L>
 where
-	T: Config + pallet_authorship::Config + frame_system::offchain::CreateInherent<Call<T>>,
+	T: Config + pallet_authorship::Config + frame_system::offchain::CreateBare<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		P::IdentificationTuple,
@@ -144,7 +144,7 @@ where
 			equivocation_proof: Box::new(equivocation_proof),
 			key_owner_proof,
 		};
-		let xt = T::create_inherent(call.into());
+		let xt = T::create_bare(call.into());
 		let res = SubmitTransaction::<T, Call<T>>::submit_transaction(xt);
 		match res {
 			Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report"),
@@ -191,7 +191,7 @@ where
 
 		// Validate equivocation proof (check votes are different and signatures are valid).
 		if !sp_consensus_grandpa::check_equivocation_proof(equivocation_proof) {
-			return Err(Error::<T>::InvalidEquivocationProof.into())
+			return Err(Error::<T>::InvalidEquivocationProof.into());
 		}
 
 		// Validate the key ownership proof extracting the id of the offender.
@@ -218,7 +218,7 @@ where
 				.map(|previous_index| session_index <= previous_index)
 				.unwrap_or(false)
 		{
-			return Err(Error::<T>::InvalidEquivocationProof.into())
+			return Err(Error::<T>::InvalidEquivocationProof.into());
 		}
 
 		let offence = EquivocationOffence {
@@ -251,7 +251,7 @@ impl<T: Config> Pallet<T> {
 						"rejecting unsigned report equivocation transaction because it is not local/in-block."
 					);
 
-					return InvalidTransaction::Call.into()
+					return InvalidTransaction::Call.into();
 				},
 			}
 

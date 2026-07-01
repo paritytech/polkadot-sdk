@@ -1,0 +1,7 @@
+title: 'rpc v2 archive: more verbose error types in API'
+doc:
+- audience: Node Dev
+  description: 'This PR changes the error types to more precise rather than arbitrary JSON-RPC error'
+crates:
+- name: sc-rpc-spec-v2
+  bump: major

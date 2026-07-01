@@ -433,8 +433,9 @@ where
 		)
 		.map_err(|e| format!("Failed to create module: {}", e))?;
 
-		let instance =
-			module.new_instance().map_err(|e| format!("Failed to create instance: {}", e))?;
+		let instance = module
+			.new_instance(self.default_onchain_heap_alloc_strategy)
+			.map_err(|e| format!("Failed to create instance: {}", e))?;
 
 		let mut instance = AssertUnwindSafe(instance);
 		let mut ext = AssertUnwindSafe(ext);
@@ -466,7 +467,7 @@ where
 			.map_err(|e| format!("Failed to read the static section: {:?}", e))
 			.map(|v| v.map(|v| v.encode()))?
 		{
-			return Ok(version)
+			return Ok(version);
 		}
 
 		// If the blob didn't have embedded runtime version section, we fallback to the legacy
@@ -519,7 +520,8 @@ where
 
 		let heap_alloc_strategy = match context {
 			CallContext::Offchain => self.default_offchain_heap_alloc_strategy,
-			CallContext::Onchain => on_chain_heap_alloc_strategy,
+			CallContext::Onchain { import: false } => on_chain_heap_alloc_strategy,
+			CallContext::Onchain { import: true } => on_chain_heap_alloc_strategy.double(),
 		};
 
 		let result = self.with_instance(
@@ -581,7 +583,6 @@ pub struct NativeElseWasmExecutor<D: NativeExecutionDispatch> {
 
 #[allow(deprecated)]
 impl<D: NativeExecutionDispatch> NativeElseWasmExecutor<D> {
-	///
 	/// Create new instance.
 	///
 	/// # Parameters
@@ -689,7 +690,8 @@ impl<D: NativeExecutionDispatch + 'static> CodeExecutor for NativeElseWasmExecut
 
 		let heap_alloc_strategy = match context {
 			CallContext::Offchain => self.wasm.default_offchain_heap_alloc_strategy,
-			CallContext::Onchain => on_chain_heap_alloc_strategy,
+			CallContext::Onchain { import: false } => on_chain_heap_alloc_strategy,
+			CallContext::Onchain { import: true } => on_chain_heap_alloc_strategy.double(),
 		};
 
 		let mut used_native = false;
@@ -758,11 +760,11 @@ impl<D: NativeExecutionDispatch> sp_core::traits::ReadRuntimeVersion for NativeE
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_runtime_interface::runtime_interface;
+	use sp_runtime_interface::{pass_by::PassFatPointerAndRead, runtime_interface};
 
 	#[runtime_interface]
 	trait MyInterface {
-		fn say_hello_world(data: &str) {
+		fn say_hello_world(data: PassFatPointerAndRead<&str>) {
 			println!("Hello world from: {}", data);
 		}
 	}

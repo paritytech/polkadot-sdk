@@ -41,8 +41,8 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	node_features, vstaging::MutateDescriptorV2, AuthorityDiscoveryId, Block, ExecutorParams, Hash,
-	HeadData, IndexedVec, NodeFeatures, PersistedValidationData, SessionInfo, ValidatorId,
+	node_features, ApprovalVotingParams, AuthorityDiscoveryId, Block, Hash, HeadData, IndexedVec,
+	MutateDescriptorV2, NodeFeatures, PersistedValidationData, SessionInfo, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_network::{IfDisconnected, OutboundFailure, ProtocolName, RequestFailure};
@@ -403,21 +403,6 @@ impl TestState {
 				}))).unwrap();
 			}
 		);
-		assert_matches!(
-			overseer_recv(virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				relay_parent,
-				RuntimeApiRequest::SessionExecutorParams(
-					session_index,
-					tx,
-				)
-			)) => {
-				assert_eq!(relay_parent, self.current);
-				assert_eq!(session_index, self.session_index);
-
-				tx.send(Ok(Some(ExecutorParams::new()))).unwrap();
-			}
-		);
 	}
 
 	async fn test_runtime_api_node_features(&self, virtual_overseer: &mut VirtualOverseer) {
@@ -433,6 +418,19 @@ impl TestState {
 				tx.send(Ok(
 					self.node_features.clone()
 				)).unwrap();
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_relay_parent,
+				RuntimeApiRequest::ApprovalVotingParams(
+					_,
+					tx,
+				)
+			)) => {
+				tx.send(Ok(ApprovalVotingParams::default())).unwrap();
 			}
 		);
 	}
@@ -715,7 +713,7 @@ fn map_chunks(
 	core_index: CoreIndex,
 ) -> IndexedVec<ValidatorIndex, ErasureChunk> {
 	let chunk_indices =
-		availability_chunk_indices(Some(node_features), n_validators, core_index).unwrap();
+		availability_chunk_indices(node_features, n_validators, core_index).unwrap();
 
 	(0..n_validators)
 		.map(|val_idx| chunks[chunk_indices[val_idx].0 as usize].clone())

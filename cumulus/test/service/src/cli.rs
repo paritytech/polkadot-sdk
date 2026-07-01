@@ -14,8 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::path::PathBuf;
-
+use clap::ValueEnum;
 use cumulus_client_cli::{ExportGenesisHeadCommand, ExportGenesisWasmCommand};
 use polkadot_service::{ChainSpec, ParaId, PrometheusConfig};
 use sc_cli::{
@@ -23,6 +22,10 @@ use sc_cli::{
 	Result as CliResult, RpcEndpoint, SharedParams, SubstrateCli,
 };
 use sc_service::BasePath;
+use std::{
+	fmt::{Display, Formatter},
+	path::PathBuf,
+};
 
 #[derive(Debug, clap::Parser)]
 #[command(
@@ -43,25 +46,52 @@ pub struct TestCollatorCli {
 	pub relaychain_args: Vec<String>,
 
 	#[arg(long)]
-	pub use_null_consensus: bool,
-
-	#[arg(long)]
 	pub disable_block_announcements: bool,
 
 	#[arg(long)]
 	pub fail_pov_recovery: bool,
 
-	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
-	///
-	/// Use with care, this flag is unstable and subject to change.
-	#[arg(long)]
-	pub experimental_use_slot_based: bool,
+	/// Authoring style to use.
+	#[arg(long, default_value_t = AuthoringPolicy::Lookahead)]
+	pub authoring: AuthoringPolicy,
+
+	/// Upper bound on collator reserved-peer mesh slots. `0` disables the mesh.
+	#[arg(long, value_name = "N", default_value_t = 32)]
+	pub collator_reserved_slots: usize,
+}
+
+/// Collator implementation to use.
+#[derive(PartialEq, Debug, ValueEnum, Clone, Copy)]
+pub enum AuthoringPolicy {
+	/// Use the lookahead collator. Builds blocks once per relay chain block,
+	/// builds on relay chain forks.
+	Lookahead,
+	/// Use the slot-based collator which can handle elastic-scaling. Builds blocks based on time
+	/// and can utilize multiple cores, always builds on the best relay chain block available.
+	SlotBased,
+}
+
+impl Display for AuthoringPolicy {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		match self {
+			AuthoringPolicy::Lookahead => write!(f, "lookahead"),
+			AuthoringPolicy::SlotBased => write!(f, "slot-based"),
+		}
+	}
 }
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
 	/// Build a chain specification.
+	/// DEPRECATED: `build-spec` command will be removed after 1/04/2026. Use `export-chain-spec`
+	/// command instead.
+	#[deprecated(
+		note = "build-spec command will be removed after 1/04/2026. Use export-chain-spec command instead"
+	)]
 	BuildSpec(sc_cli::BuildSpecCmd),
+
+	/// Export the chain specification.
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
 	/// Export the genesis state of the parachain.
 	#[command(alias = "export-genesis-state")]
@@ -257,35 +287,115 @@ impl SubstrateCli for TestCollatorCli {
 	}
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-		Ok(match id {
+		Ok(Box::new(match id {
 			"" => {
 				tracing::info!("Using default test service chain spec.");
-				Box::new(cumulus_test_service::get_chain_spec(Some(ParaId::from(2000)))) as Box<_>
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::WASM_BINARY,
+					Some(ParaId::from(2000)),
+				)
 			},
 			"elastic-scaling-mvp" => {
 				tracing::info!("Using elastic-scaling mvp chain spec.");
-				Box::new(cumulus_test_service::get_elastic_scaling_mvp_chain_spec(Some(
-					ParaId::from(2100),
-				))) as Box<_>
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::elastic_scaling::WASM_BINARY,
+					Some(ParaId::from(2100)),
+				)
 			},
 			"elastic-scaling" => {
 				tracing::info!("Using elastic-scaling chain spec.");
-				Box::new(cumulus_test_service::get_elastic_scaling_chain_spec(Some(ParaId::from(
-					2200,
-				)))) as Box<_>
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::elastic_scaling::WASM_BINARY,
+					Some(ParaId::from(2200)),
+				)
 			},
 			"elastic-scaling-500ms" => {
 				tracing::info!("Using elastic-scaling 500ms chain spec.");
-				Box::new(cumulus_test_service::get_elastic_scaling_500ms_chain_spec(Some(
-					ParaId::from(2300),
-				))) as Box<_>
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::elastic_scaling_500ms::WASM_BINARY,
+					Some(ParaId::from(2300)),
+				)
+			},
+			"block-bundling" => {
+				tracing::info!("Using block-bundling chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::block_bundling::WASM_BINARY,
+					Some(ParaId::from(2400)),
+				)
+			},
+			"sync-backing" => {
+				tracing::info!("Using sync backing chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::sync_backing::WASM_BINARY,
+					Some(ParaId::from(2500)),
+				)
+			},
+			"async-backing" => {
+				tracing::info!("Using async backing chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::WASM_BINARY,
+					Some(ParaId::from(2500)),
+				)
+			},
+			"relay-parent-offset" => cumulus_test_service::get_chain_spec(
+				cumulus_test_runtime::relay_parent_offset::WASM_BINARY,
+				Some(ParaId::from(2600)),
+			),
+			"with-authority-discovery" => {
+				tracing::info!("Using with-authority-discovery chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::with_authority_discovery::WASM_BINARY,
+					Some(ParaId::from(1000)),
+				)
+			},
+			"v3" => {
+				tracing::info!("Using async backing V3 chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::v3::WASM_BINARY,
+					Some(ParaId::from(2700)),
+				)
+			},
+			"v3-rpo-2" => {
+				tracing::info!("Using async backing V3 with relay parent offset 2 chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::v3_rpo_2::WASM_BINARY,
+					Some(ParaId::from(2700)),
+				)
+			},
+			"v3-rpo-4" => {
+				tracing::info!("Using async backing V3 with relay parent offset 4 chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::v3_rpo_4::WASM_BINARY,
+					Some(ParaId::from(2700)),
+				)
+			},
+			"v3-rpo-6" => {
+				tracing::info!("Using async backing V3 with relay parent offset 6 chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::v3_rpo_6::WASM_BINARY,
+					Some(ParaId::from(2700)),
+				)
+			},
+			"v3-rpo-15" => {
+				tracing::info!("Using async backing V3 with relay parent offset 15 chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::v3_rpo_15::WASM_BINARY,
+					Some(ParaId::from(2700)),
+				)
+			},
+			"elastic-scaling-v3" => {
+				tracing::info!("Using elastic scaling V3 chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::elastic_scaling_v3::WASM_BINARY,
+					Some(ParaId::from(2800)),
+				)
 			},
 			path => {
-				let chain_spec =
-					cumulus_test_service::chain_spec::ChainSpec::from_json_file(path.into())?;
-				Box::new(chain_spec)
+				let chain_spec: sc_chain_spec::GenericChainSpec =
+					sc_chain_spec::GenericChainSpec::from_json_file(path.into())?;
+				chain_spec
 			},
-		})
+		}))
 	}
 }
 

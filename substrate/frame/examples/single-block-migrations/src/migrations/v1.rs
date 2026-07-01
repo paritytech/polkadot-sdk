@@ -150,7 +150,7 @@ mod test {
 			// Get the pre_upgrade bytes
 			let bytes = match InnerMigrateV0ToV1::<MockRuntime>::pre_upgrade() {
 				Ok(bytes) => bytes,
-				Err(e) => panic!("pre_upgrade failed: {:?}", e),
+				Err(e) => panic!("pre_upgrade failed: {e:?}"),
 			};
 
 			// Execute the migration
@@ -177,7 +177,7 @@ mod test {
 			// Get the pre_upgrade bytes
 			let bytes = match InnerMigrateV0ToV1::<MockRuntime>::pre_upgrade() {
 				Ok(bytes) => bytes,
-				Err(e) => panic!("pre_upgrade failed: {:?}", e),
+				Err(e) => panic!("pre_upgrade failed: {e:?}"),
 			};
 
 			// Execute the migration

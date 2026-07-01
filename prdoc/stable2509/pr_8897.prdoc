@@ -1,0 +1,9 @@
+title: '[pallet-revive-rpc] fix sqlite in-memory connection pool issue'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fix in-memory sqlite connection pool issue
+    see https://github.com/launchbadge/sqlx/issues/2510
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch

@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::Config;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::marker::PhantomData;
 use frame_support::{pallet_prelude::TransactionSource, traits::OriginTrait, DefaultNoBound};
 use scale_info::TypeInfo;
@@ -27,7 +27,7 @@ use sp_runtime::{
 };
 
 /// Check to ensure that the sender is not the zero address.
-#[derive(Encode, Decode, DefaultNoBound, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, DefaultNoBound, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckNonZeroSender<T>(PhantomData<T>);
 
@@ -72,7 +72,7 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZ
 	) -> sp_runtime::traits::ValidateResult<Self::Val, T::RuntimeCall> {
 		if let Some(who) = origin.as_signer() {
 			if who.using_encoded(|d| d.iter().all(|x| *x == 0)) {
-				return Err(InvalidTransaction::BadSigner.into())
+				return Err(InvalidTransaction::BadSigner.into());
 			}
 		}
 		Ok((Default::default(), (), origin))

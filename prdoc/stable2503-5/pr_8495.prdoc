@@ -1,0 +1,16 @@
+title: '[pallet-revive] tracing prepare support for future tracing APIS'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Fix eth_getStorageAt to use BigEndian for key encoding
+    - Refactor eth-rpc client storage and runtime API to a separate file
+    - Make debug_trace methods Return a composite Trace enum so we can introduce other trace types
+
+    companion evm-test-suite PR https://github.com/paritytech/evm-test-suite/pull/93
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-revive-eth-rpc
+  bump: major
+- name: pallet-revive
+  bump: major

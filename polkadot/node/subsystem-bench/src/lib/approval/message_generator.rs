@@ -40,8 +40,8 @@ use polkadot_node_primitives::approval::{
 	v2::{CoreBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 };
 use polkadot_primitives::{
-	vstaging::CandidateEvent, ApprovalVoteMultipleCandidates, CandidateHash, CandidateIndex,
-	CoreIndex, Hash, SessionInfo, Slot, ValidatorId, ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
+	ApprovalVoteMultipleCandidates, CandidateEvent, CandidateHash, CandidateIndex, CoreIndex, Hash,
+	SessionInfo, Slot, ValidatorId, ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
 };
 use rand::{seq::SliceRandom, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -210,7 +210,7 @@ impl PeerMessagesGenerator {
 		// Receive all messages and sort them by Tick they have to be sent.
 		loop {
 			match rx.try_next() {
-				Ok(Some((block_hash, messages))) =>
+				Ok(Some((block_hash, messages))) => {
 					for message in messages {
 						let block_info = blocks
 							.iter()
@@ -223,7 +223,8 @@ impl PeerMessagesGenerator {
 						);
 						let to_add = all_messages.entry(tick_to_send).or_default();
 						to_add.push(message);
-					},
+					}
+				},
 				Ok(None) => break,
 				Err(_) => {
 					std::thread::sleep(Duration::from_millis(50));
@@ -326,12 +327,15 @@ impl PeerMessagesGenerator {
 		let mut unique_assignments = HashSet::new();
 		for (core_index, assignment) in assignments {
 			let assigned_cores = match &assignment.cert().kind {
-				approval::v2::AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } =>
-					core_bitfield.iter_ones().map(|val| CoreIndex::from(val as u32)).collect_vec(),
-				approval::v2::AssignmentCertKindV2::RelayVRFDelay { core_index } =>
-					vec![*core_index],
-				approval::v2::AssignmentCertKindV2::RelayVRFModulo { sample: _ } =>
-					vec![core_index],
+				approval::v2::AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => {
+					core_bitfield.iter_ones().map(|val| CoreIndex::from(val as u32)).collect_vec()
+				},
+				approval::v2::AssignmentCertKindV2::RelayVRFDelay { core_index } => {
+					vec![*core_index]
+				},
+				approval::v2::AssignmentCertKindV2::RelayVRFModulo { sample: _ } => {
+					vec![core_index]
+				},
 			};
 
 			let bitfiled: CoreBitfield = assigned_cores.clone().try_into().unwrap();

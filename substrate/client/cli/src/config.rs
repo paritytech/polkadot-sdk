@@ -252,6 +252,16 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(self.import_params().map(|x| x.trie_cache_maximum_size()).unwrap_or_default())
 	}
 
+	/// Get if we should warm up the trie cache.
+	///
+	/// By default this is retrieved from `ImportParams` if it is available. Otherwise its `None`.
+	fn warm_up_trie_cache(&self) -> Result<Option<sc_service::config::TrieCacheWarmUpStrategy>> {
+		Ok(self
+			.import_params()
+			.map(|x| x.warm_up_trie_cache().map(|x| x.into()))
+			.unwrap_or_default())
+	}
+
 	/// Get the state pruning mode.
 	///
 	/// By default this is retrieved from `PruningMode` if it is available. Otherwise its
@@ -528,6 +538,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			database: self.database_config(&config_dir, database_cache_size, database)?,
 			data_path: config_dir,
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
+			warm_up_trie_cache: self.warm_up_trie_cache()?,
 			state_pruning: self.state_pruning()?,
 			blocks_pruning: self.blocks_pruning()?,
 			executor: ExecutorConfiguration {
@@ -552,6 +563,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 				rate_limit: self.rpc_rate_limit()?,
 				rate_limit_whitelisted_ips: self.rpc_rate_limit_whitelisted_ips()?,
 				rate_limit_trust_proxy_headers: self.rpc_rate_limit_trust_proxy_headers()?,
+				request_logger_limit: if is_dev { 1024 * 1024 } else { 1024 },
 			},
 			prometheus_config: self
 				.prometheus_config(DCV::prometheus_listen_port(), &chain_spec)?,
@@ -648,14 +660,15 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		logger.init()?;
 
 		match fdlimit::raise_fd_limit() {
-			Ok(fdlimit::Outcome::LimitRaised { to, .. }) =>
+			Ok(fdlimit::Outcome::LimitRaised { to, .. }) => {
 				if to < RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT {
 					warn!(
 						"Low open file descriptor limit configured for the process. \
 						Current value: {:?}, recommended value: {:?}.",
 						to, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
 					);
-				},
+				}
+			},
 			Ok(fdlimit::Outcome::Unsupported) => {
 				// Unsupported platform (non-Linux)
 			},
@@ -681,7 +694,7 @@ pub fn generate_node_name() -> String {
 		let count = node_name.chars().count();
 
 		if count < NODE_NAME_MAX_LENGTH {
-			return node_name
+			return node_name;
 		}
 	}
 }

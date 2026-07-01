@@ -1,0 +1,24 @@
+title: Update to the latest unstable V16 metadata.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The frame-metadata version is bumped to v22 to bring in the latest unstable V16 metadata format. Notably,
+      deprecation information has changed slightly, and deprecation notices on the outer Event/Error enums
+      are no longer supported (but each variant can still be marked as deprecated).
+
+
+crates:
+  - name: sp-metadata-ir
+    bump: major
+  - name: pallet-example-view-functions
+    bump: major
+  - name: frame-support
+    bump: major
+  - name: frame-support-procedural
+    bump: major
+  - name: frame-support-test
+    bump: major
+  - name: sp-api-proc-macro
+    bump: major
+  

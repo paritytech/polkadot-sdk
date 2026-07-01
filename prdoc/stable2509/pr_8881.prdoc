@@ -1,0 +1,11 @@
+title: '[pallet-revive] only record diff if value changed'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Only record storage change in diff mode if the value differ from the initial one.
+    Previous implementation would report a diff for example when the old value was written again.
+
+    Updated tests in https://github.com/paritytech/evm-test-suite/pull/96
+crates:
+- name: pallet-revive
+  bump: patch

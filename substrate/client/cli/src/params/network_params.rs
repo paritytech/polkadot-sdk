@@ -24,6 +24,7 @@ use clap::Args;
 use sc_network::{
 	config::{
 		NetworkConfiguration, NodeKeyConfig, NonReservedPeerMode, SetConfig, TransportConfig,
+		DEFAULT_IDLE_CONNECTION_TIMEOUT,
 	},
 	multiaddr::Protocol,
 };
@@ -65,8 +66,20 @@ pub struct NetworkParams {
 	/// By default:
 	/// If `--validator` is passed: `/ip4/0.0.0.0/tcp/<port>` and `/ip6/[::]/tcp/<port>`.
 	/// Otherwise: `/ip4/0.0.0.0/tcp/<port>/ws` and `/ip6/[::]/tcp/<port>/ws`.
+	///
+	/// Experimental: `/ip4/<ip>/udp/<port>/webrtc-direct` and
+	/// `/ip6/<ip>/udp/<port>/webrtc-direct`. Unspecified addresses
+	/// (`0.0.0.0` / `[::]`) are not supported, bind to a specific IP is required.
+	/// Only works on the litep2p network backend.
 	#[arg(long, value_name = "LISTEN_ADDR", num_args = 1..)]
 	pub listen_addr: Vec<Multiaddr>,
+
+	/// Allow WebRTC addresses. This is an experimental feature.
+	///
+	/// Without this enabled, WebRTC addresses specified in `listen_addr`
+	/// will be skipped. Only works on litep2p network backend.
+	#[arg(long)]
+	pub experimental_webrtc: bool,
 
 	/// Specify p2p protocol TCP port.
 	#[arg(long, value_name = "PORT", conflicts_with_all = &[ "listen_addr" ])]
@@ -152,6 +165,10 @@ pub struct NetworkParams {
 	#[arg(long)]
 	pub ipfs_server: bool,
 
+	/// Specify a list of IPFS bootstrap nodes.
+	#[arg(long, value_name = "ADDR", num_args = 1.., requires = "ipfs_server")]
+	pub ipfs_bootnodes: Vec<MultiaddrWithPeerId>,
+
 	/// Blockchain syncing mode.
 	#[arg(
 		long,
@@ -172,13 +189,17 @@ pub struct NetworkParams {
 
 	/// Network backend used for P2P networking.
 	///
-	/// litep2p network backend is considered experimental and isn't as stable as the libp2p
-	/// network backend.
+	/// Litep2p is a lightweight alternative to libp2p, that is designed to be more
+	/// efficient and easier to use. At the same time, litep2p brings performance
+	/// improvements and reduces the CPU usage significantly.
+	///
+	/// Libp2p is the old network backend, that may still be used for compatibility
+	/// reasons until the whole ecosystem is migrated to litep2p.
 	#[arg(
 		long,
 		value_enum,
 		value_name = "NETWORK_BACKEND",
-		default_value_t = NetworkBackendType::Libp2p,
+		default_value_t = NetworkBackendType::Litep2p,
 		ignore_case = true,
 		verbatim_doc_comment
 	)]
@@ -242,8 +263,9 @@ impl NetworkParams {
 			(true, true) => unreachable!("`*_private_ip` flags are mutually exclusive; qed"),
 			(true, false) => true,
 			(false, true) => false,
-			(false, false) =>
-				is_dev || matches!(chain_type, ChainType::Local | ChainType::Development),
+			(false, false) => {
+				is_dev || matches!(chain_type, ChainType::Local | ChainType::Development)
+			},
 		};
 
 		NetworkConfiguration {
@@ -261,6 +283,7 @@ impl NetworkParams {
 			},
 			default_peers_set_num_full: self.in_peers + self.out_peers,
 			listen_addresses,
+			experimental_webrtc: self.experimental_webrtc,
 			public_addresses,
 			node_key,
 			node_name: node_name.to_string(),
@@ -269,14 +292,16 @@ impl NetworkParams {
 				enable_mdns: !is_dev && !self.no_mdns,
 				allow_private_ip,
 			},
+			idle_connection_timeout: DEFAULT_IDLE_CONNECTION_TIMEOUT,
 			max_parallel_downloads: self.max_parallel_downloads,
 			max_blocks_per_request: self.max_blocks_per_request,
+			min_peers_to_start_warp_sync: None,
 			enable_dht_random_walk: !self.reserved_only,
 			allow_non_globals_in_dht,
 			kademlia_disjoint_query_paths: self.kademlia_disjoint_query_paths,
 			kademlia_replication_factor: self.kademlia_replication_factor,
-			yamux_window_size: None,
 			ipfs_server: self.ipfs_server,
+			ipfs_bootnodes: self.ipfs_bootnodes.clone(),
 			sync_mode: self.sync.into(),
 			network_backend: self.network_backend.into(),
 		}

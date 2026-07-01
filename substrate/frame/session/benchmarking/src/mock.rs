@@ -19,6 +19,7 @@
 
 #![cfg(test)]
 
+use codec::Encode;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
@@ -31,7 +32,6 @@ use sp_runtime::{traits::IdentityLookup, BuildStorage, KeyTypeId};
 
 type AccountId = u64;
 type Nonce = u32;
-type Balance = u64;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -68,8 +68,9 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Test>;
+	type RuntimeEvent = RuntimeEvent;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -103,8 +104,13 @@ impl pallet_session::Config for Test {
 	type SessionHandler = TestSessionHandler;
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type ValidatorIdOf = pallet_staking::StashOf<Test>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	// Note: setting to a large amount to ensure bench setup can handle increasing the balance of
+	// the validator before setting session keys; see `ensure_can_pay_key_deposit`.
+	type KeyDeposit = ConstU64<2000000000>;
 }
 pallet_staking_reward_curve::build! {
 	const I_NPOS: sp_runtime::curve::PiecewiseLinear<'static> = curve!(
@@ -150,7 +156,13 @@ impl pallet_staking::Config for Test {
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 }
 
-impl crate::Config for Test {}
+impl crate::Config for Test {
+	fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+		let keys = SessionKeys::generate(&owner.encode(), None);
+
+		(keys.keys, keys.proof.encode())
+	}
+}
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();

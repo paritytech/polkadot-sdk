@@ -73,7 +73,7 @@ impl<'a> Drop for StorageNoopGuard<'a> {
 		// No need to double panic, eg. inside a test assertion failure.
 		#[cfg(feature = "std")]
 		if std::thread::panicking() {
-			return
+			return;
 		}
 		assert_eq!(
 			sp_io::storage::root(sp_runtime::StateVersion::V1),

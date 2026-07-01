@@ -1,0 +1,9 @@
+title: Add extra information to the harmless error logs during validate_transaction
+doc:
+- audience: Node Operator
+  description: |-
+    Adds additional information to the harmless error logs "Bad input data provided" during `validate_transaction`.
+
+crates:
+- name: sp-api-proc-macro
+  bump: patch

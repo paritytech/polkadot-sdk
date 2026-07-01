@@ -22,9 +22,9 @@
 //!
 //! This pallet provides a `TransactionExtension` with an optional `AssetId` that specifies the
 //! asset to be used for payment (defaulting to the native token on `None`). It expects an
-//! [`OnChargeAssetTransaction`] implementation analogous to [`pallet-transaction-payment`]. The
+//! [`OnChargeAssetTransaction`] implementation analogous to `pallet-transaction-payment`. The
 //! included [`SwapAssetAdapter`] (implementing [`OnChargeAssetTransaction`]) determines the
-//! fee amount by converting the fee calculated by [`pallet-transaction-payment`] in the native
+//! fee amount by converting the fee calculated by `pallet-transaction-payment` in the native
 //! asset into the amount required of the specified asset.
 //!
 //! ## Pallet API
@@ -44,7 +44,7 @@
 
 extern crate alloc;
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
 	pallet_prelude::TransactionSource,
@@ -111,6 +111,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_transaction_payment::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The asset ID type that can be used for transaction payments in addition to a
 		/// native asset.
@@ -172,7 +173,7 @@ pub mod pallet {
 /// - Payments with a native asset are charged by
 ///   [pallet_transaction_payment::Config::OnChargeTransaction].
 /// - Payments with other assets are charged by [Config::OnChargeAssetTransaction].
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct ChargeAssetTxPayment<T: Config> {
 	#[codec(compact)]
@@ -312,7 +313,7 @@ where
 		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		let Some(who) = origin.as_system_origin_signer() else {
-			return Ok((ValidTransaction::default(), Val::NoCharge, origin))
+			return Ok((ValidTransaction::default(), Val::NoCharge, origin));
 		};
 		// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
 		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
@@ -349,11 +350,12 @@ where
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
 		let (tip, who, initial_payment, extension_weight) = match pre {
-			Pre::Charge { tip, who, initial_payment, weight } =>
-				(tip, who, initial_payment, weight),
+			Pre::Charge { tip, who, initial_payment, weight } => {
+				(tip, who, initial_payment, weight)
+			},
 			Pre::NoCharge { refund } => {
 				// No-op: Refund everything
-				return Ok(refund)
+				return Ok(refund);
 			},
 		};
 

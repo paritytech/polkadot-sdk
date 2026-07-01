@@ -41,7 +41,7 @@ use crate::{
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
-use codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use codec::{self as codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::cmp::Ordering;
 use scale_info::TypeInfo;
 
@@ -55,6 +55,7 @@ use scale_info::TypeInfo;
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -287,6 +288,7 @@ impl TryFrom<NewFungibility> for Fungibility {
 	PartialOrd,
 	Debug,
 	Encode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -311,8 +313,9 @@ impl Decode for Fungibility {
 		match UncheckedFungibility::decode(input)? {
 			UncheckedFungibility::Fungible(a) if a != 0 => Ok(Self::Fungible(a)),
 			UncheckedFungibility::NonFungible(i) => Ok(Self::NonFungible(i)),
-			UncheckedFungibility::Fungible(_) =>
-				Err("Fungible asset of zero amount is not allowed".into()),
+			UncheckedFungibility::Fungible(_) => {
+				Err("Fungible asset of zero amount is not allowed".into())
+			},
 		}
 	}
 }
@@ -367,6 +370,7 @@ impl TryFrom<OldFungibility> for Fungibility {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -411,6 +415,7 @@ impl TryFrom<NewWildFungibility> for WildFungibility {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -488,6 +493,7 @@ impl Reanchorable for AssetId {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -599,6 +605,7 @@ impl TryFrom<NewAsset> for Asset {
 	PartialOrd,
 	Debug,
 	Encode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	Default,
 	serde::Serialize,
@@ -606,8 +613,8 @@ impl TryFrom<NewAsset> for Asset {
 )]
 pub struct Assets(Vec<Asset>);
 
-/// Maximum number of items we expect in a single `Assets` value. Note this is not (yet)
-/// enforced, and just serves to provide a sensible `max_encoded_len` for `Assets`.
+/// Maximum number of items we expect in a single `Assets` value.
+/// This is enforced when decoding and provides a sensible `max_encoded_len` for `Assets`.
 pub const MAX_ITEMS_IN_ASSETS: usize = 20;
 
 impl MaxEncodedLen for Assets {
@@ -668,8 +675,9 @@ impl From<Vec<Asset>> for Assets {
 						(
 							Asset { fun: Fungibility::NonFungible(a_instance), id: a_id },
 							Asset { fun: Fungibility::NonFungible(b_instance), id: b_id },
-						) if a_id == b_id && a_instance == b_instance =>
-							Asset { fun: Fungibility::NonFungible(a_instance), id: a_id },
+						) if a_id == b_id && a_instance == b_instance => {
+							Asset { fun: Fungibility::NonFungible(a_instance), id: a_id }
+						},
 						(to_push, to_remember) => {
 							res.push(to_push);
 							to_remember
@@ -703,7 +711,7 @@ impl Assets {
 	/// `From::<Vec<Asset>>::from` which is infallible.
 	pub fn from_sorted_and_deduplicated(r: Vec<Asset>) -> Result<Self, ()> {
 		if r.is_empty() {
-			return Ok(Self(Vec::new()))
+			return Ok(Self(Vec::new()));
 		}
 		r.iter().skip(1).try_fold(&r[0], |a, b| -> Result<&Asset, ()> {
 			if a.id < b.id || a < b && (a.is_non_fungible(None) || b.is_non_fungible(None)) {
@@ -745,11 +753,13 @@ impl Assets {
 			match (&a.fun, &mut asset.fun) {
 				(Fungibility::Fungible(amount), Fungibility::Fungible(balance)) => {
 					*balance = balance.saturating_add(*amount);
-					return
+					return;
 				},
 				(Fungibility::NonFungible(inst1), Fungibility::NonFungible(inst2))
 					if inst1 == inst2 =>
-					return,
+				{
+					return
+				},
 				_ => (),
 			}
 		}
@@ -828,6 +838,7 @@ impl Reanchorable for Assets {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -858,8 +869,9 @@ impl TryFrom<OldWildAsset> for WildAsset {
 		Ok(match old {
 			AllOf { id, fun } => Self::AllOf { id: id.try_into()?, fun: fun.try_into()? },
 			All => Self::All,
-			AllOfCounted { id, fun, count } =>
-				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count },
+			AllOfCounted { id, fun, count } => {
+				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count }
+			},
 			AllCounted(count) => Self::AllCounted(count),
 		})
 	}
@@ -871,8 +883,9 @@ impl TryFrom<NewWildAsset> for WildAsset {
 		use NewWildAsset::*;
 		Ok(match new {
 			AllOf { id, fun } => Self::AllOf { id: id.try_into()?, fun: fun.try_into()? },
-			AllOfCounted { id, fun, count } =>
-				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count },
+			AllOfCounted { id, fun, count } => {
+				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count }
+			},
 			All => Self::All,
 			AllCounted(count) => Self::AllCounted(count),
 		})
@@ -885,8 +898,9 @@ impl WildAsset {
 		use WildAsset::*;
 		match self {
 			AllOfCounted { count: 0, .. } | AllCounted(0) => false,
-			AllOf { fun, id } | AllOfCounted { id, fun, .. } =>
-				inner.fun.is_kind(*fun) && &inner.id == id,
+			AllOf { fun, id } | AllOfCounted { id, fun, .. } => {
+				inner.fun.is_kind(*fun) && &inner.id == id
+			},
 			All | AllCounted(_) => true,
 		}
 	}
@@ -905,8 +919,9 @@ impl WildAsset {
 	pub fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
 		use WildAsset::*;
 		match self {
-			AllOf { ref mut id, .. } | AllOfCounted { ref mut id, .. } =>
-				id.reanchor(target, context),
+			AllOf { ref mut id, .. } | AllOfCounted { ref mut id, .. } => {
+				id.reanchor(target, context)
+			},
 			All | AllCounted(_) => Ok(()),
 		}
 	}
@@ -952,6 +967,7 @@ impl<A: Into<AssetId>, B: Into<WildFungibility>> From<(A, B)> for WildAsset {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,

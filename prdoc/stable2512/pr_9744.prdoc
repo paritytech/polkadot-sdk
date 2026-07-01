@@ -1,0 +1,9 @@
+title: '[pallet-revive] fix CodeInfo owner'
+doc:
+- audience: Runtime Dev
+  description: Fix CodeInfo owner, it should always be set to the origin of the transaction
+crates:
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: patch

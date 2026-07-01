@@ -21,6 +21,7 @@
 
 use crate::*;
 use frame_benchmarking::v2::*;
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
 
@@ -109,6 +110,59 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), account_index);
 
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().2, true);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn poke_deposit() -> Result<(), BenchmarkError> {
+		let account_index = T::AccountIndex::from(SEED);
+		// Setup accounts
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+
+		let original_deposit = T::Deposit::get();
+
+		// Claim the index
+		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
+
+		// Verify the initial deposit amount in storage and reserved balance
+		assert_eq!(Accounts::<T>::get(account_index).unwrap().1, original_deposit);
+		assert_eq!(T::Currency::reserved_balance(&caller), original_deposit);
+
+		// The additional amount we'll add to the deposit for the index
+		let additional_amount = 2u32.into();
+
+		// Reserve the additional amount from the caller's balance
+		T::Currency::reserve(&caller, additional_amount)?;
+
+		// Verify the additional amount was reserved
+		assert_eq!(
+			T::Currency::reserved_balance(&caller),
+			original_deposit.saturating_add(additional_amount)
+		);
+
+		// Increase the deposited amount in storage by additional_amount
+		Accounts::<T>::try_mutate(account_index, |maybe_value| -> Result<(), BenchmarkError> {
+			let (account, amount, perm) = maybe_value
+				.take()
+				.ok_or(BenchmarkError::Stop("Mutating storage to change deposits failed"))?;
+			*maybe_value = Some((account, amount.saturating_add(additional_amount), perm));
+			Ok(())
+		})?;
+
+		// Verify the deposit was increased by additional_amount
+		assert_eq!(
+			Accounts::<T>::get(account_index).unwrap().1,
+			original_deposit.saturating_add(additional_amount)
+		);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), account_index);
+
+		assert!(Accounts::<T>::contains_key(account_index));
+		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, caller);
+		assert_eq!(Accounts::<T>::get(account_index).unwrap().1, original_deposit);
+		assert_eq!(T::Currency::reserved_balance(&caller), original_deposit);
 		Ok(())
 	}
 

@@ -362,7 +362,7 @@ fn construct_runtime_final_expansion(
 		return Err(syn::Error::new(
 			system_pallet.name.span(),
 			"`System` pallet declaration is feature gated, please remove any `#[cfg]` attributes",
-		))
+		));
 	}
 
 	let features = pallets
@@ -445,7 +445,7 @@ fn construct_runtime_final_expansion(
 		};
 
 		#[derive(
-			Clone, Copy, PartialEq, Eq, #scrate::sp_runtime::RuntimeDebug,
+			Clone, Copy, PartialEq, Eq, core::fmt::Debug,
 			#scrate::__private::scale_info::TypeInfo
 		)]
 		pub struct #name;
@@ -757,6 +757,7 @@ pub(crate) fn decl_static_assertions(
 		);
 
 		quote! {
+			#[allow(deprecated)]
 			#scrate::__private::tt_call! {
 				macro = [{ #path::tt_error_token }]
 				your_tt_return = [{ #scrate::__private::tt_return }]
@@ -799,7 +800,7 @@ pub(crate) fn check_pallet_number(input: TokenStream2, pallet_num: usize) -> Res
 					""
 				},
 			),
-		))
+		));
 	}
 
 	Ok(())

@@ -26,11 +26,6 @@ use frame_support::traits::UnfilteredDispatchable;
 use frame_system::{Pallet as System, RawOrigin};
 use sp_runtime::traits::Hash;
 
-#[cfg(feature = "std")]
-frame_support::parameter_types! {
-	pub static StorageRootHash: Option<alloc::vec::Vec<u8>> = None;
-}
-
 #[benchmarks]
 mod benchmarks {
 	use super::*;
@@ -397,30 +392,29 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark]
-	fn storage_root_is_the_same_every_time(i: Linear<0, 10>) {
-		#[cfg(feature = "std")]
-		let root = sp_io::storage::root(sp_runtime::StateVersion::V1);
-
-		#[cfg(feature = "std")]
-		match (i, StorageRootHash::get()) {
-			(0, Some(_)) => panic!("StorageRootHash should be None initially"),
-			(0, None) => StorageRootHash::set(Some(root)),
-			(_, Some(r)) if r == root => {},
-			(_, Some(r)) =>
-				panic!("StorageRootHash should be the same every time: {:?} vs {:?}", r, root),
-			(_, None) => panic!("StorageRootHash should be Some after the first iteration"),
-		}
-
-		// Also test that everything is reset correctly:
-		sp_io::storage::set(b"key1", b"value");
+	#[benchmark(pov_mode = Measured)]
+	fn storage_whitelisted_read() {
+		let key = b"key1".to_vec();
+		frame_support::storage::unhashed::put_raw(&key, b"value");
+		frame_benchmarking::benchmarking::add_to_whitelist(key.clone().into());
 
 		#[block]
 		{
-			sp_io::storage::set(b"key2", b"value");
+			assert!(frame_support::storage::unhashed::get_raw(&key).is_some());
 		}
+	}
 
-		sp_io::storage::set(b"key3", b"value");
+	#[benchmark(pov_mode = Measured)]
+	fn child_storage_whitelisted_read() {
+		let child_trie_key = b":child_storage:default:my_trie".to_vec();
+		let key = b"my_key".to_vec();
+		sp_io::default_child_storage::set(&child_trie_key, &key, b"value");
+		frame_benchmarking::add_to_whitelist_child(child_trie_key.clone(), key.clone());
+
+		#[block]
+		{
+			assert!(sp_io::default_child_storage::get(&child_trie_key, &key).is_some());
+		}
 	}
 
 	impl_benchmark_test_suite!(Pallet, super::mock::new_test_ext(), super::mock::Test,);

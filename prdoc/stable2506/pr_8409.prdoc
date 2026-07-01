@@ -1,0 +1,14 @@
+title: check XCM size in VMP routing
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR adds the ability for a UMP (para -> relay), when using `UpwardMessageSender` to also
+    check the size of the message within validate. This is exposed into the existing `validate` of
+    `ParentAsUmp`.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: minor
+- name: cumulus-primitives-core
+  bump: minor
+- name: cumulus-primitives-utility
+  bump: minor

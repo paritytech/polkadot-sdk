@@ -21,6 +21,7 @@ tracing = { workspace = true, default-features = true }
 
 # Substrate
 sc-client-api = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
@@ -34,6 +35,7 @@ polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
+polkadot-primitives-test-helpers = { workspace = true, default-features = true }
 
 # Cumulus
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
@@ -41,13 +43,8 @@ cumulus-relay-chain-interface = { workspace = true, default-features = true }
 [dev-dependencies]
 rstest = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
-url = { workspace = true }
 
 # Substrate
-sc-cli = { workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 

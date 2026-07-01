@@ -63,7 +63,6 @@
 //! Say we have two systems A and B.
 //! If any change in A's state implies a change in B's state, then we say A is interior to B.
 #![doc = simple_mermaid::mermaid!("../mermaid/location_hierarchy.mmd")]
-//!
 //! Parachains are interior to their Relay Chain, since a change in their state implies a change in
 //! the Relay Chain's state.
 //!
@@ -101,7 +100,6 @@
 //! This is the **universal location**.
 //! We need the universal location to be able to describe locations in an absolute way.
 #![doc = simple_mermaid::mermaid!("../mermaid/universal_location.mmd")]
-//!
 //! Here, the absolute location of parachain 1000 would be
 //! `GlobalConsensus(Polkadot)/Parachain(1000)`.
 //!
@@ -121,7 +119,6 @@
 //! USDT, an example asset that lives on asset hub, is identified by the location
 //! `Parachain(1000)/PalletInstance(53)/GeneralIndex(1984)`, when seen from the Polkadot relaychain.
 #![doc = simple_mermaid::mermaid!("../mermaid/usdt_location.mmd")]
-//!
 //! Asset Hub also has another type of assets called `ForeignAssets`.
 //! These assets are identified by the XCM Location to their origin.
 //! Two such assets are a Parachain asset, like Moonbeam's GLMR, and KSM, from the cousin Kusama

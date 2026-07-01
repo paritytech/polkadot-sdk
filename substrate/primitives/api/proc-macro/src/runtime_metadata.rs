@@ -184,6 +184,7 @@ pub fn generate_decl_runtime_metadata<'a>(
 						.collect(),
 					docs: #docs,
 					deprecation_info: #deprecation,
+					version: impl_version.into(),
 				}
 			}
 		}

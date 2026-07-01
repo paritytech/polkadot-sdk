@@ -1,0 +1,9 @@
+title: 'approval-distribution: improve test coverage'
+doc:
+- audience: Node Dev
+  description: Add few more test in approval-distribution to improve coverage.
+crates:
+- name: polkadot-approval-distribution
+  bump: patch
+- name: polkadot-node-primitives
+  bump: minor

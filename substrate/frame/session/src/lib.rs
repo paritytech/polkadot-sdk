@@ -106,6 +106,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod disabling;
 #[cfg(feature = "historical")]
 pub mod historical;
 pub mod migrations;
@@ -123,10 +124,12 @@ use core::{
 	marker::PhantomData,
 	ops::{Rem, Sub},
 };
+use disabling::DisablingStrategy;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
+		fungible::{hold::Mutate as HoldMutate, Inspect, Mutate},
 		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
 		OneSessionHandler, ValidatorRegistration, ValidatorSet,
 	},
@@ -138,10 +141,26 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Convert, Member, One, OpaqueKeys, Zero},
 	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
 };
-use sp_staking::SessionIndex;
+use sp_staking::{offence::OffenceSeverity, SessionIndex};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
+
+#[cfg(any(feature = "try-runtime"))]
+use sp_runtime::TryRuntimeError;
+
+pub(crate) const LOG_TARGET: &str = "runtime::session";
+
+// syntactic sugar for logging.
+#[macro_export]
+macro_rules! log {
+	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+		log::$level!(
+			target: crate::LOG_TARGET,
+			concat!("[{:?}] 💸 ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
+		)
+	};
+}
 
 /// Decides whether the session should be ended.
 pub trait ShouldEndSession<BlockNumber> {
@@ -368,6 +387,57 @@ impl<AId> SessionHandler<AId> for TestSessionHandler {
 	fn on_disabled(_: u32) {}
 }
 
+/// Interface to the session pallet for session management.
+///
+/// This trait provides a complete interface for managing sessions from external contexts,
+/// such as other pallets or runtime components. It combines session key management with
+/// validator operations and historical session data pruning.
+///
+/// Implemented by `Pallet<T>` when `T: Config + historical::Config`.
+pub trait SessionInterface {
+	/// The validator id type of the session pallet.
+	type ValidatorId: Clone;
+
+	/// The account id type.
+	type AccountId;
+
+	/// The session keys type.
+	type Keys: OpaqueKeys + codec::Decode;
+
+	/// Get the current set of validators.
+	fn validators() -> Vec<Self::ValidatorId>;
+
+	/// Prune historical session data up to the given session index.
+	fn prune_up_to(index: SessionIndex);
+
+	/// Report an offence for a validator.
+	///
+	/// This is used to disable validators directly on the RC until the next validator set.
+	fn report_offence(offender: Self::ValidatorId, severity: OffenceSeverity);
+
+	/// Set session keys for an account.
+	///
+	/// This method is intended for privileged callers (e.g., other pallets receiving validated
+	/// requests via XCM). It bypasses deposit holds and consumer reference tracking, so the
+	/// account does not need to be "live" or have balance on this chain.
+	///
+	/// This method does not validate ownership proof. Callers must verify that the keys belong to
+	/// the account before calling this method.
+	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult;
+
+	/// Purge session keys for an account.
+	///
+	/// This method is intended for privileged callers (e.g., other pallets receiving validated
+	/// requests via XCM). It bypasses deposit release and consumer reference decrement.
+	fn purge_keys(account: &Self::AccountId) -> DispatchResult;
+
+	/// Weight for setting session keys.
+	fn set_keys_weight() -> Weight;
+
+	/// Weight for purging session keys.
+	fn purge_keys_weight() -> Weight;
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -375,7 +445,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -385,7 +455,8 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
-		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		#[allow(deprecated)]
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// A stable ID for a validator.
 		type ValidatorId: Member
@@ -395,6 +466,10 @@ pub mod pallet {
 			+ TryFrom<Self::AccountId>;
 
 		/// A conversion from account ID to validator ID.
+		///
+		/// It is also a means to check that an account id is eligible to set session keys, through
+		/// being associated with a validator id. To disable this check, use
+		/// [`sp_runtime::traits::ConvertInto`].
 		///
 		/// Its cost must be at most one storage read.
 		type ValidatorIdOf: Convert<Self::AccountId, Option<Self::ValidatorId>>;
@@ -416,8 +491,21 @@ pub mod pallet {
 		/// The keys.
 		type Keys: OpaqueKeys + Member + Parameter + MaybeSerializeDeserialize;
 
+		/// `DisablingStragegy` controls how validators are disabled
+		type DisablingStrategy: DisablingStrategy<Self>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// The currency type for placing holds when setting keys.
+		type Currency: Mutate<Self::AccountId>
+			+ HoldMutate<Self::AccountId, Reason: From<HoldReason>>;
+
+		/// The amount to be held when setting keys.
+		#[pallet::constant]
+		type KeyDeposit: Get<
+			<<Self as Config>::Currency as Inspect<<Self as frame_system::Config>::AccountId>>::Balance,
+		>;
 	}
 
 	#[pallet::genesis_config]
@@ -494,6 +582,14 @@ pub mod pallet {
 		}
 	}
 
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		// Funds are held when settings keys
+		#[codec(index = 0)]
+		Keys,
+	}
+
 	/// The current set of validators.
 	#[pallet::storage]
 	pub type Validators<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
@@ -518,7 +614,7 @@ pub mod pallet {
 	/// disabled using binary search. It gets cleared when `on_session_ending` returns
 	/// a new set of identities.
 	#[pallet::storage]
-	pub type DisabledValidators<T> = StorageValue<_, Vec<u32>, ValueQuery>;
+	pub type DisabledValidators<T> = StorageValue<_, Vec<(u32, OffenceSeverity)>, ValueQuery>;
 
 	/// The next session keys for a validator.
 	#[pallet::storage]
@@ -530,12 +626,27 @@ pub mod pallet {
 	pub type KeyOwner<T: Config> =
 		StorageMap<_, Twox64Concat, (KeyTypeId, Vec<u8>), T::ValidatorId, OptionQuery>;
 
+	/// Accounts whose keys were set via `SessionInterface` (external path) without
+	/// incrementing the consumer reference or placing a key deposit. `do_purge_keys`
+	/// only decrements consumers for accounts that were registered through the local
+	/// session pallet.
+	#[pallet::storage]
+	pub type ExternallySetKeys<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, (), OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event {
+	pub enum Event<T: Config> {
 		/// New session has happened. Note that the argument is the session index, not the
 		/// block number as the type might suggest.
 		NewSession { session_index: SessionIndex },
+		/// The `NewSession` event in the current block also implies a new validator set to be
+		/// queued.
+		NewQueued,
+		/// Validator has been disabled.
+		ValidatorDisabled { validator: T::ValidatorId },
+		/// Validator has been re-enabled.
+		ValidatorReenabled { validator: T::ValidatorId },
 	}
 
 	/// Error for the session pallet.
@@ -568,24 +679,34 @@ pub mod pallet {
 				Weight::zero()
 			}
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Sets the session key(s) of the function caller to `keys`.
+		///
 		/// Allows an account to set its session key prior to becoming a validator.
 		/// This doesn't take effect until the next session.
 		///
-		/// The dispatch origin of this function must be signed.
-		///
-		/// ## Complexity
-		/// - `O(1)`. Actual cost depends on the number of length of `T::Keys::key_ids()` which is
-		///   fixed.
+		/// - `origin`: The dispatch origin of this function must be signed.
+		/// - `keys`: The new session keys to set. These are the public keys of all sessions keys
+		///   setup in the runtime.
+		/// - `proof`: The proof that `origin` has access to the private keys of `keys`. See
+		///   [`impl_opaque_keys`](sp_runtime::impl_opaque_keys) for more information about the
+		///   proof format.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_keys())]
 		pub fn set_keys(origin: OriginFor<T>, keys: T::Keys, proof: Vec<u8>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(keys.ownership_proof_is_valid(&proof), Error::<T>::InvalidProof);
+			ensure!(
+				who.using_encoded(|who| keys.ownership_proof_is_valid(who, &proof)),
+				Error::<T>::InvalidProof,
+			);
 
 			Self::do_set_keys(&who, keys)?;
 			Ok(())
@@ -599,16 +720,31 @@ pub mod pallet {
 		/// convertible to a validator ID using the chain's typical addressing system (this usually
 		/// means being a controller account) or directly convertible into a validator ID (which
 		/// usually means being a stash account).
-		///
-		/// ## Complexity
-		/// - `O(1)` in number of key types. Actual cost depends on the number of length of
-		///   `T::Keys::key_ids()` which is fixed.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::purge_keys())]
 		pub fn purge_keys(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_purge_keys(&who)?;
 			Ok(())
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl<T: Config> Pallet<T> {
+		/// Mint enough funds into `who`, such that they can pay the session key setting deposit.
+		///
+		/// Meant to be used if any pallet's benchmarking code wishes to set session keys, and wants
+		/// to make sure it will succeed.
+		pub fn ensure_can_pay_key_deposit(who: &T::AccountId) -> Result<(), DispatchError> {
+			use frame_support::traits::tokens::{Fortitude, Preservation};
+			let deposit = T::KeyDeposit::get();
+			let has = T::Currency::reducible_balance(who, Preservation::Protect, Fortitude::Force);
+			if let Some(deficit) = deposit.checked_sub(&has) {
+				T::Currency::mint_into(who, deficit.max(T::Currency::minimum_balance()))
+					.map(|_inc| ())
+			} else {
+				Ok(())
+			}
 		}
 	}
 }
@@ -631,7 +767,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Public function to access the disabled validators.
 	pub fn disabled_validators() -> Vec<u32> {
-		DisabledValidators::<T>::get()
+		DisabledValidators::<T>::get().iter().map(|(i, _)| *i).collect()
 	}
 
 	/// Move on to next session. Register new validator set and session keys. Changes to the
@@ -644,7 +780,7 @@ impl<T: Config> Pallet<T> {
 		// Inform the session handlers that a session is going to end.
 		T::SessionHandler::on_before_session_ending();
 		T::SessionManager::end_session(session_index);
-		log::trace!(target: "runtime::session", "ending_session {:?}", session_index);
+		log!(trace, "ending_session {:?}", session_index);
 
 		// Get queued session keys and validators.
 		let session_keys = QueuedKeys::<T>::get();
@@ -653,20 +789,21 @@ impl<T: Config> Pallet<T> {
 		Validators::<T>::put(&validators);
 
 		if changed {
+			log!(trace, "resetting disabled validators");
 			// reset disabled validators if active set was changed
-			DisabledValidators::<T>::take();
+			DisabledValidators::<T>::kill();
 		}
 
 		// Increment session index.
 		let session_index = session_index + 1;
 		CurrentIndex::<T>::put(session_index);
 		T::SessionManager::start_session(session_index);
-		log::trace!(target: "runtime::session", "starting_session {:?}", session_index);
+		log!(trace, "starting_session {:?}", session_index);
 
 		// Get next validator set.
 		let maybe_next_validators = T::SessionManager::new_session(session_index + 1);
-		log::trace!(
-			target: "runtime::session",
+		log!(
+			trace,
 			"planning_session {:?} with {:?} validators",
 			session_index + 1,
 			maybe_next_validators.as_ref().map(|v| v.len())
@@ -676,6 +813,7 @@ impl<T: Config> Pallet<T> {
 				// NOTE: as per the documentation on `OnSessionEnding`, we consider
 				// the validator set as having changed even if the validators are the
 				// same as before, as underlying economic conditions may have changed.
+				Self::deposit_event(Event::<T>::NewQueued);
 				(validators, true)
 			} else {
 				(Validators::<T>::get(), false)
@@ -701,14 +839,19 @@ impl<T: Config> Pallet<T> {
 					}
 				}
 			};
-			let queued_amalgamated = next_validators
-				.into_iter()
-				.filter_map(|a| {
-					let k = Self::load_keys(&a)?;
-					check_next_changed(&k);
-					Some((a, k))
-				})
-				.collect::<Vec<_>>();
+			let queued_amalgamated =
+				next_validators
+					.into_iter()
+					.filter_map(|a| {
+						let k =
+							Self::load_keys(&a).or_else(|| {
+								log!(warn, "failed to load session key for {:?}, skipping for next session, maybe you need to set session keys for them?", a);
+								None
+							})?;
+						check_next_changed(&k);
+						Some((a, k))
+					})
+					.collect::<Vec<_>>();
 
 			(queued_amalgamated, changed)
 		};
@@ -721,53 +864,6 @@ impl<T: Config> Pallet<T> {
 
 		// Tell everyone about the new session keys.
 		T::SessionHandler::on_new_session::<T::Keys>(changed, &session_keys, &queued_amalgamated);
-	}
-
-	/// Disable the validator of index `i`, returns `false` if the validator was already disabled.
-	pub fn disable_index(i: u32) -> bool {
-		if i >= Validators::<T>::decode_len().unwrap_or(0) as u32 {
-			return false
-		}
-
-		DisabledValidators::<T>::mutate(|disabled| {
-			if let Err(index) = disabled.binary_search(&i) {
-				disabled.insert(index, i);
-				T::SessionHandler::on_disabled(i);
-				return true
-			}
-
-			false
-		})
-	}
-
-	/// Re-enable the validator of index `i`, returns `false` if the validator was already enabled.
-	pub fn enable_index(i: u32) -> bool {
-		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
-			return false
-		}
-
-		// If the validator is not disabled, return false.
-		DisabledValidators::<T>::mutate(|disabled| {
-			if let Ok(index) = disabled.binary_search(&i) {
-				disabled.remove(index);
-				true
-			} else {
-				false
-			}
-		})
-	}
-
-	/// Disable the validator identified by `c`. (If using with the staking pallet,
-	/// this would be their *stash* account.)
-	///
-	/// Returns `false` either if the validator could not be found or it was already
-	/// disabled.
-	pub fn disable(c: &T::ValidatorId) -> bool {
-		Validators::<T>::get()
-			.iter()
-			.position(|i| i == c)
-			.map(|i| Self::disable_index(i as u32))
-			.unwrap_or(false)
 	}
 
 	/// Upgrade the key type from some old type to a new type. Supports adding
@@ -828,9 +924,28 @@ impl<T: Config> Pallet<T> {
 		let who = T::ValidatorIdOf::convert(account.clone())
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 
-		ensure!(frame_system::Pallet::<T>::can_inc_consumer(account), Error::<T>::NoAccount);
+		// Only check consumer capacity when we will actually increment the consumer
+		// count: first-time local registration or external-to-local transition.
+		// Key rotation for an existing locally-managed validator does not need this.
+		let needs_new_consumer =
+			!NextKeys::<T>::contains_key(&who) || ExternallySetKeys::<T>::contains_key(account);
+		if needs_new_consumer {
+			ensure!(frame_system::Pallet::<T>::can_inc_consumer(account), Error::<T>::NoAccount);
+		}
+
 		let old_keys = Self::inner_set_keys(&who, keys)?;
-		if old_keys.is_none() {
+
+		// Place deposit and increment consumer if this is a new local registration,
+		// or if transitioning from external to local management.
+		// We also clear `ExternallySetKeys` if set.
+		let needs_local_setup =
+			old_keys.is_none() || ExternallySetKeys::<T>::take(account).is_some();
+		if needs_local_setup {
+			let deposit = T::KeyDeposit::get();
+			if !deposit.is_zero() {
+				T::Currency::hold(&HoldReason::Keys.into(), account, deposit)?;
+			}
+
 			let assertion = frame_system::Pallet::<T>::inc_consumers(account).is_ok();
 			debug_assert!(assertion, "can_inc_consumer() returned true; no change since; qed");
 		}
@@ -865,7 +980,7 @@ impl<T: Config> Pallet<T> {
 
 			if let Some(old) = old_keys.as_ref().map(|k| k.get_raw(*id)) {
 				if key == old {
-					continue
+					continue;
 				}
 
 				Self::clear_key_owner(*id, old);
@@ -891,12 +1006,23 @@ impl<T: Config> Pallet<T> {
 			let key_data = old_keys.get_raw(*id);
 			Self::clear_key_owner(*id, key_data);
 		}
-		frame_system::Pallet::<T>::dec_consumers(account);
+
+		// Use release_all to handle the case where the exact amount might not be available
+		let _ = T::Currency::release_all(
+			&HoldReason::Keys.into(),
+			account,
+			frame_support::traits::tokens::Precision::BestEffort,
+		);
+
+		if ExternallySetKeys::<T>::take(account).is_none() {
+			// Consumer was incremented locally via `do_set_keys`, so decrement it.
+			frame_system::Pallet::<T>::dec_consumers(account);
+		}
 
 		Ok(())
 	}
 
-	fn load_keys(v: &T::ValidatorId) -> Option<T::Keys> {
+	pub fn load_keys(v: &T::ValidatorId) -> Option<T::Keys> {
 		NextKeys::<T>::get(v)
 	}
 
@@ -919,6 +1045,113 @@ impl<T: Config> Pallet<T> {
 
 	fn clear_key_owner(id: KeyTypeId, key_data: &[u8]) {
 		KeyOwner::<T>::remove((id, key_data));
+	}
+
+	/// Disable the validator of index `i` with a specified severity,
+	/// returns `false` if the validator is not found.
+	///
+	/// Note: If validator is already disabled, the severity will
+	/// be updated if the new one is higher.
+	pub fn disable_index_with_severity(i: u32, severity: OffenceSeverity) -> bool {
+		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
+			return false;
+		}
+
+		DisabledValidators::<T>::mutate(|disabled| {
+			match disabled.binary_search_by_key(&i, |(index, _)| *index) {
+				// Validator is already disabled, update severity if the new one is higher
+				Ok(index) => {
+					let current_severity = &mut disabled[index].1;
+					if severity > *current_severity {
+						log!(
+							trace,
+							"updating disablement severity of validator {:?} from {:?} to {:?}",
+							i,
+							*current_severity,
+							severity
+						);
+						*current_severity = severity;
+					}
+					true
+				},
+				// Validator is not disabled, add to `DisabledValidators` and disable it
+				Err(index) => {
+					log!(trace, "disabling validator {:?}", i);
+					Self::deposit_event(Event::ValidatorDisabled {
+						validator: Validators::<T>::get()[i as usize].clone(),
+					});
+					disabled.insert(index, (i, severity));
+					T::SessionHandler::on_disabled(i);
+					true
+				},
+			}
+		})
+	}
+
+	/// Disable the validator of index `i` with a default severity (defaults to most severe),
+	/// returns `false` if the validator is not found.
+	pub fn disable_index(i: u32) -> bool {
+		let default_severity = OffenceSeverity::default();
+		Self::disable_index_with_severity(i, default_severity)
+	}
+
+	/// Re-enable the validator of index `i`, returns `false` if the validator was not disabled.
+	pub fn reenable_index(i: u32) -> bool {
+		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
+			return false;
+		}
+
+		DisabledValidators::<T>::mutate(|disabled| {
+			if let Ok(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
+				log!(trace, "reenabling validator {:?}", i);
+				Self::deposit_event(Event::ValidatorReenabled {
+					validator: Validators::<T>::get()[i as usize].clone(),
+				});
+				disabled.remove(index);
+				return true;
+			}
+			false
+		})
+	}
+
+	/// Convert a validator ID to an index.
+	/// (If using with the staking pallet, this would be their *stash* account.)
+	pub fn validator_id_to_index(id: &T::ValidatorId) -> Option<u32> {
+		Validators::<T>::get().iter().position(|i| i == id).map(|i| i as u32)
+	}
+
+	/// Report an offence for the given validator and let disabling strategy decide
+	/// what changes to disabled validators should be made.
+	pub fn report_offence(validator: T::ValidatorId, severity: OffenceSeverity) {
+		let decision =
+			T::DisablingStrategy::decision(&validator, severity, &DisabledValidators::<T>::get());
+		log!(
+			debug,
+			"reporting offence for {:?} with {:?}, decision: {:?}",
+			validator,
+			severity,
+			decision
+		);
+
+		// Disable
+		if let Some(offender_idx) = decision.disable {
+			Self::disable_index_with_severity(offender_idx, severity);
+		}
+
+		// Re-enable
+		if let Some(reenable_idx) = decision.reenable {
+			Self::reenable_index(reenable_idx);
+		}
+	}
+
+	#[cfg(any(test, feature = "try-runtime"))]
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		// Ensure that the validators are sorted
+		ensure!(
+			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0].0 <= pair[1].0),
+			"DisabledValidators is not sorted"
+		);
+		Ok(())
 	}
 }
 
@@ -955,11 +1188,75 @@ impl<T: Config> EstimateNextNewSession<BlockNumberFor<T>> for Pallet<T> {
 
 impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 	fn is_disabled(index: u32) -> bool {
-		DisabledValidators::<T>::get().binary_search(&index).is_ok()
+		DisabledValidators::<T>::get().binary_search_by_key(&index, |(i, _)| *i).is_ok()
 	}
 
 	fn disabled_validators() -> Vec<u32> {
-		DisabledValidators::<T>::get()
+		Self::disabled_validators()
+	}
+}
+
+#[cfg(feature = "historical")]
+impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
+	type ValidatorId = T::ValidatorId;
+	type AccountId = T::AccountId;
+	type Keys = T::Keys;
+
+	fn validators() -> Vec<Self::ValidatorId> {
+		Self::validators()
+	}
+
+	fn prune_up_to(index: SessionIndex) {
+		historical::Pallet::<T>::prune_up_to(index)
+	}
+
+	fn report_offence(offender: Self::ValidatorId, severity: OffenceSeverity) {
+		Self::report_offence(offender, severity)
+	}
+
+	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult {
+		let who = T::ValidatorIdOf::convert(account.clone())
+			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
+		let old_keys = Self::inner_set_keys(&who, keys)?;
+		// Transitioning from local to external: clean up deposit and consumer ref.
+		if old_keys.is_some() && !ExternallySetKeys::<T>::contains_key(account) {
+			let _ = T::Currency::release_all(
+				&HoldReason::Keys.into(),
+				account,
+				frame_support::traits::tokens::Precision::BestEffort,
+			);
+			frame_system::Pallet::<T>::dec_consumers(account);
+		}
+		ExternallySetKeys::<T>::insert(account, ());
+		Ok(())
+	}
+
+	fn purge_keys(account: &Self::AccountId) -> DispatchResult {
+		let who = T::ValidatorIdOf::convert(account.clone())
+			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
+
+		let old_keys = Self::take_keys(&who).ok_or(Error::<T>::NoKeys)?;
+		for id in T::Keys::key_ids() {
+			let key_data = old_keys.get_raw(*id);
+			Self::clear_key_owner(*id, key_data);
+		}
+		let _ = T::Currency::release_all(
+			&HoldReason::Keys.into(),
+			account,
+			frame_support::traits::tokens::Precision::BestEffort,
+		);
+		if ExternallySetKeys::<T>::take(account).is_none() {
+			frame_system::Pallet::<T>::dec_consumers(account);
+		}
+		Ok(())
+	}
+
+	fn set_keys_weight() -> Weight {
+		T::WeightInfo::set_keys()
+	}
+
+	fn purge_keys_weight() -> Weight {
+		T::WeightInfo::purge_keys()
 	}
 }
 

@@ -101,7 +101,7 @@
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::cmp::Ordering;
 use frame_support::{
 	traits::{
@@ -116,7 +116,7 @@ use scale_info::TypeInfo;
 use sp_npos_elections::{ElectionResult, ExtendedBalance};
 use sp_runtime::{
 	traits::{Saturating, StaticLookup, Zero},
-	DispatchError, Perbill, RuntimeDebug,
+	Debug, DispatchError, Perbill,
 };
 use sp_staking::currency_to_vote::CurrencyToVote;
 
@@ -139,7 +139,7 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 >>::NegativeImbalance;
 
 /// An indication that the renouncing account currently has which of the below roles.
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Debug, TypeInfo)]
 pub enum Renouncing {
 	/// A member is renouncing.
 	Member,
@@ -150,7 +150,7 @@ pub enum Renouncing {
 }
 
 /// An active voter.
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, TypeInfo)]
 pub struct Voter<AccountId, Balance> {
 	/// The members being backed.
 	pub votes: Vec<AccountId>,
@@ -169,7 +169,7 @@ impl<AccountId, Balance: Default> Default for Voter<AccountId, Balance> {
 }
 
 /// A holder of a seat as either a member or a runner-up.
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, TypeInfo)]
 pub struct SeatHolder<AccountId, Balance> {
 	/// The holder.
 	pub who: AccountId,
@@ -201,6 +201,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Identifier for the elections-phragmen pallet's lock
@@ -507,7 +508,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			match renouncing {
 				Renouncing::Member => {
-					let _ = Self::remove_and_replace_member(&who, false)
+					Self::remove_and_replace_member(&who, false)
 						.map_err(|_| Error::<T>::InvalidRenouncing)?;
 					Self::deposit_event(Event::Renounced { candidate: who });
 				},
@@ -573,7 +574,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let who = T::Lookup::lookup(who)?;
 
-			let _ = Self::remove_and_replace_member(&who, slash_bond)?;
+			Self::remove_and_replace_member(&who, slash_bond)?;
 			Self::deposit_event(Event::MemberKicked { member: who });
 
 			if rerun_election {
@@ -600,7 +601,7 @@ pub mod pallet {
 			num_voters: u32,
 			num_defunct: u32,
 		) -> DispatchResult {
-			let _ = ensure_root(origin)?;
+			ensure_root(origin)?;
 
 			Voting::<T>::iter()
 				.take(num_voters as usize)
@@ -955,7 +956,7 @@ impl<T: Config> Pallet<T> {
 
 		if candidates_and_deposit.len().is_zero() {
 			Self::deposit_event(Event::EmptyTerm);
-			return T::DbWeight::get().reads(3)
+			return T::DbWeight::get().reads(3);
 		}
 
 		// All of the new winners that come out of phragmen will thus have a deposit recorded.
@@ -987,7 +988,7 @@ impl<T: Config> Pallet<T> {
 					"Failed to run election. Number of voters exceeded",
 				);
 				Self::deposit_event(Event::ElectionError);
-				return T::DbWeight::get().reads(3 + max_voters as u64)
+				return T::DbWeight::get().reads(3 + max_voters as u64);
 			},
 		}
 
@@ -1266,8 +1267,9 @@ impl<T: Config> Pallet<T> {
 		match Self::intersects(&Pallet::<T>::members_ids(), &Self::candidates_ids()) &&
 			Self::intersects(&Pallet::<T>::members_ids(), &Self::runners_up_ids())
 		{
-			true =>
-				Err("Members set should be disjoint from candidates and runners-up sets".into()),
+			true => {
+				Err("Members set should be disjoint from candidates and runners-up sets".into())
+			},
 			false => Ok(()),
 		}
 	}

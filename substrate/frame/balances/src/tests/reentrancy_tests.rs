@@ -178,7 +178,10 @@ fn emit_events_with_no_existential_deposit_suicide_with_dust() {
 		// no events
 		assert_eq!(
 			events(),
-			[RuntimeEvent::Balances(crate::Event::Withdraw { who: 1, amount: 98 })]
+			[
+				RuntimeEvent::Balances(crate::Event::Withdraw { who: 1, amount: 98 }),
+				RuntimeEvent::Balances(crate::Event::BurnedDebt { amount: 98 })
+			]
 		);
 
 		let res = Balances::withdraw(&1, 1, BestEffort, Expendable, Force);
@@ -189,7 +192,9 @@ fn emit_events_with_no_existential_deposit_suicide_with_dust() {
 			[
 				RuntimeEvent::System(system::Event::KilledAccount { account: 1 }),
 				RuntimeEvent::Balances(crate::Event::DustLost { account: 1, amount: 1 }),
-				RuntimeEvent::Balances(crate::Event::Withdraw { who: 1, amount: 1 })
+				RuntimeEvent::Balances(crate::Event::BurnedDebt { amount: 1 }),
+				RuntimeEvent::Balances(crate::Event::Withdraw { who: 1, amount: 1 }),
+				RuntimeEvent::Balances(crate::Event::BurnedDebt { amount: 1 })
 			]
 		);
 	});

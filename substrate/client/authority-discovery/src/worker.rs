@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+pub(crate) use crate::worker::addr_cache::AddrCache;
 use crate::{
 	error::{Error, Result},
 	interval::ExpIncInterval,
@@ -25,19 +26,19 @@ use crate::{
 use std::{
 	collections::{HashMap, HashSet},
 	marker::PhantomData,
+	path::PathBuf,
 	sync::Arc,
 	time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use futures::{channel::mpsc, future, stream::Fuse, FutureExt, Stream, StreamExt};
 
-use addr_cache::AddrCache;
 use codec::{Decode, Encode};
 use ip_network::IpNetwork;
 use linked_hash_set::LinkedHashSet;
 use sc_network_types::kad::{Key, PeerRecord, Record};
 
-use log::{debug, error, trace};
+use log::{debug, error, info, trace};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
 use prost::Message;
 use rand::{seq::SliceRandom, thread_rng};
@@ -53,7 +54,10 @@ use sp_authority_discovery::{
 	AuthorityDiscoveryApi, AuthorityId, AuthorityPair, AuthoritySignature,
 };
 use sp_blockchain::HeaderBackend;
-use sp_core::crypto::{key_types, ByteArray, Pair};
+use sp_core::{
+	crypto::{key_types, ByteArray, Pair},
+	traits::SpawnNamed,
+};
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::traits::Block as BlockT;
 
@@ -69,6 +73,8 @@ mod schema {
 pub mod tests;
 
 const LOG_TARGET: &str = "sub-authority-discovery";
+pub(crate) const ADDR_CACHE_FILE_NAME: &str = "authority_discovery_addr_cache.json";
+const ADDR_CACHE_PERSIST_INTERVAL: Duration = Duration::from_secs(60 * 10); // 10 minutes
 
 /// Maximum number of addresses cached per authority. Additional addresses are discarded.
 const MAX_ADDRESSES_PER_AUTHORITY: usize = 16;
@@ -186,6 +192,14 @@ pub struct Worker<Client, Block: BlockT, DhtEventStream> {
 	role: Role,
 
 	phantom: PhantomData<Block>,
+
+	/// A spawner of tasks
+	spawner: Box<dyn SpawnNamed>,
+
+	/// The directory of where the persisted AddrCache file is located,
+	/// optional since NetworkConfiguration's `net_config_path` field
+	/// is optional. If None, we won't persist the AddrCache at all.
+	persisted_cache_file_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
@@ -245,6 +259,7 @@ where
 		role: Role,
 		prometheus_registry: Option<prometheus_endpoint::Registry>,
 		config: WorkerConfig,
+		spawner: impl SpawnNamed + 'static,
 	) -> Self {
 		// When a node starts up publishing and querying might fail due to various reasons, for
 		// example due to being not yet fully bootstrapped on the DHT. Thus one should retry rather
@@ -261,7 +276,30 @@ where
 		let publish_if_changed_interval =
 			ExpIncInterval::new(config.keystore_refresh_interval, config.keystore_refresh_interval);
 
-		let addr_cache = AddrCache::new();
+		let maybe_persisted_cache_file_path =
+			config.persisted_cache_directory.as_ref().map(|dir| {
+				let mut path = dir.clone();
+				path.push(ADDR_CACHE_FILE_NAME);
+				path
+			});
+
+		// If we have a path to persisted cache file, then we will try to
+		// load the contents of persisted cache from file, if it exists, and is valid.
+		// Create a new one otherwise.
+		let addr_cache: AddrCache = if let Some(persisted_cache_file_path) =
+			maybe_persisted_cache_file_path.as_ref()
+		{
+			let loaded =
+				AddrCache::try_from(persisted_cache_file_path.as_path()).unwrap_or_else(|e| {
+					info!(target: LOG_TARGET, "Failed to load AddrCache from file, using empty instead: {}", e);
+					AddrCache::new()
+				});
+			info!(target: LOG_TARGET, "Loaded persisted AddrCache with {} authority ids.", loaded.num_authority_ids());
+			loaded
+		} else {
+			info!(target: LOG_TARGET, "No persisted cache file path provided, authority discovery will not persist the address cache to disk.");
+			AddrCache::new()
+		};
 
 		let metrics = match prometheus_registry {
 			Some(registry) => match Metrics::register(&registry) {
@@ -308,20 +346,43 @@ where
 			warn_public_addresses: false,
 			phantom: PhantomData,
 			last_known_records: HashMap::new(),
+			spawner: Box::new(spawner),
+			persisted_cache_file_path: maybe_persisted_cache_file_path,
 		}
+	}
+
+	/// Persists `AddrCache` to disk if the `persisted_cache_file_path` is set.
+	pub fn persist_addr_cache_if_supported(&self) {
+		let Some(path) = self.persisted_cache_file_path.as_ref().cloned() else {
+			return;
+		};
+		let cloned_cache = self.addr_cache.clone();
+		self.spawner.spawn_blocking(
+			"persist-addr-cache",
+			Some("authority-discovery-worker"),
+			Box::pin(async move {
+				cloned_cache.serialize_and_persist(path);
+			}),
+		)
 	}
 
 	/// Start the worker
 	pub async fn run(mut self) {
+		let mut persist_interval = tokio::time::interval(ADDR_CACHE_PERSIST_INTERVAL);
+
 		loop {
 			self.start_new_lookups();
 
 			futures::select! {
+				_ = persist_interval.tick().fuse() => {
+					self.persist_addr_cache_if_supported();
+				},
 				// Process incoming events.
 				event = self.dht_event_rx.next().fuse() => {
 					if let Some(event) = event {
 						self.handle_dht_event(event).await;
 					} else {
+						self.persist_addr_cache_if_supported();
 						// This point is reached if the network has shut down, at which point there is not
 						// much else to do than to shut down the authority discovery as well.
 						return;
@@ -385,6 +446,18 @@ where
 			})
 		};
 
+		// Addresses without a port cannot be dialed.
+		let address_has_port = |address: &Multiaddr| {
+			address.iter().any(|protocol| {
+				matches!(
+					protocol,
+					multiaddr::Protocol::Tcp(_) |
+						multiaddr::Protocol::Udp(_) |
+						multiaddr::Protocol::Memory(_)
+				)
+			})
+		};
+
 		// These are the addresses the node is listening for incoming connections,
 		// as reported by installed protocols (tcp / websocket etc).
 		//
@@ -397,7 +470,7 @@ where
 			.listen_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				address_is_global(&address)
+				(address_is_global(&address) && address_has_port(&address))
 					.then(|| AddressType::GlobalListenAddress(address).without_p2p(local_peer_id))
 			})
 			.take(MAX_GLOBAL_LISTEN_ADDRESSES)
@@ -409,8 +482,10 @@ where
 			.external_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				(publish_non_global_ips || address_is_global(&address))
-					.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
+				// Only publish addresses that have a port and are global.
+				(address_has_port(&address) &&
+					(publish_non_global_ips || address_is_global(&address)))
+				.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
 			})
 			.peekable();
 
@@ -429,6 +504,7 @@ where
 			.public_addresses
 			.clone()
 			.into_iter()
+			.filter(address_has_port)
 			.chain(global_listen_addresses)
 			.chain(external_addresses)
 			// Deduplicate addresses.
@@ -483,7 +559,7 @@ where
 			);
 
 			self.publish_interval.set_to_start();
-			return Ok(())
+			return Ok(());
 		}
 
 		let keys =
@@ -499,7 +575,7 @@ where
 			// If the authority keys did not change and the `publish_if_changed_interval` was
 			// triggered then do nothing.
 			if keys == self.latest_published_keys {
-				return Ok(())
+				return Ok(());
 			}
 
 			// We have detected a change in the authority keys, reset the timers to
@@ -677,9 +753,7 @@ where
 					metrics.dht_event_received.with_label_values(&["put_record_req"]).inc();
 				}
 			},
-			DhtEvent::StartProvidingFailed(..) => {},
-			DhtEvent::ProvidersFound(..) => {},
-			DhtEvent::ProvidersNotFound(..) => {},
+			_ => {},
 		}
 	}
 
@@ -766,7 +840,7 @@ where
 			.map_err(Error::EncodingDecodingScale)?;
 
 		if !AuthorityPair::verify(&auth_signature, &signed_record.record, &authority_id) {
-			return Err(Error::VerifyingDhtPayload)
+			return Err(Error::VerifyingDhtPayload);
 		}
 
 		Ok(signed_record)
@@ -791,7 +865,7 @@ where
 				Err(error) => return Err(Error::ParsingLibp2pIdentity(error)),
 			}
 		} else if self.strict_record_validation {
-			return Err(Error::MissingPeerIdSignature)
+			return Err(Error::MissingPeerIdSignature);
 		} else {
 			debug!(
 				target: LOG_TARGET,
@@ -921,7 +995,7 @@ where
 					authority_id, new_record.creation_time, current_record_info.creation_time
 			);
 			self.last_known_records.insert(kademlia_key, new_record);
-			return true
+			return true;
 		}
 
 		if new_record.creation_time == current_record_info.creation_time {
@@ -937,7 +1011,7 @@ where
 			{
 				current_record_info.peers_with_record.extend(new_record.peers_with_record);
 			}
-			return true
+			return true;
 		}
 
 		debug!(
@@ -952,7 +1026,7 @@ where
 			// storage, so we need to update that as well.
 			new_record.peers_with_record.is_empty(),
 		);
-		return false
+		return false;
 	}
 
 	/// Retrieve our public keys within the current and next authority set.
@@ -1199,6 +1273,10 @@ impl Metrics {
 #[cfg(test)]
 impl<Block: BlockT, Client, DhtEventStream> Worker<Client, Block, DhtEventStream> {
 	pub(crate) fn inject_addresses(&mut self, authority: AuthorityId, addresses: Vec<Multiaddr>) {
-		self.addr_cache.insert(authority, addresses);
+		self.addr_cache.insert(authority, addresses)
+	}
+
+	pub(crate) fn contains_authority(&self, authority: &AuthorityId) -> bool {
+		self.addr_cache.get_addresses_by_authority_id(authority).is_some()
 	}
 }

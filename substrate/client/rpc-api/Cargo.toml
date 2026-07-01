@@ -27,5 +27,6 @@ serde_json = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-rpc = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-statement-store = { features = ["serde"], workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 thiserror = { workspace = true }

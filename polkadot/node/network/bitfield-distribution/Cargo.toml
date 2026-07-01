@@ -12,7 +12,6 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-always-assert = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }

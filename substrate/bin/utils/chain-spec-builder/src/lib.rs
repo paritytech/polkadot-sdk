@@ -71,7 +71,7 @@ pub struct CreateCmd {
 	#[arg(long, value_enum, short = 'p', requires = "relay_chain")]
 	pub para_id: Option<u32>,
 	/// The relay chain you wish to connect to.
-	#[arg(long, value_enum, short = 'c', requires = "para_id")]
+	#[arg(long, value_enum, short = 'c')]
 	pub relay_chain: Option<String>,
 	/// The path to runtime wasm blob.
 	#[arg(long, short, alias = "runtime-wasm-path")]
@@ -217,17 +217,17 @@ pub struct ParachainExtension {
 	/// The relay chain of the Parachain.
 	pub relay_chain: String,
 	/// The id of the Parachain.
-	pub para_id: u32,
+	pub para_id: Option<u32>,
 }
 
 type ChainSpec = GenericChainSpec<()>;
 
 impl ChainSpecBuilder {
 	/// Executes the internal command.
-	pub fn run(self) -> Result<(), String> {
+	pub fn run(&self) -> Result<(), String> {
 		let chain_spec_path = self.chain_spec_path.to_path_buf();
 
-		match self.command {
+		match &self.command {
 			ChainSpecBuilderCmd::Create(cmd) => {
 				let chain_spec_json = generate_chain_spec_for_runtime(&cmd)?;
 				fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
@@ -259,7 +259,7 @@ impl ChainSpecBuilder {
 					&mut chain_spec_json,
 					&fs::read(runtime.as_path())
 						.map_err(|e| format!("Wasm blob file could not be read: {e}"))?[..],
-					block_height,
+					*block_height,
 				);
 				let chain_spec_json = serde_json::to_string_pretty(&chain_spec_json)
 					.map_err(|e| format!("to pretty failed: {e}"))?;
@@ -294,7 +294,7 @@ impl ChainSpecBuilder {
 			},
 			ChainSpecBuilderCmd::Verify(VerifyCmd { ref input_chain_spec }) => {
 				let chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())?;
-				let _ = serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
+				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
 					.map_err(|e| format!("Conversion to json failed: {e}"))?;
 			},
 			ChainSpecBuilderCmd::ListPresets(ListPresetsCmd { runtime }) => {
@@ -343,8 +343,9 @@ fn process_action<T: Serialize + Clone + Sync + 'static>(
 	builder: sc_chain_spec::ChainSpecBuilder<T>,
 ) -> Result<String, String> {
 	let builder = match cmd.action {
-		GenesisBuildAction::NamedPreset(NamedPresetCmd { ref preset_name }) =>
-			builder.with_genesis_config_preset_name(&preset_name),
+		GenesisBuildAction::NamedPreset(NamedPresetCmd { ref preset_name }) => {
+			builder.with_genesis_config_preset_name(&preset_name)
+		},
 		GenesisBuildAction::Patch(PatchCmd { ref patch_path }) => {
 			let patch = fs::read(patch_path.as_path())
 				.map_err(|e| format!("patch file {patch_path:?} shall be readable: {e}"))?;
@@ -443,20 +444,30 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 		.with_chain_type(chain_type.clone());
 
 	let chain_spec_json_string = process_action(&cmd, &code[..], builder)?;
+	let parachain_properties = cmd.relay_chain.as_ref().map(|rc| {
+		cmd.para_id
+			.map(|para_id| {
+				serde_json::json!({
+					"relay_chain": rc,
+					"para_id": para_id,
+				})
+			})
+			.unwrap_or(serde_json::json!({
+				"relay_chain": rc,
+			}))
+	});
 
-	if let (Some(para_id), Some(ref relay_chain)) = (cmd.para_id, &cmd.relay_chain) {
-		let parachain_properties = serde_json::json!({
-			"relay_chain": relay_chain,
-			"para_id": para_id,
-		});
-		let mut chain_spec_json_blob = serde_json::from_str(chain_spec_json_string.as_str())
-			.map_err(|e| format!("deserialization a json failed {e}"))?;
-		json_patch::merge(&mut chain_spec_json_blob, parachain_properties);
-		Ok(serde_json::to_string_pretty(&chain_spec_json_blob)
-			.map_err(|e| format!("to pretty failed: {e}"))?)
-	} else {
-		Ok(chain_spec_json_string)
-	}
+	let chain_spec = parachain_properties
+		.map(|props| {
+			let chain_spec_json_blob = serde_json::from_str(chain_spec_json_string.as_str())
+				.map_err(|e| format!("deserialization a json failed {e}"));
+			chain_spec_json_blob.and_then(|mut cs| {
+				json_patch::merge(&mut cs, props);
+				serde_json::to_string_pretty(&cs).map_err(|e| format!("to pretty failed: {e}"))
+			})
+		})
+		.unwrap_or(Ok(chain_spec_json_string));
+	chain_spec
 }
 
 /// Extract any chain spec and convert it to JSON

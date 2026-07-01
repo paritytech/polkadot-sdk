@@ -18,7 +18,7 @@
 //! # Pallet State Trie Migration
 //!
 //! Reads and writes all keys and values in the entire state in a systematic way. This is useful for
-//! upgrading a chain to [`sp-core::StateVersion::V1`], where all keys need to be touched.
+//! upgrading a chain to `sp_core::StateVersion::V1`, where all keys need to be touched.
 //!
 //! ## Migration Types
 //!
@@ -77,7 +77,7 @@ pub mod pallet {
 
 	pub use crate::weights::WeightInfo;
 
-	use alloc::{vec, vec::Vec};
+	use alloc::vec::Vec;
 	use core::ops::Deref;
 	use frame_support::{
 		dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
@@ -106,6 +106,7 @@ pub mod pallet {
 		CloneNoBound,
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		scale_info::TypeInfo,
 		PartialEqNoBound,
 		EqNoBound,
@@ -127,7 +128,16 @@ pub mod pallet {
 	/// A migration task stored in state.
 	///
 	/// It tracks the last top and child keys read.
-	#[derive(Clone, Encode, Decode, scale_info::TypeInfo, PartialEq, Eq, MaxEncodedLen)]
+	#[derive(
+		Clone,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		scale_info::TypeInfo,
+		PartialEq,
+		Eq,
+		MaxEncodedLen,
+	)]
 	#[scale_info(skip_type_params(T))]
 	pub struct MigrationTask<T: Config> {
 		/// The current top trie migration progress.
@@ -404,6 +414,7 @@ pub mod pallet {
 		Copy,
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		scale_info::TypeInfo,
 		Default,
 		Debug,
@@ -419,7 +430,17 @@ pub mod pallet {
 	}
 
 	/// How a migration was computed.
-	#[derive(Clone, Copy, Encode, Decode, scale_info::TypeInfo, Debug, PartialEq, Eq)]
+	#[derive(
+		Clone,
+		Copy,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		scale_info::TypeInfo,
+		Debug,
+		PartialEq,
+		Eq,
+	)]
 	pub enum MigrationCompute {
 		/// A signed origin triggered the migration.
 		Signed,
@@ -486,6 +507,7 @@ pub mod pallet {
 
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency provider type.
@@ -519,7 +541,7 @@ pub mod pallet {
 		/// - [`frame_support::storage::StorageDoubleMap`]: 96 byte
 		///
 		/// For more info see
-		/// <https://www.shawntabrizi.com/blog/substrate/querying-substrate-storage-via-rpc/>
+		/// <https://www.shawntabrizi.com/blog/interacting-with-the-substrate-rpc-endpoint/>
 
 		#[pallet::constant]
 		#[pallet::no_default]
@@ -815,7 +837,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			limits: MigrationLimits,
 		) -> DispatchResult {
-			let _ = T::ControlOrigin::ensure_origin(origin)?;
+			T::ControlOrigin::ensure_origin(origin)?;
 			SignedMigrationMaxLimits::<T>::put(limits);
 			Ok(())
 		}
@@ -836,7 +858,7 @@ pub mod pallet {
 			progress_top: ProgressOf<T>,
 			progress_child: ProgressOf<T>,
 		) -> DispatchResult {
-			let _ = T::ControlOrigin::ensure_origin(origin)?;
+			T::ControlOrigin::ensure_origin(origin)?;
 			MigrationProcess::<T>::mutate(|task| {
 				task.progress_top = progress_top;
 				task.progress_child = progress_child;
@@ -1855,7 +1877,11 @@ mod remote_tests_local {
 		sp_tracing::try_init_simple();
 		let mode = Mode::OfflineOrElseOnline(
 			OfflineConfig { state_snapshot: snap.clone() },
-			OnlineConfig { transport: ws_api, state_snapshot: Some(snap), ..Default::default() },
+			OnlineConfig {
+				transport_uris: vec![ws_api],
+				state_snapshot: Some(snap),
+				..Default::default()
+			},
 		);
 
 		// item being the bottleneck

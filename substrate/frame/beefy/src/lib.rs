@@ -70,8 +70,7 @@ pub mod pallet {
 		/// Authority identifier type
 		type BeefyId: Member
 			+ Parameter
-			// todo: use custom signature hashing type instead of hardcoded `Keccak256`
-			+ BeefyAuthorityId<sp_runtime::traits::Keccak256>
+			+ BeefyAuthorityId
 			+ MaybeSerializeDeserialize
 			+ MaxEncodedLen;
 
@@ -201,6 +200,8 @@ pub mod pallet {
 		InvalidFutureBlockVotingProof,
 		/// The session of the equivocation proof is invalid
 		InvalidEquivocationProofSession,
+		/// The session of the equivocation proof is not in the mapping (anymore)
+		InvalidEquivocationProofSessionMember,
 		/// A given equivocation report is valid but already previously reported.
 		DuplicateOffenceReport,
 		/// Submitted configuration is invalid.
@@ -421,6 +422,7 @@ pub mod pallet {
 		}
 	}
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
@@ -437,16 +439,25 @@ pub mod pallet {
 	impl<T: Config> Call<T> {
 		pub fn to_equivocation_evidence_for(&self) -> Option<EquivocationEvidenceFor<T>> {
 			match self {
-				Call::report_double_voting_unsigned { equivocation_proof, key_owner_proof } =>
+				Call::report_double_voting_unsigned { equivocation_proof, key_owner_proof } => {
 					Some(EquivocationEvidenceFor::<T>::DoubleVotingProof(
 						*equivocation_proof.clone(),
 						key_owner_proof.clone(),
-					)),
-				Call::report_fork_voting_unsigned { equivocation_proof, key_owner_proof } =>
+					))
+				},
+				Call::report_fork_voting_unsigned { equivocation_proof, key_owner_proof } => {
 					Some(EquivocationEvidenceFor::<T>::ForkVotingProof(
 						*equivocation_proof.clone(),
 						key_owner_proof.clone(),
-					)),
+					))
+				},
+				Call::report_future_block_voting_unsigned {
+					equivocation_proof,
+					key_owner_proof,
+				} => Some(EquivocationEvidenceFor::<T>::FutureBlockVotingProof(
+					*equivocation_proof.clone(),
+					key_owner_proof.clone(),
+				)),
 				_ => None,
 			}
 		}
@@ -455,16 +466,18 @@ pub mod pallet {
 	impl<T: Config> From<EquivocationEvidenceFor<T>> for Call<T> {
 		fn from(evidence: EquivocationEvidenceFor<T>) -> Self {
 			match evidence {
-				EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, key_owner_proof) =>
+				EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, key_owner_proof) => {
 					Call::report_double_voting_unsigned {
 						equivocation_proof: Box::new(equivocation_proof),
 						key_owner_proof,
-					},
-				EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, key_owner_proof) =>
+					}
+				},
+				EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, key_owner_proof) => {
 					Call::report_fork_voting_unsigned {
 						equivocation_proof: Box::new(equivocation_proof),
 						key_owner_proof,
-					},
+					}
+				},
 				EquivocationEvidenceFor::FutureBlockVotingProof(
 					equivocation_proof,
 					key_owner_proof,
@@ -618,11 +631,11 @@ impl<T: Config> Pallet<T> {
 
 	fn initialize(authorities: &Vec<T::BeefyId>) -> Result<(), ()> {
 		if authorities.is_empty() {
-			return Ok(())
+			return Ok(());
 		}
 
 		if !Authorities::<T>::get().is_empty() {
-			return Err(())
+			return Err(());
 		}
 
 		let bounded_authorities =

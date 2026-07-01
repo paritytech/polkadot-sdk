@@ -19,19 +19,9 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use super::*;
-use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller, BenchmarkError};
-use frame_support::traits::{
-	fungible::Inspect as FunInspect, nonfungible::Inspect, EnsureOrigin, Get,
-};
-use frame_system::RawOrigin;
-use sp_arithmetic::Perquintill;
-use sp_runtime::{
-	traits::{Bounded, One, Zero},
-	DispatchError, PerThing,
-};
+use frame::benchmarking::prelude::*;
 
-use crate::Pallet as Nis;
+use crate::*;
 
 const SEED: u32 = 0;
 
@@ -49,62 +39,88 @@ fn fill_queues<T: Config>() -> Result<(), DispatchError> {
 	T::Currency::set_balance(&caller, T::MinBid::get() * BalanceOf::<T>::from(queues + bids));
 
 	for _ in 0..bids {
-		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), T::MinBid::get(), 1)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), T::MinBid::get(), 1)?;
 	}
 	for d in 1..queues {
-		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), T::MinBid::get(), 1 + d)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), T::MinBid::get(), 1 + d)?;
 	}
 	Ok(())
 }
 
-benchmarks! {
-	place_bid {
-		let l in 0..(T::MaxQueueLen::get() - 1);
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn place_bid(l: Linear<0, { T::MaxQueueLen::get() - 1 }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let ed = T::Currency::minimum_balance();
 		let bid = T::MinBid::get();
 		T::Currency::set_balance(&caller, (ed + bid) * BalanceOf::<T>::from(l + 1) + bid);
-		for i in 0..l {
-			Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), T::MinBid::get(), 1)?;
+		for _ in 0..l {
+			Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), T::MinBid::get(), 1)?;
 		}
-	}: _(RawOrigin::Signed(caller.clone()), T::MinBid::get() * BalanceOf::<T>::from(2u32), 1)
-	verify {
-		assert_eq!(QueueTotals::<T>::get()[0], (l + 1, T::MinBid::get() * BalanceOf::<T>::from(l + 2)));
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), T::MinBid::get() * BalanceOf::<T>::from(2_u32), 1);
+
+		assert_eq!(
+			QueueTotals::<T>::get()[0],
+			(l + 1, T::MinBid::get() * BalanceOf::<T>::from(l + 2))
+		);
+
+		Ok(())
 	}
 
-	place_bid_max {
+	#[benchmark]
+	fn place_bid_max() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let origin = RawOrigin::Signed(caller.clone());
 		let ed = T::Currency::minimum_balance();
 		let bid = T::MinBid::get();
 		let ql = T::MaxQueueLen::get();
 		T::Currency::set_balance(&caller, (ed + bid) * BalanceOf::<T>::from(ql + 1) + bid);
-		for i in 0..T::MaxQueueLen::get() {
-			Nis::<T>::place_bid(origin.clone().into(), T::MinBid::get(), 1)?;
+		for _ in 0..T::MaxQueueLen::get() {
+			Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), T::MinBid::get(), 1)?;
 		}
-	}: place_bid(origin, T::MinBid::get() * BalanceOf::<T>::from(2u32), 1)
-	verify {
-		assert_eq!(QueueTotals::<T>::get()[0], (
-			T::MaxQueueLen::get(),
-			T::MinBid::get() * BalanceOf::<T>::from(T::MaxQueueLen::get() + 1),
-		));
+
+		#[extrinsic_call]
+		place_bid(origin, T::MinBid::get() * BalanceOf::<T>::from(2_u32), 1);
+
+		assert_eq!(
+			QueueTotals::<T>::get()[0],
+			(
+				T::MaxQueueLen::get(),
+				T::MinBid::get() * BalanceOf::<T>::from(T::MaxQueueLen::get() + 1),
+			)
+		);
+
+		Ok(())
 	}
 
-	retract_bid {
-		let l in 1..T::MaxQueueLen::get();
+	#[benchmark]
+	fn retract_bid(l: Linear<1, { T::MaxQueueLen::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let ed = T::Currency::minimum_balance();
 		let bid = T::MinBid::get();
 		T::Currency::set_balance(&caller, (ed + bid) * BalanceOf::<T>::from(l + 1) + bid);
-		for i in 0..l {
-			Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), T::MinBid::get(), 1)?;
+		for _ in 0..l {
+			Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), T::MinBid::get(), 1)?;
 		}
-	}: _(RawOrigin::Signed(caller.clone()), T::MinBid::get(), 1)
-	verify {
-		assert_eq!(QueueTotals::<T>::get()[0], (l - 1, T::MinBid::get() * BalanceOf::<T>::from(l - 1)));
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), T::MinBid::get(), 1);
+
+		assert_eq!(
+			QueueTotals::<T>::get()[0],
+			(l - 1, T::MinBid::get() * BalanceOf::<T>::from(l - 1))
+		);
+
+		Ok(())
 	}
 
-	fund_deficit {
+	#[benchmark]
+	fn fund_deficit() -> Result<(), BenchmarkError> {
 		T::BenchmarkSetup::create_counterpart_asset();
 		let origin =
 			T::FundOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -112,67 +128,65 @@ benchmarks! {
 		let bid = T::MinBid::get().max(One::one());
 		let ed = T::Currency::minimum_balance();
 		T::Currency::set_balance(&caller, ed + bid);
-		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
-		Nis::<T>::process_queues(Perquintill::one(), 1, 1, &mut WeightCounter::unlimited());
-		Nis::<T>::communify(RawOrigin::Signed(caller.clone()).into(), 0)?;
-		let original = T::Currency::balance(&Nis::<T>::account_id());
-		T::Currency::set_balance(&Nis::<T>::account_id(), BalanceOf::<T>::min_value());
-	}: _<T::RuntimeOrigin>(origin)
-	verify {
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
+		Pallet::<T>::process_queues(Perquintill::one(), 1, 1, &mut WeightCounter::unlimited());
+		Pallet::<T>::communify(RawOrigin::Signed(caller.clone()).into(), 0)?;
+		let original = T::Currency::balance(&Pallet::<T>::account_id());
+		T::Currency::set_balance(&Pallet::<T>::account_id(), BalanceOf::<T>::min_value());
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin);
+
 		// Must fund at least 99.999% of the required amount.
-		let missing = Perquintill::from_rational(
-			T::Currency::balance(&Nis::<T>::account_id()), original).left_from_one();
+		let missing =
+			Perquintill::from_rational(T::Currency::balance(&Pallet::<T>::account_id()), original)
+				.left_from_one();
 		assert!(missing <= Perquintill::one() / 100_000);
+
+		Ok(())
 	}
 
-	communify {
+	#[benchmark]
+	fn communify() -> Result<(), BenchmarkError> {
 		T::BenchmarkSetup::create_counterpart_asset();
 		let caller: T::AccountId = whitelisted_caller();
 		let bid = T::MinBid::get().max(One::one()) * 100u32.into();
 		let ed = T::Currency::minimum_balance();
 		T::Currency::set_balance(&caller, ed + bid + bid);
-		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
-		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
-		Nis::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
-	}: _(RawOrigin::Signed(caller.clone()), 0)
-	verify {
-		assert_eq!(Nis::<T>::owner(&0), None);
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
+		Pallet::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), 0);
+
+		assert_eq!(Pallet::<T>::owner(&0), None);
+
+		Ok(())
 	}
 
-	privatize {
+	#[benchmark]
+	fn privatize() -> Result<(), BenchmarkError> {
 		T::BenchmarkSetup::create_counterpart_asset();
 		let caller: T::AccountId = whitelisted_caller();
 		let bid = T::MinBid::get().max(One::one());
 		let ed = T::Currency::minimum_balance();
 		T::Currency::set_balance(&caller, ed + bid + bid);
-		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
-		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
-		Nis::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
-		Nis::<T>::communify(RawOrigin::Signed(caller.clone()).into(), 0)?;
-	}: _(RawOrigin::Signed(caller.clone()), 0)
-	verify {
-		assert_eq!(Nis::<T>::owner(&0), Some(caller));
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
+		Pallet::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
+		Pallet::<T>::communify(RawOrigin::Signed(caller.clone()).into(), 0)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), 0);
+
+		assert_eq!(Pallet::<T>::owner(&0), Some(caller));
+
+		Ok(())
 	}
 
-	thaw_private {
-		T::BenchmarkSetup::create_counterpart_asset();
-		let whale: T::AccountId = account("whale", 0, SEED);
-		let caller: T::AccountId = whitelisted_caller();
-		let bid = T::MinBid::get().max(One::one());
-		let ed = T::Currency::minimum_balance();
-		T::Currency::set_balance(&caller, ed + bid + bid);
-		// Ensure we don't get throttled.
-		T::Currency::set_balance(&whale, T::ThawThrottle::get().0.saturating_reciprocal_mul_ceil(T::Currency::balance(&caller)));
-		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
-		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
-		Nis::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
-		frame_system::Pallet::<T>::set_block_number(Receipts::<T>::get(0).unwrap().expiry);
-	}: _(RawOrigin::Signed(caller.clone()), 0, None)
-	verify {
-		assert!(Receipts::<T>::get(0).is_none());
-	}
-
-	thaw_communal {
+	#[benchmark]
+	fn thaw_private() -> Result<(), BenchmarkError> {
 		T::BenchmarkSetup::create_counterpart_asset();
 		let whale: T::AccountId = account("whale", 0, SEED);
 		let caller: T::AccountId = whitelisted_caller();
@@ -180,69 +194,121 @@ benchmarks! {
 		let ed = T::Currency::minimum_balance();
 		T::Currency::set_balance(&caller, ed + bid + bid);
 		// Ensure we don't get throttled.
-		T::Currency::set_balance(&whale, T::ThawThrottle::get().0.saturating_reciprocal_mul_ceil(T::Currency::balance(&caller)));
-		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
-		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
-		Nis::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
+		T::Currency::set_balance(
+			&whale,
+			T::ThawThrottle::get()
+				.0
+				.saturating_reciprocal_mul_ceil(T::Currency::balance(&caller)),
+		);
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
+		Pallet::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
 		frame_system::Pallet::<T>::set_block_number(Receipts::<T>::get(0).unwrap().expiry);
-		Nis::<T>::communify(RawOrigin::Signed(caller.clone()).into(), 0)?;
-	}: _(RawOrigin::Signed(caller.clone()), 0)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), 0, None);
+
 		assert!(Receipts::<T>::get(0).is_none());
+
+		Ok(())
 	}
 
-	process_queues {
+	#[benchmark]
+	fn thaw_communal() -> Result<(), BenchmarkError> {
+		T::BenchmarkSetup::create_counterpart_asset();
+		let whale: T::AccountId = account("whale", 0, SEED);
+		let caller: T::AccountId = whitelisted_caller();
+		let bid = T::MinBid::get().max(One::one());
+		let ed = T::Currency::minimum_balance();
+		T::Currency::set_balance(&caller, ed + bid + bid);
+		// Ensure we don't get throttled.
+		T::Currency::set_balance(
+			&whale,
+			T::ThawThrottle::get()
+				.0
+				.saturating_reciprocal_mul_ceil(T::Currency::balance(&caller)),
+		);
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
+		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
+		Pallet::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
+		frame_system::Pallet::<T>::set_block_number(Receipts::<T>::get(0).unwrap().expiry);
+		Pallet::<T>::communify(RawOrigin::Signed(caller.clone()).into(), 0)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), 0);
+
+		assert!(Receipts::<T>::get(0).is_none());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn process_queues() -> Result<(), BenchmarkError> {
 		fill_queues::<T>()?;
-	}: {
-		Nis::<T>::process_queues(
-			Perquintill::one(),
-			Zero::zero(),
-			u32::max_value(),
-			&mut WeightCounter::unlimited(),
-		)
+
+		#[block]
+		{
+			Pallet::<T>::process_queues(
+				Perquintill::one(),
+				Zero::zero(),
+				u32::max_value(),
+				&mut WeightCounter::unlimited(),
+			);
+		}
+
+		Ok(())
 	}
 
-	process_queue {
-		let our_account = Nis::<T>::account_id();
-		let issuance = Nis::<T>::issuance();
+	#[benchmark]
+	fn process_queue() {
+		let our_account = Pallet::<T>::account_id();
+		let issuance = Pallet::<T>::issuance();
 		let mut summary = Summary::<T>::get();
-	}: {
-		Nis::<T>::process_queue(
-			1u32,
-			1u32.into(),
-			&our_account,
-			&issuance,
-			0,
-			&mut Bounded::max_value(),
-			&mut (T::MaxQueueLen::get(), Bounded::max_value()),
-			&mut summary,
-			&mut WeightCounter::unlimited(),
-		)
+
+		#[block]
+		{
+			Pallet::<T>::process_queue(
+				1_u32,
+				1_u32.into(),
+				&our_account,
+				&issuance,
+				0,
+				&mut Bounded::max_value(),
+				&mut (T::MaxQueueLen::get(), Bounded::max_value()),
+				&mut summary,
+				&mut WeightCounter::unlimited(),
+			);
+		}
 	}
 
-	process_bid {
+	#[benchmark]
+	fn process_bid() {
 		let who = account::<T::AccountId>("bidder", 0, SEED);
 		let min_bid = T::MinBid::get().max(One::one());
 		let ed = T::Currency::minimum_balance();
 		T::Currency::set_balance(&who, ed + min_bid);
-		let bid = Bid {
-			amount: T::MinBid::get(),
-			who,
-		};
-		let our_account = Nis::<T>::account_id();
-		let issuance = Nis::<T>::issuance();
+		let bid = Bid { amount: T::MinBid::get(), who };
+		let our_account = Pallet::<T>::account_id();
+		let issuance = Pallet::<T>::issuance();
 		let mut summary = Summary::<T>::get();
-	}: {
-		Nis::<T>::process_bid(
-			bid,
-			2u32.into(),
-			&our_account,
-			&issuance,
-			&mut Bounded::max_value(),
-			&mut Bounded::max_value(),
-			&mut summary,
-		)
+
+		#[block]
+		{
+			Pallet::<T>::process_bid(
+				bid,
+				2_u32.into(),
+				&our_account,
+				&issuance,
+				&mut Bounded::max_value(),
+				&mut Bounded::max_value(),
+				&mut summary,
+			);
+		}
 	}
 
-	impl_benchmark_test_suite!(Nis, crate::mock::new_test_ext_empty(), crate::mock::Test);
+	impl_benchmark_test_suite! {
+		Pallet,
+		mock::new_test_ext_empty(),
+		mock::Test
+	}
 }

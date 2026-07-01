@@ -26,8 +26,8 @@
 //!
 //! ## OpenZeppelin
 //!
-//! In June 2023, OpenZeppelin was awarded a grant from the [Polkadot
-//! treasury](https://polkadot.polkassembly.io/treasury/406) for building a number of Polkadot-sdk
+//! In June 2023, OpenZeppelin was awarded a grant from the Polkadot
+//! treasury for building a number of Polkadot-sdk
 //! based templates. These templates are a great starting point for developers and newcomers.
 //! So far OpenZeppelin has released two templates, which have been fully [audited](https://github.com/OpenZeppelin/polkadot-runtime-templates/tree/main/audits):
 //! - [`generic-runtime-template`](https://github.com/OpenZeppelin/polkadot-runtime-templates?tab=readme-ov-file#generic-runtime-template):
@@ -42,4 +42,4 @@
 //! Is a CLI tool capable of scaffolding a new polkadot-sdk-based project, possibly removing the
 //! need for templates.
 //!
-//! - <https://pop.r0gue.io/cli/>
+//! - <https://learn.onpop.io>

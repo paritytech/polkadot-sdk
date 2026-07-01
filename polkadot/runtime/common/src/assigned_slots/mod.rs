@@ -31,7 +31,7 @@ use crate::{
 	traits::{LeaseError, Leaser, Registrar},
 };
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
@@ -46,14 +46,14 @@ use sp_runtime::traits::{One, Saturating, Zero};
 const LOG_TARGET: &str = "runtime::assigned_slots";
 
 /// Lease period an assigned slot should start from (current, or next one).
-#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Copy, Eq, PartialEq, Debug, TypeInfo)]
 pub enum SlotLeasePeriodStart {
 	Current,
 	Next,
 }
 
 /// Information about a temporary parachain slot.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, MaxEncodedLen, Debug, TypeInfo)]
 pub struct ParachainTemporarySlot<AccountId, LeasePeriod> {
 	/// Manager account of the para.
 	pub manager: AccountId,
@@ -118,6 +118,7 @@ pub mod pallet {
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: configuration::Config + paras::Config + slots::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Origin for assigning slots.
@@ -241,7 +242,7 @@ pub mod pallet {
 			if let Some((lease_period, first_block)) = Self::lease_period_index(n) {
 				// If we're beginning a new lease period then handle that.
 				if first_block {
-					return Self::manage_lease_period_start(lease_period)
+					return Self::manage_lease_period_start(lease_period);
 				}
 			}
 
@@ -673,11 +674,11 @@ mod tests {
 		type RuntimeCall = RuntimeCall;
 	}
 
-	impl<C> frame_system::offchain::CreateInherent<C> for Test
+	impl<C> frame_system::offchain::CreateBare<C> for Test
 	where
 		RuntimeCall: From<C>,
 	{
-		fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 			UncheckedExtrinsic::new_bare(call)
 		}
 	}
@@ -729,6 +730,9 @@ mod tests {
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
 		type OnNewHead = ();
 		type AssignCoretime = ();
+		type Fungible = Balances;
+		type CooldownRemovalMultiplier = ConstUint<1>;
+		type AuthorizeCurrentCodeOrigin = EnsureRoot<Self::AccountId>;
 	}
 
 	impl parachains_shared::Config for Test {

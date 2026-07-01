@@ -16,12 +16,13 @@
 // limitations under the License.
 //! Utilities for working with Ethereum accounts.
 use crate::{
-	evm::{TransactionSigned, TransactionUnsigned},
 	H160,
+	evm::{TransactionSigned, TransactionUnsigned},
 };
 use sp_runtime::AccountId32;
 
 /// A simple account that can sign transactions
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Account(subxt_signer::eth::Keypair);
 
 impl Default for Account {

@@ -18,7 +18,7 @@
 
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{Contains, Everything, Nothing},
+	traits::{Contains, Disabled, Everything, Nothing},
 	weights::Weight,
 };
 
@@ -155,6 +155,7 @@ pub struct XcmConfig;
 impl Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = XcmPallet;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = ();
@@ -167,7 +168,6 @@ impl Config for XcmConfig {
 	type AssetTrap = XcmPallet;
 	type AssetLocker = XcmPallet;
 	type AssetExchanger = ();
-	type AssetClaims = XcmPallet;
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type FeeManager = ();
@@ -210,6 +210,8 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 impl origin::Config for Runtime {}

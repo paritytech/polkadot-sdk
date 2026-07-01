@@ -42,7 +42,7 @@ use sp_keystore::{Keystore, KeystorePtr};
 
 use polkadot_node_network_protocol::{
 	authority_discovery::AuthorityDiscovery, peer_set::PeerSet, GossipSupportNetworkMessage,
-	PeerId, Versioned,
+	PeerId, ValidationProtocols,
 };
 use polkadot_node_subsystem::{
 	messages::{
@@ -90,13 +90,15 @@ const TRY_RERESOLVE_AUTHORITIES: Duration = Duration::from_secs(2);
 const LOW_CONNECTIVITY_WARN_DELAY: Duration = Duration::from_secs(600);
 
 /// If connectivity is lower than this in percent, issue warning in logs.
-const LOW_CONNECTIVITY_WARN_THRESHOLD: usize = 90;
+const LOW_CONNECTIVITY_WARN_THRESHOLD: usize = 85;
 
 /// The Gossip Support subsystem.
 pub struct GossipSupport<AD> {
 	keystore: KeystorePtr,
 
 	last_session_index: Option<SessionIndex>,
+	/// Whether we are currently an authority or not.
+	is_authority_now: bool,
 	/// The minimum known session we build the topology for.
 	min_known_session: SessionIndex,
 	// Some(timestamp) if we failed to resolve
@@ -163,6 +165,7 @@ where
 			min_known_session: u32::MAX,
 			authority_discovery,
 			finalized_needed_session: None,
+			is_authority_now: false,
 			metrics,
 		}
 	}
@@ -207,7 +210,7 @@ where
 						gum::debug!(target: LOG_TARGET, error = ?e);
 					}
 				},
-				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, _number)) =>
+				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, _number)) => {
 					if let Some(session_index) = self.last_session_index {
 						if let Err(e) = self
 							.build_topology_for_last_finalized_if_needed(
@@ -222,7 +225,8 @@ where
 								e
 							);
 						}
-					},
+					}
+				},
 				FromOrchestra::Signal(OverseerSignal::Conclude) => return self,
 			}
 		}
@@ -268,7 +272,7 @@ where
 							"Failed to get session info.",
 						);
 
-						continue
+						continue;
 					},
 				};
 
@@ -282,6 +286,9 @@ where
 						"New session detected",
 					);
 					self.last_session_index = Some(session_index);
+					self.is_authority_now =
+						ensure_i_am_an_authority(&self.keystore, &session_info.discovery_keys)
+							.is_ok();
 				}
 
 				// Connect to authorities from the past/present/future.
@@ -689,9 +696,7 @@ where
 			NetworkBridgeEvent::PeerMessage(_, message) => {
 				// match void -> LLVM unreachable
 				match message {
-					Versioned::V1(m) => match m {},
-					Versioned::V2(m) => match m {},
-					Versioned::V3(m) => match m {},
+					ValidationProtocols::V3(m) => match m {},
 				}
 			},
 		}
@@ -707,13 +712,11 @@ where
 			.resolved_authorities
 			.iter()
 			.filter(|(a, _)| !self.connected_authorities.contains_key(a));
-		// TODO: Make that warning once connectivity issues are fixed (no point in warning, if
-		// we already know it is broken.
-		// https://github.com/paritytech/polkadot/issues/3921
-		if connected_ratio <= LOW_CONNECTIVITY_WARN_THRESHOLD {
-			gum::debug!(
+		if connected_ratio <= LOW_CONNECTIVITY_WARN_THRESHOLD && self.is_authority_now {
+			gum::error!(
 				target: LOG_TARGET,
-				"Connectivity seems low, we are only connected to {}% of available validators (see debug logs for details)", connected_ratio
+				session_index = self.last_session_index.as_ref().map(|s| *s).unwrap_or_default(),
+				"Connectivity seems low, we are only connected to {connected_ratio}% of available validators (see debug logs for details), if this persists more than a session action needs to be taken"
 			);
 		}
 		let pretty = PrettyAuthorities(unconnected_authorities);
@@ -750,7 +753,7 @@ fn ensure_i_am_an_authority(
 ) -> Result<usize, util::Error> {
 	for (i, v) in authorities.iter().enumerate() {
 		if Keystore::has_keys(&**keystore, &[(v.to_raw_vec(), AuthorityDiscoveryId::ID)]) {
-			return Ok(i)
+			return Ok(i);
 		}
 	}
 	Err(util::Error::NotAValidator)

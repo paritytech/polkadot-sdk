@@ -177,7 +177,7 @@ impl<T: codec::Decode> core::iter::Iterator for ScaleContainerStreamIter<T> {
 
 	fn next(&mut self) -> Option<T> {
 		if self.read >= self.length {
-			return None
+			return None;
 		}
 
 		match codec::Decode::decode(&mut self.input) {
@@ -314,7 +314,7 @@ impl StorageInput {
 			sp_io::storage::read(&self.key, &mut out_remaining, self.offset)
 		{
 			if (length_minus_offset as usize) < out_remaining.len() {
-				return Err("Not enough data to fill the buffer".into())
+				return Err("Not enough data to fill the buffer".into());
 			}
 
 			self.ensure_total_length_did_not_change(length_minus_offset)?;
@@ -371,7 +371,7 @@ impl codec::Input for StorageInput {
 		// If there is still data left to be read from the state.
 		if self.offset < self.total_length {
 			if into.len() > self.buffer.capacity() {
-				return self.read_big_item(into)
+				return self.read_big_item(into);
 			} else if self.buffer_pos + into.len() > self.buffer.len() {
 				self.fill_buffer()?;
 			}
@@ -380,7 +380,7 @@ impl codec::Input for StorageInput {
 		// Guard against `fill_buffer` not reading enough data or just not having enough data
 		// anymore.
 		if into.len() + self.buffer_pos > self.buffer.len() {
-			return Err("Not enough data to fill the buffer".into())
+			return Err("Not enough data to fill the buffer".into());
 		}
 
 		let end = self.buffer_pos + into.len();
@@ -592,7 +592,10 @@ mod tests {
 		sp_io::TestExternalities::default().execute_with(|| {
 			const BUFFER_SIZE: usize = 300;
 			// Ensure that the capacity isn't dividable by `300`.
-			assert!(STORAGE_INPUT_BUFFER_CAPACITY % BUFFER_SIZE != 0, "Please update buffer size");
+			assert!(
+				!STORAGE_INPUT_BUFFER_CAPACITY.is_multiple_of(BUFFER_SIZE),
+				"Please update buffer size"
+			);
 			// Create some items where the last item is partially in the inner buffer so that
 			// we need to fill the buffer to read the entire item.
 			let data: Vec<Vec<u8>> = (0..=(STORAGE_INPUT_BUFFER_CAPACITY / BUFFER_SIZE))
@@ -640,7 +643,10 @@ mod tests {
 
 			const BUFFER_SIZE: usize = 300;
 			// Ensure that the capacity isn't dividable by `300`.
-			assert!(STORAGE_INPUT_BUFFER_CAPACITY % BUFFER_SIZE != 0, "Please update buffer size");
+			assert!(
+				!STORAGE_INPUT_BUFFER_CAPACITY.is_multiple_of(BUFFER_SIZE),
+				"Please update buffer size"
+			);
 			// Create some items where the last item is partially in the inner buffer so that
 			// we need to fill the buffer to read the entire item.
 			let data: Vec<Vec<u8>> = (0..=(STORAGE_INPUT_BUFFER_CAPACITY / BUFFER_SIZE))

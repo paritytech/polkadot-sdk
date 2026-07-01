@@ -1,0 +1,14 @@
+title: 'benchmarking: fix DB read/write counts'
+doc:
+- audience: Runtime Dev
+  description: |-
+    PR #10802 added `reset_read_write_count()` at the end of commit_db() to prevent warmup operations from appearing in benchmarking results. However, commit_db is called twice: one on `on_before_start()` closure before benchmark, and one after benchmark execution after benchmark.
+    This PR whitelists warmup key so that it doesn't appear in the read/write count.
+    We also regenerate staking-async and pallet-conviction-voting benchmarks (testing both v1 and v2)
+crates:
+- name: frame-benchmarking
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: pallet-conviction-voting
+  bump: patch

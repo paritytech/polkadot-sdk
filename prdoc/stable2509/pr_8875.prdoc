@@ -1,0 +1,7 @@
+title: '`fatxpool`: `ChainApi` is now async'
+doc:
+- audience: Node Dev
+  description: Internal `ChainApi` is now `async_trait`, `validate_transaction` and `block_body` are now `async` methods. This is just cleanup - migrating from returning `Future` to `async` method'.
+crates:
+- name: sc-transaction-pool
+  bump: major

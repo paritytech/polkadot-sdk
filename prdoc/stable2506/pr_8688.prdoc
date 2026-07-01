@@ -1,0 +1,8 @@
+title: bound trusted local cache to shared limits sizes
+doc:
+- audience: Node Dev
+  description: |-
+    Since there is no point in letting local cache grow past the shared cache limits, bound it to those limits.
+crates:
+- name: sp-trie
+  bump: patch

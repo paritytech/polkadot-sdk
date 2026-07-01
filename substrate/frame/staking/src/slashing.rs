@@ -50,22 +50,22 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	asset, BalanceOf, Config, DisabledValidators, DisablingStrategy, Error, Exposure,
-	NegativeImbalanceOf, NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash,
-	UnappliedSlash, ValidatorSlashInEra,
+	asset, BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, NominatorSlashInEra, Pallet,
+	Perbill, SpanSlash, UnappliedSlash, ValidatorSlashInEra,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
+	pallet_prelude::DecodeWithMemTracking,
 	traits::{Defensive, DefensiveSaturating, Imbalance, OnUnbalanced},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	DispatchResult, RuntimeDebug,
+	Debug, DispatchResult,
 };
-use sp_staking::{offence::OffenceSeverity, EraIndex, StakingInterface};
+use sp_staking::{EraIndex, StakingInterface};
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
@@ -75,12 +75,11 @@ const REWARD_F1: Perbill = Perbill::from_percent(50);
 pub type SpanIndex = u32;
 
 // A range of start..end eras for a slashing span.
-#[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
-pub(crate) struct SlashingSpan {
-	pub(crate) index: SpanIndex,
-	pub(crate) start: EraIndex,
-	pub(crate) length: Option<EraIndex>, // the ongoing slashing span has indeterminate length.
+#[derive(Encode, Decode, Clone, TypeInfo, Debug, PartialEq, Eq)]
+pub struct SlashingSpan {
+	pub index: SpanIndex,
+	pub start: EraIndex,
+	pub length: Option<EraIndex>, // the ongoing slashing span has indeterminate length.
 }
 
 impl SlashingSpan {
@@ -90,18 +89,18 @@ impl SlashingSpan {
 }
 
 /// An encoding of all of a nominator's slashing spans.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, TypeInfo, Debug, PartialEq, Eq)]
 pub struct SlashingSpans {
 	// the index of the current slashing span of the nominator. different for
 	// every stash, resets when the account hits free balance 0.
-	span_index: SpanIndex,
+	pub span_index: SpanIndex,
 	// the start era of the most recent (ongoing) slashing span.
-	last_start: EraIndex,
+	pub last_start: EraIndex,
 	// the last era at which a non-zero slash occurred.
-	last_nonzero_slash: EraIndex,
+	pub last_nonzero_slash: EraIndex,
 	// all prior slashing spans' start indices, in reverse order (most recent first)
 	// encoded as offsets relative to the slashing span after it.
-	prior: Vec<EraIndex>,
+	pub prior: Vec<EraIndex>,
 }
 
 impl SlashingSpans {
@@ -125,7 +124,7 @@ impl SlashingSpans {
 	pub(crate) fn end_span(&mut self, now: EraIndex) -> bool {
 		let next_start = now.defensive_saturating_add(1);
 		if next_start <= self.last_start {
-			return false
+			return false;
 		}
 
 		let last_length = next_start.defensive_saturating_sub(self.last_start);
@@ -188,10 +187,21 @@ impl SlashingSpans {
 }
 
 /// A slashing-span record for a particular stash.
-#[derive(Encode, Decode, Default, TypeInfo, MaxEncodedLen)]
-pub(crate) struct SpanRecord<Balance> {
-	slashed: Balance,
-	paid_out: Balance,
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Default,
+	TypeInfo,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Debug,
+)]
+pub struct SpanRecord<Balance> {
+	pub slashed: Balance,
+	pub paid_out: Balance,
 }
 
 impl<Balance> SpanRecord<Balance> {
@@ -240,7 +250,7 @@ pub(crate) fn compute_slash<T: Config>(
 		// kick out the validator even if they won't be slashed,
 		// as long as the misbehavior is from their most recent slashing span.
 		kick_out_if_recent::<T>(params);
-		return None
+		return None;
 	}
 
 	let prior_slash_p = ValidatorSlashInEra::<T>::get(&params.slash_era, params.stash)
@@ -262,7 +272,7 @@ pub(crate) fn compute_slash<T: Config>(
 		// pays out some reward even if the latest report is not max-in-era.
 		// we opt to avoid the nominator lookups and edits and leave more rewards
 		// for more drastic misbehavior.
-		return None
+		return None;
 	}
 
 	// apply slash to validator.
@@ -283,8 +293,6 @@ pub(crate) fn compute_slash<T: Config>(
 			spans.end_span(params.now);
 		}
 	}
-
-	add_offending_validator::<T>(&params);
 
 	let mut nominators_slashed = Vec::new();
 	reward_payout += slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
@@ -316,61 +324,6 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 		// Check https://github.com/paritytech/polkadot-sdk/issues/2650 for details
 		spans.end_span(params.now);
 	}
-
-	add_offending_validator::<T>(&params);
-}
-
-/// Inform the [`DisablingStrategy`] implementation about the new offender and disable the list of
-/// validators provided by [`decision`].
-fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
-	DisabledValidators::<T>::mutate(|disabled| {
-		let new_severity = OffenceSeverity(params.slash);
-		let decision =
-			T::DisablingStrategy::decision(params.stash, new_severity, params.slash_era, &disabled);
-
-		if let Some(offender_idx) = decision.disable {
-			// Check if the offender is already disabled
-			match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
-				// Offender is already disabled, update severity if the new one is higher
-				Ok(index) => {
-					let (_, old_severity) = &mut disabled[index];
-					if new_severity > *old_severity {
-						*old_severity = new_severity;
-					}
-				},
-				Err(index) => {
-					// Offender is not disabled, add to `DisabledValidators` and disable it
-					if disabled.try_insert(index, (offender_idx, new_severity)).defensive().is_ok()
-					{
-						// Propagate disablement to session level
-						T::SessionInterface::disable_validator(offender_idx);
-						// Emit event that a validator got disabled
-						<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorDisabled {
-							stash: params.stash.clone(),
-						});
-					}
-				},
-			}
-		}
-
-		if let Some(reenable_idx) = decision.reenable {
-			// Remove the validator from `DisabledValidators` and re-enable it.
-			if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index) {
-				disabled.remove(index);
-				// Propagate re-enablement to session level
-				T::SessionInterface::enable_validator(reenable_idx);
-				// Emit event that a validator got re-enabled
-				let reenabled_stash =
-					T::SessionInterface::validators()[reenable_idx as usize].clone();
-				<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorReenabled {
-					stash: reenabled_stash,
-				});
-			}
-		}
-	});
-
-	// `DisabledValidators` should be kept sorted
-	debug_assert!(DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] < pair[1]));
 }
 
 /// Slash nominators. Accepts general parameters and the prior slash percentage of the validator.
@@ -545,7 +498,7 @@ impl<'a, T: 'a + Config> Drop for InspectingSpans<'a, T> {
 	fn drop(&mut self) {
 		// only update on disk if we slashed this account.
 		if !self.dirty {
-			return
+			return;
 		}
 
 		if let Some((start, end)) = self.spans.prune(self.window_start) {
@@ -614,7 +567,7 @@ pub fn do_slash<T: Config>(
 	let value = ledger.slash(value, asset::existential_deposit::<T>(), slash_era);
 	if value.is_zero() {
 		// nothing to do
-		return
+		return;
 	}
 
 	// Skip slashing for virtual stakers. The pallets managing them should handle the slashing.
@@ -675,7 +628,7 @@ fn pay_reporters<T: Config>(
 		// nobody to pay out to or nothing to pay;
 		// just treat the whole value as slashed.
 		T::Slash::on_unbalanced(slashed_imbalance);
-		return
+		return;
 	}
 
 	// take rewards out of the slashed imbalance.

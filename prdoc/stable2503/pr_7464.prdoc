@@ -1,0 +1,11 @@
+title: 'Enable importing sc-tracing macros through polkadot-sdk'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR makes it possible to use the sc-tracing macros when they are imported through the umbrella crate.
+
+crates:
+- name: parachain-template-node
+  bump: minor
+- name: sc-tracing-proc-macro
+  bump: minor

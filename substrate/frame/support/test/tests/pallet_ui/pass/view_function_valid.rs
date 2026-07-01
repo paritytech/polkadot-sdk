@@ -16,7 +16,7 @@
 // limitations under the License.
 
 #[frame_support::pallet]
-mod pallet {
+pub mod pallet {
 	use frame_support::pallet_prelude::*;
 
 	#[pallet::config(with_default)]
@@ -28,7 +28,7 @@ mod pallet {
 	#[pallet::storage]
 	pub type MyStorage<T> = StorageValue<_, u32>;
 
-	#[pallet::view_functions_experimental]
+	#[pallet::view_functions]
 	impl<T: Config> Pallet<T> {
 		pub fn get_value() -> Option<u32> {
 			MyStorage::<T>::get()

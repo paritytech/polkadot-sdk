@@ -127,10 +127,8 @@ mod benchmarks {
 		let user: T::AccountId = account("user", 0, SEED);
 		let user_lookup = T::Lookup::unlookup(user.clone());
 
-		// Give the user some initial balance.
 		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let balance_amount = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-		let _ = <Balances<T, I> as Currency<_>>::make_free_balance_be(&user, balance_amount);
 
 		#[extrinsic_call]
 		force_set_balance(RawOrigin::Root, user_lookup, balance_amount);

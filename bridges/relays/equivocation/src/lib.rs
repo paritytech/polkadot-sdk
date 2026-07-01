@@ -132,6 +132,6 @@ async fn handle_client_error<C: RelayClient>(client: &mut C, e: C::Error) {
 	if e.is_connection_error() {
 		client.reconnect_until_success(RECONNECT_DELAY).await;
 	} else {
-		async_std::task::sleep(RECONNECT_DELAY).await;
+		tokio::time::sleep(RECONNECT_DELAY).await;
 	}
 }

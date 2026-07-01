@@ -42,7 +42,7 @@ use polkadot_primitives::{
 use polkadot_runtime_parachains::{
 	configuration, dmp, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
 };
-use sp_core::H256;
+use sp_core::{ConstUint, H256};
 use sp_io::TestExternalities;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
@@ -106,11 +106,11 @@ where
 	type RuntimeCall = RuntimeCall;
 }
 
-impl<C> frame_system::offchain::CreateInherent<C> for Test
+impl<C> frame_system::offchain::CreateBare<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
 }
@@ -214,6 +214,9 @@ impl paras::Config for Test {
 	type NextSessionRotation = crate::mock::TestNextSessionRotation;
 	type OnNewHead = ();
 	type AssignCoretime = ();
+	type Fungible = Balances;
+	type CooldownRemovalMultiplier = ConstUint<1>;
+	type AuthorizeCurrentCodeOrigin = EnsureRoot<Self::AccountId>;
 }
 
 parameter_types! {
@@ -302,6 +305,8 @@ impl pallet_identity::Config for Test {
 	type UsernameGracePeriod = ConstU32<10>;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 	type WeightInfo = ();
 }
 
@@ -348,7 +353,7 @@ const VALIDATORS: &[Sr25519Keyring] = &[
 ];
 
 fn maybe_new_session(n: u32) {
-	if n % BLOCKS_PER_SESSION == 0 {
+	if n.is_multiple_of(BLOCKS_PER_SESSION) {
 		let session_index = shared::CurrentSessionIndex::<Test>::get() + 1;
 		let validators_pub_keys = validators_public_keys(VALIDATORS);
 
@@ -854,7 +859,7 @@ fn basic_swap_works() {
 	// This test will test a swap between a lease holding parachain and on-demand parachain works
 	// successfully.
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -1026,7 +1031,7 @@ fn basic_swap_works() {
 fn parachain_swap_works() {
 	// This test will test a swap between two parachains works successfully.
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -1206,7 +1211,7 @@ fn parachain_swap_works() {
 #[test]
 fn crowdloan_ending_period_bid() {
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -1318,7 +1323,7 @@ fn crowdloan_ending_period_bid() {
 #[test]
 fn auction_bid_requires_registered_para() {
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -1389,7 +1394,7 @@ fn auction_bid_requires_registered_para() {
 #[test]
 fn gap_bids_work() {
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -1576,7 +1581,7 @@ fn gap_bids_work() {
 #[test]
 fn cant_bid_on_existing_lease_periods() {
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);

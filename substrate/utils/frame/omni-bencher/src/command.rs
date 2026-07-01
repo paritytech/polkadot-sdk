@@ -120,6 +120,7 @@ pub struct V1BenchmarkCommand {
 type HostFunctions = (
 	sp_statement_store::runtime_api::HostFunctions,
 	cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
+	sp_crypto_ec_utils::HostFunctionsRfc163,
 );
 
 impl Command {
@@ -134,14 +135,6 @@ impl V1SubCommand {
 		match self {
 			V1SubCommand::Benchmark(V1BenchmarkCommand { sub }) => match sub {
 				BenchmarkCmd::Pallet(pallet) => {
-					if let Some(spec) = pallet.shared_params.chain {
-						return Err(format!(
-							"Chain specs are not supported. Please remove `--chain={spec}` and use \
-				`--runtime=<PATH>` instead"
-						)
-						.into());
-					}
-
 					pallet.run_with_spec::<BlakeTwo256, HostFunctions>(None)
 				},
 				BenchmarkCmd::Overhead(overhead_cmd) =>

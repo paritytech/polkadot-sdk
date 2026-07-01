@@ -1,0 +1,11 @@
+title: '[pallet-revive] block.timestamps should return seconds'
+doc:
+- audience: Runtime Dev
+  description: |-
+    In solidity `block.timestamp` should be expressed in seconds
+    see https://docs.soliditylang.org/en/latest/units-and-global-variables.html#block-and-transaction-properties
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-uapi
+  bump: patch

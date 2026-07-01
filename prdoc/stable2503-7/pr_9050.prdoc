@@ -1,0 +1,10 @@
+title: "dispute-coordinator: handle race with offchain disabling"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Fixes a potential race with off-chain disabling when we learned about disablement after importing a dispute from that validator.
+
+crates:
+- name: polkadot-node-core-dispute-coordinator
+  bump: patch

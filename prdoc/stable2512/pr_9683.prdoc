@@ -1,0 +1,12 @@
+title: "[pallet-revive] add account_id and new_balance_with_dust runtime APIs"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds two new runtime APIs to the ReviveApi: account_id (which maps an eth address to a substrate account id)
+      and new_balance_with_dust (which constructs the substrate components of a balance: the real balance, including ED, and the dust,
+      according to the runtime's configuration).
+
+crates:
+- name: pallet-revive
+  bump: major

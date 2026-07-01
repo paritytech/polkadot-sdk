@@ -12,12 +12,11 @@ publish = false
 [lints]
 workspace = true
 
+[[bin]]
+name = "bags-list"
+path = "src/main.rs"
+
 [dependencies]
 frame-election-provider-support = { features = ["fuzz"], workspace = true, default-features = true }
 honggfuzz = { workspace = true }
 pallet-bags-list = { features = ["fuzz"], workspace = true, default-features = true }
-rand = { features = ["small_rng", "std"], workspace = true, default-features = true }
-
-[[bin]]
-name = "bags-list"
-path = "src/main.rs"

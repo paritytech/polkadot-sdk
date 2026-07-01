@@ -36,7 +36,9 @@ thread_local! {
 }
 
 /// An extension which has some proof_size weight and some proof_size refund.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, scale_info::TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, Eq, scale_info::TypeInfo,
+)]
 pub struct MockExtensionWithRefund;
 
 impl TransactionExtension<RuntimeCall> for MockExtensionWithRefund {

@@ -21,7 +21,6 @@ use crate::test_cases::{bridges_prelude::*, run_test, RuntimeHelper};
 use asset_test_utils::BasicParachainRuntime;
 use bp_messages::MessageNonce;
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
-use bp_relayers::RewardsAccountParams;
 use bp_runtime::Chain;
 use codec::Decode;
 use core::marker::PhantomData;
@@ -168,7 +167,7 @@ where
 /// Verifies that relayer is rewarded at this chain.
 pub struct VerifyRelayerRewarded<Runtime: pallet_bridge_relayers::Config<RPI>, RPI: 'static> {
 	relayer: Runtime::AccountId,
-	reward_params: RewardsAccountParams<Runtime::LaneId>,
+	reward_params: Runtime::Reward,
 }
 
 impl<Runtime, RPI> VerifyRelayerRewarded<Runtime, RPI>
@@ -179,9 +178,9 @@ where
 	/// Expect given delivered nonce to be the latest after transaction.
 	pub fn expect_relayer_reward(
 		relayer: Runtime::AccountId,
-		reward_params: RewardsAccountParams<Runtime::LaneId>,
+		reward_params: impl Into<Runtime::Reward>,
 	) -> Box<dyn VerifyTransactionOutcome> {
-		Box::new(Self { relayer, reward_params })
+		Box::new(Self { relayer, reward_params: reward_params.into() })
 	}
 }
 

@@ -24,7 +24,7 @@ use frame_support::{derive_impl, parameter_types};
 use frame_system::limits;
 use polkadot_primitives::{Balance, BlockNumber, MAX_CODE_SIZE};
 use polkadot_runtime_parachains::{configuration, origin, shared};
-use sp_core::H256;
+use sp_core::{ConstUint, H256};
 use sp_io::TestExternalities;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
@@ -57,21 +57,26 @@ where
 	type RuntimeCall = RuntimeCall;
 }
 
-impl<C> frame_system::offchain::CreateInherent<C> for Test
+impl<C> frame_system::offchain::CreateBare<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
 }
 
 const NORMAL_RATIO: Perbill = Perbill::from_percent(75);
+const MAX_BLOCK_LENGTH: u32 = 4 * 1024 * 1024;
 parameter_types! {
 	pub BlockWeights: limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1024, u64::MAX));
-	pub BlockLength: limits::BlockLength =
-		limits::BlockLength::max_with_normal_ratio(4 * 1024 * 1024, NORMAL_RATIO);
+	pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+		.max_length(MAX_BLOCK_LENGTH)
+		.modify_max_length_for_class(frame_support::dispatch::DispatchClass::Normal, |m| {
+			*m = NORMAL_RATIO * MAX_BLOCK_LENGTH
+		})
+		.build();
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -129,6 +134,9 @@ impl paras::Config for Test {
 	type NextSessionRotation = crate::mock::TestNextSessionRotation;
 	type OnNewHead = ();
 	type AssignCoretime = ();
+	type Fungible = Balances;
+	type CooldownRemovalMultiplier = ConstUint<1>;
+	type AuthorizeCurrentCodeOrigin = frame_system::EnsureRoot<u64>;
 }
 
 impl configuration::Config for Test {

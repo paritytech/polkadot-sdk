@@ -19,6 +19,7 @@
 use super::{code_provider::CodeProvider, ClientConfig};
 use sc_client_api::{
 	backend, call_executor::CallExecutor, execution_extensions::ExecutionExtensions, HeaderBackend,
+	TrieCacheContext,
 };
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
 use sp_api::ProofRecorder;
@@ -28,7 +29,10 @@ use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, HashingFor},
 };
-use sp_state_machine::{backend::AsTrieBackend, OverlayedChanges, StateMachine, StorageProof};
+use sp_state_machine::{
+	backend::{AsTrieBackend, TryPendingCode},
+	OverlayedChanges, StateMachine, StorageProof,
+};
 use std::{cell::RefCell, sync::Arc};
 
 /// Call executor that executes methods locally, querying all required
@@ -101,9 +105,10 @@ where
 		let mut changes = OverlayedChanges::default();
 		let at_number =
 			self.backend.blockchain().expect_block_number_from_id(&BlockId::Hash(at_hash))?;
-		let state = self.backend.state_at(at_hash)?;
+		let state = self.backend.state_at(at_hash, context.into())?;
 
-		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&state);
+		let state_runtime_code =
+			sp_state_machine::backend::BackendRuntimeCode::new(&state, context.into());
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
 
@@ -136,14 +141,15 @@ where
 		call_context: CallContext,
 		extensions: &RefCell<Extensions>,
 	) -> Result<Vec<u8>, sp_blockchain::Error> {
-		let state = self.backend.state_at(at_hash)?;
+		let state = self.backend.state_at(at_hash, call_context.into())?;
 
 		let changes = &mut *changes.borrow_mut();
 
 		// It is important to extract the runtime code here before we create the proof
 		// recorder to not record it. We also need to fetch the runtime code from `state` to
 		// make sure we use the caching layers.
-		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&state);
+		let state_runtime_code =
+			sp_state_machine::backend::BackendRuntimeCode::new(&state, call_context.into());
 
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
@@ -189,9 +195,14 @@ where
 		.map_err(Into::into)
 	}
 
-	fn runtime_version(&self, at_hash: Block::Hash) -> sp_blockchain::Result<RuntimeVersion> {
-		let state = self.backend.state_at(at_hash)?;
-		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&state);
+	fn runtime_version(
+		&self,
+		at_hash: Block::Hash,
+		call_context: CallContext,
+	) -> sp_blockchain::Result<RuntimeVersion> {
+		let state = self.backend.state_at(at_hash, backend::TrieCacheContext::Untrusted)?;
+		let state_runtime_code =
+			sp_state_machine::backend::BackendRuntimeCode::new(&state, call_context.into());
 
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
@@ -208,11 +219,12 @@ where
 	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
 		let at_number =
 			self.backend.blockchain().expect_block_number_from_id(&BlockId::Hash(at_hash))?;
-		let state = self.backend.state_at(at_hash)?;
+		let state = self.backend.state_at(at_hash, TrieCacheContext::Untrusted)?;
 
 		let trie_backend = state.as_trie_backend();
 
-		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(trie_backend);
+		let state_runtime_code =
+			sp_state_machine::backend::BackendRuntimeCode::new(trie_backend, TryPendingCode::No);
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
 		let runtime_code = self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?.0;
@@ -250,8 +262,12 @@ where
 	E: CodeExecutor + RuntimeVersionOf + Clone + 'static,
 	Block: BlockT,
 {
-	fn runtime_version(&self, at: Block::Hash) -> Result<sp_version::RuntimeVersion, String> {
-		CallExecutor::runtime_version(self, at).map_err(|e| e.to_string())
+	fn runtime_version(
+		&self,
+		at: Block::Hash,
+		call_context: CallContext,
+	) -> Result<sp_version::RuntimeVersion, String> {
+		CallExecutor::runtime_version(self, at, call_context).map_err(|e| e.to_string())
 	}
 }
 

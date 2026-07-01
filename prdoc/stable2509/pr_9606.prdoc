@@ -1,0 +1,9 @@
+title: Expose account/contract revive types to use externally
+doc:
+- audience: Runtime User
+  description: |-
+    Exposes revive types to use in foundry-polkadot project.
+
+crates:
+- name: pallet-revive
+  bump: patch

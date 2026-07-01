@@ -43,8 +43,6 @@ pub struct EventDef {
 	pub where_clause: Option<syn::WhereClause>,
 	/// The span of the pallet::event attribute.
 	pub attr_span: proc_macro2::Span,
-	/// event attributes
-	pub attrs: Vec<syn::Attribute>,
 }
 
 /// Attribute for a pallet's Event.
@@ -89,7 +87,7 @@ impl PalletEventAttrInfo {
 			if deposit_event.is_none() {
 				deposit_event = Some(attr)
 			} else {
-				return Err(syn::Error::new(attr.span, "Duplicate attribute"))
+				return Err(syn::Error::new(attr.span, "Duplicate attribute"));
 			}
 		}
 
@@ -106,9 +104,11 @@ impl EventDef {
 		let item = if let syn::Item::Enum(item) = item {
 			item
 		} else {
-			return Err(syn::Error::new(item.span(), "Invalid pallet::event, expected enum item"))
+			return Err(syn::Error::new(item.span(), "Invalid pallet::event, expected enum item"));
 		};
-		let attrs = item.attrs.clone();
+
+		crate::deprecation::prevent_deprecation_attr_on_outer_enum(&item.attrs)?;
+
 		let event_attrs: Vec<PalletEventDepositAttr> =
 			helper::take_item_pallet_attrs(&mut item.attrs)?;
 		let attr_info = PalletEventAttrInfo::from_attrs(event_attrs)?;
@@ -116,7 +116,7 @@ impl EventDef {
 
 		if !matches!(item.vis, syn::Visibility::Public(_)) {
 			let msg = "Invalid pallet::event, `Event` must be public";
-			return Err(syn::Error::new(item.span(), msg))
+			return Err(syn::Error::new(item.span(), msg));
 		}
 
 		let where_clause = item.generics.where_clause.clone();
@@ -138,15 +138,6 @@ impl EventDef {
 
 		let event = syn::parse2::<keyword::Event>(item.ident.to_token_stream())?;
 
-		Ok(EventDef {
-			attr_span,
-			index,
-			instances,
-			deposit_event,
-			event,
-			gen_kind,
-			where_clause,
-			attrs,
-		})
+		Ok(EventDef { attr_span, index, instances, deposit_event, event, gen_kind, where_clause })
 	}
 }

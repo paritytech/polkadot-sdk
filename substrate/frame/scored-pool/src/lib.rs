@@ -93,6 +93,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(test)]
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod mock;
 
 #[cfg(test)]
@@ -161,6 +163,7 @@ pub mod pallet {
 			+ MaxEncodedLen;
 
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -456,10 +459,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		<Members<T, I>>::put(&new_members_bounded);
 
 		match notify {
-			ChangeReceiver::MembershipInitialized =>
-				T::MembershipInitialized::initialize_members(&new_members_bounded),
-			ChangeReceiver::MembershipChanged =>
-				T::MembershipChanged::set_members_sorted(&new_members_bounded[..], &old_members[..]),
+			ChangeReceiver::MembershipInitialized => {
+				T::MembershipInitialized::initialize_members(&new_members_bounded)
+			},
+			ChangeReceiver::MembershipChanged => {
+				T::MembershipChanged::set_members_sorted(&new_members_bounded[..], &old_members[..])
+			},
 		}
 	}
 

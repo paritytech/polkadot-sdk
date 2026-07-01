@@ -19,11 +19,11 @@ use frame_support_procedural_tools::get_doc_literals;
 use inflector::Inflector;
 use syn::spanned::Spanned;
 
-/// Parsed representation of an impl block annotated with `pallet::view_functions_experimental`.
+/// Parsed representation of an impl block annotated with `pallet::view_functions`.
 pub struct ViewFunctionsImplDef {
 	/// The where_clause used.
 	pub where_clause: Option<syn::WhereClause>,
-	/// The span of the pallet::view_functions_experimental attribute.
+	/// The span of the pallet::view_functions attribute.
 	pub attr_span: proc_macro2::Span,
 	/// The view function definitions.
 	pub view_functions: Vec<ViewFunctionDef>,
@@ -34,14 +34,14 @@ impl ViewFunctionsImplDef {
 		let syn::Item::Impl(item_impl) = item else {
 			return Err(syn::Error::new(
 				item.span(),
-				"Invalid pallet::view_functions_experimental, expected item impl",
-			))
+				"Invalid pallet::view_functions, expected item impl",
+			));
 		};
 		let mut view_functions = Vec::new();
 		for item in &mut item_impl.items {
 			if let syn::ImplItem::Fn(method) = item {
 				if !matches!(method.vis, syn::Visibility::Public(_)) {
-					let msg = "Invalid pallet::view_functions_experimental, view function must be public: \
+					let msg = "Invalid pallet::view_functions, view function must be public: \
 						`pub fn`";
 
 					let span = match method.vis {
@@ -49,7 +49,7 @@ impl ViewFunctionsImplDef {
 						_ => method.vis.span(),
 					};
 
-					return Err(syn::Error::new(span, msg))
+					return Err(syn::Error::new(span, msg));
 				}
 
 				let view_fn_def = ViewFunctionDef::try_from(method.clone())?;
@@ -57,8 +57,8 @@ impl ViewFunctionsImplDef {
 			} else {
 				return Err(syn::Error::new(
 					item.span(),
-					"Invalid pallet::view_functions_experimental, expected a function",
-				))
+					"Invalid pallet::view_functions, expected a function",
+				));
 			}
 		}
 		Ok(Self {
@@ -82,7 +82,7 @@ impl TryFrom<syn::ImplItemFn> for ViewFunctionDef {
 	type Error = syn::Error;
 	fn try_from(method: syn::ImplItemFn) -> Result<Self, Self::Error> {
 		let syn::ReturnType::Type(_, type_) = method.sig.output else {
-			return Err(syn::Error::new(method.sig.span(), "view functions must return a value"))
+			return Err(syn::Error::new(method.sig.span(), "view functions must return a value"));
 		};
 
 		Ok(Self {

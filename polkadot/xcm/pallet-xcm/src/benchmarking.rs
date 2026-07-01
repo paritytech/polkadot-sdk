@@ -18,7 +18,7 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
-use xcm::latest::prelude::*;
+use xcm::{latest::prelude::*, MAX_INSTRUCTIONS_TO_DECODE};
 use xcm_builder::EnsureDelivery;
 use xcm_executor::traits::FeeReason;
 
@@ -28,7 +28,7 @@ type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
 pub struct Pallet<T: Config>(crate::Pallet<T>);
 
 /// Trait that must be implemented by runtime to be able to benchmark pallet properly.
-pub trait Config: crate::Config {
+pub trait Config: crate::Config + pallet_balances::Config {
 	/// Helper that ensures successful delivery for extrinsics/benchmarks which need `SendXcm`.
 	type DeliveryHelper: EnsureDelivery;
 
@@ -92,7 +92,7 @@ mod benchmarks {
 		let send_origin =
 			T::SendXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		if T::SendXcmOrigin::try_origin(send_origin.clone()).is_err() {
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 		let msg = Xcm(vec![ClearOrigin]);
 		let versioned_dest: VersionedLocation = T::reachable_dest()
@@ -127,7 +127,7 @@ mod benchmarks {
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		if !T::XcmTeleportFilter::contains(&(origin_location.clone(), assets.clone().into_inner()))
 		{
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 
 		// Ensure that origin can send to destination
@@ -141,24 +141,47 @@ mod benchmarks {
 		match &asset.fun {
 			Fungible(amount) => {
 				// Add transferred_amount to origin
-				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-					&Asset { fun: Fungible(*amount), id: asset.id },
-					&origin_location,
-					None,
+				let context =
+					XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+				let asset_to_mint = Asset { fun: Fungible(*amount), id: asset.id.clone() };
+				let holdings = <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(
+					&asset_to_mint,
+					&context,
 				)
 				.map_err(|error| {
-					tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error);
+					tracing::error!("Fungible asset couldn't be minted, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					holdings,
+					&origin_location,
+					Some(&context),
+				)
+				.map_err(|error| {
+					tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error.1);
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
 			NonFungible(_instance) => {
-				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-					&asset,
-					&origin_location,
-					None,
+				let context =
+					XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+				let holdings = <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(
+					&asset, &context,
 				)
 				.map_err(|error| {
-					tracing::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
+					tracing::error!("Nonfungible asset couldn't be minted, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					holdings,
+					&origin_location,
+					Some(&context),
+				)
+				.map_err(|error| {
+					tracing::error!(
+						"Nonfungible asset couldn't be deposited, error: {:?}",
+						error.1
+					);
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
@@ -197,7 +220,7 @@ mod benchmarks {
 			origin_location.clone(),
 			assets.clone().into_inner(),
 		)) {
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 
 		// Ensure that origin can send to destination
@@ -211,24 +234,47 @@ mod benchmarks {
 		match &asset.fun {
 			Fungible(amount) => {
 				// Add transferred_amount to origin
-				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-					&Asset { fun: Fungible(*amount), id: asset.id.clone() },
-					&origin_location,
-					None,
+				let context =
+					XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+				let asset_to_mint = Asset { fun: Fungible(*amount), id: asset.id.clone() };
+				let holdings = <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(
+					&asset_to_mint,
+					&context,
 				)
 				.map_err(|error| {
-					tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error);
+					tracing::error!("Fungible asset couldn't be minted, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					holdings,
+					&origin_location,
+					Some(&context),
+				)
+				.map_err(|error| {
+					tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error.1);
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
 			NonFungible(_instance) => {
-				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-					&asset,
-					&origin_location,
-					None,
+				let context =
+					XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+				let holdings = <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(
+					&asset, &context,
 				)
 				.map_err(|error| {
-					tracing::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
+					tracing::error!("Nonfungible asset couldn't be minted, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					holdings,
+					&origin_location,
+					Some(&context),
+				)
+				.map_err(|error| {
+					tracing::error!(
+						"Nonfungible asset couldn't be deposited, error: {:?}",
+						error.1
+					);
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
@@ -312,7 +358,7 @@ mod benchmarks {
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let msg = Xcm(vec![ClearOrigin]);
 		if !T::XcmExecuteFilter::contains(&(origin_location, msg.clone())) {
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 		let versioned_msg = VersionedXcm::from(msg);
 
@@ -396,7 +442,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::MigrateSupportedVersion,
 				Weight::zero(),
 			);
@@ -411,7 +457,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::MigrateVersionNotifiers,
 				Weight::zero(),
 			);
@@ -433,7 +479,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::NotifyCurrentTargets(None),
 				Weight::zero(),
 			);
@@ -454,7 +500,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::NotifyCurrentTargets(None),
 				Weight::zero(),
 			);
@@ -470,7 +516,7 @@ mod benchmarks {
 		let bad_location: Location = Plurality { id: BodyId::Unit, part: BodyPart::Voice }.into();
 		let bad_location = VersionedLocation::from(bad_location)
 			.into_version(older_xcm_version)
-			.expect("Version convertion should work");
+			.expect("Version conversion should work");
 		let current_version = T::AdvertisedXcmVersion::get();
 		VersionNotifyTargets::<T>::insert(
 			current_version,
@@ -480,7 +526,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::MigrateAndNotifyOldTargets,
 				Weight::zero(),
 			);
@@ -496,7 +542,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::MigrateAndNotifyOldTargets,
 				Weight::zero(),
 			);
@@ -514,7 +560,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::MigrateAndNotifyOldTargets,
 				Weight::zero(),
 			);
@@ -579,12 +625,12 @@ mod benchmarks {
 		let claim_location = T::ExecuteXcmOrigin::try_origin(claim_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let asset: Asset = T::get_asset();
+		let context = XcmContext { origin: None, message_id: [0u8; 32], topic: None };
 		// Trap assets for claiming later
-		crate::Pallet::<T>::drop_assets(
-			&claim_location,
-			asset.clone().into(),
-			&XcmContext { origin: None, message_id: [0u8; 32], topic: None },
-		);
+		let holdings =
+			<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(&asset, &context)
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		crate::Pallet::<T>::drop_assets(&claim_location, holdings, &context);
 		let versioned_assets = VersionedAssets::from(Assets::from(asset));
 
 		#[extrinsic_call]
@@ -593,6 +639,143 @@ mod benchmarks {
 			Box::new(versioned_assets),
 			Box::new(VersionedLocation::from(claim_location)),
 		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn add_authorized_alias() -> Result<(), BenchmarkError> {
+		let who: T::AccountId = whitelisted_caller();
+		let origin = RawOrigin::Signed(who.clone());
+		let origin_location: VersionedLocation =
+			T::ExecuteXcmOrigin::try_origin(origin.clone().into())
+				.map_err(|_| {
+					tracing::error!(
+						target: "xcm::benchmarking::pallet_xcm::add_authorized_alias",
+						?origin,
+						"try_origin failed",
+					);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?
+				.into();
+
+		// Give some multiple of ED
+		let balance = T::ExistentialDeposit::get() * 1000000u32.into();
+		let _ =
+			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
+
+		let mut existing_aliases = BoundedVec::<OriginAliaser, MaxAuthorizedAliases>::new();
+		// prepopulate list with `max-1` aliases to benchmark worst case
+		for i in 1..MaxAuthorizedAliases::get() {
+			let alias =
+				Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }])
+					.into();
+			let aliaser = OriginAliaser { location: alias, expiry: None };
+			existing_aliases.try_push(aliaser).unwrap()
+		}
+		let footprint = aliasers_footprint(existing_aliases.len());
+		let ticket = TicketOf::<T>::new(&who, footprint).map_err(|e| {
+			tracing::error!(
+				target: "xcm::benchmarking::pallet_xcm::add_authorized_alias",
+				?who,
+				?footprint,
+				error=?e,
+				"could not create ticket",
+			);
+			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+		})?;
+		let entry = AuthorizedAliasesEntry { aliasers: existing_aliases, ticket };
+		AuthorizedAliases::<T>::insert(&origin_location, entry);
+
+		// now benchmark adding new alias
+		let aliaser: VersionedLocation =
+			Location::new(1, [Parachain(1234), AccountId32 { network: None, id: [42_u8; 32] }])
+				.into();
+
+		#[extrinsic_call]
+		_(origin, Box::new(aliaser), None);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn remove_authorized_alias() -> Result<(), BenchmarkError> {
+		let who: T::AccountId = whitelisted_caller();
+		let origin = RawOrigin::Signed(who.clone());
+		let error = BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX));
+		let origin_location =
+			T::ExecuteXcmOrigin::try_origin(origin.clone().into()).map_err(|_| {
+				tracing::error!(
+					target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
+					?origin,
+					"try_origin failed",
+				);
+				error.clone()
+			})?;
+		// remove `network` from inner `AccountId32` for easier matching of automatic AccountId ->
+		// Location conversions.
+		let origin_location: VersionedLocation = match origin_location.unpack() {
+			(0, [AccountId32 { network: _, id }]) => {
+				Location::new(0, [AccountId32 { network: None, id: *id }]).into()
+			},
+			_ => {
+				tracing::error!(
+					target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
+					?origin_location,
+					"unexpected origin failed",
+				);
+				return Err(error.clone());
+			},
+		};
+
+		// Give some multiple of ED
+		let balance = T::ExistentialDeposit::get() * 1000000u32.into();
+		let _ =
+			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
+
+		let mut existing_aliases = BoundedVec::<OriginAliaser, MaxAuthorizedAliases>::new();
+		// prepopulate list with `max` aliases to benchmark worst case
+		for i in 1..MaxAuthorizedAliases::get() + 1 {
+			let alias =
+				Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }])
+					.into();
+			let aliaser = OriginAliaser { location: alias, expiry: None };
+			existing_aliases.try_push(aliaser).unwrap()
+		}
+		let footprint = aliasers_footprint(existing_aliases.len());
+		let ticket = TicketOf::<T>::new(&who, footprint).map_err(|e| {
+			tracing::error!(
+				target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
+				?who,
+				?footprint,
+				error=?e,
+				"could not create ticket",
+			);
+			error
+		})?;
+		let entry = AuthorizedAliasesEntry { aliasers: existing_aliases, ticket };
+		AuthorizedAliases::<T>::insert(&origin_location, entry);
+
+		// now benchmark removing an alias
+		let aliaser_to_remove: VersionedLocation =
+			Location::new(1, [Parachain(1), AccountId32 { network: None, id: [42_u8; 32] }]).into();
+
+		#[extrinsic_call]
+		_(origin, Box::new(aliaser_to_remove));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn weigh_message() -> Result<(), BenchmarkError> {
+		let msg = Xcm(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE.into()]);
+		let versioned_msg = VersionedXcm::from(msg);
+
+		#[block]
+		{
+			crate::Pallet::<T>::query_xcm_weight(versioned_msg)
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		}
 
 		Ok(())
 	}

@@ -1,21 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-//! Implementation for [`snowbridge_core::outbound::SendMessage`]
+//! Implementation for [`snowbridge_outbound_queue_primitives::v1::SendMessage`]
 use super::*;
 use bridge_hub_common::AggregateMessageOrigin;
 use codec::Encode;
 use frame_support::{
 	ensure,
 	traits::{EnqueueMessage, Get},
-	CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	CloneNoBound, DebugNoBound, PartialEqNoBound,
 };
 use frame_system::unique;
-use snowbridge_core::{
-	outbound::{
-		Fee, Message, QueuedMessage, SendError, SendMessage, SendMessageFeeProvider,
-		VersionedQueuedMessage,
-	},
-	ChannelId, PRIMARY_GOVERNANCE_CHANNEL,
+use snowbridge_core::{ChannelId, PRIMARY_GOVERNANCE_CHANNEL};
+use snowbridge_outbound_queue_primitives::{
+	v1::{Fee, Message, QueuedMessage, SendMessage, VersionedQueuedMessage},
+	SendError, SendMessageFeeProvider,
 };
 use sp_core::H256;
 use sp_runtime::BoundedVec;
@@ -24,7 +22,7 @@ use sp_runtime::BoundedVec;
 pub type MaxEnqueuedMessageSizeOf<T> =
 	<<T as Config>::MessageQueue as EnqueueMessage<AggregateMessageOrigin>>::MaxMessageLen;
 
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
+#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, DebugNoBound)]
 pub struct Ticket<T>
 where
 	T: Config,

@@ -1,0 +1,8 @@
+title: Replace `log` with `tracing` on `bp-runtime`
+doc:
+- audience: Runtime Dev
+  description: This PR replaces `log` with `tracing` instrumentation on `bp-runtime`
+    by providing structured logging.
+crates:
+- name: bp-runtime
+  bump: minor

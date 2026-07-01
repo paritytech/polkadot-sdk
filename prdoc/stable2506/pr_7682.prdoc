@@ -1,0 +1,32 @@
+title: Make SharedTrieCache/LocalTrieCache work with entire state in memory
+doc:
+- audience: Node Dev
+  description: |-
+    Extended LocalTrieCache with a trusted configuration that expands to hold everything in memory and 
+    then propagates all the data back to the SharedTrieCache. This new configuration is used on authoring 
+    and import paths.
+crates:
+- name: sp-state-machine
+  bump: major
+- name: sp-trie
+  bump: major
+- name: sc-client-api
+  bump: major
+- name: sc-client-db
+  bump: major
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: sc-cli
+  bump: major
+- name: sc-service
+  bump: major
+- name: frame-benchmarking-cli 
+  bump: major
+- name: substrate-state-trie-migration-rpc
+  bump: major
+- name: sc-consensus-beefy
+  bump: major
+- name: sc-basic-authorship
+  bump: major
+- name: cumulus-relay-chain-inprocess-interface
+  bump: major

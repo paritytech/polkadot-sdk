@@ -40,6 +40,9 @@
 //!   which guarantee eventual book-keeping. May be useful for some sophisticated operations where
 //!   funds must be removed from an account before it is known precisely what should be done with
 //!   them.
+//! - [`metadata::Inspect`]: Inspector functions for token metadata (name, symbol, decimals).
+//! - [`metadata::Mutate`]: Mutator functions for token metadata.
+//! - [`lifetime::Create`]: Trait for creating a new fungible asset.
 //!
 //! ## Terminology
 //!
@@ -51,8 +54,9 @@
 //!   distinct from the Spendable Balance, which represents how much Balance the user can actually
 //!   transfer.
 //!
-//! - **Held Balance**: Held balance still belongs to the account holder, but is suspended. It can
-//!   be slashed, but only after all the free balance has been slashed.
+//! - **Held Balance**: Held balance still belongs to the account holder, but is suspended — it
+//!   cannot be transferred or used for most operations. It may be slashed by the pallet that placed
+//!   the hold.
 //!
 //!   Multiple holds stack rather than overlay. This means that if an account has
 //!   3 holds for 100 units, the account can spend its funds for any reason down to 300 units, at
@@ -157,12 +161,14 @@ pub mod freeze;
 pub mod hold;
 pub(crate) mod imbalance;
 mod item_of;
+mod lifetime;
+pub mod metadata;
 mod regular;
 mod union_of;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
-use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use frame_support_procedural::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
 use scale_info::TypeInfo;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::Saturating;
@@ -178,6 +184,7 @@ pub use hold::{
 };
 pub use imbalance::{Credit, Debt, HandleImbalanceDrop, Imbalance};
 pub use item_of::ItemOf;
+pub use lifetime::Create;
 pub use regular::{
 	Balanced, DecreaseIssuance, Dust, IncreaseIssuance, Inspect, Mutate, Unbalanced,
 };
@@ -186,11 +193,9 @@ use sp_core::Get;
 use sp_runtime::{traits::Convert, DispatchError};
 pub use union_of::{NativeFromLeft, NativeOrWithId, UnionOf};
 
-#[cfg(feature = "experimental")]
-use crate::traits::MaybeConsideration;
 use crate::{
 	ensure,
-	traits::{Consideration, Footprint},
+	traits::{Consideration, Footprint, MaybeConsideration},
 };
 
 /// Consideration method using a `fungible` balance frozen as the cost exacted for the footprint.
@@ -198,14 +203,7 @@ use crate::{
 /// The aggregate amount frozen under `R::get()` for any account which has multiple tickets,
 /// is the *cumulative* amounts of each ticket's footprint (each individually determined by `D`).
 #[derive(
-	CloneNoBound,
-	EqNoBound,
-	PartialEqNoBound,
-	Encode,
-	Decode,
-	TypeInfo,
-	MaxEncodedLen,
-	RuntimeDebugNoBound,
+	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, DebugNoBound,
 )]
 #[scale_info(skip_type_params(A, F, R, D, Fp))]
 #[codec(mel_bound())]
@@ -243,7 +241,6 @@ impl<
 		let _ = F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
 	}
 }
-#[cfg(feature = "experimental")]
 impl<
 		A: 'static + Eq,
 		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateFreeze<A>,
@@ -265,9 +262,10 @@ impl<
 	PartialEqNoBound,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 )]
 #[scale_info(skip_type_params(A, F, R, D, Fp))]
 #[codec(mel_bound())]
@@ -311,7 +309,6 @@ impl<
 		let _ = F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
 	}
 }
-#[cfg(feature = "experimental")]
 impl<
 		A: 'static + Eq,
 		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateHold<A>,
@@ -334,14 +331,7 @@ impl<
 /// track the specific balance which is frozen. If you are uncertain then use `FreezeConsideration`
 /// instead, since this works in all circumstances.
 #[derive(
-	CloneNoBound,
-	EqNoBound,
-	PartialEqNoBound,
-	Encode,
-	Decode,
-	TypeInfo,
-	MaxEncodedLen,
-	RuntimeDebugNoBound,
+	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, DebugNoBound,
 )]
 #[scale_info(skip_type_params(A, Fx, Rx, D, Fp))]
 #[codec(mel_bound())]
@@ -379,14 +369,7 @@ impl<
 /// track the specific balance which is frozen. If you are uncertain then use `FreezeConsideration`
 /// instead, since this works in all circumstances.
 #[derive(
-	CloneNoBound,
-	EqNoBound,
-	PartialEqNoBound,
-	Encode,
-	Decode,
-	TypeInfo,
-	MaxEncodedLen,
-	RuntimeDebugNoBound,
+	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, DebugNoBound,
 )]
 #[scale_info(skip_type_params(A, Fx, Rx, D, Fp))]
 #[codec(mel_bound())]

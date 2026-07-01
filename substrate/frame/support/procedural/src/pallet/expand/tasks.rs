@@ -99,6 +99,7 @@ impl TaskEnumDef {
 					#frame_support::PartialEqNoBound,
 					#frame_support::pallet_prelude::Encode,
 					#frame_support::pallet_prelude::Decode,
+					#frame_support::pallet_prelude::DecodeWithMemTracking,
 					#frame_support::pallet_prelude::TypeInfo,
 				)]
 				#[codec(encode_bound())]
@@ -199,7 +200,7 @@ impl TasksDef {
 					}
 				}
 
-				#[allow(unused_variables)]
+				#[allow(unused_variables, unused_assignments)]
 				fn weight(&self) -> #frame_support::pallet_prelude::Weight {
 					match self.clone() {
 						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => #task_weights,)*

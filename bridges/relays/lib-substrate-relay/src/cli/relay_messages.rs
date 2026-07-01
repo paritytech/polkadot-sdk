@@ -23,8 +23,8 @@ use crate::{
 };
 
 use async_trait::async_trait;
+use clap::Parser;
 use sp_core::Pair;
-use structopt::StructOpt;
 
 use bp_messages::MessageNonce;
 use bp_runtime::HeaderIdProvider;
@@ -36,67 +36,67 @@ use relay_utils::UniqueSaturatedInto;
 use sp_runtime::traits::TryConvert;
 
 /// Messages relaying params.
-#[derive(StructOpt)]
+#[derive(Parser)]
 pub struct RelayMessagesParams {
 	/// Hex-encoded lane id that should be served by the relay.
-	#[structopt(long)]
+	#[arg(long)]
 	lane: HexLaneId,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	source: SourceConnectionParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	source_sign: SourceSigningParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	target: TargetConnectionParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	target_sign: TargetSigningParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	prometheus_params: PrometheusParams,
 }
 
 /// Messages range relaying params.
-#[derive(StructOpt)]
+#[derive(Parser)]
 pub struct RelayMessagesRangeParams {
 	/// Number of the source chain header that we will use to prepare a messages proof.
 	/// This header must be previously proved to the target chain.
-	#[structopt(long)]
+	#[arg(long)]
 	at_source_block: u128,
 	/// Hex-encoded lane id that should be served by the relay.
-	#[structopt(long)]
+	#[arg(long)]
 	lane: HexLaneId,
 	/// Nonce (inclusive) of the first message to relay.
-	#[structopt(long)]
+	#[arg(long)]
 	messages_start: MessageNonce,
 	/// Nonce (inclusive) of the last message to relay.
-	#[structopt(long)]
+	#[arg(long)]
 	messages_end: MessageNonce,
 	/// Whether the outbound lane state proof should be included into transaction.
-	#[structopt(long)]
+	#[arg(long)]
 	outbound_state_proof_required: bool,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	source: SourceConnectionParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	source_sign: SourceSigningParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	target: TargetConnectionParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	target_sign: TargetSigningParams,
 }
 
 /// Messages delivery confirmation relaying params.
-#[derive(StructOpt)]
+#[derive(Parser)]
 pub struct RelayMessagesDeliveryConfirmationParams {
 	/// Number of the target chain header that we will use to prepare a messages
 	/// delivery proof. This header must be previously proved to the source chain.
-	#[structopt(long)]
+	#[arg(long)]
 	at_target_block: u128,
 	/// Hex-encoded lane id that should be served by the relay.
-	#[structopt(long)]
+	#[arg(long)]
 	lane: HexLaneId,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	source: SourceConnectionParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	source_sign: SourceSigningParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	target: TargetConnectionParams,
 }
 
@@ -160,11 +160,12 @@ where
 			.header_by_number(data.at_source_block.unique_saturated_into())
 			.await
 			.map_err(|e| {
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"Failed to read {} header with number {}: {e:?}",
-					Self::Source::NAME,
-					data.at_source_block,
+					error=?e,
+					source=%Self::Source::NAME,
+					at_source_block=%data.at_source_block,
+					"Failed to read header"
 				);
 				anyhow::format_err!("The command has failed")
 			})?
@@ -199,11 +200,12 @@ where
 			.header_by_number(data.at_target_block.unique_saturated_into())
 			.await
 			.map_err(|e| {
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"Failed to read {} header with number {}: {e:?}",
-					Self::Target::NAME,
-					data.at_target_block,
+					error=?e,
+					target=%Self::Target::NAME,
+					at_target_block=%data.at_target_block,
+					"Failed to read header"
 				);
 				anyhow::format_err!("The command has failed")
 			})?

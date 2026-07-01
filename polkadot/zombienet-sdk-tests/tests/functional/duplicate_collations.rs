@@ -5,19 +5,16 @@
 // cores, does not break the relay chain and that blocks are included, backed by a normal collator.
 
 use anyhow::anyhow;
+use tokio::time::Duration;
 
-use crate::helpers::{
-	assert_para_throughput, rococo,
-	rococo::runtime_types::{
-		pallet_broker::coretime_interface::CoreAssignment,
-		polkadot_runtime_parachains::assigner_coretime::PartsOf57600,
-	},
-};
+use cumulus_zombienet_sdk_helpers::{assert_para_throughput, assign_cores};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
-use subxt::{OnlineClient, PolkadotConfig};
-use subxt_signer::sr25519::dev;
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_orchestrator::network::node::LogLineCountOptions;
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	NetworkConfigBuilder,
+};
 
 const VALIDATOR_COUNT: u8 = 3;
 
@@ -48,12 +45,13 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
-				// Have to set a `with_node` outside of the loop below, so that `r` has the right
-				// type.
-				.with_node(|node| node.with_name("validator-0"));
+				// Have to set a `with_validator` outside of the loop below, so that `r` has the
+				// right type.
+				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..VALIDATOR_COUNT)
-				.fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..VALIDATOR_COUNT).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			})
 		})
 		.with_parachain(|p| {
 			p.with_id(2000)
@@ -86,66 +84,38 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let alice = dev::alice();
 
 	// Assign two extra cores to parachain-2000.
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(
-			&rococo::tx()
-				.sudo()
-				.sudo(rococo::runtime_types::rococo_runtime::RuntimeCall::Utility(
-					rococo::runtime_types::pallet_utility::pallet::Call::batch {
-						calls: vec![
-							rococo::runtime_types::rococo_runtime::RuntimeCall::Coretime(
-								rococo::runtime_types::polkadot_runtime_parachains::coretime::pallet::Call::assign_core {
-									core: 0,
-									begin: 0,
-									assignment: vec![(CoreAssignment::Task(2000), PartsOf57600(57600))],
-									end_hint: None
-								}
-							),
-							rococo::runtime_types::rococo_runtime::RuntimeCall::Coretime(
-								rococo::runtime_types::polkadot_runtime_parachains::coretime::pallet::Call::assign_core {
-									core: 1,
-									begin: 0,
-									assignment: vec![(CoreAssignment::Task(2000), PartsOf57600(57600))],
-									end_hint: None
-								}
-							),
-						],
-					},
-				)),
-			&alice,
-		)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
+	assign_cores(&relay_client, 2000, vec![0, 1]).await?;
 
 	log::info!("2 more cores assigned to parachain-2000");
 
-	assert_para_throughput(&relay_client, 15, [(ParaId::from(2000), 40..46)].into_iter().collect())
-		.await?;
+	assert_para_throughput(&relay_client, 15, [(ParaId::from(2000), 40..46)], []).await?;
 
+	let log_line_options = LogLineCountOptions::new(
+		|n| n == 1,
+		// Since we have this check after the para throughput check, all validators
+		// should have already detected the malicious collator, and all expected logs
+		// should have already appeared, so there is no need to wait more than 1 second.
+		Duration::from_secs(1),
+		false,
+	);
 	// Verify that all validators detect the malicious collator by checking their logs. This check
 	// must be performed after the para throughput check because the validator group needs to rotate
 	// at least once. This ensures that all validators have had a chance to detect the malicious
 	// behavior.
 	for i in 0..VALIDATOR_COUNT {
-		let validator_name = &format!("validator-{}", i);
+		let validator_name = &format!("validator-{i}");
 		let validator_node = network.get_node(validator_name)?;
-		validator_node
+		let result = validator_node
 			.wait_log_line_count_with_timeout(
-				"Candidate core index is invalid: The core index in commitments doesn't match the one in descriptor",
+				"Invalid UMP signals: The core index in commitments doesn't match the one in descriptor",
 				false,
-				1_usize,
-				// Since we have this check after the para throughput check, all validators
-				// should have already detected the malicious collator, and all expected logs
-				// should have already appeared, so there is no need to wait more than 1 second.
-				1_u64,
+				log_line_options.clone(),
 			)
-			.await
-			.unwrap_or_else(|error| panic!("Expected log not found for {}: {:?}", validator_name, error));
+			.await?;
+
+		assert!(result.success(), "Expected log not found for {validator_name}",);
 	}
 
 	log::info!("Test finished successfully");

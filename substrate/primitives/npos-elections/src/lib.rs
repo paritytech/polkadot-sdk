@@ -77,13 +77,13 @@
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, rc::Rc, vec, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{cell::RefCell, cmp::Ordering};
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_arithmetic::{traits::Zero, Normalizable, PerThing, Rational128, ThresholdOrd};
-use sp_core::RuntimeDebug;
+use Debug;
 
 #[cfg(test)]
 mod mock;
@@ -111,7 +111,14 @@ pub use traits::{IdentifierT, PerThing128};
 
 /// The errors that might occur in this crate and `frame-election-provider-solution-type`.
 #[derive(
-	Eq, PartialEq, RuntimeDebug, Clone, codec::Encode, codec::Decode, scale_info::TypeInfo,
+	Eq,
+	PartialEq,
+	Debug,
+	Clone,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	scale_info::TypeInfo,
 )]
 pub enum Error {
 	/// While going from solution indices to ratio, the weight of all the edges has gone above the
@@ -131,6 +138,10 @@ pub enum Error {
 	TooManyVoters,
 	/// Some bounds were exceeded when converting election types.
 	BoundsExceeded,
+	/// A duplicate voter was detected.
+	DuplicateVoter,
+	/// A duplicate target was detected.
+	DuplicateTarget,
 }
 
 /// A type which is used in the API of this crate as a numeric weight of a vote, most often the
@@ -147,7 +158,19 @@ pub type ExtendedBalance = u128;
 /// 1. `minimal_stake`.
 /// 2. `sum_stake`.
 /// 3. `sum_stake_squared`.
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, Debug, Default)]
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Debug,
+	Default,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ElectionScore {
 	/// The minimal winner, in terms of total backing stake.
@@ -160,8 +183,29 @@ pub struct ElectionScore {
 	pub sum_stake: ExtendedBalance,
 	/// The sum squared of the total backing of all winners, aka. the variance.
 	///
-	/// Ths parameter should be minimized.
+	/// This parameter should be minimized.
 	pub sum_stake_squared: ExtendedBalance,
+}
+
+#[cfg(feature = "std")]
+impl ElectionScore {
+	/// format the election score in a pretty way with the given `token` symbol and `decimals`.
+	pub fn pretty(&self, token: &str, decimals: u32) -> String {
+		format!(
+			"ElectionScore (minimal_stake: {}, sum_stake: {}, sum_stake_squared: {})",
+			pretty_balance(self.minimal_stake, token, decimals),
+			pretty_balance(self.sum_stake, token, decimals),
+			pretty_balance(self.sum_stake_squared, token, decimals),
+		)
+	}
+}
+
+/// Format a single [`ExtendedBalance`] into a pretty string with the given `token` symbol and
+/// `decimals`.
+#[cfg(feature = "std")]
+pub fn pretty_balance<B: Into<u128>>(b: B, token: &str, decimals: u32) -> String {
+	let b: u128 = b.into();
+	format!("{} {}", b / 10u128.pow(decimals), token)
 }
 
 impl ElectionScore {
@@ -172,7 +216,7 @@ impl ElectionScore {
 
 	/// Compares two sets of election scores based on desirability, returning true if `self` is
 	/// strictly `threshold` better than `other`. In other words, each element of `self` must be
-	/// `self * threshold` better than `other`.
+	/// better than `other` relative to the given `threshold`.
 	///
 	/// Evaluation is done based on the order of significance of the fields of [`ElectionScore`].
 	pub fn strict_threshold_better(self, other: Self, threshold: impl PerThing) -> bool {
@@ -200,6 +244,12 @@ impl ElectionScore {
 			// anything else is not a good score.
 			_ => false,
 		}
+	}
+
+	/// Compares two sets of election scores based on desirability, returning true if `self` is
+	/// strictly better than `other`.
+	pub fn strict_better(self, other: Self) -> bool {
+		self.strict_threshold_better(other, sp_runtime::Perbill::zero())
 	}
 }
 
@@ -232,7 +282,7 @@ pub struct BalancingConfig {
 pub type CandidatePtr<A> = Rc<RefCell<Candidate<A>>>;
 
 /// A candidate entity for the election.
-#[derive(RuntimeDebug, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Candidate<AccountId> {
 	/// Identifier.
 	who: AccountId,
@@ -416,7 +466,7 @@ impl<AccountId: IdentifierT> Voter<AccountId> {
 }
 
 /// Final result of the election.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct ElectionResult<AccountId, P: PerThing> {
 	/// Just winners zipped with their approval stake. Note that the approval stake is merely the
 	/// sub of their received stake and could be used for very basic sorting and approval voting.
@@ -433,7 +483,7 @@ pub struct ElectionResult<AccountId, P: PerThing> {
 ///
 /// This, at the current version, resembles the `Exposure` defined in the Staking pallet, yet they
 /// do not necessarily have to be the same.
-#[derive(RuntimeDebug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Debug, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Support<AccountId> {
 	/// Total support.
@@ -445,12 +495,6 @@ pub struct Support<AccountId> {
 impl<AccountId> Default for Support<AccountId> {
 	fn default() -> Self {
 		Self { total: Default::default(), voters: vec![] }
-	}
-}
-
-impl<AccountId: Clone> Support<AccountId> {
-	pub fn self_vote_only(who: AccountId, amount: ExtendedBalance) -> (AccountId, Self) {
-		(who.clone(), Self { total: amount, voters: vec![(who, amount)] })
 	}
 }
 
@@ -575,7 +619,7 @@ pub fn setup_inputs<AccountId: IdentifierT>(
 			for v in votes {
 				if edges.iter().any(|e| e.who == v) {
 					// duplicate edge.
-					continue
+					continue;
 				}
 				if let Some(idx) = c_idx_cache.get(&v) {
 					// This candidate is valid + already cached.

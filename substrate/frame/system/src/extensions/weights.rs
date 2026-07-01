@@ -142,8 +142,8 @@ impl<T: crate::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `1489`
 		// Minimum execution time: 4_375_000 picoseconds.
 		Weight::from_parts(4_747_000, 1489)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 

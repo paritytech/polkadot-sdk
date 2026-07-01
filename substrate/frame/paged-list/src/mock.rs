@@ -20,13 +20,12 @@
 #![cfg(feature = "std")]
 
 use crate::{paged_list::StoragePagedListMeta, Config, ListPrefix};
-use frame_support::derive_impl;
-use sp_runtime::{traits::IdentityLookup, BuildStorage};
+use frame::testing_prelude::*;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test {
 		System: frame_system,
 		PagedList: crate,
@@ -43,7 +42,7 @@ impl frame_system::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 }
 
-frame_support::parameter_types! {
+parameter_types! {
 	pub storage ValuesPerNewPage: u32 = 5;
 	pub const MaxPages: Option<u32> = Some(20);
 }
@@ -62,7 +61,7 @@ pub type MetaOf<T, I> =
 	StoragePagedListMeta<ListPrefix<T, I>, <T as Config>::Value, <T as Config>::ValuesPerNewPage>;
 
 /// Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
 
