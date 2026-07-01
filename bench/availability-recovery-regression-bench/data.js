@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782905683251,
+  "lastUpdate": 1782915306240,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5d5a639ea7de2b74628232427d5d8d7ce9fb5e8e",
-          "message": "Send PeerId via UMP (#10145)\n\nResolves https://github.com/paritytech/polkadot-sdk/issues/7749\n\nThis PR propagates the network `PeerId` of the collator to the parachain\ninherent. Then the parachain runtime emits a UMP signal containing the\ncollator `PeerId`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-07T15:56:02Z",
-          "tree_id": "d2d457548ebffc157540547d7fb505316dd3d033",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5d5a639ea7de2b74628232427d5d8d7ce9fb5e8e"
-        },
-        "date": 1762535586796,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20693299089999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.340100232333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13464169373333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c8c3e3f1d9d535e9c29f2cd505ef79266a821bed",
+          "message": "[Release|CI/CD] Publish release draft as empty when body length exceeds github requirements (#12526)\n\nThis PR fixes a following issue:\nWhen release draft body is too long and exceeds GitHub requirements of\n125000 chars, Create Release Draft job fails and draft is not published.\nWhich leads to manual creation of the draft and manual attachment of all\nthe artefacts that we publish.\n\nWith this fix, job should not fail, but publish a draft with some\nwarning message and all the artefacts attached to the draft.\n\ncloses: https://github.com/paritytech/release-engineering/issues/297",
+          "timestamp": "2026-07-01T12:25:32Z",
+          "tree_id": "f8b2dc4d03a25857f115a283dc96d74c21c322b7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c8c3e3f1d9d535e9c29f2cd505ef79266a821bed"
+        },
+        "date": 1782915274869,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13320405366666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.011205544466668,
             "unit": "seconds"
           }
         ]
