@@ -20,31 +20,163 @@
 //!
 //! Provides the concrete [`VirtManager`] that drives `polkavm` to compile, instantiate
 //! and execute programs on behalf of the runtime. Register it with the externalities via
-//! [`sp_virtualization::VirtManagerExt::new`].
+//! [`sp_virtualization::VirtManagerExt::new`] — or use the [`default_extension`] helper
+//! and [`ExtensionsFactory`] convenience types defined below.
 
 use polkavm::{
 	CacheModel, CompileError, Config, CostModelKind, Engine, GasMeteringKind, InterruptKind,
 	MemoryAccessError, Module, ModuleConfig, ProgramCounter, RawInstance, Reg,
 };
+use polkavm_common::{
+	program::{asm, InstructionSetKind},
+	writer::ProgramBlobBuilder,
+};
+use sp_externalities::Extensions;
+use sp_runtime::traits::{Block as BlockT, NumberFor};
 use sp_virtualization::{
 	DestroyError, ExecBuffer, ExecError, ExecStatus, InstanceId, InstantiateError, MemoryError,
-	ModuleError, ModuleId, SyscallSymbol, VirtManagerBackend, LOG_TARGET,
+	ModuleError, ModuleId, SyscallSymbol, VirtManagerBackend, VirtManagerExt, LOG_TARGET,
 };
 use std::{
 	collections::HashMap,
-	sync::{Arc, LazyLock},
+	sync::{Arc, OnceLock},
 };
 
-/// This is the single PolkaVM engine we use for everything.
+/// Build a fresh [`VirtManagerExt`] backed by a default [`VirtManager`].
 ///
-/// By using a common engine we allow PolkaVM to use caching. This caching is important
-/// to reduce startup costs. This is even the case when instances use different code.
-static ENGINE: LazyLock<Engine> = LazyLock::new(|| {
+/// Use this where you would otherwise hand-roll
+/// `VirtManagerExt::new(VirtManager::default())` — e.g. when registering the
+/// extension directly on a `TestExternalities` or an `Extensions` set.
+pub fn default_extension() -> VirtManagerExt {
+	// Guarantee the engine exists for every consumer that creates an extension (collator,
+	// RPC, the in-runtime PVF path), without the worker-only sandbox warm-up. The execute
+	// worker calls [`init`] explicitly at startup, so by the time it reaches here the engine
+	// is already built and warm and this is a no-op.
+	ensure_engine();
+	VirtManagerExt::new(VirtManager::default())
+}
+
+/// An [`sc_client_api::execution_extensions::ExtensionsFactory`] that registers a fresh
+/// [`VirtManagerExt`] (backed by a default [`VirtManager`]) for every runtime call.
+///
+/// Plug this into a client via
+/// `client.execution_extensions().set_extensions_factory(ExtensionsFactory)`.
+/// [`VirtManagerExt`] cannot implement `Default` (its backend lives in this crate, and
+/// `sp-virtualization` is intentionally backend-free), so the stock
+/// [`sc_client_api::execution_extensions::ExtensionBeforeBlock`] helper cannot be used.
+#[derive(Default)]
+pub struct ExtensionsFactory;
+
+impl<Block: BlockT> sc_client_api::execution_extensions::ExtensionsFactory<Block>
+	for ExtensionsFactory
+{
+	fn extensions_for(&self, _: Block::Hash, _: NumberFor<Block>) -> Extensions {
+		let mut exts = Extensions::new();
+		exts.register(default_extension());
+		exts
+	}
+}
+
+/// Maximum number of virtualization instances alive at once.
+///
+/// Each live instance pins a sandbox worker process and its memory, so the number alive at once
+/// must be bounded. One instance is live per nested contract frame, so the bound is the maximum
+/// contract call-stack depth and must stay `>=` the consumer's maximum call depth (for
+/// pallet-revive, `CALL_STACK_DEPTH + 1`, currently 26).
+///
+/// It serves two roles:
+/// - [`warm_up_sandbox_pool`] pre-spawns this many sandbox workers so a fully-nested call always
+///   finds one warm and never has to spawn mid-validation. `set_worker_count` is *per core*, so
+///   [`build_engine`] divides this across cores (rounding up).
+/// - [`VirtManager::instantiate`] enforces it as a hard cap, returning
+///   `InstantiateError::TooManyInstances` once that many instances are live.
+const MAX_LIVE_INSTANCES: usize = 30;
+
+/// The single, process-global PolkaVM engine used for everything.
+///
+/// A common engine lets PolkaVM keep a warm pool of sandbox workers and amortise startup
+/// costs across instances, even when those instances run different code. Built explicitly
+/// via [`init`] (or lazily via [`ensure_engine`]) rather than on first use, so the
+/// expensive construction does not land on the first validation.
+static ENGINE: OnceLock<Engine> = OnceLock::new();
+
+/// Construct the engine.
+///
+/// Does not warm the sandbox pool — see [`warm_up_sandbox_pool`].
+fn build_engine() -> Engine {
 	let mut config = Config::from_env().expect("Invalid config.");
-	config.set_worker_count(10);
+	// `set_worker_count` caps the sandbox cache per core, so divide the total target across
+	// cores (rounding up) — summed over all cores the caches then hold >= MAX_LIVE_INSTANCES.
+	let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
+	config.set_worker_count(MAX_LIVE_INSTANCES.div_ceil(cores));
 	config.set_default_cost_model(Some(CostModelKind::Full(CacheModel::L2Hit)));
 	Engine::new(&config).expect("Failed to initialize PolkaVM.")
-});
+}
+
+/// Build the engine and pre-warm its sandbox pool.
+///
+/// Call once when a process that runs virtualized code starts up — in particular at PVF
+/// execute-worker startup — so neither engine construction nor sandbox spawning lands on
+/// the first validation. Idempotent: the engine is built and the pool warmed at most once.
+pub fn init() {
+	ENGINE.get_or_init(|| {
+		let engine = build_engine();
+		warm_up_sandbox_pool(&engine);
+		engine
+	});
+}
+
+/// Ensure the engine is built, without warming the sandbox pool.
+///
+/// Used by [`default_extension`] (and tests) so consumers that never call [`init`] — e.g.
+/// the collator authoring path — still get a usable engine, just without the worker-only
+/// warm-up. Idempotent.
+fn ensure_engine() {
+	let _ = ENGINE.get_or_init(build_engine);
+}
+
+/// The process-global engine.
+///
+/// Panics if neither [`init`] nor [`ensure_engine`] has run — that only happens if the
+/// engine is reached through a path that skips both, which is a wiring bug worth surfacing
+/// loudly rather than papering over with a slow lazy build.
+fn engine() -> &'static Engine {
+	ENGINE.get().expect(
+		"PolkaVM engine used before initialization; call `sc_virtualization::init()` at \
+		 worker startup (or go through `default_extension`); qed",
+	)
+}
+
+/// Pre-spawn [`MAX_LIVE_INSTANCES`] sandbox workers so a max-depth nest finds them warm.
+///
+/// `instantiate` acquires a sandbox (spawning a fresh worker process when none is cached)
+/// and holds it for the instance's lifetime; dropping the instance recycles the sandbox into
+/// the engine's per-core cache. We hold [`MAX_LIVE_INSTANCES`] instances at once so each
+/// forces a *distinct* sandbox to spawn (a sequential loop would just reuse one); they then
+/// recycle across the per-core caches the same way a deeply-nested call's frames distribute,
+/// so a nest up to that depth finds a warm sandbox wherever PolkaVM places each frame. The
+/// instances are never run; a one-instruction module is enough to make `instantiate` spawn a
+/// sandbox. Panics on any failure — a node that cannot build its sandbox pool cannot run JIT
+/// contracts, so it should fail at startup rather than limp on and time out every validation.
+fn warm_up_sandbox_pool(engine: &Engine) {
+	// A single `ret` with no exports is enough: the module is only ever instantiated (which
+	// spawns and loads a sandbox), never run.
+	let mut builder = ProgramBlobBuilder::new(InstructionSetKind::ReviveV1);
+	builder.set_code(&[asm::ret()], &[]);
+	let blob = builder.into_vec().expect("warm-up blob is a constant valid program; qed");
+
+	let mut module_config = ModuleConfig::new();
+	module_config.set_gas_metering(Some(GasMeteringKind::Sync));
+	let module = Module::new(engine, &module_config, blob.into())
+		.expect("warm-up program is a constant the engine must be able to compile; qed");
+
+	// Held all at once (not a sequential loop) so each forces a *distinct* sandbox to spawn;
+	// they recycle into the per-core caches when this `Vec` drops at the end of the function.
+	let _warm: Vec<_> = (0..MAX_LIVE_INSTANCES)
+		.map(|_| module.instantiate().expect("failed to spawn a PolkaVM sandbox worker"))
+		.collect();
+	log::debug!(target: LOG_TARGET, "Sandbox warm-up: pre-spawned {MAX_LIVE_INSTANCES} sandbox workers");
+}
 
 fn map_memory_error(error: MemoryAccessError) -> MemoryError {
 	match error {
@@ -248,7 +380,7 @@ impl VirtManager {
 }
 
 impl VirtManagerBackend for VirtManager {
-	fn compile_from_bytes(
+	fn compile(
 		&mut self,
 		program: &[u8],
 		identifier: Option<&[u8]>,
@@ -256,7 +388,7 @@ impl VirtManagerBackend for VirtManager {
 		let mut module_config = ModuleConfig::new();
 		module_config.set_gas_metering(Some(GasMeteringKind::Sync));
 		let module =
-			Module::new(&ENGINE, &module_config, program.into()).map_err(|err| match err {
+			Module::new(engine(), &module_config, program.into()).map_err(|err| match err {
 				CompileError::ValidationFailed(err) => {
 					log::debug!(target: LOG_TARGET, "Failed to compile program: {}", err);
 					ModuleError::InvalidImage
@@ -285,6 +417,11 @@ impl VirtManagerBackend for VirtManager {
 	}
 
 	fn instantiate(&mut self, module_id: ModuleId) -> Result<InstanceId, InstantiateError> {
+		if self.instances.len() >= MAX_LIVE_INSTANCES {
+			log::error!(target: LOG_TARGET, "live-instance limit ({MAX_LIVE_INSTANCES}) reached");
+			return Err(InstantiateError::TooManyInstances);
+		}
+
 		let compiled = self.modules.get(&module_id).ok_or(InstantiateError::InvalidModule)?.clone();
 
 		let instance = compiled.module.instantiate().map_err(|err| {
@@ -366,25 +503,56 @@ mod tests {
 	/// the struct, not in process-global storage.
 	#[test]
 	fn cache_does_not_leak_between_instances() {
+		ensure_engine();
 		let program = sp_virtualization_test_fixture::binary();
 		let key: &[u8] = b"some-key";
 
 		let mut a = VirtManager::default();
-		a.compile_from_bytes(program, Some(key)).unwrap();
+		a.compile(program, Some(key)).unwrap();
 		assert!(matches!(a.lookup(key), Ok(_)));
 
 		let mut b = VirtManager::default();
 		assert!(matches!(b.lookup(key), Err(ModuleError::NotCached)));
 	}
 
-	/// Passing `None` to `compile_from_bytes` must not populate the cache.
+	/// Passing `None` to `compile` must not populate the cache.
 	#[test]
-	fn compile_from_bytes_none_skips_cache() {
+	fn compile_none_skips_cache() {
+		ensure_engine();
 		let program = sp_virtualization_test_fixture::binary();
 		let key: &[u8] = b"would-be-key";
 
 		let mut m = VirtManager::default();
-		m.compile_from_bytes(program, None).unwrap();
+		m.compile(program, None).unwrap();
 		assert!(matches!(m.lookup(key), Err(ModuleError::NotCached)));
+	}
+
+	/// The warm-up must build, compile and spawn its sandboxes without panicking — it fails the
+	/// node otherwise. It spawns real sandboxes, so on Linux it relies on the `--privileged`
+	/// workspace CI container (`clone3`/`unshare`); off Linux it falls back to the interpreter.
+	#[test]
+	fn warm_up_runs() {
+		ensure_engine();
+		warm_up_sandbox_pool(engine());
+	}
+
+	/// `instantiate` refuses once [`MAX_LIVE_INSTANCES`] instances are live, and accepts again
+	/// once one of them is destroyed.
+	#[test]
+	fn instantiate_enforces_live_instance_cap() {
+		ensure_engine();
+		let program = sp_virtualization_test_fixture::binary();
+
+		let mut m = VirtManager::default();
+		let module_id = m.compile(program, None).unwrap();
+
+		let ids: Vec<_> = (0..MAX_LIVE_INSTANCES)
+			.map(|_| m.instantiate(module_id).expect("instantiation below the cap succeeds"))
+			.collect();
+
+		assert!(matches!(m.instantiate(module_id), Err(InstantiateError::TooManyInstances)));
+
+		m.destroy(ids[0]).unwrap();
+		assert!(m.instantiate(module_id).is_ok());
 	}
 }

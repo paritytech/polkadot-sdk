@@ -28,15 +28,25 @@ pub use parachains_common_types::{AccountId, Balance, Hash, Nonce};
 type Header<BlockNumber> = generic::Header<BlockNumber, BlakeTwo256>;
 pub type Block<BlockNumber> = generic::Block<Header<BlockNumber>, UncheckedExtrinsic>;
 
-#[cfg(not(feature = "runtime-benchmarks"))]
+/// `sp_virtualization::HostFunctions` is unstable and only included when JIT is enabled
+/// (via the `revive_jit` cfg) or when building with `runtime-benchmarks`. These host
+/// functions are not available on Polkadot and subject to breaking changes.
+#[cfg(all(not(feature = "runtime-benchmarks"), not(revive_jit)))]
 pub type ParachainHostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
+);
+#[cfg(all(not(feature = "runtime-benchmarks"), revive_jit))]
+pub type ParachainHostFunctions = (
+	cumulus_client_service::ParachainHostFunctions,
+	sp_statement_store::runtime_api::HostFunctions,
+	sp_virtualization::HostFunctions,
 );
 #[cfg(feature = "runtime-benchmarks")]
 pub type ParachainHostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
+	sp_virtualization::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 

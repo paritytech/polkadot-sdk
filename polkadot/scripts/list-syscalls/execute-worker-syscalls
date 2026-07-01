@@ -41,6 +41,8 @@
 97 (getrlimit)
 98 (getrusage)
 99 (sysinfo)
+102 (getuid)
+104 (getgid)
 110 (getppid)
 131 (sigaltstack)
 144 (sched_setscheduler)

@@ -285,6 +285,10 @@ rusty_fork_test! {
 	}
 
 	// What happens when the forked execute job dies in the middle of its job?
+	//
+	// Skipped under `revive_jit`: that build runs validation inline in the execute worker (no
+	// forked job), so there is no child job process for this test to find and kill.
+	#[cfg(not(revive_jit))]
 	#[test]
 	fn forked_execute_job_killed_during_job() {
 		test_wrapper(|host, sid| async move {
@@ -357,6 +361,11 @@ rusty_fork_test! {
 	// Ensure that the spawned execute worker is single-threaded.
 	//
 	// See `run_worker` for why we need this invariant.
+	//
+	// Skipped under `revive_jit`: that build runs validation inline on an execute thread within
+	// the worker itself (no forked job), so the worker is not single-threaded and there is no
+	// child job process to inspect.
+	#[cfg(not(revive_jit))]
 	#[test]
 	fn ensure_execute_processes_have_correct_num_threads() {
 		test_wrapper(|host, sid| async move {

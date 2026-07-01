@@ -13,16 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(all(not(feature = "metadata-hash"), feature = "std"))]
+#[cfg(feature = "std")]
 fn main() {
-	substrate_wasm_builder::WasmBuilder::build_using_defaults();
-}
-
-#[cfg(all(feature = "metadata-hash", feature = "std"))]
-fn main() {
-	substrate_wasm_builder::WasmBuilder::init_with_defaults()
-		.enable_metadata_hash("WND", 12)
-		.build();
+	let mut builder = substrate_wasm_builder::WasmBuilder::init_with_defaults();
+	if std::env::var_os("CARGO_CFG_REVIVE_JIT").is_some() {
+		builder = builder.append_to_rust_flags("--cfg revive_jit");
+	}
+	#[cfg(feature = "metadata-hash")]
+	{
+		builder = builder.enable_metadata_hash("WND", 12);
+	}
+	builder.build();
 }
 
 #[cfg(not(feature = "std"))]
