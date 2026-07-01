@@ -1,0 +1,17 @@
+title: 'pallet-revive: accept null topic positions in eth_getLogs filters'
+doc:
+- audience: Node Dev
+  description: |-
+    An `eth_getLogs` filter could not express a `null` ("match any") topic at a given position,
+    e.g. `{"topics": [null, "0x..."]}` to match any first topic but a specific second topic.
+    `FilterTopic` had no representation for `null`, so any such filter failed to deserialize and
+    the request was rejected, even though it is a standard Ethereum log filter (and the
+    `eth_subscribe` logs path already supported it). The `FilterTopics` type is now
+    `Vec<Option<FilterTopic>>`, where a `None`/`null` entry matches any value at that position
+    while still requiring the log to have a topic there, so a filter of length N only matches
+    logs with at least N topics, as in go-ethereum.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-eth-rpc
+  bump: patch

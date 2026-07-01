@@ -350,6 +350,30 @@ fn test_block_number_or_tag_or_hash_deserialization() {
 }
 
 #[test]
+fn filter_topics_deserialize_null_positions() {
+	// `null` positions ("match any") must be accepted, mixed with single and multiple topics.
+	let json = r#"{
+		"topics": [
+			null,
+			"0x1111111111111111111111111111111111111111111111111111111111111111",
+			[
+				"0x1111111111111111111111111111111111111111111111111111111111111111",
+				"0x2222222222222222222222222222222222222222222222222222222222222222"
+			]
+		]
+	}"#;
+	let filter: Filter = serde_json::from_str(json).unwrap();
+
+	let one = H256([0x11u8; 32]);
+	let two = H256([0x22u8; 32]);
+	let topics = filter.topics.expect("topics present");
+	assert_eq!(topics.len(), 3);
+	assert_eq!(topics[0], None);
+	assert_eq!(topics[1], Some(FilterTopic::Single(one)));
+	assert_eq!(topics[2], Some(FilterTopic::Multiple(vec![one, two])));
+}
+
+#[test]
 fn logs_bloom_works() {
 	let receipt: ReceiptInfo = serde_json::from_str(
 		r#"

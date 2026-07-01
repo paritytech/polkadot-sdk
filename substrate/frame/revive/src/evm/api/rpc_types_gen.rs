@@ -587,7 +587,10 @@ pub enum BlockTag {
 }
 
 /// Filter Topics
-pub type FilterTopics = Vec<FilterTopic>;
+///
+/// Each position is optional: a `null` entry matches any value at that position, as defined by
+/// the `eth_getLogs` topic-matching rules.
+pub type FilterTopics = Vec<Option<FilterTopic>>;
 
 #[derive(
 	Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq, TypeInfo, Encode, Decode,
