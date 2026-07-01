@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782923236676,
+  "lastUpdate": 1782931640050,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -103571,6 +103571,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2587508693,
             "range": "± 22870121",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b018f456e08863df9e2d0742e577ebbc29f0fb24",
+          "message": "[pallet-revive] Version Trivial Runtime API Functions (#12447)\n\n# Description\n\nThis PR versions all of the runtime API functions in pallet-revive which\nhave a trivial interface and therefore doesn't require us to add a lot\nof new wire types or move too many things around. Any runtime API\nfunction which required a complex wire type to be defined for it is\nintentionally not versioned in this PR.\n\nThe following checklist shows all of the runtime API functions we have\nin pallet-revive. The checked-off functions are the ones which have been\nversioned in this PR (plus the `trace_block` function which was\nversioned in #12244).\n\n- [ ] `eth_block`\n- [x] `eth_block_hash`\n- [x] `eth_receipt_data`\n- [x] `balance`\n- [x] `block_author`\n- [x] `block_gas_limit`\n- [x] `max_extrinsic_weight_in_gas`\n- [x] `gas_price`\n- [x] `nonce`\n- [x] `address`\n- [ ] `eth_transact`\n- [ ] `eth_transact_with_config`\n- [ ] `eth_estimate_gas`\n- [x] `eth_pre_dispatch_weight`\n- [ ] `call`\n- [ ] `instantiate`\n- [x] `upload_code`\n- [x] `get_storage_var_key`\n- [x] `get_storage`\n- [x] `trace_block`\n- [x] `trace_tx`\n- [ ] `trace_call`\n- [ ] `trace_call_with_config`\n- [x] `runtime_pallets_address`\n- [x] `code`\n- [x] `account_id`\n- [x] `new_balance_with_dust`\n\nMost notably is that all of the functions which make use of\n`GenericTransaction` or of `Block` have not been versioned yet. This is\nplanned in an upcoming PR.\n\nAlso, this PR adds a `GUIDE.md` file into the `pallet-revive-types`\ncrate which serves as a guide on how versioning can be done. This file\nwas written such that it can be consumed by us or by agents to do all of\nthe mechanical work needed to version any runtime API function. It\ncurrently contains a guide on how to version an unversioned runtime API\nfunction and I'm planning on adding a section on updating a versioned\nruntime API function in the future.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-01T17:09:47Z",
+          "tree_id": "e71c7e4a2c4b59da14f58ef78e17bb81128041f5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b018f456e08863df9e2d0742e577ebbc29f0fb24"
+        },
+        "date": 1782931613223,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19009480,
+            "range": "± 121129",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19923825,
+            "range": "± 235467",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21343304,
+            "range": "± 257514",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26299961,
+            "range": "± 215777",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56860546,
+            "range": "± 640750",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 350419732,
+            "range": "± 3441982",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2484168973,
+            "range": "± 116293581",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16686492,
+            "range": "± 115296",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17260632,
+            "range": "± 163579",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17363182,
+            "range": "± 128311",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21907852,
+            "range": "± 141816",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58691842,
+            "range": "± 2198570",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 338013631,
+            "range": "± 3832902",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2612010814,
+            "range": "± 105295838",
             "unit": "ns/iter"
           }
         ]
