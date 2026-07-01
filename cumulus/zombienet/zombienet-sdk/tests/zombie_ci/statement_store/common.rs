@@ -65,9 +65,9 @@ pub(super) async fn expect_one_statement(
 	}
 }
 
-/// Reads `subscription` until `expected` arrives, tolerating other statements delivered first — a
+/// Reads `subscription` until `expected` is delivered, tolerating other statements first — a
 /// subscription serves every statement matching its topic, not only the one under test.
-pub(super) async fn expect_statement(
+pub(super) async fn expect_statement_delivered(
 	subscription: &mut RpcSubscription<StatementEvent>,
 	expected: &Bytes,
 	timeout_secs: u64,

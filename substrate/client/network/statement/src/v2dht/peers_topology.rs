@@ -178,22 +178,21 @@ impl PeersTopology {
 		}
 	}
 
-	/// Connected peers to forward a statement for `topic` to, capped at `gossip_target`.
-	///
-	/// A replica (in the topic's k-closest set) forwards to its closest connected peers; a
-	/// non-replica, only to those closer to the topic than itself.
+	/// Connected peers to forward a statement for `topic` to, capped at `gossip_target`: those
+	/// closer to the topic than the local node (routing the statement onward) and those that are
+	/// themselves DHT replicas for it (co-replicas that must store it).
 	pub fn routing_targets(&self, topic: Topic) -> Vec<PeerId> {
+		// TODO: benchmark this per-statement path on large connected sets (see
+		// benches/peers_topology.rs).
+		let local = (self.local_key, self.local_peer);
 		let local_distance = xor_distance(*topic, self.local_key);
-		let is_replica = is_local_replica(
-			&self.discovered_index,
-			self.local_key,
-			self.local_peer,
-			self.config.replication_factor.get(),
-			topic,
-		);
+		let k = self.config.replication_factor.get();
 		self.connected
 			.closest(*topic)
-			.take_while(|(_, key)| is_replica || xor_distance(*topic, *key) < local_distance)
+			.take_while(|(peer, key)| {
+				xor_distance(*topic, *key) < local_distance ||
+					is_peer_topic_affine(&self.discovered_index, local, (*key, *peer), k, topic)
+			})
 			.take(self.config.gossip_target.get())
 			.map(|(peer, _)| peer)
 			.collect()
@@ -301,24 +300,29 @@ fn xor_distance(a: Key, b: Key) -> Key {
 	distance
 }
 
-/// Whether `local_peer`, at `local_key`, is among the `k` closest entries of `index` to `topic` —
-/// i.e. a DHT storage replica for it.
-fn is_local_replica(
+/// Whether `candidate` is among the `k` closest to `topic`, ranked against the peers in `index`
+/// plus the local node — i.e. topic-affine, a DHT storage replica for the topic.
+fn is_peer_topic_affine(
 	index: &PeersIndex,
-	local_key: Key,
-	local_peer: PeerId,
+	local: (Key, PeerId),
+	candidate: (Key, PeerId),
 	k: usize,
 	topic: Topic,
 ) -> bool {
-	let local_distance = xor_distance(*topic, local_key);
-	let closer_count = index
+	let candidate_distance = (xor_distance(*topic, candidate.0), candidate.1);
+	let local_node_is_closer = (xor_distance(*topic, local.0), local.1) < candidate_distance;
+	let mut closer = index
 		.closest(*topic)
-		.take_while(|(peer, key)| {
-			(xor_distance(*topic, *key), *peer) < (local_distance, local_peer)
-		})
+		.take_while(|(peer, key)| (xor_distance(*topic, *key), *peer) < candidate_distance)
 		.take(k)
 		.count();
-	closer_count < k
+	// The local node is not in `index`, so count its slot here when it outranks the candidate.
+	// For the oracle's self query (`candidate == local`) this never fires: a node never outranks
+	// itself.
+	if local_node_is_closer {
+		closer += 1;
+	}
+	closer < k
 }
 
 /// Standalone DHT-affinity oracle: the minimal snapshot needed to answer "is the local node a
@@ -351,13 +355,8 @@ impl DhtAffinity {
 
 	/// Whether the local node is one of the closest DHT storage replicas for `topic`.
 	fn is_topic_affine(&self, topic: Topic) -> bool {
-		is_local_replica(
-			&self.index,
-			self.local_key,
-			self.local_peer,
-			self.replication_factor.get(),
-			topic,
-		)
+		let local = (self.local_key, self.local_peer);
+		is_peer_topic_affine(&self.index, local, local, self.replication_factor.get(), topic)
 	}
 }
 
@@ -518,36 +517,30 @@ mod tests {
 	}
 
 	#[test]
-	fn replica_forwards_to_closest_connected_even_when_none_are_closer_than_self() {
+	fn replica_forwards_to_a_farther_co_replica_but_not_to_non_replicas() {
 		let mut topology = topology(1); // replication_factor = 2, gossip_target = 2
 		let topic = topic(7);
 		let self_distance = distance_to(topic, &peer(1));
 
-		// Connected peers all farther from the topic than the local node, so the node is itself in
-		// the k-closest set (a replica) and has nobody "closer than self" to route toward.
-		let farther: Vec<PeerId> = (2..=80)
+		// Connected peers all farther from the topic than the local node, so the local node is the
+		// closest and, with k=2, only the single nearest of them is its co-replica.
+		let mut farther: Vec<PeerId> = (2..=80)
 			.map(peer)
 			.filter(|candidate| distance_to(topic, candidate) > self_distance)
 			.take(3)
 			.collect();
 		assert_eq!(farther.len(), 3, "test peer fixture must include peers farther than self");
+		farther.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
 
 		for peer in &farther {
 			dht_peer(&mut topology, *peer);
 			topology.on_substream_opened(*peer);
 		}
 
-		// A replica still forwards to its closest connected co-replicas (capped at gossip_target),
-		// even though none is closer to the topic than itself — where the earlier closer-than-self
-		// rule forwarded nowhere and left the statement on a single node.
-		let expected = {
-			let mut peers = farther;
-			peers.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
-			peers.truncate(2);
-			peers
-		};
-
-		assert_eq!(topology.routing_targets(topic), expected);
+		// The co-replica (nearest farther peer) is forwarded to even though it is farther than
+		// self; the farther non-replicas are not, so a replica does not spray every connected
+		// peer.
+		assert_eq!(topology.routing_targets(topic), vec![farther[0]]);
 	}
 
 	#[test]
