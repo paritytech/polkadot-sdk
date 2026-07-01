@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782823165687,
+  "lastUpdate": 1782905849835,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a4f007cd7c3643519de40ba33b6db08b38e1ac19",
-          "message": "[v2] pallet-revive: support uploading EVM bytecode via upload_code extrinsic. (#10193)\n\nFixes https://github.com/paritytech/contract-issues/issues/182\n\nAdd support for EVM bytecode to the upload_code extrinsic. \nTests in issue https://github.com/paritytech/contract-issues/issues/182\nsend hardhat_setCode, which uses revive's upload_code API; this change\nmakes that flow accept and store the EVM bytecode using upload_code\nextrinsic.\n\nThis PR deprecates PR:\nhttps://github.com/paritytech/polkadot-sdk/pull/10095\n\nComment explaining test configuration requirements:\nhttps://github.com/paritytech/polkadot-sdk/pull/10095#issuecomment-3456450460\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-06T09:20:31Z",
-          "tree_id": "a6ae4894fcd0a36f64c0c9e86cd5833069e5491a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a4f007cd7c3643519de40ba33b6db08b38e1ac19"
-        },
-        "date": 1762424829289,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002728427950000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00905116033999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0054325677399999946,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009404100749999986,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ceea8fe5116c2c721b3ee190016e98400296f4a3",
+          "message": "[Staking] Fix pendingRewards returning true for exposed validators with zero points (#12441)\n\ncloses #12435\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-07-01T08:51:09Z",
+          "tree_id": "3dc52ee8fb93900eed5317194d41cf2738b6df11",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ceea8fe5116c2c721b3ee190016e98400296f4a3"
+        },
+        "date": 1782905817057,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002590284289999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009300098269999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010745797769999992,
             "unit": "seconds"
           }
         ]
