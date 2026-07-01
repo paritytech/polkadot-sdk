@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782905808387,
+  "lastUpdate": 1782915427350,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "80ba4a3febadfc98552b094d28a3c08cf2becc1f",
-          "message": "Increase the concurrency of retester in CI (#10213)\n\n# Description\n\nThis PR bumps the commit hash of the revive differential tests repo\nallowing us to pull in some tests that needed to be fixed. Additionally,\nit increases the concurrency of retester to allow it to run the tests\nfaster\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-06T13:29:22Z",
-          "tree_id": "3f51c8806d07963bf8cca45968e47778a9eb980f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/80ba4a3febadfc98552b094d28a3c08cf2becc1f"
-        },
-        "date": 1762441242372,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.94999999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035266345973999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04432694282199992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03829076497400001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c8c3e3f1d9d535e9c29f2cd505ef79266a821bed",
+          "message": "[Release|CI/CD] Publish release draft as empty when body length exceeds github requirements (#12526)\n\nThis PR fixes a following issue:\nWhen release draft body is too long and exceeds GitHub requirements of\n125000 chars, Create Release Draft job fails and draft is not published.\nWhich leads to manual creation of the draft and manual attachment of all\nthe artefacts that we publish.\n\nWith this fix, job should not fail, but publish a draft with some\nwarning message and all the artefacts attached to the draft.\n\ncloses: https://github.com/paritytech/release-engineering/issues/297",
+          "timestamp": "2026-07-01T12:25:32Z",
+          "tree_id": "f8b2dc4d03a25857f115a283dc96d74c21c322b7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c8c3e3f1d9d535e9c29f2cd505ef79266a821bed"
+        },
+        "date": 1782915395715,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.164,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0811479637759999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038283550336,
             "unit": "seconds"
           }
         ]
