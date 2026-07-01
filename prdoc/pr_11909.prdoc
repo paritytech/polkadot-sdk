@@ -27,12 +27,12 @@ doc:
     Removed the old Vector based page map.
 crates:
 - name: polkadot-core-primitives
-  bump: patch
+  bump: minor
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: major
 - name: polkadot-runtime-common
-  bump: patch
+  bump: major
 - name: rococo-runtime
-  bump: patch
+  bump: major
 - name: westend-runtime
-  bump: patch
+  bump: major
