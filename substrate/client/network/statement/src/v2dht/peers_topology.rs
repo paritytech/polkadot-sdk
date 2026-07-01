@@ -178,15 +178,22 @@ impl PeersTopology {
 		}
 	}
 
-	/// Connected peers closer to `topic` than the local node, capped at `gossip_target`.
+	/// Connected peers to forward a statement for `topic` to, capped at `gossip_target`.
 	///
-	/// Use these for forwarding decisions: each hop moves the statement towards the peers
-	/// responsible for storing it.
+	/// A replica (in the topic's k-closest set) forwards to its closest connected peers; a
+	/// non-replica, only to those closer to the topic than itself.
 	pub fn routing_targets(&self, topic: Topic) -> Vec<PeerId> {
 		let local_distance = xor_distance(*topic, self.local_key);
+		let is_replica = local_is_replica(
+			&self.discovered_index,
+			self.local_key,
+			self.local_peer,
+			self.config.replication_factor.get(),
+			topic,
+		);
 		self.connected
 			.closest(*topic)
-			.take_while(|(_, key)| xor_distance(*topic, *key) < local_distance)
+			.take_while(|(_, key)| is_replica || xor_distance(*topic, *key) < local_distance)
 			.take(self.config.gossip_target.get())
 			.map(|(peer, _)| peer)
 			.collect()
@@ -294,6 +301,26 @@ fn xor_distance(a: Key, b: Key) -> Key {
 	distance
 }
 
+/// Whether `local_peer`, at `local_key`, is among the `k` closest entries of `index` to `topic` —
+/// i.e. a DHT storage replica for it.
+fn local_is_replica(
+	index: &PeersIndex,
+	local_key: Key,
+	local_peer: PeerId,
+	k: usize,
+	topic: Topic,
+) -> bool {
+	let local_distance = xor_distance(*topic, local_key);
+	let closer_count = index
+		.closest(*topic)
+		.take_while(|(peer, key)| {
+			(xor_distance(*topic, *key), *peer) < (local_distance, local_peer)
+		})
+		.take(k)
+		.count();
+	closer_count < k
+}
+
 /// Standalone DHT-affinity oracle: the minimal snapshot needed to answer "is the local node a
 /// storage replica for a topic", shared with the store so it decides retention without the full
 /// [`PeersTopology`].
@@ -324,20 +351,13 @@ impl DhtAffinity {
 
 	/// Whether the local node is one of the closest DHT storage replicas for `topic`.
 	fn is_topic_affine(&self, topic: Topic) -> bool {
-		let local_distance = xor_distance(*topic, self.local_key);
-		let replication_factor = self.replication_factor.get();
-		// The descent yields candidates in `(distance, peer)` order, so the candidates ranked
-		// before the local node form a prefix; the local node is a replica when that prefix is
-		// shorter than the replication factor.
-		let closer_count = self
-			.index
-			.closest(*topic)
-			.take_while(|(peer, key)| {
-				(xor_distance(*topic, *key), *peer) < (local_distance, self.local_peer)
-			})
-			.take(replication_factor)
-			.count();
-		closer_count < replication_factor
+		local_is_replica(
+			&self.index,
+			self.local_key,
+			self.local_peer,
+			self.replication_factor.get(),
+			topic,
+		)
 	}
 }
 
@@ -489,6 +509,39 @@ mod tests {
 
 		let expected = {
 			let mut peers = closer;
+			peers.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
+			peers.truncate(2);
+			peers
+		};
+
+		assert_eq!(topology.routing_targets(topic), expected);
+	}
+
+	#[test]
+	fn replica_forwards_to_closest_connected_even_when_none_are_closer_than_self() {
+		let mut topology = topology(1); // replication_factor = 2, gossip_target = 2
+		let topic = topic(7);
+		let self_distance = distance_to(topic, &peer(1));
+
+		// Connected peers all farther from the topic than the local node, so the node is itself in
+		// the k-closest set (a replica) and has nobody "closer than self" to route toward.
+		let farther: Vec<PeerId> = (2..=80)
+			.map(peer)
+			.filter(|candidate| distance_to(topic, candidate) > self_distance)
+			.take(3)
+			.collect();
+		assert_eq!(farther.len(), 3, "test peer fixture must include peers farther than self");
+
+		for peer in &farther {
+			dht_peer(&mut topology, *peer);
+			topology.on_substream_opened(*peer);
+		}
+
+		// A replica still forwards to its closest connected co-replicas (capped at gossip_target),
+		// even though none is closer to the topic than itself — where the earlier closer-than-self
+		// rule forwarded nowhere and left the statement on a single node.
+		let expected = {
+			let mut peers = farther;
 			peers.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
 			peers.truncate(2);
 			peers

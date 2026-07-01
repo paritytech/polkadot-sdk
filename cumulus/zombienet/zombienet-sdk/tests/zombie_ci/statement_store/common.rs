@@ -65,6 +65,33 @@ pub(super) async fn expect_one_statement(
 	}
 }
 
+/// Reads `subscription` until `expected` arrives, tolerating other statements delivered first — a
+/// subscription serves every statement matching its topic, not only the one under test.
+pub(super) async fn expect_statement(
+	subscription: &mut RpcSubscription<StatementEvent>,
+	expected: &Bytes,
+	timeout_secs: u64,
+) -> Result<(), anyhow::Error> {
+	let deadline = tokio::time::Instant::now() + Duration::from_secs(timeout_secs);
+	loop {
+		let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+		if remaining.is_zero() {
+			return Err(anyhow!("Timeout after {timeout_secs}s waiting for the expected statement"));
+		}
+		let item = tokio::time::timeout(remaining, subscription.next())
+			.await
+			.map_err(|_| {
+				anyhow!("Timeout after {timeout_secs}s waiting for the expected statement")
+			})?
+			.ok_or_else(|| anyhow!("Subscription stream ended unexpectedly"))?
+			.map_err(|e| anyhow!("Subscription error: {}", e))?;
+		let StatementEvent::NewStatements { statements, .. } = item;
+		if statements.iter().any(|s| s == expected) {
+			return Ok(());
+		}
+	}
+}
+
 pub(super) async fn assert_no_more_statements(
 	subscription: &mut RpcSubscription<StatementEvent>,
 	timeout_secs: u64,

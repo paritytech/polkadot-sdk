@@ -8,8 +8,8 @@
 //! by default); the replication factor `K` and gossip target are set via CLI flags.
 
 use super::common::{
-	expect_one_statement, spawn_network_with_injected_allowances_v2, stores_locally,
-	submit_statement, subscribe_topic,
+	expect_statement, spawn_network_with_injected_allowances_v2, stores_locally, submit_statement,
+	subscribe_topic,
 };
 use codec::Encode;
 use sc_statement_store::test_utils::{create_test_statement, get_keypair};
@@ -157,7 +157,7 @@ async fn local_submission_retention_works() -> Result<(), anyhow::Error> {
 
 	// node_1's own subscription delivers the matching `topic_a` statement, independent of who
 	// stores it.
-	assert_eq!(expect_one_statement(&mut sub_a, 20).await?, expected_a);
+	expect_statement(&mut sub_a, &expected_a, 20).await?;
 
 	// node_1 decides retention synchronously on submit, so we probe right away. We check the two
 	// specific statements, not a total count: the topic-selection probes above leave other
@@ -339,7 +339,7 @@ async fn explicit_affinity_works() -> Result<(), anyhow::Error> {
 
 	// Subscribing grants the non-replica explicit affinity; it should now receive the statement.
 	let mut subscription = subscribe_topic(non_replica_rpc, topic).await?;
-	assert_eq!(expect_one_statement(&mut subscription, 20).await?, expected);
+	expect_statement(&mut subscription, &expected, 20).await?;
 
 	Ok(())
 }
