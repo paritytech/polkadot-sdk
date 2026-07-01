@@ -286,15 +286,9 @@ fn build_client(
 			},
 		};
 
-		// Foreign-asset index journal: resolves a foreign asset's `Location -> u32` precompile
-		// index *as of a given block*. It is owned and maintained by the indexing layer
-		// (populated from `pallet-assets` lifecycle events as blocks are indexed, and from
-		// on-miss reads), so the extractor only ever reads it and extraction stays a pure
-		// function of the block. The closure reads `ForeignAssetIdToAssetIndex` **at a given
-		// block** (not `at_latest`) to learn a freshly-created asset's index and to resolve a
-		// lookup miss as of the transfer's block. Pruned/live mode then seeds a baseline at the
-		// live cutover block (below); archive mode does not seed (it builds full history, so a
-		// current-state seed would pollute historic resolution).
+		// Foreign-asset index journal, maintained by the indexing layer and read-only for the
+		// extractor. The closure reads `ForeignAssetIdToAssetIndex` at a given block to learn a created asset's index and resolve a lookup miss at the
+		// transfer's block.
 		let foreign_index = {
 			let fetch_index: crate::FetchStorageRawFn = {
 				let api = api.clone();
@@ -309,17 +303,12 @@ fn build_client(
 			std::sync::Arc::new(crate::ForeignAssetIndex::new(Default::default(), fetch_index))
 		};
 
-		// Pruned/live mode indexes forward from a live cutover block, so seed the journal once with
-		// the foreign-asset mappings live at that block, stamped at the cutover; forward lifecycle
-		// events maintain it thereafter. Archive mode is skipped: it reconstructs full versioned
-		// history and a current-state seed would pollute historic resolution. Best-effort — on
-		// failure the on-miss read path still resolves cold lookups.
+		// Pruned/live mode: seed the journal once with the mappings live at the cutover block;
+		// forward events maintain it after. Archive mode is skipped (a current-state seed would
+		// pollute its historic resolution). Best-effort — on-miss reads cover any gaps.
 		if !eth_pruning.is_archive() {
-			// Collect the live mappings, returning whatever was gathered even if the stream errors
-			// mid-iteration: a transient failure partway through must NOT discard the entries
-			// already collected (which would leave the journal empty for live assets until each is
-			// re-read on demand). `cutover` is `None` only if we can't even resolve the latest
-			// block — then there is nothing to stamp a seed at.
+			// Keep whatever was collected even if the stream errors mid-iteration; `cutover` is
+			// `None` only if the latest block can't be resolved (nothing to seed at).
 			let (cutover, entries, seed_err) = async {
 				let block = match api.blocks().at_latest().await {
 					Ok(block) => block,
