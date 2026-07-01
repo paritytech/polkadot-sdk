@@ -36,14 +36,6 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	),
 
 	substitute_type(
-		path = "pallet_revive::evm::api::rpc_types::DryRunConfig<M>",
-		with = "::subxt::utils::Static<::pallet_revive::evm::DryRunConfig<M>>"
-	),
-	substitute_type(
-		path = "pallet_revive::primitives::EthTransactInfo<B>",
-		with = "::subxt::utils::Static<::pallet_revive::EthTransactInfo<B>>"
-	),
-	substitute_type(
 		path = "pallet_revive::primitives::EthTransactError",
 		with = "::subxt::utils::Static<::pallet_revive::EthTransactError>"
 	),
@@ -166,6 +158,14 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TracingConfigV1>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::dry_run::EthTransactInfoV1<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthTransactInfoV1<Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::dry_run::DryRunConfigV1<Moment>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::DryRunConfigV1<Moment>>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::balance::BalanceInputPayloadV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BalanceInputPayloadV1>"
 	),
@@ -212,6 +212,22 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::nonce::NonceVersionedOutputPayload<Nonce>",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NonceVersionedOutputPayload<Nonce>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_transact::EthTransactInputPayloadV1<Moment>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthTransactInputPayloadV1<Moment>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_transact::EthTransactVersionedInputPayload<Moment>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthTransactVersionedInputPayload<Moment>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_transact::EthTransactOutputPayloadV1<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthTransactOutputPayloadV1<Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_transact::EthTransactVersionedOutputPayload<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthTransactVersionedOutputPayload<Balance>>"
 	),
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::PreDispatchWeightInputPayloadV1",

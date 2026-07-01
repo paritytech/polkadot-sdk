@@ -57,8 +57,8 @@ use crate::{
 	access_list::{StorageAccessKind, Warmth},
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
-		TYPE_EIP1559, Tracer, TracerType, block_hash::EthereumBlockBuilderIR, block_storage,
-		fees::InfoT as FeeInfo, runtime::SetWeightLimit,
+		StateOverrideSet, TYPE_EIP1559, Tracer, TracerType, block_hash::EthereumBlockBuilderIR,
+		block_storage, fees::InfoT as FeeInfo, runtime::SetWeightLimit,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	sp_runtime::TransactionOutcome,
@@ -105,7 +105,7 @@ pub use crate::{
 	address::{AccountId32Mapper, AddressMapper, AutoMapper, TestAccountMapper, create1, create2},
 	debug::DebugSettings,
 	deposit_payment::{Deposit, PGasDeposit},
-	evm::{Address as EthAddress, Block as EthBlock, DryRunConfig, block_hash::ReceiptGasInfo},
+	evm::{Address as EthAddress, Block as EthBlock, block_hash::ReceiptGasInfo},
 	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	limits::TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
 	metering::{
@@ -1945,7 +1945,8 @@ impl<T: Config> Pallet<T> {
 	/// amount of storage deposits needed without any kind of caching from the previous dry runs.
 	pub fn eth_estimate_gas(
 		tx: GenericTransaction,
-		config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
+		timestamp_override: Option<MomentOf<T>>,
+		state_overrides: Option<StateOverrideSet>,
 	) -> Result<U256, EthTransactError>
 	where
 		T::Nonce: Into<U256> + TryFrom<U256>,
@@ -1986,17 +1987,18 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		// Run one gas probe in a rolled-back transaction. Overrides ride along in `config` so
+		// Run one gas probe in a rolled-back transaction. Overrides are passed along so that
 		// `dry_run_eth_transact` applies them *after* `prepare_dry_run` bumps the nonce, keeping a
 		// nonce override at the exact value it sets.
 		let dry_run_at = |gas: U256| {
 			let mut transaction = tx.clone();
 			transaction.gas = Some(gas);
-			let dry_run_config = config.clone().with_perform_balance_checks(perform_balance_checks);
 			with_transaction(|| {
 				TransactionOutcome::Rollback(Ok::<_, DispatchError>(Self::dry_run_eth_transact(
 					transaction,
-					dry_run_config,
+					timestamp_override,
+					perform_balance_checks,
+					state_overrides.clone(),
 				)))
 			})
 			.expect("Rollback shouldn't error out")
@@ -2005,8 +2007,7 @@ impl<T: Config> Pallet<T> {
 		// Classify against post-override state (a code override can make the destination a
 		// contract) in a rolled-back probe, so the overrides don't leak into the dry runs.
 		let is_simple_transfer = with_transaction(|| {
-			let probe = config
-				.state_overrides
+			let probe = state_overrides
 				.clone()
 				.map_or(Ok(()), state_overrides::apply_state_overrides::<T>)
 				.map(|()| Self::is_simple_transfer(&tx));
@@ -2163,9 +2164,16 @@ impl<T: Config> Pallet<T> {
 	/// # Parameters
 	///
 	/// - `tx`: The Ethereum transaction to simulate.
+	/// - `timestamp_override`: An optional timestamp to report to the contract instead of the
+	///   current one.
+	/// - `perform_balance_checks`: Whether the origin's balance is checked to cover the fees and
+	///   the transferred value.
+	/// - `state_overrides`: Optional state overrides to apply before executing the call.
 	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
-		mut dry_run_config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
+		timestamp_override: Option<MomentOf<T>>,
+		perform_balance_checks: bool,
+		state_overrides: Option<StateOverrideSet>,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
 		T::Nonce: Into<U256> + TryFrom<U256>,
@@ -2176,7 +2184,7 @@ impl<T: Config> Pallet<T> {
 		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
 		Self::prepare_dry_run(&origin);
 
-		if let Some(overrides) = dry_run_config.state_overrides.take() {
+		if let Some(overrides) = state_overrides {
 			state_overrides::apply_state_overrides::<T>(overrides)?;
 		}
 
@@ -2230,19 +2238,14 @@ impl<T: Config> Pallet<T> {
 		// to pay for the fees
 		let base_info = T::FeeInfo::base_dispatch_info(&mut call_info.call);
 		let base_weight = base_info.total_weight();
-		let perform_balance_checks = dry_run_config.perform_balance_checks;
 		let exec_config =
 			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight)
-				.with_dry_run(dry_run_config);
+				.with_dry_run(timestamp_override);
 
 		// emulate transaction behavior
 		let fees = call_info.tx_fee.saturating_add(call_info.storage_deposit);
 		if let Some(from) = &from {
-			let fees = if gas.is_some() && matches!(perform_balance_checks, Some(true)) {
-				fees
-			} else {
-				Zero::zero()
-			};
+			let fees = if gas.is_some() && perform_balance_checks { fees } else { Zero::zero() };
 			let balance = Self::evm_balance(from);
 			if balance < Pallet::<T>::convert_native_to_evm(fees).saturating_add(value) {
 				return Err(EthTransactError::Message(format!(
@@ -2972,17 +2975,18 @@ sp_api::decl_runtime_apis! {
 
 		/// Perform an Ethereum call.
 		///
-		/// Deprecated use `v2` version instead.
 		/// See [`crate::Pallet::dry_run_eth_transact`]
-		fn eth_transact(tx: GenericTransactionV1) -> Result<EthTransactInfo<Balance>, EthTransactError>;
+		#[deprecated(note = "Use the versioned equivalent `eth_transact_versioned` if available on your runtime")]
+		fn eth_transact(tx: GenericTransactionV1) -> Result<EthTransactInfoV1<Balance>, EthTransactError>;
 
 		/// Perform an Ethereum call.
 		///
 		/// See [`crate::Pallet::dry_run_eth_transact`]
+		#[deprecated(note = "Use the versioned equivalent `eth_transact_versioned` if available on your runtime")]
 		fn eth_transact_with_config(
 			tx: GenericTransactionV1,
-			config: DryRunConfig<Moment>,
-		) -> Result<EthTransactInfo<Balance>, EthTransactError>;
+			config: DryRunConfigV1<Moment>,
+		) -> Result<EthTransactInfoV1<Balance>, EthTransactError>;
 
 		/// Estimates the amount of gas that a transactions requires.
 		///
@@ -2991,7 +2995,7 @@ sp_api::decl_runtime_apis! {
 		/// 1.5% so that the algorithm terminates early.
 		fn eth_estimate_gas(
 			tx: GenericTransactionV1,
-			config: DryRunConfig<Moment>
+			config: DryRunConfigV1<Moment>
 		) -> Result<U256, EthTransactError>;
 
 		/// Return the pre-dispatch weight booked for the signed Ethereum transaction payload.
@@ -3127,6 +3131,11 @@ sp_api::decl_runtime_apis! {
 		fn nonce_versioned(input: NonceVersionedInputPayload) -> NonceVersionedOutputPayload<Nonce>;
 
 		#[api_version(2)]
+		fn eth_transact_versioned(
+			input: EthTransactVersionedInputPayload<Moment>
+		) -> Result<EthTransactVersionedOutputPayload<Balance>, EthTransactError>;
+
+		#[api_version(2)]
 		fn eth_pre_dispatch_weight_versioned(
 			input: PreDispatchWeightVersionedInputPayload
 		) -> Result<PreDispatchWeightVersionedOutputPayload, EthTransactError>;
@@ -3193,7 +3202,7 @@ sp_api::decl_runtime_apis! {
 macro_rules! impl_runtime_apis_plus_revive_traits {
 	($Runtime: ty, $Revive: ident, $Executive: ty, $EthExtra: ty, $($rest:tt)*) => {
 
-		type __ReviveMacroMoment = <<$Runtime as $crate::Config>::Time as $crate::Time>::Moment;
+		type __ReviveMacroMoment = $crate::MomentOf<$Runtime>;
 
 		impl $crate::evm::runtime::SetWeightLimit for RuntimeCall {
 			fn set_weight_limit(&mut self, new_weight_limit: Weight) -> Weight {
@@ -3318,40 +3327,67 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 				fn eth_transact(
 					tx: $crate::pallet_revive_types::runtime_api::GenericTransactionV1,
-				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
-					use $crate::{
-						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
-						sp_runtime::traits::TransactionExtension,
-						sp_runtime::traits::Block as BlockT
-					};
-					let tx = $crate::evm::GenericTransaction::from(tx);
-					$crate::Pallet::<Self>::dry_run_eth_transact(tx, Default::default())
+				) -> Result<
+					$crate::pallet_revive_types::runtime_api::EthTransactInfoV1<Balance>,
+					$crate::EthTransactError
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = EthTransactVersionedInputPayload::from(EthTransactInputPayloadV1 {
+						tx,
+						timestamp_override: None,
+						perform_balance_checks: true,
+						state_overrides: None
+					});
+					let output = Self::eth_transact_versioned(input)?;
+					Ok(EthTransactOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.transact_info)
 				}
 
 				fn eth_transact_with_config(
 					tx: $crate::pallet_revive_types::runtime_api::GenericTransactionV1,
-					config: $crate::DryRunConfig<__ReviveMacroMoment>,
-				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
-					use $crate::{
-						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
-						sp_runtime::traits::TransactionExtension,
-						sp_runtime::traits::Block as BlockT
-					};
-					let tx = $crate::evm::GenericTransaction::from(tx);
-					$crate::Pallet::<Self>::dry_run_eth_transact(tx, config)
+					config: $crate::pallet_revive_types::runtime_api::DryRunConfigV1<__ReviveMacroMoment>,
+				) -> Result<
+					$crate::pallet_revive_types::runtime_api::EthTransactInfoV1<Balance>,
+					$crate::EthTransactError
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let DryRunConfigV1 { timestamp_override, perform_balance_checks, state_overrides } =
+						config;
+
+					let input = EthTransactVersionedInputPayload::from(EthTransactInputPayloadV1 {
+						tx,
+						timestamp_override,
+						perform_balance_checks: perform_balance_checks.unwrap_or(false),
+						state_overrides
+					});
+					let output = Self::eth_transact_versioned(input)?;
+					Ok(EthTransactOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.transact_info)
 				}
 
 				fn eth_estimate_gas(
 					tx: $crate::pallet_revive_types::runtime_api::GenericTransactionV1,
-					config: $crate::DryRunConfig<__ReviveMacroMoment>,
+					config: $crate::pallet_revive_types::runtime_api::DryRunConfigV1<__ReviveMacroMoment>,
 				) -> Result<$crate::U256, $crate::EthTransactError>  {
+					use $crate::pallet_revive_types::runtime_api::*;
 					use $crate::{
 						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
 						sp_runtime::traits::TransactionExtension,
 						sp_runtime::traits::Block as BlockT
 					};
+
 					let tx = $crate::evm::GenericTransaction::from(tx);
-					$crate::Pallet::<Self>::eth_estimate_gas(tx, config)
+					let DryRunConfigV1 { timestamp_override, perform_balance_checks: _, state_overrides } =
+						config;
+					$crate::Pallet::<Self>::eth_estimate_gas(
+						tx,
+						timestamp_override,
+						state_overrides.map(Into::into),
+					)
 				}
 
 				fn eth_pre_dispatch_weight(
@@ -3390,7 +3426,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 							deposit_limit: storage_deposit_limit.unwrap_or(u128::MAX),
 						},
 						input_data,
-						&$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
+						&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
 					)
 				}
 
@@ -3418,7 +3454,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						code,
 						data,
 						salt,
-						&$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
+						&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
 					)
 				}
 
@@ -3773,6 +3809,41 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						nonce: $crate::frame_system::Pallet::<Self>::account_nonce(account)
 					};
 					output_wrapper(output)
+				}
+
+				fn eth_transact_versioned(
+					input: $crate::pallet_revive_types::runtime_api::EthTransactVersionedInputPayload<__ReviveMacroMoment>
+				) -> Result<
+					$crate::pallet_revive_types::runtime_api::EthTransactVersionedOutputPayload<Balance>,
+					$crate::EthTransactError
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use $crate::{
+						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
+						sp_runtime::traits::TransactionExtension,
+						sp_runtime::traits::Block as BlockT
+					};
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(EthTransactOutputPayload<Balance>) -> EthTransactVersionedOutputPayload<Balance>>,
+					) = match input {
+						EthTransactVersionedInputPayload::V1(payload) => (
+							EthTransactInputPayload::from(payload),
+							Box::new(|output| EthTransactVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let transact_info = $crate::Pallet::<Self>::dry_run_eth_transact(
+						input.tx,
+						input.timestamp_override,
+						input.perform_balance_checks,
+						input.state_overrides,
+					)?;
+					let output = EthTransactOutputPayload { transact_info };
+					Ok(output_wrapper(output))
 				}
 
 				fn eth_pre_dispatch_weight_versioned(
@@ -4137,7 +4208,9 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					t.watch_address(&input.tx.from.unwrap_or_default());
 					t.watch_address(&$crate::Pallet::<Self>::block_author());
-					let result = trace(t, || Self::eth_transact(input.tx.into()));
+					let result = trace(t, || {
+						$crate::Pallet::<Self>::dry_run_eth_transact(input.tx, None, true, None)
+					});
 
 					let trace = if let Some(trace) = tracer.collect_trace() {
 						Ok(trace)

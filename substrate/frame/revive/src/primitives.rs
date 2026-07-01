@@ -18,13 +18,14 @@
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
 use crate::{
-	BalanceOf, Config, H160, Time, U256, deposit_payment::Funds, evm::DryRunConfig,
-	mock::MockHandler, storage::WriteOutcome, transient_storage::TransientStorage,
+	BalanceOf, Config, H160, U256, deposit_payment::Funds, exec::MomentOf, mock::MockHandler,
+	storage::WriteOutcome, transient_storage::TransientStorage,
 };
 use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::cell::RefCell;
 use frame_support::{DefaultNoBound, traits::tokens::Balance, weights::Weight};
+use pallet_revive_types::runtime_api::EthTransactInfoV1;
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_core::Get;
@@ -89,7 +90,7 @@ impl<R: Default, B: Balance> Default for ContractResult<R, B> {
 }
 
 /// The result of the execution of a `eth_transact` call.
-#[derive(Clone, Eq, PartialEq, Default, Encode, Decode, Debug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Default, Debug)]
 pub struct EthTransactInfo<Balance> {
 	/// The amount of weight that was necessary to execute the transaction.
 	pub weight_required: Weight,
@@ -101,6 +102,18 @@ pub struct EthTransactInfo<Balance> {
 	pub eth_gas: U256,
 	/// The execution return value.
 	pub data: Vec<u8>,
+}
+
+impl<Balance> From<EthTransactInfo<Balance>> for EthTransactInfoV1<Balance> {
+	fn from(value: EthTransactInfo<Balance>) -> Self {
+		Self {
+			weight_required: value.weight_required,
+			storage_deposit: value.storage_deposit,
+			max_storage_deposit: value.max_storage_deposit,
+			eth_gas: value.eth_gas,
+			data: value.data,
+		}
+	}
 }
 
 /// Error type of a `eth_transact` call.
@@ -394,7 +407,7 @@ pub struct ExecConfig<T: Config> {
 	pub effective_gas_price: Option<U256>,
 	/// Whether this configuration was created for a dry-run execution.
 	/// Use to enable logic that should only run in dry-run mode.
-	pub is_dry_run: Option<DryRunConfig<<<T as Config>::Time as Time>::Moment>>,
+	pub is_dry_run: Option<DryRunConfigurations<MomentOf<T>>>,
 	/// An optional mock handler that can be used to override certain behaviors.
 	/// This is primarily used for testing purposes and should be `None` in production
 	/// environments.
@@ -443,11 +456,9 @@ impl<T: Config> ExecConfig<T> {
 	}
 
 	/// Set this config to be a dry-run.
-	pub fn with_dry_run(
-		mut self,
-		dry_run_config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
-	) -> Self {
-		self.is_dry_run = Some(dry_run_config);
+	pub fn with_dry_run(mut self, timestamp_override: impl Into<Option<MomentOf<T>>>) -> Self {
+		self.is_dry_run =
+			Some(DryRunConfigurations { timestamp_override: timestamp_override.into() });
 		self
 	}
 
@@ -474,6 +485,11 @@ impl<T: Config> ExecConfig<T> {
 			test_env_transient_storage: None,
 		}
 	}
+}
+
+#[derive(Clone)]
+pub struct DryRunConfigurations<Moment> {
+	pub timestamp_override: Option<Moment>,
 }
 
 /// Indicates whether the code was removed after the last refcount was decremented.

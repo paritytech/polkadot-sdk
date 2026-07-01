@@ -21,10 +21,7 @@ use crate::{
 	subxt_client::{self, SrcChainConfig},
 };
 use futures::{StreamExt, TryFutureExt, stream};
-use pallet_revive::{
-	DryRunConfig, EthTransactInfo,
-	evm::{Block as EthBlock, H160, U256},
-};
+use pallet_revive::evm::{Block as EthBlock, H160, U256};
 use pallet_revive_types::runtime_api::*;
 use sp_core::H256;
 use sp_timestamp::Timestamp;
@@ -88,7 +85,7 @@ impl RuntimeApi {
 					.revive_api()
 					.eth_estimate_gas(
 						tx.clone().into(),
-						DryRunConfig::default().with_timestamp_override(timestamp_override).into(),
+						DryRunConfigV1 { timestamp_override, ..Default::default() }.into(),
 					)
 					.unvalidated();
 				self.0.call(payload).await.map(|value| value.map(|value| value.0))
@@ -99,7 +96,7 @@ impl RuntimeApi {
 					.revive_api()
 					.eth_transact_with_config(
 						tx.clone().into(),
-						DryRunConfig::default().with_timestamp_override(timestamp_override).into(),
+						DryRunConfigV1 { timestamp_override, ..Default::default() }.into(),
 					)
 					.unvalidated();
 				self.0.call(payload).await.map(|value| value.map(|value| value.eth_gas))
@@ -131,18 +128,16 @@ impl RuntimeApi {
 		Err(ClientError::NoEstimationMethodSucceeded.into())
 	}
 
-	/// Dry run a transaction and returns the [`EthTransactInfo`] for the transaction.
+	/// Dry run a transaction and returns the [`EthTransactInfoV1`] for the transaction.
 	pub async fn dry_run(
 		&self,
 		tx: GenericTransactionV1,
 		block: BlockId,
 		state_overrides: Option<StateOverrideSetV1>,
-	) -> Result<EthTransactInfo<Balance>, ClientError> {
+	) -> Result<EthTransactInfoV1<Balance>, ClientError> {
 		let timestamp_override = block.is_pending().then(|| Timestamp::current().as_millis());
 
-		let config = DryRunConfig::default()
-			.with_timestamp_override(timestamp_override)
-			.with_state_overrides(state_overrides.map(Into::into));
+		let config = DryRunConfigV1 { timestamp_override, state_overrides, ..Default::default() };
 
 		let payload = subxt_client::apis()
 			.revive_api()

@@ -17,10 +17,8 @@
 
 use super::Bytes;
 use alloc::collections::BTreeMap;
-use codec::{Decode, Encode};
 use ethereum_types::*;
 use pallet_revive_types::runtime_api::*;
-use scale_info::TypeInfo;
 
 /// A mapping from account addresses to their state overrides, used to temporarily modify account
 /// state during `eth_call` and similar simulation methods without affecting on-chain data.
@@ -29,7 +27,7 @@ use scale_info::TypeInfo;
 /// account's state to replace for the duration of the call.
 ///
 /// Conforms to the [Geth state override set specification](https://geth.ethereum.org/docs/interacting-with-geth/rpc/objects#state-override-set).
-#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct StateOverrideSet(pub BTreeMap<Address, StateOverride>);
 
 impl core::ops::Deref for StateOverrideSet {
@@ -62,7 +60,7 @@ impl From<StateOverrideSetV1> for StateOverrideSet {
 ///
 /// The Geth state override specification mandates that `state` and `stateDiff` are mutually
 /// exclusive. This enum encodes that constraint at the type level.
-#[derive(Debug, Clone, Encode, Decode, TypeInfo, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum StorageOverride {
 	/// Completely replaces the account's storage with the provided mapping. Any existing slots
 	/// not present in the mapping are effectively zeroed out.
@@ -87,7 +85,7 @@ impl From<StorageOverrideV1> for StorageOverride {
 /// account's state is read from the chain as normal.
 ///
 /// Conforms to the [Geth state override object specification](https://geth.ethereum.org/docs/interacting-with-geth/rpc/objects#state-override-set).
-#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct StateOverride {
 	/// Fake balance to set for the account before executing the call.
 	pub balance: Option<U256>,
