@@ -326,6 +326,7 @@ members = [
 	"substrate/frame/accumulate-and-forward",
 	"substrate/frame/alliance",
 	"substrate/frame/asset-conversion",
+	"substrate/frame/asset-conversion-storage-deposit",
 	"substrate/frame/asset-conversion/ops",
 	"substrate/frame/asset-conversion/precompiles",
 	"substrate/frame/asset-rate",
@@ -967,6 +968,7 @@ pallet-accumulate-and-forward = { path = "substrate/frame/accumulate-and-forward
 pallet-ah-ops = { path = "cumulus/pallets/ah-ops", default-features = false }
 pallet-alliance = { path = "substrate/frame/alliance", default-features = false }
 pallet-asset-conversion = { path = "substrate/frame/asset-conversion", default-features = false }
+pallet-asset-conversion-storage-deposit = { path = "substrate/frame/asset-conversion-storage-deposit", default-features = false }
 pallet-asset-conversion-ops = { path = "substrate/frame/asset-conversion/ops", default-features = false }
 pallet-asset-conversion-precompiles = { path = "substrate/frame/asset-conversion/precompiles", default-features = false }
 pallet-asset-conversion-tx-payment = { path = "substrate/frame/transaction-payment/asset-conversion-tx-payment", default-features = false }

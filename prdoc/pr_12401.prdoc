@@ -1,0 +1,23 @@
+title: Add `pallet-asset-conversion-storage-deposit`
+
+doc:
+- audience: Runtime Dev
+  description: |
+    Introduces `pallet-asset-conversion-storage-deposit`, a new FRAME pallet that enables
+    storage deposits to be collateralised using non-native fungible assets, as long as a
+    DOT/<asset> liquidity pool exists in `pallet-asset-conversion`.
+
+    Key components:
+
+    - **`FungiblesHoldConsideration`**: a `Consideration` implementation that holds the deposit
+      amount directly in the chosen asset (no price conversion). Pool existence is verified via
+      `pallet-asset-conversion` before the hold is placed.
+    - **`ChargeAssetStorageDeposit`**: a `TransactionExtension` that records the signer's
+      preferred deposit asset in `DepositAsset` storage before dispatch and clears it in
+      `post_dispatch_details`.
+    - **`HoldReason::StorageDeposit`**: a composite enum entry so the pallet contributes its
+      hold reason to the runtime-level `RuntimeHoldReason`.
+
+crates:
+  - name: pallet-asset-conversion-storage-deposit
+    bump: minor
