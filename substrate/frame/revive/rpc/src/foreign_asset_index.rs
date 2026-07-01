@@ -141,6 +141,11 @@ pub type FetchStorageRawFn = Arc<
 pub struct ForeignAssetIndex {
 	/// `Location (SCALE bytes) -> { block_number -> Option<u32> }`. Each entry records the mapping
 	/// as of that block: `Some(index)` on (re)creation, `None` on destruction (or read-as-absent).
+	///
+	/// Stamping is block-granular, not per-extrinsic: live indexing applies creations before
+	/// extraction and destructions after, so a same-block create+transfer+destroy still resolves.
+	/// An asset created *and* destroyed within one block is unindexed in archive mode only (no
+	/// mid-block state to read its index against).
 	journal: Arc<tokio::sync::Mutex<HashMap<Vec<u8>, BTreeMap<SubstrateBlockNumber, Option<u32>>>>>,
 	/// Which metadata pallet names are foreign-assets instances (and their address prefix).
 	config: AssetTransferConfig,
