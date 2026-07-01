@@ -268,6 +268,12 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 			}
+
+			impl sp_authority_discovery::AuthorityDiscoveryApi<$block> for $runtime {
+				fn authorities() -> Vec<sp_authority_discovery::AuthorityId> {
+					unimplemented!()
+				}
+			}
 		}
 	};
 }
