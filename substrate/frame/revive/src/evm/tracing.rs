@@ -64,6 +64,9 @@ where
 
 	/// Collect the traces, or `None` if nothing ran — uniformly, a trace equal to
 	/// [`empty_trace`](Self::empty_trace) is reported as nothing.
+	///
+	/// NOTE: This assumes a tracer that runs always traces something. A tracer that can run yet
+	/// stay empty would be wrongly dropped here, and must instead report whether it was invoked.
 	pub fn collect_trace(self) -> Option<Trace> {
 		let empty = self.empty_trace();
 		let trace = match self {
@@ -85,6 +88,8 @@ mod tests {
 	use super::*;
 	use crate::tests::{ExtBuilder, Test};
 
+	// An extrinsic that runs no contract code must produce no trace, so
+	// consumers can rely on a trace's presence to mean a contract actually ran.
 	#[test]
 	fn collect_trace_is_none_when_nothing_executed() {
 		ExtBuilder::default().build().execute_with(|| {
