@@ -34,7 +34,7 @@ use polkadot_sdk::{
 		RuntimeMetadata, RuntimeMetadataPrefixed,
 	},
 };
-use scale_info::{form::PortableForm, Field, TypeDef};
+use scale_info::{form::PortableForm, Field, Type, TypeDef};
 
 const UNVERSIONED_RUNTIME_APIS: [&str; 28] = [
 	"eth_block",
@@ -143,30 +143,8 @@ fn test_versioned_runtime_api_invariants() {
 			.types
 			.resolve(output.id)
 			.expect("impossible on well-formed metadata; qed");
-		let output_type = if let TypeDef::Variant(ref variants) = output_type.type_def {
-			if output_type.path.ident().is_some_and(|ident| ident == "Result") {
-				if let [variant1, _] = variants.variants.as_slice() {
-					if let [field] = variant1.fields.as_slice() {
-						if field.name.is_none() {
-							metadata
-								.types
-								.resolve(field.ty.id)
-								.expect("impossible on well-formed metadata; qed")
-						} else {
-							output_type
-						}
-					} else {
-						output_type
-					}
-				} else {
-					output_type
-				}
-			} else {
-				output_type
-			}
-		} else {
-			output_type
-		};
+		let output_type =
+			extract_ok_type_from_result(output_type, &metadata).unwrap_or(output_type);
 
 		let input_type_name = input_type.path.ident().expect("an input type has an ident; qed");
 		let output_type_name = output_type.path.ident().expect("an output type has an ident; qed");
@@ -388,4 +366,33 @@ fn snake_to_camel(string: &str) -> String {
 	let mut acc = String::new();
 	unsafe { internal(string, &mut acc) };
 	acc
+}
+
+fn extract_ok_type_from_result<'a>(
+	ty: &Type<PortableForm>,
+	metadata: &'a RuntimeMetadataV16,
+) -> Option<&'a Type<PortableForm>> {
+	let Some("Result") = ty.path.ident().as_deref() else { return None };
+
+	let TypeDef::Variant(ref variants) = ty.type_def else {
+		return None;
+	};
+
+	let [variant1, variant2] = variants.variants.as_slice() else {
+		return None;
+	};
+
+	if variant1.name != "Ok" || variant1.index != 0 || variant2.name != "Err" || variant2.index != 1
+	{
+		return None;
+	};
+
+	let [field @ Field { name: None, .. }] = variant1.fields.as_slice() else { return None };
+
+	Some(
+		metadata
+			.types
+			.resolve(field.ty.id)
+			.expect("impossible on well-formed metadata; qed"),
+	)
 }
