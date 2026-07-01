@@ -342,12 +342,6 @@ pub trait WithExecutionTimeout {
 
 impl<H> WithExecutionTimeout for WasmExecutor<H> {
 	fn with_execution_timeout(&self, timeout: Duration) -> Self {
-		// TEMPORARY BENCHMARK (do not merge): bump the capped executor's heap so large-runtime
-		// metadata generation (e.g. Asset Hub V15) doesn't OOM the default 128 MiB heap while we
-		// measure it. Metadata calls run in the offchain context; bump both to be safe. Only affects
-		// the capped (light-request) executor, not consensus.
-		const BENCH_HEAP: HeapAllocStrategy =
-			HeapAllocStrategy::Dynamic { maximum_pages: Some(16384) };
 		Self {
 			// The capped executor compiles into its own engine and serves only light-client
 			// requests, so a small dedicated cache suffices.
@@ -359,8 +353,6 @@ impl<H> WithExecutionTimeout for WasmExecutor<H> {
 				CAPPED_EXECUTOR_RUNTIME_CACHE_SIZE,
 			)),
 			execution_timeout: Some(timeout),
-			default_onchain_heap_alloc_strategy: BENCH_HEAP,
-			default_offchain_heap_alloc_strategy: BENCH_HEAP,
 			..self.clone()
 		}
 	}
