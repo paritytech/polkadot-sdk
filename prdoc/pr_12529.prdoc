@@ -9,8 +9,6 @@ doc:
     - Pallet `#[pallet::genesis_build]` now only accepts `BuildGenesisConfig`
     - Updated docs and UI test expectations accordingly
 
-    Part of #11561
-
     ## Migration
 
     If you still use the old genesis build syntax:
