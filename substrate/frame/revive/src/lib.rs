@@ -3130,8 +3130,8 @@ sp_api::decl_runtime_apis! {
 
 		#[api_version(2)]
 		fn eth_pre_dispatch_weight_versioned(
-			input: EthPreDispatchWeightVersionedInputPayload
-		) -> Result<EthPreDispatchWeightVersionedOutputPayload, EthTransactError>;
+			input: PreDispatchWeightVersionedInputPayload
+		) -> Result<PreDispatchWeightVersionedOutputPayload, EthTransactError>;
 
 		#[api_version(2)]
 		fn upload_code_versioned(
@@ -3353,11 +3353,11 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				) -> Result<$crate::Weight, $crate::EthTransactError> {
 					use $crate::pallet_revive_types::runtime_api::*;
 
-					let input = EthPreDispatchWeightVersionedInputPayload::from(
-						EthPreDispatchWeightInputPayloadV1 { tx }
+					let input = PreDispatchWeightVersionedInputPayload::from(
+						PreDispatchWeightInputPayloadV1 { tx }
 					);
 					let output = Self::eth_pre_dispatch_weight_versioned(input)?;
-					Ok(EthPreDispatchWeightOutputPayloadV1::try_from(output)
+					Ok(PreDispatchWeightOutputPayloadV1::try_from(output)
 						.expect("v1 input must produce v1 output; qed")
 						.weight)
 				}
@@ -3777,9 +3777,9 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn eth_pre_dispatch_weight_versioned(
-					input: $crate::pallet_revive_types::runtime_api::EthPreDispatchWeightVersionedInputPayload
+					input: $crate::pallet_revive_types::runtime_api::PreDispatchWeightVersionedInputPayload
 				) -> Result<
-					$crate::pallet_revive_types::runtime_api::EthPreDispatchWeightVersionedOutputPayload,
+					$crate::pallet_revive_types::runtime_api::PreDispatchWeightVersionedOutputPayload,
 					$crate::EthTransactError
 				> {
 					use $crate::pallet_revive_types::runtime_api::*;
@@ -3788,15 +3788,15 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					let (input, output_wrapper): (
 						_,
-						Box<dyn Fn(EthPreDispatchWeightOutputPayload) -> EthPreDispatchWeightVersionedOutputPayload>,
+						Box<dyn Fn(PreDispatchWeightOutputPayload) -> PreDispatchWeightVersionedOutputPayload>,
 					) = match input {
-						EthPreDispatchWeightVersionedInputPayload::V1(payload) => (
-							EthPreDispatchWeightInputPayload::from(payload),
-							Box::new(|output| EthPreDispatchWeightVersionedOutputPayload::V1(output.into())),
+						PreDispatchWeightVersionedInputPayload::V1(payload) => (
+							PreDispatchWeightInputPayload::from(payload),
+							Box::new(|output| PreDispatchWeightVersionedOutputPayload::V1(output.into())),
 						),
 					};
 
-					let output = EthPreDispatchWeightOutputPayload {
+					let output = PreDispatchWeightOutputPayload {
 						weight: $crate::Pallet::<Self>::eth_pre_dispatch_weight(input.tx)?
 					};
 					Ok(output_wrapper(output))
