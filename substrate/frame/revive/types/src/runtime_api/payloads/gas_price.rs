@@ -15,14 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod receipt;
-mod storage;
-mod tracer;
-mod traces;
-mod upload;
+use codec::{Decode, Encode};
+use derive_more::{From, TryInto};
+use scale_info::TypeInfo;
+use sp_core::U256;
 
-pub use receipt::*;
-pub use storage::*;
-pub use tracer::*;
-pub use traces::*;
-pub use upload::*;
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct GasPriceInputPayloadV1;
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
+pub enum GasPriceVersionedInputPayload {
+	V1(GasPriceInputPayloadV1),
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct GasPriceOutputPayloadV1 {
+	pub gas_price: U256,
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
+pub enum GasPriceVersionedOutputPayload {
+	V1(GasPriceOutputPayloadV1),
+}
