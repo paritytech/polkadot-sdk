@@ -15,14 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod receipt;
-mod storage;
-mod tracer;
-mod traces;
-mod upload;
+use codec::{Decode, Encode};
+use derive_more::{From, TryInto};
+use scale_info::TypeInfo;
+use sp_core::H160;
 
-pub use receipt::*;
-pub use storage::*;
-pub use tracer::*;
-pub use traces::*;
-pub use upload::*;
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct BlockAuthorInputPayloadV1;
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
+pub enum BlockAuthorVersionedInputPayload {
+	V1(BlockAuthorInputPayloadV1),
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct BlockAuthorOutputPayloadV1 {
+	pub block_author: H160,
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
+pub enum BlockAuthorVersionedOutputPayload {
+	V1(BlockAuthorOutputPayloadV1),
+}

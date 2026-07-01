@@ -15,43 +15,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
 use scale_info::TypeInfo;
-
-use crate::runtime_api::*;
-
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockInputPayloadV1<Block> {
-	pub block: Block,
-	pub config: TracerTypeV1,
-}
+use sp_core::{H256, U256};
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockInputPayloadV2<Block> {
-	pub block: Block,
-	pub config: TracerTypeV1,
+pub struct BlockHashInputPayloadV1 {
+	pub block_number: U256,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum TraceBlockVersionedInputPayload<Block> {
-	V1(TraceBlockInputPayloadV1<Block>),
-	V2(TraceBlockInputPayloadV2<Block>),
+pub enum BlockHashVersionedInputPayload {
+	V1(BlockHashInputPayloadV1),
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockOutputPayloadV1 {
-	pub traces: Vec<(u32, TraceV1)>,
-}
-
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockOutputPayloadV2 {
-	pub traces: Vec<(u32, TraceV2)>,
+pub struct BlockHashOutputPayloadV1 {
+	pub block_hash: Option<H256>,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum TraceBlockVersionedOutputPayload {
-	V1(TraceBlockOutputPayloadV1),
-	V2(TraceBlockOutputPayloadV2),
+pub enum BlockHashVersionedOutputPayload {
+	V1(BlockHashOutputPayloadV1),
 }

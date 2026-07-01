@@ -15,43 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
 use scale_info::TypeInfo;
-
-use crate::runtime_api::*;
+use sp_core::U256;
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockInputPayloadV1<Block> {
-	pub block: Block,
-	pub config: TracerTypeV1,
+pub struct MaxExtrinsicWeightInGasInputPayloadV1;
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
+pub enum MaxExtrinsicWeightInGasVersionedInputPayload {
+	V1(MaxExtrinsicWeightInGasInputPayloadV1),
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockInputPayloadV2<Block> {
-	pub block: Block,
-	pub config: TracerTypeV1,
+pub struct MaxExtrinsicWeightInGasOutputPayloadV1 {
+	pub max_extrinsic_weight_in_gas: U256,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum TraceBlockVersionedInputPayload<Block> {
-	V1(TraceBlockInputPayloadV1<Block>),
-	V2(TraceBlockInputPayloadV2<Block>),
-}
-
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockOutputPayloadV1 {
-	pub traces: Vec<(u32, TraceV1)>,
-}
-
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockOutputPayloadV2 {
-	pub traces: Vec<(u32, TraceV2)>,
-}
-
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum TraceBlockVersionedOutputPayload {
-	V1(TraceBlockOutputPayloadV1),
-	V2(TraceBlockOutputPayloadV2),
+pub enum MaxExtrinsicWeightInGasVersionedOutputPayload {
+	V1(MaxExtrinsicWeightInGasOutputPayloadV1),
 }

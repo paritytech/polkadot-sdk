@@ -15,14 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod receipt;
-mod storage;
-mod tracer;
-mod traces;
-mod upload;
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
+use sp_core::U256;
 
-pub use receipt::*;
-pub use storage::*;
-pub use tracer::*;
-pub use traces::*;
-pub use upload::*;
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
+pub struct ReceiptGasInfoV1 {
+	pub gas_used: U256,
+	pub effective_gas_price: U256,
+}

@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
 use scale_info::TypeInfo;
@@ -23,35 +22,37 @@ use scale_info::TypeInfo;
 use crate::runtime_api::*;
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockInputPayloadV1<Block> {
+pub struct TraceTxInputPayloadV1<Block> {
 	pub block: Block,
+	pub tx_index: u32,
 	pub config: TracerTypeV1,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockInputPayloadV2<Block> {
+pub struct TraceTxInputPayloadV2<Block> {
 	pub block: Block,
+	pub tx_index: u32,
 	pub config: TracerTypeV1,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum TraceBlockVersionedInputPayload<Block> {
-	V1(TraceBlockInputPayloadV1<Block>),
-	V2(TraceBlockInputPayloadV2<Block>),
+pub enum TraceTxVersionedInputPayload<Block> {
+	V1(TraceTxInputPayloadV1<Block>),
+	V2(TraceTxInputPayloadV2<Block>),
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockOutputPayloadV1 {
-	pub traces: Vec<(u32, TraceV1)>,
+pub struct TraceTxOutputPayloadV1 {
+	pub trace: Option<TraceV1>,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockOutputPayloadV2 {
-	pub traces: Vec<(u32, TraceV2)>,
+pub struct TraceTxOutputPayloadV2 {
+	pub trace: Option<TraceV2>,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum TraceBlockVersionedOutputPayload {
-	V1(TraceBlockOutputPayloadV1),
-	V2(TraceBlockOutputPayloadV2),
+pub enum TraceTxVersionedOutputPayload {
+	V1(TraceTxOutputPayloadV1),
+	V2(TraceTxOutputPayloadV2),
 }

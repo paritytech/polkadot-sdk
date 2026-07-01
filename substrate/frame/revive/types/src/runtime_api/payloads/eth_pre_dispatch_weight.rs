@@ -19,39 +19,24 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
 use scale_info::TypeInfo;
-
-use crate::runtime_api::*;
-
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockInputPayloadV1<Block> {
-	pub block: Block,
-	pub config: TracerTypeV1,
-}
+use sp_weights::Weight;
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockInputPayloadV2<Block> {
-	pub block: Block,
-	pub config: TracerTypeV1,
+pub struct EthPreDispatchWeightInputPayloadV1 {
+	pub tx: Vec<u8>,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum TraceBlockVersionedInputPayload<Block> {
-	V1(TraceBlockInputPayloadV1<Block>),
-	V2(TraceBlockInputPayloadV2<Block>),
+pub enum EthPreDispatchWeightVersionedInputPayload {
+	V1(EthPreDispatchWeightInputPayloadV1),
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockOutputPayloadV1 {
-	pub traces: Vec<(u32, TraceV1)>,
-}
-
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockOutputPayloadV2 {
-	pub traces: Vec<(u32, TraceV2)>,
+pub struct EthPreDispatchWeightOutputPayloadV1 {
+	pub weight: Weight,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum TraceBlockVersionedOutputPayload {
-	V1(TraceBlockOutputPayloadV1),
-	V2(TraceBlockOutputPayloadV2),
+pub enum EthPreDispatchWeightVersionedOutputPayload {
+	V1(EthPreDispatchWeightOutputPayloadV1),
 }
