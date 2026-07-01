@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782823008914,
+  "lastUpdate": 1782905683251,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fe0113539b123b282654ddaa7c7d548a1b59a58b",
-          "message": "Upgrade kvdb-rocksdb (#10242)\n\nThis includes a fix for when we are writing a lot of state, e.g. after a\nwarp sync. In this case the rocksdb will compact its own db to improve\nread speed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-07T13:57:37Z",
-          "tree_id": "ff2f6f74917708c0ef3a8bf354f479adfeb09a1a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/fe0113539b123b282654ddaa7c7d548a1b59a58b"
-        },
-        "date": 1762528092466,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20646861893333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.312769073499998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13697422116666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ceea8fe5116c2c721b3ee190016e98400296f4a3",
+          "message": "[Staking] Fix pendingRewards returning true for exposed validators with zero points (#12441)\n\ncloses #12435\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-07-01T08:51:09Z",
+          "tree_id": "3dc52ee8fb93900eed5317194d41cf2738b6df11",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ceea8fe5116c2c721b3ee190016e98400296f4a3"
+        },
+        "date": 1782905651187,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.898659398700001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13464169373333332,
             "unit": "seconds"
           }
         ]
