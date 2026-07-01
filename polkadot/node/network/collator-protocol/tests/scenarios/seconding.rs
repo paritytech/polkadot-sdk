@@ -339,3 +339,48 @@ mod v1_full_seconding_with_back_notification {
 		);
 	}
 }
+
+mod source_peer_disconnect_after_fetch {
+	use crate::common::{
+		builders::{Candidate, ProtocolVersion::V1},
+		harness::CollatorSut,
+		world::{activated_world, WorldExt as _},
+	};
+	use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
+	use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
+
+	const PARA: ParaId = ParaId::new(2000);
+
+	// A collation that has already been fetched is not reclaimed when the collator that served it
+	// disconnects: the PoV is in hand and independent of the connection, so seconding still
+	// proceeds. Only *queued/in-flight* work is dropped on disconnect (see
+	// `disconnect_clears_queued_advertisement`).
+	#[crate::sim_test]
+	fn fetched_collation_survives_source_peer_disconnect<S: CollatorSut>() {
+		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+		let leaf = w.leaf();
+		let candidate = w
+			.candidate_at(leaf)
+			.para(PARA)
+			.parent_head(HeadData(Vec::new()))
+			.head_data(HeadData(vec![1]))
+			.build();
+		w.outputs
+			.insert(candidate.hash(), candidate.commitments.clone(), candidate.pvd.clone());
+
+		let peer = w.declared_peer(PARA, V1);
+		w.base.sim.send(peer.advertise(leaf, None, None));
+		let (_, request_id, _) = w.expect_any_fetch();
+
+		// Fetch completes: the collation is now held, independent of the peer.
+		w.respond_fetch_v1(request_id, candidate.receipt.clone(), Candidate::empty_pov());
+
+		// The collator disconnects after we already have the collation.
+		w.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
+			NetworkBridgeEvent::PeerDisconnected(peer.peer_id),
+		));
+
+		// Seconding still proceeds — the disconnect did not reclaim the held collation.
+		w.expect_second(&candidate);
+	}
+}
