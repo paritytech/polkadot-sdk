@@ -25,71 +25,54 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use derive_more::{From, TryInto};
 use ethereum_types::*;
+use pallet_revive_types::runtime_api::*;
 use scale_info::TypeInfo;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 /// Transaction object generic to all types
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct GenericTransaction {
 	/// accessList
 	/// EIP-2930 access list
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub access_list: Option<AccessList>,
 	/// authorizationList
 	/// List of account code authorizations (EIP-7702)
-	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub authorization_list: Vec<AuthorizationListEntry>,
 	/// blobVersionedHashes
 	/// List of versioned blob hashes associated with the transaction's EIP-4844 data blobs.
-	#[serde(default)]
 	pub blob_versioned_hashes: Vec<H256>,
 	/// blobs
 	/// Raw blob data.
-	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub blobs: Vec<Bytes>,
 	/// chainId
 	/// Chain ID that this transaction is valid on.
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub chain_id: Option<U256>,
 	/// from address
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub from: Option<Address>,
 	/// gas limit
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub gas: Option<U256>,
 	/// gas price
 	/// The gas price willing to be paid by the sender in wei
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub gas_price: Option<U256>,
 	/// input data
-	#[serde(flatten, deserialize_with = "deserialize_input_or_data")]
 	pub input: InputOrData,
 	/// max fee per blob gas
 	/// The maximum total fee per gas the sender is willing to pay for blob gas in wei
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub max_fee_per_blob_gas: Option<U256>,
 	/// max fee per gas
 	/// The maximum total fee per gas the sender is willing to pay (includes the network / base fee
 	/// and miner / priority fee) in wei
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub max_fee_per_gas: Option<U256>,
 	/// max priority fee per gas
 	/// Maximum fee per gas the sender is willing to pay to miners in wei
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub max_priority_fee_per_gas: Option<U256>,
 	/// nonce
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub nonce: Option<U256>,
 	/// to address
 	pub to: Option<Address>,
 	/// type
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub r#type: Option<Byte>,
 	/// value
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub value: Option<U256>,
 }
 
@@ -278,6 +261,52 @@ impl GenericTransaction {
 			}
 			.into()),
 			_ => Err(()),
+		}
+	}
+}
+
+impl From<GenericTransactionV1> for GenericTransaction {
+	fn from(value: GenericTransactionV1) -> Self {
+		Self {
+			access_list: value.access_list.map(|list| list.into_iter().map(Into::into).collect()),
+			authorization_list: value.authorization_list.into_iter().map(Into::into).collect(),
+			blob_versioned_hashes: value.blob_versioned_hashes,
+			blobs: value.blobs,
+			chain_id: value.chain_id,
+			from: value.from,
+			gas: value.gas,
+			gas_price: value.gas_price,
+			input: value.input.into(),
+			max_fee_per_blob_gas: value.max_fee_per_blob_gas,
+			max_fee_per_gas: value.max_fee_per_gas,
+			max_priority_fee_per_gas: value.max_priority_fee_per_gas,
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type,
+			value: value.value,
+		}
+	}
+}
+
+impl From<GenericTransaction> for GenericTransactionV1 {
+	fn from(value: GenericTransaction) -> Self {
+		Self {
+			access_list: value.access_list.map(|list| list.into_iter().map(Into::into).collect()),
+			authorization_list: value.authorization_list.into_iter().map(Into::into).collect(),
+			blob_versioned_hashes: value.blob_versioned_hashes,
+			blobs: value.blobs,
+			chain_id: value.chain_id,
+			from: value.from,
+			gas: value.gas,
+			gas_price: value.gas_price,
+			input: value.input.into(),
+			max_fee_per_blob_gas: value.max_fee_per_blob_gas,
+			max_fee_per_gas: value.max_fee_per_gas,
+			max_priority_fee_per_gas: value.max_priority_fee_per_gas,
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type,
+			value: value.value,
 		}
 	}
 }
@@ -788,6 +817,18 @@ pub struct AccessListEntry {
 	pub storage_keys: Vec<H256>,
 }
 
+impl From<AccessListEntryV1> for AccessListEntry {
+	fn from(value: AccessListEntryV1) -> Self {
+		Self { address: value.address, storage_keys: value.storage_keys }
+	}
+}
+
+impl From<AccessListEntry> for AccessListEntryV1 {
+	fn from(value: AccessListEntry) -> Self {
+		Self { address: value.address, storage_keys: value.storage_keys }
+	}
+}
+
 /// Authorization list entry for EIP-7702
 #[derive(
 	Debug,
@@ -816,6 +857,32 @@ pub struct AuthorizationListEntry {
 	pub r: U256,
 	/// s component of signature
 	pub s: U256,
+}
+
+impl From<AuthorizationListEntryV1> for AuthorizationListEntry {
+	fn from(value: AuthorizationListEntryV1) -> Self {
+		Self {
+			chain_id: value.chain_id,
+			address: value.address,
+			nonce: value.nonce,
+			y_parity: value.y_parity,
+			r: value.r,
+			s: value.s,
+		}
+	}
+}
+
+impl From<AuthorizationListEntry> for AuthorizationListEntryV1 {
+	fn from(value: AuthorizationListEntry) -> Self {
+		Self {
+			chain_id: value.chain_id,
+			address: value.address,
+			nonce: value.nonce,
+			y_parity: value.y_parity,
+			r: value.r,
+			s: value.s,
+		}
+	}
 }
 
 #[derive(
@@ -865,13 +932,9 @@ impl HashesOrTransactionInfos {
 }
 
 /// Input of a `GenericTransaction`
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct InputOrData {
-	#[serde(skip_serializing_if = "Option::is_none")]
 	input: Option<Bytes>,
-	#[serde(skip_serializing_if = "Option::is_none")]
 	data: Option<Bytes>,
 }
 
@@ -917,15 +980,15 @@ impl InputOrData {
 	}
 }
 
-fn deserialize_input_or_data<'d, D: Deserializer<'d>>(d: D) -> Result<InputOrData, D::Error> {
-	let value = InputOrData::deserialize(d)?;
-	match &value {
-		InputOrData { input: Some(input), data: Some(data) } if input != data => {
-			Err(serde::de::Error::custom(
-				"Both \"data\" and \"input\" are set and not equal. Please use \"input\" to pass transaction call data",
-			))
-		},
-		_ => Ok(value),
+impl From<InputOrDataV1> for InputOrData {
+	fn from(value: InputOrDataV1) -> Self {
+		Self { input: value.input, data: value.data }
+	}
+}
+
+impl From<InputOrData> for InputOrDataV1 {
+	fn from(value: InputOrData) -> Self {
+		Self { input: value.input, data: value.data }
 	}
 }
 
@@ -1047,29 +1110,6 @@ mod tests {
 		"#;
 		let result: HashesOrTransactionInfos = serde_json::from_str(json).unwrap();
 		assert!(matches!(result, HashesOrTransactionInfos::TransactionInfos(_)));
-	}
-
-	#[test]
-	fn can_deserialize_input_or_data_field_from_generic_transaction() {
-		let cases = [
-			("with input", r#"{"input": "0x01"}"#),
-			("with data", r#"{"data": "0x01"}"#),
-			("with both", r#"{"data": "0x01", "input": "0x01"}"#),
-		];
-
-		for (name, json) in cases {
-			let tx = serde_json::from_str::<GenericTransaction>(json).unwrap();
-			assert_eq!(tx.input.to_vec(), vec![1u8], "{}", name);
-		}
-
-		let err =
-			serde_json::from_str::<GenericTransaction>(r#"{"data": "0x02", "input": "0x01"}"#)
-				.unwrap_err();
-		assert!(
-			err.to_string().starts_with(
-			"Both \"data\" and \"input\" are set and not equal. Please use \"input\" to pass transaction call data"
-			)
-		);
 	}
 
 	#[test]

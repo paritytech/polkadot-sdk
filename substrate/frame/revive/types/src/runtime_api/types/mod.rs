@@ -16,13 +16,17 @@
 // limitations under the License.
 
 mod receipt;
+mod state_overrides;
 mod storage;
 mod tracer;
 mod traces;
+mod transaction;
 mod upload;
 
 pub use receipt::*;
+pub use state_overrides::*;
 pub use storage::*;
 pub use tracer::*;
 pub use traces::*;
+pub use transaction::*;
 pub use upload::*;

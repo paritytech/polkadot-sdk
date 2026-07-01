@@ -105,10 +105,7 @@ pub use crate::{
 	address::{AccountId32Mapper, AddressMapper, AutoMapper, TestAccountMapper, create1, create2},
 	debug::DebugSettings,
 	deposit_payment::{Deposit, PGasDeposit},
-	evm::{
-		Address as EthAddress, Block as EthBlock, DryRunConfig, TracingConfig,
-		block_hash::ReceiptGasInfo,
-	},
+	evm::{Address as EthAddress, Block as EthBlock, DryRunConfig, block_hash::ReceiptGasInfo},
 	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	limits::TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
 	metering::{
@@ -2977,13 +2974,13 @@ sp_api::decl_runtime_apis! {
 		///
 		/// Deprecated use `v2` version instead.
 		/// See [`crate::Pallet::dry_run_eth_transact`]
-		fn eth_transact(tx: GenericTransaction) -> Result<EthTransactInfo<Balance>, EthTransactError>;
+		fn eth_transact(tx: GenericTransactionV1) -> Result<EthTransactInfo<Balance>, EthTransactError>;
 
 		/// Perform an Ethereum call.
 		///
 		/// See [`crate::Pallet::dry_run_eth_transact`]
 		fn eth_transact_with_config(
-			tx: GenericTransaction,
+			tx: GenericTransactionV1,
 			config: DryRunConfig<Moment>,
 		) -> Result<EthTransactInfo<Balance>, EthTransactError>;
 
@@ -2993,7 +2990,7 @@ sp_api::decl_runtime_apis! {
 		/// algorithm that's implemented in Geth. It stops when with an acceptable error ratio of
 		/// 1.5% so that the algorithm terminates early.
 		fn eth_estimate_gas(
-			tx: GenericTransaction,
+			tx: GenericTransactionV1,
 			config: DryRunConfig<Moment>
 		) -> Result<U256, EthTransactError>;
 
@@ -3061,17 +3058,18 @@ sp_api::decl_runtime_apis! {
 		/// Dry run and return the trace of the given call.
 		///
 		/// See eth-rpc `debug_traceCall` for usage.
-		fn trace_call(tx: GenericTransaction, config: TracerTypeV1) -> Result<TraceV1, EthTransactError>;
+		#[deprecated(note = "Use the versioned equivalent `trace_call_versioned` if available on your runtime")]
+		fn trace_call(tx: GenericTransactionV1, config: TracerTypeV1) -> Result<TraceV1, EthTransactError>;
 
 		/// Dry run and return the trace of the given call with additional configuration.
 		///
-		/// Like [`Self::trace_call`], but accepts a [`TracingConfig`] that can carry state
-		/// overrides and future extensibility. The config must be the **last argument** for
-		/// backwards compatibility — see [`TracingConfig`] documentation.
+		/// Like [`Self::trace_call`], but accepts a [`TracingConfigV1`] that can carry state
+		/// overrides. The config must be the **last argument** for backwards compatibility.
+		#[deprecated(note = "Use the versioned equivalent `trace_call_versioned` if available on your runtime")]
 		fn trace_call_with_config(
-			tx: GenericTransaction,
+			tx: GenericTransactionV1,
 			tracer_type: TracerTypeV1,
-			config: TracingConfig,
+			config: TracingConfigV1,
 		) -> Result<TraceV1, EthTransactError>;
 
 		/// The address of the validator that produced the current block.
@@ -3170,6 +3168,11 @@ sp_api::decl_runtime_apis! {
 
 		#[api_version(2)]
 		fn trace_tx_versioned(input: TraceTxVersionedInputPayload<Block>) -> TraceTxVersionedOutputPayload;
+
+		#[api_version(2)]
+		fn trace_call_versioned(
+			input: TraceCallVersionedInputPayload
+		) -> Result<TraceCallVersionedOutputPayload, EthTransactError>;
 	}
 }
 
@@ -3314,18 +3317,19 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn eth_transact(
-					tx: $crate::evm::GenericTransaction,
+					tx: $crate::pallet_revive_types::runtime_api::GenericTransactionV1,
 				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
 					use $crate::{
 						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
 						sp_runtime::traits::TransactionExtension,
 						sp_runtime::traits::Block as BlockT
 					};
+					let tx = $crate::evm::GenericTransaction::from(tx);
 					$crate::Pallet::<Self>::dry_run_eth_transact(tx, Default::default())
 				}
 
 				fn eth_transact_with_config(
-					tx: $crate::evm::GenericTransaction,
+					tx: $crate::pallet_revive_types::runtime_api::GenericTransactionV1,
 					config: $crate::DryRunConfig<__ReviveMacroMoment>,
 				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
 					use $crate::{
@@ -3333,11 +3337,12 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						sp_runtime::traits::TransactionExtension,
 						sp_runtime::traits::Block as BlockT
 					};
+					let tx = $crate::evm::GenericTransaction::from(tx);
 					$crate::Pallet::<Self>::dry_run_eth_transact(tx, config)
 				}
 
 				fn eth_estimate_gas(
-					tx: $crate::evm::GenericTransaction,
+					tx: $crate::pallet_revive_types::runtime_api::GenericTransactionV1,
 					config: $crate::DryRunConfig<__ReviveMacroMoment>,
 				) -> Result<$crate::U256, $crate::EthTransactError>  {
 					use $crate::{
@@ -3345,6 +3350,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						sp_runtime::traits::TransactionExtension,
 						sp_runtime::traits::Block as BlockT
 					};
+					let tx = $crate::evm::GenericTransaction::from(tx);
 					$crate::Pallet::<Self>::eth_estimate_gas(tx, config)
 				}
 
@@ -3498,47 +3504,40 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn trace_call(
-					tx: $crate::evm::GenericTransaction,
+					tx: $crate::pallet_revive_types::runtime_api::GenericTransactionV1,
 					tracer_type: $crate::pallet_revive_types::runtime_api::TracerTypeV1,
 				) -> Result<$crate::pallet_revive_types::runtime_api::TraceV1, $crate::EthTransactError> {
-					use $crate::tracing::trace;
+					use $crate::pallet_revive_types::runtime_api::*;
 
-					let tracer_type = $crate::evm::TracerType::from(tracer_type);
-					if matches!(tracer_type, $crate::evm::TracerType::ExecutionTracer(_)) &&
-						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
-					{
-						return Err($crate::EthTransactError::Message("Execution Tracing is disabled".into()))
-					}
-
-					let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type.clone());
-					let t = tracer.as_tracing();
-
-					t.watch_address(&tx.from.unwrap_or_default());
-					t.watch_address(&$crate::Pallet::<Self>::block_author());
-					let result = trace(t, || Self::eth_transact(tx));
-
-					if let Some(trace) = tracer.collect_trace() {
-						Ok(trace)
-					} else if let Err(err) = result {
-						Err(err)
-					} else {
-						Ok($crate::Pallet::<Self>::evm_tracer(tracer_type).empty_trace())
-					}
-					.map(Into::into)
+					let input = TraceCallVersionedInputPayload::from(TraceCallInputPayloadV1 {
+						tx,
+						config: tracer_type,
+						state_overrides: None
+					});
+					let output = Self::trace_call_versioned(input)?;
+					Ok(TraceCallOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.trace)
 				}
 
 				fn trace_call_with_config(
-					tx: $crate::evm::GenericTransaction,
+					tx: $crate::pallet_revive_types::runtime_api::GenericTransactionV1,
 					tracer_type: $crate::pallet_revive_types::runtime_api::TracerTypeV1,
-					config: $crate::evm::TracingConfig,
+					config: $crate::pallet_revive_types::runtime_api::TracingConfigV1,
 				) -> Result<$crate::pallet_revive_types::runtime_api::TraceV1, $crate::EthTransactError> {
-					let $crate::evm::TracingConfig { state_overrides } = config;
+					use $crate::pallet_revive_types::runtime_api::*;
 
-					if let Some(overrides) = state_overrides {
-						$crate::state_overrides::apply_state_overrides::<Runtime>(overrides)?;
-					}
+					let TracingConfigV1 { state_overrides } = config;
 
-					Self::trace_call(tx, tracer_type)
+					let input = TraceCallVersionedInputPayload::from(TraceCallInputPayloadV1 {
+						tx,
+						config: tracer_type,
+						state_overrides
+					});
+					let output = Self::trace_call_versioned(input)?;
+					Ok(TraceCallOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.trace)
 				}
 
 				fn runtime_pallets_address() -> $crate::H160 {
@@ -4096,6 +4095,60 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						trace: tracer.collect_trace()
 					};
 					output_wrapper(output)
+				}
+
+				fn trace_call_versioned(
+					input: $crate::pallet_revive_types::runtime_api::TraceCallVersionedInputPayload
+				) -> Result<
+					$crate::pallet_revive_types::runtime_api::TraceCallVersionedOutputPayload,
+					$crate::EthTransactError
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use $crate::tracing::trace;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(TraceCallOutputPayload) -> TraceCallVersionedOutputPayload>,
+					) = match input {
+						TraceCallVersionedInputPayload::V1(payload) => (
+							TraceCallInputPayload::from(payload),
+							Box::new(|output| TraceCallVersionedOutputPayload::V1(output.into())),
+						),
+						TraceCallVersionedInputPayload::V2(payload) => (
+							TraceCallInputPayload::from(payload),
+							Box::new(|output| TraceCallVersionedOutputPayload::V2(output.into())),
+						),
+					};
+
+					if let Some(overrides) = input.state_overrides {
+						$crate::state_overrides::apply_state_overrides::<Runtime>(overrides)?;
+					}
+
+					if matches!(input.config, $crate::evm::TracerType::ExecutionTracer(_)) &&
+						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
+					{
+						return Err($crate::EthTransactError::Message("Execution Tracing is disabled".into()))
+					}
+
+					let mut tracer = $crate::Pallet::<Self>::evm_tracer(input.config.clone());
+					let t = tracer.as_tracing();
+
+					t.watch_address(&input.tx.from.unwrap_or_default());
+					t.watch_address(&$crate::Pallet::<Self>::block_author());
+					let result = trace(t, || Self::eth_transact(input.tx.into()));
+
+					let trace = if let Some(trace) = tracer.collect_trace() {
+						Ok(trace)
+					} else if let Err(err) = result {
+						Err(err)
+					} else {
+						Ok($crate::Pallet::<Self>::evm_tracer(input.config).empty_trace())
+					}?;
+
+					let output = TraceCallOutputPayload { trace };
+					Ok(output_wrapper(output))
 				}
 			}
 		}

@@ -28,7 +28,7 @@ mod debug_rpc_types;
 pub use debug_rpc_types::*;
 
 mod rpc_types;
-pub use rpc_types::{DryRunConfig, TracingConfig};
+pub use rpc_types::DryRunConfig;
 
 mod block;
 pub use block::*;

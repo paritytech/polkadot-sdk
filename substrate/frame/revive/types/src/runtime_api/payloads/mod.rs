@@ -31,6 +31,7 @@ mod nonce;
 mod receipt_data;
 mod runtime_pallets_address;
 mod trace_block;
+mod trace_call;
 mod trace_tx;
 mod upload_code;
 
@@ -50,5 +51,6 @@ pub use nonce::*;
 pub use receipt_data::*;
 pub use runtime_pallets_address::*;
 pub use trace_block::*;
+pub use trace_call::*;
 pub use trace_tx::*;
 pub use upload_code::*;

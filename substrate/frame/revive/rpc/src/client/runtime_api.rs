@@ -22,8 +22,8 @@ use crate::{
 };
 use futures::{StreamExt, TryFutureExt, stream};
 use pallet_revive::{
-	DryRunConfig, EthTransactInfo, TracingConfig,
-	evm::{Block as EthBlock, GenericTransaction, H160, StateOverrideSet, U256},
+	DryRunConfig, EthTransactInfo,
+	evm::{Block as EthBlock, H160, U256},
 };
 use pallet_revive_types::runtime_api::*;
 use sp_core::H256;
@@ -71,7 +71,7 @@ impl RuntimeApi {
 	/// of the gas limit.
 	pub async fn estimate_gas(
 		&self,
-		tx: GenericTransaction,
+		tx: GenericTransactionV1,
 		block: BlockId,
 	) -> Result<U256, ClientError> {
 		let timestamp_override = block.is_pending().then(|| Timestamp::current().as_millis());
@@ -134,15 +134,15 @@ impl RuntimeApi {
 	/// Dry run a transaction and returns the [`EthTransactInfo`] for the transaction.
 	pub async fn dry_run(
 		&self,
-		tx: GenericTransaction,
+		tx: GenericTransactionV1,
 		block: BlockId,
-		state_overrides: Option<StateOverrideSet>,
+		state_overrides: Option<StateOverrideSetV1>,
 	) -> Result<EthTransactInfo<Balance>, ClientError> {
 		let timestamp_override = block.is_pending().then(|| Timestamp::current().as_millis());
 
 		let config = DryRunConfig::default()
 			.with_timestamp_override(timestamp_override)
-			.with_state_overrides(state_overrides);
+			.with_state_overrides(state_overrides.map(Into::into));
 
 		let payload = subxt_client::apis()
 			.revive_api()
@@ -259,12 +259,12 @@ impl RuntimeApi {
 	/// for backwards compatibility with older runtimes.
 	pub async fn trace_call(
 		&self,
-		transaction: GenericTransaction,
+		transaction: GenericTransactionV1,
 		tracer_type: TracerTypeV1,
-		state_overrides: Option<StateOverrideSet>,
+		state_overrides: Option<StateOverrideSetV1>,
 	) -> Result<TraceV1, ClientError> {
 		let result = if let Some(overrides) = state_overrides {
-			let config = TracingConfig::new().with_state_overrides(overrides);
+			let config = TracingConfigV1 { state_overrides: Some(overrides) };
 			let payload = subxt_client::apis()
 				.revive_api()
 				.trace_call_with_config(transaction.into(), tracer_type.into(), config.into())

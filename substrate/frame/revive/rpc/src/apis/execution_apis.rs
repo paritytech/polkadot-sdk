@@ -35,9 +35,9 @@ pub trait EthRpc {
 	#[method(name = "eth_call")]
 	async fn call(
 		&self,
-		transaction: GenericTransaction,
+		transaction: GenericTransactionV1,
 		block: Option<BlockId>,
-		state_overrides: Option<StateOverrideSet>,
+		state_overrides: Option<StateOverrideSetV1>,
 	) -> RpcResult<Bytes>;
 
 	/// Returns the chain ID of the current network.
@@ -49,7 +49,7 @@ pub trait EthRpc {
 	#[method(name = "eth_estimateGas")]
 	async fn estimate_gas(
 		&self,
-		transaction: GenericTransaction,
+		transaction: GenericTransactionV1,
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256>;
 
@@ -153,7 +153,7 @@ pub trait EthRpc {
 
 	/// Signs and submits a transaction.
 	#[method(name = "eth_sendTransaction")]
-	async fn send_transaction(&self, transaction: GenericTransaction) -> RpcResult<H256>;
+	async fn send_transaction(&self, transaction: GenericTransactionV1) -> RpcResult<H256>;
 
 	/// Returns an object with data about the sync status or false.
 	#[method(name = "eth_syncing")]

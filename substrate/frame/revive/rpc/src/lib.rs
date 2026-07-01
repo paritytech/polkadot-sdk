@@ -27,7 +27,8 @@ use jsonrpsee::{
 };
 use pallet_revive::evm::*;
 use pallet_revive_types::runtime_api::{
-	ExecutionTracerConfigV1, ReceiptGasInfoV1, TraceV1, TracerTypeV1,
+	ExecutionTracerConfigV1, GenericTransactionV1, ReceiptGasInfoV1, StateOverrideSetV1, TraceV1,
+	TracerTypeV1,
 };
 use sp_core::{H160, H256, U256};
 use sp_crypto_hashing::keccak_256;
@@ -191,7 +192,7 @@ impl EthRpcServer for EthRpcServerImpl {
 	/// search with some simple heuristics to find the smallest gas limit for the transaction.
 	async fn estimate_gas(
 		&self,
-		transaction: GenericTransaction,
+		transaction: GenericTransactionV1,
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
 		log::trace!(target: LOG_TARGET, "estimate_gas transaction={transaction:?} block={block:?}");
@@ -216,9 +217,9 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn call(
 		&self,
-		transaction: GenericTransaction,
+		transaction: GenericTransactionV1,
 		block: Option<BlockId>,
-		state_overrides: Option<StateOverrideSet>,
+		state_overrides: Option<StateOverrideSetV1>,
 	) -> RpcResult<Bytes> {
 		let block = block.unwrap_or_default();
 		let hash = self.client.block_hash_for_tag(block).await?;
@@ -301,7 +302,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(hash)
 	}
 
-	async fn send_transaction(&self, mut transaction: GenericTransaction) -> RpcResult<H256> {
+	async fn send_transaction(&self, mut transaction: GenericTransactionV1) -> RpcResult<H256> {
 		log::debug!(target: LOG_TARGET, "{transaction:#?}");
 
 		let Some(from) = transaction.from else {
@@ -331,7 +332,9 @@ impl EthRpcServer for EthRpcServerImpl {
 			transaction.chain_id = Some(self.chain_id().await?);
 		}
 
-		let tx = transaction.try_into_unsigned().map_err(|_| EthRpcError::InvalidTransaction)?;
+		let tx = GenericTransaction::from(transaction)
+			.try_into_unsigned()
+			.map_err(|_| EthRpcError::InvalidTransaction)?;
 		let payload = account.sign_transaction(tx).signed_payload();
 		self.send_raw_transaction(Bytes(payload)).await
 	}

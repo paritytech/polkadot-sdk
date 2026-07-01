@@ -45,10 +45,7 @@ use jsonrpsee::{
 };
 use pallet_revive::{
 	create1,
-	evm::{
-		Account, Block, GenericTransaction, H256, HashesOrTransactionInfos, TransactionUnsigned,
-		U256,
-	},
+	evm::{Account, Block, H256, HashesOrTransactionInfos, TransactionUnsigned, U256},
 	precompiles::alloy::{
 		self,
 		sol_types::{SolCall, SolConstructor, SolEvent, SolInterface},
@@ -56,7 +53,7 @@ use pallet_revive::{
 };
 use pallet_revive_fixtures::{Callee, Counter, TwoSlots};
 use pallet_revive_types::runtime_api::{
-	CallTracerConfigV1, TraceBlockInputPayloadV1, TraceBlockInputPayloadV2,
+	CallTracerConfigV1, GenericTransactionV1, TraceBlockInputPayloadV1, TraceBlockInputPayloadV2,
 	TraceBlockVersionedInputPayload, TraceBlockVersionedOutputPayload, TraceV1, TraceV2,
 	TracerTypeV1,
 };
@@ -921,7 +918,7 @@ async fn test_earliest_block_tag() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let account = Account::default();
 
-	let tx = GenericTransaction {
+	let tx = GenericTransactionV1 {
 		from: Some(account.address()),
 		to: Some(account.address()),
 		..Default::default()
@@ -1679,7 +1676,7 @@ async fn test_estimate_gas_of_contract_with_consume_all_gas() -> anyhow::Result<
 
 	// Act
 	let test_function_selector = [0xf8, 0xa8, 0xfd, 0x6d].to_vec();
-	let transaction = GenericTransaction {
+	let transaction = GenericTransactionV1 {
 		from: Some(account.address()),
 		input: test_function_selector.into(),
 		to: Some(contract_address),
@@ -1976,7 +1973,7 @@ async fn test_gas_estimation_with_no_funds_no_gas_specified() -> anyhow::Result<
 
 	// Act
 	let test_function_selector = [0xf8, 0xa8, 0xfd, 0x6d].to_vec();
-	let transaction = GenericTransaction {
+	let transaction = GenericTransactionV1 {
 		from: Some(account.address()),
 		input: test_function_selector.into(),
 		to: Some(contract_address),
@@ -2176,7 +2173,7 @@ async fn test_gas_estimation_with_no_funds_and_with_gas_specified() -> anyhow::R
 
 	// Act
 	let test_function_selector = [0xf8, 0xa8, 0xfd, 0x6d].to_vec();
-	let transaction = GenericTransaction {
+	let transaction = GenericTransactionV1 {
 		from: Some(account.address()),
 		input: test_function_selector.into(),
 		to: Some(contract_address),
