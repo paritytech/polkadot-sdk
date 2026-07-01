@@ -53,7 +53,7 @@ struct PeerInfo {
 }
 
 /// Evict a disconnected peer unseen by any event for this long.
-const PEER_STALENESS_TTL: Duration = Duration::from_secs(24 * 60 * 60);
+const PEER_STALENESS_TTL: Duration = Duration::from_secs(2 * 60 * 60);
 
 /// Hard cap on `discovered`; bounds memory when discovery outruns staleness eviction.
 const MAX_KNOWN_PEERS: usize = 8192;
@@ -244,13 +244,8 @@ impl PeersTopology {
 	}
 
 	/// Insert `peer` if absent, refresh its `last_seen`, and return its record.
-	///
-	/// Inserting a new peer first evicts stale and over-capacity peers ([`PeersTopology::evict`]).
 	fn get_or_insert_peer(&mut self, peer: PeerId) -> &mut PeerInfo {
 		let now = Instant::now();
-		if !self.discovered.contains_key(&peer) {
-			self.evict(now);
-		}
 		let info = self.discovered.entry(peer).or_insert_with(|| PeerInfo {
 			supports_protocol: false,
 			connected: false,
@@ -261,9 +256,11 @@ impl PeersTopology {
 		info
 	}
 
-	fn evict(&mut self, now: Instant) {
+	/// Evict disconnected peers unseen for `PEER_STALENESS_TTL` as of `now`, plus any excess over
+	/// `MAX_KNOWN_PEERS`.
+	pub fn evict(&mut self, now: Instant) {
 		loop {
-			let over_cap = self.discovered.len() >= MAX_KNOWN_PEERS;
+			let over_cap = self.discovered.len() > MAX_KNOWN_PEERS;
 			let Some((victim, last_seen)) = self
 				.discovered
 				.iter()
@@ -611,6 +608,9 @@ mod tests {
 			dht_peer(&mut topology, PeerId::random());
 		}
 
+		// Insertion no longer evicts; the periodic sweep bounds the set.
+		topology.evict(Instant::now());
+
 		assert_eq!(topology.known_peers_count(), MAX_KNOWN_PEERS);
 	}
 
@@ -628,8 +628,9 @@ mod tests {
 		// Re-seeing the oldest peer makes the next-oldest the least-recently-seen instead.
 		topology.on_peer_identified(oldest, true);
 
-		// One new peer at capacity forces a single eviction.
+		// One new peer puts the set one over capacity; the sweep drops a single peer.
 		dht_peer(&mut topology, PeerId::random());
+		topology.evict(Instant::now());
 
 		assert_eq!(topology.known_peers_count(), MAX_KNOWN_PEERS);
 		let known = known_dht_peers(&topology, topic(7));

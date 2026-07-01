@@ -33,7 +33,10 @@ use peers_topology::{PeersTopology, PeersTopologyConfig};
 use sc_network::{types::ProtocolName, NetworkPeers};
 use sc_network_types::PeerId;
 use sp_statement_store::{Hash, RetentionReasonMask, Statement, SubmitResult, Topic};
-use std::collections::{HashMap, HashSet};
+use std::{
+	collections::{HashMap, HashSet},
+	time::Instant,
+};
 
 /// Coordinates the v2 DHT-affinity statement gossip path.
 #[allow(dead_code)]
@@ -230,6 +233,11 @@ impl V2DhtOrchestrator {
 	/// and closing connections through the statement protocol's reserved set on `network`.
 	pub(crate) fn refresh_connections<N: NetworkPeers>(&self, network: &N) {
 		self.peer_steering.refresh_connections(network);
+	}
+
+	pub(crate) fn evict_stale_peers(&mut self) {
+		self.peers_topology.evict(Instant::now());
+		self.report_topology_size();
 	}
 
 	pub(crate) fn on_major_sync_end(&mut self) {
