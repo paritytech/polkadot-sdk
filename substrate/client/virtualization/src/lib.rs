@@ -35,12 +35,15 @@ use sp_externalities::Extensions;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use sp_virtualization::{
 	DestroyError, ExecBuffer, ExecError, ExecStatus, InstanceId, InstantiateError, MemoryError,
-	ModuleError, ModuleId, SyscallSymbol, VirtManagerBackend, VirtManagerExt, LOG_TARGET,
+	ModuleError, ModuleId, SyscallSymbol, VirtManagerBackend, VirtManagerExt,
 };
 use std::{
 	collections::HashMap,
 	sync::{Arc, LazyLock},
+	time::Instant,
 };
+
+const LOG_TARGET: &str = "virtualization";
 
 /// Build a fresh [`VirtManagerExt`] backed by a default [`VirtManager`].
 ///
@@ -100,6 +103,9 @@ const MAX_LIVE_INSTANCES: usize = 30;
 /// failure (see [`warm_up_sandbox_pool`]) — a node that cannot build its pool should die at
 /// startup rather than time out every validation.
 static ENGINE: LazyLock<Engine> = LazyLock::new(|| {
+	let pid = std::process::id();
+	let start = Instant::now();
+
 	let mut config = Config::from_env().expect("Invalid config.");
 	// `set_worker_count` caps the sandbox cache per core, so divide the total target across
 	// cores (rounding up) — summed over all cores the caches then hold >= MAX_LIVE_INSTANCES.
@@ -111,7 +117,17 @@ static ENGINE: LazyLock<Engine> = LazyLock::new(|| {
 	// on the machine - this will be removed eventually
 	config.set_core_pinning(CorePinning::Disabled);
 	let engine = Engine::new(&config).expect("Failed to initialize PolkaVM.");
+
+	let warmup_start = Instant::now();
 	warm_up_sandbox_pool(&engine);
+	let warmup = warmup_start.elapsed();
+
+	log::info!(
+		target: LOG_TARGET,
+		"pid={pid}: PolkaVM engine initialized in {:?} (warm-up of {MAX_LIVE_INSTANCES} sandbox workers: {:?})",
+		start.elapsed(),
+		warmup,
+	);
 	engine
 });
 
@@ -164,7 +180,6 @@ fn warm_up_sandbox_pool(engine: &Engine) {
 	let _warm: Vec<_> = (0..MAX_LIVE_INSTANCES)
 		.map(|_| module.instantiate().expect("failed to spawn a PolkaVM sandbox worker"))
 		.collect();
-	log::debug!(target: LOG_TARGET, "Sandbox warm-up: pre-spawned {MAX_LIVE_INSTANCES} sandbox workers");
 }
 
 fn map_memory_error(error: MemoryAccessError) -> MemoryError {
@@ -378,6 +393,7 @@ impl VirtManagerBackend for VirtManager {
 		program: &[u8],
 		identifier: Option<&[u8]>,
 	) -> Result<ModuleId, ModuleError> {
+		let start = Instant::now();
 		let mut module_config = ModuleConfig::new();
 		module_config.set_gas_metering(Some(GasMeteringKind::Sync));
 		let module =
@@ -391,6 +407,13 @@ impl VirtManagerBackend for VirtManager {
 				},
 			})?;
 		let compiled = Arc::new(CompiledModule::new(module)?);
+		log::info!(
+			target: LOG_TARGET,
+			"pid={}: compiled {}-byte module in {:?}",
+			std::process::id(),
+			program.len(),
+			start.elapsed(),
+		);
 
 		let module_id = self.next_module_id();
 
@@ -417,10 +440,17 @@ impl VirtManagerBackend for VirtManager {
 
 		let compiled = self.modules.get(&module_id).ok_or(InstantiateError::InvalidModule)?.clone();
 
+		let start = Instant::now();
 		let instance = compiled.module.instantiate().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to instantiate program: {err}");
 			InstantiateError::InvalidImage
 		})?;
+		log::info!(
+			target: LOG_TARGET,
+			"pid={}: instantiated module in {:?}",
+			std::process::id(),
+			start.elapsed(),
+		);
 
 		let instance_id = self.next_instance_id();
 
