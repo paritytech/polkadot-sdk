@@ -15,14 +15,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod receipt;
-mod storage;
-mod tracer;
-mod traces;
-mod upload;
+use alloc::vec::Vec;
+use pallet_revive_types::runtime_api::*;
 
-pub use receipt::*;
-pub use storage::*;
-pub use tracer::*;
-pub use traces::*;
-pub use upload::*;
+use crate::H160;
+
+pub struct CodeInputPayload {
+	pub address: H160,
+}
+
+impl From<CodeVersionedInputPayload> for CodeInputPayload {
+	fn from(value: CodeVersionedInputPayload) -> Self {
+		match value {
+			CodeVersionedInputPayload::V1(payload) => payload.into(),
+		}
+	}
+}
+
+impl From<CodeInputPayloadV1> for CodeInputPayload {
+	fn from(value: CodeInputPayloadV1) -> Self {
+		Self { address: value.address }
+	}
+}
+
+pub struct CodeOutputPayload {
+	pub code: Vec<u8>,
+}
+
+impl From<CodeOutputPayload> for CodeOutputPayloadV1 {
+	fn from(value: CodeOutputPayload) -> Self {
+		Self { code: value.code }
+	}
+}

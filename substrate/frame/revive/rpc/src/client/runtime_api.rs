@@ -25,7 +25,7 @@ use pallet_revive::{
 	DryRunConfig, EthTransactInfo, TracingConfig,
 	evm::{
 		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, H160,
-		ReceiptGasInfo, StateOverrideSet, U256,
+		StateOverrideSet, U256,
 	},
 };
 use pallet_revive_types::runtime_api::*;
@@ -323,7 +323,7 @@ impl RuntimeApi {
 	}
 
 	/// Get the receipt data for the current block.
-	pub async fn eth_receipt_data(&self) -> Result<Vec<ReceiptGasInfo>, ClientError> {
+	pub async fn eth_receipt_data(&self) -> Result<Vec<ReceiptGasInfoV1>, ClientError> {
 		let payload = subxt_client::apis().revive_api().eth_receipt_data().unvalidated();
 		let receipt_data = self.0.call(payload).await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "eth_receipt_data runtime call failed: {err:?}");
