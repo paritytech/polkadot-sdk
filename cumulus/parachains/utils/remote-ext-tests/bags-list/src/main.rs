@@ -29,14 +29,14 @@ enum Command {
 #[derive(Clone, Debug, ValueEnum)]
 #[value(rename_all = "PascalCase")]
 enum Runtime {
-	Westend,
+	WestendAssetHub,
 }
 
 #[derive(Parser)]
 struct Cli {
-	#[arg(long, short, default_value = "wss://westend-rpc.polkadot.io:443")]
+	#[arg(long, short, default_value = "wss://westend-asset-hub-rpc.polkadot.io:443")]
 	uri: String,
-	#[arg(long, short, ignore_case = true, value_enum, default_value_t = Runtime::Westend)]
+	#[arg(long, short, ignore_case = true, value_enum, default_value_t = Runtime::WestendAssetHub)]
 	runtime: Runtime,
 	#[arg(long, short, ignore_case = true, value_enum, default_value_t = Command::SanityCheck)]
 	command: Command,
@@ -58,7 +58,7 @@ async fn main() {
 
 	use pallet_bags_list_remote_tests::*;
 	match options.runtime {
-		Runtime::Westend => sp_core::crypto::set_default_ss58_version(
+		Runtime::WestendAssetHub => sp_core::crypto::set_default_ss58_version(
 			<asset_hub_westend_runtime::Runtime as frame_system::Config>::SS58Prefix::get()
 				.try_into()
 				.unwrap(),
@@ -66,17 +66,17 @@ async fn main() {
 	};
 
 	match (options.runtime, options.command) {
-		(Runtime::Westend, Command::CheckMigration) => {
+		(Runtime::WestendAssetHub, Command::CheckMigration) => {
 			use asset_hub_westend_runtime::{Block, Runtime};
 			use testnet_parachains_constants::westend::currency::UNITS;
 			migration::execute::<Runtime, Block>(UNITS as u64, "WND", options.uri.clone()).await;
 		},
-		(Runtime::Westend, Command::SanityCheck) => {
+		(Runtime::WestendAssetHub, Command::SanityCheck) => {
 			use asset_hub_westend_runtime::{Block, Runtime};
 			use testnet_parachains_constants::westend::currency::UNITS;
 			try_state::execute::<Runtime, Block>(UNITS as u64, "WND", options.uri.clone()).await;
 		},
-		(Runtime::Westend, Command::Snapshot) => {
+		(Runtime::WestendAssetHub, Command::Snapshot) => {
 			use asset_hub_westend_runtime::{Block, Runtime};
 			use testnet_parachains_constants::westend::currency::UNITS;
 			snapshot::execute::<Runtime, Block>(
