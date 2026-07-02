@@ -8,9 +8,9 @@
 #### [#11893]: Raise relay-chain BlockLength to 10 MiB on test runtimes; decouple AttestedCandidate response cap
 `polkadot-node-network-protocol` decouples the libp2p response-size cap for the
 `AttestedCandidateV2` request-response protocol from `polkadot_primitives::MAX_CODE_SIZE`
-and pins it at a flat 8 MiB. 
+and pins it at a flat 8 MiB.
 
-Adds an end-to-end test in `polkadot-test-service`. 
+Adds an end-to-end test in `polkadot-test-service`.
 
 
 #### [#10477]: Block Bundling Node Side
@@ -164,18 +164,18 @@ every scheduling parent (SP) on a path to that leaf is derived via offset arithm
 
 Behavior changes vs. master:
 
-* **Rotation-boundary bug fixed.** After a group rotation, candidates for both the
+- **Rotation-boundary bug fixed.** After a group rotation, candidates for both the
   pre-rotation core's para (advertised at the pre-rotation leaf) and the post-rotation
   core's para (at the post-rotation leaf) are accepted. Previously, rotation caused
   claim-queue state for the old core to be overwritten and ancestor-rooted advertisements
   to be wrongly rejected.
 
-* **Fork-aware view cleanup.** When a leaf is dropped, SPs are removed from
+- **Fork-aware view cleanup.** When a leaf is dropped, SPs are removed from
   `per_scheduling_parent` (with their in-flight fetches cancelled) only when no remaining
   leaf still references them. Previously, sibling-fork retention in implicit-view storage
   could leave SPs orphaned with leaked in-flight fetches.
 
-* **Free-slot accounting tightened to the current leaf.** Assignments and free CQ
+- **Free-slot accounting tightened to the current leaf.** Assignments and free CQ
   positions now reflect only what the current leaf's CQ actually predicts. Previously,
   claim-queue state for already-produced ancestor blocks lingered until those blocks were
   pruned, so paras and slots that had already been backed on-chain were still reported as
@@ -191,16 +191,16 @@ free CQ positions back-to-front and picks the best advertisement among same-core
 window reaches that position.
 
 Test coverage in `validator_side_experimental/tests.rs`:
-* `core_rotation_accepts_candidates_for_both_cores` — regression for the original
+- `core_rotation_accepts_candidates_for_both_cores` — regression for the original
   rotation-boundary bug.
-* Five active-fork tests covering: assignment union across leaves, longest-window capacity
+- Five active-fork tests covering: assignment union across leaves, longest-window capacity
   at a common ancestor across different-length forks, no double-counting of in-flight
   candidates across sibling forks, and reclamation of capacity / peer disconnection when a
   fork is dropped.
-* Two linear multi-SP tests pinning over-fetch and under-fetch invariants when ancestor
+- Two linear multi-SP tests pinning over-fetch and under-fetch invariants when ancestor
   and leaf SPs share the same per-core CQ.
-* Tests for cross-SP reputation arbitration and cross-core slot-reservation correctness.
-* Three previously-existing tests rewritten to assert the same intent against the new
+- Tests for cross-SP reputation arbitration and cross-core slot-reservation correctness.
+- Three previously-existing tests rewritten to assert the same intent against the new
   model.
 
 No public API changes; behavior change is contained to the experimental validator side.
@@ -226,7 +226,7 @@ Adds four Prometheus metrics to the litep2p bitswap inbound handler so we can ob
 
 `NetworkBackend::bitswap_server` gains an `Option<Registry>` parameter (mirroring `peer_store`). The libp2p backend impl accepts and ignores it — bitswap isn't wired into its request-response framework. Bitswap remains gated by `--ipfs-server`.
 
-Labels are pruned vs paritytech/polkadot-sdk#12083: `missing`/`bad_cid` outcomes and `decode`/`encode`/`invalid_wantlist` errors are absorbed by litep2p before reaching the shim.
+Labels are pruned vs paritytech/Polkadot-sdk#12083: `missing`/`bad_cid` outcomes and `decode`/`encode`/`invalid_wantlist` errors are absorbed by litep2p before reaching the shim.
 
 
 #### [#11387]: docs/async_back: Align docs to latest behavior
@@ -285,7 +285,7 @@ was unused.
 # Description
   Implement unit tests for "Eviction: verify the lowest-priority statements are evicted first, corner cases of priority ordering" #11534
 
-  ## Summary
+## Summary
   - Extend the existing `constraints()` test with eviction priority ordering corner cases:
     - Verify that equal priority statements are rejected with `AccountFull` when the account is full
     - Verify that specific evicted statement hashes appear in the expired map
@@ -419,10 +419,10 @@ Also adds unit tests covering the full cleanup contract of `handle_deactivate_le
 and the "last session's topology is retained" edge case).
 
 #### [#12163]: RPC: support keccak-256 in `bitswap_v1_get`
-Support Keccak-256 hash for parity with transaction storage pallet in Bulletin chain.
+Support Keccak-256 hash for Parity with transaction storage pallet in Bulletin chain.
 
 #### [#11962]: client/db, sp-transaction-storage-proof: preserve `MultiRenew` submit order
-#11474 changed `DbExtrinsic::MultiRenew::hashes` from `Vec<DbHash>` to `BTreeSet<DbHash>`,
+# 11474 changed `DbExtrinsic::MultiRenew::hashes` from `Vec<DbHash>` to `BTreeSet<DbHash>`
 which reordered hashes by sort order. The runtime indexes `TransactionInfo` in dispatch
 order, so `build_proof` and the runtime resolved `selected_chunk_index` to different
 chunks, causing `InvalidProof` and chain halt on the first proof block after a multi-renew.
@@ -637,7 +637,7 @@ Partial permissionless unbonds of the depositor continue to return
 depositor is not the sole member continue to return `DoesNotHavePermission`.
 
 
-#### [#12145]: Remove deprecated NegativeImbalance from polkadot-runtime-common
+#### [#12145]: Remove deprecated NegativeImbalance from Polkadot-runtime-common
 Removes `polkadot_runtime_common::NegativeImbalance`, deprecated in March 2024
 in favor of `fungible::Credit`. No remaining in-repo usage.
 
@@ -678,7 +678,7 @@ No behavior changes. Existing `EraPayout` re-exports from both staking pallets a
 
 Just as the title says.
 
-#### [#11052]: update multi asset bounties pallet account derivation logic 
+#### [#11052]: update multi asset bounties pallet account derivation logic
 Bounty and child-bounty account derivation now uses raw-byte `[u8; 3]` prefixes `b"mbt"`
 (multi-asset bounty) and `b"mcb"` (multi-asset child bounty) instead of the `&str` literals
 `"bt"` and `"cb"` used by the legacy pallets. This avoids collisions with the old bounties
@@ -697,7 +697,7 @@ Module and type docs were updated to document the derivation.
 #### [#11930]: pallet-staking-async: Rotate era reward pots through a fixed-size pool
 Era reward pot accounts are now drawn from a fixed pool of `POT_POOL_SIZE = 200`
 accounts, indexed by `era % POT_POOL_SIZE`, instead of one fresh account per era.
-This ensure we only use a fixed size of pot accounts for the lifetime of the 
+This ensure we only use a fixed size of pot accounts for the lifetime of the
 chain rather than growing per era.
 
 An `integrity_test` enforces `POT_POOL_SIZE > HistoryDepth` so a slot is only
@@ -710,7 +710,7 @@ Recent rustc requires `-Z json-target-spec` to opt into the JSON target spec for
 
 Fix the two places in the workspace that invoke cargo with a JSON target spec for the Riscv runtime:
 
-- substrate-wasm-builder (`wasm_project.rs`): pass the flag for `RuntimeTarget::Riscv`. `RUSTC_BOOTSTRAP=1` is already set by the preceding `-Z build-std` block (Riscv always opts into build-std).
+- Substrate-wasm-builder (`wasm_project.rs`): pass the flag for `RuntimeTarget::Riscv`. `RUSTC_BOOTSTRAP=1` is already set by the preceding `-Z build-std` block (Riscv always opts into build-std).
 - pallet-revive-fixtures (`builder.rs`): refactor the inline rustc version detection to expose major/minor and derive both `new_immediate_abort` (1.92+) and `needs_json_target_spec` (1.95+) from them.
 
 The flag is gated on rustc 1.95+ where it was introduced. Older rustc doesn't recognize it; later rustc requires it.
@@ -740,8 +740,8 @@ and the `polkadot-omni-node` integration that depend on this trait.
 
 
 #### [#11563]: [pallet-broker] introduce Market trait for a generic coretime market
-Introduce a Market trait to decouple the sale mechanism from the rest of the broker logic. 
-This allows alternative market implementations (e.g. RFC-17) to be swapped in without 
+Introduce a Market trait to decouple the sale mechanism from the rest of the broker logic.
+This allows alternative market implementations (e.g. RFC-17) to be swapped in without
 modifying the broker pallet itself.
 
 The purpose of this trait is to be implemented by a pallet containing the
@@ -791,18 +791,18 @@ Closes #7314 by implementing all the subtasks mentioned in https://github.com/pa
 
 ## Changes
 Essentially, the main driver of all changes is that we adjust the Penpal runtime as follows:
-* Make the native token the base token for buying weight (before it was a hybrid set up, probably not 100% intentional).
-* Merge the `Assets` and the `ForeignAssets` pallet into one pallet called `Assets`, as the local assets can also be identified with a location starting with `parents: 0`.
-* Give the pallet-asset-conversion a genesis config so that we can easily set up pools at genesis instead of redundantly calling the setup macro with the same args.
+- Make the native token the base token for buying weight (before it was a hybrid set up, probably not 100% intentional).
+- Merge the `Assets` and the `ForeignAssets` pallet into one pallet called `Assets`, as the local assets can also be identified with a location starting with `parents: 0`.
+- Give the pallet-asset-conversion a genesis config so that we can easily set up pools at genesis instead of redundantly calling the setup macro with the same args.
 
 
 ### Test Changes
 I tried to keep the changes minimal in the tests in order to not harm any previously established invariants. Hence, in most cases I just did:
 
-* Add a PEN<>WND pool in order to be able to pay xcm execution fees in WND
-* Replaced the Penpal's teleportable asset with it's new location based version.
-* In very few cases, I switched from WND to PEN to make the tests easier, when I was sure that no invariants would be harmed.
-* The rest should only be renamings.
+- Add a PEN<>WND pool in order to be able to pay xcm execution fees in WND
+- Replaced the Penpal's teleportable asset with it's new location based version.
+- In very few cases, I switched from WND to PEN to make the tests easier, when I was sure that no invariants would be harmed.
+- The rest should only be renamings.
 
 #### [#11068]: FRAME: Add Peg Stability Module (PSM) pallet
 Introduces `pallet-psm`, a Peg Stability Module that enables 1:1 swaps between a native
@@ -950,9 +950,9 @@ This PR adds experimental support for the virtualization host functions. Those a
 
 This PR adds or changes the following components:
 
-* `sc-executor-wasmtime`: Just exposing our virtualization manager to host functions. Needs to be added here to be available for the whole lifetime of a runtime call.
-* `sp-virtualization`: New crate that abstracts away the host functions. Meaning that a user (like pallet-contracts) will interface only with this crate and not with the host functions directly. This is necessary so that the natively running test code still works. The host functions also depend on this crate. Those also contain all the tests. Everything PolkaVM is neatly organized into one crate. It also contains the definition of the new host functions.
-* `sp-wasm-interface`: We  added an interface mirroring the host functions here. This is necessary in order for the host functions to be able to call into the executor.
+- `sc-executor-wasmtime`: Just exposing our virtualization manager to host functions. Needs to be added here to be available for the whole lifetime of a runtime call.
+- `sp-virtualization`: New crate that abstracts away the host functions. Meaning that a user (like pallet-contracts) will interface only with this crate and not with the host functions directly. This is necessary so that the natively running test code still works. The host functions also depend on this crate. Those also contain all the tests. Everything PolkaVM is neatly organized into one crate. It also contains the definition of the new host functions.
+- `sp-wasm-interface`: We  added an interface mirroring the host functions here. This is necessary in order for the host functions to be able to call into the executor.
 
 #### [#11815]: Parachain disputes: Add some checks and tests
 Extend the parachain disputes logic with some extra plus some tests.
@@ -970,7 +970,7 @@ Adds a runtime API so off-chain callers can check whether an inbound message fro
 
 ## Test plan
 
-- [x] Run [end-to-end tests](https://github.com/paritytech/evm-test-suite/pull/142) (requires substrate-node, eth-rpc, node, cast)
+- [x] Run [end-to-end tests](https://github.com/paritytech/evm-test-suite/pull/142) (requires Substrate-node, eth-rpc, node, cast)
 - [x] Revert CallbackHandle to `()` and confirm end-to-end tests fail
 
 #### [#11710]: pallet-revive: expose pre-dispatch weight runtime API
@@ -1190,7 +1190,7 @@ Tools like Foundry, Hardhat, Tenderly, and really any dApp doing pre-flight simu
 
 ### Why apply overrides in the runtime, not at the node level?
 
-During the review of #11075, there was a suggestion to apply state overrides at the node level using `OverlayedChanges`, bypassing the runtime entirely. That approach works well if you control the node (Anvil does exactly this with a [custom executor](https://github.com/paritytech/foundry-polkadot/blob/24b2973b170779eb399b3fc1f393d7d900281ce5/crates/anvil-polkadot/src/substrate_node/service/executor.rs#L39)), but pallet-revive's eth-rpc is a standalone process that talks to the node over WebSocket via `state_call`. It has no access to `OverlayedChanges` or `StateMachine`. Adding a custom `state_call_with_overrides` RPC to substrate core would need buy-in from the SDK team and would be a much larger change. Applying overrides inside the runtime, within the dry-run's transactional context that always rolls back, keeps everything self-contained and works with **any node out of the box**.
+During the review of #11075, there was a suggestion to apply state overrides at the node level using `OverlayedChanges`, bypassing the runtime entirely. That approach works well if you control the node (Anvil does exactly this with a [custom executor](https://github.com/paritytech/foundry-polkadot/blob/24b2973b170779eb399b3fc1f393d7d900281ce5/crates/anvil-polkadot/src/substrate_node/service/executor.rs#L39)), but pallet-revive's eth-rpc is a standalone process that talks to the node over WebSocket via `state_call`. It has no access to `OverlayedChanges` or `StateMachine`. Adding a custom `state_call_with_overrides` RPC to Substrate core would need buy-in from the SDK team and would be a much larger change. Applying overrides inside the runtime, within the dry-run's transactional context that always rolls back, keeps everything self-contained and works with **any node out of the box**.
 
 ### Why extend DryRunConfig instead of adding a new runtime API method?
 
@@ -1335,7 +1335,7 @@ The no-components fallback is kept on `median_value`, while `r.len() <= 2` is ro
 #### [#10195]: Added
 # Description
 
-This PR introduces a new `#[stored]` attribute macro that simplifies the definition of storage types in FRAME pallets. 
+This PR introduces a new `#[stored]` attribute macro that simplifies the definition of storage types in FRAME pallets.
 By automatically generating consistent field-based trait bounds for `Encode`, `Decode`, `MaxEncodedLen`, `Clone`, `Eq`, `PartialEq`, `Debug`, and `TypeInfo`, it reduces boilerplate and ensures robust trait implementations for generic storage structures.
 
 
@@ -1561,7 +1561,7 @@ New extrinsic: `set_validator_self_stake_incentive_config` (AdminOrigin).
 #### [#10165]: YAP runtime: tune elastic scaling parameters and add local-run README
 Update the YAP testing runtime:
 
-- Support 12 cores / 500ms blocks 
+- Support 12 cores / 500ms blocks
 - Add README with build/run instructions for the local omni-node setup.
 - Bumps `spec_version` to `1_003_002`.
 
@@ -1904,7 +1904,7 @@ to mint and sell internal above peg, so demand pressure has nowhere to relieve.
 
 Allowing the Emergency origin to raise the ratio restores the arbitrage path.
 
-#### [#10150]: Deprecate `ValidateUnsigned` trait and `#[pallet::validate_unsigned]` attribute.
+#### [#10150]: Deprecate `ValidateUnsigned` trait and `#[pallet::validate_unsigned]` attribute
 Deprecate the `ValidateUnsigned` trait and `#[pallet::validate_unsigned]` attribute as part of phase 2 of Extrinsic Horizon.
 
 
@@ -1945,7 +1945,7 @@ is unchanged: still `ArkScale<TEAffine>`, no sentinel bit, no new codec.
 
 The fallback policy is per-curve, decided in the runtime-side hook:
 
-  * **Bandersnatch** (incomplete TE form): the `HostHooks` impl catches
+  - **Bandersnatch** (incomplete TE form): the `HostHooks` impl catches
     `Err(DegeneratePoint)` for both `msm_te` and `mul_projective_te` and
     substitutes the all-zero projective point `(0, 0, 0, 0)`. This is
     not a valid curve point: it has no affine representative (`z = 0`)
@@ -1955,7 +1955,7 @@ The fallback policy is per-curve, decided in the runtime-side hook:
     short-circuits locally with the same all-zero projective fallback
     when handed a `z = 0` projective *input* that can't be serialized
     for the host at all.
-  * **Other TE curves** (e.g. `ed_on_bls12_377`, which is complete by
+  - **Other TE curves** (e.g. `ed_on_bls12_377`, which is complete by
     construction so `z = 0` cannot occur on subgroup-valid arithmetic):
     the existing `.expect(FAIL_MSG)` propagates the error as a panic,
     which is correct since it should never fire.
@@ -2040,7 +2040,7 @@ The new TX `batch_map_accounts`:
 
 #### [#11894]: Raise MAX_CODE_SIZE governance ceiling to 5 MiB
 Raises `polkadot_primitives::MAX_CODE_SIZE` from 3 MiB to 5 MiB. Governance can now
-set `HostConfiguration.max_code_size` up to 5 MiB; 
+set `HostConfiguration.max_code_size` up to 5 MiB;
 
 Adds tests for previously untested rejection paths against the on-chain
 `max_code_size`: `inclusion::verify_backed_candidate`,
@@ -2235,7 +2235,7 @@ Adds XCM-based transfer support to `pallet-dap-satellite`, enabling system parac
 that accumulate native token burns (fees, dust, coretime revenue) to periodically
 teleport those funds to the central DAP buffer account on AssetHub.
 
-## New components:
+## New components
 
 **`sp-dap`**: Contains the `SendToDap` trait, to be implemented when funds need to be
   sent to the central DAP buffer, as well as the DAP and DAP satellite pallet IDs.
@@ -2244,12 +2244,12 @@ teleport those funds to the central DAP buffer account on AssetHub.
 - `SendToDapViaTeleport` — implements `SendToDap` and wraps it in a storage transaction
   so that any failure rolls back all local state changes.
 
-## Integration (Westend system parachains):
+## Integration (Westend system parachains)
 
 All five Westend system parachains (AssetHub, BridgeHub, Collectives, Coretime, People)
 and the Westend relay chain are configured with `SendToDapViaTeleport`.
 
-## Testing:
+## Testing
 
 Integration tests covering the full round-trip (satellite accumulates → `on_idle` fires →
 XCM teleport → DAP buffer receives) are provided for the Westend relay chain and all
@@ -2262,7 +2262,7 @@ sign/verify methods (with zero input). This removes duplicated
 proving/verifying logic and fixes the TraitPair::sign implementation which
 was previously using a manual Schnorr scheme inconsistent with verification.
 
-#### [#11860]: pallet-revive: align eth_substrate_call origin check with other eth dispatchables
+#### [#11860]: pallet-revive: align eth_Substrate_call origin check with other eth dispatchables
 ### Summary
 Adds `ensure_non_contract_if_signed` to `eth_substrate_call`, matching `eth_call` and `eth_instantiate_with_code`.
 
@@ -2329,13 +2329,12 @@ disappear from the database after commit. The fix maps changes directly to
 operations in the same transaction.
 
 
-
 ### Changelog for `Runtime User`
 
 **ℹ️ These changes are relevant to:**  Anyone using the runtime. This can be a token holder or a dev writing a front end for a chain.
 
 
-#### [#11052]: update multi asset bounties pallet account derivation logic 
+#### [#11052]: update multi asset bounties pallet account derivation logic
 The account IDs for bounty and child-bounty funding accounts have changed. Off-chain code that
 derives or hardcodes these addresses must use the new derivation: raw-byte prefix `b"mbt"` for
 bounties and `b"mcb"` for child bounties, SCALE-encoded as fixed `[u8; 3]` arrays (no length
@@ -2425,7 +2424,7 @@ A three-phase multi-block migration brings live chains over:
 - **Phase 3**: rewrite `DeletionQueue` from `TrieId` to `DeletionQueueItem { trie_id, account_id }` so the on-idle sweep can also clear the contract's `NativeDepositOf` rows. Runs on every runtime.
 
 
-#### [#10150]: Deprecate `ValidateUnsigned` trait and `#[pallet::validate_unsigned]` attribute.
+#### [#10150]: Deprecate `ValidateUnsigned` trait and `#[pallet::validate_unsigned]` attribute
 Deprecate the `ValidateUnsigned` trait and `#[pallet::validate_unsigned]` attribute as part of phase 2 of Extrinsic Horizon.
 
 
