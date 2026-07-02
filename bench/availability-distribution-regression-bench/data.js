@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783013269403,
+  "lastUpdate": 1783018359983,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
-            "name": "s0me0ne-unkn0wn",
-            "username": "s0me0ne-unkn0wn"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "736360090bfae5674cfb54a641f9d542a40656e8",
-          "message": "Fix executor params classification and add test (#10194)\n\nCloses #8054 \n\nExecutor parameters may be hashed in two ways: a full hash that changes\nif any parameter changes, and a prep_hash, which changes only if the\nparameter change will affect the prepared artifact (thus requiring\nartifact recompilation).\n\nAs was discovered in #8054, the initial classification of parameters was\nwrong, and some parameters that affect the artifact were not classified\nas such, and vice versa.\n\nThis PR aims to fix that and to add a test that should prevent this from\nhappening in the future.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-09T10:23:47Z",
-          "tree_id": "42abf8795260da4ed93133f1b8de6901972d5ec5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/736360090bfae5674cfb54a641f9d542a40656e8"
-        },
-        "date": 1762687968950,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1587728214,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01310919582,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007073274173333315,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02257130996666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009904065913333303,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "42d7fd2cdbfd1a5e9133db64bac84aa45cc107ec",
+          "message": "[dmp] Use page queue instead of single vec (#11909)\n\nThe relay DMP queue pallet currently uses one `Para -> Vec<Message>` map\nto map parachains to their messages.\nUsing one big vector per parachain is not ideal, hence i change it to a\n`(Para, Index) -> Message` list.\n\n## Storage\n\nA lazy multi-block-migration is in place `migration::MigrateV0ToV1` and\nmust be applied to all chains that deploy the DMP pallet.\nAll new storage items should be used through the static functions of\n`InboundDownwardQueue` to preserve invariants.\n\n#### DownwardMessageQueueMeta\n\n`ParaId -> InboundDownwardQueueMeta`: Maps parachain ID to metadata for\nmanaging the list.\n\n#### DownwardMessageQueuePages\n\n`ParaId -> PageIndex -> Message`: Treats each message as page and stores\nall pages.\n\n#### DownwardMessageQueueLazyDelete\n\n`PageId -> (PageIndex, PageIndex)`: For lazily sweeping old queues.\nContains `[first, last)` range of pages to be deleted.\n\n#### <s>DownwardMessageQueues</s>\n\nRemoved the old Vector based page map.\n\n## Migration\n\nTo keep the message ordering and MQC correct, we treat:\n- v1 as front, if present (otherwise v0)\n- v0 as back, if present (otherwise v1)\n- Define all messages as: v1 ++ v0\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-07-02T15:21:54Z",
+          "tree_id": "d74ab678479297fc9d79ffc513898ce752960f07",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/42d7fd2cdbfd1a5e9133db64bac84aa45cc107ec"
+        },
+        "date": 1783018331249,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010329526333333307,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007886007586666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024099575479999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14683416410000008,
             "unit": "seconds"
           }
         ]
