@@ -169,7 +169,7 @@ where
 		+ Sync,
 	Client::Api: TransactionStorageApi<Block> + Core<Block> + ApiExt<Block>,
 {
-	/// True iff the block needs bitswap prefetch. Body must be present and the runtime
+	/// True if the block needs bitswap prefetch. Body must be present and the runtime
 	/// must expose `TransactionStorageApi v2+`.
 	fn should_intercept(&self, params: &BlockImportParams<Block>) -> bool {
 		if params.body.is_none() {

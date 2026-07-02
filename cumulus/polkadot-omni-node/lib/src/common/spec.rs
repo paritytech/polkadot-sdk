@@ -132,10 +132,6 @@ fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 }
 
 pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi> {
-	/// The block import type as it appears OUTSIDE of `ParachainBlockImport`,
-	/// i.e. after any path-specific outer wrapping has been applied. For the
-	/// lookahead path this is `StorageChainBlockImport<…>`; for the slot-based
-	/// path this is `SlotBasedBlockImport<…, StorageChainBlockImport<…>, …>`.
 	type BlockImport: sc_consensus::BlockImport<Block, Error = sp_consensus::Error>
 		+ Clone
 		+ Send
