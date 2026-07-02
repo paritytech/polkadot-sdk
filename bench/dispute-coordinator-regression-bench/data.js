@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783013380441,
+  "lastUpdate": 1783018474325,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fe0113539b123b282654ddaa7c7d548a1b59a58b",
-          "message": "Upgrade kvdb-rocksdb (#10242)\n\nThis includes a fix for when we are writing a lot of state, e.g. after a\nwarp sync. In this case the rocksdb will compact its own db to improve\nread speed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-07T13:57:37Z",
-          "tree_id": "ff2f6f74917708c0ef3a8bf354f479adfeb09a1a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/fe0113539b123b282654ddaa7c7d548a1b59a58b"
-        },
-        "date": 1762528223360,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005129064149999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027253455,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008754713429999984,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00258049637,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "42d7fd2cdbfd1a5e9133db64bac84aa45cc107ec",
+          "message": "[dmp] Use page queue instead of single vec (#11909)\n\nThe relay DMP queue pallet currently uses one `Para -> Vec<Message>` map\nto map parachains to their messages.\nUsing one big vector per parachain is not ideal, hence i change it to a\n`(Para, Index) -> Message` list.\n\n## Storage\n\nA lazy multi-block-migration is in place `migration::MigrateV0ToV1` and\nmust be applied to all chains that deploy the DMP pallet.\nAll new storage items should be used through the static functions of\n`InboundDownwardQueue` to preserve invariants.\n\n#### DownwardMessageQueueMeta\n\n`ParaId -> InboundDownwardQueueMeta`: Maps parachain ID to metadata for\nmanaging the list.\n\n#### DownwardMessageQueuePages\n\n`ParaId -> PageIndex -> Message`: Treats each message as page and stores\nall pages.\n\n#### DownwardMessageQueueLazyDelete\n\n`PageId -> (PageIndex, PageIndex)`: For lazily sweeping old queues.\nContains `[first, last)` range of pages to be deleted.\n\n#### <s>DownwardMessageQueues</s>\n\nRemoved the old Vector based page map.\n\n## Migration\n\nTo keep the message ordering and MQC correct, we treat:\n- v1 as front, if present (otherwise v0)\n- v0 as back, if present (otherwise v1)\n- Define all messages as: v1 ++ v0\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-07-02T15:21:54Z",
+          "tree_id": "d74ab678479297fc9d79ffc513898ce752960f07",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/42d7fd2cdbfd1a5e9133db64bac84aa45cc107ec"
+        },
+        "date": 1783018444962,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010700890719999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00924572966999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025906509200000006,
             "unit": "seconds"
           }
         ]
