@@ -1245,46 +1245,44 @@ where
 	// spawned AFTER `Net::new` returns `Ok` (see below) so that a network construction
 	// failure does not leave an orphan bitswap task running. The `user_handle` is later
 	// returned to the caller via the build-network output tuple.
-	let (bitswap_handler, bitswap_user_handle, ipfs_config) = if net_config
-		.network_config
-		.ipfs_server
-	{
-		if matches!(
-			net_config.network_config.network_backend,
-			sc_network::config::NetworkBackendType::Libp2p
-		) {
-			return Err(Error::Other(
-				"Bitswap requires the litep2p network backend; \
+	let (bitswap_handler, bitswap_user_handle, ipfs_config) =
+		if net_config.network_config.ipfs_server {
+			if matches!(
+				net_config.network_config.network_backend,
+				sc_network::config::NetworkBackendType::Libp2p
+			) {
+				return Err(Error::Other(
+					"Bitswap requires the litep2p network backend; \
 				 set --network-backend litep2p or disable --ipfs-server"
-					.into(),
-			));
-		}
+						.into(),
+				));
+			}
 
-		let ipfs_num_blocks = match blocks_pruning {
-			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => IPFS_MAX_BLOCKS,
-			BlocksPruning::Some(num) => std::cmp::min(num, IPFS_MAX_BLOCKS),
+			let ipfs_num_blocks = match blocks_pruning {
+				BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => IPFS_MAX_BLOCKS,
+				BlocksPruning::Some(num) => std::cmp::min(num, IPFS_MAX_BLOCKS),
+			};
+
+			// `IpfsConfig::new` mints the litep2p `(Config, BitswapHandle)` pair internally and
+			// returns the transport handle alongside the config. The handle is owned by the
+			// bitswap service actor; the config is installed by the litep2p backend during
+			// `Net::new`.
+			let (ipfs_config, litep2p_bitswap_handle) = IpfsConfig::new(
+				Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
+				net_config.network_config.ipfs_bootnodes.clone(),
+			);
+
+			let (handler, bitswap_user_handle) = sc_network_bitswap::start::<Block, _>(
+				client.clone(),
+				&*sync_service,
+				litep2p_bitswap_handle,
+				sc_network_bitswap::BitswapServiceConfig::default(),
+			);
+
+			(Some(handler), Some(bitswap_user_handle), Some(ipfs_config))
+		} else {
+			(None, None, None)
 		};
-
-		// `IpfsConfig::new` mints the litep2p `(Config, BitswapHandle)` pair internally and
-		// returns the transport handle alongside the config. The handle is owned by the
-		// bitswap service actor; the config is installed by the litep2p backend during
-		// `Net::new`.
-		let (ipfs_config, litep2p_bitswap_handle) = IpfsConfig::new(
-			Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
-			net_config.network_config.ipfs_bootnodes.clone(),
-		);
-
-		let (handler, bitswap_user_handle) = sc_network_bitswap::start::<Block, _>(
-			client.clone(),
-			&*sync_service,
-			litep2p_bitswap_handle,
-			sc_network_bitswap::BitswapServiceConfig::default(),
-		);
-
-		(Some(handler), Some(bitswap_user_handle), Some(ipfs_config))
-	} else {
-		(None, None, None)
-	};
 
 	// Create transactions protocol and add it to the list of supported protocols of
 	let (transactions_handler_proto, transactions_config) =

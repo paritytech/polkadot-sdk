@@ -34,10 +34,8 @@ tokio = { features = ["macros", "rt", "sync"], workspace = true, default-feature
 tokio-util = { features = ["time"], workspace = true }
 
 [dev-dependencies]
-multihash-codetable = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 tokio = { features = ["macros", "rt-multi-thread", "test-util"], workspace = true, default-features = true }

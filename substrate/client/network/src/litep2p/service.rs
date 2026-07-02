@@ -582,5 +582,3 @@ impl NetworkRequest for Litep2pNetworkService {
 		}
 	}
 }
-
-
