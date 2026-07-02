@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783009552081,
+  "lastUpdate": 1783013306491,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bce9296825651a5b173719776d080ea07d77ea21",
-          "message": "remote-externalities: Remove old code (#10249)\n\nThe underlying issue was solved by now.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-07T18:54:56Z",
-          "tree_id": "9dd3aaceade788ebf69319f377ff77a415954645",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bce9296825651a5b173719776d080ea07d77ea21"
-        },
-        "date": 1762545829859,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63630.159999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52937.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021018470000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5013470479199986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4452193740400007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005609667590000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001982361,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021018470000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.412590346239995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001982361,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.486649296800001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9497893304699947,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4849285903299987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7997726749009475,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.539047039089999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.8114071595199994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3fc6850a617c5cec6e67460310897cd2e4ca8c39",
+          "message": "[pallet-revive]: move eth-rpc-only types out of pallet-revive (#12037)\n\n# Description\n\nThis PR is part of the versioning effort\nhttps://github.com/paritytech/polkadot-sdk/issues/11923 and closes\nhttps://github.com/paritytech/polkadot-sdk/issues/12045. This PR moves a\nnumber of types which used to be defined in `pallet-revive` over to the\neth-rpc. A small set of byte wrapper types are now used from the\n`pallet-revive-types` crate.\n\nThe reason for this moving of types is that a lot of types were defined\nin `pallet-revive` but were not being used by `pallet-revive` in any\nway. They were defined there and were being used exclusively in the\neth-rpc. Therefore, them being defined in `pallet-revive` did not make\nsense.\n\n<table>\n  <thead>\n    <tr>\n      <th align=\"left\">Type</th>\n      <th align=\"left\">What was done</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td><code>InputOrData</code></td>\n<td rowspan=\"19\">Moved (definition + impls consolidated) into the new\n<code>pallet_revive::evm::api::transaction</code> module. Stays in\n<code>pallet-revive</code>.</td>\n    </tr>\n    <tr><td><code>GenericTransaction</code></td></tr>\n    <tr><td><code>TransactionInfo</code></td></tr>\n    <tr><td><code>TransactionUnsigned</code></td></tr>\n    <tr><td><code>TransactionSigned</code></td></tr>\n    <tr><td><code>HashesOrTransactionInfos</code></td></tr>\n    <tr><td><code>AccessList</code></td></tr>\n    <tr><td><code>AccessListEntry</code></td></tr>\n    <tr><td><code>AuthorizationListEntry</code></td></tr>\n    <tr><td><code>TransactionLegacyUnsigned</code></td></tr>\n    <tr><td><code>TransactionLegacySigned</code></td></tr>\n    <tr><td><code>Transaction1559Unsigned</code></td></tr>\n    <tr><td><code>Transaction1559Signed</code></td></tr>\n    <tr><td><code>Transaction2930Unsigned</code></td></tr>\n    <tr><td><code>Transaction2930Signed</code></td></tr>\n    <tr><td><code>Transaction4844Unsigned</code></td></tr>\n    <tr><td><code>Transaction4844Signed</code></td></tr>\n    <tr><td><code>Transaction7702Unsigned</code></td></tr>\n    <tr><td><code>Transaction7702Signed</code></td></tr>\n    <tr>\n      <td><code>Block</code></td>\n<td rowspan=\"2\">Moved into the new\n<code>pallet_revive::evm::api::block</code> module. Stays in\n<code>pallet-revive</code>.</td>\n    </tr>\n    <tr><td><code>Withdrawal</code></td></tr>\n    <tr>\n      <td><code>StateOverrideSet</code></td>\n<td rowspan=\"3\">Moved into the new\n<code>pallet_revive::evm::api::state_overrides</code> module. Stays in\n<code>pallet-revive</code>.</td>\n    </tr>\n    <tr><td><code>StateOverride</code></td></tr>\n    <tr><td><code>StorageOverride</code></td></tr>\n    <tr>\n      <td><code>Log</code></td>\n<td rowspan=\"2\">Moved out of <code>pallet-revive</code> into the\n<code>pallet-revive-eth-rpc</code> crate (<code>types::log</code>).</td>\n    </tr>\n    <tr><td><code>FilterResults</code></td></tr>\n    <tr>\n      <td><code>SyncingStatus</code></td>\n<td rowspan=\"2\">Moved out of <code>pallet-revive</code> into the\n<code>pallet-revive-eth-rpc</code> crate\n(<code>types::sync</code>).</td>\n    </tr>\n    <tr><td><code>SyncingProgress</code></td></tr>\n    <tr>\n      <td><code>ReceiptInfo</code></td>\n<td>Moved out of <code>pallet-revive</code> into the\n<code>pallet-revive-eth-rpc</code> crate\n(<code>types::receipt</code>).</td>\n    </tr>\n    <tr>\n      <td><code>BlockHeader</code></td>\n<td rowspan=\"7\">Moved out of <code>pallet-revive</code> into the\n<code>pallet-revive-eth-rpc</code> crate\n(<code>types::subscription</code>).</td>\n    </tr>\n    <tr><td><code>SubscriptionKind</code></td></tr>\n    <tr><td><code>SubscriptionOptions</code></td></tr>\n    <tr><td><code>SubscriptionParameters</code></td></tr>\n    <tr><td><code>SubscriptionItem</code></td></tr>\n    <tr><td><code>LogsSubscriptionFilter</code></td></tr>\n    <tr><td><code>BoundedOneOrMany</code></td></tr>\n    <tr>\n      <td><code>FeeHistoryResult</code></td>\n<td>Moved out of <code>pallet-revive</code> into the\n<code>pallet-revive-eth-rpc</code> crate\n(<code>types::fee_history</code>).</td>\n    </tr>\n    <tr>\n      <td><code>TracerConfig</code></td>\n<td rowspan=\"3\">Moved out of <code>pallet-revive</code>\n(<code>debug_rpc_types</code>) into the\n<code>pallet-revive-eth-rpc</code> crate\n(<code>types::trace</code>).</td>\n    </tr>\n    <tr><td><code>TraceCallConfig</code></td></tr>\n    <tr><td><code>TransactionTrace</code></td></tr>\n    <tr>\n      <td><code>BlockNumberOrTagOrHash</code></td>\n<td rowspan=\"8\">Removed from <code>pallet-revive</code> and replaced\nthroughout by the equivalent <code>alloy_rpc_types</code> type:<br>•\n<code>BlockNumberOrTagOrHash</code> → <code>BlockId</code><br>•\n<code>BlockNumberOrTag</code> &amp; <code>BlockTag</code> →\n<code>BlockNumberOrTag</code><br>• <code>Filter</code>,\n<code>AddressOrAddresses</code>, <code>Addresses</code>,\n<code>FilterTopic</code>, <code>FilterTopics</code> →\n<code>Filter</code> / <code>FilterSet</code> / <code>Topic</code></td>\n    </tr>\n    <tr><td><code>BlockNumberOrTag</code></td></tr>\n    <tr><td><code>BlockTag</code></td></tr>\n    <tr><td><code>Filter</code></td></tr>\n    <tr><td><code>AddressOrAddresses</code></td></tr>\n    <tr><td><code>Addresses</code></td></tr>\n    <tr><td><code>FilterTopic</code></td></tr>\n    <tr><td><code>FilterTopics</code></td></tr>\n  </tbody>\n</table>\n\n## Integration\n\nDownstream code which imported eth-rpc-only response or request helper\ntypes from `pallet_revive::evm` should import them from\n`pallet-revive-eth-rpc` instead. The eth-rpc crate re-exports these\nthrough its crate root and also groups them under\n`pallet_revive_eth_rpc::types`.\n\nThe core pallet transaction, block, and state override types remain\navailable through the existing `pallet_revive::evm::*` public\nre-exports. Their backing modules changed, but users of the public\nre-export path should not need source changes for those types.\n\nThe byte wrappers are now the canonical definitions from\n`pallet_revive_types::common`. `pallet_revive::evm::*` continues to\nre-export them for compatibility.\n\n## Review Notes\n\nThe main structure change is that `src/evm/api/rpc_types_gen.rs` was\nremoved. Types which are still used by pallet execution/storage were\nmoved into `src/evm/api/block.rs`, `src/evm/api/transaction.rs`, and\n`src/evm/api/state_override.rs`. This is intended to be a definition and\nimpl move, while keeping the public `pallet_revive::evm::*` re-export\nsurface stable for the pallet-owned types.\n\nThe eth-rpc-only types now live in `rpc/src/types/`, grouped by use: fee\nhistory, logs, receipts, subscriptions, sync status, and debug tracing.\nThe eth-rpc crate re-exports `types::*`, so RPC users can continue\nimporting these types from the RPC crate root.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-02T14:17:20Z",
+          "tree_id": "b7ccab1a6fb5b277be891a43a1304cd967da8c7c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3fc6850a617c5cec6e67460310897cd2e4ca8c39"
+        },
+        "date": 1783013278504,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52946.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63598.93000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7777359568299264,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002591801,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002480771,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.36708461882993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8442704418899973,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002591801,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7623246135499993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005293874660000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7479617450800005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002480771,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7908655989100004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4386323879100025,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.478690292192731,
             "unit": "seconds"
           }
         ]
