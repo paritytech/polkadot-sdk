@@ -52,9 +52,7 @@ const LOG_TARGET: &str = "storage-chain-fetcher";
 const BITSWAP_PER_PEER_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_PEERS_PER_IMPORT: usize = 8;
 
-/// Source of currently-connected sync peer IDs. Abstracted so the fetcher can be unit-tested
-/// without spinning up a full `SyncingService`. The production blanket impl on
-/// `SyncingService<Block>` calls `peers_info()` and projects to the peer-id column.
+/// Source of currently-connected sync peer IDs. 
 #[async_trait]
 pub trait BitswapPeerSource: Send + Sync {
 	async fn current_peers(&self) -> Result<Vec<PeerId>, oneshot::Canceled>;
@@ -63,7 +61,12 @@ pub trait BitswapPeerSource: Send + Sync {
 #[async_trait]
 impl<B: BlockT> BitswapPeerSource for SyncingService<B> {
 	async fn current_peers(&self) -> Result<Vec<PeerId>, oneshot::Canceled> {
-		Ok(self.peers_info().await?.into_iter().map(|(peer, _)| peer).collect())
+		Ok(self
+			.peers_info()
+			.await?
+			.into_iter()
+			.filter_map(|(peer, info)| info.roles.is_full().then_some(peer))
+			.collect())
 	}
 }
 
