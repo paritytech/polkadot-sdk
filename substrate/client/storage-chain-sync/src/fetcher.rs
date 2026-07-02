@@ -35,6 +35,7 @@ use crate::RenewWant;
 use async_trait::async_trait;
 use cid::{multihash::Multihash, Cid};
 use futures::channel::oneshot;
+use rand::seq::SliceRandom;
 use sc_network::{
 	bitswap::{request_bitswap_blocks, FetchOutcome, MAX_WANTED_BLOCKS},
 	NetworkRequest, PeerId,
@@ -52,7 +53,7 @@ const LOG_TARGET: &str = "storage-chain-fetcher";
 const BITSWAP_PER_PEER_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_PEERS_PER_IMPORT: usize = 8;
 
-/// Source of currently-connected sync peer IDs. 
+/// Source of currently-connected sync peer IDs.
 #[async_trait]
 pub trait BitswapPeerSource: Send + Sync {
 	async fn current_peers(&self) -> Result<Vec<PeerId>, oneshot::Canceled>;
@@ -132,7 +133,7 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 		let network = self.network.get().ok_or(FetchError::NetworkHandleUnset)?;
 		let peer_source = self.peer_source.get().ok_or(FetchError::SyncingHandleUnset)?;
 
-		let peers = match peer_source.current_peers().await {
+		let mut peers = match peer_source.current_peers().await {
 			Ok(peers) => peers,
 			Err(_) => {
 				log::warn!(target: LOG_TARGET, "current_peers() channel cancelled");
@@ -146,6 +147,8 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 			);
 			return Ok(HashMap::new());
 		}
+		// Shuffle peers to not end up with always the same peers.
+		peers.shuffle(&mut rand::thread_rng());
 
 		// Build per-want CIDs once; reuse across peers and chunks.
 		let cids: Vec<(ContentHash, Cid)> = wants

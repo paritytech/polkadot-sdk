@@ -18,6 +18,7 @@ codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
+rand = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
@@ -37,7 +38,6 @@ thiserror = { workspace = true }
 [dev-dependencies]
 prost = { workspace = true }
 rstest = { workspace = true }
-sc-network = { workspace = true, default-features = true, features = ["test-helpers"] }
 sp-crypto-hashing = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
