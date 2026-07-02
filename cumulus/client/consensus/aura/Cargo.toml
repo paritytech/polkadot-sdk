@@ -17,6 +17,7 @@ codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
 parking_lot = { workspace = true }
 schnellru = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 tracing = { workspace = true, default-features = true }
 

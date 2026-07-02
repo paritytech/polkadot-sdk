@@ -735,8 +735,28 @@ where
 	check_validation_code_or_log(&validation_code_hash, para_id, relay_client, relay_parent_hash)
 		.await;
 
-	let session = resolve_session(relay_client, relay_parent_hash).await;
-	let pvd = resolve_pvd(relay_client, relay_parent_hash, para_id).await;
+	let session = resolve_session(relay_client, relay_parent_hash)
+		.await
+		.inspect_err(|err| {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?relay_parent_hash,
+				?err,
+				"Could not resolve relay-parent session; resubmission entry will be skipped.",
+			);
+		})
+		.ok();
+	let pvd = resolve_pvd(relay_client, relay_parent_hash, para_id)
+		.await
+		.inspect_err(|err| {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?relay_parent_hash,
+				?err,
+				"Could not resolve persisted validation data; resubmission entry will be skipped.",
+			);
+		})
+		.ok();
 
 	let mut blocks = Vec::new();
 	let mut proofs = Vec::new();

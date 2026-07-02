@@ -27,10 +27,13 @@ use cumulus_client_resubmission_store::{
 	now_unix_ms, prepare_resubmission_aux_data, prune_finalized_entries,
 };
 use cumulus_primitives_core::{
-	relay_chain::{BlockId, Hash as RelayHash, Header as RelayHeader, SessionIndex},
+	relay_chain::{
+		BlockId, BlockNumber as RelayBlockNumber, Hash as RelayHash, Header as RelayHeader,
+		SessionIndex,
+	},
 	CumulusDigestItem, PersistedValidationData, RelayBlockIdentifier,
 };
-use cumulus_relay_chain_interface::RelayChainInterface;
+use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 use futures::{FutureExt, StreamExt};
 use polkadot_primitives::{Id as ParaId, OccupiedCoreAssumption};
 use sc_client_api::{backend::AuxStore, BlockchainEvents};
@@ -41,55 +44,50 @@ use std::sync::Arc;
 
 const LOG_TARGET: &str = "aura::resubmission";
 
-/// Fetch the session index for the given relay parent. Returns `None` on error.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum ResubmissionError {
+	#[error("relay parent header unavailable for {0:?}")]
+	HeaderUnavailable(RelayBlockIdentifier),
+
+	#[error("relay storage root mismatch at number {block_number}")]
+	StorageRootMismatch { block_number: RelayBlockNumber },
+
+	#[error("failed to fetch relay parent header: {0}")]
+	RelayParentHeader(RelayChainError),
+
+	#[error("failed to fetch relay-parent session: {0}")]
+	Session(RelayChainError),
+
+	#[error("no persisted validation data (TimedOut) for relay parent")]
+	PersistedValidationDataUnavailable,
+
+	#[error("failed to fetch persisted validation data: {0}")]
+	PersistedValidationData(RelayChainError),
+}
+
+/// Fetch the session index for the given relay parent.
 pub(crate) async fn resolve_session<R: RelayChainInterface + ?Sized>(
 	relay_client: &R,
 	relay_parent: RelayHash,
-) -> Option<SessionIndex> {
-	match relay_client.session_index_for_child(relay_parent).await {
-		Ok(s) => Some(s),
-		Err(err) => {
-			tracing::warn!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?err,
-				"Failed to fetch relay-parent session; skipping resubmission entry.",
-			);
-			None
-		},
-	}
+) -> Result<SessionIndex, ResubmissionError> {
+	relay_client
+		.session_index_for_child(relay_parent)
+		.await
+		.map_err(ResubmissionError::Session)
 }
 
 /// Fetch the persisted validation data (with `OccupiedCoreAssumption::TimedOut`, so `parent_head`
-/// is the currently-included head) for the given relay parent. Returns `None` on error.
+/// is the currently-included head) for the given relay parent.
 pub(crate) async fn resolve_pvd<R: RelayChainInterface + ?Sized>(
 	relay_client: &R,
 	relay_parent: RelayHash,
 	para_id: ParaId,
-) -> Option<PersistedValidationData> {
-	match relay_client
+) -> Result<PersistedValidationData, ResubmissionError> {
+	relay_client
 		.persisted_validation_data(relay_parent, para_id, OccupiedCoreAssumption::TimedOut)
 		.await
-	{
-		Ok(Some(pvd)) => Some(pvd),
-		Ok(None) => {
-			tracing::warn!(
-				target: LOG_TARGET,
-				?relay_parent,
-				"No persisted validation data (TimedOut); skipping resubmission entry.",
-			);
-			None
-		},
-		Err(err) => {
-			tracing::warn!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?err,
-				"Failed to fetch persisted validation data; skipping resubmission entry.",
-			);
-			None
-		},
-	}
+		.map_err(ResubmissionError::PersistedValidationData)?
+		.ok_or(ResubmissionError::PersistedValidationDataUnavailable)
 }
 
 /// Resolve the relay-parent header from a [`RelayBlockIdentifier`] found in a parablock's digest.
@@ -97,38 +95,28 @@ pub(crate) async fn resolve_pvd<R: RelayChainInterface + ?Sized>(
 /// Production slot-based blocks carry the relay parent as [`RelayBlockIdentifier::ByStorageRoot`]
 /// (via the relay-parent-storage-root digest), so we look the relay block up by number and confirm
 /// its state root matches — guarding against resolving the wrong fork. [`RelayBlockIdentifier::
-/// ByHash`] is resolved directly. On failure returns a human-readable reason for the caller to log.
+/// ByHash`] is resolved directly.
 async fn resolve_relay_parent<R: RelayChainInterface + ?Sized>(
 	relay_client: &R,
 	identifier: &RelayBlockIdentifier,
-) -> Result<RelayHeader, String> {
+) -> Result<RelayHeader, ResubmissionError> {
 	match identifier {
-		RelayBlockIdentifier::ByHash(relay_parent) => {
-			match relay_client.header(BlockId::Hash(*relay_parent)).await {
-				Ok(Some(header)) => Ok(header),
-				Ok(None) => Err(format!("relay parent header unavailable for {relay_parent:?}")),
-				Err(err) => {
-					Err(format!("failed to fetch relay parent header for {relay_parent:?}: {err}"))
-				},
-			}
-		},
+		RelayBlockIdentifier::ByHash(relay_parent) => relay_client
+			.header(BlockId::Hash(*relay_parent))
+			.await
+			.map_err(ResubmissionError::RelayParentHeader)?
+			.ok_or_else(|| ResubmissionError::HeaderUnavailable(identifier.clone())),
 		RelayBlockIdentifier::ByStorageRoot { storage_root, block_number } => {
-			let header = match relay_client.header(BlockId::Number(*block_number)).await {
-				Ok(Some(header)) => header,
-				Ok(None) => {
-					return Err(format!("relay header unavailable at number {block_number}"))
-				},
-				Err(err) => {
-					return Err(format!(
-						"failed to fetch relay header at number {block_number}: {err}"
-					))
-				},
-			};
+			let header = relay_client
+				.header(BlockId::Number(*block_number))
+				.await
+				.map_err(ResubmissionError::RelayParentHeader)?
+				.ok_or_else(|| ResubmissionError::HeaderUnavailable(identifier.clone()))?;
 
 			// The canonical relay block at this number must match the storage root recorded in the
 			// digest, otherwise we resolved a different fork.
 			if header.state_root != *storage_root {
-				return Err(format!("relay storage root mismatch at number {block_number}"));
+				return Err(ResubmissionError::StorageRootMismatch { block_number: *block_number });
 			}
 
 			Ok(header)
@@ -174,8 +162,14 @@ pub(crate) async fn run_resubmission_backfill<Block, RClient, Client>(
 				}
 			},
 			(block, proof) = import_fut => {
-				backfill_resubmission_entry(&relay_client, &*para_client, para_id, block, proof)
-					.await;
+				backfill_resubmission_entry(
+					&relay_client,
+					&*para_client,
+					para_id,
+					block.header(),
+					proof,
+				)
+				.await;
 			},
 		}
 	}
@@ -188,7 +182,7 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 	relay_client: &R,
 	para_client: &Client,
 	para_id: ParaId,
-	block: Block,
+	header: &Block::Header,
 	proof: Arc<StorageProof>,
 ) where
 	Block: BlockT,
@@ -197,7 +191,6 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 {
 	let time_ms = now_unix_ms();
 
-	let header = block.header();
 	let block_hash = header.hash();
 	let number = *header.number();
 
@@ -219,11 +212,11 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 	let relay_parent_header =
 		match resolve_relay_parent(relay_client, &relay_block_identifier).await {
 			Ok(header) => header,
-			Err(reason) => {
+			Err(err) => {
 				tracing::debug!(
 					target: LOG_TARGET,
 					?block_hash,
-					%reason,
+					?err,
 					"Could not resolve relay parent; skipping resubmission entry.",
 				);
 				return;
@@ -231,12 +224,29 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 		};
 	let relay_parent = relay_parent_header.hash();
 
-	let Some(relay_parent_session) = resolve_session(relay_client, relay_parent).await else {
-		return;
+	let relay_parent_session = match resolve_session(relay_client, relay_parent).await {
+		Ok(session) => session,
+		Err(err) => {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?block_hash,
+				?err,
+				"Could not resolve relay-parent session; skipping resubmission entry.",
+			);
+			return;
+		},
 	};
-	let Some(persisted_validation_data) = resolve_pvd(relay_client, relay_parent, para_id).await
-	else {
-		return;
+	let persisted_validation_data = match resolve_pvd(relay_client, relay_parent, para_id).await {
+		Ok(pvd) => pvd,
+		Err(err) => {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?block_hash,
+				?err,
+				"Could not resolve persisted validation data; skipping resubmission entry.",
+			);
+			return;
+		},
 	};
 
 	if number <= para_client.info().finalized_number {

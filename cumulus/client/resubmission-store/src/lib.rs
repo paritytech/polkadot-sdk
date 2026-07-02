@@ -27,7 +27,6 @@
 //! finality notification.
 
 use codec::{Decode, Encode};
-use cumulus_client_consensus_common::old_finalized_hash;
 use cumulus_primitives_core::{
 	relay_chain::{CoreSelector, Header as RelayHeader, SessionIndex},
 	PersistedValidationData,
@@ -38,7 +37,7 @@ use sc_client_api::{
 	HeaderBackend,
 };
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
-use sp_runtime::traits::{Block as BlockT, Header as _};
+use sp_runtime::traits::Block as BlockT;
 use sp_trie::StorageProof;
 use std::{
 	marker::PhantomData,
@@ -154,8 +153,8 @@ impl<Block: BlockT, B: AuxStore> ResubmissionStore<Block, B> {
 	}
 }
 
-/// Delete entries for the just-finalized chain, the tree route, the prior finalized head, and stale
-/// forks — once finalized, a block is no longer in any unincluded segment.
+/// Delete entries for the just-finalized chain, the tree route, and stale forks — once
+/// finalized, a block is no longer in any unincluded segment.
 pub fn prune_finalized_entries<Block, B>(
 	backend: &B,
 	notification: &FinalityNotification<Block>,
@@ -164,15 +163,8 @@ where
 	Block: BlockT,
 	B: AuxStore + HeaderBackend<Block>,
 {
-	let old_finalized = old_finalized_hash::<_, Block>(
-		backend,
-		&notification.tree_route,
-		*notification.header.parent_hash(),
-	);
-
 	let ops = finality_cleanup_ops::<Block>(
 		notification.hash,
-		old_finalized,
 		&notification.tree_route,
 		notification.stale_blocks.iter().map(|b| b.hash),
 	);
@@ -185,21 +177,19 @@ where
 
 /// Compute aux storage cleanup operations.
 ///
-/// Emits deletes for stale-fork blocks, intermediate tree-route blocks, the pre-finality head,
-/// and the just-finalized block itself. Once a block is finalized it is no longer in any
-/// unincluded segment, so its proof entry is dead weight.
+/// Emits deletes for stale-fork blocks, intermediate tree-route blocks, and the just-finalized
+/// block itself. Once a block is finalized it is no longer in any unincluded segment, so its
+/// proof entry is dead weight.
 fn finality_cleanup_ops<Block: BlockT>(
 	just_finalized_hash: Block::Hash,
-	old_finalized: Block::Hash,
 	tree_route: &[Block::Hash],
 	stale_block_hashes: impl IntoIterator<Item = Block::Hash>,
 ) -> AuxDataOperations {
 	let stale_iter = stale_block_hashes.into_iter();
 
-	let mut ops = Vec::with_capacity(stale_iter.size_hint().0 + tree_route.len() + 2);
+	let mut ops = Vec::with_capacity(stale_iter.size_hint().0 + tree_route.len() + 1);
 	ops.extend(stale_iter.map(|hash| (entry_key(hash), None)));
 	ops.extend(tree_route.iter().map(|hash| (entry_key(hash), None)));
-	ops.push((entry_key(old_finalized), None));
 	ops.push((entry_key(just_finalized_hash), None));
 
 	ops
@@ -322,15 +312,10 @@ mod tests {
 		let stale_2 = Hash::repeat_byte(0xBB);
 		let route_1 = Hash::repeat_byte(0xC1);
 		let route_2 = Hash::repeat_byte(0xC2);
-		let old_finalized = Hash::repeat_byte(0xF0);
 		let just_finalized = Hash::repeat_byte(0xFF);
 
-		let ops = finality_cleanup_ops::<Block>(
-			just_finalized,
-			old_finalized,
-			&[route_1, route_2],
-			[stale_1, stale_2],
-		);
+		let ops =
+			finality_cleanup_ops::<Block>(just_finalized, &[route_1, route_2], [stale_1, stale_2]);
 
 		let keys: Vec<_> = ops.iter().map(|(k, _)| k.clone()).collect();
 
@@ -338,7 +323,6 @@ mod tests {
 		assert!(keys.contains(&entry_key(stale_2)));
 		assert!(keys.contains(&entry_key(route_1)));
 		assert!(keys.contains(&entry_key(route_2)));
-		assert!(keys.contains(&entry_key(old_finalized)));
 		assert!(keys.contains(&entry_key(just_finalized)));
 
 		assert!(ops.iter().all(|(_, v)| v.is_none()));
@@ -347,16 +331,10 @@ mod tests {
 	#[test]
 	fn cleanup_handles_empty_inputs() {
 		let just_finalized = Hash::repeat_byte(0xFF);
-		let old_finalized = Hash::repeat_byte(0xF0);
 
-		let ops = finality_cleanup_ops::<Block>(
-			just_finalized,
-			old_finalized,
-			&[],
-			std::iter::empty::<Hash>(),
-		);
+		let ops = finality_cleanup_ops::<Block>(just_finalized, &[], std::iter::empty::<Hash>());
 
-		assert_eq!(ops.len(), 2);
+		assert_eq!(ops.len(), 1);
 		assert!(ops.iter().all(|(_, v)| v.is_none()));
 	}
 
@@ -419,12 +397,7 @@ mod tests {
 		assert_eq!(store.load(hash3).expect("load"), Some(entry3.clone()));
 
 		// Generate cleanup that deletes hash1 (just-finalized) and hash2 (in tree route).
-		let ops = finality_cleanup_ops::<Block>(
-			hash1,
-			Hash::repeat_byte(0xF0),
-			&[hash2],
-			std::iter::empty::<Hash>(),
-		);
+		let ops = finality_cleanup_ops::<Block>(hash1, &[hash2], std::iter::empty::<Hash>());
 		let delete_keys: Vec<_> =
 			ops.iter().filter_map(|(k, v)| v.is_none().then(|| k.as_slice())).collect();
 
@@ -503,12 +476,7 @@ mod tests {
 			assert_eq!(store.load(hash_a).expect("load a"), Some(entry_a.clone()));
 			assert_eq!(store.load(hash_b).expect("load b"), Some(entry_b.clone()));
 
-			let ops = finality_cleanup_ops::<Block>(
-				hash_a,
-				Hash::repeat_byte(0xF0),
-				&[],
-				std::iter::empty::<Hash>(),
-			);
+			let ops = finality_cleanup_ops::<Block>(hash_a, &[], std::iter::empty::<Hash>());
 			let delete_keys: Vec<_> =
 				ops.iter().filter_map(|(k, v)| v.is_none().then(|| k.as_slice())).collect();
 			AuxStore::insert_aux(&**backend, &[], &delete_keys).expect("delete");
