@@ -1,15 +1,15 @@
 // Accumulate: on-chain integration (design §5.1).
 //
-// Per accumulated work-package, in order:
-// 1. Parent-head check (§5.1 step 1).
-// 2. Lazy reap of timed-out pending upgrade (§5.1 step 2).
-// 3. Authoritative validation-code check (§5.1 step 3).
-// 4. Head-data update + code-upgrade activation (§5.1 step 4).
-// 5. Replay upward messages (§5.1 step 5).
-//
-// Plus the always-accumulate work per block (§5.1 "general work"):
-// - Apply pending authorizer queues.
-// - Append incoming transfers received this block.
+// All always-accumulate work runs first (before work packages): apply due
+// authorizer queues, then incoming-transfer processing. Then per accumulated
+// work-package, in order (§5.1):
+// 1. Registration check.
+// 2. Refine-result dispatch (log a failed digest; else continue).
+// 3. Parent-head check.
+// 4. Reap timed-out pending upgrade.
+// 5. Authoritative validation-code check.
+// 6. Head-data update + code-upgrade activation.
+// 7. Replay upward messages.
 module accumulate {
   import types.* from "./types"
   import messages.* from "./messages"
@@ -27,6 +27,8 @@ module accumulate {
     // Hashes for which JAM `solicit` / `forget` should be invoked.
     jamSolicit: Set[Hash],
     jamForget: Set[Hash],
+    // JAM `assign` host-function calls made while replaying upward messages.
+    jamAssigns: List[AssignCall],
     // Log entries to append against the para's `parachain_log`.
     logs: List[AccumulateLog]
   }
@@ -38,7 +40,8 @@ module accumulate {
   type PerPackageOutcome = {
     state: ParachainServiceState,
     solicited: Set[(ParaId, Hash)],
-    jamDesignate: Option[List[ValidatorKey]]
+    jamDesignate: Option[List[ValidatorKey]],
+    jamAssigns: List[AssignCall]
   }
 
   // ---- Replay a single upward message -----------------------------------
@@ -57,12 +60,13 @@ module accumulate {
           state: d.state,
           jamDesignate: acc.jamDesignate,
           jamSolicit: if (d.jamSolicit) acc.jamSolicit.union(Set(vchAsHash(payload.hash))) else acc.jamSolicit,
-        jamForget: acc.jamForget,
-        logs: match d.log {
-          | Some(e) => acc.logs.append(e)
-          | None => acc.logs
+          jamForget: acc.jamForget,
+          jamAssigns: acc.jamAssigns,
+          logs: match d.log {
+            | Some(e) => acc.logs.append(e)
+            | None => acc.logs
+          }
         }
-      }
       | Solicit(payload) =>
       val pi = acc.state.paraInfo(para_id)
       val isActive = payload.hash == vchAsHash(pi.validationCode.hash)
@@ -98,6 +102,7 @@ module accumulate {
           jamDesignate: acc.jamDesignate,
           jamSolicit: if (d.jamSolicit) acc.jamSolicit.union(Set(payload.hash)) else acc.jamSolicit,
           jamForget: acc.jamForget,
+          jamAssigns: acc.jamAssigns,
           logs: match d.log {
             | Some(e) => acc.logs.append(e)
             | None => acc.logs
@@ -139,6 +144,7 @@ module accumulate {
           jamDesignate: acc.jamDesignate,
           jamSolicit: acc.jamSolicit,
           jamForget: if (d.jamForget) acc.jamForget.union(Set(payload.hash)) else acc.jamForget,
+          jamAssigns: acc.jamAssigns,
           logs: acc.logs
         }
       }
@@ -153,6 +159,7 @@ module accumulate {
         if (o.jamDesignate) Some(o.designateVec) else acc.jamDesignate,
         jamSolicit: acc.jamSolicit,
         jamForget: acc.jamForget,
+        jamAssigns: acc.jamAssigns,
         logs: match o.log {
           | Some(e) => acc.logs.append(e)
           | None => acc.logs
@@ -167,6 +174,7 @@ module accumulate {
         jamDesignate: acc.jamDesignate,
         jamSolicit: acc.jamSolicit,
         jamForget: acc.jamForget,
+        jamAssigns: acc.jamAssigns,
         logs: match o.log {
           | Some(e) => acc.logs.append(e)
           | None => acc.logs
@@ -185,6 +193,7 @@ module accumulate {
         jamDesignate: acc.jamDesignate,
         jamSolicit: acc.jamSolicit.union(o.jamSolicit),
         jamForget: acc.jamForget.union(o.jamForget),
+        jamAssigns: acc.jamAssigns,
         logs: match o.log {
           | Some(e) => acc.logs.append(e)
           | None => acc.logs
@@ -198,13 +207,37 @@ module accumulate {
       // service's incoming queue. Here we no-op.
       acc
       | SetAuthorizerQueue(payload) =>
-      // §5.1 step 5: queue updates go through the authorizer cache; the
-      // immediate flag and pending-authorizer flush are handled in the
-      // always-accumulate path (see `applyAlwaysAccumulate`).
-      { ...acc,
-        state: { ...acc.state,
-          pendingAuthorizerQueues:
-          acc.state.pendingAuthorizerQueues.put(payload.core, payload.queue)
+      // §5.1 step 7 (replay). `immediate = true`, or a never-assigned (cold)
+      // core, applies inline via JAM `assign` right away — a cold core has no
+      // active authorizers, so its queue must go live immediately. A warm core
+      // with `immediate = false` caches until its 80-slot queue is exhausted
+      // (see `applyAlwaysAccumulate`).
+      val cold = not(acc.state.lastAuthorizerAssignment.keys().contains(payload.core))
+      if (payload.immediate or cold)
+        { ...acc,
+          jamAssigns: acc.jamAssigns.append({ core: payload.core, newAssigner: payload.newAssigner }),
+          state: { ...acc.state,
+            lastAuthorizerAssignment:
+              acc.state.lastAuthorizerAssignment.put(payload.core, now),
+            pendingAuthorizerQueues:
+              acc.state.pendingAuthorizerQueues.mapRemove(payload.core),
+            pendingAuthorizerCores:
+              acc.state.pendingAuthorizerCores.mapRemove(payload.core)
+          }
+        }
+      else {
+        // Warm core, cached: due at the next 80-slot boundary strictly after
+        // `now`, measured from the last assignment (a core cached exactly on a
+        // boundary waits for the following window).
+        val last = acc.state.lastAuthorizerAssignment.get(payload.core)
+        val applyAt = last + ((now - last) / AuthorizerQueueLength + 1) * AuthorizerQueueLength
+        { ...acc,
+          state: { ...acc.state,
+            pendingAuthorizerQueues:
+              acc.state.pendingAuthorizerQueues.put(payload.core, payload.queue),
+            pendingAuthorizerCores:
+              acc.state.pendingAuthorizerCores.put(payload.core, applyAt)
+          }
         }
       }
       | ConsumeTransfersUpTo(idx) =>
@@ -235,8 +268,8 @@ module accumulate {
 
   // ---- Per-work-package accumulation (§5.1) -----------------------------
 
-  /// Implements §5.1 steps 1–5 for a single `ParachainWorkDigest::Ok`.
-  /// Step 5 (replay upward messages) is iterated by the caller.
+  /// Implements §5.1 steps 3–7 for a single `ParachainWorkDigest::Ok`.
+  /// Step 7 (replay upward messages) is iterated by the caller.
   pure def accumulateOkPrefix(
     s: ParachainServiceState,
     r: ParachainWorkDigestOk,
@@ -335,7 +368,8 @@ module accumulate {
       | WorkErr => {
           state: state,
           solicited: solicited,
-          jamDesignate: prevDesignate
+          jamDesignate: prevDesignate,
+          jamAssigns: List()
         }
       | WorkOk(digest) =>
         match digest {
@@ -348,17 +382,20 @@ module accumulate {
             {
               state: state.appendRefineLog(e.paraId, now, e.error, truncateAuthTrace(wr.authTrace)),
               solicited: solicited,
-              jamDesignate: prevDesignate
+              jamDesignate: prevDesignate,
+              jamAssigns: List()
             }
           | Ok(ok) =>
             val pre = accumulateOkPrefix(state, ok, codeLen, now)
             if (pre.rejected) {
-              // §5.1 steps 1–3: a rejected candidate may still record an
-              // accumulate event (e.g. `InvalidCodeHash`). Persist it.
+              // §5.1: a candidate rejected at the parent-head or validation-code
+              // check may still record an accumulate event (e.g. `InvalidCodeHash`).
+              // Persist it.
               {
                 state: pre.state.appendAccumulateLogs(ok.paraId, now, pre.logs),
                 solicited: solicited,
-                jamDesignate: prevDesignate
+                jamDesignate: prevDesignate,
+                jamAssigns: List()
               }
             } else {
               val baseAcc = {
@@ -366,6 +403,7 @@ module accumulate {
                 jamDesignate: prevDesignate,
                 jamSolicit: pre.jamSolicit,
                 jamForget: pre.jamForget,
+                jamAssigns: List(),
                 logs: pre.logs
               }
               val acc = ok.upwardMessages.foldl(baseAcc, (a, m) =>
@@ -378,7 +416,8 @@ module accumulate {
               {
                 state: acc.state.appendAccumulateLogs(ok.paraId, now, acc.logs),
                 solicited: newSolicited,
-                jamDesignate: acc.jamDesignate
+                jamDesignate: acc.jamDesignate,
+                jamAssigns: acc.jamAssigns
               }
             }
         }
@@ -387,24 +426,29 @@ module accumulate {
 
   // ---- Always-accumulate (§5.1, general work) ---------------------------
 
-  /// Apply any pending authorizer queues whose current 80-slot queue has been
-  /// exhausted (tracked via `lastAuthorizerAssignment`). Modeled simply:
-  /// any core whose cached queue is non-empty is flushed and the cache
-  /// cleared. The "queue exhausted" predicate is deliberately abstract here.
+  /// Apply pending authorizer queues whose precomputed deadline is due.
   pure def applyAlwaysAccumulate(
     s: ParachainServiceState,
     now: Timeslot
-  ): ParachainServiceState = {
-    s.pendingAuthorizerQueues.keys().fold(s, (acc, c) => {
-        if (acc.pendingAuthorizerQueues.get(c) == List())
-        acc
+  ): { state: ParachainServiceState, assigns: List[AssignCall] } = {
+    s.pendingAuthorizerCores.keys().fold(
+      { state: { ...s, pendingAuthorizerCores: Map() }, assigns: List() },
+      (acc, c) => {
+        val applyAt = s.pendingAuthorizerCores.get(c)
+        if (not(now >= applyAt))
+          { ...acc,
+            state: { ...acc.state,
+              pendingAuthorizerCores: acc.state.pendingAuthorizerCores.put(c, applyAt)
+            }
+          }
         else
-        // In the real protocol this calls JAM `assign(core, queue)`; the
-        // model just records the assignment timestamp and clears the cache.
-        { ...acc,
-          lastAuthorizerAssignment: acc.lastAuthorizerAssignment.put(c, now),
-          pendingAuthorizerQueues: acc.pendingAuthorizerQueues.put(c, List())
-        }
-    })
+          { state: { ...acc.state,
+              lastAuthorizerAssignment: acc.state.lastAuthorizerAssignment.put(c, now),
+              pendingAuthorizerQueues: acc.state.pendingAuthorizerQueues.mapRemove(c)
+            },
+            assigns: acc.assigns.append({ core: c, newAssigner: None })
+          }
+      }
+    )
   }
 }

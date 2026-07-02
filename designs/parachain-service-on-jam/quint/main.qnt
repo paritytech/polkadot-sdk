@@ -56,7 +56,8 @@ module main {
     solicitedSet' = Set(),
     prevSvc' = initialState,
     lastStepWorkResults' = List(),
-    lastStepBouncedTransfers' = List()
+    lastStepBouncedTransfers' = List(),
+    lastStepAssigns' = List()
   }
 
   // --- Step (a): refine + accumulate one work-report --------------------
@@ -92,7 +93,7 @@ module main {
       else { authorizedParas: List(paraId, paraId), items: List(candidate, candidate) }
     // The collator builds on the para's current head. For a live para that is
     // `headHash(headData)` and the new head is `headData + 1`, so the result
-    // chains correctly and passes Accumulate's parent-head check (§5.1 step 2).
+    // chains correctly and passes Accumulate's parent-head check (§5.1 step 3).
     // For a non-live para (e.g. cleaned up by an earlier package this block)
     // there is no head; we declare an arbitrary one — the candidate is dropped
     // at Accumulate (§5.1 step 1) regardless.
@@ -105,11 +106,14 @@ module main {
   }
 
   action stepRefineAccumulate = {
+    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, now)
+
     // First work package
-    nondet wp1Para = oneOf(svc.parachains.keys())
-    nondet wp1Candidate = oneOf(arbitraryCandidates(svc, wp1Para))
+    nondet wp1Para = oneOf(afterAlwaysAccumulate.state.parachains.keys())
+    nondet wp1Candidate = oneOf(arbitraryCandidates(afterAlwaysAccumulate.state, wp1Para))
     nondet wp1PvfPanic = oneOf(Set(false, true))
-    val wp1Pool = arbitraryMessages(wp1Para, svc.paraInfo(wp1Para).validationCode.hash)
+    val wp1Pool = arbitraryMessages(
+      wp1Para, afterAlwaysAccumulate.state.paraInfo(wp1Para).validationCode.hash)
     nondet wp1M1 = oneOf(wp1Pool)
     nondet wp1M2 = oneOf(wp1Pool)
     nondet wp1NumMsgs = oneOf(Set(0, 1, 2))
@@ -124,19 +128,26 @@ module main {
     // false, Refine rejects with `MissingHeadDeclaration`.
     nondet wp1DeclParent = oneOf(Set(false, true))
     nondet wp1DeclHead = oneOf(Set(false, true))
-    val wp1 = buildPackage(svc, wp1Para, wp1Candidate, wp1M1, wp1M2, wp1NumMsgs, wp1ItemCount, wp1DeclParent, wp1DeclHead)
+    val wp1 = buildPackage(
+      afterAlwaysAccumulate.state, wp1Para, wp1Candidate, wp1M1, wp1M2,
+      wp1NumMsgs, wp1ItemCount, wp1DeclParent, wp1DeclHead
+    )
     val wp1Wr: WorkResult = {
       result:
         if (wp1IsJamSkip) WorkErr
-        else WorkOk(refine(svc, wp1.pkg, wp1AuthMalformed, wp1PvfPanic, wp1.parentHead, wp1.newHead, wp1.msgs)[0]),
+        else WorkOk(refine(
+          afterAlwaysAccumulate.state, wp1.pkg, wp1AuthMalformed, wp1PvfPanic,
+          wp1.parentHead, wp1.newHead, wp1.msgs
+        )[0]),
       authTrace: wp1AuthTrace
     }
 
     // Second work package (possibly same para — captures multi-package mix)
-    nondet wp2Para = oneOf(svc.parachains.keys())
-    nondet wp2Candidate = oneOf(arbitraryCandidates(svc, wp2Para))
+    nondet wp2Para = oneOf(afterAlwaysAccumulate.state.parachains.keys())
+    nondet wp2Candidate = oneOf(arbitraryCandidates(afterAlwaysAccumulate.state, wp2Para))
     nondet wp2PvfPanic = oneOf(Set(false, true))
-    val wp2Pool = arbitraryMessages(wp2Para, svc.paraInfo(wp2Para).validationCode.hash)
+    val wp2Pool = arbitraryMessages(
+      wp2Para, afterAlwaysAccumulate.state.paraInfo(wp2Para).validationCode.hash)
     nondet wp2M1 = oneOf(wp2Pool)
     nondet wp2M2 = oneOf(wp2Pool)
     nondet wp2NumMsgs = oneOf(Set(0, 1, 2))
@@ -152,29 +163,41 @@ module main {
     nondet numPkgs = oneOf(Set(0, 1, 2))
 
     val passThrough: PerPackageOutcome =
-      { state: svc, solicited: solicitedSet, jamDesignate: None }
+      {
+        state: afterAlwaysAccumulate.state,
+        solicited: solicitedSet,
+        jamDesignate: None,
+        jamAssigns: List()
+      }
     val out1 =
       if (numPkgs == 0) passThrough
-      else accumulateOnePackage(svc, wp1Wr, solicitedSet, None, FixedCodeLen, now)
+      else accumulateOnePackage(afterAlwaysAccumulate.state, wp1Wr, solicitedSet, None, FixedCodeLen, now)
     // wp2 refines against the post-wp1 state so a second package for the
     // SAME para chains off wp1's new head; different para → identical to
-    // refining against `svc`. wp1 may have cleaned up `wp2Para` (it was
-    // chosen from the pre-step `svc.parachains`); `buildPackage` and
-    // `refine` both guard the resulting unregistered para (it fails Refine
-    // with `InvalidCodeHash` and is dropped at Accumulate).
-    val wp2 = buildPackage(out1.state, wp2Para, wp2Candidate, wp2M1, wp2M2, wp2NumMsgs, wp2ItemCount, wp2DeclParent, wp2DeclHead)
+    // refining against `afterAlwaysAccumulate.state`. wp1 may have cleaned up `wp2Para`
+    // (it was chosen from the post-flush `afterAlwaysAccumulate.state.parachains`);
+    // `buildPackage` and `refine` both guard the resulting unregistered para
+    // (it fails Refine with `InvalidCodeHash` and is dropped at Accumulate).
+    val wp2 = buildPackage(
+      out1.state, wp2Para, wp2Candidate, wp2M1, wp2M2,
+      wp2NumMsgs, wp2ItemCount, wp2DeclParent, wp2DeclHead
+    )
     val wp2Wr: WorkResult = {
       result:
         if (wp2IsJamSkip) WorkErr
-        else WorkOk(refine(out1.state, wp2.pkg, wp2AuthMalformed, wp2PvfPanic, wp2.parentHead, wp2.newHead, wp2.msgs)[0]),
+        else WorkOk(refine(
+          out1.state, wp2.pkg, wp2AuthMalformed, wp2PvfPanic,
+          wp2.parentHead, wp2.newHead, wp2.msgs
+        )[0]),
       authTrace: wp2AuthTrace
     }
     val out2 =
-      if (numPkgs == 2)
-        accumulateOnePackage(out1.state, wp2Wr, out1.solicited, out1.jamDesignate, FixedCodeLen, now)
-      else out1
+      if (numPkgs == 2) {
+        val second = accumulateOnePackage(
+          out1.state, wp2Wr, out1.solicited, out1.jamDesignate, FixedCodeLen, now)
+        { ...second, jamAssigns: out1.jamAssigns.concat(second.jamAssigns) }
+      } else out1
 
-    val sFinal = applyAlwaysAccumulate(out2.state, now)
     val newStaging = match out2.jamDesignate {
       | Some(v) => v
       | None => jamStagingSet
@@ -186,34 +209,43 @@ module main {
       else List(wp1Wr, wp2Wr)
 
     all {
-      svc' = sFinal,
+      svc' = out2.state,
       jamStagingSet' = newStaging,
       now' = now,
       solicitedSet' = out2.solicited,
       prevSvc' = svc,
       lastStepWorkResults' = results,
-      lastStepBouncedTransfers' = List()
+      lastStepBouncedTransfers' = List(),
+      lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out2.jamAssigns)
     }
   }
 
   // --- Step (b): time advance -------------------------------------------
 
-  action stepTick = all {
-    now' = now + 1,
-    svc' = svc,
-    jamStagingSet' = jamStagingSet,
-    solicitedSet' = solicitedSet,
-    prevSvc' = svc,
-    lastStepWorkResults' = List(),
-    lastStepBouncedTransfers' = List()
+  // Advancing time also applies any authorizer queues that become due at the
+  // new timeslot — every block runs the always-accumulate flush, so a cached
+  // queue never sits past its `apply_at`.
+  action stepTick = {
+    val newNow = now + 1
+    val flushed = applyAlwaysAccumulate(svc, newNow)
+    all {
+      now' = newNow,
+      svc' = flushed.state,
+      jamStagingSet' = jamStagingSet,
+      solicitedSet' = solicitedSet,
+      prevSvc' = svc,
+      lastStepWorkResults' = List(),
+      lastStepBouncedTransfers' = List(),
+      lastStepAssigns' = flushed.assigns
+    }
   }
 
   // --- Step (c): another service sends an OnTransfer into Asset Hub ----
   //
-  /// Models JAM-level OnTransfer ingress (§5.1 step 2): append to
-  /// `incoming_transfers` if it has space, otherwise record a bounce in
-  /// `lastStepBouncedTransfers` (the Parachain Service must emit a
-  /// matching outgoing JAM transfer back to the sender with the same memo).
+  /// Models JAM-level OnTransfer ingress (§5.1, incoming-transfer phase):
+  /// append to `incoming_transfers` if it has space, otherwise record a bounce
+  /// in `lastStepBouncedTransfers` (the Parachain Service must emit a matching
+  /// outgoing JAM transfer back to the sender with the same memo).
   action stepIncomingTransfer = {
     val senderPool: Set[ServiceId] = Set(MkServiceId(0), MkServiceId(3), MkServiceId(7))
     nondet senderId = oneOf(senderPool)
@@ -232,7 +264,8 @@ module main {
       solicitedSet' = solicitedSet,
       prevSvc' = svc,
       lastStepWorkResults' = List(),
-      lastStepBouncedTransfers' = bounced
+      lastStepBouncedTransfers' = bounced,
+      lastStepAssigns' = List()
     }
   }
 

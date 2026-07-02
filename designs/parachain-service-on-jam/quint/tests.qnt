@@ -8,8 +8,8 @@
 // pvfPanic, etc.), the tests below need DETERMINISTIC scenarios — input
 // → output relationships the Rust harness can replay. The shared helper
 // `applyHappyPath` constructs one well-formed work package against the
-// current state and threads it through `refine` + `accumulateOnePackage`
-// + `applyAlwaysAccumulate` without any nondet.
+// current state and threads it through `applyAlwaysAccumulate` + `refine`
+// + `accumulateOnePackage` without any nondet.
 module tests {
   import types.* from "./types"
   import messages.* from "./messages"
@@ -23,29 +23,32 @@ module tests {
 
   // --- Deterministic helpers ---------------------------------------------
 
-  /// Apply one happy-path work package: refine succeeds, accumulate runs,
-  /// always-accumulate flushes any pending authorizer queues. `codeHash`
+  /// Apply one happy-path work package: always-accumulate flushes first,
+  /// then refine succeeds and accumulate runs. `codeHash`
   /// is the hash the collator says it validated against (active *or*
   /// pending — both are accepted by `accumulateOkPrefix` step 3).
   action applyHappyPath(
     paraId: ParaId, codeHash: ValidationCodeHash, msgs: List[UpwardMessage]
   ): bool = {
-    val pi = svc.paraInfo(paraId)
+    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, now)
+    val pi = afterAlwaysAccumulate.state.paraInfo(paraId)
     val pkg: WorkPackage = {
       authorizedParas: List(paraId),
       items: List({ validationCodeHash: codeHash, pov: 0 })
     }
     val newHead = pi.headData + 1
     val wr: WorkResult = {
-      result: WorkOk(refine(svc, pkg, false, false, Some(headHash(pi.headData)), Some(newHead), msgs)[0]),
+      result: WorkOk(refine(
+        afterAlwaysAccumulate.state, pkg, false, false,
+        Some(headHash(pi.headData)), Some(newHead), msgs
+      )[0]),
       authTrace: 0
     }
     val out = accumulateOnePackage(
-      svc, wr, solicitedSet, None, FixedCodeLen, now
+      afterAlwaysAccumulate.state, wr, solicitedSet, None, FixedCodeLen, now
     )
-    val sFinal = applyAlwaysAccumulate(out.state, now)
     all {
-      svc' = sFinal,
+      svc' = out.state,
       now' = now,
       jamStagingSet' = match out.jamDesignate {
         | Some(v) => v
@@ -54,7 +57,8 @@ module tests {
       solicitedSet' = out.solicited,
       prevSvc' = svc,
       lastStepWorkResults' = List(wr),
-      lastStepBouncedTransfers' = List()
+      lastStepBouncedTransfers' = List(),
+      lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out.jamAssigns)
     }
   }
 
@@ -65,18 +69,22 @@ module tests {
     p1: ParaId, c1: ValidationCodeHash, m1: List[UpwardMessage],
     p2: ParaId, c2: ValidationCodeHash, m2: List[UpwardMessage]
   ): bool = {
-    val pi1 = svc.paraInfo(p1)
+    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, now)
+    val pi1 = afterAlwaysAccumulate.state.paraInfo(p1)
     val pkg1: WorkPackage = {
       authorizedParas: List(p1),
       items: List({ validationCodeHash: c1, pov: 0 })
     }
     val nh1 = pi1.headData + 1
     val wr1: WorkResult = {
-      result: WorkOk(refine(svc, pkg1, false, false, Some(headHash(pi1.headData)), Some(nh1), m1)[0]),
+      result: WorkOk(refine(
+        afterAlwaysAccumulate.state, pkg1, false, false,
+        Some(headHash(pi1.headData)), Some(nh1), m1
+      )[0]),
       authTrace: 0
     }
     val out1 = accumulateOnePackage(
-      svc, wr1, solicitedSet, None, FixedCodeLen, now
+      afterAlwaysAccumulate.state, wr1, solicitedSet, None, FixedCodeLen, now
     )
     val pi2 = out1.state.paraInfo(p2)
     val pkg2: WorkPackage = {
@@ -85,16 +93,22 @@ module tests {
     }
     val nh2 = pi2.headData + 1
     val wr2: WorkResult = {
-      result: WorkOk(refine(out1.state, pkg2, false, false, Some(headHash(pi2.headData)), Some(nh2), m2)[0]),
+      result: WorkOk(refine(
+        out1.state, pkg2, false, false,
+        Some(headHash(pi2.headData)), Some(nh2), m2
+      )[0]),
       authTrace: 0
     }
-    val out2 = accumulateOnePackage(
+    val out2Package = accumulateOnePackage(
       out1.state, wr2, out1.solicited, out1.jamDesignate,
       FixedCodeLen, now
     )
-    val sFinal = applyAlwaysAccumulate(out2.state, now)
+    val out2 = {
+      ...out2Package,
+      jamAssigns: out1.jamAssigns.concat(out2Package.jamAssigns)
+    }
     all {
-      svc' = sFinal,
+      svc' = out2.state,
       now' = now,
       jamStagingSet' = match out2.jamDesignate {
         | Some(v) => v
@@ -103,7 +117,8 @@ module tests {
       solicitedSet' = out2.solicited,
       prevSvc' = svc,
       lastStepWorkResults' = List(wr1, wr2),
-      lastStepBouncedTransfers' = List()
+      lastStepBouncedTransfers' = List(),
+      lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out2.jamAssigns)
     }
   }
 
@@ -117,7 +132,8 @@ module tests {
     solicitedSet' = solicitedSet,
     prevSvc' = prevSvc,
     lastStepWorkResults' = lastStepWorkResults,
-    lastStepBouncedTransfers' = lastStepBouncedTransfers
+    lastStepBouncedTransfers' = lastStepBouncedTransfers,
+    lastStepAssigns' = lastStepAssigns
   }
 
   // --- Bounce-on-full -----------------------------------------------------
@@ -138,7 +154,8 @@ module tests {
     solicitedSet' = solicitedSet,
     prevSvc' = svc,
     lastStepWorkResults' = lastStepWorkResults,
-    lastStepBouncedTransfers' = lastStepBouncedTransfers
+    lastStepBouncedTransfers' = lastStepBouncedTransfers,
+    lastStepAssigns' = lastStepAssigns
   }
 
   /// With `incoming_transfers` at capacity, the next ingress must bounce:
@@ -391,7 +408,11 @@ module tests {
     // Pin the pending code by replaying a `Solicit` of it during Accumulate.
     val baseAcc: AccumulateOutcome = {
       state: stateWithPendingUpgrade,
-      jamDesignate: None, jamSolicit: Set(), jamForget: Set(), logs: List()
+      jamDesignate: None,
+      jamSolicit: Set(),
+      jamForget: Set(),
+      jamAssigns: List(),
+      logs: List()
     }
     val pinned = applyUpwardMessage(
       baseAcc, para, FixedCodeLen, 0,
@@ -433,6 +454,240 @@ module tests {
       assert(hasInvalidCodeHash),
       assert(hasMissingHead),
       assert(log.length() == 2),
+      init
+    }
+  }
+
+  // --- Authorizer queue flush threshold ---------------------------------
+
+  /// A pending queue for a core assigned at timeslot 0 must NOT be flushed
+  /// at timeslot 1 — only 1 slot has elapsed, far below AuthorizerQueueLength (80).
+  run authorizerQueueNotFlushedBeforeExhaustionTest = {
+    val anyHash = { authBytes: 1 }
+    val s0 = { ...initialState,
+      pendingAuthorizerQueues: Map(0 -> List(anyHash)),
+      pendingAuthorizerCores: Map(0 -> 80),
+      lastAuthorizerAssignment: Map(0 -> 0)
+    }
+    val out = applyAlwaysAccumulate(s0, 1)
+    all {
+      assert(out.state.pendingAuthorizerQueues.keys().contains(0)),
+      assert(out.state.pendingAuthorizerQueues.get(0) == List(anyHash)),
+      assert(out.assigns == List()),
+      init
+    }
+  }
+
+  /// A non-immediate `set_authorizer_queue` marks the core dirty; once the
+  /// queue is exhausted, always-accumulate flushes it and clears the index.
+  run dirtyCoreTrackedOnSetAndClearedOnFlushTest = {
+    val core = 5
+    val anyHash: AuthorizerHash = { authBytes: 5 }
+    val baseAcc: AccumulateOutcome = {
+      state: { ...initialState, lastAuthorizerAssignment: Map(core -> 0) },
+      jamDesignate: None,
+      jamSolicit: Set(),
+      jamForget: Set(),
+      jamAssigns: List(),
+      logs: List()
+    }
+    val out = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 0,
+      SetAuthorizerQueue({
+        core: core,
+        queue: List(anyHash),
+        immediate: false,
+        newAssigner: None
+      })
+    )
+    val flushed = applyAlwaysAccumulate(out.state, AuthorizerQueueLength)
+    all {
+      assert(out.state.pendingAuthorizerCores.keys().contains(core)),
+      assert(not(flushed.state.pendingAuthorizerCores.keys().contains(core))),
+      assert(not(flushed.state.pendingAuthorizerQueues.keys().contains(core))),
+      assert(flushed.assigns == List({ core: core, newAssigner: None })),
+      init
+    }
+  }
+
+  /// A cached queue stays scheduled in the future until it is due: an
+  /// always-accumulate flush (as `stepTick` runs on every time advance) before
+  /// `apply_at` leaves the entry in place with `apply_at > now`; a flush at
+  /// `apply_at` clears it.
+  run pendingApplyAtStaysFutureUntilDueTest = {
+    val core = 5
+    val anyHash: AuthorizerHash = { authBytes: 5 }
+    val baseAcc: AccumulateOutcome = {
+      state: { ...initialState, lastAuthorizerAssignment: Map(core -> 0) },
+      jamDesignate: None,
+      jamSolicit: Set(),
+      jamForget: Set(),
+      jamAssigns: List(),
+      logs: List()
+    }
+    // Warm core cached at now = 0 → apply_at = 0 + ((0 - 0) / 80 + 1) * 80 = 80.
+    val cached = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 0,
+      SetAuthorizerQueue({
+        core: core, queue: List(anyHash), immediate: false, newAssigner: None
+      })
+    ).state
+    val beforeDue = applyAlwaysAccumulate(cached, AuthorizerQueueLength - 1)
+    val atDue = applyAlwaysAccumulate(cached, AuthorizerQueueLength)
+    all {
+      assert(cached.pendingAuthorizerCores.get(core) == AuthorizerQueueLength),
+      // Not due yet: entry retained, and its deadline is still in the future.
+      assert(beforeDue.state.pendingAuthorizerCores.keys().contains(core)),
+      assert(beforeDue.state.pendingAuthorizerCores.get(core) > AuthorizerQueueLength - 1),
+      // Due: flushed.
+      assert(not(atDue.state.pendingAuthorizerCores.keys().contains(core))),
+      init
+    }
+  }
+
+  /// A non-immediate `set_authorizer_queue` for a never-assigned core applies
+  /// inline because the cold core has no active authorizers.
+  run coldCoreAppliedInlineTest = {
+    val core = 7
+    val nowSlot = 9
+    val anyHash: AuthorizerHash = { authBytes: 9 }
+    val baseAcc: AccumulateOutcome = {
+      state: initialState,
+      jamDesignate: None,
+      jamSolicit: Set(),
+      jamForget: Set(),
+      jamAssigns: List(),
+      logs: List()
+    }
+    val out = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, nowSlot,
+      SetAuthorizerQueue({
+        core: core,
+        queue: List(anyHash),
+        immediate: false,
+        newAssigner: None
+      })
+    )
+    all {
+      assert(not(initialState.lastAuthorizerAssignment.keys().contains(core))),
+      assert(out.jamAssigns == List({ core: core, newAssigner: None })),
+      assert(out.state.lastAuthorizerAssignment.get(core) == nowSlot),
+      assert(not(out.state.pendingAuthorizerCores.keys().contains(core))),
+      assert(not(out.state.pendingAuthorizerQueues.keys().contains(core))),
+      init
+    }
+  }
+
+  /// An immediate Coretime `set_authorizer_queue` forwards its
+  /// `newAssigner` argument into the recorded JAM `assign` call.
+  run immediateSetAuthorizerQueueForwardsAssignerTest = {
+    val core = 0
+    val assigner = MkServiceId(7)
+    val anyHash: AuthorizerHash = { authBytes: 7 }
+    val baseAcc: AccumulateOutcome = {
+      state: initialState,
+      jamDesignate: None,
+      jamSolicit: Set(),
+      jamForget: Set(),
+      jamAssigns: List(),
+      logs: List()
+    }
+    val out = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 0,
+      SetAuthorizerQueue({
+        core: core,
+        queue: List(anyHash),
+        immediate: true,
+        newAssigner: Some(assigner)
+      })
+    )
+    all {
+      assert(out.jamAssigns == List({ core: core, newAssigner: Some(assigner) })),
+      init
+    }
+  }
+
+  /// An immediate `set_authorizer_queue` for a core that already has a cached
+  /// pending queue drops that pending entry — the immediate update supersedes
+  /// it (removed from both `pendingAuthorizerQueues` and `pendingAuthorizerCores`).
+  run immediateDropsPendingQueueForSameCoreTest = {
+    val core = 3
+    val staleHash: AuthorizerHash = { authBytes: 1 }
+    val immediateHash: AuthorizerHash = { authBytes: 2 }
+    val cachedState = { ...initialState,
+      pendingAuthorizerQueues: Map(core -> List(staleHash)),
+      pendingAuthorizerCores: Map(core -> 80),
+      lastAuthorizerAssignment: Map(core -> 0)
+    }
+    val baseAcc: AccumulateOutcome = {
+      state: cachedState,
+      jamDesignate: None,
+      jamSolicit: Set(),
+      jamForget: Set(),
+      jamAssigns: List(),
+      logs: List()
+    }
+    val out = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 1,
+      SetAuthorizerQueue({
+        core: core,
+        queue: List(immediateHash),
+        immediate: true,
+        newAssigner: None
+      })
+    )
+    all {
+      // The stale cached queue is gone from both structures.
+      assert(not(out.state.pendingAuthorizerQueues.keys().contains(core))),
+      assert(not(out.state.pendingAuthorizerCores.keys().contains(core))),
+      // The immediate assign was recorded and the assignment timestamp updated.
+      assert(out.jamAssigns == List({ core: core, newAssigner: None })),
+      assert(out.state.lastAuthorizerAssignment.get(core) == 1),
+      init
+    }
+  }
+
+  /// A due cached queue flush and an immediate queue update for the same core
+  /// in one step must leave the immediate assign last.
+  run immediateNotClobberedByAlwaysAccumulateTest = {
+    val core = 0
+    val staleHash: AuthorizerHash = { authBytes: 1 }
+    val immediateHash: AuthorizerHash = { authBytes: 2 }
+    val assigner = MkServiceId(9)
+    val t = AuthorizerQueueLength
+    val dueState = { ...initialState,
+      pendingAuthorizerQueues: Map(core -> List(staleHash)),
+      pendingAuthorizerCores: Map(core -> t),
+      lastAuthorizerAssignment: Map(core -> 0)
+    }
+    val afterAlwaysAccumulate = applyAlwaysAccumulate(dueState, t)
+    val baseAcc: AccumulateOutcome = {
+      state: afterAlwaysAccumulate.state,
+      jamDesignate: None,
+      jamSolicit: Set(),
+      jamForget: Set(),
+      jamAssigns: List(),
+      logs: List()
+    }
+    val out = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, t,
+      SetAuthorizerQueue({
+        core: core,
+        queue: List(immediateHash),
+        immediate: true,
+        newAssigner: Some(assigner)
+      })
+    )
+    val assigns = afterAlwaysAccumulate.assigns.concat(out.jamAssigns)
+    all {
+      assert(afterAlwaysAccumulate.assigns == List({ core: core, newAssigner: None })),
+      assert(assigns == List(
+        { core: core, newAssigner: None },
+        { core: core, newAssigner: Some(assigner) }
+      )),
+      assert(not(out.state.pendingAuthorizerQueues.keys().contains(core))),
+      assert(not(out.state.pendingAuthorizerCores.keys().contains(core))),
+      assert(out.state.lastAuthorizerAssignment.get(core) == t),
       init
     }
   }

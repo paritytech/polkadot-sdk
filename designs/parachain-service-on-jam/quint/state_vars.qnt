@@ -47,4 +47,9 @@ module state_vars {
       amount: Balance,
       memo: Memo
   }]
+
+  /// Ghost state: JAM `assign` calls made during the last step (immediate
+  /// `set_authorizer_queue` and exhaustion flushes). Lets invariants verify
+  /// `new_assigner` is forwarded. Not part of the protocol.
+  var lastStepAssigns: List[AssignCall]
 }

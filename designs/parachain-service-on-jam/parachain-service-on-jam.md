@@ -170,14 +170,16 @@ struct ParachainServiceState {
     /// pruned during Accumulate (see §5.1).
     parachain_log: Map<ParaId, Vec<(Timeslot, LogEntry)>>,
 
-    /// Pending authorizer queue updates that should be applied once the
-    /// current 80-slot queue has been consumed.
+    /// Pending authorizer queue updates, keyed by core.
     pending_authorizer_queues: Map<CoreIndex, BoundedVec<AuthorizerHash, 80>>,
 
-    /// Per-core timeslot at which `assign` was last called for that core.
-    /// Combined with the 80-slot queue length, this lets the service compute
-    /// when the current queue will be exhausted and a pending queue in
-    /// `pending_authorizer_queues` should be applied.
+    /// Dirty-core index: each core with a pending queue, paired with `apply_at`
+    /// (the timeslot the update becomes due). Lets the always-accumulate path
+    /// find and gate due updates without scanning all cores (see §5.1).
+    pending_authorizer_cores: BoundedVec<(CoreIndex, Timeslot), CoreCount>,
+
+    /// Per-core timeslot at which `assign` was last called. Used to compute
+    /// `apply_at` when a queue update is cached.
     last_authorizer_assignment: Map<CoreIndex, Timeslot>,
 
     /// Cross-parachain preimage registry. Holds every preimage the service
@@ -399,8 +401,13 @@ enum UpwardMessage {
     TransferOut { dest: ServiceId, amount: Amount, memo: Memo },
     /// From `set_authorizer_queue` — update a core's authorizer queue.
     ///
-    /// - `immediate`: when `true`, overwrite the queue immediately;
-    ///   otherwise wait until the current queue is exhausted.
+    /// - `immediate`: applied inline via JAM `assign` during replay when
+    ///   `immediate == true` or the core was never assigned (a cold core has no
+    ///   active authorizers, so it must go live at once), superseding any cached
+    ///   queue for that core. Otherwise the queue is cached for the
+    ///   always-accumulate phase (§5.1) with `apply_at` — the next 80-slot
+    ///   boundary strictly after `now`, `last + ((now - last) / 80 + 1) * 80`,
+    ///   `last = last_authorizer_assignment[core]`.
     /// - `new_assigner`: when `Some`, hands off `assigners[core]` to the
     ///   given service so it can manage its own queue from that point on;
     ///   when `None`, the current assigner is retained.
@@ -564,7 +571,26 @@ service storage.
 
 Accumulate for the Parachain Service covers the parachain-specific parts of what the
 relay chain's `enact_candidate` does today; availability, approvals, and disputes are handled
-by JAM natively (see §2). The work splits into two categories:
+by JAM natively (see §2). The work runs in three phases, in order: all always-accumulate
+work first — due authorizer-queue flushes, then incoming-transfer processing — and then
+per-work-package work. Running always-accumulate work *before* the work packages is
+deliberate: it lets a work package's `set_authorizer_queue { immediate = true }` be the
+last writer for a core, so an immediate update can never be overwritten by a flush that
+would otherwise run afterward.
+
+#### Apply due authorizer queues (before work packages)
+
+Iterate `pending_authorizer_cores` and, for each `(core, apply_at)` pair, check whether
+the entry is due: `now >= apply_at`, read directly from the pair without touching
+`pending_authorizer_queues`. If due, drain the entry from `pending_authorizer_queues`,
+remove the pair from `pending_authorizer_cores`, and call JAM `assign` to install it,
+recording `now` in `last_authorizer_assignment`.
+
+#### Incoming transfer processing (before work packages)
+
+Append any `OnTransfer` calls received from other JAM services this block to
+`incoming_transfers`. If the queue is full the service bounces the funds back to the
+sender with the same memo.
 
 #### Per-work-package work
 
@@ -626,20 +652,6 @@ log over 64 KiB, entries are evicted until it fits — the oldest `RefineLogEntr
 dropped first (Refine failures are the most disposable), and only once no refine
 entry remains is the oldest entry overall dropped, so accumulate events are
 retained under capacity pressure.
-
-#### General (always-accumulate) work
-
-Performed once per block regardless of whether any parachain work packages were
-accumulated, on the always-accumulate control path:
-
-1. **Apply pending authorizer queues**: For each core whose current 80-slot queue has
-   been exhausted (tracked via `last_authorizer_assignment`), drain the matching entry
-   from `pending_authorizer_queues` and call JAM `assign` to install it.
-2. **Incoming transfer processing**: Append any `OnTransfer` calls received from other
-   JAM services this block to `incoming_transfers`, **after all work reports in the
-   block have been processed**. If the queue is full the service bounces the funds
-   back to the sender with the same memo. Asset Hub consumes queued entries via
-   `consume_transfers_up_to(index)`.
 
 The core Accumulate logic is primarily **parachain bookkeeping**: updating head data,
 tracking code upgrades, applying queued authorizer updates, and managing incoming
@@ -945,13 +957,15 @@ Taking `CoreCount = 341`, `AuthorizerHash = 32 B`, `ServiceId = 4 B`,
 staged_validator_keys: BoundedVec<ValidatorKey, 1023>
   2 + 1023 × 336                                                        = 343 730 B
 pending_authorizer_queues: Map<CoreIndex, BoundedVec<AuthorizerHash, 80>>
-  2 + 341 × (4 + 2 + 80 × 32)                                           = 874 908 B
+  2 + 341 × (4 + 2 + 80 × 32)                                           = 875 008 B
+pending_authorizer_cores: BoundedVec<(CoreIndex, Timeslot), 341>
+  2 + 341 × (4 + 4)                                                     =   2 730 B
 last_authorizer_assignment: Map<CoreIndex, Timeslot>
   2 + 341 × (4 + 4)                                                     =   2 730 B
 incoming_transfers: BoundedVec<(ServiceId, Amount, Memo), 1000>
   2 + 1000 × (4 + 16 + 128)                                             = 148 002 B
                                                                           ---------
-                                                                        1 369 370 B
+                                                                        1 372 200 B
 ```
 
 **Asset Hub baseline footprint ≈ 1.3 MiB.**

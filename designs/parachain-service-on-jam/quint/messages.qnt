@@ -2,7 +2,7 @@
 // during a Refine invocation (design §3.3, §4.3).
 //
 // Each variant of `UpwardMessage` corresponds 1:1 to a side-effect host
-// function in §4.3. Accumulate replays the list in order (§5.1 step 5).
+// function in §4.3. Accumulate replays the list in order (§5.1 step 7).
 module messages {
   import types.* from "./types"
 
@@ -64,6 +64,11 @@ module messages {
   // new code's preimage is not in the Parachain Service's preimage store
   // (§5.4).
   | ServiceUpgradePreimageMissing({ codeHash: Hash })
+
+  /// A JAM `assign(core, newAssigner)` host-function call recorded during a
+  /// step. `newAssigner` mirrors `set_authorizer_queue`'s argument; `None`
+  /// on the exhaustion-flush path (a cached queue update carried no assigner).
+  type AssignCall = { core: CoreIndex, newAssigner: Option[ServiceId] }
 
   // --- Upward messages emitted by the PVF, replayed by Accumulate ---------
 
