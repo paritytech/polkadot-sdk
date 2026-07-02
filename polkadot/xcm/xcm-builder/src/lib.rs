@@ -53,10 +53,6 @@ pub use controller::{
 	QueryControllerWeightInfo, QueryHandler, SendController, SendControllerWeightInfo,
 };
 
-mod currency_adapter;
-#[allow(deprecated)]
-pub use currency_adapter::CurrencyAdapter;
-
 mod forwarder;
 pub use forwarder::TeleportForwarderForAccountId32;
 
