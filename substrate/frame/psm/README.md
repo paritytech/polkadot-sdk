@@ -24,9 +24,9 @@ Throughout this pallet two distinct token roles are referenced:
 The PSM pallet hosts one or more PSM instances, each keyed by its internal
 asset id. Each instance:
 
-- **Holds a per-instance reserve account** derived as
-  `PalletId::into_sub_account_truncating(internal_asset)`. External assets
-  deposited by users are held there.
+- **Holds a per-instance reserve account** derived from
+  `blake2_256((PalletId, internal_asset).encode())`. External assets deposited
+  by users are held there.
 - **Mints and burns its own internal asset**. Users receive the internal asset
   when depositing external assets, and burn the internal asset when
   redeeming.

@@ -20,8 +20,9 @@ use crate::{
 	AssetCeilingWeight, CircuitBreakerLevel, Error, Event, ExternalAssets, MintingFee, PsmDebt,
 	RedemptionFee,
 };
+use codec::{Decode, Encode};
 use frame_support::{assert_noop, assert_ok, hypothetically};
-use sp_runtime::{DispatchError, Permill, TokenError};
+use sp_runtime::{traits::TrailingZeroInput, DispatchError, Permill, TokenError};
 
 fn psm_max_debt() -> u128 {
 	crate::Psm::<Test>::get(INTERNAL_ASSET_ID)
@@ -1621,6 +1622,11 @@ mod helpers {
 	fn account_id_is_derived() {
 		new_test_ext().execute_with(|| {
 			let account = crate::Pallet::<Test>::psm_account(&INTERNAL_ASSET_ID);
+			let entropy = (<Test as crate::Config>::PalletId::get(), &INTERNAL_ASSET_ID)
+				.using_encoded(sp_io::hashing::blake2_256);
+			let expected =
+				u128::decode(&mut TrailingZeroInput::new(entropy.as_ref())).expect("valid account");
+			assert_eq!(account, expected);
 			assert_ne!(account, ALICE);
 			assert_ne!(account, BOB);
 			assert_ne!(account, INSURANCE_FUND);

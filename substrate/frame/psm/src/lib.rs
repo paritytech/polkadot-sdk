@@ -52,9 +52,8 @@
 //! ### Key Concepts
 //!
 //! * **PSM instance**: A configured Peg Stability Module, keyed by its internal asset id and
-//!   described by [`PsmInfo`]. Each instance has its own reserve account derived from `PalletId`
-//!   and the first 24 bytes of `blake2_256(internal_asset.encode())`, keeping the sub-account
-//!   preimage at 32 bytes while supporting arbitrary asset ids (e.g. XCM `Location`s).
+//!   described by [`PsmInfo`]. Each instance has its own reserve account derived from
+//!   `blake2_256((PalletId, internal_asset).encode())`.
 //! * **Minting**: Deposit external asset → receive internal asset (minus fee).
 //! * **Redemption**: Burn internal asset → receive external asset (minus fee).
 //! * **Reserve**: External asset balance held by a PSM's reserve account (derived, not stored).
@@ -145,7 +144,7 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{
-		traits::{AccountIdConversion, CheckedDiv, CheckedMul, Saturating, Zero},
+		traits::{CheckedDiv, CheckedMul, Saturating, TrailingZeroInput, Zero},
 		Perbill, Permill,
 	};
 
@@ -272,12 +271,6 @@ pub mod pallet {
 	/// asset's decimals. Bounds the scaling factor `10^diff` well below `u128::MAX`
 	/// so realistic balances cannot overflow during conversion.
 	pub const MAX_DECIMALS_DIFF: u32 = 24;
-
-	/// Number of `blake2_256(asset)` bytes used as the PSM reserve sub-account seed.
-	///
-	/// Together with the 8-byte [`PalletId`] this keeps the encoded sub-account preimage at
-	/// 32 bytes, avoiding extra truncation before conversion into `T::AccountId`.
-	const PSM_ACCOUNT_SEED_BYTES: usize = 24;
 
 	/// On-chain record of a PSM instance.
 	#[derive(
@@ -437,20 +430,6 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn integrity_test() {
-			const PALLET_ID_BYTES: usize = 8;
-			const MIN_SEED_BYTES: usize = 8;
-			// Reserve accounts are `PalletId ++ first_24_bytes(blake2_256(asset))`
-			// truncated to `T::AccountId`.
-			let account_bytes = <T::AccountId as MaxEncodedLen>::max_encoded_len();
-			let seed_bytes = account_bytes.saturating_sub(PALLET_ID_BYTES);
-			assert!(
-				seed_bytes >= MIN_SEED_BYTES,
-				"T::AccountId is too small: only {seed_bytes} asset-id hash byte(s) survive in \
-				 PSM reserve sub-accounts (need >= {MIN_SEED_BYTES}); risk of reserve collisions",
-			);
-		}
-
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
@@ -1510,13 +1489,13 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Derive the reserve account for a PSM instance: a `PalletId` sub-account seeded with
-		/// the first 24 bytes of `blake2_256(internal_asset)`.
+		/// Derive the reserve account for a PSM instance from the full hash of the pallet id
+		/// and internal asset.
 		pub fn psm_account(internal_asset: &T::AssetId) -> T::AccountId {
-			let hash = sp_io::hashing::blake2_256(&internal_asset.encode());
-			let seed: [u8; PSM_ACCOUNT_SEED_BYTES] =
-				hash[..PSM_ACCOUNT_SEED_BYTES].try_into().expect("slice length is fixed; qed");
-			T::PalletId::get().into_sub_account_truncating(seed)
+			let entropy =
+				(T::PalletId::get(), internal_asset).using_encoded(sp_io::hashing::blake2_256);
+			T::AccountId::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
+				.expect("All byte sequences are valid `AccountId`s; qed")
 		}
 
 		/// PSM debt ceiling for an instance, read from the stored [`PsmInfo`]. Returns

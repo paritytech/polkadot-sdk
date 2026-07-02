@@ -30,8 +30,7 @@ use frame_system::{
 use sp_io::TestExternalities as TestState;
 use sp_runtime::{traits::IdentityLookup, BuildStorage, Permill};
 
-// Test accounts. `u128` (not `u64`) so PSM reserve sub-accounts retain enough of the
-// asset-id hash after the `PalletId` prefix to satisfy the pallet's `integrity_test`.
+// Test accounts. `u128` keeps derived reserve accounts distinct from the small user ids below.
 pub const ALICE: u128 = 1;
 pub const BOB: u128 = 2;
 pub const CHARLIE: u128 = 3;
