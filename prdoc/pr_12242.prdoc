@@ -18,10 +18,8 @@ crates:
 - name: sc-storage-chain-sync
   bump: major
 - name: polkadot-omni-node-lib
-  bump: patch
+  bump: minor
 - name: sc-network
   bump: minor
 - name: sp-transaction-storage-proof
   bump: minor
-- name: sp-api-proc-macro
-  bump: major
