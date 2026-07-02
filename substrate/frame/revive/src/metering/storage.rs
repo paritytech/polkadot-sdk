@@ -182,13 +182,6 @@ impl Diff {
 			items_removed: self.items_removed.saturating_add(rhs.items_removed),
 		}
 	}
-
-	fn is_empty(&self) -> bool {
-		self.bytes_added == 0 &&
-			self.bytes_removed == 0 &&
-			self.items_added == 0 &&
-			self.items_removed == 0
-	}
 }
 
 /// The state of a contract.
@@ -518,22 +511,9 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 
 	/// Apply the pending diff to `info` and push its deposit as a final charge, then reset
 	/// `own_contribution` so finalize does not apply it a second time.
-	///
-	/// `info` must be `Some(_)` whenever the diff is non-empty: with `None`,
-	/// [`Diff::update_contract`] drops the refund portion and over-charges the depositor. Go
-	/// through a wrapper like `Frame::bank_pending_changes_and_invalidate` that loads the
-	/// cache first.
-	pub fn bank_pending_changes(
-		&mut self,
-		contract: T::AccountId,
-		info: Option<&mut ContractInfo<T>>,
-	) {
-		if let Contribution::Alive(diff) = &self.own_contribution {
-			debug_assert!(
-				info.is_some() || diff.is_empty(),
-				"banking a non-empty diff with no ContractInfo drops the refund pro-rata",
-			);
-			let deposit = self.own_contribution.update_contract(info);
+	pub fn bank_pending_changes(&mut self, contract: T::AccountId, info: &mut ContractInfo<T>) {
+		if let Contribution::Alive(_) = &self.own_contribution {
+			let deposit = self.own_contribution.update_contract(Some(info));
 			self.own_contribution = Contribution::Alive(Default::default());
 			if !deposit.is_zero() {
 				self.charge_deposit(contract, deposit);

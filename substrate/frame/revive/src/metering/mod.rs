@@ -678,7 +678,7 @@ impl<T: Config> FrameMeter<T> {
 	pub fn bank_pending_storage_changes(
 		&mut self,
 		contract: T::AccountId,
-		info: Option<&mut ContractInfo<T>>,
+		info: &mut ContractInfo<T>,
 	) {
 		self.deposit.bank_pending_changes(contract, info);
 	}
