@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DownwardMessageQueues_Storage_Instance"],"type":["DownwardMessageQueues"]};

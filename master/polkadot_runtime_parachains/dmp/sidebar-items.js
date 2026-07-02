@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["QueueDownwardMessageError"],"mod":["pallet"]};
+window.SIDEBAR_ITEMS = {"enum":["QueueDownwardMessageError"],"mod":["inbound_downward_queue","migration","pallet","weights"]};

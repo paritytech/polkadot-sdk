@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Call","QueueDownwardMessageError"],"mod":["pallet"],"struct":["Pallet"],"trait":["Config"],"type":["DownwardMessageQueues","Module"]};
+window.SIDEBAR_ITEMS = {"enum":["Call","Event","QueueDownwardMessageError"],"mod":["inbound_downward_queue","migration","pallet","weights"],"struct":["Pallet"],"trait":["Config","WeightInfo"],"type":["DownwardMessageQueueLazyDelete","DownwardMessageQueueMeta","DownwardMessageQueuePages","Module"]};

@@ -296,30 +296,42 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#146 id=146 data-nosnippet>146</a>	</span><span class="kw">pub </span>msg: DownwardMessage,
 <a href=#147 id=147 data-nosnippet>147</a>}
 <a href=#148 id=148 data-nosnippet>148</a>
-<a href=#149 id=149 data-nosnippet>149</a><span class="doccomment">/// An HRMP message seen from the perspective of a recipient.
-<a href=#150 id=150 data-nosnippet>150</a></span><span class="attr">#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, TypeInfo)]
-<a href=#151 id=151 data-nosnippet>151</a></span><span class="kw">pub struct </span>InboundHrmpMessage&lt;BlockNumber = <span class="kw">crate</span>::BlockNumber&gt; {
-<a href=#152 id=152 data-nosnippet>152</a>	<span class="doccomment">/// The block number at which this message was sent.
-<a href=#153 id=153 data-nosnippet>153</a>	/// Specifically, it is the block number at which the candidate that sends this message was
-<a href=#154 id=154 data-nosnippet>154</a>	/// enacted.
-<a href=#155 id=155 data-nosnippet>155</a>	</span><span class="kw">pub </span>sent_at: BlockNumber,
-<a href=#156 id=156 data-nosnippet>156</a>	<span class="doccomment">/// The message payload.
-<a href=#157 id=157 data-nosnippet>157</a>	</span><span class="kw">pub </span>data: alloc::vec::Vec&lt;u8&gt;,
-<a href=#158 id=158 data-nosnippet>158</a>}
-<a href=#159 id=159 data-nosnippet>159</a>
-<a href=#160 id=160 data-nosnippet>160</a><span class="doccomment">/// An HRMP message seen from the perspective of a sender.
-<a href=#161 id=161 data-nosnippet>161</a></span><span class="attr">#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, Eq, Hash, TypeInfo)]
-<a href=#162 id=162 data-nosnippet>162</a></span><span class="kw">pub struct </span>OutboundHrmpMessage&lt;Id&gt; {
-<a href=#163 id=163 data-nosnippet>163</a>	<span class="doccomment">/// The para that will get this message in its downward message queue.
-<a href=#164 id=164 data-nosnippet>164</a>	</span><span class="kw">pub </span>recipient: Id,
-<a href=#165 id=165 data-nosnippet>165</a>	<span class="doccomment">/// The message payload.
-<a href=#166 id=166 data-nosnippet>166</a>	</span><span class="kw">pub </span>data: alloc::vec::Vec&lt;u8&gt;,
-<a href=#167 id=167 data-nosnippet>167</a>}
-<a href=#168 id=168 data-nosnippet>168</a>
-<a href=#169 id=169 data-nosnippet>169</a><span class="doccomment">/// `V2` primitives.
-<a href=#170 id=170 data-nosnippet>170</a></span><span class="kw">pub mod </span>v2 {
-<a href=#171 id=171 data-nosnippet>171</a>	<span class="kw">pub use super</span>::<span class="kw-2">*</span>;
-<a href=#172 id=172 data-nosnippet>172</a>}
+<a href=#149 id=149 data-nosnippet>149</a><span class="kw">pub type </span>PageIndex = u64;
+<a href=#150 id=150 data-nosnippet>150</a>
+<a href=#151 id=151 data-nosnippet>151</a><span class="doccomment">/// Stores inbound downward page indices and assumes that each message is written to one page.
+<a href=#152 id=152 data-nosnippet>152</a></span><span class="attr">#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, TypeInfo)]
+<a href=#153 id=153 data-nosnippet>153</a></span><span class="kw">pub struct </span>InboundDownwardQueueMeta {
+<a href=#154 id=154 data-nosnippet>154</a>	<span class="doccomment">/// First full page index.
+<a href=#155 id=155 data-nosnippet>155</a>	</span><span class="kw">pub </span>first_full: PageIndex,
+<a href=#156 id=156 data-nosnippet>156</a>
+<a href=#157 id=157 data-nosnippet>157</a>	<span class="doccomment">/// First unused page index where to write data to.
+<a href=#158 id=158 data-nosnippet>158</a>	</span><span class="kw">pub </span>first_free: PageIndex,
+<a href=#159 id=159 data-nosnippet>159</a>}
+<a href=#160 id=160 data-nosnippet>160</a>
+<a href=#161 id=161 data-nosnippet>161</a><span class="doccomment">/// An HRMP message seen from the perspective of a recipient.
+<a href=#162 id=162 data-nosnippet>162</a></span><span class="attr">#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, TypeInfo)]
+<a href=#163 id=163 data-nosnippet>163</a></span><span class="kw">pub struct </span>InboundHrmpMessage&lt;BlockNumber = <span class="kw">crate</span>::BlockNumber&gt; {
+<a href=#164 id=164 data-nosnippet>164</a>	<span class="doccomment">/// The block number at which this message was sent.
+<a href=#165 id=165 data-nosnippet>165</a>	/// Specifically, it is the block number at which the candidate that sends this message was
+<a href=#166 id=166 data-nosnippet>166</a>	/// enacted.
+<a href=#167 id=167 data-nosnippet>167</a>	</span><span class="kw">pub </span>sent_at: BlockNumber,
+<a href=#168 id=168 data-nosnippet>168</a>	<span class="doccomment">/// The message payload.
+<a href=#169 id=169 data-nosnippet>169</a>	</span><span class="kw">pub </span>data: alloc::vec::Vec&lt;u8&gt;,
+<a href=#170 id=170 data-nosnippet>170</a>}
+<a href=#171 id=171 data-nosnippet>171</a>
+<a href=#172 id=172 data-nosnippet>172</a><span class="doccomment">/// An HRMP message seen from the perspective of a sender.
+<a href=#173 id=173 data-nosnippet>173</a></span><span class="attr">#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, Eq, Hash, TypeInfo)]
+<a href=#174 id=174 data-nosnippet>174</a></span><span class="kw">pub struct </span>OutboundHrmpMessage&lt;Id&gt; {
+<a href=#175 id=175 data-nosnippet>175</a>	<span class="doccomment">/// The para that will get this message in its downward message queue.
+<a href=#176 id=176 data-nosnippet>176</a>	</span><span class="kw">pub </span>recipient: Id,
+<a href=#177 id=177 data-nosnippet>177</a>	<span class="doccomment">/// The message payload.
+<a href=#178 id=178 data-nosnippet>178</a>	</span><span class="kw">pub </span>data: alloc::vec::Vec&lt;u8&gt;,
+<a href=#179 id=179 data-nosnippet>179</a>}
+<a href=#180 id=180 data-nosnippet>180</a>
+<a href=#181 id=181 data-nosnippet>181</a><span class="doccomment">/// `V2` primitives.
+<a href=#182 id=182 data-nosnippet>182</a></span><span class="kw">pub mod </span>v2 {
+<a href=#183 id=183 data-nosnippet>183</a>	<span class="kw">pub use super</span>::<span class="kw-2">*</span>;
+<a href=#184 id=184 data-nosnippet>184</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

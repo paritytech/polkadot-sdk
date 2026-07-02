@@ -198,314 +198,388 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#48 id=48 data-nosnippet>48</a>};
 <a href=#49 id=49 data-nosnippet>49</a><span class="kw">use </span>alloc::vec::Vec;
 <a href=#50 id=50 data-nosnippet>50</a><span class="kw">use </span>core::fmt;
-<a href=#51 id=51 data-nosnippet>51</a><span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
+<a href=#51 id=51 data-nosnippet>51</a><span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, traits::Defensive, weights::WeightMeter};
 <a href=#52 id=52 data-nosnippet>52</a><span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-<a href=#53 id=53 data-nosnippet>53</a><span class="kw">use </span>polkadot_primitives::{DownwardMessage, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage};
-<a href=#54 id=54 data-nosnippet>54</a><span class="kw">use </span>sp_core::MAX_POSSIBLE_ALLOCATION;
-<a href=#55 id=55 data-nosnippet>55</a><span class="kw">use </span>sp_runtime::{
-<a href=#56 id=56 data-nosnippet>56</a>	traits::{BlakeTwo256, Hash <span class="kw">as </span>HashT, SaturatedConversion},
-<a href=#57 id=57 data-nosnippet>57</a>	FixedU128,
-<a href=#58 id=58 data-nosnippet>58</a>};
-<a href=#59 id=59 data-nosnippet>59</a><span class="kw">use </span>xcm::latest::SendError;
-<a href=#60 id=60 data-nosnippet>60</a>
-<a href=#61 id=61 data-nosnippet>61</a><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
+<a href=#53 id=53 data-nosnippet>53</a><span class="kw">use </span>inbound_downward_queue::InboundDownwardQueue;
+<a href=#54 id=54 data-nosnippet>54</a><span class="kw">use </span>polkadot_core_primitives::{InboundDownwardQueueMeta, PageIndex};
+<a href=#55 id=55 data-nosnippet>55</a><span class="kw">use </span>polkadot_primitives::{DownwardMessage, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage};
+<a href=#56 id=56 data-nosnippet>56</a><span class="kw">use </span>sp_core::MAX_POSSIBLE_ALLOCATION;
+<a href=#57 id=57 data-nosnippet>57</a><span class="kw">use </span>sp_runtime::{
+<a href=#58 id=58 data-nosnippet>58</a>	traits::{BlakeTwo256, Hash <span class="kw">as </span>HashT},
+<a href=#59 id=59 data-nosnippet>59</a>	FixedU128,
+<a href=#60 id=60 data-nosnippet>60</a>};
+<a href=#61 id=61 data-nosnippet>61</a><span class="kw">use </span>xcm::latest::SendError;
 <a href=#62 id=62 data-nosnippet>62</a>
-<a href=#63 id=63 data-nosnippet>63</a><span class="attr">#[cfg(test)]
-<a href=#64 id=64 data-nosnippet>64</a></span><span class="kw">mod </span>tests;
+<a href=#63 id=63 data-nosnippet>63</a><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
+<a href=#64 id=64 data-nosnippet>64</a><span class="kw">pub use </span>weights::WeightInfo;
 <a href=#65 id=65 data-nosnippet>65</a>
-<a href=#66 id=66 data-nosnippet>66</a><span class="kw">const </span>THRESHOLD_FACTOR: u32 = <span class="number">2</span>;
-<a href=#67 id=67 data-nosnippet>67</a>
-<a href=#68 id=68 data-nosnippet>68</a><span class="doccomment">/// An error sending a downward message.
-<a href=#69 id=69 data-nosnippet>69</a></span><span class="attr">#[derive(Debug)]
-<a href=#70 id=70 data-nosnippet>70</a></span><span class="kw">pub enum </span>QueueDownwardMessageError {
-<a href=#71 id=71 data-nosnippet>71</a>	<span class="doccomment">/// The message being sent exceeds the configured max message size.
-<a href=#72 id=72 data-nosnippet>72</a>	</span>ExceedsMaxMessageSize,
-<a href=#73 id=73 data-nosnippet>73</a>	<span class="doccomment">/// The destination is unknown.
-<a href=#74 id=74 data-nosnippet>74</a>	</span>Unroutable,
-<a href=#75 id=75 data-nosnippet>75</a>}
-<a href=#76 id=76 data-nosnippet>76</a>
-<a href=#77 id=77 data-nosnippet>77</a><span class="kw">impl </span>From&lt;QueueDownwardMessageError&gt; <span class="kw">for </span>SendError {
-<a href=#78 id=78 data-nosnippet>78</a>	<span class="kw">fn </span>from(err: QueueDownwardMessageError) -&gt; <span class="self">Self </span>{
-<a href=#79 id=79 data-nosnippet>79</a>		<span class="kw">match </span>err {
-<a href=#80 id=80 data-nosnippet>80</a>			QueueDownwardMessageError::ExceedsMaxMessageSize =&gt; SendError::ExceedsMaxMessageSize,
-<a href=#81 id=81 data-nosnippet>81</a>			QueueDownwardMessageError::Unroutable =&gt; SendError::Unroutable,
-<a href=#82 id=82 data-nosnippet>82</a>		}
-<a href=#83 id=83 data-nosnippet>83</a>	}
-<a href=#84 id=84 data-nosnippet>84</a>}
-<a href=#85 id=85 data-nosnippet>85</a>
-<a href=#86 id=86 data-nosnippet>86</a><span class="doccomment">/// An error returned by [`Pallet::check_processed_downward_messages`] that indicates an acceptance
-<a href=#87 id=87 data-nosnippet>87</a>/// check didn't pass.
-<a href=#88 id=88 data-nosnippet>88</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>ProcessedDownwardMessagesAcceptanceErr {
-<a href=#89 id=89 data-nosnippet>89</a>	<span class="doccomment">/// If there are pending messages then `processed_downward_messages` should be at least 1,
-<a href=#90 id=90 data-nosnippet>90</a>	</span>AdvancementRule,
-<a href=#91 id=91 data-nosnippet>91</a>	<span class="doccomment">/// `processed_downward_messages` should not be greater than the number of pending messages.
-<a href=#92 id=92 data-nosnippet>92</a>	</span>Underflow { processed_downward_messages: u32, dmq_length: u32 },
-<a href=#93 id=93 data-nosnippet>93</a>}
-<a href=#94 id=94 data-nosnippet>94</a>
-<a href=#95 id=95 data-nosnippet>95</a><span class="kw">impl </span>fmt::Debug <span class="kw">for </span>ProcessedDownwardMessagesAcceptanceErr {
-<a href=#96 id=96 data-nosnippet>96</a>	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
-<a href=#97 id=97 data-nosnippet>97</a>		<span class="kw">use </span>ProcessedDownwardMessagesAcceptanceErr::<span class="kw-2">*</span>;
-<a href=#98 id=98 data-nosnippet>98</a>		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-<a href=#99 id=99 data-nosnippet>99</a>			AdvancementRule =&gt; {
-<a href=#100 id=100 data-nosnippet>100</a>				<span class="macro">write!</span>(fmt, <span class="string">"DMQ is not empty, but processed_downward_messages is 0"</span>,)
-<a href=#101 id=101 data-nosnippet>101</a>			},
-<a href=#102 id=102 data-nosnippet>102</a>			Underflow { processed_downward_messages, dmq_length } =&gt; <span class="macro">write!</span>(
-<a href=#103 id=103 data-nosnippet>103</a>				fmt,
-<a href=#104 id=104 data-nosnippet>104</a>				<span class="string">"processed_downward_messages = {}, but dmq_length is only {}"</span>,
-<a href=#105 id=105 data-nosnippet>105</a>				processed_downward_messages, dmq_length,
-<a href=#106 id=106 data-nosnippet>106</a>			),
-<a href=#107 id=107 data-nosnippet>107</a>		}
-<a href=#108 id=108 data-nosnippet>108</a>	}
-<a href=#109 id=109 data-nosnippet>109</a>}
-<a href=#110 id=110 data-nosnippet>110</a>
-<a href=#111 id=111 data-nosnippet>111</a><span class="attr">#[frame_support::pallet]
-<a href=#112 id=112 data-nosnippet>112</a></span><span class="kw">pub mod </span>pallet {
-<a href=#113 id=113 data-nosnippet>113</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#114 id=114 data-nosnippet>114</a>
-<a href=#115 id=115 data-nosnippet>115</a>	<span class="attr">#[pallet::pallet]
-<a href=#116 id=116 data-nosnippet>116</a>	#[pallet::without_storage_info]
-<a href=#117 id=117 data-nosnippet>117</a>	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
-<a href=#118 id=118 data-nosnippet>118</a>
-<a href=#119 id=119 data-nosnippet>119</a>	<span class="attr">#[pallet::config]
-<a href=#120 id=120 data-nosnippet>120</a>	</span><span class="kw">pub trait </span>Config: frame_system::Config + configuration::Config + paras::Config {}
-<a href=#121 id=121 data-nosnippet>121</a>
-<a href=#122 id=122 data-nosnippet>122</a>	<span class="doccomment">/// The downward messages addressed for a certain para.
-<a href=#123 id=123 data-nosnippet>123</a>	</span><span class="attr">#[pallet::storage]
-<a href=#124 id=124 data-nosnippet>124</a>	</span><span class="kw">pub type </span>DownwardMessageQueues&lt;T: Config&gt; = StorageMap&lt;
-<a href=#125 id=125 data-nosnippet>125</a>		<span class="kw">_</span>,
-<a href=#126 id=126 data-nosnippet>126</a>		Twox64Concat,
-<a href=#127 id=127 data-nosnippet>127</a>		ParaId,
-<a href=#128 id=128 data-nosnippet>128</a>		Vec&lt;InboundDownwardMessage&lt;BlockNumberFor&lt;T&gt;&gt;&gt;,
-<a href=#129 id=129 data-nosnippet>129</a>		ValueQuery,
-<a href=#130 id=130 data-nosnippet>130</a>	&gt;;
-<a href=#131 id=131 data-nosnippet>131</a>
-<a href=#132 id=132 data-nosnippet>132</a>	<span class="doccomment">/// A mapping that stores the downward message queue MQC head for each para.
-<a href=#133 id=133 data-nosnippet>133</a>	///
-<a href=#134 id=134 data-nosnippet>134</a>	/// Each link in this chain has a form:
-<a href=#135 id=135 data-nosnippet>135</a>	/// `(prev_head, B, H(M))`, where
-<a href=#136 id=136 data-nosnippet>136</a>	/// - `prev_head`: is the previous head hash or zero if none.
-<a href=#137 id=137 data-nosnippet>137</a>	/// - `B`: is the relay-chain block number in which a message was appended.
-<a href=#138 id=138 data-nosnippet>138</a>	/// - `H(M)`: is the hash of the message being appended.
-<a href=#139 id=139 data-nosnippet>139</a>	</span><span class="attr">#[pallet::storage]
-<a href=#140 id=140 data-nosnippet>140</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>DownwardMessageQueueHeads&lt;T: Config&gt; =
-<a href=#141 id=141 data-nosnippet>141</a>		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, Hash, ValueQuery&gt;;
-<a href=#142 id=142 data-nosnippet>142</a>
-<a href=#143 id=143 data-nosnippet>143</a>	<span class="doccomment">/// The factor to multiply the base delivery fee by.
-<a href=#144 id=144 data-nosnippet>144</a>	</span><span class="attr">#[pallet::storage]
-<a href=#145 id=145 data-nosnippet>145</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>DeliveryFeeFactor&lt;T: Config&gt; =
-<a href=#146 id=146 data-nosnippet>146</a>		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, FixedU128, ValueQuery, GetMinFeeFactor&lt;Pallet&lt;T&gt;&gt;&gt;;
-<a href=#147 id=147 data-nosnippet>147</a>}
-<a href=#148 id=148 data-nosnippet>148</a><span class="doccomment">/// Routines and getters related to downward message passing.
-<a href=#149 id=149 data-nosnippet>149</a></span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-<a href=#150 id=150 data-nosnippet>150</a>	<span class="doccomment">/// Block initialization logic, called by initializer.
-<a href=#151 id=151 data-nosnippet>151</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initializer_initialize(_now: BlockNumberFor&lt;T&gt;) -&gt; Weight {
-<a href=#152 id=152 data-nosnippet>152</a>		Weight::zero()
-<a href=#153 id=153 data-nosnippet>153</a>	}
-<a href=#154 id=154 data-nosnippet>154</a>
-<a href=#155 id=155 data-nosnippet>155</a>	<span class="doccomment">/// Block finalization logic, called by initializer.
-<a href=#156 id=156 data-nosnippet>156</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initializer_finalize() {}
-<a href=#157 id=157 data-nosnippet>157</a>
-<a href=#158 id=158 data-nosnippet>158</a>	<span class="doccomment">/// Called by the initializer to note that a new session has started.
-<a href=#159 id=159 data-nosnippet>159</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initializer_on_new_session(
-<a href=#160 id=160 data-nosnippet>160</a>		_notification: <span class="kw-2">&amp;</span>initializer::SessionChangeNotification&lt;BlockNumberFor&lt;T&gt;&gt;,
-<a href=#161 id=161 data-nosnippet>161</a>		outgoing_paras: <span class="kw-2">&amp;</span>[ParaId],
-<a href=#162 id=162 data-nosnippet>162</a>	) {
-<a href=#163 id=163 data-nosnippet>163</a>		<span class="self">Self</span>::perform_outgoing_para_cleanup(outgoing_paras);
-<a href=#164 id=164 data-nosnippet>164</a>	}
-<a href=#165 id=165 data-nosnippet>165</a>
-<a href=#166 id=166 data-nosnippet>166</a>	<span class="doccomment">/// Iterate over all paras that were noted for offboarding and remove all the data
-<a href=#167 id=167 data-nosnippet>167</a>	/// associated with them.
-<a href=#168 id=168 data-nosnippet>168</a>	</span><span class="kw">fn </span>perform_outgoing_para_cleanup(outgoing: <span class="kw-2">&amp;</span>[ParaId]) {
-<a href=#169 id=169 data-nosnippet>169</a>		<span class="kw">for </span>outgoing_para <span class="kw">in </span>outgoing {
-<a href=#170 id=170 data-nosnippet>170</a>			<span class="self">Self</span>::clean_dmp_after_outgoing(outgoing_para);
-<a href=#171 id=171 data-nosnippet>171</a>		}
-<a href=#172 id=172 data-nosnippet>172</a>	}
-<a href=#173 id=173 data-nosnippet>173</a>
-<a href=#174 id=174 data-nosnippet>174</a>	<span class="doccomment">/// Remove all relevant storage items for an outgoing parachain.
-<a href=#175 id=175 data-nosnippet>175</a>	</span><span class="kw">fn </span>clean_dmp_after_outgoing(outgoing_para: <span class="kw-2">&amp;</span>ParaId) {
-<a href=#176 id=176 data-nosnippet>176</a>		DownwardMessageQueues::&lt;T&gt;::remove(outgoing_para);
-<a href=#177 id=177 data-nosnippet>177</a>		DownwardMessageQueueHeads::&lt;T&gt;::remove(outgoing_para);
-<a href=#178 id=178 data-nosnippet>178</a>	}
-<a href=#179 id=179 data-nosnippet>179</a>
-<a href=#180 id=180 data-nosnippet>180</a>	<span class="doccomment">/// Determine whether enqueuing a downward message to a specific recipient para would result
-<a href=#181 id=181 data-nosnippet>181</a>	/// in an error. If this returns `Ok(())` the caller can be certain that a call to
-<a href=#182 id=182 data-nosnippet>182</a>	/// `queue_downward_message` with the same parameters will be successful.
-<a href=#183 id=183 data-nosnippet>183</a>	</span><span class="kw">pub fn </span>can_queue_downward_message(
-<a href=#184 id=184 data-nosnippet>184</a>		config: <span class="kw-2">&amp;</span>HostConfiguration&lt;BlockNumberFor&lt;T&gt;&gt;,
-<a href=#185 id=185 data-nosnippet>185</a>		para: <span class="kw-2">&amp;</span>ParaId,
-<a href=#186 id=186 data-nosnippet>186</a>		msg: <span class="kw-2">&amp;</span>DownwardMessage,
-<a href=#187 id=187 data-nosnippet>187</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), QueueDownwardMessageError&gt; {
-<a href=#188 id=188 data-nosnippet>188</a>		<span class="kw">let </span>serialized_len = msg.len() <span class="kw">as </span>u32;
-<a href=#189 id=189 data-nosnippet>189</a>		<span class="kw">if </span>serialized_len &gt; config.max_downward_message_size {
-<a href=#190 id=190 data-nosnippet>190</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(QueueDownwardMessageError::ExceedsMaxMessageSize);
-<a href=#191 id=191 data-nosnippet>191</a>		}
-<a href=#192 id=192 data-nosnippet>192</a>
-<a href=#193 id=193 data-nosnippet>193</a>		<span class="comment">// Hard limit on Queue size
-<a href=#194 id=194 data-nosnippet>194</a>		</span><span class="kw">if </span><span class="self">Self</span>::dmq_length(<span class="kw-2">*</span>para) &gt; <span class="self">Self</span>::dmq_max_length(config.max_downward_message_size) {
-<a href=#195 id=195 data-nosnippet>195</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(QueueDownwardMessageError::ExceedsMaxMessageSize);
-<a href=#196 id=196 data-nosnippet>196</a>		}
-<a href=#197 id=197 data-nosnippet>197</a>
-<a href=#198 id=198 data-nosnippet>198</a>		<span class="comment">// If the head exists, we assume the parachain is legit and exists.
-<a href=#199 id=199 data-nosnippet>199</a>		</span><span class="kw">if </span>!paras::Heads::&lt;T&gt;::contains_key(para) {
-<a href=#200 id=200 data-nosnippet>200</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(QueueDownwardMessageError::Unroutable);
-<a href=#201 id=201 data-nosnippet>201</a>		}
-<a href=#202 id=202 data-nosnippet>202</a>
-<a href=#203 id=203 data-nosnippet>203</a>		<span class="prelude-val">Ok</span>(())
-<a href=#204 id=204 data-nosnippet>204</a>	}
-<a href=#205 id=205 data-nosnippet>205</a>
-<a href=#206 id=206 data-nosnippet>206</a>	<span class="doccomment">/// Enqueue a downward message to a specific recipient para.
-<a href=#207 id=207 data-nosnippet>207</a>	///
-<a href=#208 id=208 data-nosnippet>208</a>	/// When encoded, the message should not exceed the `config.max_downward_message_size`.
-<a href=#209 id=209 data-nosnippet>209</a>	/// Otherwise, the message won't be sent and `Err` will be returned.
-<a href=#210 id=210 data-nosnippet>210</a>	///
-<a href=#211 id=211 data-nosnippet>211</a>	/// It is possible to send a downward message to a non-existent para. That, however, would lead
-<a href=#212 id=212 data-nosnippet>212</a>	/// to a dangling storage. If the caller cannot statically prove that the recipient exists
-<a href=#213 id=213 data-nosnippet>213</a>	/// then the caller should perform a runtime check.
-<a href=#214 id=214 data-nosnippet>214</a>	</span><span class="kw">pub fn </span>queue_downward_message(
-<a href=#215 id=215 data-nosnippet>215</a>		config: <span class="kw-2">&amp;</span>HostConfiguration&lt;BlockNumberFor&lt;T&gt;&gt;,
-<a href=#216 id=216 data-nosnippet>216</a>		para: ParaId,
-<a href=#217 id=217 data-nosnippet>217</a>		msg: DownwardMessage,
-<a href=#218 id=218 data-nosnippet>218</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), QueueDownwardMessageError&gt; {
-<a href=#219 id=219 data-nosnippet>219</a>		<span class="kw">let </span>serialized_len = msg.len();
-<a href=#220 id=220 data-nosnippet>220</a>		<span class="self">Self</span>::can_queue_downward_message(config, <span class="kw-2">&amp;</span>para, <span class="kw-2">&amp;</span>msg)<span class="question-mark">?</span>;
-<a href=#221 id=221 data-nosnippet>221</a>
-<a href=#222 id=222 data-nosnippet>222</a>		<span class="kw">let </span>inbound =
-<a href=#223 id=223 data-nosnippet>223</a>			InboundDownwardMessage { msg, sent_at: frame_system::Pallet::&lt;T&gt;::block_number() };
-<a href=#224 id=224 data-nosnippet>224</a>
-<a href=#225 id=225 data-nosnippet>225</a>		<span class="comment">// obtain the new link in the MQC and update the head.
-<a href=#226 id=226 data-nosnippet>226</a>		</span>DownwardMessageQueueHeads::&lt;T&gt;::mutate(para, |head| {
-<a href=#227 id=227 data-nosnippet>227</a>			<span class="kw">let </span>new_head =
-<a href=#228 id=228 data-nosnippet>228</a>				BlakeTwo256::hash_of(<span class="kw-2">&amp;</span>(<span class="kw-2">*</span>head, inbound.sent_at, T::Hashing::hash_of(<span class="kw-2">&amp;</span>inbound.msg)));
-<a href=#229 id=229 data-nosnippet>229</a>			<span class="kw-2">*</span>head = new_head;
-<a href=#230 id=230 data-nosnippet>230</a>		});
-<a href=#231 id=231 data-nosnippet>231</a>
-<a href=#232 id=232 data-nosnippet>232</a>		<span class="kw">let </span>q_len = DownwardMessageQueues::&lt;T&gt;::mutate(para, |v| {
-<a href=#233 id=233 data-nosnippet>233</a>			v.push(inbound);
-<a href=#234 id=234 data-nosnippet>234</a>			v.len()
-<a href=#235 id=235 data-nosnippet>235</a>		});
-<a href=#236 id=236 data-nosnippet>236</a>
-<a href=#237 id=237 data-nosnippet>237</a>		<span class="kw">let </span>threshold =
-<a href=#238 id=238 data-nosnippet>238</a>			<span class="self">Self</span>::dmq_max_length(config.max_downward_message_size).saturating_div(THRESHOLD_FACTOR);
-<a href=#239 id=239 data-nosnippet>239</a>		<span class="kw">if </span>q_len &gt; (threshold <span class="kw">as </span>usize) {
-<a href=#240 id=240 data-nosnippet>240</a>			<span class="self">Self</span>::increase_fee_factor(para, serialized_len <span class="kw">as </span>u128);
-<a href=#241 id=241 data-nosnippet>241</a>		}
-<a href=#242 id=242 data-nosnippet>242</a>
-<a href=#243 id=243 data-nosnippet>243</a>		<span class="prelude-val">Ok</span>(())
-<a href=#244 id=244 data-nosnippet>244</a>	}
-<a href=#245 id=245 data-nosnippet>245</a>
-<a href=#246 id=246 data-nosnippet>246</a>	<span class="doccomment">/// Checks if the number of processed downward messages is valid.
-<a href=#247 id=247 data-nosnippet>247</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>check_processed_downward_messages(
-<a href=#248 id=248 data-nosnippet>248</a>		para: ParaId,
-<a href=#249 id=249 data-nosnippet>249</a>		relay_parent_number: BlockNumberFor&lt;T&gt;,
-<a href=#250 id=250 data-nosnippet>250</a>		processed_downward_messages: u32,
-<a href=#251 id=251 data-nosnippet>251</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ProcessedDownwardMessagesAcceptanceErr&gt; {
-<a href=#252 id=252 data-nosnippet>252</a>		<span class="kw">let </span>dmq_length = <span class="self">Self</span>::dmq_length(para);
-<a href=#253 id=253 data-nosnippet>253</a>
-<a href=#254 id=254 data-nosnippet>254</a>		<span class="kw">if </span>dmq_length &gt; <span class="number">0 </span>&amp;&amp; processed_downward_messages == <span class="number">0 </span>{
-<a href=#255 id=255 data-nosnippet>255</a>			<span class="comment">// The advancement rule is for at least one downwards message to be processed
-<a href=#256 id=256 data-nosnippet>256</a>			// if the queue is non-empty at the relay-parent. Downwards messages are annotated
-<a href=#257 id=257 data-nosnippet>257</a>			// with the block number, so we compare the earliest (first) against the relay parent.
-<a href=#258 id=258 data-nosnippet>258</a>			</span><span class="kw">let </span>contents = <span class="self">Self</span>::dmq_contents(para);
+<a href=#66 id=66 data-nosnippet>66</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#67 id=67 data-nosnippet>67</a></span><span class="kw">mod </span>benchmarking;
+<a href=#68 id=68 data-nosnippet>68</a><span class="kw">pub mod </span>inbound_downward_queue;
+<a href=#69 id=69 data-nosnippet>69</a><span class="kw">pub mod </span>migration;
+<a href=#70 id=70 data-nosnippet>70</a><span class="attr">#[cfg(test)]
+<a href=#71 id=71 data-nosnippet>71</a></span><span class="kw">mod </span>mock;
+<a href=#72 id=72 data-nosnippet>72</a><span class="attr">#[cfg(test)]
+<a href=#73 id=73 data-nosnippet>73</a></span><span class="kw">mod </span>tests;
+<a href=#74 id=74 data-nosnippet>74</a><span class="kw">pub mod </span>weights;
+<a href=#75 id=75 data-nosnippet>75</a>
+<a href=#76 id=76 data-nosnippet>76</a><span class="kw">const </span>THRESHOLD_FACTOR: u32 = <span class="number">2</span>;
+<a href=#77 id=77 data-nosnippet>77</a>
+<a href=#78 id=78 data-nosnippet>78</a><span class="doccomment">/// An error sending a downward message.
+<a href=#79 id=79 data-nosnippet>79</a></span><span class="attr">#[derive(Debug)]
+<a href=#80 id=80 data-nosnippet>80</a></span><span class="kw">pub enum </span>QueueDownwardMessageError {
+<a href=#81 id=81 data-nosnippet>81</a>	<span class="doccomment">/// The message being sent exceeds the configured max message size.
+<a href=#82 id=82 data-nosnippet>82</a>	</span>ExceedsMaxMessageSize,
+<a href=#83 id=83 data-nosnippet>83</a>	<span class="doccomment">/// Message rejected due to queue being full.
+<a href=#84 id=84 data-nosnippet>84</a>	</span>ExceedsMaxQueueSize,
+<a href=#85 id=85 data-nosnippet>85</a>	<span class="doccomment">/// The destination is unknown.
+<a href=#86 id=86 data-nosnippet>86</a>	</span>Unroutable,
+<a href=#87 id=87 data-nosnippet>87</a>}
+<a href=#88 id=88 data-nosnippet>88</a>
+<a href=#89 id=89 data-nosnippet>89</a><span class="kw">impl </span>From&lt;QueueDownwardMessageError&gt; <span class="kw">for </span>SendError {
+<a href=#90 id=90 data-nosnippet>90</a>	<span class="kw">fn </span>from(err: QueueDownwardMessageError) -&gt; <span class="self">Self </span>{
+<a href=#91 id=91 data-nosnippet>91</a>		<span class="kw">match </span>err {
+<a href=#92 id=92 data-nosnippet>92</a>			QueueDownwardMessageError::ExceedsMaxMessageSize |
+<a href=#93 id=93 data-nosnippet>93</a>			QueueDownwardMessageError::ExceedsMaxQueueSize =&gt; SendError::ExceedsMaxMessageSize,
+<a href=#94 id=94 data-nosnippet>94</a>			QueueDownwardMessageError::Unroutable =&gt; SendError::Unroutable,
+<a href=#95 id=95 data-nosnippet>95</a>		}
+<a href=#96 id=96 data-nosnippet>96</a>	}
+<a href=#97 id=97 data-nosnippet>97</a>}
+<a href=#98 id=98 data-nosnippet>98</a>
+<a href=#99 id=99 data-nosnippet>99</a><span class="doccomment">/// An error returned by [`Pallet::check_processed_downward_messages`] that indicates an acceptance
+<a href=#100 id=100 data-nosnippet>100</a>/// check didn't pass.
+<a href=#101 id=101 data-nosnippet>101</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>ProcessedDownwardMessagesAcceptanceErr {
+<a href=#102 id=102 data-nosnippet>102</a>	<span class="doccomment">/// If there are pending messages then `processed_downward_messages` should be at least 1,
+<a href=#103 id=103 data-nosnippet>103</a>	</span>AdvancementRule,
+<a href=#104 id=104 data-nosnippet>104</a>	<span class="doccomment">/// `processed_downward_messages` should not be greater than the number of pending messages.
+<a href=#105 id=105 data-nosnippet>105</a>	</span>Underflow { processed_downward_messages: u32, dmq_length: u32 },
+<a href=#106 id=106 data-nosnippet>106</a>}
+<a href=#107 id=107 data-nosnippet>107</a>
+<a href=#108 id=108 data-nosnippet>108</a><span class="kw">impl </span>fmt::Debug <span class="kw">for </span>ProcessedDownwardMessagesAcceptanceErr {
+<a href=#109 id=109 data-nosnippet>109</a>	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
+<a href=#110 id=110 data-nosnippet>110</a>		<span class="kw">use </span>ProcessedDownwardMessagesAcceptanceErr::<span class="kw-2">*</span>;
+<a href=#111 id=111 data-nosnippet>111</a>		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
+<a href=#112 id=112 data-nosnippet>112</a>			AdvancementRule =&gt; {
+<a href=#113 id=113 data-nosnippet>113</a>				<span class="macro">write!</span>(fmt, <span class="string">"DMQ is not empty, but processed_downward_messages is 0"</span>,)
+<a href=#114 id=114 data-nosnippet>114</a>			},
+<a href=#115 id=115 data-nosnippet>115</a>			Underflow { processed_downward_messages, dmq_length } =&gt; <span class="macro">write!</span>(
+<a href=#116 id=116 data-nosnippet>116</a>				fmt,
+<a href=#117 id=117 data-nosnippet>117</a>				<span class="string">"processed_downward_messages = {}, but dmq_length is only {}"</span>,
+<a href=#118 id=118 data-nosnippet>118</a>				processed_downward_messages, dmq_length,
+<a href=#119 id=119 data-nosnippet>119</a>			),
+<a href=#120 id=120 data-nosnippet>120</a>		}
+<a href=#121 id=121 data-nosnippet>121</a>	}
+<a href=#122 id=122 data-nosnippet>122</a>}
+<a href=#123 id=123 data-nosnippet>123</a>
+<a href=#124 id=124 data-nosnippet>124</a><span class="attr">#[frame_support::pallet]
+<a href=#125 id=125 data-nosnippet>125</a></span><span class="kw">pub mod </span>pallet {
+<a href=#126 id=126 data-nosnippet>126</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#127 id=127 data-nosnippet>127</a>
+<a href=#128 id=128 data-nosnippet>128</a>	<span class="attr">#[pallet::pallet]
+<a href=#129 id=129 data-nosnippet>129</a>	#[pallet::storage_version(migration::STORAGE_VERSION)]
+<a href=#130 id=130 data-nosnippet>130</a>	#[pallet::without_storage_info]
+<a href=#131 id=131 data-nosnippet>131</a>	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
+<a href=#132 id=132 data-nosnippet>132</a>
+<a href=#133 id=133 data-nosnippet>133</a>	<span class="attr">#[pallet::config]
+<a href=#134 id=134 data-nosnippet>134</a>	</span><span class="kw">pub trait </span>Config: frame_system::Config + configuration::Config + paras::Config {
+<a href=#135 id=135 data-nosnippet>135</a>		<span class="doccomment">/// Weight info needed for the dmp pallet.
+<a href=#136 id=136 data-nosnippet>136</a>		</span><span class="kw">type </span>WeightInfo: WeightInfo;
+<a href=#137 id=137 data-nosnippet>137</a>	}
+<a href=#138 id=138 data-nosnippet>138</a>
+<a href=#139 id=139 data-nosnippet>139</a>	<span class="doccomment">/// Metadata for managing `DownwardMessageQueuePages`.
+<a href=#140 id=140 data-nosnippet>140</a>	///
+<a href=#141 id=141 data-nosnippet>141</a>	/// DO NOT MODIFY manually. Only use `InboundDownwardQueue` to preserve invariants.
+<a href=#142 id=142 data-nosnippet>142</a>	</span><span class="attr">#[pallet::storage]
+<a href=#143 id=143 data-nosnippet>143</a>	</span><span class="kw">pub type </span>DownwardMessageQueueMeta&lt;T: Config&gt; =
+<a href=#144 id=144 data-nosnippet>144</a>		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, InboundDownwardQueueMeta, OptionQuery&gt;;
+<a href=#145 id=145 data-nosnippet>145</a>
+<a href=#146 id=146 data-nosnippet>146</a>	<span class="doccomment">/// Linked message data list to hold inbound downward message pages.
+<a href=#147 id=147 data-nosnippet>147</a>	///
+<a href=#148 id=148 data-nosnippet>148</a>	/// Messages are not packed and one page is equivalent to one message.
+<a href=#149 id=149 data-nosnippet>149</a>	/// DO NOT MODIFY manually. Only use `InboundDownwardQueue` to preserve invariants.
+<a href=#150 id=150 data-nosnippet>150</a>	</span><span class="attr">#[pallet::storage]
+<a href=#151 id=151 data-nosnippet>151</a>	</span><span class="kw">pub type </span>DownwardMessageQueuePages&lt;T: Config&gt; = StorageDoubleMap&lt;
+<a href=#152 id=152 data-nosnippet>152</a>		<span class="kw">_</span>,
+<a href=#153 id=153 data-nosnippet>153</a>		Blake2_128Concat,
+<a href=#154 id=154 data-nosnippet>154</a>		ParaId,
+<a href=#155 id=155 data-nosnippet>155</a>		Twox64Concat,
+<a href=#156 id=156 data-nosnippet>156</a>		PageIndex,
+<a href=#157 id=157 data-nosnippet>157</a>		InboundDownwardMessage&lt;BlockNumberFor&lt;T&gt;&gt;,
+<a href=#158 id=158 data-nosnippet>158</a>		OptionQuery,
+<a href=#159 id=159 data-nosnippet>159</a>	&gt;;
+<a href=#160 id=160 data-nosnippet>160</a>
+<a href=#161 id=161 data-nosnippet>161</a>	<span class="doccomment">/// Queue with ParaIds and the [first, last) page range to be deleted.
+<a href=#162 id=162 data-nosnippet>162</a>	///
+<a href=#163 id=163 data-nosnippet>163</a>	/// DO NOT MODIFY manually. Only use `InboundDownwardQueue` to preserve invariants.
+<a href=#164 id=164 data-nosnippet>164</a>	</span><span class="attr">#[pallet::storage]
+<a href=#165 id=165 data-nosnippet>165</a>	</span><span class="kw">pub type </span>DownwardMessageQueueLazyDelete&lt;T: Config&gt; = StorageMap&lt;
+<a href=#166 id=166 data-nosnippet>166</a>		<span class="kw">_</span>,
+<a href=#167 id=167 data-nosnippet>167</a>		Blake2_128Concat,
+<a href=#168 id=168 data-nosnippet>168</a>		ParaId,
+<a href=#169 id=169 data-nosnippet>169</a>		(PageIndex, PageIndex), <span class="comment">// Deletion range [first, last)
+<a href=#170 id=170 data-nosnippet>170</a>		</span>OptionQuery,
+<a href=#171 id=171 data-nosnippet>171</a>	&gt;;
+<a href=#172 id=172 data-nosnippet>172</a>
+<a href=#173 id=173 data-nosnippet>173</a>	<span class="doccomment">/// A mapping that stores the downward message queue MQC head for each para.
+<a href=#174 id=174 data-nosnippet>174</a>	///
+<a href=#175 id=175 data-nosnippet>175</a>	/// Each link in this chain has a form:
+<a href=#176 id=176 data-nosnippet>176</a>	/// `(prev_head, B, H(M))`, where
+<a href=#177 id=177 data-nosnippet>177</a>	/// - `prev_head`: is the previous head hash or zero if none.
+<a href=#178 id=178 data-nosnippet>178</a>	/// - `B`: is the relay-chain block number in which a message was appended.
+<a href=#179 id=179 data-nosnippet>179</a>	/// - `H(M)`: is the hash of the message being appended.
+<a href=#180 id=180 data-nosnippet>180</a>	</span><span class="attr">#[pallet::storage]
+<a href=#181 id=181 data-nosnippet>181</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>DownwardMessageQueueHeads&lt;T: Config&gt; =
+<a href=#182 id=182 data-nosnippet>182</a>		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, Hash, ValueQuery&gt;;
+<a href=#183 id=183 data-nosnippet>183</a>
+<a href=#184 id=184 data-nosnippet>184</a>	<span class="doccomment">/// The factor to multiply the base delivery fee by.
+<a href=#185 id=185 data-nosnippet>185</a>	</span><span class="attr">#[pallet::storage]
+<a href=#186 id=186 data-nosnippet>186</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>DeliveryFeeFactor&lt;T: Config&gt; =
+<a href=#187 id=187 data-nosnippet>187</a>		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, FixedU128, ValueQuery, GetMinFeeFactor&lt;Pallet&lt;T&gt;&gt;&gt;;
+<a href=#188 id=188 data-nosnippet>188</a>
+<a href=#189 id=189 data-nosnippet>189</a>	<span class="attr">#[pallet::event]
+<a href=#190 id=190 data-nosnippet>190</a>	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
+<a href=#191 id=191 data-nosnippet>191</a>	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
+<a href=#192 id=192 data-nosnippet>192</a>		<span class="doccomment">/// Legacy V0 DMP queue storage has been cleaned.
+<a href=#193 id=193 data-nosnippet>193</a>		</span>DmpQueueV0Cleaned { para: ParaId },
+<a href=#194 id=194 data-nosnippet>194</a>	}
+<a href=#195 id=195 data-nosnippet>195</a>
+<a href=#196 id=196 data-nosnippet>196</a>	<span class="attr">#[pallet::hooks]
+<a href=#197 id=197 data-nosnippet>197</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#198 id=198 data-nosnippet>198</a>		<span class="comment">// NOTE: We disable for our `mock` runtime since that only has 4M ps weight per block :(
+<a href=#199 id=199 data-nosnippet>199</a>		</span><span class="attr">#[cfg(all(feature = <span class="string">"std"</span>, not(test)))]
+<a href=#200 id=200 data-nosnippet>200</a>		</span><span class="kw">fn </span>integrity_test() {
+<a href=#201 id=201 data-nosnippet>201</a>			<span class="kw">let </span>min_mbm_weight = &lt;T <span class="kw">as </span>Config&gt;::WeightInfo::migrate_v0_to_v1_step_base()
+<a href=#202 id=202 data-nosnippet>202</a>				.saturating_add(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::migrate_v0_to_v1_step_iter())
+<a href=#203 id=203 data-nosnippet>203</a>				.saturating_add(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::migrate_v0_to_v1_step_msg());
+<a href=#204 id=204 data-nosnippet>204</a>
+<a href=#205 id=205 data-nosnippet>205</a>			<span class="kw">let </span>max = T::BlockWeights::get().max_block.saturating_div(<span class="number">3</span>);
+<a href=#206 id=206 data-nosnippet>206</a>			<span class="macro">assert!</span>(
+<a href=#207 id=207 data-nosnippet>207</a>				max.all_gte(min_mbm_weight),
+<a href=#208 id=208 data-nosnippet>208</a>				<span class="string">"DMP queue migration uses more than 1/3 of max block weight"
+<a href=#209 id=209 data-nosnippet>209</a>			</span>);
+<a href=#210 id=210 data-nosnippet>210</a>
+<a href=#211 id=211 data-nosnippet>211</a>			<span class="kw">let </span>lazy_delete_some_weight = &lt;T <span class="kw">as </span>Config&gt;::WeightInfo::lazy_delete_some();
+<a href=#212 id=212 data-nosnippet>212</a>			<span class="macro">assert!</span>(
+<a href=#213 id=213 data-nosnippet>213</a>				max.all_gte(lazy_delete_some_weight),
+<a href=#214 id=214 data-nosnippet>214</a>				<span class="string">"DMP queue lazy delete uses more than 1/3 block weight"
+<a href=#215 id=215 data-nosnippet>215</a>			</span>);
+<a href=#216 id=216 data-nosnippet>216</a>		}
+<a href=#217 id=217 data-nosnippet>217</a>
+<a href=#218 id=218 data-nosnippet>218</a>		<span class="kw">fn </span>on_idle(_now: BlockNumberFor&lt;T&gt;, weight: Weight) -&gt; Weight {
+<a href=#219 id=219 data-nosnippet>219</a>			<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::with_limit(weight);
+<a href=#220 id=220 data-nosnippet>220</a>
+<a href=#221 id=221 data-nosnippet>221</a>			InboundDownwardQueue::&lt;T&gt;::lazy_delete_some(<span class="kw-2">&amp;mut </span>meter);
+<a href=#222 id=222 data-nosnippet>222</a>
+<a href=#223 id=223 data-nosnippet>223</a>			meter.consumed()
+<a href=#224 id=224 data-nosnippet>224</a>		}
+<a href=#225 id=225 data-nosnippet>225</a>
+<a href=#226 id=226 data-nosnippet>226</a>		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+<a href=#227 id=227 data-nosnippet>227</a>		</span><span class="kw">fn </span>try_state(_now: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
+<a href=#228 id=228 data-nosnippet>228</a>			InboundDownwardQueue::&lt;T&gt;::try_state();
+<a href=#229 id=229 data-nosnippet>229</a>
+<a href=#230 id=230 data-nosnippet>230</a>			<span class="prelude-val">Ok</span>(())
+<a href=#231 id=231 data-nosnippet>231</a>		}
+<a href=#232 id=232 data-nosnippet>232</a>	}
+<a href=#233 id=233 data-nosnippet>233</a>}
+<a href=#234 id=234 data-nosnippet>234</a><span class="doccomment">/// Routines and getters related to downward message passing.
+<a href=#235 id=235 data-nosnippet>235</a></span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#236 id=236 data-nosnippet>236</a>	<span class="doccomment">/// Block initialization logic, called by initializer.
+<a href=#237 id=237 data-nosnippet>237</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initializer_initialize(_now: BlockNumberFor&lt;T&gt;) -&gt; Weight {
+<a href=#238 id=238 data-nosnippet>238</a>		Weight::zero()
+<a href=#239 id=239 data-nosnippet>239</a>	}
+<a href=#240 id=240 data-nosnippet>240</a>
+<a href=#241 id=241 data-nosnippet>241</a>	<span class="doccomment">/// Block finalization logic, called by initializer.
+<a href=#242 id=242 data-nosnippet>242</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initializer_finalize() {}
+<a href=#243 id=243 data-nosnippet>243</a>
+<a href=#244 id=244 data-nosnippet>244</a>	<span class="doccomment">/// Called by the initializer to note that a new session has started.
+<a href=#245 id=245 data-nosnippet>245</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initializer_on_new_session(
+<a href=#246 id=246 data-nosnippet>246</a>		_notification: <span class="kw-2">&amp;</span>initializer::SessionChangeNotification&lt;BlockNumberFor&lt;T&gt;&gt;,
+<a href=#247 id=247 data-nosnippet>247</a>		outgoing_paras: <span class="kw-2">&amp;</span>[ParaId],
+<a href=#248 id=248 data-nosnippet>248</a>	) {
+<a href=#249 id=249 data-nosnippet>249</a>		<span class="self">Self</span>::perform_outgoing_para_cleanup(outgoing_paras);
+<a href=#250 id=250 data-nosnippet>250</a>	}
+<a href=#251 id=251 data-nosnippet>251</a>
+<a href=#252 id=252 data-nosnippet>252</a>	<span class="doccomment">/// Iterate over all paras that were noted for offboarding and remove all the data
+<a href=#253 id=253 data-nosnippet>253</a>	/// associated with them.
+<a href=#254 id=254 data-nosnippet>254</a>	</span><span class="kw">fn </span>perform_outgoing_para_cleanup(outgoing: <span class="kw-2">&amp;</span>[ParaId]) {
+<a href=#255 id=255 data-nosnippet>255</a>		<span class="kw">for </span>outgoing_para <span class="kw">in </span>outgoing {
+<a href=#256 id=256 data-nosnippet>256</a>			<span class="self">Self</span>::clean_dmp_after_outgoing(outgoing_para);
+<a href=#257 id=257 data-nosnippet>257</a>		}
+<a href=#258 id=258 data-nosnippet>258</a>	}
 <a href=#259 id=259 data-nosnippet>259</a>
-<a href=#260 id=260 data-nosnippet>260</a>			<span class="comment">// sanity: if dmq_length is &gt;0 this should always be 'Some'.
-<a href=#261 id=261 data-nosnippet>261</a>			</span><span class="kw">if </span>contents.get(<span class="number">0</span>).map_or(<span class="bool-val">false</span>, |msg| msg.sent_at &lt;= relay_parent_number) {
-<a href=#262 id=262 data-nosnippet>262</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(ProcessedDownwardMessagesAcceptanceErr::AdvancementRule);
-<a href=#263 id=263 data-nosnippet>263</a>			}
-<a href=#264 id=264 data-nosnippet>264</a>		}
+<a href=#260 id=260 data-nosnippet>260</a>	<span class="doccomment">/// Remove all relevant storage items for an outgoing parachain.
+<a href=#261 id=261 data-nosnippet>261</a>	</span><span class="kw">fn </span>clean_dmp_after_outgoing(outgoing_para: <span class="kw-2">&amp;</span>ParaId) {
+<a href=#262 id=262 data-nosnippet>262</a>		InboundDownwardQueue::&lt;T&gt;::delete_all(<span class="kw-2">*</span>outgoing_para);
+<a href=#263 id=263 data-nosnippet>263</a>		DownwardMessageQueueHeads::&lt;T&gt;::remove(outgoing_para);
+<a href=#264 id=264 data-nosnippet>264</a>	}
 <a href=#265 id=265 data-nosnippet>265</a>
-<a href=#266 id=266 data-nosnippet>266</a>		<span class="comment">// Note that we might be allowing a parachain to signal that it's processed
-<a href=#267 id=267 data-nosnippet>267</a>		// messages that hadn't been placed in the queue at the relay_parent.
-<a href=#268 id=268 data-nosnippet>268</a>		// only 'stupid' parachains would do it and we don't (and can't) force anyone
-<a href=#269 id=269 data-nosnippet>269</a>		// to act on messages, so the lenient approach is fine here.
-<a href=#270 id=270 data-nosnippet>270</a>		</span><span class="kw">if </span>dmq_length &lt; processed_downward_messages {
-<a href=#271 id=271 data-nosnippet>271</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(ProcessedDownwardMessagesAcceptanceErr::Underflow {
-<a href=#272 id=272 data-nosnippet>272</a>				processed_downward_messages,
-<a href=#273 id=273 data-nosnippet>273</a>				dmq_length,
-<a href=#274 id=274 data-nosnippet>274</a>			});
-<a href=#275 id=275 data-nosnippet>275</a>		}
-<a href=#276 id=276 data-nosnippet>276</a>
-<a href=#277 id=277 data-nosnippet>277</a>		<span class="prelude-val">Ok</span>(())
-<a href=#278 id=278 data-nosnippet>278</a>	}
-<a href=#279 id=279 data-nosnippet>279</a>
-<a href=#280 id=280 data-nosnippet>280</a>	<span class="doccomment">/// Prunes the specified number of messages from the downward message queue of the given para.
-<a href=#281 id=281 data-nosnippet>281</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prune_dmq(para: ParaId, processed_downward_messages: u32) {
-<a href=#282 id=282 data-nosnippet>282</a>		<span class="kw">let </span>q_len = DownwardMessageQueues::&lt;T&gt;::mutate(para, |q| {
-<a href=#283 id=283 data-nosnippet>283</a>			<span class="kw">let </span>processed_downward_messages = processed_downward_messages <span class="kw">as </span>usize;
-<a href=#284 id=284 data-nosnippet>284</a>			<span class="kw">if </span>processed_downward_messages &gt; q.len() {
-<a href=#285 id=285 data-nosnippet>285</a>				<span class="comment">// reaching this branch is unexpected due to the constraint established by
-<a href=#286 id=286 data-nosnippet>286</a>				// `check_processed_downward_messages`. But better be safe than sorry.
-<a href=#287 id=287 data-nosnippet>287</a>				</span>q.clear();
-<a href=#288 id=288 data-nosnippet>288</a>			} <span class="kw">else </span>{
-<a href=#289 id=289 data-nosnippet>289</a>				<span class="kw-2">*</span>q = q.split_off(processed_downward_messages);
-<a href=#290 id=290 data-nosnippet>290</a>			}
-<a href=#291 id=291 data-nosnippet>291</a>			q.len()
-<a href=#292 id=292 data-nosnippet>292</a>		});
-<a href=#293 id=293 data-nosnippet>293</a>
-<a href=#294 id=294 data-nosnippet>294</a>		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
-<a href=#295 id=295 data-nosnippet>295</a>		<span class="kw">let </span>threshold =
-<a href=#296 id=296 data-nosnippet>296</a>			<span class="self">Self</span>::dmq_max_length(config.max_downward_message_size).saturating_div(THRESHOLD_FACTOR);
-<a href=#297 id=297 data-nosnippet>297</a>		<span class="kw">if </span>q_len &lt;= (threshold <span class="kw">as </span>usize) {
-<a href=#298 id=298 data-nosnippet>298</a>			<span class="self">Self</span>::decrease_fee_factor(para);
-<a href=#299 id=299 data-nosnippet>299</a>		}
-<a href=#300 id=300 data-nosnippet>300</a>	}
-<a href=#301 id=301 data-nosnippet>301</a>
-<a href=#302 id=302 data-nosnippet>302</a>	<span class="doccomment">/// Returns the Head of Message Queue Chain for the given para or `None` if there is none
-<a href=#303 id=303 data-nosnippet>303</a>	/// associated with it.
-<a href=#304 id=304 data-nosnippet>304</a>	</span><span class="attr">#[cfg(test)]
-<a href=#305 id=305 data-nosnippet>305</a>	</span><span class="kw">fn </span>dmq_mqc_head(para: ParaId) -&gt; Hash {
-<a href=#306 id=306 data-nosnippet>306</a>		DownwardMessageQueueHeads::&lt;T&gt;::get(<span class="kw-2">&amp;</span>para)
-<a href=#307 id=307 data-nosnippet>307</a>	}
-<a href=#308 id=308 data-nosnippet>308</a>
-<a href=#309 id=309 data-nosnippet>309</a>	<span class="doccomment">/// Returns the number of pending downward messages addressed to the given para.
-<a href=#310 id=310 data-nosnippet>310</a>	///
-<a href=#311 id=311 data-nosnippet>311</a>	/// Returns 0 if the para doesn't have an associated downward message queue.
-<a href=#312 id=312 data-nosnippet>312</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>dmq_length(para: ParaId) -&gt; u32 {
-<a href=#313 id=313 data-nosnippet>313</a>		DownwardMessageQueues::&lt;T&gt;::decode_len(<span class="kw-2">&amp;</span>para)
-<a href=#314 id=314 data-nosnippet>314</a>			.unwrap_or(<span class="number">0</span>)
-<a href=#315 id=315 data-nosnippet>315</a>			.saturated_into::&lt;u32&gt;()
-<a href=#316 id=316 data-nosnippet>316</a>	}
-<a href=#317 id=317 data-nosnippet>317</a>
-<a href=#318 id=318 data-nosnippet>318</a>	<span class="kw">fn </span>dmq_max_length(max_downward_message_size: u32) -&gt; u32 {
-<a href=#319 id=319 data-nosnippet>319</a>		MAX_POSSIBLE_ALLOCATION.checked_div(max_downward_message_size).unwrap_or(<span class="number">0</span>)
-<a href=#320 id=320 data-nosnippet>320</a>	}
-<a href=#321 id=321 data-nosnippet>321</a>
-<a href=#322 id=322 data-nosnippet>322</a>	<span class="doccomment">/// Returns the downward message queue contents for the given para.
-<a href=#323 id=323 data-nosnippet>323</a>	///
-<a href=#324 id=324 data-nosnippet>324</a>	/// The most recent messages are the latest in the vector.
-<a href=#325 id=325 data-nosnippet>325</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>dmq_contents(
-<a href=#326 id=326 data-nosnippet>326</a>		recipient: ParaId,
-<a href=#327 id=327 data-nosnippet>327</a>	) -&gt; Vec&lt;InboundDownwardMessage&lt;BlockNumberFor&lt;T&gt;&gt;&gt; {
-<a href=#328 id=328 data-nosnippet>328</a>		DownwardMessageQueues::&lt;T&gt;::get(<span class="kw-2">&amp;</span>recipient)
-<a href=#329 id=329 data-nosnippet>329</a>	}
-<a href=#330 id=330 data-nosnippet>330</a>
-<a href=#331 id=331 data-nosnippet>331</a>	<span class="doccomment">/// Make the parachain reachable for downward messages.
-<a href=#332 id=332 data-nosnippet>332</a>	///
-<a href=#333 id=333 data-nosnippet>333</a>	/// Only useable in benchmarks or tests.
-<a href=#334 id=334 data-nosnippet>334</a>	</span><span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, feature = <span class="string">"std"</span>))]
-<a href=#335 id=335 data-nosnippet>335</a>	</span><span class="kw">pub fn </span>make_parachain_reachable(para: <span class="kw">impl </span>Into&lt;ParaId&gt;) {
-<a href=#336 id=336 data-nosnippet>336</a>		<span class="kw">let </span>para = para.into();
-<a href=#337 id=337 data-nosnippet>337</a>		<span class="kw">crate</span>::paras::Heads::&lt;T&gt;::insert(para, para.encode());
-<a href=#338 id=338 data-nosnippet>338</a>	}
-<a href=#339 id=339 data-nosnippet>339</a>}
-<a href=#340 id=340 data-nosnippet>340</a>
-<a href=#341 id=341 data-nosnippet>341</a><span class="kw">impl</span>&lt;T: Config&gt; FeeTracker <span class="kw">for </span>Pallet&lt;T&gt; {
-<a href=#342 id=342 data-nosnippet>342</a>	<span class="kw">type </span>Id = ParaId;
-<a href=#343 id=343 data-nosnippet>343</a>
-<a href=#344 id=344 data-nosnippet>344</a>	<span class="kw">fn </span>get_fee_factor(id: <span class="self">Self</span>::Id) -&gt; FixedU128 {
-<a href=#345 id=345 data-nosnippet>345</a>		DeliveryFeeFactor::&lt;T&gt;::get(id)
-<a href=#346 id=346 data-nosnippet>346</a>	}
+<a href=#266 id=266 data-nosnippet>266</a>	<span class="doccomment">/// Determine whether enqueuing a downward message to a specific recipient para would result
+<a href=#267 id=267 data-nosnippet>267</a>	/// in an error. If this returns `Ok(())` the caller can be certain that a call to
+<a href=#268 id=268 data-nosnippet>268</a>	/// `queue_downward_message` with the same parameters will be successful.
+<a href=#269 id=269 data-nosnippet>269</a>	</span><span class="kw">pub fn </span>can_queue_downward_message(
+<a href=#270 id=270 data-nosnippet>270</a>		config: <span class="kw-2">&amp;</span>HostConfiguration&lt;BlockNumberFor&lt;T&gt;&gt;,
+<a href=#271 id=271 data-nosnippet>271</a>		para: <span class="kw-2">&amp;</span>ParaId,
+<a href=#272 id=272 data-nosnippet>272</a>		msg: <span class="kw-2">&amp;</span>DownwardMessage,
+<a href=#273 id=273 data-nosnippet>273</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), QueueDownwardMessageError&gt; {
+<a href=#274 id=274 data-nosnippet>274</a>		<span class="kw">let </span>serialized_len = msg.len() <span class="kw">as </span>u32;
+<a href=#275 id=275 data-nosnippet>275</a>		<span class="kw">if </span>serialized_len &gt; config.max_downward_message_size {
+<a href=#276 id=276 data-nosnippet>276</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(QueueDownwardMessageError::ExceedsMaxMessageSize);
+<a href=#277 id=277 data-nosnippet>277</a>		}
+<a href=#278 id=278 data-nosnippet>278</a>
+<a href=#279 id=279 data-nosnippet>279</a>		<span class="comment">// Hard limit on Queue size
+<a href=#280 id=280 data-nosnippet>280</a>		</span><span class="kw">if </span><span class="self">Self</span>::dmq_length(<span class="kw-2">*</span>para) &gt; <span class="self">Self</span>::dmq_max_length(config.max_downward_message_size) {
+<a href=#281 id=281 data-nosnippet>281</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(QueueDownwardMessageError::ExceedsMaxMessageSize);
+<a href=#282 id=282 data-nosnippet>282</a>		}
+<a href=#283 id=283 data-nosnippet>283</a>
+<a href=#284 id=284 data-nosnippet>284</a>		<span class="comment">// If the head exists, we assume the parachain is legit and exists.
+<a href=#285 id=285 data-nosnippet>285</a>		</span><span class="kw">if </span>!paras::Heads::&lt;T&gt;::contains_key(para) {
+<a href=#286 id=286 data-nosnippet>286</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(QueueDownwardMessageError::Unroutable);
+<a href=#287 id=287 data-nosnippet>287</a>		}
+<a href=#288 id=288 data-nosnippet>288</a>
+<a href=#289 id=289 data-nosnippet>289</a>		<span class="prelude-val">Ok</span>(())
+<a href=#290 id=290 data-nosnippet>290</a>	}
+<a href=#291 id=291 data-nosnippet>291</a>
+<a href=#292 id=292 data-nosnippet>292</a>	<span class="doccomment">/// Enqueue a downward message to a specific recipient para.
+<a href=#293 id=293 data-nosnippet>293</a>	///
+<a href=#294 id=294 data-nosnippet>294</a>	/// When encoded, the message should not exceed the `config.max_downward_message_size`.
+<a href=#295 id=295 data-nosnippet>295</a>	/// Otherwise, the message won't be sent and `Err` will be returned.
+<a href=#296 id=296 data-nosnippet>296</a>	///
+<a href=#297 id=297 data-nosnippet>297</a>	/// It is possible to send a downward message to a non-existent para. That, however, would lead
+<a href=#298 id=298 data-nosnippet>298</a>	/// to a dangling storage. If the caller cannot statically prove that the recipient exists
+<a href=#299 id=299 data-nosnippet>299</a>	/// then the caller should perform a runtime check.
+<a href=#300 id=300 data-nosnippet>300</a>	</span><span class="kw">pub fn </span>queue_downward_message(
+<a href=#301 id=301 data-nosnippet>301</a>		config: <span class="kw-2">&amp;</span>HostConfiguration&lt;BlockNumberFor&lt;T&gt;&gt;,
+<a href=#302 id=302 data-nosnippet>302</a>		para: ParaId,
+<a href=#303 id=303 data-nosnippet>303</a>		msg: DownwardMessage,
+<a href=#304 id=304 data-nosnippet>304</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), QueueDownwardMessageError&gt; {
+<a href=#305 id=305 data-nosnippet>305</a>		<span class="kw">let </span>serialized_len = msg.len();
+<a href=#306 id=306 data-nosnippet>306</a>		<span class="self">Self</span>::can_queue_downward_message(config, <span class="kw-2">&amp;</span>para, <span class="kw-2">&amp;</span>msg)<span class="question-mark">?</span>;
+<a href=#307 id=307 data-nosnippet>307</a>
+<a href=#308 id=308 data-nosnippet>308</a>		<span class="kw">let </span>inbound = InboundDownwardQueue::&lt;T&gt;::push_back(para, msg)
+<a href=#309 id=309 data-nosnippet>309</a>			.map_err(|<span class="kw">_</span>| QueueDownwardMessageError::ExceedsMaxQueueSize)<span class="question-mark">?</span>;
+<a href=#310 id=310 data-nosnippet>310</a>		<span class="kw">let </span>q_len = InboundDownwardQueue::&lt;T&gt;::len(para).unwrap_or(<span class="number">0</span>);
+<a href=#311 id=311 data-nosnippet>311</a>
+<a href=#312 id=312 data-nosnippet>312</a>		<span class="comment">// obtain the new link in the MQC and update the head.
+<a href=#313 id=313 data-nosnippet>313</a>		</span>DownwardMessageQueueHeads::&lt;T&gt;::mutate(para, |head| {
+<a href=#314 id=314 data-nosnippet>314</a>			<span class="kw">let </span>new_head =
+<a href=#315 id=315 data-nosnippet>315</a>				BlakeTwo256::hash_of(<span class="kw-2">&amp;</span>(<span class="kw-2">*</span>head, inbound.sent_at, T::Hashing::hash_of(<span class="kw-2">&amp;</span>inbound.msg)));
+<a href=#316 id=316 data-nosnippet>316</a>			<span class="kw-2">*</span>head = new_head;
+<a href=#317 id=317 data-nosnippet>317</a>		});
+<a href=#318 id=318 data-nosnippet>318</a>
+<a href=#319 id=319 data-nosnippet>319</a>		<span class="kw">let </span>threshold =
+<a href=#320 id=320 data-nosnippet>320</a>			<span class="self">Self</span>::dmq_max_length(config.max_downward_message_size).saturating_div(THRESHOLD_FACTOR);
+<a href=#321 id=321 data-nosnippet>321</a>		<span class="kw">if </span>q_len &gt; threshold <span class="kw">as </span>u64 {
+<a href=#322 id=322 data-nosnippet>322</a>			<span class="self">Self</span>::increase_fee_factor(para, serialized_len <span class="kw">as </span>u128);
+<a href=#323 id=323 data-nosnippet>323</a>		}
+<a href=#324 id=324 data-nosnippet>324</a>
+<a href=#325 id=325 data-nosnippet>325</a>		<span class="prelude-val">Ok</span>(())
+<a href=#326 id=326 data-nosnippet>326</a>	}
+<a href=#327 id=327 data-nosnippet>327</a>
+<a href=#328 id=328 data-nosnippet>328</a>	<span class="doccomment">/// Checks if the number of processed downward messages is valid.
+<a href=#329 id=329 data-nosnippet>329</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>check_processed_downward_messages(
+<a href=#330 id=330 data-nosnippet>330</a>		para: ParaId,
+<a href=#331 id=331 data-nosnippet>331</a>		relay_parent_number: BlockNumberFor&lt;T&gt;,
+<a href=#332 id=332 data-nosnippet>332</a>		processed_downward_messages: u32,
+<a href=#333 id=333 data-nosnippet>333</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ProcessedDownwardMessagesAcceptanceErr&gt; {
+<a href=#334 id=334 data-nosnippet>334</a>		<span class="kw">let </span>dmq_length = <span class="self">Self</span>::dmq_length(para);
+<a href=#335 id=335 data-nosnippet>335</a>
+<a href=#336 id=336 data-nosnippet>336</a>		<span class="kw">if </span>dmq_length &gt; <span class="number">0 </span>&amp;&amp; processed_downward_messages == <span class="number">0 </span>{
+<a href=#337 id=337 data-nosnippet>337</a>			<span class="comment">// The advancement rule is for at least one downwards message to be processed
+<a href=#338 id=338 data-nosnippet>338</a>			// if the queue is non-empty at the relay-parent. Downwards messages are annotated
+<a href=#339 id=339 data-nosnippet>339</a>			// with the block number, so we compare the earliest (first) against the relay parent.
+<a href=#340 id=340 data-nosnippet>340</a>			</span><span class="kw">let </span>first = InboundDownwardQueue::&lt;T&gt;::peek_front(para);
+<a href=#341 id=341 data-nosnippet>341</a>
+<a href=#342 id=342 data-nosnippet>342</a>			<span class="comment">// sanity: if dmq_length is &gt;0 this should always be 'Some'.
+<a href=#343 id=343 data-nosnippet>343</a>			</span><span class="kw">if </span>first.map_or(<span class="bool-val">false</span>, |msg| msg.sent_at &lt;= relay_parent_number) {
+<a href=#344 id=344 data-nosnippet>344</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(ProcessedDownwardMessagesAcceptanceErr::AdvancementRule);
+<a href=#345 id=345 data-nosnippet>345</a>			}
+<a href=#346 id=346 data-nosnippet>346</a>		}
 <a href=#347 id=347 data-nosnippet>347</a>
-<a href=#348 id=348 data-nosnippet>348</a>	<span class="kw">fn </span>set_fee_factor(id: <span class="self">Self</span>::Id, val: FixedU128) {
-<a href=#349 id=349 data-nosnippet>349</a>		&lt;DeliveryFeeFactor&lt;T&gt;&gt;::set(id, val);
-<a href=#350 id=350 data-nosnippet>350</a>	}
-<a href=#351 id=351 data-nosnippet>351</a>}
-<a href=#352 id=352 data-nosnippet>352</a>
-<a href=#353 id=353 data-nosnippet>353</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#354 id=354 data-nosnippet>354</a></span><span class="kw">impl</span>&lt;T: Config&gt; <span class="kw">crate</span>::EnsureForParachain <span class="kw">for </span>Pallet&lt;T&gt; {
-<a href=#355 id=355 data-nosnippet>355</a>	<span class="kw">fn </span>ensure(para: ParaId) {
-<a href=#356 id=356 data-nosnippet>356</a>		<span class="self">Self</span>::make_parachain_reachable(para);
-<a href=#357 id=357 data-nosnippet>357</a>	}
-<a href=#358 id=358 data-nosnippet>358</a>}
+<a href=#348 id=348 data-nosnippet>348</a>		<span class="comment">// Note that we might be allowing a parachain to signal that it's processed
+<a href=#349 id=349 data-nosnippet>349</a>		// messages that hadn't been placed in the queue at the relay_parent.
+<a href=#350 id=350 data-nosnippet>350</a>		// only 'stupid' parachains would do it and we don't (and can't) force anyone
+<a href=#351 id=351 data-nosnippet>351</a>		// to act on messages, so the lenient approach is fine here.
+<a href=#352 id=352 data-nosnippet>352</a>		</span><span class="kw">if </span>dmq_length &lt; processed_downward_messages {
+<a href=#353 id=353 data-nosnippet>353</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(ProcessedDownwardMessagesAcceptanceErr::Underflow {
+<a href=#354 id=354 data-nosnippet>354</a>				processed_downward_messages,
+<a href=#355 id=355 data-nosnippet>355</a>				dmq_length,
+<a href=#356 id=356 data-nosnippet>356</a>			});
+<a href=#357 id=357 data-nosnippet>357</a>		}
+<a href=#358 id=358 data-nosnippet>358</a>
+<a href=#359 id=359 data-nosnippet>359</a>		<span class="prelude-val">Ok</span>(())
+<a href=#360 id=360 data-nosnippet>360</a>	}
+<a href=#361 id=361 data-nosnippet>361</a>
+<a href=#362 id=362 data-nosnippet>362</a>	<span class="doccomment">/// Prunes the specified number of messages from the downward message queue of the given para.
+<a href=#363 id=363 data-nosnippet>363</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prune_dmq(para: ParaId, processed_downward_messages: u32) {
+<a href=#364 id=364 data-nosnippet>364</a>		InboundDownwardQueue::&lt;T&gt;::drop_front_n(para, processed_downward_messages <span class="kw">as </span>u64);
+<a href=#365 id=365 data-nosnippet>365</a>		<span class="kw">let </span>q_len = InboundDownwardQueue::&lt;T&gt;::len(para).unwrap_or(<span class="number">0</span>);
+<a href=#366 id=366 data-nosnippet>366</a>
+<a href=#367 id=367 data-nosnippet>367</a>		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
+<a href=#368 id=368 data-nosnippet>368</a>		<span class="kw">let </span>threshold =
+<a href=#369 id=369 data-nosnippet>369</a>			<span class="self">Self</span>::dmq_max_length(config.max_downward_message_size).saturating_div(THRESHOLD_FACTOR);
+<a href=#370 id=370 data-nosnippet>370</a>		<span class="kw">if </span>q_len &lt;= threshold <span class="kw">as </span>u64 {
+<a href=#371 id=371 data-nosnippet>371</a>			<span class="self">Self</span>::decrease_fee_factor(para);
+<a href=#372 id=372 data-nosnippet>372</a>		}
+<a href=#373 id=373 data-nosnippet>373</a>	}
+<a href=#374 id=374 data-nosnippet>374</a>
+<a href=#375 id=375 data-nosnippet>375</a>	<span class="doccomment">/// Returns the Head of Message Queue Chain for the given para or `None` if there is none
+<a href=#376 id=376 data-nosnippet>376</a>	/// associated with it.
+<a href=#377 id=377 data-nosnippet>377</a>	</span><span class="attr">#[cfg(test)]
+<a href=#378 id=378 data-nosnippet>378</a>	</span><span class="kw">fn </span>dmq_mqc_head(para: ParaId) -&gt; Hash {
+<a href=#379 id=379 data-nosnippet>379</a>		DownwardMessageQueueHeads::&lt;T&gt;::get(<span class="kw-2">&amp;</span>para)
+<a href=#380 id=380 data-nosnippet>380</a>	}
+<a href=#381 id=381 data-nosnippet>381</a>
+<a href=#382 id=382 data-nosnippet>382</a>	<span class="doccomment">/// Returns the number of pending downward messages addressed to the given para.
+<a href=#383 id=383 data-nosnippet>383</a>	///
+<a href=#384 id=384 data-nosnippet>384</a>	/// Returns 0 if the para doesn't have an associated downward message queue.
+<a href=#385 id=385 data-nosnippet>385</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>dmq_length(para: ParaId) -&gt; u32 {
+<a href=#386 id=386 data-nosnippet>386</a>		InboundDownwardQueue::&lt;T&gt;::len(para)
+<a href=#387 id=387 data-nosnippet>387</a>			.unwrap_or(<span class="number">0</span>)
+<a href=#388 id=388 data-nosnippet>388</a>			.try_into()
+<a href=#389 id=389 data-nosnippet>389</a>			.defensive_unwrap_or(u32::MAX)
+<a href=#390 id=390 data-nosnippet>390</a>	}
+<a href=#391 id=391 data-nosnippet>391</a>
+<a href=#392 id=392 data-nosnippet>392</a>	<span class="kw">fn </span>dmq_max_length(max_downward_message_size: u32) -&gt; u32 {
+<a href=#393 id=393 data-nosnippet>393</a>		MAX_POSSIBLE_ALLOCATION.checked_div(max_downward_message_size).unwrap_or(<span class="number">0</span>)
+<a href=#394 id=394 data-nosnippet>394</a>	}
+<a href=#395 id=395 data-nosnippet>395</a>
+<a href=#396 id=396 data-nosnippet>396</a>	<span class="doccomment">/// DO NOT CALL IN CONSENSUS. Returns the downward message queue contents for the given para.
+<a href=#397 id=397 data-nosnippet>397</a>	///
+<a href=#398 id=398 data-nosnippet>398</a>	/// The most recent messages are the latest in the vector.
+<a href=#399 id=399 data-nosnippet>399</a>	</span><span class="kw">pub fn </span>dmq_contents_do_not_call_in_consensus(
+<a href=#400 id=400 data-nosnippet>400</a>		recipient: ParaId,
+<a href=#401 id=401 data-nosnippet>401</a>	) -&gt; Vec&lt;InboundDownwardMessage&lt;BlockNumberFor&lt;T&gt;&gt;&gt; {
+<a href=#402 id=402 data-nosnippet>402</a>		InboundDownwardQueue::&lt;T&gt;::peek_all_do_not_call_in_consensus(recipient)
+<a href=#403 id=403 data-nosnippet>403</a>	}
+<a href=#404 id=404 data-nosnippet>404</a>
+<a href=#405 id=405 data-nosnippet>405</a>	<span class="doccomment">/// Make the parachain reachable for downward messages.
+<a href=#406 id=406 data-nosnippet>406</a>	///
+<a href=#407 id=407 data-nosnippet>407</a>	/// Only useable in benchmarks or tests.
+<a href=#408 id=408 data-nosnippet>408</a>	</span><span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, feature = <span class="string">"std"</span>))]
+<a href=#409 id=409 data-nosnippet>409</a>	</span><span class="kw">pub fn </span>make_parachain_reachable(para: <span class="kw">impl </span>Into&lt;ParaId&gt;) {
+<a href=#410 id=410 data-nosnippet>410</a>		<span class="kw">let </span>para = para.into();
+<a href=#411 id=411 data-nosnippet>411</a>		<span class="kw">crate</span>::paras::Heads::&lt;T&gt;::insert(para, para.encode());
+<a href=#412 id=412 data-nosnippet>412</a>	}
+<a href=#413 id=413 data-nosnippet>413</a>}
+<a href=#414 id=414 data-nosnippet>414</a>
+<a href=#415 id=415 data-nosnippet>415</a><span class="kw">impl</span>&lt;T: Config&gt; FeeTracker <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#416 id=416 data-nosnippet>416</a>	<span class="kw">type </span>Id = ParaId;
+<a href=#417 id=417 data-nosnippet>417</a>
+<a href=#418 id=418 data-nosnippet>418</a>	<span class="kw">fn </span>get_fee_factor(id: <span class="self">Self</span>::Id) -&gt; FixedU128 {
+<a href=#419 id=419 data-nosnippet>419</a>		DeliveryFeeFactor::&lt;T&gt;::get(id)
+<a href=#420 id=420 data-nosnippet>420</a>	}
+<a href=#421 id=421 data-nosnippet>421</a>
+<a href=#422 id=422 data-nosnippet>422</a>	<span class="kw">fn </span>set_fee_factor(id: <span class="self">Self</span>::Id, val: FixedU128) {
+<a href=#423 id=423 data-nosnippet>423</a>		&lt;DeliveryFeeFactor&lt;T&gt;&gt;::set(id, val);
+<a href=#424 id=424 data-nosnippet>424</a>	}
+<a href=#425 id=425 data-nosnippet>425</a>}
+<a href=#426 id=426 data-nosnippet>426</a>
+<a href=#427 id=427 data-nosnippet>427</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#428 id=428 data-nosnippet>428</a></span><span class="kw">impl</span>&lt;T: Config&gt; <span class="kw">crate</span>::EnsureForParachain <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#429 id=429 data-nosnippet>429</a>	<span class="kw">fn </span>ensure(para: ParaId) {
+<a href=#430 id=430 data-nosnippet>430</a>		<span class="self">Self</span>::make_parachain_reachable(para);
+<a href=#431 id=431 data-nosnippet>431</a>	}
+<a href=#432 id=432 data-nosnippet>432</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

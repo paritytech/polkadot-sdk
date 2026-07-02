@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Call"],"struct":["Pallet"],"trait":["Config"],"type":["DownwardMessageQueues","Module"]};
+window.SIDEBAR_ITEMS = {"enum":["Call","Event"],"struct":["Pallet"],"trait":["Config"],"type":["DownwardMessageQueueLazyDelete","DownwardMessageQueueMeta","DownwardMessageQueuePages","Module"]};

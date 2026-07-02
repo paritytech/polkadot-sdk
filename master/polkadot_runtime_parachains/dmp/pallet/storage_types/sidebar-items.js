@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["DeliveryFeeFactor","DownwardMessageQueueHeads","DownwardMessageQueues"]};
+window.SIDEBAR_ITEMS = {"struct":["DeliveryFeeFactor","DownwardMessageQueueHeads","DownwardMessageQueueLazyDelete","DownwardMessageQueueMeta","DownwardMessageQueuePages"]};
