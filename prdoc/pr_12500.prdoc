@@ -5,6 +5,8 @@ doc:
     Introduce a capped WASM executor using epoch-based wasmtime interruption mechanism and use it for serving light client execution proof requests.
 
     The execution is bounded by 10ms per runtime call. This matches paseo-bulletin metrics over last 30 days: most of the requests took under 1ms, just a few 2-4ms, and outliers in the higher buckets up to 16-32s.
+
+    The capped executor compiles the runtime into its own engine, so the light client request handler pre-warms it off the request path: once at startup, and again on every runtime upgrade and once (warp) sync reaches the tip of the chain, driven by best-block import notifications.
 crates:
 - name: polkadot-node-core-pvf-common
   bump: major
@@ -22,3 +24,7 @@ crates:
   bump: major
 - name: sc-service
   bump: major
+- name: cumulus-client-service
+  bump: major
+- name: cumulus-client-cli
+  bump: patch

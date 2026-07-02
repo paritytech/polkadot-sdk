@@ -51,7 +51,7 @@ use sc_service::{
 use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_tracing::block::TracingExecuteBlock;
 use sc_utils::mpsc::TracingUnboundedSender;
-use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
+use sp_api::{ApiExt, CallApiAt, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_core::Decode;
 use sp_runtime::{
@@ -337,6 +337,7 @@ where
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ BlockIdTo<Block, Error = sp_blockchain::Error>
 		+ ProofProvider<Block>
+		+ CallApiAt<Block>
 		+ 'static,
 	Client::Api: CollectCollationInfo<Block>
 		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
