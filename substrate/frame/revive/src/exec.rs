@@ -756,19 +756,6 @@ impl<T: Config> Frame<T> {
 	fn contract_info(&mut self) -> &mut ContractInfo<T> {
 		self.contract_info.get(&self.account_id)
 	}
-
-	/// Bank the meter's pending storage diff against the cached `ContractInfo`, then invalidate
-	/// the cache. The `load` covers the case where an earlier same-contract reentry already
-	/// invalidated this frame; without it a removal-bearing diff would be banked with no info
-	/// and silently drop the refund pro-rata.
-	/// See: <https://github.com/paritytech/contract-issues/issues/213>
-	fn bank_pending_changes_and_invalidate(&mut self) {
-		let contract = self.account_id.clone();
-		self.contract_info.load(&self.account_id);
-		self.frame_meter
-			.bank_pending_storage_changes(contract, self.contract_info.as_contract());
-		self.contract_info.invalidate();
-	}
 }
 
 /// Extract the contract info after loading it from storage.
@@ -1574,6 +1561,19 @@ where
 	/// This is called after running the current frame. It commits cached values to storage
 	/// and invalidates all stale references to it that might exist further down the call stack.
 	fn pop_frame(&mut self, persist: bool) {
+		/// Bank the pending storage diff into the cached `ContractInfo`, then invalidate.
+		///
+		/// The `load` covers the case where an earlier same-contract reentry already
+		/// invalidated this frame; without it a removal-bearing diff would be banked with
+		/// no info and silently drop the refund pro-rata.
+		fn bank_pending_changes_and_invalidate<T: Config>(f: &mut Frame<T>) {
+			let contract = f.account_id.clone();
+			f.contract_info.load(&f.account_id);
+			f.frame_meter
+				.bank_pending_storage_changes(contract, f.contract_info.as_contract());
+			f.contract_info.invalidate();
+		}
+		
 		// Pop the current frame from the stack and return it in case it needs to interact
 		// with duplicates that might exist on the stack.
 		// A `None` means that we are returning from the `first_frame`.
@@ -1617,7 +1617,7 @@ where
 					// Same-contract reentry (direct or transitive): the popped child persisted
 					// this frame's preview-applied `ContractInfo`. Bank before invalidating so
 					// finalize doesn't apply the diff a second time.
-					f.bank_pending_changes_and_invalidate();
+					bank_pending_changes_and_invalidate(f);
 				}
 			}
 		} else {
