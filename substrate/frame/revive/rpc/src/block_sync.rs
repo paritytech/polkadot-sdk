@@ -310,6 +310,7 @@ impl Client {
 
 		let mut rate_limiter = Duration::from_secs(1)
 			.checked_div(self.backward_sync_max_blocks_per_sec())
+			.filter(|period| !period.is_zero())
 			.map(|period| {
 				let mut interval = tokio::time::interval(period);
 				interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);

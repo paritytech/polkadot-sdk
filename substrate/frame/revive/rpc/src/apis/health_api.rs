@@ -45,9 +45,8 @@ impl SystemHealthRpcServerImpl {
 #[async_trait]
 impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 	async fn system_health(&self) -> RpcResult<Health> {
-		log::debug!(target: LOG_TARGET, "system_health: called");
-
-		// Cap the wait on the node so a slow node logs an error, instead of a silent probe timeout.
+		// Cap the wait on the node so a slow response logs an error, instead of a silent probe
+		// timeout.
 		const NODE_QUERY_TIMEOUT: Duration = Duration::from_secs(3);
 
 		let node_query =
@@ -71,30 +70,20 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 			},
 		};
 
-		let local_best = self.client.latest_block().await;
+		let local_best = self.client.latest_block().await.number();
 
-		// The node's block import is usually steady, but can come in bursts; tolerate ~4 minutes
-		// of drift before reporting unhealthy.
+		// The node's block import is usually steady, but can come in bursts; allow a wide drift
+		// before reporting unhealthy.
 		const MAX_BLOCK_DRIFT: u32 = 128;
-		if sync_state.current_block > local_best.number().saturating_add(MAX_BLOCK_DRIFT) {
+		if sync_state.current_block > local_best.saturating_add(MAX_BLOCK_DRIFT) {
 			log::warn!(
 				target: LOG_TARGET,
 				"Client is out of sync. Node best: #{}, local best: #{}",
 				sync_state.current_block,
-				local_best.number(),
+				local_best,
 			);
 			return Err(ErrorCode::InternalError.into());
 		}
-
-		log::debug!(
-			target: LOG_TARGET,
-			"Client is in sync. peers: {}, is_syncing: {}, should_have_peers: {}, local best: #{}, node best: #{}",
-			health.peers,
-			health.is_syncing,
-			health.should_have_peers,
-			local_best.number(),
-			sync_state.current_block,
-		);
 
 		Ok(Health {
 			peers: health.peers,

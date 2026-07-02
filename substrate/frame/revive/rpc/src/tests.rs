@@ -22,7 +22,7 @@ use crate::{
 	BlockInfoProvider, ChainMetadata, DbContext, DebugRpcClient, EthRpcClient, ReceiptExtractor,
 	ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
-	client::{Client, GapFillRequest, SubscriptionGapQueue, connect},
+	client::{Client, GapFillRequest, SubscriptionGapQueue, connect, storage_api::StorageApi},
 	example::TransactionBuilder,
 	subxt_client::{
 		self, SrcChainConfig, src_chain::runtime_types::pallet_revive::primitives::Code,
@@ -312,6 +312,66 @@ async fn verify_transactions_in_single_block(
 	Ok(())
 }
 
+/// `StorageApi::eth_block`/`eth_block_hash`/`eth_receipt_data` must match the runtime API.
+async fn test_storage_api_matches_runtime_api() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let node_client = SharedResources::node_client().await;
+	let node_rpc_client = RpcClient::from_url(SharedResources::node_rpc_url()).await?;
+
+	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let tx = TransactionBuilder::new(client.clone())
+		.value(U256::from(5_000_000_000_000u128))
+		.input(bytes.to_vec())
+		.send()
+		.await?;
+	let block_number = tx.wait_for_receipt().await?.block_number;
+
+	let block_hash: H256 =
+		node_rpc_client.request("chain_getBlockHash", rpc_params![block_number]).await?;
+	let storage_api = StorageApi::new(node_client.storage().at(block_hash));
+	let runtime_api = node_client.runtime_api().at(block_hash);
+
+	let runtime_block = runtime_api
+		.call(subxt_client::apis().revive_api().eth_block().unvalidated())
+		.await?
+		.0;
+	let storage_block = storage_api.eth_block().await?;
+	assert_eq!(storage_block, runtime_block, "eth_block: storage vs runtime API");
+	assert_eq!(storage_block.number, block_number, "eth_block should be the deploy's block");
+
+	let runtime_hash = runtime_api
+		.call(
+			subxt_client::apis()
+				.revive_api()
+				.eth_block_hash(block_number.into())
+				.unvalidated(),
+		)
+		.await?;
+	assert_eq!(
+		storage_api.eth_block_hash(block_number).await?,
+		runtime_hash,
+		"eth_block_hash: storage vs runtime API",
+	);
+	assert_eq!(runtime_hash, Some(storage_block.hash), "eth_block_hash should be the block's hash");
+
+	let runtime_receipt_data: Vec<_> = runtime_api
+		.call(subxt_client::apis().revive_api().eth_receipt_data().unvalidated())
+		.await?
+		.into_iter()
+		.map(|item| item.0)
+		.collect();
+	assert!(!runtime_receipt_data.is_empty(), "deploy block should have receipt data");
+	assert_eq!(
+		storage_api.eth_receipt_data().await?,
+		runtime_receipt_data,
+		"eth_receipt_data: storage vs runtime API",
+	);
+
+	assert_eq!(storage_api.eth_block_hash(U256::from(u64::MAX)).await?, None);
+
+	Ok(())
+}
+
 #[tokio::test]
 async fn run_all_eth_rpc_tests() -> anyhow::Result<()> {
 	let timeout_duration = tokio::time::Duration::from_secs(300);
@@ -360,6 +420,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_block_hash_for_tag_with_proper_ethereum_block_hash_works,
 		test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails,
 		test_block_hash_for_tag_with_block_number_works,
+		test_storage_api_matches_runtime_api,
 		test_block_hash_for_tag_with_block_tags_works,
 		test_earliest_block_tag,
 		test_multiple_transactions_in_block,

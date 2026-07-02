@@ -263,7 +263,7 @@ pub struct Client {
 	backfill_complete: Arc<AtomicBool>,
 	/// Queue for backfilling blocks missed during subscription reconnects.
 	subscription_gap_queue: SubscriptionGapQueue,
-	/// Cap on blocks/sec during backward sync; `0` means no limit.
+	/// Cap on blocks/sec during backward sync.
 	backward_sync_max_blocks_per_sec: u32,
 }
 
@@ -453,7 +453,7 @@ impl Client {
 		self.backfill_complete.store(true, Ordering::Release);
 	}
 
-	/// The configured backward-sync rate cap in blocks per second (`0` means no limit).
+	/// The configured backward-sync rate cap in blocks per second.
 	pub(crate) fn backward_sync_max_blocks_per_sec(&self) -> u32 {
 		self.backward_sync_max_blocks_per_sec
 	}
@@ -1082,7 +1082,7 @@ impl Client {
 		//    disabled)
 		match self.storage_api(block.hash()).eth_block().await {
 			Ok(mut eth_block) => {
-				log::trace!(target: LOG_TARGET, "Ethereum block from runtime API hash {:?}", eth_block.hash);
+				log::trace!(target: LOG_TARGET, "Ethereum block from storage, hash {:?}", eth_block.hash);
 
 				if hydrated_transactions {
 					// Hydrate the block.
