@@ -1616,9 +1616,7 @@ where
 					contract,
 				);
 				if let Some(f) = self.frames_mut().find(|f| f.account_id == *account_id) {
-					// Same-contract reentry (direct or transitive): the popped child persisted
-					// this frame's preview-applied `ContractInfo`. Bank before invalidating so
-					// finalize doesn't apply the diff a second time.
+					// Bank before invalidating so finalize doesn't apply the diff a second time.
 					bank_pending_changes_and_invalidate(f);
 				}
 			}
