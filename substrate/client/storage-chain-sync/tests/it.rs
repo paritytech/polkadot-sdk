@@ -536,7 +536,7 @@ mod mock {
 		StorageChanges as ConsensusStorageChanges,
 	};
 	use sc_network::{
-		bitswap::{test_helpers::schema as bitswap_schema, RAW_CODEC},
+		bitswap::{schema::bitswap as bitswap_schema, RAW_CODEC},
 		request_responses::{IfDisconnected, RequestFailure},
 		types::ProtocolName,
 		NetworkRequest, PeerId,
@@ -883,7 +883,7 @@ mod mock {
 	}
 
 	fn prefix_mirroring_request(cid: &Cid) -> Vec<u8> {
-		sc_network::bitswap::test_helpers::Prefix {
+		sc_network::bitswap::Prefix {
 			version: CidVersion::V1,
 			codec: cid.codec(),
 			mh_type: cid.hash().code(),
