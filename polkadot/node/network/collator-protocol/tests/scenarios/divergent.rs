@@ -243,6 +243,88 @@ mod reputation_priority {
 		let _ = contended_round(&mut w, leaf, 2, &carrier2, &peer_a, &peer_b);
 	}
 
+	/// A collation slash survives the collator disconnecting. A validator fetches a collation
+	/// (recording the fetcher for later slash/credit), the collator then disconnects, and only
+	/// *afterwards* is the collation reported `Invalid`. The fetcher must still be slashed —
+	/// attribution lives in the persistent per-para reputation store, keyed by `PeerId`, which
+	/// outlives the connection. If a disconnect were allowed to drop the fetched collation (and
+	/// its recorded fetcher), a malicious collator could serve garbage and dodge the slash by
+	/// disconnecting.
+	///
+	/// Observed by consequence (same as `fetch_timeout_slash_demotes_peer_on_next_pick`): after
+	/// the slash saturates the offender's reputation to 0, a later contended pick it would have won
+	/// on reputation goes to the honest peer instead.
+	///
+	/// `only = "experimental"`: relies on experimental's reputation-arbitrated fetch selection.
+	#[crate::sim_test(only = "experimental")]
+	fn invalid_collation_slashes_fetcher_even_after_disconnect<S: CollatorSut>() {
+		use crate::common::builders::Candidate;
+		use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
+
+		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+
+		let offender = w.declared_peer(PARA, V2);
+		let honest = w.declared_peer(PARA, V2);
+		let carrier = w.declared_peer(PARA, V2);
+
+		// offender=2 beats honest=1: absent a slash, offender wins the later contended pick.
+		let leaf = w.seed_scores(PARA, &[(&offender, 2), (&honest, 1), (&carrier, 1)]);
+
+		// offender fetches a chain-root candidate on a fresh single-slot leaf. The collation
+		// passes collator-protocol's own checks (hash/PVD/version) and is dispatched to backing
+		// to be seconded — this is *before* backing runs PVF validation, so seconding here is
+		// "proposed for backing", not a validity verdict. Empty parent head → placeable directly
+		// at the leaf.
+		let fetch_leaf = w
+			.new_block()
+			.from_parent(leaf)
+			.with_claim_queue_at(CoreIndex(0), [PARA])
+			.activate()
+			.hash;
+		let candidate = w
+			.candidate_at(fetch_leaf)
+			.para(PARA)
+			.parent_head(HeadData(Vec::new()))
+			.head_data(HeadData(vec![7, 1]))
+			.build();
+		w.outputs
+			.insert(candidate.hash(), candidate.commitments.clone(), candidate.pvd.clone());
+
+		w.advertise_with_parent_head(
+			&offender,
+			fetch_leaf,
+			candidate.hash(),
+			candidate.parent_head_hash(),
+		);
+		let fetch_id = w.expect_fetch_from(offender.peer_id);
+		w.respond_fetch_v2(fetch_id, candidate.receipt.clone(), Candidate::empty_pov());
+		w.expect_second(&candidate);
+
+		// The collator disconnects *after* we hold its collation and proposed it for backing.
+		w.base.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
+			NetworkBridgeEvent::PeerDisconnected(offender.peer_id),
+		));
+
+		// Backing runs PVF validation and finds the candidate invalid, reporting it back via
+		// `Invalid` (this is the verdict the earlier second was still pending). The fetcher
+		// (offender) must still be slashed to 0, even though it has since disconnected.
+		w.base
+			.sim
+			.send(CollatorProtocolMessage::Invalid(fetch_leaf, candidate.receipt.clone().into()));
+		w.base.sim.advance(Duration::from_millis(100));
+
+		// Reconnect the *same* offender (same `PeerId`) so it is a live contender again. Its
+		// reputation lives in the persistent store keyed by `PeerId`, unaffected by the
+		// reconnect — so if the slash landed it is still 0, and if it did not it is still 2.
+		w.base.sim.send(offender.connected());
+		w.base.sim.send(offender.declare());
+
+		// Consequence: in a fresh contended round offender (now 0) must lose to honest (1). If the
+		// disconnect had dropped the fetched collation, no slash would have landed and offender (2)
+		// would win instead.
+		let _ = contended_round(&mut w, fetch_leaf, 2, &carrier, &offender, &honest);
+	}
+
 	/// One contention round on a fresh, single-slot leaf forked off `parent`. All three peers
 	/// carry the *same* candidate:
 	///   1. `first_carrier` advertises first → fetched immediately, occupying the only slot;
@@ -1031,7 +1113,7 @@ mod reputation_arbitration {
 /// carriers kept as fallbacks rather than triggering redundant concurrent fetches.
 mod duplicate_fetch {
 	use crate::common::{
-		builders::ProtocolVersion::{V2, V3},
+		builders::ProtocolVersion::V2,
 		contract::Effect,
 		harness::CollatorSut,
 		world::{activated_world, WorldExt as _},
