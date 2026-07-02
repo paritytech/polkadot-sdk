@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782932736859,
+  "lastUpdate": 1783009516098,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bce9296825651a5b173719776d080ea07d77ea21",
-          "message": "remote-externalities: Remove old code (#10249)\n\nThe underlying issue was solved by now.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-07T18:54:56Z",
-          "tree_id": "9dd3aaceade788ebf69319f377ff77a415954645",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bce9296825651a5b173719776d080ea07d77ea21"
-        },
-        "date": 1762545795936,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1586210636466667,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022601737173333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007352073839999978,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013303046473333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.023743828526666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "80b03f3a8fa12067b598c6433f7583886bd28ca3",
+          "message": "Remove deprecated UnpaidLocalExporter from staging-xcm-builder (#12504)\n\n## Summary\nRemoves the deprecated `UnpaidLocalExporter` from `staging-xcm-builder`.\nUse `LocalExporter` instead.\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-02T14:05:41Z",
+          "tree_id": "42ab8b83f231556fb370ef27bfabfff82d80b65c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/80b03f3a8fa12067b598c6433f7583886bd28ca3"
+        },
+        "date": 1783009489251,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00769592658,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010100335786666645,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15122953399999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02434386204666666,
             "unit": "seconds"
           }
         ]
