@@ -93,8 +93,10 @@ pub struct IndexedTransactionInfo {
 	pub cid_codec: CidCodec,
 	/// Extrinsic index that produced this entry via `store` or `renew`.
 	///
-	/// Consumers that need to map entries back to a block body may ignore indexes that do not
-	/// identify a concrete body position.
+	/// Runtimes that do not track the producing extrinsic report `u32::MAX` here.
+	/// Consumers that map entries back to a block body must treat any value that is not a
+	/// valid index into the body (in particular `u32::MAX`) as "position not recorded" and
+	/// skip the entry.
 	pub extrinsic_index: u32,
 }
 
