@@ -45,7 +45,7 @@ impl SystemHealthRpcServerImpl {
 #[async_trait]
 impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 	async fn system_health(&self) -> RpcResult<Health> {
-		// Cap the wait on the node so a slow response logs an error, instead of a silent probe
+		// Cap the wait on the node so a slow response logs a warning, instead of a silent probe
 		// timeout.
 		const NODE_QUERY_TIMEOUT: Duration = Duration::from_secs(3);
 
@@ -72,8 +72,9 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 
 		let local_best = self.client.latest_block().await.number();
 
-		// The node's block import is usually steady, but can come in bursts; allow a wide drift
-		// before reporting unhealthy.
+		// The node could import blocks in bursts, and eth-rpc's subxt best-block subscription
+		// is best-effort, so allow some drift before reporting unhealthy. At a 2s block time,
+		// 128 blocks is ~4 minutes.
 		const MAX_BLOCK_DRIFT: u32 = 128;
 		if sync_state.current_block > local_best.saturating_add(MAX_BLOCK_DRIFT) {
 			log::warn!(
@@ -85,9 +86,15 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 			return Err(ErrorCode::InternalError.into());
 		}
 
+		// `/health/readiness` decides readiness from these fields:
+		// - `is_syncing = false`: report eth-rpc's own state (we only reach here with the head
+		//   caught up). Backward sync is not reflected, since most eth-rpc requests do not need the
+		//   historical backfill.
+		// - keep the node's `peers`/`should_have_peers`: fail readiness if eth-rpc is connected to
+		//   an isolated node.
 		Ok(Health {
 			peers: health.peers,
-			is_syncing: health.is_syncing,
+			is_syncing: false,
 			should_have_peers: health.should_have_peers,
 		})
 	}
