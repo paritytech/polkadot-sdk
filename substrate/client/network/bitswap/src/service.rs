@@ -310,6 +310,10 @@ pub(crate) struct BitswapService<B: BlockT> {
 	config: BitswapServiceConfig,
 
 	cmd_rx: mpsc::Receiver<BitswapCommand>,
+	/// Set once every [`BitswapHandle`] has been dropped. The actor then stops polling
+	/// `cmd_rx` but keeps serving inbound wantlists: `--ipfs-server` nodes must keep
+	/// serving even when no local consumer holds a handle.
+	cmd_channel_closed: bool,
 	sync_event_stream: Pin<Box<dyn Stream<Item = SyncEvent> + Send>>,
 	inbound_lookup_pool: InboundLookupPool<B>,
 	inbound_lookup_rx: mpsc::Receiver<InboundLookupResult>,
@@ -356,6 +360,7 @@ where
 		handle: Box::new(litep2p_handle),
 		config,
 		cmd_rx,
+		cmd_channel_closed: false,
 		sync_event_stream,
 		inbound_lookup_pool,
 		inbound_lookup_rx,
@@ -391,13 +396,19 @@ impl<B: BlockT> BitswapService<B> {
 					},
 				},
 
-				cmd = self.cmd_rx.recv() => match cmd {
+				cmd = self.cmd_rx.recv(), if !self.cmd_channel_closed => match cmd {
 					Some(BitswapCommand::RequestStream { cids, sink }) =>
 						self.on_request_stream(cids, sink).await,
 					None => {
-						log::debug!(target: LOG_TARGET, "command channel closed; shutting down");
-						self.shutdown_waiters();
-						return;
+						// All user handles were dropped, so no new outbound requests can
+						// arrive. Keep running: this node may still serve inbound
+						// wantlists (`--ipfs-server`), and already-admitted waiters
+						// still resolve normally through their receivers.
+						log::debug!(
+							target: LOG_TARGET,
+							"all bitswap handles dropped; serving inbound requests only",
+						);
+						self.cmd_channel_closed = true;
 					},
 				},
 
@@ -480,27 +491,32 @@ impl<B: BlockT> BitswapService<B> {
 				ResponseType::Block { cid: claimed_cid, block } => {
 					self.mark_peer_done_for_cid(peer, claimed_cid);
 
-					let recomputed = match recompute_cid(&claimed_cid, &block) {
-						Ok(c) => c,
+					match recompute_cid(&claimed_cid, &block) {
+						Ok(recomputed) if recomputed == claimed_cid => {
+							if self.wants.contains(&claimed_cid) {
+								self.deliver_block(claimed_cid, block);
+							} else {
+								log::debug!(
+									target: LOG_TARGET,
+									"{peer:?} sent unsolicited or unwanted block for {claimed_cid}",
+								);
+							}
+						},
+						Ok(_) => {
+							log::debug!(
+								target: LOG_TARGET,
+								"{peer:?} sent block for {claimed_cid} that failed CID verification",
+							);
+							cids_to_top_up.insert(claimed_cid);
+						},
 						Err(e) => {
 							log::debug!(
 								target: LOG_TARGET,
 								"{peer:?} sent block for {claimed_cid} that failed prefix decode: {e}",
 							);
 							cids_to_top_up.insert(claimed_cid);
-							continue;
 						},
-					};
-
-					if !self.wants.contains(&recomputed) {
-						log::debug!(
-							target: LOG_TARGET,
-							"{peer:?} sent unsolicited or unwanted block for {recomputed}",
-						);
-						continue;
 					}
-
-					self.deliver_block(recomputed, block);
 				},
 				ResponseType::Presence { cid, presence } => {
 					self.mark_peer_done_for_cid(peer, cid);
@@ -531,15 +547,13 @@ impl<B: BlockT> BitswapService<B> {
 
 	fn deliver_block(&mut self, cid: Cid, bytes: Vec<u8>) {
 		let Some(waiter_ids) = self.wants.take_waiters_for_delivered_cid(cid) else { return };
-		let bytes = Arc::new(bytes);
 
 		for waiter_id in waiter_ids {
 			let Some(waiter) = self.waiters.get_mut(waiter_id) else { continue };
 			if !waiter.cids_remaining.remove(&cid) {
 				continue;
 			}
-			let payload = Vec::clone(&bytes);
-			if waiter.sink.try_send(Ok((cid, FetchOutcome::Block(payload)))).is_err() {
+			if waiter.sink.try_send(Ok((cid, FetchOutcome::Block(bytes.clone())))).is_err() {
 				log::trace!(target: LOG_TARGET, "waiter sink full/closed for {cid}");
 				self.drop_waiter(waiter_id);
 				continue;
@@ -742,6 +756,7 @@ mod tests {
 			handle: Box::new(transport),
 			config,
 			cmd_rx,
+			cmd_channel_closed: false,
 			sync_event_stream,
 			inbound_lookup_pool,
 			inbound_lookup_rx,
@@ -1118,6 +1133,69 @@ mod tests {
 
 		let item = drain_next(&mut rx).await.expect("item");
 		assert!(matches!(item, Ok((_, FetchOutcome::Missing))));
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn corrupted_block_triggers_failover_to_next_peer() {
+		let mut rig = empty_rig();
+		let peer_a = litep2p::PeerId::random();
+		let peer_b = litep2p::PeerId::random();
+		let data = b"genuine-payload".to_vec();
+		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
+
+		rig.sync_event_tx.send(sync_connected(peer_a)).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer_b)).await.unwrap();
+		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
+
+		let (first_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
+
+		rig.inbound_tx
+			.send(BitswapEvent::Response {
+				peer: first_peer,
+				responses: vec![ResponseType::Block { cid, block: b"corrupted".to_vec() }],
+			})
+			.await
+			.unwrap();
+
+		let (second_peer, _) = drain_next(&mut rig.outbound_req_rx)
+			.await
+			.expect("failover WANT after corrupted block");
+		assert_ne!(first_peer, second_peer);
+
+		rig.inbound_tx
+			.send(BitswapEvent::Response {
+				peer: second_peer,
+				responses: vec![ResponseType::Block { cid, block: data.clone() }],
+			})
+			.await
+			.unwrap();
+
+		let item = drain_next(&mut rx).await.expect("item");
+		assert!(matches!(item, Ok((c, FetchOutcome::Block(b))) if c == cid && b == data));
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn inbound_serving_continues_after_all_handles_dropped() {
+		let mut rig = empty_rig();
+		let peer = litep2p::PeerId::random();
+		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [3u8; 32]);
+
+		drop(rig.user_handle);
+		sleep(Duration::from_millis(1)).await;
+
+		rig.inbound_tx
+			.send(BitswapEvent::Request { peer, cids: vec![(cid, WantType::Block)] })
+			.await
+			.unwrap();
+
+		let (resp_peer, responses) = drain_next(&mut rig.outbound_resp_rx)
+			.await
+			.expect("service must keep serving inbound after all handles are dropped");
+		assert_eq!(resp_peer, peer);
+		assert!(matches!(
+			responses[0],
+			ResponseType::Presence { presence: BlockPresenceType::DontHave, .. }
+		));
 	}
 
 	#[tokio::test]

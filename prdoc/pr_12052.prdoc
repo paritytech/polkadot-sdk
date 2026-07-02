@@ -1,33 +1,54 @@
-title: "Network: refactor Bitswap client API to a long-lived service"
+title: "Network: rework the Bitswap client into a long-lived service in `sc-network-bitswap`"
 
 doc:
   - audience: Node Dev
     description: |
-      Replaces the request-response-shaped `request_bitswap_blocks` helper introduced in
-      PR #12038 with a long-lived Bitswap service exposed via
-      `NetworkService::bitswap_handle()`. The handle's only method is
+      Replaces the request-response-shaped `request_bitswap_blocks` helper with a
+      long-lived Bitswap service living in the new `sc-network-bitswap` crate. The
+      service is started by `sc-service` when `--ipfs-server` is enabled and its
+      user-facing `BitswapHandle` is returned as the last element of the
+      `build_network`/`build_network_advanced` output tuple (`None` when Bitswap is
+      not enabled). The handle's only method is
       `request_stream(cids) -> Receiver<Result<(Cid, FetchOutcome), BitswapError>>`,
       which streams per-CID outcomes as they resolve.
 
-      The service runs an internal actor that owns peer selection, per-peer timeouts (5s),
-      per-waiter deadlines (configurable, default 30s), hash verification on every received
-      block, and bounded admission. Inbound serving is off-loaded to a bounded
+      The service runs an internal actor that owns peer selection (fed by
+      `sc-network-sync` peer connect/disconnect events), per-peer timeouts (5s),
+      per-waiter deadlines (default 30s), hash verification of every received block,
+      and bounded admission. Inbound serving is off-loaded to a bounded
       `spawn_blocking` worker pool so storage reads never block outbound traffic or
-      response correlation.
+      response correlation. Inbound serving keeps running even if no consumer holds a
+      `BitswapHandle`.
 
-      The libp2p Bitswap implementation is removed entirely. Enabling `--ipfs-server`
-      together with `--network-backend libp2p` now fails at startup with a clear error.
+      The libp2p Bitswap implementation is removed; Bitswap now requires the litep2p
+      network backend. Enabling `--ipfs-server` together with
+      `--network-backend libp2p` fails at startup with a clear error. The
+      `NetworkBackend::bitswap_server` trait method and the `BitswapConfig`
+      associated type are removed; `sc_network::config::IpfsConfig` is now built via
+      `IpfsConfig::new`, which also mints the transport handle consumed by
+      `sc_network_bitswap::start`.
 
-      The unverified Bitswap client codepath is removed as obsolete.
+      `sc-storage-chain-sync` is migrated to the new API: `IndexedTransactionFetcher`
+      no longer rotates across peers or applies its own timeouts; it builds CIDs,
+      chunks the wantlist and drains the result streams. `BitswapPeerSource`,
+      `NetworkHandle` and `SyncingHandle` are replaced by a single
+      `BitswapHandleSlot`, which the omni-node populates from the `build_network`
+      output.
 
       Closes https://github.com/paritytech/polkadot-sdk/issues/12052.
-
-      Note: this PR is substrate-only. The cumulus storage-chain-sync consumer of the old
-      helper is migrated in a separate follow-up PR; until that follow-up lands,
-      `cumulus-client-storage-chain-sync` will not compile against master.
 
 crates:
   - name: sc-network
     bump: major
+  - name: sc-network-bitswap
+    bump: major
   - name: sc-service
-    bump: minor
+    bump: major
+  - name: sc-storage-chain-sync
+    bump: major
+  - name: cumulus-client-service
+    bump: major
+  - name: polkadot-omni-node-lib
+    bump: major
+  - name: polkadot-service
+    bump: patch

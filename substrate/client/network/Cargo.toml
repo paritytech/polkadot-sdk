@@ -54,17 +54,14 @@ sc-utils = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-slotmap = { workspace = true }
 smallvec = { workspace = true, default-features = true }
 sp-arithmetic = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-tokio = { features = ["macros", "rt", "sync"], workspace = true, default-features = true }
+tokio = { features = ["macros", "sync"], workspace = true, default-features = true }
 tokio-stream = { workspace = true }
-tokio-util = { features = ["time"], workspace = true }
 unsigned-varint = { features = ["asynchronous_codec", "futures"], workspace = true }
 void = { workspace = true }
 wasm-timer = { workspace = true }
@@ -72,7 +69,6 @@ zeroize = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-multihash-codetable = { workspace = true }
 multistream-select = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
@@ -80,7 +76,7 @@ sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 tempfile = { workspace = true }
-tokio = { features = ["macros", "rt-multi-thread", "test-util"], workspace = true, default-features = true }
+tokio = { features = ["macros", "rt-multi-thread"], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }
 
 criterion = { workspace = true, default-features = true, features = ["async_tokio"] }

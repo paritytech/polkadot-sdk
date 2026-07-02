@@ -48,9 +48,10 @@ pub enum FetchOutcome {
 ///
 /// `BitswapError` is returned **synchronously** from [`BitswapHandle::request_stream`] for
 /// admission-time failures. It also appears at most once **inside** the returned stream
-/// (as the `Err` variant of a stream item) to signal `ServiceClosed` mid-stream. All
-/// per-CID failure modes collapse into [`FetchOutcome::Missing`] instead of producing an
-/// error.
+/// (as the `Err` variant of a stream item): `Overloaded` as the only item when the service
+/// actor rejects the request (too many outstanding CIDs or waiters), or `ServiceClosed`
+/// when the service task shuts down mid-stream. All per-CID failure modes collapse into
+/// [`FetchOutcome::Missing`] instead of producing an error.
 #[derive(Debug, thiserror::Error)]
 pub enum BitswapError {
 	/// `ipfs_server` is not enabled, or the network backend does not support Bitswap.
@@ -124,12 +125,13 @@ impl BitswapHandle {
 	/// Each item is:
 	/// - `Ok((cid, FetchOutcome::Block(bytes)))` when a peer delivered hash-verified bytes.
 	/// - `Ok((cid, FetchOutcome::Missing))` when the per-waiter deadline expired without a block.
+	/// - `Err(BitswapError::Overloaded)` once as the only item, if the service actor rejects the
+	///   request (too many outstanding CIDs or waiters).
 	/// - `Err(BitswapError::ServiceClosed)` once, if the service task shuts down mid-stream.
 	///
-	/// The stream closes when either every CID has produced an outcome, or
-	/// `ServiceClosed` has been emitted. Callers that need to know whether all CIDs were
-	/// covered should track the requested set against the items received before the
-	/// stream closed.
+	/// The stream closes when either every CID has produced an outcome, or an `Err` item
+	/// has been emitted. Callers that need to know whether all CIDs were covered should
+	/// track the requested set against the items received before the stream closed.
 	///
 	/// Returns a synchronous `BitswapError` for admission-time failures (`Unavailable`,
 	/// `ServiceClosed`, `InvalidCid`, `Overloaded`, `TooManyCids`).
@@ -157,8 +159,9 @@ impl BitswapHandle {
 			}
 		}
 
-		// `cids.len() + 1` reserves one slot for a possible terminal `Err(ServiceClosed)`,
-		// so the actor's `try_send` for outcomes never fails for well-behaved callers.
+		// `cids.len() + 1` reserves one slot for a possible terminal `Err` item
+		// (`Overloaded` or `ServiceClosed`), so the actor's `try_send` for outcomes never
+		// fails for well-behaved callers.
 		let (sink, rx) = mpsc::channel(cids.len() + 1);
 
 		self.cmd_tx.try_send(BitswapCommand::RequestStream { cids, sink }).map_err(
@@ -221,5 +224,3 @@ pub(crate) enum BitswapCommand {
 		sink: mpsc::Sender<FetchItem>,
 	},
 }
-
-
