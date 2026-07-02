@@ -35,9 +35,9 @@ use sc_network_types::PeerId;
 use sp_statement_store::{Hash, RetentionReasonMask, Statement, SubmitResult, Topic};
 use std::{
 	collections::{HashMap, HashSet},
-	time::Instant,
 	num::NonZeroUsize,
 	sync::{Arc, RwLock},
+	time::Instant,
 };
 
 /// Shared affinity view to derive a statement's retention mask.
