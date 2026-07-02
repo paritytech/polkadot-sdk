@@ -648,10 +648,9 @@ pub mod pallet {
 
 		/// Weight information for the extrinsics of this pallet.
 		///
-		/// The `()` default resolves to the Substrate reference weights, which are benchmarked for
-		/// a different runtime and almost never correct in production. The production presets
-		/// (`Solochain`/`ParaChain`/`RelayChain`DefaultConfig) therefore do *not* default it, while
-		/// `TestDefaultConfig` keeps the `()` default for tests. See issue #10758.
+		/// The `()` default resolves to the Substrate reference weights, which are benchmarked for a
+		/// different runtime and almost never correct in production. The production presets therefore
+		/// do not default it, while `TestDefaultConfig` keeps `()` for tests.
 		type SystemWeightInfo: WeightInfo;
 
 		/// Weight information for the transaction extensions of this pallet.
