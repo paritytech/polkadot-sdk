@@ -170,30 +170,13 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#20 id=20 data-nosnippet>20</a><span class="doccomment">/// Relay utilities errors.
 <a href=#21 id=21 data-nosnippet>21</a></span><span class="attr">#[derive(Error, Debug)]
 <a href=#22 id=22 data-nosnippet>22</a></span><span class="kw">pub enum </span>Error {
-<a href=#23 id=23 data-nosnippet>23</a>	<span class="doccomment">/// Failed to request a float value from HTTP service.
-<a href=#24 id=24 data-nosnippet>24</a>	</span><span class="attr">#[error(<span class="string">"Failed to fetch token price from remote server: {0}"</span>)]
-<a href=#25 id=25 data-nosnippet>25</a>	</span>FetchTokenPrice(<span class="attr">#[source] </span>anyhow::Error),
-<a href=#26 id=26 data-nosnippet>26</a>	<span class="doccomment">/// Failed to parse the response from HTTP service.
-<a href=#27 id=27 data-nosnippet>27</a>	</span><span class="attr">#[error(<span class="string">"Failed to parse HTTP service response: {0:?}. Response: {1:?}"</span>)]
-<a href=#28 id=28 data-nosnippet>28</a>	</span>ParseHttp(serde_json::Error, String),
-<a href=#29 id=29 data-nosnippet>29</a>	<span class="doccomment">/// Failed to select response value from the Json response.
-<a href=#30 id=30 data-nosnippet>30</a>	</span><span class="attr">#[error(<span class="string">"Failed to select value from response: {0:?}. Response: {1:?}"</span>)]
-<a href=#31 id=31 data-nosnippet>31</a>	</span>SelectResponseValue(jsonpath_lib::JsonPathError, String),
-<a href=#32 id=32 data-nosnippet>32</a>	<span class="doccomment">/// Failed to parse float value from the selected value.
-<a href=#33 id=33 data-nosnippet>33</a>	</span><span class="attr">#[error(
-<a href=#34 id=34 data-nosnippet>34</a>		<span class="string">"Failed to parse float value {0:?} from response. It is assumed to be positive and normal"
-<a href=#35 id=35 data-nosnippet>35</a>	</span>)]
-<a href=#36 id=36 data-nosnippet>36</a>	</span>ParseFloat(f64),
-<a href=#37 id=37 data-nosnippet>37</a>	<span class="doccomment">/// Couldn't found value in the JSON response.
-<a href=#38 id=38 data-nosnippet>38</a>	</span><span class="attr">#[error(<span class="string">"Missing required value from response: {0:?}"</span>)]
-<a href=#39 id=39 data-nosnippet>39</a>	</span>MissingResponseValue(String),
-<a href=#40 id=40 data-nosnippet>40</a>	<span class="doccomment">/// Invalid host address was used for exposing Prometheus metrics.
-<a href=#41 id=41 data-nosnippet>41</a>	</span><span class="attr">#[error(<span class="string">"Invalid host {0} is used to expose Prometheus metrics: {1}"</span>)]
-<a href=#42 id=42 data-nosnippet>42</a>	</span>ExposingMetricsInvalidHost(String, AddrParseError),
-<a href=#43 id=43 data-nosnippet>43</a>	<span class="doccomment">/// Prometheus error.
-<a href=#44 id=44 data-nosnippet>44</a>	</span><span class="attr">#[error(<span class="string">"{0}"</span>)]
-<a href=#45 id=45 data-nosnippet>45</a>	</span>Prometheus(<span class="attr">#[from] </span>prometheus_endpoint::prometheus::Error),
-<a href=#46 id=46 data-nosnippet>46</a>}
+<a href=#23 id=23 data-nosnippet>23</a>	<span class="doccomment">/// Invalid host address was used for exposing Prometheus metrics.
+<a href=#24 id=24 data-nosnippet>24</a>	</span><span class="attr">#[error(<span class="string">"Invalid host {0} is used to expose Prometheus metrics: {1}"</span>)]
+<a href=#25 id=25 data-nosnippet>25</a>	</span>ExposingMetricsInvalidHost(String, AddrParseError),
+<a href=#26 id=26 data-nosnippet>26</a>	<span class="doccomment">/// Prometheus error.
+<a href=#27 id=27 data-nosnippet>27</a>	</span><span class="attr">#[error(<span class="string">"{0}"</span>)]
+<a href=#28 id=28 data-nosnippet>28</a>	</span>Prometheus(<span class="attr">#[from] </span>prometheus_endpoint::prometheus::Error),
+<a href=#29 id=29 data-nosnippet>29</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

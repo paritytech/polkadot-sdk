@@ -286,23 +286,20 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#136 id=136 data-nosnippet>136</a><span class="kw">mod </span>transactional;
 <a href=#137 id=137 data-nosnippet>137</a><span class="kw">pub use </span>transactional::FrameTransactionalProcessor;
 <a href=#138 id=138 data-nosnippet>138</a>
-<a href=#139 id=139 data-nosnippet>139</a><span class="attr">#[allow(deprecated)]
-<a href=#140 id=140 data-nosnippet>140</a></span><span class="kw">pub use </span>universal_exports::UnpaidLocalExporter;
+<a href=#139 id=139 data-nosnippet>139</a><span class="kw">mod </span>transfer;
+<a href=#140 id=140 data-nosnippet>140</a><span class="kw">pub use </span>transfer::{Transfer, TransferOverXcm, TransferOverXcmHelper, TransferStatus};
 <a href=#141 id=141 data-nosnippet>141</a>
-<a href=#142 id=142 data-nosnippet>142</a><span class="kw">mod </span>transfer;
-<a href=#143 id=143 data-nosnippet>143</a><span class="kw">pub use </span>transfer::{Transfer, TransferOverXcm, TransferOverXcmHelper, TransferStatus};
-<a href=#144 id=144 data-nosnippet>144</a>
-<a href=#145 id=145 data-nosnippet>145</a><span class="kw">mod </span>universal_exports;
-<a href=#146 id=146 data-nosnippet>146</a><span class="kw">pub use </span>universal_exports::{
-<a href=#147 id=147 data-nosnippet>147</a>	ensure_is_remote, BridgeBlobDispatcher, BridgeMessage, DispatchBlob, DispatchBlobError,
-<a href=#148 id=148 data-nosnippet>148</a>	ExporterFor, HaulBlob, HaulBlobError, HaulBlobExporter, LocalExporter, NetworkExportTable,
-<a href=#149 id=149 data-nosnippet>149</a>	NetworkExportTableItem, SovereignPaidRemoteExporter, UnpaidRemoteExporter,
-<a href=#150 id=150 data-nosnippet>150</a>};
-<a href=#151 id=151 data-nosnippet>151</a>
-<a href=#152 id=152 data-nosnippet>152</a><span class="kw">mod </span>weight;
-<a href=#153 id=153 data-nosnippet>153</a><span class="kw">pub use </span>weight::{
-<a href=#154 id=154 data-nosnippet>154</a>	FixedRateOfFungible, FixedWeightBounds, TakeRevenue, UsingComponents, WeightInfoBounds,
-<a href=#155 id=155 data-nosnippet>155</a>};
+<a href=#142 id=142 data-nosnippet>142</a><span class="kw">mod </span>universal_exports;
+<a href=#143 id=143 data-nosnippet>143</a><span class="kw">pub use </span>universal_exports::{
+<a href=#144 id=144 data-nosnippet>144</a>	ensure_is_remote, BridgeBlobDispatcher, BridgeMessage, DispatchBlob, DispatchBlobError,
+<a href=#145 id=145 data-nosnippet>145</a>	ExporterFor, HaulBlob, HaulBlobError, HaulBlobExporter, LocalExporter, NetworkExportTable,
+<a href=#146 id=146 data-nosnippet>146</a>	NetworkExportTableItem, SovereignPaidRemoteExporter, UnpaidRemoteExporter,
+<a href=#147 id=147 data-nosnippet>147</a>};
+<a href=#148 id=148 data-nosnippet>148</a>
+<a href=#149 id=149 data-nosnippet>149</a><span class="kw">mod </span>weight;
+<a href=#150 id=150 data-nosnippet>150</a><span class="kw">pub use </span>weight::{
+<a href=#151 id=151 data-nosnippet>151</a>	FixedRateOfFungible, FixedWeightBounds, TakeRevenue, UsingComponents, WeightInfoBounds,
+<a href=#152 id=152 data-nosnippet>152</a>};
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
