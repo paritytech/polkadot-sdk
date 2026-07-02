@@ -26,10 +26,8 @@
 //! looks up the parachain-local body, parent header, and validation-code hash.
 
 use super::CollatorSegmentEntry;
-use codec::Encode;
 use cumulus_client_consensus_common::ValidationCodeHashProvider;
 use cumulus_client_resubmission_store::ResubmissionStore;
-use cumulus_primitives_core::PersistedValidationData;
 use sc_client_api::Backend;
 use sp_blockchain::{Backend as BlockchainBackend, Error as BlockchainError, HeaderBackend};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
@@ -148,16 +146,9 @@ where
 	let validation_code_hash =
 		code_hash_provider.code_hash_at(parent_hash).ok_or(HydrateError::NoValidationCodeHash)?;
 
-	// The stored PVD's `parent_head` is the currently-included head at write time — correct for
-	// the first unincluded block, but stale for any deeper block whose actual para parent is an
-	// older unincluded ancestor. Validators verify against the block's true parent, so override
-	// the field here with the actual para parent's encoded header. The other PVD fields
-	// (`relay_parent_number`, `relay_parent_storage_root`, `max_pov_size`) are properties of the
-	// relay parent and remain valid regardless of which para parent we anchor on.
-	let validation_data = PersistedValidationData {
-		parent_head: parent_header.encode().into(),
-		..stored.persisted_validation_data
-	};
+	// The stored PVD already carries the correct `parent_head`: the block builder and the
+	// resubmission backfill both anchor it on the block's actual para parent at write time.
+	let validation_data = stored.persisted_validation_data;
 
 	Ok(CollatorSegmentEntry {
 		relay_parent,
