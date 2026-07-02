@@ -23,35 +23,19 @@ use scale_info::TypeInfo;
 use crate::runtime_api::*;
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockInputPayloadV1<Block> {
-	pub block: Block,
-	pub config: TracerTypeV1,
+pub struct ReceiptDataInputPayloadV1;
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
+pub enum ReceiptDataVersionedInputPayload {
+	V1(ReceiptDataInputPayloadV1),
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockInputPayloadV2<Block> {
-	pub block: Block,
-	pub config: TracerTypeV1,
+pub struct ReceiptDataOutputPayloadV1 {
+	pub receipt_data: Vec<ReceiptGasInfoV1>,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum TraceBlockVersionedInputPayload<Block> {
-	V1(TraceBlockInputPayloadV1<Block>),
-	V2(TraceBlockInputPayloadV2<Block>),
-}
-
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockOutputPayloadV1 {
-	pub traces: Vec<(u32, TraceV1)>,
-}
-
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockOutputPayloadV2 {
-	pub traces: Vec<(u32, TraceV2)>,
-}
-
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum TraceBlockVersionedOutputPayload {
-	V1(TraceBlockOutputPayloadV1),
-	V2(TraceBlockOutputPayloadV2),
+pub enum ReceiptDataVersionedOutputPayload {
+	V1(ReceiptDataOutputPayloadV1),
 }

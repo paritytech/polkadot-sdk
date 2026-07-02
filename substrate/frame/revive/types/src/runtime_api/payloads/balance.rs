@@ -15,14 +15,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod receipt;
-mod storage;
-mod tracer;
-mod traces;
-mod upload;
+use codec::{Decode, Encode};
+use derive_more::{From, TryInto};
+use scale_info::TypeInfo;
+use sp_core::{H160, U256};
 
-pub use receipt::*;
-pub use storage::*;
-pub use tracer::*;
-pub use traces::*;
-pub use upload::*;
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct BalanceInputPayloadV1 {
+	pub address: H160,
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
+pub enum BalanceVersionedInputPayload {
+	V1(BalanceInputPayloadV1),
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct BalanceOutputPayloadV1 {
+	pub balance: U256,
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
+pub enum BalanceVersionedOutputPayload {
+	V1(BalanceOutputPayloadV1),
+}

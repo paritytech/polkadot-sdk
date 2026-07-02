@@ -16,14 +16,14 @@
 // limitations under the License.
 
 use crate::{
-	ClientError, H160,
+	ClientError, H160, ReceiptGasInfoV1,
 	client::SubstrateBlockNumber,
 	subxt_client::{
 		self, SrcChainConfig,
 		runtime_types::pallet_revive::storage::{AccountType, ContractInfo},
 	},
 };
-use pallet_revive::evm::{Block as EthBlock, ReceiptGasInfo, U256};
+use pallet_revive::evm::{Block as EthBlock, U256};
 use sp_core::H256;
 use subxt::{OnlineClient, storage::Storage};
 
@@ -89,12 +89,12 @@ impl StorageApi {
 
 	/// Receipt data for the current block, read directly from the `ReceiptInfoData` storage value
 	/// without invoking the runtime.
-	pub async fn eth_receipt_data(&self) -> Result<Vec<ReceiptGasInfo>, ClientError> {
+	pub async fn eth_receipt_data(&self) -> Result<Vec<ReceiptGasInfoV1>, ClientError> {
 		let query = subxt_client::storage().revive().receipt_info_data();
 		let receipt_data = self.0.fetch_or_default(&query).await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "eth_receipt_data storage read failed: {err:?}");
 		})?;
-		let receipt_data = receipt_data.into_iter().map(|item| item.0).collect();
+		let receipt_data = receipt_data.into_iter().map(|item| item.0.into()).collect();
 		Ok(receipt_data)
 	}
 }
