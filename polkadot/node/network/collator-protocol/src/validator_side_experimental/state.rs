@@ -162,6 +162,15 @@ impl<B: Backend> State<B> {
 			"Old assignments vs new assignments",
 		);
 
+		if old_assignments != new_assignments {
+			gum::debug!(
+				target: LOG_TARGET,
+				?old_assignments,
+				?new_assignments,
+				"Collator protocol assignments changed",
+			);
+		}
+
 		let maybe_disconnected_peers =
 			self.peer_manager.scheduled_paras_update(sender, new_assignments).await;
 
@@ -468,19 +477,48 @@ impl<B: Backend> State<B> {
 			)
 			.await;
 
-		if let Some((peer_id, PeerInfo { version, .. })) = peer_id
-			.and_then(|peer_id| self.peer_manager.peer_info(&peer_id).map(|info| (peer_id, info)))
-		{
-			gum::debug!(
-				target: LOG_TARGET,
-				?para_id,
-				?scheduling_parent,
-				?candidate_hash,
-				?peer_id,
-				"Notifying collator about seconded collation",
-			);
-			notify_collation_seconded(sender, peer_id, *version, scheduling_parent, statement)
-				.await;
+		match peer_id {
+			Some(peer_id) => match self.peer_manager.peer_info(&peer_id) {
+				Some(PeerInfo { version, .. }) => {
+					gum::debug!(
+						target: LOG_TARGET,
+						?para_id,
+						?scheduling_parent,
+						?candidate_hash,
+						?peer_id,
+						"Notifying collator about seconded collation",
+					);
+					notify_collation_seconded(
+						sender,
+						peer_id,
+						*version,
+						scheduling_parent,
+						statement,
+					)
+					.await;
+				},
+				// We know who fetched it, but they disconnected before we could ack the second.
+				None => {
+					gum::trace!(
+						target: LOG_TARGET,
+						?para_id,
+						?scheduling_parent,
+						?candidate_hash,
+						?peer_id,
+						"Not notifying collator about seconded collation: peer no longer connected",
+					);
+				},
+			},
+			// No tracked fetcher for this candidate (e.g. its slot was already released).
+			None => {
+				gum::trace!(
+					target: LOG_TARGET,
+					?para_id,
+					?scheduling_parent,
+					?candidate_hash,
+					"Not notifying any collator about seconded collation: fetcher unknown",
+				);
+			},
 		}
 
 		if !unblocked_collations.is_empty() {

@@ -18,6 +18,7 @@
 
 use super::peers_index::{Key, PeersIndex};
 use sc_network_types::PeerId;
+use sp_statement_store::Statement;
 pub use sp_statement_store::Topic;
 use std::{
 	cmp::Reverse,
@@ -30,7 +31,7 @@ use std::{
 pub struct PeersTopologyConfig {
 	/// Number of statement-protocol peers responsible for storing a topic.
 	///
-	/// `is_dht_affine` uses this to decide whether the local node belongs to the
+	/// The DHT-affinity decision uses this to decide whether the local node belongs to the
 	/// K-closest peers for a topic according to the locally learned topology.
 	pub replication_factor: NonZeroUsize,
 	/// Maximum number of connected nodes that we gossip to.
@@ -155,6 +156,12 @@ impl PeersTopology {
 		self.discovered.len()
 	}
 
+	/// Number of known statement-protocol peers, the DHT storage, affinity and forwarding
+	/// candidates.
+	pub fn dht_eligible_peers_count(&self) -> usize {
+		self.discovered_index.peers().count()
+	}
+
 	/// Closest known statement-protocol peers for `topic`.
 	///
 	/// "Closest" is computed over the locally learned statement-protocol peers, not by querying
@@ -167,36 +174,37 @@ impl PeersTopology {
 			.collect()
 	}
 
-	/// Returns whether the local node is one of the closest DHT storage replicas for `topic`.
+	/// A standalone DHT-affinity oracle, answering "is the local node a storage replica for a
+	/// topic" off the handler thread.
 	///
-	/// This answers whether this node should store statements for `topic` according to DHT
-	/// affinity over the locally learned statement-store peers.
-	pub fn is_dht_affine(&self, topic: Topic) -> bool {
-		let local_distance = xor_distance(*topic, self.local_key);
-		let replication_factor = self.config.replication_factor.get();
-		// The descent yields candidates in `(distance, peer)` order, so the candidates ranked
-		// before the local node form a prefix; the local node is a replica when that prefix is
-		// shorter than the replication factor.
-		let closer_count = self
-			.discovered_index
-			.closest(*topic)
-			.take_while(|(peer, key)| {
-				(xor_distance(*topic, *key), *peer) < (local_distance, self.local_peer)
-			})
-			.take(replication_factor)
-			.count();
-		closer_count < replication_factor
+	/// Clones only the data the decision needs — the statement-protocol peer index and the local
+	/// identity — not the full topology.
+	///
+	/// TODO: deep-copies the index on every peer-churn event that republishes the oracle.
+	pub fn dht_affinity(&self) -> DhtAffinity {
+		DhtAffinity {
+			index: self.discovered_index.clone(),
+			local_peer: self.local_peer,
+			local_key: self.local_key,
+			replication_factor: self.config.replication_factor,
+		}
 	}
 
-	/// Connected peers closer to `topic` than the local node, capped at `gossip_target`.
-	///
-	/// Use these for forwarding decisions: each hop moves the statement towards the peers
-	/// responsible for storing it.
+	/// Connected peers to forward a statement for `topic` to, capped at `gossip_target`: those
+	/// closer to the topic than the local node (routing the statement onward) and those that are
+	/// themselves DHT replicas for it (co-replicas that must store it).
 	pub fn routing_targets(&self, topic: Topic) -> Vec<PeerId> {
+		// TODO: benchmark this per-statement path on large connected sets (see
+		// benches/peers_topology.rs).
+		let local = (self.local_key, self.local_peer);
 		let local_distance = xor_distance(*topic, self.local_key);
+		let k = self.config.replication_factor.get();
 		self.connected
 			.closest(*topic)
-			.take_while(|(_, key)| xor_distance(*topic, *key) < local_distance)
+			.take_while(|(peer, key)| {
+				xor_distance(*topic, *key) < local_distance ||
+					is_peer_topic_affine(&self.discovered_index, local, (*key, *peer), k, topic)
+			})
 			.take(self.config.gossip_target.get())
 			.map(|(peer, _)| peer)
 			.collect()
@@ -205,8 +213,8 @@ impl PeersTopology {
 	/// Local-only explicit-affinity connection candidates for `topics`.
 	///
 	/// This uses only the locally learned topology, avoiding network lookups that would reveal
-	/// explicit-affinity topics, and tries to minimize new connections by choosing peers that
-	/// cover currently uncovered topics.
+	/// explicit-affinity topics, and selects a minimal set of peers covering every topic,
+	/// independent of connection state.
 	pub fn peers_for_topics(&self, topics: &[Topic]) -> Vec<PeerId> {
 		if topics.is_empty() {
 			return Vec::new();
@@ -219,13 +227,7 @@ impl PeersTopology {
 			.map(|topic| self.closest_known_keyed(*topic, pool_size))
 			.collect::<Vec<_>>();
 
-		let mut uncovered = closest_pools
-			.iter()
-			.enumerate()
-			.filter_map(|(topic_idx, pool)| {
-				(!pool.iter().any(|(peer, _)| self.is_connected(peer))).then_some(topic_idx)
-			})
-			.collect::<HashSet<_>>();
+		let mut uncovered = (0..topics.len()).collect::<HashSet<_>>();
 
 		let mut selected = Vec::new();
 		let limit = topics.len();
@@ -337,10 +339,70 @@ fn xor_distance(a: Key, b: Key) -> Key {
 	distance
 }
 
+/// Whether `candidate` is among the `k` closest to `topic`, ranked against the peers in `index`
+/// plus the local node — i.e. topic-affine, a DHT storage replica for the topic.
+fn is_peer_topic_affine(
+	index: &PeersIndex,
+	local: (Key, PeerId),
+	candidate: (Key, PeerId),
+	k: usize,
+	topic: Topic,
+) -> bool {
+	let candidate_distance = (xor_distance(*topic, candidate.0), candidate.1);
+	let local_node_is_closer = (xor_distance(*topic, local.0), local.1) < candidate_distance;
+	let mut closer = index
+		.closest(*topic)
+		.take_while(|(peer, key)| (xor_distance(*topic, *key), *peer) < candidate_distance)
+		.take(k)
+		.count();
+	// The local node is not in `index`, so count its slot here when it outranks the candidate.
+	// For the oracle's self query (`candidate == local`) this never fires: a node never outranks
+	// itself.
+	if local_node_is_closer {
+		closer += 1;
+	}
+	closer < k
+}
+
+/// Standalone DHT-affinity oracle: the minimal snapshot needed to answer "is the local node a
+/// storage replica for a topic", shared with the store so it decides retention without the full
+/// [`PeersTopology`].
+#[derive(Clone)]
+pub struct DhtAffinity {
+	index: PeersIndex,
+	local_peer: PeerId,
+	local_key: Key,
+	replication_factor: NonZeroUsize,
+}
+
+impl DhtAffinity {
+	/// An oracle that knows no peers yet, so the local node is the sole replica for every topic.
+	pub fn empty(local_peer: PeerId, replication_factor: NonZeroUsize) -> Self {
+		Self {
+			index: PeersIndex::default(),
+			local_peer,
+			local_key: peer_key(&local_peer),
+			replication_factor,
+		}
+	}
+
+	/// Whether the local node is one of the closest DHT storage replicas for any of the statement's
+	/// topics, over the locally learned statement-store peers.
+	pub fn is_affine(&self, stmt: &Statement) -> bool {
+		stmt.topics().iter().any(|topic| self.is_topic_affine(*topic))
+	}
+
+	/// Whether the local node is one of the closest DHT storage replicas for `topic`.
+	fn is_topic_affine(&self, topic: Topic) -> bool {
+		let local = (self.local_key, self.local_peer);
+		is_peer_topic_affine(&self.index, local, local, self.replication_factor.get(), topic)
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::test_helpers::{peer, topic, topology_config};
+	use crate::test_helpers::{peer, statement_on, topic, topology_config};
 	use std::cmp::Ordering;
 
 	fn distance_to(topic: Topic, peer: &PeerId) -> [u8; 32] {
@@ -438,7 +500,7 @@ mod tests {
 		responsible.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
 		let expected = responsible.into_iter().take(2).any(|p| p == peer(10));
 
-		assert_eq!(topology.is_dht_affine(topic), expected);
+		assert_eq!(topology.dht_affinity().is_affine(&statement_on(topic)), expected);
 	}
 
 	#[test]
@@ -494,7 +556,34 @@ mod tests {
 	}
 
 	#[test]
-	fn peers_for_topics_does_not_select_for_topics_covered_by_connected_peers() {
+	fn replica_forwards_to_a_farther_co_replica_but_not_to_non_replicas() {
+		let mut topology = topology(1); // replication_factor = 2, gossip_target = 2
+		let topic = topic(7);
+		let self_distance = distance_to(topic, &peer(1));
+
+		// Connected peers all farther from the topic than the local node, so the local node is the
+		// closest and, with k=2, only the single nearest of them is its co-replica.
+		let mut farther: Vec<PeerId> = (2..=80)
+			.map(peer)
+			.filter(|candidate| distance_to(topic, candidate) > self_distance)
+			.take(3)
+			.collect();
+		assert_eq!(farther.len(), 3, "test peer fixture must include peers farther than self");
+		farther.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
+
+		for peer in &farther {
+			dht_peer(&mut topology, *peer);
+			topology.on_substream_opened(*peer);
+		}
+
+		// The co-replica (nearest farther peer) is forwarded to even though it is farther than
+		// self; the farther non-replicas are not, so a replica does not spray every connected
+		// peer.
+		assert_eq!(topology.routing_targets(topic), vec![farther[0]]);
+	}
+
+	#[test]
+	fn peers_for_topics_keeps_connected_coverage_peer() {
 		let mut topology = topology(1);
 		let topic = topic(9);
 
@@ -503,9 +592,11 @@ mod tests {
 		}
 
 		let connected = topology.closest_known(topic, 1)[0];
+		let before = topology.peers_for_topics(&[topic]);
 		topology.on_substream_opened(connected);
 
-		assert!(topology.peers_for_topics(&[topic]).is_empty());
+		assert_eq!(topology.peers_for_topics(&[topic]), before);
+		assert!(topology.peers_for_topics(&[topic]).contains(&connected));
 	}
 
 	#[test]
@@ -566,6 +657,7 @@ mod tests {
 			topology.on_peer_identified(peer, supports);
 			records.push((peer, supports, connected));
 		}
+		let dht = topology.dht_affinity();
 
 		for topic_seed in 0..32 {
 			let topic = topic(topic_seed);
@@ -585,7 +677,7 @@ mod tests {
 			with_local.push(local);
 			with_local.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
 			let expected_affine = with_local.iter().take(5).any(|peer| *peer == local);
-			assert_eq!(topology.is_dht_affine(topic), expected_affine);
+			assert_eq!(dht.is_affine(&statement_on(topic)), expected_affine);
 
 			let local_distance = distance_to(topic, &local);
 			let mut connected = records

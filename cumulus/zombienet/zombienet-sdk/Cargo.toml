@@ -43,6 +43,7 @@ codec = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 rstest = { workspace = true }
 subxt = { workspace = true, features = ["reconnecting-rpc-client"] }
+subxt-signer = { workspace = true, features = ["sr25519"] }
 statement-store-subxt = { package = "subxt", version = "0.50" }
 statement-store-subxt-signer = { package = "subxt-signer", version = "0.50", features = ["sr25519"] }
 

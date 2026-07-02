@@ -86,11 +86,12 @@ impl RelaychainInner {
 #[derive(Clone)]
 struct Relaychain {
 	inner: Arc<Mutex<RelaychainInner>>,
+	scheduling_lookahead: Option<u32>,
 }
 
 impl Relaychain {
 	fn new() -> Self {
-		Self { inner: Arc::new(Mutex::new(RelaychainInner::new())) }
+		Self { inner: Arc::new(Mutex::new(RelaychainInner::new())), scheduling_lookahead: None }
 	}
 }
 
@@ -298,6 +299,10 @@ impl RelayChainInterface for Relaychain {
 	}
 
 	async fn scheduling_lookahead(&self, _: PHash) -> RelayChainResult<u32> {
+		if let Some(scheduling_lookahead) = self.scheduling_lookahead {
+			return Ok(scheduling_lookahead);
+		}
+
 		unimplemented!("Not needed for test")
 	}
 
@@ -1007,17 +1012,19 @@ fn find_best_parent_in_allowed_ancestry() {
 		Some(relay_parent),
 	);
 
-	let relay_chain = Relaychain::new();
+	let mut relay_chain = Relaychain::new();
 	{
 		let included_map = &mut relay_chain.inner.lock().unwrap().relay_chain_hash_to_header;
 		included_map.insert(relay_parent, included_block.header().clone());
 	}
 
 	// When there's only the included block, it should be the best parent.
+	relay_chain.scheduling_lookahead = Some(1);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams { relay_parent, para_id: ParaId::from(100), ancestry_lookback: 0 },
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		relay_parent,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1044,14 +1051,12 @@ fn find_best_parent_in_allowed_ancestry() {
 	);
 
 	// With ancestry_lookback: 2, the child block should be the best parent.
+	relay_chain.scheduling_lookahead = Some(3);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams {
-			relay_parent: search_relay_parent,
-			para_id: ParaId::from(100),
-			ancestry_lookback: 2,
-		},
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		search_relay_parent,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1061,14 +1066,12 @@ fn find_best_parent_in_allowed_ancestry() {
 
 	// With ancestry_lookback: 0, child block's relay parent is too old,
 	// so included block should be the best parent.
+	relay_chain.scheduling_lookahead = Some(1);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams {
-			relay_parent: search_relay_parent,
-			para_id: ParaId::from(100),
-			ancestry_lookback: 0,
-		},
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		search_relay_parent,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1106,7 +1109,7 @@ fn find_best_parent_with_pending() {
 		Some(relay_parent),
 	);
 
-	let relay_chain = Relaychain::new();
+	let mut relay_chain = Relaychain::new();
 	let search_relay_parent = relay_hash_from_block_num(15);
 	{
 		let relay_inner = &mut relay_chain.inner.lock().unwrap();
@@ -1118,14 +1121,12 @@ fn find_best_parent_with_pending() {
 			.insert(search_relay_parent, pending_block.header().clone());
 	}
 
+	relay_chain.scheduling_lookahead = Some(1);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams {
-			relay_parent: search_relay_parent,
-			para_id: ParaId::from(100),
-			ancestry_lookback: 0,
-		},
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		search_relay_parent,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1149,7 +1150,7 @@ fn find_best_parent_unknown_included_returns_none() {
 	let sproof = sproof_with_best_parent(&client);
 	let included_but_unknown = build_block(&*client, sproof, None, None, Some(relay_parent));
 
-	let relay_chain = Relaychain::new();
+	let mut relay_chain = Relaychain::new();
 	{
 		let relay_inner = &mut relay_chain.inner.lock().unwrap();
 		relay_inner
@@ -1157,14 +1158,12 @@ fn find_best_parent_unknown_included_returns_none() {
 			.insert(search_relay_parent, included_but_unknown.header().clone());
 	}
 
+	relay_chain.scheduling_lookahead = Some(2);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams {
-			relay_parent: search_relay_parent,
-			para_id: ParaId::from(100),
-			ancestry_lookback: 1,
-		},
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		search_relay_parent,
 	))
 	.unwrap();
 
@@ -1201,7 +1200,7 @@ fn find_best_parent_unknown_pending_returns_none() {
 		Some(relay_parent),
 	);
 
-	let relay_chain = Relaychain::new();
+	let mut relay_chain = Relaychain::new();
 	{
 		let relay_inner = &mut relay_chain.inner.lock().unwrap();
 		relay_inner
@@ -1212,14 +1211,12 @@ fn find_best_parent_unknown_pending_returns_none() {
 			.insert(search_relay_parent, pending_but_unknown.header().clone());
 	}
 
+	relay_chain.scheduling_lookahead = Some(2);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams {
-			relay_parent: search_relay_parent,
-			para_id: ParaId::from(100),
-			ancestry_lookback: 1,
-		},
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		search_relay_parent,
 	))
 	.unwrap();
 
@@ -1257,7 +1254,7 @@ fn find_best_parent_with_forks_returns_deepest() {
 		Some(relay_hash_from_block_num(11)),
 	);
 
-	let relay_chain = Relaychain::new();
+	let mut relay_chain = Relaychain::new();
 	{
 		let relay_inner = &mut relay_chain.inner.lock().unwrap();
 		relay_inner
@@ -1334,14 +1331,12 @@ fn find_best_parent_with_forks_returns_deepest() {
 		Some(relay_hash_from_block_num(17)),
 	);
 
+	relay_chain.scheduling_lookahead = Some(11);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams {
-			relay_parent: search_relay_parent,
-			para_id: ParaId::from(100),
-			ancestry_lookback: 10,
-		},
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		search_relay_parent,
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1385,7 +1380,7 @@ fn find_best_parent_returns_deepest_block() {
 		Some(relay_parent),
 	);
 
-	let relay_chain = Relaychain::new();
+	let mut relay_chain = Relaychain::new();
 	{
 		let relay_inner = &mut relay_chain.inner.lock().unwrap();
 		relay_inner
@@ -1411,14 +1406,12 @@ fn find_best_parent_returns_deepest_block() {
 		last_block = block;
 	}
 
+	relay_chain.scheduling_lookahead = Some(2);
 	let result = block_on(find_parent_for_building(
-		ParentSearchParams {
-			relay_parent: search_relay_parent,
-			para_id: ParaId::from(100),
-			ancestry_lookback: 1,
-		},
-		&*backend,
 		&relay_chain,
+		&*backend,
+		ParaId::from(100),
+		search_relay_parent,
 	))
 	.unwrap()
 	.expect("Should find a parent");

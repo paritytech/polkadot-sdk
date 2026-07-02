@@ -120,6 +120,12 @@ async fn initialize<Context>(
 
 		let scheduled_paras = collation_manager.assignments();
 
+		gum::debug!(
+			target: LOG_TARGET,
+			?scheduled_paras,
+			"Collator protocol initial assignments",
+		);
+
 		// Create PersistentDb with disk persistence
 		let (backend, task) = match PersistentDb::new(
 			db.clone(),
@@ -183,7 +189,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 					CollatorProtocolMessage::NetworkBridgeUpdate(
 						NetworkBridgeEvent::PeerConnected(peer_id, ..),
 					) => {
-						gum::info!(
+						gum::debug!(
 							target: LOG_TARGET,
 							?peer_id,
 							"Disconnecting peer that connected before subsystem initialization",
@@ -197,7 +203,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 					CollatorProtocolMessage::NetworkBridgeUpdate(
 						NetworkBridgeEvent::PeerMessage(peer_id, ..),
 					) => {
-						gum::info!(
+						gum::debug!(
 							target: LOG_TARGET,
 							?peer_id,
 							"Disconnecting peer that sent message before subsystem initialization",

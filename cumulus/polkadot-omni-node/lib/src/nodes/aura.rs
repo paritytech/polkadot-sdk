@@ -198,7 +198,7 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-	AuraId: AuraIdT + Sync,
+	AuraId: AuraIdT + Sync + Send + 'static,
 	StartConsensus: self::StartConsensus<
 			Block,
 			RuntimeApi,
@@ -226,6 +226,7 @@ where
 			ref statement_store_config,
 			ref storage_monitor,
 			ref hop,
+			collator_reserved_slots: _,
 		} = node_extra_args;
 
 		// Warn about args that have no effect in dev mode (collation-specific).
