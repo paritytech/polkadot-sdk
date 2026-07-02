@@ -19,39 +19,27 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
 use scale_info::TypeInfo;
+use sp_core::H160;
 
 use crate::runtime_api::*;
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockInputPayloadV1<Block> {
-	pub block: Block,
-	pub config: TracerTypeV1,
-}
-
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockInputPayloadV2<Block> {
-	pub block: Block,
-	pub config: TracerTypeV1,
+pub struct GetStorageInputPayloadV1 {
+	pub address: H160,
+	pub key: StorageKeyV1,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum TraceBlockVersionedInputPayload<Block> {
-	V1(TraceBlockInputPayloadV1<Block>),
-	V2(TraceBlockInputPayloadV2<Block>),
+pub enum GetStorageVersionedInputPayload {
+	V1(GetStorageInputPayloadV1),
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockOutputPayloadV1 {
-	pub traces: Vec<(u32, TraceV1)>,
-}
-
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockOutputPayloadV2 {
-	pub traces: Vec<(u32, TraceV2)>,
+pub struct GetStorageOutputPayloadV1 {
+	pub storage: Option<Vec<u8>>,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum TraceBlockVersionedOutputPayload {
-	V1(TraceBlockOutputPayloadV1),
-	V2(TraceBlockOutputPayloadV2),
+pub enum GetStorageVersionedOutputPayload {
+	V1(GetStorageOutputPayloadV1),
 }

@@ -15,14 +15,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod receipt;
-mod storage;
-mod tracer;
-mod traces;
-mod upload;
+use pallet_revive_types::runtime_api::*;
 
-pub use receipt::*;
-pub use storage::*;
-pub use tracer::*;
-pub use traces::*;
-pub use upload::*;
+use crate::U256;
+
+pub struct GasPriceInputPayload;
+
+impl From<GasPriceVersionedInputPayload> for GasPriceInputPayload {
+	fn from(value: GasPriceVersionedInputPayload) -> Self {
+		match value {
+			GasPriceVersionedInputPayload::V1(payload) => payload.into(),
+		}
+	}
+}
+
+impl From<GasPriceInputPayloadV1> for GasPriceInputPayload {
+	fn from(_value: GasPriceInputPayloadV1) -> Self {
+		Self
+	}
+}
+
+pub struct GasPriceOutputPayload {
+	pub gas_price: U256,
+}
+
+impl From<GasPriceOutputPayload> for GasPriceOutputPayloadV1 {
+	fn from(value: GasPriceOutputPayload) -> Self {
+		Self { gas_price: value.gas_price }
+	}
+}

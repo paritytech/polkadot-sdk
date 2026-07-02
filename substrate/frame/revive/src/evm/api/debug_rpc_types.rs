@@ -471,7 +471,7 @@ impl From<ExecutionStepKind> for ExecutionStepKindV1 {
 			ExecutionStepKind::PVMSyscall { op, args, returned } => Self::PVMSyscall {
 				op: op
 					.try_into()
-					.expect("qed; all sys calls produced by revive are valid. Tested in env.rs"),
+					.expect("all sys calls produced by revive are valid. Tested in env.rs; qed"),
 				args,
 				returned,
 			},

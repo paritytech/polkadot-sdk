@@ -15,14 +15,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod receipt;
-mod storage;
-mod tracer;
-mod traces;
-mod upload;
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
+use derive_more::{From, TryInto};
+use scale_info::TypeInfo;
+use sp_core::H160;
 
-pub use receipt::*;
-pub use storage::*;
-pub use tracer::*;
-pub use traces::*;
-pub use upload::*;
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct CodeInputPayloadV1 {
+	pub address: H160,
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
+pub enum CodeVersionedInputPayload {
+	V1(CodeInputPayloadV1),
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct CodeOutputPayloadV1 {
+	pub code: Vec<u8>,
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
+pub enum CodeVersionedOutputPayload {
+	V1(CodeOutputPayloadV1),
+}
