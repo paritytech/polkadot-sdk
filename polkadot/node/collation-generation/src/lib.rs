@@ -88,10 +88,9 @@
 use codec::Encode;
 use error::{Error, Result};
 use futures::{channel::oneshot, future::FutureExt, select};
-use polkadot_node_network_protocol::v4_collation::MAX_SEGMENT_LEN;
 use polkadot_node_primitives::{
 	AvailableData, Collation, CollationGenerationConfig, CollationSecondedSignal, PoV,
-	SubmitCollationParams,
+	SegmentCollation, SubmitCollationParams, SubmitSegmentParams, MAX_SEGMENT_LEN,
 };
 use polkadot_node_subsystem::{
 	messages::{
@@ -105,12 +104,12 @@ use polkadot_node_subsystem_util::{
 	request_validation_code_hash, request_validators, runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
-	transpose_claim_queue, CandidateCommitments, CandidateDescriptorV2,
+	transpose_claim_queue, CandidateCommitments, CandidateDescriptorV2, CandidateDescriptorVersion,
 	CommittedCandidateReceiptV2, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
 	PersistedValidationData, SessionIndex, TransposedClaimQueue, ValidationCodeHash,
 };
 use schnellru::{ByLength, LruMap};
-use sp_core::bounded::BoundedVec;
+use sp_core::{bounded::BoundedVec, ConstU32};
 use std::{collections::HashSet, sync::Arc};
 
 mod error;
@@ -208,9 +207,9 @@ impl CollationGenerationSubsystem {
 				false
 			},
 			Ok(FromOrchestra::Communication {
-				msg: CollationGenerationMessage::SubmitCollations(params),
+				msg: CollationGenerationMessage::SubmitSegment(params),
 			}) => {
-				if let Err(err) = self.handle_submit_collations(params, ctx).await {
+				if let Err(err) = self.handle_submit_segment(params, ctx).await {
 					gum::error!(target: LOG_TARGET, ?err, "Failed to submit segment");
 				}
 				false
@@ -288,9 +287,9 @@ impl CollationGenerationSubsystem {
 		Ok(())
 	}
 
-	async fn handle_submit_collations<Context>(
+	async fn handle_submit_segment<Context>(
 		&mut self,
-		params: Vec<SubmitCollationParams>,
+		params: SubmitSegmentParams,
 		ctx: &mut Context,
 	) -> Result<()> {
 		let Some(config) = &self.config else {
@@ -298,20 +297,16 @@ impl CollationGenerationSubsystem {
 		};
 
 		let _timer = self.metrics.time_submit_collation();
-		if params.is_empty() || params.len() > MAX_SEGMENT_LEN as usize {
-			return Err(Error::InvalidSegmentSize(params.len()));
+		if params.collations.is_empty() {
+			return Err(Error::InvalidSegmentSize(params.collations.len()));
 		}
-		// This is okay as all candidates from the segment should have the same scheduling_parent.
-		let scheduling_parent = match params[0].scheduling_parent {
-			Some(scheduling_parent) => scheduling_parent,
-			None => {
-				if params.len() > 1 {
-					return Err(Error::InvalidSchedulingParent);
-				}
-				params[0].relay_parent
-			},
-		};
+		if params.candidates_descriptor_version == CandidateDescriptorVersion::V2 &&
+			params.collations.len() > 1
+		{
+			return Err(Error::V2InvalidSegmentLength);
+		}
 
+		let scheduling_parent = params.scheduling_parent;
 		let claim_queue = request_claim_queue(scheduling_parent, ctx.sender()).await.await??;
 
 		let scheduling_session =
@@ -324,14 +319,12 @@ impl CollationGenerationSubsystem {
 
 		let transposed_queue = &transpose_claim_queue(claim_queue);
 		let mut segment_entries = vec![];
-		for submit_param in params {
-			let SubmitCollationParams {
+		for submit_param in params.collations {
+			let SegmentCollation {
 				relay_parent,
 				collation,
 				validation_code_hash,
 				result_sender,
-				core_index,
-				scheduling_parent,
 				session_index,
 				validation_data,
 			} = submit_param;
@@ -342,7 +335,7 @@ impl CollationGenerationSubsystem {
 				validation_data,
 				validation_code_hash,
 				n_validators: session_info.n_validators,
-				core_index,
+				core_index: params.core_index,
 				session_index,
 				scheduling_session,
 			};
@@ -352,15 +345,22 @@ impl CollationGenerationSubsystem {
 				&mut self.metrics,
 				transposed_queue,
 				scheduling_parent,
+				params.candidates_descriptor_version,
 			)?;
 			segment_entries.push(entry);
 		}
 		let sender = ctx.sender();
 		let len = segment_entries.len();
-		let candidates =
+		// This will never be an error as the params received from cumulus is a BoundedVec
+		let candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>> =
 			BoundedVec::try_from(segment_entries).map_err(|_| Error::InvalidSegmentSize(len))?;
 		sender
-			.send_message(CollatorProtocolMessage::DistributeSegment { candidates })
+			.send_message(CollatorProtocolMessage::DistributeSegment {
+				scheduling_parent,
+				core_index: params.core_index,
+				candidates_descriptor_version: params.candidates_descriptor_version,
+				candidates,
+			})
 			.await;
 		Ok(())
 	}
@@ -660,7 +660,8 @@ fn construct_receipt(
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 	metrics: &Metrics,
 	transposed_claim_queue: &TransposedClaimQueue,
-	scheduling_parent: Option<Hash>,
+	scheduling_parent: Hash,
+	candidates_descriptor_version: CandidateDescriptorVersion,
 ) -> Result<SegmentEntry> {
 	let PreparedCollation {
 		collation,
@@ -712,7 +713,7 @@ fn construct_receipt(
 	};
 
 	let receipt = {
-		let descriptor = if let Some(sched_parent) = scheduling_parent {
+		let descriptor = if CandidateDescriptorVersion::V3 == candidates_descriptor_version {
 			// V3 descriptor with explicit scheduling_parent
 			CandidateDescriptorV2::new_v3(
 				para_id,
@@ -725,7 +726,7 @@ fn construct_receipt(
 				erasure_root,
 				commitments.head_data.hash(),
 				validation_code_hash,
-				sched_parent,
+				scheduling_parent,
 			)
 		} else {
 			// V2 descriptor (scheduling_parent = zero)
@@ -773,7 +774,6 @@ fn construct_receipt(
 		pov,
 		parent_head_data,
 		result_sender,
-		core_index,
 	})
 }
 
@@ -787,32 +787,42 @@ async fn construct_and_distribute_receipt(
 	transposed_claim_queue: &TransposedClaimQueue,
 	scheduling_parent: Option<Hash>,
 ) -> Result<()> {
+	let (scheduling_parent, candidates_descriptor_version) = scheduling_parent
+		.map_or((collation.relay_parent, CandidateDescriptorVersion::V2), |parent| {
+			(parent, CandidateDescriptorVersion::V3)
+		});
+	let core_index = collation.core_index;
 	let SegmentEntry {
 		candidate_receipt,
 		parent_head_data_hash,
 		pov,
 		parent_head_data,
 		result_sender,
-		core_index,
 	} = construct_receipt(
 		collation,
 		result_sender,
 		metrics,
 		transposed_claim_queue,
 		scheduling_parent,
+		candidates_descriptor_version,
 	)?;
 
-	let candidates = BoundedVec::try_from(vec![SegmentEntry {
-		candidate_receipt,
-		parent_head_data_hash,
-		pov,
-		parent_head_data,
-		result_sender,
-		core_index,
-	}])
-	.expect("length-1 fits");
+	let candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>> =
+		BoundedVec::try_from(vec![SegmentEntry {
+			candidate_receipt,
+			parent_head_data_hash,
+			pov,
+			parent_head_data,
+			result_sender,
+		}])
+		.expect("length-1 fits");
 	sender
-		.send_message(CollatorProtocolMessage::DistributeSegment { candidates })
+		.send_message(CollatorProtocolMessage::DistributeSegment {
+			scheduling_parent,
+			core_index,
+			candidates_descriptor_version,
+			candidates,
+		})
 		.await;
 
 	Ok(())

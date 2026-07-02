@@ -39,8 +39,8 @@ pub enum Error {
 	POVSizeExceeded(usize, usize),
 	#[error("Segment size {0} is not in allowed range")]
 	InvalidSegmentSize(usize),
-	#[error("Invalid scheduling parent when submit segment. (To be modified)")]
-	InvalidSchedulingParent,
+	#[error("Segments consisting of V2 candidates should have exactly one entry.")]
+	V2InvalidSegmentLength,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

@@ -26,6 +26,7 @@ sp-application-crypto = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
 sp-consensus-slots = { workspace = true }
 sp-keystore = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 

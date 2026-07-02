@@ -34,10 +34,10 @@ use polkadot_node_network_protocol::{
 		v2 as request_v2, IncomingRequestReceiver,
 	},
 	v1 as protocol_v1, v2 as protocol_v2, v3_collation as protocol_v3,
-	v4_collation::{self as protocol_v4, SegmentFingerprint, MAX_SEGMENT_LEN},
+	v4_collation::{self as protocol_v4, SegmentFingerprint},
 	CollationProtocols, OurView, PeerId, UnifiedReputationChange as Rep, View,
 };
-use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
+use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement, MAX_SEGMENT_LEN};
 use polkadot_node_subsystem::{
 	messages::{
 		ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage,
@@ -395,41 +395,6 @@ impl State {
 	}
 }
 
-fn validate_segment(candidates: &[SegmentEntry], para_id: ParaId) -> Option<(Hash, CoreIndex)> {
-	let segment_len = candidates.len();
-
-	if candidates.is_empty() || segment_len > MAX_SEGMENT_LEN as usize {
-		gum::warn!(target: LOG_TARGET, "wrong segment len, should not really happen");
-		return None;
-	}
-
-	let scheduling_parent = candidates[0].candidate_receipt.descriptor.scheduling_parent();
-	let core_index = candidates[0].core_index;
-
-	for candidate in candidates {
-		if candidate.candidate_receipt.descriptor().version() == CandidateDescriptorVersion::V2
-			&& segment_len != 1
-		{
-			gum::warn!(target: LOG_TARGET, "v2 candidates should be wrapped in len 1 segments.");
-			return None;
-		}
-		if candidate.candidate_receipt.descriptor.scheduling_parent() != scheduling_parent {
-			gum::warn!(target: LOG_TARGET, "segment is not uniform, all candidates should have the same SP");
-			return None;
-		}
-		if candidate.core_index != core_index {
-			gum::warn!(target: LOG_TARGET, "segment is not uniform, all candidates should have the same core_index");
-			return None;
-		}
-		if candidate.candidate_receipt.descriptor.para_id() != para_id {
-			gum::warn!(target: LOG_TARGET, "received a candidate for a different para.");
-			return None;
-		}
-	}
-
-	Some((scheduling_parent, core_index))
-}
-
 /// Distribute a segment.
 ///
 /// Figure out the core our para is assgined to and the relevant validators.
@@ -443,6 +408,9 @@ async fn distribute_segment<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	id: ParaId,
+	scheduling_parent: Hash,
+	core_index: CoreIndex,
+	candidates_descriptor_version: CandidateDescriptorVersion,
 	candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>,
 ) -> Result<()> {
 	// We should already be connected to the validators, but if we aren't, we will try to connect to
@@ -457,11 +425,6 @@ async fn distribute_segment<Context>(
 		true,
 	)
 	.await;
-
-	let Some((scheduling_parent, core_index)) = validate_segment(&candidates, id) else {
-		gum::warn!(target: LOG_TARGET, "Segment failed validation");
-		return Ok(());
-	};
 
 	let per_scheduling_parent = match state.per_scheduling_parent.get_mut(&scheduling_parent) {
 		Some(per_scheduling_parent) => per_scheduling_parent,
@@ -542,7 +505,7 @@ async fn distribute_segment<Context>(
 			candidate_hash,
 			output_head_data_hash: candidate.candidate_receipt.descriptor.para_head(),
 			parent_head_data_hash: candidate.parent_head_data_hash,
-			candidate_descriptor_version: candidate.candidate_receipt.descriptor.version(),
+			candidate_descriptor_version: candidates_descriptor_version,
 			relay_parent: candidate.candidate_receipt.descriptor.relay_parent(),
 		});
 		// We have already seen collation for this scheduling parent.
@@ -1044,14 +1007,28 @@ async fn process_msg<Context>(
 			state.collating_on = Some(id);
 			state.implicit_view = Some(ImplicitView::new());
 		},
-		DistributeSegment { candidates } => {
+		DistributeSegment {
+			scheduling_parent,
+			core_index,
+			candidates_descriptor_version,
+			candidates,
+		} => {
 			let Some(id) = state.collating_on else {
 				gum::warn!(target: LOG_TARGET, "DistributeSegment while not collating on any");
 				return Ok(());
 			};
 			gum::info!(target: LOG_TARGET, "DistributeSegment for para_id: {}", id);
 			let _ = state.metrics.time_collation_distribution("distribute");
-			distribute_segment(ctx, state, id, candidates).await?;
+			distribute_segment(
+				ctx,
+				state,
+				id,
+				scheduling_parent,
+				core_index,
+				candidates_descriptor_version,
+				candidates,
+			)
+			.await?;
 		},
 		NetworkBridgeUpdate(event) => {
 			// We should count only this shoulder in the histogram, as other shoulders are just
@@ -1143,10 +1120,10 @@ async fn handle_incoming_peer_message<Context>(
 	use protocol_v4::CollatorProtocolMessage as V4;
 
 	match msg {
-		CollationProtocols::V1(V1::Declare(..))
-		| CollationProtocols::V2(V2::Declare(..))
-		| CollationProtocols::V3(V3::Declare(..))
-		| CollationProtocols::V4(V4::Declare(..)) => {
+		CollationProtocols::V1(V1::Declare(..)) |
+		CollationProtocols::V2(V2::Declare(..)) |
+		CollationProtocols::V3(V3::Declare(..)) |
+		CollationProtocols::V4(V4::Declare(..)) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -1160,9 +1137,9 @@ async fn handle_incoming_peer_message<Context>(
 			))
 			.await;
 		},
-		CollationProtocols::V1(V1::AdvertiseCollation(_))
-		| CollationProtocols::V2(V2::AdvertiseCollation { .. })
-		| CollationProtocols::V3(V3::AdvertiseCollation { .. }) => {
+		CollationProtocols::V1(V1::AdvertiseCollation(_)) |
+		CollationProtocols::V2(V2::AdvertiseCollation { .. }) |
+		CollationProtocols::V3(V3::AdvertiseCollation { .. }) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -1206,9 +1183,9 @@ async fn handle_incoming_peer_message<Context>(
 				"Collation seconded message received on unsupported protocol version 1",
 			);
 		},
-		CollationProtocols::V2(V2::CollationSeconded(scheduling_parent, statement))
-		| CollationProtocols::V3(V3::CollationSeconded(scheduling_parent, statement))
-		| CollationProtocols::V4(V4::CollationSeconded(scheduling_parent, statement)) => {
+		CollationProtocols::V2(V2::CollationSeconded(scheduling_parent, statement)) |
+		CollationProtocols::V3(V3::CollationSeconded(scheduling_parent, statement)) |
+		CollationProtocols::V4(V4::CollationSeconded(scheduling_parent, statement)) => {
 			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
 				gum::warn!(
 					target: LOG_TARGET,

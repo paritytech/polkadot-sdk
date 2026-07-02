@@ -23,7 +23,6 @@
 //! Subsystems' APIs are defined separately from their implementation, leading to easier mocking.
 
 use futures::channel::oneshot;
-use polkadot_node_network_protocol::v4_collation::MAX_SEGMENT_LEN;
 use sc_network::{Multiaddr, ReputationChange};
 use sp_runtime::{traits::ConstU32, BoundedVec};
 use thiserror::Error;
@@ -41,7 +40,7 @@ use polkadot_node_primitives::{
 	AvailableData, BabeEpoch, BlockWeight, CandidateVotes, CollationGenerationConfig,
 	CollationSecondedSignal, DisputeMessage, DisputeStatus, ErasureChunk, PoV,
 	SignedDisputeStatement, SignedFullStatement, SignedFullStatementWithPVD, SubmitCollationParams,
-	ValidationResult,
+	SubmitSegmentParams, ValidationResult, MAX_SEGMENT_LEN,
 };
 use polkadot_primitives::{
 	self,
@@ -49,14 +48,15 @@ use polkadot_primitives::{
 	slashing,
 	vstaging::RelayParentInfo,
 	ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateCommitments,
-	CandidateEvent, CandidateHash, CandidateIndex, CandidateReceiptV2 as CandidateReceipt,
-	CoalescedApprovalCandidateHashes, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
-	HeadData, Header as BlockHeader, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	MultiDisputeStatementSet, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, PvfExecKind as RuntimePvfExecKind, SessionIndex, SessionInfo,
-	SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	CandidateDescriptorVersion, CandidateEvent, CandidateHash, CandidateIndex,
+	CandidateReceiptV2 as CandidateReceipt, CoalescedApprovalCandidateHashes,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
+	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	PvfExecKind as RuntimePvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -282,8 +282,6 @@ pub struct SegmentEntry {
 	pub parent_head_data: HeadData,
 	/// Optional channel notified with the validator's seconded statement.
 	pub result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
-	/// Core this candidate is assigned to.
-	pub core_index: CoreIndex,
 }
 
 /// Messages received by the Collator Protocol subsystem.
@@ -298,6 +296,14 @@ pub enum CollatorProtocolMessage {
 	CollateOn(ParaId),
 	/// Provide an ordered list of collations to the validators.
 	DistributeSegment {
+		/// The scheduling parent shared by all candidates in the segment.
+		scheduling_parent: Hash,
+		/// Core index on which every candidate is to be backed on.
+		core_index: CoreIndex,
+		/// The candidates descriptor version.
+		/// V2 segments are always length 1
+		/// V3 segments may be longer.
+		candidates_descriptor_version: CandidateDescriptorVersion,
 		/// Ordered segment entries to distribute.
 		candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>,
 	},
@@ -998,9 +1004,12 @@ pub enum CollationGenerationMessage {
 	/// We will delete this later, but keep it for now so
 	/// we don't break the build.
 	SubmitCollation(SubmitCollationParams),
-	/// Submit a list of collations to the subsystem. This will package it into
-	/// [`CommittedCandidateReceipt`] and distribute along the network to validators.
-	SubmitCollations(Vec<SubmitCollationParams>),
+	/// Submit a segment of collations that share a scheduling parent and target core. Each
+	/// collation is packaged into a signed [`CommittedCandidateReceipt`] and distributed to
+	/// validators, in the order they appear in [`SubmitSegmentParams::collations`].
+	///
+	/// If sent before `Initialize`, this will be ignored.
+	SubmitSegment(SubmitSegmentParams),
 }
 
 /// The result type of [`ApprovalVotingMessage::ImportAssignment`] request.

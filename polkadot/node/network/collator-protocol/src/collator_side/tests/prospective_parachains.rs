@@ -410,6 +410,9 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 				virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				vec![(candidate, pov, parent_head_data_hash)],
+				head_c,
+				CoreIndex(0),
+				CandidateDescriptorVersion::V2,
 			)
 			.await
 			.into_iter()
@@ -478,13 +481,15 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 			overseer_send(
 				virtual_overseer,
 				CollatorProtocolMessage::DistributeSegment {
+					scheduling_parent: head_c,
+					core_index: CoreIndex(0),
+					candidates_descriptor_version: CandidateDescriptorVersion::V2,
 					candidates: BoundedVec::try_from(vec![SegmentEntry {
 						candidate_receipt: candidate.clone(),
 						parent_head_data_hash,
 						pov: pov.clone(),
 						parent_head_data: HeadData(vec![1, 2, 3]),
 						result_sender: None,
-						core_index: CoreIndex(0),
 					}])
 					.unwrap(),
 				},
@@ -564,6 +569,9 @@ fn distribute_collation_up_to_limit() {
 					virtual_overseer,
 					test_state.current_group_validator_authority_ids(),
 					vec![(candidate, pov, parent_head_data_hash)],
+					head_b,
+					CoreIndex(0),
+					CandidateDescriptorVersion::V2,
 				)
 				.await
 				.into_iter()
@@ -584,13 +592,15 @@ fn distribute_collation_up_to_limit() {
 			overseer_send(
 				virtual_overseer,
 				CollatorProtocolMessage::DistributeSegment {
+					scheduling_parent: head_b,
+					core_index: CoreIndex(0),
+					candidates_descriptor_version: CandidateDescriptorVersion::V2,
 					candidates: BoundedVec::try_from(vec![SegmentEntry {
 						candidate_receipt: candidate,
 						parent_head_data_hash,
 						pov,
 						parent_head_data: HeadData(vec![1, 2, 3]),
 						result_sender: None,
-						core_index: CoreIndex(0),
 					}])
 					.unwrap(),
 				},
@@ -622,13 +632,15 @@ fn distribute_collation_up_to_limit() {
 			overseer_send(
 				virtual_overseer,
 				CollatorProtocolMessage::DistributeSegment {
+					scheduling_parent: head_b,
+					core_index: CoreIndex(1),
+					candidates_descriptor_version: CandidateDescriptorVersion::V2,
 					candidates: BoundedVec::try_from(vec![SegmentEntry {
 						candidate_receipt: candidate.clone(),
 						parent_head_data_hash,
 						pov: pov.clone(),
 						parent_head_data: HeadData(vec![1, 2, 3]),
 						result_sender: None,
-						core_index: CoreIndex(1),
 					}])
 					.unwrap(),
 				},
@@ -714,6 +726,9 @@ fn send_parent_head_data_for_elastic_scaling() {
 				&mut virtual_overseer,
 				expected_connected,
 				vec![(candidate.clone(), pov_data.clone(), phdh)],
+				head_b,
+				CoreIndex(0),
+				CandidateDescriptorVersion::V2,
 			)
 			.await
 			.into_iter()
@@ -847,6 +862,9 @@ fn advertise_and_send_collation_by_hash() {
 					&mut virtual_overseer,
 					test_state.current_group_validator_authority_ids(),
 					vec![(candidate.clone(), pov.clone(), Hash::zero())],
+					head_b,
+					CoreIndex(0),
+					CandidateDescriptorVersion::V2,
 				)
 				.await
 				.into_iter()

@@ -22,7 +22,7 @@
 
 #![deny(missing_docs)]
 
-use std::pin::Pin;
+use std::{env::var, pin::Pin, sync::LazyLock};
 
 use bounded_vec::BoundedVec;
 use codec::{Decode, Encode, Error as CodecError, Input};
@@ -30,16 +30,17 @@ use futures::Future;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use polkadot_primitives::{
-	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair,
-	CommittedCandidateReceiptError, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	CompactStatement, CoreIndex, EncodeAs, Hash, HashT, HeadData, Id as ParaId,
-	PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
-	ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
+	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateDescriptorVersion, CandidateHash,
+	ChunkIndex, CollatorPair, CommittedCandidateReceiptError,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CompactStatement, CoreIndex,
+	EncodeAs, Hash, HashT, HeadData, Id as ParaId, PersistedValidationData, SessionIndex, Signed,
+	UncheckedSigned, ValidationCode, ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 pub use sp_consensus_babe::{
 	AllowedSlots as BabeAllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
 	Randomness as BabeRandomness,
 };
+use sp_runtime::{self, traits::ConstU32};
 
 pub use polkadot_parachain_primitives::primitives::{
 	BlockData, HorizontalMessages, UpwardMessages,
@@ -68,6 +69,12 @@ pub const NODE_VERSION: &'static str = "1.22.3";
 const MERKLE_NODE_MAX_SIZE: usize = 512 + 100;
 // 16-ary Merkle Prefix Trie for 32-bit ValidatorIndex has depth at most 8.
 const MERKLE_PROOF_MAX_DEPTH: usize = 8;
+
+/// Hard upper bound on `AdvertiseSegment::candidates`.
+/// The bound is enforced by SCALE decoding via `BoundedVec`,
+/// so oversized advertisements are rejected at parse time
+/// without allocation.
+pub const MAX_SEGMENT_LEN: u32 = 100;
 
 /// The bomb limit for decompressing code blobs.
 #[deprecated(
@@ -100,7 +107,18 @@ pub const POV_BOMB_LIMIT: usize = (MAX_POV_SIZE * 4u32) as usize;
 ///
 /// slot time * `DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION` > `APPROVAL_EXECUTION_TIMEOUT`
 /// + slot time
-pub const DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION: BlockNumber = 10;
+///
+/// NOTE: In order to use zombie-bite with the less possible changes in the client we need to set
+/// this value to `1` (checking iff the env var
+/// `ZOMBIE_DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION` is set).
+pub static DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION: LazyLock<BlockNumber> =
+	LazyLock::new(|| {
+		if var("ZOMBIE_DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION").is_ok() {
+			1
+		} else {
+			10
+		}
+	});
 
 /// Linked to `MAX_FINALITY_LAG` in relay chain selection,
 /// `MAX_HEADS_LOOK_BACK` in `approval-voting` and
@@ -551,6 +569,50 @@ pub struct SubmitCollationParams {
 	/// The persisted validation data for this collation. The `parent_head` field must be set
 	/// to the correct parent head-data for the parablock being submitted.
 	pub validation_data: PersistedValidationData,
+}
+
+/// A single collation in a segment submitted via `CollationGenerationMessage::SubmitSegment`.
+#[derive(Debug)]
+pub struct SegmentCollation {
+	/// The relay-parent the collation is built against.
+	pub relay_parent: Hash,
+	/// The collation itself (PoV and commitments).
+	pub collation: Collation,
+	/// The hash of the validation code the collation was created against.
+	pub validation_code_hash: ValidationCodeHash,
+	/// An optional result sender that should be informed about a successfully seconded collation.
+	///
+	/// See [`SubmitCollationParams::result_sender`] for the same caveats.
+	pub result_sender: Option<futures::channel::oneshot::Sender<CollationSecondedSignal>>,
+	/// The session index of the relay parent. Goes into the candidate descriptor.
+	/// Must be provided by the caller because the relay parent's state may be pruned.
+	pub session_index: SessionIndex,
+	/// The persisted validation data for this collation. The `parent_head` field must be set
+	/// to the correct parent head-data for the parablock being submitted.
+	pub validation_data: PersistedValidationData,
+}
+
+/// Parameters for `CollationGenerationMessage::SubmitSegment`.
+///
+/// Submits multiple collations that share a common scheduling parent and target core. Each
+/// [`SegmentCollation`] in `collations` carries the fields that may differ between blocks of the
+/// segment (relay parent, collation payload, validation data, etc.).
+#[derive(Debug)]
+pub struct SubmitSegmentParams {
+	/// The scheduling parent shared by all collations in the segment.
+	///
+	/// For V2 segments this is the collations' relay parent.For V3 segments it
+	/// is the explicit scheduling parent written into every candidate descriptor.
+	///
+	/// WARNING: A scheduling parent distinct from the relay parent (i.e. a V3 segment)
+	/// requires the `CandidateReceiptV3` node feature to be set.
+	pub scheduling_parent: Hash,
+	/// The core index on which the resulting candidates should be backed.
+	pub core_index: CoreIndex,
+	/// Version of the candidates in the segment
+	pub candidates_descriptor_version: CandidateDescriptorVersion,
+	/// The collations in this segment, in the order they should be submitted.
+	pub collations: sp_runtime::BoundedVec<SegmentCollation, ConstU32<MAX_SEGMENT_LEN>>,
 }
 
 /// This is the data we keep available for each candidate included in the relay chain.

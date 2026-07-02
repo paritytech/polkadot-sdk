@@ -647,7 +647,7 @@ pub mod v3_collation {
 /// v4 collation protocol types.
 pub mod v4_collation {
 	use codec::{Decode, Encode};
-	use polkadot_node_primitives::UncheckedSignedFullStatement;
+	use polkadot_node_primitives::{UncheckedSignedFullStatement, MAX_SEGMENT_LEN};
 	use polkadot_primitives::{
 		CandidateDescriptorVersion, CandidateHash, CollatorId, CollatorSignature, Hash,
 		Id as ParaId,
@@ -695,12 +695,6 @@ pub mod v4_collation {
 		/// Relay parent the advertised candidate builds on.
 		pub relay_parent: Hash,
 	}
-
-	/// Hard upper bound on `AdvertiseSegment::candidates`.
-	/// The bound is enforced by SCALE decoding via `BoundedVec`,
-	/// so oversized advertisements are rejected at parse time
-	/// without allocation.
-	pub const MAX_SEGMENT_LEN: u32 = 100;
 
 	/// All network messages on the collation peer-set.
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, derive_more::From)]
