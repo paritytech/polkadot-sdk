@@ -1,0 +1,21 @@
+title: 'eth-rpc: read block data from storage, rate-limit backfill, tune health check'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ### Problem
+    eth-rpc falls behind the chain head and its pod gets restarted (see paritytech/devops#5224), with the following observations:
+    - eth-rpc makes many runtime API calls
+    - the node runs out of Wasm instances
+    - the eth-rpc runtime API calls get slow (tens of seconds)
+    - backward sync adds extra load on the node
+    - the health check reports unhealthy even on a small lag, and enough consecutive failures restart the pod
+
+    ### Change
+    1. Reduce the runtime API calls eth-rpc makes by reading the Ethereum block, block hash, and receipt data directly from storage instead of via `state_call`. These are plain storage items, so a storage read returns the same values without spawning the runtime.
+    2. Rate-limit historic backfill: add `--backward-sync-max-blocks-per-sec` (default `30`, `0` disables) to cap how fast the backward sync reads blocks, so backfill does not overload the node.
+    3. Tune the health check:
+       - Bound the node query with a 3s timeout: if the node does not answer in time, log a warning instead of letting the probe silently time out.
+       - Report unhealthy only when eth-rpc is more than 128 blocks behind the node, to account for node block import burstiness.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
