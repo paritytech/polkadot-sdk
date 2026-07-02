@@ -193,6 +193,7 @@ impl TestNetworkBuilder {
 				None,
 				client.clone(),
 				Box::new(sp_core::testing::TaskExecutor::new()),
+				None,
 			);
 			tokio::spawn(handler.run().boxed());
 			protocol_config

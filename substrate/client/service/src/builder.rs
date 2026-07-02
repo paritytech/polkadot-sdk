@@ -1253,6 +1253,8 @@ where
 
 	let genesis_hash = client.info().genesis_hash;
 
+	let sync_service = Arc::new(sync_service);
+
 	let light_client_request_protocol_config = {
 		// Allow both outgoing and incoming requests.
 		let (handler, protocol_config) = LightClientRequestHandler::new::<Net>(
@@ -1260,6 +1262,7 @@ where
 			fork_id,
 			client.clone(),
 			Box::new(spawn_handle.clone()),
+			Some(sync_service.clone() as Arc<dyn sp_consensus::SyncOracle + Send + Sync>),
 		);
 		spawn_handle.spawn("light-client-request-handler", Some("networking"), handler.run());
 		protocol_config
@@ -1300,8 +1303,6 @@ where
 	// Start task for `PeerStore`
 	let peer_store = net_config.take_peer_store();
 	spawn_handle.spawn("peer-store", Some("networking"), peer_store.run());
-
-	let sync_service = Arc::new(sync_service);
 
 	let network_params = sc_network::config::Params::<Block, <Block as BlockT>::Hash, Net> {
 		role,

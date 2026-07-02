@@ -35,6 +35,7 @@ use sc_network::{
 };
 use sc_network_types::PeerId;
 use sp_blockchain::HeaderBackend;
+use sp_consensus::SyncOracle;
 use sp_core::{
 	hexdisplay::HexDisplay,
 	storage::{ChildInfo, ChildType, PrefixedStorageKey},
@@ -60,6 +61,10 @@ pub struct LightClientRequestHandler<B, Client> {
 	client: Arc<Client>,
 	/// Task spawner, used to pre-warm the capped runtime off the async reactor.
 	spawn_handle: Box<dyn SpawnNamed>,
+	/// Sync oracle used by the TEMPORARY benchmark to wait until major (full) sync completes
+	/// before measuring, so it times the tip runtime rather than an old one replayed during sync.
+	/// `None` disables the benchmark entirely (test call sites).
+	sync_oracle: Option<Arc<dyn SyncOracle + Send + Sync>>,
 	_block: PhantomData<B>,
 }
 
@@ -80,6 +85,7 @@ where
 		fork_id: Option<&str>,
 		client: Arc<Client>,
 		spawn_handle: Box<dyn SpawnNamed>,
+		sync_oracle: Option<Arc<dyn SyncOracle + Send + Sync>>,
 	) -> (Self, N::RequestResponseProtocolConfig) {
 		let (tx, request_receiver) = async_channel::bounded(MAX_LIGHT_REQUEST_QUEUE);
 
@@ -95,7 +101,13 @@ where
 		);
 
 		(
-			Self { client, request_receiver, spawn_handle, _block: PhantomData::default() },
+			Self {
+				client,
+				request_receiver,
+				spawn_handle,
+				sync_oracle,
+				_block: PhantomData::default(),
+			},
 			protocol_config,
 		)
 	}
@@ -107,6 +119,8 @@ where
 	/// are serialized), so only a call observing a new runtime does real work.
 	fn prewarm(&self, hash: B::Hash) {
 		let client = self.client.clone();
+		let sync_oracle = self.sync_oracle.clone();
+		let best_hash = client.info().best_hash;
 		self.spawn_handle.spawn_blocking(
 			"light-client-request-prewarm",
 			Some("networking"),
@@ -121,16 +135,30 @@ where
 				// TEMPORARY BENCHMARK (do not merge): measure metadata generation time through the
 				// execution-proof path, to calibrate the light-request execution cap. Run with a
 				// high/disabled cap to avoid trapping, e.g. `--light-request-execution-timeout-ms
-				// 60000`. Grep logs for `light-metadata-bench`.
-				//
-				// IMPORTANT: must measure the CURRENT runtime, not the genesis/pre-sync one. At
-				// startup `best_hash` is genesis until the node syncs, and old runtimes lack
-				// `Metadata_metadata_versions`/`_at_version` (Metadata API v2). So poll `best_hash`
-				// until those exist (⇒ synced to a recent runtime), then measure the MAX supported
-				// metadata format (what newer clients fetch). The probe also compiles the current
-				// runtime, so the timed iterations are warm.
+				// 60000`. Grep logs for `light-metadata-bench`. `None` (test call sites) disables it.
+				let Some(sync_oracle) = sync_oracle else { return };
+
+				// IMPORTANT: must measure the CURRENT (tip) runtime, not one replayed during sync.
+				// Under full sync `best_hash` climbs from genesis and `Metadata_metadata_versions`
+				// starts succeeding on old-but-recent-enough runtimes long before the tip, so gating
+				// on "metadata exists" alone would measure the wrong runtime. Instead wait for the
+				// node's own major-sync signal to complete: it's `true` while catching up and flips
+				// to `false` once we reach the tip. Latch on having seen it `true` so we don't fire in
+				// the brief pre-peer window at startup where it is transiently `false`.
+				let mut saw_syncing = false;
+				loop {
+					if sync_oracle.is_major_syncing() {
+						saw_syncing = true;
+					} else if saw_syncing {
+						break;
+					}
+					std::thread::sleep(Duration::from_secs(5));
+				}
+				info!(target: LOG_TARGET, "light-metadata-bench: major sync complete, starting measurement");
+
+				// Measure the MAX supported metadata format (what newer clients fetch). The probe
+				// below also compiles the current runtime, so the timed iterations are warm.
 				const METADATA_BENCH_ITERS: usize = 100;
-				// No attempt cap: warp sync on big chains (e.g. Moonbeam) can take tens of minutes.
 				loop {
 					let hash = client.info().best_hash;
 					let number = client.info().best_number;
