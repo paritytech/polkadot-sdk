@@ -18,11 +18,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 frame = { workspace = true, features = ["runtime"] }
 log = { workspace = true }
-pallet-assets.workspace = true
+pallet-assets = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
-pallet-balances = { path = "../balances", default-features = false }
+pallet-balances = { workspace = true }
 
 [features]
 default = ["std"]
@@ -31,13 +31,16 @@ std = [
 	"frame/std",
 	"log/std",
 	"pallet-assets/std",
+	"pallet-balances/std",
 	"scale-info/std",
 ]
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame/try-runtime",
 	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime",
 ]

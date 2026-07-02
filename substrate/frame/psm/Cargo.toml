@@ -19,16 +19,16 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
-frame-support.workspace = true
-frame-system.workspace = true
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-runtime.workspace = true
+sp-runtime = { workspace = true }
 
 [dev-dependencies]
-pallet-assets = { default-features = true, path = "../assets" }
-pallet-balances = { default-features = true, path = "../balances" }
-sp-io = { default-features = true, path = "../../primitives/io" }
+pallet-assets = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -45,10 +45,14 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]
