@@ -9,6 +9,7 @@
 use anyhow::anyhow;
 use codec::Encode;
 use log::info;
+use sc_network_types::PeerId;
 use sc_statement_store::test_utils::get_keypair;
 use sp_core::{hexdisplay::HexDisplay, Bytes, Pair};
 use sp_statement_store::{
@@ -16,6 +17,7 @@ use sp_statement_store::{
 };
 use std::{
 	path::{Path, PathBuf},
+	str::FromStr,
 	time::Duration,
 };
 use zombienet_sdk::{
@@ -459,4 +461,112 @@ pub(super) async fn stores_locally(
 			return Ok(false);
 		}
 	}
+}
+
+/// The libp2p [`PeerId`] a node reports over the `system_localPeerId` RPC.
+///
+/// The statement topology keys peers by this identity, so a test computes DHT affinity from the
+/// value the node itself advertises rather than deriving it from a pinned node key.
+pub(super) async fn local_peer_id(rpc: &RpcClient) -> Result<PeerId, anyhow::Error> {
+	let encoded: String = rpc.request("system_localPeerId", rpc_params![]).await?;
+	PeerId::from_str(&encoded).map_err(|e| anyhow!("invalid peer id {encoded:?}: {e:?}"))
+}
+
+/// A peer's 32-byte DHT key, `blake2_256(peer_id.to_bytes())`, matching `PeersTopology::peer_key`.
+fn peer_key(peer: &PeerId) -> [u8; 32] {
+	sp_crypto_hashing::blake2_256(&peer.to_bytes())
+}
+
+/// XOR distance between two points in the 32-byte key space.
+fn xor_distance(a: &[u8; 32], b: &[u8; 32]) -> [u8; 32] {
+	let mut distance = [0u8; 32];
+	for ((out, a), b) in distance.iter_mut().zip(a).zip(b) {
+		*out = *a ^ *b;
+	}
+	distance
+}
+
+/// The `k` DHT replicas for `topic` among `peers`: the `k` closest by `(xor_distance, peer_id)`.
+pub(super) fn dht_replicas(peers: &[PeerId], topic: Topic, k: usize) -> Vec<PeerId> {
+	let topic_key: [u8; 32] = *topic;
+	let mut ranked = peers.to_vec();
+	ranked.sort_by(|a, b| {
+		xor_distance(&peer_key(a), &topic_key)
+			.cmp(&xor_distance(&peer_key(b), &topic_key))
+			.then_with(|| a.cmp(b))
+	});
+	ranked.truncate(k);
+	ranked
+}
+
+/// The peer farthest from `topic` by XOR distance — a guaranteed non-replica, and the safe origin
+/// for a submission whose storage a test probes only on the *other* nodes.
+pub(super) fn farthest_peer(peers: &[PeerId], topic: Topic) -> PeerId {
+	*dht_replicas(peers, topic, peers.len()).last().expect("peers must be non-empty")
+}
+
+/// A topic whose XOR distances to `peers` strictly increase in the given order: `peers[0]` is the
+/// closest (the K=1 replica), `peers[last]` the farthest. Scans hashed candidate keys so the
+/// orderings are spread uniformly, and returns the first match.
+///
+/// Used to place an affine node at a chosen point of a line topology — e.g. the far end from the
+/// submitter — so a statement must traverse the intermediate nodes to reach it.
+pub(super) fn find_topic_ordered(peers: &[PeerId]) -> Option<Topic> {
+	(0u32..4096).find_map(|i| {
+		let key = sp_crypto_hashing::blake2_256(&i.to_le_bytes());
+		let ordered = peers.windows(2).all(|pair| {
+			xor_distance(&peer_key(&pair[0]), &key) < xor_distance(&peer_key(&pair[1]), &key)
+		});
+		ordered.then_some(Topic(key))
+	})
+}
+
+/// Adds `multiaddr` to the node's reserved peers over `system_addReservedPeer`. A
+/// `--reserved-only` node connects to its reserved peers alone, so this wires a pinned topology
+/// at runtime.
+async fn add_reserved_peer(rpc: &RpcClient, multiaddr: &str) -> Result<(), anyhow::Error> {
+	let () = rpc.request("system_addReservedPeer", rpc_params![multiaddr]).await?;
+	Ok(())
+}
+
+/// Spawns a v2 network whose collators form a line `names[0] — names[1] — … — names[n-1]`.
+///
+/// Every collator starts with `--reserved-only` and `--no-mdns`, so it connects to no statement
+/// peer on its own; each node's neighbours are then added to its reserved set with
+/// [`add_reserved_peer`], both directions per edge — a reserved-only node denies peers outside
+/// its reserved set, dialing or dialed. The wiring must happen at runtime: spawn-time
+/// `--reserved-nodes={{ZOMBIE:…}}` templates cannot express a line, because neighbours reference
+/// each other and zombienet rejects cyclic references. The statement substream graph is then the
+/// line, not a full mesh, so a statement can reach an affine node that is not the origin's direct
+/// neighbour — exercising multi-hop forwarding.
+pub(super) async fn spawn_line_network_v2(
+	names: &[&str],
+	replication_factor: u32,
+	gossip_target: u32,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	assert!(names.len() >= 2, "a line topology needs at least two nodes");
+	let base_dir = base_dir()?;
+	let chain_spec_path = create_chain_spec_with_allowances(names.len() as u32, &base_dir)?;
+
+	let mut args = collator_args_v2(
+		names.len() as u32,
+		COLLATOR_TRACE_LOG_FILTER,
+		replication_factor,
+		gossip_target,
+	);
+	args.push("--reserved-only".into());
+	args.push("--no-mdns".into());
+
+	let network =
+		launch_network(names, &chain_spec_path, args, &[("STATEMENT_STORE_V2_DHT_ENABLED", "1")])
+			.await?;
+
+	for pair in names.windows(2) {
+		let left = network.get_node(pair[0])?;
+		let right = network.get_node(pair[1])?;
+		add_reserved_peer(&left.rpc().await?, right.multiaddr()).await?;
+		add_reserved_peer(&right.rpc().await?, left.multiaddr()).await?;
+	}
+
+	Ok(network)
 }

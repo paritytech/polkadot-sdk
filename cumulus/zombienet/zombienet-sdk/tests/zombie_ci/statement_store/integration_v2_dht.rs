@@ -8,7 +8,8 @@
 //! by default); the replication factor `K` and gossip target are set via CLI flags.
 
 use super::common::{
-	expect_statement_delivered, spawn_network_with_injected_allowances_v2, stores_locally,
+	dht_replicas, expect_statement_delivered, farthest_peer, find_topic_ordered, local_peer_id,
+	spawn_line_network_v2, spawn_network_with_injected_allowances_v2, stores_locally,
 	submit_statement, subscribe_topic,
 };
 use codec::Encode;
@@ -340,6 +341,189 @@ async fn explicit_affinity_works() -> Result<(), anyhow::Error> {
 	// Subscribing grants the non-replica explicit affinity; it should now receive the statement.
 	let mut subscription = subscribe_topic(non_replica_rpc, topic).await?;
 	expect_statement_delivered(&mut subscription, &expected, 20).await?;
+
+	Ok(())
+}
+
+/// Storage lands on exactly the `K` nodes the XOR keyspace selects.
+///
+/// Nine nodes, full mesh, `K=3`. We compute the three DHT replicas for a topic offline from the
+/// nodes' real `PeerId`s and submit one statement from the farthest node — a guaranteed
+/// non-replica whose own store we never probe. The three replicas must store the statement; every
+/// other node must not.
+///
+/// `gossip_target = K`, so the origin reaches the replicas in one hop; multi-hop routing is
+/// `dht_multi_hop_forwarding`'s job.
+#[tokio::test(flavor = "multi_thread")]
+async fn dht_keyspace_replication_at_scale() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	let names = ["alice", "bob", "charlie", "dave", "eve", "ferdie", "grace", "heidi", "ivan"];
+	let replication_factor: usize = 3;
+	let network = spawn_network_with_injected_allowances_v2(
+		&names,
+		names.len() as u32,
+		replication_factor as u32,
+		TEST_GOSSIP_TARGET,
+	)
+	.await?;
+
+	let mut nodes = Vec::with_capacity(names.len());
+	for name in names {
+		nodes.push(network.get_node(name)?);
+	}
+	let mut rpcs = Vec::with_capacity(nodes.len());
+	for node in &nodes {
+		rpcs.push(node.rpc().await?);
+	}
+
+	// Wait for a substream to the other eight: affinity ranks only confirmed statement-protocol
+	// peers, and full connectivity aligns every node's view with the offline computation below.
+	for node in &nodes {
+		node.wait_metric_with_timeout(
+			CONNECTED_PEERS_METRIC,
+			|peers| peers >= (names.len() - 1) as f64,
+			120u64,
+		)
+		.await?;
+	}
+
+	// Fetch every node's PeerId (index-aligned with `rpcs`) and compute the affine set offline.
+	let mut peer_ids = Vec::with_capacity(rpcs.len());
+	for rpc in &rpcs {
+		peer_ids.push(local_peer_id(rpc).await?);
+	}
+
+	let topic: Topic = [7u8; 32].into();
+	let replicas = dht_replicas(&peer_ids, topic, replication_factor);
+	let origin = farthest_peer(&peer_ids, topic);
+	let origin_idx = peer_ids.iter().position(|p| *p == origin).expect("origin is a known peer");
+
+	// Submit from the non-replica origin; probing only the other nodes keeps the test independent
+	// of how a node treats its own submission.
+	let keypair = get_keypair(0);
+	let statement =
+		create_test_statement(&keypair, &[topic], None, vec![0x77, 1, 2, 3], u32::MAX, 4200);
+	let expected: Bytes = statement.encode().into();
+	assert_eq!(submit_statement(&rpcs[origin_idx], &statement).await?, SubmitResult::New);
+
+	// Each computed replica must store it; forwarding is asynchronous, so poll.
+	for (i, peer) in peer_ids.iter().enumerate() {
+		if replicas.contains(peer) {
+			wait_until_stored(&rpcs[i], topic, &expected, 30).await?;
+		}
+	}
+
+	// Nobody else may hold a persistent copy — that would make storage non-selective. Transient
+	// copies are invisible to the query API, so this checks storage, not routing fan-out.
+	for (i, peer) in peer_ids.iter().enumerate() {
+		if i == origin_idx || replicas.contains(peer) {
+			continue;
+		}
+		assert!(
+			!stores_locally(&rpcs[i], topic, &expected).await?,
+			"non-replica {} stored the statement; storage is not DHT-selective",
+			names[i],
+		);
+	}
+
+	Ok(())
+}
+
+/// Asserts the statement substream graph is exactly the line `origin — middle — replica` (1–2–1
+/// connected peers): a direct origin—replica substream would show up as a second peer on both
+/// ends and let a statement skip the middle hop.
+async fn assert_line_shape(
+	origin: &zombienet_sdk::NetworkNode,
+	middle: &zombienet_sdk::NetworkNode,
+	replica: &zombienet_sdk::NetworkNode,
+) -> Result<(), anyhow::Error> {
+	for (node, expected) in [(origin, 1.0), (middle, 2.0), (replica, 1.0)] {
+		let connected = node.reports(CONNECTED_PEERS_METRIC).await?;
+		if connected != expected {
+			return Err(anyhow::anyhow!(
+				"{} has {connected} connected statement peers, expected {expected}: the topology \
+				 is not the pinned line",
+				node.name(),
+			));
+		}
+	}
+	Ok(())
+}
+
+/// A statement reaches its affine replica across an intermediate node that only forwards it.
+///
+/// Three nodes in a line `origin — middle — replica`, `K=1`, and a topic whose XOR distances
+/// order `replica < middle < origin`: `replica` is the sole DHT replica and every hop moves
+/// closer. `origin` has no connection to `replica`, so its submission arrives only if `middle`
+/// forwards it on. `replica` must store it, `middle` must keep no persistent copy; `origin`'s own
+/// store is never probed.
+#[tokio::test(flavor = "multi_thread")]
+async fn dht_multi_hop_forwarding() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	// The line is names[0] — names[1] — names[2] == origin — middle — replica.
+	let names = ["alice", "bob", "charlie"];
+	let replication_factor: u32 = 1;
+	let network = spawn_line_network_v2(&names, replication_factor, TEST_GOSSIP_TARGET).await?;
+
+	let origin = network.get_node(names[0])?;
+	let middle = network.get_node(names[1])?;
+	let replica = network.get_node(names[2])?;
+	let origin_rpc = origin.rpc().await?;
+	let middle_rpc = middle.rpc().await?;
+	let replica_rpc = replica.rpc().await?;
+
+	// Wait for the line to converge: two substreams at the middle node, one at each end.
+	middle
+		.wait_metric_with_timeout(CONNECTED_PEERS_METRIC, |peers| peers >= 2.0, 120u64)
+		.await?;
+	origin
+		.wait_metric_with_timeout(CONNECTED_PEERS_METRIC, |peers| peers >= 1.0, 120u64)
+		.await?;
+	replica
+		.wait_metric_with_timeout(CONNECTED_PEERS_METRIC, |peers| peers >= 1.0, 120u64)
+		.await?;
+
+	let origin_id = local_peer_id(&origin_rpc).await?;
+	let middle_id = local_peer_id(&middle_rpc).await?;
+	let replica_id = local_peer_id(&replica_rpc).await?;
+
+	let topic = find_topic_ordered(&[replica_id, middle_id, origin_id]).ok_or_else(|| {
+		anyhow::anyhow!("no candidate topic orders the line replica < middle < origin")
+	})?;
+
+	assert_eq!(
+		dht_replicas(&[origin_id, middle_id, replica_id], topic, 1),
+		vec![replica_id],
+		"topic selection must make replica the unique K=1 DHT replica",
+	);
+
+	// The convergence waits are lower bounds; pin the exact line shape before submitting.
+	assert_line_shape(origin, middle, replica).await?;
+
+	// Submit on the origin, which is not connected to the replica.
+	let keypair = get_keypair(0);
+	let statement =
+		create_test_statement(&keypair, &[topic], None, vec![0xdd, 1, 2, 3], u32::MAX, 8400);
+	let expected: Bytes = statement.encode().into();
+	assert_eq!(submit_statement(&origin_rpc, &statement).await?, SubmitResult::New);
+
+	// The statement reaches the replica only through middle; forwarding is asynchronous, so poll.
+	wait_until_stored(&replica_rpc, topic, &expected, 30).await?;
+
+	// The line must have held for the whole delivery, or the hop count proves nothing.
+	assert_line_shape(origin, middle, replica).await?;
+
+	// The middle node forwarded it but is not affine, so it keeps no persistent copy.
+	assert!(
+		!stores_locally(&middle_rpc, topic, &expected).await?,
+		"middle node persisted a statement it should only forward",
+	);
 
 	Ok(())
 }

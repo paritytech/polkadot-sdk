@@ -5843,6 +5843,7 @@ dependencies = [
  "sc-executor 0.32.0",
  "sc-executor-common 0.29.0",
  "sc-network-statement",
+ "sc-network-types 0.10.0",
  "sc-statement-store",
  "scale-info",
  "serde",
@@ -26558,6 +26559,28 @@ dependencies = [
  "sp-weights 27.0.0",
  "staging-xcm",
  "tracing",
+]
+
+[[package]]
+name = "statement-replication-check"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "env_logger 0.11.3",
+ "futures",
+ "jsonrpsee",
+ "log",
+ "parity-scale-codec",
+ "rand 0.8.5",
+ "sc-network-types 0.10.0",
+ "sc-statement-store",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
+ "sp-statement-store",
+ "subxt 0.50.0",
+ "subxt-signer 0.50.0",
+ "tokio",
 ]
 
 [[package]]

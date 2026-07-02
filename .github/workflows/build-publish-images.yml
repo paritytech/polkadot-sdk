@@ -107,9 +107,12 @@ jobs:
         run: |
           echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
           forklift cargo build --release --locked -p polkadot-parachain-bin --bin polkadot-parachain
+          forklift cargo build --release --locked -p statement-replication-check
           echo "___Packing the artifacts___"
           mkdir -p ./artifacts
           mv ./target/release/polkadot-parachain ./artifacts/.
+          mv ./target/release/setup-allowances ./artifacts/.
+          mv ./target/release/replication-check ./artifacts/.
           echo "___The VERSION is either a tag name or the curent branch if triggered not by a tag___"
           echo ${{ needs.preflight.outputs.SOURCE_REF_SLUG }} | tee ./artifacts/VERSION
 

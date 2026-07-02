@@ -36,6 +36,8 @@ RUN apt-get update && \
 
 # add polkadot-parachain binary to the docker image
 COPY ./artifacts/polkadot-parachain /usr/local/bin
+COPY ./artifacts/setup-allowances /usr/local/bin
+COPY ./artifacts/replication-check /usr/local/bin
 COPY ./cumulus/parachains/chain-specs/*.json /specs/
 
 USER polkadot-parachain
