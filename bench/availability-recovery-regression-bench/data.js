@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782932699346,
+  "lastUpdate": 1783009480827,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
-            "name": "s0me0ne-unkn0wn",
-            "username": "s0me0ne-unkn0wn"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "736360090bfae5674cfb54a641f9d542a40656e8",
-          "message": "Fix executor params classification and add test (#10194)\n\nCloses #8054 \n\nExecutor parameters may be hashed in two ways: a full hash that changes\nif any parameter changes, and a prep_hash, which changes only if the\nparameter change will affect the prepared artifact (thus requiring\nartifact recompilation).\n\nAs was discovered in #8054, the initial classification of parameters was\nwrong, and some parameters that affect the artifact were not classified\nas such, and vice versa.\n\nThis PR aims to fix that and to add a test that should prevent this from\nhappening in the future.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-09T10:23:47Z",
-          "tree_id": "42abf8795260da4ed93133f1b8de6901972d5ec5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/736360090bfae5674cfb54a641f9d542a40656e8"
-        },
-        "date": 1762687935233,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.517141575733337,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.21092875089999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.147939273500002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "80b03f3a8fa12067b598c6433f7583886bd28ca3",
+          "message": "Remove deprecated UnpaidLocalExporter from staging-xcm-builder (#12504)\n\n## Summary\nRemoves the deprecated `UnpaidLocalExporter` from `staging-xcm-builder`.\nUse `LocalExporter` instead.\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-02T14:05:41Z",
+          "tree_id": "42ab8b83f231556fb370ef27bfabfff82d80b65c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/80b03f3a8fa12067b598c6433f7583886bd28ca3"
+        },
+        "date": 1783009453540,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.896450399999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14812731523333336,
             "unit": "seconds"
           }
         ]
