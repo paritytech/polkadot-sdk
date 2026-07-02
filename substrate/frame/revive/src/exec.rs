@@ -1573,7 +1573,7 @@ where
 				.bank_pending_storage_changes(contract, f.contract_info.as_contract());
 			f.contract_info.invalidate();
 		}
-		
+
 		// Pop the current frame from the stack and return it in case it needs to interact
 		// with duplicates that might exist on the stack.
 		// A `None` means that we are returning from the `first_frame`.
