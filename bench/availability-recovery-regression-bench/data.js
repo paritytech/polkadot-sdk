@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783013229809,
+  "lastUpdate": 1783018322122,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "178801527+raymondkfcheung@users.noreply.github.com",
-            "name": "Raymond Cheung",
-            "username": "raymondkfcheung"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "30a570b06d0f602050ba54ca871de0ad6433489a",
-          "message": "Replace `log` with `tracing` on Bridge Relay related modules (#9430)\n\nThis PR replaces `log` with `tracing` instrumentation on Bridge Relay\nrelated modules by providing structured logging.\n\nPartially addresses #9211\nSimilar to #9279\n\n## Key Features\n- **Consistent targets**: All components use predictable log targets\n- **Structured fields**: Uses `?variable`/`%variable` syntax for\nautomatic `Debug`/`Display` formatting\n- **Zero runtime impact**: No behavioural changes, only observability\nimprovements\n\n---------\n\nCo-authored-by: Andrii <ndk@parity.io>",
-          "timestamp": "2025-11-10T08:21:07Z",
-          "tree_id": "f32843ccd1ad40c7607c115cf71996942dd9a194",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/30a570b06d0f602050ba54ca871de0ad6433489a"
-        },
-        "date": 1762766952053,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2034303329,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.343916102433335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.914442337499999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "42d7fd2cdbfd1a5e9133db64bac84aa45cc107ec",
+          "message": "[dmp] Use page queue instead of single vec (#11909)\n\nThe relay DMP queue pallet currently uses one `Para -> Vec<Message>` map\nto map parachains to their messages.\nUsing one big vector per parachain is not ideal, hence i change it to a\n`(Para, Index) -> Message` list.\n\n## Storage\n\nA lazy multi-block-migration is in place `migration::MigrateV0ToV1` and\nmust be applied to all chains that deploy the DMP pallet.\nAll new storage items should be used through the static functions of\n`InboundDownwardQueue` to preserve invariants.\n\n#### DownwardMessageQueueMeta\n\n`ParaId -> InboundDownwardQueueMeta`: Maps parachain ID to metadata for\nmanaging the list.\n\n#### DownwardMessageQueuePages\n\n`ParaId -> PageIndex -> Message`: Treats each message as page and stores\nall pages.\n\n#### DownwardMessageQueueLazyDelete\n\n`PageId -> (PageIndex, PageIndex)`: For lazily sweeping old queues.\nContains `[first, last)` range of pages to be deleted.\n\n#### <s>DownwardMessageQueues</s>\n\nRemoved the old Vector based page map.\n\n## Migration\n\nTo keep the message ordering and MQC correct, we treat:\n- v1 as front, if present (otherwise v0)\n- v0 as back, if present (otherwise v1)\n- Define all messages as: v1 ++ v0\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-07-02T15:21:54Z",
+          "tree_id": "d74ab678479297fc9d79ffc513898ce752960f07",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/42d7fd2cdbfd1a5e9133db64bac84aa45cc107ec"
+        },
+        "date": 1783018293296,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1456400715,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.253367871866667,
             "unit": "seconds"
           }
         ]
