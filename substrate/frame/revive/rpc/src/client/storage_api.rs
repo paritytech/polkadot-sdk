@@ -73,6 +73,9 @@ impl StorageApi {
 		let block = self.0.fetch_or_default(&query).await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Ethereum block storage read failed, err: {err:?}");
 		})?;
+		if block.0.hash == H256::zero() {
+			return Err(ClientError::BlockNotFound);
+		}
 		Ok(block.0)
 	}
 

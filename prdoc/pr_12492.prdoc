@@ -18,4 +18,4 @@ doc:
        - Report unhealthy only when eth-rpc is more than 128 blocks behind the node, to account for node block import burstiness.
 crates:
 - name: pallet-revive-eth-rpc
-  bump: patch
+  bump: major
