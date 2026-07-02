@@ -1457,6 +1457,7 @@ impl pallet_migrations::Config for Runtime {
 			ForeignAssetsInstance,
 			migrations::AssetHubWestendForeignAssetsReservesProvider,
 		>,
+		pallet_indices::migration::v1::MigrateCurrencyToFungibles<Runtime, Balances>,
 		pallet_assets_precompiles::MigrateForeignAssetPrecompileMappings<
 			Runtime,
 			ForeignAssetsInstance,
@@ -1526,7 +1527,7 @@ parameter_types! {
 
 impl pallet_indices::Config for Runtime {
 	type AccountIndex = AccountIndex;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type Deposit = IndexDeposit;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_indices::WeightInfo<Runtime>;
