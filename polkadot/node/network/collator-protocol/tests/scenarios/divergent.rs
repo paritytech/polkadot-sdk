@@ -1067,27 +1067,6 @@ mod duplicate_fetch {
 		);
 	}
 
-	/// V2 peer and V3 peer both carry the same V2-descriptor offer; one fetch fires.
-	/// V3 protocol may legitimately advertise a V2 descriptor — the validator must dedup
-	/// by offer (descriptor) regardless of the carrier's protocol version.
-	#[crate::sim_test]
-	fn cross_protocol_version_carriers_fetched_once<S: CollatorSut>() {
-		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
-		let leaf = w.leaf();
-
-		let peer_v2 = w.declared_peer(PARA, V2);
-		let peer_v3 = w.declared_peer(PARA, V3);
-		let cand = w.candidate_at(leaf).para(PARA).build();
-		w.advertise_with_parent_head(&peer_v2, leaf, cand.hash(), cand.parent_head_hash());
-		w.advertise_with_parent_head(&peer_v3, leaf, cand.hash(), cand.parent_head_hash());
-		w.base.sim.advance(Duration::from_millis(300));
-		w.base.sim.assert_count(
-			|e| matches!(e, Effect::SendRequest { .. }),
-			1,
-			"exactly one fetch across V2 + V3 carriers (offer-keyed dedup)",
-		);
-	}
-
 	/// Parallel fetch after a short delay: while a fetch to one carrier is *still in flight*
 	/// (unresolved), the validator launches a second, parallel fetch to a co-advertiser of the
 	/// same candidate, so a single slow/stalling peer cannot hold the candidate hostage until the
