@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783013306491,
+  "lastUpdate": 1783018397983,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "giuseppe.re@parity.io",
-            "name": "Giuseppe Re",
-            "username": "re-gius"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2dc25d2298a83008b37734548c111627687ab413",
-          "message": "Remove outdated comment on Tracer Type (#10246)\n\nPrestate tracer type is now supported",
-          "timestamp": "2025-11-08T07:56:03Z",
-          "tree_id": "5b7454be4a0f0232968e4312e72a1dd2d3ff61fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2dc25d2298a83008b37734548c111627687ab413"
-        },
-        "date": 1762593010332,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52944,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63632.659999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.467392281779999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4700613907700024,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001900809,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4705505011999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.286484349999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001900809,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5075299877000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9279717558199962,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000019847139999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43750153585000023,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.708609379790994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005476896880000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000019847139999999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.478690292192731,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "42d7fd2cdbfd1a5e9133db64bac84aa45cc107ec",
+          "message": "[dmp] Use page queue instead of single vec (#11909)\n\nThe relay DMP queue pallet currently uses one `Para -> Vec<Message>` map\nto map parachains to their messages.\nUsing one big vector per parachain is not ideal, hence i change it to a\n`(Para, Index) -> Message` list.\n\n## Storage\n\nA lazy multi-block-migration is in place `migration::MigrateV0ToV1` and\nmust be applied to all chains that deploy the DMP pallet.\nAll new storage items should be used through the static functions of\n`InboundDownwardQueue` to preserve invariants.\n\n#### DownwardMessageQueueMeta\n\n`ParaId -> InboundDownwardQueueMeta`: Maps parachain ID to metadata for\nmanaging the list.\n\n#### DownwardMessageQueuePages\n\n`ParaId -> PageIndex -> Message`: Treats each message as page and stores\nall pages.\n\n#### DownwardMessageQueueLazyDelete\n\n`PageId -> (PageIndex, PageIndex)`: For lazily sweeping old queues.\nContains `[first, last)` range of pages to be deleted.\n\n#### <s>DownwardMessageQueues</s>\n\nRemoved the old Vector based page map.\n\n## Migration\n\nTo keep the message ordering and MQC correct, we treat:\n- v1 as front, if present (otherwise v0)\n- v0 as back, if present (otherwise v1)\n- Define all messages as: v1 ++ v0\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-07-02T15:21:54Z",
+          "tree_id": "d74ab678479297fc9d79ffc513898ce752960f07",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/42d7fd2cdbfd1a5e9133db64bac84aa45cc107ec"
+        },
+        "date": 1783018368983,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63598.11,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000024716279999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8134855221700006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7754768602200017,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002044748,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7551865801499373,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005106509820000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7891419287999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.432234360399931,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.824962402449999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000024716279999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002044748,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4688745567899937,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.3471061032728935,
             "unit": "seconds"
           }
         ]
