@@ -183,10 +183,15 @@ where
 			BlockOrigin::GapSync => {},
 			BlockOrigin::Genesis | BlockOrigin::File | BlockOrigin::WarpSync => return false,
 		}
-		let parent_hash = *params.header.parent_hash();
+		// Gap-sync parents don't have state, so we call at the finalized hash.
+		let version_state = if matches!(params.origin, BlockOrigin::GapSync) {
+			self.client.info().finalized_hash
+		} else {
+			*params.header.parent_hash()
+		};
 		self.client
 			.runtime_api()
-			.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent_hash, |v| v >= 2)
+			.has_api_with::<dyn TransactionStorageApi<Block>, _>(version_state, |v| v >= 2)
 			.unwrap_or(false)
 	}
 
