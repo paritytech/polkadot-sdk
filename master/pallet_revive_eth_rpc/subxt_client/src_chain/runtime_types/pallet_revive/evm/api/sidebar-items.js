@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["rpc_types_gen"]};
+window.SIDEBAR_ITEMS = {"mod":["block","state_overrides","transaction"]};

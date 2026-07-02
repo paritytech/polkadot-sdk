@@ -338,7 +338,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#188 id=188 data-nosnippet>188</a>			nonce
 <a href=#189 id=189 data-nosnippet>189</a>		} <span class="kw">else </span>{
 <a href=#190 id=190 data-nosnippet>190</a>			client
-<a href=#191 id=191 data-nosnippet>191</a>				.get_transaction_count(from, BlockTag::Latest.into())
+<a href=#191 id=191 data-nosnippet>191</a>				.get_transaction_count(from, Default::default())
 <a href=#192 id=192 data-nosnippet>192</a>				.<span class="kw">await
 <a href=#193 id=193 data-nosnippet>193</a>				</span>.with_context(|| <span class="string">"Failed to fetch account nonce"</span>)<span class="question-mark">?
 <a href=#194 id=194 data-nosnippet>194</a>		</span>};

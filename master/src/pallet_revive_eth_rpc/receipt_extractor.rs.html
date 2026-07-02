@@ -165,7 +165,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#15 id=15 data-nosnippet>15</a>// See the License for the specific language governing permissions and
 <a href=#16 id=16 data-nosnippet>16</a>// limitations under the License.
 <a href=#17 id=17 data-nosnippet>17</a></span><span class="kw">use crate</span>::{
-<a href=#18 id=18 data-nosnippet>18</a>	ClientError, H160, LOG_TARGET, ReceiptGasInfoV1,
+<a href=#18 id=18 data-nosnippet>18</a>	ClientError, H160, LOG_TARGET, Log, ReceiptGasInfoV1, ReceiptInfo,
 <a href=#19 id=19 data-nosnippet>19</a>	client::{SubstrateBlock, SubstrateBlockNumber, runtime_api::RuntimeApi},
 <a href=#20 id=20 data-nosnippet>20</a>	subxt_client::{
 <a href=#21 id=21 data-nosnippet>21</a>		SrcChainConfig,
@@ -178,7 +178,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#28 id=28 data-nosnippet>28</a>
 <a href=#29 id=29 data-nosnippet>29</a><span class="kw">use </span>pallet_revive::{
 <a href=#30 id=30 data-nosnippet>30</a>	create1,
-<a href=#31 id=31 data-nosnippet>31</a>	evm::{GenericTransaction, H256, Log, ReceiptInfo, TransactionSigned, U256},
+<a href=#31 id=31 data-nosnippet>31</a>	evm::{GenericTransaction, H256, TransactionSigned, U256},
 <a href=#32 id=32 data-nosnippet>32</a>};
 <a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>sp_crypto_hashing::keccak_256;
 <a href=#34 id=34 data-nosnippet>34</a><span class="kw">use </span>std::{
