@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783012218210,
+  "lastUpdate": 1783017334497,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -103895,6 +103895,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2790064469,
             "range": "± 35640635",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "42d7fd2cdbfd1a5e9133db64bac84aa45cc107ec",
+          "message": "[dmp] Use page queue instead of single vec (#11909)\n\nThe relay DMP queue pallet currently uses one `Para -> Vec<Message>` map\nto map parachains to their messages.\nUsing one big vector per parachain is not ideal, hence i change it to a\n`(Para, Index) -> Message` list.\n\n## Storage\n\nA lazy multi-block-migration is in place `migration::MigrateV0ToV1` and\nmust be applied to all chains that deploy the DMP pallet.\nAll new storage items should be used through the static functions of\n`InboundDownwardQueue` to preserve invariants.\n\n#### DownwardMessageQueueMeta\n\n`ParaId -> InboundDownwardQueueMeta`: Maps parachain ID to metadata for\nmanaging the list.\n\n#### DownwardMessageQueuePages\n\n`ParaId -> PageIndex -> Message`: Treats each message as page and stores\nall pages.\n\n#### DownwardMessageQueueLazyDelete\n\n`PageId -> (PageIndex, PageIndex)`: For lazily sweeping old queues.\nContains `[first, last)` range of pages to be deleted.\n\n#### <s>DownwardMessageQueues</s>\n\nRemoved the old Vector based page map.\n\n## Migration\n\nTo keep the message ordering and MQC correct, we treat:\n- v1 as front, if present (otherwise v0)\n- v0 as back, if present (otherwise v1)\n- Define all messages as: v1 ++ v0\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-07-02T15:21:54Z",
+          "tree_id": "d74ab678479297fc9d79ffc513898ce752960f07",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/42d7fd2cdbfd1a5e9133db64bac84aa45cc107ec"
+        },
+        "date": 1783017307168,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18870689,
+            "range": "± 186896",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19032869,
+            "range": "± 147168",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20660492,
+            "range": "± 121251",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25369260,
+            "range": "± 269346",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56958124,
+            "range": "± 768004",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 347184764,
+            "range": "± 4833487",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2604685567,
+            "range": "± 101953915",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16649362,
+            "range": "± 201316",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16776129,
+            "range": "± 128100",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17267206,
+            "range": "± 274810",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21721819,
+            "range": "± 214398",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59102123,
+            "range": "± 1091791",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 344373721,
+            "range": "± 4436989",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2555920208,
+            "range": "± 47273921",
             "unit": "ns/iter"
           }
         ]
