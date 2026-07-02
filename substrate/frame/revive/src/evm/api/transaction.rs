@@ -27,7 +27,6 @@ use derive_more::{From, TryInto};
 use ethereum_types::*;
 use pallet_revive_types::runtime_api::*;
 use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
 
 /// Transaction object generic to all types
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
@@ -312,8 +311,7 @@ impl From<GenericTransaction> for GenericTransactionV1 {
 }
 
 /// Transaction information
-#[derive(Debug, Default, Clone, Serialize, Eq, PartialEq, TypeInfo, Encode, Decode)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 pub struct TransactionInfo {
 	/// block hash
 	pub block_hash: H256,
@@ -325,69 +323,25 @@ pub struct TransactionInfo {
 	pub hash: H256,
 	/// transaction index
 	pub transaction_index: U256,
-	#[serde(flatten)]
 	pub transaction_signed: TransactionSigned,
 }
 
-// Custom deserializer to work around serde's limitation with flatten + untagged enums from Value
-// See: https://github.com/serde-rs/serde/issues/1183
-impl<'de> Deserialize<'de> for TransactionInfo {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: serde::Deserializer<'de>,
-	{
-		use alloc::{collections::BTreeMap, string::String};
-		use serde::de::Error;
-
-		// First try deserializing to a map
-		let mut map = <BTreeMap<String, serde_json::Value>>::deserialize(deserializer)?;
-
-		// Extract the TransactionInfo-specific fields
-		let block_hash =
-			map.remove("blockHash").ok_or_else(|| D::Error::missing_field("blockHash"))?;
-		let block_number = map
-			.remove("blockNumber")
-			.ok_or_else(|| D::Error::missing_field("blockNumber"))?;
-		let from = map.remove("from").ok_or_else(|| D::Error::missing_field("from"))?;
-		let hash = map.remove("hash").ok_or_else(|| D::Error::missing_field("hash"))?;
-		let transaction_index = map
-			.remove("transactionIndex")
-			.ok_or_else(|| D::Error::missing_field("transactionIndex"))?;
-
-		// The remaining fields should be for TransactionSigned
-		// Convert back to JSON and deserialize
-		let remaining = serde_json::Value::Object(map.into_iter().collect());
-		let json_str = serde_json::to_string(&remaining).map_err(D::Error::custom)?;
-		let transaction_signed: TransactionSigned =
-			serde_json::from_str(&json_str).map_err(D::Error::custom)?;
-
-		Ok(Self {
-			block_hash: serde_json::from_value(block_hash).map_err(D::Error::custom)?,
-			block_number: serde_json::from_value(block_number).map_err(D::Error::custom)?,
-			from: serde_json::from_value(from).map_err(D::Error::custom)?,
-			hash: serde_json::from_value(hash).map_err(D::Error::custom)?,
-			transaction_index: serde_json::from_value(transaction_index)
-				.map_err(D::Error::custom)?,
-			transaction_signed,
-		})
+impl From<TransactionInfo> for TransactionInfoV1 {
+	fn from(value: TransactionInfo) -> Self {
+		Self {
+			block_hash: value.block_hash,
+			block_number: value.block_number,
+			from: value.from,
+			hash: value.hash,
+			transaction_index: value.transaction_index,
+			transaction_signed: value.transaction_signed.into(),
+		}
 	}
 }
 
 #[derive(
-	Debug,
-	Clone,
-	Serialize,
-	Deserialize,
-	From,
-	TryInto,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
+	Debug, Clone, From, TryInto, Eq, PartialEq, TypeInfo, Encode, Decode, DecodeWithMemTracking,
 )]
-#[serde(untagged)]
 pub enum TransactionSigned {
 	Transaction7702Signed(Transaction7702Signed),
 	Transaction4844Signed(Transaction4844Signed),
@@ -402,8 +356,21 @@ impl Default for TransactionSigned {
 	}
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
-#[serde(untagged)]
+impl From<TransactionSigned> for TransactionSignedV1 {
+	fn from(value: TransactionSigned) -> Self {
+		match value {
+			TransactionSigned::Transaction7702Signed(tx) => Self::Transaction7702Signed(tx.into()),
+			TransactionSigned::Transaction4844Signed(tx) => Self::Transaction4844Signed(tx.into()),
+			TransactionSigned::Transaction1559Signed(tx) => Self::Transaction1559Signed(tx.into()),
+			TransactionSigned::Transaction2930Signed(tx) => Self::Transaction2930Signed(tx.into()),
+			TransactionSigned::TransactionLegacySigned(tx) => {
+				Self::TransactionLegacySigned(tx.into())
+			},
+		}
+	}
+}
+
+#[derive(Debug, Clone, From, TryInto, Eq, PartialEq)]
 pub enum TransactionUnsigned {
 	Transaction7702Unsigned(Transaction7702Unsigned),
 	Transaction4844Unsigned(Transaction4844Unsigned),
@@ -432,20 +399,7 @@ impl From<TransactionSigned> for TransactionUnsigned {
 }
 
 /// EIP-1559 transaction.
-#[derive(
-	Debug,
-	Default,
-	Clone,
-	Serialize,
-	Deserialize,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, DecodeWithMemTracking)]
 pub struct Transaction1559Unsigned {
 	/// accessList
 	/// EIP-2930 access list
@@ -478,21 +432,27 @@ pub struct Transaction1559Unsigned {
 	/// value
 	pub value: U256,
 }
+
+impl From<Transaction1559Unsigned> for Transaction1559UnsignedV1 {
+	fn from(value: Transaction1559Unsigned) -> Self {
+		Self {
+			access_list: value.access_list.into_iter().map(Into::into).collect(),
+			chain_id: value.chain_id,
+			gas: value.gas,
+			gas_price: value.gas_price,
+			input: value.input,
+			max_fee_per_gas: value.max_fee_per_gas,
+			max_priority_fee_per_gas: value.max_priority_fee_per_gas,
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type,
+			value: value.value,
+		}
+	}
+}
+
 /// EIP-2930 transaction.
-#[derive(
-	Debug,
-	Default,
-	Clone,
-	Serialize,
-	Deserialize,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, DecodeWithMemTracking)]
 pub struct Transaction2930Unsigned {
 	/// accessList
 	/// EIP-2930 access list
@@ -516,21 +476,25 @@ pub struct Transaction2930Unsigned {
 	/// value
 	pub value: U256,
 }
+
+impl From<Transaction2930Unsigned> for Transaction2930UnsignedV1 {
+	fn from(value: Transaction2930Unsigned) -> Self {
+		Self {
+			access_list: value.access_list.into_iter().map(Into::into).collect(),
+			chain_id: value.chain_id,
+			gas: value.gas,
+			gas_price: value.gas_price,
+			input: value.input,
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type,
+			value: value.value,
+		}
+	}
+}
+
 /// EIP-4844 transaction.
-#[derive(
-	Debug,
-	Default,
-	Clone,
-	Serialize,
-	Deserialize,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, DecodeWithMemTracking)]
 pub struct Transaction4844Unsigned {
 	/// accessList
 	/// EIP-2930 access list
@@ -564,25 +528,31 @@ pub struct Transaction4844Unsigned {
 	/// value
 	pub value: U256,
 }
+
+impl From<Transaction4844Unsigned> for Transaction4844UnsignedV1 {
+	fn from(value: Transaction4844Unsigned) -> Self {
+		Self {
+			access_list: value.access_list.into_iter().map(Into::into).collect(),
+			blob_versioned_hashes: value.blob_versioned_hashes,
+			chain_id: value.chain_id,
+			gas: value.gas,
+			input: value.input,
+			max_fee_per_blob_gas: value.max_fee_per_blob_gas,
+			max_fee_per_gas: value.max_fee_per_gas,
+			max_priority_fee_per_gas: value.max_priority_fee_per_gas,
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type,
+			value: value.value,
+		}
+	}
+}
+
 /// Legacy transaction.
-#[derive(
-	Debug,
-	Default,
-	Clone,
-	Serialize,
-	Deserialize,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, DecodeWithMemTracking)]
 pub struct TransactionLegacyUnsigned {
 	/// chainId
 	/// Chain ID that this transaction is valid on.
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub chain_id: Option<U256>,
 	/// gas limit
 	pub gas: U256,
@@ -600,22 +570,26 @@ pub struct TransactionLegacyUnsigned {
 	/// value
 	pub value: U256,
 }
+
+impl From<TransactionLegacyUnsigned> for TransactionLegacyUnsignedV1 {
+	fn from(value: TransactionLegacyUnsigned) -> Self {
+		Self {
+			chain_id: value.chain_id,
+			gas: value.gas,
+			gas_price: value.gas_price,
+			input: value.input,
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type,
+			value: value.value,
+		}
+	}
+}
+
 /// EIP-7702 transaction.
 #[derive(
-	Debug,
-	Clone,
-	Serialize,
-	Deserialize,
-	Default,
-	From,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
+	Debug, Clone, Default, From, Eq, PartialEq, TypeInfo, Encode, Decode, DecodeWithMemTracking,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Transaction7702Unsigned {
 	/// accessList
 	/// EIP-2930 access list
@@ -650,22 +624,28 @@ pub struct Transaction7702Unsigned {
 	/// value
 	pub value: U256,
 }
+
+impl From<Transaction7702Unsigned> for Transaction7702UnsignedV1 {
+	fn from(value: Transaction7702Unsigned) -> Self {
+		Self {
+			access_list: value.access_list.into_iter().map(Into::into).collect(),
+			authorization_list: value.authorization_list.into_iter().map(Into::into).collect(),
+			chain_id: value.chain_id,
+			gas: value.gas,
+			input: value.input,
+			max_fee_per_gas: value.max_fee_per_gas,
+			max_priority_fee_per_gas: value.max_priority_fee_per_gas,
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type,
+			value: value.value,
+		}
+	}
+}
+
 /// Signed 7702 Transaction
-#[derive(
-	Debug,
-	Clone,
-	Serialize,
-	Deserialize,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, DecodeWithMemTracking)]
 pub struct Transaction7702Signed {
-	#[serde(flatten)]
 	pub transaction_7702_unsigned: Transaction7702Unsigned,
 	/// r
 	pub r: U256,
@@ -674,29 +654,27 @@ pub struct Transaction7702Signed {
 	/// v
 	/// For backwards compatibility, `v` is optionally provided as an alternative to `yParity`.
 	/// This field is DEPRECATED and all use of it should migrate to `yParity`.
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub v: Option<U256>,
 	/// yParity
 	/// The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.
 	pub y_parity: U256,
 }
+
+impl From<Transaction7702Signed> for Transaction7702SignedV1 {
+	fn from(value: Transaction7702Signed) -> Self {
+		Self {
+			transaction_7702_unsigned: value.transaction_7702_unsigned.into(),
+			r: value.r,
+			s: value.s,
+			v: value.v,
+			y_parity: value.y_parity,
+		}
+	}
+}
+
 /// Signed 1559 Transaction
-#[derive(
-	Debug,
-	Default,
-	Clone,
-	Serialize,
-	Deserialize,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, DecodeWithMemTracking)]
 pub struct Transaction1559Signed {
-	#[serde(flatten)]
 	pub transaction_1559_unsigned: Transaction1559Unsigned,
 	/// r
 	pub r: U256,
@@ -705,29 +683,27 @@ pub struct Transaction1559Signed {
 	/// v
 	/// For backwards compatibility, `v` is optionally provided as an alternative to `yParity`.
 	/// This field is DEPRECATED and all use of it should migrate to `yParity`.
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub v: Option<U256>,
 	/// yParity
 	/// The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.
 	pub y_parity: U256,
 }
+
+impl From<Transaction1559Signed> for Transaction1559SignedV1 {
+	fn from(value: Transaction1559Signed) -> Self {
+		Self {
+			transaction_1559_unsigned: value.transaction_1559_unsigned.into(),
+			r: value.r,
+			s: value.s,
+			v: value.v,
+			y_parity: value.y_parity,
+		}
+	}
+}
+
 /// Signed 2930 Transaction
-#[derive(
-	Debug,
-	Default,
-	Clone,
-	Serialize,
-	Deserialize,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, DecodeWithMemTracking)]
 pub struct Transaction2930Signed {
-	#[serde(flatten)]
 	pub transaction_2930_unsigned: Transaction2930Unsigned,
 	/// r
 	pub r: U256,
@@ -736,29 +712,27 @@ pub struct Transaction2930Signed {
 	/// v
 	/// For backwards compatibility, `v` is optionally provided as an alternative to `yParity`.
 	/// This field is DEPRECATED and all use of it should migrate to `yParity`.
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub v: Option<U256>,
 	/// yParity
 	/// The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.
 	pub y_parity: U256,
 }
+
+impl From<Transaction2930Signed> for Transaction2930SignedV1 {
+	fn from(value: Transaction2930Signed) -> Self {
+		Self {
+			transaction_2930_unsigned: value.transaction_2930_unsigned.into(),
+			r: value.r,
+			s: value.s,
+			v: value.v,
+			y_parity: value.y_parity,
+		}
+	}
+}
+
 /// Signed 4844 Transaction
-#[derive(
-	Debug,
-	Default,
-	Clone,
-	Serialize,
-	Deserialize,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, DecodeWithMemTracking)]
 pub struct Transaction4844Signed {
-	#[serde(flatten)]
 	pub transaction_4844_unsigned: Transaction4844Unsigned,
 	/// r
 	pub r: U256,
@@ -768,23 +742,21 @@ pub struct Transaction4844Signed {
 	/// The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.
 	pub y_parity: U256,
 }
+
+impl From<Transaction4844Signed> for Transaction4844SignedV1 {
+	fn from(value: Transaction4844Signed) -> Self {
+		Self {
+			transaction_4844_unsigned: value.transaction_4844_unsigned.into(),
+			r: value.r,
+			s: value.s,
+			y_parity: value.y_parity,
+		}
+	}
+}
+
 /// Signed Legacy Transaction
-#[derive(
-	Debug,
-	Default,
-	Clone,
-	Serialize,
-	Deserialize,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, DecodeWithMemTracking)]
 pub struct TransactionLegacySigned {
-	#[serde(flatten)]
 	pub transaction_legacy_unsigned: TransactionLegacyUnsigned,
 	/// r
 	pub r: U256,
@@ -794,24 +766,22 @@ pub struct TransactionLegacySigned {
 	pub v: U256,
 }
 
+impl From<TransactionLegacySigned> for TransactionLegacySignedV1 {
+	fn from(value: TransactionLegacySigned) -> Self {
+		Self {
+			transaction_legacy_unsigned: value.transaction_legacy_unsigned.into(),
+			r: value.r,
+			s: value.s,
+			v: value.v,
+		}
+	}
+}
+
 /// Access list
 pub type AccessList = Vec<AccessListEntry>;
 
 /// Access list entry
-#[derive(
-	Debug,
-	Default,
-	Clone,
-	Encode,
-	Decode,
-	TypeInfo,
-	Serialize,
-	Deserialize,
-	Eq,
-	PartialEq,
-	DecodeWithMemTracking,
-)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, Eq, PartialEq, DecodeWithMemTracking)]
 pub struct AccessListEntry {
 	pub address: Address,
 	pub storage_keys: Vec<H256>,
@@ -830,20 +800,7 @@ impl From<AccessListEntry> for AccessListEntryV1 {
 }
 
 /// Authorization list entry for EIP-7702
-#[derive(
-	Debug,
-	Default,
-	Clone,
-	Serialize,
-	Deserialize,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, DecodeWithMemTracking)]
 pub struct AuthorizationListEntry {
 	/// Chain ID that this authorization is valid on
 	pub chain_id: U256,
@@ -885,10 +842,7 @@ impl From<AuthorizationListEntry> for AuthorizationListEntryV1 {
 	}
 }
 
-#[derive(
-	Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq, TypeInfo, Encode, Decode,
-)]
-#[serde(untagged)]
+#[derive(Debug, Clone, From, TryInto, Eq, PartialEq, TypeInfo, Encode, Decode)]
 pub enum HashesOrTransactionInfos {
 	/// Transaction hashes
 	Hashes(Vec<H256>),
@@ -899,6 +853,17 @@ pub enum HashesOrTransactionInfos {
 impl Default for HashesOrTransactionInfos {
 	fn default() -> Self {
 		HashesOrTransactionInfos::Hashes(Default::default())
+	}
+}
+
+impl From<HashesOrTransactionInfos> for HashesOrTransactionInfosV1 {
+	fn from(value: HashesOrTransactionInfos) -> Self {
+		match value {
+			HashesOrTransactionInfos::Hashes(hashes) => Self::Hashes(hashes),
+			HashesOrTransactionInfos::TransactionInfos(infos) => {
+				Self::TransactionInfos(infos.into_iter().map(Into::into).collect())
+			},
+		}
 	}
 }
 
@@ -995,122 +960,6 @@ impl From<InputOrData> for InputOrDataV1 {
 #[cfg(test)]
 mod tests {
 	use crate::evm::*;
-
-	#[test]
-	fn test_transaction_info_deserialize_from_value() {
-		// This tests the custom deserializer for TransactionInfo
-		// which works around serde's limitation with flatten + untagged enums from Value
-		let tx_info_expected = serde_json::json!({
-			"blockHash": "0xfb8c980d1da1a75e68c2ea4d55cb88d62dedbbb5eaf69df8fe337e9f6922b73a",
-			"blockNumber": "0x161bd0f",
-			"from": "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97",
-			"hash": "0x2c522d01183e9ed70caaf75c940ba9908d573cfc9996b3e7adc90313798279c8",
-			"transactionIndex": "0x7a",
-			"chainId": "0x1",
-			"gas": "0x565f",
-			"gasPrice": "0x23cf3fd4",
-			"input": "0x",
-			"nonce": "0x2c5ce1",
-			"r": "0x4a5703e4d8daf045f021cb32897a25b17d61b9ab629a59f0731ef4cce63f93d6",
-			"s": "0x711812237c1fed6aaf08e9f47fc47e547fdaceba9ab7507e62af29a945354fb6",
-			"to": "0x388c818ca8b9251b393131c08a736a67ccb19297",
-			"type": "0x0",
-			"v": "0x1",
-			"value": "0x12bf92aae0c2e70"
-		});
-
-		// Test deserializing from Value (this was failing before the custom deserializer) with
-		// below error:
-		// ```
-		// Failed to deserialize from Value: Some(Error("data did not match any variant of untagged enum TransactionSigned", line: 0, column: 0))
-		// ```
-		let tx_info_from_value: Result<TransactionInfo, serde_json::Error> =
-			serde_json::from_value(tx_info_expected.clone());
-		assert!(
-			tx_info_from_value.is_ok(),
-			"Failed to deserialize from Value: {:?}",
-			tx_info_from_value.err()
-		);
-
-		// Test deserializing from string (this was always working)
-		let json_str = serde_json::to_string(&tx_info_expected).unwrap();
-		let tx_info_from_str: Result<TransactionInfo, serde_json::Error> =
-			serde_json::from_str(&json_str);
-		assert!(
-			tx_info_from_str.is_ok(),
-			"Failed to deserialize from string: {:?}",
-			tx_info_from_str.err()
-		);
-
-		// Verify both methods produce the same result
-		let tx_info_from_value = tx_info_from_value.unwrap();
-		let tx_info_from_str = tx_info_from_str.unwrap();
-		assert_eq!(
-			tx_info_from_value, tx_info_from_str,
-			"Value and string deserialization should match"
-		);
-
-		// Serialize it back to JSON
-		let tx_info_serialized = serde_json::to_value(&tx_info_from_value);
-		assert!(
-			tx_info_serialized.is_ok(),
-			"Failed to serialize to value: {:?}",
-			tx_info_serialized.err()
-		);
-		let tx_info_serialized = tx_info_serialized.unwrap();
-
-		// Verify that deserializing and serializing leads to the same result
-		assert_eq!(tx_info_serialized, tx_info_expected);
-	}
-
-	#[test]
-	fn test_transaction_hashes_deserialization() {
-		let json = r#"["0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"]"#;
-		let result: HashesOrTransactionInfos = serde_json::from_str(json).unwrap();
-		assert!(matches!(result, HashesOrTransactionInfos::Hashes(_)));
-
-		let json = r#"[]"#;
-		let result: HashesOrTransactionInfos = serde_json::from_str(json).unwrap();
-		assert!(matches!(result, HashesOrTransactionInfos::Hashes(_)));
-
-		let json = r#"[{"invalid": "data"}]"#;
-		let result: Result<HashesOrTransactionInfos, _> = serde_json::from_str(json);
-		assert!(result.is_err());
-	}
-
-	#[test]
-	fn test_transaction_infos_deserialization() {
-		let json = r#"[{
-			"accessList": [{
-				"address": "0x9008d19f58aabd9ed0d60971565aa8510560ab41",
-				"storageKeys": [
-					"0x0000000000000000000000000000000000000000000000000000000000000001"
-				]
-			}],
-			"blockHash": "0xfb8c980d1da1a75e68c2ea4d55cb88d62dedbbb5eaf69df8fe337e9f6922b73a",
-			"blockNumber": "0x161bd0f",
-			"chainId": "0x1",
-			"from": "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97",
-			"gas": "0x565f",
-			"gasPrice": "0x23cf3fd4",
-			"hash": "0x2c522d01183e9ed70caaf75c940ba9908d573cfc9996b3e7adc90313798279c8",
-			"input": "0x",
-			"maxFeePerGas": "0x23cf3fd4",
-			"maxPriorityFeePerGas": "0x0",
-			"nonce": "0x2c5ce1",
-			"r": "0x4a5703e4d8daf045f021cb32897a25b17d61b9ab629a59f0731ef4cce63f93d6",
-			"s": "0x711812237c1fed6aaf08e9f47fc47e547fdaceba9ab7507e62af29a945354fb6",
-			"to": "0x388c818ca8b9251b393131c08a736a67ccb19297",
-			"transactionIndex": "0x7a",
-			"type": "0x2",
-			"v": "0x0",
-			"value": "0x12bf92aae0c2e70",
-			"yParity": "0x0"
-			}]
-		"#;
-		let result: HashesOrTransactionInfos = serde_json::from_str(json).unwrap();
-		assert!(matches!(result, HashesOrTransactionInfos::TransactionInfos(_)));
-	}
 
 	#[test]
 	fn from_unsigned_works_for_legacy() {

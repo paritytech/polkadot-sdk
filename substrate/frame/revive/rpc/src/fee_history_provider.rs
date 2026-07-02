@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{ClientError, FeeHistoryResult, ReceiptInfo, client::SubstrateBlockNumber};
-use pallet_revive::evm::Block;
+use pallet_revive_types::runtime_api::BlockV1;
 use sp_core::U256;
 use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::RwLock;
@@ -49,7 +49,7 @@ pub struct FeeHistoryProvider {
 
 impl FeeHistoryProvider {
 	/// Update the fee history cache with the given block and receipts.
-	pub async fn update_fee_history(&self, block: &Block, receipts: &[ReceiptInfo]) {
+	pub async fn update_fee_history(&self, block: &BlockV1, receipts: &[ReceiptInfo]) {
 		// Evenly spaced percentile list from 0.0 to 100.0 with a 0.5 resolution.
 		// This means we cache 200 percentile points.
 		// Later in request handling we will approximate by rounding percentiles that
@@ -164,7 +164,7 @@ impl FeeHistoryProvider {
 
 #[tokio::test]
 async fn test_update_fee_history() {
-	let block = Block {
+	let block = BlockV1 {
 		number: U256::from(200u64),
 		base_fee_per_gas: U256::from(1000u64),
 		gas_used: U256::from(600u64),

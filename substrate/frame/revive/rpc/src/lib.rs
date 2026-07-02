@@ -27,8 +27,8 @@ use jsonrpsee::{
 };
 use pallet_revive::evm::*;
 use pallet_revive_types::runtime_api::{
-	ExecutionTracerConfigV1, GenericTransactionV1, ReceiptGasInfoV1, StateOverrideSetV1, TraceV1,
-	TracerTypeV1,
+	BlockV1, ExecutionTracerConfigV1, GenericTransactionV1, ReceiptGasInfoV1, StateOverrideSetV1,
+	TraceV1, TracerTypeV1, TransactionInfoV1,
 };
 use sp_core::{H160, H256, U256};
 use sp_crypto_hashing::keccak_256;
@@ -343,7 +343,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		&self,
 		block_hash: H256,
 		hydrated_transactions: bool,
-	) -> RpcResult<Option<Block>> {
+	) -> RpcResult<Option<BlockV1>> {
 		let Some(block) = self.client.block_by_ethereum_hash(&block_hash).await? else {
 			return Ok(None);
 		};
@@ -388,7 +388,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		&self,
 		block_number: BlockNumberOrTag,
 		hydrated_transactions: bool,
-	) -> RpcResult<Option<Block>> {
+	) -> RpcResult<Option<BlockV1>> {
 		let Some(block) = self.client.block_by_number_or_tag(&block_number).await? else {
 			return Ok(None);
 		};
@@ -459,7 +459,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		&self,
 		block_hash: H256,
 		transaction_index: U256,
-	) -> RpcResult<Option<TransactionInfo>> {
+	) -> RpcResult<Option<TransactionInfoV1>> {
 		let Some(substrate_block_hash) = self.client.resolve_substrate_hash(&block_hash).await
 		else {
 			return Ok(None);
@@ -475,7 +475,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		&self,
 		block: BlockNumberOrTag,
 		transaction_index: U256,
-	) -> RpcResult<Option<TransactionInfo>> {
+	) -> RpcResult<Option<TransactionInfoV1>> {
 		let Some(block) = self.client.block_by_number_or_tag(&block).await? else {
 			return Ok(None);
 		};
@@ -486,7 +486,7 @@ impl EthRpcServer for EthRpcServerImpl {
 	async fn get_transaction_by_hash(
 		&self,
 		transaction_hash: H256,
-	) -> RpcResult<Option<TransactionInfo>> {
+	) -> RpcResult<Option<TransactionInfoV1>> {
 		let receipt = self.client.receipt(&transaction_hash).await;
 		let signed_tx = self.client.signed_tx_by_hash(&transaction_hash).await;
 		if let (Some(receipt), Some(signed_tx)) = (receipt, signed_tx) {
@@ -562,7 +562,7 @@ impl EthRpcServerImpl {
 		&self,
 		substrate_block_hash: H256,
 		transaction_index: U256,
-	) -> RpcResult<Option<TransactionInfo>> {
+	) -> RpcResult<Option<TransactionInfoV1>> {
 		let Some(receipt) = self
 			.client
 			.receipt_by_hash_and_index(

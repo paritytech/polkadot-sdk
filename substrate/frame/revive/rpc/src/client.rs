@@ -31,7 +31,7 @@ use futures::TryStreamExt;
 use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
 use pallet_revive::{
 	EthTransactError,
-	evm::{Block, H256, HashesOrTransactionInfos, TransactionSigned, U256, decode_revert_reason},
+	evm::{H256, TransactionSigned, U256, decode_revert_reason},
 };
 use pallet_revive_types::runtime_api::*;
 use runtime_api::RuntimeApi;
@@ -250,7 +250,7 @@ pub struct Client {
 	subscription_lock: Arc<Mutex<()>>,
 
 	/// Block subscription sender side.
-	block_subscription_tx: tokio::sync::broadcast::Sender<Block>,
+	block_subscription_tx: tokio::sync::broadcast::Sender<BlockV1>,
 	/// Log subscription sender side.
 	log_subscription_tx: tokio::sync::broadcast::Sender<Log>,
 	/// Whether archive mode is enabled
@@ -567,7 +567,7 @@ impl Client {
 	async fn process_block(
 		&self,
 		block: &SubstrateBlock,
-	) -> Result<(Block, Vec<ReceiptInfo>), ClientError> {
+	) -> Result<(BlockV1, Vec<ReceiptInfo>), ClientError> {
 		let block_number = block.number();
 		let hash = block.hash();
 
@@ -1044,7 +1044,7 @@ impl Client {
 		&self,
 		block: Arc<SubstrateBlock>,
 		hydrated_transactions: bool,
-	) -> Option<Block> {
+	) -> Option<BlockV1> {
 		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?}", block.hash());
 
 		if self
@@ -1081,7 +1081,7 @@ impl Client {
 						.map(|(signed_tx, receipt)| receipt.transaction_info(signed_tx))
 						.collect::<Vec<_>>();
 
-					eth_block.transactions = HashesOrTransactionInfos::TransactionInfos(tx_infos);
+					eth_block.transactions = HashesOrTransactionInfosV1::TransactionInfos(tx_infos);
 				}
 
 				Some(eth_block)
@@ -1156,7 +1156,7 @@ impl Client {
 	}
 
 	/// Gets the block subscription rx side of the channel.
-	pub fn get_block_subscription_rx(&self) -> tokio::sync::broadcast::Receiver<Block> {
+	pub fn get_block_subscription_rx(&self) -> tokio::sync::broadcast::Receiver<BlockV1> {
 		self.block_subscription_tx.subscribe()
 	}
 

@@ -43,7 +43,7 @@ use jsonrpsee::{
 };
 use pallet_revive::{
 	create1,
-	evm::{Account, Block, H256, HashesOrTransactionInfos, TransactionUnsigned, U256},
+	evm::{Account, H256, TransactionUnsigned, U256},
 	precompiles::alloy::{
 		self,
 		sol_types::{SolCall, SolConstructor, SolEvent, SolInterface},
@@ -51,9 +51,9 @@ use pallet_revive::{
 };
 use pallet_revive_fixtures::{Callee, Counter, TwoSlots};
 use pallet_revive_types::runtime_api::{
-	CallTracerConfigV1, CodeV1, GenericTransactionV1, TraceBlockInputPayloadV1,
-	TraceBlockInputPayloadV2, TraceBlockVersionedInputPayload, TraceBlockVersionedOutputPayload,
-	TraceV1, TraceV2, TracerTypeV1,
+	BlockV1, CallTracerConfigV1, CodeV1, GenericTransactionV1, HashesOrTransactionInfosV1,
+	TraceBlockInputPayloadV1, TraceBlockInputPayloadV2, TraceBlockVersionedInputPayload,
+	TraceBlockVersionedOutputPayload, TraceV1, TraceV2, TracerTypeV1,
 };
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -290,8 +290,8 @@ async fn verify_transactions_in_single_block(
 		.ok_or_else(|| anyhow!("Block {block_number} should exist"))?;
 
 	let block_tx_hashes = match &block.transactions {
-		HashesOrTransactionInfos::Hashes(hashes) => hashes.clone(),
-		HashesOrTransactionInfos::TransactionInfos(infos) => {
+		HashesOrTransactionInfosV1::Hashes(hashes) => hashes.clone(),
+		HashesOrTransactionInfosV1::TransactionInfos(infos) => {
 			infos.iter().map(|info| info.hash).collect()
 		},
 	};
@@ -715,7 +715,7 @@ async fn get_evm_block_from_storage(
 	node_client: &OnlineClient<SrcChainConfig>,
 	node_rpc_client: &RpcClient,
 	block_number: U256,
-) -> anyhow::Result<Block> {
+) -> anyhow::Result<BlockV1> {
 	let block_hash: H256 = node_rpc_client
 		.request("chain_getBlockHash", rpc_params![block_number])
 		.await
@@ -760,10 +760,7 @@ async fn test_evm_blocks_should_match() -> anyhow::Result<()> {
 		client.get_block_by_hash(block_hash, false).await?.expect("Block should exist");
 
 	assert!(
-		matches!(
-			evm_block_from_rpc_by_number.transactions,
-			pallet_revive::evm::HashesOrTransactionInfos::Hashes(_)
-		),
+		matches!(evm_block_from_rpc_by_number.transactions, HashesOrTransactionInfosV1::Hashes(_)),
 		"Block should not have hydrated transactions"
 	);
 
@@ -816,7 +813,7 @@ async fn test_evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
 	let signed_tx = signer_copy.sign_transaction(unsigned_tx);
 	let expected_tx_info = receipt.transaction_info(signed_tx);
 
-	let tx_info = if let HashesOrTransactionInfos::TransactionInfos(tx_infos) =
+	let tx_info = if let HashesOrTransactionInfosV1::TransactionInfos(tx_infos) =
 		evm_block_from_rpc_by_number.transactions
 	{
 		tx_infos[0].clone()

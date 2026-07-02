@@ -21,7 +21,7 @@ use crate::{
 	subxt_client::{self, SrcChainConfig},
 };
 use futures::{StreamExt, TryFutureExt, stream};
-use pallet_revive::evm::{Block as EthBlock, H160, U256};
+use pallet_revive::evm::{H160, U256};
 use pallet_revive_types::runtime_api::*;
 use sp_core::H256;
 use sp_timestamp::Timestamp;
@@ -287,7 +287,7 @@ impl RuntimeApi {
 	}
 
 	/// Get the current Ethereum block.
-	pub async fn eth_block(&self) -> Result<EthBlock, ClientError> {
+	pub async fn eth_block(&self) -> Result<BlockV1, ClientError> {
 		let payload = subxt_client::apis().revive_api().eth_block().unvalidated();
 		let block = self.0.call(payload).await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Ethereum block not found, err: {err:?}");

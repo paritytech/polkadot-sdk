@@ -45,7 +45,7 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	),
 	substitute_type(
 		path = "pallet_revive::evm::api::block::Block",
-		with = "::subxt::utils::Static<::pallet_revive::evm::Block>"
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockV1>"
 	),
 	substitute_type(
 		path = "pallet_revive::evm::block_hash::ReceiptGasInfo",
@@ -162,6 +162,66 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::DryRunConfigV1<Moment>>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::block::BlockV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::block::WithdrawalV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::WithdrawalV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::transaction::HashesOrTransactionInfosV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::HashesOrTransactionInfosV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::transaction::TransactionInfoV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TransactionInfoV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::transaction::TransactionSignedV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TransactionSignedV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::transaction::Transaction1559UnsignedV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::Transaction1559UnsignedV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::transaction::Transaction2930UnsignedV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::Transaction2930UnsignedV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::transaction::Transaction4844UnsignedV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::Transaction4844UnsignedV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::transaction::TransactionLegacyUnsignedV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TransactionLegacyUnsignedV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::transaction::Transaction7702UnsignedV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::Transaction7702UnsignedV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::transaction::Transaction7702SignedV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::Transaction7702SignedV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::transaction::Transaction1559SignedV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::Transaction1559SignedV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::transaction::Transaction2930SignedV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::Transaction2930SignedV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::transaction::Transaction4844SignedV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::Transaction4844SignedV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::transaction::TransactionLegacySignedV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TransactionLegacySignedV1>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::types::contract::ContractResultV1<R, Balance>",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ContractResultV1<R, Balance>>"
 	),
@@ -180,6 +240,22 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::types::contract::CodeV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CodeV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_block::BlockInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_block::BlockVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_block::BlockOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_block::BlockVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockVersionedOutputPayload>"
 	),
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::balance::BalanceInputPayloadV1",

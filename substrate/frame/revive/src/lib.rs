@@ -2913,7 +2913,8 @@ sp_api::decl_runtime_apis! {
 		/// Returns the current ETH block.
 		///
 		/// This is one block behind the substrate block.
-		fn eth_block() -> EthBlock;
+		#[deprecated(note = "Use the versioned equivalent `eth_block_versioned` if available on your runtime")]
+		fn eth_block() -> BlockV1;
 
 		/// Returns the ETH block hash for the given block number.
 		#[deprecated(note = "Use the versioned equivalent `eth_block_hash_versioned` if available on your runtime")]
@@ -3109,6 +3110,9 @@ sp_api::decl_runtime_apis! {
 		fn version_declarations() -> ReviveRuntimeApiVersionDeclarations;
 
 		#[api_version(2)]
+		fn eth_block_versioned(input: BlockVersionedInputPayload) -> BlockVersionedOutputPayload;
+
+		#[api_version(2)]
 		fn eth_block_hash_versioned(input: BlockHashVersionedInputPayload) -> BlockHashVersionedOutputPayload;
 
 		#[api_version(2)]
@@ -3245,8 +3249,14 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 			#[api_version(2)]
 			impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, __ReviveMacroMoment> for $Runtime
 			{
-				fn eth_block() -> $crate::EthBlock {
-					$crate::Pallet::<Self>::eth_block()
+				fn eth_block() -> $crate::pallet_revive_types::runtime_api::BlockV1 {
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = BlockVersionedInputPayload::from(BlockInputPayloadV1);
+					let output = Self::eth_block_versioned(input);
+					BlockOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.block
 				}
 
 				fn eth_block_hash(number: $crate::U256) -> Option<$crate::H256> {
@@ -3647,6 +3657,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					use $crate::pallet_revive_types::runtime_api::*;
 
 					ReviveRuntimeApiVersionDeclarations::new()
+						.insert("eth_block_versioned", 1)
 						.insert("eth_block_hash_versioned", 1)
 						.insert("eth_receipt_data_versioned", 1)
 						.insert("block_gas_limit_versioned", 1)
@@ -3665,6 +3676,27 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						.insert("address_versioned", 1)
 						.insert("trace_block_versioned", 2)
 						.insert("trace_tx_versioned", 2)
+				}
+
+				fn eth_block_versioned(
+					input: $crate::pallet_revive_types::runtime_api::BlockVersionedInputPayload
+				) -> $crate::pallet_revive_types::runtime_api::BlockVersionedOutputPayload {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use alloc::boxed::Box;
+
+					let (_input, output_wrapper): (
+						_,
+						Box<dyn Fn(BlockOutputPayload) -> BlockVersionedOutputPayload>,
+					) = match input {
+						BlockVersionedInputPayload::V1(payload) => (
+							BlockInputPayload::from(payload),
+							Box::new(|output| BlockVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let output = BlockOutputPayload { block: $crate::Pallet::<Self>::eth_block() };
+					output_wrapper(output)
 				}
 
 				fn eth_block_hash_versioned(

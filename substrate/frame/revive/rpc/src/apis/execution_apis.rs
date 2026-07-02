@@ -67,7 +67,7 @@ pub trait EthRpc {
 		&self,
 		block_hash: H256,
 		hydrated_transactions: bool,
-	) -> RpcResult<Option<Block>>;
+	) -> RpcResult<Option<BlockV1>>;
 
 	/// Returns information about a block by number.
 	#[method(name = "eth_getBlockByNumber")]
@@ -75,7 +75,7 @@ pub trait EthRpc {
 		&self,
 		block: BlockNumberOrTag,
 		hydrated_transactions: bool,
-	) -> RpcResult<Option<Block>>;
+	) -> RpcResult<Option<BlockV1>>;
 
 	/// Returns the number of transactions in a block from a block matching the given block hash.
 	#[method(name = "eth_getBlockTransactionCountByHash")]
@@ -114,7 +114,7 @@ pub trait EthRpc {
 		&self,
 		block_hash: H256,
 		transaction_index: U256,
-	) -> RpcResult<Option<TransactionInfo>>;
+	) -> RpcResult<Option<TransactionInfoV1>>;
 
 	/// Returns information about a transaction by block number and transaction index position.
 	#[method(name = "eth_getTransactionByBlockNumberAndIndex")]
@@ -122,14 +122,14 @@ pub trait EthRpc {
 		&self,
 		block: BlockNumberOrTag,
 		transaction_index: U256,
-	) -> RpcResult<Option<TransactionInfo>>;
+	) -> RpcResult<Option<TransactionInfoV1>>;
 
 	/// Returns the information about a transaction requested by transaction hash.
 	#[method(name = "eth_getTransactionByHash")]
 	async fn get_transaction_by_hash(
 		&self,
 		transaction_hash: H256,
-	) -> RpcResult<Option<TransactionInfo>>;
+	) -> RpcResult<Option<TransactionInfoV1>>;
 
 	/// Returns the number of transactions sent from an address.
 	#[method(name = "eth_getTransactionCount")]
