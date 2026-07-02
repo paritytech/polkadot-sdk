@@ -188,7 +188,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			nonce
 		} else {
 			client
-				.get_transaction_count(from, BlockTag::Latest.into())
+				.get_transaction_count(from, Default::default())
 				.await
 				.with_context(|| "Failed to fetch account nonce")?
 		};
