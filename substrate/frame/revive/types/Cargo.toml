@@ -49,4 +49,3 @@ std = [
 	"sp-weights/std",
 	"strum/std",
 ]
-
