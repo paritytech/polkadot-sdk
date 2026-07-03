@@ -2527,569 +2527,565 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#2377 id=2377 data-nosnippet>2377</a>		<span class="kw">for </span>(cert, candidate_bitfield) <span class="kw">in </span>assignments.into_iter() {
 <a href=#2378 id=2378 data-nosnippet>2378</a>			<span class="kw">let </span>cert_bitfield_bits = <span class="kw">match </span><span class="kw-2">&amp;</span>cert.cert.kind {
 <a href=#2379 id=2379 data-nosnippet>2379</a>				AssignmentCertKindV2::RelayVRFDelay { core_index } =&gt; core_index.<span class="number">0 </span><span class="kw">as </span>usize + <span class="number">1</span>,
-<a href=#2380 id=2380 data-nosnippet>2380</a>				<span class="comment">// We don't want to run the VRF yet, but the output is always bounded by `n_cores`.
-<a href=#2381 id=2381 data-nosnippet>2381</a>				// We assume `candidate_bitfield` length for the core bitfield and we just check
-<a href=#2382 id=2382 data-nosnippet>2382</a>				// against `MAX_BITFIELD_SIZE` later.
-<a href=#2383 id=2383 data-nosnippet>2383</a>				</span>AssignmentCertKindV2::RelayVRFModulo { .. } =&gt; candidate_bitfield.len(),
-<a href=#2384 id=2384 data-nosnippet>2384</a>				AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } =&gt; {
-<a href=#2385 id=2385 data-nosnippet>2385</a>					core_bitfield.len()
-<a href=#2386 id=2386 data-nosnippet>2386</a>				},
-<a href=#2387 id=2387 data-nosnippet>2387</a>			};
-<a href=#2388 id=2388 data-nosnippet>2388</a>
-<a href=#2389 id=2389 data-nosnippet>2389</a>			<span class="kw">let </span>candidate_bitfield_bits = candidate_bitfield.len();
-<a href=#2390 id=2390 data-nosnippet>2390</a>
-<a href=#2391 id=2391 data-nosnippet>2391</a>			<span class="comment">// Our bitfield has `Lsb0`.
-<a href=#2392 id=2392 data-nosnippet>2392</a>			</span><span class="kw">let </span>msb = candidate_bitfield_bits - <span class="number">1</span>;
-<a href=#2393 id=2393 data-nosnippet>2393</a>
-<a href=#2394 id=2394 data-nosnippet>2394</a>			<span class="comment">// Ensure bitfields length under hard limit.
-<a href=#2395 id=2395 data-nosnippet>2395</a>			</span><span class="kw">if </span>cert_bitfield_bits &gt; MAX_BITFIELD_SIZE
-<a href=#2396 id=2396 data-nosnippet>2396</a>				|| candidate_bitfield_bits &gt; MAX_BITFIELD_SIZE
-<a href=#2397 id=2397 data-nosnippet>2397</a>				<span class="comment">// Ensure minimum bitfield size - MSB needs to be one.
-<a href=#2398 id=2398 data-nosnippet>2398</a>				</span>|| !candidate_bitfield.bit_at(msb.as_bit_index())
-<a href=#2399 id=2399 data-nosnippet>2399</a>			{
-<a href=#2400 id=2400 data-nosnippet>2400</a>				<span class="comment">// Punish the peer for the invalid message.
-<a href=#2401 id=2401 data-nosnippet>2401</a>				</span>modify_reputation(<span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
-<a href=#2402 id=2402 data-nosnippet>2402</a>					.<span class="kw">await</span>;
-<a href=#2403 id=2403 data-nosnippet>2403</a>				<span class="kw">for </span>candidate_index <span class="kw">in </span>candidate_bitfield.iter_ones() {
-<a href=#2404 id=2404 data-nosnippet>2404</a>					<span class="macro">gum::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>cert.block_hash, <span class="question-mark">?</span>candidate_index, validator_index = <span class="question-mark">?</span>cert.validator, <span class="string">"Bad assignment v2, oversized bitfield"</span>);
-<a href=#2405 id=2405 data-nosnippet>2405</a>				}
-<a href=#2406 id=2406 data-nosnippet>2406</a>			} <span class="kw">else </span>{
-<a href=#2407 id=2407 data-nosnippet>2407</a>				sanitized_assignments.push((cert, candidate_bitfield))
-<a href=#2408 id=2408 data-nosnippet>2408</a>			}
-<a href=#2409 id=2409 data-nosnippet>2409</a>		}
-<a href=#2410 id=2410 data-nosnippet>2410</a>
-<a href=#2411 id=2411 data-nosnippet>2411</a>		sanitized_assignments
-<a href=#2412 id=2412 data-nosnippet>2412</a>	}
-<a href=#2413 id=2413 data-nosnippet>2413</a>
-<a href=#2414 id=2414 data-nosnippet>2414</a>	<span class="comment">// Filter out obviously invalid candidate indices.
-<a href=#2415 id=2415 data-nosnippet>2415</a>	</span><span class="kw">async fn </span>sanitize_v2_approvals(
-<a href=#2416 id=2416 data-nosnippet>2416</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#2417 id=2417 data-nosnippet>2417</a>		peer_id: PeerId,
-<a href=#2418 id=2418 data-nosnippet>2418</a>		sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
-<a href=#2419 id=2419 data-nosnippet>2419</a>		approval: Vec&lt;IndirectSignedApprovalVoteV2&gt;,
-<a href=#2420 id=2420 data-nosnippet>2420</a>	) -&gt; Vec&lt;IndirectSignedApprovalVoteV2&gt; {
-<a href=#2421 id=2421 data-nosnippet>2421</a>		<span class="kw">let </span><span class="kw-2">mut </span>sanitized_approvals = Vec::new();
-<a href=#2422 id=2422 data-nosnippet>2422</a>		<span class="kw">for </span>approval <span class="kw">in </span>approval.into_iter() {
-<a href=#2423 id=2423 data-nosnippet>2423</a>			<span class="kw">let </span>has_no_approved_candidates = approval.candidate_indices.first_one().is_none();
-<a href=#2424 id=2424 data-nosnippet>2424</a>			<span class="kw">if </span>approval.candidate_indices.len() <span class="kw">as </span>usize &gt; MAX_BITFIELD_SIZE ||
-<a href=#2425 id=2425 data-nosnippet>2425</a>				has_no_approved_candidates
-<a href=#2426 id=2426 data-nosnippet>2426</a>			{
-<a href=#2427 id=2427 data-nosnippet>2427</a>				<span class="comment">// Punish the peer for the invalid message.
-<a href=#2428 id=2428 data-nosnippet>2428</a>				</span>modify_reputation(
-<a href=#2429 id=2429 data-nosnippet>2429</a>					<span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation,
-<a href=#2430 id=2430 data-nosnippet>2430</a>					sender,
-<a href=#2431 id=2431 data-nosnippet>2431</a>					peer_id,
-<a href=#2432 id=2432 data-nosnippet>2432</a>					<span class="kw">if </span>has_no_approved_candidates {
-<a href=#2433 id=2433 data-nosnippet>2433</a>						COST_INVALID_MESSAGE
-<a href=#2434 id=2434 data-nosnippet>2434</a>					} <span class="kw">else </span>{
-<a href=#2435 id=2435 data-nosnippet>2435</a>						COST_OVERSIZED_BITFIELD
-<a href=#2436 id=2436 data-nosnippet>2436</a>					},
-<a href=#2437 id=2437 data-nosnippet>2437</a>				)
-<a href=#2438 id=2438 data-nosnippet>2438</a>				.<span class="kw">await</span>;
-<a href=#2439 id=2439 data-nosnippet>2439</a>				<span class="macro">gum::debug!</span>(
-<a href=#2440 id=2440 data-nosnippet>2440</a>					target: LOG_TARGET,
-<a href=#2441 id=2441 data-nosnippet>2441</a>					block_hash = <span class="question-mark">?</span>approval.block_hash,
-<a href=#2442 id=2442 data-nosnippet>2442</a>					candidate_indices_len = <span class="question-mark">?</span>approval.candidate_indices.len(),
-<a href=#2443 id=2443 data-nosnippet>2443</a>					<span class="string">"Bad approval v2, invalid candidate indices size"
-<a href=#2444 id=2444 data-nosnippet>2444</a>				</span>);
-<a href=#2445 id=2445 data-nosnippet>2445</a>			} <span class="kw">else </span>{
-<a href=#2446 id=2446 data-nosnippet>2446</a>				sanitized_approvals.push(approval)
-<a href=#2447 id=2447 data-nosnippet>2447</a>			}
-<a href=#2448 id=2448 data-nosnippet>2448</a>		}
+<a href=#2380 id=2380 data-nosnippet>2380</a>				AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } =&gt; {
+<a href=#2381 id=2381 data-nosnippet>2381</a>					core_bitfield.len()
+<a href=#2382 id=2382 data-nosnippet>2382</a>				},
+<a href=#2383 id=2383 data-nosnippet>2383</a>			};
+<a href=#2384 id=2384 data-nosnippet>2384</a>
+<a href=#2385 id=2385 data-nosnippet>2385</a>			<span class="kw">let </span>candidate_bitfield_bits = candidate_bitfield.len();
+<a href=#2386 id=2386 data-nosnippet>2386</a>
+<a href=#2387 id=2387 data-nosnippet>2387</a>			<span class="comment">// Our bitfield has `Lsb0`.
+<a href=#2388 id=2388 data-nosnippet>2388</a>			</span><span class="kw">let </span>msb = candidate_bitfield_bits - <span class="number">1</span>;
+<a href=#2389 id=2389 data-nosnippet>2389</a>
+<a href=#2390 id=2390 data-nosnippet>2390</a>			<span class="comment">// Ensure bitfields length under hard limit.
+<a href=#2391 id=2391 data-nosnippet>2391</a>			</span><span class="kw">if </span>cert_bitfield_bits &gt; MAX_BITFIELD_SIZE
+<a href=#2392 id=2392 data-nosnippet>2392</a>				|| candidate_bitfield_bits &gt; MAX_BITFIELD_SIZE
+<a href=#2393 id=2393 data-nosnippet>2393</a>				<span class="comment">// Ensure minimum bitfield size - MSB needs to be one.
+<a href=#2394 id=2394 data-nosnippet>2394</a>				</span>|| !candidate_bitfield.bit_at(msb.as_bit_index())
+<a href=#2395 id=2395 data-nosnippet>2395</a>			{
+<a href=#2396 id=2396 data-nosnippet>2396</a>				<span class="comment">// Punish the peer for the invalid message.
+<a href=#2397 id=2397 data-nosnippet>2397</a>				</span>modify_reputation(<span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
+<a href=#2398 id=2398 data-nosnippet>2398</a>					.<span class="kw">await</span>;
+<a href=#2399 id=2399 data-nosnippet>2399</a>				<span class="kw">for </span>candidate_index <span class="kw">in </span>candidate_bitfield.iter_ones() {
+<a href=#2400 id=2400 data-nosnippet>2400</a>					<span class="macro">gum::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>cert.block_hash, <span class="question-mark">?</span>candidate_index, validator_index = <span class="question-mark">?</span>cert.validator, <span class="string">"Bad assignment v2, oversized bitfield"</span>);
+<a href=#2401 id=2401 data-nosnippet>2401</a>				}
+<a href=#2402 id=2402 data-nosnippet>2402</a>			} <span class="kw">else </span>{
+<a href=#2403 id=2403 data-nosnippet>2403</a>				sanitized_assignments.push((cert, candidate_bitfield))
+<a href=#2404 id=2404 data-nosnippet>2404</a>			}
+<a href=#2405 id=2405 data-nosnippet>2405</a>		}
+<a href=#2406 id=2406 data-nosnippet>2406</a>
+<a href=#2407 id=2407 data-nosnippet>2407</a>		sanitized_assignments
+<a href=#2408 id=2408 data-nosnippet>2408</a>	}
+<a href=#2409 id=2409 data-nosnippet>2409</a>
+<a href=#2410 id=2410 data-nosnippet>2410</a>	<span class="comment">// Filter out obviously invalid candidate indices.
+<a href=#2411 id=2411 data-nosnippet>2411</a>	</span><span class="kw">async fn </span>sanitize_v2_approvals(
+<a href=#2412 id=2412 data-nosnippet>2412</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#2413 id=2413 data-nosnippet>2413</a>		peer_id: PeerId,
+<a href=#2414 id=2414 data-nosnippet>2414</a>		sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
+<a href=#2415 id=2415 data-nosnippet>2415</a>		approval: Vec&lt;IndirectSignedApprovalVoteV2&gt;,
+<a href=#2416 id=2416 data-nosnippet>2416</a>	) -&gt; Vec&lt;IndirectSignedApprovalVoteV2&gt; {
+<a href=#2417 id=2417 data-nosnippet>2417</a>		<span class="kw">let </span><span class="kw-2">mut </span>sanitized_approvals = Vec::new();
+<a href=#2418 id=2418 data-nosnippet>2418</a>		<span class="kw">for </span>approval <span class="kw">in </span>approval.into_iter() {
+<a href=#2419 id=2419 data-nosnippet>2419</a>			<span class="kw">let </span>has_no_approved_candidates = approval.candidate_indices.first_one().is_none();
+<a href=#2420 id=2420 data-nosnippet>2420</a>			<span class="kw">if </span>approval.candidate_indices.len() <span class="kw">as </span>usize &gt; MAX_BITFIELD_SIZE ||
+<a href=#2421 id=2421 data-nosnippet>2421</a>				has_no_approved_candidates
+<a href=#2422 id=2422 data-nosnippet>2422</a>			{
+<a href=#2423 id=2423 data-nosnippet>2423</a>				<span class="comment">// Punish the peer for the invalid message.
+<a href=#2424 id=2424 data-nosnippet>2424</a>				</span>modify_reputation(
+<a href=#2425 id=2425 data-nosnippet>2425</a>					<span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation,
+<a href=#2426 id=2426 data-nosnippet>2426</a>					sender,
+<a href=#2427 id=2427 data-nosnippet>2427</a>					peer_id,
+<a href=#2428 id=2428 data-nosnippet>2428</a>					<span class="kw">if </span>has_no_approved_candidates {
+<a href=#2429 id=2429 data-nosnippet>2429</a>						COST_INVALID_MESSAGE
+<a href=#2430 id=2430 data-nosnippet>2430</a>					} <span class="kw">else </span>{
+<a href=#2431 id=2431 data-nosnippet>2431</a>						COST_OVERSIZED_BITFIELD
+<a href=#2432 id=2432 data-nosnippet>2432</a>					},
+<a href=#2433 id=2433 data-nosnippet>2433</a>				)
+<a href=#2434 id=2434 data-nosnippet>2434</a>				.<span class="kw">await</span>;
+<a href=#2435 id=2435 data-nosnippet>2435</a>				<span class="macro">gum::debug!</span>(
+<a href=#2436 id=2436 data-nosnippet>2436</a>					target: LOG_TARGET,
+<a href=#2437 id=2437 data-nosnippet>2437</a>					block_hash = <span class="question-mark">?</span>approval.block_hash,
+<a href=#2438 id=2438 data-nosnippet>2438</a>					candidate_indices_len = <span class="question-mark">?</span>approval.candidate_indices.len(),
+<a href=#2439 id=2439 data-nosnippet>2439</a>					<span class="string">"Bad approval v2, invalid candidate indices size"
+<a href=#2440 id=2440 data-nosnippet>2440</a>				</span>);
+<a href=#2441 id=2441 data-nosnippet>2441</a>			} <span class="kw">else </span>{
+<a href=#2442 id=2442 data-nosnippet>2442</a>				sanitized_approvals.push(approval)
+<a href=#2443 id=2443 data-nosnippet>2443</a>			}
+<a href=#2444 id=2444 data-nosnippet>2444</a>		}
+<a href=#2445 id=2445 data-nosnippet>2445</a>
+<a href=#2446 id=2446 data-nosnippet>2446</a>		sanitized_approvals
+<a href=#2447 id=2447 data-nosnippet>2447</a>	}
+<a href=#2448 id=2448 data-nosnippet>2448</a>}
 <a href=#2449 id=2449 data-nosnippet>2449</a>
-<a href=#2450 id=2450 data-nosnippet>2450</a>		sanitized_approvals
-<a href=#2451 id=2451 data-nosnippet>2451</a>	}
-<a href=#2452 id=2452 data-nosnippet>2452</a>}
-<a href=#2453 id=2453 data-nosnippet>2453</a>
-<a href=#2454 id=2454 data-nosnippet>2454</a><span class="comment">// This adjusts the required routing of messages in blocks that pass the block filter
-<a href=#2455 id=2455 data-nosnippet>2455</a>// according to the modifier function given.
-<a href=#2456 id=2456 data-nosnippet>2456</a>//
-<a href=#2457 id=2457 data-nosnippet>2457</a>// The modifier accepts as inputs the current required-routing state, whether
-<a href=#2458 id=2458 data-nosnippet>2458</a>// the message is locally originating, and the validator index of the message issuer.
+<a href=#2450 id=2450 data-nosnippet>2450</a><span class="comment">// This adjusts the required routing of messages in blocks that pass the block filter
+<a href=#2451 id=2451 data-nosnippet>2451</a>// according to the modifier function given.
+<a href=#2452 id=2452 data-nosnippet>2452</a>//
+<a href=#2453 id=2453 data-nosnippet>2453</a>// The modifier accepts as inputs the current required-routing state, whether
+<a href=#2454 id=2454 data-nosnippet>2454</a>// the message is locally originating, and the validator index of the message issuer.
+<a href=#2455 id=2455 data-nosnippet>2455</a>//
+<a href=#2456 id=2456 data-nosnippet>2456</a>// Then, if the topology is known, this propagates messages to all peers in the required
+<a href=#2457 id=2457 data-nosnippet>2457</a>// routing set which are aware of the block. Peers which are unaware of the block
+<a href=#2458 id=2458 data-nosnippet>2458</a>// will have the message sent when it enters their view in `unify_with_peer`.
 <a href=#2459 id=2459 data-nosnippet>2459</a>//
-<a href=#2460 id=2460 data-nosnippet>2460</a>// Then, if the topology is known, this propagates messages to all peers in the required
-<a href=#2461 id=2461 data-nosnippet>2461</a>// routing set which are aware of the block. Peers which are unaware of the block
-<a href=#2462 id=2462 data-nosnippet>2462</a>// will have the message sent when it enters their view in `unify_with_peer`.
-<a href=#2463 id=2463 data-nosnippet>2463</a>//
-<a href=#2464 id=2464 data-nosnippet>2464</a>// Note that the required routing of a message can be modified even if the
-<a href=#2465 id=2465 data-nosnippet>2465</a>// topology is unknown yet.
-<a href=#2466 id=2466 data-nosnippet>2466</a></span><span class="attr">#[overseer::contextbounds(ApprovalDistribution, prefix = <span class="self">self</span>::overseer)]
-<a href=#2467 id=2467 data-nosnippet>2467</a></span><span class="kw">async fn </span>adjust_required_routing_and_propagate&lt;
-<a href=#2468 id=2468 data-nosnippet>2468</a>	N: overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
-<a href=#2469 id=2469 data-nosnippet>2469</a>	BlockFilter,
-<a href=#2470 id=2470 data-nosnippet>2470</a>	RoutingModifier,
-<a href=#2471 id=2471 data-nosnippet>2471</a>&gt;(
-<a href=#2472 id=2472 data-nosnippet>2472</a>	network_sender: <span class="kw-2">&amp;mut </span>N,
-<a href=#2473 id=2473 data-nosnippet>2473</a>	blocks: <span class="kw-2">&amp;mut </span>HashMap&lt;Hash, BlockEntry&gt;,
-<a href=#2474 id=2474 data-nosnippet>2474</a>	topologies: <span class="kw-2">&amp;</span>SessionGridTopologies,
-<a href=#2475 id=2475 data-nosnippet>2475</a>	block_filter: BlockFilter,
-<a href=#2476 id=2476 data-nosnippet>2476</a>	routing_modifier: RoutingModifier,
-<a href=#2477 id=2477 data-nosnippet>2477</a>	peer_views: <span class="kw-2">&amp;</span>HashMap&lt;PeerId, PeerEntry&gt;,
-<a href=#2478 id=2478 data-nosnippet>2478</a>) <span class="kw">where
-<a href=#2479 id=2479 data-nosnippet>2479</a>	</span>BlockFilter: Fn(<span class="kw-2">&amp;mut </span>BlockEntry) -&gt; bool,
-<a href=#2480 id=2480 data-nosnippet>2480</a>	RoutingModifier: Fn(<span class="kw-2">&amp;</span>RequiredRouting, bool, <span class="kw-2">&amp;</span>ValidatorIndex) -&gt; RequiredRouting,
-<a href=#2481 id=2481 data-nosnippet>2481</a>{
-<a href=#2482 id=2482 data-nosnippet>2482</a>	<span class="kw">let </span><span class="kw-2">mut </span>peer_assignments = HashMap::new();
-<a href=#2483 id=2483 data-nosnippet>2483</a>	<span class="kw">let </span><span class="kw-2">mut </span>peer_approvals = HashMap::new();
-<a href=#2484 id=2484 data-nosnippet>2484</a>
-<a href=#2485 id=2485 data-nosnippet>2485</a>	<span class="comment">// Iterate all blocks in the session, producing payloads
-<a href=#2486 id=2486 data-nosnippet>2486</a>	// for each connected peer.
-<a href=#2487 id=2487 data-nosnippet>2487</a>	</span><span class="kw">for </span>(block_hash, block_entry) <span class="kw">in </span>blocks {
-<a href=#2488 id=2488 data-nosnippet>2488</a>		<span class="kw">if </span>!block_filter(block_entry) {
-<a href=#2489 id=2489 data-nosnippet>2489</a>			<span class="kw">continue</span>;
-<a href=#2490 id=2490 data-nosnippet>2490</a>		}
-<a href=#2491 id=2491 data-nosnippet>2491</a>
-<a href=#2492 id=2492 data-nosnippet>2492</a>		<span class="kw">let </span>topology = <span class="kw">match </span>topologies.get_topology(block_entry.session) {
-<a href=#2493 id=2493 data-nosnippet>2493</a>			<span class="prelude-val">Some</span>(t) =&gt; t,
-<a href=#2494 id=2494 data-nosnippet>2494</a>			<span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
-<a href=#2495 id=2495 data-nosnippet>2495</a>		};
-<a href=#2496 id=2496 data-nosnippet>2496</a>
-<a href=#2497 id=2497 data-nosnippet>2497</a>		<span class="comment">// We just need to iterate the `approval_entries` of the block entry as these contain all
-<a href=#2498 id=2498 data-nosnippet>2498</a>		// assignments that also link all approval votes.
-<a href=#2499 id=2499 data-nosnippet>2499</a>		</span><span class="kw">for </span>approval_entry <span class="kw">in </span>block_entry.approval_entries.values_mut() {
-<a href=#2500 id=2500 data-nosnippet>2500</a>			<span class="kw">let </span>new_required_routing = routing_modifier(
-<a href=#2501 id=2501 data-nosnippet>2501</a>				<span class="kw-2">&amp;</span>approval_entry.routing_info().required_routing,
-<a href=#2502 id=2502 data-nosnippet>2502</a>				approval_entry.routing_info().local,
-<a href=#2503 id=2503 data-nosnippet>2503</a>				<span class="kw-2">&amp;</span>approval_entry.validator_index(),
-<a href=#2504 id=2504 data-nosnippet>2504</a>			);
-<a href=#2505 id=2505 data-nosnippet>2505</a>
-<a href=#2506 id=2506 data-nosnippet>2506</a>			approval_entry.update_required_routing(new_required_routing);
+<a href=#2460 id=2460 data-nosnippet>2460</a>// Note that the required routing of a message can be modified even if the
+<a href=#2461 id=2461 data-nosnippet>2461</a>// topology is unknown yet.
+<a href=#2462 id=2462 data-nosnippet>2462</a></span><span class="attr">#[overseer::contextbounds(ApprovalDistribution, prefix = <span class="self">self</span>::overseer)]
+<a href=#2463 id=2463 data-nosnippet>2463</a></span><span class="kw">async fn </span>adjust_required_routing_and_propagate&lt;
+<a href=#2464 id=2464 data-nosnippet>2464</a>	N: overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
+<a href=#2465 id=2465 data-nosnippet>2465</a>	BlockFilter,
+<a href=#2466 id=2466 data-nosnippet>2466</a>	RoutingModifier,
+<a href=#2467 id=2467 data-nosnippet>2467</a>&gt;(
+<a href=#2468 id=2468 data-nosnippet>2468</a>	network_sender: <span class="kw-2">&amp;mut </span>N,
+<a href=#2469 id=2469 data-nosnippet>2469</a>	blocks: <span class="kw-2">&amp;mut </span>HashMap&lt;Hash, BlockEntry&gt;,
+<a href=#2470 id=2470 data-nosnippet>2470</a>	topologies: <span class="kw-2">&amp;</span>SessionGridTopologies,
+<a href=#2471 id=2471 data-nosnippet>2471</a>	block_filter: BlockFilter,
+<a href=#2472 id=2472 data-nosnippet>2472</a>	routing_modifier: RoutingModifier,
+<a href=#2473 id=2473 data-nosnippet>2473</a>	peer_views: <span class="kw-2">&amp;</span>HashMap&lt;PeerId, PeerEntry&gt;,
+<a href=#2474 id=2474 data-nosnippet>2474</a>) <span class="kw">where
+<a href=#2475 id=2475 data-nosnippet>2475</a>	</span>BlockFilter: Fn(<span class="kw-2">&amp;mut </span>BlockEntry) -&gt; bool,
+<a href=#2476 id=2476 data-nosnippet>2476</a>	RoutingModifier: Fn(<span class="kw-2">&amp;</span>RequiredRouting, bool, <span class="kw-2">&amp;</span>ValidatorIndex) -&gt; RequiredRouting,
+<a href=#2477 id=2477 data-nosnippet>2477</a>{
+<a href=#2478 id=2478 data-nosnippet>2478</a>	<span class="kw">let </span><span class="kw-2">mut </span>peer_assignments = HashMap::new();
+<a href=#2479 id=2479 data-nosnippet>2479</a>	<span class="kw">let </span><span class="kw-2">mut </span>peer_approvals = HashMap::new();
+<a href=#2480 id=2480 data-nosnippet>2480</a>
+<a href=#2481 id=2481 data-nosnippet>2481</a>	<span class="comment">// Iterate all blocks in the session, producing payloads
+<a href=#2482 id=2482 data-nosnippet>2482</a>	// for each connected peer.
+<a href=#2483 id=2483 data-nosnippet>2483</a>	</span><span class="kw">for </span>(block_hash, block_entry) <span class="kw">in </span>blocks {
+<a href=#2484 id=2484 data-nosnippet>2484</a>		<span class="kw">if </span>!block_filter(block_entry) {
+<a href=#2485 id=2485 data-nosnippet>2485</a>			<span class="kw">continue</span>;
+<a href=#2486 id=2486 data-nosnippet>2486</a>		}
+<a href=#2487 id=2487 data-nosnippet>2487</a>
+<a href=#2488 id=2488 data-nosnippet>2488</a>		<span class="kw">let </span>topology = <span class="kw">match </span>topologies.get_topology(block_entry.session) {
+<a href=#2489 id=2489 data-nosnippet>2489</a>			<span class="prelude-val">Some</span>(t) =&gt; t,
+<a href=#2490 id=2490 data-nosnippet>2490</a>			<span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
+<a href=#2491 id=2491 data-nosnippet>2491</a>		};
+<a href=#2492 id=2492 data-nosnippet>2492</a>
+<a href=#2493 id=2493 data-nosnippet>2493</a>		<span class="comment">// We just need to iterate the `approval_entries` of the block entry as these contain all
+<a href=#2494 id=2494 data-nosnippet>2494</a>		// assignments that also link all approval votes.
+<a href=#2495 id=2495 data-nosnippet>2495</a>		</span><span class="kw">for </span>approval_entry <span class="kw">in </span>block_entry.approval_entries.values_mut() {
+<a href=#2496 id=2496 data-nosnippet>2496</a>			<span class="kw">let </span>new_required_routing = routing_modifier(
+<a href=#2497 id=2497 data-nosnippet>2497</a>				<span class="kw-2">&amp;</span>approval_entry.routing_info().required_routing,
+<a href=#2498 id=2498 data-nosnippet>2498</a>				approval_entry.routing_info().local,
+<a href=#2499 id=2499 data-nosnippet>2499</a>				<span class="kw-2">&amp;</span>approval_entry.validator_index(),
+<a href=#2500 id=2500 data-nosnippet>2500</a>			);
+<a href=#2501 id=2501 data-nosnippet>2501</a>
+<a href=#2502 id=2502 data-nosnippet>2502</a>			approval_entry.update_required_routing(new_required_routing);
+<a href=#2503 id=2503 data-nosnippet>2503</a>
+<a href=#2504 id=2504 data-nosnippet>2504</a>			<span class="kw">if </span>approval_entry.routing_info().required_routing.is_empty() {
+<a href=#2505 id=2505 data-nosnippet>2505</a>				<span class="kw">continue</span>;
+<a href=#2506 id=2506 data-nosnippet>2506</a>			}
 <a href=#2507 id=2507 data-nosnippet>2507</a>
-<a href=#2508 id=2508 data-nosnippet>2508</a>			<span class="kw">if </span>approval_entry.routing_info().required_routing.is_empty() {
-<a href=#2509 id=2509 data-nosnippet>2509</a>				<span class="kw">continue</span>;
-<a href=#2510 id=2510 data-nosnippet>2510</a>			}
-<a href=#2511 id=2511 data-nosnippet>2511</a>
-<a href=#2512 id=2512 data-nosnippet>2512</a>			<span class="kw">let </span>assignment_message = approval_entry.assignment();
-<a href=#2513 id=2513 data-nosnippet>2513</a>			<span class="kw">let </span>approval_messages = approval_entry.approvals();
-<a href=#2514 id=2514 data-nosnippet>2514</a>			<span class="kw">let </span>(assignment_knowledge, message_kind) =
-<a href=#2515 id=2515 data-nosnippet>2515</a>				approval_entry.create_assignment_knowledge(<span class="kw-2">*</span>block_hash);
-<a href=#2516 id=2516 data-nosnippet>2516</a>
-<a href=#2517 id=2517 data-nosnippet>2517</a>			<span class="kw">for </span>(peer, peer_knowledge) <span class="kw">in </span><span class="kw-2">&amp;mut </span>block_entry.known_by {
-<a href=#2518 id=2518 data-nosnippet>2518</a>				<span class="kw">if </span>!topology
-<a href=#2519 id=2519 data-nosnippet>2519</a>					.local_grid_neighbors()
-<a href=#2520 id=2520 data-nosnippet>2520</a>					.route_to_peer(approval_entry.routing_info().required_routing, peer)
-<a href=#2521 id=2521 data-nosnippet>2521</a>				{
-<a href=#2522 id=2522 data-nosnippet>2522</a>					<span class="kw">continue</span>;
-<a href=#2523 id=2523 data-nosnippet>2523</a>				}
-<a href=#2524 id=2524 data-nosnippet>2524</a>
-<a href=#2525 id=2525 data-nosnippet>2525</a>				<span class="comment">// Only send stuff a peer doesn't know in the context of a relay chain block.
-<a href=#2526 id=2526 data-nosnippet>2526</a>				</span><span class="kw">if </span>!peer_knowledge.contains(<span class="kw-2">&amp;</span>assignment_knowledge, message_kind) {
-<a href=#2527 id=2527 data-nosnippet>2527</a>					peer_knowledge.sent.insert(assignment_knowledge.clone(), message_kind);
-<a href=#2528 id=2528 data-nosnippet>2528</a>					peer_assignments
-<a href=#2529 id=2529 data-nosnippet>2529</a>						.entry(<span class="kw-2">*</span>peer)
-<a href=#2530 id=2530 data-nosnippet>2530</a>						.or_insert_with(Vec::new)
-<a href=#2531 id=2531 data-nosnippet>2531</a>						.push(assignment_message.clone());
-<a href=#2532 id=2532 data-nosnippet>2532</a>				}
+<a href=#2508 id=2508 data-nosnippet>2508</a>			<span class="kw">let </span>assignment_message = approval_entry.assignment();
+<a href=#2509 id=2509 data-nosnippet>2509</a>			<span class="kw">let </span>approval_messages = approval_entry.approvals();
+<a href=#2510 id=2510 data-nosnippet>2510</a>			<span class="kw">let </span>(assignment_knowledge, message_kind) =
+<a href=#2511 id=2511 data-nosnippet>2511</a>				approval_entry.create_assignment_knowledge(<span class="kw-2">*</span>block_hash);
+<a href=#2512 id=2512 data-nosnippet>2512</a>
+<a href=#2513 id=2513 data-nosnippet>2513</a>			<span class="kw">for </span>(peer, peer_knowledge) <span class="kw">in </span><span class="kw-2">&amp;mut </span>block_entry.known_by {
+<a href=#2514 id=2514 data-nosnippet>2514</a>				<span class="kw">if </span>!topology
+<a href=#2515 id=2515 data-nosnippet>2515</a>					.local_grid_neighbors()
+<a href=#2516 id=2516 data-nosnippet>2516</a>					.route_to_peer(approval_entry.routing_info().required_routing, peer)
+<a href=#2517 id=2517 data-nosnippet>2517</a>				{
+<a href=#2518 id=2518 data-nosnippet>2518</a>					<span class="kw">continue</span>;
+<a href=#2519 id=2519 data-nosnippet>2519</a>				}
+<a href=#2520 id=2520 data-nosnippet>2520</a>
+<a href=#2521 id=2521 data-nosnippet>2521</a>				<span class="comment">// Only send stuff a peer doesn't know in the context of a relay chain block.
+<a href=#2522 id=2522 data-nosnippet>2522</a>				</span><span class="kw">if </span>!peer_knowledge.contains(<span class="kw-2">&amp;</span>assignment_knowledge, message_kind) {
+<a href=#2523 id=2523 data-nosnippet>2523</a>					peer_knowledge.sent.insert(assignment_knowledge.clone(), message_kind);
+<a href=#2524 id=2524 data-nosnippet>2524</a>					peer_assignments
+<a href=#2525 id=2525 data-nosnippet>2525</a>						.entry(<span class="kw-2">*</span>peer)
+<a href=#2526 id=2526 data-nosnippet>2526</a>						.or_insert_with(Vec::new)
+<a href=#2527 id=2527 data-nosnippet>2527</a>						.push(assignment_message.clone());
+<a href=#2528 id=2528 data-nosnippet>2528</a>				}
+<a href=#2529 id=2529 data-nosnippet>2529</a>
+<a href=#2530 id=2530 data-nosnippet>2530</a>				<span class="comment">// Filter approval votes.
+<a href=#2531 id=2531 data-nosnippet>2531</a>				</span><span class="kw">for </span>approval_message <span class="kw">in </span><span class="kw-2">&amp;</span>approval_messages {
+<a href=#2532 id=2532 data-nosnippet>2532</a>					<span class="kw">let </span>approval_knowledge = PeerKnowledge::generate_approval_key(approval_message);
 <a href=#2533 id=2533 data-nosnippet>2533</a>
-<a href=#2534 id=2534 data-nosnippet>2534</a>				<span class="comment">// Filter approval votes.
-<a href=#2535 id=2535 data-nosnippet>2535</a>				</span><span class="kw">for </span>approval_message <span class="kw">in </span><span class="kw-2">&amp;</span>approval_messages {
-<a href=#2536 id=2536 data-nosnippet>2536</a>					<span class="kw">let </span>approval_knowledge = PeerKnowledge::generate_approval_key(approval_message);
-<a href=#2537 id=2537 data-nosnippet>2537</a>
-<a href=#2538 id=2538 data-nosnippet>2538</a>					<span class="kw">if </span>!peer_knowledge.contains(<span class="kw-2">&amp;</span>approval_knowledge.<span class="number">0</span>, approval_knowledge.<span class="number">1</span>) {
-<a href=#2539 id=2539 data-nosnippet>2539</a>						peer_knowledge.sent.insert(approval_knowledge.<span class="number">0</span>, approval_knowledge.<span class="number">1</span>);
-<a href=#2540 id=2540 data-nosnippet>2540</a>						peer_approvals
-<a href=#2541 id=2541 data-nosnippet>2541</a>							.entry(<span class="kw-2">*</span>peer)
-<a href=#2542 id=2542 data-nosnippet>2542</a>							.or_insert_with(Vec::new)
-<a href=#2543 id=2543 data-nosnippet>2543</a>							.push(approval_message.clone());
-<a href=#2544 id=2544 data-nosnippet>2544</a>					}
-<a href=#2545 id=2545 data-nosnippet>2545</a>				}
-<a href=#2546 id=2546 data-nosnippet>2546</a>			}
-<a href=#2547 id=2547 data-nosnippet>2547</a>		}
-<a href=#2548 id=2548 data-nosnippet>2548</a>	}
-<a href=#2549 id=2549 data-nosnippet>2549</a>
-<a href=#2550 id=2550 data-nosnippet>2550</a>	<span class="comment">// Send messages in accumulated packets, assignments preceding approvals.
-<a href=#2551 id=2551 data-nosnippet>2551</a>	</span><span class="kw">for </span>(peer, assignments_packet) <span class="kw">in </span>peer_assignments {
-<a href=#2552 id=2552 data-nosnippet>2552</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(peer_view) = peer_views.get(<span class="kw-2">&amp;</span>peer) {
-<a href=#2553 id=2553 data-nosnippet>2553</a>			send_assignments_batched(
-<a href=#2554 id=2554 data-nosnippet>2554</a>				network_sender,
-<a href=#2555 id=2555 data-nosnippet>2555</a>				assignments_packet,
-<a href=#2556 id=2556 data-nosnippet>2556</a>				<span class="kw-2">&amp;</span><span class="macro">vec!</span>[(peer, peer_view.version)],
-<a href=#2557 id=2557 data-nosnippet>2557</a>			)
-<a href=#2558 id=2558 data-nosnippet>2558</a>			.<span class="kw">await</span>;
-<a href=#2559 id=2559 data-nosnippet>2559</a>		} <span class="kw">else </span>{
-<a href=#2560 id=2560 data-nosnippet>2560</a>			<span class="comment">// This should never happen.
-<a href=#2561 id=2561 data-nosnippet>2561</a>			</span><span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="string">"Unknown protocol version for peer"</span>,);
-<a href=#2562 id=2562 data-nosnippet>2562</a>		}
-<a href=#2563 id=2563 data-nosnippet>2563</a>	}
-<a href=#2564 id=2564 data-nosnippet>2564</a>
-<a href=#2565 id=2565 data-nosnippet>2565</a>	<span class="kw">for </span>(peer, approvals_packet) <span class="kw">in </span>peer_approvals {
-<a href=#2566 id=2566 data-nosnippet>2566</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(peer_view) = peer_views.get(<span class="kw-2">&amp;</span>peer) {
-<a href=#2567 id=2567 data-nosnippet>2567</a>			send_approvals_batched(
-<a href=#2568 id=2568 data-nosnippet>2568</a>				network_sender,
-<a href=#2569 id=2569 data-nosnippet>2569</a>				approvals_packet,
-<a href=#2570 id=2570 data-nosnippet>2570</a>				<span class="kw-2">&amp;</span><span class="macro">vec!</span>[(peer, peer_view.version)],
-<a href=#2571 id=2571 data-nosnippet>2571</a>			)
-<a href=#2572 id=2572 data-nosnippet>2572</a>			.<span class="kw">await</span>;
-<a href=#2573 id=2573 data-nosnippet>2573</a>		} <span class="kw">else </span>{
-<a href=#2574 id=2574 data-nosnippet>2574</a>			<span class="comment">// This should never happen.
-<a href=#2575 id=2575 data-nosnippet>2575</a>			</span><span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="string">"Unknown protocol version for peer"</span>,);
-<a href=#2576 id=2576 data-nosnippet>2576</a>		}
-<a href=#2577 id=2577 data-nosnippet>2577</a>	}
-<a href=#2578 id=2578 data-nosnippet>2578</a>}
-<a href=#2579 id=2579 data-nosnippet>2579</a>
-<a href=#2580 id=2580 data-nosnippet>2580</a><span class="doccomment">/// Modify the reputation of a peer based on its behavior.
-<a href=#2581 id=2581 data-nosnippet>2581</a></span><span class="kw">async fn </span>modify_reputation(
-<a href=#2582 id=2582 data-nosnippet>2582</a>	reputation: <span class="kw-2">&amp;mut </span>ReputationAggregator,
-<a href=#2583 id=2583 data-nosnippet>2583</a>	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
-<a href=#2584 id=2584 data-nosnippet>2584</a>	peer_id: PeerId,
-<a href=#2585 id=2585 data-nosnippet>2585</a>	rep: Rep,
-<a href=#2586 id=2586 data-nosnippet>2586</a>) {
-<a href=#2587 id=2587 data-nosnippet>2587</a>	<span class="macro">gum::trace!</span>(
-<a href=#2588 id=2588 data-nosnippet>2588</a>		target: LOG_TARGET,
-<a href=#2589 id=2589 data-nosnippet>2589</a>		reputation = <span class="question-mark">?</span>rep,
-<a href=#2590 id=2590 data-nosnippet>2590</a>		<span class="question-mark">?</span>peer_id,
-<a href=#2591 id=2591 data-nosnippet>2591</a>		<span class="string">"Reputation change for peer"</span>,
-<a href=#2592 id=2592 data-nosnippet>2592</a>	);
-<a href=#2593 id=2593 data-nosnippet>2593</a>	reputation.modify(sender, peer_id, rep).<span class="kw">await</span>;
-<a href=#2594 id=2594 data-nosnippet>2594</a>}
-<a href=#2595 id=2595 data-nosnippet>2595</a>
-<a href=#2596 id=2596 data-nosnippet>2596</a><span class="attr">#[overseer::contextbounds(ApprovalDistribution, prefix = <span class="self">self</span>::overseer)]
-<a href=#2597 id=2597 data-nosnippet>2597</a></span><span class="kw">impl </span>ApprovalDistribution {
-<a href=#2598 id=2598 data-nosnippet>2598</a>	<span class="doccomment">/// Create a new instance of the [`ApprovalDistribution`] subsystem.
-<a href=#2599 id=2599 data-nosnippet>2599</a>	</span><span class="kw">pub fn </span>new(
-<a href=#2600 id=2600 data-nosnippet>2600</a>		metrics: Metrics,
-<a href=#2601 id=2601 data-nosnippet>2601</a>		slot_duration_millis: u64,
-<a href=#2602 id=2602 data-nosnippet>2602</a>		assignment_criteria: Arc&lt;<span class="kw">dyn </span>AssignmentCriteria + Send + Sync&gt;,
-<a href=#2603 id=2603 data-nosnippet>2603</a>	) -&gt; <span class="self">Self </span>{
-<a href=#2604 id=2604 data-nosnippet>2604</a>		<span class="self">Self</span>::new_with_clock(
-<a href=#2605 id=2605 data-nosnippet>2605</a>			metrics,
-<a href=#2606 id=2606 data-nosnippet>2606</a>			slot_duration_millis,
-<a href=#2607 id=2607 data-nosnippet>2607</a>			Arc::new(SystemClock),
-<a href=#2608 id=2608 data-nosnippet>2608</a>			assignment_criteria,
-<a href=#2609 id=2609 data-nosnippet>2609</a>		)
-<a href=#2610 id=2610 data-nosnippet>2610</a>	}
-<a href=#2611 id=2611 data-nosnippet>2611</a>
-<a href=#2612 id=2612 data-nosnippet>2612</a>	<span class="doccomment">/// Create a new instance of the [`ApprovalDistribution`] subsystem, with a custom clock.
-<a href=#2613 id=2613 data-nosnippet>2613</a>	</span><span class="kw">pub fn </span>new_with_clock(
-<a href=#2614 id=2614 data-nosnippet>2614</a>		metrics: Metrics,
-<a href=#2615 id=2615 data-nosnippet>2615</a>		slot_duration_millis: u64,
-<a href=#2616 id=2616 data-nosnippet>2616</a>		clock: Arc&lt;<span class="kw">dyn </span>Clock + Send + Sync&gt;,
-<a href=#2617 id=2617 data-nosnippet>2617</a>		assignment_criteria: Arc&lt;<span class="kw">dyn </span>AssignmentCriteria + Send + Sync&gt;,
-<a href=#2618 id=2618 data-nosnippet>2618</a>	) -&gt; <span class="self">Self </span>{
-<a href=#2619 id=2619 data-nosnippet>2619</a>		<span class="self">Self </span>{ metrics, slot_duration_millis, clock, assignment_criteria }
-<a href=#2620 id=2620 data-nosnippet>2620</a>	}
-<a href=#2621 id=2621 data-nosnippet>2621</a>
-<a href=#2622 id=2622 data-nosnippet>2622</a>	<span class="kw">async fn </span>run&lt;Context&gt;(<span class="self">self</span>, ctx: Context) {
-<a href=#2623 id=2623 data-nosnippet>2623</a>		<span class="kw">let </span><span class="kw-2">mut </span>state =
-<a href=#2624 id=2624 data-nosnippet>2624</a>			State { slot_duration_millis: <span class="self">self</span>.slot_duration_millis, ..Default::default() };
-<a href=#2625 id=2625 data-nosnippet>2625</a>		<span class="comment">// According to the docs of `rand`, this is a ChaCha12 RNG in practice
-<a href=#2626 id=2626 data-nosnippet>2626</a>		// and will always be chosen for strong performance and security properties.
-<a href=#2627 id=2627 data-nosnippet>2627</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rngs::StdRng::from_entropy();
-<a href=#2628 id=2628 data-nosnippet>2628</a>		<span class="kw">let </span><span class="kw-2">mut </span>session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
-<a href=#2629 id=2629 data-nosnippet>2629</a>			keystore: <span class="prelude-val">None</span>,
-<a href=#2630 id=2630 data-nosnippet>2630</a>			session_cache_lru_size: DISPUTE_WINDOW.get(),
-<a href=#2631 id=2631 data-nosnippet>2631</a>		});
-<a href=#2632 id=2632 data-nosnippet>2632</a>
-<a href=#2633 id=2633 data-nosnippet>2633</a>		<span class="self">self</span>.run_inner(
-<a href=#2634 id=2634 data-nosnippet>2634</a>			ctx,
-<a href=#2635 id=2635 data-nosnippet>2635</a>			<span class="kw-2">&amp;mut </span>state,
-<a href=#2636 id=2636 data-nosnippet>2636</a>			REPUTATION_CHANGE_INTERVAL,
-<a href=#2637 id=2637 data-nosnippet>2637</a>			<span class="kw-2">&amp;mut </span>rng,
-<a href=#2638 id=2638 data-nosnippet>2638</a>			<span class="kw-2">&amp;mut </span>session_info_provider,
-<a href=#2639 id=2639 data-nosnippet>2639</a>		)
-<a href=#2640 id=2640 data-nosnippet>2640</a>		.<span class="kw">await
-<a href=#2641 id=2641 data-nosnippet>2641</a>	</span>}
-<a href=#2642 id=2642 data-nosnippet>2642</a>
-<a href=#2643 id=2643 data-nosnippet>2643</a>	<span class="doccomment">/// Used for testing.
-<a href=#2644 id=2644 data-nosnippet>2644</a>	</span><span class="kw">async fn </span>run_inner&lt;Context&gt;(
-<a href=#2645 id=2645 data-nosnippet>2645</a>		<span class="self">self</span>,
-<a href=#2646 id=2646 data-nosnippet>2646</a>		<span class="kw-2">mut </span>ctx: Context,
-<a href=#2647 id=2647 data-nosnippet>2647</a>		state: <span class="kw-2">&amp;mut </span>State,
-<a href=#2648 id=2648 data-nosnippet>2648</a>		reputation_interval: Duration,
-<a href=#2649 id=2649 data-nosnippet>2649</a>		rng: <span class="kw-2">&amp;mut </span>(<span class="kw">impl </span>CryptoRng + Rng),
-<a href=#2650 id=2650 data-nosnippet>2650</a>		session_info_provider: <span class="kw-2">&amp;mut </span>RuntimeInfo,
-<a href=#2651 id=2651 data-nosnippet>2651</a>	) {
-<a href=#2652 id=2652 data-nosnippet>2652</a>		<span class="kw">let </span>new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
-<a href=#2653 id=2653 data-nosnippet>2653</a>		<span class="kw">let </span><span class="kw-2">mut </span>reputation_delay = new_reputation_delay();
-<a href=#2654 id=2654 data-nosnippet>2654</a>		<span class="kw">let </span><span class="kw-2">mut </span>approval_voting_sender = ctx.sender().clone();
-<a href=#2655 id=2655 data-nosnippet>2655</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_sender = ctx.sender().clone();
-<a href=#2656 id=2656 data-nosnippet>2656</a>		<span class="kw">let </span><span class="kw-2">mut </span>runtime_api_sender = ctx.sender().clone();
-<a href=#2657 id=2657 data-nosnippet>2657</a>
-<a href=#2658 id=2658 data-nosnippet>2658</a>		<span class="kw">loop </span>{
-<a href=#2659 id=2659 data-nosnippet>2659</a>			<span class="macro">select!</span> {
-<a href=#2660 id=2660 data-nosnippet>2660</a>				<span class="kw">_ </span>= reputation_delay =&gt; {
-<a href=#2661 id=2661 data-nosnippet>2661</a>					state.reputation.send(ctx.sender()).<span class="kw">await</span>;
-<a href=#2662 id=2662 data-nosnippet>2662</a>					reputation_delay = new_reputation_delay();
-<a href=#2663 id=2663 data-nosnippet>2663</a>				},
-<a href=#2664 id=2664 data-nosnippet>2664</a>				message = ctx.recv().fuse() =&gt; {
-<a href=#2665 id=2665 data-nosnippet>2665</a>					<span class="kw">let </span>message = <span class="kw">match </span>message {
-<a href=#2666 id=2666 data-nosnippet>2666</a>						<span class="prelude-val">Ok</span>(message) =&gt; message,
-<a href=#2667 id=2667 data-nosnippet>2667</a>						<span class="prelude-val">Err</span>(e) =&gt; {
-<a href=#2668 id=2668 data-nosnippet>2668</a>							<span class="macro">gum::debug!</span>(target: LOG_TARGET, err = <span class="question-mark">?</span>e, <span class="string">"Failed to receive a message from Overseer, exiting"</span>);
-<a href=#2669 id=2669 data-nosnippet>2669</a>							<span class="kw">return
-<a href=#2670 id=2670 data-nosnippet>2670</a>						</span>},
-<a href=#2671 id=2671 data-nosnippet>2671</a>					};
+<a href=#2534 id=2534 data-nosnippet>2534</a>					<span class="kw">if </span>!peer_knowledge.contains(<span class="kw-2">&amp;</span>approval_knowledge.<span class="number">0</span>, approval_knowledge.<span class="number">1</span>) {
+<a href=#2535 id=2535 data-nosnippet>2535</a>						peer_knowledge.sent.insert(approval_knowledge.<span class="number">0</span>, approval_knowledge.<span class="number">1</span>);
+<a href=#2536 id=2536 data-nosnippet>2536</a>						peer_approvals
+<a href=#2537 id=2537 data-nosnippet>2537</a>							.entry(<span class="kw-2">*</span>peer)
+<a href=#2538 id=2538 data-nosnippet>2538</a>							.or_insert_with(Vec::new)
+<a href=#2539 id=2539 data-nosnippet>2539</a>							.push(approval_message.clone());
+<a href=#2540 id=2540 data-nosnippet>2540</a>					}
+<a href=#2541 id=2541 data-nosnippet>2541</a>				}
+<a href=#2542 id=2542 data-nosnippet>2542</a>			}
+<a href=#2543 id=2543 data-nosnippet>2543</a>		}
+<a href=#2544 id=2544 data-nosnippet>2544</a>	}
+<a href=#2545 id=2545 data-nosnippet>2545</a>
+<a href=#2546 id=2546 data-nosnippet>2546</a>	<span class="comment">// Send messages in accumulated packets, assignments preceding approvals.
+<a href=#2547 id=2547 data-nosnippet>2547</a>	</span><span class="kw">for </span>(peer, assignments_packet) <span class="kw">in </span>peer_assignments {
+<a href=#2548 id=2548 data-nosnippet>2548</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(peer_view) = peer_views.get(<span class="kw-2">&amp;</span>peer) {
+<a href=#2549 id=2549 data-nosnippet>2549</a>			send_assignments_batched(
+<a href=#2550 id=2550 data-nosnippet>2550</a>				network_sender,
+<a href=#2551 id=2551 data-nosnippet>2551</a>				assignments_packet,
+<a href=#2552 id=2552 data-nosnippet>2552</a>				<span class="kw-2">&amp;</span><span class="macro">vec!</span>[(peer, peer_view.version)],
+<a href=#2553 id=2553 data-nosnippet>2553</a>			)
+<a href=#2554 id=2554 data-nosnippet>2554</a>			.<span class="kw">await</span>;
+<a href=#2555 id=2555 data-nosnippet>2555</a>		} <span class="kw">else </span>{
+<a href=#2556 id=2556 data-nosnippet>2556</a>			<span class="comment">// This should never happen.
+<a href=#2557 id=2557 data-nosnippet>2557</a>			</span><span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="string">"Unknown protocol version for peer"</span>,);
+<a href=#2558 id=2558 data-nosnippet>2558</a>		}
+<a href=#2559 id=2559 data-nosnippet>2559</a>	}
+<a href=#2560 id=2560 data-nosnippet>2560</a>
+<a href=#2561 id=2561 data-nosnippet>2561</a>	<span class="kw">for </span>(peer, approvals_packet) <span class="kw">in </span>peer_approvals {
+<a href=#2562 id=2562 data-nosnippet>2562</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(peer_view) = peer_views.get(<span class="kw-2">&amp;</span>peer) {
+<a href=#2563 id=2563 data-nosnippet>2563</a>			send_approvals_batched(
+<a href=#2564 id=2564 data-nosnippet>2564</a>				network_sender,
+<a href=#2565 id=2565 data-nosnippet>2565</a>				approvals_packet,
+<a href=#2566 id=2566 data-nosnippet>2566</a>				<span class="kw-2">&amp;</span><span class="macro">vec!</span>[(peer, peer_view.version)],
+<a href=#2567 id=2567 data-nosnippet>2567</a>			)
+<a href=#2568 id=2568 data-nosnippet>2568</a>			.<span class="kw">await</span>;
+<a href=#2569 id=2569 data-nosnippet>2569</a>		} <span class="kw">else </span>{
+<a href=#2570 id=2570 data-nosnippet>2570</a>			<span class="comment">// This should never happen.
+<a href=#2571 id=2571 data-nosnippet>2571</a>			</span><span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="string">"Unknown protocol version for peer"</span>,);
+<a href=#2572 id=2572 data-nosnippet>2572</a>		}
+<a href=#2573 id=2573 data-nosnippet>2573</a>	}
+<a href=#2574 id=2574 data-nosnippet>2574</a>}
+<a href=#2575 id=2575 data-nosnippet>2575</a>
+<a href=#2576 id=2576 data-nosnippet>2576</a><span class="doccomment">/// Modify the reputation of a peer based on its behavior.
+<a href=#2577 id=2577 data-nosnippet>2577</a></span><span class="kw">async fn </span>modify_reputation(
+<a href=#2578 id=2578 data-nosnippet>2578</a>	reputation: <span class="kw-2">&amp;mut </span>ReputationAggregator,
+<a href=#2579 id=2579 data-nosnippet>2579</a>	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
+<a href=#2580 id=2580 data-nosnippet>2580</a>	peer_id: PeerId,
+<a href=#2581 id=2581 data-nosnippet>2581</a>	rep: Rep,
+<a href=#2582 id=2582 data-nosnippet>2582</a>) {
+<a href=#2583 id=2583 data-nosnippet>2583</a>	<span class="macro">gum::trace!</span>(
+<a href=#2584 id=2584 data-nosnippet>2584</a>		target: LOG_TARGET,
+<a href=#2585 id=2585 data-nosnippet>2585</a>		reputation = <span class="question-mark">?</span>rep,
+<a href=#2586 id=2586 data-nosnippet>2586</a>		<span class="question-mark">?</span>peer_id,
+<a href=#2587 id=2587 data-nosnippet>2587</a>		<span class="string">"Reputation change for peer"</span>,
+<a href=#2588 id=2588 data-nosnippet>2588</a>	);
+<a href=#2589 id=2589 data-nosnippet>2589</a>	reputation.modify(sender, peer_id, rep).<span class="kw">await</span>;
+<a href=#2590 id=2590 data-nosnippet>2590</a>}
+<a href=#2591 id=2591 data-nosnippet>2591</a>
+<a href=#2592 id=2592 data-nosnippet>2592</a><span class="attr">#[overseer::contextbounds(ApprovalDistribution, prefix = <span class="self">self</span>::overseer)]
+<a href=#2593 id=2593 data-nosnippet>2593</a></span><span class="kw">impl </span>ApprovalDistribution {
+<a href=#2594 id=2594 data-nosnippet>2594</a>	<span class="doccomment">/// Create a new instance of the [`ApprovalDistribution`] subsystem.
+<a href=#2595 id=2595 data-nosnippet>2595</a>	</span><span class="kw">pub fn </span>new(
+<a href=#2596 id=2596 data-nosnippet>2596</a>		metrics: Metrics,
+<a href=#2597 id=2597 data-nosnippet>2597</a>		slot_duration_millis: u64,
+<a href=#2598 id=2598 data-nosnippet>2598</a>		assignment_criteria: Arc&lt;<span class="kw">dyn </span>AssignmentCriteria + Send + Sync&gt;,
+<a href=#2599 id=2599 data-nosnippet>2599</a>	) -&gt; <span class="self">Self </span>{
+<a href=#2600 id=2600 data-nosnippet>2600</a>		<span class="self">Self</span>::new_with_clock(
+<a href=#2601 id=2601 data-nosnippet>2601</a>			metrics,
+<a href=#2602 id=2602 data-nosnippet>2602</a>			slot_duration_millis,
+<a href=#2603 id=2603 data-nosnippet>2603</a>			Arc::new(SystemClock),
+<a href=#2604 id=2604 data-nosnippet>2604</a>			assignment_criteria,
+<a href=#2605 id=2605 data-nosnippet>2605</a>		)
+<a href=#2606 id=2606 data-nosnippet>2606</a>	}
+<a href=#2607 id=2607 data-nosnippet>2607</a>
+<a href=#2608 id=2608 data-nosnippet>2608</a>	<span class="doccomment">/// Create a new instance of the [`ApprovalDistribution`] subsystem, with a custom clock.
+<a href=#2609 id=2609 data-nosnippet>2609</a>	</span><span class="kw">pub fn </span>new_with_clock(
+<a href=#2610 id=2610 data-nosnippet>2610</a>		metrics: Metrics,
+<a href=#2611 id=2611 data-nosnippet>2611</a>		slot_duration_millis: u64,
+<a href=#2612 id=2612 data-nosnippet>2612</a>		clock: Arc&lt;<span class="kw">dyn </span>Clock + Send + Sync&gt;,
+<a href=#2613 id=2613 data-nosnippet>2613</a>		assignment_criteria: Arc&lt;<span class="kw">dyn </span>AssignmentCriteria + Send + Sync&gt;,
+<a href=#2614 id=2614 data-nosnippet>2614</a>	) -&gt; <span class="self">Self </span>{
+<a href=#2615 id=2615 data-nosnippet>2615</a>		<span class="self">Self </span>{ metrics, slot_duration_millis, clock, assignment_criteria }
+<a href=#2616 id=2616 data-nosnippet>2616</a>	}
+<a href=#2617 id=2617 data-nosnippet>2617</a>
+<a href=#2618 id=2618 data-nosnippet>2618</a>	<span class="kw">async fn </span>run&lt;Context&gt;(<span class="self">self</span>, ctx: Context) {
+<a href=#2619 id=2619 data-nosnippet>2619</a>		<span class="kw">let </span><span class="kw-2">mut </span>state =
+<a href=#2620 id=2620 data-nosnippet>2620</a>			State { slot_duration_millis: <span class="self">self</span>.slot_duration_millis, ..Default::default() };
+<a href=#2621 id=2621 data-nosnippet>2621</a>		<span class="comment">// According to the docs of `rand`, this is a ChaCha12 RNG in practice
+<a href=#2622 id=2622 data-nosnippet>2622</a>		// and will always be chosen for strong performance and security properties.
+<a href=#2623 id=2623 data-nosnippet>2623</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rngs::StdRng::from_entropy();
+<a href=#2624 id=2624 data-nosnippet>2624</a>		<span class="kw">let </span><span class="kw-2">mut </span>session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
+<a href=#2625 id=2625 data-nosnippet>2625</a>			keystore: <span class="prelude-val">None</span>,
+<a href=#2626 id=2626 data-nosnippet>2626</a>			session_cache_lru_size: DISPUTE_WINDOW.get(),
+<a href=#2627 id=2627 data-nosnippet>2627</a>		});
+<a href=#2628 id=2628 data-nosnippet>2628</a>
+<a href=#2629 id=2629 data-nosnippet>2629</a>		<span class="self">self</span>.run_inner(
+<a href=#2630 id=2630 data-nosnippet>2630</a>			ctx,
+<a href=#2631 id=2631 data-nosnippet>2631</a>			<span class="kw-2">&amp;mut </span>state,
+<a href=#2632 id=2632 data-nosnippet>2632</a>			REPUTATION_CHANGE_INTERVAL,
+<a href=#2633 id=2633 data-nosnippet>2633</a>			<span class="kw-2">&amp;mut </span>rng,
+<a href=#2634 id=2634 data-nosnippet>2634</a>			<span class="kw-2">&amp;mut </span>session_info_provider,
+<a href=#2635 id=2635 data-nosnippet>2635</a>		)
+<a href=#2636 id=2636 data-nosnippet>2636</a>		.<span class="kw">await
+<a href=#2637 id=2637 data-nosnippet>2637</a>	</span>}
+<a href=#2638 id=2638 data-nosnippet>2638</a>
+<a href=#2639 id=2639 data-nosnippet>2639</a>	<span class="doccomment">/// Used for testing.
+<a href=#2640 id=2640 data-nosnippet>2640</a>	</span><span class="kw">async fn </span>run_inner&lt;Context&gt;(
+<a href=#2641 id=2641 data-nosnippet>2641</a>		<span class="self">self</span>,
+<a href=#2642 id=2642 data-nosnippet>2642</a>		<span class="kw-2">mut </span>ctx: Context,
+<a href=#2643 id=2643 data-nosnippet>2643</a>		state: <span class="kw-2">&amp;mut </span>State,
+<a href=#2644 id=2644 data-nosnippet>2644</a>		reputation_interval: Duration,
+<a href=#2645 id=2645 data-nosnippet>2645</a>		rng: <span class="kw-2">&amp;mut </span>(<span class="kw">impl </span>CryptoRng + Rng),
+<a href=#2646 id=2646 data-nosnippet>2646</a>		session_info_provider: <span class="kw-2">&amp;mut </span>RuntimeInfo,
+<a href=#2647 id=2647 data-nosnippet>2647</a>	) {
+<a href=#2648 id=2648 data-nosnippet>2648</a>		<span class="kw">let </span>new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
+<a href=#2649 id=2649 data-nosnippet>2649</a>		<span class="kw">let </span><span class="kw-2">mut </span>reputation_delay = new_reputation_delay();
+<a href=#2650 id=2650 data-nosnippet>2650</a>		<span class="kw">let </span><span class="kw-2">mut </span>approval_voting_sender = ctx.sender().clone();
+<a href=#2651 id=2651 data-nosnippet>2651</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_sender = ctx.sender().clone();
+<a href=#2652 id=2652 data-nosnippet>2652</a>		<span class="kw">let </span><span class="kw-2">mut </span>runtime_api_sender = ctx.sender().clone();
+<a href=#2653 id=2653 data-nosnippet>2653</a>
+<a href=#2654 id=2654 data-nosnippet>2654</a>		<span class="kw">loop </span>{
+<a href=#2655 id=2655 data-nosnippet>2655</a>			<span class="macro">select!</span> {
+<a href=#2656 id=2656 data-nosnippet>2656</a>				<span class="kw">_ </span>= reputation_delay =&gt; {
+<a href=#2657 id=2657 data-nosnippet>2657</a>					state.reputation.send(ctx.sender()).<span class="kw">await</span>;
+<a href=#2658 id=2658 data-nosnippet>2658</a>					reputation_delay = new_reputation_delay();
+<a href=#2659 id=2659 data-nosnippet>2659</a>				},
+<a href=#2660 id=2660 data-nosnippet>2660</a>				message = ctx.recv().fuse() =&gt; {
+<a href=#2661 id=2661 data-nosnippet>2661</a>					<span class="kw">let </span>message = <span class="kw">match </span>message {
+<a href=#2662 id=2662 data-nosnippet>2662</a>						<span class="prelude-val">Ok</span>(message) =&gt; message,
+<a href=#2663 id=2663 data-nosnippet>2663</a>						<span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#2664 id=2664 data-nosnippet>2664</a>							<span class="macro">gum::debug!</span>(target: LOG_TARGET, err = <span class="question-mark">?</span>e, <span class="string">"Failed to receive a message from Overseer, exiting"</span>);
+<a href=#2665 id=2665 data-nosnippet>2665</a>							<span class="kw">return
+<a href=#2666 id=2666 data-nosnippet>2666</a>						</span>},
+<a href=#2667 id=2667 data-nosnippet>2667</a>					};
+<a href=#2668 id=2668 data-nosnippet>2668</a>
+<a href=#2669 id=2669 data-nosnippet>2669</a>					<span class="kw">if </span><span class="self">self</span>.handle_from_orchestra(message, <span class="kw-2">&amp;mut </span>approval_voting_sender, <span class="kw-2">&amp;mut </span>network_sender, <span class="kw-2">&amp;mut </span>runtime_api_sender, state, rng, session_info_provider).<span class="kw">await </span>{
+<a href=#2670 id=2670 data-nosnippet>2670</a>						<span class="kw">return</span>;
+<a href=#2671 id=2671 data-nosnippet>2671</a>					}
 <a href=#2672 id=2672 data-nosnippet>2672</a>
-<a href=#2673 id=2673 data-nosnippet>2673</a>					<span class="kw">if </span><span class="self">self</span>.handle_from_orchestra(message, <span class="kw-2">&amp;mut </span>approval_voting_sender, <span class="kw-2">&amp;mut </span>network_sender, <span class="kw-2">&amp;mut </span>runtime_api_sender, state, rng, session_info_provider).<span class="kw">await </span>{
-<a href=#2674 id=2674 data-nosnippet>2674</a>						<span class="kw">return</span>;
-<a href=#2675 id=2675 data-nosnippet>2675</a>					}
-<a href=#2676 id=2676 data-nosnippet>2676</a>
-<a href=#2677 id=2677 data-nosnippet>2677</a>				},
-<a href=#2678 id=2678 data-nosnippet>2678</a>			}
-<a href=#2679 id=2679 data-nosnippet>2679</a>		}
-<a href=#2680 id=2680 data-nosnippet>2680</a>	}
-<a href=#2681 id=2681 data-nosnippet>2681</a>
-<a href=#2682 id=2682 data-nosnippet>2682</a>	<span class="doccomment">/// Handles a from orchestra message received by approval distribution subystem.
-<a href=#2683 id=2683 data-nosnippet>2683</a>	///
-<a href=#2684 id=2684 data-nosnippet>2684</a>	/// Returns `true` if the subsystem should be stopped.
-<a href=#2685 id=2685 data-nosnippet>2685</a>	</span><span class="kw">pub async fn </span>handle_from_orchestra&lt;
-<a href=#2686 id=2686 data-nosnippet>2686</a>		N: overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
-<a href=#2687 id=2687 data-nosnippet>2687</a>		A: overseer::SubsystemSender&lt;ApprovalVotingMessage&gt;,
-<a href=#2688 id=2688 data-nosnippet>2688</a>		RA: overseer::SubsystemSender&lt;RuntimeApiMessage&gt;,
-<a href=#2689 id=2689 data-nosnippet>2689</a>	&gt;(
-<a href=#2690 id=2690 data-nosnippet>2690</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#2691 id=2691 data-nosnippet>2691</a>		message: FromOrchestra&lt;ApprovalDistributionMessage&gt;,
-<a href=#2692 id=2692 data-nosnippet>2692</a>		approval_voting_sender: <span class="kw-2">&amp;mut </span>A,
-<a href=#2693 id=2693 data-nosnippet>2693</a>		network_sender: <span class="kw-2">&amp;mut </span>N,
-<a href=#2694 id=2694 data-nosnippet>2694</a>		runtime_api_sender: <span class="kw-2">&amp;mut </span>RA,
-<a href=#2695 id=2695 data-nosnippet>2695</a>		state: <span class="kw-2">&amp;mut </span>State,
-<a href=#2696 id=2696 data-nosnippet>2696</a>		rng: <span class="kw-2">&amp;mut </span>(<span class="kw">impl </span>CryptoRng + Rng),
-<a href=#2697 id=2697 data-nosnippet>2697</a>		session_info_provider: <span class="kw-2">&amp;mut </span>RuntimeInfo,
-<a href=#2698 id=2698 data-nosnippet>2698</a>	) -&gt; bool {
-<a href=#2699 id=2699 data-nosnippet>2699</a>		<span class="kw">match </span>message {
-<a href=#2700 id=2700 data-nosnippet>2700</a>			FromOrchestra::Communication { msg } =&gt; {
-<a href=#2701 id=2701 data-nosnippet>2701</a>				<span class="self">Self</span>::handle_incoming(
-<a href=#2702 id=2702 data-nosnippet>2702</a>					approval_voting_sender,
-<a href=#2703 id=2703 data-nosnippet>2703</a>					network_sender,
-<a href=#2704 id=2704 data-nosnippet>2704</a>					runtime_api_sender,
-<a href=#2705 id=2705 data-nosnippet>2705</a>					state,
-<a href=#2706 id=2706 data-nosnippet>2706</a>					msg,
-<a href=#2707 id=2707 data-nosnippet>2707</a>					<span class="kw-2">&amp;</span><span class="self">self</span>.metrics,
-<a href=#2708 id=2708 data-nosnippet>2708</a>					rng,
-<a href=#2709 id=2709 data-nosnippet>2709</a>					<span class="self">self</span>.assignment_criteria.as_ref(),
-<a href=#2710 id=2710 data-nosnippet>2710</a>					<span class="self">self</span>.clock.as_ref(),
-<a href=#2711 id=2711 data-nosnippet>2711</a>					session_info_provider,
-<a href=#2712 id=2712 data-nosnippet>2712</a>				)
-<a href=#2713 id=2713 data-nosnippet>2713</a>				.<span class="kw">await
-<a href=#2714 id=2714 data-nosnippet>2714</a>			</span>},
-<a href=#2715 id=2715 data-nosnippet>2715</a>			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_update)) =&gt; {
-<a href=#2716 id=2716 data-nosnippet>2716</a>				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"active leaves signal (ignored)"</span>);
-<a href=#2717 id=2717 data-nosnippet>2717</a>				<span class="comment">// the relay chain blocks relevant to the approval subsystems
-<a href=#2718 id=2718 data-nosnippet>2718</a>				// are those that are available, but not finalized yet
-<a href=#2719 id=2719 data-nosnippet>2719</a>				// activated and deactivated heads hence are irrelevant to this subsystem, other
-<a href=#2720 id=2720 data-nosnippet>2720</a>				// than for tracing purposes.
-<a href=#2721 id=2721 data-nosnippet>2721</a>			</span>},
-<a href=#2722 id=2722 data-nosnippet>2722</a>			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, number)) =&gt; {
-<a href=#2723 id=2723 data-nosnippet>2723</a>				<span class="macro">gum::trace!</span>(target: LOG_TARGET, number = %number, <span class="string">"finalized signal"</span>);
-<a href=#2724 id=2724 data-nosnippet>2724</a>				state.handle_block_finalized(network_sender, <span class="kw-2">&amp;</span><span class="self">self</span>.metrics, number).<span class="kw">await</span>;
-<a href=#2725 id=2725 data-nosnippet>2725</a>			},
-<a href=#2726 id=2726 data-nosnippet>2726</a>			FromOrchestra::Signal(OverseerSignal::Conclude) =&gt; <span class="kw">return </span><span class="bool-val">true</span>,
-<a href=#2727 id=2727 data-nosnippet>2727</a>		}
-<a href=#2728 id=2728 data-nosnippet>2728</a>		<span class="bool-val">false
-<a href=#2729 id=2729 data-nosnippet>2729</a>	</span>}
-<a href=#2730 id=2730 data-nosnippet>2730</a>
-<a href=#2731 id=2731 data-nosnippet>2731</a>	<span class="kw">async fn </span>handle_incoming&lt;
-<a href=#2732 id=2732 data-nosnippet>2732</a>		N: overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
-<a href=#2733 id=2733 data-nosnippet>2733</a>		A: overseer::SubsystemSender&lt;ApprovalVotingMessage&gt;,
-<a href=#2734 id=2734 data-nosnippet>2734</a>		RA: overseer::SubsystemSender&lt;RuntimeApiMessage&gt;,
-<a href=#2735 id=2735 data-nosnippet>2735</a>	&gt;(
-<a href=#2736 id=2736 data-nosnippet>2736</a>		approval_voting_sender: <span class="kw-2">&amp;mut </span>A,
-<a href=#2737 id=2737 data-nosnippet>2737</a>		network_sender: <span class="kw-2">&amp;mut </span>N,
-<a href=#2738 id=2738 data-nosnippet>2738</a>		runtime_api_sender: <span class="kw-2">&amp;mut </span>RA,
-<a href=#2739 id=2739 data-nosnippet>2739</a>		state: <span class="kw-2">&amp;mut </span>State,
-<a href=#2740 id=2740 data-nosnippet>2740</a>		msg: ApprovalDistributionMessage,
-<a href=#2741 id=2741 data-nosnippet>2741</a>		metrics: <span class="kw-2">&amp;</span>Metrics,
-<a href=#2742 id=2742 data-nosnippet>2742</a>		rng: <span class="kw-2">&amp;mut </span>(<span class="kw">impl </span>CryptoRng + Rng),
-<a href=#2743 id=2743 data-nosnippet>2743</a>		assignment_criteria: <span class="kw-2">&amp;</span>(<span class="kw">impl </span>AssignmentCriteria + <span class="question-mark">?</span>Sized),
-<a href=#2744 id=2744 data-nosnippet>2744</a>		clock: <span class="kw-2">&amp;</span>(<span class="kw">impl </span>Clock + <span class="question-mark">?</span>Sized),
-<a href=#2745 id=2745 data-nosnippet>2745</a>		session_info_provider: <span class="kw-2">&amp;mut </span>RuntimeInfo,
-<a href=#2746 id=2746 data-nosnippet>2746</a>	) {
-<a href=#2747 id=2747 data-nosnippet>2747</a>		<span class="kw">match </span>msg {
-<a href=#2748 id=2748 data-nosnippet>2748</a>			ApprovalDistributionMessage::NetworkBridgeUpdate(event) =&gt; {
-<a href=#2749 id=2749 data-nosnippet>2749</a>				state
-<a href=#2750 id=2750 data-nosnippet>2750</a>					.handle_network_msg(
-<a href=#2751 id=2751 data-nosnippet>2751</a>						approval_voting_sender,
-<a href=#2752 id=2752 data-nosnippet>2752</a>						network_sender,
-<a href=#2753 id=2753 data-nosnippet>2753</a>						runtime_api_sender,
-<a href=#2754 id=2754 data-nosnippet>2754</a>						metrics,
-<a href=#2755 id=2755 data-nosnippet>2755</a>						event,
-<a href=#2756 id=2756 data-nosnippet>2756</a>						rng,
-<a href=#2757 id=2757 data-nosnippet>2757</a>						assignment_criteria,
-<a href=#2758 id=2758 data-nosnippet>2758</a>						clock,
-<a href=#2759 id=2759 data-nosnippet>2759</a>						session_info_provider,
-<a href=#2760 id=2760 data-nosnippet>2760</a>					)
-<a href=#2761 id=2761 data-nosnippet>2761</a>					.<span class="kw">await</span>;
-<a href=#2762 id=2762 data-nosnippet>2762</a>			},
-<a href=#2763 id=2763 data-nosnippet>2763</a>			ApprovalDistributionMessage::NewBlocks(metas) =&gt; {
-<a href=#2764 id=2764 data-nosnippet>2764</a>				state
-<a href=#2765 id=2765 data-nosnippet>2765</a>					.handle_new_blocks(
-<a href=#2766 id=2766 data-nosnippet>2766</a>						approval_voting_sender,
-<a href=#2767 id=2767 data-nosnippet>2767</a>						network_sender,
-<a href=#2768 id=2768 data-nosnippet>2768</a>						runtime_api_sender,
-<a href=#2769 id=2769 data-nosnippet>2769</a>						metrics,
-<a href=#2770 id=2770 data-nosnippet>2770</a>						metas,
-<a href=#2771 id=2771 data-nosnippet>2771</a>						rng,
-<a href=#2772 id=2772 data-nosnippet>2772</a>						assignment_criteria,
-<a href=#2773 id=2773 data-nosnippet>2773</a>						clock,
-<a href=#2774 id=2774 data-nosnippet>2774</a>						session_info_provider,
-<a href=#2775 id=2775 data-nosnippet>2775</a>					)
-<a href=#2776 id=2776 data-nosnippet>2776</a>					.<span class="kw">await</span>;
-<a href=#2777 id=2777 data-nosnippet>2777</a>			},
-<a href=#2778 id=2778 data-nosnippet>2778</a>			ApprovalDistributionMessage::DistributeAssignment(cert, candidate_indices) =&gt; {
-<a href=#2779 id=2779 data-nosnippet>2779</a>				<span class="macro">gum::debug!</span>(
-<a href=#2780 id=2780 data-nosnippet>2780</a>					target: LOG_TARGET,
-<a href=#2781 id=2781 data-nosnippet>2781</a>					<span class="question-mark">?</span>candidate_indices,
-<a href=#2782 id=2782 data-nosnippet>2782</a>					block_hash = <span class="question-mark">?</span>cert.block_hash,
-<a href=#2783 id=2783 data-nosnippet>2783</a>					assignment_kind = <span class="question-mark">?</span>cert.cert.kind,
-<a href=#2784 id=2784 data-nosnippet>2784</a>					<span class="string">"Distributing our assignment on candidates"</span>,
-<a href=#2785 id=2785 data-nosnippet>2785</a>				);
-<a href=#2786 id=2786 data-nosnippet>2786</a>
-<a href=#2787 id=2787 data-nosnippet>2787</a>				state
-<a href=#2788 id=2788 data-nosnippet>2788</a>					.import_and_circulate_assignment(
-<a href=#2789 id=2789 data-nosnippet>2789</a>						approval_voting_sender,
-<a href=#2790 id=2790 data-nosnippet>2790</a>						network_sender,
-<a href=#2791 id=2791 data-nosnippet>2791</a>						runtime_api_sender,
-<a href=#2792 id=2792 data-nosnippet>2792</a>						<span class="kw-2">&amp;</span>metrics,
-<a href=#2793 id=2793 data-nosnippet>2793</a>						MessageSource::Local,
-<a href=#2794 id=2794 data-nosnippet>2794</a>						cert,
-<a href=#2795 id=2795 data-nosnippet>2795</a>						candidate_indices,
-<a href=#2796 id=2796 data-nosnippet>2796</a>						rng,
-<a href=#2797 id=2797 data-nosnippet>2797</a>						assignment_criteria,
-<a href=#2798 id=2798 data-nosnippet>2798</a>						clock,
-<a href=#2799 id=2799 data-nosnippet>2799</a>						session_info_provider,
-<a href=#2800 id=2800 data-nosnippet>2800</a>					)
-<a href=#2801 id=2801 data-nosnippet>2801</a>					.<span class="kw">await</span>;
-<a href=#2802 id=2802 data-nosnippet>2802</a>			},
-<a href=#2803 id=2803 data-nosnippet>2803</a>			ApprovalDistributionMessage::DistributeApproval(vote) =&gt; {
-<a href=#2804 id=2804 data-nosnippet>2804</a>				<span class="macro">gum::debug!</span>(
-<a href=#2805 id=2805 data-nosnippet>2805</a>					target: LOG_TARGET,
-<a href=#2806 id=2806 data-nosnippet>2806</a>					<span class="string">"Distributing our approval vote on candidate (block={}, index={:?})"</span>,
-<a href=#2807 id=2807 data-nosnippet>2807</a>					vote.block_hash,
-<a href=#2808 id=2808 data-nosnippet>2808</a>					vote.candidate_indices,
-<a href=#2809 id=2809 data-nosnippet>2809</a>				);
-<a href=#2810 id=2810 data-nosnippet>2810</a>
-<a href=#2811 id=2811 data-nosnippet>2811</a>				state
-<a href=#2812 id=2812 data-nosnippet>2812</a>					.import_and_circulate_approval(
-<a href=#2813 id=2813 data-nosnippet>2813</a>						approval_voting_sender,
-<a href=#2814 id=2814 data-nosnippet>2814</a>						network_sender,
-<a href=#2815 id=2815 data-nosnippet>2815</a>						runtime_api_sender,
-<a href=#2816 id=2816 data-nosnippet>2816</a>						metrics,
-<a href=#2817 id=2817 data-nosnippet>2817</a>						MessageSource::Local,
-<a href=#2818 id=2818 data-nosnippet>2818</a>						vote,
-<a href=#2819 id=2819 data-nosnippet>2819</a>						session_info_provider,
-<a href=#2820 id=2820 data-nosnippet>2820</a>					)
-<a href=#2821 id=2821 data-nosnippet>2821</a>					.<span class="kw">await</span>;
-<a href=#2822 id=2822 data-nosnippet>2822</a>			},
-<a href=#2823 id=2823 data-nosnippet>2823</a>			ApprovalDistributionMessage::GetApprovalSignatures(indices, tx) =&gt; {
-<a href=#2824 id=2824 data-nosnippet>2824</a>				<span class="kw">let </span>sigs = state.get_approval_signatures(indices);
-<a href=#2825 id=2825 data-nosnippet>2825</a>				<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = tx.send(sigs) {
-<a href=#2826 id=2826 data-nosnippet>2826</a>					<span class="macro">gum::debug!</span>(
-<a href=#2827 id=2827 data-nosnippet>2827</a>						target: LOG_TARGET,
-<a href=#2828 id=2828 data-nosnippet>2828</a>						<span class="string">"Sending back approval signatures failed, oneshot got closed"
-<a href=#2829 id=2829 data-nosnippet>2829</a>					</span>);
-<a href=#2830 id=2830 data-nosnippet>2830</a>				}
+<a href=#2673 id=2673 data-nosnippet>2673</a>				},
+<a href=#2674 id=2674 data-nosnippet>2674</a>			}
+<a href=#2675 id=2675 data-nosnippet>2675</a>		}
+<a href=#2676 id=2676 data-nosnippet>2676</a>	}
+<a href=#2677 id=2677 data-nosnippet>2677</a>
+<a href=#2678 id=2678 data-nosnippet>2678</a>	<span class="doccomment">/// Handles a from orchestra message received by approval distribution subystem.
+<a href=#2679 id=2679 data-nosnippet>2679</a>	///
+<a href=#2680 id=2680 data-nosnippet>2680</a>	/// Returns `true` if the subsystem should be stopped.
+<a href=#2681 id=2681 data-nosnippet>2681</a>	</span><span class="kw">pub async fn </span>handle_from_orchestra&lt;
+<a href=#2682 id=2682 data-nosnippet>2682</a>		N: overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
+<a href=#2683 id=2683 data-nosnippet>2683</a>		A: overseer::SubsystemSender&lt;ApprovalVotingMessage&gt;,
+<a href=#2684 id=2684 data-nosnippet>2684</a>		RA: overseer::SubsystemSender&lt;RuntimeApiMessage&gt;,
+<a href=#2685 id=2685 data-nosnippet>2685</a>	&gt;(
+<a href=#2686 id=2686 data-nosnippet>2686</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#2687 id=2687 data-nosnippet>2687</a>		message: FromOrchestra&lt;ApprovalDistributionMessage&gt;,
+<a href=#2688 id=2688 data-nosnippet>2688</a>		approval_voting_sender: <span class="kw-2">&amp;mut </span>A,
+<a href=#2689 id=2689 data-nosnippet>2689</a>		network_sender: <span class="kw-2">&amp;mut </span>N,
+<a href=#2690 id=2690 data-nosnippet>2690</a>		runtime_api_sender: <span class="kw-2">&amp;mut </span>RA,
+<a href=#2691 id=2691 data-nosnippet>2691</a>		state: <span class="kw-2">&amp;mut </span>State,
+<a href=#2692 id=2692 data-nosnippet>2692</a>		rng: <span class="kw-2">&amp;mut </span>(<span class="kw">impl </span>CryptoRng + Rng),
+<a href=#2693 id=2693 data-nosnippet>2693</a>		session_info_provider: <span class="kw-2">&amp;mut </span>RuntimeInfo,
+<a href=#2694 id=2694 data-nosnippet>2694</a>	) -&gt; bool {
+<a href=#2695 id=2695 data-nosnippet>2695</a>		<span class="kw">match </span>message {
+<a href=#2696 id=2696 data-nosnippet>2696</a>			FromOrchestra::Communication { msg } =&gt; {
+<a href=#2697 id=2697 data-nosnippet>2697</a>				<span class="self">Self</span>::handle_incoming(
+<a href=#2698 id=2698 data-nosnippet>2698</a>					approval_voting_sender,
+<a href=#2699 id=2699 data-nosnippet>2699</a>					network_sender,
+<a href=#2700 id=2700 data-nosnippet>2700</a>					runtime_api_sender,
+<a href=#2701 id=2701 data-nosnippet>2701</a>					state,
+<a href=#2702 id=2702 data-nosnippet>2702</a>					msg,
+<a href=#2703 id=2703 data-nosnippet>2703</a>					<span class="kw-2">&amp;</span><span class="self">self</span>.metrics,
+<a href=#2704 id=2704 data-nosnippet>2704</a>					rng,
+<a href=#2705 id=2705 data-nosnippet>2705</a>					<span class="self">self</span>.assignment_criteria.as_ref(),
+<a href=#2706 id=2706 data-nosnippet>2706</a>					<span class="self">self</span>.clock.as_ref(),
+<a href=#2707 id=2707 data-nosnippet>2707</a>					session_info_provider,
+<a href=#2708 id=2708 data-nosnippet>2708</a>				)
+<a href=#2709 id=2709 data-nosnippet>2709</a>				.<span class="kw">await
+<a href=#2710 id=2710 data-nosnippet>2710</a>			</span>},
+<a href=#2711 id=2711 data-nosnippet>2711</a>			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_update)) =&gt; {
+<a href=#2712 id=2712 data-nosnippet>2712</a>				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"active leaves signal (ignored)"</span>);
+<a href=#2713 id=2713 data-nosnippet>2713</a>				<span class="comment">// the relay chain blocks relevant to the approval subsystems
+<a href=#2714 id=2714 data-nosnippet>2714</a>				// are those that are available, but not finalized yet
+<a href=#2715 id=2715 data-nosnippet>2715</a>				// activated and deactivated heads hence are irrelevant to this subsystem, other
+<a href=#2716 id=2716 data-nosnippet>2716</a>				// than for tracing purposes.
+<a href=#2717 id=2717 data-nosnippet>2717</a>			</span>},
+<a href=#2718 id=2718 data-nosnippet>2718</a>			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, number)) =&gt; {
+<a href=#2719 id=2719 data-nosnippet>2719</a>				<span class="macro">gum::trace!</span>(target: LOG_TARGET, number = %number, <span class="string">"finalized signal"</span>);
+<a href=#2720 id=2720 data-nosnippet>2720</a>				state.handle_block_finalized(network_sender, <span class="kw-2">&amp;</span><span class="self">self</span>.metrics, number).<span class="kw">await</span>;
+<a href=#2721 id=2721 data-nosnippet>2721</a>			},
+<a href=#2722 id=2722 data-nosnippet>2722</a>			FromOrchestra::Signal(OverseerSignal::Conclude) =&gt; <span class="kw">return </span><span class="bool-val">true</span>,
+<a href=#2723 id=2723 data-nosnippet>2723</a>		}
+<a href=#2724 id=2724 data-nosnippet>2724</a>		<span class="bool-val">false
+<a href=#2725 id=2725 data-nosnippet>2725</a>	</span>}
+<a href=#2726 id=2726 data-nosnippet>2726</a>
+<a href=#2727 id=2727 data-nosnippet>2727</a>	<span class="kw">async fn </span>handle_incoming&lt;
+<a href=#2728 id=2728 data-nosnippet>2728</a>		N: overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
+<a href=#2729 id=2729 data-nosnippet>2729</a>		A: overseer::SubsystemSender&lt;ApprovalVotingMessage&gt;,
+<a href=#2730 id=2730 data-nosnippet>2730</a>		RA: overseer::SubsystemSender&lt;RuntimeApiMessage&gt;,
+<a href=#2731 id=2731 data-nosnippet>2731</a>	&gt;(
+<a href=#2732 id=2732 data-nosnippet>2732</a>		approval_voting_sender: <span class="kw-2">&amp;mut </span>A,
+<a href=#2733 id=2733 data-nosnippet>2733</a>		network_sender: <span class="kw-2">&amp;mut </span>N,
+<a href=#2734 id=2734 data-nosnippet>2734</a>		runtime_api_sender: <span class="kw-2">&amp;mut </span>RA,
+<a href=#2735 id=2735 data-nosnippet>2735</a>		state: <span class="kw-2">&amp;mut </span>State,
+<a href=#2736 id=2736 data-nosnippet>2736</a>		msg: ApprovalDistributionMessage,
+<a href=#2737 id=2737 data-nosnippet>2737</a>		metrics: <span class="kw-2">&amp;</span>Metrics,
+<a href=#2738 id=2738 data-nosnippet>2738</a>		rng: <span class="kw-2">&amp;mut </span>(<span class="kw">impl </span>CryptoRng + Rng),
+<a href=#2739 id=2739 data-nosnippet>2739</a>		assignment_criteria: <span class="kw-2">&amp;</span>(<span class="kw">impl </span>AssignmentCriteria + <span class="question-mark">?</span>Sized),
+<a href=#2740 id=2740 data-nosnippet>2740</a>		clock: <span class="kw-2">&amp;</span>(<span class="kw">impl </span>Clock + <span class="question-mark">?</span>Sized),
+<a href=#2741 id=2741 data-nosnippet>2741</a>		session_info_provider: <span class="kw-2">&amp;mut </span>RuntimeInfo,
+<a href=#2742 id=2742 data-nosnippet>2742</a>	) {
+<a href=#2743 id=2743 data-nosnippet>2743</a>		<span class="kw">match </span>msg {
+<a href=#2744 id=2744 data-nosnippet>2744</a>			ApprovalDistributionMessage::NetworkBridgeUpdate(event) =&gt; {
+<a href=#2745 id=2745 data-nosnippet>2745</a>				state
+<a href=#2746 id=2746 data-nosnippet>2746</a>					.handle_network_msg(
+<a href=#2747 id=2747 data-nosnippet>2747</a>						approval_voting_sender,
+<a href=#2748 id=2748 data-nosnippet>2748</a>						network_sender,
+<a href=#2749 id=2749 data-nosnippet>2749</a>						runtime_api_sender,
+<a href=#2750 id=2750 data-nosnippet>2750</a>						metrics,
+<a href=#2751 id=2751 data-nosnippet>2751</a>						event,
+<a href=#2752 id=2752 data-nosnippet>2752</a>						rng,
+<a href=#2753 id=2753 data-nosnippet>2753</a>						assignment_criteria,
+<a href=#2754 id=2754 data-nosnippet>2754</a>						clock,
+<a href=#2755 id=2755 data-nosnippet>2755</a>						session_info_provider,
+<a href=#2756 id=2756 data-nosnippet>2756</a>					)
+<a href=#2757 id=2757 data-nosnippet>2757</a>					.<span class="kw">await</span>;
+<a href=#2758 id=2758 data-nosnippet>2758</a>			},
+<a href=#2759 id=2759 data-nosnippet>2759</a>			ApprovalDistributionMessage::NewBlocks(metas) =&gt; {
+<a href=#2760 id=2760 data-nosnippet>2760</a>				state
+<a href=#2761 id=2761 data-nosnippet>2761</a>					.handle_new_blocks(
+<a href=#2762 id=2762 data-nosnippet>2762</a>						approval_voting_sender,
+<a href=#2763 id=2763 data-nosnippet>2763</a>						network_sender,
+<a href=#2764 id=2764 data-nosnippet>2764</a>						runtime_api_sender,
+<a href=#2765 id=2765 data-nosnippet>2765</a>						metrics,
+<a href=#2766 id=2766 data-nosnippet>2766</a>						metas,
+<a href=#2767 id=2767 data-nosnippet>2767</a>						rng,
+<a href=#2768 id=2768 data-nosnippet>2768</a>						assignment_criteria,
+<a href=#2769 id=2769 data-nosnippet>2769</a>						clock,
+<a href=#2770 id=2770 data-nosnippet>2770</a>						session_info_provider,
+<a href=#2771 id=2771 data-nosnippet>2771</a>					)
+<a href=#2772 id=2772 data-nosnippet>2772</a>					.<span class="kw">await</span>;
+<a href=#2773 id=2773 data-nosnippet>2773</a>			},
+<a href=#2774 id=2774 data-nosnippet>2774</a>			ApprovalDistributionMessage::DistributeAssignment(cert, candidate_indices) =&gt; {
+<a href=#2775 id=2775 data-nosnippet>2775</a>				<span class="macro">gum::debug!</span>(
+<a href=#2776 id=2776 data-nosnippet>2776</a>					target: LOG_TARGET,
+<a href=#2777 id=2777 data-nosnippet>2777</a>					<span class="question-mark">?</span>candidate_indices,
+<a href=#2778 id=2778 data-nosnippet>2778</a>					block_hash = <span class="question-mark">?</span>cert.block_hash,
+<a href=#2779 id=2779 data-nosnippet>2779</a>					assignment_kind = <span class="question-mark">?</span>cert.cert.kind,
+<a href=#2780 id=2780 data-nosnippet>2780</a>					<span class="string">"Distributing our assignment on candidates"</span>,
+<a href=#2781 id=2781 data-nosnippet>2781</a>				);
+<a href=#2782 id=2782 data-nosnippet>2782</a>
+<a href=#2783 id=2783 data-nosnippet>2783</a>				state
+<a href=#2784 id=2784 data-nosnippet>2784</a>					.import_and_circulate_assignment(
+<a href=#2785 id=2785 data-nosnippet>2785</a>						approval_voting_sender,
+<a href=#2786 id=2786 data-nosnippet>2786</a>						network_sender,
+<a href=#2787 id=2787 data-nosnippet>2787</a>						runtime_api_sender,
+<a href=#2788 id=2788 data-nosnippet>2788</a>						<span class="kw-2">&amp;</span>metrics,
+<a href=#2789 id=2789 data-nosnippet>2789</a>						MessageSource::Local,
+<a href=#2790 id=2790 data-nosnippet>2790</a>						cert,
+<a href=#2791 id=2791 data-nosnippet>2791</a>						candidate_indices,
+<a href=#2792 id=2792 data-nosnippet>2792</a>						rng,
+<a href=#2793 id=2793 data-nosnippet>2793</a>						assignment_criteria,
+<a href=#2794 id=2794 data-nosnippet>2794</a>						clock,
+<a href=#2795 id=2795 data-nosnippet>2795</a>						session_info_provider,
+<a href=#2796 id=2796 data-nosnippet>2796</a>					)
+<a href=#2797 id=2797 data-nosnippet>2797</a>					.<span class="kw">await</span>;
+<a href=#2798 id=2798 data-nosnippet>2798</a>			},
+<a href=#2799 id=2799 data-nosnippet>2799</a>			ApprovalDistributionMessage::DistributeApproval(vote) =&gt; {
+<a href=#2800 id=2800 data-nosnippet>2800</a>				<span class="macro">gum::debug!</span>(
+<a href=#2801 id=2801 data-nosnippet>2801</a>					target: LOG_TARGET,
+<a href=#2802 id=2802 data-nosnippet>2802</a>					<span class="string">"Distributing our approval vote on candidate (block={}, index={:?})"</span>,
+<a href=#2803 id=2803 data-nosnippet>2803</a>					vote.block_hash,
+<a href=#2804 id=2804 data-nosnippet>2804</a>					vote.candidate_indices,
+<a href=#2805 id=2805 data-nosnippet>2805</a>				);
+<a href=#2806 id=2806 data-nosnippet>2806</a>
+<a href=#2807 id=2807 data-nosnippet>2807</a>				state
+<a href=#2808 id=2808 data-nosnippet>2808</a>					.import_and_circulate_approval(
+<a href=#2809 id=2809 data-nosnippet>2809</a>						approval_voting_sender,
+<a href=#2810 id=2810 data-nosnippet>2810</a>						network_sender,
+<a href=#2811 id=2811 data-nosnippet>2811</a>						runtime_api_sender,
+<a href=#2812 id=2812 data-nosnippet>2812</a>						metrics,
+<a href=#2813 id=2813 data-nosnippet>2813</a>						MessageSource::Local,
+<a href=#2814 id=2814 data-nosnippet>2814</a>						vote,
+<a href=#2815 id=2815 data-nosnippet>2815</a>						session_info_provider,
+<a href=#2816 id=2816 data-nosnippet>2816</a>					)
+<a href=#2817 id=2817 data-nosnippet>2817</a>					.<span class="kw">await</span>;
+<a href=#2818 id=2818 data-nosnippet>2818</a>			},
+<a href=#2819 id=2819 data-nosnippet>2819</a>			ApprovalDistributionMessage::GetApprovalSignatures(indices, tx) =&gt; {
+<a href=#2820 id=2820 data-nosnippet>2820</a>				<span class="kw">let </span>sigs = state.get_approval_signatures(indices);
+<a href=#2821 id=2821 data-nosnippet>2821</a>				<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = tx.send(sigs) {
+<a href=#2822 id=2822 data-nosnippet>2822</a>					<span class="macro">gum::debug!</span>(
+<a href=#2823 id=2823 data-nosnippet>2823</a>						target: LOG_TARGET,
+<a href=#2824 id=2824 data-nosnippet>2824</a>						<span class="string">"Sending back approval signatures failed, oneshot got closed"
+<a href=#2825 id=2825 data-nosnippet>2825</a>					</span>);
+<a href=#2826 id=2826 data-nosnippet>2826</a>				}
+<a href=#2827 id=2827 data-nosnippet>2827</a>			},
+<a href=#2828 id=2828 data-nosnippet>2828</a>			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) =&gt; {
+<a href=#2829 id=2829 data-nosnippet>2829</a>				<span class="macro">gum::debug!</span>(target: LOG_TARGET, lag, <span class="string">"Received `ApprovalCheckingLagUpdate`"</span>);
+<a href=#2830 id=2830 data-nosnippet>2830</a>				state.approval_checking_lag = lag;
 <a href=#2831 id=2831 data-nosnippet>2831</a>			},
-<a href=#2832 id=2832 data-nosnippet>2832</a>			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) =&gt; {
-<a href=#2833 id=2833 data-nosnippet>2833</a>				<span class="macro">gum::debug!</span>(target: LOG_TARGET, lag, <span class="string">"Received `ApprovalCheckingLagUpdate`"</span>);
-<a href=#2834 id=2834 data-nosnippet>2834</a>				state.approval_checking_lag = lag;
-<a href=#2835 id=2835 data-nosnippet>2835</a>			},
-<a href=#2836 id=2836 data-nosnippet>2836</a>		}
-<a href=#2837 id=2837 data-nosnippet>2837</a>	}
-<a href=#2838 id=2838 data-nosnippet>2838</a>}
-<a href=#2839 id=2839 data-nosnippet>2839</a>
-<a href=#2840 id=2840 data-nosnippet>2840</a><span class="attr">#[overseer::subsystem(ApprovalDistribution, error=SubsystemError, prefix=<span class="self">self</span>::overseer)]
-<a href=#2841 id=2841 data-nosnippet>2841</a></span><span class="kw">impl</span>&lt;Context&gt; ApprovalDistribution {
-<a href=#2842 id=2842 data-nosnippet>2842</a>	<span class="kw">fn </span>start(<span class="self">self</span>, ctx: Context) -&gt; SpawnedSubsystem {
-<a href=#2843 id=2843 data-nosnippet>2843</a>		<span class="kw">let </span>future = <span class="self">self</span>.run(ctx).map(|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(())).boxed();
+<a href=#2832 id=2832 data-nosnippet>2832</a>		}
+<a href=#2833 id=2833 data-nosnippet>2833</a>	}
+<a href=#2834 id=2834 data-nosnippet>2834</a>}
+<a href=#2835 id=2835 data-nosnippet>2835</a>
+<a href=#2836 id=2836 data-nosnippet>2836</a><span class="attr">#[overseer::subsystem(ApprovalDistribution, error=SubsystemError, prefix=<span class="self">self</span>::overseer)]
+<a href=#2837 id=2837 data-nosnippet>2837</a></span><span class="kw">impl</span>&lt;Context&gt; ApprovalDistribution {
+<a href=#2838 id=2838 data-nosnippet>2838</a>	<span class="kw">fn </span>start(<span class="self">self</span>, ctx: Context) -&gt; SpawnedSubsystem {
+<a href=#2839 id=2839 data-nosnippet>2839</a>		<span class="kw">let </span>future = <span class="self">self</span>.run(ctx).map(|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(())).boxed();
+<a href=#2840 id=2840 data-nosnippet>2840</a>
+<a href=#2841 id=2841 data-nosnippet>2841</a>		SpawnedSubsystem { name: <span class="string">"approval-distribution-subsystem"</span>, future }
+<a href=#2842 id=2842 data-nosnippet>2842</a>	}
+<a href=#2843 id=2843 data-nosnippet>2843</a>}
 <a href=#2844 id=2844 data-nosnippet>2844</a>
-<a href=#2845 id=2845 data-nosnippet>2845</a>		SpawnedSubsystem { name: <span class="string">"approval-distribution-subsystem"</span>, future }
-<a href=#2846 id=2846 data-nosnippet>2846</a>	}
-<a href=#2847 id=2847 data-nosnippet>2847</a>}
-<a href=#2848 id=2848 data-nosnippet>2848</a>
-<a href=#2849 id=2849 data-nosnippet>2849</a><span class="doccomment">/// Ensures the batch size is always at least 1 element.
-<a href=#2850 id=2850 data-nosnippet>2850</a></span><span class="kw">const fn </span>ensure_size_not_zero(size: usize) -&gt; usize {
-<a href=#2851 id=2851 data-nosnippet>2851</a>	<span class="kw">if </span><span class="number">0 </span>== size {
-<a href=#2852 id=2852 data-nosnippet>2852</a>		<span class="macro">panic!</span>(<span class="string">"Batch size must be at least 1 (MAX_NOTIFICATION_SIZE constant is too low)"</span>,);
-<a href=#2853 id=2853 data-nosnippet>2853</a>	}
-<a href=#2854 id=2854 data-nosnippet>2854</a>
-<a href=#2855 id=2855 data-nosnippet>2855</a>	size
-<a href=#2856 id=2856 data-nosnippet>2856</a>}
-<a href=#2857 id=2857 data-nosnippet>2857</a>
-<a href=#2858 id=2858 data-nosnippet>2858</a><span class="doccomment">/// The maximum amount of assignments per batch is 33% of maximum allowed by protocol.
-<a href=#2859 id=2859 data-nosnippet>2859</a>/// This is an arbitrary value. Bumping this up increases the maximum amount of approvals or
-<a href=#2860 id=2860 data-nosnippet>2860</a>/// assignments we send in a single message to peers. Exceeding `MAX_NOTIFICATION_SIZE` will violate
-<a href=#2861 id=2861 data-nosnippet>2861</a>/// the protocol configuration.
-<a href=#2862 id=2862 data-nosnippet>2862</a></span><span class="kw">pub const </span>MAX_ASSIGNMENT_BATCH_SIZE: usize = ensure_size_not_zero(
-<a href=#2863 id=2863 data-nosnippet>2863</a>	MAX_NOTIFICATION_SIZE <span class="kw">as </span>usize /
-<a href=#2864 id=2864 data-nosnippet>2864</a>		std::mem::size_of::&lt;(IndirectAssignmentCertV2, CandidateIndex)&gt;() /
-<a href=#2865 id=2865 data-nosnippet>2865</a>		<span class="number">3</span>,
-<a href=#2866 id=2866 data-nosnippet>2866</a>);
-<a href=#2867 id=2867 data-nosnippet>2867</a>
-<a href=#2868 id=2868 data-nosnippet>2868</a><span class="doccomment">/// The maximum amount of approvals per batch is 33% of maximum allowed by protocol.
-<a href=#2869 id=2869 data-nosnippet>2869</a></span><span class="kw">pub const </span>MAX_APPROVAL_BATCH_SIZE: usize = ensure_size_not_zero(
-<a href=#2870 id=2870 data-nosnippet>2870</a>	MAX_NOTIFICATION_SIZE <span class="kw">as </span>usize / std::mem::size_of::&lt;IndirectSignedApprovalVoteV2&gt;() / <span class="number">3</span>,
-<a href=#2871 id=2871 data-nosnippet>2871</a>);
-<a href=#2872 id=2872 data-nosnippet>2872</a>
-<a href=#2873 id=2873 data-nosnippet>2873</a><span class="comment">// Low level helper for sending assignments.
-<a href=#2874 id=2874 data-nosnippet>2874</a></span><span class="kw">async fn </span>send_assignments_batched_inner(
-<a href=#2875 id=2875 data-nosnippet>2875</a>	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
-<a href=#2876 id=2876 data-nosnippet>2876</a>	batch: <span class="kw">impl </span>IntoIterator&lt;Item = (IndirectAssignmentCertV2, CandidateBitfield)&gt;,
-<a href=#2877 id=2877 data-nosnippet>2877</a>	peers: Vec&lt;PeerId&gt;,
-<a href=#2878 id=2878 data-nosnippet>2878</a>	_peer_version: ValidationVersion,
-<a href=#2879 id=2879 data-nosnippet>2879</a>) {
-<a href=#2880 id=2880 data-nosnippet>2880</a>	sender
-<a href=#2881 id=2881 data-nosnippet>2881</a>		.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-<a href=#2882 id=2882 data-nosnippet>2882</a>			peers,
-<a href=#2883 id=2883 data-nosnippet>2883</a>			ValidationProtocols::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
-<a href=#2884 id=2884 data-nosnippet>2884</a>				protocol_v3::ApprovalDistributionMessage::Assignments(batch.into_iter().collect()),
-<a href=#2885 id=2885 data-nosnippet>2885</a>			)),
-<a href=#2886 id=2886 data-nosnippet>2886</a>		))
-<a href=#2887 id=2887 data-nosnippet>2887</a>		.<span class="kw">await</span>;
-<a href=#2888 id=2888 data-nosnippet>2888</a>}
-<a href=#2889 id=2889 data-nosnippet>2889</a>
-<a href=#2890 id=2890 data-nosnippet>2890</a><span class="doccomment">/// Send assignments while honoring the `max_notification_size` of the protocol.
-<a href=#2891 id=2891 data-nosnippet>2891</a>///
-<a href=#2892 id=2892 data-nosnippet>2892</a>/// Splitting the messages into multiple notifications allows more granular processing at the
-<a href=#2893 id=2893 data-nosnippet>2893</a>/// destination, such that the subsystem doesn't get stuck for long processing a batch
-<a href=#2894 id=2894 data-nosnippet>2894</a>/// of assignments and can `select!` other tasks.
-<a href=#2895 id=2895 data-nosnippet>2895</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>send_assignments_batched(
-<a href=#2896 id=2896 data-nosnippet>2896</a>	network_sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
-<a href=#2897 id=2897 data-nosnippet>2897</a>	v2_assignments: <span class="kw">impl </span>IntoIterator&lt;Item = (IndirectAssignmentCertV2, CandidateBitfield)&gt; + Clone,
-<a href=#2898 id=2898 data-nosnippet>2898</a>	peers: <span class="kw-2">&amp;</span>[(PeerId, ProtocolVersion)],
-<a href=#2899 id=2899 data-nosnippet>2899</a>) {
-<a href=#2900 id=2900 data-nosnippet>2900</a>	<span class="kw">let </span>v3_peers = filter_by_peer_version(peers, ValidationVersion::V3.into());
-<a href=#2901 id=2901 data-nosnippet>2901</a>
-<a href=#2902 id=2902 data-nosnippet>2902</a>	<span class="kw">if </span>!v3_peers.is_empty() {
-<a href=#2903 id=2903 data-nosnippet>2903</a>		<span class="kw">let </span><span class="kw-2">mut </span>v3 = v2_assignments.into_iter().peekable();
-<a href=#2904 id=2904 data-nosnippet>2904</a>
-<a href=#2905 id=2905 data-nosnippet>2905</a>		<span class="kw">while </span>v3.peek().is_some() {
-<a href=#2906 id=2906 data-nosnippet>2906</a>			<span class="kw">let </span>batch = v3.by_ref().take(MAX_ASSIGNMENT_BATCH_SIZE).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-<a href=#2907 id=2907 data-nosnippet>2907</a>			send_assignments_batched_inner(
-<a href=#2908 id=2908 data-nosnippet>2908</a>				network_sender,
-<a href=#2909 id=2909 data-nosnippet>2909</a>				batch,
-<a href=#2910 id=2910 data-nosnippet>2910</a>				v3_peers.clone(),
-<a href=#2911 id=2911 data-nosnippet>2911</a>				ValidationVersion::V3,
-<a href=#2912 id=2912 data-nosnippet>2912</a>			)
-<a href=#2913 id=2913 data-nosnippet>2913</a>			.<span class="kw">await</span>;
-<a href=#2914 id=2914 data-nosnippet>2914</a>		}
-<a href=#2915 id=2915 data-nosnippet>2915</a>	}
-<a href=#2916 id=2916 data-nosnippet>2916</a>}
-<a href=#2917 id=2917 data-nosnippet>2917</a>
-<a href=#2918 id=2918 data-nosnippet>2918</a><span class="doccomment">/// Send approvals while honoring the `max_notification_size` of the protocol and peer version.
-<a href=#2919 id=2919 data-nosnippet>2919</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>send_approvals_batched(
-<a href=#2920 id=2920 data-nosnippet>2920</a>	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
-<a href=#2921 id=2921 data-nosnippet>2921</a>	approvals: <span class="kw">impl </span>IntoIterator&lt;Item = IndirectSignedApprovalVoteV2&gt; + Clone,
-<a href=#2922 id=2922 data-nosnippet>2922</a>	peers: <span class="kw-2">&amp;</span>[(PeerId, ProtocolVersion)],
-<a href=#2923 id=2923 data-nosnippet>2923</a>) {
-<a href=#2924 id=2924 data-nosnippet>2924</a>	<span class="kw">let </span>v3_peers = filter_by_peer_version(peers, ValidationVersion::V3.into());
-<a href=#2925 id=2925 data-nosnippet>2925</a>
-<a href=#2926 id=2926 data-nosnippet>2926</a>	<span class="kw">if </span>!v3_peers.is_empty() {
-<a href=#2927 id=2927 data-nosnippet>2927</a>		<span class="kw">let </span><span class="kw-2">mut </span>batches = approvals.into_iter().peekable();
-<a href=#2928 id=2928 data-nosnippet>2928</a>
-<a href=#2929 id=2929 data-nosnippet>2929</a>		<span class="kw">while </span>batches.peek().is_some() {
-<a href=#2930 id=2930 data-nosnippet>2930</a>			<span class="kw">let </span>batch: Vec&lt;<span class="kw">_</span>&gt; = batches.by_ref().take(MAX_APPROVAL_BATCH_SIZE).collect();
-<a href=#2931 id=2931 data-nosnippet>2931</a>
-<a href=#2932 id=2932 data-nosnippet>2932</a>			sender
-<a href=#2933 id=2933 data-nosnippet>2933</a>				.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-<a href=#2934 id=2934 data-nosnippet>2934</a>					v3_peers.clone(),
-<a href=#2935 id=2935 data-nosnippet>2935</a>					ValidationProtocols::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
-<a href=#2936 id=2936 data-nosnippet>2936</a>						protocol_v3::ApprovalDistributionMessage::Approvals(batch),
-<a href=#2937 id=2937 data-nosnippet>2937</a>					)),
-<a href=#2938 id=2938 data-nosnippet>2938</a>				))
-<a href=#2939 id=2939 data-nosnippet>2939</a>				.<span class="kw">await</span>;
-<a href=#2940 id=2940 data-nosnippet>2940</a>		}
-<a href=#2941 id=2941 data-nosnippet>2941</a>	}
-<a href=#2942 id=2942 data-nosnippet>2942</a>}
+<a href=#2845 id=2845 data-nosnippet>2845</a><span class="doccomment">/// Ensures the batch size is always at least 1 element.
+<a href=#2846 id=2846 data-nosnippet>2846</a></span><span class="kw">const fn </span>ensure_size_not_zero(size: usize) -&gt; usize {
+<a href=#2847 id=2847 data-nosnippet>2847</a>	<span class="kw">if </span><span class="number">0 </span>== size {
+<a href=#2848 id=2848 data-nosnippet>2848</a>		<span class="macro">panic!</span>(<span class="string">"Batch size must be at least 1 (MAX_NOTIFICATION_SIZE constant is too low)"</span>,);
+<a href=#2849 id=2849 data-nosnippet>2849</a>	}
+<a href=#2850 id=2850 data-nosnippet>2850</a>
+<a href=#2851 id=2851 data-nosnippet>2851</a>	size
+<a href=#2852 id=2852 data-nosnippet>2852</a>}
+<a href=#2853 id=2853 data-nosnippet>2853</a>
+<a href=#2854 id=2854 data-nosnippet>2854</a><span class="doccomment">/// The maximum amount of assignments per batch is 33% of maximum allowed by protocol.
+<a href=#2855 id=2855 data-nosnippet>2855</a>/// This is an arbitrary value. Bumping this up increases the maximum amount of approvals or
+<a href=#2856 id=2856 data-nosnippet>2856</a>/// assignments we send in a single message to peers. Exceeding `MAX_NOTIFICATION_SIZE` will violate
+<a href=#2857 id=2857 data-nosnippet>2857</a>/// the protocol configuration.
+<a href=#2858 id=2858 data-nosnippet>2858</a></span><span class="kw">pub const </span>MAX_ASSIGNMENT_BATCH_SIZE: usize = ensure_size_not_zero(
+<a href=#2859 id=2859 data-nosnippet>2859</a>	MAX_NOTIFICATION_SIZE <span class="kw">as </span>usize /
+<a href=#2860 id=2860 data-nosnippet>2860</a>		std::mem::size_of::&lt;(IndirectAssignmentCertV2, CandidateIndex)&gt;() /
+<a href=#2861 id=2861 data-nosnippet>2861</a>		<span class="number">3</span>,
+<a href=#2862 id=2862 data-nosnippet>2862</a>);
+<a href=#2863 id=2863 data-nosnippet>2863</a>
+<a href=#2864 id=2864 data-nosnippet>2864</a><span class="doccomment">/// The maximum amount of approvals per batch is 33% of maximum allowed by protocol.
+<a href=#2865 id=2865 data-nosnippet>2865</a></span><span class="kw">pub const </span>MAX_APPROVAL_BATCH_SIZE: usize = ensure_size_not_zero(
+<a href=#2866 id=2866 data-nosnippet>2866</a>	MAX_NOTIFICATION_SIZE <span class="kw">as </span>usize / std::mem::size_of::&lt;IndirectSignedApprovalVoteV2&gt;() / <span class="number">3</span>,
+<a href=#2867 id=2867 data-nosnippet>2867</a>);
+<a href=#2868 id=2868 data-nosnippet>2868</a>
+<a href=#2869 id=2869 data-nosnippet>2869</a><span class="comment">// Low level helper for sending assignments.
+<a href=#2870 id=2870 data-nosnippet>2870</a></span><span class="kw">async fn </span>send_assignments_batched_inner(
+<a href=#2871 id=2871 data-nosnippet>2871</a>	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
+<a href=#2872 id=2872 data-nosnippet>2872</a>	batch: <span class="kw">impl </span>IntoIterator&lt;Item = (IndirectAssignmentCertV2, CandidateBitfield)&gt;,
+<a href=#2873 id=2873 data-nosnippet>2873</a>	peers: Vec&lt;PeerId&gt;,
+<a href=#2874 id=2874 data-nosnippet>2874</a>	_peer_version: ValidationVersion,
+<a href=#2875 id=2875 data-nosnippet>2875</a>) {
+<a href=#2876 id=2876 data-nosnippet>2876</a>	sender
+<a href=#2877 id=2877 data-nosnippet>2877</a>		.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+<a href=#2878 id=2878 data-nosnippet>2878</a>			peers,
+<a href=#2879 id=2879 data-nosnippet>2879</a>			ValidationProtocols::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+<a href=#2880 id=2880 data-nosnippet>2880</a>				protocol_v3::ApprovalDistributionMessage::Assignments(batch.into_iter().collect()),
+<a href=#2881 id=2881 data-nosnippet>2881</a>			)),
+<a href=#2882 id=2882 data-nosnippet>2882</a>		))
+<a href=#2883 id=2883 data-nosnippet>2883</a>		.<span class="kw">await</span>;
+<a href=#2884 id=2884 data-nosnippet>2884</a>}
+<a href=#2885 id=2885 data-nosnippet>2885</a>
+<a href=#2886 id=2886 data-nosnippet>2886</a><span class="doccomment">/// Send assignments while honoring the `max_notification_size` of the protocol.
+<a href=#2887 id=2887 data-nosnippet>2887</a>///
+<a href=#2888 id=2888 data-nosnippet>2888</a>/// Splitting the messages into multiple notifications allows more granular processing at the
+<a href=#2889 id=2889 data-nosnippet>2889</a>/// destination, such that the subsystem doesn't get stuck for long processing a batch
+<a href=#2890 id=2890 data-nosnippet>2890</a>/// of assignments and can `select!` other tasks.
+<a href=#2891 id=2891 data-nosnippet>2891</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>send_assignments_batched(
+<a href=#2892 id=2892 data-nosnippet>2892</a>	network_sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
+<a href=#2893 id=2893 data-nosnippet>2893</a>	v2_assignments: <span class="kw">impl </span>IntoIterator&lt;Item = (IndirectAssignmentCertV2, CandidateBitfield)&gt; + Clone,
+<a href=#2894 id=2894 data-nosnippet>2894</a>	peers: <span class="kw-2">&amp;</span>[(PeerId, ProtocolVersion)],
+<a href=#2895 id=2895 data-nosnippet>2895</a>) {
+<a href=#2896 id=2896 data-nosnippet>2896</a>	<span class="kw">let </span>v3_peers = filter_by_peer_version(peers, ValidationVersion::V3.into());
+<a href=#2897 id=2897 data-nosnippet>2897</a>
+<a href=#2898 id=2898 data-nosnippet>2898</a>	<span class="kw">if </span>!v3_peers.is_empty() {
+<a href=#2899 id=2899 data-nosnippet>2899</a>		<span class="kw">let </span><span class="kw-2">mut </span>v3 = v2_assignments.into_iter().peekable();
+<a href=#2900 id=2900 data-nosnippet>2900</a>
+<a href=#2901 id=2901 data-nosnippet>2901</a>		<span class="kw">while </span>v3.peek().is_some() {
+<a href=#2902 id=2902 data-nosnippet>2902</a>			<span class="kw">let </span>batch = v3.by_ref().take(MAX_ASSIGNMENT_BATCH_SIZE).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+<a href=#2903 id=2903 data-nosnippet>2903</a>			send_assignments_batched_inner(
+<a href=#2904 id=2904 data-nosnippet>2904</a>				network_sender,
+<a href=#2905 id=2905 data-nosnippet>2905</a>				batch,
+<a href=#2906 id=2906 data-nosnippet>2906</a>				v3_peers.clone(),
+<a href=#2907 id=2907 data-nosnippet>2907</a>				ValidationVersion::V3,
+<a href=#2908 id=2908 data-nosnippet>2908</a>			)
+<a href=#2909 id=2909 data-nosnippet>2909</a>			.<span class="kw">await</span>;
+<a href=#2910 id=2910 data-nosnippet>2910</a>		}
+<a href=#2911 id=2911 data-nosnippet>2911</a>	}
+<a href=#2912 id=2912 data-nosnippet>2912</a>}
+<a href=#2913 id=2913 data-nosnippet>2913</a>
+<a href=#2914 id=2914 data-nosnippet>2914</a><span class="doccomment">/// Send approvals while honoring the `max_notification_size` of the protocol and peer version.
+<a href=#2915 id=2915 data-nosnippet>2915</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>send_approvals_batched(
+<a href=#2916 id=2916 data-nosnippet>2916</a>	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::SubsystemSender&lt;NetworkBridgeTxMessage&gt;,
+<a href=#2917 id=2917 data-nosnippet>2917</a>	approvals: <span class="kw">impl </span>IntoIterator&lt;Item = IndirectSignedApprovalVoteV2&gt; + Clone,
+<a href=#2918 id=2918 data-nosnippet>2918</a>	peers: <span class="kw-2">&amp;</span>[(PeerId, ProtocolVersion)],
+<a href=#2919 id=2919 data-nosnippet>2919</a>) {
+<a href=#2920 id=2920 data-nosnippet>2920</a>	<span class="kw">let </span>v3_peers = filter_by_peer_version(peers, ValidationVersion::V3.into());
+<a href=#2921 id=2921 data-nosnippet>2921</a>
+<a href=#2922 id=2922 data-nosnippet>2922</a>	<span class="kw">if </span>!v3_peers.is_empty() {
+<a href=#2923 id=2923 data-nosnippet>2923</a>		<span class="kw">let </span><span class="kw-2">mut </span>batches = approvals.into_iter().peekable();
+<a href=#2924 id=2924 data-nosnippet>2924</a>
+<a href=#2925 id=2925 data-nosnippet>2925</a>		<span class="kw">while </span>batches.peek().is_some() {
+<a href=#2926 id=2926 data-nosnippet>2926</a>			<span class="kw">let </span>batch: Vec&lt;<span class="kw">_</span>&gt; = batches.by_ref().take(MAX_APPROVAL_BATCH_SIZE).collect();
+<a href=#2927 id=2927 data-nosnippet>2927</a>
+<a href=#2928 id=2928 data-nosnippet>2928</a>			sender
+<a href=#2929 id=2929 data-nosnippet>2929</a>				.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+<a href=#2930 id=2930 data-nosnippet>2930</a>					v3_peers.clone(),
+<a href=#2931 id=2931 data-nosnippet>2931</a>					ValidationProtocols::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+<a href=#2932 id=2932 data-nosnippet>2932</a>						protocol_v3::ApprovalDistributionMessage::Approvals(batch),
+<a href=#2933 id=2933 data-nosnippet>2933</a>					)),
+<a href=#2934 id=2934 data-nosnippet>2934</a>				))
+<a href=#2935 id=2935 data-nosnippet>2935</a>				.<span class="kw">await</span>;
+<a href=#2936 id=2936 data-nosnippet>2936</a>		}
+<a href=#2937 id=2937 data-nosnippet>2937</a>	}
+<a href=#2938 id=2938 data-nosnippet>2938</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

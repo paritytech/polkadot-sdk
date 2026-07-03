@@ -166,16 +166,16 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#16 id=16 data-nosnippet>16</a>
 <a href=#17 id=17 data-nosnippet>17</a></span><span class="kw">use </span>bitvec::{order::Lsb0 <span class="kw">as </span>BitOrderLsb0, vec::BitVec};
 <a href=#18 id=18 data-nosnippet>18</a>
-<a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span>polkadot_node_primitives::approval::{
-<a href=#20 id=20 data-nosnippet>20</a>	v1::{AssignmentCert, AssignmentCertKind, VrfProof, VrfSignature, RELAY_VRF_MODULO_CONTEXT},
-<a href=#21 id=21 data-nosnippet>21</a>	v2::VrfPreOutput,
+<a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span>polkadot_node_primitives::approval::v2::{
+<a href=#20 id=20 data-nosnippet>20</a>	AssignmentCertKindV2, AssignmentCertV2, VrfPreOutput, VrfProof, VrfSignature,
+<a href=#21 id=21 data-nosnippet>21</a>	RELAY_VRF_MODULO_CONTEXT,
 <a href=#22 id=22 data-nosnippet>22</a>};
 <a href=#23 id=23 data-nosnippet>23</a>
 <a href=#24 id=24 data-nosnippet>24</a><span class="kw">pub fn </span>make_bitvec(len: usize) -&gt; BitVec&lt;u8, BitOrderLsb0&gt; {
 <a href=#25 id=25 data-nosnippet>25</a>	<span class="macro">bitvec::bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; len]
 <a href=#26 id=26 data-nosnippet>26</a>}
 <a href=#27 id=27 data-nosnippet>27</a>
-<a href=#28 id=28 data-nosnippet>28</a><span class="kw">pub fn </span>dummy_assignment_cert(kind: AssignmentCertKind) -&gt; AssignmentCert {
+<a href=#28 id=28 data-nosnippet>28</a><span class="kw">pub fn </span>dummy_assignment_cert(kind: AssignmentCertKindV2) -&gt; AssignmentCertV2 {
 <a href=#29 id=29 data-nosnippet>29</a>	<span class="kw">let </span>ctx = schnorrkel::signing_context(RELAY_VRF_MODULO_CONTEXT);
 <a href=#30 id=30 data-nosnippet>30</a>	<span class="kw">let </span>msg = <span class="string">b"test-garbage"</span>;
 <a href=#31 id=31 data-nosnippet>31</a>	<span class="kw">let </span><span class="kw-2">mut </span>prng = rand_core::OsRng;
@@ -183,7 +183,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#33 id=33 data-nosnippet>33</a>	<span class="kw">let </span>(inout, proof, <span class="kw">_</span>) = keypair.vrf_sign(ctx.bytes(msg));
 <a href=#34 id=34 data-nosnippet>34</a>	<span class="kw">let </span>preout = inout.to_preout();
 <a href=#35 id=35 data-nosnippet>35</a>
-<a href=#36 id=36 data-nosnippet>36</a>	AssignmentCert {
+<a href=#36 id=36 data-nosnippet>36</a>	AssignmentCertV2 {
 <a href=#37 id=37 data-nosnippet>37</a>		kind,
 <a href=#38 id=38 data-nosnippet>38</a>		vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
 <a href=#39 id=39 data-nosnippet>39</a>	}

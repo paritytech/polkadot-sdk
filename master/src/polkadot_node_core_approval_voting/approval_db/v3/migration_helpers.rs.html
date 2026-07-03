@@ -174,7 +174,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#24 id=24 data-nosnippet>24</a>	},
 <a href=#25 id=25 data-nosnippet>25</a>	backend::{Backend, V2ReadBackend},
 <a href=#26 id=26 data-nosnippet>26</a>};
-<a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>polkadot_node_primitives::approval::v1::AssignmentCertKind;
+<a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>polkadot_node_primitives::approval::v2::AssignmentCertKindV2;
 <a href=#28 id=28 data-nosnippet>28</a><span class="kw">use </span>polkadot_node_subsystem_util::database::Database;
 <a href=#29 id=29 data-nosnippet>29</a><span class="kw">use </span>sp_application_crypto::sp_core::H256;
 <a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>std::{collections::HashSet, sync::Arc};
@@ -234,7 +234,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#84 id=84 data-nosnippet>84</a>
 <a href=#85 id=85 data-nosnippet>85</a><span class="comment">// Checks if the migration doesn't leave the DB in an unsane state.
 <a href=#86 id=86 data-nosnippet>86</a>// This function is to be used in tests.
-<a href=#87 id=87 data-nosnippet>87</a></span><span class="kw">pub fn </span>v1_to_latest_sanity_check(
+<a href=#87 id=87 data-nosnippet>87</a></span><span class="kw">pub fn </span>migration_sanity_check(
 <a href=#88 id=88 data-nosnippet>88</a>	db: Arc&lt;<span class="kw">dyn </span>Database&gt;,
 <a href=#89 id=89 data-nosnippet>89</a>	config: Config,
 <a href=#90 id=90 data-nosnippet>90</a>	expected_candidates: HashSet&lt;CandidateHash&gt;,
@@ -300,91 +300,93 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#150 id=150 data-nosnippet>150</a>		);
 <a href=#151 id=151 data-nosnippet>151</a>
 <a href=#152 id=152 data-nosnippet>152</a>		<span class="kw">let </span>dummy_assignment = <span class="kw">crate</span>::approval_db::v2::OurAssignment {
-<a href=#153 id=153 data-nosnippet>153</a>			cert: dummy_assignment_cert(AssignmentCertKind::RelayVRFModulo { sample: <span class="number">0 </span>}).into(),
-<a href=#154 id=154 data-nosnippet>154</a>			tranche: <span class="number">0</span>,
-<a href=#155 id=155 data-nosnippet>155</a>			validator_index: ValidatorIndex(<span class="number">0</span>),
-<a href=#156 id=156 data-nosnippet>156</a>			triggered: <span class="bool-val">false</span>,
-<a href=#157 id=157 data-nosnippet>157</a>		};
-<a href=#158 id=158 data-nosnippet>158</a>
-<a href=#159 id=159 data-nosnippet>159</a>		<span class="kw">let </span>candidate_entry = <span class="kw">crate</span>::approval_db::v2::CandidateEntry {
-<a href=#160 id=160 data-nosnippet>160</a>			candidate,
-<a href=#161 id=161 data-nosnippet>161</a>			session: <span class="number">123</span>,
-<a href=#162 id=162 data-nosnippet>162</a>			block_assignments: <span class="macro">vec!</span>[(
-<a href=#163 id=163 data-nosnippet>163</a>				relay_hash,
-<a href=#164 id=164 data-nosnippet>164</a>				<span class="kw">crate</span>::approval_db::v2::ApprovalEntry {
-<a href=#165 id=165 data-nosnippet>165</a>					tranches: Vec::new(),
-<a href=#166 id=166 data-nosnippet>166</a>					backing_group: GroupIndex(<span class="number">1</span>),
-<a href=#167 id=167 data-nosnippet>167</a>					our_assignment: <span class="prelude-val">Some</span>(dummy_assignment),
-<a href=#168 id=168 data-nosnippet>168</a>					our_approval_sig: <span class="prelude-val">None</span>,
-<a href=#169 id=169 data-nosnippet>169</a>					approved: <span class="bool-val">false</span>,
-<a href=#170 id=170 data-nosnippet>170</a>					assigned_validators: make_bitvec(<span class="number">1</span>),
-<a href=#171 id=171 data-nosnippet>171</a>				},
-<a href=#172 id=172 data-nosnippet>172</a>			)]
-<a href=#173 id=173 data-nosnippet>173</a>			.into_iter()
-<a href=#174 id=174 data-nosnippet>174</a>			.collect(),
-<a href=#175 id=175 data-nosnippet>175</a>			approvals: Default::default(),
-<a href=#176 id=176 data-nosnippet>176</a>		};
-<a href=#177 id=177 data-nosnippet>177</a>
-<a href=#178 id=178 data-nosnippet>178</a>		overlay_db.write_blocks_at_height(relay_number, at_height.clone());
-<a href=#179 id=179 data-nosnippet>179</a>		expected_candidates.insert(candidate_entry.candidate.hash());
-<a href=#180 id=180 data-nosnippet>180</a>
-<a href=#181 id=181 data-nosnippet>181</a>		db.write(write_candidate_entry_v2(candidate_entry, config)).unwrap();
-<a href=#182 id=182 data-nosnippet>182</a>		db.write(write_block_entry_v2(block_entry, config)).unwrap();
-<a href=#183 id=183 data-nosnippet>183</a>	}
-<a href=#184 id=184 data-nosnippet>184</a>
-<a href=#185 id=185 data-nosnippet>185</a>	<span class="kw">let </span>write_ops = overlay_db.into_write_ops();
-<a href=#186 id=186 data-nosnippet>186</a>	backend.write(write_ops).unwrap();
-<a href=#187 id=187 data-nosnippet>187</a>
-<a href=#188 id=188 data-nosnippet>188</a>	<span class="prelude-val">Ok</span>(expected_candidates)
-<a href=#189 id=189 data-nosnippet>189</a>}
-<a href=#190 id=190 data-nosnippet>190</a>
-<a href=#191 id=191 data-nosnippet>191</a><span class="kw">fn </span>make_block_entry_v2(
-<a href=#192 id=192 data-nosnippet>192</a>	block_hash: Hash,
-<a href=#193 id=193 data-nosnippet>193</a>	parent_hash: Hash,
-<a href=#194 id=194 data-nosnippet>194</a>	block_number: BlockNumber,
-<a href=#195 id=195 data-nosnippet>195</a>	candidates: Vec&lt;(CoreIndex, CandidateHash)&gt;,
-<a href=#196 id=196 data-nosnippet>196</a>) -&gt; <span class="kw">crate</span>::approval_db::v2::BlockEntry {
-<a href=#197 id=197 data-nosnippet>197</a>	<span class="kw">crate</span>::approval_db::v2::BlockEntry {
-<a href=#198 id=198 data-nosnippet>198</a>		block_hash,
-<a href=#199 id=199 data-nosnippet>199</a>		parent_hash,
-<a href=#200 id=200 data-nosnippet>200</a>		block_number,
-<a href=#201 id=201 data-nosnippet>201</a>		session: <span class="number">1</span>,
-<a href=#202 id=202 data-nosnippet>202</a>		slot: Slot::from(<span class="number">1</span>),
-<a href=#203 id=203 data-nosnippet>203</a>		relay_vrf_story: [<span class="number">0u8</span>; <span class="number">32</span>],
-<a href=#204 id=204 data-nosnippet>204</a>		approved_bitfield: make_bitvec(candidates.len()),
-<a href=#205 id=205 data-nosnippet>205</a>		distributed_assignments: make_bitvec(candidates.len()),
-<a href=#206 id=206 data-nosnippet>206</a>		candidates,
-<a href=#207 id=207 data-nosnippet>207</a>		children: Vec::new(),
-<a href=#208 id=208 data-nosnippet>208</a>	}
-<a href=#209 id=209 data-nosnippet>209</a>}
-<a href=#210 id=210 data-nosnippet>210</a>
-<a href=#211 id=211 data-nosnippet>211</a><span class="comment">// Low level DB helper to write a candidate entry in v1 scheme.
-<a href=#212 id=212 data-nosnippet>212</a></span><span class="kw">fn </span>write_candidate_entry_v2(
-<a href=#213 id=213 data-nosnippet>213</a>	candidate_entry: <span class="kw">crate</span>::approval_db::v2::CandidateEntry,
-<a href=#214 id=214 data-nosnippet>214</a>	config: Config,
-<a href=#215 id=215 data-nosnippet>215</a>) -&gt; DBTransaction {
-<a href=#216 id=216 data-nosnippet>216</a>	<span class="kw">let </span><span class="kw-2">mut </span>tx = DBTransaction::new();
-<a href=#217 id=217 data-nosnippet>217</a>	tx.put_vec(
-<a href=#218 id=218 data-nosnippet>218</a>		config.col_approval_data,
-<a href=#219 id=219 data-nosnippet>219</a>		<span class="kw-2">&amp;</span>candidate_entry_key(<span class="kw-2">&amp;</span>candidate_entry.candidate.hash()),
-<a href=#220 id=220 data-nosnippet>220</a>		candidate_entry.encode(),
-<a href=#221 id=221 data-nosnippet>221</a>	);
-<a href=#222 id=222 data-nosnippet>222</a>	tx
-<a href=#223 id=223 data-nosnippet>223</a>}
-<a href=#224 id=224 data-nosnippet>224</a>
-<a href=#225 id=225 data-nosnippet>225</a><span class="comment">// Low level DB helper to write a block entry in v1 scheme.
-<a href=#226 id=226 data-nosnippet>226</a></span><span class="kw">fn </span>write_block_entry_v2(
-<a href=#227 id=227 data-nosnippet>227</a>	block_entry: <span class="kw">crate</span>::approval_db::v2::BlockEntry,
-<a href=#228 id=228 data-nosnippet>228</a>	config: Config,
-<a href=#229 id=229 data-nosnippet>229</a>) -&gt; DBTransaction {
-<a href=#230 id=230 data-nosnippet>230</a>	<span class="kw">let </span><span class="kw-2">mut </span>tx = DBTransaction::new();
-<a href=#231 id=231 data-nosnippet>231</a>	tx.put_vec(
-<a href=#232 id=232 data-nosnippet>232</a>		config.col_approval_data,
-<a href=#233 id=233 data-nosnippet>233</a>		<span class="kw-2">&amp;</span>block_entry_key(<span class="kw-2">&amp;</span>block_entry.block_hash),
-<a href=#234 id=234 data-nosnippet>234</a>		block_entry.encode(),
-<a href=#235 id=235 data-nosnippet>235</a>	);
-<a href=#236 id=236 data-nosnippet>236</a>	tx
-<a href=#237 id=237 data-nosnippet>237</a>}
+<a href=#153 id=153 data-nosnippet>153</a>			cert: dummy_assignment_cert(AssignmentCertKindV2::RelayVRFDelay {
+<a href=#154 id=154 data-nosnippet>154</a>				core_index: CoreIndex(<span class="number">0</span>),
+<a href=#155 id=155 data-nosnippet>155</a>			}),
+<a href=#156 id=156 data-nosnippet>156</a>			tranche: <span class="number">0</span>,
+<a href=#157 id=157 data-nosnippet>157</a>			validator_index: ValidatorIndex(<span class="number">0</span>),
+<a href=#158 id=158 data-nosnippet>158</a>			triggered: <span class="bool-val">false</span>,
+<a href=#159 id=159 data-nosnippet>159</a>		};
+<a href=#160 id=160 data-nosnippet>160</a>
+<a href=#161 id=161 data-nosnippet>161</a>		<span class="kw">let </span>candidate_entry = <span class="kw">crate</span>::approval_db::v2::CandidateEntry {
+<a href=#162 id=162 data-nosnippet>162</a>			candidate,
+<a href=#163 id=163 data-nosnippet>163</a>			session: <span class="number">123</span>,
+<a href=#164 id=164 data-nosnippet>164</a>			block_assignments: <span class="macro">vec!</span>[(
+<a href=#165 id=165 data-nosnippet>165</a>				relay_hash,
+<a href=#166 id=166 data-nosnippet>166</a>				<span class="kw">crate</span>::approval_db::v2::ApprovalEntry {
+<a href=#167 id=167 data-nosnippet>167</a>					tranches: Vec::new(),
+<a href=#168 id=168 data-nosnippet>168</a>					backing_group: GroupIndex(<span class="number">1</span>),
+<a href=#169 id=169 data-nosnippet>169</a>					our_assignment: <span class="prelude-val">Some</span>(dummy_assignment),
+<a href=#170 id=170 data-nosnippet>170</a>					our_approval_sig: <span class="prelude-val">None</span>,
+<a href=#171 id=171 data-nosnippet>171</a>					approved: <span class="bool-val">false</span>,
+<a href=#172 id=172 data-nosnippet>172</a>					assigned_validators: make_bitvec(<span class="number">1</span>),
+<a href=#173 id=173 data-nosnippet>173</a>				},
+<a href=#174 id=174 data-nosnippet>174</a>			)]
+<a href=#175 id=175 data-nosnippet>175</a>			.into_iter()
+<a href=#176 id=176 data-nosnippet>176</a>			.collect(),
+<a href=#177 id=177 data-nosnippet>177</a>			approvals: Default::default(),
+<a href=#178 id=178 data-nosnippet>178</a>		};
+<a href=#179 id=179 data-nosnippet>179</a>
+<a href=#180 id=180 data-nosnippet>180</a>		overlay_db.write_blocks_at_height(relay_number, at_height.clone());
+<a href=#181 id=181 data-nosnippet>181</a>		expected_candidates.insert(candidate_entry.candidate.hash());
+<a href=#182 id=182 data-nosnippet>182</a>
+<a href=#183 id=183 data-nosnippet>183</a>		db.write(write_candidate_entry_v2(candidate_entry, config)).unwrap();
+<a href=#184 id=184 data-nosnippet>184</a>		db.write(write_block_entry_v2(block_entry, config)).unwrap();
+<a href=#185 id=185 data-nosnippet>185</a>	}
+<a href=#186 id=186 data-nosnippet>186</a>
+<a href=#187 id=187 data-nosnippet>187</a>	<span class="kw">let </span>write_ops = overlay_db.into_write_ops();
+<a href=#188 id=188 data-nosnippet>188</a>	backend.write(write_ops).unwrap();
+<a href=#189 id=189 data-nosnippet>189</a>
+<a href=#190 id=190 data-nosnippet>190</a>	<span class="prelude-val">Ok</span>(expected_candidates)
+<a href=#191 id=191 data-nosnippet>191</a>}
+<a href=#192 id=192 data-nosnippet>192</a>
+<a href=#193 id=193 data-nosnippet>193</a><span class="kw">fn </span>make_block_entry_v2(
+<a href=#194 id=194 data-nosnippet>194</a>	block_hash: Hash,
+<a href=#195 id=195 data-nosnippet>195</a>	parent_hash: Hash,
+<a href=#196 id=196 data-nosnippet>196</a>	block_number: BlockNumber,
+<a href=#197 id=197 data-nosnippet>197</a>	candidates: Vec&lt;(CoreIndex, CandidateHash)&gt;,
+<a href=#198 id=198 data-nosnippet>198</a>) -&gt; <span class="kw">crate</span>::approval_db::v2::BlockEntry {
+<a href=#199 id=199 data-nosnippet>199</a>	<span class="kw">crate</span>::approval_db::v2::BlockEntry {
+<a href=#200 id=200 data-nosnippet>200</a>		block_hash,
+<a href=#201 id=201 data-nosnippet>201</a>		parent_hash,
+<a href=#202 id=202 data-nosnippet>202</a>		block_number,
+<a href=#203 id=203 data-nosnippet>203</a>		session: <span class="number">1</span>,
+<a href=#204 id=204 data-nosnippet>204</a>		slot: Slot::from(<span class="number">1</span>),
+<a href=#205 id=205 data-nosnippet>205</a>		relay_vrf_story: [<span class="number">0u8</span>; <span class="number">32</span>],
+<a href=#206 id=206 data-nosnippet>206</a>		approved_bitfield: make_bitvec(candidates.len()),
+<a href=#207 id=207 data-nosnippet>207</a>		distributed_assignments: make_bitvec(candidates.len()),
+<a href=#208 id=208 data-nosnippet>208</a>		candidates,
+<a href=#209 id=209 data-nosnippet>209</a>		children: Vec::new(),
+<a href=#210 id=210 data-nosnippet>210</a>	}
+<a href=#211 id=211 data-nosnippet>211</a>}
+<a href=#212 id=212 data-nosnippet>212</a>
+<a href=#213 id=213 data-nosnippet>213</a><span class="comment">// Low level DB helper to write a candidate entry in v1 scheme.
+<a href=#214 id=214 data-nosnippet>214</a></span><span class="kw">fn </span>write_candidate_entry_v2(
+<a href=#215 id=215 data-nosnippet>215</a>	candidate_entry: <span class="kw">crate</span>::approval_db::v2::CandidateEntry,
+<a href=#216 id=216 data-nosnippet>216</a>	config: Config,
+<a href=#217 id=217 data-nosnippet>217</a>) -&gt; DBTransaction {
+<a href=#218 id=218 data-nosnippet>218</a>	<span class="kw">let </span><span class="kw-2">mut </span>tx = DBTransaction::new();
+<a href=#219 id=219 data-nosnippet>219</a>	tx.put_vec(
+<a href=#220 id=220 data-nosnippet>220</a>		config.col_approval_data,
+<a href=#221 id=221 data-nosnippet>221</a>		<span class="kw-2">&amp;</span>candidate_entry_key(<span class="kw-2">&amp;</span>candidate_entry.candidate.hash()),
+<a href=#222 id=222 data-nosnippet>222</a>		candidate_entry.encode(),
+<a href=#223 id=223 data-nosnippet>223</a>	);
+<a href=#224 id=224 data-nosnippet>224</a>	tx
+<a href=#225 id=225 data-nosnippet>225</a>}
+<a href=#226 id=226 data-nosnippet>226</a>
+<a href=#227 id=227 data-nosnippet>227</a><span class="comment">// Low level DB helper to write a block entry in v1 scheme.
+<a href=#228 id=228 data-nosnippet>228</a></span><span class="kw">fn </span>write_block_entry_v2(
+<a href=#229 id=229 data-nosnippet>229</a>	block_entry: <span class="kw">crate</span>::approval_db::v2::BlockEntry,
+<a href=#230 id=230 data-nosnippet>230</a>	config: Config,
+<a href=#231 id=231 data-nosnippet>231</a>) -&gt; DBTransaction {
+<a href=#232 id=232 data-nosnippet>232</a>	<span class="kw">let </span><span class="kw-2">mut </span>tx = DBTransaction::new();
+<a href=#233 id=233 data-nosnippet>233</a>	tx.put_vec(
+<a href=#234 id=234 data-nosnippet>234</a>		config.col_approval_data,
+<a href=#235 id=235 data-nosnippet>235</a>		<span class="kw-2">&amp;</span>block_entry_key(<span class="kw-2">&amp;</span>block_entry.block_hash),
+<a href=#236 id=236 data-nosnippet>236</a>		block_entry.encode(),
+<a href=#237 id=237 data-nosnippet>237</a>	);
+<a href=#238 id=238 data-nosnippet>238</a>	tx
+<a href=#239 id=239 data-nosnippet>239</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

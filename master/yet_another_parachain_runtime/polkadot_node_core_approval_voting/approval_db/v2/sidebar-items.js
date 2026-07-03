@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["load_block_entry_v1","load_candidate_entry_v1"],"mod":["migration_helpers"],"struct":["ApprovalEntry","BlockEntry","CandidateEntry","OurAssignment","Tick","TrancheEntry"],"type":["Bitfield"]};
+window.SIDEBAR_ITEMS = {"struct":["ApprovalEntry","BlockEntry","CandidateEntry","OurAssignment","Tick","TrancheEntry"],"type":["Bitfield"]};

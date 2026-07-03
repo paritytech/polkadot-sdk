@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["v1_fill_test_data","v1_to_latest"]};
