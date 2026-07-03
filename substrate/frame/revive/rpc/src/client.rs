@@ -18,6 +18,7 @@
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 
 pub(crate) mod runtime_api;
+pub(crate) mod runtime_api_capability;
 pub(crate) mod storage_api;
 
 use crate::{
