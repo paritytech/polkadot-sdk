@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783071366825,
+  "lastUpdate": 1783074065391,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bce9296825651a5b173719776d080ea07d77ea21",
-          "message": "remote-externalities: Remove old code (#10249)\n\nThe underlying issue was solved by now.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-07T18:54:56Z",
-          "tree_id": "9dd3aaceade788ebf69319f377ff77a415954645",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bce9296825651a5b173719776d080ea07d77ea21"
-        },
-        "date": 1762545897827,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008936037629999975,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0053411725699999925,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00273956361,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009471756099999989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1835c2b95598b02c0d04fc7d80c00479f82aceca",
+          "message": "pallet-revive eth-rpc: make SubmittedTransaction::gas() return Option<U256> (#12220)\n\ncloses #11889\n\nChange `SubmittedTransaction::gas()` to return `Option<U256>` mirroring\nthe underlying `GenericTransaction::gas` field, and skip the\n`wait_for_receipt` gas-limit assertion when no gas limit is set,\nremoving the panic that occurred on legacy/incomplete payloads.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-03T08:36:55Z",
+          "tree_id": "da2b3cfd040e0ca003110ebc0f4ffc190c6697de",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1835c2b95598b02c0d04fc7d80c00479f82aceca"
+        },
+        "date": 1783074037522,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010950732820000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025004643700000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009254377019999977,
             "unit": "seconds"
           }
         ]
