@@ -66,43 +66,39 @@ impl ReviveRuntimeApiCapabilities {
 		metadata: &RuntimeMetadataV16,
 		runtime_api: RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>,
 	) -> Self {
-		let mut this = Self::default();
+		let version_declarations =
+			runtime_api.call(subxt_client::apis().revive_api().version_declarations()).await;
 
-		let versioned_methods = runtime_api
-			.call(subxt_client::apis().revive_api().version_declarations())
-			.await
-			.into_iter()
-			.flat_map(|declarations| declarations.0.into_iter());
-		for (method_name, method_version) in versioned_methods {
-			if let Some(method_status) = this.get_method_status_ref_mut(&method_name) {
-				*method_status =
-					MethodStatus::Available(MethodVersioningStatus::Versioned(method_version));
-			}
-		}
-
-		let unversioned_methods = metadata
-			.apis
+		version_declarations
 			.iter()
-			.filter(|runtime_api| runtime_api.name == "ReviveApi")
-			.max_by(|a, b| a.version.0.cmp(&b.version.0))
-			.into_iter()
-			.flat_map(|api| api.methods.iter())
-			.filter(|method| !method.name.ends_with("_versioned"));
-		for method in unversioned_methods {
-			if let Some(method_status @ MethodStatus::Unavailable) =
-				this.get_method_status_ref_mut(&method.name)
-			{
-				*method_status = MethodStatus::Available(MethodVersioningStatus::Unversioned);
-			}
-		}
-
-		this
+			.flat_map(|declarations| declarations.0.iter())
+			.map(|(method, version)| (method.as_str(), MethodVersioningStatus::Versioned(*version)))
+			.chain(
+				metadata
+					.apis
+					.iter()
+					.filter(|runtime_api| runtime_api.name == "ReviveApi")
+					.max_by(|a, b| a.version.0.cmp(&b.version.0))
+					.into_iter()
+					.flat_map(|api| api.methods.iter())
+					.map(|method| (method.name.as_str(), MethodVersioningStatus::Unversioned)),
+			)
+			.fold(Self::default(), |this, (method, versioning_status)| {
+				this.with_method(method, versioning_status)
+			})
 	}
 
-	fn get_method_status_ref_mut(&mut self, key: impl AsRef<str>) -> Option<&mut MethodStatus> {
+	fn with_method(
+		mut self,
+		key: impl AsRef<str>,
+		incoming_method_status: MethodVersioningStatus,
+	) -> Self {
+		use MethodStatus::*;
+		use MethodVersioningStatus::*;
+
 		let key = key.as_ref();
 		let key = key.strip_suffix("_versioned").unwrap_or(key);
-		match key {
+		let existing_method_status = match key {
 			"eth_block" => Some(&mut self.eth_block),
 			"eth_block_hash" => Some(&mut self.eth_block_hash),
 			"eth_receipt_data" => Some(&mut self.eth_receipt_data),
@@ -128,7 +124,20 @@ impl ReviveRuntimeApiCapabilities {
 			"trace_tx" => Some(&mut self.trace_tx),
 			"trace_call" => Some(&mut self.trace_call),
 			_ => None,
+		};
+		let Some(existing_method_status) = existing_method_status else { return self };
+
+		match (existing_method_status, incoming_method_status) {
+			(this @ (Unavailable | Available(Unversioned)), Unversioned | Versioned(_)) => {
+				*this = Available(incoming_method_status)
+			},
+			(Available(Versioned(existing_version)), Versioned(incoming_version)) => {
+				*existing_version = (*existing_version).max(incoming_version)
+			},
+			(Available(Versioned(..)), Unversioned) => {},
 		}
+
+		self
 	}
 }
 
