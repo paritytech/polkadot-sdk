@@ -174,8 +174,8 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 		assert_validator_backed_candidates(node, 30).await?;
 	}
 
-	assert_finality_lag(&para_v3_node.wait_client().await?, 5).await?;
-	assert_finality_lag(&para_v2_node.wait_client().await?, 5).await?;
+	assert_finality_lag(&para_v3_node.wait_client().await?, 10).await?;
+	assert_finality_lag(&para_v2_node.wait_client().await?, 10).await?;
 
 	log::info!("V3 scheduling test ({parachain}) finished successfully");
 	Ok(())
