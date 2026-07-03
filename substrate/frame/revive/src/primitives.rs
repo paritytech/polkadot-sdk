@@ -230,6 +230,14 @@ pub struct CodeUploadReturnValue<Balance> {
 	pub deposit: Balance,
 }
 
+impl<Balance> From<CodeUploadReturnValue<Balance>>
+	for pallet_revive_types::runtime_api::CodeUploadReturnValueV1<Balance>
+{
+	fn from(value: CodeUploadReturnValue<Balance>) -> Self {
+		Self { code_hash: value.code_hash, deposit: value.deposit }
+	}
+}
+
 /// Reference to an existing code hash or a new vm module.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 pub enum Code {

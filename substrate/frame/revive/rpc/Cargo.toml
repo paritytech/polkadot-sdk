@@ -20,12 +20,16 @@ name = "eth-rpc"
 path = "src/main.rs"
 
 [dependencies]
+alloy-rpc-types = { workspace = true, default-features = true, features = [
+	"trace",
+] }
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 codec = { workspace = true, features = ["derive"] }
 derive_more = { workspace = true }
 futures = { workspace = true, features = ["thread-pool"] }
 hex = { workspace = true }
+humantime-serde = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"] }
 libsqlite3-sys = { workspace = true }
 log = { workspace = true }
@@ -61,8 +65,10 @@ tokio-stream = { workspace = true }
 [dev-dependencies]
 alloy-network = { workspace = true, default-features = true }
 alloy-primitives = { workspace = true, default-features = true }
-alloy-provider = { workspace = true, default-features = true, features = ["debug-api", "reqwest"] }
-alloy-rpc-types = { workspace = true, default-features = true, features = ["trace"] }
+alloy-provider = { workspace = true, default-features = true, features = [
+	"debug-api",
+	"reqwest",
+] }
 alloy-signer-local = { workspace = true, default-features = true }
 env_logger = { workspace = true }
 frame-system = { workspace = true, default-features = true }

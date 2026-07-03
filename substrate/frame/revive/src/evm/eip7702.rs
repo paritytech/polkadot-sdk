@@ -328,7 +328,7 @@ fn recover_authority(auth: &AuthorizationListEntry) -> Result<H160, ()> {
 /// Sign an authorization entry
 ///
 /// This is a helper function for benchmarks and tests.
-#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
+#[cfg(any(feature = "runtime-benchmarks", test))]
 pub fn sign_authorization(
 	key: &k256::ecdsa::SigningKey,
 	chain_id: U256,
