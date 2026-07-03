@@ -106,7 +106,13 @@ module main {
   }
 
   action stepRefineAccumulate = {
-    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, now)
+    // A block advances the clock to its own timeslot (nondet gap >= 1 models
+    // empty slots between blocks), then runs always-accumulate at that slot —
+    // so `now` only ever takes block-timeslot values and every block flushes
+    // due authorizer queues.
+    nondet blockGap = oneOf(Set(1, 2))
+    val blockNow = now + blockGap
+    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
 
     // First work package
     nondet wp1Para = oneOf(afterAlwaysAccumulate.state.parachains.keys())
@@ -171,7 +177,7 @@ module main {
       }
     val out1 =
       if (numPkgs == 0) passThrough
-      else accumulateOnePackage(afterAlwaysAccumulate.state, wp1Wr, solicitedSet, None, FixedCodeLen, now)
+      else accumulateOnePackage(afterAlwaysAccumulate.state, wp1Wr, solicitedSet, None, FixedCodeLen, blockNow)
     // wp2 refines against the post-wp1 state so a second package for the
     // SAME para chains off wp1's new head; different para → identical to
     // refining against `afterAlwaysAccumulate.state`. wp1 may have cleaned up `wp2Para`
@@ -194,7 +200,7 @@ module main {
     val out2 =
       if (numPkgs == 2) {
         val second = accumulateOnePackage(
-          out1.state, wp2Wr, out1.solicited, out1.jamDesignate, FixedCodeLen, now)
+          out1.state, wp2Wr, out1.solicited, out1.jamDesignate, FixedCodeLen, blockNow)
         { ...second, jamAssigns: out1.jamAssigns.concat(second.jamAssigns) }
       } else out1
 
@@ -211,7 +217,7 @@ module main {
     all {
       svc' = out2.state,
       jamStagingSet' = newStaging,
-      now' = now,
+      now' = blockNow,
       solicitedSet' = out2.solicited,
       prevSvc' = svc,
       lastStepWorkResults' = results,
@@ -220,27 +226,7 @@ module main {
     }
   }
 
-  // --- Step (b): time advance -------------------------------------------
-
-  // Advancing time also applies any authorizer queues that become due at the
-  // new timeslot — every block runs the always-accumulate flush, so a cached
-  // queue never sits past its `apply_at`.
-  action stepTick = {
-    val newNow = now + 1
-    val flushed = applyAlwaysAccumulate(svc, newNow)
-    all {
-      now' = newNow,
-      svc' = flushed.state,
-      jamStagingSet' = jamStagingSet,
-      solicitedSet' = solicitedSet,
-      prevSvc' = svc,
-      lastStepWorkResults' = List(),
-      lastStepBouncedTransfers' = List(),
-      lastStepAssigns' = flushed.assigns
-    }
-  }
-
-  // --- Step (c): another service sends an OnTransfer into Asset Hub ----
+  // --- Step (b): another service sends an OnTransfer into Asset Hub ----
   //
   /// Models JAM-level OnTransfer ingress (§5.1, incoming-transfer phase):
   /// append to `incoming_transfers` if it has space, otherwise record a bounce
@@ -271,7 +257,7 @@ module main {
 
   // --- Step composition --------------------------------------------------
 
-  action step = any { stepRefineAccumulate, stepTick, stepIncomingTransfer }
+  action step = any { stepRefineAccumulate, stepIncomingTransfer }
 
   // --- Auxiliary: nondeterministic refine-input generators --------------
 

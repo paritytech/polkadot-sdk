@@ -30,7 +30,9 @@ module tests {
   action applyHappyPath(
     paraId: ParaId, codeHash: ValidationCodeHash, msgs: List[UpwardMessage]
   ): bool = {
-    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, now)
+    // A block advances the clock to its own timeslot, then accumulates.
+    val blockNow = now + 1
+    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
     val pi = afterAlwaysAccumulate.state.paraInfo(paraId)
     val pkg: WorkPackage = {
       authorizedParas: List(paraId),
@@ -45,11 +47,11 @@ module tests {
       authTrace: 0
     }
     val out = accumulateOnePackage(
-      afterAlwaysAccumulate.state, wr, solicitedSet, None, FixedCodeLen, now
+      afterAlwaysAccumulate.state, wr, solicitedSet, None, FixedCodeLen, blockNow
     )
     all {
       svc' = out.state,
-      now' = now,
+      now' = blockNow,
       jamStagingSet' = match out.jamDesignate {
         | Some(v) => v
         | None => jamStagingSet
@@ -69,7 +71,9 @@ module tests {
     p1: ParaId, c1: ValidationCodeHash, m1: List[UpwardMessage],
     p2: ParaId, c2: ValidationCodeHash, m2: List[UpwardMessage]
   ): bool = {
-    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, now)
+    // Both packages accumulate in one block at its own timeslot.
+    val blockNow = now + 1
+    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
     val pi1 = afterAlwaysAccumulate.state.paraInfo(p1)
     val pkg1: WorkPackage = {
       authorizedParas: List(p1),
@@ -84,7 +88,7 @@ module tests {
       authTrace: 0
     }
     val out1 = accumulateOnePackage(
-      afterAlwaysAccumulate.state, wr1, solicitedSet, None, FixedCodeLen, now
+      afterAlwaysAccumulate.state, wr1, solicitedSet, None, FixedCodeLen, blockNow
     )
     val pi2 = out1.state.paraInfo(p2)
     val pkg2: WorkPackage = {
@@ -101,7 +105,7 @@ module tests {
     }
     val out2Package = accumulateOnePackage(
       out1.state, wr2, out1.solicited, out1.jamDesignate,
-      FixedCodeLen, now
+      FixedCodeLen, blockNow
     )
     val out2 = {
       ...out2Package,
@@ -109,7 +113,7 @@ module tests {
     }
     all {
       svc' = out2.state,
-      now' = now,
+      now' = blockNow,
       jamStagingSet' = match out2.jamDesignate {
         | Some(v) => v
         | None => jamStagingSet
@@ -138,7 +142,7 @@ module tests {
 
   // --- Bounce-on-full -----------------------------------------------------
 
-  /// Pre-built `incoming_transfers` at capacity for `testBounceOnFull`.
+  /// Pre-built `incoming_transfers` at capacity for `bounceOnFullTest`.
   pure val fullIncomingTransfersFixture: List[{
     from: ServiceId, amount: Balance, memo: Memo
   }] =
@@ -161,7 +165,7 @@ module tests {
   /// With `incoming_transfers` at capacity, the next ingress must bounce:
   /// the queue length must NOT grow, and exactly one entry must appear
   /// in `lastStepBouncedTransfers`.
-  run testBounceOnFull =
+  run bounceOnFullTest =
     init
       .then(fillIncomingTransfers)
       .then(stepIncomingTransfer)
@@ -175,7 +179,7 @@ module tests {
   /// Two work packages in one block — one for each privileged chain.
   /// Both heads advance from 0 to 1, and `lastStepWorkResults` records
   /// two results in order.
-  run testMultipleWorkPackagesAccumulate = {
+  run multipleWorkPackagesAccumulateTest = {
     val coretimeCode: ValidationCodeHash = { vchBytes: 1 }
     val assetHubCode: ValidationCodeHash = { vchBytes: 2 }
     init
@@ -258,11 +262,12 @@ module tests {
   /// 2. Coretime sets para 3's active code to `codeA`.
   /// 3. Para 3 requests an upgrade to `codeB` (preimage gets added to
   ///    registry via `addReferencer`; `pendingUpgrade` armed).
-  /// 4. A few ticks pass, well below the upgrade deadline.
+  /// 4. A few blocks pass (each advances `now`), well below the deadline;
+  ///    the pending upgrade must persist across them.
   /// 5. Para 3 validates with `codeB` (dual-code window) — activation
   ///    flips `validationCode.hash` to `codeB` and clears
   ///    `pendingUpgrade`. The old `codeA` referencer is released.
-  run testCodeUpgradeLifecycle = {
+  run codeUpgradeLifecycleTest = {
     val codeA: ValidationCodeHash = { vchBytes: 0x11 }
     val codeB: ValidationCodeHash = { vchBytes: 0x22 }
     val balance = BaselineFootprint + preimageFootprint(FixedCodeLen) * 4
@@ -289,9 +294,14 @@ module tests {
           | Some(pair) => pair._1.hash == codeB
         }
       ))
-      .then(stepTick)
-      .then(stepTick)
-      .then(stepTick)
+      // A few blocks pass on the still-active codeA (each advances `now`),
+      // well below the deadline; the pending upgrade must persist.
+      .then(applyHappyPath(MkParaId(3), codeA, List()))
+      .then(applyHappyPath(MkParaId(3), codeA, List()))
+      .then(expectThat(match svc.paraInfo(MkParaId(3)).pendingUpgrade {
+        | None => false
+        | Some(pair) => pair._1.hash == codeB
+      }))
       .then(applyHappyPath(MkParaId(3), codeB, List()))
       .then(expectThat(all {
         svc.paraInfo(MkParaId(3)).validationCode.hash == codeB,
@@ -306,7 +316,7 @@ module tests {
   /// Full Coretime lifecycle for a new para:
   /// register → set head → clean up. After cleanup the para's `ParaInfo`
   /// is gone and the preimage registry no longer references it.
-  run testParaRegisterOperateCleanup = {
+  run paraRegisterOperateCleanupTest = {
     val coretimeCode: ValidationCodeHash = { vchBytes: 1 }
     init
       .then(applyHappyPath(CoretimeParaId, coretimeCode, List(
@@ -334,9 +344,9 @@ module tests {
   // --- Pending-upgrade timeout reap (§5.2 Phase 5b) ----------------------
   //
   // The timeout is hard to hit in random simulation: `UpgradeTimeoutTimeslots
-  // = 14400` and `stepTick` advances `now` by 1, so `quint run` essentially
-  // never advances past a deadline. These deterministic `run` tests drive the
-  // lazy-reap path directly so it is actually exercised.
+  // = 14400` while a block advances `now` by only a small gap, so `quint run`
+  // essentially never advances past a deadline. These deterministic `run` tests
+  // drive the lazy-reap path directly so it is actually exercised.
 
   /// A registered para with an armed pending upgrade. Built off the initial
   /// state by requesting an upgrade to `pendingUpgradeHash` at timeslot 0, so
@@ -511,9 +521,8 @@ module tests {
   }
 
   /// A cached queue stays scheduled in the future until it is due: an
-  /// always-accumulate flush (as `stepTick` runs on every time advance) before
-  /// `apply_at` leaves the entry in place with `apply_at > now`; a flush at
-  /// `apply_at` clears it.
+  /// always-accumulate flush (which every block runs) before `apply_at` leaves
+  /// the entry in place with `apply_at > now`; a flush at `apply_at` clears it.
   run pendingApplyAtStaysFutureUntilDueTest = {
     val core = 5
     val anyHash: AuthorizerHash = { authBytes: 5 }
