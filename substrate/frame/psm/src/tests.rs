@@ -22,7 +22,7 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::{assert_noop, assert_ok, hypothetically};
-use sp_runtime::{traits::TrailingZeroInput, DispatchError, Permill, TokenError};
+use sp_runtime::{traits::TrailingZeroInput, DispatchError, Permill, TokenError, TypeId};
 
 fn psm_max_debt() -> u128 {
 	crate::Psm::<Test>::get(INTERNAL_ASSET_ID)
@@ -1622,7 +1622,11 @@ mod helpers {
 	fn account_id_is_derived() {
 		new_test_ext().execute_with(|| {
 			let account = crate::Pallet::<Test>::psm_account(&INTERNAL_ASSET_ID);
-			let entropy = (<Test as crate::Config>::PalletId::get(), &INTERNAL_ASSET_ID)
+			let entropy = (
+				<frame_support::PalletId as TypeId>::TYPE_ID,
+				<Test as crate::Config>::PalletId::get(),
+				&INTERNAL_ASSET_ID,
+			)
 				.using_encoded(sp_io::hashing::blake2_256);
 			let expected =
 				u128::decode(&mut TrailingZeroInput::new(entropy.as_ref())).expect("valid account");
@@ -2165,8 +2169,8 @@ mod cycles {
 
 			let total_fees = total_mint_fees + total_redeem_fees;
 			let if_increase = if_internal_after - if_internal_before;
-			let user_decrease = user_external_before - user_external_after + user_internal_before -
-				user_internal_after;
+			let user_decrease = user_external_before - user_external_after + user_internal_before
+				- user_internal_after;
 
 			println!("\n=== Verification ===");
 			println!("Total fees collected: {:.2}", total_fees as f64 / unit);
@@ -2357,8 +2361,8 @@ mod cycles {
 
 			let total_fees = total_mint_fees + total_redeem_fees;
 			let if_increase = if_internal_after - if_internal_before;
-			let user_decrease = user_external_before - user_external_after + user_internal_before -
-				user_internal_after;
+			let user_decrease = user_external_before - user_external_after + user_internal_before
+				- user_internal_after;
 
 			println!("\n=== Verification ===");
 			println!("Total fees collected: {:.2}", total_fees as f64 / unit);
@@ -2407,8 +2411,8 @@ mod cycles {
 
 			let total_fees = total_mint_fees + total_redeem_fees;
 			let if_increase = if_internal_after - if_internal_before;
-			let user_decrease = user_external_before - user_external_after + user_internal_before -
-				user_internal_after;
+			let user_decrease = user_external_before - user_external_after + user_internal_before
+				- user_internal_after;
 
 			println!("\n=== Final State ===");
 			println!("Total cycles: {}", cycle);

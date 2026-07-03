@@ -53,7 +53,7 @@
 //!
 //! * **PSM instance**: A configured Peg Stability Module, keyed by its internal asset id and
 //!   described by [`PsmInfo`]. Each instance has its own reserve account derived from
-//!   `blake2_256((PalletId, internal_asset).encode())`.
+//!   `blake2_256((PalletId::TYPE_ID, PalletId, internal_asset).encode())`.
 //! * **Minting**: Deposit external asset → receive internal asset (minus fee).
 //! * **Redemption**: Burn internal asset → receive external asset (minus fee).
 //! * **Reserve**: External asset balance held by a PSM's reserve account (derived, not stored).
@@ -145,7 +145,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{
 		traits::{CheckedDiv, CheckedMul, Saturating, TrailingZeroInput, Zero},
-		Perbill, Permill,
+		Perbill, Permill, TypeId,
 	};
 
 	use crate::WeightInfo;
@@ -1489,11 +1489,11 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Derive the reserve account for a PSM instance from the full hash of the pallet id
-		/// and internal asset.
+		/// Derive the reserve account for a PSM instance from the full hash of the pallet-id
+		/// domain separator, pallet id, and internal asset.
 		pub fn psm_account(internal_asset: &T::AssetId) -> T::AccountId {
-			let entropy =
-				(T::PalletId::get(), internal_asset).using_encoded(sp_io::hashing::blake2_256);
+			let entropy = (<PalletId as TypeId>::TYPE_ID, T::PalletId::get(), internal_asset)
+				.using_encoded(sp_io::hashing::blake2_256);
 			T::AccountId::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
 				.expect("All byte sequences are valid `AccountId`s; qed")
 		}

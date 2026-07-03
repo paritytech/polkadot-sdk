@@ -25,8 +25,8 @@ The PSM pallet hosts one or more PSM instances, each keyed by its internal
 asset id. Each instance:
 
 - **Holds a per-instance reserve account** derived from
-  `blake2_256((PalletId, internal_asset).encode())`. External assets deposited
-  by users are held there.
+  `blake2_256((PalletId::TYPE_ID, PalletId, internal_asset).encode())`.
+  External assets deposited by users are held there.
 - **Mints and burns its own internal asset**. Users receive the internal asset
   when depositing external assets, and burn the internal asset when
   redeeming.
