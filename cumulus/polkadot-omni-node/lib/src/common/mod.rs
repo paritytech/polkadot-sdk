@@ -29,7 +29,9 @@ pub mod types;
 
 use crate::cli::AuthoringPolicy;
 
-use cumulus_primitives_core::{CollectCollationInfo, GetParachainInfo, RelayParentOffsetApi};
+use cumulus_primitives_core::{
+	CollectCollationInfo, GetParachainInfo, RelayParentOffsetApi, SchedulingV3EnabledApi,
+};
 use sc_client_db::DbHash;
 use sc_offchain::OffchainWorkerApi;
 use serde::de::DeserializeOwned;
@@ -45,7 +47,9 @@ use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
 pub trait NodeBlock:
-	BlockT<Extrinsic = OpaqueExtrinsic, Header = Self::BoundedHeader, Hash = DbHash> + DeserializeOwned
+	BlockT<Extrinsic = OpaqueExtrinsic, Header = Self::BoundedHeader, Hash = DbHash>
+	+ DeserializeOwned
+	+ Unpin
 {
 	type BoundedFromStrErr: Debug;
 	type BoundedNumber: FromStr<Err = Self::BoundedFromStrErr> + BlockNumber;
@@ -54,7 +58,7 @@ pub trait NodeBlock:
 
 impl<T> NodeBlock for T
 where
-	T: BlockT<Extrinsic = OpaqueExtrinsic, Hash = DbHash> + DeserializeOwned,
+	T: BlockT<Extrinsic = OpaqueExtrinsic, Hash = DbHash> + DeserializeOwned + Unpin,
 	<T as BlockT>::Header: Unpin,
 	<NumberFor<T> as FromStr>::Err: Debug,
 {
@@ -75,6 +79,8 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ GetParachainInfo<Block>
 	+ TransactionStorageApi<Block>
 	+ RelayParentOffsetApi<Block>
+	+ sp_authority_discovery::AuthorityDiscoveryApi<Block>
+	+ SchedulingV3EnabledApi<Block>
 	+ Sized
 {
 }
@@ -90,6 +96,8 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ CollectCollationInfo<Block>
 		+ GetParachainInfo<Block>
 		+ TransactionStorageApi<Block>
+		+ sp_authority_discovery::AuthorityDiscoveryApi<Block>
+		+ SchedulingV3EnabledApi<Block>
 {
 }
 
@@ -130,6 +138,9 @@ pub struct NodeExtraArgs {
 
 	/// Parameters for storage monitoring.
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
+
+	/// Upper bound on collator reserved-peer slots.
+	pub collator_reserved_slots: usize,
 
 	/// HOP (Hand-Off Protocol) configuration parameters.
 	/// `None` disables HOP.

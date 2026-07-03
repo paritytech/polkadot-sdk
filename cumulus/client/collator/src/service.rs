@@ -19,7 +19,9 @@
 //! operations used in parachain consensus/authoring.
 
 use cumulus_client_network::WaitToAnnounce;
-use cumulus_primitives_core::{CollationInfo, CollectCollationInfo, ParachainBlockData};
+use cumulus_primitives_core::{
+	CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof,
+};
 
 use polkadot_primitives::UMP_SEPARATOR;
 use sc_client_api::BlockBackend;
@@ -51,23 +53,31 @@ pub trait ServiceInterface<Block: BlockT> {
 	/// that the underlying block has been fully imported into the underlying client,
 	/// as implementations will fetch underlying runtime API data.
 	///
+	/// `scheduling_proof` is `Some` for V3 candidates (produces [`ParachainBlockData::V2`])
+	/// and `None` for legacy candidates (produces [`ParachainBlockData::V1`]).
+	///
 	/// This also returns the unencoded parachain block data, in case that is desired.
 	fn build_collation(
 		&self,
 		parent_header: &Block::Header,
 		block_hash: Block::Hash,
 		candidate: ParachainCandidate<Block>,
+		scheduling_proof: Option<SchedulingProof>,
 	) -> Option<(Collation, ParachainBlockData<Block>)>;
 
 	/// Build a multi-block collation.
 	///
 	/// Does the same as [`Self::build_collation`], but includes multiple blocks into one collation.
 	/// The given `parent_header` should be the header from the parent of the first block.
+	///
+	/// `scheduling_proof` is `Some` for V3 candidates (produces [`ParachainBlockData::V2`])
+	/// and `None` for legacy candidates (produces [`ParachainBlockData::V1`]).
 	fn build_multi_block_collation(
 		&self,
 		parent_header: &Block::Header,
 		blocks: Vec<Block>,
 		proof: StorageProof,
+		scheduling_proof: Option<SchedulingProof>,
 	) -> Option<(Collation, ParachainBlockData<Block>)>;
 
 	/// Inform networking systems that the block should be announced after a signal has
@@ -236,6 +246,7 @@ where
 		parent_header: &Block::Header,
 		blocks: Vec<Block>,
 		proof: StorageProof,
+		scheduling_proof: Option<SchedulingProof>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
 		let compact_proof =
 			match proof.into_compact_proof::<HashingFor<Block>>(*parent_header.state_root()) {
@@ -246,7 +257,17 @@ where
 				},
 			};
 
-		let mut api_version = 0;
+		// We are always using the `api_version` of the parent block. The `api_version` can only
+		// change with a runtime upgrade and this is when we want to observe the old
+		// `api_version`. Because this old `api_version` is the one used to validate this
+		// block. Otherwise, we already assume the `api_version` is higher than what the relay
+		// chain will use and this will lead to validation errors.
+		let api_version = self
+			.runtime_api
+			.runtime_api()
+			.api_version::<dyn CollectCollationInfo<Block>>(parent_header.hash())
+			.ok()
+			.flatten()?;
 		let mut upward_messages = Vec::new();
 		let mut upward_message_signals = Vec::<Vec<u8>>::with_capacity(4);
 		let mut horizontal_messages = Vec::new();
@@ -266,18 +287,6 @@ where
 						"Failed to collect collation info.",
 					)
 				})
-				.ok()
-				.flatten()?;
-
-			// We are always using the `api_version` of the parent block. The `api_version` can only
-			// change with a runtime upgrade and this is when we want to observe the old
-			// `api_version`. Because this old `api_version` is the one used to validate this
-			// block. Otherwise, we already assume the `api_version` is higher than what the relay
-			// chain will use and this will lead to validation errors.
-			api_version = self
-				.runtime_api
-				.runtime_api()
-				.api_version::<dyn CollectCollationInfo<Block>>(parent_header.hash())
 				.ok()
 				.flatten()?;
 
@@ -304,7 +313,7 @@ where
 		// Sort by recipient as required by the relay chain rules.
 		horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
 
-		let block_data = ParachainBlockData::<Block>::new(blocks, compact_proof);
+		let block_data = ParachainBlockData::<Block>::new(blocks, compact_proof, scheduling_proof);
 
 		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
 			block_data: BlockData(if api_version >= 3 {
@@ -392,12 +401,14 @@ where
 		parent_header: &Block::Header,
 		_: Block::Hash,
 		candidate: ParachainCandidate<Block>,
+		scheduling_proof: Option<SchedulingProof>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
 		CollatorService::build_multi_block_collation(
 			self,
 			parent_header,
 			vec![candidate.block],
 			candidate.proof,
+			scheduling_proof,
 		)
 	}
 
@@ -417,7 +428,14 @@ where
 		parent_header: &<Block as BlockT>::Header,
 		blocks: Vec<Block>,
 		proof: StorageProof,
+		scheduling_proof: Option<SchedulingProof>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
-		CollatorService::build_multi_block_collation(self, parent_header, blocks, proof)
+		CollatorService::build_multi_block_collation(
+			self,
+			parent_header,
+			blocks,
+			proof,
+			scheduling_proof,
+		)
 	}
 }

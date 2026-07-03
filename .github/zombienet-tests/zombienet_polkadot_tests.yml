@@ -43,13 +43,13 @@
     for bin in polkadot polkadot-parachain; do
       OLD_NAME="$bin-old"
       echo "downloading $bin as $OLD_NAME in $BIN_DIR";
-      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-v1.7.0/$bin
+      curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-v1.7.0/$bin
       chmod 755 $BIN_DIR/$OLD_NAME;
     done
     for bin in polkadot-execute-worker polkadot-prepare-worker; do
       OLD_NAME="$bin"
       echo "downloading $bin as $OLD_NAME in $BIN_DIR";
-      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-v1.7.0/$bin
+      curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-v1.7.0/$bin
       chmod 755 $BIN_DIR/$OLD_NAME;
     done
     ls -ltr $BIN_DIR
@@ -178,13 +178,13 @@
     for bin in polkadot polkadot-parachain; do
       OLD_NAME="$bin-old"
       echo "downloading $bin as $OLD_NAME in $BIN_DIR";
-      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2503/$bin
+      curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2503/$bin
       chmod 755 $BIN_DIR/$OLD_NAME;
     done
     for bin in polkadot-execute-worker polkadot-prepare-worker; do
       OLD_NAME="$bin"
       echo "downloading $bin as $OLD_NAME in $BIN_DIR";
-      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2503/$bin
+      curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2503/$bin
       chmod 755 $BIN_DIR/$OLD_NAME;
     done
     ls -ltr $BIN_DIR
@@ -218,6 +218,18 @@
   runner-type: "default"
   use-zombienet-sdk: true
 
+- job-name: "zombienet-polkadot-scheduling-v2-and-v3-collator-with-v3-validators"
+  test-filter: "functional::scheduling_v3::scheduling_v2_and_v3_collator_with_v3_validators"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+
+- job-name: "zombienet-polkadot-scheduling-v3-es-collator-with-v3-validators"
+  test-filter: "functional::scheduling_v3::scheduling_v3_es_collator_with_v3_validators"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+
 - job-name: "zombienet-polkadot-scheduling-v3-dynamic-enablement"
   test-filter: "functional::v3_dynamic_enablement::v3_dynamic_enablement_test"
   runner-type: "default"
@@ -233,11 +245,11 @@
     BIN_DIR="$(pwd)/bin_old"
     mkdir -p $BIN_DIR
     echo "downloading polkadot as polkadot-old in $BIN_DIR"
-    curl -L -o $BIN_DIR/polkadot-old https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/polkadot
+    curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/polkadot-old https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/polkadot
     chmod 755 $BIN_DIR/polkadot-old
     for bin in polkadot-execute-worker polkadot-prepare-worker; do
       echo "downloading $bin in $BIN_DIR"
-      curl -L -o $BIN_DIR/$bin https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/$bin
+      curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/$bin https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/$bin
       chmod 755 $BIN_DIR/$bin
     done
     ls -ltr $BIN_DIR

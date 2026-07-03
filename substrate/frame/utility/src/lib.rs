@@ -590,6 +590,10 @@ pub mod pallet {
 		fn weight_and_dispatch_class(
 			calls: &[<T as Config>::RuntimeCall],
 		) -> (Weight, DispatchClass) {
+			if calls.is_empty() {
+				return (Weight::zero(), DispatchClass::Normal);
+			}
+
 			let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info());
 			let (dispatch_weight, dispatch_class) = dispatch_infos.fold(
 				(Weight::zero(), DispatchClass::Operational),
