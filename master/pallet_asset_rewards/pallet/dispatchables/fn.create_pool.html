@@ -152,7 +152,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
     staked_asset_id: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;T::<a class="associatedtype" href="../trait.Config.html#associatedtype.AssetId" title="type pallet_asset_rewards::pallet::Config::AssetId">AssetId</a>&gt;,
     reward_asset_id: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;T::<a class="associatedtype" href="../trait.Config.html#associatedtype.AssetId" title="type pallet_asset_rewards::pallet::Config::AssetId">AssetId</a>&gt;,
     reward_rate_per_block: T::<a class="associatedtype" href="../trait.Config.html#associatedtype.Balance" title="type pallet_asset_rewards::pallet::Config::Balance">Balance</a>,
-    expiry: <a class="enum" href="../../../frame_support/traits/schedule/enum.DispatchTime.html" title="enum frame_support::traits::schedule::DispatchTime">DispatchTime</a>&lt;<a class="type" href="../../type.BlockNumberFor.html" title="type pallet_asset_rewards::BlockNumberFor">BlockNumberFor</a>&lt;T&gt;&gt;,
+    expiry: DispatchTime&lt;<a class="type" href="../../type.BlockNumberFor.html" title="type pallet_asset_rewards::BlockNumberFor">BlockNumberFor</a>&lt;T&gt;&gt;,
     admin: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;T::AccountId&gt;,
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Create a new reward pool.</p>
 <p>Parameters:</p>
@@ -162,7 +162,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <li><code>reward_asset_id</code>: the asset to be distributed as rewards;</li>
 <li><code>reward_rate_per_block</code>: the amount of reward tokens distributed per block;</li>
 <li><code>expiry</code>: the block number at which the pool will cease to accumulate rewards. The
-<a href="../../../frame_support/traits/schedule/enum.DispatchTime.html#variant.After" title="variant frame_support::traits::schedule::DispatchTime::After"><code>DispatchTime::After</code></a> variant evaluated at the execution time.</li>
+[<code>DispatchTime::After</code>] variant evaluated at the execution time.</li>
 <li><code>admin</code>: the account allowed to extend the pool expiration, increase the rewards rate
 and receive the unutilized reward tokens back after the pool completion. If <code>None</code>,
 the caller is set as an admin.</li>

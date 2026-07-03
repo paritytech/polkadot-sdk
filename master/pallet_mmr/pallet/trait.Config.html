@@ -184,7 +184,7 @@ hash, to obtain a new MMR inner node - the new peak.</p>
 leaf data that will be inserted to the MMR.
 <a href="../trait.LeafDataProvider.html" title="trait pallet_mmr::LeafDataProvider">LeafDataProvider</a>s can be composed into tuples to put
 multiple elements into the tree. In such a case it might be worth using
-<a href="../../sp_mmr_primitives/struct.Compact.html" title="struct sp_mmr_primitives::Compact">primitives::Compact</a> to make MMR proof for one element of the tuple leaner.</p>
+[primitives::Compact] to make MMR proof for one element of the tuple leaner.</p>
 <p>Note that the leaf at each block MUST be unique. You may want to include a block hash or
 block number as an easiest way to ensure that.
 Also note that the leaf added by each block is expected to only reference data coming

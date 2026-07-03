@@ -1,9 +1,9 @@
 (function() {
-    var implementors = Object.fromEntries([["frame_support",[]],["pallet_uniques",[["impl&lt;T: <a class=\"trait\" href=\"pallet_uniques/pallet/trait.Config.html\" title=\"trait pallet_uniques::pallet::Config\">Config</a>&lt;I&gt;, I: 'static&gt; <a class=\"trait\" href=\"frame_support/traits/tokens/asset_ops/trait.Restore.html\" title=\"trait frame_support::traits::tokens::asset_ops::Restore\">Restore</a>&lt;<a class=\"struct\" href=\"frame_support/traits/tokens/asset_ops/common_strategies/struct.WithConfig.html\" title=\"struct frame_support::traits::tokens::asset_ops::common_strategies::WithConfig\">WithConfig</a>&lt;<a class=\"struct\" href=\"frame_support/traits/tokens/asset_ops/common_strategies/struct.ConfigValue.html\" title=\"struct frame_support::traits::tokens::asset_ops::common_strategies::ConfigValue\">ConfigValue</a>&lt;<a class=\"struct\" href=\"frame_support/traits/tokens/asset_ops/common_strategies/struct.Owner.html\" title=\"struct frame_support::traits::tokens::asset_ops::common_strategies::Owner\">Owner</a>&lt;&lt;T as Config&gt;::AccountId&gt;&gt;&gt;&gt; for <a class=\"struct\" href=\"pallet_uniques/asset_ops/struct.Item.html\" title=\"struct pallet_uniques::asset_ops::Item\">Item</a>&lt;<a class=\"struct\" href=\"pallet_uniques/pallet/struct.Pallet.html\" title=\"struct pallet_uniques::pallet::Pallet\">Pallet</a>&lt;T, I&gt;&gt;"]]],["polkadot_sdk_frame",[]]]);
+    var implementors = Object.fromEntries([["frame_support",[]],["pallet_uniques",[["impl&lt;T: <a class=\"trait\" href=\"pallet_uniques/pallet/trait.Config.html\" title=\"trait pallet_uniques::pallet::Config\">Config</a>&lt;I&gt;, I: 'static&gt; Restore&lt;WithConfig&lt;ConfigValue&lt;Owner&lt;&lt;T as Config&gt;::AccountId&gt;&gt;&gt;&gt; for <a class=\"struct\" href=\"pallet_uniques/asset_ops/struct.Item.html\" title=\"struct pallet_uniques::asset_ops::Item\">Item</a>&lt;<a class=\"struct\" href=\"pallet_uniques/pallet/struct.Pallet.html\" title=\"struct pallet_uniques::pallet::Pallet\">Pallet</a>&lt;T, I&gt;&gt;"]]],["polkadot_sdk_frame",[]]]);
     if (window.register_implementors) {
         window.register_implementors(implementors);
     } else {
         window.pending_implementors = implementors;
     }
 })()
-//{"start":57,"fragment_lengths":[20,1314,26]}
+//{"start":57,"fragment_lengths":[20,564,26]}
