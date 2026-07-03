@@ -54,7 +54,7 @@ async fn main() -> anyhow::Result<()> {
 
 	println!("Receipt:");
 	println!("- Block number:     {block_number}");
-	println!("- Gas estimated:    {}", tx.gas());
+	println!("- Gas estimated:    {:?}", tx.gas());
 	println!("- Gas used:         {gas_used}");
 	println!("- Contract address: {contract_address:?}");
 	let balance = client.get_balance(contract_address, Default::default()).await?;
@@ -76,7 +76,7 @@ async fn main() -> anyhow::Result<()> {
 	println!("Receipt:");
 	println!("- Block number:  {block_number}");
 	println!("- Gas used:      {gas_used}");
-	println!("- Gas estimated: {}", tx.gas());
+	println!("- Gas estimated: {:?}", tx.gas());
 	println!("- To:            {to:?}");
 	Ok(())
 }
