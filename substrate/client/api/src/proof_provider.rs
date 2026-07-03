@@ -45,9 +45,9 @@ pub trait ProofProvider<Block: BlockT> {
 	///
 	/// No changes are made.
 	///
-	/// On [`Client`](https://docs.rs/sc-service) this call is subject to the configured wall-clock
-	/// execution limit (if any), so it can serve untrusted (e.g. light-client) requests without
-	/// letting a single call consume unbounded CPU; the call traps once the limit is exceeded.
+	/// On [`Client`](https://docs.rs/sc-service) the call traps once it exceeds the configured
+	/// wall-clock execution limit (if any), making it safe to serve untrusted (light-client)
+	/// requests.
 	fn execution_proof(
 		&self,
 		hash: Block::Hash,

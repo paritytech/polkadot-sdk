@@ -41,14 +41,12 @@ use sp_core::traits::{CallContext, CodeExecutor, Externalities, RuntimeCode};
 use sp_version::{GetNativeVersion, NativeVersion, RuntimeVersion};
 use sp_wasm_interface::{ExtendedHostFunctions, HostFunctions};
 
-/// Number of runtime instances kept warm by a capped (execution-timeout) executor.
-///
-/// Only light request handler uses the capped executor, and request handling is currently serial
-/// there, so 1 instance is enough.
-// TODO: update this to match light request handler concurrency once it's is implemented.
+/// Runtime instances kept warm by a capped (execution-timeout) executor. Light request handling —
+/// its only user — is serial, so one is enough.
+// TODO: revisit once light request handling becomes concurrent.
 const CAPPED_EXECUTOR_MAX_RUNTIME_INSTANCES: usize = 1;
-/// Number of distinct runtime versions cached by a capped (execution-timeout) executor. Covers the
-/// latest runtime and the previous runtime during the runtime upgrade.
+/// Runtime versions cached by a capped executor: the current one, plus the previous one during a
+/// runtime upgrade.
 const CAPPED_EXECUTOR_RUNTIME_CACHE_SIZE: u8 = 2;
 
 /// Set up the externalities and safe calling environment to execute runtime calls.
@@ -335,10 +333,8 @@ impl<H> WasmExecutor<H> {
 	}
 }
 
-/// Derive a variant of an executor that enforces a wall-clock limit on each runtime call.
-///
-/// Used to build a dedicated capped executor (e.g. to serve light-client requests) from the
-/// node-wide one, leaving the latter untouched.
+/// Derive an executor variant that enforces a wall-clock limit on each runtime call (e.g. to
+/// serve light-client requests), leaving the original executor untouched.
 pub trait WithExecutionTimeout {
 	/// Return a new executor that traps any single call exceeding `timeout`.
 	fn with_execution_timeout(&self, timeout: Duration) -> Self;
@@ -347,9 +343,8 @@ pub trait WithExecutionTimeout {
 impl<H> WithExecutionTimeout for WasmExecutor<H> {
 	fn with_execution_timeout(&self, timeout: Duration) -> Self {
 		Self {
-			// The capped executor compiles into its own epoch-enabled engine and only serves
-			// light-client requests, so it gets a small dedicated cache rather than the node-wide
-			// sizing.
+			// The capped executor compiles into its own engine and serves only light-client
+			// requests, so a small dedicated cache suffices.
 			cache: Arc::new(RuntimeCache::new(
 				CAPPED_EXECUTOR_MAX_RUNTIME_INSTANCES,
 				// Safe to share with the main executor: wasmtime keys on-disk artifacts on

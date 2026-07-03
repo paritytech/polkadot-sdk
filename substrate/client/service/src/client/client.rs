@@ -172,8 +172,8 @@ pub struct ClientConfig<Block: BlockT> {
 	pub wasm_runtime_substitutes: HashMap<NumberFor<Block>, Vec<u8>>,
 	/// Enable recording of storage proofs during block import
 	pub enable_import_proof_recording: bool,
-	/// Wall-clock limit for a single runtime call made through the dedicated capped executor used
-	/// to serve untrusted (light-client) execution-proof requests. `None` disables capping.
+	/// Wall-clock limit for a single runtime call serving untrusted (light-client)
+	/// execution-proof requests. `None` disables capping.
 	pub execution_timeout: Option<Duration>,
 }
 
@@ -1256,9 +1256,8 @@ where
 		method: &str,
 		call_data: &[u8],
 	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
-		// Use the dedicated capped executor when configured; otherwise fall back to the uncapped
-		// one. The cap traps calls that exceed the configured wall-clock limit, protecting against
-		// unbounded CPU use when serving untrusted (e.g. light-client) requests.
+		// Prefer the capped executor when configured so an untrusted (light-client) request
+		// cannot consume unbounded CPU.
 		self.capped_call_executor
 			.as_ref()
 			.unwrap_or(&self.executor)

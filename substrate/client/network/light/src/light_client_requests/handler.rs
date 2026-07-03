@@ -96,18 +96,11 @@ where
 		)
 	}
 
-	/// Pre-warm the dedicated capped executor by compiling the runtime at `hash` ahead of
-	/// light-client call requests.
-	///
-	/// The capped executor compiles into its own engine, so the first `RemoteCallRequest` after a
-	/// node start or a runtime upgrade would otherwise pay a (potentially multi-second, much longer
-	/// in debug builds) compile in the serial request loop and likely time out on the network. Run
-	/// it off the async reactor, on the blocking pool.
-	///
-	/// Cheap to call repeatedly: the executor caches the compiled runtime keyed by the storage
-	/// hash of `:code` (concurrent compiles of the same runtime are serialized by the cache), so
-	/// every call not observing a new runtime is a sub-millisecond cache hit. Being
-	/// content-addressed, the cache also cannot be invalidated by a reorg of the triggering block.
+	/// Pre-warm the dedicated capped executor by compiling the runtime at `hash` on the blocking
+	/// pool: otherwise the first `RemoteCallRequest` after node start or a runtime upgrade pays a
+	/// multi-second compile in the serial request loop and likely times out. Cheap to call
+	/// repeatedly: compiled runtimes are cached by `:code` hash (reorg-proof; concurrent compiles
+	/// are serialized), so only a call observing a new runtime does real work.
 	fn prewarm(&self, hash: B::Hash) {
 		let client = self.client.clone();
 		self.spawn_handle.spawn_blocking(
@@ -130,9 +123,8 @@ where
 		let mut import_notifications = self.client.import_notification_stream().fuse();
 		let mut request_receiver = self.request_receiver.clone().fuse();
 
-		// On a fresh node that is about to (warp) sync, the best block is the genesis block and
-		// compiling its runtime is useless: the first post-sync import notification prewarms the
-		// actual runtime. Import notifications are only emitted once the node is (nearly) synced.
+		// Skip on a fresh node: best is genesis and its runtime is not worth compiling. Import
+		// notifications only start once (nearly) synced; the first one prewarms the real runtime.
 		let info = self.client.info();
 		if info.best_hash != info.genesis_hash {
 			self.prewarm(info.best_hash);
@@ -141,11 +133,8 @@ where
 		loop {
 			futures::select! {
 				notification = import_notifications.next() => {
-					// Prewarm on every new best block: almost always a cache hit, but after a
-					// runtime upgrade — or once (warp) sync reaches the tip — this compiles the
-					// new runtime before the first light-client request needs it.
-					// `None` means the client was dropped; the fused stream is not polled again,
-					// and the request stream is about to terminate anyway.
+					// Almost always a cache hit; after a runtime upgrade or once sync reaches the
+					// tip, this compiles the new runtime before the first request needs it.
 					if let Some(notification) = notification {
 						if notification.is_new_best {
 							self.prewarm(notification.hash);
@@ -250,9 +239,8 @@ where
 
 		let block = Decode::decode(&mut request.block.as_ref())?;
 
-		// `execution_proof` runs on the capped executor: a call exceeding the configured wall-clock
-		// limit traps and is reported here as an error, yielding an empty proof (same as any other
-		// execution failure).
+		// Runs on the capped executor: a call exceeding the wall-clock limit traps into `Err`,
+		// yielding an empty proof.
 		let response = match self.client.execution_proof(block, &request.method, &request.data) {
 			Ok((_, proof)) => schema::v1::light::RemoteCallResponse { proof: Some(proof.encode()) },
 			Err(e) => {

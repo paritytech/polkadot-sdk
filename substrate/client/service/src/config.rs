@@ -359,10 +359,8 @@ pub struct ExecutorConfiguration {
 	pub default_heap_pages: Option<u64>,
 	/// Maximum number of different runtime versions that can be cached.
 	pub runtime_cache_size: u8,
-	/// Wall-clock limit for a single runtime call served through the dedicated capped executor
-	/// used for untrusted (light-client) execution-proof requests. `None` disables capping.
-	///
-	/// The default is `Some(10ms)`.
+	/// Wall-clock limit for a single runtime call serving untrusted (light-client)
+	/// execution-proof requests. `None` disables capping. Defaults to `Some(10ms)`.
 	pub execution_timeout: Option<Duration>,
 }
 
