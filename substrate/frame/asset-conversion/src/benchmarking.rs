@@ -202,7 +202,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn create_pool_with_fee() {
+	fn create_pool_with_fee() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let (asset1, asset2) = T::BenchmarkHelper::create_pair(0, 1);
 		create_asset::<T>(&caller, &asset1, T::Assets::minimum_balance(asset1.clone()), true);
@@ -213,10 +213,13 @@ mod benchmarks {
 		mint_setup_fee_asset::<T>(&caller, &asset1, &asset2, &lp_token);
 
 		let fee = Permill::from_percent(1);
+		let origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
 		_(
-			SystemOrigin::Signed(caller.clone()),
+			origin as T::RuntimeOrigin,
+			caller.clone(),
 			Box::new(asset1.clone()),
 			Box::new(asset2.clone()),
 			fee,
@@ -225,6 +228,7 @@ mod benchmarks {
 		let pool_id = T::PoolLocator::pool_id(&asset1, &asset2).unwrap();
 		assert_eq!(PoolFees::<T>::get(&pool_id), Some(fee));
 		assert_last_event::<T>(Event::PoolFeeSet { pool_id, fee }.into());
+		Ok(())
 	}
 
 	#[benchmark]

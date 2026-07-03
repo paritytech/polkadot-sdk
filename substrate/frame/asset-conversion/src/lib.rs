@@ -167,9 +167,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type LPFee: Get<Permill>;
 
-		/// The origin permitted to set a pool's swap fee after the pool has been created, via
-		/// [`Pallet::set_pool_fee`].
+		/// The origin permitted to set per-pool swap fees, via
+		/// [`Pallet::create_pool_with_fee`] and [`Pallet::set_pool_fee`].
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// The maximum swap fee that can be set for a pool.
+		#[pallet::constant]
+		type MaxSwapFee: Get<Permill>;
 
 		/// A one-time fee to setup the pool.
 		#[pallet::constant]
@@ -408,6 +412,8 @@ pub mod pallet {
 		BelowMinimum,
 		/// The pool exists but has no liquidity (at least one of the reserves is zero).
 		PoolEmpty,
+		/// The fee exceeds [`Config::MaxSwapFee`].
+		FeeTooHigh,
 	}
 
 	#[pallet::hooks]
@@ -416,6 +422,10 @@ pub mod pallet {
 			assert!(
 				T::MaxSwapPathLength::get() > 1,
 				"the `MaxSwapPathLength` should be greater than 1",
+			);
+			assert!(
+				T::MaxSwapFee::get() < Permill::one(),
+				"the `MaxSwapFee` should be less than 100%",
 			);
 		}
 	}
@@ -605,30 +615,31 @@ pub mod pallet {
 			Ok(Some(T::WeightInfo::touch(refunds_number)).into())
 		}
 
-		/// Identical to [`Pallet::create_pool`], but lets the creator set an initial per-pool swap
-		/// `fee` that overrides the global [`Config::LPFee`] for this pool.
+		/// Like [`Pallet::create_pool`], but sets an initial per-pool swap `fee` overriding the
+		/// global [`Config::LPFee`].
 		///
-		/// Subsequent changes to the fee require [`Config::AdminOrigin`] via
-		/// [`Pallet::set_pool_fee`].
+		/// Requires [`Config::AdminOrigin`]. `creator` pays the pool setup fee and deposits.
+		/// `fee` must not exceed [`Config::MaxSwapFee`].
 		///
 		/// Emits both [`Event::PoolCreated`] and [`Event::PoolFeeSet`] on success.
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::create_pool_with_fee())]
 		pub fn create_pool_with_fee(
 			origin: OriginFor<T>,
+			creator: T::AccountId,
 			asset1: Box<T::AssetKind>,
 			asset2: Box<T::AssetKind>,
 			fee: Permill,
 		) -> DispatchResult {
-			let sender = ensure_signed(origin)?;
-			Self::do_create_pool(&sender, *asset1, *asset2, Some(fee))?;
+			T::AdminOrigin::ensure_origin(origin)?;
+			Self::do_create_pool(&creator, *asset1, *asset2, Some(fee))?;
 			Ok(())
 		}
 
 		/// Set the per-pool swap `fee` for an existing pool, overriding the global
 		/// [`Config::LPFee`].
 		///
-		/// The origin must satisfy [`Config::AdminOrigin`].
+		/// Requires [`Config::AdminOrigin`]. `fee` must not exceed [`Config::MaxSwapFee`].
 		///
 		/// Emits [`Event::PoolFeeSet`] on success.
 		#[pallet::call_index(7)]
@@ -639,6 +650,7 @@ pub mod pallet {
 			fee: Permill,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(fee <= T::MaxSwapFee::get(), Error::<T>::FeeTooHigh);
 			ensure!(Pools::<T>::contains_key(&pool_id), Error::<T>::PoolNotFound);
 			PoolFees::<T>::insert(&pool_id, fee);
 			Self::deposit_event(Event::PoolFeeSet { pool_id, fee });
@@ -721,6 +733,9 @@ pub mod pallet {
 			initial_fee: Option<Permill>,
 		) -> Result<T::PoolId, DispatchError> {
 			ensure!(asset1 != asset2, Error::<T>::InvalidAssetPair);
+			if let Some(fee) = initial_fee {
+				ensure!(fee <= T::MaxSwapFee::get(), Error::<T>::FeeTooHigh);
+			}
 
 			// prepare pool_id
 			let pool_id = T::PoolLocator::pool_id(&asset1, &asset2)
@@ -1294,8 +1309,7 @@ pub mod pallet {
 				let fee = Self::pool_fee_for(asset1, &asset2)?;
 				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())?;
 				balance_path.push((asset2, amount_in));
-				amount_in =
-					Self::get_amount_in_with_fee(fee, &amount_in, &reserve_in, &reserve_out)?;
+				amount_in = Self::get_amount_in(fee, &amount_in, &reserve_in, &reserve_out)?;
 			}
 			balance_path.reverse();
 
@@ -1322,8 +1336,7 @@ pub mod pallet {
 				let fee = Self::pool_fee_for(&asset1, asset2)?;
 				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())?;
 				balance_path.push((asset1, amount_out));
-				amount_out =
-					Self::get_amount_out_with_fee(fee, &amount_out, &reserve_in, &reserve_out)?;
+				amount_out = Self::get_amount_out(fee, &amount_out, &reserve_in, &reserve_out)?;
 			}
 			Ok(balance_path)
 		}
@@ -1369,26 +1382,11 @@ pub mod pallet {
 			result.try_into().map_err(|_| Error::<T>::Overflow)
 		}
 
-		/// Calculates amount out, using the global [`Config::LPFee`].
-		///
-		/// Given an input amount of an asset and pair reserves, returns the maximum output amount
-		/// of the other asset.
-		///
-		/// To account for a per-pool fee override, use [`Self::get_amount_out_with_fee`] with the
-		/// fee resolved via [`Self::pool_fee`].
-		pub fn get_amount_out(
-			amount_in: &T::Balance,
-			reserve_in: &T::Balance,
-			reserve_out: &T::Balance,
-		) -> Result<T::Balance, Error<T>> {
-			Self::get_amount_out_with_fee(T::LPFee::get(), amount_in, reserve_in, reserve_out)
-		}
-
 		/// Calculates amount out for a given swap `fee`.
 		///
 		/// Given an input amount of an asset and pair reserves, returns the maximum output amount
 		/// of the other asset.
-		pub fn get_amount_out_with_fee(
+		pub fn get_amount_out(
 			fee: Permill,
 			amount_in: &T::Balance,
 			reserve_in: &T::Balance,
@@ -1421,26 +1419,11 @@ pub mod pallet {
 			result.try_into().map_err(|_| Error::<T>::Overflow)
 		}
 
-		/// Calculates amount in, using the global [`Config::LPFee`].
-		///
-		/// Given an output amount of an asset and pair reserves, returns a required input amount
-		/// of the other asset.
-		///
-		/// To account for a per-pool fee override, use [`Self::get_amount_in_with_fee`] with the
-		/// fee resolved via [`Self::pool_fee`].
-		pub fn get_amount_in(
-			amount_out: &T::Balance,
-			reserve_in: &T::Balance,
-			reserve_out: &T::Balance,
-		) -> Result<T::Balance, Error<T>> {
-			Self::get_amount_in_with_fee(T::LPFee::get(), amount_out, reserve_in, reserve_out)
-		}
-
 		/// Calculates amount in for a given swap `fee`.
 		///
 		/// Given an output amount of an asset and pair reserves, returns a required input amount
 		/// of the other asset.
-		pub fn get_amount_in_with_fee(
+		pub fn get_amount_in(
 			fee: Permill,
 			amount_out: &T::Balance,
 			reserve_in: &T::Balance,
@@ -1560,7 +1543,7 @@ pub mod pallet {
 
 			let amount_out = if include_fee {
 				let fee = Self::pool_fee_for(&asset1, &asset2).ok()?;
-				Self::get_amount_out_with_fee(fee, &amount, &balance1, &balance2).ok()?
+				Self::get_amount_out(fee, &amount, &balance1, &balance2).ok()?
 			} else {
 				Self::quote(&amount, &balance1, &balance2).ok()?
 			};
@@ -1616,7 +1599,7 @@ pub mod pallet {
 
 			if include_fee {
 				let fee = Self::pool_fee_for(&asset1, &asset2).ok()?;
-				Self::get_amount_in_with_fee(fee, &amount, &balance1, &balance2).ok()
+				Self::get_amount_in(fee, &amount, &balance1, &balance2).ok()
 			} else {
 				Self::quote(&amount, &balance2, &balance1).ok()
 			}
