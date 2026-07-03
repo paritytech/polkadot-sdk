@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783096016600,
+  "lastUpdate": 1783103294899,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "73de3bed249afc8ed48b0b69be27a0ee063086a3",
-          "message": "ci: fix cargo-check-all-crate-macos (#10268)\n\nOur mac runners have bash version 3.x, fixing by installing cargo\nmanually.\nfix https://github.com/paritytech/devops/issues/4514",
-          "timestamp": "2025-11-10T17:15:10Z",
-          "tree_id": "249a92d11ea30920915dcbbc2112fcb6d10ab0c7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/73de3bed249afc8ed48b0b69be27a0ee063086a3"
-        },
-        "date": 1762798945964,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20459099673333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.337236958400002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1375067256,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "95513823b788e2dfd0bf5c0894d6111d69c1ac9f",
+          "message": "Adjust `scheduling_v2_and_v3_collator_with_v3_validators` expected ranges (#12544)\n\nAdjust ranges in order to avoid CI failures\n\nAs per the following failed runs:\n\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/28437122196/job/84267964693\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/28630459083/job/84908004161\n\nAlso relaxed the finality lag as per:\n\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/28658995122/job/85003186224",
+          "timestamp": "2026-07-03T16:48:58Z",
+          "tree_id": "6a558178b154b5cb4534cfef98e0f8ead4880e67",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/95513823b788e2dfd0bf5c0894d6111d69c1ac9f"
+        },
+        "date": 1783103267409,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.313509430433333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14135789026666662,
             "unit": "seconds"
           }
         ]
