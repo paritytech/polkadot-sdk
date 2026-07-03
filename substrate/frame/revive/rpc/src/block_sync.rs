@@ -21,8 +21,9 @@ use crate::{
 	BlockInfoProvider,
 	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber},
 };
+use governor::{Quota, RateLimiter};
 use pallet_revive::evm::H256;
-use std::time::Duration;
+use std::num::NonZeroU32;
 use tokio::sync::mpsc;
 
 const LOG_TARGET: &str = "eth-rpc::block-sync";
@@ -308,18 +309,13 @@ impl Client {
 		let at_checkpoint =
 			|synced: u64| synced <= 1 || synced.is_multiple_of(u64::from(BLOCK_INTERVAL));
 
-		let mut rate_limiter = Duration::from_secs(1)
-			.checked_div(self.backward_sync_max_blocks_per_sec())
-			.filter(|period| !period.is_zero())
-			.map(|period| {
-				let mut interval = tokio::time::interval(period);
-				interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-				interval
-			});
+		// `0` disables the limit; otherwise cap backward sync at N blocks/s.
+		let rate_limiter = NonZeroU32::new(self.backward_sync_max_blocks_per_sec())
+			.map(|rate| RateLimiter::direct(Quota::per_second(rate)));
 
 		let loop_result: Result<(), ClientError> = loop {
-			if let Some(limiter) = rate_limiter.as_mut() {
-				limiter.tick().await;
+			if let Some(limiter) = &rate_limiter {
+				limiter.until_ready().await;
 			}
 
 			let block_number = block.number();

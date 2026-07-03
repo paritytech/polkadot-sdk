@@ -70,24 +70,21 @@ impl StorageApi {
 	/// invoking the runtime.
 	pub async fn eth_block(&self) -> Result<EthBlock, ClientError> {
 		let query = subxt_client::storage().revive().ethereum_block();
-		let block = self.0.fetch_or_default(&query).await.inspect_err(|err| {
+		let block = self.0.fetch(&query).await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Ethereum block storage read failed, err: {err:?}");
 		})?;
-		if block.0.hash == H256::zero() {
-			return Err(ClientError::BlockNotFound);
-		}
-		Ok(block.0)
+		block.map(|b| b.0).ok_or(ClientError::BlockNotFound)
 	}
 
 	/// Ethereum block hash for `number`, read directly from the `BlockHash` storage map without
-	/// invoking the runtime. Keeps the runtime's mapping: out-of-range or zero hash -> `None`.
+	/// invoking the runtime. Returns `None` when `number` is out of range or has no stored hash.
 	pub async fn eth_block_hash(&self, number: U256) -> Result<Option<H256>, ClientError> {
 		let Ok(number) = SubstrateBlockNumber::try_from(number) else { return Ok(None) };
 		let query = subxt_client::storage().revive().block_hash(number);
-		let hash = self.0.fetch_or_default(&query).await.inspect_err(|err| {
+		let hash = self.0.fetch(&query).await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Ethereum block hash storage read failed for #{number}, err: {err:?}");
 		})?;
-		Ok((hash != H256::zero()).then_some(hash))
+		Ok(hash)
 	}
 
 	/// Receipt data for the current block, read directly from the `ReceiptInfoData` storage value

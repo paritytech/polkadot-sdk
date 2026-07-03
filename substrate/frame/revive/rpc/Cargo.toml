@@ -25,6 +25,7 @@ clap = { workspace = true, features = ["derive", "env"] }
 codec = { workspace = true, features = ["derive"] }
 derive_more = { workspace = true }
 futures = { workspace = true, features = ["thread-pool"] }
+governor = { workspace = true }
 hex = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"] }
 libsqlite3-sys = { workspace = true }

@@ -597,7 +597,7 @@ impl Client {
 			}};
 		}
 
-		let eth_block = time!("eth_block", self.storage_api(hash).eth_block().await?);
+		let eth_block = time!("eth_block_from_storage", self.storage_api(hash).eth_block().await?);
 		let receipts = time!(
 			"receipts_from_block",
 			self.receipt_provider.receipts_from_block(block, eth_block.hash).await?
