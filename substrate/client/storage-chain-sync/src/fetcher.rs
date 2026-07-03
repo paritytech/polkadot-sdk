@@ -18,18 +18,13 @@
 
 //! Bitswap-based fetcher for indexed-transaction blobs.
 //!
-//! Thin adapter over [`sc_network_bitswap::BitswapHandle`]. Peer selection,
-//! per-peer timeouts, retries and hash verification all live in the bitswap actor
-//! itself. This fetcher's only jobs are:
-//!
-//! 1. building the per-want CIDs from the runtime-declared [`RenewWant`]s,
-//! 2. chunking by [`sc_network_bitswap::MAX_CIDS_PER_REQUEST`] and submitting all chunks
-//!    concurrently,
-//! 3. draining the per-chunk streams into a `HashMap<ContentHash, Vec<u8>>`.
+//! Thin adapter over [`sc_network_bitswap::BitswapHandle`]: builds the per-want CIDs,
+//! submits them in chunks of [`MAX_CIDS_PER_REQUEST`] and collects the outcomes. Peer
+//! selection, timeouts, retries and hash verification live in the bitswap service.
 
 use crate::RenewWant;
 use cid::{multihash::Multihash, Cid};
-use futures::{future, stream::FuturesUnordered, StreamExt};
+use futures::future;
 use sc_network_bitswap::{BitswapError, BitswapRequest, FetchOutcome, MAX_CIDS_PER_REQUEST};
 use sp_runtime::traits::Block as BlockT;
 use sp_transaction_storage_proof::ContentHash;
@@ -40,23 +35,20 @@ use std::{
 
 const LOG_TARGET: &str = "storage-chain-fetcher";
 
-/// Late-bound bitswap handle slot, populated by the omni-node after `build_network`.
+/// Late-bound bitswap handle slot, populated by the node after `build_network`.
 ///
-/// The slot exists because [`crate::StorageChainBlockImport`] is constructed before
-/// `build_network` runs (the block import is consumed when building the import queue,
-/// which is in turn consumed by `build_network`). The handle becomes available only
-/// once the network service has been built; the `OnceLock` carries it across that
-/// boundary without changing the block-import's public API.
+/// [`crate::StorageChainBlockImport`] is constructed before `build_network` runs; the
+/// `OnceLock` carries the handle across that boundary.
 pub type BitswapHandleSlot = Arc<OnceLock<Arc<dyn BitswapRequest>>>;
 
 /// Infrastructure-level fetch failure surfaced to [`crate::StorageChainBlockImport`].
 #[derive(Debug, thiserror::Error)]
 pub enum FetchError {
-	/// The bitswap handle has not been set yet (called before `build_network` finished)
-	/// or bitswap is not configured (`--ipfs-server` not enabled, or libp2p backend in use).
+	/// The bitswap handle has not been set, either because `build_network` has not finished
+	/// yet or because bitswap is not configured (`--ipfs-server` not enabled).
 	#[error("bitswap handle not yet set; storage-chain blocks cannot be fetched before build_network completes")]
 	BitswapHandleUnset,
-	/// CID construction failed for the given (hashing, hash) pair. Bug indicator.
+	/// CID construction failed for the given (hashing, hash) pair.
 	#[error("failed to construct multihash for CID: {0}")]
 	Multihash(String),
 	/// The bitswap service rejected the request at admission, or shut down mid-stream.
@@ -87,14 +79,9 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 		Self { bitswap, _phantom: std::marker::PhantomData }
 	}
 
-	/// Resolve a batch of indexed-transaction hashes via bitswap.
-	///
-	/// Each want carries the runtime-declared `cid_codec` so the request CID's
-	/// codec matches what the producing runtime announced.
-	///
-	/// Returns only successfully fetched entries. A short result means the caller
-	/// (the block import) will surface a `ConsensusError` and the import will be
-	/// retried later.
+	/// Resolve a batch of indexed-transaction hashes via bitswap. Each want carries the
+	/// runtime-declared `cid_codec` so the request CID matches what the producing runtime
+	/// announced. Returns only successfully fetched entries.
 	pub(crate) async fn fetch_many(
 		&self,
 		wants: &[RenewWant],
@@ -114,27 +101,17 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 			cids.push(cid);
 		}
 
-		let chunks: Vec<Vec<Cid>> =
-			cids.chunks(MAX_CIDS_PER_REQUEST).map(<[Cid]>::to_vec).collect();
+		let receivers = future::try_join_all(
+			cids.chunks(MAX_CIDS_PER_REQUEST)
+				.map(|chunk| handle.request_stream(chunk.to_vec())),
+		)
+		.await?;
 
-		let receivers =
-			future::try_join_all(chunks.into_iter().map(|chunk| handle.request_stream(chunk)))
-				.await?;
-
+		// Every receiver is sized to buffer all its outcomes, so the requests progress
+		// concurrently regardless of drain order.
 		let mut acquired: HashMap<ContentHash, Vec<u8>> = HashMap::with_capacity(wants.len());
-		let mut streams: FuturesUnordered<_> = receivers
-			.into_iter()
-			.map(|mut rx| async move {
-				let mut out = Vec::new();
-				while let Some(item) = rx.recv().await {
-					out.push(item);
-				}
-				out
-			})
-			.collect();
-
-		while let Some(items) = streams.next().await {
-			for item in items {
+		for mut rx in receivers {
+			while let Some(item) = rx.recv().await {
 				match item {
 					Ok((cid, FetchOutcome::Block(bytes))) => {
 						if let Some(hash) = by_cid.get(&cid) {
@@ -147,10 +124,7 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 						}
 					},
 					Ok((cid, FetchOutcome::Missing)) => {
-						log::debug!(
-							target: LOG_TARGET,
-							"bitswap returned Missing for {cid}",
-						);
+						log::debug!(target: LOG_TARGET, "bitswap returned Missing for {cid}");
 					},
 					Err(BitswapError::ServiceClosed) => {
 						log::warn!(

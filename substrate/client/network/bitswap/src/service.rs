@@ -21,16 +21,13 @@
 //! the inbound (serve indexed-transaction blocks to peers) and outbound (fetch CIDs from
 //! peers on behalf of [`BitswapHandle`] callers) Bitswap flows.
 //!
-//! The actor runs a single [`tokio::select!`] loop with six arms; see [`BitswapService::run`].
-//!
-//! Peer connect/disconnect tracking comes from `sc-network-sync`'s [`SyncEventStream`]; the
-//! actor subscribes inside [`start`] and consumes [`SyncEvent`] directly. The sync engine
-//! replays `PeerConnected` for every currently-connected peer when a new subscriber registers,
-//! so the actor sees the up-to-date peer set on startup without any extra wiring.
+//! Peer connect/disconnect tracking comes from `sc-network-sync`'s [`SyncEventStream`]. The
+//! sync engine replays `PeerConnected` for every currently-connected peer when a new
+//! subscriber registers, so the actor sees the full peer set on startup.
 
 use super::{
 	is_cid_supported, BitswapCommand, BitswapHandle, BitswapServiceConfig, Cid, FetchItem,
-	FetchOutcome, Prefix, BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, LOG_TARGET,
+	FetchOutcome, BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, LOG_TARGET,
 	MAX_WANTED_BLOCKS, SHA2_256_MULTIHASH_CODE,
 };
 use crate::handle::BitswapError;
@@ -252,15 +249,7 @@ struct Waiter {
 	delay_key: delay_queue::Key,
 }
 
-struct InboundLookupResult {
-	peer: litep2p::PeerId,
-	responses: Vec<ResponseType>,
-}
-
-enum LookupAdmission {
-	Submitted,
-	Overloaded,
-}
+type InboundLookupResult = (litep2p::PeerId, Vec<ResponseType>);
 
 struct InboundLookupPool<B: BlockT> {
 	client: Arc<dyn BlockBackend<B> + Send + Sync>,
@@ -283,9 +272,10 @@ impl<B: BlockT> InboundLookupPool<B> {
 		)
 	}
 
-	fn submit(&self, peer: litep2p::PeerId, cids: Vec<(Cid, WantType)>) -> LookupAdmission {
+	/// Serve the wantlist on a blocking worker. Returns `false` if the pool is saturated.
+	fn try_submit(&self, peer: litep2p::PeerId, cids: Vec<(Cid, WantType)>) -> bool {
 		let Ok(permit) = self.semaphore.clone().try_acquire_owned() else {
-			return LookupAdmission::Overloaded;
+			return false;
 		};
 
 		let client = self.client.clone();
@@ -293,54 +283,36 @@ impl<B: BlockT> InboundLookupPool<B> {
 		tokio::task::spawn_blocking(move || {
 			let _permit = permit;
 			let responses = serve_inbound(&*client, cids);
-			let _ = result_tx.try_send(InboundLookupResult { peer, responses });
+			let _ = result_tx.try_send((peer, responses));
 		});
 
-		LookupAdmission::Submitted
+		true
 	}
 }
-
-/// Peer-id type the actor stores in its connected-peer set and dispatches requests over.
-/// We translate from [`sc_network_sync::SyncEvent`]'s `sc_network_types::PeerId` (which the
-/// sync engine emits) at the actor boundary.
-type ActorPeerId = litep2p::PeerId;
 
 pub(crate) struct BitswapService<B: BlockT> {
 	handle: Box<dyn BitswapTransport>,
 	config: BitswapServiceConfig,
 
 	cmd_rx: mpsc::Receiver<BitswapCommand>,
-	/// Set once every [`BitswapHandle`] has been dropped. The actor then stops polling
-	/// `cmd_rx` but keeps serving inbound wantlists: `--ipfs-server` nodes must keep
-	/// serving even when no local consumer holds a handle.
+	/// Set once every [`BitswapHandle`] has been dropped; the actor then stops polling
+	/// `cmd_rx` but keeps serving inbound wantlists.
 	cmd_channel_closed: bool,
 	sync_event_stream: Pin<Box<dyn Stream<Item = SyncEvent> + Send>>,
 	inbound_lookup_pool: InboundLookupPool<B>,
 	inbound_lookup_rx: mpsc::Receiver<InboundLookupResult>,
 
 	waiter_deadlines: DelayQueue<WaiterId>,
-	connected_peers: HashSet<ActorPeerId>,
+	connected_peers: HashSet<litep2p::PeerId>,
 	wants: WantSet,
 	waiters: SlotMap<WaiterId, Waiter>,
 }
 
-/// Build, wire and return the Bitswap service.
+/// Build the Bitswap service, returning the service future and the user-facing handle.
 ///
-/// The returned future MUST be spawned on the runtime; the returned [`BitswapHandle`] is the
-/// user-facing handle exposed to consumers via the build-network output of `sc-service`.
-///
-/// `litep2p_handle` is the transport-side handle minted by the caller via
-/// `litep2p::protocol::libp2p::bitswap::Config::new`; the corresponding `Config` value
-/// produced by the same call must be installed into the litep2p backend's IPFS layer by the
-/// caller. Owning that pair-up at the caller keeps `sc-network-bitswap` from instantiating
-/// the litep2p protocol config it does not own.
-///
-/// `sync` is anything implementing [`SyncEventStream`] (concretely, `&*sync_service` where
-/// `sync_service: Arc<SyncingService<B>>` — `Arc<T>` has a blanket [`SyncEventStream`] impl).
-/// The actor subscribes inside this function via `sync.event_stream("bitswap")`; the engine
-/// replays `SyncEvent::PeerConnected` for every currently-tracked peer the first time it
-/// processes the subscription command, so we get an accurate startup snapshot without any
-/// extra synchronisation.
+/// The future must be spawned by the caller. `litep2p_handle` is the transport-side handle
+/// created by `litep2p::protocol::libp2p::bitswap::Config::new`; the corresponding `Config`
+/// must be installed into the litep2p backend by the caller.
 pub fn start<B: BlockT, S>(
 	client: Arc<dyn BlockBackend<B> + Send + Sync>,
 	sync: &S,
@@ -400,10 +372,9 @@ impl<B: BlockT> BitswapService<B> {
 					Some(BitswapCommand::RequestStream { cids, sink }) =>
 						self.on_request_stream(cids, sink).await,
 					None => {
-						// All user handles were dropped, so no new outbound requests can
-						// arrive. Keep running: this node may still serve inbound
-						// wantlists (`--ipfs-server`), and already-admitted waiters
-						// still resolve normally through their receivers.
+						// All user handles were dropped. Keep running: the node may still
+						// serve inbound wantlists, and already-admitted waiters still
+						// resolve normally.
 						log::debug!(
 							target: LOG_TARGET,
 							"all bitswap handles dropped; serving inbound requests only",
@@ -428,8 +399,8 @@ impl<B: BlockT> BitswapService<B> {
 					}
 				},
 
-				Some(result) = self.inbound_lookup_rx.recv() => {
-					self.handle.send_response(result.peer, result.responses).await;
+				Some((peer, responses)) = self.inbound_lookup_rx.recv() => {
+					self.handle.send_response(peer, responses).await;
 				},
 
 				_ = peer_timeout_ticker.tick() => {
@@ -440,9 +411,7 @@ impl<B: BlockT> BitswapService<B> {
 	}
 
 	async fn on_request_stream(&mut self, cids: Vec<Cid>, sink: mpsc::Sender<FetchItem>) {
-		// New CIDs are CIDs not already in `wants`. We re-check the overall outstanding-CIDs
-		// budget against the *new* additions, otherwise overlapping waiters would be charged
-		// twice for the same CID.
+		// Charge the outstanding-CIDs budget only for CIDs not already in `wants`.
 		let new_cid_count = self.wants.new_cid_count(&cids);
 		if self.wants.len() + new_cid_count > MAX_OUTSTANDING_CIDS {
 			let _ = sink.try_send(Err(BitswapError::Overloaded));
@@ -489,37 +458,25 @@ impl<B: BlockT> BitswapService<B> {
 		for response in responses {
 			match response {
 				ResponseType::Block { cid: claimed_cid, block } => {
-					self.mark_peer_done_for_cid(peer, claimed_cid);
+					self.wants.mark_peer_done_for_cid(peer, claimed_cid);
 
-					match recompute_cid(&claimed_cid, &block) {
-						Ok(recomputed) if recomputed == claimed_cid => {
-							if self.wants.contains(&claimed_cid) {
-								self.deliver_block(claimed_cid, block);
-							} else {
-								log::debug!(
-									target: LOG_TARGET,
-									"{peer:?} sent unsolicited or unwanted block for {claimed_cid}",
-								);
-							}
-						},
-						Ok(_) => {
-							log::debug!(
-								target: LOG_TARGET,
-								"{peer:?} sent block for {claimed_cid} that failed CID verification",
-							);
-							cids_to_top_up.insert(claimed_cid);
-						},
-						Err(e) => {
-							log::debug!(
-								target: LOG_TARGET,
-								"{peer:?} sent block for {claimed_cid} that failed prefix decode: {e}",
-							);
-							cids_to_top_up.insert(claimed_cid);
-						},
+					if recompute_cid(&claimed_cid, &block) != Some(claimed_cid) {
+						log::debug!(
+							target: LOG_TARGET,
+							"{peer:?} sent block for {claimed_cid} that failed CID verification",
+						);
+						cids_to_top_up.insert(claimed_cid);
+					} else if self.wants.contains(&claimed_cid) {
+						self.deliver_block(claimed_cid, block);
+					} else {
+						log::debug!(
+							target: LOG_TARGET,
+							"{peer:?} sent unsolicited or unwanted block for {claimed_cid}",
+						);
 					}
 				},
 				ResponseType::Presence { cid, presence } => {
-					self.mark_peer_done_for_cid(peer, cid);
+					self.wants.mark_peer_done_for_cid(peer, cid);
 					match presence {
 						BlockPresenceType::DontHave => {
 							log::trace!(target: LOG_TARGET, "{peer:?} DONT_HAVE {cid}");
@@ -539,10 +496,6 @@ impl<B: BlockT> BitswapService<B> {
 				self.top_up_in_flight(cid).await;
 			}
 		}
-	}
-
-	fn mark_peer_done_for_cid(&mut self, peer: litep2p::PeerId, cid: Cid) {
-		self.wants.mark_peer_done_for_cid(peer, cid);
 	}
 
 	fn deliver_block(&mut self, cid: Cid, bytes: Vec<u8>) {
@@ -574,16 +527,15 @@ impl<B: BlockT> BitswapService<B> {
 	}
 
 	fn on_waiter_expired(&mut self, id: WaiterId) {
-		let Some(mut waiter) = self.waiters.remove(id) else { return };
-		let remaining: Vec<Cid> = waiter.cids_remaining.drain().collect();
-		for cid in &remaining {
+		let Some(waiter) = self.waiters.remove(id) else { return };
+		for cid in &waiter.cids_remaining {
 			let _ = waiter.sink.try_send(Ok((*cid, FetchOutcome::Missing)));
 			self.wants.remove_waiter(*cid, id);
 		}
 		log::trace!(
 			target: LOG_TARGET,
 			"waiter {id:?} expired; emitted Missing for {} CIDs",
-			remaining.len(),
+			waiter.cids_remaining.len(),
 		);
 	}
 
@@ -618,7 +570,7 @@ impl<B: BlockT> BitswapService<B> {
 			);
 			return;
 		}
-		if let LookupAdmission::Overloaded = self.inbound_lookup_pool.submit(peer, cids) {
+		if !self.inbound_lookup_pool.try_submit(peer, cids) {
 			log::trace!(
 				target: LOG_TARGET,
 				"inbound serving pool saturated; dropping wantlist from {peer:?}",
@@ -627,24 +579,21 @@ impl<B: BlockT> BitswapService<B> {
 	}
 
 	fn shutdown_waiters(&mut self) {
-		let ids: Vec<WaiterId> = self.waiters.keys().collect();
-		for id in ids {
-			if let Some(waiter) = self.waiters.remove(id) {
-				let _ = waiter.sink.try_send(Err(BitswapError::ServiceClosed));
-				self.waiter_deadlines.remove(&waiter.delay_key);
-			}
+		for (_, waiter) in self.waiters.drain() {
+			let _ = waiter.sink.try_send(Err(BitswapError::ServiceClosed));
+			self.waiter_deadlines.remove(&waiter.delay_key);
 		}
 		self.wants.clear();
 	}
 }
 
-fn recompute_cid(reference_cid: &Cid, data: &[u8]) -> Result<Cid, String> {
-	let prefix: Prefix = reference_cid.into();
-	let digest = hash_for_multihash_code(prefix.mh_type, data)
-		.ok_or_else(|| format!("unsupported multihash code {}", prefix.mh_type))?;
-	let mh = CidMultihash::<64>::wrap(prefix.mh_type, &digest)
-		.map_err(|e| format!("multihash wrap failed: {e}"))?;
-	Ok(Cid::new_v1(prefix.codec, mh))
+/// Rebuild the CID for `data` using the hashing and codec of `reference_cid`. Returns `None`
+/// for unsupported multihash codes.
+fn recompute_cid(reference_cid: &Cid, data: &[u8]) -> Option<Cid> {
+	let code = reference_cid.hash().code();
+	let digest = hash_for_multihash_code(code, data)?;
+	let mh = CidMultihash::<64>::wrap(code, &digest).ok()?;
+	Some(Cid::new_v1(reference_cid.codec(), mh))
 }
 
 fn hash_for_multihash_code(multihash_code: u64, data: &[u8]) -> Option<[u8; 32]> {
@@ -719,13 +668,9 @@ mod tests {
 		}
 	}
 
-	/// Test helper: a sender for `SyncEvent`s that closes when dropped. We feed it via a
-	/// tokio mpsc and adapt to a `Stream<Item = SyncEvent>` in [`build_rig_with`].
-	type SyncEventSender = mpsc::Sender<SyncEvent>;
-
 	struct TestRig {
 		user_handle: BitswapHandle,
-		sync_event_tx: SyncEventSender,
+		sync_event_tx: mpsc::Sender<SyncEvent>,
 		inbound_tx: mpsc::Sender<BitswapEvent>,
 		outbound_req_rx: mpsc::Receiver<(litep2p::PeerId, Vec<(Cid, WantType)>)>,
 		outbound_resp_rx: mpsc::Receiver<(litep2p::PeerId, Vec<ResponseType>)>,
@@ -780,8 +725,7 @@ mod tests {
 	}
 
 	fn empty_rig() -> TestRig {
-		let client = Arc::new(substrate_test_runtime_client::new());
-		build_rig_with(client, BitswapServiceConfig { request_timeout: Duration::from_secs(30) })
+		short_deadline_rig(Duration::from_secs(30))
 	}
 
 	fn short_deadline_rig(deadline: Duration) -> TestRig {
@@ -804,22 +748,18 @@ mod tests {
 		timeout(Duration::from_secs(2), rx.recv()).await.ok().flatten()
 	}
 
-	/// Synthesise a sync `PeerConnected` for a litep2p peer. Tests use a small helper
-	/// because [`SyncEvent::PeerConnected`] carries [`sc_network_types::PeerId`], and we
-	/// want the same peer to appear in outbound bitswap requests as a [`litep2p::PeerId`].
+	/// [`SyncEvent`] carries [`sc_network_types::PeerId`]; convert from the byte-compatible
+	/// [`litep2p::PeerId`] used on the transport side.
+	fn to_types_peer(peer: litep2p::PeerId) -> TypesPeerId {
+		TypesPeerId::from_bytes(&peer.to_bytes()).expect("valid peer-id bytes; qed")
+	}
+
 	fn sync_connected(peer: litep2p::PeerId) -> SyncEvent {
-		// `litep2p::PeerId` <-> `sc_network_types::PeerId` are wire-compatible via bytes.
-		let bytes = peer.to_bytes();
-		let types_peer = TypesPeerId::from_bytes(&bytes)
-			.expect("litep2p PeerId bytes are valid sc_network_types PeerId bytes; qed");
-		SyncEvent::PeerConnected(types_peer)
+		SyncEvent::PeerConnected(to_types_peer(peer))
 	}
 
 	fn sync_disconnected(peer: litep2p::PeerId) -> SyncEvent {
-		let bytes = peer.to_bytes();
-		let types_peer = TypesPeerId::from_bytes(&bytes)
-			.expect("litep2p PeerId bytes are valid sc_network_types PeerId bytes; qed");
-		SyncEvent::PeerDisconnected(types_peer)
+		SyncEvent::PeerDisconnected(to_types_peer(peer))
 	}
 
 	#[test]

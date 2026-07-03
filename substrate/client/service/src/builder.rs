@@ -1174,10 +1174,8 @@ where
 /// Build the network service, the network status sinks and an RPC sender, this is a lower-level
 /// version of [`build_network`] for those needing more control.
 ///
-/// The final tuple element is the Bitswap user handle. It is `Some` when `--ipfs-server` is
-/// enabled on a litep2p backend, and `None` otherwise. Consumers that need a
-/// `BitswapHandle` (e.g. omni-node populating a `BitswapHandleSlot`) read it directly from
-/// this output instead of querying the network service after the fact.
+/// The final tuple element is the Bitswap user handle; `Some` when `--ipfs-server` is
+/// enabled, `None` otherwise.
 pub fn build_network_advanced<Block, Net, TxPool, IQ, Client>(
 	params: BuildNetworkAdvancedParams<Block, Net, TxPool, IQ, Client>,
 ) -> Result<
@@ -1238,13 +1236,7 @@ where
 	// install request handlers to `FullNetworkConfiguration`
 	net_config.add_request_response_protocol(light_client_request_protocol_config);
 
-	// Initialize IPFS server. Bitswap is only supported on the litep2p backend; reject the
-	// libp2p + `--ipfs-server` combination loudly rather than silently disabling Bitswap.
-	//
-	// The handler future and user-facing handle are produced here, but the handler is only
-	// spawned AFTER `Net::new` returns `Ok` (see below) so that a network construction
-	// failure does not leave an orphan bitswap task running. The `user_handle` is later
-	// returned to the caller via the build-network output tuple.
+	// Initialize the IPFS server. Bitswap is only supported on the litep2p backend.
 	let (bitswap_handler, bitswap_user_handle, ipfs_config) =
 		if net_config.network_config.ipfs_server {
 			if matches!(
@@ -1263,10 +1255,8 @@ where
 				BlocksPruning::Some(num) => std::cmp::min(num, IPFS_MAX_BLOCKS),
 			};
 
-			// `IpfsConfig::new` mints the litep2p `(Config, BitswapHandle)` pair internally and
-			// returns the transport handle alongside the config. The handle is owned by the
-			// bitswap service actor; the config is installed by the litep2p backend during
-			// `Net::new`.
+			// The bitswap service owns the transport handle; the config is installed by
+			// the litep2p backend during `Net::new`.
 			let (ipfs_config, litep2p_bitswap_handle) = IpfsConfig::new(
 				Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
 				net_config.network_config.ipfs_bootnodes.clone(),
@@ -1321,8 +1311,8 @@ where
 	let network_mut = Net::new(network_params)?;
 	let network = network_mut.network_service().clone();
 
-	// Only spawn the bitswap actor after `Net::new` returned `Ok` so a network construction
-	// failure does not leave an orphan task running with a handle nobody will ever consume.
+	// Spawn the bitswap actor only after `Net::new` succeeded so a network construction
+	// failure does not leave an orphan task running.
 	if let Some(handler) = bitswap_handler {
 		spawn_handle.spawn("bitswap-service", Some("networking"), handler);
 	}
