@@ -587,6 +587,48 @@ module tests {
     }
   }
 
+  /// End-to-end cold -> warm -> cache with two real `set_authorizer_queue`
+  /// calls (no hand-seeded warmth): the first, on a cold core, applies inline
+  /// (assigns, does not cache); the second, on the now-warm core, caches into
+  /// `pendingAuthorizerCores` with `apply_at` at the next 80-slot boundary.
+  run secondSetAuthorizerQueueCachesOnWarmCoreTest = {
+    val core = 5
+    val hash1: AuthorizerHash = { authBytes: 1 }
+    val hash2: AuthorizerHash = { authBytes: 2 }
+    val baseAcc: AccumulateOutcome = {
+      state: initialState,
+      jamDesignate: None,
+      jamSolicit: Set(),
+      jamForget: Set(),
+      jamAssigns: List(),
+      logs: List()
+    }
+    // First call at now = 0: core is cold → applied inline, not cached.
+    val after1 = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 0,
+      SetAuthorizerQueue({ core: core, queue: List(hash1), immediate: false, newAssigner: None })
+    )
+    // Second call at now = 1: core is now warm → cached, apply_at = next
+    // 80-slot boundary = 0 + ((1 - 0) / 80 + 1) * 80 = 80.
+    val after2 = applyUpwardMessage(
+      after1, CoretimeParaId, FixedCodeLen, 1,
+      SetAuthorizerQueue({ core: core, queue: List(hash2), immediate: false, newAssigner: None })
+    )
+    all {
+      // Cold to start.
+      assert(not(initialState.lastAuthorizerAssignment.keys().contains(core))),
+      // First (cold) call: assigned inline at now = 0, not cached.
+      assert(after1.state.lastAuthorizerAssignment.get(core) == 0),
+      assert(not(after1.state.pendingAuthorizerCores.keys().contains(core))),
+      // Second (warm) call: cached with the next-boundary apply_at and the
+      // new queue.
+      assert(after2.state.pendingAuthorizerCores.keys().contains(core)),
+      assert(after2.state.pendingAuthorizerCores.get(core) == AuthorizerQueueLength),
+      assert(after2.state.pendingAuthorizerQueues.get(core) == List(hash2)),
+      init
+    }
+  }
+
   /// An immediate Coretime `set_authorizer_queue` forwards its
   /// `newAssigner` argument into the recorded JAM `assign` call.
   run immediateSetAuthorizerQueueForwardsAssignerTest = {
