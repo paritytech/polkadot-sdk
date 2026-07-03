@@ -23,9 +23,9 @@
 //! relay-chain queries off the block-import path.
 
 use super::SlotBasedBlockImportHandle;
+use codec::Encode;
 use cumulus_client_resubmission_store::{
-	now_unix_ms, prepare_resubmission_aux_data, prune_finalized_entries,
-	prune_missed_finalized_entries,
+	prepare_resubmission_aux_data, prune_finalized_entries, prune_missed_finalized_entries,
 };
 use cumulus_primitives_core::{
 	relay_chain::{
@@ -200,8 +200,6 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 	R: RelayChainInterface + ?Sized,
 	Client: AuxStore + HeaderBackend<Block>,
 {
-	let time_ms = now_unix_ms();
-
 	let block_hash = header.hash();
 	let number = *header.number();
 
@@ -209,10 +207,6 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 		return;
 	}
 
-	let Some(core_info) = CumulusDigestItem::find_core_info(header.digest()) else {
-		tracing::trace!(target: LOG_TARGET, ?block_hash, "Imported block has no core info digest; skipping.");
-		return;
-	};
 	let Some(relay_block_identifier) =
 		CumulusDigestItem::find_relay_block_identifier(header.digest())
 	else {
@@ -247,7 +241,8 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 			return;
 		},
 	};
-	let persisted_validation_data = match resolve_pvd(relay_client, relay_parent, para_id).await {
+	let mut persisted_validation_data = match resolve_pvd(relay_client, relay_parent, para_id).await
+	{
 		Ok(pvd) => pvd,
 		Err(err) => {
 			tracing::debug!(
@@ -260,18 +255,42 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 		},
 	};
 
+	let parent_hash = *header.parent_hash();
+	match para_client.header(parent_hash) {
+		Ok(Some(parent_header)) => {
+			persisted_validation_data.parent_head = parent_header.encode().into();
+		},
+		Ok(None) => {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?block_hash,
+				?parent_hash,
+				"Parent header unavailable; skipping resubmission entry.",
+			);
+			return;
+		},
+		Err(err) => {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?block_hash,
+				?parent_hash,
+				?err,
+				"Failed to fetch parent header; skipping resubmission entry.",
+			);
+			return;
+		},
+	}
+
 	if number <= para_client.info().finalized_number {
 		return;
 	}
 
 	let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 		block_hash,
-		time_ms,
 		proof,
 		relay_parent_header,
 		relay_parent_session,
 		persisted_validation_data,
-		core_info.selector,
 	)
 	.collect();
 	let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();

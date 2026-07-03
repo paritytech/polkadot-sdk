@@ -39,7 +39,7 @@ use cumulus_client_consensus_common::{
 	ParachainBlockImportMarker, ParentSearchParams,
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
-use cumulus_client_resubmission_store::{now_unix_ms, prepare_resubmission_aux_data};
+use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
@@ -859,6 +859,8 @@ where
 			"Building block"
 		);
 
+		let block_parent_header = parent_header.clone();
+
 		let Ok(Some((built_block, mut import_block))) = collator
 			.build_block(BuildBlockAndImportParams {
 				parent_header: &parent_header,
@@ -902,17 +904,15 @@ where
 			);
 		}
 
-		let time_ms = now_unix_ms();
 		let proof = Arc::new(built_block.proof);
-		if let (Some(relay_parent_session), Some(pvd)) = (session, pvd.clone()) {
+		if let (Some(relay_parent_session), Some(mut pvd)) = (session, pvd.clone()) {
+			pvd.parent_head = block_parent_header.encode().into();
 			prepare_resubmission_aux_data::<Block>(
-				parent_hash,
-				time_ms,
+				built_block.block.header().hash(),
 				proof.clone(),
 				relay_parent_header.clone(),
 				relay_parent_session,
 				pvd,
-				core_info.selector,
 			)
 			.for_each(|(k, v)| {
 				import_block.auxiliary.push((k, Some(v)));

@@ -20,7 +20,7 @@
 //! Persists a [`StoredEntry`] per imported parablock, keyed by parablock hash, holding everything
 //! needed to reconstruct and resubmit the collation for an unincluded block without assuming the
 //! relay parent is still available: the storage proof, the relay parent header, the relay-parent
-//! session, the persisted validation data and the core selector.
+//! session and the persisted validation data.
 //!
 //! Entries are pruned on parachain finality via [`prune_finalized_entries`], which is meant to run
 //! on the same task that records entries so a recorded entry is always observed by a subsequent
@@ -28,7 +28,7 @@
 
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::{CoreSelector, Header as RelayHeader, SessionIndex},
+	relay_chain::{Header as RelayHeader, SessionIndex},
 	PersistedValidationData,
 };
 use sc_client_api::{
@@ -39,29 +39,15 @@ use sc_client_api::{
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Zero};
 use sp_trie::StorageProof;
-use std::{
-	marker::PhantomData,
-	sync::Arc,
-	time::{SystemTime, UNIX_EPOCH},
-};
+use std::{marker::PhantomData, sync::Arc};
 
 const STORE_VERSION_KEY: &[u8] = b"cumulus_resubmission_store_version";
 const STORE_CURRENT_VERSION: u32 = 1;
 const STORE_ENTRY_PREFIX: &[u8] = b"cumulus_resubmission_store";
 
-/// Return the current Unix milliseconds timestamp.
-pub fn now_unix_ms() -> u64 {
-	SystemTime::now()
-		.duration_since(UNIX_EPOCH)
-		.expect("system clock is before UNIX epoch; qed")
-		.as_millis() as u64
-}
-
 /// Entry stored in aux storage for each unincluded parablock.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct StoredEntry {
-	/// Unix millis captured when this entry is recorded, on both the build and import paths.
-	pub time_ms: u64,
 	/// The storage proof captured at block import/build.
 	pub proof: Arc<StorageProof>,
 	/// The relay parent header the block was built against, used to determine the relay slot.
@@ -69,9 +55,8 @@ pub struct StoredEntry {
 	/// Relay parent's `session_index_for_child`.
 	pub relay_parent_session: SessionIndex,
 	/// Persisted validation data at the relay parent, resolved with the `TimedOut` assumption.
+	/// `parent_head` is overridden with the parablock's actual parent header.
 	pub persisted_validation_data: PersistedValidationData,
-	/// The core selector used to pick the core on the relay chain.
-	pub core_selector: CoreSelector,
 }
 
 fn entry_key<H: Encode>(block_hash: H) -> Vec<u8> {
@@ -103,22 +88,14 @@ impl<Block: BlockT, B> ResubmissionStore<Block, B> {
 /// same DB transaction as the block. Stateless — no backend access required.
 pub fn prepare_resubmission_aux_data<Block: BlockT>(
 	block_hash: Block::Hash,
-	time_ms: u64,
 	proof: Arc<StorageProof>,
 	relay_parent_header: RelayHeader,
 	relay_parent_session: SessionIndex,
 	persisted_validation_data: PersistedValidationData,
-	core_selector: CoreSelector,
 ) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
-	let encoded_entry = StoredEntry {
-		time_ms,
-		proof,
-		relay_parent_header,
-		relay_parent_session,
-		persisted_validation_data,
-		core_selector,
-	}
-	.encode();
+	let encoded_entry =
+		StoredEntry { proof, relay_parent_header, relay_parent_session, persisted_validation_data }
+			.encode();
 	let encoded_version = STORE_CURRENT_VERSION.encode();
 
 	[(entry_key(block_hash), encoded_entry), (STORE_VERSION_KEY.to_vec(), encoded_version)]
@@ -230,7 +207,6 @@ fn finality_cleanup_ops<Block: BlockT>(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use cumulus_primitives_core::relay_chain::CoreSelector;
 	use sc_client_api::backend::AuxStore;
 
 	type Block = substrate_test_runtime::Block;
@@ -257,14 +233,12 @@ mod tests {
 		}
 	}
 
-	fn create_test_entry(time_ms: u64) -> StoredEntry {
+	fn create_test_entry() -> StoredEntry {
 		StoredEntry {
-			time_ms,
 			proof: Arc::new(StorageProof::new(vec![vec![1, 2, 3], vec![4, 5, 6]])),
 			relay_parent_header: test_relay_header(7),
 			relay_parent_session: 1,
 			persisted_validation_data: test_pvd(),
-			core_selector: CoreSelector(0),
 		}
 	}
 
@@ -277,12 +251,10 @@ mod tests {
 	fn write_via_store(backend: &Arc<TestBackend>, hash: Hash, entry: &StoredEntry) {
 		let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 			hash,
-			entry.time_ms,
 			entry.proof.clone(),
 			entry.relay_parent_header.clone(),
 			entry.relay_parent_session,
 			entry.persisted_validation_data.clone(),
-			entry.core_selector,
 		)
 		.collect();
 		let insert_pairs: Vec<_> =
@@ -293,20 +265,16 @@ mod tests {
 	#[test]
 	fn prepare_produces_expected_key_value_pairs() {
 		let hash = Hash::repeat_byte(0xAB);
-		let time_ms = 1234567890u64;
 		let proof = Arc::new(StorageProof::new(vec![vec![10, 20, 30]]));
 		let relay_parent_header = test_relay_header(42);
 		let relay_parent_session = 42;
 		let persisted_validation_data = test_pvd();
-		let core_selector = CoreSelector(5);
 		let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 			hash,
-			time_ms,
 			proof.clone(),
 			relay_parent_header.clone(),
 			relay_parent_session,
 			persisted_validation_data.clone(),
-			core_selector,
 		)
 		.collect();
 
@@ -317,12 +285,10 @@ mod tests {
 
 		let decoded_entry =
 			StoredEntry::decode(&mut pairs[0].1.as_slice()).expect("entry should decode");
-		assert_eq!(decoded_entry.time_ms, time_ms);
 		assert_eq!(decoded_entry.proof, proof);
 		assert_eq!(decoded_entry.relay_parent_header, relay_parent_header);
 		assert_eq!(decoded_entry.relay_parent_session, relay_parent_session);
 		assert_eq!(decoded_entry.persisted_validation_data, persisted_validation_data);
-		assert_eq!(decoded_entry.core_selector, core_selector);
 
 		assert_eq!(pairs[1].0, STORE_VERSION_KEY.to_vec());
 		let decoded_version =
@@ -375,7 +341,7 @@ mod tests {
 		// The on-disk format of `StoredEntry` is versioned by `STORE_CURRENT_VERSION`. If this
 		// struct's encoding changes, existing aux entries written by older builds will fail to
 		// decode — bump `STORE_CURRENT_VERSION` and add a migration.
-		let entry = create_test_entry(1234567890);
+		let entry = create_test_entry();
 
 		let encoded = entry.encode();
 		let decoded = StoredEntry::decode(&mut encoded.as_slice()).expect("decode should succeed");
@@ -416,9 +382,9 @@ mod tests {
 		let hash2 = Hash::repeat_byte(0x02);
 		let hash3 = Hash::repeat_byte(0x03);
 
-		let entry1 = create_test_entry(1000);
-		let entry2 = create_test_entry(2000);
-		let entry3 = create_test_entry(3000);
+		let entry1 = create_test_entry();
+		let entry2 = create_test_entry();
+		let entry3 = create_test_entry();
 
 		write_via_store(&backend, hash1, &entry1);
 		write_via_store(&backend, hash2, &entry2);
@@ -474,28 +440,24 @@ mod tests {
 
 		let hash_a = Hash::repeat_byte(0x10);
 		let hash_b = Hash::repeat_byte(0x20);
-		let entry_a = create_test_entry(10_000);
-		let entry_b = create_test_entry(20_000);
+		let entry_a = create_test_entry();
+		let entry_b = create_test_entry();
 
 		// Write `a` and `b` via the same path block-import uses, then close.
 		with_backend(path, |backend| {
 			let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 				hash_a,
-				entry_a.time_ms,
 				entry_a.proof.clone(),
 				entry_a.relay_parent_header.clone(),
 				entry_a.relay_parent_session,
 				entry_a.persisted_validation_data.clone(),
-				entry_a.core_selector,
 			)
 			.chain(prepare_resubmission_aux_data::<Block>(
 				hash_b,
-				entry_b.time_ms,
 				entry_b.proof.clone(),
 				entry_b.relay_parent_header.clone(),
 				entry_b.relay_parent_session,
 				entry_b.persisted_validation_data.clone(),
-				entry_b.core_selector,
 			))
 			.collect();
 			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
@@ -575,12 +537,10 @@ mod tests {
 		fn write_entry(&self, hash: Hash, entry: StoredEntry) {
 			let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 				hash,
-				entry.time_ms,
 				entry.proof,
 				entry.relay_parent_header,
 				entry.relay_parent_session,
 				entry.persisted_validation_data,
-				entry.core_selector,
 			)
 			.collect();
 			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
@@ -665,8 +625,8 @@ mod tests {
 			parent = backend.push(number, parent);
 			hashes.push(parent);
 		}
-		for (i, hash) in hashes.iter().enumerate() {
-			backend.write_entry(*hash, create_test_entry(i as u64));
+		for hash in hashes.iter() {
+			backend.write_entry(*hash, create_test_entry());
 		}
 
 		// Finalize up to block 3 with nothing pruning (stands in for finalization observed while
