@@ -478,7 +478,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 
 	/// Wall-clock limit for a single runtime call serving an (untrusted) light-client request.
 	///
-	/// `None` disables the limit. By default this is `Some(10ms)`.
+	/// `None` disables the limit. By default this is `Some(3s)`.
 	fn light_request_execution_timeout(&self) -> Result<Option<Duration>> {
 		Ok(Some(sc_service::config::DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT))
 	}

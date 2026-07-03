@@ -36,8 +36,8 @@ pub struct RuntimeParams {
 	/// light-client request. `0` disables the limit.
 	///
 	/// Requests exceeding it are interrupted and answered with an empty proof. Bounds the CPU a
-	/// malicious light client can force the node to spend per request. Defaults to 10ms.
-	#[arg(long, default_value_t = 10)]
+	/// malicious light client can force the node to spend per request. Defaults to 3 seconds.
+	#[arg(long, default_value_t = 3000)]
 	pub light_request_execution_timeout_ms: u64,
 }
 
