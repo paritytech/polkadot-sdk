@@ -56,7 +56,7 @@ pub trait DebugRpc {
 	async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
-		block: BlockNumberOrTagOrHash,
+		block: BlockId,
 		trace_call_config: Option<TraceCallConfig>,
 	) -> RpcResult<TraceV1>;
 
@@ -115,7 +115,7 @@ impl DebugRpcServer for DebugRpcServerImpl {
 	async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
-		block: BlockNumberOrTagOrHash,
+		block: BlockId,
 		trace_call_config: Option<TraceCallConfig>,
 	) -> RpcResult<TraceV1> {
 		let TraceCallConfig { tracer_config, state_overrides } =

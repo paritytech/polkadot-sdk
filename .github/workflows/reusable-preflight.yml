@@ -142,7 +142,6 @@ jobs:
         id: set_runner
         shell: bash
         run: |
-          echo "RUNNER_DEFAULT=parity-default" >> $GITHUB_OUTPUT
           echo "RUNNER_WEIGHTS=parity-weights" >> $GITHUB_OUTPUT
           echo "RUNNER_MACOS=parity-macos" >> $GITHUB_OUTPUT
           #
@@ -151,10 +150,12 @@ jobs:
             echo "RUNNER=parity-large-persistent" >> $GITHUB_OUTPUT
             echo "RUNNER_OLDLINUX=parity-oldlinux-persistent" >> $GITHUB_OUTPUT
             echo "RUNNER_BENCHMARK=parity-benchmark-persistent" >> $GITHUB_OUTPUT
+            echo "RUNNER_DEFAULT=parity-default-persistent" >> $GITHUB_OUTPUT
           else
             echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
             echo "RUNNER_OLDLINUX=parity-oldlinux" >> $GITHUB_OUTPUT
             echo "RUNNER_BENCHMARK=parity-benchmark" >> $GITHUB_OUTPUT
+            echo "RUNNER_DEFAULT=parity-default" >> $GITHUB_OUTPUT
           fi
 
       #
