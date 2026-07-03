@@ -27,6 +27,7 @@ use crate::{
 	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
 use futures::TryStreamExt;
+use governor::{DefaultDirectRateLimiter, Quota, RateLimiter};
 use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
 use pallet_revive::{
 	EthTransactError,
@@ -42,6 +43,7 @@ use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
 use std::{
+	num::NonZeroU32,
 	sync::{
 		Arc,
 		atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -252,7 +254,6 @@ pub struct Client {
 	block_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
 	/// A lock to ensure only one subscription can perform write operations at a time.
 	subscription_lock: Arc<Mutex<()>>,
-
 	/// Block subscription sender side.
 	block_subscription_tx: tokio::sync::broadcast::Sender<Block>,
 	/// Log subscription sender side.
@@ -263,8 +264,9 @@ pub struct Client {
 	backfill_complete: Arc<AtomicBool>,
 	/// Queue for backfilling blocks missed during subscription reconnects.
 	subscription_gap_queue: SubscriptionGapQueue,
-	/// Cap on blocks/sec during backward sync.
-	backward_sync_max_blocks_per_sec: u32,
+	/// Limiter capping the backward-sync and gap-filler combined requests per second.
+	/// `None` -> no rate limit.
+	backward_sync_rate_limiter: Option<Arc<DefaultDirectRateLimiter>>,
 }
 
 /// A request to backfill a range of missed blocks (both bounds inclusive).
@@ -424,6 +426,9 @@ impl Client {
 			}
 		}
 
+		let backward_sync_rate_limiter = NonZeroU32::new(backward_sync_max_blocks_per_sec)
+			.map(|rate| Arc::new(RateLimiter::direct(Quota::per_second(rate))));
+
 		let client = Self {
 			api,
 			rpc_client,
@@ -442,7 +447,7 @@ impl Client {
 			is_archive,
 			backfill_complete: Arc::new(AtomicBool::new(false)),
 			subscription_gap_queue,
-			backward_sync_max_blocks_per_sec,
+			backward_sync_rate_limiter,
 		};
 
 		Ok(client)
@@ -451,11 +456,6 @@ impl Client {
 	/// Mark historic backfill as complete.
 	pub(crate) fn mark_backfill_complete(&self) {
 		self.backfill_complete.store(true, Ordering::Release);
-	}
-
-	/// The configured backward-sync rate cap in blocks per second.
-	pub(crate) fn backward_sync_max_blocks_per_sec(&self) -> u32 {
-		self.backward_sync_max_blocks_per_sec
 	}
 
 	/// Advance the sync_state head label if safe to do so.
@@ -497,6 +497,11 @@ impl Client {
 
 	pub(crate) fn block_provider(&self) -> &SubxtBlockInfoProvider {
 		&self.block_provider
+	}
+
+	/// Backward-sync rate limiter, if enabled.
+	pub(crate) fn backward_sync_rate_limiter(&self) -> Option<&DefaultDirectRateLimiter> {
+		self.backward_sync_rate_limiter.as_deref()
 	}
 
 	pub(crate) fn subscription_gap_queue(&self) -> &SubscriptionGapQueue {
