@@ -42,9 +42,12 @@ pub use weights::WeightInfo;
 
 extern crate alloc;
 
-use alloc::boxed::Box;
+use alloc::{boxed::Box, vec};
 use codec::{DecodeLimit, Encode, FullCodec};
 use frame::{
+	deps::sp_runtime::transaction_validity::{
+		TransactionSource, TransactionValidityError, TransactionValidityWithRefund,
+	},
 	prelude::*,
 	traits::{QueryPreimage, StorePreimage},
 };
@@ -74,7 +77,17 @@ pub mod pallet {
 		/// Required origin for whitelisting a call.
 		type WhitelistOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Required origin for dispatching whitelisted call with root origin.
+		/// Origin allowed to dispatch an already-whitelisted call (the inner call runs with
+		/// `Root`).
+		///
+		/// Conventionally a privileged origin. Accepting the `Authorized` system origin (e.g.
+		/// via `frame_system::EnsureAuthorized`) additionally enables permissionless dispatch:
+		/// the `#[pallet::authorize]` callbacks probe `try_origin(Authorized)` at pool admission
+		/// and admit unsigned, fee-free submissions of whitelisted calls, with
+		/// `frame_system::AuthorizeCall` converting the `None` origin into `Authorized`.
+		///
+		/// When only `Authorized` is accepted, the dispatch calls have no privileged entrypoint
+		/// and are reachable solely through this permissionless flow.
 		type DispatchWhitelistedOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The handler of pre-images.
@@ -146,6 +159,8 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::authorize(Self::authorize_dispatch_whitelisted_call)]
+		#[pallet::weight_of_authorize(T::DbWeight::get().reads(1))]
 		#[pallet::call_index(2)]
 		#[pallet::weight(
 			T::WeightInfo::dispatch_whitelisted_call(*call_encoded_len)
@@ -185,6 +200,8 @@ pub mod pallet {
 			Ok(actual_weight.into())
 		}
 
+		#[pallet::authorize(Self::authorize_dispatch_whitelisted_call_with_preimage)]
+		#[pallet::weight_of_authorize(T::DbWeight::get().reads(1))]
 		#[pallet::call_index(3)]
 		#[pallet::weight({
 			let call_weight = call.get_dispatch_info().call_weight;
@@ -217,6 +234,48 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Pool-level authorization shared by both permissionless dispatch calls.
+	///
+	/// Admits the unsigned submission only when [`Config::DispatchWhitelistedOrigin`] accepts
+	/// the `Authorized` system origin and `call_hash` is present in [`WhitelistedCall`].
+	fn authorize_whitelisted_dispatch(call_hash: T::Hash) -> TransactionValidityWithRefund {
+		// Opt-in probe: reject at the pool unless the dispatch body would accept `Authorized`.
+		let authorized: T::RuntimeOrigin =
+			frame_system::RawOrigin::<T::AccountId>::Authorized.into();
+		T::DispatchWhitelistedOrigin::try_origin(authorized)
+			.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
+
+		if !WhitelistedCall::<T>::contains_key(call_hash) {
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
+		}
+
+		Ok((
+			ValidTransaction { provides: vec![call_hash.encode()], ..Default::default() },
+			Weight::zero(),
+		))
+	}
+
+	/// [`pallet::authorize`] callback for [`Pallet::dispatch_whitelisted_call`]; the hash is taken
+	/// directly from the `call_hash` argument.
+	fn authorize_dispatch_whitelisted_call(
+		_source: TransactionSource,
+		call_hash: &T::Hash,
+		_call_encoded_len: &u32,
+		_call_weight_witness: &Weight,
+	) -> TransactionValidityWithRefund {
+		Self::authorize_whitelisted_dispatch(*call_hash)
+	}
+
+	/// [`pallet::authorize`] callback for [`Pallet::dispatch_whitelisted_call_with_preimage`]; the
+	/// hash is computed from the inline call.
+	fn authorize_dispatch_whitelisted_call_with_preimage(
+		_source: TransactionSource,
+		call: &Box<<T as Config>::RuntimeCall>,
+	) -> TransactionValidityWithRefund {
+		let call_hash = T::Hashing::hash_of(call).into();
+		Self::authorize_whitelisted_dispatch(call_hash)
+	}
+
 	/// Clean whitelisting/preimage and dispatch call.
 	///
 	/// Return the call actual weight of the dispatched call if there is some.

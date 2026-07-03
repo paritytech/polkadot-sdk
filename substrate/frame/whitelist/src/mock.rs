@@ -57,7 +57,9 @@ impl pallet_whitelist::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type WhitelistOrigin = EnsureRoot<Self::AccountId>;
-	type DispatchWhitelistedOrigin = EnsureRoot<Self::AccountId>;
+	// Accepts `Authorized`: opted into the permissionless flow.
+	type DispatchWhitelistedOrigin =
+		EitherOf<EnsureRoot<Self::AccountId>, frame_system::EnsureAuthorized<Self::AccountId>>;
 	type Preimages = Preimage;
 	type WeightInfo = ();
 }
@@ -67,4 +69,60 @@ pub fn new_test_ext() -> TestExternalities {
 	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
+}
+
+/// A runtime that has not opted in: `DispatchWhitelistedOrigin` rejects `Authorized`.
+///
+/// Separate module so `construct_runtime!` doesn't clash with `Test`.
+pub mod no_auth {
+	use crate as pallet_whitelist;
+	use frame::testing_prelude::*;
+
+	type Block = MockBlock<Runtime>;
+
+	construct_runtime!(
+		pub enum Runtime
+		{
+			System: frame_system,
+			Balances: pallet_balances,
+			Whitelist: pallet_whitelist,
+			Preimage: pallet_preimage,
+		}
+	);
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	impl frame_system::Config for Runtime {
+		type Block = Block;
+		type AccountData = pallet_balances::AccountData<u64>;
+	}
+
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	impl pallet_balances::Config for Runtime {
+		type AccountStore = System;
+	}
+
+	impl pallet_preimage::Config for Runtime {
+		type RuntimeEvent = RuntimeEvent;
+		type Currency = Balances;
+		type ManagerOrigin = EnsureRoot<Self::AccountId>;
+		type Consideration = ();
+		type WeightInfo = ();
+	}
+
+	impl pallet_whitelist::Config for Runtime {
+		type RuntimeEvent = RuntimeEvent;
+		type RuntimeCall = RuntimeCall;
+		type WhitelistOrigin = EnsureRoot<Self::AccountId>;
+		// Privileged-only: `Authorized` is rejected.
+		type DispatchWhitelistedOrigin = EnsureRoot<Self::AccountId>;
+		type Preimages = Preimage;
+		type WeightInfo = ();
+	}
+
+	pub fn new_test_ext() -> TestExternalities {
+		let t = RuntimeGenesisConfig::default().build_storage().unwrap();
+		let mut ext = TestExternalities::new(t);
+		ext.execute_with(|| System::set_block_number(1));
+		ext
+	}
 }

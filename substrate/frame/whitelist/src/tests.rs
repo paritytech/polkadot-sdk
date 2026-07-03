@@ -194,6 +194,98 @@ fn test_whitelist_call_and_execute_without_note_preimage() {
 }
 
 #[test]
+fn permissionless_dispatch_with_preimage_works() {
+	new_test_ext().execute_with(|| {
+		let call = Box::new(RuntimeCall::System(frame_system::Call::remark_with_event {
+			remark: vec![1],
+		}));
+		let call_hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
+
+		// Not yet whitelisted: rejected even via `Authorized`.
+		assert_noop!(
+			Whitelist::dispatch_whitelisted_call_with_preimage(
+				RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
+				call.clone()
+			),
+			crate::Error::<Test>::CallIsNotWhitelisted,
+		);
+
+		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
+
+		// Whitelisted: dispatchable via `Authorized`.
+		assert_ok!(Whitelist::dispatch_whitelisted_call_with_preimage(
+			RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
+			call.clone()
+		));
+
+		// The hash is consumed; a replay is rejected.
+		assert_noop!(
+			Whitelist::dispatch_whitelisted_call_with_preimage(
+				RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
+				call
+			),
+			crate::Error::<Test>::CallIsNotWhitelisted,
+		);
+	});
+}
+
+#[test]
+fn authorize_callback_admits_whitelisted_and_rejects_unknown() {
+	use frame::deps::sp_runtime::transaction_validity::{
+		InvalidTransaction, TransactionSource, TransactionValidityError,
+	};
+	new_test_ext().execute_with(|| {
+		let call = Box::new(RuntimeCall::System(frame_system::Call::remark { remark: vec![] }));
+		let call_hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
+
+		// Not whitelisted: rejected at the pool.
+		assert_eq!(
+			crate::Pallet::<Test>::authorize_dispatch_whitelisted_call_with_preimage(
+				TransactionSource::External,
+				&call,
+			),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+		);
+
+		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
+
+		// Whitelisted: admitted, and the validity provides the call hash as its tag.
+		let (valid, refund) =
+			crate::Pallet::<Test>::authorize_dispatch_whitelisted_call_with_preimage(
+				TransactionSource::External,
+				&call,
+			)
+			.expect("whitelisted submission is admitted");
+		assert_eq!(valid.provides, vec![call_hash.encode()]);
+		assert_eq!(refund, Weight::zero());
+	});
+}
+
+#[test]
+fn authorize_rejects_when_runtime_not_opted_in() {
+	use crate::mock::no_auth;
+	use frame::deps::sp_runtime::transaction_validity::{
+		InvalidTransaction, TransactionSource, TransactionValidityError,
+	};
+	no_auth::new_test_ext().execute_with(|| {
+		let call =
+			Box::new(no_auth::RuntimeCall::System(frame_system::Call::remark { remark: vec![] }));
+		let call_hash = <no_auth::Runtime as frame_system::Config>::Hashing::hash_of(&call);
+
+		// Hash is whitelisted, so only the opt-in probe can reject.
+		assert_ok!(no_auth::Whitelist::whitelist_call(no_auth::RuntimeOrigin::root(), call_hash));
+
+		assert_eq!(
+			crate::Pallet::<no_auth::Runtime>::authorize_dispatch_whitelisted_call_with_preimage(
+				TransactionSource::External,
+				&call,
+			),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+		);
+	});
+}
+
+#[test]
 fn test_whitelist_call_and_execute_decode_consumes_all() {
 	new_test_ext().execute_with(|| {
 		let call = RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![1] });
@@ -218,5 +310,38 @@ fn test_whitelist_call_and_execute_decode_consumes_all() {
 			),
 			crate::Error::<Test>::UndecodableCall,
 		);
+	});
+}
+
+#[test]
+fn authorize_dispatch_whitelisted_call_uses_hash_argument() {
+	use frame::deps::sp_runtime::transaction_validity::{
+		InvalidTransaction, TransactionSource, TransactionValidityError,
+	};
+	new_test_ext().execute_with(|| {
+		let call_hash = <Test as frame_system::Config>::Hashing::hash_of(&1u8);
+
+		// Unknown hash: rejected at the pool.
+		assert_eq!(
+			crate::Pallet::<Test>::authorize_dispatch_whitelisted_call(
+				TransactionSource::External,
+				&call_hash,
+				&0,
+				&Weight::zero(),
+			),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+		);
+
+		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
+
+		// Whitelisted: admitted with the hash as the validity tag.
+		let (valid, _) = crate::Pallet::<Test>::authorize_dispatch_whitelisted_call(
+			TransactionSource::External,
+			&call_hash,
+			&0,
+			&Weight::zero(),
+		)
+		.expect("whitelisted submission is admitted");
+		assert_eq!(valid.provides, vec![call_hash.encode()]);
 	});
 }
