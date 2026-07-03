@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783018436404,
+  "lastUpdate": 1783071330026,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5d5a639ea7de2b74628232427d5d8d7ce9fb5e8e",
-          "message": "Send PeerId via UMP (#10145)\n\nResolves https://github.com/paritytech/polkadot-sdk/issues/7749\n\nThis PR propagates the network `PeerId` of the collator to the parachain\ninherent. Then the parachain runtime emits a UMP signal containing the\ncollator `PeerId`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-07T15:56:02Z",
-          "tree_id": "d2d457548ebffc157540547d7fb505316dd3d033",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5d5a639ea7de2b74628232427d5d8d7ce9fb5e8e"
-        },
-        "date": 1762535688790,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.96600000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03444202221800001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04433154771399995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08490963521599994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "563c6e582c27cd7d73e5d6465abe71c51a2ed6fe",
+          "message": "approval-voting: removed unused v1 version (#12450)\n\nIt has been 2.5 years since validators on all networks were switched to\nusing v2 version of approval voting, so remove version 1, since no-one\nis using it and it is not needed anymore.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-07-03T07:50:48Z",
+          "tree_id": "a039961d020d56e4d3153eb46ca3c35ebbe754d8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/563c6e582c27cd7d73e5d6465abe71c51a2ed6fe"
+        },
+        "date": 1783071302164,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.046,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038391218955999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08197181939199988,
             "unit": "seconds"
           }
         ]
