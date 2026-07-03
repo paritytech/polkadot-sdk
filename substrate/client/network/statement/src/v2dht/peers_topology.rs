@@ -142,6 +142,7 @@ impl PeersTopology {
 		self.connected.remove(key, &peer);
 	}
 
+	#[allow(dead_code)]
 	fn is_connected(&self, peer: &PeerId) -> bool {
 		self.discovered.get(peer).is_some_and(|info| info.connected)
 	}
