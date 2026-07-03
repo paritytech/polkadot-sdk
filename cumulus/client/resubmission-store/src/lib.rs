@@ -37,7 +37,7 @@ use sc_client_api::{
 	HeaderBackend,
 };
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Zero};
 use sp_trie::StorageProof;
 use std::{
 	marker::PhantomData,
@@ -173,6 +173,38 @@ where
 		ops.iter().filter_map(|(k, v)| v.is_none().then_some(k.as_slice())).collect();
 
 	backend.insert_aux(&[], &deletes)
+}
+
+/// Delete entries for blocks that are already finalized, reclaiming any whose prune was never
+/// observed — e.g. blocks finalized while the node was down, which the freshly-subscribed
+/// notification stream never sees. Run once at startup, before the backfill loop.
+pub fn prune_missed_finalized_entries<Block, B>(backend: &B) -> ClientResult<()>
+where
+	Block: BlockT,
+	B: AuxStore + HeaderBackend<Block>,
+{
+	let mut hash = backend.info().finalized_hash;
+	let mut deletes: Vec<Vec<u8>> = Vec::new();
+
+	while let Some(header) = backend.header(hash)? {
+		let key = entry_key(hash);
+		// First finalized block without an entry: everything below is already pruned.
+		if backend.get_aux(&key)?.is_none() {
+			break;
+		}
+		deletes.push(key);
+		if header.number().is_zero() {
+			break;
+		}
+		hash = *header.parent_hash();
+	}
+
+	if !deletes.is_empty() {
+		let delete_refs: Vec<&[u8]> = deletes.iter().map(|k| k.as_slice()).collect();
+		backend.insert_aux(&[], &delete_refs)?;
+	}
+
+	Ok(())
 }
 
 /// Compute aux storage cleanup operations.
@@ -510,6 +542,156 @@ mod tests {
 			err_msg.contains("Unsupported") && err_msg.contains("version"),
 			"unexpected error: {}",
 			err_msg
+		);
+	}
+
+	/// A minimal in-memory backend — a finalized chain plus an aux key-value store. Enough to drive
+	/// [`prune_missed_finalized_entries`] (which only reads `info()`/`header()` and writes aux)
+	/// without a runtime or on-disk DB.
+	#[derive(Default)]
+	struct MockBackend {
+		headers: std::collections::HashMap<Hash, <Block as BlockT>::Header>,
+		by_number: std::collections::HashMap<u64, Hash>,
+		finalized: (Hash, u64),
+		aux: std::sync::Mutex<std::collections::HashMap<Vec<u8>, Vec<u8>>>,
+	}
+
+	impl MockBackend {
+		/// Append a block on top of `parent`, returning its hash.
+		fn push(&mut self, number: u64, parent: Hash) -> Hash {
+			let header = <<Block as BlockT>::Header as HeaderT>::new(
+				number,
+				Default::default(),
+				Default::default(),
+				parent,
+				Default::default(),
+			);
+			let hash = header.hash();
+			self.headers.insert(hash, header);
+			self.by_number.insert(number, hash);
+			hash
+		}
+
+		fn write_entry(&self, hash: Hash, entry: StoredEntry) {
+			let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
+				hash,
+				entry.time_ms,
+				entry.proof,
+				entry.relay_parent_header,
+				entry.relay_parent_session,
+				entry.persisted_validation_data,
+				entry.core_selector,
+			)
+			.collect();
+			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
+			self.insert_aux(&refs, &[]).unwrap();
+		}
+
+		fn has_entry(&self, hash: Hash) -> bool {
+			self.get_aux(&entry_key(hash)).unwrap().is_some()
+		}
+	}
+
+	impl AuxStore for MockBackend {
+		fn insert_aux<
+			'a,
+			'b: 'a,
+			'c: 'a,
+			I: IntoIterator<Item = &'a (&'c [u8], &'c [u8])>,
+			D: IntoIterator<Item = &'a &'b [u8]>,
+		>(
+			&self,
+			insert: I,
+			delete: D,
+		) -> ClientResult<()> {
+			let mut aux = self.aux.lock().unwrap();
+			for (k, v) in insert {
+				aux.insert(k.to_vec(), v.to_vec());
+			}
+			for k in delete {
+				aux.remove(*k);
+			}
+			Ok(())
+		}
+
+		fn get_aux(&self, key: &[u8]) -> ClientResult<Option<Vec<u8>>> {
+			Ok(self.aux.lock().unwrap().get(key).cloned())
+		}
+	}
+
+	impl HeaderBackend<Block> for MockBackend {
+		fn header(&self, hash: Hash) -> ClientResult<Option<<Block as BlockT>::Header>> {
+			Ok(self.headers.get(&hash).cloned())
+		}
+
+		fn info(&self) -> sp_blockchain::Info<Block> {
+			sp_blockchain::Info {
+				best_hash: self.finalized.0,
+				best_number: self.finalized.1,
+				genesis_hash: self.by_number.get(&0).copied().unwrap_or_default(),
+				finalized_hash: self.finalized.0,
+				finalized_number: self.finalized.1,
+				finalized_state: None,
+				number_leaves: 1,
+				block_gap: None,
+			}
+		}
+
+		fn status(&self, hash: Hash) -> ClientResult<sp_blockchain::BlockStatus> {
+			Ok(if self.headers.contains_key(&hash) {
+				sp_blockchain::BlockStatus::InChain
+			} else {
+				sp_blockchain::BlockStatus::Unknown
+			})
+		}
+
+		fn number(&self, hash: Hash) -> ClientResult<Option<u64>> {
+			Ok(self.headers.get(&hash).map(|h| *h.number()))
+		}
+
+		fn hash(&self, number: u64) -> ClientResult<Option<Hash>> {
+			Ok(self.by_number.get(&number).cloned())
+		}
+	}
+
+	#[test]
+	fn prune_missed_reclaims_entries_finalized_while_down() {
+		let mut backend = MockBackend::default();
+
+		// Genesis plus a 5-block chain; record an entry for each non-genesis block.
+		let mut parent = backend.push(0, Default::default());
+		let mut hashes = Vec::new();
+		for number in 1..=5u64 {
+			parent = backend.push(number, parent);
+			hashes.push(parent);
+		}
+		for (i, hash) in hashes.iter().enumerate() {
+			backend.write_entry(*hash, create_test_entry(i as u64));
+		}
+
+		// Finalize up to block 3 with nothing pruning (stands in for finalization observed while
+		// the node was down): entries for the now-finalized blocks 1..=3 leak, they are still
+		// present.
+		backend.finalized = (hashes[2], 3);
+		assert!(
+			backend.has_entry(hashes[0]) &&
+				backend.has_entry(hashes[1]) &&
+				backend.has_entry(hashes[2]),
+			"finalized entries leaked",
+		);
+
+		// Startup pruning reclaims the finalized entries and spares the still-unincluded
+		// ones. The downward walk stops at genesis (no entry there).
+		prune_missed_finalized_entries::<Block, _>(&backend).unwrap();
+		assert!(
+			!backend.has_entry(hashes[0]) &&
+				!backend.has_entry(hashes[1]) &&
+				!backend.has_entry(hashes[2]),
+			"finalized entries reclaimed",
+		);
+		assert!(
+			backend.has_entry(hashes[3]) && backend.has_entry(hashes[4]),
+			"unincluded entries kept",
 		);
 	}
 }

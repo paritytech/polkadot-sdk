@@ -25,6 +25,7 @@
 use super::SlotBasedBlockImportHandle;
 use cumulus_client_resubmission_store::{
 	now_unix_ms, prepare_resubmission_aux_data, prune_finalized_entries,
+	prune_missed_finalized_entries,
 };
 use cumulus_primitives_core::{
 	relay_chain::{
@@ -139,6 +140,16 @@ pub(crate) async fn run_resubmission_backfill<Block, RClient, Client>(
 	RClient: RelayChainInterface,
 	Client: AuxStore + HeaderBackend<Block> + BlockchainEvents<Block>,
 {
+	// Reclaim entries for blocks that were finalized without their prune being observed (e.g. while
+	// the node was down). The notification stream below only covers finalizations from now on.
+	if let Err(err) = prune_missed_finalized_entries::<Block, _>(&*para_client) {
+		tracing::warn!(
+			target: LOG_TARGET,
+			?err,
+			"Failed to prune missed finalized resubmission entries at startup.",
+		);
+	}
+
 	let mut finality_notifications = para_client.finality_notification_stream();
 
 	loop {
