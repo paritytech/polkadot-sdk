@@ -20,30 +20,30 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::Weight;
 
-pub struct EthPreDispatchWeightInputPayload {
+pub struct PreDispatchWeightInputPayload {
 	pub tx: Vec<u8>,
 }
 
-impl From<EthPreDispatchWeightVersionedInputPayload> for EthPreDispatchWeightInputPayload {
-	fn from(value: EthPreDispatchWeightVersionedInputPayload) -> Self {
+impl From<PreDispatchWeightVersionedInputPayload> for PreDispatchWeightInputPayload {
+	fn from(value: PreDispatchWeightVersionedInputPayload) -> Self {
 		match value {
-			EthPreDispatchWeightVersionedInputPayload::V1(payload) => payload.into(),
+			PreDispatchWeightVersionedInputPayload::V1(payload) => payload.into(),
 		}
 	}
 }
 
-impl From<EthPreDispatchWeightInputPayloadV1> for EthPreDispatchWeightInputPayload {
-	fn from(value: EthPreDispatchWeightInputPayloadV1) -> Self {
+impl From<PreDispatchWeightInputPayloadV1> for PreDispatchWeightInputPayload {
+	fn from(value: PreDispatchWeightInputPayloadV1) -> Self {
 		Self { tx: value.tx }
 	}
 }
 
-pub struct EthPreDispatchWeightOutputPayload {
+pub struct PreDispatchWeightOutputPayload {
 	pub weight: Weight,
 }
 
-impl From<EthPreDispatchWeightOutputPayload> for EthPreDispatchWeightOutputPayloadV1 {
-	fn from(value: EthPreDispatchWeightOutputPayload) -> Self {
+impl From<PreDispatchWeightOutputPayload> for PreDispatchWeightOutputPayloadV1 {
+	fn from(value: PreDispatchWeightOutputPayload) -> Self {
 		Self { weight: value.weight }
 	}
 }
