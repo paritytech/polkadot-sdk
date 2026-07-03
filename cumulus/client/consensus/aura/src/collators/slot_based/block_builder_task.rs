@@ -746,7 +746,7 @@ where
 			);
 		})
 		.ok();
-	let pvd = resolve_pvd(relay_client, relay_parent_hash, para_id)
+	let mut pvd = resolve_pvd(relay_client, relay_parent_hash, para_id)
 		.await
 		.inspect_err(|err| {
 			tracing::warn!(
@@ -859,7 +859,7 @@ where
 			"Building block"
 		);
 
-		let block_parent_header = parent_header.clone();
+		let block_parent_header = parent_header.encode();
 
 		let Ok(Some((built_block, mut import_block))) = collator
 			.build_block(BuildBlockAndImportParams {
@@ -905,8 +905,8 @@ where
 		}
 
 		let proof = Arc::new(built_block.proof);
-		if let (Some(relay_parent_session), Some(mut pvd)) = (session, pvd.clone()) {
-			pvd.parent_head = block_parent_header.encode().into();
+		if let (Some(relay_parent_session), Some(pvd)) = (session, pvd.as_mut()) {
+			pvd.parent_head = block_parent_header.into();
 			prepare_resubmission_aux_data::<Block>(
 				built_block.block.header().hash(),
 				proof.clone(),

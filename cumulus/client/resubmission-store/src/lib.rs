@@ -91,11 +91,10 @@ pub fn prepare_resubmission_aux_data<Block: BlockT>(
 	proof: Arc<StorageProof>,
 	relay_parent_header: RelayHeader,
 	relay_parent_session: SessionIndex,
-	persisted_validation_data: PersistedValidationData,
+	persisted_validation_data: &PersistedValidationData,
 ) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
 	let encoded_entry =
-		StoredEntry { proof, relay_parent_header, relay_parent_session, persisted_validation_data }
-			.encode();
+		(&proof, &relay_parent_header, &relay_parent_session, persisted_validation_data).encode();
 	let encoded_version = STORE_CURRENT_VERSION.encode();
 
 	[(entry_key(block_hash), encoded_entry), (STORE_VERSION_KEY.to_vec(), encoded_version)]
@@ -254,7 +253,7 @@ mod tests {
 			entry.proof.clone(),
 			entry.relay_parent_header.clone(),
 			entry.relay_parent_session,
-			entry.persisted_validation_data.clone(),
+			&entry.persisted_validation_data,
 		)
 		.collect();
 		let insert_pairs: Vec<_> =
@@ -274,7 +273,7 @@ mod tests {
 			proof.clone(),
 			relay_parent_header.clone(),
 			relay_parent_session,
-			persisted_validation_data.clone(),
+			&persisted_validation_data,
 		)
 		.collect();
 
@@ -450,14 +449,14 @@ mod tests {
 				entry_a.proof.clone(),
 				entry_a.relay_parent_header.clone(),
 				entry_a.relay_parent_session,
-				entry_a.persisted_validation_data.clone(),
+				&entry_a.persisted_validation_data,
 			)
 			.chain(prepare_resubmission_aux_data::<Block>(
 				hash_b,
 				entry_b.proof.clone(),
 				entry_b.relay_parent_header.clone(),
 				entry_b.relay_parent_session,
-				entry_b.persisted_validation_data.clone(),
+				&entry_b.persisted_validation_data,
 			))
 			.collect();
 			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
@@ -540,7 +539,7 @@ mod tests {
 				entry.proof,
 				entry.relay_parent_header,
 				entry.relay_parent_session,
-				entry.persisted_validation_data,
+				&entry.persisted_validation_data,
 			)
 			.collect();
 			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();

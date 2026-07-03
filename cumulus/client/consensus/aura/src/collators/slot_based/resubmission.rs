@@ -290,7 +290,7 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 		proof,
 		relay_parent_header,
 		relay_parent_session,
-		persisted_validation_data,
+		&persisted_validation_data,
 	)
 	.collect();
 	let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
