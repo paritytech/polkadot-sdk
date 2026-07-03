@@ -24,7 +24,7 @@
 
 use crate::schema;
 use codec::{self, Decode, Encode};
-use futures::prelude::*;
+use futures::{prelude::*, select};
 use log::{debug, trace};
 use prost::Message;
 use sc_client_api::{BlockBackend, BlockchainEvents, ProofProvider};
@@ -131,14 +131,12 @@ where
 		}
 
 		loop {
-			futures::select! {
-				notification = import_notifications.next() => {
+			select! {
+				notification = import_notifications.select_next_some() => {
 					// Almost always a cache hit; after a runtime upgrade or once sync reaches the
 					// tip, this compiles the new runtime before the first request needs it.
-					if let Some(notification) = notification {
-						if notification.is_new_best {
-							self.prewarm(notification.hash);
-						}
+					if notification.is_new_best {
+						self.prewarm(notification.hash);
 					}
 				},
 				request = request_receiver.next() => match request {
