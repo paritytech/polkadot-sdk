@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783096152970,
+  "lastUpdate": 1783103437547,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
-            "name": "s0me0ne-unkn0wn",
-            "username": "s0me0ne-unkn0wn"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "736360090bfae5674cfb54a641f9d542a40656e8",
-          "message": "Fix executor params classification and add test (#10194)\n\nCloses #8054 \n\nExecutor parameters may be hashed in two ways: a full hash that changes\nif any parameter changes, and a prep_hash, which changes only if the\nparameter change will affect the prepared artifact (thus requiring\nartifact recompilation).\n\nAs was discovered in #8054, the initial classification of parameters was\nwrong, and some parameters that affect the artifact were not classified\nas such, and vice versa.\n\nThis PR aims to fix that and to add a test that should prevent this from\nhappening in the future.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-09T10:23:47Z",
-          "tree_id": "42abf8795260da4ed93133f1b8de6901972d5ec5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/736360090bfae5674cfb54a641f9d542a40656e8"
-        },
-        "date": 1762688069591,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00886010147999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026856912600000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005212239639999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009301428489999989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "95513823b788e2dfd0bf5c0894d6111d69c1ac9f",
+          "message": "Adjust `scheduling_v2_and_v3_collator_with_v3_validators` expected ranges (#12544)\n\nAdjust ranges in order to avoid CI failures\n\nAs per the following failed runs:\n\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/28437122196/job/84267964693\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/28630459083/job/84908004161\n\nAlso relaxed the finality lag as per:\n\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/28658995122/job/85003186224",
+          "timestamp": "2026-07-03T16:48:58Z",
+          "tree_id": "6a558178b154b5cb4534cfef98e0f8ead4880e67",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/95513823b788e2dfd0bf5c0894d6111d69c1ac9f"
+        },
+        "date": 1783103410380,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010644777600000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025968670499999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009322856849999995,
             "unit": "seconds"
           }
         ]
