@@ -298,6 +298,7 @@ impl SubscriptionsInfo {
 	fn notify_match_all_subscribers_best(&mut self, statement: &Statement) {
 		let bytes_to_send: Bytes = statement.encode().into();
 		let mut needs_unsubscribing: HashSet<SeqID> = HashSet::new();
+		let mut already_notified: HashSet<SeqID> = HashSet::new();
 		let num_topics = statement.topics().len();
 
 		// Check all combinations of topics in the statement to find matching subscriptions.
@@ -317,10 +318,15 @@ impl SubscriptionsInfo {
 					continue;
 				};
 
-				for subscription in topic_with_fewest[num_topics_to_check - 1]
-					.values()
-					.filter(|subscription| subscription.topic_filter.matches(statement))
-				{
+				// A multi-topic `MatchAll` subscription is registered under each of its topics, so
+				// it can be selected across several combinations. Notify each subscription only the
+				// first time it matches, mirroring the `MatchAny` path, to avoid duplicate
+				// delivery.
+				for subscription in
+					topic_with_fewest[num_topics_to_check - 1].values().filter(|subscription| {
+						subscription.topic_filter.matches(statement) &&
+							already_notified.insert(subscription.seq_id)
+					}) {
 					self.notify_subscriber(
 						subscription,
 						bytes_to_send.clone(),
@@ -893,6 +899,71 @@ mod tests {
 
 		// No more messages.
 		assert!(rx1.try_recv().is_err());
+	}
+
+	#[test]
+	fn test_match_all_receives_once_per_statement() {
+		// A `MatchAll` subscriber must receive each matching statement exactly once, even when it
+		// is registered under several of the statement's topics.
+		let mut subscriptions = SubscriptionsInfo::new();
+
+		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(10);
+		let (tx2, _rx2) = async_channel::bounded::<StatementEvent>(10);
+		let (tx3, _rx3) = async_channel::bounded::<StatementEvent>(10);
+
+		let topic1 = Topic::from([1u8; 32]);
+		let topic2 = Topic::from([2u8; 32]);
+		let topic3 = Topic::from([3u8; 32]);
+		let topic4 = Topic::from([4u8; 32]);
+
+		// The subscription under test: MatchAll on topic1 AND topic2 (stored under both topics).
+		let sub_info1 = SubscriptionInfo {
+			topic_filter: OptimizedTopicFilter::MatchAll(
+				vec![topic1, topic2].into_iter().collect(),
+			),
+			seq_id: SeqID::from(1),
+			tx: tx1,
+		};
+		subscriptions.subscribe(sub_info1.clone());
+
+		// Extra MatchAll subscriptions on topic3 so the matcher encounters sub_info1 across
+		// several topic combinations of the statement below. They do not match the statement
+		// themselves (topic4 is absent).
+		let sub_info2 = SubscriptionInfo {
+			topic_filter: OptimizedTopicFilter::MatchAll(
+				vec![topic3, topic4].into_iter().collect(),
+			),
+			seq_id: SeqID::from(2),
+			tx: tx2,
+		};
+		let sub_info3 = SubscriptionInfo {
+			topic_filter: OptimizedTopicFilter::MatchAll(
+				vec![topic3, topic4].into_iter().collect(),
+			),
+			seq_id: SeqID::from(3),
+			tx: tx3,
+		};
+		subscriptions.subscribe(sub_info2);
+		subscriptions.subscribe(sub_info3);
+
+		// Statement carrying topic1, topic2 and topic3.
+		let mut statement = signed_statement(1);
+		statement.set_topic(0, topic1);
+		statement.set_topic(1, topic2);
+		statement.set_topic(2, topic3);
+
+		subscriptions.notify_match_all_subscribers_best(&statement);
+
+		// sub_info1 must receive the statement exactly once.
+		let received = unwrap_statement(rx1.try_recv().expect("Should receive statement"));
+		let decoded_statement: Statement =
+			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
+		assert_eq!(decoded_statement, statement);
+
+		assert!(
+			rx1.try_recv().is_err(),
+			"MatchAll subscriber must receive each statement only once"
+		);
 	}
 
 	#[test]

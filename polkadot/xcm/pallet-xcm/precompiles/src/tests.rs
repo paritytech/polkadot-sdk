@@ -25,11 +25,11 @@ use pallet_revive::{
 	precompiles::{
 		alloy::{
 			hex,
-			sol_types::{SolInterface, SolValue},
+			sol_types::{SolCall, SolInterface, SolValue},
 		},
 		H160,
 	},
-	ExecConfig, TransactionLimits, U256,
+	Code, ExecConfig, TransactionLimits, U256,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::AccountIdConversion;
@@ -745,5 +745,76 @@ fn weight_fails_on_old_version() {
 			Err(err) => panic!("XcmExecutePrecompile Failed to decode weight with error {err:?}"),
 		};
 		assert!(result.did_revert());
+	});
+}
+
+alloy::sol! {
+	interface ICaller {
+		function delegate(address callee, bytes data, uint64 gas) external returns (bool success, bytes output);
+	}
+}
+
+/// The delegatecall guard rejects all calls via delegatecall.
+#[test]
+fn delegatecall_is_rejected() {
+	let balances = vec![(ALICE, 1_000_000_000_000_000u128)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		let xcm_precompile_addr = H160::from(
+			hex::const_decode_to_array(b"00000000000000000000000000000000000A0000").unwrap(),
+		);
+
+		let (init_code, _) = pallet_revive_fixtures::compile_module_with_type(
+			"Caller",
+			pallet_revive_fixtures::FixtureType::Solc,
+		)
+		.expect("Caller fixture must be compiled");
+		let caller_addr = pallet_revive::Pallet::<Test>::bare_instantiate(
+			RuntimeOrigin::signed(ALICE),
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			Code::Upload(init_code),
+			vec![],
+			None,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("Caller deployment must succeed")
+		.addr;
+
+		let calldata = ICaller::delegateCall {
+			callee: alloy::primitives::Address::from(xcm_precompile_addr.0),
+			data: IXcm::weighMessageCall { message: Default::default() }.abi_encode().into(),
+			gas: u64::MAX,
+		}
+		.abi_encode();
+
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(ALICE),
+			caller_addr,
+			U256::zero(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			calldata,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("outer call must succeed");
+
+		let ret = ICaller::delegateCall::abi_decode_returns(&result.data)
+			.expect("return must decode as (bool, bytes)");
+		assert!(!ret.success, "DELEGATECALL to XCM precompile must be rejected");
+		// PrecompileDelegateDenied is an Error::Error (trap), not an Error::Revert, so the
+		// inner call produces no output data. A Solidity-level revert would include
+		// ABI-encoded reason bytes.
+		assert!(
+			ret.output.is_empty(),
+			"expected empty output from PrecompileDelegateDenied trap, got {} bytes",
+			ret.output.len(),
+		);
 	});
 }

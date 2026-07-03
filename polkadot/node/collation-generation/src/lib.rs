@@ -229,44 +229,28 @@ impl CollationGenerationSubsystem {
 		let SubmitCollationParams {
 			relay_parent,
 			collation,
-			parent_head,
 			validation_code_hash,
 			result_sender,
 			core_index,
 			scheduling_parent,
+			session_index,
+			validation_data,
 		} = params;
 
-		let mut validation_data = match request_persisted_validation_data(
-			relay_parent,
-			config.para_id,
-			OccupiedCoreAssumption::TimedOut,
-			ctx.sender(),
-		)
-		.await
-		.await??
-		{
-			Some(v) => v,
-			None => {
-				gum::debug!(
-					target: LOG_TARGET,
-					relay_parent = ?relay_parent,
-					our_para = %config.para_id,
-					"No validation data for para - does it exist at this relay-parent?",
-				);
-				return Ok(());
-			},
-		};
+		// For V2 descriptors, scheduling_parent is None and relay_parent serves both roles.
+		let scheduling_parent_or_relay = scheduling_parent.unwrap_or(relay_parent);
+		let claim_queue =
+			request_claim_queue(scheduling_parent_or_relay, ctx.sender()).await.await??;
 
-		// We need to swap the parent-head data, but all other fields here will be correct.
-		validation_data.parent_head = parent_head;
+		let scheduling_session =
+			request_session_index_for_child(scheduling_parent_or_relay, ctx.sender())
+				.await
+				.await??;
 
-		let claim_queue = request_claim_queue(relay_parent, ctx.sender()).await.await??;
-
-		let session_index =
-			request_session_index_for_child(relay_parent, ctx.sender()).await.await??;
-
-		let session_info =
-			self.session_info_cache.get(relay_parent, session_index, ctx.sender()).await?;
+		let session_info = self
+			.session_info_cache
+			.get(scheduling_parent_or_relay, scheduling_session, ctx.sender())
+			.await?;
 		let collation = PreparedCollation {
 			collation,
 			relay_parent,
@@ -276,6 +260,7 @@ impl CollationGenerationSubsystem {
 			n_validators: session_info.n_validators,
 			core_index,
 			session_index,
+			scheduling_session,
 		};
 
 		construct_and_distribute_receipt(
@@ -300,7 +285,7 @@ impl CollationGenerationSubsystem {
 			return Ok(());
 		};
 
-		let Some(relay_parent) = maybe_activated else { return Ok(()) };
+		let Some(activated) = maybe_activated else { return Ok(()) };
 
 		// If there is no collation function provided, bail out early.
 		// Important: Lookahead collator and slot based collator do not use `CollatorFn`.
@@ -313,14 +298,14 @@ impl CollationGenerationSubsystem {
 		let _timer = self.metrics.time_new_activation();
 
 		let session_index =
-			request_session_index_for_child(relay_parent, ctx.sender()).await.await??;
+			request_session_index_for_child(activated, ctx.sender()).await.await??;
 
 		let session_info =
-			self.session_info_cache.get(relay_parent, session_index, ctx.sender()).await?;
+			self.session_info_cache.get(activated, session_index, ctx.sender()).await?;
 		let n_validators = session_info.n_validators;
 
 		let claim_queue =
-			ClaimQueueSnapshot::from(request_claim_queue(relay_parent, ctx.sender()).await.await??);
+			ClaimQueueSnapshot::from(request_claim_queue(activated, ctx.sender()).await.await??);
 
 		let assigned_cores = claim_queue
 			.iter_all_claims()
@@ -338,7 +323,7 @@ impl CollationGenerationSubsystem {
 		// for some more blocks, or even time out. We assume all cores are being freed.
 
 		let mut validation_data = match request_persisted_validation_data(
-			relay_parent,
+			activated,
 			para_id,
 			// Just use included assumption always. If there are no pending candidates it's a
 			// no-op.
@@ -352,7 +337,7 @@ impl CollationGenerationSubsystem {
 			None => {
 				gum::debug!(
 					target: LOG_TARGET,
-					relay_parent = ?relay_parent,
+					relay_parent = ?activated,
 					our_para = %para_id,
 					"validation data is not available",
 				);
@@ -361,7 +346,7 @@ impl CollationGenerationSubsystem {
 		};
 
 		let validation_code_hash = match request_validation_code_hash(
-			relay_parent,
+			activated,
 			para_id,
 			// Just use included assumption always. If there are no pending candidates it's a
 			// no-op.
@@ -375,7 +360,7 @@ impl CollationGenerationSubsystem {
 			None => {
 				gum::debug!(
 					target: LOG_TARGET,
-					relay_parent = ?relay_parent,
+					relay_parent = ?activated,
 					our_para = %para_id,
 					"validation code hash is not found.",
 				);
@@ -403,7 +388,7 @@ impl CollationGenerationSubsystem {
 					};
 
 					let (collation, result_sender) =
-						match collator_fn(relay_parent, &validation_data).await {
+						match collator_fn(activated, &validation_data).await {
 							Some(collation) => collation.into_inner(),
 							None => {
 								gum::debug!(
@@ -486,12 +471,14 @@ impl CollationGenerationSubsystem {
 						PreparedCollation {
 							collation,
 							para_id,
-							relay_parent,
+							relay_parent: activated,
 							validation_data: validation_data.clone(),
 							validation_code_hash,
 							n_validators,
 							core_index: descriptor_core_index,
 							session_index,
+							// V2 only: relay_parent == scheduling_parent, same session.
+							scheduling_session: session_index,
 						},
 						&mut task_sender,
 						result_sender,
@@ -572,7 +559,10 @@ struct PreparedCollation {
 	validation_code_hash: ValidationCodeHash,
 	n_validators: usize,
 	core_index: CoreIndex,
+	/// The relay parent's session index.
 	session_index: SessionIndex,
+	/// The scheduling parent's session index.
+	scheduling_session: SessionIndex,
 }
 
 /// Takes a prepared collation, along with its context, and produces a candidate receipt
@@ -594,6 +584,7 @@ async fn construct_and_distribute_receipt(
 		n_validators,
 		core_index,
 		session_index,
+		scheduling_session,
 	} = collation;
 
 	let persisted_validation_data_hash = validation_data.hash();
@@ -641,6 +632,7 @@ async fn construct_and_distribute_receipt(
 				relay_parent,
 				core_index,
 				session_index,
+				scheduling_session,
 				persisted_validation_data_hash,
 				pov_hash,
 				erasure_root,
