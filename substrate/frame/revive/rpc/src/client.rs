@@ -263,7 +263,7 @@ pub struct Client {
 	backfill_complete: Arc<AtomicBool>,
 	/// Queue for backfilling blocks missed during subscription reconnects.
 	subscription_gap_queue: SubscriptionGapQueue,
-	/// Limiter capping the backward-sync and gap-filler combined requests per second.
+	/// Limiter capping the historic backfill requests per second.
 	/// `None` -> no rate limit.
 	backward_sync_rate_limiter: Option<Arc<DefaultDirectRateLimiter>>,
 }
