@@ -15,12 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, Bytes, ChainMetadata,
-	ClientError, FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider, SyncLabel, SyncStateKey,
+	Address, BlockInfoProvider, BlockNumberOrTag, Bytes, ChainMetadata, ClientError, Filter,
+	FilterBlockOption, Log, ReceiptExtractor, ReceiptInfo, SubxtBlockInfoProvider, SyncLabel,
+	SyncStateKey,
 	block_sync::SyncCheckpoint,
 	client::{SubstrateBlock, SubstrateBlockNumber},
 };
-use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
+use pallet_revive::evm::TransactionSigned;
 use sp_core::{H256, U256};
 use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool, query};
 use std::{
@@ -219,13 +220,17 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Returns `true` if the block is before the auto-discovered `first_evm_block`.
 	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
 		match at {
-			BlockNumberOrTag::U256(block_number) => {
-				if *block_number > U256::from(u32::MAX) {
+			BlockNumberOrTag::Number(block_number) => {
+				let Ok(block_number) = u32::try_from(*block_number) else {
 					return false;
-				}
-				self.receipt_extractor.is_before_first_evm_block(block_number.as_u32())
+				};
+				self.receipt_extractor.is_before_first_evm_block(block_number)
 			},
-			BlockNumberOrTag::BlockTag(_) => false,
+			BlockNumberOrTag::Latest |
+			BlockNumberOrTag::Finalized |
+			BlockNumberOrTag::Safe |
+			BlockNumberOrTag::Earliest |
+			BlockNumberOrTag::Pending => false,
 		}
 	}
 
@@ -716,81 +721,65 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	) -> anyhow::Result<Vec<Log>> {
 		let mut qb = QueryBuilder::<Sqlite>::new("SELECT logs.* FROM logs WHERE 1=1");
 		let filter = filter.unwrap_or_default();
-
-		let from_block = filter.from_block.map(&resolve_block_number).transpose()?;
-		let to_block = filter.to_block.map(&resolve_block_number).transpose()?;
 		let latest_block = U256::from(self.block_provider.latest_block_number().await);
 
-		match (from_block, to_block, filter.block_hash) {
-			(Some(_), _, Some(_)) | (_, Some(_), Some(_)) => {
-				anyhow::bail!("block number and block hash cannot be used together");
+		match filter.block_option {
+			FilterBlockOption::AtBlockHash(hash) => {
+				qb.push(" AND block_hash = ").push_bind(hash.as_slice().to_vec());
 			},
+			FilterBlockOption::Range { from_block, to_block } => {
+				let from_block = from_block.map(&resolve_block_number).transpose()?;
+				let to_block = to_block.map(&resolve_block_number).transpose()?;
 
-			(Some(block), _, _) | (_, Some(block), _) if block > latest_block => {
-				anyhow::bail!("block number exceeds latest block");
-			},
-			(Some(from_block), Some(to_block), None) if from_block > to_block => {
-				anyhow::bail!("invalid block range params");
-			},
-			(Some(from_block), Some(to_block), None) if from_block == to_block => {
-				qb.push(" AND block_number = ").push_bind(from_block.as_u64() as i64);
-			},
-			(Some(from_block), Some(to_block), None) => {
-				qb.push(" AND block_number BETWEEN ")
-					.push_bind(from_block.as_u64() as i64)
-					.push(" AND ")
-					.push_bind(to_block.as_u64() as i64);
-			},
-			(Some(from_block), None, None) => {
-				qb.push(" AND block_number >= ").push_bind(from_block.as_u64() as i64);
-			},
-			(None, Some(to_block), None) => {
-				qb.push(" AND block_number <= ").push_bind(to_block.as_u64() as i64);
-			},
-			(None, None, Some(hash)) => {
-				qb.push(" AND block_hash = ").push_bind(hash.0.to_vec());
-			},
-			(None, None, None) => {
-				qb.push(" AND block_number = ").push_bind(latest_block.as_u64() as i64);
-			},
-		}
-
-		if let Some(addresses) = filter.address {
-			match addresses {
-				AddressOrAddresses::Address(addr) => {
-					qb.push(" AND address = ").push_bind(addr.0.to_vec());
-				},
-				AddressOrAddresses::Addresses(addrs) => {
-					qb.push(" AND address IN (");
-					let mut separated = qb.separated(", ");
-					for addr in addrs {
-						separated.push_bind(addr.0.to_vec());
-					}
-					separated.push_unseparated(")");
-				},
-			}
-		}
-
-		if let Some(topics) = filter.topics {
-			if topics.len() > 4 {
-				return Err(anyhow::anyhow!("exceed max topics"));
-			}
-
-			for (i, topic) in topics.into_iter().enumerate() {
-				match topic {
-					FilterTopic::Single(hash) => {
-						qb.push(format_args!(" AND topic_{i} = ")).push_bind(hash.0.to_vec());
+				match (from_block, to_block) {
+					(Some(block), _) | (_, Some(block)) if block > latest_block => {
+						anyhow::bail!("block number exceeds latest block");
 					},
-					FilterTopic::Multiple(hashes) => {
-						qb.push(format_args!(" AND topic_{i} IN ("));
-						let mut separated = qb.separated(", ");
-						for hash in hashes {
-							separated.push_bind(hash.0.to_vec());
-						}
-						separated.push_unseparated(")");
+					(Some(from_block), Some(to_block)) if from_block > to_block => {
+						anyhow::bail!("invalid block range params");
+					},
+					(Some(from_block), Some(to_block)) if from_block == to_block => {
+						qb.push(" AND block_number = ").push_bind(from_block.as_u64() as i64);
+					},
+					(Some(from_block), Some(to_block)) => {
+						qb.push(" AND block_number BETWEEN ")
+							.push_bind(from_block.as_u64() as i64)
+							.push(" AND ")
+							.push_bind(to_block.as_u64() as i64);
+					},
+					(Some(from_block), None) => {
+						qb.push(" AND block_number >= ").push_bind(from_block.as_u64() as i64);
+					},
+					(None, Some(to_block)) => {
+						qb.push(" AND block_number <= ").push_bind(to_block.as_u64() as i64);
+					},
+					(None, None) => {
+						qb.push(" AND block_number = ").push_bind(latest_block.as_u64() as i64);
 					},
 				}
+			},
+		}
+
+		if !filter.address.is_empty() {
+			qb.push(" AND address IN (");
+			let mut separated = qb.separated(", ");
+			for addr in filter.address {
+				separated.push_bind(addr.as_slice().to_vec());
 			}
+			separated.push_unseparated(")");
+		}
+
+		for (i, topic) in filter.topics.into_iter().enumerate() {
+			if topic.is_empty() {
+				continue;
+			}
+
+			qb.push(format_args!(" AND topic_{i} IN ("));
+			let mut separated = qb.separated(", ");
+			for hash in topic {
+				separated.push_bind(hash.as_slice().to_vec());
+			}
+			separated.push_unseparated(")");
 		}
 
 		qb.push(" LIMIT ").push_bind(MAX_LOG_RESULTS as i64);
@@ -948,8 +937,12 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::test::{MockBlockInfo, MockBlockInfoProvider};
-	use pallet_revive::evm::{BlockTag, ReceiptInfo, TransactionSigned};
+	use crate::{
+		ReceiptInfo,
+		test::{MockBlockInfo, MockBlockInfoProvider},
+	};
+	use alloy_primitives::{Address as AlloyAddress, B256};
+	use pallet_revive::evm::TransactionSigned;
 	use pretty_assertions::assert_eq;
 	use sp_core::{H160, H256};
 	use sqlx::SqlitePool;
@@ -991,10 +984,12 @@ mod tests {
 		latest: u64,
 	) -> impl Fn(BlockNumberOrTag) -> anyhow::Result<U256> {
 		move |block: BlockNumberOrTag| match block {
-			BlockNumberOrTag::U256(v) => Ok(v),
-			BlockNumberOrTag::BlockTag(BlockTag::Earliest) => Ok(U256::zero()),
-			BlockNumberOrTag::BlockTag(BlockTag::Latest) => Ok(U256::from(latest)),
-			BlockNumberOrTag::BlockTag(tag) => anyhow::bail!("Unsupported tag: {tag:?}"),
+			BlockNumberOrTag::Number(v) => Ok(U256::from(v)),
+			BlockNumberOrTag::Earliest => Ok(U256::zero()),
+			BlockNumberOrTag::Latest => Ok(U256::from(latest)),
+			BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe | BlockNumberOrTag::Pending => {
+				anyhow::bail!("Unsupported tag: {block:?}")
+			},
 		}
 	}
 
@@ -1286,35 +1281,26 @@ mod tests {
 
 		// from_block filter
 		let logs = provider
-			.logs(
-				Some(Filter { from_block: Some(log2.block_number.into()), ..Default::default() }),
-				&resolve_block_number,
-			)
+			.logs(Some(Filter::new().from_block(log2.block_number.as_u64())), &resolve_block_number)
 			.await?;
 		assert_eq!(logs, vec![log2.clone()]);
 
 		// from_block filter (using latest block)
 		let logs = provider
-			.logs(
-				Some(Filter { from_block: Some(BlockTag::Latest.into()), ..Default::default() }),
-				&resolve_block_number,
-			)
+			.logs(Some(Filter::new().from_block(BlockNumberOrTag::Latest)), &resolve_block_number)
 			.await?;
 		assert_eq!(logs, vec![log2.clone()]);
 
 		// to_block filter
 		let logs = provider
-			.logs(
-				Some(Filter { to_block: Some(log1.block_number.into()), ..Default::default() }),
-				&resolve_block_number,
-			)
+			.logs(Some(Filter::new().to_block(log1.block_number.as_u64())), &resolve_block_number)
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// block_hash filter
 		let logs = provider
 			.logs(
-				Some(Filter { block_hash: Some(log1.block_hash), ..Default::default() }),
+				Some(Filter::new().at_block_hash(B256::from(log1.block_hash.0))),
 				&resolve_block_number,
 			)
 			.await?;
@@ -1323,11 +1309,11 @@ mod tests {
 		// single address
 		let logs = provider
 			.logs(
-				Some(Filter {
-					from_block: Some(BlockTag::Earliest.into()),
-					address: Some(log1.address.into()),
-					..Default::default()
-				}),
+				Some(
+					Filter::new()
+						.from_block(BlockNumberOrTag::Earliest)
+						.address(AlloyAddress::from(log1.address.0)),
+				),
 				&resolve_block_number,
 			)
 			.await?;
@@ -1336,11 +1322,10 @@ mod tests {
 		// multiple addresses
 		let logs = provider
 			.logs(
-				Some(Filter {
-					from_block: Some(BlockTag::Earliest.into()),
-					address: Some(vec![log1.address, log2.address].into()),
-					..Default::default()
-				}),
+				Some(Filter::new().from_block(BlockNumberOrTag::Earliest).address(vec![
+					AlloyAddress::from(log1.address.0),
+					AlloyAddress::from(log2.address.0),
+				])),
 				&resolve_block_number,
 			)
 			.await?;
@@ -1349,11 +1334,11 @@ mod tests {
 		// single topic
 		let logs = provider
 			.logs(
-				Some(Filter {
-					from_block: Some(BlockTag::Earliest.into()),
-					topics: Some(vec![FilterTopic::Single(log1.topics[0])]),
-					..Default::default()
-				}),
+				Some(
+					Filter::new()
+						.from_block(BlockNumberOrTag::Earliest)
+						.event_signature(B256::from(log1.topics[0].0)),
+				),
 				&resolve_block_number,
 			)
 			.await?;
@@ -1362,14 +1347,12 @@ mod tests {
 		// multiple topic
 		let logs = provider
 			.logs(
-				Some(Filter {
-					from_block: Some(BlockTag::Earliest.into()),
-					topics: Some(vec![
-						FilterTopic::Single(log1.topics[0]),
-						FilterTopic::Single(log1.topics[1]),
-					]),
-					..Default::default()
-				}),
+				Some(
+					Filter::new()
+						.from_block(BlockNumberOrTag::Earliest)
+						.event_signature(B256::from(log1.topics[0].0))
+						.topic1(B256::from(log1.topics[1].0)),
+				),
 				&resolve_block_number,
 			)
 			.await?;
@@ -1378,11 +1361,10 @@ mod tests {
 		// multiple topic for topic_0
 		let logs = provider
 			.logs(
-				Some(Filter {
-					from_block: Some(BlockTag::Earliest.into()),
-					topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
-					..Default::default()
-				}),
+				Some(Filter::new().from_block(BlockNumberOrTag::Earliest).event_signature(vec![
+					B256::from(log1.topics[0].0),
+					B256::from(log2.topics[0].0),
+				])),
 				&resolve_block_number,
 			)
 			.await?;
@@ -1391,13 +1373,19 @@ mod tests {
 		// Altogether
 		let logs = provider
 			.logs(
-				Some(Filter {
-					from_block: Some(BlockTag::Earliest.into()),
-					to_block: Some(BlockTag::Latest.into()),
-					block_hash: None,
-					address: Some(vec![log1.address, log2.address].into()),
-					topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
-				}),
+				Some(
+					Filter::new()
+						.from_block(BlockNumberOrTag::Earliest)
+						.to_block(BlockNumberOrTag::Latest)
+						.address(vec![
+							AlloyAddress::from(log1.address.0),
+							AlloyAddress::from(log2.address.0),
+						])
+						.event_signature(vec![
+							B256::from(log1.topics[0].0),
+							B256::from(log2.topics[0].0),
+						]),
+				),
 				&resolve_block_number,
 			)
 			.await?;
@@ -1519,7 +1507,7 @@ mod tests {
 		// Query logs using Ethereum block hash (should resolve to substrate hash)
 		let logs = provider
 			.logs(
-				Some(Filter { block_hash: Some(ethereum_hash), ..Default::default() }),
+				Some(Filter::new().at_block_hash(B256::from(ethereum_hash.0))),
 				mock_resolve_block_number_with_latest(block.number.into()),
 			)
 			.await?;
@@ -1646,23 +1634,19 @@ mod tests {
 		extractor.set_first_evm_block(10);
 		let provider = mock_provider().with_extractor(extractor);
 
-		let huge = BlockNumberOrTag::U256(U256::from(u64::MAX));
+		let huge = BlockNumberOrTag::Number(u64::MAX);
 		assert!(!provider.is_before_earliest_block(&huge));
 
-		let just_over = BlockNumberOrTag::U256(U256::from(u32::MAX as u64 + 1));
+		let just_over = BlockNumberOrTag::Number(u32::MAX as u64 + 1);
 		assert!(!provider.is_before_earliest_block(&just_over));
 
 		// Sentinel first_evm_block (u32::MAX) is permissive — no queries rejected.
 		let provider = mock_provider();
-		assert!(!provider.is_before_earliest_block(&BlockNumberOrTag::U256(U256::from(0u32))));
-		assert!(
-			!provider.is_before_earliest_block(&BlockNumberOrTag::U256(U256::from(1_000_000u32)))
-		);
+		assert!(!provider.is_before_earliest_block(&BlockNumberOrTag::Number(0)));
+		assert!(!provider.is_before_earliest_block(&BlockNumberOrTag::Number(1_000_000)));
 
 		// Tag-based queries are never rejected.
-		assert!(!provider.is_before_earliest_block(&BlockNumberOrTag::BlockTag(
-			pallet_revive::evm::BlockTag::Latest
-		)));
+		assert!(!provider.is_before_earliest_block(&BlockNumberOrTag::Latest));
 	}
 
 	#[sqlx::test]

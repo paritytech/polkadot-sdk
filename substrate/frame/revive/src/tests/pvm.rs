@@ -3768,6 +3768,48 @@ fn immutable_data_works() {
 }
 
 #[test]
+fn delegatecall_immutable_charge_follows_callee_not_caller() {
+	let (delegator_code, _) = compile_module("delegate_call_simple").unwrap();
+	let (reader_code, _) = compile_module("immutable_reader").unwrap();
+
+	let measure = |caller_len: u32, callee_len: usize| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+
+			let Contract { addr: reader_addr, .. } =
+				builder::bare_instantiate(Code::Upload(reader_code.clone()))
+					.build_and_unwrap_contract();
+			let Contract { addr: delegator_addr, .. } =
+				builder::bare_instantiate(Code::Upload(delegator_code.clone()))
+					.build_and_unwrap_contract();
+
+			// Give the callee's stored blob and the caller's recorded length different sizes, so
+			// the measured gas shows which of the two the charge is based on.
+			crate::ImmutableDataOf::<Test>::insert(
+				reader_addr,
+				crate::ImmutableData::try_from(vec![0xAAu8; callee_len]).unwrap(),
+			);
+			let mut info = AccountInfo::<Test>::load_contract(&delegator_addr).unwrap();
+			info.set_immutable_data_len(caller_len);
+			AccountInfo::<Test>::insert_contract(&delegator_addr, info);
+
+			let result =
+				builder::bare_call(delegator_addr).data(reader_addr.as_bytes().to_vec()).build();
+			result.result.unwrap();
+			result.gas_consumed
+		})
+	};
+
+	let gas_caller_big = measure(4096, 8);
+	let gas_callee_big = measure(8, 4096);
+	assert!(
+		gas_callee_big > gas_caller_big,
+		"get_immutable_data charge must follow the callee's blob, not the caller's length: \
+		 gas_callee_big={gas_callee_big}, gas_caller_big={gas_caller_big}",
+	);
+}
+
+#[test]
 fn sbrk_cannot_be_linked() {
 	// The sbrk instruction is not available in the revive_v1 instruction set.
 	// This test verifies that the linker rejects it during the linking phase.
