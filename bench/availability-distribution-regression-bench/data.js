@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783018359983,
+  "lastUpdate": 1783071256371,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "xlchen1291@gmail.com",
-            "name": "Xiliang Chen",
-            "username": "xlc"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "30cda2aad8612a10ff729d494acd9d5353294d63",
-          "message": "delete some misleading comments (#10253)\n\nThose two comments just does not make any sense to me.",
-          "timestamp": "2025-11-09T15:11:18Z",
-          "tree_id": "47324dca3cd88c567a08f918f6051f7ea24552d8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/30cda2aad8612a10ff729d494acd9d5353294d63"
-        },
-        "date": 1762705915721,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15824376758666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007536488126666686,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022747489593333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01353384246,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14683416410000008,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "563c6e582c27cd7d73e5d6465abe71c51a2ed6fe",
+          "message": "approval-voting: removed unused v1 version (#12450)\n\nIt has been 2.5 years since validators on all networks were switched to\nusing v2 version of approval voting, so remove version 1, since no-one\nis using it and it is not needed anymore.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-07-03T07:50:48Z",
+          "tree_id": "a039961d020d56e4d3153eb46ca3c35ebbe754d8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/563c6e582c27cd7d73e5d6465abe71c51a2ed6fe"
+        },
+        "date": 1783071228456,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023849327626666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010200480686666647,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007747103533333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1439995490400001,
             "unit": "seconds"
           }
         ]
