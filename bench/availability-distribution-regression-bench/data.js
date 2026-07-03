@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783096050323,
+  "lastUpdate": 1783103330867,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "405e0bde29658b12e6fa0944623b1c5225dcaa3e",
-          "message": "offchain-worker: Do not intialize the entire `System` again (#10235)\n\nWhen calling `offchain-worker` we were initializing the entire `System`\nagain with the same block we are running on top of. However, with [the\nchange to require strictly increasing block\nnumbers](https://github.com/paritytech/polkadot-sdk/pull/10180) the\noffchain-worker was failing. This is now solved by just registering the\nmissing digests. The rest of the changes done by `initialize` are not\nimportant for offchain workers.\n\nThe pull request ensures that we are actually testing this behavior of\nthe offchain worker now.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-10T13:14:43Z",
-          "tree_id": "2359f7e32afc6405c2edd47638be22caaadc0d8d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/405e0bde29658b12e6fa0944623b1c5225dcaa3e"
-        },
-        "date": 1762786040709,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007452448919999976,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16002651046666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013245715540000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022764330026666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010065193699999975,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "95513823b788e2dfd0bf5c0894d6111d69c1ac9f",
+          "message": "Adjust `scheduling_v2_and_v3_collator_with_v3_validators` expected ranges (#12544)\n\nAdjust ranges in order to avoid CI failures\n\nAs per the following failed runs:\n\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/28437122196/job/84267964693\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/28630459083/job/84908004161\n\nAlso relaxed the finality lag as per:\n\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/28658995122/job/85003186224",
+          "timestamp": "2026-07-03T16:48:58Z",
+          "tree_id": "6a558178b154b5cb4534cfef98e0f8ead4880e67",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/95513823b788e2dfd0bf5c0894d6111d69c1ac9f"
+        },
+        "date": 1783103303393,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023830813279999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14278412524666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010224961673333316,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0073799138733333354,
             "unit": "seconds"
           }
         ]
