@@ -23,7 +23,7 @@
 //! Cheap to clone. Submit work via [`BitswapHandle::request_stream`], drain the receiver to
 //! get per-CID outcomes as they resolve.
 
-use super::{is_cid_supported, Cid, MAX_WANTED_BLOCKS};
+use super::{is_cid_supported, Cid};
 
 use async_trait::async_trait;
 use std::time::Duration;
@@ -61,18 +61,7 @@ pub enum BitswapError {
 	/// The service has too many in-flight wants.
 	#[error("Bitswap service is overloaded")]
 	Overloaded,
-	/// Per-call CID count exceeds [`MAX_CIDS_PER_REQUEST`].
-	#[error("too many CIDs in request: {requested} > {max}")]
-	TooManyCids {
-		/// CIDs requested in the failing call.
-		requested: usize,
-		/// Service-level maximum.
-		max: usize,
-	},
 }
-
-/// Maximum number of CIDs accepted in a single [`BitswapHandle::request_stream`] call.
-pub const MAX_CIDS_PER_REQUEST: usize = MAX_WANTED_BLOCKS;
 
 /// Configuration applied at service construction time.
 #[derive(Debug, Clone)]
@@ -120,9 +109,12 @@ impl BitswapHandle {
 	/// The stream closes when either every CID has produced an outcome, or an `Err` item
 	/// has been emitted.
 	///
+	/// There is no per-call CID cap; the request size is bounded by the actor's overall
+	/// outstanding-CIDs budget, exceeding which yields the in-stream `Overloaded` above.
+	///
 	/// Returns a synchronous `BitswapError` for admission-time failures (`ServiceClosed`,
-	/// `InvalidCid`, `Overloaded`, `TooManyCids`). An empty `cids` slice returns an
-	/// immediately-closed receiver, not an error.
+	/// `InvalidCid`, `Overloaded`). An empty `cids` slice returns an immediately-closed
+	/// receiver, not an error.
 	pub async fn request_stream(
 		&self,
 		cids: Vec<Cid>,
@@ -130,13 +122,6 @@ impl BitswapHandle {
 		if cids.is_empty() {
 			let (_tx, rx) = mpsc::channel(1);
 			return Ok(rx);
-		}
-
-		if cids.len() > MAX_CIDS_PER_REQUEST {
-			return Err(BitswapError::TooManyCids {
-				requested: cids.len(),
-				max: MAX_CIDS_PER_REQUEST,
-			});
 		}
 
 		for cid in &cids {

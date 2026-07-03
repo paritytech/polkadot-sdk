@@ -30,13 +30,13 @@ pub use cid::Cid;
 pub(crate) use handle::BitswapCommand;
 pub use handle::{
 	BitswapError, BitswapHandle, BitswapRequest, BitswapServiceConfig, FetchItem, FetchOutcome,
-	MAX_CIDS_PER_REQUEST,
 };
 pub use service::start;
 
 pub(crate) const LOG_TARGET: &str = "sub-libp2p::bitswap";
 
-/// Max number of blocks per wantlist, enforced both on the wire and at admission.
+/// Max number of wantlist entries per Bitswap message: inbound wantlists with more
+/// entries are ignored, and outbound WANT bundles are split at this size.
 pub const MAX_WANTED_BLOCKS: usize = 16;
 
 /// IPFS raw multicodec used for indexed transaction payload bytes.

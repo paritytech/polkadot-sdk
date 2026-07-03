@@ -19,13 +19,12 @@
 //! Bitswap-based fetcher for indexed-transaction blobs.
 //!
 //! Thin adapter over [`sc_network_bitswap::BitswapHandle`]: builds the per-want CIDs,
-//! submits them in chunks of [`MAX_CIDS_PER_REQUEST`] and collects the outcomes. Peer
-//! selection, timeouts, retries and hash verification live in the bitswap service.
+//! submits them and collects the outcomes. Peer selection, timeouts, retries and hash
+//! verification live in the bitswap service.
 
 use crate::RenewWant;
 use cid::{multihash::Multihash, Cid};
-use futures::future;
-use sc_network_bitswap::{BitswapError, BitswapRequest, FetchOutcome, MAX_CIDS_PER_REQUEST};
+use sc_network_bitswap::{BitswapError, BitswapRequest, FetchOutcome};
 use sp_runtime::traits::Block as BlockT;
 use sp_transaction_storage_proof::ContentHash;
 use std::{
@@ -101,40 +100,32 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 			cids.push(cid);
 		}
 
-		let receivers = future::try_join_all(
-			cids.chunks(MAX_CIDS_PER_REQUEST)
-				.map(|chunk| handle.request_stream(chunk.to_vec())),
-		)
-		.await?;
+		let mut rx = handle.request_stream(cids).await?;
 
-		// Every receiver is sized to buffer all its outcomes, so the requests progress
-		// concurrently regardless of drain order.
 		let mut acquired: HashMap<ContentHash, Vec<u8>> = HashMap::with_capacity(wants.len());
-		for mut rx in receivers {
-			while let Some(item) = rx.recv().await {
-				match item {
-					Ok((cid, FetchOutcome::Block(bytes))) => {
-						if let Some(hash) = by_cid.get(&cid) {
-							log::debug!(
-								target: LOG_TARGET,
-								"bitswap fetched {} bytes for {hash:?}",
-								bytes.len(),
-							);
-							acquired.insert(*hash, bytes);
-						}
-					},
-					Ok((cid, FetchOutcome::Missing)) => {
-						log::debug!(target: LOG_TARGET, "bitswap returned Missing for {cid}");
-					},
-					Err(BitswapError::ServiceClosed) => {
-						log::warn!(
+		while let Some(item) = rx.recv().await {
+			match item {
+				Ok((cid, FetchOutcome::Block(bytes))) => {
+					if let Some(hash) = by_cid.get(&cid) {
+						log::debug!(
 							target: LOG_TARGET,
-							"bitswap service closed mid-stream; returning partial result",
+							"bitswap fetched {} bytes for {hash:?}",
+							bytes.len(),
 						);
-						return Ok(acquired);
-					},
-					Err(other) => return Err(FetchError::Bitswap(other)),
-				}
+						acquired.insert(*hash, bytes);
+					}
+				},
+				Ok((cid, FetchOutcome::Missing)) => {
+					log::debug!(target: LOG_TARGET, "bitswap returned Missing for {cid}");
+				},
+				Err(BitswapError::ServiceClosed) => {
+					log::warn!(
+						target: LOG_TARGET,
+						"bitswap service closed mid-stream; returning partial result",
+					);
+					return Ok(acquired);
+				},
+				Err(other) => return Err(FetchError::Bitswap(other)),
 			}
 		}
 

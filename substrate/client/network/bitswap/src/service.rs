@@ -438,17 +438,24 @@ impl<B: BlockT> BitswapService<B> {
 			self.wants.add_waiter(*cid, waiter_id);
 		}
 
-		for cid in cids {
-			self.top_up_in_flight(cid).await;
-		}
+		self.top_up_in_flight(cids).await;
 	}
 
-	async fn top_up_in_flight(&mut self, cid: Cid) {
-		if let Some(peer) =
-			self.wants.next_peer_to_request(cid, &self.connected_peers, Instant::now())
-		{
-			log::trace!(target: LOG_TARGET, "WANT-BLOCK {cid} -> {peer:?}");
-			self.handle.send_request(peer, vec![(cid, WantType::Block)]).await;
+	/// Dispatch WANT-BLOCK requests for the given CIDs, bundling CIDs assigned to the same
+	/// peer into wantlist messages of up to [`MAX_WANTED_BLOCKS`] entries.
+	async fn top_up_in_flight(&mut self, cids: impl IntoIterator<Item = Cid>) {
+		let now = Instant::now();
+		let mut by_peer: HashMap<litep2p::PeerId, Vec<(Cid, WantType)>> = HashMap::new();
+		for cid in cids {
+			if let Some(peer) = self.wants.next_peer_to_request(cid, &self.connected_peers, now) {
+				log::trace!(target: LOG_TARGET, "WANT-BLOCK {cid} -> {peer:?}");
+				by_peer.entry(peer).or_default().push((cid, WantType::Block));
+			}
+		}
+		for (peer, wants) in by_peer {
+			for chunk in wants.chunks(MAX_WANTED_BLOCKS) {
+				self.handle.send_request(peer, chunk.to_vec()).await;
+			}
 		}
 	}
 
@@ -491,11 +498,7 @@ impl<B: BlockT> BitswapService<B> {
 			}
 		}
 
-		for cid in cids_to_top_up {
-			if self.wants.contains(&cid) {
-				self.top_up_in_flight(cid).await;
-			}
-		}
+		self.top_up_in_flight(cids_to_top_up).await;
 	}
 
 	fn deliver_block(&mut self, cid: Cid, bytes: Vec<u8>) {
@@ -542,23 +545,18 @@ impl<B: BlockT> BitswapService<B> {
 	async fn on_peer_connected(&mut self, peer: litep2p::PeerId) {
 		self.connected_peers.insert(peer);
 		let cids = self.wants.all_cids();
-		for cid in cids {
-			self.top_up_in_flight(cid).await;
-		}
+		self.top_up_in_flight(cids).await;
 	}
 
 	async fn on_peer_disconnected(&mut self, peer: litep2p::PeerId) {
 		self.connected_peers.remove(&peer);
 		let cids_to_top_up = self.wants.remove_in_flight_peer(peer);
-		for cid in cids_to_top_up {
-			self.top_up_in_flight(cid).await;
-		}
+		self.top_up_in_flight(cids_to_top_up).await;
 	}
 
 	async fn sweep_per_peer_timeouts(&mut self) {
-		for cid in self.wants.expire_peer_timeouts(Instant::now()) {
-			self.top_up_in_flight(cid).await;
-		}
+		let cids = self.wants.expire_peer_timeouts(Instant::now());
+		self.top_up_in_flight(cids).await;
 	}
 
 	fn on_inbound_request(&self, peer: litep2p::PeerId, cids: Vec<(Cid, WantType)>) {
@@ -987,8 +985,8 @@ mod tests {
 		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
 		let mut rx = rig.user_handle.request_stream(vec![cid_a, cid_b]).await.unwrap();
 
-		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound a or b");
-		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound the other");
+		let (_, entries) = drain_next(&mut rig.outbound_req_rx).await.expect("bundled WANT");
+		assert_eq!(entries.len(), 2, "both CIDs go to the same peer in one message");
 
 		tokio::time::advance(Duration::from_millis(60)).await;
 
@@ -1138,9 +1136,12 @@ mod tests {
 		));
 	}
 
-	#[tokio::test]
-	async fn admission_too_many_cids_rejected() {
-		let rig = empty_rig();
+	#[tokio::test(start_paused = true)]
+	async fn outbound_wants_bundled_and_split_at_message_cap() {
+		let mut rig = empty_rig();
+		let peer = litep2p::PeerId::random();
+		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+
 		let cids: Vec<Cid> = (0..=MAX_WANTED_BLOCKS as u8)
 			.map(|i| {
 				let mut d = [0u8; 32];
@@ -1149,14 +1150,19 @@ mod tests {
 			})
 			.collect();
 
-		let err = rig.user_handle.request_stream(cids).await.err().expect("err");
-		match err {
-			BitswapError::TooManyCids { requested, max } => {
-				assert_eq!(requested, MAX_WANTED_BLOCKS + 1);
-				assert_eq!(max, MAX_WANTED_BLOCKS);
-			},
-			other => panic!("expected TooManyCids, got {other:?}"),
-		}
+		let _rx = rig.user_handle.request_stream(cids.clone()).await.unwrap();
+
+		let (peer_a, first) = drain_next(&mut rig.outbound_req_rx).await.expect("first bundle");
+		let (peer_b, second) = drain_next(&mut rig.outbound_req_rx).await.expect("second bundle");
+		assert_eq!(peer_a, peer);
+		assert_eq!(peer_b, peer);
+
+		let mut sizes = [first.len(), second.len()];
+		sizes.sort();
+		assert_eq!(sizes, [1, MAX_WANTED_BLOCKS]);
+
+		let sent: HashSet<Cid> = first.into_iter().chain(second).map(|(cid, _)| cid).collect();
+		assert_eq!(sent, cids.into_iter().collect::<HashSet<_>>());
 	}
 
 	#[tokio::test]
