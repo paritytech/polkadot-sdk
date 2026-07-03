@@ -87,15 +87,9 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 			return Err(ErrorCode::InternalError.into());
 		}
 
-		// `/health/readiness` decides readiness from these fields:
-		// - `is_syncing = false`: report eth-rpc's own state (we only reach here with the head
-		//   caught up). Backward sync is not reflected, since most eth-rpc requests do not need the
-		//   historical backfill.
-		// - keep the node's `peers`/`should_have_peers`: fail readiness if eth-rpc is connected to
-		//   an isolated node.
 		Ok(Health {
 			peers: health.peers,
-			is_syncing: false,
+			is_syncing: health.is_syncing,
 			should_have_peers: health.should_have_peers,
 		})
 	}
