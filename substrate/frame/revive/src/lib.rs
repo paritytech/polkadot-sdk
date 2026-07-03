@@ -3149,8 +3149,8 @@ sp_api::decl_runtime_apis! {
 
 		#[api_version(2)]
 		fn eth_transact_versioned(
-			input: EthTransactVersionedInputPayload<Moment>
-		) -> Result<EthTransactVersionedOutputPayload<Balance>, EthTransactError>;
+			input: TransactVersionedInputPayload<Moment>
+		) -> Result<TransactVersionedOutputPayload<Balance>, EthTransactError>;
 
 		#[api_version(2)]
 		fn eth_estimate_gas_versioned(
@@ -3361,14 +3361,14 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				> {
 					use $crate::pallet_revive_types::runtime_api::*;
 
-					let input = EthTransactVersionedInputPayload::from(EthTransactInputPayloadV1 {
+					let input = TransactVersionedInputPayload::from(TransactInputPayloadV1 {
 						tx,
 						timestamp_override: None,
 						perform_balance_checks: true,
 						state_overrides: None
 					});
 					let output = Self::eth_transact_versioned(input)?;
-					Ok(EthTransactOutputPayloadV1::try_from(output)
+					Ok(TransactOutputPayloadV1::try_from(output)
 						.expect("v1 input must produce v1 output; qed")
 						.transact_info)
 				}
@@ -3385,14 +3385,14 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let DryRunConfigV1 { timestamp_override, perform_balance_checks, state_overrides } =
 						config;
 
-					let input = EthTransactVersionedInputPayload::from(EthTransactInputPayloadV1 {
+					let input = TransactVersionedInputPayload::from(TransactInputPayloadV1 {
 						tx,
 						timestamp_override,
 						perform_balance_checks: perform_balance_checks.unwrap_or(false),
 						state_overrides
 					});
 					let output = Self::eth_transact_versioned(input)?;
-					Ok(EthTransactOutputPayloadV1::try_from(output)
+					Ok(TransactOutputPayloadV1::try_from(output)
 						.expect("v1 input must produce v1 output; qed")
 						.transact_info)
 				}
@@ -3665,6 +3665,10 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						.insert("balance_versioned", 1)
 						.insert("gas_price_versioned", 1)
 						.insert("nonce_versioned", 1)
+						.insert("call_versioned", 1)
+						.insert("instantiate_versioned", 1)
+						.insert("eth_transact_versioned", 1)
+						.insert("eth_estimate_gas_versioned", 1)
 						.insert("eth_pre_dispatch_weight_versioned", 1)
 						.insert("upload_code_versioned", 1)
 						.insert("get_storage_versioned", 1)
@@ -3676,6 +3680,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						.insert("address_versioned", 1)
 						.insert("trace_block_versioned", 2)
 						.insert("trace_tx_versioned", 2)
+						.insert("trace_call_versioned", 2)
 				}
 
 				fn eth_block_versioned(
@@ -3940,9 +3945,9 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn eth_transact_versioned(
-					input: $crate::pallet_revive_types::runtime_api::EthTransactVersionedInputPayload<__ReviveMacroMoment>
+					input: $crate::pallet_revive_types::runtime_api::TransactVersionedInputPayload<__ReviveMacroMoment>
 				) -> Result<
-					$crate::pallet_revive_types::runtime_api::EthTransactVersionedOutputPayload<Balance>,
+					$crate::pallet_revive_types::runtime_api::TransactVersionedOutputPayload<Balance>,
 					$crate::EthTransactError
 				> {
 					use $crate::pallet_revive_types::runtime_api::*;
@@ -3956,11 +3961,11 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					let (input, output_wrapper): (
 						_,
-						Box<dyn Fn(EthTransactOutputPayload<Balance>) -> EthTransactVersionedOutputPayload<Balance>>,
+						Box<dyn Fn(TransactOutputPayload<Balance>) -> TransactVersionedOutputPayload<Balance>>,
 					) = match input {
-						EthTransactVersionedInputPayload::V1(payload) => (
-							EthTransactInputPayload::from(payload),
-							Box::new(|output| EthTransactVersionedOutputPayload::V1(output.into())),
+						TransactVersionedInputPayload::V1(payload) => (
+							TransactInputPayload::from(payload),
+							Box::new(|output| TransactVersionedOutputPayload::V1(output.into())),
 						),
 					};
 
@@ -3970,7 +3975,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						input.perform_balance_checks,
 						input.state_overrides,
 					)?;
-					let output = EthTransactOutputPayload { transact_info };
+					let output = TransactOutputPayload { transact_info };
 					Ok(output_wrapper(output))
 				}
 

@@ -22,7 +22,7 @@ use scale_info::TypeInfo;
 use crate::runtime_api::*;
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct EthTransactInputPayloadV1<Moment> {
+pub struct TransactInputPayloadV1<Moment> {
 	pub tx: GenericTransactionV1,
 	pub timestamp_override: Option<Moment>,
 	pub perform_balance_checks: bool,
@@ -30,16 +30,16 @@ pub struct EthTransactInputPayloadV1<Moment> {
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum EthTransactVersionedInputPayload<Moment> {
-	V1(EthTransactInputPayloadV1<Moment>),
+pub enum TransactVersionedInputPayload<Moment> {
+	V1(TransactInputPayloadV1<Moment>),
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct EthTransactOutputPayloadV1<Balance> {
+pub struct TransactOutputPayloadV1<Balance> {
 	pub transact_info: EthTransactInfoV1<Balance>,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum EthTransactVersionedOutputPayload<Balance> {
-	V1(EthTransactOutputPayloadV1<Balance>),
+pub enum TransactVersionedOutputPayload<Balance> {
+	V1(TransactOutputPayloadV1<Balance>),
 }

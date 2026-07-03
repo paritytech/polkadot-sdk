@@ -338,20 +338,20 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::InstantiateVersionedOutputPayload<Balance>>"
 	),
 	substitute_type(
-		path = "pallet_revive_types::runtime_api::payloads::eth_transact::EthTransactInputPayloadV1<Moment>",
-		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthTransactInputPayloadV1<Moment>>"
+		path = "pallet_revive_types::runtime_api::payloads::eth_transact::TransactInputPayloadV1<Moment>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TransactInputPayloadV1<Moment>>"
 	),
 	substitute_type(
-		path = "pallet_revive_types::runtime_api::payloads::eth_transact::EthTransactVersionedInputPayload<Moment>",
-		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthTransactVersionedInputPayload<Moment>>"
+		path = "pallet_revive_types::runtime_api::payloads::eth_transact::TransactVersionedInputPayload<Moment>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TransactVersionedInputPayload<Moment>>"
 	),
 	substitute_type(
-		path = "pallet_revive_types::runtime_api::payloads::eth_transact::EthTransactOutputPayloadV1<Balance>",
-		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthTransactOutputPayloadV1<Balance>>"
+		path = "pallet_revive_types::runtime_api::payloads::eth_transact::TransactOutputPayloadV1<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TransactOutputPayloadV1<Balance>>"
 	),
 	substitute_type(
-		path = "pallet_revive_types::runtime_api::payloads::eth_transact::EthTransactVersionedOutputPayload<Balance>",
-		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthTransactVersionedOutputPayload<Balance>>"
+		path = "pallet_revive_types::runtime_api::payloads::eth_transact::TransactVersionedOutputPayload<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TransactVersionedOutputPayload<Balance>>"
 	),
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::eth_estimate_gas::EstimateGasInputPayloadV1<Moment>",

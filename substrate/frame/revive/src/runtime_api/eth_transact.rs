@@ -22,23 +22,23 @@ use crate::{
 	evm::{GenericTransaction, StateOverrideSet},
 };
 
-pub struct EthTransactInputPayload<Moment> {
+pub struct TransactInputPayload<Moment> {
 	pub tx: GenericTransaction,
 	pub timestamp_override: Option<Moment>,
 	pub perform_balance_checks: bool,
 	pub state_overrides: Option<StateOverrideSet>,
 }
 
-impl<Moment> From<EthTransactVersionedInputPayload<Moment>> for EthTransactInputPayload<Moment> {
-	fn from(value: EthTransactVersionedInputPayload<Moment>) -> Self {
+impl<Moment> From<TransactVersionedInputPayload<Moment>> for TransactInputPayload<Moment> {
+	fn from(value: TransactVersionedInputPayload<Moment>) -> Self {
 		match value {
-			EthTransactVersionedInputPayload::V1(payload) => payload.into(),
+			TransactVersionedInputPayload::V1(payload) => payload.into(),
 		}
 	}
 }
 
-impl<Moment> From<EthTransactInputPayloadV1<Moment>> for EthTransactInputPayload<Moment> {
-	fn from(value: EthTransactInputPayloadV1<Moment>) -> Self {
+impl<Moment> From<TransactInputPayloadV1<Moment>> for TransactInputPayload<Moment> {
+	fn from(value: TransactInputPayloadV1<Moment>) -> Self {
 		Self {
 			tx: value.tx.into(),
 			timestamp_override: value.timestamp_override,
@@ -48,12 +48,12 @@ impl<Moment> From<EthTransactInputPayloadV1<Moment>> for EthTransactInputPayload
 	}
 }
 
-pub struct EthTransactOutputPayload<Balance> {
+pub struct TransactOutputPayload<Balance> {
 	pub transact_info: EthTransactInfo<Balance>,
 }
 
-impl<Balance> From<EthTransactOutputPayload<Balance>> for EthTransactOutputPayloadV1<Balance> {
-	fn from(value: EthTransactOutputPayload<Balance>) -> Self {
+impl<Balance> From<TransactOutputPayload<Balance>> for TransactOutputPayloadV1<Balance> {
+	fn from(value: TransactOutputPayload<Balance>) -> Self {
 		Self { transact_info: value.transact_info.into() }
 	}
 }
