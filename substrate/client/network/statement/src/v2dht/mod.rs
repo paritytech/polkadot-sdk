@@ -37,6 +37,7 @@ use std::{
 	collections::{HashMap, HashSet},
 	num::NonZeroUsize,
 	sync::{Arc, RwLock},
+	time::Instant,
 };
 
 /// Shared affinity view to derive a statement's retention mask.
@@ -304,6 +305,11 @@ impl V2DhtOrchestrator {
 	/// and closing connections through the statement protocol's reserved set on `network`.
 	pub(crate) fn refresh_connections<N: NetworkPeers>(&self, network: &N) {
 		self.peer_steering.refresh_connections(network);
+	}
+
+	pub(crate) fn evict_stale_peers(&mut self) {
+		self.peers_topology.evict(Instant::now());
+		self.report_topology_size();
 	}
 
 	pub(crate) fn on_major_sync_end(&mut self) {
