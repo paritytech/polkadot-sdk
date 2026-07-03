@@ -1,9 +1,17 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! V4 + elastic scaling with **3 actively-authoring collators**, with pallet-glutton on the
-//! parachain producing non-empty blocks (~50% compute + storage each block). Sibling of
-//! `v4_resubmit_three_collators` with the glutton genesis patch added.
+//! V4 collator-protocol + elastic scaling with **block bundling** and 3 actively-authoring
+//! collators.
+//!
+//! Sibling of [`v4_resubmit_three_collators`] on the `block-bundling-v3-rpo` flavour: `velocity-6`
+//! across 3 cores means each core packs **2 parablocks into one PoV bundle** (`blocks_per_core ==
+//! 2`). This exercises the bundled resubmission path — `unincluded_segment::hydrate_segment`
+//! regroups the per-core headers into their original bundles and merges the per-block
+//! (bundle-compacted) proofs back into one PoV per bundle, mirroring the fresh multi-block
+//! collation. Candidate throughput is still ~3 backed candidates per RC block (one bundle per
+//! core); each candidate now advances the parachain head by 2 blocks. A collapse would point to a
+//! bundling regression (bad proof merge / invalid bundle PoV).
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
@@ -15,20 +23,20 @@ use zombienet_sdk::{
 };
 
 #[tokio::test(flavor = "multi_thread")]
-async fn v4_resubmit_three_collators_glutton() -> Result<(), anyhow::Error> {
+async fn v4_resubmit_bundling() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
 	let images = zombienet_sdk::environment::get_images_from_env();
-
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
+				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![
-					("-lparachain=debug,runtime=debug,parachain::collator-protocol=trace,parachain::candidate-backing=debug,parachain::statement-distribution=debug,parachain::prospective-parachains=trace").into(),
+					("-lparachain=debug,runtime=debug,parachain::collator-protocol=trace,parachain::candidate-backing=debug,parachain::candidate-validation=trace,parachain::statement-distribution=debug,parachain::prospective-parachains=trace").into(),
 					"--experimental-collator-protocol".into(),
 				])
 				.with_genesis_overrides(json!({
@@ -52,26 +60,17 @@ async fn v4_resubmit_three_collators_glutton() -> Result<(), anyhow::Error> {
 			})
 		})
 		.with_parachain(|p| {
-			p.with_id(2900)
+			p.with_id(3000)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
                 .with_default_args(vec![
-                    "-lparachain=debug,aura=debug,aura::cumulus=trace,basic-authorship=debug,sync=debug,sync::import-queue=debug,sc_consensus::block_import=debug,cumulus_client_consensus_common=debug,parachain::collator-protocol=trace".into(),
+                    "-lparachain=debug,aura=debug,aura::cumulus=trace,aura::resubmission=trace,basic-authorship=debug,sync=debug,sync::import-queue=debug,sc_consensus::block_import=debug,cumulus_client_consensus_common=debug,parachain::collator-protocol=trace".into(),
                     "--authoring=slot-based".into(),
                     "--".into(),
                     "--state-pruning=archive".into(),
                     "--blocks-pruning=archive".into(),
                 ])
-				.with_chain("elastic-scaling-v3-rpo")
-				.with_genesis_overrides(json!({
-					"patch": {
-						"glutton": {
-							"compute": "100000000",
-							"storage": "500000000",
-							"trashDataCount": 5120
-						}
-					}
-				}))
+				.with_chain("block-bundling-v3-rpo")
 				.with_collator(|n| {
 					n.with_name("collator-alice")
 				})
@@ -95,14 +94,14 @@ async fn v4_resubmit_three_collators_glutton() -> Result<(), anyhow::Error> {
 	let collator_alice = network.get_node("collator-alice")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	assign_cores(&relay_client, 2900, vec![0, 1]).await?;
-	log::info!("Para 2900 elastic-scaled to 3 cores with 3 collators + glutton load");
+	assign_cores(&relay_client, 3000, vec![0, 1]).await?;
+	log::info!("Para 3000 elastic-scaled to 3 cores with block bundling (2 blocks/core)");
 
-	assert_para_throughput(&relay_client, 100, [(ParaId::from(2900), 210..310)], []).await?;
+	assert_para_throughput(&relay_client, 100, [(ParaId::from(3000), 210..310)], []).await?;
 
 	let collator_client: OnlineClient<PolkadotConfig> = collator_alice.wait_client().await?;
-	assert_finality_lag(&collator_client, 15).await?;
+	assert_finality_lag(&collator_client, 30).await?;
 
-	log::info!("V4 3-collator glutton test finished successfully");
+	log::info!("V4 block-bundling test finished successfully");
 	Ok(())
 }

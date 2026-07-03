@@ -397,6 +397,13 @@ impl SubstrateCli for TestCollatorCli {
 					Some(ParaId::from(2900)),
 				)
 			},
+			"block-bundling-v3-rpo" => {
+				tracing::info!("Using block-bundling V3 with relay parent offset chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::block_bundling_v3_rpo::WASM_BINARY,
+					Some(ParaId::from(3000)),
+				)
+			},
 			path => {
 				let chain_spec: sc_chain_spec::GenericChainSpec =
 					sc_chain_spec::GenericChainSpec::from_json_file(path.into())?;

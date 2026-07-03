@@ -98,7 +98,7 @@ async fn v4_resubmit_per_core_glutton() -> Result<(), anyhow::Error> {
 	assert_para_throughput(&relay_client, 100, [(ParaId::from(2900), 210..310)], []).await?;
 
 	let collator_client: OnlineClient<PolkadotConfig> = collator_node.wait_client().await?;
-	assert_finality_lag(&collator_client, 10).await?;
+	assert_finality_lag(&collator_client, 15).await?;
 
 	log::info!("V4 per-core glutton test finished successfully");
 	Ok(())

@@ -969,10 +969,6 @@ where
 			return Ok(None);
 		};
 
-		// Capture the parent's head before advancing to the freshly-built block; used to anchor the
-		// stored resubmission PVD's `parent_head` on this block's actual para parent.
-		let built_on_head = parent_header.encode();
-
 		parent_hash = built_block.block.header().hash();
 		parent_header = built_block.block.header().clone();
 

@@ -26,6 +26,7 @@ mod sync_backing;
 mod systematic_chunk_recovery;
 mod v3_dynamic_enablement;
 mod v3_rolling_upgrade;
+mod v4_resubmit_bundling;
 mod v4_resubmit_per_core;
 mod v4_resubmit_per_core_glutton;
 mod v4_resubmit_three_collators;
