@@ -41,7 +41,7 @@ std = [
 	"cumulus-primitives-utility?/std",
 	"cumulus-test-relay-sproof-builder?/std",
 	"emulated-integration-tests-common?/std",
-  "fp-coretime?/std",
+	"fp-coretime?/std",
 	"frame-benchmarking-pallet-pov?/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support?/std",
@@ -828,7 +828,6 @@ runtime-full = [
 	"xcm-runtime-apis",
 ]
 runtime = [
-	"fp-coretime",
 	"frame-benchmarking",
 	"frame-benchmarking-pallet-pov",
 	"frame-election-provider-solution-type",
