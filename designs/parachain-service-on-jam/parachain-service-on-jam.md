@@ -510,7 +510,7 @@ parent-head and the new-head declarations are mandatory.
 ### 4.3 Host Functions & PVM Imports
 
 On JAM, PVFs execute inside a child PVM instance spawned by the Parachain Service's Refine
-function. **Hashing**, **trie operations**, and **signature verification** are expected to
+function. **Hashing**, and **signature verification** are expected to
 move into PVM guest code — transpilation to native code should bring acceptable performance,
 though benchmarks are needed to confirm exact numbers.
 
