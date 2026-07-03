@@ -157,7 +157,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
     type <a href="#associatedtype.RuntimeHoldReason" class="associatedtype">RuntimeHoldReason</a>;
     type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_revive::weights::WeightInfo">WeightInfo</a>;
     type <a href="#associatedtype.Precompiles" class="associatedtype">Precompiles</a>;
-    type <a href="#associatedtype.FindAuthor" class="associatedtype">FindAuthor</a>: FindAuthor&lt;Self::AccountId&gt;;
+    type <a href="#associatedtype.FindAuthor" class="associatedtype">FindAuthor</a>: <a class="trait" href="../../frame_support/traits/validation/trait.FindAuthor.html" title="trait frame_support::traits::validation::FindAuthor">FindAuthor</a>&lt;Self::AccountId&gt;;
     type <a href="#associatedtype.DepositPerByte" class="associatedtype">DepositPerByte</a>;
     type <a href="#associatedtype.DepositPerItem" class="associatedtype">DepositPerItem</a>;
     type <a href="#associatedtype.DepositPerChildTrieItem" class="associatedtype">DepositPerChildTrieItem</a>;
@@ -197,7 +197,7 @@ destroying it.</p>
 construct a default cost schedule.</p>
 </div></details><details class="toggle" open><summary><section id="associatedtype.Precompiles" class="method"><a class="src rightside" href="../../src/pallet_revive/lib.rs.html#244">Source</a><h4 class="code-header">type <a href="#associatedtype.Precompiles" class="associatedtype">Precompiles</a></h4></section></summary><div class="docblock"><p>Type that allows the runtime authors to add new host functions for a contract to call.</p>
 <p>Pass in a tuple of types that implement <a href="../precompiles/trait.Precompile.html" title="trait pallet_revive::precompiles::Precompile"><code>precompiles::Precompile</code></a>.</p>
-</div></details><details class="toggle" open><summary><section id="associatedtype.FindAuthor" class="method"><a class="src rightside" href="../../src/pallet_revive/lib.rs.html#247">Source</a><h4 class="code-header">type <a href="#associatedtype.FindAuthor" class="associatedtype">FindAuthor</a>: FindAuthor&lt;Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>Find the author of the current block.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.FindAuthor" class="method"><a class="src rightside" href="../../src/pallet_revive/lib.rs.html#247">Source</a><h4 class="code-header">type <a href="#associatedtype.FindAuthor" class="associatedtype">FindAuthor</a>: <a class="trait" href="../../frame_support/traits/validation/trait.FindAuthor.html" title="trait frame_support::traits::validation::FindAuthor">FindAuthor</a>&lt;Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>Find the author of the current block.</p>
 </div></details><details class="toggle" open><summary><section id="associatedtype.DepositPerByte" class="method"><a class="src rightside" href="../../src/pallet_revive/lib.rs.html#256">Source</a><h4 class="code-header">type <a href="#associatedtype.DepositPerByte" class="associatedtype">DepositPerByte</a></h4></section></summary><div class="docblock"><p>The amount of balance a caller has to pay for each byte of storage.</p>
 <h5 id="note"><a class="doc-anchor" href="#note">§</a>Note</h5>
 <p>It is safe to change this value on a live chain as all refunds are pro rata.</p>

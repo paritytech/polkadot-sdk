@@ -174,7 +174,7 @@ pool.</li>
 <h2 id="note"><a class="doc-anchor" href="#note">§</a>Note</h2>
 <p>If there are too many unlocking chunks to unbond with the pool account,
 <a href="../enum.Call.html#variant.pool_withdraw_unbonded" title="variant pallet_nomination_pools::pallet::Call::pool_withdraw_unbonded"><code>Call::pool_withdraw_unbonded</code></a> can be called to try and minimize unlocking chunks.
-The [<code>StakingInterface::unbond</code>] will implicitly call <a href="../enum.Call.html#variant.pool_withdraw_unbonded" title="variant pallet_nomination_pools::pallet::Call::pool_withdraw_unbonded"><code>Call::pool_withdraw_unbonded</code></a>
+The <a href="../../../sp_staking/trait.StakingInterface.html#tymethod.unbond" title="associated function sp_staking::StakingInterface::unbond"><code>StakingInterface::unbond</code></a> will implicitly call <a href="../enum.Call.html#variant.pool_withdraw_unbonded" title="variant pallet_nomination_pools::pallet::Call::pool_withdraw_unbonded"><code>Call::pool_withdraw_unbonded</code></a>
 to try to free chunks if necessary (ie. if unbound was called and no unlocking chunks
 are available). However, it may not be possible to release the current unlocking chunks,
 in which case, the result of this call will likely be the <code>NoMoreChunks</code> error from the
