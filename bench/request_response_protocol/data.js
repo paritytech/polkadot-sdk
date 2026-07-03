@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783070175070,
+  "lastUpdate": 1783072923142,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -104219,6 +104219,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2618914601,
             "range": "± 16495634",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1835c2b95598b02c0d04fc7d80c00479f82aceca",
+          "message": "pallet-revive eth-rpc: make SubmittedTransaction::gas() return Option<U256> (#12220)\n\ncloses #11889\n\nChange `SubmittedTransaction::gas()` to return `Option<U256>` mirroring\nthe underlying `GenericTransaction::gas` field, and skip the\n`wait_for_receipt` gas-limit assertion when no gas limit is set,\nremoving the panic that occurred on legacy/incomplete payloads.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-03T08:36:55Z",
+          "tree_id": "da2b3cfd040e0ca003110ebc0f4ffc190c6697de",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1835c2b95598b02c0d04fc7d80c00479f82aceca"
+        },
+        "date": 1783072893682,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21864463,
+            "range": "± 437460",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21749856,
+            "range": "± 449487",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23413941,
+            "range": "± 1219400",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28516090,
+            "range": "± 1554771",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 68148389,
+            "range": "± 4889551",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 435423772,
+            "range": "± 17120237",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3175254278,
+            "range": "± 155613164",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19117405,
+            "range": "± 742963",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18969970,
+            "range": "± 350078",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 20787015,
+            "range": "± 961361",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24353148,
+            "range": "± 508871",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 70365836,
+            "range": "± 3255785",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 419513456,
+            "range": "± 21373321",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3030234763,
+            "range": "± 68195045",
             "unit": "ns/iter"
           }
         ]
