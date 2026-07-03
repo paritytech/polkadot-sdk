@@ -136,9 +136,6 @@ pub use routing::{
 mod transactional;
 pub use transactional::FrameTransactionalProcessor;
 
-#[allow(deprecated)]
-pub use universal_exports::UnpaidLocalExporter;
-
 mod transfer;
 pub use transfer::{Transfer, TransferOverXcm, TransferOverXcmHelper, TransferStatus};
 
