@@ -26,37 +26,28 @@
 use super::{is_cid_supported, Cid, MAX_WANTED_BLOCKS};
 
 use async_trait::async_trait;
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 use tokio::sync::mpsc;
 
 /// Outcome of a single Bitswap fetch for one CID.
-///
-/// Operational causes for `Missing` (timeout, no peers, all DONT_HAVE, verification failure)
-/// are collapsed into one variant on purpose — they are not actionable from the caller's
-/// perspective. Diagnostic distinction is available via tracing/metrics on the service side.
 #[derive(Debug)]
 pub enum FetchOutcome {
 	/// Hash-verified bytes for the requested CID.
 	Block(Vec<u8>),
-	/// The block was not retrieved before the request deadline expired. Could mean any of:
-	/// no peers were available, every peer replied DONT_HAVE, every peer timed out, or every
-	/// candidate block failed CID verification.
+	/// The block was not retrieved before the request deadline expired: no peers were
+	/// available, every peer replied DONT_HAVE or timed out, or every candidate block
+	/// failed CID verification.
 	Missing,
 }
 
 /// Service-level Bitswap errors.
 ///
-/// `BitswapError` is returned **synchronously** from [`BitswapHandle::request_stream`] for
-/// admission-time failures. It also appears at most once **inside** the returned stream
-/// (as the `Err` variant of a stream item): `Overloaded` as the only item when the service
-/// actor rejects the request (too many outstanding CIDs or waiters), or `ServiceClosed`
-/// when the service task shuts down mid-stream. All per-CID failure modes collapse into
-/// [`FetchOutcome::Missing`] instead of producing an error.
+/// Returned synchronously from [`BitswapHandle::request_stream`] for admission-time
+/// failures, and appearing at most once inside the returned stream (`Overloaded` or
+/// `ServiceClosed`). Per-CID failure modes collapse into [`FetchOutcome::Missing`]
+/// instead of producing an error.
 #[derive(Debug, thiserror::Error)]
 pub enum BitswapError {
-	/// `ipfs_server` is not enabled, or the network backend does not support Bitswap.
-	#[error("Bitswap is not available on this node")]
-	Unavailable,
 	/// The Bitswap service task has shut down.
 	#[error("Bitswap service is closed")]
 	ServiceClosed,
@@ -81,9 +72,6 @@ pub enum BitswapError {
 }
 
 /// Maximum number of CIDs accepted in a single [`BitswapHandle::request_stream`] call.
-///
-/// Matches the Bitswap v1.2.0 wantlist-entry cap that the rest of the codebase already
-/// enforces.
 pub const MAX_CIDS_PER_REQUEST: usize = MAX_WANTED_BLOCKS;
 
 /// Configuration applied at service construction time.
@@ -130,13 +118,11 @@ impl BitswapHandle {
 	/// - `Err(BitswapError::ServiceClosed)` once, if the service task shuts down mid-stream.
 	///
 	/// The stream closes when either every CID has produced an outcome, or an `Err` item
-	/// has been emitted. Callers that need to know whether all CIDs were covered should
-	/// track the requested set against the items received before the stream closed.
+	/// has been emitted.
 	///
-	/// Returns a synchronous `BitswapError` for admission-time failures (`Unavailable`,
-	/// `ServiceClosed`, `InvalidCid`, `Overloaded`, `TooManyCids`).
-	///
-	/// An empty `cids` slice returns an immediately-closed receiver, not an error.
+	/// Returns a synchronous `BitswapError` for admission-time failures (`ServiceClosed`,
+	/// `InvalidCid`, `Overloaded`, `TooManyCids`). An empty `cids` slice returns an
+	/// immediately-closed receiver, not an error.
 	pub async fn request_stream(
 		&self,
 		cids: Vec<Cid>,
@@ -175,11 +161,8 @@ impl BitswapHandle {
 	}
 }
 
-/// Object-safe surface over [`BitswapHandle::request_stream`].
-///
-/// Hold an `Arc<dyn BitswapRequest>` to abstract over the bitswap client for testing or
-/// for late-bound wiring. The trait carries no methods beyond `request_stream`; consumers
-/// that need other [`BitswapHandle`] functionality should keep the concrete type.
+/// Object-safe surface over [`BitswapHandle::request_stream`], allowing consumers to mock
+/// the bitswap client in tests.
 #[async_trait]
 pub trait BitswapRequest: Send + Sync {
 	/// Submit a wantlist. See [`BitswapHandle::request_stream`] for full semantics.
@@ -199,28 +182,9 @@ impl BitswapRequest for BitswapHandle {
 	}
 }
 
-#[async_trait]
-impl<T> BitswapRequest for Arc<T>
-where
-	T: BitswapRequest + ?Sized,
-{
-	async fn request_stream(
-		&self,
-		cids: Vec<Cid>,
-	) -> Result<mpsc::Receiver<FetchItem>, BitswapError> {
-		T::request_stream(self, cids).await
-	}
-}
-
 /// Internal command sent from a [`BitswapHandle`] to the service actor.
 #[derive(Debug)]
 pub(crate) enum BitswapCommand {
-	/// Submit a streaming request. The actor inserts a `Waiter` keyed by these `cids`, with
-	/// the configured deadline, and writes per-CID outcomes into `sink` as they resolve.
-	RequestStream {
-		/// Wantlist (already validated for emptiness, cap, and CID support at admission).
-		cids: Vec<Cid>,
-		/// Sink for `Ok((cid, outcome))` items and the optional final `Err(ServiceClosed)`.
-		sink: mpsc::Sender<FetchItem>,
-	},
+	/// Submit a streaming request: fetch `cids` and write per-CID outcomes into `sink`.
+	RequestStream { cids: Vec<Cid>, sink: mpsc::Sender<FetchItem> },
 }

@@ -37,12 +37,9 @@ pub use crate::{
 
 pub use sc_network_types::{build_multiaddr, ed25519};
 
-/// Litep2p transport-side Bitswap handle.
-///
-/// Re-exported here so callers wiring bitswap (typically `sc-service`) need not depend on
-/// `litep2p` directly. Pair-minted with [`IpfsConfig`] via [`IpfsConfig::new`]; the handle is
-/// then handed to `sc_network_bitswap::start` while the config is consumed by the litep2p
-/// backend.
+/// Litep2p transport-side Bitswap handle, created together with [`IpfsConfig`] via
+/// [`IpfsConfig::new`]. Re-exported so callers wiring bitswap (typically `sc-service`)
+/// need not depend on `litep2p` directly.
 pub use litep2p::protocol::libp2p::bitswap::BitswapHandle as LitepBitswapHandle;
 use sc_network_types::{
 	multiaddr::{self, Multiaddr},
@@ -771,9 +768,7 @@ impl NetworkConfiguration {
 
 /// IPFS server configuration.
 pub struct IpfsConfig {
-	/// Litep2p Bitswap protocol config; consumed by `Litep2pConfigBuilder::with_libp2p_bitswap`
-	/// inside the network backend. Pair-minted with the transport handle returned alongside
-	/// from [`IpfsConfig::new`].
+	/// Litep2p Bitswap protocol config, consumed by the litep2p network backend.
 	pub litep2p_bitswap_config: litep2p::protocol::libp2p::bitswap::Config,
 	/// Indexed transactions provider.
 	pub block_provider: Box<dyn crate::IpfsBlockProvider>,
@@ -782,14 +777,11 @@ pub struct IpfsConfig {
 }
 
 impl IpfsConfig {
-	/// Construct an [`IpfsConfig`] together with the litep2p transport-side Bitswap handle
-	/// that the bitswap service actor must own.
+	/// Construct an [`IpfsConfig`] together with the litep2p transport-side Bitswap handle.
 	///
-	/// The litep2p `(Config, BitswapHandle)` pair shares one protocol negotiator and must
-	/// therefore be minted together; returning them from the same call makes that constraint
-	/// type-enforced. The caller hands the returned [`LitepBitswapHandle`] to
-	/// `sc_network_bitswap::start`, then passes the resulting `IpfsConfig` to
-	/// `sc-network` via `Params::ipfs_config`.
+	/// The two are created by the same `litep2p::protocol::libp2p::bitswap::Config::new`
+	/// call and belong together: the handle goes to `sc_network_bitswap::start`, the config
+	/// to `sc-network` via `Params::ipfs_config`.
 	pub fn new(
 		block_provider: Box<dyn crate::IpfsBlockProvider>,
 		bootnodes: Vec<MultiaddrWithPeerId>,

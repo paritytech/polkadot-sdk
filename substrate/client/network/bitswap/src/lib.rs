@@ -20,12 +20,6 @@
 //! Implements both the server side (serving indexed-transaction blocks to peers that send
 //! Bitswap v1.2.0 wantlists) and the client side (a long-lived service plus user-facing
 //! [`BitswapHandle`] for fetching CIDs from the network).
-//!
-//! Only available on the litep2p network backend. The caller mints the litep2p protocol
-//! config + transport handle pair via `litep2p::protocol::libp2p::bitswap::Config::new`,
-//! hands the transport handle to [`start`], and routes the litep2p config into the
-//! backend's IPFS layer. The user-facing handle returned by [`start`] is exposed to
-//! consumers via the build-network output of `sc-service`.
 
 use cid::Version as CidVersion;
 
@@ -62,30 +56,10 @@ pub const KECCAK_256_MULTIHASH_CODE: u64 = 0x1b;
 pub fn is_cid_supported(cid: &Cid) -> bool {
 	cid.version() != CidVersion::V0 &&
 		cid.hash().size() == 32 &&
-		is_supported_multihash_code(cid.hash().code())
-}
-
-pub(crate) fn is_supported_multihash_code(code: u64) -> bool {
-	matches!(code, BLAKE2B_256_MULTIHASH_CODE | SHA2_256_MULTIHASH_CODE | KECCAK_256_MULTIHASH_CODE)
-}
-
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub(crate) struct Prefix {
-	pub version: CidVersion,
-	pub codec: u64,
-	pub mh_type: u64,
-	pub mh_len: u8,
-}
-
-impl From<&Cid> for Prefix {
-	fn from(cid: &Cid) -> Self {
-		Self {
-			version: cid.version(),
-			codec: cid.codec(),
-			mh_type: cid.hash().code(),
-			mh_len: cid.hash().size(),
-		}
-	}
+		matches!(
+			cid.hash().code(),
+			BLAKE2B_256_MULTIHASH_CODE | SHA2_256_MULTIHASH_CODE | KECCAK_256_MULTIHASH_CODE
+		)
 }
 
 #[cfg(test)]
