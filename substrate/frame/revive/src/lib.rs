@@ -106,7 +106,7 @@ pub use crate::{
 	debug::DebugSettings,
 	deposit_payment::{Deposit, PGasDeposit},
 	evm::{
-		Address as EthAddress, Block as EthBlock, DryRunConfig, ReceiptInfo, TracingConfig,
+		Address as EthAddress, Block as EthBlock, DryRunConfig, TracingConfig,
 		block_hash::ReceiptGasInfo,
 	},
 	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
