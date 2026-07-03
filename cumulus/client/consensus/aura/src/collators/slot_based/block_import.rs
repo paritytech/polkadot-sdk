@@ -210,7 +210,6 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 	async fn execute_block_and_collect_storage_proof(
 		&self,
 		params: &mut sc_consensus::BlockImportParams<Block>,
-		collect_for_resubmission: bool,
 	) -> Result<Option<(Block, Arc<StorageProof>)>, sp_consensus::Error>
 	where
 		Client: ProvideRuntimeApi<Block>
@@ -254,6 +253,15 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 		runtime_api.set_call_context(CallContext::Onchain { import: true });
 		runtime_api.record_proof_with_recorder(recorder.clone());
 		runtime_api.register_extension(ProofSizeExt::new(proof_size_recorder.clone()));
+
+		// Only blocks imported at the tip (built by other collators) are forwarded to the
+		// resubmission backfill task. Sync/gap/warp imports are historical and never part of our
+		// unincluded segment, so recording resubmission data for them would be wasted work (and
+		// would buffer their potentially large storage proofs).
+		let collect_for_resubmission = matches!(
+			params.origin,
+			BlockOrigin::NetworkBroadcast | BlockOrigin::ConsensusBroadcast
+		);
 
 		let body = params.body.clone().unwrap_or_default();
 		let resubmission_body = collect_for_resubmission.then(|| body.clone());
@@ -358,19 +366,11 @@ where
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
 		let origin = params.origin;
 
-		// Only blocks imported at the tip (built by other collators) are forwarded to the
-		// resubmission backfill task. Sync/gap/warp imports are historical and never part of our
-		// unincluded segment, so recording resubmission data for them would be wasted work (and
-		// would buffer their potentially large storage proofs).
-		let collect_for_resubmission =
-			matches!(origin, BlockOrigin::NetworkBroadcast | BlockOrigin::ConsensusBroadcast);
-
 		let imported = if !(origin == BlockOrigin::Own ||
 			params.with_state() ||
 			params.state_action.skip_execution_checks())
 		{
-			self.execute_block_and_collect_storage_proof(&mut params, collect_for_resubmission)
-				.await?
+			self.execute_block_and_collect_storage_proof(&mut params).await?
 		} else {
 			None
 		};
