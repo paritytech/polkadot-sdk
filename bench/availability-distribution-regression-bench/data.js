@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783073954242,
+  "lastUpdate": 1783096050323,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d59fde5800f93b130cc535d73e6b3ce201d7a795",
-          "message": "[pallet-revive] fix prestate tracer current address (#10239)\n\nFix prestate tracer not reporting the contract addresses properly.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-10T12:15:44Z",
-          "tree_id": "15098c23574f7a695f4f26873026854aa96a300f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d59fde5800f93b130cc535d73e6b3ce201d7a795"
-        },
-        "date": 1762782049288,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01337232842,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007453578913333311,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02278980550666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16005837209333337,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14372921790666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "415d6539c5d15df9e6397ed08621ad4730c7b43b",
+          "message": "[pallet-revive] Test Versioning Invariants and Conventions (#12522)\n\n# Description\n\nThis PR just adds a single test which checks that the invariants and\nconventions that we have for versioning are upheld in code.\n\nThe test is `test_versioned_runtime_api_invariants` in the dev-node's\nruntime crate. The reason for it being in that crate rather than other\ncrates is because it's the only place where we have access to the\nmetadata and to the runtime which we depend on heavily for this test.\n\nThe primary methodology of this test is asserting that the data that we\nobserve in the frame metadata for pallet-revive matches the expectations\nwe have. This is made more comprehensive due to the fact that the entire\ntypes registry is in the metadata so we can do checks such as \"check\nthat this function has a single argument which is an enum of this name\nand that has these variants\", so the fact that we have a schema for\nthese types allows us to perform type-system assertions outside of the\ntype-system.\n\nThe test asserts the following:\n\n1. For each versioned runtime API function:\n    1. That its name ends with the `_versioned` postfix.\n2. That if it has an unversioned counterpart (e.g., `eth_block` and\n`eth_block_versioned`) that the unversioned runtime API has been\ndeprecated in order to push people to use the versioned runtime API\nfunctions.\n    3. That is has exactly one input argument.\n4. That the input argument is of the type\n`${function-name}VersionedInputPayload` and that the output is of the\ntype `${function-name}VersionedOutputPayload`.\n    5. That the input and output types are enums.\n6. That the input and output type enums have an equal number of variants\nwhich is non-zero.\n    7. For each variant on the input and output enums:\n1. That the variants have a scale index of `N - 1` where N is the\nversion. In this way, v1 would have a scale index of 0, v2 would have a\nscale index of 1, and so on.\n2. That the variant name is `V` followed by the version number where the\nversion number is contiguous, without gaps, and starts from 1.\n        3. That it has a single un-named field.\n4. That if the field is an input field then it's of the type\n`${function-name}InputPayloadV{N}` and if it's an output field then it's\nof the type `${function-name}OutputPayloadV{N}`.\n8. That it has a declaration in the\n`ReviveRuntimeApiVersionDeclarations` type.\n9. That the declared version matches the highest observed versions in\nthe enum variants.\n10. That the `ReviveRuntimeApiVersionDeclarations` does not contain more\ndeclarations than it should.\n\nThis test protects from a number of things which we could get wrong as\nwe evolve. Below are just some examples:\n\n1. Accidentally adding a V5 input without a corresponding V5 output (or\nvice versa).\n2. Accidentally not declaring that we support V5 of a given runtime API\nfunction through the `ReviveRuntimeApiVersionDeclarations` when it's\nindeed supported.\n3. Accidentally changing the scale encoding of the versioned payloads to\nuse indices which aren't the convention with versioning.\n4. Accidentally versioning a runtime API function without deprecating\nthe old unversioned runtime API function.\n5. Accidentally not following the conventions we have for versioning of\nthe runtime API functions.\n6. Accidentally reusing a v2 input in a v3 variant.\n\nThere are more things that this test protects from, but the above is\njust a short list of the stuff.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-03T14:43:46Z",
+          "tree_id": "da3a7811414b434405f64af5b144e2b0b3ac99d9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/415d6539c5d15df9e6397ed08621ad4730c7b43b"
+        },
+        "date": 1783096022579,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02374089136666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14230900783333342,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007750512079999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010065193699999975,
             "unit": "seconds"
           }
         ]
