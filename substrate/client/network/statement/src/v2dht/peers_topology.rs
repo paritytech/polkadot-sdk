@@ -48,7 +48,7 @@ struct PeerInfo {
 	connected: bool,
 	/// Cached `peer_key`; the peer id never changes and hashing is costly.
 	key: Key,
-	/// Wall-clock time of the most recent event observing this peer; the eviction key for both
+	/// Monotonic timestamp of the most recent event observing this peer; the eviction key for both
 	/// staleness and the capacity backstop.
 	last_seen: Instant,
 }
