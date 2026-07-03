@@ -215,9 +215,6 @@ pub struct Litep2pNetworkService {
 
 	/// External addresses.
 	external_addresses: PublicAddresses,
-
-	/// User-facing Bitswap handle; `Some` when `--ipfs-server` is enabled, `None` otherwise.
-	bitswap_handle: Option<crate::bitswap::BitswapHandle>,
 }
 
 impl Litep2pNetworkService {
@@ -232,7 +229,6 @@ impl Litep2pNetworkService {
 		request_response_protocols: HashMap<ProtocolName, TracingUnboundedSender<OutboundRequest>>,
 		listen_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
 		external_addresses: PublicAddresses,
-		bitswap_handle: Option<crate::bitswap::BitswapHandle>,
 	) -> Self {
 		Self {
 			local_peer_id,
@@ -244,12 +240,7 @@ impl Litep2pNetworkService {
 			request_response_protocols,
 			listen_addresses,
 			external_addresses,
-			bitswap_handle,
 		}
-	}
-
-	pub(crate) fn bitswap_handle(&self) -> Option<crate::bitswap::BitswapHandle> {
-		self.bitswap_handle.clone()
 	}
 }
 
@@ -592,8 +583,4 @@ impl NetworkRequest for Litep2pNetworkService {
 	}
 }
 
-impl crate::service::traits::BitswapProvider for Litep2pNetworkService {
-	fn bitswap_handle(&self) -> Option<crate::bitswap::BitswapHandle> {
-		self.bitswap_handle()
-	}
-}
+

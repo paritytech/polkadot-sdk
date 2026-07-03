@@ -53,27 +53,6 @@ use std::{
 
 pub use libp2p::identity::SigningError;
 
-/// Access to the user-facing Bitswap handle.
-///
-/// Returns `Some` when the node is running on a backend that supports Bitswap (litep2p) AND
-/// `--ipfs-server` is enabled, otherwise `None`. Implemented as a separate provider trait so
-/// it can be supplied a default `None` impl for backends that do not support Bitswap.
-pub trait BitswapProvider {
-	/// Returns the user-facing Bitswap handle, or `None` if Bitswap is not available.
-	fn bitswap_handle(&self) -> Option<crate::bitswap::BitswapHandle> {
-		None
-	}
-}
-
-impl<T> BitswapProvider for Arc<T>
-where
-	T: BitswapProvider + ?Sized,
-{
-	fn bitswap_handle(&self) -> Option<crate::bitswap::BitswapHandle> {
-		T::bitswap_handle(self)
-	}
-}
-
 /// Supertrait defining the services provided by [`NetworkBackend`] service handle.
 pub trait NetworkService:
 	NetworkSigner
@@ -83,7 +62,6 @@ pub trait NetworkService:
 	+ NetworkEventStream
 	+ NetworkStateInfo
 	+ NetworkRequest
-	+ BitswapProvider
 	+ Send
 	+ Sync
 	+ 'static
@@ -98,7 +76,6 @@ impl<T> NetworkService for T where
 		+ NetworkEventStream
 		+ NetworkStateInfo
 		+ NetworkRequest
-		+ BitswapProvider
 		+ Send
 		+ Sync
 		+ 'static

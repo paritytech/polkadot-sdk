@@ -22,6 +22,7 @@ sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
+sc-network-bitswap = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }

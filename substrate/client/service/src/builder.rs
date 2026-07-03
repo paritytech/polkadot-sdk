@@ -64,7 +64,7 @@ use sc_network_sync::{
 		SyncingStrategy,
 	},
 	warp_request_handler::RequestHandler as WarpSyncRequestHandler,
-	SyncEvent, SyncEventStream, SyncingService, WarpSyncConfig,
+	SyncingService, WarpSyncConfig,
 };
 use sc_rpc::{
 	author::AuthorApiServer,
@@ -1014,6 +1014,7 @@ pub fn build_network<Block, Net, TxPool, IQ, Client>(
 		TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 		sc_network_transactions::TransactionsHandlerController<<Block as BlockT>::Hash>,
 		Arc<SyncingService<Block>>,
+		Option<sc_network_bitswap::BitswapHandle>,
 	),
 	Error,
 >
@@ -1170,39 +1171,13 @@ where
 	pub blocks_pruning: BlocksPruning,
 }
 
-fn spawn_bitswap_sync_peer_events<Block: BlockT + 'static>(
-	spawn_handle: &SpawnTaskHandle,
-	sync_service: Arc<SyncingService<Block>>,
-	bitswap_peer_event_tx: tokio::sync::mpsc::Sender<sc_network::bitswap::PeerEvent>,
-) {
-	let mut sync_event_stream = sync_service.event_stream("bitswap-sync-peers");
-	spawn_handle.spawn("bitswap-sync-peer-events", Some("networking"), async move {
-		while let Some(event) = sync_event_stream.next().await {
-			let peer_event = match event {
-				SyncEvent::PeerConnected(peer) => {
-					sc_network::bitswap::PeerEvent::Connected { peer: peer.into() }
-				},
-				SyncEvent::PeerDisconnected(peer) => {
-					sc_network::bitswap::PeerEvent::Disconnected { peer: peer.into() }
-				},
-			};
-
-			match bitswap_peer_event_tx.try_send(peer_event) {
-				Ok(()) => {},
-				Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
-					log::warn!(
-						target: "sub-libp2p::bitswap",
-						"dropping sync peer event because BitswapService is backlogged",
-					);
-				},
-				Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => break,
-			}
-		}
-	});
-}
-
 /// Build the network service, the network status sinks and an RPC sender, this is a lower-level
 /// version of [`build_network`] for those needing more control.
+///
+/// The final tuple element is the Bitswap user handle. It is `Some` when `--ipfs-server` is
+/// enabled on a litep2p backend, and `None` otherwise. Consumers that need a
+/// `BitswapHandle` (e.g. omni-node populating a `BitswapHandleSlot`) read it directly from
+/// this output instead of querying the network service after the fact.
 pub fn build_network_advanced<Block, Net, TxPool, IQ, Client>(
 	params: BuildNetworkAdvancedParams<Block, Net, TxPool, IQ, Client>,
 ) -> Result<
@@ -1211,6 +1186,7 @@ pub fn build_network_advanced<Block, Net, TxPool, IQ, Client>(
 		TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 		sc_network_transactions::TransactionsHandlerController<<Block as BlockT>::Hash>,
 		Arc<SyncingService<Block>>,
+		Option<sc_network_bitswap::BitswapHandle>,
 	),
 	Error,
 >
@@ -1264,7 +1240,15 @@ where
 
 	// Initialize IPFS server. Bitswap is only supported on the litep2p backend; reject the
 	// libp2p + `--ipfs-server` combination loudly rather than silently disabling Bitswap.
-	let ipfs_config = if net_config.network_config.ipfs_server {
+	//
+	// The handler future and user-facing handle are produced here, but the handler is only
+	// spawned AFTER `Net::new` returns `Ok` (see below) so that a network construction
+	// failure does not leave an orphan bitswap task running. The `user_handle` is later
+	// returned to the caller via the build-network output tuple.
+	let (bitswap_handler, bitswap_user_handle, ipfs_config) = if net_config
+		.network_config
+		.ipfs_server
+	{
 		if matches!(
 			net_config.network_config.network_backend,
 			sc_network::config::NetworkBackendType::Libp2p
@@ -1276,29 +1260,30 @@ where
 			));
 		}
 
-		let (handler, bitswap_wiring) = sc_network::bitswap::start::<Block>(
-			client.clone(),
-			sc_network::bitswap::BitswapServiceConfig::default(),
-		);
-		spawn_handle.spawn("bitswap-service", Some("networking"), handler);
-		spawn_bitswap_sync_peer_events(
-			&spawn_handle,
-			sync_service.clone(),
-			bitswap_wiring.peer_event_tx.clone(),
-		);
-
 		let ipfs_num_blocks = match blocks_pruning {
 			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => IPFS_MAX_BLOCKS,
 			BlocksPruning::Some(num) => std::cmp::min(num, IPFS_MAX_BLOCKS),
 		};
 
-		Some(IpfsConfig {
-			bitswap_wiring: Some(bitswap_wiring),
-			block_provider: Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
-			bootnodes: net_config.network_config.ipfs_bootnodes.clone(),
-		})
+		// `IpfsConfig::new` mints the litep2p `(Config, BitswapHandle)` pair internally and
+		// returns the transport handle alongside the config. The handle is owned by the
+		// bitswap service actor; the config is installed by the litep2p backend during
+		// `Net::new`.
+		let (ipfs_config, litep2p_bitswap_handle) = IpfsConfig::new(
+			Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
+			net_config.network_config.ipfs_bootnodes.clone(),
+		);
+
+		let (handler, bitswap_user_handle) = sc_network_bitswap::start::<Block, _>(
+			client.clone(),
+			&*sync_service,
+			litep2p_bitswap_handle,
+			sc_network_bitswap::BitswapServiceConfig::default(),
+		);
+
+		(Some(handler), Some(bitswap_user_handle), Some(ipfs_config))
 	} else {
-		None
+		(None, None, None)
 	};
 
 	// Create transactions protocol and add it to the list of supported protocols of
@@ -1337,6 +1322,12 @@ where
 	let has_bootnodes = !network_params.network_config.network_config.boot_nodes.is_empty();
 	let network_mut = Net::new(network_params)?;
 	let network = network_mut.network_service().clone();
+
+	// Only spawn the bitswap actor after `Net::new` returned `Ok` so a network construction
+	// failure does not leave an orphan task running with a handle nobody will ever consume.
+	if let Some(handler) = bitswap_handler {
+		spawn_handle.spawn("bitswap-service", Some("networking"), handler);
+	}
 
 	let (tx_handler, tx_handler_controller) = transactions_handler_proto.build(
 		network.clone(),
@@ -1394,7 +1385,7 @@ where
 	// the service will shut down.
 	spawn_essential_handle.spawn_blocking("network-worker", Some("networking"), future);
 
-	Ok((network, system_rpc_tx, tx_handler_controller, sync_service.clone()))
+	Ok((network, system_rpc_tx, tx_handler_controller, sync_service.clone(), bitswap_user_handle))
 }
 
 /// Configuration for [`build_default_syncing_engine`].

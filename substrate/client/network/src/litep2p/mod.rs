@@ -506,15 +506,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				Arc::clone(&peer_store_handle),
 			);
 
-		let mut bitswap_user_handle: Option<crate::bitswap::BitswapHandle> = None;
-
 		if let Some(ipfs) = params.ipfs_config {
-			let wiring = ipfs.bitswap_wiring.expect(
-				"ipfs_config.bitswap_wiring must be Some when ipfs_server is enabled; \
-					 build_network constructs it via sc_network::bitswap::start; qed",
-			);
-			config_builder = config_builder.with_libp2p_bitswap(wiring.litep2p_config);
-			bitswap_user_handle = Some(wiring.user_handle);
+			config_builder = config_builder.with_libp2p_bitswap(ipfs.litep2p_bitswap_config);
 
 			if !ipfs.bootnodes.is_empty() {
 				let (ipfs_dht, kad_config) = IpfsDht::new(ipfs.bootnodes, ipfs.block_provider);
@@ -576,7 +569,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			request_response_senders,
 			Arc::clone(&listen_addresses),
 			public_addresses,
-			bitswap_user_handle,
 		));
 
 		// register rest of the metrics now that `Litep2p` has been created

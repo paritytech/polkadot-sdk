@@ -22,22 +22,27 @@
 //! peers on behalf of [`BitswapHandle`] callers) Bitswap flows.
 //!
 //! The actor runs a single [`tokio::select!`] loop with six arms; see [`BitswapService::run`].
+//!
+//! Peer connect/disconnect tracking comes from `sc-network-sync`'s [`SyncEventStream`]; the
+//! actor subscribes inside [`start`] and consumes [`SyncEvent`] directly. The sync engine
+//! replays `PeerConnected` for every currently-connected peer when a new subscriber registers,
+//! so the actor sees the up-to-date peer set on startup without any extra wiring.
 
 use super::{
-	is_cid_supported, BitswapCommand, BitswapHandle, BitswapServiceConfig, BitswapWiring, Cid,
-	FetchItem, FetchOutcome, PeerEvent, Prefix, BLAKE2B_256_MULTIHASH_CODE,
-	KECCAK_256_MULTIHASH_CODE, LOG_TARGET, MAX_WANTED_BLOCKS, SHA2_256_MULTIHASH_CODE,
+	is_cid_supported, BitswapCommand, BitswapHandle, BitswapServiceConfig, Cid, FetchItem,
+	FetchOutcome, Prefix, BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, LOG_TARGET,
+	MAX_WANTED_BLOCKS, SHA2_256_MULTIHASH_CODE,
 };
-use crate::bitswap::handle::BitswapError;
+use crate::handle::BitswapError;
 
 use async_trait::async_trait;
 use cid::multihash::Multihash as CidMultihash;
-use futures::StreamExt;
+use futures::{Stream, StreamExt};
 use litep2p::protocol::libp2p::bitswap::{
-	BitswapEvent, BitswapHandle as LitepBitswapHandle, BlockPresenceType, Config as LitepConfig,
-	ResponseType, WantType,
+	BitswapEvent, BitswapHandle as LitepBitswapHandle, BlockPresenceType, ResponseType, WantType,
 };
 use sc_client_api::BlockBackend;
+use sc_network_sync::{SyncEvent, SyncEventStream};
 use slotmap::{new_key_type, SlotMap};
 use smallvec::SmallVec;
 use sp_core::H256;
@@ -81,7 +86,6 @@ const MAX_OUTSTANDING_CIDS: usize = 1024;
 const MAX_WAITERS_PER_CID: usize = 64;
 const MAX_CONCURRENT_INBOUND_LOOKUPS: usize = 8;
 const CMD_CHANNEL_CAPACITY: usize = 256;
-const PEER_EVENT_CHANNEL_CAPACITY: usize = 64;
 const LOOKUP_CHANNEL_CAPACITY: usize = 64;
 const PER_PEER_TIMEOUT: Duration = Duration::from_secs(5);
 const PEER_FANOUT_CAP: usize = 1;
@@ -296,42 +300,63 @@ impl<B: BlockT> InboundLookupPool<B> {
 	}
 }
 
+/// Peer-id type the actor stores in its connected-peer set and dispatches requests over.
+/// We translate from [`sc_network_sync::SyncEvent`]'s `sc_network_types::PeerId` (which the
+/// sync engine emits) at the actor boundary.
+type ActorPeerId = litep2p::PeerId;
+
 pub(crate) struct BitswapService<B: BlockT> {
 	handle: Box<dyn BitswapTransport>,
 	config: BitswapServiceConfig,
 
 	cmd_rx: mpsc::Receiver<BitswapCommand>,
-	peer_event_rx: mpsc::Receiver<PeerEvent>,
+	sync_event_stream: Pin<Box<dyn Stream<Item = SyncEvent> + Send>>,
 	inbound_lookup_pool: InboundLookupPool<B>,
 	inbound_lookup_rx: mpsc::Receiver<InboundLookupResult>,
 
 	waiter_deadlines: DelayQueue<WaiterId>,
-	connected_peers: HashSet<litep2p::PeerId>,
+	connected_peers: HashSet<ActorPeerId>,
 	wants: WantSet,
 	waiters: SlotMap<WaiterId, Waiter>,
 }
 
 /// Build, wire and return the Bitswap service.
 ///
-/// The returned future MUST be spawned on the runtime; the [`BitswapWiring`] carries the
-/// litep2p protocol config, user-facing handle, and peer-event sender needed during network
-/// construction.
-pub fn start<B: BlockT>(
+/// The returned future MUST be spawned on the runtime; the returned [`BitswapHandle`] is the
+/// user-facing handle exposed to consumers via the build-network output of `sc-service`.
+///
+/// `litep2p_handle` is the transport-side handle minted by the caller via
+/// `litep2p::protocol::libp2p::bitswap::Config::new`; the corresponding `Config` value
+/// produced by the same call must be installed into the litep2p backend's IPFS layer by the
+/// caller. Owning that pair-up at the caller keeps `sc-network-bitswap` from instantiating
+/// the litep2p protocol config it does not own.
+///
+/// `sync` is anything implementing [`SyncEventStream`] (concretely, `&*sync_service` where
+/// `sync_service: Arc<SyncingService<B>>` — `Arc<T>` has a blanket [`SyncEventStream`] impl).
+/// The actor subscribes inside this function via `sync.event_stream("bitswap")`; the engine
+/// replays `SyncEvent::PeerConnected` for every currently-tracked peer the first time it
+/// processes the subscription command, so we get an accurate startup snapshot without any
+/// extra synchronisation.
+pub fn start<B: BlockT, S>(
 	client: Arc<dyn BlockBackend<B> + Send + Sync>,
+	sync: &S,
+	litep2p_handle: LitepBitswapHandle,
 	config: BitswapServiceConfig,
-) -> (Pin<Box<dyn Future<Output = ()> + Send>>, BitswapWiring) {
-	let (litep2p_config, litep2p_handle) = LitepConfig::new();
+) -> (Pin<Box<dyn Future<Output = ()> + Send>>, BitswapHandle)
+where
+	S: SyncEventStream + ?Sized,
+{
 	let (cmd_tx, cmd_rx) = mpsc::channel(CMD_CHANNEL_CAPACITY);
-	let (peer_event_tx, peer_event_rx) = mpsc::channel(PEER_EVENT_CHANNEL_CAPACITY);
 	let (inbound_lookup_pool, inbound_lookup_rx) = InboundLookupPool::new(client);
 
 	let user_handle = BitswapHandle::new(cmd_tx);
+	let sync_event_stream = sync.event_stream("bitswap");
 
 	let service = BitswapService {
 		handle: Box::new(litep2p_handle),
 		config,
 		cmd_rx,
-		peer_event_rx,
+		sync_event_stream,
 		inbound_lookup_pool,
 		inbound_lookup_rx,
 		waiter_deadlines: DelayQueue::new(),
@@ -341,9 +366,8 @@ pub fn start<B: BlockT>(
 	};
 
 	let future = Box::pin(async move { service.run().await });
-	let wiring = BitswapWiring { litep2p_config, user_handle: user_handle.clone(), peer_event_tx };
 
-	(future, wiring)
+	(future, user_handle)
 }
 
 impl<B: BlockT> BitswapService<B> {
@@ -377,11 +401,11 @@ impl<B: BlockT> BitswapService<B> {
 					},
 				},
 
-				peer_ev = self.peer_event_rx.recv() => match peer_ev {
-					Some(PeerEvent::Connected { peer }) => self.on_peer_connected(peer).await,
-					Some(PeerEvent::Disconnected { peer }) => self.on_peer_disconnected(peer).await,
+				sync_ev = self.sync_event_stream.next() => match sync_ev {
+					Some(SyncEvent::PeerConnected(peer)) => self.on_peer_connected(peer.into()).await,
+					Some(SyncEvent::PeerDisconnected(peer)) => self.on_peer_disconnected(peer.into()).await,
 					None => {
-						log::debug!(target: LOG_TARGET, "peer event channel closed; shutting down");
+						log::debug!(target: LOG_TARGET, "sync event stream ended; shutting down");
 						self.shutdown_waiters();
 						return;
 					},
@@ -647,8 +671,10 @@ fn serve_inbound<B: BlockT>(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::bitswap::RAW_CODEC;
+	use crate::RAW_CODEC;
 	use sc_block_builder::BlockBuilderBuilder;
+	use sc_network_sync::SyncEvent;
+	use sc_network_types::PeerId as TypesPeerId;
 	use sp_consensus::BlockOrigin;
 	use sp_runtime::codec::Encode;
 	use substrate_test_runtime::ExtrinsicBuilder;
@@ -679,9 +705,13 @@ mod tests {
 		}
 	}
 
+	/// Test helper: a sender for `SyncEvent`s that closes when dropped. We feed it via a
+	/// tokio mpsc and adapt to a `Stream<Item = SyncEvent>` in [`build_rig_with`].
+	type SyncEventSender = mpsc::Sender<SyncEvent>;
+
 	struct TestRig {
 		user_handle: BitswapHandle,
-		peer_event_tx: mpsc::Sender<PeerEvent>,
+		sync_event_tx: SyncEventSender,
 		inbound_tx: mpsc::Sender<BitswapEvent>,
 		outbound_req_rx: mpsc::Receiver<(litep2p::PeerId, Vec<(Cid, WantType)>)>,
 		outbound_resp_rx: mpsc::Receiver<(litep2p::PeerId, Vec<ResponseType>)>,
@@ -696,7 +726,7 @@ mod tests {
 		let (outbound_req_tx, outbound_req_rx) = mpsc::channel(64);
 		let (outbound_resp_tx, outbound_resp_rx) = mpsc::channel(64);
 		let (cmd_tx, cmd_rx) = mpsc::channel(CMD_CHANNEL_CAPACITY);
-		let (peer_event_tx, peer_event_rx) = mpsc::channel(PEER_EVENT_CHANNEL_CAPACITY);
+		let (sync_event_tx, sync_event_rx) = mpsc::channel::<SyncEvent>(64);
 		let (inbound_lookup_pool, inbound_lookup_rx) = InboundLookupPool::new(client);
 
 		let transport = MockTransport {
@@ -705,11 +735,14 @@ mod tests {
 			outbound_resp_tx,
 		};
 
+		let sync_event_stream: Pin<Box<dyn Stream<Item = SyncEvent> + Send>> =
+			Box::pin(tokio_stream::wrappers::ReceiverStream::new(sync_event_rx));
+
 		let service: BitswapService<substrate_test_runtime::Block> = BitswapService {
 			handle: Box::new(transport),
 			config,
 			cmd_rx,
-			peer_event_rx,
+			sync_event_stream,
 			inbound_lookup_pool,
 			inbound_lookup_rx,
 			waiter_deadlines: DelayQueue::new(),
@@ -723,7 +756,7 @@ mod tests {
 
 		TestRig {
 			user_handle,
-			peer_event_tx,
+			sync_event_tx,
 			inbound_tx,
 			outbound_req_rx,
 			outbound_resp_rx,
@@ -756,6 +789,24 @@ mod tests {
 		timeout(Duration::from_secs(2), rx.recv()).await.ok().flatten()
 	}
 
+	/// Synthesise a sync `PeerConnected` for a litep2p peer. Tests use a small helper
+	/// because [`SyncEvent::PeerConnected`] carries [`sc_network_types::PeerId`], and we
+	/// want the same peer to appear in outbound bitswap requests as a [`litep2p::PeerId`].
+	fn sync_connected(peer: litep2p::PeerId) -> SyncEvent {
+		// `litep2p::PeerId` <-> `sc_network_types::PeerId` are wire-compatible via bytes.
+		let bytes = peer.to_bytes();
+		let types_peer = TypesPeerId::from_bytes(&bytes)
+			.expect("litep2p PeerId bytes are valid sc_network_types PeerId bytes; qed");
+		SyncEvent::PeerConnected(types_peer)
+	}
+
+	fn sync_disconnected(peer: litep2p::PeerId) -> SyncEvent {
+		let bytes = peer.to_bytes();
+		let types_peer = TypesPeerId::from_bytes(&bytes)
+			.expect("litep2p PeerId bytes are valid sc_network_types PeerId bytes; qed");
+		SyncEvent::PeerDisconnected(types_peer)
+	}
+
 	#[test]
 	fn want_set_removes_cid_after_last_waiter_and_peer_complete() {
 		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0xaa; 32]);
@@ -783,7 +834,7 @@ mod tests {
 		let data = b"payload-a".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.peer_event_tx.send(PeerEvent::Connected { peer }).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 
 		let (out_peer, out_cids) =
@@ -815,7 +866,7 @@ mod tests {
 		let peer = litep2p::PeerId::random();
 		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [7u8; 32]);
 
-		rig.peer_event_tx.send(PeerEvent::Connected { peer }).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 
 		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound WANT");
@@ -843,7 +894,7 @@ mod tests {
 		let peer = litep2p::PeerId::random();
 		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [42u8; 32]);
 
-		rig.peer_event_tx.send(PeerEvent::Connected { peer }).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound");
 
@@ -861,8 +912,8 @@ mod tests {
 		let data = b"after-failover".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.peer_event_tx.send(PeerEvent::Connected { peer: peer_a }).await.unwrap();
-		rig.peer_event_tx.send(PeerEvent::Connected { peer: peer_b }).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer_a)).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer_b)).await.unwrap();
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 
 		let (first_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
@@ -921,7 +972,7 @@ mod tests {
 		let data = b"shared".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.peer_event_tx.send(PeerEvent::Connected { peer }).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
 
 		let mut rx_a = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let mut rx_b = rig.user_handle.request_stream(vec![cid]).await.unwrap();
@@ -949,7 +1000,7 @@ mod tests {
 		let data = b"survivor".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.peer_event_tx.send(PeerEvent::Connected { peer }).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
 
 		let rx_a = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let mut rx_b = rig.user_handle.request_stream(vec![cid]).await.unwrap();
@@ -978,7 +1029,7 @@ mod tests {
 		let cid_a = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [1u8; 32]);
 		let cid_b = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [2u8; 32]);
 
-		rig.peer_event_tx.send(PeerEvent::Connected { peer }).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
 		let mut rx = rig.user_handle.request_stream(vec![cid_a, cid_b]).await.unwrap();
 
 		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound a or b");
@@ -1048,7 +1099,7 @@ mod tests {
 		let real = b"the-real-payload".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &real);
 
-		rig.peer_event_tx.send(PeerEvent::Connected { peer }).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound");
 
@@ -1115,7 +1166,7 @@ mod tests {
 		let peer = litep2p::PeerId::random();
 		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0xee; 32]);
 
-		rig.peer_event_tx.send(PeerEvent::Connected { peer }).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let _ = drain_next(&mut rig.outbound_req_rx).await;
 
@@ -1133,13 +1184,13 @@ mod tests {
 		let data = b"after-disconnect".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.peer_event_tx.send(PeerEvent::Connected { peer: peer_a }).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer_a)).await.unwrap();
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let (first_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
 		assert_eq!(first_peer, peer_a);
 
-		rig.peer_event_tx.send(PeerEvent::Connected { peer: peer_b }).await.unwrap();
-		rig.peer_event_tx.send(PeerEvent::Disconnected { peer: peer_a }).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer_b)).await.unwrap();
+		rig.sync_event_tx.send(sync_disconnected(peer_a)).await.unwrap();
 
 		let (second_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("failover WANT");
 		assert_eq!(second_peer, peer_b);
@@ -1163,7 +1214,7 @@ mod tests {
 		let data = b"too-late".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.peer_event_tx.send(PeerEvent::Connected { peer }).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound");
 

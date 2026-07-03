@@ -1228,13 +1228,6 @@ where
 	}
 }
 
-impl<B, H> crate::service::traits::BitswapProvider for NetworkService<B, H>
-where
-	B: BlockT + 'static,
-	H: ExHashT,
-{
-}
-
 /// A `NotificationSender` allows for sending notifications to a peer with a chosen protocol.
 #[must_use]
 pub struct NotificationSender {
