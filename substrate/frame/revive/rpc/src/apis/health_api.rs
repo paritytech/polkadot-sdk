@@ -79,7 +79,8 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 		if sync_state.current_block > local_best.saturating_add(MAX_BLOCK_DRIFT) {
 			log::warn!(
 				target: LOG_TARGET,
-				"Client is out of sync. Node best: #{}, local best: #{}",
+				"Client is out of sync. Network best: #{}, Node best: #{}, cache best: #{}",
+				sync_state.highest_block,
 				sync_state.current_block,
 				local_best,
 			);
