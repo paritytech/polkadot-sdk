@@ -30,10 +30,11 @@ module tests {
   action applyHappyPath(
     paraId: ParaId, codeHash: ValidationCodeHash, msgs: List[UpwardMessage]
   ): bool = {
-    // A block advances the clock to its own timeslot, then accumulates.
+    // A block advances the clock to its own timeslot.
     val blockNow = now + 1
-    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
-    val pi = afterAlwaysAccumulate.state.paraInfo(paraId)
+    // Refine ran at guarantee time, against the pre-block state — it must not
+    // see this block's always-accumulate effects.
+    val pi = svc.paraInfo(paraId)
     val pkg: WorkPackage = {
       authorizedParas: List(paraId),
       items: List({ validationCodeHash: codeHash, pov: 0 })
@@ -41,11 +42,13 @@ module tests {
     val newHead = pi.headData + 1
     val wr: WorkResult = {
       result: WorkOk(refine(
-        afterAlwaysAccumulate.state, pkg, false, false,
+        svc, pkg, false, false,
         Some(headHash(pi.headData)), Some(newHead), msgs
       )[0]),
       authTrace: 0
     }
+    // The block then runs always-accumulate, then applies the package.
+    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
     val out = accumulateOnePackage(
       afterAlwaysAccumulate.state, wr, solicitedSet, None, FixedCodeLen, blockNow
     )
@@ -73,8 +76,8 @@ module tests {
   ): bool = {
     // Both packages accumulate in one block at its own timeslot.
     val blockNow = now + 1
-    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
-    val pi1 = afterAlwaysAccumulate.state.paraInfo(p1)
+    // Refine wr1 at guarantee time, against the pre-block state.
+    val pi1 = svc.paraInfo(p1)
     val pkg1: WorkPackage = {
       authorizedParas: List(p1),
       items: List({ validationCodeHash: c1, pov: 0 })
@@ -82,11 +85,13 @@ module tests {
     val nh1 = pi1.headData + 1
     val wr1: WorkResult = {
       result: WorkOk(refine(
-        afterAlwaysAccumulate.state, pkg1, false, false,
+        svc, pkg1, false, false,
         Some(headHash(pi1.headData)), Some(nh1), m1
       )[0]),
       authTrace: 0
     }
+    // Block: always-accumulate first, then apply wr1.
+    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
     val out1 = accumulateOnePackage(
       afterAlwaysAccumulate.state, wr1, solicitedSet, None, FixedCodeLen, blockNow
     )

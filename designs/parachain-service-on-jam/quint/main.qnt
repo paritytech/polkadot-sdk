@@ -107,19 +107,17 @@ module main {
 
   action stepRefineAccumulate = {
     // A block advances the clock to its own timeslot (nondet gap >= 1 models
-    // empty slots between blocks), then runs always-accumulate at that slot —
-    // so `now` only ever takes block-timeslot values and every block flushes
-    // due authorizer queues.
+    // empty slots between blocks). `now` only ever takes block-timeslot values.
     nondet blockGap = oneOf(Set(1, 2))
     val blockNow = now + blockGap
-    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
 
-    // First work package
-    nondet wp1Para = oneOf(afterAlwaysAccumulate.state.parachains.keys())
-    nondet wp1Candidate = oneOf(arbitraryCandidates(afterAlwaysAccumulate.state, wp1Para))
+    // First work package — refined at guarantee time against the pre-block
+    // state (it must not see this block's always-accumulate effects).
+    nondet wp1Para = oneOf(svc.parachains.keys())
+    nondet wp1Candidate = oneOf(arbitraryCandidates(svc, wp1Para))
     nondet wp1PvfPanic = oneOf(Set(false, true))
     val wp1Pool = arbitraryMessages(
-      wp1Para, afterAlwaysAccumulate.state.paraInfo(wp1Para).validationCode.hash)
+      wp1Para, svc.paraInfo(wp1Para).validationCode.hash)
     nondet wp1M1 = oneOf(wp1Pool)
     nondet wp1M2 = oneOf(wp1Pool)
     nondet wp1NumMsgs = oneOf(Set(0, 1, 2))
@@ -135,18 +133,21 @@ module main {
     nondet wp1DeclParent = oneOf(Set(false, true))
     nondet wp1DeclHead = oneOf(Set(false, true))
     val wp1 = buildPackage(
-      afterAlwaysAccumulate.state, wp1Para, wp1Candidate, wp1M1, wp1M2,
+      svc, wp1Para, wp1Candidate, wp1M1, wp1M2,
       wp1NumMsgs, wp1ItemCount, wp1DeclParent, wp1DeclHead
     )
     val wp1Wr: WorkResult = {
       result:
         if (wp1IsJamSkip) WorkErr
         else WorkOk(refine(
-          afterAlwaysAccumulate.state, wp1.pkg, wp1AuthMalformed, wp1PvfPanic,
+          svc, wp1.pkg, wp1AuthMalformed, wp1PvfPanic,
           wp1.parentHead, wp1.newHead, wp1.msgs
         )[0]),
       authTrace: wp1AuthTrace
     }
+
+    // Block: run always-accumulate (flush) once, then apply the packages.
+    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
 
     // Second work package (possibly same para — captures multi-package mix)
     nondet wp2Para = oneOf(afterAlwaysAccumulate.state.parachains.keys())
