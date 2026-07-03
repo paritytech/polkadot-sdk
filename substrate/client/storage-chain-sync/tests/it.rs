@@ -27,8 +27,8 @@
 //! harness with an executable overlay-supporting runtime API mock).
 
 use mock::{
-	attached_changes_params, gap_sync_params, make_gap_sync_harness, make_harness,
-	params_with_origin, prefetched_attached, renew_op,
+	attached_changes_params, gap_sync_params, make_harness, params_with_origin,
+	prefetched_attached, renew_op,
 };
 use rstest::rstest;
 use sc_consensus::{BlockImport, ImportResult, StateAction};
@@ -200,7 +200,7 @@ async fn import_attached_changes_errors_when_fetcher_partial() {
 		.await
 		.expect_err("fetcher should yield zero bytes and the wrapper should error");
 	let msg = format!("{err}");
-	assert!(msg.contains("bitswap fetch"), "unexpected error message: {msg}",);
+	assert!(msg.contains("could not be fetched via bitswap"), "unexpected error message: {msg}",);
 	assert!(h.captured.lock().unwrap().is_empty());
 }
 
@@ -257,7 +257,7 @@ async fn import_block_execution_executes_once_and_indexes_on_same_overlay() {
 
 #[tokio::test]
 async fn import_gap_sync_pure_renews_attaches_synthetic_renew_ops_and_payloads() {
-	let h = make_gap_sync_harness();
+	let h = make_harness();
 	let finalized = H256::from([0xF1; 32]);
 	h.api.set_finalized_hash(finalized);
 
@@ -296,7 +296,7 @@ async fn import_gap_sync_pure_renews_attaches_synthetic_renew_ops_and_payloads()
 
 #[tokio::test]
 async fn import_gap_sync_pure_stores_attaches_synthetic_insert_ops_no_fetch() {
-	let h = make_gap_sync_harness();
+	let h = make_harness();
 	h.api.set_finalized_hash(H256::from([0xF2; 32]));
 
 	let body = vec![
@@ -333,7 +333,7 @@ async fn import_gap_sync_pure_stores_attaches_synthetic_insert_ops_no_fetch() {
 
 #[tokio::test]
 async fn import_gap_sync_mixed_body_attaches_both_with_correct_split() {
-	let h = make_gap_sync_harness();
+	let h = make_harness();
 	h.api.set_finalized_hash(H256::from([0xF3; 32]));
 
 	let store_ext = OpaqueExtrinsic::from_blob(b"store-call-mixed".to_vec());
@@ -368,7 +368,7 @@ async fn import_gap_sync_mixed_body_attaches_both_with_correct_split() {
 
 #[tokio::test]
 async fn import_gap_sync_state_action_remains_skip() {
-	let h = make_gap_sync_harness();
+	let h = make_harness();
 	h.api.set_finalized_hash(H256::from([0xF4; 32]));
 
 	let body = vec![OpaqueExtrinsic::from_blob(b"renew-call".to_vec())];
@@ -392,7 +392,7 @@ async fn import_gap_sync_state_action_remains_skip() {
 
 #[tokio::test]
 async fn import_gap_sync_below_retention_finalized_returns_empty_passes_through() {
-	let h = make_gap_sync_harness();
+	let h = make_harness();
 	h.api.set_finalized_hash(H256::from([0xF5; 32]));
 	// No `set_indexed` -> runtime API returns Vec::new() for block N.
 
@@ -410,7 +410,7 @@ async fn import_gap_sync_below_retention_finalized_returns_empty_passes_through(
 
 #[tokio::test]
 async fn import_gap_sync_uses_finalized_hash_not_parent_hash() {
-	let h = make_gap_sync_harness();
+	let h = make_harness();
 	let finalized = H256::from([0x99; 32]);
 	h.api.set_finalized_hash(finalized);
 
@@ -441,7 +441,7 @@ async fn import_gap_sync_uses_finalized_hash_not_parent_hash() {
 
 #[tokio::test]
 async fn import_gap_sync_filters_already_present_hashes() {
-	let h = make_gap_sync_harness();
+	let h = make_harness();
 	h.api.set_finalized_hash(H256::from([0xF7; 32]));
 
 	let bytes_present = b"already-on-disk".to_vec();
@@ -476,7 +476,7 @@ async fn import_gap_sync_filters_already_present_hashes() {
 
 #[tokio::test]
 async fn import_gap_sync_fetcher_partial_failure_propagates_error() {
-	let h = make_gap_sync_harness();
+	let h = make_harness();
 	h.api.set_finalized_hash(H256::from([0xF8; 32]));
 
 	let hash_unfetchable: ContentHash = [0xDE; 32];
@@ -492,7 +492,7 @@ async fn import_gap_sync_fetcher_partial_failure_propagates_error() {
 		.await
 		.expect_err("fetcher partial failure must propagate");
 	let msg = format!("{err}");
-	assert!(msg.contains("bitswap fetch"), "unexpected error: {msg}");
+	assert!(msg.contains("could not be fetched via bitswap"), "unexpected error: {msg}");
 	assert!(h.captured.lock().unwrap().is_empty(), "no inner import on fetcher error");
 }
 
@@ -1298,9 +1298,5 @@ mod mock {
 		let mut params = params_with_origin(BlockOrigin::GapSync, number, body);
 		params.state_action = StateAction::Skip;
 		params
-	}
-
-	pub(super) fn make_gap_sync_harness() -> Harness {
-		make_harness()
 	}
 }

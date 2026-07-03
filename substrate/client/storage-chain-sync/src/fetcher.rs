@@ -16,20 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-//! Bitswap-based fetcher for indexed-transaction blobs. Owns the late-bound network and
-//! peer-source handles; rotates across connected peers per batch.
+//! Bitswap-based fetcher for indexed-transaction blobs.
 
 use crate::RenewWant;
 use async_trait::async_trait;
@@ -71,9 +58,9 @@ impl<B: BlockT> BitswapPeerSource for SyncingService<B> {
 	}
 }
 
-/// Late-bound network request handle, populated by the omni-node after build_network.
+/// Late-bound network request handle, populated once the network is built.
 pub type NetworkHandle = Arc<OnceLock<Arc<dyn NetworkRequest + Send + Sync>>>;
-/// Late-bound peer-source handle populated after `build_network` returns.
+/// Late-bound peer-source handle, populated once the network is built.
 pub type SyncingHandle = Arc<OnceLock<Arc<dyn BitswapPeerSource + Send + Sync>>>;
 
 /// Infrastructure-level fetch failure.
@@ -88,12 +75,6 @@ pub enum FetchError {
 }
 
 /// Fetcher that resolves indexed-transaction hashes via bitswap.
-///
-/// Owns the late-bound network/sync handles plus the per-peer iteration policy. The block-import
-/// path holds one of these and calls `fetch_many` (crate-private) for each batch of missing renew
-/// hashes.
-///
-/// Cloning is cheap: every field is an `Arc`-equivalent.
 pub struct IndexedTransactionFetcher<Block: BlockT> {
 	network: NetworkHandle,
 	peer_source: SyncingHandle,
@@ -118,11 +99,6 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 
 	/// Resolve a batch of indexed-transaction renew wants via bitswap, rotating across up to
 	/// `MAX_PEERS_PER_IMPORT` peers. Returns only successfully fetched entries.
-	///
-	/// Each [`RenewWant`] carries the runtime-declared `cid_codec` so the request CID's codec
-	/// matches what the producing runtime announced. The substrate bitswap server keys
-	/// content by multihash digest alone (codec is mirrored back unchanged), so this
-	/// stays correct for any codec value the runtime emits.
 	pub(crate) async fn fetch_many(
 		&self,
 		wants: &[RenewWant],
