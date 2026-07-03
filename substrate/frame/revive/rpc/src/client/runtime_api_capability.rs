@@ -15,14 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::HashMap;
-
 use subxt::{OnlineClient, ext::frame_metadata::v16::RuntimeMetadataV16, runtime_api::RuntimeApi};
 
-use crate::{
-	LOG_TARGET,
-	subxt_client::{self, SrcChainConfig},
-};
+use crate::subxt_client::{self, SrcChainConfig};
 
 /// Stores the capabilities of pallet-revive's runtime API.
 ///
@@ -33,7 +28,7 @@ use crate::{
 ///
 /// This structure provides precisely this information and is used to answer the question "is method
 /// X available on the runtime API for this block or not".
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct ReviveRuntimeApiCapabilities {
 	pub eth_block: MethodStatus,
 	pub eth_block_hash: MethodStatus,
@@ -71,8 +66,7 @@ impl ReviveRuntimeApiCapabilities {
 		metadata: &RuntimeMetadataV16,
 		runtime_api: RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>,
 	) -> Self {
-		// 24 runtime API methods + 1 version declarations method
-		let mut method_status = HashMap::<String, MethodStatus>::with_capacity(25);
+		let mut this = Self::default();
 
 		let versioned_methods = runtime_api
 			.call(subxt_client::apis().revive_api().version_declarations())
@@ -80,18 +74,10 @@ impl ReviveRuntimeApiCapabilities {
 			.into_iter()
 			.flat_map(|declarations| declarations.0.into_iter());
 		for (method_name, method_version) in versioned_methods {
-			let Some(method_name) = method_name.strip_suffix("_versioned") else {
-				log::warn!(
-					target: LOG_TARGET,
-					"Encountered a versioned runtime API function with no versioned suffix: {}",
-					method_name
-				);
-				continue;
-			};
-			method_status.insert(
-				method_name.to_string(),
-				MethodStatus::Available(MethodVersioningStatus::Versioned(method_version)),
-			);
+			if let Some(method_status) = this.get_method_status_ref_mut(&method_name) {
+				*method_status =
+					MethodStatus::Available(MethodVersioningStatus::Versioned(method_version));
+			}
 		}
 
 		let unversioned_methods = metadata
@@ -102,50 +88,56 @@ impl ReviveRuntimeApiCapabilities {
 			.into_iter()
 			.flat_map(|api| api.methods.iter())
 			.filter(|method| !method.name.ends_with("_versioned"));
-
 		for method in unversioned_methods {
-			method_status
-				.entry(method.name.clone())
-				.or_insert(MethodStatus::Available(MethodVersioningStatus::Unversioned));
+			if let Some(method_status @ MethodStatus::Unavailable) =
+				this.get_method_status_ref_mut(&method.name)
+			{
+				*method_status = MethodStatus::Available(MethodVersioningStatus::Unversioned);
+			}
 		}
 
-		let mut get_method_status =
-			move |key: &str| method_status.remove(key).unwrap_or(MethodStatus::Unavailable);
+		this
+	}
 
-		Self {
-			eth_block: get_method_status("eth_block"),
-			eth_block_hash: get_method_status("eth_block_hash"),
-			eth_receipt_data: get_method_status("eth_receipt_data"),
-			block_gas_limit: get_method_status("block_gas_limit"),
-			max_extrinsic_weight_in_gas: get_method_status("max_extrinsic_weight_in_gas"),
-			balance: get_method_status("balance"),
-			gas_price: get_method_status("gas_price"),
-			nonce: get_method_status("nonce"),
-			call: get_method_status("call"),
-			instantiate: get_method_status("instantiate"),
-			eth_transact: get_method_status("eth_transact"),
-			eth_estimate_gas: get_method_status("eth_estimate_gas"),
-			eth_pre_dispatch_weight: get_method_status("eth_pre_dispatch_weight"),
-			upload_code: get_method_status("upload_code"),
-			get_storage: get_method_status("get_storage"),
-			runtime_pallets_address: get_method_status("runtime_pallets_address"),
-			code: get_method_status("code"),
-			account_id: get_method_status("account_id"),
-			new_balance_with_dust: get_method_status("new_balance_with_dust"),
-			block_author: get_method_status("block_author"),
-			address: get_method_status("address"),
-			trace_block: get_method_status("trace_block"),
-			trace_tx: get_method_status("trace_tx"),
-			trace_call: get_method_status("trace_call"),
+	fn get_method_status_ref_mut(&mut self, key: impl AsRef<str>) -> Option<&mut MethodStatus> {
+		let key = key.as_ref();
+		let key = key.strip_suffix("_versioned").unwrap_or(key);
+		match key {
+			"eth_block" => Some(&mut self.eth_block),
+			"eth_block_hash" => Some(&mut self.eth_block_hash),
+			"eth_receipt_data" => Some(&mut self.eth_receipt_data),
+			"block_gas_limit" => Some(&mut self.block_gas_limit),
+			"max_extrinsic_weight_in_gas" => Some(&mut self.max_extrinsic_weight_in_gas),
+			"balance" => Some(&mut self.balance),
+			"gas_price" => Some(&mut self.gas_price),
+			"nonce" => Some(&mut self.nonce),
+			"call" => Some(&mut self.call),
+			"instantiate" => Some(&mut self.instantiate),
+			"eth_transact" => Some(&mut self.eth_transact),
+			"eth_estimate_gas" => Some(&mut self.eth_estimate_gas),
+			"eth_pre_dispatch_weight" => Some(&mut self.eth_pre_dispatch_weight),
+			"upload_code" => Some(&mut self.upload_code),
+			"get_storage" => Some(&mut self.get_storage),
+			"runtime_pallets_address" => Some(&mut self.runtime_pallets_address),
+			"code" => Some(&mut self.code),
+			"account_id" => Some(&mut self.account_id),
+			"new_balance_with_dust" => Some(&mut self.new_balance_with_dust),
+			"block_author" => Some(&mut self.block_author),
+			"address" => Some(&mut self.address),
+			"trace_block" => Some(&mut self.trace_block),
+			"trace_tx" => Some(&mut self.trace_tx),
+			"trace_call" => Some(&mut self.trace_call),
+			_ => None,
 		}
 	}
 }
 
 /// Defines the status of a runtime API function in pallet-revive and whether it's available or not.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum MethodStatus {
 	/// The runtime API method is not available on the runtime API of the selected block (e.g., the
 	/// `estimate_gas` runtime API function which was added later on).
+	#[default]
 	Unavailable,
 
 	/// The runtime API method is available on the runtime API, and may either be versioned or
