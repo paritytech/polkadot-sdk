@@ -73,7 +73,8 @@ pub trait Offence<Offender> {
 	/// This is used for looking up offences that happened at the "same time".
 	///
 	/// The slot is abstract and doesn't have to be the same across different implementations
-	/// of this trait.
+	/// of this trait. Two offences are considered to happen at the same time iff  both
+	/// `session_index` and `slot` are equal.
 	///
 	/// As an example, for GRANDPA the slot could be a round number and for BABE it could be
 	/// a slot number. Note that for GRANDPA the round number is reset each epoch.
@@ -115,7 +116,7 @@ pub trait ReportOffence<Reporter, Offender, O: Offence<Offender>> {
 	fn report_offence(reporters: Vec<Reporter>, offence: O) -> Result<(), OffenceError>;
 
 	/// Returns true iff all of the given offenders have been previously reported
-	/// at the given time slot. This function is useful to prevent the sending of
+	/// at the given slot. This function is useful to prevent the sending of
 	/// duplicate offence reports.
 	fn is_known_offence(offenders: &[Offender], time_slot: &O::Slot) -> bool;
 }
