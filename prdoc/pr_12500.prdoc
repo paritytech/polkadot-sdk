@@ -24,7 +24,5 @@ crates:
   bump: major
 - name: sc-service
   bump: major
-- name: cumulus-client-service
-  bump: major
 - name: cumulus-client-cli
   bump: patch

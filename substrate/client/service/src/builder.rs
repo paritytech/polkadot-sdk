@@ -1057,7 +1057,6 @@ where
 		+ ProofProvider<Block>
 		+ HeaderBackend<Block>
 		+ BlockchainEvents<Block>
-		+ CallApiAt<Block>
 		+ 'static,
 	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + 'static,
 	IQ: ImportQueue<Block> + 'static,
@@ -1224,7 +1223,6 @@ where
 		+ ProofProvider<Block>
 		+ HeaderBackend<Block>
 		+ BlockchainEvents<Block>
-		+ CallApiAt<Block>
 		+ 'static,
 	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + 'static,
 	IQ: ImportQueue<Block> + 'static,
