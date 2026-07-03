@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783018322122,
+  "lastUpdate": 1783071219736,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d59fde5800f93b130cc535d73e6b3ce201d7a795",
-          "message": "[pallet-revive] fix prestate tracer current address (#10239)\n\nFix prestate tracer not reporting the contract addresses properly.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-10T12:15:44Z",
-          "tree_id": "15098c23574f7a695f4f26873026854aa96a300f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d59fde5800f93b130cc535d73e6b3ce201d7a795"
-        },
-        "date": 1762782021245,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20686649433333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.409096649966665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.253367871866667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "563c6e582c27cd7d73e5d6465abe71c51a2ed6fe",
+          "message": "approval-voting: removed unused v1 version (#12450)\n\nIt has been 2.5 years since validators on all networks were switched to\nusing v2 version of approval voting, so remove version 1, since no-one\nis using it and it is not needed anymore.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-07-03T07:50:48Z",
+          "tree_id": "a039961d020d56e4d3153eb46ca3c35ebbe754d8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/563c6e582c27cd7d73e5d6465abe71c51a2ed6fe"
+        },
+        "date": 1783071191495,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.202201032166663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13537551453333335,
             "unit": "seconds"
           }
         ]
