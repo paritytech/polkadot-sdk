@@ -28,6 +28,12 @@ use crate::utils::{assert_candidates_version, assert_validator_backed_candidates
 /// and checks that the candidates for both parachains are being backed at expected throughput.
 ///
 /// RPO = relay parent offset
+///
+/// TODO: For the moment the v3 throughput is low and unpredictable. This should stabilise after
+/// adding resubmissions support and a catch-up mechanism:
+/// - https://github.com/paritytech/polkadot-sdk/issues/10836
+/// - https://github.com/paritytech/polkadot-sdk/issues/11903
+/// The expected throughput ranges should be adjusted after we have this.
 #[rstest]
 #[case::rpo_0_max_session_age_0("v3", 0, 20, 16..21)]
 #[case::rpo_2_max_session_age_0("v3-rpo-2", 0, 20, 8..20)]
