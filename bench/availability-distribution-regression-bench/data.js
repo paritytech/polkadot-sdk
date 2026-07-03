@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783071256371,
+  "lastUpdate": 1783073954242,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "178801527+raymondkfcheung@users.noreply.github.com",
-            "name": "Raymond Cheung",
-            "username": "raymondkfcheung"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "30a570b06d0f602050ba54ca871de0ad6433489a",
-          "message": "Replace `log` with `tracing` on Bridge Relay related modules (#9430)\n\nThis PR replaces `log` with `tracing` instrumentation on Bridge Relay\nrelated modules by providing structured logging.\n\nPartially addresses #9211\nSimilar to #9279\n\n## Key Features\n- **Consistent targets**: All components use predictable log targets\n- **Structured fields**: Uses `?variable`/`%variable` syntax for\nautomatic `Debug`/`Display` formatting\n- **Zero runtime impact**: No behavioural changes, only observability\nimprovements\n\n---------\n\nCo-authored-by: Andrii <ndk@parity.io>",
-          "timestamp": "2025-11-10T08:21:07Z",
-          "tree_id": "f32843ccd1ad40c7607c115cf71996942dd9a194",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/30a570b06d0f602050ba54ca871de0ad6433489a"
-        },
-        "date": 1762766980244,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007386545013333325,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02253242308666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013188218560000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15864259471333336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1439995490400001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1835c2b95598b02c0d04fc7d80c00479f82aceca",
+          "message": "pallet-revive eth-rpc: make SubmittedTransaction::gas() return Option<U256> (#12220)\n\ncloses #11889\n\nChange `SubmittedTransaction::gas()` to return `Option<U256>` mirroring\nthe underlying `GenericTransaction::gas` field, and skip the\n`wait_for_receipt` gas-limit assertion when no gas limit is set,\nremoving the panic that occurred on legacy/incomplete payloads.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-03T08:36:55Z",
+          "tree_id": "da2b3cfd040e0ca003110ebc0f4ffc190c6697de",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1835c2b95598b02c0d04fc7d80c00479f82aceca"
+        },
+        "date": 1783073925928,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00990600197333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02360807618,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0074827442799999975,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14372921790666665,
             "unit": "seconds"
           }
         ]
