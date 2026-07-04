@@ -399,7 +399,7 @@ impl StatementHandlerPrototype {
 				in_peers: 50,
 				out_peers: 50,
 				reserved_nodes: Vec::new(),
-				non_reserved_mode: NonReservedPeerMode::Deny,
+				non_reserved_mode: NonReservedPeerMode::Accept,
 			},
 			metrics,
 			peer_store_handle,
