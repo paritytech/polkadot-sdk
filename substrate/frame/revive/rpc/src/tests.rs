@@ -1171,7 +1171,9 @@ async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
 		"Counter",
 		pallet_revive_fixtures::FixtureType::Solc,
 	)?;
-	let nonce = client.get_transaction_count(alith.address(), BlockTag::Latest.into()).await?;
+	let nonce = client
+		.get_transaction_count(alith.address(), BlockNumberOrTag::Latest.into())
+		.await?;
 	let tx = TransactionBuilder::new(client.clone())
 		.input(counter_code.to_vec())
 		.send()
@@ -1213,7 +1215,7 @@ async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
 
 	// --- Step 1: Delegate authority → Counter via 7702 tx ---
 	let auth_nonce: u64 = client
-		.get_transaction_count(authority.address(), BlockTag::Latest.into())
+		.get_transaction_count(authority.address(), BlockNumberOrTag::Latest.into())
 		.await?
 		.try_into()
 		.expect("nonce fits u64");
@@ -1224,7 +1226,7 @@ async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
 	provider.send_transaction(req).await?.get_receipt().await?;
 
 	// Verify delegation is active: eth_getCode should return the delegation indicator
-	let code = client.get_code(authority.address(), BlockTag::Latest.into()).await?;
+	let code = client.get_code(authority.address(), BlockNumberOrTag::Latest.into()).await?;
 	let mut expected_prefix = vec![0xef, 0x01, 0x00];
 	expected_prefix.extend_from_slice(counter_addr.as_bytes());
 	assert_eq!(code.0, expected_prefix, "authority should have delegation indicator code");
@@ -1248,13 +1250,13 @@ async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
 
 	// --- Step 4: Clear delegation via 7702 tx with zero address ---
 	let auth_nonce: u64 = client
-		.get_transaction_count(authority.address(), BlockTag::Latest.into())
+		.get_transaction_count(authority.address(), BlockNumberOrTag::Latest.into())
 		.await?
 		.try_into()
 		.expect("nonce fits u64");
 	let signed = sign_auth(AlloyAddress::ZERO, auth_nonce);
 	let alith_nonce: u64 = client
-		.get_transaction_count(alith.address(), BlockTag::Latest.into())
+		.get_transaction_count(alith.address(), BlockNumberOrTag::Latest.into())
 		.await?
 		.try_into()
 		.expect("alith nonce fits u64");
@@ -1265,7 +1267,7 @@ async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
 	provider.send_transaction(req).await?.get_receipt().await?;
 
 	// --- Step 5: Verify delegation is cleared ---
-	let code = client.get_code(authority.address(), BlockTag::Latest.into()).await?;
+	let code = client.get_code(authority.address(), BlockNumberOrTag::Latest.into()).await?;
 	assert!(code.0.is_empty(), "authority should have no code after clearing delegation");
 
 	// Calling number() should return empty (no contract code)
