@@ -54,6 +54,7 @@ impl pallet_conviction_voting::Config for Runtime {
 	type Polls = Referenda;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type VotingHooks = ();
+	type VoteRemovalOrigin = frame_system::EnsureSigned<AccountId>;
 }
 
 parameter_types! {
