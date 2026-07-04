@@ -14,12 +14,12 @@
 // limitations under the License.
 
 use crate::{xcm_config::MaxAssetsIntoHolding, Runtime};
-use ::pallet_xcm_benchmarks::xcm_weights::{
-	AssetFilterCountWeigher, AutoCountBasedXcmWeight, CountBasedXcmWeightConfig,
-	UniformAssetsWeigher,
-};
 use ::pallet_xcm_benchmarks::{
 	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
+	xcm_weights::{
+		AssetFilterCountWeigher, AutoXcmWeight, AutoXcmWeightConfig,
+		CountBasedAssetsAndFilterWeigher, UniformAssetsWeigher,
+	},
 };
 use pallet_xcm_benchmarks::WeightInfo as XcmBenchWeight;
 
@@ -43,12 +43,11 @@ impl AssetFilterCountWeigher for CollectivesWestendCountWeigher {
 }
 
 pub struct CollectivesWestendXcmWeightConfig;
-impl<Call> CountBasedXcmWeightConfig<Call> for CollectivesWestendXcmWeightConfig {
+impl<Call> AutoXcmWeightConfig<Call> for CollectivesWestendXcmWeightConfig {
 	type GenericWeights = XcmBenchWeight<Runtime>;
 	type FungibleWeights = XcmBenchWeight<Runtime>;
-	type FilterCountWeigher = CollectivesWestendCountWeigher;
-	type AssetsListWeigher = UniformAssetsWeigher;
+	type AssetWeigher =
+		CountBasedAssetsAndFilterWeigher<CollectivesWestendCountWeigher, UniformAssetsWeigher>;
 }
 
-pub type CollectivesWestendXcmWeight<Call> =
-	AutoCountBasedXcmWeight<Call, CollectivesWestendXcmWeightConfig>;
+pub type CollectivesWestendXcmWeight<Call> = AutoXcmWeight<Call, CollectivesWestendXcmWeightConfig>;

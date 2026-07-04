@@ -17,12 +17,12 @@
 mod pallet_xcm_benchmarks;
 
 use crate::{xcm_config::MaxAssetsIntoHolding, Runtime};
-use ::pallet_xcm_benchmarks::xcm_weights::{
-	AssetFilterCountWeigher, AutoCountBasedXcmWeight, CountBasedXcmWeightConfig,
-	UniformAssetsWeigher,
-};
 use ::pallet_xcm_benchmarks::{
 	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
+	xcm_weights::{
+		AssetFilterCountWeigher, AutoXcmWeight, AutoXcmWeightConfig,
+		CountBasedAssetsAndFilterWeigher, UniformAssetsWeigher,
+	},
 };
 use pallet_xcm_benchmarks::WeightInfo as XcmBenchWeight;
 
@@ -43,11 +43,11 @@ impl AssetFilterCountWeigher for BridgeHubWestendCountWeigher {
 }
 
 pub struct BridgeHubWestendXcmWeightConfig;
-impl<Call> CountBasedXcmWeightConfig<Call> for BridgeHubWestendXcmWeightConfig {
+impl<Call> AutoXcmWeightConfig<Call> for BridgeHubWestendXcmWeightConfig {
 	type GenericWeights = XcmBenchWeight<Runtime>;
 	type FungibleWeights = XcmBenchWeight<Runtime>;
-	type FilterCountWeigher = BridgeHubWestendCountWeigher;
-	type AssetsListWeigher = UniformAssetsWeigher;
+	type AssetWeigher =
+		CountBasedAssetsAndFilterWeigher<BridgeHubWestendCountWeigher, UniformAssetsWeigher>;
 
 	fn export_message(_: &NetworkId, _: &Junctions, inner: &Xcm<()>) -> Weight {
 		let inner_encoded_len = inner.encode().len() as u32;
@@ -55,5 +55,4 @@ impl<Call> CountBasedXcmWeightConfig<Call> for BridgeHubWestendXcmWeightConfig {
 	}
 }
 
-pub type BridgeHubWestendXcmWeight<Call> =
-	AutoCountBasedXcmWeight<Call, BridgeHubWestendXcmWeightConfig>;
+pub type BridgeHubWestendXcmWeight<Call> = AutoXcmWeight<Call, BridgeHubWestendXcmWeightConfig>;

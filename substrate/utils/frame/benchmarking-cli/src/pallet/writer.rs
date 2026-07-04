@@ -466,9 +466,9 @@ pub(crate) fn write_results(
 		let mut merged = Vec::<BenchmarkData>::new();
 		let mut pallet_labels = Vec::<String>::new();
 
-		for ((pallet, instance), results) in all_results.iter().sorted_by_key(|((p, i), _)| {
-			(p.to_string(), i.to_string())
-		}) {
+		for ((pallet, instance), results) in
+			all_results.iter().sorted_by_key(|((p, i), _)| (p.to_string(), i.to_string()))
+		{
 			let label = if instance.is_empty() {
 				pallet.to_string()
 			} else {

@@ -21,8 +21,8 @@ use crate::{xcm_config::MaxAssetsIntoHolding, Runtime};
 use ::pallet_xcm_benchmarks::{
 	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
 	xcm_weights::{
-		AssetFilterCountWeigher, AutoCountBasedXcmWeight, CountBasedXcmWeightConfig,
-		UniformAssetsWeigher,
+		AssetFilterCountWeigher, AutoCountBasedXcmWeight, CountBasedAssetsAndFilterWeigher,
+		CountBasedXcmWeightConfig, UniformAssetsWeigher,
 	},
 };
 use pallet_xcm_benchmarks::WeightInfo as XcmBenchWeight;
@@ -47,8 +47,8 @@ pub struct AssetHubNextWestendXcmWeightConfig;
 impl<Call> CountBasedXcmWeightConfig<Call> for AssetHubNextWestendXcmWeightConfig {
 	type GenericWeights = XcmBenchWeight<Runtime>;
 	type FungibleWeights = XcmBenchWeight<Runtime>;
-	type FilterCountWeigher = AssetHubNextWestendCountWeigher;
-	type AssetsListWeigher = UniformAssetsWeigher;
+	type AssetWeigher =
+		CountBasedAssetsAndFilterWeigher<AssetHubNextWestendCountWeigher, UniformAssetsWeigher>;
 }
 
 pub type AssetHubNextWestendXcmWeight<Call> =

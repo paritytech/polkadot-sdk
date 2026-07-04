@@ -17,12 +17,11 @@
 mod pallet_xcm_benchmarks;
 
 use crate::{xcm_config::MaxAssetsIntoHolding, Runtime};
-use ::pallet_xcm_benchmarks::xcm_weights::{
-	AssetFilterCountWeigher, AutoCountBasedXcmWeight, CountBasedXcmWeightConfig,
-	UniformAssetsWeigher,
-};
 use ::pallet_xcm_benchmarks::{
 	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
+	xcm_weights::{
+		AssetFilterCountWeigher, AutoXcmWeight, AutoXcmWeightConfig, UniformAssetsWeigher,
+	},
 };
 use pallet_xcm_benchmarks::WeightInfo as XcmBenchWeight;
 
@@ -47,12 +46,11 @@ impl AssetFilterCountWeigher for AssetHubRococoCountWeigher {
 }
 
 pub struct AssetHubRococoXcmWeightConfig;
-impl<Call> CountBasedXcmWeightConfig<Call> for AssetHubRococoXcmWeightConfig {
+impl<Call> AutoXcmWeightConfig<Call> for AssetHubRococoXcmWeightConfig {
 	type GenericWeights = XcmBenchWeight<Runtime>;
 	type FungibleWeights = XcmBenchWeight<Runtime>;
-	type FilterCountWeigher = AssetHubRococoCountWeigher;
-	type AssetsListWeigher = UniformAssetsWeigher;
+	type AssetWeigher =
+		CountBasedAssetsAndFilterWeigher<AssetHubRococoCountWeigher, UniformAssetsWeigher>;
 }
 
-pub type AssetHubRococoXcmWeight<Call> =
-	AutoCountBasedXcmWeight<Call, AssetHubRococoXcmWeightConfig>;
+pub type AssetHubRococoXcmWeight<Call> = AutoXcmWeight<Call, AssetHubRococoXcmWeightConfig>;
