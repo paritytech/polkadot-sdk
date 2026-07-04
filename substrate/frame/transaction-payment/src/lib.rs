@@ -90,6 +90,12 @@ pub mod weights;
 pub type Multiplier = FixedU128;
 
 type BalanceOf<T> = <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
+
+// NOTE: we want to have some non-frotrunable txs submitted from OCW so we are capping max users'
+// transactions priority to this value. Our non-frontrunable txs should have priority from
+// `[MAX_USER_TX_PRIORITY, TransactionPriority::MAX>`
+const MAX_USER_TX_PRIORITY: TransactionPriority =
+	TransactionPriority::MAX.saturating_sub(1_000_000_000u64);
 type CreditOf<T> = <StoredCreditOf<T> as SuppressedDrop>::Inner;
 type StoredCreditOf<T> = <<T as Config>::OnChargeTransaction as TxCreditHold<T>>::Credit;
 
@@ -902,7 +908,8 @@ where
 		// To distribute no-tip transactions a little bit, we increase the tip value by one.
 		// This means that given two transactions without a tip, smaller one will be preferred.
 		let tip = tip.saturating_add(One::one());
-		let scaled_tip = max_reward(tip);
+		// NOTE: Look at comment for `MAX_USER_TX_PRIORITY`.
+		let scaled_tip = max_reward(tip).min(MAX_USER_TX_PRIORITY.saturated_into());
 
 		match info.class {
 			DispatchClass::Normal => {
