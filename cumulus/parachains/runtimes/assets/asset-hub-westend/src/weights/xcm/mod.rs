@@ -19,11 +19,12 @@ use crate::{
 	xcm_config::{ERC20TransferGasLimit, MaxAssetsIntoHolding},
 	Runtime,
 };
-use ::pallet_xcm_benchmarks::xcm_weights::{
-	AssetFilterCountWeigher, AssetsWeigher, AutoCountBasedXcmWeight, CountBasedXcmWeightConfig,
-};
 use ::pallet_xcm_benchmarks::{
 	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
+	xcm_weights::{
+		AssetFilterCountWeigher, AssetWeigher, AssetsWeigher, AutoXcmWeight, AutoXcmWeightConfig,
+		CountBasedAssetsAndFilterWeigher, XcmGenericWeightInfo,
+	},
 };
 use assets_common::IsLocalAccountKey20;
 use frame_support::{traits::Contains, weights::Weight};
@@ -73,20 +74,20 @@ impl AssetsWeigher for WestendERC20AssetWeigher {
 
 pub struct AssetHubWestendXcmWeightConfig;
 
-impl<Call> CountBasedXcmWeightConfig<Call> for AssetHubWestendXcmWeightConfig {
+impl<Call> AutoXcmWeightConfig<Call> for AssetHubWestendXcmWeightConfig {
 	type GenericWeights = XcmBenchWeight<Runtime>;
 	type FungibleWeights = XcmBenchWeight<Runtime>;
-	type FilterCountWeigher = AssetHubWestendCountWeigher;
-	type AssetsListWeigher = WestendERC20AssetWeigher;
+	type AssetWeigher =
+		CountBasedAssetsAndFilterWeigher<AssetHubWestendCountWeigher, WestendERC20AssetWeigher>;
 
 	fn exchange_asset(give: &AssetFilter, receive: &Assets, _maximal: &bool) -> Weight {
 		let base_weight = <Self::GenericWeights as XcmGenericWeightInfo>::exchange_asset();
 		let give_weight =
-			weigh_assets_filter_by_count::<Self::FilterCountWeigher>(give, base_weight);
-		let receive_weight = Self::AssetsListWeigher::weigh_assets(receive, base_weight);
+			<Self::AssetWeigher as AssetWeigher>::weigh_asset_filter(give, base_weight);
+		let receive_weight =
+			<Self::AssetWeigher as AssetWeigher>::weigh_assets(receive, base_weight);
 		give_weight.max(receive_weight)
 	}
 }
 
-pub type AssetHubWestendXcmWeight<Call> =
-	AutoCountBasedXcmWeight<Call, AssetHubWestendXcmWeightConfig>;
+pub type AssetHubWestendXcmWeight<Call> = AutoXcmWeight<Call, AssetHubWestendXcmWeightConfig>;

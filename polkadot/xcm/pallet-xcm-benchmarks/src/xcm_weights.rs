@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-// This file is part of the XCM pallet benchmarks. It provides utilities for weighing assets and XCM messages.
-// Naturally, each runtime would have its own implementation of these utilities, as the weights for each asset type may differ.
-// This file attempts to provide a generic implementation that can be used across different runtimes.
+// This file is part of the XCM pallet benchmarks. It provides utilities for weighing assets and XCM
+// messages. Naturally, each runtime would have its own implementation of these utilities, as the
+// weights for each asset type may differ. This file attempts to provide a generic implementation
+// that can be used across different runtimes.
 
 // Relay-chain style runtime weighing is based on asset classification:
 // Typically, runtime recognizes one asset (Balances) and treats everything else as unknown.
@@ -26,11 +27,11 @@
 // Their weights are calculated based on the count of assets, rather than their identity.
 
 use alloc::vec::Vec;
-use frame_support::{traits::Get, weights::Weight};
+use frame_support::weights::Weight;
 use sp_runtime::BoundedVec;
 use xcm::latest::{prelude::*, AssetTransferFilter};
 
-/// Generated benchmark weights for generic (non-asset-loop) XCM instructions.
+/// Generic (non-asset loop) XCM instructions.
 pub trait XcmGenericWeightInfo {
 	fn query_response() -> Weight;
 	fn transact() -> Weight;
@@ -68,7 +69,7 @@ pub trait XcmGenericWeightInfo {
 	fn exchange_asset() -> Weight;
 }
 
-/// Generated benchmark weights for fungible/asset-heavy XCM instructions.
+/// Fungible (Asset-heavy) XCM instructions.
 pub trait XcmFungibleWeightInfo {
 	fn withdraw_asset() -> Weight;
 	fn reserve_asset_deposited() -> Weight;
@@ -82,11 +83,7 @@ pub trait XcmFungibleWeightInfo {
 	fn initiate_transfer() -> Weight;
 }
 
-/// Asset classification used by relay-chain style weighing.
-///
-/// This enum is intentionally relay-centric: relay runtimes typically model one
-/// recognized local asset (Balances) and treat everything else as unknown.
-/// Unknown assets are charged as `Weight::MAX` in the classification-based path.
+/// Asset classification used by [`AssetMatcher`].
 ///
 /// Multi-asset runtimes (for example Asset Hub chains) generally should not use
 /// this enum directly; they should prefer the count-based helpers below.
@@ -98,137 +95,67 @@ pub enum AssetTypes {
 
 /// Relay-chain asset classifier.
 ///
-/// Use this trait when the runtime has a strict notion of recognized assets
-/// (for example, only pallet-balances) and wants unsupported assets to map to
-/// `Weight::MAX` through [`AssetTypes::Unknown`].
+/// Use this trait when:
+///
+/// 1) the runtime has a strict notion of recognized assets
+/// (for example, only pallet-balances) and
+/// 2) Unsupported assets to map to `Weight::MAX`
+/// through [`AssetTypes::Unknown`].
 pub trait AssetMatcher {
 	fn classify(asset: &Asset) -> AssetTypes;
 	fn max_assets() -> u64;
 }
 
-/// Convenience trait for relay-style weighing over both `Assets` and `AssetFilter`.
+/// Runtime-pluggable strategy for weighing both `Assets` and `AssetFilter`.
 ///
-/// This trait exists for the classification-based model and delegates to
-/// [`weigh_assets_list`] or [`weigh_assets_filter`].
-pub trait WeighAssets {
-	fn weigh_assets<M: AssetMatcher>(&self, known_weight: Weight) -> Weight;
+/// Runtime integration provides one type implementing this trait and can
+/// override either path independently while keeping a single integration point.
+pub trait AssetWeigher {
+	fn weigh_assets(assets: &Assets, weight: Weight) -> Weight;
+	fn weigh_asset_filter(assets: &AssetFilter, weight: Weight) -> Weight;
 }
 
-/// Relay-style weighing for a concrete [`Assets`] list.
-///
-/// Each item is classified via `M::classify`:
-/// - `Balances` => charged as `known_weight`
-/// - `Unknown` => charged as `Weight::MAX`
-///
-/// This is intended for runtimes where asset identity is part of admission
-/// logic. For count-only runtimes, use [`weigh_assets_list_by_count`].
-pub fn weigh_assets_list<M: AssetMatcher>(assets: &Assets, known_weight: Weight) -> Weight {
-	assets
-		.inner()
-		.iter()
-		.map(M::classify)
-		.map(|asset_type| match asset_type {
-			AssetTypes::Balances => known_weight,
-			AssetTypes::Unknown => Weight::MAX,
-		})
-		.fold(Weight::zero(), |acc, x| acc.saturating_add(x))
-}
-
-/// Relay-style weighing for an [`AssetFilter`].
-///
-/// This function mirrors relay behavior where recognized assets are charged at
-/// `known_weight` and unrecognized assets are escalated to `Weight::MAX`.
-///
-/// Wild variants are bounded using `M::max_assets()` and the filter shape.
-/// For multi-asset runtimes that do not classify assets as known/unknown,
-/// prefer [`weigh_assets_filter_by_count`].
-pub fn weigh_assets_filter<M: AssetMatcher>(assets: &AssetFilter, known_weight: Weight) -> Weight {
-	match assets {
-		AssetFilter::Definite(definite) => definite
+/// Relay-style [`AssetWeigher`] that delegates to [`AssetMatcher`] classifiers.
+pub struct MatchedAssetWeigher<M>(core::marker::PhantomData<M>);
+impl<M: AssetMatcher> AssetWeigher for MatchedAssetWeigher<M> {
+	fn weigh_assets(assets: &Assets, weight: Weight) -> Weight {
+		assets
 			.inner()
 			.iter()
 			.map(M::classify)
 			.map(|asset_type| match asset_type {
-				AssetTypes::Balances => known_weight,
+				AssetTypes::Balances => weight,
 				AssetTypes::Unknown => Weight::MAX,
 			})
-			.fold(Weight::zero(), |acc, x| acc.saturating_add(x)),
-		AssetFilter::Wild(AllOf { .. } | AllOfCounted { .. }) => known_weight,
-		AssetFilter::Wild(AllCounted(count)) => {
-			known_weight.saturating_mul(M::max_assets().min(*count as u64))
-		},
-		AssetFilter::Wild(All) => known_weight.saturating_mul(M::max_assets()),
+			.fold(Weight::zero(), |acc, x| acc.saturating_add(x))
 	}
-}
 
-impl WeighAssets for AssetFilter {
-	fn weigh_assets<M: AssetMatcher>(&self, known_weight: Weight) -> Weight {
-		weigh_assets_filter::<M>(self, known_weight)
-	}
-}
-
-impl WeighAssets for Assets {
-	fn weigh_assets<M: AssetMatcher>(&self, known_weight: Weight) -> Weight {
-		weigh_assets_list::<M>(self, known_weight)
-	}
-}
-
-/// Shared helper for `InitiateTransfer`/`TransferReserveAsset`-style payloads.
-///
-/// The caller supplies `weigh_filter` so this works with either model:
-/// - relay/classification: pass [`weigh_assets_filter`]
-/// - multi-asset/count: pass [`weigh_assets_filter_by_count`]
-pub fn weigh_initiate_transfer<MaxFilters: Get<u32>>(
-	remote_fees: &Option<AssetTransferFilter>,
-	assets: &BoundedVec<AssetTransferFilter, MaxFilters>,
-	base_weight: Weight,
-	weigh_filter: impl Fn(&AssetFilter, Weight) -> Weight,
-) -> Weight {
-	let mut weight = if let Some(remote_fees) = remote_fees {
-		weigh_filter(remote_fees.inner(), base_weight)
-	} else {
-		Weight::zero()
-	};
-	for asset_filter in assets {
-		let extra = weigh_filter(asset_filter.inner(), base_weight);
-		weight = weight.saturating_add(extra);
-	}
-	weight
-}
-
-/// Shared helper for hint-based charging.
-///
-/// Currently only `Hint::AssetClaimer` contributes additional weight, and each
-/// occurrence is charged by `asset_claimer_weight`.
-pub fn weigh_hints<HintVariants: Get<u32>>(
-	hints: &BoundedVec<Hint, HintVariants>,
-	asset_claimer_weight: Weight,
-) -> Weight {
-	let mut weight = Weight::zero();
-	for hint in hints {
-		match hint {
-			AssetClaimer { .. } => {
-				weight = weight.saturating_add(asset_claimer_weight);
+	fn weigh_asset_filter(assets: &AssetFilter, weight: Weight) -> Weight {
+		match assets {
+			AssetFilter::Definite(definite) => definite
+				.inner()
+				.iter()
+				.map(M::classify)
+				.map(|asset_type| match asset_type {
+					AssetTypes::Balances => weight,
+					AssetTypes::Unknown => Weight::MAX,
+				})
+				.fold(Weight::zero(), |acc, x| acc.saturating_add(x)),
+			AssetFilter::Wild(AllOf { .. } | AllOfCounted { .. }) => weight,
+			AssetFilter::Wild(AllCounted(count)) => {
+				weight.saturating_mul(M::max_assets().min(*count as u64))
 			},
+			AssetFilter::Wild(All) => weight.saturating_mul(M::max_assets()),
 		}
 	}
-	weight
 }
-
-// ---- Count-based abstractions for multi-asset runtimes (e.g. Asset Hub) ----
-//
-// Relay chains use classification (`AssetMatcher`) because they only accept
-// one known asset and reject all others with `Weight::MAX`. Asset Hub runtimes
-// accept every asset type; the cost scales with the number of assets, not their
-// identity. These traits and helpers implement that second model without
-// disturbing the relay-chain path above.
 
 /// Provides the counting bounds needed for `AssetFilter` weight calculation in
 /// runtimes that accept all asset types (e.g. Asset Hub).
 ///
 /// - `max_assets()` caps the count used for `Wild(All)` and `AllCounted`.
-/// - `max_assets_into_holding()` is used to bound non-fungible wild matches
-///   (worst case is `2 × max_assets_into_holding` assets in holding).
+/// - `max_assets_into_holding()` is used to bound non-fungible wild matches (worst case is `2 ×
+///   max_assets_into_holding` assets in holding).
 pub trait AssetFilterCountWeigher {
 	/// Max number of recognized assets by implementing runtime
 	/// Relay chains only understand Native token while,
@@ -260,49 +187,54 @@ impl AssetsWeigher for UniformAssetsWeigher {
 	}
 }
 
-/// Count-based weight calculation for an [`AssetFilter`].
-///
-/// Unlike the classification-based `weigh_assets_filter`, this function never
-/// returns `Weight::MAX` for an individual asset. All assets are considered
-/// valid; the weight only scales with the number of assets that may be touched.
-///
-/// This is the recommended path for Asset Hub style runtimes.
-pub fn weigh_assets_filter_by_count<C: AssetFilterCountWeigher>(
-	assets: &AssetFilter,
-	weight: Weight,
-) -> Weight {
-	match assets {
-		AssetFilter::Definite(assets) => {
-			weight.saturating_mul(assets.inner().iter().count() as u64)
-		},
-		AssetFilter::Wild(All) => weight.saturating_mul(C::max_assets()),
-		AssetFilter::Wild(AllOf { fun, .. }) => match fun {
-			WildFungibility::Fungible => weight,
-			// Worst case: up to 2 × max_assets_into_holding non-fungibles in holding.
-			WildFungibility::NonFungible => {
-				weight.saturating_mul(C::max_assets_into_holding().saturating_mul(2))
+/// Count-based [`AssetWeigher`] built from count/filter and list weighers.
+pub struct CountBasedAssetsAndFilterWeigher<C, A = UniformAssetsWeigher>(
+	core::marker::PhantomData<(C, A)>,
+);
+impl<C, A> AssetWeigher for CountBasedAssetsAndFilterWeigher<C, A>
+where
+	C: AssetFilterCountWeigher,
+	A: AssetsWeigher,
+{
+	fn weigh_assets(assets: &Assets, weight: Weight) -> Weight {
+		A::weigh_assets(assets, weight)
+	}
+
+	fn weigh_asset_filter(assets: &AssetFilter, weight: Weight) -> Weight {
+		// weigh_assets_filter_by_count::<C>(assets, weight)
+		match assets {
+			AssetFilter::Definite(assets) => {
+				weight.saturating_mul(assets.inner().iter().count() as u64)
 			},
-		},
-		AssetFilter::Wild(AllCounted(count)) => weight
-			.saturating_mul(C::max_assets().min((*count as u64).max(C::minimum_asset_count()))),
-		AssetFilter::Wild(AllOfCounted { count, .. }) => weight
-			.saturating_mul(C::max_assets().min((*count as u64).max(C::minimum_asset_count()))),
+			AssetFilter::Wild(All) => weight.saturating_mul(C::max_assets()),
+			AssetFilter::Wild(AllOf { fun, .. }) => match fun {
+				WildFungibility::Fungible => weight,
+				// Worst case: up to 2 × max_assets_into_holding non-fungibles in holding.
+				WildFungibility::NonFungible => {
+					weight.saturating_mul(C::max_assets_into_holding().saturating_mul(2))
+				},
+			},
+			AssetFilter::Wild(AllCounted(count)) => weight
+				.saturating_mul(C::max_assets().min((*count as u64).max(C::minimum_asset_count()))),
+			AssetFilter::Wild(AllOfCounted { count, .. }) => weight
+				.saturating_mul(C::max_assets().min((*count as u64).max(C::minimum_asset_count()))),
+		}
 	}
 }
 
-/// Configuration for the default count-based [`XcmWeightInfo`] adapter.
+/// Unified configuration for the default [`XcmWeightInfo`] adapter.
 ///
-/// This is intended for multi-asset runtimes where the default behavior is:
-/// - fungible instructions scale by number of assets/filter count,
+/// Default behavior:
+/// - fungible instructions scale by configured `AssetWeigher`,
 /// - generic instructions use generated generic benchmark weights,
 /// - unsupported instruction families default to `Weight::MAX`.
 ///
 /// Runtimes can override only the methods that differ from defaults.
-pub trait CountBasedXcmWeightConfig<Call> {
+
+pub trait AutoXcmWeightConfig<Call> {
 	type GenericWeights: XcmGenericWeightInfo;
 	type FungibleWeights: XcmFungibleWeightInfo;
-	type FilterCountWeigher: AssetFilterCountWeigher;
-	type AssetsListWeigher: AssetsWeigher;
+	type AssetWeigher: AssetWeigher;
 
 	fn exchange_asset(_give: &AssetFilter, _receive: &Assets, _maximal: &bool) -> Weight {
 		Weight::MAX
@@ -312,18 +244,36 @@ pub trait CountBasedXcmWeightConfig<Call> {
 		remote_fees: &Option<AssetTransferFilter>,
 		assets: &BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
 	) -> Weight {
-		weigh_initiate_transfer(
-			remote_fees,
-			assets,
-			<Self::FungibleWeights as XcmFungibleWeightInfo>::initiate_transfer(),
-			|asset_filter, weight| {
-				weigh_assets_filter_by_count::<Self::FilterCountWeigher>(asset_filter, weight)
-			},
-		)
+		let base_weight = <Self::FungibleWeights as XcmFungibleWeightInfo>::initiate_transfer();
+		let mut weight = if let Some(remote_fees) = remote_fees {
+			<Self::AssetWeigher as AssetWeigher>::weigh_asset_filter(
+				remote_fees.inner(),
+				base_weight,
+			)
+		} else {
+			Weight::zero()
+		};
+		for asset_filter in assets {
+			let extra = <Self::AssetWeigher as AssetWeigher>::weigh_asset_filter(
+				asset_filter.inner(),
+				base_weight,
+			);
+			weight = weight.saturating_add(extra);
+		}
+		weight
 	}
 
 	fn set_hints(hints: &BoundedVec<Hint, HintNumVariants>) -> Weight {
-		weigh_hints(hints, <Self::GenericWeights as XcmGenericWeightInfo>::asset_claimer())
+		let mut weight = Weight::zero();
+		let asset_claimer_weight = <Self::GenericWeights as XcmGenericWeightInfo>::asset_claimer();
+		for hint in hints {
+			match hint {
+				AssetClaimer { .. } => {
+					weight = weight.saturating_add(asset_claimer_weight);
+				},
+			}
+		}
+		weight
 	}
 
 	fn hrmp_new_channel_open_request() -> Weight {
@@ -336,6 +286,10 @@ pub trait CountBasedXcmWeightConfig<Call> {
 
 	fn hrmp_channel_closing() -> Weight {
 		Weight::MAX
+	}
+
+	fn universal_origin() -> Weight {
+		<Self::GenericWeights as XcmGenericWeightInfo>::universal_origin()
 	}
 
 	fn export_message(_: &NetworkId, _: &Junctions, _inner: &Xcm<()>) -> Weight {
@@ -357,34 +311,33 @@ pub trait CountBasedXcmWeightConfig<Call> {
 	fn request_unlock() -> Weight {
 		Weight::MAX
 	}
+
+	fn alias_origin() -> Weight {
+		<Self::GenericWeights as XcmGenericWeightInfo>::alias_origin()
+	}
 }
 
-/// Default count-based [`XcmWeightInfo`] implementation.
-///
-/// Runtime wiring can use this directly as a type alias and only provide a
-/// [`CountBasedXcmWeightConfig`] implementation.
-pub struct AutoCountBasedXcmWeight<Call, Config>(core::marker::PhantomData<(Call, Config)>);
-
-impl<Call, Config> XcmWeightInfo<Call> for AutoCountBasedXcmWeight<Call, Config>
+pub struct AutoXcmWeight<Call, Config>(core::marker::PhantomData<(Call, Config)>);
+impl<Call, Config> XcmWeightInfo<Call> for AutoXcmWeight<Call, Config>
 where
-	Config: CountBasedXcmWeightConfig<Call>,
+	Config: AutoXcmWeightConfig<Call>,
 {
 	fn withdraw_asset(assets: &Assets) -> Weight {
-		Config::AssetsListWeigher::weigh_assets(
+		<Config::AssetWeigher as AssetWeigher>::weigh_assets(
 			assets,
 			<Config::FungibleWeights as XcmFungibleWeightInfo>::withdraw_asset(),
 		)
 	}
 
 	fn reserve_asset_deposited(assets: &Assets) -> Weight {
-		Config::AssetsListWeigher::weigh_assets(
+		<Config::AssetWeigher as AssetWeigher>::weigh_assets(
 			assets,
 			<Config::FungibleWeights as XcmFungibleWeightInfo>::reserve_asset_deposited(),
 		)
 	}
 
 	fn receive_teleported_asset(assets: &Assets) -> Weight {
-		Config::AssetsListWeigher::weigh_assets(
+		<Config::AssetWeigher as AssetWeigher>::weigh_assets(
 			assets,
 			<Config::FungibleWeights as XcmFungibleWeightInfo>::receive_teleported_asset(),
 		)
@@ -400,14 +353,14 @@ where
 	}
 
 	fn transfer_asset(assets: &Assets, _dest: &Location) -> Weight {
-		Config::AssetsListWeigher::weigh_assets(
+		<Config::AssetWeigher as AssetWeigher>::weigh_assets(
 			assets,
 			<Config::FungibleWeights as XcmFungibleWeightInfo>::transfer_asset(),
 		)
 	}
 
 	fn transfer_reserve_asset(assets: &Assets, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		Config::AssetsListWeigher::weigh_assets(
+		<Config::AssetWeigher as AssetWeigher>::weigh_assets(
 			assets,
 			<Config::FungibleWeights as XcmFungibleWeightInfo>::transfer_reserve_asset(),
 		)
@@ -450,14 +403,14 @@ where
 	}
 
 	fn deposit_asset(assets: &AssetFilter, _dest: &Location) -> Weight {
-		weigh_assets_filter_by_count::<Config::FilterCountWeigher>(
+		<Config::AssetWeigher as AssetWeigher>::weigh_asset_filter(
 			assets,
 			<Config::FungibleWeights as XcmFungibleWeightInfo>::deposit_asset(),
 		)
 	}
 
 	fn deposit_reserve_asset(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		weigh_assets_filter_by_count::<Config::FilterCountWeigher>(
+		<Config::AssetWeigher as AssetWeigher>::weigh_asset_filter(
 			assets,
 			<Config::FungibleWeights as XcmFungibleWeightInfo>::deposit_reserve_asset(),
 		)
@@ -472,14 +425,14 @@ where
 		_reserve: &Location,
 		_xcm: &Xcm<()>,
 	) -> Weight {
-		weigh_assets_filter_by_count::<Config::FilterCountWeigher>(
+		<Config::AssetWeigher as AssetWeigher>::weigh_asset_filter(
 			assets,
 			<Config::FungibleWeights as XcmFungibleWeightInfo>::initiate_reserve_withdraw(),
 		)
 	}
 
 	fn initiate_teleport(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
-		weigh_assets_filter_by_count::<Config::FilterCountWeigher>(
+		<Config::AssetWeigher as AssetWeigher>::weigh_asset_filter(
 			assets,
 			<Config::FungibleWeights as XcmFungibleWeightInfo>::initiate_teleport(),
 		)
@@ -544,14 +497,14 @@ where
 	}
 
 	fn burn_asset(assets: &Assets) -> Weight {
-		Config::AssetsListWeigher::weigh_assets(
+		<Config::AssetWeigher as AssetWeigher>::weigh_assets(
 			assets,
 			<Config::GenericWeights as XcmGenericWeightInfo>::burn_asset(),
 		)
 	}
 
 	fn expect_asset(assets: &Assets) -> Weight {
-		Config::AssetsListWeigher::weigh_assets(
+		<Config::AssetWeigher as AssetWeigher>::weigh_assets(
 			assets,
 			<Config::GenericWeights as XcmGenericWeightInfo>::expect_asset(),
 		)
@@ -592,7 +545,7 @@ where
 	}
 
 	fn universal_origin(_: &Junction) -> Weight {
-		<Config::GenericWeights as XcmGenericWeightInfo>::universal_origin()
+		Config::universal_origin()
 	}
 
 	fn export_message(network: &NetworkId, location: &Junctions, inner: &Xcm<()>) -> Weight {
@@ -628,7 +581,7 @@ where
 	}
 
 	fn alias_origin(_: &Location) -> Weight {
-		<Config::GenericWeights as XcmGenericWeightInfo>::alias_origin()
+		Config::alias_origin()
 	}
 
 	fn unpaid_execution(_: &WeightLimit, _: &Option<Location>) -> Weight {
