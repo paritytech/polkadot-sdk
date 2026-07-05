@@ -3264,11 +3264,10 @@ async fn v4_advertise_segment_len_one_is_accepted() {
 		dummy_pvd().hash(),
 	);
 	let candidate = adv.prospective_candidate.unwrap();
-	let candidates = vec![protocol_v4::SegmentFingerprint {
+	let candidates = vec![protocol_v4::CandidateFingerprint {
 		candidate_hash: candidate.candidate_hash,
 		output_head_data_hash: ccr.descriptor.para_head(),
 		parent_head_data_hash: candidate.parent_head_data_hash,
-		candidate_descriptor_version: CandidateDescriptorVersion::V3,
 		relay_parent,
 	}]
 	.try_into()
@@ -3280,6 +3279,7 @@ async fn v4_advertise_segment_len_one_is_accepted() {
 			peer_id,
 			CollationProtocols::V4(protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
 				scheduling_parent,
+				candidates_descriptor_version: CandidateDescriptorVersion::V3,
 				candidates
 			})
 		),

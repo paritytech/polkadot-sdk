@@ -647,7 +647,9 @@ pub mod v3_collation {
 /// v4 collation protocol types.
 pub mod v4_collation {
 	use codec::{Decode, Encode};
-	use polkadot_node_primitives::{UncheckedSignedFullStatement, MAX_SEGMENT_LEN};
+	use polkadot_node_primitives::UncheckedSignedFullStatement;
+	// Re-exported so external code can name the bound on `AdvertiseSegment::candidates`.
+	pub use polkadot_node_primitives::MAX_SEGMENT_LEN;
 	use polkadot_primitives::{
 		CandidateDescriptorVersion, CandidateHash, CollatorId, CollatorSignature, Hash,
 		Id as ParaId,
@@ -674,14 +676,16 @@ pub mod v4_collation {
 		AdvertiseSegment {
 			/// Hash of the scheduling parent
 			scheduling_parent: Hash,
+			/// Descriptor version for the candidate.
+			candidates_descriptor_version: CandidateDescriptorVersion,
 			/// Ordered list of candidates.
-			candidates: BoundedVec<SegmentFingerprint, ConstU32<MAX_SEGMENT_LEN>>,
+			candidates: BoundedVec<CandidateFingerprint, ConstU32<MAX_SEGMENT_LEN>>,
 		},
 	}
 
 	/// A single entry in the segment advertised by the collator.
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
-	pub struct SegmentFingerprint {
+	pub struct CandidateFingerprint {
 		/// Candidate hash
 		pub candidate_hash: CandidateHash,
 		/// Unique and stable identifier of the underlying parachain
@@ -690,8 +694,6 @@ pub mod v4_collation {
 		pub output_head_data_hash: Hash,
 		/// Parachain head data hash before candidate execution.
 		pub parent_head_data_hash: Hash,
-		/// Descriptor version for the candidate.
-		pub candidate_descriptor_version: CandidateDescriptorVersion,
 		/// Relay parent the advertised candidate builds on.
 		pub relay_parent: Hash,
 	}
@@ -713,14 +715,13 @@ pub mod v4_collation {
 
 		use super::*;
 
-		fn build_segment(len: u32) -> BoundedVec<SegmentFingerprint, ConstU32<MAX_SEGMENT_LEN>> {
+		fn build_segment(len: u32) -> BoundedVec<CandidateFingerprint, ConstU32<MAX_SEGMENT_LEN>> {
 			let mut candidates = vec![];
 			for _ in 0..len {
-				let fingerprint = SegmentFingerprint {
+				let fingerprint = CandidateFingerprint {
 					candidate_hash: CandidateHash(Hash::random()),
 					output_head_data_hash: Hash::random(),
 					parent_head_data_hash: Hash::random(),
-					candidate_descriptor_version: CandidateDescriptorVersion::V3,
 					relay_parent: Hash::random(),
 				};
 				candidates.push(fingerprint);
@@ -738,6 +739,7 @@ pub mod v4_collation {
 			let original =
 				CollationProtocol::CollatorProtocol(CollatorProtocolMessage::AdvertiseSegment {
 					scheduling_parent: Hash::random(),
+					candidates_descriptor_version: CandidateDescriptorVersion::V3,
 					candidates,
 				});
 			let encoded = original.encode();
@@ -748,12 +750,11 @@ pub mod v4_collation {
 
 		#[test]
 		fn v4_advertise_segment_oversize_rejected_at_decode() {
-			let fingerprints: Vec<SegmentFingerprint> = (0..=MAX_SEGMENT_LEN)
-				.map(|_| SegmentFingerprint {
+			let fingerprints: Vec<CandidateFingerprint> = (0..=MAX_SEGMENT_LEN)
+				.map(|_| CandidateFingerprint {
 					candidate_hash: CandidateHash(Hash::random()),
 					output_head_data_hash: Hash::random(),
 					parent_head_data_hash: Hash::random(),
-					candidate_descriptor_version: CandidateDescriptorVersion::V3,
 					relay_parent: Hash::random(),
 				})
 				.collect();
@@ -763,6 +764,7 @@ pub mod v4_collation {
 			wire.push(0x00); // CollationProtocol::CollatorProtocol variant tag
 			wire.push(0x05); // CollatorProtocolMessage::AdvertiseSegment variant tag
 			Hash::repeat_byte(0xAA).encode_to(&mut wire); // scheduling_parent
+			CandidateDescriptorVersion::V3.encode_to(&mut wire); // candidates_descriptor_version
 			fingerprints.encode_to(&mut wire); // compact length + 101 × encoded fingerprint
 
 			assert!(CollationProtocol::decode(&mut &wire[..]).is_err());

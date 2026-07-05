@@ -1743,12 +1743,12 @@ fn network_protocol_versioning_subsystem_msg() {
 
 		let advertise_segment_message = v4_collation::CollatorProtocolMessage::AdvertiseSegment {
 			scheduling_parent: Hash::random(),
+			candidates_descriptor_version: CandidateDescriptorVersion::V3,
 			candidates: BoundedVec::<_, ConstU32<{ v4_collation::MAX_SEGMENT_LEN }>>::try_from(
-				vec![v4_collation::SegmentFingerprint {
+				vec![v4_collation::CandidateFingerprint {
 					candidate_hash: CandidateHash(Hash::random()),
 					output_head_data_hash: Hash::random(),
 					parent_head_data_hash: Hash::random(),
-					candidate_descriptor_version: CandidateDescriptorVersion::V3,
 					relay_parent: Hash::random(),
 				}],
 			)

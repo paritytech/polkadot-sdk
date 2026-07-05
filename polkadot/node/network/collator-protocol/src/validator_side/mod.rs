@@ -1302,7 +1302,11 @@ async fn process_incoming_peer_message<Context>(
 				}
 			}
 		},
-		CollationProtocols::V4(V4::AdvertiseSegment { scheduling_parent, candidates }) => {
+		CollationProtocols::V4(V4::AdvertiseSegment {
+			scheduling_parent,
+			candidates_descriptor_version,
+			candidates,
+		}) => {
 			if candidates.is_empty() {
 				gum::warn!(
 					target: LOG_TARGET,
@@ -1323,7 +1327,7 @@ async fn process_incoming_peer_message<Context>(
 				origin,
 				segment_fingerprint.candidate_hash,
 				segment_fingerprint.parent_head_data_hash,
-				segment_fingerprint.candidate_descriptor_version,
+				candidates_descriptor_version,
 				segment_fingerprint.relay_parent,
 			)
 			.await
@@ -1334,7 +1338,6 @@ async fn process_incoming_peer_message<Context>(
 					?segment_fingerprint.relay_parent,
 					?scheduling_parent,
 					?segment_fingerprint.candidate_hash,
-					?segment_fingerprint.candidate_descriptor_version,
 					error = ?err,
 					"Rejected v3 advertisement",
 				);
@@ -2367,7 +2370,7 @@ async fn process_msg<Context>(
 				target: LOG_TARGET,
 				"DistributeSegment message is not expected on the validator side of the protocol",
 			);
-		}
+		},
 		NetworkBridgeUpdate(event) => {
 			if let Err(e) = handle_network_msg(ctx, state, keystore, event).await {
 				gum::warn!(

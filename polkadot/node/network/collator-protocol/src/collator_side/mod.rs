@@ -34,7 +34,7 @@ use polkadot_node_network_protocol::{
 		v2 as request_v2, IncomingRequestReceiver,
 	},
 	v1 as protocol_v1, v2 as protocol_v2, v3_collation as protocol_v3,
-	v4_collation::{self as protocol_v4, SegmentFingerprint},
+	v4_collation::{self as protocol_v4, CandidateFingerprint},
 	CollationProtocols, OurView, PeerId, UnifiedReputationChange as Rep, View,
 };
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement, MAX_SEGMENT_LEN};
@@ -239,6 +239,16 @@ impl CollationData {
 	}
 }
 
+/// A segment distributed by our collation-generation for a `(scheduling_parent, core)`, kept so
+/// we can (re-)advertise it to validators. All candidates in a segment share one descriptor
+/// version, hoisted here out of the per-candidate [`CandidateFingerprint`].
+struct StoredSegment {
+	/// Descriptor version shared by all candidates in the segment.
+	descriptor_version: CandidateDescriptorVersion,
+	/// Ordered candidate fingerprints advertised to validators.
+	fingerprints: BoundedVec<CandidateFingerprint, ConstU32<MAX_SEGMENT_LEN>>,
+}
+
 struct PerSchedulingParent {
 	/// Per core index validators group responsible for backing candidates built
 	/// on top of this relay parent.
@@ -251,8 +261,8 @@ struct PerSchedulingParent {
 	block_number: Option<BlockNumber>,
 	/// The session index of this relay parent.
 	session_index: SessionIndex,
-	/// Current segment fingerprints per core, used for validator advertisements.
-	segments: HashMap<CoreIndex, BoundedVec<SegmentFingerprint, ConstU32<MAX_SEGMENT_LEN>>>,
+	/// Current segment per core, used for validator advertisements.
+	segments: HashMap<CoreIndex, StoredSegment>,
 }
 
 impl PerSchedulingParent {
@@ -285,10 +295,7 @@ impl PerSchedulingParent {
 			group.validators = validators;
 			validator_groups.insert(*core, group);
 		}
-		let segments: HashMap<
-			CoreIndex,
-			BoundedVec<SegmentFingerprint, ConstU32<MAX_SEGMENT_LEN>>,
-		> = HashMap::new();
+		let segments: HashMap<CoreIndex, StoredSegment> = HashMap::new();
 
 		Ok(Self {
 			validator_group: validator_groups,
@@ -478,7 +485,8 @@ async fn distribute_segment<Context>(
 	}
 
 	if per_scheduling_parent.segments.contains_key(&core_index) {
-		gum::debug!(target: LOG_TARGET, "replacing segment at core {:?}/sp{}", core_index, scheduling_parent);
+		gum::debug!(target: LOG_TARGET, "Received a new segment at core {:?}/sp:{}. Dropping it...", core_index, scheduling_parent);
+		return Ok(());
 	}
 
 	gum::debug!(
@@ -501,11 +509,10 @@ async fn distribute_segment<Context>(
 	let mut segment_fingerprint = vec![];
 	for candidate in candidates {
 		let candidate_hash = candidate.candidate_receipt.hash();
-		segment_fingerprint.push(SegmentFingerprint {
+		segment_fingerprint.push(CandidateFingerprint {
 			candidate_hash,
 			output_head_data_hash: candidate.candidate_receipt.descriptor.para_head(),
 			parent_head_data_hash: candidate.parent_head_data_hash,
-			candidate_descriptor_version: candidates_descriptor_version,
 			relay_parent: candidate.candidate_receipt.descriptor.relay_parent(),
 		});
 		// We have already seen collation for this scheduling parent.
@@ -551,21 +558,11 @@ async fn distribute_segment<Context>(
 		);
 	}
 
-	// Should we dedup based on a different key?
-	let new_segment = BoundedVec::try_from(segment_fingerprint).unwrap();
-	let segment_changed =
-		per_scheduling_parent.segments.get(&core_index).map_or(true, |existing| {
-			!existing
-				.iter()
-				.map(|fingerprint| fingerprint.output_head_data_hash)
-				.eq(new_segment.iter().map(|fingerprint| fingerprint.output_head_data_hash))
-		});
+	let new_segment = StoredSegment {
+		descriptor_version: candidates_descriptor_version,
+		fingerprints: BoundedVec::try_from(segment_fingerprint).unwrap(),
+	};
 
-	if segment_changed {
-		if let Some(validator_group) = per_scheduling_parent.validator_group.get_mut(&core_index) {
-			validator_group.segment_advertised_to.fill(false);
-		}
-	}
 	per_scheduling_parent.segments.insert(core_index, new_segment);
 
 	// The leaf should be present in the allowed ancestry of some leaf.
@@ -857,7 +854,7 @@ async fn advertise_segment<Context>(
 	peer_ids: &HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
 	metrics: &Metrics,
 ) {
-	let Some(core_segment) = per_scheduling_parent.segments.get(&core_index) else {
+	let Some(stored) = per_scheduling_parent.segments.get(&core_index) else {
 		gum::debug!(
 			target: LOG_TARGET,
 			?scheduling_parent,
@@ -866,6 +863,8 @@ async fn advertise_segment<Context>(
 		);
 		return;
 	};
+	let candidates_descriptor_version = stored.descriptor_version;
+	let core_segment = &stored.fingerprints;
 	let Some(validator_group) = per_scheduling_parent.validator_group.get_mut(&core_index) else {
 		gum::debug!(
 			target: LOG_TARGET,
@@ -917,6 +916,7 @@ async fn advertise_segment<Context>(
 			CollationProtocols::V4(protocol_v4::CollationProtocol::CollatorProtocol(
 				protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
 					scheduling_parent,
+					candidates_descriptor_version,
 					candidates: core_segment.clone(),
 				},
 			))
@@ -929,7 +929,7 @@ async fn advertise_segment<Context>(
 					scheduling_parent,
 					candidate_hash: newest_candidate.candidate_hash,
 					parent_head_data_hash: newest_candidate.parent_head_data_hash,
-					candidate_descriptor_version: newest_candidate.candidate_descriptor_version,
+					candidate_descriptor_version: candidates_descriptor_version,
 					relay_parent: newest_candidate.relay_parent,
 				},
 			))

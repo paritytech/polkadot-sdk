@@ -497,7 +497,11 @@ async fn process_incoming_peer_message<Sender, B>(
 				)
 				.await;
 		},
-		CollationProtocols::V4(V4::AdvertiseSegment { scheduling_parent, candidates }) => {
+		CollationProtocols::V4(V4::AdvertiseSegment {
+			scheduling_parent,
+			candidates_descriptor_version,
+			candidates,
+		}) => {
 			if candidates.is_empty() {
 				gum::warn!(
 					target: LOG_TARGET,
@@ -509,11 +513,11 @@ async fn process_incoming_peer_message<Sender, B>(
 				return;
 			}
 			gum::warn!(
-					target: LOG_TARGET,
-					?scheduling_parent,
-					?origin,
-					"Received an segment advertisement",
-				);
+				target: LOG_TARGET,
+				?scheduling_parent,
+				?origin,
+				"Received an segment advertisement",
+			);
 
 			let Some(segment_fingerprint) = candidates.last() else {
 				// We should never be here.
@@ -528,7 +532,7 @@ async fn process_incoming_peer_message<Sender, B>(
 						candidate_hash: segment_fingerprint.candidate_hash,
 						parent_head_data_hash: segment_fingerprint.parent_head_data_hash,
 					}),
-					Some(segment_fingerprint.candidate_descriptor_version),
+					Some(candidates_descriptor_version),
 				)
 				.await;
 		},

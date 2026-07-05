@@ -316,6 +316,7 @@ fn wire_kind_from_collation_protocol(
 			},
 			protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
 				scheduling_parent,
+				candidates_descriptor_version: _,
 				candidates,
 			} => {
 				let tip = candidates

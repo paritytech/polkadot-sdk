@@ -883,45 +883,48 @@ fn advertise_and_send_collation_by_hash() {
 			.await;
 			expect_declare_msg(&mut virtual_overseer, &test_state, &peer).await;
 
-			// Head `b` is not a leaf, but both advertisements are still relevant.
+			// Head `b` is not a leaf, but its collations are still relevant.
+			//
+			// The peer connects and sets its view to head_b only after both segments were
+			// distributed. The second segment for (head_b, core 0) was rejected, so the collator
+			// still holds the first segment and advertises candidate0, not candidate1 — the old
+			// overwrite behaviour would advertise candidate1 here. This assertion pins the reject.
 			send_peer_view_change(&mut virtual_overseer, &peer, vec![head_b]).await;
-			// DistributeSegment now overwrites the previous segment. The collations remain
-			// fetchable tho.
-			let hashes: Vec<_> = vec![candidates[1].0.hash()];
+			let hashes: Vec<_> = vec![candidates[0].0.hash()];
 			expect_advertise_collation_msg(&mut virtual_overseer, &[peer], head_b, hashes).await;
 
-			for (candidate, pov_block) in candidates {
-				let (pending_response, rx) = oneshot::channel();
-				req_v2_cfg
-					.inbound_queue
-					.as_mut()
-					.unwrap()
-					.send(RawIncomingRequest {
-						peer,
-						payload: CollationFetchingRequest {
-							scheduling_parent: head_b,
-							para_id: test_state.para_id,
-							candidate_hash: candidate.hash(),
-						}
-						.encode(),
-						pending_response,
-					})
-					.await
-					.unwrap();
-
-				assert_matches!(
-					rx.await,
-					Ok(full_response) => {
-						// Response is the same for v2.
-						let (receipt, pov) = decode_collation_response(
-							full_response.result
-							.expect("We should have a proper answer").as_ref()
-						);
-						assert_eq!(receipt, candidate);
-						assert_eq!(pov, pov_block);
+			// The accepted (first) collation is fetchable.
+			let (candidate, pov_block) = &candidates[0];
+			let (pending_response, rx) = oneshot::channel();
+			req_v2_cfg
+				.inbound_queue
+				.as_mut()
+				.unwrap()
+				.send(RawIncomingRequest {
+					peer,
+					payload: CollationFetchingRequest {
+						scheduling_parent: head_b,
+						para_id: test_state.para_id,
+						candidate_hash: candidate.hash(),
 					}
-				);
-			}
+					.encode(),
+					pending_response,
+				})
+				.await
+				.unwrap();
+
+			assert_matches!(
+				rx.await,
+				Ok(full_response) => {
+					// Response is the same for v2.
+					let (receipt, pov) = decode_collation_response(
+						full_response.result
+						.expect("We should have a proper answer").as_ref()
+					);
+					assert_eq!(&receipt, candidate);
+					assert_eq!(&pov, pov_block);
+				}
+			);
 
 			TestHarness { virtual_overseer, req_v2_cfg }
 		},
