@@ -514,6 +514,17 @@ impl EthRpcServer for EthRpcServerImpl {
 		reward_percentiles: Option<Vec<f64>>,
 	) -> RpcResult<FeeHistoryResult> {
 		let block_count: u32 = block_count.try_into().map_err(|_| EthRpcError::ConversionError)?;
+		if let Some(percentiles) = reward_percentiles.as_deref() {
+			// Reject malformed percentiles up front, as go-ethereum does, instead of silently
+			// clamping or approximating them at the wrong bucket (`-32000`, matching geth).
+			if let Err(message) = validate_reward_percentiles(percentiles) {
+				return Err(ErrorObjectOwned::owned(
+					jsonrpsee::types::error::CALL_EXECUTION_FAILED_CODE,
+					message,
+					None::<()>,
+				));
+			}
+		}
 		let result = self.client.fee_history(block_count, newest_block, reward_percentiles).await?;
 		Ok(result)
 	}
