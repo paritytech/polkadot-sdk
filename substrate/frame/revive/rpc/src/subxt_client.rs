@@ -36,7 +36,7 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	),
 
 	substitute_type(
-		path = "pallet_revive::evm::api::rpc_types_gen::GenericTransaction",
+		path = "pallet_revive::evm::api::transaction::GenericTransaction",
 		with = "::subxt::utils::Static<::pallet_revive::evm::GenericTransaction>"
 	),
 	substitute_type(
@@ -64,7 +64,7 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::sp_weights::Weight>"
 	),
 	substitute_type(
-		path = "pallet_revive::evm::api::rpc_types_gen::Block",
+		path = "pallet_revive::evm::api::block::Block",
 		with = "::subxt::utils::Static<::pallet_revive::evm::Block>"
 	),
 	substitute_type(
@@ -190,20 +190,20 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NonceVersionedOutputPayload<Nonce>>"
 	),
 	substitute_type(
-		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::EthPreDispatchWeightInputPayloadV1",
-		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthPreDispatchWeightInputPayloadV1>"
+		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::PreDispatchWeightInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PreDispatchWeightInputPayloadV1>"
 	),
 	substitute_type(
-		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::EthPreDispatchWeightVersionedInputPayload",
-		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthPreDispatchWeightVersionedInputPayload>"
+		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::PreDispatchWeightVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PreDispatchWeightVersionedInputPayload>"
 	),
 	substitute_type(
-		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::EthPreDispatchWeightOutputPayloadV1",
-		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthPreDispatchWeightOutputPayloadV1>"
+		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::PreDispatchWeightOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PreDispatchWeightOutputPayloadV1>"
 	),
 	substitute_type(
-		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::EthPreDispatchWeightVersionedOutputPayload",
-		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::EthPreDispatchWeightVersionedOutputPayload>"
+		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::PreDispatchWeightVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PreDispatchWeightVersionedOutputPayload>"
 	),
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::types::upload::CodeUploadReturnValueV1<Balance>",

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	ClientError, H160, LOG_TARGET, ReceiptGasInfoV1,
+	ClientError, H160, LOG_TARGET, Log, ReceiptGasInfoV1, ReceiptInfo,
 	client::{SubstrateBlock, SubstrateBlockNumber, runtime_api::RuntimeApi},
 	subxt_client::{
 		SrcChainConfig,
@@ -28,7 +28,7 @@ use crate::{
 
 use pallet_revive::{
 	create1,
-	evm::{GenericTransaction, H256, Log, ReceiptInfo, TransactionSigned, U256},
+	evm::{GenericTransaction, H256, TransactionSigned, U256},
 };
 use sp_crypto_hashing::keccak_256;
 use std::{
