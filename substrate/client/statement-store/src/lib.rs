@@ -411,6 +411,13 @@ struct SubmitIndex {
 	config: Config,
 	total_size: usize,
 	evicted_count: usize,
+	// Monotonic sequence number assigned to each statement as it is inserted.
+	next_seq: u64,
+	// Sequence numbers of recently inserted statements, kept only while at least one subscription
+	// snapshot scan is in progress and only back to the oldest such scan's watermark.
+	recent_seqs: HashMap<Hash, u64>,
+	// Watermarks of the currently running snapshot scans.
+	active_scan_floors: BTreeMap<u64, usize>,
 }
 
 struct ClientWrapper<Block, Client, BE> {
@@ -534,6 +541,47 @@ impl IndexSet {
 impl SubmitIndex {
 	fn new(config: Config) -> SubmitIndex {
 		SubmitIndex { config, ..Default::default() }
+	}
+
+	/// Assigns and returns the next store sequence number for `hash`, recording it in `recent_seqs`
+	/// while a snapshot scan is active.
+	fn note_seq(&mut self, hash: Hash) -> u64 {
+		let seq = self.next_seq;
+		self.next_seq += 1;
+		if !self.active_scan_floors.is_empty() {
+			self.recent_seqs.insert(hash, seq);
+		}
+		seq
+	}
+
+	/// Registers a subscription snapshot scan and returns its watermark.
+	fn begin_scan(&mut self) -> u64 {
+		let watermark = self.next_seq;
+		*self.active_scan_floors.entry(watermark).or_insert(0) += 1;
+		watermark
+	}
+
+	/// Deregisters a snapshot scan previously registered with [`Self::begin_scan`] and prunes
+	/// `recent_seqs` down to the smallest still-active watermark.
+	fn end_scan(&mut self, watermark: u64) {
+		if let Some(count) = self.active_scan_floors.get_mut(&watermark) {
+			*count -= 1;
+			if *count == 0 {
+				self.active_scan_floors.remove(&watermark);
+			}
+		}
+		match self.active_scan_floors.keys().next() {
+			Some(&floor) => self.recent_seqs.retain(|_, seq| *seq >= floor),
+			None => self.recent_seqs.clear(),
+		}
+	}
+
+	/// Whether the statement `hash` belongs in the snapshot of a scan with the given `watermark`.
+	fn seq_covered_by_snapshot(&self, hash: &Hash, watermark: u64) -> bool {
+		match self.recent_seqs.get(hash) {
+			Some(&seq) => seq < watermark,
+			None => true,
+		}
 	}
 
 	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement) {
@@ -988,6 +1036,14 @@ impl Store {
 			.is_some())
 	}
 
+	/// Whether `hash` is present in every one of `sets`, tested against the on-disk index. Used to
+	/// intersect a materialised candidate set with the remaining topic / decryption-key sets.
+	fn hash_in_all_sets(&self, hash: &Hash, sets: &[IndexSet]) -> Result<bool> {
+		sets.iter().try_fold(true, |acc, set| {
+			Ok::<bool, Error>(acc && self.index_set_contains(set, hash)?)
+		})
+	}
+
 	fn iterate_with(
 		&self,
 		key: Option<DecryptionKey>,
@@ -1079,9 +1135,7 @@ impl Store {
 		let smallest = self.load_set_cached(&sets[0])?;
 		let others = &sets[1..];
 		for hash in &smallest {
-			if others.iter().try_fold(true, |acc, set| {
-				Ok::<bool, Error>(acc && self.index_set_contains(set, hash)?)
-			})? {
+			if self.hash_in_all_sets(hash, others)? {
 				log::trace!(
 					target: LOG_TARGET,
 					"Iterating by topic/key: statement {:?}",
@@ -1091,6 +1145,79 @@ impl Store {
 			}
 		}
 		Ok(())
+	}
+
+	/// Enumerates matching hashes for a subscription's initial snapshot, reading candidates
+	/// directly from the on-disk index for every filter kind.
+	fn iterate_snapshot(
+		&self,
+		key: Option<DecryptionKey>,
+		topic: &OptimizedTopicFilter,
+		f: impl FnMut(&Hash) -> Result<()>,
+	) -> Result<()> {
+		match topic {
+			OptimizedTopicFilter::Any => self.iterate_with_any(key, f),
+			OptimizedTopicFilter::MatchAny(topics) => self.iterate_with_match_any(key, topics, f),
+			OptimizedTopicFilter::MatchAll(topics) => {
+				self.iterate_with_match_all_from_disk(key, topics, f)
+			},
+		}
+	}
+
+	/// Disk-authoritative `MatchAll` enumeration used by subscription snapshots.
+	fn iterate_with_match_all_from_disk(
+		&self,
+		key: Option<DecryptionKey>,
+		topics: &HashSet<Topic>,
+		mut f: impl FnMut(&Hash) -> Result<()>,
+	) -> Result<()> {
+		if topics.len() > MAX_TOPICS {
+			return Ok(());
+		}
+		let mut sets = Vec::with_capacity(topics.len() + 1);
+		sets.push(IndexSet::DecKey(key));
+		for topic in topics {
+			sets.push(IndexSet::Topic(*topic));
+		}
+		{
+			// Ordering only (best-effort): stale counters can misorder but never drop a statement.
+			let query_index = self.query_index.lock();
+			sets.sort_by_key(|s| s.len(&query_index));
+		}
+		let smallest = self.scan_index_prefix(sets[0].column(), &sets[0].prefix())?;
+		let others = &sets[1..];
+		for hash in &smallest {
+			if self.hash_in_all_sets(hash, others)? {
+				f(hash)?;
+			}
+		}
+		Ok(())
+	}
+
+	/// Reads the raw SCALE-encoded body of `hash` from `col::STATEMENTS`, or `None` if it is absent
+	/// (a benign DB race: the statement was removed concurrently). The stored value is exactly
+	/// `statement.encode()`, so it can be forwarded verbatim.
+	fn read_statement_encoded(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
+		match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
+			Some(entry) => Ok(Some(entry)),
+			None => {
+				log::debug!(target: LOG_TARGET, "Missing statement {:?}", HexDisplay::from(hash));
+				Ok(None)
+			},
+		}
+	}
+
+	/// Reads and decodes the statement `hash`, returning `None` if it is absent or its stored body
+	/// fails to decode (a corrupt DB row, which is logged and skipped).
+	fn read_statement(&self, hash: &Hash) -> Result<Option<Statement>> {
+		let Some(entry) = self.read_statement_encoded(hash)? else { return Ok(None) };
+		match Statement::decode(&mut entry.as_slice()) {
+			Ok(statement) => Ok(Some(statement)),
+			Err(_) => {
+				log::warn!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
+				Ok(None)
+			},
+		}
 	}
 
 	/// Collects statements matching `key` / `topic_filter`. Reads never hold the query-index lock
@@ -1104,29 +1231,10 @@ impl Store {
 	) -> Result<Vec<R>> {
 		let mut result = Vec::new();
 		self.iterate_with(key, topic_filter, |hash| {
-			match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
-				Some(entry) => {
-					if let Ok(statement) = Statement::decode(&mut entry.as_slice()) {
-						if let Some(data) = f(statement) {
-							result.push(data);
-						}
-					} else {
-						// DB inconsistency
-						log::warn!(
-							target: LOG_TARGET,
-							"Corrupt statement {:?}",
-							HexDisplay::from(hash)
-						);
-					}
-				},
-				None => {
-					// DB inconsistency
-					log::debug!(
-						target: LOG_TARGET,
-						"Missing statement {:?}",
-						HexDisplay::from(hash)
-					);
-				},
+			if let Some(statement) = self.read_statement(hash)? {
+				if let Some(data) = f(statement) {
+					result.push(data);
+				}
 			}
 			Ok(())
 		})?;
@@ -1765,7 +1873,7 @@ impl StatementStore for Store {
 		};
 
 		let current_time = self.timestamp();
-		let evicted = {
+		let (evicted, seq) = {
 			let mut submit_index = self.submit_index.write();
 
 			let outcome =
@@ -1824,19 +1932,17 @@ impl StatementStore for Store {
 				});
 				return SubmitResult::InternalError(Error::Db(e.to_string()));
 			}
-			evicted_statements
+			let seq = submit_index.note_seq(hash);
+			(evicted_statements, seq)
 		}; // Release submit index lock
 		{
-			// Update the in-memory read index and notify subscribers under the read lock, so a
-			// concurrent subscription cannot both miss this statement in its initial scan and miss
-			// the notification.
 			let mut query_index = self.query_index.lock();
 			for h in &evicted {
 				query_index.note_remove(&h.hash(), h);
 			}
 			query_index.note_insert(hash, &statement);
-			self.subscription_manager.notify(statement);
 		} // Release read index lock
+		self.subscription_manager.notify(seq, statement);
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
 		SubmitResult::New
@@ -1963,21 +2069,59 @@ impl StatementStore for Store {
 	}
 }
 
+/// RAII guard that deregisters a subscription snapshot scan (see [`SubmitIndex::begin_scan`] /
+/// [`SubmitIndex::end_scan`]) when dropped, so the `recent_seqs` window is always released — on the
+/// happy path, on an early `?` return, or on a panic during the snapshot.
+struct ScanGuard<'a> {
+	store: &'a Store,
+	watermark: u64,
+}
+
+impl Drop for ScanGuard<'_> {
+	fn drop(&mut self) {
+		self.store.submit_index.write().end_scan(self.watermark);
+	}
+}
+
 impl StatementStoreSubscriptionApi for Store {
 	fn subscribe_statement(
 		&self,
 		topic_filter: OptimizedTopicFilter,
 	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<StatementEvent>, SubscriptionStatementsStream)>
 	{
-		// Register the subscription first, then snapshot the current state. This avoids holding the
-		// query-index lock across the scan. A statement committed during the snapshot may appear
-		// both in it and as a notification (a duplicate, which this design already allows), but
-		// none is missed: a statement absent from the snapshot was committed after it, so its
-		// `submit` notifies an already-registered subscriber.
-		let (subscription_sender, subscription_stream) =
-			self.subscription_manager.subscribe(topic_filter.clone());
-		let existing_statements =
-			self.collect_statements(None, &topic_filter, |statement| Some(statement.encode()))?;
+		// Exactly-once delivery via a sequence-number watermark. Under the submit-index write lock
+		// we atomically (a) capture the current sequence boundary `W` and (b) register the
+		// subscription with `W` as its watermark.
+		let (subscription_sender, subscription_stream, watermark) = {
+			let mut submit_index = self.submit_index.write();
+			let watermark = submit_index.begin_scan();
+			let (sender, stream) =
+				self.subscription_manager.subscribe(topic_filter.clone(), watermark);
+			(sender, stream, watermark)
+		};
+		let _scan_guard = ScanGuard { store: self, watermark };
+
+		let mut hashes = HashSet::new();
+		self.iterate_snapshot(None, &topic_filter, |hash| {
+			hashes.insert(*hash);
+			Ok(())
+		})?;
+
+		let hashes: Vec<Hash> = {
+			let submit_index = self.submit_index.read();
+			hashes
+				.into_iter()
+				.filter(|hash| submit_index.seq_covered_by_snapshot(hash, watermark))
+				.collect()
+		};
+
+		let mut existing_statements = Vec::with_capacity(hashes.len());
+		for hash in hashes {
+			if let Some(entry) = self.read_statement_encoded(&hash)? {
+				existing_statements.push(entry);
+			}
+		}
+
 		if existing_statements.is_empty() {
 			subscription_sender
 				.send_blocking(StatementEvent::NewStatements {
@@ -3771,5 +3915,218 @@ mod tests {
 		let filter_b = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([topic_b]));
 		let (existing, _sender, _stream) = store.subscribe_statement(filter_b).unwrap();
 		assert_eq!(existing.len(), 2, "Re-subscribe MatchAll([B]) should return s2 and s3");
+	}
+
+	#[tokio::test]
+	async fn subscription_delivers_each_statement_exactly_once_across_boundary() {
+		// Exactly-once: a statement existing before the subscription is delivered only through the
+		// initial snapshot, and a statement submitted afterwards only through the live stream —
+		// never both (which was the at-least-once regression) and never neither.
+		use crate::StatementStoreSubscriptionApi;
+		use futures::StreamExt;
+		use sp_statement_store::{OptimizedTopicFilter, StatementEvent};
+
+		let (store, _temp) = test_store();
+		let source = StatementSource::Local;
+
+		// Two statements exist before the subscription is created.
+		let a = signed_statement(0);
+		let b = signed_statement(1);
+		assert_eq!(store.submit(a.clone(), source), SubmitResult::New);
+		assert_eq!(store.submit(b.clone(), source), SubmitResult::New);
+
+		// The snapshot must contain exactly the pre-existing statements.
+		let (existing, _sender, mut stream) =
+			store.subscribe_statement(OptimizedTopicFilter::Any).unwrap();
+		let mut snapshot: Vec<Statement> = existing
+			.iter()
+			.map(|bytes| Statement::decode(&mut &bytes[..]).unwrap())
+			.collect();
+		snapshot.sort_by_key(|s| s.hash());
+		let mut expected_snapshot = vec![a.clone(), b.clone()];
+		expected_snapshot.sort_by_key(|s| s.hash());
+		assert_eq!(
+			snapshot, expected_snapshot,
+			"snapshot must contain exactly the pre-existing statements"
+		);
+
+		// A statement submitted after the subscription must arrive on the live stream, exactly
+		// once.
+		let c = signed_statement(2);
+		assert_eq!(store.submit(c.clone(), source), SubmitResult::New);
+
+		let event = tokio::time::timeout(std::time::Duration::from_secs(5), stream.next())
+			.await
+			.expect("live statement should arrive within the timeout")
+			.expect("stream should yield an event");
+		let StatementEvent::NewStatements { statements, .. } = event;
+		let live: Vec<Statement> = statements
+			.iter()
+			.map(|bytes| Statement::decode(&mut &bytes.0[..]).unwrap())
+			.collect();
+		assert_eq!(
+			live,
+			vec![c.clone()],
+			"live stream must deliver exactly the post-subscribe statement"
+		);
+
+		// No duplicate: neither the new statement nor the snapshot statements are delivered again.
+		assert!(
+			tokio::time::timeout(std::time::Duration::from_millis(500), stream.next())
+				.await
+				.is_err(),
+			"no further (duplicate) statements must be delivered"
+		);
+	}
+
+	#[test]
+	fn subscription_snapshot_deduplicates_multi_topic_match_any() {
+		// A `MatchAny` snapshot must contain a statement matching several of the filter's topics
+		// only once, not once per matching topic.
+		use crate::StatementStoreSubscriptionApi;
+		use sp_statement_store::OptimizedTopicFilter;
+
+		let (store, _temp) = test_store();
+		let topic_a = topic(1);
+		let topic_b = topic(2);
+
+		// A statement carrying BOTH topics.
+		let s = signed_statement_with_topics(1, &[topic_a, topic_b], None);
+		assert_eq!(store.submit(s, StatementSource::Local), SubmitResult::New);
+
+		let filter =
+			OptimizedTopicFilter::MatchAny(std::collections::HashSet::from([topic_a, topic_b]));
+		let (existing, _sender, _stream) = store.subscribe_statement(filter).unwrap();
+		assert_eq!(
+			existing.len(),
+			1,
+			"MatchAny snapshot must not duplicate a multi-topic statement"
+		);
+	}
+
+	#[tokio::test]
+	async fn subscription_match_all_delivers_exactly_once_across_boundary() {
+		// The `MatchAll` snapshot is enumerated authoritatively from disk, so a matching statement
+		// present before the subscription is delivered via the snapshot (never lost to the
+		// in-memory counters/cache lagging a commit), while one submitted afterwards is delivered
+		// live exactly once.
+		use crate::StatementStoreSubscriptionApi;
+		use futures::StreamExt;
+		use sp_statement_store::{OptimizedTopicFilter, StatementEvent};
+
+		let (store, _temp) = test_store();
+		let source = StatementSource::Local;
+		let t = topic(7);
+
+		// Two matching statements exist before the subscription.
+		let a = signed_statement_with_topics(0, &[t], None);
+		let b = signed_statement_with_topics(1, &[t], None);
+		assert_eq!(store.submit(a, source), SubmitResult::New);
+		assert_eq!(store.submit(b, source), SubmitResult::New);
+
+		let filter = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([t]));
+		let (existing, _sender, mut stream) = store.subscribe_statement(filter).unwrap();
+		assert_eq!(
+			existing.len(),
+			2,
+			"MatchAll snapshot must contain both pre-existing statements"
+		);
+
+		// A matching statement submitted afterwards must arrive live, exactly once.
+		let c = signed_statement_with_topics(2, &[t], None);
+		assert_eq!(store.submit(c.clone(), source), SubmitResult::New);
+
+		let event = tokio::time::timeout(std::time::Duration::from_secs(5), stream.next())
+			.await
+			.expect("live statement should arrive within the timeout")
+			.expect("stream should yield an event");
+		let StatementEvent::NewStatements { statements, .. } = event;
+		let live: Vec<Statement> = statements
+			.iter()
+			.map(|bytes| Statement::decode(&mut &bytes.0[..]).unwrap())
+			.collect();
+		assert_eq!(
+			live,
+			vec![c],
+			"MatchAll live stream must deliver exactly the post-subscribe statement"
+		);
+
+		assert!(
+			tokio::time::timeout(std::time::Duration::from_millis(500), stream.next())
+				.await
+				.is_err(),
+			"no further (duplicate) statements must be delivered"
+		);
+	}
+
+	#[tokio::test]
+	async fn subscription_no_loss_or_duplicate_under_concurrent_submits() {
+		// Race a stream of submissions against the subscription registration: whatever the
+		// interleaving, every matching statement must be delivered exactly once across the snapshot
+		// and the live stream — no loss (the bug the on-disk `MatchAll` snapshot could cause) and
+		// no duplicate (the original at-least-once regression). This assertion holds for any
+		// timing, so the test is deterministic even though the race window is hit
+		// non-deterministically.
+		use crate::StatementStoreSubscriptionApi;
+		use futures::StreamExt;
+		use sp_statement_store::{OptimizedTopicFilter, StatementEvent};
+		use std::collections::HashSet;
+
+		let (store, _temp) = test_store();
+		let store = std::sync::Arc::new(store);
+		let t = topic(9);
+		// Keep well under SUBSCRIPTION_BUFFER_SIZE (128) so the live channel never overflows (which
+		// would auto-unsubscribe and legitimately drop statements).
+		const N: u8 = 60;
+
+		let all: Vec<Statement> =
+			(0..N).map(|i| signed_statement_with_topics(i, &[t], None)).collect();
+		let all_hashes: HashSet<_> = all.iter().map(|s| s.hash()).collect();
+
+		// A handful exist before subscribing; the rest are submitted concurrently with the
+		// subscribe.
+		let split = 10usize;
+		for s in &all[..split] {
+			assert_eq!(store.submit(s.clone(), StatementSource::Local), SubmitResult::New);
+		}
+		let store2 = store.clone();
+		let rest: Vec<Statement> = all[split..].to_vec();
+		let submitter = std::thread::spawn(move || {
+			for s in rest {
+				let _ = store2.submit(s, StatementSource::Local);
+			}
+		});
+
+		let filter = OptimizedTopicFilter::MatchAll(HashSet::from([t]));
+		let (existing, _sender, mut stream) = store.subscribe_statement(filter).unwrap();
+
+		submitter.join().unwrap();
+
+		// Everything delivered so far, snapshot first.
+		let mut seen = existing
+			.iter()
+			.map(|b| Statement::decode(&mut &b[..]).unwrap().hash())
+			.collect::<Vec<_>>();
+		// Drain the live stream until every statement is accounted for (or a timeout on loss).
+		while seen.len() < N as usize {
+			match tokio::time::timeout(std::time::Duration::from_secs(5), stream.next()).await {
+				Ok(Some(StatementEvent::NewStatements { statements, .. })) => {
+					for b in statements {
+						seen.push(Statement::decode(&mut &b.0[..]).unwrap().hash());
+					}
+				},
+				_ => break,
+			}
+		}
+
+		let seen_set: HashSet<_> = seen.iter().copied().collect();
+		assert_eq!(
+			seen.len(),
+			N as usize,
+			"each statement must be delivered exactly once (got {} deliveries for {} statements — loss or duplicate)",
+			seen.len(),
+			N
+		);
+		assert_eq!(seen_set, all_hashes, "delivered set must equal submitted set");
 	}
 }

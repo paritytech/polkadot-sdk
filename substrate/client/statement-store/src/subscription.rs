@@ -66,8 +66,8 @@ pub trait StatementStoreSubscriptionApi: Send + Sync {
 /// Messages sent to matcher tasks.
 #[derive(Clone, Debug)]
 pub enum MatcherMessage {
-	/// A new statement has been submitted.
-	NewStatement(Statement),
+	/// A new statement has been submitted, tagged with the store sequence number.
+	NewStatement(u64, Statement),
 	/// A new subscription has been created.
 	Subscribe(SubscriptionInfo),
 	/// Unsubscribe the subscription with the given ID.
@@ -107,8 +107,8 @@ impl SubscriptionsHandle {
 					loop {
 						let res = subscription_matcher_receiver.recv().await;
 						match res {
-							Ok(MatcherMessage::NewStatement(statement)) => {
-								subscriptions.notify_matching_filters(&statement);
+							Ok(MatcherMessage::NewStatement(seq, statement)) => {
+								subscriptions.notify_matching_filters(seq, &statement);
 							},
 							Ok(MatcherMessage::Subscribe(info)) => {
 								subscriptions.subscribe(info);
@@ -145,11 +145,12 @@ impl SubscriptionsHandle {
 	pub(crate) fn subscribe(
 		&self,
 		topic_filter: OptimizedTopicFilter,
+		watermark: u64,
 	) -> (async_channel::Sender<StatementEvent>, SubscriptionStatementsStream) {
 		let next_id = self.next_id();
 		let (tx, rx) = async_channel::bounded(SUBSCRIPTION_BUFFER_SIZE);
 		let subscription_info =
-			SubscriptionInfo { topic_filter: topic_filter.clone(), seq_id: next_id, tx };
+			SubscriptionInfo { topic_filter: topic_filter.clone(), seq_id: next_id, tx, watermark };
 
 		let result = (
 			subscription_info.tx.clone(),
@@ -165,8 +166,8 @@ impl SubscriptionsHandle {
 		result
 	}
 
-	pub(crate) fn notify(&self, statement: Statement) {
-		self.matchers.send_all(MatcherMessage::NewStatement(statement));
+	pub(crate) fn notify(&self, seq: u64, statement: Statement) {
+		self.matchers.send_all(MatcherMessage::NewStatement(seq, statement));
 	}
 }
 
@@ -200,6 +201,8 @@ pub(crate) struct SubscriptionInfo {
 	seq_id: SeqID,
 	// Channel to send matched statements to the subscriber.
 	tx: async_channel::Sender<StatementEvent>,
+	// Store sequence-number boundary captured when this subscription was created.
+	watermark: u64,
 }
 
 impl SubscriptionsInfo {
@@ -238,13 +241,18 @@ impl SubscriptionsInfo {
 		};
 	}
 
-	// Notify a single subscriber, marking it for unsubscribing if sending fails.
+	// Notify a single subscriber with the statement at store sequence number `seq`, marking it for
+	// unsubscribing if sending fails.
 	fn notify_subscriber(
 		&self,
 		subscription: &SubscriptionInfo,
+		seq: u64,
 		bytes_to_send: Bytes,
 		needs_unsubscribing: &mut HashSet<SeqID>,
 	) {
+		if seq < subscription.watermark {
+			return;
+		}
 		if let Err(err) = subscription.tx.try_send(StatementEvent::NewStatements {
 			statements: vec![bytes_to_send],
 			remaining: None,
@@ -259,14 +267,14 @@ impl SubscriptionsInfo {
 		}
 	}
 
-	fn notify_matching_filters(&mut self, statement: &Statement) {
-		self.notify_match_all_subscribers_best(statement);
-		self.notify_match_any_subscribers(statement);
-		self.notify_any_subscribers(statement);
+	fn notify_matching_filters(&mut self, seq: u64, statement: &Statement) {
+		self.notify_match_all_subscribers_best(seq, statement);
+		self.notify_match_any_subscribers(seq, statement);
+		self.notify_any_subscribers(seq, statement);
 	}
 
 	// Notify all subscribers with MatchAny filters that match the given statement.
-	fn notify_match_any_subscribers(&mut self, statement: &Statement) {
+	fn notify_match_any_subscribers(&mut self, seq: u64, statement: &Statement) {
 		let mut needs_unsubscribing: HashSet<SeqID> = HashSet::new();
 		let mut already_notified: HashSet<SeqID> = HashSet::new();
 
@@ -280,6 +288,7 @@ impl SubscriptionsInfo {
 				{
 					self.notify_subscriber(
 						subscription,
+						seq,
 						bytes_to_send.clone(),
 						&mut needs_unsubscribing,
 					);
@@ -295,9 +304,10 @@ impl SubscriptionsInfo {
 	}
 
 	// Notify all subscribers with MatchAll filters that match the given statement.
-	fn notify_match_all_subscribers_best(&mut self, statement: &Statement) {
+	fn notify_match_all_subscribers_best(&mut self, seq: u64, statement: &Statement) {
 		let bytes_to_send: Bytes = statement.encode().into();
 		let mut needs_unsubscribing: HashSet<SeqID> = HashSet::new();
+		let mut already_notified: HashSet<SeqID> = HashSet::new();
 		let num_topics = statement.topics().len();
 
 		// Check all combinations of topics in the statement to find matching subscriptions.
@@ -317,12 +327,14 @@ impl SubscriptionsInfo {
 					continue;
 				};
 
-				for subscription in topic_with_fewest[num_topics_to_check - 1]
-					.values()
-					.filter(|subscription| subscription.topic_filter.matches(statement))
-				{
+				for subscription in
+					topic_with_fewest[num_topics_to_check - 1].values().filter(|subscription| {
+						subscription.topic_filter.matches(statement) &&
+							already_notified.insert(subscription.seq_id)
+					}) {
 					self.notify_subscriber(
 						subscription,
+						seq,
 						bytes_to_send.clone(),
 						&mut needs_unsubscribing,
 					);
@@ -337,12 +349,17 @@ impl SubscriptionsInfo {
 	}
 
 	// Notify all subscribers that don't filter by topic and want to receive all statements.
-	fn notify_any_subscribers(&mut self, statement: &Statement) {
+	fn notify_any_subscribers(&mut self, seq: u64, statement: &Statement) {
 		let mut needs_unsubscribing: HashSet<SeqID> = HashSet::new();
 
 		let bytes_to_send: Bytes = statement.encode().into();
 		for subscription in self.subscriptions_any.values() {
-			self.notify_subscriber(subscription, bytes_to_send.clone(), &mut needs_unsubscribing);
+			self.notify_subscriber(
+				subscription,
+				seq,
+				bytes_to_send.clone(),
+				&mut needs_unsubscribing,
+			);
 		}
 
 		// Unsubscribe any subscriptions that failed to receive messages, to give them a chance to
@@ -492,6 +509,7 @@ mod tests {
 			),
 			seq_id: SeqID::from(1),
 			tx: tx1,
+			watermark: 0,
 		};
 		subscriptions.subscribe(sub_info1.clone());
 		assert!(subscriptions.subscriptions_match_all_by_topic.contains_key(&topic1));
@@ -512,6 +530,7 @@ mod tests {
 			topic_filter: OptimizedTopicFilter::Any,
 			seq_id: SeqID::from(1),
 			tx: tx1,
+			watermark: 0,
 		};
 		subscriptions.subscribe(sub_info1.clone());
 		assert!(subscriptions.subscriptions_any.contains_key(&sub_info1.seq_id));
@@ -533,6 +552,7 @@ mod tests {
 			),
 			seq_id: SeqID::from(1),
 			tx: tx1,
+			watermark: 0,
 		};
 		subscriptions.subscribe(sub_info1.clone());
 		assert!(subscriptions.subscriptions_match_any_by_topic.contains_key(&topic1));
@@ -554,11 +574,12 @@ mod tests {
 			topic_filter: OptimizedTopicFilter::Any,
 			seq_id: SeqID::from(1),
 			tx: tx1,
+			watermark: 0,
 		};
 		subscriptions.subscribe(sub_info1.clone());
 
 		let statement = signed_statement(1);
-		subscriptions.notify_matching_filters(&statement);
+		subscriptions.notify_matching_filters(0, &statement);
 
 		let received = unwrap_statement(rx1.try_recv().expect("Should receive statement"));
 		let decoded_statement: Statement =
@@ -579,18 +600,19 @@ mod tests {
 			),
 			seq_id: SeqID::from(1),
 			tx: tx1,
+			watermark: 0,
 		};
 		subscriptions.subscribe(sub_info1.clone());
 
 		let mut statement = signed_statement(1);
 		statement.set_topic(0, topic2);
-		subscriptions.notify_matching_filters(&statement);
+		subscriptions.notify_matching_filters(0, &statement);
 
 		// Should not receive yet, only one topic matched.
 		assert!(rx1.try_recv().is_err());
 
 		statement.set_topic(1, topic1);
-		subscriptions.notify_matching_filters(&statement);
+		subscriptions.notify_matching_filters(1, &statement);
 
 		let received = unwrap_statement(rx1.try_recv().expect("Should receive statement"));
 		let decoded_statement: Statement =
@@ -612,12 +634,14 @@ mod tests {
 			),
 			seq_id: SeqID::from(1),
 			tx: tx1,
+			watermark: 0,
 		};
 
 		let sub_info2 = SubscriptionInfo {
 			topic_filter: OptimizedTopicFilter::MatchAny(vec![topic2].into_iter().collect()),
 			seq_id: SeqID::from(2),
 			tx: tx2,
+			watermark: 0,
 		};
 
 		subscriptions.subscribe(sub_info1.clone());
@@ -626,7 +650,7 @@ mod tests {
 		let mut statement = signed_statement(1);
 		statement.set_topic(0, topic1);
 		statement.set_topic(1, topic2);
-		subscriptions.notify_match_any_subscribers(&statement);
+		subscriptions.notify_match_any_subscribers(0, &statement);
 
 		let received = unwrap_statement(rx1.try_recv().expect("Should receive statement"));
 		let decoded_statement: Statement =
@@ -653,18 +677,19 @@ mod tests {
 			let streams = (0..5)
 				.into_iter()
 				.map(|_| {
-					subscriptions_handle.subscribe(OptimizedTopicFilter::MatchAll(
-						vec![topic1, topic2].into_iter().collect(),
-					))
+					subscriptions_handle.subscribe(
+						OptimizedTopicFilter::MatchAll(vec![topic1, topic2].into_iter().collect()),
+						0,
+					)
 				})
 				.collect::<Vec<_>>();
 
 			let mut statement = signed_statement(1);
 			statement.set_topic(0, topic2);
-			subscriptions_handle.notify(statement.clone());
+			subscriptions_handle.notify(0, statement.clone());
 
 			statement.set_topic(1, topic1);
-			subscriptions_handle.notify(statement.clone());
+			subscriptions_handle.notify(1, statement.clone());
 
 			for (_tx, mut stream) in streams {
 				let received =
@@ -684,15 +709,17 @@ mod tests {
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
 
-		let (tx, mut stream) = subscriptions_handle
-			.subscribe(OptimizedTopicFilter::MatchAll(vec![topic1, topic2].into_iter().collect()));
+		let (tx, mut stream) = subscriptions_handle.subscribe(
+			OptimizedTopicFilter::MatchAll(vec![topic1, topic2].into_iter().collect()),
+			0,
+		);
 
 		let mut statement = signed_statement(1);
 		statement.set_topic(0, topic1);
 		statement.set_topic(1, topic2);
 
 		// Send a statement and verify it's received.
-		subscriptions_handle.notify(statement.clone());
+		subscriptions_handle.notify(0, statement.clone());
 
 		let received = unwrap_statement(stream.next().await.expect("Should receive statement"));
 		let decoded_statement: Statement =
@@ -709,7 +736,7 @@ mod tests {
 		let mut statement2 = signed_statement(2);
 		statement2.set_topic(0, topic1);
 		statement2.set_topic(1, topic2);
-		subscriptions_handle.notify(statement2.clone());
+		subscriptions_handle.notify(1, statement2.clone());
 
 		// The tx channel should be closed/disconnected since the subscription was removed.
 		// Give some time for the notification to potentially arrive (it shouldn't).
@@ -747,6 +774,7 @@ mod tests {
 			),
 			seq_id: SeqID::from(1),
 			tx: tx1,
+			watermark: 0,
 		};
 		let sub_info2 = SubscriptionInfo {
 			topic_filter: OptimizedTopicFilter::MatchAll(
@@ -754,6 +782,7 @@ mod tests {
 			),
 			seq_id: SeqID::from(2),
 			tx: tx2,
+			watermark: 0,
 		};
 
 		subscriptions.subscribe(sub_info1.clone());
@@ -785,7 +814,7 @@ mod tests {
 		let mut statement = signed_statement(1);
 		statement.set_topic(0, topic1);
 		statement.set_topic(1, topic2);
-		subscriptions.notify_matching_filters(&statement);
+		subscriptions.notify_matching_filters(0, &statement);
 
 		// Both should receive.
 		assert!(rx1.try_recv().is_ok());
@@ -819,7 +848,7 @@ mod tests {
 		assert!(subscriptions.by_sub_id.contains_key(&sub_info2.seq_id));
 
 		// Send another statement.
-		subscriptions.notify_matching_filters(&statement);
+		subscriptions.notify_matching_filters(1, &statement);
 
 		// Only sub2 should receive.
 		assert!(rx2.try_recv().is_ok());
@@ -838,6 +867,7 @@ mod tests {
 			topic_filter: OptimizedTopicFilter::MatchAny(vec![topic1].into_iter().collect()),
 			seq_id: SeqID::from(1),
 			tx: tx1,
+			watermark: 0,
 		};
 		subscriptions.subscribe(sub_info1.clone());
 
@@ -845,15 +875,15 @@ mod tests {
 		statement.set_topic(0, topic1);
 
 		// First notification should succeed.
-		subscriptions.notify_matching_filters(&statement);
+		subscriptions.notify_matching_filters(0, &statement);
 		assert!(rx1.try_recv().is_ok());
 
 		// Fill the channel.
-		subscriptions.notify_matching_filters(&statement);
+		subscriptions.notify_matching_filters(1, &statement);
 		// Channel is now full.
 
 		// Next notification should trigger auto-unsubscribe.
-		subscriptions.notify_matching_filters(&statement);
+		subscriptions.notify_matching_filters(2, &statement);
 
 		// Subscription should be removed.
 		assert!(!subscriptions.by_sub_id.contains_key(&sub_info1.seq_id));
@@ -875,6 +905,7 @@ mod tests {
 			),
 			seq_id: SeqID::from(1),
 			tx: tx1,
+			watermark: 0,
 		};
 		subscriptions.subscribe(sub_info1.clone());
 
@@ -883,7 +914,7 @@ mod tests {
 		statement.set_topic(0, topic1);
 		statement.set_topic(1, topic2);
 
-		subscriptions.notify_match_any_subscribers(&statement);
+		subscriptions.notify_match_any_subscribers(0, &statement);
 
 		// Should receive exactly once, not twice.
 		let received = unwrap_statement(rx1.try_recv().expect("Should receive statement"));
@@ -893,6 +924,75 @@ mod tests {
 
 		// No more messages.
 		assert!(rx1.try_recv().is_err());
+	}
+
+	#[test]
+	fn test_match_all_receives_once_per_statement() {
+		// A `MatchAll` subscriber must receive each matching statement exactly once, even when it
+		// is registered under several of the statement's topics and the matcher therefore
+		// encounters it across multiple topic combinations.
+		let mut subscriptions = SubscriptionsInfo::new();
+
+		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(10);
+		let (tx2, _rx2) = async_channel::bounded::<StatementEvent>(10);
+		let (tx3, _rx3) = async_channel::bounded::<StatementEvent>(10);
+
+		let topic1 = Topic::from([1u8; 32]);
+		let topic2 = Topic::from([2u8; 32]);
+		let topic3 = Topic::from([3u8; 32]);
+		let topic4 = Topic::from([4u8; 32]);
+
+		// The subscription under test: MatchAll on topic1 AND topic2 (stored under both topics).
+		let sub_info1 = SubscriptionInfo {
+			topic_filter: OptimizedTopicFilter::MatchAll(
+				vec![topic1, topic2].into_iter().collect(),
+			),
+			seq_id: SeqID::from(1),
+			tx: tx1,
+			watermark: 0,
+		};
+		subscriptions.subscribe(sub_info1.clone());
+
+		// Extra MatchAll subscriptions on topic3 so the matcher encounters sub_info1 across several
+		// topic combinations of the statement below. They do not match the statement themselves
+		// (topic4 is absent).
+		let sub_info2 = SubscriptionInfo {
+			topic_filter: OptimizedTopicFilter::MatchAll(
+				vec![topic3, topic4].into_iter().collect(),
+			),
+			seq_id: SeqID::from(2),
+			tx: tx2,
+			watermark: 0,
+		};
+		let sub_info3 = SubscriptionInfo {
+			topic_filter: OptimizedTopicFilter::MatchAll(
+				vec![topic3, topic4].into_iter().collect(),
+			),
+			seq_id: SeqID::from(3),
+			tx: tx3,
+			watermark: 0,
+		};
+		subscriptions.subscribe(sub_info2);
+		subscriptions.subscribe(sub_info3);
+
+		// Statement carrying topic1, topic2 and topic3.
+		let mut statement = signed_statement(1);
+		statement.set_topic(0, topic1);
+		statement.set_topic(1, topic2);
+		statement.set_topic(2, topic3);
+
+		subscriptions.notify_match_all_subscribers_best(0, &statement);
+
+		// sub_info1 must receive the statement exactly once.
+		let received = unwrap_statement(rx1.try_recv().expect("Should receive statement"));
+		let decoded_statement: Statement =
+			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
+		assert_eq!(decoded_statement, statement);
+
+		assert!(
+			rx1.try_recv().is_err(),
+			"MatchAll subscriber must receive each statement only once"
+		);
 	}
 
 	#[test]
@@ -908,6 +1008,7 @@ mod tests {
 			topic_filter: OptimizedTopicFilter::MatchAll(vec![topic1].into_iter().collect()),
 			seq_id: SeqID::from(1),
 			tx: tx1,
+			watermark: 0,
 		};
 		subscriptions.subscribe(sub_info1.clone());
 
@@ -916,7 +1017,7 @@ mod tests {
 		statement.set_topic(0, topic1);
 		statement.set_topic(1, topic2);
 
-		subscriptions.notify_matching_filters(&statement);
+		subscriptions.notify_matching_filters(0, &statement);
 
 		// Should receive because the statement contains topic1 (which is the only required topic).
 		let received = unwrap_statement(rx1.try_recv().expect("Should receive statement"));
@@ -943,6 +1044,7 @@ mod tests {
 			),
 			seq_id: SeqID::from(1),
 			tx: tx1,
+			watermark: 0,
 		};
 		subscriptions.subscribe(sub_info1.clone());
 
@@ -950,7 +1052,7 @@ mod tests {
 		let mut statement = signed_statement(1);
 		statement.set_topic(0, topic3);
 
-		subscriptions.notify_matching_filters(&statement);
+		subscriptions.notify_matching_filters(0, &statement);
 
 		// Should not receive anything.
 		assert!(rx1.try_recv().is_err());
@@ -975,6 +1077,7 @@ mod tests {
 			topic_filter: OptimizedTopicFilter::MatchAll(vec![topic2].into_iter().collect()),
 			seq_id: SeqID::from(1),
 			tx: tx1,
+			watermark: 0,
 		};
 		subscriptions.subscribe(sub_info1);
 
@@ -986,7 +1089,7 @@ mod tests {
 		statement.set_topic(0, topic1);
 		statement.set_topic(1, topic2);
 
-		subscriptions.notify_match_all_subscribers_best(&statement);
+		subscriptions.notify_match_all_subscribers_best(0, &statement);
 
 		// With the bug: rx1.try_recv() fails because the function returned early.
 		// With the fix: rx1.try_recv() succeeds because [topic2] combination is checked.
@@ -1007,13 +1110,15 @@ mod tests {
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
 
-		let (_tx, mut stream) = subscriptions_handle
-			.subscribe(OptimizedTopicFilter::MatchAny(vec![topic1, topic2].into_iter().collect()));
+		let (_tx, mut stream) = subscriptions_handle.subscribe(
+			OptimizedTopicFilter::MatchAny(vec![topic1, topic2].into_iter().collect()),
+			0,
+		);
 
 		// Statement matching only topic1.
 		let mut statement1 = signed_statement(1);
 		statement1.set_topic(0, topic1);
-		subscriptions_handle.notify(statement1.clone());
+		subscriptions_handle.notify(0, statement1.clone());
 
 		let received = unwrap_statement(stream.next().await.expect("Should receive statement"));
 		let decoded_statement: Statement =
@@ -1023,7 +1128,7 @@ mod tests {
 		// Statement matching only topic2.
 		let mut statement2 = signed_statement(2);
 		statement2.set_topic(0, topic2);
-		subscriptions_handle.notify(statement2.clone());
+		subscriptions_handle.notify(1, statement2.clone());
 
 		let received = unwrap_statement(stream.next().await.expect("Should receive statement"));
 		let decoded_statement: Statement =
@@ -1036,11 +1141,11 @@ mod tests {
 		let subscriptions_handle =
 			SubscriptionsHandle::new(Box::new(sp_core::testing::TaskExecutor::new()), 2);
 
-		let (_tx, mut stream) = subscriptions_handle.subscribe(OptimizedTopicFilter::Any);
+		let (_tx, mut stream) = subscriptions_handle.subscribe(OptimizedTopicFilter::Any, 0);
 
 		// Send statements with various topics.
 		let statement1 = signed_statement(1);
-		subscriptions_handle.notify(statement1.clone());
+		subscriptions_handle.notify(0, statement1.clone());
 
 		let received = unwrap_statement(stream.next().await.expect("Should receive statement"));
 		let decoded_statement: Statement =
@@ -1049,7 +1154,7 @@ mod tests {
 
 		let mut statement2 = signed_statement(2);
 		statement2.set_topic(0, Topic::from([99u8; 32]));
-		subscriptions_handle.notify(statement2.clone());
+		subscriptions_handle.notify(1, statement2.clone());
 
 		let received = unwrap_statement(stream.next().await.expect("Should receive statement"));
 		let decoded_statement: Statement =
@@ -1066,20 +1171,22 @@ mod tests {
 		let topic2 = Topic::from([9u8; 32]);
 
 		// Subscriber 1: MatchAll on topic1 and topic2.
-		let (_tx1, mut stream1) = subscriptions_handle
-			.subscribe(OptimizedTopicFilter::MatchAll(vec![topic1, topic2].into_iter().collect()));
+		let (_tx1, mut stream1) = subscriptions_handle.subscribe(
+			OptimizedTopicFilter::MatchAll(vec![topic1, topic2].into_iter().collect()),
+			0,
+		);
 
 		// Subscriber 2: MatchAny on topic1.
 		let (_tx2, mut stream2) = subscriptions_handle
-			.subscribe(OptimizedTopicFilter::MatchAny(vec![topic1].into_iter().collect()));
+			.subscribe(OptimizedTopicFilter::MatchAny(vec![topic1].into_iter().collect()), 0);
 
 		// Subscriber 3: Any.
-		let (_tx3, mut stream3) = subscriptions_handle.subscribe(OptimizedTopicFilter::Any);
+		let (_tx3, mut stream3) = subscriptions_handle.subscribe(OptimizedTopicFilter::Any, 0);
 
 		// Statement matching only topic1.
 		let mut statement1 = signed_statement(1);
 		statement1.set_topic(0, topic1);
-		subscriptions_handle.notify(statement1.clone());
+		subscriptions_handle.notify(0, statement1.clone());
 
 		// stream1 should NOT receive (needs both topics).
 		// stream2 should receive (MatchAny topic1).
@@ -1097,7 +1204,7 @@ mod tests {
 		let mut statement2 = signed_statement(2);
 		statement2.set_topic(0, topic1);
 		statement2.set_topic(1, topic2);
-		subscriptions_handle.notify(statement2.clone());
+		subscriptions_handle.notify(1, statement2.clone());
 
 		// All should receive.
 		let received1 = unwrap_statement(stream1.next().await.expect("stream1 should receive"));
@@ -1131,6 +1238,7 @@ mod tests {
 			),
 			seq_id: SeqID::from(1),
 			tx: tx_match_all,
+			watermark: 0,
 		};
 		subscriptions.subscribe(sub_match_all);
 
@@ -1141,6 +1249,7 @@ mod tests {
 			),
 			seq_id: SeqID::from(2),
 			tx: tx_match_any,
+			watermark: 0,
 		};
 		subscriptions.subscribe(sub_match_any);
 
@@ -1149,6 +1258,7 @@ mod tests {
 			topic_filter: OptimizedTopicFilter::Any,
 			seq_id: SeqID::from(3),
 			tx: tx_any,
+			watermark: 0,
 		};
 		subscriptions.subscribe(sub_any);
 
@@ -1157,7 +1267,7 @@ mod tests {
 		assert!(statement.topics().is_empty(), "Statement should have no topics");
 
 		// Notify all matching filters.
-		subscriptions.notify_matching_filters(&statement);
+		subscriptions.notify_matching_filters(0, &statement);
 
 		// Any should receive (matches all statements regardless of topics).
 		let received =
