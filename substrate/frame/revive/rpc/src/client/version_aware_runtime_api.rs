@@ -15,22 +15,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use futures::{FutureExt, TryFutureExt, future::BoxFuture};
-use pallet_revive::evm::{H160, U256};
-use pallet_revive_types::runtime_api::*;
-use sp_core::H256;
-use sp_timestamp::Timestamp;
-use std::future::Future;
-use subxt::{OnlineClient, ext::frame_metadata::v16::RuntimeMetadataV16, runtime_api::RuntimeApi};
+//! A version-aware access layer for pallet-revive's runtime API together with the provider that
+//! tracks which runtime API methods are available at which blocks.
 
 use crate::{
 	BlockId,
-	client::{Balance, ClientError},
+	client::{Balance, ClientError, SubstrateBlock, SubstrateBlockHeader},
 	subxt_client::{self, SrcChainConfig},
+};
+use codec::{Decode, Encode};
+use futures::{FutureExt, TryFutureExt, future::BoxFuture};
+use pallet_revive::evm::{H160, U256};
+use pallet_revive_types::runtime_api::*;
+use schnellru::{ByLength, LruMap};
+use sp_core::H256;
+use sp_timestamp::Timestamp;
+use std::{
+	future::Future,
+	sync::{Arc, Mutex, MutexGuard, PoisonError},
+};
+use subxt::{
+	OnlineClient,
+	client::OnlineClientAtBlock,
+	config::substrate::DigestItem,
+	ext::frame_metadata::{OpaqueMetadata, RuntimeMetadata, RuntimeMetadataPrefixed},
 };
 
 use MethodStatus::*;
 use MethodVersioningStatus::*;
+
+const LOG_TARGET: &str = "eth-rpc::version-aware-runtime-api";
 
 /// A version-aware runtime API wrapper for pallet-revive.
 ///
@@ -50,39 +64,40 @@ use MethodVersioningStatus::*;
 /// that holds the information and the knowledge of what runtime API functions are available and
 /// what isn't. Therefore it's not a 1:1 mapping.
 ///
-/// [`estimate_gas`]: Self::estimate_gas
+/// [`estimate_gas`]: VersionAwareRuntimeApi::estimate_gas
 pub struct VersionAwareRuntimeApi {
-	runtime_api: RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>,
+	at_block: OnlineClientAtBlock<SrcChainConfig>,
 	capabilities: ReviveRuntimeApiCapabilities,
 }
 
 impl VersionAwareRuntimeApi {
 	/// Create a new instance.
 	pub fn new(
-		runtime_api: RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>,
+		at_block: OnlineClientAtBlock<SrcChainConfig>,
 		capabilities: ReviveRuntimeApiCapabilities,
 	) -> Self {
-		Self { runtime_api, capabilities }
+		Self { at_block, capabilities }
 	}
 
 	/// Get the balance of the given address.
 	pub fn balance(&self, address: H160) -> Option<BoxFuture<'_, Result<U256, ClientError>>> {
 		self.capabilities.balance.handle(
 			|| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::apis().revive_api().balance(address).unvalidated();
-					runtime_api.call(payload).await.map(|balance| balance.0).map_err(Into::into)
+					let payload = subxt_client::runtime_apis().revive_api().balance(address).unvalidated();
+					at_block.runtime_apis().call(payload).await.map(|balance| balance.0).map_err(Into::into)
 				}
 			},
 			|_| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
 					let input = BalanceInputPayloadV1 { address };
-					let payload = subxt_client::apis()
+					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.balance_versioned(BalanceVersionedInputPayload::from(input).into());
-					runtime_api
+					at_block
+						.runtime_apis()
 						.call(payload)
 						.await
 						.map(|output| {
@@ -104,26 +119,27 @@ impl VersionAwareRuntimeApi {
 	) -> Option<BoxFuture<'_, Result<Option<Vec<u8>>, ClientError>>> {
 		self.capabilities.get_storage.handle(
 			|| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::apis()
+					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.get_storage(contract_address, key)
 						.unvalidated();
-					runtime_api.call(payload).await?.map_err(|_| ClientError::ContractNotFound)
+					at_block.runtime_apis().call(payload).await?.map_err(|_| ClientError::ContractNotFound)
 				}
 			},
 			|_| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
 					let input = GetStorageInputPayloadV1 {
 						address: contract_address,
 						key: StorageKeyV1::Fixed(key),
 					};
-					let payload = subxt_client::apis()
+					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.get_storage_versioned(GetStorageVersionedInputPayload::from(input).into());
-					runtime_api
+					at_block
+						.runtime_apis()
 						.call(payload)
 						.await?
 						.map(|output| {
@@ -155,15 +171,16 @@ impl VersionAwareRuntimeApi {
 			.eth_estimate_gas
 			.handle(
 				|| {
-					let runtime_api = self.runtime_api.clone();
+					let at_block = self.at_block.clone();
 					let tx = tx.clone();
 					async move {
 						let config = DryRunConfigV1 { timestamp_override, ..Default::default() };
-						let payload = subxt_client::apis()
+						let payload = subxt_client::runtime_apis()
 							.revive_api()
 							.eth_estimate_gas(tx.into(), config.into())
 							.unvalidated();
-						runtime_api
+						at_block
+							.runtime_apis()
 							.call(payload)
 							.await?
 							.map(|gas_estimate| gas_estimate.0)
@@ -171,7 +188,7 @@ impl VersionAwareRuntimeApi {
 					}
 				},
 				|_| {
-					let runtime_api = self.runtime_api.clone();
+					let at_block = self.at_block.clone();
 					let tx = tx.clone();
 					async move {
 						let input = EstimateGasInputPayloadV1 {
@@ -179,10 +196,11 @@ impl VersionAwareRuntimeApi {
 							timestamp_override,
 							state_overrides: None,
 						};
-						let payload = subxt_client::apis().revive_api().eth_estimate_gas_versioned(
+						let payload = subxt_client::runtime_apis().revive_api().eth_estimate_gas_versioned(
 							EstimateGasVersionedInputPayload::from(input).into(),
 						);
-						runtime_api
+						at_block
+							.runtime_apis()
 							.call(payload)
 							.await?
 							.map(|output| {
@@ -201,6 +219,11 @@ impl VersionAwareRuntimeApi {
 	}
 
 	/// Dry run a transaction and return the [`EthTransactInfoV1`] for the transaction.
+	///
+	/// The runtime API functions are tried in order of expressiveness: the versioned
+	/// `eth_transact`, then `eth_transact_with_config` (both carry the timestamp override and the
+	/// state overrides), and only as a last resort the plain `eth_transact`, which carries
+	/// neither and is therefore skipped whenever state overrides are requested.
 	pub fn dry_run(
 		&self,
 		tx: GenericTransactionV1,
@@ -209,29 +232,13 @@ impl VersionAwareRuntimeApi {
 	) -> Option<BoxFuture<'_, Result<EthTransactInfoV1<Balance>, ClientError>>> {
 		let timestamp_override = block.is_pending().then(|| Timestamp::current().as_millis());
 
-		let eth_transact_future =
-			self.capabilities.eth_transact.handle::<'_, _, _, _, BoxFuture<'_, _>, _>(
-				|| {
-					if state_overrides.is_some() {
-						return None;
-					};
-
-					let tx = tx.clone();
-					let runtime_api = self.runtime_api.clone();
-					Some(Box::pin(async move {
-						let payload =
-							subxt_client::apis().revive_api().eth_transact(tx.into()).unvalidated();
-						runtime_api
-							.call(payload)
-							.await?
-							.map(|transact_info| transact_info.0)
-							.map_err(|err| ClientError::TransactError(err.0))
-					}))
-				},
-				|_| {
-					let tx = tx.clone();
-					let state_overrides = state_overrides.clone();
-					let runtime_api = self.runtime_api.clone();
+		let versioned_eth_transact = match self.capabilities.eth_transact {
+			Unavailable | Available(Unversioned) => None,
+			Available(Versioned(_)) => {
+				let tx = tx.clone();
+				let state_overrides = state_overrides.clone();
+				let at_block = self.at_block.clone();
+				Some(
 					async move {
 						let input = TransactInputPayloadV1 {
 							tx,
@@ -239,10 +246,11 @@ impl VersionAwareRuntimeApi {
 							perform_balance_checks: true,
 							state_overrides,
 						};
-						let payload = subxt_client::apis().revive_api().eth_transact_versioned(
+						let payload = subxt_client::runtime_apis().revive_api().eth_transact_versioned(
 							TransactVersionedInputPayload::from(input).into(),
 						);
-						runtime_api
+						at_block
+							.runtime_apis()
 							.call(payload)
 							.await?
 							.map(|output| {
@@ -252,57 +260,82 @@ impl VersionAwareRuntimeApi {
 							})
 							.map_err(|err| ClientError::TransactError(err.0))
 					}
-				},
-			);
-		let eth_transact_with_config_future = self
-			.capabilities
-			.eth_transact_with_config
-			.handle::<'_, _, _, _, _, BoxFuture<'_, _>>(
-				|| {
-					let tx = tx.clone();
-					let state_overrides = state_overrides.clone();
-					let runtime_api = self.runtime_api.clone();
+					.boxed(),
+				)
+			},
+		};
+		let eth_transact_with_config = match self.capabilities.eth_transact_with_config {
+			Unavailable | Available(Versioned(_)) => None,
+			Available(Unversioned) => {
+				let tx = tx.clone();
+				let state_overrides = state_overrides.clone();
+				let at_block = self.at_block.clone();
+				Some(
 					async move {
 						let config = DryRunConfigV1 {
 							timestamp_override,
 							state_overrides,
 							..Default::default()
 						};
-						let payload = subxt_client::apis()
+						let payload = subxt_client::runtime_apis()
 							.revive_api()
 							.eth_transact_with_config(tx.into(), config.into())
 							.unvalidated();
-						runtime_api
+						at_block
+							.runtime_apis()
 							.call(payload)
 							.await?
 							.map(|transact_info| transact_info.0)
 							.map_err(|err| ClientError::TransactError(err.0))
 					}
-				},
-				|_| None::<BoxFuture<'_, _>>,
-			);
+					.boxed(),
+				)
+			},
+		};
+		let plain_eth_transact = match self.capabilities.eth_transact {
+			Unavailable | Available(Versioned(_)) => None,
+			Available(Unversioned) if state_overrides.is_some() => None,
+			Available(Unversioned) => {
+				let tx = tx.clone();
+				let at_block = self.at_block.clone();
+				Some(
+					async move {
+						let payload =
+							subxt_client::runtime_apis().revive_api().eth_transact(tx.into()).unvalidated();
+						at_block
+							.runtime_apis()
+							.call(payload)
+							.await?
+							.map(|transact_info| transact_info.0)
+							.map_err(|err| ClientError::TransactError(err.0))
+					}
+					.boxed(),
+				)
+			},
+		};
 
-		eth_transact_future.or(eth_transact_with_config_future)
+		versioned_eth_transact.or(eth_transact_with_config).or(plain_eth_transact)
 	}
 
 	/// Get the nonce of the given address.
 	pub fn nonce(&self, address: H160) -> Option<BoxFuture<'_, Result<U256, ClientError>>> {
 		self.capabilities.nonce.handle(
 			|| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::apis().revive_api().nonce(address).unvalidated();
-					runtime_api.call(payload).await.map(|nonce| nonce.into()).map_err(Into::into)
+					let payload = subxt_client::runtime_apis().revive_api().nonce(address).unvalidated();
+					at_block.runtime_apis().call(payload).await.map(|nonce| nonce.into()).map_err(Into::into)
 				}
 			},
 			|_| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
 					let input = NonceInputPayloadV1 { address };
-					let payload = subxt_client::apis()
+					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.nonce_versioned(NonceVersionedInputPayload::from(input).into());
-					runtime_api
+					at_block
+						.runtime_apis()
 						.call(payload)
 						.await
 						.map(|output| {
@@ -321,20 +354,21 @@ impl VersionAwareRuntimeApi {
 	pub fn gas_price(&self) -> Option<BoxFuture<'_, Result<U256, ClientError>>> {
 		self.capabilities.gas_price.handle(
 			|| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::apis().revive_api().gas_price().unvalidated();
-					runtime_api.call(payload).await.map(|gas_price| gas_price.0).map_err(Into::into)
+					let payload = subxt_client::runtime_apis().revive_api().gas_price().unvalidated();
+					at_block.runtime_apis().call(payload).await.map(|gas_price| gas_price.0).map_err(Into::into)
 				}
 			},
 			|_| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
 					let input = GasPriceInputPayloadV1;
-					let payload = subxt_client::apis()
+					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.gas_price_versioned(GasPriceVersionedInputPayload::from(input).into());
-					runtime_api
+					at_block
+						.runtime_apis()
 						.call(payload)
 						.await
 						.map(|output| {
@@ -352,20 +386,21 @@ impl VersionAwareRuntimeApi {
 	pub fn block_gas_limit(&self) -> Option<BoxFuture<'_, Result<U256, ClientError>>> {
 		self.capabilities.block_gas_limit.handle(
 			|| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::apis().revive_api().block_gas_limit().unvalidated();
-					runtime_api.call(payload).await.map(|gas_limit| gas_limit.0).map_err(Into::into)
+					let payload = subxt_client::runtime_apis().revive_api().block_gas_limit().unvalidated();
+					at_block.runtime_apis().call(payload).await.map(|gas_limit| gas_limit.0).map_err(Into::into)
 				}
 			},
 			|_| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
 					let input = BlockGasLimitInputPayloadV1;
-					let payload = subxt_client::apis().revive_api().block_gas_limit_versioned(
+					let payload = subxt_client::runtime_apis().revive_api().block_gas_limit_versioned(
 						BlockGasLimitVersionedInputPayload::from(input).into(),
 					);
-					runtime_api
+					at_block
+						.runtime_apis()
 						.call(payload)
 						.await
 						.map(|output| {
@@ -383,20 +418,21 @@ impl VersionAwareRuntimeApi {
 	pub fn block_author(&self) -> Option<BoxFuture<'_, Result<H160, ClientError>>> {
 		self.capabilities.block_author.handle(
 			|| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::apis().revive_api().block_author().unvalidated();
-					runtime_api.call(payload).await.map_err(Into::into)
+					let payload = subxt_client::runtime_apis().revive_api().block_author().unvalidated();
+					at_block.runtime_apis().call(payload).await.map_err(Into::into)
 				}
 			},
 			|_| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
 					let input = BlockAuthorInputPayloadV1;
-					let payload = subxt_client::apis().revive_api().block_author_versioned(
+					let payload = subxt_client::runtime_apis().revive_api().block_author_versioned(
 						BlockAuthorVersionedInputPayload::from(input).into(),
 					);
-					runtime_api
+					at_block
+						.runtime_apis()
 						.call(payload)
 						.await
 						.map(|output| {
@@ -423,13 +459,14 @@ impl VersionAwareRuntimeApi {
 		match self.capabilities.trace_tx {
 			Unavailable => None,
 			Available(Unversioned) => {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				let future = Box::pin(async move {
-					let payload = subxt_client::apis()
+					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.trace_tx(block.into(), transaction_index, tracer_type.into())
 						.unvalidated();
-					runtime_api
+					at_block
+						.runtime_apis()
 						.call(payload)
 						.await?
 						.map(|trace| trace.0)
@@ -438,17 +475,18 @@ impl VersionAwareRuntimeApi {
 				Some(future)
 			},
 			Available(Versioned(_)) => {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				let future = Box::pin(async move {
 					let input = TraceTxInputPayloadV1 {
 						block: block.into(),
 						tx_index: transaction_index,
 						config: tracer_type,
 					};
-					let payload = subxt_client::apis()
+					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.trace_tx_versioned(TraceTxVersionedInputPayload::from(input).into());
-					runtime_api
+					at_block
+						.runtime_apis()
 						.call(payload)
 						.await
 						.map(|output| {
@@ -476,13 +514,14 @@ impl VersionAwareRuntimeApi {
 		match self.capabilities.trace_block {
 			Unavailable => None,
 			Available(Unversioned) => {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				let future = Box::pin(async move {
-					let payload = subxt_client::apis()
+					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.trace_block(block.into(), tracer_type.into())
 						.unvalidated();
-					runtime_api
+					at_block
+						.runtime_apis()
 						.call(payload)
 						.await
 						.map(|traces| {
@@ -493,14 +532,15 @@ impl VersionAwareRuntimeApi {
 				Some(future)
 			},
 			Available(Versioned(_)) => {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				let future = Box::pin(async move {
 					let input =
 						TraceBlockInputPayloadV1 { block: block.into(), config: tracer_type };
-					let payload = subxt_client::apis()
+					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.trace_block_versioned(TraceBlockVersionedInputPayload::from(input).into());
-					runtime_api
+					at_block
+						.runtime_apis()
 						.call(payload)
 						.await
 						.map(|output| {
@@ -531,13 +571,14 @@ impl VersionAwareRuntimeApi {
 
 					let transaction = transaction.clone();
 					let tracer_type = tracer_type.clone();
-					let runtime_api = self.runtime_api.clone();
+					let at_block = self.at_block.clone();
 					Some(Box::pin(async move {
-						let payload = subxt_client::apis()
+						let payload = subxt_client::runtime_apis()
 							.revive_api()
 							.trace_call(transaction.into(), tracer_type.into())
 							.unvalidated();
-						runtime_api
+						at_block
+							.runtime_apis()
 							.call(payload)
 							.await?
 							.map(|trace| trace.0)
@@ -548,17 +589,18 @@ impl VersionAwareRuntimeApi {
 					let transaction = transaction.clone();
 					let tracer_type = tracer_type.clone();
 					let state_overrides = state_overrides.clone();
-					let runtime_api = self.runtime_api.clone();
+					let at_block = self.at_block.clone();
 					async move {
 						let input = TraceCallInputPayloadV1 {
 							tx: transaction,
 							config: tracer_type,
 							state_overrides,
 						};
-						let payload = subxt_client::apis().revive_api().trace_call_versioned(
+						let payload = subxt_client::runtime_apis().revive_api().trace_call_versioned(
 							TraceCallVersionedInputPayload::from(input).into(),
 						);
-						runtime_api
+						at_block
+							.runtime_apis()
 							.call(payload)
 							.await?
 							.map(|output| {
@@ -578,10 +620,10 @@ impl VersionAwareRuntimeApi {
 					let transaction = transaction.clone();
 					let tracer_type = tracer_type.clone();
 					let state_overrides = state_overrides.clone();
-					let runtime_api = self.runtime_api.clone();
+					let at_block = self.at_block.clone();
 					async move {
 						let config = TracingConfigV1 { state_overrides };
-						let payload = subxt_client::apis()
+						let payload = subxt_client::runtime_apis()
 							.revive_api()
 							.trace_call_with_config(
 								transaction.into(),
@@ -589,7 +631,8 @@ impl VersionAwareRuntimeApi {
 								config.into(),
 							)
 							.unvalidated();
-						runtime_api
+						at_block
+							.runtime_apis()
 							.call(payload)
 							.await?
 							.map(|trace| trace.0)
@@ -606,20 +649,21 @@ impl VersionAwareRuntimeApi {
 	pub fn code(&self, address: H160) -> Option<BoxFuture<'_, Result<Vec<u8>, ClientError>>> {
 		self.capabilities.code.handle(
 			|| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::apis().revive_api().code(address).unvalidated();
-					runtime_api.call(payload).await.map_err(Into::into)
+					let payload = subxt_client::runtime_apis().revive_api().code(address).unvalidated();
+					at_block.runtime_apis().call(payload).await.map_err(Into::into)
 				}
 			},
 			|_| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
 					let input = CodeInputPayloadV1 { address };
-					let payload = subxt_client::apis()
+					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.code_versioned(CodeVersionedInputPayload::from(input).into());
-					runtime_api
+					at_block
+						.runtime_apis()
 						.call(payload)
 						.await
 						.map(|output| {
@@ -637,20 +681,21 @@ impl VersionAwareRuntimeApi {
 	pub fn eth_block(&self) -> Option<BoxFuture<'_, Result<BlockV1, ClientError>>> {
 		self.capabilities.eth_block.handle(
 			|| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::apis().revive_api().eth_block().unvalidated();
-					runtime_api.call(payload).await.map(|block| block.0).map_err(Into::into)
+					let payload = subxt_client::runtime_apis().revive_api().eth_block().unvalidated();
+					at_block.runtime_apis().call(payload).await.map(|block| block.0).map_err(Into::into)
 				}
 			},
 			|_| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
 					let input = BlockInputPayloadV1;
-					let payload = subxt_client::apis()
+					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.eth_block_versioned(BlockVersionedInputPayload::from(input).into());
-					runtime_api
+					at_block
+						.runtime_apis()
 						.call(payload)
 						.await
 						.map(|output| {
@@ -671,23 +716,24 @@ impl VersionAwareRuntimeApi {
 	) -> Option<BoxFuture<'_, Result<Option<H256>, ClientError>>> {
 		self.capabilities.eth_block_hash.handle(
 			|| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::apis()
+					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.eth_block_hash(number.into())
 						.unvalidated();
-					runtime_api.call(payload).await.map_err(Into::into)
+					at_block.runtime_apis().call(payload).await.map_err(Into::into)
 				}
 			},
 			|_| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
 					let input = BlockHashInputPayloadV1 { block_number: number };
-					let payload = subxt_client::apis().revive_api().eth_block_hash_versioned(
+					let payload = subxt_client::runtime_apis().revive_api().eth_block_hash_versioned(
 						BlockHashVersionedInputPayload::from(input).into(),
 					);
-					runtime_api
+					at_block
+						.runtime_apis()
 						.call(payload)
 						.await
 						.map(|output| {
@@ -707,11 +753,12 @@ impl VersionAwareRuntimeApi {
 	) -> Option<BoxFuture<'_, Result<Vec<ReceiptGasInfoV1>, ClientError>>> {
 		self.capabilities.eth_receipt_data.handle(
 			|| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
 					let payload =
-						subxt_client::apis().revive_api().eth_receipt_data().unvalidated();
-					runtime_api
+						subxt_client::runtime_apis().revive_api().eth_receipt_data().unvalidated();
+					at_block
+						.runtime_apis()
 						.call(payload)
 						.await
 						.map(|receipt_data| receipt_data.into_iter().map(|item| item.0).collect())
@@ -719,13 +766,14 @@ impl VersionAwareRuntimeApi {
 				}
 			},
 			|_| {
-				let runtime_api = self.runtime_api.clone();
+				let at_block = self.at_block.clone();
 				async move {
 					let input = ReceiptDataInputPayloadV1;
-					let payload = subxt_client::apis().revive_api().eth_receipt_data_versioned(
+					let payload = subxt_client::runtime_apis().revive_api().eth_receipt_data_versioned(
 						ReceiptDataVersionedInputPayload::from(input).into(),
 					);
-					runtime_api
+					at_block
+						.runtime_apis()
 						.call(payload)
 						.await
 						.map(|output| {
@@ -738,6 +786,175 @@ impl VersionAwareRuntimeApi {
 			},
 		)
 	}
+}
+
+/// The number of blocks whose capabilities are kept in the provider's cache.
+///
+/// Sized to cover a full day of blocks at a two-second block time. This comfortably serves the
+/// typical usage pattern of the eth-rpc, where queries overwhelmingly target recent blocks; the
+/// capabilities of older blocks are recomputed on demand and cached again, evicting the least
+/// recently used entries.
+const CACHE_CAPACITY: u32 = 43_200;
+
+/// Hands out [`VersionAwareRuntimeApi`] instances for specific blocks, caching the
+/// [`ReviveRuntimeApiCapabilities`] that each one is constructed with.
+///
+/// Capabilities are cached per block hash in an LRU map, making every cached entry an immutable
+/// fact about that exact block: forks need no special handling because competing blocks have
+/// different hashes. The cache is populated in two ways:
+///
+/// * [`at`] computes the capabilities of a block on first use. This covers the very first
+///   computation when the client starts as well as queries for blocks that nothing has observed
+///   yet, such as historic blocks the backfill has not walked back to.
+/// * [`observe_block`] is fed every block seen by the block subscriptions and by the backward sync,
+///   and propagates capabilities between a block and its parent so that steady-state operation
+///   requires no computations at all.
+///
+/// [`at`]: Self::at
+/// [`observe_block`]: Self::observe_block
+#[derive(Clone)]
+pub struct VersionAwareRuntimeApiProvider {
+	/// The subxt client through which the capabilities of blocks are computed.
+	api: OnlineClient<SrcChainConfig>,
+	/// The capabilities of the most recently used blocks, keyed by block hash.
+	cache: Arc<Mutex<LruMap<H256, Arc<ReviveRuntimeApiCapabilities>>>>,
+}
+
+impl VersionAwareRuntimeApiProvider {
+	/// Creates a provider with an empty cache which computes capabilities through the given
+	/// client.
+	pub fn new(api: OnlineClient<SrcChainConfig>) -> Self {
+		Self { api, cache: Arc::new(Mutex::new(LruMap::new(ByLength::new(CACHE_CAPACITY)))) }
+	}
+
+	/// Returns the version-aware runtime API of the given block, computing and caching the
+	/// block's capabilities if they are not cached yet.
+	pub async fn at(&self, block_hash: H256) -> Result<VersionAwareRuntimeApi, ClientError> {
+		let capabilities = self.capabilities(block_hash).await?;
+		Ok(VersionAwareRuntimeApi::new(self.api.at_block(block_hash).await?, *capabilities))
+	}
+
+	/// Records a block seen by a block subscription or by the backward sync.
+	///
+	/// A block without the runtime-upgrade marker in its header ran the same runtime as its
+	/// parent, so the capabilities of whichever of the two is cached are propagated to the other
+	/// (computing them once from the block's state when neither is cached). This keeps the cache
+	/// growing forward with the subscriptions and backward with the backfill without any network
+	/// traffic. A block carrying the marker gets capabilities computed from its own state
+	/// instead, since its parent ran a different runtime.
+	pub(crate) async fn observe_block(&self, block: &SubstrateBlock) -> Result<(), ClientError> {
+		let block_hash = block.block_hash();
+		let header = block.block_header().await?;
+		let parent_hash = header.parent_hash;
+
+		if runtime_environment_updated(&header) {
+			if self.lock_cache().get(&block_hash).is_none() {
+				let computed = self.compute(block_hash).await?;
+				// An upgrade which did not change the revive runtime API keeps the parent's
+				// capabilities: share the parent's allocation instead of storing a copy.
+				let capabilities = match self.lock_cache().get(&parent_hash).cloned() {
+					Some(parent) if *parent == computed => parent,
+					_ => Arc::new(computed),
+				};
+				self.lock_cache().insert(block_hash, capabilities);
+			}
+			return Ok(());
+		}
+
+		// Genesis has no parent to propagate capabilities between.
+		if block.block_number() == 0 {
+			self.capabilities(block_hash).await?;
+			return Ok(());
+		}
+
+		let (parent, own) = {
+			let mut cache = self.lock_cache();
+			(cache.get(&parent_hash).cloned(), cache.get(&block_hash).cloned())
+		};
+		match (parent, own) {
+			(Some(_), Some(_)) => {},
+			(Some(parent), None) => {
+				self.lock_cache().insert(block_hash, parent);
+			},
+			(None, Some(own)) => {
+				self.lock_cache().insert(parent_hash, own);
+			},
+			(None, None) => {
+				let capabilities = Arc::new(self.compute(block_hash).await?);
+				let mut cache = self.lock_cache();
+				cache.insert(block_hash, capabilities.clone());
+				cache.insert(parent_hash, capabilities);
+			},
+		}
+
+		Ok(())
+	}
+
+	/// Returns the capabilities of the given block, computing and caching them if they are not
+	/// cached yet.
+	async fn capabilities(
+		&self,
+		block_hash: H256,
+	) -> Result<Arc<ReviveRuntimeApiCapabilities>, ClientError> {
+		if let Some(capabilities) = self.lock_cache().get(&block_hash).cloned() {
+			return Ok(capabilities);
+		}
+
+		let capabilities = Arc::new(self.compute(block_hash).await?);
+		self.lock_cache().insert(block_hash, capabilities.clone());
+		Ok(capabilities)
+	}
+
+	/// Computes the capabilities of the given block from its state.
+	async fn compute(&self, block_hash: H256) -> Result<ReviveRuntimeApiCapabilities, ClientError> {
+		let at_block = self.api.at_block(block_hash).await?;
+		let capabilities = match self.fetch_runtime_metadata(&at_block).await? {
+			Some(metadata) => ReviveRuntimeApiCapabilities::new(&metadata, at_block).await,
+			None => ReviveRuntimeApiCapabilities::default(),
+		};
+		log::debug!(target: LOG_TARGET,
+			"Computed the revive runtime API capabilities of block {block_hash:?}");
+		Ok(capabilities)
+	}
+
+	/// Fetches the runtime metadata stored at the given block, preferring the newest metadata
+	/// version and falling back to older ones for blocks whose runtime predates it. Returns
+	/// [`None`] when the block's runtime knows the versioned metadata runtime API but supports
+	/// none of the requested versions; runtimes so old that they lack the versioned metadata
+	/// runtime API altogether (all of which predate pallet-revive) yield an error instead.
+	async fn fetch_runtime_metadata(
+		&self,
+		at_block: &OnlineClientAtBlock<SrcChainConfig>,
+	) -> Result<Option<RuntimeMetadata>, ClientError> {
+		for version in [16u32, 15] {
+			let response = at_block
+				.runtime_apis()
+				.call_raw("Metadata_metadata_at_version", Some(&version.encode()))
+				.await?;
+			if let Some(metadata) = Option::<OpaqueMetadata>::decode(&mut response.as_slice())? {
+				let prefixed = RuntimeMetadataPrefixed::decode(&mut metadata.0.as_slice())?;
+				return Ok(Some(prefixed.1));
+			}
+		}
+
+		Ok(None)
+	}
+
+	/// Locks the cache, tolerating lock poisoning since the cache holds no invariants beyond the
+	/// cached entries themselves.
+	fn lock_cache(&self) -> MutexGuard<'_, LruMap<H256, Arc<ReviveRuntimeApiCapabilities>>> {
+		self.cache.lock().unwrap_or_else(PoisonError::into_inner)
+	}
+}
+
+/// Whether the block header carries the marker that frame-system deposits when the runtime is
+/// upgraded.
+fn runtime_environment_updated(header: &SubstrateBlockHeader) -> bool {
+	header
+		.digest
+		.logs
+		.iter()
+		.any(|log| matches!(log, DigestItem::RuntimeEnvironmentUpdated))
 }
 
 /// Stores the capabilities of pallet-revive's runtime API.
@@ -785,27 +1002,49 @@ impl ReviveRuntimeApiCapabilities {
 	/// This requires the metadata and the runtime API at the same block in order to be constructed.
 	/// If they come from different blocks then the object created might end up with corrupted state
 	/// that is not representative of any real block on the network.
+	///
+	/// Runtime API information only exists in metadata V15 and V16, so those are the versions this
+	/// constructor understands. For any older metadata no method is reported as available, which
+	/// is accurate in practice since runtimes without V15 metadata predate pallet-revive.
 	pub async fn new(
-		metadata: &RuntimeMetadataV16,
-		runtime_api: RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>,
+		metadata: &RuntimeMetadata,
+		at_block: OnlineClientAtBlock<SrcChainConfig>,
 	) -> Self {
-		let version_declarations =
-			runtime_api.call(subxt_client::apis().revive_api().version_declarations()).await;
+		let version_declarations = at_block
+			.runtime_apis()
+			.call(subxt_client::runtime_apis().revive_api().version_declarations().unvalidated())
+			.await;
+
+		let v15_methods = match metadata {
+			RuntimeMetadata::V15(metadata) => Some(
+				metadata
+					.apis
+					.iter()
+					.filter(|runtime_api| runtime_api.name == "ReviveApi")
+					.flat_map(|api| api.methods.iter())
+					.map(|method| method.name.as_str()),
+			),
+			_ => None,
+		}
+		.into_iter()
+		.flatten();
+		let v16_methods = match metadata {
+			RuntimeMetadata::V16(metadata) => metadata
+				.apis
+				.iter()
+				.filter(|runtime_api| runtime_api.name == "ReviveApi")
+				.max_by(|a, b| a.version.0.cmp(&b.version.0))
+				.map(|api| api.methods.iter().map(|method| method.name.as_str())),
+			_ => None,
+		}
+		.into_iter()
+		.flatten();
 
 		version_declarations
 			.iter()
 			.flat_map(|declarations| declarations.0.iter())
 			.map(|(method, version)| (method, Versioned(*version)))
-			.chain(
-				metadata
-					.apis
-					.iter()
-					.filter(|runtime_api| runtime_api.name == "ReviveApi")
-					.max_by(|a, b| a.version.0.cmp(&b.version.0))
-					.into_iter()
-					.flat_map(|api| api.methods.iter())
-					.map(|method| (method.name.as_str(), Unversioned)),
-			)
+			.chain(v15_methods.chain(v16_methods).map(|method| (method, Unversioned)))
 			.fold(Self::default(), |this, (method, versioning_status)| {
 				this.with_method(method, versioning_status)
 			})

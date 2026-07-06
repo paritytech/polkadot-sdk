@@ -14124,6 +14124,7 @@ dependencies = [
  "sc-rpc",
  "sc-rpc-api",
  "sc-service",
+ "schnellru",
  "serde",
  "serde_json",
  "sp-arithmetic 23.0.0",

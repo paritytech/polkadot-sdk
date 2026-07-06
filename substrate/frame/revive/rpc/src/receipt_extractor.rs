@@ -16,7 +16,10 @@
 // limitations under the License.
 use crate::{
 	ClientError, H160, LOG_TARGET, Log, ReceiptGasInfoV1, ReceiptInfo,
-	client::{SubstrateBlock, SubstrateBlockNumber, runtime_api::RuntimeApi},
+	client::{
+		SubstrateBlock, SubstrateBlockNumber,
+		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
+	},
 	subxt_client::{
 		SrcChainConfig,
 		revive::{
@@ -40,10 +43,7 @@ use std::{
 		atomic::{AtomicU64, Ordering},
 	},
 };
-use subxt::{
-	OnlineClient,
-	events::{DecodeAsEvent, Phase},
-};
+use subxt::events::{DecodeAsEvent, Phase};
 
 type EventDetails<'a> = subxt::events::Event<'a, SrcChainConfig>;
 
@@ -187,9 +187,11 @@ pub struct ReceiptExtractor {
 
 impl ReceiptExtractor {
 	/// Create a new `ReceiptExtractor`.
-	pub async fn new(api: OnlineClient<SrcChainConfig>) -> Result<Self, ClientError> {
+	pub async fn new(
+		runtime_api_provider: VersionAwareRuntimeApiProvider,
+	) -> Result<Self, ClientError> {
 		Self::new_with_custom_address_recovery(
-			api,
+			runtime_api_provider,
 			Arc::new(|signed_tx: &TransactionSigned| signed_tx.recover_eth_address()),
 		)
 		.await
@@ -200,36 +202,28 @@ impl ReceiptExtractor {
 	/// Use `ReceiptExtractor::new` if the default Ethereum address recovery
 	/// logic ([`TransactionSigned::recover_eth_address`] based) is enough.
 	pub async fn new_with_custom_address_recovery(
-		api: OnlineClient<SrcChainConfig>,
+		runtime_api_provider: VersionAwareRuntimeApiProvider,
 		recover_eth_address_fn: RecoverEthAddressFn,
 	) -> Result<Self, ClientError> {
-		let api_inner = api.clone();
+		let provider = runtime_api_provider.clone();
 		let fetch_eth_block_hash = Arc::new(move |block_hash, block_number| {
-			let api_inner = api_inner.clone();
+			let provider = provider.clone();
 
 			let fut = async move {
-				let at_block = api_inner
-					.at_block_hash_and_number(block_hash, block_number)
-					.await
-					.inspect_err(|err| {
-						log::debug!(target: LOG_TARGET, "Failed to resolve block #{block_number} ({block_hash:?}) for eth_block_hash query: {err:?}");
-					})
-					.ok()?;
-				let runtime_api = RuntimeApi::new(at_block);
-				runtime_api.eth_block_hash(U256::from(block_number)).await.ok().flatten()
+				let runtime_api = provider.at(block_hash).await.ok()?;
+				runtime_api.eth_block_hash(U256::from(block_number))?.await.ok().flatten()
 			};
 
 			Box::pin(fut) as Pin<Box<_>>
 		});
 
-		let api_inner = api.clone();
+		let provider = runtime_api_provider;
 		let fetch_receipt_data = Arc::new(move |block_hash| {
-			let api_inner = api_inner.clone();
+			let provider = provider.clone();
 
 			let fut = async move {
-				let at_block = api_inner.at_block(block_hash).await.ok()?;
-				let runtime_api = RuntimeApi::new(at_block);
-				runtime_api.eth_receipt_data().await.ok()
+				let runtime_api = provider.at(block_hash).await.ok()?;
+				runtime_api.eth_receipt_data()?.await.ok()
 			};
 
 			Box::pin(fut) as Pin<Box<_>>
