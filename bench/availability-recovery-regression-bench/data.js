@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783335927509,
+  "lastUpdate": 1783342905748,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "178801527+raymondkfcheung@users.noreply.github.com",
-            "name": "Raymond Cheung",
-            "username": "raymondkfcheung"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c1c52454982c9b4ebef51a65b8ce2cd0c38029ed",
-          "message": "Replace `log` with `tracing` on Snowbridge-related modules (#9279)\n\nThis PR replaces `log` with `tracing` instrumentation in\nSnowbridge-related modules by providing structured logging.\n\nPartially addresses #9211 \nSimilar to #8732\n\n## Key Features\n- **Consistent targets**: All components use predictable log targets\n- **Structured fields**: Uses `?variable`/`%variable` syntax for\nautomatic `Debug`/`Display` formatting\n- **Zero runtime impact**: No behavioural changes, only observability\nimprovements\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrii <ndk@parity.io>",
-          "timestamp": "2025-11-11T09:24:18Z",
-          "tree_id": "a8211170d6959b24bb5e63c975d01ea22d896f28",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c1c52454982c9b4ebef51a65b8ce2cd0c38029ed"
-        },
-        "date": 1762858420761,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20089327843333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.326328337833335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13536372216666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "85409988+t55844@users.noreply.github.com",
+            "name": "Thiago Soares",
+            "username": "t55844"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0eb814106aad27a803c426ccca6c71f45a8a0336",
+          "message": "Remove unused dependencies found by cargo-udeps (#12514)\n\nDescription\nRemoves unused dependencies flagged by cargo +nightly udeps: bitvec from\npallet-broker, rlp from snowbridge-beacon-primitives, and\nstatic_assertions from sp-runtime-interface. Each was confirmed unused\nby grepping the crate source for any use of the dependency. Partial fix\nfor #6906.\nNote: serde_json in sp-genesis-builder was initially removed as well,\nbut restored — although udeps flags it as unused, it exists to enable\nthe arbitrary_precision feature required for genesis config\nserialization of u128 values (removing it broke genesis building in CI).\nIntegration\nNo integration steps required. Only [dependencies] entries with no\ncorresponding usage were removed; no code, APIs, or features changed.\nDownstream crates are unaffected.\nReview Notes\nChanges are limited to three Cargo.toml files, one dependency line\nremoved from each. No logic changes. CI compile checks across\nstd/no_std/WASM configurations verify the dependencies were genuinely\nunused.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-06T10:10:10Z",
+          "tree_id": "d5b06c2c0f703f1350255faeda4fc035c4347b9e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0eb814106aad27a803c426ccca6c71f45a8a0336"
+        },
+        "date": 1783342877168,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13084931793333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.737948863600002,
             "unit": "seconds"
           }
         ]
