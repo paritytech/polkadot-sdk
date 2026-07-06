@@ -1,0 +1,27 @@
+title: 'Beefy: Make the equivocation time slot more generic'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR:
+
+    - Adjusts the offence time slot into a more generic slot
+    - Adds the equivocation type to the offence slot for Beefy
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: pallet-babe
+  bump: patch
+- name: pallet-beefy
+  bump: patch
+- name: pallet-grandpa
+  bump: patch
+- name: pallet-im-online
+  bump: patch
+- name: pallet-offences
+  bump: patch
+- name: pallet-root-offences
+  bump: patch
+- name: pallet-staking
+  bump: patch
+- name: sp-staking
+  bump: patch
