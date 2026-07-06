@@ -531,10 +531,6 @@ impl Client {
 		&self.subscription_gap_queue
 	}
 
-	pub(crate) fn runtime_api_provider(&self) -> &VersionAwareRuntimeApiProvider {
-		&self.runtime_api_provider
-	}
-
 	/// The earliest block number where the ReviveApi is available.
 	/// Resolution order: in-memory value > known-networks table > 0.
 	fn earliest_block_number(&self) -> SubstrateBlockNumber {

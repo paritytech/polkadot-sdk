@@ -804,11 +804,10 @@ const CACHE_CAPACITY: u32 = 43_200;
 /// different hashes. The cache is populated in two ways:
 ///
 /// * [`at`] computes the capabilities of a block on first use. This covers the very first
-///   computation when the client starts as well as queries for blocks that nothing has observed
-///   yet, such as historic blocks the backfill has not walked back to.
-/// * [`observe_block`] is fed every block seen by the block subscriptions and by the backward sync,
-///   and propagates capabilities between a block and its parent so that steady-state operation
-///   requires no computations at all.
+///   computation when the client starts as well as queries for blocks that the subscriptions have
+///   not observed, such as the historic blocks visited by the backward sync.
+/// * [`observe_block`] is fed every block seen by the block subscriptions and lets each new block
+///   inherit its parent's capabilities, so steady-state operation requires no computations at all.
 ///
 /// [`at`]: Self::at
 /// [`observe_block`]: Self::observe_block
@@ -834,57 +833,37 @@ impl VersionAwareRuntimeApiProvider {
 		Ok(VersionAwareRuntimeApi::new(self.api.at_block(block_hash).await?, *capabilities))
 	}
 
-	/// Records a block seen by a block subscription or by the backward sync.
+	/// Records a block seen by a block subscription.
 	///
 	/// A block without the runtime-upgrade marker in its header ran the same runtime as its
-	/// parent, so the capabilities of whichever of the two is cached are propagated to the other
-	/// (computing them once from the block's state when neither is cached). This keeps the cache
-	/// growing forward with the subscriptions and backward with the backfill without any network
-	/// traffic. A block carrying the marker gets capabilities computed from its own state
-	/// instead, since its parent ran a different runtime.
+	/// parent, so it inherits the parent's capabilities without any computation. A block carrying
+	/// the marker gets capabilities computed from its own state instead, since its parent ran a
+	/// different runtime.
 	pub(crate) async fn observe_block(&self, block: &SubstrateBlock) -> Result<(), ClientError> {
 		let block_hash = block.block_hash();
-		let header = block.block_header().await?;
-		let parent_hash = header.parent_hash;
-
-		if runtime_environment_updated(&header) {
-			if self.lock_cache().get(&block_hash).is_none() {
-				let computed = self.compute(block_hash).await?;
-				// An upgrade which did not change the revive runtime API keeps the parent's
-				// capabilities: share the parent's allocation instead of storing a copy.
-				let capabilities = match self.lock_cache().get(&parent_hash).cloned() {
-					Some(parent) if *parent == computed => parent,
-					_ => Arc::new(computed),
-				};
-				self.lock_cache().insert(block_hash, capabilities);
-			}
+		if self.lock_cache().peek(&block_hash).is_some() {
 			return Ok(());
 		}
 
-		// Genesis has no parent to propagate capabilities between.
+		// Genesis has no parent to inherit capabilities from.
 		if block.block_number() == 0 {
 			self.capabilities(block_hash).await?;
 			return Ok(());
 		}
 
-		let (parent, own) = {
-			let mut cache = self.lock_cache();
-			(cache.get(&parent_hash).cloned(), cache.get(&block_hash).cloned())
-		};
-		match (parent, own) {
-			(Some(_), Some(_)) => {},
-			(Some(parent), None) => {
-				self.lock_cache().insert(block_hash, parent);
-			},
-			(None, Some(own)) => {
-				self.lock_cache().insert(parent_hash, own);
-			},
-			(None, None) => {
-				let capabilities = Arc::new(self.compute(block_hash).await?);
-				let mut cache = self.lock_cache();
-				cache.insert(block_hash, capabilities.clone());
-				cache.insert(parent_hash, capabilities);
-			},
+		let header = block.block_header().await?;
+		if runtime_environment_updated(&header) {
+			let computed = self.compute(block_hash).await?;
+			// An upgrade which did not change the revive runtime API keeps the parent's
+			// capabilities: share the parent's allocation instead of storing a copy.
+			let capabilities = match self.lock_cache().get(&header.parent_hash).cloned() {
+				Some(parent) if *parent == computed => parent,
+				_ => Arc::new(computed),
+			};
+			self.lock_cache().insert(block_hash, capabilities);
+		} else {
+			let capabilities = self.capabilities(header.parent_hash).await?;
+			self.lock_cache().insert(block_hash, capabilities);
 		}
 
 		Ok(())

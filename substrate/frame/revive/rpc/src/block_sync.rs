@@ -313,13 +313,6 @@ impl Client {
 			let block_number = block.block_number();
 			let block_hash = block.block_hash();
 
-			// Failures are tolerable here: the runtime API access below recomputes the
-			// capabilities lazily.
-			if let Err(err) = self.runtime_api_provider().observe_block(&block).await {
-				log::debug!(target: LOG_TARGET,
-					"Failed to update the runtime API capabilities at block #{block_number}: {err:?}");
-			}
-
 			// A block whose runtime does not expose `eth_block_hash` predates pallet-revive and
 			// is treated exactly like a block without an EVM hash: it marks the end of the
 			// backward sync.
