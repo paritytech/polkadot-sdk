@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783348552785,
+  "lastUpdate": 1783378813817,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "178801527+raymondkfcheung@users.noreply.github.com",
-            "name": "Raymond Cheung",
-            "username": "raymondkfcheung"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c1c52454982c9b4ebef51a65b8ce2cd0c38029ed",
-          "message": "Replace `log` with `tracing` on Snowbridge-related modules (#9279)\n\nThis PR replaces `log` with `tracing` instrumentation in\nSnowbridge-related modules by providing structured logging.\n\nPartially addresses #9211 \nSimilar to #8732\n\n## Key Features\n- **Consistent targets**: All components use predictable log targets\n- **Structured fields**: Uses `?variable`/`%variable` syntax for\nautomatic `Debug`/`Display` formatting\n- **Zero runtime impact**: No behavioural changes, only observability\nimprovements\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrii <ndk@parity.io>",
-          "timestamp": "2025-11-11T09:24:18Z",
-          "tree_id": "a8211170d6959b24bb5e63c975d01ea22d896f28",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c1c52454982c9b4ebef51a65b8ce2cd0c38029ed"
-        },
-        "date": 1762858453504,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013616433679999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022737583673333325,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00735443711999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15969908998666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02382464479333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "322c8756f9396e496606ec40bfb6dfeda8bdd985",
+          "message": "Beefy: Make the equivocation time slot more generic (#12542)\n\nThis PR:\n\n- Adjusts the offence time slot into a more generic slot\n- Adds the equivocation type to the offence slot for Beefy\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-06T20:14:17Z",
+          "tree_id": "e95a761d0d2a35b976240a3d3312b420ddccd7f1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/322c8756f9396e496606ec40bfb6dfeda8bdd985"
+        },
+        "date": 1783378784250,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14927403301333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02383792078666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007640520279999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00994360159999998,
             "unit": "seconds"
           }
         ]
