@@ -17,6 +17,7 @@ async-trait = { workspace = true }
 clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
 criterion = { features = ["async_tokio"], workspace = true, default-features = true }
+futures = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
 prometheus = { workspace = true }
 rand = { workspace = true, default-features = true }
@@ -72,6 +73,7 @@ polkadot-test-service = { workspace = true }
 # Cumulus
 cumulus-client-cli = { workspace = true, default-features = true }
 cumulus-client-collator = { workspace = true, default-features = true }
+cumulus-client-collator-discovery = { workspace = true, default-features = true }
 cumulus-client-consensus-aura = { workspace = true, default-features = true }
 cumulus-client-consensus-common = { workspace = true, default-features = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
@@ -89,7 +91,6 @@ pallet-timestamp = { workspace = true, default-features = true }
 
 [dev-dependencies]
 cumulus-test-client = { workspace = true }
-futures = { workspace = true }
 
 [features]
 runtime-benchmarks = [

@@ -281,7 +281,9 @@ const fn memory_required() -> u32 {
 	// The root frame is not accounted for in CALL_STACK_DEPTH
 	let max_call_depth = CALL_STACK_DEPTH + 1;
 
-	let per_stack_memory = code::PURGABLE_MEMORY_LIMIT + TRANSIENT_STORAGE_BYTES * 2;
+	let per_stack_memory = code::PURGABLE_MEMORY_LIMIT +
+		TRANSIENT_STORAGE_BYTES * 2 +
+		crate::access_list::MAX_ACCESS_LIST_BYTES;
 
 	let evm_max_initcode_size = revm::primitives::eip3860::MAX_INITCODE_SIZE as u32;
 	let evm_overhead = EVM_MEMORY_BYTES + evm_max_initcode_size + EVM_STACK_LIMIT * 32;
