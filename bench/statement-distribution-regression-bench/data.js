@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783336037992,
+  "lastUpdate": 1783343017825,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "178801527+raymondkfcheung@users.noreply.github.com",
-            "name": "Raymond Cheung",
-            "username": "raymondkfcheung"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "30a570b06d0f602050ba54ca871de0ad6433489a",
-          "message": "Replace `log` with `tracing` on Bridge Relay related modules (#9430)\n\nThis PR replaces `log` with `tracing` instrumentation on Bridge Relay\nrelated modules by providing structured logging.\n\nPartially addresses #9211\nSimilar to #9279\n\n## Key Features\n- **Consistent targets**: All components use predictable log targets\n- **Structured fields**: Uses `?variable`/`%variable` syntax for\nautomatic `Debug`/`Display` formatting\n- **Zero runtime impact**: No behavioural changes, only observability\nimprovements\n\n---------\n\nCo-authored-by: Andrii <ndk@parity.io>",
-          "timestamp": "2025-11-10T08:21:07Z",
-          "tree_id": "f32843ccd1ad40c7607c115cf71996942dd9a194",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/30a570b06d0f602050ba54ca871de0ad6433489a"
-        },
-        "date": 1762767036191,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.96999999999991,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04437021274199993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03452181412799999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08263843754600003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "85409988+t55844@users.noreply.github.com",
+            "name": "Thiago Soares",
+            "username": "t55844"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0eb814106aad27a803c426ccca6c71f45a8a0336",
+          "message": "Remove unused dependencies found by cargo-udeps (#12514)\n\nDescription\nRemoves unused dependencies flagged by cargo +nightly udeps: bitvec from\npallet-broker, rlp from snowbridge-beacon-primitives, and\nstatic_assertions from sp-runtime-interface. Each was confirmed unused\nby grepping the crate source for any use of the dependency. Partial fix\nfor #6906.\nNote: serde_json in sp-genesis-builder was initially removed as well,\nbut restored — although udeps flags it as unused, it exists to enable\nthe arbitrary_precision feature required for genesis config\nserialization of u128 values (removing it broke genesis building in CI).\nIntegration\nNo integration steps required. Only [dependencies] entries with no\ncorresponding usage were removed; no code, APIs, or features changed.\nDownstream crates are unaffected.\nReview Notes\nChanges are limited to three Cargo.toml files, one dependency line\nremoved from each. No logic changes. CI compile checks across\nstd/no_std/WASM configurations verify the dependencies were genuinely\nunused.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-06T10:10:10Z",
+          "tree_id": "d5b06c2c0f703f1350255faeda4fc035c4347b9e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0eb814106aad27a803c426ccca6c71f45a8a0336"
+        },
+        "date": 1783342989338,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.14000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08691462232599995,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03826661721999999,
             "unit": "seconds"
           }
         ]
