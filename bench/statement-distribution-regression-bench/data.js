@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783348630194,
+  "lastUpdate": 1783378891440,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "405e0bde29658b12e6fa0944623b1c5225dcaa3e",
-          "message": "offchain-worker: Do not intialize the entire `System` again (#10235)\n\nWhen calling `offchain-worker` we were initializing the entire `System`\nagain with the same block we are running on top of. However, with [the\nchange to require strictly increasing block\nnumbers](https://github.com/paritytech/polkadot-sdk/pull/10180) the\noffchain-worker was failing. This is now solved by just registering the\nmissing digests. The rest of the changes done by `initialize` are not\nimportant for offchain workers.\n\nThe pull request ensures that we are actually testing this behavior of\nthe offchain worker now.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-10T13:14:43Z",
-          "tree_id": "2359f7e32afc6405c2edd47638be22caaadc0d8d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/405e0bde29658b12e6fa0944623b1c5225dcaa3e"
-        },
-        "date": 1762786105838,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95199999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03524211631400002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04540320049199992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03823686743800001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "322c8756f9396e496606ec40bfb6dfeda8bdd985",
+          "message": "Beefy: Make the equivocation time slot more generic (#12542)\n\nThis PR:\n\n- Adjusts the offence time slot into a more generic slot\n- Adds the equivocation type to the offence slot for Beefy\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-06T20:14:17Z",
+          "tree_id": "e95a761d0d2a35b976240a3d3312b420ddccd7f1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/322c8756f9396e496606ec40bfb6dfeda8bdd985"
+        },
+        "date": 1783378861530,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12600000000003,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0880885870939999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03879138113,
             "unit": "seconds"
           }
         ]
