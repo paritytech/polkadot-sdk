@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783336000940,
+  "lastUpdate": 1783342980323,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4410844cb847e6a9b278a34d0ad1a479b530d7a3",
-          "message": "[pallet-revive] Add eth_substrate_call extrinsic (#10159)\n\nFixes https://github.com/paritytech/contract-issues/issues/180\n\nThis PR introduces `eth_substrate_call`, a new extrinsic in\npallet-revive that enables Substrate runtime calls from Ethereum\ntransactions. This allows tools like Hardhat to invoke Substrate\nextrinsics (e.g., `upload_code`) via the Ethereum RPC.\n\nThis implements a new approach for dispatching Substrate extrinsics\nthrough the magic RUNTIME_PALLETS_ADDR address, which fixes two\nshortcomings of the previous implementation:\n\n1. Incorrect origin verification - The origin is now correctly verified\nas EthTransaction.\n2. Missing Ethereum transaction receipts - Receipts are now properly\ngenerated for all Ethereum transactions.\n\nIncludes:\n- New eth-rpc integration test validating end-to-end functionality\n- Benchmark measuring the extrinsic overhead\n- Unit tests\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-10T15:38:58Z",
-          "tree_id": "cd381c714cb4fcae52d327846f5102e00810edf0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4410844cb847e6a9b278a34d0ad1a479b530d7a3"
-        },
-        "date": 1762793379967,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63630.98,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002024141,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4683094148899984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002024141,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.921376435979992,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4168697361999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6981149872510164,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005688779830000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000018486189999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.51121390398,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4895865883099986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.46570150695,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000018486189999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.278746366139988,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.6996600531100006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "85409988+t55844@users.noreply.github.com",
+            "name": "Thiago Soares",
+            "username": "t55844"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0eb814106aad27a803c426ccca6c71f45a8a0336",
+          "message": "Remove unused dependencies found by cargo-udeps (#12514)\n\nDescription\nRemoves unused dependencies flagged by cargo +nightly udeps: bitvec from\npallet-broker, rlp from snowbridge-beacon-primitives, and\nstatic_assertions from sp-runtime-interface. Each was confirmed unused\nby grepping the crate source for any use of the dependency. Partial fix\nfor #6906.\nNote: serde_json in sp-genesis-builder was initially removed as well,\nbut restored — although udeps flags it as unused, it exists to enable\nthe arbitrary_precision feature required for genesis config\nserialization of u128 values (removing it broke genesis building in CI).\nIntegration\nNo integration steps required. Only [dependencies] entries with no\ncorresponding usage were removed; no code, APIs, or features changed.\nDownstream crates are unaffected.\nReview Notes\nChanges are limited to three Cargo.toml files, one dependency line\nremoved from each. No logic changes. CI compile checks across\nstd/no_std/WASM configurations verify the dependencies were genuinely\nunused.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-06T10:10:10Z",
+          "tree_id": "d5b06c2c0f703f1350255faeda4fc035c4347b9e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0eb814106aad27a803c426ccca6c71f45a8a0336"
+        },
+        "date": 1783342951866,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63559.95000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8044621639700003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7708406317500014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8262711563599785,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005222061020000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.48746260602997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4626229260499937,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.82793187798,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000026111489999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7901117888999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002552888,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002552888,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.717895629902891,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000026111489999999998,
             "unit": "seconds"
           }
         ]
