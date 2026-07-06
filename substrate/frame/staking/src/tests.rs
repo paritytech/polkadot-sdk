@@ -787,6 +787,31 @@ fn nominators_also_get_slashed_pro_rata() {
 }
 
 #[test]
+fn nominate_same_account_should_be_filtered() {
+	ExtBuilder::default().build_and_execute(|| {
+		let duplicated_targets = vec![11, 21, 31, 11, 21, 31, 11, 11, 21, 21, 31, 31];
+
+		assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21]);
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), duplicated_targets.clone()));
+		assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21, 31]);
+
+		// Make sure it can correct the wrong automatically.
+		Nominators::<Test>::insert(
+			101,
+			Nominations {
+				targets: BoundedVec::truncate_from(duplicated_targets.clone()),
+				submitted_in: Default::default(),
+				suppressed: Default::default(),
+			},
+		);
+		assert_eq!(Staking::nominators(101).unwrap().targets, duplicated_targets);
+
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), duplicated_targets));
+		assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21, 31]);
+	});
+}
+
+#[test]
 fn double_staking_should_fail() {
 	// should test (in the same order):
 	// * an account already bonded as stash cannot be stashed again.
