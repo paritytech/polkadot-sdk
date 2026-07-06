@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783103437547,
+  "lastUpdate": 1783336074925,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "xlchen1291@gmail.com",
-            "name": "Xiliang Chen",
-            "username": "xlc"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "30cda2aad8612a10ff729d494acd9d5353294d63",
-          "message": "delete some misleading comments (#10253)\n\nThose two comments just does not make any sense to me.",
-          "timestamp": "2025-11-09T15:11:18Z",
-          "tree_id": "47324dca3cd88c567a08f918f6051f7ea24552d8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/30cda2aad8612a10ff729d494acd9d5353294d63"
-        },
-        "date": 1762706015336,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026274375300000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008822075949999971,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00522884628999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009322856849999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "polkadotdom@gmail.com",
+            "name": "polka.dom",
+            "username": "PolkadotDom"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bd1eba23a95b244a58d3a1924205d76fd14412f1",
+          "message": "Add block provider to core-fellowship (#6978)\n\nFollowing #3617, core fellowship and related code is to be made async\nbacking friendly. This PR adds the block number provider config\nparameter to pallet-core-fellowship.\n\nIn addition it\n- Adds the migration code for those teams who want to transition and\nneed it\n- Applies the migration on Westend\n- Shuffles some pre-existing core-fellowship migration code for\nergonomics\n- Adds a bound to the BlockNumberProvider sp_runtime trait\n- Fixes a couple spelling & syntax issues\n\nTODO:\nOnce Westend is updated I will write the migration for polkadot\ncollectives.\n\nNotes:\n@xlc This will be my first migration and overall first PR with a bit\nmore frame complexity, so please review carefully!\nI've tested the migration for Westend using try-runtime. Unsure what the\nstandard process is outside of that if any.\nAlso, the migration assumes consistent block times for westend and\nwestend collectives, which is not the case, but I imagine this is not so\nmuch a concern and will largely be ameliorated when writing for polkadot\ncollectives. Lastly, not confident in the runtime spec_version bump,\nthat was a bit opaque to me, if you want to take a look.\n\n@gupnik [Tracking\nlist](https://github.com/paritytech/polkadot-sdk/issues/3268#issuecomment-2339828175)\n\n---------\n\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-06T09:00:15Z",
+          "tree_id": "fefbd0cf1d9bde7399f17eaf9fd26547688279ed",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bd1eba23a95b244a58d3a1924205d76fd14412f1"
+        },
+        "date": 1783336046656,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009327623139999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025760250000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010379717380000004,
             "unit": "seconds"
           }
         ]
