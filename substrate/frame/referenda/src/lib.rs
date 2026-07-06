@@ -712,10 +712,7 @@ pub mod pallet {
 				matches!(info, ReferendumInfo::Approved(..) | ReferendumInfo::Cancelled(..)),
 				Error::<T, I>::BadStatus
 			);
-			let deposit = info
-				.take_submission_deposit()
-				.map_err(|_| Error::<T, I>::BadStatus)?
-				.ok_or(Error::<T, I>::NoDeposit)?;
+			let deposit = info.take_submission_deposit().ok_or(Error::<T, I>::NoDeposit)?;
 			Self::refund_deposit(Some(deposit.clone()));
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			let e = Event::<T, I>::SubmissionDepositRefunded {
@@ -748,10 +745,7 @@ pub mod pallet {
 				matches!(info, ReferendumInfo::Rejected(..) | ReferendumInfo::TimedOut(..)),
 				Error::<T, I>::BadStatus
 			);
-			let deposit = info
-				.take_submission_deposit()
-				.map_err(|_| Error::<T, I>::BadStatus)?
-				.ok_or(Error::<T, I>::NoDeposit)?;
+			let deposit = info.take_submission_deposit().ok_or(Error::<T, I>::NoDeposit)?;
 			Self::slash_deposit(Some(deposit));
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			Ok(())
