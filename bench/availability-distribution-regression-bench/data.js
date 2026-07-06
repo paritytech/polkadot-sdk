@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783342943033,
+  "lastUpdate": 1783348552785,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dadd3f5fb3949ceed2957caef8b56f870271ec3c",
-          "message": "[Release|CI/CD] build and publish binary for RPM distribution (#10206)\n\nhttps://github.com/paritytech/release-engineering/issues/269\n\n---------\n\nCo-authored-by: EgorPopelyaev <egor@parity.io>",
-          "timestamp": "2025-11-10T19:43:29Z",
-          "tree_id": "7c4f1b9df7db4b34276650238d4cfdadcf7e1a97",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dadd3f5fb3949ceed2957caef8b56f870271ec3c"
-        },
-        "date": 1762807938845,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013152555953333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007263938219999989,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022480773613333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15816673536666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1487184599933334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "dae5ec991842474c23a63142f4963988813f79b5",
+          "message": "[Release|CI/CD] Fix checkout of existing post-crates-release branch (#12567)\n\nThis PR fixes an issue with the checkout of existing\n`post-crate-release-stablYYMM` branch in case when it was created and\npushed to origin, but Publish crates pipeline has not ran yet",
+          "timestamp": "2026-07-06T10:26:46Z",
+          "tree_id": "6661d6173cd19a4447e2c9cce65cce967d985bca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dae5ec991842474c23a63142f4963988813f79b5"
+        },
+        "date": 1783348523549,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14792679312,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.008007216113333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010302303933333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02382464479333334,
             "unit": "seconds"
           }
         ]
