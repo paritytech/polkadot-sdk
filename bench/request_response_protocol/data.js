@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783102318731,
+  "lastUpdate": 1783334942022,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -104543,6 +104543,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2648865824,
             "range": "± 23488688",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "polkadotdom@gmail.com",
+            "name": "polka.dom",
+            "username": "PolkadotDom"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bd1eba23a95b244a58d3a1924205d76fd14412f1",
+          "message": "Add block provider to core-fellowship (#6978)\n\nFollowing #3617, core fellowship and related code is to be made async\nbacking friendly. This PR adds the block number provider config\nparameter to pallet-core-fellowship.\n\nIn addition it\n- Adds the migration code for those teams who want to transition and\nneed it\n- Applies the migration on Westend\n- Shuffles some pre-existing core-fellowship migration code for\nergonomics\n- Adds a bound to the BlockNumberProvider sp_runtime trait\n- Fixes a couple spelling & syntax issues\n\nTODO:\nOnce Westend is updated I will write the migration for polkadot\ncollectives.\n\nNotes:\n@xlc This will be my first migration and overall first PR with a bit\nmore frame complexity, so please review carefully!\nI've tested the migration for Westend using try-runtime. Unsure what the\nstandard process is outside of that if any.\nAlso, the migration assumes consistent block times for westend and\nwestend collectives, which is not the case, but I imagine this is not so\nmuch a concern and will largely be ameliorated when writing for polkadot\ncollectives. Lastly, not confident in the runtime spec_version bump,\nthat was a bit opaque to me, if you want to take a look.\n\n@gupnik [Tracking\nlist](https://github.com/paritytech/polkadot-sdk/issues/3268#issuecomment-2339828175)\n\n---------\n\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-06T09:00:15Z",
+          "tree_id": "fefbd0cf1d9bde7399f17eaf9fd26547688279ed",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bd1eba23a95b244a58d3a1924205d76fd14412f1"
+        },
+        "date": 1783334913970,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21539932,
+            "range": "± 352401",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21900084,
+            "range": "± 681059",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23993858,
+            "range": "± 673601",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28896193,
+            "range": "± 684361",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 67696760,
+            "range": "± 1629769",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 420353703,
+            "range": "± 10552208",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2917166556,
+            "range": "± 108810710",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19166956,
+            "range": "± 413012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 19284105,
+            "range": "± 315196",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19826848,
+            "range": "± 269128",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24514695,
+            "range": "± 279273",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 68119250,
+            "range": "± 1896527",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 400631730,
+            "range": "± 4042884",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2936977526,
+            "range": "± 34375523",
             "unit": "ns/iter"
           }
         ]
