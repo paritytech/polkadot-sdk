@@ -273,7 +273,7 @@ fn build_client(
 			EthPruningMode::KeepLatest(max_blocks) => {
 				log::info!(target: LOG_TARGET,
 					"💾 Using in-memory database, keeping only {max_blocks} blocks");
-				// see sqlite in-memory issue: https://github.com/launchbadge/sqlx/issues/2510
+				// see sqlite in-memory issue: https://github.com/transact-rs/sqlx/issues/2510
 				let pool = SqlitePoolOptions::new()
 					.max_connections(1)
 					.idle_timeout(None)
