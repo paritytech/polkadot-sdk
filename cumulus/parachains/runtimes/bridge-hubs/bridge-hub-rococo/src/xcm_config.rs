@@ -20,6 +20,8 @@ use super::{
 	RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubWestend, XcmpQueue,
 };
 
+use crate::weights::pallet_xcm_benchmarks::WeightInfo as XcmBenchWeight;
+use codec::Encode;
 use frame_support::{
 	parameter_types,
 	traits::{
@@ -30,6 +32,13 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use pallet_collator_selection::StakingPotAccountId;
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
+use pallet_xcm_benchmarks::{
+	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
+	xcm_weights::{
+		AssetFilterCountWeigher, AutoXcmWeight, AutoXcmWeightConfig,
+		CountBasedAssetsAndFilterWeigher, UniformAssetsWeigher,
+	},
+};
 use parachains_common::{
 	xcm_config::{
 		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
@@ -183,8 +192,37 @@ pub type TrustedTeleporters = ConcreteAssetFromSystem<TokenLocation>;
 /// - Allow origins explicitly authorized by the alias target location.
 pub type TrustedAliasers = (AliasChildLocation, AuthorizedAliasers<Runtime>);
 
-pub struct XcmConfig;
+impl_xcm_generic_weight_info_provider!(XcmBenchWeight<Runtime>);
+impl_xcm_fungible_weight_info_provider!(XcmBenchWeight<Runtime>);
 
+const MAX_ASSETS: u64 = 100;
+pub struct BridgeHubRococoCountWeigher;
+impl AssetFilterCountWeigher for BridgeHubRococoCountWeigher {
+	fn max_assets() -> u64 {
+		MAX_ASSETS
+	}
+
+	fn max_assets_into_holding() -> u64 {
+		MaxAssetsIntoHolding::get() as u64
+	}
+}
+
+pub struct BridgeHubRococoXcmWeightConfig;
+impl<Call> AutoXcmWeightConfig<Call> for BridgeHubRococoXcmWeightConfig {
+	type GenericWeights = XcmBenchWeight<Runtime>;
+	type FungibleWeights = XcmBenchWeight<Runtime>;
+	type AssetWeigher =
+		CountBasedAssetsAndFilterWeigher<BridgeHubRococoCountWeigher, UniformAssetsWeigher>;
+
+	fn export_message(_: &NetworkId, _: &Junctions, inner: &Xcm<()>) -> Weight {
+		let inner_encoded_len = inner.encode().len() as u32;
+		Self::GenericWeights::export_message(inner_encoded_len)
+	}
+}
+
+pub type BridgeHubRococoXcmWeight<Call> = AutoXcmWeight<Call, BridgeHubRococoXcmWeightConfig>;
+
+pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
@@ -197,11 +235,8 @@ impl xcm_executor::Config for XcmConfig {
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::BridgeHubRococoXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher =
+		WeightInfoBounds<BridgeHubRococoXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>;
 	type Trader = UsingComponents<
 		WeightToFee,
 		TokenLocation,
@@ -267,11 +302,8 @@ impl pallet_xcm::Config for Runtime {
 	type XcmTeleportFilter = Everything;
 	// This parachain is not meant as a reserve location.
 	type XcmReserveTransferFilter = Nothing;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::BridgeHubRococoXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher =
+		WeightInfoBounds<BridgeHubRococoXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
