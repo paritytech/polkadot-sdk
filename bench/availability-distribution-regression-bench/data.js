@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783103330867,
+  "lastUpdate": 1783335964086,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4410844cb847e6a9b278a34d0ad1a479b530d7a3",
-          "message": "[pallet-revive] Add eth_substrate_call extrinsic (#10159)\n\nFixes https://github.com/paritytech/contract-issues/issues/180\n\nThis PR introduces `eth_substrate_call`, a new extrinsic in\npallet-revive that enables Substrate runtime calls from Ethereum\ntransactions. This allows tools like Hardhat to invoke Substrate\nextrinsics (e.g., `upload_code`) via the Ethereum RPC.\n\nThis implements a new approach for dispatching Substrate extrinsics\nthrough the magic RUNTIME_PALLETS_ADDR address, which fixes two\nshortcomings of the previous implementation:\n\n1. Incorrect origin verification - The origin is now correctly verified\nas EthTransaction.\n2. Missing Ethereum transaction receipts - Receipts are now properly\ngenerated for all Ethereum transactions.\n\nIncludes:\n- New eth-rpc integration test validating end-to-end functionality\n- Benchmark measuring the extrinsic overhead\n- Unit tests\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-10T15:38:58Z",
-          "tree_id": "cd381c714cb4fcae52d327846f5102e00810edf0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4410844cb847e6a9b278a34d0ad1a479b530d7a3"
-        },
-        "date": 1762793346462,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022619777393333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15945868914,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013501292286666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007415639133333316,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.0073799138733333354,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "polkadotdom@gmail.com",
+            "name": "polka.dom",
+            "username": "PolkadotDom"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bd1eba23a95b244a58d3a1924205d76fd14412f1",
+          "message": "Add block provider to core-fellowship (#6978)\n\nFollowing #3617, core fellowship and related code is to be made async\nbacking friendly. This PR adds the block number provider config\nparameter to pallet-core-fellowship.\n\nIn addition it\n- Adds the migration code for those teams who want to transition and\nneed it\n- Applies the migration on Westend\n- Shuffles some pre-existing core-fellowship migration code for\nergonomics\n- Adds a bound to the BlockNumberProvider sp_runtime trait\n- Fixes a couple spelling & syntax issues\n\nTODO:\nOnce Westend is updated I will write the migration for polkadot\ncollectives.\n\nNotes:\n@xlc This will be my first migration and overall first PR with a bit\nmore frame complexity, so please review carefully!\nI've tested the migration for Westend using try-runtime. Unsure what the\nstandard process is outside of that if any.\nAlso, the migration assumes consistent block times for westend and\nwestend collectives, which is not the case, but I imagine this is not so\nmuch a concern and will largely be ameliorated when writing for polkadot\ncollectives. Lastly, not confident in the runtime spec_version bump,\nthat was a bit opaque to me, if you want to take a look.\n\n@gupnik [Tracking\nlist](https://github.com/paritytech/polkadot-sdk/issues/3268#issuecomment-2339828175)\n\n---------\n\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-06T09:00:15Z",
+          "tree_id": "fefbd0cf1d9bde7399f17eaf9fd26547688279ed",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bd1eba23a95b244a58d3a1924205d76fd14412f1"
+        },
+        "date": 1783335935955,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010190995693333302,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007643130640000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023627397233333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14235159296,
             "unit": "seconds"
           }
         ]
