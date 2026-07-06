@@ -54,9 +54,12 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 		self.hash
 	}
 
-	/// The gas sent with the transaction.
-	pub fn gas(&self) -> U256 {
-		self.tx.gas.unwrap()
+	/// The gas limit sent with the transaction, if one was specified.
+	///
+	/// This mirrors [`GenericTransaction::gas`], which is optional for legacy/incomplete
+	/// payloads, so it can be `None`.
+	pub fn gas(&self) -> Option<U256> {
+		self.tx.gas
 	}
 
 	pub fn generic_transaction(&self) -> GenericTransaction {
@@ -79,12 +82,14 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 	pub async fn wait_for_receipt(&self) -> anyhow::Result<ReceiptInfo> {
 		let receipt = self.wait_for_receipt_any().await?;
 		if receipt.is_success() {
-			assert!(
-				self.gas() >= receipt.gas_used,
-				"Gas used {:?} should be less than or equal to gas limit {:?}",
-				receipt.gas_used,
-				self.gas()
-			);
+			if let Some(gas) = self.gas() {
+				assert!(
+					gas >= receipt.gas_used,
+					"Gas used {:?} should be less than or equal to gas limit {:?}",
+					receipt.gas_used,
+					gas
+				);
+			}
 			Ok(receipt)
 		} else {
 			anyhow::bail!("Transaction failed receipt: {receipt:?}")
@@ -188,7 +193,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			nonce
 		} else {
 			client
-				.get_transaction_count(from, BlockTag::Latest.into())
+				.get_transaction_count(from, Default::default())
 				.await
 				.with_context(|| "Failed to fetch account nonce")?
 		};
