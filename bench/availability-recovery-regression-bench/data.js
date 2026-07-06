@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783342905748,
+  "lastUpdate": 1783348514248,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ba0a8e2b3bbd62f5f47b58b2448b752baf2612a1",
-          "message": "Fix the issue with the blockhash tests (#10262)\n\n# Description\n\nThis PR fixes an issue that we've been seeing with the blockhash tests\nin the MatterLabs test suite. It merges the fix from the differential\ntests repo that was made in PR\n[`#210`](https://github.com/paritytech/revive-differential-tests/pull/210).\nMore information on the fix can be found in the PR's description, but I\nwill also paste it here to make it easier:\n\n> This PR fixes an issue that was causing the `blockhash.sol` tests to\nfail when ran through retester which is described in\n[`#210`](https://github.com/paritytech/contract-issues/issues/210). It\nwas determined that the root cause of this failure was not an issue in\nrevive but rather due to the eth-rpc pruning the blocks as the framework\nwas running. This meant that by the time we attempted to retrieve the\nblock hash from the eth-rpc it would've already been pruned since other\nblocks were mined and these blocks were pruned.\n>\n> This explains the indeterminism that we saw with these tests with them\nsometimes succeeding and sometimes failing. This can be explained away\nby the async task sometimes being scheduled to run right after the\ntransaction was submitted and before other blocks were mined and\ntherefore we succeed in getting the block hash and sometimes it takes a\nwhile to run and by the time it runs the block has already been pruned\nfrom the eth-rpc.\n>\n> We've increases the cache size and the number of indexed blocks to\n1,000 which should hopefully give us enough room for async task\nscheduling to run and still be able to get the block hash.\n\nWe've bumped the commit hash of the revive-differential-tests framework\nto the commit hash that includes this fix.\n\nIn this PR we should observe that the `blockhash.sol` tests no longer\nfail. If they fail, then it means that this was an incorrect fix to the\nissue.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-11T10:40:29Z",
-          "tree_id": "35c45013e0704d13603278218b2667e7573cfcec",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba0a8e2b3bbd62f5f47b58b2448b752baf2612a1"
-        },
-        "date": 1762862086443,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.545328097899999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2015924636666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.737948863600002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "dae5ec991842474c23a63142f4963988813f79b5",
+          "message": "[Release|CI/CD] Fix checkout of existing post-crates-release branch (#12567)\n\nThis PR fixes an issue with the checkout of existing\n`post-crate-release-stablYYMM` branch in case when it was created and\npushed to origin, but Publish crates pipeline has not ran yet",
+          "timestamp": "2026-07-06T10:26:46Z",
+          "tree_id": "6661d6173cd19a4447e2c9cce65cce967d985bca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dae5ec991842474c23a63142f4963988813f79b5"
+        },
+        "date": 1783348484767,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14381467023333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.61263476426667,
             "unit": "seconds"
           }
         ]
