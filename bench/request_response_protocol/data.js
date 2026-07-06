@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783342522076,
+  "lastUpdate": 1783344766797,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -104867,6 +104867,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2669927736,
             "range": "± 10703577",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ae0ebf29a78ca65ac5b19c9f3924b0740b16b88c",
+          "message": "Remove deprecated ForeignChainAliasAccount type alias (#12502)\n\n## Summary\n\nRemoves the deprecated `ForeignChainAliasAccount` type alias from\n`staging-xcm-builder`. Use `HashedDescription<AccountId,\nLegacyDescribeForeignChainAccount>` directly.\n\nPart of #11561 .\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-06T10:22:55Z",
+          "tree_id": "b823b8b66876f7f3d419a08519c9499bce7240d7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ae0ebf29a78ca65ac5b19c9f3924b0740b16b88c"
+        },
+        "date": 1783344736156,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19837050,
+            "range": "± 133780",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20251437,
+            "range": "± 197094",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21519704,
+            "range": "± 87479",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26451072,
+            "range": "± 183185",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57835769,
+            "range": "± 333077",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 326330634,
+            "range": "± 5082874",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2487464273,
+            "range": "± 46689759",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17049096,
+            "range": "± 275714",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16810269,
+            "range": "± 150890",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17465262,
+            "range": "± 159156",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22362325,
+            "range": "± 102860",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 57262868,
+            "range": "± 409573",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 324965150,
+            "range": "± 2838688",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2565107884,
+            "range": "± 31987988",
             "unit": "ns/iter"
           }
         ]
