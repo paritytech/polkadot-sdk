@@ -11,7 +11,6 @@ use crate::utils::{
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
-	wait_for_first_session_change, wait_for_pvf_prepare,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
@@ -108,30 +107,22 @@ async fn coretime_shared_core_inner(number_of_paras: u32) -> Result<(), anyhow::
 	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
 	log::info!("Core 0 assignment shared for all paras completed");
 
-	// Wait for PVF preparation to complete.
-	wait_for_pvf_prepare(&network, 1).await?;
-
-	// Wait 1 sessions for registration/core assignment
-	log::info!("Waiting for 1 session boundaries");
-	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
-	wait_for_first_session_change(&mut blocks_sub).await?;
-	log::info!("Session boundaries passed");
-
 	// Check that all parachains produce blocks within 40 RC blocks
 	// (since core 0 is shared between all paras)
-	//  Parameters: EpochDurationInBlocks=10 (fast-runtime), SESSION_DELAY=2, relay block
-	//  time=6s. N paras share 1 core (~2 para blocks/slot async backing).
-	let exp = 40u32 / number_of_paras;
-	// use 85% as min
-	let min = (exp as f64 * 0.85).round() as u32;
-	let max = exp + 1;
+	let num_blocks = 40;
+	// N paras share 1 core (~1 para blocks/slot async backing).
+	// Each session lasts for 10 blocks (fast-runtime) and the first 2 blocks of each session
+	// don't produce backed candidates (because max_claim_queue_offset = 1).
+	// So only 80% of the relay chain blocks will produce backed candidates.
+	let exp = (num_blocks as f64 * 0.8) / (number_of_paras as f64);
+	let min = exp.round() as u32 - 1;
+	let max = exp.round() as u32 + 2; // +2 because it's not `RangeInclusive`.
 	log::info!("Checking parachain block production with range ({min}..{max})");
 	let mut para_throughput_map: HashMap<ParaId, Range<u32>> = Default::default();
 	for id in para_ids.iter() {
 		para_throughput_map.insert(ParaId::from(*id), min..max);
 	}
-
-	assert_para_throughput(&relay_client, 40, para_throughput_map, []).await?;
+	assert_para_throughput(&relay_client, num_blocks, para_throughput_map, []).await?;
 	log::info!("All parachains producing blocks");
 
 	log::info!("Test finished successfully");

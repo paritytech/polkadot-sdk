@@ -642,11 +642,13 @@ fn validator_cannot_switch_to_nominator_to_avoid_slashing() {
 			assert!(!Validators::<Test>::contains_key(&alice));
 			assert!(Nominators::<Test>::contains_key(&alice));
 
-			// Step 3: Alice (now a nominator) unbonds partially
-			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 999));
+			// Step 3: Alice (now a nominator) unbonds partially. We leave `active` exactly at
+			// `MinNominatorBond` (= ED + 1 under the default builder) so the unbond passes the
+			// per-role guard.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 998));
 			assert_eq!(
 				staking_events_since_last_call(),
-				[Event::Unbonded { stash: alice, amount: 999 }]
+				[Event::Unbonded { stash: alice, amount: 998 }]
 			);
 
 			// Alice should still be a nominator
@@ -671,8 +673,8 @@ fn validator_cannot_switch_to_nominator_to_avoid_slashing() {
 				StakingLedgerInspect {
 					stash: alice,
 					total: 1000,
-					active: 1,
-					unlocking: bounded_vec![UnlockChunk { value: 999, era: validator_unbond_era }],
+					active: 2,
+					unlocking: bounded_vec![UnlockChunk { value: 998, era: validator_unbond_era }],
 				}
 			);
 
@@ -711,17 +713,19 @@ fn validator_cannot_switch_to_nominator_to_avoid_slashing() {
 			// Now Alice can withdraw - the full bonding duration has elapsed
 			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(alice), 0));
 
-			// Verify Alice was slashed and stash was reaped (fell below minimum after slash)
-			// Total was reduced to ~900 by the slash, so withdrawn amount is ~900
+			// Alice was slashed (10% of 1000 = 100). The slash is proportional across `active`
+			// and the unlocking chunk: with `active = 2` and `unlocking = 998` it takes 1 from
+			// active and 99 from the chunk (rounded up). The chunk becomes 899 and that's what
+			// `withdraw_unbonded` releases here; `active = 1` remains in the ledger, so the
+			// stash is NOT reaped (kept above ED).
 			assert_eq!(
 				staking_events_since_last_call(),
-				[
-					Event::StakerRemoved { stash: alice },
-					Event::Withdrawn { stash: alice, amount: 900 }
-				]
+				[Event::Withdrawn { stash: alice, amount: 899 }]
 			);
 
-			// Ledger should be fully reaped
-			assert!(Staking::ledger(alice.into()).is_err(), "Ledger should be reaped");
+			let ledger_after_withdraw = Staking::ledger(alice.into()).expect("ledger remains");
+			assert_eq!(ledger_after_withdraw.active, 1);
+			assert_eq!(ledger_after_withdraw.total, 1);
+			assert!(ledger_after_withdraw.unlocking.is_empty());
 		});
 }

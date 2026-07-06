@@ -21,8 +21,9 @@ pub(crate) mod runtime_api;
 pub(crate) mod storage_api;
 
 use crate::{
-	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
-	SyncLabel, TracerType, TransactionInfo,
+	BlockId, BlockInfoProvider, BlockNumberOrTag, FeeHistoryProvider, FeeHistoryResult, Filter,
+	Log, ReceiptInfo, ReceiptProvider, SubxtBlockInfoProvider, SyncLabel, SyncingProgress,
+	SyncingStatus, TransactionTrace,
 	block_sync::SyncCheckpoint,
 	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
@@ -31,12 +32,11 @@ use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
 use pallet_revive::{
 	EthTransactError,
 	evm::{
-		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult, Filter,
-		GenericTransaction, H256, HashesOrTransactionInfos, Log, ReceiptInfo, StateOverrideSet,
-		SyncingProgress, SyncingStatus, Trace, TransactionSigned, TransactionTrace, U256,
-		decode_revert_reason,
+		Block, GenericTransaction, H256, HashesOrTransactionInfos, StateOverrideSet,
+		TransactionSigned, U256, decode_revert_reason,
 	},
 };
+use pallet_revive_types::runtime_api::*;
 use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
@@ -672,33 +672,30 @@ impl Client {
 	}
 
 	/// Get the block hash for the given block number or tag.
-	pub async fn block_hash_for_tag(
-		&self,
-		at: BlockNumberOrTagOrHash,
-	) -> Result<SubstrateBlockHash, ClientError> {
+	pub async fn block_hash_for_tag(&self, at: BlockId) -> Result<SubstrateBlockHash, ClientError> {
 		match at {
-			BlockNumberOrTagOrHash::BlockHash(hash) => self
-				.resolve_substrate_hash(&hash)
+			BlockId::Hash(hash) => self
+				.resolve_substrate_hash(&H256::from(hash.block_hash.0))
 				.await
 				.ok_or(ClientError::EthereumBlockNotFound),
-			BlockNumberOrTagOrHash::BlockNumber(block_number) => {
+			BlockId::Number(BlockNumberOrTag::Number(block_number)) => {
 				let n: SubstrateBlockNumber =
-					(block_number).try_into().map_err(|_| ClientError::ConversionFailed)?;
+					block_number.try_into().map_err(|_| ClientError::ConversionFailed)?;
 				let hash = self.get_block_hash(n).await?.ok_or(ClientError::BlockNotFound)?;
 				Ok(hash)
 			},
-			BlockNumberOrTagOrHash::BlockTag(BlockTag::Finalized | BlockTag::Safe) => {
+			BlockId::Number(BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe) => {
 				let block = self.latest_finalized_block().await;
 				Ok(block.hash())
 			},
-			BlockNumberOrTagOrHash::BlockTag(BlockTag::Earliest) => {
+			BlockId::Number(BlockNumberOrTag::Earliest) => {
 				let hash = self
 					.get_block_hash(self.earliest_block_number())
 					.await?
 					.ok_or(ClientError::BlockNotFound)?;
 				Ok(hash)
 			},
-			BlockNumberOrTagOrHash::BlockTag(_) => {
+			BlockId::Number(BlockNumberOrTag::Latest | BlockNumberOrTag::Pending) => {
 				let block = self.latest_block().await;
 				Ok(block.hash())
 			},
@@ -820,12 +817,11 @@ impl Client {
 
 		let status = if health.is_syncing {
 			let sync_state = self.sync_state().await?;
-			SyncingProgress {
+			SyncingStatus::SyncingProgress(SyncingProgress {
 				current_block: Some(sync_state.current_block.into()),
 				highest_block: Some(sync_state.highest_block.into()),
 				starting_block: Some(sync_state.starting_block.into()),
-			}
-			.into()
+			})
 		} else {
 			SyncingStatus::Bool(false)
 		};
@@ -897,18 +893,16 @@ impl Client {
 		block: &BlockNumberOrTag,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
 		match block {
-			BlockNumberOrTag::U256(n) => {
+			BlockNumberOrTag::Number(n) => {
 				let n = (*n).try_into().map_err(|_| ClientError::ConversionFailed)?;
 				self.block_by_number(n).await
 			},
-			BlockNumberOrTag::BlockTag(BlockTag::Finalized | BlockTag::Safe) => {
+			BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe => {
 				let block = self.block_provider.latest_finalized_block().await;
 				Ok(Some(block))
 			},
-			BlockNumberOrTag::BlockTag(BlockTag::Earliest) => {
-				self.block_by_number(self.earliest_block_number()).await
-			},
-			BlockNumberOrTag::BlockTag(_) => {
+			BlockNumberOrTag::Earliest => self.block_by_number(self.earliest_block_number()).await,
+			BlockNumberOrTag::Latest | BlockNumberOrTag::Pending => {
 				let block = self.block_provider.latest_block().await;
 				Ok(Some(block))
 			},
@@ -987,7 +981,7 @@ impl Client {
 	pub async fn trace_block_by_number(
 		&self,
 		at: BlockNumberOrTag,
-		config: TracerType,
+		config: TracerTypeV1,
 	) -> Result<Vec<TransactionTrace>, ClientError> {
 		if self.receipt_provider.is_before_earliest_block(&at) {
 			return Ok(vec![]);
@@ -1020,8 +1014,8 @@ impl Client {
 	pub async fn trace_transaction(
 		&self,
 		transaction_hash: H256,
-		config: TracerType,
-	) -> Result<Trace, ClientError> {
+		config: TracerTypeV1,
+	) -> Result<TraceV1, ClientError> {
 		let (block_hash, transaction_index) = self
 			.receipt_provider
 			.find_transaction(&transaction_hash)
@@ -1039,10 +1033,10 @@ impl Client {
 	pub async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
-		block: BlockNumberOrTagOrHash,
-		config: TracerType,
+		block: BlockId,
+		config: TracerTypeV1,
 		state_overrides: Option<StateOverrideSet>,
-	) -> Result<Trace, ClientError> {
+	) -> Result<TraceV1, ClientError> {
 		let block_hash = self.block_hash_for_tag(block).await?;
 		let runtime_api = self.runtime_api(block_hash);
 		runtime_api.trace_call(transaction, config, state_overrides).await
@@ -1058,7 +1052,7 @@ impl Client {
 
 		if self
 			.receipt_provider
-			.is_before_earliest_block(&BlockNumberOrTag::U256(U256::from(block.number())))
+			.is_before_earliest_block(&BlockNumberOrTag::Number(block.number().into()))
 		{
 			log::trace!(target: LOG_TARGET,
 				"Block #{} is before receipt floor, skipping", block.number());
@@ -1087,7 +1081,7 @@ impl Client {
 						})
 						.unwrap_or_default()
 						.into_iter()
-						.map(|(signed_tx, receipt)| TransactionInfo::new(&receipt, signed_tx))
+						.map(|(signed_tx, receipt)| receipt.transaction_info(signed_tx))
 						.collect::<Vec<_>>();
 
 					eth_block.transactions = HashesOrTransactionInfos::TransactionInfos(tx_infos);
@@ -1122,10 +1116,12 @@ impl Client {
 		let earliest = U256::from(self.earliest_block_number());
 		let latest = U256::from(self.latest_block().await.number());
 		let resolve_block_number = |block: BlockNumberOrTag| match block {
-			BlockNumberOrTag::U256(v) => Ok(v),
-			BlockNumberOrTag::BlockTag(BlockTag::Earliest) => Ok(earliest),
-			BlockNumberOrTag::BlockTag(BlockTag::Latest) => Ok(latest),
-			BlockNumberOrTag::BlockTag(tag) => anyhow::bail!("Unsupported tag: {tag:?}"),
+			BlockNumberOrTag::Number(v) => Ok(U256::from(v)),
+			BlockNumberOrTag::Earliest => Ok(earliest),
+			BlockNumberOrTag::Latest => Ok(latest),
+			BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe | BlockNumberOrTag::Pending => {
+				anyhow::bail!("Unsupported tag: {block:?}")
+			},
 		};
 
 		let logs = self
