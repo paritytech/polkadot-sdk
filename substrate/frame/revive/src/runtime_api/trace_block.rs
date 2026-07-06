@@ -20,10 +20,6 @@ use pallet_revive_types::runtime_api::*;
 
 use crate::evm::{Trace, TracerType};
 
-// ======
-// Input
-// ======
-
 pub struct TraceBlockInputPayload<Block> {
 	pub block: Block,
 	pub config: TracerType,
@@ -49,10 +45,6 @@ impl<Block> From<TraceBlockInputPayloadV2<Block>> for TraceBlockInputPayload<Blo
 		Self { block: value.block, config: value.config.into() }
 	}
 }
-
-// =======
-// Output
-// =======
 
 #[derive(Default)]
 pub struct TraceBlockOutputPayload {

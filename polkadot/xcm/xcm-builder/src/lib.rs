@@ -53,10 +53,6 @@ pub use controller::{
 	QueryControllerWeightInfo, QueryHandler, SendController, SendControllerWeightInfo,
 };
 
-mod currency_adapter;
-#[allow(deprecated)]
-pub use currency_adapter::CurrencyAdapter;
-
 mod forwarder;
 pub use forwarder::TeleportForwarderForAccountId32;
 
@@ -137,9 +133,6 @@ pub use routing::{
 
 mod transactional;
 pub use transactional::FrameTransactionalProcessor;
-
-#[allow(deprecated)]
-pub use universal_exports::UnpaidLocalExporter;
 
 mod transfer;
 pub use transfer::{Transfer, TransferOverXcm, TransferOverXcmHelper, TransferStatus};

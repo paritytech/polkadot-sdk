@@ -14,8 +14,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::{ClientError, client::SubstrateBlockNumber};
-use pallet_revive::evm::{Block, FeeHistoryResult, ReceiptInfo};
+use crate::{ClientError, FeeHistoryResult, ReceiptInfo, client::SubstrateBlockNumber};
+use pallet_revive::evm::Block;
 use sp_core::U256;
 use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::RwLock;
@@ -28,6 +28,17 @@ struct FeeHistoryCacheItem {
 	base_fee: u128,
 	gas_used_ratio: f64,
 	rewards: Vec<u128>,
+}
+
+/// Maps a reward percentile requested via `eth_feeHistory` to its bucket index in
+/// [`FeeHistoryCacheItem::rewards`].
+///
+/// Rewards are cached at half-percentile resolution, i.e. one bucket per `0.5` percent over
+/// `0.0..=100.0` (201 buckets). The index is therefore the percentile, clamped to that range and
+/// scaled to the bucket resolution, rounded to the nearest bucket.
+fn reward_bucket_index(percentile: f64) -> usize {
+	// Two buckets per whole percentile, hence the factor of two.
+	(percentile.clamp(0.0, 100.0) * 2f64).round() as usize
 }
 
 /// Manages the fee history cache.
@@ -123,15 +134,10 @@ impl FeeHistoryProvider {
 				// If the request includes reward percentiles, get them from the cache.
 				if let Some(ref requested_percentiles) = reward_percentiles {
 					let mut block_rewards = Vec::new();
-					// Resolution is half a point. I.e. 1.0,1.5
-					let resolution_per_percentile: f64 = 2.0;
 					// Get cached reward for each provided percentile.
 					for p in requested_percentiles {
-						// Find the cache index from the user percentile.
-						let p = p.clamp(0.0, 100.0);
-						let index = ((p.round() / 2f64) * 2f64) * resolution_per_percentile;
 						// Get and push the reward.
-						let reward = if let Some(r) = block.rewards.get(index as usize) {
+						let reward = if let Some(r) = block.rewards.get(reward_bucket_index(*p)) {
 							U256::from(*r)
 						} else {
 							U256::zero()
@@ -197,4 +203,20 @@ async fn test_update_fee_history() {
 		reward: vec![vec![U256::from(50), U256::from(100), U256::from(200)]],
 	};
 	assert_eq!(fee_history_result, expected_result);
+}
+
+#[test]
+fn reward_bucket_index_matches_half_percentile_resolution() {
+	// Whole percentiles map to even buckets.
+	assert_eq!(reward_bucket_index(0.0), 0);
+	assert_eq!(reward_bucket_index(50.0), 100);
+	assert_eq!(reward_bucket_index(100.0), 200);
+
+	// Half percentiles are addressable and are not snapped to a neighbouring whole percentile.
+	assert_eq!(reward_bucket_index(0.5), 1);
+	assert_eq!(reward_bucket_index(50.5), 101);
+
+	// Out-of-range percentiles are clamped to the valid range.
+	assert_eq!(reward_bucket_index(-1.0), 0);
+	assert_eq!(reward_bucket_index(150.0), 200);
 }

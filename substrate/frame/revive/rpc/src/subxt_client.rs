@@ -36,7 +36,7 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	),
 
 	substitute_type(
-		path = "pallet_revive::evm::api::rpc_types_gen::GenericTransaction",
+		path = "pallet_revive::evm::api::transaction::GenericTransaction",
 		with = "::subxt::utils::Static<::pallet_revive::evm::GenericTransaction>"
 	),
 	substitute_type(
@@ -64,7 +64,7 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::sp_weights::Weight>"
 	),
 	substitute_type(
-		path = "pallet_revive::evm::api::rpc_types_gen::Block",
+		path = "pallet_revive::evm::api::block::Block",
 		with = "::subxt::utils::Static<::pallet_revive::evm::Block>"
 	),
 	substitute_type(
@@ -76,6 +76,10 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::types::tracer::TracerTypeV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TracerTypeV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::receipt::ReceiptGasInfoV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ReceiptGasInfoV1>"
 	),
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::types::tracer::CallTracerConfigV1",
@@ -138,6 +142,238 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ExecutionStepKindV1>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::balance::BalanceInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BalanceInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::balance::BalanceVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BalanceVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::balance::BalanceOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BalanceOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::balance::BalanceVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BalanceVersionedOutputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::gas_price::GasPriceInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GasPriceInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::gas_price::GasPriceVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GasPriceVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::gas_price::GasPriceOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GasPriceOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::gas_price::GasPriceVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GasPriceVersionedOutputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::nonce::NonceInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NonceInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::nonce::NonceVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NonceVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::nonce::NonceOutputPayloadV1<Nonce>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NonceOutputPayloadV1<Nonce>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::nonce::NonceVersionedOutputPayload<Nonce>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NonceVersionedOutputPayload<Nonce>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::PreDispatchWeightInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PreDispatchWeightInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::PreDispatchWeightVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PreDispatchWeightVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::PreDispatchWeightOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PreDispatchWeightOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::eth_pre_dispatch_weight::PreDispatchWeightVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::PreDispatchWeightVersionedOutputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::upload::CodeUploadReturnValueV1<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CodeUploadReturnValueV1<Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::upload_code::UploadCodeInputPayloadV1<AccountId, Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::UploadCodeInputPayloadV1<AccountId, Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::upload_code::UploadCodeVersionedInputPayload<AccountId, Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::UploadCodeVersionedInputPayload<AccountId, Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::upload_code::UploadCodeOutputPayloadV1<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::UploadCodeOutputPayloadV1<Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::upload_code::UploadCodeVersionedOutputPayload<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::UploadCodeVersionedOutputPayload<Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::storage::StorageKeyV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::StorageKeyV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::get_storage::GetStorageInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GetStorageInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::get_storage::GetStorageVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GetStorageVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::get_storage::GetStorageOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GetStorageOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::get_storage::GetStorageVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::GetStorageVersionedOutputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::runtime_pallets_address::RuntimePalletsAddressInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::RuntimePalletsAddressInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::runtime_pallets_address::RuntimePalletsAddressVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::RuntimePalletsAddressVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::runtime_pallets_address::RuntimePalletsAddressOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::RuntimePalletsAddressOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::runtime_pallets_address::RuntimePalletsAddressVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::RuntimePalletsAddressVersionedOutputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::code::CodeInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CodeInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::code::CodeVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CodeVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::code::CodeOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CodeOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::code::CodeVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::CodeVersionedOutputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::account_id::AccountIdInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AccountIdInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::account_id::AccountIdVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AccountIdVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::account_id::AccountIdOutputPayloadV1<AccountId>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AccountIdOutputPayloadV1<AccountId>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::account_id::AccountIdVersionedOutputPayload<AccountId>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AccountIdVersionedOutputPayload<AccountId>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::new_balance_with_dust::NewBalanceWithDustInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NewBalanceWithDustInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::new_balance_with_dust::NewBalanceWithDustVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NewBalanceWithDustVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::new_balance_with_dust::NewBalanceWithDustOutputPayloadV1<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NewBalanceWithDustOutputPayloadV1<Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::new_balance_with_dust::NewBalanceWithDustVersionedOutputPayload<Balance>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::NewBalanceWithDustVersionedOutputPayload<Balance>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_author::BlockAuthorInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockAuthorInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_author::BlockAuthorVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockAuthorVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_author::BlockAuthorOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockAuthorOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_author::BlockAuthorVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockAuthorVersionedOutputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::address::AddressInputPayloadV1<AccountId>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AddressInputPayloadV1<AccountId>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::address::AddressVersionedInputPayload<AccountId>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AddressVersionedInputPayload<AccountId>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::address::AddressOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AddressOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::address::AddressVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::AddressVersionedOutputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_gas_limit::BlockGasLimitInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockGasLimitInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_gas_limit::BlockGasLimitVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockGasLimitVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_gas_limit::BlockGasLimitOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockGasLimitOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_gas_limit::BlockGasLimitVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockGasLimitVersionedOutputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::max_extrinsic_weight_in_gas::MaxExtrinsicWeightInGasInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::MaxExtrinsicWeightInGasInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::max_extrinsic_weight_in_gas::MaxExtrinsicWeightInGasVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::MaxExtrinsicWeightInGasVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::max_extrinsic_weight_in_gas::MaxExtrinsicWeightInGasOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::MaxExtrinsicWeightInGasOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::max_extrinsic_weight_in_gas::MaxExtrinsicWeightInGasVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::MaxExtrinsicWeightInGasVersionedOutputPayload>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockInputPayloadV1<Block>",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockInputPayloadV1<Block>>"
 	),
@@ -160,6 +396,30 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::trace_block::TraceBlockVersionedOutputPayload",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceBlockVersionedOutputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_tx::TraceTxInputPayloadV1<Block>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceTxInputPayloadV1<Block>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_tx::TraceTxInputPayloadV2<Block>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceTxInputPayloadV2<Block>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_tx::TraceTxVersionedInputPayload<Block>",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceTxVersionedInputPayload<Block>>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_tx::TraceTxOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceTxOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_tx::TraceTxOutputPayloadV2",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceTxOutputPayloadV2>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::trace_tx::TraceTxVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceTxVersionedOutputPayload>"
 	),
 
 	derive_for_all_types = "codec::Encode, codec::Decode"
