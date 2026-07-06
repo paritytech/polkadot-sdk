@@ -26,10 +26,10 @@
 //! contract to attribute its transfers to. It is a fast-follow blocked on a
 //! native-balances precompile.
 
+use crate::{Log, ReceiptInfo};
 use alloy_core::sol_types::{SolCall, SolEvent};
 use codec::Decode;
 use ethereum_standards::IERC20;
-use crate::{Log, ReceiptInfo};
 use pallet_revive::evm::{
 	Bytes, H256, TransactionLegacySigned, TransactionLegacyUnsigned, TransactionSigned, U256,
 };
