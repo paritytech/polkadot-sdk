@@ -40,7 +40,7 @@ use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
 use pallet_xcm_benchmarks::{
 	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
 	xcm_weights::{
-		AssetFilterCountWeigher, AutoXcmWeight, AutoXcmWeightConfig,
+		AssetFilterCountWeigher, AssetWeigher, AutoXcmWeight, AutoXcmWeightConfig,
 		CountBasedAssetsAndFilterWeigher, UniformAssetsWeigher,
 	},
 };
@@ -54,11 +54,17 @@ use parachains_common::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use rococo_runtime_constants::system_parachain::ASSET_HUB_ID;
-use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
+use sp_runtime::{
+	traits::{AccountIdConversion, TryConvertInto},
+	BoundedVec,
+};
 use testnet_parachains_constants::rococo::snowbridge::{
 	EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
 };
-use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
+use xcm::{
+	latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+	v5::AssetTransferFilter,
+};
 use xcm_builder::{
 	unique_instances::UniqueInstancesAdapter, AccountId32Aliases, AliasChildLocation,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
@@ -385,6 +391,30 @@ impl<Call> AutoXcmWeightConfig<Call> for AssetHubRococoXcmWeightConfig {
 	type FungibleWeights = XcmBenchWeight<Runtime>;
 	type AssetWeigher =
 		CountBasedAssetsAndFilterWeigher<AssetHubRococoCountWeigher, UniformAssetsWeigher>;
+
+	fn initiate_transfer(
+		remote_fees: &Option<AssetTransferFilter>,
+		assets: &BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
+	) -> Weight {
+		let base_weight = XcmBenchWeight::<Runtime>::initiate_transfer();
+		let mut weight = if let Some(remote_fees) = remote_fees {
+			<Self::AssetWeigher as AssetWeigher>::weigh_asset_filter(
+				remote_fees.inner(),
+				base_weight,
+			)
+		} else {
+			base_weight
+		};
+
+		for asset_filter in assets {
+			let extra = <Self::AssetWeigher as AssetWeigher>::weigh_asset_filter(
+				asset_filter.inner(),
+				base_weight,
+			);
+			weight = weight.saturating_add(extra);
+		}
+		weight
+	}
 }
 
 pub type AssetHubRococoXcmWeight<Call> = AutoXcmWeight<Call, AssetHubRococoXcmWeightConfig>;

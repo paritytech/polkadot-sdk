@@ -18,7 +18,10 @@
 
 use std::collections::HashSet;
 
-use crate::{xcm_config::LocationConverter, *};
+use crate::{
+	xcm_config::{LocationConverter, WestendAssetMatcher},
+	*,
+};
 use approx::assert_relative_eq;
 use frame_support::{
 	assert_ok,
@@ -28,6 +31,7 @@ use frame_support::{
 	},
 };
 use pallet_staking::EraPayout;
+use pallet_xcm_benchmarks::xcm_weights::{AssetWeigher, MatchedAssetWeigher};
 use sp_core::{crypto::Ss58Codec, hexdisplay::HexDisplay};
 use sp_keyring::Sr25519Keyring::{self, Alice};
 use sp_runtime::{generic::Era, traits::AccountIdConversion};
@@ -715,4 +719,17 @@ mod drain_legacy_treasury_migration {
 			assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance_before);
 		});
 	}
+}
+
+#[test]
+fn all_counted_has_a_sane_weight_upper_limit() {
+	let assets = xcm::latest::prelude::AssetFilter::Wild(AllCounted(4294967295));
+	let weight = Weight::from_parts(1000, 1000);
+
+	assert_eq!(
+		<MatchedAssetWeigher<WestendAssetMatcher> as AssetWeigher>::weigh_asset_filter(
+			&assets, weight
+		),
+		weight * 1 // MAX_ASSETS = 1, in `xcm_config`
+	);
 }

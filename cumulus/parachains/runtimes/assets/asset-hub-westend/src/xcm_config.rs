@@ -54,14 +54,20 @@ use parachains_common::xcm_config::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
-use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
+use sp_runtime::{
+	traits::{AccountIdConversion, TryConvertInto},
+	BoundedVec,
+};
 use testnet_parachains_constants::westend::{
 	accumulate_forward::AccumulateForwardPalletId, locations::AssetHubParaId,
 };
 use westend_runtime_constants::system_parachain::{
 	BRIDGE_HUB_ID, BROKER_ID, COLLECTIVES_ID, PEOPLE_ID,
 };
-use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
+use xcm::{
+	latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+	v5::AssetTransferFilter,
+};
 use xcm_builder::{
 	unique_instances::UniqueInstancesAdapter, AccountId32Aliases, AliasChildLocation,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
@@ -492,6 +498,30 @@ impl<Call> AutoXcmWeightConfig<Call> for AssetHubWestendXcmWeightConfig {
 		let receive_weight =
 			<Self::AssetWeigher as AssetWeigher>::weigh_assets(receive.into(), base_weight);
 		give_weight.max(receive_weight)
+	}
+
+	fn initiate_transfer(
+		remote_fees: &Option<AssetTransferFilter>,
+		assets: &BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
+	) -> Weight {
+		let base_weight = XcmBenchWeight::<Runtime>::initiate_transfer();
+		let mut weight = if let Some(remote_fees) = remote_fees {
+			<Self::AssetWeigher as AssetWeigher>::weigh_asset_filter(
+				remote_fees.inner(),
+				base_weight,
+			)
+		} else {
+			base_weight
+		};
+
+		for asset_filter in assets {
+			let extra = <Self::AssetWeigher as AssetWeigher>::weigh_asset_filter(
+				asset_filter.inner(),
+				base_weight,
+			);
+			weight = weight.saturating_add(extra);
+		}
+		weight
 	}
 }
 

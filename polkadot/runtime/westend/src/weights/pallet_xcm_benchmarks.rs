@@ -27,7 +27,7 @@
 // benchmark
 // pallet
 // --runtime
-// target/release/wbuild/pallet-staking-async-rc-runtime/pallet_staking_async_rc_runtime.wasm
+// target/release/wbuild/westend-runtime/westend_runtime.wasm
 // --pallets
 // pallet_xcm_benchmarks::fungible
 // pallet_xcm_benchmarks::generic
@@ -36,7 +36,7 @@
 // --header
 // cumulus/file_header.txt
 // --output
-// ./substrate/frame/staking-async/runtimes/rc/src/weights/xcm/pallet_xcm_benchmarks.rs
+// ./polkadot/runtime/westend/src/weights/pallet_xcm_benchmarks.rs
 // --wasm-execution
 // compiled
 // --steps
@@ -50,8 +50,6 @@
 // --no-storage-info
 // --no-min-squares
 // --no-median-slopes
-// --genesis-builder-preset
-// fake-s
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -69,8 +67,8 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `101`
 		//  Estimated: `3593`
-		// Minimum execution time: 24_000_000 picoseconds.
-		Weight::from_parts(26_000_000, 3593)
+		// Minimum execution time: 23_000_000 picoseconds.
+		Weight::from_parts(25_000_000, 3593)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -78,10 +76,10 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	pub fn transfer_asset() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `153`
+		//  Measured:  `101`
 		//  Estimated: `6196`
-		// Minimum execution time: 41_000_000 picoseconds.
-		Weight::from_parts(44_000_000, 6196)
+		// Minimum execution time: 39_000_000 picoseconds.
+		Weight::from_parts(41_000_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -99,10 +97,10 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	pub fn transfer_reserve_asset() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `430`
+		//  Measured:  `415`
 		//  Estimated: `8799`
-		// Minimum execution time: 97_000_000 picoseconds.
-		Weight::from_parts(101_000_000, 8799)
+		// Minimum execution time: 96_000_000 picoseconds.
+		Weight::from_parts(102_000_000, 8799)
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(5))
 	}
@@ -129,10 +127,10 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	pub fn initiate_reserve_withdraw() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `378`
+		//  Measured:  `415`
 		//  Estimated: `6196`
-		// Minimum execution time: 63_000_000 picoseconds.
-		Weight::from_parts(66_000_000, 6196)
+		// Minimum execution time: 64_000_000 picoseconds.
+		Weight::from_parts(67_000_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
@@ -147,10 +145,10 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	pub fn deposit_asset() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `52`
+		//  Measured:  `0`
 		//  Estimated: `3593`
-		// Minimum execution time: 22_000_000 picoseconds.
-		Weight::from_parts(24_000_000, 3593)
+		// Minimum execution time: 21_000_000 picoseconds.
+		Weight::from_parts(23_000_000, 3593)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -168,10 +166,10 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	pub fn deposit_reserve_asset() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `226`
-		//  Estimated: `3691`
-		// Minimum execution time: 62_000_000 picoseconds.
-		Weight::from_parts(65_000_000, 3691)
+		//  Measured:  `174`
+		//  Estimated: `3639`
+		// Minimum execution time: 60_000_000 picoseconds.
+		Weight::from_parts(63_000_000, 3639)
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -208,10 +206,10 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	pub fn initiate_transfer() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `329`
+		//  Measured:  `314`
 		//  Estimated: `6196`
 		// Minimum execution time: 81_000_000 picoseconds.
-		Weight::from_parts(85_000_000, 6196)
+		Weight::from_parts(84_000_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
@@ -229,9 +227,9 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	pub fn report_holding() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `378`
+		//  Measured:  `415`
 		//  Estimated: `6196`
-		// Minimum execution time: 60_000_000 picoseconds.
+		// Minimum execution time: 61_000_000 picoseconds.
 		Weight::from_parts(63_000_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(4))
@@ -339,7 +337,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	pub fn report_error() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `378`
+		//  Measured:  `415`
 		//  Estimated: `6196`
 		// Minimum execution time: 59_000_000 picoseconds.
 		Weight::from_parts(62_000_000, 6196)
@@ -444,10 +442,10 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	pub fn query_pallet() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `378`
+		//  Measured:  `415`
 		//  Estimated: `6196`
-		// Minimum execution time: 69_000_000 picoseconds.
-		Weight::from_parts(77_000_000, 6196)
+		// Minimum execution time: 68_000_000 picoseconds.
+		Weight::from_parts(71_000_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
@@ -455,8 +453,8 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 8_000_000 picoseconds.
-		Weight::from_parts(10_000_000, 0)
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 0)
 	}
 	// Storage: `Dmp::DeliveryFeeFactor` (r:1 w:0)
 	// Proof: `Dmp::DeliveryFeeFactor` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -472,10 +470,10 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	pub fn report_transact_status() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `378`
+		//  Measured:  `415`
 		//  Estimated: `6196`
-		// Minimum execution time: 61_000_000 picoseconds.
-		Weight::from_parts(67_000_000, 6196)
+		// Minimum execution time: 59_000_000 picoseconds.
+		Weight::from_parts(62_000_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}

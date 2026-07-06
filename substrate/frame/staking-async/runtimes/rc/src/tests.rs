@@ -18,8 +18,12 @@
 
 use std::collections::HashSet;
 
-use crate::{xcm_config::LocationConverter, *};
+use crate::{
+	xcm_config::{LocationConverter, RcAssetMatcher},
+	*,
+};
 use frame_support::traits::WhitelistedStorageKeys;
+use pallet_xcm_benchmarks::xcm_weights::{AssetWeigher, MatchedAssetWeigher};
 use sp_core::{crypto::Ss58Codec, hexdisplay::HexDisplay};
 use sp_keyring::Sr25519Keyring::Alice;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
@@ -212,4 +216,15 @@ fn location_conversion_works() {
 
 		assert_eq!(got, expected, "{}", tc.description);
 	}
+}
+
+#[test]
+fn all_counted_has_a_sane_weight_upper_limit() {
+	let assets = AssetFilter::Wild(AllCounted(4294967295));
+	let weight = Weight::from_parts(1000, 1000);
+
+	assert_eq!(
+		<MatchedAssetWeigher<RcAssetMatcher> as AssetWeigher>::weigh_asset_filter(&assets, weight,),
+		weight * 1
+	);
 }
