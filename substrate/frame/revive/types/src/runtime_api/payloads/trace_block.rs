@@ -22,10 +22,6 @@ use scale_info::TypeInfo;
 
 use crate::runtime_api::*;
 
-// =======
-// Inputs
-// =======
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct TraceBlockInputPayloadV1<Block> {
 	pub block: Block,
@@ -43,10 +39,6 @@ pub enum TraceBlockVersionedInputPayload<Block> {
 	V1(TraceBlockInputPayloadV1<Block>),
 	V2(TraceBlockInputPayloadV2<Block>),
 }
-
-// ========
-// Outputs
-// ========
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct TraceBlockOutputPayloadV1 {

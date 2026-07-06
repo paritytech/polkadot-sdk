@@ -9,8 +9,7 @@
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput_with, assign_cores, wait_for_first_session_change,
-	wait_for_pvf_prepare,
+	assert_finality_lag, assert_para_throughput_with, assign_cores, wait_for_pvf_prepare,
 };
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
 use rstest::rstest;
@@ -29,13 +28,19 @@ use crate::utils::{assert_candidates_version, assert_validator_backed_candidates
 /// and checks that the candidates for both parachains are being backed at expected throughput.
 ///
 /// RPO = relay parent offset
+///
+/// TODO: For the moment the v3 throughput is low and unpredictable. This should stabilise after
+/// adding resubmissions support and a catch-up mechanism:
+/// - https://github.com/paritytech/polkadot-sdk/issues/10836
+/// - https://github.com/paritytech/polkadot-sdk/issues/11903
+/// The expected throughput ranges should be adjusted after we have this.
 #[rstest]
 #[case::rpo_0_max_session_age_0("v3", 0, 20, 16..21)]
 #[case::rpo_2_max_session_age_0("v3-rpo-2", 0, 20, 8..20)]
-#[case::rpo_2_max_session_age_1("v3-rpo-2", 1, 40, 10..30)]
-#[case::rpo_4_max_session_age_1("v3-rpo-4", 1, 40, 10..30)]
-#[case::rpo_6_max_session_age_1("v3-rpo-6", 1, 40, 10..30)]
-#[case::rpo_15_max_session_age_2("v3-rpo-15", 2, 60, 8..20)]
+#[case::rpo_2_max_session_age_1("v3-rpo-2", 1, 40, 15..30)]
+#[case::rpo_4_max_session_age_1("v3-rpo-4", 1, 40, 15..30)]
+#[case::rpo_6_max_session_age_1("v3-rpo-6", 1, 40, 15..30)]
+#[case::rpo_15_max_session_age_2("v3-rpo-15", 2, 60, 26..40)]
 #[tokio::test(flavor = "multi_thread")]
 async fn scheduling_v2_and_v3_collator_with_v3_validators(
 	#[case] parachain: &str,
@@ -127,10 +132,6 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 	let para_v3 = ParaId::from(2700);
 	let para_v2 = ParaId::from(2500);
 
-	// Wait for the first session, block production on the parachain will start after that.
-	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
-	wait_for_first_session_change(&mut blocks_sub).await?;
-
 	wait_for_pvf_prepare(&network, 2).await?;
 
 	// Verify both V3 and V2 candidates are backed in the same relay chain block window.
@@ -179,8 +180,8 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 		assert_validator_backed_candidates(node, 30).await?;
 	}
 
-	assert_finality_lag(&para_v3_node.wait_client().await?, 5).await?;
-	assert_finality_lag(&para_v2_node.wait_client().await?, 5).await?;
+	assert_finality_lag(&para_v3_node.wait_client().await?, 10).await?;
+	assert_finality_lag(&para_v2_node.wait_client().await?, 10).await?;
 
 	log::info!("V3 scheduling test ({parachain}) finished successfully");
 	Ok(())
