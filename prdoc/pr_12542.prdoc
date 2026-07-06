@@ -8,20 +8,20 @@ doc:
     - Adds the equivocation type to the offence slot for Beefy
 crates:
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: minor
 - name: pallet-babe
-  bump: patch
+  bump: minor
 - name: pallet-beefy
-  bump: patch
+  bump: major
 - name: pallet-grandpa
-  bump: patch
+  bump: minor
 - name: pallet-im-online
-  bump: patch
+  bump: minor
 - name: pallet-offences
-  bump: patch
+  bump: major
 - name: pallet-root-offences
-  bump: patch
+  bump: minor
 - name: pallet-staking
   bump: patch
 - name: sp-staking
-  bump: patch
+  bump: major
