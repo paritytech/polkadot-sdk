@@ -314,6 +314,7 @@ where
 							metrics: Metrics::register(registry)?,
 							db: parachains_db.clone(),
 							reputation_config,
+							clock: polkadot_node_clock::system_clock(),
 						}
 					} else {
 						ProtocolSide::Validator {
@@ -322,6 +323,7 @@ where
 							metrics: Metrics::register(registry)?,
 							invulnerables: invulnerable_ah_collators,
 							collator_protocol_hold_off,
+							clock: polkadot_node_clock::system_clock(),
 						}
 					}
 				},
@@ -495,6 +497,7 @@ where
 					collator_pair,
 					request_receiver_v2: collation_req_v2_receiver,
 					metrics: Metrics::register(registry)?,
+					clock: polkadot_node_clock::system_clock(),
 				},
 				IsParachainNode::FullNode => ProtocolSide::None,
 			};

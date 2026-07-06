@@ -52,6 +52,7 @@ pub mod pallet_pgas_allowance;
 pub mod pallet_preimage;
 pub mod pallet_proxy;
 pub mod pallet_psm;
+pub mod pallet_recovery;
 pub mod pallet_referenda;
 pub mod pallet_revive;
 pub mod pallet_scheduler;
