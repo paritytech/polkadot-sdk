@@ -607,3 +607,112 @@ fn accumulate_forward_account_matches_constant() {
 		AccumulateForwardPalletId::get().into_account_truncating()
 	);
 }
+
+/// Unit tests for `migrations::DrainLegacyTreasuryToAccumulationAccount`.
+mod drain_legacy_treasury_migration {
+	use super::*;
+	use crate::migrations::DrainLegacyTreasuryToAccumulationAccount;
+	use frame_support::{traits::OnRuntimeUpgrade, PalletId};
+
+	const LEGACY_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
+
+	fn legacy_account() -> AccountId {
+		LEGACY_TREASURY_PALLET_ID.into_account_truncating()
+	}
+
+	fn accumulation_account() -> AccountId {
+		pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account()
+	}
+
+	#[test]
+	fn zero_source_is_a_no_op() {
+		new_test_ext().execute_with(|| {
+			assert_eq!(<Balances as Inspect<AccountId>>::balance(&legacy_account()), 0);
+			let accum_before = <Balances as Inspect<AccountId>>::balance(&accumulation_account());
+			let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
+
+			DrainLegacyTreasuryToAccumulationAccount::on_runtime_upgrade();
+
+			assert_eq!(
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account()),
+				accum_before
+			);
+			assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance_before);
+		});
+	}
+
+	#[test]
+	fn only_ed_in_source_is_also_a_no_op() {
+		new_test_ext().execute_with(|| {
+			let ed = ExistentialDeposit::get();
+			// Fund with exactly ED — reducible_balance(Preserve) returns 0.
+			assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&legacy_account(), ed));
+			let accum_before = <Balances as Inspect<AccountId>>::balance(&accumulation_account());
+			let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
+
+			DrainLegacyTreasuryToAccumulationAccount::on_runtime_upgrade();
+
+			assert_eq!(
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account()),
+				accum_before
+			);
+			assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance_before);
+		});
+	}
+
+	#[test]
+	fn drains_reducible_balance_to_accumulation_account() {
+		new_test_ext().execute_with(|| {
+			let ed = ExistentialDeposit::get();
+			// reducible = 90 * ED (ED itself kept by Preservation::Preserve).
+			let extra = 90 * ed;
+			assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&legacy_account(), ed + extra));
+			let accum_before = <Balances as Inspect<AccountId>>::balance(&accumulation_account());
+			let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
+
+			DrainLegacyTreasuryToAccumulationAccount::on_runtime_upgrade();
+
+			assert_eq!(<Balances as Inspect<AccountId>>::balance(&legacy_account()), ed);
+			assert_eq!(
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account()),
+				accum_before + extra
+			);
+			assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance_before);
+		});
+	}
+
+	#[test]
+	fn idempotent_second_run_is_a_no_op() {
+		new_test_ext().execute_with(|| {
+			let ed = ExistentialDeposit::get();
+			assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&legacy_account(), ed + 50 * ed));
+
+			DrainLegacyTreasuryToAccumulationAccount::on_runtime_upgrade();
+			let accum_after_first =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account());
+
+			// Second run: legacy reducible is now 0 → early return.
+			DrainLegacyTreasuryToAccumulationAccount::on_runtime_upgrade();
+			assert_eq!(
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account()),
+				accum_after_first
+			);
+		});
+	}
+
+	#[test]
+	fn total_issuance_invariant_holds() {
+		new_test_ext().execute_with(|| {
+			let ed = ExistentialDeposit::get();
+			assert_ok!(<Balances as Mutate<AccountId>>::mint_into(
+				&legacy_account(),
+				ed + 200 * ed
+			));
+			let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
+
+			DrainLegacyTreasuryToAccumulationAccount::on_runtime_upgrade();
+
+			assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance_before);
+		});
+	}
+}

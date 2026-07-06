@@ -165,8 +165,8 @@ jobs:
             echo "Resuming from '$RESUME_FROM' - checking out existing branch $CRATES_RELEASE_BRANCH"
             git fetch origin "$CRATES_RELEASE_BRANCH"
             git checkout "$CRATES_RELEASE_BRANCH"
-          elif git rev-parse --verify -q "$CRATES_RELEASE_BRANCH" &>/dev/null; then
-            echo "Branch $CRATES_RELEASE_BRANCH already exists, switching to it"
+          elif git rev-parse --verify -q "origin/$CRATES_RELEASE_BRANCH" &>/dev/null; then
+            echo "Branch $CRATES_RELEASE_BRANCH already exists on remote, switching to it"
             git checkout "$CRATES_RELEASE_BRANCH"
           else
             echo "Creating branch: $CRATES_RELEASE_BRANCH"
@@ -406,14 +406,28 @@ jobs:
           git push origin "$CRATES_RELEASE_BRANCH"
           echo "Successfully pushed $CRATES_RELEASE_BRANCH to paritytech/polkadot-sdk"
 
-      - name: Push release branch to fork on failure
-        if: failure()
+      - name: Push release branch to fork on failure or cancellation
+        if: failure() || cancelled()
         env:
           CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          echo "Job failed. Pushing branch '$CRATES_RELEASE_BRANCH' to origin (paritytech-release) to preserve state for resume..."
+          echo "Job did not complete successfully. Pushing branch '$CRATES_RELEASE_BRANCH' to origin (paritytech-release) to preserve state for resume..."
           # Restore origin to the fork repo in case it was changed by the upstream push step
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
           git push origin "$CRATES_RELEASE_BRANCH" --force-with-lease
           echo "Branch pushed. To resume, re-run this workflow with resume_from set to the appropriate phase."
+
+      - name: Notify RelEng on failure or cancellation
+        if: failure() || cancelled()
+        uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
+        with:
+          room_id: '!GvAyzgCDgaVrvibaAF:parity.io'
+          access_token: ${{ secrets.RELEASENOTES_MATRIX_V2_ACCESS_TOKEN }}
+          server: m.parity.io
+          message: |
+            **Publish Crates workflow did not complete** for `${{ inputs.release_name }}` (registry: `${{ inputs.registry }}`, dry_run: `${{ inputs.dry_run }}`).<br/>
+            Likely causes: the 6h GitHub job timeout, or an error during publishing.<br/>
+            Branch `${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}` has been pushed to preserve state.<br/>
+            Re-run the workflow with `resume_from` set to the appropriate phase (typically `publish`).<br/>
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
