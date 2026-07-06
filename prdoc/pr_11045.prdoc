@@ -1,18 +1,22 @@
-title: '[pallet-bounty]: add `dust_bounty_account` to sweep stranded funds from closed
-  bounty accounts'
+title: '[pallet-bounties]: add `reclaim_bounty_funds` to reclaim stranded funds from
+  closed bounty accounts'
 doc:
 - audience: Runtime Dev
   description: |-
     fixes https://github.com/paritytech/polkadot-sdk/issues/10996
 
-    This PR adds a permissionless `dust_bounty_account` extrinsic that sweeps all
-    remaining native tokens and fungible assets from a stale bounty account back
-    to the treasury. Native funds are moved using `transfer_all` semantics
+    This PR adds a permissionless `reclaim_bounty_funds` extrinsic that moves funds
+    stranded in a closed bounty's account back to the treasury. Each call reclaims a
+    single asset: `None` reclaims the native token, `Some(asset_kind)` reclaims the
+    named fungible asset. Batch multiple calls (e.g. via `pallet-utility`) to reclaim
+    several assets at once. Native funds are moved using `transfer_all` semantics
     (reducible balance with `Expendable` preservation) so locks and freezes are
-    respected.
+    respected. The call is free on success and paid on a no-op, so it cannot be used
+    to grief the network.
 
-    `pallet-bounties` now requires its `Currency` to also implement
-    `fungible::Mutate`.
+    The `TransferAllAssets` trait gains an `AssetKind` associated type and a
+    `force_transfer_asset` method, and `pallet-bounties` now requires its `Currency`
+    to also implement `fungible::Mutate`.
 crates:
 - name: pallet-bounties
   bump: major

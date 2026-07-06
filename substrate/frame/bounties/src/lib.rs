@@ -127,6 +127,12 @@ type PositiveImbalanceOf<T, I = ()> = pallet_treasury::PositiveImbalanceOf<T, I>
 /// An index of a bounty. Just a `u32`.
 pub type BountyIndex = u32;
 
+/// The kind of asset that can be reclaimed from a stale bounty account via
+/// [`Pallet::reclaim_bounty_funds`].
+type AssetKindOf<T, I = ()> = <<T as Config<I>>::TransferAllAssets as TransferAllAssets<
+	<T as frame_system::Config>::AccountId,
+>>::AssetKind;
+
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 type BlockNumberFor<T, I = ()> =
@@ -211,19 +217,30 @@ pub trait ChildBountyManager<Balance> {
 	fn bounty_removed(bounty_id: BountyIndex);
 }
 
-/// Transfer all assets that an account holds.
+/// Transfer assets held by an account (e.g. a stale bounty sub-account) back to another.
 pub trait TransferAllAssets<AccountId> {
-	/// Transfer all assets from one account to another.
-	///
-	/// This will possibly dust and reap the origin account and endow the receiver.
-	///
-	/// Returns `true` if any balance was actually transferred, `false` if the account was already
-	/// empty.
-	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> Result<bool, DispatchError>;
+	/// A single asset kind that can be reclaimed via [`Self::force_transfer_asset`].
+	type AssetKind: Parameter + MaxEncodedLen;
+
+	/// Transfer all assets from one account to another, possibly reaping `from`.
+	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> DispatchResult;
+
+	/// Transfer the whole reducible balance of a single `asset`. Returns `true` if anything moved.
+	fn force_transfer_asset(
+		asset: Self::AssetKind,
+		from: &AccountId,
+		to: &AccountId,
+	) -> Result<bool, DispatchError>;
 }
 
 impl<AccountId> TransferAllAssets<AccountId> for () {
-	fn force_transfer_all_assets(_: &AccountId, _: &AccountId) -> Result<bool, DispatchError> {
+	type AssetKind = ();
+
+	fn force_transfer_all_assets(_: &AccountId, _: &AccountId) -> DispatchResult {
+		Ok(())
+	}
+
+	fn force_transfer_asset(_: (), _: &AccountId, _: &AccountId) -> Result<bool, DispatchError> {
 		Ok(false)
 	}
 }
@@ -240,15 +257,17 @@ impl<AccountId, Fungibles, RelevantAssets> TransferAllAssets<AccountId>
 where
 	Fungibles: FungiblesMutate<AccountId>,
 	RelevantAssets: Get<Vec<<Fungibles as FungiblesInspect<AccountId>>::AssetId>>,
+	<Fungibles as FungiblesInspect<AccountId>>::AssetId: Parameter + MaxEncodedLen,
 	AccountId: Eq,
 {
-	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> Result<bool, DispatchError> {
+	type AssetKind = <Fungibles as FungiblesInspect<AccountId>>::AssetId;
+
+	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> DispatchResult {
 		// We iterate through all assets twice in case that the Native asset was not last in the
 		// list and ED remained because of an insufficient asset at the end of the list.
 		let assets_twice =
 			RelevantAssets::get().into_iter().chain(RelevantAssets::get().into_iter());
 
-		let mut transferred_any = false;
 		for id in assets_twice {
 			let balance = Fungibles::reducible_balance(
 				id.clone(),
@@ -260,11 +279,29 @@ where
 				continue;
 			}
 
-			transferred_any = true;
 			// Ignore errors since this can only fail if the receiver does not exist.
 			let _ = Fungibles::transfer(id, from, to, balance, Preservation::Expendable);
 		}
-		Ok(transferred_any)
+		Ok(())
+	}
+
+	fn force_transfer_asset(
+		asset: Self::AssetKind,
+		from: &AccountId,
+		to: &AccountId,
+	) -> Result<bool, DispatchError> {
+		let balance = Fungibles::reducible_balance(
+			asset.clone(),
+			from,
+			Preservation::Expendable,
+			Fortitude::Force,
+		);
+		if balance.is_zero() {
+			return Ok(false);
+		}
+
+		Fungibles::transfer(asset, from, to, balance, Preservation::Expendable)?;
+		Ok(true)
 	}
 }
 
@@ -414,9 +451,8 @@ pub mod pallet {
 			old_deposit: BalanceOf<T, I>,
 			new_deposit: BalanceOf<T, I>,
 		},
-		/// A closed bounty account's remaining balance/assets were transferred
-		/// to the treasury by `who`.
-		BountyAccDusted { bounty_id: BountyIndex },
+		/// Stranded funds left in a closed bounty's account were reclaimed to the treasury.
+		BountyFundsReclaimed { bounty_id: BountyIndex },
 	}
 
 	/// Number of bounty proposals that have been made.
@@ -883,7 +919,7 @@ pub mod pallet {
 
 					BountyDescriptions::<T, I>::remove(bounty_id);
 
-					let _ = T::TransferAllAssets::force_transfer_all_assets(
+					T::TransferAllAssets::force_transfer_all_assets(
 						&bounty_account,
 						&Self::account_id(),
 					)?;
@@ -1009,26 +1045,27 @@ pub mod pallet {
 			Ok(if deposit_updated { Pays::No } else { Pays::Yes }.into())
 		}
 
-		/// Dust a closed bounty account by transferring all remaining tokens and
-		/// assets to the treasury.
+		/// Reclaim funds stranded in a closed bounty's account back to the treasury.
 		///
-		/// Due to a historical bug, some bounty accounts may retain a balance
-		/// after being closed. This extrinsic allows anyone to clean up such
-		/// stale accounts, sending all funds back to the treasury.
+		/// Permissionless. Reclaims a single asset per call: `None` for the native token, or
+		/// `Some(kind)` for the fungible asset `kind`. Batch multiple calls (e.g. via
+		/// `pallet-utility`) to reclaim several assets at once.
+		///
+		/// The call is free if funds were reclaimed and paid otherwise, so no-op calls cannot be
+		/// used to grief the network. Emits `BountyFundsReclaimed` on success.
 		///
 		/// ## Complexity
-		/// - O(1) for the native token; O(A) where A is the number of relevant assets configured in
-		///   `TransferAllAssets`.
+		/// - O(1).
 		#[pallet::call_index(11)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::dust_bounty_account())]
-		pub fn dust_bounty_account(
+		#[pallet::weight(<T as Config<I>>::WeightInfo::reclaim_bounty_funds())]
+		pub fn reclaim_bounty_funds(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
+			asset_kind: Option<AssetKindOf<T, I>>,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 
-			// If a bounty still exists for this ID we must not touch its account
-			// because it is still actively managed.
+			// A live bounty still manages its account, so leave it untouched.
 			ensure!(!Bounties::<T, I>::contains_key(bounty_id), Error::<T, I>::UnexpectedStatus);
 
 			debug_assert!(
@@ -1039,32 +1076,21 @@ pub mod pallet {
 			let bounty_account = Self::bounty_account_id(bounty_id);
 			let treasury_account = Self::account_id();
 
-			let mut transferred_any = T::TransferAllAssets::force_transfer_all_assets(
-				&bounty_account,
-				&treasury_account,
-			)?;
-
-			let reducible_native =
-				<T::Currency as FungibleInspect<T::AccountId>>::reducible_balance(
-					&bounty_account,
-					Preservation::Expendable,
-					Fortitude::Force,
-				);
-			if !reducible_native.is_zero() {
-				let res = <T::Currency as FungibleMutate<T::AccountId>>::transfer(
+			let transferred = match asset_kind {
+				Some(asset) => T::TransferAllAssets::force_transfer_asset(
+					asset,
 					&bounty_account,
 					&treasury_account,
-					reducible_native,
-					Preservation::Expendable,
-				);
-				transferred_any |= res.is_ok();
-			}
+				)?,
+				None => Self::reclaim_native_funds(&bounty_account, &treasury_account)?,
+			};
 
-			if !transferred_any {
+			// Free only if something moved, otherwise paid to prevent griefing.
+			if !transferred {
 				return Ok(Pays::Yes.into());
 			}
 
-			Self::deposit_event(Event::<T, I>::BountyAccDusted { bounty_id });
+			Self::deposit_event(Event::<T, I>::BountyFundsReclaimed { bounty_id });
 
 			Ok(Pays::No.into())
 		}
@@ -1155,6 +1181,27 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// only use two byte prefix to support 16 byte account id (used by test)
 		// "modl" ++ "py/trsry" ++ "bt" is 14 bytes, and two bytes remaining for bounty index
 		T::PalletId::get().into_sub_account_truncating(("bt", id))
+	}
+
+	/// Move the whole transferable native balance from `from` to `to`. Returns `true` if anything
+	/// moved.
+	fn reclaim_native_funds(from: &T::AccountId, to: &T::AccountId) -> Result<bool, DispatchError> {
+		let balance = <T::Currency as FungibleInspect<T::AccountId>>::reducible_balance(
+			from,
+			Preservation::Expendable,
+			Fortitude::Force,
+		);
+		if balance.is_zero() {
+			return Ok(false);
+		}
+
+		<T::Currency as FungibleMutate<T::AccountId>>::transfer(
+			from,
+			to,
+			balance,
+			Preservation::Expendable,
+		)?;
+		Ok(true)
 	}
 
 	fn create_bounty(

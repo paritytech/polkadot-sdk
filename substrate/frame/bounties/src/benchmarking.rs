@@ -384,8 +384,10 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// Benchmarks the native-token reclaim path (`asset_kind = None`), the worst case common to
+	// every runtime.
 	#[benchmark]
-	fn dust_bounty_account() -> Result<(), BenchmarkError> {
+	fn reclaim_bounty_funds() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T, I>();
 
 		let (caller, _, _, value, reason) = setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
@@ -398,25 +400,21 @@ mod benchmarks {
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 
 		let bounty_account = Bounties::<T, I>::bounty_account_id(bounty_id);
+		// Drop the bounty record so its account counts as stale.
 		crate::Bounties::<T, I>::remove(bounty_id);
 		BountyDescriptions::<T, I>::remove(bounty_id);
 
-		// Confirm the pre-conditions.
-		assert!(
-			!crate::Bounties::<T, I>::contains_key(bounty_id),
-			"Bounty should be absent from storage"
-		);
 		assert!(
 			!T::Currency::free_balance(&bounty_account).is_zero(),
-			"Bounty account should have a balance to dust"
+			"Bounty account should have a balance to reclaim"
 		);
 
-		let dust_caller: T::AccountId = whitelisted_caller();
+		let caller: T::AccountId = whitelisted_caller();
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(dust_caller), bounty_id);
+		_(RawOrigin::Signed(caller), bounty_id, None);
 
-		assert_last_event::<T, I>(Event::BountyAccDusted { bounty_id }.into());
+		assert_last_event::<T, I>(Event::BountyFundsReclaimed { bounty_id }.into());
 
 		Ok(())
 	}

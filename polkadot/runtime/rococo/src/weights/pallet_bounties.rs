@@ -268,7 +268,7 @@ impl<T: frame_system::Config> pallet_bounties::WeightInfo for WeightInfo<T> {
 	/// Proof: `Bounties::Bounties` (`max_values`: None, `max_size`: Some(177), added: 2652, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn dust_bounty_account() -> Weight {
+	fn reclaim_bounty_funds() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `500`
 		//  Estimated: `6196`
