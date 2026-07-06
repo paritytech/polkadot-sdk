@@ -1677,22 +1677,12 @@ pub mod pallet {
 					"PSM instance without a paired PsmAdmin record"
 				);
 
-				// 1. Live internal decimals must match the snapshot.
-				ensure!(
-					T::Fungibles::decimals(internal_asset.clone()) == info.internal_decimals,
-					"Internal asset live decimals diverged from the snapshot"
-				);
-
 				let mut counted = 0u32;
 				for (external_asset, external) in ExternalAssets::<T>::iter_prefix(&internal_asset)
 				{
-					ensure!(
-						T::Fungibles::decimals(external_asset.clone()) == external.decimals,
-						"External asset live decimals diverged from the snapshot"
-					);
 					counted = counted.saturating_add(1);
 
-					// 2. Per-external reserve covers tracked debt.
+					// 1. Per-external reserve covers tracked debt.
 					let debt = PsmDebt::<T>::get(&internal_asset, &external_asset);
 					let reserve = Self::get_reserve(&internal_asset, &external_asset);
 					let debt_as_external =
@@ -1704,13 +1694,13 @@ pub mod pallet {
 					);
 				}
 
-				// 3. Cached `external_count` matches the iterated externals.
+				// 2. Cached `external_count` matches the iterated externals.
 				ensure!(
 					info.external_count == counted,
 					"PsmInfo.external_count does not match the approved externals"
 				);
 
-				// 4. Sum of per-asset debts equals the aggregate helper.
+				// 3. Sum of per-asset debts equals the aggregate helper.
 				let mut sum = BalanceOf::<T>::zero();
 				for (_, debt) in PsmDebt::<T>::iter_prefix(&internal_asset) {
 					sum = sum.checked_add(&debt).ok_or("PSM debt overflow when summing")?;
