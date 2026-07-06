@@ -119,13 +119,20 @@ impl<T: Config> Eras<T> {
 		Self::get_validator_prefs(era, stash).commission
 	}
 
-	/// Returns true if validator has one or more page of era rewards not claimed yet.
+	/// Returns true if the validator has unclaimed pages and earned reward points in the era
+	/// (a zero-point payout transfers nothing, so there is nothing to claim).
 	pub(crate) fn pending_rewards(era: EraIndex, validator: &T::AccountId) -> bool {
-		<ErasStakersOverview<T>>::get(&era, validator)
-			.map(|overview| {
-				ClaimedRewards::<T>::get(era, validator).len() < overview.page_count as usize
-			})
-			.unwrap_or(false)
+		let Some(overview) = <ErasStakersOverview<T>>::get(&era, validator) else {
+			// no exposure, so no rewards to claim.
+			return false;
+		};
+
+		// Zero reward points means a payout transfers nothing, so there is nothing to claim.
+		if Self::get_reward_points_for_validator(era, validator).is_zero() {
+			return false;
+		}
+
+		ClaimedRewards::<T>::get(era, validator).len() < overview.page_count as usize
 	}
 
 	/// Get exposure for a validator at a given era and page.
