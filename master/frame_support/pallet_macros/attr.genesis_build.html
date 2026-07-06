@@ -148,7 +148,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 	}
 </style>
 
-<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">genesis_build</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_support/index.html">frame_<wbr>support</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">genesis_<wbr>build</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#example" title="Example">Example</a></li><li><a href="#former-usage" title="Former Usage">Former Usage</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In frame_<wbr>support::<wbr>pallet_<wbr>macros</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">frame_support</a>::<wbr><a href="index.html">pallet_macros</a></div><h1>Attribute Macro <span class="attr">genesis_<wbr>build</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/frame_support_procedural/lib.rs.html#1052">Source</a> </span></div><pre class="rust item-decl"><code>#[genesis_build]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Allows you to define how the state of your pallet at genesis is built. This
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">genesis_build</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_support/index.html">frame_<wbr>support</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">genesis_<wbr>build</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#example" title="Example">Example</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In frame_<wbr>support::<wbr>pallet_<wbr>macros</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">frame_support</a>::<wbr><a href="index.html">pallet_macros</a></div><h1>Attribute Macro <span class="attr">genesis_<wbr>build</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/frame_support_procedural/lib.rs.html#1052">Source</a> </span></div><pre class="rust item-decl"><code>#[genesis_build]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Allows you to define how the state of your pallet at genesis is built. This
 takes as input the <code>GenesisConfig</code> type (as <code>self</code>) and constructs the pallet’s initial
 state.</p>
 <p>The fields of the <code>GenesisConfig</code> can in turn be populated by the chain-spec.</p>
@@ -166,24 +166,6 @@ state.</p>
         <span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
             <span class="comment">// use &amp;self to access fields.
             </span><span class="kw">let </span>foo = <span class="kw-2">&amp;</span><span class="self">self</span>.foo;
-            <span class="macro">todo!</span>()
-        }
-    }
-}</code></pre></div><h3 id="former-usage"><a class="doc-anchor" href="#former-usage">§</a>Former Usage</h3>
-<p>Prior to <a href="https://github.com/paritytech/substrate/pull/14306">https://github.com/paritytech/substrate/pull/14306</a>, the following syntax was used.
-This is deprecated and will soon be removed.</p>
-
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[frame_support::pallet]
-</span><span class="kw">pub mod </span>pallet {
-    <span class="attr">#[pallet::genesis_config]
-    #[derive(frame_support::DefaultNoBound)]
-    </span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
-		foo: Vec&lt;T::AccountId&gt;
-	}
-
-    <span class="attr">#[pallet::genesis_build]
-    </span><span class="kw">impl</span>&lt;T: Config&gt; GenesisBuild&lt;T&gt; <span class="kw">for </span>GenesisConfig&lt;T&gt; {
-        <span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
             <span class="macro">todo!</span>()
         }
     }
