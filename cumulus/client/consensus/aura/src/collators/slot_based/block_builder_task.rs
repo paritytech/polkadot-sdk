@@ -228,17 +228,20 @@ where
 
 		let (_para_best_hash, v3_enabled_on_para) = get_best_hash_and_v3_status(&para_client);
 		let v3_enabled = match maybe_best_relay_hash {
-			Some(best_relay_hash) => relay_chain_data_cache
-				.v3_scheduling_active(best_relay_hash, v3_enabled_on_para)
-				.await
-				.unwrap_or_else(|err| {
-					tracing::warn!(
-						target: LOG_TARGET,
-						?err,
-						"Falling back to V2 scheduling: could not fetch session data."
-					);
-					false
-				}),
+			Some(best_relay_hash) => {
+				v3_enabled_on_para &&
+					relay_chain_data_cache
+						.relay_v3_enabled(best_relay_hash)
+						.await
+						.unwrap_or_else(|err| {
+							tracing::warn!(
+								target: LOG_TARGET,
+								?err,
+								"Falling back to V2 scheduling: could not determine if v3 is enabled on the relay chain."
+							);
+							false
+						})
+			},
 			None => false,
 		};
 		slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);

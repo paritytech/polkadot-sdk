@@ -79,9 +79,9 @@ pub enum SessionDataError {
 
 /// Helper to fetch and cache relay chain data.
 ///
-/// Per-relay-block data ([`RelayChainData`], headers, persisted validation data and scheduling
-/// lookahead) is cached keyed by relay block hash, and session-constant configuration
-/// ([`SessionData`]) is cached keyed by [`SessionIndex`].
+/// Per-relay-block data ([`RelayChainData`], persisted validation data and scheduling lookahead)
+/// is cached keyed by relay block hash, and session-constant configuration ([`SessionData`]) is
+/// cached keyed by [`SessionIndex`].
 pub struct RelayChainDataCache<RI> {
 	relay_client: RI,
 	para_id: ParaId,
@@ -89,8 +89,6 @@ pub struct RelayChainDataCache<RI> {
 	cached_data: schnellru::LruMap<RelayHash, RelayChainData>,
 	/// Session-constant configuration, keyed by session index.
 	session_cache: schnellru::LruMap<SessionIndex, SessionData>,
-	/// Relay headers, kept separate so a header-only lookup skips the heavier full fetch.
-	headers: schnellru::LruMap<RelayHash, RelayHeader>,
 	/// Persisted validation data keyed by `(relay block hash, assumption)`.
 	pvd: schnellru::LruMap<(RelayHash, OccupiedCoreAssumption), Option<PersistedValidationData>>,
 	/// Scheduling lookahead by relay hash.
@@ -114,7 +112,6 @@ where
 			cached_data: schnellru::LruMap::new(schnellru::ByLength::new(50)),
 			// 10 sessions are enough for the per-session config cache.
 			session_cache: schnellru::LruMap::new(schnellru::ByLength::new(10)),
-			headers: schnellru::LruMap::new(schnellru::ByLength::new(50)),
 			pvd: schnellru::LruMap::new(schnellru::ByLength::new(100)),
 			scheduling_lookahead: schnellru::LruMap::new(schnellru::ByLength::new(50)),
 			session_index_for_child: schnellru::LruMap::new(schnellru::ByLength::new(50)),
@@ -122,32 +119,14 @@ where
 		}
 	}
 
-	/// The parachain id this cache fetches data for.
-	pub fn para_id(&self) -> ParaId {
-		self.para_id
-	}
-
 	/// Access the underlying relay chain client, for calls that are not (yet) cached.
 	pub fn relay_client(&self) -> &RI {
 		&self.relay_client
 	}
 
-	/// Fetch a relay chain header by hash, caching it.
-	///
-	/// Unlike [`Self::get_by_hash`] this only fetches the header itself and does not pull the
-	/// claim queue or session index, making it cheap enough for relay ancestry walks.
-	pub async fn header(&mut self, relay_hash: RelayHash) -> RelayChainResult<Option<RelayHeader>> {
-		if let Some(header) = self.headers.peek(&relay_hash) {
-			return Ok(Some(header.clone()));
-		}
-
-		match self.relay_client.header(BlockId::Hash(relay_hash)).await? {
-			None => Ok(None),
-			Some(header) => {
-				self.headers.insert(relay_hash, header.clone());
-				Ok(Some(header))
-			},
-		}
+	/// Fetch a relay chain header by hash.
+	pub async fn header(&self, relay_hash: RelayHash) -> RelayChainResult<Option<RelayHeader>> {
+		self.relay_client.header(BlockId::Hash(relay_hash)).await
 	}
 
 	/// Fetch the persisted validation data for the parachain at the given relay block under the
@@ -233,10 +212,6 @@ where
 	) -> RelayChainResult<&RelayChainData> {
 		let relay_hash = relay_header.hash();
 
-		if self.headers.peek(&relay_hash).is_none() {
-			self.headers.insert(relay_hash, relay_header.clone());
-		}
-
 		let insert_data = if self.cached_data.peek(&relay_hash).is_some() {
 			None
 		} else {
@@ -296,18 +271,15 @@ where
 			.expect("There is space for at least one element; qed"))
 	}
 
-	/// Whether V3 scheduling is active for the session that `relay_hash` belongs to.
+	/// Whether the relay chain has the `CandidateReceiptV3` node feature set for the session that
+	/// `relay_hash` belongs to.
 	///
-	/// V3 is active if it is enabled on the parachain runtime (`v3_enabled_on_para`) *and* the
-	/// relay chain has the `CandidateReceiptV3` node feature set for this session.
-	pub async fn v3_scheduling_active(
+	/// This reflects relay-chain state only. Whether V3 scheduling is actually used also requires
+	/// V3 to be enabled on the parachain runtime; combining the two is the block builder's concern.
+	pub async fn relay_v3_enabled(
 		&mut self,
 		relay_hash: RelayHash,
-		v3_enabled_on_para: bool,
 	) -> Result<bool, SessionDataError> {
-		if !v3_enabled_on_para {
-			return Ok(false);
-		}
 		Ok(self.get_session_data(relay_hash).await?.is_v3_enabled())
 	}
 
@@ -369,7 +341,6 @@ where
 
 	#[cfg(any(test, feature = "test-helpers"))]
 	pub fn insert_test_data(&mut self, relay_parent_hash: RelayHash, data: RelayChainData) {
-		self.headers.insert(relay_parent_hash, data.relay_header.clone());
 		self.cached_data.insert(relay_parent_hash, data);
 	}
 

@@ -309,10 +309,8 @@ pub async fn find_parent_for_building<Block: BlockT, RI: RelayChainInterface + '
 	backend: &impl Backend<Block>,
 	params: ParentSearchParams,
 ) -> RelayChainResult<Option<ParentSearchResult<Block>>> {
-	let para_id = relay_chain_data.para_id();
 	tracing::trace!(
 		target: LOG_TARGET,
-		?para_id,
 		?params,
 		"Parent search"
 	);
