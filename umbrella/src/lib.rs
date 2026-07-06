@@ -636,6 +636,10 @@ pub use pallet_pgas_allowance;
 #[cfg(feature = "pallet-preimage")]
 pub use pallet_preimage;
 
+/// Provides precompiles for the preimage pallet.
+#[cfg(feature = "pallet-preimage-precompiles")]
+pub use pallet_preimage_precompiles;
+
 /// FRAME proxying pallet.
 #[cfg(feature = "pallet-proxy")]
 pub use pallet_proxy;
