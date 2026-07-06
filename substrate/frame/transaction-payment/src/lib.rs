@@ -403,15 +403,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type OperationalFeeMultiplier: Get<u8>;
 
-		/// A multiplier for a *refundable surcharge* on `Operational` transactions, to mitigate
-		/// spam.
-		///
-		/// Because `Operational` transactions are prioritized (see
-		/// [`Config::OperationalFeeMultiplier`]), an attacker can spam cheap *failing* ones to push
-		/// out regular transactions. To deter this, `OperationalFeeSurcharge * inclusion_fee` (base
-		/// + length + weight fee, tip excluded) is withdrawn upfront and refunded only if the
-		/// dispatch succeeds, so failing operational transactions forfeit it while honest ones pay
-		/// as before. `0` (the default) disables the surcharge.
+		/// Refundable anti-spam surcharge on `Operational` transactions: an extra
+		/// `OperationalFeeSurcharge * inclusion_fee` (tip excluded) is withdrawn upfront and
+		/// refunded only if the dispatch succeeds, so failing operational spam forfeits it. `0`
+		/// (the default) disables it.
 		#[pallet::constant]
 		type OperationalFeeSurcharge: Get<u32>;
 
