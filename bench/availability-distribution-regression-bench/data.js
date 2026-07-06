@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783335964086,
+  "lastUpdate": 1783342943033,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "73de3bed249afc8ed48b0b69be27a0ee063086a3",
-          "message": "ci: fix cargo-check-all-crate-macos (#10268)\n\nOur mac runners have bash version 3.x, fixing by installing cargo\nmanually.\nfix https://github.com/paritytech/devops/issues/4514",
-          "timestamp": "2025-11-10T17:15:10Z",
-          "tree_id": "249a92d11ea30920915dcbbc2112fcb6d10ab0c7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/73de3bed249afc8ed48b0b69be27a0ee063086a3"
-        },
-        "date": 1762798979552,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013108888526666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022516966166666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1590085463466667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007236942446666645,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14235159296,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "85409988+t55844@users.noreply.github.com",
+            "name": "Thiago Soares",
+            "username": "t55844"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0eb814106aad27a803c426ccca6c71f45a8a0336",
+          "message": "Remove unused dependencies found by cargo-udeps (#12514)\n\nDescription\nRemoves unused dependencies flagged by cargo +nightly udeps: bitvec from\npallet-broker, rlp from snowbridge-beacon-primitives, and\nstatic_assertions from sp-runtime-interface. Each was confirmed unused\nby grepping the crate source for any use of the dependency. Partial fix\nfor #6906.\nNote: serde_json in sp-genesis-builder was initially removed as well,\nbut restored — although udeps flags it as unused, it exists to enable\nthe arbitrary_precision feature required for genesis config\nserialization of u128 values (removing it broke genesis building in CI).\nIntegration\nNo integration steps required. Only [dependencies] entries with no\ncorresponding usage were removed; no code, APIs, or features changed.\nDownstream crates are unaffected.\nReview Notes\nChanges are limited to three Cargo.toml files, one dependency line\nremoved from each. No logic changes. CI compile checks across\nstd/no_std/WASM configurations verify the dependencies were genuinely\nunused.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-06T10:10:10Z",
+          "tree_id": "d5b06c2c0f703f1350255faeda4fc035c4347b9e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0eb814106aad27a803c426ccca6c71f45a8a0336"
+        },
+        "date": 1783342914587,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007683737906666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023605772693333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009965447053333317,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1487184599933334,
             "unit": "seconds"
           }
         ]
