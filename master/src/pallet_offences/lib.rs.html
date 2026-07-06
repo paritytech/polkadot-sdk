@@ -190,8 +190,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#40 id=40 data-nosnippet>40</a>
 <a href=#41 id=41 data-nosnippet>41</a><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <a href=#42 id=42 data-nosnippet>42</a>
-<a href=#43 id=43 data-nosnippet>43</a><span class="doccomment">/// A binary blob which represents a SCALE codec-encoded `O::TimeSlot`.
-<a href=#44 id=44 data-nosnippet>44</a></span><span class="kw">type </span>OpaqueTimeSlot = Vec&lt;u8&gt;;
+<a href=#43 id=43 data-nosnippet>43</a><span class="doccomment">/// A binary blob which represents a SCALE codec-encoded `O::Slot`.
+<a href=#44 id=44 data-nosnippet>44</a></span><span class="kw">type </span>OpaqueSlot = Vec&lt;u8&gt;;
 <a href=#45 id=45 data-nosnippet>45</a>
 <a href=#46 id=46 data-nosnippet>46</a><span class="doccomment">/// A type alias for a report identifier.
 <a href=#47 id=47 data-nosnippet>47</a></span><span class="kw">type </span>ReportIdOf&lt;T&gt; = &lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash;
@@ -238,7 +238,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#88 id=88 data-nosnippet>88</a>		Twox64Concat,
 <a href=#89 id=89 data-nosnippet>89</a>		Kind,
 <a href=#90 id=90 data-nosnippet>90</a>		Twox64Concat,
-<a href=#91 id=91 data-nosnippet>91</a>		OpaqueTimeSlot,
+<a href=#91 id=91 data-nosnippet>91</a>		OpaqueSlot,
 <a href=#92 id=92 data-nosnippet>92</a>		Vec&lt;ReportIdOf&lt;T&gt;&gt;,
 <a href=#93 id=93 data-nosnippet>93</a>		ValueQuery,
 <a href=#94 id=94 data-nosnippet>94</a>	&gt;;
@@ -249,8 +249,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#99 id=99 data-nosnippet>99</a>	</span><span class="kw">pub enum </span>Event {
 <a href=#100 id=100 data-nosnippet>100</a>		<span class="doccomment">/// There is an offence reported of the given `kind` happened at the `session_index` and
 <a href=#101 id=101 data-nosnippet>101</a>		/// (kind-specific) time slot. This event is not deposited for duplicate slashes.
-<a href=#102 id=102 data-nosnippet>102</a>		/// \[kind, timeslot\].
-<a href=#103 id=103 data-nosnippet>103</a>		</span>Offence { kind: Kind, timeslot: OpaqueTimeSlot },
+<a href=#102 id=102 data-nosnippet>102</a>		/// \[kind, slot\].
+<a href=#103 id=103 data-nosnippet>103</a>		</span>Offence { kind: Kind, slot: OpaqueSlot },
 <a href=#104 id=104 data-nosnippet>104</a>	}
 <a href=#105 id=105 data-nosnippet>105</a>}
 <a href=#106 id=106 data-nosnippet>106</a>
@@ -261,12 +261,12 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#111 id=111 data-nosnippet>111</a>{
 <a href=#112 id=112 data-nosnippet>112</a>	<span class="kw">fn </span>report_offence(reporters: Vec&lt;T::AccountId&gt;, offence: O) -&gt; <span class="prelude-ty">Result</span>&lt;(), OffenceError&gt; {
 <a href=#113 id=113 data-nosnippet>113</a>		<span class="kw">let </span>offenders = offence.offenders();
-<a href=#114 id=114 data-nosnippet>114</a>		<span class="kw">let </span>time_slot = offence.time_slot();
+<a href=#114 id=114 data-nosnippet>114</a>		<span class="kw">let </span>slot = offence.slot();
 <a href=#115 id=115 data-nosnippet>115</a>
 <a href=#116 id=116 data-nosnippet>116</a>		<span class="comment">// Go through all offenders in the offence report and find all offenders that were spotted
 <a href=#117 id=117 data-nosnippet>117</a>		// in unique reports.
 <a href=#118 id=118 data-nosnippet>118</a>		</span><span class="kw">let </span>TriageOutcome { concurrent_offenders } =
-<a href=#119 id=119 data-nosnippet>119</a>			<span class="kw">match </span><span class="self">Self</span>::triage_offence_report::&lt;O&gt;(reporters, <span class="kw-2">&amp;</span>time_slot, offenders) {
+<a href=#119 id=119 data-nosnippet>119</a>			<span class="kw">match </span><span class="self">Self</span>::triage_offence_report::&lt;O&gt;(reporters, <span class="kw-2">&amp;</span>slot, offenders) {
 <a href=#120 id=120 data-nosnippet>120</a>				<span class="prelude-val">Some</span>(triage) =&gt; triage,
 <a href=#121 id=121 data-nosnippet>121</a>				<span class="comment">// The report contained only duplicates, so there is no need to slash again.
 <a href=#122 id=122 data-nosnippet>122</a>				</span><span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(OffenceError::DuplicateReport),
@@ -286,14 +286,14 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#136 id=136 data-nosnippet>136</a>		);
 <a href=#137 id=137 data-nosnippet>137</a>
 <a href=#138 id=138 data-nosnippet>138</a>		<span class="comment">// Deposit the event.
-<a href=#139 id=139 data-nosnippet>139</a>		</span><span class="self">Self</span>::deposit_event(Event::Offence { kind: O::ID, timeslot: time_slot.encode() });
+<a href=#139 id=139 data-nosnippet>139</a>		</span><span class="self">Self</span>::deposit_event(Event::Offence { kind: O::ID, slot: slot.encode() });
 <a href=#140 id=140 data-nosnippet>140</a>
 <a href=#141 id=141 data-nosnippet>141</a>		<span class="prelude-val">Ok</span>(())
 <a href=#142 id=142 data-nosnippet>142</a>	}
 <a href=#143 id=143 data-nosnippet>143</a>
-<a href=#144 id=144 data-nosnippet>144</a>	<span class="kw">fn </span>is_known_offence(offenders: <span class="kw-2">&amp;</span>[T::IdentificationTuple], time_slot: <span class="kw-2">&amp;</span>O::TimeSlot) -&gt; bool {
+<a href=#144 id=144 data-nosnippet>144</a>	<span class="kw">fn </span>is_known_offence(offenders: <span class="kw-2">&amp;</span>[T::IdentificationTuple], slot: <span class="kw-2">&amp;</span>O::Slot) -&gt; bool {
 <a href=#145 id=145 data-nosnippet>145</a>		<span class="kw">let </span>any_unknown = offenders.iter().any(|offender| {
-<a href=#146 id=146 data-nosnippet>146</a>			<span class="kw">let </span>report_id = <span class="self">Self</span>::report_id::&lt;O&gt;(time_slot, offender);
+<a href=#146 id=146 data-nosnippet>146</a>			<span class="kw">let </span>report_id = <span class="self">Self</span>::report_id::&lt;O&gt;(slot, offender);
 <a href=#147 id=147 data-nosnippet>147</a>			!&lt;Reports&lt;T&gt;&gt;::contains_key(<span class="kw-2">&amp;</span>report_id)
 <a href=#148 id=148 data-nosnippet>148</a>		});
 <a href=#149 id=149 data-nosnippet>149</a>
@@ -313,24 +313,24 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#163 id=163 data-nosnippet>163</a>	///
 <a href=#164 id=164 data-nosnippet>164</a>	/// The report id depends on the offence kind, time slot and the id of offender.
 <a href=#165 id=165 data-nosnippet>165</a>	</span><span class="kw">fn </span>report_id&lt;O: Offence&lt;T::IdentificationTuple&gt;&gt;(
-<a href=#166 id=166 data-nosnippet>166</a>		time_slot: <span class="kw-2">&amp;</span>O::TimeSlot,
+<a href=#166 id=166 data-nosnippet>166</a>		slot: <span class="kw-2">&amp;</span>O::Slot,
 <a href=#167 id=167 data-nosnippet>167</a>		offender: <span class="kw-2">&amp;</span>T::IdentificationTuple,
 <a href=#168 id=168 data-nosnippet>168</a>	) -&gt; ReportIdOf&lt;T&gt; {
-<a href=#169 id=169 data-nosnippet>169</a>		(O::ID, time_slot.encode(), offender).using_encoded(T::Hashing::hash)
+<a href=#169 id=169 data-nosnippet>169</a>		(O::ID, slot.encode(), offender).using_encoded(T::Hashing::hash)
 <a href=#170 id=170 data-nosnippet>170</a>	}
 <a href=#171 id=171 data-nosnippet>171</a>
 <a href=#172 id=172 data-nosnippet>172</a>	<span class="doccomment">/// Triages the offence report and returns the set of offenders that was involved in unique
 <a href=#173 id=173 data-nosnippet>173</a>	/// reports along with the list of the concurrent offences.
 <a href=#174 id=174 data-nosnippet>174</a>	</span><span class="kw">fn </span>triage_offence_report&lt;O: Offence&lt;T::IdentificationTuple&gt;&gt;(
 <a href=#175 id=175 data-nosnippet>175</a>		reporters: Vec&lt;T::AccountId&gt;,
-<a href=#176 id=176 data-nosnippet>176</a>		time_slot: <span class="kw-2">&amp;</span>O::TimeSlot,
+<a href=#176 id=176 data-nosnippet>176</a>		slot: <span class="kw-2">&amp;</span>O::Slot,
 <a href=#177 id=177 data-nosnippet>177</a>		offenders: Vec&lt;T::IdentificationTuple&gt;,
 <a href=#178 id=178 data-nosnippet>178</a>	) -&gt; <span class="prelude-ty">Option</span>&lt;TriageOutcome&lt;T&gt;&gt; {
-<a href=#179 id=179 data-nosnippet>179</a>		<span class="kw">let </span><span class="kw-2">mut </span>storage = ReportIndexStorage::&lt;T, O&gt;::load(time_slot);
+<a href=#179 id=179 data-nosnippet>179</a>		<span class="kw">let </span><span class="kw-2">mut </span>storage = ReportIndexStorage::&lt;T, O&gt;::load(slot);
 <a href=#180 id=180 data-nosnippet>180</a>
 <a href=#181 id=181 data-nosnippet>181</a>		<span class="kw">let </span><span class="kw-2">mut </span>any_new = <span class="bool-val">false</span>;
 <a href=#182 id=182 data-nosnippet>182</a>		<span class="kw">for </span>offender <span class="kw">in </span>offenders {
-<a href=#183 id=183 data-nosnippet>183</a>			<span class="kw">let </span>report_id = <span class="self">Self</span>::report_id::&lt;O&gt;(time_slot, <span class="kw-2">&amp;</span>offender);
+<a href=#183 id=183 data-nosnippet>183</a>			<span class="kw">let </span>report_id = <span class="self">Self</span>::report_id::&lt;O&gt;(slot, <span class="kw-2">&amp;</span>offender);
 <a href=#184 id=184 data-nosnippet>184</a>
 <a href=#185 id=185 data-nosnippet>185</a>			<span class="kw">if </span>!&lt;Reports&lt;T&gt;&gt;::contains_key(<span class="kw-2">&amp;</span>report_id) {
 <a href=#186 id=186 data-nosnippet>186</a>				any_new = <span class="bool-val">true</span>;
@@ -372,19 +372,19 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#222 id=222 data-nosnippet>222</a>/// accessed directly meanwhile.
 <a href=#223 id=223 data-nosnippet>223</a></span><span class="attr">#[must_use = <span class="string">"The changes are not saved without called `save`"</span>]
 <a href=#224 id=224 data-nosnippet>224</a></span><span class="kw">struct </span>ReportIndexStorage&lt;T: Config, O: Offence&lt;T::IdentificationTuple&gt;&gt; {
-<a href=#225 id=225 data-nosnippet>225</a>	opaque_time_slot: OpaqueTimeSlot,
+<a href=#225 id=225 data-nosnippet>225</a>	slot: OpaqueSlot,
 <a href=#226 id=226 data-nosnippet>226</a>	concurrent_reports: Vec&lt;ReportIdOf&lt;T&gt;&gt;,
 <a href=#227 id=227 data-nosnippet>227</a>	_phantom: PhantomData&lt;O&gt;,
 <a href=#228 id=228 data-nosnippet>228</a>}
 <a href=#229 id=229 data-nosnippet>229</a>
 <a href=#230 id=230 data-nosnippet>230</a><span class="kw">impl</span>&lt;T: Config, O: Offence&lt;T::IdentificationTuple&gt;&gt; ReportIndexStorage&lt;T, O&gt; {
-<a href=#231 id=231 data-nosnippet>231</a>	<span class="doccomment">/// Preload indexes from the storage for the specific `time_slot` and the kind of the offence.
-<a href=#232 id=232 data-nosnippet>232</a>	</span><span class="kw">fn </span>load(time_slot: <span class="kw-2">&amp;</span>O::TimeSlot) -&gt; <span class="self">Self </span>{
-<a href=#233 id=233 data-nosnippet>233</a>		<span class="kw">let </span>opaque_time_slot = time_slot.encode();
+<a href=#231 id=231 data-nosnippet>231</a>	<span class="doccomment">/// Preload indexes from the storage for the specific `slot` and the kind of the offence.
+<a href=#232 id=232 data-nosnippet>232</a>	</span><span class="kw">fn </span>load(slot: <span class="kw-2">&amp;</span>O::Slot) -&gt; <span class="self">Self </span>{
+<a href=#233 id=233 data-nosnippet>233</a>		<span class="kw">let </span>slot = slot.encode();
 <a href=#234 id=234 data-nosnippet>234</a>
-<a href=#235 id=235 data-nosnippet>235</a>		<span class="kw">let </span>concurrent_reports = &lt;ConcurrentReportsIndex&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>O::ID, <span class="kw-2">&amp;</span>opaque_time_slot);
+<a href=#235 id=235 data-nosnippet>235</a>		<span class="kw">let </span>concurrent_reports = &lt;ConcurrentReportsIndex&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>O::ID, <span class="kw-2">&amp;</span>slot);
 <a href=#236 id=236 data-nosnippet>236</a>
-<a href=#237 id=237 data-nosnippet>237</a>		<span class="self">Self </span>{ opaque_time_slot, concurrent_reports, _phantom: Default::default() }
+<a href=#237 id=237 data-nosnippet>237</a>		<span class="self">Self </span>{ slot, concurrent_reports, _phantom: Default::default() }
 <a href=#238 id=238 data-nosnippet>238</a>	}
 <a href=#239 id=239 data-nosnippet>239</a>
 <a href=#240 id=240 data-nosnippet>240</a>	<span class="doccomment">/// Insert a new report to the index.
@@ -395,13 +395,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#245 id=245 data-nosnippet>245</a>
 <a href=#246 id=246 data-nosnippet>246</a>	<span class="doccomment">/// Dump the indexes to the storage.
 <a href=#247 id=247 data-nosnippet>247</a>	</span><span class="kw">fn </span>save(<span class="self">self</span>) {
-<a href=#248 id=248 data-nosnippet>248</a>		&lt;ConcurrentReportsIndex&lt;T&gt;&gt;::insert(
-<a href=#249 id=249 data-nosnippet>249</a>			<span class="kw-2">&amp;</span>O::ID,
-<a href=#250 id=250 data-nosnippet>250</a>			<span class="kw-2">&amp;</span><span class="self">self</span>.opaque_time_slot,
-<a href=#251 id=251 data-nosnippet>251</a>			<span class="kw-2">&amp;</span><span class="self">self</span>.concurrent_reports,
-<a href=#252 id=252 data-nosnippet>252</a>		);
-<a href=#253 id=253 data-nosnippet>253</a>	}
-<a href=#254 id=254 data-nosnippet>254</a>}
+<a href=#248 id=248 data-nosnippet>248</a>		&lt;ConcurrentReportsIndex&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>O::ID, <span class="kw-2">&amp;</span><span class="self">self</span>.slot, <span class="kw-2">&amp;</span><span class="self">self</span>.concurrent_reports);
+<a href=#249 id=249 data-nosnippet>249</a>	}
+<a href=#250 id=250 data-nosnippet>250</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

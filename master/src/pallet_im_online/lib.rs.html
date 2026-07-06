@@ -991,7 +991,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#841 id=841 data-nosnippet>841</a>
 <a href=#842 id=842 data-nosnippet>842</a><span class="kw">impl</span>&lt;Offender: Clone&gt; Offence&lt;Offender&gt; <span class="kw">for </span>UnresponsivenessOffence&lt;Offender&gt; {
 <a href=#843 id=843 data-nosnippet>843</a>	<span class="kw">const </span>ID: Kind = <span class="kw-2">*</span><span class="string">b"im-online:offlin"</span>;
-<a href=#844 id=844 data-nosnippet>844</a>	<span class="kw">type </span>TimeSlot = SessionIndex;
+<a href=#844 id=844 data-nosnippet>844</a>	<span class="kw">type </span>Slot = SessionIndex;
 <a href=#845 id=845 data-nosnippet>845</a>
 <a href=#846 id=846 data-nosnippet>846</a>	<span class="kw">fn </span>offenders(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;Offender&gt; {
 <a href=#847 id=847 data-nosnippet>847</a>		<span class="self">self</span>.offenders.clone()
@@ -1005,7 +1005,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#855 id=855 data-nosnippet>855</a>		<span class="self">self</span>.validator_set_count
 <a href=#856 id=856 data-nosnippet>856</a>	}
 <a href=#857 id=857 data-nosnippet>857</a>
-<a href=#858 id=858 data-nosnippet>858</a>	<span class="kw">fn </span>time_slot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::TimeSlot {
+<a href=#858 id=858 data-nosnippet>858</a>	<span class="kw">fn </span>slot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Slot {
 <a href=#859 id=859 data-nosnippet>859</a>		<span class="self">self</span>.session_index
 <a href=#860 id=860 data-nosnippet>860</a>	}
 <a href=#861 id=861 data-nosnippet>861</a>

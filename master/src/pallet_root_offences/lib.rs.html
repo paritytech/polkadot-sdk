@@ -208,7 +208,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#58 id=58 data-nosnippet>58</a>
 <a href=#59 id=59 data-nosnippet>59</a>	<span class="kw">impl</span>&lt;Offender: Clone&gt; Offence&lt;Offender&gt; <span class="kw">for </span>TestSpamOffence&lt;Offender&gt; {
 <a href=#60 id=60 data-nosnippet>60</a>		<span class="kw">const </span>ID: Kind = <span class="kw-2">*</span><span class="string">b"spamspamspamspam"</span>;
-<a href=#61 id=61 data-nosnippet>61</a>		<span class="kw">type </span>TimeSlot = u128;
+<a href=#61 id=61 data-nosnippet>61</a>		<span class="kw">type </span>Slot = u128;
 <a href=#62 id=62 data-nosnippet>62</a>
 <a href=#63 id=63 data-nosnippet>63</a>		<span class="kw">fn </span>offenders(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;Offender&gt; {
 <a href=#64 id=64 data-nosnippet>64</a>			<span class="macro">vec!</span>[<span class="self">self</span>.offender.clone()]
@@ -218,7 +218,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#68 id=68 data-nosnippet>68</a>			<span class="self">self</span>.session_index
 <a href=#69 id=69 data-nosnippet>69</a>		}
 <a href=#70 id=70 data-nosnippet>70</a>
-<a href=#71 id=71 data-nosnippet>71</a>		<span class="kw">fn </span>time_slot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::TimeSlot {
+<a href=#71 id=71 data-nosnippet>71</a>		<span class="kw">fn </span>slot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Slot {
 <a href=#72 id=72 data-nosnippet>72</a>			<span class="self">self</span>.time_slot
 <a href=#73 id=73 data-nosnippet>73</a>		}
 <a href=#74 id=74 data-nosnippet>74</a>

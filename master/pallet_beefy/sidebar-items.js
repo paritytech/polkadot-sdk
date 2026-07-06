@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["pallet"],"struct":["EquivocationOffence","EquivocationReportSystem","TimeSlot"],"trait":["WeightInfo"]};
+window.SIDEBAR_ITEMS = {"mod":["pallet"],"struct":["EquivocationOffence","EquivocationReportSystem","Slot"],"trait":["WeightInfo"]};
