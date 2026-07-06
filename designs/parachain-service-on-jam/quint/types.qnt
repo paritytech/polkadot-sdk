@@ -19,7 +19,7 @@ module types {
   type ValidationCodeHash = { vchBytes: int }
   type AuthorizerHash = { authBytes: int }
 
-  /// Opaque 336-octet validator-key blob; see design §5.3.
+  /// Opaque 336-byte validator-key blob; see design §5.3.
   type ValidatorKey = int
 
   // Sentinels exist only to force closure of the row-polymorphic variant
@@ -56,7 +56,7 @@ module types {
 
   // --- Protocol constants (gray paper / design doc) -----------------------
 
-  /// Each validator key blob is 336 octets.
+  /// Each validator key blob is 336 bytes.
   pure val ValidatorKeySize: int = 336
 
   pure val CoreCount: int = 341

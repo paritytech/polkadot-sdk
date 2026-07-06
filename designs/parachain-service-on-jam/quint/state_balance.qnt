@@ -13,9 +13,9 @@ module state_balance {
 
   // --- Per-parachain footprint primitives --------------------------------
 
-   /// Per-para baseline footprint: 4 275 B ParaInfo + 65 602 B log reserve.
+   /// Per-para baseline footprint: 4 247 B ParaInfo + 65 570 B log reserve.
    /// Derivation in §6.1.
-   pure val BaselineFootprint: int = 69877
+   pure val BaselineFootprint: int = 69817
 
   /// The single-referencer footprint a parachain pays for a solicited
   /// preimage of length `len`, billed "as if sole user" (design §6.1).
@@ -23,11 +23,11 @@ module state_balance {
   /// Threshold Balance*):
   ///   a_requests (preimage lookup, keyed by (hash, len)): 81 + len
   ///   a_storage  (referencer-map entry): 34 + |value| + |key|
-  ///              = 34 + 5 (singleton {ParaId} set) + 32 (blake-hashed key)
-  /// Total = 152 + len octets. Octet term only; JAM's per-item balance
-  /// term (B_I * items) is not modelled — matching the baseline octet proxy.
+  ///              = 34 + 5 (singleton {ParaId} set) + 36 (raw (hash,len) key)
+  /// Total = 156 + len bytes. Byte term only; JAM's per-item balance
+  /// term (B_I * items) is not modelled — matching the baseline byte proxy.
   pure def preimageFootprint(len: int): int =
-  (81 + len) + (34 + 5 + 32)
+  (81 + len) + (34 + 5 + 36)
 
   // --- Update primitives --------------------------------------------------
 
