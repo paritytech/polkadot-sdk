@@ -23,12 +23,9 @@
 
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{
-		fungibles::{
-			metadata::{Inspect as FungiblesMetadataInspect, Mutate as FungiblesMetadataMutate},
-			Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
-		},
-		Consideration, Footprint,
+	traits::fungibles::{
+		metadata::{Inspect as FungiblesMetadataInspect, Mutate as FungiblesMetadataMutate},
+		Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 	},
 };
 use remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
@@ -198,17 +195,12 @@ where
 			external_count: 0,
 		},
 	);
-	let ticket = <Runtime as pallet_psm::Config>::Consideration::new(
-		&config.fee_destination,
-		Footprint::from_parts(1, 0),
-	)
-	.expect("fee destination is funded for the creation deposit");
 	pallet_psm::PsmAdmin::<Runtime>::insert(
 		&internal_asset_id,
 		pallet_psm::PsmAdminInfo::<Runtime> {
 			full_admin: root_origin.clone(),
 			emergency_admin: root_origin,
-			deposit: Some((config.fee_destination.clone(), ticket)),
+			deposit: None,
 		},
 	);
 	let psm_account_id = pallet_psm::Pallet::<Runtime>::psm_account(&internal_asset_id);

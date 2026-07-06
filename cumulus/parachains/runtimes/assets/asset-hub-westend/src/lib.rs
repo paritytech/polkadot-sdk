@@ -1562,8 +1562,8 @@ parameter_types! {
 }
 
 type PsmCreateOrigin = EitherOf<
-	EnsureRootWithSuccess<AccountId, NoPsmDepositor>,
 	pallet_psm::EnsureAssetOwner<Runtime>,
+	EnsureRootWithSuccess<AccountId, NoPsmDepositor>,
 >;
 
 #[cfg(feature = "runtime-benchmarks")]
