@@ -50,6 +50,7 @@ use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_core::H160;
 use sp_runtime::traits::Zero;
+use sp_std::convert::TryInto;
 use xcm::prelude::{
 	send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, Xcm, XcmContext, XcmHash,
 };
@@ -266,20 +267,6 @@ pub mod pallet {
 				}
 			})?;
 
-			// Reward relayer from the sovereign account of the destination parachain, only if funds
-			// are available
-			let sovereign_account = sibling_sovereign_account::<T>(channel.para_id);
-			let delivery_cost = Self::calculate_delivery_cost(event.encode().len() as u32);
-			let amount = T::Token::reducible_balance(
-				&sovereign_account,
-				Preservation::Preserve,
-				Fortitude::Polite,
-			)
-			.min(delivery_cost);
-			if !amount.is_zero() {
-				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
-			}
-
 			// Decode payload into `VersionedMessage`
 			let message = VersionedMessage::decode_all(&mut envelope.payload.as_ref())
 				.map_err(|_| Error::<T>::InvalidPayload)?;
@@ -295,7 +282,22 @@ pub mod pallet {
 			);
 
 			// Burning fees for teleport
-			Self::burn_fees(channel.para_id, fee)?;
+			Self::burn_fees(channel.para_id, &who, fee)?;
+
+			// Reimburse the relayer from the sovereign account of the destination parachain, only
+			// if funds are available. The relayer has already fronted the teleported fee.
+			let sovereign_account = sibling_sovereign_account::<T>(channel.para_id);
+			let delivery_cost = Self::calculate_delivery_cost(event.encode().len() as u32);
+			let owed = fee.saturating_add(delivery_cost);
+			let amount = T::Token::reducible_balance(
+				&sovereign_account,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			)
+			.min(owed);
+			if !amount.is_zero() {
+				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
+			}
 
 			// Attempt to send XCM to a dest parachain
 			let message_id = Self::send_xcm(xcm, channel.para_id)?;
@@ -349,10 +351,13 @@ pub mod pallet {
 		}
 
 		/// Burn the amount of the fee embedded into the XCM for teleports
-		pub fn burn_fees(para_id: ParaId, fee: BalanceOf<T>) -> DispatchResult {
+		pub fn burn_fees(para_id: ParaId, who: &T::AccountId, fee: BalanceOf<T>) -> DispatchResult {
 			let dummy_context =
 				XcmContext { origin: None, message_id: Default::default(), topic: None };
 			let dest = Location::new(1, [Parachain(para_id.into())]);
+			let relayer_id: [u8; 32] =
+				who.encode().try_into().map_err(|_| TokenError::FundsUnavailable)?;
+			let relayer = Location::new(0, [AccountId32 { network: None, id: relayer_id }]);
 			let fees = (Location::parent(), fee.saturated_into::<u128>()).into();
 			T::AssetTransactor::can_check_out(&dest, &fees, &dummy_context).map_err(|error| {
 				tracing::error!(
@@ -363,7 +368,7 @@ pub mod pallet {
 				TokenError::FundsUnavailable
 			})?;
 			T::AssetTransactor::check_out(&dest, &fees, &dummy_context);
-			T::AssetTransactor::withdraw_asset(&fees, &dest, None).map_err(|error| {
+			T::AssetTransactor::withdraw_asset(&fees, &relayer, None).map_err(|error| {
 				tracing::error!(
 					target: LOG_TARGET,
 					?error,

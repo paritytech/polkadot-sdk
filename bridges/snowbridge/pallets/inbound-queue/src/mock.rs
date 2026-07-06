@@ -2,7 +2,14 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
-use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::IdentityFee};
+use frame_support::{
+	derive_impl, parameter_types,
+	traits::{
+		tokens::{Fortitude, Precision, Preservation},
+		ConstU32,
+	},
+	weights::IdentityFee,
+};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
@@ -182,8 +189,8 @@ impl StaticLookup for MockChannelLookup {
 	type Target = Channel;
 
 	fn lookup(channel_id: Self::Source) -> Option<Self::Target> {
-		if channel_id !=
-			hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539").into()
+		if channel_id
+			!= hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539").into()
 		{
 			return None;
 		}
@@ -211,9 +218,30 @@ impl TransactAsset for SuccessfulTransactor {
 
 	fn withdraw_asset(
 		what: &Asset,
-		_who: &Location,
+		who: &Location,
 		_context: Option<&XcmContext>,
 	) -> Result<AssetsInHolding, XcmError> {
+		let account = match who.unpack() {
+			(0, [AccountId32 { network: None, id }]) => Some((*id).into()),
+			(1, [Parachain(para_id)]) => Some(sibling_sovereign_account::<Test>((*para_id).into())),
+			_ => None,
+		};
+
+		let amount = match (&what.id, &what.fun) {
+			(AssetId(location), Fungible(amount)) if *location == Location::parent() => *amount,
+			_ => return Err(XcmError::AssetNotFound),
+		};
+
+		if let Some(account) = account {
+			Balances::burn_from(
+				&account,
+				amount,
+				Preservation::Expendable,
+				Precision::Exact,
+				Fortitude::Force,
+			)
+			.map_err(|_| XcmError::FailedToTransactAsset("burn failed"))?;
+		}
 		Ok(xcm_executor::test_helpers::mock_asset_to_holding(what.clone()))
 	}
 
