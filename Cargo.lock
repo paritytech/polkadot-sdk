@@ -12805,7 +12805,6 @@ dependencies = [
 name = "pallet-broker"
 version = "0.6.0"
 dependencies = [
- "bitvec",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -23923,7 +23922,6 @@ dependencies = [
  "hex",
  "hex-literal",
  "parity-scale-codec",
- "rlp 0.6.1",
  "scale-info",
  "serde",
  "snowbridge-milagro-bls",
@@ -25517,7 +25515,6 @@ dependencies = [
  "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
  "sp-wasm-interface 20.0.0",
- "static_assertions",
  "trybuild",
 ]
 
