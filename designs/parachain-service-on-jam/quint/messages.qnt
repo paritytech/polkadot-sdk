@@ -6,6 +6,9 @@
 module messages {
   import types.* from "./types"
 
+  /// A validation code reference: its hash plus its byte length.
+  type ValidationCodeRef = { hash: ValidationCodeHash, len: int }
+
   // --- Refine-side log payloads -------------------------------------------
 
   type RefineLog =
@@ -38,11 +41,11 @@ module messages {
   // --- Accumulate-side log payloads ---------------------------------------
 
   // Why a state-balance reservation failed. `FromSolicit` carries the
-  // preimage hash; `FromValidatorKeys` covers a `set_validator_keys`
+  // preimage hash and length; `FromValidatorKeys` covers a `set_validator_keys`
   // chunk append (which has no single hash). Distinct constructor names
   // because `Solicit`/`SetValidatorKeys` are already `UpwardMessage` labels.
   type InsufficientBalanceReason =
-  | FromSolicit({ hash: Hash })
+  | FromSolicit({ hash: Hash, len: int })
   | FromValidatorKeys
 
   type AccumulateLog =
@@ -104,15 +107,15 @@ module messages {
   | ParachainCleanUp(ParaId)
   // parachain_set_state_balance(para_id, new_total) — Coretime only.
   | ParachainSetStateBalance({ paraId: ParaId, newTotal: Balance })
-  // parachain_service_upgrade(code_hash, min_item_gas, min_memo_gas) —
+  // parachain_service_upgrade(code_hash, len, min_item_gas, min_memo_gas) —
   // Asset Hub only (design §5.4).
-  | UpgradeService({ codeHash: Hash, minItemGas: int, minMemoGas: int })
+  | UpgradeService({ codeHash: Hash, len: int, minItemGas: int, minMemoGas: int })
 
   // --- Refine output per work item ---------------------------------------
 
   type ParachainWorkDigestOk = {
     paraId: ParaId,
-    validationCodeHash: ValidationCodeHash,
+    validationCode: ValidationCodeRef,
     parentHeadHash: Hash,
     headData: HeadData,
     upwardMessages: List[UpwardMessage]

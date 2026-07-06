@@ -22,7 +22,7 @@ module refine {
 
   /// Per-work-package extrinsic — one parachain candidate per item (design §3.2).
   type ParachainCandidate = {
-    validationCodeHash: ValidationCodeHash,
+    validationCode: ValidationCodeRef,
     // PoV is opaque; the model treats it as a nondeterministic input.
     pov: int
   }
@@ -101,26 +101,23 @@ module refine {
 
   pure def refineOk(
     paraId: ParaId,
-    vch: ValidationCodeHash,
+    ref: ValidationCodeRef,
     parentHead: Hash,
     newHead: HeadData,
     msgs: List[UpwardMessage]
   ): ParachainWorkDigest =
   Ok({
       paraId: paraId,
-      validationCodeHash: vch,
+      validationCode: ref,
       parentHeadHash: parentHead,
       headData: newHead,
       upwardMessages: msgs
   })
 
-  /// The §4.1 step that determines lookup success. In the real protocol this
-  /// is `historical_lookup(validation_code_hash) -> Option<Vec<u8>>`. In the
-  /// model: a hash is "lookupable" iff some referencer for it exists in
-  /// `preimage_registry`. (This is a model-side proxy; the lookup itself goes
-  /// through JAM's preimage store at the lookup-anchor.)
-  pure def codeAvailable(s: ParachainServiceState, h: ValidationCodeHash): bool = {
-    val key = vchAsHash(h)
+  /// `true` iff the code identified by `ref` has a non-empty referencer set
+  /// in the preimage registry — i.e. the `(hash, len)` tuple key exists.
+  pure def codeAvailable(s: ParachainServiceState, ref: ValidationCodeRef): bool = {
+    val key = (vchAsHash(ref.hash), ref.len)
     s.preimageRegistry.keys().contains(key) and
     s.preimageRegistry.get(key).referencers != Set()
   }
@@ -145,7 +142,7 @@ module refine {
     newHead: Option[HeadData],
     msgs: List[UpwardMessage]
   ): ParachainWorkDigest = {
-    if (not(codeAvailable(s, candidate.validationCodeHash)))
+    if (not(codeAvailable(s, candidate.validationCode)))
     refineErr(para_id, InvalidCodeHash)
     else if (pvfPanic)
     refineErr(para_id, Opaque(0))
@@ -164,7 +161,7 @@ module refine {
         match newHead {
           | None => refineErr(para_id, MissingHeadDeclaration)
           | Some(nh) =>
-            refineOk(para_id, candidate.validationCodeHash, ph, nh, msgs)
+            refineOk(para_id, candidate.validationCode, ph, nh, msgs)
         }
     }
   }

@@ -18,6 +18,7 @@ module tests {
   import code_upgrades.* from "./code_upgrades"
   import refine.* from "./refine"
   import accumulate.* from "./accumulate"
+  import management.* from "./management"
   import state_vars.* from "./state_vars"
   import main.* from "./main"
 
@@ -37,7 +38,7 @@ module tests {
     val pi = svc.paraInfo(paraId)
     val pkg: WorkPackage = {
       authorizedParas: List(paraId),
-      items: List({ validationCodeHash: codeHash, pov: 0 })
+      items: List({ validationCode: { hash: codeHash, len: FixedCodeLen }, pov: 0 })
     }
     val newHead = pi.headData + 1
     val wr: WorkResult = {
@@ -80,7 +81,7 @@ module tests {
     val pi1 = svc.paraInfo(p1)
     val pkg1: WorkPackage = {
       authorizedParas: List(p1),
-      items: List({ validationCodeHash: c1, pov: 0 })
+      items: List({ validationCode: { hash: c1, len: FixedCodeLen }, pov: 0 })
     }
     val nh1 = pi1.headData + 1
     val wr1: WorkResult = {
@@ -98,7 +99,7 @@ module tests {
     val pi2 = out1.state.paraInfo(p2)
     val pkg2: WorkPackage = {
       authorizedParas: List(p2),
-      items: List({ validationCodeHash: c2, pov: 0 })
+      items: List({ validationCode: { hash: c2, len: FixedCodeLen }, pov: 0 })
     }
     val nh2 = pi2.headData + 1
     val wr2: WorkResult = {
@@ -270,7 +271,7 @@ module tests {
   /// 4. A few blocks pass (each advances `now`), well below the deadline;
   ///    the pending upgrade must persist across them.
   /// 5. Para 3 validates with `codeB` (dual-code window) — activation
-  ///    flips `validationCode.hash` to `codeB` and clears
+  ///    flips `validationCode.ref.hash` to `codeB` and clears
   ///    `pendingUpgrade`. The old `codeA` referencer is released.
   run codeUpgradeLifecycleTest = {
     val codeA: ValidationCodeHash = { vchBytes: 0x11 }
@@ -287,7 +288,7 @@ module tests {
       )))
       .then(expectThat(all {
         svc.parachains.keys().contains(MkParaId(3)),
-        svc.paraInfo(MkParaId(3)).validationCode.hash == codeA,
+        svc.paraInfo(MkParaId(3)).validationCode.ref.hash == codeA,
         svc.paraInfo(MkParaId(3)).pendingUpgrade == None
       }))
       .then(applyHappyPath(MkParaId(3), codeA, List(
@@ -295,8 +296,8 @@ module tests {
       )))
       .then(expectThat(
         match svc.paraInfo(MkParaId(3)).pendingUpgrade {
-          | None => false
-          | Some(pair) => pair._1.hash == codeB
+        | None => false
+        | Some(pair) => pair._1.ref.hash == codeB
         }
       ))
       // A few blocks pass on the still-active codeA (each advances `now`),
@@ -305,15 +306,79 @@ module tests {
       .then(applyHappyPath(MkParaId(3), codeA, List()))
       .then(expectThat(match svc.paraInfo(MkParaId(3)).pendingUpgrade {
         | None => false
-        | Some(pair) => pair._1.hash == codeB
+        | Some(pair) => pair._1.ref.hash == codeB
       }))
       .then(applyHappyPath(MkParaId(3), codeB, List()))
       .then(expectThat(all {
-        svc.paraInfo(MkParaId(3)).validationCode.hash == codeB,
+        svc.paraInfo(MkParaId(3)).validationCode.ref.hash == codeB,
         svc.paraInfo(MkParaId(3)).pendingUpgrade == None,
         // Old codeA referencer released (no other para held it).
-        not(svc.preimageRegistry.keys().contains(vchAsHash(codeA)))
+        not(svc.preimageRegistry.keys().contains((vchAsHash(codeA), FixedCodeLen)))
       }))
+  }
+
+  /// (h, 100) and (h, 200) are distinct registry entries:
+  /// soliciting one does not affect the other, and forgetting one
+  /// leaves the other intact.
+  run differentLensAreDistinctEntriesTest = {
+    val h: Hash = { hashBytes: 42 }
+    val p1 = CoretimeParaId
+    val p2 = AssetHubParaId
+    // Seed state: p1 registered with enough headroom.
+    val s0 = initialState
+    // Solicit (h, 100) for p1.
+    val d1 = s0.addReferencer(p1, h, 100)
+    // Solicit (h, 200) for p2.
+    val d2 = d1.state.addReferencer(p2, h, 200)
+    // Forget (h, 100) for p1.
+    val d3 = d2.state.removeReferencer(p1, h, 100)
+    all {
+      // After soliciting (h,100) and (h,200): two distinct entries.
+      assert(d2.state.preimageRegistry.keys().contains((h, 100))),
+      assert(d2.state.preimageRegistry.keys().contains((h, 200))),
+      // (h,100) has p1 as referencer; (h,200) has p2.
+      assert(d2.state.preimageRegistry.get((h, 100)).referencers == Set(p1)),
+      assert(d2.state.preimageRegistry.get((h, 200)).referencers == Set(p2)),
+      // After forgetting (h,100): (h,100) entry is gone; (h,200) untouched.
+      assert(not(d3.state.preimageRegistry.keys().contains((h, 100)))),
+      assert(d3.state.preimageRegistry.keys().contains((h, 200))),
+      assert(d3.state.preimageRegistry.get((h, 200)).referencers == Set(p2)),
+      init
+    }
+  }
+
+  /// A forced `parachain_set_validation_code` releases BOTH the old active
+  /// (hA, 100) and the old pending (hB, 200) using their OWN stored lens —
+  /// not a wrong cross-code len.
+  run codeUpgradeReleasesCorrectLenTest = {
+    val para = CoretimeParaId
+    val hA: ValidationCodeHash = { vchBytes: 0xA1 }
+    val hB: ValidationCodeHash = { vchBytes: 0xB2 }
+    val hC: ValidationCodeHash = { vchBytes: 0xC3 }
+    val lenA = 100
+    val lenB = 200
+    val lenC = 300
+    // Build a state where para has active (hA, lenA) and pending (hB, lenB).
+    // Use parachainSetValidationCode to establish hA, then requestCodeUpgrade for hB.
+    val s0 = initialState
+    val s1 = parachainSetValidationCode(s0, para, hA, lenA).state
+    val s2 = requestCodeUpgrade(s1, 0, para, hB, lenB).state
+    // Now force-replace with hC: must release (hA, lenA) and (hB, lenB) correctly.
+    val s3 = parachainSetValidationCode(s2, para, hC, lenC).state
+    all {
+      // Registry before force-replace: (hA, lenA) and (hB, lenB) present.
+      assert(s2.preimageRegistry.keys().contains((vchAsHash(hA), lenA))),
+      assert(s2.preimageRegistry.keys().contains((vchAsHash(hB), lenB))),
+      // After force-replace: (hA, lenA) and (hB, lenB) released.
+      assert(not(s3.hasReferencer(vchAsHash(hA), lenA, para))),
+      assert(not(s3.hasReferencer(vchAsHash(hB), lenB, para))),
+      // (hC, lenC) now has para as referencer.
+      assert(s3.hasReferencer(vchAsHash(hC), lenC, para)),
+      // Wrong-len lookups are NOT a referencer (proves no cross-contamination).
+      assert(not(s3.hasReferencer(vchAsHash(hA), lenC, para))),
+      assert(not(s3.hasReferencer(vchAsHash(hB), lenC, para))),
+      init
+    }
   }
 
   // --- Coretime para register / operate / cleanup ------------------------
@@ -339,10 +404,10 @@ module tests {
       .then(applyHappyPath(CoretimeParaId, coretimeCode, List(
         ParachainCleanUp(MkParaId(4))
       )))
-       .then(expectThat(all {
+      .then(expectThat(all {
         not(svc.parachains.keys().contains(MkParaId(4))),
-        svc.preimageRegistry.keys().forall(h =>
-          not(svc.preimageRegistry.get(h).referencers.contains(MkParaId(4))))
+        svc.preimageRegistry.keys().forall(key =>
+          not(svc.preimageRegistry.get(key).referencers.contains(MkParaId(4))))
       }))
   }
 
@@ -373,21 +438,21 @@ module tests {
     // Sanity: the upgrade is armed and its code is solicited.
     val armed =
       match s0.paraInfo(para).pendingUpgrade {
-        | None => false
-        | Some(pair) => pair._1.hash == pendingUpgradeHash
+      | None => false
+      | Some(pair) => pair._1.ref.hash == pendingUpgradeHash
       }
     // now = 1 < deadline (UpgradeTimeoutTimeslots).
     val reaped = reapTimedOutUpgrade(s0, 1, para, FixedCodeLen)
     val stillArmed =
       match reaped.state.paraInfo(para).pendingUpgrade {
-        | None => false
-        | Some(pair) => pair._1.hash == pendingUpgradeHash
+      | None => false
+      | Some(pair) => pair._1.ref.hash == pendingUpgradeHash
       }
     all {
       assert(armed),
-      assert(s0.hasReferencer(vchAsHash(pendingUpgradeHash), para)),
+      assert(s0.hasReferencer(vchAsHash(pendingUpgradeHash), FixedCodeLen, para)),
       assert(stillArmed),
-      assert(reaped.state.hasReferencer(vchAsHash(pendingUpgradeHash), para)),
+      assert(reaped.state.hasReferencer(vchAsHash(pendingUpgradeHash), FixedCodeLen, para)),
       assert(not(reaped.jamForget)),
       init
     }
@@ -406,11 +471,11 @@ module tests {
       assert(cleared),
       // The pending code was unpinned, so its referencer is released and
       // JAM `forget` is forwarded (it was the only referencer).
-      assert(not(reaped.state.hasReferencer(vchAsHash(pendingUpgradeHash), para))),
+      assert(not(reaped.state.hasReferencer(vchAsHash(pendingUpgradeHash), FixedCodeLen, para))),
       assert(reaped.jamForget),
       // The active code is untouched.
       assert(reaped.state.hasReferencer(
-        vchAsHash(s0.paraInfo(para).validationCode.hash), para)),
+        vchAsHash(s0.paraInfo(para).validationCode.ref.hash), FixedCodeLen, para)),
       init
     }
   }
@@ -437,7 +502,7 @@ module tests {
     all {
       assert(reaped.state.paraInfo(para).pendingUpgrade == None),
       // Referencer survives because the para independently solicited it.
-      assert(reaped.state.hasReferencer(vchAsHash(pendingUpgradeHash), para)),
+      assert(reaped.state.hasReferencer(vchAsHash(pendingUpgradeHash), FixedCodeLen, para)),
       assert(not(reaped.jamForget)),
       init
     }
@@ -756,7 +821,7 @@ module tests {
   run refineMissingHeadDeclarationTest = {
     val pkg: WorkPackage = {
       authorizedParas: List(CoretimeParaId),
-      items: List({ validationCodeHash: { vchBytes: 1 }, pov: 0 })
+      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
     }
     val parentOnly =
       refine(initialState, pkg, false, false, Some(headHash(0)), None, List())[0]
@@ -774,7 +839,7 @@ module tests {
       // Both declared → not a MissingHeadDeclaration error (succeeds here).
       assert(both == Ok({
         paraId: CoretimeParaId,
-        validationCodeHash: { vchBytes: 1 },
+        validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen },
         parentHeadHash: headHash(0),
         headData: 1,
         upwardMessages: List()

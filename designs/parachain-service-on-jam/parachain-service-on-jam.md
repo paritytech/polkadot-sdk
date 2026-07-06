@@ -185,8 +185,9 @@ struct ParachainServiceState {
     /// Cross-parachain preimage registry. Holds every preimage the service
     /// has solicited from JAM — including each parachain's active validation
     /// code, any pending-upgrade code, and PVF-initiated `solicit` requests —
-    /// under the same referencer-multiplexing scheme. See §6.1.
-    preimage_registry: Map<Hash, PreimageEntry>,
+    /// under the same referencer-multiplexing scheme. In the key, `Hash` is
+    /// the preimage's hash and `u32` its byte length. See §6.1.
+    preimage_registry: Map<(Hash, u32), PreimageEntry>,
 
     /// Validator-key set being assembled chunk by chunk by
     /// `set_validator_keys`. See §5.3.
@@ -247,8 +248,8 @@ enum RefineLog {
 
 /// Why a state-balance reservation failed (see §6.1).
 enum InsufficientBalanceReason {
-    /// A `solicit` (or code-upgrade solicit) of the preimage with `hash`.
-    Solicit { hash: Hash },
+    /// A `solicit` (or code-upgrade solicit) of the preimage with `hash` and `len`.
+    Solicit { hash: Hash, len: u32 },
     /// A `set_validator_keys` chunk append.
     SetValidatorKeys,
 }
@@ -279,8 +280,6 @@ enum AccumulateLog {
 }
 
 struct PreimageEntry {
-    /// Length of the preimage. JAM keys preimage requests by `(hash, len)`.
-    len: u32,
     /// Parachains currently referencing this preimage. Bounded by the
     /// protocol-level maximum number of parachains.
     referencers: BoundedBTreeSet<ParaId>,
@@ -293,11 +292,17 @@ type HeadData = BoundedVec<u8, { 4 * 1024 }>;
 /// Fixed 128-octet transfer memo, matching Gray Paper `C_memosize = 128`.
 type Memo = [u8; 128];
 
-/// A validation code reference: its hash plus `pinned` — whether the
+/// A validation code reference: its hash plus its SCALE-encoded byte length.
+struct ValidationCodeRef {
+    hash: ValidationCodeHash,
+    len: u32,
+}
+
+/// A validation code with its reference and `pinned` flag — whether the
 /// parachain has *also* solicited it itself, on top of the service's own
 /// code-upgrade solicit. See §5.2.
 struct ValidationCode {
-    hash: ValidationCodeHash,
+    ref: ValidationCodeRef,
     pinned: bool,
 }
 
@@ -362,8 +367,8 @@ enum ParachainWorkDigest {
     Ok {
         /// The parachain this digest belongs to.
         para_id: ParaId,
-        /// Hash of the validation code that Refine actually used.
-        validation_code_hash: ValidationCodeHash,
+        /// The validation code that Refine actually used to check the candidate.
+        validation_code: ValidationCodeRef,
         /// Hash of the parent head data this candidate was built on top of.
         parent_head_hash: Hash,
         /// New head data produced by the parachain block.
@@ -423,7 +428,7 @@ enum UpwardMessage {
     /// `incoming_transfers`.
     ConsumeTransfersUpTo(u32),
     /// From `parachain_service_upgrade`. See §5.4.
-    UpgradeService { code_hash: Hash, min_item_gas: u64, min_memo_gas: u64 },
+    UpgradeService { code_hash: Hash, len: u32, min_item_gas: u64, min_memo_gas: u64 },
     /// From `parachain_set_head` — upsert a parachain's head data.
     ParachainSetHead { para_id: ParaId, new_head: HeadData },
     /// From `parachain_set_validation_code` — upsert a parachain's
@@ -549,7 +554,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, mode: QueueUpdateMode, new_assigner: Option<ServiceId>)` | `()` | Update the authorizer queue for a core (Coretime chain only). `mode` determines whether the queue is applied immediately or cached in service state until the current 80-slot queue is exhausted. `new_assigner`, when `Some`, hands off `assigners[core]` to another service so that service can manage its own core queue going forward; when `None`, the current assigner (Parachain Service) is retained. |
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
 | `consume_transfers_up_to(index: u32)` | `()` | Mark all incoming transfers up to `index` as consumed; Accumulate prunes those entries. (Asset Hub only) |
-| `parachain_service_upgrade(code_hash: Hash, min_item_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_item_gas, min_memo_gas)` (Asset Hub only). Accumulate rejects the call with `AccumulateLog::ServiceUpgradePreimageMissing` if the new code's preimage is not in the Parachain Service's preimage store. See §5.4. |
+| `parachain_service_upgrade(code_hash: Hash, len: u32, min_item_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_item_gas, min_memo_gas)` (Asset Hub only). `len` is the new code's SCALE-encoded byte length. Accumulate rejects the call with `AccumulateLog::ServiceUpgradePreimageMissing` if the new code's preimage is not in the Parachain Service's preimage store. See §5.4. |
 | `report_error(data: BoundedVec<u8, 1024>)` | `()` | Provide an opaque error payload before aborting the execution of the PVF; any bytes beyond 1024 are truncated. Stored per-parachain by Accumulate (see §3.3). |
 | `parachain_set_head(para_id: ParaId, new_head: HeadData)` | `()` | Upsert a parachain's head data (Coretime chain only). Used for both initial registration and recovery from a stuck chain. See §6. |
 | `parachain_set_validation_code(para_id: ParaId, new_validation_code_hash: ValidationCodeHash, new_validation_code_len: u32)` | `()` | Upsert a parachain's validation code, bypassing the normal upgrade lifecycle (Coretime chain only). `new_validation_code_len` is the byte length of the PVF preimage, used by the service to solicit the preimage from JAM and to charge the para's `used_state_balance` for it. Used for both initial registration and forced code replacement. See §6. |
@@ -666,12 +671,12 @@ Runtime (PVF) code upgrades follow a well-defined lifecycle using JAM's preimage
 store (`solicit`/`provide`/`forget`) and the `xtpreimages` block extrinsic.
 
 Validation code — both the active code and any pending upgrade code — lives in
-`preimage_registry` (§3.1) like any other PVF-solicited preimage. The service
-solicits a code only when it isn't already solicited, so a code's referencer
-slot is held for up to two independent reasons: it is the parachain's
-active/pending code (the service's own reason), and/or the parachain solicited
-it itself. The latter is recorded per-code by the `pinned` bit in
-`ParaInfo` (§3.1):
+`preimage_registry` (§3.1) like any other PVF-solicited preimage; two codes with the
+same hash but different lengths are distinct entries. The service solicits a code
+only when it isn't already solicited, so a code's referencer slot is held for
+up to two independent reasons: it is the parachain's active/pending code (the
+service's own reason), and/or the parachain solicited it itself. The latter is
+recorded per-code by the `pinned` bit in `ParaInfo` (§3.1):
 
 - **Parachain `solicit` of its active/pending code** sets the corresponding
   `pinned` bit. No extra state balance is charged — the code is already
@@ -923,12 +928,12 @@ the parachain's lifetime. Taking `ParaId = u32` (4 B), `Hash = 32 B`,
 ```
 ParaId                                                                    =       4 B
 head_data: BoundedVec<u8, 4096>      = 2 (compact len) + 4096             =   4 098 B
-validation_code: ValidationCode = 32 (hash) + 1 (pinned)          =      33 B
-pending_upgrade: Option<(ValidationCode, Timeslot)> = 1 + 33 + 4          =      38 B
+validation_code: ValidationCode = 32 (hash) + 4 (len) + 1 (pinned) =      37 B
+pending_upgrade: Option<(ValidationCode, Timeslot)> = 1 + 37 + 4          =      42 B
 total_state_balance: Balance                                              =      16 B
 used_state_balance: Balance                                               =      16 B
-                                                                            -------
-                                                                              4 205 B
+                                                                             -------
+                                                                               4 213 B
 ```
 
 `(ParaId, parachain_log[para_id])` entry — bounded by a 64 KiB byte cap:
@@ -944,7 +949,7 @@ parachain_log entry (flat cap): 64 KiB = 65 536 B
                                                                               65 536 B
 ```
 
-**`baseline_footprint = 4 205 + 65 536 = 69 741 B`** per parachain.
+**`baseline_footprint = 4 213 + 65 536 = 69 749 B`** per parachain.
 
 #### Asset Hub baseline footprint
 

@@ -13,21 +13,21 @@ module state_balance {
 
   // --- Per-parachain footprint primitives --------------------------------
 
-   /// Per-para baseline footprint: 4 205 B ParaInfo + 65 536 B log reserve (flat 64 KiB cap).
-   /// Full derivation lives in design §6.1.
-   pure val BaselineFootprint: int = 69741
+   /// Per-para baseline footprint: 4 275 B ParaInfo + 65 602 B log reserve.
+   /// Derivation in §6.1.
+   pure val BaselineFootprint: int = 69877
 
   /// The single-referencer footprint a parachain pays for a solicited
-  /// preimage of length `len`. Combines the entry-side cost (hash, len,
-  /// singleton referencer set) with the underlying preimage data the
-  /// Parachain Service is itself billed for by JAM. The exact figure here
-  /// is an abstract proxy — what matters for the model is that it is a
-  /// pure function of `len`, so two referencers of the same preimage pay
-  /// identical amounts.
+  /// preimage of length `len`, billed "as if sole user" (design §6.1).
+  /// Two JAM state contributions (Gray Paper, *Account Footprint and
+  /// Threshold Balance*):
+  ///   a_requests (preimage lookup, keyed by (hash, len)): 81 + len
+  ///   a_storage  (referencer-map entry): 34 + |value| + |key|
+  ///              = 34 + 5 (singleton {ParaId} set) + 32 (blake-hashed key)
+  /// Total = 152 + len octets. Octet term only; JAM's per-item balance
+  /// term (B_I * items) is not modelled — matching the baseline octet proxy.
   pure def preimageFootprint(len: int): int =
-  // 32 (hash key) + 4 (len field) + 4 (singleton referencer SCALE) +
-  // 4 (entry length prefix) + len (preimage data)
-  32 + 4 + 4 + 4 + len
+  (81 + len) + (34 + 5 + 32)
 
   // --- Update primitives --------------------------------------------------
 
@@ -53,7 +53,7 @@ module state_balance {
   else
   Some({
       headData: 0,
-      validationCode: { hash: { vchBytes: 0 }, pinned: false },
+      validationCode: { ref: { hash: { vchBytes: 0 }, len: 0 }, pinned: false },
       pendingUpgrade: None,
       totalStateBalance: newTotal,
       usedStateBalance: BaselineFootprint
@@ -82,7 +82,7 @@ module state_balance {
   ): PreimageDelta = {
     val pi = s.paraInfo(para_id)
     val delta = preimageFootprint(len)
-    if (s.hasReferencer(h, para_id)) {
+    if (s.hasReferencer(h, len, para_id)) {
       // Already a referencer — idempotent, and requires no extra state
       // balance (the footprint is already charged). Checked before the
       // headroom test so a para at its balance limit can still re-reference
@@ -95,23 +95,23 @@ module state_balance {
         state: s,
         jamSolicit: false,
         jamForget: false,
-        log: Some(InsufficientStateBalance(FromSolicit({ hash: h })))
+        log: Some(InsufficientStateBalance(FromSolicit({ hash: h, len: len })))
       }
     } else {
-      val wasEmpty = not(s.preimageRegistry.keys().contains(h)) or
-      s.preimageRegistry.get(h).referencers == Set()
+      val wasEmpty = not(s.preimageRegistry.keys().contains((h, len))) or
+      s.preimageRegistry.get((h, len)).referencers == Set()
       val newEntry =
-      if (s.preimageRegistry.keys().contains(h)) {
-        val e = s.preimageRegistry.get(h)
+      if (s.preimageRegistry.keys().contains((h, len))) {
+        val e = s.preimageRegistry.get((h, len))
         { ...e, referencers: e.referencers.union(Set(para_id)) }
       } else {
-        { len: len, referencers: Set(para_id) }
+        { referencers: Set(para_id) }
       }
       {
         state: {
           ...s,
           parachains: s.parachains.put(para_id, pi.addUsed(delta)),
-          preimageRegistry: s.preimageRegistry.put(h, newEntry)
+          preimageRegistry: s.preimageRegistry.put((h, len), newEntry)
         },
         jamSolicit: wasEmpty,
         jamForget: false,
@@ -123,19 +123,19 @@ module state_balance {
   pure def removeReferencer(
     s: ParachainServiceState, para_id: ParaId, h: Hash, len: int
   ): PreimageDelta = {
-    if (not(s.hasReferencer(h, para_id))) {
+    if (not(s.hasReferencer(h, len, para_id))) {
       // Idempotent: not a referencer, no-op (design §4.3 `forget`).
       { state: s, jamSolicit: false, jamForget: false, log: None }
     } else {
       val pi = s.paraInfo(para_id)
       val delta = preimageFootprint(len)
-      val e = s.preimageRegistry.get(h)
+      val e = s.preimageRegistry.get((h, len))
       val rest = e.referencers.exclude(Set(para_id))
       val (registry, jamForget) =
       if (rest == Set())
-      (s.preimageRegistry.mapRemove(h), true)
+      (s.preimageRegistry.mapRemove((h, len)), true)
       else
-      (s.preimageRegistry.put(h, { ...e, referencers: rest }), false)
+      (s.preimageRegistry.put((h, len), { ...e, referencers: rest }), false)
       {
         state: {
           ...s,

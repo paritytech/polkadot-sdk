@@ -16,12 +16,12 @@ module invariants {
       0 <= pi.usedStateBalance and pi.usedStateBalance <= pi.totalStateBalance
   })
 
-  /// A ParaId appears in `preimage_registry[h].referencers` iff its
+  /// A ParaId appears in `preimage_registry[(h, len)].referencers` iff its
   /// referencer set is non-empty. (The "iff" is structural — an empty
   /// referencer set should not be persisted; see `removeReferencer`.)
   val preimage_referencer_consistency: bool =
-  svc.preimageRegistry.keys().forall(h =>
-    svc.preimageRegistry.get(h).referencers != Set()
+  svc.preimageRegistry.keys().forall(key =>
+    svc.preimageRegistry.get(key).referencers != Set()
   )
 
   /// `designate` is invoked iff Accumulate just processed a
@@ -37,7 +37,7 @@ module invariants {
       val pi = svc.paraInfo(para_id)
       match pi.pendingUpgrade {
         | None => true
-        | Some(pair) => pair._1.hash != pi.validationCode.hash
+        | Some(pair) => pair._1.ref != pi.validationCode.ref
       }
   })
 
@@ -58,8 +58,12 @@ module invariants {
   val validation_code_in_registry: bool =
   svc.parachains.keys().forall(para_id => {
       val pi = svc.paraInfo(para_id)
-      pi.validationCode.hash == { vchBytes: 0 } or
-      svc.hasReferencer(vchAsHash(pi.validationCode.hash), para_id)
+      (pi.validationCode.ref.hash == { vchBytes: 0 } and
+        pi.validationCode.ref.len == 0) or
+      svc.hasReferencer(
+        vchAsHash(pi.validationCode.ref.hash),
+        pi.validationCode.ref.len,
+        para_id)
   })
 
   /// Every live parachain's pending-upgrade code (when present) is also
@@ -70,21 +74,26 @@ module invariants {
       val pi = svc.paraInfo(para_id)
       match pi.pendingUpgrade {
         | None => true
-        | Some(pair) => svc.hasReferencer(vchAsHash(pair._1.hash), para_id)
+        | Some(pair) =>
+          svc.hasReferencer(
+            vchAsHash(pair._1.ref.hash),
+            pair._1.ref.len,
+            para_id)
       }
   })
 
-  /// Every `(para, hash)` for which Accumulate has processed a `Solicit`
+  /// Every `(para, hash, len)` for which Accumulate has processed a `Solicit`
   /// upward message without a subsequent `Forget` must still be
   /// referenced in `preimage_registry`. Guarded by `isLive` because
   /// `parachainCleanUp` releases the registry slot but leaves the ghost
   /// entry stale by design — we only care that live paras' solicits are
   /// reflected.
   val solicit_implies_registry: bool =
-  solicitedSet.forall(pair => {
-      val para_id = pair._1
-      val h = pair._2
-      not(svc.isLive(para_id)) or svc.hasReferencer(h, para_id)
+  solicitedSet.forall(triple => {
+      val para_id = triple._1
+      val h = triple._2
+      val len = triple._3
+      not(svc.isLive(para_id)) or svc.hasReferencer(h, len, para_id)
   })
 
   /// Every live para's `usedStateBalance` is at least the baseline footprint.
@@ -105,9 +114,9 @@ module invariants {
   val used_balance_consistency: bool =
   svc.parachains.keys().forall(para_id => {
       val pi = svc.paraInfo(para_id)
-      val refSum = svc.preimageRegistry.keys().fold(0, (acc, h) => {
-          val e = svc.preimageRegistry.get(h)
-          if (e.referencers.contains(para_id)) acc + preimageFootprint(e.len)
+      val refSum = svc.preimageRegistry.keys().fold(0, (acc, key) => {
+          val e = svc.preimageRegistry.get(key)
+          if (e.referencers.contains(para_id)) acc + preimageFootprint(key._2)
           else acc
       })
       val stagedFootprint =
@@ -122,8 +131,8 @@ module invariants {
   /// from every referencer set; this invariant catches any cleanup path
   /// that forgets to.
   val referencers_are_live: bool =
-  svc.preimageRegistry.keys().forall(h =>
-    svc.preimageRegistry.get(h).referencers.forall(para_id =>
+  svc.preimageRegistry.keys().forall(key =>
+    svc.preimageRegistry.get(key).referencers.forall(para_id =>
       svc.isLive(para_id)))
 
   /// Every `parachain_log` key is a currently-live `ParaId`. Together with
@@ -135,7 +144,7 @@ module invariants {
 
   /// Transition invariant (§5.2 Phase 5a). When a code upgrade is
   /// *activated* — para `para_id`'s validation code changes to what was its
-  /// pending-upgrade hash — the old code's referencer slot for that para is
+  /// pending-upgrade ref — the old code's referencer slot for that para is
   /// released, UNLESS one of:
   ///   - the parachain was independently soliciting the old code
   ///     (its `validationCode.pinned` bit), so the slot survives; or
@@ -154,17 +163,18 @@ module invariants {
           match before.pendingUpgrade {
             | None => false
             | Some(pair) =>
-              after.validationCode.hash == pair._1.hash and
-              after.validationCode.hash != before.validationCode.hash
+              after.validationCode.ref == pair._1.ref and
+              after.validationCode.ref != before.validationCode.ref
           }
-        val oldHash = vchAsHash(before.validationCode.hash)
+        val oldHash = vchAsHash(before.validationCode.ref.hash)
+        val oldLen = before.validationCode.ref.len
         val reRequested =
           match after.pendingUpgrade {
             | None => false
-            | Some(pair) => pair._1.hash == before.validationCode.hash
+            | Some(pair) => pair._1.ref == before.validationCode.ref
           }
         not(activated) or
-          not(svc.hasReferencer(oldHash, para_id)) or
+          not(svc.hasReferencer(oldHash, oldLen, para_id)) or
           before.validationCode.pinned or
           reRequested
       }
@@ -233,7 +243,8 @@ module invariants {
           if (not(prevSvc.isLive(ok.paraId))) true
           else {
             val pi = prevSvc.paraInfo(ok.paraId)
-            val matchesActive = ok.validationCodeHash == pi.validationCode.hash
+            val matchesActive =
+              ok.validationCode == pi.validationCode.ref
             val reapable =
               match pi.pendingUpgrade {
                 | None => false
@@ -242,7 +253,7 @@ module invariants {
             val matchesPending =
               match pi.pendingUpgrade {
                 | None => false
-                | Some(pair) => ok.validationCodeHash == pair._1.hash
+                | Some(pair) => ok.validationCode == pair._1.ref
               }
             if (reapable or matchesActive or matchesPending) true
             else svc.paraLog(ok.paraId).foldl(false, (found, pair) =>

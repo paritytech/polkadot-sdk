@@ -39,7 +39,7 @@ module accumulate {
   /// previous call's `state`, `solicited`, and `jamDesignate`.
   type PerPackageOutcome = {
     state: ParachainServiceState,
-    solicited: Set[(ParaId, Hash)],
+    solicited: Set[(ParaId, Hash, int)],
     jamDesignate: Option[List[ValidatorKey]],
     jamAssigns: List[AssignCall]
   }
@@ -66,14 +66,14 @@ module accumulate {
             | Some(e) => acc.logs.append(e)
             | None => acc.logs
           }
-        }
+      }
       | Solicit(payload) =>
       val pi = acc.state.paraInfo(para_id)
-      val isActive = payload.hash == vchAsHash(pi.validationCode.hash)
+      val isActive = payload.hash == vchAsHash(pi.validationCode.ref.hash)
       val isPending =
         match pi.pendingUpgrade {
           | None => false
-          | Some(pair) => payload.hash == vchAsHash(pair._1.hash)
+          | Some(pair) => payload.hash == vchAsHash(pair._1.ref.hash)
         }
       if (isActive) {
         // The active code is already solicited by the service, so soliciting
@@ -111,11 +111,11 @@ module accumulate {
       }
       | Forget(payload) =>
       val pi = acc.state.paraInfo(para_id)
-      val isActive = payload.hash == vchAsHash(pi.validationCode.hash)
+      val isActive = payload.hash == vchAsHash(pi.validationCode.ref.hash)
       val isPending =
         match pi.pendingUpgrade {
           | None => false
-          | Some(pair) => payload.hash == vchAsHash(pair._1.hash)
+          | Some(pair) => payload.hash == vchAsHash(pair._1.ref.hash)
         }
       if (isActive) {
         // The parachain forgets its own solicit of the active code: clear the
@@ -186,7 +186,7 @@ module accumulate {
       | ParachainSetValidationCode(payload) =>
       val o = parachainSetValidationCode(
         acc.state, payload.paraId, payload.newValidationCodeHash,
-        payload.newValidationCodeLen, codeLen
+        payload.newValidationCodeLen
       )
       {
         state: o.state,
@@ -255,8 +255,8 @@ module accumulate {
       // the new code's preimage is in the service's preimage store before
       // forwarding to JAM `upgrade`; otherwise rejects with a log entry.
       val preimagePresent =
-        acc.state.preimageRegistry.keys().contains(payload.codeHash) and
-        acc.state.preimageRegistry.get(payload.codeHash).referencers != Set()
+        acc.state.preimageRegistry.keys().contains((payload.codeHash, payload.len)) and
+        acc.state.preimageRegistry.get((payload.codeHash, payload.len)).referencers != Set()
       if (preimagePresent)
         { ...acc, state: { ...acc.state, serviceCodeHash: payload.codeHash } }
       else
@@ -297,10 +297,10 @@ module accumulate {
         val pi1 = reaped.state.paraInfo(r.paraId)
         // Step 3: authoritative validation-code check.
         val codeOk =
-        r.validationCodeHash == pi1.validationCode.hash or
+        r.validationCode == pi1.validationCode.ref or
         (match pi1.pendingUpgrade {
             | None => false
-            | Some(pair) => r.validationCodeHash == pair._1.hash
+            | Some(pair) => r.validationCode == pair._1.ref
         })
         if (not(codeOk)) {
           {
@@ -308,7 +308,7 @@ module accumulate {
             rejected: true,
             jamSolicit: Set(),
             jamForget: if (reaped.jamForget) Set({ hashBytes: 0 }) else Set(),
-            logs: List(InvalidCodeHashAcc(r.validationCodeHash))
+            logs: List(InvalidCodeHashAcc(r.validationCode.hash))
           }
         } else if (violatesParachainRestrictions(r.upwardMessages, r.paraId)) {
           // §4.3 defense-in-depth: even if Refine should already have
@@ -320,7 +320,7 @@ module accumulate {
             rejected: true,
             jamSolicit: Set(),
             jamForget: if (reaped.jamForget) Set({ hashBytes: 0 }) else Set(),
-            logs: List(InvalidCodeHashAcc(r.validationCodeHash))
+            logs: List(InvalidCodeHashAcc(r.validationCode.hash))
           }
         } else {
           // Step 4a: head update.
@@ -330,7 +330,7 @@ module accumulate {
             parachains: reaped.state.parachains.put(r.paraId, { ...pi2, headData: r.headData })
           }
           // Step 4b: activate code upgrade if this candidate used the pending hash.
-          val activated = activateUpgradeIfMatch(sAfterHead, r.paraId, r.validationCodeHash, codeLen)
+          val activated = activateUpgradeIfMatch(sAfterHead, r.paraId, r.validationCode.hash, codeLen)
           val solicits =
           if (reaped.jamSolicit) Set({ hashBytes: 0 }) else Set()
           val forgets = (
@@ -356,7 +356,7 @@ module accumulate {
   pure def accumulateOnePackage(
     state: ParachainServiceState,
     wr: WorkResult,
-    solicited: Set[(ParaId, Hash)],
+    solicited: Set[(ParaId, Hash, int)],
     prevDesignate: Option[List[ValidatorKey]],
     codeLen: int,
     now: Timeslot
@@ -409,8 +409,8 @@ module accumulate {
               val acc = ok.upwardMessages.foldl(baseAcc, (a, m) =>
                 applyUpwardMessage(a, ok.paraId, codeLen, now, m))
               val newSolicited = ok.upwardMessages.foldl(solicited, (s, m) => match m {
-                | Solicit(p) => s.union(Set((ok.paraId, p.hash)))
-                | Forget(p) => s.exclude(Set((ok.paraId, p.hash)))
+                | Solicit(p) => s.union(Set((ok.paraId, p.hash, p.len)))
+                | Forget(p) => s.exclude(Set((ok.paraId, p.hash, p.len)))
                 | _ => s
               })
               {

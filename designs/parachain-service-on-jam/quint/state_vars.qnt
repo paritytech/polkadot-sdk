@@ -18,10 +18,11 @@ module state_vars {
   var jamStagingSet: List[ValidatorKey]
 
 
-  /// Ghost state: every `(para, hash)` for which Accumulate has processed
-  /// a `Solicit` upward message without a matching `Forget`. Used only by
-  /// `solicit_implies_registry`. Not part of the protocol.
-  var solicitedSet: Set[(ParaId, Hash)]
+  /// Ghost state: every `(para_id, hash, len)` for which Accumulate has
+  /// processed a `Solicit` upward message without a matching `Forget`.
+  /// Stale entries for cleaned-up paras are intentionally retained. Used
+  /// only by `solicit_implies_registry`. Not part of the protocol.
+  var solicitedSet: Set[(ParaId, Hash, int)]
 
   /// Ghost state: the service state as it was *before* the current step.
   /// Lets invariants relate consecutive states (transition invariants),

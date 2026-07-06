@@ -9,14 +9,11 @@ module state {
 
   // --- Per-parachain record (design §3.1) --------------------------------
 
-  /// A validation code reference: its hash plus whether the parachain has
-  /// *also* solicited it itself, on top of the service's own code-upgrade
-  /// solicit (§5.2). When `pinned` is true, the code's referencer
-  /// survives the code ceasing to be active/pending; when false, it is
-  /// released. A parachain `forget` of an active/pending code clears the bit
-  /// but does not release the referencer (the service still needs the code).
+  /// A validation code reference plus the per-para `pinned` bookkeeping bit.
+  /// `ref` carries the code's hash and SCALE-encoded byte length; `pinned`
+  /// records whether the parachain has also solicited it independently.
   type ValidationCode = {
-    hash: ValidationCodeHash,
+    ref: ValidationCodeRef,
     pinned: bool
   }
 
@@ -34,7 +31,6 @@ module state {
   // --- Shared preimage registry (design §3.1, §6.1) ----------------------
 
   type PreimageEntry = {
-    len: int,
     referencers: Set[ParaId]
   }
 
@@ -51,7 +47,7 @@ module state {
         memo: Memo
     }],
     parachainLog: ParaId -> ParachainLog,
-    preimageRegistry: Hash -> PreimageEntry,
+    preimageRegistry: (Hash, int) -> PreimageEntry,
     pendingAuthorizerQueues: CoreIndex -> List[AuthorizerHash],
     // Dirty-core index: maps each core with a pending queue to its `apply_at`
     // deadline. See `applyAlwaysAccumulate`.
@@ -89,10 +85,10 @@ module state {
   s.parachains.get(para_id)
 
   pure def hasReferencer(
-    s: ParachainServiceState, h: Hash, para_id: ParaId
+    s: ParachainServiceState, h: Hash, len: int, para_id: ParaId
   ): bool =
-  s.preimageRegistry.keys().contains(h) and
-  s.preimageRegistry.get(h).referencers.contains(para_id)
+  s.preimageRegistry.keys().contains((h, len)) and
+  s.preimageRegistry.get((h, len)).referencers.contains(para_id)
 
   // --- Log-append helpers (design §3.1, §3.3, §5.1) ----------------------
 

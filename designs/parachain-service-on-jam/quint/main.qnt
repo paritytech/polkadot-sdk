@@ -40,10 +40,10 @@ module main {
     val coretimeCode: ValidationCodeHash = { vchBytes: 1 }
     val assetHubCode: ValidationCodeHash = { vchBytes: 2 }
     val s1 = parachainSetStateBalance(emptyState, CoretimeParaId, InitialParaBalance).state
-    val s2 = parachainSetValidationCode(s1, CoretimeParaId, coretimeCode, FixedCodeLen, FixedCodeLen).state
+    val s2 = parachainSetValidationCode(s1, CoretimeParaId, coretimeCode, FixedCodeLen).state
     val s3 = parachainSetHead(s2, CoretimeParaId, 0).state
     val s4 = parachainSetStateBalance(s3, AssetHubParaId, InitialParaBalance).state
-    val s5 = parachainSetValidationCode(s4, AssetHubParaId, assetHubCode, FixedCodeLen, FixedCodeLen).state
+    val s5 = parachainSetValidationCode(s4, AssetHubParaId, assetHubCode, FixedCodeLen).state
     parachainSetHead(s5, AssetHubParaId, 0).state
   }
 
@@ -117,7 +117,7 @@ module main {
     nondet wp1Candidate = oneOf(arbitraryCandidates(svc, wp1Para))
     nondet wp1PvfPanic = oneOf(Set(false, true))
     val wp1Pool = arbitraryMessages(
-      wp1Para, svc.paraInfo(wp1Para).validationCode.hash)
+      wp1Para, svc.paraInfo(wp1Para).validationCode.ref.hash)
     nondet wp1M1 = oneOf(wp1Pool)
     nondet wp1M2 = oneOf(wp1Pool)
     nondet wp1NumMsgs = oneOf(Set(0, 1, 2))
@@ -154,7 +154,7 @@ module main {
     nondet wp2Candidate = oneOf(arbitraryCandidates(afterAlwaysAccumulate.state, wp2Para))
     nondet wp2PvfPanic = oneOf(Set(false, true))
     val wp2Pool = arbitraryMessages(
-      wp2Para, afterAlwaysAccumulate.state.paraInfo(wp2Para).validationCode.hash)
+      wp2Para, afterAlwaysAccumulate.state.paraInfo(wp2Para).validationCode.ref.hash)
     nondet wp2M1 = oneOf(wp2Pool)
     nondet wp2M2 = oneOf(wp2Pool)
     nondet wp2NumMsgs = oneOf(Set(0, 1, 2))
@@ -270,15 +270,15 @@ module main {
     s: ParachainServiceState, para_id: ParaId
   ): Set[ParachainCandidate] = {
     val pi = s.paraInfo(para_id)
-    val active = pi.validationCode.hash
+    val active = pi.validationCode.ref.hash
     val pending = match pi.pendingUpgrade {
       | None => active
-      | Some(pair) => pair._1.hash
+      | Some(pair) => pair._1.ref.hash
     }
     Set(
-      { validationCodeHash: active, pov: 0 },
-      { validationCodeHash: pending, pov: 0 },
-      { validationCodeHash: { vchBytes: 99999 }, pov: 0 }
+      { validationCode: { hash: active, len: FixedCodeLen }, pov: 0 },
+      { validationCode: { hash: pending, len: FixedCodeLen }, pov: 0 },
+      { validationCode: { hash: { vchBytes: 99999 }, len: 999 }, pov: 0 }
     )
   }
 
@@ -311,8 +311,8 @@ module main {
       SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: true }),
       SetValidatorKeys({ keys: List(), isLast: true }),
       ConsumeTransfersUpTo(0),
-      UpgradeService({ codeHash: vchAsHash(activeCode), minItemGas: 0, minMemoGas: 0 }),
-      UpgradeService({ codeHash: unsolicitedHash, minItemGas: 0, minMemoGas: 0 }),
+      UpgradeService({ codeHash: vchAsHash(activeCode), len: FixedCodeLen, minItemGas: 0, minMemoGas: 0 }),
+      UpgradeService({ codeHash: unsolicitedHash, len: 4096, minItemGas: 0, minMemoGas: 0 }),
       // Coretime-only — Refine rejects from non-Coretime callers.
       SetAuthorizerQueue({
         core: 0, queue: List(anyAuthHash), immediate: false, newAssigner: None

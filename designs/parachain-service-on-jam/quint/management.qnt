@@ -102,23 +102,22 @@ module management {
     s: ParachainServiceState,
     para_id: ParaId,
     newHash: ValidationCodeHash,
-    codeLen: int,
-    oldCodeLen: int
+    codeLen: int
   ): MgmtOutcome = {
     if (not(s.isLive(para_id))) {
       { state: s, jamSolicit: Set(), jamForget: Set(), log: None }
     } else {
       val pi = s.paraInfo(para_id)
-      val oldHash = pi.validationCode.hash
+      val oldHash = pi.validationCode.ref.hash
       val newEqualsPending =
         match pi.pendingUpgrade {
           | None => false
-          | Some(pair) => pair._1.hash == newHash
+          | Some(pair) => pair._1.ref.hash == newHash
         }
       // The parachain independently solicited newHash iff it references it
       // for a reason other than being the current active or pending code.
       val parachainHadIt =
-        s.hasReferencer(vchAsHash(newHash), para_id) and
+        s.hasReferencer(vchAsHash(newHash), codeLen, para_id) and
         newHash != oldHash and not(newEqualsPending)
       // Acquire the new referencer (no charge if already solicited); reject
       // if no headroom.
@@ -133,7 +132,7 @@ module management {
           if (oldHash == { vchBytes: 0 } or oldHash == newHash or pi.validationCode.pinned)
           { state: acquired.state, jamSolicit: false, jamForget: false, log: None }
           else
-          acquired.state.removeReferencer(para_id, vchAsHash(oldHash), oldCodeLen)
+          acquired.state.removeReferencer(para_id, vchAsHash(oldHash), pi.validationCode.ref.len)
         // Clear any pending upgrade, releasing its code unless it equals the
         // new code or is independently solicited.
         val afterPending =
@@ -141,10 +140,10 @@ module management {
             | None =>
               { state: afterOld.state, jamSolicit: false, jamForget: false, log: None }
             | Some(pair) =>
-              if (pair._1.hash == newHash or pair._1.pinned)
+              if (pair._1.ref.hash == newHash or pair._1.pinned)
                 { state: afterOld.state, jamSolicit: false, jamForget: false, log: None }
               else
-                afterOld.state.removeReferencer(para_id, vchAsHash(pair._1.hash), oldCodeLen)
+                afterOld.state.removeReferencer(para_id, vchAsHash(pair._1.ref.hash), pair._1.ref.len)
           }
         val pi2 = afterPending.state.paraInfo(para_id)
         {
@@ -154,9 +153,8 @@ module management {
               para_id,
               { ...pi2,
                 validationCode: {
-                  hash: newHash,
-                  pinned:
-                    if (newHash == oldHash) pi.validationCode.pinned else parachainHadIt
+                  ref: { hash: newHash, len: codeLen },
+                  pinned: if (newHash == oldHash) pi.validationCode.pinned else parachainHadIt
                 },
                 pendingUpgrade: None
               }
@@ -167,7 +165,7 @@ module management {
             (if (afterOld.jamForget) Set(vchAsHash(oldHash)) else Set())
               .union(match pi.pendingUpgrade {
                 | None => Set()
-                | Some(pair) => if (afterPending.jamForget) Set(vchAsHash(pair._1.hash)) else Set()
+                | Some(pair) => if (afterPending.jamForget) Set(vchAsHash(pair._1.ref.hash)) else Set()
               }),
           log: None
         }
@@ -189,14 +187,14 @@ module management {
     } else {
       // Remove para_id from every referencer set, dropping entries that
       // go empty.
-      val regAfter: Hash -> PreimageEntry =
+      val regAfter: (Hash, int) -> PreimageEntry =
       s.preimageRegistry.keys()
-      .filter(h => {
-          val e = s.preimageRegistry.get(h)
+      .filter(key => {
+          val e = s.preimageRegistry.get(key)
           e.referencers.exclude(Set(para_id)) != Set()
       })
-      .mapBy(h => {
-          val e = s.preimageRegistry.get(h)
+      .mapBy(key => {
+          val e = s.preimageRegistry.get(key)
           { ...e, referencers: e.referencers.exclude(Set(para_id)) }
       })
       // Drop any Asset-Hub-specific service-level state if Asset Hub

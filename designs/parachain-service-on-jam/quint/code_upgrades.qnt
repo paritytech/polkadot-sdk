@@ -23,14 +23,13 @@ module code_upgrades {
   pure def releaseCodeIfNotPinned(
     s: ParachainServiceState,
     para_id: ParaId,
-    hash: ValidationCodeHash,
-    codeLen: int,
+    ref: ValidationCodeRef,
     pinned: bool
   ): PreimageDelta =
     if (pinned)
       { state: s, jamSolicit: false, jamForget: false, log: None }
     else
-      s.removeReferencer(para_id, vchAsHash(hash), codeLen)
+      s.removeReferencer(para_id, vchAsHash(ref.hash), ref.len)
 
   /// Phase 2: solicit the new code (if not already solicited) and arm
   /// `pendingUpgrade` with a deadline.
@@ -60,9 +59,9 @@ module code_upgrades {
     val isSamePending =
       match pi.pendingUpgrade {
         | None => false
-        | Some(pair) => pair._1.hash == newHash
+        | Some(pair) => pair._1.ref.hash == newHash
       }
-    if (newHash == pi.validationCode.hash) {
+    if (newHash == pi.validationCode.ref.hash) {
       // Can't "upgrade" to the code already running — no-op.
       { state: s, jamSolicit: false, jamForget: false, log: None }
     } else if (isSamePending) {
@@ -70,7 +69,7 @@ module code_upgrades {
       // preserving the pending code's pinned bit.
       val keep =
         match pi.pendingUpgrade {
-          | None => { hash: newHash, pinned: false }
+          | None => { ref: { hash: newHash, len: codeLen }, pinned: false }
           | Some(pair) => pair._1
         }
       {
@@ -86,7 +85,7 @@ module code_upgrades {
       // The parachain independently solicited this code already iff it is a
       // referencer (it is neither the active nor the current pending code
       // here). In that case the service charges no extra balance.
-      val parachainHadIt = s.hasReferencer(vchAsHash(newHash), para_id)
+      val parachainHadIt = s.hasReferencer(vchAsHash(newHash), codeLen, para_id)
       val acquired = s.addReferencer(para_id, vchAsHash(newHash), codeLen)
       match acquired.log {
         | Some(_) =>
@@ -100,7 +99,7 @@ module code_upgrades {
                 { state: acquired.state, jamSolicit: false, jamForget: false, log: None }
               | Some(pair) =>
                 releaseCodeIfNotPinned(
-                  acquired.state, para_id, pair._1.hash, codeLen, pair._1.pinned
+                  acquired.state, para_id, pair._1.ref, pair._1.pinned
                 )
             }
           val pi2 = released.state.paraInfo(para_id)
@@ -111,7 +110,10 @@ module code_upgrades {
                 para_id,
                 { ...pi2,
                   pendingUpgrade:
-                    Some(({ hash: newHash, pinned: parachainHadIt }, deadline))
+                    Some((
+                      { ref: { hash: newHash, len: codeLen }, pinned: parachainHadIt },
+                      deadline
+                    ))
                 }
               )
             },
@@ -141,7 +143,7 @@ module code_upgrades {
         { state: s, jamSolicit: false, jamForget: false, log: None }
       } else {
         val released =
-          releaseCodeIfNotPinned(s, para_id, pair._1.hash, codeLen, pair._1.pinned)
+          releaseCodeIfNotPinned(s, para_id, pair._1.ref, pair._1.pinned)
         val pi2 = released.state.paraInfo(para_id)
         {
           ...released,
@@ -171,13 +173,12 @@ module code_upgrades {
     match pi.pendingUpgrade {
       | None => { state: s, jamSolicit: false, jamForget: false, log: None }
       | Some(pair) =>
-      if (candidateCodeHash != pair._1.hash) {
+      if (candidateCodeHash != pair._1.ref.hash) {
         // Validated with old code; pending stays armed.
         { state: s, jamSolicit: false, jamForget: false, log: None }
       } else {
-        val oldHash = pi.validationCode.hash
         val released =
-          releaseCodeIfNotPinned(s, para_id, oldHash, codeLen, pi.validationCode.pinned)
+          releaseCodeIfNotPinned(s, para_id, pi.validationCode.ref, pi.validationCode.pinned)
         val pi2 = released.state.paraInfo(para_id)
         {
           ...released,
@@ -187,7 +188,7 @@ module code_upgrades {
               para_id,
               { ...pi2,
                 // The pending code becomes active, carrying its extra bit.
-                validationCode: pair._1,
+                validationCode: { ref: pair._1.ref, pinned: pair._1.pinned },
                 pendingUpgrade: None
               }
             )
