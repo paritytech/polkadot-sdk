@@ -980,3 +980,31 @@ pub async fn wait_for_runtime_upgrade(
 
 	Err(anyhow!("Did not find a runtime upgrade"))
 }
+
+/// Poll a node's WebSocket endpoint until its subxt metadata reports the given pallet,
+/// returning a fresh `OnlineClient` against that metadata, or fail on timeout.
+///
+/// After a runtime upgrade that introduces a new pallet, subxt's cached metadata can lag
+/// the on-chain state until a new client is constructed against a block executed under the
+/// upgraded runtime.
+pub async fn wait_for_pallet_in_metadata(
+	ws_url: &str,
+	pallet_name: &str,
+	timeout: Duration,
+	poll_interval: Duration,
+) -> Result<OnlineClient<PolkadotConfig>, anyhow::Error> {
+	let deadline = std::time::Instant::now() + timeout;
+	loop {
+		if std::time::Instant::now() >= deadline {
+			return Err(anyhow!(
+				"metadata at {ws_url} never reflected pallet `{pallet_name}` within {timeout:?}",
+			));
+		}
+		sleep(poll_interval).await;
+		let candidate = OnlineClient::<PolkadotConfig>::from_url(ws_url).await?;
+		if candidate.metadata().pallet_by_name(pallet_name).is_some() {
+			return Ok(candidate);
+		}
+		log::debug!("`{pallet_name}` not in metadata yet, retrying");
+	}
+}

@@ -29,9 +29,9 @@
 use alloy_core::sol_types::{SolCall, SolEvent};
 use codec::Decode;
 use ethereum_standards::IERC20;
+use crate::{Log, ReceiptInfo};
 use pallet_revive::evm::{
-	Bytes, H256, Log, ReceiptInfo, TransactionLegacySigned, TransactionLegacyUnsigned,
-	TransactionSigned, U256,
+	Bytes, H256, TransactionLegacySigned, TransactionLegacyUnsigned, TransactionSigned, U256,
 };
 use sp_core::{H160, crypto::AccountId32};
 use sp_crypto_hashing::keccak_256;
