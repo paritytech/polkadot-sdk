@@ -203,21 +203,17 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#53 id=53 data-nosnippet>53</a><span class="kw">pub use </span>event_emitter::EventEmitter;
 <a href=#54 id=54 data-nosnippet>54</a>
 <a href=#55 id=55 data-nosnippet>55</a><span class="kw">pub use </span>record_xcm::RecordXcm;
-<a href=#56 id=56 data-nosnippet>56</a><span class="attr">#[deprecated = <span class="string">"Use `sp_runtime::traits::` instead"</span>]
-<a href=#57 id=57 data-nosnippet>57</a></span><span class="kw">pub use </span>sp_runtime::traits::{Identity, TryConvertInto <span class="kw">as </span>JustTry};
-<a href=#58 id=58 data-nosnippet>58</a><span class="kw">pub use </span>weight::{WeightBounds, WeightTrader};
-<a href=#59 id=59 data-nosnippet>59</a>
-<a href=#60 id=60 data-nosnippet>60</a><span class="kw">pub mod </span>prelude {
-<a href=#61 id=61 data-nosnippet>61</a>	<span class="kw">pub use super</span>::{
-<a href=#62 id=62 data-nosnippet>62</a>		export_xcm, validate_export, AssetExchange, AssetLock, ClaimAssets, ConvertOrigin,
-<a href=#63 id=63 data-nosnippet>63</a>		DropAssets, Enact, Error, EventEmitter, ExportXcm, FeeManager, FeeReason, LockError,
-<a href=#64 id=64 data-nosnippet>64</a>		MatchesFungible, MatchesFungibles, MatchesInstance, MatchesNonFungible,
-<a href=#65 id=65 data-nosnippet>65</a>		MatchesNonFungibles, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset,
-<a href=#66 id=66 data-nosnippet>66</a>		TrapAndClaimAssets, VersionChangeNotifier, WeightBounds, WeightTrader, WithOriginFilter,
-<a href=#67 id=67 data-nosnippet>67</a>	};
-<a href=#68 id=68 data-nosnippet>68</a>	<span class="attr">#[allow(deprecated)]
-<a href=#69 id=69 data-nosnippet>69</a>	</span><span class="kw">pub use super</span>::{Identity, JustTry};
-<a href=#70 id=70 data-nosnippet>70</a>}
+<a href=#56 id=56 data-nosnippet>56</a><span class="kw">pub use </span>weight::{WeightBounds, WeightTrader};
+<a href=#57 id=57 data-nosnippet>57</a>
+<a href=#58 id=58 data-nosnippet>58</a><span class="kw">pub mod </span>prelude {
+<a href=#59 id=59 data-nosnippet>59</a>	<span class="kw">pub use super</span>::{
+<a href=#60 id=60 data-nosnippet>60</a>		export_xcm, validate_export, AssetExchange, AssetLock, ClaimAssets, ConvertOrigin,
+<a href=#61 id=61 data-nosnippet>61</a>		DropAssets, Enact, Error, EventEmitter, ExportXcm, FeeManager, FeeReason, LockError,
+<a href=#62 id=62 data-nosnippet>62</a>		MatchesFungible, MatchesFungibles, MatchesInstance, MatchesNonFungible,
+<a href=#63 id=63 data-nosnippet>63</a>		MatchesNonFungibles, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset,
+<a href=#64 id=64 data-nosnippet>64</a>		TrapAndClaimAssets, VersionChangeNotifier, WeightBounds, WeightTrader, WithOriginFilter,
+<a href=#65 id=65 data-nosnippet>65</a>	};
+<a href=#66 id=66 data-nosnippet>66</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

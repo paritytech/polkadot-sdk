@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Identity","JustTry"]};
+window.SIDEBAR_ITEMS = {};

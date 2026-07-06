@@ -167,25 +167,30 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#17 id=17 data-nosnippet>17</a></span><span class="kw">use </span><span class="kw">crate</span>::relay_chain::{
 <a href=#18 id=18 data-nosnippet>18</a>	constants::TokenLocation, location_converter::LocationConverter, AccountId, Balances, Uniques,
 <a href=#19 id=19 data-nosnippet>19</a>};
-<a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>xcm_builder::{
-<a href=#21 id=21 data-nosnippet>21</a>	AsPrefixedGeneralIndex, ConvertedConcreteId, FungibleAdapter, IsConcrete, NoChecking,
-<a href=#22 id=22 data-nosnippet>22</a>	NonFungiblesAdapter,
-<a href=#23 id=23 data-nosnippet>23</a>};
-<a href=#24 id=24 data-nosnippet>24</a><span class="kw">use </span>xcm_executor::traits::JustTry;
+<a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>sp_runtime::traits::TryConvertInto;
+<a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>xcm_builder::{
+<a href=#22 id=22 data-nosnippet>22</a>	AsPrefixedGeneralIndex, ConvertedConcreteId, FungibleAdapter, IsConcrete, NoChecking,
+<a href=#23 id=23 data-nosnippet>23</a>	NonFungiblesAdapter,
+<a href=#24 id=24 data-nosnippet>24</a>};
 <a href=#25 id=25 data-nosnippet>25</a>
 <a href=#26 id=26 data-nosnippet>26</a><span class="kw">type </span>LocalAssetTransactor = (
 <a href=#27 id=27 data-nosnippet>27</a>	FungibleAdapter&lt;Balances, IsConcrete&lt;TokenLocation&gt;, LocationConverter, AccountId, ()&gt;,
 <a href=#28 id=28 data-nosnippet>28</a>	NonFungiblesAdapter&lt;
 <a href=#29 id=29 data-nosnippet>29</a>		Uniques,
-<a href=#30 id=30 data-nosnippet>30</a>		ConvertedConcreteId&lt;u32, u32, AsPrefixedGeneralIndex&lt;(), u32, JustTry&gt;, JustTry&gt;,
-<a href=#31 id=31 data-nosnippet>31</a>		LocationConverter,
-<a href=#32 id=32 data-nosnippet>32</a>		AccountId,
-<a href=#33 id=33 data-nosnippet>33</a>		NoChecking,
-<a href=#34 id=34 data-nosnippet>34</a>		(),
-<a href=#35 id=35 data-nosnippet>35</a>	&gt;,
-<a href=#36 id=36 data-nosnippet>36</a>);
-<a href=#37 id=37 data-nosnippet>37</a>
-<a href=#38 id=38 data-nosnippet>38</a><span class="kw">pub type </span>AssetTransactor = LocalAssetTransactor;
+<a href=#30 id=30 data-nosnippet>30</a>		ConvertedConcreteId&lt;
+<a href=#31 id=31 data-nosnippet>31</a>			u32,
+<a href=#32 id=32 data-nosnippet>32</a>			u32,
+<a href=#33 id=33 data-nosnippet>33</a>			AsPrefixedGeneralIndex&lt;(), u32, TryConvertInto&gt;,
+<a href=#34 id=34 data-nosnippet>34</a>			TryConvertInto,
+<a href=#35 id=35 data-nosnippet>35</a>		&gt;,
+<a href=#36 id=36 data-nosnippet>36</a>		LocationConverter,
+<a href=#37 id=37 data-nosnippet>37</a>		AccountId,
+<a href=#38 id=38 data-nosnippet>38</a>		NoChecking,
+<a href=#39 id=39 data-nosnippet>39</a>		(),
+<a href=#40 id=40 data-nosnippet>40</a>	&gt;,
+<a href=#41 id=41 data-nosnippet>41</a>);
+<a href=#42 id=42 data-nosnippet>42</a>
+<a href=#43 id=43 data-nosnippet>43</a><span class="kw">pub type </span>AssetTransactor = LocalAssetTransactor;
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

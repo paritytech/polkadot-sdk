@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Member_Storage_Instance","MigrateToV1","Params_Storage_Instance"],"type":["Member","MemberStatusOf","Params","ParamsOf"]};

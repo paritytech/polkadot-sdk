@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["MigrateToV1"],"type":["MigrateV0ToV1"]};
+window.SIDEBAR_ITEMS = {"mod":["v1","v2"],"type":["MigrateV0ToV1","MigrateV1ToV2"]};

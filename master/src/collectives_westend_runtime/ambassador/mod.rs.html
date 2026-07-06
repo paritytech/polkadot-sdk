@@ -374,54 +374,55 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#224 id=224 data-nosnippet>224</a>	<span class="kw">type </span>FastPromoteOrigin = <span class="self">Self</span>::PromoteOrigin;
 <a href=#225 id=225 data-nosnippet>225</a>	<span class="kw">type </span>EvidenceSize = ConstU32&lt;<span class="number">65536</span>&gt;;
 <a href=#226 id=226 data-nosnippet>226</a>	<span class="kw">type </span>MaxRank = ConstU16&lt;<span class="number">9</span>&gt;;
-<a href=#227 id=227 data-nosnippet>227</a>}
-<a href=#228 id=228 data-nosnippet>228</a>
-<a href=#229 id=229 data-nosnippet>229</a><span class="kw">pub type </span>AmbassadorSalaryInstance = pallet_salary::Instance2;
-<a href=#230 id=230 data-nosnippet>230</a>
-<a href=#231 id=231 data-nosnippet>231</a><span class="macro">parameter_types!</span> {
-<a href=#232 id=232 data-nosnippet>232</a>	<span class="comment">// The interior location on AssetHub for the paying account. This is the Ambassador Salary
-<a href=#233 id=233 data-nosnippet>233</a>	// pallet instance (which sits at index 74). This sovereign account will need funding.
-<a href=#234 id=234 data-nosnippet>234</a>	</span><span class="kw">pub </span>AmbassadorSalaryLocation: InteriorLocation = PalletInstance(<span class="number">74</span>).into();
-<a href=#235 id=235 data-nosnippet>235</a>}
-<a href=#236 id=236 data-nosnippet>236</a>
-<a href=#237 id=237 data-nosnippet>237</a><span class="doccomment">/// [`PayOverXcm`] setup to pay the Ambassador salary on the AssetHub in WND.
-<a href=#238 id=238 data-nosnippet>238</a></span><span class="kw">pub type </span>AmbassadorSalaryPaymaster = PayOverXcm&lt;
-<a href=#239 id=239 data-nosnippet>239</a>	AmbassadorSalaryLocation,
-<a href=#240 id=240 data-nosnippet>240</a>	<span class="kw">crate</span>::xcm_config::XcmConfig,
-<a href=#241 id=241 data-nosnippet>241</a>	<span class="kw">crate</span>::PolkadotXcm,
-<a href=#242 id=242 data-nosnippet>242</a>	ConstU32&lt;{ <span class="number">6 </span>* HOURS }&gt;,
-<a href=#243 id=243 data-nosnippet>243</a>	AccountId,
-<a href=#244 id=244 data-nosnippet>244</a>	(),
-<a href=#245 id=245 data-nosnippet>245</a>	ConvertToValue&lt;WndAssetHub&gt;,
-<a href=#246 id=246 data-nosnippet>246</a>	AliasesIntoAccountId32&lt;(), AccountId&gt;,
-<a href=#247 id=247 data-nosnippet>247</a>&gt;;
-<a href=#248 id=248 data-nosnippet>248</a>
-<a href=#249 id=249 data-nosnippet>249</a><span class="kw">impl </span>pallet_salary::Config&lt;AmbassadorSalaryInstance&gt; <span class="kw">for </span>Runtime {
-<a href=#250 id=250 data-nosnippet>250</a>	<span class="kw">type </span>WeightInfo = weights::pallet_salary_ambassador_salary::WeightInfo&lt;Runtime&gt;;
-<a href=#251 id=251 data-nosnippet>251</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-<a href=#252 id=252 data-nosnippet>252</a>
-<a href=#253 id=253 data-nosnippet>253</a>	<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
-<a href=#254 id=254 data-nosnippet>254</a>	</span><span class="kw">type </span>Paymaster = AmbassadorSalaryPaymaster;
-<a href=#255 id=255 data-nosnippet>255</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#256 id=256 data-nosnippet>256</a>	</span><span class="kw">type </span>Paymaster = <span class="kw">crate</span>::impls::benchmarks::PayWithEnsure&lt;
-<a href=#257 id=257 data-nosnippet>257</a>		AmbassadorSalaryPaymaster,
-<a href=#258 id=258 data-nosnippet>258</a>		<span class="kw">crate</span>::impls::benchmarks::OpenHrmpChannel&lt;ConstU32&lt;<span class="number">1000</span>&gt;&gt;,
-<a href=#259 id=259 data-nosnippet>259</a>	&gt;;
-<a href=#260 id=260 data-nosnippet>260</a>	<span class="kw">type </span>Members = pallet_ranked_collective::Pallet&lt;Runtime, AmbassadorCollectiveInstance&gt;;
-<a href=#261 id=261 data-nosnippet>261</a>
-<a href=#262 id=262 data-nosnippet>262</a>	<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
-<a href=#263 id=263 data-nosnippet>263</a>	</span><span class="kw">type </span>Salary = pallet_core_fellowship::Pallet&lt;Runtime, AmbassadorCoreInstance&gt;;
-<a href=#264 id=264 data-nosnippet>264</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#265 id=265 data-nosnippet>265</a>	</span><span class="kw">type </span>Salary = frame_support::traits::tokens::ConvertRank&lt;
-<a href=#266 id=266 data-nosnippet>266</a>		<span class="kw">crate</span>::impls::benchmarks::RankToSalary&lt;Balances&gt;,
-<a href=#267 id=267 data-nosnippet>267</a>	&gt;;
-<a href=#268 id=268 data-nosnippet>268</a>	<span class="comment">// 15 days to register for a salary payment.
-<a href=#269 id=269 data-nosnippet>269</a>	</span><span class="kw">type </span>RegistrationPeriod = ConstU32&lt;{ <span class="number">15 </span>* DAYS }&gt;;
-<a href=#270 id=270 data-nosnippet>270</a>	<span class="comment">// 15 days to claim the salary payment.
-<a href=#271 id=271 data-nosnippet>271</a>	</span><span class="kw">type </span>PayoutPeriod = ConstU32&lt;{ <span class="number">15 </span>* DAYS }&gt;;
-<a href=#272 id=272 data-nosnippet>272</a>	<span class="comment">// Total monthly salary budget.
-<a href=#273 id=273 data-nosnippet>273</a>	</span><span class="kw">type </span>Budget = ConstU128&lt;{ <span class="number">10_000 </span>* DOLLARS }&gt;;
-<a href=#274 id=274 data-nosnippet>274</a>}
+<a href=#227 id=227 data-nosnippet>227</a>	<span class="kw">type </span>BlockNumberProvider = cumulus_pallet_parachain_system::RelaychainDataProvider&lt;Runtime&gt;;
+<a href=#228 id=228 data-nosnippet>228</a>}
+<a href=#229 id=229 data-nosnippet>229</a>
+<a href=#230 id=230 data-nosnippet>230</a><span class="kw">pub type </span>AmbassadorSalaryInstance = pallet_salary::Instance2;
+<a href=#231 id=231 data-nosnippet>231</a>
+<a href=#232 id=232 data-nosnippet>232</a><span class="macro">parameter_types!</span> {
+<a href=#233 id=233 data-nosnippet>233</a>	<span class="comment">// The interior location on AssetHub for the paying account. This is the Ambassador Salary
+<a href=#234 id=234 data-nosnippet>234</a>	// pallet instance (which sits at index 74). This sovereign account will need funding.
+<a href=#235 id=235 data-nosnippet>235</a>	</span><span class="kw">pub </span>AmbassadorSalaryLocation: InteriorLocation = PalletInstance(<span class="number">74</span>).into();
+<a href=#236 id=236 data-nosnippet>236</a>}
+<a href=#237 id=237 data-nosnippet>237</a>
+<a href=#238 id=238 data-nosnippet>238</a><span class="doccomment">/// [`PayOverXcm`] setup to pay the Ambassador salary on the AssetHub in WND.
+<a href=#239 id=239 data-nosnippet>239</a></span><span class="kw">pub type </span>AmbassadorSalaryPaymaster = PayOverXcm&lt;
+<a href=#240 id=240 data-nosnippet>240</a>	AmbassadorSalaryLocation,
+<a href=#241 id=241 data-nosnippet>241</a>	<span class="kw">crate</span>::xcm_config::XcmConfig,
+<a href=#242 id=242 data-nosnippet>242</a>	<span class="kw">crate</span>::PolkadotXcm,
+<a href=#243 id=243 data-nosnippet>243</a>	ConstU32&lt;{ <span class="number">6 </span>* HOURS }&gt;,
+<a href=#244 id=244 data-nosnippet>244</a>	AccountId,
+<a href=#245 id=245 data-nosnippet>245</a>	(),
+<a href=#246 id=246 data-nosnippet>246</a>	ConvertToValue&lt;WndAssetHub&gt;,
+<a href=#247 id=247 data-nosnippet>247</a>	AliasesIntoAccountId32&lt;(), AccountId&gt;,
+<a href=#248 id=248 data-nosnippet>248</a>&gt;;
+<a href=#249 id=249 data-nosnippet>249</a>
+<a href=#250 id=250 data-nosnippet>250</a><span class="kw">impl </span>pallet_salary::Config&lt;AmbassadorSalaryInstance&gt; <span class="kw">for </span>Runtime {
+<a href=#251 id=251 data-nosnippet>251</a>	<span class="kw">type </span>WeightInfo = weights::pallet_salary_ambassador_salary::WeightInfo&lt;Runtime&gt;;
+<a href=#252 id=252 data-nosnippet>252</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+<a href=#253 id=253 data-nosnippet>253</a>
+<a href=#254 id=254 data-nosnippet>254</a>	<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
+<a href=#255 id=255 data-nosnippet>255</a>	</span><span class="kw">type </span>Paymaster = AmbassadorSalaryPaymaster;
+<a href=#256 id=256 data-nosnippet>256</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#257 id=257 data-nosnippet>257</a>	</span><span class="kw">type </span>Paymaster = <span class="kw">crate</span>::impls::benchmarks::PayWithEnsure&lt;
+<a href=#258 id=258 data-nosnippet>258</a>		AmbassadorSalaryPaymaster,
+<a href=#259 id=259 data-nosnippet>259</a>		<span class="kw">crate</span>::impls::benchmarks::OpenHrmpChannel&lt;ConstU32&lt;<span class="number">1000</span>&gt;&gt;,
+<a href=#260 id=260 data-nosnippet>260</a>	&gt;;
+<a href=#261 id=261 data-nosnippet>261</a>	<span class="kw">type </span>Members = pallet_ranked_collective::Pallet&lt;Runtime, AmbassadorCollectiveInstance&gt;;
+<a href=#262 id=262 data-nosnippet>262</a>
+<a href=#263 id=263 data-nosnippet>263</a>	<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
+<a href=#264 id=264 data-nosnippet>264</a>	</span><span class="kw">type </span>Salary = pallet_core_fellowship::Pallet&lt;Runtime, AmbassadorCoreInstance&gt;;
+<a href=#265 id=265 data-nosnippet>265</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#266 id=266 data-nosnippet>266</a>	</span><span class="kw">type </span>Salary = frame_support::traits::tokens::ConvertRank&lt;
+<a href=#267 id=267 data-nosnippet>267</a>		<span class="kw">crate</span>::impls::benchmarks::RankToSalary&lt;Balances&gt;,
+<a href=#268 id=268 data-nosnippet>268</a>	&gt;;
+<a href=#269 id=269 data-nosnippet>269</a>	<span class="comment">// 15 days to register for a salary payment.
+<a href=#270 id=270 data-nosnippet>270</a>	</span><span class="kw">type </span>RegistrationPeriod = ConstU32&lt;{ <span class="number">15 </span>* DAYS }&gt;;
+<a href=#271 id=271 data-nosnippet>271</a>	<span class="comment">// 15 days to claim the salary payment.
+<a href=#272 id=272 data-nosnippet>272</a>	</span><span class="kw">type </span>PayoutPeriod = ConstU32&lt;{ <span class="number">15 </span>* DAYS }&gt;;
+<a href=#273 id=273 data-nosnippet>273</a>	<span class="comment">// Total monthly salary budget.
+<a href=#274 id=274 data-nosnippet>274</a>	</span><span class="kw">type </span>Budget = ConstU128&lt;{ <span class="number">10_000 </span>* DOLLARS }&gt;;
+<a href=#275 id=275 data-nosnippet>275</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
