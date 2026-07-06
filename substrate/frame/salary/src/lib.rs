@@ -19,6 +19,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use core::marker::PhantomData;
 use frame::{
 	prelude::*,
@@ -30,6 +32,7 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+pub mod migration;
 pub mod weights;
 
 pub use pallet::*;
@@ -78,7 +81,12 @@ pub struct ClaimantStatus<CycleIndex, Balance, Id> {
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
+
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]
@@ -113,27 +121,65 @@ pub mod pallet {
 		/// The number of blocks between sequential payout cycles is the sum of this and
 		/// `PayoutPeriod`.
 		#[pallet::constant]
-		type RegistrationPeriod: Get<BlockNumberFor<Self>>;
+		type RegistrationPeriod: Get<BlockNumberFor<Self, I>>;
 
 		/// The number of blocks within a cycle which accounts have to claim the payout.
 		///
 		/// The number of blocks between sequential payout cycles is the sum of this and
 		/// `RegistrationPeriod`.
 		#[pallet::constant]
-		type PayoutPeriod: Get<BlockNumberFor<Self>>;
+		type PayoutPeriod: Get<BlockNumberFor<Self, I>>;
 
 		/// The total budget per cycle.
 		///
 		/// This may change over the course of a cycle without any problem.
 		#[pallet::constant]
 		type Budget: Get<BalanceOf<Self, I>>;
+
+		/// Query the block number used to measure salary cycle time.
+		///
+		/// `RegistrationPeriod`, `PayoutPeriod`, `Status::cycle_start`, and the payout windows are
+		/// all interpreted in the block-number domain returned by this provider.
+		///
+		/// Choose `RegistrationPeriod + PayoutPeriod` large enough, relative to the provider's
+		/// progression and expected gaps between calls to `bump`, that at most one salary cycle
+		/// normally becomes due at a time. If the provided block number can jump by multiple cycle
+		/// periods, repeated `bump` calls can advance through multiple cycles immediately.
+		///
+		/// Must return monotonically increasing values when called from consecutive blocks. Can be
+		/// configured to return either:
+		/// - the local block number of the runtime via `frame_system::Pallet`
+		/// - a remote block number, eg from the relay chain through `RelaychainDataProvider`
+		/// - an arbitrary value through a custom implementation of the trait
+		///
+		/// Changing this for an already deployed pallet changes the meaning of stored cycle timing
+		/// values. Use a migration, such as [`crate::migration::MigrateV0ToV1`], to convert
+		/// existing storage when switching providers.
+		///
+		/// Suggested values:
+		/// - Solo- and Relay-chains: `frame_system::Pallet`
+		/// - Parachains that may produce blocks sparingly or only when needed (on-demand):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: `RelaychainDataProvider`
+		/// - Parachains with a reliable block production rate (PLO or bulk-coretime):
+		///   - already have the pallet deployed: `frame_system::Pallet`
+		///   - are freshly deploying this pallet: no strong recommendation. Both local and remote
+		///     providers can be used. Relay provider can be a bit better in cases where the
+		///     parachain is lagging its block production to avoid clock skew.
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
-	pub type CycleIndexOf<T> = BlockNumberFor<T>;
+	/// The block number type returned by [`Config::BlockNumberProvider`] and used to measure salary
+	/// cycle time.
+	pub type ProvidedBlockNumber<T, I> =
+		<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+	pub type BlockNumberFor<T, I> = ProvidedBlockNumber<T, I>;
+	pub type CycleIndexOf<T, I> = BlockNumberFor<T, I>;
 	pub type BalanceOf<T, I> = <<T as Config<I>>::Paymaster as Pay>::Balance;
 	pub type IdOf<T, I> = <<T as Config<I>>::Paymaster as Pay>::Id;
-	pub type StatusOf<T, I> = StatusType<CycleIndexOf<T>, BlockNumberFor<T>, BalanceOf<T, I>>;
-	pub type ClaimantStatusOf<T, I> = ClaimantStatus<CycleIndexOf<T>, BalanceOf<T, I>, IdOf<T, I>>;
+	pub type StatusOf<T, I> = StatusType<CycleIndexOf<T, I>, BlockNumberFor<T, I>, BalanceOf<T, I>>;
+	pub type ClaimantStatusOf<T, I> =
+		ClaimantStatus<CycleIndexOf<T, I>, BalanceOf<T, I>, IdOf<T, I>>;
 
 	/// The overall status of the system.
 	#[pallet::storage]
@@ -159,7 +205,7 @@ pub mod pallet {
 			id: <T::Paymaster as Pay>::Id,
 		},
 		/// The next cycle begins.
-		CycleStarted { index: CycleIndexOf<T> },
+		CycleStarted { index: CycleIndexOf<T, I> },
 		/// A member swapped their account.
 		Swapped { who: T::AccountId, new_who: T::AccountId },
 	}
@@ -204,8 +250,8 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::init())]
 		#[pallet::call_index(0)]
 		pub fn init(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			ensure_signed(origin)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let _ = ensure_signed(origin)?;
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(!Status::<T, I>::exists(), Error::<T, I>::AlreadyStarted);
 			let status = StatusType {
 				cycle_index: Zero::zero(),
@@ -226,8 +272,8 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::bump())]
 		#[pallet::call_index(1)]
 		pub fn bump(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			ensure_signed(origin)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let _ = ensure_signed(origin)?;
+			let now = T::BlockNumberProvider::current_block_number();
 			let cycle_period = Self::cycle_period();
 			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
 			status.cycle_start.saturating_accrue(cycle_period);
@@ -273,7 +319,7 @@ pub mod pallet {
 			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::NotMember)?;
 			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
 			let mut claimant = Claimant::<T, I>::get(&who).ok_or(Error::<T, I>::NotInducted)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(
 				now < status.cycle_start + T::RegistrationPeriod::get(),
 				Error::<T, I>::TooLate
@@ -373,17 +419,17 @@ pub mod pallet {
 		pub fn status() -> Option<StatusOf<T, I>> {
 			Status::<T, I>::get()
 		}
-		pub fn last_active(who: &T::AccountId) -> Result<CycleIndexOf<T>, DispatchError> {
+		pub fn last_active(who: &T::AccountId) -> Result<CycleIndexOf<T, I>, DispatchError> {
 			Ok(Claimant::<T, I>::get(&who).ok_or(Error::<T, I>::NotInducted)?.last_active)
 		}
-		pub fn cycle_period() -> BlockNumberFor<T> {
+		pub fn cycle_period() -> BlockNumberFor<T, I> {
 			T::RegistrationPeriod::get() + T::PayoutPeriod::get()
 		}
 		fn do_payout(who: T::AccountId, beneficiary: T::AccountId) -> DispatchResult {
 			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
 			let mut claimant = Claimant::<T, I>::get(&who).ok_or(Error::<T, I>::NotInducted)?;
 
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(
 				now >= status.cycle_start + T::RegistrationPeriod::get(),
 				Error::<T, I>::TooEarly,

@@ -1,0 +1,49 @@
+title: Add BlockNumberProvider to salary pallet config
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: |-
+    ## Summary
+
+    Supersedes the stale implementation in #7000 and refreshes it on top of current `master`.
+
+    This adds a `BlockNumberProvider` associated type to `pallet-salary` so salary registration and payout timing can be driven by a runtime-selected block number source instead of always using the local `frame_system` block number. For Collectives Westend, the salary pallet instances now use `cumulus_pallet_parachain_system::RelaychainDataProvider<Runtime>`, making salary timing follow relay-chain blocks.
+
+    Refs #3617.
+    Part of the dynamic block-duration work tracked in #3268, including the tracking-list item referenced by #7000.
+
+    ## What changed
+
+    - Added `Config::BlockNumberProvider` to `pallet-salary` and switched salary timing reads to `T::BlockNumberProvider::current_block_number()`.
+    - Updated salary benchmarks and test/runtime configs to provide the new associated type.
+    - Added a versioned `pallet_salary::migration::MigrateV0ToV1` for converting stored salary block-number fields from the old local system block number type to the configured provider type.
+    - Applied the migration in Collectives Westend for Fellowship, Ambassador, and Secretary salary instances.
+    - Added `SecretarySalaryInstance` handling that was not present in #7000 because it was added after that PR went stale.
+
+    ## Notes for reviewers
+
+    The migration keeps count-like values as direct conversions, while `cycle_start` is converted through an `equivalent_moment_in_time` hook. Collectives Westend implements that hook by mapping the current local block delta onto the current relay-chain block number. The duration conversion is identity there because both chains use 6 second blocks.
+
+    Verification:
+    - `cargo test -p pallet-salary`
+    - `cargo check -p pallet-salary --features try-runtime`
+    - `cargo check -p pallet-salary --features runtime-benchmarks`
+    - Built `collectives-westend-runtime` with `try-runtime` and executed:
+      - live Collectives Westend snapshot from `wss://westend-collectives-rpc.polkadot.io:443`
+      - `try-runtime on-runtime-upgrade --checks=all --blocktime 24000`
+    - Confirmed salary migrations executed successfully:
+      - `FellowshipSalary` storage version `0 -> 1`
+      - `AmbassadorSalary` storage version `0 -> 1`
+      - `SecretarySalary` storage version `0 -> 1`
+    - Confirmed idempotency pass saw all three salary pallets already at `StorageVersion(1)`.
+    - Confirmed full post-upgrade state decode and salary try-state checks passed.
+    - Built `collectives-westend-runtime` with `on-chain-release-build`.
+    - Ran `@polkadot-api/check-runtime problems` against the production wasm and live Collectives Westend RPC: `Everything looks great`.
+crates:
+- name: collectives-westend-runtime
+  bump: major
+- name: staging-xcm-builder
+  bump: major
+- name: pallet-salary
+  bump: major

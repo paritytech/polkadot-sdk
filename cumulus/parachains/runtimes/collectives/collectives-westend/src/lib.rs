@@ -52,10 +52,13 @@ extern crate alloc;
 pub use ambassador::pallet_ambassador_origins;
 
 use alloc::{vec, vec::Vec};
-use ambassador::AmbassadorCoreInstance;
+use ambassador::{AmbassadorCoreInstance, AmbassadorSalaryInstance};
 use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
-use fellowship::{pallet_fellowship_origins, Fellows, FellowshipCoreInstance};
+use fellowship::{
+	pallet_fellowship_origins, Fellows, FellowshipCoreInstance, FellowshipSalaryInstance,
+};
 use impls::{AllianceProposalProvider, EqualOrGreatestRootCmp};
+use secretary::SecretarySalaryInstance;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -858,6 +861,10 @@ type Migrations = (
 	pallet_core_fellowship::migration::MigrateV0ToV1<Runtime, FellowshipCoreInstance>,
 	// unreleased
 	pallet_core_fellowship::migration::MigrateV0ToV1<Runtime, AmbassadorCoreInstance>,
+	// unreleased
+	pallet_salary::migration::MigrateV0ToV1SameBlockDuration<Runtime, FellowshipSalaryInstance>,
+	pallet_salary::migration::MigrateV0ToV1SameBlockDuration<Runtime, AmbassadorSalaryInstance>,
+	pallet_salary::migration::MigrateV0ToV1SameBlockDuration<Runtime, SecretarySalaryInstance>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	pallet_session::migrations::v1::MigrateV0ToV1<
 		Runtime,

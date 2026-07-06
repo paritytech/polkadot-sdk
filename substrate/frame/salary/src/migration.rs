@@ -1,0 +1,295 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Storage migrations for `pallet_salary`.
+
+use super::*;
+use frame::{
+	deps::frame_support::{migrations::VersionedMigration, storage_alias},
+	traits::UncheckedOnRuntimeUpgrade,
+};
+
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
+
+mod v0 {
+	use super::*;
+	use frame::prelude::BlockNumberFor as LocalBlockNumberFor;
+
+	// V0 types.
+	pub type CycleIndexOf<T> = LocalBlockNumberFor<T>;
+	pub type StatusOf<T, I> = StatusType<CycleIndexOf<T>, LocalBlockNumberFor<T>, BalanceOf<T, I>>;
+	pub type ClaimantStatusOf<T, I> = ClaimantStatus<CycleIndexOf<T>, BalanceOf<T, I>, IdOf<T, I>>;
+
+	/// V0 alias for [`crate::Status`].
+	#[storage_alias]
+	pub type Status<T: Config<I>, I: 'static> =
+		StorageValue<Pallet<T, I>, StatusOf<T, I>, OptionQuery>;
+
+	/// V0 alias for [`crate::Claimant`].
+	#[storage_alias]
+	pub type Claimant<T: Config<I>, I: 'static> = StorageMap<
+		Pallet<T, I>,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		ClaimantStatusOf<T, I>,
+		OptionQuery,
+	>;
+}
+
+pub mod v1 {
+	use super::{pallet::BlockNumberFor as NewBlockNumberFor, *};
+	use frame::prelude::{BlockNumberFor as LocalBlockNumberFor, BlockNumberProvider, Saturating};
+
+	/// Converts stored salary timing values from the old block-number type into the new
+	/// block-number type.
+	///
+	/// The old provider was implicitly `frame_system::Pallet`. The new provider is selected by
+	/// the runtime through [`Config::BlockNumberProvider`].
+	pub trait ConvertBlockNumber<L, N> {
+		/// Converts an old stored cycle index into the new type.
+		///
+		/// A salary cycle index is count-like, so changes in the rate of blocks should not be
+		/// applied.
+		fn convert_cycle_index(cycle_index: L) -> N;
+
+		/// Converts an old block number into the equivalent block number for the new provider.
+		///
+		/// Any changes in the rate of blocks need to be taken into account.
+		fn convert_block_number(block_number: L) -> N;
+	}
+
+	/// Converts block numbers between providers with the same block number type and block
+	/// duration.
+	///
+	/// This is useful when switching from [`frame_system::Pallet`] to another block number
+	/// provider on a chain where both providers advance at the same rate. Cycle indexes are copied
+	/// directly, while stored moments are translated relative to the current moment of each
+	/// provider.
+	pub struct SameBlockDurationConverter<OldProvider, NewProvider>(
+		PhantomData<(OldProvider, NewProvider)>,
+	);
+
+	impl<OldProvider, NewProvider, BlockNumber> ConvertBlockNumber<BlockNumber, BlockNumber>
+		for SameBlockDurationConverter<OldProvider, NewProvider>
+	where
+		OldProvider: BlockNumberProvider<BlockNumber = BlockNumber>,
+		NewProvider: BlockNumberProvider<BlockNumber = BlockNumber>,
+		BlockNumber: Copy + Ord + Saturating,
+	{
+		fn convert_cycle_index(cycle_index: BlockNumber) -> BlockNumber {
+			cycle_index
+		}
+
+		fn convert_block_number(block_number: BlockNumber) -> BlockNumber {
+			let old_block_number = OldProvider::current_block_number();
+			let old_duration = if old_block_number >= block_number {
+				old_block_number.saturating_sub(block_number)
+			} else {
+				block_number.saturating_sub(old_block_number)
+			};
+			let new_block_number = NewProvider::current_block_number();
+			if old_block_number >= block_number {
+				new_block_number.saturating_sub(old_duration)
+			} else {
+				new_block_number.saturating_add(old_duration)
+			}
+		}
+	}
+
+	pub struct MigrateToV1<T, BC, I = ()>(PhantomData<(T, BC, I)>);
+
+	impl<T: Config<I>, BC, I: 'static> UncheckedOnRuntimeUpgrade for MigrateToV1<T, BC, I>
+	where
+		BC: ConvertBlockNumber<LocalBlockNumberFor<T>, NewBlockNumberFor<T, I>>,
+	{
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			let status_exists = v0::Status::<T, I>::exists();
+			let claimant_count = v0::Claimant::<T, I>::iter().count() as u32;
+			Ok((status_exists, claimant_count).encode())
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			let mut transactions = 0u64;
+
+			if let Some(old_status) = v0::Status::<T, I>::take() {
+				let new_status = crate::StatusOf::<T, I> {
+					cycle_index: BC::convert_cycle_index(old_status.cycle_index),
+					cycle_start: BC::convert_block_number(old_status.cycle_start),
+					budget: old_status.budget,
+					total_registrations: old_status.total_registrations,
+					total_unregistered_paid: old_status.total_unregistered_paid,
+				};
+				crate::Status::<T, I>::put(new_status);
+				transactions = transactions.saturating_add(1);
+			}
+
+			crate::Claimant::<T, I>::translate::<v0::ClaimantStatusOf<T, I>, _>(
+				|_, old_claimant| {
+					transactions = transactions.saturating_add(1);
+					Some(crate::ClaimantStatusOf::<T, I> {
+						last_active: BC::convert_cycle_index(old_claimant.last_active),
+						status: old_claimant.status,
+					})
+				},
+			);
+
+			T::DbWeight::get().reads_writes(transactions, transactions)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let (status_existed, pre_claimant_count): (bool, u32) =
+				Decode::decode(&mut &state[..]).expect("pre_upgrade provides valid state; qed");
+
+			ensure!(
+				crate::Status::<T, I>::exists() == status_existed,
+				"Status storage existence should remain the same before and after the upgrade."
+			);
+
+			let post_claimant_count = crate::Claimant::<T, I>::iter().count() as u32;
+			ensure!(
+				post_claimant_count == pre_claimant_count,
+				"Claimant count should remain the same before and after the upgrade."
+			);
+			Ok(())
+		}
+	}
+}
+
+/// [`UncheckedOnRuntimeUpgrade`] implementation [`MigrateToV1`](v1::MigrateToV1) wrapped in a
+/// [`VersionedMigration`], which ensures that:
+///
+/// - The migration only runs once when the on-chain storage version is 0.
+/// - The on-chain storage version is updated to 1 after the migration executes.
+/// - Reads and writes from checking and setting the on-chain storage version are accounted for.
+pub type MigrateV0ToV1<T, BC, I> = VersionedMigration<
+	0,
+	1,
+	v1::MigrateToV1<T, BC, I>,
+	crate::pallet::Pallet<T, I>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+/// Salary v0 to v1 migration for runtimes switching from [`frame_system::Pallet`] to
+/// [`Config::BlockNumberProvider`] where both providers use the same block number type and block
+/// duration.
+pub type MigrateV0ToV1SameBlockDuration<T, I> = MigrateV0ToV1<
+	T,
+	v1::SameBlockDurationConverter<frame_system::Pallet<T>, <T as Config<I>>::BlockNumberProvider>,
+	I,
+>;
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::tests::unit::{new_test_ext, Test};
+	use frame::prelude::{BlockNumberProvider, OnRuntimeUpgrade, StorageVersion};
+	use std::cell::Cell;
+
+	// Keep the two providers independent so the converter tests can check relative moment mapping
+	// without depending on `frame_system` state.
+	thread_local! {
+		static OLD_BLOCK_NUMBER: Cell<u64> = const { Cell::new(0) };
+		static NEW_BLOCK_NUMBER: Cell<u64> = const { Cell::new(0) };
+	}
+
+	struct OldProvider;
+	impl BlockNumberProvider for OldProvider {
+		type BlockNumber = u64;
+
+		fn current_block_number() -> Self::BlockNumber {
+			OLD_BLOCK_NUMBER.with(Cell::get)
+		}
+	}
+
+	struct NewProvider;
+	impl BlockNumberProvider for NewProvider {
+		type BlockNumber = u64;
+
+		fn current_block_number() -> Self::BlockNumber {
+			NEW_BLOCK_NUMBER.with(Cell::get)
+		}
+	}
+
+	type Converter = v1::SameBlockDurationConverter<OldProvider, NewProvider>;
+
+	#[test]
+	fn same_block_duration_converter_maps_equivalent_moments() {
+		OLD_BLOCK_NUMBER.with(|n| n.set(10));
+		NEW_BLOCK_NUMBER.with(|n| n.set(100));
+
+		// Same-duration providers preserve indexes, while block numbers move relative to
+		// each provider's current block.
+		assert_eq!(<Converter as v1::ConvertBlockNumber<u64, u64>>::convert_cycle_index(42), 42);
+		assert_eq!(<Converter as v1::ConvertBlockNumber<u64, u64>>::convert_block_number(7), 97);
+		assert_eq!(<Converter as v1::ConvertBlockNumber<u64, u64>>::convert_block_number(13), 103);
+	}
+
+	#[test]
+	fn same_block_duration_converter_saturates_past_moments() {
+		OLD_BLOCK_NUMBER.with(|n| n.set(10));
+		NEW_BLOCK_NUMBER.with(|n| n.set(2));
+
+		assert_eq!(<Converter as v1::ConvertBlockNumber<u64, u64>>::convert_block_number(7), 0);
+	}
+
+	#[test]
+	fn v0_to_v1_migrates_status_and_claimants() {
+		new_test_ext().execute_with(|| {
+			type Migration = MigrateV0ToV1SameBlockDuration<Test, ()>;
+
+			// Populate the old storage layout directly so the test exercises the same decode path
+			// as an on-chain v0 -> v1 migration.
+			StorageVersion::new(0).put::<Pallet<Test>>();
+			v0::Status::<Test, ()>::put(StatusType {
+				cycle_index: 2,
+				cycle_start: 3,
+				budget: 10,
+				total_registrations: 4,
+				total_unregistered_paid: 5,
+			});
+			v0::Claimant::<Test, ()>::insert(
+				42,
+				ClaimantStatus { last_active: 2, status: ClaimState::Registered(7) },
+			);
+
+			<Migration as OnRuntimeUpgrade>::on_runtime_upgrade();
+
+			// The versioned wrapper must bump storage version and rewrite every
+			// block-number-bearing item into the current storage aliases.
+			assert_eq!(Pallet::<Test>::on_chain_storage_version(), 1);
+			assert_eq!(
+				crate::Status::<Test, ()>::get(),
+				Some(StatusType {
+					cycle_index: 2,
+					cycle_start: 3,
+					budget: 10,
+					total_registrations: 4,
+					total_unregistered_paid: 5,
+				})
+			);
+			assert_eq!(
+				crate::Claimant::<Test, ()>::get(42),
+				Some(ClaimantStatus { last_active: 2, status: ClaimState::Registered(7) })
+			);
+		});
+	}
+}
