@@ -193,6 +193,9 @@ const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(10);
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
+/// Interval between sweeps that evict statement-store peers unseen for the staleness TTL, so the
+/// topology converges on live peers even while discovery is quiet.
+const PEER_EVICTION_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
 /// Delay before re-adding a peer to the reserved set after a forced disconnect for sync recovery.
 const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from_secs(60);
 
@@ -396,7 +399,7 @@ impl StatementHandlerPrototype {
 				in_peers: 50,
 				out_peers: 50,
 				reserved_nodes: Vec::new(),
-				non_reserved_mode: NonReservedPeerMode::Deny,
+				non_reserved_mode: NonReservedPeerMode::Accept,
 			},
 			metrics,
 			peer_store_handle,
@@ -526,6 +529,11 @@ impl StatementHandlerPrototype {
 			pending_affinities_timeout: Box::pin(
 				tokio::time::sleep(PENDING_AFFINITIES_INTERVAL).fuse(),
 			),
+			peer_eviction_timeout: if v2dht_enabled() {
+				Box::pin(tokio::time::sleep(PEER_EVICTION_INTERVAL).fuse())
+			} else {
+				Box::pin(pending().fuse())
+			},
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			deferred_peers: HashSet::new(),
@@ -577,6 +585,8 @@ pub struct StatementHandler<
 	initial_sync_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
 	/// Timeout for processing pending topic affinity changes.
 	pending_affinities_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
+	/// Fires periodically to evict statement-store peers unseen for the staleness TTL.
+	peer_eviction_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
 	/// Pending initial syncs per peer.
 	pending_initial_syncs: HashMap<PeerId, PendingInitialSync>,
 	/// Queue for round-robin processing of initial syncs.
@@ -812,6 +822,7 @@ where
 			metrics: None,
 			initial_sync_timeout: Box::pin(pending().fuse()),
 			pending_affinities_timeout: Box::pin(pending().fuse()),
+			peer_eviction_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			deferred_peers: HashSet::new(),
@@ -911,6 +922,11 @@ where
 				_ = &mut self.sync_recovery_readd_timeout => {
 					self.try_readd_sync_recovery_peer();
 					self.sync_recovery_readd_timeout = Box::pin(pending().fuse());
+				},
+				_ = &mut self.peer_eviction_timeout => {
+					self.v2dht.evict_stale_peers();
+					self.peer_eviction_timeout =
+						Box::pin(tokio::time::sleep(PEER_EVICTION_INTERVAL).fuse());
 				},
 			}
 
@@ -2320,6 +2336,7 @@ mod tests {
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
+			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			deferred_peers: HashSet::new(),
@@ -2654,6 +2671,7 @@ mod tests {
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
+			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			deferred_peers: HashSet::new(),
@@ -2707,6 +2725,7 @@ mod tests {
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
+			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			deferred_peers: HashSet::new(),
@@ -4134,6 +4153,7 @@ mod tests {
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
+			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			deferred_peers: HashSet::new(),
@@ -4499,6 +4519,7 @@ mod tests {
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
+			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			deferred_peers: HashSet::new(),
@@ -4574,6 +4595,7 @@ mod tests {
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
+			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			deferred_peers: deferred,
@@ -4661,6 +4683,7 @@ mod tests {
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
+			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			deferred_peers: HashSet::new(),
@@ -4772,6 +4795,7 @@ mod tests {
 					metrics: None,
 					initial_sync_timeout: Box::pin(futures::future::pending()),
 					pending_affinities_timeout: Box::pin(futures::future::pending()),
+					peer_eviction_timeout: Box::pin(futures::future::pending()),
 					pending_initial_syncs: HashMap::new(),
 					initial_sync_peer_queue: VecDeque::new(),
 					deferred_peers: HashSet::new(),
