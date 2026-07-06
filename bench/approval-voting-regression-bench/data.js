@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783103366418,
+  "lastUpdate": 1783336000940,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "405e0bde29658b12e6fa0944623b1c5225dcaa3e",
-          "message": "offchain-worker: Do not intialize the entire `System` again (#10235)\n\nWhen calling `offchain-worker` we were initializing the entire `System`\nagain with the same block we are running on top of. However, with [the\nchange to require strictly increasing block\nnumbers](https://github.com/paritytech/polkadot-sdk/pull/10180) the\noffchain-worker was failing. This is now solved by just registering the\nmissing digests. The rest of the changes done by `initialize` are not\nimportant for offchain workers.\n\nThe pull request ensures that we are actually testing this behavior of\nthe offchain worker now.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-10T13:14:43Z",
-          "tree_id": "2359f7e32afc6405c2edd47638be22caaadc0d8d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/405e0bde29658b12e6fa0944623b1c5225dcaa3e"
-        },
-        "date": 1762786072871,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63635.92,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52940.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7018225431009673,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001820224,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.0000187488,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.373622917370005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0056725519500000045,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.491499314690002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.489684313979999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43808549111000117,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.0000187488,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5208844381500013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4871205165300005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9406762909600015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001820224,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.005137689200000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "polkadotdom@gmail.com",
+            "name": "polka.dom",
+            "username": "PolkadotDom"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bd1eba23a95b244a58d3a1924205d76fd14412f1",
+          "message": "Add block provider to core-fellowship (#6978)\n\nFollowing #3617, core fellowship and related code is to be made async\nbacking friendly. This PR adds the block number provider config\nparameter to pallet-core-fellowship.\n\nIn addition it\n- Adds the migration code for those teams who want to transition and\nneed it\n- Applies the migration on Westend\n- Shuffles some pre-existing core-fellowship migration code for\nergonomics\n- Adds a bound to the BlockNumberProvider sp_runtime trait\n- Fixes a couple spelling & syntax issues\n\nTODO:\nOnce Westend is updated I will write the migration for polkadot\ncollectives.\n\nNotes:\n@xlc This will be my first migration and overall first PR with a bit\nmore frame complexity, so please review carefully!\nI've tested the migration for Westend using try-runtime. Unsure what the\nstandard process is outside of that if any.\nAlso, the migration assumes consistent block times for westend and\nwestend collectives, which is not the case, but I imagine this is not so\nmuch a concern and will largely be ameliorated when writing for polkadot\ncollectives. Lastly, not confident in the runtime spec_version bump,\nthat was a bit opaque to me, if you want to take a look.\n\n@gupnik [Tracking\nlist](https://github.com/paritytech/polkadot-sdk/issues/3268#issuecomment-2339828175)\n\n---------\n\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-06T09:00:15Z",
+          "tree_id": "fefbd0cf1d9bde7399f17eaf9fd26547688279ed",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bd1eba23a95b244a58d3a1924205d76fd14412f1"
+        },
+        "date": 1783335972753,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63562.67999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.73156412003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7525959347100004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020647500000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000021488010000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005364568219999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020647500000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000021488010000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.481448472580003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8067052430199653,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.740160625790001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.217499017459968,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.453054971972893,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6996600531100006,
             "unit": "seconds"
           }
         ]
