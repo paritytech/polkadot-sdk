@@ -165,8 +165,8 @@ jobs:
             echo "Resuming from '$RESUME_FROM' - checking out existing branch $CRATES_RELEASE_BRANCH"
             git fetch origin "$CRATES_RELEASE_BRANCH"
             git checkout "$CRATES_RELEASE_BRANCH"
-          elif git rev-parse --verify -q "$CRATES_RELEASE_BRANCH" &>/dev/null; then
-            echo "Branch $CRATES_RELEASE_BRANCH already exists, switching to it"
+          elif git rev-parse --verify -q "origin/$CRATES_RELEASE_BRANCH" &>/dev/null; then
+            echo "Branch $CRATES_RELEASE_BRANCH already exists on remote, switching to it"
             git checkout "$CRATES_RELEASE_BRANCH"
           else
             echo "Creating branch: $CRATES_RELEASE_BRANCH"
