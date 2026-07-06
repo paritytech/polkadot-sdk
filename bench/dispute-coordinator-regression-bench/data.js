@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783343054942,
+  "lastUpdate": 1783348668429,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d59fde5800f93b130cc535d73e6b3ce201d7a795",
-          "message": "[pallet-revive] fix prestate tracer current address (#10239)\n\nFix prestate tracer not reporting the contract addresses properly.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-10T12:15:44Z",
-          "tree_id": "15098c23574f7a695f4f26873026854aa96a300f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d59fde5800f93b130cc535d73e6b3ce201d7a795"
-        },
-        "date": 1762782132322,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00267676225,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008815316789999982,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005296049289999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009438144339999979,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "dae5ec991842474c23a63142f4963988813f79b5",
+          "message": "[Release|CI/CD] Fix checkout of existing post-crates-release branch (#12567)\n\nThis PR fixes an issue with the checkout of existing\n`post-crate-release-stablYYMM` branch in case when it was created and\npushed to origin, but Publish crates pipeline has not ran yet",
+          "timestamp": "2026-07-06T10:26:46Z",
+          "tree_id": "6661d6173cd19a4447e2c9cce65cce967d985bca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dae5ec991842474c23a63142f4963988813f79b5"
+        },
+        "date": 1783348639410,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009373207239999981,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00264341688,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01038197171,
             "unit": "seconds"
           }
         ]
