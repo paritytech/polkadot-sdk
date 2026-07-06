@@ -19,6 +19,7 @@ use super::{
 	RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, ToWestendXcmRouter,
 	TransactionByteFee, Uniques, WeightToFee, XcmpQueue,
 };
+use crate::weights::pallet_xcm_benchmarks::WeightInfo as XcmBenchWeight;
 use assets_common::{
 	matching::{
 		FromNetwork, IsForeignConcreteAsset, NonTeleportableAssetFromTrustedReserve,
@@ -36,6 +37,13 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
+use pallet_xcm_benchmarks::{
+	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
+	xcm_weights::{
+		AssetFilterCountWeigher, AutoXcmWeight, AutoXcmWeightConfig,
+		CountBasedAssetsAndFilterWeigher, UniformAssetsWeigher,
+	},
+};
 use parachains_common::{
 	xcm_config::{
 		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
@@ -351,6 +359,36 @@ pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	AccountId,
 >;
 
+impl_xcm_generic_weight_info_provider!(XcmBenchWeight<Runtime>);
+impl_xcm_fungible_weight_info_provider!(XcmBenchWeight<Runtime>);
+
+const MAX_ASSETS: u64 = 100;
+
+pub struct AssetHubRococoCountWeigher;
+impl AssetFilterCountWeigher for AssetHubRococoCountWeigher {
+	fn max_assets() -> u64 {
+		MAX_ASSETS
+	}
+
+	fn max_assets_into_holding() -> u64 {
+		MaxAssetsIntoHolding::get() as u64
+	}
+
+	fn minimum_asset_count() -> u64 {
+		1
+	}
+}
+
+pub struct AssetHubRococoXcmWeightConfig;
+impl<Call> AutoXcmWeightConfig<Call> for AssetHubRococoXcmWeightConfig {
+	type GenericWeights = XcmBenchWeight<Runtime>;
+	type FungibleWeights = XcmBenchWeight<Runtime>;
+	type AssetWeigher =
+		CountBasedAssetsAndFilterWeigher<AssetHubRococoCountWeigher, UniformAssetsWeigher>;
+}
+
+pub type AssetHubRococoXcmWeight<Call> = AutoXcmWeight<Call, AssetHubRococoXcmWeightConfig>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -362,11 +400,8 @@ impl xcm_executor::Config for XcmConfig {
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::AssetHubRococoXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher =
+		WeightInfoBounds<AssetHubRococoXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>;
 	type Trader = (
 		UsingComponents<
 			WeightToFee,
@@ -461,11 +496,8 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::AssetHubRococoXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher =
+		WeightInfoBounds<AssetHubRococoXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
