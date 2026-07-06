@@ -57,11 +57,9 @@ fn people_westend_genesis(
 			keys: invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
-					(
-						acc.clone(),          // account id
-						acc,                  // validator id
-						SessionKeys { aura }, // session keys
-					)
+					let authority_discovery =
+						parachains_common::authority_discovery_id_from_aura(aura.clone());
+					(acc.clone(), acc, SessionKeys { aura, authority_discovery })
 				})
 				.collect(),
 		},

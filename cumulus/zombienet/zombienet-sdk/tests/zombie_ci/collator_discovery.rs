@@ -27,18 +27,14 @@
 use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 
 use anyhow::anyhow;
-use codec::Decode;
 use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success,
-	submit_sudo_runtime_upgrade, wait_for_pallet_in_metadata, wait_for_pvf_prepare,
+	assert_full_collator_mesh, assert_para_throughput,
+	submit_extrinsic_and_wait_for_finalization_success, submit_sudo_runtime_upgrade,
+	wait_for_authority_discovery_keys_change, wait_for_pallet_in_metadata, wait_for_pvf_prepare,
 	wait_for_runtime_upgrade,
 };
 use polkadot_primitives::Id as ParaId;
-use std::{
-	collections::{HashMap, HashSet},
-	str::FromStr,
-	time::{Duration, Instant},
-};
+use std::{collections::HashSet, str::FromStr, time::Duration};
 use zombienet_sdk::{
 	subxt::{
 		backend::rpc::RpcClient, dynamic::Value, ext::subxt_rpcs::rpc_params, OnlineClient,
@@ -259,156 +255,11 @@ async fn rotate_authority_discovery_keys(
 	Ok(())
 }
 
-/// Read the live AD authority keys from `AuthorityDiscovery.Keys` storage.
-///
-/// Returns each key as a 32-byte `Vec<u8>` in a `HashSet` for set-difference comparison.
-async fn read_authority_discovery_authorities(
-	para_client: &OnlineClient<PolkadotConfig>,
-) -> anyhow::Result<HashSet<Vec<u8>>> {
-	let query = zombienet_sdk::subxt::dynamic::storage("AuthorityDiscovery", "Keys", vec![]);
-	let result = para_client.storage().at_latest().await?.fetch(&query).await?;
-	let thunk = match result {
-		Some(v) => v,
-		None => {
-			log::warn!("AuthorityDiscovery.Keys storage returned None — treating as empty set");
-			return Ok(HashSet::new());
-		},
-	};
-
-	let raw = thunk.into_encoded();
-	let keys_array: Vec<[u8; 32]> =
-		Decode::decode(&mut &raw[..]).map_err(|e| anyhow!("decode AD keys: {e}"))?;
-
-	let keys: HashSet<Vec<u8>> = keys_array.into_iter().map(|k| k.to_vec()).collect();
-	log::info!("AuthorityDiscovery.Keys: {} entries decoded", keys.len());
-	Ok(keys)
-}
-
-/// Poll `AuthorityDiscovery.Keys` until at least one key differs from the initial set,
-/// or the timeout fires.
-async fn wait_for_authorities_change(
-	para_client: &OnlineClient<PolkadotConfig>,
-	initial: &HashSet<Vec<u8>>,
-) -> anyhow::Result<()> {
-	let deadline = Instant::now() + SESSION_CHANGE_TIMEOUT;
-	loop {
-		if Instant::now() >= deadline {
-			return Err(anyhow!(
-				"AuthorityDiscovery authorities did not change within {:?}",
-				SESSION_CHANGE_TIMEOUT,
-			));
-		}
-		let current = read_authority_discovery_authorities(para_client).await?;
-		if current.symmetric_difference(initial).next().is_some() {
-			let added = current.difference(initial).count();
-			let removed = initial.difference(&current).count();
-			log::info!(
-				"AuthorityDiscovery authorities changed: +{} -{} (initial size {}, current {})",
-				added,
-				removed,
-				initial.len(),
-				current.len(),
-			);
-			return Ok(());
-		}
-		tokio::time::sleep(Duration::from_secs(3)).await;
-	}
-}
-
-/// Assert the full collator-to-collator mesh after keys have taken effect.
-async fn assert_full_collator_mesh(
+/// Assert each collator has caught up past block 10 — the cheap chain-advance sanity check.
+async fn assert_collators_advance(
 	network: &Network<LocalFileSystem>,
 	names: &[&str],
 ) -> anyhow::Result<()> {
-	// Step 1: resolved reserved peers.
-	for &name in names {
-		let collator = network.get_node(name)?;
-		log::info!("Asserting `{name}` has resolved >= 5 reserved peers (the other collators)");
-		assert!(
-			collator
-				.wait_metric_with_timeout("collator_discovery_resolved_peers", |c| c >= 5.0, 300u64)
-				.await
-				.is_ok(),
-			"`{name}` did not reach 5 resolved reserved peers within the timeout",
-		);
-	}
-
-	// Step 2: libp2p peer count.
-	for &name in names {
-		let collator = network.get_node(name)?;
-		log::info!("Asserting `{name}` has >= 5 connected libp2p peers (the other 5 collators)");
-		assert!(
-			collator
-				.wait_metric_with_timeout("substrate_sub_libp2p_peers_count", |c| c >= 5.0, 300u64,)
-				.await
-				.is_ok(),
-			"`{name}` did not reach 5 connected peers — the reserved-mesh bypass of the \
-			 1/1 non-reserved budget is not delivering full collator-to-collator connectivity",
-		);
-	}
-
-	// Step 3: full (i, j) peer-id mesh check.
-	let mut peer_ids: HashMap<&str, String> = HashMap::new();
-	for &name in names {
-		let rpc: RpcClient = network.get_node(name)?.rpc().await?;
-		let id: String = rpc.request("system_localPeerId", rpc_params![]).await?;
-		log::info!("`{name}` local peer id: {id}");
-		peer_ids.insert(name, id);
-	}
-
-	let deadline = Instant::now() + FULL_MESH_TIMEOUT;
-	loop {
-		let mut all_full = true;
-		let mut last_err: Option<String> = None;
-
-		for &name in names {
-			let rpc: RpcClient = network.get_node(name)?.rpc().await?;
-			let peers: serde_json::Value = rpc.request("system_peers", rpc_params![]).await?;
-			let connected: HashSet<String> = peers
-				.as_array()
-				.map(|arr| {
-					arr.iter()
-						.filter_map(|p| p.get("peerId").and_then(|v| v.as_str()))
-						.map(String::from)
-						.collect()
-				})
-				.unwrap_or_default();
-
-			let missing: Vec<&&str> = names
-				.iter()
-				.filter(|other| **other != name)
-				.filter(|other| !connected.contains(&peer_ids[*other]))
-				.collect();
-
-			if !missing.is_empty() {
-				all_full = false;
-				last_err = Some(format!(
-					"`{name}` is missing collator peers: {:?} (connected to {} parachain peers)",
-					missing,
-					connected.len(),
-				));
-				break;
-			}
-		}
-
-		if all_full {
-			log::info!(
-				"Full collator-to-collator mesh confirmed: every collator is connected to every other."
-			);
-			break;
-		}
-		if Instant::now() >= deadline {
-			return Err(anyhow!(
-				"Full collator mesh did not converge within {:?}: {}",
-				FULL_MESH_TIMEOUT,
-				last_err.unwrap_or_else(|| "(unknown)".into()),
-			));
-		}
-		log::info!("Mesh not yet full; retrying in {:?}", FULL_MESH_POLL_INTERVAL);
-		tokio::time::sleep(FULL_MESH_POLL_INTERVAL).await;
-	}
-
-	// Step 4: chain keeps advancing.
 	for &name in names {
 		let collator = network.get_node(name)?;
 		log::info!("Asserting `{name}` reports a non-trivial best-block height");
@@ -420,7 +271,6 @@ async fn assert_full_collator_mesh(
 			"`{name}` did not reach best-block > 10",
 		);
 	}
-
 	Ok(())
 }
 
@@ -470,28 +320,43 @@ async fn collator_discovery_full_mesh_with_tight_non_reserved_budget() -> Result
 	// Step 2: wait for AD keys to appear (migration seeded them from aura authorities).
 	// Pre-upgrade the initial AD key set is empty (pallet not present).
 	log::info!("Waiting for authority-discovery keys to populate post-upgrade");
-	let pre_upgrade_authorities: HashSet<Vec<u8>> = HashSet::new();
-	wait_for_authorities_change(&para_client, &pre_upgrade_authorities).await?;
-	log::info!("AuthorityDiscovery.Keys are now populated");
-
-	// Step 3: capture the migration-seeded AD authority set, then rotate keys.
-	// The migration seeds `AuthorityDiscovery::Keys` with the aura pubkeys, but no node has
-	// the matching `audi` private key yet, so the AD worker can't publish DHT records until
-	// we rotate to real keys.
-	let initial_authorities = read_authority_discovery_authorities(&para_client).await?;
+	let initial_authorities = wait_for_authority_discovery_keys_change(
+		&para_client,
+		&HashSet::new(),
+		SESSION_CHANGE_TIMEOUT,
+		Duration::from_secs(3),
+	)
+	.await?;
 	log::info!(
 		"Captured {} migration-seeded AD authorities; rotating to real AD keys",
 		initial_authorities.len(),
 	);
+
+	// Step 3: rotate. The migration seeds `AuthorityDiscovery::Keys` with the aura pubkeys,
+	// but no node has the matching `audi` private key yet, so the AD worker can't publish
+	// DHT records until we rotate to real keys.
 	rotate_authority_discovery_keys(&network, collator_names()).await?;
 
 	// Step 4: wait for AuthorityDiscovery.Keys to reflect the rotation.
 	log::info!("Waiting for AuthorityDiscovery keys to reflect the rotation");
-	wait_for_authorities_change(&para_client, &initial_authorities).await?;
+	wait_for_authority_discovery_keys_change(
+		&para_client,
+		&initial_authorities,
+		SESSION_CHANGE_TIMEOUT,
+		Duration::from_secs(3),
+	)
+	.await?;
 
 	// Step 5: assert the full collator-to-collator mesh forms with real AD keys in place.
 	log::info!("Asserting full collator-to-collator mesh");
-	assert_full_collator_mesh(&network, collator_names()).await?;
+	assert_full_collator_mesh(
+		&network,
+		collator_names(),
+		FULL_MESH_TIMEOUT,
+		FULL_MESH_POLL_INTERVAL,
+	)
+	.await?;
+	assert_collators_advance(&network, collator_names()).await?;
 
 	// Step 6: parachain throughput remains healthy with the discovery mesh active.
 	wait_for_pvf_prepare(&network, 2).await?;

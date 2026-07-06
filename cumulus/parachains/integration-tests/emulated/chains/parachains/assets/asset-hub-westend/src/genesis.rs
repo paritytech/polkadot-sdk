@@ -77,10 +77,12 @@ pub fn genesis() -> Storage {
 			keys: collators::invulnerables()
 				.into_iter()
 				.map(|(acc, aura)| {
+					let authority_discovery =
+						parachains_common::authority_discovery_id_from_aura(aura.clone());
 					(
-						acc.clone(),                                     // account id
-						acc,                                             // validator id
-						asset_hub_westend_runtime::SessionKeys { aura }, // session keys
+						acc.clone(), // account id
+						acc,         // validator id
+						asset_hub_westend_runtime::SessionKeys { aura, authority_discovery },
 					)
 				})
 				.collect(),

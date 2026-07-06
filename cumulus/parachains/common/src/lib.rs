@@ -17,6 +17,7 @@
 
 extern crate alloc;
 
+pub mod ad_migration;
 pub mod impls;
 pub mod message_queue;
 pub mod pay;
@@ -68,4 +69,11 @@ mod constants {
 
 	/// Treasury pallet id of the local chain, used to convert into AccountId
 	pub const TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
+}
+
+/// Derive an [`sp_authority_discovery::AuthorityId`] from an [`AuraId`] by reusing the
+/// underlying sr25519 public key bytes. Used in genesis config presets so collators can
+/// reuse their Aura keystore secret for authority-discovery until they rotate.
+pub fn authority_discovery_id_from_aura(aura: AuraId) -> sp_authority_discovery::AuthorityId {
+	sp_core::sr25519::Public::from(aura).into()
 }

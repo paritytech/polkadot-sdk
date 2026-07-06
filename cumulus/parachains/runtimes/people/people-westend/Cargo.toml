@@ -30,6 +30,7 @@ frame-system-rpc-runtime-api = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
 pallet-accumulate-and-forward = { workspace = true }
 pallet-aura = { workspace = true }
+pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-identity = { workspace = true }
@@ -45,12 +46,14 @@ pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-verify-signature = { workspace = true }
 sp-api = { workspace = true }
+sp-authority-discovery = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
 sp-dap = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
+sp-io = { workspace = true }
 sp-keyring = { workspace = true }
 sp-offchain = { workspace = true }
 sp-runtime = { workspace = true }
@@ -116,6 +119,7 @@ std = [
 	"frame-try-runtime?/std",
 	"pallet-accumulate-and-forward/std",
 	"pallet-aura/std",
+	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
@@ -141,12 +145,14 @@ std = [
 	"serde",
 	"serde_json/std",
 	"sp-api/std",
+	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-dap/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
+	"sp-io/std",
 	"sp-keyring/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
@@ -214,6 +220,7 @@ try-runtime = [
 	"frame-try-runtime/try-runtime",
 	"pallet-accumulate-and-forward/try-runtime",
 	"pallet-aura/try-runtime",
+	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",

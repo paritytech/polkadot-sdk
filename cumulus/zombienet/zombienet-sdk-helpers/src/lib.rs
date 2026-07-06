@@ -4,9 +4,15 @@
 use anyhow::anyhow;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{BlockBundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
-use futures::stream::StreamExt;
+use futures::{future::try_join_all, stream::StreamExt};
 use polkadot_primitives::{BlakeTwo256, CandidateReceiptV2, HashT, Id as ParaId};
-use std::{cmp::max, collections::HashMap, ops::Range, sync::Arc};
+use std::{
+	cmp::max,
+	collections::{HashMap, HashSet},
+	ops::Range,
+	sync::Arc,
+	time::Instant,
+};
 use tokio::{
 	join,
 	time::{sleep, Duration},
@@ -1006,5 +1012,181 @@ pub async fn wait_for_pallet_in_metadata(
 			return Ok(candidate);
 		}
 		log::debug!("`{pallet_name}` not in metadata yet, retrying");
+	}
+}
+
+/// Read the live `AuthorityDiscovery.Keys` set as a `HashSet` of 32-byte arrays.
+///
+/// Returns an empty set if the storage value is absent (e.g. the AD pallet is not present
+/// in the runtime's metadata).
+pub async fn read_authority_discovery_authorities(
+	para_client: &OnlineClient<PolkadotConfig>,
+) -> anyhow::Result<HashSet<[u8; 32]>> {
+	let query = subxt::dynamic::storage("AuthorityDiscovery", "Keys", Vec::<Value>::new());
+	let Some(thunk) = para_client.storage().at_latest().await?.fetch(&query).await? else {
+		log::warn!("AuthorityDiscovery.Keys storage returned None — treating as empty set");
+		return Ok(HashSet::new());
+	};
+
+	let raw = thunk.into_encoded();
+	let keys: HashSet<[u8; 32]> = Vec::<[u8; 32]>::decode(&mut &raw[..])
+		.map_err(|e| anyhow!("decode AD keys: {e}"))?
+		.into_iter()
+		.collect();
+	log::info!("AuthorityDiscovery.Keys: {} entries decoded", keys.len());
+	Ok(keys)
+}
+
+/// Poll `AuthorityDiscovery.Keys` until it differs from `initial` or `timeout` fires.
+pub async fn wait_for_authority_discovery_keys_change(
+	para_client: &OnlineClient<PolkadotConfig>,
+	initial: &HashSet<[u8; 32]>,
+	timeout: Duration,
+	poll_interval: Duration,
+) -> anyhow::Result<HashSet<[u8; 32]>> {
+	let deadline = Instant::now() + timeout;
+	loop {
+		if Instant::now() >= deadline {
+			return Err(anyhow!(
+				"AuthorityDiscovery authorities did not change within {timeout:?}",
+			));
+		}
+		let current = read_authority_discovery_authorities(para_client).await?;
+		if current.symmetric_difference(initial).next().is_some() {
+			let added = current.difference(initial).count();
+			let removed = initial.difference(&current).count();
+			log::info!(
+				"AuthorityDiscovery authorities changed: +{added} -{removed} \
+				 (initial size {}, current {})",
+				initial.len(),
+				current.len(),
+			);
+			return Ok(current);
+		}
+		sleep(poll_interval).await;
+	}
+}
+
+/// Assert that every named collator has fully meshed with the others via reserved peers.
+///
+/// Checks, in order:
+///   1. Each collator's `collator_discovery_resolved_peers` metric reaches `n - 1`.
+///   2. Each collator's `substrate_sub_libp2p_peers_count` metric reaches `n - 1`.
+///   3. Every directed `(i, j)` pair appears in each side's `system_peers` output.
+///
+/// `timeout` applies separately to the metric checks (per node) and to the `(i, j)` loop.
+pub async fn assert_full_collator_mesh(
+	network: &Network<LocalFileSystem>,
+	names: &[&str],
+	timeout: Duration,
+	poll_interval: Duration,
+) -> anyhow::Result<()> {
+	use zombienet_sdk::subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params};
+
+	let expected = (names.len() - 1) as f64;
+	let per_node_timeout = timeout.as_secs();
+
+	// Step 1: resolved reserved peers — all nodes checked in parallel.
+	try_join_all(names.iter().map(|&name| {
+		let collator = network.get_node(name);
+		async move {
+			let collator = collator?;
+			log::info!("Asserting `{name}` has resolved >= {expected} reserved peers");
+			collator
+				.wait_metric_with_timeout(
+					"collator_discovery_resolved_peers",
+					|c| c >= expected,
+					per_node_timeout,
+				)
+				.await
+				.map_err(|e| {
+					anyhow!(
+						"`{name}` did not reach {expected} resolved reserved peers within the timeout: {e}"
+					)
+				})
+		}
+	}))
+	.await?;
+
+	// Step 2: libp2p peer count — all nodes checked in parallel.
+	try_join_all(names.iter().map(|&name| {
+		let collator = network.get_node(name);
+		async move {
+			let collator = collator?;
+			log::info!("Asserting `{name}` has >= {expected} connected libp2p peers");
+			collator
+				.wait_metric_with_timeout(
+					"substrate_sub_libp2p_peers_count",
+					|c| c >= expected,
+					per_node_timeout,
+				)
+				.await
+				.map_err(|e| {
+					anyhow!(
+						"`{name}` did not reach {expected} connected peers — the reserved-mesh bypass of \
+						 the non-reserved budget is not delivering full collator-to-collator connectivity: {e}"
+					)
+				})
+		}
+	}))
+	.await?;
+
+	// Step 3: full (i, j) peer-id mesh check via `system_peers`.
+	let mut peer_ids: HashMap<&str, String> = HashMap::new();
+	for &name in names {
+		let rpc: RpcClient = network.get_node(name)?.rpc().await?;
+		let id: String = rpc.request("system_localPeerId", rpc_params![]).await?;
+		log::info!("`{name}` local peer id: {id}");
+		peer_ids.insert(name, id);
+	}
+
+	let deadline = Instant::now() + timeout;
+	loop {
+		let mut all_full = true;
+		let mut last_err: Option<String> = None;
+
+		for &name in names {
+			let rpc: RpcClient = network.get_node(name)?.rpc().await?;
+			let peers: serde_json::Value = rpc.request("system_peers", rpc_params![]).await?;
+			let connected: HashSet<String> = peers
+				.as_array()
+				.map(|arr| {
+					arr.iter()
+						.filter_map(|p| p.get("peerId").and_then(|v| v.as_str()))
+						.map(String::from)
+						.collect()
+				})
+				.unwrap_or_default();
+
+			let missing: Vec<&&str> = names
+				.iter()
+				.filter(|other| **other != name)
+				.filter(|other| !connected.contains(&peer_ids[*other]))
+				.collect();
+
+			if !missing.is_empty() {
+				all_full = false;
+				last_err = Some(format!(
+					"`{name}` is missing collator peers: {missing:?} (connected to {} parachain peers)",
+					connected.len(),
+				));
+				break;
+			}
+		}
+
+		if all_full {
+			log::info!(
+				"Full collator-to-collator mesh confirmed: every collator is connected to every other.",
+			);
+			return Ok(());
+		}
+		if Instant::now() >= deadline {
+			return Err(anyhow!(
+				"Full collator mesh did not converge within {timeout:?}: {}",
+				last_err.unwrap_or_else(|| "(unknown)".into()),
+			));
+		}
+		log::info!("Mesh not yet full; retrying in {poll_interval:?}");
+		sleep(poll_interval).await;
 	}
 }

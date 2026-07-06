@@ -41,6 +41,7 @@ use alloc::{borrow::Cow, vec, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use frame_support::weights::{constants, FixedFee, RuntimeDbWeight};
 use sp_api::impl_runtime_apis;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
 	generic, impl_opaque_keys,
@@ -91,8 +92,12 @@ pub type SessionHandlers = ();
 impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub aura: Aura,
+		pub authority_discovery: AuthorityDiscovery,
 	}
 }
+
+/// Migrations to apply on runtime upgrade.
+pub type Migrations = (RemoveCollectiveFlip,);
 
 /// This runtime version.
 #[sp_version::runtime_version]
@@ -100,7 +105,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: Cow::Borrowed("yet-another-parachain"),
 	impl_name: Cow::Borrowed("yet-another-parachain"),
 	authoring_version: 1,
-	spec_version: 1_003_002,
+	spec_version: 1_003_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -227,7 +232,8 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
-	type SingleBlockMigrations = RemoveCollectiveFlip;
+	type SingleBlockMigrations = Migrations;
+	type MultiBlockMigrator = MultiBlockMigrations;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -395,6 +401,7 @@ impl pallet_message_queue::Config for Runtime {
 }
 parameter_types! {
 	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
 }
 
 impl pallet_authorship::Config for Runtime {
@@ -448,6 +455,25 @@ impl pallet_aura::Config for Runtime {
 	type MaxAuthorities = ConstU32<100_000>;
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
 	type SlotDuration = ConstU64<SLOT_DURATION>;
+}
+
+impl pallet_authority_discovery::Config for Runtime {
+	type MaxAuthorities = ConstU32<1000>;
+}
+
+impl pallet_migrations::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Migrations = (parachains_common::ad_migration::AppendAuthorityDiscoveryKeys<Runtime>,);
+	// Benchmarks need mocked migrations to guarantee that they succeed.
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+	type CursorMaxLen = ConstU32<65_536>;
+	type IdentifierMaxLen = ConstU32<256>;
+	type MigrationStatusHandler = ();
+	type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
+	type MaxServiceWeight = MbmServiceWeight;
+	type WeightInfo = pallet_migrations::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -508,6 +534,8 @@ mod runtime {
 	pub type TransactionPayment = pallet_transaction_payment;
 	#[runtime::pallet_index(4)]
 	pub type WeightReclaim = cumulus_pallet_weight_reclaim;
+	#[runtime::pallet_index(5)]
+	pub type MultiBlockMigrations = pallet_migrations;
 
 	#[runtime::pallet_index(20)]
 	pub type ParachainSystem = cumulus_pallet_parachain_system;
@@ -528,6 +556,8 @@ mod runtime {
 	pub type Aura = pallet_aura;
 	#[runtime::pallet_index(32)]
 	pub type AuraExt = cumulus_pallet_aura_ext;
+	#[runtime::pallet_index(33)]
+	pub type AuthorityDiscovery = pallet_authority_discovery;
 
 	#[runtime::pallet_index(40)]
 	pub type Utility = pallet_utility;
@@ -678,6 +708,12 @@ impl_runtime_apis! {
 			SessionKeys::generate(&owner, seed).into()
 		}
 
+	}
+
+	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
+		fn authorities() -> Vec<AuthorityDiscoveryId> {
+			pallet_authority_discovery::Pallet::<Runtime>::current_authorities().to_vec()
+		}
 	}
 
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
