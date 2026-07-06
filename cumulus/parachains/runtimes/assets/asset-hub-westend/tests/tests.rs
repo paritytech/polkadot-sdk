@@ -2873,7 +2873,10 @@ mod revive_trace_reclaim {
 	use super::*;
 	use frame_support::dispatch::DispatchClass;
 	use frame_system::pallet_prelude::HeaderFor;
-	use pallet_revive::{evm::TracerType, runtime_decl_for_revive_api::ReviveApiV1};
+	use pallet_revive::{
+		pallet_revive_types::runtime_api::TracerTypeV1,
+		runtime_decl_for_revive_api::ReviveApiV2,
+	};
 	use pallet_revive_fixtures::compile_module;
 	use sp_core::H160;
 	use sp_runtime::{traits::Header as _, BuildStorage};
@@ -2961,8 +2964,8 @@ mod revive_trace_reclaim {
 		})
 	}
 
-	fn tracer() -> TracerType {
-		TracerType::CallTracer(None)
+	fn tracer() -> TracerTypeV1 {
+		TracerTypeV1::CallTracer(None)
 	}
 
 	#[test]
