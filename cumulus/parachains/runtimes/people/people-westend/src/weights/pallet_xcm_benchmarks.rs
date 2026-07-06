@@ -27,7 +27,7 @@
 // benchmark
 // pallet
 // --runtime
-// target/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.wasm
+// target/release/wbuild/people-westend-runtime/people_westend_runtime.wasm
 // --pallets
 // pallet_xcm_benchmarks::fungible
 // pallet_xcm_benchmarks::generic
@@ -36,7 +36,7 @@
 // --header
 // cumulus/file_header.txt
 // --output
-// ./substrate/frame/staking-async/runtimes/parachain/src/weights/xcm/pallet_xcm_benchmarks.rs
+// ./cumulus/parachains/runtimes/people/people-westend/src/weights/pallet_xcm_benchmarks.rs
 // --wasm-execution
 // compiled
 // --steps
@@ -50,8 +50,6 @@
 // --no-storage-info
 // --no-min-squares
 // --no-median-slopes
-// --genesis-builder-preset
-// fake-dev
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -67,10 +65,10 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	pub fn withdraw_asset() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `343`
+		//  Measured:  `101`
 		//  Estimated: `3593`
-		// Minimum execution time: 25_000_000 picoseconds.
-		Weight::from_parts(27_000_000, 3593)
+		// Minimum execution time: 23_000_000 picoseconds.
+		Weight::from_parts(24_000_000, 3593)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -78,10 +76,10 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	pub fn transfer_asset() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1147`
+		//  Measured:  `101`
 		//  Estimated: `6196`
-		// Minimum execution time: 44_000_000 picoseconds.
-		Weight::from_parts(46_000_000, 6196)
+		// Minimum execution time: 38_000_000 picoseconds.
+		Weight::from_parts(40_000_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -89,156 +87,164 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
-	// Proof: `ParachainSystem::UpwardDeliveryFeeFactor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
+	// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
 	// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::HostConfiguration` (r:1 w:0)
-	// Proof: `ParachainSystem::HostConfiguration` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::PendingUpwardMessages` (r:1 w:1)
-	// Proof: `ParachainSystem::PendingUpwardMessages` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(1794), added: 2289, mode: `MaxEncodedLen`)
+	// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
+	// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
 	pub fn transfer_reserve_asset() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2188`
+		//  Measured:  `405`
 		//  Estimated: `8799`
-		// Minimum execution time: 96_000_000 picoseconds.
-		Weight::from_parts(101_000_000, 8799)
+		// Minimum execution time: 91_000_000 picoseconds.
+		Weight::from_parts(96_000_000, 8799)
 			.saturating_add(T::DbWeight::get().reads(8))
-			.saturating_add(T::DbWeight::get().writes(4))
+			.saturating_add(T::DbWeight::get().writes(5))
 	}
-	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
-	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	// Storage: `ForeignAssets::Asset` (r:1 w:1)
-	// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
+	// Storage: `Benchmark::Override` (r:0 w:0)
+	// Proof: `Benchmark::Override` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	pub fn reserve_asset_deposited() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `140`
-		//  Estimated: `4273`
-		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(14_000_000, 4273)
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(1))
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 18_446_744_073_709_551_000 picoseconds.
+		Weight::from_parts(18_446_744_073_709_551_000, 0)
 	}
 	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
-	// Proof: `ParachainSystem::UpwardDeliveryFeeFactor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
+	// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
 	// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::HostConfiguration` (r:1 w:0)
-	// Proof: `ParachainSystem::HostConfiguration` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::PendingUpwardMessages` (r:1 w:1)
-	// Proof: `ParachainSystem::PendingUpwardMessages` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(1794), added: 2289, mode: `MaxEncodedLen`)
+	// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
+	// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
 	pub fn initiate_reserve_withdraw() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1384`
+		//  Measured:  `405`
 		//  Estimated: `6196`
-		// Minimum execution time: 111_000_000 picoseconds.
-		Weight::from_parts(116_000_000, 6196)
+		// Minimum execution time: 60_000_000 picoseconds.
+		Weight::from_parts(63_000_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(7))
-			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	pub fn receive_teleported_asset() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(7_000_000, 0)
+		// Minimum execution time: 5_000_000 picoseconds.
+		Weight::from_parts(6_000_000, 0)
 	}
 	// Storage: `System::Account` (r:1 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	pub fn deposit_asset() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `804`
+		//  Measured:  `0`
 		//  Estimated: `3593`
-		// Minimum execution time: 32_000_000 picoseconds.
-		Weight::from_parts(34_000_000, 3593)
+		// Minimum execution time: 20_000_000 picoseconds.
+		Weight::from_parts(22_000_000, 3593)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
-	// Proof: `ParachainSystem::UpwardDeliveryFeeFactor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
+	// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
 	// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::HostConfiguration` (r:1 w:0)
-	// Proof: `ParachainSystem::HostConfiguration` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	// Storage: `System::Account` (r:1 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::PendingUpwardMessages` (r:1 w:1)
-	// Proof: `ParachainSystem::PendingUpwardMessages` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(1794), added: 2289, mode: `MaxEncodedLen`)
+	// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
+	// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
 	pub fn deposit_reserve_asset() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `972`
-		//  Estimated: `4437`
-		// Minimum execution time: 63_000_000 picoseconds.
-		Weight::from_parts(66_000_000, 4437)
+		//  Measured:  `201`
+		//  Estimated: `3666`
+		// Minimum execution time: 54_000_000 picoseconds.
+		Weight::from_parts(57_000_000, 3666)
 			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
+	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
+	// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
+	// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
+	// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(1794), added: 2289, mode: `MaxEncodedLen`)
+	// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
+	// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
+	pub fn initiate_teleport() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `201`
+		//  Estimated: `3666`
+		// Minimum execution time: 35_000_000 picoseconds.
+		Weight::from_parts(38_000_000, 3666)
+			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
-	// Proof: `ParachainSystem::UpwardDeliveryFeeFactor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
-	// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::HostConfiguration` (r:1 w:0)
-	// Proof: `ParachainSystem::HostConfiguration` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::PendingUpwardMessages` (r:1 w:1)
-	// Proof: `ParachainSystem::PendingUpwardMessages` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	pub fn initiate_teleport() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `168`
-		//  Estimated: `3633`
-		// Minimum execution time: 41_000_000 picoseconds.
-		Weight::from_parts(43_000_000, 3633)
-			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
-	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
-	// Proof: `ParachainSystem::UpwardDeliveryFeeFactor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
+	// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
 	// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::HostConfiguration` (r:1 w:0)
-	// Proof: `ParachainSystem::HostConfiguration` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::PendingUpwardMessages` (r:1 w:1)
-	// Proof: `ParachainSystem::PendingUpwardMessages` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(1794), added: 2289, mode: `MaxEncodedLen`)
+	// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
+	// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
 	pub fn initiate_transfer() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1845`
+		//  Measured:  `304`
 		//  Estimated: `6196`
-		// Minimum execution time: 89_000_000 picoseconds.
-		Weight::from_parts(93_000_000, 6196)
+		// Minimum execution time: 76_000_000 picoseconds.
+		Weight::from_parts(81_000_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(7))
-			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
-	// Proof: `ParachainSystem::UpwardDeliveryFeeFactor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
+	// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
 	// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::HostConfiguration` (r:1 w:0)
-	// Proof: `ParachainSystem::HostConfiguration` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::PendingUpwardMessages` (r:1 w:1)
-	// Proof: `ParachainSystem::PendingUpwardMessages` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(1794), added: 2289, mode: `MaxEncodedLen`)
+	// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
+	// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
 	pub fn report_holding() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1384`
+		//  Measured:  `405`
 		//  Estimated: `6196`
-		// Minimum execution time: 97_000_000 picoseconds.
-		Weight::from_parts(99_000_000, 6196)
+		// Minimum execution time: 58_000_000 picoseconds.
+		Weight::from_parts(62_000_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(7))
-			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	// Storage: `System::Account` (r:1 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
@@ -246,8 +252,8 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `3593`
-		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(14_000_000, 3593)
+		// Minimum execution time: 4_000_000 picoseconds.
+		Weight::from_parts(5_000_000, 3593)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -257,8 +263,8 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `3593`
-		// Minimum execution time: 12_000_000 picoseconds.
-		Weight::from_parts(13_000_000, 3593)
+		// Minimum execution time: 4_000_000 picoseconds.
+		Weight::from_parts(5_000_000, 3593)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -276,7 +282,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		//  Measured:  `0`
 		//  Estimated: `3465`
 		// Minimum execution time: 4_000_000 picoseconds.
-		Weight::from_parts(5_000_000, 3465)
+		Weight::from_parts(4_000_000, 3465)
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
 	pub fn transact() -> Weight {
@@ -339,33 +345,35 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	}
 	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
-	// Proof: `ParachainSystem::UpwardDeliveryFeeFactor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
+	// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
 	// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::HostConfiguration` (r:1 w:0)
-	// Proof: `ParachainSystem::HostConfiguration` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::PendingUpwardMessages` (r:1 w:1)
-	// Proof: `ParachainSystem::PendingUpwardMessages` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(1794), added: 2289, mode: `MaxEncodedLen`)
+	// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
+	// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
 	pub fn report_error() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1384`
+		//  Measured:  `405`
 		//  Estimated: `6196`
-		// Minimum execution time: 57_000_000 picoseconds.
+		// Minimum execution time: 56_000_000 picoseconds.
 		Weight::from_parts(59_000_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(7))
-			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	// Storage: `PolkadotXcm::AssetTraps` (r:1 w:1)
 	// Proof: `PolkadotXcm::AssetTraps` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	pub fn claim_asset() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `23`
-		//  Estimated: `3488`
-		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(14_000_000, 3488)
+		//  Measured:  `24`
+		//  Estimated: `3489`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(14_000_000, 3489)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -378,22 +386,24 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	}
 	// Storage: `PolkadotXcm::VersionNotifyTargets` (r:1 w:1)
 	// Proof: `PolkadotXcm::VersionNotifyTargets` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
-	// Proof: `ParachainSystem::UpwardDeliveryFeeFactor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
+	// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
 	// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::HostConfiguration` (r:1 w:0)
-	// Proof: `ParachainSystem::HostConfiguration` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::PendingUpwardMessages` (r:1 w:1)
-	// Proof: `ParachainSystem::PendingUpwardMessages` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(1794), added: 2289, mode: `MaxEncodedLen`)
+	// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
+	// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
 	pub fn subscribe_version() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `32`
-		//  Estimated: `3497`
-		// Minimum execution time: 19_000_000 picoseconds.
-		Weight::from_parts(21_000_000, 3497)
+		//  Measured:  `132`
+		//  Estimated: `3597`
+		// Minimum execution time: 23_000_000 picoseconds.
+		Weight::from_parts(25_000_000, 3597)
 			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(2))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	// Storage: `PolkadotXcm::VersionNotifyTargets` (r:0 w:1)
 	// Proof: `PolkadotXcm::VersionNotifyTargets` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -402,22 +412,22 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 2_000_000 picoseconds.
-		Weight::from_parts(2_000_000, 0)
+		Weight::from_parts(3_000_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	pub fn burn_asset() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 41_000_000 picoseconds.
-		Weight::from_parts(43_000_000, 0)
+		// Minimum execution time: 1_000_000 picoseconds.
+		Weight::from_parts(1_000_000, 0)
 	}
 	pub fn expect_asset() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(14_000_000, 0)
+		// Minimum execution time: 0_000 picoseconds.
+		Weight::from_parts(1_000_000, 0)
 	}
 	pub fn expect_origin() -> Weight {
 		// Proof Size summary in bytes:
@@ -442,52 +452,56 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	}
 	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
-	// Proof: `ParachainSystem::UpwardDeliveryFeeFactor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
+	// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
 	// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::HostConfiguration` (r:1 w:0)
-	// Proof: `ParachainSystem::HostConfiguration` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::PendingUpwardMessages` (r:1 w:1)
-	// Proof: `ParachainSystem::PendingUpwardMessages` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(1794), added: 2289, mode: `MaxEncodedLen`)
+	// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
+	// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
 	pub fn query_pallet() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1384`
+		//  Measured:  `405`
 		//  Estimated: `6196`
-		// Minimum execution time: 66_000_000 picoseconds.
-		Weight::from_parts(69_000_000, 6196)
+		// Minimum execution time: 60_000_000 picoseconds.
+		Weight::from_parts(64_000_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(7))
-			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	pub fn expect_pallet() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 7_000_000 picoseconds.
-		Weight::from_parts(8_000_000, 0)
+		// Minimum execution time: 3_000_000 picoseconds.
+		Weight::from_parts(4_000_000, 0)
 	}
 	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
-	// Proof: `ParachainSystem::UpwardDeliveryFeeFactor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
+	// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
 	// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::HostConfiguration` (r:1 w:0)
-	// Proof: `ParachainSystem::HostConfiguration` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::PendingUpwardMessages` (r:1 w:1)
-	// Proof: `ParachainSystem::PendingUpwardMessages` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(1794), added: 2289, mode: `MaxEncodedLen`)
+	// Storage: `ParachainSystem::RelevantMessagingState` (r:1 w:0)
+	// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
+	// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
 	pub fn report_transact_status() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1384`
+		//  Measured:  `405`
 		//  Estimated: `6196`
-		// Minimum execution time: 58_000_000 picoseconds.
-		Weight::from_parts(61_000_000, 6196)
+		// Minimum execution time: 56_000_000 picoseconds.
+		Weight::from_parts(59_000_000, 6196)
 			.saturating_add(T::DbWeight::get().reads(7))
-			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	pub fn clear_transact_status() -> Weight {
 		// Proof Size summary in bytes:
@@ -509,16 +523,6 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 0_000 picoseconds.
 		Weight::from_parts(1_000_000, 0)
-	}
-	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
-	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	pub fn universal_origin() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `136`
-		//  Estimated: `1489`
-		// Minimum execution time: 4_000_000 picoseconds.
-		Weight::from_parts(5_000_000, 1489)
-			.saturating_add(T::DbWeight::get().reads(1))
 	}
 	pub fn set_fees_mode() -> Weight {
 		// Proof Size summary in bytes:
