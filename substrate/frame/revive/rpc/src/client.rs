@@ -263,7 +263,7 @@ pub struct Client {
 	backfill_complete: Arc<AtomicBool>,
 	/// Queue for backfilling blocks missed during subscription reconnects.
 	subscription_gap_queue: SubscriptionGapQueue,
-	/// Limiter capping the historic backfill requests per second.
+	/// Limiter capping the historic backfill rate.
 	/// `None` -> no rate limit.
 	backward_sync_rate_limiter: Option<Arc<DefaultDirectRateLimiter>>,
 }
@@ -1075,7 +1075,7 @@ impl Client {
 
 		// This could potentially fail under below circumstances:
 		//  - state has been pruned
-		//  - the block author cannot be obtained from the digest logs (highly unlikely)
+		//  - the `EthereumBlock` value is absent (BlockNotFound)
 		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
 		//    disabled)
 		match self.storage_api(block.hash()).eth_block().await {

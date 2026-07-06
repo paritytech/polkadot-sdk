@@ -69,6 +69,7 @@ impl StorageApi {
 	/// Current Ethereum block, read directly from the `EthereumBlock` storage value without
 	/// invoking the runtime.
 	pub async fn eth_block(&self) -> Result<EthBlock, ClientError> {
+		// Metadata validation is enabled so future revive storage struct changes are caught.
 		let query = subxt_client::storage().revive().ethereum_block();
 		let block = self.0.fetch(&query).await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Ethereum block storage read failed, err: {err:?}");

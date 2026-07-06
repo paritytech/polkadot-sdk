@@ -2075,13 +2075,16 @@ async fn submit_evm_transfers(count: usize) -> anyhow::Result<()> {
 /// Connects to the same dev-node that [`SharedResources`] started, but uses its own
 /// in-memory SQLite database so that sync labels written by the test do not interfere
 /// with the eth-rpc server's internal database (and vice versa).
-async fn create_sync_test_client() -> anyhow::Result<Client> {
-	let (client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+///
+/// `rate` is the backward-sync limit in blocks/sec; `0` disables it.
+async fn create_sync_test_client(rate: u32) -> anyhow::Result<Client> {
+	let (client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue(rate).await?;
 	Ok(client)
 }
 
-async fn create_sync_test_client_with_subscription_gap_queue()
--> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
+async fn create_sync_test_client_with_subscription_gap_queue(
+	rate: u32,
+) -> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
 	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
 
 	let node_url = SharedResources::node_rpc_url();
@@ -2115,20 +2118,23 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		receipt_provider,
 		true,
 		subscription_gap_queue,
-		0,
+		rate,
 	)
 	.await?;
 	Ok((client, gap_fill_rx))
 }
 
-/// Fresh sync: labels, hash mappings, and re-sync idempotency.
+/// Fresh sync: labels, hash mappings, re-sync idempotency, and backfill rate limiting.
 async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	use crate::block_sync::SyncCheckpoint;
 
 	// Submit a transaction so the chain has at least one block with EVM data to sync.
 	submit_evm_transfers(1).await?;
 
-	let client = create_sync_test_client().await?;
+	// Rate-limit the backfill; block_count/2 throttles it by over 1s at any chain length.
+	let block_count = SharedResources::node_client().await.blocks().at_latest().await?.number();
+	let rate = (block_count / 2).max(1);
+	let client = create_sync_test_client(rate).await?;
 
 	// Fresh DB — sync_state table should be empty.
 	for label in [SyncLabel::Tail, SyncLabel::Head] {
@@ -2148,7 +2154,10 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	let finalized_before_sync = client.latest_finalized_block().await.number();
 
 	// Run the full backward sync.
+	let start = std::time::Instant::now();
 	client.sync_backward().await?;
+	let sync_elapsed = start.elapsed();
+	log::info!(target: LOG_TARGET, "rate-limited backward sync of {block_count} blocks at {rate}/s took {sync_elapsed:?}");
 
 	// Genesis label must match the chain.
 	let genesis = client
@@ -2180,6 +2189,11 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 		.await?
 		.expect("Tail should be set after sync");
 	assert_eq!(sync_tail, genesis, "Tail should be genesis");
+
+	assert!(
+		sync_elapsed >= std::time::Duration::from_secs(1),
+		"rate-limited backfill at {rate}/s finished too fast ({sync_elapsed:?}); limiter not applied?",
+	);
 
 	// On the dev node all blocks (including genesis) have EVM hashes
 	let evm_first = client.receipt_provider().get_sync_label(ChainMetadata::FirstEvmBlock).await?;
@@ -2267,7 +2281,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	// Submit transactions so the chain has enough blocks for the 1/3 and 2/3 split.
 	submit_evm_transfers(6).await?;
 
-	let client = create_sync_test_client().await?;
+	let client = create_sync_test_client(0).await?;
 
 	// Complete a fresh sync so the DB has all blocks and labels.
 	client.sync_backward().await?;
@@ -2353,7 +2367,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 	// Submit transactions so the chain has enough blocks for the boundary test.
 	submit_evm_transfers(2).await?;
 
-	let client = create_sync_test_client().await?;
+	let client = create_sync_test_client(0).await?;
 
 	// Complete a fresh sync so all labels are stored.
 	client.sync_backward().await?;
@@ -2396,7 +2410,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 /// should include the newer blocks.
 async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	// First sync: snapshot the current chain state.
-	let client1 = create_sync_test_client().await?;
+	let client1 = create_sync_test_client(0).await?;
 	let finalized1 = client1.latest_finalized_block().await.number();
 
 	client1.sync_backward().await?;
@@ -2405,7 +2419,7 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	submit_evm_transfers(1).await?;
 
 	// Second sync: new client with fresh DB should see the new blocks.
-	let client2 = create_sync_test_client().await?;
+	let client2 = create_sync_test_client(0).await?;
 	let finalized2 = client2.latest_finalized_block().await;
 
 	client2.sync_backward().await?;
@@ -3450,7 +3464,7 @@ async fn test_state_override_trace_call() -> anyhow::Result<()> {
 async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result<()> {
 	submit_evm_transfers(1).await?;
 
-	let (sync_client, gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	let (sync_client, gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue(0).await?;
 	sync_client.sync_backward().await?;
 
 	let head_after_sync = sync_client
