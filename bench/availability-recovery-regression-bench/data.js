@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783348514248,
+  "lastUpdate": 1783378775547,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "5588131+kianenigma@users.noreply.github.com",
-            "name": "Kian Paimani",
-            "username": "kianenigma"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0ae4eef5be75040edd2063d088a916ab78e0c928",
-          "message": "Fix origin check in EPMB's manage extrinsic (#10248)\n\n.. And \n\n- [x] Break down `Admin` and `Manager` origins for easier configuration\n- [x] update the corresponding weights\n- [x] a few more tests\n- [x] complete the `manage` test cases.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
-          "timestamp": "2025-11-11T14:40:49Z",
-          "tree_id": "b3324b93cea8ebc9a1097adf96b3d4b1a025e291",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0ae4eef5be75040edd2063d088a916ab78e0c928"
-        },
-        "date": 1762877263786,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.336729541866667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20091764340000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.61263476426667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "322c8756f9396e496606ec40bfb6dfeda8bdd985",
+          "message": "Beefy: Make the equivocation time slot more generic (#12542)\n\nThis PR:\n\n- Adjusts the offence time slot into a more generic slot\n- Adds the equivocation type to the offence slot for Beefy\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-06T20:14:17Z",
+          "tree_id": "e95a761d0d2a35b976240a3d3312b420ddccd7f1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/322c8756f9396e496606ec40bfb6dfeda8bdd985"
+        },
+        "date": 1783378746360,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.809273742000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13386717770000003,
             "unit": "seconds"
           }
         ]
