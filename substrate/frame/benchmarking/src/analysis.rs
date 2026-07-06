@@ -20,10 +20,6 @@
 use crate::BenchmarkResult;
 use std::collections::BTreeMap;
 
-/// A small positive bias added to [`BenchmarkSelector::ExtrinsicTime`] values before truncating
-/// to integer weight units.
-const EXTRINSIC_TIME_PRECISION_BIAS: f64 = 0.000_000_005;
-
 pub struct Analysis {
 	pub base: u128,
 	pub slopes: Vec<u128>,
@@ -54,7 +50,10 @@ fn mul_1000_into_u128(value: f64) -> u128 {
 impl BenchmarkSelector {
 	fn scale_and_cast_weight(self, value: f64, round_up: bool) -> u128 {
 		if let BenchmarkSelector::ExtrinsicTime = self {
-			mul_1000_into_u128(value + EXTRINSIC_TIME_PRECISION_BIAS)
+			// We add a very slight bias here to counteract the numerical imprecision of the linear
+			// regression where due to rounding issues it can emit a number like `2999999.999999998`
+			// which we most certainly always want to round up instead of truncating.
+			mul_1000_into_u128(value + 0.000_000_005)
 		} else {
 			if round_up {
 				(value + 0.5) as u128

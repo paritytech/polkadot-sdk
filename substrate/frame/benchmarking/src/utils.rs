@@ -90,12 +90,8 @@ pub struct BenchmarkBatch {
 	pub results: Vec<BenchmarkResult>,
 }
 
-/// The results of a single benchmark, split into separate timing and storage-access collections.
-///
-/// Use [`BenchmarkBatch::split`] to produce this from a [`BenchmarkBatch`]. The split exists so
-/// the analysis layer can apply different statistical models to timing and storage measurements
-/// independently — timing is analysed with picosecond precision while storage reads/writes are
-/// counted as integers.
+/// Results of a single benchmark, with timing and storage-access measurements kept apart so the
+/// analysis layer can apply a different statistical model to each.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct BenchmarkBatchSplitResults {
@@ -112,18 +108,6 @@ pub struct BenchmarkBatchSplitResults {
 	pub time_results: Vec<BenchmarkResult>,
 	/// The db tracking results from this benchmark.
 	pub db_results: Vec<BenchmarkResult>,
-}
-
-impl BenchmarkBatch {
-	pub fn split(self) -> BenchmarkBatchSplitResults {
-		BenchmarkBatchSplitResults {
-			pallet: self.pallet,
-			instance: self.instance,
-			benchmark: self.benchmark,
-			time_results: self.results.clone(),
-			db_results: self.results,
-		}
-	}
 }
 
 /// Result from running benchmarks on a FRAME pallet.
@@ -391,10 +375,10 @@ pub trait Benchmarking {
 
 /// Marks the timed region of a single benchmark iteration.
 pub trait Recording {
-	/// Start the timed region. Called immediately before the benchmarked code runs.
+	/// Start the timed region, just before the benchmarked code runs.
 	fn start(&mut self) {}
 
-	/// Stop the timed region. Called immediately after the benchmarked code completes.
+	/// Stop the timed region, just after the benchmarked code runs.
 	fn stop(&mut self) {}
 }
 
@@ -402,10 +386,9 @@ pub trait Recording {
 struct NoopRecording;
 impl Recording for NoopRecording {}
 
-/// A recording that runs a setup closure before the timed region starts, used in tests
-/// that must initialise state immediately before the benchmarked code runs.
+/// A recording that runs a setup closure just before the timed region starts, for tests.
 struct TestRecording<'a> {
-	/// Consumed on the first call to [`Recording::start`]. `None` after start has been called.
+	/// Setup closure, taken on the first [`Recording::start`]; a second `start` panics.
 	on_before_start: Option<&'a dyn Fn()>,
 }
 
@@ -418,7 +401,7 @@ impl<'a> TestRecording<'a> {
 impl<'a> Recording for TestRecording<'a> {
 	fn start(&mut self) {
 		let cb = self.on_before_start.take().expect(
-			"BenchmarkRecording::start called more than once; \
+			"Recording::start called more than once; \
 			 each recording must only be started once",
 		);
 		cb();
@@ -449,7 +432,7 @@ impl<'a> BenchmarkRecording<'a> {
 impl<'a> Recording for BenchmarkRecording<'a> {
 	fn start(&mut self) {
 		let cb = self.on_before_start.take().expect(
-			"BenchmarkRecording::start called more than once; \
+			"Recording::start called more than once; \
 			 each recording must only be started once",
 		);
 		cb();
@@ -464,24 +447,22 @@ impl<'a> Recording for BenchmarkRecording<'a> {
 }
 
 impl<'a> BenchmarkRecording<'a> {
-	/// Proof size at the start of the timed region, if [`Recording::start`] has been called.
+	/// Proof size at the start of the timed region, if started.
 	pub fn start_pov(&self) -> Option<u32> {
 		self.start_pov
 	}
 
-	/// Proof size at the end of the timed region, if [`Recording::stop`] has been called.
+	/// Proof size at the end of the timed region, if stopped.
 	pub fn end_pov(&self) -> Option<u32> {
 		self.end_pov
 	}
 
-	/// Difference in proof size across the timed region. Returns `None` if either
-	/// [`Recording::start`] or [`Recording::stop`] has not yet been called.
+	/// Proof size consumed across the timed region, or `None` if not both started and stopped.
 	pub fn diff_pov(&self) -> Option<u32> {
 		self.start_pov.zip(self.end_pov).map(|(start, end)| end.saturating_sub(start))
 	}
 
-	/// Wall-clock nanoseconds elapsed across the timed region. Returns `None` if either
-	/// [`Recording::start`] or [`Recording::stop`] has not yet been called.
+	/// Nanoseconds elapsed across the timed region, or `None` if not both started and stopped.
 	pub fn elapsed_extrinsic(&self) -> Option<u128> {
 		self.start_extrinsic
 			.zip(self.finish_extrinsic)
