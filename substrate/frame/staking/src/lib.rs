@@ -1155,7 +1155,7 @@ where
 		}
 	}
 
-	fn is_known_offence(offenders: &[Offender], time_slot: &O::TimeSlot) -> bool {
+	fn is_known_offence(offenders: &[Offender], time_slot: &O::Slot) -> bool {
 		R::is_known_offence(offenders, time_slot)
 	}
 }

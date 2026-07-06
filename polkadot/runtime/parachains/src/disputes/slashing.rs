@@ -126,7 +126,7 @@ where
 {
 	const ID: Kind = *b"disputes:slashin";
 
-	type TimeSlot = DisputesTimeSlot;
+	type Slot = DisputesTimeSlot;
 
 	fn offenders(&self) -> Vec<Offender> {
 		self.offenders.clone()
@@ -140,7 +140,7 @@ where
 		self.validator_set_count
 	}
 
-	fn time_slot(&self) -> Self::TimeSlot {
+	fn slot(&self) -> Self::Slot {
 		self.time_slot.clone()
 	}
 
