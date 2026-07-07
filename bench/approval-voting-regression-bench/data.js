@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783433766188,
+  "lastUpdate": 1783444611408,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "357984bdb9156a068fbc698a9c4b54337f0d307a",
-          "message": "pallet_revive: Fix EVM tests to pass `data` as part of `code` (#10214)\n\nThe test code was passing the constructor argument as `data` on EVM. But\nit should be passed as part of the `code`. This is different from PVM\nwhere those are separate.\n\nFailing to do so makes those opcodes return the wrong values when `data`\nis passed to the constructor:\n\n```\nCODESIZE\nCODECOPY\nCALLDATASIZE\nCALLDATACOPY\nCALLDATALOAD\n```\n\nFurther changes:\n\n- I also added some checks to fail instantiation if `data` is non empty\nwhen uploading new EVM bytecode.\n- Return error when trying to construct EVM contract from code hash as\nthis does not make sense since no initcode is stored on-chain.\n\n---------\n\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-11T17:52:54Z",
-          "tree_id": "37904ccb2d9262b068b97e76c32c08469b7ee69f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/357984bdb9156a068fbc698a9c4b54337f0d307a"
-        },
-        "date": 1762889228632,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63623.6,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52939.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002234955,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.696503755961058,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.522642627050001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.470709253910001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9187071529599933,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.37594685637,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001980458,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5130061733400018,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005456707750000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.5019595427999977,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002234955,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001980458,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4434653985600058,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.771044736469999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carlosalag@protonmail.com",
+            "name": "Carlo Sala",
+            "username": "carlosala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "408895c27a5aff4bac99e956df5426983566f8cb",
+          "message": "fix(asset-conversion): use full balances for pool prices (#12408)\n\n# Description\n\nFixes asset-conversion pool price and liquidity calculations to use the\nfull pool balances instead of reducible balances.\n\nThe previous logic could calculate reserves from reducible balances,\nwhich can exclude protected funds and understate the amount held by the\npool account. This PR routes the relevant calculations through the\npallet reserve helper and updates the shared balance helper to return\nthe full asset balance.\n\nAn example of a problem is found on Polkadot Asset Hub (address\n`163CRvzDQ8JHZfmufa86zA7BfDY7NToUSqmWbpDq5kwDYSmH`, DOT <> USDC pool).\nSomeone transferred a WUD to the account, and now the reducible balance\nsubstracts the ED, giving a wrong quote.\n\n## Integration\n\nDownstream runtimes using `pallet-asset-conversion` should receive this\nas a patch-level bug fix. No migration or configuration change is\nrequired.\n\n## Review Notes\n\nThe change affects reserve reads used by:\n\n* liquidity deposit calculations\n* liquidity withdrawal calculations\n* buy/sell price estimations\n\nThe modified paths now use the same reserve source as swap execution.\n`get_balance` now returns `T::Assets::balance(...)` so callers that need\nthe owner’s total balance do not receive reducible-balance semantics.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-07T15:28:03Z",
+          "tree_id": "96cc60c50aa27a0977c2565ab1401f61f546d1dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/408895c27a5aff4bac99e956df5426983566f8cb"
+        },
+        "date": 1783444582721,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63571.259999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.271990205989956,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002141708,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.312252129892718,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002046906,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.760844788770001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.782661213409999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.488546187299996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7592543154099582,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7378449733500014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002046906,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002141708,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005115829090000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.73772289866,
             "unit": "seconds"
           }
         ]
