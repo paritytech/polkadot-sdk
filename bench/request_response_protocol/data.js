@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783443665961,
+  "lastUpdate": 1783450270578,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -105731,6 +105731,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2774262562,
             "range": "± 47921188",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d988144f162df86614159e932493bfa23b7ab5b3",
+          "message": "Introduce `fp-coretime` (#11810)\n\n## Summary\n\nIntroduces `fp-coretime`, a FRAME primitives crate for Polkadot Coretime\ntypes and traits. Moves the following from `pallet-broker` into\n`fp-coretime`:\n\n- **Types**: `CoreIndex`, `Timeslice`, `TaskId`, `PartsOf57600`,\n`RegionId`, `PotentialRenewalId`, `CoreMask`, `CORE_MASK_BITS`\n- **Traits**: `Market`, `CoreRangeProvider`, `TimesliceProvider` and\nassociated result types\n\nThis allows market implementations (e.g. an RFC-17 pallet) to depend on\n`fp-coretime` instead of `pallet-broker`, avoiding a pallet dependency\njust for trait definitions and shared types.\n\n`pallet-broker` currently re-exports everything from `fp-coretime` for\nbackward compatibility.\n\nThis PR also introduces the `frame/primitives` path and also the `fp-*`\nprefix for these shared types which are not actually substrate\nprimitives.\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-07-07T17:21:07Z",
+          "tree_id": "950deceb53c5b14998111393257f71e8bca3e552",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d988144f162df86614159e932493bfa23b7ab5b3"
+        },
+        "date": 1783450240513,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20780577,
+            "range": "± 171049",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20872373,
+            "range": "± 545559",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21335992,
+            "range": "± 342159",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26477135,
+            "range": "± 244748",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59630210,
+            "range": "± 743082",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 396459079,
+            "range": "± 20375124",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2401922407,
+            "range": "± 202314586",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17254685,
+            "range": "± 223931",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17203426,
+            "range": "± 109717",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17997820,
+            "range": "± 196672",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22508260,
+            "range": "± 53979",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62355968,
+            "range": "± 513033",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 361796531,
+            "range": "± 4679026",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2655740512,
+            "range": "± 12148519",
             "unit": "ns/iter"
           }
         ]
