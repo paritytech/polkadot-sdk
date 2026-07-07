@@ -27,7 +27,7 @@ use ethereum_standards::{
 	IERC20::{IERC20Calls, IERC20Events},
 };
 use frame_support::traits::fungibles::metadata::Inspect as MetadataInspect;
-use pallet_assets::{weights::WeightInfo as _, Call, Config, TransferFlags};
+use pallet_assets::{weights::WeightInfo as _, AssetsCallback, Call, Config, TransferFlags};
 use pallet_revive::precompiles::{
 	alloy::{
 		self,
@@ -204,6 +204,97 @@ where
 			IERC20Calls::symbol(_) => Self::symbol(asset_id, env),
 			IERC20Calls::decimals(_) => Self::decimals(asset_id, env),
 		}
+	}
+}
+
+/// [`pallet_assets::Config::CallbackHandle`] mirroring balance changes as ERC-20 `Transfer`
+/// logs at the [`ERC20`] precompile's token address (mint from `0x0`, burn to `0x0`).
+pub struct Erc20TransferLogs<Runtime, PrecompileConfig, Instance = ()> {
+	_phantom: PhantomData<(Runtime, PrecompileConfig, Instance)>,
+}
+
+impl<Runtime, PrecompileConfig, Instance>
+	AssetsCallback<
+		<Runtime as Config<Instance>>::AssetId,
+		<Runtime as frame_system::Config>::AccountId,
+		<Runtime as Config<Instance>>::Balance,
+	> for Erc20TransferLogs<Runtime, PrecompileConfig, Instance>
+where
+	PrecompileConfig: AssetPrecompileConfig<AssetIdExtractor = InlineAssetIdExtractor>,
+	Runtime: Config<Instance> + pallet_revive::Config,
+	<Runtime as Config<Instance>>::AssetId: Into<u32> + Clone,
+	alloy::primitives::U256: TryFrom<<Runtime as Config<Instance>>::Balance>,
+	Instance: 'static,
+{
+	fn issued(
+		id: &<Runtime as Config<Instance>>::AssetId,
+		owner: &<Runtime as frame_system::Config>::AccountId,
+		amount: <Runtime as Config<Instance>>::Balance,
+	) {
+		Self::emit(id, alloy::primitives::Address::ZERO, Self::evm_address(owner), amount);
+	}
+
+	fn transferred(
+		id: &<Runtime as Config<Instance>>::AssetId,
+		from: &<Runtime as frame_system::Config>::AccountId,
+		to: &<Runtime as frame_system::Config>::AccountId,
+		amount: <Runtime as Config<Instance>>::Balance,
+	) {
+		Self::emit(id, Self::evm_address(from), Self::evm_address(to), amount);
+	}
+
+	fn burned(
+		id: &<Runtime as Config<Instance>>::AssetId,
+		owner: &<Runtime as frame_system::Config>::AccountId,
+		amount: <Runtime as Config<Instance>>::Balance,
+	) {
+		Self::emit(id, Self::evm_address(owner), alloy::primitives::Address::ZERO, amount);
+	}
+}
+
+impl<Runtime, PrecompileConfig, Instance> Erc20TransferLogs<Runtime, PrecompileConfig, Instance>
+where
+	PrecompileConfig: AssetPrecompileConfig<AssetIdExtractor = InlineAssetIdExtractor>,
+	Runtime: Config<Instance> + pallet_revive::Config,
+	<Runtime as Config<Instance>>::AssetId: Into<u32> + Clone,
+	alloy::primitives::U256: TryFrom<<Runtime as Config<Instance>>::Balance>,
+	Instance: 'static,
+{
+	/// The precompile/token address of `id`: the matcher's base address with the asset id
+	/// inlined big-endian into the first four bytes (the inverse of
+	/// [`InlineAssetIdExtractor::asset_id_from_address`]).
+	fn token_address(id: &<Runtime as Config<Instance>>::AssetId) -> H160 {
+		let mut address = PrecompileConfig::MATCHER.base_address();
+		let index: u32 = id.clone().into();
+		address[..4].copy_from_slice(&index.to_be_bytes());
+		H160(address)
+	}
+
+	fn evm_address(
+		account: &<Runtime as frame_system::Config>::AccountId,
+	) -> alloy::primitives::Address {
+		<Runtime as pallet_revive::Config>::AddressMapper::to_address(account).0.into()
+	}
+
+	fn emit(
+		id: &<Runtime as Config<Instance>>::AssetId,
+		from: alloy::primitives::Address,
+		to: alloy::primitives::Address,
+		amount: <Runtime as Config<Instance>>::Balance,
+	) {
+		let Ok(value) = alloy::primitives::U256::try_from(amount) else {
+			// Unreachable for practical balance types (at most 128 bit).
+			return;
+		};
+		let (topics, data) = IERC20Events::Transfer(IERC20::Transfer { from, to, value })
+			.into_log_data()
+			.split();
+		let topics = topics.into_iter().map(|t| H256(t.0)).collect::<Vec<_>>();
+		pallet_revive::Pallet::<Runtime>::deposit_contract_event(
+			Self::token_address(id),
+			topics,
+			data.to_vec(),
+		);
 	}
 }
 

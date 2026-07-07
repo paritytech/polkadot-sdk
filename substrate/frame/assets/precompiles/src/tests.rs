@@ -902,3 +902,56 @@ fn transfer_from_decrements_normally_after_max_approve(asset_index: u16) {
 		assert_eq!(Assets::balance(asset_id, &recipient), 10);
 	});
 }
+
+// The `Erc20TransferLogs` callback (wired as `CallbackHandle` in the mock) mirrors plain
+// substrate asset operations — no precompile involved — as canonical ERC-20 `Transfer` logs
+// at the asset's precompile address. Mint = from 0x0, burn = to 0x0, per ERC-20 convention.
+#[test]
+fn plain_asset_operations_emit_erc20_transfer_logs() {
+	new_test_ext().execute_with(|| {
+		let asset_id = 5u32;
+		let owner = 1u64;
+		let user = 2u64;
+		let mut token = set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX);
+		token[..4].copy_from_slice(&asset_id.to_be_bytes());
+		let token = H160::from(token);
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let user_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&user);
+
+		Balances::make_free_balance_be(&owner, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+
+		// Mint: Transfer(0x0 -> owner).
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+		assert_contract_event(
+			token,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: alloy::primitives::Address::ZERO,
+				to: owner_addr.0.into(),
+				value: U256::from(100),
+			}),
+		);
+
+		// Plain extrinsic transfer: Transfer(owner -> user).
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(owner), asset_id, user, 40));
+		assert_contract_event(
+			token,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: owner_addr.0.into(),
+				to: user_addr.0.into(),
+				value: U256::from(40),
+			}),
+		);
+
+		// Burn: Transfer(user -> 0x0).
+		assert_ok!(Assets::burn(RuntimeOrigin::signed(owner), asset_id, user, 40));
+		assert_contract_event(
+			token,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: user_addr.0.into(),
+				to: alloy::primitives::Address::ZERO,
+				value: U256::from(40),
+			}),
+		);
+	});
+}
