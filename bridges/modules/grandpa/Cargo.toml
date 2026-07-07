@@ -1,6 +1,6 @@
 [package]
 name = "pallet-bridge-grandpa"
-version = "0.7.0"
+version = "0.29.0"
 description = "Module implementing GRANDPA on-chain light client used for bridging consensus of substrate-based chains."
 authors.workspace = true
 edition.workspace = true

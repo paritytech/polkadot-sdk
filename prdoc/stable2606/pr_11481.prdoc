@@ -16,6 +16,6 @@ doc:
       - PVM JSON trace fixtures updated to include `pvm_fuel` steps
 crates:
 - name: pallet-revive-proc-macro
-  bump: patch
+  bump: major
 - name: pallet-revive
   bump: patch

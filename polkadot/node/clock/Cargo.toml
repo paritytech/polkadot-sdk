@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-clock"
-version = "7.0.0"
+version = "0.3.0"
 description = "Clock abstraction shared by Polkadot node subsystems."
 authors.workspace = true
 edition.workspace = true
