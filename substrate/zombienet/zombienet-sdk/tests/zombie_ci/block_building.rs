@@ -4,11 +4,11 @@
 use std::time::Duration;
 
 use crate::utils::{
-	BEST_BLOCK_METRIC, DEFAULT_SUBSTRATE_IMAGE, INTEGRATION_IMAGE_ENV, NODE_ROLE_METRIC,
-	PEER_COUNT_METRIC, env_or_default, initialize_network, log_line_absent,
+	env_or_default, initialize_network, log_line_absent, BEST_BLOCK_METRIC,
+	DEFAULT_SUBSTRATE_IMAGE, INTEGRATION_IMAGE_ENV, NODE_ROLE_METRIC, PEER_COUNT_METRIC,
 };
-use anyhow::{Result, anyhow};
-use subxt::{OnlineClient, config::substrate::SubstrateConfig, dynamic::tx};
+use anyhow::{anyhow, Result};
+use subxt::{config::substrate::SubstrateConfig, dynamic::tx, OnlineClient};
 use subxt_signer::sr25519::dev;
 use zombienet_sdk::{Arg, NetworkConfig, NetworkConfigBuilder, NetworkNode};
 
