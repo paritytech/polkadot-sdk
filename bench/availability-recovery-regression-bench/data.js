@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783429264626,
+  "lastUpdate": 1783433687286,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cbc649eb85541ddd99ae8520f862b0b4867a5ddb",
-          "message": "[Release|CI/CD] Build and publish RPM cleanup (#10287)\n\nhttps://github.com/paritytech/release-engineering/issues/269",
-          "timestamp": "2025-11-11T22:48:59Z",
-          "tree_id": "89177dba7ab8387eda4a6e835ba858e2f8b02fab",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cbc649eb85541ddd99ae8520f862b0b4867a5ddb"
-        },
-        "date": 1762905494993,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.265501059333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19835786389999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14105528583333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "runcomet",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d2ea1952e8f8949e78a2ead5a9c2f866625d337",
+          "message": "Coretime Sale ID (#10188)\n\nResolves https://github.com/paritytech/polkadot-sdk/issues/6354\n\nThis PR builds upon the original implementation by @FereMouSiopi in\n#6626. I would like to acknowledge their significant contributions to:\n\n- The initial implementation of the sale ID functionality\n\n- Early code reviews and discussions with the maintainers\n\n- Laying the groundwork for this feature\n\n**Additions**:\n\n- [x] Adding the necessary migration logic\n\n- [x] Comprehensive testing",
+          "timestamp": "2026-07-07T12:26:22Z",
+          "tree_id": "31201164255ab947c1cecf37170e713830019705",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d2ea1952e8f8949e78a2ead5a9c2f866625d337"
+        },
+        "date": 1783433657660,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13316755483333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.753623864166666,
             "unit": "seconds"
           }
         ]
