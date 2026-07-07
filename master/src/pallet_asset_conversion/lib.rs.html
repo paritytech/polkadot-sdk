@@ -972,712 +972,709 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#822 id=822 data-nosnippet>822</a>
 <a href=#823 id=823 data-nosnippet>823</a>			<span class="kw">let </span>pool_account =
 <a href=#824 id=824 data-nosnippet>824</a>				T::PoolLocator::address(<span class="kw-2">&amp;</span>pool_id).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidAssetPair)<span class="question-mark">?</span>;
-<a href=#825 id=825 data-nosnippet>825</a>			<span class="kw">let </span>reserve1 = <span class="self">Self</span>::get_balance(<span class="kw-2">&amp;</span>pool_account, asset1.clone());
-<a href=#826 id=826 data-nosnippet>826</a>			<span class="kw">let </span>reserve2 = <span class="self">Self</span>::get_balance(<span class="kw-2">&amp;</span>pool_account, asset2.clone());
-<a href=#827 id=827 data-nosnippet>827</a>
-<a href=#828 id=828 data-nosnippet>828</a>			<span class="kw">let </span>total_supply = T::PoolAssets::total_issuance(pool.lp_token.clone());
-<a href=#829 id=829 data-nosnippet>829</a>			<span class="kw">let </span>withdrawal_fee_amount = T::LiquidityWithdrawalFee::get() * lp_token_burn;
-<a href=#830 id=830 data-nosnippet>830</a>			<span class="kw">let </span>lp_redeem_amount = lp_token_burn.saturating_sub(withdrawal_fee_amount);
-<a href=#831 id=831 data-nosnippet>831</a>
-<a href=#832 id=832 data-nosnippet>832</a>			<span class="kw">let </span>amount1 = <span class="self">Self</span>::mul_div(<span class="kw-2">&amp;</span>lp_redeem_amount, <span class="kw-2">&amp;</span>reserve1, <span class="kw-2">&amp;</span>total_supply)<span class="question-mark">?</span>;
-<a href=#833 id=833 data-nosnippet>833</a>			<span class="kw">let </span>amount2 = <span class="self">Self</span>::mul_div(<span class="kw-2">&amp;</span>lp_redeem_amount, <span class="kw-2">&amp;</span>reserve2, <span class="kw-2">&amp;</span>total_supply)<span class="question-mark">?</span>;
-<a href=#834 id=834 data-nosnippet>834</a>
-<a href=#835 id=835 data-nosnippet>835</a>			<span class="macro">ensure!</span>(
-<a href=#836 id=836 data-nosnippet>836</a>				!amount1.is_zero() &amp;&amp; amount1 &gt;= amount1_min_receive,
-<a href=#837 id=837 data-nosnippet>837</a>				Error::&lt;T&gt;::AssetOneWithdrawalDidNotMeetMinimum
-<a href=#838 id=838 data-nosnippet>838</a>			);
-<a href=#839 id=839 data-nosnippet>839</a>			<span class="macro">ensure!</span>(
-<a href=#840 id=840 data-nosnippet>840</a>				!amount2.is_zero() &amp;&amp; amount2 &gt;= amount2_min_receive,
-<a href=#841 id=841 data-nosnippet>841</a>				Error::&lt;T&gt;::AssetTwoWithdrawalDidNotMeetMinimum
-<a href=#842 id=842 data-nosnippet>842</a>			);
-<a href=#843 id=843 data-nosnippet>843</a>			<span class="kw">let </span>reserve1_left = reserve1.saturating_sub(amount1);
-<a href=#844 id=844 data-nosnippet>844</a>			<span class="kw">let </span>reserve2_left = reserve2.saturating_sub(amount2);
-<a href=#845 id=845 data-nosnippet>845</a>			<span class="macro">ensure!</span>(
-<a href=#846 id=846 data-nosnippet>846</a>				reserve1_left &gt;= T::Assets::minimum_balance(asset1.clone()),
-<a href=#847 id=847 data-nosnippet>847</a>				Error::&lt;T&gt;::ReserveLeftLessThanMinimal
-<a href=#848 id=848 data-nosnippet>848</a>			);
-<a href=#849 id=849 data-nosnippet>849</a>			<span class="macro">ensure!</span>(
-<a href=#850 id=850 data-nosnippet>850</a>				reserve2_left &gt;= T::Assets::minimum_balance(asset2.clone()),
-<a href=#851 id=851 data-nosnippet>851</a>				Error::&lt;T&gt;::ReserveLeftLessThanMinimal
-<a href=#852 id=852 data-nosnippet>852</a>			);
-<a href=#853 id=853 data-nosnippet>853</a>
-<a href=#854 id=854 data-nosnippet>854</a>			<span class="comment">// burn the provided lp token amount that includes the fee
-<a href=#855 id=855 data-nosnippet>855</a>			</span>T::PoolAssets::burn_from(
-<a href=#856 id=856 data-nosnippet>856</a>				pool.lp_token.clone(),
-<a href=#857 id=857 data-nosnippet>857</a>				who,
-<a href=#858 id=858 data-nosnippet>858</a>				lp_token_burn,
-<a href=#859 id=859 data-nosnippet>859</a>				Expendable,
-<a href=#860 id=860 data-nosnippet>860</a>				Exact,
-<a href=#861 id=861 data-nosnippet>861</a>				Polite,
-<a href=#862 id=862 data-nosnippet>862</a>			)<span class="question-mark">?</span>;
-<a href=#863 id=863 data-nosnippet>863</a>
-<a href=#864 id=864 data-nosnippet>864</a>			T::Assets::transfer(asset1, <span class="kw-2">&amp;</span>pool_account, withdraw_to, amount1, Expendable)<span class="question-mark">?</span>;
-<a href=#865 id=865 data-nosnippet>865</a>			T::Assets::transfer(asset2, <span class="kw-2">&amp;</span>pool_account, withdraw_to, amount2, Expendable)<span class="question-mark">?</span>;
-<a href=#866 id=866 data-nosnippet>866</a>
-<a href=#867 id=867 data-nosnippet>867</a>			<span class="self">Self</span>::deposit_event(Event::LiquidityRemoved {
-<a href=#868 id=868 data-nosnippet>868</a>				who: who.clone(),
-<a href=#869 id=869 data-nosnippet>869</a>				withdraw_to: withdraw_to.clone(),
-<a href=#870 id=870 data-nosnippet>870</a>				pool_id,
-<a href=#871 id=871 data-nosnippet>871</a>				amount1,
-<a href=#872 id=872 data-nosnippet>872</a>				amount2,
-<a href=#873 id=873 data-nosnippet>873</a>				lp_token: pool.lp_token,
-<a href=#874 id=874 data-nosnippet>874</a>				lp_token_burned: lp_token_burn,
-<a href=#875 id=875 data-nosnippet>875</a>				withdrawal_fee: T::LiquidityWithdrawalFee::get(),
-<a href=#876 id=876 data-nosnippet>876</a>			});
-<a href=#877 id=877 data-nosnippet>877</a>
-<a href=#878 id=878 data-nosnippet>878</a>			<span class="prelude-val">Ok</span>((amount1, amount2))
-<a href=#879 id=879 data-nosnippet>879</a>		}
-<a href=#880 id=880 data-nosnippet>880</a>
-<a href=#881 id=881 data-nosnippet>881</a>		<span class="doccomment">/// Swap exactly `amount_in` of asset `path[0]` for asset `path[1]`.
-<a href=#882 id=882 data-nosnippet>882</a>		/// If an `amount_out_min` is specified, it will return an error if it is unable to acquire
-<a href=#883 id=883 data-nosnippet>883</a>		/// the amount desired.
-<a href=#884 id=884 data-nosnippet>884</a>		///
-<a href=#885 id=885 data-nosnippet>885</a>		/// Withdraws the `path[0]` asset from `sender`, deposits the `path[1]` asset to `send_to`,
-<a href=#886 id=886 data-nosnippet>886</a>		/// respecting `keep_alive`.
-<a href=#887 id=887 data-nosnippet>887</a>		///
-<a href=#888 id=888 data-nosnippet>888</a>		/// If successful, returns the amount of `path[1]` acquired for the `amount_in`.
-<a href=#889 id=889 data-nosnippet>889</a>		///
-<a href=#890 id=890 data-nosnippet>890</a>		/// WARNING: This may return an error after a partial storage mutation. It should be used
-<a href=#891 id=891 data-nosnippet>891</a>		/// only inside a transactional storage context and an Err result must imply a storage
-<a href=#892 id=892 data-nosnippet>892</a>		/// rollback.
-<a href=#893 id=893 data-nosnippet>893</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_swap_exact_tokens_for_tokens(
-<a href=#894 id=894 data-nosnippet>894</a>			sender: T::AccountId,
-<a href=#895 id=895 data-nosnippet>895</a>			path: Vec&lt;T::AssetKind&gt;,
-<a href=#896 id=896 data-nosnippet>896</a>			amount_in: T::Balance,
-<a href=#897 id=897 data-nosnippet>897</a>			amount_out_min: <span class="prelude-ty">Option</span>&lt;T::Balance&gt;,
-<a href=#898 id=898 data-nosnippet>898</a>			send_to: T::AccountId,
-<a href=#899 id=899 data-nosnippet>899</a>			keep_alive: bool,
-<a href=#900 id=900 data-nosnippet>900</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, DispatchError&gt; {
-<a href=#901 id=901 data-nosnippet>901</a>			<span class="macro">ensure!</span>(amount_in &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
-<a href=#902 id=902 data-nosnippet>902</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(amount_out_min) = amount_out_min {
-<a href=#903 id=903 data-nosnippet>903</a>				<span class="macro">ensure!</span>(amount_out_min &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
-<a href=#904 id=904 data-nosnippet>904</a>			}
-<a href=#905 id=905 data-nosnippet>905</a>
-<a href=#906 id=906 data-nosnippet>906</a>			<span class="self">Self</span>::validate_swap_path(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
-<a href=#907 id=907 data-nosnippet>907</a>			<span class="kw">let </span>path = <span class="self">Self</span>::balance_path_from_amount_in(amount_in, path)<span class="question-mark">?</span>;
-<a href=#908 id=908 data-nosnippet>908</a>
-<a href=#909 id=909 data-nosnippet>909</a>			<span class="kw">let </span>amount_out = path.last().map(|(<span class="kw">_</span>, a)| <span class="kw-2">*</span>a).ok_or(Error::&lt;T&gt;::InvalidPath)<span class="question-mark">?</span>;
-<a href=#910 id=910 data-nosnippet>910</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(amount_out_min) = amount_out_min {
-<a href=#911 id=911 data-nosnippet>911</a>				<span class="macro">ensure!</span>(
-<a href=#912 id=912 data-nosnippet>912</a>					amount_out &gt;= amount_out_min,
-<a href=#913 id=913 data-nosnippet>913</a>					Error::&lt;T&gt;::ProvidedMinimumNotSufficientForSwap
-<a href=#914 id=914 data-nosnippet>914</a>				);
-<a href=#915 id=915 data-nosnippet>915</a>			}
-<a href=#916 id=916 data-nosnippet>916</a>
-<a href=#917 id=917 data-nosnippet>917</a>			<span class="self">Self</span>::swap(<span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>send_to, keep_alive)<span class="question-mark">?</span>;
-<a href=#918 id=918 data-nosnippet>918</a>
-<a href=#919 id=919 data-nosnippet>919</a>			<span class="self">Self</span>::deposit_event(Event::SwapExecuted {
-<a href=#920 id=920 data-nosnippet>920</a>				who: sender,
-<a href=#921 id=921 data-nosnippet>921</a>				send_to,
-<a href=#922 id=922 data-nosnippet>922</a>				amount_in,
-<a href=#923 id=923 data-nosnippet>923</a>				amount_out,
-<a href=#924 id=924 data-nosnippet>924</a>				path,
-<a href=#925 id=925 data-nosnippet>925</a>			});
-<a href=#926 id=926 data-nosnippet>926</a>			<span class="prelude-val">Ok</span>(amount_out)
-<a href=#927 id=927 data-nosnippet>927</a>		}
-<a href=#928 id=928 data-nosnippet>928</a>
-<a href=#929 id=929 data-nosnippet>929</a>		<span class="doccomment">/// Take the `path[0]` asset and swap some amount for `amount_out` of the `path[1]`. If an
-<a href=#930 id=930 data-nosnippet>930</a>		/// `amount_in_max` is specified, it will return an error if acquiring `amount_out` would be
-<a href=#931 id=931 data-nosnippet>931</a>		/// too costly.
-<a href=#932 id=932 data-nosnippet>932</a>		///
-<a href=#933 id=933 data-nosnippet>933</a>		/// Withdraws `path[0]` asset from `sender`, deposits the `path[1]` asset to `send_to`,
-<a href=#934 id=934 data-nosnippet>934</a>		/// respecting `keep_alive`.
-<a href=#935 id=935 data-nosnippet>935</a>		///
-<a href=#936 id=936 data-nosnippet>936</a>		/// If successful returns the amount of the `path[0]` taken to provide `path[1]`.
-<a href=#937 id=937 data-nosnippet>937</a>		///
-<a href=#938 id=938 data-nosnippet>938</a>		/// WARNING: This may return an error after a partial storage mutation. It should be used
-<a href=#939 id=939 data-nosnippet>939</a>		/// only inside a transactional storage context and an Err result must imply a storage
-<a href=#940 id=940 data-nosnippet>940</a>		/// rollback.
-<a href=#941 id=941 data-nosnippet>941</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_swap_tokens_for_exact_tokens(
-<a href=#942 id=942 data-nosnippet>942</a>			sender: T::AccountId,
-<a href=#943 id=943 data-nosnippet>943</a>			path: Vec&lt;T::AssetKind&gt;,
-<a href=#944 id=944 data-nosnippet>944</a>			amount_out: T::Balance,
-<a href=#945 id=945 data-nosnippet>945</a>			amount_in_max: <span class="prelude-ty">Option</span>&lt;T::Balance&gt;,
-<a href=#946 id=946 data-nosnippet>946</a>			send_to: T::AccountId,
-<a href=#947 id=947 data-nosnippet>947</a>			keep_alive: bool,
-<a href=#948 id=948 data-nosnippet>948</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, DispatchError&gt; {
-<a href=#949 id=949 data-nosnippet>949</a>			<span class="macro">ensure!</span>(amount_out &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
-<a href=#950 id=950 data-nosnippet>950</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(amount_in_max) = amount_in_max {
-<a href=#951 id=951 data-nosnippet>951</a>				<span class="macro">ensure!</span>(amount_in_max &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
-<a href=#952 id=952 data-nosnippet>952</a>			}
-<a href=#953 id=953 data-nosnippet>953</a>
-<a href=#954 id=954 data-nosnippet>954</a>			<span class="self">Self</span>::validate_swap_path(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
-<a href=#955 id=955 data-nosnippet>955</a>			<span class="kw">let </span>path = <span class="self">Self</span>::balance_path_from_amount_out(amount_out, path)<span class="question-mark">?</span>;
-<a href=#956 id=956 data-nosnippet>956</a>
-<a href=#957 id=957 data-nosnippet>957</a>			<span class="kw">let </span>amount_in = path.first().map(|(<span class="kw">_</span>, a)| <span class="kw-2">*</span>a).ok_or(Error::&lt;T&gt;::InvalidPath)<span class="question-mark">?</span>;
-<a href=#958 id=958 data-nosnippet>958</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(amount_in_max) = amount_in_max {
-<a href=#959 id=959 data-nosnippet>959</a>				<span class="macro">ensure!</span>(
-<a href=#960 id=960 data-nosnippet>960</a>					amount_in &lt;= amount_in_max,
-<a href=#961 id=961 data-nosnippet>961</a>					Error::&lt;T&gt;::ProvidedMaximumNotSufficientForSwap
-<a href=#962 id=962 data-nosnippet>962</a>				);
-<a href=#963 id=963 data-nosnippet>963</a>			}
-<a href=#964 id=964 data-nosnippet>964</a>
-<a href=#965 id=965 data-nosnippet>965</a>			<span class="self">Self</span>::swap(<span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>send_to, keep_alive)<span class="question-mark">?</span>;
-<a href=#966 id=966 data-nosnippet>966</a>
-<a href=#967 id=967 data-nosnippet>967</a>			<span class="self">Self</span>::deposit_event(Event::SwapExecuted {
-<a href=#968 id=968 data-nosnippet>968</a>				who: sender,
-<a href=#969 id=969 data-nosnippet>969</a>				send_to,
-<a href=#970 id=970 data-nosnippet>970</a>				amount_in,
-<a href=#971 id=971 data-nosnippet>971</a>				amount_out,
-<a href=#972 id=972 data-nosnippet>972</a>				path,
-<a href=#973 id=973 data-nosnippet>973</a>			});
-<a href=#974 id=974 data-nosnippet>974</a>
-<a href=#975 id=975 data-nosnippet>975</a>			<span class="prelude-val">Ok</span>(amount_in)
-<a href=#976 id=976 data-nosnippet>976</a>		}
-<a href=#977 id=977 data-nosnippet>977</a>
-<a href=#978 id=978 data-nosnippet>978</a>		<span class="doccomment">/// Swap exactly `credit_in` of asset `path[0]` for asset `path[last]`.  If `amount_out_min`
-<a href=#979 id=979 data-nosnippet>979</a>		/// is provided and the swap can't achieve at least this amount, an error is returned.
-<a href=#980 id=980 data-nosnippet>980</a>		///
-<a href=#981 id=981 data-nosnippet>981</a>		/// On a successful swap, the function returns the `credit_out` of `path[last]` obtained
-<a href=#982 id=982 data-nosnippet>982</a>		/// from the `credit_in`. On failure, it returns an `Err` containing the original
-<a href=#983 id=983 data-nosnippet>983</a>		/// `credit_in` and the associated error code.
-<a href=#984 id=984 data-nosnippet>984</a>		///
-<a href=#985 id=985 data-nosnippet>985</a>		/// WARNING: This may return an error after a partial storage mutation. It should be used
-<a href=#986 id=986 data-nosnippet>986</a>		/// only inside a transactional storage context and an Err result must imply a storage
-<a href=#987 id=987 data-nosnippet>987</a>		/// rollback.
-<a href=#988 id=988 data-nosnippet>988</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_swap_exact_credit_tokens_for_tokens(
-<a href=#989 id=989 data-nosnippet>989</a>			path: Vec&lt;T::AssetKind&gt;,
-<a href=#990 id=990 data-nosnippet>990</a>			credit_in: CreditOf&lt;T&gt;,
-<a href=#991 id=991 data-nosnippet>991</a>			amount_out_min: <span class="prelude-ty">Option</span>&lt;T::Balance&gt;,
-<a href=#992 id=992 data-nosnippet>992</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;CreditOf&lt;T&gt;, (CreditOf&lt;T&gt;, DispatchError)&gt; {
-<a href=#993 id=993 data-nosnippet>993</a>			<span class="kw">let </span>amount_in = credit_in.peek();
-<a href=#994 id=994 data-nosnippet>994</a>			<span class="kw">let </span>inspect_path = |credit_asset| {
-<a href=#995 id=995 data-nosnippet>995</a>				<span class="macro">ensure!</span>(
-<a href=#996 id=996 data-nosnippet>996</a>					path.first().map_or(<span class="bool-val">false</span>, |a| <span class="kw-2">*</span>a == credit_asset),
-<a href=#997 id=997 data-nosnippet>997</a>					Error::&lt;T&gt;::InvalidPath
-<a href=#998 id=998 data-nosnippet>998</a>				);
-<a href=#999 id=999 data-nosnippet>999</a>				<span class="macro">ensure!</span>(!amount_in.is_zero(), Error::&lt;T&gt;::ZeroAmount);
-<a href=#1000 id=1000 data-nosnippet>1000</a>				<span class="macro">ensure!</span>(amount_out_min.map_or(<span class="bool-val">true</span>, |a| !a.is_zero()), Error::&lt;T&gt;::ZeroAmount);
-<a href=#1001 id=1001 data-nosnippet>1001</a>
-<a href=#1002 id=1002 data-nosnippet>1002</a>				<span class="self">Self</span>::validate_swap_path(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
-<a href=#1003 id=1003 data-nosnippet>1003</a>				<span class="kw">let </span>path = <span class="self">Self</span>::balance_path_from_amount_in(amount_in, path)<span class="question-mark">?</span>;
-<a href=#1004 id=1004 data-nosnippet>1004</a>
-<a href=#1005 id=1005 data-nosnippet>1005</a>				<span class="kw">let </span>amount_out = path.last().map(|(<span class="kw">_</span>, a)| <span class="kw-2">*</span>a).ok_or(Error::&lt;T&gt;::InvalidPath)<span class="question-mark">?</span>;
-<a href=#1006 id=1006 data-nosnippet>1006</a>				<span class="macro">ensure!</span>(
-<a href=#1007 id=1007 data-nosnippet>1007</a>					amount_out_min.map_or(<span class="bool-val">true</span>, |a| amount_out &gt;= a),
-<a href=#1008 id=1008 data-nosnippet>1008</a>					Error::&lt;T&gt;::ProvidedMinimumNotSufficientForSwap
-<a href=#1009 id=1009 data-nosnippet>1009</a>				);
-<a href=#1010 id=1010 data-nosnippet>1010</a>				<span class="prelude-val">Ok</span>((path, amount_out))
-<a href=#1011 id=1011 data-nosnippet>1011</a>			};
-<a href=#1012 id=1012 data-nosnippet>1012</a>			<span class="kw">let </span>(path, amount_out) = <span class="kw">match </span>inspect_path(credit_in.asset()) {
-<a href=#1013 id=1013 data-nosnippet>1013</a>				<span class="prelude-val">Ok</span>((p, a)) =&gt; (p, a),
-<a href=#1014 id=1014 data-nosnippet>1014</a>				<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>((credit_in, e)),
-<a href=#1015 id=1015 data-nosnippet>1015</a>			};
-<a href=#1016 id=1016 data-nosnippet>1016</a>
-<a href=#1017 id=1017 data-nosnippet>1017</a>			<span class="kw">let </span>credit_out = <span class="self">Self</span>::credit_swap(credit_in, <span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
-<a href=#1018 id=1018 data-nosnippet>1018</a>
-<a href=#1019 id=1019 data-nosnippet>1019</a>			<span class="self">Self</span>::deposit_event(Event::SwapCreditExecuted { amount_in, amount_out, path });
-<a href=#1020 id=1020 data-nosnippet>1020</a>
-<a href=#1021 id=1021 data-nosnippet>1021</a>			<span class="prelude-val">Ok</span>(credit_out)
-<a href=#1022 id=1022 data-nosnippet>1022</a>		}
-<a href=#1023 id=1023 data-nosnippet>1023</a>
-<a href=#1024 id=1024 data-nosnippet>1024</a>		<span class="doccomment">/// Swaps a portion of `credit_in` of `path[0]` asset to obtain the desired `amount_out` of
-<a href=#1025 id=1025 data-nosnippet>1025</a>		/// the `path[last]` asset. The provided `credit_in` must be adequate to achieve the target
-<a href=#1026 id=1026 data-nosnippet>1026</a>		/// `amount_out`, or an error will occur.
-<a href=#1027 id=1027 data-nosnippet>1027</a>		///
-<a href=#1028 id=1028 data-nosnippet>1028</a>		/// On success, the function returns a (`credit_out`, `credit_change`) tuple, where
-<a href=#1029 id=1029 data-nosnippet>1029</a>		/// `credit_out` represents the acquired amount of the `path[last]` asset, and
-<a href=#1030 id=1030 data-nosnippet>1030</a>		/// `credit_change` is the remaining portion from the `credit_in`. On failure, an `Err` with
-<a href=#1031 id=1031 data-nosnippet>1031</a>		/// the initial `credit_in` and error code is returned.
-<a href=#1032 id=1032 data-nosnippet>1032</a>		///
-<a href=#1033 id=1033 data-nosnippet>1033</a>		/// WARNING: This may return an error after a partial storage mutation. It should be used
-<a href=#1034 id=1034 data-nosnippet>1034</a>		/// only inside a transactional storage context and an Err result must imply a storage
-<a href=#1035 id=1035 data-nosnippet>1035</a>		/// rollback.
-<a href=#1036 id=1036 data-nosnippet>1036</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_swap_credit_tokens_for_exact_tokens(
-<a href=#1037 id=1037 data-nosnippet>1037</a>			path: Vec&lt;T::AssetKind&gt;,
-<a href=#1038 id=1038 data-nosnippet>1038</a>			credit_in: CreditOf&lt;T&gt;,
-<a href=#1039 id=1039 data-nosnippet>1039</a>			amount_out: T::Balance,
-<a href=#1040 id=1040 data-nosnippet>1040</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;(CreditOf&lt;T&gt;, CreditOf&lt;T&gt;), (CreditOf&lt;T&gt;, DispatchError)&gt; {
-<a href=#1041 id=1041 data-nosnippet>1041</a>			<span class="kw">let </span>amount_in_max = credit_in.peek();
-<a href=#1042 id=1042 data-nosnippet>1042</a>			<span class="kw">let </span>inspect_path = |credit_asset| {
-<a href=#1043 id=1043 data-nosnippet>1043</a>				<span class="macro">ensure!</span>(
-<a href=#1044 id=1044 data-nosnippet>1044</a>					path.first().map_or(<span class="bool-val">false</span>, |a| a == <span class="kw-2">&amp;</span>credit_asset),
-<a href=#1045 id=1045 data-nosnippet>1045</a>					Error::&lt;T&gt;::InvalidPath
-<a href=#1046 id=1046 data-nosnippet>1046</a>				);
-<a href=#1047 id=1047 data-nosnippet>1047</a>				<span class="macro">ensure!</span>(amount_in_max &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
-<a href=#1048 id=1048 data-nosnippet>1048</a>				<span class="macro">ensure!</span>(amount_out &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
-<a href=#1049 id=1049 data-nosnippet>1049</a>
-<a href=#1050 id=1050 data-nosnippet>1050</a>				<span class="self">Self</span>::validate_swap_path(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
-<a href=#1051 id=1051 data-nosnippet>1051</a>				<span class="kw">let </span>path = <span class="self">Self</span>::balance_path_from_amount_out(amount_out, path)<span class="question-mark">?</span>;
-<a href=#1052 id=1052 data-nosnippet>1052</a>
-<a href=#1053 id=1053 data-nosnippet>1053</a>				<span class="kw">let </span>amount_in = path.first().map(|(<span class="kw">_</span>, a)| <span class="kw-2">*</span>a).ok_or(Error::&lt;T&gt;::InvalidPath)<span class="question-mark">?</span>;
-<a href=#1054 id=1054 data-nosnippet>1054</a>				<span class="macro">ensure!</span>(
-<a href=#1055 id=1055 data-nosnippet>1055</a>					amount_in &lt;= amount_in_max,
-<a href=#1056 id=1056 data-nosnippet>1056</a>					Error::&lt;T&gt;::ProvidedMaximumNotSufficientForSwap
-<a href=#1057 id=1057 data-nosnippet>1057</a>				);
-<a href=#1058 id=1058 data-nosnippet>1058</a>
-<a href=#1059 id=1059 data-nosnippet>1059</a>				<span class="prelude-val">Ok</span>((path, amount_in))
-<a href=#1060 id=1060 data-nosnippet>1060</a>			};
-<a href=#1061 id=1061 data-nosnippet>1061</a>			<span class="kw">let </span>(path, amount_in) = <span class="kw">match </span>inspect_path(credit_in.asset()) {
-<a href=#1062 id=1062 data-nosnippet>1062</a>				<span class="prelude-val">Ok</span>((p, a)) =&gt; (p, a),
-<a href=#1063 id=1063 data-nosnippet>1063</a>				<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>((credit_in, e)),
-<a href=#1064 id=1064 data-nosnippet>1064</a>			};
-<a href=#1065 id=1065 data-nosnippet>1065</a>
-<a href=#1066 id=1066 data-nosnippet>1066</a>			<span class="kw">let </span>(credit_in, credit_change) = credit_in.split(amount_in);
-<a href=#1067 id=1067 data-nosnippet>1067</a>			<span class="kw">let </span>credit_out = <span class="self">Self</span>::credit_swap(credit_in, <span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
-<a href=#1068 id=1068 data-nosnippet>1068</a>
-<a href=#1069 id=1069 data-nosnippet>1069</a>			<span class="self">Self</span>::deposit_event(Event::SwapCreditExecuted { amount_in, amount_out, path });
-<a href=#1070 id=1070 data-nosnippet>1070</a>
-<a href=#1071 id=1071 data-nosnippet>1071</a>			<span class="prelude-val">Ok</span>((credit_out, credit_change))
-<a href=#1072 id=1072 data-nosnippet>1072</a>		}
-<a href=#1073 id=1073 data-nosnippet>1073</a>
-<a href=#1074 id=1074 data-nosnippet>1074</a>		<span class="doccomment">/// Swap assets along the `path`, withdrawing from `sender` and depositing in `send_to`.
-<a href=#1075 id=1075 data-nosnippet>1075</a>		///
-<a href=#1076 id=1076 data-nosnippet>1076</a>		/// Note: It's assumed that the provided `path` is valid.
-<a href=#1077 id=1077 data-nosnippet>1077</a>		///
-<a href=#1078 id=1078 data-nosnippet>1078</a>		/// WARNING: This may return an error after a partial storage mutation. It should be used
-<a href=#1079 id=1079 data-nosnippet>1079</a>		/// only inside a transactional storage context and an Err result must imply a storage
-<a href=#1080 id=1080 data-nosnippet>1080</a>		/// rollback.
-<a href=#1081 id=1081 data-nosnippet>1081</a>		</span><span class="kw">fn </span>swap(
-<a href=#1082 id=1082 data-nosnippet>1082</a>			sender: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#1083 id=1083 data-nosnippet>1083</a>			path: <span class="kw-2">&amp;</span>BalancePath&lt;T&gt;,
-<a href=#1084 id=1084 data-nosnippet>1084</a>			send_to: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#1085 id=1085 data-nosnippet>1085</a>			keep_alive: bool,
-<a href=#1086 id=1086 data-nosnippet>1086</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
-<a href=#1087 id=1087 data-nosnippet>1087</a>			<span class="kw">let </span>(asset_in, amount_in) = path.first().ok_or(Error::&lt;T&gt;::InvalidPath)<span class="question-mark">?</span>;
-<a href=#1088 id=1088 data-nosnippet>1088</a>			<span class="kw">let </span>credit_in = <span class="self">Self</span>::withdraw(asset_in.clone(), sender, <span class="kw-2">*</span>amount_in, keep_alive)<span class="question-mark">?</span>;
-<a href=#1089 id=1089 data-nosnippet>1089</a>
-<a href=#1090 id=1090 data-nosnippet>1090</a>			<span class="kw">let </span>credit_out = <span class="self">Self</span>::credit_swap(credit_in, path).map_err(|(<span class="kw">_</span>, e)| e)<span class="question-mark">?</span>;
-<a href=#1091 id=1091 data-nosnippet>1091</a>			T::Assets::resolve(send_to, credit_out).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::BelowMinimum)<span class="question-mark">?</span>;
-<a href=#1092 id=1092 data-nosnippet>1092</a>
-<a href=#1093 id=1093 data-nosnippet>1093</a>			<span class="prelude-val">Ok</span>(())
-<a href=#1094 id=1094 data-nosnippet>1094</a>		}
-<a href=#1095 id=1095 data-nosnippet>1095</a>
-<a href=#1096 id=1096 data-nosnippet>1096</a>		<span class="doccomment">/// Swap assets along the specified `path`, consuming `credit_in` and producing
-<a href=#1097 id=1097 data-nosnippet>1097</a>		/// `credit_out`.
-<a href=#1098 id=1098 data-nosnippet>1098</a>		///
-<a href=#1099 id=1099 data-nosnippet>1099</a>		/// If an error occurs, `credit_in` is returned back.
-<a href=#1100 id=1100 data-nosnippet>1100</a>		///
-<a href=#1101 id=1101 data-nosnippet>1101</a>		/// Note: It's assumed that the provided `path` is valid and `credit_in` corresponds to the
-<a href=#1102 id=1102 data-nosnippet>1102</a>		/// first asset in the `path`.
-<a href=#1103 id=1103 data-nosnippet>1103</a>		///
-<a href=#1104 id=1104 data-nosnippet>1104</a>		/// WARNING: This may return an error after a partial storage mutation. It should be used
-<a href=#1105 id=1105 data-nosnippet>1105</a>		/// only inside a transactional storage context and an Err result must imply a storage
-<a href=#1106 id=1106 data-nosnippet>1106</a>		/// rollback.
-<a href=#1107 id=1107 data-nosnippet>1107</a>		</span><span class="kw">fn </span>credit_swap(
-<a href=#1108 id=1108 data-nosnippet>1108</a>			credit_in: CreditOf&lt;T&gt;,
-<a href=#1109 id=1109 data-nosnippet>1109</a>			path: <span class="kw-2">&amp;</span>BalancePath&lt;T&gt;,
-<a href=#1110 id=1110 data-nosnippet>1110</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;CreditOf&lt;T&gt;, (CreditOf&lt;T&gt;, DispatchError)&gt; {
-<a href=#1111 id=1111 data-nosnippet>1111</a>			<span class="kw">let </span>resolve_path = || -&gt; <span class="prelude-ty">Result</span>&lt;CreditOf&lt;T&gt;, DispatchError&gt; {
-<a href=#1112 id=1112 data-nosnippet>1112</a>				<span class="kw">for </span>pos <span class="kw">in </span><span class="number">0</span>..=path.len() {
-<a href=#1113 id=1113 data-nosnippet>1113</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>([(asset1, <span class="kw">_</span>), (asset2, amount_out)]) = path.get(pos..=pos + <span class="number">1</span>) {
-<a href=#1114 id=1114 data-nosnippet>1114</a>						<span class="kw">let </span>pool_from = T::PoolLocator::pool_address(asset1, asset2)
-<a href=#1115 id=1115 data-nosnippet>1115</a>							.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidAssetPair)<span class="question-mark">?</span>;
-<a href=#1116 id=1116 data-nosnippet>1116</a>
-<a href=#1117 id=1117 data-nosnippet>1117</a>						<span class="kw">if let </span><span class="prelude-val">Some</span>((asset3, <span class="kw">_</span>)) = path.get(pos + <span class="number">2</span>) {
-<a href=#1118 id=1118 data-nosnippet>1118</a>							<span class="kw">let </span>pool_to = T::PoolLocator::pool_address(asset2, asset3)
-<a href=#1119 id=1119 data-nosnippet>1119</a>								.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidAssetPair)<span class="question-mark">?</span>;
-<a href=#1120 id=1120 data-nosnippet>1120</a>
-<a href=#1121 id=1121 data-nosnippet>1121</a>							T::Assets::transfer(
-<a href=#1122 id=1122 data-nosnippet>1122</a>								asset2.clone(),
-<a href=#1123 id=1123 data-nosnippet>1123</a>								<span class="kw-2">&amp;</span>pool_from,
-<a href=#1124 id=1124 data-nosnippet>1124</a>								<span class="kw-2">&amp;</span>pool_to,
-<a href=#1125 id=1125 data-nosnippet>1125</a>								<span class="kw-2">*</span>amount_out,
-<a href=#1126 id=1126 data-nosnippet>1126</a>								Preserve,
-<a href=#1127 id=1127 data-nosnippet>1127</a>							)<span class="question-mark">?</span>;
-<a href=#1128 id=1128 data-nosnippet>1128</a>						} <span class="kw">else </span>{
-<a href=#1129 id=1129 data-nosnippet>1129</a>							<span class="kw">let </span>credit_out =
-<a href=#1130 id=1130 data-nosnippet>1130</a>								<span class="self">Self</span>::withdraw(asset2.clone(), <span class="kw-2">&amp;</span>pool_from, <span class="kw-2">*</span>amount_out, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
-<a href=#1131 id=1131 data-nosnippet>1131</a>							<span class="kw">return </span><span class="prelude-val">Ok</span>(credit_out);
-<a href=#1132 id=1132 data-nosnippet>1132</a>						}
-<a href=#1133 id=1133 data-nosnippet>1133</a>					}
-<a href=#1134 id=1134 data-nosnippet>1134</a>				}
-<a href=#1135 id=1135 data-nosnippet>1135</a>				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::InvalidPath.into())
-<a href=#1136 id=1136 data-nosnippet>1136</a>			};
-<a href=#1137 id=1137 data-nosnippet>1137</a>
-<a href=#1138 id=1138 data-nosnippet>1138</a>			<span class="kw">let </span>credit_out = <span class="kw">match </span>resolve_path() {
-<a href=#1139 id=1139 data-nosnippet>1139</a>				<span class="prelude-val">Ok</span>(c) =&gt; c,
-<a href=#1140 id=1140 data-nosnippet>1140</a>				<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>((credit_in, e)),
-<a href=#1141 id=1141 data-nosnippet>1141</a>			};
-<a href=#1142 id=1142 data-nosnippet>1142</a>
-<a href=#1143 id=1143 data-nosnippet>1143</a>			<span class="kw">let </span>pool_to = <span class="kw">if let </span><span class="prelude-val">Some</span>([(asset1, <span class="kw">_</span>), (asset2, <span class="kw">_</span>)]) = path.get(<span class="number">0</span>..<span class="number">2</span>) {
-<a href=#1144 id=1144 data-nosnippet>1144</a>				<span class="kw">match </span>T::PoolLocator::pool_address(asset1, asset2) {
-<a href=#1145 id=1145 data-nosnippet>1145</a>					<span class="prelude-val">Ok</span>(address) =&gt; address,
-<a href=#1146 id=1146 data-nosnippet>1146</a>					<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>((credit_in, Error::&lt;T&gt;::InvalidAssetPair.into())),
-<a href=#1147 id=1147 data-nosnippet>1147</a>				}
-<a href=#1148 id=1148 data-nosnippet>1148</a>			} <span class="kw">else </span>{
-<a href=#1149 id=1149 data-nosnippet>1149</a>				<span class="kw">return </span><span class="prelude-val">Err</span>((credit_in, Error::&lt;T&gt;::InvalidPath.into()));
-<a href=#1150 id=1150 data-nosnippet>1150</a>			};
-<a href=#1151 id=1151 data-nosnippet>1151</a>
-<a href=#1152 id=1152 data-nosnippet>1152</a>			T::Assets::resolve(<span class="kw-2">&amp;</span>pool_to, credit_in)
-<a href=#1153 id=1153 data-nosnippet>1153</a>				.map_err(|c| (c, Error::&lt;T&gt;::BelowMinimum.into()))<span class="question-mark">?</span>;
-<a href=#1154 id=1154 data-nosnippet>1154</a>
-<a href=#1155 id=1155 data-nosnippet>1155</a>			<span class="prelude-val">Ok</span>(credit_out)
-<a href=#1156 id=1156 data-nosnippet>1156</a>		}
-<a href=#1157 id=1157 data-nosnippet>1157</a>
-<a href=#1158 id=1158 data-nosnippet>1158</a>		<span class="doccomment">/// Removes `value` balance of `asset` from `who` account if possible.
-<a href=#1159 id=1159 data-nosnippet>1159</a>		</span><span class="kw">fn </span>withdraw(
-<a href=#1160 id=1160 data-nosnippet>1160</a>			asset: T::AssetKind,
-<a href=#1161 id=1161 data-nosnippet>1161</a>			who: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#1162 id=1162 data-nosnippet>1162</a>			value: T::Balance,
-<a href=#1163 id=1163 data-nosnippet>1163</a>			keep_alive: bool,
-<a href=#1164 id=1164 data-nosnippet>1164</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;CreditOf&lt;T&gt;, DispatchError&gt; {
-<a href=#1165 id=1165 data-nosnippet>1165</a>			<span class="kw">let </span>preservation = <span class="kw">match </span>keep_alive {
-<a href=#1166 id=1166 data-nosnippet>1166</a>				<span class="bool-val">true </span>=&gt; Preserve,
-<a href=#1167 id=1167 data-nosnippet>1167</a>				<span class="bool-val">false </span>=&gt; Expendable,
-<a href=#1168 id=1168 data-nosnippet>1168</a>			};
-<a href=#1169 id=1169 data-nosnippet>1169</a>			<span class="kw">if </span>preservation == Preserve {
-<a href=#1170 id=1170 data-nosnippet>1170</a>				<span class="comment">// TODO drop the ensure! when this issue addressed
-<a href=#1171 id=1171 data-nosnippet>1171</a>				// https://github.com/paritytech/polkadot-sdk/issues/1698
-<a href=#1172 id=1172 data-nosnippet>1172</a>				</span><span class="kw">let </span>free = T::Assets::reducible_balance(asset.clone(), who, preservation, Polite);
-<a href=#1173 id=1173 data-nosnippet>1173</a>				<span class="macro">ensure!</span>(free &gt;= value, TokenError::NotExpendable);
-<a href=#1174 id=1174 data-nosnippet>1174</a>			}
-<a href=#1175 id=1175 data-nosnippet>1175</a>			T::Assets::withdraw(asset, who, value, Exact, preservation, Polite)
-<a href=#1176 id=1176 data-nosnippet>1176</a>		}
-<a href=#1177 id=1177 data-nosnippet>1177</a>
-<a href=#1178 id=1178 data-nosnippet>1178</a>		<span class="doccomment">/// Get the `owner`'s balance of `asset`, which could be the chain's native asset or another
-<a href=#1179 id=1179 data-nosnippet>1179</a>		/// fungible. Returns a value in the form of an `Balance`.
-<a href=#1180 id=1180 data-nosnippet>1180</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_balance(owner: <span class="kw-2">&amp;</span>T::AccountId, asset: T::AssetKind) -&gt; T::Balance {
-<a href=#1181 id=1181 data-nosnippet>1181</a>			T::Assets::reducible_balance(asset, owner, Expendable, Polite)
-<a href=#1182 id=1182 data-nosnippet>1182</a>		}
-<a href=#1183 id=1183 data-nosnippet>1183</a>
-<a href=#1184 id=1184 data-nosnippet>1184</a>		<span class="doccomment">/// Leading to an amount at the end of a `path`, get the required amounts in.
-<a href=#1185 id=1185 data-nosnippet>1185</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>balance_path_from_amount_out(
-<a href=#1186 id=1186 data-nosnippet>1186</a>			amount_out: T::Balance,
-<a href=#1187 id=1187 data-nosnippet>1187</a>			path: Vec&lt;T::AssetKind&gt;,
-<a href=#1188 id=1188 data-nosnippet>1188</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;BalancePath&lt;T&gt;, DispatchError&gt; {
-<a href=#1189 id=1189 data-nosnippet>1189</a>			<span class="kw">let </span><span class="kw-2">mut </span>balance_path: BalancePath&lt;T&gt; = Vec::with_capacity(path.len());
-<a href=#1190 id=1190 data-nosnippet>1190</a>			<span class="kw">let </span><span class="kw-2">mut </span>amount_in: T::Balance = amount_out;
-<a href=#1191 id=1191 data-nosnippet>1191</a>
-<a href=#1192 id=1192 data-nosnippet>1192</a>			<span class="kw">let </span><span class="kw-2">mut </span>iter = path.into_iter().rev().peekable();
-<a href=#1193 id=1193 data-nosnippet>1193</a>			<span class="kw">while let </span><span class="prelude-val">Some</span>(asset2) = iter.next() {
-<a href=#1194 id=1194 data-nosnippet>1194</a>				<span class="kw">let </span>asset1 = <span class="kw">match </span>iter.peek() {
-<a href=#1195 id=1195 data-nosnippet>1195</a>					<span class="prelude-val">Some</span>(a) =&gt; a,
-<a href=#1196 id=1196 data-nosnippet>1196</a>					<span class="prelude-val">None </span>=&gt; {
-<a href=#1197 id=1197 data-nosnippet>1197</a>						balance_path.push((asset2, amount_in));
-<a href=#1198 id=1198 data-nosnippet>1198</a>						<span class="kw">break</span>;
-<a href=#1199 id=1199 data-nosnippet>1199</a>					},
-<a href=#1200 id=1200 data-nosnippet>1200</a>				};
-<a href=#1201 id=1201 data-nosnippet>1201</a>				<span class="kw">let </span>(reserve_in, reserve_out) = <span class="self">Self</span>::get_reserves(asset1.clone(), asset2.clone())<span class="question-mark">?</span>;
-<a href=#1202 id=1202 data-nosnippet>1202</a>				balance_path.push((asset2, amount_in));
-<a href=#1203 id=1203 data-nosnippet>1203</a>				amount_in = <span class="self">Self</span>::get_amount_in(<span class="kw-2">&amp;</span>amount_in, <span class="kw-2">&amp;</span>reserve_in, <span class="kw-2">&amp;</span>reserve_out)<span class="question-mark">?</span>;
-<a href=#1204 id=1204 data-nosnippet>1204</a>			}
-<a href=#1205 id=1205 data-nosnippet>1205</a>			balance_path.reverse();
-<a href=#1206 id=1206 data-nosnippet>1206</a>
-<a href=#1207 id=1207 data-nosnippet>1207</a>			<span class="prelude-val">Ok</span>(balance_path)
-<a href=#1208 id=1208 data-nosnippet>1208</a>		}
-<a href=#1209 id=1209 data-nosnippet>1209</a>
-<a href=#1210 id=1210 data-nosnippet>1210</a>		<span class="doccomment">/// Following an amount into a `path`, get the corresponding amounts out.
-<a href=#1211 id=1211 data-nosnippet>1211</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>balance_path_from_amount_in(
-<a href=#1212 id=1212 data-nosnippet>1212</a>			amount_in: T::Balance,
-<a href=#1213 id=1213 data-nosnippet>1213</a>			path: Vec&lt;T::AssetKind&gt;,
-<a href=#1214 id=1214 data-nosnippet>1214</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;BalancePath&lt;T&gt;, DispatchError&gt; {
-<a href=#1215 id=1215 data-nosnippet>1215</a>			<span class="kw">let </span><span class="kw-2">mut </span>balance_path: BalancePath&lt;T&gt; = Vec::with_capacity(path.len());
-<a href=#1216 id=1216 data-nosnippet>1216</a>			<span class="kw">let </span><span class="kw-2">mut </span>amount_out: T::Balance = amount_in;
-<a href=#1217 id=1217 data-nosnippet>1217</a>
-<a href=#1218 id=1218 data-nosnippet>1218</a>			<span class="kw">let </span><span class="kw-2">mut </span>iter = path.into_iter().peekable();
-<a href=#1219 id=1219 data-nosnippet>1219</a>			<span class="kw">while let </span><span class="prelude-val">Some</span>(asset1) = iter.next() {
-<a href=#1220 id=1220 data-nosnippet>1220</a>				<span class="kw">let </span>asset2 = <span class="kw">match </span>iter.peek() {
-<a href=#1221 id=1221 data-nosnippet>1221</a>					<span class="prelude-val">Some</span>(a) =&gt; a,
-<a href=#1222 id=1222 data-nosnippet>1222</a>					<span class="prelude-val">None </span>=&gt; {
-<a href=#1223 id=1223 data-nosnippet>1223</a>						balance_path.push((asset1, amount_out));
-<a href=#1224 id=1224 data-nosnippet>1224</a>						<span class="kw">break</span>;
-<a href=#1225 id=1225 data-nosnippet>1225</a>					},
-<a href=#1226 id=1226 data-nosnippet>1226</a>				};
-<a href=#1227 id=1227 data-nosnippet>1227</a>				<span class="kw">let </span>(reserve_in, reserve_out) = <span class="self">Self</span>::get_reserves(asset1.clone(), asset2.clone())<span class="question-mark">?</span>;
-<a href=#1228 id=1228 data-nosnippet>1228</a>				balance_path.push((asset1, amount_out));
-<a href=#1229 id=1229 data-nosnippet>1229</a>				amount_out = <span class="self">Self</span>::get_amount_out(<span class="kw-2">&amp;</span>amount_out, <span class="kw-2">&amp;</span>reserve_in, <span class="kw-2">&amp;</span>reserve_out)<span class="question-mark">?</span>;
-<a href=#1230 id=1230 data-nosnippet>1230</a>			}
-<a href=#1231 id=1231 data-nosnippet>1231</a>			<span class="prelude-val">Ok</span>(balance_path)
-<a href=#1232 id=1232 data-nosnippet>1232</a>		}
-<a href=#1233 id=1233 data-nosnippet>1233</a>
-<a href=#1234 id=1234 data-nosnippet>1234</a>		<span class="doccomment">/// Calculates the optimal amount from the reserves.
-<a href=#1235 id=1235 data-nosnippet>1235</a>		</span><span class="kw">pub fn </span>quote(
-<a href=#1236 id=1236 data-nosnippet>1236</a>			amount: <span class="kw-2">&amp;</span>T::Balance,
-<a href=#1237 id=1237 data-nosnippet>1237</a>			reserve1: <span class="kw-2">&amp;</span>T::Balance,
-<a href=#1238 id=1238 data-nosnippet>1238</a>			reserve2: <span class="kw-2">&amp;</span>T::Balance,
-<a href=#1239 id=1239 data-nosnippet>1239</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
-<a href=#1240 id=1240 data-nosnippet>1240</a>			<span class="comment">// (amount * reserve2) / reserve1
-<a href=#1241 id=1241 data-nosnippet>1241</a>			</span><span class="self">Self</span>::mul_div(amount, reserve2, reserve1)
-<a href=#1242 id=1242 data-nosnippet>1242</a>		}
-<a href=#1243 id=1243 data-nosnippet>1243</a>
-<a href=#1244 id=1244 data-nosnippet>1244</a>		<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>calc_lp_amount_for_zero_supply(
-<a href=#1245 id=1245 data-nosnippet>1245</a>			amount1: <span class="kw-2">&amp;</span>T::Balance,
-<a href=#1246 id=1246 data-nosnippet>1246</a>			amount2: <span class="kw-2">&amp;</span>T::Balance,
-<a href=#1247 id=1247 data-nosnippet>1247</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
-<a href=#1248 id=1248 data-nosnippet>1248</a>			<span class="kw">let </span>amount1 = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>amount1);
-<a href=#1249 id=1249 data-nosnippet>1249</a>			<span class="kw">let </span>amount2 = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>amount2);
-<a href=#1250 id=1250 data-nosnippet>1250</a>
-<a href=#1251 id=1251 data-nosnippet>1251</a>			<span class="kw">let </span>result = amount1
-<a href=#1252 id=1252 data-nosnippet>1252</a>				.checked_mul(<span class="kw-2">&amp;</span>amount2)
-<a href=#1253 id=1253 data-nosnippet>1253</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?
-<a href=#1254 id=1254 data-nosnippet>1254</a>				</span>.integer_sqrt()
-<a href=#1255 id=1255 data-nosnippet>1255</a>				.checked_sub(<span class="kw-2">&amp;</span>T::MintMinLiquidity::get().into())
-<a href=#1256 id=1256 data-nosnippet>1256</a>				.ok_or(Error::&lt;T&gt;::InsufficientLiquidityMinted)<span class="question-mark">?</span>;
-<a href=#1257 id=1257 data-nosnippet>1257</a>
-<a href=#1258 id=1258 data-nosnippet>1258</a>			result.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Overflow)
-<a href=#1259 id=1259 data-nosnippet>1259</a>		}
-<a href=#1260 id=1260 data-nosnippet>1260</a>
-<a href=#1261 id=1261 data-nosnippet>1261</a>		<span class="kw">fn </span>mul_div(a: <span class="kw-2">&amp;</span>T::Balance, b: <span class="kw-2">&amp;</span>T::Balance, c: <span class="kw-2">&amp;</span>T::Balance) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
-<a href=#1262 id=1262 data-nosnippet>1262</a>			<span class="kw">let </span>a = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>a);
-<a href=#1263 id=1263 data-nosnippet>1263</a>			<span class="kw">let </span>b = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>b);
-<a href=#1264 id=1264 data-nosnippet>1264</a>			<span class="kw">let </span>c = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>c);
-<a href=#1265 id=1265 data-nosnippet>1265</a>
-<a href=#1266 id=1266 data-nosnippet>1266</a>			<span class="kw">let </span>result = a
-<a href=#1267 id=1267 data-nosnippet>1267</a>				.checked_mul(<span class="kw-2">&amp;</span>b)
-<a href=#1268 id=1268 data-nosnippet>1268</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?
-<a href=#1269 id=1269 data-nosnippet>1269</a>				</span>.checked_div(<span class="kw-2">&amp;</span>c)
-<a href=#1270 id=1270 data-nosnippet>1270</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
-<a href=#1271 id=1271 data-nosnippet>1271</a>
-<a href=#1272 id=1272 data-nosnippet>1272</a>			result.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Overflow)
-<a href=#1273 id=1273 data-nosnippet>1273</a>		}
-<a href=#1274 id=1274 data-nosnippet>1274</a>
-<a href=#1275 id=1275 data-nosnippet>1275</a>		<span class="doccomment">/// Calculates amount out.
-<a href=#1276 id=1276 data-nosnippet>1276</a>		///
-<a href=#1277 id=1277 data-nosnippet>1277</a>		/// Given an input amount of an asset and pair reserves, returns the maximum output amount
-<a href=#1278 id=1278 data-nosnippet>1278</a>		/// of the other asset.
-<a href=#1279 id=1279 data-nosnippet>1279</a>		</span><span class="kw">pub fn </span>get_amount_out(
-<a href=#1280 id=1280 data-nosnippet>1280</a>			amount_in: <span class="kw-2">&amp;</span>T::Balance,
-<a href=#1281 id=1281 data-nosnippet>1281</a>			reserve_in: <span class="kw-2">&amp;</span>T::Balance,
-<a href=#1282 id=1282 data-nosnippet>1282</a>			reserve_out: <span class="kw-2">&amp;</span>T::Balance,
-<a href=#1283 id=1283 data-nosnippet>1283</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
-<a href=#1284 id=1284 data-nosnippet>1284</a>			<span class="kw">let </span>amount_in = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>amount_in);
-<a href=#1285 id=1285 data-nosnippet>1285</a>			<span class="kw">let </span>reserve_in = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>reserve_in);
-<a href=#1286 id=1286 data-nosnippet>1286</a>			<span class="kw">let </span>reserve_out = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>reserve_out);
-<a href=#1287 id=1287 data-nosnippet>1287</a>
-<a href=#1288 id=1288 data-nosnippet>1288</a>			<span class="kw">if </span>reserve_in.is_zero() || reserve_out.is_zero() {
-<a href=#1289 id=1289 data-nosnippet>1289</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::ZeroLiquidity);
-<a href=#1290 id=1290 data-nosnippet>1290</a>			}
-<a href=#1291 id=1291 data-nosnippet>1291</a>
-<a href=#1292 id=1292 data-nosnippet>1292</a>			<span class="kw">let </span>fee_complement = T::LPFee::get().left_from_one().deconstruct();
-<a href=#1293 id=1293 data-nosnippet>1293</a>			<span class="kw">let </span>amount_in_with_fee = amount_in
-<a href=#1294 id=1294 data-nosnippet>1294</a>				.checked_mul(<span class="kw-2">&amp;</span>T::HigherPrecisionBalance::from(fee_complement))
-<a href=#1295 id=1295 data-nosnippet>1295</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
-<a href=#1296 id=1296 data-nosnippet>1296</a>
-<a href=#1297 id=1297 data-nosnippet>1297</a>			<span class="kw">let </span>numerator =
-<a href=#1298 id=1298 data-nosnippet>1298</a>				amount_in_with_fee.checked_mul(<span class="kw-2">&amp;</span>reserve_out).ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
-<a href=#1299 id=1299 data-nosnippet>1299</a>
-<a href=#1300 id=1300 data-nosnippet>1300</a>			<span class="kw">let </span>denominator = reserve_in
-<a href=#1301 id=1301 data-nosnippet>1301</a>				.checked_mul(<span class="kw-2">&amp;</span>T::HigherPrecisionBalance::from(Permill::ACCURACY))
-<a href=#1302 id=1302 data-nosnippet>1302</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?
-<a href=#1303 id=1303 data-nosnippet>1303</a>				</span>.checked_add(<span class="kw-2">&amp;</span>amount_in_with_fee)
-<a href=#1304 id=1304 data-nosnippet>1304</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
-<a href=#1305 id=1305 data-nosnippet>1305</a>
-<a href=#1306 id=1306 data-nosnippet>1306</a>			<span class="kw">let </span>result = numerator.checked_div(<span class="kw-2">&amp;</span>denominator).ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
-<a href=#1307 id=1307 data-nosnippet>1307</a>
-<a href=#1308 id=1308 data-nosnippet>1308</a>			result.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Overflow)
-<a href=#1309 id=1309 data-nosnippet>1309</a>		}
-<a href=#1310 id=1310 data-nosnippet>1310</a>
-<a href=#1311 id=1311 data-nosnippet>1311</a>		<span class="doccomment">/// Calculates amount in.
-<a href=#1312 id=1312 data-nosnippet>1312</a>		///
-<a href=#1313 id=1313 data-nosnippet>1313</a>		/// Given an output amount of an asset and pair reserves, returns a required input amount
-<a href=#1314 id=1314 data-nosnippet>1314</a>		/// of the other asset.
-<a href=#1315 id=1315 data-nosnippet>1315</a>		</span><span class="kw">pub fn </span>get_amount_in(
-<a href=#1316 id=1316 data-nosnippet>1316</a>			amount_out: <span class="kw-2">&amp;</span>T::Balance,
-<a href=#1317 id=1317 data-nosnippet>1317</a>			reserve_in: <span class="kw-2">&amp;</span>T::Balance,
-<a href=#1318 id=1318 data-nosnippet>1318</a>			reserve_out: <span class="kw-2">&amp;</span>T::Balance,
-<a href=#1319 id=1319 data-nosnippet>1319</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
-<a href=#1320 id=1320 data-nosnippet>1320</a>			<span class="kw">let </span>amount_out = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>amount_out);
-<a href=#1321 id=1321 data-nosnippet>1321</a>			<span class="kw">let </span>reserve_in = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>reserve_in);
-<a href=#1322 id=1322 data-nosnippet>1322</a>			<span class="kw">let </span>reserve_out = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>reserve_out);
-<a href=#1323 id=1323 data-nosnippet>1323</a>
-<a href=#1324 id=1324 data-nosnippet>1324</a>			<span class="kw">if </span>reserve_in.is_zero() || reserve_out.is_zero() {
-<a href=#1325 id=1325 data-nosnippet>1325</a>				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::ZeroLiquidity)<span class="question-mark">?
-<a href=#1326 id=1326 data-nosnippet>1326</a>			</span>}
-<a href=#1327 id=1327 data-nosnippet>1327</a>
-<a href=#1328 id=1328 data-nosnippet>1328</a>			<span class="kw">if </span>amount_out &gt;= reserve_out {
-<a href=#1329 id=1329 data-nosnippet>1329</a>				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::AmountOutTooHigh)<span class="question-mark">?
-<a href=#1330 id=1330 data-nosnippet>1330</a>			</span>}
-<a href=#1331 id=1331 data-nosnippet>1331</a>
-<a href=#1332 id=1332 data-nosnippet>1332</a>			<span class="kw">let </span>fee_complement = T::LPFee::get().left_from_one().deconstruct();
-<a href=#1333 id=1333 data-nosnippet>1333</a>			<span class="kw">let </span>numerator = reserve_in
-<a href=#1334 id=1334 data-nosnippet>1334</a>				.checked_mul(<span class="kw-2">&amp;</span>amount_out)
-<a href=#1335 id=1335 data-nosnippet>1335</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?
-<a href=#1336 id=1336 data-nosnippet>1336</a>				</span>.checked_mul(<span class="kw-2">&amp;</span>T::HigherPrecisionBalance::from(Permill::ACCURACY))
-<a href=#1337 id=1337 data-nosnippet>1337</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
-<a href=#1338 id=1338 data-nosnippet>1338</a>
-<a href=#1339 id=1339 data-nosnippet>1339</a>			<span class="kw">let </span>denominator = reserve_out
-<a href=#1340 id=1340 data-nosnippet>1340</a>				.checked_sub(<span class="kw-2">&amp;</span>amount_out)
-<a href=#1341 id=1341 data-nosnippet>1341</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?
-<a href=#1342 id=1342 data-nosnippet>1342</a>				</span>.checked_mul(<span class="kw-2">&amp;</span>T::HigherPrecisionBalance::from(fee_complement))
-<a href=#1343 id=1343 data-nosnippet>1343</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
-<a href=#1344 id=1344 data-nosnippet>1344</a>
-<a href=#1345 id=1345 data-nosnippet>1345</a>			<span class="kw">let </span>result = numerator
-<a href=#1346 id=1346 data-nosnippet>1346</a>				.checked_div(<span class="kw-2">&amp;</span>denominator)
-<a href=#1347 id=1347 data-nosnippet>1347</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?
-<a href=#1348 id=1348 data-nosnippet>1348</a>				</span>.checked_add(<span class="kw-2">&amp;</span>One::one())
-<a href=#1349 id=1349 data-nosnippet>1349</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
-<a href=#1350 id=1350 data-nosnippet>1350</a>
-<a href=#1351 id=1351 data-nosnippet>1351</a>			result.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Overflow)
-<a href=#1352 id=1352 data-nosnippet>1352</a>		}
-<a href=#1353 id=1353 data-nosnippet>1353</a>
-<a href=#1354 id=1354 data-nosnippet>1354</a>		<span class="doccomment">/// Ensure that a path is valid.
-<a href=#1355 id=1355 data-nosnippet>1355</a>		</span><span class="kw">fn </span>validate_swap_path(path: <span class="kw-2">&amp;</span>Vec&lt;T::AssetKind&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
-<a href=#1356 id=1356 data-nosnippet>1356</a>			<span class="macro">ensure!</span>(path.len() &gt;= <span class="number">2</span>, Error::&lt;T&gt;::InvalidPath);
-<a href=#1357 id=1357 data-nosnippet>1357</a>			<span class="macro">ensure!</span>(path.len() <span class="kw">as </span>u32 &lt;= T::MaxSwapPathLength::get(), Error::&lt;T&gt;::InvalidPath);
-<a href=#1358 id=1358 data-nosnippet>1358</a>
-<a href=#1359 id=1359 data-nosnippet>1359</a>			<span class="comment">// validate all the pools in the path are unique
-<a href=#1360 id=1360 data-nosnippet>1360</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>pools = BTreeSet::&lt;T::PoolId&gt;::new();
-<a href=#1361 id=1361 data-nosnippet>1361</a>			<span class="kw">for </span>assets_pair <span class="kw">in </span>path.windows(<span class="number">2</span>) {
-<a href=#1362 id=1362 data-nosnippet>1362</a>				<span class="kw">if let </span>[asset1, asset2] = assets_pair {
-<a href=#1363 id=1363 data-nosnippet>1363</a>					<span class="kw">let </span>pool_id = T::PoolLocator::pool_id(asset1, asset2)
-<a href=#1364 id=1364 data-nosnippet>1364</a>						.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidAssetPair)<span class="question-mark">?</span>;
-<a href=#1365 id=1365 data-nosnippet>1365</a>
-<a href=#1366 id=1366 data-nosnippet>1366</a>					<span class="kw">let </span>new_element = pools.insert(pool_id);
-<a href=#1367 id=1367 data-nosnippet>1367</a>					<span class="kw">if </span>!new_element {
-<a href=#1368 id=1368 data-nosnippet>1368</a>						<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::NonUniquePath.into());
-<a href=#1369 id=1369 data-nosnippet>1369</a>					}
-<a href=#1370 id=1370 data-nosnippet>1370</a>				}
-<a href=#1371 id=1371 data-nosnippet>1371</a>			}
-<a href=#1372 id=1372 data-nosnippet>1372</a>			<span class="prelude-val">Ok</span>(())
-<a href=#1373 id=1373 data-nosnippet>1373</a>		}
-<a href=#1374 id=1374 data-nosnippet>1374</a>
-<a href=#1375 id=1375 data-nosnippet>1375</a>		<span class="doccomment">/// Returns the next pool asset id for benchmark purposes only.
-<a href=#1376 id=1376 data-nosnippet>1376</a>		</span><span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>))]
-<a href=#1377 id=1377 data-nosnippet>1377</a>		</span><span class="kw">pub fn </span>get_next_pool_asset_id() -&gt; T::PoolAssetId {
-<a href=#1378 id=1378 data-nosnippet>1378</a>			NextPoolAssetId::&lt;T&gt;::get()
-<a href=#1379 id=1379 data-nosnippet>1379</a>				.or(T::PoolAssetId::initial_value())
-<a href=#1380 id=1380 data-nosnippet>1380</a>				.expect(<span class="string">"Next pool asset ID can not be None"</span>)
-<a href=#1381 id=1381 data-nosnippet>1381</a>		}
-<a href=#1382 id=1382 data-nosnippet>1382</a>	}
-<a href=#1383 id=1383 data-nosnippet>1383</a>
-<a href=#1384 id=1384 data-nosnippet>1384</a>	<span class="attr">#[pallet::view_functions]
-<a href=#1385 id=1385 data-nosnippet>1385</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-<a href=#1386 id=1386 data-nosnippet>1386</a>		<span class="doccomment">/// Returns the balance of each asset in the pool.
-<a href=#1387 id=1387 data-nosnippet>1387</a>		/// The tuple result is in the order requested (not necessarily the same as pool order).
-<a href=#1388 id=1388 data-nosnippet>1388</a>		</span><span class="kw">pub fn </span>get_reserves(
-<a href=#1389 id=1389 data-nosnippet>1389</a>			asset1: T::AssetKind,
-<a href=#1390 id=1390 data-nosnippet>1390</a>			asset2: T::AssetKind,
-<a href=#1391 id=1391 data-nosnippet>1391</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;(T::Balance, T::Balance), Error&lt;T&gt;&gt; {
-<a href=#1392 id=1392 data-nosnippet>1392</a>			<span class="kw">let </span>pool_account = T::PoolLocator::pool_address(<span class="kw-2">&amp;</span>asset1, <span class="kw-2">&amp;</span>asset2)
-<a href=#1393 id=1393 data-nosnippet>1393</a>				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidAssetPair)<span class="question-mark">?</span>;
-<a href=#1394 id=1394 data-nosnippet>1394</a>
-<a href=#1395 id=1395 data-nosnippet>1395</a>			<span class="kw">let </span>balance1 = <span class="self">Self</span>::get_balance(<span class="kw-2">&amp;</span>pool_account, asset1);
-<a href=#1396 id=1396 data-nosnippet>1396</a>			<span class="kw">let </span>balance2 = <span class="self">Self</span>::get_balance(<span class="kw-2">&amp;</span>pool_account, asset2);
-<a href=#1397 id=1397 data-nosnippet>1397</a>
-<a href=#1398 id=1398 data-nosnippet>1398</a>			<span class="kw">if </span>balance1.is_zero() || balance2.is_zero() {
-<a href=#1399 id=1399 data-nosnippet>1399</a>				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::PoolEmpty)<span class="question-mark">?</span>;
-<a href=#1400 id=1400 data-nosnippet>1400</a>			}
-<a href=#1401 id=1401 data-nosnippet>1401</a>
-<a href=#1402 id=1402 data-nosnippet>1402</a>			<span class="prelude-val">Ok</span>((balance1, balance2))
-<a href=#1403 id=1403 data-nosnippet>1403</a>		}
-<a href=#1404 id=1404 data-nosnippet>1404</a>
-<a href=#1405 id=1405 data-nosnippet>1405</a>		<span class="doccomment">/// Gets a quote for swapping an exact amount of `asset1` for `asset2`.
-<a href=#1406 id=1406 data-nosnippet>1406</a>		///
-<a href=#1407 id=1407 data-nosnippet>1407</a>		/// If `include_fee` is true, the quote will include the liquidity provider fee.
-<a href=#1408 id=1408 data-nosnippet>1408</a>		/// If the pool does not exist or has no liquidity, `None` is returned.
-<a href=#1409 id=1409 data-nosnippet>1409</a>		/// Note that the price may have changed by the time the transaction is executed.
-<a href=#1410 id=1410 data-nosnippet>1410</a>		/// (Use `amount_out_min` to control slippage.)
-<a href=#1411 id=1411 data-nosnippet>1411</a>		/// Returns `Some(quoted_amount)` on success.
-<a href=#1412 id=1412 data-nosnippet>1412</a>		</span><span class="kw">pub fn </span>quote_price_exact_tokens_for_tokens(
-<a href=#1413 id=1413 data-nosnippet>1413</a>			asset1: T::AssetKind,
-<a href=#1414 id=1414 data-nosnippet>1414</a>			asset2: T::AssetKind,
-<a href=#1415 id=1415 data-nosnippet>1415</a>			amount: T::Balance,
-<a href=#1416 id=1416 data-nosnippet>1416</a>			include_fee: bool,
-<a href=#1417 id=1417 data-nosnippet>1417</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;T::Balance&gt; {
-<a href=#1418 id=1418 data-nosnippet>1418</a>			<span class="comment">// Swaps reject zero amounts, match that behavior.
-<a href=#1419 id=1419 data-nosnippet>1419</a>			</span><span class="kw">if </span>amount.is_zero() {
-<a href=#1420 id=1420 data-nosnippet>1420</a>				<span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#1421 id=1421 data-nosnippet>1421</a>			}
-<a href=#1422 id=1422 data-nosnippet>1422</a>
-<a href=#1423 id=1423 data-nosnippet>1423</a>			<span class="kw">let </span>pool_account = T::PoolLocator::pool_address(<span class="kw-2">&amp;</span>asset1, <span class="kw-2">&amp;</span>asset2).ok()<span class="question-mark">?</span>;
-<a href=#1424 id=1424 data-nosnippet>1424</a>
-<a href=#1425 id=1425 data-nosnippet>1425</a>			<span class="kw">let </span>balance1 = <span class="self">Self</span>::get_balance(<span class="kw-2">&amp;</span>pool_account, asset1);
-<a href=#1426 id=1426 data-nosnippet>1426</a>			<span class="kw">let </span>balance2 = <span class="self">Self</span>::get_balance(<span class="kw-2">&amp;</span>pool_account, asset2.clone());
-<a href=#1427 id=1427 data-nosnippet>1427</a>
-<a href=#1428 id=1428 data-nosnippet>1428</a>			<span class="kw">if </span>balance1.is_zero() {
-<a href=#1429 id=1429 data-nosnippet>1429</a>				<span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#1430 id=1430 data-nosnippet>1430</a>			}
-<a href=#1431 id=1431 data-nosnippet>1431</a>
-<a href=#1432 id=1432 data-nosnippet>1432</a>			<span class="kw">let </span>amount_out = <span class="kw">if </span>include_fee {
-<a href=#1433 id=1433 data-nosnippet>1433</a>				<span class="self">Self</span>::get_amount_out(<span class="kw-2">&amp;</span>amount, <span class="kw-2">&amp;</span>balance1, <span class="kw-2">&amp;</span>balance2).ok()<span class="question-mark">?
-<a href=#1434 id=1434 data-nosnippet>1434</a>			</span>} <span class="kw">else </span>{
-<a href=#1435 id=1435 data-nosnippet>1435</a>				<span class="self">Self</span>::quote(<span class="kw-2">&amp;</span>amount, <span class="kw-2">&amp;</span>balance1, <span class="kw-2">&amp;</span>balance2).ok()<span class="question-mark">?
-<a href=#1436 id=1436 data-nosnippet>1436</a>			</span>};
-<a href=#1437 id=1437 data-nosnippet>1437</a>
-<a href=#1438 id=1438 data-nosnippet>1438</a>			<span class="comment">// Small inputs can round output to zero due to integer division.
-<a href=#1439 id=1439 data-nosnippet>1439</a>			</span><span class="kw">if </span>amount_out.is_zero() {
-<a href=#1440 id=1440 data-nosnippet>1440</a>				<span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#1441 id=1441 data-nosnippet>1441</a>			}
-<a href=#1442 id=1442 data-nosnippet>1442</a>
-<a href=#1443 id=1443 data-nosnippet>1443</a>			<span class="comment">// Swap withdrawals from pools use `keep_alive=true` (Preserve). Use the same
-<a href=#1444 id=1444 data-nosnippet>1444</a>			// preservation level to determine the actual withdrawable amount.
-<a href=#1445 id=1445 data-nosnippet>1445</a>			</span><span class="kw">let </span>max_output = T::Assets::reducible_balance(asset2, <span class="kw-2">&amp;</span>pool_account, Preserve, Polite);
-<a href=#1446 id=1446 data-nosnippet>1446</a>			<span class="kw">if </span>amount_out &gt; max_output {
-<a href=#1447 id=1447 data-nosnippet>1447</a>				<span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#1448 id=1448 data-nosnippet>1448</a>			}
-<a href=#1449 id=1449 data-nosnippet>1449</a>
-<a href=#1450 id=1450 data-nosnippet>1450</a>			<span class="prelude-val">Some</span>(amount_out)
-<a href=#1451 id=1451 data-nosnippet>1451</a>		}
-<a href=#1452 id=1452 data-nosnippet>1452</a>
-<a href=#1453 id=1453 data-nosnippet>1453</a>		<span class="doccomment">/// Gets a quote for swapping `amount` of `asset1` for an exact amount of `asset2`.
-<a href=#1454 id=1454 data-nosnippet>1454</a>		///
-<a href=#1455 id=1455 data-nosnippet>1455</a>		/// If `include_fee` is true, the quote will include the liquidity provider fee.
-<a href=#1456 id=1456 data-nosnippet>1456</a>		/// If the pool does not exist or has no liquidity, `None` is returned.
-<a href=#1457 id=1457 data-nosnippet>1457</a>		/// Note that the price may have changed by the time the transaction is executed.
-<a href=#1458 id=1458 data-nosnippet>1458</a>		/// (Use `amount_in_max` to control slippage.)
-<a href=#1459 id=1459 data-nosnippet>1459</a>		/// Returns `Some(quoted_amount)` on success.
-<a href=#1460 id=1460 data-nosnippet>1460</a>		</span><span class="kw">pub fn </span>quote_price_tokens_for_exact_tokens(
-<a href=#1461 id=1461 data-nosnippet>1461</a>			asset1: T::AssetKind,
-<a href=#1462 id=1462 data-nosnippet>1462</a>			asset2: T::AssetKind,
-<a href=#1463 id=1463 data-nosnippet>1463</a>			amount: T::Balance,
-<a href=#1464 id=1464 data-nosnippet>1464</a>			include_fee: bool,
-<a href=#1465 id=1465 data-nosnippet>1465</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;T::Balance&gt; {
-<a href=#1466 id=1466 data-nosnippet>1466</a>			<span class="comment">// Swaps reject zero amounts, match that behavior.
-<a href=#1467 id=1467 data-nosnippet>1467</a>			</span><span class="kw">if </span>amount.is_zero() {
-<a href=#1468 id=1468 data-nosnippet>1468</a>				<span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#1469 id=1469 data-nosnippet>1469</a>			}
-<a href=#1470 id=1470 data-nosnippet>1470</a>			<span class="kw">let </span>pool_account = T::PoolLocator::pool_address(<span class="kw-2">&amp;</span>asset1, <span class="kw-2">&amp;</span>asset2).ok()<span class="question-mark">?</span>;
+<a href=#825 id=825 data-nosnippet>825</a>			<span class="kw">let </span>(reserve1, reserve2) = <span class="self">Self</span>::get_reserves(asset1.clone(), asset2.clone())<span class="question-mark">?</span>;
+<a href=#826 id=826 data-nosnippet>826</a>
+<a href=#827 id=827 data-nosnippet>827</a>			<span class="kw">let </span>total_supply = T::PoolAssets::total_issuance(pool.lp_token.clone());
+<a href=#828 id=828 data-nosnippet>828</a>			<span class="kw">let </span>withdrawal_fee_amount = T::LiquidityWithdrawalFee::get() * lp_token_burn;
+<a href=#829 id=829 data-nosnippet>829</a>			<span class="kw">let </span>lp_redeem_amount = lp_token_burn.saturating_sub(withdrawal_fee_amount);
+<a href=#830 id=830 data-nosnippet>830</a>
+<a href=#831 id=831 data-nosnippet>831</a>			<span class="kw">let </span>amount1 = <span class="self">Self</span>::mul_div(<span class="kw-2">&amp;</span>lp_redeem_amount, <span class="kw-2">&amp;</span>reserve1, <span class="kw-2">&amp;</span>total_supply)<span class="question-mark">?</span>;
+<a href=#832 id=832 data-nosnippet>832</a>			<span class="kw">let </span>amount2 = <span class="self">Self</span>::mul_div(<span class="kw-2">&amp;</span>lp_redeem_amount, <span class="kw-2">&amp;</span>reserve2, <span class="kw-2">&amp;</span>total_supply)<span class="question-mark">?</span>;
+<a href=#833 id=833 data-nosnippet>833</a>
+<a href=#834 id=834 data-nosnippet>834</a>			<span class="macro">ensure!</span>(
+<a href=#835 id=835 data-nosnippet>835</a>				!amount1.is_zero() &amp;&amp; amount1 &gt;= amount1_min_receive,
+<a href=#836 id=836 data-nosnippet>836</a>				Error::&lt;T&gt;::AssetOneWithdrawalDidNotMeetMinimum
+<a href=#837 id=837 data-nosnippet>837</a>			);
+<a href=#838 id=838 data-nosnippet>838</a>			<span class="macro">ensure!</span>(
+<a href=#839 id=839 data-nosnippet>839</a>				!amount2.is_zero() &amp;&amp; amount2 &gt;= amount2_min_receive,
+<a href=#840 id=840 data-nosnippet>840</a>				Error::&lt;T&gt;::AssetTwoWithdrawalDidNotMeetMinimum
+<a href=#841 id=841 data-nosnippet>841</a>			);
+<a href=#842 id=842 data-nosnippet>842</a>			<span class="kw">let </span>reserve1_left = reserve1.saturating_sub(amount1);
+<a href=#843 id=843 data-nosnippet>843</a>			<span class="kw">let </span>reserve2_left = reserve2.saturating_sub(amount2);
+<a href=#844 id=844 data-nosnippet>844</a>			<span class="macro">ensure!</span>(
+<a href=#845 id=845 data-nosnippet>845</a>				reserve1_left &gt;= T::Assets::minimum_balance(asset1.clone()),
+<a href=#846 id=846 data-nosnippet>846</a>				Error::&lt;T&gt;::ReserveLeftLessThanMinimal
+<a href=#847 id=847 data-nosnippet>847</a>			);
+<a href=#848 id=848 data-nosnippet>848</a>			<span class="macro">ensure!</span>(
+<a href=#849 id=849 data-nosnippet>849</a>				reserve2_left &gt;= T::Assets::minimum_balance(asset2.clone()),
+<a href=#850 id=850 data-nosnippet>850</a>				Error::&lt;T&gt;::ReserveLeftLessThanMinimal
+<a href=#851 id=851 data-nosnippet>851</a>			);
+<a href=#852 id=852 data-nosnippet>852</a>
+<a href=#853 id=853 data-nosnippet>853</a>			<span class="comment">// burn the provided lp token amount that includes the fee
+<a href=#854 id=854 data-nosnippet>854</a>			</span>T::PoolAssets::burn_from(
+<a href=#855 id=855 data-nosnippet>855</a>				pool.lp_token.clone(),
+<a href=#856 id=856 data-nosnippet>856</a>				who,
+<a href=#857 id=857 data-nosnippet>857</a>				lp_token_burn,
+<a href=#858 id=858 data-nosnippet>858</a>				Expendable,
+<a href=#859 id=859 data-nosnippet>859</a>				Exact,
+<a href=#860 id=860 data-nosnippet>860</a>				Polite,
+<a href=#861 id=861 data-nosnippet>861</a>			)<span class="question-mark">?</span>;
+<a href=#862 id=862 data-nosnippet>862</a>
+<a href=#863 id=863 data-nosnippet>863</a>			T::Assets::transfer(asset1, <span class="kw-2">&amp;</span>pool_account, withdraw_to, amount1, Expendable)<span class="question-mark">?</span>;
+<a href=#864 id=864 data-nosnippet>864</a>			T::Assets::transfer(asset2, <span class="kw-2">&amp;</span>pool_account, withdraw_to, amount2, Expendable)<span class="question-mark">?</span>;
+<a href=#865 id=865 data-nosnippet>865</a>
+<a href=#866 id=866 data-nosnippet>866</a>			<span class="self">Self</span>::deposit_event(Event::LiquidityRemoved {
+<a href=#867 id=867 data-nosnippet>867</a>				who: who.clone(),
+<a href=#868 id=868 data-nosnippet>868</a>				withdraw_to: withdraw_to.clone(),
+<a href=#869 id=869 data-nosnippet>869</a>				pool_id,
+<a href=#870 id=870 data-nosnippet>870</a>				amount1,
+<a href=#871 id=871 data-nosnippet>871</a>				amount2,
+<a href=#872 id=872 data-nosnippet>872</a>				lp_token: pool.lp_token,
+<a href=#873 id=873 data-nosnippet>873</a>				lp_token_burned: lp_token_burn,
+<a href=#874 id=874 data-nosnippet>874</a>				withdrawal_fee: T::LiquidityWithdrawalFee::get(),
+<a href=#875 id=875 data-nosnippet>875</a>			});
+<a href=#876 id=876 data-nosnippet>876</a>
+<a href=#877 id=877 data-nosnippet>877</a>			<span class="prelude-val">Ok</span>((amount1, amount2))
+<a href=#878 id=878 data-nosnippet>878</a>		}
+<a href=#879 id=879 data-nosnippet>879</a>
+<a href=#880 id=880 data-nosnippet>880</a>		<span class="doccomment">/// Swap exactly `amount_in` of asset `path[0]` for asset `path[1]`.
+<a href=#881 id=881 data-nosnippet>881</a>		/// If an `amount_out_min` is specified, it will return an error if it is unable to acquire
+<a href=#882 id=882 data-nosnippet>882</a>		/// the amount desired.
+<a href=#883 id=883 data-nosnippet>883</a>		///
+<a href=#884 id=884 data-nosnippet>884</a>		/// Withdraws the `path[0]` asset from `sender`, deposits the `path[1]` asset to `send_to`,
+<a href=#885 id=885 data-nosnippet>885</a>		/// respecting `keep_alive`.
+<a href=#886 id=886 data-nosnippet>886</a>		///
+<a href=#887 id=887 data-nosnippet>887</a>		/// If successful, returns the amount of `path[1]` acquired for the `amount_in`.
+<a href=#888 id=888 data-nosnippet>888</a>		///
+<a href=#889 id=889 data-nosnippet>889</a>		/// WARNING: This may return an error after a partial storage mutation. It should be used
+<a href=#890 id=890 data-nosnippet>890</a>		/// only inside a transactional storage context and an Err result must imply a storage
+<a href=#891 id=891 data-nosnippet>891</a>		/// rollback.
+<a href=#892 id=892 data-nosnippet>892</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_swap_exact_tokens_for_tokens(
+<a href=#893 id=893 data-nosnippet>893</a>			sender: T::AccountId,
+<a href=#894 id=894 data-nosnippet>894</a>			path: Vec&lt;T::AssetKind&gt;,
+<a href=#895 id=895 data-nosnippet>895</a>			amount_in: T::Balance,
+<a href=#896 id=896 data-nosnippet>896</a>			amount_out_min: <span class="prelude-ty">Option</span>&lt;T::Balance&gt;,
+<a href=#897 id=897 data-nosnippet>897</a>			send_to: T::AccountId,
+<a href=#898 id=898 data-nosnippet>898</a>			keep_alive: bool,
+<a href=#899 id=899 data-nosnippet>899</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, DispatchError&gt; {
+<a href=#900 id=900 data-nosnippet>900</a>			<span class="macro">ensure!</span>(amount_in &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
+<a href=#901 id=901 data-nosnippet>901</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(amount_out_min) = amount_out_min {
+<a href=#902 id=902 data-nosnippet>902</a>				<span class="macro">ensure!</span>(amount_out_min &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
+<a href=#903 id=903 data-nosnippet>903</a>			}
+<a href=#904 id=904 data-nosnippet>904</a>
+<a href=#905 id=905 data-nosnippet>905</a>			<span class="self">Self</span>::validate_swap_path(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+<a href=#906 id=906 data-nosnippet>906</a>			<span class="kw">let </span>path = <span class="self">Self</span>::balance_path_from_amount_in(amount_in, path)<span class="question-mark">?</span>;
+<a href=#907 id=907 data-nosnippet>907</a>
+<a href=#908 id=908 data-nosnippet>908</a>			<span class="kw">let </span>amount_out = path.last().map(|(<span class="kw">_</span>, a)| <span class="kw-2">*</span>a).ok_or(Error::&lt;T&gt;::InvalidPath)<span class="question-mark">?</span>;
+<a href=#909 id=909 data-nosnippet>909</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(amount_out_min) = amount_out_min {
+<a href=#910 id=910 data-nosnippet>910</a>				<span class="macro">ensure!</span>(
+<a href=#911 id=911 data-nosnippet>911</a>					amount_out &gt;= amount_out_min,
+<a href=#912 id=912 data-nosnippet>912</a>					Error::&lt;T&gt;::ProvidedMinimumNotSufficientForSwap
+<a href=#913 id=913 data-nosnippet>913</a>				);
+<a href=#914 id=914 data-nosnippet>914</a>			}
+<a href=#915 id=915 data-nosnippet>915</a>
+<a href=#916 id=916 data-nosnippet>916</a>			<span class="self">Self</span>::swap(<span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>send_to, keep_alive)<span class="question-mark">?</span>;
+<a href=#917 id=917 data-nosnippet>917</a>
+<a href=#918 id=918 data-nosnippet>918</a>			<span class="self">Self</span>::deposit_event(Event::SwapExecuted {
+<a href=#919 id=919 data-nosnippet>919</a>				who: sender,
+<a href=#920 id=920 data-nosnippet>920</a>				send_to,
+<a href=#921 id=921 data-nosnippet>921</a>				amount_in,
+<a href=#922 id=922 data-nosnippet>922</a>				amount_out,
+<a href=#923 id=923 data-nosnippet>923</a>				path,
+<a href=#924 id=924 data-nosnippet>924</a>			});
+<a href=#925 id=925 data-nosnippet>925</a>			<span class="prelude-val">Ok</span>(amount_out)
+<a href=#926 id=926 data-nosnippet>926</a>		}
+<a href=#927 id=927 data-nosnippet>927</a>
+<a href=#928 id=928 data-nosnippet>928</a>		<span class="doccomment">/// Take the `path[0]` asset and swap some amount for `amount_out` of the `path[1]`. If an
+<a href=#929 id=929 data-nosnippet>929</a>		/// `amount_in_max` is specified, it will return an error if acquiring `amount_out` would be
+<a href=#930 id=930 data-nosnippet>930</a>		/// too costly.
+<a href=#931 id=931 data-nosnippet>931</a>		///
+<a href=#932 id=932 data-nosnippet>932</a>		/// Withdraws `path[0]` asset from `sender`, deposits the `path[1]` asset to `send_to`,
+<a href=#933 id=933 data-nosnippet>933</a>		/// respecting `keep_alive`.
+<a href=#934 id=934 data-nosnippet>934</a>		///
+<a href=#935 id=935 data-nosnippet>935</a>		/// If successful returns the amount of the `path[0]` taken to provide `path[1]`.
+<a href=#936 id=936 data-nosnippet>936</a>		///
+<a href=#937 id=937 data-nosnippet>937</a>		/// WARNING: This may return an error after a partial storage mutation. It should be used
+<a href=#938 id=938 data-nosnippet>938</a>		/// only inside a transactional storage context and an Err result must imply a storage
+<a href=#939 id=939 data-nosnippet>939</a>		/// rollback.
+<a href=#940 id=940 data-nosnippet>940</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_swap_tokens_for_exact_tokens(
+<a href=#941 id=941 data-nosnippet>941</a>			sender: T::AccountId,
+<a href=#942 id=942 data-nosnippet>942</a>			path: Vec&lt;T::AssetKind&gt;,
+<a href=#943 id=943 data-nosnippet>943</a>			amount_out: T::Balance,
+<a href=#944 id=944 data-nosnippet>944</a>			amount_in_max: <span class="prelude-ty">Option</span>&lt;T::Balance&gt;,
+<a href=#945 id=945 data-nosnippet>945</a>			send_to: T::AccountId,
+<a href=#946 id=946 data-nosnippet>946</a>			keep_alive: bool,
+<a href=#947 id=947 data-nosnippet>947</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, DispatchError&gt; {
+<a href=#948 id=948 data-nosnippet>948</a>			<span class="macro">ensure!</span>(amount_out &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
+<a href=#949 id=949 data-nosnippet>949</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(amount_in_max) = amount_in_max {
+<a href=#950 id=950 data-nosnippet>950</a>				<span class="macro">ensure!</span>(amount_in_max &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
+<a href=#951 id=951 data-nosnippet>951</a>			}
+<a href=#952 id=952 data-nosnippet>952</a>
+<a href=#953 id=953 data-nosnippet>953</a>			<span class="self">Self</span>::validate_swap_path(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+<a href=#954 id=954 data-nosnippet>954</a>			<span class="kw">let </span>path = <span class="self">Self</span>::balance_path_from_amount_out(amount_out, path)<span class="question-mark">?</span>;
+<a href=#955 id=955 data-nosnippet>955</a>
+<a href=#956 id=956 data-nosnippet>956</a>			<span class="kw">let </span>amount_in = path.first().map(|(<span class="kw">_</span>, a)| <span class="kw-2">*</span>a).ok_or(Error::&lt;T&gt;::InvalidPath)<span class="question-mark">?</span>;
+<a href=#957 id=957 data-nosnippet>957</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(amount_in_max) = amount_in_max {
+<a href=#958 id=958 data-nosnippet>958</a>				<span class="macro">ensure!</span>(
+<a href=#959 id=959 data-nosnippet>959</a>					amount_in &lt;= amount_in_max,
+<a href=#960 id=960 data-nosnippet>960</a>					Error::&lt;T&gt;::ProvidedMaximumNotSufficientForSwap
+<a href=#961 id=961 data-nosnippet>961</a>				);
+<a href=#962 id=962 data-nosnippet>962</a>			}
+<a href=#963 id=963 data-nosnippet>963</a>
+<a href=#964 id=964 data-nosnippet>964</a>			<span class="self">Self</span>::swap(<span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>send_to, keep_alive)<span class="question-mark">?</span>;
+<a href=#965 id=965 data-nosnippet>965</a>
+<a href=#966 id=966 data-nosnippet>966</a>			<span class="self">Self</span>::deposit_event(Event::SwapExecuted {
+<a href=#967 id=967 data-nosnippet>967</a>				who: sender,
+<a href=#968 id=968 data-nosnippet>968</a>				send_to,
+<a href=#969 id=969 data-nosnippet>969</a>				amount_in,
+<a href=#970 id=970 data-nosnippet>970</a>				amount_out,
+<a href=#971 id=971 data-nosnippet>971</a>				path,
+<a href=#972 id=972 data-nosnippet>972</a>			});
+<a href=#973 id=973 data-nosnippet>973</a>
+<a href=#974 id=974 data-nosnippet>974</a>			<span class="prelude-val">Ok</span>(amount_in)
+<a href=#975 id=975 data-nosnippet>975</a>		}
+<a href=#976 id=976 data-nosnippet>976</a>
+<a href=#977 id=977 data-nosnippet>977</a>		<span class="doccomment">/// Swap exactly `credit_in` of asset `path[0]` for asset `path[last]`.  If `amount_out_min`
+<a href=#978 id=978 data-nosnippet>978</a>		/// is provided and the swap can't achieve at least this amount, an error is returned.
+<a href=#979 id=979 data-nosnippet>979</a>		///
+<a href=#980 id=980 data-nosnippet>980</a>		/// On a successful swap, the function returns the `credit_out` of `path[last]` obtained
+<a href=#981 id=981 data-nosnippet>981</a>		/// from the `credit_in`. On failure, it returns an `Err` containing the original
+<a href=#982 id=982 data-nosnippet>982</a>		/// `credit_in` and the associated error code.
+<a href=#983 id=983 data-nosnippet>983</a>		///
+<a href=#984 id=984 data-nosnippet>984</a>		/// WARNING: This may return an error after a partial storage mutation. It should be used
+<a href=#985 id=985 data-nosnippet>985</a>		/// only inside a transactional storage context and an Err result must imply a storage
+<a href=#986 id=986 data-nosnippet>986</a>		/// rollback.
+<a href=#987 id=987 data-nosnippet>987</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_swap_exact_credit_tokens_for_tokens(
+<a href=#988 id=988 data-nosnippet>988</a>			path: Vec&lt;T::AssetKind&gt;,
+<a href=#989 id=989 data-nosnippet>989</a>			credit_in: CreditOf&lt;T&gt;,
+<a href=#990 id=990 data-nosnippet>990</a>			amount_out_min: <span class="prelude-ty">Option</span>&lt;T::Balance&gt;,
+<a href=#991 id=991 data-nosnippet>991</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;CreditOf&lt;T&gt;, (CreditOf&lt;T&gt;, DispatchError)&gt; {
+<a href=#992 id=992 data-nosnippet>992</a>			<span class="kw">let </span>amount_in = credit_in.peek();
+<a href=#993 id=993 data-nosnippet>993</a>			<span class="kw">let </span>inspect_path = |credit_asset| {
+<a href=#994 id=994 data-nosnippet>994</a>				<span class="macro">ensure!</span>(
+<a href=#995 id=995 data-nosnippet>995</a>					path.first().map_or(<span class="bool-val">false</span>, |a| <span class="kw-2">*</span>a == credit_asset),
+<a href=#996 id=996 data-nosnippet>996</a>					Error::&lt;T&gt;::InvalidPath
+<a href=#997 id=997 data-nosnippet>997</a>				);
+<a href=#998 id=998 data-nosnippet>998</a>				<span class="macro">ensure!</span>(!amount_in.is_zero(), Error::&lt;T&gt;::ZeroAmount);
+<a href=#999 id=999 data-nosnippet>999</a>				<span class="macro">ensure!</span>(amount_out_min.map_or(<span class="bool-val">true</span>, |a| !a.is_zero()), Error::&lt;T&gt;::ZeroAmount);
+<a href=#1000 id=1000 data-nosnippet>1000</a>
+<a href=#1001 id=1001 data-nosnippet>1001</a>				<span class="self">Self</span>::validate_swap_path(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+<a href=#1002 id=1002 data-nosnippet>1002</a>				<span class="kw">let </span>path = <span class="self">Self</span>::balance_path_from_amount_in(amount_in, path)<span class="question-mark">?</span>;
+<a href=#1003 id=1003 data-nosnippet>1003</a>
+<a href=#1004 id=1004 data-nosnippet>1004</a>				<span class="kw">let </span>amount_out = path.last().map(|(<span class="kw">_</span>, a)| <span class="kw-2">*</span>a).ok_or(Error::&lt;T&gt;::InvalidPath)<span class="question-mark">?</span>;
+<a href=#1005 id=1005 data-nosnippet>1005</a>				<span class="macro">ensure!</span>(
+<a href=#1006 id=1006 data-nosnippet>1006</a>					amount_out_min.map_or(<span class="bool-val">true</span>, |a| amount_out &gt;= a),
+<a href=#1007 id=1007 data-nosnippet>1007</a>					Error::&lt;T&gt;::ProvidedMinimumNotSufficientForSwap
+<a href=#1008 id=1008 data-nosnippet>1008</a>				);
+<a href=#1009 id=1009 data-nosnippet>1009</a>				<span class="prelude-val">Ok</span>((path, amount_out))
+<a href=#1010 id=1010 data-nosnippet>1010</a>			};
+<a href=#1011 id=1011 data-nosnippet>1011</a>			<span class="kw">let </span>(path, amount_out) = <span class="kw">match </span>inspect_path(credit_in.asset()) {
+<a href=#1012 id=1012 data-nosnippet>1012</a>				<span class="prelude-val">Ok</span>((p, a)) =&gt; (p, a),
+<a href=#1013 id=1013 data-nosnippet>1013</a>				<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>((credit_in, e)),
+<a href=#1014 id=1014 data-nosnippet>1014</a>			};
+<a href=#1015 id=1015 data-nosnippet>1015</a>
+<a href=#1016 id=1016 data-nosnippet>1016</a>			<span class="kw">let </span>credit_out = <span class="self">Self</span>::credit_swap(credit_in, <span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+<a href=#1017 id=1017 data-nosnippet>1017</a>
+<a href=#1018 id=1018 data-nosnippet>1018</a>			<span class="self">Self</span>::deposit_event(Event::SwapCreditExecuted { amount_in, amount_out, path });
+<a href=#1019 id=1019 data-nosnippet>1019</a>
+<a href=#1020 id=1020 data-nosnippet>1020</a>			<span class="prelude-val">Ok</span>(credit_out)
+<a href=#1021 id=1021 data-nosnippet>1021</a>		}
+<a href=#1022 id=1022 data-nosnippet>1022</a>
+<a href=#1023 id=1023 data-nosnippet>1023</a>		<span class="doccomment">/// Swaps a portion of `credit_in` of `path[0]` asset to obtain the desired `amount_out` of
+<a href=#1024 id=1024 data-nosnippet>1024</a>		/// the `path[last]` asset. The provided `credit_in` must be adequate to achieve the target
+<a href=#1025 id=1025 data-nosnippet>1025</a>		/// `amount_out`, or an error will occur.
+<a href=#1026 id=1026 data-nosnippet>1026</a>		///
+<a href=#1027 id=1027 data-nosnippet>1027</a>		/// On success, the function returns a (`credit_out`, `credit_change`) tuple, where
+<a href=#1028 id=1028 data-nosnippet>1028</a>		/// `credit_out` represents the acquired amount of the `path[last]` asset, and
+<a href=#1029 id=1029 data-nosnippet>1029</a>		/// `credit_change` is the remaining portion from the `credit_in`. On failure, an `Err` with
+<a href=#1030 id=1030 data-nosnippet>1030</a>		/// the initial `credit_in` and error code is returned.
+<a href=#1031 id=1031 data-nosnippet>1031</a>		///
+<a href=#1032 id=1032 data-nosnippet>1032</a>		/// WARNING: This may return an error after a partial storage mutation. It should be used
+<a href=#1033 id=1033 data-nosnippet>1033</a>		/// only inside a transactional storage context and an Err result must imply a storage
+<a href=#1034 id=1034 data-nosnippet>1034</a>		/// rollback.
+<a href=#1035 id=1035 data-nosnippet>1035</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_swap_credit_tokens_for_exact_tokens(
+<a href=#1036 id=1036 data-nosnippet>1036</a>			path: Vec&lt;T::AssetKind&gt;,
+<a href=#1037 id=1037 data-nosnippet>1037</a>			credit_in: CreditOf&lt;T&gt;,
+<a href=#1038 id=1038 data-nosnippet>1038</a>			amount_out: T::Balance,
+<a href=#1039 id=1039 data-nosnippet>1039</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;(CreditOf&lt;T&gt;, CreditOf&lt;T&gt;), (CreditOf&lt;T&gt;, DispatchError)&gt; {
+<a href=#1040 id=1040 data-nosnippet>1040</a>			<span class="kw">let </span>amount_in_max = credit_in.peek();
+<a href=#1041 id=1041 data-nosnippet>1041</a>			<span class="kw">let </span>inspect_path = |credit_asset| {
+<a href=#1042 id=1042 data-nosnippet>1042</a>				<span class="macro">ensure!</span>(
+<a href=#1043 id=1043 data-nosnippet>1043</a>					path.first().map_or(<span class="bool-val">false</span>, |a| a == <span class="kw-2">&amp;</span>credit_asset),
+<a href=#1044 id=1044 data-nosnippet>1044</a>					Error::&lt;T&gt;::InvalidPath
+<a href=#1045 id=1045 data-nosnippet>1045</a>				);
+<a href=#1046 id=1046 data-nosnippet>1046</a>				<span class="macro">ensure!</span>(amount_in_max &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
+<a href=#1047 id=1047 data-nosnippet>1047</a>				<span class="macro">ensure!</span>(amount_out &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
+<a href=#1048 id=1048 data-nosnippet>1048</a>
+<a href=#1049 id=1049 data-nosnippet>1049</a>				<span class="self">Self</span>::validate_swap_path(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+<a href=#1050 id=1050 data-nosnippet>1050</a>				<span class="kw">let </span>path = <span class="self">Self</span>::balance_path_from_amount_out(amount_out, path)<span class="question-mark">?</span>;
+<a href=#1051 id=1051 data-nosnippet>1051</a>
+<a href=#1052 id=1052 data-nosnippet>1052</a>				<span class="kw">let </span>amount_in = path.first().map(|(<span class="kw">_</span>, a)| <span class="kw-2">*</span>a).ok_or(Error::&lt;T&gt;::InvalidPath)<span class="question-mark">?</span>;
+<a href=#1053 id=1053 data-nosnippet>1053</a>				<span class="macro">ensure!</span>(
+<a href=#1054 id=1054 data-nosnippet>1054</a>					amount_in &lt;= amount_in_max,
+<a href=#1055 id=1055 data-nosnippet>1055</a>					Error::&lt;T&gt;::ProvidedMaximumNotSufficientForSwap
+<a href=#1056 id=1056 data-nosnippet>1056</a>				);
+<a href=#1057 id=1057 data-nosnippet>1057</a>
+<a href=#1058 id=1058 data-nosnippet>1058</a>				<span class="prelude-val">Ok</span>((path, amount_in))
+<a href=#1059 id=1059 data-nosnippet>1059</a>			};
+<a href=#1060 id=1060 data-nosnippet>1060</a>			<span class="kw">let </span>(path, amount_in) = <span class="kw">match </span>inspect_path(credit_in.asset()) {
+<a href=#1061 id=1061 data-nosnippet>1061</a>				<span class="prelude-val">Ok</span>((p, a)) =&gt; (p, a),
+<a href=#1062 id=1062 data-nosnippet>1062</a>				<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>((credit_in, e)),
+<a href=#1063 id=1063 data-nosnippet>1063</a>			};
+<a href=#1064 id=1064 data-nosnippet>1064</a>
+<a href=#1065 id=1065 data-nosnippet>1065</a>			<span class="kw">let </span>(credit_in, credit_change) = credit_in.split(amount_in);
+<a href=#1066 id=1066 data-nosnippet>1066</a>			<span class="kw">let </span>credit_out = <span class="self">Self</span>::credit_swap(credit_in, <span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+<a href=#1067 id=1067 data-nosnippet>1067</a>
+<a href=#1068 id=1068 data-nosnippet>1068</a>			<span class="self">Self</span>::deposit_event(Event::SwapCreditExecuted { amount_in, amount_out, path });
+<a href=#1069 id=1069 data-nosnippet>1069</a>
+<a href=#1070 id=1070 data-nosnippet>1070</a>			<span class="prelude-val">Ok</span>((credit_out, credit_change))
+<a href=#1071 id=1071 data-nosnippet>1071</a>		}
+<a href=#1072 id=1072 data-nosnippet>1072</a>
+<a href=#1073 id=1073 data-nosnippet>1073</a>		<span class="doccomment">/// Swap assets along the `path`, withdrawing from `sender` and depositing in `send_to`.
+<a href=#1074 id=1074 data-nosnippet>1074</a>		///
+<a href=#1075 id=1075 data-nosnippet>1075</a>		/// Note: It's assumed that the provided `path` is valid.
+<a href=#1076 id=1076 data-nosnippet>1076</a>		///
+<a href=#1077 id=1077 data-nosnippet>1077</a>		/// WARNING: This may return an error after a partial storage mutation. It should be used
+<a href=#1078 id=1078 data-nosnippet>1078</a>		/// only inside a transactional storage context and an Err result must imply a storage
+<a href=#1079 id=1079 data-nosnippet>1079</a>		/// rollback.
+<a href=#1080 id=1080 data-nosnippet>1080</a>		</span><span class="kw">fn </span>swap(
+<a href=#1081 id=1081 data-nosnippet>1081</a>			sender: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#1082 id=1082 data-nosnippet>1082</a>			path: <span class="kw-2">&amp;</span>BalancePath&lt;T&gt;,
+<a href=#1083 id=1083 data-nosnippet>1083</a>			send_to: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#1084 id=1084 data-nosnippet>1084</a>			keep_alive: bool,
+<a href=#1085 id=1085 data-nosnippet>1085</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+<a href=#1086 id=1086 data-nosnippet>1086</a>			<span class="kw">let </span>(asset_in, amount_in) = path.first().ok_or(Error::&lt;T&gt;::InvalidPath)<span class="question-mark">?</span>;
+<a href=#1087 id=1087 data-nosnippet>1087</a>			<span class="kw">let </span>credit_in = <span class="self">Self</span>::withdraw(asset_in.clone(), sender, <span class="kw-2">*</span>amount_in, keep_alive)<span class="question-mark">?</span>;
+<a href=#1088 id=1088 data-nosnippet>1088</a>
+<a href=#1089 id=1089 data-nosnippet>1089</a>			<span class="kw">let </span>credit_out = <span class="self">Self</span>::credit_swap(credit_in, path).map_err(|(<span class="kw">_</span>, e)| e)<span class="question-mark">?</span>;
+<a href=#1090 id=1090 data-nosnippet>1090</a>			T::Assets::resolve(send_to, credit_out).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::BelowMinimum)<span class="question-mark">?</span>;
+<a href=#1091 id=1091 data-nosnippet>1091</a>
+<a href=#1092 id=1092 data-nosnippet>1092</a>			<span class="prelude-val">Ok</span>(())
+<a href=#1093 id=1093 data-nosnippet>1093</a>		}
+<a href=#1094 id=1094 data-nosnippet>1094</a>
+<a href=#1095 id=1095 data-nosnippet>1095</a>		<span class="doccomment">/// Swap assets along the specified `path`, consuming `credit_in` and producing
+<a href=#1096 id=1096 data-nosnippet>1096</a>		/// `credit_out`.
+<a href=#1097 id=1097 data-nosnippet>1097</a>		///
+<a href=#1098 id=1098 data-nosnippet>1098</a>		/// If an error occurs, `credit_in` is returned back.
+<a href=#1099 id=1099 data-nosnippet>1099</a>		///
+<a href=#1100 id=1100 data-nosnippet>1100</a>		/// Note: It's assumed that the provided `path` is valid and `credit_in` corresponds to the
+<a href=#1101 id=1101 data-nosnippet>1101</a>		/// first asset in the `path`.
+<a href=#1102 id=1102 data-nosnippet>1102</a>		///
+<a href=#1103 id=1103 data-nosnippet>1103</a>		/// WARNING: This may return an error after a partial storage mutation. It should be used
+<a href=#1104 id=1104 data-nosnippet>1104</a>		/// only inside a transactional storage context and an Err result must imply a storage
+<a href=#1105 id=1105 data-nosnippet>1105</a>		/// rollback.
+<a href=#1106 id=1106 data-nosnippet>1106</a>		</span><span class="kw">fn </span>credit_swap(
+<a href=#1107 id=1107 data-nosnippet>1107</a>			credit_in: CreditOf&lt;T&gt;,
+<a href=#1108 id=1108 data-nosnippet>1108</a>			path: <span class="kw-2">&amp;</span>BalancePath&lt;T&gt;,
+<a href=#1109 id=1109 data-nosnippet>1109</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;CreditOf&lt;T&gt;, (CreditOf&lt;T&gt;, DispatchError)&gt; {
+<a href=#1110 id=1110 data-nosnippet>1110</a>			<span class="kw">let </span>resolve_path = || -&gt; <span class="prelude-ty">Result</span>&lt;CreditOf&lt;T&gt;, DispatchError&gt; {
+<a href=#1111 id=1111 data-nosnippet>1111</a>				<span class="kw">for </span>pos <span class="kw">in </span><span class="number">0</span>..=path.len() {
+<a href=#1112 id=1112 data-nosnippet>1112</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>([(asset1, <span class="kw">_</span>), (asset2, amount_out)]) = path.get(pos..=pos + <span class="number">1</span>) {
+<a href=#1113 id=1113 data-nosnippet>1113</a>						<span class="kw">let </span>pool_from = T::PoolLocator::pool_address(asset1, asset2)
+<a href=#1114 id=1114 data-nosnippet>1114</a>							.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidAssetPair)<span class="question-mark">?</span>;
+<a href=#1115 id=1115 data-nosnippet>1115</a>
+<a href=#1116 id=1116 data-nosnippet>1116</a>						<span class="kw">if let </span><span class="prelude-val">Some</span>((asset3, <span class="kw">_</span>)) = path.get(pos + <span class="number">2</span>) {
+<a href=#1117 id=1117 data-nosnippet>1117</a>							<span class="kw">let </span>pool_to = T::PoolLocator::pool_address(asset2, asset3)
+<a href=#1118 id=1118 data-nosnippet>1118</a>								.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidAssetPair)<span class="question-mark">?</span>;
+<a href=#1119 id=1119 data-nosnippet>1119</a>
+<a href=#1120 id=1120 data-nosnippet>1120</a>							T::Assets::transfer(
+<a href=#1121 id=1121 data-nosnippet>1121</a>								asset2.clone(),
+<a href=#1122 id=1122 data-nosnippet>1122</a>								<span class="kw-2">&amp;</span>pool_from,
+<a href=#1123 id=1123 data-nosnippet>1123</a>								<span class="kw-2">&amp;</span>pool_to,
+<a href=#1124 id=1124 data-nosnippet>1124</a>								<span class="kw-2">*</span>amount_out,
+<a href=#1125 id=1125 data-nosnippet>1125</a>								Preserve,
+<a href=#1126 id=1126 data-nosnippet>1126</a>							)<span class="question-mark">?</span>;
+<a href=#1127 id=1127 data-nosnippet>1127</a>						} <span class="kw">else </span>{
+<a href=#1128 id=1128 data-nosnippet>1128</a>							<span class="kw">let </span>credit_out =
+<a href=#1129 id=1129 data-nosnippet>1129</a>								<span class="self">Self</span>::withdraw(asset2.clone(), <span class="kw-2">&amp;</span>pool_from, <span class="kw-2">*</span>amount_out, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
+<a href=#1130 id=1130 data-nosnippet>1130</a>							<span class="kw">return </span><span class="prelude-val">Ok</span>(credit_out);
+<a href=#1131 id=1131 data-nosnippet>1131</a>						}
+<a href=#1132 id=1132 data-nosnippet>1132</a>					}
+<a href=#1133 id=1133 data-nosnippet>1133</a>				}
+<a href=#1134 id=1134 data-nosnippet>1134</a>				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::InvalidPath.into())
+<a href=#1135 id=1135 data-nosnippet>1135</a>			};
+<a href=#1136 id=1136 data-nosnippet>1136</a>
+<a href=#1137 id=1137 data-nosnippet>1137</a>			<span class="kw">let </span>credit_out = <span class="kw">match </span>resolve_path() {
+<a href=#1138 id=1138 data-nosnippet>1138</a>				<span class="prelude-val">Ok</span>(c) =&gt; c,
+<a href=#1139 id=1139 data-nosnippet>1139</a>				<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>((credit_in, e)),
+<a href=#1140 id=1140 data-nosnippet>1140</a>			};
+<a href=#1141 id=1141 data-nosnippet>1141</a>
+<a href=#1142 id=1142 data-nosnippet>1142</a>			<span class="kw">let </span>pool_to = <span class="kw">if let </span><span class="prelude-val">Some</span>([(asset1, <span class="kw">_</span>), (asset2, <span class="kw">_</span>)]) = path.get(<span class="number">0</span>..<span class="number">2</span>) {
+<a href=#1143 id=1143 data-nosnippet>1143</a>				<span class="kw">match </span>T::PoolLocator::pool_address(asset1, asset2) {
+<a href=#1144 id=1144 data-nosnippet>1144</a>					<span class="prelude-val">Ok</span>(address) =&gt; address,
+<a href=#1145 id=1145 data-nosnippet>1145</a>					<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>((credit_in, Error::&lt;T&gt;::InvalidAssetPair.into())),
+<a href=#1146 id=1146 data-nosnippet>1146</a>				}
+<a href=#1147 id=1147 data-nosnippet>1147</a>			} <span class="kw">else </span>{
+<a href=#1148 id=1148 data-nosnippet>1148</a>				<span class="kw">return </span><span class="prelude-val">Err</span>((credit_in, Error::&lt;T&gt;::InvalidPath.into()));
+<a href=#1149 id=1149 data-nosnippet>1149</a>			};
+<a href=#1150 id=1150 data-nosnippet>1150</a>
+<a href=#1151 id=1151 data-nosnippet>1151</a>			T::Assets::resolve(<span class="kw-2">&amp;</span>pool_to, credit_in)
+<a href=#1152 id=1152 data-nosnippet>1152</a>				.map_err(|c| (c, Error::&lt;T&gt;::BelowMinimum.into()))<span class="question-mark">?</span>;
+<a href=#1153 id=1153 data-nosnippet>1153</a>
+<a href=#1154 id=1154 data-nosnippet>1154</a>			<span class="prelude-val">Ok</span>(credit_out)
+<a href=#1155 id=1155 data-nosnippet>1155</a>		}
+<a href=#1156 id=1156 data-nosnippet>1156</a>
+<a href=#1157 id=1157 data-nosnippet>1157</a>		<span class="doccomment">/// Removes `value` balance of `asset` from `who` account if possible.
+<a href=#1158 id=1158 data-nosnippet>1158</a>		</span><span class="kw">fn </span>withdraw(
+<a href=#1159 id=1159 data-nosnippet>1159</a>			asset: T::AssetKind,
+<a href=#1160 id=1160 data-nosnippet>1160</a>			who: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#1161 id=1161 data-nosnippet>1161</a>			value: T::Balance,
+<a href=#1162 id=1162 data-nosnippet>1162</a>			keep_alive: bool,
+<a href=#1163 id=1163 data-nosnippet>1163</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;CreditOf&lt;T&gt;, DispatchError&gt; {
+<a href=#1164 id=1164 data-nosnippet>1164</a>			<span class="kw">let </span>preservation = <span class="kw">match </span>keep_alive {
+<a href=#1165 id=1165 data-nosnippet>1165</a>				<span class="bool-val">true </span>=&gt; Preserve,
+<a href=#1166 id=1166 data-nosnippet>1166</a>				<span class="bool-val">false </span>=&gt; Expendable,
+<a href=#1167 id=1167 data-nosnippet>1167</a>			};
+<a href=#1168 id=1168 data-nosnippet>1168</a>			<span class="kw">if </span>preservation == Preserve {
+<a href=#1169 id=1169 data-nosnippet>1169</a>				<span class="comment">// TODO drop the ensure! when this issue addressed
+<a href=#1170 id=1170 data-nosnippet>1170</a>				// https://github.com/paritytech/polkadot-sdk/issues/1698
+<a href=#1171 id=1171 data-nosnippet>1171</a>				</span><span class="kw">let </span>free = T::Assets::reducible_balance(asset.clone(), who, preservation, Polite);
+<a href=#1172 id=1172 data-nosnippet>1172</a>				<span class="macro">ensure!</span>(free &gt;= value, TokenError::NotExpendable);
+<a href=#1173 id=1173 data-nosnippet>1173</a>			}
+<a href=#1174 id=1174 data-nosnippet>1174</a>			T::Assets::withdraw(asset, who, value, Exact, preservation, Polite)
+<a href=#1175 id=1175 data-nosnippet>1175</a>		}
+<a href=#1176 id=1176 data-nosnippet>1176</a>
+<a href=#1177 id=1177 data-nosnippet>1177</a>		<span class="doccomment">/// Get the `owner`'s balance of `asset`, which could be the chain's native asset or another
+<a href=#1178 id=1178 data-nosnippet>1178</a>		/// fungible. Returns a value in the form of an `Balance`.
+<a href=#1179 id=1179 data-nosnippet>1179</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_balance(owner: <span class="kw-2">&amp;</span>T::AccountId, asset: T::AssetKind) -&gt; T::Balance {
+<a href=#1180 id=1180 data-nosnippet>1180</a>			T::Assets::balance(asset, owner)
+<a href=#1181 id=1181 data-nosnippet>1181</a>		}
+<a href=#1182 id=1182 data-nosnippet>1182</a>
+<a href=#1183 id=1183 data-nosnippet>1183</a>		<span class="doccomment">/// Leading to an amount at the end of a `path`, get the required amounts in.
+<a href=#1184 id=1184 data-nosnippet>1184</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>balance_path_from_amount_out(
+<a href=#1185 id=1185 data-nosnippet>1185</a>			amount_out: T::Balance,
+<a href=#1186 id=1186 data-nosnippet>1186</a>			path: Vec&lt;T::AssetKind&gt;,
+<a href=#1187 id=1187 data-nosnippet>1187</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;BalancePath&lt;T&gt;, DispatchError&gt; {
+<a href=#1188 id=1188 data-nosnippet>1188</a>			<span class="kw">let </span><span class="kw-2">mut </span>balance_path: BalancePath&lt;T&gt; = Vec::with_capacity(path.len());
+<a href=#1189 id=1189 data-nosnippet>1189</a>			<span class="kw">let </span><span class="kw-2">mut </span>amount_in: T::Balance = amount_out;
+<a href=#1190 id=1190 data-nosnippet>1190</a>
+<a href=#1191 id=1191 data-nosnippet>1191</a>			<span class="kw">let </span><span class="kw-2">mut </span>iter = path.into_iter().rev().peekable();
+<a href=#1192 id=1192 data-nosnippet>1192</a>			<span class="kw">while let </span><span class="prelude-val">Some</span>(asset2) = iter.next() {
+<a href=#1193 id=1193 data-nosnippet>1193</a>				<span class="kw">let </span>asset1 = <span class="kw">match </span>iter.peek() {
+<a href=#1194 id=1194 data-nosnippet>1194</a>					<span class="prelude-val">Some</span>(a) =&gt; a,
+<a href=#1195 id=1195 data-nosnippet>1195</a>					<span class="prelude-val">None </span>=&gt; {
+<a href=#1196 id=1196 data-nosnippet>1196</a>						balance_path.push((asset2, amount_in));
+<a href=#1197 id=1197 data-nosnippet>1197</a>						<span class="kw">break</span>;
+<a href=#1198 id=1198 data-nosnippet>1198</a>					},
+<a href=#1199 id=1199 data-nosnippet>1199</a>				};
+<a href=#1200 id=1200 data-nosnippet>1200</a>				<span class="kw">let </span>(reserve_in, reserve_out) = <span class="self">Self</span>::get_reserves(asset1.clone(), asset2.clone())<span class="question-mark">?</span>;
+<a href=#1201 id=1201 data-nosnippet>1201</a>				balance_path.push((asset2, amount_in));
+<a href=#1202 id=1202 data-nosnippet>1202</a>				amount_in = <span class="self">Self</span>::get_amount_in(<span class="kw-2">&amp;</span>amount_in, <span class="kw-2">&amp;</span>reserve_in, <span class="kw-2">&amp;</span>reserve_out)<span class="question-mark">?</span>;
+<a href=#1203 id=1203 data-nosnippet>1203</a>			}
+<a href=#1204 id=1204 data-nosnippet>1204</a>			balance_path.reverse();
+<a href=#1205 id=1205 data-nosnippet>1205</a>
+<a href=#1206 id=1206 data-nosnippet>1206</a>			<span class="prelude-val">Ok</span>(balance_path)
+<a href=#1207 id=1207 data-nosnippet>1207</a>		}
+<a href=#1208 id=1208 data-nosnippet>1208</a>
+<a href=#1209 id=1209 data-nosnippet>1209</a>		<span class="doccomment">/// Following an amount into a `path`, get the corresponding amounts out.
+<a href=#1210 id=1210 data-nosnippet>1210</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>balance_path_from_amount_in(
+<a href=#1211 id=1211 data-nosnippet>1211</a>			amount_in: T::Balance,
+<a href=#1212 id=1212 data-nosnippet>1212</a>			path: Vec&lt;T::AssetKind&gt;,
+<a href=#1213 id=1213 data-nosnippet>1213</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;BalancePath&lt;T&gt;, DispatchError&gt; {
+<a href=#1214 id=1214 data-nosnippet>1214</a>			<span class="kw">let </span><span class="kw-2">mut </span>balance_path: BalancePath&lt;T&gt; = Vec::with_capacity(path.len());
+<a href=#1215 id=1215 data-nosnippet>1215</a>			<span class="kw">let </span><span class="kw-2">mut </span>amount_out: T::Balance = amount_in;
+<a href=#1216 id=1216 data-nosnippet>1216</a>
+<a href=#1217 id=1217 data-nosnippet>1217</a>			<span class="kw">let </span><span class="kw-2">mut </span>iter = path.into_iter().peekable();
+<a href=#1218 id=1218 data-nosnippet>1218</a>			<span class="kw">while let </span><span class="prelude-val">Some</span>(asset1) = iter.next() {
+<a href=#1219 id=1219 data-nosnippet>1219</a>				<span class="kw">let </span>asset2 = <span class="kw">match </span>iter.peek() {
+<a href=#1220 id=1220 data-nosnippet>1220</a>					<span class="prelude-val">Some</span>(a) =&gt; a,
+<a href=#1221 id=1221 data-nosnippet>1221</a>					<span class="prelude-val">None </span>=&gt; {
+<a href=#1222 id=1222 data-nosnippet>1222</a>						balance_path.push((asset1, amount_out));
+<a href=#1223 id=1223 data-nosnippet>1223</a>						<span class="kw">break</span>;
+<a href=#1224 id=1224 data-nosnippet>1224</a>					},
+<a href=#1225 id=1225 data-nosnippet>1225</a>				};
+<a href=#1226 id=1226 data-nosnippet>1226</a>				<span class="kw">let </span>(reserve_in, reserve_out) = <span class="self">Self</span>::get_reserves(asset1.clone(), asset2.clone())<span class="question-mark">?</span>;
+<a href=#1227 id=1227 data-nosnippet>1227</a>				balance_path.push((asset1, amount_out));
+<a href=#1228 id=1228 data-nosnippet>1228</a>				amount_out = <span class="self">Self</span>::get_amount_out(<span class="kw-2">&amp;</span>amount_out, <span class="kw-2">&amp;</span>reserve_in, <span class="kw-2">&amp;</span>reserve_out)<span class="question-mark">?</span>;
+<a href=#1229 id=1229 data-nosnippet>1229</a>			}
+<a href=#1230 id=1230 data-nosnippet>1230</a>			<span class="prelude-val">Ok</span>(balance_path)
+<a href=#1231 id=1231 data-nosnippet>1231</a>		}
+<a href=#1232 id=1232 data-nosnippet>1232</a>
+<a href=#1233 id=1233 data-nosnippet>1233</a>		<span class="doccomment">/// Calculates the optimal amount from the reserves.
+<a href=#1234 id=1234 data-nosnippet>1234</a>		</span><span class="kw">pub fn </span>quote(
+<a href=#1235 id=1235 data-nosnippet>1235</a>			amount: <span class="kw-2">&amp;</span>T::Balance,
+<a href=#1236 id=1236 data-nosnippet>1236</a>			reserve1: <span class="kw-2">&amp;</span>T::Balance,
+<a href=#1237 id=1237 data-nosnippet>1237</a>			reserve2: <span class="kw-2">&amp;</span>T::Balance,
+<a href=#1238 id=1238 data-nosnippet>1238</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
+<a href=#1239 id=1239 data-nosnippet>1239</a>			<span class="comment">// (amount * reserve2) / reserve1
+<a href=#1240 id=1240 data-nosnippet>1240</a>			</span><span class="self">Self</span>::mul_div(amount, reserve2, reserve1)
+<a href=#1241 id=1241 data-nosnippet>1241</a>		}
+<a href=#1242 id=1242 data-nosnippet>1242</a>
+<a href=#1243 id=1243 data-nosnippet>1243</a>		<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>calc_lp_amount_for_zero_supply(
+<a href=#1244 id=1244 data-nosnippet>1244</a>			amount1: <span class="kw-2">&amp;</span>T::Balance,
+<a href=#1245 id=1245 data-nosnippet>1245</a>			amount2: <span class="kw-2">&amp;</span>T::Balance,
+<a href=#1246 id=1246 data-nosnippet>1246</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
+<a href=#1247 id=1247 data-nosnippet>1247</a>			<span class="kw">let </span>amount1 = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>amount1);
+<a href=#1248 id=1248 data-nosnippet>1248</a>			<span class="kw">let </span>amount2 = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>amount2);
+<a href=#1249 id=1249 data-nosnippet>1249</a>
+<a href=#1250 id=1250 data-nosnippet>1250</a>			<span class="kw">let </span>result = amount1
+<a href=#1251 id=1251 data-nosnippet>1251</a>				.checked_mul(<span class="kw-2">&amp;</span>amount2)
+<a href=#1252 id=1252 data-nosnippet>1252</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?
+<a href=#1253 id=1253 data-nosnippet>1253</a>				</span>.integer_sqrt()
+<a href=#1254 id=1254 data-nosnippet>1254</a>				.checked_sub(<span class="kw-2">&amp;</span>T::MintMinLiquidity::get().into())
+<a href=#1255 id=1255 data-nosnippet>1255</a>				.ok_or(Error::&lt;T&gt;::InsufficientLiquidityMinted)<span class="question-mark">?</span>;
+<a href=#1256 id=1256 data-nosnippet>1256</a>
+<a href=#1257 id=1257 data-nosnippet>1257</a>			result.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Overflow)
+<a href=#1258 id=1258 data-nosnippet>1258</a>		}
+<a href=#1259 id=1259 data-nosnippet>1259</a>
+<a href=#1260 id=1260 data-nosnippet>1260</a>		<span class="kw">fn </span>mul_div(a: <span class="kw-2">&amp;</span>T::Balance, b: <span class="kw-2">&amp;</span>T::Balance, c: <span class="kw-2">&amp;</span>T::Balance) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
+<a href=#1261 id=1261 data-nosnippet>1261</a>			<span class="kw">let </span>a = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>a);
+<a href=#1262 id=1262 data-nosnippet>1262</a>			<span class="kw">let </span>b = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>b);
+<a href=#1263 id=1263 data-nosnippet>1263</a>			<span class="kw">let </span>c = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>c);
+<a href=#1264 id=1264 data-nosnippet>1264</a>
+<a href=#1265 id=1265 data-nosnippet>1265</a>			<span class="kw">let </span>result = a
+<a href=#1266 id=1266 data-nosnippet>1266</a>				.checked_mul(<span class="kw-2">&amp;</span>b)
+<a href=#1267 id=1267 data-nosnippet>1267</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?
+<a href=#1268 id=1268 data-nosnippet>1268</a>				</span>.checked_div(<span class="kw-2">&amp;</span>c)
+<a href=#1269 id=1269 data-nosnippet>1269</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
+<a href=#1270 id=1270 data-nosnippet>1270</a>
+<a href=#1271 id=1271 data-nosnippet>1271</a>			result.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Overflow)
+<a href=#1272 id=1272 data-nosnippet>1272</a>		}
+<a href=#1273 id=1273 data-nosnippet>1273</a>
+<a href=#1274 id=1274 data-nosnippet>1274</a>		<span class="doccomment">/// Calculates amount out.
+<a href=#1275 id=1275 data-nosnippet>1275</a>		///
+<a href=#1276 id=1276 data-nosnippet>1276</a>		/// Given an input amount of an asset and pair reserves, returns the maximum output amount
+<a href=#1277 id=1277 data-nosnippet>1277</a>		/// of the other asset.
+<a href=#1278 id=1278 data-nosnippet>1278</a>		</span><span class="kw">pub fn </span>get_amount_out(
+<a href=#1279 id=1279 data-nosnippet>1279</a>			amount_in: <span class="kw-2">&amp;</span>T::Balance,
+<a href=#1280 id=1280 data-nosnippet>1280</a>			reserve_in: <span class="kw-2">&amp;</span>T::Balance,
+<a href=#1281 id=1281 data-nosnippet>1281</a>			reserve_out: <span class="kw-2">&amp;</span>T::Balance,
+<a href=#1282 id=1282 data-nosnippet>1282</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
+<a href=#1283 id=1283 data-nosnippet>1283</a>			<span class="kw">let </span>amount_in = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>amount_in);
+<a href=#1284 id=1284 data-nosnippet>1284</a>			<span class="kw">let </span>reserve_in = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>reserve_in);
+<a href=#1285 id=1285 data-nosnippet>1285</a>			<span class="kw">let </span>reserve_out = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>reserve_out);
+<a href=#1286 id=1286 data-nosnippet>1286</a>
+<a href=#1287 id=1287 data-nosnippet>1287</a>			<span class="kw">if </span>reserve_in.is_zero() || reserve_out.is_zero() {
+<a href=#1288 id=1288 data-nosnippet>1288</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::ZeroLiquidity);
+<a href=#1289 id=1289 data-nosnippet>1289</a>			}
+<a href=#1290 id=1290 data-nosnippet>1290</a>
+<a href=#1291 id=1291 data-nosnippet>1291</a>			<span class="kw">let </span>fee_complement = T::LPFee::get().left_from_one().deconstruct();
+<a href=#1292 id=1292 data-nosnippet>1292</a>			<span class="kw">let </span>amount_in_with_fee = amount_in
+<a href=#1293 id=1293 data-nosnippet>1293</a>				.checked_mul(<span class="kw-2">&amp;</span>T::HigherPrecisionBalance::from(fee_complement))
+<a href=#1294 id=1294 data-nosnippet>1294</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
+<a href=#1295 id=1295 data-nosnippet>1295</a>
+<a href=#1296 id=1296 data-nosnippet>1296</a>			<span class="kw">let </span>numerator =
+<a href=#1297 id=1297 data-nosnippet>1297</a>				amount_in_with_fee.checked_mul(<span class="kw-2">&amp;</span>reserve_out).ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
+<a href=#1298 id=1298 data-nosnippet>1298</a>
+<a href=#1299 id=1299 data-nosnippet>1299</a>			<span class="kw">let </span>denominator = reserve_in
+<a href=#1300 id=1300 data-nosnippet>1300</a>				.checked_mul(<span class="kw-2">&amp;</span>T::HigherPrecisionBalance::from(Permill::ACCURACY))
+<a href=#1301 id=1301 data-nosnippet>1301</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?
+<a href=#1302 id=1302 data-nosnippet>1302</a>				</span>.checked_add(<span class="kw-2">&amp;</span>amount_in_with_fee)
+<a href=#1303 id=1303 data-nosnippet>1303</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
+<a href=#1304 id=1304 data-nosnippet>1304</a>
+<a href=#1305 id=1305 data-nosnippet>1305</a>			<span class="kw">let </span>result = numerator.checked_div(<span class="kw-2">&amp;</span>denominator).ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
+<a href=#1306 id=1306 data-nosnippet>1306</a>
+<a href=#1307 id=1307 data-nosnippet>1307</a>			result.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Overflow)
+<a href=#1308 id=1308 data-nosnippet>1308</a>		}
+<a href=#1309 id=1309 data-nosnippet>1309</a>
+<a href=#1310 id=1310 data-nosnippet>1310</a>		<span class="doccomment">/// Calculates amount in.
+<a href=#1311 id=1311 data-nosnippet>1311</a>		///
+<a href=#1312 id=1312 data-nosnippet>1312</a>		/// Given an output amount of an asset and pair reserves, returns a required input amount
+<a href=#1313 id=1313 data-nosnippet>1313</a>		/// of the other asset.
+<a href=#1314 id=1314 data-nosnippet>1314</a>		</span><span class="kw">pub fn </span>get_amount_in(
+<a href=#1315 id=1315 data-nosnippet>1315</a>			amount_out: <span class="kw-2">&amp;</span>T::Balance,
+<a href=#1316 id=1316 data-nosnippet>1316</a>			reserve_in: <span class="kw-2">&amp;</span>T::Balance,
+<a href=#1317 id=1317 data-nosnippet>1317</a>			reserve_out: <span class="kw-2">&amp;</span>T::Balance,
+<a href=#1318 id=1318 data-nosnippet>1318</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
+<a href=#1319 id=1319 data-nosnippet>1319</a>			<span class="kw">let </span>amount_out = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>amount_out);
+<a href=#1320 id=1320 data-nosnippet>1320</a>			<span class="kw">let </span>reserve_in = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>reserve_in);
+<a href=#1321 id=1321 data-nosnippet>1321</a>			<span class="kw">let </span>reserve_out = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>reserve_out);
+<a href=#1322 id=1322 data-nosnippet>1322</a>
+<a href=#1323 id=1323 data-nosnippet>1323</a>			<span class="kw">if </span>reserve_in.is_zero() || reserve_out.is_zero() {
+<a href=#1324 id=1324 data-nosnippet>1324</a>				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::ZeroLiquidity)<span class="question-mark">?
+<a href=#1325 id=1325 data-nosnippet>1325</a>			</span>}
+<a href=#1326 id=1326 data-nosnippet>1326</a>
+<a href=#1327 id=1327 data-nosnippet>1327</a>			<span class="kw">if </span>amount_out &gt;= reserve_out {
+<a href=#1328 id=1328 data-nosnippet>1328</a>				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::AmountOutTooHigh)<span class="question-mark">?
+<a href=#1329 id=1329 data-nosnippet>1329</a>			</span>}
+<a href=#1330 id=1330 data-nosnippet>1330</a>
+<a href=#1331 id=1331 data-nosnippet>1331</a>			<span class="kw">let </span>fee_complement = T::LPFee::get().left_from_one().deconstruct();
+<a href=#1332 id=1332 data-nosnippet>1332</a>			<span class="kw">let </span>numerator = reserve_in
+<a href=#1333 id=1333 data-nosnippet>1333</a>				.checked_mul(<span class="kw-2">&amp;</span>amount_out)
+<a href=#1334 id=1334 data-nosnippet>1334</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?
+<a href=#1335 id=1335 data-nosnippet>1335</a>				</span>.checked_mul(<span class="kw-2">&amp;</span>T::HigherPrecisionBalance::from(Permill::ACCURACY))
+<a href=#1336 id=1336 data-nosnippet>1336</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
+<a href=#1337 id=1337 data-nosnippet>1337</a>
+<a href=#1338 id=1338 data-nosnippet>1338</a>			<span class="kw">let </span>denominator = reserve_out
+<a href=#1339 id=1339 data-nosnippet>1339</a>				.checked_sub(<span class="kw-2">&amp;</span>amount_out)
+<a href=#1340 id=1340 data-nosnippet>1340</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?
+<a href=#1341 id=1341 data-nosnippet>1341</a>				</span>.checked_mul(<span class="kw-2">&amp;</span>T::HigherPrecisionBalance::from(fee_complement))
+<a href=#1342 id=1342 data-nosnippet>1342</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
+<a href=#1343 id=1343 data-nosnippet>1343</a>
+<a href=#1344 id=1344 data-nosnippet>1344</a>			<span class="kw">let </span>result = numerator
+<a href=#1345 id=1345 data-nosnippet>1345</a>				.checked_div(<span class="kw-2">&amp;</span>denominator)
+<a href=#1346 id=1346 data-nosnippet>1346</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?
+<a href=#1347 id=1347 data-nosnippet>1347</a>				</span>.checked_add(<span class="kw-2">&amp;</span>One::one())
+<a href=#1348 id=1348 data-nosnippet>1348</a>				.ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
+<a href=#1349 id=1349 data-nosnippet>1349</a>
+<a href=#1350 id=1350 data-nosnippet>1350</a>			result.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Overflow)
+<a href=#1351 id=1351 data-nosnippet>1351</a>		}
+<a href=#1352 id=1352 data-nosnippet>1352</a>
+<a href=#1353 id=1353 data-nosnippet>1353</a>		<span class="doccomment">/// Ensure that a path is valid.
+<a href=#1354 id=1354 data-nosnippet>1354</a>		</span><span class="kw">fn </span>validate_swap_path(path: <span class="kw-2">&amp;</span>Vec&lt;T::AssetKind&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+<a href=#1355 id=1355 data-nosnippet>1355</a>			<span class="macro">ensure!</span>(path.len() &gt;= <span class="number">2</span>, Error::&lt;T&gt;::InvalidPath);
+<a href=#1356 id=1356 data-nosnippet>1356</a>			<span class="macro">ensure!</span>(path.len() <span class="kw">as </span>u32 &lt;= T::MaxSwapPathLength::get(), Error::&lt;T&gt;::InvalidPath);
+<a href=#1357 id=1357 data-nosnippet>1357</a>
+<a href=#1358 id=1358 data-nosnippet>1358</a>			<span class="comment">// validate all the pools in the path are unique
+<a href=#1359 id=1359 data-nosnippet>1359</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>pools = BTreeSet::&lt;T::PoolId&gt;::new();
+<a href=#1360 id=1360 data-nosnippet>1360</a>			<span class="kw">for </span>assets_pair <span class="kw">in </span>path.windows(<span class="number">2</span>) {
+<a href=#1361 id=1361 data-nosnippet>1361</a>				<span class="kw">if let </span>[asset1, asset2] = assets_pair {
+<a href=#1362 id=1362 data-nosnippet>1362</a>					<span class="kw">let </span>pool_id = T::PoolLocator::pool_id(asset1, asset2)
+<a href=#1363 id=1363 data-nosnippet>1363</a>						.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidAssetPair)<span class="question-mark">?</span>;
+<a href=#1364 id=1364 data-nosnippet>1364</a>
+<a href=#1365 id=1365 data-nosnippet>1365</a>					<span class="kw">let </span>new_element = pools.insert(pool_id);
+<a href=#1366 id=1366 data-nosnippet>1366</a>					<span class="kw">if </span>!new_element {
+<a href=#1367 id=1367 data-nosnippet>1367</a>						<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::NonUniquePath.into());
+<a href=#1368 id=1368 data-nosnippet>1368</a>					}
+<a href=#1369 id=1369 data-nosnippet>1369</a>				}
+<a href=#1370 id=1370 data-nosnippet>1370</a>			}
+<a href=#1371 id=1371 data-nosnippet>1371</a>			<span class="prelude-val">Ok</span>(())
+<a href=#1372 id=1372 data-nosnippet>1372</a>		}
+<a href=#1373 id=1373 data-nosnippet>1373</a>
+<a href=#1374 id=1374 data-nosnippet>1374</a>		<span class="doccomment">/// Returns the next pool asset id for benchmark purposes only.
+<a href=#1375 id=1375 data-nosnippet>1375</a>		</span><span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>))]
+<a href=#1376 id=1376 data-nosnippet>1376</a>		</span><span class="kw">pub fn </span>get_next_pool_asset_id() -&gt; T::PoolAssetId {
+<a href=#1377 id=1377 data-nosnippet>1377</a>			NextPoolAssetId::&lt;T&gt;::get()
+<a href=#1378 id=1378 data-nosnippet>1378</a>				.or(T::PoolAssetId::initial_value())
+<a href=#1379 id=1379 data-nosnippet>1379</a>				.expect(<span class="string">"Next pool asset ID can not be None"</span>)
+<a href=#1380 id=1380 data-nosnippet>1380</a>		}
+<a href=#1381 id=1381 data-nosnippet>1381</a>	}
+<a href=#1382 id=1382 data-nosnippet>1382</a>
+<a href=#1383 id=1383 data-nosnippet>1383</a>	<span class="attr">#[pallet::view_functions]
+<a href=#1384 id=1384 data-nosnippet>1384</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#1385 id=1385 data-nosnippet>1385</a>		<span class="doccomment">/// Returns the balance of each asset in the pool.
+<a href=#1386 id=1386 data-nosnippet>1386</a>		/// The tuple result is in the order requested (not necessarily the same as pool order).
+<a href=#1387 id=1387 data-nosnippet>1387</a>		</span><span class="kw">pub fn </span>get_reserves(
+<a href=#1388 id=1388 data-nosnippet>1388</a>			asset1: T::AssetKind,
+<a href=#1389 id=1389 data-nosnippet>1389</a>			asset2: T::AssetKind,
+<a href=#1390 id=1390 data-nosnippet>1390</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;(T::Balance, T::Balance), Error&lt;T&gt;&gt; {
+<a href=#1391 id=1391 data-nosnippet>1391</a>			<span class="kw">let </span>pool_account = T::PoolLocator::pool_address(<span class="kw-2">&amp;</span>asset1, <span class="kw-2">&amp;</span>asset2)
+<a href=#1392 id=1392 data-nosnippet>1392</a>				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidAssetPair)<span class="question-mark">?</span>;
+<a href=#1393 id=1393 data-nosnippet>1393</a>
+<a href=#1394 id=1394 data-nosnippet>1394</a>			<span class="kw">let </span>balance1 = <span class="self">Self</span>::get_balance(<span class="kw-2">&amp;</span>pool_account, asset1);
+<a href=#1395 id=1395 data-nosnippet>1395</a>			<span class="kw">let </span>balance2 = <span class="self">Self</span>::get_balance(<span class="kw-2">&amp;</span>pool_account, asset2);
+<a href=#1396 id=1396 data-nosnippet>1396</a>
+<a href=#1397 id=1397 data-nosnippet>1397</a>			<span class="kw">if </span>balance1.is_zero() || balance2.is_zero() {
+<a href=#1398 id=1398 data-nosnippet>1398</a>				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::PoolEmpty)<span class="question-mark">?</span>;
+<a href=#1399 id=1399 data-nosnippet>1399</a>			}
+<a href=#1400 id=1400 data-nosnippet>1400</a>
+<a href=#1401 id=1401 data-nosnippet>1401</a>			<span class="prelude-val">Ok</span>((balance1, balance2))
+<a href=#1402 id=1402 data-nosnippet>1402</a>		}
+<a href=#1403 id=1403 data-nosnippet>1403</a>
+<a href=#1404 id=1404 data-nosnippet>1404</a>		<span class="doccomment">/// Gets a quote for swapping an exact amount of `asset1` for `asset2`.
+<a href=#1405 id=1405 data-nosnippet>1405</a>		///
+<a href=#1406 id=1406 data-nosnippet>1406</a>		/// If `include_fee` is true, the quote will include the liquidity provider fee.
+<a href=#1407 id=1407 data-nosnippet>1407</a>		/// If the pool does not exist or has no liquidity, `None` is returned.
+<a href=#1408 id=1408 data-nosnippet>1408</a>		/// Note that the price may have changed by the time the transaction is executed.
+<a href=#1409 id=1409 data-nosnippet>1409</a>		/// (Use `amount_out_min` to control slippage.)
+<a href=#1410 id=1410 data-nosnippet>1410</a>		/// Returns `Some(quoted_amount)` on success.
+<a href=#1411 id=1411 data-nosnippet>1411</a>		</span><span class="kw">pub fn </span>quote_price_exact_tokens_for_tokens(
+<a href=#1412 id=1412 data-nosnippet>1412</a>			asset1: T::AssetKind,
+<a href=#1413 id=1413 data-nosnippet>1413</a>			asset2: T::AssetKind,
+<a href=#1414 id=1414 data-nosnippet>1414</a>			amount: T::Balance,
+<a href=#1415 id=1415 data-nosnippet>1415</a>			include_fee: bool,
+<a href=#1416 id=1416 data-nosnippet>1416</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;T::Balance&gt; {
+<a href=#1417 id=1417 data-nosnippet>1417</a>			<span class="comment">// Swaps reject zero amounts, match that behavior.
+<a href=#1418 id=1418 data-nosnippet>1418</a>			</span><span class="kw">if </span>amount.is_zero() {
+<a href=#1419 id=1419 data-nosnippet>1419</a>				<span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#1420 id=1420 data-nosnippet>1420</a>			}
+<a href=#1421 id=1421 data-nosnippet>1421</a>
+<a href=#1422 id=1422 data-nosnippet>1422</a>			<span class="kw">let </span>pool_account = T::PoolLocator::pool_address(<span class="kw-2">&amp;</span>asset1, <span class="kw-2">&amp;</span>asset2).ok()<span class="question-mark">?</span>;
+<a href=#1423 id=1423 data-nosnippet>1423</a>
+<a href=#1424 id=1424 data-nosnippet>1424</a>			<span class="kw">let </span>(balance1, balance2) = <span class="self">Self</span>::get_reserves(asset1.clone(), asset2.clone()).ok()<span class="question-mark">?</span>;
+<a href=#1425 id=1425 data-nosnippet>1425</a>
+<a href=#1426 id=1426 data-nosnippet>1426</a>			<span class="kw">if </span>balance1.is_zero() {
+<a href=#1427 id=1427 data-nosnippet>1427</a>				<span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#1428 id=1428 data-nosnippet>1428</a>			}
+<a href=#1429 id=1429 data-nosnippet>1429</a>
+<a href=#1430 id=1430 data-nosnippet>1430</a>			<span class="kw">let </span>amount_out = <span class="kw">if </span>include_fee {
+<a href=#1431 id=1431 data-nosnippet>1431</a>				<span class="self">Self</span>::get_amount_out(<span class="kw-2">&amp;</span>amount, <span class="kw-2">&amp;</span>balance1, <span class="kw-2">&amp;</span>balance2).ok()<span class="question-mark">?
+<a href=#1432 id=1432 data-nosnippet>1432</a>			</span>} <span class="kw">else </span>{
+<a href=#1433 id=1433 data-nosnippet>1433</a>				<span class="self">Self</span>::quote(<span class="kw-2">&amp;</span>amount, <span class="kw-2">&amp;</span>balance1, <span class="kw-2">&amp;</span>balance2).ok()<span class="question-mark">?
+<a href=#1434 id=1434 data-nosnippet>1434</a>			</span>};
+<a href=#1435 id=1435 data-nosnippet>1435</a>
+<a href=#1436 id=1436 data-nosnippet>1436</a>			<span class="comment">// Small inputs can round output to zero due to integer division.
+<a href=#1437 id=1437 data-nosnippet>1437</a>			</span><span class="kw">if </span>amount_out.is_zero() {
+<a href=#1438 id=1438 data-nosnippet>1438</a>				<span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#1439 id=1439 data-nosnippet>1439</a>			}
+<a href=#1440 id=1440 data-nosnippet>1440</a>
+<a href=#1441 id=1441 data-nosnippet>1441</a>			<span class="comment">// Swap withdrawals from pools use `keep_alive=true` (Preserve). Use the same
+<a href=#1442 id=1442 data-nosnippet>1442</a>			// preservation level to determine the actual withdrawable amount.
+<a href=#1443 id=1443 data-nosnippet>1443</a>			</span><span class="kw">let </span>max_output = T::Assets::reducible_balance(asset2, <span class="kw-2">&amp;</span>pool_account, Preserve, Polite);
+<a href=#1444 id=1444 data-nosnippet>1444</a>			<span class="kw">if </span>amount_out &gt; max_output {
+<a href=#1445 id=1445 data-nosnippet>1445</a>				<span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#1446 id=1446 data-nosnippet>1446</a>			}
+<a href=#1447 id=1447 data-nosnippet>1447</a>
+<a href=#1448 id=1448 data-nosnippet>1448</a>			<span class="prelude-val">Some</span>(amount_out)
+<a href=#1449 id=1449 data-nosnippet>1449</a>		}
+<a href=#1450 id=1450 data-nosnippet>1450</a>
+<a href=#1451 id=1451 data-nosnippet>1451</a>		<span class="doccomment">/// Gets a quote for swapping `amount` of `asset1` for an exact amount of `asset2`.
+<a href=#1452 id=1452 data-nosnippet>1452</a>		///
+<a href=#1453 id=1453 data-nosnippet>1453</a>		/// If `include_fee` is true, the quote will include the liquidity provider fee.
+<a href=#1454 id=1454 data-nosnippet>1454</a>		/// If the pool does not exist or has no liquidity, `None` is returned.
+<a href=#1455 id=1455 data-nosnippet>1455</a>		/// Note that the price may have changed by the time the transaction is executed.
+<a href=#1456 id=1456 data-nosnippet>1456</a>		/// (Use `amount_in_max` to control slippage.)
+<a href=#1457 id=1457 data-nosnippet>1457</a>		/// Returns `Some(quoted_amount)` on success.
+<a href=#1458 id=1458 data-nosnippet>1458</a>		</span><span class="kw">pub fn </span>quote_price_tokens_for_exact_tokens(
+<a href=#1459 id=1459 data-nosnippet>1459</a>			asset1: T::AssetKind,
+<a href=#1460 id=1460 data-nosnippet>1460</a>			asset2: T::AssetKind,
+<a href=#1461 id=1461 data-nosnippet>1461</a>			amount: T::Balance,
+<a href=#1462 id=1462 data-nosnippet>1462</a>			include_fee: bool,
+<a href=#1463 id=1463 data-nosnippet>1463</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;T::Balance&gt; {
+<a href=#1464 id=1464 data-nosnippet>1464</a>			<span class="comment">// Swaps reject zero amounts, match that behavior.
+<a href=#1465 id=1465 data-nosnippet>1465</a>			</span><span class="kw">if </span>amount.is_zero() {
+<a href=#1466 id=1466 data-nosnippet>1466</a>				<span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#1467 id=1467 data-nosnippet>1467</a>			}
+<a href=#1468 id=1468 data-nosnippet>1468</a>			<span class="kw">let </span>pool_account = T::PoolLocator::pool_address(<span class="kw-2">&amp;</span>asset1, <span class="kw-2">&amp;</span>asset2).ok()<span class="question-mark">?</span>;
+<a href=#1469 id=1469 data-nosnippet>1469</a>
+<a href=#1470 id=1470 data-nosnippet>1470</a>			<span class="kw">let </span>(balance1, balance2) = <span class="self">Self</span>::get_reserves(asset1.clone(), asset2.clone()).ok()<span class="question-mark">?</span>;
 <a href=#1471 id=1471 data-nosnippet>1471</a>
-<a href=#1472 id=1472 data-nosnippet>1472</a>			<span class="kw">let </span>balance1 = <span class="self">Self</span>::get_balance(<span class="kw-2">&amp;</span>pool_account, asset1);
-<a href=#1473 id=1473 data-nosnippet>1473</a>			<span class="kw">let </span>balance2 = <span class="self">Self</span>::get_balance(<span class="kw-2">&amp;</span>pool_account, asset2.clone());
-<a href=#1474 id=1474 data-nosnippet>1474</a>
-<a href=#1475 id=1475 data-nosnippet>1475</a>			<span class="kw">if </span>balance1.is_zero() {
-<a href=#1476 id=1476 data-nosnippet>1476</a>				<span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#1477 id=1477 data-nosnippet>1477</a>			}
-<a href=#1478 id=1478 data-nosnippet>1478</a>
-<a href=#1479 id=1479 data-nosnippet>1479</a>			<span class="comment">// Swap withdrawals from pools use `keep_alive=true` (Preserve). Use the same
-<a href=#1480 id=1480 data-nosnippet>1480</a>			// preservation level to determine the actual withdrawable amount.
-<a href=#1481 id=1481 data-nosnippet>1481</a>			</span><span class="kw">let </span>max_output = T::Assets::reducible_balance(asset2, <span class="kw-2">&amp;</span>pool_account, Preserve, Polite);
-<a href=#1482 id=1482 data-nosnippet>1482</a>			<span class="kw">if </span>amount &gt; max_output {
-<a href=#1483 id=1483 data-nosnippet>1483</a>				<span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#1484 id=1484 data-nosnippet>1484</a>			}
-<a href=#1485 id=1485 data-nosnippet>1485</a>
-<a href=#1486 id=1486 data-nosnippet>1486</a>			<span class="kw">if </span>include_fee {
-<a href=#1487 id=1487 data-nosnippet>1487</a>				<span class="self">Self</span>::get_amount_in(<span class="kw-2">&amp;</span>amount, <span class="kw-2">&amp;</span>balance1, <span class="kw-2">&amp;</span>balance2).ok()
-<a href=#1488 id=1488 data-nosnippet>1488</a>			} <span class="kw">else </span>{
-<a href=#1489 id=1489 data-nosnippet>1489</a>				<span class="self">Self</span>::quote(<span class="kw-2">&amp;</span>amount, <span class="kw-2">&amp;</span>balance2, <span class="kw-2">&amp;</span>balance1).ok()
-<a href=#1490 id=1490 data-nosnippet>1490</a>			}
-<a href=#1491 id=1491 data-nosnippet>1491</a>		}
-<a href=#1492 id=1492 data-nosnippet>1492</a>	}
-<a href=#1493 id=1493 data-nosnippet>1493</a>}
-<a href=#1494 id=1494 data-nosnippet>1494</a>
-<a href=#1495 id=1495 data-nosnippet>1495</a><span class="macro">sp_api::decl_runtime_apis!</span> {
-<a href=#1496 id=1496 data-nosnippet>1496</a>	<span class="doccomment">/// This runtime api allows people to query the size of the liquidity pools
-<a href=#1497 id=1497 data-nosnippet>1497</a>	/// and quote prices for swaps.
-<a href=#1498 id=1498 data-nosnippet>1498</a>	</span><span class="kw">pub trait </span>AssetConversionApi&lt;Balance, AssetId&gt;
-<a href=#1499 id=1499 data-nosnippet>1499</a>	<span class="kw">where
-<a href=#1500 id=1500 data-nosnippet>1500</a>		</span>Balance: frame_support::traits::tokens::Balance + MaybeDisplay,
-<a href=#1501 id=1501 data-nosnippet>1501</a>		AssetId: Codec,
-<a href=#1502 id=1502 data-nosnippet>1502</a>	{
-<a href=#1503 id=1503 data-nosnippet>1503</a>		<span class="doccomment">/// Provides a quote for [`Pallet::swap_tokens_for_exact_tokens`].
-<a href=#1504 id=1504 data-nosnippet>1504</a>		///
-<a href=#1505 id=1505 data-nosnippet>1505</a>		/// Note that the price may have changed by the time the transaction is executed.
-<a href=#1506 id=1506 data-nosnippet>1506</a>		/// (Use `amount_in_max` to control slippage.)
-<a href=#1507 id=1507 data-nosnippet>1507</a>		</span><span class="kw">fn </span>quote_price_tokens_for_exact_tokens(
-<a href=#1508 id=1508 data-nosnippet>1508</a>			asset1: AssetId,
-<a href=#1509 id=1509 data-nosnippet>1509</a>			asset2: AssetId,
-<a href=#1510 id=1510 data-nosnippet>1510</a>			amount: Balance,
-<a href=#1511 id=1511 data-nosnippet>1511</a>			include_fee: bool,
-<a href=#1512 id=1512 data-nosnippet>1512</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt;;
-<a href=#1513 id=1513 data-nosnippet>1513</a>
-<a href=#1514 id=1514 data-nosnippet>1514</a>		<span class="doccomment">/// Provides a quote for [`Pallet::swap_exact_tokens_for_tokens`].
-<a href=#1515 id=1515 data-nosnippet>1515</a>		///
-<a href=#1516 id=1516 data-nosnippet>1516</a>		/// Note that the price may have changed by the time the transaction is executed.
-<a href=#1517 id=1517 data-nosnippet>1517</a>		/// (Use `amount_out_min` to control slippage.)
-<a href=#1518 id=1518 data-nosnippet>1518</a>		</span><span class="kw">fn </span>quote_price_exact_tokens_for_tokens(
-<a href=#1519 id=1519 data-nosnippet>1519</a>			asset1: AssetId,
-<a href=#1520 id=1520 data-nosnippet>1520</a>			asset2: AssetId,
-<a href=#1521 id=1521 data-nosnippet>1521</a>			amount: Balance,
-<a href=#1522 id=1522 data-nosnippet>1522</a>			include_fee: bool,
-<a href=#1523 id=1523 data-nosnippet>1523</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt;;
-<a href=#1524 id=1524 data-nosnippet>1524</a>
-<a href=#1525 id=1525 data-nosnippet>1525</a>		<span class="doccomment">/// Returns the size of the liquidity pool for the given asset pair.
-<a href=#1526 id=1526 data-nosnippet>1526</a>		</span><span class="kw">fn </span>get_reserves(asset1: AssetId, asset2: AssetId) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt;;
-<a href=#1527 id=1527 data-nosnippet>1527</a>	}
-<a href=#1528 id=1528 data-nosnippet>1528</a>}
-<a href=#1529 id=1529 data-nosnippet>1529</a>
-<a href=#1530 id=1530 data-nosnippet>1530</a><span class="macro">sp_core::generate_feature_enabled_macro!</span>(runtime_benchmarks_enabled, feature = <span class="string">"runtime-benchmarks"</span>, $);
+<a href=#1472 id=1472 data-nosnippet>1472</a>			<span class="kw">if </span>balance1.is_zero() {
+<a href=#1473 id=1473 data-nosnippet>1473</a>				<span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#1474 id=1474 data-nosnippet>1474</a>			}
+<a href=#1475 id=1475 data-nosnippet>1475</a>
+<a href=#1476 id=1476 data-nosnippet>1476</a>			<span class="comment">// Swap withdrawals from pools use `keep_alive=true` (Preserve). Use the same
+<a href=#1477 id=1477 data-nosnippet>1477</a>			// preservation level to determine the actual withdrawable amount.
+<a href=#1478 id=1478 data-nosnippet>1478</a>			</span><span class="kw">let </span>max_output = T::Assets::reducible_balance(asset2, <span class="kw-2">&amp;</span>pool_account, Preserve, Polite);
+<a href=#1479 id=1479 data-nosnippet>1479</a>			<span class="kw">if </span>amount &gt; max_output {
+<a href=#1480 id=1480 data-nosnippet>1480</a>				<span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#1481 id=1481 data-nosnippet>1481</a>			}
+<a href=#1482 id=1482 data-nosnippet>1482</a>
+<a href=#1483 id=1483 data-nosnippet>1483</a>			<span class="kw">if </span>include_fee {
+<a href=#1484 id=1484 data-nosnippet>1484</a>				<span class="self">Self</span>::get_amount_in(<span class="kw-2">&amp;</span>amount, <span class="kw-2">&amp;</span>balance1, <span class="kw-2">&amp;</span>balance2).ok()
+<a href=#1485 id=1485 data-nosnippet>1485</a>			} <span class="kw">else </span>{
+<a href=#1486 id=1486 data-nosnippet>1486</a>				<span class="self">Self</span>::quote(<span class="kw-2">&amp;</span>amount, <span class="kw-2">&amp;</span>balance2, <span class="kw-2">&amp;</span>balance1).ok()
+<a href=#1487 id=1487 data-nosnippet>1487</a>			}
+<a href=#1488 id=1488 data-nosnippet>1488</a>		}
+<a href=#1489 id=1489 data-nosnippet>1489</a>	}
+<a href=#1490 id=1490 data-nosnippet>1490</a>}
+<a href=#1491 id=1491 data-nosnippet>1491</a>
+<a href=#1492 id=1492 data-nosnippet>1492</a><span class="macro">sp_api::decl_runtime_apis!</span> {
+<a href=#1493 id=1493 data-nosnippet>1493</a>	<span class="doccomment">/// This runtime api allows people to query the size of the liquidity pools
+<a href=#1494 id=1494 data-nosnippet>1494</a>	/// and quote prices for swaps.
+<a href=#1495 id=1495 data-nosnippet>1495</a>	</span><span class="kw">pub trait </span>AssetConversionApi&lt;Balance, AssetId&gt;
+<a href=#1496 id=1496 data-nosnippet>1496</a>	<span class="kw">where
+<a href=#1497 id=1497 data-nosnippet>1497</a>		</span>Balance: frame_support::traits::tokens::Balance + MaybeDisplay,
+<a href=#1498 id=1498 data-nosnippet>1498</a>		AssetId: Codec,
+<a href=#1499 id=1499 data-nosnippet>1499</a>	{
+<a href=#1500 id=1500 data-nosnippet>1500</a>		<span class="doccomment">/// Provides a quote for [`Pallet::swap_tokens_for_exact_tokens`].
+<a href=#1501 id=1501 data-nosnippet>1501</a>		///
+<a href=#1502 id=1502 data-nosnippet>1502</a>		/// Note that the price may have changed by the time the transaction is executed.
+<a href=#1503 id=1503 data-nosnippet>1503</a>		/// (Use `amount_in_max` to control slippage.)
+<a href=#1504 id=1504 data-nosnippet>1504</a>		</span><span class="kw">fn </span>quote_price_tokens_for_exact_tokens(
+<a href=#1505 id=1505 data-nosnippet>1505</a>			asset1: AssetId,
+<a href=#1506 id=1506 data-nosnippet>1506</a>			asset2: AssetId,
+<a href=#1507 id=1507 data-nosnippet>1507</a>			amount: Balance,
+<a href=#1508 id=1508 data-nosnippet>1508</a>			include_fee: bool,
+<a href=#1509 id=1509 data-nosnippet>1509</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt;;
+<a href=#1510 id=1510 data-nosnippet>1510</a>
+<a href=#1511 id=1511 data-nosnippet>1511</a>		<span class="doccomment">/// Provides a quote for [`Pallet::swap_exact_tokens_for_tokens`].
+<a href=#1512 id=1512 data-nosnippet>1512</a>		///
+<a href=#1513 id=1513 data-nosnippet>1513</a>		/// Note that the price may have changed by the time the transaction is executed.
+<a href=#1514 id=1514 data-nosnippet>1514</a>		/// (Use `amount_out_min` to control slippage.)
+<a href=#1515 id=1515 data-nosnippet>1515</a>		</span><span class="kw">fn </span>quote_price_exact_tokens_for_tokens(
+<a href=#1516 id=1516 data-nosnippet>1516</a>			asset1: AssetId,
+<a href=#1517 id=1517 data-nosnippet>1517</a>			asset2: AssetId,
+<a href=#1518 id=1518 data-nosnippet>1518</a>			amount: Balance,
+<a href=#1519 id=1519 data-nosnippet>1519</a>			include_fee: bool,
+<a href=#1520 id=1520 data-nosnippet>1520</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt;;
+<a href=#1521 id=1521 data-nosnippet>1521</a>
+<a href=#1522 id=1522 data-nosnippet>1522</a>		<span class="doccomment">/// Returns the size of the liquidity pool for the given asset pair.
+<a href=#1523 id=1523 data-nosnippet>1523</a>		</span><span class="kw">fn </span>get_reserves(asset1: AssetId, asset2: AssetId) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt;;
+<a href=#1524 id=1524 data-nosnippet>1524</a>	}
+<a href=#1525 id=1525 data-nosnippet>1525</a>}
+<a href=#1526 id=1526 data-nosnippet>1526</a>
+<a href=#1527 id=1527 data-nosnippet>1527</a><span class="macro">sp_core::generate_feature_enabled_macro!</span>(runtime_benchmarks_enabled, feature = <span class="string">"runtime-benchmarks"</span>, $);
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
