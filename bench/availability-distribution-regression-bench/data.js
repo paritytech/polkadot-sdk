@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783444574393,
+  "lastUpdate": 1783451174529,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cbc649eb85541ddd99ae8520f862b0b4867a5ddb",
-          "message": "[Release|CI/CD] Build and publish RPM cleanup (#10287)\n\nhttps://github.com/paritytech/release-engineering/issues/269",
-          "timestamp": "2025-11-11T22:48:59Z",
-          "tree_id": "89177dba7ab8387eda4a6e835ba858e2f8b02fab",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cbc649eb85541ddd99ae8520f862b0b4867a5ddb"
-        },
-        "date": 1762905529125,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023192124346666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16033654560000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013670288006666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007832648159999981,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010648204319999972,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d988144f162df86614159e932493bfa23b7ab5b3",
+          "message": "Introduce `fp-coretime` (#11810)\n\n## Summary\n\nIntroduces `fp-coretime`, a FRAME primitives crate for Polkadot Coretime\ntypes and traits. Moves the following from `pallet-broker` into\n`fp-coretime`:\n\n- **Types**: `CoreIndex`, `Timeslice`, `TaskId`, `PartsOf57600`,\n`RegionId`, `PotentialRenewalId`, `CoreMask`, `CORE_MASK_BITS`\n- **Traits**: `Market`, `CoreRangeProvider`, `TimesliceProvider` and\nassociated result types\n\nThis allows market implementations (e.g. an RFC-17 pallet) to depend on\n`fp-coretime` instead of `pallet-broker`, avoiding a pallet dependency\njust for trait definitions and shared types.\n\n`pallet-broker` currently re-exports everything from `fp-coretime` for\nbackward compatibility.\n\nThis PR also introduces the `frame/primitives` path and also the `fp-*`\nprefix for these shared types which are not actually substrate\nprimitives.\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-07-07T17:21:07Z",
+          "tree_id": "950deceb53c5b14998111393257f71e8bca3e552",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d988144f162df86614159e932493bfa23b7ab5b3"
+        },
+        "date": 1783451144317,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14744857293333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007399991566666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023710588839999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010286195799999974,
             "unit": "seconds"
           }
         ]
