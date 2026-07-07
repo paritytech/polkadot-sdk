@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783377853470,
+  "lastUpdate": 1783406536027,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -105191,6 +105191,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2607733642,
             "range": "± 14231584",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "44b3a384d3ac58acd5e4dac23a661532ba380ad7",
+          "message": "collator-protocol revamp:  Send RC PeerId with ApprovedPeer UMP signal (#12388)\n\nCurrently the collator sends its parachain PeerId within the\nApprovedPeer UMP signal, which is wrong because this peer id is not\nknown on the relay chain.\nAs a result on CandidateIncluded event the score is bumped for the wrong\nPeerId and the collator remains with zero reputation no matter its\nhonest work.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-07T05:14:13Z",
+          "tree_id": "b8732b26a1fa548bcd646e36b63d601e7c0cd2e1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/44b3a384d3ac58acd5e4dac23a661532ba380ad7"
+        },
+        "date": 1783406506651,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18457751,
+            "range": "± 69408",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 18739043,
+            "range": "± 128296",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20167535,
+            "range": "± 178390",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 24717965,
+            "range": "± 112444",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 55535982,
+            "range": "± 365476",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 324542506,
+            "range": "± 4935153",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2366634018,
+            "range": "± 46382949",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16547486,
+            "range": "± 194199",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16490780,
+            "range": "± 123085",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17228599,
+            "range": "± 220030",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21376894,
+            "range": "± 138049",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 56049336,
+            "range": "± 521082",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 321179895,
+            "range": "± 2373334",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2442296046,
+            "range": "± 26874731",
             "unit": "ns/iter"
           }
         ]
