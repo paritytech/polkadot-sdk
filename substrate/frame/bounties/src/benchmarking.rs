@@ -384,8 +384,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Benchmarks the native-token reclaim path (`asset_kind = None`), the worst case common to
-	// every runtime.
+	// Benchmarks reclaiming the native token from a stale bounty account, the worst case common to
+	// every runtime (no additional assets configured in the default test runtime).
 	#[benchmark]
 	fn reclaim_bounty_funds() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T, I>();
@@ -412,7 +412,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), bounty_id, None);
+		_(RawOrigin::Signed(caller), bounty_id);
 
 		assert_last_event::<T, I>(Event::BountyFundsReclaimed { bounty_id }.into());
 

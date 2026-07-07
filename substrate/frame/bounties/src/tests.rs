@@ -2043,7 +2043,7 @@ fn reclaim_bounty_funds_works_for_funded_bounty() {
 		let treasury_before = Treasury::pot();
 
 		// Anyone can call reclaim_bounty_funds.
-		assert_ok!(Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0, None));
+		assert_ok!(Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0));
 
 		assert_eq!(last_event(), BountiesEvent::BountyFundsReclaimed { bounty_id: 0 },);
 
@@ -2087,7 +2087,7 @@ fn reclaim_bounty_funds_works_after_accidental_refund() {
 		let treasury_before = Treasury::pot();
 
 		// Dust the account.
-		assert_ok!(Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(99), 0, None));
+		assert_ok!(Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(99), 0));
 		assert_eq!(last_event(), BountiesEvent::BountyFundsReclaimed { bounty_id: 0 },);
 
 		assert_eq!(Balances::free_balance(&bounty_account), 0);
@@ -2105,7 +2105,7 @@ fn reclaim_bounty_funds_fails_when_bounty_still_active() {
 
 		// Bounty is in Funded state (still exists in storage).
 		assert_noop!(
-			Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0, None),
+			Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0),
 			Error::<Test>::UnexpectedStatus
 		);
 	});
@@ -2119,7 +2119,7 @@ fn reclaim_bounty_funds_fails_when_bounty_in_proposed_state() {
 
 		// Bounty is in Proposed state (still exists in storage).
 		assert_noop!(
-			Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0, None),
+			Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0),
 			Error::<Test>::UnexpectedStatus
 		);
 	});
@@ -2136,7 +2136,7 @@ fn reclaim_bounty_funds_fails_when_bounty_in_curator_proposed_state() {
 
 		// Bounty is in CuratorProposed state.
 		assert_noop!(
-			Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0, None),
+			Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0),
 			Error::<Test>::UnexpectedStatus
 		);
 	});
@@ -2147,7 +2147,7 @@ fn reclaim_bounty_funds_is_paid_noop_when_account_already_empty() {
 	ExtBuilder::default().build_and_execute(|| {
 		// No bounty at index 99 and its derived account is empty: the call succeeds as
 		// a paid no-op, so it cannot be used to grief the network.
-		let result = Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 99, None);
+		let result = Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 99);
 		assert_ok!(result.as_ref());
 		assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 	});
@@ -2157,7 +2157,7 @@ fn reclaim_bounty_funds_is_paid_noop_when_account_already_empty() {
 fn reclaim_bounty_funds_fails_for_unsigned_origin() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_noop!(
-			Bounties::reclaim_bounty_funds(RuntimeOrigin::none(), 0, None),
+			Bounties::reclaim_bounty_funds(RuntimeOrigin::none(), 0),
 			DispatchError::BadOrigin
 		);
 	});
@@ -2176,7 +2176,7 @@ fn reclaim_bounty_funds_can_be_called_by_anyone() {
 		pallet_bounties::BountyDescriptions::<Test>::remove(0);
 
 		// A random account (2) with only 1 token should be able to call this.
-		assert_ok!(Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(2), 0, None));
+		assert_ok!(Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(2), 0));
 		assert_eq!(last_event(), BountiesEvent::BountyFundsReclaimed { bounty_id: 0 },);
 	});
 }
@@ -2203,13 +2203,8 @@ fn reclaim_bounty_funds_works_with_additional_assets() {
 		let treasury_native_before = Balances::free_balance(Bounties::account_id());
 		let treasury_asset1_before = Assets::balance(1, &Bounties::account_id());
 
-		// One call per asset; reclaim asset 1 first, then native (as a batch would).
-		assert_ok!(Bounties::reclaim_bounty_funds(
-			RuntimeOrigin::signed(5),
-			0,
-			Some(NativeOrWithId::WithId(1))
-		));
-		assert_ok!(Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(5), 0, None));
+		// A single call reclaims both the native token and asset 1.
+		assert_ok!(Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(5), 0));
 		assert_eq!(last_event(), BountiesEvent::BountyFundsReclaimed { bounty_id: 0 },);
 
 		// Native balance drained to at most ED.
@@ -2243,7 +2238,7 @@ fn reclaim_bounty_funds_works_after_close_bounty() {
 		assert!(pallet_bounties::Bounties::<Test>::get(0).is_none());
 
 		// close_bounty already swept the account, so reclaiming again is a paid no-op.
-		assert_ok!(Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0, None));
+		assert_ok!(Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0));
 	});
 }
 
@@ -2259,7 +2254,7 @@ fn reclaim_bounty_funds_is_free_for_caller() {
 		pallet_bounties::Bounties::<Test>::remove(0);
 		pallet_bounties::BountyDescriptions::<Test>::remove(0);
 
-		let result = Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0, None);
+		let result = Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0);
 		assert_ok!(result.as_ref());
 		// The extrinsic must return Pays::No.
 		assert_eq!(

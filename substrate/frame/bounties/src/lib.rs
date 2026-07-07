@@ -127,12 +127,6 @@ type PositiveImbalanceOf<T, I = ()> = pallet_treasury::PositiveImbalanceOf<T, I>
 /// An index of a bounty. Just a `u32`.
 pub type BountyIndex = u32;
 
-/// The kind of asset that can be reclaimed from a stale bounty account via
-/// [`Pallet::reclaim_bounty_funds`].
-type AssetKindOf<T, I = ()> = <<T as Config<I>>::TransferAllAssets as TransferAllAssets<
-	<T as frame_system::Config>::AccountId,
->>::AssetKind;
-
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 type BlockNumberFor<T, I = ()> =
@@ -217,30 +211,17 @@ pub trait ChildBountyManager<Balance> {
 	fn bounty_removed(bounty_id: BountyIndex);
 }
 
-/// Transfer assets held by an account (e.g. a stale bounty sub-account) back to another.
+/// Transfer all assets held by an account (e.g. a stale bounty sub-account) back to another.
 pub trait TransferAllAssets<AccountId> {
-	/// A single asset kind that can be reclaimed via [`Self::force_transfer_asset`].
-	type AssetKind: Parameter + MaxEncodedLen;
-
 	/// Transfer all assets from one account to another, possibly reaping `from`.
-	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> DispatchResult;
-
-	/// Transfer the whole reducible balance of a single `asset`. Returns `true` if anything moved.
-	fn force_transfer_asset(
-		asset: Self::AssetKind,
-		from: &AccountId,
-		to: &AccountId,
-	) -> Result<bool, DispatchError>;
+	///
+	/// Returns `true` if any balance was actually transferred, `false` if the account was already
+	/// empty.
+	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> Result<bool, DispatchError>;
 }
 
 impl<AccountId> TransferAllAssets<AccountId> for () {
-	type AssetKind = ();
-
-	fn force_transfer_all_assets(_: &AccountId, _: &AccountId) -> DispatchResult {
-		Ok(())
-	}
-
-	fn force_transfer_asset(_: (), _: &AccountId, _: &AccountId) -> Result<bool, DispatchError> {
+	fn force_transfer_all_assets(_: &AccountId, _: &AccountId) -> Result<bool, DispatchError> {
 		Ok(false)
 	}
 }
@@ -257,17 +238,15 @@ impl<AccountId, Fungibles, RelevantAssets> TransferAllAssets<AccountId>
 where
 	Fungibles: FungiblesMutate<AccountId>,
 	RelevantAssets: Get<Vec<<Fungibles as FungiblesInspect<AccountId>>::AssetId>>,
-	<Fungibles as FungiblesInspect<AccountId>>::AssetId: Parameter + MaxEncodedLen,
 	AccountId: Eq,
 {
-	type AssetKind = <Fungibles as FungiblesInspect<AccountId>>::AssetId;
-
-	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> DispatchResult {
+	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> Result<bool, DispatchError> {
 		// We iterate through all assets twice in case that the Native asset was not last in the
 		// list and ED remained because of an insufficient asset at the end of the list.
 		let assets_twice =
 			RelevantAssets::get().into_iter().chain(RelevantAssets::get().into_iter());
 
+		let mut transferred_any = false;
 		for id in assets_twice {
 			let balance = Fungibles::reducible_balance(
 				id.clone(),
@@ -279,29 +258,11 @@ where
 				continue;
 			}
 
+			transferred_any = true;
 			// Ignore errors since this can only fail if the receiver does not exist.
 			let _ = Fungibles::transfer(id, from, to, balance, Preservation::Expendable);
 		}
-		Ok(())
-	}
-
-	fn force_transfer_asset(
-		asset: Self::AssetKind,
-		from: &AccountId,
-		to: &AccountId,
-	) -> Result<bool, DispatchError> {
-		let balance = Fungibles::reducible_balance(
-			asset.clone(),
-			from,
-			Preservation::Expendable,
-			Fortitude::Force,
-		);
-		if balance.is_zero() {
-			return Ok(false);
-		}
-
-		Fungibles::transfer(asset, from, to, balance, Preservation::Expendable)?;
-		Ok(true)
+		Ok(transferred_any)
 	}
 }
 
@@ -1047,21 +1008,20 @@ pub mod pallet {
 
 		/// Reclaim funds stranded in a closed bounty's account back to the treasury.
 		///
-		/// Permissionless. Reclaims a single asset per call: `None` for the native token, or
-		/// `Some(kind)` for the fungible asset `kind`. Batch multiple calls (e.g. via
-		/// `pallet-utility`) to reclaim several assets at once.
+		/// Permissionless. Moves all remaining native tokens and configured fungible assets from a
+		/// closed bounty's account back to the treasury in a single call.
 		///
 		/// The call is free if funds were reclaimed and paid otherwise, so no-op calls cannot be
 		/// used to grief the network. Emits `BountyFundsReclaimed` on success.
 		///
 		/// ## Complexity
-		/// - O(1).
+		/// - O(1) for the native token; O(A) where A is the number of relevant assets configured in
+		///   `TransferAllAssets`.
 		#[pallet::call_index(11)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::reclaim_bounty_funds())]
 		pub fn reclaim_bounty_funds(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
-			asset_kind: Option<AssetKindOf<T, I>>,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 
@@ -1076,14 +1036,11 @@ pub mod pallet {
 			let bounty_account = Self::bounty_account_id(bounty_id);
 			let treasury_account = Self::account_id();
 
-			let transferred = match asset_kind {
-				Some(asset) => T::TransferAllAssets::force_transfer_asset(
-					asset,
-					&bounty_account,
-					&treasury_account,
-				)?,
-				None => Self::reclaim_native_funds(&bounty_account, &treasury_account)?,
-			};
+			let mut transferred = T::TransferAllAssets::force_transfer_all_assets(
+				&bounty_account,
+				&treasury_account,
+			)?;
+			transferred |= Self::reclaim_native_funds(&bounty_account, &treasury_account)?;
 
 			// Free only if something moved, otherwise paid to prevent griefing.
 			if !transferred {
