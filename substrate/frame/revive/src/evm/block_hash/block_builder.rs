@@ -299,11 +299,14 @@ impl<T: Config> Default for EthereumBlockBuilderIR<T> {
 mod test {
 	use super::*;
 	use crate::{
-		evm::{Block, ReceiptInfo},
+		evm::Block,
 		tests::{ExtBuilder, Test},
 	};
 	use alloy_core::rlp;
 	use alloy_trie::{HashBuilder, Nibbles};
+	use ethereum_types::Address;
+	use pallet_revive_types::common::Bytes;
+	use serde::Deserialize;
 
 	/// Manual implementation of the Ethereum trie root computation.
 	///
@@ -403,6 +406,24 @@ mod test {
 
 	#[test]
 	fn ensure_identical_hashes() {
+		#[derive(Deserialize)]
+		#[serde(rename_all = "camelCase")]
+		struct ReceiptInfo {
+			block_hash: H256,
+			status: Option<U256>,
+			effective_gas_price: U256,
+			gas_used: U256,
+			transaction_index: U256,
+			logs: Vec<Log>,
+		}
+
+		#[derive(Deserialize)]
+		pub struct Log {
+			address: Address,
+			data: Option<Bytes>,
+			topics: Vec<H256>,
+		}
+
 		// Test data files collected with ./test-assets/get_test_data.sh
 		let test_data = [
 			(

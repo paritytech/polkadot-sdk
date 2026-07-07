@@ -327,6 +327,10 @@ impl SubscriptionsInfo {
 					continue;
 				};
 
+				// A multi-topic `MatchAll` subscription is registered under each of its topics, so
+				// it can be selected across several combinations. Notify each subscription only the
+				// first time it matches, mirroring the `MatchAny` path, to avoid duplicate
+				// delivery.
 				for subscription in
 					topic_with_fewest[num_topics_to_check - 1].values().filter(|subscription| {
 						subscription.topic_filter.matches(statement) &&
@@ -953,9 +957,9 @@ mod tests {
 		};
 		subscriptions.subscribe(sub_info1.clone());
 
-		// Extra MatchAll subscriptions on topic3 so the matcher encounters sub_info1 across several
-		// topic combinations of the statement below. They do not match the statement themselves
-		// (topic4 is absent).
+		// Extra MatchAll subscriptions on topic3 so the matcher encounters sub_info1 across
+		// several topic combinations of the statement below. They do not match the statement
+		// themselves (topic4 is absent).
 		let sub_info2 = SubscriptionInfo {
 			topic_filter: OptimizedTopicFilter::MatchAll(
 				vec![topic3, topic4].into_iter().collect(),
