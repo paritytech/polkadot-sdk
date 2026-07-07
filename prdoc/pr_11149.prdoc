@@ -1,0 +1,55 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Enable BLS BEEFY (ecdsa_bls381 paired keys) on Westend testnet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Switches the BEEFY key type on the Westend runtime from plain ecdsa to paired
+      ecdsa_bls381 keys. This result in making many applications of BLS signatures
+      possible on Westend testnet  including signature aggregation for an efficient
+      BEEFY bridge to Ethereum.
+
+      - Enable `bls-experimental` feature on `pallet-beefy-mmr` in the Westend runtime.
+      - Use `BeefyEcdsaBls381ToEthereum` as the merkle leaf converter.
+      - Update the westend emulated chain genesis to use `ecdsa_bls_crypto::AuthorityId`.
+      - Add `PairedCrypto::left_public` / `right_public` helper methods on `sp-core`.
+
+      Note: The MMR leaf currently commits to ECDSA keys only (extracted from the
+      paired keys) for backward compatibility with legacy bridges. To enable BLS aggregate
+      signature verification on Ethereum, a polynomial commitment to the BLS public
+      keys is needed for APK proofs. This commitment could either be added to the
+      `BeefyAuthoritySet::keyset_commitment` (by tupling multiple commitments) or
+      stored in a parachain block and proven via the parachain heads root already
+      present in the MMR leaf.
+  - audience: Node Dev
+    description: |
+      The polkadot node binary now supports a `bls-beefy-experimental` feature flag that
+      switches the BEEFY authority ID type from `ecdsa_crypto` to `ecdsa_bls_crypto`
+      (paired ecdsa + bls381 keys). This propagates through `polkadot-cli` and
+      `polkadot-service`.
+  - audience: Node Operator
+    description: |
+      Westend validators will now use paired ecdsa_bls381 keys for BEEFY instead of
+      plain ecdsa keys. The node binary must be built with `--features bls-beefy-experimental`
+      to enable this. Validators will need to rotate their BEEFY session keys after this
+      change is deployed.
+
+crates:
+  - name: westend-runtime
+    bump: major
+  - name: westend-emulated-chain
+    bump: patch
+  - name: polkadot-service
+    bump: patch
+  - name: polkadot-cli
+    bump: patch
+  - name: polkadot
+    bump: patch
+  - name: pallet-beefy-mmr
+    bump: patch
+  - name: sp-core
+    bump: minor
+  - name: sc-consensus-beefy
+    bump: patch

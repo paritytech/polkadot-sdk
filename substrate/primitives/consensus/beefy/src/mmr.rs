@@ -123,11 +123,16 @@ pub struct BeefyAuthoritySet<AuthoritySetCommitment> {
 	/// validator set. Light Clients using interactive protocol, might verify only subset of
 	/// signatures, hence don't require the full list here (will receive inclusion proofs).
 	///
-	/// This could be Merkle Root Hash built from BEEFY ECDSA public keys and/or
-	/// polynomial commitment to the polynomial interpolating BLS public keys
-	/// which is used by APK proof based light clients to verify the validity
-	/// of aggregated BLS keys using APK proofs.
-	/// Multiple commitments can be tupled together.
+	/// Currently this is a Merkle Root Hash built from BEEFY ECDSA public keys
+	/// (or the ECDSA component of paired ecdsa_bls381 keys), used by bridges
+	/// to verify individual ECDSA signatures with merkle inclusion proofs.
+	///
+	/// To enable BLS aggregate signature verification on Ethereum, a polynomial
+	/// commitment to the BLS public keys is needed for Web3sum based light
+	/// clients. This commitment could either be included here (by tupling
+	/// multiple commitments together) or stored in a parachain block and proven
+	/// via the parachain heads root already present in the MMR leaf's
+	/// `leaf_extra`.
 	pub keyset_commitment: AuthoritySetCommitment,
 }
 
