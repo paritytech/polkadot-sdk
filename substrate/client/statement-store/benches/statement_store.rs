@@ -34,14 +34,19 @@
 //!
 //! The groups added for the on-disk index target what moving it to disk actually costs:
 //! - `read_scaling`: read latency as a function of store size (flat in RAM, grows on disk);
+//! - `submit_index_cost`: submit throughput vs. the number of on-disk index writes per statement;
+//! - `submit_eviction`: submit throughput when every submit evicts (the `db.get` under the lock);
+//! - `subscribe_topic`: subscribe with a topic and pull matching statements from a near-limit store;
+//! - `propagate`: `take_recent_statements` gather for one propagation interval;
 //! - `contention_read_under_write`: read latency while writers run concurrently.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use sc_statement_store::Store;
+use sc_statement_store::{Config, StatementStoreSubscriptionApi, Store};
 use sp_core::Pair;
 use sp_runtime::codec::Encode;
 use sp_statement_store::{
-	DecryptionKey, Statement, StatementSource, StatementStore, SubmitResult, Topic,
+	DecryptionKey, OptimizedTopicFilter, Statement, StatementSource, StatementStore, SubmitResult,
+	Topic, MAX_TOPICS,
 };
 use std::sync::Arc;
 
@@ -68,8 +73,41 @@ const CONTENTION_WRITERS: usize = 32;
 /// Statements pre-loaded before the contention benchmark runs.
 const CONTENTION_PRELOAD: usize = 2_000;
 
+/// Per-account statement cap for the eviction benchmark. The account is filled to this many
+/// statements so that every timed submit must evict exactly one.
+const EVICTION_CAP: u32 = TOTAL_OPS as u32;
+
+/// Store size for the near-limit read user-story benches. This is `DEFAULT_MAX_TOTAL_STATEMENTS`
+/// (~4M), i.e. a full store, so the on-disk index has production depth. Building it takes several
+/// minutes (one ed25519 verify per statement), so `subscribe_topic` is a manual-only bench.
+const NEAR_LIMIT: usize = 4 * 1024 * 1024;
+
+/// Statements sharing each topic in the diverse-topic fixture. Small, so a single-topic subscription
+/// pulls just a handful of statements out of a full store (exercising a deep on-disk topic index).
+const SUBSCRIBE_MATCHES: usize = 8;
+
+/// Statements drained per propagation interval by `take_recent_statements`.
+const PROPAGATE_BATCH: usize = 1_000;
+
 #[derive(Clone)]
-struct TestClient;
+struct TestClient {
+	max_count: u32,
+	max_size: u32,
+}
+
+impl TestClient {
+	/// Effectively unlimited per-account allowance, so a single account can hold even the near-limit
+	/// pre-loads without hitting per-account eviction (the global `Config` caps the store instead).
+	fn generous() -> Self {
+		Self { max_count: u32::MAX, max_size: u32::MAX }
+	}
+
+	/// Small statement-count cap for the eviction benchmark: once the account holds `max_count`
+	/// statements, every further submit must evict one.
+	fn capped(max_count: u32) -> Self {
+		Self { max_count, max_size: 256 * 1024 * 1024 }
+	}
+}
 
 type TestBackend = sc_client_api::in_mem::Backend<Block>;
 
@@ -79,9 +117,8 @@ impl sc_client_api::StorageProvider<Block, TestBackend> for TestClient {
 		_hash: Hash,
 		_key: &sc_client_api::StorageKey,
 	) -> sp_blockchain::Result<Option<sc_client_api::StorageData>> {
-		// Generous per-account allowance so the large pre-loads in the scaling benchmarks
-		// are not capped by eviction (count, then size in bytes).
-		Ok(Some(sc_client_api::StorageData((2_000_000, 256 * 1024 * 1024).encode())))
+		// Per-account allowance (count, then size in bytes), configured per store.
+		Ok(Some(sc_client_api::StorageData((self.max_count, self.max_size).encode())))
 	}
 
 	fn storage_hash(
@@ -216,8 +253,23 @@ fn create_signed_statement(
 	dec_key: Option<DecryptionKey>,
 	keypair: &sp_core::ed25519::Pair,
 ) -> Statement {
+	create_signed_statement_sized(id, topics, dec_key, STATEMENT_DATA_SIZE, u64::MAX, keypair)
+}
+
+/// Like [`create_signed_statement`] but with an explicit plain-data length and expiry. The length
+/// lets a benchmark hold the encoded statement size roughly constant while varying the topic count
+/// (isolating index-write cost from body size); the expiry doubles as the statement's priority, so
+/// the eviction benchmark can make new statements outrank the ones they evict.
+fn create_signed_statement_sized(
+	id: u64,
+	topics: &[Topic],
+	dec_key: Option<DecryptionKey>,
+	data_size: usize,
+	expiry: u64,
+	keypair: &sp_core::ed25519::Pair,
+) -> Statement {
 	let mut statement = Statement::new();
-	let mut data = vec![0u8; STATEMENT_DATA_SIZE];
+	let mut data = vec![0u8; data_size];
 	data[0..8].copy_from_slice(&id.to_le_bytes());
 	statement.set_plain_data(data);
 
@@ -229,16 +281,16 @@ fn create_signed_statement(
 		statement.set_decryption_key(key);
 	}
 
-	// Far-future expiry so the statement is accepted: the default expiry is 0, which the store
-	// treats as already-expired and rejects.
-	statement.set_expiry(u64::MAX);
+	// Expiry doubles as priority; callers pass a far-future value so the statement is accepted (the
+	// default expiry of 0 is treated as already-expired and rejected).
+	statement.set_expiry(expiry);
 	statement.sign_ed25519_private(keypair);
 	statement
 }
 
 fn setup_store(keypair: &sp_core::ed25519::Pair) -> (Store, tempfile::TempDir) {
 	let temp_dir = tempfile::Builder::new().tempdir().expect("Error creating test dir");
-	let client = Arc::new(TestClient);
+	let client = Arc::new(TestClient::generous());
 	let mut path: std::path::PathBuf = temp_dir.path().into();
 	path.push("db");
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
@@ -267,7 +319,7 @@ fn setup_store(keypair: &sp_core::ed25519::Pair) -> (Store, tempfile::TempDir) {
 /// Creates an empty store backed by a fresh temporary directory.
 fn empty_store() -> (Store, tempfile::TempDir) {
 	let temp_dir = tempfile::Builder::new().tempdir().expect("Error creating test dir");
-	let client = Arc::new(TestClient);
+	let client = Arc::new(TestClient::generous());
 	let mut path: std::path::PathBuf = temp_dir.path().into();
 	path.push("db");
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
@@ -328,6 +380,139 @@ fn bench_submit(c: &mut Criterion) {
 			criterion::BatchSize::LargeInput,
 		)
 	});
+}
+
+/// Marginal cost of the on-disk index writes on the submit hot path. Every submitted statement
+/// writes one `INDEX_BY_DEC_KEY` entry plus one `INDEX_BY_TOPIC` entry per topic, all folded into
+/// the same commit under the `submit_index` write lock. Varying the topic count moves the index
+/// writes per submit from 1 (0 topics) to `MAX_TOPICS + 1`. The plain data is shrunk by one topic's
+/// worth per topic so the encoded statement size stays ~constant across arms — otherwise a larger
+/// body would confound the measurement — leaving the number of index writes as the only variable.
+/// Signature verification runs off the lock, so under the 64-thread harness throughput is bound by
+/// the serialized lock section: a flat curve means the index writes are lost in the noise, a rising
+/// one means they are a real cost.
+fn bench_submit_index_cost(c: &mut Criterion) {
+	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
+
+	let mut group = c.benchmark_group("submit_index_cost");
+	group.sample_size(10);
+	for &num_topics in &[0usize, 1, MAX_TOPICS] {
+		let topics: Vec<Topic> = (0..num_topics).map(|t| topic(t as u64)).collect();
+		// Hold the encoded size ~constant: a `Topic` is 32 bytes, so drop 32 data bytes per topic.
+		let data_size = STATEMENT_DATA_SIZE.saturating_sub(num_topics * 32);
+		let statements: Vec<Statement> = (INITIAL_STATEMENTS..INITIAL_STATEMENTS + TOTAL_OPS)
+			.map(|i| {
+				create_signed_statement_sized(i as u64, &topics, None, data_size, u64::MAX, &keypair)
+			})
+			.collect();
+		group.bench_with_input(
+			BenchmarkId::from_parameter(num_topics),
+			&statements,
+			|b, statements| {
+				b.iter_batched(
+					|| {
+						let (store, temp) = setup_store(&keypair);
+						(Arc::new(store), temp)
+					},
+					|(store, _temp)| {
+						std::thread::scope(|s| {
+							for thread_id in 0..NUM_THREADS {
+								let store = store.clone();
+								let start = thread_id * OPS_PER_THREAD;
+								let chunk = statements[start..start + OPS_PER_THREAD].to_vec();
+								s.spawn(move || {
+									for statement in chunk {
+										let result =
+											store.submit(statement, StatementSource::Local);
+										assert!(matches!(result, SubmitResult::New));
+									}
+								});
+							}
+						});
+					},
+					criterion::BatchSize::LargeInput,
+				)
+			},
+		);
+	}
+	group.finish();
+}
+
+/// A store whose per-account cap is `cap`, pre-filled with `cap` topicless statements at expiry
+/// `expiry` so the account is exactly full. A later, higher-expiry statement then evicts one.
+fn capped_store(keypair: &sp_core::ed25519::Pair, cap: u32, expiry: u64) -> (Store, tempfile::TempDir) {
+	let temp_dir = tempfile::Builder::new().tempdir().expect("Error creating test dir");
+	let client = Arc::new(TestClient::capped(cap));
+	let mut path: std::path::PathBuf = temp_dir.path().into();
+	path.push("db");
+	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
+	let store = Store::new::<Block, TestClient, TestBackend>(
+		&path,
+		Default::default(),
+		client,
+		keystore,
+		None,
+		Box::new(sp_core::testing::TaskExecutor::new()),
+	)
+	.unwrap();
+	for i in 0..cap {
+		let statement =
+			create_signed_statement_sized(i as u64, &[], None, STATEMENT_DATA_SIZE, expiry, keypair);
+		assert!(matches!(store.submit(statement, StatementSource::Local), SubmitResult::New));
+	}
+	(store, temp_dir)
+}
+
+/// Submit cost when the account is full, so every submit evicts one statement. To delete an evicted
+/// statement's index entries, `submit` reads its body back from `col::STATEMENTS` *under the
+/// `submit_index` write lock* (`self.db.get`, to recover its topics). This measures whether that
+/// synchronous read on the hot path is a bottleneck — compare against a build that moves the read
+/// off the lock. Pre-loaded statements get a lower expiry (= priority) than the timed ones, so each
+/// timed submit outranks and evicts one.
+fn bench_submit_with_eviction(c: &mut Criterion) {
+	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
+	let low_expiry = u64::MAX / 2;
+	let high_expiry = low_expiry + 1;
+	let statements: Vec<Statement> = (0..TOTAL_OPS)
+		.map(|i| {
+			create_signed_statement_sized(
+				EVICTION_CAP as u64 + i as u64,
+				&[],
+				None,
+				STATEMENT_DATA_SIZE,
+				high_expiry,
+				&keypair,
+			)
+		})
+		.collect();
+
+	let mut group = c.benchmark_group("submit_eviction");
+	group.sample_size(10);
+	group.bench_function("evict_one", |b| {
+		b.iter_batched(
+			|| {
+				let (store, temp) = capped_store(&keypair, EVICTION_CAP, low_expiry);
+				(Arc::new(store), temp)
+			},
+			|(store, _temp)| {
+				std::thread::scope(|s| {
+					for thread_id in 0..NUM_THREADS {
+						let store = store.clone();
+						let start = thread_id * OPS_PER_THREAD;
+						let chunk = statements[start..start + OPS_PER_THREAD].to_vec();
+						s.spawn(move || {
+							for statement in chunk {
+								let result = store.submit(statement, StatementSource::Local);
+								assert!(matches!(result, SubmitResult::New));
+							}
+						});
+					}
+				});
+			},
+			criterion::BatchSize::LargeInput,
+		)
+	});
+	group.finish();
 }
 
 fn bench_remove(c: &mut Criterion) {
@@ -557,6 +742,97 @@ fn bench_read_scaling(c: &mut Criterion) {
 	group.finish();
 }
 
+/// Store of `n` statements, each carrying a single topic shared by `matches_per_topic` consecutive
+/// statements (no decryption key). Builds a large, deep on-disk topic index while keeping any single
+/// topic's match set small — the realistic "pull my few statements out of a full store" shape.
+fn setup_diverse_topics(
+	keypair: &sp_core::ed25519::Pair,
+	n: usize,
+	matches_per_topic: usize,
+) -> (Store, tempfile::TempDir) {
+	let temp_dir = tempfile::Builder::new().tempdir().expect("Error creating test dir");
+	let client = Arc::new(TestClient::generous());
+	let mut path: std::path::PathBuf = temp_dir.path().into();
+	path.push("db");
+	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
+	// Headroom above `n` so neither the global store cap nor the per-account allowance binds
+	// mid-build (the default global cap is exactly ~4M statements / 2 GiB, which `n` can reach).
+	let config = Config {
+		max_total_statements: n.saturating_mul(2),
+		max_total_size: n.saturating_mul(2 * 1024),
+		..Default::default()
+	};
+	let store = Store::new::<Block, TestClient, TestBackend>(
+		&path,
+		config,
+		client,
+		keystore,
+		None,
+		Box::new(sp_core::testing::TaskExecutor::new()),
+	)
+	.unwrap();
+	for i in 0..n {
+		let t = topic((i / matches_per_topic) as u64);
+		let statement = create_signed_statement(i as u64, &[t], None, keypair);
+		assert!(matches!(store.submit(statement, StatementSource::Local), SubmitResult::New));
+	}
+	(store, temp_dir)
+}
+
+/// The primary retrieval user story: subscribe with a single topic and pull the matching statements
+/// out of a near-limit store. `subscribe_statement` runs the snapshot scan (smallest index set +
+/// membership probes) and reads the matching bodies, all against a full-size on-disk index.
+fn bench_subscribe_topic(c: &mut Criterion) {
+	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
+	let (store, _temp) = setup_diverse_topics(&keypair, NEAR_LIMIT, SUBSCRIBE_MATCHES);
+	let filter = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([topic(0)]));
+
+	let mut group = c.benchmark_group("subscribe_topic");
+	group.sample_size(10);
+	group.bench_function(BenchmarkId::from_parameter(NEAR_LIMIT), |b| {
+		// The returned stream unsubscribes on drop; we only measure the snapshot retrieval.
+		b.iter(|| {
+			let _ = store.subscribe_statement(filter.clone());
+		})
+	});
+	group.finish();
+}
+
+/// Propagation gather: `take_recent_statements` drains the `recent` set and reads each body back —
+/// what `do_propagate_statements` pulls each interval. Store size barely matters here (the
+/// just-submitted bodies are hot in the cache), so a small store is used and the per-interval batch
+/// size `PROPAGATE_BATCH` is the axis that matters.
+fn bench_propagate(c: &mut Criterion) {
+	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
+	let statements: Vec<Statement> = (0..PROPAGATE_BATCH)
+		.map(|i| create_signed_statement(i as u64, &[], None, &keypair))
+		.collect();
+
+	let mut group = c.benchmark_group("propagate");
+	group.sample_size(10);
+	group.bench_function(BenchmarkId::from_parameter(PROPAGATE_BATCH), |b| {
+		b.iter_batched(
+			|| {
+				// Fresh store holding `PROPAGATE_BATCH` recently-submitted (undrained) statements.
+				let (store, temp) = empty_store();
+				for statement in &statements {
+					assert!(matches!(
+						store.submit(statement.clone(), StatementSource::Local),
+						SubmitResult::New
+					));
+				}
+				(store, temp)
+			},
+			|(store, _temp)| {
+				let recent = store.take_recent_statements().unwrap();
+				assert_eq!(recent.len(), PROPAGATE_BATCH);
+			},
+			criterion::BatchSize::LargeInput,
+		)
+	});
+	group.finish();
+}
+
 /// Read latency while writers run concurrently. Measures how much the write/constraint path
 /// interferes with reads — the contention that splitting the index (stage 1) and moving reads off
 /// the write lock (stage 2a) is meant to reduce.
@@ -607,6 +883,8 @@ fn bench_contention(c: &mut Criterion) {
 criterion_group!(
 	benches,
 	bench_submit,
+	bench_submit_index_cost,
+	bench_submit_with_eviction,
 	bench_remove,
 	bench_statement_lookup,
 	bench_statements_all,
@@ -615,6 +893,8 @@ criterion_group!(
 	bench_maintain,
 	bench_mixed_workload,
 	bench_read_scaling,
+	bench_subscribe_topic,
+	bench_propagate,
 	bench_contention
 );
 criterion_main!(benches);
