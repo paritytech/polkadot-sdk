@@ -929,6 +929,18 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Some(rows.into_iter().collect())
 	}
 
+	/// All transaction hashes for the given block, ordered by transaction index — the
+	/// non-hydrated `eth_getBlock*` transaction list. Built from the same rows
+	/// [`Self::receipts_count_per_block`] counts (which include synthetic asset txs the
+	/// runtime-built block does not know about), so the list length always matches the
+	/// reported transaction count.
+	pub async fn block_transaction_hashes_ordered(&self, block_hash: &H256) -> Option<Vec<H256>> {
+		let mut hashes: Vec<(usize, H256)> =
+			self.block_transaction_hashes(block_hash).await?.into_iter().collect();
+		hashes.sort_unstable_by_key(|(index, _)| *index);
+		Some(hashes.into_iter().map(|(_, hash)| hash).collect())
+	}
+
 	/// Get the receipt for the given block hash and transaction index.
 	pub async fn receipt_by_block_hash_and_index(
 		&self,
@@ -2131,6 +2143,82 @@ mod tests {
 				.expect("query ok")
 				.is_none()
 		);
+
+		Ok(())
+	}
+
+	// Repro for the non-hydrated count/list mismatch: `eth_getBlockTransactionCount*` counts
+	// indexed `transaction_hashes` rows (which include synthetic asset txs), while the
+	// runtime-built block only lists `eth_transact` hashes. The non-hydrated `eth_getBlock*`
+	// list is therefore served from `block_transaction_hashes_ordered` — the same rows the
+	// count reads — so `count == len(transactions)` holds for asset-only and mixed blocks.
+	#[sqlx::test]
+	async fn non_hydrated_hash_list_matches_transaction_count(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
+		let ethereum_hash = H256::from([0xE7; 32]);
+
+		let transfer = AssetTransfer {
+			token: H160::from([0x12; 20]),
+			from: H160::from([0x34; 20]),
+			to: H160::from([0x56; 20]),
+			amount: 1,
+		};
+		let synthetic_receipt = |block_hash: H256, tx_index: usize| {
+			let tx_hash = synthetic_tx_hash(block_hash, tx_index);
+			let log = transfer.to_log(U256::from(100), ethereum_hash, tx_hash, tx_index, 7);
+			(
+				synthetic_transaction(&transfer),
+				ReceiptInfo {
+					transaction_hash: tx_hash,
+					transaction_index: U256::from(tx_index as u64),
+					logs: vec![log],
+					..Default::default()
+				},
+			)
+		};
+
+		// Asset-only block: one synthetic tx at extrinsic index 3. Pre-fix, the non-hydrated
+		// list had 0 hashes while the count reported 1.
+		let block = MockBlockInfo { hash: H256::from([0xB1; 32]), number: 100 };
+		let synthetic = synthetic_receipt(block.hash, 3);
+		let synthetic_hash = synthetic.1.transaction_hash;
+		provider.insert(&block, &[synthetic.clone()], &ethereum_hash).await?;
+
+		let count = provider.receipts_count_per_block(&block.hash).await;
+		let hashes = provider.block_transaction_hashes_ordered(&block.hash).await.expect("indexed");
+		assert_eq!(count, Some(hashes.len()), "count and non-hydrated list must agree");
+		assert_eq!(hashes, vec![synthetic_hash]);
+
+		// Mixed block: a real eth tx at extrinsic index 1 plus a synthetic at index 3 —
+		// the list is ordered by transaction index and still matches the count.
+		let block = MockBlockInfo { hash: H256::from([0xB2; 32]), number: 101 };
+		let real_hash = H256::from([0xEE; 32]);
+		let real = (
+			TransactionSigned::default(),
+			ReceiptInfo {
+				transaction_hash: real_hash,
+				transaction_index: U256::from(1),
+				..Default::default()
+			},
+		);
+		let synthetic = synthetic_receipt(block.hash, 3);
+		let synthetic_hash = synthetic.1.transaction_hash;
+		provider.insert(&block, &[real, synthetic], &ethereum_hash).await?;
+
+		let count = provider.receipts_count_per_block(&block.hash).await;
+		let hashes = provider.block_transaction_hashes_ordered(&block.hash).await.expect("indexed");
+		assert_eq!(count, Some(hashes.len()), "count and non-hydrated list must agree");
+		assert_eq!(hashes, vec![real_hash, synthetic_hash], "ordered by transaction index");
+
+		// A block with no indexed rows yields an empty list (the caller falls back to the
+		// runtime-built hash list there).
+		let unindexed = provider
+			.block_transaction_hashes_ordered(&H256::from([0xFF; 32]))
+			.await
+			.expect("query ok");
+		assert!(unindexed.is_empty());
 
 		Ok(())
 	}

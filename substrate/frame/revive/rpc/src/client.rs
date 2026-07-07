@@ -1091,6 +1091,18 @@ impl Client {
 						.collect::<Vec<_>>();
 
 					eth_block.transactions = HashesOrTransactionInfos::TransactionInfos(tx_infos);
+				} else {
+					// The runtime block lacks synthetic asset-tx hashes; serve the indexed
+					// list (the rows `eth_getBlockTransactionCount*` counts) so count always
+					// matches `len(transactions)`. Unindexed blocks keep the runtime list.
+					if let Some(hashes) = self
+						.receipt_provider
+						.block_transaction_hashes_ordered(&block.hash())
+						.await
+						.filter(|hashes| !hashes.is_empty())
+					{
+						eth_block.transactions = HashesOrTransactionInfos::Hashes(hashes);
+					}
 				}
 
 				Some(eth_block)
