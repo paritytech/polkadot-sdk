@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783433727564,
+  "lastUpdate": 1783444574393,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4e1d96383b2ae73de8e66ac9f8c8b8580ac9af80",
-          "message": "Accept only one block in `validate_block` when upgrading a runtime (#10280)\n\nAs the validation is running the entire time using the same validation\ncode, we can not accept any other blocks after a runtime upgrade was\napplied.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-11T21:06:04Z",
-          "tree_id": "f82b9933233e5128da43c370238f1362b5e53234",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4e1d96383b2ae73de8e66ac9f8c8b8580ac9af80"
-        },
-        "date": 1762900032160,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013275978026666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022562152313333327,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00774910183999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15755233660000006,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.00979354164666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carlosalag@protonmail.com",
+            "name": "Carlo Sala",
+            "username": "carlosala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "408895c27a5aff4bac99e956df5426983566f8cb",
+          "message": "fix(asset-conversion): use full balances for pool prices (#12408)\n\n# Description\n\nFixes asset-conversion pool price and liquidity calculations to use the\nfull pool balances instead of reducible balances.\n\nThe previous logic could calculate reserves from reducible balances,\nwhich can exclude protected funds and understate the amount held by the\npool account. This PR routes the relevant calculations through the\npallet reserve helper and updates the shared balance helper to return\nthe full asset balance.\n\nAn example of a problem is found on Polkadot Asset Hub (address\n`163CRvzDQ8JHZfmufa86zA7BfDY7NToUSqmWbpDq5kwDYSmH`, DOT <> USDC pool).\nSomeone transferred a WUD to the account, and now the reducible balance\nsubstracts the ED, giving a wrong quote.\n\n## Integration\n\nDownstream runtimes using `pallet-asset-conversion` should receive this\nas a patch-level bug fix. No migration or configuration change is\nrequired.\n\n## Review Notes\n\nThe change affects reserve reads used by:\n\n* liquidity deposit calculations\n* liquidity withdrawal calculations\n* buy/sell price estimations\n\nThe modified paths now use the same reserve source as swap execution.\n`get_balance` now returns `T::Assets::balance(...)` so callers that need\nthe owner’s total balance do not receive reducible-balance semantics.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-07T15:28:03Z",
+          "tree_id": "96cc60c50aa27a0977c2565ab1401f61f546d1dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/408895c27a5aff4bac99e956df5426983566f8cb"
+        },
+        "date": 1783444545594,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00783506938,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023738847760000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14851111636000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010648204319999972,
             "unit": "seconds"
           }
         ]
