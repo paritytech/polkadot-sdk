@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783429379293,
+  "lastUpdate": 1783433804843,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "178801527+raymondkfcheung@users.noreply.github.com",
-            "name": "Raymond Cheung",
-            "username": "raymondkfcheung"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c1c52454982c9b4ebef51a65b8ce2cd0c38029ed",
-          "message": "Replace `log` with `tracing` on Snowbridge-related modules (#9279)\n\nThis PR replaces `log` with `tracing` instrumentation in\nSnowbridge-related modules by providing structured logging.\n\nPartially addresses #9211 \nSimilar to #8732\n\n## Key Features\n- **Consistent targets**: All components use predictable log targets\n- **Structured fields**: Uses `?variable`/`%variable` syntax for\nautomatic `Debug`/`Display` formatting\n- **Zero runtime impact**: No behavioural changes, only observability\nimprovements\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrii <ndk@parity.io>",
-          "timestamp": "2025-11-11T09:24:18Z",
-          "tree_id": "a8211170d6959b24bb5e63c975d01ea22d896f28",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c1c52454982c9b4ebef51a65b8ce2cd0c38029ed"
-        },
-        "date": 1762858518442,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.95599999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04428912898399993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034260783496000015,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.07965184131599992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "runcomet",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d2ea1952e8f8949e78a2ead5a9c2f866625d337",
+          "message": "Coretime Sale ID (#10188)\n\nResolves https://github.com/paritytech/polkadot-sdk/issues/6354\n\nThis PR builds upon the original implementation by @FereMouSiopi in\n#6626. I would like to acknowledge their significant contributions to:\n\n- The initial implementation of the sale ID functionality\n\n- Early code reviews and discussions with the maintainers\n\n- Laying the groundwork for this feature\n\n**Additions**:\n\n- [x] Adding the necessary migration logic\n\n- [x] Comprehensive testing",
+          "timestamp": "2026-07-07T12:26:22Z",
+          "tree_id": "31201164255ab947c1cecf37170e713830019705",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d2ea1952e8f8949e78a2ead5a9c2f866625d337"
+        },
+        "date": 1783433775304,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.16600000000003,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08393791302399994,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03812873156999998,
             "unit": "seconds"
           }
         ]
