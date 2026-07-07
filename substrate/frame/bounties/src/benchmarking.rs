@@ -384,8 +384,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Benchmarks reclaiming the native token from a stale bounty account, the worst case common to
-	// every runtime (no additional assets configured in the default test runtime).
 	#[benchmark]
 	fn reclaim_bounty_funds() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T, I>();
@@ -403,6 +401,10 @@ mod benchmarks {
 		// Drop the bounty record so its account counts as stale.
 		crate::Bounties::<T, I>::remove(bounty_id);
 		BountyDescriptions::<T, I>::remove(bounty_id);
+
+		// Mint all relevant assets into the bounty account so the benchmark exercises real
+		// transfers instead of being a no-op for runtimes with non-trivial TransferAllAssets.
+		T::TransferAllAssets::setup_assets_for_benchmark(&bounty_account);
 
 		assert!(
 			!T::Currency::free_balance(&bounty_account).is_zero(),

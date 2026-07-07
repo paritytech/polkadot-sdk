@@ -96,7 +96,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use frame_support::traits::{
-	fungible::{Inspect as FungibleInspect, Mutate as FungibleMutate},
+	fungible::Mutate as FungibleMutate,
 	fungibles::{Inspect as FungiblesInspect, Mutate as FungiblesMutate},
 	tokens::{Fortitude, Preservation},
 	Currency,
@@ -218,6 +218,13 @@ pub trait TransferAllAssets<AccountId> {
 	/// Returns `true` if any balance was actually transferred, `false` if the account was already
 	/// empty.
 	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> Result<bool, DispatchError>;
+
+	/// Mint benchmark amounts of each relevant asset into `from`.
+	///
+	/// Called during benchmarking so that `force_transfer_all_assets` exercises real transfers
+	/// instead of being a no-op. The default implementation is a no-op.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_assets_for_benchmark(_from: &AccountId) {}
 }
 
 impl<AccountId> TransferAllAssets<AccountId> for () {
@@ -263,6 +270,14 @@ where
 			let _ = Fungibles::transfer(id, from, to, balance, Preservation::Expendable);
 		}
 		Ok(transferred_any)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_assets_for_benchmark(from: &AccountId) {
+		for id in RelevantAssets::get() {
+			// Ignore errors; the asset may not yet exist in a minimal benchmark runtime.
+			let _ = Fungibles::mint_into(id, from, 1_000u32.into());
+		}
 	}
 }
 
@@ -1008,15 +1023,15 @@ pub mod pallet {
 
 		/// Reclaim funds stranded in a closed bounty's account back to the treasury.
 		///
-		/// Permissionless. Moves all remaining native tokens and configured fungible assets from a
-		/// closed bounty's account back to the treasury in a single call.
+		/// Permissionless. Moves all remaining assets from a closed bounty's account back to the
+		/// treasury in a single call. Which assets are swept depends on the `TransferAllAssets`
+		/// configuration.
 		///
 		/// The call is free if funds were reclaimed and paid otherwise, so no-op calls cannot be
 		/// used to grief the network. Emits `BountyFundsReclaimed` on success.
 		///
 		/// ## Complexity
-		/// - O(1) for the native token; O(A) where A is the number of relevant assets configured in
-		///   `TransferAllAssets`.
+		/// - O(A) where A is the number of relevant assets configured in `TransferAllAssets`.
 		#[pallet::call_index(11)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::reclaim_bounty_funds())]
 		pub fn reclaim_bounty_funds(
@@ -1036,11 +1051,10 @@ pub mod pallet {
 			let bounty_account = Self::bounty_account_id(bounty_id);
 			let treasury_account = Self::account_id();
 
-			let mut transferred = T::TransferAllAssets::force_transfer_all_assets(
+			let transferred = T::TransferAllAssets::force_transfer_all_assets(
 				&bounty_account,
 				&treasury_account,
 			)?;
-			transferred |= Self::reclaim_native_funds(&bounty_account, &treasury_account)?;
 
 			// Free only if something moved, otherwise paid to prevent griefing.
 			if !transferred {
@@ -1138,27 +1152,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// only use two byte prefix to support 16 byte account id (used by test)
 		// "modl" ++ "py/trsry" ++ "bt" is 14 bytes, and two bytes remaining for bounty index
 		T::PalletId::get().into_sub_account_truncating(("bt", id))
-	}
-
-	/// Move the whole transferable native balance from `from` to `to`. Returns `true` if anything
-	/// moved.
-	fn reclaim_native_funds(from: &T::AccountId, to: &T::AccountId) -> Result<bool, DispatchError> {
-		let balance = <T::Currency as FungibleInspect<T::AccountId>>::reducible_balance(
-			from,
-			Preservation::Expendable,
-			Fortitude::Force,
-		);
-		if balance.is_zero() {
-			return Ok(false);
-		}
-
-		<T::Currency as FungibleMutate<T::AccountId>>::transfer(
-			from,
-			to,
-			balance,
-			Preservation::Expendable,
-		)?;
-		Ok(true)
 	}
 
 	fn create_bounty(
