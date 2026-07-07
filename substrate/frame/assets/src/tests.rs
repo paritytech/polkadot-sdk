@@ -2107,6 +2107,75 @@ fn balance_change_callbacks_should_work() {
 	});
 }
 
+/// The fungibles traits mutate via `Unbalanced` and emit their events in the `done_*` hooks,
+/// bypassing `do_mint`/`do_transfer`/`do_burn` — the callbacks must fire there too. This is the
+/// path taken by XCM asset transactors.
+#[test]
+fn balance_change_callbacks_fire_on_fungibles_paths() {
+	use frame_support::traits::{
+		fungibles::Mutate,
+		tokens::{Fortitude, Precision, Preservation},
+	};
+	build_and_execute(|| {
+		let take = |key: &str| {
+			let val = storage::get(key.as_bytes()).map(|v| v.to_vec());
+			storage::clear(key.as_bytes());
+			val
+		};
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+
+		assert_ok!(Assets::mint_into(0, &1, 100));
+		assert_eq!(
+			take(AssetsCallbackHandle::ISSUED),
+			Some((0u32, 1u64, 100u64).encode()),
+			"fungibles `mint_into` must fire `issued`"
+		);
+
+		assert_ok!(<Assets as Mutate<u64>>::transfer(0, &1, &2, 60, Preservation::Expendable));
+		assert_eq!(
+			take(AssetsCallbackHandle::TRANSFERRED),
+			Some((0u32, 1u64, 2u64, 60u64).encode()),
+			"fungibles `transfer` must fire `transferred`"
+		);
+
+		assert_ok!(Assets::burn_from(
+			0,
+			&2,
+			60,
+			Preservation::Expendable,
+			Precision::Exact,
+			Fortitude::Polite
+		));
+		assert_eq!(
+			take(AssetsCallbackHandle::BURNED),
+			Some((0u32, 2u64, 60u64).encode()),
+			"fungibles `burn_from` must fire `burned`"
+		);
+	});
+}
+
+/// Refunding the deposit of an account with a non-zero balance burns that balance
+/// (`allow_burn`), which must fire `burned` like any other supply-reducing path.
+#[test]
+fn balance_change_callbacks_fire_on_refund_burn() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		storage::clear(AssetsCallbackHandle::ISSUED.as_bytes());
+
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(1), 0, true));
+		assert_eq!(Assets::total_supply(0), 0);
+		assert_eq!(
+			storage::get(AssetsCallbackHandle::BURNED.as_bytes()).map(|v| v.to_vec()),
+			Some((0u32, 1u64, 100u64).encode()),
+			"refund with `allow_burn` must fire `burned`"
+		);
+	});
+}
+
 #[test]
 fn root_asset_create_should_work() {
 	build_and_execute(|| {

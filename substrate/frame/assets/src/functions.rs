@@ -402,6 +402,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				owner: who.clone(),
 				balance: account.balance,
 			});
+			T::CallbackHandle::burned(&id, &who, account.balance);
 		}
 
 		Asset::<T, I>::insert(&id, details);
