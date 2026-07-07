@@ -17,7 +17,7 @@
 
 #![cfg(test)]
 
-use crate::{core_mask::*, mock::*, *};
+use crate::{mock::*, *};
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
 	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},

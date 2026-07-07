@@ -22,10 +22,8 @@ pub use pallet::*;
 
 mod adapt_price;
 mod benchmarking;
-mod core_mask;
 mod coretime_interface;
 mod dispatchable_impls;
-pub mod market;
 
 #[cfg(test)]
 mod mock;
@@ -45,8 +43,11 @@ pub mod weights;
 pub use weights::WeightInfo;
 
 pub use adapt_price::*;
-pub use core_mask::*;
 pub use coretime_interface::*;
+pub use fp_coretime::{
+	market, CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
+	CORE_MASK_BITS,
+};
 pub use types::*;
 
 extern crate alloc;
