@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783415275206,
+  "lastUpdate": 1783429416860,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dadd3f5fb3949ceed2957caef8b56f870271ec3c",
-          "message": "[Release|CI/CD] build and publish binary for RPM distribution (#10206)\n\nhttps://github.com/paritytech/release-engineering/issues/269\n\n---------\n\nCo-authored-by: EgorPopelyaev <egor@parity.io>",
-          "timestamp": "2025-11-10T19:43:29Z",
-          "tree_id": "7c4f1b9df7db4b34276650238d4cfdadcf7e1a97",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dadd3f5fb3949ceed2957caef8b56f870271ec3c"
-        },
-        "date": 1762808038271,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005089653109999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002636340860000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008691942239999986,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009631888969999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "58e88cf5ed5f6ad0cb7b7e247bf283a0b454db0d",
+          "message": "Remove deprecated BlockAnnounceValidator type alias (#12501)\n\n## Summary\nRemoves the deprecated `BlockAnnounceValidator` type alias from\n`cumulus-client-network`. Use `RequireSecondedInBlockAnnounce` directly.\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-07T11:08:38Z",
+          "tree_id": "366ad5e7f87d15c53ce7dc6ac8dbd264d099d29c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/58e88cf5ed5f6ad0cb7b7e247bf283a0b454db0d"
+        },
+        "date": 1783429387489,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009382483779999982,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026316440100000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011265460129999997,
             "unit": "seconds"
           }
         ]
