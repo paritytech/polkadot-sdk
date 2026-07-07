@@ -1243,6 +1243,7 @@ impl<T: Config> Pallet<T> {
 		max_hrmp_num_per_candidate: u32,
 		sender: ParaId,
 		out_hrmp_msgs: &[OutboundHrmpMessage<ParaId>],
+		already_sent: &BTreeMap<ParaId, (u32, u32)>,
 	) -> Result<(), OutboundHrmpAcceptanceErr> {
 		if out_hrmp_msgs.len() as u32 > max_hrmp_num_per_candidate {
 			return Err(OutboundHrmpAcceptanceErr::MoreMessagesThanPermitted {
@@ -1282,7 +1283,11 @@ impl<T: Config> Pallet<T> {
 				});
 			}
 
-			let new_total_size = channel.total_size + out_msg.data.len() as u32;
+			let (extra_count, extra_size) =
+				already_sent.get(&out_msg.recipient).copied().unwrap_or((0, 0));
+
+			let new_total_size =
+				channel.total_size.saturating_add(extra_size).saturating_add(msg_size);
 			if new_total_size > channel.max_total_size {
 				return Err(OutboundHrmpAcceptanceErr::TotalSizeExceeded {
 					idx,
@@ -1291,7 +1296,7 @@ impl<T: Config> Pallet<T> {
 				});
 			}
 
-			let new_msg_count = channel.msg_count + 1;
+			let new_msg_count = channel.msg_count.saturating_add(extra_count).saturating_add(1);
 			if new_msg_count > channel.max_capacity {
 				return Err(OutboundHrmpAcceptanceErr::CapacityExceeded {
 					idx,

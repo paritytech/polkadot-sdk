@@ -656,14 +656,19 @@ impl<T: Config> Pallet<T> {
 				Some(latest_head_data) => latest_head_data,
 			};
 
+			let mut segment_usage = SegmentUsage::from_pending_availability::<T>(*para_id);
+
 			for (candidate, core) in para_candidates.iter() {
 				let candidate_hash = candidate.candidate().hash();
 
 				// The previous context is None, as it's already checked during candidate
 				// sanitization.
 				let check_ctx = CandidateCheckContext::<T>::new(None);
-				let relay_parent_number = check_ctx
-					.verify_backed_candidate(candidate.candidate(), latest_head_data.clone())?;
+				let relay_parent_number = check_ctx.verify_backed_candidate(
+					candidate.candidate(),
+					latest_head_data.clone(),
+					&mut segment_usage,
+				)?;
 
 				let scheduling_parent = candidate.descriptor().scheduling_parent();
 
@@ -829,6 +834,7 @@ impl<T: Config> Pallet<T> {
 		let session_index = shared::CurrentSessionIndex::<T>::get();
 		let session_config = check_ctx.session_config(session_index);
 
+		let segment_usage = SegmentUsage::default();
 		if let Err(err) = check_ctx.check_validation_outputs(
 			para_id,
 			relay_parent_number,
@@ -839,6 +845,7 @@ impl<T: Config> Pallet<T> {
 			BlockNumberFor::<T>::from(validation_outputs.hrmp_watermark),
 			&validation_outputs.horizontal_messages,
 			&session_config,
+			&segment_usage,
 		) {
 			log::debug!(
 				target: LOG_TARGET,
@@ -935,6 +942,7 @@ impl<T: Config> Pallet<T> {
 		session_config: &SessionExecutionConfig,
 		para: ParaId,
 		upward_messages: &[UpwardMessage],
+		segment_usage: &SegmentUsage,
 	) -> Result<(), UmpAcceptanceCheckErr> {
 		// Filter any pending UMP signals and the separator.
 		let upward_messages = skip_ump_signals(upward_messages.iter()).collect::<Vec<_>>();
@@ -952,7 +960,9 @@ impl<T: Config> Pallet<T> {
 			});
 		}
 
-		let (para_queue_count, mut para_queue_size) = Self::relay_dispatch_queue_size(para);
+		let (base_count, base_size) = Self::relay_dispatch_queue_size(para);
+		let para_queue_count = base_count.saturating_add(segment_usage.ump_count);
+		let mut para_queue_size = base_size.saturating_add(segment_usage.ump_size);
 
 		if para_queue_count.saturating_add(additional_msgs) > host_config.max_upward_queue_count {
 			return Err(UmpAcceptanceCheckErr::CapacityExceeded {
@@ -1215,6 +1225,60 @@ impl<T: Config> OnQueueChanged<AggregateMessageOrigin> for Pallet<T> {
 	}
 }
 
+/// Cumulative resource usage of the candidates in a para's *unincluded segment* — candidates
+/// that have been backed (in an earlier block or earlier in the current block) but not yet
+/// included, and whose messages/code-upgrades have therefore not yet been applied on-chain.
+#[derive(Default, Clone)]
+pub(crate) struct SegmentUsage {
+	/// Additional UMP messages committed by earlier candidates in the segment.
+	ump_count: u32,
+	/// Additional UMP bytes committed by earlier candidates in the segment.
+	ump_size: u32,
+	/// Additional outbound HRMP usage per recipient: `(msg_count, total_bytes)`.
+	hrmp: BTreeMap<ParaId, (u32, u32)>,
+	/// Whether an earlier candidate in the segment already schedules a code upgrade.
+	has_code_upgrade: bool,
+}
+
+impl SegmentUsage {
+	/// Build the accumulator from the para's pending-availability candidates, i.e. candidates
+	/// that were backed in earlier blocks and have not been included yet. Their messages have
+	/// not been enqueued and their code upgrades have not been scheduled, so their usage is not
+	/// yet visible in the on-chain state the acceptance checks read.
+	pub(crate) fn from_pending_availability<T: Config>(para_id: ParaId) -> Self {
+		let mut usage = Self::default();
+		if let Some(pending) = PendingAvailability::<T>::get(&para_id) {
+			for candidate in pending.iter() {
+				usage.accrue(candidate.candidate_commitments());
+			}
+		}
+		usage
+	}
+
+	/// Accrue a candidate's committed resource usage into the accumulator, so that the next
+	/// candidate in the segment is checked against the state this candidate will produce.
+	fn accrue(&mut self, commitments: &CandidateCommitments) {
+		for msg in skip_ump_signals(commitments.upward_messages.iter()) {
+			self.ump_count = self.ump_count.saturating_add(1);
+			self.ump_size = self.ump_size.saturating_add(msg.len() as u32);
+		}
+		for msg in commitments.horizontal_messages.iter() {
+			let entry = self.hrmp.entry(msg.recipient).or_default();
+			entry.0 = entry.0.saturating_add(1);
+			entry.1 = entry.1.saturating_add(msg.data.len() as u32);
+		}
+		if commitments.new_validation_code.is_some() {
+			self.has_code_upgrade = true;
+		}
+	}
+
+	/// Test-only constructor to seed the UMP portion of the accumulator directly.
+	#[cfg(test)]
+	pub(crate) fn new_for_test(ump_count: u32, ump_size: u32) -> Self {
+		Self { ump_count, ump_size, ..Default::default() }
+	}
+}
+
 /// Context for running the acceptance checks on a backed candidate.
 pub(crate) struct CandidateCheckContext<T: Config> {
 	/// The para's most recent relay-parent context, if any. A candidate's relay parent must
@@ -1250,6 +1314,7 @@ impl<T: Config> CandidateCheckContext<T> {
 		&self,
 		backed_candidate_receipt: &CommittedCandidateReceipt<<T as frame_system::Config>::Hash>,
 		parent_head_data: HeadData,
+		segment_usage: &mut SegmentUsage,
 	) -> Result<BlockNumberFor<T>, Error<T>> {
 		let para_id = backed_candidate_receipt.descriptor.para_id();
 		let relay_parent = backed_candidate_receipt.descriptor.relay_parent();
@@ -1321,6 +1386,7 @@ impl<T: Config> CandidateCheckContext<T> {
 			BlockNumberFor::<T>::from(backed_candidate_receipt.commitments.hrmp_watermark),
 			&backed_candidate_receipt.commitments.horizontal_messages,
 			&session_config,
+			segment_usage,
 		) {
 			log::debug!(
 				target: LOG_TARGET,
@@ -1331,6 +1397,9 @@ impl<T: Config> CandidateCheckContext<T> {
 			);
 			Err(err.strip_into_dispatch_err::<T>())?;
 		};
+
+		segment_usage.accrue(&backed_candidate_receipt.commitments);
+
 		Ok(relay_parent_number)
 	}
 
@@ -1361,6 +1430,7 @@ impl<T: Config> CandidateCheckContext<T> {
 		hrmp_watermark: BlockNumberFor<T>,
 		horizontal_messages: &[polkadot_primitives::OutboundHrmpMessage<ParaId>],
 		session_config: &SessionExecutionConfig,
+		segment_usage: &SegmentUsage,
 	) -> Result<(), AcceptanceCheckErr> {
 		// Safe conversion when `session_config.max_head_data_size` is in bounds of `usize` type.
 		let max_head_data_size = usize::try_from(session_config.max_head_data_size)
@@ -1377,6 +1447,7 @@ impl<T: Config> CandidateCheckContext<T> {
 				paras::Pallet::<T>::can_upgrade_validation_code(para_id),
 				AcceptanceCheckErr::PrematureCodeUpgrade,
 			);
+			ensure!(!segment_usage.has_code_upgrade, AcceptanceCheckErr::PrematureCodeUpgrade);
 			ensure!(
 				new_validation_code.0.len() <= max_code_size,
 				AcceptanceCheckErr::NewCodeTooLarge,
@@ -1400,16 +1471,22 @@ impl<T: Config> CandidateCheckContext<T> {
 			e
 		})?;
 		let host_config = configuration::ActiveConfig::<T>::get();
-		Pallet::<T>::check_upward_messages(&host_config, session_config, para_id, upward_messages)
-			.map_err(|e| {
-				log::debug!(
-					target: LOG_TARGET,
-					"Check upward messages for parachain `{}` failed, error: {:?}",
-					u32::from(para_id),
-					e
-				);
+		Pallet::<T>::check_upward_messages(
+			&host_config,
+			session_config,
+			para_id,
+			upward_messages,
+			segment_usage,
+		)
+		.map_err(|e| {
+			log::debug!(
+				target: LOG_TARGET,
+				"Check upward messages for parachain `{}` failed, error: {:?}",
+				u32::from(para_id),
 				e
-			})?;
+			);
+			e
+		})?;
 		hrmp::Pallet::<T>::check_hrmp_watermark(para_id, relay_parent_number, hrmp_watermark)
 			.map_err(|e| {
 				log::debug!(
@@ -1425,6 +1502,7 @@ impl<T: Config> CandidateCheckContext<T> {
 			session_config.hrmp_max_message_num_per_candidate,
 			para_id,
 			horizontal_messages,
+			&segment_usage.hrmp,
 		)
 		.map_err(|e| {
 			log::debug!(

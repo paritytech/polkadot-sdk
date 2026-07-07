@@ -2958,7 +2958,8 @@ fn cross_session_relay_parent_v3() {
 		// verify_backed_candidate uses version() which correctly identifies this as V3
 		// and looks up the relay parent in session 4's DoubleMap via session_index().
 		let check_ctx = CandidateCheckContext::<Test>::new(None);
-		let result = check_ctx.verify_backed_candidate(&candidate, parent_head);
+		let mut segment_usage = Default::default();
+		let result = check_ctx.verify_backed_candidate(&candidate, parent_head, &mut segment_usage);
 		assert!(result.is_ok(), "V3 cross-session relay parent should succeed");
 		assert_eq!(result.unwrap(), old_relay_parent_number);
 	});
@@ -2996,7 +2997,8 @@ fn cross_session_relay_parent_pruned_session_fails() {
 		let parent_head = paras::Heads::<Test>::get(chain_a).unwrap_or_default();
 
 		let check_ctx = CandidateCheckContext::<Test>::new(None);
-		let result = check_ctx.verify_backed_candidate(&candidate, parent_head);
+		let mut segment_usage = Default::default();
+		let result = check_ctx.verify_backed_candidate(&candidate, parent_head, &mut segment_usage);
 		assert_matches!(result, Err(Error::<Test>::DisallowedRelayParent));
 	});
 }
@@ -3042,7 +3044,8 @@ fn cross_session_relay_parent_wrong_session_index_fails() {
 
 		// Should fail: relay parent is in session 4 but descriptor says session 5.
 		let check_ctx = CandidateCheckContext::<Test>::new(None);
-		let result = check_ctx.verify_backed_candidate(&candidate, parent_head);
+		let mut segment_usage = Default::default();
+		let result = check_ctx.verify_backed_candidate(&candidate, parent_head, &mut segment_usage);
 		assert_matches!(result, Err(Error::<Test>::DisallowedRelayParent));
 	});
 }
@@ -3186,9 +3189,79 @@ fn verify_backed_candidate_rejects_oversized_new_validation_code() {
 		let parent_head = paras::Heads::<Test>::get(chain_a).unwrap_or_default();
 
 		let check_ctx = CandidateCheckContext::<Test>::new(None);
+		let mut segment_usage = Default::default();
 		assert_matches!(
-			check_ctx.verify_backed_candidate(&candidate, parent_head),
+			check_ctx.verify_backed_candidate(&candidate, parent_head, &mut segment_usage),
 			Err(Error::<Test>::NewCodeTooLarge)
+		);
+	});
+}
+
+/// `verify_backed_candidate` enforces the *cumulative* UMP queue limits across a para's
+/// unincluded segment. Two candidates that are each individually valid must be rejected once
+/// their combined footprint exceeds `max_upward_queue_count`. This only works because each
+/// accepted candidate's usage is folded into the shared `SegmentUsage` that the next candidate
+/// is checked against; without that accumulation the second candidate would be (wrongly) checked
+/// against the empty on-chain queue and accepted, letting the segment bust the limit.
+#[test]
+fn verify_backed_candidate_enforces_cumulative_ump_across_segment() {
+	let chain_a = ParaId::from(1_u32);
+	let paras = vec![(chain_a, ParaKind::Parachain)];
+
+	let mut config = genesis_config(paras);
+	// Room for at most 3 queued UMP messages overall, but up to 2 per candidate — so a single
+	// candidate (2 messages) fits, while two candidates (2 + 2 = 4) do not. The size limits are
+	// kept large so the message *count* is the only binding constraint.
+	config.configuration.config.max_upward_queue_count = 3;
+	config.configuration.config.max_upward_queue_size = 1_000_000;
+	config.configuration.config.max_upward_message_size = 1_000;
+	config.configuration.config.max_upward_message_num_per_candidate = 2;
+
+	new_test_ext(config).execute_with(|| {
+		run_to_block(2, |_| None);
+		let _ = default_allowed_scheduling_parent_tracker();
+
+		let parent_number = System::block_number().saturating_sub(1);
+		let parent_head = paras::Heads::<Test>::get(chain_a).unwrap_or_default();
+
+		// Build a candidate carrying two small UMP messages (within the per-candidate limit).
+		let build_candidate = || {
+			let mut candidate = TestCandidateBuilder {
+				para_id: chain_a,
+				relay_parent: System::parent_hash(),
+				pov_hash: Hash::repeat_byte(1),
+				persisted_validation_data_hash: make_vdata_hash(chain_a).unwrap(),
+				hrmp_watermark: parent_number,
+				..Default::default()
+			}
+			.build();
+			candidate.commitments.upward_messages.force_push(vec![0u8; 4]);
+			candidate.commitments.upward_messages.force_push(vec![1u8; 4]);
+			candidate
+		};
+
+		let candidate_1 = build_candidate();
+		let candidate_2 = build_candidate();
+
+		let check_ctx = CandidateCheckContext::<Test>::new(None);
+		let mut segment_usage = Default::default();
+
+		// First candidate of the segment: fits against the empty queue (2 <= 3) and accrues its
+		// usage into `segment_usage`.
+		assert_matches!(
+			check_ctx.verify_backed_candidate(
+				&candidate_1,
+				parent_head.clone(),
+				&mut segment_usage,
+			),
+			Ok(_)
+		);
+
+		// Second candidate: individually valid too, but stacked on the first candidate's accrued
+		// usage the queue would hold 2 + 2 = 4 > 3, so it must be rejected.
+		assert_matches!(
+			check_ctx.verify_backed_candidate(&candidate_2, parent_head, &mut segment_usage),
+			Err(Error::<Test>::InvalidUpwardMessages)
 		);
 	});
 }
