@@ -333,6 +333,3 @@ pub mod v3 {
 		fn next_dispatch_time(id: TaskName) -> Result<BlockNumber, DispatchError>;
 	}
 }
-
-#[allow(deprecated)]
-pub use v1::*;
