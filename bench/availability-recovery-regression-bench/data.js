@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783433687286,
+  "lastUpdate": 1783444536864,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "baa36f1e721eada12018e6010bc09efb32d116a5",
-          "message": "fix genesis eth block builder number again (#10297)\n\nRedoes https://github.com/paritytech/polkadot-sdk/pull/10225 for the\ngenesis block number.\n\nIt was broken again by\nhttps://github.com/paritytech/polkadot-sdk/pull/10271",
-          "timestamp": "2025-11-12T12:06:44Z",
-          "tree_id": "62285033a40c1e9e1a0ad61e44e06d8972f427b0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/baa36f1e721eada12018e6010bc09efb32d116a5"
-        },
-        "date": 1762953291579,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.2682260915,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19869662286666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.753623864166666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carlosalag@protonmail.com",
+            "name": "Carlo Sala",
+            "username": "carlosala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "408895c27a5aff4bac99e956df5426983566f8cb",
+          "message": "fix(asset-conversion): use full balances for pool prices (#12408)\n\n# Description\n\nFixes asset-conversion pool price and liquidity calculations to use the\nfull pool balances instead of reducible balances.\n\nThe previous logic could calculate reserves from reducible balances,\nwhich can exclude protected funds and understate the amount held by the\npool account. This PR routes the relevant calculations through the\npallet reserve helper and updates the shared balance helper to return\nthe full asset balance.\n\nAn example of a problem is found on Polkadot Asset Hub (address\n`163CRvzDQ8JHZfmufa86zA7BfDY7NToUSqmWbpDq5kwDYSmH`, DOT <> USDC pool).\nSomeone transferred a WUD to the account, and now the reducible balance\nsubstracts the ED, giving a wrong quote.\n\n## Integration\n\nDownstream runtimes using `pallet-asset-conversion` should receive this\nas a patch-level bug fix. No migration or configuration change is\nrequired.\n\n## Review Notes\n\nThe change affects reserve reads used by:\n\n* liquidity deposit calculations\n* liquidity withdrawal calculations\n* buy/sell price estimations\n\nThe modified paths now use the same reserve source as swap execution.\n`get_balance` now returns `T::Assets::balance(...)` so callers that need\nthe owner’s total balance do not receive reducible-balance semantics.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-07T15:28:03Z",
+          "tree_id": "96cc60c50aa27a0977c2565ab1401f61f546d1dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/408895c27a5aff4bac99e956df5426983566f8cb"
+        },
+        "date": 1783444508054,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.66202869886667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13722350443333337,
             "unit": "seconds"
           }
         ]
