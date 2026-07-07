@@ -46,7 +46,7 @@ const DB_SNAPSHOT_BASE: &str = "https://storage.googleapis.com/zombienet-db-snap
 /// Git-revision suffix on the snapshot filenames. Bump after regenerating and uploading (see
 /// `generate_snapshot.rs` and `README.md`). Placeholder until the first upload to our bucket —
 /// until then, point the `DB_SNAPSHOT_*_OVERRIDE` env vars at local files.
-const SNAPSHOT_REV: &str = "REPLACE_AFTER_FIRST_UPLOAD";
+const SNAPSHOT_REV: &str = "cb9e588f42";
 
 const ENV_DB_RELAY: &str = "DB_SNAPSHOT_RELAY_OVERRIDE";
 const ENV_DB_FULL: &str = "DB_SNAPSHOT_BULLETIN_FULL_OVERRIDE";
