@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783407389111,
+  "lastUpdate": 1783415126538,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "357984bdb9156a068fbc698a9c4b54337f0d307a",
-          "message": "pallet_revive: Fix EVM tests to pass `data` as part of `code` (#10214)\n\nThe test code was passing the constructor argument as `data` on EVM. But\nit should be passed as part of the `code`. This is different from PVM\nwhere those are separate.\n\nFailing to do so makes those opcodes return the wrong values when `data`\nis passed to the constructor:\n\n```\nCODESIZE\nCODECOPY\nCALLDATASIZE\nCALLDATACOPY\nCALLDATALOAD\n```\n\nFurther changes:\n\n- I also added some checks to fail instantiation if `data` is non empty\nwhen uploading new EVM bytecode.\n- Return error when trying to construct EVM contract from code hash as\nthis does not make sense since no initcode is stored on-chain.\n\n---------\n\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-11T17:52:54Z",
-          "tree_id": "37904ccb2d9262b068b97e76c32c08469b7ee69f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/357984bdb9156a068fbc698a9c4b54337f0d307a"
-        },
-        "date": 1762889161246,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.308165481233335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19920835906666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.775366878300002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "bf286b92996ef841bf3ee7764696d24eb6e8305f",
+          "message": "Version bumps  and prdocs reordering stable2606 (#12566)\n\nThis PR backports regular version bumps and prdocs reordering after\n`stable2606` release from release branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
+          "timestamp": "2026-07-07T07:21:02Z",
+          "tree_id": "b6ce20a16ee448564b63b797a29642066cfe8a21",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bf286b92996ef841bf3ee7764696d24eb6e8305f"
+        },
+        "date": 1783415097334,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13946074516666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.740571235166666,
             "unit": "seconds"
           }
         ]
