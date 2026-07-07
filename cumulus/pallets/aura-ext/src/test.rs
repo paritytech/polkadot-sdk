@@ -107,6 +107,20 @@ impl test_pallet::Config for Test {}
 
 std::thread_local! {
 	pub static PARA_SLOT_DURATION: RefCell<u64> = RefCell::new(6000);
+	pub static MAX_CORES: RefCell<u32> = const { RefCell::new(u32::MAX) };
+}
+
+/// Settable `MaxCores` for the mock runtime (default `u32::MAX` = cap disabled).
+pub struct TestMaxCores;
+impl TestMaxCores {
+	pub fn set(max_cores: u32) {
+		MAX_CORES.with(|v| *v.borrow_mut() = max_cores);
+	}
+}
+impl Get<u32> for TestMaxCores {
+	fn get() -> u32 {
+		MAX_CORES.with(|v| *v.borrow())
+	}
 }
 
 pub struct TestSlotDuration;
@@ -151,6 +165,7 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = ExpectParentIncluded;
 	type RelayParentOffset = ConstU32<0>;
+	type MaxCores = TestMaxCores;
 	type SchedulingSignatureVerifier = ();
 }
 
@@ -428,6 +443,85 @@ fn test_can_build_upon_unincluded_segment_size() {
 		// Size after included is one, we can build
 		assert!(Hook::can_build_upon(H256::repeat_byte(0x2), relay_slot));
 	});
+}
+
+// =============================================================================
+// `MaxCores` cap: at most `MaxCores` distinct committed core selectors per relay slot.
+// =============================================================================
+mod max_cores_tests {
+	use super::*;
+	use codec::Encode;
+	use cumulus_primitives_core::{
+		ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem, CUMULUS_CONSENSUS_ID,
+	};
+	use sp_runtime::DigestItem;
+
+	// Velocity/capacity set high so the `MaxCores` cap (not velocity) is what trips.
+	type Hook = FixedVelocityConsensusHook<Test, 6000, 100, 100>;
+
+	/// Simulate one block committing `selector` in its `CoreInfo` digest at `relay_slot`, then run
+	/// the consensus hook — where the distinct-selector cap is enforced. `initialize` resets the
+	/// system digest to exactly this block's `CoreInfo` (one per block, as in real execution).
+	fn author_with_selector(relay_slot: u64, selector: u8) {
+		let core_info = CoreInfo {
+			selector: CoreSelector(selector),
+			claim_queue_offset: ClaimQueueOffset(0),
+			number_of_cores: codec::Compact(0u16),
+		};
+		let digest = Digest {
+			logs: vec![DigestItem::PreRuntime(
+				CUMULUS_CONSENSUS_ID,
+				CumulusDigestItem::CoreInfo(core_info).encode(),
+			)],
+		};
+		// Advance the block number each call (`initialize` requires it to strictly increase) and
+		// reset the system digest to exactly this block's `CoreInfo`.
+		let next = frame_system::Pallet::<Test>::block_number() + 1;
+		frame_system::Pallet::<Test>::initialize(&next, &Default::default(), &digest);
+		Hook::on_state_proof(&relay_chain_state_proof(relay_slot));
+	}
+
+	#[rstest]
+	// Repeated selectors within a slot are fine — only the distinct count is capped.
+	#[case::repeats_ok(vec![0, 1, 0, 1, 0])]
+	// Two distinct selectors with large, monotonic values: the cap is count-based, not
+	// value-based, so a sequence-number selector well above `MaxCores` is accepted.
+	#[case::large_monotonic_values_ok(vec![100, 101, 100, 101])]
+	fn within_max_cores_budget_is_accepted(#[case] selectors: Vec<u8>) {
+		TestMaxCores::set(2);
+		new_test_ext(10).execute_with(|| {
+			for s in selectors {
+				author_with_selector(10, s);
+			}
+		});
+	}
+
+	#[test]
+	#[should_panic = "more than MaxCores (2) distinct core selectors"]
+	fn exceeding_max_cores_distinct_selectors_panics() {
+		TestMaxCores::set(2);
+		new_test_ext(10).execute_with(|| {
+			// A third distinct selector in the same relay slot exceeds `MaxCores = 2`.
+			author_with_selector(10, 0);
+			author_with_selector(10, 1);
+			author_with_selector(10, 2);
+		});
+	}
+
+	#[test]
+	fn distinct_selector_count_resets_each_relay_slot() {
+		TestMaxCores::set(2);
+		new_test_ext(10).execute_with(|| {
+			author_with_selector(10, 0);
+			author_with_selector(10, 1);
+
+			// New relay slot: the distinct-selector set resets, so two fresh (and different)
+			// selectors are accepted even though four distinct values appeared across both slots.
+			pallet_aura::CurrentSlot::<Test>::put(Slot::from(11));
+			author_with_selector(11, 7);
+			author_with_selector(11, 9);
+		});
+	}
 }
 
 /// This test ensures that when we call `BlockExecutor::execute_block` in `validate_block`,

@@ -65,7 +65,7 @@ use sp_externalities::Extensions;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor, Header as HeaderT, Member},
+	traits::{Block as BlockT, HashingFor, Header as HeaderT, Member, UniqueSaturatedInto},
 	Saturating,
 };
 use sp_trie::{
@@ -514,6 +514,22 @@ where
 				},
 			};
 
+			let max_cores = para_client
+				.runtime_api()
+				.max_cores(initial_parent_hash)
+				.unwrap_or_else(|_| cores.total_cores());
+
+			let reserved_cores: Vec<CoreIndex> =
+				cores.core_indices().iter().skip(max_cores as usize).copied().collect();
+			// The claim-queue offset is constant across the assigned cores; snapshot it before
+			// truncation for the reserved-core `CoreInfo` overrides built after the loop.
+			let reserved_claim_queue_offset = cores.core_info().claim_queue_offset;
+
+			// Keep every non-reserved core in the fresh-production loop below; the ones with no
+			// fresh blocks this slot fall through to the resubmission path. Reserved cores are
+			// handled in a separate pass after the loop. Truncating to `fresh_cores` keeps the
+			// per-core time budget divided over the cores that actually build.
+
 			let number_of_blocks =
 				match para_client.runtime_api().target_block_rate(initial_parent_hash) {
 					Ok(interval) => interval,
@@ -526,12 +542,12 @@ where
 						);
 
 						// Backwards compatible we use the number of cores as number of blocks.
-						cores.total_cores()
+						max_cores
 					},
 				};
 
-			// In total we want to have at max `number_of_blocks` cores to use.
-			cores.truncate_cores(number_of_blocks);
+			cores.truncate_cores(max_cores);
+
 			let raw_blocks_per_core = (number_of_blocks / cores.total_cores()).max(1);
 			let left_over_blocks = number_of_blocks % cores.total_cores();
 			let blocks_per_cores = (0..cores.total_cores())
@@ -583,26 +599,27 @@ where
 			// *selector value* (not the loop position); the cores loop reads `bucket[current
 			// bundle's selector]` to ensure a historical lands on the core whose bundle commits
 			// the same selector.
-			let total_cores = cores.total_cores();
+			let total_cores_with_reserved = cores.total_cores() + (reserved_cores.len() as u32);
 			let mut per_selector_unincluded_segment: Vec<Vec<Block::Header>> =
-				vec![Vec::new(); total_cores as usize];
-			if RESUBMIT_UNINCLUDED_SEGMENT && total_cores > 0 {
+				vec![Vec::new(); total_cores_with_reserved as usize];
+			if RESUBMIT_UNINCLUDED_SEGMENT && (total_cores_with_reserved) > 0 {
 				for header in &unincluded_segment {
-					let Some(ci) = CumulusDigestItem::find_core_info(header.digest()) else {
-						tracing::warn!(
-							target: LOG_TARGET,
-							block_hash = ?header.hash(),
-							"Skipping unincluded entry without CoreInfo digest.",
-						);
-						continue;
-					};
-					let target = (ci.selector.0 as u32) % total_cores;
+					// let Some(ci) = CumulusDigestItem::find_core_info(header.digest()) else {
+					// 	tracing::warn!(
+					// 		target: LOG_TARGET,
+					// 		block_hash = ?header.hash(),
+					// 		"Skipping unincluded entry without CoreInfo digest.",
+					// 	);
+					// 	continue;
+					// };
+					let target =
+						UniqueSaturatedInto::<u32>::unique_saturated_into(*header.number()) %
+							total_cores_with_reserved;
 					tracing::debug!(
 						target: LOG_TARGET,
 						block_number = %header.number(),
 						block_hash = ?header.hash(),
-						selector = ci.selector.0,
-						?total_cores,
+						?total_cores_with_reserved,
 						?target,
 						"Routing unincluded entry to selector bucket.",
 					);
@@ -611,7 +628,7 @@ where
 				tracing::info!(
 					target: LOG_TARGET,
 					relay_parent = ?relay_parent_hash,
-					?total_cores,
+					?total_cores_with_reserved,
 					unincluded_segment_len = unincluded_segment.len(),
 					per_selector_lens = ?per_selector_unincluded_segment
 						.iter()
@@ -623,6 +640,73 @@ where
 						.collect::<Vec<_>>(),
 					"Bucketed unincluded segment per selector.",
 				);
+			}
+
+			// Drain the reserved cores BEFORE building any fresh blocks. The V3 scheduling parent
+			// is only valid within a one-relay-slot window on the validator side
+			// (`is_scheduling_parent_valid`); building the fresh bundles first delays the
+			// reserved-core advertisement past that window, so it would be rejected with
+			// `SchedulingParentNotValid` and never fetched. Emitting it up front keeps its
+			// scheduling parent as fresh as the fresh cores' own advertisements.
+			if RESUBMIT_UNINCLUDED_SEGMENT {
+				for (offset, reserved_core_index) in reserved_cores.iter().enumerate() {
+					// Reserved cores sit after the `max_cores` fresh cores in the assigned-core
+					// order. The relay maps a committed selector to a core via
+					// `assigned_cores[selector % len]` over the ascending assigned set, so a
+					// reserved core at position `selector` must commit exactly that selector —
+					// which is also the bucket index the router used above.
+					let selector = max_cores + offset as u32;
+					let bucket = &per_selector_unincluded_segment
+						[(selector % total_cores_with_reserved) as usize];
+					if bucket.is_empty() {
+						continue;
+					}
+					let core_info = CoreInfo {
+						selector: CoreSelector(selector as u8),
+						claim_queue_offset: reserved_claim_queue_offset,
+						// Commit the fresh-core count only (reserved excluded), matching what the
+						// fresh-production loop commits via `cores.core_info()`.
+						number_of_cores: (cores.total_cores() as u16).into(),
+					};
+					let Some((header_chain, isp_header)) = v3_proof_inputs.as_ref() else {
+						// V2 mode has no scheduling proof, so no reserved-core resubmission.
+						break;
+					};
+					let Some(proof) = approved_peer_id.as_ref().and_then(|peer_id| {
+						build_v3_scheduling_proof::<P>(
+							header_chain.clone(),
+							isp_header.clone(),
+							&core_info,
+							peer_id.clone(),
+							slot_claim.author_pub(),
+							&keystore,
+						)
+					}) else {
+						tracing::debug!(
+							target: LOG_TARGET,
+							?reserved_core_index,
+							"Skipping reserved core: cannot build signed scheduling proof.",
+						);
+						continue;
+					};
+
+					tracing::info!(
+						target: LOG_TARGET,
+						?reserved_core_index,
+						selector,
+						segment_len = bucket.len(),
+						segment = ?bucket
+							.iter()
+							.map(|h| (*h.number(), h.hash()))
+							.collect::<Vec<_>>(),
+						"Sending ResubmitOnly segment to reserved core.",
+					);
+					let _ = resubmit_sender.unbounded_send(CollatorResubmitSegment {
+						scheduling_proof: proof,
+						kind: SegmentKind::ResubmitOnly { core_index: *reserved_core_index },
+						unincluded_segment: bucket.clone(),
+					});
+				}
 			}
 
 			for blocks_per_core in blocks_per_cores.into_iter() {
@@ -662,6 +746,14 @@ where
 						None
 					};
 
+				let unincluded_segment = if RESUBMIT_UNINCLUDED_SEGMENT {
+					per_selector_unincluded_segment
+						[(core_info.selector.0 as u32 % total_cores_with_reserved) as usize]
+						.clone()
+				} else {
+					Vec::new()
+				};
+
 				match build_collation_for_core(BuildCollationParams {
 					pov_parent_header: pov_parent_header.clone(),
 					pov_parent_hash,
@@ -696,12 +788,7 @@ where
 					// `core_info.selector` (the value this bundle commits) so the routing
 					// survives any future change to how `Cores` walks the assigned cores.
 					// Gated by `RESUBMIT_UNINCLUDED_SEGMENT`.
-					unincluded_segment: if RESUBMIT_UNINCLUDED_SEGMENT {
-						let idx = (core_info.selector.0 as u32) % total_cores;
-						per_selector_unincluded_segment[idx as usize].clone()
-					} else {
-						Vec::new()
-					},
+					unincluded_segment: unincluded_segment.clone(),
 				})
 				.await
 				{
@@ -720,15 +807,14 @@ where
 						// must not prevent later cores from re-emitting their slice — otherwise
 						// the unincluded segment's tail buckets are silently abandoned when the
 						// runtime starts refusing new blocks (segment full).
-						let idx = (core_info.selector.0 as u32) % total_cores;
-						let bucket = &per_selector_unincluded_segment[idx as usize];
-						if RESUBMIT_UNINCLUDED_SEGMENT && !bucket.is_empty() {
+
+						if RESUBMIT_UNINCLUDED_SEGMENT && !unincluded_segment.is_empty() {
 							if let Some(proof) = scheduling_proof {
 								tracing::info!(
 									target: LOG_TARGET,
 									?this_core_index,
-									segment_len = bucket.len(),
-									segment = ?bucket
+									segment_len = unincluded_segment.len(),
+									segment = ?unincluded_segment
 										.iter()
 										.map(|h| (*h.number(), h.hash()))
 										.collect::<Vec<_>>(),
@@ -737,7 +823,7 @@ where
 								let _ = resubmit_sender.unbounded_send(CollatorResubmitSegment {
 									scheduling_proof: proof,
 									kind: SegmentKind::ResubmitOnly { core_index: this_core_index },
-									unincluded_segment: bucket.clone(),
+									unincluded_segment: unincluded_segment.clone(),
 								});
 							}
 						}

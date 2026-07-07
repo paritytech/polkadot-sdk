@@ -124,6 +124,20 @@ fn main() {
 		.set_file_name(elastic_scaling_v3_rpo::WASM_FILE_NAME)
 		.build();
 
+	// Elastic scaling V3 with reserved capacity for session-change catch-up: `MaxCores = 3` with a
+	// `target_block_rate` of 3, so fresh production is one block per core across 3 cores (no
+	// block-bundling) and the 4th assigned core's backing capacity is reserved to drain
+	// resubmissions across session boundaries. (velocity > MaxCores would bundle multiple blocks
+	// per core, which the resubmission path can't yet re-advertise — see the bundle-aware
+	// resubmission follow-up.)
+	WasmBuilder::init_with_defaults()
+		.enable_feature("v3-descriptor")
+		.enable_feature("velocity-3")
+		.enable_feature("relay-parent-offset-2")
+		.enable_feature("max-cores-3")
+		.set_file_name(elastic_scaling_v3_reserved_core::WASM_FILE_NAME)
+		.build();
+
 	// A runtime with 18s slot duration with increased spec version for runtime upgrade testing.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("18s-slot")

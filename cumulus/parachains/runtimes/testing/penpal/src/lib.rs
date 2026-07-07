@@ -617,6 +617,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	>;
 
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type MaxCores = ConstU32<{ u32::MAX }>;
 	type SchedulingSignatureVerifier = ();
 }
 
@@ -1191,6 +1192,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 	}
 
+	#[api_version(3)]
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			RELAY_PARENT_OFFSET
@@ -1198,6 +1200,10 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 		fn max_claim_queue_offset() -> u8 {
 			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+		}
+
+		fn max_cores() -> u32 {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_cores()
 		}
 	}
 

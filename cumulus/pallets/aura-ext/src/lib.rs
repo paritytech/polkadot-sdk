@@ -54,7 +54,7 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, BoundedBTreeSet};
 	use frame_system::pallet_prelude::*;
 
 	/// The configuration trait.
@@ -98,6 +98,16 @@ pub mod pallet {
 	/// chain slot as provided by the relay chain state proof.
 	#[pallet::storage]
 	pub(crate) type RelaySlotInfo<T: Config> = StorageValue<_, (Slot, u32), OptionQuery>;
+
+	/// The set of distinct committed core selectors observed in the *current* relay-chain slot.
+	///
+	/// Updated in [`FixedVelocityConsensusHook::on_state_proof`] and reset whenever the relay slot
+	/// advances. Its size is the number of distinct cores fresh production has touched this relay
+	/// slot, which the hook caps at [`cumulus_pallet_parachain_system::Config::MaxCores`]. Bounded
+	/// by 256 because a [`CoreSelector`](cumulus_primitives_core::CoreSelector) is a `u8`.
+	#[pallet::storage]
+	pub(crate) type RelaySlotCoreSelectors<T: Config> =
+		StorageValue<_, BoundedBTreeSet<u8, ConstU32<256>>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]

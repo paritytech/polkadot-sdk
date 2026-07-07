@@ -142,6 +142,16 @@ relay-parent-offset-6 = []
 # Change the relay parent offset to 15
 relay-parent-offset-15 = []
 
+# The default `MaxCores` is unbounded (cap disabled; all assigned cores are usable by fresh
+# production). The following features pin it to a small value so that cores assigned beyond it are
+# reserved for resubmissions during session-change catch-up.
+# Cap fresh production to 1 core (the rest are reserved).
+max-cores-1 = []
+# Cap fresh production to 2 cores.
+max-cores-2 = []
+# Cap fresh production to 3 cores.
+max-cores-3 = []
+
 # Configure the runtime to use scheduling V3
 v3-descriptor = []
 

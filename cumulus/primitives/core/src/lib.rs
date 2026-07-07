@@ -653,6 +653,7 @@ sp_api::decl_runtime_apis! {
 	/// Version history:
 	/// - Version 1: Initial version with `relay_parent_offset` only
 	/// - Version 2: Added `max_claim_queue_offset` method
+	/// - Version 3: Added `max_cores` method
 	#[api_version(2)]
 	pub trait RelayParentOffsetApi {
 		/// Fetch the relay parent offset that is expected from the relay chain.
@@ -696,6 +697,22 @@ sp_api::decl_runtime_apis! {
 		/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
 		#[api_version(2)]
 		fn max_claim_queue_offset() -> u8;
+
+		/// The number of cores fresh block production may spread across.
+		///
+		/// The parachain may be assigned more cores than this; the surplus (by highest
+		/// `CoreIndex`) are *reserved cores* kept free to absorb resubmissions during
+		/// session-change catch-up. Collators must keep fresh production on the lowest
+		/// `max_cores` assigned cores and route resubmissions onto the reserved cores. The
+		/// parachain runtime independently enforces this by capping the committed core selector
+		/// to `[0, max_cores)` inside `validate_block`, so the value here is the node-side mirror
+		/// of [`cumulus_pallet_parachain_system::Config::MaxCores`].
+		///
+		/// Note: this method was added in `api_version = 3`. Collators calling on runtimes that
+		/// only implement an earlier `api_version` will receive an error and should fall back to
+		/// using all assigned cores for fresh production (the pre-reserved-core behaviour).
+		#[api_version(3)]
+		fn max_cores() -> u32;
 	}
 
 	/// API to tell the node side whether V3 scheduling is enabled.

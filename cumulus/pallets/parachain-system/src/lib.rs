@@ -283,6 +283,29 @@ pub mod pallet {
 		/// If set to 0, this config has no impact.
 		type RelayParentOffset: Get<u32>;
 
+		/// The maximum number of cores that *fresh* block production may touch per relay-chain
+		/// slot.
+		///
+		/// The parachain may be assigned more cores than this; the surplus capacity is left free to
+		/// absorb resubmissions during session-change catch-up. Every block commits a core selector
+		/// (a monotonically-increasing sequence number) in its `CumulusDigestItem::CoreInfo`
+		/// digest, which the relay maps to a core via `assigned_cores[selector % len]`. The
+		/// consensus hook ([`cumulus_pallet_aura_ext::FixedVelocityConsensusHook`]) enforces that
+		/// **at most `MaxCores` distinct committed selectors appear within a single relay-chain
+		/// slot** — i.e. fresh production touches at most `MaxCores` cores per relay slot,
+		/// regardless of *which* cores. This is count-based, not index-based.
+		///
+		/// A *resubmission* executes against its original relay parent, so its committed selector
+		/// is counted in its original relay slot (already within budget) and reaches additional
+		/// cores through the authority-signed UMP `SelectCore` override — so this cap never
+		/// blocks resubmissions.
+		///
+		/// Set this to a value `>= total assigned cores` (e.g. `u32::MAX`) to effectively disable
+		/// the cap, which keeps behaviour unchanged for parachains that do not use the
+		/// reserved-capacity mechanism. Velocity should be a multiple of `MaxCores` so fresh
+		/// production bundles evenly across the cores it uses.
+		type MaxCores: Get<u32>;
+
 		/// Verifier for V3 scheduling proofs.
 		///
 		/// Reports whether V3 scheduling validation is enabled and supplies the
@@ -1177,6 +1200,15 @@ impl<T: Config> Pallet<T> {
 		}
 
 		2
+	}
+
+	/// Returns the configured maximum number of cores fresh block production may spread across.
+	///
+	/// This is used by the [cumulus_primitives_core::RelayParentOffsetApi::max_cores] runtime API
+	/// to expose the value to collators. Cores assigned beyond this value (by highest `CoreIndex`)
+	/// are reserved for resubmissions. See [`Config::MaxCores`].
+	pub fn max_cores() -> u32 {
+		T::MaxCores::get()
 	}
 }
 

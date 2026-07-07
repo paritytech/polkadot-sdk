@@ -239,6 +239,7 @@ impl crate::Config for Runtime {
 	type WeightInfo = ();
 	type ConsensusHook = crate::ExpectParentIncluded;
 	type RelayParentOffset = ();
+	type MaxCores = ConstU32<{ u32::MAX }>;
 	type SchedulingSignatureVerifier = ();
 }
 
@@ -302,6 +303,7 @@ pub mod only_operational_runtime {
 		type WeightInfo = ();
 		type ConsensusHook = crate::ExpectParentIncluded;
 		type RelayParentOffset = ();
+		type MaxCores = ConstU32<{ u32::MAX }>;
 		type SchedulingSignatureVerifier = ();
 	}
 

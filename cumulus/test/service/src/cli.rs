@@ -406,6 +406,15 @@ impl SubstrateCli for TestCollatorCli {
 					Some(ParaId::from(2900)),
 				)
 			},
+			"elastic-scaling-v3-reserved-core" => {
+				tracing::info!(
+					"Using elastic scaling V3 + relay-parent-offset-2 + reserved-core (MaxCores=2) chain spec."
+				);
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::elastic_scaling_v3_reserved_core::WASM_BINARY,
+					Some(ParaId::from(2901)),
+				)
+			},
 			path => {
 				let chain_spec: sc_chain_spec::GenericChainSpec =
 					sc_chain_spec::GenericChainSpec::from_json_file(path.into())?;

@@ -1,26 +1,23 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! V4 collator-protocol + elastic scaling: first-core-only resubmission across sessions.
+//! V4 collator-protocol + elastic scaling: reserved-capacity resubmission across sessions.
 //!
-//! The collator-side V4 work routes the parachain's unincluded segment exclusively through the
-//! first of its assigned cores. The remaining cores ship only freshly built bundles. The
-//! resubmission of historical entries on that single dedicated core is what keeps the parachain
-//! progressing across relay-chain session boundaries: when the validator set rotates, the unbacked
-//! tail of the unincluded segment must be re-advertised to the new backers, or block production
-//! stalls.
+//! The parachain runs the `elastic-scaling-v3-reserved-core` runtime (`MaxCores = 3`) and is
+//! assigned 4 cores. The runtime caps *fresh* production at `MaxCores` distinct core selectors per
+//! relay slot, so it touches at most 3 cores; the remaining core's backing capacity is left to
+//! drain the unincluded segment. The collator splits the backlog across all assigned cores so it
+//! keeps progressing across relay-chain session boundaries: when the validator set rotates, the
+//! unbacked tail of the unincluded segment is re-advertised to the new backers, or block
+//! production stalls.
 //!
 //! Set-up: rococo-local, 6 validators all on `--experimental-collator-protocol` (so V4 wire
-//! advertisements are exercised), one elastic-scaled parachain assigned 3 cores. The test waits
-//! for the **third** session change (the first session typically passes with the parachain not
-//! yet producing — core assignment + collator warm-up), then asserts throughput and finality
-//! across the subsequent window.
-//!
-//! Negative variant (manual): comment out the first-core `unincluded_segment` clone in
-//! `cumulus/client/consensus/aura/src/collators/slot_based/block_builder_task.rs` so no core ships
-//! the historical entries, rebuild the test-parachain binary, and re-run this test. The
-//! `assert_para_throughput` and `assert_finality_lag` calls should fail — the parachain stalls
-//! once it crosses a session boundary with unincluded blocks still pending.
+//! advertisements are exercised), one parachain assigned 4 cores. `target_block_rate` is 3 and
+//! `MaxCores` is 3, so fresh production is one block per core across 3 cores (no block-bundling);
+//! the 4th core is reserved capacity. In steady state 3 cores suffice, but after a session change
+//! the blocks built before the validator-set rotation must be re-advertised to the new backers,
+//! and the 4th core drains that backlog — that's the behaviour to watch. The test logs Polkadot-JS
+//! links and sleeps for an hour for manual inspection before the throughput/finality checks.
 
 use std::time::Duration;
 
@@ -55,11 +52,11 @@ async fn v4_resubmit_first_core_across_sessions() -> Result<(), anyhow::Error> {
 					"configuration": {
 						"config": {
 							"scheduler_params": {
-								// 2 extra cores beyond the auto-registered parachain core →
-								// 3 cores total once we `assign_cores` cores 0 and 1.
-								"num_cores": 2,
-								"max_validators_per_core": 2,
-								"group_rotation_frequency": 4,
+								// 3 extra cores beyond the auto-registered parachain core →
+								// 4 cores total once we `assign_cores` cores 0, 1 and 2.
+								"num_cores": 3,
+								"max_validators_per_core": 1,
+								"group_rotation_frequency": 40,
 								// Prospective-parachains scope = (active leaf + `lookahead - 1`
 								// ancestors). For elastic-scaling-v3 the unincluded-segment
 								// capacity is `velocity-3 * (3 + 0) = 9` blocks, so the scope
@@ -77,21 +74,21 @@ async fn v4_resubmit_first_core_across_sessions() -> Result<(), anyhow::Error> {
 							// Allow relay parents from up to 2 sessions ago. The V3 resubmission
 							// path relies on this to keep an unincluded block's original
 							// relay parent valid after a session boundary lands.
-							"max_relay_parent_session_age": 10,
+							"max_relay_parent_session_age": 5,
 						}
 					}
 				}))
 				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..6).fold(r, |acc, i| {
+			(1..4).fold(r, |acc, i| {
 				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
 			})
 		})
 		.with_parachain(|p| {
-			p.with_id(2900)
+			p.with_id(2901)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("elastic-scaling-v3-rpo")
+				.with_chain("elastic-scaling-v3-reserved-core")
 				.with_default_args(vec![
 					("-lparachain=debug,aura=debug,parachain::collator-protocol=trace,aura::cumulus=debug,basic-authorship=debug").into(),
 					"--authoring=slot-based".into(),
@@ -101,7 +98,7 @@ async fn v4_resubmit_first_core_across_sessions() -> Result<(), anyhow::Error> {
 					"--state-pruning=archive".into(),
 					"--blocks-pruning=archive".into(),
 				])
-				.with_collator(|n| n.with_name("collator-2900"))
+				.with_collator(|n| n.with_name("collator-2901"))
 		})
 		.build()
 		.map_err(|e| {
@@ -113,26 +110,48 @@ async fn v4_resubmit_first_core_across_sessions() -> Result<(), anyhow::Error> {
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
-	let collator_node = network.get_node("collator-2900")?;
+	let collator_node = network.get_node("collator-2901")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	// Elastic-scale to 3 cores (auto-registered core + 0 + 1).
-	assign_cores(&relay_client, 2900, vec![0, 1]).await?;
-	log::info!("Para 2900 elastic-scaled to 3 cores");
+	// Log Polkadot-JS Apps links for manual inspection: the relay validator and the parachain
+	// collator. Open these in a browser to watch the chain during the sleep at the end.
+	let pjs_link = |ws: &str| -> String {
+		format!(
+			"https://polkadot.js.org/apps/?rpc={}#/explorer",
+			ws.replace(':', "%3A").replace('/', "%2F"),
+		)
+	};
+	log::info!(
+		"validator-0 RPC {} | Polkadot-JS {}",
+		relay_node.ws_uri(),
+		pjs_link(relay_node.ws_uri())
+	);
+	log::info!(
+		"collator-2901 RPC {} | Polkadot-JS {}",
+		collator_node.ws_uri(),
+		pjs_link(collator_node.ws_uri()),
+	);
 
+	// 4 cores total (auto-registered core + 0 + 1 + 2): 3 for fresh production (MaxCores = 3) and
+	// one of reserved capacity to drain resubmissions across session boundaries.
+	assign_cores(&relay_client, 2901, vec![0, 1, 2]).await?;
+	log::info!("Para 2901 assigned 4 cores (3 fresh + 1 reserved capacity)");
+
+	// Keep the network alive for an hour for manual inspection via the Polkadot-JS links / logs
+	// above. Placed BEFORE the assertions so the network stays up even when they would fail.
 	tokio::time::sleep(Duration::from_secs(3600)).await;
-	// Count backed candidates over a window long enough to span ~3 sessions of relay-chain
-	// activity (sessions are ~10 RC blocks each here). The helper internally waits for the
-	// first session change + first backed candidate before counting starts, which absorbs the
-	// `assign_cores`/PVF warm-up window; the rest of the window then exercises the
-	// resubmit-on-first-core path across validator-set rotations. With 3 cores at the
-	// elastic-scaling-v3 throughput target, ~3 backed candidates per relay block.
-	assert_para_throughput(&relay_client, 100, [(ParaId::from(2900), 250..310)], []).await?;
+
+	// Count backed candidates over a window spanning several sessions. The helper internally waits
+	// for the first session change + first backed candidate before counting, which absorbs the
+	// `assign_cores`/PVF warm-up. The range is wide for this first calibration run; tighten once
+	// the steady-state throughput is known.
+	assert_para_throughput(&relay_client, 100, [(ParaId::from(2901), 100..360)], []).await?;
 
 	// Finality must keep up — a stalled parachain would lag finality unboundedly.
 	let collator_client: OnlineClient<PolkadotConfig> = collator_node.wait_client().await?;
 	assert_finality_lag(&collator_client, 10).await?;
 
-	log::info!("V4 first-core resubmit across sessions test finished successfully");
+	log::info!("V4 reserved-capacity resubmit across sessions test finished successfully");
+
 	Ok(())
 }

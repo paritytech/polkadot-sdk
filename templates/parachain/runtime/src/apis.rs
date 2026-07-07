@@ -79,6 +79,7 @@ impl_runtime_apis! {
 		}
 	}
 
+	#[api_version(3)]
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			0
@@ -86,6 +87,10 @@ impl_runtime_apis! {
 
 		fn max_claim_queue_offset() -> u8 {
 			ParachainSystem::max_claim_queue_offset()
+		}
+
+		fn max_cores() -> u32 {
+			ParachainSystem::max_cores()
 		}
 	}
 

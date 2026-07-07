@@ -110,12 +110,17 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
+	#[api_version(3)]
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			unimplemented!()
 		}
 
 		fn max_claim_queue_offset() -> u8 {
+			unimplemented!()
+		}
+
+		fn max_cores() -> u32 {
 			unimplemented!()
 		}
 	}

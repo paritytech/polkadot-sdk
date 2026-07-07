@@ -23,7 +23,8 @@ use cumulus_pallet_parachain_system::{
 	consensus_hook::{ConsensusHook, UnincludedSegmentCapacity},
 	relay_state_snapshot::RelayChainStateProof,
 };
-use frame_support::pallet_prelude::*;
+use cumulus_primitives_core::CumulusDigestItem;
+use frame_support::{pallet_prelude::*, traits::Get};
 use sp_consensus_aura::{Slot, SlotDuration};
 
 /// A consensus hook that enforces fixed block production velocity and unincluded segment capacity.
@@ -53,7 +54,7 @@ pub struct FixedVelocityConsensusHook<
 >(PhantomData<T>);
 
 impl<
-		T: pallet::Config,
+		T: pallet::Config + parachain_system::Config,
 		const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32,
 		const V: u32,
 		const C: u32,
@@ -91,6 +92,33 @@ where
 
 		pallet::RelaySlotInfo::<T>::put((relay_chain_slot, authored_in_relay + 1));
 
+		// Cap the number of distinct cores fresh production may touch per relay-chain slot to
+		// `MaxCores`. The committed `CoreInfo` selector is a monotonically-increasing sequence
+		// number (the relay maps `core = assigned_cores[selector % len]`), so its value cannot be
+		// range-checked — instead we bound the count of DISTINCT selectors committed within a
+		// single relay slot. `authored_in_relay == 0` marks the first block of a new relay slot, so
+		// the set is reset then. Resubmissions never trip this: they execute against their original
+		// relay parent, so their committed selector is counted in its original slot, and they reach
+		// additional cores through the authority-signed override (a different value) instead.
+		if let Some(core_info) =
+			CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
+		{
+			let max_cores = <T as parachain_system::Config>::MaxCores::get();
+			let mut selectors = if authored_in_relay == 0 {
+				Default::default()
+			} else {
+				pallet::RelaySlotCoreSelectors::<T>::get()
+			};
+			// A `CoreSelector` is a `u8`, so the 256-bounded set can always hold it.
+			let _ = selectors.try_insert(core_info.selector.0);
+			if selectors.len() as u32 > max_cores {
+				panic!(
+					"fresh production touched more than MaxCores ({max_cores}) distinct core selectors in relay slot {relay_chain_slot:?}",
+				);
+			}
+			pallet::RelaySlotCoreSelectors::<T>::put(selectors);
+		}
+
 		let para_slot = pallet_aura::CurrentSlot::<T>::get();
 
 		// Convert relay chain timestamp.
@@ -111,7 +139,9 @@ where
 			);
 		}
 
-		let weight = T::DbWeight::get().reads(1);
+		// One read for `RelaySlotInfo` plus the read/write of `RelaySlotCoreSelectors` for the
+		// distinct-core-selector cap.
+		let weight = T::DbWeight::get().reads_writes(2, 1);
 
 		(
 			weight,

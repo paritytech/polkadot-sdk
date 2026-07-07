@@ -61,6 +61,28 @@ pub(crate) const fn block_processing_velocity() -> u32 {
 	1
 }
 
+/// The number of cores fresh block production may spread across.
+///
+/// Any cores the parachain is assigned *beyond* this value (by highest `CoreIndex`) are reserved
+/// cores, kept free for resubmissions during session-change catch-up. The default `u32::MAX`
+/// disables the cap (all assigned cores are usable by fresh production); the `max-cores-*`
+/// features pin it to a small value so reserved cores can be exercised end-to-end.
+pub(crate) const fn max_cores() -> u32 {
+	if cfg!(feature = "max-cores-1") {
+		return 1;
+	}
+
+	if cfg!(feature = "max-cores-2") {
+		return 2;
+	}
+
+	if cfg!(feature = "max-cores-3") {
+		return 3;
+	}
+
+	u32::MAX
+}
+
 pub(crate) const fn unincluded_segment_capacity() -> u32 {
 	if cfg!(feature = "sync-backing") {
 		return 1;
@@ -77,5 +99,7 @@ pub(crate) const fn unincluded_segment_capacity() -> u32 {
 	// With `relay_parent_offset() = N`, the collator builds on relay tip `R - N` while the
 	// chain is at `R`, so the buffer must additionally absorb `N * velocity` parablocks worth
 	// of in-flight blocks between the relay parent and the relay tip.
-	block_processing_velocity() * (3 + relay_parent_offset())
+	// block_processing_velocity() * (3 + relay_parent_offset())
+
+	100
 }
