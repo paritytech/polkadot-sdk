@@ -22,7 +22,11 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSigned};
 use polkadot_primitives::{AccountIndex, BlakeTwo256, Signature};
-use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
+use sp_runtime::{
+	generic,
+	traits::{MaybeEquivalence, TryConvertInto},
+	AccountId32, BuildStorage,
+};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 use xcm_simulator::ParaId;
 
@@ -189,7 +193,7 @@ pub type LocalAssetsTransactor = FungiblesAdapter<
 		AssetIdForAssets,
 		Balance,
 		FromLocationToAsset<Location, AssetIdForAssets>,
-		JustTry,
+		TryConvertInto,
 	>,
 	SovereignAccountOf,
 	AccountId,
