@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783429341258,
+  "lastUpdate": 1783433766188,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "adrian@parity.io",
-            "name": "Adrian Catangiu",
-            "username": "acatangiu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c235685d8a060be84b80647c4b38ffceb1baebdc",
-          "message": "pallet-assets: add reserves info to support non-teleportable Foreign Assets on Asset Hub (#9948)\n\n# Context\n\nAsset Hub currently supports registering following types of assets:\n1. Local Assets (also called trust-based assets), with `u32` asset ID,\nasset creatable by Signed accounts and managed by `PalletInstance(50)`\n(`Assets`).\n2. Foreign Assets, `Location` as asset ID, creatable only by external\nlocations over XCM and managed by `PalletInstance(53)`\n(`ForeignAssets`).\n\nFor \"foreign assets\", the current code assumes and enforces that the\nasset is teleportable with its original location/creator.\n\nSome ecosystem parachains would want to register foreign assets on Asset\nHub, but not also have them teleportable, not have Asset Hub act as a\nreserve for the asset. Multiple reserve locations adds reserve\nmanagement overhead for teams, and some don't want to do it.\n\nE.g. for HOLLAR to be registered to Asset Hub, Asset Hub would have to\nallow reserve-based foreign assets.\n\n# Solution\n\nThis PR adds a new storage item and new call to `pallet-assets` that can\nbe used to configure the trusted reserves (as seen by the local chain)\non a per-asset basis. This is a generic type that is flexible at the\nruntime level. It can be an XCM Location or any other type of location\nidentifier, or it can be set to `()` if the assets managed by the pallet\ninstance do not require any remote reserves information.\n\nThe PR also adds runtime machinery to use the assets reserves\ninformation when reasoning about XCM teleports and XCM reserve-based\ntransfers.\n\n## AH considerations\n\nIn Asset Hub's case, for each asset, only explicitly configured assets'\nreserve locations will be trusted. Besides the actual reserve\nlocation(s), a`teleportable: bool` flag is also set for each reserve,\nspecifying whether the asset is teleportable or not between the local\nchain and said reserve location.\nAny other chain that should be assumed as a trusted reserve needs to be\nmarked as such in `pallet-assets` by the asset's `Owner`.\n\nBy default, on asset creation, no explicit reserve information is\nconfigured. This results in foreign assets not being transferable\ncross-chain by default. To enable cross-chain transfers, one of the\nfollowing configurations is required on the `Asset` to be done by its\n`Owner`:\n- For AH to accept incoming reserve transfer of asset \"A\" from remote\nchain \"X\", that chain needs to be added as a trusted reserve for asset\n\"A\", and `teleportable` flag set to `false`:\n  ```rust\n      let asset_id = \"A\";\n      let origin = Signed(OwnerOfA);\n      let reserves = vec![\nForeignAssetReserveData { reserve: \"Remote Chain X location\", teleport:\nfalse }\n      ];\n      pallet_assets::set_reserves(origin, asset_id, reserves);\n  ```\n- For AH to accept teleports of asset \"A\" from remote chain \"X\", that\nchain needs to be added as trusted reserves for asset \"A\", and\n`teleportable` flag set to `true`:\n  ```rust\n      let asset_id = \"A\";\n      let origin = Signed(OwnerOfA);\n      let reserves = vec![\nForeignAssetReserveData { reserve: \"Remote Chain X location\", teleport:\ntrue }\n      ];\n      pallet_assets::set_reserves(origin, asset_id, reserves);\n  ```\n\n## Required migrations\n\nSince there are already a number of Foreign Assets already registered,\nand have been teleportable or reserve-transferable since registration\nbased on static rules, this PR also adds a migration that configures the\nrequired reserves information for existing foreign assets, so as not to\nchange any existing behaviors.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: claravanstaden <claravanstaden64@gmail.com>",
-          "timestamp": "2025-11-11T17:35:21Z",
-          "tree_id": "cc44b9e150c5fe7f5d5916195c0c2cdfe2648e7c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c235685d8a060be84b80647c4b38ffceb1baebdc"
-        },
-        "date": 1762886947787,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52938,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63622.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000018182610000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005714235740000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.466005029410002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7247051189710647,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001719577,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000018182610000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.47333279584,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.46675657349,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001719577,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.513459601120002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9485968459499947,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43884892391999875,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.31271400547,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.747671770540001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "runcomet",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d2ea1952e8f8949e78a2ead5a9c2f866625d337",
+          "message": "Coretime Sale ID (#10188)\n\nResolves https://github.com/paritytech/polkadot-sdk/issues/6354\n\nThis PR builds upon the original implementation by @FereMouSiopi in\n#6626. I would like to acknowledge their significant contributions to:\n\n- The initial implementation of the sale ID functionality\n\n- Early code reviews and discussions with the maintainers\n\n- Laying the groundwork for this feature\n\n**Additions**:\n\n- [x] Adding the necessary migration logic\n\n- [x] Comprehensive testing",
+          "timestamp": "2026-07-07T12:26:22Z",
+          "tree_id": "31201164255ab947c1cecf37170e713830019705",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d2ea1952e8f8949e78a2ead5a9c2f866625d337"
+        },
+        "date": 1783433736140,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63565.79,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.435962416449992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8440054578999595,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000021308989999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7940231870100005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000021308989999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.502761382762858,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002078856,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.006504314700000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.792001138519998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.755450143980001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.398991395029952,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002078856,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.771044736469999,
             "unit": "seconds"
           }
         ]
