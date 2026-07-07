@@ -150,7 +150,10 @@ module invariants {
   ///     (its `validationCode.pinned` bit), so the slot survives; or
   ///   - the same block re-requested an upgrade back to the old code (it is
   ///     re-referenced as the new pending; §5.2 allows activation + a
-  ///     different request, processed in that order).
+  ///     different request, processed in that order); or
+  ///   - a `Solicit` upward message for the old code's hash was processed
+  ///     (now in `solicitedSet`), re-referencing it as a plain data preimage
+  ///     independent of the code slot.
   /// `prevSvc` holds the pre-step state. Exact balance accounting is pinned
   /// separately by `used_balance_consistency`.
   val code_activation_releases_old: bool =
@@ -176,7 +179,8 @@ module invariants {
         not(activated) or
           not(svc.hasReferencer(oldHash, oldLen, para_id)) or
           before.validationCode.pinned or
-          reRequested
+          reRequested or
+          solicitedSet.contains((para_id, oldHash, oldLen))
       }
     })
 
@@ -322,6 +326,17 @@ module invariants {
     svc.parachainLog.keys().forall(p =>
       parachainLogSize(svc.paraLog(p)) <= ParachainLogByteCap)
 
+  /// §5.1 lookup-anchor pruning: every entry left in a parachain's log has a
+  /// timeslot `>= logPrunedBelow[para]` — the lookup-anchor it was last pruned
+  /// against (0 if never pruned). This holds through byte-cap eviction too,
+  /// which only removes entries (oldest-first) and never lowers a timeslot.
+  val parachain_log_above_lookup: bool =
+    svc.parachainLog.keys().forall(p => {
+      val threshold =
+        if (logPrunedBelow.keys().contains(p)) logPrunedBelow.get(p) else 0
+      svc.paraLog(p).select(e => e._1 < threshold).length() == 0
+    })
+
   /// Composite invariant — every invariant above must hold simultaneously.
   val invariants: bool = and {
     balance_invariant,
@@ -348,6 +363,7 @@ module invariants {
     assign_calls_well_formed,
     staged_validator_keys_bounded,
     accumulate_log_batch_bounded,
-    parachain_log_within_capacity
+    parachain_log_within_capacity,
+    parachain_log_above_lookup
   }
 }

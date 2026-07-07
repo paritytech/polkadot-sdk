@@ -41,7 +41,11 @@ module accumulate {
     state: ParachainServiceState,
     solicited: Set[(ParaId, Hash, int)],
     jamDesignate: Option[List[ValidatorKey]],
-    jamAssigns: List[AssignCall]
+    jamAssigns: List[AssignCall],
+    // The `(para, lookup-anchor)` this package pruned its log against, if it
+    // processed a candidate (`None` for a JAM-substituted `WorkErr`). The
+    // caller folds it into the ghost `logPrunedBelow`.
+    logPruned: Option[(ParaId, Timeslot)]
   }
 
   // ---- Replay a single upward message -----------------------------------
@@ -359,17 +363,19 @@ module accumulate {
     solicited: Set[(ParaId, Hash, int)],
     prevDesignate: Option[List[ValidatorKey]],
     codeLen: int,
-    now: Timeslot
+    now: Timeslot,
+    lookupAnchor: Timeslot
   ): PerPackageOutcome = {
     match wr.result {
       // §3.3: gray paper `WorkExecResult::Error` — JAM substituted an
       // error for this work-item before the service's refine ran.
-      // Skip entirely: no log entry, no state change.
+      // Skip entirely: no log entry, no state change, no prune (no candidate).
       | WorkErr => {
           state: state,
           solicited: solicited,
           jamDesignate: prevDesignate,
-          jamAssigns: List()
+          jamAssigns: List(),
+          logPruned: None
         }
       | WorkOk(digest) =>
         match digest {
@@ -378,24 +384,29 @@ module accumulate {
             // authorizer trace, truncated to `StoredAuthTraceCap` before
             // storing to keep the log bounded (the Gray Paper only caps the
             // 48 KiB combined budget). No-op inside `appendRefineLog` for an
-            // unregistered para (§5.1 step 1).
+            // unregistered para (§5.1 step 1). §5.1: prune the para's log
+            // below the candidate's lookup-anchor before appending this entry.
             {
-              state: state.appendRefineLog(e.paraId, now, e.error, truncateAuthTrace(wr.authTrace)),
+              state: pruneLogBelow(state, e.paraId, lookupAnchor)
+                .appendRefineLog(e.paraId, now, e.error, truncateAuthTrace(wr.authTrace)),
               solicited: solicited,
               jamDesignate: prevDesignate,
-              jamAssigns: List()
+              jamAssigns: List(),
+              logPruned: Some((e.paraId, lookupAnchor))
             }
           | Ok(ok) =>
             val pre = accumulateOkPrefix(state, ok, codeLen, now)
             if (pre.rejected) {
               // §5.1: a candidate rejected at the parent-head or validation-code
               // check may still record an accumulate event (e.g. `InvalidCodeHash`).
-              // Persist it.
+              // Prune below the lookup-anchor before persisting it.
               {
-                state: pre.state.appendAccumulateLogs(ok.paraId, now, pre.logs),
+                state: pruneLogBelow(pre.state, ok.paraId, lookupAnchor)
+                  .appendAccumulateLogs(ok.paraId, now, pre.logs),
                 solicited: solicited,
                 jamDesignate: prevDesignate,
-                jamAssigns: List()
+                jamAssigns: List(),
+                logPruned: Some((ok.paraId, lookupAnchor))
               }
             } else {
               val baseAcc = {
@@ -413,11 +424,15 @@ module accumulate {
                 | Forget(p) => s.exclude(Set((ok.paraId, p.hash, p.len)))
                 | _ => s
               })
+              // §5.1: prune below the candidate's lookup-anchor before
+              // appending this candidate's collected accumulate events.
               {
-                state: acc.state.appendAccumulateLogs(ok.paraId, now, acc.logs),
+                state: pruneLogBelow(acc.state, ok.paraId, lookupAnchor)
+                  .appendAccumulateLogs(ok.paraId, now, acc.logs),
                 solicited: newSolicited,
                 jamDesignate: acc.jamDesignate,
-                jamAssigns: acc.jamAssigns
+                jamAssigns: acc.jamAssigns,
+                logPruned: Some((ok.paraId, lookupAnchor))
               }
             }
         }

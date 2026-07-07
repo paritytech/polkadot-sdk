@@ -83,6 +83,11 @@ module types {
   /// Per-para log byte budget (exact encoded size of all entries must stay ≤ this).
   pure val ParachainLogByteCap: int = 64 * 1024
 
+  /// Max age (in timeslots) of a work-package's lookup-anchor — gray paper
+  /// `L` (~24h). The lookup-anchor may sit this far before the accumulating
+  /// block; distinct from the recent-history *anchor* window (8 blocks).
+  pure val MaxLookupAge: int = 24 * 3600 / 6
+
   /// §3.1: at most 30 AccumulateLog events batched in one log entry.
   pure val AccumulateLogCapacity: int = 30
 

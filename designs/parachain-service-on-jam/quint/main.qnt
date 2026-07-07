@@ -57,7 +57,8 @@ module main {
     prevSvc' = initialState,
     lastStepWorkResults' = List(),
     lastStepBouncedTransfers' = List(),
-    lastStepAssigns' = List()
+    lastStepAssigns' = List(),
+    logPrunedBelow' = Map()
   }
 
   // --- Step (a): refine + accumulate one work-report --------------------
@@ -169,16 +170,27 @@ module main {
     // accumulates with no work packages); 1 or 2 exercise the normal path.
     nondet numPkgs = oneOf(Set(0, 1, 2))
 
+    // §5.1 lookup-anchor: each candidate carries a lookup-anchor — a past
+    // block (slot `<= now`) no older than `MaxLookupAge` (~24h) before this
+    // block (`>= blockNow - MaxLookupAge`; gray paper `t_l >= H_t - L`).
+    // `accumulateOnePackage` prunes the candidate para's log below it before
+    // appending the candidate's own entries; since `lookupAnchor <= now <
+    // blockNow`, entries appended this block (at `blockNow`) survive.
+    val lookLo = if (blockNow > MaxLookupAge) blockNow - MaxLookupAge else 0
+    nondet lookupAnchor1 = oneOf(lookLo.to(now))
+    nondet lookupAnchor2 = oneOf(lookLo.to(now))
+
     val passThrough: PerPackageOutcome =
       {
         state: afterAlwaysAccumulate.state,
         solicited: solicitedSet,
         jamDesignate: None,
-        jamAssigns: List()
+        jamAssigns: List(),
+        logPruned: None
       }
     val out1 =
       if (numPkgs == 0) passThrough
-      else accumulateOnePackage(afterAlwaysAccumulate.state, wp1Wr, solicitedSet, None, FixedCodeLen, blockNow)
+      else accumulateOnePackage(afterAlwaysAccumulate.state, wp1Wr, solicitedSet, None, FixedCodeLen, blockNow, lookupAnchor1)
     // wp2 refines against the post-wp1 state so a second package for the
     // SAME para chains off wp1's new head; different para → identical to
     // refining against `afterAlwaysAccumulate.state`. wp1 may have cleaned up `wp2Para`
@@ -201,7 +213,7 @@ module main {
     val out2 =
       if (numPkgs == 2) {
         val second = accumulateOnePackage(
-          out1.state, wp2Wr, out1.solicited, out1.jamDesignate, FixedCodeLen, blockNow)
+          out1.state, wp2Wr, out1.solicited, out1.jamDesignate, FixedCodeLen, blockNow, lookupAnchor2)
         { ...second, jamAssigns: out1.jamAssigns.concat(second.jamAssigns) }
       } else out1
 
@@ -215,6 +227,20 @@ module main {
       else if (numPkgs == 1) List(wp1Wr)
       else List(wp1Wr, wp2Wr)
 
+    // Log pruning already happened inside `accumulateOnePackage` (per
+    // candidate, before its entries were appended). Fold each package's
+    // `(para, lookup-anchor)` into the ghost `logPrunedBelow`; a later package
+    // for the same para wins (its prune is the last applied).
+    val pruneRecords =
+      if (numPkgs == 0) List()
+      else if (numPkgs == 1) List(out1.logPruned)
+      else List(out1.logPruned, out2.logPruned)
+    val newLogPrunedBelow =
+      pruneRecords.foldl(logPrunedBelow, (m, opt) => match opt {
+        | Some(pair) => m.put(pair._1, pair._2)
+        | None => m
+      })
+
     all {
       svc' = out2.state,
       jamStagingSet' = newStaging,
@@ -223,7 +249,8 @@ module main {
       prevSvc' = svc,
       lastStepWorkResults' = results,
       lastStepBouncedTransfers' = List(),
-      lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out2.jamAssigns)
+      lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out2.jamAssigns),
+      logPrunedBelow' = newLogPrunedBelow
     }
   }
 
@@ -252,7 +279,8 @@ module main {
       prevSvc' = svc,
       lastStepWorkResults' = List(),
       lastStepBouncedTransfers' = bounced,
-      lastStepAssigns' = List()
+      lastStepAssigns' = List(),
+      logPrunedBelow' = logPrunedBelow
     }
   }
 

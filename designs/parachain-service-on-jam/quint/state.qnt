@@ -205,4 +205,19 @@ module state {
     val log = s.paraLog(para_id)
     { ...s, parachainLog: s.parachainLog.put(para_id, pushLogEntry(log, (now, AccumulateLogEntry(entries)))) }
   }
+
+  /// §5.1 log pruning: after a candidate for `para_id` is processed, drop
+  /// `parachain_log[para_id]` entries whose inline timeslot is strictly below
+  /// the candidate's lookup-anchor `threshold`. No-op for a para with no log.
+  /// Only removes entries, so it never grows the log or its byte size.
+  pure def pruneLogBelow(
+    s: ParachainServiceState, para_id: ParaId, threshold: Timeslot
+  ): ParachainServiceState =
+  if (not(s.parachainLog.keys().contains(para_id))) s
+  else {
+    ...s,
+    parachainLog: s.parachainLog.put(
+      para_id, s.parachainLog.get(para_id).select(e => e._1 >= threshold)
+    )
+  }
 }

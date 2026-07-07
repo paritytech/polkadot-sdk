@@ -53,4 +53,12 @@ module state_vars {
   /// `set_authorizer_queue` and exhaustion flushes). Lets invariants verify
   /// `new_assigner` is forwarded. Not part of the protocol.
   var lastStepAssigns: List[AssignCall]
+
+  /// Ghost state: per-para lookup-anchor timeslot the `parachain_log` was
+  /// last pruned against (§5.1). After a candidate for `p` is accumulated,
+  /// entries below `logPrunedBelow[p]` have been dropped, so every remaining
+  /// entry's timeslot is `>= logPrunedBelow[p]`. Checked by
+  /// `parachain_log_above_lookup`. Not part of the protocol (the service
+  /// prunes against the candidate's anchor each block without storing it).
+  var logPrunedBelow: ParaId -> Timeslot
 }

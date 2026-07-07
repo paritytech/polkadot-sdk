@@ -649,12 +649,15 @@ mismatch from step 5 and any from the step 7 replay — are collected and append
 `LogEntry::Accumulate`, is subject to the eviction rules below.
 
 **Log pruning and eviction.** The per-parachain `parachain_log` is kept bounded
-during Accumulate. After a candidate is processed, entries whose inline timeslot
-is strictly less than the candidate's lookup-anchor timeslot are pruned. The log
+during Accumulate. When a candidate is processed, before its own refine/accumulate
+entries are appended, entries whose inline timeslot is strictly less than the
+candidate's lookup-anchor timeslot are pruned. The log
 is additionally bounded to a 64 KiB total encoded size (not a fixed entry count),
 so each entry is charged only its actual size; whenever a new entry would push the
 log over 64 KiB, entries are evicted until it fits — the oldest `RefineLogEntry` is
-dropped first (Refine failures are the most disposable), and only once no refine
+dropped first (Refine failures are the most disposable, whereas an
+`AccumulateLogEntry` records an actual on-chain state change and so carries
+information worth retaining), and only once no refine
 entry remains is the oldest entry overall dropped, so accumulate events are
 retained under capacity pressure.
 

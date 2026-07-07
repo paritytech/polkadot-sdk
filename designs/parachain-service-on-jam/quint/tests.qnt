@@ -50,8 +50,11 @@ module tests {
     }
     // The block then runs always-accumulate, then applies the package.
     val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
+    // lookup-anchor 0 = prune nothing; these deterministic tests don't
+    // exercise §5.1 log pruning (covered by the `parachain_log_above_lookup`
+    // invariant under `quint run`).
     val out = accumulateOnePackage(
-      afterAlwaysAccumulate.state, wr, solicitedSet, None, FixedCodeLen, blockNow
+      afterAlwaysAccumulate.state, wr, solicitedSet, None, FixedCodeLen, blockNow, 0
     )
     all {
       svc' = out.state,
@@ -64,7 +67,8 @@ module tests {
       prevSvc' = svc,
       lastStepWorkResults' = List(wr),
       lastStepBouncedTransfers' = List(),
-      lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out.jamAssigns)
+      lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out.jamAssigns),
+      logPrunedBelow' = logPrunedBelow
     }
   }
 
@@ -94,7 +98,7 @@ module tests {
     // Block: always-accumulate first, then apply wr1.
     val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
     val out1 = accumulateOnePackage(
-      afterAlwaysAccumulate.state, wr1, solicitedSet, None, FixedCodeLen, blockNow
+      afterAlwaysAccumulate.state, wr1, solicitedSet, None, FixedCodeLen, blockNow, 0
     )
     val pi2 = out1.state.paraInfo(p2)
     val pkg2: WorkPackage = {
@@ -111,7 +115,7 @@ module tests {
     }
     val out2Package = accumulateOnePackage(
       out1.state, wr2, out1.solicited, out1.jamDesignate,
-      FixedCodeLen, blockNow
+      FixedCodeLen, blockNow, 0
     )
     val out2 = {
       ...out2Package,
@@ -128,7 +132,8 @@ module tests {
       prevSvc' = svc,
       lastStepWorkResults' = List(wr1, wr2),
       lastStepBouncedTransfers' = List(),
-      lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out2.jamAssigns)
+      lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out2.jamAssigns),
+      logPrunedBelow' = logPrunedBelow
     }
   }
 
@@ -143,7 +148,8 @@ module tests {
     prevSvc' = prevSvc,
     lastStepWorkResults' = lastStepWorkResults,
     lastStepBouncedTransfers' = lastStepBouncedTransfers,
-    lastStepAssigns' = lastStepAssigns
+    lastStepAssigns' = lastStepAssigns,
+    logPrunedBelow' = logPrunedBelow
   }
 
   // --- Bounce-on-full -----------------------------------------------------
@@ -165,7 +171,8 @@ module tests {
     prevSvc' = svc,
     lastStepWorkResults' = lastStepWorkResults,
     lastStepBouncedTransfers' = lastStepBouncedTransfers,
-    lastStepAssigns' = lastStepAssigns
+    lastStepAssigns' = lastStepAssigns,
+    logPrunedBelow' = logPrunedBelow
   }
 
   /// With `incoming_transfers` at capacity, the next ingress must bounce:
