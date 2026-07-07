@@ -1703,6 +1703,62 @@ mod tests {
 	}
 
 	#[test]
+	fn test_match_all_receives_once_per_statement() {
+		// A `MatchAll` subscriber must receive each matching statement exactly once, even when it
+		// is registered under several of the statement's topics.
+		let mut subscriptions = SubscriptionsInfo::new();
+
+		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(10);
+		let (tx2, _rx2) = async_channel::bounded::<StatementEvent>(10);
+		let (tx3, _rx3) = async_channel::bounded::<StatementEvent>(10);
+
+		let topic1 = Topic::from([1u8; 32]);
+		let topic2 = Topic::from([2u8; 32]);
+		let topic3 = Topic::from([3u8; 32]);
+		let topic4 = Topic::from([4u8; 32]);
+
+		// The subscription under test: MatchAll on topic1 AND topic2 (stored under both topics).
+		let sub_info1 = fixed_subscription(
+			1,
+			OptimizedTopicFilter::MatchAll(vec![topic1, topic2].into_iter().collect()),
+		);
+		subscriptions.subscribe(sub_info1, tx1);
+
+		// Extra MatchAll subscriptions on topic3 so the matcher encounters sub_info1 across
+		// several topic combinations of the statement below. They do not match the statement
+		// themselves (topic4 is absent).
+		let sub_info2 = fixed_subscription(
+			2,
+			OptimizedTopicFilter::MatchAll(vec![topic3, topic4].into_iter().collect()),
+		);
+		let sub_info3 = fixed_subscription(
+			3,
+			OptimizedTopicFilter::MatchAll(vec![topic3, topic4].into_iter().collect()),
+		);
+		subscriptions.subscribe(sub_info2, tx2);
+		subscriptions.subscribe(sub_info3, tx3);
+
+		// Statement carrying topic1, topic2 and topic3.
+		let mut statement = signed_statement(1);
+		statement.set_topic(0, topic1);
+		statement.set_topic(1, topic2);
+		statement.set_topic(2, topic3);
+
+		subscriptions.notify_matching_filters(&statement);
+
+		// sub_info1 must receive the statement exactly once.
+		let received = unwrap_statement(rx1.try_recv().expect("Should receive statement"));
+		let decoded_statement: Statement =
+			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
+		assert_eq!(decoded_statement, statement);
+
+		assert!(
+			rx1.try_recv().is_err(),
+			"MatchAll subscriber must receive each statement only once"
+		);
+	}
+
+	#[test]
 	fn test_match_all_with_single_topic_matches_statement_with_two_topics() {
 		let mut subscriptions = SubscriptionsInfo::new();
 
