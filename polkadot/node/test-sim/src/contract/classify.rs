@@ -229,6 +229,9 @@ fn classify_request(req: Requests, pending: &mut PendingFetches) -> Classified {
 				candidate_hash: Some(candidate_hash),
 			})
 		},
+		Requests::CollationFetchingV3(_) => {
+			unimplemented!("test-sim V3 routing lands with validator-side V3 emission")
+		},
 
 		// Other request kinds are emitted by other subsystems, never by collator-protocol.
 		// Exhaustive arms here mean a new variant on the upstream `Requests` enum breaks the

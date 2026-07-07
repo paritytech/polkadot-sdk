@@ -29,7 +29,8 @@ use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
 use polkadot_node_network_protocol::{
 	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{
-		v1 as request_v1, v2 as request_v2, IncomingRequestReceiver, ReqProtocolNames,
+		v1 as request_v1, v2 as request_v2, v3 as request_v3, IncomingRequestReceiver,
+		ReqProtocolNames,
 	},
 };
 #[cfg(any(feature = "malus", test))]
@@ -96,6 +97,8 @@ where
 	pub collation_req_v1_receiver: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
 	/// Collations request receiver for network protocol v2.
 	pub collation_req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
+	/// Collations request receiver for network protocol v3.
+	pub collation_req_v3_receiver: IncomingRequestReceiver<request_v3::CollationFetchingRequest>,
 	/// Receiver for available data requests.
 	pub available_data_req_receiver:
 		IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
@@ -163,6 +166,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		authority_discovery_service,
 		collation_req_v1_receiver: _,
 		collation_req_v2_receiver: _,
+		collation_req_v3_receiver: _,
 		available_data_req_receiver,
 		registry,
 		spawner,
@@ -394,6 +398,7 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		authority_discovery_service,
 		collation_req_v1_receiver: _,
 		collation_req_v2_receiver,
+		collation_req_v3_receiver: _,
 		available_data_req_receiver,
 		registry,
 		spawner,
