@@ -220,6 +220,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
         region_end: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
         ideal_cores_sold: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u16.html">u16</a>,
         cores_offered: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u16.html">u16</a>,
+        sale_index: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
     },
     Leased {
         task: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
@@ -375,6 +376,7 @@ decreasing).</p>
 (i.e. One after the last timeslice which the Regions control.)</p>
 </div></div><div class="sub-variant-field"><span id="variant.SaleInitialized.field.ideal_cores_sold" class="section-header"><a href="#variant.SaleInitialized.field.ideal_cores_sold" class="anchor field">§</a><code>ideal_cores_sold: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u16.html">u16</a></code></span><div class="docblock"><p>The number of cores we want to sell, ideally.</p>
 </div></div><div class="sub-variant-field"><span id="variant.SaleInitialized.field.cores_offered" class="section-header"><a href="#variant.SaleInitialized.field.cores_offered" class="anchor field">§</a><code>cores_offered: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u16.html">u16</a></code></span><div class="docblock"><p>Number of cores which are/have been offered for sale.</p>
+</div></div><div class="sub-variant-field"><span id="variant.SaleInitialized.field.sale_index" class="section-header"><a href="#variant.SaleInitialized.field.sale_index" class="anchor field">§</a><code>sale_index: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>Sequential identifier for the current sale period.</p>
 </div></div></div><section id="variant.Leased" class="variant"><a href="#variant.Leased" class="anchor">§</a><h3 class="code-header">Leased</h3></section><div class="docblock"><p>A new lease has been created.</p>
 </div><div class="sub-variant" id="variant.Leased.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Leased.field.task" class="section-header"><a href="#variant.Leased.field.task" class="anchor field">§</a><code>task: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>The task to which a core will be assigned.</p>
 </div></div><div class="sub-variant-field"><span id="variant.Leased.field.until" class="section-header"><a href="#variant.Leased.field.until" class="anchor field">§</a><code>until: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>The timeslice contained in the sale period after which this lease will

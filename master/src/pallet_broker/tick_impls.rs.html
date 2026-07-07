@@ -410,142 +410,146 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#260 id=260 data-nosnippet>260</a>			<span class="prelude-val">None
 <a href=#261 id=261 data-nosnippet>261</a>		</span>};
 <a href=#262 id=262 data-nosnippet>262</a>
-<a href=#263 id=263 data-nosnippet>263</a>		<span class="comment">// Update SaleInfo
-<a href=#264 id=264 data-nosnippet>264</a>		</span><span class="kw">let </span>new_sale = SaleInfoRecord {
-<a href=#265 id=265 data-nosnippet>265</a>			sale_start,
-<a href=#266 id=266 data-nosnippet>266</a>			leadin_length,
-<a href=#267 id=267 data-nosnippet>267</a>			end_price: new_prices.end_price,
-<a href=#268 id=268 data-nosnippet>268</a>			sellout_price,
-<a href=#269 id=269 data-nosnippet>269</a>			region_begin,
-<a href=#270 id=270 data-nosnippet>270</a>			region_end,
-<a href=#271 id=271 data-nosnippet>271</a>			first_core,
-<a href=#272 id=272 data-nosnippet>272</a>			ideal_cores_sold,
-<a href=#273 id=273 data-nosnippet>273</a>			cores_offered,
-<a href=#274 id=274 data-nosnippet>274</a>			cores_sold: <span class="number">0</span>,
-<a href=#275 id=275 data-nosnippet>275</a>		};
-<a href=#276 id=276 data-nosnippet>276</a>
-<a href=#277 id=277 data-nosnippet>277</a>		SaleInfo::&lt;T&gt;::put(<span class="kw-2">&amp;</span>new_sale);
-<a href=#278 id=278 data-nosnippet>278</a>
-<a href=#279 id=279 data-nosnippet>279</a>		<span class="self">Self</span>::renew_cores(<span class="kw-2">&amp;</span>new_sale);
-<a href=#280 id=280 data-nosnippet>280</a>
-<a href=#281 id=281 data-nosnippet>281</a>		<span class="self">Self</span>::deposit_event(Event::SaleInitialized {
-<a href=#282 id=282 data-nosnippet>282</a>			sale_start,
-<a href=#283 id=283 data-nosnippet>283</a>			leadin_length,
-<a href=#284 id=284 data-nosnippet>284</a>			start_price: <span class="self">Self</span>::sale_price(<span class="kw-2">&amp;</span>new_sale, now),
-<a href=#285 id=285 data-nosnippet>285</a>			end_price: new_prices.end_price,
-<a href=#286 id=286 data-nosnippet>286</a>			region_begin,
-<a href=#287 id=287 data-nosnippet>287</a>			region_end,
-<a href=#288 id=288 data-nosnippet>288</a>			ideal_cores_sold,
-<a href=#289 id=289 data-nosnippet>289</a>			cores_offered,
-<a href=#290 id=290 data-nosnippet>290</a>		});
-<a href=#291 id=291 data-nosnippet>291</a>
-<a href=#292 id=292 data-nosnippet>292</a>		<span class="prelude-val">Some</span>(())
-<a href=#293 id=293 data-nosnippet>293</a>	}
-<a href=#294 id=294 data-nosnippet>294</a>
-<a href=#295 id=295 data-nosnippet>295</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_pool(when: Timeslice, status: <span class="kw-2">&amp;mut </span>StatusRecord) {
-<a href=#296 id=296 data-nosnippet>296</a>		<span class="kw">let </span>pool_io = InstaPoolIo::&lt;T&gt;::take(when);
-<a href=#297 id=297 data-nosnippet>297</a>		status.private_pool_size = (status.private_pool_size <span class="kw">as </span>SignedCoreMaskBitCount)
-<a href=#298 id=298 data-nosnippet>298</a>			.saturating_add(pool_io.private) <span class="kw">as </span>CoreMaskBitCount;
-<a href=#299 id=299 data-nosnippet>299</a>		status.system_pool_size = (status.system_pool_size <span class="kw">as </span>SignedCoreMaskBitCount)
-<a href=#300 id=300 data-nosnippet>300</a>			.saturating_add(pool_io.system) <span class="kw">as </span>CoreMaskBitCount;
-<a href=#301 id=301 data-nosnippet>301</a>		<span class="kw">let </span>record = InstaPoolHistoryRecord {
-<a href=#302 id=302 data-nosnippet>302</a>			private_contributions: status.private_pool_size,
-<a href=#303 id=303 data-nosnippet>303</a>			system_contributions: status.system_pool_size,
-<a href=#304 id=304 data-nosnippet>304</a>			maybe_payout: <span class="prelude-val">None</span>,
-<a href=#305 id=305 data-nosnippet>305</a>		};
-<a href=#306 id=306 data-nosnippet>306</a>		InstaPoolHistory::&lt;T&gt;::insert(when, record);
-<a href=#307 id=307 data-nosnippet>307</a>		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::HistoryInitialized {
-<a href=#308 id=308 data-nosnippet>308</a>			when,
-<a href=#309 id=309 data-nosnippet>309</a>			private_pool_size: status.private_pool_size,
-<a href=#310 id=310 data-nosnippet>310</a>			system_pool_size: status.system_pool_size,
-<a href=#311 id=311 data-nosnippet>311</a>		});
-<a href=#312 id=312 data-nosnippet>312</a>	}
-<a href=#313 id=313 data-nosnippet>313</a>
-<a href=#314 id=314 data-nosnippet>314</a>	<span class="doccomment">/// Schedule cores for the given `timeslice`.
-<a href=#315 id=315 data-nosnippet>315</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_core_schedule(
-<a href=#316 id=316 data-nosnippet>316</a>		timeslice: Timeslice,
-<a href=#317 id=317 data-nosnippet>317</a>		rc_begin: RelayBlockNumberOf&lt;T&gt;,
-<a href=#318 id=318 data-nosnippet>318</a>		core: CoreIndex,
-<a href=#319 id=319 data-nosnippet>319</a>	) {
-<a href=#320 id=320 data-nosnippet>320</a>		<span class="kw">let </span><span class="prelude-val">Some</span>(workplan) = Workplan::&lt;T&gt;::take((timeslice, core)) <span class="kw">else </span>{ <span class="kw">return </span>};
-<a href=#321 id=321 data-nosnippet>321</a>		<span class="kw">let </span>workload = Workload::&lt;T&gt;::get(core);
-<a href=#322 id=322 data-nosnippet>322</a>		<span class="kw">let </span>parts_used = workplan.iter().map(|i| i.mask).fold(CoreMask::void(), |a, i| a | i);
-<a href=#323 id=323 data-nosnippet>323</a>		<span class="kw">let </span><span class="kw-2">mut </span>workplan = workplan.into_inner();
-<a href=#324 id=324 data-nosnippet>324</a>		workplan.extend(workload.into_iter().filter(|i| (i.mask &amp; parts_used).is_void()));
-<a href=#325 id=325 data-nosnippet>325</a>		<span class="kw">let </span>workplan = Schedule::truncate_from(workplan);
-<a href=#326 id=326 data-nosnippet>326</a>		Workload::&lt;T&gt;::insert(core, <span class="kw-2">&amp;</span>workplan);
-<a href=#327 id=327 data-nosnippet>327</a>
-<a href=#328 id=328 data-nosnippet>328</a>		<span class="kw">let </span><span class="kw-2">mut </span>total_used = <span class="number">0</span>;
-<a href=#329 id=329 data-nosnippet>329</a>		<span class="kw">let </span><span class="kw-2">mut </span>intermediate = workplan
-<a href=#330 id=330 data-nosnippet>330</a>			.into_iter()
-<a href=#331 id=331 data-nosnippet>331</a>			.map(|i| (i.assignment, i.mask.count_ones() <span class="kw">as </span>u16 * (<span class="number">57_600 </span>/ <span class="number">80</span>)))
-<a href=#332 id=332 data-nosnippet>332</a>			.inspect(|i| total_used.saturating_accrue(i.<span class="number">1</span>))
-<a href=#333 id=333 data-nosnippet>333</a>			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-<a href=#334 id=334 data-nosnippet>334</a>		<span class="kw">if </span>total_used &lt; <span class="number">57_600 </span>{
-<a href=#335 id=335 data-nosnippet>335</a>			intermediate.push((CoreAssignment::Idle, <span class="number">57_600 </span>- total_used));
-<a href=#336 id=336 data-nosnippet>336</a>		}
-<a href=#337 id=337 data-nosnippet>337</a>		intermediate.sort();
-<a href=#338 id=338 data-nosnippet>338</a>		<span class="kw">let </span><span class="kw-2">mut </span>assignment: Vec&lt;(CoreAssignment, PartsOf57600)&gt; =
-<a href=#339 id=339 data-nosnippet>339</a>			Vec::with_capacity(intermediate.len());
-<a href=#340 id=340 data-nosnippet>340</a>		<span class="kw">for </span>i <span class="kw">in </span>intermediate.into_iter() {
-<a href=#341 id=341 data-nosnippet>341</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>last) = assignment.last_mut() {
-<a href=#342 id=342 data-nosnippet>342</a>				<span class="kw">if </span>last.<span class="number">0 </span>== i.<span class="number">0 </span>{
-<a href=#343 id=343 data-nosnippet>343</a>					last.<span class="number">1 </span>+= i.<span class="number">1</span>;
-<a href=#344 id=344 data-nosnippet>344</a>					<span class="kw">continue</span>;
-<a href=#345 id=345 data-nosnippet>345</a>				}
-<a href=#346 id=346 data-nosnippet>346</a>			}
-<a href=#347 id=347 data-nosnippet>347</a>			assignment.push(i);
-<a href=#348 id=348 data-nosnippet>348</a>		}
-<a href=#349 id=349 data-nosnippet>349</a>		T::Coretime::assign_core(core, rc_begin, assignment.clone(), <span class="prelude-val">None</span>);
-<a href=#350 id=350 data-nosnippet>350</a>		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::CoreAssigned { core, when: rc_begin, assignment });
-<a href=#351 id=351 data-nosnippet>351</a>	}
-<a href=#352 id=352 data-nosnippet>352</a>
-<a href=#353 id=353 data-nosnippet>353</a>	<span class="doccomment">/// Renews all the cores which have auto-renewal enabled.
-<a href=#354 id=354 data-nosnippet>354</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>renew_cores(sale: <span class="kw-2">&amp;</span>SaleInfoRecordOf&lt;T&gt;) {
-<a href=#355 id=355 data-nosnippet>355</a>		<span class="kw">let </span>renewals = AutoRenewals::&lt;T&gt;::get();
+<a href=#263 id=263 data-nosnippet>263</a>		<span class="kw">let </span>sale_index = old_sale.sale_index.saturating_add(<span class="number">1</span>);
+<a href=#264 id=264 data-nosnippet>264</a>
+<a href=#265 id=265 data-nosnippet>265</a>		<span class="comment">// Update SaleInfo
+<a href=#266 id=266 data-nosnippet>266</a>		</span><span class="kw">let </span>new_sale = SaleInfoRecord {
+<a href=#267 id=267 data-nosnippet>267</a>			sale_start,
+<a href=#268 id=268 data-nosnippet>268</a>			leadin_length,
+<a href=#269 id=269 data-nosnippet>269</a>			end_price: new_prices.end_price,
+<a href=#270 id=270 data-nosnippet>270</a>			sellout_price,
+<a href=#271 id=271 data-nosnippet>271</a>			region_begin,
+<a href=#272 id=272 data-nosnippet>272</a>			region_end,
+<a href=#273 id=273 data-nosnippet>273</a>			first_core,
+<a href=#274 id=274 data-nosnippet>274</a>			ideal_cores_sold,
+<a href=#275 id=275 data-nosnippet>275</a>			cores_offered,
+<a href=#276 id=276 data-nosnippet>276</a>			cores_sold: <span class="number">0</span>,
+<a href=#277 id=277 data-nosnippet>277</a>			sale_index,
+<a href=#278 id=278 data-nosnippet>278</a>		};
+<a href=#279 id=279 data-nosnippet>279</a>
+<a href=#280 id=280 data-nosnippet>280</a>		SaleInfo::&lt;T&gt;::put(<span class="kw-2">&amp;</span>new_sale);
+<a href=#281 id=281 data-nosnippet>281</a>
+<a href=#282 id=282 data-nosnippet>282</a>		<span class="self">Self</span>::renew_cores(<span class="kw-2">&amp;</span>new_sale);
+<a href=#283 id=283 data-nosnippet>283</a>
+<a href=#284 id=284 data-nosnippet>284</a>		<span class="self">Self</span>::deposit_event(Event::SaleInitialized {
+<a href=#285 id=285 data-nosnippet>285</a>			sale_start,
+<a href=#286 id=286 data-nosnippet>286</a>			leadin_length,
+<a href=#287 id=287 data-nosnippet>287</a>			start_price: <span class="self">Self</span>::sale_price(<span class="kw-2">&amp;</span>new_sale, now),
+<a href=#288 id=288 data-nosnippet>288</a>			end_price: new_prices.end_price,
+<a href=#289 id=289 data-nosnippet>289</a>			region_begin,
+<a href=#290 id=290 data-nosnippet>290</a>			region_end,
+<a href=#291 id=291 data-nosnippet>291</a>			ideal_cores_sold,
+<a href=#292 id=292 data-nosnippet>292</a>			cores_offered,
+<a href=#293 id=293 data-nosnippet>293</a>			sale_index,
+<a href=#294 id=294 data-nosnippet>294</a>		});
+<a href=#295 id=295 data-nosnippet>295</a>
+<a href=#296 id=296 data-nosnippet>296</a>		<span class="prelude-val">Some</span>(())
+<a href=#297 id=297 data-nosnippet>297</a>	}
+<a href=#298 id=298 data-nosnippet>298</a>
+<a href=#299 id=299 data-nosnippet>299</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_pool(when: Timeslice, status: <span class="kw-2">&amp;mut </span>StatusRecord) {
+<a href=#300 id=300 data-nosnippet>300</a>		<span class="kw">let </span>pool_io = InstaPoolIo::&lt;T&gt;::take(when);
+<a href=#301 id=301 data-nosnippet>301</a>		status.private_pool_size = (status.private_pool_size <span class="kw">as </span>SignedCoreMaskBitCount)
+<a href=#302 id=302 data-nosnippet>302</a>			.saturating_add(pool_io.private) <span class="kw">as </span>CoreMaskBitCount;
+<a href=#303 id=303 data-nosnippet>303</a>		status.system_pool_size = (status.system_pool_size <span class="kw">as </span>SignedCoreMaskBitCount)
+<a href=#304 id=304 data-nosnippet>304</a>			.saturating_add(pool_io.system) <span class="kw">as </span>CoreMaskBitCount;
+<a href=#305 id=305 data-nosnippet>305</a>		<span class="kw">let </span>record = InstaPoolHistoryRecord {
+<a href=#306 id=306 data-nosnippet>306</a>			private_contributions: status.private_pool_size,
+<a href=#307 id=307 data-nosnippet>307</a>			system_contributions: status.system_pool_size,
+<a href=#308 id=308 data-nosnippet>308</a>			maybe_payout: <span class="prelude-val">None</span>,
+<a href=#309 id=309 data-nosnippet>309</a>		};
+<a href=#310 id=310 data-nosnippet>310</a>		InstaPoolHistory::&lt;T&gt;::insert(when, record);
+<a href=#311 id=311 data-nosnippet>311</a>		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::HistoryInitialized {
+<a href=#312 id=312 data-nosnippet>312</a>			when,
+<a href=#313 id=313 data-nosnippet>313</a>			private_pool_size: status.private_pool_size,
+<a href=#314 id=314 data-nosnippet>314</a>			system_pool_size: status.system_pool_size,
+<a href=#315 id=315 data-nosnippet>315</a>		});
+<a href=#316 id=316 data-nosnippet>316</a>	}
+<a href=#317 id=317 data-nosnippet>317</a>
+<a href=#318 id=318 data-nosnippet>318</a>	<span class="doccomment">/// Schedule cores for the given `timeslice`.
+<a href=#319 id=319 data-nosnippet>319</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_core_schedule(
+<a href=#320 id=320 data-nosnippet>320</a>		timeslice: Timeslice,
+<a href=#321 id=321 data-nosnippet>321</a>		rc_begin: RelayBlockNumberOf&lt;T&gt;,
+<a href=#322 id=322 data-nosnippet>322</a>		core: CoreIndex,
+<a href=#323 id=323 data-nosnippet>323</a>	) {
+<a href=#324 id=324 data-nosnippet>324</a>		<span class="kw">let </span><span class="prelude-val">Some</span>(workplan) = Workplan::&lt;T&gt;::take((timeslice, core)) <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#325 id=325 data-nosnippet>325</a>		<span class="kw">let </span>workload = Workload::&lt;T&gt;::get(core);
+<a href=#326 id=326 data-nosnippet>326</a>		<span class="kw">let </span>parts_used = workplan.iter().map(|i| i.mask).fold(CoreMask::void(), |a, i| a | i);
+<a href=#327 id=327 data-nosnippet>327</a>		<span class="kw">let </span><span class="kw-2">mut </span>workplan = workplan.into_inner();
+<a href=#328 id=328 data-nosnippet>328</a>		workplan.extend(workload.into_iter().filter(|i| (i.mask &amp; parts_used).is_void()));
+<a href=#329 id=329 data-nosnippet>329</a>		<span class="kw">let </span>workplan = Schedule::truncate_from(workplan);
+<a href=#330 id=330 data-nosnippet>330</a>		Workload::&lt;T&gt;::insert(core, <span class="kw-2">&amp;</span>workplan);
+<a href=#331 id=331 data-nosnippet>331</a>
+<a href=#332 id=332 data-nosnippet>332</a>		<span class="kw">let </span><span class="kw-2">mut </span>total_used = <span class="number">0</span>;
+<a href=#333 id=333 data-nosnippet>333</a>		<span class="kw">let </span><span class="kw-2">mut </span>intermediate = workplan
+<a href=#334 id=334 data-nosnippet>334</a>			.into_iter()
+<a href=#335 id=335 data-nosnippet>335</a>			.map(|i| (i.assignment, i.mask.count_ones() <span class="kw">as </span>u16 * (<span class="number">57_600 </span>/ <span class="number">80</span>)))
+<a href=#336 id=336 data-nosnippet>336</a>			.inspect(|i| total_used.saturating_accrue(i.<span class="number">1</span>))
+<a href=#337 id=337 data-nosnippet>337</a>			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+<a href=#338 id=338 data-nosnippet>338</a>		<span class="kw">if </span>total_used &lt; <span class="number">57_600 </span>{
+<a href=#339 id=339 data-nosnippet>339</a>			intermediate.push((CoreAssignment::Idle, <span class="number">57_600 </span>- total_used));
+<a href=#340 id=340 data-nosnippet>340</a>		}
+<a href=#341 id=341 data-nosnippet>341</a>		intermediate.sort();
+<a href=#342 id=342 data-nosnippet>342</a>		<span class="kw">let </span><span class="kw-2">mut </span>assignment: Vec&lt;(CoreAssignment, PartsOf57600)&gt; =
+<a href=#343 id=343 data-nosnippet>343</a>			Vec::with_capacity(intermediate.len());
+<a href=#344 id=344 data-nosnippet>344</a>		<span class="kw">for </span>i <span class="kw">in </span>intermediate.into_iter() {
+<a href=#345 id=345 data-nosnippet>345</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>last) = assignment.last_mut() {
+<a href=#346 id=346 data-nosnippet>346</a>				<span class="kw">if </span>last.<span class="number">0 </span>== i.<span class="number">0 </span>{
+<a href=#347 id=347 data-nosnippet>347</a>					last.<span class="number">1 </span>+= i.<span class="number">1</span>;
+<a href=#348 id=348 data-nosnippet>348</a>					<span class="kw">continue</span>;
+<a href=#349 id=349 data-nosnippet>349</a>				}
+<a href=#350 id=350 data-nosnippet>350</a>			}
+<a href=#351 id=351 data-nosnippet>351</a>			assignment.push(i);
+<a href=#352 id=352 data-nosnippet>352</a>		}
+<a href=#353 id=353 data-nosnippet>353</a>		T::Coretime::assign_core(core, rc_begin, assignment.clone(), <span class="prelude-val">None</span>);
+<a href=#354 id=354 data-nosnippet>354</a>		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::CoreAssigned { core, when: rc_begin, assignment });
+<a href=#355 id=355 data-nosnippet>355</a>	}
 <a href=#356 id=356 data-nosnippet>356</a>
-<a href=#357 id=357 data-nosnippet>357</a>		<span class="kw">let </span><span class="prelude-val">Ok</span>(auto_renewals) = renewals
-<a href=#358 id=358 data-nosnippet>358</a>			.into_iter()
-<a href=#359 id=359 data-nosnippet>359</a>			.flat_map(|record| {
-<a href=#360 id=360 data-nosnippet>360</a>				<span class="comment">// Check if the next renewal is scheduled further in the future than the start of
-<a href=#361 id=361 data-nosnippet>361</a>				// the next region beginning. If so, we skip the renewal for this core.
-<a href=#362 id=362 data-nosnippet>362</a>				</span><span class="kw">if </span>sale.region_begin &lt; record.next_renewal {
-<a href=#363 id=363 data-nosnippet>363</a>					<span class="kw">return </span><span class="prelude-val">Some</span>(record);
-<a href=#364 id=364 data-nosnippet>364</a>				}
-<a href=#365 id=365 data-nosnippet>365</a>
-<a href=#366 id=366 data-nosnippet>366</a>				<span class="kw">let </span><span class="prelude-val">Some</span>(payer) = T::SovereignAccountOf::maybe_convert(record.task) <span class="kw">else </span>{
-<a href=#367 id=367 data-nosnippet>367</a>					<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::AutoRenewalFailed {
-<a href=#368 id=368 data-nosnippet>368</a>						core: record.core,
-<a href=#369 id=369 data-nosnippet>369</a>						payer: <span class="prelude-val">None</span>,
-<a href=#370 id=370 data-nosnippet>370</a>					});
-<a href=#371 id=371 data-nosnippet>371</a>					<span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#372 id=372 data-nosnippet>372</a>				};
-<a href=#373 id=373 data-nosnippet>373</a>
-<a href=#374 id=374 data-nosnippet>374</a>				<span class="kw">if let </span><span class="prelude-val">Ok</span>(new_core_index) = <span class="self">Self</span>::do_renew(payer.clone(), record.core) {
-<a href=#375 id=375 data-nosnippet>375</a>					<span class="prelude-val">Some</span>(AutoRenewalRecord {
-<a href=#376 id=376 data-nosnippet>376</a>						core: new_core_index,
-<a href=#377 id=377 data-nosnippet>377</a>						task: record.task,
-<a href=#378 id=378 data-nosnippet>378</a>						next_renewal: sale.region_end,
-<a href=#379 id=379 data-nosnippet>379</a>					})
-<a href=#380 id=380 data-nosnippet>380</a>				} <span class="kw">else </span>{
-<a href=#381 id=381 data-nosnippet>381</a>					<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::AutoRenewalFailed {
-<a href=#382 id=382 data-nosnippet>382</a>						core: record.core,
-<a href=#383 id=383 data-nosnippet>383</a>						payer: <span class="prelude-val">Some</span>(payer),
-<a href=#384 id=384 data-nosnippet>384</a>					});
-<a href=#385 id=385 data-nosnippet>385</a>
-<a href=#386 id=386 data-nosnippet>386</a>					<span class="prelude-val">None
-<a href=#387 id=387 data-nosnippet>387</a>				</span>}
-<a href=#388 id=388 data-nosnippet>388</a>			})
-<a href=#389 id=389 data-nosnippet>389</a>			.collect::&lt;Vec&lt;AutoRenewalRecord&gt;&gt;()
-<a href=#390 id=390 data-nosnippet>390</a>			.try_into()
-<a href=#391 id=391 data-nosnippet>391</a>		<span class="kw">else </span>{
-<a href=#392 id=392 data-nosnippet>392</a>			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::AutoRenewalLimitReached);
-<a href=#393 id=393 data-nosnippet>393</a>			<span class="kw">return</span>;
-<a href=#394 id=394 data-nosnippet>394</a>		};
-<a href=#395 id=395 data-nosnippet>395</a>
-<a href=#396 id=396 data-nosnippet>396</a>		AutoRenewals::&lt;T&gt;::set(auto_renewals);
-<a href=#397 id=397 data-nosnippet>397</a>	}
-<a href=#398 id=398 data-nosnippet>398</a>}
+<a href=#357 id=357 data-nosnippet>357</a>	<span class="doccomment">/// Renews all the cores which have auto-renewal enabled.
+<a href=#358 id=358 data-nosnippet>358</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>renew_cores(sale: <span class="kw-2">&amp;</span>SaleInfoRecordOf&lt;T&gt;) {
+<a href=#359 id=359 data-nosnippet>359</a>		<span class="kw">let </span>renewals = AutoRenewals::&lt;T&gt;::get();
+<a href=#360 id=360 data-nosnippet>360</a>
+<a href=#361 id=361 data-nosnippet>361</a>		<span class="kw">let </span><span class="prelude-val">Ok</span>(auto_renewals) = renewals
+<a href=#362 id=362 data-nosnippet>362</a>			.into_iter()
+<a href=#363 id=363 data-nosnippet>363</a>			.flat_map(|record| {
+<a href=#364 id=364 data-nosnippet>364</a>				<span class="comment">// Check if the next renewal is scheduled further in the future than the start of
+<a href=#365 id=365 data-nosnippet>365</a>				// the next region beginning. If so, we skip the renewal for this core.
+<a href=#366 id=366 data-nosnippet>366</a>				</span><span class="kw">if </span>sale.region_begin &lt; record.next_renewal {
+<a href=#367 id=367 data-nosnippet>367</a>					<span class="kw">return </span><span class="prelude-val">Some</span>(record);
+<a href=#368 id=368 data-nosnippet>368</a>				}
+<a href=#369 id=369 data-nosnippet>369</a>
+<a href=#370 id=370 data-nosnippet>370</a>				<span class="kw">let </span><span class="prelude-val">Some</span>(payer) = T::SovereignAccountOf::maybe_convert(record.task) <span class="kw">else </span>{
+<a href=#371 id=371 data-nosnippet>371</a>					<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::AutoRenewalFailed {
+<a href=#372 id=372 data-nosnippet>372</a>						core: record.core,
+<a href=#373 id=373 data-nosnippet>373</a>						payer: <span class="prelude-val">None</span>,
+<a href=#374 id=374 data-nosnippet>374</a>					});
+<a href=#375 id=375 data-nosnippet>375</a>					<span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#376 id=376 data-nosnippet>376</a>				};
+<a href=#377 id=377 data-nosnippet>377</a>
+<a href=#378 id=378 data-nosnippet>378</a>				<span class="kw">if let </span><span class="prelude-val">Ok</span>(new_core_index) = <span class="self">Self</span>::do_renew(payer.clone(), record.core) {
+<a href=#379 id=379 data-nosnippet>379</a>					<span class="prelude-val">Some</span>(AutoRenewalRecord {
+<a href=#380 id=380 data-nosnippet>380</a>						core: new_core_index,
+<a href=#381 id=381 data-nosnippet>381</a>						task: record.task,
+<a href=#382 id=382 data-nosnippet>382</a>						next_renewal: sale.region_end,
+<a href=#383 id=383 data-nosnippet>383</a>					})
+<a href=#384 id=384 data-nosnippet>384</a>				} <span class="kw">else </span>{
+<a href=#385 id=385 data-nosnippet>385</a>					<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::AutoRenewalFailed {
+<a href=#386 id=386 data-nosnippet>386</a>						core: record.core,
+<a href=#387 id=387 data-nosnippet>387</a>						payer: <span class="prelude-val">Some</span>(payer),
+<a href=#388 id=388 data-nosnippet>388</a>					});
+<a href=#389 id=389 data-nosnippet>389</a>
+<a href=#390 id=390 data-nosnippet>390</a>					<span class="prelude-val">None
+<a href=#391 id=391 data-nosnippet>391</a>				</span>}
+<a href=#392 id=392 data-nosnippet>392</a>			})
+<a href=#393 id=393 data-nosnippet>393</a>			.collect::&lt;Vec&lt;AutoRenewalRecord&gt;&gt;()
+<a href=#394 id=394 data-nosnippet>394</a>			.try_into()
+<a href=#395 id=395 data-nosnippet>395</a>		<span class="kw">else </span>{
+<a href=#396 id=396 data-nosnippet>396</a>			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::AutoRenewalLimitReached);
+<a href=#397 id=397 data-nosnippet>397</a>			<span class="kw">return</span>;
+<a href=#398 id=398 data-nosnippet>398</a>		};
+<a href=#399 id=399 data-nosnippet>399</a>
+<a href=#400 id=400 data-nosnippet>400</a>		AutoRenewals::&lt;T&gt;::set(auto_renewals);
+<a href=#401 id=401 data-nosnippet>401</a>	}
+<a href=#402 id=402 data-nosnippet>402</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
