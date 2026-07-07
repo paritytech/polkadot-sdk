@@ -87,12 +87,23 @@ impl<Block: BlockT> sc_client_api::execution_extensions::ExtensionsFactory<Block
 /// pallet-revive, `CALL_STACK_DEPTH + 1`, currently 26).
 ///
 /// It serves two roles:
-/// - [`warm_up_sandbox_pool`] pre-spawns this many sandbox workers so a fully-nested call always
-///   finds one warm and never has to spawn mid-validation. `set_worker_count` is *per core*, so
-///   [`ENGINE`]'s constructor divides this across cores (rounding up).
+/// - [`ENGINE`]'s constructor uses it as the *per-core* sandbox-cache size (`set_worker_count`), so
+///   a recycled worker is retained rather than evicted and any single core can keep a fully-nested
+///   call warm. [`warm_up_sandbox_pool`] pre-warms only [`WARM_WORKERS_PER_CORE`] workers per core;
+///   the workload itself tops each core's cache up to its working set under load.
 /// - [`VirtManager::instantiate`] enforces it as a hard cap, returning
 ///   `InstantiateError::TooManyInstances` once that many instances are live.
 const MAX_LIVE_INSTANCES: usize = 30;
+
+/// How many sandbox workers to pre-warm *per core* at start-up.
+///
+/// PolkaVM caches idle workers per core and a thread only reuses workers cached on the core it
+/// currently runs on, so pre-warming seeds every core (via [`warm_up_sandbox_pool`]) to keep the
+/// first burst of authoring off the cold `spawn` path. It only needs to cover the steady-state
+/// working set of live instances on one core (a handful in practice); the per-core cache cap of
+/// [`MAX_LIVE_INSTANCES`] backstops any shortfall by retaining workers the workload spawns itself.
+/// Kept well below that cap so the resident worker footprint stays modest.
+const WARM_WORKERS_PER_CORE: usize = 8;
 
 /// The single, process-global PolkaVM engine used for everything.
 ///
@@ -107,10 +118,13 @@ static ENGINE: LazyLock<Engine> = LazyLock::new(|| {
 	let start = Instant::now();
 
 	let mut config = Config::from_env().expect("Invalid config.");
-	// `set_worker_count` caps the sandbox cache per core, so divide the total target across
-	// cores (rounding up) — summed over all cores the caches then hold >= MAX_LIVE_INSTANCES.
-	let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
-	config.set_worker_count(MAX_LIVE_INSTANCES.div_ceil(cores));
+	// `set_worker_count` caps the idle-sandbox cache *per core*, and a thread only ever reuses a
+	// worker cached on the core it currently runs on. Size each core's cache to the full
+	// live-instance bound so a recycled worker is never evicted; every core then self-warms to its
+	// working set under load. (A per-core cap of `div_ceil(_, cores)` ≈ 2 killed recycled workers,
+	// forcing cold multi-ms `spawn`s on the hot path whenever the unpinned authoring thread
+	// migrated to a core whose tiny cache was empty.)
+	config.set_worker_count(MAX_LIVE_INSTANCES);
 	config.set_default_cost_model(Some(CostModelKind::Full(CacheModel::L2Hit)));
 	// during benchmarking we run multiple nodes on the same machine - this leads
 	// to multiple engines which breaks core pinning's assumptions to be alone
@@ -119,12 +133,12 @@ static ENGINE: LazyLock<Engine> = LazyLock::new(|| {
 	let engine = Engine::new(&config).expect("Failed to initialize PolkaVM.");
 
 	let warmup_start = Instant::now();
-	warm_up_sandbox_pool(&engine);
+	let warmed = warm_up_sandbox_pool(&engine);
 	let warmup = warmup_start.elapsed();
 
 	log::info!(
 		target: LOG_TARGET,
-		"pid={pid}: PolkaVM engine initialized in {:?} (warm-up of {MAX_LIVE_INSTANCES} sandbox workers: {:?})",
+		"pid={pid}: PolkaVM engine initialized in {:?} (warm-up of {warmed} sandbox workers: {:?})",
 		start.elapsed(),
 		warmup,
 	);
@@ -152,18 +166,28 @@ fn engine() -> &'static Engine {
 	LazyLock::force(&ENGINE)
 }
 
-/// Pre-spawn [`MAX_LIVE_INSTANCES`] sandbox workers so a max-depth nest finds them warm.
+/// Pre-warm ~[`WARM_WORKERS_PER_CORE`] sandbox workers on *every* core so the first burst of
+/// contract execution reuses warm sandboxes instead of spawning them on the hot path.
 ///
-/// `instantiate` acquires a sandbox (spawning a fresh worker process when none is cached)
-/// and holds it for the instance's lifetime; dropping the instance recycles the sandbox into
-/// the engine's per-core cache. We hold [`MAX_LIVE_INSTANCES`] instances at once so each
-/// forces a *distinct* sandbox to spawn (a sequential loop would just reuse one); they then
-/// recycle across the per-core caches the same way a deeply-nested call's frames distribute,
-/// so a nest up to that depth finds a warm sandbox wherever PolkaVM places each frame. The
-/// instances are never run; a one-instruction module is enough to make `instantiate` spawn a
-/// sandbox. Panics on any failure — a node that cannot build its sandbox pool cannot run JIT
-/// contracts, so it should fail at startup rather than limp on and time out every validation.
-fn warm_up_sandbox_pool(engine: &Engine) {
+/// PolkaVM caches idle sandbox workers *per core*, and `instantiate` only reuses a worker cached
+/// on the core the calling thread currently runs on; a miss spawns a fresh worker process
+/// (`clone3` + namespaces), costing milliseconds. `instantiate` acquires a sandbox and holds it
+/// for the instance's lifetime; dropping the instance recycles it into that core's cache.
+///
+/// To seed every core we hold `WARM_WORKERS_PER_CORE * cores` instances live *simultaneously*:
+/// each forces a *distinct* worker to spawn (a sequential loop would just reuse one), and
+/// PolkaVM's least-loaded placement spreads them across all cores. One thread per core does the
+/// spawning in parallel (so wall-time stays ~one `clone3` batch, not the serial product); each
+/// thread *returns* its batch, and [`std::thread::scope`] keeps every returned batch alive until
+/// all are joined — so all instances are live at once without a barrier, then drop and recycle
+/// into the per-core caches. The instances are never run; a one-instruction module is enough to
+/// make `instantiate` spawn a sandbox. Panics on any failure — a node that cannot build its
+/// sandbox pool cannot run JIT contracts, so it should fail at startup rather than limp on and
+/// time out every validation. (Returning the error rather than panicking inside the worker
+/// threads keeps a spawn failure a clean startup panic instead of a barrier deadlock.)
+///
+/// Returns the number of workers warmed (`WARM_WORKERS_PER_CORE * cores`).
+fn warm_up_sandbox_pool(engine: &Engine) -> usize {
 	// A single `ret` with no exports is enough: the module is only ever instantiated (which
 	// spawns and loads a sandbox), never run.
 	let mut builder = ProgramBlobBuilder::new(InstructionSetKind::ReviveV1);
@@ -175,11 +199,33 @@ fn warm_up_sandbox_pool(engine: &Engine) {
 	let module = Module::new(engine, &module_config, blob.into())
 		.expect("warm-up program is a constant the engine must be able to compile; qed");
 
-	// Held all at once (not a sequential loop) so each forces a *distinct* sandbox to spawn;
-	// they recycle into the per-core caches when this `Vec` drops at the end of the function.
-	let _warm: Vec<_> = (0..MAX_LIVE_INSTANCES)
-		.map(|_| module.instantiate().expect("failed to spawn a PolkaVM sandbox worker"))
-		.collect();
+	let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
+	// One thread per core, each spawning `WARM_WORKERS_PER_CORE` instances and *returning* them.
+	// `thread::scope` holds every returned batch alive until all are joined, so all instances are
+	// live at once — each `instantiate` therefore spawns a *distinct* worker and PolkaVM spreads
+	// them across cores. The joined batches drop below, recycling into the per-core caches.
+	// `Module` is `Arc`-backed (`Send + Sync`), so it is shared by reference.
+	let batches: Vec<Result<Vec<RawInstance>, _>> = std::thread::scope(|scope| {
+		let handles: Vec<_> = (0..cores)
+			.map(|_| {
+				let module = &module;
+				scope.spawn(move || {
+					(0..WARM_WORKERS_PER_CORE).map(|_| module.instantiate()).collect()
+				})
+			})
+			.collect();
+		handles
+			.into_iter()
+			.map(|handle| handle.join().expect("warm-up thread panicked"))
+			.collect()
+	});
+
+	// All batches were held live simultaneously above; now surface any spawn failure as a startup
+	// panic and count the workers warmed. Dropping the batches here recycles them into the caches.
+	batches
+		.into_iter()
+		.map(|batch| batch.expect("failed to spawn a PolkaVM sandbox worker").len())
+		.sum()
 }
 
 fn map_memory_error(error: MemoryAccessError) -> MemoryError {
