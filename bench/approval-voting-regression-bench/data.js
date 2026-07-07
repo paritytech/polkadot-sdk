@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783407468472,
+  "lastUpdate": 1783415200441,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ba0a8e2b3bbd62f5f47b58b2448b752baf2612a1",
-          "message": "Fix the issue with the blockhash tests (#10262)\n\n# Description\n\nThis PR fixes an issue that we've been seeing with the blockhash tests\nin the MatterLabs test suite. It merges the fix from the differential\ntests repo that was made in PR\n[`#210`](https://github.com/paritytech/revive-differential-tests/pull/210).\nMore information on the fix can be found in the PR's description, but I\nwill also paste it here to make it easier:\n\n> This PR fixes an issue that was causing the `blockhash.sol` tests to\nfail when ran through retester which is described in\n[`#210`](https://github.com/paritytech/contract-issues/issues/210). It\nwas determined that the root cause of this failure was not an issue in\nrevive but rather due to the eth-rpc pruning the blocks as the framework\nwas running. This meant that by the time we attempted to retrieve the\nblock hash from the eth-rpc it would've already been pruned since other\nblocks were mined and these blocks were pruned.\n>\n> This explains the indeterminism that we saw with these tests with them\nsometimes succeeding and sometimes failing. This can be explained away\nby the async task sometimes being scheduled to run right after the\ntransaction was submitted and before other blocks were mined and\ntherefore we succeed in getting the block hash and sometimes it takes a\nwhile to run and by the time it runs the block has already been pruned\nfrom the eth-rpc.\n>\n> We've increases the cache size and the number of indexed blocks to\n1,000 which should hopefully give us enough room for async task\nscheduling to run and still be able to get the block hash.\n\nWe've bumped the commit hash of the revive-differential-tests framework\nto the commit hash that includes this fix.\n\nIn this PR we should observe that the `blockhash.sol` tests no longer\nfail. If they fail, then it means that this was an incorrect fix to the\nissue.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-11T10:40:29Z",
-          "tree_id": "35c45013e0704d13603278218b2667e7573cfcec",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba0a8e2b3bbd62f5f47b58b2448b752baf2612a1"
-        },
-        "date": 1762862150820,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52937.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63632.020000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002096194,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005696727430000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4832534017900003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020788319999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020788319999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9401656977500015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5052037044200017,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.364474956840002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002096194,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.46870158072,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4432384677199995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5182153770100015,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7858782002109246,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.4579301678400003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "bf286b92996ef841bf3ee7764696d24eb6e8305f",
+          "message": "Version bumps  and prdocs reordering stable2606 (#12566)\n\nThis PR backports regular version bumps and prdocs reordering after\n`stable2606` release from release branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
+          "timestamp": "2026-07-07T07:21:02Z",
+          "tree_id": "b6ce20a16ee448564b63b797a29642066cfe8a21",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bf286b92996ef841bf3ee7764696d24eb6e8305f"
+        },
+        "date": 1783415172218,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63562.969999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018863079999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000023754270000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.780311073210001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7503615029799993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000023754270000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8027113498399983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018863079999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7400035142600005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.442026218020003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.356457849282619,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005440676259999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.760582784689975,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.28143711925998,
             "unit": "seconds"
           }
         ]
