@@ -202,8 +202,14 @@ pub use weights::WeightInfo;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 const LOG_TARGET: &str = "runtime::assets";
 
-/// Trait with callbacks that are executed after successful asset creation or destruction.
-pub trait AssetsCallback<AssetId, AccountId> {
+/// Trait with callbacks that are executed after successful asset creation, destruction, or
+/// balance change.
+///
+/// The lifecycle callbacks (`created`/`destroyed`) may veto the operation by returning `Err`.
+/// The balance-change callbacks (`issued`/`transferred`/`burned`) are purely observational:
+/// they run after the state change is committed and cannot abort it, so a faulty observer
+/// (e.g. one mirroring transfers into another subsystem) can never block asset operations.
+pub trait AssetsCallback<AssetId, AccountId, Balance> {
 	/// Indicates that asset with `id` was successfully created by the `owner`
 	fn created(_id: &AssetId, _owner: &AccountId) -> Result<(), ()> {
 		Ok(())
@@ -213,10 +219,21 @@ pub trait AssetsCallback<AssetId, AccountId> {
 	fn destroyed(_id: &AssetId) -> Result<(), ()> {
 		Ok(())
 	}
+
+	/// `amount` of asset `id` was minted to `owner`. Mirrors [`Event::Issued`].
+	fn issued(_id: &AssetId, _owner: &AccountId, _amount: Balance) {}
+
+	/// `amount` of asset `id` moved from `from` to `to`. Mirrors [`Event::Transferred`]:
+	/// fires on every transfer path, including `from == to`, with the actually credited
+	/// amount (after any dust burn).
+	fn transferred(_id: &AssetId, _from: &AccountId, _to: &AccountId, _amount: Balance) {}
+
+	/// `amount` of asset `id` was burned from `owner`. Mirrors [`Event::Burned`].
+	fn burned(_id: &AssetId, _owner: &AccountId, _amount: Balance) {}
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(10)]
-impl<AssetId, AccountId> AssetsCallback<AssetId, AccountId> for Tuple {
+impl<AssetId, AccountId, Balance: Copy> AssetsCallback<AssetId, AccountId, Balance> for Tuple {
 	fn created(id: &AssetId, owner: &AccountId) -> Result<(), ()> {
 		for_tuples!( #( Tuple::created(id, owner)?; )* );
 		Ok(())
@@ -226,13 +243,25 @@ impl<AssetId, AccountId> AssetsCallback<AssetId, AccountId> for Tuple {
 		for_tuples!( #( Tuple::destroyed(id)?; )* );
 		Ok(())
 	}
+
+	fn issued(id: &AssetId, owner: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::issued(id, owner, amount); )* );
+	}
+
+	fn transferred(id: &AssetId, from: &AccountId, to: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::transferred(id, from, to, amount); )* );
+	}
+
+	fn burned(id: &AssetId, owner: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::burned(id, owner, amount); )* );
+	}
 }
 
 /// Auto-increment the [`NextAssetId`] when an asset is created.
 ///
 /// This has not effect if the [`NextAssetId`] value is not present.
 pub struct AutoIncAssetId<T, I = ()>(PhantomData<(T, I)>);
-impl<T: Config<I>, I> AssetsCallback<T::AssetId, T::AccountId> for AutoIncAssetId<T, I>
+impl<T: Config<I>, I> AssetsCallback<T::AssetId, T::AccountId, T::Balance> for AutoIncAssetId<T, I>
 where
 	T::AssetId: Incrementable,
 {
@@ -423,7 +452,7 @@ pub mod pallet {
 		/// tuple.
 		/// The [`AutoIncAssetId`] callback, in conjunction with the [`NextAssetId`], can be
 		/// used to set up auto-incrementing asset IDs for this collection.
-		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId>;
+		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId, Self::Balance>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;

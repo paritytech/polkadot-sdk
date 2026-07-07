@@ -19,6 +19,7 @@
 
 use super::*;
 use crate::{mock::*, Error};
+use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::GetDispatchInfo,
@@ -2051,6 +2052,58 @@ fn normal_asset_create_and_destroy_callbacks_should_work() {
 
 		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 0));
 		assert!(storage::get(AssetsCallbackHandle::DESTROYED.as_bytes()).is_some());
+	});
+}
+
+#[test]
+fn balance_change_callbacks_should_work() {
+	build_and_execute(|| {
+		// Read and clear a recorded callback, so each assertion sees only its own operation.
+		let take = |key: &str| {
+			let val = storage::get(key.as_bytes()).map(|v| v.to_vec());
+			storage::clear(key.as_bytes());
+			val
+		};
+
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+
+		// Mint fires `issued` with the minted amount.
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_eq!(
+			take(AssetsCallbackHandle::ISSUED),
+			Some((0u32, 1u64, 100u64).encode()),
+			"mint must fire `issued`"
+		);
+
+		// Transfer fires `transferred` with the credited amount.
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 60));
+		assert_eq!(
+			take(AssetsCallbackHandle::TRANSFERRED),
+			Some((0u32, 1u64, 2u64, 60u64).encode()),
+			"transfer must fire `transferred`"
+		);
+
+		// The delegated path funnels through the same internals and also fires `transferred`.
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 3, 30));
+		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(3), 0, 1, 2, 30));
+		assert_eq!(
+			take(AssetsCallbackHandle::TRANSFERRED),
+			Some((0u32, 1u64, 2u64, 30u64).encode()),
+			"transfer_approved must fire `transferred`"
+		);
+
+		// A zero-amount transfer is a no-op: no event, no callback.
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(2), 0, 1, 0));
+		assert_eq!(take(AssetsCallbackHandle::TRANSFERRED), None);
+
+		// Burn fires `burned` with the actually burned amount.
+		assert_ok!(Assets::burn(RuntimeOrigin::signed(1), 0, 2, 90));
+		assert_eq!(
+			take(AssetsCallbackHandle::BURNED),
+			Some((0u32, 2u64, 90u64).encode()),
+			"burn must fire `burned`"
+		);
 	});
 }
 

@@ -471,7 +471,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Ok(())
 		})?;
 
-		Self::deposit_event(Event::Issued { asset_id: id, owner: beneficiary.clone(), amount });
+		Self::deposit_event(Event::Issued {
+			asset_id: id.clone(),
+			owner: beneficiary.clone(),
+			amount,
+		});
+		T::CallbackHandle::issued(&id, beneficiary, amount);
 
 		Ok(())
 	}
@@ -555,7 +560,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 			Ok(())
 		})?;
-		Self::deposit_event(Event::Burned { asset_id: id, owner: target.clone(), balance: actual });
+		Self::deposit_event(Event::Burned {
+			asset_id: id.clone(),
+			owner: target.clone(),
+			balance: actual,
+		});
+		T::CallbackHandle::burned(&id, target, actual);
 		Ok(actual)
 	}
 
@@ -739,11 +749,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})?;
 
 		Self::deposit_event(Event::Transferred {
-			asset_id: id,
+			asset_id: id.clone(),
 			from: source.clone(),
 			to: dest.clone(),
 			amount: credit,
 		});
+		T::CallbackHandle::transferred(&id, source, dest, credit);
 		Ok((credit, source_died))
 	}
 

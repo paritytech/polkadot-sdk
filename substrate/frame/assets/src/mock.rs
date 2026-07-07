@@ -41,6 +41,7 @@ construct_runtime!(
 
 type AccountId = u64;
 type AssetId = u32;
+type Balance = u64;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -55,7 +56,7 @@ impl pallet_balances::Config for Test {
 }
 
 pub struct AssetsCallbackHandle;
-impl AssetsCallback<AssetId, AccountId> for AssetsCallbackHandle {
+impl AssetsCallback<AssetId, AccountId, Balance> for AssetsCallbackHandle {
 	fn created(_id: &AssetId, _owner: &AccountId) -> Result<(), ()> {
 		if Self::should_err() {
 			Err(())
@@ -73,11 +74,26 @@ impl AssetsCallback<AssetId, AccountId> for AssetsCallbackHandle {
 			Ok(())
 		}
 	}
+
+	fn issued(id: &AssetId, owner: &AccountId, amount: Balance) {
+		storage::set(Self::ISSUED.as_bytes(), &(id, owner, amount).encode());
+	}
+
+	fn transferred(id: &AssetId, from: &AccountId, to: &AccountId, amount: Balance) {
+		storage::set(Self::TRANSFERRED.as_bytes(), &(id, from, to, amount).encode());
+	}
+
+	fn burned(id: &AssetId, owner: &AccountId, amount: Balance) {
+		storage::set(Self::BURNED.as_bytes(), &(id, owner, amount).encode());
+	}
 }
 
 impl AssetsCallbackHandle {
 	pub const CREATED: &'static str = "asset_created";
 	pub const DESTROYED: &'static str = "asset_destroyed";
+	pub const ISSUED: &'static str = "asset_issued";
+	pub const TRANSFERRED: &'static str = "asset_transferred";
+	pub const BURNED: &'static str = "asset_burned";
 
 	const RETURN_ERROR: &'static str = "return_error";
 
