@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783407547353,
+  "lastUpdate": 1783415275206,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "73de3bed249afc8ed48b0b69be27a0ee063086a3",
-          "message": "ci: fix cargo-check-all-crate-macos (#10268)\n\nOur mac runners have bash version 3.x, fixing by installing cargo\nmanually.\nfix https://github.com/paritytech/devops/issues/4514",
-          "timestamp": "2025-11-10T17:15:10Z",
-          "tree_id": "249a92d11ea30920915dcbbc2112fcb6d10ab0c7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/73de3bed249afc8ed48b0b69be27a0ee063086a3"
-        },
-        "date": 1762799081633,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005211613989999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026502855499999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008851664289999985,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025844358599999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "bf286b92996ef841bf3ee7764696d24eb6e8305f",
+          "message": "Version bumps  and prdocs reordering stable2606 (#12566)\n\nThis PR backports regular version bumps and prdocs reordering after\n`stable2606` release from release branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
+          "timestamp": "2026-07-07T07:21:02Z",
+          "tree_id": "b6ce20a16ee448564b63b797a29642066cfe8a21",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bf286b92996ef841bf3ee7764696d24eb6e8305f"
+        },
+        "date": 1783415246433,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009236950529999972,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025345804799999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009631888969999992,
             "unit": "seconds"
           }
         ]
