@@ -120,10 +120,10 @@ impl Convert<sp_consensus_beefy::ecdsa_bls_crypto::AuthorityId, Vec<u8>>
 				let ecdsa_id = sp_consensus_beefy::ecdsa_crypto::AuthorityId::from(ecdsa_public);
 				BeefyEcdsaToEthereum::convert(ecdsa_id)
 			})
-			.map_err(|_| {
+			.unwrap_or_else(|_| {
 				log::debug!(target: "runtime::beefy", "Failed to extract ECDSA key from paired (ECDSA,BLS12-381)  BEEFY PublicKey!");
+				FAILED_BEEFY_TO_ETH_ADDRESS.to_vec()
 			})
-			.unwrap_or_default()
 	}
 }
 
