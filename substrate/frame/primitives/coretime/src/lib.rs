@@ -76,6 +76,20 @@ impl From<RegionId> for u128 {
 	}
 }
 
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn region_id_converts_u128() {
+		let r =
+			RegionId { begin: 0x12345678u32, core: 0xabcdu16, mask: 0xdeadbeefcafef00d0123.into() };
+		let u = 0x12345678_abcd_deadbeefcafef00d0123u128;
+		assert_eq!(RegionId::from(u), r);
+		assert_eq!(u128::from(r), u);
+	}
+}
+
 /// The identity of a possibly renewable Core workload.
 #[derive(
 	Encode,
