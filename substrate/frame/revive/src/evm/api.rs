@@ -30,8 +30,16 @@ pub use debug_rpc_types::*;
 mod rpc_types;
 pub use rpc_types::{DryRunConfig, TracingConfig};
 
-mod rpc_types_gen;
-pub use rpc_types_gen::*;
+mod block;
+pub use block::*;
+
+mod transaction;
+pub use transaction::*;
+
+mod state_overrides;
+pub use state_overrides::*;
+
+pub use ethereum_types::*;
 
 #[cfg(feature = "std")]
 mod account;

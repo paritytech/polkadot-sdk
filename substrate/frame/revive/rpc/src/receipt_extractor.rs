@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	ClientError, H160, LOG_TARGET,
+	ClientError, H160, LOG_TARGET, Log, ReceiptGasInfoV1, ReceiptInfo,
 	client::{SubstrateBlock, SubstrateBlockNumber, runtime_api::RuntimeApi},
 	subxt_client::{
 		SrcChainConfig,
@@ -28,7 +28,7 @@ use crate::{
 
 use pallet_revive::{
 	create1,
-	evm::{GenericTransaction, H256, Log, ReceiptGasInfo, ReceiptInfo, TransactionSigned, U256},
+	evm::{GenericTransaction, H256, TransactionSigned, U256},
 };
 use sp_crypto_hashing::keccak_256;
 use std::{
@@ -152,7 +152,9 @@ fn extract_revive_events(
 }
 
 type FetchReceiptDataFn = Arc<
-	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfo>>> + Send>> + Send + Sync,
+	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfoV1>>> + Send>>
+		+ Send
+		+ Sync,
 >;
 
 type FetchEthBlockHashFn =
@@ -297,7 +299,7 @@ impl ReceiptExtractor {
 		call: EthTransact,
 		transaction_hash: H256,
 		transaction_index: usize,
-		receipt_gas_info: ReceiptGasInfo,
+		receipt_gas_info: ReceiptGasInfoV1,
 		reverted: bool,
 		logs: Vec<Log>,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
@@ -366,7 +368,7 @@ impl ReceiptExtractor {
 			return Ok(vec![]);
 		}
 
-		let eth_tx_by_index: BTreeMap<usize, (EthTransact, H256, ReceiptGasInfo)> = self
+		let eth_tx_by_index: BTreeMap<usize, (EthTransact, H256, ReceiptGasInfoV1)> = self
 			.get_block_extrinsics(block)
 			.await?
 			.map(|(call, receipt_gas_info, extrinsic_index)| {
@@ -419,7 +421,7 @@ impl ReceiptExtractor {
 	async fn get_block_extrinsics(
 		&self,
 		block: &SubstrateBlock,
-	) -> Result<impl Iterator<Item = (EthTransact, ReceiptGasInfo, usize)>, ClientError> {
+	) -> Result<impl Iterator<Item = (EthTransact, ReceiptGasInfoV1, usize)>, ClientError> {
 		// Filter extrinsics from pallet_revive
 		let extrinsics = block.extrinsics().await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.number());
@@ -540,8 +542,8 @@ mod tests {
 		})
 	}
 
-	fn gas_info() -> ReceiptGasInfo {
-		ReceiptGasInfo {
+	fn gas_info() -> ReceiptGasInfoV1 {
+		ReceiptGasInfoV1 {
 			gas_used: U256::from(21_000),
 			effective_gas_price: U256::from(1_000_000_000),
 		}
