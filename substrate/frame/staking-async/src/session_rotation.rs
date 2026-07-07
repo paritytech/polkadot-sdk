@@ -119,13 +119,20 @@ impl<T: Config> Eras<T> {
 		Self::get_validator_prefs(era, stash).commission
 	}
 
-	/// Returns true if validator has one or more page of era rewards not claimed yet.
+	/// Returns true if the validator has unclaimed pages and earned reward points in the era
+	/// (a zero-point payout transfers nothing, so there is nothing to claim).
 	pub(crate) fn pending_rewards(era: EraIndex, validator: &T::AccountId) -> bool {
-		<ErasStakersOverview<T>>::get(&era, validator)
-			.map(|overview| {
-				ClaimedRewards::<T>::get(era, validator).len() < overview.page_count as usize
-			})
-			.unwrap_or(false)
+		let Some(overview) = <ErasStakersOverview<T>>::get(&era, validator) else {
+			// no exposure, so no rewards to claim.
+			return false;
+		};
+
+		// Zero reward points means a payout transfers nothing, so there is nothing to claim.
+		if Self::get_reward_points_for_validator(era, validator).is_zero() {
+			return false;
+		}
+
+		ClaimedRewards::<T>::get(era, validator).len() < overview.page_count as usize
 	}
 
 	/// Get exposure for a validator at a given era and page.
@@ -191,6 +198,11 @@ impl<T: Config> Eras<T> {
 			// Always returns 1 page for older non-paged exposure.
 			// FIXME: Can be cleaned up with issue #13034.
 			.unwrap_or(1)
+	}
+
+	/// Check whether the validator was exposed at specified era.
+	pub(crate) fn was_validator_exposed(era: EraIndex, validator: &T::AccountId) -> bool {
+		<ErasStakersOverview<T>>::contains_key(era, validator)
 	}
 
 	/// Returns the next page that can be claimed or `None` if nothing to claim.
@@ -452,6 +464,14 @@ impl<T: Config> Eras<T> {
 
 	pub(crate) fn get_reward_points(era: EraIndex) -> EraRewardPoints<T> {
 		ErasRewardPoints::<T>::get(era)
+	}
+
+	pub(crate) fn get_reward_points_for_validator(
+		era: EraIndex,
+		validator: &T::AccountId,
+	) -> RewardPoint {
+		let points = ErasRewardPoints::<T>::get(era);
+		points.individual.get(validator).copied().unwrap_or_default()
 	}
 
 	/// Whether era `era` uses the weighted-points incentive-share formula

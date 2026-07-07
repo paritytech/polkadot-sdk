@@ -21,8 +21,9 @@ pub(crate) mod runtime_api;
 pub(crate) mod storage_api;
 
 use crate::{
-	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
-	SyncLabel, TransactionInfo,
+	BlockId, BlockInfoProvider, BlockNumberOrTag, FeeHistoryProvider, FeeHistoryResult, Filter,
+	Log, ReceiptInfo, ReceiptProvider, SubxtBlockInfoProvider, SyncLabel, SyncingProgress,
+	SyncingStatus, TransactionTrace,
 	block_sync::SyncCheckpoint,
 	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
@@ -31,10 +32,8 @@ use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
 use pallet_revive::{
 	EthTransactError,
 	evm::{
-		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult, Filter,
-		GenericTransaction, H256, HashesOrTransactionInfos, Log, ReceiptInfo, StateOverrideSet,
-		SyncingProgress, SyncingStatus, TransactionSigned, TransactionTrace, U256,
-		decode_revert_reason,
+		Block, GenericTransaction, H256, HashesOrTransactionInfos, StateOverrideSet,
+		TransactionSigned, U256, decode_revert_reason,
 	},
 };
 use pallet_revive_types::runtime_api::*;
@@ -675,9 +674,8 @@ impl Client {
 	/// Build a resolver mapping any [`BlockNumberOrTag`] to a concrete block number.
 	///
 	/// The tag → number mapping (`earliest`/`latest`/`finalized`, plus the `safe`/`pending`
-	/// aliases) is computed once here and returned as a closure, so every caller — `logs`,
-	/// `block_hash_for_tag`, ... — resolves tags through the same canonical logic rather than
-	/// duplicating it.
+	/// aliases) is computed once here and returned as a closure, so callers such as `logs`
+	/// resolve tags through the same canonical logic rather than duplicating it.
 	pub async fn get_block_resolution_function(
 		&self,
 	) -> Result<impl Fn(BlockNumberOrTag) -> U256 + 'static, ClientError> {
@@ -690,28 +688,34 @@ impl Client {
 	}
 
 	/// Get the block hash for the given block number or tag.
-	pub async fn block_hash_for_tag(
-		&self,
-		at: BlockNumberOrTagOrHash,
-	) -> Result<SubstrateBlockHash, ClientError> {
-		// Resolve to a concrete block number through the canonical resolver shared with
-		// `logs`, then look up its hash. A raw block hash needs no resolution.
-		let number = match at {
-			BlockNumberOrTagOrHash::BlockHash(hash) => {
-				return self
-					.resolve_substrate_hash(&hash)
-					.await
-					.ok_or(ClientError::EthereumBlockNotFound);
+	pub async fn block_hash_for_tag(&self, at: BlockId) -> Result<SubstrateBlockHash, ClientError> {
+		match at {
+			BlockId::Hash(hash) => self
+				.resolve_substrate_hash(&H256::from(hash.block_hash.0))
+				.await
+				.ok_or(ClientError::EthereumBlockNotFound),
+			BlockId::Number(BlockNumberOrTag::Number(block_number)) => {
+				let n: SubstrateBlockNumber =
+					block_number.try_into().map_err(|_| ClientError::ConversionFailed)?;
+				let hash = self.get_block_hash(n).await?.ok_or(ClientError::BlockNotFound)?;
+				Ok(hash)
 			},
-			BlockNumberOrTagOrHash::BlockNumber(block_number) => block_number,
-			BlockNumberOrTagOrHash::BlockTag(tag) => {
-				let resolve = self.get_block_resolution_function().await?;
-				resolve(BlockNumberOrTag::BlockTag(tag))
+			BlockId::Number(BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe) => {
+				let block = self.latest_finalized_block().await;
+				Ok(block.hash())
 			},
-		};
-		let n: SubstrateBlockNumber =
-			number.try_into().map_err(|_| ClientError::ConversionFailed)?;
-		self.get_block_hash(n).await?.ok_or(ClientError::BlockNotFound)
+			BlockId::Number(BlockNumberOrTag::Earliest) => {
+				let hash = self
+					.get_block_hash(self.earliest_block_number())
+					.await?
+					.ok_or(ClientError::BlockNotFound)?;
+				Ok(hash)
+			},
+			BlockId::Number(BlockNumberOrTag::Latest | BlockNumberOrTag::Pending) => {
+				let block = self.latest_block().await;
+				Ok(block.hash())
+			},
+		}
 	}
 
 	/// Get the storage API for the given block.
@@ -829,12 +833,11 @@ impl Client {
 
 		let status = if health.is_syncing {
 			let sync_state = self.sync_state().await?;
-			SyncingProgress {
+			SyncingStatus::SyncingProgress(SyncingProgress {
 				current_block: Some(sync_state.current_block.into()),
 				highest_block: Some(sync_state.highest_block.into()),
 				starting_block: Some(sync_state.starting_block.into()),
-			}
-			.into()
+			})
 		} else {
 			SyncingStatus::Bool(false)
 		};
@@ -906,18 +909,16 @@ impl Client {
 		block: &BlockNumberOrTag,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
 		match block {
-			BlockNumberOrTag::U256(n) => {
+			BlockNumberOrTag::Number(n) => {
 				let n = (*n).try_into().map_err(|_| ClientError::ConversionFailed)?;
 				self.block_by_number(n).await
 			},
-			BlockNumberOrTag::BlockTag(BlockTag::Finalized | BlockTag::Safe) => {
+			BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe => {
 				let block = self.block_provider.latest_finalized_block().await;
 				Ok(Some(block))
 			},
-			BlockNumberOrTag::BlockTag(BlockTag::Earliest) => {
-				self.block_by_number(self.earliest_block_number()).await
-			},
-			BlockNumberOrTag::BlockTag(_) => {
+			BlockNumberOrTag::Earliest => self.block_by_number(self.earliest_block_number()).await,
+			BlockNumberOrTag::Latest | BlockNumberOrTag::Pending => {
 				let block = self.block_provider.latest_block().await;
 				Ok(Some(block))
 			},
@@ -1048,7 +1049,7 @@ impl Client {
 	pub async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
-		block: BlockNumberOrTagOrHash,
+		block: BlockId,
 		config: TracerTypeV1,
 		state_overrides: Option<StateOverrideSet>,
 	) -> Result<TraceV1, ClientError> {
@@ -1067,7 +1068,7 @@ impl Client {
 
 		if self
 			.receipt_provider
-			.is_before_earliest_block(&BlockNumberOrTag::U256(U256::from(block.number())))
+			.is_before_earliest_block(&BlockNumberOrTag::Number(block.number().into()))
 		{
 			log::trace!(target: LOG_TARGET,
 				"Block #{} is before receipt floor, skipping", block.number());
@@ -1096,7 +1097,7 @@ impl Client {
 						})
 						.unwrap_or_default()
 						.into_iter()
-						.map(|(signed_tx, receipt)| TransactionInfo::new(&receipt, signed_tx))
+						.map(|(signed_tx, receipt)| receipt.transaction_info(signed_tx))
 						.collect::<Vec<_>>();
 
 					eth_block.transactions = HashesOrTransactionInfos::TransactionInfos(tx_infos);
@@ -1193,10 +1194,10 @@ fn resolve_block_number_for_tag(
 	finalized: U256,
 ) -> U256 {
 	match block {
-		BlockNumberOrTag::U256(n) => n,
-		BlockNumberOrTag::BlockTag(BlockTag::Earliest) => earliest,
-		BlockNumberOrTag::BlockTag(BlockTag::Safe | BlockTag::Finalized) => finalized,
-		BlockNumberOrTag::BlockTag(BlockTag::Latest | BlockTag::Pending) => latest,
+		BlockNumberOrTag::Number(n) => U256::from(n),
+		BlockNumberOrTag::Earliest => earliest,
+		BlockNumberOrTag::Safe | BlockNumberOrTag::Finalized => finalized,
+		BlockNumberOrTag::Latest | BlockNumberOrTag::Pending => latest,
 	}
 }
 
@@ -1212,13 +1213,13 @@ mod tests {
 		let resolve = |block| resolve_block_number_for_tag(block, earliest, latest, finalized);
 
 		// Explicit block numbers are returned as-is.
-		assert_eq!(resolve(BlockNumberOrTag::U256(U256::from(42u32))), U256::from(42u32));
+		assert_eq!(resolve(BlockNumberOrTag::Number(42u64)), U256::from(42u32));
 
 		// Every tag resolves instead of being rejected as unsupported.
-		assert_eq!(resolve(BlockNumberOrTag::BlockTag(BlockTag::Earliest)), earliest);
-		assert_eq!(resolve(BlockNumberOrTag::BlockTag(BlockTag::Latest)), latest);
-		assert_eq!(resolve(BlockNumberOrTag::BlockTag(BlockTag::Pending)), latest);
-		assert_eq!(resolve(BlockNumberOrTag::BlockTag(BlockTag::Safe)), finalized);
-		assert_eq!(resolve(BlockNumberOrTag::BlockTag(BlockTag::Finalized)), finalized);
+		assert_eq!(resolve(BlockNumberOrTag::Earliest), earliest);
+		assert_eq!(resolve(BlockNumberOrTag::Latest), latest);
+		assert_eq!(resolve(BlockNumberOrTag::Pending), latest);
+		assert_eq!(resolve(BlockNumberOrTag::Safe), finalized);
+		assert_eq!(resolve(BlockNumberOrTag::Finalized), finalized);
 	}
 }
