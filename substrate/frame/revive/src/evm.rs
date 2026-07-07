@@ -34,6 +34,8 @@ pub use block_hash::ReceiptGasInfo;
 
 /// Ethereum block storage module.
 pub(crate) mod block_storage;
+#[cfg(feature = "runtime-benchmarks")]
+pub use block_storage::bench_with_ethereum_context;
 
 /// Transfer with dust functionality.
 mod transfer_with_dust;

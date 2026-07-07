@@ -39,16 +39,61 @@ use test_case::test_case;
 // every ERC-20 event emitted by this precompile) — not `topics.len()` (always 3) —
 // to the `len` field of `RuntimeCosts::DepositEvent`. The two are independent
 // arguments with different per-unit weights, so swapping them silently undercharges
-// the per-byte event cost on every Transfer/Approval.
+// the per-byte event cost.
 //
-// A bare-call `transfer` charges exactly `WeightInfo::transfer() + DepositEvent`,
-// so we can assert the consumed weight against that sum. With the bug, the actual
-// consumed weight is lower by `DepositEvent{len:32} - DepositEvent{len:3}` and the
-// equality fails.
+// A fresh bare-call `approve` charges exactly
+// `WeightInfo::allowance() + WeightInfo::approve_transfer() + DepositEvent`, so we can
+// assert the consumed weight against that sum. With the bug, the actual consumed weight
+// is lower by `DepositEvent{len:32} - DepositEvent{len:3}` and the equality fails.
 #[test]
 fn deposit_event_charges_data_byte_length() {
 	use pallet_revive::precompiles::Token;
 
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let owner = 123456789;
+		let spender = 987654321;
+		Balances::make_free_balance_be(&owner, 100);
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		let data = IERC20::approveCall { spender: spender_addr.0.into(), value: U256::from(10) }
+			.abi_encode();
+
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(owner),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		);
+		assert!(result.result.is_ok(), "approve call failed: {:?}", result.result);
+
+		let expected = <() as pallet_assets::WeightInfo>::allowance()
+			.saturating_add(<() as pallet_assets::WeightInfo>::approve_transfer())
+			.saturating_add(<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::DepositEvent {
+				num_topic: 3,
+				len: 32,
+			}));
+		assert_eq!(
+			result.weight_consumed, expected,
+			"approve weight does not match allowance() + approve_transfer() + \
+			 DepositEvent{{num_topic: 3, len: 32}} — deposit_event has likely \
+			 regressed to charging len=topics.len() instead of len=data.len()",
+		);
+	});
+}
+
+// The `Transfer` log mirrored by `Erc20TransferLogs` is not free for contract callers:
+// a bare-call `transfer` charges exactly `WeightInfo::transfer() + erc20_transfer_log()`.
+#[test]
+fn transfer_charges_mirrored_log() {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
 		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
@@ -76,18 +121,9 @@ fn deposit_event_charges_data_byte_length() {
 		);
 		assert!(result.result.is_ok(), "transfer call failed: {:?}", result.result);
 
-		let expected =
-			<() as pallet_assets::WeightInfo>::transfer().saturating_add(<RuntimeCosts as Token<
-				Test,
-			>>::weight(
-				&RuntimeCosts::DepositEvent { num_topic: 3, len: 32 },
-			));
-		assert_eq!(
-			result.weight_consumed, expected,
-			"transfer weight does not match WeightInfo::transfer() + \
-			 DepositEvent{{num_topic: 3, len: 32}} — deposit_event has likely \
-			 regressed to charging len=topics.len() instead of len=data.len()",
-		);
+		let expected = <() as pallet_assets::WeightInfo>::transfer()
+			.saturating_add(<() as crate::weights::WeightInfo>::erc20_transfer_log());
+		assert_eq!(result.weight_consumed, expected);
 	});
 }
 

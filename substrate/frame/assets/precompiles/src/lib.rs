@@ -209,6 +209,9 @@ where
 
 /// [`pallet_assets::Config::CallbackHandle`] mirroring balance changes as ERC-20 `Transfer`
 /// logs at the [`ERC20`] precompile's token address (mint from `0x0`, burn to `0x0`).
+///
+/// Adds an event deposit to every mint/transfer/burn: regenerate the runtime's `pallet-assets`
+/// weights after wiring (benchmarks execute the callback).
 pub struct Erc20TransferLogs<Runtime, PrecompileConfig, Instance = ()> {
 	_phantom: PhantomData<(Runtime, PrecompileConfig, Instance)>,
 }
@@ -338,8 +341,7 @@ where
 	}
 
 	fn charge_transfer_log(env: &mut impl Ext<T = Runtime>) -> Result<(), Error> {
-		env.frame_meter_mut()
-			.charge_weight_token(RuntimeCosts::DepositEvent { num_topic: 3, len: 32 })?;
+		env.charge(<Runtime as permit::Config>::WeightInfo::erc20_transfer_log())?;
 		Ok(())
 	}
 
