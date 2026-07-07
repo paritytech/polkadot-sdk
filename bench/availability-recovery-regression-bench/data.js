@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783444536864,
+  "lastUpdate": 1783451135073,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "5588131+kianenigma@users.noreply.github.com",
-            "name": "Kian Paimani",
-            "username": "kianenigma"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "501b5697c22b8e79d3cd56c7e468a5e95a4f018f",
-          "message": "add fresh weights for westend asset hub (#10284)\n\n- And deprecate `FastUnstake` as it is unsafe \n- And use the faster solver for benchmarks to speed things up\n- Remove hardcoded weights of westend.\n\nA step to reduce the diff size in\nhttps://github.com/paritytech/polkadot-sdk/pull/9925\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2025-11-12T13:41:07Z",
-          "tree_id": "ee4a54561e8462d2e14ea4d33c0bacdb0c4a2ab7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/501b5697c22b8e79d3cd56c7e468a5e95a4f018f"
-        },
-        "date": 1762960416663,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.369390592266665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2001022806,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13722350443333337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d988144f162df86614159e932493bfa23b7ab5b3",
+          "message": "Introduce `fp-coretime` (#11810)\n\n## Summary\n\nIntroduces `fp-coretime`, a FRAME primitives crate for Polkadot Coretime\ntypes and traits. Moves the following from `pallet-broker` into\n`fp-coretime`:\n\n- **Types**: `CoreIndex`, `Timeslice`, `TaskId`, `PartsOf57600`,\n`RegionId`, `PotentialRenewalId`, `CoreMask`, `CORE_MASK_BITS`\n- **Traits**: `Market`, `CoreRangeProvider`, `TimesliceProvider` and\nassociated result types\n\nThis allows market implementations (e.g. an RFC-17 pallet) to depend on\n`fp-coretime` instead of `pallet-broker`, avoiding a pallet dependency\njust for trait definitions and shared types.\n\n`pallet-broker` currently re-exports everything from `fp-coretime` for\nbackward compatibility.\n\nThis PR also introduces the `frame/primitives` path and also the `fp-*`\nprefix for these shared types which are not actually substrate\nprimitives.\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-07-07T17:21:07Z",
+          "tree_id": "950deceb53c5b14998111393257f71e8bca3e552",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d988144f162df86614159e932493bfa23b7ab5b3"
+        },
+        "date": 1783451104605,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.660071043766669,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13366617443333334,
             "unit": "seconds"
           }
         ]
