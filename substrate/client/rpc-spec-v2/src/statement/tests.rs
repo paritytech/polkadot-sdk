@@ -172,7 +172,7 @@ impl sp_blockchain::HeaderBackend<Block> for MockClient {
 	}
 }
 
-fn make_server() -> RpcModule<StatementSpec<Store>> {
+fn make_server() -> (RpcModule<StatementSpec<Store>>, tempfile::TempDir) {
 	let executor = Arc::new(TokioTestExecutor::default());
 	let client = Arc::new(MockClient);
 	let temp_dir = tempfile::tempdir().expect("tempdir");
@@ -188,9 +188,8 @@ fn make_server() -> RpcModule<StatementSpec<Store>> {
 		Box::new((*executor).clone()),
 	)
 	.expect("store");
-	std::mem::forget(temp_dir);
 
-	StatementSpec::new(Arc::new(store), executor).into_rpc()
+	(StatementSpec::new(Arc::new(store), executor).into_rpc(), temp_dir)
 }
 
 fn signed_statement(seed: u8, topics: &[[u8; 32]]) -> Statement {
@@ -253,7 +252,7 @@ async fn collect_replay(sub: &mut RpcSubscription, filter_id: &str) -> Vec<Bytes
 
 #[tokio::test]
 async fn submit_then_subscribe_replays_and_then_lives() {
-	let rpc = make_server();
+	let (rpc, _store_dir) = make_server();
 
 	let s_pre = signed_statement(1, &[[7u8; 32]]);
 	let outcome: SubmitOutcome = rpc
@@ -297,7 +296,7 @@ async fn submit_then_subscribe_replays_and_then_lives() {
 async fn add_filter_rejects_match_any_topic_filter() {
 	use sp_runtime::BoundedVec;
 
-	let rpc = make_server();
+	let (rpc, _store_dir) = make_server();
 	let sub = subscribe(&rpc).await;
 	let sub_id = sub_id_string(&sub);
 
@@ -315,7 +314,7 @@ async fn add_filter_rejects_match_any_topic_filter() {
 
 #[tokio::test]
 async fn remove_filter_frees_rpc_filter_capacity() {
-	let rpc = make_server();
+	let (rpc, _store_dir) = make_server();
 	let sub = subscribe(&rpc).await;
 	let sub_id = sub_id_string(&sub);
 	let mut filter_ids = Vec::new();
@@ -359,7 +358,7 @@ async fn remove_filter_frees_rpc_filter_capacity() {
 
 #[tokio::test]
 async fn add_filter_for_unknown_subscription_yields_invalid_subscription() {
-	let rpc = make_server();
+	let (rpc, _store_dir) = make_server();
 	let err = rpc
 		.call::<_, super::AddFilterResponse>(
 			"statement_unstable_add_filter",
@@ -377,7 +376,7 @@ async fn add_filter_for_unknown_subscription_yields_invalid_subscription() {
 
 #[tokio::test]
 async fn remove_filter_is_silent_for_unknown_subscription_and_filter() {
-	let rpc = make_server();
+	let (rpc, _store_dir) = make_server();
 
 	let _: () = rpc
 		.call("statement_unstable_remove_filter", ("does-not-exist".to_string(), "0".to_string()))

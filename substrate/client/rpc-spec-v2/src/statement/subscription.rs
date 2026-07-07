@@ -23,7 +23,7 @@ use sc_statement_store::{MultiFilterSubscriptionEvent, SubscriptionHandle};
 use sp_statement_store::{FilterId, NewStatementEntry, SubscribeEvent};
 use std::{collections::HashMap, sync::Arc};
 
-type SubscriptionStateRef = Arc<SubscriptionHandle>;
+type SubscriptionStateRef = SubscriptionHandle;
 type SubscriptionRegistry =
 	Arc<RwLock<HashMap<ConnectionId, HashMap<String, SubscriptionStateRef>>>>;
 
@@ -45,14 +45,13 @@ impl StatementSubscriptions {
 		sub_id: String,
 		handle: SubscriptionHandle,
 	) -> Option<SubscriptionEntry> {
-		let state = Arc::new(handle);
 		let mut registry = self.registry.write();
 		let connection = registry.entry(conn_id).or_default();
 		if connection.contains_key(&sub_id) {
 			return None;
 		}
 
-		connection.insert(sub_id.clone(), state);
+		connection.insert(sub_id.clone(), handle);
 		Some(SubscriptionEntry { conn_id, sub_id, registry: self.registry.clone() })
 	}
 
@@ -134,7 +133,7 @@ mod tests {
 	use sc_statement_store::{MultiFilterSubscriptionApi, Store};
 	use std::sync::Arc;
 
-	fn empty_subscription_state() -> Arc<SubscriptionHandle> {
+	fn empty_subscription_state() -> (SubscriptionHandle, tempfile::TempDir) {
 		let dir = tempfile::tempdir().expect("tempdir");
 		let mut db_path: std::path::PathBuf = dir.path().into();
 		db_path.push("db");
@@ -280,10 +279,9 @@ mod tests {
 			)
 			.expect("store"),
 		);
-		std::mem::forget(dir);
 
 		let (handle, _live) = store.create_subscription();
-		Arc::new(handle)
+		(handle, dir)
 	}
 
 	#[test]
@@ -293,16 +291,17 @@ mod tests {
 		let conn_b = ConnectionId(2);
 		let sub_id = "same-subscription-id".to_string();
 
-		let handle_a = (*empty_subscription_state()).clone();
-		let handle_b = (*empty_subscription_state()).clone();
+		let (handle_a, _dir_a) = empty_subscription_state();
+		let (handle_b, _dir_b) = empty_subscription_state();
 
 		let entry_a = subscriptions.register(conn_a, sub_id.clone(), handle_a).unwrap();
 		let _entry_b = subscriptions.register(conn_b, sub_id.clone(), handle_b).unwrap();
 
-		let state_a = subscriptions.get(conn_a, &sub_id).unwrap();
-		let state_b = subscriptions.get(conn_b, &sub_id).unwrap();
-		assert!(!Arc::ptr_eq(&state_a, &state_b));
+		assert!(subscriptions.get(conn_a, &sub_id).is_some());
+		assert!(subscriptions.get(conn_b, &sub_id).is_some());
 
+		// Dropping conn_a's entry must only remove conn_a's registration, proving the
+		// registry is scoped by connection despite the shared subscription id.
 		drop(entry_a);
 		assert!(subscriptions.get(conn_a, &sub_id).is_none());
 		assert!(subscriptions.get(conn_b, &sub_id).is_some());
@@ -315,9 +314,9 @@ mod tests {
 		let conn_b = ConnectionId(2);
 		let sub_id = "same-subscription-id".to_string();
 
-		let handle_a = (*empty_subscription_state()).clone();
-		let duplicate_handle = (*empty_subscription_state()).clone();
-		let handle_b = (*empty_subscription_state()).clone();
+		let (handle_a, _dir_a) = empty_subscription_state();
+		let (duplicate_handle, _dir_dup) = empty_subscription_state();
+		let (handle_b, _dir_b) = empty_subscription_state();
 
 		let _entry = subscriptions.register(conn_a, sub_id.clone(), handle_a).unwrap();
 		assert!(subscriptions.register(conn_a, sub_id.clone(), duplicate_handle).is_none());

@@ -75,19 +75,6 @@ pub enum AddFilterError {
 	Stopped,
 }
 
-impl std::fmt::Display for AddFilterError {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		match self {
-			AddFilterError::LimitReached => {
-				write!(f, "maximum number of filters for this subscription has been reached")
-			},
-			AddFilterError::Stopped => write!(f, "statement subscription matcher stopped"),
-		}
-	}
-}
-
-impl std::error::Error for AddFilterError {}
-
 /// Trait for initiating statement store subscriptions from the RPC module.
 pub trait StatementStoreSubscriptionApi: Send + Sync {
 	/// Subscribe to statements matching the topic filter.
@@ -476,7 +463,7 @@ impl SubscriptionsHandle {
 							},
 							Err(_) => {
 								// Expected when the subscription manager is dropped at shutdown.
-								log::error!(
+								log::debug!(
 									target: LOG_TARGET,
 									"Statement subscription matcher channel closed: {task}"
 								);

@@ -3523,28 +3523,28 @@ mod tests {
 		}
 
 		#[tokio::test]
-		async fn add_filter_snapshot_and_live_events_cover_concurrent_submissions() {
+		async fn add_filter_replays_snapshot_and_delivers_later_submissions_live() {
 			let (store, _dir) = arc_test_store();
 			let (handle, mut stream) = store.create_subscription();
 
 			const NUM_STATEMENTS: u8 = 50;
+			const NUM_PRE_FILTER: u8 = 20;
 
-			let store_for_submitter = store.clone();
-			let submitter = std::thread::spawn(move || {
-				for i in 0..NUM_STATEMENTS {
-					let stmt = signed_statement(i);
-					assert_eq!(
-						store_for_submitter.submit(stmt, StatementSource::Local),
-						SubmitResult::New
-					);
-					std::thread::sleep(Duration::from_millis(1));
-				}
-			});
+			// Statements stored before the filter is attached; the replay snapshot must cover
+			// exactly these.
+			for i in 0..NUM_PRE_FILTER {
+				let stmt = signed_statement(i);
+				assert_eq!(store.submit(stmt, StatementSource::Local), SubmitResult::New);
+			}
 
-			std::thread::sleep(Duration::from_millis(10));
 			let filter_id = handle.add_filter(OptimizedTopicFilter::Any).unwrap();
 
-			submitter.join().unwrap();
+			// The snapshot is collected atomically with the filter registration, so statements
+			// submitted after `add_filter` returns must arrive as live events only.
+			for i in NUM_PRE_FILTER..NUM_STATEMENTS {
+				let stmt = signed_statement(i);
+				assert_eq!(store.submit(stmt, StatementSource::Local), SubmitResult::New);
+			}
 
 			let mut snapshot_hashes: HashSet<[u8; 32]> = HashSet::new();
 			let mut live_with_filter: HashSet<[u8; 32]> = HashSet::new();
@@ -3566,12 +3566,13 @@ mod tests {
 				}
 			}
 
-			let covered: HashSet<[u8; 32]> =
-				snapshot_hashes.union(&live_with_filter).copied().collect();
-			let expected: HashSet<[u8; 32]> =
-				(0..NUM_STATEMENTS).map(|i| signed_statement(i).hash()).collect();
+			let expected_replayed: HashSet<[u8; 32]> =
+				(0..NUM_PRE_FILTER).map(|i| signed_statement(i).hash()).collect();
+			let expected_live: HashSet<[u8; 32]> =
+				(NUM_PRE_FILTER..NUM_STATEMENTS).map(|i| signed_statement(i).hash()).collect();
 
-			assert_eq!(covered, expected);
+			assert_eq!(snapshot_hashes, expected_replayed);
+			assert_eq!(live_with_filter, expected_live);
 		}
 	}
 }

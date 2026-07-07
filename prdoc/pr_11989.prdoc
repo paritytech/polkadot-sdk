@@ -15,8 +15,8 @@ crates:
 - name: polkadot-omni-node-lib
   bump: patch
 - name: sc-rpc-spec-v2
-  bump: major
+  bump: minor
 - name: sc-statement-store
-  bump: patch
+  bump: minor
 - name: sp-statement-store
-  bump: patch
+  bump: minor

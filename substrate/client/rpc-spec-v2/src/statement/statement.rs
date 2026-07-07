@@ -127,10 +127,23 @@ where
 					event = live_stream.next() => match event {
 						Some(event) => {
 							if !send_subscription_event(&sink, event).await {
+								log::debug!(
+									target: LOG_TARGET,
+									"Failed to send statement subscription event \
+									 (connection={connection_id:?}, sub_id={sub_id}); terminating \
+									 subscription task",
+								);
 								break;
 							}
 						},
-						None => break,
+						None => {
+							log::debug!(
+								target: LOG_TARGET,
+								"Statement live event stream ended (connection={connection_id:?}, \
+								 sub_id={sub_id}); terminating subscription task",
+							);
+							break;
+						},
 					},
 				}
 			}
