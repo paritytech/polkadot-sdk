@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783415238057,
+  "lastUpdate": 1783429379293,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dadd3f5fb3949ceed2957caef8b56f870271ec3c",
-          "message": "[Release|CI/CD] build and publish binary for RPM distribution (#10206)\n\nhttps://github.com/paritytech/release-engineering/issues/269\n\n---------\n\nCo-authored-by: EgorPopelyaev <egor@parity.io>",
-          "timestamp": "2025-11-10T19:43:29Z",
-          "tree_id": "7c4f1b9df7db4b34276650238d4cfdadcf7e1a97",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dadd3f5fb3949ceed2957caef8b56f870271ec3c"
-        },
-        "date": 1762808004787,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95199999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034354797710000023,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044504681335999934,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0885984265539999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "58e88cf5ed5f6ad0cb7b7e247bf283a0b454db0d",
+          "message": "Remove deprecated BlockAnnounceValidator type alias (#12501)\n\n## Summary\nRemoves the deprecated `BlockAnnounceValidator` type alias from\n`cumulus-client-network`. Use `RequireSecondedInBlockAnnounce` directly.\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-07T11:08:38Z",
+          "tree_id": "366ad5e7f87d15c53ce7dc6ac8dbd264d099d29c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/58e88cf5ed5f6ad0cb7b7e247bf283a0b454db0d"
+        },
+        "date": 1783429349590,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.07999999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038216666042000025,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.07965184131599992,
             "unit": "seconds"
           }
         ]
