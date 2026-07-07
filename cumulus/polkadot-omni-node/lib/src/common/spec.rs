@@ -412,7 +412,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					metrics,
 				})
 				.await?;
-			let peer_id = network.local_peer_id();
+			let peer_id = relay_chain_network.local_peer_id();
 
 			if validator && node_extra_args.collator_reserved_slots > 0 {
 				cumulus_client_collator_discovery::start_collator_discovery(

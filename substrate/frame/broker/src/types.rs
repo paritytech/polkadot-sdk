@@ -40,6 +40,8 @@ pub type Timeslice = u32;
 pub type CoreMaskBitCount = u32;
 /// The same as `CoreMaskBitCount` but signed.
 pub type SignedCoreMaskBitCount = i32;
+/// A sequential index for identifying a sale period.
+pub type SaleIndex = u32;
 
 /// Whether a core assignment is revokable or not.
 #[derive(
@@ -256,6 +258,8 @@ pub struct SaleInfoRecord<Balance, RelayBlockNumber> {
 	pub sellout_price: Option<Balance>,
 	/// Number of cores which have been sold; never more than cores_offered.
 	pub cores_sold: CoreIndex,
+	/// Identifier for the current sale.
+	pub sale_index: SaleIndex,
 }
 pub type SaleInfoRecordOf<T> = SaleInfoRecord<BalanceOf<T>, RelayBlockNumberOf<T>>;
 
