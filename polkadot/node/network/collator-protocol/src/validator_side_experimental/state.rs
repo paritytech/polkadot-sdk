@@ -298,18 +298,24 @@ impl<B: Backend> State<B> {
 		match self.collation_manager.try_accept_advertisement(sender, advertisement).await {
 			Err(err) => {
 				match err {
-					AdvertisementError::Duplicate =>
-						self.metrics.on_advertisement_rejected_duplicate(),
-					AdvertisementError::OutOfOurView =>
-						self.metrics.on_advertisement_rejected_out_of_view(),
-					AdvertisementError::PeerLimitReached =>
-						self.metrics.on_advertisement_rejected_peer_limit_reached(),
-					AdvertisementError::BlockedByBacking =>
-						self.metrics.on_advertisement_rejected_blocked_by_backing(),
-					AdvertisementError::V1AdvertisementForImplicitParent =>
-						self.metrics.on_advertisement_rejected_v1_for_implicit_parent(),
-					AdvertisementError::SchedulingParentNotValid =>
-						self.metrics.on_advertisement_rejected_scheduling_parent_invalid(),
+					AdvertisementError::Duplicate => {
+						self.metrics.on_advertisement_rejected_duplicate()
+					},
+					AdvertisementError::OutOfOurView => {
+						self.metrics.on_advertisement_rejected_out_of_view()
+					},
+					AdvertisementError::PeerLimitReached => {
+						self.metrics.on_advertisement_rejected_peer_limit_reached()
+					},
+					AdvertisementError::BlockedByBacking => {
+						self.metrics.on_advertisement_rejected_blocked_by_backing()
+					},
+					AdvertisementError::V1AdvertisementForImplicitParent => {
+						self.metrics.on_advertisement_rejected_v1_for_implicit_parent()
+					},
+					AdvertisementError::SchedulingParentNotValid => {
+						self.metrics.on_advertisement_rejected_scheduling_parent_invalid()
+					},
 				}
 				gum::debug!(
 					target: LOG_TARGET,
