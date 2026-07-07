@@ -2107,9 +2107,6 @@ fn balance_change_callbacks_should_work() {
 	});
 }
 
-/// The fungibles traits mutate via `Unbalanced` and emit their events in the `done_*` hooks,
-/// bypassing `do_mint`/`do_transfer`/`do_burn` — the callbacks must fire there too. This is the
-/// path taken by XCM asset transactors.
 #[test]
 fn balance_change_callbacks_fire_on_fungibles_paths() {
 	use frame_support::traits::{
@@ -2155,8 +2152,6 @@ fn balance_change_callbacks_fire_on_fungibles_paths() {
 	});
 }
 
-/// Refunding the deposit of an account with a non-zero balance burns that balance
-/// (`allow_burn`), which must fire `burned` like any other supply-reducing path.
 #[test]
 fn balance_change_callbacks_fire_on_refund_burn() {
 	build_and_execute(|| {
