@@ -59,7 +59,7 @@ pub mod test_utils;
 use crate::subscription::{SubscriptionStatementsStream, SubscriptionsHandle};
 use futures::FutureExt;
 use metrics::MetricsLink as PrometheusMetrics;
-use parking_lot::{lock_api::RwLockUpgradableReadGuard, Mutex, RwLock};
+use parking_lot::{lock_api::RwLockUpgradableReadGuard, RwLock};
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{backend::StorageProvider, Backend, StorageKey};
 use sc_keystore::LocalKeystore;
@@ -311,19 +311,8 @@ impl Default for Config {
 	}
 }
 
-/// Maximum number of distinct topic / decryption-key hash sets kept in the in-memory read cache.
-/// A cache miss falls back to an on-disk prefix scan.
-const READ_CACHE_CAPACITY: u32 = 4096;
-
-#[derive(Clone, PartialEq, Eq, Hash)]
-enum ReadCacheKey {
-	Topic(Topic),
-	DecKey(Option<DecryptionKey>),
-}
-
 /// In-memory part of the read index.
 struct QueryIndex {
-	cache: schnellru::LruMap<ReadCacheKey, HashSet<Hash>>,
 	topic_counts: HashMap<Topic, usize>,
 	dec_key_counts: HashMap<Option<DecryptionKey>, usize>,
 	recent: HashSet<Hash>,
@@ -332,7 +321,6 @@ struct QueryIndex {
 impl QueryIndex {
 	fn new() -> Self {
 		QueryIndex {
-			cache: schnellru::LruMap::new(schnellru::ByLength::new(READ_CACHE_CAPACITY)),
 			topic_counts: HashMap::new(),
 			dec_key_counts: HashMap::new(),
 			recent: HashSet::new(),
@@ -349,27 +337,19 @@ impl QueryIndex {
 		*self.dec_key_counts.entry(statement.decryption_key()).or_insert(0) += 1;
 	}
 
-	/// Records a newly inserted statement: bumps cardinalities, updates any cached sets, and marks
-	/// the hash as recent.
+	/// Records a newly inserted statement: bumps cardinalities and marks the hash as recent.
 	fn note_insert(&mut self, hash: Hash, statement: &Statement) {
 		let mut nt = 0;
 		while let Some(topic) = statement.topic(nt) {
 			*self.topic_counts.entry(topic).or_insert(0) += 1;
-			if let Some(set) = self.cache.get(&ReadCacheKey::Topic(topic)) {
-				set.insert(hash);
-			}
 			nt += 1;
 		}
 		let dec_key = statement.decryption_key();
 		*self.dec_key_counts.entry(dec_key).or_insert(0) += 1;
-		if let Some(set) = self.cache.get(&ReadCacheKey::DecKey(dec_key)) {
-			set.insert(hash);
-		}
 		self.recent.insert(hash);
 	}
 
-	/// Records a removed statement: decrements cardinalities, updates any cached sets, and drops
-	/// the hash from `recent`.
+	/// Records a removed statement: decrements cardinalities and drops the hash from `recent`.
 	fn note_remove(&mut self, hash: &Hash, statement: &Statement) {
 		let mut nt = 0;
 		while let Some(topic) = statement.topic(nt) {
@@ -379,9 +359,6 @@ impl QueryIndex {
 					self.topic_counts.remove(&topic);
 				}
 			}
-			if let Some(set) = self.cache.get(&ReadCacheKey::Topic(topic)) {
-				set.remove(hash);
-			}
 			nt += 1;
 		}
 		let dec_key = statement.decryption_key();
@@ -390,9 +367,6 @@ impl QueryIndex {
 			if *count == 0 {
 				self.dec_key_counts.remove(&dec_key);
 			}
-		}
-		if let Some(set) = self.cache.get(&ReadCacheKey::DecKey(dec_key)) {
-			set.remove(hash);
 		}
 		self.recent.remove(hash);
 	}
@@ -468,7 +442,7 @@ where
 pub struct Store {
 	db: parity_db::Db,
 	submit_index: RwLock<SubmitIndex>,
-	query_index: Mutex<QueryIndex>,
+	query_index: RwLock<QueryIndex>,
 	read_allowance_fn:
 		Box<dyn Fn(&AccountId, AllowanceBlock) -> Result<Option<StatementAllowance>> + Send + Sync>,
 	subscription_manager: SubscriptionsHandle,
@@ -506,13 +480,6 @@ enum IndexSet {
 }
 
 impl IndexSet {
-	fn cache_key(&self) -> ReadCacheKey {
-		match self {
-			IndexSet::Topic(t) => ReadCacheKey::Topic(*t),
-			IndexSet::DecKey(k) => ReadCacheKey::DecKey(*k),
-		}
-	}
-
 	fn column(&self) -> u8 {
 		match self {
 			IndexSet::Topic(_) => col::INDEX_BY_TOPIC,
@@ -886,7 +853,7 @@ impl Store {
 		let store = Store {
 			db,
 			submit_index: RwLock::new(SubmitIndex::new(config)),
-			query_index: Mutex::new(QueryIndex::new()),
+			query_index: RwLock::new(QueryIndex::new()),
 			read_allowance_fn,
 			keystore,
 			time_override: None,
@@ -909,7 +876,7 @@ impl Store {
 		// processed, so there is no contention.
 		let migration_ops = {
 			let mut submit_index = self.submit_index.write();
-			let mut query_index = self.query_index.lock();
+			let mut query_index = self.query_index.write();
 			let mut migration_ops: Vec<(u8, Vec<u8>, Option<Vec<u8>>)> = Vec::new();
 			self.db
 				.iter_column_while(col::STATEMENTS, |item| {
@@ -1024,21 +991,6 @@ impl Store {
 		Ok(hashes)
 	}
 
-	/// Returns the full hash set of an index set, from the read cache if present, otherwise by
-	/// scanning the on-disk column (and caching the result). The lock is held only to look up or
-	/// populate the cache — never across the disk scan — so readers do not serialize on I/O.
-	fn load_set_cached(&self, set: &IndexSet) -> Result<HashSet<Hash>> {
-		let cache_key = set.cache_key();
-		if let Some(cached) = self.query_index.lock().cache.get(&cache_key) {
-			return Ok(cached.clone());
-		}
-		// Cache miss: scan the column without holding the lock. A concurrent reader may scan and
-		// insert the same set in parallel, which is harmless (the inserts are identical).
-		let scanned = self.scan_index_prefix(set.column(), &set.prefix())?;
-		self.query_index.lock().cache.insert(cache_key, scanned.clone());
-		Ok(scanned)
-	}
-
 	/// Tests, against the on-disk column, whether `hash` belongs to an index set.
 	fn index_set_contains(&self, set: &IndexSet, hash: &Hash) -> Result<bool> {
 		Ok(self
@@ -1056,6 +1008,8 @@ impl Store {
 		})
 	}
 
+	/// Enumerates matching hashes for `key` / `topic`, reading candidates directly from the on-disk
+	/// index for every filter kind. Used both for ad-hoc reads and for subscription snapshots.
 	fn iterate_with(
 		&self,
 		key: Option<DecryptionKey>,
@@ -1118,10 +1072,11 @@ impl Store {
 		Ok(())
 	}
 
-	/// Intersects the decryption-key set with all requested topic sets. The lock is taken only
-	/// briefly to read the cardinality counters (to bail on an empty set and order the sets so the
-	/// smallest is materialised first); materialising that set and probing the rest against disk
-	/// then happen without holding the lock.
+	/// Intersects the decryption-key set with all requested topic sets, reading candidates directly
+	/// from the on-disk index. The lock is taken only briefly to order the sets by cardinality so
+	/// the smallest is materialised first; this ordering is a best-effort hint (stale counters can
+	/// only misorder the sets, never drop a statement). Materialising that set and probing the rest
+	/// against disk then happen without holding the lock.
 	fn iterate_with_match_all(
 		&self,
 		key: Option<DecryptionKey>,
@@ -1137,14 +1092,11 @@ impl Store {
 			sets.push(IndexSet::Topic(*topic));
 		}
 		{
-			let query_index = self.query_index.lock();
-			if sets.iter().any(|s| s.len(&query_index) == 0) {
-				return Ok(());
-			}
-			// Start from the smallest set to minimise membership tests.
+			// Ordering only (best-effort): stale counters can misorder but never drop a statement.
+			let query_index = self.query_index.read();
 			sets.sort_by_key(|s| s.len(&query_index));
 		}
-		let smallest = self.load_set_cached(&sets[0])?;
+		let smallest = self.scan_index_prefix(sets[0].column(), &sets[0].prefix())?;
 		let others = &sets[1..];
 		for hash in &smallest {
 			if self.hash_in_all_sets(hash, others)? {
@@ -1153,53 +1105,6 @@ impl Store {
 					"Iterating by topic/key: statement {:?}",
 					HexDisplay::from(hash)
 				);
-				f(hash)?;
-			}
-		}
-		Ok(())
-	}
-
-	/// Enumerates matching hashes for a subscription's initial snapshot, reading candidates
-	/// directly from the on-disk index for every filter kind.
-	fn iterate_snapshot(
-		&self,
-		key: Option<DecryptionKey>,
-		topic: &OptimizedTopicFilter,
-		f: impl FnMut(&Hash) -> Result<()>,
-	) -> Result<()> {
-		match topic {
-			OptimizedTopicFilter::Any => self.iterate_with_any(key, f),
-			OptimizedTopicFilter::MatchAny(topics) => self.iterate_with_match_any(key, topics, f),
-			OptimizedTopicFilter::MatchAll(topics) => {
-				self.iterate_with_match_all_from_disk(key, topics, f)
-			},
-		}
-	}
-
-	/// Disk-authoritative `MatchAll` enumeration used by subscription snapshots.
-	fn iterate_with_match_all_from_disk(
-		&self,
-		key: Option<DecryptionKey>,
-		topics: &HashSet<Topic>,
-		mut f: impl FnMut(&Hash) -> Result<()>,
-	) -> Result<()> {
-		if topics.len() > MAX_TOPICS {
-			return Ok(());
-		}
-		let mut sets = Vec::with_capacity(topics.len() + 1);
-		sets.push(IndexSet::DecKey(key));
-		for topic in topics {
-			sets.push(IndexSet::Topic(*topic));
-		}
-		{
-			// Ordering only (best-effort): stale counters can misorder but never drop a statement.
-			let query_index = self.query_index.lock();
-			sets.sort_by_key(|s| s.len(&query_index));
-		}
-		let smallest = self.scan_index_prefix(sets[0].column(), &sets[0].prefix())?;
-		let others = &sets[1..];
-		for hash in &smallest {
-			if self.hash_in_all_sets(hash, others)? {
 				f(hash)?;
 			}
 		}
@@ -1609,7 +1514,7 @@ impl StatementStore for Store {
 	}
 
 	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>> {
-		let recent = self.query_index.lock().take_recent();
+		let recent = self.query_index.write().take_recent();
 		let mut result = Vec::with_capacity(recent.len());
 		for hash in recent {
 			let Some(encoded) =
@@ -2012,7 +1917,7 @@ impl StatementStore for Store {
 			(evicted_statements, seq)
 		}; // Release submit index lock
 		{
-			let mut query_index = self.query_index.lock();
+			let mut query_index = self.query_index.write();
 			for h in &evicted {
 				query_index.note_remove(&h.hash(), h);
 			}
@@ -2071,7 +1976,7 @@ impl StatementStore for Store {
 		};
 		if removed {
 			if let Some(statement) = &statement {
-				self.query_index.lock().note_remove(hash, statement);
+				self.query_index.write().note_remove(hash, statement);
 			}
 		}
 		Ok(())
@@ -2139,7 +2044,7 @@ impl StatementStore for Store {
 			removed_statements
 		};
 		if !removed_statements.is_empty() {
-			let mut read_index = self.query_index.lock();
+			let mut read_index = self.query_index.write();
 			for (hash, statement) in &removed_statements {
 				read_index.note_remove(hash, statement);
 			}
@@ -2181,7 +2086,7 @@ impl StatementStoreSubscriptionApi for Store {
 		let _scan_guard = ScanGuard { store: self, watermark };
 
 		let mut hashes = HashSet::new();
-		self.iterate_snapshot(None, &topic_filter, |hash| {
+		self.iterate_with(None, &topic_filter, |hash| {
 			hashes.insert(*hash);
 			Ok(())
 		})?;

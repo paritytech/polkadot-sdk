@@ -34,7 +34,6 @@
 //!
 //! The groups added for the on-disk index target what moving it to disk actually costs:
 //! - `read_scaling`: read latency as a function of store size (flat in RAM, grows on disk);
-//! - `cache`: LRU cache hit (RAM) vs miss (disk scan) for topic queries;
 //! - `contention_read_under_write`: read latency while writers run concurrently.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
@@ -63,12 +62,6 @@ const TOTAL_OPS: usize = NUM_THREADS * OPS_PER_THREAD;
 /// Store sizes (pre-loaded statements) for the `read_scaling` group.
 const SCALING_SIZES: &[usize] = &[1_000, 10_000, 50_000];
 
-/// Distinct topics used by the `cache` group. Chosen above the read cache capacity so that cycling
-/// through them forces evictions, and therefore real cache misses.
-const CACHE_TOPICS: usize = 5_000;
-/// Statements per topic in the `cache` group.
-const CACHE_PER_TOPIC: usize = 8;
-
 /// Reader / writer thread counts for the contention benchmark.
 const CONTENTION_READERS: usize = 32;
 const CONTENTION_WRITERS: usize = 32;
@@ -86,7 +79,7 @@ impl sc_client_api::StorageProvider<Block, TestBackend> for TestClient {
 		_hash: Hash,
 		_key: &sc_client_api::StorageKey,
 	) -> sp_blockchain::Result<Option<sc_client_api::StorageData>> {
-		// Generous per-account allowance so the large pre-loads in the scaling/cache benchmarks
+		// Generous per-account allowance so the large pre-loads in the scaling benchmarks
 		// are not capped by eviction (count, then size in bytes).
 		Ok(Some(sc_client_api::StorageData((2_000_000, 256 * 1024 * 1024).encode())))
 	}
@@ -300,25 +293,6 @@ fn setup_scaled(keypair: &sp_core::ed25519::Pair, n: usize) -> (Store, tempfile:
 		let key = if i % 10 == 5 { Some(dec_key(42)) } else { None };
 		let statement = create_signed_statement(i as u64, &topics, key, keypair);
 		assert!(matches!(store.submit(statement, StatementSource::Local), SubmitResult::New));
-	}
-	(store, temp)
-}
-
-/// Builds a store where `topics` distinct topics each appear on `per_topic` statements (no
-/// decryption key). Used by the cache benchmarks to exercise hit/miss behaviour.
-fn setup_distinct_topics(
-	keypair: &sp_core::ed25519::Pair,
-	topics: usize,
-	per_topic: usize,
-) -> (Store, tempfile::TempDir) {
-	let (store, temp) = empty_store();
-	let mut id = 0u64;
-	for t in 0..topics {
-		for _ in 0..per_topic {
-			let statement = create_signed_statement(id, &[topic(t as u64)], None, keypair);
-			assert!(matches!(store.submit(statement, StatementSource::Local), SubmitResult::New));
-			id += 1;
-		}
 	}
 	(store, temp)
 }
@@ -583,27 +557,6 @@ fn bench_read_scaling(c: &mut Criterion) {
 	group.finish();
 }
 
-/// LRU cache hit (served from RAM) vs miss (served from a disk scan) for topic queries. On an
-/// all-in-memory index both arms behave the same; the hit/miss gap is the cost of a cache miss.
-fn bench_cache_hit_vs_miss(c: &mut Criterion) {
-	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
-	let (store, _temp) = setup_distinct_topics(&keypair, CACHE_TOPICS, CACHE_PER_TOPIC);
-
-	let mut group = c.benchmark_group("cache");
-	// Hit: always the same topic, so after the first call it stays in the cache.
-	let hit_topics = vec![topic(0)];
-	group.bench_function("hit", |b| b.iter(|| store.broadcasts(&hit_topics)));
-	// Miss: cycle through more topics than the cache holds, forcing a lookup each time.
-	group.bench_function("miss", |b| {
-		let mut i = 0usize;
-		b.iter(|| {
-			i = (i + 1) % CACHE_TOPICS;
-			store.broadcasts(&[topic(i as u64)])
-		})
-	});
-	group.finish();
-}
-
 /// Read latency while writers run concurrently. Measures how much the write/constraint path
 /// interferes with reads — the contention that splitting the index (stage 1) and moving reads off
 /// the write lock (stage 2a) is meant to reduce.
@@ -662,7 +615,6 @@ criterion_group!(
 	bench_maintain,
 	bench_mixed_workload,
 	bench_read_scaling,
-	bench_cache_hit_vs_miss,
 	bench_contention
 );
 criterion_main!(benches);
