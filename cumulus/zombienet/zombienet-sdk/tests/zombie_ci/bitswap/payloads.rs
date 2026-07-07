@@ -68,7 +68,8 @@ impl Payload {
 /// Build the `CIDv1(raw, blake2b-256)` string for arbitrary content.
 pub fn predicted_cid(content: &[u8]) -> String {
 	let digest = sp_crypto_hashing::blake2_256(content);
-	let mh = Multihash::<64>::wrap(BLAKE2B_256, &digest).expect("32-byte digest fits Multihash<64>");
+	let mh =
+		Multihash::<64>::wrap(BLAKE2B_256, &digest).expect("32-byte digest fits Multihash<64>");
 	Cid::new_v1(RAW_CODEC, mh).to_string()
 }
 
@@ -85,13 +86,15 @@ pub fn payloads() -> Vec<Payload> {
 /// 4 KiB pseudo-random payload, deterministic from a fixed seed.
 fn rand_4k() -> &'static [u8] {
 	static BUF: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
-	BUF.get_or_init(|| xorshift_fill(0xdead_beef_dead_beef_u64, 4 * 1024)).as_slice()
+	BUF.get_or_init(|| xorshift_fill(0xdead_beef_dead_beef_u64, 4 * 1024))
+		.as_slice()
 }
 
 /// 1 MiB pseudo-random payload, deterministic from a different seed.
 fn rand_1m() -> &'static [u8] {
 	static BUF: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
-	BUF.get_or_init(|| xorshift_fill(0xfeed_face_cafe_babe_u64, 1024 * 1024)).as_slice()
+	BUF.get_or_init(|| xorshift_fill(0xfeed_face_cafe_babe_u64, 1024 * 1024))
+		.as_slice()
 }
 
 /// xorshift64 stream, matching smoldot's `bulletin.rs` byte-for-byte so the CIDs line up.

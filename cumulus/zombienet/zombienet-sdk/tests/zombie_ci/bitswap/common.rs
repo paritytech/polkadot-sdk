@@ -39,8 +39,7 @@ pub struct Snapshots {
 /// the given DB snapshots (consumer); with `None` they start from genesis (generator). The relay
 /// snapshot loads into both validators, `bulletin_full` into both collators.
 pub fn network_config(chain_spec: &Path, snaps: Option<&Snapshots>) -> Result<NetworkConfig> {
-	let chain_spec_str =
-		chain_spec.to_str().ok_or_else(|| anyhow!("non-utf8 chain spec path"))?;
+	let chain_spec_str = chain_spec.to_str().ok_or_else(|| anyhow!("non-utf8 chain spec path"))?;
 	// `Option<&str>` is `Copy`, so these can be reused across the node closures below.
 	let relay = snaps.map(|s| s.relay.as_str());
 	let full = snaps.map(|s| s.bulletin_full.as_str());
@@ -49,8 +48,12 @@ pub fn network_config(chain_spec: &Path, snaps: Option<&Snapshots>) -> Result<Ne
 		.with_relaychain(|rc| {
 			rc.with_chain(RELAY_CHAIN)
 				.with_default_command(RELAY_BINARY)
-				.with_validator(|n| n.with_name("alice").bootnode(true).with_optional_db_snapshot(relay))
-				.with_validator(|n| n.with_name("bob").bootnode(true).with_optional_db_snapshot(relay))
+				.with_validator(|n| {
+					n.with_name("alice").bootnode(true).with_optional_db_snapshot(relay)
+				})
+				.with_validator(|n| {
+					n.with_name("bob").bootnode(true).with_optional_db_snapshot(relay)
+				})
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
