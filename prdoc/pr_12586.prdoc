@@ -6,8 +6,6 @@ doc:
 
     - Remove the deprecated `build-spec` CLI subcommand and `BuildSpecCmd` from `sc-cli`.
     - Migrate all callers (nodes, templates, scripts, docs, zombienet) to `export-chain-spec`.
-
-    Part of #11561
 crates:
 - name: polkadot-omni-node-lib
   bump: major
