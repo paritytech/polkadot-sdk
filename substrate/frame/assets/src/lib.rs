@@ -202,13 +202,7 @@ pub use weights::WeightInfo;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 const LOG_TARGET: &str = "runtime::assets";
 
-/// Trait with callbacks that are executed after successful asset creation, destruction, or
-/// balance change.
-///
-/// The lifecycle callbacks (`created`/`destroyed`) may veto the operation by returning `Err`.
-/// The balance-change callbacks (`issued`/`transferred`/`burned`) are purely observational:
-/// they run after the state change is committed and cannot abort it, so a faulty observer
-/// (e.g. one mirroring transfers into another subsystem) can never block asset operations.
+/// Callbacks executed on asset lifecycle and balance-change events.
 pub trait AssetsCallback<AssetId, AccountId, Balance> {
 	/// Indicates that asset with `id` was successfully created by the `owner`
 	fn created(_id: &AssetId, _owner: &AccountId) -> Result<(), ()> {
@@ -220,15 +214,10 @@ pub trait AssetsCallback<AssetId, AccountId, Balance> {
 		Ok(())
 	}
 
-	/// `amount` of asset `id` was minted to `owner`. Mirrors [`Event::Issued`].
 	fn issued(_id: &AssetId, _owner: &AccountId, _amount: Balance) {}
 
-	/// `amount` of asset `id` moved from `from` to `to`. Mirrors [`Event::Transferred`]:
-	/// fires on every transfer path, including `from == to`, with the actually credited
-	/// amount (after any dust burn).
 	fn transferred(_id: &AssetId, _from: &AccountId, _to: &AccountId, _amount: Balance) {}
 
-	/// `amount` of asset `id` was burned from `owner`. Mirrors [`Event::Burned`].
 	fn burned(_id: &AssetId, _owner: &AccountId, _amount: Balance) {}
 }
 
