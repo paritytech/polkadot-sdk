@@ -30,8 +30,8 @@ use polkadot_node_network_protocol::{
 	self as net_protocol,
 	peer_set::{CollationVersion, PeerSet},
 	request_response::{
-		incoming::{self, OutgoingResponse},
-		v2 as request_v2, IncomingRequestReceiver,
+		incoming::{self},
+		v2 as request_v2, v3 as request_v3, IncomingRequestReceiver,
 	},
 	v1 as protocol_v1, v2 as protocol_v2, v3_collation as protocol_v3,
 	v4_collation::{self as protocol_v4, CandidateFingerprint},
@@ -247,14 +247,20 @@ struct StoredSegment {
 	descriptor_version: CandidateDescriptorVersion,
 	/// Ordered candidate fingerprints advertised to validators.
 	fingerprints: BoundedVec<CandidateFingerprint, ConstU32<MAX_SEGMENT_LEN>>,
+	/// Candidate hash of the newest (tip) entry. Only the tip's hash is retained:
+	/// V2/V3 fallback advertisements carry it, and non-tip entries won't have a
+	/// hash at all once candidates are built on demand.
+	tip_candidate_hash: CandidateHash,
 }
 
 struct PerSchedulingParent {
 	/// Per core index validators group responsible for backing candidates built
 	/// on top of this relay parent.
 	validator_group: HashMap<CoreIndex, ValidatorGroup>,
-	/// Distributed collations.
-	collations: HashMap<CandidateHash, CollationData>,
+	/// Distributed collations keyed by output head hash.
+	collations: HashMap<Hash, CollationData>,
+	/// Reverse index over materialized collations.
+	by_candidate_hash: HashMap<CandidateHash, Hash>,
 	/// Number of assignments per core
 	assignments: HashMap<CoreIndex, usize>,
 	/// The relay parent block number
@@ -300,11 +306,47 @@ impl PerSchedulingParent {
 		Ok(Self {
 			validator_group: validator_groups,
 			collations: HashMap::new(),
+			by_candidate_hash: HashMap::new(),
 			assignments,
 			block_number,
 			session_index,
 			segments,
 		})
+	}
+
+	/// Resolve a collation by candidate hash via the reverse index.
+	fn collation_by_hash(&self, hash: &CandidateHash) -> Option<&CollationData> {
+		self.by_candidate_hash.get(hash).and_then(|oh| self.collations.get(oh))
+	}
+
+	fn collation_by_hash_mut(&mut self, hash: &CandidateHash) -> Option<&mut CollationData> {
+		let output_head = *self.by_candidate_hash.get(hash)?;
+		self.collations.get_mut(&output_head)
+	}
+
+	fn collation_for_request(&self, req: &VersionedCollationRequest) -> Option<&CollationData> {
+		match req {
+			VersionedCollationRequest::V2(req) => {
+				self.collation_by_hash(&req.payload.candidate_hash)
+			},
+			VersionedCollationRequest::V3(req) => {
+				self.collations.get(&req.payload.output_head_data_hash)
+			},
+		}
+	}
+
+	fn collation_for_request_mut(
+		&mut self,
+		req: &VersionedCollationRequest,
+	) -> Option<&mut CollationData> {
+		match req {
+			VersionedCollationRequest::V2(req) => {
+				self.collation_by_hash_mut(&req.payload.candidate_hash)
+			},
+			VersionedCollationRequest::V3(req) => {
+				self.collations.get_mut(&req.payload.output_head_data_hash)
+			},
+		}
 	}
 }
 
@@ -446,6 +488,17 @@ async fn distribute_segment<Context>(
 		},
 	};
 
+	if candidates.is_empty() {
+		gum::warn!(
+				target: LOG_TARGET,
+				para_id = %id,
+				?scheduling_parent,
+				?core_index,
+				"Received an empty segment, ignoring",
+		);
+		return Ok(());
+	}
+
 	let Some(_collations_limit) = per_scheduling_parent.assignments.get(&core_index) else {
 		gum::warn!(
 			target: LOG_TARGET,
@@ -507,22 +560,27 @@ async fn distribute_segment<Context>(
 	});
 
 	let mut segment_fingerprint = vec![];
+	let tip_candidate_hash = candidates
+		.last()
+		.expect("candidates verified non-empty above; qed")
+		.candidate_receipt
+		.hash();
 	for candidate in candidates {
 		let candidate_hash = candidate.candidate_receipt.hash();
+		let para_head = candidate.candidate_receipt.descriptor.para_head();
 		segment_fingerprint.push(CandidateFingerprint {
 			candidate_hash,
-			output_head_data_hash: candidate.candidate_receipt.descriptor.para_head(),
+			output_head_data_hash: para_head,
 			parent_head_data_hash: candidate.parent_head_data_hash,
 			relay_parent: candidate.candidate_receipt.descriptor.relay_parent(),
 		});
 		// We have already seen collation for this scheduling parent.
-		if per_scheduling_parent.collations.contains_key(&candidate_hash) {
-			gum::debug!(
-				target: LOG_TARGET,
-				?scheduling_parent,
-				?candidate_hash,
-				"Already seen this candidate",
-			);
+		if per_scheduling_parent.collations.contains_key(&para_head) {
+			if per_scheduling_parent.by_candidate_hash.contains_key(&candidate_hash) {
+				gum::debug!(target: LOG_TARGET, ?scheduling_parent, ?candidate_hash, "Already seen this candidate.");
+			} else {
+				gum::warn!(target: LOG_TARGET, ?scheduling_parent, ?candidate_hash, output_head = ?para_head, "Received a candidate with the same output head at this scheduling parent.");
+			}
 			continue;
 		}
 		// Store the result sender
@@ -530,10 +588,10 @@ async fn distribute_segment<Context>(
 			state.collation_result_senders.insert(candidate_hash, result_sender);
 		}
 		// Store collation data
-		let para_head = candidate.candidate_receipt.descriptor.para_head();
 		let pov_hash = candidate.pov.hash();
+		per_scheduling_parent.by_candidate_hash.insert(candidate_hash, para_head);
 		per_scheduling_parent.collations.insert(
-			candidate_hash,
+			para_head,
 			CollationData {
 				collation: Collation {
 					receipt: candidate.candidate_receipt,
@@ -561,6 +619,7 @@ async fn distribute_segment<Context>(
 	let new_segment = StoredSegment {
 		descriptor_version: candidates_descriptor_version,
 		fingerprints: BoundedVec::try_from(segment_fingerprint).unwrap(),
+		tip_candidate_hash,
 	};
 
 	per_scheduling_parent.segments.insert(core_index, new_segment);
@@ -864,6 +923,7 @@ async fn advertise_segment<Context>(
 		return;
 	};
 	let candidates_descriptor_version = stored.descriptor_version;
+	let tip_candidate_hash = stored.tip_candidate_hash;
 	let core_segment = &stored.fingerprints;
 	let Some(validator_group) = per_scheduling_parent.validator_group.get_mut(&core_index) else {
 		gum::debug!(
@@ -902,10 +962,15 @@ async fn advertise_segment<Context>(
 
 	for fingerprint in core_segment {
 		let Some(collation_and_core) =
-			per_scheduling_parent.collations.get_mut(&fingerprint.candidate_hash)
+			per_scheduling_parent.collations.get_mut(&fingerprint.output_head_data_hash)
 		else {
 			// Should not happen
-			gum::debug!(target: LOG_TARGET, "debug message");
+			gum::warn!(
+					target: LOG_TARGET,
+					?scheduling_parent,
+					output_head = ?fingerprint.output_head_data_hash,
+					"Segment entry has no stored collation",
+			);
 			continue;
 		};
 		let collation = collation_and_core.collation_mut();
@@ -927,7 +992,7 @@ async fn advertise_segment<Context>(
 			CollationProtocols::V3(protocol_v3::CollationProtocol::CollatorProtocol(
 				protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
 					scheduling_parent,
-					candidate_hash: newest_candidate.candidate_hash,
+					candidate_hash: tip_candidate_hash,
 					parent_head_data_hash: newest_candidate.parent_head_data_hash,
 					candidate_descriptor_version: candidates_descriptor_version,
 					relay_parent: newest_candidate.relay_parent,
@@ -940,7 +1005,7 @@ async fn advertise_segment<Context>(
 			CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 				protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 					scheduling_parent,
-					candidate_hash: newest_candidate.candidate_hash,
+					candidate_hash: tip_candidate_hash,
 					parent_head_data_hash: newest_candidate.parent_head_data_hash,
 				},
 			))
@@ -1069,16 +1134,7 @@ async fn send_collation(
 	let peer_id = request.peer_id();
 	let candidate_hash = receipt.hash();
 
-	let result = Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
-		receipt,
-		pov,
-		parent_head_data,
-	});
-
-	let response =
-		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: Some(tx) };
-
-	if let Err(_) = request.send_outgoing_response(response) {
+	if let Err(_) = request.send_collation_response(receipt, pov, parent_head_data, tx) {
 		gum::warn!(target: LOG_TARGET, "Sending collation response failed");
 	}
 
@@ -1224,7 +1280,7 @@ async fn handle_incoming_peer_message<Context>(
 							return Ok(());
 						},
 					};
-					match relay_parent.collations.get(&statement.payload().candidate_hash()) {
+					match relay_parent.collation_by_hash(&statement.payload().candidate_hash()) {
 						Some(_) => {
 							// We've seen this collation before, so a seconded statement is expected
 							gum::trace!(
@@ -1279,11 +1335,7 @@ async fn handle_incoming_request<Context>(
 					},
 				};
 
-			let collation_with_core = match &req {
-				VersionedCollationRequest::V2(req) => {
-					per_scheduling_parent.collations.get_mut(&req.payload.candidate_hash)
-				},
-			};
+			let collation_with_core = per_scheduling_parent.collation_for_request_mut(&req);
 			let (receipt, pov, parent_head_data) =
 				if let Some(collation_with_core) = collation_with_core {
 					let collation = collation_with_core.collation_mut();
@@ -1990,6 +2042,7 @@ pub(crate) async fn run<Context>(
 	local_peer_id: PeerId,
 	collator_pair: CollatorPair,
 	req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
+	req_v3_receiver: IncomingRequestReceiver<request_v3::CollationFetchingRequest>,
 	metrics: Metrics,
 	clock: Arc<dyn Clock>,
 ) -> std::result::Result<(), FatalError> {
@@ -1998,6 +2051,7 @@ pub(crate) async fn run<Context>(
 		local_peer_id,
 		collator_pair,
 		req_v2_receiver,
+		req_v3_receiver,
 		metrics,
 		ReputationAggregator::default(),
 		REPUTATION_CHANGE_INTERVAL,
@@ -2012,6 +2066,7 @@ async fn run_inner<Context>(
 	local_peer_id: PeerId,
 	collator_pair: CollatorPair,
 	mut req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
+	mut req_v3_receiver: IncomingRequestReceiver<request_v3::CollationFetchingRequest>,
 	metrics: Metrics,
 	reputation: ReputationAggregator,
 	reputation_interval: Duration,
@@ -2030,6 +2085,8 @@ async fn run_inner<Context>(
 		let reputation_changes = || vec![COST_INVALID_REQUEST];
 		let recv_req_v2 = req_v2_receiver.recv(reputation_changes).fuse();
 		pin_mut!(recv_req_v2);
+		let recv_req_v3 = req_v3_receiver.recv(reputation_changes).fuse();
+		pin_mut!(recv_req_v3);
 
 		let mut reconnect_timeout = &mut state.reconnect_timeout;
 		select! {
@@ -2076,7 +2133,7 @@ async fn run_inner<Context>(
 
 						// Update collation status to fetched.
 						if let Some(per_relay_parent) =  state.per_scheduling_parent.get_mut(&relay_parent) {
-							if let Some(collation_with_core) = per_relay_parent.collations.get_mut(&candidate_hash) {
+							if let Some(collation_with_core) = per_relay_parent.collation_by_hash_mut(&candidate_hash) {
 								let maybe_stats = collation_with_core.take_stats();
 								let our_para_id = collation_with_core.collation().receipt.descriptor.para_id();
 
@@ -2123,7 +2180,7 @@ async fn run_inner<Context>(
 						None => continue,
 					};
 
-					per_relay_parent.collations.get(&next.candidate_hash())
+					per_relay_parent.collation_for_request(&next)
 				};
 
 				if let Some(collation_with_core) = next_collation_with_core {
@@ -2161,6 +2218,13 @@ async fn run_inner<Context>(
 				log_error(
 					handle_incoming_request(&mut ctx, &mut state, request).await,
 					"Handling incoming collation fetch request V2"
+				)?;
+			},
+			in_req3 = recv_req_v3 => {
+				let request = in_req3.map(VersionedCollationRequest::from);
+				log_error(
+					handle_incoming_request(&mut ctx, &mut state, request).await,
+					"Handling incoming collation fetch request V3"
 				)?;
 			}
 		}

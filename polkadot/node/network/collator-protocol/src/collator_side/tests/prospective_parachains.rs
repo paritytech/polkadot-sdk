@@ -678,6 +678,7 @@ fn send_parent_head_data_for_elastic_scaling() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let mut req_v2_cfg = test_harness.req_v2_cfg;
+			let req_v3_cfg = test_harness.req_v3_cfg;
 
 			let head_b = Hash::from_low_u64_be(129);
 			let head_b_num: u32 = 63;
@@ -789,7 +790,7 @@ fn send_parent_head_data_for_elastic_scaling() {
 				}
 			);
 
-			TestHarness { virtual_overseer, req_v2_cfg }
+			TestHarness { virtual_overseer, req_v2_cfg, req_v3_cfg }
 		},
 	)
 }
@@ -809,6 +810,7 @@ fn advertise_and_send_collation_by_hash() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let mut req_v2_cfg = test_harness.req_v2_cfg;
+			let req_v3_cfg = test_harness.req_v3_cfg;
 
 			let head_a = Hash::from_low_u64_be(128);
 			let head_a_num: u32 = 64;
@@ -926,7 +928,7 @@ fn advertise_and_send_collation_by_hash() {
 				}
 			);
 
-			TestHarness { virtual_overseer, req_v2_cfg }
+			TestHarness { virtual_overseer, req_v2_cfg, req_v3_cfg }
 		},
 	)
 }
