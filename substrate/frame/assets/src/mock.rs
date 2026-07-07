@@ -86,6 +86,14 @@ impl AssetsCallback<AssetId, AccountId, Balance> for AssetsCallbackHandle {
 	fn burned(id: &AssetId, owner: &AccountId, amount: Balance) {
 		storage::set(Self::BURNED.as_bytes(), &(id, owner, amount).encode());
 	}
+
+	fn deposited(id: &AssetId, who: &AccountId, amount: Balance) {
+		storage::set(Self::DEPOSITED.as_bytes(), &(id, who, amount).encode());
+	}
+
+	fn withdrawn(id: &AssetId, who: &AccountId, amount: Balance) {
+		storage::set(Self::WITHDRAWN.as_bytes(), &(id, who, amount).encode());
+	}
 }
 
 impl AssetsCallbackHandle {
@@ -94,6 +102,8 @@ impl AssetsCallbackHandle {
 	pub const ISSUED: &'static str = "asset_issued";
 	pub const TRANSFERRED: &'static str = "asset_transferred";
 	pub const BURNED: &'static str = "asset_burned";
+	pub const DEPOSITED: &'static str = "asset_deposited";
+	pub const WITHDRAWN: &'static str = "asset_withdrawn";
 
 	const RETURN_ERROR: &'static str = "return_error";
 

@@ -212,6 +212,9 @@ where
 ///
 /// Adds an event deposit to every mint/transfer/burn: regenerate the runtime's `pallet-assets`
 /// weights after wiring (benchmarks execute the callback).
+///
+/// Not mirrored (on-chain state stays authoritative): asset destruction (`destroy_accounts`
+/// wipes holders without per-account burns) and `shelve`/`restore` (no pallet-assets event).
 pub struct Erc20TransferLogs<Runtime, PrecompileConfig, Instance = ()> {
 	_phantom: PhantomData<(Runtime, PrecompileConfig, Instance)>,
 }
@@ -252,6 +255,22 @@ where
 		amount: <Runtime as Config<Instance>>::Balance,
 	) {
 		Self::emit(id, Self::evm_address(owner), alloy::primitives::Address::ZERO, amount);
+	}
+
+	fn deposited(
+		id: &<Runtime as Config<Instance>>::AssetId,
+		who: &<Runtime as frame_system::Config>::AccountId,
+		amount: <Runtime as Config<Instance>>::Balance,
+	) {
+		Self::emit(id, alloy::primitives::Address::ZERO, Self::evm_address(who), amount);
+	}
+
+	fn withdrawn(
+		id: &<Runtime as Config<Instance>>::AssetId,
+		who: &<Runtime as frame_system::Config>::AccountId,
+		amount: <Runtime as Config<Instance>>::Balance,
+	) {
+		Self::emit(id, Self::evm_address(who), alloy::primitives::Address::ZERO, amount);
 	}
 }
 

@@ -163,7 +163,12 @@ impl<T: Config<I>, I: 'static> fungibles::Balanced<<T as SystemConfig>::AccountI
 		who: &<T as SystemConfig>::AccountId,
 		amount: Self::Balance,
 	) {
-		Self::deposit_event(Event::Deposited { asset_id, who: who.clone(), amount })
+		Self::deposit_event(Event::Deposited {
+			asset_id: asset_id.clone(),
+			who: who.clone(),
+			amount,
+		});
+		T::CallbackHandle::deposited(&asset_id, who, amount);
 	}
 
 	fn done_withdraw(
@@ -171,7 +176,12 @@ impl<T: Config<I>, I: 'static> fungibles::Balanced<<T as SystemConfig>::AccountI
 		who: &<T as SystemConfig>::AccountId,
 		amount: Self::Balance,
 	) {
-		Self::deposit_event(Event::Withdrawn { asset_id, who: who.clone(), amount })
+		Self::deposit_event(Event::Withdrawn {
+			asset_id: asset_id.clone(),
+			who: who.clone(),
+			amount,
+		});
+		T::CallbackHandle::withdrawn(&asset_id, who, amount);
 	}
 
 	fn done_rescind(asset_id: Self::AssetId, amount: Self::Balance) {

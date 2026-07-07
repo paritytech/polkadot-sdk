@@ -2171,6 +2171,42 @@ fn balance_change_callbacks_fire_on_refund_burn() {
 	});
 }
 
+/// The `fungibles::Balanced` imbalance paths change balances via `done_deposit`/
+/// `done_withdraw` (e.g. paying tx fees in an asset) and must fire the matching callbacks.
+#[test]
+fn balance_change_callbacks_fire_on_balanced_paths() {
+	use frame_support::traits::{
+		fungibles::{Balanced, Mutate},
+		tokens::{Fortitude, Precision, Preservation},
+	};
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		assert_ok!(Assets::mint_into(0, &1, 100));
+
+		let credit = <Assets as Balanced<u64>>::withdraw(
+			0,
+			&1,
+			40,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		)
+		.expect("withdraw succeeds");
+		assert_eq!(
+			storage::get(AssetsCallbackHandle::WITHDRAWN.as_bytes()).map(|v| v.to_vec()),
+			Some((0u32, 1u64, 40u64).encode()),
+			"`Balanced::withdraw` must fire `withdrawn`"
+		);
+
+		assert_ok!(<Assets as Balanced<u64>>::resolve(&2, credit));
+		assert_eq!(
+			storage::get(AssetsCallbackHandle::DEPOSITED.as_bytes()).map(|v| v.to_vec()),
+			Some((0u32, 2u64, 40u64).encode()),
+			"`Balanced::resolve` (deposit) must fire `deposited`"
+		);
+	});
+}
+
 #[test]
 fn root_asset_create_should_work() {
 	build_and_execute(|| {

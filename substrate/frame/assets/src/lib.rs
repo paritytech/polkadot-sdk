@@ -219,6 +219,10 @@ pub trait AssetsCallback<AssetId, AccountId, Balance> {
 	fn transferred(_id: &AssetId, _from: &AccountId, _to: &AccountId, _amount: Balance) {}
 
 	fn burned(_id: &AssetId, _owner: &AccountId, _amount: Balance) {}
+
+	fn deposited(_id: &AssetId, _who: &AccountId, _amount: Balance) {}
+
+	fn withdrawn(_id: &AssetId, _who: &AccountId, _amount: Balance) {}
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(10)]
@@ -243,6 +247,14 @@ impl<AssetId, AccountId, Balance: Copy> AssetsCallback<AssetId, AccountId, Balan
 
 	fn burned(id: &AssetId, owner: &AccountId, amount: Balance) {
 		for_tuples!( #( Tuple::burned(id, owner, amount); )* );
+	}
+
+	fn deposited(id: &AssetId, who: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::deposited(id, who, amount); )* );
+	}
+
+	fn withdrawn(id: &AssetId, who: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::withdrawn(id, who, amount); )* );
 	}
 }
 
