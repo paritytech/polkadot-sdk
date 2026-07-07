@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783378891440,
+  "lastUpdate": 1783407508019,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4410844cb847e6a9b278a34d0ad1a479b530d7a3",
-          "message": "[pallet-revive] Add eth_substrate_call extrinsic (#10159)\n\nFixes https://github.com/paritytech/contract-issues/issues/180\n\nThis PR introduces `eth_substrate_call`, a new extrinsic in\npallet-revive that enables Substrate runtime calls from Ethereum\ntransactions. This allows tools like Hardhat to invoke Substrate\nextrinsics (e.g., `upload_code`) via the Ethereum RPC.\n\nThis implements a new approach for dispatching Substrate extrinsics\nthrough the magic RUNTIME_PALLETS_ADDR address, which fixes two\nshortcomings of the previous implementation:\n\n1. Incorrect origin verification - The origin is now correctly verified\nas EthTransaction.\n2. Missing Ethereum transaction receipts - Receipts are now properly\ngenerated for all Ethereum transactions.\n\nIncludes:\n- New eth-rpc integration test validating end-to-end functionality\n- Benchmark measuring the extrinsic overhead\n- Unit tests\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-10T15:38:58Z",
-          "tree_id": "cd381c714cb4fcae52d327846f5102e00810edf0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4410844cb847e6a9b278a34d0ad1a479b530d7a3"
-        },
-        "date": 1762793413696,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.96399999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04493910514599991,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03470730522999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03879138113,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "44b3a384d3ac58acd5e4dac23a661532ba380ad7",
+          "message": "collator-protocol revamp:  Send RC PeerId with ApprovedPeer UMP signal (#12388)\n\nCurrently the collator sends its parachain PeerId within the\nApprovedPeer UMP signal, which is wrong because this peer id is not\nknown on the relay chain.\nAs a result on CandidateIncluded event the score is bumped for the wrong\nPeerId and the collator remains with zero reputation no matter its\nhonest work.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-07T05:14:13Z",
+          "tree_id": "b8732b26a1fa548bcd646e36b63d601e7c0cd2e1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/44b3a384d3ac58acd5e4dac23a661532ba380ad7"
+        },
+        "date": 1783407477041,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.13000000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03863584188800002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09021676880999994,
             "unit": "seconds"
           }
         ]
