@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783444648647,
+  "lastUpdate": 1783451253188,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "5588131+kianenigma@users.noreply.github.com",
-            "name": "Kian Paimani",
-            "username": "kianenigma"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0ae4eef5be75040edd2063d088a916ab78e0c928",
-          "message": "Fix origin check in EPMB's manage extrinsic (#10248)\n\n.. And \n\n- [x] Break down `Admin` and `Manager` origins for easier configuration\n- [x] update the corresponding weights\n- [x] a few more tests\n- [x] complete the `manage` test cases.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
-          "timestamp": "2025-11-11T14:40:49Z",
-          "tree_id": "b3324b93cea8ebc9a1097adf96b3d4b1a025e291",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0ae4eef5be75040edd2063d088a916ab78e0c928"
-        },
-        "date": 1762877365125,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.97,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03470898062599999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044644667069999915,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038427985398000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d988144f162df86614159e932493bfa23b7ab5b3",
+          "message": "Introduce `fp-coretime` (#11810)\n\n## Summary\n\nIntroduces `fp-coretime`, a FRAME primitives crate for Polkadot Coretime\ntypes and traits. Moves the following from `pallet-broker` into\n`fp-coretime`:\n\n- **Types**: `CoreIndex`, `Timeslice`, `TaskId`, `PartsOf57600`,\n`RegionId`, `PotentialRenewalId`, `CoreMask`, `CORE_MASK_BITS`\n- **Traits**: `Market`, `CoreRangeProvider`, `TimesliceProvider` and\nassociated result types\n\nThis allows market implementations (e.g. an RFC-17 pallet) to depend on\n`fp-coretime` instead of `pallet-broker`, avoiding a pallet dependency\njust for trait definitions and shared types.\n\n`pallet-broker` currently re-exports everything from `fp-coretime` for\nbackward compatibility.\n\nThis PR also introduces the `frame/primitives` path and also the `fp-*`\nprefix for these shared types which are not actually substrate\nprimitives.\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-07-07T17:21:07Z",
+          "tree_id": "950deceb53c5b14998111393257f71e8bca3e552",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d988144f162df86614159e932493bfa23b7ab5b3"
+        },
+        "date": 1783451222825,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.1,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03873332709599999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08845659971999992,
             "unit": "seconds"
           }
         ]
