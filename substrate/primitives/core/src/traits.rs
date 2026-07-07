@@ -31,7 +31,10 @@ pub enum CallContext {
 	/// The call is happening in some offchain context.
 	Offchain,
 	/// The call is happening in some on-chain context like building or importing a block.
-	Onchain,
+	Onchain {
+		/// `true` when the call is part of block import pipeline.
+		import: bool,
+	},
 }
 
 /// Code execution engine.
@@ -53,11 +56,11 @@ pub trait CodeExecutor: Sized + Send + Sync + ReadRuntimeVersion + Clone + 'stat
 	) -> (Result<Vec<u8>, Self::Error>, bool);
 }
 
-/// Something that can fetch the runtime `:code`.
+/// Something that can fetch the runtime code.
 pub trait FetchRuntimeCode {
-	/// Fetch the runtime `:code`.
+	/// Fetch the current runtime code.
 	///
-	/// If the `:code` could not be found/not available, `None` should be returned.
+	/// If the code could not be found/not available, `None` should be returned.
 	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>>;
 }
 

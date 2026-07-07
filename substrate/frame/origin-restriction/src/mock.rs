@@ -141,10 +141,12 @@ impl RestrictedEntity<OriginCaller, u64> for RuntimeRestrictedEntity {
 
 	fn restricted_entity(caller: &OriginCaller) -> Option<RuntimeRestrictedEntity> {
 		match caller {
-			OriginCaller::system(frame_system::Origin::<Test>::Signed(RESTRICTED_ORIGIN_1)) =>
-				Some(RuntimeRestrictedEntity::A),
-			OriginCaller::system(frame_system::Origin::<Test>::Signed(RESTRICTED_ORIGIN_2)) =>
-				Some(RuntimeRestrictedEntity::B),
+			OriginCaller::system(frame_system::Origin::<Test>::Signed(RESTRICTED_ORIGIN_1)) => {
+				Some(RuntimeRestrictedEntity::A)
+			},
+			OriginCaller::system(frame_system::Origin::<Test>::Signed(RESTRICTED_ORIGIN_2)) => {
+				Some(RuntimeRestrictedEntity::B)
+			},
 			_ => None,
 		}
 	}

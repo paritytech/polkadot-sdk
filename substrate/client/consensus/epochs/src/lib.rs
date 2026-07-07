@@ -199,8 +199,9 @@ where
 	pub fn increment(&self, next_descriptor: E::NextEpochDescriptor) -> IncrementedEpoch<E> {
 		let next = self.as_ref().increment(next_descriptor);
 		let to_persist = match *self {
-			ViableEpoch::UnimportedGenesis(ref epoch_0) =>
-				PersistedEpoch::Genesis(epoch_0.clone(), next),
+			ViableEpoch::UnimportedGenesis(ref epoch_0) => {
+				PersistedEpoch::Genesis(epoch_0.clone(), next)
+			},
 			ViableEpoch::Signaled(_) => PersistedEpoch::Regular(next),
 		};
 
@@ -246,8 +247,9 @@ impl<E> PersistedEpoch<E> {
 impl<'a, E: Epoch> From<&'a PersistedEpoch<E>> for PersistedEpochHeader<E> {
 	fn from(epoch: &'a PersistedEpoch<E>) -> Self {
 		match epoch {
-			PersistedEpoch::Genesis(ref epoch_0, ref epoch_1) =>
-				PersistedEpochHeader::Genesis(epoch_0.into(), epoch_1.into()),
+			PersistedEpoch::Genesis(ref epoch_0, ref epoch_1) => {
+				PersistedEpochHeader::Genesis(epoch_0.into(), epoch_1.into())
+			},
 			PersistedEpoch::Regular(ref epoch_n) => PersistedEpochHeader::Regular(epoch_n.into()),
 		}
 	}
@@ -261,8 +263,9 @@ impl<E: Epoch> PersistedEpoch<E> {
 		F: FnMut(&Hash, &Number, E) -> B,
 	{
 		match self {
-			PersistedEpoch::Genesis(epoch_0, epoch_1) =>
-				PersistedEpoch::Genesis(f(h, n, epoch_0), f(h, n, epoch_1)),
+			PersistedEpoch::Genesis(epoch_0, epoch_1) => {
+				PersistedEpoch::Genesis(f(h, n, epoch_0), f(h, n, epoch_1))
+			},
 			PersistedEpoch::Regular(epoch_n) => PersistedEpoch::Regular(f(h, n, epoch_n)),
 		}
 	}
@@ -426,13 +429,19 @@ where
 		self.epochs.get(&(id.hash, id.number)).and_then(|v| match v {
 			PersistedEpoch::Genesis(ref epoch_0, _)
 				if id.position == EpochIdentifierPosition::Genesis0 =>
-				Some(epoch_0),
+			{
+				Some(epoch_0)
+			},
 			PersistedEpoch::Genesis(_, ref epoch_1)
 				if id.position == EpochIdentifierPosition::Genesis1 =>
-				Some(epoch_1),
+			{
+				Some(epoch_1)
+			},
 			PersistedEpoch::Regular(ref epoch_n)
 				if id.position == EpochIdentifierPosition::Regular =>
-				Some(epoch_n),
+			{
+				Some(epoch_n)
+			},
 			_ => None,
 		})
 	}
@@ -447,10 +456,12 @@ where
 		G: FnOnce(E::Slot) -> E,
 	{
 		match descriptor {
-			ViableEpochDescriptor::UnimportedGenesis(slot) =>
-				Some(ViableEpoch::UnimportedGenesis(make_genesis(*slot))),
-			ViableEpochDescriptor::Signaled(identifier, _) =>
-				self.epoch(identifier).map(ViableEpoch::Signaled),
+			ViableEpochDescriptor::UnimportedGenesis(slot) => {
+				Some(ViableEpoch::UnimportedGenesis(make_genesis(*slot)))
+			},
+			ViableEpochDescriptor::Signaled(identifier, _) => {
+				self.epoch(identifier).map(ViableEpoch::Signaled)
+			},
 		}
 	}
 
@@ -459,13 +470,19 @@ where
 		self.epochs.get_mut(&(id.hash, id.number)).and_then(|v| match v {
 			PersistedEpoch::Genesis(ref mut epoch_0, _)
 				if id.position == EpochIdentifierPosition::Genesis0 =>
-				Some(epoch_0),
+			{
+				Some(epoch_0)
+			},
 			PersistedEpoch::Genesis(_, ref mut epoch_1)
 				if id.position == EpochIdentifierPosition::Genesis1 =>
-				Some(epoch_1),
+			{
+				Some(epoch_1)
+			},
 			PersistedEpoch::Regular(ref mut epoch_n)
 				if id.position == EpochIdentifierPosition::Regular =>
-				Some(epoch_n),
+			{
+				Some(epoch_n)
+			},
 			_ => None,
 		})
 	}
@@ -480,10 +497,12 @@ where
 		G: FnOnce(E::Slot) -> E,
 	{
 		match descriptor {
-			ViableEpochDescriptor::UnimportedGenesis(slot) =>
-				Some(ViableEpoch::UnimportedGenesis(make_genesis(*slot))),
-			ViableEpochDescriptor::Signaled(identifier, _) =>
-				self.epoch_mut(identifier).map(ViableEpoch::Signaled),
+			ViableEpochDescriptor::UnimportedGenesis(slot) => {
+				Some(ViableEpoch::UnimportedGenesis(make_genesis(*slot)))
+			},
+			ViableEpochDescriptor::Signaled(identifier, _) => {
+				self.epoch_mut(identifier).map(ViableEpoch::Signaled)
+			},
 		}
 	}
 
@@ -589,8 +608,9 @@ where
 									(EpochIdentifierPosition::Genesis0, epoch_0.clone())
 								}
 							},
-							PersistedEpochHeader::Regular(ref epoch_n) =>
-								(EpochIdentifierPosition::Regular, epoch_n.clone()),
+							PersistedEpochHeader::Regular(ref epoch_n) => {
+								(EpochIdentifierPosition::Regular, epoch_n.clone())
+							},
 						},
 						node,
 					)

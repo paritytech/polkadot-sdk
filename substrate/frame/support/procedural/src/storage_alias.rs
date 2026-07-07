@@ -550,7 +550,7 @@ fn generate_storage_instance(
 		.unwrap_or_default();
 
 	let (pallet_prefix, impl_generics, type_generics) = match prefix_type {
-		PrefixType::Compatibility =>
+		PrefixType::Compatibility => {
 			if !impl_generics_used_by_prefix.is_empty() {
 				let type_generics = impl_generics_used_by_prefix.iter().map(|g| &g.ident);
 				let impl_generics = impl_generics_used_by_prefix.iter();
@@ -571,15 +571,17 @@ fn generate_storage_instance(
 					prefix,
 					"If there are no generics, the prefix is only allowed to be an identifier.",
 				));
-			},
+			}
+		},
 		PrefixType::Verbatim => {
 			let prefix_str = match prefix.get_ident() {
 				Some(p) => p.to_string(),
-				None =>
+				None => {
 					return Err(Error::new_spanned(
 						prefix,
 						"Prefix type `verbatim` requires that the prefix is an ident.",
-					)),
+					))
+				},
 			};
 
 			(quote!(#prefix_str), quote!(), quote!())

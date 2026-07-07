@@ -25,7 +25,7 @@ use frame_support::{
 	traits::{
 		fungibles::InspectEnumerable,
 		tokens::{Preservation::Protect, Provenance},
-		Currency,
+		Currency, LockableCurrency, WithdrawReasons,
 	},
 	BoundedVec,
 };
@@ -164,9 +164,35 @@ fn refunding_asset_deposit_with_burn_should_work() {
 		Balances::make_free_balance_be(&1, 100);
 		assert_ok!(Assets::touch(RuntimeOrigin::signed(1), 0));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_eq!(Assets::total_supply(0), 100);
 		assert_ok!(Assets::refund(RuntimeOrigin::signed(1), 0, true));
 		assert_eq!(Balances::reserved_balance(&1), 0);
 		assert_eq!(Assets::balance(1, 0), 0);
+		assert_eq!(Assets::total_supply(0), 0);
+		System::assert_last_event(RuntimeEvent::Assets(crate::Event::Burned {
+			asset_id: 0,
+			owner: 1,
+			balance: 100,
+		}));
+	});
+}
+
+#[test]
+fn refund_with_zero_balance_does_not_emit_burned() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::burn(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_eq!(Assets::total_supply(0), 0);
+
+		System::reset_events();
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(1), 0, false));
+		assert_eq!(Assets::total_supply(0), 0);
+		assert!(System::events()
+			.iter()
+			.all(|e| !matches!(e.event, RuntimeEvent::Assets(crate::Event::Burned { .. }))));
 	});
 }
 
@@ -960,6 +986,36 @@ fn transfer_owner_should_work() {
 		assert_ok!(Assets::transfer_ownership(RuntimeOrigin::signed(2), 0, 1));
 		assert_eq!(Balances::reserved_balance(&1), 22);
 		assert_eq!(Balances::reserved_balance(&2), 0);
+	});
+}
+
+#[test]
+fn transfer_ownership_fails_when_deposit_is_locked() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		// Reserves 1 from owner 1: free=99, reserved=1.
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+		assert_eq!(Balances::free_balance(&1), 99);
+		assert_eq!(Balances::reserved_balance(&1), 1);
+
+		// Lock the owner's full balance, so frozen=100 > free=99 and 1 unit of the
+		// reserve becomes immovable under `Polite` repatriation.
+		Balances::set_lock(*b"test/lk0", &1, 100, WithdrawReasons::all());
+
+		assert_noop!(
+			Assets::transfer_ownership(RuntimeOrigin::signed(1), 0, 2),
+			Error::<Test>::IncompleteDepositTransfer,
+		);
+		// State is rolled back: original owner still holds the deposit.
+		assert_eq!(Balances::reserved_balance(&1), 1);
+		assert_eq!(Balances::reserved_balance(&2), 0);
+
+		// Clearing the lock unblocks the call.
+		Balances::remove_lock(*b"test/lk0", &1);
+		assert_ok!(Assets::transfer_ownership(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(Balances::reserved_balance(&1), 0);
+		assert_eq!(Balances::reserved_balance(&2), 1);
 	});
 }
 

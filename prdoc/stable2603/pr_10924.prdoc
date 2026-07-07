@@ -1,0 +1,38 @@
+title: 'revive: cap remaining_gas to u64::MAX in substrate_execution'
+doc:
+- audience: Runtime Dev
+  description: |
+    ## Summary
+
+    - Fixes proxy contract calls failing with OutOfGas when using ReviveApi.call
+      (Substrate runtime API)
+    - The same calls succeed through eth_transact (Ethereum RPC)
+
+    see https://github.com/paritytech/contract-issues/issues/256
+
+    ## Problem
+
+    When calculating resource limits for nested calls through
+    `substrate_execution::new_nested_meter`, the ratio-based scaling fails when
+    `deposit_left` is very large (e.g., `u128::MAX` default for unlimited deposit).
+
+    The calculation flow:
+    1. `remaining_gas = weight_gas + deposit_gas` → huge number (deposit dominates at ~10^38)
+    2. Contract requests all gas: `requested_gas = u64::MAX` (~10^19)
+    3. `ratio = requested_gas / remaining_gas` ≈ 0.0000000000000027
+    4. `nested_weight_limit = ratio × weight_left` ≈ 0
+    5. Nested call immediately fails with OutOfGas
+
+    ## Solution
+
+    Cap `remaining_gas` to `u64::MAX` since Ethereum gas is a u64 value. This ensures
+    the ratio is 1.0 when a contract requests all gas, giving the nested call the full
+    remaining weight.
+
+    ## Test plan
+
+    - [x] Verified fix resolves the issue with proxy contracts (TransparentUpgradeableProxy)
+    - [ ] Existing tests pass
+crates:
+- name: pallet-revive
+  bump: minor

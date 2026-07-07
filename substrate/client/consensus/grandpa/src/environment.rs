@@ -525,8 +525,9 @@ where
 
 		// find the hash of the latest block in the current set
 		let current_set_latest_hash = match next_change {
-			Some((_, n)) if n.is_zero() =>
-				return Err(Error::Safety("Authority set change signalled at genesis.".to_string())),
+			Some((_, n)) if n.is_zero() => {
+				return Err(Error::Safety("Authority set change signalled at genesis.".to_string()))
+			},
 			// the next set starts at `n` so the current one lasts until `n - 1`. if
 			// `n` is later than the best block, then the current set is still live
 			// at best block.
@@ -730,12 +731,13 @@ where
 		let local_id = local_authority_id(&self.voters, self.config.keystore.as_ref());
 
 		let has_voted = match self.voter_set_state.has_voted(round) {
-			HasVoted::Yes(id, vote) =>
+			HasVoted::Yes(id, vote) => {
 				if local_id.as_ref().map(|k| k == &id).unwrap_or(false) {
 					HasVoted::Yes(id, vote)
 				} else {
 					HasVoted::No
-				},
+				}
+			},
 			HasVoted::No => HasVoted::No,
 		};
 
@@ -1096,17 +1098,26 @@ where
 		round: RoundNumber,
 		commit: Commit<Block::Header>,
 	) -> Result<(), Self::Error> {
-		finalize_block(
+		let result = finalize_block(
 			self.client.clone(),
 			&self.authority_set,
 			Some(self.config.justification_generation_period),
 			hash,
 			number,
-			(round, commit).into(),
+			(round, commit.clone()).into(),
 			false,
 			self.justification_sender.as_ref(),
 			self.telemetry.clone(),
-		)
+		);
+
+		// If the finalized block enacts an authority set change, the voter will be
+		// torn down before the commit can be flushed through global_out.
+		if matches!(&result, Err(CommandOrError::VoterCommand(VoterCommand::ChangeAuthorities(_))))
+		{
+			self.network.gossip_commit(round, self.set_id, commit);
+		}
+
+		result
 	}
 
 	fn round_commit_timer(&self) -> Self::Timer {

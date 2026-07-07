@@ -350,8 +350,9 @@ pub fn run_worker<F>(
 	let entries: io::Result<Vec<_>> = std::fs::read_dir(&worker_info.worker_dir_path)
 		.and_then(|d| d.map(|res| res.map(|e| e.file_name())).collect());
 	match entries {
-		Ok(entries) =>
-			gum::trace!(target: LOG_TARGET, ?worker_info, "content of worker dir: {:?}", entries),
+		Ok(entries) => {
+			gum::trace!(target: LOG_TARGET, ?worker_info, "content of worker dir: {:?}", entries)
+		},
 		Err(err) => {
 			let err = format!("Could not read worker dir: {}", err.to_string());
 			worker_shutdown_error(worker_info, &err);

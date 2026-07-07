@@ -17,80 +17,102 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! Substrate Statement Store RPC API.
+//!
+//! Exposes two JSON-RPC methods: `statement_subscribeStatement` (a subscription streaming matching
+//! statements as `StatementEvent` notifications on `statement_statement`) and `statement_submit`
+//! (submit a SCALE-encoded statement). See the `StatementApi` trait below for the wire-format
+//! examples.
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sp_core::Bytes;
-use sp_statement_store::SubmitResult;
+use sp_statement_store::{StatementEvent, SubmitResult, TopicFilter};
 
 pub mod error;
 
 /// Substrate statement RPC API
 #[rpc(client, server)]
 pub trait StatementApi {
-	/// Return all statements, SCALE-encoded.
-	#[method(name = "statement_dump", with_extensions)]
-	fn dump(&self) -> RpcResult<Vec<Bytes>>;
-
-	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
-	/// field.
+	/// Subscribe to new statements that match the provided filters.
 	///
-	/// To get the statement, and not just the data, use `statement_broadcastsStatement`.
-	#[method(name = "statement_broadcasts")]
-	fn broadcasts(&self, match_all_topics: Vec<[u8; 32]>) -> RpcResult<Vec<Bytes>>;
-
-	/// Return the data of all known statements whose decryption key is identified as `dest` (this
-	/// will generally be the public key or a hash thereof for symmetric ciphers, or a hash of the
-	/// private key for symmetric ciphers).
+	/// # Parameters
 	///
-	/// To get the statement, and not just the data, use `statement_postedStatement`.
-	#[method(name = "statement_posted")]
-	fn posted(&self, match_all_topics: Vec<[u8; 32]>, dest: [u8; 32]) -> RpcResult<Vec<Bytes>>;
-
-	/// Return the decrypted data of all known statements whose decryption key is identified as
-	/// `dest`. The key must be available to the client.
+	/// - `topic_filter` — Which topics to match. Use `TopicFilter::Any` to match all topics,
+	///   `TopicFilter::MatchAll(vec)` to match statements that include all provided topics, or
+	///   `TopicFilter::MatchAny(vec)` to match statements that include any of the provided topics.
 	///
-	/// To get the statement, and not just the data, use `statement_postedClearStatement`.
-	#[method(name = "statement_postedClear")]
-	fn posted_clear(
-		&self,
-		match_all_topics: Vec<[u8; 32]>,
-		dest: [u8; 32],
-	) -> RpcResult<Vec<Bytes>>;
-
-	/// Return all known statements which include all topics and have no `DecryptionKey`
-	/// field.
+	/// # Returns
 	///
-	/// This returns the SCALE-encoded statements not just the data as in rpc
-	/// `statement_broadcasts`.
-	#[method(name = "statement_broadcastsStatement")]
-	fn broadcasts_stmt(&self, match_all_topics: Vec<[u8; 32]>) -> RpcResult<Vec<Bytes>>;
-
-	/// Return all known statements whose decryption key is identified as `dest` (this
-	/// will generally be the public key or a hash thereof for symmetric ciphers, or a hash of the
-	/// private key for symmetric ciphers).
+	/// Returns a stream of `StatementEvent` values.
+	/// When a subscription is initiated the endpoint will first return all matching statements
+	/// already in the store in batches as `StatementEvent::NewStatements`.
 	///
-	/// This returns the SCALE-encoded statements not just the data as in rpc `statement_posted`.
-	#[method(name = "statement_postedStatement")]
-	fn posted_stmt(&self, match_all_topics: Vec<[u8; 32]>, dest: [u8; 32])
-		-> RpcResult<Vec<Bytes>>;
-
-	/// Return the statement and the decrypted data of all known statements whose decryption key is
-	/// identified as `dest`. The key must be available to the client.
+	/// NewStatements includes an Optional field `remaining` which indicates how many more
+	/// statements are left to be sent in the initial batch of existing statements. The field
+	/// guarantees to the client that it will receive at least this many more statements in the
+	/// subscription stream, but it may receive more if new statements are added to the store that
+	/// match the filter.
 	///
-	/// This returns for each statement: the SCALE-encoded statement concatenated to the decrypted
-	/// data. Not just the data as in rpc `statement_postedClear`.
-	#[method(name = "statement_postedClearStatement")]
-	fn posted_clear_stmt(
-		&self,
-		match_all_topics: Vec<[u8; 32]>,
-		dest: [u8; 32],
-	) -> RpcResult<Vec<Bytes>>;
+	///  If there are no statements in the store matching the filter, an empty batch of statements
+	/// is sent.
+	///
+	/// # Examples
+	///
+	/// Subscribe, matching statements that include *all* of the given topics (use `"any"` to match
+	/// everything, or `{ "matchAny": [...] }` for any-of):
+	///
+	/// ```json
+	/// { "jsonrpc": "2.0", "id": 1, "method": "statement_subscribeStatement",
+	///   "params": [{ "matchAll": ["0xdede…", "0xadad…"] }] }
+	/// ```
+	///
+	/// Notifications arrive on `statement_statement`. The already-stored matches are delivered
+	/// first in batches, each carrying `remaining` (how many more are guaranteed to follow). An
+	/// empty initial batch is sent when nothing matches:
+	///
+	/// ```json
+	/// { "jsonrpc": "2.0", "method": "statement_statement",
+	///   "params": { "subscription": 4851578855668545,
+	///     "result": { "event": "newStatements", "data": { "statements": [], "remaining": 0 } } } }
+	/// ```
+	///
+	/// A non-empty batch from the initial set (each statement is hex-encoded SCALE):
+	///
+	/// ```json
+	/// { "jsonrpc": "2.0", "method": "statement_statement",
+	///   "params": { "subscription": 4851578855668545,
+	///     "result": { "event": "newStatements",
+	///       "data": { "statements": ["0x1000010000", "0x100001000000"], "remaining": 10 } } } }
+	/// ```
+	///
+	/// Statements arriving live, after the initial set is drained, carry no `remaining`:
+	///
+	/// ```json
+	/// { "jsonrpc": "2.0", "method": "statement_statement",
+	///   "params": { "subscription": 4851578855668545,
+	///     "result": { "event": "newStatements", "data": { "statements": ["0x1000010000"] } } } }
+	/// ```
+	#[subscription(
+		name = "statement_subscribeStatement" => "statement_statement",
+		unsubscribe = "statement_unsubscribeStatement",
+		item = StatementEvent,
+		with_extensions,
+	)]
+	fn subscribe_statement(&self, topic_filter: TopicFilter);
 
-	/// Submit a pre-encoded statement.
+	/// Submit a SCALE-encoded statement.
+	///
+	/// See `Statement` definition for more details.
+	///
+	/// Returns `SubmitResult` indicating success or failure reason.
+	///
+	/// # Examples
+	///
+	/// ```json
+	/// { "jsonrpc": "2.0", "id": 2, "method": "statement_submit", "params": ["0x…scale-encoded…"] }
+	/// ```
+	///
+	/// On success the result is `{ "status": "new" }`. Other outcomes are `known`, `knownExpired`,
+	/// `rejected` and `invalid` (each with a reason), and `internalError`.
 	#[method(name = "statement_submit")]
 	fn submit(&self, encoded: Bytes) -> RpcResult<SubmitResult>;
-
-	/// Remove a statement from the store.
-	#[method(name = "statement_remove")]
-	fn remove(&self, statement_hash: [u8; 32]) -> RpcResult<()>;
 }

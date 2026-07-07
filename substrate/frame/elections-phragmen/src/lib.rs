@@ -1267,8 +1267,9 @@ impl<T: Config> Pallet<T> {
 		match Self::intersects(&Pallet::<T>::members_ids(), &Self::candidates_ids()) &&
 			Self::intersects(&Pallet::<T>::members_ids(), &Self::runners_up_ids())
 		{
-			true =>
-				Err("Members set should be disjoint from candidates and runners-up sets".into()),
+			true => {
+				Err("Members set should be disjoint from candidates and runners-up sets".into())
+			},
 			false => Ok(()),
 		}
 	}

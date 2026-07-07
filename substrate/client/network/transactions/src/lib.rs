@@ -443,8 +443,9 @@ where
 
 	fn on_handle_transaction_import(&mut self, who: PeerId, import: TransactionImport) {
 		match import {
-			TransactionImport::KnownGood =>
-				self.network.report_peer(who, rep::ANY_TRANSACTION_REFUND),
+			TransactionImport::KnownGood => {
+				self.network.report_peer(who, rep::ANY_TRANSACTION_REFUND)
+			},
 			TransactionImport::NewGood => self.network.report_peer(who, rep::GOOD_TRANSACTION),
 			TransactionImport::Bad => self.network.report_peer(who, rep::BAD_TRANSACTION),
 			TransactionImport::None => {},

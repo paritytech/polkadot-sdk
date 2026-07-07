@@ -127,10 +127,12 @@ impl<B: BlockT> InformantDisplay<B> {
 					),
 				),
 				(SyncState::Idle, _, _) => ("💤", "Idle".into(), "".into()),
-				(SyncState::Downloading { target }, _, _) =>
-					("⚙️ ", format!("Syncing{}", speed), format!(", target=#{target}")),
-				(SyncState::Importing { target }, _, _) =>
-					("⚙️ ", format!("Preparing{}", speed), format!(", target=#{target}")),
+				(SyncState::Downloading { target }, _, _) => {
+					("⚙️ ", format!("Syncing{}", speed), format!(", target=#{target}"))
+				},
+				(SyncState::Importing { target }, _, _) => {
+					("⚙️ ", format!("Preparing{}", speed), format!(", target=#{target}"))
+				},
 			};
 
 		let show_block_info = match sync_status.warp_sync {

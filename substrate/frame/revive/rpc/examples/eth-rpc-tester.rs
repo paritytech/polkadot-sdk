@@ -16,13 +16,13 @@
 // limitations under the License.
 use clap::Parser;
 use jsonrpsee::http_client::HttpClientBuilder;
-use pallet_revive::evm::{Account, BlockTag, ReceiptInfo};
-use pallet_revive_eth_rpc::{example::TransactionBuilder, EthRpcClient};
+use pallet_revive::evm::Account;
+use pallet_revive_eth_rpc::{EthRpcClient, ReceiptInfo, example::TransactionBuilder};
 use std::sync::Arc;
 use tokio::{
 	io::{AsyncBufReadExt, BufReader},
 	process::{Child, ChildStderr, Command},
-	signal::unix::{signal, SignalKind},
+	signal::unix::{SignalKind, signal},
 };
 
 const DOCKER_CONTAINER_NAME: &str = "eth-rpc-test";
@@ -135,8 +135,8 @@ async fn test_eth_rpc(rpc_url: &str) -> anyhow::Result<()> {
 	println!("- substrate address: {}", account.substrate_account());
 	let client = Arc::new(HttpClientBuilder::default().build(rpc_url)?);
 
-	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let balance = client.get_balance(account.address(), BlockTag::Latest.into()).await?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
+	let balance = client.get_balance(account.address(), Default::default()).await?;
 	println!("-  nonce: {nonce:?}");
 	println!("-  balance: {balance:?}");
 

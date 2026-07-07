@@ -627,6 +627,213 @@ fn existing_validators_without_hold_are_except() {
 	});
 }
 
+#[cfg(feature = "historical")]
+mod externally_set_keys_tracking {
+	use super::*;
+
+	const ACCOUNT: u64 = 1000;
+
+	fn setup_account() {
+		frame_system::Pallet::<Test>::inc_providers(&ACCOUNT);
+		ValidatorAccounts::mutate(|m| {
+			m.insert(ACCOUNT, ACCOUNT);
+		});
+	}
+
+	fn set_local(key: u64) {
+		let keys = UintAuthorityId(key).into();
+		let proof = create_set_keys_proof(ACCOUNT, &UintAuthorityId(key));
+		assert_ok!(Session::set_keys(RuntimeOrigin::signed(ACCOUNT), keys, proof));
+	}
+
+	fn set_remote(key: u64) {
+		<Session as SessionInterface>::set_keys(&ACCOUNT, UintAuthorityId(key).into()).unwrap();
+	}
+
+	fn purge_local() {
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(ACCOUNT)));
+	}
+
+	fn purge_remote() {
+		<Session as SessionInterface>::purge_keys(&ACCOUNT).unwrap();
+	}
+
+	fn assert_local_state(consumers_before: u32) {
+		assert!(!ExternallySetKeys::<Test>::contains_key(&ACCOUNT));
+		// +1 from session's inc_consumers, +1 from pallet-balances hold.
+		assert_eq!(System::consumers(&ACCOUNT), consumers_before + 2);
+		assert_eq!(session_hold(ACCOUNT), KeyDeposit::get());
+	}
+
+	fn assert_remote_state(consumers_before: u32) {
+		assert!(ExternallySetKeys::<Test>::contains_key(&ACCOUNT));
+		assert_eq!(System::consumers(&ACCOUNT), consumers_before);
+		assert_eq!(session_hold(ACCOUNT), 0);
+	}
+
+	fn assert_clean_state(consumers_before: u32) {
+		assert!(!ExternallySetKeys::<Test>::contains_key(&ACCOUNT));
+		assert_eq!(System::consumers(&ACCOUNT), consumers_before);
+		assert_eq!(session_hold(ACCOUNT), 0);
+	}
+
+	#[test]
+	fn set_local_purge_local() {
+		new_test_ext().execute_with(|| {
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
+
+			set_local(ACCOUNT);
+			assert_local_state(consumers_before);
+
+			purge_local();
+			assert_clean_state(consumers_before);
+		});
+	}
+
+	#[test]
+	fn set_local_purge_remote() {
+		new_test_ext().execute_with(|| {
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
+
+			set_local(ACCOUNT);
+			assert_local_state(consumers_before);
+
+			purge_remote();
+			assert_clean_state(consumers_before);
+		});
+	}
+
+	#[test]
+	fn set_remote_purge_local() {
+		new_test_ext().execute_with(|| {
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
+
+			set_remote(ACCOUNT);
+			assert_remote_state(consumers_before);
+
+			purge_local();
+			assert_clean_state(consumers_before);
+		});
+	}
+
+	#[test]
+	fn set_remote_purge_remote() {
+		new_test_ext().execute_with(|| {
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
+
+			set_remote(ACCOUNT);
+			assert_remote_state(consumers_before);
+
+			purge_remote();
+			assert_clean_state(consumers_before);
+		});
+	}
+
+	#[test]
+	fn set_local_to_remote() {
+		new_test_ext().execute_with(|| {
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
+
+			set_local(ACCOUNT);
+			assert_local_state(consumers_before);
+
+			// Transition to remote: deposit released, consumer decremented.
+			set_remote(70);
+			assert_remote_state(consumers_before);
+		});
+	}
+
+	#[test]
+	fn set_remote_to_local() {
+		new_test_ext().execute_with(|| {
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
+
+			set_remote(ACCOUNT);
+			assert_remote_state(consumers_before);
+
+			// Transition to local: deposit placed, consumer incremented.
+			set_local(70);
+			assert_local_state(consumers_before);
+		});
+	}
+
+	#[test]
+	fn key_rotation_succeeds_at_max_consumers() {
+		new_test_ext().execute_with(|| {
+			// Given: an account with existing locally-managed session keys.
+			setup_account();
+			set_local(ACCOUNT);
+
+			// Saturate the consumer count so `can_inc_consumer` returns false.
+			while frame_system::Pallet::<Test>::can_inc_consumer(&ACCOUNT) {
+				frame_system::Pallet::<Test>::inc_consumers(&ACCOUNT).unwrap();
+			}
+			assert!(
+				!frame_system::Pallet::<Test>::can_inc_consumer(&ACCOUNT),
+				"pre-condition: consumer slots exhausted"
+			);
+
+			// When: the validator rotates keys (not a first-time registration).
+			let new_key = ACCOUNT + 1;
+			let keys = UintAuthorityId(new_key).into();
+			let proof = create_set_keys_proof(ACCOUNT, &UintAuthorityId(new_key));
+
+			// Then: the rotation succeeds because it does not need a new consumer ref.
+			assert_ok!(Session::set_keys(RuntimeOrigin::signed(ACCOUNT), keys, proof));
+		});
+	}
+
+	#[test]
+	fn first_registration_fails_at_max_consumers() {
+		new_test_ext().execute_with(|| {
+			// Given: a fresh account with no session keys and exhausted consumer slots.
+			const FRESH_ACCOUNT: u64 = 2000;
+			frame_system::Pallet::<Test>::inc_providers(&FRESH_ACCOUNT);
+			ValidatorAccounts::mutate(|m| {
+				m.insert(FRESH_ACCOUNT, FRESH_ACCOUNT);
+			});
+			while frame_system::Pallet::<Test>::can_inc_consumer(&FRESH_ACCOUNT) {
+				frame_system::Pallet::<Test>::inc_consumers(&FRESH_ACCOUNT).unwrap();
+			}
+
+			// When/Then: first-time registration is rejected.
+			let keys = UintAuthorityId(FRESH_ACCOUNT).into();
+			let proof = create_set_keys_proof(FRESH_ACCOUNT, &UintAuthorityId(FRESH_ACCOUNT));
+			assert_noop!(
+				Session::set_keys(RuntimeOrigin::signed(FRESH_ACCOUNT), keys, proof),
+				Error::<Test>::NoAccount,
+			);
+		});
+	}
+
+	#[test]
+	fn external_to_local_transition_fails_at_max_consumers() {
+		new_test_ext().execute_with(|| {
+			// Given: an account with externally-set keys and exhausted consumer slots.
+			setup_account();
+			set_remote(ACCOUNT);
+			while frame_system::Pallet::<Test>::can_inc_consumer(&ACCOUNT) {
+				frame_system::Pallet::<Test>::inc_consumers(&ACCOUNT).unwrap();
+			}
+
+			// When/Then: transitioning from external to local is rejected because it
+			// needs a new consumer reference.
+			let keys = UintAuthorityId(ACCOUNT + 1).into();
+			let proof = create_set_keys_proof(ACCOUNT, &UintAuthorityId(ACCOUNT + 1));
+			assert_noop!(
+				Session::set_keys(RuntimeOrigin::signed(ACCOUNT), keys, proof),
+				Error::<Test>::NoAccount,
+			);
+		});
+	}
+}
+
 mod disabling_byzantine_threshold {
 	use super::*;
 	use crate::disabling::{DisablingStrategy, UpToLimitDisablingStrategy};

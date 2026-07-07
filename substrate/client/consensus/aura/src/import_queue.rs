@@ -88,8 +88,9 @@ where
 
 			Ok(CheckedHeader::Checked(header, (slot, seal)))
 		},
-		Err(SealVerificationError::Deferred(header, slot)) =>
-			Ok(CheckedHeader::Deferred(header, slot)),
+		Err(SealVerificationError::Deferred(header, slot)) => {
+			Ok(CheckedHeader::Deferred(header, slot))
+		},
 		Err(SealVerificationError::Unsealed) => Err(Error::HeaderUnsealed(hash)),
 		Err(SealVerificationError::BadSeal) => Err(Error::HeaderBadSeal(hash)),
 		Err(SealVerificationError::BadSignature) => Err(Error::BadSignature(hash)),

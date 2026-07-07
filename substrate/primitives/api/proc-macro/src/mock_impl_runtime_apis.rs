@@ -131,6 +131,10 @@ fn implement_common_api_traits(block_type: TypePath, self_ty: Type) -> Result<To
 			fn register_extension<E: #crate_::Extension>(&mut self, _: E) {
 				unimplemented!("`register_extension` not implemented for runtime api mocks")
 			}
+
+			fn set_overlayed_changes(&mut self, _: #crate_::OverlayedChanges<#crate_::HashingFor<#block_type>>) {
+				unimplemented!("`set_overlayed_changes` not implemented for runtime api mocks")
+			}
 		}
 
 		impl #crate_::Core<#block_type> for #self_ty {
@@ -381,7 +385,7 @@ fn generate_runtime_api_impls(impls: &[ItemImpl]) -> Result<GeneratedRuntimeApiI
 		let block_type = extract_block_type_from_trait_path(impl_trait_path)?;
 
 		self_ty = match self_ty.take() {
-			Some(self_ty) =>
+			Some(self_ty) => {
 				if self_ty == impl_.self_ty {
 					Some(self_ty)
 				} else {
@@ -393,12 +397,13 @@ fn generate_runtime_api_impls(impls: &[ItemImpl]) -> Result<GeneratedRuntimeApiI
 					error.combine(Error::new(self_ty.span(), "First self type found here"));
 
 					return Err(error);
-				},
+				}
+			},
 			None => Some(impl_.self_ty.clone()),
 		};
 
 		global_block_type = match global_block_type.take() {
-			Some(global_block_type) =>
+			Some(global_block_type) => {
 				if global_block_type == *block_type {
 					Some(global_block_type)
 				} else {
@@ -413,7 +418,8 @@ fn generate_runtime_api_impls(impls: &[ItemImpl]) -> Result<GeneratedRuntimeApiI
 					));
 
 					return Err(error);
-				},
+				}
+			},
 			None => Some(block_type.clone()),
 		};
 

@@ -158,7 +158,7 @@ where
 			let res = current_strategy.run(&mut self.state, &mut self.sender, &self.params).await;
 
 			match res {
-				Err(RecoveryError::Unavailable) =>
+				Err(RecoveryError::Unavailable) => {
 					if self.strategies.front().is_some() {
 						gum::debug!(
 							target: LOG_TARGET,
@@ -167,11 +167,13 @@ where
 							display_name
 						);
 						continue;
-					},
+					}
+				},
 				Err(err) => {
 					match &err {
-						RecoveryError::Invalid =>
-							self.params.metrics.on_recovery_invalid(strategy_type),
+						RecoveryError::Invalid => {
+							self.params.metrics.on_recovery_invalid(strategy_type)
+						},
 						_ => self.params.metrics.on_recovery_failed(strategy_type),
 					}
 					return Err(err);

@@ -330,8 +330,9 @@ where
 				);
 				return Err(error);
 			},
-			Some(Ok(result)) =>
-				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher)),
+			Some(Ok(result)) => {
+				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher))
+			},
 			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None).with_watcher(external_watcher)),
 		}
 	}
@@ -655,7 +656,6 @@ where
 		self.listener.remove_stale_controllers();
 		self.dropped_stream_controller.remove_transactions(finalized_xts.clone());
 
-		self.listener.remove_view(finalized_hash);
 		for view in dropped_views {
 			self.listener.remove_view(view);
 			self.dropped_stream_controller.remove_view(view);
@@ -712,7 +712,17 @@ where
 	///
 	/// If the tuple's error is None, the transaction will be forcibly removed from the view_store,
 	/// banned and included into the returned vector.
+	/// Removes the [`BanReason::Validation`] ban for a transaction across all active views.
 	///
+	/// This is called after mempool revalidation confirms that a viewless transaction is still
+	/// valid at the finalized block. Only bans with [`BanReason::Validation`] are cleared;
+	/// [`BanReason::LimitsEnforced`] bans are preserved.
+	pub(crate) fn unban_transaction(&self, tx_hash: &ExtrinsicHash<ChainApi>) {
+		for view in self.active_views.read().values() {
+			view.pool.validated_pool().unban_if_validation(tx_hash);
+		}
+	}
+
 	/// For every transaction removed from the view_store (excluding descendants) an Invalid event
 	/// is triggered.
 	///
@@ -877,7 +887,7 @@ where
 			active_views
 				.iter()
 				.chain(inactive_views.iter())
-				.filter(|(_, view)| view.is_imported(&replaced))
+				.filter(|(_, view)| view.imported_status(&replaced).is_imported())
 				.map(|(_, view)| {
 					self.replace_transaction_in_view(
 						view.clone(),
@@ -935,7 +945,7 @@ where
 			.read()
 			.iter()
 			.chain(self.inactive_views.read().iter())
-			.filter(|(_, view)| view.is_imported(&xt_hash))
+			.filter(|(_, view)| view.imported_status(&xt_hash).is_imported())
 			.flat_map(|(_, view)| view.remove_subtree(&[xt_hash], true, &listener_action))
 			.filter_map(|xt| seen.insert(xt.hash).then(|| xt.clone()))
 			.collect();

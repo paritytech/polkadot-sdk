@@ -16,10 +16,10 @@
 // limitations under the License.
 
 use crate::{
+	Config, H160,
 	address::AddressMapper,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	vm::RuntimeCosts,
-	Config, H160,
 };
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
@@ -44,8 +44,9 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 	) -> Result<Vec<u8>, Error> {
 		use ISystem::ISystemCalls;
 		match input {
-			ISystemCalls::terminate(_) if env.is_read_only() =>
-				Err(crate::Error::<T>::StateChangeDenied.into()),
+			ISystemCalls::terminate(_) if env.is_read_only() => {
+				Err(crate::Error::<T>::StateChangeDenied.into())
+			},
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
 				env.frame_meter_mut()
 					.charge_weight_token(RuntimeCosts::HashBlake256(input.len() as u32))?;
@@ -125,13 +126,13 @@ mod tests {
 	use super::*;
 	use crate::{
 		address::AddressMapper,
-		call_builder::{caller_funding, CallSetup},
+		call_builder::{CallSetup, caller_funding},
 		metering::Token,
 		pallet,
 		precompiles::{
-			alloy::sol_types::{sol_data::Bytes, SolType},
-			tests::run_test_vectors,
 			BuiltinPrecompile,
+			alloy::sol_types::{SolType, sol_data::Bytes},
+			tests::run_test_vectors,
 		},
 		test_utils::ALICE,
 		tests::{ExtBuilder, Test},

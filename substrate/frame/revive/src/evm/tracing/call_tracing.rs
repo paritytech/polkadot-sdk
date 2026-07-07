@@ -15,10 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	evm::{decode_revert_reason, CallLog, CallTrace, CallTracerConfig, CallType},
+	Code, DispatchError, Weight,
+	evm::{CallLog, CallTrace, CallTracerConfig, CallType, decode_revert_reason},
 	primitives::ExecReturnValue,
 	tracing::Tracing,
-	Code, DispatchError,
 };
 use alloc::{format, string::ToString, vec::Vec};
 use sp_core::{H160, H256, U256};
@@ -81,10 +81,10 @@ impl Tracing for CallTracer {
 		gas_limit: u64,
 	) {
 		// Increment parent's child call count.
-		if let Some(&index) = self.current_stack.last() {
-			if let Some(trace) = self.traces.get_mut(index) {
-				trace.child_call_count += 1;
-			}
+		if let Some(&index) = self.current_stack.last() &&
+			let Some(trace) = self.traces.get_mut(index)
+		{
+			trace.child_call_count += 1;
 		}
 
 		if self.traces.is_empty() || !self.config.only_top_call {
@@ -132,7 +132,7 @@ impl Tracing for CallTracer {
 		}
 	}
 
-	fn log_event(&mut self, address: H160, topics: &[H256], data: &[u8]) {
+	fn log_event(&mut self, address: H160, topics: &[H256], data: &[u8], log_index: u32) {
 		if !self.config.with_logs {
 			return;
 		}
@@ -145,13 +145,19 @@ impl Tracing for CallTracer {
 				topics: topics.to_vec(),
 				data: data.to_vec().into(),
 				position: trace.child_call_count,
+				index: log_index,
 			};
 
 			trace.logs.push(log);
 		}
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: u64) {
+	fn exit_child_span(
+		&mut self,
+		output: &ExecReturnValue,
+		gas_used: u64,
+		_weight_consumed: Weight,
+	) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace
@@ -177,7 +183,13 @@ impl Tracing for CallTracer {
 			}
 		}
 	}
-	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: u64) {
+
+	fn exit_child_span_with_error(
+		&mut self,
+		error: DispatchError,
+		gas_used: u64,
+		_weight_consumed: Weight,
+	) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace
@@ -187,8 +199,9 @@ impl Tracing for CallTracer {
 			trace.gas_used = gas_used;
 
 			trace.error = match error {
-				DispatchError::Module(sp_runtime::ModuleError { message, .. }) =>
-					Some(message.unwrap_or_default().to_string()),
+				DispatchError::Module(sp_runtime::ModuleError { message, .. }) => {
+					Some(message.unwrap_or_default().to_string())
+				},
 				_ => Some(format!("{:?}", error)),
 			};
 

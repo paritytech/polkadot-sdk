@@ -25,7 +25,6 @@ use std::{
 
 use polkadot_node_core_approval_voting::approval_db::{
 	common::{Config as ApprovalDbConfig, Result as ApprovalDbResult},
-	v2::migration_helpers::v1_to_latest,
 	v3::migration_helpers::v2_to_latest,
 };
 use polkadot_node_subsystem_util::database::{
@@ -40,7 +39,8 @@ const VERSION_FILE_NAME: &'static str = "parachain_db_version";
 /// Version 4 changes approval db format for `OurAssignment`.
 /// Version 5 changes approval db format to hold some additional
 /// information about delayed approvals.
-pub(crate) const CURRENT_VERSION: Version = 5;
+/// Version 6 adds a new column for collator reputation data.   
+pub(crate) const CURRENT_VERSION: Version = 6;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -54,6 +54,10 @@ pub enum Error {
 	MigrationFailed,
 	#[error("Parachain DB migration would take forever")]
 	MigrationLoop,
+	#[error(
+		"Parachains DB version {0} is too old to be migrated in-place; please remove the database directory to trigger a full resync"
+	)]
+	UnsupportedVersion(Version),
 }
 
 impl From<Error> for io::Error {
@@ -109,8 +113,10 @@ pub(crate) fn try_upgrade_db_to_next_version(
 			// 2 -> 3 migration
 			Some(2) => migrate_from_version_2_to_3(db_path, db_kind)?,
 			// 3 -> 4 migration
-			Some(3) => migrate_from_version_3_or_4_to_5(db_path, db_kind, v1_to_latest)?,
-			Some(4) => migrate_from_version_3_or_4_to_5(db_path, db_kind, v2_to_latest)?,
+			// Approval DB schema v1 is no longer supported; such databases must be resynced.
+			Some(3) => return Err(Error::UnsupportedVersion(3)),
+			Some(4) => migrate_from_version_4_to_5(db_path, db_kind, v2_to_latest)?,
+			Some(5) => migrate_from_version_5_to_6(db_path, db_kind)?,
 			// Already at current version, do nothing.
 			Some(CURRENT_VERSION) => CURRENT_VERSION,
 			// This is an arbitrary future version, we don't handle it.
@@ -119,8 +125,9 @@ pub(crate) fn try_upgrade_db_to_next_version(
 			None if db_kind == DatabaseKind::RocksDB => CURRENT_VERSION,
 			// No version file. `ParityDB` did not previously have a version defined.
 			// We handle this as a `0 -> 1` migration.
-			None if db_kind == DatabaseKind::ParityDB =>
-				migrate_from_version_0_to_1(db_path, db_kind)?,
+			None if db_kind == DatabaseKind::ParityDB => {
+				migrate_from_version_0_to_1(db_path, db_kind)?
+			},
 			None => unreachable!(),
 		}
 	} else {
@@ -187,7 +194,7 @@ fn migrate_from_version_1_to_2(path: &Path, db_kind: DatabaseKind) -> Result<Ver
 // In 4  `OurAssignment` has been changed to support the v2 assignments.
 // In 5, `BlockEntry` has been changed to store the number of delayed approvals.
 // As these are backwards compatible, we'll convert the old entries in the new format.
-fn migrate_from_version_3_or_4_to_5<F>(
+fn migrate_from_version_4_to_5<F>(
 	path: &Path,
 	db_kind: DatabaseKind,
 	migration_function: F,
@@ -195,7 +202,7 @@ fn migrate_from_version_3_or_4_to_5<F>(
 where
 	F: Fn(Arc<dyn Database>, ApprovalDbConfig) -> ApprovalDbResult<()>,
 {
-	gum::info!(target: LOG_TARGET, "Migrating parachains db from version 3 to version 4 ...");
+	gum::info!(target: LOG_TARGET, "Migrating parachains db from version 4 to version 5 ...");
 
 	let approval_db_config =
 		ApprovalDbConfig { col_approval_data: super::REAL_COLUMNS.col_approval_data };
@@ -228,7 +235,7 @@ where
 	};
 
 	gum::info!(target: LOG_TARGET, "Migration complete! ");
-	Ok(CURRENT_VERSION)
+	Ok(5)
 }
 
 fn migrate_from_version_2_to_3(path: &Path, db_kind: DatabaseKind) -> Result<Version, Error> {
@@ -236,6 +243,18 @@ fn migrate_from_version_2_to_3(path: &Path, db_kind: DatabaseKind) -> Result<Ver
 	match db_kind {
 		DatabaseKind::ParityDB => paritydb_migrate_from_version_2_to_3(path),
 		DatabaseKind::RocksDB => rocksdb_migrate_from_version_2_to_3(path),
+	}
+	.and_then(|result| {
+		gum::info!(target: LOG_TARGET, "Migration complete! ");
+		Ok(result)
+	})
+}
+
+fn migrate_from_version_5_to_6(path: &Path, db_kind: DatabaseKind) -> Result<Version, Error> {
+	gum::info!(target: LOG_TARGET, "Migrating parachains db from version 5 to version 6 ...");
+	match db_kind {
+		DatabaseKind::ParityDB => parity_db_migrate_from_version_5_to_6(path),
+		DatabaseKind::RocksDB => rocksdb_migrate_from_version_5_to_6(path),
 	}
 	.and_then(|result| {
 		gum::info!(target: LOG_TARGET, "Migration complete! ");
@@ -347,11 +366,24 @@ fn paritydb_fix_columns(
 	Ok(())
 }
 
+fn rocksdb_migrate_from_version_5_to_6(path: &Path) -> Result<Version, Error> {
+	use kvdb_rocksdb::{Database, DatabaseConfig};
+
+	let db_path = path
+		.to_str()
+		.ok_or_else(|| super::other_io_error("Invalid database path".into()))?;
+	let db_cfg = DatabaseConfig::with_columns(super::columns::v5::NUM_COLUMNS);
+	let mut db = Database::open(&db_cfg, db_path)?;
+
+	db.add_column()?;
+	Ok(6)
+}
+
 /// Database configuration for version 1.
 pub(crate) fn paritydb_version_1_config(path: &Path) -> parity_db::Options {
 	let mut options =
 		parity_db::Options::with_columns(&path, super::columns::v1::NUM_COLUMNS as u8);
-	for i in columns::v4::ORDERED_COL {
+	for i in columns::v5::ORDERED_COL {
 		options.columns[*i as usize].btree_index = true;
 	}
 
@@ -362,7 +394,7 @@ pub(crate) fn paritydb_version_1_config(path: &Path) -> parity_db::Options {
 pub(crate) fn paritydb_version_2_config(path: &Path) -> parity_db::Options {
 	let mut options =
 		parity_db::Options::with_columns(&path, super::columns::v2::NUM_COLUMNS as u8);
-	for i in columns::v4::ORDERED_COL {
+	for i in columns::v5::ORDERED_COL {
 		options.columns[*i as usize].btree_index = true;
 	}
 
@@ -380,12 +412,21 @@ pub(crate) fn paritydb_version_3_config(path: &Path) -> parity_db::Options {
 	options
 }
 
+pub(crate) fn paritydb_version_6_config(path: &Path) -> parity_db::Options {
+	let mut options =
+		parity_db::Options::with_columns(&path, super::columns::v6::NUM_COLUMNS as u8);
+	for idx in columns::v6::ORDERED_COL {
+		options.columns[*idx as usize].btree_index = true;
+	}
+	options
+}
+
 /// Database configuration for version 0. This is useful just for testing.
 #[cfg(test)]
 pub(crate) fn paritydb_version_0_config(path: &Path) -> parity_db::Options {
 	let mut options =
 		parity_db::Options::with_columns(&path, super::columns::v0::NUM_COLUMNS as u8);
-	options.columns[super::columns::v4::COL_AVAILABILITY_META as usize].btree_index = true;
+	options.columns[super::columns::v6::COL_AVAILABILITY_META as usize].btree_index = true;
 
 	options
 }
@@ -400,7 +441,7 @@ fn paritydb_migrate_from_version_0_to_1(path: &Path) -> Result<Version, Error> {
 	paritydb_fix_columns(
 		path,
 		paritydb_version_1_config(path),
-		vec![super::columns::v4::COL_DISPUTE_COORDINATOR_DATA],
+		vec![super::columns::v6::COL_DISPUTE_COORDINATOR_DATA],
 	)?;
 
 	Ok(1)
@@ -424,6 +465,15 @@ fn paritydb_migrate_from_version_2_to_3(path: &Path) -> Result<Version, Error> {
 	parity_db::Db::drop_last_column(&mut paritydb_version_2_config(path))
 		.map_err(|e| other_io_error(format!("Error removing COL_SESSION_WINDOW_DATA {:?}", e)))?;
 	Ok(3)
+}
+
+/// Migration from version 5 to version 6:
+/// - add a new column for reputation
+fn parity_db_migrate_from_version_5_to_6(path: &Path) -> Result<Version, Error> {
+	let mut options = paritydb_version_3_config(path);
+	parity_db::Db::add_column(&mut options, parity_db::ColumnOptions::default())
+		.map_err(|e| other_io_error(format!("Error adding a new column {:?}", e)))?;
+	Ok(6)
 }
 
 /// Remove the lock file. If file is locked, it will wait up to 1s.
@@ -454,13 +504,12 @@ pub fn remove_file_lock(path: &std::path::Path) {
 #[cfg(test)]
 mod tests {
 	use super::{
-		columns::{v2::COL_SESSION_WINDOW_DATA, v4::*},
+		columns::{v2::COL_SESSION_WINDOW_DATA, v6::*},
 		*,
 	};
 	use kvdb_rocksdb::{Database, DatabaseConfig};
-	use polkadot_node_core_approval_voting::approval_db::{
-		v2::migration_helpers::v1_fill_test_data,
-		v3::migration_helpers::{v1_to_latest_sanity_check, v2_fill_test_data},
+	use polkadot_node_core_approval_voting::approval_db::v3::migration_helpers::{
+		migration_sanity_check, v2_fill_test_data,
 	};
 	use polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter;
 	use polkadot_primitives_test_helpers::dummy_candidate_receipt_v2;
@@ -558,7 +607,7 @@ mod tests {
 		// We need to properly set db version for upgrade to work.
 		fs::write(version_file_path(db_dir.path()), "1").expect("Failed to write DB version");
 		{
-			let db = DbAdapter::new(db, columns::v4::ORDERED_COL);
+			let db = DbAdapter::new(db, columns::v5::ORDERED_COL);
 			db.write(DBTransaction {
 				ops: vec![DBOp::Insert {
 					col: COL_DISPUTE_COORDINATOR_DATA,
@@ -576,7 +625,7 @@ mod tests {
 
 		assert_eq!(db.num_columns(), super::columns::v2::NUM_COLUMNS);
 
-		let db = DbAdapter::new(db, columns::v4::ORDERED_COL);
+		let db = DbAdapter::new(db, columns::v5::ORDERED_COL);
 
 		assert_eq!(
 			db.get(COL_DISPUTE_COORDINATOR_DATA, b"1234").unwrap(),
@@ -598,37 +647,6 @@ mod tests {
 			db.get(COL_SESSION_WINDOW_DATA, b"1337").unwrap(),
 			Some("0xdeadb00b".as_bytes().to_vec())
 		);
-	}
-
-	#[test]
-	fn test_migrate_3_to_5() {
-		let db_dir = tempfile::tempdir().unwrap();
-		let db_path = db_dir.path().to_str().unwrap();
-		let db_cfg: DatabaseConfig = DatabaseConfig::with_columns(super::columns::v3::NUM_COLUMNS);
-
-		let approval_cfg = ApprovalDbConfig {
-			col_approval_data: crate::parachains_db::REAL_COLUMNS.col_approval_data,
-		};
-
-		// We need to properly set db version for upgrade to work.
-		fs::write(version_file_path(db_dir.path()), "3").expect("Failed to write DB version");
-		let expected_candidates = {
-			let db = Database::open(&db_cfg, db_path).unwrap();
-			assert_eq!(db.num_columns(), super::columns::v3::NUM_COLUMNS as u32);
-			let db = DbAdapter::new(db, columns::v3::ORDERED_COL);
-			// Fill the approval voting column with test data.
-			v1_fill_test_data(std::sync::Arc::new(db), approval_cfg, dummy_candidate_receipt_v2)
-				.unwrap()
-		};
-
-		try_upgrade_db(&db_dir.path(), DatabaseKind::RocksDB, 5).unwrap();
-
-		let db_cfg = DatabaseConfig::with_columns(super::columns::v4::NUM_COLUMNS);
-		let db = Database::open(&db_cfg, db_path).unwrap();
-		let db = DbAdapter::new(db, columns::v4::ORDERED_COL);
-
-		v1_to_latest_sanity_check(std::sync::Arc::new(db), approval_cfg, expected_candidates)
-			.unwrap();
 	}
 
 	#[test]
@@ -654,28 +672,24 @@ mod tests {
 
 		try_upgrade_db(&db_dir.path(), DatabaseKind::RocksDB, 5).unwrap();
 
-		let db_cfg = DatabaseConfig::with_columns(super::columns::v4::NUM_COLUMNS);
+		let db_cfg = DatabaseConfig::with_columns(super::columns::v5::NUM_COLUMNS);
 		let db = Database::open(&db_cfg, db_path).unwrap();
-		let db = DbAdapter::new(db, columns::v4::ORDERED_COL);
+		let db = DbAdapter::new(db, columns::v5::ORDERED_COL);
 
-		v1_to_latest_sanity_check(std::sync::Arc::new(db), approval_cfg, expected_candidates)
-			.unwrap();
+		migration_sanity_check(std::sync::Arc::new(db), approval_cfg, expected_candidates).unwrap();
 	}
 
 	#[test]
-	fn test_rocksdb_migrate_0_to_5() {
-		use kvdb_rocksdb::{Database, DatabaseConfig};
-
+	fn test_rocksdb_migrate_0_to_5_unsupported() {
 		let db_dir = tempfile::tempdir().unwrap();
-		let db_path = db_dir.path().to_str().unwrap();
 
 		fs::write(version_file_path(db_dir.path()), "0").expect("Failed to write DB version");
-		try_upgrade_db(&db_dir.path(), DatabaseKind::RocksDB, 5).unwrap();
-
-		let db_cfg = DatabaseConfig::with_columns(super::columns::v4::NUM_COLUMNS);
-		let db = Database::open(&db_cfg, db_path).unwrap();
-
-		assert_eq!(db.num_columns(), columns::v4::NUM_COLUMNS);
+		// Approval DB schema v1 (parachains DB version 3) can no longer be migrated in-place;
+		// such databases must be resynced.
+		assert!(matches!(
+			try_upgrade_db(&db_dir.path(), DatabaseKind::RocksDB, 5),
+			Err(Error::UnsupportedVersion(3))
+		));
 	}
 
 	#[test]
@@ -693,10 +707,12 @@ mod tests {
 			assert_eq!(db.num_columns(), columns::v0::NUM_COLUMNS as u8);
 		}
 
-		try_upgrade_db(&path, DatabaseKind::ParityDB, 5).unwrap();
-
-		let db = Db::open(&paritydb_version_3_config(&path)).unwrap();
-		assert_eq!(db.num_columns(), columns::v4::NUM_COLUMNS as u8);
+		// Approval DB schema v1 (parachains DB version 3) can no longer be migrated in-place;
+		// such databases must be resynced.
+		assert!(matches!(
+			try_upgrade_db(&path, DatabaseKind::ParityDB, 5),
+			Err(Error::UnsupportedVersion(3))
+		));
 	}
 
 	#[test]
@@ -753,5 +769,39 @@ mod tests {
 		let db = Database::open(&db_cfg, db_path).unwrap();
 
 		assert_eq!(db.num_columns(), super::columns::v3::NUM_COLUMNS);
+	}
+
+	#[test]
+	fn test_paritydb_migrate_5_to_6() {
+		use parity_db::Db;
+
+		let db_dir = tempfile::tempdir().unwrap();
+		fs::write(version_file_path(db_dir.path()), "5").expect("Failed to write DB version.");
+		{
+			let db = Db::open_or_create(&paritydb_version_3_config(&db_dir.path())).unwrap();
+			assert_eq!(db.num_columns(), columns::v5::NUM_COLUMNS as u8);
+		}
+		try_upgrade_db(db_dir.path(), DatabaseKind::ParityDB, 6).unwrap();
+		let db = Db::open(&paritydb_version_6_config(&db_dir.path())).unwrap();
+		assert_eq!(db.num_columns(), columns::v6::NUM_COLUMNS as u8);
+	}
+
+	#[test]
+	fn test_rocksdb_migrate_5_to_6() {
+		let db_dir = tempfile::tempdir().unwrap();
+		let db_path = db_dir.path().to_str().unwrap();
+		let db_cfg = DatabaseConfig::with_columns(super::columns::v5::NUM_COLUMNS);
+
+		{
+			let db = Database::open(&db_cfg, db_path).unwrap();
+			assert_eq!(db.num_columns(), super::columns::v5::NUM_COLUMNS);
+		}
+		fs::write(version_file_path(db_dir.path()), "5").expect("Failed to write DB version.");
+		try_upgrade_db(&db_dir.path(), DatabaseKind::RocksDB, 6).unwrap();
+
+		let db_cfg = DatabaseConfig::with_columns(super::columns::v6::NUM_COLUMNS);
+		let db = Database::open(&db_cfg, db_path).unwrap();
+
+		assert_eq!(db.num_columns(), super::columns::v6::NUM_COLUMNS);
 	}
 }

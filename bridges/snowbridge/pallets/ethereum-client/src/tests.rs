@@ -767,7 +767,7 @@ fn verify_message() {
 #[test]
 fn verify_message_invalid_proof() {
 	let (event_log, mut proof) = get_message_verification_payload();
-	proof.receipt_proof.1[0] = TEST_HASH.into();
+	proof.receipt_proof[0] = TEST_HASH.into();
 
 	new_tester().execute_with(|| {
 		assert_ok!(initialize_storage());
@@ -840,6 +840,33 @@ fn set_operating_mode() {
 			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), update),
 			Error::<Test>::Halted
 		);
+	});
+}
+
+#[test]
+fn verify_rejects_when_halted() {
+	let (event_log, proof) = get_message_verification_payload();
+
+	new_tester().execute_with(|| {
+		assert_ok!(initialize_storage());
+		// Sanity: verification succeeds in Normal mode.
+		assert_ok!(EthereumBeaconClient::verify(&event_log, &proof));
+
+		assert_ok!(EthereumBeaconClient::set_operating_mode(
+			RuntimeOrigin::root(),
+			snowbridge_core::BasicOperatingMode::Halted
+		));
+
+		// While halted, the verifier refuses all proofs — blocks inbound_queue_v2::submit and
+		// outbound_queue_v2::submit_delivery_receipt from paying out against fraudulent proofs.
+		assert_err!(EthereumBeaconClient::verify(&event_log, &proof), VerificationError::Halted);
+
+		// Resuming restores verification.
+		assert_ok!(EthereumBeaconClient::set_operating_mode(
+			RuntimeOrigin::root(),
+			snowbridge_core::BasicOperatingMode::Normal
+		));
+		assert_ok!(EthereumBeaconClient::verify(&event_log, &proof));
 	});
 }
 

@@ -36,7 +36,8 @@ pub trait EthRpc {
 	async fn call(
 		&self,
 		transaction: GenericTransaction,
-		block: Option<BlockNumberOrTagOrHash>,
+		block: Option<BlockId>,
+		state_overrides: Option<StateOverrideSet>,
 	) -> RpcResult<Bytes>;
 
 	/// Returns the chain ID of the current network.
@@ -58,8 +59,7 @@ pub trait EthRpc {
 
 	/// Returns the balance of the account of given address.
 	#[method(name = "eth_getBalance")]
-	async fn get_balance(&self, address: Address, block: BlockNumberOrTagOrHash)
-		-> RpcResult<U256>;
+	async fn get_balance(&self, address: Address, block: BlockId) -> RpcResult<U256>;
 
 	/// Returns information about a block by hash.
 	#[method(name = "eth_getBlockByHash")]
@@ -93,7 +93,7 @@ pub trait EthRpc {
 
 	/// Returns code at a given address.
 	#[method(name = "eth_getCode")]
-	async fn get_code(&self, address: Address, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes>;
+	async fn get_code(&self, address: Address, block: BlockId) -> RpcResult<Bytes>;
 
 	/// Returns an array of all logs matching filter with given id.
 	#[method(name = "eth_getLogs")]
@@ -105,7 +105,7 @@ pub trait EthRpc {
 		&self,
 		address: Address,
 		storage_slot: U256,
-		block: BlockNumberOrTagOrHash,
+		block: BlockId,
 	) -> RpcResult<Bytes>;
 
 	/// Returns information about a transaction by block hash and transaction index position.
@@ -133,11 +133,7 @@ pub trait EthRpc {
 
 	/// Returns the number of transactions sent from an address.
 	#[method(name = "eth_getTransactionCount")]
-	async fn get_transaction_count(
-		&self,
-		address: Address,
-		block: BlockNumberOrTagOrHash,
-	) -> RpcResult<U256>;
+	async fn get_transaction_count(&self, address: Address, block: BlockId) -> RpcResult<U256>;
 
 	/// Returns the receipt of a transaction by transaction hash.
 	#[method(name = "eth_getTransactionReceipt")]
@@ -186,4 +182,14 @@ pub trait EthRpc {
 		newest_block: BlockNumberOrTag,
 		reward_percentiles: Option<Vec<f64>>,
 	) -> RpcResult<FeeHistoryResult>;
+
+	/// Creates a subscription to specific events, returning a subscription ID.
+	/// Notifications are sent for each event matching the subscription via
+	/// `eth_subscription`.
+	#[subscription(
+		name = "eth_subscribe" => "eth_subscription",
+		unsubscribe = "eth_unsubscribe",
+		item = SubscriptionItem
+	)]
+	async fn eth_subscribe(&self, kind: SubscriptionKind, options: Option<SubscriptionOptions>);
 }

@@ -17,6 +17,8 @@
 
 #![cfg(test)]
 use crate::{
+	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
+	ReentrancyProtection,
 	exec::{
 		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
 		PrecompileWithInfoExt,
@@ -25,8 +27,6 @@ use crate::{
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
-	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
-	ReentrancyProtection,
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
@@ -254,6 +254,22 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		_take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		panic!("MockExt::set_storage")
+	}
+
+	fn touch_storage_access(
+		&mut self,
+		_transient: bool,
+		_key: &Key,
+	) -> crate::access_list::StorageAccessKind {
+		panic!("MockExt::touch_storage_access")
+	}
+
+	fn peek_storage_access(
+		&self,
+		_transient: bool,
+		_key: &Key,
+	) -> crate::access_list::StorageAccessKind {
+		panic!("MockExt::peek_storage_access")
 	}
 
 	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {

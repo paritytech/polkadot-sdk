@@ -20,11 +20,18 @@ use super::*;
 
 use polkadot_node_subsystem::messages::ChainApiMessage;
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	Header, MutateDescriptorV2, SigningContext, ValidatorId,
+	BlockNumber, CandidateCommitments, CandidateDescriptorVersion, CollatorId, CollatorSignature,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Header, MutateDescriptorV2,
+	SigningContext, ValidatorId, RELAY_CHAIN_SLOT_DURATION_MILLIS,
 };
-use polkadot_primitives_test_helpers::dummy_committed_candidate_receipt_v2;
+use polkadot_primitives_test_helpers::{
+	dummy_committed_candidate_receipt_v2, dummy_committed_candidate_receipt_v3,
+	make_valid_candidate_descriptor_v3, CandidateDescriptor,
+};
 use rstest::rstest;
+use sp_consensus_babe::digests::{CompatibleDigestItem, PreDigest, SecondaryPlainPreDigest};
+use sp_consensus_slots::Slot;
+use sp_runtime::DigestItem;
 
 fn get_parent_hash(hash: Hash) -> Hash {
 	Hash::from_low_u64_be(hash.to_low_u64_be() + 1)
@@ -62,16 +69,6 @@ async fn assert_construct_per_relay_parent(
 			tx.send(Ok((validator_groups, group_rotation_info))).unwrap();
 		}
 	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			parent,
-			RuntimeApiRequest::ClaimQueue(tx),
-		)) if parent == hash => {
-			let _ = tx.send(Ok(test_state.claim_queue.clone()));
-		}
-	);
 }
 
 /// Handle a view update.
@@ -79,6 +76,17 @@ pub(super) async fn update_view(
 	virtual_overseer: &mut VirtualOverseer,
 	test_state: &mut TestState,
 	new_view: Vec<(Hash, u32)>, // Hash and block number.
+) -> Option<AllMessages> {
+	update_view_with_slot(virtual_overseer, test_state, new_view, None).await
+}
+
+/// Handle a view update, optionally overriding the BABE slot for the leaf header.
+/// When `leaf_slot` is `None`, uses the current timestamp to derive the slot.
+pub(super) async fn update_view_with_slot(
+	virtual_overseer: &mut VirtualOverseer,
+	test_state: &mut TestState,
+	new_view: Vec<(Hash, u32)>,
+	leaf_slot: Option<Slot>,
 ) -> Option<AllMessages> {
 	let last_block_from_view = new_view.last().map(|t| t.1);
 	let new_view: HashMap<Hash, u32> = HashMap::from_iter(new_view);
@@ -108,13 +116,15 @@ pub(super) async fn update_view(
 			}
 		);
 
+		// handle_our_view_change fetches claim queue for the leaf
+		// (stored in leaf_claim_queues for the new offset-based validation)
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				_,
-				RuntimeApiRequest::NodeFeatures(_, tx)
-			)) => {
-				tx.send(Ok(test_state.node_features.clone())).unwrap();
+				parent,
+				RuntimeApiRequest::ClaimQueue(tx),
+			)) if parent == leaf_hash => {
+				let _ = tx.send(Ok(test_state.claim_queue.clone()));
 			}
 		);
 
@@ -127,11 +137,87 @@ pub(super) async fn update_view(
 		)
 		.await;
 
-		let min_number = leaf_number.saturating_sub(test_state.scheduling_lookahead);
+		// Handle BlockHeader request for the leaf (used to extract BABE slot for V3
+		// scheduling parent validation).
+		let leaf_parent_hash = get_parent_hash(leaf_hash);
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::ChainApi(ChainApiMessage::BlockHeader(hash, tx)) if hash == leaf_hash => {
+				let slot = leaf_slot.unwrap_or_else(|| Slot::from_timestamp(
+					sp_timestamp::Timestamp::current(),
+					sp_consensus_slots::SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS),
+				));
+				let pre_digest = PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
+					authority_index: 0,
+					slot,
+				});
+				let header = Header {
+					parent_hash: leaf_parent_hash,
+					number: leaf_number,
+					state_root: Hash::zero(),
+					extrinsics_root: Hash::zero(),
+					digest: sp_runtime::Digest {
+						logs: vec![DigestItem::babe_pre_digest(pre_digest)],
+					},
+				};
+				tx.send(Ok(Some(header))).unwrap();
+			}
+		);
 
+		// activate_leaf calls fetch_ancestors
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionIndexForChild(tx)
+			)) => {
+				tx.send(Ok(test_state.session_index)).unwrap();
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SchedulingLookahead(_, tx)
+			)) => {
+				tx.send(Ok(test_state.scheduling_lookahead)).unwrap();
+			}
+		);
+
+		let min_number = leaf_number.saturating_sub(test_state.scheduling_lookahead);
 		let ancestry_len = leaf_number + 1 - min_number;
 		let ancestry_hashes = std::iter::successors(Some(leaf_hash), |h| Some(get_parent_hash(*h)))
 			.take(ancestry_len as usize);
+
+		let returned_ancestors = assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::ChainApi(ChainApiMessage::Ancestors {
+				k,
+				response_channel: tx,
+				..
+			}) => {
+				assert_eq!(k, test_state.scheduling_lookahead.saturating_sub(1) as usize);
+				let hashes: Vec<_> = ancestry_hashes.clone().skip(1).collect();
+				let returned = hashes.clone();
+				tx.send(Ok(hashes)).unwrap();
+				returned
+			}
+		);
+
+		// fetch_ancestors checks session for each ancestor that was returned
+		for _ in 0..returned_ancestors.len() {
+			assert_matches!(
+				overseer_recv(virtual_overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::SessionIndexForChild(tx)
+				)) => {
+					tx.send(Ok(test_state.session_index)).unwrap();
+				}
+			);
+		}
+
 		let ancestry_numbers = (min_number..=leaf_number).rev();
 		let ancestry_iter = ancestry_hashes.clone().zip(ancestry_numbers).peekable();
 
@@ -150,7 +236,18 @@ pub(super) async fn update_view(
 
 				let msg = match next_overseer_message.take() {
 					Some(msg) => msg,
-					None => overseer_recv(virtual_overseer).await,
+					None => match overseer_recv_with_timeout(
+						virtual_overseer,
+						Duration::from_millis(50),
+					)
+					.await
+					{
+						Some(msg) => msg,
+						None => {
+							// No message arrived - ancestry is cached
+							break;
+						},
+					},
 				};
 
 				if !matches!(&msg, AllMessages::ChainApi(ChainApiMessage::BlockHeader(..))) {
@@ -173,17 +270,6 @@ pub(super) async fn update_view(
 						tx.send(Ok(Some(header))).unwrap();
 					}
 				);
-
-				if requested_len == 0 {
-					assert_matches!(
-						overseer_recv(virtual_overseer).await,
-						AllMessages::ProspectiveParachains(
-							ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx),
-						) if parent == leaf_hash => {
-							tx.send(test_state.chain_ids.iter().map(|para_id| (*para_id, min_number)).collect()).unwrap();
-						}
-					);
-				}
 
 				requested_len += 1;
 			}
@@ -285,6 +371,23 @@ async fn assert_collation_seconded(
 				}
 			);
 		},
+		CollationVersion::V3 => {
+			assert_matches!(
+				overseer_recv(virtual_overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(
+					peers,
+					CollationProtocols::V3(protocol_v3::CollationProtocol::CollatorProtocol(
+						protocol_v3::CollatorProtocolMessage::CollationSeconded(
+							_relay_parent,
+							..,
+						),
+					)),
+				)) => {
+					assert_eq!(peers, vec![peer_id]);
+					assert_eq!(relay_parent, _relay_parent);
+				}
+			);
+		},
 	}
 }
 
@@ -314,7 +417,7 @@ async fn assert_persisted_validation_data(
 				tx.send(Ok(pvd)).unwrap();
 			}
 		),
-		CollationVersion::V2 => assert_matches!(
+		CollationVersion::V2 | CollationVersion::V3 => assert_matches!(
 			msg,
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
@@ -348,9 +451,8 @@ async fn submit_second_and_assert(
 	assert_advertise_collation(
 		virtual_overseer,
 		collator,
-		relay_parent,
 		para_id,
-		(candidate_hash, parent_head_data_hash),
+		AdvertisementPayload::v2(relay_parent, candidate_hash, parent_head_data_hash),
 	)
 	.await;
 
@@ -402,19 +504,29 @@ fn create_dummy_candidate_and_commitments(
 async fn assert_advertise_collation(
 	virtual_overseer: &mut VirtualOverseer,
 	peer: PeerId,
-	relay_parent: Hash,
 	expected_para_id: ParaId,
-	candidate: (CandidateHash, Hash),
+	payload: AdvertisementPayload,
 ) {
-	advertise_collation(virtual_overseer, peer, relay_parent, Some(candidate)).await;
+	let (expected_candidate_hash, expected_parent_head_data_hash) = match &payload {
+		AdvertisementPayload::V2 { candidate_hash, parent_head_data_hash, .. } => {
+			(*candidate_hash, *parent_head_data_hash)
+		},
+		AdvertisementPayload::V3 { candidate_hash, parent_head_data_hash, .. } => {
+			(*candidate_hash, *parent_head_data_hash)
+		},
+		AdvertisementPayload::V1 { .. } => {
+			panic!("V1 advertisements have no candidate to assert on")
+		},
+	};
+	advertise_collation(virtual_overseer, peer, payload).await;
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::CandidateBacking(
 			CandidateBackingMessage::CanSecond(request, tx),
 		) => {
-			assert_eq!(request.candidate_hash, candidate.0);
+			assert_eq!(request.candidate_hash, expected_candidate_hash);
 			assert_eq!(request.candidate_para_id, expected_para_id);
-			assert_eq!(request.parent_head_data_hash, candidate.1);
+			assert_eq!(request.parent_head_data_hash, expected_parent_head_data_hash);
 			tx.send(true).expect("receiving side should be alive");
 		}
 	);
@@ -441,6 +553,7 @@ async fn send_collation_and_assert_processing(
 
 	assert_candidate_backing_second(
 		virtual_overseer,
+		relay_parent,
 		relay_parent,
 		expected_para_id,
 		&pov,
@@ -487,7 +600,7 @@ fn v1_advertisement_accepted_and_seconded() {
 		)
 		.await;
 
-		advertise_collation(&mut virtual_overseer, peer_a, head_b, None).await;
+		advertise_collation(&mut virtual_overseer, peer_a, AdvertisementPayload::v1(head_b)).await;
 
 		let response_channel = assert_fetch_collation_request(
 			&mut virtual_overseer,
@@ -523,6 +636,7 @@ fn v1_advertisement_accepted_and_seconded() {
 		assert_candidate_backing_second(
 			&mut virtual_overseer,
 			head_b,
+			head_b,
 			test_state.chain_ids[0],
 			&pov,
 			CollationVersion::V1,
@@ -535,6 +649,352 @@ fn v1_advertisement_accepted_and_seconded() {
 
 		assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V1)
 			.await;
+
+		virtual_overseer
+	});
+}
+
+/// Regression test: obsolete claim queue positions are rejected.
+///
+/// With the leaf-based offset model, `is_slot_available` computes
+/// `valid_len = lookahead - offset` for each relay parent. Only the first `valid_len`
+/// positions in the leaf's claim queue are considered. Para A at position 2 with
+/// `valid_len = 2` (offset=1) falls outside the checked range and is correctly rejected.
+#[test]
+fn obsolete_positions_rejected() {
+	let mut test_state = TestState::with_one_scheduled_para();
+
+	// Leaf CQ: [B, B, A]. Path: [R, L] → offset=1, valid_len=2, checks positions [0,1].
+	// Para A only at position 2 → outside valid range → rejected.
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(
+		CoreIndex(0),
+		VecDeque::from_iter(
+			[
+				ParaId::from(999),       // Position 0: Para B (dummy)
+				ParaId::from(999),       // Position 1: Para B (dummy)
+				test_state.chain_ids[0], // Position 2: Para A (beyond valid range at offset=1)
+			]
+			.into_iter(),
+		),
+	);
+	test_state.claim_queue = claim_queue;
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair = CollatorPair::generate().0;
+
+		// R is the ancestor, L is the leaf (child of R)
+		let head_l = Hash::from_low_u64_be(128);
+		let head_l_num: u32 = 5;
+		let head_r = get_parent_hash(head_l); // R is parent of L
+
+		// Activate leaf L. This creates a view where R has child L.
+		update_view(&mut virtual_overseer, &mut test_state, vec![(head_l, head_l_num)]).await;
+
+		let peer = PeerId::random();
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer,
+			pair.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V2,
+		)
+		.await;
+
+		// Advertise collation for Para A at relay_parent R (ancestor of L).
+		// R has offset=1, valid_len=2: only CQ positions [0,1] are checked.
+		// Para A sits at position 2 → not found → rejected.
+		let candidate_hash = CandidateHash(Hash::repeat_byte(0xAA));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer,
+			AdvertisementPayload::v2(head_r, candidate_hash, Hash::zero()),
+		)
+		.await;
+
+		// No CanSecond: rejected by is_slot_available before reaching CandidateBacking.
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+		virtual_overseer
+	});
+}
+
+/// Regression test: non-obsolete positions are still accepted.
+///
+/// CQ: [A, B, A]. Path [R, L] → R at offset=1, valid_len=2, checks positions [0,1].
+/// Para A at position 0 is within the valid range → accepted.
+#[test]
+fn non_obsolete_position_accepted() {
+	let mut test_state = TestState::with_one_scheduled_para();
+
+	// CQ: [A, B, A]. R at offset=1 → valid_len=2 → positions [0,1] checked.
+	// Para A found at position 0 → accepted.
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(
+		CoreIndex(0),
+		VecDeque::from_iter(
+			[
+				test_state.chain_ids[0], // Position 0: Para A (within valid range)
+				ParaId::from(999),       // Position 1: Para B
+				test_state.chain_ids[0], // Position 2: Para A (outside valid range, not checked)
+			]
+			.into_iter(),
+		),
+	);
+	test_state.claim_queue = claim_queue;
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair = CollatorPair::generate().0;
+
+		let head_l = Hash::from_low_u64_be(128);
+		let head_l_num: u32 = 5;
+		let head_r = get_parent_hash(head_l);
+
+		update_view(&mut virtual_overseer, &mut test_state, vec![(head_l, head_l_num)]).await;
+
+		let peer = PeerId::random();
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer,
+			pair.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V2,
+		)
+		.await;
+
+		// Advertise collation for Para A at relay_parent R.
+		// Para A found at position 0 (within valid_len=2) → accepted.
+		let candidate_hash = CandidateHash(Hash::repeat_byte(0xCC));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer,
+			AdvertisementPayload::v2(head_r, candidate_hash, Hash::zero()),
+		)
+		.await;
+
+		// Should trigger CanSecond (accepted)
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_hash);
+				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
+
+		// Should proceed to fetch
+		assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_r,
+			test_state.chain_ids[0],
+			Some(candidate_hash),
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
+
+/// The last claim queue position is considered for a leaf-based collation.
+///
+/// CQ: [B, B, A]. Leaf at offset=0 → valid_len=3 → all positions checked.
+/// Para A at the last position (2) is within the valid range → accepted.
+#[test]
+fn last_claim_queue_position_accepted_at_leaf() {
+	let mut test_state = TestState::with_one_scheduled_para();
+
+	// CQ: [B, B, A]. Leaf at offset=0 → valid_len=3 → all positions checked.
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(
+		CoreIndex(0),
+		VecDeque::from_iter(
+			[
+				ParaId::from(999),
+				ParaId::from(999),
+				test_state.chain_ids[0], // Position 2: Para A (last position)
+			]
+			.into_iter(),
+		),
+	);
+	test_state.claim_queue = claim_queue;
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair = CollatorPair::generate().0;
+
+		let head_r = Hash::from_low_u64_be(128);
+		let head_r_num: u32 = 5;
+
+		// R is the leaf itself (no children)
+		update_view(&mut virtual_overseer, &mut test_state, vec![(head_r, head_r_num)]).await;
+
+		let peer = PeerId::random();
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer,
+			pair.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V2,
+		)
+		.await;
+
+		// Advertise at the leaf itself: offset=0, valid_len=3 → Para A at pos 2 accepted.
+		let candidate_hash = CandidateHash(Hash::repeat_byte(0xDD));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer,
+			AdvertisementPayload::v2(head_r, candidate_hash, Hash::zero()),
+		)
+		.await;
+
+		// Should be accepted
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_hash);
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
+
+		assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_r,
+			test_state.chain_ids[0],
+			Some(candidate_hash),
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
+
+/// Test group rotation handling: verify that per-relay-parent core assignment works correctly.
+/// When a validator rotates between cores across blocks in the implicit view, each relay parent
+/// should use its own correct core assignment (not confused with other blocks' assignments).
+///
+/// Setup: With rotation_frequency=1 and 3 cores:
+/// - Block 0: Group 0 → Core 0 (Para 1)
+/// - Block 1: Group 0 → Core 2 (Para 2)
+/// - Block 3: Group 0 → Core 0 (Para 1) again
+///
+/// Test verifies that advertisements at each relay parent are validated against that specific
+/// relay parent's core assignment, not the leaf's assignment.
+#[test]
+fn group_rotation_uses_correct_core_per_relay_parent() {
+	let mut test_state = TestState::default();
+
+	// Default: rotation_frequency=1, 3 validator groups, 3 cores
+	// Core 0 → Para 1, Core 2 → Para 2
+	// Group 0 rotation: block 0→Core 0, block 1→Core 2, block 2→Core 1, block 3→Core 0...
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair_a = CollatorPair::generate().0;
+		let pair_b = CollatorPair::generate().0;
+
+		// Choose blocks where validator (group 0) is assigned to cores with paras
+		// Block 0: Group 0 at Core 0 (Para 1)
+		// Block 1: Group 0 at Core 2 (Para 2)
+		let head_block_0 = Hash::from_low_u64_be(130); // Will be block number 0
+		let head_block_1 = Hash::from_low_u64_be(129); // Will be block number 1
+
+		// Activate both blocks in the view
+		update_view(
+			&mut virtual_overseer,
+			&mut test_state,
+			vec![(head_block_0, 0), (head_block_1, 1)],
+		)
+		.await;
+
+		let peer_a = PeerId::random();
+		let peer_b = PeerId::random();
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0], // Para 1
+			CollationVersion::V2,
+		)
+		.await;
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_b,
+			pair_b.clone(),
+			test_state.chain_ids[1], // Para 2
+			CollationVersion::V2,
+		)
+		.await;
+
+		// Advertise for Para 1 at block 0 (where validator is on Core 0 with Para 1)
+		let candidate_hash_a = CandidateHash(Hash::repeat_byte(0xAA));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_a,
+			AdvertisementPayload::v2(head_block_0, candidate_hash_a, Hash::zero()),
+		)
+		.await;
+
+		// Should be accepted - validator is assigned to Para 1's core at block 0
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_hash_a);
+				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
+
+		assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_block_0,
+			test_state.chain_ids[0],
+			Some(candidate_hash_a),
+		)
+		.await;
+
+		// Advertise for Para 2 at block 1 (where validator is on Core 2 with Para 2)
+		let candidate_hash_b = CandidateHash(Hash::repeat_byte(0xBB));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_b,
+			AdvertisementPayload::v2(head_block_1, candidate_hash_b, Hash::zero()),
+		)
+		.await;
+
+		// Should be accepted - validator is assigned to Para 2's core at block 1
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_hash_b);
+				assert_eq!(request.candidate_para_id, test_state.chain_ids[1]);
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
+
+		assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_block_1,
+			test_state.chain_ids[1],
+			Some(candidate_hash_b),
+		)
+		.await;
 
 		virtual_overseer
 	});
@@ -566,7 +1026,12 @@ fn v1_advertisement_rejected_on_non_active_leaf() {
 		)
 		.await;
 
-		advertise_collation(&mut virtual_overseer, peer_a, get_parent_hash(head_b), None).await;
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_a,
+			AdvertisementPayload::v1(get_parent_hash(head_b)),
+		)
+		.await;
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
@@ -630,8 +1095,7 @@ fn accept_advertisements_from_implicit_view() {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_b,
-			head_c,
-			Some((candidate_hash, parent_head_data_hash)),
+			AdvertisementPayload::v2(head_c, candidate_hash, parent_head_data_hash),
 		)
 		.await;
 		assert_matches!(
@@ -657,8 +1121,7 @@ fn accept_advertisements_from_implicit_view() {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_a,
-			head_d, // Note different relay parent.
-			Some((candidate_hash, parent_head_data_hash)),
+			AdvertisementPayload::v2(head_d, candidate_hash, parent_head_data_hash), // Note different relay parent.
 		)
 		.await;
 		assert_matches!(
@@ -694,13 +1157,16 @@ fn second_multiple_candidates_per_relay_parent() {
 
 		let pair = CollatorPair::generate().0;
 
-		let head_a = Hash::from_low_u64_be(130);
+		// head_a must NOT be an ancestor of head_b, otherwise non-deterministic
+		// activation order can leave head_a without allowed_relay_parents.
+		// head_b's ancestors are 0x81, 0x82, ... so we pick a disjoint chain.
+		let head_a = Hash::from_low_u64_be(5);
 		let head_a_num: u32 = 0;
 
 		let head_b = Hash::from_low_u64_be(128);
 		let head_b_num: u32 = 2;
 
-		// Activated leaf is `a` and `b`.The collation will be based on `b`.
+		// Activated leaf is `a` and `b`. The collation will be based on `b`.
 		update_view(
 			&mut virtual_overseer,
 			&mut test_state,
@@ -736,8 +1202,7 @@ fn second_multiple_candidates_per_relay_parent() {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_a,
-			head_a,
-			Some((candidate_hash, Hash::zero())),
+			AdvertisementPayload::v2(head_a, candidate_hash, Hash::zero()),
 		)
 		.await;
 
@@ -762,8 +1227,7 @@ fn second_multiple_candidates_per_relay_parent() {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_b,
-			head_a,
-			Some((candidate_hash, Hash::zero())),
+			AdvertisementPayload::v2(head_a, candidate_hash, Hash::zero()),
 		)
 		.await;
 
@@ -824,8 +1288,7 @@ fn fetched_collation_sanity_check() {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_a,
-			head_c,
-			Some((candidate_hash, parent_head_data_hash)),
+			AdvertisementPayload::v2(head_c, candidate_hash, parent_head_data_hash),
 		)
 		.await;
 		assert_matches!(
@@ -937,8 +1400,7 @@ fn sanity_check_invalid_parent_head_data() {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_a,
-			head_c,
-			Some((candidate_hash, parent_head_data_hash)),
+			AdvertisementPayload::v2(head_c, candidate_hash, parent_head_data_hash),
 		)
 		.await;
 		assert_matches!(
@@ -1037,8 +1499,7 @@ fn advertisement_spam_protection() {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_a,
-			head_c,
-			Some((candidate_hash, parent_head_data_hash)),
+			AdvertisementPayload::v2(head_c, candidate_hash, parent_head_data_hash),
 		)
 		.await;
 		assert_matches!(
@@ -1058,8 +1519,7 @@ fn advertisement_spam_protection() {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_a,
-			head_c,
-			Some((candidate_hash, parent_head_data_hash)),
+			AdvertisementPayload::v2(head_c, candidate_hash, parent_head_data_hash),
 		)
 		.await;
 		// Reported.
@@ -1082,6 +1542,24 @@ fn advertisement_spam_protection() {
 #[case(false)]
 fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 	let mut test_state = TestState::with_one_scheduled_para();
+
+	// CQ length 4 needed: head_c at offset=2 from leaf gets valid_len = 4 - 2 = 2,
+	// which allows exactly 2 advertisements at head_c.
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(
+		CoreIndex(0),
+		VecDeque::from_iter(
+			[
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+			]
+			.into_iter(),
+		),
+	);
+	test_state.claim_queue = claim_queue;
+	test_state.scheduling_lookahead = 4;
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
@@ -1143,8 +1621,7 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_a,
-			head_c,
-			Some((candidate_b_hash, HeadData(vec![1]).hash())),
+			AdvertisementPayload::v2(head_c, candidate_b_hash, HeadData(vec![1]).hash()),
 		)
 		.await;
 		assert_matches!(
@@ -1219,8 +1696,7 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_a,
-			head_c,
-			Some((candidate_a_hash, HeadData(vec![0]).hash())),
+			AdvertisementPayload::v2(head_c, candidate_a_hash, HeadData(vec![0]).hash()),
 		)
 		.await;
 		assert_matches!(
@@ -1271,12 +1747,12 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::CandidateBacking(CandidateBackingMessage::Second(
-				relay_parent,
-				candidate_receipt,
-				received_pvd,
-				incoming_pov,
-			)) => {
+			AllMessages::CandidateBacking(CandidateBackingMessage::Second {
+			scheduling_parent: relay_parent,
+			candidate: candidate_receipt,
+			pvd: received_pvd,
+			pov: incoming_pov,
+		}) => {
 				assert_eq!(head_c, relay_parent);
 				assert_eq!(test_state.chain_ids[0], candidate_receipt.descriptor.para_id());
 				assert_eq!(PoV { block_data: BlockData(vec![2]) }, incoming_pov);
@@ -1323,25 +1799,25 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 			.await;
 
 			assert_matches!(
-				overseer_recv(&mut virtual_overseer).await,
-				AllMessages::CandidateBacking(CandidateBackingMessage::Second(
-					relay_parent,
-					candidate_receipt,
-					received_pvd,
-					incoming_pov,
-				)) => {
-					assert_eq!(head_c, relay_parent);
-					assert_eq!(test_state.chain_ids[0], candidate_receipt.descriptor.para_id());
-					assert_eq!(PoV { block_data: BlockData(vec![1]) }, incoming_pov);
-					assert_eq!(PersistedValidationData::<Hash, BlockNumber> {
-						parent_head: HeadData(vec![1]),
-						relay_parent_number: 5,
-						max_pov_size: 1024,
-						relay_parent_storage_root: Default::default(),
-					}, received_pvd);
-					candidate_receipt
-				}
-			);
+					overseer_recv(&mut virtual_overseer).await,
+					AllMessages::CandidateBacking(CandidateBackingMessage::Second {
+				scheduling_parent: relay_parent,
+				candidate: candidate_receipt,
+				pvd: received_pvd,
+				pov: incoming_pov,
+			}) => {
+						assert_eq!(head_c, relay_parent);
+						assert_eq!(test_state.chain_ids[0], candidate_receipt.descriptor.para_id());
+						assert_eq!(PoV { block_data: BlockData(vec![1]) }, incoming_pov);
+						assert_eq!(PersistedValidationData::<Hash, BlockNumber> {
+							parent_head: HeadData(vec![1]),
+							relay_parent_number: 5,
+							max_pov_size: 1024,
+							relay_parent_storage_root: Default::default(),
+						}, received_pvd);
+						candidate_receipt
+					}
+				);
 
 			send_seconded_statement(
 				&mut virtual_overseer,
@@ -1382,17 +1858,18 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 }
 
 #[rstest]
-#[case(true)]
-#[case(false)]
-fn v2_descriptor(#[case] v2_feature_enabled: bool) {
+#[case(false, CollationVersion::V1)] // V3 descriptor via V1 protocol → rejected (wrong protocol)
+#[case(false, CollationVersion::V2)] // V3 descriptor via V2 protocol → rejected (wrong protocol)
+#[case(true, CollationVersion::V1)] // Crafted unknown descriptor via V1 → rejected
+#[case(true, CollationVersion::V2)] // Crafted unknown descriptor via V2 → rejected
+fn v3_descriptor_rejected_on_v1_v2_collation_protocols(
+	#[case] crafted_unknown: bool,
+	#[case] collation_version: CollationVersion,
+) {
 	let mut test_state = TestState::default();
 
-	if !v2_feature_enabled {
-		test_state.node_features = NodeFeatures::EMPTY;
-	}
-
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
-		let TestHarness { mut virtual_overseer, keystore } = test_harness;
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let pair_a = CollatorPair::generate().0;
 
@@ -1408,18 +1885,24 @@ fn v2_descriptor(#[case] v2_feature_enabled: bool) {
 			peer_a,
 			pair_a.clone(),
 			test_state.chain_ids[0],
-			CollationVersion::V2,
+			collation_version,
 		)
 		.await;
 
-		let mut committed_candidate = dummy_committed_candidate_receipt_v2(head_b);
+		// Create a V3 descriptor
+		let mut committed_candidate = dummy_committed_candidate_receipt_v3(head_b, head_b);
 		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
 		committed_candidate
 			.descriptor
 			.set_persisted_validation_data_hash(dummy_pvd().hash());
-		// First para is assigned to core 0.
 		committed_candidate.descriptor.set_core_index(CoreIndex(0));
 		committed_candidate.descriptor.set_session_index(test_state.session_index);
+
+		if crafted_unknown {
+			// Create a descriptor with an unrecognized version field (version=2).
+			// version=0 is V2, version=1 is V3, anything else is Unknown.
+			committed_candidate.descriptor.set_version(2);
+		}
 
 		let candidate: CandidateReceipt = committed_candidate.clone().to_plain();
 		let pov = PoV { block_data: BlockData(vec![1]) };
@@ -1427,11 +1910,234 @@ fn v2_descriptor(#[case] v2_feature_enabled: bool) {
 		let candidate_hash = candidate.hash();
 		let parent_head_data_hash = Hash::zero();
 
+		// V1 advertisement has no candidate hash; V2 includes it
+		let payload = match collation_version {
+			CollationVersion::V1 => AdvertisementPayload::v1(head_b),
+			CollationVersion::V2 => {
+				AdvertisementPayload::v2(head_b, candidate_hash, parent_head_data_hash)
+			},
+			_ => {
+				panic!("unhandled collation version for advertisement")
+			},
+		};
+
+		advertise_collation(&mut virtual_overseer, peer_a, payload).await;
+
+		// V2 advertisements trigger CanSecond check
+		if collation_version != CollationVersion::V1 {
+			assert_matches!(
+				overseer_recv(&mut virtual_overseer).await,
+				AllMessages::CandidateBacking(
+					CandidateBackingMessage::CanSecond(request, tx),
+				) => {
+					assert_eq!(request.candidate_hash, candidate_hash);
+					assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
+					assert_eq!(request.parent_head_data_hash, parent_head_data_hash);
+					tx.send(true).expect("receiving side should be alive");
+				}
+			);
+		}
+
+		let response_channel = assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_b,
+			test_state.chain_ids[0],
+			match collation_version {
+				CollationVersion::V1 => None,
+				_ => Some(candidate_hash),
+			},
+		)
+		.await;
+
+		// V1 uses request_v1, V2 uses request_v2
+		let encoded_response = match collation_version {
+			CollationVersion::V1 => {
+				request_v1::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
+					.encode()
+			},
+			CollationVersion::V2 => {
+				request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
+					.encode()
+			},
+			_ => panic!("unhandled collation version for collation fetching"),
+		};
+		response_channel
+			.send(Ok((encoded_response, ProtocolName::from(""))))
+			.expect("Sending response should succeed");
+
+		// Crafted unknown version or V3 descriptor via wrong protocol → rejected
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
+			) => {
+				assert_eq!(peer_a, peer_id);
+				assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
+			}
+		);
+
+		virtual_overseer
+	});
+}
+
+/// When the relay chain stalls, the active leaf's slot can be many slots behind
+/// the current slot. V3 candidates using that stale leaf as scheduling_parent
+/// must be rejected because its slot is not `current_slot - 1`.
+#[test]
+fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
+	let mut test_state = TestState::default();
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair_a = CollatorPair::generate().0;
+
+		let head_b = Hash::from_low_u64_be(128);
+		let head_b_num: u32 = 0;
+
+		// Use a slot far behind the current slot to simulate a stalled relay chain
+		// where no new block has been produced for a long time.
+		let stale_slot = Slot::from(1);
+
+		update_view_with_slot(
+			&mut virtual_overseer,
+			&mut test_state,
+			vec![(head_b, head_b_num)],
+			Some(stale_slot),
+		)
+		.await;
+
+		let peer_a = PeerId::random();
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V3,
+		)
+		.await;
+
+		// Create a V3 descriptor with scheduling_parent == leaf == relay_parent (head_b).
+		let mut committed_candidate = dummy_committed_candidate_receipt_v3(head_b, head_b);
+		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
+		committed_candidate
+			.descriptor
+			.set_persisted_validation_data_hash(dummy_pvd().hash());
+		committed_candidate.descriptor.set_core_index(CoreIndex(0));
+		committed_candidate.descriptor.set_session_index(test_state.session_index);
+		committed_candidate.descriptor.set_version(1);
+
+		let candidate: CandidateReceipt = committed_candidate.clone().to_plain();
+
+		let candidate_hash = candidate.hash();
+		let parent_head_data_hash = Hash::zero();
+
+		// V3 advertisement with a stale scheduling_parent — should be rejected
+		// with a minor reputation penalty.
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_a,
-			head_b,
-			Some((candidate_hash, parent_head_data_hash)),
+			AdvertisementPayload::v3(
+				head_b,
+				candidate_hash,
+				parent_head_data_hash,
+				CandidateDescriptorVersion::V3,
+				head_b,
+			),
+		)
+		.await;
+
+		// Expect minor reputation penalty for invalid scheduling parent.
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
+			) => {
+				assert_eq!(peer_a, peer_id);
+				assert_eq!(rep.value, COST_INVALID_SCHEDULING_PARENT.cost_or_benefit());
+			}
+		);
+
+		virtual_overseer
+	});
+}
+
+/// V3 scheduling parent validation: when the leaf's slot equals the current slot
+/// (still in progress), the scheduling parent must be the leaf's parent.
+#[test]
+fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
+	let mut test_state = TestState::default();
+
+	// Prevent core rotation so group 0 stays on core 0 across all ancestry blocks.
+	test_state.group_rotation_info.group_rotation_frequency = 100;
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, keystore } = test_harness;
+
+		let pair_a = CollatorPair::generate().0;
+
+		let head_b = Hash::from_low_u64_be(128);
+		// Use block 2 so the parent (block 1) is the scheduling_parent and the
+		// grandparent (block 0) serves as relay_parent.
+		let head_b_num: u32 = 2;
+		let head_b_parent = get_parent_hash(head_b);
+		let head_b_grandparent = get_parent_hash(head_b_parent);
+
+		// Use the current slot so leaf.slot == current_slot (slot in progress).
+		let current_slot = Slot::from_timestamp(
+			sp_timestamp::Timestamp::current(),
+			sp_consensus_slots::SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS),
+		);
+
+		update_view_with_slot(
+			&mut virtual_overseer,
+			&mut test_state,
+			vec![(head_b, head_b_num)],
+			Some(current_slot),
+		)
+		.await;
+
+		let peer_a = PeerId::random();
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V3,
+		)
+		.await;
+
+		// relay_parent is the grandparent, scheduling_parent is the leaf's parent.
+		let mut committed_candidate =
+			dummy_committed_candidate_receipt_v3(head_b_grandparent, head_b_parent);
+		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
+		committed_candidate
+			.descriptor
+			.set_persisted_validation_data_hash(dummy_pvd().hash());
+		committed_candidate.descriptor.set_core_index(CoreIndex(0));
+		committed_candidate.descriptor.set_session_index(test_state.session_index);
+		committed_candidate.descriptor.set_version(1);
+
+		let candidate: CandidateReceipt = committed_candidate.clone().to_plain();
+		let pov = PoV { block_data: BlockData(vec![1]) };
+
+		let candidate_hash = candidate.hash();
+		let parent_head_data_hash = Hash::zero();
+
+		// V3 advertisement with scheduling_parent == leaf's parent. Since
+		// leaf.slot == current_slot, the leaf's parent is the valid scheduling parent.
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_a,
+			AdvertisementPayload::v3(
+				head_b_parent,
+				candidate_hash,
+				parent_head_data_hash,
+				CandidateDescriptorVersion::V3,
+				head_b_grandparent,
+			),
 		)
 		.await;
 
@@ -1442,7 +2148,135 @@ fn v2_descriptor(#[case] v2_feature_enabled: bool) {
 			) => {
 				assert_eq!(request.candidate_hash, candidate_hash);
 				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
-				assert_eq!(request.parent_head_data_hash, parent_head_data_hash);
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
+
+		let response_channel = assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_b_parent,
+			test_state.chain_ids[0],
+			Some(candidate_hash),
+		)
+		.await;
+
+		response_channel
+			.send(Ok((
+				request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
+			.expect("Sending response should succeed");
+
+		assert_candidate_backing_second(
+			&mut virtual_overseer,
+			head_b_parent,
+			head_b_grandparent,
+			test_state.chain_ids[0],
+			&pov,
+			CollationVersion::V3,
+		)
+		.await;
+
+		send_seconded_statement(&mut virtual_overseer, keystore.clone(), &committed_candidate)
+			.await;
+
+		assert_collation_seconded(
+			&mut virtual_overseer,
+			head_b_parent,
+			peer_a,
+			CollationVersion::V3,
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
+
+/// V3 scheduling parent validation: when the leaf's slot is `current_slot - 1`
+/// (just finished), the scheduling parent must be the leaf itself.
+#[test]
+fn v3_scheduling_parent_finished_slot_accepts_leaf() {
+	let mut test_state = TestState::default();
+
+	// Prevent core rotation so group 0 stays on core 0 across all ancestry blocks.
+	test_state.group_rotation_info.group_rotation_frequency = 100;
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, keystore } = test_harness;
+
+		let pair_a = CollatorPair::generate().0;
+
+		let head_b = Hash::from_low_u64_be(128);
+		// Use block 1 so the parent (block 0) can serve as relay_parent while
+		// the leaf itself (block 1) is the scheduling_parent.
+		let head_b_num: u32 = 1;
+		let head_b_parent = get_parent_hash(head_b);
+
+		// Use current_slot - 1 so leaf.slot == current_slot - 1 (just finished).
+		let finished_slot = Slot::from_timestamp(
+			sp_timestamp::Timestamp::new(
+				*sp_timestamp::Timestamp::current() - RELAY_CHAIN_SLOT_DURATION_MILLIS,
+			),
+			sp_consensus_slots::SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS),
+		);
+
+		update_view_with_slot(
+			&mut virtual_overseer,
+			&mut test_state,
+			vec![(head_b, head_b_num)],
+			Some(finished_slot),
+		)
+		.await;
+
+		let peer_a = PeerId::random();
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V3,
+		)
+		.await;
+
+		// relay_parent is the parent, scheduling_parent is the leaf (slot just finished).
+		let mut committed_candidate = dummy_committed_candidate_receipt_v3(head_b_parent, head_b);
+		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
+		committed_candidate
+			.descriptor
+			.set_persisted_validation_data_hash(dummy_pvd().hash());
+		committed_candidate.descriptor.set_core_index(CoreIndex(0));
+		committed_candidate.descriptor.set_session_index(test_state.session_index);
+
+		let candidate: CandidateReceipt = committed_candidate.clone().to_plain();
+		let pov = PoV { block_data: BlockData(vec![1]) };
+
+		let candidate_hash = candidate.hash();
+		let parent_head_data_hash = Hash::zero();
+
+		// V3 advertisement with scheduling_parent == leaf. Since
+		// leaf.slot == current_slot - 1, the leaf itself is the valid scheduling parent.
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_a,
+			AdvertisementPayload::v3(
+				head_b,
+				candidate_hash,
+				parent_head_data_hash,
+				CandidateDescriptorVersion::V3,
+				head_b_parent,
+			),
+		)
+		.await;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_hash);
+				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
 				tx.send(true).expect("receiving side should be alive");
 			}
 		);
@@ -1463,33 +2297,387 @@ fn v2_descriptor(#[case] v2_feature_enabled: bool) {
 			)))
 			.expect("Sending response should succeed");
 
-		if v2_feature_enabled {
-			assert_candidate_backing_second(
-				&mut virtual_overseer,
-				head_b,
-				test_state.chain_ids[0],
-				&pov,
-				CollationVersion::V2,
-			)
+		assert_candidate_backing_second(
+			&mut virtual_overseer,
+			head_b,
+			head_b_parent,
+			test_state.chain_ids[0],
+			&pov,
+			CollationVersion::V3,
+		)
+		.await;
+
+		send_seconded_statement(&mut virtual_overseer, keystore.clone(), &committed_candidate)
 			.await;
 
-			send_seconded_statement(&mut virtual_overseer, keystore.clone(), &committed_candidate)
-				.await;
+		assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V3)
+			.await;
 
-			assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V2)
-				.await;
-		} else {
-			// Reported malicious. Used v2 descriptor without the feature being enabled
-			assert_matches!(
-				overseer_recv(&mut virtual_overseer).await,
-				AllMessages::NetworkBridgeTx(
-					NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
-				) => {
-					assert_eq!(peer_a, peer_id);
-					assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
-				}
-			);
-		}
+		virtual_overseer
+	});
+}
+
+/// V3 scheduling parent validation: when `leaf.slot == current_slot` (in progress),
+/// using the leaf itself as scheduling_parent (instead of the leaf's parent) must be
+/// rejected. This proves the slot check is the gating logic, since the leaf IS in
+/// per_scheduling_parent.
+#[test]
+fn v3_scheduling_parent_in_progress_slot_rejects_leaf() {
+	let mut test_state = TestState::default();
+
+	// Prevent core rotation so group 0 stays on core 0 across all ancestry blocks.
+	test_state.group_rotation_info.group_rotation_frequency = 100;
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair_a = CollatorPair::generate().0;
+
+		let head_b = Hash::from_low_u64_be(128);
+		let head_b_num: u32 = 1;
+		let head_b_parent = get_parent_hash(head_b);
+
+		// Use the current slot so leaf.slot == current_slot (slot in progress).
+		let current_slot = Slot::from_timestamp(
+			sp_timestamp::Timestamp::current(),
+			sp_consensus_slots::SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS),
+		);
+
+		update_view_with_slot(
+			&mut virtual_overseer,
+			&mut test_state,
+			vec![(head_b, head_b_num)],
+			Some(current_slot),
+		)
+		.await;
+
+		let peer_a = PeerId::random();
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V3,
+		)
+		.await;
+
+		// Use the leaf itself as scheduling_parent — wrong when leaf.slot == current_slot
+		// (should be leaf's parent).
+		let mut committed_candidate = dummy_committed_candidate_receipt_v3(head_b_parent, head_b);
+		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
+		committed_candidate
+			.descriptor
+			.set_persisted_validation_data_hash(dummy_pvd().hash());
+		committed_candidate.descriptor.set_core_index(CoreIndex(0));
+		committed_candidate.descriptor.set_session_index(test_state.session_index);
+
+		let candidate: CandidateReceipt = committed_candidate.clone().to_plain();
+		let candidate_hash = candidate.hash();
+		let parent_head_data_hash = Hash::zero();
+
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_a,
+			AdvertisementPayload::v3(
+				head_b,
+				candidate_hash,
+				parent_head_data_hash,
+				CandidateDescriptorVersion::V3,
+				head_b_parent,
+			),
+		)
+		.await;
+
+		// Rejected by slot check — expect minor reputation penalty.
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
+			) => {
+				assert_eq!(peer_a, peer_id);
+				assert_eq!(rep.value, COST_INVALID_SCHEDULING_PARENT.cost_or_benefit());
+			}
+		);
+
+		virtual_overseer
+	});
+}
+
+/// V3 scheduling parent validation: when `leaf.slot == current_slot - 1` (just finished),
+/// using the leaf's parent as scheduling_parent (instead of the leaf itself) must be
+/// rejected. This proves the slot check is the gating logic, since the parent IS in
+/// per_scheduling_parent.
+#[test]
+fn v3_scheduling_parent_finished_slot_rejects_parent() {
+	let mut test_state = TestState::default();
+
+	// Prevent core rotation so group 0 stays on core 0 across all ancestry blocks.
+	test_state.group_rotation_info.group_rotation_frequency = 100;
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair_a = CollatorPair::generate().0;
+
+		let head_b = Hash::from_low_u64_be(128);
+		// Use block 2 so the parent (block 1) can be used as the (wrong) scheduling_parent
+		// and the grandparent (block 0) serves as relay_parent.
+		let head_b_num: u32 = 2;
+		let head_b_parent = get_parent_hash(head_b);
+		let head_b_grandparent = get_parent_hash(head_b_parent);
+
+		// Use current_slot - 1 so leaf.slot == current_slot - 1 (just finished).
+		let finished_slot = Slot::from_timestamp(
+			sp_timestamp::Timestamp::new(
+				*sp_timestamp::Timestamp::current() - RELAY_CHAIN_SLOT_DURATION_MILLIS,
+			),
+			sp_consensus_slots::SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS),
+		);
+
+		update_view_with_slot(
+			&mut virtual_overseer,
+			&mut test_state,
+			vec![(head_b, head_b_num)],
+			Some(finished_slot),
+		)
+		.await;
+
+		let peer_a = PeerId::random();
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V3,
+		)
+		.await;
+
+		// Use the leaf's parent as scheduling_parent — wrong when leaf.slot == current_slot - 1
+		// (should be the leaf itself).
+		let mut committed_candidate =
+			dummy_committed_candidate_receipt_v3(head_b_grandparent, head_b_parent);
+		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
+		committed_candidate
+			.descriptor
+			.set_persisted_validation_data_hash(dummy_pvd().hash());
+		committed_candidate.descriptor.set_core_index(CoreIndex(0));
+		committed_candidate.descriptor.set_session_index(test_state.session_index);
+
+		let candidate: CandidateReceipt = committed_candidate.clone().to_plain();
+		let candidate_hash = candidate.hash();
+		let parent_head_data_hash = Hash::zero();
+
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_a,
+			AdvertisementPayload::v3(
+				head_b_parent,
+				candidate_hash,
+				parent_head_data_hash,
+				CandidateDescriptorVersion::V3,
+				head_b_grandparent,
+			),
+		)
+		.await;
+
+		// Rejected by slot check — expect minor reputation penalty.
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
+			) => {
+				assert_eq!(peer_a, peer_id);
+				assert_eq!(rep.value, COST_INVALID_SCHEDULING_PARENT.cost_or_benefit());
+			}
+		);
+
+		virtual_overseer
+	});
+}
+
+/// V3 advertisement with a scheduling parent outside the allowed ancestry must be rejected
+/// at the `per_scheduling_parent` lookup (`SchedulingParentUnknown`).
+#[test]
+fn v3_scheduling_parent_outside_allowed_ancestry_rejected() {
+	let mut test_state = TestState::default();
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair_a = CollatorPair::generate().0;
+
+		let head_b = Hash::from_low_u64_be(128);
+		let head_b_num: u32 = 0;
+
+		update_view(&mut virtual_overseer, &mut test_state, vec![(head_b, head_b_num)]).await;
+
+		let peer_a = PeerId::random();
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V3,
+		)
+		.await;
+
+		// A scheduling parent not in the implicit view's allowed ancestry.
+		let unknown_scheduling_parent = Hash::from_low_u64_be(999);
+
+		let mut committed_candidate = dummy_committed_candidate_receipt_v2(head_b);
+		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
+		committed_candidate
+			.descriptor
+			.set_persisted_validation_data_hash(dummy_pvd().hash());
+		committed_candidate.descriptor.set_core_index(CoreIndex(0));
+		committed_candidate.descriptor.set_session_index(test_state.session_index);
+		committed_candidate.descriptor.set_scheduling_parent(unknown_scheduling_parent);
+
+		let candidate: CandidateReceipt = committed_candidate.clone().to_plain();
+		let candidate_hash = candidate.hash();
+		let parent_head_data_hash = Hash::zero();
+
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_a,
+			AdvertisementPayload::v3(
+				unknown_scheduling_parent,
+				candidate_hash,
+				parent_head_data_hash,
+				CandidateDescriptorVersion::V3,
+				head_b,
+			),
+		)
+		.await;
+
+		// Rejected by per_scheduling_parent lookup (SchedulingParentUnknown) — expect
+		// a reputation report with COST_UNEXPECTED_MESSAGE.
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
+			) => {
+				assert_eq!(peer_a, peer_id);
+				assert_eq!(rep.value, COST_UNEXPECTED_MESSAGE.cost_or_benefit());
+			}
+		);
+
+		virtual_overseer
+	});
+}
+
+/// Test that a V3-capable validator (V3 node feature enabled) correctly identifies a V1 descriptor
+#[test]
+fn v1_descriptor_version_detection_with_v3_enabled() {
+	let mut test_state = TestState::default();
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, keystore } = test_harness;
+
+		let pair_a = CollatorPair::generate().0;
+
+		let head_b = Hash::from_low_u64_be(128);
+		let head_b_num: u32 = 0;
+
+		update_view(&mut virtual_overseer, &mut test_state, vec![(head_b, head_b_num)]).await;
+
+		let peer_a = PeerId::random();
+
+		// Collator connects using the legacy V1 wire protocol.
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V1,
+		)
+		.await;
+
+		advertise_collation(&mut virtual_overseer, peer_a, AdvertisementPayload::v1(head_b)).await;
+
+		let response_channel = assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_b,
+			test_state.chain_ids[0],
+			None,
+		)
+		.await;
+
+		// Build a V1 descriptor directly with non-zero collator (bytes 0..31) so that
+		// collator[8..24] maps to `reserved1[0..16]` in the V2 layout, triggering V1
+		// detection under the relaxed V3 check.
+		let commitments = CandidateCommitments {
+			head_data: HeadData(vec![1u8]),
+			horizontal_messages: Default::default(),
+			upward_messages: Default::default(),
+			new_validation_code: None,
+			processed_downward_messages: 0,
+			hrmp_watermark: 0,
+		};
+
+		// Non-zero collator: bytes 8..23 map to `reserved1[0..16]` in V2 layout,
+		// triggering V1 detection under the relaxed V3 check.
+		let mut collator_bytes = [0u8; 32];
+		collator_bytes.iter_mut().enumerate().for_each(|(i, b)| *b = i as u8);
+		let mut signature_bytes = [0u8; 64];
+		signature_bytes.iter_mut().enumerate().for_each(|(i, b)| *b = i as u8);
+
+		let v1_descriptor = CandidateDescriptor {
+			para_id: test_state.chain_ids[0],
+			relay_parent: head_b,
+			collator: CollatorId::from(sp_core::sr25519::Public::from_raw(collator_bytes)),
+			persisted_validation_data_hash: dummy_pvd().hash(),
+			pov_hash: Hash::zero(),
+			erasure_root: Hash::zero(),
+			signature: CollatorSignature::from(sp_core::sr25519::Signature::from_raw(
+				signature_bytes,
+			)),
+			para_head: Hash::zero(),
+			validation_code_hash: Hash::zero().into(),
+		};
+
+		let candidate = CandidateReceipt {
+			descriptor: v1_descriptor.into(),
+			commitments_hash: commitments.hash(),
+		};
+
+		assert_eq!(
+			candidate.descriptor.version(),
+			CandidateDescriptorVersion::V1,
+			"non-zero reserved1 bytes must be detected as V1 even when v3_enabled=true"
+		);
+
+		let pov = PoV { block_data: BlockData(vec![1]) };
+
+		response_channel
+			.send(Ok((
+				request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
+			.expect("Sending response should succeed");
+
+		// The subsystem must take the legacy path: RuntimeApi::PersistedValidationData,
+		// NOT ProspectiveParachains::GetProspectiveValidationData.
+		// assert_candidate_backing_second with CollationVersion::V1 asserts exactly that.
+		assert_candidate_backing_second(
+			&mut virtual_overseer,
+			head_b,
+			head_b,
+			test_state.chain_ids[0],
+			&pov,
+			CollationVersion::V1,
+		)
+		.await;
+
+		let committed = CommittedCandidateReceipt { descriptor: candidate.descriptor, commitments };
+		send_seconded_statement(&mut virtual_overseer, keystore.clone(), &committed).await;
+
+		assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V1)
+			.await;
 
 		virtual_overseer
 	});
@@ -1549,8 +2737,7 @@ fn invalid_v2_descriptor() {
 			advertise_collation(
 				&mut virtual_overseer,
 				peer_a,
-				head_b,
-				Some((candidate_hash, parent_head_data_hash)),
+				AdvertisementPayload::v2(head_b, candidate_hash, parent_head_data_hash),
 			)
 			.await;
 
@@ -1655,8 +2842,7 @@ fn fair_collation_fetches() {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_a,
-			head_b,
-			Some((candidate_hash, Hash::zero())),
+			AdvertisementPayload::v2(head_b, candidate_hash, Hash::zero()),
 		)
 		.await;
 		test_helpers::Yield::new().await;
@@ -1680,8 +2866,7 @@ fn fair_collation_fetches() {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_a,
-			head_b,
-			Some((candidate_hash, Hash::zero())),
+			AdvertisementPayload::v2(head_b, candidate_hash, Hash::zero()),
 		)
 		.await;
 		test_helpers::Yield::new().await;
@@ -1692,8 +2877,7 @@ fn fair_collation_fetches() {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_b,
-			head_b,
-			Some((candidate_hash, Hash::zero())),
+			AdvertisementPayload::v2(head_b, candidate_hash, Hash::zero()),
 		)
 		.await;
 		test_helpers::Yield::new().await;
@@ -1759,9 +2943,8 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		assert_advertise_collation(
 			&mut virtual_overseer,
 			collator_a,
-			head,
 			para_id_a,
-			(candidate_a1.hash(), parent_head_data_a1.hash()),
+			AdvertisementPayload::v2(head, candidate_a1.hash(), parent_head_data_a1.hash()),
 		)
 		.await;
 
@@ -1777,9 +2960,8 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		assert_advertise_collation(
 			&mut virtual_overseer,
 			collator_a,
-			head,
 			para_id_a,
-			(candidate_a2.hash(), parent_head_data_a2.hash()),
+			AdvertisementPayload::v2(head, candidate_a2.hash(), parent_head_data_a2.hash()),
 		)
 		.await;
 
@@ -1791,9 +2973,8 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		assert_advertise_collation(
 			&mut virtual_overseer,
 			collator_b,
-			head,
 			para_id_b,
-			(candidate_b1.hash(), parent_head_data_b1.hash()),
+			AdvertisementPayload::v2(head, candidate_b1.hash(), parent_head_data_b1.hash()),
 		)
 		.await;
 
@@ -1851,8 +3032,7 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		advertise_collation(
 			&mut virtual_overseer,
 			collator_a,
-			head,
-			Some((candidate_a3.hash(), parent_head_data_a3.hash())),
+			AdvertisementPayload::v2(head, candidate_a3.hash(), parent_head_data_a3.hash()),
 		)
 		.await;
 
@@ -1974,8 +3154,7 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 		advertise_collation(
 			&mut virtual_overseer,
 			collator_a,
-			relay_parent_3,
-			Some((candidate_a.hash(), parent_head_data_a.hash())),
+			AdvertisementPayload::v2(relay_parent_3, candidate_a.hash(), parent_head_data_a.hash()),
 		)
 		.await;
 
@@ -1989,8 +3168,7 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 		advertise_collation(
 			&mut virtual_overseer,
 			collator_b,
-			relay_parent_3,
-			Some((candidate_b.hash(), parent_head_data_b.hash())),
+			AdvertisementPayload::v2(relay_parent_3, candidate_b.hash(), parent_head_data_b.hash()),
 		)
 		.await;
 
@@ -2134,8 +3312,7 @@ fn collation_fetching_fairness_handles_old_claims() {
 		advertise_collation(
 			&mut virtual_overseer,
 			collator_a,
-			relay_parent_4,
-			Some((candidate_a.hash(), parent_head_data_a.hash())),
+			AdvertisementPayload::v2(relay_parent_4, candidate_a.hash(), parent_head_data_a.hash()),
 		)
 		.await;
 
@@ -2150,8 +3327,7 @@ fn collation_fetching_fairness_handles_old_claims() {
 		advertise_collation(
 			&mut virtual_overseer,
 			collator_b,
-			relay_parent_4,
-			Some((candidate_b.hash(), parent_head_data_b.hash())),
+			AdvertisementPayload::v2(relay_parent_4, candidate_b.hash(), parent_head_data_b.hash()),
 		)
 		.await;
 
@@ -2167,30 +3343,35 @@ fn collation_fetching_fairness_handles_old_claims() {
 fn claims_below_are_counted_correctly() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// Shorten the claim queue to make the test smaller
+	// CQ length 3 with 2-block ancestry: hash_a (block 0) → hash_b (block 1, leaf).
+	// hash_a at offset=1 gets valid_len=2, hash_b at offset=0 gets valid_len=3.
+	// Total capacity = 3. We do 2 ads at hash_a + 1 at hash_b = 3, then 4th rejected.
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
 		VecDeque::from_iter(
-			[ParaId::from(test_state.chain_ids[0]), ParaId::from(test_state.chain_ids[0])]
-				.into_iter(),
+			[
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+			]
+			.into_iter(),
 		),
 	);
 	test_state.claim_queue = claim_queue;
-	test_state.scheduling_lookahead = 2;
+	test_state.scheduling_lookahead = 3;
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
-		let hash_a = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
-		let hash_b = Hash::from_low_u64_be(hash_a.to_low_u64_be() - 1);
-		let hash_c = Hash::from_low_u64_be(hash_b.to_low_u64_be() - 1);
+		let hash_a = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1); // block 0
+		let hash_b = Hash::from_low_u64_be(hash_a.to_low_u64_be() - 1); // block 1 (leaf)
 
 		let pair_a = CollatorPair::generate().0;
 		let collator_a = PeerId::random();
 		let para_id_a = test_state.chain_ids[0];
 
-		update_view(&mut virtual_overseer, &mut test_state, vec![(hash_c, 2)]).await;
+		update_view(&mut virtual_overseer, &mut test_state, vec![(hash_b, 1)]).await;
 
 		connect_and_declare_collator(
 			&mut virtual_overseer,
@@ -2201,7 +3382,7 @@ fn claims_below_are_counted_correctly() {
 		)
 		.await;
 
-		// A collation at hash_a claims the spot at hash_a
+		// Two collations at hash_a claim 2 of 3 CQ slots
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
@@ -2212,7 +3393,6 @@ fn claims_below_are_counted_correctly() {
 		)
 		.await;
 
-		// Another collation at hash_a claims the spot at hash_b
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
@@ -2223,26 +3403,25 @@ fn claims_below_are_counted_correctly() {
 		)
 		.await;
 
-		// Collation at hash_c claims its own spot
+		// Collation at hash_b (leaf) claims the last slot
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
 			ParaId::from(test_state.chain_ids[0]),
-			hash_c,
+			hash_b,
 			collator_a,
 			HeadData(vec![2u8]),
 		)
 		.await;
 
-		// Collation at hash_b should be ignored because the claim queue is satisfied
+		// 4th collation at hash_b should be ignored because the claim queue is full
 		let (ignored_candidate, _) =
 			create_dummy_candidate_and_commitments(para_id_a, HeadData(vec![3u8]), hash_b);
 
 		advertise_collation(
 			&mut virtual_overseer,
 			collator_a,
-			hash_b,
-			Some((ignored_candidate.hash(), Hash::random())),
+			AdvertisementPayload::v2(hash_b, ignored_candidate.hash(), Hash::random()),
 		)
 		.await;
 
@@ -2257,30 +3436,35 @@ fn claims_below_are_counted_correctly() {
 fn claims_above_are_counted_correctly() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// Shorten the claim queue to make the test smaller
+	// CQ length 3 with 2-block ancestry: hash_a (block 0) → hash_b (block 1, leaf).
+	// hash_a at offset=1 gets valid_len=2, hash_b at offset=0 gets valid_len=3.
+	// Total capacity = 3. We do 2 ads at hash_b + 1 at hash_a = 3, then 4th rejected.
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
 		VecDeque::from_iter(
-			[ParaId::from(test_state.chain_ids[0]), ParaId::from(test_state.chain_ids[0])]
-				.into_iter(),
+			[
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+			]
+			.into_iter(),
 		),
 	);
 	test_state.claim_queue = claim_queue;
-	test_state.scheduling_lookahead = 2;
+	test_state.scheduling_lookahead = 3;
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
 		let hash_a = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1); // block 0
-		let hash_b = Hash::from_low_u64_be(hash_a.to_low_u64_be() - 1); // block 1
-		let hash_c = Hash::from_low_u64_be(hash_b.to_low_u64_be() - 1); // block 2
+		let hash_b = Hash::from_low_u64_be(hash_a.to_low_u64_be() - 1); // block 1 (leaf)
 
 		let pair_a = CollatorPair::generate().0;
 		let collator_a = PeerId::random();
 		let para_id_a = test_state.chain_ids[0];
 
-		update_view(&mut virtual_overseer, &mut test_state, vec![(hash_c, 2)]).await;
+		update_view(&mut virtual_overseer, &mut test_state, vec![(hash_b, 1)]).await;
 
 		connect_and_declare_collator(
 			&mut virtual_overseer,
@@ -2291,7 +3475,7 @@ fn claims_above_are_counted_correctly() {
 		)
 		.await;
 
-		// A collation at hash_b claims the spot at hash_b
+		// Two collations at hash_b (leaf) claim 2 of 3 CQ slots
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
@@ -2302,7 +3486,6 @@ fn claims_above_are_counted_correctly() {
 		)
 		.await;
 
-		// Another collation at hash_b claims the spot at hash_c
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
@@ -2313,7 +3496,7 @@ fn claims_above_are_counted_correctly() {
 		)
 		.await;
 
-		// Collation at hash_a claims its own spot
+		// Collation at hash_a claims the last slot
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
@@ -2324,15 +3507,14 @@ fn claims_above_are_counted_correctly() {
 		)
 		.await;
 
-		// Another Collation at hash_a should be ignored because the claim queue is satisfied
+		// Another collation at hash_a should be ignored because the claim queue is full
 		let (ignored_candidate, _) =
 			create_dummy_candidate_and_commitments(para_id_a, HeadData(vec![2u8]), hash_a);
 
 		advertise_collation(
 			&mut virtual_overseer,
 			collator_a,
-			hash_a,
-			Some((ignored_candidate.hash(), Hash::random())),
+			AdvertisementPayload::v2(hash_a, ignored_candidate.hash(), Hash::random()),
 		)
 		.await;
 
@@ -2346,8 +3528,7 @@ fn claims_above_are_counted_correctly() {
 		advertise_collation(
 			&mut virtual_overseer,
 			collator_a,
-			hash_b,
-			Some((ignored_candidate.hash(), Hash::random())),
+			AdvertisementPayload::v2(hash_b, ignored_candidate.hash(), Hash::random()),
 		)
 		.await;
 
@@ -2362,17 +3543,23 @@ fn claims_above_are_counted_correctly() {
 fn claim_fills_last_free_slot() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// Shorten the claim queue to make the test smaller
+	// CQ length 3 to cover the depth of the ancestry.
+	// Path: hash_a(0) → hash_b(1) → hash_c(2, leaf). One ad per relay parent = 3 = capacity.
+	// hash_a: offset=2, valid_len=1; hash_b: offset=1, valid_len=2; hash_c: offset=0, valid_len=3.
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
 		VecDeque::from_iter(
-			[ParaId::from(test_state.chain_ids[0]), ParaId::from(test_state.chain_ids[0])]
-				.into_iter(),
+			[
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+			]
+			.into_iter(),
 		),
 	);
 	test_state.claim_queue = claim_queue;
-	test_state.scheduling_lookahead = 2;
+	test_state.scheduling_lookahead = 3;
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
@@ -2436,8 +3623,7 @@ fn claim_fills_last_free_slot() {
 		advertise_collation(
 			&mut virtual_overseer,
 			collator_a,
-			hash_a,
-			Some((ignored_candidate.hash(), Hash::random())),
+			AdvertisementPayload::v2(hash_a, ignored_candidate.hash(), Hash::random()),
 		)
 		.await;
 
@@ -2451,8 +3637,7 @@ fn claim_fills_last_free_slot() {
 		advertise_collation(
 			&mut virtual_overseer,
 			collator_a,
-			hash_b,
-			Some((ignored_candidate.hash(), Hash::random())),
+			AdvertisementPayload::v2(hash_b, ignored_candidate.hash(), Hash::random()),
 		)
 		.await;
 
@@ -2610,8 +3795,11 @@ mod ah_stop_gap {
 				advertise_collation(
 					&mut virtual_overseer,
 					permissionless_collator,
-					head,
-					Some((permissionless_candidate.hash(), permissionless_head_data_hash)),
+					AdvertisementPayload::v2(
+						head,
+						permissionless_candidate.hash(),
+						permissionless_head_data_hash,
+					),
 				)
 				.await;
 
@@ -2733,8 +3921,11 @@ mod ah_stop_gap {
 					advertise_collation(
 						&mut virtual_overseer,
 						permissionless_collator,
-						head,
-						Some((permissionless_candidate.hash(), permissionless_head_data_hash)),
+						AdvertisementPayload::v2(
+							head,
+							permissionless_candidate.hash(),
+							permissionless_head_data_hash,
+						),
 					)
 					.await;
 
@@ -2803,7 +3994,7 @@ mod ah_stop_gap {
 							reqs,
 							IfDisconnected::ImmediateError,
 						)) => {
-							let relay_parent = head;
+							let scheduling_parent = head;
 							let req = reqs
 								.into_iter()
 								.next()
@@ -2813,7 +4004,7 @@ mod ah_stop_gap {
 								req,
 								Requests::CollationFetchingV2(req) => {
 									let payload = req.payload;
-									assert_eq!(payload.relay_parent, relay_parent);
+									assert_eq!(payload.scheduling_parent, scheduling_parent);
 									assert_eq!(payload.para_id, ASSET_HUB_PARA_ID);
 									assert_eq!(
 										payload.candidate_hash,
@@ -2918,8 +4109,11 @@ mod ah_stop_gap {
 					advertise_collation(
 						&mut virtual_overseer,
 						permissionless_collator,
-						head,
-						Some((permissionless_candidate.hash(), permissionless_head_data_hash)),
+						AdvertisementPayload::v2(
+							head,
+							permissionless_candidate.hash(),
+							permissionless_head_data_hash,
+						),
 					)
 					.await;
 				}
@@ -3000,8 +4194,11 @@ mod ah_stop_gap {
 				advertise_collation(
 					&mut virtual_overseer,
 					permissionless_collator,
-					head,
-					Some((permissionless_candidate.hash(), permissionless_head_data_hash)),
+					AdvertisementPayload::v2(
+						head,
+						permissionless_candidate.hash(),
+						permissionless_head_data_hash,
+					),
 				)
 				.await;
 
@@ -3077,4 +4274,99 @@ mod ah_stop_gap {
 			},
 		);
 	}
+}
+
+/// Verify that `descriptor_version_sanity_check_with_params` checks the
+/// scheduling session (not the relay-parent session) for V3 descriptors
+/// where the two sessions differ (cross-session relay parent).
+#[test]
+fn v3_sanity_check_uses_scheduling_session_not_relay_parent_session() {
+	let relay_parent = Hash::repeat_byte(1);
+	let scheduling_parent = Hash::repeat_byte(2);
+
+	let relay_parent_session: SessionIndex = 4;
+	let scheduling_session_offset: u8 = 1;
+	// scheduling_session = relay_parent_session + offset = 5
+	let scheduling_session = relay_parent_session + scheduling_session_offset as SessionIndex;
+
+	let core = CoreIndex(0);
+
+	let mut descriptor = make_valid_candidate_descriptor_v3(
+		1.into(),
+		relay_parent,
+		core,
+		relay_parent_session,
+		relay_parent_session,
+		Hash::zero(),
+		Hash::zero(),
+		Hash::zero(),
+		Hash::zero(),
+		Hash::zero(),
+		scheduling_parent,
+	);
+	descriptor.set_scheduling_session_offset(scheduling_session_offset);
+
+	// Sanity: verify the descriptor is V3 and sessions are as expected.
+	assert_eq!(descriptor.version(), CandidateDescriptorVersion::V3);
+	assert_eq!(descriptor.session_index(), Some(relay_parent_session));
+	assert_eq!(descriptor.scheduling_session(), Some(scheduling_session));
+
+	// The check must pass when expected_session matches the scheduling session.
+	assert!(descriptor_version_sanity_check_with_params(
+		&descriptor,
+		core,
+		scheduling_session,
+		CollationVersion::V3,
+	)
+	.is_ok());
+
+	// The check must fail when expected_session is the relay-parent session
+	// (which differs from the scheduling session for cross-session V3 candidates).
+	assert_matches!(
+		descriptor_version_sanity_check_with_params(
+			&descriptor,
+			core,
+			relay_parent_session,
+			CollationVersion::V3,
+		),
+		Err(SecondingError::InvalidSessionIndex(got, expected)) => {
+			assert_eq!(got, scheduling_session);
+			assert_eq!(expected, relay_parent_session);
+		}
+	);
+}
+
+/// Verify that V2 descriptors still check session_index correctly (V2 has no
+/// scheduling_session_offset, so session_index == scheduling_session).
+#[test]
+fn v2_sanity_check_session_index_unchanged() {
+	let relay_parent = Hash::repeat_byte(1);
+	let core = CoreIndex(0);
+	let session: SessionIndex = 5;
+
+	let mut descriptor = dummy_committed_candidate_receipt_v2(relay_parent);
+	descriptor.descriptor.set_core_index(core);
+	descriptor.descriptor.set_session_index(session);
+
+	assert_eq!(descriptor.descriptor.version(), CandidateDescriptorVersion::V2);
+
+	// Passes with matching session.
+	assert!(descriptor_version_sanity_check_with_params(
+		&descriptor.descriptor,
+		core,
+		session,
+		CollationVersion::V2,
+	)
+	.is_ok());
+
+	// Fails with wrong session.
+	assert_matches!(
+		descriptor_version_sanity_check_with_params(
+			&descriptor.descriptor,
+			core,
+			session + 1,
+			CollationVersion::V2,
+		),
+		Err(SecondingError::InvalidSessionIndex(..))
+	);
 }

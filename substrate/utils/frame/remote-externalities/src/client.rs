@@ -142,3 +142,52 @@ impl ConnectionManager {
 		client.recreate(failed.version).await;
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// Start a local WS server in a random port.
+	///
+	/// Used to test WS client building for remote externality client initialization.
+	async fn start_local_ws_server() -> (String, jsonrpsee::server::ServerHandle) {
+		let server = jsonrpsee::server::ServerBuilder::default()
+			.build("127.0.0.1:0")
+			.await
+			.expect("local ws server should start");
+
+		let addr = server.local_addr().expect("local ws server should have a local addr");
+		let handle = server.start(jsonrpsee::RpcModule::new(()));
+
+		println!("local ws server started at {addr}");
+		(format!("ws://{addr}"), handle)
+	}
+
+	#[tokio::test]
+	async fn can_init_client() {
+		let (uri, _server) = start_local_ws_server().await;
+
+		let client = Client::new(uri.clone()).await;
+		assert!(client.is_some(), "Client should initialize successfully with valid WebSocket URI");
+
+		// Test create_ws_client directly
+		let ws_client = Client::create_ws_client(&uri).await;
+		assert!(ws_client.is_ok(), "create_ws_client should succeed with valid URI");
+	}
+
+	#[tokio::test]
+	async fn cannot_init_client_with_invalid_uri() {
+		// HTTP/HTTPS are invalid, only WS/WSS are supported
+		assert!(Client::new("http://try-runtime.polkadot.io:443").await.is_none());
+		assert!(Client::create_ws_client("http://try-runtime.polkadot.io:443").await.is_err());
+
+		assert!(Client::new("https://try-runtime.polkadot.io:443").await.is_none());
+		assert!(Client::create_ws_client("https://try-runtime.polkadot.io:443").await.is_err());
+
+		// Invalid URIs/garbage
+		assert!(Client::new("wsss://try-runtime.polkadot.io:443").await.is_none());
+		assert!(Client::create_ws_client("wsss://try-runtime.polkadot.io:443").await.is_err());
+		assert!(Client::new("garbage").await.is_none());
+		assert!(Client::create_ws_client("garbage").await.is_err());
+	}
+}

@@ -18,111 +18,109 @@
 
 //! Substrate statement store API.
 
-use codec::{Decode, Encode};
+use codec::Decode;
+use futures::FutureExt;
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
-	Extensions,
+	Extensions, PendingSubscriptionSink,
 };
 /// Re-export the API for backward compatibility.
 pub use sc_rpc_api::statement::{error::Error, StatementApiServer};
 use sp_core::Bytes;
-use sp_statement_store::{StatementSource, SubmitResult};
+use sp_statement_store::{
+	OptimizedTopicFilter, StatementEvent, StatementSource, SubmitResult, TopicFilter,
+};
 use std::sync::Arc;
+const LOG_TARGET: &str = "statement-store-rpc";
+// The maximum size of a chunk of statements to send in a single JSON response. This is needed to
+// avoid hitting the maximum JSON size limit in the RPC response. Each statement is SCALE-encoded
+// and then hex-encoded in the JSON response, so the size of the JSON response is approximately 2x.
+// This value is chosen to be large enough to send a reasonable number of statements in a single
+// chunk, but small enough to avoid hitting the JSON size limit.
+const MAX_CHUNK_BYTES_LIMIT: usize = 4 * 1024 * 1024;
 
+use crate::{
+	utils::{spawn_subscription_task, BoundedVecDeque, PendingSubscription},
+	SubscriptionTaskExecutor,
+};
+
+#[cfg(test)]
+mod tests;
+
+/// Send existing statements in chunks over the subscription channel.
+///
+/// Splits the statements into chunks that fit within [`MAX_CHUNK_BYTES_LIMIT`] to avoid
+/// exceeding the RPC max response size, then sends each chunk as a
+/// [`StatementEvent::NewStatements`].
+async fn send_in_chunks(
+	existing_statements: Vec<Vec<u8>>,
+	subscription_sender: async_channel::Sender<StatementEvent>,
+) {
+	let mut iter = existing_statements.into_iter().peekable();
+	loop {
+		let mut chunk = Vec::<Bytes>::new();
+		let mut chunk_json_size = 0usize;
+		while let Some(statement) = iter.peek() {
+			// Each SCALE-encoded byte becomes 2 hex chars in the JSON response
+			let json_size_estimate = statement.len() * 2;
+			// If a single statement exceeds the max chunk size, skip it but continue sending the
+			// rest of the statements. This would never happen in practice because the statement
+			// store should reject statements that are too large, but we add this check to be safe.
+			if json_size_estimate > MAX_CHUNK_BYTES_LIMIT {
+				iter.next();
+				continue;
+			}
+			if chunk_json_size + json_size_estimate > MAX_CHUNK_BYTES_LIMIT {
+				break;
+			}
+			let Some(statement) = iter.next() else { break };
+			chunk_json_size += json_size_estimate;
+			chunk.push(statement.into());
+		}
+		if chunk.is_empty() {
+			break;
+		}
+		let remaining = iter.len();
+		if let Err(e) = subscription_sender
+			.send(StatementEvent::NewStatements {
+				statements: chunk,
+				remaining: Some(remaining as u32),
+			})
+			.await
+		{
+			log::warn!(
+				target: LOG_TARGET,
+				"Failed to send existing statement in subscription: {:?}", e
+			);
+			break;
+		}
+	}
+}
+
+/// Trait alias for statement store API required by the RPC.
+pub trait StatementStoreApi:
+	sp_statement_store::StatementStore + sc_statement_store::StatementStoreSubscriptionApi
+{
+}
+impl<T> StatementStoreApi for T where
+	T: sp_statement_store::StatementStore + sc_statement_store::StatementStoreSubscriptionApi
+{
+}
 /// Statement store API
 pub struct StatementStore {
-	store: Arc<dyn sp_statement_store::StatementStore>,
+	store: Arc<dyn StatementStoreApi>,
+	executor: SubscriptionTaskExecutor,
 }
 
 impl StatementStore {
 	/// Create new instance of Offchain API.
-	pub fn new(store: Arc<dyn sp_statement_store::StatementStore>) -> Self {
-		StatementStore { store }
+	pub fn new(store: Arc<dyn StatementStoreApi>, executor: SubscriptionTaskExecutor) -> Self {
+		StatementStore { store, executor }
 	}
 }
 
 #[async_trait]
 impl StatementApiServer for StatementStore {
-	fn dump(&self, ext: &Extensions) -> RpcResult<Vec<Bytes>> {
-		sc_rpc_api::check_if_safe(ext)?;
-
-		let statements =
-			self.store.statements().map_err(|e| Error::StatementStore(e.to_string()))?;
-		Ok(statements.into_iter().map(|(_, s)| s.encode().into()).collect())
-	}
-
-	fn broadcasts(&self, match_all_topics: Vec<[u8; 32]>) -> RpcResult<Vec<Bytes>> {
-		Ok(self
-			.store
-			.broadcasts(&match_all_topics)
-			.map_err(|e| Error::StatementStore(e.to_string()))?
-			.into_iter()
-			.map(Into::into)
-			.collect())
-	}
-
-	fn posted(&self, match_all_topics: Vec<[u8; 32]>, dest: [u8; 32]) -> RpcResult<Vec<Bytes>> {
-		Ok(self
-			.store
-			.posted(&match_all_topics, dest)
-			.map_err(|e| Error::StatementStore(e.to_string()))?
-			.into_iter()
-			.map(Into::into)
-			.collect())
-	}
-
-	fn posted_clear(
-		&self,
-		match_all_topics: Vec<[u8; 32]>,
-		dest: [u8; 32],
-	) -> RpcResult<Vec<Bytes>> {
-		Ok(self
-			.store
-			.posted_clear(&match_all_topics, dest)
-			.map_err(|e| Error::StatementStore(e.to_string()))?
-			.into_iter()
-			.map(Into::into)
-			.collect())
-	}
-
-	fn broadcasts_stmt(&self, match_all_topics: Vec<[u8; 32]>) -> RpcResult<Vec<Bytes>> {
-		Ok(self
-			.store
-			.broadcasts_stmt(&match_all_topics)
-			.map_err(|e| Error::StatementStore(e.to_string()))?
-			.into_iter()
-			.map(Into::into)
-			.collect())
-	}
-
-	fn posted_stmt(
-		&self,
-		match_all_topics: Vec<[u8; 32]>,
-		dest: [u8; 32],
-	) -> RpcResult<Vec<Bytes>> {
-		Ok(self
-			.store
-			.posted_stmt(&match_all_topics, dest)
-			.map_err(|e| Error::StatementStore(e.to_string()))?
-			.into_iter()
-			.map(Into::into)
-			.collect())
-	}
-
-	fn posted_clear_stmt(
-		&self,
-		match_all_topics: Vec<[u8; 32]>,
-		dest: [u8; 32],
-	) -> RpcResult<Vec<Bytes>> {
-		Ok(self
-			.store
-			.posted_clear_stmt(&match_all_topics, dest)
-			.map_err(|e| Error::StatementStore(e.to_string()))?
-			.into_iter()
-			.map(Into::into)
-			.collect())
-	}
-
 	fn submit(&self, encoded: Bytes) -> RpcResult<SubmitResult> {
 		let statement = Decode::decode(&mut &*encoded)
 			.map_err(|e| Error::StatementStore(format!("Error decoding statement: {:?}", e)))?;
@@ -134,7 +132,39 @@ impl StatementApiServer for StatementStore {
 		}
 	}
 
-	fn remove(&self, hash: [u8; 32]) -> RpcResult<()> {
-		Ok(self.store.remove(&hash).map_err(|e| Error::StatementStore(e.to_string()))?)
+	fn subscribe_statement(
+		&self,
+		pending: PendingSubscriptionSink,
+		_ext: &Extensions,
+		topic_filter: TopicFilter,
+	) {
+		let optimized_topic_filter: OptimizedTopicFilter = topic_filter.into();
+
+		let (existing_statements, subscription_sender, subscription_stream) =
+			match self.store.subscribe_statement(optimized_topic_filter) {
+				Ok(res) => res,
+				Err(err) => {
+					spawn_subscription_task(
+						&self.executor,
+						pending.reject(Error::StatementStore(format!(
+							"Error collecting existing statements: {:?}",
+							err
+						))),
+					);
+					return;
+				},
+			};
+
+		spawn_subscription_task(
+			&self.executor,
+			PendingSubscription::from(pending)
+				.pipe_from_stream(subscription_stream, BoundedVecDeque::new(128)),
+		);
+
+		self.executor.spawn(
+			"statement-store-rpc-send",
+			Some("rpc"),
+			send_in_chunks(existing_statements, subscription_sender).boxed(),
+		)
 	}
 }

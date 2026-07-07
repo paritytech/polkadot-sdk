@@ -362,11 +362,11 @@ impl<T: Config> WasmBlob<T> {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	pub fn bench_prepare_call<E: Ext<T = T>>(
+	pub fn bench_prepare_call<'a, E: Ext<T = T>>(
 		self,
-		ext: &mut E,
+		ext: &'a mut E,
 		input_data: Vec<u8>,
-	) -> (Func, Store<Runtime<E>>) {
+	) -> (Func, Store<Runtime<'a, E>>) {
 		use InstanceOrExecReturn::*;
 		match Self::prepare_execute(
 			self,
@@ -690,8 +690,9 @@ mod tests {
 			let entry = self.storage.entry(key.clone());
 			let result = match (entry, take_old) {
 				(Entry::Vacant(_), _) => WriteOutcome::New,
-				(Entry::Occupied(entry), false) =>
-					WriteOutcome::Overwritten(entry.remove().len() as u32),
+				(Entry::Occupied(entry), false) => {
+					WriteOutcome::Overwritten(entry.remove().len() as u32)
+				},
 				(Entry::Occupied(entry), true) => WriteOutcome::Taken(entry.remove()),
 			};
 			if let Some(value) = value {

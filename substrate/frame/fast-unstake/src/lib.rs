@@ -37,9 +37,7 @@
 //! pallet and unstake faster than having to wait an entire bonding duration.
 //!
 //! *Being exposed with validator* from the point of view of the staking system means earning
-//! rewards with the validator, and also being at the risk of slashing with the validator. This is
-//! equivalent to the "Active Nominator" role explained in
-//! [here](https://polkadot.com/blog/staking-update-february-2022/).
+//! rewards with the validator, and also being at the risk of slashing with the validator.
 //!
 //! Stakers who are certain about NOT being exposed can register themselves with
 //! [`Pallet::register_fast_unstake`]. This will chill, fully unbond the staker and place them
@@ -605,7 +603,7 @@ pub mod pallet {
 				);
 
 				match checked.try_extend(unchecked_eras_to_check.clone().into_iter()) {
-					Ok(_) =>
+					Ok(_) => {
 						if stashes.is_empty() {
 							Self::deposit_event(Event::<T>::BatchFinished { size: 0 });
 						} else {
@@ -613,7 +611,8 @@ pub mod pallet {
 							Self::deposit_event(Event::<T>::BatchChecked {
 								eras: unchecked_eras_to_check,
 							});
-						},
+						}
+					},
 					Err(_) => {
 						// don't put the head back in -- there is an internal error in the pallet.
 						Self::halt("checked is pruned via retain above")

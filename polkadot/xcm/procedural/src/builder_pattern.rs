@@ -261,7 +261,7 @@ fn convert_variant_to_method(
 	let method_name = syn::Ident::new(method_name_string, variant_name.span());
 	let docs = get_doc_comments(variant);
 	let method = match &variant.fields {
-		Fields::Unit =>
+		Fields::Unit => {
 			if let Some(return_type) = maybe_return_type {
 				quote! {
 					pub fn #method_name(self) -> #return_type {
@@ -280,7 +280,8 @@ fn convert_variant_to_method(
 						self
 					}
 				}
-			},
+			}
+		},
 		Fields::Unnamed(fields) => {
 			let arg_names: Vec<_> = fields
 				.unnamed

@@ -21,10 +21,13 @@ use futures::{stream, Stream, StreamExt};
 use sc_network::{
 	service::traits::{NotificationEvent, NotificationService},
 	utils::LruHashSet,
-	NetworkPeers, ObservedRole,
+	NetworkPeers,
 };
 use sc_network_statement::{
-	config::{MAX_KNOWN_STATEMENTS, MAX_PENDING_STATEMENTS},
+	config::{
+		DEFAULT_STATEMENTS_PER_SECOND, MAX_KNOWN_STATEMENTS, MAX_PENDING_STATEMENTS,
+		STATEMENTS_BURST_COEFFICIENT,
+	},
 	Peer, StatementHandler,
 };
 use sc_network_sync::{SyncEvent, SyncEventStream};
@@ -32,7 +35,12 @@ use sc_network_types::PeerId;
 use sc_statement_store::Store;
 use sp_core::Pair;
 use sp_statement_store::{Statement, StatementSource, StatementStore};
-use std::{collections::HashMap, num::NonZeroUsize, pin::Pin, sync::Arc};
+use std::{
+	collections::HashMap,
+	num::{NonZeroU32, NonZeroUsize},
+	pin::Pin,
+	sync::Arc,
+};
 use substrate_test_runtime_client::{sc_executor::WasmExecutor, DefaultTestClientBuilderExt};
 
 const STATEMENT_DATA_SIZE: usize = 256;
@@ -198,7 +206,15 @@ fn build_handler(
 	);
 	let client = Arc::new(client);
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
-	let statement_store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+	let statement_store = Store::new(
+		&path,
+		Default::default(),
+		client,
+		keystore,
+		None,
+		Box::new(sp_core::testing::TaskExecutor::new()),
+	)
+	.unwrap();
 	let statement_store = Arc::new(statement_store);
 
 	let (queue_sender, queue_receiver) = async_channel::bounded::<(
@@ -213,7 +229,10 @@ fn build_handler(
 		peer_id,
 		Peer::new_for_testing(
 			LruHashSet::new(NonZeroUsize::new(MAX_KNOWN_STATEMENTS).unwrap()),
-			ObservedRole::Full,
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * STATEMENTS_BURST_COEFFICIENT)
+				.expect("burst capacity is nonzero"),
 		),
 	);
 
@@ -244,6 +263,8 @@ fn build_handler(
 		peers,
 		statement_store,
 		queue_sender,
+		NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+			.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 	);
 	(handler, peer_id, temp_dir)
 }

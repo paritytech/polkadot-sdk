@@ -158,8 +158,9 @@ where
 		(None, Some(_)) => Ordering::Greater,
 		(Some(_), None) => Ordering::Less,
 		// For local disputes, prioritize those that occur at an earlier height.
-		(Some(a_height), Some(b_height)) =>
-			a_height.cmp(&b_height).then_with(|| a.candidate_hash.cmp(&b.candidate_hash)),
+		(Some(a_height), Some(b_height)) => {
+			a_height.cmp(&b_height).then_with(|| a.candidate_hash.cmp(&b.candidate_hash))
+		},
 		// Prioritize earlier remote disputes using session as rough proxy.
 		(None, None) => {
 			let session_ord = a.session.cmp(&b.session);
@@ -679,8 +680,9 @@ impl<BlockNumber: Clone> DisputeStateImporter<BlockNumber> {
 				// We allow backing statements to be imported after an
 				// explicit "for" vote, but not the other way around.
 				match (kind.is_backing(), self.backers.contains(&validator)) {
-					(true, true) | (false, false) =>
-						return Err(VoteImportError::DuplicateStatement),
+					(true, true) | (false, false) => {
+						return Err(VoteImportError::DuplicateStatement)
+					},
 					(false, true) => return Err(VoteImportError::MaliciousBacker),
 					(true, false) => {},
 				}
@@ -1019,11 +1021,7 @@ impl<T: Config> Pallet<T> {
 					set.session,
 					statement,
 					signature,
-					// This is here to prevent malicious nodes of generating
-					// `ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates` before that
-					// is enabled, via setting `max_approval_coalesce_count` in the parachain host
-					// config.
-					config.approval_voting_params.max_approval_coalesce_count > 1,
+					config.approval_voting_params.max_approval_coalesce_count,
 				) {
 					log::warn!("Failed to check dispute signature");
 
@@ -1271,33 +1269,41 @@ fn check_signature(
 	session: SessionIndex,
 	statement: &DisputeStatement,
 	validator_signature: &ValidatorSignature,
-	approval_multiple_candidates_enabled: bool,
+	max_approval_coalesce_count: u32,
 ) -> Result<(), ()> {
 	let payload = match statement {
-		DisputeStatement::Valid(ValidDisputeStatementKind::Explicit) =>
-			ExplicitDisputeStatement { valid: true, candidate_hash, session }.signing_payload(),
-		DisputeStatement::Valid(ValidDisputeStatementKind::BackingSeconded(inclusion_parent)) =>
+		DisputeStatement::Valid(ValidDisputeStatementKind::Explicit) => {
+			ExplicitDisputeStatement { valid: true, candidate_hash, session }.signing_payload()
+		},
+		DisputeStatement::Valid(ValidDisputeStatementKind::BackingSeconded(inclusion_parent)) => {
 			CompactStatement::Seconded(candidate_hash).signing_payload(&SigningContext {
 				session_index: session,
 				parent_hash: *inclusion_parent,
-			}),
-		DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(inclusion_parent)) =>
+			})
+		},
+		DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(inclusion_parent)) => {
 			CompactStatement::Valid(candidate_hash).signing_payload(&SigningContext {
 				session_index: session,
 				parent_hash: *inclusion_parent,
-			}),
-		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking) =>
-			ApprovalVote(candidate_hash).signing_payload(session),
+			})
+		},
+		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking) => {
+			ApprovalVote(candidate_hash).signing_payload(session)
+		},
 		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
 			candidates,
-		)) =>
-			if approval_multiple_candidates_enabled && candidates.contains(&candidate_hash) {
+		)) => {
+			if candidates.len() <= max_approval_coalesce_count as usize &&
+				candidates.contains(&candidate_hash)
+			{
 				ApprovalVoteMultipleCandidates(candidates).signing_payload(session)
 			} else {
 				return Err(());
-			},
-		DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) =>
-			ExplicitDisputeStatement { valid: false, candidate_hash, session }.signing_payload(),
+			}
+		},
+		DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) => {
+			ExplicitDisputeStatement { valid: false, candidate_hash, session }.signing_payload()
+		},
 	};
 
 	let start = get_current_time();

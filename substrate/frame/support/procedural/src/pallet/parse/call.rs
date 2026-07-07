@@ -363,9 +363,10 @@ impl CallDef {
 					}
 				}
 
-				if weight_of_authorize.is_some() && authorize.is_none() {
+				if let (Some(weight_of_authorize_expr), None) = (&weight_of_authorize, &authorize) {
 					let msg = "Invalid pallet::call, weight_of_authorize attribute must be used with authorize attribute";
-					return Err(syn::Error::new(weight_of_authorize.unwrap().span(), msg));
+
+					return Err(syn::Error::new(weight_of_authorize_expr.span(), msg));
 				}
 
 				let authorize = if let Some(expr) = authorize {
@@ -402,11 +403,12 @@ impl CallDef {
 
 				let final_index = match call_index {
 					Some(i) => i,
-					None =>
+					None => {
 						last_index.map_or(Some(0), |idx| idx.checked_add(1)).ok_or_else(|| {
 							let msg = "Call index doesn't fit into u8, index is 256";
 							syn::Error::new(method.sig.span(), msg)
-						})?,
+						})?
+					},
 				};
 				last_index = Some(final_index);
 

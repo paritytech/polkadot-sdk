@@ -414,11 +414,12 @@ fn parse_call_def(item_fn: &ItemFn) -> Result<(usize, BenchmarkCallDef)> {
 	Ok(match &call_defs[..] {
 		[(i, call_def)] => (*i, call_def.clone()), // = 1
 		[] => return missing_call(item_fn),
-		_ =>
+		_ => {
 			return Err(Error::new(
 				call_defs[1].1.attr_span(),
 				"Only one #[extrinsic_call] or #[block] attribute is allowed per benchmark.",
-			)),
+			))
+		},
 	})
 }
 
@@ -432,7 +433,9 @@ impl BenchmarkDef {
 		let (verify_stmts, last_stmt) = match item_fn.sig.output {
 			ReturnType::Default =>
 			// no return type, last_stmt should be None
-				(Vec::from(&item_fn.block.stmts[(i + 1)..item_fn.block.stmts.len()]), None),
+			{
+				(Vec::from(&item_fn.block.stmts[(i + 1)..item_fn.block.stmts.len()]), None)
+			},
 			ReturnType::Type(_, _) => {
 				// defined return type, last_stmt should be Result<(), BenchmarkError>
 				// compatible and should not be included in verify_stmts
@@ -481,12 +484,13 @@ pub fn benchmarks(
 	let module: ItemMod = syn::parse(tokens)?;
 	let mod_span = module.span();
 	let where_clause = match syn::parse::<Nothing>(attrs.clone()) {
-		Ok(_) =>
+		Ok(_) => {
 			if instance {
 				quote!(T: Config<I>, I: 'static)
 			} else {
 				quote!(T: Config)
-			},
+			}
+		},
 		Err(_) => {
 			let mut where_clause_predicates = syn::parse::<WhereClause>(attrs)?.predicates;
 
@@ -779,9 +783,17 @@ pub fn benchmarks(
 						#krate::benchmarking::commit_db();
 
 						// Access all whitelisted keys to get them into the proof recorder since the
-						// recorder does now have a whitelist.
-						for key in &whitelist {
-							#krate::__private::storage::unhashed::get_raw(&key.key);
+						// recorder does not have a whitelist.
+						// NOTE: We read from the global whitelist because the benchmark setup code
+						// may have added additional keys via add_to_whitelist() or add_to_whitelist_child().
+						let current_whitelist = #krate::benchmarking::get_whitelist();
+						for key in &current_whitelist {
+							if let Some(child_trie_key) = &key.child_trie_key {
+								let child_info = #krate::__private::storage::ChildInfo::new_default(child_trie_key);
+								#krate::__private::storage::child::get_raw(&child_info, &key.key);
+							} else {
+								#krate::__private::storage::unhashed::get_raw(&key.key);
+							}
 						}
 
 						// Reset the read/write counter so we don't count operations in the setup process.
@@ -1026,8 +1038,9 @@ fn expand_benchmark(
 				},
 			)
 		},
-		BenchmarkCallDef::Block { block, attr_span: _ } =>
-			(quote!(), quote!(#block), quote!(#block)),
+		BenchmarkCallDef::Block { block, attr_span: _ } => {
+			(quote!(), quote!(#block), quote!(#block))
+		},
 	};
 
 	let vis = benchmark_def.fn_vis;

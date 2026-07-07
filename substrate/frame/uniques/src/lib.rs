@@ -1133,8 +1133,9 @@ pub mod pallet {
 			}
 			let maybe_is_frozen = match maybe_item {
 				None => CollectionMetadataOf::<T, I>::get(collection.clone()).map(|v| v.is_frozen),
-				Some(item) =>
-					ItemMetadataOf::<T, I>::get(collection.clone(), item).map(|v| v.is_frozen),
+				Some(item) => {
+					ItemMetadataOf::<T, I>::get(collection.clone(), item).map(|v| v.is_frozen)
+				},
 			};
 			ensure!(!maybe_is_frozen.unwrap_or(false), Error::<T, I>::Frozen);
 
@@ -1196,8 +1197,9 @@ pub mod pallet {
 			}
 			let maybe_is_frozen = match maybe_item {
 				None => CollectionMetadataOf::<T, I>::get(collection.clone()).map(|v| v.is_frozen),
-				Some(item) =>
-					ItemMetadataOf::<T, I>::get(collection.clone(), item).map(|v| v.is_frozen),
+				Some(item) => {
+					ItemMetadataOf::<T, I>::get(collection.clone(), item).map(|v| v.is_frozen)
+				},
 			};
 			ensure!(!maybe_is_frozen.unwrap_or(false), Error::<T, I>::Frozen);
 

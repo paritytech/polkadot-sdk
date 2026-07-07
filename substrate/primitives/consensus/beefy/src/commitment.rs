@@ -349,11 +349,6 @@ mod tests {
 	type TestEcdsaSignedCommitment = SignedCommitment<u128, EcdsaSignature>;
 	type TestVersionedFinalityProof = VersionedFinalityProof<u128, EcdsaSignature>;
 
-	// Types for commitment supporting aggregatable bls signature
-	#[cfg(feature = "bls-experimental")]
-	#[derive(Clone, Debug, PartialEq, codec::Encode, codec::Decode)]
-	struct BlsAggregatableSignature(BlsSignature);
-
 	#[cfg(feature = "bls-experimental")]
 	#[derive(Clone, Debug, PartialEq, codec::Encode, codec::Decode)]
 	struct EcdsaBlsSignaturePair(EcdsaSignature, BlsSignature);

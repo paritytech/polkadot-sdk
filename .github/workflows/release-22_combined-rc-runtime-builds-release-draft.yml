@@ -56,25 +56,29 @@ on:
 jobs:
   check-synchronization:
     uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
+    with:
+      concurrency_suffix: combined-builds
     secrets:
       fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
 
   validate-inputs:
     needs: [check-synchronization]
-    if: needs.check-synchronization.outputs.checks_passed == 'true'
+    if: ${{ needs.check-synchronization.outputs.checks_passed == 'true' }}
     runs-on: ubuntu-latest
     outputs:
       release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Validate inputs
         id: validate_inputs
+        env:
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           . ./.github/scripts/common/lib.sh
 
-          RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
+          RELEASE_TAG=$(validate_stable_tag "$INPUT_RELEASE_TAG")
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
   build-runtimes-flow:
@@ -85,6 +89,7 @@ jobs:
       chain: ${{ inputs.chain }}
       runtime_dir: ${{ inputs.runtime_dir }}
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+
     secrets: inherit
     permissions:
       id-token: write
@@ -97,6 +102,7 @@ jobs:
     with:
       binary: ${{ inputs.binary }}
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+
     secrets: inherit
     permissions:
       id-token: write
@@ -113,6 +119,7 @@ jobs:
       runtimes: '${{ needs.build-runtimes-flow.outputs.published_runtimes }}'
       no_runtimes: ${{ inputs.no_runtimes }}
       crates_only: false
+
     secrets: inherit
 
   trigger-release-draft-without-runtimes:
@@ -124,4 +131,5 @@ jobs:
       build_run_id: ${{ github.run_id }}
       no_runtimes: ${{ inputs.no_runtimes }}
       crates_only: false
+
     secrets: inherit

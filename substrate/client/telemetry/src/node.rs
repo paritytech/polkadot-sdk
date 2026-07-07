@@ -229,7 +229,7 @@ where
 					},
 					Poll::Pending => break NodeSocket::Dialing(s),
 					Poll::Ready(Err(err)) => {
-						log::warn!(target: "telemetry", "❌ Error while dialing {}: {:?}", self.addr, err);
+						log::debug!(target: "telemetry", "❌ Error while dialing {}: {:?}", self.addr, err);
 						socket = NodeSocket::wait_reconnect();
 					},
 				},

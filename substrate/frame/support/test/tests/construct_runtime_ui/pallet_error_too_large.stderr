@@ -1,4 +1,4 @@
-error[E0080]: evaluation of constant value failed
+error[E0080]: evaluation panicked: The maximum encoded size of the error type in the `Pallet` pallet exceeds `MAX_MODULE_ERROR_ENCODED_SIZE`
    --> tests/construct_runtime_ui/pallet_error_too_large.rs:115:1
     |
 115 | / construct_runtime! {
@@ -7,6 +7,6 @@ error[E0080]: evaluation of constant value failed
 118 | |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
 ...   |
 121 | | }
-    | |_^ evaluation panicked: The maximum encoded size of the error type in the `Pallet` pallet exceeds `MAX_MODULE_ERROR_ENCODED_SIZE`
+    | |_^ evaluation of `_` failed here
     |
     = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)

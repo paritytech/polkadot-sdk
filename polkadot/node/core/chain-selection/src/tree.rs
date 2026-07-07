@@ -224,10 +224,11 @@ fn propagate_viability_update(
 				// finalized block is implicitly the viable leaf.
 				continue;
 			},
-			Some(entry) =>
+			Some(entry) => {
 				if entry.children.len() == pivot_count {
 					viable_leaves.insert(entry.leaf_entry());
-				},
+				}
+			},
 		}
 	}
 

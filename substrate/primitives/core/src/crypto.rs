@@ -1288,14 +1288,16 @@ mod tests {
 						password,
 						path: path.into_iter().chain(path_iter).collect(),
 					},
-					TestPair::GeneratedFromPhrase { phrase, password } =>
-						TestPair::Standard { phrase, password, path: path_iter.collect() },
-					x =>
+					TestPair::GeneratedFromPhrase { phrase, password } => {
+						TestPair::Standard { phrase, password, path: path_iter.collect() }
+					},
+					x => {
 						if path_iter.count() == 0 {
 							x
 						} else {
 							return Err(DeriveError::SoftKeyInPath);
-						},
+						}
+					},
 				},
 				None,
 			))

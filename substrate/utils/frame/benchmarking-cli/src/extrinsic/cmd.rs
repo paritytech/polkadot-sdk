@@ -114,8 +114,9 @@ impl ExtrinsicCmd {
 		let extrinsic = self.params.extrinsic.clone().unwrap_or_default();
 		let ext_builder = match ext_factory.try_get(&pallet, &extrinsic) {
 			Some(ext_builder) => ext_builder,
-			None =>
-				return Err("Unknown pallet or extrinsic. Use --list for a complete list.".into()),
+			None => {
+				return Err("Unknown pallet or extrinsic. Use --list for a complete list.".into())
+			},
 		};
 
 		let bench =

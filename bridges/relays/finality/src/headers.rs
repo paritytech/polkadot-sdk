@@ -128,8 +128,9 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 	) -> Option<JustifiedHeader<P>> {
 		let (unjustified_headers, maybe_justified_header) = match self {
 			JustifiedHeaderSelector::Mandatory(justified_header) => return Some(justified_header),
-			JustifiedHeaderSelector::Regular(unjustified_headers, justified_header) =>
-				(unjustified_headers, Some(justified_header)),
+			JustifiedHeaderSelector::Regular(unjustified_headers, justified_header) => {
+				(unjustified_headers, Some(justified_header))
+			},
 			JustifiedHeaderSelector::None(unjustified_headers) => (unjustified_headers, None),
 		};
 
@@ -194,14 +195,15 @@ fn need_to_relay<P: FinalitySyncPipeline>(
 	match headers_to_relay {
 		HeadersToRelay::All => true,
 		HeadersToRelay::Mandatory => header.is_mandatory(),
-		HeadersToRelay::Free =>
+		HeadersToRelay::Free => {
 			header.is_mandatory() ||
 				free_headers_interval
 					.map(|free_headers_interval| {
 						header.number().saturating_sub(info.best_number_at_target) >=
 							free_headers_interval
 					})
-					.unwrap_or(false),
+					.unwrap_or(false)
+		},
 	}
 }
 

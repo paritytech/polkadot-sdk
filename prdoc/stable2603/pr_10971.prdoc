@@ -1,0 +1,27 @@
+title: "Implement IERC20Metadata for pallet-assets precompiles"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Implements the missing ERC20 metadata functions (`name`, `symbol`, `decimals`) for the
+      pallet-assets precompile to provide full ERC20 compatibility. These functions are essential
+      for proper EVM wallet and tooling integration.
+
+      The precompile implementation reads metadata from pallet-assets storage and returns properly
+      formatted values with appropriate gas charging using dedicated weight functions. All functions
+      include proper error handling for missing metadata and invalid UTF-8 encoding.
+
+      Benchmarks have been added to measure the weight of metadata reads, and corresponding weight
+      functions have been implemented in the WeightInfo trait.
+
+      The IERC20.sol interface file has been reorganized to clearly separate and document methods
+      from the base IERC20 interface and the IERC20Metadata extension, with links to the original
+      OpenZeppelin contracts for better maintainability.
+
+crates:
+  - name: ethereum-standards
+    bump: minor
+  - name: pallet-assets-precompiles
+    bump: minor
+  - name: pallet-assets
+    bump: minor

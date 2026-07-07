@@ -221,8 +221,9 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 								);
 
 								let err2 = match found_attributes.get(&API_VERSION_ATTRIBUTE) {
-									Some(attr) =>
-										Error::new(attr.span(), "Trait version is set here."),
+									Some(attr) => {
+										Error::new(attr.span(), "Trait version is set here.")
+									},
 									None => Error::new(
 										decl_span,
 										"Trait version is not set so it is implicitly equal to 1.",
@@ -676,12 +677,13 @@ impl<'ast> Visit<'ast> for CheckTraitDecl {
 
 	fn visit_generic_param(&mut self, input: &'ast GenericParam) {
 		match input {
-			GenericParam::Type(ty) if ty.ident == BLOCK_GENERIC_IDENT =>
+			GenericParam::Type(ty) if ty.ident == BLOCK_GENERIC_IDENT => {
 				self.errors.push(Error::new(
 					input.span(),
 					"`Block: BlockT` generic parameter will be added automatically by the \
 						`decl_runtime_apis!` macro!",
-				)),
+				))
+			},
 			_ => {},
 		}
 

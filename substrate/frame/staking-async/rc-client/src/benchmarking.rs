@@ -60,17 +60,12 @@ pub trait Config: crate::Config {
 #[benchmarks]
 mod benchmarks {
 	use super::*;
-	use frame_support::BoundedVec;
 	use xcm_executor::traits::FeeReason;
 
 	#[benchmark]
 	fn set_keys() -> Result<(), BenchmarkError> {
 		let stash = T::setup_validator();
 		let (keys, proof) = T::generate_session_keys_and_proof(stash.clone());
-		let keys: BoundedVec<u8, <T as crate::Config>::MaxSessionKeysLength> =
-			keys.try_into().expect("keys should fit in bounded vec");
-		let proof: BoundedVec<u8, <T as crate::Config>::MaxSessionKeysProofLength> =
-			proof.try_into().expect("proof should fit in bounded vec");
 
 		// Ensure XCM delivery will succeed by setting up required fees/accounts.
 		let stash_location = T::account_to_location(stash.clone());
@@ -89,14 +84,20 @@ mod benchmarks {
 
 	#[benchmark]
 	fn purge_keys() -> Result<(), BenchmarkError> {
-		// purge_keys can be called by any account - it just forwards the request to RC.
-		// RC will handle whether keys exist or not. We only need an account with
-		// sufficient balance for XCM delivery fees.
 		let caller = T::setup_validator();
+		let (keys, proof) = T::generate_session_keys_and_proof(caller.clone());
 
-		// Ensure XCM delivery will succeed.
+		// Set keys first so purge_keys hits the worst-case path (deposit release).
 		let caller_location = T::account_to_location(caller.clone());
 		let dest = T::relay_chain_location();
+		T::DeliveryHelper::ensure_successful_delivery(
+			&caller_location,
+			&dest,
+			FeeReason::ChargeFees,
+		);
+		crate::Pallet::<T>::set_keys(RawOrigin::Signed(caller.clone()).into(), keys, proof, None)?;
+
+		// Ensure XCM delivery will succeed for purge_keys too.
 		T::DeliveryHelper::ensure_successful_delivery(
 			&caller_location,
 			&dest,

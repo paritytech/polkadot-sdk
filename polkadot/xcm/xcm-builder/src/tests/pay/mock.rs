@@ -22,7 +22,11 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSigned};
 use polkadot_primitives::{AccountIndex, BlakeTwo256, Signature};
-use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
+use sp_runtime::{
+	generic,
+	traits::{MaybeEquivalence, TryConvertInto},
+	AccountId32, BuildStorage,
+};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 use xcm_simulator::ParaId;
 
@@ -161,8 +165,9 @@ impl MaybeEquivalence<Location, AssetIdForAssets>
 		match value.unpack() {
 			(0, []) => Some(0 as AssetIdForAssets),
 			(1, []) => Some(1 as AssetIdForAssets),
-			(0, [PalletInstance(1), GeneralIndex(index)]) if ![0, 1].contains(index) =>
-				Some(*index as AssetIdForAssets),
+			(0, [PalletInstance(1), GeneralIndex(index)]) if ![0, 1].contains(index) => {
+				Some(*index as AssetIdForAssets)
+			},
 			_ => None,
 		}
 	}
@@ -171,8 +176,9 @@ impl MaybeEquivalence<Location, AssetIdForAssets>
 		match value {
 			0u128 => Some(Location { parents: 1, interior: Here }),
 			1u128 => Some(Location { parents: 0, interior: Here }),
-			para_id @ 1..=1000 =>
-				Some(Location { parents: 1, interior: [Parachain(*para_id as u32)].into() }),
+			para_id @ 1..=1000 => {
+				Some(Location { parents: 1, interior: [Parachain(*para_id as u32)].into() })
+			},
 			_ => None,
 		}
 	}
@@ -187,7 +193,7 @@ pub type LocalAssetsTransactor = FungiblesAdapter<
 		AssetIdForAssets,
 		Balance,
 		FromLocationToAsset<Location, AssetIdForAssets>,
-		JustTry,
+		TryConvertInto,
 	>,
 	SovereignAccountOf,
 	AccountId,
@@ -213,8 +219,9 @@ impl WeightTrader for DummyWeightTrader {
 		_weight: Weight,
 		_payment: xcm_executor::AssetsInHolding,
 		_context: &XcmContext,
-	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
-		Ok(xcm_executor::AssetsInHolding::default())
+	) -> Result<xcm_executor::AssetsInHolding, (xcm_executor::AssetsInHolding, XcmError)> {
+		// Consume all payment, no refund
+		Ok(xcm_executor::AssetsInHolding::new())
 	}
 }
 
@@ -235,7 +242,6 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTrap = XcmPallet;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type AssetClaims = XcmPallet;
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = ();
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
@@ -260,8 +266,9 @@ pub struct TreasuryToAccount;
 impl ConvertLocation<AccountId> for TreasuryToAccount {
 	fn convert_location(location: &Location) -> Option<AccountId> {
 		match location.unpack() {
-			(1, [Parachain(42), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) =>
-				Some(TreasuryAccountId::get()), // Hardcoded test treasury account id
+			(1, [Parachain(42), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) => {
+				Some(TreasuryAccountId::get())
+			}, // Hardcoded test treasury account id
 			_ => None,
 		}
 	}

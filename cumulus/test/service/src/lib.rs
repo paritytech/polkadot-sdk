@@ -72,7 +72,7 @@ use sc_network::{
 	config::{FullNetworkConfiguration, TransportConfig},
 	multiaddr,
 	service::traits::NetworkService,
-	NetworkBackend, NetworkBlock, NetworkStateInfo,
+	NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId,
 };
 use sc_service::{
 	config::{
@@ -144,7 +144,7 @@ impl RecoveryHandle for FailingRecoveryHandle {
 
 		// For every 3rd block we immediately signal unavailability to trigger
 		// a retry. The same candidate is never failed multiple times to ensure progress.
-		if self.counter % 3 == 0 && self.failed_hashes.insert(candidate_hash) {
+		if self.counter.is_multiple_of(3) && self.failed_hashes.insert(candidate_hash) {
 			tracing::info!(target: LOG_TARGET, ?candidate_hash, "Failing pov recovery.");
 
 			let AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, back_sender) =
@@ -196,10 +196,11 @@ pub fn new_partial(
 			None,
 			executor,
 			enable_import_proof_record,
+			Default::default(),
 		)?;
 	let client = Arc::new(client);
 
-	let (block_import, slot_based_handle) =
+	let (block_import, block_import_handle) =
 		SlotBasedBlockImport::new(client.clone(), client.clone());
 	let block_import = ParachainBlockImport::new(block_import, backend.clone());
 
@@ -244,7 +245,7 @@ pub fn new_partial(
 		task_manager,
 		transaction_pool,
 		select_chain: (),
-		other: (block_import, slot_based_handle),
+		other: (block_import, block_import_handle),
 	};
 
 	Ok(params)
@@ -256,7 +257,7 @@ async fn build_relay_chain_interface(
 	collator_key: Option<CollatorPair>,
 	collator_options: CollatorOptions,
 	task_manager: &mut TaskManager,
-) -> RelayChainResult<Arc<dyn RelayChainInterface + 'static>> {
+) -> RelayChainResult<(Arc<dyn RelayChainInterface + 'static>, PeerId)> {
 	let relay_chain_node = match collator_options.relay_chain_mode {
 		cumulus_client_cli::RelayChainMode::Embedded => polkadot_test_service::new_full(
 			relay_chain_config,
@@ -270,7 +271,7 @@ async fn build_relay_chain_interface(
 			Some("Relaychain"),
 		)
 		.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?,
-		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
+		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) => {
 			return build_minimal_relay_chain_node_with_rpc(
 				relay_chain_config,
 				parachain_prometheus_registry,
@@ -278,19 +279,25 @@ async fn build_relay_chain_interface(
 				rpc_target_urls,
 			)
 			.await
-			.map(|r| r.0),
+			.map(|r| (r.0, r.2.local_peer_id()))
+		},
 	};
+
+	let relay_chain_peer_id = relay_chain_node.network.local_peer_id();
 
 	task_manager.add_child(relay_chain_node.task_manager);
 	tracing::info!("Using inprocess node.");
-	Ok(Arc::new(RelayChainInProcessInterface::new(
-		relay_chain_node.client.clone(),
-		relay_chain_node.backend.clone(),
-		relay_chain_node.sync_service.clone(),
-		relay_chain_node.overseer_handle.ok_or(RelayChainError::GenericError(
-			"Overseer should be running in full node.".to_string(),
-		))?,
-	)))
+	Ok((
+		Arc::new(RelayChainInProcessInterface::new(
+			relay_chain_node.client.clone(),
+			relay_chain_node.backend.clone(),
+			relay_chain_node.sync_service.clone(),
+			relay_chain_node.overseer_handle.ok_or(RelayChainError::GenericError(
+				"Overseer should be running in full node.".to_string(),
+			))?,
+		)),
+		relay_chain_peer_id,
+	))
 }
 
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
@@ -307,6 +314,7 @@ pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	collator_options: CollatorOptions,
 	proof_recording_during_import: bool,
 	use_slot_based_collator: bool,
+	collator_reserved_slots: usize,
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<Client>,
@@ -328,9 +336,8 @@ where
 	let client = params.client.clone();
 	let backend = params.backend.clone();
 
-	let block_import = params.other.0;
-	let slot_based_handle = params.other.1;
-	let relay_chain_interface = build_relay_chain_interface(
+	let (block_import, block_import_handle) = params.other;
+	let (relay_chain_interface, relay_chain_peer_id) = build_relay_chain_interface(
 		relay_chain_config,
 		parachain_config.prometheus_registry(),
 		collator_key.clone(),
@@ -373,6 +380,29 @@ where
 		.await?;
 
 	let keystore = params.keystore_container.keystore();
+
+	if collator_key.is_some() && collator_reserved_slots > 0 {
+		cumulus_client_collator_discovery::start_collator_discovery(
+			cumulus_client_collator_discovery::StartCollatorDiscoveryParams {
+				max_reserved: collator_reserved_slots,
+				client: client.clone(),
+				authority_discovery: client.clone(),
+				network: network.clone(),
+				sync_service: sync_service.clone(),
+				network_event_stream: network.event_stream("para-authority-discovery"),
+				keystore: keystore.clone(),
+				genesis_hash: client.chain_info().genesis_hash,
+				fork_id: parachain_config.chain_spec.fork_id().map(ToString::to_string),
+				publish_non_global_ips: parachain_config.network.allow_non_globals_in_dht,
+				public_addresses: parachain_config.network.public_addresses.clone(),
+				persisted_cache_directory: parachain_config.network.net_config_path.clone(),
+				prometheus_registry: prometheus_registry.clone(),
+				spawn_handle: task_manager.spawn_handle(),
+			},
+		)
+		.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+	}
+
 	let rpc_builder = {
 		let client = client.clone();
 		Box::new(move |_| rpc_ext_builder(client.clone()))
@@ -432,7 +462,7 @@ where
 		prometheus_registry: None,
 	})?;
 
-	let collator_peer_id = network.local_peer_id();
+	let collator_peer_id = relay_chain_peer_id;
 	if let Some(collator_key) = collator_key {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
@@ -468,10 +498,9 @@ where
 				para_id,
 				proposer,
 				collator_service,
-				authoring_duration: Duration::from_millis(2000),
 				reinitialize: false,
 				slot_offset: Duration::from_secs(1),
-				block_import_handle: slot_based_handle,
+				block_import_handle,
 				spawner: task_manager.spawn_essential_handle(),
 				export_pov: None,
 				max_pov_percentage: None,
@@ -714,7 +743,7 @@ impl TestNodeBuilder {
 
 		let (task_manager, client, network, rpc_handlers, transaction_pool, backend) =
 			match relay_chain_config.network.network_backend {
-				sc_network::config::NetworkBackendType::Libp2p =>
+				sc_network::config::NetworkBackendType::Libp2p => {
 					start_node_impl::<_, sc_network::NetworkWorker<_, _>>(
 						parachain_config,
 						self.collator_key,
@@ -725,10 +754,12 @@ impl TestNodeBuilder {
 						collator_options,
 						self.record_proof_during_import,
 						false,
+						0,
 					)
 					.await
-					.expect("could not create Cumulus test service"),
-				sc_network::config::NetworkBackendType::Litep2p =>
+					.expect("could not create Cumulus test service")
+				},
+				sc_network::config::NetworkBackendType::Litep2p => {
 					start_node_impl::<_, sc_network::Litep2pNetworkBackend>(
 						parachain_config,
 						self.collator_key,
@@ -739,9 +770,11 @@ impl TestNodeBuilder {
 						collator_options,
 						self.record_proof_during_import,
 						false,
+						0,
 					)
 					.await
-					.expect("could not create Cumulus test service"),
+					.expect("could not create Cumulus test service")
+				},
 			};
 		let peer_id = network.local_peer_id();
 		let multiaddr = polkadot_test_service::get_listen_address(network.clone()).await;
@@ -921,7 +954,7 @@ pub fn construct_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let tx_ext: runtime::TxExtension = (
+	let tx_ext: runtime::TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim::from((
 		frame_system::AuthorizeCall::<runtime::Runtime>::new(),
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
@@ -933,12 +966,13 @@ pub fn construct_extrinsic(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
-	)
-		.into();
+		runtime::TestTransactionExtension::<runtime::Runtime>::default(),
+	))
+	.into();
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
-		((), (), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
+		((), (), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| caller.sign(e));
 	runtime::UncheckedExtrinsic::new_signed(

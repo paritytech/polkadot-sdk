@@ -758,8 +758,9 @@ pub mod pallet {
 
 				let lane_id = match maybe_lane_id {
 					Some(lane_id) => *lane_id,
-					None =>
-						locations.calculate_lane_id(xcm::latest::VERSION).expect("Valid locations"),
+					None => {
+						locations.calculate_lane_id(xcm::latest::VERSION).expect("Valid locations")
+					},
 				};
 
 				Pallet::<T, I>::do_open_bridge(locations, lane_id, true)

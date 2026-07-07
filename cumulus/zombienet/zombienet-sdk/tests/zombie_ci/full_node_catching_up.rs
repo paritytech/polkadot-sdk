@@ -32,7 +32,7 @@ async fn full_node_catching_up() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = relay_alice.wait_client().await?;
 
 	log::info!("Ensuring parachain making progress");
-	assert_para_throughput(&relay_client, 20, [(ParaId::from(PARA_ID), 2..40)]).await?;
+	assert_para_throughput(&relay_client, 20, [(ParaId::from(PARA_ID), 2..40)], []).await?;
 
 	for (name, timeout_secs) in [("dave", 250u64), ("eve", 250u64)] {
 		log::info!("Ensuring {name} reports expected block height");
@@ -79,8 +79,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_node(|node| node.with_name("alice"))
-				.with_node(|node| node.with_name("bob"))
+				.with_validator(|node| node.with_name("alice"))
+				.with_validator(|node| node.with_name("bob"))
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)

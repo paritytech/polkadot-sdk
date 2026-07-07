@@ -415,8 +415,9 @@ fn canonicalize_works() {
 						.is_none());
 					continue;
 				},
-				Some(i) =>
-					(load_block_entry(store.as_ref(), &TEST_CONFIG, &hash).unwrap().unwrap(), i),
+				Some(i) => {
+					(load_block_entry(store.as_ref(), &TEST_CONFIG, &hash).unwrap().unwrap(), i)
+				},
 			};
 
 			assert_eq!(entry.candidates.len(), with_candidates.len());

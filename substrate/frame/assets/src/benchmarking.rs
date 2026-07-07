@@ -641,5 +641,23 @@ benchmarks_instance_pallet! {
 		assert_eq!(Reserves::<T, I>::get(id)[0], reserve);
 	}
 
+	get_metadata {
+		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
+		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		let name_bytes = vec![0u8; T::StringLimit::get() as usize];
+		let symbol_bytes = vec![0u8; T::StringLimit::get() as usize];
+		let origin = SystemOrigin::Signed(caller).into();
+		Assets::<T, I>::set_metadata(origin, asset_id.clone(), name_bytes.clone(), symbol_bytes.clone(), 12)?;
+	}: {
+		let _ = Pallet::<T, I>::get_metadata(asset_id.clone().into());
+	} verify {
+		let metadata = Pallet::<T, I>::get_metadata(asset_id.into());
+		assert!(metadata.is_some());
+		let metadata = metadata.unwrap();
+		assert_eq!(metadata.name.to_vec(), name_bytes);
+		assert_eq!(metadata.symbol.to_vec(), symbol_bytes);
+		assert_eq!(metadata.decimals, 12);
+	}
+
 	impl_benchmark_test_suite!(Assets, crate::mock::new_test_ext(), crate::mock::Test)
 }

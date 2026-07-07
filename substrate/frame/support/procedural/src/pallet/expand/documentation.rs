@@ -50,10 +50,12 @@ fn parse_doc_value(attr: &Attribute) -> syn::Result<Option<DocMetaValue>> {
 
 	match &meta.value {
 		syn::Expr::Lit(lit) => Ok(Some(DocMetaValue::Lit(lit.lit.clone()))),
-		syn::Expr::Macro(mac) if mac.mac.path.is_ident("include_str") =>
-			Ok(Some(DocMetaValue::Path(mac.mac.parse_body()?))),
-		_ =>
-			Err(syn::Error::new(attr.span(), "Expected `= \"docs\"` or `= include_str!(\"PATH\")`")),
+		syn::Expr::Macro(mac) if mac.mac.path.is_ident("include_str") => {
+			Ok(Some(DocMetaValue::Path(mac.mac.parse_body()?)))
+		},
+		_ => {
+			Err(syn::Error::new(attr.span(), "Expected `= \"docs\"` or `= include_str!(\"PATH\")`"))
+		},
 	}
 }
 

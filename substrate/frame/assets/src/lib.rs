@@ -682,6 +682,14 @@ pub mod pallet {
 		ReservesUpdated { asset_id: T::AssetId, reserves: Vec<T::ReserveData> },
 		/// Reserve information was removed for `asset_id`.
 		ReservesRemoved { asset_id: T::AssetId },
+		/// Some assets were issued as Credit (no owner yet).
+		IssuedCredit { asset_id: T::AssetId, amount: T::Balance },
+		/// Some assets Credit was destroyed.
+		BurnedCredit { asset_id: T::AssetId, amount: T::Balance },
+		/// Some assets were burned and a Debt was created.
+		IssuedDebt { asset_id: T::AssetId, amount: T::Balance },
+		/// Some assets Debt was destroyed (and assets issued).
+		BurnedDebt { asset_id: T::AssetId, amount: T::Balance },
 	}
 
 	#[pallet::error]
@@ -737,6 +745,8 @@ pub mod pallet {
 		ContainsHolds,
 		/// Tried setting too many reserves.
 		TooManyReserves,
+		/// The asset deposit could not be fully moved due to a lock or freeze on the owner.
+		IncompleteDepositTransfer,
 	}
 
 	#[pallet::hooks]
@@ -1227,6 +1237,10 @@ pub mod pallet {
 		///
 		/// Origin must be Signed and the sender should be the Owner of the asset `id`.
 		///
+		/// The asset (and metadata) deposit is moved from the current to the new owner. Fails
+		/// with [`Error::IncompleteDepositTransfer`] if a lock or freeze on the current owner
+		/// blocks the full transfer; clear it and retry.
+		///
 		/// - `id`: The identifier of the asset.
 		/// - `owner`: The new Owner of this asset.
 		///
@@ -1254,8 +1268,11 @@ pub mod pallet {
 				let metadata_deposit = Metadata::<T, I>::get(&id).deposit;
 				let deposit = details.deposit + metadata_deposit;
 
-				// Move the deposit to the new owner.
-				T::Currency::repatriate_reserved(&details.owner, &owner, deposit, Reserved)?;
+				// `repatriate_reserved` is best-effort: reject any partial move so the recorded
+				// deposit stays in sync with what is actually reserved on the owner.
+				let remaining =
+					T::Currency::repatriate_reserved(&details.owner, &owner, deposit, Reserved)?;
+				ensure!(remaining.is_zero(), Error::<T, I>::IncompleteDepositTransfer);
 
 				details.owner = owner.clone();
 
@@ -1558,18 +1575,7 @@ pub mod pallet {
 			let owner = ensure_signed(origin)?;
 			let delegate = T::Lookup::lookup(delegate)?;
 			let id: T::AssetId = id.into();
-			let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			ensure!(d.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
-
-			let approval = Approvals::<T, I>::take((id.clone(), &owner, &delegate))
-				.ok_or(Error::<T, I>::Unknown)?;
-			T::Currency::unreserve(&owner, approval.deposit);
-
-			d.approvals.saturating_dec();
-			Asset::<T, I>::insert(id.clone(), d);
-
-			Self::deposit_event(Event::ApprovalCancelled { asset_id: id, owner, delegate });
-			Ok(())
+			Self::do_cancel_approval(&id, &owner, &delegate)
 		}
 
 		/// Cancel all of some asset approved for delegated transfer by a third-party account.
@@ -1593,8 +1599,7 @@ pub mod pallet {
 			delegate: AccountIdLookupOf<T>,
 		) -> DispatchResult {
 			let id: T::AssetId = id.into();
-			let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-			ensure!(d.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+			let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 			T::ForceOrigin::try_origin(origin)
 				.map(|_| ())
 				.or_else(|origin| -> DispatchResult {
@@ -1605,15 +1610,7 @@ pub mod pallet {
 
 			let owner = T::Lookup::lookup(owner)?;
 			let delegate = T::Lookup::lookup(delegate)?;
-
-			let approval = Approvals::<T, I>::take((id.clone(), &owner, &delegate))
-				.ok_or(Error::<T, I>::Unknown)?;
-			T::Currency::unreserve(&owner, approval.deposit);
-			d.approvals.saturating_dec();
-			Asset::<T, I>::insert(id.clone(), d);
-
-			Self::deposit_event(Event::ApprovalCancelled { asset_id: id, owner, delegate });
-			Ok(())
+			Self::do_cancel_approval(&id, &owner, &delegate)
 		}
 
 		/// Transfer some asset balance from a previously delegated account to some third-party
@@ -2005,23 +2002,36 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					calculated_sufficients += 1;
 				}
 
-				if account.balance < details.min_balance {
-					ensure!(
-						matches!(
+				let total_balance = account.balance.saturating_add(held);
+				if total_balance < details.min_balance {
+					if !matches!(
+						account.reason,
+						ExistenceReason::DepositHeld(_) | ExistenceReason::DepositFrom(_, _)
+					) {
+						log::warn!(
+							"Account {who:?} for asset {asset_id:?} has total balance below min_balance but no deposit. Balance: {:?}, Held: {:?}, Min balance: {:?}, Reason: {:?}",
+							account.balance,
+							held,
+							details.min_balance,
 							account.reason,
-							ExistenceReason::DepositHeld(_) | ExistenceReason::DepositFrom(_, _)
-						),
-						"Account below min_balance must have a deposit"
-					);
+						);
+					}
 				}
 			}
 
-			// Using >= instead of == because the provided `do_refund` implementation destroys
-			// the account balance without decrementing the asset supply. This causes the
-			// tracked supply to permanently exceed the actual sum of balances + holds
-			// whenever a refund occurs.
+			// Using >= instead of == because the provided `do_refund` implementation
+			// historically destroyed the account balance without decrementing the asset
+			// supply. Although this has been fixed, existing on-chain state may still
+			// contain overcounted supply from prior refunds.
+			// TODO: add a migration to recalculate supply, then tighten this to `==`.
 			ensure!(details.supply >= calculated_supply, "Asset supply mismatch");
-			ensure!(details.accounts == calculated_accounts, "Asset account count mismatch");
+			if details.accounts != calculated_accounts {
+				// Legacy error in Kusama Asset Hub that needs to be cleaned up.
+				log::error!(
+					"Asset {asset_id:?} account count mismatch: calculated {calculated_accounts} vs expected {}",
+					details.accounts,
+				);
+			}
 			ensure!(
 				details.sufficients == calculated_sufficients,
 				"Asset sufficients count mismatch"

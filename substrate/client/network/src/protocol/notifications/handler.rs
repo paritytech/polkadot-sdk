@@ -786,10 +786,11 @@ impl ConnectionHandler for NotifsHandler {
 					// available in `notifications_sink_rx`. This avoids waking up the task when
 					// a substream is ready to send if there isn't actually something to send.
 					match Pin::new(&mut *notifications_sink_rx).as_mut().poll_peek(cx) {
-						Poll::Ready(Some(&NotificationsSinkMessage::ForceClose)) =>
+						Poll::Ready(Some(&NotificationsSinkMessage::ForceClose)) => {
 							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
 								NotifsHandlerOut::Close { protocol_index },
-							)),
+							))
+						},
 						Poll::Ready(Some(&NotificationsSinkMessage::Notification { .. })) => {},
 						Poll::Ready(None) | Poll::Pending => break,
 					}
@@ -803,8 +804,9 @@ impl ConnectionHandler for NotifsHandler {
 
 					// Now that the substream is ready for a message, grab what to send.
 					let message = match notifications_sink_rx.poll_next_unpin(cx) {
-						Poll::Ready(Some(NotificationsSinkMessage::Notification { message })) =>
-							message,
+						Poll::Ready(Some(NotificationsSinkMessage::Notification { message })) => {
+							message
+						},
 						Poll::Ready(Some(NotificationsSinkMessage::ForceClose)) |
 						Poll::Ready(None) |
 						Poll::Pending => {
@@ -839,10 +841,12 @@ impl ConnectionHandler for NotifsHandler {
 							*out_substream = None;
 
 							let reason = match error {
-								NotificationsOutError::Io(_) | NotificationsOutError::Closed =>
-									CloseReason::RemoteRequest,
-								NotificationsOutError::UnexpectedData =>
-									CloseReason::ProtocolMisbehavior,
+								NotificationsOutError::Io(_) | NotificationsOutError::Closed => {
+									CloseReason::RemoteRequest
+								},
+								NotificationsOutError::UnexpectedData => {
+									CloseReason::ProtocolMisbehavior
+								},
 							};
 
 							let event = NotifsHandlerOut::CloseDesired { protocol_index, reason };
@@ -867,7 +871,7 @@ impl ConnectionHandler for NotifsHandler {
 				State::Open { in_substream: None, .. } |
 				State::Opening { in_substream: None, .. } => {},
 
-				State::Open { in_substream: in_substream @ Some(_), .. } =>
+				State::Open { in_substream: in_substream @ Some(_), .. } => {
 					match futures::prelude::stream::Stream::poll_next(
 						Pin::new(in_substream.as_mut().unwrap()),
 						cx,
@@ -878,9 +882,10 @@ impl ConnectionHandler for NotifsHandler {
 							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(event));
 						},
 						Poll::Ready(None) | Poll::Ready(Some(Err(_))) => *in_substream = None,
-					},
+					}
+				},
 
-				State::OpenDesiredByRemote { in_substream, pending_opening } =>
+				State::OpenDesiredByRemote { in_substream, pending_opening } => {
 					match NotificationsInSubstream::poll_process(Pin::new(in_substream), cx) {
 						Poll::Pending => {},
 						Poll::Ready(Ok(())) => {},
@@ -894,9 +899,10 @@ impl ConnectionHandler for NotifsHandler {
 								},
 							));
 						},
-					},
+					}
+				},
 
-				State::Opening { in_substream: in_substream @ Some(_), .. } =>
+				State::Opening { in_substream: in_substream @ Some(_), .. } => {
 					match NotificationsInSubstream::poll_process(
 						Pin::new(in_substream.as_mut().unwrap()),
 						cx,
@@ -904,7 +910,8 @@ impl ConnectionHandler for NotifsHandler {
 						Poll::Pending => {},
 						Poll::Ready(Ok(())) => {},
 						Poll::Ready(Err(_)) => *in_substream = None,
-					},
+					}
+				},
 			}
 		}
 
@@ -1003,8 +1010,9 @@ pub mod tests {
 			};
 
 			futures::future::poll_fn(|cx| match substream.notifications.poll_next_unpin(cx) {
-				Poll::Ready(Some(NotificationsSinkMessage::Notification { message })) =>
-					Poll::Ready(Some(message)),
+				Poll::Ready(Some(NotificationsSinkMessage::Notification { message })) => {
+					Poll::Ready(Some(message))
+				},
 				Poll::Pending => Poll::Ready(None),
 				Poll::Ready(Some(NotificationsSinkMessage::ForceClose)) | Poll::Ready(None) => {
 					panic!("sink closed")
@@ -1108,8 +1116,9 @@ pub mod tests {
 		) -> Poll<Result<usize, Error>> {
 			match self.rx.poll_recv(cx) {
 				Poll::Ready(Some(data)) => self.rx_buffer.extend_from_slice(&data),
-				Poll::Ready(None) =>
-					return Poll::Ready(Err(std::io::ErrorKind::UnexpectedEof.into())),
+				Poll::Ready(None) => {
+					return Poll::Ready(Err(std::io::ErrorKind::UnexpectedEof.into()))
+				},
 				_ => {},
 			}
 

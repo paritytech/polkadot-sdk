@@ -287,8 +287,9 @@ where
 			CheckInherentsError::CreateInherentData(e) => Error::CreateInherents(e),
 			CheckInherentsError::Client(e) => Error::Client(e.into()),
 			CheckInherentsError::CheckInherents(e) => Error::CheckInherents(e),
-			CheckInherentsError::CheckInherentsUnknownError(id) =>
-				Error::CheckInherentsUnknownError(id),
+			CheckInherentsError::CheckInherentsUnknownError(id) => {
+				Error::CheckInherentsUnknownError(id)
+			},
 		})?;
 
 		Ok(())
@@ -411,12 +412,13 @@ impl<B: BlockT, Algorithm> PowVerifier<B, Algorithm> {
 		let hash = header.hash();
 
 		let (seal, inner_seal) = match header.digest_mut().pop() {
-			Some(DigestItem::Seal(id, seal)) =>
+			Some(DigestItem::Seal(id, seal)) => {
 				if id == POW_ENGINE_ID {
 					(DigestItem::Seal(id, seal.clone()), seal)
 				} else {
 					return Err(Error::WrongEngine(id));
-				},
+				}
+			},
 			_ => return Err(Error::HeaderUnsealed(hash)),
 		};
 
@@ -653,8 +655,9 @@ fn find_pre_digest<B: BlockT>(header: &B::Header) -> Result<Option<Vec<u8>>, Err
 	for log in header.digest().logs() {
 		trace!(target: LOG_TARGET, "Checking log {:?}, looking for pre runtime digest", log);
 		match (log, pre_digest.is_some()) {
-			(DigestItem::PreRuntime(POW_ENGINE_ID, _), true) =>
-				return Err(Error::MultiplePreRuntimeDigests),
+			(DigestItem::PreRuntime(POW_ENGINE_ID, _), true) => {
+				return Err(Error::MultiplePreRuntimeDigests)
+			},
 			(DigestItem::PreRuntime(POW_ENGINE_ID, v), false) => {
 				pre_digest = Some(v.clone());
 			},
@@ -668,12 +671,13 @@ fn find_pre_digest<B: BlockT>(header: &B::Header) -> Result<Option<Vec<u8>>, Err
 /// Fetch PoW seal.
 fn fetch_seal<B: BlockT>(digest: Option<&DigestItem>, hash: B::Hash) -> Result<Vec<u8>, Error<B>> {
 	match digest {
-		Some(DigestItem::Seal(id, seal)) =>
+		Some(DigestItem::Seal(id, seal)) => {
 			if id == &POW_ENGINE_ID {
 				Ok(seal.clone())
 			} else {
 				Err(Error::<B>::WrongEngine(*id))
-			},
+			}
+		},
 		_ => Err(Error::<B>::HeaderUnsealed(hash)),
 	}
 }

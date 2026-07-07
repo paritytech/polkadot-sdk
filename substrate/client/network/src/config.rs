@@ -170,8 +170,12 @@ pub struct MultiaddrWithPeerId {
 impl MultiaddrWithPeerId {
 	/// Concatenates the multiaddress and peer ID into one multiaddress containing both.
 	pub fn concat(&self) -> Multiaddr {
-		let proto = multiaddr::Protocol::P2p(From::from(self.peer_id));
-		self.multiaddr.clone().with(proto)
+		let mut addr = self.multiaddr.clone();
+		// Ensure that the address not already contains the `p2p` protocol.
+		if matches!(addr.iter().last(), Some(multiaddr::Protocol::P2p(_))) {
+			addr.pop();
+		}
+		addr.with(multiaddr::Protocol::P2p(From::from(self.peer_id)))
 	}
 }
 
@@ -420,7 +424,7 @@ where
 }
 
 /// Write secret bytes to a file.
-fn write_secret_file<P>(path: P, sk_bytes: &[u8]) -> io::Result<()>
+pub(super) fn write_secret_file<P>(path: P, sk_bytes: &[u8]) -> io::Result<()>
 where
 	P: AsRef<Path>,
 {
@@ -614,6 +618,9 @@ pub struct NetworkConfiguration {
 	/// Multiaddresses to listen for incoming connections.
 	pub listen_addresses: Vec<Multiaddr>,
 
+	/// Allow WebRtc addresses, this is an experimental feature.
+	pub experimental_webrtc: bool,
+
 	/// Multiaddresses to advertise. Detected automatically if empty.
 	pub public_addresses: Vec<Multiaddr>,
 
@@ -676,8 +683,15 @@ pub struct NetworkConfiguration {
 	/// `kademlia_replication_factor` peers to consider record successfully put.
 	pub kademlia_replication_factor: NonZeroUsize,
 
-	/// Enable serving block data over IPFS bitswap.
+	/// Enable serving indexed transaction data using IPFS Bitswap protocol.
 	pub ipfs_server: bool,
+
+	/// List of IPFS bootstrap nodes to register in IPFS DHT as a provider of indexed transaction
+	/// data.
+	///
+	/// If IPFS bootstrap nodes are not provided, this node will only handle direct Bitswap
+	/// requests from peers that already know its address.
+	pub ipfs_bootnodes: Vec<MultiaddrWithPeerId>,
 
 	/// Networking backend used for P2P communication.
 	pub network_backend: NetworkBackendType,
@@ -695,6 +709,7 @@ impl NetworkConfiguration {
 		Self {
 			net_config_path,
 			listen_addresses: Vec::new(),
+			experimental_webrtc: false,
 			public_addresses: Vec::new(),
 			boot_nodes: Vec::new(),
 			node_key,
@@ -714,6 +729,7 @@ impl NetworkConfiguration {
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
 				.expect("value is a constant; constant is non-zero; qed."),
 			ipfs_server: false,
+			ipfs_bootnodes: Vec::new(),
 			network_backend: NetworkBackendType::Litep2p,
 		}
 	}
@@ -749,6 +765,16 @@ impl NetworkConfiguration {
 	}
 }
 
+/// IPFS server configuration.
+pub struct IpfsConfig<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
+	/// Network-backend-specific Bitswap configuration.
+	pub bitswap_config: N::BitswapConfig,
+	/// Indexed transactions provider.
+	pub block_provider: Box<dyn crate::IpfsBlockProvider>,
+	/// IPFS bootstrap nodes.
+	pub bootnodes: Vec<MultiaddrWithPeerId>,
+}
+
 /// Network initialization parameters.
 pub struct Params<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
 	/// Assigned role for our node (full, light, ...).
@@ -777,7 +803,7 @@ pub struct Params<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
 	pub block_announce_config: N::NotificationProtocolConfig,
 
 	/// Bitswap configuration, if the server has been enabled.
-	pub bitswap_config: Option<N::BitswapConfig>,
+	pub ipfs_config: Option<IpfsConfig<Block, H, N>>,
 
 	/// Notification metrics.
 	pub notification_metrics: NotificationMetrics,

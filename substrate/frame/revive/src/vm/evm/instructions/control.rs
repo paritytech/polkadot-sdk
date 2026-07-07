@@ -16,15 +16,15 @@
 // limitations under the License.
 
 use crate::{
+	Error, U256,
 	vm::{
+		Ext,
 		evm::{
+			EVMGas, Interpreter,
 			interpreter::Halt,
 			util::{as_usize_or_halt, as_usize_or_halt_with},
-			EVMGas, Interpreter,
 		},
-		Ext,
 	},
-	Error, U256,
 };
 use alloc::vec::Vec;
 use core::ops::ControlFlow;

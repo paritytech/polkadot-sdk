@@ -1,0 +1,10 @@
+title: '[eth-rpc]: cap block_number_to_hashes map size'
+doc:
+- audience: Runtime Dev
+  description: When keep_latest_n_blocks (cache-size) is None, every processed block
+    is inserted into the BTreeMap used for detecting reorgs, but never removed, except
+    during reorgs. Since reorgs deeper than 256 blocks are unlikely, cap the map at
+    256 to prevent unbounded growth.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor

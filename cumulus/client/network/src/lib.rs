@@ -184,15 +184,10 @@ impl TryFrom<&'_ CollationSecondedSignal> for BlockAnnounceData {
 		Ok(BlockAnnounceData {
 			receipt,
 			statement: signal.statement.convert_payload().into(),
-			relay_parent: signal.relay_parent,
+			relay_parent: signal.scheduling_parent,
 		})
 	}
 }
-
-/// A type alias for the [`RequireSecondedInBlockAnnounce`] validator.
-#[deprecated = "This has been renamed to RequireSecondedInBlockAnnounce"]
-pub type BlockAnnounceValidator<Block, RCInterface> =
-	RequireSecondedInBlockAnnounce<Block, RCInterface>;
 
 /// Parachain specific block announce validator.
 ///
@@ -389,11 +384,12 @@ where
 
 			let block_announce_data = match BlockAnnounceData::decode_all(&mut data.as_slice()) {
 				Ok(r) => r,
-				Err(err) =>
+				Err(err) => {
 					return Err(Box::new(BlockAnnounceError(format!(
 						"Can not decode the `BlockAnnounceData`: {:?}",
 						err
-					))) as Box<_>),
+					))) as Box<_>)
+				},
 			};
 
 			if let Err(e) = block_announce_data.validate(header_encoded) {
@@ -494,7 +490,7 @@ async fn wait_to_announce<Block: BlockT>(
 	}
 }
 
-/// A [`BlockAnnounceValidator`] which accepts all block announcements, as it assumes
+/// A [`BlockAnnounceValidatorT`] which accepts all block announcements, as it assumes
 /// sybil resistance is handled elsewhere.
 #[derive(Debug, Clone)]
 pub struct AssumeSybilResistance(bool);

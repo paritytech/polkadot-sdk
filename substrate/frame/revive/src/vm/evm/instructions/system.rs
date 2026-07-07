@@ -17,12 +17,12 @@
 
 use super::utility::as_usize_saturated;
 use crate::{
+	Config, Error, U256,
 	address::AddressMapper,
 	vm::{
-		evm::{interpreter::Halt, util::as_usize_or_halt, EVMGas, Interpreter},
 		Ext, RuntimeCosts,
+		evm::{EVMGas, Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
-	Config, Error, U256,
 };
 use core::ops::ControlFlow;
 use revm::interpreter::gas::{BASE, VERYLOW};

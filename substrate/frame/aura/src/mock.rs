@@ -29,7 +29,7 @@ use sp_runtime::{testing::UintAuthorityId, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-const SLOT_DURATION: u64 = 2;
+pub const SLOT_DURATION: u64 = 2;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -55,6 +55,7 @@ impl pallet_timestamp::Config for Test {
 parameter_types! {
 	static DisabledValidatorTestValue: Vec<AuthorityIndex> = Default::default();
 	pub static AllowMultipleBlocksPerSlot: bool = false;
+	pub static SlotDurationValue: u64 = SLOT_DURATION;
 }
 
 pub struct MockDisabledValidators;
@@ -84,7 +85,7 @@ impl pallet_aura::Config for Test {
 	type DisabledValidators = MockDisabledValidators;
 	type MaxAuthorities = ConstU32<10>;
 	type AllowMultipleBlocksPerSlot = AllowMultipleBlocksPerSlot;
-	type SlotDuration = ConstU64<SLOT_DURATION>;
+	type SlotDuration = SlotDurationValue;
 }
 
 pub fn build_ext(authorities: Vec<u64>) -> sp_io::TestExternalities {

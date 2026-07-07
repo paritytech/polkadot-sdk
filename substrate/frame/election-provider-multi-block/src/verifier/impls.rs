@@ -338,10 +338,12 @@ pub(crate) mod pallet {
 				// store the valid pages
 				for (support, page) in supports.into_iter().zip(pages.iter()) {
 					match Self::valid() {
-						ValidSolution::X =>
-							QueuedSolutionX::<T>::insert(Self::round(), page, support),
-						ValidSolution::Y =>
-							QueuedSolutionY::<T>::insert(Self::round(), page, support),
+						ValidSolution::X => {
+							QueuedSolutionX::<T>::insert(Self::round(), page, support)
+						},
+						ValidSolution::Y => {
+							QueuedSolutionY::<T>::insert(Self::round(), page, support)
+						},
 					}
 				}
 				QueuedSolutionScore::<T>::insert(Self::round(), score);
