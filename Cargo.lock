@@ -2786,23 +2786,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bp-polkadot-bulletin"
-version = "0.4.0"
-dependencies = [
- "bp-header-chain",
- "bp-messages",
- "bp-polkadot-core",
- "bp-runtime",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-api 26.0.0",
- "sp-runtime 31.0.1",
- "sp-std 14.0.0",
-]
-
-[[package]]
 name = "bp-polkadot-core"
 version = "0.7.0"
 dependencies = [
@@ -3008,7 +2991,6 @@ dependencies = [
  "bp-header-chain",
  "bp-messages",
  "bp-parachains",
- "bp-polkadot-bulletin",
  "bp-polkadot-core",
  "bp-relayers",
  "bp-runtime",
