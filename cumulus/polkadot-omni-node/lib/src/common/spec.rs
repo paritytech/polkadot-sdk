@@ -408,7 +408,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					metrics,
 				})
 				.await?;
-			let peer_id = network.local_peer_id();
+			let peer_id = relay_chain_network.local_peer_id();
 
 			let statement_store = statement_handler_proto
 				.map(|(statement_handler_proto, config)| {
