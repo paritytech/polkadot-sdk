@@ -346,32 +346,19 @@ fn inherent_processed_messages_are_ignored() {
 		})
 		.add(1, || {
 			// Don't drop processed messages for this test.
-			HANDLED_DMP_MESSAGES.with(|m| {
-				let m = m.borrow();
-				// NOTE: if this fails, then run the test without benchmark features.
-				assert_eq!(&*m, &[mk_dmp(3, 0).msg]);
-			});
-			HANDLED_XCMP_MESSAGES.with(|m| {
-				let m = m.borrow_mut();
-				assert_eq!(
-					&*m,
-					&[(ParaId::from(200), 2, vec![2]), (ParaId::from(200), 3, vec![3]),]
-				);
-			});
+			assert_eq!(&HandledDmpMessages::get(), &[mk_dmp(3, 0).msg]);
+			assert_eq!(
+				&HandledXcmpMessages::get(),
+				&[(ParaId::from(200), 2, vec![2]), (ParaId::from(200), 3, vec![3]),]
+			);
 		})
 		.add(2, || {})
 		.add(3, || {
-			HANDLED_DMP_MESSAGES.with(|m| {
-				let m = m.borrow();
-				assert_eq!(&*m, &[mk_dmp(3, 0).msg]);
-			});
-			HANDLED_XCMP_MESSAGES.with(|m| {
-				let m = m.borrow_mut();
-				assert_eq!(
-					&*m,
-					&[(ParaId::from(200), 2, vec![2]), (ParaId::from(200), 3, vec![3]),]
-				);
-			});
+			assert_eq!(&HandledDmpMessages::get(), &[mk_dmp(3, 0).msg]);
+			assert_eq!(
+				&HandledXcmpMessages::get(),
+				&[(ParaId::from(200), 2, vec![2]), (ParaId::from(200), 3, vec![3]),]
+			);
 		});
 }
 
@@ -443,28 +430,22 @@ fn inherent_messages_are_compressed() {
 	let dmp_msgs_clone = dmp_msgs.clone();
 	let hrmp_msgs_clone = hrmp_msgs.clone();
 	test = test.add(1, move || {
-		HANDLED_DMP_MESSAGES.with(|m| {
-			let m = m.borrow();
-			assert_eq!(
-				&*m,
-				&dmp_msgs_clone[..10].into_iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>()
-			);
-		});
+		assert_eq!(
+			&HandledDmpMessages::get(),
+			&dmp_msgs_clone[..10].into_iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>()
+		);
 		assert_eq!(
 			LastProcessedDownwardMessage::<Test>::get(),
 			Some(InboundMessageId { sent_at: 1, reverse_idx: 0 })
 		);
 
-		HANDLED_XCMP_MESSAGES.with(|m| {
-			let m = m.borrow_mut();
-			assert_eq!(
-				&*m,
-				&hrmp_msgs_clone[..11]
-					.iter()
-					.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
-					.collect::<Vec<_>>()
-			);
-		});
+		assert_eq!(
+			&HandledXcmpMessages::get(),
+			&hrmp_msgs_clone[..11]
+				.iter()
+				.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+				.collect::<Vec<_>>()
+		);
 		assert_eq!(
 			LastProcessedHrmpMessage::<Test>::get(),
 			Some(InboundMessageId { sent_at: 1, reverse_idx: 10 })
@@ -475,28 +456,22 @@ fn inherent_messages_are_compressed() {
 	let dmp_msgs_clone = dmp_msgs.clone();
 	let hrmp_msgs_clone = hrmp_msgs.clone();
 	test = test.add(2, move || {
-		HANDLED_DMP_MESSAGES.with(|m| {
-			let m = m.borrow();
-			assert_eq!(
-				&*m,
-				&dmp_msgs_clone[..20].iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>()
-			);
-		});
+		assert_eq!(
+			&HandledDmpMessages::get(),
+			&dmp_msgs_clone[..20].iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>()
+		);
 		assert_eq!(
 			LastProcessedDownwardMessage::<Test>::get(),
 			Some(InboundMessageId { sent_at: 2, reverse_idx: 5 })
 		);
 
-		HANDLED_XCMP_MESSAGES.with(|m| {
-			let m = m.borrow_mut();
-			assert_eq!(
-				&*m,
-				&hrmp_msgs_clone[..21]
-					.iter()
-					.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
-					.collect::<Vec<_>>()
-			);
-		});
+		assert_eq!(
+			&HandledXcmpMessages::get(),
+			&hrmp_msgs_clone[..21]
+				.iter()
+				.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+				.collect::<Vec<_>>()
+		);
 		assert_eq!(
 			LastProcessedHrmpMessage::<Test>::get(),
 			Some(InboundMessageId { sent_at: 1, reverse_idx: 0 })
@@ -507,28 +482,22 @@ fn inherent_messages_are_compressed() {
 	let dmp_msgs_clone = dmp_msgs.clone();
 	let hrmp_msgs_clone = hrmp_msgs.clone();
 	test = test.add(3, move || {
-		HANDLED_DMP_MESSAGES.with(|m| {
-			let m = m.borrow();
-			assert_eq!(
-				&*m,
-				&dmp_msgs_clone[..25].iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>()
-			);
-		});
+		assert_eq!(
+			&HandledDmpMessages::get(),
+			&dmp_msgs_clone[..25].iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>()
+		);
 		assert_eq!(
 			LastProcessedDownwardMessage::<Test>::get(),
 			Some(InboundMessageId { sent_at: 2, reverse_idx: 0 })
 		);
 
-		HANDLED_XCMP_MESSAGES.with(|m| {
-			let m = m.borrow_mut();
-			assert_eq!(
-				&*m,
-				&hrmp_msgs_clone[..36]
-					.iter()
-					.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
-					.collect::<Vec<_>>()
-			);
-		});
+		assert_eq!(
+			&HandledXcmpMessages::get(),
+			&hrmp_msgs_clone[..36]
+				.iter()
+				.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+				.collect::<Vec<_>>()
+		);
 		assert_eq!(
 			LastProcessedHrmpMessage::<Test>::get(),
 			Some(InboundMessageId { sent_at: 2, reverse_idx: 1 })
@@ -537,25 +506,138 @@ fn inherent_messages_are_compressed() {
 	});
 
 	test.add(4, move || {
-		HANDLED_DMP_MESSAGES.with(|m| {
-			let m = m.borrow();
-			assert_eq!(&*m, &dmp_msgs[..25].iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>());
-		});
+		assert_eq!(
+			&HandledDmpMessages::get(),
+			&dmp_msgs[..25].iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>()
+		);
 		assert_eq!(
 			LastProcessedDownwardMessage::<Test>::get(),
 			Some(InboundMessageId { sent_at: 2, reverse_idx: 0 })
 		);
 
-		HANDLED_XCMP_MESSAGES.with(|m| {
-			let m = m.borrow_mut();
-			assert_eq!(
-				&*m,
-				&hrmp_msgs[..37]
-					.iter()
-					.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
-					.collect::<Vec<_>>()
-			);
+		assert_eq!(
+			&HandledXcmpMessages::get(),
+			&hrmp_msgs[..37]
+				.iter()
+				.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+				.collect::<Vec<_>>()
+		);
+		assert_eq!(
+			LastProcessedHrmpMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 2, reverse_idx: 0 })
+		);
+		assert_eq!(HrmpWatermark::<Test>::get(), 2);
+	});
+}
+
+#[test]
+fn hrmp_messages_respect_handling_limit() {
+	CONSENSUS_HOOK.with(|c| {
+		*c.borrow_mut() = Box::new(|_| (Weight::zero(), NonZeroU32::new(2).unwrap().into()))
+	});
+	XcmpMessagesHandlingLimit::set(20);
+
+	let mut hrmp_msgs = vec![];
+	// Batch 1
+	hrmp_msgs.extend(vec![(ParaId::new(100), mk_hrmp(1, 1024 * 100)); 20]);
+	// Batch 2
+	hrmp_msgs.extend(vec![(ParaId::new(100), mk_hrmp(1, 1024 * 100)); 5]);
+	hrmp_msgs.extend(vec![(ParaId::new(200), mk_hrmp(1, 1024 * 100)); 15]);
+	// Batch 3
+	hrmp_msgs.extend(vec![(ParaId::new(200), mk_hrmp(1, 1024 * 100)); 10]);
+	hrmp_msgs.extend(vec![(ParaId::new(50), mk_hrmp(2, 1024 * 100)); 10]);
+	// Batch 4
+	hrmp_msgs.extend(vec![(ParaId::new(50), mk_hrmp(2, 1024 * 100)); 15]);
+
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	let mut test = BlockTests::new()
+		.with_inclusion_delay(1)
+		.with_relay_block_number(|block_number| 4.max(*block_number as RelayChainBlockNumber))
+		.with_relay_sproof_builder(move |_, relay_block_num, sproof| match relay_block_num {
+			4 => {
+				let dmp_mqc = MessageQueueChain::default();
+				sproof.dmq_mqc_head = Some(dmp_mqc.head());
+
+				for (sender, msg) in &hrmp_msgs_clone {
+					let channel = sproof.upsert_inbound_channel(*sender);
+					channel.max_message_size = 100 * 1024;
+					let mqc_head = channel.mqc_head.get_or_insert_default();
+					let mut mqc = MessageQueueChain::new(*mqc_head);
+					mqc.extend_hrmp(msg);
+					*mqc_head = mqc.head();
+				}
+			},
+			_ => unreachable!(),
 		});
+
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	test = test.with_inherent_data(move |_, relay_block_num, data| match relay_block_num {
+		4 => {
+			for (sender, msg) in &hrmp_msgs_clone {
+				let entry = data.horizontal_messages.entry(*sender).or_default();
+				entry.push(msg.clone())
+			}
+		},
+		_ => unreachable!(),
+	});
+
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	test = test.add(1, move || {
+		assert_eq!(
+			&HandledXcmpMessages::get(),
+			&hrmp_msgs_clone[..20]
+				.iter()
+				.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+				.collect::<Vec<_>>()
+		);
+		assert_eq!(
+			LastProcessedHrmpMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 1, reverse_idx: 30 })
+		);
+		assert_eq!(HrmpWatermark::<Test>::get(), 0);
+	});
+
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	test = test.add(2, move || {
+		assert_eq!(
+			&HandledXcmpMessages::get(),
+			&hrmp_msgs_clone[..40]
+				.iter()
+				.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+				.collect::<Vec<_>>()
+		);
+		assert_eq!(
+			LastProcessedHrmpMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 1, reverse_idx: 10 })
+		);
+		assert_eq!(HrmpWatermark::<Test>::get(), 0);
+	});
+
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	test = test.add(3, move || {
+		assert_eq!(
+			&HandledXcmpMessages::get(),
+			&hrmp_msgs_clone[..60]
+				.iter()
+				.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+				.collect::<Vec<_>>()
+		);
+		assert_eq!(
+			LastProcessedHrmpMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 2, reverse_idx: 15 })
+		);
+		assert_eq!(HrmpWatermark::<Test>::get(), 1);
+	});
+
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	test.add(4, move || {
+		assert_eq!(
+			&HandledXcmpMessages::get(),
+			&hrmp_msgs_clone[..75]
+				.iter()
+				.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+				.collect::<Vec<_>>()
+		);
 		assert_eq!(
 			LastProcessedHrmpMessage::<Test>::get(),
 			Some(InboundMessageId { sent_at: 2, reverse_idx: 0 })
@@ -711,10 +793,7 @@ fn hrmp_ingress_channels_are_checked() {
 			_ => {},
 		})
 		.add(1, move || {
-			HANDLED_XCMP_MESSAGES.with(|m| {
-				let m = m.borrow_mut();
-				assert_eq!(&*m, &vec![(1000.into(), 1, vec![1; 100])]);
-			});
+			assert_eq!(&HandledXcmpMessages::get(), &vec![(1000.into(), 1, vec![1; 100])])
 		});
 	test.run();
 
@@ -1233,11 +1312,7 @@ fn receive_dmp() {
 			_ => unreachable!(),
 		})
 		.add(1, || {
-			HANDLED_DMP_MESSAGES.with(|m| {
-				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[MSG.msg.clone()]);
-				m.clear();
-			});
+			assert_eq!(&HandledDmpMessages::take(), &[MSG.msg.clone()]);
 		});
 }
 
@@ -1278,19 +1353,11 @@ fn receive_dmp_after_pause() {
 			_ => unreachable!(),
 		})
 		.add(1, || {
-			HANDLED_DMP_MESSAGES.with(|m| {
-				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(mk_dmp(1, 0).msg.clone())]);
-				m.clear();
-			});
+			assert_eq!(&HandledDmpMessages::take(), &[(mk_dmp(1, 0).msg.clone())]);
 		})
 		.add(2, || {})
 		.add(3, || {
-			HANDLED_DMP_MESSAGES.with(|m| {
-				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(mk_dmp(3, 0).msg.clone())]);
-				m.clear();
-			});
+			assert_eq!(&HandledDmpMessages::take(), &[(mk_dmp(3, 0).msg.clone())]);
 		});
 }
 
@@ -1336,15 +1403,11 @@ fn receive_dmp_many() {
 
 		for block in 1..100 {
 			tester = tester.add(block, move || {
-				HANDLED_DMP_MESSAGES.with(|m| {
-					let mut m = m.borrow_mut();
-					let msgs = SentInBlock::get()[block as usize]
-						.iter()
-						.map(|m| m.msg.clone())
-						.collect::<Vec<_>>();
-					assert_eq!(&*m, &msgs);
-					m.clear();
-				});
+				let msgs = SentInBlock::get()[block as usize]
+					.iter()
+					.map(|m| m.msg.clone())
+					.collect::<Vec<_>>();
+				assert_eq!(&HandledDmpMessages::take(), &msgs);
 			});
 		}
 	});
@@ -1401,26 +1464,16 @@ fn receive_hrmp() {
 			3 => {},
 			_ => unreachable!(),
 		})
-		.add(1, || {
-			HANDLED_XCMP_MESSAGES.with(|m| {
-				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(ParaId::from(300), 1, vec![1])]);
-				m.clear();
-			});
-		})
+		.add(1, || assert_eq!(&HandledXcmpMessages::take(), &[(ParaId::from(300), 1, vec![1])]))
 		.add(2, || {
-			HANDLED_XCMP_MESSAGES.with(|m| {
-				let mut m = m.borrow_mut();
-				assert_eq!(
-					&*m,
-					&[
-						(ParaId::from(300), 2, vec![2]),
-						(ParaId::from(300), 3, vec![3]),
-						(ParaId::from(200), 4, vec![4]),
-					]
-				);
-				m.clear();
-			});
+			assert_eq!(
+				&HandledXcmpMessages::take(),
+				&[
+					(ParaId::from(300), 2, vec![2]),
+					(ParaId::from(300), 3, vec![3]),
+					(ParaId::from(200), 4, vec![4]),
+				]
+			);
 		})
 		.add(3, || {});
 }
@@ -1448,11 +1501,11 @@ fn receive_hrmp_channel_suddenly_removed_from_relay_state() {
 			_ => unreachable!(),
 		})
 		.add(1, || {
-			HANDLED_XCMP_MESSAGES.with(|m| {
-				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(ParaId::from(300), 1, vec![1])], "Received on channel 300");
-				m.clear();
-			});
+			assert_eq!(
+				&HandledXcmpMessages::take(),
+				&[(ParaId::from(300), 1, vec![1])],
+				"Received on channel 300"
+			);
 			assert!(
 				LastHrmpMqcHeads::<Test>::get().contains_key(&ParaId::from(300)),
 				"Channel 300 should be present"
@@ -1497,14 +1550,10 @@ fn receive_hrmp_channel_suddenly_removed_from_relay_state2() {
 			_ => unreachable!(),
 		})
 		.add(1, || {
-			HANDLED_XCMP_MESSAGES.with(|m| {
-				let mut m = m.borrow_mut();
-				assert_eq!(
-					&*m,
-					&[(ParaId::from(200), 1, vec![1]), (ParaId::from(300), 1, vec![1])]
-				);
-				m.clear();
-			});
+			assert_eq!(
+				&HandledXcmpMessages::take(),
+				&[(ParaId::from(200), 1, vec![1]), (ParaId::from(300), 1, vec![1])]
+			);
 			assert!(
 				LastHrmpMqcHeads::<Test>::get().contains_key(&ParaId::from(300)),
 				"Channel 300 should be present"
@@ -1576,19 +1625,11 @@ fn receive_hrmp_after_pause() {
 			_ => unreachable!(),
 		})
 		.add(1, || {
-			HANDLED_XCMP_MESSAGES.with(|m| {
-				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(ALICE, 1, vec![1])]);
-				m.clear();
-			});
+			assert_eq!(&HandledXcmpMessages::take(), &[(ALICE, 1, vec![1])]);
 		})
 		.add(2, || {})
 		.add(3, || {
-			HANDLED_XCMP_MESSAGES.with(|m| {
-				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(ALICE, 3, vec![3])]);
-				m.clear();
-			});
+			assert_eq!(&HandledXcmpMessages::take(), &[(ALICE, 3, vec![3])]);
 		});
 }
 
@@ -1635,15 +1676,11 @@ fn receive_hrmp_many() {
 
 		for block in 1..100 {
 			tester = tester.add(block, move || {
-				HANDLED_XCMP_MESSAGES.with(|m| {
-					let mut m = m.borrow_mut();
-					let msgs = SentInBlock::get()[block as usize]
-						.iter()
-						.map(|m| (ALICE, m.sent_at, m.data.clone()))
-						.collect::<Vec<_>>();
-					assert_eq!(&*m, &msgs);
-					m.clear();
-				});
+				let msgs = SentInBlock::get()[block as usize]
+					.iter()
+					.map(|m| (ALICE, m.sent_at, m.data.clone()))
+					.collect::<Vec<_>>();
+				assert_eq!(&HandledXcmpMessages::take(), &msgs);
 			});
 		}
 	});
