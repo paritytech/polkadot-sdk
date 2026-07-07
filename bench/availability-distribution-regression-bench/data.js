@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783429302758,
+  "lastUpdate": 1783433727564,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "357984bdb9156a068fbc698a9c4b54337f0d307a",
-          "message": "pallet_revive: Fix EVM tests to pass `data` as part of `code` (#10214)\n\nThe test code was passing the constructor argument as `data` on EVM. But\nit should be passed as part of the `code`. This is different from PVM\nwhere those are separate.\n\nFailing to do so makes those opcodes return the wrong values when `data`\nis passed to the constructor:\n\n```\nCODESIZE\nCODECOPY\nCALLDATASIZE\nCALLDATACOPY\nCALLDATALOAD\n```\n\nFurther changes:\n\n- I also added some checks to fail instantiation if `data` is non empty\nwhen uploading new EVM bytecode.\n- Return error when trying to construct EVM contract from code hash as\nthis does not make sense since no initcode is stored on-chain.\n\n---------\n\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-11T17:52:54Z",
-          "tree_id": "37904ccb2d9262b068b97e76c32c08469b7ee69f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/357984bdb9156a068fbc698a9c4b54337f0d307a"
-        },
-        "date": 1762889194836,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15848414068666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007476730046666654,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013296750073333329,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022590809086666674,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010420349639999972,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "runcomet",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d2ea1952e8f8949e78a2ead5a9c2f866625d337",
+          "message": "Coretime Sale ID (#10188)\n\nResolves https://github.com/paritytech/polkadot-sdk/issues/6354\n\nThis PR builds upon the original implementation by @FereMouSiopi in\n#6626. I would like to acknowledge their significant contributions to:\n\n- The initial implementation of the sale ID functionality\n\n- Early code reviews and discussions with the maintainers\n\n- Laying the groundwork for this feature\n\n**Additions**:\n\n- [x] Adding the necessary migration logic\n\n- [x] Comprehensive testing",
+          "timestamp": "2026-07-07T12:26:22Z",
+          "tree_id": "31201164255ab947c1cecf37170e713830019705",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d2ea1952e8f8949e78a2ead5a9c2f866625d337"
+        },
+        "date": 1783433697691,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007826662826666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1492174469266667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023634793526666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00979354164666664,
             "unit": "seconds"
           }
         ]
