@@ -2642,15 +2642,10 @@ impl<T: Config> Pallet<T> {
 		Ok(maybe_value)
 	}
 
-	/// Deposit a [`Event::ContractEmitted`] attributed to `contract`, from outside of contract
-	/// execution.
-	///
-	/// For runtime components that mirror state changes as EVM logs at a precompile address
-	/// (e.g. ERC-20 `Transfer` logs for `pallet-assets` operations performed through plain
-	/// extrinsics). Behaves exactly like an in-execution `deposit_event`: the log is traced,
-	/// captured into the ethereum receipt when inside an ethereum transaction context, and
-	/// emitted as a runtime event.
-	pub fn deposit_contract_event(contract: H160, topics: Vec<H256>, data: Vec<u8>) {
+	/// Emit an EVM log attributed to `contract`: traced, captured into the ethereum receipt
+	/// (inside an ethereum transaction), and deposited as [`Event::ContractEmitted`]. The
+	/// single emission path — used by contract execution and log-mirroring runtime components.
+	pub fn emit_contract_log(contract: H160, topics: Vec<H256>, data: Vec<u8>) {
 		if_tracing(|tracer| {
 			let log_index = frame_system::Pallet::<T>::event_count();
 			tracer.log_event(contract, &topics, &data, log_index);

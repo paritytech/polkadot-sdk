@@ -2406,7 +2406,7 @@ where
 
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
 		let contract = T::AddressMapper::to_address(self.account_id());
-		Contracts::<Self::T>::deposit_contract_event(contract, topics, data);
+		Contracts::<Self::T>::emit_contract_log(contract, topics, data);
 	}
 
 	fn block_number(&self) -> U256 {
