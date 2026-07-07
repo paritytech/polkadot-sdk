@@ -131,7 +131,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("statemine"),
 	impl_name: alloc::borrow::Cow::Borrowed("statemine"),
 	authoring_version: 1,
-	spec_version: 1_022_003,
+	spec_version: 1_024_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -1174,6 +1174,7 @@ pub type Migrations = (
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v7::MigrateV6ToV7<Runtime>,
 	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
 	frame_support::migrations::RemovePallet<StateTrieMigrationName, RocksDbWeight>,
 	// unreleased

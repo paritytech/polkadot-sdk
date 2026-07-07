@@ -131,10 +131,12 @@ pub type Migrations = (
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v7::MigrateV6ToV7<Runtime>,
 	pallet_broker::migration::MigrateV0ToV1<Runtime>,
 	pallet_broker::migration::MigrateV1ToV2<Runtime>,
 	pallet_broker::migration::MigrateV2ToV3<Runtime>,
 	pallet_broker::migration::MigrateV3ToV4<Runtime, BrokerMigrationV4BlockConversion>,
+	pallet_broker::migration::MigrateV4ToV5<Runtime, BrokerFirstSaleRegion>,
 	pallet_session::migrations::v1::MigrateV0ToV1<
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
@@ -165,7 +167,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("coretime-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("coretime-westend"),
 	authoring_version: 1,
-	spec_version: 1_022_004,
+	spec_version: 1_024_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -664,6 +666,18 @@ impl pallet_broker::migration::v4::BlockToRelayHeightConversion<Runtime>
 
 	fn convert_block_length_to_relay_length(input_block_length: u32) -> u32 {
 		input_block_length * 2
+	}
+}
+
+/// `region_begin` of the first bulk Coretime sale on Westend, from the first
+/// `broker.SaleInitialized` event. Anchors the v5 migration's `sale_index` reconstruction.
+const CORETIME_WESTEND_FIRST_SALE_REGION_BEGIN: u32 = 246_662;
+
+pub struct BrokerFirstSaleRegion;
+
+impl pallet_broker::migration::v5::FirstSaleRegion for BrokerFirstSaleRegion {
+	fn region_begin() -> u32 {
+		CORETIME_WESTEND_FIRST_SALE_REGION_BEGIN
 	}
 }
 

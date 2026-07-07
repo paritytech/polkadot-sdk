@@ -412,7 +412,29 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					metrics,
 				})
 				.await?;
-			let peer_id = network.local_peer_id();
+			let peer_id = relay_chain_network.local_peer_id();
+
+			if validator && node_extra_args.collator_reserved_slots > 0 {
+				cumulus_client_collator_discovery::start_collator_discovery(
+					cumulus_client_collator_discovery::StartCollatorDiscoveryParams {
+						max_reserved: node_extra_args.collator_reserved_slots,
+						client: client.clone(),
+						authority_discovery: client.clone(),
+						network: network.clone(),
+						sync_service: sync_service.clone(),
+						network_event_stream: network.event_stream("para-authority-discovery"),
+						keystore: params.keystore_container.keystore(),
+						genesis_hash: client.chain_info().genesis_hash,
+						fork_id: parachain_fork_id.clone(),
+						publish_non_global_ips: parachain_config.network.allow_non_globals_in_dht,
+						public_addresses: parachain_config.network.public_addresses.clone(),
+						persisted_cache_directory: parachain_config.network.net_config_path.clone(),
+						prometheus_registry: prometheus_registry.clone(),
+						spawn_handle: task_manager.spawn_handle(),
+					},
+				)
+				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+			}
 
 			let statement_store = statement_handler_proto
 				.map(|(statement_handler_proto, config)| {

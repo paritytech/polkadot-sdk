@@ -312,6 +312,7 @@ impl pallet_staking_async::Config for Runtime {
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
+	type IsValidatorInactive = ();
 }
 
 // Relay Chain session keys type for validating session keys on AssetHub.
@@ -520,7 +521,8 @@ impl pallet_nomination_pools::Config for Runtime {
 	type U256ToBalance = U256ToBalance;
 	type StakeAdapter =
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
-	type PostUnbondingPoolsWindow = ConstU32<4>;
+	// Buffer (4) + bonding duration (2).
+	type MaxUnbondingPools = ConstU32<6>;
 	type MaxMetadataLen = ConstU32<256>;
 	// we use the same number of allowed unlocking chunks as with staking.
 	type MaxUnbonding = <Self as pallet_staking_async::Config>::MaxUnlockingChunks;
