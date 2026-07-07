@@ -55,7 +55,7 @@ for (( para_id=$from_para_id; para_id<=$to_para_id; para_id++ )); do
     fi
 
     # build the chain spec we'll manipulate
-    $binary_path build-spec --disable-default-bootnode --chain "glutton-westend-genesis-$para_id" > "$output_para_dir/plain-glutton-$relay_chain-$para_id-spec.json"
+    $binary_path export-chain-spec --chain "glutton-westend-genesis-$para_id" > "$output_para_dir/plain-glutton-$relay_chain-$para_id-spec.json"
 
     id="glutton-$relay_chain-$para_id"
     protocol_id="glutton-$relay_chain-$para_id"
@@ -74,7 +74,7 @@ for (( para_id=$from_para_id; para_id<=$to_para_id; para_id++ )); do
         > $output_para_dir/glutton-$relay_chain-$para_id-spec.json
 
     # build a raw spec
-    $binary_path build-spec --disable-default-bootnode --chain "$output_para_dir/glutton-$relay_chain-$para_id-spec.json" --raw > "$output_para_dir/glutton-$relay_chain-$para_id-raw-spec.json"
+    $binary_path export-chain-spec --chain "$output_para_dir/glutton-$relay_chain-$para_id-spec.json" --raw > "$output_para_dir/glutton-$relay_chain-$para_id-raw-spec.json"
 
     # build genesis data
     $binary_path export-genesis-state --chain "$output_para_dir/glutton-$relay_chain-$para_id-raw-spec.json" > "$output_para_dir/glutton-$relay_chain-$para_id-head-data"
