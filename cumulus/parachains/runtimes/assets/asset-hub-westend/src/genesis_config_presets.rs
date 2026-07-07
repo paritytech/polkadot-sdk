@@ -34,6 +34,8 @@ use testnet_parachains_constants::westend::{
 use xcm::latest::prelude::*;
 use xcm_builder::GlobalConsensusConvertsFor;
 use xcm_executor::traits::ConvertLocation;
+use crate::migrations::AssetHubWestendForeignAssetsReservesProvider;
+use assets_common::migrations::foreign_assets_reserves::ForeignAssetsReservesProvider;
 
 const ASSET_HUB_WESTEND_ED: Balance = ExistentialDeposit::get();
 
@@ -89,6 +91,15 @@ fn asset_hub_westend_genesis(
 			..Default::default()
 		},
 		foreign_assets: ForeignAssetsConfig {
+			reserves: foreign_assets
+				.iter()
+				.map(|asset| {
+					let location = asset.0.clone();
+					let reserves =
+						AssetHubWestendForeignAssetsReservesProvider::reserves_for(&location);
+					(location.try_into().unwrap(), reserves)
+				})
+				.collect(),
 			assets: foreign_assets
 				.into_iter()
 				.map(|asset| (asset.0.try_into().unwrap(), asset.1, false, asset.2))
