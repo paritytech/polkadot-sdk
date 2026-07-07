@@ -4,11 +4,11 @@
 use std::time::Duration;
 
 use crate::utils::{
-	env_or_default, initialize_network, log_line_absent, BEST_BLOCK_METRIC,
-	DEFAULT_SUBSTRATE_IMAGE, INTEGRATION_IMAGE_ENV, NODE_ROLE_METRIC, PEER_COUNT_METRIC,
+	BEST_BLOCK_METRIC, DEFAULT_SUBSTRATE_IMAGE, INTEGRATION_IMAGE_ENV, NODE_ROLE_METRIC,
+	PEER_COUNT_METRIC, env_or_default, initialize_network, log_line_absent,
 };
-use anyhow::{anyhow, Result};
-use subxt::{config::substrate::SubstrateConfig, dynamic::tx, OnlineClient};
+use anyhow::{Result, anyhow};
+use subxt::{OnlineClient, config::substrate::SubstrateConfig, dynamic::tx};
 use subxt_signer::sr25519::dev;
 use zombienet_sdk::{Arg, NetworkConfig, NetworkConfigBuilder, NetworkNode};
 
@@ -81,9 +81,7 @@ fn build_network_config() -> Result<NetworkConfig> {
 				.with_chain("local")
 				.with_default_command("substrate")
 				.with_default_image(integration_image.as_str())
-				.with_chain_spec_command(
-					"substrate export-chain-spec --chain {{chainName}} --raw",
-				)
+				.with_chain_spec_command("substrate export-chain-spec --chain {{chainName}} --raw")
 				.chain_spec_command_is_local(true)
 				.with_default_args(default_args)
 				.with_validator(|node| node.with_name("alice"))
