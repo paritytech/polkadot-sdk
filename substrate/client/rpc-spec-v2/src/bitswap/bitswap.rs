@@ -66,7 +66,7 @@ impl<Block, Client> Bitswap<Block, Client> {
 	}
 }
 
-/// Parse a CID string and validate it (CIDv1, sha2-256 or blake2b-256, 32-byte digest).
+/// Parse a CID string and validate it (CIDv1, sha2-256 / blake2b-256 / keccak-256, 32-byte digest).
 fn parse_and_validate_cid(cid_str: &str) -> Result<H256, Error> {
 	let cid = Cid::try_from(cid_str).map_err(|e| Error::InvalidCid(format!("{e}")))?;
 
