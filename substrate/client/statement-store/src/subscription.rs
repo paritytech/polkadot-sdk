@@ -261,7 +261,14 @@ impl MultiFilterSubscriptionState {
 		let mut chunk_bytes = 0usize;
 		while let Some(hash) = replay.snapshot_hashes.front() {
 			let Ok(Some(statement)) = snapshot_provider.statement_by_hash(hash) else {
+				let hash = *hash;
 				replay.snapshot_hashes.pop_front();
+				if let Some(filter_ids) = self.replayed_filter_ids_by_hash.get_mut(&hash) {
+					filter_ids.remove(&filter_id);
+					if filter_ids.is_empty() {
+						self.replayed_filter_ids_by_hash.remove(&hash);
+					}
+				}
 				continue;
 			};
 			if !statements.is_empty() && chunk_bytes + statement.len() > REPLAY_CHUNK_RAW_BYTES {
@@ -1181,6 +1188,48 @@ mod tests {
 		// The same statement arriving live must not be delivered a second time.
 		subscriptions.notify_matching_filters(&statement);
 		assert!(rx.try_recv().is_err());
+	}
+
+	#[test]
+	fn multi_filter_delivers_live_statement_that_was_evicted_before_replay_load() {
+		let mut subscriptions = SubscriptionsInfo::new();
+		let sub_id = SeqID::from(12);
+		let filter_id = FilterId::new(1);
+		let topic = Topic::from([9u8; 32]);
+		let filter = OptimizedTopicFilter::MatchAny(vec![topic].into_iter().collect());
+		let (tx, rx) = async_channel::bounded::<MultiFilterSubscriptionEvent>(10);
+		let mut statement = signed_statement(42);
+		statement.set_topic(0, topic);
+		// The statement's hash is part of the replay snapshot, but its body is gone from the
+		// store by the time the lazy replay tries to load it (evicted between snapshot
+		// collection and replay).
+		let provider = Arc::new(TestReplaySnapshotProvider::with_snapshot(
+			std::slice::from_ref(&statement),
+			&[],
+		));
+
+		subscriptions.subscribe_empty(sub_id, provider, tx);
+		subscriptions.add_filter(sub_id, filter_id, filter, vec![statement.hash()]);
+
+		// The body could not be loaded, so the replay finishes without emitting it.
+		assert!(matches!(
+			rx.try_recv(),
+			Ok(MultiFilterSubscriptionEvent::ReplayDone { filter_id: done }) if done == filter_id
+		));
+
+		// The statement is re-submitted later. It was never delivered through the replay, so
+		// it must reach the subscriber as a live event.
+		subscriptions.notify_matching_filters(&statement);
+
+		match rx.try_recv() {
+			Ok(MultiFilterSubscriptionEvent::NewStatement(event)) => {
+				assert_eq!(event.hash, statement.hash());
+				assert_eq!(event.matched_filter_ids, vec![filter_id]);
+			},
+			other => {
+				panic!("statement skipped during replay must be delivered live, got {other:?}")
+			},
+		}
 	}
 
 	#[test]
