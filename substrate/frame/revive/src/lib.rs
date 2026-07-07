@@ -3101,6 +3101,9 @@ sp_api::decl_runtime_apis! {
 		/* Versioned Runtime APIs */
 
 		#[api_version(2)]
+		fn version_declarations() -> ReviveRuntimeApiVersionDeclarations;
+
+		#[api_version(2)]
 		fn eth_block_hash_versioned(input: BlockHashVersionedInputPayload) -> BlockHashVersionedOutputPayload;
 
 		#[api_version(2)]
@@ -3127,8 +3130,8 @@ sp_api::decl_runtime_apis! {
 
 		#[api_version(2)]
 		fn eth_pre_dispatch_weight_versioned(
-			input: EthPreDispatchWeightVersionedInputPayload
-		) -> Result<EthPreDispatchWeightVersionedOutputPayload, EthTransactError>;
+			input: PreDispatchWeightVersionedInputPayload
+		) -> Result<PreDispatchWeightVersionedOutputPayload, EthTransactError>;
 
 		#[api_version(2)]
 		fn upload_code_versioned(
@@ -3350,11 +3353,11 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				) -> Result<$crate::Weight, $crate::EthTransactError> {
 					use $crate::pallet_revive_types::runtime_api::*;
 
-					let input = EthPreDispatchWeightVersionedInputPayload::from(
-						EthPreDispatchWeightInputPayloadV1 { tx }
+					let input = PreDispatchWeightVersionedInputPayload::from(
+						PreDispatchWeightInputPayloadV1 { tx }
 					);
 					let output = Self::eth_pre_dispatch_weight_versioned(input)?;
-					Ok(EthPreDispatchWeightOutputPayloadV1::try_from(output)
+					Ok(PreDispatchWeightOutputPayloadV1::try_from(output)
 						.expect("v1 input must produce v1 output; qed")
 						.weight)
 				}
@@ -3583,6 +3586,33 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				/* Versioned Runtime APIs */
+
+				fn version_declarations()
+					-> $crate::pallet_revive_types::runtime_api::ReviveRuntimeApiVersionDeclarations
+				{
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					ReviveRuntimeApiVersionDeclarations::new()
+						.insert("eth_block_hash_versioned", 1)
+						.insert("eth_receipt_data_versioned", 1)
+						.insert("block_gas_limit_versioned", 1)
+						.insert("max_extrinsic_weight_in_gas_versioned", 1)
+						.insert("balance_versioned", 1)
+						.insert("gas_price_versioned", 1)
+						.insert("nonce_versioned", 1)
+						.insert("eth_pre_dispatch_weight_versioned", 1)
+						.insert("upload_code_versioned", 1)
+						.insert("get_storage_versioned", 1)
+						.insert("runtime_pallets_address_versioned", 1)
+						.insert("code_versioned", 1)
+						.insert("account_id_versioned", 1)
+						.insert("new_balance_with_dust_versioned", 1)
+						.insert("block_author_versioned", 1)
+						.insert("address_versioned", 1)
+						.insert("trace_block_versioned", 2)
+						.insert("trace_tx_versioned", 2)
+				}
+
 				fn eth_block_hash_versioned(
 					input: $crate::pallet_revive_types::runtime_api::BlockHashVersionedInputPayload
 				) -> $crate::pallet_revive_types::runtime_api::BlockHashVersionedOutputPayload {
@@ -3747,9 +3777,9 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn eth_pre_dispatch_weight_versioned(
-					input: $crate::pallet_revive_types::runtime_api::EthPreDispatchWeightVersionedInputPayload
+					input: $crate::pallet_revive_types::runtime_api::PreDispatchWeightVersionedInputPayload
 				) -> Result<
-					$crate::pallet_revive_types::runtime_api::EthPreDispatchWeightVersionedOutputPayload,
+					$crate::pallet_revive_types::runtime_api::PreDispatchWeightVersionedOutputPayload,
 					$crate::EthTransactError
 				> {
 					use $crate::pallet_revive_types::runtime_api::*;
@@ -3758,15 +3788,15 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					let (input, output_wrapper): (
 						_,
-						Box<dyn Fn(EthPreDispatchWeightOutputPayload) -> EthPreDispatchWeightVersionedOutputPayload>,
+						Box<dyn Fn(PreDispatchWeightOutputPayload) -> PreDispatchWeightVersionedOutputPayload>,
 					) = match input {
-						EthPreDispatchWeightVersionedInputPayload::V1(payload) => (
-							EthPreDispatchWeightInputPayload::from(payload),
-							Box::new(|output| EthPreDispatchWeightVersionedOutputPayload::V1(output.into())),
+						PreDispatchWeightVersionedInputPayload::V1(payload) => (
+							PreDispatchWeightInputPayload::from(payload),
+							Box::new(|output| PreDispatchWeightVersionedOutputPayload::V1(output.into())),
 						),
 					};
 
-					let output = EthPreDispatchWeightOutputPayload {
+					let output = PreDispatchWeightOutputPayload {
 						weight: $crate::Pallet::<Self>::eth_pre_dispatch_weight(input.tx)?
 					};
 					Ok(output_wrapper(output))
