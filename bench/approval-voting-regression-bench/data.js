@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783378852623,
+  "lastUpdate": 1783407468472,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "178801527+raymondkfcheung@users.noreply.github.com",
-            "name": "Raymond Cheung",
-            "username": "raymondkfcheung"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c1c52454982c9b4ebef51a65b8ce2cd0c38029ed",
-          "message": "Replace `log` with `tracing` on Snowbridge-related modules (#9279)\n\nThis PR replaces `log` with `tracing` instrumentation in\nSnowbridge-related modules by providing structured logging.\n\nPartially addresses #9211 \nSimilar to #8732\n\n## Key Features\n- **Consistent targets**: All components use predictable log targets\n- **Structured fields**: Uses `?variable`/`%variable` syntax for\nautomatic `Debug`/`Display` formatting\n- **Zero runtime impact**: No behavioural changes, only observability\nimprovements\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrii <ndk@parity.io>",
-          "timestamp": "2025-11-11T09:24:18Z",
-          "tree_id": "a8211170d6959b24bb5e63c975d01ea22d896f28",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c1c52454982c9b4ebef51a65b8ce2cd0c38029ed"
-        },
-        "date": 1762858486244,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63639.15,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9557051262300125,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000019690489999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4440366407500034,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0059241404899999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5159330105600004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.497743778190001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6704283251309873,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.42740799152002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5247757101200015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000019690489999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000017841279999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000017841279999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4832895851800005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.7394134664800003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "44b3a384d3ac58acd5e4dac23a661532ba380ad7",
+          "message": "collator-protocol revamp:  Send RC PeerId with ApprovedPeer UMP signal (#12388)\n\nCurrently the collator sends its parachain PeerId within the\nApprovedPeer UMP signal, which is wrong because this peer id is not\nknown on the relay chain.\nAs a result on CandidateIncluded event the score is bumped for the wrong\nPeerId and the collator remains with zero reputation no matter its\nhonest work.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-07T05:14:13Z",
+          "tree_id": "b8732b26a1fa548bcd646e36b63d601e7c0cd2e1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/44b3a384d3ac58acd5e4dac23a661532ba380ad7"
+        },
+        "date": 1783407437539,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63558.15,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000022401479999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005163776220000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.358133818762768,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000022274910000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000022274910000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7565476482600006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.435723548499965,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8149004350099602,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7960799833400007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.791836946450001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8132645913800007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000022401479999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4579301678400003,
             "unit": "seconds"
           }
         ]
