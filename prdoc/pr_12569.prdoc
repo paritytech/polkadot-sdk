@@ -15,3 +15,4 @@ doc:
 crates:
   - name: snowbridge-pallet-inbound-queue
     bump: patch
+    validate: false
