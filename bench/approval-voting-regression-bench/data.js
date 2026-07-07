@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783444611408,
+  "lastUpdate": 1783451213617,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4e1d96383b2ae73de8e66ac9f8c8b8580ac9af80",
-          "message": "Accept only one block in `validate_block` when upgrading a runtime (#10280)\n\nAs the validation is running the entire time using the same validation\ncode, we can not accept any other blocks after a runtime upgrade was\napplied.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-11T21:06:04Z",
-          "tree_id": "f82b9933233e5128da43c370238f1362b5e53234",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4e1d96383b2ae73de8e66ac9f8c8b8580ac9af80"
-        },
-        "date": 1762900065582,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63639.1,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52945.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.580248364739997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9700893592399975,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001873548,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5362161404800014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.5258336769400005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4528001223199988,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020882469999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.8422235867609897,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020882469999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001873548,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005776011520000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.571351970339998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.518181083899999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.73772289866,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d988144f162df86614159e932493bfa23b7ab5b3",
+          "message": "Introduce `fp-coretime` (#11810)\n\n## Summary\n\nIntroduces `fp-coretime`, a FRAME primitives crate for Polkadot Coretime\ntypes and traits. Moves the following from `pallet-broker` into\n`fp-coretime`:\n\n- **Types**: `CoreIndex`, `Timeslice`, `TaskId`, `PartsOf57600`,\n`RegionId`, `PotentialRenewalId`, `CoreMask`, `CORE_MASK_BITS`\n- **Traits**: `Market`, `CoreRangeProvider`, `TimesliceProvider` and\nassociated result types\n\nThis allows market implementations (e.g. an RFC-17 pallet) to depend on\n`fp-coretime` instead of `pallet-broker`, avoiding a pallet dependency\njust for trait definitions and shared types.\n\n`pallet-broker` currently re-exports everything from `fp-coretime` for\nbackward compatibility.\n\nThis PR also introduces the `frame/primitives` path and also the `fp-*`\nprefix for these shared types which are not actually substrate\nprimitives.\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-07-07T17:21:07Z",
+          "tree_id": "950deceb53c5b14998111393257f71e8bca3e552",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d988144f162df86614159e932493bfa23b7ab5b3"
+        },
+        "date": 1783451183533,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63562.969999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7770954048899994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000023368,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4695664499999976,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7874251426099962,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.410307934652724,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000023368,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7763921152299997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00559677794,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8222149525800004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8158056553999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000023013029999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000023013029999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.454096498649994,
             "unit": "seconds"
           }
         ]
