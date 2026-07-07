@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783433843584,
+  "lastUpdate": 1783444686348,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ba0a8e2b3bbd62f5f47b58b2448b752baf2612a1",
-          "message": "Fix the issue with the blockhash tests (#10262)\n\n# Description\n\nThis PR fixes an issue that we've been seeing with the blockhash tests\nin the MatterLabs test suite. It merges the fix from the differential\ntests repo that was made in PR\n[`#210`](https://github.com/paritytech/revive-differential-tests/pull/210).\nMore information on the fix can be found in the PR's description, but I\nwill also paste it here to make it easier:\n\n> This PR fixes an issue that was causing the `blockhash.sol` tests to\nfail when ran through retester which is described in\n[`#210`](https://github.com/paritytech/contract-issues/issues/210). It\nwas determined that the root cause of this failure was not an issue in\nrevive but rather due to the eth-rpc pruning the blocks as the framework\nwas running. This meant that by the time we attempted to retrieve the\nblock hash from the eth-rpc it would've already been pruned since other\nblocks were mined and these blocks were pruned.\n>\n> This explains the indeterminism that we saw with these tests with them\nsometimes succeeding and sometimes failing. This can be explained away\nby the async task sometimes being scheduled to run right after the\ntransaction was submitted and before other blocks were mined and\ntherefore we succeed in getting the block hash and sometimes it takes a\nwhile to run and by the time it runs the block has already been pruned\nfrom the eth-rpc.\n>\n> We've increases the cache size and the number of indexed blocks to\n1,000 which should hopefully give us enough room for async task\nscheduling to run and still be able to get the block hash.\n\nWe've bumped the commit hash of the revive-differential-tests framework\nto the commit hash that includes this fix.\n\nIn this PR we should observe that the `blockhash.sol` tests no longer\nfail. If they fail, then it means that this was an incorrect fix to the\nissue.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-11T10:40:29Z",
-          "tree_id": "35c45013e0704d13603278218b2667e7573cfcec",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba0a8e2b3bbd62f5f47b58b2448b752baf2612a1"
-        },
-        "date": 1762862215336,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008798699199999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026655370700000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005215863429999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010619691560000009,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carlosalag@protonmail.com",
+            "name": "Carlo Sala",
+            "username": "carlosala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "408895c27a5aff4bac99e956df5426983566f8cb",
+          "message": "fix(asset-conversion): use full balances for pool prices (#12408)\n\n# Description\n\nFixes asset-conversion pool price and liquidity calculations to use the\nfull pool balances instead of reducible balances.\n\nThe previous logic could calculate reserves from reducible balances,\nwhich can exclude protected funds and understate the amount held by the\npool account. This PR routes the relevant calculations through the\npallet reserve helper and updates the shared balance helper to return\nthe full asset balance.\n\nAn example of a problem is found on Polkadot Asset Hub (address\n`163CRvzDQ8JHZfmufa86zA7BfDY7NToUSqmWbpDq5kwDYSmH`, DOT <> USDC pool).\nSomeone transferred a WUD to the account, and now the reducible balance\nsubstracts the ED, giving a wrong quote.\n\n## Integration\n\nDownstream runtimes using `pallet-asset-conversion` should receive this\nas a patch-level bug fix. No migration or configuration change is\nrequired.\n\n## Review Notes\n\nThe change affects reserve reads used by:\n\n* liquidity deposit calculations\n* liquidity withdrawal calculations\n* buy/sell price estimations\n\nThe modified paths now use the same reserve source as swap execution.\n`get_balance` now returns `T::Assets::balance(...)` so callers that need\nthe owner’s total balance do not receive reducible-balance semantics.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-07T15:28:03Z",
+          "tree_id": "96cc60c50aa27a0977c2565ab1401f61f546d1dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/408895c27a5aff4bac99e956df5426983566f8cb"
+        },
+        "date": 1783444657563,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025736074499999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00922673575999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0102001652,
             "unit": "seconds"
           }
         ]
