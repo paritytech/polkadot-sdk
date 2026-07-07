@@ -45,14 +45,18 @@ pub(crate) fn set_prefix_in_address(prefix: u16) -> [u8; 20] {
 	addr
 }
 
+/// Assert `event` was emitted from `contract` exactly once — duplicates (e.g. a precompile
+/// log next to the `Erc20TransferLogs`-mirrored one) are a failure, not a pass.
 pub(crate) fn assert_contract_event(contract: H160, event: IERC20Events) {
 	let (topics, data) = event.into_log_data().split();
 	let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
-	System::assert_has_event(RuntimeEvent::Revive(pallet_revive::Event::ContractEmitted {
+	let expected = RuntimeEvent::Revive(pallet_revive::Event::ContractEmitted {
 		contract,
 		data: data.to_vec(),
 		topics,
-	}));
+	});
+	let count = System::events().iter().filter(|record| record.event == expected).count();
+	assert_eq!(count, 1, "expected exactly one occurrence of {expected:?}, got {count}");
 }
 
 pub(crate) fn setup_asset_for_prefix(asset_id: u32, prefix: u16) {

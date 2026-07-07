@@ -337,6 +337,12 @@ where
 			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
+	fn charge_transfer_log(env: &mut impl Ext<T = Runtime>) -> Result<(), Error> {
+		env.frame_meter_mut()
+			.charge_weight_token(RuntimeCosts::DepositEvent { num_topic: 3, len: 32 })?;
+		Ok(())
+	}
+
 	/// Deposit an event to the runtime.
 	fn deposit_event(env: &mut impl Ext<T = Runtime>, event: IERC20Events) -> Result<(), Error> {
 		let (topics, data) = event.into_log_data().split();
@@ -356,6 +362,7 @@ where
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::transfer())?;
+		Self::charge_transfer_log(env)?;
 
 		let from = Self::caller(env)?;
 		let dest = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(
@@ -370,15 +377,6 @@ where
 			Self::to_balance(call.value)?,
 			None,
 			f,
-		)?;
-
-		Self::deposit_event(
-			env,
-			IERC20Events::Transfer(IERC20::Transfer {
-				from: from.0.into(),
-				to: call.to,
-				value: call.value,
-			}),
 		)?;
 
 		Ok(IERC20::transferCall::abi_encode_returns(&true))
@@ -529,6 +527,7 @@ where
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::transfer_approved())?;
+		Self::charge_transfer_log(env)?;
 		let spender = Self::caller(env)?;
 		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
 
@@ -545,15 +544,6 @@ where
 			&spender,
 			&to,
 			approval_amount,
-		)?;
-
-		Self::deposit_event(
-			env,
-			IERC20Events::Transfer(IERC20::Transfer {
-				from: call.from,
-				to: call.to,
-				value: call.value,
-			}),
 		)?;
 
 		Ok(IERC20::transferFromCall::abi_encode_returns(&true))

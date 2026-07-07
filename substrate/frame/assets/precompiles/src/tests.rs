@@ -139,8 +139,10 @@ fn precompile_transfer_works(asset_index: u16) {
 			&ExecConfig::new_substrate_tx(),
 		);
 
+		// The log is mirrored by `Erc20TransferLogs` at the callback's token address (asset id 0,
+		// trust-backed prefix), regardless of which precompile alias was called.
 		assert_contract_event(
-			asset_addr,
+			H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX)),
 			IERC20Events::Transfer(IERC20::Transfer {
 				from: from_addr.0.into(),
 				to: to_addr.0.into(),
@@ -317,8 +319,9 @@ fn approval_works(asset_index: u16) {
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 15);
 		assert_eq!(Assets::balance(asset_id, other), 10);
 
+		// Mirrored by `Erc20TransferLogs` at the callback's token address, not `asset_addr`.
 		assert_contract_event(
-			asset_addr,
+			H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX)),
 			IERC20Events::Transfer(IERC20::Transfer {
 				from: owner_addr.0.into(),
 				to: other_addr.0.into(),
