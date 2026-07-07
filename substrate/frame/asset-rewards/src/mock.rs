@@ -95,7 +95,6 @@ impl pallet_assets::Config<Instance1> for MockRuntime {
 	type Extra = ();
 	type WeightInfo = ();
 	type CallbackHandle = ();
-	type AssetIdSequencer = ();
 	pallet_assets::runtime_benchmarks_enabled! {
 		type BenchmarkHelper = ();
 	}

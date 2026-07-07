@@ -76,6 +76,18 @@ impl Default for Location {
 	}
 }
 
+/// `Location` has no successor: both methods return `None`. This satisfies bounds like
+/// `pallet-assets`' `AssetId: Incrementable` while keeping auto-increment disabled for it.
+impl frame_support::traits::Incrementable for Location {
+	fn increment(&self) -> Option<Self> {
+		None
+	}
+
+	fn initial_value() -> Option<Self> {
+		None
+	}
+}
+
 /// A relative location which is constrained to be an interior location of the context.
 ///
 /// See also `Location`.
