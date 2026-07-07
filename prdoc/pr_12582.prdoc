@@ -1,0 +1,21 @@
+title: 'collator-protocol-revamp: additional metrics'
+doc:
+- audience: Node Dev
+  description: "Improves the observability of the collator protocol revamp by adding/improving\
+    \ some metrics:\n\n  - advertisements_total (labels: outcome) \u2014 counts triaged\
+    \ collation advertisements, distinguishing accepted from each rejection reason:\
+    \ unconnected_peer, undeclared_peer, duplicate, out_of_view, peer_limit_reached,\
+    \ blocked_by_backing, v1_for_implicit_parent, scheduling_parent_invalid.\n  -\
+    \ collations_seconded_total (labels: para_id) \u2014 collations sent to the backing\
+    \ subsystem to be seconded, per para.\n  - slashes_total (labels: para_id, reason)\
+    \ \u2014 collator reputation slashes, by para and reason (invalid_collation, failed_fetch).\n\
+    \  - approved_peer_signals_total (labels: para_id, outcome) \u2014 outcome of\
+    \ the ApprovedPeer UMP signal on included v2+ candidates: present, absent, invalid_peer_id,\
+    \ parse_error.\n  - assigned_paras (gauge) \u2014 number of paras this validator\
+    \ is currently assigned to back (0 = idle).\n  - connected_collators (labels:\
+    \ para_id, score_range) \u2014 number of connected declared collators per para,\
+    \ bucketed by reputation score band. Bands are 0 (below the instant-fetch threshold),\
+    \ 1-99, 100-999, and 1000+."
+crates:
+- name: polkadot-collator-protocol
+  bump: minor
