@@ -3367,12 +3367,17 @@ pub trait Offchain {
 		&mut self,
 		out: PassPointerAndWrite<&mut NetworkPeerId, 38>,
 	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i32> {
-		let peer_id = self
+		let encoded_peer_id = self
 			.extension::<OffchainWorkerExt>()
 			.expect("network_state can be called only in the offchain worker context")
 			.network_state()?
 			.peer_id
 			.0;
+
+		let peer_id: Vec<u8> = codec::Decode::decode(&mut &encoded_peer_id[..]).map_err(|_| ())?;
+		if peer_id.len() != out.0.len() {
+			return Err(());
+		}
 
 		out.0.copy_from_slice(&peer_id);
 		Ok(())
@@ -4210,6 +4215,26 @@ mod tests {
 			assert_eq!(res.backend, 0);
 			assert_eq!(res.unique, 0);
 			assert_eq!(res.loops, 0);
+		});
+	}
+
+	#[test]
+	fn network_peer_id_writes_raw_peer_id_bytes() {
+		use sp_core::offchain::{testing::TestOffchainExt, OffchainWorkerExt};
+
+		let (offchain, _state) = TestOffchainExt::new();
+		let mut ext = BasicExternalities::default();
+		ext.register_extension(OffchainWorkerExt::new(offchain));
+
+		ext.execute_with(|| {
+			// `TestOffchainExt` reports the raw peer id `0..38`, SCALE-encoded (length-prefixed)
+			// in the network state, exactly as the real `sc-offchain` externalities do.
+			// `network_peer_id` must strip the length prefix and write the raw bytes into the
+			// fixed-size buffer. Regression test for the panic where the length-prefixed vec (39
+			// bytes) was copied straight into a `[u8; 38]`.
+			let mut peer_id = NetworkPeerId::default();
+			assert_eq!(offchain::network_peer_id(&mut peer_id), Ok(()));
+			assert_eq!(peer_id.0.to_vec(), (0u8..38).collect::<Vec<u8>>());
 		});
 	}
 
