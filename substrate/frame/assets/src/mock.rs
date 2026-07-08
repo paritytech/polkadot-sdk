@@ -20,7 +20,7 @@
 use super::*;
 use crate as pallet_assets;
 
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::{
 	assert_ok, construct_runtime, derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU32},
@@ -76,23 +76,23 @@ impl AssetsCallback<AssetId, AccountId, Balance> for AssetsCallbackHandle {
 	}
 
 	fn issued(id: &AssetId, owner: &AccountId, amount: Balance) {
-		storage::set(Self::ISSUED.as_bytes(), &(id, owner, amount).encode());
+		Self::record(Self::ISSUED, (id, owner, amount).encode());
 	}
 
 	fn transferred(id: &AssetId, from: &AccountId, to: &AccountId, amount: Balance) {
-		storage::set(Self::TRANSFERRED.as_bytes(), &(id, from, to, amount).encode());
+		Self::record(Self::TRANSFERRED, (id, from, to, amount).encode());
 	}
 
 	fn burned(id: &AssetId, owner: &AccountId, amount: Balance) {
-		storage::set(Self::BURNED.as_bytes(), &(id, owner, amount).encode());
+		Self::record(Self::BURNED, (id, owner, amount).encode());
 	}
 
 	fn deposited(id: &AssetId, who: &AccountId, amount: Balance) {
-		storage::set(Self::DEPOSITED.as_bytes(), &(id, who, amount).encode());
+		Self::record(Self::DEPOSITED, (id, who, amount).encode());
 	}
 
 	fn withdrawn(id: &AssetId, who: &AccountId, amount: Balance) {
-		storage::set(Self::WITHDRAWN.as_bytes(), &(id, who, amount).encode());
+		Self::record(Self::WITHDRAWN, (id, who, amount).encode());
 	}
 }
 
@@ -106,6 +106,21 @@ impl AssetsCallbackHandle {
 	pub const WITHDRAWN: &'static str = "asset_withdrawn";
 
 	const RETURN_ERROR: &'static str = "return_error";
+
+	// Append one balance-change callback invocation. Recording every call (rather than
+	// overwriting) lets tests assert the exact fire count, catching a double-fire.
+	fn record(key: &str, payload: Vec<u8>) {
+		let mut calls = Self::calls(key);
+		calls.push(payload);
+		storage::set(key.as_bytes(), &calls.encode());
+	}
+
+	// The recorded invocations for `key`, oldest first (empty if the callback never fired).
+	pub fn calls(key: &str) -> Vec<Vec<u8>> {
+		storage::get(key.as_bytes())
+			.and_then(|b| Decode::decode(&mut &b[..]).ok())
+			.unwrap_or_default()
+	}
 
 	// Configures `Self` to return `Ok` when callbacks are invoked
 	pub fn set_return_ok() {

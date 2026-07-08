@@ -994,3 +994,57 @@ fn plain_asset_operations_emit_erc20_transfer_logs() {
 		);
 	});
 }
+
+// The `fungibles::Balanced` imbalance paths (e.g. paying tx fees in an asset) are mirrored too:
+// withdraw = Transfer(who -> 0x0), deposit = Transfer(0x0 -> who).
+#[test]
+fn balanced_paths_emit_erc20_transfer_logs() {
+	use frame_support::traits::{
+		fungibles::Balanced,
+		tokens::{Fortitude, Precision, Preservation},
+	};
+	new_test_ext().execute_with(|| {
+		let asset_id = 5u32;
+		let owner = 1u64;
+		let user = 2u64;
+		let mut token = set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX);
+		token[..4].copy_from_slice(&asset_id.to_be_bytes());
+		let token = H160::from(token);
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let user_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&user);
+
+		Balances::make_free_balance_be(&owner, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		// Withdraw (debit): Transfer(owner -> 0x0).
+		let credit = <Assets as Balanced<u64>>::withdraw(
+			asset_id,
+			&owner,
+			40,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		)
+		.expect("withdraw succeeds");
+		assert_contract_event(
+			token,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: owner_addr.0.into(),
+				to: alloy::primitives::Address::ZERO,
+				value: U256::from(40),
+			}),
+		);
+
+		// Deposit (credit) via resolve into `user`: Transfer(0x0 -> user).
+		assert_ok!(<Assets as Balanced<u64>>::resolve(&user, credit));
+		assert_contract_event(
+			token,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: alloy::primitives::Address::ZERO,
+				to: user_addr.0.into(),
+				value: U256::from(40),
+			}),
+		);
+	});
+}
