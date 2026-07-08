@@ -467,7 +467,7 @@ impl pallet_staking_async::Config for Runtime {
 	type RcClientInterface = StakingRcClient;
 	type VestingBondingPeriods = ValidatorVestingBondingPeriods;
 	type BlocksPerSession = RelaySessionDuration;
-	type VestingBlockNumberProvider = RelayChainBlockNumberProvider;
+	type VestingBlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type ValidatorIncentivePayout =
 		pallet_staking_async::VestedIncentivePayout<Balances, pallet_vesting::Pallet<Runtime>>;
 	type IsValidatorInactive = ();
@@ -660,7 +660,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 }
 
 parameter_types! {
