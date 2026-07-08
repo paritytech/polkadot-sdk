@@ -3497,6 +3497,8 @@ mod tests {
 		assert_eq!(existing.len(), 2, "Re-subscribe MatchAll([B]) should return s2 and s3");
 	}
 
+	// Tests for the multi-filter subscription API (`MultiFilterSubscriptionApi` /
+	// `create_subscription`), as opposed to the single-filter `subscribe_statement` tests above.
 	mod multi_filter {
 		use super::*;
 		use crate::{
