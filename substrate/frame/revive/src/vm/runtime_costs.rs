@@ -438,8 +438,7 @@ mod tests {
 		let overhead = RuntimeCosts::hot_storage_overlay_overhead::<Test>();
 		assert!(
 			overhead.ref_time() > 0,
-			"the overlay_probe_empty per-read slope caught up with overlay_probe_full's, \
-			 zeroing the overlay term; the benches need investigating, not regenerating",
+			"the per-read cost of overlay_probe_full must stay above overlay_probe_empty",
 		);
 		assert_eq!(overhead.proof_size(), 0, "the overlay probe is in-memory only: {overhead:?}");
 	}

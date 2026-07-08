@@ -1607,8 +1607,8 @@ mod benchmarks {
 	fn overlay_probe_full(
 		n: Linear<0, { MAX_ACCESS_LIST_ENTRIES as u32 }>,
 	) -> Result<(), BenchmarkError> {
-		// One stored key per probe; odd suffixes, so the even fill never overwrites them.
 		let value_byte = 42;
+		// One stored key per probe; odd suffixes, so the even fill never overwrites them.
 		let (info, stored_keys) =
 			setup_stored_keys::<T>(MAX_ACCESS_LIST_ENTRIES, value_byte, |i| i * 2 + 1)?;
 		let child_trie_info = info.child_trie_info();
@@ -1639,8 +1639,8 @@ mod benchmarks {
 	fn overlay_probe_empty(
 		n: Linear<0, { MAX_ACCESS_LIST_ENTRIES as u32 }>,
 	) -> Result<(), BenchmarkError> {
-		// Reads must cost the same as in `overlay_probe_full`, so their shared cost cancels.
 		let value_byte = 42;
+		// Reads must cost the same as in `overlay_probe_full`, so their shared cost cancels.
 		let (info, stored_keys) =
 			setup_stored_keys::<T>(MAX_ACCESS_LIST_ENTRIES, value_byte, |i| i * 2 + 1)?;
 		let child_trie_info = info.child_trie_info();
