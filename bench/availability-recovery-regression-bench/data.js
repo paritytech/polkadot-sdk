@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783507291801,
+  "lastUpdate": 1783513317953,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "karol@parity.io",
-            "name": "Karol Kokoszka",
-            "username": "karolk91"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "14f0e2e3af9dbfe366151e2445f320585a3fba87",
-          "message": "pallet-xcm: API changes to use `VersionedAssetId` instead of `u32` to specify asset for fees (#10243)\n\nMultiple pallet-xcm calls use `u32` index as a way to specify which\nasset from the `assets` (also an arg of the call) is to be used for fees\npurposes. This PR brings **major API change (breaking change)** that\nproposes usage of `VersionedAssetId` instead\n\nAffected pallet-xcm calls: `teleport_assets`, `reserve_transfer_assets`,\n`limited_reserve_transfer_assets`, `limited_teleport_assets`,\n`transfer_assets`\n\nThis is follow-up change to the:\nhttps://github.com/paritytech/polkadot-sdk/pull/9842, that aims to\nremove the requirement of the client to provide sorted list of Assets to\nthe APIs (often a point failures). With the mentioned change sorting\nhappens on the runtime side and `u32` index (provided by the client) can\nbecome invalid after sorting (this PR aims that problem)\n\nRelevant\n[dicussion](https://matrix.to/#/!nYxxyvMNMUaniRIokh:parity.io/$gAcAEznmQL6LhUlvGPHSaePUV4cZtxoco2I6ap8Cn3Q?via=parity.io&via=matrix.org&via=web3.foundation)\non XCM public element channel\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2025-11-12T20:17:46Z",
-          "tree_id": "01acbdf59ddc1697fca55fd033b207fe5be1b05f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/14f0e2e3af9dbfe366151e2445f320585a3fba87"
-        },
-        "date": 1762982782660,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1987452178,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.257855807366663,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1353371062333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bkontur@gmail.com",
+            "name": "Branislav Kontur",
+            "username": "bkontur"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "42e5c5770bed46e84aee805779294a41a695af32",
+          "message": "Remove Polkadot Bulletin bridge related code (#12585)\n\nRemoves the `bp-polkadot-bulletin` crate and the Rococo <> Rococo\nBulletin bridge from the BridgeHubRococo runtime.\n\nRelates to: https://github.com/paritytech/Tech_OKRs_FY25/issues/140",
+          "timestamp": "2026-07-08T10:36:59Z",
+          "tree_id": "ba7ec341db75f9537955bb5669f7d1363566991c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/42e5c5770bed46e84aee805779294a41a695af32"
+        },
+        "date": 1783513287792,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.543050747000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14038082793333337,
             "unit": "seconds"
           }
         ]
