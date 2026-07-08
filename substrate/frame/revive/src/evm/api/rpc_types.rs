@@ -20,6 +20,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::{H160, U256};
+use sp_crypto_hashing::keccak_256;
 
 /// Configuration specific to a dry-run execution.
 ///
@@ -300,7 +301,7 @@ impl ReceiptInfo {
 ///
 /// [ref]: https://ethereum.github.io/yellowpaper/paper.pdf
 fn m3_2048(bloom: &mut [u8; 256], bytes: &[u8]) {
-	let hash = sp_core::keccak_256(bytes);
+	let hash = keccak_256(bytes);
 	for i in [0, 2, 4] {
 		let bit = (hash[i + 1] as usize + ((hash[i] as usize) << 8)) & 0x7FF;
 		bloom[256 - 1 - bit / 8] |= 1 << (bit % 8);
@@ -393,6 +394,18 @@ impl GenericTransaction {
 	/// Create a new [`GenericTransaction`] from a signed transaction.
 	pub fn from_signed(tx: TransactionSigned, base_gas_price: U256, from: Option<H160>) -> Self {
 		Self::from_unsigned(tx.into(), base_gas_price, from)
+	}
+
+	/// Returns `true` when the transaction's payload fields look like those of a simple value
+	/// transfer: empty calldata, no access list, no EIP-7702 authorization list, no EIP-4844 blob
+	/// payload, and no blob gas fee. The destination address is validated separately by the caller.
+	pub fn has_simple_transfer_fields(&self) -> bool {
+		self.input.is_empty() &&
+			self.access_list.as_ref().is_none_or(|list| list.is_empty()) &&
+			self.authorization_list.is_empty() &&
+			self.blob_versioned_hashes.is_empty() &&
+			self.blobs.is_empty() &&
+			self.max_fee_per_blob_gas.is_none()
 	}
 
 	/// The gas price that is actually paid (including priority fee).

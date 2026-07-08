@@ -137,8 +137,10 @@ where
 
 	tracing::debug!(target: crate::LOG_TARGET, ?slot_duration, ?block_hash, "Parachain slot duration acquired");
 
-	let (relay_slot, timestamp) =
-		consensus_common::relay_slot_and_timestamp(relay_parent_header, relay_chain_slot_duration)?;
+	let (relay_slot, timestamp) = consensus_common::get_relay_slot_and_timestamp(
+		relay_parent_header,
+		relay_chain_slot_duration,
+	)?;
 
 	let slot_now = Slot::from_timestamp(timestamp, slot_duration);
 
@@ -332,10 +334,10 @@ where
 				};
 
 			let parent_search_result = match crate::collators::find_parent(
-				relay_parent,
-				params.para_id,
-				&*params.para_backend,
 				&params.relay_client,
+				&*params.para_backend,
+				params.para_id,
+				relay_parent,
 				|_| true,
 			)
 			.await
@@ -476,7 +478,7 @@ where
 					validation_data.max_pov_size * 85 / 100
 				} as usize;
 
-				match collator
+				let collation_result = collator
 					.collate(
 						&parent_header,
 						&slot_claim,
@@ -484,9 +486,11 @@ where
 						(parachain_inherent_data, other_inherent_data),
 						params.authoring_duration,
 						allowed_pov_size,
+						None,
 					)
-					.await
-				{
+					.await;
+
+				match collation_result {
 					Ok(Some((collation, block_data))) => {
 						let Some(new_block_header) =
 							block_data.blocks().first().map(|b| b.header().clone())
