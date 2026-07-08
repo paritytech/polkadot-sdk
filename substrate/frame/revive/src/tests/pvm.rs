@@ -58,6 +58,7 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_revive_fixtures::compile_module;
+use pallet_revive_types::runtime_api::*;
 use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::U256;
@@ -3767,6 +3768,48 @@ fn immutable_data_works() {
 }
 
 #[test]
+fn delegatecall_immutable_charge_follows_callee_not_caller() {
+	let (delegator_code, _) = compile_module("delegate_call_simple").unwrap();
+	let (reader_code, _) = compile_module("immutable_reader").unwrap();
+
+	let measure = |caller_len: u32, callee_len: usize| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+
+			let Contract { addr: reader_addr, .. } =
+				builder::bare_instantiate(Code::Upload(reader_code.clone()))
+					.build_and_unwrap_contract();
+			let Contract { addr: delegator_addr, .. } =
+				builder::bare_instantiate(Code::Upload(delegator_code.clone()))
+					.build_and_unwrap_contract();
+
+			// Give the callee's stored blob and the caller's recorded length different sizes, so
+			// the measured gas shows which of the two the charge is based on.
+			crate::ImmutableDataOf::<Test>::insert(
+				reader_addr,
+				crate::ImmutableData::try_from(vec![0xAAu8; callee_len]).unwrap(),
+			);
+			let mut info = AccountInfo::<Test>::load_contract(&delegator_addr).unwrap();
+			info.set_immutable_data_len(caller_len);
+			AccountInfo::<Test>::insert_contract(&delegator_addr, info);
+
+			let result =
+				builder::bare_call(delegator_addr).data(reader_addr.as_bytes().to_vec()).build();
+			result.result.unwrap();
+			result.gas_consumed
+		})
+	};
+
+	let gas_caller_big = measure(4096, 8);
+	let gas_callee_big = measure(8, 4096);
+	assert!(
+		gas_callee_big > gas_caller_big,
+		"get_immutable_data charge must follow the callee's blob, not the caller's length: \
+		 gas_callee_big={gas_callee_big}, gas_caller_big={gas_caller_big}",
+	);
+}
+
+#[test]
 fn sbrk_cannot_be_linked() {
 	// The sbrk instruction is not available in the revive_v1 instruction set.
 	// This test verifies that the linker rejects it during the linking phase.
@@ -4209,23 +4252,28 @@ fn call_tracing_works() {
 		assert_eq!(gas_trace.gas_used, gas_used as u64);
 
 		for config in tracer_configs {
-			let logs = if config.with_logs {
+			let with_logs = config.with_logs;
+			let base = System::event_count();
+			let make_logs = |start_index: u32| -> Vec<CallLog> {
+				if !with_logs {
+					return vec![];
+				}
 				vec![
 					CallLog {
 						address: addr,
 						topics: Default::default(),
 						data: b"before".to_vec().into(),
 						position: 0,
+						index: base + start_index,
 					},
 					CallLog {
 						address: addr,
 						topics: Default::default(),
 						data: b"after".to_vec().into(),
 						position: 1,
+						index: base + start_index + 1,
 					},
 				]
-			} else {
-				vec![]
 			};
 
 			let calls = if config.only_top_call {
@@ -4252,7 +4300,7 @@ fn call_tracing_works() {
 							to: addr,
 							input: (2u32, addr_callee).encode().into(),
 							call_type: Call,
-							logs: logs.clone(),
+							logs: make_logs(2),
 							value: Some(U256::from(0)),
 							gas: 0,
 							gas_used: 0,
@@ -4274,7 +4322,7 @@ fn call_tracing_works() {
 									to: addr,
 									input: (1u32, addr_callee).encode().into(),
 									call_type: Call,
-									logs: logs.clone(),
+									logs: make_logs(4),
 									value: Some(U256::from(0)),
 									gas: 0,
 									gas_used: 0,
@@ -4332,7 +4380,7 @@ fn call_tracing_works() {
 					to: addr,
 					input: (3u32, addr_callee).encode().into(),
 					call_type: Call,
-					logs: logs.clone(),
+					logs: make_logs(0),
 					value: Some(U256::from(0)),
 					calls: calls,
 					child_call_count: 2,
@@ -5479,18 +5527,15 @@ fn existential_deposit_shall_not_be_charged_twice() {
 
 #[test]
 fn self_destruct_by_syscall_tracing_works() {
-	use crate::{
-		Trace,
-		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig, Tracer},
-	};
+	use crate::evm::{PrestateTracer, PrestateTracerConfig, Tracer};
 
 	let (binary, _code_hash) = compile_module("self_destruct_by_syscall").unwrap();
 
 	struct TestCase {
 		description: &'static str,
 		create_tracer: Box<dyn FnOnce() -> Tracer<Test>>,
-		expected_trace_fn: Box<dyn FnOnce(H160, Vec<u8>) -> Trace>,
-		modify_trace_fn: Option<Box<dyn FnOnce(Trace) -> Trace>>,
+		expected_trace_fn: Box<dyn FnOnce(H160, Vec<u8>) -> TraceV1>,
+		modify_trace_fn: Option<Box<dyn FnOnce(TraceV1) -> TraceV1>>,
 	}
 
 	let test_cases = vec![
@@ -5498,19 +5543,19 @@ fn self_destruct_by_syscall_tracing_works() {
 			description: "CallTracer",
 			create_tracer: Box::new(|| Tracer::CallTracer(CallTracer::new(Default::default()))),
 			expected_trace_fn: Box::new(|addr, _binary| {
-				Trace::Call(CallTrace {
+				TraceV1::Call(CallTraceV1 {
 					from: ALICE_ADDR,
 					to: addr,
-					call_type: CallType::Call,
+					call_type: CallTypeV1::Call,
 					value: Some(U256::zero()),
 					gas: 0,
 					gas_used: 0,
-					calls: vec![CallTrace {
+					calls: vec![CallTraceV1 {
 						from: addr,
 						to: DJANGO_ADDR,
 						gas: 0,
 
-						call_type: CallType::Selfdestruct,
+						call_type: CallTypeV1::Selfdestruct,
 						value: Some(Pallet::<Test>::convert_native_to_evm(100_000u128)),
 						..Default::default()
 					}],
@@ -5518,7 +5563,7 @@ fn self_destruct_by_syscall_tracing_works() {
 				})
 			}),
 			modify_trace_fn: Some(Box::new(|mut actual_trace| {
-				if let Trace::Call(trace) = &mut actual_trace {
+				if let TraceV1::Call(trace) = &mut actual_trace {
 					trace.gas = 0;
 					trace.gas_used = 0;
 					trace.calls[0].gas = 0;
@@ -5584,8 +5629,8 @@ fn self_destruct_by_syscall_tracing_works() {
 					.replace("{{DJANGO_BALANCE_POST}}", &format!("{:#x}", django_balance_post))
 					.replace("{{CONTRACT_CODE}}", &format!("0x{}", hex::encode(&binary)));
 
-				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
-				Trace::Prestate(expected)
+				let expected: PrestateTraceV1 = serde_json::from_str(&json).unwrap();
+				TraceV1::Prestate(expected)
 			}),
 			modify_trace_fn: None,
 		},
@@ -5629,8 +5674,8 @@ fn self_destruct_by_syscall_tracing_works() {
 					.replace("{{DJANGO_BALANCE}}", &format!("{:#x}", django_balance))
 					.replace("{{CONTRACT_CODE}}", &format!("0x{}", hex::encode(&binary)));
 
-				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
-				Trace::Prestate(expected)
+				let expected: PrestateTraceV1 = serde_json::from_str(&json).unwrap();
+				TraceV1::Prestate(expected)
 			}),
 			modify_trace_fn: None,
 		},
@@ -5652,15 +5697,15 @@ fn self_destruct_by_syscall_tracing_works() {
 				builder::call(addr).build().unwrap();
 			});
 
-			let mut trace = tracer.collect_trace().unwrap();
+			let mut trace = TraceV1::from(tracer.collect_trace().unwrap());
 
 			if let Some(modify_trace_fn) = modify_trace_fn {
 				trace = modify_trace_fn(trace);
 			}
 			let trace_wrapped = match trace {
-				crate::evm::Trace::Call(ct) => Trace::Call(ct),
-				crate::evm::Trace::Prestate(pt) => Trace::Prestate(pt),
-				crate::evm::Trace::Execution(_) => panic!("Execution trace not expected"),
+				TraceV1::Call(ct) => TraceV1::Call(ct),
+				TraceV1::Prestate(pt) => TraceV1::Prestate(pt),
+				TraceV1::Execution(_) => panic!("Execution trace not expected"),
 			};
 
 			assert_eq!(trace_wrapped, expected_trace, "Trace mismatch for: {}", description);
