@@ -1,0 +1,25 @@
+title: 'pallet-assets: mirror balance changes as ERC-20 Transfer logs via AssetsCallback'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `AssetsCallback` gains infallible balance-change hooks (`issued`, `transferred`,
+    `burned`, `deposited`, `withdrawn`) fired next to the matching pallet-assets events on
+    every path: extrinsics, the `fungibles` traits (incl. XCM asset transactors) and the
+    `Balanced` imbalance paths. The trait gains a third generic parameter `Balance`; any
+    hand-written `impl AssetsCallback<Id, Acct>` must add it (implementations wired only as
+    `CallbackHandle` need no change beyond a recompile).
+
+    `pallet_revive::Pallet::emit_contract_log` is exposed as the single EVM-log emission path.
+
+    A new `Erc20TransferLogs` callback in `pallet-assets-precompiles` mirrors those balance
+    changes as canonical ERC-20 `Transfer` logs at the asset's precompile address, so plain
+    substrate asset activity is visible to Ethereum log consumers. The `ERC20` precompile no
+    longer emits its own `Transfer` log; wire `Erc20TransferLogs` as the instance's
+    `CallbackHandle` to keep precompile transfers logged.
+crates:
+- name: pallet-assets
+  bump: major
+- name: pallet-revive
+  bump: minor
+- name: pallet-assets-precompiles
+  bump: minor
