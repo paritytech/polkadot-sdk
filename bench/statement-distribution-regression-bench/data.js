@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783513433621,
+  "lastUpdate": 1783519004937,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4e1d96383b2ae73de8e66ac9f8c8b8580ac9af80",
-          "message": "Accept only one block in `validate_block` when upgrading a runtime (#10280)\n\nAs the validation is running the entire time using the same validation\ncode, we can not accept any other blocks after a runtime upgrade was\napplied.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-11T21:06:04Z",
-          "tree_id": "f82b9933233e5128da43c370238f1362b5e53234",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4e1d96383b2ae73de8e66ac9f8c8b8580ac9af80"
-        },
-        "date": 1762900098880,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.96599999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034502398134,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044740673541999926,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08583607872599991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b45a0aa593958efd2630f9148ffea8493ebdd654",
+          "message": "[pallet-revive] fix double deposit charge to parent contractinfo (#12267)\n\n# pallet-revive: fix storage deposit double-count under same-contract\nreentry\n\nWhen a contract writes storage, reenters itself (directly or via an\nintermediary), and writes storage again, the pre-call write is applied\nto the contract's persisted `ContractInfo` twice — inflating\n`storage_items` / `storage_bytes` / `storage_*_deposit`. The corruption\nis persisted via `insert_contract` and survives across transactions;\nsubsequent `clear_storage` operations under-refund because the inflated\ncounters become the denominator of the pro-rata refund.\n\n## What goes wrong\n\nFor `X` writes `K1` → calls itself → writes `K2`:\n\n1. `push_frame` (`exec.rs:1212-1223`) and the same-contract\n`cached_info` shortcut (`exec.rs:2150-2160`) clone the parent's\n`ContractInfo`, preview-apply the parent's pending diff to the clone,\nand use it as the child's view. The child persists that clone via\n`insert_contract` on success.\n2. The cache-invalidation matcher (`exec.rs:1616`) then marks the\nparent's cache `Invalidated`. The parent's next write reloads from\nstorage, which already contains the preview-applied `K1`.\n3. The parent's `finalize()` (`exec.rs:1474-1478`) re-applies its\nstill-pending `own_contribution` (which still contains `K1`) on top of\nthe reloaded info → `K1` counted twice.\n\nThis is a regression from\n[#10920](https://github.com/paritytech/polkadot-sdk/pull/10920) (commit\n`1b9ea1c3656`, merged 2026-02-10), which introduced the preview-apply\nstep to make pending writes visible to nested frames for refund\npro-rating, but did not consume the parent's `own_contribution`. The\nexisting #10920 regression test\n(`metering::tests::nested_call_storage_refund` with the\n`setAndCallClear` fixture) does not catch the case because the parent\nperforms no write after the nested call returns — its cache stays\n`Invalidated`, the outer pop's `as_contract()` returns `None`, and the\ndiff is never re-applied.\n\n## Fix\n\nBank the parent's pending diff at the cache-invalidation site so\n`finalize()` only applies writes recorded afterwards.\n\n- `RawMeter::bank_pending_changes(contract, info)`\n(`metering/storage.rs`) — applies the `Alive` diff to `info` once,\npushes the resulting deposit as a final `Charge` via the existing\n`charge_deposit` primitive, and resets `own_contribution`. Two\n`debug_assert!`s encode invariants: `info.is_some()` whenever the diff\nis non-empty (otherwise `Diff::update_contract(None)` at\n`storage.rs:130-134` drops the refund portion and over-charges), and\n`own_contribution` is `Alive` when banked (on-stack ancestors have not\nfinalized yet, since `finalize` runs at `exec.rs:1474-1478` only at the\nframe's own pop).\n- `Frame::bank_pending_changes_and_invalidate` (`exec.rs`) — bundles\n`load → bank → invalidate` so the meter never sees `None` info and the\nordering can't be misexpressed. Called from `pop_frame` only when the\nmatcher finds an ancestor with the popped child's `account_id`.\n\nThe `load` covers the case where an earlier same-contract reentry\nalready invalidated the frame, or it accrued a removal-bearing diff via\n`charge_storage` (which does not reload the cache). Without it, banking\nwould hit the silent `update_contract(None)` refund-drop.\n\nNo behavior change outside same-contract reentry; the matcher returns no\nancestor for cross-contract pops, and the bank is a no-op when the\npending diff is empty.\n\n## Tests (`exec/tests.rs`)\n\n| Test | Asserts | Verified without fix |\n|---|---|---|\n| `same_contract_reentry_does_not_double_count_storage` (solc, resolc) |\n`X→X` write-reenter-write → reentrant run's persisted `ContractInfo`\n(`storage_items`, `storage_bytes`, `storage_item_deposit`,\n`storage_byte_deposit`) and net `storage_deposit` charged to origin\nequal a non-reentrant baseline doing the same two writes | fails\ninflated (`storage_items == 3` vs baseline `2`) |\n| `transitive_reentry_does_not_double_count_storage` (solc×resolc\nmatrix, 4 cases) | `X→Y→X` reentry via intermediary proxy, same\nbaseline-equivalence assertion | fails inflated (`storage_items == 3` vs\nbaseline `2`) |\n| `bank_after_invalidate_loads_cache_for_refund_pro_rating` (Rust mock)\n| banked-refund path: self-reenter, `charge_storage` a 30-byte removal\n(no cache reload), self-reenter again; `load()` reloads the invalidated\nframe so the removal's pro-rata refund applies → net `8` charged to\norigin | coverage of the `load()`/banked-removal path (not\ncontract-reachable, so guards the internal path rather than reproducing\nthe double-count) |\n\n\n\nThe first two and the fourth were directly observed to fail when the\ncorresponding fix piece is reverted; the third is a #10920 guard that\npasses regardless. The fourth's balance assertion catches the dropped\nrefund in release builds too, where the `debug_assert!` is compiled out\n(the removal is 30 bytes rather than 1 so the pro-rata refund does not\nround to zero). Full `pallet-revive` lib suite: 637 passed, 0 failed.\n\n## Impact\n\n**Severity: Low.** Refund only ever under-charges (inflated denominator\n→ smaller refund). The `.min(FixedU128::from_u32(1))` clamp in\n`Diff::update_contract` (`metering/storage.rs:141`) prevents\nover-refund. `do_terminate` (`exec.rs:1761`) calls\n`T::Deposit::refund_all`, which reads `T::Currency::balance_on_hold`\ndirectly (`deposit_payment.rs:255`) rather than the inflated\n`ContractInfo` fields, so any stranded residue is recoverable on\ncontract termination — no over-refund or theft.\n\n**Reachability.** In EVM mode, `CALL`/`STATICCALL` default to\n`ReentrancyProtection::AllowReentry` for non-zero-value calls and for\nzero-value calls without the 2300-gas Solidity stipend\n(`vm/evm/instructions/contract.rs:193-203`). PVM (Wasm) defaults to\n`Strict`; reentry is opt-in via `CallFlags::ALLOW_REENTRY`.\n`pallet-revive` is configured in Asset Hub Westend at pallet index 60\n(`cumulus/parachains/runtimes/assets/asset-hub-westend/src/lib.rs:1809`);\ndeployment status on production Asset Hub runtimes is in a separate\nrepository and not verified here.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-08T12:11:59Z",
+          "tree_id": "9ab90256c9233b08f74fcb1d92e2df4860cf5697",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b45a0aa593958efd2630f9148ffea8493ebdd654"
+        },
+        "date": 1783518974907,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.06400000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08129335289399993,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03851721499199999,
             "unit": "seconds"
           }
         ]
