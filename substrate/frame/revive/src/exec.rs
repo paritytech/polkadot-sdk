@@ -1595,6 +1595,27 @@ where
 	/// This is called after running the current frame. It commits cached values to storage
 	/// and invalidates all stale references to it that might exist further down the call stack.
 	fn pop_frame(&mut self, persist: bool) {
+		/// Bank the pending storage diff into the cached `ContractInfo`, then invalidate.
+		///
+		/// The `load` covers the case where an earlier same-contract reentry already
+		/// invalidated this frame; without it a removal-bearing diff would be banked with
+		/// no info and silently drop the refund pro-rata. A `None` after `load` means the
+		/// frame is a precompile with no contract info, which has nothing to bank.
+		fn bank_pending_changes_and_invalidate<T: Config>(f: &mut Frame<T>) {
+			let contract = f.account_id.clone();
+			f.contract_info.load(&f.account_id);
+			if let Some(info) = f.contract_info.as_contract() {
+				f.frame_meter.bank_pending_storage_changes(contract, info);
+			}
+			// `invalidate` drops the in-memory update `bank` made to `info`; that is safe
+			// because storage already reflects it. Additions and `set_storage` removals leave
+			// the frame `Cached` (write reloads the cache), so `push_frame` preview-persists
+			// them before we get here. The only diff not yet in storage would be a removal on
+			// an already-invalidated frame — reachable solely via `charge_storage`, which has
+			// no contract-level caller. If that changes, persist here instead of invalidating.
+			f.contract_info.invalidate();
+		}
+
 		// Pop the current frame from the stack and return it in case it needs to interact
 		// with duplicates that might exist on the stack.
 		// A `None` means that we are returning from the `first_frame`.
@@ -1635,7 +1656,8 @@ where
 					contract,
 				);
 				if let Some(f) = self.frames_mut().find(|f| f.account_id == *account_id) {
-					f.contract_info.invalidate();
+					// Bank before invalidating so finalize doesn't apply the diff a second time.
+					bank_pending_changes_and_invalidate(f);
 				}
 			}
 		} else {
