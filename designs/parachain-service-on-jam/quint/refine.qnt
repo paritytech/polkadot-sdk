@@ -64,7 +64,8 @@ module refine {
     | Solicit(_) => 37
     | Forget(_) => 37
     | TransferOut(_) => 149
-    | SetAuthorizerQueue(p) => 13 + p.queue.length() * 32
+    | SetAuthorizerQueue(p) => 9 + p.queue.length() * 32
+    | SetAssigner(_) => 9
     | SetValidatorKeys(p) => 4 + p.keys.length() * 336
     | ConsumeTransfersUpTo(_) => 5
     | ParachainSetHead(_) => 4103

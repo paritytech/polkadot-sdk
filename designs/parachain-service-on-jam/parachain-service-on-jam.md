@@ -404,24 +404,25 @@ enum UpwardMessage {
     Forget { hash: Hash, len: u32 },
     /// From `transfer_out` — transfer balance to another JAM service.
     TransferOut { dest: ServiceId, amount: Amount, memo: Memo },
-    /// From `set_authorizer_queue` — update a core's authorizer queue.
+    /// From `set_authorizer_queue` — set/schedule a core's authorizer QUEUE.
     ///
-    /// - `immediate`: controls when the QUEUE is applied. When `true` (or the
+    /// - `immediate`: controls when the queue is applied. When `true` (or the
     ///   core was never assigned, so there is no current queue to wait on) the
     ///   new queue is forwarded to JAM directly, superseding any cached queue.
     ///   Otherwise the queue is cached and applied in the always-accumulate phase
     ///   once the core's current queue is exhausted (§5.1).
-    /// - `new_assigner`: when `Some`, hands off `assigners[core]` to the given
-    ///   service so it can manage its own queue from that point on; when `None`,
-    ///   the current assigner is retained. The hand-off is applied directly (via
-    ///   JAM `assign`) during replay, regardless of `immediate`.
-    /// - `queue`: an empty list is a no-op on the authorizer queue (nothing
-    ///   happens to it) — a call may pass an empty `queue` together with a
-    ///   `new_assigner` to hand off the assigner without changing the queue.
+    /// - `queue`: an empty list cancels any queue cached for the core so it is
+    ///   not applied.
     SetAuthorizerQueue {
         core: CoreIndex,
         queue: Vec<AuthorizerHash>,
         immediate: bool,
+    },
+    /// From `set_assigner` — change a core's assigner (`assigners[core]`).
+    /// `Some(s)` hands it off to service `s` so it can manage the core's queue
+    /// from that point on; `None` resets the assigner.
+    SetAssigner {
+        core: CoreIndex,
         new_assigner: Option<ServiceId>,
     },
     /// From `set_validator_keys`. See §5.3.
@@ -553,7 +554,8 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent — no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. For the parachain's own active/pending validation code it only sets `pinned` to true (§5.2). |
 | `forget(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent — no-op if the parachain is not in `preimage_registry[hash].referencers`. May be called for the parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). |
 | `transfer_out(dest: ServiceId, amount: Balance, memo: Memo)` | `()` | Transfer balance to another JAM service (Asset Hub only) |
-| `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, mode: QueueUpdateMode, new_assigner: Option<ServiceId>)` | `()` | Update the authorizer queue for a core (Coretime chain only). `mode` determines whether the queue is applied immediately or cached in service state until the current 80-slot queue is exhausted. `new_assigner`, when `Some`, hands off `assigners[core]` to another service so that service can manage its own core queue going forward; when `None`, the current assigner (Parachain Service) is retained. An empty `queue` is a no-op on the authorizer queue, so a call may pass an empty `queue` to set only `new_assigner`. |
+| `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, mode: QueueUpdateMode)` | `()` | Set/schedule the authorizer queue for a core (Coretime chain only). `mode` determines whether the queue is applied immediately or cached in service state until the current 80-slot queue is exhausted. An empty `queue` cancels any queue cached for the core so it is not applied. The core's assigner is set separately via `set_assigner`. |
+| `set_assigner(core: CoreIndex, new_assigner: Option<ServiceId>)` | `()` | Change `assigners[core]` (Coretime chain only): `Some(s)` hands it off to service `s` so it can manage that core's queue going forward; `None` resets the assigner. |
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
 | `consume_transfers_up_to(index: u32)` | `()` | Mark all incoming transfers up to `index` as consumed; Accumulate prunes those entries. (Asset Hub only) |
 | `parachain_service_upgrade(code_hash: Hash, len: u32, min_item_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_item_gas, min_memo_gas)` (Asset Hub only). `len` is the new code's SCALE-encoded byte length. Accumulate rejects the call with `AccumulateLog::ServiceUpgradePreimageMissing` if the new code's preimage is not in the Parachain Service's preimage store. See §5.4. |
@@ -1183,11 +1185,11 @@ Parachain runtime
     │  Sends XCM to Coretime chain with new collator set root + size
     ▼
 Coretime chain
-    │  calls set_authorizer_queue(core, authorizers, mode, new_assigner)
+    │  calls set_authorizer_queue(core, authorizers, mode)
     │  (new authorizer hashes computed from same code + updated config)
     ▼
 Parachain Service (Accumulate)
-    │  assign(core, new_queue, new_assigner)
+    │  assign(core, new_queue) — retaining the current assigner
     │  New authorizer hashes enter the pool via queue rotation
     ▼
 Pool (up to 8 entries)
@@ -1199,7 +1201,7 @@ Pool (up to 8 entries)
 
 On-demand coretime is not a special case for the Parachain Service — it is handled
 entirely by the **Coretime chain**. When someone buys a single-slot coretime allocation,
-the Coretime chain just calls `set_authorizer_queue(core, queue, immediate = true, ...)`
+the Coretime chain just calls `set_authorizer_queue(core, queue, immediate = true)`
 to install the buyer's authorizer on the target core for the duration of that slot. The
 Parachain Service sees no difference between on-demand and bulk-purchased coretime; it
 only sees a queue update.

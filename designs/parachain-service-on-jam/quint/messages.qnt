@@ -68,10 +68,16 @@ module messages {
   // (§5.4).
   | ServiceUpgradePreimageMissing({ codeHash: Hash })
 
-  /// A JAM `assign(core, newAssigner)` host-function call recorded during a
-  /// step. `newAssigner` mirrors `set_authorizer_queue`'s argument; `None`
-  /// on the exhaustion-flush path (a cached queue update carried no assigner).
-  type AssignCall = { core: CoreIndex, newAssigner: Option[ServiceId] }
+  /// A JAM `assign` host-function call recorded during a step. JAM's single
+  /// `assign(core, queue, assigner)` sets both; the service uses it two distinct
+  /// ways, modeled as separate calls:
+  type AssignCall =
+    // `set_authorizer_queue` application — install the core's authorizer queue
+    // (the assigner is retained).
+    | QueueSet({ core: CoreIndex })
+    // `set_assigner` — change the core's assigner: `Some(s)` sets it to `s`,
+    // `None` resets it (the queue is retained).
+    | AssignerSet({ core: CoreIndex, newAssigner: Option[ServiceId] })
 
   // --- Upward messages emitted by the PVF, replayed by Accumulate ---------
 
@@ -84,15 +90,17 @@ module messages {
   | Forget({ hash: Hash, len: int })
   // transfer_out(dest, amount, memo) — Asset Hub only.
   | TransferOut({ dest: ServiceId, amount: Balance, memo: Memo })
-  // set_authorizer_queue(core, queue, immediate, new_assigner) — Coretime only.
-  // An empty `queue` is a no-op on the authorizer queue, so a call may pass an
-  // empty `queue` to set only `newAssigner`.
+  // set_authorizer_queue(core, queue, immediate) — Coretime only. Sets/schedules
+  // the authorizer QUEUE only (the assigner is handled by `set_assigner`). An
+  // empty `queue` cancels any cached queue for the core so it is not applied.
   | SetAuthorizerQueue({
       core: CoreIndex,
       queue: List[AuthorizerHash],
-      immediate: bool,
-      newAssigner: Option[ServiceId]
+      immediate: bool
   })
+  // set_assigner(core, new_assigner) — Coretime only. Change the core's
+  // assigner: `Some(s)` sets it to `s`, `None` resets it.
+  | SetAssigner({ core: CoreIndex, newAssigner: Option[ServiceId] })
   // set_validator_keys(chunk, is_last) — Asset Hub only.
   | SetValidatorKeys({ keys: List[ValidatorKey], isLast: bool })
   // consume_transfers_up_to(index) — Asset Hub only.
@@ -183,6 +191,7 @@ module messages {
   pure def isCoretimeOnly(m: UpwardMessage): bool =
   match m {
     | SetAuthorizerQueue(_) => true
+    | SetAssigner(_) => true
     | ParachainSetHead(_) => true
     | ParachainSetValidationCode(_) => true
     | ParachainCleanUp(_) => true

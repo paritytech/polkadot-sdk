@@ -211,40 +211,57 @@ module accumulate {
       // service's incoming queue. Here we no-op.
       acc
       | SetAuthorizerQueue(payload) =>
-      // §5.1 step 7 (replay). The assigner hand-off (`assign` with `new_assigner`)
-      // fires now regardless of `immediate` — `immediate` gates only WHEN the
-      // queue is applied. `immediate = true` (or a never-assigned cold core,
-      // which has no current queue to wait on) forwards the queue to JAM
-      // directly, superseding any cached queue; a warm `immediate = false`
-      // caches the queue until its 80-slot window is exhausted (see `applyAlwaysAccumulate`).
-      val cold = not(acc.state.lastAuthorizerAssignment.keys().contains(payload.core))
-      val assigned = { ...acc,
-        jamAssigns: acc.jamAssigns.append({ core: payload.core, newAssigner: payload.newAssigner }) }
-      if (payload.immediate or cold)
-        { ...assigned,
-          state: { ...assigned.state,
-            lastAuthorizerAssignment:
-              assigned.state.lastAuthorizerAssignment.put(payload.core, now),
+      // §5.1 step 7 (replay). Sets/schedules the authorizer QUEUE only. An empty
+      // `queue` cancels any cached queue for the core (dropped, not applied) with
+      // no `assign` and no update to `lastAuthorizerAssignment`. Otherwise
+      // `immediate = true` (or a never-assigned cold core, which has no current
+      // queue to wait on) applies the queue inline via `assign`; a warm
+      // `immediate = false` caches the queue until the 80-slot window is
+      // exhausted (see `applyAlwaysAccumulate`).
+      if (payload.queue.length() == 0)
+        { ...acc,
+          state: { ...acc.state,
             pendingAuthorizerQueues:
-              assigned.state.pendingAuthorizerQueues.mapRemove(payload.core),
+              acc.state.pendingAuthorizerQueues.mapRemove(payload.core),
             pendingAuthorizerCores:
-              assigned.state.pendingAuthorizerCores.mapRemove(payload.core)
+              acc.state.pendingAuthorizerCores.mapRemove(payload.core)
           }
         }
       else {
-        // Warm core, queue cached: due at the next 80-slot boundary strictly
-        // after `now`, measured from the last assignment (a core cached exactly
-        // on a boundary waits for the following window).
-        val last = assigned.state.lastAuthorizerAssignment.get(payload.core)
-        val applyAt = last + ((now - last) / AuthorizerQueueLength + 1) * AuthorizerQueueLength
-        { ...assigned,
-          state: { ...assigned.state,
-            pendingAuthorizerQueues:
-              assigned.state.pendingAuthorizerQueues.put(payload.core, payload.queue),
-            pendingAuthorizerCores:
-              assigned.state.pendingAuthorizerCores.put(payload.core, applyAt)
+        val cold = not(acc.state.lastAuthorizerAssignment.keys().contains(payload.core))
+        if (payload.immediate or cold)
+          { ...acc,
+            jamAssigns: acc.jamAssigns.append(QueueSet({ core: payload.core })),
+            state: { ...acc.state,
+              lastAuthorizerAssignment:
+                acc.state.lastAuthorizerAssignment.put(payload.core, now),
+              pendingAuthorizerQueues:
+                acc.state.pendingAuthorizerQueues.mapRemove(payload.core),
+              pendingAuthorizerCores:
+                acc.state.pendingAuthorizerCores.mapRemove(payload.core)
+            }
+          }
+        else {
+          // Warm core, queue cached: due at the next 80-slot boundary strictly
+          // after `now`, measured from the last assignment (a core cached exactly
+          // on a boundary waits for the following window).
+          val last = acc.state.lastAuthorizerAssignment.get(payload.core)
+          val applyAt = last + ((now - last) / AuthorizerQueueLength + 1) * AuthorizerQueueLength
+          { ...acc,
+            state: { ...acc.state,
+              pendingAuthorizerQueues:
+                acc.state.pendingAuthorizerQueues.put(payload.core, payload.queue),
+              pendingAuthorizerCores:
+                acc.state.pendingAuthorizerCores.put(payload.core, applyAt)
+            }
           }
         }
+      }
+      | SetAssigner(payload) =>
+      // Change the core's assigner (§7.1) — applied directly via JAM `assign`,
+      // independent of the queue. `Some(s)` sets it to `s`; `None` resets it.
+      { ...acc,
+        jamAssigns: acc.jamAssigns.append(AssignerSet({ core: payload.core, newAssigner: payload.newAssigner }))
       }
       | ConsumeTransfersUpTo(idx) =>
       // Asset Hub prunes the consumed prefix. Both Refine and
@@ -463,7 +480,7 @@ module accumulate {
               lastAuthorizerAssignment: acc.state.lastAuthorizerAssignment.put(c, now),
               pendingAuthorizerQueues: acc.state.pendingAuthorizerQueues.mapRemove(c)
             },
-            assigns: acc.assigns.append({ core: c, newAssigner: None })
+            assigns: acc.assigns.append(QueueSet({ core: c }))
           }
       }
     )

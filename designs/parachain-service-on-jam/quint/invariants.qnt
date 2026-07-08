@@ -301,8 +301,13 @@ module invariants {
   /// Every `assign` recorded last step targets a valid core index (< CoreCount).
   /// (A structural sanity check that the assign-recording is well-formed.)
   val assign_calls_well_formed: bool =
-    lastStepAssigns.foldl(true, (acc, a) =>
-      acc and a.core >= 0 and a.core < CoreCount)
+    lastStepAssigns.foldl(true, (acc, a) => {
+      val core = match a {
+        | QueueSet(p) => p.core
+        | AssignerSet(p) => p.core
+      }
+      acc and core >= 0 and core < CoreCount
+    })
 
   /// `staged_validator_keys` must never exceed the worst-case staging
   /// length (`MaxStagedValidatorKeys = 1023`).

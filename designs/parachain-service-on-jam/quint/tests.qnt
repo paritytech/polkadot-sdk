@@ -583,8 +583,7 @@ module tests {
       SetAuthorizerQueue({
         core: core,
         queue: List(anyHash),
-        immediate: false,
-        newAssigner: None
+        immediate: false
       })
     )
     val flushed = applyAlwaysAccumulate(out.state, AuthorizerQueueLength)
@@ -592,7 +591,7 @@ module tests {
       assert(out.state.pendingAuthorizerCores.keys().contains(core)),
       assert(not(flushed.state.pendingAuthorizerCores.keys().contains(core))),
       assert(not(flushed.state.pendingAuthorizerQueues.keys().contains(core))),
-      assert(flushed.assigns == List({ core: core, newAssigner: None })),
+      assert(flushed.assigns == List(QueueSet({ core: core }))),
       init
     }
   }
@@ -615,7 +614,7 @@ module tests {
     val cached = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0,
       SetAuthorizerQueue({
-        core: core, queue: List(anyHash), immediate: false, newAssigner: None
+        core: core, queue: List(anyHash), immediate: false
       })
     ).state
     val beforeDue = applyAlwaysAccumulate(cached, AuthorizerQueueLength - 1)
@@ -650,13 +649,12 @@ module tests {
       SetAuthorizerQueue({
         core: core,
         queue: List(anyHash),
-        immediate: false,
-        newAssigner: None
+        immediate: false
       })
     )
     all {
       assert(not(initialState.lastAuthorizerAssignment.keys().contains(core))),
-      assert(out.jamAssigns == List({ core: core, newAssigner: None })),
+      assert(out.jamAssigns == List(QueueSet({ core: core }))),
       assert(out.state.lastAuthorizerAssignment.get(core) == nowSlot),
       assert(not(out.state.pendingAuthorizerCores.keys().contains(core))),
       assert(not(out.state.pendingAuthorizerQueues.keys().contains(core))),
@@ -683,13 +681,13 @@ module tests {
     // First call at now = 0: core is cold → applied inline, not cached.
     val after1 = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0,
-      SetAuthorizerQueue({ core: core, queue: List(hash1), immediate: false, newAssigner: None })
+      SetAuthorizerQueue({ core: core, queue: List(hash1), immediate: false })
     )
     // Second call at now = 1: core is now warm → cached, apply_at = next
     // 80-slot boundary = 0 + ((1 - 0) / 80 + 1) * 80 = 80.
     val after2 = applyUpwardMessage(
       after1, CoretimeParaId, FixedCodeLen, 1,
-      SetAuthorizerQueue({ core: core, queue: List(hash2), immediate: false, newAssigner: None })
+      SetAuthorizerQueue({ core: core, queue: List(hash2), immediate: false })
     )
     all {
       // Cold to start.
@@ -706,12 +704,11 @@ module tests {
     }
   }
 
-  /// An immediate Coretime `set_authorizer_queue` forwards its
-  /// `newAssigner` argument into the recorded JAM `assign` call.
-  run immediateSetAuthorizerQueueForwardsAssignerTest = {
+  /// `set_assigner` changes the core's assigner directly via JAM `assign`,
+  /// independent of the queue: `Some(s)` sets it, `None` resets it.
+  run setAssignerForwardsAssignerTest = {
     val core = 0
     val assigner = MkServiceId(7)
-    val anyHash: AuthorizerHash = { authBytes: 7 }
     val baseAcc: AccumulateOutcome = {
       state: initialState,
       jamDesignate: None,
@@ -720,32 +717,39 @@ module tests {
       jamAssigns: List(),
       logs: List()
     }
-    val out = applyUpwardMessage(
+    // Some(assigner): set the assigner.
+    val setOut = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0,
-      SetAuthorizerQueue({
-        core: core,
-        queue: List(anyHash),
-        immediate: true,
-        newAssigner: Some(assigner)
-      })
+      SetAssigner({ core: core, newAssigner: Some(assigner) })
+    )
+    // None: reset the assigner.
+    val resetOut = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 0,
+      SetAssigner({ core: core, newAssigner: None })
     )
     all {
-      assert(out.jamAssigns == List({ core: core, newAssigner: Some(assigner) })),
+      assert(setOut.jamAssigns == List(AssignerSet({ core: core, newAssigner: Some(assigner) }))),
+      assert(resetOut.jamAssigns == List(AssignerSet({ core: core, newAssigner: None }))),
+      // no queue/pending state is touched by either.
+      assert(setOut.state == initialState),
+      assert(resetOut.state == initialState),
       init
     }
   }
 
-  /// The assigner hand-off fires at replay regardless of `immediate`: a warm
-  /// core `immediate = false` `set_authorizer_queue` still records the `assign`
-  /// (with `new_assigner`) now, while the queue itself is deferred to the
-  /// 80-slot boundary — `immediate` gates the queue, not the assigner.
-  run assignFiresAtReplayWhenNotImmediateTest = {
+  /// An empty `queue` cancels any cached queue for the core: it is dropped (not
+  /// applied), with no `assign` and no update to `lastAuthorizerAssignment`.
+  run emptyQueueCancelsCachedQueueTest = {
     val core = 5
-    val assigner = MkServiceId(7)
-    val anyHash: AuthorizerHash = { authBytes: 5 }
-    // Warm core (already assigned once at t=0), so it hits the cached branch.
+    val staleHash: AuthorizerHash = { authBytes: 5 }
+    // Warm core with a queue already cached for a future boundary.
+    val cachedState = { ...initialState,
+      pendingAuthorizerQueues: Map(core -> List(staleHash)),
+      pendingAuthorizerCores: Map(core -> AuthorizerQueueLength),
+      lastAuthorizerAssignment: Map(core -> 0)
+    }
     val baseAcc: AccumulateOutcome = {
-      state: { ...initialState, lastAuthorizerAssignment: Map(core -> 0) },
+      state: cachedState,
       jamDesignate: None,
       jamSolicit: Set(),
       jamForget: Set(),
@@ -754,16 +758,15 @@ module tests {
     }
     val out = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 1,
-      SetAuthorizerQueue({
-        core: core, queue: List(anyHash), immediate: false, newAssigner: Some(assigner)
-      })
+      SetAuthorizerQueue({ core: core, queue: List(), immediate: false })
     )
     all {
-      // assign fired now, with the new assigner, even though immediate = false.
-      assert(out.jamAssigns == List({ core: core, newAssigner: Some(assigner) })),
-      // the queue itself is still deferred (cached) for the boundary.
-      assert(out.state.pendingAuthorizerQueues.get(core) == List(anyHash)),
-      assert(out.state.pendingAuthorizerCores.keys().contains(core)),
+      // cached queue dropped, not applied.
+      assert(not(out.state.pendingAuthorizerQueues.keys().contains(core))),
+      assert(not(out.state.pendingAuthorizerCores.keys().contains(core))),
+      // no assign, and last-applied left untouched.
+      assert(out.jamAssigns == List()),
+      assert(out.state.lastAuthorizerAssignment.get(core) == 0),
       init
     }
   }
@@ -793,8 +796,7 @@ module tests {
       SetAuthorizerQueue({
         core: core,
         queue: List(immediateHash),
-        immediate: true,
-        newAssigner: None
+        immediate: true
       })
     )
     all {
@@ -802,7 +804,7 @@ module tests {
       assert(not(out.state.pendingAuthorizerQueues.keys().contains(core))),
       assert(not(out.state.pendingAuthorizerCores.keys().contains(core))),
       // The immediate assign was recorded and the assignment timestamp updated.
-      assert(out.jamAssigns == List({ core: core, newAssigner: None })),
+      assert(out.jamAssigns == List(QueueSet({ core: core }))),
       assert(out.state.lastAuthorizerAssignment.get(core) == 1),
       init
     }
@@ -814,7 +816,6 @@ module tests {
     val core = 0
     val staleHash: AuthorizerHash = { authBytes: 1 }
     val immediateHash: AuthorizerHash = { authBytes: 2 }
-    val assigner = MkServiceId(9)
     val t = AuthorizerQueueLength
     val dueState = { ...initialState,
       pendingAuthorizerQueues: Map(core -> List(staleHash)),
@@ -832,19 +833,14 @@ module tests {
     }
     val out = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, t,
-      SetAuthorizerQueue({
-        core: core,
-        queue: List(immediateHash),
-        immediate: true,
-        newAssigner: Some(assigner)
-      })
+      SetAuthorizerQueue({ core: core, queue: List(immediateHash), immediate: true })
     )
     val assigns = afterAlwaysAccumulate.assigns.concat(out.jamAssigns)
     all {
-      assert(afterAlwaysAccumulate.assigns == List({ core: core, newAssigner: None })),
+      assert(afterAlwaysAccumulate.assigns == List(QueueSet({ core: core }))),
       assert(assigns == List(
-        { core: core, newAssigner: None },
-        { core: core, newAssigner: Some(assigner) }
+        QueueSet({ core: core }),
+        QueueSet({ core: core })
       )),
       assert(not(out.state.pendingAuthorizerQueues.keys().contains(core))),
       assert(not(out.state.pendingAuthorizerCores.keys().contains(core))),
