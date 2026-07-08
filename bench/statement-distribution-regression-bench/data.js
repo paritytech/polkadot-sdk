@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783507409074,
+  "lastUpdate": 1783513433621,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "357984bdb9156a068fbc698a9c4b54337f0d307a",
-          "message": "pallet_revive: Fix EVM tests to pass `data` as part of `code` (#10214)\n\nThe test code was passing the constructor argument as `data` on EVM. But\nit should be passed as part of the `code`. This is different from PVM\nwhere those are separate.\n\nFailing to do so makes those opcodes return the wrong values when `data`\nis passed to the constructor:\n\n```\nCODESIZE\nCODECOPY\nCALLDATASIZE\nCALLDATACOPY\nCALLDATALOAD\n```\n\nFurther changes:\n\n- I also added some checks to fail instantiation if `data` is non empty\nwhen uploading new EVM bytecode.\n- Return error when trying to construct EVM contract from code hash as\nthis does not make sense since no initcode is stored on-chain.\n\n---------\n\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-11T17:52:54Z",
-          "tree_id": "37904ccb2d9262b068b97e76c32c08469b7ee69f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/357984bdb9156a068fbc698a9c4b54337f0d307a"
-        },
-        "date": 1762889262289,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94199999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03447578602,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04441575616999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08927510342399997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bkontur@gmail.com",
+            "name": "Branislav Kontur",
+            "username": "bkontur"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "42e5c5770bed46e84aee805779294a41a695af32",
+          "message": "Remove Polkadot Bulletin bridge related code (#12585)\n\nRemoves the `bp-polkadot-bulletin` crate and the Rococo <> Rococo\nBulletin bridge from the BridgeHubRococo runtime.\n\nRelates to: https://github.com/paritytech/Tech_OKRs_FY25/issues/140",
+          "timestamp": "2026-07-08T10:36:59Z",
+          "tree_id": "ba7ec341db75f9537955bb5669f7d1363566991c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/42e5c5770bed46e84aee805779294a41a695af32"
+        },
+        "date": 1783513403618,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.09399999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038733911783999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08583607872599991,
             "unit": "seconds"
           }
         ]
