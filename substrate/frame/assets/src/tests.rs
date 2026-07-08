@@ -2066,43 +2066,63 @@ fn balance_change_callbacks_should_work() {
 			calls
 		};
 
-		Balances::make_free_balance_be(&1, 100);
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		let asset = 0u32;
+		let owner = 1u64;
+		let dest = 2u64;
+		let delegate = 3u64;
+		let mint_amount = 100u64;
+		let transfer_amount = 60u64;
+		let approved_amount = 30u64;
+		let burn_amount = 90u64;
+
+		Balances::make_free_balance_be(&owner, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, owner, true, 1));
 
 		// Mint fires `issued` exactly once with the minted amount.
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset, owner, mint_amount));
 		assert_eq!(
 			take(AssetsCallbackHandle::ISSUED),
-			vec![(0u32, 1u64, 100u64).encode()],
+			vec![(asset, owner, mint_amount).encode()],
 			"mint must fire `issued` exactly once"
 		);
 
 		// Transfer fires `transferred` exactly once with the credited amount.
-		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 60));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(owner), asset, dest, transfer_amount));
 		assert_eq!(
 			take(AssetsCallbackHandle::TRANSFERRED),
-			vec![(0u32, 1u64, 2u64, 60u64).encode()],
+			vec![(asset, owner, dest, transfer_amount).encode()],
 			"transfer must fire `transferred` exactly once"
 		);
 
 		// The delegated path funnels through the same internals and also fires `transferred`.
-		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 3, 30));
-		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(3), 0, 1, 2, 30));
+		assert_ok!(Assets::approve_transfer(
+			RuntimeOrigin::signed(owner),
+			asset,
+			delegate,
+			approved_amount
+		));
+		assert_ok!(Assets::transfer_approved(
+			RuntimeOrigin::signed(delegate),
+			asset,
+			owner,
+			dest,
+			approved_amount
+		));
 		assert_eq!(
 			take(AssetsCallbackHandle::TRANSFERRED),
-			vec![(0u32, 1u64, 2u64, 30u64).encode()],
+			vec![(asset, owner, dest, approved_amount).encode()],
 			"transfer_approved must fire `transferred` exactly once"
 		);
 
 		// A zero-amount transfer is a no-op: no event, no callback.
-		assert_ok!(Assets::transfer(RuntimeOrigin::signed(2), 0, 1, 0));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(dest), asset, owner, 0));
 		assert!(take(AssetsCallbackHandle::TRANSFERRED).is_empty());
 
 		// Burn fires `burned` exactly once with the actually burned amount.
-		assert_ok!(Assets::burn(RuntimeOrigin::signed(1), 0, 2, 90));
+		assert_ok!(Assets::burn(RuntimeOrigin::signed(owner), asset, dest, burn_amount));
 		assert_eq!(
 			take(AssetsCallbackHandle::BURNED),
-			vec![(0u32, 2u64, 90u64).encode()],
+			vec![(asset, dest, burn_amount).encode()],
 			"burn must fire `burned` exactly once"
 		);
 	});
@@ -2121,33 +2141,45 @@ fn balance_change_callbacks_fire_on_fungibles_paths() {
 			calls
 		};
 
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		let asset = 0u32;
+		let owner = 1u64;
+		let dest = 2u64;
+		let mint_amount = 100u64;
+		let move_amount = 60u64;
 
-		assert_ok!(Assets::mint_into(0, &1, 100));
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, owner, true, 1));
+
+		assert_ok!(Assets::mint_into(asset, &owner, mint_amount));
 		assert_eq!(
 			take(AssetsCallbackHandle::ISSUED),
-			vec![(0u32, 1u64, 100u64).encode()],
+			vec![(asset, owner, mint_amount).encode()],
 			"fungibles `mint_into` must fire `issued` exactly once"
 		);
 
-		assert_ok!(<Assets as Mutate<u64>>::transfer(0, &1, &2, 60, Preservation::Expendable));
+		assert_ok!(<Assets as Mutate<u64>>::transfer(
+			asset,
+			&owner,
+			&dest,
+			move_amount,
+			Preservation::Expendable
+		));
 		assert_eq!(
 			take(AssetsCallbackHandle::TRANSFERRED),
-			vec![(0u32, 1u64, 2u64, 60u64).encode()],
+			vec![(asset, owner, dest, move_amount).encode()],
 			"fungibles `transfer` must fire `transferred` exactly once"
 		);
 
 		assert_ok!(Assets::burn_from(
-			0,
-			&2,
-			60,
+			asset,
+			&dest,
+			move_amount,
 			Preservation::Expendable,
 			Precision::Exact,
 			Fortitude::Polite
 		));
 		assert_eq!(
 			take(AssetsCallbackHandle::BURNED),
-			vec![(0u32, 2u64, 60u64).encode()],
+			vec![(asset, dest, move_amount).encode()],
 			"fungibles `burn_from` must fire `burned` exactly once"
 		);
 	});
@@ -2156,17 +2188,21 @@ fn balance_change_callbacks_fire_on_fungibles_paths() {
 #[test]
 fn balance_change_callbacks_fire_on_refund_burn() {
 	build_and_execute(|| {
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
-		Balances::make_free_balance_be(&1, 100);
-		assert_ok!(Assets::touch(RuntimeOrigin::signed(1), 0));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		let asset = 0u32;
+		let owner = 1u64;
+		let mint_amount = 100u64;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, owner, false, 1));
+		Balances::make_free_balance_be(&owner, 100);
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(owner), asset));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset, owner, mint_amount));
 		storage::clear(AssetsCallbackHandle::ISSUED.as_bytes());
 
-		assert_ok!(Assets::refund(RuntimeOrigin::signed(1), 0, true));
-		assert_eq!(Assets::total_supply(0), 0);
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(owner), asset, true));
+		assert_eq!(Assets::total_supply(asset), 0);
 		assert_eq!(
 			AssetsCallbackHandle::calls(AssetsCallbackHandle::BURNED),
-			vec![(0u32, 1u64, 100u64).encode()],
+			vec![(asset, owner, mint_amount).encode()],
 			"refund with `allow_burn` must fire `burned` exactly once"
 		);
 	});
@@ -2179,13 +2215,18 @@ fn balance_change_callbacks_fire_on_balanced_paths() {
 		tokens::{Fortitude, Precision, Preservation},
 	};
 	build_and_execute(|| {
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
-		assert_ok!(Assets::mint_into(0, &1, 100));
+		let asset = 0u32;
+		let owner = 1u64;
+		let dest = 2u64;
+		let move_amount = 40u64;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, owner, true, 1));
+		assert_ok!(Assets::mint_into(asset, &owner, 100));
 
 		let credit = <Assets as Balanced<u64>>::withdraw(
-			0,
-			&1,
-			40,
+			asset,
+			&owner,
+			move_amount,
 			Precision::Exact,
 			Preservation::Preserve,
 			Fortitude::Polite,
@@ -2193,14 +2234,14 @@ fn balance_change_callbacks_fire_on_balanced_paths() {
 		.expect("withdraw succeeds");
 		assert_eq!(
 			AssetsCallbackHandle::calls(AssetsCallbackHandle::WITHDRAWN),
-			vec![(0u32, 1u64, 40u64).encode()],
+			vec![(asset, owner, move_amount).encode()],
 			"`Balanced::withdraw` must fire `withdrawn` exactly once"
 		);
 
-		assert_ok!(<Assets as Balanced<u64>>::resolve(&2, credit));
+		assert_ok!(<Assets as Balanced<u64>>::resolve(&dest, credit));
 		assert_eq!(
 			AssetsCallbackHandle::calls(AssetsCallbackHandle::DEPOSITED),
-			vec![(0u32, 2u64, 40u64).encode()],
+			vec![(asset, dest, move_amount).encode()],
 			"`Balanced::resolve` (deposit) must fire `deposited` exactly once"
 		);
 	});
