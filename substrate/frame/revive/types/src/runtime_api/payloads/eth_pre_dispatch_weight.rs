@@ -22,21 +22,21 @@ use scale_info::TypeInfo;
 use sp_weights::Weight;
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct EthPreDispatchWeightInputPayloadV1 {
+pub struct PreDispatchWeightInputPayloadV1 {
 	pub tx: Vec<u8>,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum EthPreDispatchWeightVersionedInputPayload {
-	V1(EthPreDispatchWeightInputPayloadV1),
+pub enum PreDispatchWeightVersionedInputPayload {
+	V1(PreDispatchWeightInputPayloadV1),
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct EthPreDispatchWeightOutputPayloadV1 {
+pub struct PreDispatchWeightOutputPayloadV1 {
 	pub weight: Weight,
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
-pub enum EthPreDispatchWeightVersionedOutputPayload {
-	V1(EthPreDispatchWeightOutputPayloadV1),
+pub enum PreDispatchWeightVersionedOutputPayload {
+	V1(PreDispatchWeightOutputPayloadV1),
 }
