@@ -142,8 +142,6 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-type RelayChainBlockNumberProvider = RelaychainDataProvider<Runtime>;
-
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
@@ -487,7 +485,7 @@ parameter_types! {
 
 impl pallet_vesting::Config for Runtime {
 	const MAX_VESTING_SCHEDULES: u32 = 100;
-	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type BlockNumberToBalance = ConvertInto;
 	type Currency = Balances;
 	type MinVestedTransfer = MinVestedTransfer;
@@ -610,7 +608,7 @@ impl pallet_multisig::Config for Runtime {
 	type MaxSignatories = MaxSignatories;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
 	// TODO add migration.
-	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -798,7 +796,7 @@ impl pallet_proxy::Config for Runtime {
 	type AnnouncementDepositBase = AnnouncementDepositBase;
 	type AnnouncementDepositFactor = AnnouncementDepositFactor;
 	// TODO add migration.
-	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 }
 
 parameter_types! {
