@@ -195,7 +195,9 @@ impl<C: Chain> RpcClient<C> {
 	async fn build_client(
 		params: &ConnectionParams,
 	) -> Result<(tokio::runtime::Handle, Arc<WsClient>)> {
-		let tokio = tokio::runtime::Handle::current();
+		let tokio = tokio::runtime::Handle::try_current().map_err(|e| {
+			Error::Custom(format!("Failed to obtain current tokio runtime handle: {e}"))
+		})?;
 		let uri = params.uri.clone();
 		tracing::info!(target: "bridge", node=%C::NAME, %uri, "Connecting");
 
