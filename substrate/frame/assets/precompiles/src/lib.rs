@@ -207,7 +207,6 @@ where
 	}
 }
 
-
 /// `CallbackHandle` emitting an ERC-20 `Transfer` log for each pallet-assets balance change, at
 /// the asset's [`ERC20`] precompile address.
 pub struct Erc20TransferLogs<Runtime, PrecompileConfig, Instance = ()> {
