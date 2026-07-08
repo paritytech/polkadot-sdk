@@ -1,0 +1,13 @@
+title: 'pallet-society: migrate from Currency to fungible (holds, transfers, pot reads)'
+doc:
+- audience: Runtime Dev
+  description: "Migrates `pallet-society` off the deprecated `Currency`/`ReservableCurrency`\
+    \ traits onto the `fungible` trait family. Bid/candidacy deposits become `fungible`\
+    \ holds, internal payout/pot movements use `fungible::Mutate::transfer,` and pot\
+    \ reads use `fungible::Inspect`, with a versioned reserve-to-hold storage migration.\
+    \ Part of #12399 / #226.\r\n"
+crates:
+- name: rococo-runtime
+  bump: major
+- name: pallet-society
+  bump: major

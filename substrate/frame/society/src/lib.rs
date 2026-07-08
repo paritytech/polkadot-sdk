@@ -265,9 +265,10 @@ use frame_support::{
 	pallet_prelude::*,
 	storage::KeyLenOf,
 	traits::{
-		BalanceStatus, Currency, EnsureOrigin, EnsureOriginWithArg,
-		ExistenceRequirement::AllowDeath, Imbalance, OnUnbalanced, Randomness, ReservableCurrency,
-		StorageVersion,
+		fungible::{Inspect, Mutate, MutateHold},
+		tokens::{Fortitude, Precision, Preservation, Restriction},
+		Currency, EnsureOrigin, EnsureOriginWithArg, Imbalance, OnUnbalanced, Randomness,
+		ReservableCurrency, StorageVersion,
 	},
 	PalletId,
 };
@@ -297,8 +298,11 @@ pub type BlockNumberFor<T, I> =
 	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 pub type BalanceOf<T, I> =
-	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-pub type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
+	<<T as Config<I>>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+/// Legacy negative imbalance of [`Config::OldCurrency`]. Retained so the society pot can still be
+/// funded by `Currency`-based [`OnUnbalanced`] callers (e.g. `pallet-treasury`'s burn destination)
+/// until those callers are migrated to `fungible`.
+pub type NegativeImbalanceOf<T, I> = <<T as Config<I>>::OldCurrency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
@@ -480,7 +484,7 @@ pub struct GroupParams<Balance> {
 
 pub type GroupParamsFor<T, I> = GroupParams<BalanceOf<T, I>>;
 
-pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -501,8 +505,18 @@ pub mod pallet {
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 
-		/// The currency type used for bidding.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		/// The overarching hold reason type.
+		type RuntimeHoldReason: From<HoldReason<I>>;
+
+		/// The currency type used for bidding, deposits, payouts and the society pot.
+		type Currency: Inspect<Self::AccountId>
+			+ Mutate<Self::AccountId>
+			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+
+		/// The legacy reservable currency. Retained only to migrate pre-existing reserved bid
+		/// deposits to holds in [`crate::migrations`]; it is otherwise unused and can be removed
+		/// once all reserves have been migrated.
+		type OldCurrency: ReservableCurrency<Self::AccountId, Balance = BalanceOf<Self, I>>;
 
 		/// Something that provides randomness in the runtime.
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self, I>>;
@@ -791,6 +805,14 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextChallengeAt<T: Config<I>, I: 'static = ()> = StorageValue<_, BlockNumberFor<T, I>>;
 
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		/// Funds are held as a deposit for a society membership bid.
+		#[codec(index = 0)]
+		BidDeposit,
+	}
+
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<SystemBlockNumberFor<T>> for Pallet<T, I> {
 		fn on_initialize(_n: SystemBlockNumberFor<T>) -> Weight {
@@ -867,8 +889,8 @@ pub mod pallet {
 
 			let params = Parameters::<T, I>::get().ok_or(Error::<T, I>::NotGroup)?;
 			let deposit = params.candidate_deposit;
-			// NOTE: Reserve must happen before `insert_bid` since that could end up unreserving.
-			T::Currency::reserve(&who, deposit)?;
+			// NOTE: The hold must happen before `insert_bid` since that could end up releasing.
+			T::Currency::hold(&Self::deposit_reason(), &who, deposit)?;
 			Self::insert_bid(&mut bids, &who, value, BidKind::Deposit(deposit));
 
 			Bids::<T, I>::put(bids);
@@ -1061,7 +1083,12 @@ pub mod pallet {
 			if let Some((when, amount)) = record.payouts.first() {
 				if when <= &block_number {
 					record.paid = record.paid.checked_add(amount).ok_or(Overflow)?;
-					T::Currency::transfer(&Self::payouts(), &who, *amount, AllowDeath)?;
+					T::Currency::transfer(
+						&Self::payouts(),
+						&who,
+						*amount,
+						Preservation::Expendable,
+					)?;
 					record.payouts.remove(0);
 					Payouts::<T, I>::insert(&who, record);
 					return Ok(());
@@ -1081,7 +1108,12 @@ pub mod pallet {
 			ensure!(record.rank == 0, Error::<T, I>::AlreadyElevated);
 			ensure!(amount >= payout_record.paid, Error::<T, I>::InsufficientFunds);
 
-			T::Currency::transfer(&who, &Self::account_id(), payout_record.paid, AllowDeath)?;
+			T::Currency::transfer(
+				&who,
+				&Self::account_id(),
+				payout_record.paid,
+				Preservation::Expendable,
+			)?;
 			payout_record.paid = Zero::zero();
 			payout_record.payouts.clear();
 			record.rank = 1;
@@ -1432,18 +1464,19 @@ pub mod pallet {
 				return Ok(Pays::Yes.into());
 			}
 
+			let reason = Self::deposit_reason();
 			if new_deposit > old_deposit {
-				// Need to reserve more
+				// Need to hold more
 				let extra = new_deposit.saturating_sub(old_deposit);
-				T::Currency::reserve(&who, extra)?;
+				T::Currency::hold(&reason, &who, extra)?;
 			} else {
-				// Need to unreserve some
+				// Need to release some
 				let excess = old_deposit.saturating_sub(new_deposit);
-				let remaining_unreserved = T::Currency::unreserve(&who, excess);
-				if !remaining_unreserved.is_zero() {
+				let released = T::Currency::release(&reason, &who, excess, Precision::BestEffort)?;
+				if released != excess {
 					defensive!(
-						"Failed to unreserve for full amount for bid (Requested, Actual)",
-						(excess, excess.saturating_sub(remaining_unreserved))
+						"Failed to release for full amount for bid (Requested, Actual)",
+						(excess, released)
 					);
 				}
 			}
@@ -1719,7 +1752,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// Bump the pot by at most `PeriodSpend`, but less if there's not very much left in our
 		// account.
 		let mut pot = Pot::<T, I>::get();
-		let unaccounted = T::Currency::free_balance(&Self::account_id()).saturating_sub(pot);
+		let unaccounted = T::Currency::balance(&Self::account_id()).saturating_sub(pot);
 		pot.saturating_accrue(T::PeriodSpend::get().min(unaccounted / 2u8.into()));
 		Pot::<T, I>::put(&pot);
 
@@ -1817,8 +1850,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn clean_bid(bid: &Bid<T::AccountId, BalanceOf<T, I>>) {
 		match &bid.kind {
 			BidKind::Deposit(deposit) => {
-				let err_amount = T::Currency::unreserve(&bid.who, *deposit);
-				debug_assert!(err_amount.is_zero());
+				let res = T::Currency::release(
+					&Self::deposit_reason(),
+					&bid.who,
+					*deposit,
+					Precision::BestEffort,
+				);
+				debug_assert!(res.is_ok());
 			},
 			BidKind::Vouch(voucher, _) => {
 				Members::<T, I>::mutate_extant(voucher, |record| record.vouching = None);
@@ -1837,8 +1875,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		match kind {
 			BidKind::Deposit(deposit) => {
 				let pot = Self::account_id();
-				let free = BalanceStatus::Free;
-				let r = T::Currency::repatriate_reserved(&who, &pot, *deposit, free);
+				// Move the held deposit to the society pot as free balance (the equivalent of the
+				// former `repatriate_reserved` to `BalanceStatus::Free`).
+				let r = T::Currency::transfer_on_hold(
+					&Self::deposit_reason(),
+					who,
+					&pot,
+					*deposit,
+					Precision::BestEffort,
+					Restriction::Free,
+					Fortitude::Polite,
+				);
 				debug_assert!(r.is_ok());
 			},
 			BidKind::Vouch(voucher, _) => {
@@ -2080,10 +2127,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) {
 		let value = match kind {
 			BidKind::Deposit(deposit) => {
-				// In the case that a normal deposit bid is accepted we unreserve
-				// the deposit.
-				let err_amount = T::Currency::unreserve(candidate, deposit);
-				debug_assert!(err_amount.is_zero());
+				// In the case that a normal deposit bid is accepted we release the deposit.
+				let res = T::Currency::release(
+					&Self::deposit_reason(),
+					candidate,
+					deposit,
+					Precision::BestEffort,
+				);
+				debug_assert!(res.is_ok());
 				value
 			},
 			BidKind::Vouch(voucher, tip) => {
@@ -2160,7 +2211,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// this should never fail since we ensure we can afford the payouts in a previous
 		// block, but there's not much we can do to recover if it fails anyway.
-		let res = T::Currency::transfer(&Self::account_id(), &Self::payouts(), amount, AllowDeath);
+		let res = T::Currency::transfer(
+			&Self::account_id(),
+			&Self::payouts(),
+			amount,
+			Preservation::Expendable,
+		);
 		debug_assert!(res.is_ok());
 	}
 
@@ -2172,8 +2228,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// this should never fail since we ensure we can afford the payouts in a previous
 		// block, but there's not much we can do to recover if it fails anyway.
-		let res = T::Currency::transfer(&Self::payouts(), &Self::account_id(), amount, AllowDeath);
+		let res = T::Currency::transfer(
+			&Self::payouts(),
+			&Self::account_id(),
+			amount,
+			Preservation::Expendable,
+		);
 		debug_assert!(res.is_ok());
+	}
+
+	/// The hold reason used for membership bid deposits.
+	pub(crate) fn deposit_reason() -> T::RuntimeHoldReason {
+		HoldReason::<I>::BidDeposit.into()
 	}
 
 	/// The account ID of the treasury pot.
@@ -2202,12 +2268,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 }
 
+/// Funding path for the society pot.
+///
+/// The pot is currently funded through the legacy `Currency` imbalance interface (e.g.
+/// `pallet-treasury`'s `BurnDestination`). This still routes through [`Config::OldCurrency`] until
+/// those callers are migrated to `fungible`, at which point this can move to
+/// `fungible::Balanced::resolve` over a `Credit`.
 impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Pallet<T, I> {
 	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T, I>) {
 		let numeric_amount = amount.peek();
 
 		// Must resolve into existing but better to be safe.
-		let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
+		let _ = T::OldCurrency::resolve_creating(&Self::account_id(), amount);
 
 		Self::deposit_event(Event::<T, I>::Deposit { value: numeric_amount });
 	}

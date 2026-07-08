@@ -850,6 +850,8 @@ parameter_types! {
 impl pallet_society::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 	type GraceStrikes = ConstU32<1>;
 	type PeriodSpend = ConstU128<{ 50_000 * CENTS }>;
@@ -1741,6 +1743,8 @@ pub mod migrations {
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
         pallet_society::migrations::MigrateToV2<Runtime, (), ()>,
+        // Migrate society bid deposits from reserves to holds.
+        pallet_society::migrations::MigrateToV3<Runtime, ()>,
         parachains_configuration::migration::v7::MigrateToV7<Runtime>,
         assigned_slots::migration::v1::MigrateToV1<Runtime>,
         parachains_configuration::migration::v8::MigrateToV8<Runtime>,

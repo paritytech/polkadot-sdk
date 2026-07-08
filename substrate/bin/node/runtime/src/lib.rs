@@ -1832,6 +1832,8 @@ impl pallet_society::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = SocietyPalletId;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type Randomness = RandomnessCollectiveFlip;
 	type GraceStrikes = GraceStrikes;
 	type PeriodSpend = PeriodSpend;
@@ -3021,6 +3023,8 @@ type Migrations = (
 	pallet_alliance::migration::Migration<Runtime>,
 	pallet_contracts::Migration<Runtime>,
 	pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
+	// Migrate society bid deposits from reserves to holds.
+	pallet_society::migrations::MigrateToV3<Runtime, ()>,
 );
 
 type EventRecord = frame_system::EventRecord<

@@ -104,6 +104,104 @@ pub type MigrateToV2<T, I, PastPayouts> = frame_support::migrations::VersionedMi
 	<T as frame_system::Config>::DbWeight,
 >;
 
+/// Migrate bid deposits from `Currency` reserves to `fungible` holds.
+///
+/// Every `BidKind::Deposit` in [`Bids`] and [`Candidates`] has a reserved balance under the
+/// legacy [`Config::OldCurrency`]. This migration unreserves it and places an equivalent hold
+/// under [`HoldReason::BidDeposit`]. Vouched bids have no deposit and are left untouched.
+///
+/// The number of accounts touched is bounded by `MaxBids + max_members`, so this is safe to run
+/// as a single-block migration.
+pub struct VersionUncheckedMigrateToV3<T, I = ()>(core::marker::PhantomData<(T, I)>);
+
+impl<T: Config<I>, I: 'static> VersionUncheckedMigrateToV3<T, I> {
+	/// Unreserve the legacy deposit of `who` and re-apply it as a hold.
+	fn migrate_deposit(reason: &T::RuntimeHoldReason, who: &T::AccountId, amount: BalanceOf<T, I>) {
+		let leftover = T::OldCurrency::unreserve(who, amount);
+		if !leftover.is_zero() {
+			log::warn!(
+				target: TARGET,
+				"v3: could not fully unreserve a legacy bid deposit; some balance remained reserved",
+			);
+		}
+		if let Err(e) = <T::Currency as frame_support::traits::fungible::MutateHold<_>>::hold(
+			reason, who, amount,
+		) {
+			log::error!(target: TARGET, "v3: failed to hold a migrated bid deposit: {:?}", e);
+		}
+	}
+}
+
+impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV3<T, I> {
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+		// Collect (account, amount) for every deposit-backed bid and candidacy.
+		let mut deposits: Vec<(<T as frame_system::Config>::AccountId, BalanceOf<T, I>)> =
+			Vec::new();
+		for bid in Bids::<T, I>::get().into_iter() {
+			if let BidKind::Deposit(amount) = bid.kind {
+				deposits.push((bid.who, amount));
+			}
+		}
+		for (who, candidacy) in Candidates::<T, I>::iter() {
+			if let BidKind::Deposit(amount) = candidacy.kind {
+				deposits.push((who, amount));
+			}
+		}
+		Ok(deposits.encode())
+	}
+
+	fn on_runtime_upgrade() -> Weight {
+		let reason = Pallet::<T, I>::deposit_reason();
+		let mut reads: u64 = 1;
+		let mut writes: u64 = 0;
+
+		for bid in Bids::<T, I>::get().into_iter() {
+			if let BidKind::Deposit(amount) = bid.kind {
+				Self::migrate_deposit(&reason, &bid.who, amount);
+				reads = reads.saturating_add(2);
+				writes = writes.saturating_add(2);
+			}
+		}
+		for (who, candidacy) in Candidates::<T, I>::iter() {
+			reads = reads.saturating_add(1);
+			if let BidKind::Deposit(amount) = candidacy.kind {
+				Self::migrate_deposit(&reason, &who, amount);
+				reads = reads.saturating_add(2);
+				writes = writes.saturating_add(2);
+			}
+		}
+
+		T::DbWeight::get().reads_writes(reads, writes)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(data: Vec<u8>) -> Result<(), TryRuntimeError> {
+		use frame_support::traits::fungible::InspectHold;
+
+		let deposits: Vec<(<T as frame_system::Config>::AccountId, BalanceOf<T, I>)> =
+			Decode::decode(&mut &data[..]).expect("Bad data");
+		let reason = Pallet::<T, I>::deposit_reason();
+		for (who, amount) in deposits {
+			ensure!(
+				<T::Currency as InspectHold<_>>::balance_on_hold(&reason, &who) >= amount,
+				"society::v3: bid deposit was not migrated to a hold"
+			);
+		}
+		Ok(())
+	}
+}
+
+/// [`VersionUncheckedMigrateToV3`] wrapped in a [`frame_support::migrations::VersionedMigration`],
+/// converting reserved bid deposits to holds when the on-chain version is 2.
+pub type MigrateToV3<T, I = ()> = frame_support::migrations::VersionedMigration<
+	2,
+	3,
+	VersionUncheckedMigrateToV3<T, I>,
+	crate::pallet::Pallet<T, I>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
 pub(crate) mod v0 {
 	use super::*;
 	use frame_support::storage_alias;
