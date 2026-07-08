@@ -147,10 +147,13 @@ module invariants {
   /// pending-upgrade ref — the old code's referencer slot for that para is
   /// released, UNLESS one of:
   ///   - the parachain was independently soliciting the old code
-  ///     (its `validationCode.pinned` bit), so the slot survives; or
+  ///     (its `validationCode.pinned` bit), so the slot survives;
   ///   - the same block re-requested an upgrade back to the old code (it is
   ///     re-referenced as the new pending; §5.2 allows activation + a
-  ///     different request, processed in that order).
+  ///     different request, processed in that order);
+  ///   - the parachain holds a standalone solicited referencer on the old
+  ///     code — a plain `Solicit` issued while that code was neither active
+  ///     nor pending;
   /// `prevSvc` holds the pre-step state. Exact balance accounting is pinned
   /// separately by `used_balance_consistency`.
   val code_activation_releases_old: bool =
@@ -176,7 +179,8 @@ module invariants {
         not(activated) or
           not(svc.hasReferencer(oldHash, oldLen, para_id)) or
           before.validationCode.pinned or
-          reRequested
+          reRequested or
+          solicitedSet.contains((para_id, oldHash, oldLen))
       }
     })
 
