@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783523408141,
+  "lastUpdate": 1783527782490,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d30e15936393b00ae5d39d79becbda12d6940899",
-          "message": "pallet-revive: add hook for mocking origin (#10272)\n\nWhile runing some balancer v3 tests:\nhttps://github.com/paritytech/foundry-polkadot/issues/287#issuecomment-3502668161,\ndiscovered we need a way to mock up the origin as well, so add hook.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-13T07:42:18Z",
-          "tree_id": "ed3c291ed3f049ab3a07b8e5fca0dda1f6d0dfb3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d30e15936393b00ae5d39d79becbda12d6940899"
-        },
-        "date": 1763024240774,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013075629520000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15831849070666676,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02256226137333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007145003326666653,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007542898106666669,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bbbb695f4564f0bb2435924d1608d2d483c93608",
+          "message": "Remove deprecated schedule::v1 module (#12584)\n\n## Summary\n\n- Remove the deprecated `schedule::v1` module from\n`frame_support::traits::schedule`.\n- `schedule::v2` remains unchanged and is still used by\n`pallet-scheduler`.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-08T14:37:13Z",
+          "tree_id": "8c2449ea3841e639472cb17cf00c4d2b792d3b3b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bbbb695f4564f0bb2435924d1608d2d483c93608"
+        },
+        "date": 1783527751368,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14700146940000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023580007300000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00988196603333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007596204353333335,
             "unit": "seconds"
           }
         ]
