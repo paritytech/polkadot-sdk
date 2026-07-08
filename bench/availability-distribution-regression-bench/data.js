@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783518926234,
+  "lastUpdate": 1783523408141,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "karol@parity.io",
-            "name": "Karol Kokoszka",
-            "username": "karolk91"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "14f0e2e3af9dbfe366151e2445f320585a3fba87",
-          "message": "pallet-xcm: API changes to use `VersionedAssetId` instead of `u32` to specify asset for fees (#10243)\n\nMultiple pallet-xcm calls use `u32` index as a way to specify which\nasset from the `assets` (also an arg of the call) is to be used for fees\npurposes. This PR brings **major API change (breaking change)** that\nproposes usage of `VersionedAssetId` instead\n\nAffected pallet-xcm calls: `teleport_assets`, `reserve_transfer_assets`,\n`limited_reserve_transfer_assets`, `limited_teleport_assets`,\n`transfer_assets`\n\nThis is follow-up change to the:\nhttps://github.com/paritytech/polkadot-sdk/pull/9842, that aims to\nremove the requirement of the client to provide sorted list of Assets to\nthe APIs (often a point failures). With the mentioned change sorting\nhappens on the runtime side and `u32` index (provided by the client) can\nbecome invalid after sorting (this PR aims that problem)\n\nRelevant\n[dicussion](https://matrix.to/#/!nYxxyvMNMUaniRIokh:parity.io/$gAcAEznmQL6LhUlvGPHSaePUV4cZtxoco2I6ap8Cn3Q?via=parity.io&via=matrix.org&via=web3.foundation)\non XCM public element channel\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2025-11-12T20:17:46Z",
-          "tree_id": "01acbdf59ddc1697fca55fd033b207fe5be1b05f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/14f0e2e3af9dbfe366151e2445f320585a3fba87"
-        },
-        "date": 1762982816397,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022638532293333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00747043226,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15841636415333346,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013099034426666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1481201086466667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "rohit.sarpotdar@parity.io",
+            "name": "Rohit Sarpotdar",
+            "username": "rosarp"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d88e92c692d41d236078a52c76f6649bc4be1cb1",
+          "message": "AHW: populate foreign asset reserves in genesis; use ambient tokio runtime in relay RPC client (#12587)\n\nAfter bridges tests migrated to zombinet-sdk, to update polkadot-sdk\nupdate in substrate-relay below changes are required.\nAddresses Issue:\nhttps://github.com/paritytech/parity-bridges-common/issues/3167\n\n#### Substrate relay RPC client changes:\n\nstops each RpcClient from spawning its own nested\ntokio::runtime::Runtime and instead reuses the ambient runtime via\ntokio::runtime::Handle::current(). This makes the relay client usable\ninside a caller-provided runtime (e.g. zombienet-sdk) and avoids the\n\"Cannot drop a runtime in a context where blocking is not allowed\" panic\nthat occurred when a client was dropped on a runtime thread.\n\n#### Integration\n\n- `RpcClient` (and its build_client) now require an existing tokio\nruntime to be present on the current thread. Callers that previously\nrelied on the client creating its own runtime must now construct it\nwithin a tokio runtime context (#[tokio::main], Runtime::block_on, or an\nactive Handle). The internal ClientData::tokio field type changed from\nArc<tokio::runtime::Runtime> to tokio::runtime::Handle.\n\n#### Review Notes\n\n`rpc.rs`\n- ClientData::tokio changes from Arc<tokio::runtime::Runtime> to\ntokio::runtime::Handle.\n- build_client now grabs Handle::current() instead of constructing\nRuntime::new(), and returns the handle directly (no Arc wrapping).",
+          "timestamp": "2026-07-08T13:27:17Z",
+          "tree_id": "64cd8204407dfbec5b8dc62bb50e52a8db80ac1e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d88e92c692d41d236078a52c76f6649bc4be1cb1"
+        },
+        "date": 1783523378848,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023721981646666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010247830393333308,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1488727930866667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007542898106666669,
             "unit": "seconds"
           }
         ]
