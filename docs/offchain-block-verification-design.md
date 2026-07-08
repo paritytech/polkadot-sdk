@@ -227,18 +227,37 @@ parties able to fork at the target's parent are precisely the authors of the
 slots following it, so their signatures are the meaningful commitments.
 
 ```rust
-/// Totally ordered, so requests can state a minimum and responses compare.
+/// Totally ordered (SlotChain(0) < SlotChain(1) < ... < Max), so requests
+/// can state a minimum and responses compare. One logical level, one
+/// representation—no overlapping constructors.
+///
+/// Anything below `MIN` is NOT a confidence level: `verify_acks` errors
+/// (e.g. `InsufficientAcks`). Below it, the *next* slot author—the party
+/// who single-handedly decides whether the block gets extended—has not
+/// committed, so there is no meaningful confidence to report.
 enum Confidence {
-    /// Authors of the previous, current and next slot signed.
-    Min,
-    /// Slot-author chain of length k starting at the parent's slot.
+    /// The mandatory base—authors of the previous, current and next slot—
+    /// plus this many further consecutive slot authors.
     SlotChain(u32),
     /// The entire current collator set signed.
     Max,
 }
+
+impl Confidence {
+    /// Base level: previous, current and next slot authors signed.
+    const MIN: Self = Self::SlotChain(0);
+}
 ```
 
-(Level names to be finalized; the total order is the requirement.)
+(Names to be finalized; the total order is the requirement.)
+
+Small-set/wraparound note: k consecutive *slots* may map to fewer *distinct*
+signers (one collator's ack covers all its slots in the window)—the economic
+meaning is unchanged, since deceptive passivity must be sustained for k slots
+regardless of who owns them. Implementations compare *coverage* and return
+`Max` whenever the entire current set has signed; for sets of ≤ 3 collators
+the base (`MIN`) window already spans the whole rotation, so every valid blob is
+`Max`.
 
 ### Ancestry transitivity
 
@@ -270,6 +289,21 @@ Consequences:
   against relay-validated (included) state—see the proof-anchor rule in
   [Trust Anchors](#trust-anchors), including the attack that materializes if
   either half of that pair is relaxed without strengthening the other.
+
+### Implementation note: session boundaries
+
+The *data* for next-session authorship is in place today: `pallet_session`
+stores `QueuedKeys` (the full next-session key sets, Aura keys included) one
+session ahead, so a proof against an old-session included anchor can answer
+authorship for the following session. The *logic* is not: existing APIs
+(`AuraApi::authorities`, aura-ext) only ever expose the current set.
+"Authorities for the session containing block X, switching to queued keys
+when X lies past the boundary—including a boundary crossing mid-header-chain"
+is new logic each chain implements inside `OffchainVerify`. A **reference
+implementation for the default cumulus stack** (Aura +
+`pallet-session`/`PeriodicSessions` + collator-selection) should ship with
+the primitives, so chains on the standard stack get session-boundary
+handling correct by construction rather than each hand-rolling it.
 
 ### API discovery
 
@@ -311,9 +345,15 @@ every receiver.
 ### Caching
 
 - **Compiled wasm instance**: per code hash; invalidated only by upgrades.
-- **Proof-backed backend**: per (source, session); the same storage proof
-  serves all verifications of a session. Invalidated by a missing-key error
-  (the natural signal of session rotation).
+- **Proof-backed backend**: per (source, latest included anchor)—the anchor
+  advances at most once per relay chain block, so one small proof (a few KB:
+  authority set, session data, slot config) serves all verifications within
+  that window. This is the amortization that matters: chains producing
+  blocks at millisecond cadence (Basti blocks) verify many blocks against
+  one cached backend. No session bookkeeping: the anchor is always fresh
+  enough that the current (plus queued) session data is simply what its
+  state contains; a missing-key error remains the generic
+  re-request-fresher/wider-proof signal.
 - **Verified frontier**: per source; advances with each verified chain,
   trimmed to the included head's ancestry on inclusion.
 
@@ -392,17 +432,12 @@ operator-planned events that occur on the order of months. `FutureCodeHash`
 prefetch remains a mild optimization for resume speed.
 
 **Rejected alternative—straddled verification** (verify the old-code prefix
-with the old wasm, the new-code suffix with the new wasm, split at the
-marker): besides relying on the unreliable marker, it rests on an uncheckable
-assumption. The new wasm's verify entry points would read *old-runtime,
-pre-migration* state through the proof backend—the only bridge between the
-two is the chain's migration logic, which runs inside a block the receiver
-cannot execute. Best case a layout change fails as a missing key; worst case
-same keys with changed semantics decode successfully and the verifier
-silently misreads—"verifier judging against unvalidated state" in a subtler
-coat. An upgrade may also rework session/authority logic entirely. Only
-new-wasm × new-code-produced-included-state is a coherent pairing; the
-degrade/resume rule uses exactly and only that.
+with the old wasm, the new-code suffix with the new wasm): the new wasm would
+read *pre-migration* state through the proof backend—reading state with a
+non-matching runtime is unsound (migrations haven't run; layouts and
+semantics may differ arbitrarily). Only new-wasm ×
+new-code-produced-included-state is a coherent pairing; the degrade/resume
+rule uses exactly and only that.
 
 An upgrade that drops or breaks the `OffchainVerify` API degrades that source
 to inclusion-based messaging until fixed—deployment-checklist item for
@@ -427,12 +462,42 @@ struct CodeResponse { code: Vec<u8> }
 /// Plain ranges—upgrades never split them: speculative verification pauses
 /// across upgrade windows (see Code Management), so a range is always
 /// single-code.
-struct HeaderRangeRequest { from: Hash, to: Hash, max_bytes: u32 }
-struct HeaderRangeResponse { headers: Vec<Vec<u8>> }
+struct HeaderRangeRequest {
+    from: Hash,
+    to: Hash,
+    max_bytes: u32,
+    /// Included head (from the REQUESTER's own relay view—the requester
+    /// decides the anchor, never the server) to generate the storage proof
+    /// against. `None`: requester has a valid session proof cached, no
+    /// proof wanted.
+    proof_anchor: Option<Hash>,
+}
+struct HeaderRangeResponse {
+    headers: Vec<Vec<u8>>,
+    /// Storage proof backing `verify_header_chain` over these headers
+    /// against the requested `proof_anchor`; `None` iff none was requested.
+    proof: Option<StorageProof>,
+}
 
 /// Acknowledgement blob at a desired confidence.
-struct AckRequest { block: Hash, min_confidence: Confidence }
-struct AckResponse { blob: Vec<u8> }    // judged only by verify_acks
+struct AckRequest {
+    block: Hash,
+    min_confidence: Confidence,
+    /// Included head to prove against; `None` = cached session proof, no
+    /// proof wanted. Requester-chosen, as in `HeaderRangeRequest`.
+    proof_anchor: Option<Hash>,
+}
+struct AckResponse {
+    /// Chain-opaque ack data—the *argument* to `verify_acks`, judged only
+    /// by it.
+    blob: Vec<u8>,
+    /// Storage proof backing the *execution* of `verify_acks(block, blob)`
+    /// against the requested `proof_anchor`: the server ran
+    /// `prove_execution` of exactly that call. Distinct from the blob: the
+    /// proof feeds the proof-backed backend, not the wasm's arguments.
+    /// `None` iff none was requested.
+    proof: Option<StorageProof>,
+}
 
 /// Storage proof for a verification call against an included anchor.
 ///
@@ -440,7 +505,7 @@ struct AckResponse { blob: Vec<u8> }    // judged only by verify_acks
 /// with the proof attached—the serving collator runs `prove_execution` of
 /// the corresponding verify call on its own data and includes the recorded
 /// proof. This standalone request exists for re-requests (e.g. the cached
-/// proof went stale after a session rotation): the receiver simply states
+/// proof went stale, e.g. its anchor was superseded): the receiver states
 /// the exact call it wants proven, arguments inline.
 struct VerificationProofRequest {
     /// Included head to anchor the proof at.
@@ -485,10 +550,10 @@ code/upgrade timeline.
 1. Gap = verified frontier tip → target. One round trip: headers + ack blob
    (at desired confidence) + storage proof (+ message batch, for messaging).
 2. `execution_proof_check` against the included anchor's state root:
-   `verify_header_chain`, then `verify_acks`. Split at the
-   The segment is single-code by construction: blocks whose relay parent is
-   at or past an armed upgrade signal are excluded from speculation until a
-   new-code included anchor exists (see Code Management).
+   `verify_header_chain`, then `verify_acks`. The segment is single-code by
+   construction: blocks whose relay parent is at or past an armed upgrade
+   signal are excluded from speculation until a new-code included anchor
+   exists (see Code Management).
 3. Messaging-specific: check the target's header digest (provides-set hash),
    batch root ∈ set, recompute root from payloads.
 4. Accept at the returned `Confidence`; advance the verified frontier.
@@ -506,7 +571,7 @@ verification failure → the source drops to inclusion-based messaging. Never
 | When | What | Cost |
 |---|---|---|
 | Per upgrade (rare) | blob (usually local relay state) + compile | ~seconds compile, cached; network only for relay-light-client setups |
-| Per session per source | storage proof round trip + trie verification | few KB, µs–ms |
+| Per relay block per source | storage proof (piggybacked on header/ack responses) + trie verification | few KB, µs–ms |
 | Per block (hot path) | 1 parent-hash + 1 authorship sig + k ack sigs + root recomputation | comparable to light-client header verification; no block execution |
 | Failure retries | wider-proof re-request | bounded |
 | Per upgrade | speculative pause until first new-code inclusion | seconds to ~a minute, monthly-order events |
