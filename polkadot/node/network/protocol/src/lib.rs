@@ -686,8 +686,6 @@ pub mod v4_collation {
 	/// A single entry in the segment advertised by the collator.
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 	pub struct CandidateFingerprint {
-		/// Candidate hash
-		pub candidate_hash: CandidateHash,
 		/// Unique and stable identifier of the underlying parachain
 		/// block. Because it's stable across resubmissions this will
 		/// be used for deduplication against validator's fragment chain.
@@ -719,7 +717,6 @@ pub mod v4_collation {
 			let mut candidates = vec![];
 			for _ in 0..len {
 				let fingerprint = CandidateFingerprint {
-					candidate_hash: CandidateHash(Hash::random()),
 					output_head_data_hash: Hash::random(),
 					parent_head_data_hash: Hash::random(),
 					relay_parent: Hash::random(),
@@ -752,7 +749,6 @@ pub mod v4_collation {
 		fn v4_advertise_segment_oversize_rejected_at_decode() {
 			let fingerprints: Vec<CandidateFingerprint> = (0..=MAX_SEGMENT_LEN)
 				.map(|_| CandidateFingerprint {
-					candidate_hash: CandidateHash(Hash::random()),
 					output_head_data_hash: Hash::random(),
 					parent_head_data_hash: Hash::random(),
 					relay_parent: Hash::random(),

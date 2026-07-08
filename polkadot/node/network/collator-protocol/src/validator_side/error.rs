@@ -70,6 +70,9 @@ pub enum SecondingError {
 	#[error("Candidate hash doesn't match the advertisement")]
 	CandidateHashMismatch,
 
+	#[error("Candidate's output head hash doesn't match the advertisement")]
+	OutputHeadHashMismatch,
+
 	#[error("Scheduling parent hash doesn't match the advertisement")]
 	SchedulingParentMismatch,
 
@@ -106,16 +109,17 @@ impl SecondingError {
 	pub fn is_malicious(&self) -> bool {
 		use SecondingError::*;
 		match self {
-			PersistedValidationDataMismatch |
-			CandidateHashMismatch |
-			SchedulingParentMismatch |
-			RelayParentMismatch |
-			ParentHeadDataMismatch |
-			InvalidCoreIndex(_, _) |
-			InvalidSessionIndex(_, _) |
-			InvalidReceiptVersion(_) |
-			DescriptorVersionMismatch(_, _) |
-			ParaIdMismatch => true,
+			PersistedValidationDataMismatch
+			| CandidateHashMismatch
+			| SchedulingParentMismatch
+			| RelayParentMismatch
+			| ParentHeadDataMismatch
+			| InvalidCoreIndex(_, _)
+			| InvalidSessionIndex(_, _)
+			| InvalidReceiptVersion(_)
+			| DescriptorVersionMismatch(_, _)
+			| ParaIdMismatch
+			| OutputHeadHashMismatch => true,
 			_ => false,
 		}
 	}

@@ -475,7 +475,7 @@ async fn process_incoming_peer_message<Sender, B>(
 					sender,
 					origin,
 					scheduling_parent,
-					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
+					Some(ProspectiveCandidate::ByHash { candidate_hash, parent_head_data_hash }),
 					None,
 				)
 				.await;
@@ -492,7 +492,7 @@ async fn process_incoming_peer_message<Sender, B>(
 					sender,
 					origin,
 					scheduling_parent,
-					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
+					Some(ProspectiveCandidate::ByHash { candidate_hash, parent_head_data_hash }),
 					Some(candidate_descriptor_version),
 				)
 				.await;
@@ -528,9 +528,10 @@ async fn process_incoming_peer_message<Sender, B>(
 					sender,
 					origin,
 					scheduling_parent,
-					Some(ProspectiveCandidate {
-						candidate_hash: segment_fingerprint.candidate_hash,
+					Some(ProspectiveCandidate::ByOutputHead {
+						output_head_data_hash: segment_fingerprint.output_head_data_hash,
 						parent_head_data_hash: segment_fingerprint.parent_head_data_hash,
+						relay_parent: segment_fingerprint.relay_parent,
 					}),
 					Some(candidates_descriptor_version),
 				)

@@ -356,7 +356,7 @@ impl CollationManager {
 			return Err(AdvertisementError::OutOfOurView);
 		};
 
-		if let Some(ProspectiveCandidate { candidate_hash, .. }) = prospective_candidate {
+		if let Some(candidate_hash) = prospective_candidate.and_then(|pc| pc.candidate_hash()) {
 			if per_sp.fetched_collations.contains_key(&candidate_hash) {
 				return Err(AdvertisementError::Duplicate);
 			}
@@ -835,7 +835,10 @@ impl CollationManager {
 			}
 			match adv.prospective_candidate {
 				None => is_active_leaf && !v1_blocked,
-				Some(p) => !per_sp.fetched_collations.contains_key(&p.candidate_hash),
+				// ByHash → fetched filter, ByOutputHead → eligible
+				Some(p) => {
+					p.candidate_hash().map_or(true, |h| !per_sp.fetched_collations.contains_key(&h))
+				},
 			}
 		}))
 	}
@@ -1108,9 +1111,24 @@ impl FetchedCollation {
 
 		match advertised.prospective_candidate {
 			// This implies a check on the declared para if this was a v2 advertisement
-			Some(ProspectiveCandidate { candidate_hash, .. }) => {
+			Some(ProspectiveCandidate::ByHash { candidate_hash, .. }) => {
 				if candidate_hash != candidate_receipt.hash() {
 					return Err(SecondingError::CandidateHashMismatch);
+				}
+			},
+			Some(ProspectiveCandidate::ByOutputHead {
+				output_head_data_hash,
+				relay_parent,
+				..
+			}) => {
+				if output_head_data_hash != candidate_receipt.descriptor().para_head() {
+					return Err(SecondingError::OutputHeadHashMismatch);
+				}
+				if relay_parent != candidate_receipt.descriptor().relay_parent() {
+					return Err(SecondingError::RelayParentMismatch);
+				}
+				if advertised.para_id != candidate_receipt.descriptor.para_id() {
+					return Err(SecondingError::ParaIdMismatch);
 				}
 			},
 			// Otherwise, do the explicit check for the para_id.
@@ -1320,16 +1338,24 @@ async fn backing_allows_seconding<Sender>(
 where
 	Sender: CollatorProtocolSenderTrait,
 {
-	let Some(prospective_candidate) = advertisement.prospective_candidate else {
-		// Nothing to check for v1 protocol.
-		return true;
+	let (candidate_hash, parent_head_data_hash) = match advertisement.prospective_candidate {
+		Some(ProspectiveCandidate::ByHash { candidate_hash, parent_head_data_hash }) => {
+			(candidate_hash, parent_head_data_hash)
+		},
+		Some(ProspectiveCandidate::ByOutputHead { .. }) => {
+			// Don't have an candidate hash.
+			return true;
+		},
+		None => {
+			// Nothing to check for v1 protocol
+			return true;
+		},
 	};
-
 	let request = CanSecondRequest {
 		candidate_para_id: advertisement.para_id,
 		candidate_scheduling_parent: advertisement.scheduling_parent,
-		candidate_hash: prospective_candidate.candidate_hash,
-		parent_head_data_hash: prospective_candidate.parent_head_data_hash,
+		candidate_hash,
+		parent_head_data_hash,
 	};
 	let (tx, rx) = oneshot::channel();
 	sender.send_message(CandidateBackingMessage::CanSecond(request, tx)).await;
@@ -1340,7 +1366,7 @@ where
 			?err,
 			scheduling_parent = ?advertisement.scheduling_parent,
 			para_id = ?advertisement.para_id,
-			candidate_hash = ?prospective_candidate.candidate_hash,
+			candidate_hash = ?candidate_hash,
 			"CanSecond-request responder was dropped",
 		);
 
@@ -1458,7 +1484,7 @@ fn process_collation_fetch_result(
 				candidate_receipt,
 				pov,
 				None,
-				advertisement.prospective_candidate.map(|p| p.parent_head_data_hash),
+				advertisement.prospective_candidate.map(|p| p.parent_head_data_hash()),
 				advertisement.peer_id,
 			))
 		},
@@ -1477,7 +1503,7 @@ fn process_collation_fetch_result(
 				receipt,
 				pov,
 				Some(parent_head_data),
-				advertisement.prospective_candidate.map(|p| p.parent_head_data_hash),
+				advertisement.prospective_candidate.map(|p| p.parent_head_data_hash()),
 				advertisement.peer_id,
 			))
 		},
@@ -1711,7 +1737,7 @@ mod tests {
 
 		// V2 ad: fetchable from any in-view scheduling parent. V1 (`None`) is only fetchable on
 		// active leaves, which would require implicit_view setup the unit test doesn't do.
-		let prospective_candidate = Some(ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 			candidate_hash: CandidateHash(Hash::repeat_byte(0xab)),
 			parent_head_data_hash: Hash::repeat_byte(0xcd),
 		});

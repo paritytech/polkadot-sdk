@@ -569,7 +569,6 @@ async fn distribute_segment<Context>(
 		let candidate_hash = candidate.candidate_receipt.hash();
 		let para_head = candidate.candidate_receipt.descriptor.para_head();
 		segment_fingerprint.push(CandidateFingerprint {
-			candidate_hash,
 			output_head_data_hash: para_head,
 			parent_head_data_hash: candidate.parent_head_data_hash,
 			relay_parent: candidate.candidate_receipt.descriptor.relay_parent(),

@@ -132,6 +132,13 @@ pub fn format_effect(effect: &Effect) -> String {
 			kind,
 			candidate_hash
 		),
+		Effect::SendRequestV3 { request_id, to, kind, output_head_data_hash } => format!(
+			"SendRequest(req={:?}, to={}, kind={:?}, cand={:?})",
+			request_id,
+			short_peer(to),
+			kind,
+			output_head_data_hash
+		),
 		Effect::Reputation { peer, bucket } => {
 			format!("Reputation(peer={}, bucket={:?})", short_peer(peer), bucket)
 		},

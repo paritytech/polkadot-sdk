@@ -106,7 +106,7 @@ fn dummy_candidate(
 	ccr.descriptor.set_session_index(session);
 
 	let receipt = ccr.to_plain();
-	let prospective_candidate = Some(ProspectiveCandidate {
+	let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 		candidate_hash: receipt.hash(),
 		parent_head_data_hash: dummy_pvd().parent_head.hash(),
 	});
@@ -141,7 +141,7 @@ fn dummy_candidate_v3(
 	ccr.descriptor.set_scheduling_parent(scheduling_parent);
 
 	let receipt = ccr.to_plain();
-	let prospective_candidate = Some(ProspectiveCandidate {
+	let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 		candidate_hash: receipt.hash(),
 		parent_head_data_hash: dummy_pvd().parent_head.hash(),
 	});
@@ -654,7 +654,9 @@ impl TestState {
 				adv.advertised_descriptor_version
 			),
 			async move {
-				if adv.prospective_candidate.is_some() {
+				// Only hash-carrying claims trigger a backing pre-check; V1 (no claim) and
+				// V4 (hashless claim) advertisements are accepted without one.
+				if adv.candidate_hash().is_some() {
 					self.assert_can_second_request(adv, true).await
 				}
 			}
@@ -692,7 +694,7 @@ impl TestState {
 							assert!(req.fallback_request.is_none());
 
 							let adv = advertisements.iter().find(|adv| {
-								if let Some(ProspectiveCandidate { candidate_hash, .. }) = adv.prospective_candidate {
+								if let Some(ProspectiveCandidate::ByHash { candidate_hash, .. }) = adv.prospective_candidate {
 									matches!(req.peer, Recipient::Peer(peer) if peer == adv.peer_id) &&
 										req.payload.scheduling_parent == adv.scheduling_parent &&
 										req.payload.para_id == adv.para_id &&
@@ -721,6 +723,24 @@ impl TestState {
 
 							advertisements.remove(&adv);
 						}
+						Requests::CollationFetchingV3(req) => {
+							assert!(req.fallback_request.is_none());
+
+							let adv = advertisements.iter().find(|adv| {
+								adv.prospective_candidate
+									.and_then(|pc| pc.output_head_data_hash())
+									.is_some_and(|output_head| {
+										matches!(req.peer, Recipient::Peer(peer) if peer == adv.peer_id) &&
+											req.payload.scheduling_parent == adv.scheduling_parent &&
+											req.payload.para_id == adv.para_id &&
+											req.payload.output_head_data_hash == output_head
+									})
+							}).copied().unwrap();
+
+							res.insert(adv, req.pending_response);
+
+							advertisements.remove(&adv);
+						}
 						_ => panic!("Unexpected request")
 					}
 				}
@@ -736,12 +756,14 @@ impl TestState {
 			None => self.timeout_recv().await,
 		};
 
-		if let Some(prospective_candidate) = adv.prospective_candidate {
+		if let Some(ProspectiveCandidate::ByHash { candidate_hash, parent_head_data_hash }) =
+			adv.prospective_candidate
+		{
 			let expected_req = CanSecondRequest {
 				candidate_para_id: adv.para_id,
 				candidate_scheduling_parent: adv.scheduling_parent,
-				candidate_hash: prospective_candidate.candidate_hash,
-				parent_head_data_hash: prospective_candidate.parent_head_data_hash,
+				candidate_hash,
+				parent_head_data_hash,
 			};
 
 			assert_matches!(
@@ -756,7 +778,10 @@ impl TestState {
 				}
 			);
 		} else {
-			panic!("Didn't expect to send CanSecond request for protocol v1 {:?}", msg);
+			panic!(
+				"Didn't expect a CanSecond request for a claim without a candidate hash {:?}",
+				msg
+			);
 		}
 	}
 
@@ -771,7 +796,9 @@ impl TestState {
 			None => self.timeout_recv().await,
 		};
 
-		if let Some(ProspectiveCandidate { parent_head_data_hash, .. }) = adv.prospective_candidate
+		// Both claim shapes carry a parent head hash; V1 (no claim) takes the runtime-API path.
+		if let Some(parent_head_data_hash) =
+			adv.prospective_candidate.map(|pc| pc.parent_head_data_hash())
 		{
 			assert_matches!(
 				msg,
@@ -2061,7 +2088,7 @@ async fn test_collation_fetch_failure() {
 	ccr.descriptor.set_session_index(leaf_info.session_index);
 
 	let receipt = ccr.to_plain();
-	let prospective_candidate = Some(ProspectiveCandidate {
+	let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 		candidate_hash: receipt.hash(),
 		parent_head_data_hash: dummy_pvd().parent_head.hash(),
 	});
@@ -2194,7 +2221,7 @@ async fn test_collation_fetch_failure() {
 		// Set a different core index.
 		receipt.descriptor.set_core_index(CoreIndex(5));
 
-		let prospective_candidate = Some(ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		});
@@ -2229,7 +2256,7 @@ async fn test_collation_fetch_failure() {
 		// Set a different session index.
 		receipt.descriptor.set_session_index(5);
 
-		let prospective_candidate = Some(ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		});
@@ -2297,7 +2324,7 @@ async fn test_collation_fetch_failure() {
 		// Modify some random thing in the receipt so that we get a different candidate.
 		receipt.commitments_hash = get_hash(10);
 
-		let prospective_candidate = Some(ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		});
@@ -2340,7 +2367,7 @@ async fn test_collation_fetch_failure() {
 		// Modify some random thing in the receipt so that we get a different candidate.
 		receipt.commitments_hash = get_hash(11);
 
-		let prospective_candidate = Some(ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			// Randomly modify the parent head data hash in the advertisement.
 			parent_head_data_hash: get_hash(11),
@@ -2380,7 +2407,7 @@ async fn test_collation_fetch_failure() {
 		// Modify some random thing in the receipt so that we get a different candidate.
 		receipt.commitments_hash = get_hash(12);
 
-		let prospective_candidate = Some(ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		});
@@ -2520,7 +2547,7 @@ async fn v1_descriptor_compatibility() {
 	ccr.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
 
 	let receipt = ccr.to_plain();
-	let prospective_candidate = Some(ProspectiveCandidate {
+	let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 		candidate_hash: receipt.hash(),
 		parent_head_data_hash: dummy_pvd().parent_head.hash(),
 	});
@@ -2682,7 +2709,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 		};
 
 		let receipt = ccr.to_plain();
-		let prospective_candidate = Some(ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: pvd.parent_head.hash(),
 		});
@@ -2722,7 +2749,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 		};
 
 		let receipt = ccr.to_plain();
-		let prospective_candidate = Some(ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: pvd.parent_head.hash(),
 		});
@@ -2940,7 +2967,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 		),
 		commitments: dummy_candidate_commitments(HeadData(vec![1])),
 	};
-	let prospective_candidate = Some(ProspectiveCandidate {
+	let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 		candidate_hash: ccr.to_plain().hash(),
 		parent_head_data_hash: pvd.parent_head.hash(),
 	});
@@ -3254,7 +3281,7 @@ async fn v4_advertise_segment_len_one_is_accepted() {
 
 	let relay_parent = get_hash(8);
 	let scheduling_parent = get_hash(9);
-	let (ccr, adv) = dummy_candidate_v3(
+	let (ccr, _) = dummy_candidate_v3(
 		relay_parent,
 		scheduling_parent,
 		100.into(),
@@ -3263,29 +3290,43 @@ async fn v4_advertise_segment_len_one_is_accepted() {
 		leaf_info.session_index,
 		dummy_pvd().hash(),
 	);
-	let candidate = adv.prospective_candidate.unwrap();
+	let output_head_data_hash = ccr.descriptor.para_head();
+	let parent_head_data_hash = dummy_pvd().parent_head.hash();
 	let candidates = vec![protocol_v4::CandidateFingerprint {
-		candidate_hash: candidate.candidate_hash,
-		output_head_data_hash: ccr.descriptor.para_head(),
-		parent_head_data_hash: candidate.parent_head_data_hash,
+		output_head_data_hash,
+		parent_head_data_hash,
 		relay_parent,
 	}]
 	.try_into()
 	.unwrap();
-	futures::join!(
-		process_incoming_peer_message(
-			&mut sender,
-			&mut state,
-			peer_id,
-			CollationProtocols::V4(protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
-				scheduling_parent,
-				candidates_descriptor_version: CandidateDescriptorVersion::V3,
-				candidates
-			})
-		),
-		test_state.assert_can_second_request(adv, true),
-	);
+	// The advertisement the subsystem is expected to construct from the segment.
+	let adv = Advertisement {
+		peer_id,
+		para_id: 100.into(),
+		scheduling_parent,
+		prospective_candidate: Some(ProspectiveCandidate::ByOutputHead {
+			output_head_data_hash,
+			parent_head_data_hash,
+			relay_parent,
+		}),
+		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+	};
+	process_incoming_peer_message(
+		&mut sender,
+		&mut state,
+		peer_id,
+		CollationProtocols::V4(protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
+			scheduling_parent,
+			candidates_descriptor_version: CandidateDescriptorVersion::V3,
+			candidates,
+		}),
+	)
+	.await;
+	// No CanSecond request for a V4 advertisement: the claim has no candidate hash to
+	// pre-check; bad advertisements self-heal post-fetch.
+	test_state.assert_no_messages().await;
 
+	// The fetch goes out over the V3 request-response protocol, keyed by output head.
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_request(adv).await;
 
@@ -3295,6 +3336,160 @@ async fn v4_advertise_segment_len_one_is_accepted() {
 	test_state
 		.second_collation(&mut state, peer_id, CollationVersion::V4, ccr, active_leaf)
 		.await;
+}
+
+// A fetched collation must match the selected fingerprint: output head, relay parent and the
+// declared para are each verified against the receipt (there is no candidate hash to check).
+// Every mismatch is malicious and slashed.
+#[tokio::test]
+async fn v4_fetched_collation_mismatches_are_slashed() {
+	let mut test_state = TestState::default();
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	let active_leaf = get_hash(9);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	test_state.activate_leaf(&mut state, 10).await;
+
+	let relay_parent = get_hash(8);
+	let scheduling_parent = get_hash(9);
+	let (ccr, _) = dummy_candidate_v3(
+		relay_parent,
+		scheduling_parent,
+		100.into(),
+		PeerId::random(),
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	let parent_head_data_hash = dummy_pvd().parent_head.hash();
+
+	let advertise_and_fetch = |output_head_data_hash: Hash, claimed_relay_parent: Hash| {
+		(
+			PeerId::random(),
+			ProspectiveCandidate::ByOutputHead {
+				output_head_data_hash,
+				parent_head_data_hash,
+				relay_parent: claimed_relay_parent,
+			},
+		)
+	};
+
+	// The advertised output head doesn't match the fetched receipt.
+	{
+		let (peer_id, claim) = advertise_and_fetch(Hash::repeat_byte(0xaa), relay_parent);
+		let adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			scheduling_parent,
+			prospective_candidate: Some(claim),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+		test_state.handle_advertisement(&mut state, adv).await;
+
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		let res = Ok(CollationFetchingResponse::Collation(ccr.to_plain(), dummy_pov()));
+		state.handle_fetched_collation(&mut sender, (adv, res)).await;
+		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+		test_state.assert_no_messages().await;
+	}
+
+	// The advertised relay parent doesn't match the fetched receipt.
+	{
+		let (peer_id, claim) = advertise_and_fetch(ccr.descriptor.para_head(), get_hash(7));
+		let adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			scheduling_parent,
+			prospective_candidate: Some(claim),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+		test_state.handle_advertisement(&mut state, adv).await;
+
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		let res = Ok(CollationFetchingResponse::Collation(ccr.to_plain(), dummy_pov()));
+		state.handle_fetched_collation(&mut sender, (adv, res)).await;
+		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+		test_state.assert_no_messages().await;
+	}
+
+	// An output head doesn't pin the para the way a candidate hash did: the receipt's para
+	// differs from the declared one, everything else matches.
+	{
+		let (peer_id, claim) = advertise_and_fetch(ccr.descriptor.para_head(), relay_parent);
+		let adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			scheduling_parent,
+			prospective_candidate: Some(claim),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+		test_state.handle_advertisement(&mut state, adv).await;
+
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		let mut receipt = ccr.to_plain();
+		receipt.descriptor.set_para_id(200.into());
+		let res = Ok(CollationFetchingResponse::Collation(receipt, dummy_pov()));
+		state.handle_fetched_collation(&mut sender, (adv, res)).await;
+		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+		test_state.assert_no_messages().await;
+	}
+
+	// The advertised descriptor version doesn't match the fetched receipt: the segment
+	// declared V3 descriptors, the fetched candidate carries a V2 one.
+	{
+		let mut ccr_v2 = dummy_committed_candidate_receipt_v2(scheduling_parent);
+		ccr_v2.descriptor.set_para_id(100.into());
+		ccr_v2.descriptor.set_persisted_validation_data_hash(dummy_pvd().hash());
+		ccr_v2.descriptor.set_core_index(leaf_info.assigned_core);
+		ccr_v2.descriptor.set_session_index(leaf_info.session_index);
+
+		// For V2 descriptors the scheduling parent is the relay parent.
+		let (peer_id, claim) =
+			advertise_and_fetch(ccr_v2.descriptor.para_head(), scheduling_parent);
+		let adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			scheduling_parent,
+			prospective_candidate: Some(claim),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+		test_state.handle_advertisement(&mut state, adv).await;
+
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		let res = Ok(CollationFetchingResponse::Collation(ccr_v2.to_plain(), dummy_pov()));
+		state.handle_fetched_collation(&mut sender, (adv, res)).await;
+		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+		test_state.assert_no_messages().await;
+	}
 }
 
 #[tokio::test]
@@ -3547,7 +3742,7 @@ async fn v3_descriptor_rejected_via_v2_protocol() {
 		peer_id,
 		para_id: 100.into(),
 		scheduling_parent: active_leaf,
-		prospective_candidate: Some(ProspectiveCandidate {
+		prospective_candidate: Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		}),
@@ -3616,7 +3811,7 @@ async fn v3_advertised_but_v2_fetched_descriptor_version_mismatch() {
 		peer_id,
 		para_id: 100.into(),
 		scheduling_parent: get_hash(9),
-		prospective_candidate: Some(ProspectiveCandidate {
+		prospective_candidate: Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		}),
@@ -3672,7 +3867,7 @@ async fn v3_descriptor_unknown_rejected_when_v3_disabled() {
 		peer_id,
 		para_id: 100.into(),
 		scheduling_parent: active_leaf,
-		prospective_candidate: Some(ProspectiveCandidate {
+		prospective_candidate: Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		}),
@@ -3895,7 +4090,7 @@ async fn core_rotation_accepts_candidates_for_both_cores() {
 		peer_id: peer_a,
 		para_id: para_a,
 		scheduling_parent: get_hash(9),
-		prospective_candidate: Some(ProspectiveCandidate {
+		prospective_candidate: Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt_a2.hash(),
 			parent_head_data_hash: pvd_a2.parent_head.hash(),
 		}),

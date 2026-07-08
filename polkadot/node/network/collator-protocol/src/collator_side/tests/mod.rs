@@ -588,7 +588,7 @@ async fn expect_advertise_segment_msg(
 	virtual_overseer: &mut VirtualOverseer,
 	any_peers: &[PeerId],
 	expected_scheduling_parent: Hash,
-	expected_candidate_hashes: Vec<CandidateHash>,
+	expected_output_heads: Vec<Hash>,
 ) {
 	assert_matches!(overseer_recv(virtual_overseer).await, AllMessages::NetworkBridgeTx(
 		NetworkBridgeTxMessage::SendCollationMessage(to, wire_message)
@@ -598,9 +598,9 @@ async fn expect_advertise_segment_msg(
 			CollationProtocols::V4(protocol_v4::CollationProtocol::CollatorProtocol(message)) => {
 				assert_matches!(message, protocol_v4::CollatorProtocolMessage::AdvertiseSegment { scheduling_parent, candidates, .. } => {
 					assert_eq!(scheduling_parent, expected_scheduling_parent);
-					assert_eq!(candidates.len(), expected_candidate_hashes.len());
-					for (fingerprint, expected) in candidates.iter().zip(expected_candidate_hashes.iter()) {
-						assert_eq!(fingerprint.candidate_hash, *expected);
+					assert_eq!(candidates.len(), expected_output_heads.len());
+					for (fingerprint, expected) in candidates.iter().zip(expected_output_heads.iter()) {
+						assert_eq!(fingerprint.output_head_data_hash, *expected);
 					}
 				})
 			},
@@ -833,13 +833,15 @@ fn v3_fetch_by_output_head_is_served() {
 			send_peer_view_change(&mut virtual_overseer, &peer, vec![test_state.scheduling_parent])
 				.await;
 
-			let expected_candidate_hashes: Vec<CandidateHash> =
-				distributed_collations.iter().map(|d| d.candidate.hash()).collect();
+			let expected_output_heads: Vec<Hash> = distributed_collations
+				.iter()
+				.map(|d| d.candidate.descriptor.para_head())
+				.collect();
 			expect_advertise_segment_msg(
 				&mut virtual_overseer,
 				&[peer],
 				test_state.scheduling_parent,
-				expected_candidate_hashes,
+				expected_output_heads,
 			)
 			.await;
 
@@ -1234,13 +1236,15 @@ fn advertise_and_send_segment() {
 			// Send info about peer's view.
 			send_peer_view_change(&mut virtual_overseer, &peer, vec![test_state.scheduling_parent])
 				.await;
-			let expected_candidate_hashes: Vec<CandidateHash> =
-				distributed_collations.iter().map(|d| d.candidate.hash()).collect();
+			let expected_output_heads: Vec<Hash> = distributed_collations
+				.iter()
+				.map(|d| d.candidate.descriptor.para_head())
+				.collect();
 			expect_advertise_segment_msg(
 				&mut virtual_overseer,
 				&[peer],
 				test_state.scheduling_parent,
-				expected_candidate_hashes,
+				expected_output_heads,
 			)
 			.await;
 			TestHarness { virtual_overseer, req_v2_cfg, req_v3_cfg }
@@ -1701,6 +1705,8 @@ fn validator_reconnect_readvertises_segment(
 			)
 			.await;
 			let candidate_hashes: Vec<_> = distributed.iter().map(|d| d.candidate.hash()).collect();
+			let output_heads: Vec<_> =
+				distributed.iter().map(|d| d.candidate.descriptor.para_head()).collect();
 
 			send_peer_view_change(virtual_overseer, &peer, vec![test_state.scheduling_parent])
 				.await;
@@ -1719,7 +1725,7 @@ fn validator_reconnect_readvertises_segment(
 						virtual_overseer,
 						&[peer],
 						test_state.scheduling_parent,
-						candidate_hashes.clone(),
+						output_heads.clone(),
 					)
 					.await;
 				},
@@ -1754,7 +1760,7 @@ fn validator_reconnect_readvertises_segment(
 						virtual_overseer,
 						&[peer],
 						test_state.scheduling_parent,
-						candidate_hashes.clone(),
+						output_heads.clone(),
 					)
 					.await;
 				},
@@ -2762,6 +2768,8 @@ fn no_duplicate_advertisement_on_authority_id_update(
 			)
 			.await;
 			let candidate_hashes: Vec<_> = distributed.iter().map(|d| d.candidate.hash()).collect();
+			let output_heads: Vec<_> =
+				distributed.iter().map(|d| d.candidate.descriptor.para_head()).collect();
 
 			// Peer view change triggers advertisement
 			send_peer_view_change(virtual_overseer, &peer, vec![test_state.scheduling_parent])
@@ -2783,7 +2791,7 @@ fn no_duplicate_advertisement_on_authority_id_update(
 						virtual_overseer,
 						&[peer],
 						test_state.scheduling_parent,
-						candidate_hashes.clone(),
+						output_heads.clone(),
 					)
 					.await;
 				},
