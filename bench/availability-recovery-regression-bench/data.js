@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783518889546,
+  "lastUpdate": 1783523370103,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gorka.irazoki@gmail.com",
-            "name": "girazoki",
-            "username": "girazoki"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d69d1cd6702d08668f56b4f03935f2115c1592a8",
-          "message": "allow more generic origins in xcm-emulator message processor (#10158)\n\nRight now the default message processor is somewhat tied to specific\n`AggregateMessageOrigin` from `polkadot_runtime_parachains::inclusion`.\nthis pr changes it so that we require a conversion from that\nAggregateMessageOrigin, but nothing else, the rest stays generic.\n\nIn the longer run we can allow customizing the processor to some other\nthing, but this was a sufficiently easier change\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
-          "timestamp": "2025-11-13T09:39:38Z",
-          "tree_id": "56ae98de7ef6dbaba1b0b0c720e4e0505480f8ba",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d69d1cd6702d08668f56b4f03935f2115c1592a8"
-        },
-        "date": 1763030898496,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.349761181333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19995077953333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.631664379966665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "rohit.sarpotdar@parity.io",
+            "name": "Rohit Sarpotdar",
+            "username": "rosarp"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d88e92c692d41d236078a52c76f6649bc4be1cb1",
+          "message": "AHW: populate foreign asset reserves in genesis; use ambient tokio runtime in relay RPC client (#12587)\n\nAfter bridges tests migrated to zombinet-sdk, to update polkadot-sdk\nupdate in substrate-relay below changes are required.\nAddresses Issue:\nhttps://github.com/paritytech/parity-bridges-common/issues/3167\n\n#### Substrate relay RPC client changes:\n\nstops each RpcClient from spawning its own nested\ntokio::runtime::Runtime and instead reuses the ambient runtime via\ntokio::runtime::Handle::current(). This makes the relay client usable\ninside a caller-provided runtime (e.g. zombienet-sdk) and avoids the\n\"Cannot drop a runtime in a context where blocking is not allowed\" panic\nthat occurred when a client was dropped on a runtime thread.\n\n#### Integration\n\n- `RpcClient` (and its build_client) now require an existing tokio\nruntime to be present on the current thread. Callers that previously\nrelied on the client creating its own runtime must now construct it\nwithin a tokio runtime context (#[tokio::main], Runtime::block_on, or an\nactive Handle). The internal ClientData::tokio field type changed from\nArc<tokio::runtime::Runtime> to tokio::runtime::Handle.\n\n#### Review Notes\n\n`rpc.rs`\n- ClientData::tokio changes from Arc<tokio::runtime::Runtime> to\ntokio::runtime::Handle.\n- build_client now grabs Handle::current() instead of constructing\nRuntime::new(), and returns the handle directly (no Arc wrapping).",
+          "timestamp": "2026-07-08T13:27:17Z",
+          "tree_id": "64cd8204407dfbec5b8dc62bb50e52a8db80ac1e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d88e92c692d41d236078a52c76f6649bc4be1cb1"
+        },
+        "date": 1783523340875,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.659422553466673,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13405707986666665,
             "unit": "seconds"
           }
         ]
