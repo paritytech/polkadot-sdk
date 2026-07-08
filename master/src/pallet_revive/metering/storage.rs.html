@@ -658,38 +658,56 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#508 id=508 data-nosnippet>508</a>			</span><span class="kw">let _ </span>= diff.update_contract::&lt;T&gt;(<span class="prelude-val">Some</span>(info));
 <a href=#509 id=509 data-nosnippet>509</a>		}
 <a href=#510 id=510 data-nosnippet>510</a>	}
-<a href=#511 id=511 data-nosnippet>511</a>}
-<a href=#512 id=512 data-nosnippet>512</a>
-<a href=#513 id=513 data-nosnippet>513</a><span class="kw">impl</span>&lt;T: Config&gt; Ext&lt;T&gt; <span class="kw">for </span>ReservingExt {
-<a href=#514 id=514 data-nosnippet>514</a>	<span class="kw">fn </span>charge(
-<a href=#515 id=515 data-nosnippet>515</a>		origin: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#516 id=516 data-nosnippet>516</a>		contract: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#517 id=517 data-nosnippet>517</a>		amount: <span class="kw-2">&amp;</span>DepositOf&lt;T&gt;,
-<a href=#518 id=518 data-nosnippet>518</a>		exec_config: <span class="kw-2">&amp;</span>ExecConfig&lt;T&gt;,
-<a href=#519 id=519 data-nosnippet>519</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
-<a href=#520 id=520 data-nosnippet>520</a>		<span class="kw">match </span>amount {
-<a href=#521 id=521 data-nosnippet>521</a>			Deposit::Charge(amount) | Deposit::Refund(amount) <span class="kw">if </span>amount.is_zero() =&gt; (),
-<a href=#522 id=522 data-nosnippet>522</a>			Deposit::Charge(amount) =&gt; {
-<a href=#523 id=523 data-nosnippet>523</a>				&lt;Pallet&lt;T&gt;&gt;::charge_deposit(
-<a href=#524 id=524 data-nosnippet>524</a>					HoldReason::StorageDepositReserve,
-<a href=#525 id=525 data-nosnippet>525</a>					origin,
-<a href=#526 id=526 data-nosnippet>526</a>					contract,
-<a href=#527 id=527 data-nosnippet>527</a>					<span class="kw-2">*</span>amount,
-<a href=#528 id=528 data-nosnippet>528</a>					exec_config,
-<a href=#529 id=529 data-nosnippet>529</a>				)<span class="question-mark">?</span>;
-<a href=#530 id=530 data-nosnippet>530</a>			},
-<a href=#531 id=531 data-nosnippet>531</a>			Deposit::Refund(amount) =&gt; {
-<a href=#532 id=532 data-nosnippet>532</a>				&lt;Pallet&lt;T&gt;&gt;::refund_deposit(
-<a href=#533 id=533 data-nosnippet>533</a>					HoldReason::StorageDepositReserve,
-<a href=#534 id=534 data-nosnippet>534</a>					contract,
-<a href=#535 id=535 data-nosnippet>535</a>					exec_config.funds(origin),
-<a href=#536 id=536 data-nosnippet>536</a>					<span class="kw-2">*</span>amount,
-<a href=#537 id=537 data-nosnippet>537</a>				)<span class="question-mark">?</span>;
-<a href=#538 id=538 data-nosnippet>538</a>			},
-<a href=#539 id=539 data-nosnippet>539</a>		}
-<a href=#540 id=540 data-nosnippet>540</a>		<span class="prelude-val">Ok</span>(())
-<a href=#541 id=541 data-nosnippet>541</a>	}
-<a href=#542 id=542 data-nosnippet>542</a>}
+<a href=#511 id=511 data-nosnippet>511</a>
+<a href=#512 id=512 data-nosnippet>512</a>	<span class="doccomment">/// Apply the pending diff to `info` and push its deposit as a final charge, then reset
+<a href=#513 id=513 data-nosnippet>513</a>	/// `own_contribution` so finalize does not apply it a second time.
+<a href=#514 id=514 data-nosnippet>514</a>	</span><span class="kw">pub fn </span>bank_pending_changes(<span class="kw-2">&amp;mut </span><span class="self">self</span>, contract: T::AccountId, info: <span class="kw-2">&amp;mut </span>ContractInfo&lt;T&gt;) {
+<a href=#515 id=515 data-nosnippet>515</a>		<span class="kw">if let </span>Contribution::Alive(<span class="kw">_</span>) = <span class="kw-2">&amp;</span><span class="self">self</span>.own_contribution {
+<a href=#516 id=516 data-nosnippet>516</a>			<span class="kw">let </span>deposit = <span class="self">self</span>.own_contribution.update_contract(<span class="prelude-val">Some</span>(info));
+<a href=#517 id=517 data-nosnippet>517</a>			<span class="self">self</span>.own_contribution = Contribution::Alive(Default::default());
+<a href=#518 id=518 data-nosnippet>518</a>			<span class="kw">if </span>!deposit.is_zero() {
+<a href=#519 id=519 data-nosnippet>519</a>				<span class="self">self</span>.charge_deposit(contract, deposit);
+<a href=#520 id=520 data-nosnippet>520</a>			}
+<a href=#521 id=521 data-nosnippet>521</a>		} <span class="kw">else </span>{
+<a href=#522 id=522 data-nosnippet>522</a>			<span class="macro">debug_assert!</span>(
+<a href=#523 id=523 data-nosnippet>523</a>				<span class="bool-val">false</span>,
+<a href=#524 id=524 data-nosnippet>524</a>				<span class="string">"on-stack ancestor frames have not finalized yet, so own_contribution \
+<a href=#525 id=525 data-nosnippet>525</a>				 should be Alive when banked; qed"</span>,
+<a href=#526 id=526 data-nosnippet>526</a>			);
+<a href=#527 id=527 data-nosnippet>527</a>		}
+<a href=#528 id=528 data-nosnippet>528</a>	}
+<a href=#529 id=529 data-nosnippet>529</a>}
+<a href=#530 id=530 data-nosnippet>530</a>
+<a href=#531 id=531 data-nosnippet>531</a><span class="kw">impl</span>&lt;T: Config&gt; Ext&lt;T&gt; <span class="kw">for </span>ReservingExt {
+<a href=#532 id=532 data-nosnippet>532</a>	<span class="kw">fn </span>charge(
+<a href=#533 id=533 data-nosnippet>533</a>		origin: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#534 id=534 data-nosnippet>534</a>		contract: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#535 id=535 data-nosnippet>535</a>		amount: <span class="kw-2">&amp;</span>DepositOf&lt;T&gt;,
+<a href=#536 id=536 data-nosnippet>536</a>		exec_config: <span class="kw-2">&amp;</span>ExecConfig&lt;T&gt;,
+<a href=#537 id=537 data-nosnippet>537</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+<a href=#538 id=538 data-nosnippet>538</a>		<span class="kw">match </span>amount {
+<a href=#539 id=539 data-nosnippet>539</a>			Deposit::Charge(amount) | Deposit::Refund(amount) <span class="kw">if </span>amount.is_zero() =&gt; (),
+<a href=#540 id=540 data-nosnippet>540</a>			Deposit::Charge(amount) =&gt; {
+<a href=#541 id=541 data-nosnippet>541</a>				&lt;Pallet&lt;T&gt;&gt;::charge_deposit(
+<a href=#542 id=542 data-nosnippet>542</a>					HoldReason::StorageDepositReserve,
+<a href=#543 id=543 data-nosnippet>543</a>					origin,
+<a href=#544 id=544 data-nosnippet>544</a>					contract,
+<a href=#545 id=545 data-nosnippet>545</a>					<span class="kw-2">*</span>amount,
+<a href=#546 id=546 data-nosnippet>546</a>					exec_config,
+<a href=#547 id=547 data-nosnippet>547</a>				)<span class="question-mark">?</span>;
+<a href=#548 id=548 data-nosnippet>548</a>			},
+<a href=#549 id=549 data-nosnippet>549</a>			Deposit::Refund(amount) =&gt; {
+<a href=#550 id=550 data-nosnippet>550</a>				&lt;Pallet&lt;T&gt;&gt;::refund_deposit(
+<a href=#551 id=551 data-nosnippet>551</a>					HoldReason::StorageDepositReserve,
+<a href=#552 id=552 data-nosnippet>552</a>					contract,
+<a href=#553 id=553 data-nosnippet>553</a>					exec_config.funds(origin),
+<a href=#554 id=554 data-nosnippet>554</a>					<span class="kw-2">*</span>amount,
+<a href=#555 id=555 data-nosnippet>555</a>				)<span class="question-mark">?</span>;
+<a href=#556 id=556 data-nosnippet>556</a>			},
+<a href=#557 id=557 data-nosnippet>557</a>		}
+<a href=#558 id=558 data-nosnippet>558</a>		<span class="prelude-val">Ok</span>(())
+<a href=#559 id=559 data-nosnippet>559</a>	}
+<a href=#560 id=560 data-nosnippet>560</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

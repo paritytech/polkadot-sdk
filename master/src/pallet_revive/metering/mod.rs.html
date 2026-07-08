@@ -823,67 +823,76 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#673 id=673 data-nosnippet>673</a>	</span><span class="kw">pub fn </span>apply_pending_storage_changes(<span class="kw-2">&amp;</span><span class="self">self</span>, info: <span class="kw-2">&amp;mut </span>ContractInfo&lt;T&gt;) {
 <a href=#674 id=674 data-nosnippet>674</a>		<span class="self">self</span>.deposit.apply_pending_changes_to_contract(info);
 <a href=#675 id=675 data-nosnippet>675</a>	}
-<a href=#676 id=676 data-nosnippet>676</a>}
-<a href=#677 id=677 data-nosnippet>677</a>
-<a href=#678 id=678 data-nosnippet>678</a><span class="doccomment">/// Ethereum transaction context for gas conversions.
-<a href=#679 id=679 data-nosnippet>679</a>///
-<a href=#680 id=680 data-nosnippet>680</a>/// Contains the parameters needed to convert between ethereum gas and substrate resources
-<a href=#681 id=681 data-nosnippet>681</a>/// (weight/deposit)
-<a href=#682 id=682 data-nosnippet>682</a></span><span class="attr">#[derive(DebugNoBound, Clone)]
-<a href=#683 id=683 data-nosnippet>683</a></span><span class="kw">pub struct </span>EthTxInfo&lt;T: Config&gt; {
-<a href=#684 id=684 data-nosnippet>684</a>	<span class="doccomment">/// The encoding length of the extrinsic
-<a href=#685 id=685 data-nosnippet>685</a>	</span><span class="kw">pub </span>encoded_len: u32,
-<a href=#686 id=686 data-nosnippet>686</a>	<span class="doccomment">/// The extra weight of the transaction. The total weight of the extrinsic is `extra_weight` +
-<a href=#687 id=687 data-nosnippet>687</a>	/// the weight consumed during smart contract execution.
-<a href=#688 id=688 data-nosnippet>688</a>	</span><span class="kw">pub </span>extra_weight: Weight,
-<a href=#689 id=689 data-nosnippet>689</a>	_phantom: PhantomData&lt;T&gt;,
-<a href=#690 id=690 data-nosnippet>690</a>}
-<a href=#691 id=691 data-nosnippet>691</a>
-<a href=#692 id=692 data-nosnippet>692</a><span class="kw">impl</span>&lt;T: Config&gt; EthTxInfo&lt;T&gt; {
-<a href=#693 id=693 data-nosnippet>693</a>	<span class="doccomment">/// Create a new ethereum transaction context with the given parameters.
-<a href=#694 id=694 data-nosnippet>694</a>	</span><span class="kw">pub fn </span>new(encoded_len: u32, extra_weight: Weight) -&gt; <span class="self">Self </span>{
-<a href=#695 id=695 data-nosnippet>695</a>		<span class="self">Self </span>{ encoded_len, extra_weight, _phantom: PhantomData }
-<a href=#696 id=696 data-nosnippet>696</a>	}
-<a href=#697 id=697 data-nosnippet>697</a>
-<a href=#698 id=698 data-nosnippet>698</a>	<span class="doccomment">/// Calculate total gas consumed by weight and storage operations.
-<a href=#699 id=699 data-nosnippet>699</a>	</span><span class="kw">pub fn </span>gas_consumption(
-<a href=#700 id=700 data-nosnippet>700</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#701 id=701 data-nosnippet>701</a>		consumed_weight: <span class="kw-2">&amp;</span>Weight,
-<a href=#702 id=702 data-nosnippet>702</a>		consumed_deposit: <span class="kw-2">&amp;</span>DepositOf&lt;T&gt;,
-<a href=#703 id=703 data-nosnippet>703</a>	) -&gt; SignedGas&lt;T&gt; {
-<a href=#704 id=704 data-nosnippet>704</a>		<span class="kw">let </span>fixed_fee = T::FeeInfo::fixed_fee(<span class="self">self</span>.encoded_len);
-<a href=#705 id=705 data-nosnippet>705</a>		<span class="kw">let </span>deposit_and_fixed_fee =
-<a href=#706 id=706 data-nosnippet>706</a>			consumed_deposit.saturating_add(<span class="kw-2">&amp;</span>DepositOf::&lt;T&gt;::Charge(fixed_fee));
-<a href=#707 id=707 data-nosnippet>707</a>		<span class="kw">let </span>deposit_gas = SignedGas::from_adjusted_deposit_charge(<span class="kw-2">&amp;</span>deposit_and_fixed_fee);
-<a href=#708 id=708 data-nosnippet>708</a>
-<a href=#709 id=709 data-nosnippet>709</a>		<span class="kw">let </span>weight_gas = SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee(
-<a href=#710 id=710 data-nosnippet>710</a>			<span class="kw-2">&amp;</span>consumed_weight.saturating_add(<span class="self">self</span>.extra_weight),
-<a href=#711 id=711 data-nosnippet>711</a>		));
-<a href=#712 id=712 data-nosnippet>712</a>
-<a href=#713 id=713 data-nosnippet>713</a>		deposit_gas.saturating_add(<span class="kw-2">&amp;</span>weight_gas)
-<a href=#714 id=714 data-nosnippet>714</a>	}
-<a href=#715 id=715 data-nosnippet>715</a>
-<a href=#716 id=716 data-nosnippet>716</a>	<span class="doccomment">/// Calculate maximal possible remaining weight that can be consumed given a particular gas
-<a href=#717 id=717 data-nosnippet>717</a>	/// limit.
-<a href=#718 id=718 data-nosnippet>718</a>	///
-<a href=#719 id=719 data-nosnippet>719</a>	/// Returns None if remaining gas would not allow any more weight consumption.
-<a href=#720 id=720 data-nosnippet>720</a>	</span><span class="kw">pub fn </span>weight_remaining(
-<a href=#721 id=721 data-nosnippet>721</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#722 id=722 data-nosnippet>722</a>		max_total_gas: <span class="kw-2">&amp;</span>SignedGas&lt;T&gt;,
-<a href=#723 id=723 data-nosnippet>723</a>		total_weight_consumption: <span class="kw-2">&amp;</span>Weight,
-<a href=#724 id=724 data-nosnippet>724</a>		total_deposit_consumption: <span class="kw-2">&amp;</span>DepositOf&lt;T&gt;,
-<a href=#725 id=725 data-nosnippet>725</a>	) -&gt; <span class="prelude-ty">Option</span>&lt;Weight&gt; {
-<a href=#726 id=726 data-nosnippet>726</a>		<span class="kw">let </span>fixed_fee = T::FeeInfo::fixed_fee(<span class="self">self</span>.encoded_len);
-<a href=#727 id=727 data-nosnippet>727</a>		<span class="kw">let </span>deposit_and_fixed_fee =
-<a href=#728 id=728 data-nosnippet>728</a>			total_deposit_consumption.saturating_add(<span class="kw-2">&amp;</span>DepositOf::&lt;T&gt;::Charge(fixed_fee));
-<a href=#729 id=729 data-nosnippet>729</a>		<span class="kw">let </span>deposit_gas = SignedGas::from_adjusted_deposit_charge(<span class="kw-2">&amp;</span>deposit_and_fixed_fee);
-<a href=#730 id=730 data-nosnippet>730</a>
-<a href=#731 id=731 data-nosnippet>731</a>		<span class="kw">let </span>consumable_fee = max_total_gas.saturating_sub(<span class="kw-2">&amp;</span>deposit_gas).to_weight_fee()<span class="question-mark">?</span>;
-<a href=#732 id=732 data-nosnippet>732</a>
-<a href=#733 id=733 data-nosnippet>733</a>		T::FeeInfo::fee_to_weight(consumable_fee)
-<a href=#734 id=734 data-nosnippet>734</a>			.checked_sub(<span class="kw-2">&amp;</span>total_weight_consumption.saturating_add(<span class="self">self</span>.extra_weight))
-<a href=#735 id=735 data-nosnippet>735</a>	}
-<a href=#736 id=736 data-nosnippet>736</a>}
+<a href=#676 id=676 data-nosnippet>676</a>
+<a href=#677 id=677 data-nosnippet>677</a>	<span class="doccomment">/// See [`storage::RawMeter::bank_pending_changes`].
+<a href=#678 id=678 data-nosnippet>678</a>	</span><span class="kw">pub fn </span>bank_pending_storage_changes(
+<a href=#679 id=679 data-nosnippet>679</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#680 id=680 data-nosnippet>680</a>		contract: T::AccountId,
+<a href=#681 id=681 data-nosnippet>681</a>		info: <span class="kw-2">&amp;mut </span>ContractInfo&lt;T&gt;,
+<a href=#682 id=682 data-nosnippet>682</a>	) {
+<a href=#683 id=683 data-nosnippet>683</a>		<span class="self">self</span>.deposit.bank_pending_changes(contract, info);
+<a href=#684 id=684 data-nosnippet>684</a>	}
+<a href=#685 id=685 data-nosnippet>685</a>}
+<a href=#686 id=686 data-nosnippet>686</a>
+<a href=#687 id=687 data-nosnippet>687</a><span class="doccomment">/// Ethereum transaction context for gas conversions.
+<a href=#688 id=688 data-nosnippet>688</a>///
+<a href=#689 id=689 data-nosnippet>689</a>/// Contains the parameters needed to convert between ethereum gas and substrate resources
+<a href=#690 id=690 data-nosnippet>690</a>/// (weight/deposit)
+<a href=#691 id=691 data-nosnippet>691</a></span><span class="attr">#[derive(DebugNoBound, Clone)]
+<a href=#692 id=692 data-nosnippet>692</a></span><span class="kw">pub struct </span>EthTxInfo&lt;T: Config&gt; {
+<a href=#693 id=693 data-nosnippet>693</a>	<span class="doccomment">/// The encoding length of the extrinsic
+<a href=#694 id=694 data-nosnippet>694</a>	</span><span class="kw">pub </span>encoded_len: u32,
+<a href=#695 id=695 data-nosnippet>695</a>	<span class="doccomment">/// The extra weight of the transaction. The total weight of the extrinsic is `extra_weight` +
+<a href=#696 id=696 data-nosnippet>696</a>	/// the weight consumed during smart contract execution.
+<a href=#697 id=697 data-nosnippet>697</a>	</span><span class="kw">pub </span>extra_weight: Weight,
+<a href=#698 id=698 data-nosnippet>698</a>	_phantom: PhantomData&lt;T&gt;,
+<a href=#699 id=699 data-nosnippet>699</a>}
+<a href=#700 id=700 data-nosnippet>700</a>
+<a href=#701 id=701 data-nosnippet>701</a><span class="kw">impl</span>&lt;T: Config&gt; EthTxInfo&lt;T&gt; {
+<a href=#702 id=702 data-nosnippet>702</a>	<span class="doccomment">/// Create a new ethereum transaction context with the given parameters.
+<a href=#703 id=703 data-nosnippet>703</a>	</span><span class="kw">pub fn </span>new(encoded_len: u32, extra_weight: Weight) -&gt; <span class="self">Self </span>{
+<a href=#704 id=704 data-nosnippet>704</a>		<span class="self">Self </span>{ encoded_len, extra_weight, _phantom: PhantomData }
+<a href=#705 id=705 data-nosnippet>705</a>	}
+<a href=#706 id=706 data-nosnippet>706</a>
+<a href=#707 id=707 data-nosnippet>707</a>	<span class="doccomment">/// Calculate total gas consumed by weight and storage operations.
+<a href=#708 id=708 data-nosnippet>708</a>	</span><span class="kw">pub fn </span>gas_consumption(
+<a href=#709 id=709 data-nosnippet>709</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#710 id=710 data-nosnippet>710</a>		consumed_weight: <span class="kw-2">&amp;</span>Weight,
+<a href=#711 id=711 data-nosnippet>711</a>		consumed_deposit: <span class="kw-2">&amp;</span>DepositOf&lt;T&gt;,
+<a href=#712 id=712 data-nosnippet>712</a>	) -&gt; SignedGas&lt;T&gt; {
+<a href=#713 id=713 data-nosnippet>713</a>		<span class="kw">let </span>fixed_fee = T::FeeInfo::fixed_fee(<span class="self">self</span>.encoded_len);
+<a href=#714 id=714 data-nosnippet>714</a>		<span class="kw">let </span>deposit_and_fixed_fee =
+<a href=#715 id=715 data-nosnippet>715</a>			consumed_deposit.saturating_add(<span class="kw-2">&amp;</span>DepositOf::&lt;T&gt;::Charge(fixed_fee));
+<a href=#716 id=716 data-nosnippet>716</a>		<span class="kw">let </span>deposit_gas = SignedGas::from_adjusted_deposit_charge(<span class="kw-2">&amp;</span>deposit_and_fixed_fee);
+<a href=#717 id=717 data-nosnippet>717</a>
+<a href=#718 id=718 data-nosnippet>718</a>		<span class="kw">let </span>weight_gas = SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee(
+<a href=#719 id=719 data-nosnippet>719</a>			<span class="kw-2">&amp;</span>consumed_weight.saturating_add(<span class="self">self</span>.extra_weight),
+<a href=#720 id=720 data-nosnippet>720</a>		));
+<a href=#721 id=721 data-nosnippet>721</a>
+<a href=#722 id=722 data-nosnippet>722</a>		deposit_gas.saturating_add(<span class="kw-2">&amp;</span>weight_gas)
+<a href=#723 id=723 data-nosnippet>723</a>	}
+<a href=#724 id=724 data-nosnippet>724</a>
+<a href=#725 id=725 data-nosnippet>725</a>	<span class="doccomment">/// Calculate maximal possible remaining weight that can be consumed given a particular gas
+<a href=#726 id=726 data-nosnippet>726</a>	/// limit.
+<a href=#727 id=727 data-nosnippet>727</a>	///
+<a href=#728 id=728 data-nosnippet>728</a>	/// Returns None if remaining gas would not allow any more weight consumption.
+<a href=#729 id=729 data-nosnippet>729</a>	</span><span class="kw">pub fn </span>weight_remaining(
+<a href=#730 id=730 data-nosnippet>730</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#731 id=731 data-nosnippet>731</a>		max_total_gas: <span class="kw-2">&amp;</span>SignedGas&lt;T&gt;,
+<a href=#732 id=732 data-nosnippet>732</a>		total_weight_consumption: <span class="kw-2">&amp;</span>Weight,
+<a href=#733 id=733 data-nosnippet>733</a>		total_deposit_consumption: <span class="kw-2">&amp;</span>DepositOf&lt;T&gt;,
+<a href=#734 id=734 data-nosnippet>734</a>	) -&gt; <span class="prelude-ty">Option</span>&lt;Weight&gt; {
+<a href=#735 id=735 data-nosnippet>735</a>		<span class="kw">let </span>fixed_fee = T::FeeInfo::fixed_fee(<span class="self">self</span>.encoded_len);
+<a href=#736 id=736 data-nosnippet>736</a>		<span class="kw">let </span>deposit_and_fixed_fee =
+<a href=#737 id=737 data-nosnippet>737</a>			total_deposit_consumption.saturating_add(<span class="kw-2">&amp;</span>DepositOf::&lt;T&gt;::Charge(fixed_fee));
+<a href=#738 id=738 data-nosnippet>738</a>		<span class="kw">let </span>deposit_gas = SignedGas::from_adjusted_deposit_charge(<span class="kw-2">&amp;</span>deposit_and_fixed_fee);
+<a href=#739 id=739 data-nosnippet>739</a>
+<a href=#740 id=740 data-nosnippet>740</a>		<span class="kw">let </span>consumable_fee = max_total_gas.saturating_sub(<span class="kw-2">&amp;</span>deposit_gas).to_weight_fee()<span class="question-mark">?</span>;
+<a href=#741 id=741 data-nosnippet>741</a>
+<a href=#742 id=742 data-nosnippet>742</a>		T::FeeInfo::fee_to_weight(consumable_fee)
+<a href=#743 id=743 data-nosnippet>743</a>			.checked_sub(<span class="kw-2">&amp;</span>total_weight_consumption.saturating_add(<span class="self">self</span>.extra_weight))
+<a href=#744 id=744 data-nosnippet>744</a>	}
+<a href=#745 id=745 data-nosnippet>745</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
