@@ -829,10 +829,10 @@ pub mod pallet {
 			weight
 		}
 
-		// TODO: add a `try_state` invariant asserting that the balance of the payouts account
-		// matches the sum of all pending payouts in `Payouts`. As of 2026-07-08 it does not hold
-		// on Asset Hub Kusama, where the payouts account is ~0.348 KSM short of the recorded
-		// pending payouts; that state needs reconciling before the invariant can be enforced.
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_: SystemBlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::genesis_config]
@@ -1163,6 +1163,15 @@ pub mod pallet {
 			MemberCount::<T, I>::kill();
 			let _ = MemberByIndex::<T, I>::clear(u32::MAX, None);
 			let _ = SuspendedMembers::<T, I>::clear(u32::MAX, None);
+			// Return the funds backing the discarded pending payouts to the society account.
+			let payouts_account = Self::payouts();
+			let res = T::Currency::transfer(
+				&payouts_account,
+				&Self::account_id(),
+				T::Currency::free_balance(&payouts_account),
+				AllowDeath,
+			);
+			debug_assert!(res.is_ok());
 			let _ = Payouts::<T, I>::clear(u32::MAX, None);
 			let _ = Votes::<T, I>::clear(u32::MAX, None);
 			let _ = VoteClearCursor::<T, I>::clear(u32::MAX, None);
@@ -2210,6 +2219,25 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// value and only call this once.
 	pub fn payouts() -> T::AccountId {
 		T::PalletId::get().into_sub_account_truncating(b"payouts")
+	}
+
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// The balance of the payouts account must equal the total of all pending payouts recorded in
+	/// `Payouts`, as funds are moved into the account when a payout is recorded and out of it when
+	/// a payout is claimed or discarded.
+	#[cfg(any(feature = "try-runtime", test))]
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		let total_pending = Payouts::<T, I>::iter_values()
+			.flat_map(|record| record.payouts.into_iter())
+			.fold(BalanceOf::<T, I>::zero(), |acc, x| acc.saturating_add(x.1));
+		frame_support::ensure!(
+			T::Currency::free_balance(&Self::payouts()) == total_pending,
+			sp_runtime::TryRuntimeError::Other(
+				"payouts account balance must equal the total of pending payouts",
+			),
+		);
+		Ok(())
 	}
 
 	/// Return the duration of the lock, in blocks, with the given number of members.

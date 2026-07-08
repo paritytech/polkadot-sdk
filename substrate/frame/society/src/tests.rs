@@ -80,6 +80,16 @@ fn migration_works() {
 		migrations::from_original::<Test, ()>(&mut [][..]).expect("migration failed");
 		migrations::assert_internal_consistency::<Test, ()>();
 
+		// `from_original` carries the payout records over without funding the payouts account,
+		// so the migrated state violates the payout accounting invariant until the account is
+		// reconciled separately. Model that reconciliation here to satisfy the invariant checked
+		// at the end of every test.
+		let pending: u64 = Payouts::<Test>::iter_values()
+			.flat_map(|r| r.payouts.into_iter())
+			.map(|x| x.1)
+			.sum();
+		let _ = Balances::make_free_balance_be(&Society::payouts(), pending);
+
 		assert_eq!(
 			membership(),
 			vec![
@@ -208,6 +218,27 @@ fn unfounding_works() {
 
 		// Unfounding won't work now, even though it's from 20.
 		assert_noop!(Society::dissolve(Origin::signed(20)), Error::<Test>::NotHead);
+	});
+}
+
+#[test]
+fn dissolve_returns_pending_payout_funds_to_society() {
+	EnvBuilder::new().execute(|| {
+		// GIVEN: a suspended member with a pending payout of 100 and the founder as sole member.
+		place_members([20]);
+		Society::bump_payout(&20, 5, 100);
+		assert_ok!(Society::suspend_member(&20));
+		assert_eq!(Balances::free_balance(Society::payouts()), 100);
+		let society_account = Balances::free_balance(Society::account_id());
+
+		// WHEN: the founder dissolves the society.
+		assert_ok!(Society::dissolve(Origin::signed(10)));
+
+		// THEN: the pending payout records are discarded and the funds backing them are returned
+		// to the society account.
+		assert_eq!(Payouts::<Test>::iter().count(), 0);
+		assert_eq!(Balances::free_balance(Society::payouts()), 0);
+		assert_eq!(Balances::free_balance(Society::account_id()), society_account + 100);
 	});
 }
 
