@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783451253188,
+  "lastUpdate": 1783507409074,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "adrian@parity.io",
-            "name": "Adrian Catangiu",
-            "username": "acatangiu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c235685d8a060be84b80647c4b38ffceb1baebdc",
-          "message": "pallet-assets: add reserves info to support non-teleportable Foreign Assets on Asset Hub (#9948)\n\n# Context\n\nAsset Hub currently supports registering following types of assets:\n1. Local Assets (also called trust-based assets), with `u32` asset ID,\nasset creatable by Signed accounts and managed by `PalletInstance(50)`\n(`Assets`).\n2. Foreign Assets, `Location` as asset ID, creatable only by external\nlocations over XCM and managed by `PalletInstance(53)`\n(`ForeignAssets`).\n\nFor \"foreign assets\", the current code assumes and enforces that the\nasset is teleportable with its original location/creator.\n\nSome ecosystem parachains would want to register foreign assets on Asset\nHub, but not also have them teleportable, not have Asset Hub act as a\nreserve for the asset. Multiple reserve locations adds reserve\nmanagement overhead for teams, and some don't want to do it.\n\nE.g. for HOLLAR to be registered to Asset Hub, Asset Hub would have to\nallow reserve-based foreign assets.\n\n# Solution\n\nThis PR adds a new storage item and new call to `pallet-assets` that can\nbe used to configure the trusted reserves (as seen by the local chain)\non a per-asset basis. This is a generic type that is flexible at the\nruntime level. It can be an XCM Location or any other type of location\nidentifier, or it can be set to `()` if the assets managed by the pallet\ninstance do not require any remote reserves information.\n\nThe PR also adds runtime machinery to use the assets reserves\ninformation when reasoning about XCM teleports and XCM reserve-based\ntransfers.\n\n## AH considerations\n\nIn Asset Hub's case, for each asset, only explicitly configured assets'\nreserve locations will be trusted. Besides the actual reserve\nlocation(s), a`teleportable: bool` flag is also set for each reserve,\nspecifying whether the asset is teleportable or not between the local\nchain and said reserve location.\nAny other chain that should be assumed as a trusted reserve needs to be\nmarked as such in `pallet-assets` by the asset's `Owner`.\n\nBy default, on asset creation, no explicit reserve information is\nconfigured. This results in foreign assets not being transferable\ncross-chain by default. To enable cross-chain transfers, one of the\nfollowing configurations is required on the `Asset` to be done by its\n`Owner`:\n- For AH to accept incoming reserve transfer of asset \"A\" from remote\nchain \"X\", that chain needs to be added as a trusted reserve for asset\n\"A\", and `teleportable` flag set to `false`:\n  ```rust\n      let asset_id = \"A\";\n      let origin = Signed(OwnerOfA);\n      let reserves = vec![\nForeignAssetReserveData { reserve: \"Remote Chain X location\", teleport:\nfalse }\n      ];\n      pallet_assets::set_reserves(origin, asset_id, reserves);\n  ```\n- For AH to accept teleports of asset \"A\" from remote chain \"X\", that\nchain needs to be added as trusted reserves for asset \"A\", and\n`teleportable` flag set to `true`:\n  ```rust\n      let asset_id = \"A\";\n      let origin = Signed(OwnerOfA);\n      let reserves = vec![\nForeignAssetReserveData { reserve: \"Remote Chain X location\", teleport:\ntrue }\n      ];\n      pallet_assets::set_reserves(origin, asset_id, reserves);\n  ```\n\n## Required migrations\n\nSince there are already a number of Foreign Assets already registered,\nand have been teleportable or reserve-transferable since registration\nbased on static rules, this PR also adds a migration that configures the\nrequired reserves information for existing foreign assets, so as not to\nchange any existing behaviors.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: claravanstaden <claravanstaden64@gmail.com>",
-          "timestamp": "2025-11-11T17:35:21Z",
-          "tree_id": "cc44b9e150c5fe7f5d5916195c0c2cdfe2648e7c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c235685d8a060be84b80647c4b38ffceb1baebdc"
-        },
-        "date": 1762886981543,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.97199999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04560052942199995,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035385984372,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08845659971999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c71d6a0e005286cafeb8e5348678e512d8d14ec3",
+          "message": "Remove deprecated RelaychainBlockNumberProvider type alias (#12251)\n\n## Summary\n\nRemoves the deprecated `RelaychainBlockNumberProvider` type alias from\n`cumulus-pallet-parachain-system`. All usages already use\n`RelaychainDataProvider`.\n\nPart of #11561.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-08T08:55:15Z",
+          "tree_id": "87a3a5eaaccc4f0b614cbcae7bf5b5e470e33214",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c71d6a0e005286cafeb8e5348678e512d8d14ec3"
+        },
+        "date": 1783507379213,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.176,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03863841949400001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08927510342399997,
             "unit": "seconds"
           }
         ]
