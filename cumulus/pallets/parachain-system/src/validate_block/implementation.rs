@@ -124,6 +124,7 @@ where
 			.replace_implementation(host_default_child_storage_root),
 		sp_io::default_child_storage::host_next_key
 			.replace_implementation(host_default_child_storage_next_key),
+		sp_io::misc::host_last_cursor.replace_implementation(host_misc_last_cursor),
 		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
@@ -571,6 +572,7 @@ fn host_storage_clear_prefix(
 			ext.clear_prefix(prefix, maybe_limit, maybe_cursor_in.as_ref().map(|c| &c[..]));
 		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
 		if let Some(cursor_out) = removal_results.maybe_cursor {
+			ext.store_last_cursor(&cursor_out[..]);
 			let write_len = cursor_out_len.min(maybe_cursor_out.len());
 			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
 		}
@@ -657,6 +659,7 @@ fn host_default_child_storage_storage_kill(
 		let removal_results = ext.kill_child_storage(&child_info, maybe_limit, maybe_cursor_in);
 		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
 		if let Some(cursor_out) = removal_results.maybe_cursor {
+			ext.store_last_cursor(&cursor_out[..]);
 			let write_len = cursor_out_len.min(maybe_cursor_out.len());
 			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
 		}
@@ -686,6 +689,7 @@ fn host_default_child_storage_clear_prefix(
 			ext.clear_child_prefix(&child_info, prefix, maybe_limit, maybe_cursor_in);
 		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
 		if let Some(cursor_out) = removal_results.maybe_cursor {
+			ext.store_last_cursor(&cursor_out[..]);
 			let write_len = cursor_out_len.min(maybe_cursor_out.len());
 			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
 		}
@@ -720,6 +724,18 @@ fn host_default_child_storage_next_key(
 			key_out[..write_len].copy_from_slice(&next_key[..write_len]);
 		}
 		next_key_len as u32
+	})
+}
+
+fn host_misc_last_cursor(out: &mut [u8]) -> Option<u32> {
+	with_externalities(|ext| {
+		let cursor = ext.take_last_cursor()?;
+		if out.len() >= cursor.len() {
+			out[..cursor.len()].copy_from_slice(&cursor[..]);
+		} else {
+			ext.store_last_cursor(&cursor[..]);
+		}
+		Some(cursor.len() as u32)
 	})
 }
 
