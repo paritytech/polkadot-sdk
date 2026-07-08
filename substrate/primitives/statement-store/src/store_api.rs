@@ -338,8 +338,9 @@ impl SubmitOutcome {
 			SubmitResult::New => Ok(SubmitOutcome::New),
 			SubmitResult::Known => Ok(SubmitOutcome::Known),
 			// The store only returns `KnownExpired` for `Network` sources; the RPC path is `Local`.
-			SubmitResult::KnownExpired =>
-				Err(Error::Storage("unexpected KnownExpired on local submission".into())),
+			SubmitResult::KnownExpired => {
+				Err(Error::Storage("unexpected KnownExpired on local submission".into()))
+			},
 			SubmitResult::Rejected(reason) => Ok(SubmitOutcome::Rejected(reason.into())),
 			SubmitResult::Invalid(reason) => Ok(SubmitOutcome::Invalid(reason.into())),
 			SubmitResult::InternalError(error) => Err(error),
