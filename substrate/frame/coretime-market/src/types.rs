@@ -1,5 +1,5 @@
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use pallet_broker::{
+use fp_coretime::{
 	market::{MarketSaleInfo, TickAction},
 	CoreIndex, Timeslice,
 };
@@ -68,7 +68,7 @@ pub struct SaleInfoRecord<Balance, BlockNumber> {
 }
 
 impl<Balance: Clone, BlockNumber: Clone> SaleInfoRecord<Balance, BlockNumber> {
-	/// Convert to the broker's `MarketSaleInfo` struct.
+	/// Convert to the coretime market interface's `MarketSaleInfo` struct.
 	pub(crate) fn to_market_sale_info(&self) -> MarketSaleInfo<BlockNumber> {
 		MarketSaleInfo {
 			sale_start: self.sale_start.clone(),

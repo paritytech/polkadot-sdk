@@ -36,7 +36,7 @@
 //!
 //! ## Design
 //!
-//! This pallet implements the [`Market`] trait from `pallet-broker`, allowing it to be used
+//! This pallet implements the [`Market`] trait from `fp-coretime`, allowing it to be used
 //! by the broker pallet without direct coupling. The broker calls into the market trait for
 //! order placement and processes [`TickAction`]s returned by [`Market::tick`] to perform
 //! fund transfers, region issuance, and sale rotation.
@@ -70,19 +70,19 @@ mod tests;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
+use fp_coretime::{
+	market::{
+		AdjustBidResult, CoreRangeProvider, Market, OrderResult, RenewalOrderResult, SalesStarted,
+		SoldCoresRange, TickAction, TimesliceProvider,
+	},
+	CoreIndex, CoreMask, PotentialRenewalId, RegionId, Timeslice,
+};
 use frame_support::{
 	ensure,
 	traits::{tokens::Balance as BalanceT, Defensive, Get, Randomness},
 	weights::WeightMeter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use pallet_broker::{
-	market::{
-		AdjustBidResult, CoreRangeProvider, Market, OrderResult, RenewalOrderResult, SalesStarted,
-		TickAction, TimesliceProvider,
-	},
-	CoreIndex, CoreMask, PotentialRenewalId, RegionId, Timeslice,
-};
 use sp_arithmetic::{FixedPointNumber, Perbill};
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, SaturatedConversion, Saturating, Zero},
@@ -843,7 +843,7 @@ fn adjust_reserve_price<T: Config>(
 fn rotate_sale<T: Config>(
 	old_sale: &SaleInfoRecordOf<T>,
 	config: &ConfigRecordOf<T>,
-	range: &pallet_broker::market::SoldCoresRange,
+	range: &SoldCoresRange,
 	now: RelayBlockNumberOf<T>,
 ) -> SaleInfoRecordOf<T> {
 	let new_reserve = adjust_reserve_price::<T>(old_sale, config);

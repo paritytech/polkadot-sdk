@@ -1,8 +1,8 @@
 #![cfg(test)]
 
 use crate::*;
+use fp_coretime::market::{CoreRangeProvider, SoldCoresRange, TimesliceProvider};
 use frame_support::{derive_impl, traits::Randomness};
-use pallet_broker::market::{CoreRangeProvider, SoldCoresRange, TimesliceProvider};
 use sp_core::ConstU32;
 use sp_runtime::BuildStorage;
 

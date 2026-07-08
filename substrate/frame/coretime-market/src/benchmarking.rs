@@ -1,11 +1,11 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame_benchmarking::v2::*;
-use pallet_broker::{
+use fp_coretime::{
 	market::{CoreRangeProvider, Market},
 	PotentialRenewalId,
 };
+use frame_benchmarking::v2::*;
 
 const SEED: u32 = 0;
 
