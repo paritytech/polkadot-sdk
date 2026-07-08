@@ -23,7 +23,6 @@
 //! relay-chain queries off the block-import path.
 
 use super::SlotBasedBlockImportHandle;
-use codec::Encode;
 use cumulus_client_resubmission_store::{
 	prepare_resubmission_aux_data, prune_finalized_entries, prune_missed_finalized_entries,
 };
@@ -241,8 +240,7 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 			return;
 		},
 	};
-	let mut persisted_validation_data = match resolve_pvd(relay_client, relay_parent, para_id).await
-	{
+	let persisted_validation_data = match resolve_pvd(relay_client, relay_parent, para_id).await {
 		Ok(pvd) => pvd,
 		Err(err) => {
 			tracing::debug!(
@@ -254,32 +252,6 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 			return;
 		},
 	};
-
-	let parent_hash = *header.parent_hash();
-	match para_client.header(parent_hash) {
-		Ok(Some(parent_header)) => {
-			persisted_validation_data.parent_head = parent_header.encode().into();
-		},
-		Ok(None) => {
-			tracing::debug!(
-				target: LOG_TARGET,
-				?block_hash,
-				?parent_hash,
-				"Parent header unavailable; skipping resubmission entry.",
-			);
-			return;
-		},
-		Err(err) => {
-			tracing::debug!(
-				target: LOG_TARGET,
-				?block_hash,
-				?parent_hash,
-				?err,
-				"Failed to fetch parent header; skipping resubmission entry.",
-			);
-			return;
-		},
-	}
 
 	if number <= para_client.info().finalized_number {
 		return;

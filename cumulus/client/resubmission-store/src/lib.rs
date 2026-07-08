@@ -55,7 +55,6 @@ pub struct StoredEntry {
 	/// Relay parent's `session_index_for_child`.
 	pub relay_parent_session: SessionIndex,
 	/// Persisted validation data at the relay parent, resolved with the `TimedOut` assumption.
-	/// `parent_head` is overridden with the parablock's actual parent header.
 	pub persisted_validation_data: PersistedValidationData,
 }
 
