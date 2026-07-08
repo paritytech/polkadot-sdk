@@ -1573,6 +1573,12 @@ where
 			if let Some(info) = f.contract_info.as_contract() {
 				f.frame_meter.bank_pending_storage_changes(contract, info);
 			}
+			// `invalidate` drops the in-memory update `bank` made to `info`; that is safe
+			// because storage already reflects it. Additions and `set_storage` removals leave
+			// the frame `Cached` (write reloads the cache), so `push_frame` preview-persists
+			// them before we get here. The only diff not yet in storage would be a removal on
+			// an already-invalidated frame — reachable solely via `charge_storage`, which has
+			// no contract-level caller. If that changes, persist here instead of invalidating.
 			f.contract_info.invalidate();
 		}
 
