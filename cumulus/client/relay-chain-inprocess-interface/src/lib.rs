@@ -37,7 +37,7 @@ use cumulus_relay_chain_interface::{
 	ChildInfo, RelayChainError, RelayChainInterface, RelayChainResult,
 };
 use futures::{FutureExt, Stream, StreamExt};
-use polkadot_primitives::{CandidateEvent, NodeFeatures};
+use polkadot_primitives::{vstaging::RelayParentInfo, CandidateEvent, NodeFeatures};
 use polkadot_service::{
 	builder::PolkadotServiceBuilder, CollatorOverseerGen, CollatorPair, Configuration, FullBackend,
 	FullClient, Handle, NewFull, NewFullParams, TaskManager,
@@ -355,6 +355,19 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 
 	async fn node_features(&self, at: PHash) -> RelayChainResult<NodeFeatures> {
 		Ok(self.full_client.runtime_api().node_features(at)?)
+	}
+
+	async fn ancestor_relay_parent_info(
+		&self,
+		at: PHash,
+		session_index: SessionIndex,
+		relay_parent: PHash,
+	) -> RelayChainResult<Option<RelayParentInfo<PHash, BlockNumber>>> {
+		Ok(self.full_client.runtime_api().ancestor_relay_parent_info(
+			at,
+			session_index,
+			relay_parent,
+		)?)
 	}
 }
 
