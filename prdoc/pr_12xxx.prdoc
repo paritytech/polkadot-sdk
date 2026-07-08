@@ -1,0 +1,16 @@
+title: Preserve failed validator incentive vesting payments instead of dropping them
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    When a vested payment can't be made to a validator due to insufficient vesting capacity,
+    instead of dropping it we save it into a staging account for that validator. The very
+    next successful vested payment will also pick up the amount and add it to itself.
+
+    We introduce a new event - ValidatorIncentiveStaged { era, validator_stash, amount } - to
+    track this scenario. The existing `ValidatorIncentiveDropped` event is now reserved
+    exclusively for non-recoverable failures.
+
+crates:
+- name: pallet-staking-async
+  bump: minor
