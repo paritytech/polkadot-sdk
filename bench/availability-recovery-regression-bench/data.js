@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783451135073,
+  "lastUpdate": 1783507291801,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "eb7f82266ce8a9201352cd0164573701bdcb5b2b",
-          "message": "[pallet-revive] improve eth-rpc tests reliability (#10281)\n\nImprove eth-rpc tests reliability by replacing substrate-node with\nrevive-dev-node, fixing nonce query in runtime_api_dry_run_addr, and\nrunning all tests in a single tokio test function\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-12T15:43:11Z",
-          "tree_id": "672a86ed41ec033722d02ed2c8a528d9b0dc50c5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eb7f82266ce8a9201352cd0164573701bdcb5b2b"
-        },
-        "date": 1762968129366,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.378039784433335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2004643535,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13366617443333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c71d6a0e005286cafeb8e5348678e512d8d14ec3",
+          "message": "Remove deprecated RelaychainBlockNumberProvider type alias (#12251)\n\n## Summary\n\nRemoves the deprecated `RelaychainBlockNumberProvider` type alias from\n`cumulus-pallet-parachain-system`. All usages already use\n`RelaychainDataProvider`.\n\nPart of #11561.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-08T08:55:15Z",
+          "tree_id": "87a3a5eaaccc4f0b614cbcae7bf5b5e470e33214",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c71d6a0e005286cafeb8e5348678e512d8d14ec3"
+        },
+        "date": 1783507261032,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.7084777491,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1353371062333333,
             "unit": "seconds"
           }
         ]
