@@ -735,6 +735,39 @@ module tests {
     }
   }
 
+  /// The assigner hand-off fires at replay regardless of `immediate`: a warm
+  /// core `immediate = false` `set_authorizer_queue` still records the `assign`
+  /// (with `new_assigner`) now, while the queue itself is deferred to the
+  /// 80-slot boundary — `immediate` gates the queue, not the assigner.
+  run assignFiresAtReplayWhenNotImmediateTest = {
+    val core = 5
+    val assigner = MkServiceId(7)
+    val anyHash: AuthorizerHash = { authBytes: 5 }
+    // Warm core (already assigned once at t=0), so it hits the cached branch.
+    val baseAcc: AccumulateOutcome = {
+      state: { ...initialState, lastAuthorizerAssignment: Map(core -> 0) },
+      jamDesignate: None,
+      jamSolicit: Set(),
+      jamForget: Set(),
+      jamAssigns: List(),
+      logs: List()
+    }
+    val out = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 1,
+      SetAuthorizerQueue({
+        core: core, queue: List(anyHash), immediate: false, newAssigner: Some(assigner)
+      })
+    )
+    all {
+      // assign fired now, with the new assigner, even though immediate = false.
+      assert(out.jamAssigns == List({ core: core, newAssigner: Some(assigner) })),
+      // the queue itself is still deferred (cached) for the boundary.
+      assert(out.state.pendingAuthorizerQueues.get(core) == List(anyHash)),
+      assert(out.state.pendingAuthorizerCores.keys().contains(core)),
+      init
+    }
+  }
+
   /// An immediate `set_authorizer_queue` for a core that already has a cached
   /// pending queue drops that pending entry — the immediate update supersedes
   /// it (removed from both `pendingAuthorizerQueues` and `pendingAuthorizerCores`).

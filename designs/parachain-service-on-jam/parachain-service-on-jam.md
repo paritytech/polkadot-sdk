@@ -406,16 +406,18 @@ enum UpwardMessage {
     TransferOut { dest: ServiceId, amount: Amount, memo: Memo },
     /// From `set_authorizer_queue` — update a core's authorizer queue.
     ///
-    /// - `immediate`: applied inline via JAM `assign` during replay when
-    ///   `immediate == true` or the core was never assigned (a cold core has no
-    ///   active authorizers, so it must go live at once), superseding any cached
-    ///   queue for that core. Otherwise the queue is cached for the
-    ///   always-accumulate phase (§5.1) with `apply_at` — the next 80-slot
-    ///   boundary strictly after `now`, `last + ((now - last) / 80 + 1) * 80`,
-    ///   `last = last_authorizer_assignment[core]`.
-    /// - `new_assigner`: when `Some`, hands off `assigners[core]` to the
-    ///   given service so it can manage its own queue from that point on;
-    ///   when `None`, the current assigner is retained.
+    /// - `immediate`: controls when the QUEUE is applied. When `true` (or the
+    ///   core was never assigned, so there is no current queue to wait on) the
+    ///   new queue is forwarded to JAM directly, superseding any cached queue.
+    ///   Otherwise the queue is cached and applied in the always-accumulate phase
+    ///   once the core's current queue is exhausted (§5.1).
+    /// - `new_assigner`: when `Some`, hands off `assigners[core]` to the given
+    ///   service so it can manage its own queue from that point on; when `None`,
+    ///   the current assigner is retained. The hand-off is applied directly (via
+    ///   JAM `assign`) during replay, regardless of `immediate`.
+    /// - `queue`: an empty list is a no-op on the authorizer queue (nothing
+    ///   happens to it) — a call may pass an empty `queue` together with a
+    ///   `new_assigner` to hand off the assigner without changing the queue.
     SetAuthorizerQueue {
         core: CoreIndex,
         queue: Vec<AuthorizerHash>,
@@ -551,7 +553,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent — no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. For the parachain's own active/pending validation code it only sets `pinned` to true (§5.2). |
 | `forget(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent — no-op if the parachain is not in `preimage_registry[hash].referencers`. May be called for the parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). |
 | `transfer_out(dest: ServiceId, amount: Balance, memo: Memo)` | `()` | Transfer balance to another JAM service (Asset Hub only) |
-| `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, mode: QueueUpdateMode, new_assigner: Option<ServiceId>)` | `()` | Update the authorizer queue for a core (Coretime chain only). `mode` determines whether the queue is applied immediately or cached in service state until the current 80-slot queue is exhausted. `new_assigner`, when `Some`, hands off `assigners[core]` to another service so that service can manage its own core queue going forward; when `None`, the current assigner (Parachain Service) is retained. |
+| `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, mode: QueueUpdateMode, new_assigner: Option<ServiceId>)` | `()` | Update the authorizer queue for a core (Coretime chain only). `mode` determines whether the queue is applied immediately or cached in service state until the current 80-slot queue is exhausted. `new_assigner`, when `Some`, hands off `assigners[core]` to another service so that service can manage its own core queue going forward; when `None`, the current assigner (Parachain Service) is retained. An empty `queue` is a no-op on the authorizer queue, so a call may pass an empty `queue` to set only `new_assigner`. |
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
 | `consume_transfers_up_to(index: u32)` | `()` | Mark all incoming transfers up to `index` as consumed; Accumulate prunes those entries. (Asset Hub only) |
 | `parachain_service_upgrade(code_hash: Hash, len: u32, min_item_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_item_gas, min_memo_gas)` (Asset Hub only). `len` is the new code's SCALE-encoded byte length. Accumulate rejects the call with `AccumulateLog::ServiceUpgradePreimageMissing` if the new code's preimage is not in the Parachain Service's preimage store. See §5.4. |

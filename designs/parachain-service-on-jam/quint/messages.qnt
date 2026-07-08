@@ -85,6 +85,8 @@ module messages {
   // transfer_out(dest, amount, memo) — Asset Hub only.
   | TransferOut({ dest: ServiceId, amount: Balance, memo: Memo })
   // set_authorizer_queue(core, queue, immediate, new_assigner) — Coretime only.
+  // An empty `queue` is a no-op on the authorizer queue, so a call may pass an
+  // empty `queue` to set only `newAssigner`.
   | SetAuthorizerQueue({
       core: CoreIndex,
       queue: List[AuthorizerHash],
