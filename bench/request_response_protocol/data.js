@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783450270578,
+  "lastUpdate": 1783512529431,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -105839,6 +105839,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2655740512,
             "range": "± 12148519",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bkontur@gmail.com",
+            "name": "Branislav Kontur",
+            "username": "bkontur"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "42e5c5770bed46e84aee805779294a41a695af32",
+          "message": "Remove Polkadot Bulletin bridge related code (#12585)\n\nRemoves the `bp-polkadot-bulletin` crate and the Rococo <> Rococo\nBulletin bridge from the BridgeHubRococo runtime.\n\nRelates to: https://github.com/paritytech/Tech_OKRs_FY25/issues/140",
+          "timestamp": "2026-07-08T10:36:59Z",
+          "tree_id": "ba7ec341db75f9537955bb5669f7d1363566991c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/42e5c5770bed46e84aee805779294a41a695af32"
+        },
+        "date": 1783512499875,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 24086938,
+            "range": "± 1449811",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 24056329,
+            "range": "± 2038088",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 26908245,
+            "range": "± 971635",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 33297235,
+            "range": "± 1706104",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 80631108,
+            "range": "± 3595377",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 484185669,
+            "range": "± 15434805",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3340438767,
+            "range": "± 233430921",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 22563357,
+            "range": "± 1966722",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 21843445,
+            "range": "± 1437536",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19998059,
+            "range": "± 445261",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24961376,
+            "range": "± 383766",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 70731312,
+            "range": "± 1830391",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 448454734,
+            "range": "± 18972335",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3237548597,
+            "range": "± 140464585",
             "unit": "ns/iter"
           }
         ]
