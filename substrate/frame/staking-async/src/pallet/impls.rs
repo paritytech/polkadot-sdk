@@ -790,6 +790,17 @@ impl<T: Config> Pallet<T> {
 			(BlockNumberFor::<T>::zero(), BlockNumberFor::<T>::zero())
 		} else {
 			let bonding_duration = T::BondingDuration::get();
+
+			if bonding_duration == 0 {
+				// This should never happen in vesting mode, so we return early.
+				Self::deposit_event(Event::<T>::ValidatorIncentiveDropped {
+					era,
+					validator_stash: stash.clone(),
+					amount,
+				});
+				return;
+			}
+
 			let bonding_period = era / bonding_duration;
 			let start = match VestingEpochStartBlocks::<T>::get(bonding_period) {
 				Some(s) => s,
@@ -799,6 +810,7 @@ impl<T: Config> Pallet<T> {
 					now
 				},
 			};
+
 			let duration = T::BlocksPerSession::get()
 				.saturating_mul(T::SessionsPerEra::get().into())
 				.saturating_mul(T::BondingDuration::get().into())
