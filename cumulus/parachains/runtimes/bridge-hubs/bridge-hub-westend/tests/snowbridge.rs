@@ -19,10 +19,7 @@
 use bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID;
 use bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID;
 use bp_polkadot_core::Signature;
-use xcm::latest::prelude::*;
 use bridge_hub_test_utils::XcmReceivedFrom;
-use parachains_runtimes_test_utils::RuntimeHelper;
-use testnet_parachains_constants::westend::snowbridge::EthereumLocation;
 use bridge_hub_westend_runtime::{
 	bridge_to_rococo_config, xcm_config::XcmConfig, AllPalletsWithoutSystem,
 	BridgeRejectObsoleteHeadersAndMessages, Executive, MessageQueueServiceWeight, Runtime,
@@ -32,12 +29,15 @@ use codec::{Decode, Encode};
 use cumulus_primitives_core::XcmError::FailedToTransactAsset;
 use frame_support::parameter_types;
 use parachains_common::{AccountId, AuraId, Balance};
+use parachains_runtimes_test_utils::RuntimeHelper;
 use snowbridge_pallet_ethereum_client::WeightInfo;
 use sp_core::H160;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32,
 };
+use testnet_parachains_constants::westend::snowbridge::EthereumLocation;
+use xcm::latest::prelude::*;
 
 parameter_types! {
 		pub const DefaultBridgeHubEthereumBaseFee: Balance = 3_833_568_200_000;
@@ -221,10 +221,7 @@ pub fn signed_assethub_user_cannot_forge_assethub_agent_origin() {
 				5_000_000_000_000,
 			);
 
-			let fee_asset = Asset {
-				id: AssetId(Here.into()),
-				fun: Fungible(fee_amount),
-			};
+			let fee_asset = Asset { id: AssetId(Here.into()), fun: Fungible(fee_amount) };
 
 			let transfer_asset = Asset {
 				id: AssetId(Location::new(
@@ -257,10 +254,7 @@ pub fn signed_assethub_user_cannot_forge_assethub_agent_origin() {
 					fun: Fungible(fee_amount),
 				}])),
 				BuyExecution {
-					fees: Asset {
-						id: AssetId(Location::new(1, Here)),
-						fun: Fungible(fee_amount),
-					},
+					fees: Asset { id: AssetId(Location::new(1, Here)), fun: Fungible(fee_amount) },
 					weight_limit: Unlimited,
 				},
 				ExportMessage {
@@ -276,18 +270,25 @@ pub fn signed_assethub_user_cannot_forge_assethub_agent_origin() {
 				assethub_parachain_location,
 				export_xcm,
 				&mut hash,
-				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::xcm_max_weight(XcmReceivedFrom::Sibling),
+				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::xcm_max_weight(
+					XcmReceivedFrom::Sibling,
+				),
 				Weight::zero(),
 			);
 
-			// Assert that the message failed to execute due to "Unroutable" error inside the exporter
+			// Assert that the message failed to execute due to "Unroutable" error inside the
+			// exporter
 			assert!(matches!(
 				outcome,
-				Outcome::Incomplete { error: InstructionError { error: XcmError::Unroutable, .. }, .. }
+				Outcome::Incomplete {
+					error: InstructionError { error: XcmError::Unroutable, .. },
+					..
+				}
 			));
 
 			// Check that no messages were queued in the outbound queue
-			let committed_messages = snowbridge_pallet_outbound_queue_v2::Messages::<Runtime>::get();
+			let committed_messages =
+				snowbridge_pallet_outbound_queue_v2::Messages::<Runtime>::get();
 			assert_eq!(committed_messages.len(), 0);
 		});
 }
