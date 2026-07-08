@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783519046389,
+  "lastUpdate": 1783523521132,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cbc649eb85541ddd99ae8520f862b0b4867a5ddb",
-          "message": "[Release|CI/CD] Build and publish RPM cleanup (#10287)\n\nhttps://github.com/paritytech/release-engineering/issues/269",
-          "timestamp": "2025-11-11T22:48:59Z",
-          "tree_id": "89177dba7ab8387eda4a6e835ba858e2f8b02fab",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cbc649eb85541ddd99ae8520f862b0b4867a5ddb"
-        },
-        "date": 1762905628574,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008745201069999988,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026453538300000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005108098869999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010317265850000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "rohit.sarpotdar@parity.io",
+            "name": "Rohit Sarpotdar",
+            "username": "rosarp"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d88e92c692d41d236078a52c76f6649bc4be1cb1",
+          "message": "AHW: populate foreign asset reserves in genesis; use ambient tokio runtime in relay RPC client (#12587)\n\nAfter bridges tests migrated to zombinet-sdk, to update polkadot-sdk\nupdate in substrate-relay below changes are required.\nAddresses Issue:\nhttps://github.com/paritytech/parity-bridges-common/issues/3167\n\n#### Substrate relay RPC client changes:\n\nstops each RpcClient from spawning its own nested\ntokio::runtime::Runtime and instead reuses the ambient runtime via\ntokio::runtime::Handle::current(). This makes the relay client usable\ninside a caller-provided runtime (e.g. zombienet-sdk) and avoids the\n\"Cannot drop a runtime in a context where blocking is not allowed\" panic\nthat occurred when a client was dropped on a runtime thread.\n\n#### Integration\n\n- `RpcClient` (and its build_client) now require an existing tokio\nruntime to be present on the current thread. Callers that previously\nrelied on the client creating its own runtime must now construct it\nwithin a tokio runtime context (#[tokio::main], Runtime::block_on, or an\nactive Handle). The internal ClientData::tokio field type changed from\nArc<tokio::runtime::Runtime> to tokio::runtime::Handle.\n\n#### Review Notes\n\n`rpc.rs`\n- ClientData::tokio changes from Arc<tokio::runtime::Runtime> to\ntokio::runtime::Handle.\n- build_client now grabs Handle::current() instead of constructing\nRuntime::new(), and returns the handle directly (no Arc wrapping).",
+          "timestamp": "2026-07-08T13:27:17Z",
+          "tree_id": "64cd8204407dfbec5b8dc62bb50e52a8db80ac1e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d88e92c692d41d236078a52c76f6649bc4be1cb1"
+        },
+        "date": 1783523492250,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01135563685,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025349492099999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009378591599999982,
             "unit": "seconds"
           }
         ]
