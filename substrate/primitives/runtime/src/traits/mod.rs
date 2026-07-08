@@ -171,6 +171,14 @@ impl Verify for sp_core::ecdsa_bls381::Signature {
 
 /// The static weight of verifying a signature.
 ///
+/// Defining a fixed weight for a signature is a bit controversial as it only makes sense on
+/// reference hardware. This trait fixes the Polkadot reference hardware weight to the signature
+/// type. If a solo-chain wants a different reference hardware we can consider making the signature
+/// types generic, e.g. `MultiSignature<WeightProvider = PolkadotWeightProvider>`.
+/// Nevertheless this weight requirement on the signature is only needed for the extrinsic version
+/// 4, for the variant `Signed`; extrinsic version 5 no longer holds signatures, so the maintenance
+/// burden is limited.
+///
 /// Signature verification happens while converting an `UncheckedExtrinsic` into a
 /// `CheckedExtrinsic`, i.e. as part of the extrinsic preamble. Its cost is a static property of the
 /// concrete signature type (the crypto scheme), so it is exposed here rather than configured per
@@ -184,7 +192,8 @@ pub trait SignatureWeight {
 impl SignatureWeight for sp_core::ed25519::Signature {
 	fn weight(&self) -> sp_weights::Weight {
 		// Calibrated from `pallet_verify_signature::verify_signature` on reference hardware
-		// (kitchensink-runtime, sr25519). Must match `--signature-weight` for overhead.
+		// (kitchensink-runtime, sr25519). sr25519 is more expensive than ed25519, but we may want
+		// to refine the result later.
 		sp_weights::Weight::from_parts(
 			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(42_814),
 			0,
@@ -195,7 +204,7 @@ impl SignatureWeight for sp_core::ed25519::Signature {
 impl SignatureWeight for sp_core::sr25519::Signature {
 	fn weight(&self) -> sp_weights::Weight {
 		// Calibrated from `pallet_verify_signature::verify_signature` on reference hardware
-		// (kitchensink-runtime). Must match `--signature-weight` for overhead.
+		// (kitchensink-runtime).
 		sp_weights::Weight::from_parts(
 			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(42_814),
 			0,
@@ -206,7 +215,8 @@ impl SignatureWeight for sp_core::sr25519::Signature {
 impl SignatureWeight for sp_core::ecdsa::Signature {
 	fn weight(&self) -> sp_weights::Weight {
 		// ECDSA verification additionally recovers the public key, so it is heavier.
-		// TODO: calibrate via a dedicated benchmark; must match `--signature-weight` for overhead.
+		// TODO: calibrate via a dedicated benchmark.
+		// Rough estimate; we may want to refine the result later.
 		sp_weights::Weight::from_parts(
 			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(78_000),
 			0,
@@ -217,7 +227,7 @@ impl SignatureWeight for sp_core::ecdsa::Signature {
 impl SignatureWeight for sp_core::ecdsa::KeccakSignature {
 	fn weight(&self) -> sp_weights::Weight {
 		// Same ECDSA recovery cost as `ecdsa::Signature`, with a Keccak digest.
-		// TODO: calibrate via a dedicated benchmark; must match `--signature-weight` for overhead.
+		// TODO: calibrate via a dedicated benchmark.
 		sp_weights::Weight::from_parts(
 			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(78_000),
 			0,

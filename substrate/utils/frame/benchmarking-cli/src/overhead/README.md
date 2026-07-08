@@ -166,9 +166,9 @@ Ensure the value passed as `--signature-weight` matches the weight returned by
 
 ### Calibrating signature weight
 
-The ref-time value for `SignatureWeight` and `--signature-weight` should come from the
+The ref-time value for `SignatureWeight` and `--signature-weight` can be derived from the
 `pallet_verify_signature::verify_signature` benchmark (not from this overhead benchmark).
-That benchmark measures the same signature-verification work; use only its `ref_time`
+That benchmark measures similar signature-verification work; use only its `ref_time`
 component (no proof size or storage cost).
 
 1. Run `benchmark pallet` for `pallet_verify_signature` on reference hardware.

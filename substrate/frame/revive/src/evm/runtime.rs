@@ -432,9 +432,9 @@ pub trait EthExtra {
 			format: ExtrinsicFormat::Signed(
 				signer.into(),
 				Self::get_eth_extension(nonce, Zero::zero()),
-				// Eth transactions are metered via their own gas/weight model; no extra preamble
-				// signature weight is charged here.
-				Weight::zero(),
+				sp_runtime::traits::SignatureWeight::weight(
+					&sp_core::ecdsa::KeccakSignature::default(),
+				),
 			),
 			function: call_info.call,
 		})
