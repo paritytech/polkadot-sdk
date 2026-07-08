@@ -1091,11 +1091,10 @@ pub mod pallet {
 			T::Currency::transfer(&who, &Self::account_id(), payout_record.paid, AllowDeath)?;
 			let total = payout_record
 				.payouts
-				.iter()
+				.drain(..)
 				.fold(Zero::zero(), |acc: BalanceOf<T, I>, x| acc.saturating_add(x.1));
 			Self::unreserve_payout(total);
 			payout_record.paid = Zero::zero();
-			payout_record.payouts.clear();
 			record.rank = 1;
 			Members::<T, I>::insert(&who, record);
 			Payouts::<T, I>::insert(&who, payout_record);
@@ -1165,13 +1164,12 @@ pub mod pallet {
 			let _ = SuspendedMembers::<T, I>::clear(u32::MAX, None);
 			// Return the funds backing the discarded pending payouts to the society account.
 			let payouts_account = Self::payouts();
-			let res = T::Currency::transfer(
+			T::Currency::transfer(
 				&payouts_account,
 				&Self::account_id(),
 				T::Currency::free_balance(&payouts_account),
 				AllowDeath,
-			);
-			debug_assert!(res.is_ok());
+			)?;
 			let _ = Payouts::<T, I>::clear(u32::MAX, None);
 			let _ = Votes::<T, I>::clear(u32::MAX, None);
 			let _ = VoteClearCursor::<T, I>::clear(u32::MAX, None);
@@ -2233,9 +2231,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.fold(BalanceOf::<T, I>::zero(), |acc, x| acc.saturating_add(x.1));
 		frame_support::ensure!(
 			T::Currency::free_balance(&Self::payouts()) == total_pending,
-			sp_runtime::TryRuntimeError::Other(
-				"payouts account balance must equal the total of pending payouts",
-			),
+			"payouts account balance must equal the total of pending payouts",
 		);
 		Ok(())
 	}
