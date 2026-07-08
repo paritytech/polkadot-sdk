@@ -23,10 +23,10 @@
 use alloc::vec::Vec;
 use core::fmt::Debug;
 
-use codec::{Codec, MaxEncodedLen};
-use frame_support::{weights::WeightMeter, Parameter};
+use codec::{Codec, DecodeWithMemTracking, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
+use sp_weights::WeightMeter;
 
 use crate::{CoreIndex, PotentialRenewalId, RegionId, Timeslice};
 
@@ -50,12 +50,12 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 	type BidId: Copy + Debug + Codec + MaxEncodedLen + TypeInfo + Eq;
 
 	/// Initialization data used in [`Market::start_sales`].
-	type InitData: Parameter;
+	type InitData: Codec + DecodeWithMemTracking + EncodeLike + Clone + Eq + Debug + TypeInfo;
 
 	/// Configuration of the market.
 	///
 	/// Can be set in the [`Market::configure`].
-	type Configuration: Parameter;
+	type Configuration: Codec + DecodeWithMemTracking + EncodeLike + Clone + Eq + Debug + TypeInfo;
 
 	/// Provides information about available cores.
 	type CoreRangeProvider: CoreRangeProvider;
@@ -151,6 +151,7 @@ pub trait CoreRangeProvider {
 /// A range of cores available for sale on a coretime market.
 ///
 /// Represents the half-open range `[from, to)`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SoldCoresRange {
 	/// Minimum core index (inclusive).
 	pub from: CoreIndex,
