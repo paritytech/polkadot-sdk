@@ -471,7 +471,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let _ = syncing_handle.set(sync_service.clone()
 				as Arc<dyn sc_storage_chain_sync::BitswapPeerSource + Send + Sync>);
 
-			let peer_id = network.local_peer_id();
+			let peer_id = relay_chain_network.local_peer_id();
 
 			if validator && node_extra_args.collator_reserved_slots > 0 {
 				cumulus_client_collator_discovery::start_collator_discovery(
