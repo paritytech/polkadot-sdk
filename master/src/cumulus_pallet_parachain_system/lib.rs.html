@@ -2184,70 +2184,66 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#2034 id=2034 data-nosnippet>2034</a>/// When validation data is not available (e.g. within `on_initialize`), it will fallback to use
 <a href=#2035 id=2035 data-nosnippet>2035</a>/// [`Pallet::last_relay_block_number()`].
 <a href=#2036 id=2036 data-nosnippet>2036</a>///
-<a href=#2037 id=2037 data-nosnippet>2037</a>/// **NOTE**: This has been deprecated, please use [`RelaychainDataProvider`]
-<a href=#2038 id=2038 data-nosnippet>2038</a></span><span class="attr">#[deprecated = <span class="string">"Use `RelaychainDataProvider` instead"</span>]
-<a href=#2039 id=2039 data-nosnippet>2039</a></span><span class="kw">pub type </span>RelaychainBlockNumberProvider&lt;T&gt; = RelaychainDataProvider&lt;T&gt;;
-<a href=#2040 id=2040 data-nosnippet>2040</a>
-<a href=#2041 id=2041 data-nosnippet>2041</a><span class="doccomment">/// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay
-<a href=#2042 id=2042 data-nosnippet>2042</a>/// data fetched from validation data.
-<a href=#2043 id=2043 data-nosnippet>2043</a>///
-<a href=#2044 id=2044 data-nosnippet>2044</a>/// NOTE: When validation data is not available (e.g. within `on_initialize`):
-<a href=#2045 id=2045 data-nosnippet>2045</a>///
-<a href=#2046 id=2046 data-nosnippet>2046</a>/// - [`current_relay_chain_state`](Self::current_relay_chain_state): Will return the default value
-<a href=#2047 id=2047 data-nosnippet>2047</a>///   of [`RelayChainState`].
-<a href=#2048 id=2048 data-nosnippet>2048</a>/// - [`current_block_number`](Self::current_block_number): Will return
-<a href=#2049 id=2049 data-nosnippet>2049</a>///   [`Pallet::last_relay_block_number()`].
-<a href=#2050 id=2050 data-nosnippet>2050</a></span><span class="kw">pub struct </span>RelaychainDataProvider&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
-<a href=#2051 id=2051 data-nosnippet>2051</a>
-<a href=#2052 id=2052 data-nosnippet>2052</a><span class="kw">impl</span>&lt;T: Config&gt; BlockNumberProvider <span class="kw">for </span>RelaychainDataProvider&lt;T&gt; {
-<a href=#2053 id=2053 data-nosnippet>2053</a>	<span class="kw">type </span>BlockNumber = relay_chain::BlockNumber;
-<a href=#2054 id=2054 data-nosnippet>2054</a>
-<a href=#2055 id=2055 data-nosnippet>2055</a>	<span class="kw">fn </span>current_block_number() -&gt; relay_chain::BlockNumber {
-<a href=#2056 id=2056 data-nosnippet>2056</a>		ValidationData::&lt;T&gt;::get()
-<a href=#2057 id=2057 data-nosnippet>2057</a>			.map(|d| d.relay_parent_number)
-<a href=#2058 id=2058 data-nosnippet>2058</a>			.unwrap_or_else(|| Pallet::&lt;T&gt;::last_relay_block_number())
-<a href=#2059 id=2059 data-nosnippet>2059</a>	}
-<a href=#2060 id=2060 data-nosnippet>2060</a>
-<a href=#2061 id=2061 data-nosnippet>2061</a>	<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
-<a href=#2062 id=2062 data-nosnippet>2062</a>	</span><span class="kw">fn </span>set_block_number(block: <span class="self">Self</span>::BlockNumber) {
-<a href=#2063 id=2063 data-nosnippet>2063</a>		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
-<a href=#2064 id=2064 data-nosnippet>2064</a>			<span class="comment">// PersistedValidationData does not impl default in non-std
-<a href=#2065 id=2065 data-nosnippet>2065</a>			</span>PersistedValidationData {
-<a href=#2066 id=2066 data-nosnippet>2066</a>				parent_head: <span class="macro">vec!</span>[].into(),
-<a href=#2067 id=2067 data-nosnippet>2067</a>				relay_parent_number: Default::default(),
-<a href=#2068 id=2068 data-nosnippet>2068</a>				max_pov_size: Default::default(),
-<a href=#2069 id=2069 data-nosnippet>2069</a>				relay_parent_storage_root: Default::default(),
-<a href=#2070 id=2070 data-nosnippet>2070</a>			});
-<a href=#2071 id=2071 data-nosnippet>2071</a>		validation_data.relay_parent_number = block;
-<a href=#2072 id=2072 data-nosnippet>2072</a>		ValidationData::&lt;T&gt;::put(validation_data)
-<a href=#2073 id=2073 data-nosnippet>2073</a>	}
-<a href=#2074 id=2074 data-nosnippet>2074</a>}
-<a href=#2075 id=2075 data-nosnippet>2075</a>
-<a href=#2076 id=2076 data-nosnippet>2076</a><span class="kw">impl</span>&lt;T: Config&gt; RelaychainStateProvider <span class="kw">for </span>RelaychainDataProvider&lt;T&gt; {
-<a href=#2077 id=2077 data-nosnippet>2077</a>	<span class="kw">fn </span>current_relay_chain_state() -&gt; RelayChainState {
-<a href=#2078 id=2078 data-nosnippet>2078</a>		ValidationData::&lt;T&gt;::get()
-<a href=#2079 id=2079 data-nosnippet>2079</a>			.map(|d| RelayChainState {
-<a href=#2080 id=2080 data-nosnippet>2080</a>				number: d.relay_parent_number,
-<a href=#2081 id=2081 data-nosnippet>2081</a>				state_root: d.relay_parent_storage_root,
-<a href=#2082 id=2082 data-nosnippet>2082</a>			})
-<a href=#2083 id=2083 data-nosnippet>2083</a>			.unwrap_or_default()
-<a href=#2084 id=2084 data-nosnippet>2084</a>	}
-<a href=#2085 id=2085 data-nosnippet>2085</a>
-<a href=#2086 id=2086 data-nosnippet>2086</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#2087 id=2087 data-nosnippet>2087</a>	</span><span class="kw">fn </span>set_current_relay_chain_state(state: RelayChainState) {
-<a href=#2088 id=2088 data-nosnippet>2088</a>		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
-<a href=#2089 id=2089 data-nosnippet>2089</a>			<span class="comment">// PersistedValidationData does not impl default in non-std
-<a href=#2090 id=2090 data-nosnippet>2090</a>			</span>PersistedValidationData {
-<a href=#2091 id=2091 data-nosnippet>2091</a>				parent_head: <span class="macro">vec!</span>[].into(),
-<a href=#2092 id=2092 data-nosnippet>2092</a>				relay_parent_number: Default::default(),
-<a href=#2093 id=2093 data-nosnippet>2093</a>				max_pov_size: Default::default(),
-<a href=#2094 id=2094 data-nosnippet>2094</a>				relay_parent_storage_root: Default::default(),
-<a href=#2095 id=2095 data-nosnippet>2095</a>			});
-<a href=#2096 id=2096 data-nosnippet>2096</a>		validation_data.relay_parent_number = state.number;
-<a href=#2097 id=2097 data-nosnippet>2097</a>		validation_data.relay_parent_storage_root = state.state_root;
-<a href=#2098 id=2098 data-nosnippet>2098</a>		ValidationData::&lt;T&gt;::put(validation_data)
-<a href=#2099 id=2099 data-nosnippet>2099</a>	}
-<a href=#2100 id=2100 data-nosnippet>2100</a>}
+<a href=#2037 id=2037 data-nosnippet>2037</a>/// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay
+<a href=#2038 id=2038 data-nosnippet>2038</a>/// data fetched from validation data.
+<a href=#2039 id=2039 data-nosnippet>2039</a>///
+<a href=#2040 id=2040 data-nosnippet>2040</a>/// NOTE: When validation data is not available (e.g. within `on_initialize`):
+<a href=#2041 id=2041 data-nosnippet>2041</a>///
+<a href=#2042 id=2042 data-nosnippet>2042</a>/// - [`current_relay_chain_state`](Self::current_relay_chain_state): Will return the default value
+<a href=#2043 id=2043 data-nosnippet>2043</a>///   of [`RelayChainState`].
+<a href=#2044 id=2044 data-nosnippet>2044</a>/// - [`current_block_number`](Self::current_block_number): Will return
+<a href=#2045 id=2045 data-nosnippet>2045</a>///   [`Pallet::last_relay_block_number()`].
+<a href=#2046 id=2046 data-nosnippet>2046</a></span><span class="kw">pub struct </span>RelaychainDataProvider&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
+<a href=#2047 id=2047 data-nosnippet>2047</a>
+<a href=#2048 id=2048 data-nosnippet>2048</a><span class="kw">impl</span>&lt;T: Config&gt; BlockNumberProvider <span class="kw">for </span>RelaychainDataProvider&lt;T&gt; {
+<a href=#2049 id=2049 data-nosnippet>2049</a>	<span class="kw">type </span>BlockNumber = relay_chain::BlockNumber;
+<a href=#2050 id=2050 data-nosnippet>2050</a>
+<a href=#2051 id=2051 data-nosnippet>2051</a>	<span class="kw">fn </span>current_block_number() -&gt; relay_chain::BlockNumber {
+<a href=#2052 id=2052 data-nosnippet>2052</a>		ValidationData::&lt;T&gt;::get()
+<a href=#2053 id=2053 data-nosnippet>2053</a>			.map(|d| d.relay_parent_number)
+<a href=#2054 id=2054 data-nosnippet>2054</a>			.unwrap_or_else(|| Pallet::&lt;T&gt;::last_relay_block_number())
+<a href=#2055 id=2055 data-nosnippet>2055</a>	}
+<a href=#2056 id=2056 data-nosnippet>2056</a>
+<a href=#2057 id=2057 data-nosnippet>2057</a>	<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
+<a href=#2058 id=2058 data-nosnippet>2058</a>	</span><span class="kw">fn </span>set_block_number(block: <span class="self">Self</span>::BlockNumber) {
+<a href=#2059 id=2059 data-nosnippet>2059</a>		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
+<a href=#2060 id=2060 data-nosnippet>2060</a>			<span class="comment">// PersistedValidationData does not impl default in non-std
+<a href=#2061 id=2061 data-nosnippet>2061</a>			</span>PersistedValidationData {
+<a href=#2062 id=2062 data-nosnippet>2062</a>				parent_head: <span class="macro">vec!</span>[].into(),
+<a href=#2063 id=2063 data-nosnippet>2063</a>				relay_parent_number: Default::default(),
+<a href=#2064 id=2064 data-nosnippet>2064</a>				max_pov_size: Default::default(),
+<a href=#2065 id=2065 data-nosnippet>2065</a>				relay_parent_storage_root: Default::default(),
+<a href=#2066 id=2066 data-nosnippet>2066</a>			});
+<a href=#2067 id=2067 data-nosnippet>2067</a>		validation_data.relay_parent_number = block;
+<a href=#2068 id=2068 data-nosnippet>2068</a>		ValidationData::&lt;T&gt;::put(validation_data)
+<a href=#2069 id=2069 data-nosnippet>2069</a>	}
+<a href=#2070 id=2070 data-nosnippet>2070</a>}
+<a href=#2071 id=2071 data-nosnippet>2071</a>
+<a href=#2072 id=2072 data-nosnippet>2072</a><span class="kw">impl</span>&lt;T: Config&gt; RelaychainStateProvider <span class="kw">for </span>RelaychainDataProvider&lt;T&gt; {
+<a href=#2073 id=2073 data-nosnippet>2073</a>	<span class="kw">fn </span>current_relay_chain_state() -&gt; RelayChainState {
+<a href=#2074 id=2074 data-nosnippet>2074</a>		ValidationData::&lt;T&gt;::get()
+<a href=#2075 id=2075 data-nosnippet>2075</a>			.map(|d| RelayChainState {
+<a href=#2076 id=2076 data-nosnippet>2076</a>				number: d.relay_parent_number,
+<a href=#2077 id=2077 data-nosnippet>2077</a>				state_root: d.relay_parent_storage_root,
+<a href=#2078 id=2078 data-nosnippet>2078</a>			})
+<a href=#2079 id=2079 data-nosnippet>2079</a>			.unwrap_or_default()
+<a href=#2080 id=2080 data-nosnippet>2080</a>	}
+<a href=#2081 id=2081 data-nosnippet>2081</a>
+<a href=#2082 id=2082 data-nosnippet>2082</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#2083 id=2083 data-nosnippet>2083</a>	</span><span class="kw">fn </span>set_current_relay_chain_state(state: RelayChainState) {
+<a href=#2084 id=2084 data-nosnippet>2084</a>		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
+<a href=#2085 id=2085 data-nosnippet>2085</a>			<span class="comment">// PersistedValidationData does not impl default in non-std
+<a href=#2086 id=2086 data-nosnippet>2086</a>			</span>PersistedValidationData {
+<a href=#2087 id=2087 data-nosnippet>2087</a>				parent_head: <span class="macro">vec!</span>[].into(),
+<a href=#2088 id=2088 data-nosnippet>2088</a>				relay_parent_number: Default::default(),
+<a href=#2089 id=2089 data-nosnippet>2089</a>				max_pov_size: Default::default(),
+<a href=#2090 id=2090 data-nosnippet>2090</a>				relay_parent_storage_root: Default::default(),
+<a href=#2091 id=2091 data-nosnippet>2091</a>			});
+<a href=#2092 id=2092 data-nosnippet>2092</a>		validation_data.relay_parent_number = state.number;
+<a href=#2093 id=2093 data-nosnippet>2093</a>		validation_data.relay_parent_storage_root = state.state_root;
+<a href=#2094 id=2094 data-nosnippet>2094</a>		ValidationData::&lt;T&gt;::put(validation_data)
+<a href=#2095 id=2095 data-nosnippet>2095</a>	}
+<a href=#2096 id=2096 data-nosnippet>2096</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
