@@ -207,14 +207,9 @@ where
 	}
 }
 
-/// [`pallet_assets::Config::CallbackHandle`] mirroring balance changes as ERC-20 `Transfer`
-/// logs at the [`ERC20`] precompile's token address (mint from `0x0`, burn to `0x0`).
-///
-/// Adds an event deposit to every mint/transfer/burn: regenerate the runtime's `pallet-assets`
-/// weights after wiring (benchmarks execute the callback).
-///
-/// Not mirrored (on-chain state stays authoritative): asset destruction (`destroy_accounts`
-/// wipes holders without per-account burns) and `shelve`/`restore` (no pallet-assets event).
+
+/// `CallbackHandle` emitting an ERC-20 `Transfer` log for each pallet-assets balance change, at
+/// the asset's [`ERC20`] precompile address.
 pub struct Erc20TransferLogs<Runtime, PrecompileConfig, Instance = ()> {
 	_phantom: PhantomData<(Runtime, PrecompileConfig, Instance)>,
 }
