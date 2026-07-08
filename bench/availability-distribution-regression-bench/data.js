@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783451174529,
+  "lastUpdate": 1783507331251,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "baa36f1e721eada12018e6010bc09efb32d116a5",
-          "message": "fix genesis eth block builder number again (#10297)\n\nRedoes https://github.com/paritytech/polkadot-sdk/pull/10225 for the\ngenesis block number.\n\nIt was broken again by\nhttps://github.com/paritytech/polkadot-sdk/pull/10271",
-          "timestamp": "2025-11-12T12:06:44Z",
-          "tree_id": "62285033a40c1e9e1a0ad61e44e06d8972f427b0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/baa36f1e721eada12018e6010bc09efb32d116a5"
-        },
-        "date": 1762953324644,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16057544718,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02308157120666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013814382,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00800280108666664,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010286195799999974,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c71d6a0e005286cafeb8e5348678e512d8d14ec3",
+          "message": "Remove deprecated RelaychainBlockNumberProvider type alias (#12251)\n\n## Summary\n\nRemoves the deprecated `RelaychainBlockNumberProvider` type alias from\n`cumulus-pallet-parachain-system`. All usages already use\n`RelaychainDataProvider`.\n\nPart of #11561.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-08T08:55:15Z",
+          "tree_id": "87a3a5eaaccc4f0b614cbcae7bf5b5e470e33214",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c71d6a0e005286cafeb8e5348678e512d8d14ec3"
+        },
+        "date": 1783507300692,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14725690822000012,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007341012673333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010038508713333316,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023688559973333335,
             "unit": "seconds"
           }
         ]
