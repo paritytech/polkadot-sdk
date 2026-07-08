@@ -347,15 +347,12 @@ fn full_native_block_import_works() {
 
 	let mut alice_last_known_balance: Balance = Default::default();
 	let mut fees = t.execute_with(|| transfer_fee(&xt()));
-	let extension_weight = xt().0.extension_weight();
 	let weight_refund = Weight::zero();
 	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
-	let transfer_weight = default_transfer_call().get_dispatch_info().call_weight.saturating_add(
-		<Runtime as frame_system::Config>::BlockWeights::get()
-			.get(DispatchClass::Normal)
-			.base_extrinsic,
-	);
+	// `DispatchInfo::total_weight()` includes the signed extrinsic preamble cost
+	// (signature verification) folded into `extension_weight`.
+	let transfer_weight = xt().get_dispatch_info().total_weight();
 	let timestamp_weight = pallet_timestamp::Call::set::<Runtime> { now: Default::default() }
 		.get_dispatch_info()
 		.call_weight
@@ -423,8 +420,7 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					dispatch_info: DispatchEventInfo {
-						weight: transfer_weight
-							.saturating_add(extension_weight.saturating_sub(weight_refund)),
+						weight: transfer_weight.saturating_sub(weight_refund),
 						..Default::default()
 					},
 				}),
@@ -448,7 +444,6 @@ fn full_native_block_import_works() {
 
 	fees = t.execute_with(|| transfer_fee(&xt()));
 	let pot = t.execute_with(|| Treasury::pot());
-	let extension_weight = xt().0.extension_weight();
 	let weight_refund = Weight::zero();
 	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
@@ -520,8 +515,7 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					dispatch_info: DispatchEventInfo {
-						weight: transfer_weight
-							.saturating_add(extension_weight.saturating_sub(weight_refund)),
+						weight: transfer_weight.saturating_sub(weight_refund),
 						..Default::default()
 					},
 				}),
@@ -567,8 +561,7 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					dispatch_info: DispatchEventInfo {
-						weight: transfer_weight
-							.saturating_add(extension_weight.saturating_sub(weight_refund)),
+						weight: transfer_weight.saturating_sub(weight_refund),
 						..Default::default()
 					},
 				}),
