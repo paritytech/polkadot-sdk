@@ -36,7 +36,6 @@ use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32,
 };
-use testnet_parachains_constants::westend::snowbridge::EthereumLocation;
 use xcm::latest::prelude::*;
 
 parameter_types! {
