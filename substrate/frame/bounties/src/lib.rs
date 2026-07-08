@@ -233,6 +233,34 @@ impl<AccountId> TransferAllAssets<AccountId> for () {
 	}
 }
 
+/// Transfer the entire native balance from one account to another.
+///
+/// Suitable for runtimes that only need to sweep native tokens (no multi-asset support).
+/// For runtimes with fungible assets, prefer [`TransferAllFungibles`] with native included in
+/// `RelevantAssets`.
+pub struct TransferAllNative<AccountId, Currency>(
+	core::marker::PhantomData<(AccountId, Currency)>,
+);
+impl<AccountId, C> TransferAllAssets<AccountId> for TransferAllNative<AccountId, C>
+where
+	C: FungibleMutate<AccountId>,
+	AccountId: Eq,
+{
+	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> Result<bool, DispatchError> {
+		let balance = C::reducible_balance(from, Preservation::Expendable, Fortitude::Force);
+		if balance.is_zero() {
+			return Ok(false);
+		}
+		C::transfer(from, to, balance, Preservation::Expendable)?;
+		Ok(true)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_assets_for_benchmark(from: &AccountId) {
+		let _ = C::mint_into(from, 1_000_000u32.into());
+	}
+}
+
 /// Transfer all `RelevantAssets` of the `Fungibles` from one account to another.
 ///
 /// The native asset should be the first in the list of `RelevantAssets`, otherwise the transfers
