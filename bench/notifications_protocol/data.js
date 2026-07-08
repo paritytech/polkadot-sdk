@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783517972161,
+  "lastUpdate": 1783522421229,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -189695,6 +189695,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2752070082,
             "range": "± 38594644",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "rohit.sarpotdar@parity.io",
+            "name": "Rohit Sarpotdar",
+            "username": "rosarp"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d88e92c692d41d236078a52c76f6649bc4be1cb1",
+          "message": "AHW: populate foreign asset reserves in genesis; use ambient tokio runtime in relay RPC client (#12587)\n\nAfter bridges tests migrated to zombinet-sdk, to update polkadot-sdk\nupdate in substrate-relay below changes are required.\nAddresses Issue:\nhttps://github.com/paritytech/parity-bridges-common/issues/3167\n\n#### Substrate relay RPC client changes:\n\nstops each RpcClient from spawning its own nested\ntokio::runtime::Runtime and instead reuses the ambient runtime via\ntokio::runtime::Handle::current(). This makes the relay client usable\ninside a caller-provided runtime (e.g. zombienet-sdk) and avoids the\n\"Cannot drop a runtime in a context where blocking is not allowed\" panic\nthat occurred when a client was dropped on a runtime thread.\n\n#### Integration\n\n- `RpcClient` (and its build_client) now require an existing tokio\nruntime to be present on the current thread. Callers that previously\nrelied on the client creating its own runtime must now construct it\nwithin a tokio runtime context (#[tokio::main], Runtime::block_on, or an\nactive Handle). The internal ClientData::tokio field type changed from\nArc<tokio::runtime::Runtime> to tokio::runtime::Handle.\n\n#### Review Notes\n\n`rpc.rs`\n- ClientData::tokio changes from Arc<tokio::runtime::Runtime> to\ntokio::runtime::Handle.\n- build_client now grabs Handle::current() instead of constructing\nRuntime::new(), and returns the handle directly (no Arc wrapping).",
+          "timestamp": "2026-07-08T13:27:17Z",
+          "tree_id": "64cd8204407dfbec5b8dc62bb50e52a8db80ac1e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d88e92c692d41d236078a52c76f6649bc4be1cb1"
+        },
+        "date": 1783522392115,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4606330,
+            "range": "± 31647",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 287007,
+            "range": "± 6023",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4470040,
+            "range": "± 30842",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 362346,
+            "range": "± 3305",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5327614,
+            "range": "± 69247",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 894525,
+            "range": "± 5707",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10731557,
+            "range": "± 73147",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4880116,
+            "range": "± 149774",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 46410720,
+            "range": "± 978006",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38870313,
+            "range": "± 1117786",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 369363708,
+            "range": "± 14925600",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 311681750,
+            "range": "± 5742311",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2576429629,
+            "range": "± 41627546",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2421473359,
+            "range": "± 47756565",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3550274,
+            "range": "± 64372",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1815336,
+            "range": "± 17410",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3543726,
+            "range": "± 23708",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1887975,
+            "range": "± 21317",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4117303,
+            "range": "± 44021",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2202817,
+            "range": "± 17143",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8173727,
+            "range": "± 43803",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5240792,
+            "range": "± 72967",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37641247,
+            "range": "± 354396",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 36900412,
+            "range": "± 514959",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 332352653,
+            "range": "± 5554477",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 281557420,
+            "range": "± 3405488",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2529311047,
+            "range": "± 25480272",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2550029229,
+            "range": "± 68129763",
             "unit": "ns/iter"
           }
         ]
