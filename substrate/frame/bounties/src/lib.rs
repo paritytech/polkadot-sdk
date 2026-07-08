@@ -97,7 +97,9 @@ use alloc::vec::Vec;
 
 use frame_support::traits::{
 	fungible::Mutate as FungibleMutate,
-	fungibles::{Inspect as FungiblesInspect, Mutate as FungiblesMutate},
+	fungibles::{
+		Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
+	},
 	tokens::{Fortitude, Preservation},
 	Currency,
 	ExistenceRequirement::AllowDeath,
@@ -238,9 +240,7 @@ impl<AccountId> TransferAllAssets<AccountId> for () {
 /// Suitable for runtimes that only need to sweep native tokens (no multi-asset support).
 /// For runtimes with fungible assets, prefer [`TransferAllFungibles`] with native included in
 /// `RelevantAssets`.
-pub struct TransferAllNative<AccountId, Currency>(
-	core::marker::PhantomData<(AccountId, Currency)>,
-);
+pub struct TransferAllNative<AccountId, Currency>(core::marker::PhantomData<(AccountId, Currency)>);
 impl<AccountId, C> TransferAllAssets<AccountId> for TransferAllNative<AccountId, C>
 where
 	C: FungibleMutate<AccountId>,
@@ -271,9 +271,9 @@ pub struct TransferAllFungibles<AccountId, Fungibles, RelevantAssets>(
 impl<AccountId, Fungibles, RelevantAssets> TransferAllAssets<AccountId>
 	for TransferAllFungibles<AccountId, Fungibles, RelevantAssets>
 where
-	Fungibles: FungiblesMutate<AccountId>,
+	Fungibles: FungiblesMutate<AccountId> + FungiblesCreate<AccountId>,
 	RelevantAssets: Get<Vec<<Fungibles as FungiblesInspect<AccountId>>::AssetId>>,
-	AccountId: Eq,
+	AccountId: Eq + Clone,
 {
 	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> Result<bool, DispatchError> {
 		// We iterate through all assets twice in case that the Native asset was not last in the
@@ -303,7 +303,12 @@ where
 	#[cfg(feature = "runtime-benchmarks")]
 	fn setup_assets_for_benchmark(from: &AccountId) {
 		for id in RelevantAssets::get() {
-			// Ignore errors; the asset may not yet exist in a minimal benchmark runtime.
+			if !Fungibles::asset_exists(id.clone()) {
+				// For native assets, Create is a no-op; for fungible assets this ensures the
+				// asset exists before minting so the benchmark exercises real transfers.
+				Fungibles::create(id.clone(), from.clone(), true, 1u32.into())
+					.expect("asset creation should succeed in benchmarks");
+			}
 			let _ = Fungibles::mint_into(id, from, 1_000u32.into());
 		}
 	}
