@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783523521132,
+  "lastUpdate": 1783527901313,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "baa36f1e721eada12018e6010bc09efb32d116a5",
-          "message": "fix genesis eth block builder number again (#10297)\n\nRedoes https://github.com/paritytech/polkadot-sdk/pull/10225 for the\ngenesis block number.\n\nIt was broken again by\nhttps://github.com/paritytech/polkadot-sdk/pull/10271",
-          "timestamp": "2025-11-12T12:06:44Z",
-          "tree_id": "62285033a40c1e9e1a0ad61e44e06d8972f427b0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/baa36f1e721eada12018e6010bc09efb32d116a5"
-        },
-        "date": 1762953421967,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008698321939999988,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002650173520000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005118912049999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009378591599999982,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bbbb695f4564f0bb2435924d1608d2d483c93608",
+          "message": "Remove deprecated schedule::v1 module (#12584)\n\n## Summary\n\n- Remove the deprecated `schedule::v1` module from\n`frame_support::traits::schedule`.\n- `schedule::v2` remains unchanged and is still used by\n`pallet-scheduler`.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-08T14:37:13Z",
+          "tree_id": "8c2449ea3841e639472cb17cf00c4d2b792d3b3b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bbbb695f4564f0bb2435924d1608d2d483c93608"
+        },
+        "date": 1783527870555,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025621496500000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010792755230000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009341253639999979,
             "unit": "seconds"
           }
         ]
