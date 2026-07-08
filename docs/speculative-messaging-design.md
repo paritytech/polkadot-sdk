@@ -14,7 +14,7 @@
 | Version | Area | Changes |
 |---------|------|---------|
 | 0.4 | | **Off-chain verification.** |
-| | Header digest | The hash of the `ProvidesRoots` set is additionally committed into a header digest (engine id TBD), deposited from the same computation that emits the UMP signal—batches become verifiable against a header alone, no candidate required. |
+| | Header digest | The hash of the `ProvidesRoots` set is additionally committed into a header digest, deposited from the same computation that emits the UMP signal—batches become verifiable against a header alone, no candidate required. Digest format is protocol-standard (foreign nodes check it directly, no wasm): `Consensus(SPMS_ENGINE_ID, blake2_256(set.encode()))`, well-defined via `CommitmentSet`'s canonical encoding. |
 | | Consumption tiers | Three tiers formalized: speculative (header digest + off-chain verification stack), optimistic (backed candidates via `CandidateBacked` event / `candidates_pending_availability` API), inclusion-based. Optimistic-tier failure (availability timeout) maps onto the existing enactment-dependency/resubmission machinery. |
 | | Separate design | Verification of unincluded sender blocks (header lineage, authorship, ack confidence—generic over parachains, shared with Low-Latency v2) factored out into [Off-Chain Block Verification](offchain-block-verification-design.md). |
 | 0.3 | | **Flat per-destination commitments.** |
@@ -1375,9 +1375,35 @@ Verification](offchain-block-verification-design.md).
 Interface points with this document:
 
 - The sender commits the hash of its `ProvidesRoots` set into a **header
-  digest** (engine id TBD), deposited via `frame_system::deposit_log` at
-  block end from the same computation that emits the UMP signal. This lets a
-  batch be verified against a header alone—no candidate required.
+  digest**, deposited via `frame_system::deposit_log` at block end from the
+  same computation that emits the UMP signal. This lets a batch be verified
+  against a header alone—no candidate required.
+
+  Unlike headers and ack blobs (chain-opaque, judged by the chain's own wasm
+  via [Off-Chain Block
+  Verification](offchain-block-verification-design.md)), this check is
+  performed by the *foreign node directly*—a pure function of header and
+  set, no state involved. The digest format is therefore **protocol
+  standard**, not chain-internal:
+
+  - `DigestItem::Consensus(SPMS_ENGINE_ID, blake2_256(provides_set.encode()))`,
+    at most one per header (engine id value TBD);
+  - well-defined because `CommitmentSet`'s encoding is canonical—one logical
+    set, exactly one hash;
+  - receiver check: recompute batch root → `(receiver, root)` ∈ supplied
+    set → `blake2_256(set.encode())` == digest payload.
+
+  A chain deviating from the format self-excludes: receivers cannot verify
+  its digests and it simply gets no speculative delivery.
+
+  Freedom removed by this standardization: participating chains must use the
+  standard Substrate header layout (this is the one place a foreign node
+  parses a header itself—everywhere else headers stay chain-opaque), and
+  multiple messaging pallet instances must aggregate into one set per
+  header. Both constraints gate only the speculative/optimistic tiers;
+  inclusion-based messaging rides on UMP signals and is header-format
+  agnostic. Hash and encoding were already protocol-fixed at the messaging
+  layer, so no chain-internal choice is overridden.
 - Tiers, all served by that digest:
 
 | Tier | Provides root source | Trust |

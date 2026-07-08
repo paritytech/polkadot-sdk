@@ -554,7 +554,9 @@ code/upgrade timeline.
    construction: blocks whose relay parent is at or past an armed upgrade
    signal are excluded from speculation until a new-code included anchor
    exists (see Code Management).
-3. Messaging-specific: check the target's header digest (provides-set hash),
+3. Messaging-specific: check the target's header digest (provides-set hash;
+   format protocol-standardized—node-side pure check, no wasm involved, see
+   the messaging design),
    batch root ∈ set, recompute root from payloads.
 4. Accept at the returned `Confidence`; advance the verified frontier.
 
