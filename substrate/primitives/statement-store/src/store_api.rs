@@ -170,6 +170,18 @@ pub enum InvalidReason {
 	AlreadyExpired,
 }
 
+impl InvalidReason {
+	/// Returns a short string label suitable for use in metrics.
+	pub fn label(&self) -> &'static str {
+		match self {
+			InvalidReason::NoProof => "no_proof",
+			InvalidReason::BadProof => "bad_proof",
+			InvalidReason::EncodingTooLarge { .. } => "encoding_too_large",
+			InvalidReason::AlreadyExpired => "already_expired",
+		}
+	}
+}
+
 /// Statement submission outcome
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

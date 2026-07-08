@@ -101,8 +101,9 @@ async fn beefy_and_mmr_test() -> Result<(), anyhow::Error> {
 	log::info!("Full session passed");
 
 	let metric_checks: Vec<MetricCheckSetup> = vec![
+		// wait syncing
+		("substrate_beefy_best_block", Box::new(|v| v >= 21.0), 120u64),
 		("substrate_beefy_validator_set_id", Box::new(|v| v >= 3.0), 60u64),
-		("substrate_beefy_best_block", Box::new(|v| v >= 21.0), 30u64),
 	];
 	check_metrics(&[unstable_node], &metric_checks).await?;
 

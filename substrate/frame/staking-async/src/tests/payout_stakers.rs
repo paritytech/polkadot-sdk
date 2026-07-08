@@ -589,6 +589,7 @@ fn min_commission_works() {
 			ConfigOp::Set(Perbill::from_percent(10)),
 			ConfigOp::Noop,
 			ConfigOp::Noop,
+			ConfigOp::Noop
 		));
 
 		// can't make it less than 10 now
@@ -1728,31 +1729,63 @@ fn test_runtime_api_pending_rewards() {
 		assert!(Eras::<T>::pending_rewards(0, &validator_two));
 		// and payout works again for validator two.
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
+
+		// SCENARIO: Validator with exposure but zero reward points (e.g. elected but authored no
+		// blocks). Its payout transfers nothing, so pending_rewards is false.
+		let validator_four = 304; // elected but earned zero points
+		let _ = asset::set_stakeable_balance::<T>(&validator_four, stake);
+		assert_ok!(Staking::bond(
+			RuntimeOrigin::signed(validator_four),
+			stake,
+			RewardDestination::Staked
+		));
+		let exposure_four =
+			Exposure::<AccountId, Balance> { total: stake, own: stake, others: Default::default() };
+		Eras::<T>::upsert_exposure(0, &validator_four, exposure_four);
+
+		// exposure exists and the page is unclaimed, yet the validator has no reward points.
+		assert!(!ErasRewardPoints::<T>::get(0).individual.contains_key(&validator_four));
+		assert!(!Eras::<T>::is_rewards_claimed(0, &validator_four, 0));
+		assert!(!Eras::<T>::pending_rewards(0, &validator_four));
+
+		// paying out succeeds but is a no-op: no `Rewarded` event is emitted for the validator.
+		let _ = staking_events_since_last_call();
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_four, 0));
+		assert!(!staking_events_since_last_call().iter().any(|e| matches!(
+			e,
+			Event::Rewarded { stash, .. } if *stash == validator_four
+		)));
+		// the no-op payout still marks the (only) page claimed.
+		assert!(Eras::<T>::is_rewards_claimed(0, &validator_four, 0));
+		assert_eq!(ClaimedRewards::<T>::get(0, &validator_four).to_vec(), vec![0]);
 	});
 }
 
 #[test]
-#[should_panic(expected = "Era has no reward pot but legacy minting is disabled!")]
-fn payout_fails_when_pot_missing_and_minting_disabled() {
-	// Payout should fail with LegacyMintingDisabled when the era has no reward pot
-	// but DisableMintingGuard prevents legacy minting.
-	ExtBuilder::default().build_and_execute(|| {
+fn legacy_payout_ignores_pot_account_existence() {
+	ExtBuilder::default().legacy_reward_mode().build_and_execute(|| {
 		let validator = 11; // validator
 
+		// GIVEN: a legacy era with rewards to pay out, guard unset.
 		Staking::reward_by_ids(vec![(validator, 1)]);
 		Session::roll_until_active_era(2);
 
 		let era = 1;
-		assert!(ErasValidatorReward::<Test>::get(era).unwrap() > 0);
-		assert!(DisableMintingGuard::<T>::get().is_some());
+		let expected_stakers =
+			(time_per_era() as Balance) - RemainderRatio::get() * (time_per_era() as Balance);
+		assert_eq!(ErasValidatorReward::<Test>::get(era).unwrap(), expected_stakers);
+		assert_eq!(DisableMintingGuard::<Test>::get(), None);
 
-		// GIVEN: era pot exists in DAP mode — destroy it to simulate corruption.
+		// WHEN: the era pot account is made to exist externally (dust transfer at ED).
 		let pot = SequentialTest::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
-		assert!(crate::reward::EraRewardManager::<T>::has_staker_rewards_pot(era));
-		frame_system::Account::<T>::remove::<&AccountId>(&pot);
-		assert!(!crate::reward::EraRewardManager::<T>::has_staker_rewards_pot(era));
+		asset::set_stakeable_balance::<Test>(&pot, asset::existential_deposit::<Test>());
+		assert!(crate::reward::EraRewardManager::<Test>::has_staker_rewards_pot(era));
 
-		// WHEN: payout is attempted — defensive! panics (returns LegacyMintingDisabled in prod).
-		let _ = Staking::payout_stakers(RuntimeOrigin::signed(1337), validator, era);
+		// THEN: payout still takes the legacy (mint) path. Issuance growing by the full
+		// staker reward means new tokens were minted rather than transferred from a pot.
+		let pre_issuance = pallet_balances::TotalIssuance::<Test>::get();
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator, era));
+		let minted = pallet_balances::TotalIssuance::<Test>::get() - pre_issuance;
+		assert_eq!(minted, expected_stakers);
 	});
 }

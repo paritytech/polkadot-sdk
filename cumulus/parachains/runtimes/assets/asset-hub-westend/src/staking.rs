@@ -37,8 +37,10 @@ parameter_types! {
 	/// Maximum number of validators that we may want to elect. 1000 is the end target.
 	pub const MaxValidatorSet: u32 = 1000;
 
-	/// Number of nominators per page of the snapshot, and consequently number of backers in the solution.
-	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get() / Pages::get();
+	/// Number of nominators per page of the snapshot, and consequently number of backers in the
+	/// solution. Uses ceiling division so that `VoterSnapshotPerBlock * Pages >= MaxElectingVoters`
+	/// holds for any configured values.
+	pub VoterSnapshotPerBlock: u32 = MaxElectingVoters::get().div_ceil(Pages::get());
 
 	/// Number of validators per page of the snapshot.
 	pub TargetSnapshotPerBlock: u32 = MaxValidatorSet::get();
@@ -230,6 +232,9 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 
 parameter_types! {
 	pub const StakingPotsPalletId: PalletId = PalletId(*b"py/stkng");
+	// Used for reward pot migration (MigrateEraPotsToPool). Can be removed once executed on-chain.
+	pub const StakingStakerRewardKind: pallet_staking_async::RewardKind =
+		pallet_staking_async::RewardKind::StakerRewards;
 }
 
 /// Westend inflation curve for DAP.
@@ -307,6 +312,7 @@ impl pallet_staking_async::Config for Runtime {
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
+	type IsValidatorInactive = ();
 }
 
 // Relay Chain session keys type for validating session keys on AssetHub.
@@ -347,7 +353,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 }
 
 parameter_types! {
-	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const DapPalletId: frame_support::PalletId = pallet_dap::DAP_PALLET_ID;
 	/// Minimum time (ms) between issuance drips. 60s = drip at most once per minute.
 	pub const IssuanceCadence: u64 = 60_000;
 	/// Safety ceiling (ms) for elapsed time in a single drip. Prevents over-minting after stalls.
@@ -363,12 +369,15 @@ impl pallet_dap::Config for Runtime {
 		pallet_staking_async::StakerRewardRecipient<
 			pallet_staking_async::Seed<StakingPotsPalletId>,
 		>,
+		pallet_staking_async::ValidatorIncentiveRecipient<
+			pallet_staking_async::Seed<StakingPotsPalletId>,
+		>,
 	);
 	type Time = pallet_timestamp::Pallet<Runtime>;
 	type IssuanceCadence = IssuanceCadence;
 	type MaxElapsedPerDrip = MaxElapsedPerDrip;
 	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_dap::WeightInfo<Runtime>;
 }
 
 #[derive(Encode, Decode)]
@@ -512,7 +521,8 @@ impl pallet_nomination_pools::Config for Runtime {
 	type U256ToBalance = U256ToBalance;
 	type StakeAdapter =
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
-	type PostUnbondingPoolsWindow = ConstU32<4>;
+	// Buffer (4) + bonding duration (2).
+	type MaxUnbondingPools = ConstU32<6>;
 	type MaxMetadataLen = ConstU32<256>;
 	// we use the same number of allowed unlocking chunks as with staking.
 	type MaxUnbonding = <Self as pallet_staking_async::Config>::MaxUnlockingChunks;
@@ -603,7 +613,12 @@ where
 			frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
+			pallet_pgas_allowance::ChargePGAS::<
+				Runtime,
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+			>::from(pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+				tip, None,
+			)),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
 			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
 		));

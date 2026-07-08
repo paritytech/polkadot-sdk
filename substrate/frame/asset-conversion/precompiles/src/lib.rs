@@ -154,6 +154,16 @@ alloy::sol! {
 			uint256 amount2MinReceive,
 			address withdrawTo
 		) external returns (uint256 amount1, uint256 amount2);
+
+		/// Get the reserves (token balances) of a liquidity pool.
+		/// @param asset1 SCALE-encoded identifier of the first asset.
+		/// @param asset2 SCALE-encoded identifier of the second asset.
+		/// @return reserve1 The balance of asset1 in the pool.
+		/// @return reserve2 The balance of asset2 in the pool.
+		function getReserves(
+			bytes calldata asset1,
+			bytes calldata asset2
+		) external view returns (uint256 reserve1, uint256 reserve2);
 	}
 }
 
@@ -213,13 +223,17 @@ where
 			IAssetConversionCalls::createPool(call) => Self::create_pool(call, env),
 			IAssetConversionCalls::addLiquidity(call) => Self::add_liquidity(call, env),
 			IAssetConversionCalls::removeLiquidity(call) => Self::remove_liquidity(call, env),
+			IAssetConversionCalls::getReserves(call) => Self::get_reserves(call, env),
 		}
 	}
 }
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
+const ERR_INVALID_ASSET_PAIR: &str = "Invalid asset pair";
 const ERR_POOL_NOT_FOUND: &str = "Pool does not exist or has no liquidity";
+const ERR_POOL_EMPTY: &str = "Pool exists but has no liquidity";
+const ERR_UNEXPECTED: &str = "Unexpected error";
 const ERR_PATH_TOO_LONG: &str = "Swap path exceeds MaxSwapPathLength";
 const ERR_INVALID_ASSET_ENCODING: &str = "Failed to SCALE-decode asset kind";
 
@@ -473,6 +487,62 @@ where
 			&IAssetConversion::removeLiquidityReturn {
 				amount1: Self::to_u256(amount1)?,
 				amount2: Self::to_u256(amount2)?,
+			},
+		))
+	}
+
+	fn get_reserves(
+		call: &IAssetConversion::getReservesCall,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::get_reserves())?;
+
+		let asset1 = Self::decode_asset_kind(&call.asset1)?;
+		let asset2 = Self::decode_asset_kind(&call.asset2)?;
+
+		let (reserve1, reserve2) = pallet_asset_conversion::Pallet::<Runtime>::get_reserves(
+			asset1, asset2,
+		)
+		.map_err(|e| match e {
+			pallet_asset_conversion::Error::InvalidAssetPair => {
+				Error::Revert(Revert { reason: ERR_INVALID_ASSET_PAIR.into() })
+			},
+			pallet_asset_conversion::Error::PoolEmpty => {
+				Error::Revert(Revert { reason: ERR_POOL_EMPTY.into() })
+			},
+			// get_reserves only produces the two variants above; list the rest
+			// exhaustively so adding a new Error variant triggers a compile error.
+			pallet_asset_conversion::Error::PoolExists |
+			pallet_asset_conversion::Error::WrongDesiredAmount |
+			pallet_asset_conversion::Error::AmountOneLessThanMinimal |
+			pallet_asset_conversion::Error::AmountTwoLessThanMinimal |
+			pallet_asset_conversion::Error::ReserveLeftLessThanMinimal |
+			pallet_asset_conversion::Error::AmountOutTooHigh |
+			pallet_asset_conversion::Error::PoolNotFound |
+			pallet_asset_conversion::Error::Overflow |
+			pallet_asset_conversion::Error::AssetOneDepositDidNotMeetMinimum |
+			pallet_asset_conversion::Error::AssetTwoDepositDidNotMeetMinimum |
+			pallet_asset_conversion::Error::AssetOneWithdrawalDidNotMeetMinimum |
+			pallet_asset_conversion::Error::AssetTwoWithdrawalDidNotMeetMinimum |
+			pallet_asset_conversion::Error::OptimalAmountLessThanDesired |
+			pallet_asset_conversion::Error::InsufficientLiquidityMinted |
+			pallet_asset_conversion::Error::ZeroLiquidity |
+			pallet_asset_conversion::Error::ZeroAmount |
+			pallet_asset_conversion::Error::ProvidedMinimumNotSufficientForSwap |
+			pallet_asset_conversion::Error::ProvidedMaximumNotSufficientForSwap |
+			pallet_asset_conversion::Error::InvalidPath |
+			pallet_asset_conversion::Error::NonUniquePath |
+			pallet_asset_conversion::Error::IncorrectPoolAssetId |
+			pallet_asset_conversion::Error::BelowMinimum => {
+				frame_support::defensive!("get_reserves returned unexpected error");
+				Error::Revert(Revert { reason: ERR_UNEXPECTED.into() })
+			},
+		})?;
+
+		Ok(IAssetConversion::getReservesCall::abi_encode_returns(
+			&IAssetConversion::getReservesReturn {
+				reserve1: Self::to_u256(reserve1)?,
+				reserve2: Self::to_u256(reserve2)?,
 			},
 		))
 	}
