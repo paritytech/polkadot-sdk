@@ -48,7 +48,7 @@ use hex_literal::hex;
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::traits::MaybeEquivalence;
+use sp_runtime::traits::{MaybeEquivalence, TryConvertInto};
 use std::convert::Into;
 use testnet_parachains_constants::rococo::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::{
@@ -56,7 +56,7 @@ use xcm::latest::{
 	WESTEND_GENESIS_HASH,
 };
 use xcm_builder::WithLatestLocationConverter;
-use xcm_executor::traits::{JustTry, TransactAsset, WeightTrader};
+use xcm_executor::traits::{TransactAsset, WeightTrader};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const ALICE: [u8; 32] = [1u8; 32];
@@ -742,7 +742,7 @@ asset_test_utils::include_asset_transactor_transfer_with_pallet_assets_instance_
 	XcmConfig,
 	ForeignAssetsInstance,
 	Location,
-	JustTry,
+	TryConvertInto,
 	collator_session_keys(),
 	ExistentialDeposit::get(),
 	Location::new(1, [Junction::Parachain(1313), Junction::GeneralIndex(12345)]),
