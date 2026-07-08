@@ -244,34 +244,32 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#94 id=94 data-nosnippet>94</a>
 <a href=#95 id=95 data-nosnippet>95</a><span class="doccomment">/// Pallet index of `BridgeWestendMessages: pallet_bridge_messages::&lt;Instance3&gt;`.
 <a href=#96 id=96 data-nosnippet>96</a></span><span class="kw">pub const </span>WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX: u8 = <span class="number">51</span>;
-<a href=#97 id=97 data-nosnippet>97</a><span class="doccomment">/// Pallet index of `BridgePolkadotBulletinMessages: pallet_bridge_messages::&lt;Instance4&gt;`.
-<a href=#98 id=98 data-nosnippet>98</a></span><span class="kw">pub const </span>WITH_BRIDGE_ROCOCO_TO_BULLETIN_MESSAGES_PALLET_INDEX: u8 = <span class="number">61</span>;
-<a href=#99 id=99 data-nosnippet>99</a>
-<a href=#100 id=100 data-nosnippet>100</a><span class="macro">decl_bridge_finality_runtime_apis!</span>(bridge_hub_rococo);
-<a href=#101 id=101 data-nosnippet>101</a><span class="macro">decl_bridge_messages_runtime_apis!</span>(bridge_hub_rococo, LegacyLaneId);
-<a href=#102 id=102 data-nosnippet>102</a>
-<a href=#103 id=103 data-nosnippet>103</a><span class="macro">frame_support::parameter_types!</span> {
-<a href=#104 id=104 data-nosnippet>104</a>	<span class="doccomment">/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Rococo
-<a href=#105 id=105 data-nosnippet>105</a>	/// BridgeHub.
-<a href=#106 id=106 data-nosnippet>106</a>	/// (initially was calculated by test `BridgeHubRococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
-<a href=#107 id=107 data-nosnippet>107</a>	</span><span class="kw">pub const </span>BridgeHubRococoBaseXcmFeeInRocs: u128 = <span class="number">72_091_666</span>;
-<a href=#108 id=108 data-nosnippet>108</a>
-<a href=#109 id=109 data-nosnippet>109</a>	<span class="doccomment">/// Transaction fee that is paid at the Rococo BridgeHub for delivering single inbound message.
-<a href=#110 id=110 data-nosnippet>110</a>	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
-<a href=#111 id=111 data-nosnippet>111</a>	</span><span class="kw">pub const </span>BridgeHubRococoBaseDeliveryFeeInRocs: u128 = <span class="number">297_685_840</span>;
-<a href=#112 id=112 data-nosnippet>112</a>
-<a href=#113 id=113 data-nosnippet>113</a>	<span class="doccomment">/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
-<a href=#114 id=114 data-nosnippet>114</a>	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
-<a href=#115 id=115 data-nosnippet>115</a>	</span><span class="kw">pub const </span>BridgeHubRococoBaseConfirmationFeeInRocs: u128 = <span class="number">56_782_099</span>;
-<a href=#116 id=116 data-nosnippet>116</a>}
-<a href=#117 id=117 data-nosnippet>117</a>
-<a href=#118 id=118 data-nosnippet>118</a><span class="doccomment">/// Wrapper over `BridgeHubRococo`'s `RuntimeCall` that can be used without a runtime.
-<a href=#119 id=119 data-nosnippet>119</a></span><span class="attr">#[derive(Decode, Encode)]
-<a href=#120 id=120 data-nosnippet>120</a></span><span class="kw">pub enum </span>RuntimeCall {
-<a href=#121 id=121 data-nosnippet>121</a>	<span class="doccomment">/// Points to the `pallet_xcm_bridge_hub` pallet instance for `BridgeHubWestend`.
-<a href=#122 id=122 data-nosnippet>122</a>	</span><span class="attr">#[codec(index = <span class="number">52</span>)]
-<a href=#123 id=123 data-nosnippet>123</a>	</span>XcmOverBridgeHubWestend(bp_xcm_bridge_hub::XcmBridgeHubCall),
-<a href=#124 id=124 data-nosnippet>124</a>}
+<a href=#97 id=97 data-nosnippet>97</a>
+<a href=#98 id=98 data-nosnippet>98</a><span class="macro">decl_bridge_finality_runtime_apis!</span>(bridge_hub_rococo);
+<a href=#99 id=99 data-nosnippet>99</a><span class="macro">decl_bridge_messages_runtime_apis!</span>(bridge_hub_rococo, LegacyLaneId);
+<a href=#100 id=100 data-nosnippet>100</a>
+<a href=#101 id=101 data-nosnippet>101</a><span class="macro">frame_support::parameter_types!</span> {
+<a href=#102 id=102 data-nosnippet>102</a>	<span class="doccomment">/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Rococo
+<a href=#103 id=103 data-nosnippet>103</a>	/// BridgeHub.
+<a href=#104 id=104 data-nosnippet>104</a>	/// (initially was calculated by test `BridgeHubRococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
+<a href=#105 id=105 data-nosnippet>105</a>	</span><span class="kw">pub const </span>BridgeHubRococoBaseXcmFeeInRocs: u128 = <span class="number">72_091_666</span>;
+<a href=#106 id=106 data-nosnippet>106</a>
+<a href=#107 id=107 data-nosnippet>107</a>	<span class="doccomment">/// Transaction fee that is paid at the Rococo BridgeHub for delivering single inbound message.
+<a href=#108 id=108 data-nosnippet>108</a>	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
+<a href=#109 id=109 data-nosnippet>109</a>	</span><span class="kw">pub const </span>BridgeHubRococoBaseDeliveryFeeInRocs: u128 = <span class="number">297_685_840</span>;
+<a href=#110 id=110 data-nosnippet>110</a>
+<a href=#111 id=111 data-nosnippet>111</a>	<span class="doccomment">/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
+<a href=#112 id=112 data-nosnippet>112</a>	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
+<a href=#113 id=113 data-nosnippet>113</a>	</span><span class="kw">pub const </span>BridgeHubRococoBaseConfirmationFeeInRocs: u128 = <span class="number">56_782_099</span>;
+<a href=#114 id=114 data-nosnippet>114</a>}
+<a href=#115 id=115 data-nosnippet>115</a>
+<a href=#116 id=116 data-nosnippet>116</a><span class="doccomment">/// Wrapper over `BridgeHubRococo`'s `RuntimeCall` that can be used without a runtime.
+<a href=#117 id=117 data-nosnippet>117</a></span><span class="attr">#[derive(Decode, Encode)]
+<a href=#118 id=118 data-nosnippet>118</a></span><span class="kw">pub enum </span>RuntimeCall {
+<a href=#119 id=119 data-nosnippet>119</a>	<span class="doccomment">/// Points to the `pallet_xcm_bridge_hub` pallet instance for `BridgeHubWestend`.
+<a href=#120 id=120 data-nosnippet>120</a>	</span><span class="attr">#[codec(index = <span class="number">52</span>)]
+<a href=#121 id=121 data-nosnippet>121</a>	</span>XcmOverBridgeHubWestend(bp_xcm_bridge_hub::XcmBridgeHubCall),
+<a href=#122 id=122 data-nosnippet>122</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
