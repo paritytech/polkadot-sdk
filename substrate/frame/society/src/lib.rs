@@ -828,6 +828,11 @@ pub mod pallet {
 
 			weight
 		}
+
+		// TODO: add a `try_state` invariant asserting that the balance of the payouts account
+		// matches the sum of all pending payouts in `Payouts`. As of 2026-07-08 it does not hold
+		// on Asset Hub Kusama, where the payouts account is ~0.348 KSM short of the recorded
+		// pending payouts; that state needs reconciling before the invariant can be enforced.
 	}
 
 	#[pallet::genesis_config]
@@ -1072,6 +1077,8 @@ pub mod pallet {
 
 		/// Repay the payment previously given to the member with the signed origin, remove any
 		/// pending payments, and elevate them from rank 0 to rank 1.
+		///
+		/// The funds reserved for the forfeited pending payments are returned to the society pot.
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::waive_repay())]
 		pub fn waive_repay(origin: OriginFor<T>, amount: BalanceOf<T, I>) -> DispatchResult {
@@ -1082,6 +1089,11 @@ pub mod pallet {
 			ensure!(amount >= payout_record.paid, Error::<T, I>::InsufficientFunds);
 
 			T::Currency::transfer(&who, &Self::account_id(), payout_record.paid, AllowDeath)?;
+			let total = payout_record
+				.payouts
+				.iter()
+				.fold(Zero::zero(), |acc: BalanceOf<T, I>, x| acc.saturating_add(x.1));
+			Self::unreserve_payout(total);
 			payout_record.paid = Zero::zero();
 			payout_record.payouts.clear();
 			record.rank = 1;
@@ -2112,27 +2124,33 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Bump the payout amount of `who`, to be unlocked at the given block number.
 	///
 	/// It is the caller's duty to ensure that `who` is already a member. This does nothing if `who`
-	/// is not a member or if `value` is zero.
+	/// is not a member, if `value` is zero or if the payment cannot be recorded because the member
+	/// already has too many pending payouts.
 	fn bump_payout(who: &T::AccountId, when: BlockNumberFor<T, I>, value: BalanceOf<T, I>) {
 		if value.is_zero() {
 			return;
 		}
 		if let Some(MemberRecord { rank: 0, .. }) = Members::<T, I>::get(who) {
-			Payouts::<T, I>::mutate(who, |record| {
+			let recorded = Payouts::<T, I>::mutate(who, |record| {
 				// Members of rank 1 never get payouts.
 				match record.payouts.binary_search_by_key(&when, |x| x.0) {
-					Ok(index) => record.payouts[index].1.saturating_accrue(value),
-					Err(index) => {
-						// If they have too many pending payouts, then we take discard the payment.
-						let _ = record.payouts.try_insert(index, (when, value));
+					Ok(index) => {
+						record.payouts[index].1.saturating_accrue(value);
+						true
 					},
+					// A member with too many pending payouts forfeits the payment.
+					Err(index) => record.payouts.try_insert(index, (when, value)).is_ok(),
 				}
 			});
-			Self::reserve_payout(value);
+			// Only reserve funds for payments which have been recorded.
+			if recorded {
+				Self::reserve_payout(value);
+			}
 		}
 	}
 
-	/// Attempt to slash the payout of some member. Return the total amount that was deducted.
+	/// Attempt to slash the payout of some member, returning the funds reserved for the deducted
+	/// amount to the pot. Return the total amount that was deducted.
 	fn slash_payout(who: &T::AccountId, value: BalanceOf<T, I>) -> BalanceOf<T, I> {
 		let mut record = Payouts::<T, I>::get(who);
 		let mut rest = value;
@@ -2149,7 +2167,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			}
 		}
 		Payouts::<T, I>::insert(who, record);
-		value - rest
+		let slashed = value - rest;
+		Self::unreserve_payout(slashed);
+		slashed
 	}
 
 	/// Transfer some `amount` from the main account into the payouts account and reduce the Pot
