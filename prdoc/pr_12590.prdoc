@@ -1,0 +1,12 @@
+title: 'pallet-society: return funds of discarded payouts to the pot'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Funds backing pending payouts are moved into the payouts sub-account when scheduled, and must be returned to the pot whenever a payout is discarded. Three paths failed to do so, leaving balance stranded in the sub-account with no `Payouts` entry left to claim it:
+
+    - `waive_repay` cleared the member's pending payouts without unreserving their backing funds
+    - `slash_payout` deducted from pending payouts without unreserving the deducted amount
+    - `bump_payout` reserved funds even when the payment was discarded because the member was already at `MaxPayouts` capacity
+crates:
+- name: pallet-society
+  bump: patch
