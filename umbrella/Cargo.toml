@@ -41,6 +41,7 @@ std = [
 	"cumulus-primitives-utility?/std",
 	"cumulus-test-relay-sproof-builder?/std",
 	"emulated-integration-tests-common?/std",
+	"fp-coretime?/std",
 	"frame-benchmarking-pallet-pov?/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support?/std",
@@ -612,6 +613,7 @@ runtime-full = [
 	"cumulus-primitives-timestamp",
 	"cumulus-primitives-utility",
 	"ethereum-standards",
+	"fp-coretime",
 	"frame-benchmarking",
 	"frame-benchmarking-pallet-pov",
 	"frame-election-provider-solution-type",
@@ -1215,6 +1217,11 @@ path = "../cumulus/primitives/utility"
 default-features = false
 optional = true
 path = "../substrate/primitives/ethereum-standards"
+
+[dependencies.fp-coretime]
+default-features = false
+optional = true
+path = "../substrate/frame/primitives/coretime"
 
 [dependencies.frame-benchmarking]
 default-features = false

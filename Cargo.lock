@@ -7276,6 +7276,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fp-coretime"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime 31.0.1",
+ "sp-weights 27.0.0",
+]
+
+[[package]]
 name = "fraction"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12805,6 +12815,7 @@ dependencies = [
 name = "pallet-broker"
 version = "0.6.0"
 dependencies = [
+ "fp-coretime",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -17485,6 +17496,7 @@ dependencies = [
  "emulated-integration-tests-common",
  "ethereum-standards",
  "fork-tree",
+ "fp-coretime",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-benchmarking-pallet-pov",
