@@ -38,8 +38,9 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		fungible::Mutate as FunMutate, tokens::Preservation, Defensive, DefensiveSaturating, Get,
-		Imbalance, InspectLockableCurrency, LockableCurrency, OnUnbalanced,
+		fungible::Mutate as FunMutate, tokens::Preservation, Contains, Defensive,
+		DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
+		OnUnbalanced,
 	},
 	weights::Weight,
 	StorageDoubleMap,
@@ -222,6 +223,86 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: extra });
+
+		Ok(())
+	}
+
+	/// Returns true if `stash` is listed in any deferred slash waiting to be applied.
+	fn stash_has_pending_unapplied_slash(stash: &T::AccountId) -> bool {
+		UnappliedSlashes::<T>::iter_values().any(|slash| {
+			slash.validator == *stash ||
+				slash.others.iter().any(|(who, _)| who == stash)
+		})
+	}
+
+	/// Transfer `amount` of active stake from `source_stash` to `target`.
+	///
+	/// Both accounts must be nominators. The source must not have pending unlocks; the target may.
+	/// The underlying stake hold is released from the source, transferred as free balance, and
+	/// re-held on the target.
+	pub(super) fn do_merge_staked(
+		source_stash: &T::AccountId,
+		target: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> DispatchResult {
+		ensure!(source_stash != target, Error::<T>::MergeIdentical);
+		ensure!(!Self::is_virtual_staker(source_stash), Error::<T>::VirtualStakerNotAllowed);
+		ensure!(!Self::is_virtual_staker(target), Error::<T>::VirtualStakerNotAllowed);
+		ensure!(!T::Filter::contains(source_stash), Error::<T>::Restricted);
+		ensure!(!T::Filter::contains(target), Error::<T>::Restricted);
+
+		let mut source_ledger = Self::ledger(StakingAccount::Stash(source_stash.clone()))?;
+		let mut target_ledger = Self::ledger(StakingAccount::Stash(target.clone()))?;
+
+		ensure!(
+			amount > Zero::zero() && amount <= source_ledger.active,
+			Error::<T>::InvalidMergeAmount
+		);
+		ensure!(source_ledger.unlocking.is_empty(), Error::<T>::HasPendingUnlock);
+		ensure!(Nominators::<T>::contains_key(source_stash), Error::<T>::SourceNotNominator);
+		ensure!(Nominators::<T>::contains_key(target), Error::<T>::TargetNotNominator);
+		ensure!(
+			!Self::stash_has_pending_unapplied_slash(source_stash),
+			Error::<T>::PendingSlash
+		);
+
+		let from_rest = source_ledger.active.saturating_sub(amount);
+		ensure!(
+			from_rest.is_zero() || from_rest >= Self::min_nominator_bond(),
+			Error::<T>::InsufficientBond
+		);
+
+		source_ledger.active = from_rest;
+		source_ledger.total = source_ledger.total.saturating_sub(amount);
+		source_ledger.update()?;
+
+		T::Currency::transfer(source_stash, target, amount, Preservation::Preserve)
+			.map_err(|_| Error::<T>::NotEnoughFunds)?;
+
+		target_ledger.active =
+			target_ledger.active.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
+		target_ledger.total =
+			target_ledger.total.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
+		ensure!(target_ledger.active >= Self::min_chilled_bond(), Error::<T>::InsufficientBond);
+		target_ledger.update()?;
+
+		if T::VoterList::contains(source_stash) && !from_rest.is_zero() {
+			let _ = T::VoterList::on_update(source_stash, Self::weight_of(source_stash));
+		}
+		if T::VoterList::contains(target) {
+			let _ = T::VoterList::on_update(target, Self::weight_of(target));
+		}
+
+		if from_rest.is_zero() {
+			Self::kill_stash(source_stash)?;
+		}
+
+		Self::deposit_event(Event::<T>::StakeMerged {
+			from: source_stash.clone(),
+			to: target.clone(),
+			amount,
+			from_rest,
+		});
 
 		Ok(())
 	}

@@ -252,4 +252,7 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	fn chill_inactive(_: u32) -> Weight {
 		unreachable!()
 	}
+	fn merge_staked() -> Weight {
+		unreachable!()
+	}
 }
