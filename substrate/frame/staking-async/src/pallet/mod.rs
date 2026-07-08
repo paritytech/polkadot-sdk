@@ -1511,10 +1511,18 @@ pub mod pallet {
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
 		},
-		/// The vested incentive delivery failed and the payout was dropped.
+		/// The vested incentive delivery failed and the payout was dropped (lost).
 		ValidatorIncentiveDropped {
 			era: EraIndex,
 			validator_stash: T::AccountId,
+			amount: BalanceOf<T>,
+		},
+		/// A vested incentive could not be delivered due to slot exhaustion, but the
+		/// amount was stored in a staging account for later recovery.
+		ValidatorIncentiveStaged {
+			era: EraIndex,
+			validator_stash: T::AccountId,
+			/// Amount from this era that could not be delivered.
 			amount: BalanceOf<T>,
 		},
 	}

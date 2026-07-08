@@ -1066,9 +1066,10 @@ fn incentive_dropped_event_not_emitted_on_success() {
 }
 
 #[test]
-fn incentive_dropped_when_pot_is_empty() {
-	// When the incentive pot is empty the payout adapter returns an error and the incentive
-	// is dropped (no liquid fallback). ValidatorIncentiveDropped is emitted instead of a panic.
+fn incentive_not_paid_when_pot_is_empty() {
+	// When the incentive pot is empty the pay() call fails.  The staging transfer also fails
+	// (there is nothing in the pot to move), so neither ValidatorIncentivePaid nor
+	// ValidatorIncentiveStaged is emitted.  The payout is silently skipped.
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11;
 
@@ -1095,13 +1096,14 @@ fn incentive_dropped_when_pot_is_empty() {
 		make_all_reward_payment(2);
 
 		let events = staking_events_since_last_call();
-		assert!(
-			events.iter().any(|e| matches!(e, Event::ValidatorIncentiveDropped { .. })),
-			"ValidatorIncentiveDropped should be emitted when pot is empty"
-		);
+		// Pay() fails and staging transfer also fails (pot is empty) → no incentive events.
 		assert!(
 			!events.iter().any(|e| matches!(e, Event::ValidatorIncentivePaid { .. })),
 			"ValidatorIncentivePaid should not be emitted when pot is empty"
+		);
+		assert!(
+			!events.iter().any(|e| matches!(e, Event::ValidatorIncentiveStaged { .. })),
+			"ValidatorIncentiveStaged should not be emitted when pot is empty"
 		);
 	});
 }

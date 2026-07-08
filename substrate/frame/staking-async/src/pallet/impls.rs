@@ -39,8 +39,10 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		fungible::Mutate as FunMutate, tokens::Preservation, Defensive, DefensiveSaturating, Get,
-		Imbalance, InspectLockableCurrency, LockableCurrency, OnUnbalanced,
+		fungible::{Inspect as FunInspect, Mutate as FunMutate},
+		tokens::Preservation,
+		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
+		OnUnbalanced,
 	},
 	weights::Weight,
 	StorageDoubleMap,
@@ -758,11 +760,23 @@ impl<T: Config> Pallet<T> {
 		Some(validator_incentive_for_page)
 	}
 
+	/// Derive the pallet-controlled incentive staging account for a given validator stash.
+	///
+	/// The account is deterministic — it is derived from the same `PalletId` seed used for era
+	/// pots via `(b"vstaging", stash)` — so it has no external private key and cannot be
+	/// controlled by any user.  Funds deposited here are picked up by the next successful vesting
+	/// delivery for this validator.
+	pub(crate) fn incentive_staging_account(stash: &T::AccountId) -> T::AccountId {
+		use sp_runtime::traits::AccountIdConversion;
+		T::RewardPots::pot_seed().into_sub_account_truncating((b"vstaging", stash))
+	}
+
 	/// Transfer validator incentive from era pot to the validator's payout account.
 	///
-	/// Delegates delivery to [`Config::ValidatorIncentivePayout`]. If delivery fails (e.g.
-	/// `AtMaxVestingSchedules`) the incentive is silently dropped and we emit
-	/// [`Event::ValidatorIncentiveDropped`] (there is no liquid fallback).
+	/// Delegates delivery to [`Config::ValidatorIncentivePayout`]. For vested transfers, if
+	/// delivery fails (e.g. `AtMaxVestingSchedules`) the amount will be stored in a
+	/// pallet-controlled staging account and picked up by the next successful delivery.
+	/// [`Event::ValidatorIncentiveDropped`] is emitted only for non-recoverable failures.
 	fn transfer_validator_incentive(era: EraIndex, stash: &T::AccountId, amount: BalanceOf<T>) {
 		let Some(dest) = Self::payee(Stash(stash.clone())) else {
 			Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
@@ -792,7 +806,7 @@ impl<T: Config> Pallet<T> {
 			let bonding_duration = T::BondingDuration::get();
 
 			if bonding_duration == 0 {
-				// This should never happen in vesting mode, so we return early.
+				// This should never happen in vesting mode, so we treat it as non-recoverable.
 				Self::deposit_event(Event::<T>::ValidatorIncentiveDropped {
 					era,
 					validator_stash: stash.clone(),
@@ -818,10 +832,24 @@ impl<T: Config> Pallet<T> {
 			(start, duration)
 		};
 
+		// Best-effort attempt to pick up any staged funds; failures must not block the main payout
+		// and will be retried automatically during the next payout.
+		let staging = Self::incentive_staging_account(stash);
+		let mut picked_up: BalanceOf<T> = T::Currency::balance(&staging);
+
+		if picked_up > Zero::zero() &&
+			T::Currency::transfer(&staging, &incentive_pot, picked_up, Preservation::Expendable)
+				.is_err()
+		{
+			picked_up = Zero::zero();
+		}
+
+		let total_amount = amount.saturating_add(picked_up);
+
 		match T::ValidatorIncentivePayout::pay(
 			&incentive_pot,
 			&payout_account,
-			amount,
+			total_amount,
 			start_at,
 			duration,
 		) {
@@ -830,16 +858,34 @@ impl<T: Config> Pallet<T> {
 					era,
 					validator_stash: stash.clone(),
 					dest,
-					amount,
+					amount: total_amount,
 				});
 			},
-			Err(e) => {
-				log!(warn, "Incentive for era {:?} dropped: {:?}", era, e);
-				Self::deposit_event(Event::<T>::ValidatorIncentiveDropped {
-					era,
-					validator_stash: stash.clone(),
-					amount,
-				});
+			Err(_) => {
+				// The payment has been rolled back, so the total amount is still in the pot.
+				// We attempt to move it to the staging account for recovery with the next payment.
+				match T::Currency::transfer(
+					&incentive_pot,
+					&staging,
+					total_amount,
+					Preservation::Expendable,
+				) {
+					Ok(_) => {
+						Self::deposit_event(Event::<T>::ValidatorIncentiveStaged {
+							era,
+							validator_stash: stash.clone(),
+							amount,
+						});
+					},
+					Err(_) => {
+						// The funds have remained in the pot at this point.
+						Self::deposit_event(Event::<T>::ValidatorIncentiveDropped {
+							era,
+							validator_stash: stash.clone(),
+							amount: total_amount,
+						});
+					},
+				}
 			},
 		}
 	}
