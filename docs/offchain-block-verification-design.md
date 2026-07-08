@@ -137,8 +137,9 @@ chain view:
   the local database, no fetch at all. Otherwise: any relay full node
   (`ParachainHost::validation_code_by_hash`); fetching from source collators
   is possible (verified by hash, so trust-neutral) but likely not needed at all.
-- **Upgrade timeline**: `FutureCodeUpgrades` (`expected_at`), go-ahead signal
-  timing—see [Code Management](#code-management-and-runtime-upgrades).
+- **Upgrade signal**: `UpgradeGoAheadSignal` per source, plus
+  `FutureCodeHash` for prefetching—see
+  [Code Management](#code-management-and-runtime-upgrades).
 
 Two kinds of anchors, deliberately distinct:
 
@@ -149,6 +150,13 @@ Two kinds of anchors, deliberately distinct:
   header's state root is author-claimed and unvalidated until inclusion;
   anchoring storage proofs at it would let the author fabricate the very
   state (e.g. authority sets) being consulted.
+
+  "Included" means on the receiver's current relay view—**finality is not
+  required**, relay-chain *validation* is the point. A relay reorg reverting
+  the inclusion is consistent either way: a low-latency source's block is
+  acked and gets resubmitted unaltered (same state, same anchor), and for
+  other sources the receiver's dependent work is rolled back together with
+  the anchor.
 
   This rule is **coupled to tip-only acknowledgement checking** (see
   [Ancestry transitivity](#ancestry-transitivity)); relaxing it is not just
@@ -217,6 +225,14 @@ trait OffchainVerify {
         target: Hash,
         blob: Vec<u8>,
     ) -> Result<Confidence, VerifyError>;
+}
+
+/// Identity of the verified tip.
+struct VerifiedTarget {
+    /// Hash of the tip header, computed by the chain's own hasher.
+    hash: Hash,
+    /// Its block number—frontier bookkeeping and range addressing.
+    number: u64,
 }
 ```
 
@@ -361,83 +377,63 @@ every receiver.
 
 ## Code Management and Runtime Upgrades
 
-Verification semantics for a header are defined by the code active *at that
-block*. Exact upgrade semantics (verified against `paras/mod.rs`):
+Which code a block runs is determined by one thing—the **upgrade go-ahead
+signal** (`UpgradeGoAheadSignal`, relay chain state). Every scheduling path
+(pre-checked upgrades, forced upgrades) ends in this signal, and it is the
+one thing the parachain itself reacts to (semantics verified against
+`paras/mod.rs`, `validate_block` and `parachain-system`):
 
-1. **Scheduling**: an upgrade is announced on the relay chain
-   (`FutureCodeHash`, `FutureCodeUpgrades[para] = expected_at`) sessions in
-   advance. The receiver can prefetch the new blob the moment it is
-   scheduled—at any time there are **at most two candidate codes** per
-   source.
-2. **Arming**: at relay block `expected_at`, a *timer* in the relay
-   initializer sets `UpgradeGoAheadSignal = GoAhead`
-   (`process_scheduled_upgrade_changes`). No inclusion is involved. The
-   signal alone changes nothing about which code is needed.
-3. **Trigger**: the first para block whose relay parent shows the signal—call
-   it B_apply—executes under the **old** code, applies the pending code as
-   its last act, and carries `DigestItem::RuntimeEnvironmentUpdated` in its
-   header. Its *children* run the new code. No para block ⇒ no transition:
-   an idle chain never needs new code, and its first block back is still
-   old-code (it merely applies).
-4. **Relay bookkeeping**: `CurrentCodeHash` swaps at *inclusion* of the first
-   candidate with relay parent ≥ `expected_at` (`note_new_head` →
-   `set_current_code`). This gates relay-side candidate validation, not
-   off-chain verification. Since candidates are included sequentially per
-   para, old-code blocks are never included after new-code ones—the verified
-   frontier never crosses a code boundary backwards.
+- The signal is set for a para by the relay chain when a scheduled upgrade's
+  activation time is reached, and sits in relay state until consumed.
+- The first para block whose relay parent shows `GoAhead`—call it
+  B_apply—still executes under the **old** code and applies the new code as
+  its last act. Every block after B_apply runs the **new** code. An idle
+  chain never transitions: no block, no application. (An `Abort` signal
+  instead drops the pending code—nothing happens at all.)
+- At B_apply's inclusion the relay swaps its code bookkeeping and clears the
+  signal.
 
-### Receiver rule: degrade across the upgrade, don't straddle
+### Receiver rule
 
-Speculative verification **pauses** for the upgrade window and resumes on the
-other side. Deterministic, keyed entirely to the receiver's own relay view:
+- A block whose relay parent (read from the standard
+  `CumulusDigestItem::RelayParent` header digest) shows **no** `GoAhead`
+  signal for the source, while the pause mode is not active: old code,
+  verify as normal.
+- Walking the chain in order, the first block whose relay parent shows
+  `GoAhead` is B_apply. It still executes the old code—verify it normally.
+  **Pause after it**: everything following is served inclusion-based.
+- **Resume** at the first included head whose candidate descriptor carries
+  the new code hash—the first state that was both produced and
+  relay-validated under the new code (migrations included), i.e. the first
+  coherent anchor for the new wasm.
 
-- **Before `expected_at`**: nothing changes—no block can apply the upgrade
-  before the signal arms, so speculation continues untouched.
-- **Degrade per block once the signal arms**: a block is affected only if
-  its *relay parent* is at or past `expected_at`. Every cumulus block
-  carries its relay parent in a header digest, deposited unconditionally by
-  parachain-system (`CumulusDigestItem::RelayParent`, or the RPSR digest
-  with storage root + number; `find_relay_block_identifier` decodes both).
-  Blocks whose digest-claimed relay parent predates the signal remain
-  old-code and stay speculatively verifiable; from the first block at or
-  past it, the source drops to inclusion-based. The digest is
-  author-claimed for unincluded blocks, but lying is fail-safe in both
-  directions: claiming "older" while secretly applying the upgrade makes
-  descendants fail old-wasm verification (fail-closed degrade); claiming
-  "newer" only censors the author's own chain's latency. Missing/unresolvable
-  digest → conservative degrade at `expected_at`.
-- **Resume** at the first included head whose candidate descriptor's
-  `validation_code_hash` equals the new code hash. That head's state was
-  produced *and relay-validated* under the new code, migrations included—the
-  first coherent proof anchor for the new wasm.
+An aborted upgrade never sets `GoAhead`, so it never pauses anything—no
+special case needed.
 
-Two subtleties this rule deliberately sidesteps:
+Cost: an inclusion-latency pause (seconds to ~a minute) around
+operator-planned, months-apart events. The new blob is prefetchable from the
+moment the upgrade is scheduled on the relay chain (`FutureCodeHash`), so
+resume is immediate.
 
-- **The marker is not reliable off-chain.** `RuntimeEnvironmentUpdated` is
-  produced by execution, which the receiver does not perform for unincluded
-  blocks—a malicious author can serve a marker-less header (an invalid block
-  that dies at backing, but indistinguishable off-chain). Keying degradation
-  to the relay timer instead of the marker removes any reliance on it.
-- **B_apply's included head is NOT a valid proof anchor**, even though it is
-  included: upgrades force a candidate boundary (enforced by the PVF—
-  `validate_block` panics on more than one block per PoV when applying an
-  upgrade), so B_apply's candidate is validated under the *old* code, and its
-  state is pre-migration (`on_runtime_upgrade` runs in its child, under new
-  code). Anchoring the new wasm there would read old-layout state. Hence the
-  resume condition checks the *descriptor's code hash*, not merely "some
-  inclusion happened".
+### Why this shape
 
-Cost: an inclusion-latency window (seconds to ~a minute) around
-operator-planned events that occur on the order of months. `FutureCodeHash`
-prefetch remains a mild optimization for resume speed.
-
-**Rejected alternative—straddled verification** (verify the old-code prefix
-with the old wasm, the new-code suffix with the new wasm): the new wasm would
-read *pre-migration* state through the proof backend—reading state with a
-non-matching runtime is unsound (migrations haven't run; layouts and
-semantics may differ arbitrarily). Only new-wasm ×
-new-code-produced-included-state is a coherent pairing; the degrade/resume
-rule uses exactly and only that.
+- **Why pause instead of verifying across the boundary**: the verifying wasm
+  and the state it reads must match. New wasm × pre-migration state (or old
+  wasm × migrated state) is unsound—migrations haven't run / have run, and
+  layouts or semantics may differ arbitrarily. The rule only ever pairs old
+  wasm with old-code state and new wasm with new-code included state.
+- **Why the author-claimed relay-parent digest is safe to use**: the digest
+  is produced by execution from the same relay parent the PVF validates
+  against—a block lying about it is invalid, can never be backed or
+  included, and thus never becomes canonical. That is the standard case the
+  acknowledgement economics already price; no upgrade-specific reasoning
+  needed. A block whose relay parent cannot be resolved (no digest, or a
+  hash unknown to the receiver's relay view) cannot be classified by this
+  rule at all—classify it conservatively, as if its relay parent showed the
+  signal: pause. Implementations may also skip the per-block check entirely
+  and enter pause mode as soon as their own relay view shows `GoAhead` for
+  the source—a slightly longer pause for less complexity; both behaviors
+  conform.
 
 An upgrade that drops or breaks the `OffchainVerify` API degrades that source
 to inclusion-based messaging until fixed—deployment-checklist item for
@@ -542,8 +538,7 @@ composes with them (one round trip can carry batch + headers + acks + proof).
 
 ### Continuous (per relay block)
 
-Track the source's included heads (anchors) and its
-code/upgrade timeline.
+Track the source's included heads (anchors) and its code/upgrade timeline.
 
 ### Hot path (per source block / batch)
 
@@ -551,13 +546,13 @@ code/upgrade timeline.
    (at desired confidence) + storage proof (+ message batch, for messaging).
 2. `execution_proof_check` against the included anchor's state root:
    `verify_header_chain`, then `verify_acks`. The segment is single-code by
-   construction: blocks whose relay parent is at or past an armed upgrade
-   signal are excluded from speculation until a new-code included anchor
-   exists (see Code Management).
-3. Messaging-specific: check the target's header digest (provides-set hash;
-   format protocol-standardized—node-side pure check, no wasm involved, see
-   the messaging design),
-   batch root ∈ set, recompute root from payloads.
+   construction: after the first block whose relay parent shows the upgrade
+   go-ahead signal (B_apply, itself still old-code), speculation pauses
+   until a new-code included anchor exists (see Code Management).
+3. Messaging-specific: recompute the batch root from the payloads, check it
+   is in the provides set, and check the set's hash against the target's
+   header digest (format protocol-standardized—a node-side pure check, no
+   wasm involved; see the messaging design).
 4. Accept at the returned `Confidence`; advance the verified frontier.
 
 ### Degradation ladder
@@ -572,11 +567,10 @@ verification failure → the source drops to inclusion-based messaging. Never
 
 | When | What | Cost |
 |---|---|---|
-| Per upgrade (rare) | blob (usually local relay state) + compile | ~seconds compile, cached; network only for relay-light-client setups |
+| Per upgrade (rare, operator-planned) | new blob (usually local relay state) + compile; speculative pause until first new-code inclusion | ~seconds compile, cached; pause of seconds to ~a minute |
 | Per relay block per source | storage proof (piggybacked on header/ack responses) + trie verification | few KB, µs–ms |
 | Per block (hot path) | 1 parent-hash + 1 authorship sig + k ack sigs + root recomputation | comparable to light-client header verification; no block execution |
 | Failure retries | wider-proof re-request | bounded |
-| Per upgrade | speculative pause until first new-code inclusion | seconds to ~a minute, monthly-order events |
 
 ---
 
@@ -624,12 +618,15 @@ relay-verified (hash), so peers cannot substitute wasm.
 marker-less header for the applying block), hoping the receiver verifies
 new-code blocks with the old wasm or against pre-migration state.
 
-**Mitigation**: The receiver never verifies across the boundary at all:
-speculation pauses when the upgrade signal arms (a fact of the receiver's own
-relay view—peers have no say) and resumes only at an included head whose
-candidate descriptor carries the new code hash. There is no window in which a
-peer-influenced boundary decision exists (see [Code
-Management](#code-management-and-runtime-upgrades)).
+**Mitigation**: The receiver never verifies across the boundary: whether the
+go-ahead signal is set at a given relay block is a fact of the receiver's own
+relay view, and the only peer-influenced input—the author-claimed
+relay-parent digest deciding which relay block to consult—makes a lying
+block *invalid* (the PVF derives the digest from the validated relay
+parent), i.e. never canonical, priced by the standard acknowledgement
+economics (see [Code Management](#code-management-and-runtime-upgrades)).
+Resumption is gated on an included head whose candidate descriptor carries
+the new code hash, a relay-validated fact.
 
 ### Threat: Stale sets after long idleness
 
