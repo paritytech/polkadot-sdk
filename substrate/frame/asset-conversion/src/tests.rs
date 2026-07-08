@@ -968,6 +968,54 @@ fn can_quote_price() {
 }
 
 #[test]
+fn quote_price_ignores_unrelated_non_sufficient_assets_in_pool_account() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let dot = NativeOrWithId::Native;
+		let token = NativeOrWithId::WithId(2);
+		let pool_id = (dot.clone(), token.clone());
+
+		create_tokens(user, vec![token.clone()]);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(dot.clone()),
+			Box::new(token.clone())
+		));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 100000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(dot.clone()),
+			Box::new(token.clone()),
+			10000,
+			200,
+			1,
+			1,
+			user,
+		));
+
+		let price = AssetConversion::quote_price_exact_tokens_for_tokens(
+			token.clone(),
+			dot.clone(),
+			60,
+			true,
+		);
+		assert_eq!(price, Some(2302));
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 3, user, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 3, user, 1000));
+		let pool_account = <Test as Config>::PoolLocator::address(&pool_id).unwrap();
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(user), 3, pool_account, 1));
+
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(token, dot, 60, true),
+			price
+		);
+	});
+}
+
+#[test]
 fn quote_price_exact_tokens_for_tokens_matches_execution() {
 	new_test_ext().execute_with(|| {
 		let user = 1;
