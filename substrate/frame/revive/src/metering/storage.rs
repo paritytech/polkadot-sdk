@@ -508,6 +508,24 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 			let _ = diff.update_contract::<T>(Some(info));
 		}
 	}
+
+	/// Apply the pending diff to `info` and push its deposit as a final charge, then reset
+	/// `own_contribution` so finalize does not apply it a second time.
+	pub fn bank_pending_changes(&mut self, contract: T::AccountId, info: &mut ContractInfo<T>) {
+		if let Contribution::Alive(_) = &self.own_contribution {
+			let deposit = self.own_contribution.update_contract(Some(info));
+			self.own_contribution = Contribution::Alive(Default::default());
+			if !deposit.is_zero() {
+				self.charge_deposit(contract, deposit);
+			}
+		} else {
+			debug_assert!(
+				false,
+				"on-stack ancestor frames have not finalized yet, so own_contribution \
+				 should be Alive when banked; qed",
+			);
+		}
+	}
 }
 
 impl<T: Config> Ext<T> for ReservingExt {
