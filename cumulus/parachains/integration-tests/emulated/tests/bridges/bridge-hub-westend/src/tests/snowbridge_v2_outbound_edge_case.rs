@@ -433,9 +433,8 @@ pub fn exploit_v2_route_with_legacy_v1_transfer_will_fail() {
 	})
 }
 
-// Attack details: https://forum.polkadot.network/t/postmortem-xcm-initiatetransfer-origin-leak/17357
 #[test]
-pub fn signed_assethub_user_cannot_forge_assethub_agent_origin_with_direct_ethereum_send() {
+pub fn signed_assethub_user_cannot_bypass_origin_alteration_when_routing_to_ethereum() {
 	fund_on_bh();
 	fund_on_ah();
 
@@ -466,6 +465,10 @@ pub fn signed_assethub_user_cannot_forge_assethub_agent_origin_with_direct_ether
 		let forged_xcm = Xcm(vec![
 			WithdrawAsset(assets.into()),
 			PayFees { asset: local_fee_asset },
+			// Clear the origin register to None. Under the logic flaw in the XCM executor's
+			// InitiateTransfer implementation (with preserve_origin: true), this causes the
+			// executor to export the message without prepending any origin-altering instructions.
+			// Details: https://forum.polkadot.network/t/postmortem-xcm-initiatetransfer-origin-leak/17357
 			ClearOrigin,
 			InitiateTransfer {
 				destination: ethereum(),
