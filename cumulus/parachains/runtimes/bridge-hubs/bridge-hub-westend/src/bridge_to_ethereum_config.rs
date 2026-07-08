@@ -50,6 +50,7 @@ use sp_runtime::{
 use testnet_parachains_constants::westend::{
 	currency::*,
 	fee::WeightToFee,
+	locations::AssetHubLocation,
 	snowbridge::{
 		AssetHubParaId, EthereumLocation, EthereumNetwork, FRONTEND_PALLET_INDEX,
 		INBOUND_QUEUE_PALLET_INDEX_V1, INBOUND_QUEUE_PALLET_INDEX_V2,
@@ -81,7 +82,6 @@ pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 
 // Ethereum Bridge
 parameter_types! {
-	pub AssetHubLocation: Location = Location::new(1, [Parachain(AssetHubParaId::get().into())]);
 	pub storage EthereumGatewayAddress: H160 = H160(hex!("b1185ede04202fe62d38f5db72f71e38ff3e8305"));
 }
 
