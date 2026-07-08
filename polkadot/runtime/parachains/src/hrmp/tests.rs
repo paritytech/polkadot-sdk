@@ -556,7 +556,6 @@ fn check_outbound_hrmp_accounts_for_segment_usage() {
 		assert!(channel_exists(para_a, para_b));
 
 		let config = configuration::ActiveConfig::<Test>::get();
-		// Channel `max_total_size` is 20. A 15-byte message fits against an empty channel.
 		let msgs: HorizontalMessages =
 			vec![OutboundHrmpMessage { recipient: para_b, data: vec![0u8; 15] }]
 				.try_into()
@@ -569,8 +568,6 @@ fn check_outbound_hrmp_accounts_for_segment_usage() {
 		)
 		.is_ok());
 
-		// But once an earlier candidate in the segment already committed 10 bytes to this
-		// channel, the same message must be rejected: 10 + 15 = 25 > 20.
 		let already_sent = BTreeMap::from([(para_b, (1u32, 10u32))]);
 		assert_matches!(
 			Hrmp::check_outbound_hrmp(

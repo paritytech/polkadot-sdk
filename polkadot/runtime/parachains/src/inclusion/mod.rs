@@ -642,6 +642,7 @@ impl<T: Config> Pallet<T> {
 
 		let now = frame_system::Pallet::<T>::block_number();
 		let validators = shared::ActiveValidatorKeys::<T>::get();
+		let host_config = configuration::ActiveConfig::<T>::get();
 
 		// Collect candidate receipts with backers.
 		let mut candidate_receipt_with_backing_validator_indices =
@@ -667,6 +668,7 @@ impl<T: Config> Pallet<T> {
 				let relay_parent_number = check_ctx.verify_backed_candidate(
 					candidate.candidate(),
 					latest_head_data.clone(),
+					&host_config,
 					&mut segment_usage,
 				)?;
 
@@ -833,8 +835,9 @@ impl<T: Config> Pallet<T> {
 		// relay parent is the current block, so its session is the current session.
 		let session_index = shared::CurrentSessionIndex::<T>::get();
 		let session_config = check_ctx.session_config(session_index);
+		let host_config = configuration::ActiveConfig::<T>::get();
 
-		let segment_usage = SegmentUsage::default();
+		let segment_usage = SegmentUsage::from_pending_availability::<T>(para_id);
 		if let Err(err) = check_ctx.check_validation_outputs(
 			para_id,
 			relay_parent_number,
@@ -845,6 +848,7 @@ impl<T: Config> Pallet<T> {
 			BlockNumberFor::<T>::from(validation_outputs.hrmp_watermark),
 			&validation_outputs.horizontal_messages,
 			&session_config,
+			&host_config,
 			&segment_usage,
 		) {
 			log::debug!(
@@ -1255,8 +1259,6 @@ impl SegmentUsage {
 		usage
 	}
 
-	/// Accrue a candidate's committed resource usage into the accumulator, so that the next
-	/// candidate in the segment is checked against the state this candidate will produce.
 	fn accrue(&mut self, commitments: &CandidateCommitments) {
 		for msg in skip_ump_signals(commitments.upward_messages.iter()) {
 			self.ump_count = self.ump_count.saturating_add(1);
@@ -1281,8 +1283,6 @@ impl SegmentUsage {
 
 /// Context for running the acceptance checks on a backed candidate.
 pub(crate) struct CandidateCheckContext<T: Config> {
-	/// The para's most recent relay-parent context, if any. A candidate's relay parent must
-	/// not move backwards relative to it.
 	prev_context: Option<BlockNumberFor<T>>,
 }
 
@@ -1314,6 +1314,7 @@ impl<T: Config> CandidateCheckContext<T> {
 		&self,
 		backed_candidate_receipt: &CommittedCandidateReceipt<<T as frame_system::Config>::Hash>,
 		parent_head_data: HeadData,
+		host_config: &HostConfiguration<BlockNumberFor<T>>,
 		segment_usage: &mut SegmentUsage,
 	) -> Result<BlockNumberFor<T>, Error<T>> {
 		let para_id = backed_candidate_receipt.descriptor.para_id();
@@ -1386,6 +1387,7 @@ impl<T: Config> CandidateCheckContext<T> {
 			BlockNumberFor::<T>::from(backed_candidate_receipt.commitments.hrmp_watermark),
 			&backed_candidate_receipt.commitments.horizontal_messages,
 			&session_config,
+			host_config,
 			segment_usage,
 		) {
 			log::debug!(
@@ -1430,6 +1432,7 @@ impl<T: Config> CandidateCheckContext<T> {
 		hrmp_watermark: BlockNumberFor<T>,
 		horizontal_messages: &[polkadot_primitives::OutboundHrmpMessage<ParaId>],
 		session_config: &SessionExecutionConfig,
+		host_config: &HostConfiguration<BlockNumberFor<T>>,
 		segment_usage: &SegmentUsage,
 	) -> Result<(), AcceptanceCheckErr> {
 		// Safe conversion when `session_config.max_head_data_size` is in bounds of `usize` type.
@@ -1470,9 +1473,8 @@ impl<T: Config> CandidateCheckContext<T> {
 			);
 			e
 		})?;
-		let host_config = configuration::ActiveConfig::<T>::get();
 		Pallet::<T>::check_upward_messages(
-			&host_config,
+			host_config,
 			session_config,
 			para_id,
 			upward_messages,

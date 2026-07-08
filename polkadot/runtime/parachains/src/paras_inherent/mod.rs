@@ -1414,6 +1414,8 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 
 	let mut para_segment_usage: BTreeMap<ParaId, inclusion::SegmentUsage> = BTreeMap::new();
 
+	let host_config = configuration::ActiveConfig::<T>::get();
+
 	retain_candidates::<T, _, _>(candidates, |para_id, candidate| {
 		let Some((latest_head_data, latest_relay_parent)) = para_latest_context.get(&para_id)
 		else {
@@ -1446,6 +1448,7 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 		match check_ctx.verify_backed_candidate(
 			candidate.candidate(),
 			latest_head_data.clone(),
+			&host_config,
 			segment_usage,
 		) {
 			Ok(relay_parent_block_number) => {

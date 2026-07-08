@@ -2959,7 +2959,13 @@ fn cross_session_relay_parent_v3() {
 		// and looks up the relay parent in session 4's DoubleMap via session_index().
 		let check_ctx = CandidateCheckContext::<Test>::new(None);
 		let mut segment_usage = Default::default();
-		let result = check_ctx.verify_backed_candidate(&candidate, parent_head, &mut segment_usage);
+		let host_config = configuration::ActiveConfig::<Test>::get();
+		let result = check_ctx.verify_backed_candidate(
+			&candidate,
+			parent_head,
+			&host_config,
+			&mut segment_usage,
+		);
 		assert!(result.is_ok(), "V3 cross-session relay parent should succeed");
 		assert_eq!(result.unwrap(), old_relay_parent_number);
 	});
@@ -2998,7 +3004,13 @@ fn cross_session_relay_parent_pruned_session_fails() {
 
 		let check_ctx = CandidateCheckContext::<Test>::new(None);
 		let mut segment_usage = Default::default();
-		let result = check_ctx.verify_backed_candidate(&candidate, parent_head, &mut segment_usage);
+		let host_config = configuration::ActiveConfig::<Test>::get();
+		let result = check_ctx.verify_backed_candidate(
+			&candidate,
+			parent_head,
+			&host_config,
+			&mut segment_usage,
+		);
 		assert_matches!(result, Err(Error::<Test>::DisallowedRelayParent));
 	});
 }
@@ -3045,7 +3057,13 @@ fn cross_session_relay_parent_wrong_session_index_fails() {
 		// Should fail: relay parent is in session 4 but descriptor says session 5.
 		let check_ctx = CandidateCheckContext::<Test>::new(None);
 		let mut segment_usage = Default::default();
-		let result = check_ctx.verify_backed_candidate(&candidate, parent_head, &mut segment_usage);
+		let host_config = configuration::ActiveConfig::<Test>::get();
+		let result = check_ctx.verify_backed_candidate(
+			&candidate,
+			parent_head,
+			&host_config,
+			&mut segment_usage,
+		);
 		assert_matches!(result, Err(Error::<Test>::DisallowedRelayParent));
 	});
 }
@@ -3190,8 +3208,14 @@ fn verify_backed_candidate_rejects_oversized_new_validation_code() {
 
 		let check_ctx = CandidateCheckContext::<Test>::new(None);
 		let mut segment_usage = Default::default();
+		let host_config = configuration::ActiveConfig::<Test>::get();
 		assert_matches!(
-			check_ctx.verify_backed_candidate(&candidate, parent_head, &mut segment_usage),
+			check_ctx.verify_backed_candidate(
+				&candidate,
+				parent_head,
+				&host_config,
+				&mut segment_usage,
+			),
 			Err(Error::<Test>::NewCodeTooLarge)
 		);
 	});
@@ -3245,6 +3269,7 @@ fn verify_backed_candidate_enforces_cumulative_ump_across_segment() {
 
 		let check_ctx = CandidateCheckContext::<Test>::new(None);
 		let mut segment_usage = Default::default();
+		let host_config = configuration::ActiveConfig::<Test>::get();
 
 		// First candidate of the segment: fits against the empty queue (2 <= 3) and accrues its
 		// usage into `segment_usage`.
@@ -3252,6 +3277,7 @@ fn verify_backed_candidate_enforces_cumulative_ump_across_segment() {
 			check_ctx.verify_backed_candidate(
 				&candidate_1,
 				parent_head.clone(),
+				&host_config,
 				&mut segment_usage,
 			),
 			Ok(_)
@@ -3260,7 +3286,12 @@ fn verify_backed_candidate_enforces_cumulative_ump_across_segment() {
 		// Second candidate: individually valid too, but stacked on the first candidate's accrued
 		// usage the queue would hold 2 + 2 = 4 > 3, so it must be rejected.
 		assert_matches!(
-			check_ctx.verify_backed_candidate(&candidate_2, parent_head, &mut segment_usage),
+			check_ctx.verify_backed_candidate(
+				&candidate_2,
+				parent_head,
+				&host_config,
+				&mut segment_usage,
+			),
 			Err(Error::<Test>::InvalidUpwardMessages)
 		);
 	});
