@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783523370103,
+  "lastUpdate": 1783527742198,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cc820273ae9325c9e2f7279e758415e8c6a1c78a",
-          "message": "pallet-revive fix prestate diff tracing (#10303)\n\nFix prestate diff-tracing, add missing storage diff for created\ncontracts\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-13T11:28:22Z",
-          "tree_id": "cebbd7ec58955654db86951a662e1e5c44846296",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cc820273ae9325c9e2f7279e758415e8c6a1c78a"
-        },
-        "date": 1763037329494,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.295665644100001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19827552836666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13405707986666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bbbb695f4564f0bb2435924d1608d2d483c93608",
+          "message": "Remove deprecated schedule::v1 module (#12584)\n\n## Summary\n\n- Remove the deprecated `schedule::v1` module from\n`frame_support::traits::schedule`.\n- `schedule::v2` remains unchanged and is still used by\n`pallet-scheduler`.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-08T14:37:13Z",
+          "tree_id": "8c2449ea3841e639472cb17cf00c4d2b792d3b3b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bbbb695f4564f0bb2435924d1608d2d483c93608"
+        },
+        "date": 1783527711042,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1409538981,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.696186318266665,
             "unit": "seconds"
           }
         ]
