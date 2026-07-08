@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783518012959,
+  "lastUpdate": 1783522459753,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -106055,6 +106055,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2861908480,
             "range": "± 29617332",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "rohit.sarpotdar@parity.io",
+            "name": "Rohit Sarpotdar",
+            "username": "rosarp"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d88e92c692d41d236078a52c76f6649bc4be1cb1",
+          "message": "AHW: populate foreign asset reserves in genesis; use ambient tokio runtime in relay RPC client (#12587)\n\nAfter bridges tests migrated to zombinet-sdk, to update polkadot-sdk\nupdate in substrate-relay below changes are required.\nAddresses Issue:\nhttps://github.com/paritytech/parity-bridges-common/issues/3167\n\n#### Substrate relay RPC client changes:\n\nstops each RpcClient from spawning its own nested\ntokio::runtime::Runtime and instead reuses the ambient runtime via\ntokio::runtime::Handle::current(). This makes the relay client usable\ninside a caller-provided runtime (e.g. zombienet-sdk) and avoids the\n\"Cannot drop a runtime in a context where blocking is not allowed\" panic\nthat occurred when a client was dropped on a runtime thread.\n\n#### Integration\n\n- `RpcClient` (and its build_client) now require an existing tokio\nruntime to be present on the current thread. Callers that previously\nrelied on the client creating its own runtime must now construct it\nwithin a tokio runtime context (#[tokio::main], Runtime::block_on, or an\nactive Handle). The internal ClientData::tokio field type changed from\nArc<tokio::runtime::Runtime> to tokio::runtime::Handle.\n\n#### Review Notes\n\n`rpc.rs`\n- ClientData::tokio changes from Arc<tokio::runtime::Runtime> to\ntokio::runtime::Handle.\n- build_client now grabs Handle::current() instead of constructing\nRuntime::new(), and returns the handle directly (no Arc wrapping).",
+          "timestamp": "2026-07-08T13:27:17Z",
+          "tree_id": "64cd8204407dfbec5b8dc62bb50e52a8db80ac1e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d88e92c692d41d236078a52c76f6649bc4be1cb1"
+        },
+        "date": 1783522430397,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 23974894,
+            "range": "± 543571",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 24403189,
+            "range": "± 513199",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 26034631,
+            "range": "± 628401",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 30713859,
+            "range": "± 506646",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 79291185,
+            "range": "± 2434946",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 487562955,
+            "range": "± 6603324",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2942246362,
+            "range": "± 73541050",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 20068196,
+            "range": "± 237226",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 19911843,
+            "range": "± 326463",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19019983,
+            "range": "± 238765",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22982635,
+            "range": "± 302529",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61334764,
+            "range": "± 759727",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 339323370,
+            "range": "± 2064008",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2734981953,
+            "range": "± 30015880",
             "unit": "ns/iter"
           }
         ]
