@@ -316,6 +316,8 @@ pub mod pallet {
 			if Prime::<T, I>::get() == Some(remove) {
 				Prime::<T, I>::put(&new);
 				T::MembershipChanged::set_prime(Some(new));
+			} else {
+				Self::rejig_prime(&members);
 			}
 
 			Self::deposit_event(Event::KeyChanged);
