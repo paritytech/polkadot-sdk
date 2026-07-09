@@ -209,6 +209,7 @@ fn westend_testnet_genesis(
 		registrar: RegistrarConfig { next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID },
 		staking_ah_client: StakingAhClientConfig {
 			operating_mode: OperatingMode::Buffered,
+			validator_set_applied_at: Some(0),
 			..Default::default()
 		},
 	})
