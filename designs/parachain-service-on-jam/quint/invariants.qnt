@@ -150,19 +150,10 @@ module invariants {
   ///     (its `validationCode.pinned` bit), so the slot survives;
   ///   - the same block re-requested an upgrade back to the old code (it is
   ///     re-referenced as the new pending; §5.2 allows activation + a
-<<<<<<< HEAD
   ///     different request, processed in that order); or
   ///   - a `Solicit` upward message for the old code's hash was processed
   ///     (now in `solicitedSet`), re-referencing it as a plain data preimage
   ///     independent of the code slot.
-||||||| 1e9a9ea2e455
-  ///     different request, processed in that order).
-=======
-  ///     different request, processed in that order);
-  ///   - the parachain holds a standalone solicited referencer on the old
-  ///     code — a plain `Solicit` issued while that code was neither active
-  ///     nor pending;
->>>>>>> refs/remotes/origin/bkchr-parachain-service-doc
   /// `prevSvc` holds the pre-step state. Exact balance accounting is pinned
   /// separately by `used_balance_consistency`.
   val code_activation_releases_old: bool =
