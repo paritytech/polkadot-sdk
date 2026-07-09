@@ -291,6 +291,26 @@ module tests {
       }))
   }
 
+  /// §6.2: `parachain_set_head` is an upsert only for a REGISTERED para — it is a
+  /// no-op on a `ParaId` with no `ParaInfo` (Coretime must call
+  /// `parachain_set_state_balance` first). A valid Coretime candidate is accepted
+  /// and carries `parachain_set_head(MkParaId(9), 42)` for an unregistered para;
+  /// the message is replayed but must NOT create a `ParaInfo` entry.
+  run setHeadNonExistentParaNoOpTest = {
+    val coretimeCode: ValidationCodeHash = { vchBytes: 1 }
+    init
+      .then(applyHappyPath(
+        CoretimeParaId, coretimeCode,
+        List(ParachainSetHead({ paraId: MkParaId(9), newHead: 42 }))))
+      .then(expectThat(all {
+        // The Coretime candidate was accepted (head advanced), so its set_head
+        // message WAS replayed...
+        svc.paraInfo(CoretimeParaId).headData == 1,
+        // ...but set_head on an unregistered para is a no-op: no ParaInfo entry.
+        not(svc.parachains.keys().contains(MkParaId(9)))
+      }))
+  }
+
   // --- Parachain log eviction --------------------------------------------
 
   /// When over capacity, evict the oldest Refine entry first and preserve
