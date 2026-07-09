@@ -50,6 +50,7 @@ use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
 	self, assert_ok,
+	dispatch::GetDispatchInfo,
 	migrations::SteppedMigration,
 	storage::child,
 	traits::{Hooks, fungible::InspectHold},
@@ -1723,6 +1724,57 @@ mod benchmarks {
 
 		assert_ok!(result);
 		assert_eq!(&info.read(&key).unwrap(), &memory[out_ptr as usize..]);
+		Ok(())
+	}
+
+	// Weight of reading a runtime storage value from the main trie, as performed by
+	// the `UncheckedRuntime::getStorage` precompile. Two-dimensional: `k` is
+	// the key length (longer keys traverse more trie nodes) and `v` is the value
+	// length (more bytes read into the PoV). The ranges match how the precompile
+	// evaluates the weight function: keys are capped at
+	// `UNCHECKED_RUNTIME_KEY_BYTES` and the upfront value charge at `MaxValueLen`
+	// (clamped below `CALLDATA_BYTES`); only the over-limit revert path extrapolates
+	// beyond `v`, where the dominant proof_size cost is exactly linear. The
+	// benchmark measures the raw read so it is independent of the
+	// `unchecked-precompiles` feature gate.
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn unchecked_runtime_get_storage(
+		k: Linear<0, { limits::UNCHECKED_RUNTIME_KEY_BYTES }>,
+		v: Linear<0, { limits::CALLDATA_BYTES }>,
+	) -> Result<(), BenchmarkError> {
+		let key = vec![0u8; k as usize];
+		sp_io::storage::set(&key, &vec![42u8; v as usize]);
+
+		let mut out = vec![0u8; v as usize];
+		let read;
+		#[block]
+		{
+			read = sp_io::storage::read(&key, &mut out, 0);
+		}
+
+		assert_eq!(read, Some(v));
+		Ok(())
+	}
+
+	// Fixed overhead of the `UncheckedRuntime::dispatch` wrapper around a
+	// runtime call: computing the call's dispatch info and constructing the signed
+	// origin. The dispatched call's own weight is charged separately (via its
+	// dispatch info) and decoding via `RuntimeCosts::PrecompileDecode`, so neither
+	// is measured here. Measured raw so it is independent of the
+	// `unchecked-precompiles` feature gate.
+	#[benchmark(pov_mode = Measured)]
+	fn unchecked_runtime_dispatch() -> Result<(), BenchmarkError> {
+		let runtime_call: <T as Config>::RuntimeCall =
+			frame_system::Call::remark { remark: vec![] }.into();
+		let account: T::AccountId = whitelisted_caller();
+
+		#[block]
+		{
+			let info = runtime_call.get_dispatch_info();
+			let origin: OriginFor<T> = RawOrigin::Signed(account).into();
+			core::hint::black_box((info, origin));
+		}
+
 		Ok(())
 	}
 

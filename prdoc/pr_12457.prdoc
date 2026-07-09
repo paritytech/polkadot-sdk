@@ -1,0 +1,45 @@
+title: '[pallet-revive] Add UncheckedRuntime precompile (call dispatch + raw storage reads)'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds the opt-in, feature-gated `UncheckedRuntime` precompile to `pallet-revive`,
+      exposing two low-level primitives to contracts:
+
+      - `dispatch(bytes)` — dispatch an arbitrary SCALE-encoded `RuntimeCall` as the
+        calling contract's account (a `Signed` origin).
+      - `getStorage(bytes)` — read the raw bytes of any runtime storage item by its
+        full key.
+
+      The precompile is gated behind the new, default-off `unchecked-precompiles`
+      cargo feature and must be explicitly added to a runtime's `Config::Precompiles`
+      to become active. Its interface is unchecked — pallet indices, call encodings
+      and storage keys may change across runtime upgrades — and must not be enabled
+      on production runtimes.
+
+      Optional configuration type parameters:
+      - `Filter: Contains<RuntimeCall>` (default `Everything`) restricts which calls
+        may be dispatched; it is attached to the dispatch origin, so it also covers
+        calls nested in `Utility::batch`, `Proxy::proxy`, etc.
+      - `StorageFilter: Contains<Vec<u8>>` (default `Everything`) restricts which
+        storage keys may be read.
+      - `MaxValueLen: Get<u32>` is the value length `getStorage` charges up front
+        (refunded to the actual length after the read); it defaults to — and is
+        clamped at — the largest value whose ABI-encoded return fits the 128 KiB
+        return-data cap.
+
+      Storage keys are capped at `limits::UNCHECKED_RUNTIME_KEY_BYTES` (1 KiB),
+      keeping the read weight inside its benchmarked domain. Both primitives are
+      weight-metered with dedicated benchmarks.
+
+crates:
+  # `validate: false`: the SemVer check cannot build rustdoc JSON for these crates
+  # because the `pallet-revive-fixtures` build script compiles contracts with
+  # `-Z json-target-spec` (rustc 1.95+), which the SemVer toolchain rejects. The
+  # declared bumps are intentionally conservative (`major`).
+  - name: pallet-revive
+    bump: major
+    validate: false
+  - name: pallet-revive-fixtures
+    bump: major
+    validate: false

@@ -98,6 +98,11 @@ sp-tracing = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
+# Enables the `UncheckedRuntime` precompile (arbitrary runtime call dispatch + raw
+# storage reads). Off by default; must be opted into explicitly and must never be
+# enabled for a production runtime. The input is raw, positionally-encoded and
+# unchecked, so its meaning can silently change across runtime upgrades.
+unchecked-precompiles = []
 std = [
 	"alloy-consensus/serde",
 	"alloy-consensus/std",

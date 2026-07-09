@@ -18,7 +18,7 @@
 mod block_hash;
 mod deposit_payment;
 mod eth_estimate_gas;
-mod pallet_dummy;
+pub(crate) mod pallet_dummy;
 mod precompiles;
 mod pvm;
 mod sol;
@@ -445,7 +445,11 @@ impl Config for Test {
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type ChainId = ChainId;
 	type FindAuthor = Test;
-	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
+	type Precompiles = (
+		precompiles::WithInfo<Self>,
+		precompiles::NoInfo<Self>,
+		crate::precompiles::UncheckedRuntime<Self>,
+	);
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 	type Deposit =
 		PGasDeposit<Test, Assets, AssetsHolder, AssetsFreezer, PGasAssetId, PGasRefundPercent>;

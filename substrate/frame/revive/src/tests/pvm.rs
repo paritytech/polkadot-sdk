@@ -4944,6 +4944,268 @@ fn precompiles_with_info_creates_contract() {
 }
 
 #[test]
+fn unchecked_runtime_dispatch_executes_as_contract() {
+	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
+	use alloy_core::sol_types::SolInterface;
+
+	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
+	let value = 1_000u128;
+
+	// `dispatch(encoded_call)` where the inner call transfers `value` to BOB.
+	let runtime_call =
+		RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { dest: BOB, value });
+	let input =
+		IUncheckedRuntime::IUncheckedRuntimeCalls::dispatch(IUncheckedRuntime::dispatchCall {
+			encoded_call: runtime_call.encode().into(),
+		})
+		.abi_encode();
+
+	let (code, _code_hash) = compile_module("call_and_returncode").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, account_id } = builder::bare_instantiate(Code::Upload(code))
+			.native_value(10_000)
+			.build_and_unwrap_contract();
+
+		let bob_before = get_balance(&BOB);
+		let contract_before = get_balance(&account_id);
+
+		let result = builder::bare_call(addr)
+			.data((&precompile_addr, 0u64).encode().into_iter().chain(input).collect::<Vec<_>>())
+			.build_and_unwrap_result();
+
+		// The precompile call itself succeeded.
+		assert_eq!(
+			u32::from_le_bytes(result.data[..4].try_into().unwrap()),
+			RuntimeReturnCode::Success as u32,
+		);
+
+		// The transfer executed as the CONTRACT's account (the immediate caller of
+		// the precompile), not as the transaction signer.
+		assert_eq!(get_balance(&BOB) - bob_before, value);
+		assert_eq!(contract_before - get_balance(&account_id), value);
+	});
+}
+
+#[test]
+fn unchecked_runtime_storage_read_works() {
+	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
+	use alloy_core::sol_types::{SolInterface, SolType, sol_data::Bytes};
+
+	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
+	let input =
+		IUncheckedRuntime::IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall {
+			key: b"e2e_key".to_vec().into(),
+		})
+		.abi_encode();
+
+	let (code, _code_hash) = compile_module("call_and_returncode").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		sp_io::storage::set(b"e2e_key", b"e2e_value");
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.native_value(1000)
+			.build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data((&precompile_addr, 0u64).encode().into_iter().chain(input).collect::<Vec<_>>())
+			.build_and_unwrap_result();
+
+		assert_eq!(
+			u32::from_le_bytes(result.data[..4].try_into().unwrap()),
+			RuntimeReturnCode::Success as u32,
+		);
+		let decoded = Bytes::abi_decode(&result.data[4..]).expect("return should abi-decode");
+		assert_eq!(decoded.as_ref(), b"e2e_value");
+	});
+}
+
+#[test]
+fn unchecked_runtime_get_storage_return_data_boundary() {
+	use crate::precompiles::{
+		Precompile, UncheckedRuntime,
+		unchecked_runtime::{IUncheckedRuntime, MAX_RETURNABLE_VALUE_LEN},
+	};
+	use alloy_core::sol_types::{SolInterface, SolType, sol_data::Bytes};
+
+	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
+	let input = |key: &[u8]| {
+		IUncheckedRuntime::IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall {
+			key: key.to_vec().into(),
+		})
+		.abi_encode()
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		// A value at the returnable maximum: its ABI encoding is exactly
+		// `CALLDATA_BYTES`, the largest return data a frame accepts, so it must
+		// round-trip through the full call stack (the unit tests bypass the
+		// frame's return-data check).
+		let value = vec![7u8; MAX_RETURNABLE_VALUE_LEN as usize];
+		sp_io::storage::set(b"max_val", &value);
+		let result = builder::bare_call(precompile_addr)
+			.data(input(b"max_val"))
+			.build_and_unwrap_result();
+		assert!(!result.did_revert());
+		let decoded = Bytes::abi_decode(&result.data).expect("return should abi-decode");
+		assert_eq!(decoded.as_ref(), value.as_slice());
+
+		// One byte past it: the precompile's own limit check reverts cleanly
+		// instead of returning data the frame would reject as
+		// `ReturnDataTooLarge`.
+		sp_io::storage::set(b"over_max", &vec![7u8; MAX_RETURNABLE_VALUE_LEN as usize + 1]);
+		let result = builder::bare_call(precompile_addr)
+			.data(input(b"over_max"))
+			.build_and_unwrap_result();
+		assert!(result.did_revert());
+	});
+}
+
+#[test]
+fn unchecked_runtime_dispatch_reentrancy_guarded() {
+	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
+	use alloy_core::sol_types::SolInterface;
+
+	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		// A runtime call that re-enters pallet-revive. Dispatching it through the
+		// precompile (itself invoked via `bare_call`) must hit the pallet's global
+		// re-entrancy guard rather than recurse.
+		let reentrant = RuntimeCall::Contracts(crate::Call::call {
+			dest: H160::zero(),
+			value: 0,
+			weight_limit: WEIGHT_LIMIT / 3,
+			storage_deposit_limit: deposit_limit::<Test>(),
+			data: Vec::new(),
+		})
+		.encode();
+		let input =
+			IUncheckedRuntime::IUncheckedRuntimeCalls::dispatch(IUncheckedRuntime::dispatchCall {
+				encoded_call: reentrant.into(),
+			})
+			.abi_encode();
+
+		let result = builder::bare_call(precompile_addr).data(input).build();
+
+		assert_err!(result.result, <Error<Test>>::ReenteredPallet);
+	});
+}
+
+#[test]
+fn unchecked_runtime_dispatch_out_of_gas_is_clean() {
+	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
+	use alloy_core::sol_types::SolInterface;
+
+	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let before = get_balance(&BOB);
+
+		let inner = RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+			dest: BOB,
+			value: 1_000,
+		})
+		.encode();
+		let input =
+			IUncheckedRuntime::IUncheckedRuntimeCalls::dispatch(IUncheckedRuntime::dispatchCall {
+				encoded_call: inner.into(),
+			})
+			.abi_encode();
+
+		// A weight limit far too small to pay for the precompile's charges: running
+		// out of gas must be a clean error with no state change (and no panic).
+		let result = builder::bare_call(precompile_addr)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::from_parts(1_000, 1_000),
+				deposit_limit: deposit_limit::<Test>(),
+			})
+			.data(input)
+			.build();
+
+		assert_err!(result.result, <Error<Test>>::OutOfGas);
+		assert_eq!(get_balance(&BOB), before, "no funds move when the dispatch runs out of gas");
+	});
+}
+
+#[test]
+fn unchecked_runtime_get_storage_out_of_gas_on_upfront_charge() {
+	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
+	use alloy_core::sol_types::SolInterface;
+
+	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
+	// The upfront charge is the runtime limit's worth of read weight, which exceeds
+	// the (proof) gas budget — so it runs out of gas before any read.
+	let input =
+		IUncheckedRuntime::IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall {
+			key: b"k".to_vec().into(),
+		})
+		.abi_encode();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let result = builder::bare_call(precompile_addr)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::from_parts(u64::MAX, 60_000),
+				deposit_limit: deposit_limit::<Test>(),
+			})
+			.data(input)
+			.build();
+
+		assert_err!(result.result, <Error<Test>>::OutOfGas);
+	});
+}
+
+#[test]
+fn unchecked_runtime_get_storage_out_of_gas_on_revert_charge() {
+	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
+	use alloy_core::sol_types::SolInterface;
+
+	use crate::weights::WeightInfo;
+
+	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
+	// The value is larger than the runtime limit, so the whole value is pulled into
+	// the PoV and the post-read "charge for the real length" runs out of gas.
+	let input =
+		IUncheckedRuntime::IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall {
+			key: b"huge".to_vec().into(),
+		})
+		.abi_encode();
+
+	let value_len = 2 * limits::CALLDATA_BYTES;
+	let key_len = b"huge".len() as u32;
+	// A budget between the upfront (limit) charge and the full (actual) charge: the
+	// upfront passes, but the post-read top-up to the real length does not.
+	let upfront = <Test as Config>::WeightInfo::unchecked_runtime_get_storage(
+		key_len,
+		limits::CALLDATA_BYTES,
+	);
+	let full = <Test as Config>::WeightInfo::unchecked_runtime_get_storage(key_len, value_len);
+	let budget_proof = (upfront.proof_size() + full.proof_size()) / 2;
+
+	ExtBuilder::default().build().execute_with(|| {
+		sp_io::storage::set(b"huge", &vec![0u8; value_len as usize]);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let result = builder::bare_call(precompile_addr)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::from_parts(u64::MAX, budget_proof),
+				deposit_limit: deposit_limit::<Test>(),
+			})
+			.data(input)
+			.build();
+
+		assert_err!(result.result, <Error<Test>>::OutOfGas);
+	});
+}
+
+#[test]
 fn bump_nonce_once_works() {
 	let (code, hash) = compile_module("dummy").unwrap();
 
