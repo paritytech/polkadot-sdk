@@ -621,6 +621,14 @@ pub struct NetworkConfiguration {
 	/// Allow WebRtc addresses, this is an experimental feature.
 	pub experimental_webrtc: bool,
 
+	/// Path to the WebRTC DTLS certificate file, which determines the node's `/certhash`.
+	///
+	/// The certificate is loaded from the file if it exists, otherwise a new certificate
+	/// is generated and persisted there. If `None`, the certificate is loaded from or
+	/// generated at `<net_config_path>/webrtc_certificate`, falling back to an ephemeral
+	/// certificate when `net_config_path` is `None`.
+	pub webrtc_certificate_file: Option<PathBuf>,
+
 	/// Multiaddresses to advertise. Detected automatically if empty.
 	pub public_addresses: Vec<Multiaddr>,
 
@@ -710,6 +718,7 @@ impl NetworkConfiguration {
 			net_config_path,
 			listen_addresses: Vec::new(),
 			experimental_webrtc: false,
+			webrtc_certificate_file: None,
 			public_addresses: Vec::new(),
 			boot_nodes: Vec::new(),
 			node_key,

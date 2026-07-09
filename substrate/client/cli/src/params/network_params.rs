@@ -78,8 +78,16 @@ pub struct NetworkParams {
 	///
 	/// Without this enabled, WebRTC addresses specified in `listen_addr`
 	/// will be skipped. Only works on litep2p network backend.
-	#[arg(long)]
-	pub experimental_webrtc: bool,
+	///
+	/// Optionally takes a path to the WebRTC DTLS certificate file
+	/// (`--experimental-webrtc=<CERT_FILE>`), which determines the node's `/certhash`.
+	/// The certificate is loaded from the file if it exists, otherwise a new certificate
+	/// is generated and persisted there. It can be generated ahead of time with the
+	/// `key generate-webrtc-certificate` subcommand, which accepts both hex and raw
+	/// binary formats. When no path is given, the certificate is loaded from or
+	/// generated at `<base_path>/chains/<chain_id>/network/webrtc_certificate`.
+	#[arg(long, value_name = "CERT_FILE", num_args = 0..=1, require_equals = true)]
+	pub experimental_webrtc: Option<Option<PathBuf>>,
 
 	/// Specify p2p protocol TCP port.
 	#[arg(long, value_name = "PORT", conflicts_with_all = &[ "listen_addr" ])]
@@ -283,7 +291,8 @@ impl NetworkParams {
 			},
 			default_peers_set_num_full: self.in_peers + self.out_peers,
 			listen_addresses,
-			experimental_webrtc: self.experimental_webrtc,
+			experimental_webrtc: self.experimental_webrtc.is_some(),
+			webrtc_certificate_file: self.experimental_webrtc.clone().flatten(),
 			public_addresses,
 			node_key,
 			node_name: node_name.to_string(),

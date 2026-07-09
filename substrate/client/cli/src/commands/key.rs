@@ -19,7 +19,8 @@
 //! Key related CLI utilities
 
 use super::{
-	generate::GenerateCmd, generate_node_key::GenerateNodeKeyCmd, insert_key::InsertKeyCmd,
+	generate::GenerateCmd, generate_node_key::GenerateNodeKeyCmd,
+	generate_webrtc_certificate::GenerateWebRtcCertificateCmd, insert_key::InsertKeyCmd,
 	inspect_key::InspectKeyCmd, inspect_node_key::InspectNodeKeyCmd,
 };
 use crate::{Error, SubstrateCli};
@@ -30,6 +31,10 @@ pub enum KeySubcommand {
 	/// Generate a random node key, write it to a file or stdout and write the
 	/// corresponding peer-id to stderr
 	GenerateNodeKey(GenerateNodeKeyCmd),
+
+	/// Generate a WebRTC DTLS certificate, write it to a file or stdout and write the
+	/// corresponding certhash to stderr
+	GenerateWebrtcCertificate(GenerateWebRtcCertificateCmd),
 
 	/// Generate a random account
 	Generate(GenerateCmd),
@@ -49,6 +54,10 @@ impl KeySubcommand {
 	pub fn run<C: SubstrateCli>(&self, cli: &C) -> Result<(), Error> {
 		match self {
 			KeySubcommand::GenerateNodeKey(cmd) => {
+				let chain_spec = cli.load_spec(cmd.chain.as_deref().unwrap_or(""))?;
+				cmd.run(chain_spec.id(), &C::executable_name())
+			},
+			KeySubcommand::GenerateWebrtcCertificate(cmd) => {
 				let chain_spec = cli.load_spec(cmd.chain.as_deref().unwrap_or(""))?;
 				cmd.run(chain_spec.id(), &C::executable_name())
 			},
