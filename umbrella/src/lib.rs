@@ -228,6 +228,10 @@ pub use ethereum_standards;
 #[cfg(feature = "fork-tree")]
 pub use fork_tree;
 
+/// Primitives for Polkadot Coretime.
+#[cfg(feature = "fp-coretime")]
+pub use fp_coretime;
+
 /// Macro for benchmarking a FRAME runtime.
 #[cfg(feature = "frame-benchmarking")]
 pub use frame_benchmarking;

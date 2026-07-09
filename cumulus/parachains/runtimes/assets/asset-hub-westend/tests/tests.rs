@@ -67,7 +67,11 @@ use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance}
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{generic::Era, traits::MaybeEquivalence, Either, MultiAddress, MultiSignature};
+use sp_runtime::{
+	generic::Era,
+	traits::{MaybeEquivalence, TryConvertInto},
+	Either, MultiAddress, MultiSignature,
+};
 use sp_tracing::capture_test_logs;
 use std::convert::Into;
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS};
@@ -84,7 +88,7 @@ use xcm_builder::{
 	NonFungiblesAdapter as OldNftAdapter, WithLatestLocationConverter,
 };
 use xcm_executor::{
-	traits::{ConvertLocation, JustTry, TransactAsset, WeightTrader},
+	traits::{ConvertLocation, TransactAsset, WeightTrader},
 	AssetsInHolding,
 };
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
@@ -1126,7 +1130,7 @@ asset_test_utils::include_asset_transactor_transfer_with_pallet_assets_instance_
 	XcmConfig,
 	ForeignAssetsInstance,
 	xcm::v5::Location,
-	JustTry,
+	TryConvertInto,
 	collator_session_keys(),
 	ExistentialDeposit::get(),
 	xcm::v5::Location {
