@@ -350,9 +350,17 @@ fn full_native_block_import_works() {
 	let weight_refund = Weight::zero();
 	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
-	// `DispatchInfo::total_weight()` includes the signed extrinsic preamble cost
-	// (signature verification) folded into `extension_weight`.
-	let transfer_weight = xt().get_dispatch_info().total_weight();
+	// `ExtrinsicSuccess` reports `extract_actual_weight` plus the dispatch class base weight.
+	// `DispatchInfo::total_weight()` includes the signed extrinsic preamble cost (signature
+	// verification) folded into `extension_weight`.
+	let transfer_weight = xt()
+		.get_dispatch_info()
+		.total_weight()
+		.saturating_add(
+			<Runtime as frame_system::Config>::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.base_extrinsic,
+		);
 	let timestamp_weight = pallet_timestamp::Call::set::<Runtime> { now: Default::default() }
 		.get_dispatch_info()
 		.call_weight
