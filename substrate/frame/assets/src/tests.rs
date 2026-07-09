@@ -2073,7 +2073,8 @@ fn balance_change_callbacks_work() {
 		let mint_amount = 100u64;
 		let transfer_amount = 60u64;
 		let approved_amount = 30u64;
-		let burn_amount = 90u64;
+		let burn_request = 1000u64;
+		let burned_actual = 90u64;
 
 		Balances::make_free_balance_be(&owner, 100);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, owner, true, 1));
@@ -2118,12 +2119,13 @@ fn balance_change_callbacks_work() {
 		assert_ok!(Assets::transfer(RuntimeOrigin::signed(dest), asset, owner, 0));
 		assert!(take(AssetsCallbackHandle::TRANSFERRED).is_empty());
 
-		// Burn fires `burned` exactly once with the actually burned amount.
-		assert_ok!(Assets::burn(RuntimeOrigin::signed(owner), asset, dest, burn_amount));
+		// dest holds exactly 90. A best-effort burn asks for more, so the callback must see
+		// the actual burned amount (90), not the requested 1000.
+		assert_ok!(Assets::burn(RuntimeOrigin::signed(owner), asset, dest, burn_request));
 		assert_eq!(
 			take(AssetsCallbackHandle::BURNED),
-			vec![(asset, dest, burn_amount).encode()],
-			"burn must fire `burned` exactly once"
+			vec![(asset, dest, burned_actual).encode()],
+			"burn must fire `burned` once with the actual burned amount"
 		);
 	});
 }
