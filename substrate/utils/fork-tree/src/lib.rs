@@ -447,9 +447,9 @@ where
 	fn finalize_root_at(&mut self, position: usize) -> V {
 		let node = self.roots.swap_remove(position);
 		self.roots = node.children;
-		// if self.best_finalized_number.as_ref().is_none_or(|best| node.number > *best) {
+		if self.best_finalized_number.as_ref().is_none_or(|best| node.number > *best) {
 			self.best_finalized_number = Some(node.number);
-		// }
+		}
 		node.data
 	}
 
