@@ -686,6 +686,42 @@ impl Client {
 		}
 	}
 
+	/// Get a block for the specified hash or number.
+	pub async fn block_by_number_or_tag(
+		&self,
+		block: &BlockNumberOrTag,
+	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
+		match block {
+			BlockNumberOrTag::Number(n) => {
+				let n = (*n).try_into().map_err(|_| ClientError::ConversionFailed)?;
+				self.block_by_number(n).await
+			},
+			BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe => {
+				let block = self.block_provider.latest_finalized_block().await;
+				Ok(Some(block))
+			},
+			BlockNumberOrTag::Earliest => self.block_by_number(self.earliest_block_number()).await,
+			BlockNumberOrTag::Latest | BlockNumberOrTag::Pending => {
+				let block = self.block_provider.latest_block().await;
+				Ok(Some(block))
+			},
+		}
+	}
+
+	/// Resolve a [`BlockNumberOrTag`] to a concrete block number.
+	async fn resolve_tag_to_number(&self, tag: BlockNumberOrTag) -> Result<U256, ClientError> {
+		match tag {
+			BlockNumberOrTag::Number(n) => Ok(U256::from(n)),
+			BlockNumberOrTag::Earliest => Ok(U256::from(self.earliest_block_number())),
+			_ => Ok(self
+				.block_by_number_or_tag(&tag)
+				.await?
+				.ok_or(ClientError::BlockNotFound)?
+				.number()
+				.into()),
+		}
+	}
+
 	/// Get the storage API for the given block.
 	pub fn storage_api(&self, block_hash: H256) -> StorageApi {
 		StorageApi::new(self.api.storage().at(block_hash))
@@ -860,28 +896,6 @@ impl Client {
 	pub async fn block_number(&self) -> Result<SubstrateBlockNumber, ClientError> {
 		let latest_block = self.block_provider.latest_block().await;
 		Ok(latest_block.number())
-	}
-
-	/// Get a block for the specified hash or number.
-	pub async fn block_by_number_or_tag(
-		&self,
-		block: &BlockNumberOrTag,
-	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
-		match block {
-			BlockNumberOrTag::Number(n) => {
-				let n = (*n).try_into().map_err(|_| ClientError::ConversionFailed)?;
-				self.block_by_number(n).await
-			},
-			BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe => {
-				let block = self.block_provider.latest_finalized_block().await;
-				Ok(Some(block))
-			},
-			BlockNumberOrTag::Earliest => self.block_by_number(self.earliest_block_number()).await,
-			BlockNumberOrTag::Latest | BlockNumberOrTag::Pending => {
-				let block = self.block_provider.latest_block().await;
-				Ok(Some(block))
-			},
-		}
 	}
 
 	/// Get a block by hash
@@ -1088,18 +1102,13 @@ impl Client {
 
 	/// Get the logs matching the given filter.
 	pub async fn logs(&self, filter: Option<Filter>) -> Result<Vec<Log>, ClientError> {
-		let earliest = U256::from(self.earliest_block_number());
-		let latest = U256::from(self.latest_block().await.number());
-		let finalized = U256::from(self.latest_finalized_block().await.number());
-		let resolve_block_number = move |block: BlockNumberOrTag| -> anyhow::Result<U256> {
-			Ok(resolve_block_number_for_tag(block, earliest, latest, finalized))
-		};
-
-		let logs = self
-			.receipt_provider
-			.logs(filter, &resolve_block_number)
-			.await
-			.map_err(ClientError::LogFilterFailed)?;
+		let logs =
+			self.receipt_provider
+				.logs(filter, |tag| async move {
+					self.resolve_tag_to_number(tag).await.map_err(Into::into)
+				})
+				.await
+				.map_err(ClientError::LogFilterFailed)?;
 
 		Ok(logs)
 	}
@@ -1142,42 +1151,4 @@ impl Client {
 
 fn to_hex(bytes: impl AsRef<[u8]>) -> String {
 	format!("0x{}", hex::encode(bytes.as_ref()))
-}
-
-/// Map a [`BlockNumberOrTag`] to a block number using the provided `earliest`/`latest`/`finalized`.
-fn resolve_block_number_for_tag(
-	block: BlockNumberOrTag,
-	earliest: U256,
-	latest: U256,
-	finalized: U256,
-) -> U256 {
-	match block {
-		BlockNumberOrTag::Number(n) => U256::from(n),
-		BlockNumberOrTag::Earliest => earliest,
-		BlockNumberOrTag::Safe | BlockNumberOrTag::Finalized => finalized,
-		BlockNumberOrTag::Latest | BlockNumberOrTag::Pending => latest,
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn resolve_block_number_for_tag_supports_all_block_tags() {
-		let earliest = U256::from(1u32);
-		let latest = U256::from(100u32);
-		let finalized = U256::from(90u32);
-		let resolve = |block| resolve_block_number_for_tag(block, earliest, latest, finalized);
-
-		// Explicit block numbers are returned as-is.
-		assert_eq!(resolve(BlockNumberOrTag::Number(42u64)), U256::from(42u32));
-
-		// Every tag resolves instead of being rejected as unsupported.
-		assert_eq!(resolve(BlockNumberOrTag::Earliest), earliest);
-		assert_eq!(resolve(BlockNumberOrTag::Latest), latest);
-		assert_eq!(resolve(BlockNumberOrTag::Pending), latest);
-		assert_eq!(resolve(BlockNumberOrTag::Safe), finalized);
-		assert_eq!(resolve(BlockNumberOrTag::Finalized), finalized);
-	}
 }
