@@ -637,7 +637,6 @@ impl Collator {
 							pov: pov.clone(),
 							parent_head_data: parent_head_data.clone(),
 							result_sender: None,
-							core_index: *core_index,
 						}])
 						.expect("len 1 should fit");
 						overseer_handle

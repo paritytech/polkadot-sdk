@@ -353,6 +353,9 @@ where
 		let (collation_req_v2_receiver, cfg) =
 			IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 		net_config.add_request_response_protocol(cfg);
+		let (collation_req_v3_receiver, cfg) =
+			IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
+		net_config.add_request_response_protocol(cfg);
 		let (available_data_req_receiver, cfg) =
 			IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 		net_config.add_request_response_protocol(cfg);
@@ -634,6 +637,7 @@ where
 						authority_discovery_service,
 						collation_req_v1_receiver,
 						collation_req_v2_receiver,
+						collation_req_v3_receiver,
 						available_data_req_receiver,
 						registry: prometheus_registry.as_ref(),
 						spawner,

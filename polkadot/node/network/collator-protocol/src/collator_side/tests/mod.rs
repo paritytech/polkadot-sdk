@@ -37,7 +37,7 @@ use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
 	request_response::{
 		v2::{CollationFetchingRequest, CollationFetchingResponse},
-		IncomingRequest, ReqProtocolNames,
+		v3 as request_v3, IncomingRequest, ReqProtocolNames,
 	},
 	view, ObservedRole,
 };
@@ -202,6 +202,7 @@ type VirtualOverseer =
 struct TestHarness {
 	virtual_overseer: VirtualOverseer,
 	req_v2_cfg: sc_network::config::RequestResponseConfig,
+	req_v3_cfg: sc_network::config::RequestResponseConfig,
 }
 
 fn test_harness<T: Future<Output = TestHarness>>(
@@ -224,12 +225,17 @@ fn test_harness<T: Future<Output = TestHarness>>(
 		Block,
 		sc_network::NetworkWorker<Block, Hash>,
 	>(&req_protocol_names);
+	let (collation_req_v3_receiver, req_v3_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 	let subsystem = async {
 		run_inner(
 			context,
 			local_peer_id,
 			collator_pair,
 			collation_req_v2_receiver,
+			collation_req_v3_receiver,
 			Default::default(),
 			reputation,
 			REPUTATION_CHANGE_TEST_INTERVAL,
@@ -239,7 +245,7 @@ fn test_harness<T: Future<Output = TestHarness>>(
 		.unwrap();
 	};
 
-	let test_fut = test(TestHarness { virtual_overseer, req_v2_cfg });
+	let test_fut = test(TestHarness { virtual_overseer, req_v2_cfg, req_v3_cfg });
 
 	futures::pin_mut!(test_fut);
 	futures::pin_mut!(subsystem);
@@ -474,7 +480,7 @@ async fn distribute_segment(
 			relay_parent,
 			core_index,
 			scheduling_parent,
-			para_head: Hash::repeat_byte(increaser + 1),
+			para_head: Hash::from_low_u64_be(((core_index.0 as u64) << 32) | (i as u64 + 1)),
 			..Default::default()
 		}
 		.build_v3();
@@ -582,7 +588,7 @@ async fn expect_advertise_segment_msg(
 	virtual_overseer: &mut VirtualOverseer,
 	any_peers: &[PeerId],
 	expected_scheduling_parent: Hash,
-	expected_candidate_hashes: Vec<CandidateHash>,
+	expected_output_heads: Vec<Hash>,
 ) {
 	assert_matches!(overseer_recv(virtual_overseer).await, AllMessages::NetworkBridgeTx(
 		NetworkBridgeTxMessage::SendCollationMessage(to, wire_message)
@@ -590,11 +596,11 @@ async fn expect_advertise_segment_msg(
 		assert!(any_peers.iter().any(|p| to.contains(p)));
 		match wire_message {
 			CollationProtocols::V4(protocol_v4::CollationProtocol::CollatorProtocol(message)) => {
-				assert_matches!(message, protocol_v4::CollatorProtocolMessage::AdvertiseSegment { scheduling_parent, candidates } => {
+				assert_matches!(message, protocol_v4::CollatorProtocolMessage::AdvertiseSegment { scheduling_parent, candidates, .. } => {
 					assert_eq!(scheduling_parent, expected_scheduling_parent);
-					assert_eq!(candidates.len(), expected_candidate_hashes.len());
-					for (fingerprint, expected) in candidates.iter().zip(expected_candidate_hashes.iter()) {
-						assert_eq!(fingerprint.candidate_hash, *expected);
+					assert_eq!(candidates.len(), expected_output_heads.len());
+					for (fingerprint, expected) in candidates.iter().zip(expected_output_heads.iter()) {
+						assert_eq!(fingerprint.output_head_data_hash, *expected);
 					}
 				})
 			},
@@ -692,6 +698,16 @@ fn decode_collation_response(bytes: &[u8]) -> (CandidateReceipt, PoV) {
 	}
 }
 
+fn decode_collation_response_v3(bytes: &[u8]) -> (CandidateReceipt, PoV, HeadData) {
+	let response = request_v3::CollationFetchingResponse::decode(&mut &bytes[..])
+		.expect("Decoding should work");
+	match response {
+		request_v3::CollationFetchingResponse::Collation { receipt, pov, parent_head_data } => {
+			(receipt, pov, parent_head_data)
+		},
+	}
+}
+
 // Test that connecting on v1 results in disconnect.
 #[test]
 fn v1_protocol_rejected() {
@@ -751,6 +767,199 @@ fn v1_protocol_rejected() {
 	);
 }
 
+/// A V4 peer is advertised a segment and fetches a NON-TIP entry by output head
+/// via the v3 request/response protocol. Non-tip entries are unreachable via the
+/// hash-keyed v2 protocol once candidates are built on demand, so this is the
+/// core capability the v3 protocol exists for.
+#[test]
+fn v3_fetch_by_output_head_is_served() {
+	let test_state = TestState::default();
+	let local_peer_id = test_state.local_peer_id;
+	let collator_pair = test_state.collator_pair.clone();
+
+	test_harness(
+		local_peer_id,
+		collator_pair,
+		ReputationAggregator::new(|_| true),
+		|test_harness| async move {
+			let mut virtual_overseer = test_harness.virtual_overseer;
+			let req_v2_cfg = test_harness.req_v2_cfg;
+			let mut req_v3_cfg = test_harness.req_v3_cfg;
+
+			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
+				.await;
+
+			overseer_send(
+				&mut virtual_overseer,
+				CollatorProtocolMessage::CollateOn(test_state.para_id),
+			)
+			.await;
+
+			update_view(
+				Some(test_state.current_group_validator_authority_ids()),
+				&test_state,
+				&mut virtual_overseer,
+				vec![(test_state.scheduling_parent, 10)],
+				1,
+			)
+			.await;
+
+			let distributed_collations = distribute_segment(
+				&mut virtual_overseer,
+				test_state.current_group_validator_authority_ids(),
+				&test_state,
+				test_state.scheduling_parent,
+				test_state.scheduling_parent,
+				CoreIndex(0),
+				3,
+			)
+			.await;
+
+			for (val, peer) in test_state
+				.current_group_validator_authority_ids()
+				.into_iter()
+				.zip(test_state.current_group_validator_peer_ids())
+			{
+				connect_peer(&mut virtual_overseer, peer, CollationVersion::V4, Some(val.clone()))
+					.await;
+			}
+
+			for peer_id in test_state.current_group_validator_peer_ids() {
+				expect_declare_msg(&mut virtual_overseer, &test_state, &peer_id).await;
+			}
+
+			let peer = test_state.current_group_validator_peer_ids()[0];
+
+			send_peer_view_change(&mut virtual_overseer, &peer, vec![test_state.scheduling_parent])
+				.await;
+
+			let expected_output_heads: Vec<Hash> = distributed_collations
+				.iter()
+				.map(|d| d.candidate.descriptor.para_head())
+				.collect();
+			expect_advertise_segment_msg(
+				&mut virtual_overseer,
+				&[peer],
+				test_state.scheduling_parent,
+				expected_output_heads,
+			)
+			.await;
+
+			// Fetch the OLDEST (non-tip) entry of the segment by its output head.
+			let candidate = &distributed_collations[0].candidate;
+			let pov_block = &distributed_collations[0].pov_block;
+
+			let (pending_response, rx) = oneshot::channel();
+			req_v3_cfg
+				.inbound_queue
+				.as_mut()
+				.unwrap()
+				.send(RawIncomingRequest {
+					peer,
+					payload: request_v3::CollationFetchingRequest {
+						scheduling_parent: test_state.scheduling_parent,
+						para_id: test_state.para_id,
+						output_head_data_hash: candidate.descriptor.para_head(),
+					}
+					.encode(),
+					pending_response,
+				})
+				.await
+				.unwrap();
+
+			assert_matches!(
+					rx.await,
+					Ok(full_response) => {
+							let (receipt, pov, parent_head_data) = decode_collation_response_v3(
+									full_response.result.expect("We should have a proper answer").as_ref(),
+							);
+							assert_eq!(receipt, *candidate);
+							assert_eq!(pov, *pov_block);
+							assert_eq!(parent_head_data, HeadData(vec![1, 2, 3]));
+					}
+			);
+
+			TestHarness { virtual_overseer, req_v2_cfg, req_v3_cfg }
+		},
+	);
+}
+
+/// A v3 fetch request for an output head we never distributed is dropped without
+/// a response (no decline variant by design): the requester observes the request
+/// channel closing, times out, and applies its slash on the requesting side.
+#[test]
+fn v3_fetch_unknown_output_head_is_not_answered() {
+	let test_state = TestState::default();
+	let local_peer_id = test_state.local_peer_id;
+	let collator_pair = test_state.collator_pair.clone();
+
+	test_harness(
+		local_peer_id,
+		collator_pair,
+		ReputationAggregator::new(|_| true),
+		|test_harness| async move {
+			let mut virtual_overseer = test_harness.virtual_overseer;
+			let req_v2_cfg = test_harness.req_v2_cfg;
+			let mut req_v3_cfg = test_harness.req_v3_cfg;
+
+			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
+				.await;
+
+			overseer_send(
+				&mut virtual_overseer,
+				CollatorProtocolMessage::CollateOn(test_state.para_id),
+			)
+			.await;
+
+			update_view(
+				Some(test_state.current_group_validator_authority_ids()),
+				&test_state,
+				&mut virtual_overseer,
+				vec![(test_state.scheduling_parent, 10)],
+				1,
+			)
+			.await;
+
+			// Distribute something so the scheduling parent is known and populated —
+			// the request must fail on the unknown output head, not on an unknown SP.
+			let _distributed_collations = distribute_segment(
+				&mut virtual_overseer,
+				test_state.current_group_validator_authority_ids(),
+				&test_state,
+				test_state.scheduling_parent,
+				test_state.scheduling_parent,
+				CoreIndex(0),
+				1,
+			)
+			.await;
+
+			let peer = test_state.current_group_validator_peer_ids()[0];
+			let (pending_response, rx) = oneshot::channel();
+			req_v3_cfg
+				.inbound_queue
+				.as_mut()
+				.unwrap()
+				.send(RawIncomingRequest {
+					peer,
+					payload: request_v3::CollationFetchingRequest {
+						scheduling_parent: test_state.scheduling_parent,
+						para_id: test_state.para_id,
+						output_head_data_hash: Hash::random(),
+					}
+					.encode(),
+					pending_response,
+				})
+				.await
+				.unwrap();
+
+			// The request is dropped without a response.
+			rx.await.unwrap_err();
+
+			TestHarness { virtual_overseer, req_v2_cfg, req_v3_cfg }
+		},
+	);
+}
+
 #[test]
 fn advertise_and_send_collation() {
 	let mut test_state = TestState::default();
@@ -764,6 +973,7 @@ fn advertise_and_send_collation() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let mut req_v2_cfg = test_harness.req_v2_cfg;
+			let req_v3_cfg = test_harness.req_v3_cfg;
 
 			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
 				.await;
@@ -958,7 +1168,7 @@ fn advertise_and_send_collation() {
 				vec![candidate.hash()],
 			)
 			.await;
-			TestHarness { virtual_overseer, req_v2_cfg }
+			TestHarness { virtual_overseer, req_v2_cfg, req_v3_cfg }
 		},
 	);
 }
@@ -976,6 +1186,7 @@ fn advertise_and_send_segment() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let req_v2_cfg = test_harness.req_v2_cfg;
+			let req_v3_cfg = test_harness.req_v3_cfg;
 
 			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
 				.await;
@@ -1025,16 +1236,18 @@ fn advertise_and_send_segment() {
 			// Send info about peer's view.
 			send_peer_view_change(&mut virtual_overseer, &peer, vec![test_state.scheduling_parent])
 				.await;
-			let expected_candidate_hashes: Vec<CandidateHash> =
-				distributed_collations.iter().map(|d| d.candidate.hash()).collect();
+			let expected_output_heads: Vec<Hash> = distributed_collations
+				.iter()
+				.map(|d| d.candidate.descriptor.para_head())
+				.collect();
 			expect_advertise_segment_msg(
 				&mut virtual_overseer,
 				&[peer],
 				test_state.scheduling_parent,
-				expected_candidate_hashes,
+				expected_output_heads,
 			)
 			.await;
-			TestHarness { virtual_overseer, req_v2_cfg }
+			TestHarness { virtual_overseer, req_v2_cfg, req_v3_cfg }
 		},
 	);
 }
@@ -1052,6 +1265,7 @@ fn delay_reputation_change() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let mut req_v2_cfg = test_harness.req_v2_cfg;
+			let req_v3_cfg = test_harness.req_v3_cfg;
 
 			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
 				.await;
@@ -1169,7 +1383,7 @@ fn delay_reputation_change() {
 				);
 			}
 
-			TestHarness { virtual_overseer, req_v2_cfg }
+			TestHarness { virtual_overseer, req_v2_cfg, req_v3_cfg }
 		},
 	);
 }
@@ -1491,6 +1705,8 @@ fn validator_reconnect_readvertises_segment(
 			)
 			.await;
 			let candidate_hashes: Vec<_> = distributed.iter().map(|d| d.candidate.hash()).collect();
+			let output_heads: Vec<_> =
+				distributed.iter().map(|d| d.candidate.descriptor.para_head()).collect();
 
 			send_peer_view_change(virtual_overseer, &peer, vec![test_state.scheduling_parent])
 				.await;
@@ -1509,7 +1725,7 @@ fn validator_reconnect_readvertises_segment(
 						virtual_overseer,
 						&[peer],
 						test_state.scheduling_parent,
-						candidate_hashes.clone(),
+						output_heads.clone(),
 					)
 					.await;
 				},
@@ -1544,7 +1760,7 @@ fn validator_reconnect_readvertises_segment(
 						virtual_overseer,
 						&[peer],
 						test_state.scheduling_parent,
-						candidate_hashes.clone(),
+						output_heads.clone(),
 					)
 					.await;
 				},
@@ -1807,6 +2023,7 @@ fn connect_to_group_in_view() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let mut req_cfg = test_harness.req_v2_cfg;
+			let req_cfg_3 = test_harness.req_v3_cfg;
 
 			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
 				.await;
@@ -1930,7 +2147,7 @@ fn connect_to_group_in_view() {
 			)
 			.await;
 
-			TestHarness { virtual_overseer, req_v2_cfg: req_cfg }
+			TestHarness { virtual_overseer, req_v2_cfg: req_cfg, req_v3_cfg: req_cfg_3 }
 		},
 	);
 }
@@ -1948,6 +2165,7 @@ fn connect_with_no_cores_assigned() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let req_cfg = test_harness.req_v2_cfg;
+			let req_cfg_3 = test_harness.req_v3_cfg;
 
 			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
 				.await;
@@ -2020,7 +2238,7 @@ fn connect_with_no_cores_assigned() {
 				}
 			);
 
-			TestHarness { virtual_overseer, req_v2_cfg: req_cfg }
+			TestHarness { virtual_overseer, req_v2_cfg: req_cfg, req_v3_cfg: req_cfg_3 }
 		},
 	);
 }
@@ -2038,6 +2256,7 @@ fn no_connection_without_preconnect_message() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let req_cfg = test_harness.req_v2_cfg;
+			let req_cfg_3 = test_harness.req_v3_cfg;
 
 			// NOTE: We intentionally DO NOT send ConnectToBackingGroups here
 			// to verify that connections are not made without the pre-connect message.
@@ -2095,7 +2314,7 @@ fn no_connection_without_preconnect_message() {
 				}
 			}
 
-			TestHarness { virtual_overseer, req_v2_cfg: req_cfg }
+			TestHarness { virtual_overseer, req_v2_cfg: req_cfg, req_v3_cfg: req_cfg_3 }
 		},
 	);
 }
@@ -2113,6 +2332,7 @@ fn distribute_collation_forces_connect() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let req_cfg = test_harness.req_v2_cfg;
+			let req_cfg_3 = test_harness.req_v3_cfg;
 
 			// NOTE: We intentionally DO NOT send ConnectToBackingGroups here
 			// to verify that connections are not made without the pre-connect message.
@@ -2199,7 +2419,7 @@ fn distribute_collation_forces_connect() {
 			)
 			.await;
 
-			TestHarness { virtual_overseer, req_v2_cfg: req_cfg }
+			TestHarness { virtual_overseer, req_v2_cfg: req_cfg, req_v3_cfg: req_cfg_3 }
 		},
 	);
 }
@@ -2240,6 +2460,7 @@ fn connect_advertise_disconnect_three_backing_groups() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let req_cfg = test_harness.req_v2_cfg;
+			let req_cfg_3 = test_harness.req_v3_cfg;
 
 			// Send the pre-connect message
 			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
@@ -2384,7 +2605,7 @@ fn connect_advertise_disconnect_three_backing_groups() {
 			)
 			.await;
 
-			TestHarness { virtual_overseer, req_v2_cfg: req_cfg }
+			TestHarness { virtual_overseer, req_v2_cfg: req_cfg, req_v3_cfg: req_cfg_3 }
 		},
 	);
 }
@@ -2547,6 +2768,8 @@ fn no_duplicate_advertisement_on_authority_id_update(
 			)
 			.await;
 			let candidate_hashes: Vec<_> = distributed.iter().map(|d| d.candidate.hash()).collect();
+			let output_heads: Vec<_> =
+				distributed.iter().map(|d| d.candidate.descriptor.para_head()).collect();
 
 			// Peer view change triggers advertisement
 			send_peer_view_change(virtual_overseer, &peer, vec![test_state.scheduling_parent])
@@ -2568,7 +2791,7 @@ fn no_duplicate_advertisement_on_authority_id_update(
 						virtual_overseer,
 						&[peer],
 						test_state.scheduling_parent,
-						candidate_hashes.clone(),
+						output_heads.clone(),
 					)
 					.await;
 				},

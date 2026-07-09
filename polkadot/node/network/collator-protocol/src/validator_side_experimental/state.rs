@@ -19,8 +19,8 @@ use crate::{
 	validator_side_experimental::{
 		collation_manager::CollationManager,
 		common::{
-			Advertisement, CanSecond, CollationFetchResponse, PeerInfo, PeerState,
-			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
+			CanSecond, CollationFetchResponse, PeerInfo, PeerState, ProspectiveCandidate,
+			TryAcceptOutcome, INVALID_COLLATION_SLASH,
 		},
 		error::{Error, FatalResult},
 		peer_manager::{Backend, PersistentDb},
@@ -30,9 +30,7 @@ use crate::{
 };
 use fatality::Split;
 use futures::stream::FusedStream;
-use polkadot_node_network_protocol::{
-	peer_set::CollationVersion, v4_collation::SegmentFingerprint, OurView, PeerId,
-};
+use polkadot_node_network_protocol::{peer_set::CollationVersion, OurView, PeerId};
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
 	messages::{CandidateBackingMessage, IfDisconnected, NetworkBridgeTxMessage},
@@ -235,13 +233,12 @@ impl<B: Backend> State<B> {
 		sender: &mut Sender,
 		peer_id: PeerId,
 		scheduling_parent: Hash,
-		maybe_prospective_candidate: Option<ProspectiveCandidate>,
-		advertised_descriptor_version: Option<CandidateDescriptorVersion>,
+		entries: Vec<ProspectiveCandidate>,
+		descriptor_version: Option<CandidateDescriptorVersion>,
 	) {
 		gum::debug!(
 			target: LOG_TARGET,
 			?scheduling_parent,
-			?maybe_prospective_candidate,
 			?peer_id,
 			"Received advertisement",
 		);
@@ -251,7 +248,6 @@ impl<B: Backend> State<B> {
 				target: LOG_TARGET,
 				?scheduling_parent,
 				?peer_id,
-				?maybe_prospective_candidate,
 				"Received an advertisement from an unconnected peer"
 			);
 			return;
@@ -262,31 +258,32 @@ impl<B: Backend> State<B> {
 			gum::debug!(
 				target: LOG_TARGET,
 				?scheduling_parent,
-				?maybe_prospective_candidate,
 				?peer_id,
 				"Received advertisement for undeclared peer",
 			);
 			return;
 		};
 
-		let advertisement = Advertisement {
-			peer_id,
-			para_id: *para_id,
-			scheduling_parent,
-			prospective_candidate: maybe_prospective_candidate,
-			advertised_descriptor_version,
-		};
-
 		// We have a result here, but it's not worth affecting reputations because advertisements
 		// are cheap.
-		// Note: `try_accept_advertisement` involves two other subsystems, so it's not super cheap,
+		// Note: `try_accept_segment` involves two other subsystems, so it's not super cheap,
 		// actually, but cheap enough.
-		match self.collation_manager.try_accept_advertisement(sender, advertisement).await {
+		match self
+			.collation_manager
+			.try_accept_segment(
+				sender,
+				peer_id,
+				*para_id,
+				scheduling_parent,
+				descriptor_version,
+				entries,
+			)
+			.await
+		{
 			Err(err) => {
 				gum::debug!(
 					target: LOG_TARGET,
 					?scheduling_parent,
-					?maybe_prospective_candidate,
 					?peer_id,
 					?para_id,
 					?err,
@@ -297,52 +294,10 @@ impl<B: Backend> State<B> {
 				gum::debug!(
 					target: LOG_TARGET,
 					?scheduling_parent,
-					?maybe_prospective_candidate,
 					?peer_id,
 					?para_id,
 					"Advertisement accepted",
 				);
-			},
-		}
-	}
-
-	/// Handle a new segment.
-	pub async fn handle_segment(
-		&mut self,
-		peer_id: PeerId,
-		scheduling_parent: Hash,
-		segment: Vec<SegmentFingerprint>,
-	) {
-		gum::debug!(target: LOG_TARGET, ?scheduling_parent,?peer_id, ?segment, "Received segment advertisement");
-
-		let Some(PeerInfo { state, .. }) = self.peer_manager.peer_info(&peer_id) else {
-			gum::warn!(target: LOG_TARGET, ?scheduling_parent, ?peer_id, ?segment, "Received segment advertisement from an unconnected peer");
-			return;
-		};
-
-		// Advertised without being declared. Not a big waste of our time, so ignore it.
-		let PeerState::Collating(para_id) = state else {
-			gum::debug!(target: LOG_TARGET, ?scheduling_parent, ?peer_id, ?segment, "Received segment advertisement for undeclared peer");
-			return;
-		};
-
-		if segment.is_empty() {
-			gum::warn!(target: LOG_TARGET, ?scheduling_parent, ?peer_id, "Received an empty segment advertisement");
-			return;
-		}
-		let num_fingerprints = segment.len();
-
-		match self.collation_manager.try_accept_segment(
-			peer_id,
-			*para_id,
-			scheduling_parent,
-			segment,
-		) {
-			Err(err) => {
-				gum::debug!(target: LOG_TARGET, ?scheduling_parent, ?peer_id, ?para_id, ?err, "Segment advertisement rejected");
-			},
-			Ok(()) => {
-				gum::debug!(target: LOG_TARGET, ?scheduling_parent, ?num_fingerprints, ?peer_id, ?para_id, "Segment advertisement accepted");
 			},
 		}
 	}
@@ -594,10 +549,11 @@ impl<B: Backend> State<B> {
 		let metrics = &self.metrics;
 		let create_timer_fn = || metrics.time_collation_request_duration();
 
-		let (requests, maybe_delay) = self
-			.collation_manager
-			.try_make_new_fetch_requests(sender, connected_rep_query_fn, max_reps, create_timer_fn)
-			.await;
+		let (requests, maybe_delay) = self.collation_manager.try_make_new_fetch_requests(
+			connected_rep_query_fn,
+			max_reps,
+			create_timer_fn,
+		);
 
 		if !requests.is_empty() {
 			gum::debug!(
@@ -701,13 +657,10 @@ impl<B: Backend> State<B> {
 	}
 
 	#[cfg(test)]
-	pub fn segments(&self) -> Vec<(Hash, PeerId, ParaId, Vec<SegmentFingerprint>)> {
+	pub fn segments(
+		&self,
+	) -> std::collections::BTreeSet<(Hash, PeerId, Vec<super::common::ProspectiveCandidate>)> {
 		self.collation_manager.segments()
-	}
-
-	#[cfg(test)]
-	pub fn collation_manager(&mut self) -> &mut CollationManager {
-		&mut self.collation_manager
 	}
 }
 

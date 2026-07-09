@@ -462,7 +462,7 @@ async fn process_incoming_peer_message<Sender, B>(
 			);
 		},
 		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) => {
-			state.handle_advertisement(sender, origin, relay_parent, None, None).await;
+			state.handle_advertisement(sender, origin, relay_parent, vec![], None).await;
 		},
 		CollationProtocols::V2(V2::AdvertiseCollation {
 			scheduling_parent,
@@ -475,7 +475,7 @@ async fn process_incoming_peer_message<Sender, B>(
 					sender,
 					origin,
 					scheduling_parent,
-					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
+					vec![ProspectiveCandidate::ByHash { candidate_hash, parent_head_data_hash }],
 					None,
 				)
 				.await;
@@ -492,13 +492,50 @@ async fn process_incoming_peer_message<Sender, B>(
 					sender,
 					origin,
 					scheduling_parent,
-					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
+					vec![ProspectiveCandidate::ByHash { candidate_hash, parent_head_data_hash }],
 					Some(candidate_descriptor_version),
 				)
 				.await;
 		},
-		CollationProtocols::V4(V4::AdvertiseSegment { scheduling_parent, candidates }) => {
-			state.handle_segment(origin, scheduling_parent, candidates.to_vec()).await;
+		CollationProtocols::V4(V4::AdvertiseSegment {
+			scheduling_parent,
+			candidates_descriptor_version,
+			candidates,
+		}) => {
+			if candidates.is_empty() {
+				gum::warn!(
+					target: LOG_TARGET,
+					?scheduling_parent,
+					?origin,
+					"Received an empty segment advertisement",
+				);
+				// Maybe reputation penalty?
+				return;
+			}
+			gum::trace!(
+				target: LOG_TARGET,
+				?scheduling_parent,
+				?origin,
+				"Received a segment advertisement",
+			);
+
+			let entries = candidates
+				.iter()
+				.map(|candidate_fingerprint| ProspectiveCandidate::ByOutputHead {
+					output_head_data_hash: candidate_fingerprint.output_head_data_hash,
+					parent_head_data_hash: candidate_fingerprint.parent_head_data_hash,
+					relay_parent: candidate_fingerprint.relay_parent,
+				})
+				.collect();
+			state
+				.handle_advertisement(
+					sender,
+					origin,
+					scheduling_parent,
+					entries,
+					Some(candidates_descriptor_version),
+				)
+				.await;
 		},
 	}
 }

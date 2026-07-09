@@ -744,9 +744,9 @@ impl State {
 				acc + blocked_collations
 					.iter()
 					.filter(|pc| {
-						pc.candidate_receipt.descriptor.para_id() == *para_id &&
-							pc.candidate_receipt.descriptor.scheduling_parent() ==
-								*scheduling_parent
+						pc.candidate_receipt.descriptor.para_id() == *para_id
+							&& pc.candidate_receipt.descriptor.scheduling_parent()
+								== *scheduling_parent
 					})
 					.count()
 			});
@@ -1035,8 +1035,8 @@ async fn request_collation(
 			let requests = Requests::CollationFetchingV1(req);
 			(requests, response_recv.boxed())
 		},
-		(CollationVersion::V2, Some(ProspectiveCandidate { candidate_hash, .. })) |
-		(CollationVersion::V3, Some(ProspectiveCandidate { candidate_hash, .. })) => {
+		(CollationVersion::V2, Some(ProspectiveCandidate { candidate_hash, .. }))
+		| (CollationVersion::V3, Some(ProspectiveCandidate { candidate_hash, .. })) => {
 			let (req, response_recv) = OutgoingRequest::new(
 				Recipient::Peer(peer_id),
 				request_v2::CollationFetchingRequest { scheduling_parent, para_id, candidate_hash },
@@ -1114,10 +1114,10 @@ async fn process_incoming_peer_message<Context>(
 	use sp_runtime::traits::AppVerify;
 
 	match msg {
-		CollationProtocols::V1(V1::Declare(collator_id, para_id, signature)) |
-		CollationProtocols::V2(V2::Declare(collator_id, para_id, signature)) |
-		CollationProtocols::V3(V3::Declare(collator_id, para_id, signature)) |
-		CollationProtocols::V4(V4::Declare(collator_id, para_id, signature)) => {
+		CollationProtocols::V1(V1::Declare(collator_id, para_id, signature))
+		| CollationProtocols::V2(V2::Declare(collator_id, para_id, signature))
+		| CollationProtocols::V3(V3::Declare(collator_id, para_id, signature))
+		| CollationProtocols::V4(V4::Declare(collator_id, para_id, signature)) => {
 			if collator_peer_id(&state.peer_data, &collator_id).is_some() {
 				modify_reputation(
 					&mut state.reputation,
@@ -1302,52 +1302,13 @@ async fn process_incoming_peer_message<Context>(
 				}
 			}
 		},
-		CollationProtocols::V4(V4::AdvertiseSegment { scheduling_parent, candidates }) => {
-			if candidates.is_empty() {
-				gum::warn!(
-					target: LOG_TARGET,
-					?scheduling_parent,
-					?origin,
-					"Received an empty segment advertisement",
-				);
-				return;
-			}
-			let Some(segment_fingerprint) = candidates.last() else {
-				// We should never be here.
-				return;
-			};
-			if let Err(err) = handle_advertisement_v3(
-				ctx.sender(),
-				state,
-				scheduling_parent,
-				origin,
-				segment_fingerprint.candidate_hash,
-				segment_fingerprint.parent_head_data_hash,
-				segment_fingerprint.candidate_descriptor_version,
-				segment_fingerprint.relay_parent,
-			)
-			.await
-			{
-				gum::debug!(
-					target: LOG_TARGET,
-					peer_id = ?origin,
-					?segment_fingerprint.relay_parent,
-					?scheduling_parent,
-					?segment_fingerprint.candidate_hash,
-					?segment_fingerprint.candidate_descriptor_version,
-					error = ?err,
-					"Rejected v3 advertisement",
-				);
-
-				if let Some(rep) = err.reputation_changes() {
-					modify_reputation(&mut state.reputation, ctx.sender(), origin, rep).await;
-				}
-			}
+		CollationProtocols::V4(V4::AdvertiseSegment { .. }) => {
+			gum::error!("We don't handle V4 on classic validator_side");
 		},
-		CollationProtocols::V1(V1::CollationSeconded(..)) |
-		CollationProtocols::V2(V2::CollationSeconded(..)) |
-		CollationProtocols::V3(V3::CollationSeconded(..)) |
-		CollationProtocols::V4(V4::CollationSeconded(..)) => {
+		CollationProtocols::V1(V1::CollationSeconded(..))
+		| CollationProtocols::V2(V2::CollationSeconded(..))
+		| CollationProtocols::V3(V3::CollationSeconded(..))
+		| CollationProtocols::V4(V4::CollationSeconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,
@@ -1379,9 +1340,9 @@ fn hold_off_asset_hub_collation_if_needed(
 	let peer_is_invulnerable = state.ah_invulnerables.contains(&peer_id);
 	let invulnerables_set_is_empty = state.ah_invulnerables.is_empty();
 
-	if maybe_para_id != Some(ASSET_HUB_PARA_ID) ||
-		peer_is_invulnerable ||
-		invulnerables_set_is_empty
+	if maybe_para_id != Some(ASSET_HUB_PARA_ID)
+		|| peer_is_invulnerable
+		|| invulnerables_set_is_empty
 	{
 		gum::trace!(
 			target: LOG_TARGET,
@@ -1755,8 +1716,8 @@ where
 	let peer_data = state.peer_data.get_mut(&peer_id).ok_or(AdvertisementError::UnknownPeer)?;
 
 	// V1 protocol requires relay_parent to be an active leaf (no async backing support)
-	if peer_data.version == CollationVersion::V1 &&
-		!state.leaf_claim_queues.contains_key(&scheduling_parent)
+	if peer_data.version == CollationVersion::V1
+		&& !state.leaf_claim_queues.contains_key(&scheduling_parent)
 	{
 		gum::debug!(
 			target: LOG_TARGET,
@@ -1851,8 +1812,8 @@ where
 	let peer_data = state.peer_data.get_mut(&peer_id).ok_or(AdvertisementError::UnknownPeer)?;
 
 	// For non-V3 descriptors, the relay parent must equal the scheduling parent.
-	if candidate_descriptor_version != CandidateDescriptorVersion::V3 &&
-		relay_parent != scheduling_parent
+	if candidate_descriptor_version != CandidateDescriptorVersion::V3
+		&& relay_parent != scheduling_parent
 	{
 		return Err(AdvertisementError::RelayParentMismatch);
 	}
@@ -2367,7 +2328,7 @@ async fn process_msg<Context>(
 				target: LOG_TARGET,
 				"DistributeSegment message is not expected on the validator side of the protocol",
 			);
-		}
+		},
 		NetworkBridgeUpdate(event) => {
 			if let Err(e) = handle_network_msg(ctx, state, keystore, event).await {
 				gum::warn!(
@@ -2464,8 +2425,8 @@ async fn process_msg<Context>(
 			let candidate_hash = fetched_collation.candidate_hash;
 			let id = match state.fetched_candidates.entry(fetched_collation) {
 				Entry::Occupied(entry)
-					if entry.get().pending_collation.commitments_hash ==
-						Some(candidate_receipt.commitments_hash) =>
+					if entry.get().pending_collation.commitments_hash
+						== Some(candidate_receipt.commitments_hash) =>
 				{
 					entry.remove().collator_id
 				},
@@ -2842,8 +2803,8 @@ async fn kick_off_seconding<Context>(
 			collation_event.collator_protocol_version,
 			collation_event.pending_collation.prospective_candidate,
 		) {
-			(CollationVersion::V2, Some(ProspectiveCandidate { parent_head_data_hash, .. })) |
-			(CollationVersion::V3, Some(ProspectiveCandidate { parent_head_data_hash, .. })) => {
+			(CollationVersion::V2, Some(ProspectiveCandidate { parent_head_data_hash, .. }))
+			| (CollationVersion::V3, Some(ProspectiveCandidate { parent_head_data_hash, .. })) => {
 				// PVD contains relay_parent_number and relay_parent_storage_root, so
 				// we must pass the actual relay_parent (execution context), not the
 				// scheduling_parent. For V1/V2 these are identical; for V3 the
@@ -3051,10 +3012,10 @@ async fn handle_collation_fetch_response(
 			Err(None)
 		},
 		Ok(
-			request_v1::CollationFetchingResponse::Collation(receipt, _) |
-			request_v2::CollationFetchingResponse::Collation(receipt, _) |
-			request_v1::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. } |
-			request_v2::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. },
+			request_v1::CollationFetchingResponse::Collation(receipt, _)
+			| request_v2::CollationFetchingResponse::Collation(receipt, _)
+			| request_v1::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. }
+			| request_v2::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. },
 		) if receipt.descriptor().para_id() != pending_collation.para_id => {
 			gum::debug!(
 				target: LOG_TARGET,
@@ -3230,8 +3191,8 @@ fn get_next_collation_to_fetch(
 	// to replace it.
 	if let Some((collator_id, maybe_candidate_hash)) = rp_state.collations.fetching_from.as_ref() {
 		// If a candidate hash was saved previously, `finished_one` must include this too.
-		if collator_id != &finished_one.0 &&
-			maybe_candidate_hash.map_or(true, |hash| Some(&hash) != finished_one.1.as_ref())
+		if collator_id != &finished_one.0
+			&& maybe_candidate_hash.map_or(true, |hash| Some(&hash) != finished_one.1.as_ref())
 		{
 			gum::trace!(
 				target: LOG_TARGET,
@@ -3257,8 +3218,8 @@ pub fn descriptor_version_sanity_check_with_params(
 		CandidateDescriptorVersion::V1 => Ok(()),
 		CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 => {
 			// V3 descriptors must only arrive via V3 protocol.
-			if descriptor.version() == CandidateDescriptorVersion::V3 &&
-				!matches!(collator_protocol_version, CollationVersion::V3 | CollationVersion::V4)
+			if descriptor.version() == CandidateDescriptorVersion::V3
+				&& !matches!(collator_protocol_version, CollationVersion::V3 | CollationVersion::V4)
 			{
 				return Err(SecondingError::InvalidReceiptVersion(CandidateDescriptorVersion::V3));
 			}
