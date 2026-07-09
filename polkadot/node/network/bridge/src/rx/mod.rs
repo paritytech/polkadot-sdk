@@ -610,7 +610,13 @@ async fn handle_collation_message<AD>(
 					metrics,
 				)
 			} else if expected_versions[PeerSet::Collation] == Some(CollationVersion::V4.into()) {
-				handle_peer_messages::<v4_collation::CollationProtocol, _>(peer, PeerSet::Collation, &mut shared.0.lock().collation_peers, vec![notification.into()], metrics)
+				handle_peer_messages::<v4_collation::CollationProtocol, _>(
+					peer,
+					PeerSet::Collation,
+					&mut shared.0.lock().collation_peers,
+					vec![notification.into()],
+					metrics,
+				)
 			} else {
 				gum::warn!(
 					target: LOG_TARGET,
