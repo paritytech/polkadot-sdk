@@ -155,6 +155,22 @@ fn change_key_works_that_does_not_change_order() {
 }
 
 #[test]
+fn change_key_preserves_prime_notification_when_prime_is_unaffected() {
+	ExtBuilder::default().build_and_execute(|| {
+		// 20 is prime, but 10 (not the prime) changes its key to 40.
+		assert_ok!(Membership::set_prime(RuntimeOrigin::signed(5), 20));
+		assert_ok!(Membership::change_key(RuntimeOrigin::signed(10), 40));
+
+		assert_eq!(crate::Members::<Test>::get(), vec![20, 30, 40]);
+		// The prime is unchanged in this pallet's own storage...
+		assert_eq!(crate::Prime::<Test>::get(), Some(20));
+		// ...and the `ChangeMembers` consumer must still be notified of it, even though
+		// `change_members_sorted` resets its view of the prime on every call.
+		assert_eq!(PRIME.with(|m| *m.borrow()), Some(20));
+	});
+}
+
+#[test]
 fn change_key_with_same_caller_as_argument_changes_nothing() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_storage_noop!(assert_ok!(Membership::change_key(RuntimeOrigin::signed(10), 10)));
