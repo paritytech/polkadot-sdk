@@ -195,8 +195,7 @@ pub fn put_raw(child_info: &ChildInfo, key: &[u8], value: &[u8]) {
 /// output buffer.
 pub fn root<H: codec::MaxEncodedLen>(child_info: &ChildInfo) -> Vec<u8> {
 	match child_info.child_type() {
-		ChildType::ParentKeyId =>
-			sp_io::default_child_storage::root::<H>(child_info.storage_key()),
+		ChildType::ParentKeyId => sp_io::default_child_storage::root::<H>(child_info.storage_key()),
 	}
 }
 
@@ -205,7 +204,7 @@ pub fn len(child_info: &ChildInfo, key: &[u8]) -> Option<u32> {
 	match child_info.child_type() {
 		ChildType::ParentKeyId => {
 			let mut buffer = [0; 0];
-			sp_io::default_child_storage::read(child_info.storage_key(), key, &mut buffer, 0)
+			sp_io::default_child_storage::read_exact(child_info.storage_key(), key, &mut buffer, 0)
 		},
 	}
 }

@@ -92,6 +92,7 @@ where
 				let mut key_material = G::Hasher::reverse(raw_key_without_prefix);
 				Ok((K::decode(&mut key_material)?, V::decode(&mut raw_value)?))
 			},
+			next_key: Vec::new(),
 			phantom: Default::default(),
 		}
 	}
@@ -114,6 +115,7 @@ where
 				let mut key_material = G::Hasher::reverse(raw_key_without_prefix);
 				K::decode(&mut key_material)
 			},
+			next_key: Vec::new(),
 		}
 	}
 
@@ -148,8 +150,12 @@ where
 		let prefix = G::prefix_hash().to_vec();
 		let previous_key = previous_key.unwrap_or_else(|| prefix.clone());
 
-		let current_key =
-			sp_io::storage::next_key(&previous_key).filter(|n| n.starts_with(&prefix))?;
+		let mut current_key = Vec::new();
+		if !sp_io::storage::next_key(&previous_key, &mut current_key) ||
+			!current_key.starts_with(&prefix)
+		{
+			return None;
+		}
 
 		let value = match unhashed::get::<O>(&current_key) {
 			Some(value) => value,

@@ -21,7 +21,6 @@
 
 use crate::{instance_wrapper::MemoryWrapper, runtime::StoreData, util};
 use sc_allocator::{AllocationStats, FreeingBumpHeapAllocator};
-use sp_virtualization::VirtManager;
 use sp_wasm_interface::{Pointer, WordSize};
 use wasmtime::Caller;
 
@@ -37,8 +36,6 @@ pub struct HostState {
 	pub(crate) allocator: Option<FreeingBumpHeapAllocator>,
 	panic_message: Option<String>,
 	pub(crate) input_data: Option<Vec<u8>>,
-	/// Manages virtualization instances spawned by the runtime.
-	virt_manager: VirtManager,
 }
 
 impl HostState {
@@ -51,12 +48,7 @@ impl HostState {
 		allocator: Option<FreeingBumpHeapAllocator>,
 		input_data: impl Into<Vec<u8>>,
 	) -> Self {
-		HostState {
-			allocator,
-			panic_message: None,
-			virt_manager: VirtManager::default(),
-			input_data: Some(input_data.into()),
-		}
+		HostState { allocator, panic_message: None, input_data: Some(input_data.into()) }
 	}
 
 	/// Takes the error message out of the host state, leaving a `None` in its place.
@@ -141,9 +133,5 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 			.input_data
 			.take()
 			.ok_or_else(|| "Input data already taken".into())
-	}
-
-	fn virtualization(&mut self) -> &mut dyn sp_wasm_interface::Virtualization {
-		&mut self.host_state_mut().virt_manager
 	}
 }

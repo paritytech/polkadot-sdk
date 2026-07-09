@@ -71,8 +71,7 @@ where
 	/// Extensions registered with this instance.
 	#[cfg(feature = "std")]
 	extensions: Option<OverlayedExtensions<'a>>,
-	/// Fallback state version used by `storage_root` when no `RuntimeStateVersionExt` is
-	/// registered. In no-std builds (where extensions are not supported) this is the only source.
+	/// State version used by `storage_root` and `child_storage_root` to compute the trie layout.
 	state_version: StateVersion,
 	/// Last cursor of a storage operation.
 	last_cursor: Option<Vec<u8>>,

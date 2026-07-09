@@ -22,7 +22,7 @@ use super::*;
 use core::array;
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_system::{Pallet as System, RawOrigin};
-use sp_core::{twox_128, Get};
+use sp_core::Get;
 use sp_io::storage;
 use sp_runtime::traits::One;
 
@@ -213,7 +213,7 @@ mod benches {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn reset_pallet_migration(n: Linear<0, 2048>) -> Result<(), BenchmarkError> {
-		let prefix: [u8; 16] = twox_128(b"__ResetPalletBenchmarkPrefix__");
+		let prefix: [u8; 16] = sp_io::hashing::twox_128(b"__ResetPalletBenchmarkPrefix__");
 
 		for i in 0..n {
 			// we need to avoid allocations here

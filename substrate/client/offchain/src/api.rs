@@ -447,6 +447,28 @@ mod tests {
 	}
 
 	#[test]
+	fn opaque_peer_id_is_length_prefixed_38_bytes() {
+		use sc_network_types::ed25519;
+
+		// The `sp_io::offchain::network_peer_id` host function writes the peer id into a fixed
+		// `sp_io::NetworkPeerId([u8; 38])` buffer. That ABI is only sound because an ed25519 node
+		// peer id (the kind real nodes report via `local_peer_id`) is 38 raw bytes and
+		// `OpaqueNetworkState` stores it SCALE-encoded (i.e. length-prefixed, which is why the
+		// host side must decode before copying). Lock both facts next to the producer so a change
+		// on either side is caught here. Note `PeerId::random()` is *not* representative here: it
+		// wraps a random 32-byte digest and is only 34 bytes.
+		let peer_id: PeerId = ed25519::Keypair::generate().public().to_peer_id();
+		let raw = peer_id.to_bytes();
+		assert_eq!(raw.len(), 38);
+
+		let opaque = OpaqueNetworkState::from(NetworkState::new(peer_id, vec![]));
+		// The stored bytes carry a compact length prefix, so they are longer than the raw peer id.
+		assert!(opaque.peer_id.0.len() > raw.len());
+		let decoded: Vec<u8> = Decode::decode(&mut &opaque.peer_id.0[..]).unwrap();
+		assert_eq!(decoded, raw);
+	}
+
+	#[test]
 	fn should_get_random_seed() {
 		// given
 		let mut api = offchain_api().0;
