@@ -189,11 +189,6 @@ impl TryFrom<&'_ CollationSecondedSignal> for BlockAnnounceData {
 	}
 }
 
-/// A type alias for the [`RequireSecondedInBlockAnnounce`] validator.
-#[deprecated = "This has been renamed to RequireSecondedInBlockAnnounce"]
-pub type BlockAnnounceValidator<Block, RCInterface> =
-	RequireSecondedInBlockAnnounce<Block, RCInterface>;
-
 /// Parachain specific block announce validator.
 ///
 /// This is not required when the collation mechanism itself is sybil-resistant, as it is a spam
@@ -495,7 +490,7 @@ async fn wait_to_announce<Block: BlockT>(
 	}
 }
 
-/// A [`BlockAnnounceValidator`] which accepts all block announcements, as it assumes
+/// A [`BlockAnnounceValidatorT`] which accepts all block announcements, as it assumes
 /// sybil resistance is handled elsewhere.
 #[derive(Debug, Clone)]
 pub struct AssumeSybilResistance(bool);

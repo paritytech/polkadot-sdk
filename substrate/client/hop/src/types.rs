@@ -19,7 +19,8 @@
 use codec::{Decode, Encode};
 use polkadot_primitives::{BlockNumber, Hash};
 use serde::{Deserialize, Serialize};
-use sp_core::{bounded_vec::BoundedVec, hashing::blake2_256, ConstU32};
+use sp_core::{bounded_vec::BoundedVec, ConstU32};
+use sp_crypto_hashing::blake2_256;
 use sp_runtime::{MultiSignature, MultiSigner};
 
 /// Block number type used by HOP.

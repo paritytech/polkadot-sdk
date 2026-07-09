@@ -22,7 +22,7 @@
 
 #![deny(missing_docs)]
 
-use std::pin::Pin;
+use std::{env::var, pin::Pin, sync::LazyLock};
 
 use bounded_vec::BoundedVec;
 use codec::{Decode, Encode, Error as CodecError, Input};
@@ -60,7 +60,7 @@ pub use disputes::{
 /// relatively rare.
 ///
 /// The associated worker binaries should use the same version as the node that spawns them.
-pub const NODE_VERSION: &'static str = "1.22.2";
+pub const NODE_VERSION: &'static str = "1.24.0";
 
 // For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
@@ -100,7 +100,18 @@ pub const POV_BOMB_LIMIT: usize = (MAX_POV_SIZE * 4u32) as usize;
 ///
 /// slot time * `DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION` > `APPROVAL_EXECUTION_TIMEOUT`
 /// + slot time
-pub const DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION: BlockNumber = 10;
+///
+/// NOTE: In order to use zombie-bite with the less possible changes in the client we need to set
+/// this value to `1` (checking iff the env var
+/// `ZOMBIE_DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION` is set).
+pub static DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION: LazyLock<BlockNumber> =
+	LazyLock::new(|| {
+		if var("ZOMBIE_DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION").is_ok() {
+			1
+		} else {
+			10
+		}
+	});
 
 /// Linked to `MAX_FINALITY_LAG` in relay chain selection,
 /// `MAX_HEADS_LOOK_BACK` in `approval-voting` and

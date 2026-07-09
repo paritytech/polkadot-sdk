@@ -120,6 +120,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 	export_pov: Option<PathBuf>,
 ) {
 	let CollatorMessage {
+		scheduling_proof,
 		parent_header,
 		blocks,
 		proof,
@@ -129,14 +130,21 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		validation_data,
 	} = message;
 
-	let (collation, block_data) =
-		match collator_service.build_multi_block_collation(&parent_header, blocks, proof) {
-			Some(collation) => collation,
-			None => {
-				tracing::warn!(target: LOG_TARGET, ?core_index, "Unable to build collation.");
-				return;
-			},
-		};
+	// Derive scheduling_parent from the proof (the ISP header's hash is used when the
+	// header chain is empty — that's the case with `relay_parent_offset = 0`).
+	let scheduling_parent = scheduling_proof.as_ref().map(|p| p.scheduling_parent());
+	let (collation, block_data) = match collator_service.build_multi_block_collation(
+		&parent_header,
+		blocks,
+		proof,
+		scheduling_proof,
+	) {
+		Some(collation) => collation,
+		None => {
+			tracing::warn!(target: LOG_TARGET, ?core_index, "Unable to build collation.");
+			return;
+		},
+	};
 
 	block_data.log_size_info();
 
@@ -198,7 +206,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 				validation_code_hash,
 				core_index,
 				result_sender: None,
-				scheduling_parent: None,
+				scheduling_parent,
 				session_index,
 				validation_data,
 			}),
