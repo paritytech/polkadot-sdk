@@ -1376,46 +1376,217 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///  from the submission block.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn try_state_referenda_info() -> Result<(), sp_runtime::TryRuntimeError> {
-		ReferendumInfoFor::<T, I>::iter().try_for_each(|(_, referendum)| {
+		use alloc::collections::btree_map::BTreeMap;
+
+		let now = T::BlockNumberProvider::current_block_number();
+		let mut tracked_reserved: BTreeMap<T::AccountId, BalanceOf<T, I>> = BTreeMap::new();
+		ReferendumInfoFor::<T, I>::iter().try_for_each(|(_, referendum)| -> Result<(), sp_runtime::TryRuntimeError> {
 			match referendum {
 				ReferendumInfo::Ongoing(status) => {
+					let track = T::Tracks::info(status.track);
+					ensure!(track.is_some(), "No track info for the track of the referendum.");
+					let track = track.expect("checked is_some above; qed");
 					ensure!(
-						T::Tracks::info(status.track).is_some(),
-						"No track info for the track of the referendum."
+						status.submission_deposit.amount == T::SubmissionDeposit::get(),
+						"Ongoing referendum submission deposit amount is incorrect"
 					);
+					tracked_reserved
+						.entry(status.submission_deposit.who.clone())
+						.and_modify(|x| *x = x.saturating_add(status.submission_deposit.amount))
+						.or_insert(status.submission_deposit.amount);
 
-					if let Some(deciding) = status.deciding {
+					if let Some(ref decision_deposit) = status.decision_deposit {
+						ensure!(
+							decision_deposit.amount == track.decision_deposit,
+							"Ongoing referendum decision deposit amount is incorrect"
+						);
+						tracked_reserved
+							.entry(decision_deposit.who.clone())
+							.and_modify(|x| *x = x.saturating_add(decision_deposit.amount))
+							.or_insert(decision_deposit.amount);
+					}
+
+					if let Some(ref deciding) = status.deciding {
 						ensure!(
 							deciding.since <
 								deciding
 									.confirming
 									.unwrap_or(BlockNumberFor::<T, I>::max_value()),
 							"Deciding status cannot begin before confirming stage."
-						)
+						);
+						ensure!(
+							!status.in_queue,
+							"Referendum is deciding but also marked in_queue"
+						);
+						ensure!(
+							status.decision_deposit.is_some(),
+							"Referendum is deciding but has no decision deposit"
+						);
+						ensure!(
+							deciding.since <= now,
+							"Deciding.since is in the future"
+						);
+					}
+
+					if status.in_queue {
+						ensure!(
+							status.deciding.is_none(),
+							"Referendum is in_queue but also deciding"
+						);
+						ensure!(
+							status.decision_deposit.is_some(),
+							"Referendum is in_queue but has no decision deposit"
+						);
+						if let Some((when, _)) = status.alarm {
+							ensure!(
+								when <= now.saturating_add(One::one()),
+								"Queued referendum has a deferred nudge alarm beyond next block"
+							);
+						}
+					} else {
+						ensure!(
+							status.alarm.is_some(),
+							"Non-queued ongoing referendum has no alarm and will never progress"
+						);
+					}
+
+					ensure!(
+						status.submitted <= now,
+						"Referendum submitted in the future"
+					);
+				},
+				ReferendumInfo::Approved(_, submission, decision)
+				| ReferendumInfo::Cancelled(_, submission, decision) => {
+					if let Some(submission) = submission {
+						tracked_reserved
+							.entry(submission.who.clone())
+							.and_modify(|x| *x = x.saturating_add(submission.amount))
+							.or_insert(submission.amount);
+					}
+					if let Some(decision) = decision {
+						tracked_reserved
+							.entry(decision.who.clone())
+							.and_modify(|x| *x = x.saturating_add(decision.amount))
+							.or_insert(decision.amount);
 					}
 				},
-				_ => {},
+				ReferendumInfo::Rejected(_, submission, decision)
+				| ReferendumInfo::TimedOut(_, submission, decision) => {
+					ensure!(
+						submission.is_some(),
+						"Rejected or timed out referendum lost tracked submission deposit"
+					);
+					if let Some(submission) = submission {
+						tracked_reserved
+							.entry(submission.who.clone())
+							.and_modify(|x| *x = x.saturating_add(submission.amount))
+							.or_insert(submission.amount);
+					}
+					if let Some(decision) = decision {
+						tracked_reserved
+							.entry(decision.who.clone())
+							.and_modify(|x| *x = x.saturating_add(decision.amount))
+							.or_insert(decision.amount);
+					}
+				},
+				ReferendumInfo::Killed(_) => {},
 			}
+			Ok(())
+		})?;
+
+		tracked_reserved.into_iter().try_for_each(|(who, tracked)| -> Result<(), sp_runtime::TryRuntimeError> {
+			ensure!(
+				T::Currency::reserved_balance(&who) >= tracked,
+				"Tracked referendum deposits exceed reserved balance"
+			);
 			Ok(())
 		})
 	}
 
-	/// Looking at tracks:
-	///
-	/// * The referendum indices stored in [`TrackQueue`] must exist as keys in the
-	///  [`ReferendumInfoFor`] storage map.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn try_state_tracks() -> Result<(), sp_runtime::TryRuntimeError> {
-		T::Tracks::tracks().try_for_each(|track| {
-			TrackQueue::<T, I>::get(track.id).iter().try_for_each(
-				|(referendum_index, _)| -> Result<(), sp_runtime::TryRuntimeError> {
-					ensure!(
+		use alloc::collections::btree_map::BTreeMap;
+		use alloc::collections::btree_set::BTreeSet;
+
+		let mut queued_by_track: BTreeMap<TrackIdOf<T, I>, BTreeSet<ReferendumIndex>> =
+			BTreeMap::new();
+		let mut deciding_per_track: BTreeMap<TrackIdOf<T, I>, u32> = BTreeMap::new();
+
+		T::Tracks::tracks().try_for_each(|track| -> Result<(), sp_runtime::TryRuntimeError> {
+			let queue = TrackQueue::<T, I>::get(track.id);
+			let set = queued_by_track.entry(track.id).or_default();
+			let mut prev_votes: Option<VotesOf<T, I>> = None;
+
+			for (referendum_index, votes) in queue.iter() {
+				ensure!(
 					ReferendumInfoFor::<T, I>::contains_key(referendum_index),
-					"`ReferendumIndex` inside the `TrackQueue` should be a key in `ReferendumInfoFor`"
+					"TrackQueue entry points to nonexistent referendum"
 				);
-					Ok(())
-				},
-			)?;
+
+				ensure!(
+					!set.contains(referendum_index),
+					"Duplicate referendum index in TrackQueue"
+				);
+				set.insert(*referendum_index);
+
+				// cancel/kill leave stale entries that next_for_deciding skips lazily,
+				// so we only check the remaining properties when the entry is Ongoing.
+				if let Some(ReferendumInfo::Ongoing(status)) =
+					ReferendumInfoFor::<T, I>::get(referendum_index)
+				{
+					ensure!(status.track == track.id, "TrackQueue entry on wrong track");
+					ensure!(status.in_queue, "TrackQueue entry has in_queue=false");
+					let actual_ayes = status.tally.ayes(status.track);
+					if status.alarm.is_none() {
+						ensure!(
+							*votes == actual_ayes,
+							"Stable TrackQueue vote count does not match tally"
+						);
+					}
+				}
+
+				if let Some(prev) = prev_votes {
+					ensure!(
+						*votes >= prev,
+						"TrackQueue is not sorted by ascending vote count"
+					);
+				}
+				prev_votes = Some(*votes);
+			}
+
+			Ok(())
+		})?;
+
+		ReferendumInfoFor::<T, I>::iter().try_for_each(
+			|(index, info)| -> Result<(), sp_runtime::TryRuntimeError> {
+				if let ReferendumInfo::Ongoing(status) = info {
+					if status.in_queue {
+						let in_track_queue = queued_by_track
+							.get(&status.track)
+							.map_or(false, |set| set.contains(&index));
+						ensure!(
+							in_track_queue,
+							"Referendum has in_queue=true but is absent from its TrackQueue"
+						);
+					}
+					if status.deciding.is_some() {
+						*deciding_per_track.entry(status.track).or_default() += 1;
+					}
+				}
+				Ok(())
+			},
+		)?;
+
+		// DecidingCount can transiently exceed the actual count by at most 1 per track
+		// because cancel/kill call note_one_fewer_deciding which defers the decrement
+		// to the next block via the scheduler.  We allow stored >= actual.
+		T::Tracks::tracks().try_for_each(|track| -> Result<(), sp_runtime::TryRuntimeError> {
+			let stored = DecidingCount::<T, I>::get(track.id);
+			let actual = deciding_per_track.get(&track.id).copied().unwrap_or(0);
+			ensure!(
+				stored >= actual,
+				"DecidingCount is less than actual deciding referenda"
+			);
 			Ok(())
 		})
 	}
