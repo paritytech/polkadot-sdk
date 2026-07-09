@@ -1,0 +1,47 @@
+[package]
+name = "pallet-referenda-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+rand = "0.8"
+codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
+pallet-referenda = { path = "..", default-features = true, features = ["try-runtime"] }
+pallet-conviction-voting = { path = "../../conviction-voting", default-features = true }
+pallet-balances = { path = "../../balances", default-features = true }
+pallet-preimage = { path = "../../preimage", default-features = true }
+pallet-scheduler = { path = "../../scheduler", default-features = true }
+frame-support = { path = "../../support", default-features = true }
+frame-system = { path = "../../system", default-features = true }
+frame-stateful-fuzzer = { path = "../../stateful-fuzzer" }
+sp-runtime = { path = "../../../primitives/runtime", default-features = true }
+sp-io = { path = "../../../primitives/io", default-features = true }
+sp-core = { path = "../../../primitives/core", default-features = true }
+scale-info = { version = "2.11.1", features = ["derive"] }
+
+[lib]
+name = "pallet_referenda_fuzz"
+path = "src/lib.rs"
+
+[[bin]]
+name = "referenda_stateful"
+path = "fuzz_targets/referenda_stateful.rs"
+
+[[bin]]
+name = "referenda_priority_repro"
+path = "fuzz_targets/referenda_priority_repro.rs"
+
+[[bin]]
+name = "referenda_checkpoint"
+path = "fuzz_targets/referenda_checkpoint.rs"
+
+[[bin]]
+name = "referenda_simple"
+path = "fuzz_targets/referenda_simple.rs"
+
+[[bin]]
+name = "scheduler_saturation_repro"
+path = "fuzz_targets/scheduler_saturation_repro.rs"

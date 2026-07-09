@@ -1,0 +1,10 @@
+[package]
+name = "frame-stateful-fuzzer"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+rand = { version = "0.8", default-features = false, features = ["std", "std_rng"] }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }

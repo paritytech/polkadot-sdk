@@ -108,8 +108,8 @@ pub use self::{
 pub use alloc::vec::Vec;
 use sp_runtime::traits::BlockNumberProvider;
 
-#[cfg(test)]
-mod mock;
+#[cfg(any(test, feature = "fuzzing"))]
+pub mod mock;
 #[cfg(test)]
 mod tests;
 
@@ -1345,7 +1345,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///   [`ReferendumInfoFor`].
 	/// * Referendum indices in [`MetadataOf`] must also be stored in [`ReferendumInfoFor`].
 	#[cfg(any(feature = "try-runtime", test))]
-	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		ensure!(
 			ReferendumCount::<T, I>::get() as usize ==
 				ReferendumInfoFor::<T, I>::iter_keys().count(),

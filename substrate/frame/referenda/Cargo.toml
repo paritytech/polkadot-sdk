@@ -25,8 +25,21 @@ log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
 sp-arithmetic = { workspace = true }
-sp-io = { workspace = true }
+sp-io = { workspace = true, optional = true }
 sp-runtime = { workspace = true }
+
+[dependencies.pallet-balances]
+workspace = true
+optional = true
+[dependencies.pallet-preimage]
+workspace = true
+optional = true
+[dependencies.pallet-scheduler]
+workspace = true
+optional = true
+[dependencies.sp-core]
+workspace = true
+optional = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }
@@ -63,6 +76,7 @@ runtime-benchmarks = [
 	"pallet-scheduler/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
+fuzzing = ["pallet-balances", "pallet-preimage", "pallet-scheduler", "sp-core", "sp-io", "try-runtime"]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
