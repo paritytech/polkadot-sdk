@@ -123,8 +123,9 @@ mod benchmarks {
 
 	// ==================== Erc20TransferLogs benchmarks ====================
 
-	/// One mirrored ERC-20 `Transfer` log: tracing hook, receipt capture (worst case:
-	/// inside an ethereum context) and `ContractEmitted` event deposit.
+	/// One mirrored ERC-20 `Transfer` log: token-address derivation, log encoding and the
+	/// `ContractEmitted` event deposit. Receipt capture is a no-op outside an ethereum
+	/// transaction and, like a contract's own log, is not separately metered.
 	#[benchmark]
 	fn erc20_transfer_log() {
 		let from: T::AccountId = whitelisted_caller();
@@ -136,13 +137,11 @@ mod benchmarks {
 
 		#[block]
 		{
-			pallet_revive::evm::bench_with_ethereum_context(|| {
-				<Erc20TransferLogs<T, InlineIdConfig<0x0120>, T::AssetsInstance> as AssetsCallback<
-					_,
-					_,
-					_,
-				>>::transferred(&asset_id, &from, &to, amount);
-			});
+			<Erc20TransferLogs<T, InlineIdConfig<0x0120>, T::AssetsInstance> as AssetsCallback<
+				_,
+				_,
+				_,
+			>>::transferred(&asset_id, &from, &to, amount);
 		}
 
 		assert_eq!(frame_system::Pallet::<T>::event_count(), events_before + 1);
