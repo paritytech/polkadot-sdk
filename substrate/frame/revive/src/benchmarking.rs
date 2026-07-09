@@ -1620,7 +1620,7 @@ mod benchmarks {
 	// length (more bytes read into the PoV). The ranges match how the precompile
 	// evaluates the weight function: keys are capped at
 	// `UNCHECKED_RUNTIME_KEY_BYTES` and the upfront value charge at `MaxValueLen`
-	// (at most `CALLDATA_BYTES`); only the over-limit revert path extrapolates
+	// (clamped below `CALLDATA_BYTES`); only the over-limit revert path extrapolates
 	// beyond `v`, where the dominant proof_size cost is exactly linear. The
 	// benchmark measures the raw read so it is independent of the
 	// `unchecked-precompiles` feature gate.

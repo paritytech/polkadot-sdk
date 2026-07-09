@@ -4979,6 +4979,47 @@ fn unchecked_runtime_storage_read_works() {
 }
 
 #[test]
+fn unchecked_runtime_get_storage_return_data_boundary() {
+	use crate::precompiles::{
+		Precompile, UncheckedRuntime,
+		unchecked_runtime::{IUncheckedRuntime, MAX_RETURNABLE_VALUE_LEN},
+	};
+	use alloy_core::sol_types::{SolInterface, SolType, sol_data::Bytes};
+
+	let precompile_addr = H160(UncheckedRuntime::<Test>::MATCHER.base_address());
+	let input = |key: &[u8]| {
+		IUncheckedRuntime::IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall {
+			key: key.to_vec().into(),
+		})
+		.abi_encode()
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		// A value at the returnable maximum: its ABI encoding is exactly
+		// `CALLDATA_BYTES`, the largest return data a frame accepts, so it must
+		// round-trip through the full call stack (the unit tests bypass the
+		// frame's return-data check).
+		let value = vec![7u8; MAX_RETURNABLE_VALUE_LEN as usize];
+		sp_io::storage::set(b"max_val", &value);
+		let result =
+			builder::bare_call(precompile_addr).data(input(b"max_val")).build_and_unwrap_result();
+		assert!(!result.did_revert());
+		let decoded = Bytes::abi_decode(&result.data).expect("return should abi-decode");
+		assert_eq!(decoded.as_ref(), value.as_slice());
+
+		// One byte past it: the precompile's own limit check reverts cleanly
+		// instead of returning data the frame would reject as
+		// `ReturnDataTooLarge`.
+		sp_io::storage::set(b"over_max", &vec![7u8; MAX_RETURNABLE_VALUE_LEN as usize + 1]);
+		let result =
+			builder::bare_call(precompile_addr).data(input(b"over_max")).build_and_unwrap_result();
+		assert!(result.did_revert());
+	});
+}
+
+#[test]
 fn unchecked_runtime_dispatch_reentrancy_guarded() {
 	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
 	use alloy_core::sol_types::SolInterface;

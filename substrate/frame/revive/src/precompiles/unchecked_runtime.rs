@@ -75,6 +75,15 @@ use frame_support::{
 use frame_system::RawOrigin;
 use sp_runtime::traits::Dispatchable;
 
+/// The largest storage value `getStorage` can return.
+///
+/// The value is ABI-encoded as `bytes` for the return trip (32-byte offset word,
+/// 32-byte length word, data padded to a 32-byte boundary), and that envelope
+/// counts against the `limits::CALLDATA_BYTES` return-data cap enforced on every
+/// call frame — so the raw value must stay 64 bytes below the cap.
+/// `MaxValueLen` configurations above this are clamped to it.
+pub const MAX_RETURNABLE_VALUE_LEN: u32 = limits::CALLDATA_BYTES - 64;
+
 sol! {
 	/// Unchecked, raw access to the runtime. The pallet/call indices and storage
 	/// keys are positional implementation details, not a stable ABI: a runtime
@@ -118,13 +127,13 @@ sol! {
 /// This is what makes the read sound: a caller that cannot afford the worst case
 /// runs out of gas before the value is pulled into the PoV. Set it together with
 /// `StorageFilter` so that no readable key can hold a value larger than the limit.
-/// `limits::CALLDATA_BYTES` is the maximum that can be returned anyway so it will
-/// never go above that.
+/// The effective limit is clamped to [`MAX_RETURNABLE_VALUE_LEN`], since nothing
+/// larger can be returned once the ABI envelope is added.
 pub struct UncheckedRuntime<
 	T,
 	Filter = Everything,
 	StorageFilter = Everything,
-	MaxValueLen = ConstU32<{ limits::CALLDATA_BYTES }>,
+	MaxValueLen = ConstU32<{ MAX_RETURNABLE_VALUE_LEN }>,
 >(PhantomData<(T, Filter, StorageFilter, MaxValueLen)>);
 
 impl<T: crate::Config, Filter, StorageFilter, MaxValueLen> Precompile
@@ -221,7 +230,10 @@ where
 					return Err(Error::Revert("storage key not allowed by filter".into()));
 				}
 
-				let limit = MaxValueLen::get();
+				// The clamp keeps a misconfigured `MaxValueLen` from producing return
+				// data the frame would reject (and from evaluating the weight function
+				// past its benchmarked range).
+				let limit = MaxValueLen::get().min(MAX_RETURNABLE_VALUE_LEN);
 				// Read weight is 2-D: key length (trie traversal) and value length
 				// (bytes pulled into the PoV).
 				let weight = |v: u32| {
@@ -376,6 +388,36 @@ mod tests {
 				result.unwrap_err(),
 				Error::Revert("storage key not allowed by filter".into()),
 			);
+		});
+	}
+
+	#[test]
+	fn storage_value_len_config_is_clamped() {
+		use super::MAX_RETURNABLE_VALUE_LEN;
+
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+			sp_io::storage::set(b"small", b"v");
+
+			// Without the clamp a `MaxValueLen` of `u32::MAX` would charge and
+			// allocate for a 4 GiB value up front. Clamped, the read behaves as
+			// with the default limit.
+			let raw = <UncheckedRuntime<Test, Everything, Everything, ConstU32<{ u32::MAX }>>
+				as Precompile>::call(&address(), &storage_input(b"small"), &mut ext)
+				.expect("an oversized MaxValueLen must be clamped");
+			let decoded = Bytes::abi_decode(&raw).expect("decode");
+			assert_eq!(decoded.as_ref(), b"v");
+
+			// The clamp bounds what is readable: one byte past the returnable
+			// maximum reverts even under the u32::MAX configuration.
+			sp_io::storage::set(
+				b"over_max",
+				&alloc::vec![7u8; MAX_RETURNABLE_VALUE_LEN as usize + 1],
+			);
+			let result = <UncheckedRuntime<Test, Everything, Everything, ConstU32<{ u32::MAX }>>
+				as Precompile>::call(&address(), &storage_input(b"over_max"), &mut ext);
+			assert_eq!(result.unwrap_err(), Error::Revert("value exceeds storage limit".into()));
 		});
 	}
 
