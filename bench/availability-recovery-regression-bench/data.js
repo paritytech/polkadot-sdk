@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783609233803,
+  "lastUpdate": 1783618388782,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b879bf2744dc9435425c31d36218cfba63d11fe4",
-          "message": "Benchmark Trie Cache with zombienet (#7979)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/7540\nFixes https://github.com/paritytech/polkadot-sdk/issues/9586\n\nWe wanted to check how many smart contract calls we can include in one\nblock using various weights.\n- We prepared [a zombienet\ntest](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/polkadot/zombienet-sdk-tests/tests/parachains/weights.rs#L28),\nwhere we instantiate [a\ncontract](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/polkadot/zombienet-sdk-tests/tests/parachains/contract.txt#L6)\nwith an ERC20 token and call it from different accounts: each account\nmints 100 tokens per call.\n- To maximize throughput, we also increased the PoV size from 5 MB to 10\nMB and raised the weight limit (the maximum block fill) from 75% to 95%.\n- ref_time of read/write for the current setup were taken from\n[rocksdb_weights](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights/rocksdb_weights.rs#L28),\nand then they were changed according to results [of updated\nbenchmarks](https://github.com/paritytech/polkadot-sdk/pull/7867).\n- Block execution time was taken from\n[basic_authorship](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/substrate/client/basic-authorship/src/basic_authorship.rs#L574).\n- Number of transaction and how block filled were taken just looking at\nblocks.\n- PoV size for 1033 extrinsics in current setup (25000 read/100000 write\nweights, block filled to 75%) is 289 KB. I didn’t write down PoV sizes\nfrom other cases but they’re comparable to it.\n- Tests were running on Macbook Pro with M2.\n\n| ref_time of read/write | Block execution time | Block filled |\nExtrinsics in block |\n\n|--------------------------------------|----------------------|--------------|---------------------|\n| **ref_time from the current setup** | | | |\n| 25000/100000 | 679 ms | 75% | 1033 |\n| **ref_time from reference hardware** | | | |\n| 9000/28000 | 905 ms | 94% | 2225 |\n| 9000/28000 | 861 ms | 94% | 2225 |\n| **ref_time from a local machine** | | | |\n| 4000/13000 | 1013 ms | 94% | 2698 |\n| 4000/13000 | 1077 ms | 94% | 2698 |\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2025-11-13T17:02:23Z",
-          "tree_id": "0f1b9603c2c09383f2dde5bf1fe034c88c1d0006",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b879bf2744dc9435425c31d36218cfba63d11fe4"
-        },
-        "date": 1763058732323,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.659148403433331,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20269913436666673,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14451937653333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "41a79e4d01bd1bbbc9cb7967bdce1a4223e1a1aa",
+          "message": "collator-protocol revamp: Increase channel size used by the background writer of `PersistentDb` (#12260)\n\nWhile testing the collator revamp on versi I've noticed a lot of\n[\"Reputation persistence channel full. Modifications kept in memory for\nnext\nretry\"](https://github.com/paritytech/polkadot-sdk/blob/2d69a9182eed3a79a9443905439a8e971d7c318d/polkadot/node/network/collator-protocol/src/validator_side_experimental/peer_manager/persistent_db.rs#L362)\nwarnings which happen during advertisement spam.\n\nThe reason is that we persist reputation slashes immediately in the DB\nso if we get two slashes in a very short time the channel is still full\nand processing is deferred. Here is an example:\n```\nWARN tokio-runtime-worker parachain::collator-protocol: Reputation persistence channel full. Modifications kept in memory for next retry.\nDEBUG tokio-runtime-worker parachain::collator-protocol: Slashing peer's reputation peer_id=PeerId(\"12D3KooWLwsXNV3gqUWuihotcVoncCXxzarUTpHhqu1BDaxAM1FJ\") para_id=1306 value=Score(10922)\nDEBUG tokio-runtime-worker parachain::collator-protocol: Slashing peer's reputation peer_id=PeerId(\"12D3KooWLwsXNV3gqUWuihotcVoncCXxzarUTpHhqu1BDaxAM1FJ\") para_id=1306 value=Score(10922)\n``` \n\nThis is not fatal since the update is not lost, just delayed. Despite\nthat I believe it's worth increasing the channel size between\n`PersistentDb` and its internal background writer from 1 to 3.\n\nAdditionally the PR introduces a separate log target for the\npersistent_db module.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-09T15:46:50Z",
+          "tree_id": "77b17ada46ee9dad1ecd640363f0f6d8796a8ce3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/41a79e4d01bd1bbbc9cb7967bdce1a4223e1a1aa"
+        },
+        "date": 1783618358416,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.15028495613333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.6631364612,
             "unit": "seconds"
           }
         ]
