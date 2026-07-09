@@ -48,7 +48,7 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	};
 
 	let syn::DeriveInput { generics, data, ident, .. } = input;
-	let trait_generics = generics.clone();
+	let trait_generics = generics;
 	let weight_info_provider_ident = pick_weight_info_provider_ident(&trait_generics);
 	let enum_ty_generics = {
 		let (_, ty_generics, _) = trait_generics.split_for_impl();
@@ -74,21 +74,28 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 					let snake_cased_ident =
 						format_ident!("{}", variant_ident.to_string().to_snake_case());
 
-					// Trait method: one `name: &Type` parameter per field.
-					let ref_fields =
-						fields.iter().enumerate().map(|(index, syn::Field { ident, ty, .. })| {
-							let field_name =
-								ident.clone().unwrap_or_else(|| format_ident!("_{}", index));
-							let field_ty = match ty {
-								// If the type is already a reference, do nothing
-								syn::Type::Reference(r) => quote::quote!(#r),
-								// Otherwise, make it a reference
-								t => quote::quote!(&#t),
-							};
+					// Field binding names, derived once and reused by both the trait method
+					// signature and the match arm. Named fields keep their name; the unnamed
+					// fields of a tuple variant become `_0`, `_1`, ... .
+					let field_names = fields
+						.iter()
+						.enumerate()
+						.map(|(index, field)| {
+							field.ident.clone().unwrap_or_else(|| format_ident!("_{}", index))
+						})
+						.collect::<Vec<_>>();
 
-							quote::quote!(#field_name: #field_ty,)
-						});
-					let method = quote::quote!(fn #snake_cased_ident( #(#ref_fields)* ) -> Weight;);
+					// Trait method: one `name: &Type` parameter per field.
+					let params = fields.iter().zip(&field_names).map(|(field, name)| {
+						let field_ty = match &field.ty {
+							// If the type is already a reference, do nothing
+							syn::Type::Reference(r) => quote::quote!(#r),
+							// Otherwise, make it a reference
+							ty => quote::quote!(&#ty),
+						};
+						quote::quote!(#name: #field_ty,)
+					});
+					let method = quote::quote!(fn #snake_cased_ident( #(#params)* ) -> Weight;);
 
 					// Match arm: destructure the variant and forward its fields to the method.
 					let match_arm = match fields {
@@ -96,31 +103,14 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 							#ident::#variant_ident =>
 								#weight_info_provider_ident::#snake_cased_ident(),
 						),
-						syn::Fields::Unnamed(fields_unnamed) => {
-							let field_names = (0..fields_unnamed.unnamed.len())
-								.map(|index| format_ident!("_{}", index))
-								.collect::<Vec<_>>();
-							quote::quote!(
-								#ident::#variant_ident( #(#field_names),* ) =>
-									#weight_info_provider_ident::#snake_cased_ident( #(#field_names),* ),
-							)
-						},
-						syn::Fields::Named(fields_named) => {
-							let field_names = fields_named
-								.named
-								.iter()
-								.map(|field| {
-									field
-										.ident
-										.clone()
-										.expect("named fields always have idents; qed")
-								})
-								.collect::<Vec<_>>();
-							quote::quote!(
-								#ident::#variant_ident { #(#field_names),* } =>
-									#weight_info_provider_ident::#snake_cased_ident( #(#field_names),* ),
-							)
-						},
+						syn::Fields::Unnamed(_) => quote::quote!(
+							#ident::#variant_ident( #(#field_names),* ) =>
+								#weight_info_provider_ident::#snake_cased_ident( #(#field_names),* ),
+						),
+						syn::Fields::Named(_) => quote::quote!(
+							#ident::#variant_ident { #(#field_names),* } =>
+								#weight_info_provider_ident::#snake_cased_ident( #(#field_names),* ),
+						),
 					};
 
 					(method, match_arm)
