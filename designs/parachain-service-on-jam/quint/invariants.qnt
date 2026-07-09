@@ -215,47 +215,43 @@ module invariants {
       })
     )
 
-  /// Parent-head continuity (§5.1 step 3): replay each para's head over the block
-  /// from `lastStepWorkResults` and confirm it matches the stored head. For a
-  /// para `p`, collect its ordered head-affecting operations: a candidate for `p`
-  /// is `(Some(declared_parent_hash), declared_new_head)`; a `parachain_set_head`
-  /// targeting `p` is `(None, forced_head)` (within one work result the
-  /// candidate's head write precedes its replayed messages — §5.1 steps 6 then
-  /// 7). Fold from the pre-block head: a candidate advances the head ONLY when its
-  /// declared parent matches the current head (otherwise the head is kept — the
-  /// candidate is rejected), and a forced set_head always applies. The replayed
-  /// head must equal the head in state. This is what lets a forced
-  /// `parachain_set_head` survive a same-block candidate built on a superseded
-  /// head, while a candidate legitimately continuing the current head is allowed.
-  val parent_head_continuity: bool =
+  /// Parent-head continuity (§5.1 step 3): replay the block's head-affecting
+  /// operations in order and confirm the result matches the stored heads. Start
+  /// from the pre-block heads; for each `Ok` work result, apply it ONLY if its
+  /// para is live and its declared parent matches that para's current head
+  /// (step 3). If accepted, write its new head (step 6) then replay its
+  /// `parachain_set_head` messages (step 7). A rejected candidate (stale parent)
+  /// is ignored entirely — its head update AND its upward messages — just as
+  /// Accumulate never replays a rejected candidate's messages. This is what lets a
+  /// forced `parachain_set_head` survive a same-block candidate built on a
+  /// superseded head, while a candidate legitimately continuing the current head
+  /// is allowed.
+  val parent_head_continuity: bool = {
+    val initialHeads = prevSvc.parachains.keys().mapBy(p => prevSvc.paraInfo(p).headData)
+    val replayedHeads =
+      lastStepWorkResults.foldl(initialHeads, (heads, r) => match r.result {
+        | WorkErr => heads
+        | WorkOk(digest) => match digest {
+          | Err(_) => heads
+          | Ok(ok) =>
+            if (not(heads.keys().contains(ok.paraId))) heads
+            else if (ok.parentHeadHash != headHash(heads.get(ok.paraId))) heads
+            else
+              // Accepted: write the new head (step 6), then replay its forced
+              // `parachain_set_head` messages (step 7), each a no-op for a
+              // non-live target.
+              ok.upwardMessages.foldl(heads.put(ok.paraId, ok.headData), (h, m) =>
+                match m {
+                  | ParachainSetHead(pl) =>
+                    if (h.keys().contains(pl.paraId)) h.put(pl.paraId, pl.newHead) else h
+                  | _ => h
+                })
+        }
+      })
     prevSvc.parachains.keys().forall(p =>
       if (not(svc.parachains.keys().contains(p))) true
-      else {
-        val ops: List[(Option[Hash], HeadData)] =
-          lastStepWorkResults.foldl(List(), (acc, r) => match r.result {
-            | WorkErr => acc
-            | WorkOk(digest) => match digest {
-              | Err(_) => acc
-              | Ok(ok) =>
-                val withCandidate =
-                  if (ok.paraId == p) acc.append((Some(ok.parentHeadHash), ok.headData))
-                  else acc
-                ok.upwardMessages.foldl(withCandidate, (a, m) => match m {
-                  | ParachainSetHead(pl) =>
-                    if (pl.paraId == p) a.append((None, pl.newHead)) else a
-                  | _ => a
-                })
-            }
-          })
-        val replayed: HeadData =
-          ops.foldl(prevSvc.paraInfo(p).headData, (curr, op) =>
-            match op._1 {
-              | Some(parent) => if (parent == headHash(curr)) op._2 else curr
-              | None => op._2
-            })
-        replayed == svc.paraInfo(p).headData
-      }
-    )
+      else replayedHeads.get(p) == svc.paraInfo(p).headData)
+  }
 
   /// For every Refine Err in lastStepWorkResults targeting a registered para,
   /// a matching RefineLogEntry must exist in the flat log at timeslot now. The

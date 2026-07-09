@@ -81,9 +81,10 @@ module main {
   /// `set_parent_head_hash` / `set_head`; when false the corresponding
   /// declaration is `None`, which Refine rejects with `MissingHeadDeclaration`
   /// (§4.2). `staleParent` models a candidate built on a non-current (stale)
-  /// head: it declares the `StaleParentHead` sentinel as both parent and new head
-  /// and emits no upward messages, so it is well-formed but rejected by
-  /// Accumulate's parent-head check (§5.1 step 3), exercising that check.
+  /// head: it declares the `StaleParentHead` sentinel as its parent (and new
+  /// head) while still carrying its normal messages, so the candidate is
+  /// well-formed but rejected by Accumulate's parent-head check (§5.1 step 3),
+  /// exercising that check.
   pure def buildPackage(
     s: ParachainServiceState,
     paraId: ParaId,
@@ -100,10 +101,7 @@ module main {
     parentHead: Option[Hash], newHead: Option[HeadData]
   } = {
     val msgs =
-      // A stale candidate is rejected at the parent-head check, so its upward
-      // messages are never replayed (§5.1 step 7). Emit none, so a rejected
-      // candidate cannot appear to force a head via a `parachain_set_head`.
-      if (staleParent or numMsgs == 0) List()
+      if (numMsgs == 0) List()
       else if (numMsgs == 1) List(m1)
       else List(m1, m2)
     val pkg: WorkPackage =

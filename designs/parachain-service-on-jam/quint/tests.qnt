@@ -209,13 +209,14 @@ module tests {
 
   /// Refine a candidate for `paraId` declaring a STALE parent head — the sentinel
   /// head the para never has (`StaleParentHead`) — as both parent and new head,
-  /// otherwise well-formed. Accumulate's parent-head check (§5.1 step 3) must
-  /// reject it, leaving the head unchanged. The new head is deliberately NOT
-  /// `current + 1`: if the check were broken and the candidate applied, the head
-  /// would jump to an obviously-invalid sentinel value, so the "head unchanged"
-  /// assertion can never pass by coincidence.
+  /// carrying `msgs` as its upward messages. Accumulate's parent-head check (§5.1
+  /// step 3) must reject it, so neither its head write nor its replayed messages
+  /// (§5.1 step 7) take effect. The new head is deliberately NOT `current + 1`:
+  /// if the check were broken and the candidate applied, the head would jump to
+  /// an obviously-invalid sentinel value, so the "head unchanged" assertion can
+  /// never pass by coincidence.
   action applyStaleParentCandidate(
-    paraId: ParaId, codeHash: ValidationCodeHash
+    paraId: ParaId, codeHash: ValidationCodeHash, msgs: List[UpwardMessage]
   ): bool = {
     val blockNow = now + 1
     val pkg: WorkPackage = {
@@ -225,7 +226,7 @@ module tests {
     val wr: WorkResult = {
       result: WorkOk(refine(
         svc, pkg, false, false,
-        Some(headHash(StaleParentHead)), Some(StaleParentHead), List()
+        Some(headHash(StaleParentHead)), Some(StaleParentHead), msgs
       )[0]),
       authTrace: 0
     }
@@ -259,8 +260,35 @@ module tests {
     init
       .then(applyHappyPath(AssetHubParaId, assetHubCode, List()))
       .then(expectThat(svc.paraInfo(AssetHubParaId).headData == 1))
-      .then(applyStaleParentCandidate(AssetHubParaId, assetHubCode))
+      .then(applyStaleParentCandidate(AssetHubParaId, assetHubCode, List()))
       .then(expectThat(svc.paraInfo(AssetHubParaId).headData == 1))
+  }
+
+  /// §5.1 step 7: a rejected candidate's upward messages are never replayed, so a
+  /// forced `parachain_set_head` from a STALE candidate is ignored. A valid
+  /// Coretime candidate first force-sets Asset Hub's head to 42 (set_head applies
+  /// on an accepted candidate). Then a stale Coretime candidate (rejected at the
+  /// parent-head check) carries `parachain_set_head(AssetHub, 7)`; because it is
+  /// rejected, that message is dropped and Asset Hub keeps 42.
+  run staleParentSetHeadIgnoredTest = {
+    val coretimeCode: ValidationCodeHash = { vchBytes: 1 }
+    init
+      .then(applyHappyPath(
+        CoretimeParaId, coretimeCode,
+        List(ParachainSetHead({ paraId: AssetHubParaId, newHead: 42 }))))
+      .then(expectThat(all {
+        svc.paraInfo(AssetHubParaId).headData == 42,
+        svc.paraInfo(CoretimeParaId).headData == 1
+      }))
+      .then(applyStaleParentCandidate(
+        CoretimeParaId, coretimeCode,
+        List(ParachainSetHead({ paraId: AssetHubParaId, newHead: 7 }))))
+      .then(expectThat(all {
+        // The stale candidate's set_head(AssetHub, 7) was dropped: AH keeps 42.
+        svc.paraInfo(AssetHubParaId).headData == 42,
+        // The stale candidate itself was rejected: Coretime keeps its head.
+        svc.paraInfo(CoretimeParaId).headData == 1
+      }))
   }
 
   // --- Parachain log eviction --------------------------------------------
