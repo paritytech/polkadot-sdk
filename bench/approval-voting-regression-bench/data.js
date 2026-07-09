@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783527821845,
+  "lastUpdate": 1783609311747,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d30e15936393b00ae5d39d79becbda12d6940899",
-          "message": "pallet-revive: add hook for mocking origin (#10272)\n\nWhile runing some balancer v3 tests:\nhttps://github.com/paritytech/foundry-polkadot/issues/287#issuecomment-3502668161,\ndiscovered we need a way to mock up the origin as well, so add hook.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-13T07:42:18Z",
-          "tree_id": "ed3c291ed3f049ab3a07b8e5fca0dda1f6d0dfb3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d30e15936393b00ae5d39d79becbda12d6940899"
-        },
-        "date": 1763024274423,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63626.490000000005,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52940.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4960282811299987,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5409948944000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.439511219920018,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000016673030000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000017968330000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005852583140000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5034093745799995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9727520466800108,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.754047980060993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4325897912300068,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4878842487599995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000016673030000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000017968330000000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution/test-environment",
             "value": 0.00002142777,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bfe7265211665c35cf5c593d40ddb10400b596e3",
+          "message": "pallet-society: return funds of discarded payouts to the pot (#12590)\n\nFunds backing pending payouts are moved into the payouts sub-account\nwhen scheduled, and must be returned to the pot whenever a payout is\ndiscarded. Four paths failed to do so, leaving balance stranded in the\nsub-account with no `Payouts` entry left to claim it:\n\n- `waive_repay` cleared the member's pending payouts without unreserving\ntheir backing funds\n- `slash_payout` deducted from pending payouts without unreserving the\ndeducted amount\n- `bump_payout` reserved funds even when the payment was discarded\nbecause the member was already at `MaxPayouts` capacity\n- `dissolve` cleared all payout records without returning the payouts\nsub-account balance to the society account\n\nA `try_state` invariant now asserts that the payouts sub-account balance\nequals the total of all pending payouts. Deployments whose sub-account\nbalance has already drifted — e.g. through the paths above, or through\nthe `v0` migration, which carries payout records over without moving\nbalances (the case of Kusama Asset Hub, for example, where as of\n`2026-07-08`, the payouts account is `~0.348 KSM` short of the recorded\npending payouts) — can restore the invariant by adding the new\nunversioned, idempotent\n`pallet_society::migrations::ReconcilePayoutsAccount` migration to their\nruntime's migration tuple; until then, `try-runtime` checks will fail.\n\n## Integration into KAH runtime \n\nMore in details, once we bump SDK in runtime to include this PR, we will\nhave to add the migration in KAH\n[here](https://github.com/polkadot-fellows/runtimes/blob/main/system-parachains/asset-hubs/asset-hub-kusama/src/migrations.rs#L27)\n\n```rust\n/// Migrations/checks that do not need to be versioned and can run on every update.\npub type Permanent = (\n      pallet_xcm::migration::MigrateToLatestXcmVersion<crate::Runtime>,\n      pallet_society::migrations::ReconcilePayoutsAccount<crate::Runtime>, // <--- without this, try-runtime will fail since the new invariant doesn't hold\n);\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-09T11:45:27Z",
+          "tree_id": "a4df8b293a16de01e41653ce25d8de73a3bd0f3f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bfe7265211665c35cf5c593d40ddb10400b596e3"
+        },
+        "date": 1783609281600,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52946.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63564.270000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.241004819379986,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.004954770299999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.0000220757,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7935425062599997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.768371845410001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7521245759600017,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000024457470000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.421481068959996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7379056390700005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.4150859087425935,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.0000220757,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7626244134199859,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000024457470000000002,
             "unit": "seconds"
           }
         ]
