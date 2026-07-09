@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783527861351,
+  "lastUpdate": 1783609350365,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "5588131+kianenigma@users.noreply.github.com",
-            "name": "Kian Paimani",
-            "username": "kianenigma"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "501b5697c22b8e79d3cd56c7e468a5e95a4f018f",
-          "message": "add fresh weights for westend asset hub (#10284)\n\n- And deprecate `FastUnstake` as it is unsafe \n- And use the faster solver for benchmarks to speed things up\n- Remove hardcoded weights of westend.\n\nA step to reduce the diff size in\nhttps://github.com/paritytech/polkadot-sdk/pull/9925\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2025-11-12T13:41:07Z",
-          "tree_id": "ee4a54561e8462d2e14ea4d33c0bacdb0c4a2ab7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/501b5697c22b8e79d3cd56c7e468a5e95a4f018f"
-        },
-        "date": 1762960515411,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.97799999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04454620266399993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03446288633800001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08000087511199991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bfe7265211665c35cf5c593d40ddb10400b596e3",
+          "message": "pallet-society: return funds of discarded payouts to the pot (#12590)\n\nFunds backing pending payouts are moved into the payouts sub-account\nwhen scheduled, and must be returned to the pot whenever a payout is\ndiscarded. Four paths failed to do so, leaving balance stranded in the\nsub-account with no `Payouts` entry left to claim it:\n\n- `waive_repay` cleared the member's pending payouts without unreserving\ntheir backing funds\n- `slash_payout` deducted from pending payouts without unreserving the\ndeducted amount\n- `bump_payout` reserved funds even when the payment was discarded\nbecause the member was already at `MaxPayouts` capacity\n- `dissolve` cleared all payout records without returning the payouts\nsub-account balance to the society account\n\nA `try_state` invariant now asserts that the payouts sub-account balance\nequals the total of all pending payouts. Deployments whose sub-account\nbalance has already drifted — e.g. through the paths above, or through\nthe `v0` migration, which carries payout records over without moving\nbalances (the case of Kusama Asset Hub, for example, where as of\n`2026-07-08`, the payouts account is `~0.348 KSM` short of the recorded\npending payouts) — can restore the invariant by adding the new\nunversioned, idempotent\n`pallet_society::migrations::ReconcilePayoutsAccount` migration to their\nruntime's migration tuple; until then, `try-runtime` checks will fail.\n\n## Integration into KAH runtime \n\nMore in details, once we bump SDK in runtime to include this PR, we will\nhave to add the migration in KAH\n[here](https://github.com/polkadot-fellows/runtimes/blob/main/system-parachains/asset-hubs/asset-hub-kusama/src/migrations.rs#L27)\n\n```rust\n/// Migrations/checks that do not need to be versioned and can run on every update.\npub type Permanent = (\n      pallet_xcm::migration::MigrateToLatestXcmVersion<crate::Runtime>,\n      pallet_society::migrations::ReconcilePayoutsAccount<crate::Runtime>, // <--- without this, try-runtime will fail since the new invariant doesn't hold\n);\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-09T11:45:27Z",
+          "tree_id": "a4df8b293a16de01e41653ce25d8de73a3bd0f3f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bfe7265211665c35cf5c593d40ddb10400b596e3"
+        },
+        "date": 1783609320559,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.14600000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08843844322399991,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03838041118999999,
             "unit": "seconds"
           }
         ]
