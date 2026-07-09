@@ -84,6 +84,11 @@ pub use cumulus_client_cli;
 #[cfg(feature = "cumulus-client-collator")]
 pub use cumulus_client_collator;
 
+/// Parachain collator authority discovery — keeps collators connected via reserved peers on
+/// the block-announce protocol.
+#[cfg(feature = "cumulus-client-collator-discovery")]
+pub use cumulus_client_collator_discovery;
+
 /// AURA consensus algorithm for parachains.
 #[cfg(feature = "cumulus-client-consensus-aura")]
 pub use cumulus_client_consensus_aura;
@@ -222,6 +227,10 @@ pub use ethereum_standards;
 /// finalizing nodes.
 #[cfg(feature = "fork-tree")]
 pub use fork_tree;
+
+/// Primitives for Polkadot Coretime.
+#[cfg(feature = "fp-coretime")]
+pub use fp_coretime;
 
 /// Macro for benchmarking a FRAME runtime.
 #[cfg(feature = "frame-benchmarking")]
@@ -664,6 +673,11 @@ pub use pallet_revive;
 #[cfg(feature = "pallet-revive-proc-macro")]
 pub use pallet_revive_proc_macro;
 
+/// Wire types used by pallet-revive which have higher stability guarantees than internal
+/// pallet-revive types.
+#[cfg(feature = "pallet-revive-types")]
+pub use pallet_revive_types;
+
 /// Exposes all the host functions that a contract can import.
 #[cfg(feature = "pallet-revive-uapi")]
 pub use pallet_revive_uapi;
@@ -889,6 +903,10 @@ pub use polkadot_gossip_support;
 /// The Network Bridge Subsystem — protocol multiplexer for Polkadot.
 #[cfg(feature = "polkadot-network-bridge")]
 pub use polkadot_network_bridge;
+
+/// Clock abstraction shared by Polkadot node subsystems.
+#[cfg(feature = "polkadot-node-clock")]
+pub use polkadot_node_clock;
 
 /// Collator-side subsystem that handles incoming candidate submissions from the parachain.
 #[cfg(feature = "polkadot-node-collation-generation")]
@@ -1141,6 +1159,10 @@ pub use sc_executor_polkavm;
 /// Defines a `WasmRuntime` that uses the Wasmtime JIT to execute.
 #[cfg(feature = "sc-executor-wasmtime")]
 pub use sc_executor_wasmtime;
+
+/// Hand-Off Protocol (HOP) ephemeral data pool service.
+#[cfg(feature = "sc-hop")]
+pub use sc_hop;
 
 /// Substrate informant.
 #[cfg(feature = "sc-informant")]

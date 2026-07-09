@@ -49,8 +49,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	AuthorityDiscoveryId, Block, CollatorPair, GroupIndex, GroupRotationInfo, IndexedVec,
-	NodeFeatures, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
+	ApprovalVotingParams, AuthorityDiscoveryId, Block, CollatorPair, GroupIndex, GroupRotationInfo,
+	IndexedVec, NodeFeatures, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::TestCandidateBuilder;
 
@@ -232,6 +232,7 @@ fn test_harness<T: Future<Output = TestHarness>>(
 			Default::default(),
 			reputation,
 			REPUTATION_CHANGE_TEST_INTERVAL,
+			polkadot_node_clock::system_clock(),
 		)
 		.await
 		.unwrap();
@@ -386,6 +387,12 @@ async fn expect_determine_validator_group(
 				RuntimeApiRequest::NodeFeatures(_, si_tx),
 			)) => {
 				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::ApprovalVotingParams(_, tx),
+			)) => {
+				tx.send(Ok(ApprovalVotingParams::default())).unwrap();
 			},
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				_relay_parent,
