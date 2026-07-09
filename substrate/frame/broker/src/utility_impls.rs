@@ -16,6 +16,9 @@
 // limitations under the License.
 
 use super::*;
+use fp_coretime::market::{
+	CoreRangeProvider, RenewalRightsProvider, SoldCoresRange, TimesliceProvider,
+};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{

@@ -18,6 +18,7 @@
 #![cfg(test)]
 
 use crate::{mock::*, *};
+use fp_coretime::market::{Market, RenewalRightsProvider};
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
 	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
@@ -406,7 +407,9 @@ fn migration_works() {
 
 #[test]
 fn migration_v5_reconstructs_sale_index_from_region_begin() {
-	use crate::migration::v5::{old, FirstSaleRegion, MigrateToV5Impl};
+	use crate::migration::v5::{
+		FirstSaleRegion, MigrateToV5Impl, SaleInfo, SaleInfoRecordV4, SaleInfoV4,
+	};
 	use frame_support::traits::UncheckedOnRuntimeUpgrade;
 
 	struct FirstRegion;
@@ -417,23 +420,20 @@ fn migration_v5_reconstructs_sale_index_from_region_begin() {
 	}
 
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
 		let region_length = Configuration::<Test>::get().unwrap().region_length;
-		let template = SaleInfo::<Test>::get().unwrap();
 
 		let migrate_with_region_begin = |region_begin: Timeslice| {
-			// Write the pre-v5 record (old layout, no `sale_index`) that the migration reads.
-			old::SaleInfo::<Test>::put(old::SaleInfoRecord {
-				sale_start: template.sale_start,
-				leadin_length: template.leadin_length,
-				end_price: template.end_price,
+			SaleInfoV4::<Test>::put(SaleInfoRecordV4 {
+				sale_start: 0,
+				leadin_length: 0,
+				end_price: 0,
 				region_begin,
 				region_end: region_begin + region_length,
-				ideal_cores_sold: template.ideal_cores_sold,
-				cores_offered: template.cores_offered,
-				first_core: template.first_core,
-				sellout_price: template.sellout_price,
-				cores_sold: template.cores_sold,
+				ideal_cores_sold: 0,
+				cores_offered: 0,
+				first_core: 0,
+				sellout_price: None,
+				cores_sold: 0,
 			});
 
 			let _ = <MigrateToV5Impl<Test, FirstRegion> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade();
@@ -450,7 +450,9 @@ fn migration_v5_reconstructs_sale_index_from_region_begin() {
 
 #[test]
 fn migration_v5_defaults_sale_index_when_configuration_missing() {
-	use crate::migration::v5::{old, FirstSaleRegion, MigrateToV5Impl};
+	use crate::migration::v5::{
+		FirstSaleRegion, MigrateToV5Impl, SaleInfo, SaleInfoRecordV4, SaleInfoV4,
+	};
 	use frame_support::traits::UncheckedOnRuntimeUpgrade;
 	use sp_tracing::{
 		test_log_capture::init_log_capture,
@@ -465,22 +467,19 @@ fn migration_v5_defaults_sale_index_when_configuration_missing() {
 	}
 
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
 		let region_length = Configuration::<Test>::get().unwrap().region_length;
-		let template = SaleInfo::<Test>::get().unwrap();
 
-		// Pre-v5 record present, Configuration gone: migration must not panic, still rewrites it.
-		old::SaleInfo::<Test>::put(old::SaleInfoRecord {
-			sale_start: template.sale_start,
-			leadin_length: template.leadin_length,
-			end_price: template.end_price,
+		SaleInfoV4::<Test>::put(SaleInfoRecordV4 {
+			sale_start: 0,
+			leadin_length: 0,
+			end_price: 0,
 			region_begin: 100 + 5 * region_length,
 			region_end: 100 + 6 * region_length,
-			ideal_cores_sold: template.ideal_cores_sold,
-			cores_offered: template.cores_offered,
-			first_core: template.first_core,
-			sellout_price: template.sellout_price,
-			cores_sold: template.cores_sold,
+			ideal_cores_sold: 0,
+			cores_offered: 0,
+			first_core: 0,
+			sellout_price: None,
+			cores_sold: 0,
 		});
 		Configuration::<Test>::kill();
 
@@ -2962,7 +2961,7 @@ fn do_renew_and_get_region_end(
 	who: <Test as frame_system::Config>::AccountId,
 	core: CoreIndex,
 ) -> Result<Timeslice, DispatchError> {
-	let RenewResult::Renewed { new_region_id, region_end } = Broker::do_renew(who, core)? else {
+	let RenewResult::Renewed { region_end, .. } = Broker::do_renew(who, core)? else {
 		panic!("It's expected that do_renew will immediately resolve")
 	};
 

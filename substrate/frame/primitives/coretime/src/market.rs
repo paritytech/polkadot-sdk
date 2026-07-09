@@ -23,10 +23,10 @@
 use alloc::vec::Vec;
 use core::fmt::Debug;
 
-use codec::{Codec, DecodeWithMemTracking, EncodeLike, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
-use sp_weights::WeightMeter;
+use sp_weights::{Weight, WeightMeter};
 
 use crate::{CoreIndex, PotentialRenewalId, RegionId, Timeslice};
 
@@ -50,12 +50,26 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 	type BidId: Copy + Debug + Codec + MaxEncodedLen + TypeInfo + Eq;
 
 	/// Initialization data used in [`Market::start_sales`].
-	type InitData: Codec + DecodeWithMemTracking + EncodeLike + Clone + Eq + Debug + TypeInfo;
+	type InitData: Codec
+		+ DecodeWithMemTracking
+		+ EncodeLike
+		+ Clone
+		+ Eq
+		+ Debug
+		+ TypeInfo
+		+ Default;
 
 	/// Configuration of the market.
 	///
 	/// Can be set in the [`Market::configure`].
-	type Configuration: Codec + DecodeWithMemTracking + EncodeLike + Clone + Eq + Debug + TypeInfo;
+	type Configuration: Codec
+		+ DecodeWithMemTracking
+		+ EncodeLike
+		+ Clone
+		+ Eq
+		+ Debug
+		+ TypeInfo
+		+ Default;
 
 	/// Provides information about available cores.
 	type CoreRangeProvider: CoreRangeProvider;

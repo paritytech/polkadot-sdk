@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, Market, RCBlockNumberOf,
-	TaskId, CORE_MASK_BITS,
+	market::Market, Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface,
+	RCBlockNumberOf, RegionId, TaskId, Timeslice, CORE_MASK_BITS,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::fungible::Inspect;
@@ -55,8 +55,6 @@ pub type MarketWeightsOf<T> = <<T as Config>::CoretimeMarket as Market<
 	AccountIdFor<T>,
 >>::Weights;
 
-/// Relay-chain block number with a fixed divisor of Config::TimeslicePeriod.
-pub type Timeslice = u32;
 /// Counter for the total number of set bits over every core's `CoreMask`. `u32` so we don't
 /// ever get an overflow. This is 1/80th of a Polkadot Core per timeslice. Assuming timeslices are
 /// 80 blocks, then this indicates usage of a single core one time over a timeslice.

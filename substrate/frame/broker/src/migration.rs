@@ -229,7 +229,7 @@ mod v3 {
 
 pub mod v4 {
 	use codec::MaxEncodedLen;
-	use frame_support::{pallet_prelude::OptionQuery, storage_alias, Twox64Concat};
+	use frame_support::{pallet_prelude::OptionQuery, storage_alias};
 	use scale_info::TypeInfo;
 	use sp_runtime::Perbill;
 
@@ -457,12 +457,11 @@ pub mod v4 {
 
 pub mod v5 {
 	use super::*;
-	use frame_support::traits::Get;
+	use codec::MaxEncodedLen;
+	use frame_support::{pallet_prelude::OptionQuery, storage_alias, traits::Get, Twox64Concat};
+	use scale_info::TypeInfo;
 
-	// TODO: SaleInfoV4;
-	pub(crate) mod old {
-		pub use super::super::v4::{SaleInfo, SaleInfoRecord, SaleInfoRecordOf};
-	}
+	pub use super::v4::{SaleInfo as SaleInfoV4, SaleInfoRecord as SaleInfoRecordV4};
 
 	/// Supplies the first sale's `region_begin` (timeslice), used to reconstruct `sale_index`.
 	/// Historical data, not recoverable from on-chain storage.
@@ -476,7 +475,7 @@ pub mod v5 {
 	impl<T: Config, F: FirstSaleRegion> UncheckedOnRuntimeUpgrade for MigrateToV5Impl<T, F> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			let sale_info_state = old::SaleInfo::<T>::get()
+			let sale_info_state = SaleInfoV4::<T>::get()
 				.map(|sale| (sale.sale_start, sale.region_begin, sale.region_end));
 			Ok(sale_info_state.encode())
 		}
@@ -484,7 +483,7 @@ pub mod v5 {
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			let mut weight = T::DbWeight::get().reads(1);
 
-			if let Some(old_sale) = old::SaleInfo::<T>::get() {
+			if let Some(old_sale) = SaleInfoV4::<T>::get() {
 				let first_region_begin = F::region_begin();
 
 				// `region_length` from Configuration; defaults to 0 (sale_index 1) if absent, so
@@ -740,7 +739,7 @@ pub type MigrateV3ToV4<T, BlockConversion> = frame_support::migrations::Versione
 	<T as frame_system::Config>::DbWeight,
 >;
 
-pub type MigrateV4ToV5<T> = frame_support::migrations::VersionedMigration<
+pub type MigrateV4ToV5<T, FirstSaleRegion> = frame_support::migrations::VersionedMigration<
 	4,
 	5,
 	v5::MigrateToV5Impl<T, FirstSaleRegion>,
@@ -748,10 +747,10 @@ pub type MigrateV4ToV5<T> = frame_support::migrations::VersionedMigration<
 	<T as frame_system::Config>::DbWeight,
 >;
 
-pub type MigrateV5ToV6<T, FirstSaleRegion> = frame_support::migrations::VersionedMigration<
+pub type MigrateV5ToV6<T> = frame_support::migrations::VersionedMigration<
 	5,
 	6,
-	v6::MigrateToV6Impl<T, FirstSaleRegion>,
+	v6::MigrateToV6Impl<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;

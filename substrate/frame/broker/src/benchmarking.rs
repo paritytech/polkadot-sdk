@@ -21,6 +21,7 @@ use super::*;
 
 use crate::{CoreAssignment::Task, Pallet as Broker};
 use alloc::{vec, vec::Vec};
+use fp_coretime::market::Market;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	storage::bounded_vec::BoundedVec,
@@ -151,6 +152,7 @@ fn purchase_and_get_region_id<T: Config>(who: T::AccountId) -> Result<RegionId, 
 
 #[benchmarks]
 mod benches {
+	use fp_coretime::market::{MarketSaleInfo, TickAction};
 	use frame_support::{assert_ok, weights::WeightMeter};
 
 	use super::*;
@@ -287,7 +289,6 @@ mod benches {
 					.saturating_sub(T::MaxLeasedCores::get())
 					.try_into()
 					.unwrap(),
-				sale_index: 1u32,
 			}
 			.into(),
 		);

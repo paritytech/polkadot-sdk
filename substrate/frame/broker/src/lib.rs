@@ -41,11 +41,11 @@ pub mod runtime_api;
 pub mod weights;
 pub use weights::WeightInfo;
 
-pub use core_mask::*;
 pub use coretime_interface::*;
-pub use market::*;
 pub use types::*;
 pub use utility_impls::{CoreRangeProviderImpl, TimesliceProviderImpl};
+
+pub use fp_coretime::*;
 
 extern crate alloc;
 
@@ -56,6 +56,7 @@ const LOG_TARGET: &str = "runtime::broker";
 pub mod pallet {
 	use super::*;
 	use alloc::vec::Vec;
+	use fp_coretime::market::{Market, MarketWeights};
 	use frame_support::{
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{
@@ -348,8 +349,6 @@ pub mod pallet {
 			region_end: Timeslice,
 			/// Number of cores which are/have been offered for sale.
 			cores_offered: CoreIndex,
-			/// Sequential identifier for the current sale period.
-			sale_index: SaleIndex,
 		},
 		/// A new lease has been created.
 		Leased {

@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::*;
+use fp_coretime::market::{Market, MarketSaleInfo, OrderResult, RenewalOrderResult};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
@@ -143,7 +144,6 @@ impl<T: Config> Pallet<T> {
 			first_core: 0,
 			cores_offered: 0,
 			cores_sold: 0,
-			sale_index: 0,
 		};
 		Self::rotate_sale(&imaginary_old_sale, &sales_started.sale, &status);
 
