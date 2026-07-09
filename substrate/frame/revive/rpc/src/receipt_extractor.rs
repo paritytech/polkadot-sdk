@@ -16,7 +16,7 @@
 // limitations under the License.
 use crate::{
 	ClientError, H160, LOG_TARGET, Log, ReceiptGasInfoV1, ReceiptInfo,
-	client::{SubstrateBlock, SubstrateBlockNumber, runtime_api::RuntimeApi},
+	client::{SubstrateBlock, SubstrateBlockNumber, storage_api::StorageApi},
 	subxt_client::{
 		SrcChainConfig,
 		revive::{
@@ -203,8 +203,8 @@ impl ReceiptExtractor {
 			let api_inner = api_inner.clone();
 
 			let fut = async move {
-				let runtime_api = RuntimeApi::new(api_inner.runtime_api().at(block_hash));
-				runtime_api.eth_block_hash(U256::from(block_number)).await.ok().flatten()
+				let storage_api = StorageApi::new(api_inner.storage().at(block_hash));
+				storage_api.eth_block_hash(U256::from(block_number)).await.ok().flatten()
 			};
 
 			Box::pin(fut) as Pin<Box<_>>
@@ -215,8 +215,8 @@ impl ReceiptExtractor {
 			let api_inner = api_inner.clone();
 
 			let fut = async move {
-				let runtime_api = RuntimeApi::new(api_inner.runtime_api().at(block_hash));
-				runtime_api.eth_receipt_data().await.ok()
+				let storage_api = StorageApi::new(api_inner.storage().at(block_hash));
+				storage_api.eth_receipt_data().await.ok()
 			};
 
 			Box::pin(fut) as Pin<Box<_>>

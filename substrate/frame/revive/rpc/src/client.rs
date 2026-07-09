@@ -28,6 +28,7 @@ use crate::{
 	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
 use futures::TryStreamExt;
+use governor::{DefaultDirectRateLimiter, Quota, RateLimiter};
 use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
 use pallet_revive::{
 	EthTransactError,
@@ -41,6 +42,7 @@ use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
 use std::{
+	num::NonZeroU32,
 	sync::{
 		Arc,
 		atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -251,7 +253,6 @@ pub struct Client {
 	block_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
 	/// A lock to ensure only one subscription can perform write operations at a time.
 	subscription_lock: Arc<Mutex<()>>,
-
 	/// Block subscription sender side.
 	block_subscription_tx: tokio::sync::broadcast::Sender<Block>,
 	/// Log subscription sender side.
@@ -262,6 +263,9 @@ pub struct Client {
 	backfill_complete: Arc<AtomicBool>,
 	/// Queue for backfilling blocks missed during subscription reconnects.
 	subscription_gap_queue: SubscriptionGapQueue,
+	/// Limiter capping the historic backfill rate.
+	/// `None` -> no rate limit.
+	backward_sync_rate_limiter: Option<Arc<DefaultDirectRateLimiter>>,
 }
 
 /// A request to backfill a range of missed blocks (both bounds inclusive).
@@ -398,6 +402,7 @@ impl Client {
 		receipt_provider: ReceiptProvider,
 		is_archive: bool,
 		subscription_gap_queue: SubscriptionGapQueue,
+		backward_sync_max_blocks_per_sec: u32,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight, automine) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api), async {
@@ -420,6 +425,9 @@ impl Client {
 			}
 		}
 
+		let backward_sync_rate_limiter = NonZeroU32::new(backward_sync_max_blocks_per_sec)
+			.map(|rate| Arc::new(RateLimiter::direct(Quota::per_second(rate))));
+
 		let client = Self {
 			api,
 			rpc_client,
@@ -438,6 +446,7 @@ impl Client {
 			is_archive,
 			backfill_complete: Arc::new(AtomicBool::new(false)),
 			subscription_gap_queue,
+			backward_sync_rate_limiter,
 		};
 
 		Ok(client)
@@ -487,6 +496,11 @@ impl Client {
 
 	pub(crate) fn block_provider(&self) -> &SubxtBlockInfoProvider {
 		&self.block_provider
+	}
+
+	/// Backward-sync rate limiter, if enabled.
+	pub(crate) fn backward_sync_rate_limiter(&self) -> Option<&DefaultDirectRateLimiter> {
+		self.backward_sync_rate_limiter.as_deref()
 	}
 
 	pub(crate) fn subscription_gap_queue(&self) -> &SubscriptionGapQueue {
@@ -587,7 +601,7 @@ impl Client {
 			}};
 		}
 
-		let eth_block = time!("eth_block", self.runtime_api(hash).eth_block().await?);
+		let eth_block = time!("eth_block_from_storage", self.storage_api(hash).eth_block().await?);
 		let receipts = time!(
 			"receipts_from_block",
 			self.receipt_provider.receipts_from_block(block, eth_block.hash).await?
@@ -1061,12 +1075,12 @@ impl Client {
 
 		// This could potentially fail under below circumstances:
 		//  - state has been pruned
-		//  - the block author cannot be obtained from the digest logs (highly unlikely)
+		//  - the `EthereumBlock` value is absent (BlockNotFound)
 		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
 		//    disabled)
-		match self.runtime_api(block.hash()).eth_block().await {
+		match self.storage_api(block.hash()).eth_block().await {
 			Ok(mut eth_block) => {
-				log::trace!(target: LOG_TARGET, "Ethereum block from runtime API hash {:?}", eth_block.hash);
+				log::trace!(target: LOG_TARGET, "Ethereum block from storage, hash {:?}", eth_block.hash);
 
 				if hydrated_transactions {
 					// Hydrate the block.

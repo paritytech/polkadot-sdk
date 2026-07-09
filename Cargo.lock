@@ -14257,6 +14257,7 @@ dependencies = [
  "frame-system",
  "futures",
  "git2",
+ "governor",
  "hex",
  "humantime-serde",
  "jsonrpsee",

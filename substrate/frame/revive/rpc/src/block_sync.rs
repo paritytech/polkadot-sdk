@@ -88,6 +88,8 @@ struct BackwardSyncRange {
 	checkpoint_tail: bool,
 	/// When true, persist the first EVM block boundary if a non-EVM block is encountered.
 	persist_first_evm_block: bool,
+	/// Whether this range is subject to rate limiting.
+	rate_limit: bool,
 }
 
 impl Client {
@@ -219,6 +221,7 @@ impl Client {
 			set_head: true,
 			checkpoint_tail: true,
 			persist_first_evm_block: true,
+			rate_limit: true,
 		})
 		.await
 	}
@@ -243,6 +246,7 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: false,
 					persist_first_evm_block: false,
+					rate_limit: true,
 				})
 				.await?;
 
@@ -264,6 +268,7 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: true,
 					persist_first_evm_block: true,
+					rate_limit: true,
 				})
 				.await?;
 			} else {
@@ -287,6 +292,7 @@ impl Client {
 			set_head,
 			checkpoint_tail,
 			persist_first_evm_block,
+			rate_limit,
 		}: BackwardSyncRange,
 	) -> Result<(), ClientError> {
 		if from < to {
@@ -308,11 +314,15 @@ impl Client {
 			|synced: u64| synced <= 1 || synced.is_multiple_of(u64::from(BLOCK_INTERVAL));
 
 		let loop_result: Result<(), ClientError> = loop {
+			if rate_limit && let Some(limiter) = self.backward_sync_rate_limiter() {
+				limiter.until_ready().await;
+			}
+
 			let block_number = block.number();
 			let block_hash = block.hash();
 
 			let ethereum_hash = match self
-				.runtime_api(block_hash)
+				.storage_api(block_hash)
 				.eth_block_hash(pallet_revive::evm::U256::from(block_number))
 				.await
 			{
@@ -416,6 +426,7 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: false,
 					persist_first_evm_block: false,
+					rate_limit: false,
 				})
 				.await
 			{
