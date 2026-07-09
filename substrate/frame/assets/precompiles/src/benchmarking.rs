@@ -31,8 +31,7 @@ use crate::{
 use frame_benchmarking::v2::*;
 use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
 use pallet_assets::AssetsCallback;
-use pallet_revive::precompiles::{alloy, H160};
-use sp_core::U256;
+use sp_core::{H160, U256};
 use sp_runtime::traits::StaticLookup;
 
 /// Test owner address (Hardhat account #0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
@@ -63,7 +62,8 @@ const TEST_TOKEN_NAME: &[u8] = b"Asset Permit";
 		// Erc20TransferLogs bounds
 		T: pallet_revive::Config,
 		<T as pallet_assets::Config<T::AssetsInstance>>::AssetId: Into<u32>,
-		alloy::primitives::U256: TryFrom<<T as pallet_assets::Config<T::AssetsInstance>>::Balance>,
+		pallet_revive::precompiles::alloy::primitives::U256:
+			TryFrom<<T as pallet_assets::Config<T::AssetsInstance>>::Balance>,
 )]
 mod benchmarks {
 	use super::*;
