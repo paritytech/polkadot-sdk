@@ -32,18 +32,17 @@ fn wasm_sub_path(chain: &str) -> String {
 }
 
 fn workspace_root() -> PathBuf {
-    if let Ok(dir) = env::var("CARGO_WORKSPACE_ROOT_DIR") {
-        return PathBuf::from(dir.trim_end_matches('/'));
-    }
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("cargo always sets this");
-    PathBuf::from(&manifest_dir)
-        .ancestors()
-        .find(|dir| {
-            fs::read_to_string(dir.join("Cargo.toml"))
-                .is_ok_and(|s| s.contains("[workspace]"))
-        })
-        .expect("workspace root not found by walking up from CARGO_MANIFEST_DIR")
-        .to_path_buf()
+	if let Ok(dir) = env::var("CARGO_WORKSPACE_ROOT_DIR") {
+		return PathBuf::from(dir.trim_end_matches('/'));
+	}
+	let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("cargo always sets this");
+	PathBuf::from(&manifest_dir)
+		.ancestors()
+		.find(|dir| {
+			fs::read_to_string(dir.join("Cargo.toml")).is_ok_and(|s| s.contains("[workspace]"))
+		})
+		.expect("workspace root not found by walking up from CARGO_MANIFEST_DIR")
+		.to_path_buf()
 }
 
 fn find_wasm(chain: &str) -> Option<PathBuf> {
