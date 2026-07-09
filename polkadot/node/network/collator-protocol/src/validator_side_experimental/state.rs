@@ -19,8 +19,8 @@ use crate::{
 	validator_side_experimental::{
 		collation_manager::CollationManager,
 		common::{
-			Advertisement, CanSecond, CollationFetchResponse, PeerInfo, PeerState,
-			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
+			CanSecond, CollationFetchResponse, PeerInfo, PeerState, ProspectiveCandidate,
+			TryAcceptOutcome, INVALID_COLLATION_SLASH,
 		},
 		error::{Error, FatalResult},
 		peer_manager::{Backend, PersistentDb},
@@ -233,13 +233,12 @@ impl<B: Backend> State<B> {
 		sender: &mut Sender,
 		peer_id: PeerId,
 		scheduling_parent: Hash,
-		maybe_prospective_candidate: Option<ProspectiveCandidate>,
-		advertised_descriptor_version: Option<CandidateDescriptorVersion>,
+		entries: Vec<ProspectiveCandidate>,
+		descriptor_version: Option<CandidateDescriptorVersion>,
 	) {
 		gum::debug!(
 			target: LOG_TARGET,
 			?scheduling_parent,
-			?maybe_prospective_candidate,
 			?peer_id,
 			"Received advertisement",
 		);
@@ -249,7 +248,6 @@ impl<B: Backend> State<B> {
 				target: LOG_TARGET,
 				?scheduling_parent,
 				?peer_id,
-				?maybe_prospective_candidate,
 				"Received an advertisement from an unconnected peer"
 			);
 			return;
@@ -260,31 +258,32 @@ impl<B: Backend> State<B> {
 			gum::debug!(
 				target: LOG_TARGET,
 				?scheduling_parent,
-				?maybe_prospective_candidate,
 				?peer_id,
 				"Received advertisement for undeclared peer",
 			);
 			return;
 		};
 
-		let advertisement = Advertisement {
-			peer_id,
-			para_id: *para_id,
-			scheduling_parent,
-			prospective_candidate: maybe_prospective_candidate,
-			advertised_descriptor_version,
-		};
-
 		// We have a result here, but it's not worth affecting reputations because advertisements
 		// are cheap.
-		// Note: `try_accept_advertisement` involves two other subsystems, so it's not super cheap,
+		// Note: `try_accept_segment` involves two other subsystems, so it's not super cheap,
 		// actually, but cheap enough.
-		match self.collation_manager.try_accept_advertisement(sender, advertisement).await {
+		match self
+			.collation_manager
+			.try_accept_segment(
+				sender,
+				peer_id,
+				*para_id,
+				scheduling_parent,
+				descriptor_version,
+				entries,
+			)
+			.await
+		{
 			Err(err) => {
 				gum::debug!(
 					target: LOG_TARGET,
 					?scheduling_parent,
-					?maybe_prospective_candidate,
 					?peer_id,
 					?para_id,
 					?err,
@@ -295,7 +294,6 @@ impl<B: Backend> State<B> {
 				gum::debug!(
 					target: LOG_TARGET,
 					?scheduling_parent,
-					?maybe_prospective_candidate,
 					?peer_id,
 					?para_id,
 					"Advertisement accepted",
@@ -656,6 +654,13 @@ impl<B: Backend> State<B> {
 	#[cfg(test)]
 	pub fn advertisements(&self) -> std::collections::BTreeSet<super::common::Advertisement> {
 		self.collation_manager.advertisements()
+	}
+
+	#[cfg(test)]
+	pub fn segments(
+		&self,
+	) -> std::collections::BTreeSet<(Hash, PeerId, Vec<super::common::ProspectiveCandidate>)> {
+		self.collation_manager.segments()
 	}
 }
 

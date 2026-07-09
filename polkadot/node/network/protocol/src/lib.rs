@@ -651,8 +651,7 @@ pub mod v4_collation {
 	// Re-exported so external code can name the bound on `AdvertiseSegment::candidates`.
 	pub use polkadot_node_primitives::MAX_SEGMENT_LEN;
 	use polkadot_primitives::{
-		CandidateDescriptorVersion, CandidateHash, CollatorId, CollatorSignature, Hash,
-		Id as ParaId,
+		CandidateDescriptorVersion, CollatorId, CollatorSignature, Hash, Id as ParaId,
 	};
 	use sp_runtime::{traits::ConstU32, BoundedVec};
 
