@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783526761052,
+  "lastUpdate": 1783608083854,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -106271,6 +106271,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3629780812,
             "range": "± 81862369",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bfe7265211665c35cf5c593d40ddb10400b596e3",
+          "message": "pallet-society: return funds of discarded payouts to the pot (#12590)\n\nFunds backing pending payouts are moved into the payouts sub-account\nwhen scheduled, and must be returned to the pot whenever a payout is\ndiscarded. Four paths failed to do so, leaving balance stranded in the\nsub-account with no `Payouts` entry left to claim it:\n\n- `waive_repay` cleared the member's pending payouts without unreserving\ntheir backing funds\n- `slash_payout` deducted from pending payouts without unreserving the\ndeducted amount\n- `bump_payout` reserved funds even when the payment was discarded\nbecause the member was already at `MaxPayouts` capacity\n- `dissolve` cleared all payout records without returning the payouts\nsub-account balance to the society account\n\nA `try_state` invariant now asserts that the payouts sub-account balance\nequals the total of all pending payouts. Deployments whose sub-account\nbalance has already drifted — e.g. through the paths above, or through\nthe `v0` migration, which carries payout records over without moving\nbalances (the case of Kusama Asset Hub, for example, where as of\n`2026-07-08`, the payouts account is `~0.348 KSM` short of the recorded\npending payouts) — can restore the invariant by adding the new\nunversioned, idempotent\n`pallet_society::migrations::ReconcilePayoutsAccount` migration to their\nruntime's migration tuple; until then, `try-runtime` checks will fail.\n\n## Integration into KAH runtime \n\nMore in details, once we bump SDK in runtime to include this PR, we will\nhave to add the migration in KAH\n[here](https://github.com/polkadot-fellows/runtimes/blob/main/system-parachains/asset-hubs/asset-hub-kusama/src/migrations.rs#L27)\n\n```rust\n/// Migrations/checks that do not need to be versioned and can run on every update.\npub type Permanent = (\n      pallet_xcm::migration::MigrateToLatestXcmVersion<crate::Runtime>,\n      pallet_society::migrations::ReconcilePayoutsAccount<crate::Runtime>, // <--- without this, try-runtime will fail since the new invariant doesn't hold\n);\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-09T11:45:27Z",
+          "tree_id": "a4df8b293a16de01e41653ce25d8de73a3bd0f3f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bfe7265211665c35cf5c593d40ddb10400b596e3"
+        },
+        "date": 1783608052896,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19967758,
+            "range": "± 157734",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20198264,
+            "range": "± 403534",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21873334,
+            "range": "± 194509",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26713266,
+            "range": "± 131578",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60762590,
+            "range": "± 1044900",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 412404013,
+            "range": "± 16279122",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2889802235,
+            "range": "± 177049150",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19197758,
+            "range": "± 244998",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18825442,
+            "range": "± 207920",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19364370,
+            "range": "± 214471",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23613382,
+            "range": "± 224592",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65100558,
+            "range": "± 575961",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 386045214,
+            "range": "± 7796961",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2793569760,
+            "range": "± 43022247",
             "unit": "ns/iter"
           }
         ]
