@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783527782490,
+  "lastUpdate": 1783609272751,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gorka.irazoki@gmail.com",
-            "name": "girazoki",
-            "username": "girazoki"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d69d1cd6702d08668f56b4f03935f2115c1592a8",
-          "message": "allow more generic origins in xcm-emulator message processor (#10158)\n\nRight now the default message processor is somewhat tied to specific\n`AggregateMessageOrigin` from `polkadot_runtime_parachains::inclusion`.\nthis pr changes it so that we require a conversion from that\nAggregateMessageOrigin, but nothing else, the rest stays generic.\n\nIn the longer run we can allow customizing the processor to some other\nthing, but this was a sufficiently easier change\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
-          "timestamp": "2025-11-13T09:39:38Z",
-          "tree_id": "56ae98de7ef6dbaba1b0b0c720e4e0505480f8ba",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d69d1cd6702d08668f56b4f03935f2115c1592a8"
-        },
-        "date": 1763030931737,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02255422569333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013207196166666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15820671794666674,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007181221946666649,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007596204353333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bfe7265211665c35cf5c593d40ddb10400b596e3",
+          "message": "pallet-society: return funds of discarded payouts to the pot (#12590)\n\nFunds backing pending payouts are moved into the payouts sub-account\nwhen scheduled, and must be returned to the pot whenever a payout is\ndiscarded. Four paths failed to do so, leaving balance stranded in the\nsub-account with no `Payouts` entry left to claim it:\n\n- `waive_repay` cleared the member's pending payouts without unreserving\ntheir backing funds\n- `slash_payout` deducted from pending payouts without unreserving the\ndeducted amount\n- `bump_payout` reserved funds even when the payment was discarded\nbecause the member was already at `MaxPayouts` capacity\n- `dissolve` cleared all payout records without returning the payouts\nsub-account balance to the society account\n\nA `try_state` invariant now asserts that the payouts sub-account balance\nequals the total of all pending payouts. Deployments whose sub-account\nbalance has already drifted — e.g. through the paths above, or through\nthe `v0` migration, which carries payout records over without moving\nbalances (the case of Kusama Asset Hub, for example, where as of\n`2026-07-08`, the payouts account is `~0.348 KSM` short of the recorded\npending payouts) — can restore the invariant by adding the new\nunversioned, idempotent\n`pallet_society::migrations::ReconcilePayoutsAccount` migration to their\nruntime's migration tuple; until then, `try-runtime` checks will fail.\n\n## Integration into KAH runtime \n\nMore in details, once we bump SDK in runtime to include this PR, we will\nhave to add the migration in KAH\n[here](https://github.com/polkadot-fellows/runtimes/blob/main/system-parachains/asset-hubs/asset-hub-kusama/src/migrations.rs#L27)\n\n```rust\n/// Migrations/checks that do not need to be versioned and can run on every update.\npub type Permanent = (\n      pallet_xcm::migration::MigrateToLatestXcmVersion<crate::Runtime>,\n      pallet_society::migrations::ReconcilePayoutsAccount<crate::Runtime>, // <--- without this, try-runtime will fail since the new invariant doesn't hold\n);\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-09T11:45:27Z",
+          "tree_id": "a4df8b293a16de01e41653ce25d8de73a3bd0f3f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bfe7265211665c35cf5c593d40ddb10400b596e3"
+        },
+        "date": 1783609242530,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 432.5133333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02358296516666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010027964719999975,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14808175153333342,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007633518480000001,
             "unit": "seconds"
           }
         ]
