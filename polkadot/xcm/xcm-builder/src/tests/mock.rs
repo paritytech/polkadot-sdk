@@ -41,7 +41,6 @@ pub use frame_support::{
 	traits::{Contains, Get, IsInVec},
 };
 use sp_weights::constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND};
-use xcm::latest::GetWeight;
 pub use xcm::latest::{prelude::*, QueryId, Weight};
 pub use xcm_executor::{
 	traits::{

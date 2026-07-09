@@ -31,13 +31,13 @@ fn pick_weight_info_provider_ident(generics: &syn::Generics) -> syn::Ident {
 		return preferred;
 	}
 
-	let mut idx = 1usize;
+	let mut index = 1usize;
 	loop {
-		let candidate = format_ident!("W{}", idx);
+		let candidate = format_ident!("W{}", index);
 		if !generic_ident_is_taken(generics, &candidate) {
 			return candidate;
 		}
-		idx = idx.saturating_add(1);
+		index = index.saturating_add(1);
 	}
 }
 
@@ -66,45 +66,39 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 	match data {
 		syn::Data::Enum(syn::DataEnum { variants, .. }) => {
-			let variants = variants.into_iter().collect::<Vec<_>>();
-			let methods = variants
-				.iter()
-				.map(|syn::Variant { ident, fields, .. }| {
-					let snake_cased_ident = format_ident!("{}", ident.to_string().to_snake_case());
+			// Build the trait method and the `GetWeight` match arm for each variant in a single
+			// pass, so the method name and the arm that dispatches to it derive from one source.
+			let (methods, match_arms): (Vec<_>, Vec<_>) = variants
+				.into_iter()
+				.map(|syn::Variant { ident: variant_ident, fields, .. }| {
+					let snake_cased_ident =
+						format_ident!("{}", variant_ident.to_string().to_snake_case());
+
+					// Trait method: one `name: &Type` parameter per field.
 					let ref_fields =
-						fields.iter().enumerate().map(|(idx, syn::Field { ident, ty, .. })| {
+						fields.iter().enumerate().map(|(index, syn::Field { ident, ty, .. })| {
 							let field_name =
-								ident.clone().unwrap_or_else(|| format_ident!("_{}", idx));
-							let field_ty = match ty.clone() {
-								syn::Type::Reference(r) => {
-									// If the type is already a reference, do nothing
-									quote::quote!(#r)
-								},
-								t => {
-									// Otherwise, make it a reference
-									quote::quote!(&#t)
-								},
+								ident.clone().unwrap_or_else(|| format_ident!("_{}", index));
+							let field_ty = match ty {
+								// If the type is already a reference, do nothing
+								syn::Type::Reference(r) => quote::quote!(#r),
+								// Otherwise, make it a reference
+								t => quote::quote!(&#t),
 							};
 
 							quote::quote!(#field_name: #field_ty,)
 						});
-					quote::quote!(fn #snake_cased_ident( #(#ref_fields)* ) -> Weight;)
-				})
-				.collect::<Vec<_>>();
-			let match_arms = variants.into_iter().map(
-				|syn::Variant { ident: variant_ident, fields, .. }| {
-					let snake_cased_ident =
-						format_ident!("{}", variant_ident.to_string().to_snake_case());
-					match fields {
-						syn::Fields::Unit => {
-							quote::quote!(
-								#ident::#variant_ident =>
-									#weight_info_provider_ident::#snake_cased_ident(),
-							)
-						},
+					let method = quote::quote!(fn #snake_cased_ident( #(#ref_fields)* ) -> Weight;);
+
+					// Match arm: destructure the variant and forward its fields to the method.
+					let match_arm = match fields {
+						syn::Fields::Unit => quote::quote!(
+							#ident::#variant_ident =>
+								#weight_info_provider_ident::#snake_cased_ident(),
+						),
 						syn::Fields::Unnamed(fields_unnamed) => {
 							let field_names = (0..fields_unnamed.unnamed.len())
-								.map(|idx| format_ident!("_{}", idx))
+								.map(|index| format_ident!("_{}", index))
 								.collect::<Vec<_>>();
 							quote::quote!(
 								#ident::#variant_ident( #(#field_names),* ) =>
@@ -114,17 +108,24 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 						syn::Fields::Named(fields_named) => {
 							let field_names = fields_named
 								.named
-								.into_iter()
-								.map(|field| field.ident.expect("named fields always have idents"))
+								.iter()
+								.map(|field| {
+									field
+										.ident
+										.clone()
+										.expect("named fields always have idents; qed")
+								})
 								.collect::<Vec<_>>();
 							quote::quote!(
 								#ident::#variant_ident { #(#field_names),* } =>
 									#weight_info_provider_ident::#snake_cased_ident( #(#field_names),* ),
 							)
 						},
-					}
-				},
-			);
+					};
+
+					(method, match_arm)
+				})
+				.unzip();
 
 			let res = quote::quote! {
 				pub trait XcmWeightInfo #trait_generics {
