@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783527742198,
+  "lastUpdate": 1783609233803,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "117115317+lrubasze@users.noreply.github.com",
-            "name": "Lukasz Rubaszewski",
-            "username": "lrubasze"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3d1295aed7ff2208021347723f1879075668bab3",
-          "message": "Reenable `interest-cache` for `tracing-log` (#10304)\n\nReenable the `interest-cache` for the `tracing-log` crate.\n\nIt was disabled in this PR\n(https://github.com/paritytech/substrate/pull/11854) due to this issue\n(https://github.com/paritytech/substrate/pull/11854/issues/11691).\nMore details\n[here](https://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3522183237).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-13T15:47:13Z",
-          "tree_id": "b4920d4c69d5460e548ab9fda9e217b0abbe17d0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3d1295aed7ff2208021347723f1879075668bab3"
-        },
-        "date": 1763053283834,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.308431296333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19447099029999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.696186318266665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bfe7265211665c35cf5c593d40ddb10400b596e3",
+          "message": "pallet-society: return funds of discarded payouts to the pot (#12590)\n\nFunds backing pending payouts are moved into the payouts sub-account\nwhen scheduled, and must be returned to the pot whenever a payout is\ndiscarded. Four paths failed to do so, leaving balance stranded in the\nsub-account with no `Payouts` entry left to claim it:\n\n- `waive_repay` cleared the member's pending payouts without unreserving\ntheir backing funds\n- `slash_payout` deducted from pending payouts without unreserving the\ndeducted amount\n- `bump_payout` reserved funds even when the payment was discarded\nbecause the member was already at `MaxPayouts` capacity\n- `dissolve` cleared all payout records without returning the payouts\nsub-account balance to the society account\n\nA `try_state` invariant now asserts that the payouts sub-account balance\nequals the total of all pending payouts. Deployments whose sub-account\nbalance has already drifted — e.g. through the paths above, or through\nthe `v0` migration, which carries payout records over without moving\nbalances (the case of Kusama Asset Hub, for example, where as of\n`2026-07-08`, the payouts account is `~0.348 KSM` short of the recorded\npending payouts) — can restore the invariant by adding the new\nunversioned, idempotent\n`pallet_society::migrations::ReconcilePayoutsAccount` migration to their\nruntime's migration tuple; until then, `try-runtime` checks will fail.\n\n## Integration into KAH runtime \n\nMore in details, once we bump SDK in runtime to include this PR, we will\nhave to add the migration in KAH\n[here](https://github.com/polkadot-fellows/runtimes/blob/main/system-parachains/asset-hubs/asset-hub-kusama/src/migrations.rs#L27)\n\n```rust\n/// Migrations/checks that do not need to be versioned and can run on every update.\npub type Permanent = (\n      pallet_xcm::migration::MigrateToLatestXcmVersion<crate::Runtime>,\n      pallet_society::migrations::ReconcilePayoutsAccount<crate::Runtime>, // <--- without this, try-runtime will fail since the new invariant doesn't hold\n);\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-09T11:45:27Z",
+          "tree_id": "a4df8b293a16de01e41653ce25d8de73a3bd0f3f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bfe7265211665c35cf5c593d40ddb10400b596e3"
+        },
+        "date": 1783609203374,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.852896282733337,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14451937653333333,
             "unit": "seconds"
           }
         ]
