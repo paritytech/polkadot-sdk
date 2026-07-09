@@ -87,7 +87,8 @@ sol! {
 		/// Read the raw bytes of the runtime storage value at `key`.
 		///
 		/// Returns empty bytes if the key is absent. The returned value is bounded by
-		/// the runtime's configured length limit.
+		/// the runtime's configured length limit, and the key by
+		/// `limits::UNCHECKED_RUNTIME_KEY_BYTES`.
 		function getStorage(bytes key) external returns (bytes);
 	}
 }
@@ -208,6 +209,12 @@ where
 				}
 			},
 			IUncheckedRuntimeCalls::getStorage(IUncheckedRuntime::getStorageCall { key }) => {
+				// Keep the key length inside the benchmarked weight domain.
+				let key_len = key.as_ref().len() as u32;
+				if key_len > limits::UNCHECKED_RUNTIME_KEY_BYTES {
+					return Err(Error::Revert("storage key too long".into()));
+				}
+
 				// A read materialises the whole value into the PoV before its size is
 				// known, so gate the key before reading to bound that exposure.
 				if !StorageFilter::contains(&key.as_ref().to_vec()) {
@@ -217,7 +224,6 @@ where
 				let limit = MaxValueLen::get();
 				// Read weight is 2-D: key length (trie traversal) and value length
 				// (bytes pulled into the PoV).
-				let key_len = key.as_ref().len() as u32;
 				let weight = |v: u32| {
 					<T as crate::Config>::WeightInfo::unchecked_runtime_get_storage(key_len, v)
 				};
@@ -370,6 +376,32 @@ mod tests {
 				result.unwrap_err(),
 				Error::Revert("storage key not allowed by filter".into()),
 			);
+		});
+	}
+
+	#[test]
+	fn storage_key_length_is_capped() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			// A key exactly at the cap is readable (absent -> empty bytes)...
+			let max = crate::limits::UNCHECKED_RUNTIME_KEY_BYTES as usize;
+			<UncheckedRuntime<Test> as Precompile>::call(
+				&address(),
+				&storage_input(&vec![1u8; max]),
+				&mut ext,
+			)
+			.expect("a key at the cap must be readable");
+
+			// ...one byte past it reverts, keeping the charged weight inside the
+			// benchmarked key-length range.
+			let result = <UncheckedRuntime<Test> as Precompile>::call(
+				&address(),
+				&storage_input(&vec![1u8; max + 1]),
+				&mut ext,
+			);
+			assert_eq!(result.unwrap_err(), Error::Revert("storage key too long".into()));
 		});
 	}
 

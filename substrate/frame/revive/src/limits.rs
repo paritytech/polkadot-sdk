@@ -78,6 +78,23 @@ pub const TRANSIENT_STORAGE_BYTES: u32 = 4 * 1024;
 /// The maximum allowable length in bytes for (transient) storage keys.
 pub const STORAGE_KEY_BYTES: u32 = 128;
 
+/// The maximum length of a raw runtime storage key readable through the
+/// `UncheckedRuntime` precompile.
+///
+/// Also the upper bound of the key-length component of the
+/// `unchecked_runtime_get_storage` benchmark; the cap guarantees the weight
+/// function is never evaluated outside its measured range (a fitted linear
+/// formula is only trustworthy inside the domain it was fitted on, and the key
+/// length is caller-controlled, so it must be bounded rather than extrapolated).
+///
+/// 1024 gives more than 2x headroom over the longest realistic main-trie key:
+/// two 16-byte pallet/item prefixes plus hashed map components. Even
+/// `pallet_xcm::VersionNotifyTargets` — a double map whose second key is a
+/// `Blake2_128Concat`-hashed `VersionedLocation` (16-byte hash plus the full
+/// encoded location) — stays under ~450 bytes; well-known keys such as `:code:`
+/// are only a few bytes.
+pub const UNCHECKED_RUNTIME_KEY_BYTES: u32 = 1024;
+
 /// The page size in which PolkaVM should allocate memory chunks.
 pub const PAGE_SIZE: u32 = 4 * 1024;
 
