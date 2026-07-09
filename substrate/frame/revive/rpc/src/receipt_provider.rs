@@ -725,7 +725,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	{
 		let mut qb = QueryBuilder::<Sqlite>::new("SELECT logs.* FROM logs WHERE 1=1");
 		let filter = filter.unwrap_or_default();
-		let latest_block = U256::from(self.block_provider.latest_block_number().await);
 
 		match filter.block_option {
 			FilterBlockOption::AtBlockHash(hash) => {
@@ -736,6 +735,9 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					OptionFuture::from(from_block.map(&resolve_block_number)).await.transpose()?;
 				let to_block =
 					OptionFuture::from(to_block.map(&resolve_block_number)).await.transpose()?;
+
+				// Read the latest block *after* resolving the tags.
+				let latest_block = U256::from(self.block_provider.latest_block_number().await);
 
 				match (from_block, to_block) {
 					(Some(block), _) | (_, Some(block)) if block > latest_block => {
@@ -990,14 +992,12 @@ mod tests {
 		latest: u64,
 	) -> impl Fn(BlockNumberOrTag) -> std::future::Ready<anyhow::Result<U256>> {
 		move |block: BlockNumberOrTag| {
-			std::future::ready(match block {
-				BlockNumberOrTag::Number(v) => Ok(U256::from(v)),
-				BlockNumberOrTag::Earliest => Ok(U256::zero()),
-				BlockNumberOrTag::Latest => Ok(U256::from(latest)),
-				BlockNumberOrTag::Finalized |
-				BlockNumberOrTag::Safe |
-				BlockNumberOrTag::Pending => Err(anyhow::anyhow!("Unsupported tag: {block:?}")),
-			})
+			std::future::ready(Ok(match block {
+				BlockNumberOrTag::Number(v) => U256::from(v),
+				BlockNumberOrTag::Earliest => U256::zero(),
+				// The mock only tracks `latest`, so the remaining tags resolve to it.
+				_ => U256::from(latest),
+			}))
 		}
 	}
 
@@ -1398,6 +1398,59 @@ mod tests {
 			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
+
+		for tag in [
+			BlockNumberOrTag::Latest,
+			BlockNumberOrTag::Finalized,
+			BlockNumberOrTag::Safe,
+			BlockNumberOrTag::Pending,
+		] {
+			let logs = provider
+				.logs(Some(Filter::new().from_block(tag)), &resolve_block_number)
+				.await?;
+			assert_eq!(logs, vec![log2.clone()], "tag {tag:?} should resolve to the latest block");
+		}
+
+		let logs = provider
+			.logs(
+				Some(
+					Filter::new()
+						.from_block(log1.block_number.as_u64())
+						.to_block(log1.block_number.as_u64()),
+				),
+				&resolve_block_number,
+			)
+			.await?;
+		assert_eq!(logs, vec![log1.clone()], "from == to selects the single block");
+
+		let result = provider
+			.logs(
+				Some(
+					Filter::new()
+						.from_block(log2.block_number.as_u64())
+						.to_block(log1.block_number.as_u64()),
+				),
+				&resolve_block_number,
+			)
+			.await;
+		assert!(result.is_err(), "from > to should be rejected");
+
+		let result = provider
+			.logs(
+				Some(Filter::new().from_block(log2.block_number.as_u64() + 100)),
+				&resolve_block_number,
+			)
+			.await;
+		assert!(result.is_err(), "block number beyond latest should be rejected");
+
+		let failing = |_: BlockNumberOrTag| {
+			std::future::ready(Err::<U256, anyhow::Error>(anyhow::anyhow!("resolver failed")))
+		};
+		let result = provider
+			.logs(Some(Filter::new().from_block(BlockNumberOrTag::Latest)), &failing)
+			.await;
+		assert!(result.is_err(), "a resolver error should propagate");
+
 		Ok(())
 	}
 

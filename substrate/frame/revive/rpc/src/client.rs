@@ -944,6 +944,15 @@ impl Client {
 		self.block_provider.block_by_number(block_number).await
 	}
 
+	/// Get a block hash for the given block number.
+	pub async fn get_block_hash(
+		&self,
+		block_number: SubstrateBlockNumber,
+	) -> Result<Option<SubstrateBlockHash>, ClientError> {
+		let maybe_block = self.block_provider.block_by_number(block_number).await?;
+		Ok(maybe_block.map(|block| block.hash()))
+	}
+
 	async fn tracing_block(
 		&self,
 		block_hash: H256,

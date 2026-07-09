@@ -9,4 +9,4 @@ doc:
     `finalized` map to the latest finalized block, and `pending` maps to `latest`.
 crates:
 - name: pallet-revive-eth-rpc
-  bump: patch
+  bump: major
