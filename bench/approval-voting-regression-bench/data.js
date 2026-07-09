@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783609311747,
+  "lastUpdate": 1783618467914,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gorka.irazoki@gmail.com",
-            "name": "girazoki",
-            "username": "girazoki"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d69d1cd6702d08668f56b4f03935f2115c1592a8",
-          "message": "allow more generic origins in xcm-emulator message processor (#10158)\n\nRight now the default message processor is somewhat tied to specific\n`AggregateMessageOrigin` from `polkadot_runtime_parachains::inclusion`.\nthis pr changes it so that we require a conversion from that\nAggregateMessageOrigin, but nothing else, the rest stays generic.\n\nIn the longer run we can allow customizing the processor to some other\nthing, but this was a sufficiently easier change\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
-          "timestamp": "2025-11-13T09:39:38Z",
-          "tree_id": "56ae98de7ef6dbaba1b0b0c720e4e0505480f8ba",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d69d1cd6702d08668f56b4f03935f2115c1592a8"
-        },
-        "date": 1763030965340,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52936.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63624.61,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.479618631180001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001887391,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.389044071390005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5288256577599997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.49377168932,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.8183240220209997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006318510110000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002077813,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4928745467000013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9448984550499984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4427365812700043,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002077813,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001887391,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 0.000024457470000000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "41a79e4d01bd1bbbc9cb7967bdce1a4223e1a1aa",
+          "message": "collator-protocol revamp: Increase channel size used by the background writer of `PersistentDb` (#12260)\n\nWhile testing the collator revamp on versi I've noticed a lot of\n[\"Reputation persistence channel full. Modifications kept in memory for\nnext\nretry\"](https://github.com/paritytech/polkadot-sdk/blob/2d69a9182eed3a79a9443905439a8e971d7c318d/polkadot/node/network/collator-protocol/src/validator_side_experimental/peer_manager/persistent_db.rs#L362)\nwarnings which happen during advertisement spam.\n\nThe reason is that we persist reputation slashes immediately in the DB\nso if we get two slashes in a very short time the channel is still full\nand processing is deferred. Here is an example:\n```\nWARN tokio-runtime-worker parachain::collator-protocol: Reputation persistence channel full. Modifications kept in memory for next retry.\nDEBUG tokio-runtime-worker parachain::collator-protocol: Slashing peer's reputation peer_id=PeerId(\"12D3KooWLwsXNV3gqUWuihotcVoncCXxzarUTpHhqu1BDaxAM1FJ\") para_id=1306 value=Score(10922)\nDEBUG tokio-runtime-worker parachain::collator-protocol: Slashing peer's reputation peer_id=PeerId(\"12D3KooWLwsXNV3gqUWuihotcVoncCXxzarUTpHhqu1BDaxAM1FJ\") para_id=1306 value=Score(10922)\n``` \n\nThis is not fatal since the update is not lost, just delayed. Despite\nthat I believe it's worth increasing the channel size between\n`PersistentDb` and its internal background writer from 1 to 3.\n\nAdditionally the PR introduces a separate log target for the\npersistent_db module.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-09T15:46:50Z",
+          "tree_id": "77b17ada46ee9dad1ecd640363f0f6d8796a8ce3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/41a79e4d01bd1bbbc9cb7967bdce1a4223e1a1aa"
+        },
+        "date": 1783618437569,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63565.759999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000026202940000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002366629,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7838179674099983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4800110189500053,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.76390322747,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000026202940000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.45591652009001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.5654504436930035,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8251210303600027,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8004935560600039,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002366629,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005355502349999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7972142174899997,
             "unit": "seconds"
           }
         ]
