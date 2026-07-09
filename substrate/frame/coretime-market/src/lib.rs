@@ -440,7 +440,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 
 			let displaced = allocations.remove(displace_idx);
 			let core = displaced.core;
-			let refund = sale.clearing_price.unwrap_or_default();
+			let refund = clearing;
 
 			PendingDisplacements::<T>::try_mutate(|displacements| {
 				displacements
@@ -753,7 +753,7 @@ fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>>
 /// Finalize the sale at the end of the Renewal phase.
 ///
 /// Issues regions for auction winners, refunds displaced bids, and updates
-/// cores_sold to include renewals for the next sale's price adjustment.
+/// cores_sold to the final number of occupied cores.
 fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> {
 	let mut actions = vec![];
 	let allocations = Allocations::<T>::take();
@@ -776,11 +776,13 @@ fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> 
 		actions.push(TickAction::Refund { who: displacement.who, amount: displacement.refund });
 	}
 
-	if sale.renewal_count > 0 {
-		SaleInfo::<T>::mutate_extant(|sale| {
-			sale.cores_sold.saturating_accrue(sale.renewal_count as u16);
-		});
-	}
+	let remaining_auction_wins: CoreIndex = count.saturated_into();
+	let renewals: CoreIndex = sale.renewal_count.saturated_into();
+	let cores_sold = remaining_auction_wins.saturating_add(renewals);
+	debug_assert!(cores_sold <= sale.cores_offered);
+	SaleInfo::<T>::mutate_extant(|sale| {
+		sale.cores_sold = cores_sold;
+	});
 
 	Pallet::<T>::deposit_event(Event::SaleFinalized { regions_issued: count });
 

@@ -959,6 +959,10 @@ fn multiple_displacements_in_one_renewal_phase() {
 
 		assert_eq!(sell_count, 1, "1 remaining auction winner");
 		assert_eq!(refund_count, 2, "2 displaced refunds");
+
+		let finalized_sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(finalized_sale.cores_offered, 3);
+		assert_eq!(finalized_sale.cores_sold, 3);
 	});
 }
 

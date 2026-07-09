@@ -2487,21 +2487,21 @@ impl pallet_broker::Config for Runtime {
 
 /// Stub providers for pallet-coretime-market.
 pub struct CoretimeMarketProviders;
-impl pallet_broker::market::CoreRangeProvider for CoretimeMarketProviders {
-	fn core_range() -> Option<pallet_broker::market::SoldCoresRange> {
-		Some(pallet_broker::market::SoldCoresRange { from: 0, to: 10 })
+impl fp_coretime::market::CoreRangeProvider for CoretimeMarketProviders {
+	fn core_range() -> Option<fp_coretime::market::SoldCoresRange> {
+		Some(fp_coretime::market::SoldCoresRange { from: 0, to: 10 })
 	}
 }
-impl pallet_broker::market::TimesliceProvider for CoretimeMarketProviders {
-	fn next_timeslice_to_commit() -> Option<pallet_broker::Timeslice> {
+impl fp_coretime::market::TimesliceProvider for CoretimeMarketProviders {
+	fn next_timeslice_to_commit() -> Option<fp_coretime::Timeslice> {
 		None
 	}
-	fn latest_timeslice_ready_to_commit() -> Option<pallet_broker::Timeslice> {
+	fn latest_timeslice_ready_to_commit() -> Option<fp_coretime::Timeslice> {
 		None
 	}
 }
 impl pallet_coretime_market::RenewalRightsProvider<AccountId> for CoretimeMarketProviders {
-	fn renewal_rights_count(who: &AccountId, when: pallet_broker::Timeslice) -> u32 {
+	fn renewal_rights_count(who: &AccountId, when: fp_coretime::Timeslice) -> u32 {
 		#[cfg(feature = "runtime-benchmarks")]
 		{
 			use codec::Encode;
@@ -2517,7 +2517,7 @@ impl pallet_coretime_market::RenewalRightsProvider<AccountId> for CoretimeMarket
 		}
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn set_rights_count(who: &AccountId, when: pallet_broker::Timeslice, count: u32) {
+	fn set_rights_count(who: &AccountId, when: fp_coretime::Timeslice, count: u32) {
 		use codec::Encode;
 		let key = (b"coretime-market/bench-rights", who, when).encode();
 		sp_io::storage::set(&key, &count.encode());
@@ -2531,7 +2531,6 @@ impl pallet_coretime_market::Config for Runtime {
 	type CoreRangeProvider = CoretimeMarketProviders;
 	type TimesliceProvider = CoretimeMarketProviders;
 	type RenewalRights = CoretimeMarketProviders;
-	type TimeslicePeriod = ConstU32<2>;
 	type MaxBids = ConstU32<100>;
 	type Randomness = RandomnessCollectiveFlip;
 }
