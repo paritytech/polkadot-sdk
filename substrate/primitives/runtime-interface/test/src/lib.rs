@@ -155,6 +155,14 @@ fn test_v2_marshalling_strategies() {
 	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_v2_marshalling_strategies");
 }
 
+#[test]
+fn test_write_buffer_preserves_unwritten_bytes() {
+	call_wasm_method::<HostFunctions>(
+		wasm_binary_unwrap(),
+		"test_write_buffer_preserves_unwritten_bytes",
+	);
+}
+
 fn run_test_in_another_process(
 	test_name: &str,
 	test_body: impl FnOnce(),

@@ -531,7 +531,7 @@ pub trait Virtualization {
 		use sp_externalities::ExternalitiesExt as _;
 		self.extension::<crate::VirtManagerExt>()
 			.expect("VirtManagerExt not registered in externalities")
-			.read_memory(instance_id, offset, dest)
+			.read_memory(instance_id, offset, dest.as_fully_written_slice())
 	}
 
 	/// See [`crate::Execution::write_memory`].

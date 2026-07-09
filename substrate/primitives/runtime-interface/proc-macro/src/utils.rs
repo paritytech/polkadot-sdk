@@ -378,6 +378,38 @@ pub fn pat_ty_to_host_inner(mut pat: syn::PatType) -> syn::PatType {
 	pat
 }
 
+/// The type actually handed to the host function implementation for an argument of the given
+/// strategy type, i.e. `<#ty as RIType>::HostArg`. This equals [`host_inner_arg_ty`] for almost
+/// every strategy; it only differs for strategies (like `PassFatPointerAndWrite`) whose host
+/// implementation receives a dedicated handle.
+pub fn host_arg_ty(ty: &syn::Type) -> syn::Type {
+	let crate_ = generate_crate_access();
+	syn::parse2::<syn::Type>(quote! { <#ty as #crate_::RIType>::HostArg })
+		.expect("parsing doesn't fail")
+}
+
+pub fn pat_ty_to_host_arg(mut pat: syn::PatType) -> syn::PatType {
+	pat.ty = Box::new(host_arg_ty(&pat.ty));
+	pat
+}
+
+/// Make every named argument binding in the signature `mut`.
+///
+/// Used only for the host trait implementation, whose arguments may need to be mutable — for
+/// example a [`pass_by::PassFatPointerAndWrite`](crate) argument is handed to the host function as
+/// a `WriteBuffer` handle that it writes into. The receiver (`self`) is left untouched. This is
+/// paired with `#[allow(unused_mut)]` on the method, since the vast majority of arguments are not
+/// mutated.
+pub fn make_arg_bindings_mut(sig: &mut syn::Signature) {
+	for arg in sig.inputs.iter_mut() {
+		if let syn::FnArg::Typed(pat_ty) = arg {
+			if let syn::Pat::Ident(pat_ident) = &mut *pat_ty.pat {
+				pat_ident.mutability = Some(Default::default());
+			}
+		}
+	}
+}
+
 pub fn host_inner_return_ty(ty: &syn::ReturnType) -> syn::ReturnType {
 	let crate_ = generate_crate_access();
 	match ty {
@@ -395,6 +427,22 @@ pub fn unpack_inner_types_in_signature(sig: &mut syn::Signature) {
 		match arg {
 			syn::FnArg::Typed(ref mut pat_ty) => {
 				*pat_ty = crate::utils::pat_ty_to_host_inner(pat_ty.clone());
+			},
+			syn::FnArg::Receiver(..) => {},
+		}
+	}
+}
+
+/// Like [`unpack_inner_types_in_signature`], but maps the argument types to the host-function
+/// argument type (`<Ty as RIType>::HostArg`) rather than the plain inner type. The return type is
+/// still mapped to the inner type, since return values do not go through
+/// [`crate::host::FromFFIValue`]. Used for the host-side trait declaration and implementation.
+pub fn unpack_host_arg_types_in_signature(sig: &mut syn::Signature) {
+	sig.output = crate::utils::host_inner_return_ty(&sig.output);
+	for arg in sig.inputs.iter_mut() {
+		match arg {
+			syn::FnArg::Typed(ref mut pat_ty) => {
+				*pat_ty = crate::utils::pat_ty_to_host_arg(pat_ty.clone());
 			},
 			syn::FnArg::Receiver(..) => {},
 		}

@@ -32,7 +32,8 @@
 use crate::utils::{
 	create_exchangeable_host_function_ident, create_function_ident_with_version,
 	generate_crate_access, get_function_argument_names, get_function_arguments,
-	get_runtime_interface, host_inner_return_ty, pat_ty_to_host_inner, RuntimeInterfaceFunction,
+	get_runtime_interface, host_inner_return_ty, pat_ty_to_host_arg, pat_ty_to_host_inner,
+	RuntimeInterfaceFunction,
 };
 
 use syn::{
@@ -201,13 +202,22 @@ fn function_std_latest_impl(
 	let latest_function_name =
 		create_function_ident_with_version(&method.sig.ident, latest_version);
 
+	// This public entry point takes the arguments as their `RIType::Inner` type; the versioned
+	// implementation it dispatches to takes them as the `RIType::HostArg` type. Convert here via
+	// `Into` (relying on `Inner: Into<HostArg>`). This is a no-op for almost every strategy and
+	// only does real work for strategies like `PassFatPointerAndWrite` that hand the host function
+	// a dedicated handle.
+	let converted_args = arg_names
+		.iter()
+		.map(|name| quote_spanned! { name.span() => ::core::convert::Into::into(#name) });
+
 	Ok(quote_spanned! { method.span() =>
 		#[cfg(not(substrate_runtime))]
 		#( #attrs )*
 		#maybe_allow_non_snake
 		pub fn #function_name( #( #args, )* ) #return_value {
 			#latest_function_name(
-				#( #arg_names, )*
+				#( #converted_args, )*
 			)
 		}
 	})
@@ -225,8 +235,11 @@ fn function_std_impl(
 	let function_name_str = function_name.to_string();
 
 	let crate_ = generate_crate_access();
+	// The versioned implementation receives its arguments as the `RIType::HostArg` type, matching
+	// what the trait implementation expects and what the wasm host-function wrapper produces via
+	// `take_from_owned`.
 	let args = get_function_arguments(&method.sig)
-		.map(pat_ty_to_host_inner)
+		.map(pat_ty_to_host_arg)
 		.map(FnArg::Typed)
 		.chain(
 			// Add the function context as last parameter when this is a wasm only interface.
@@ -275,6 +288,9 @@ fn generate_call_to_trait(
 	let method_name = create_function_ident_with_version(&method.sig.ident, version);
 	let expect_msg =
 		format!("`{}` called outside of an Externalities-provided environment.", method_name);
+	// The versioned bare function already receives its arguments as the `RIType::HostArg` type
+	// (see `function_std_impl`), which is exactly what the trait implementation expects, so the
+	// arguments can be forwarded as-is.
 	let arg_names = get_function_argument_names(&method.sig);
 
 	if takes_self_argument(&method.sig) {

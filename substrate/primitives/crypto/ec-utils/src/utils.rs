@@ -102,6 +102,7 @@ pub struct HostcallResult;
 impl RIType for HostcallResult {
 	type FFIType = u32;
 	type Inner = Result<(), Error>;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]

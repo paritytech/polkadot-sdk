@@ -75,7 +75,7 @@ impl ToEssentialTraitDef {
 	fn process(&mut self, method: &TraitItemFn, version: u32) {
 		let mut folded = self.fold_trait_item_fn(method.clone());
 		folded.sig.ident = create_function_ident_with_version(&folded.sig.ident, version);
-		crate::utils::unpack_inner_types_in_signature(&mut folded.sig);
+		crate::utils::unpack_host_arg_types_in_signature(&mut folded.sig);
 		self.methods.push(folded);
 	}
 
@@ -157,7 +157,12 @@ fn impl_trait_for_externalities(trait_def: &ItemTrait, is_wasm_only: bool) -> Re
 		let mut cloned = (*method).clone();
 		cloned.attrs.retain(|a| !a.path().is_ident("version"));
 		cloned.sig.ident = create_function_ident_with_version(&cloned.sig.ident, version);
-		crate::utils::unpack_inner_types_in_signature(&mut cloned.sig);
+		crate::utils::unpack_host_arg_types_in_signature(&mut cloned.sig);
+		// The host implementation may need mutable argument bindings (e.g. a `WriteBuffer` handle
+		// that the host function writes into). Make all argument bindings `mut` and silence the
+		// resulting warnings for the arguments that are not actually mutated.
+		crate::utils::make_arg_bindings_mut(&mut cloned.sig);
+		cloned.attrs.push(syn::parse_quote!(#[allow(unused_mut)]));
 		cloned
 	});
 
