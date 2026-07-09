@@ -2056,7 +2056,7 @@ fn normal_asset_create_and_destroy_callbacks_should_work() {
 }
 
 #[test]
-fn balance_change_callbacks_should_work() {
+fn balance_change_callbacks_work() {
 	build_and_execute(|| {
 		// Read and clear the recorded invocations, so each assertion sees only its own
 		// operation. Returns every call (not just the last), so a double-fire is visible.
