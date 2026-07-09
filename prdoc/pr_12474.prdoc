@@ -5,10 +5,10 @@ doc:
     The `eth_getLogs` filter resolved only explicit block numbers and the `earliest` and
     `latest` tags, rejecting `finalized`, `safe` and `pending` with an "Unsupported tag"
     error even though the rest of the eth-rpc server (e.g. `eth_getBalance`, `eth_call`)
-    already accepts them. Block-tag resolution is now centralised in a single canonical
-    `Client::get_block_resolution_function`, used by both `eth_getLogs` and
-    `block_hash_for_tag`, so every entry point resolves tags identically: `safe` and
-    `finalized` map to the latest finalized block and `pending` maps to `latest`.
+    already accepts them. `eth_getLogs` now resolves every tag, and `block_hash_for_tag`
+    shares `block_by_number_or_tag` for block-tag resolution, so every entry point resolves
+    tags identically: `safe` and `finalized` map to the latest finalized block and `pending`
+    maps to `latest`.
 crates:
 - name: pallet-revive-eth-rpc
   bump: patch
