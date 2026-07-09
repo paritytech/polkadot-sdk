@@ -4,11 +4,11 @@
 use super::common::{
 	add_filter_unstable, assert_no_more_statements, assert_statements_match, base_dir,
 	collator_args, create_chain_spec_with_allowances, expect_one_statement,
-	expect_statements_unordered, online_client_from_node, spawn_network, spawn_network_sudo,
-	spawn_network_with_injected_allowances, submit_statement, submit_statement_unstable,
-	subscribe_topic, subscribe_topic_filter, subscribe_unstable, unstable_subscription_id,
-	wait_for_first_block, UnstableAddFilterResponse, UnstableStatementEvent,
-	COLLATOR_INFO_LOG_FILTER, COLLATOR_TRACE_LOG_FILTER,
+	expect_statements_unordered, online_client_from_node, remove_filter_unstable, spawn_network,
+	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement,
+	submit_statement_unstable, subscribe_topic, subscribe_topic_filter, subscribe_unstable,
+	unstable_subscription_id, wait_for_first_block, UnstableAddFilterResponse,
+	UnstableStatementEvent, COLLATOR_INFO_LOG_FILTER, COLLATOR_TRACE_LOG_FILTER,
 };
 use codec::Encode;
 use futures::future::join_all;
@@ -117,15 +117,20 @@ async fn statement_store_basic_propagation() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
+/// End-to-end smoke test of the v2 unstable statement RPC API on a two-node network: replay and
+/// live delivery on the submitting node, cross-node live delivery, and multi-filter attribution
+/// plus filter removal
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_unstable_rpc_smoke() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let network = spawn_network_with_injected_allowances(&["alice"], 6).await?;
+	let network = spawn_network_with_injected_allowances(&["alice", "bob"], 6).await?;
 	let alice = network.get_node("alice")?;
+	let bob = network.get_node("bob")?;
 	let alice_rpc = alice.rpc().await?;
+	let bob_rpc = bob.rpc().await?;
 
 	let topic: Topic = [0xA1; 32].into();
 	let pre_existing = create_test_statement(&get_keypair(0), &[topic], None, vec![1], u32::MAX, 0);
@@ -133,11 +138,11 @@ async fn statement_store_unstable_rpc_smoke() -> Result<(), anyhow::Error> {
 
 	let mut subscription = subscribe_unstable(&alice_rpc).await?;
 	let subscription_id = unstable_subscription_id(&subscription)?;
-	let filter_id = filter_id(
+	let alice_filter = filter_id(
 		add_filter_unstable(&alice_rpc, &subscription_id, match_all_filter(topic)).await?,
 	);
 
-	let replayed = collect_unstable_replay(&mut subscription, &filter_id).await?;
+	let replayed = collect_unstable_replay(&mut subscription, &alice_filter).await?;
 	assert_eq!(replayed, vec![Bytes::from(pre_existing.encode())]);
 
 	let live = create_test_statement(&get_keypair(1), &[topic], None, vec![2], u32::MAX, 0);
@@ -147,9 +152,72 @@ async fn statement_store_unstable_rpc_smoke() -> Result<(), anyhow::Error> {
 		UnstableStatementEvent::NewStatements { statements } => {
 			assert_eq!(statements.len(), 1);
 			assert_eq!(statements[0].statement, Bytes::from(live.encode()));
-			assert_eq!(statements[0].filter_ids, vec![filter_id]);
+			assert_eq!(statements[0].filter_ids, vec![alice_filter.clone()]);
 		},
 		event => anyhow::bail!("Expected newStatements event, got {:?}", event),
+	}
+
+	// Cross-node: a statement submitted on alice reaches a subscription on bob live. A fresh topic
+	// keeps bob's replay empty, so the assertion does not race statement propagation
+	let cross_topic: Topic = [0xB2; 32].into();
+	let mut bob_sub = subscribe_unstable(&bob_rpc).await?;
+	let bob_sub_id = unstable_subscription_id(&bob_sub)?;
+	let bob_filter =
+		filter_id(add_filter_unstable(&bob_rpc, &bob_sub_id, match_all_filter(cross_topic)).await?);
+
+	let bob_replay = collect_unstable_replay(&mut bob_sub, &bob_filter).await?;
+	assert!(bob_replay.is_empty());
+
+	let cross = create_test_statement(&get_keypair(2), &[cross_topic], None, vec![3], u32::MAX, 0);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &cross).await?, SubmitOutcome::New);
+
+	match expect_unstable_event(&mut bob_sub, 20).await? {
+		UnstableStatementEvent::NewStatements { statements } => {
+			assert_eq!(statements.len(), 1);
+			assert_eq!(statements[0].statement, Bytes::from(cross.encode()));
+			assert_eq!(statements[0].filter_ids, vec![bob_filter]);
+		},
+		event => anyhow::bail!("Expected cross-node newStatements on bob, got {:?}", event),
+	}
+
+	// Multi-filter attribution and removal: a statement matching two filters reports both ids;
+	// after the first filter is removed, the next statement reports only the remaining one
+	let second_topic: Topic = [0xA2; 32].into();
+	let alice_filter_2 = filter_id(
+		add_filter_unstable(&alice_rpc, &subscription_id, match_all_filter(second_topic)).await?,
+	);
+	let replay = collect_unstable_replay(&mut subscription, &alice_filter_2).await?;
+	assert!(replay.is_empty());
+
+	let multi =
+		create_test_statement(&get_keypair(3), &[topic, second_topic], None, vec![4], u32::MAX, 0);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &multi).await?, SubmitOutcome::New);
+
+	match expect_unstable_event(&mut subscription, 20).await? {
+		UnstableStatementEvent::NewStatements { statements } => {
+			assert_eq!(statements.len(), 1);
+			assert_eq!(statements[0].statement, Bytes::from(multi.encode()));
+			let ids: HashSet<_> = statements[0].filter_ids.iter().cloned().collect();
+			assert_eq!(ids, HashSet::from([alice_filter.clone(), alice_filter_2.clone()]));
+		},
+		event => anyhow::bail!("Expected multi-filter newStatements on alice, got {:?}", event),
+	}
+
+	// The removal is enqueued to the single matcher channel before the notification for the next
+	// submit enters it, so the removed filter can never race into the next event
+	remove_filter_unstable(&alice_rpc, &subscription_id, &alice_filter).await?;
+
+	let after_remove =
+		create_test_statement(&get_keypair(4), &[topic, second_topic], None, vec![5], u32::MAX, 0);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &after_remove).await?, SubmitOutcome::New);
+
+	match expect_unstable_event(&mut subscription, 20).await? {
+		UnstableStatementEvent::NewStatements { statements } => {
+			assert_eq!(statements.len(), 1);
+			assert_eq!(statements[0].statement, Bytes::from(after_remove.encode()));
+			assert_eq!(statements[0].filter_ids, vec![alice_filter_2]);
+		},
+		event => anyhow::bail!("Expected newStatements after removal, got {:?}", event),
 	}
 
 	Ok(())

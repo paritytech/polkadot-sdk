@@ -92,6 +92,16 @@ pub(super) async fn add_filter_unstable(
 	Ok(response)
 }
 
+pub(super) async fn remove_filter_unstable(
+	rpc: &RpcClient,
+	subscription_id: &str,
+	filter_id: &str,
+) -> Result<(), anyhow::Error> {
+	Ok(rpc
+		.request("statement_unstable_remove_filter", rpc_params![subscription_id, filter_id])
+		.await?)
+}
+
 pub(super) async fn expect_one_statement(
 	subscription: &mut RpcSubscription<StatementEvent>,
 	timeout_secs: u64,
