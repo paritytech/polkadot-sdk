@@ -595,25 +595,6 @@ pub struct ModuleInvalidity {
 	pub error: u16,
 }
 
-/// Module invalidity details exposed in RPC responses for diagnostics.
-#[cfg(feature = "serde")]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ModuleInvalidityDetails {
-	/// Pallet index, matching the metadata module index.
-	pub pallet_index: u8,
-	/// Module-specific error number.
-	pub error: u16,
-}
-
-impl ModuleInvalidity {
-	/// Build structured details for RPC.
-	#[cfg(feature = "std")]
-	pub fn rpc_details(&self) -> ModuleInvalidityDetails {
-		ModuleInvalidityDetails { pallet_index: self.index, error: self.error }
-	}
-}
-
 /// Errors related to transactional storage layers.
 #[derive(
 	Eq,
@@ -1244,14 +1225,6 @@ mod tests {
 		let decoded = ModuleInvalidity::decode(&mut &encoded[..]).unwrap();
 		assert_eq!(encoded, vec![7, 3, 0]);
 		assert_eq!(decoded, invalidity);
-	}
-
-	#[test]
-	fn module_invalidity_rpc_details() {
-		let invalidity = ModuleInvalidity { index: 7, error: 3 };
-		let details = invalidity.rpc_details();
-		assert_eq!(details.pallet_index, 7);
-		assert_eq!(details.error, 3);
 	}
 
 	#[test]

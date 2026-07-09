@@ -48,11 +48,10 @@ impl<Hash> From<Error> for TransactionEvent<Hash> {
 				})
 			},
 			Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(e))) => {
-				let details = e.rpc_details();
 				TransactionEvent::Invalid(TransactionError {
 					error: format!(
 						"Invalid transaction: module invalidity (pallet: {}, error: {})",
-						details.pallet_index, details.error
+						e.index, e.error
 					),
 				})
 			},

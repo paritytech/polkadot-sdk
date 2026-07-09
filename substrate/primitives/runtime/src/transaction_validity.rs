@@ -483,7 +483,7 @@ mod tests {
 		);
 
 		// decode back
-		assert_eq!(TransactionValidity::decode(&mut &*encoded), Ok(v.clone()));
+		assert_eq!(TransactionValidity::decode(&mut &*encoded), Ok(v));
 	}
 
 	#[test]
@@ -524,9 +524,5 @@ mod tests {
 		};
 
 		assert_eq!(on_node, invalidity);
-
-		let rpc = on_node.rpc_details();
-		assert_eq!(rpc.pallet_index, 1);
-		assert_eq!(rpc.error, 2);
 	}
 }

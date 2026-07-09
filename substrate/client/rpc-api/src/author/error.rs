@@ -21,6 +21,13 @@
 use jsonrpsee::types::error::{ErrorObject, ErrorObjectOwned};
 use sp_runtime::transaction_validity::InvalidTransaction;
 
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ModuleInvalidityDetails {
+	pallet_index: u8,
+	error: u16,
+}
+
 /// Author RPC Result type.
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -112,7 +119,11 @@ impl From<Error> for ErrorObjectOwned {
 				)
 			},
 			Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(e))) => {
-				ErrorObject::owned(POOL_INVALID_TX, "Invalid Transaction", Some(e.rpc_details()))
+				ErrorObject::owned(
+					POOL_INVALID_TX,
+					"Invalid Transaction",
+					Some(ModuleInvalidityDetails { pallet_index: e.index, error: e.error }),
+				)
 			},
 			Error::Pool(PoolError::InvalidTransaction(e)) => {
 				let msg: &str = e.into();
@@ -196,7 +207,7 @@ mod tests {
 	use super::*;
 	use jsonrpsee::types::ErrorObjectOwned;
 	use sc_transaction_pool_api::error::Error as PoolError;
-	use sp_runtime::{ModuleInvalidity, ModuleInvalidityDetails};
+	use sp_runtime::ModuleInvalidity;
 
 	/// After validation, the node exposes pallet index and error number for diagnostics.
 	#[test]
