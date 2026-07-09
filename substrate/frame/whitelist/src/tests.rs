@@ -24,9 +24,18 @@ use frame::{
 	traits::{QueryPreimage, StorePreimage},
 };
 
+/// Run the given closure in a fresh test externality and assert that all of the pallet's
+/// invariants hold afterwards.
+fn test(f: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		f();
+		Whitelist::do_try_state().expect("All invariants must hold after a test");
+	});
+}
+
 #[test]
 fn test_whitelist_call_and_remove() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
 		let encoded_call = call.encode();
 		let call_hash = <Test as frame_system::Config>::Hashing::hash(&encoded_call[..]);
@@ -68,7 +77,7 @@ fn test_whitelist_call_and_remove() {
 
 #[test]
 fn test_whitelist_call_and_execute() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call = RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![1] });
 		let call_weight = call.get_dispatch_info().call_weight;
 		let encoded_call = call.encode();
@@ -144,7 +153,7 @@ fn test_whitelist_call_and_execute() {
 
 #[test]
 fn test_whitelist_call_and_execute_failing_call() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call = RuntimeCall::Whitelist(crate::Call::dispatch_whitelisted_call {
 			call_hash: Default::default(),
 			call_encoded_len: Default::default(),
@@ -170,7 +179,7 @@ fn test_whitelist_call_and_execute_failing_call() {
 
 #[test]
 fn test_whitelist_call_and_execute_without_note_preimage() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call = Box::new(RuntimeCall::System(frame_system::Call::remark_with_event {
 			remark: vec![1],
 		}));
@@ -195,7 +204,7 @@ fn test_whitelist_call_and_execute_without_note_preimage() {
 
 #[test]
 fn test_whitelist_call_and_execute_decode_consumes_all() {
-	new_test_ext().execute_with(|| {
+	test(|| {
 		let call = RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![1] });
 		let call_weight = call.get_dispatch_info().call_weight;
 		let mut call = call.encode();
@@ -218,5 +227,22 @@ fn test_whitelist_call_and_execute_decode_consumes_all() {
 			),
 			crate::Error::<Test>::UndecodableCall,
 		);
+	});
+}
+
+// This test corrupts storage on purpose, so it bypasses the `test` wrapper (whose own
+// `do_try_state` would trip) and asserts the check rejects the inconsistent state.
+#[test]
+fn try_state_catches_unrequested_whitelisted_call() {
+	new_test_ext().execute_with(|| {
+		let call_hash = <Test as frame_system::Config>::Hashing::hash(&b"never requested"[..]);
+
+		// A whitelisted call without a requested preimage is inconsistent.
+		crate::WhitelistedCall::<Test>::insert(call_hash, ());
+		assert!(Whitelist::do_try_state().is_err());
+
+		// Requesting the preimage restores consistency.
+		Preimage::request(&call_hash);
+		assert_ok!(Whitelist::do_try_state());
 	});
 }
