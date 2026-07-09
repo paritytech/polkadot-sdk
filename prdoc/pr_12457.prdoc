@@ -1,4 +1,4 @@
-title: '[pallet-revive] Add unstable runtime precompile (call dispatch + raw storage reads)'
+title: '[pallet-revive] Add UncheckedRuntime precompile (call dispatch + raw storage reads)'
 
 doc:
   - audience: Runtime Dev
@@ -8,16 +8,29 @@ doc:
 
       - `dispatch(bytes)` — dispatch an arbitrary SCALE-encoded `RuntimeCall` as the
         calling contract's account (a `Signed` origin).
-      - `getStorage(bytes, uint32)` — read the raw bytes of any runtime storage item
-        by its full key.
+      - `getStorage(bytes)` — read the raw bytes of any runtime storage item by its
+        full key.
 
       The precompile is gated behind the new, default-off `unchecked-precompiles`
       cargo feature and must be explicitly added to a runtime's `Config::Precompiles`
-      to become active. Its interface is unstable — pallet indices, call encodings
+      to become active. Its interface is unchecked — pallet indices, call encodings
       and storage keys may change across runtime upgrades — and must not be enabled
-      on production runtimes. A configurable `Filter: Contains<RuntimeCall>` type
-      parameter (default `Everything`) lets a runtime restrict which calls may be
-      dispatched. Both primitives are weight-metered with dedicated benchmarks.
+      on production runtimes.
+
+      Optional configuration type parameters:
+      - `Filter: Contains<RuntimeCall>` (default `Everything`) restricts which calls
+        may be dispatched; it is attached to the dispatch origin, so it also covers
+        calls nested in `Utility::batch`, `Proxy::proxy`, etc.
+      - `StorageFilter: Contains<Vec<u8>>` (default `Everything`) restricts which
+        storage keys may be read.
+      - `MaxValueLen: Get<u32>` is the value length `getStorage` charges up front
+        (refunded to the actual length after the read); it defaults to — and is
+        clamped at — the largest value whose ABI-encoded return fits the 128 KiB
+        return-data cap.
+
+      Storage keys are capped at `limits::UNCHECKED_RUNTIME_KEY_BYTES` (1 KiB),
+      keeping the read weight inside its benchmarked domain. Both primitives are
+      weight-metered with dedicated benchmarks.
 
 crates:
   # `validate: false`: the SemVer check cannot build rustdoc JSON for these crates
