@@ -325,7 +325,7 @@ async fn wait_for_finalized_to_reach_best<C: EthRpcClient + Sync>(
 			if finalized.map(|block| block.number == latest).unwrap_or(false) {
 				break;
 			}
-			tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+			tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 		}
 		anyhow::Ok(())
 	})
@@ -946,8 +946,7 @@ async fn test_get_logs_with_block_tags_works() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let account = Account::default();
 
-	// Deploy a contract and trigger it to emit a log, so the range query below has a known log
-	// to find.
+	// Deploy a contract and trigger it to emit a log.
 	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
 		"SimpleReceiver",
 		pallet_revive_fixtures::FixtureType::Solc,
