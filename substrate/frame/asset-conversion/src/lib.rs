@@ -822,8 +822,7 @@ pub mod pallet {
 
 			let pool_account =
 				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
-			let reserve1 = Self::get_balance(&pool_account, asset1.clone());
-			let reserve2 = Self::get_balance(&pool_account, asset2.clone());
+			let (reserve1, reserve2) = Self::get_reserves(asset1.clone(), asset2.clone())?;
 
 			let total_supply = T::PoolAssets::total_issuance(pool.lp_token.clone());
 			let withdrawal_fee_amount = T::LiquidityWithdrawalFee::get() * lp_token_burn;
@@ -1178,7 +1177,7 @@ pub mod pallet {
 		/// Get the `owner`'s balance of `asset`, which could be the chain's native asset or another
 		/// fungible. Returns a value in the form of an `Balance`.
 		pub(crate) fn get_balance(owner: &T::AccountId, asset: T::AssetKind) -> T::Balance {
-			T::Assets::reducible_balance(asset, owner, Expendable, Polite)
+			T::Assets::balance(asset, owner)
 		}
 
 		/// Leading to an amount at the end of a `path`, get the required amounts in.
@@ -1422,8 +1421,7 @@ pub mod pallet {
 
 			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
 
-			let balance1 = Self::get_balance(&pool_account, asset1);
-			let balance2 = Self::get_balance(&pool_account, asset2.clone());
+			let (balance1, balance2) = Self::get_reserves(asset1.clone(), asset2.clone()).ok()?;
 
 			if balance1.is_zero() {
 				return None;
@@ -1469,8 +1467,7 @@ pub mod pallet {
 			}
 			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
 
-			let balance1 = Self::get_balance(&pool_account, asset1);
-			let balance2 = Self::get_balance(&pool_account, asset2.clone());
+			let (balance1, balance2) = Self::get_reserves(asset1.clone(), asset2.clone()).ok()?;
 
 			if balance1.is_zero() {
 				return None;
