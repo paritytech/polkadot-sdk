@@ -141,6 +141,21 @@ fn asset_id_extractor_works() {
 	);
 }
 
+// `token_address` is the inverse of `asset_id_from_address`: every id must survive the
+// round-trip id -> address -> id, including the boundaries.
+#[test]
+fn token_address_round_trips_through_extractor() {
+	for id in [0u32, 1, 1337, 0xDEAD_BEEF, u32::MAX] {
+		let address = Erc20TransferLogs::<Test, InlineIdConfig<0x0120>>::token_address(&id);
+		let extracted =
+			<InlineIdConfig<0x0120> as AssetPrecompileConfig>::AssetIdExtractor::asset_id_from_address(
+				&address.0,
+			)
+			.unwrap();
+		assert_eq!(extracted, id, "round-trip failed for asset id {id}");
+	}
+}
+
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn precompile_transfer_works(asset_index: u16) {
