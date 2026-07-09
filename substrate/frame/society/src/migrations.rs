@@ -20,7 +20,11 @@
 use super::*;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
-use frame_support::traits::{Defensive, DefensiveOption, Instance, UncheckedOnRuntimeUpgrade};
+use core::cmp::Ordering;
+use frame_support::traits::{
+	Defensive, DefensiveOption, ExistenceRequirement::KeepAlive, Instance,
+	UncheckedOnRuntimeUpgrade,
+};
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -119,30 +123,31 @@ impl<T: Config<I>, I: Instance + 'static> frame_support::traits::OnRuntimeUpgrad
 	for ReconcilePayoutsAccount<T, I>
 {
 	fn on_runtime_upgrade() -> Weight {
-		let mut entries = 0u64;
-		let pending = Payouts::<T, I>::iter_values()
-			.inspect(|_| entries += 1)
-			.flat_map(|record| record.payouts.into_iter())
-			.fold(BalanceOf::<T, I>::zero(), |acc, x| acc.saturating_add(x.1));
+		let entries = Payouts::<T, I>::iter_keys().count() as u64;
+		let pending = Pallet::<T, I>::pending_payouts_total();
+		let society_account = Pallet::<T, I>::account_id();
 		let payouts_account = Pallet::<T, I>::payouts();
 		let balance = T::Currency::free_balance(&payouts_account);
 
-		let res = if balance < pending {
-			T::Currency::transfer(
-				&Pallet::<T, I>::account_id(),
+		// Top-ups must never reap the society account; sweeps may reap the payouts account only
+		// when no pending payouts remain to be backed.
+		let res = match balance.cmp(&pending) {
+			Ordering::Equal => Ok(()),
+			Ordering::Less => T::Currency::transfer(
+				&society_account,
 				&payouts_account,
 				pending - balance,
-				frame_support::traits::ExistenceRequirement::KeepAlive,
-			)
-		} else if balance > pending {
-			T::Currency::transfer(
+				KeepAlive,
+			),
+			Ordering::Greater if pending.is_zero() => {
+				T::Currency::transfer(&payouts_account, &society_account, balance, AllowDeath)
+			},
+			Ordering::Greater => T::Currency::transfer(
 				&payouts_account,
-				&Pallet::<T, I>::account_id(),
+				&society_account,
 				balance - pending,
-				AllowDeath,
-			)
-		} else {
-			Ok(())
+				KeepAlive,
+			),
 		};
 		if let Err(e) = res {
 			frame_support::defensive!("failed to reconcile the payouts account", e);

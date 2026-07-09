@@ -2221,6 +2221,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::PalletId::get().into_sub_account_truncating(b"payouts")
 	}
 
+	/// The total of all pending payouts recorded in [`Payouts`].
+	pub(crate) fn pending_payouts_total() -> BalanceOf<T, I> {
+		Payouts::<T, I>::iter_values()
+			.flat_map(|record| record.payouts.into_iter())
+			.fold(Zero::zero(), |acc: BalanceOf<T, I>, x| acc.saturating_add(x.1))
+	}
+
 	/// Ensure the correctness of the state of this pallet.
 	///
 	/// The balance of the payouts account must equal the total of all pending payouts recorded in
@@ -2228,11 +2235,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// a payout is claimed or discarded.
 	#[cfg(any(feature = "try-runtime", test))]
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		let total_pending = Payouts::<T, I>::iter_values()
-			.flat_map(|record| record.payouts.into_iter())
-			.fold(BalanceOf::<T, I>::zero(), |acc, x| acc.saturating_add(x.1));
 		frame_support::ensure!(
-			T::Currency::free_balance(&Self::payouts()) == total_pending,
+			T::Currency::free_balance(&Self::payouts()) == Self::pending_payouts_total(),
 			"payouts account balance must equal the total of pending payouts",
 		);
 		Ok(())
