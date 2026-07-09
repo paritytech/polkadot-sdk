@@ -39,9 +39,17 @@ crates:
     bump: major
   - name: pallet-asset-conversion-precompiles
     bump: patch
+  - name: pallet-asset-conversion-ops
+    bump: none
+  - name: pallet-asset-conversion-tx-payment
+    bump: none
+  - name: staging-xcm-builder
+    bump: none
   - name: asset-hub-rococo-runtime
     bump: minor
   - name: asset-hub-westend-runtime
+    bump: minor
+  - name: penpal-runtime
     bump: minor
   - name: pallet-staking-async-parachain-runtime
     bump: minor
