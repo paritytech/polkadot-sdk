@@ -104,6 +104,59 @@ pub type MigrateToV2<T, I, PastPayouts> = frame_support::migrations::VersionedMi
 	<T as frame_system::Config>::DbWeight,
 >;
 
+/// Reconcile the balance of the payouts account with the payouts recorded in storage.
+///
+/// The balance of the payouts account must equal the total of all pending payouts recorded in
+/// `Payouts`. Deployments may have drifted from this invariant — e.g. through code which discarded
+/// payout records without moving the balance backing them, or through
+/// [`VersionUncheckedMigrateToV2`], which carries payout records over without funding the account.
+/// This migration transfers the difference between the payouts account and the society account in
+/// whichever direction restores the invariant. It is unversioned, idempotent and safe to keep in a
+/// runtime's migration tuple across upgrades.
+pub struct ReconcilePayoutsAccount<T, I = ()>(core::marker::PhantomData<(T, I)>);
+
+impl<T: Config<I>, I: Instance + 'static> frame_support::traits::OnRuntimeUpgrade
+	for ReconcilePayoutsAccount<T, I>
+{
+	fn on_runtime_upgrade() -> Weight {
+		let mut entries = 0u64;
+		let pending = Payouts::<T, I>::iter_values()
+			.inspect(|_| entries += 1)
+			.flat_map(|record| record.payouts.into_iter())
+			.fold(BalanceOf::<T, I>::zero(), |acc, x| acc.saturating_add(x.1));
+		let payouts_account = Pallet::<T, I>::payouts();
+		let balance = T::Currency::free_balance(&payouts_account);
+
+		let res = if balance < pending {
+			T::Currency::transfer(
+				&Pallet::<T, I>::account_id(),
+				&payouts_account,
+				pending - balance,
+				frame_support::traits::ExistenceRequirement::KeepAlive,
+			)
+		} else if balance > pending {
+			T::Currency::transfer(
+				&payouts_account,
+				&Pallet::<T, I>::account_id(),
+				balance - pending,
+				AllowDeath,
+			)
+		} else {
+			Ok(())
+		};
+		if let Err(e) = res {
+			log::error!(target: TARGET, "failed to reconcile the payouts account: {:?}", e);
+		}
+
+		T::DbWeight::get().reads_writes(entries.saturating_add(2), 2)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
+		Pallet::<T, I>::do_try_state()
+	}
+}
+
 pub(crate) mod v0 {
 	use super::*;
 	use frame_support::storage_alias;

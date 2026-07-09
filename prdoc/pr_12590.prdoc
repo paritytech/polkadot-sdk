@@ -9,7 +9,7 @@ doc:
     - `bump_payout` reserved funds even when the payment was discarded because the member was already at `MaxPayouts` capacity
     - `dissolve` cleared all payout records without returning the payouts sub-account balance to the society account
 
-    A `try_state` invariant now asserts that the payouts sub-account balance equals the total of all pending payouts. Deployments whose sub-account balance has already drifted — e.g. through the paths above, or through the `v0` migration, which carries payout records over without moving balances — must reconcile the sub-account as part of the runtime upgrade or `try-runtime` checks will fail. This is the case of Kusama AH for example.
+    A `try_state` invariant now asserts that the payouts sub-account balance equals the total of all pending payouts. Deployments whose sub-account balance has already drifted — e.g. through the paths above, or through the `v0` migration, which carries payout records over without moving balances (the case of Kusama Asset Hub, for example) — can restore the invariant by adding the new unversioned, idempotent `pallet_society::migrations::ReconcilePayoutsAccount` migration to their runtime's migration tuple; until then, `try-runtime` checks will fail.
 crates:
 - name: pallet-society
   bump: minor

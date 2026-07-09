@@ -1162,7 +1162,9 @@ pub mod pallet {
 			MemberCount::<T, I>::kill();
 			let _ = MemberByIndex::<T, I>::clear(u32::MAX, None);
 			let _ = SuspendedMembers::<T, I>::clear(u32::MAX, None);
-			// Return the funds backing the discarded pending payouts to the society account.
+			// Return the funds backing the discarded pending payouts to the society account. On
+			// failure, abort the dissolution rather than stranding the funds in the payouts
+			// account with no records left to claim them.
 			let payouts_account = Self::payouts();
 			T::Currency::transfer(
 				&payouts_account,

@@ -21,7 +21,7 @@ use super::*;
 use migrations::v0;
 use mock::*;
 
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, traits::OnRuntimeUpgrade};
 use sp_crypto_hashing::blake2_256;
 use sp_runtime::traits::BadOrigin;
 use BidKind::*;
@@ -80,15 +80,9 @@ fn migration_works() {
 		migrations::from_original::<Test, ()>(&mut [][..]).expect("migration failed");
 		migrations::assert_internal_consistency::<Test, ()>();
 
-		// `from_original` carries the payout records over without funding the payouts account,
-		// so the migrated state violates the payout accounting invariant until the account is
-		// reconciled separately. Model that reconciliation here to satisfy the invariant checked
-		// at the end of every test.
-		let pending: u64 = Payouts::<Test>::iter_values()
-			.flat_map(|r| r.payouts.into_iter())
-			.map(|x| x.1)
-			.sum();
-		let _ = Balances::make_free_balance_be(&Society::payouts(), pending);
+		// `from_original` carries the payout records over without funding the payouts account;
+		// reconcile it from the society account to restore the payout accounting invariant.
+		migrations::ReconcilePayoutsAccount::<Test, ()>::on_runtime_upgrade();
 
 		assert_eq!(
 			membership(),
@@ -218,6 +212,39 @@ fn unfounding_works() {
 
 		// Unfounding won't work now, even though it's from 20.
 		assert_noop!(Society::dissolve(Origin::signed(20)), Error::<Test>::NotHead);
+	});
+}
+
+#[test]
+fn reconcile_payouts_account_migration_works() {
+	EnvBuilder::new().execute(|| {
+		// GIVEN: a member with a pending payout of 100 backed by the payouts account.
+		place_members([20]);
+		Society::bump_payout(&20, 5, 100);
+		let society_account = Balances::free_balance(Society::account_id());
+
+		// WHEN: the payouts account has drifted below the pending total.
+		let _ = Balances::make_free_balance_be(&Society::payouts(), 40);
+		migrations::ReconcilePayoutsAccount::<Test, ()>::on_runtime_upgrade();
+
+		// THEN: the difference is topped up from the society account.
+		assert_eq!(Balances::free_balance(Society::payouts()), 100);
+		assert_eq!(Balances::free_balance(Society::account_id()), society_account - 60);
+
+		// WHEN: the payouts account has drifted above the pending total.
+		let _ = Balances::make_free_balance_be(&Society::payouts(), 130);
+		migrations::ReconcilePayoutsAccount::<Test, ()>::on_runtime_upgrade();
+
+		// THEN: the surplus is returned to the society account.
+		assert_eq!(Balances::free_balance(Society::payouts()), 100);
+		assert_eq!(Balances::free_balance(Society::account_id()), society_account - 30);
+
+		// WHEN: the balance already matches the pending total.
+		migrations::ReconcilePayoutsAccount::<Test, ()>::on_runtime_upgrade();
+
+		// THEN: nothing changes.
+		assert_eq!(Balances::free_balance(Society::payouts()), 100);
+		assert_eq!(Balances::free_balance(Society::account_id()), society_account - 30);
 	});
 }
 
