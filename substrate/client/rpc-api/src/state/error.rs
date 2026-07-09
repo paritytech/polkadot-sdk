@@ -64,6 +64,7 @@ impl From<Error> for ErrorObjectOwned {
 			Error::InvalidCount { .. } => {
 				ErrorObject::owned(BASE_ERROR + 2, e.to_string(), None::<()>)
 			},
+			Error::UnsafeRpcCalled(e) => e.into(),
 			e => ErrorObject::owned(BASE_ERROR + 3, e.to_string(), None::<()>),
 		}
 	}
