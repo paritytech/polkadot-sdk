@@ -8,7 +8,9 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
+use cumulus_zombienet_sdk_helpers::{
+	assert_finality_lag, assert_para_throughput, assign_cores, wait_for_pvf_prepare,
+};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
@@ -86,6 +88,9 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 
 	// Assign 11 extra cores to the parachain.
 	assign_cores(&relay_client, 2300, (0..11).collect()).await?;
+
+	// Wait for PVF preparation to complete.
+	wait_for_pvf_prepare(&network, 1).await?;
 
 	// Expect a backed candidate count of at least 170 in 15 relay chain blocks
 	// (11.33 candidates per para per relay chain block).

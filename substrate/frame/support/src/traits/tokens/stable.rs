@@ -25,7 +25,7 @@ pub trait PsmInterface {
 	/// The balance type.
 	type Balance;
 
-	/// Get the amount of pUSD issuance capacity reserved by the PSM.
+	/// Get the amount of internal/minting stablecoin issuance capacity reserved by the PSM.
 	fn reserved_capacity() -> Self::Balance;
 }
 

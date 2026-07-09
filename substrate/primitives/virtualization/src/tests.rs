@@ -15,16 +15,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{ExecAction, ExecError, ExecOutcome, MemoryT, Virt, VirtT};
+//! Shared test driver for the virtualization forwarder API.
+//!
+//! The cases exercised here only use the public [`Module`] / [`Instance`] / [`Execution`]
+//! surface, so they can be invoked from two distinct contexts:
+//!
+//! - **Runtime-side**, compiled into `sc-runtime-test` and dispatched through the wasm executor —
+//!   this exercises the full host-function FFI round-trip.
+//! - **Host-side**, invoked as a regular `#[test]` from `sc-virtualization` — this exercises the
+//!   native dispatch path with no wasm involved.
+//!
+//! Entry point: [`run`]. Tests that need pre-populated externalities (e.g. the storage
+//! fallback path of `Module::from_storage_key`) live as standalone host-only `#[test]`s
+//! in `sc-virtualization` rather than here.
 
-const GAS_MAX: i64 = i64::MAX;
+use crate::{ExecError, ExecResult, Execution, Instance, Module, ModuleError};
 
-/// Run all tests.
+/// Default gas budget used by every test driver.
+pub const GAS_MAX: i64 = i64::MAX;
+
+/// Run every test that uses only the public forwarder API.
 ///
-/// This is exported even without a test build in order to make it callable from the
-/// `sc-runtime-test`. This is necessary in order to compile these tests into a runtime so that
-/// the forwarder implementation is used. Otherwise only the native implementation is tested through
-/// cargos test framework.
+/// Exported as a regular function so it can be invoked from both:
+/// - the runtime (compiled into `sc-runtime-test`) — exercises the wasm/forwarder path end-to-end,
+///   including the host-function FFI;
+/// - native host tests (in `sc-virtualization`) — exercises the host-side dispatch directly.
+///
+/// Tests that need pre-populated externalities (storage fallback for `compile_from_storage_key`)
+/// can't run from a runtime context and live as standalone `#[test]`s in `sc-virtualization`.
 ///
 /// The `program` needs to be set to `sp_virtualization_test_fixture::binary()`. It can't be
 /// hard coded because when this crate is compiled into a runtime the binary is not available.
@@ -40,161 +58,158 @@ pub fn run(program: &[u8]) {
 	memory_reset_on_instantiate(program);
 	memory_persistent(program);
 	counter_in_subcall(program);
+	from_storage_key_not_found(program);
 }
 
 /// The result of running a program to completion.
-enum RunResult {
-	/// Execution finished normally.
-	Ok,
+pub enum RunResult {
+	/// Execution finished normally. The idle instance is returned for reuse.
+	Ok(Instance),
 	/// A syscall handler signalled exit.
 	Exit,
 	/// Execution returned an error.
 	Err(ExecError),
 }
 
-/// Drives the execute/resume loop calling `handler` for each syscall.
+/// Drives the prepare/run loop calling `handler` for each syscall.
 ///
-/// The closure receives `(syscall_no, a0, a1, a2, a3, a4, a5)` and returns
+/// The closure receives `(execution, syscall_symbol, a0, a1, a2, a3, a4, a5)` and returns
 /// `Ok(return_value)` to resume or `Err(())` to signal exit (trap).
-fn run_loop(
-	virt: &mut Virt,
-	function: &str,
+pub fn run_loop(
+	mut execution: Execution,
 	gas_left: &mut i64,
-	mut handler: impl FnMut(u32, u64, u64, u64, u64, u64, u64) -> Result<u64, ()>,
+	mut handler: impl FnMut(&mut Execution, &[u8], u64, u64, u64, u64, u64, u64) -> Result<u64, ()>,
 ) -> RunResult {
-	let mut action = ExecAction::Execute(function);
+	let mut a0 = 0u64;
 	loop {
-		let outcome = match virt.run(*gas_left, action) {
-			Ok(outcome) => outcome,
-			Err(ExecError::OutOfGas) => {
-				*gas_left = 0;
-				return RunResult::Err(ExecError::OutOfGas);
-			},
-			Err(err) => return RunResult::Err(err),
-		};
-		match outcome {
-			ExecOutcome::Finished { gas_left: g } => {
+		match execution.run(*gas_left, a0) {
+			ExecResult::Finished { instance, gas_left: g } => {
 				*gas_left = g;
-				return RunResult::Ok;
+				return RunResult::Ok(instance);
 			},
-			ExecOutcome::Syscall { gas_left: g, syscall_no, a0, a1, a2, a3, a4, a5 } => {
+			ExecResult::Syscall {
+				execution: e,
+				gas_left: g,
+				syscall_symbol,
+				a0: sa0,
+				a1,
+				a2,
+				a3,
+				a4,
+				a5,
+			} => {
+				execution = e;
 				*gas_left = g;
-				match handler(syscall_no, a0, a1, a2, a3, a4, a5) {
-					Ok(result) => action = ExecAction::Resume(result),
+				match handler(&mut execution, syscall_symbol.as_ref(), sa0, a1, a2, a3, a4, a5) {
+					Ok(result) => a0 = result,
 					Err(()) => return RunResult::Exit,
 				}
 			},
+			ExecResult::Error { instance: _, error: ExecError::OutOfGas } => {
+				*gas_left = 0;
+				return RunResult::Err(ExecError::OutOfGas);
+			},
+			ExecResult::Error { instance: _, error } => return RunResult::Err(error),
 		}
 	}
 }
 
 /// The standard syscall handler for the test fixture.
 ///
-/// Captures `counter` and `memory` from the caller.
-fn make_handler<'a>(
+/// Captures `counter` from the caller; memory access goes through the `&mut Execution` passed
+/// on each invocation.
+pub fn make_handler<'a>(
 	counter: &'a mut u64,
-	memory: &'a mut <Virt as VirtT>::Memory,
-) -> impl FnMut(u32, u64, u64, u64, u64, u64, u64) -> Result<u64, ()> + 'a {
-	move |syscall_no, a0, _a1, _a2, _a3, _a4, _a5| match syscall_no {
-		// read_counter
-		1 => {
+) -> impl FnMut(&mut Execution, &[u8], u64, u64, u64, u64, u64, u64) -> Result<u64, ()> + 'a {
+	move |execution, syscall_symbol, a0, _a1, _a2, _a3, _a4, _a5| match syscall_symbol {
+		b"read_counter" => {
 			let buf = counter.to_le_bytes();
-			memory.write(a0 as u32, buf.as_ref()).unwrap();
-			Ok(syscall_no.into())
+			execution.write_memory(a0 as u32, buf.as_ref()).unwrap();
+			Ok(1)
 		},
-		// increment counter
-		2 => {
+		b"increment_counter" => {
 			let mut buf = [0u8; 8];
-			memory.read(a0 as u32, buf.as_mut()).unwrap();
+			execution.read_memory(a0 as u32, buf.as_mut()).unwrap();
 			*counter += u64::from_le_bytes(buf);
-			Ok(u64::from(syscall_no) << 56)
+			Ok(2u64 << 56)
 		},
-		// exit
-		3 => Err(()),
-		_ => panic!("unknown syscall: {:?}", syscall_no),
+		b"exit" => Err(()),
+		_ => panic!("unknown syscall: {:?}", syscall_symbol),
 	}
 }
 
 /// Checks memory access and user state functionality.
 fn counter_start_at_0(program: &[u8]) {
-	let mut instance = Virt::instantiate(program).unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
+	let execution = instance.prepare(b"counter").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 0;
-	let mut memory = instance.memory();
-	let result =
-		run_loop(&mut instance, "counter", &mut gas_left, make_handler(&mut counter, &mut memory));
-	assert!(matches!(result, RunResult::Ok));
+	let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
+	assert!(matches!(result, RunResult::Ok(_)));
 	assert_eq!(counter, 8);
 }
 
 /// Checks memory access and user state functionality.
 fn counter_start_at_7(program: &[u8]) {
-	let mut instance = Virt::instantiate(program).unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
+	let execution = instance.prepare(b"counter").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 7;
-	let mut memory = instance.memory();
-	let result =
-		run_loop(&mut instance, "counter", &mut gas_left, make_handler(&mut counter, &mut memory));
-	assert!(matches!(result, RunResult::Ok));
+	let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
+	assert!(matches!(result, RunResult::Ok(_)));
 	assert_eq!(counter, 15);
 }
 
 /// Makes sure user state is persistent between calls into the same instance.
 fn counter_multiple_calls(program: &[u8]) {
-	let mut instance = Virt::instantiate(program).unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
+	let execution = instance.prepare(b"counter").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 7;
-	let mut memory = instance.memory();
 
-	let result =
-		run_loop(&mut instance, "counter", &mut gas_left, make_handler(&mut counter, &mut memory));
-	assert!(matches!(result, RunResult::Ok));
+	let instance = match run_loop(execution, &mut gas_left, make_handler(&mut counter)) {
+		RunResult::Ok(instance) => instance,
+		_ => panic!("expected Ok"),
+	};
 	assert_eq!(counter, 15);
 
-	let result =
-		run_loop(&mut instance, "counter", &mut gas_left, make_handler(&mut counter, &mut memory));
-	assert!(matches!(result, RunResult::Ok));
+	let execution = instance.prepare(b"counter").unwrap();
+	let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
+	assert!(matches!(result, RunResult::Ok(_)));
 	assert_eq!(counter, 23);
 }
 
 /// Check the correct status is returned when hitting an `unimp` instruction.
 fn panic_works(program: &[u8]) {
-	let mut instance = Virt::instantiate(program).unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
+	let execution = instance.prepare(b"do_panic").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 0;
-	let mut memory = instance.memory();
-	let result =
-		run_loop(&mut instance, "do_panic", &mut gas_left, make_handler(&mut counter, &mut memory));
+	let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
 	assert!(matches!(result, RunResult::Err(ExecError::Trap)));
 	assert_eq!(counter, 0);
 }
 
 /// Check that setting exit in a host function aborts the execution.
 fn exit_works(program: &[u8]) {
-	let mut instance = Virt::instantiate(program).unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
+	let execution = instance.prepare(b"do_exit").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 0;
-	let mut memory = instance.memory();
-	let result =
-		run_loop(&mut instance, "do_exit", &mut gas_left, make_handler(&mut counter, &mut memory));
+	let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
 	assert!(matches!(result, RunResult::Exit));
 	assert_eq!(counter, 0);
 }
 
 /// Increment the counter in an endless loop until we run out of gas.
 fn run_out_of_gas_works(program: &[u8]) {
-	let mut instance = Virt::instantiate(program).unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
+	let execution = instance.prepare(b"increment_forever").unwrap();
 	let mut gas_left: i64 = 100_000;
 	let mut counter: u64 = 0;
-	let mut memory = instance.memory();
-	let result = run_loop(
-		&mut instance,
-		"increment_forever",
-		&mut gas_left,
-		make_handler(&mut counter, &mut memory),
-	);
+	let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
 	assert!(matches!(result, RunResult::Err(ExecError::OutOfGas)));
-	assert_eq!(counter, 14_285);
+	assert_eq!(counter, 793);
 	assert_eq!(gas_left, 0);
 }
 
@@ -203,106 +218,98 @@ fn gas_consumption_works(program: &[u8]) {
 	let gas_limit_0 = GAS_MAX;
 	let gas_limit_1 = gas_limit_0 / 2;
 
-	let mut instance = Virt::instantiate(program).unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
+	let execution = instance.prepare(b"counter").unwrap();
 	let mut gas_left = gas_limit_0;
 	let mut counter: u64 = 0;
-	let mut memory = instance.memory();
-	let result =
-		run_loop(&mut instance, "counter", &mut gas_left, make_handler(&mut counter, &mut memory));
-	assert!(matches!(result, RunResult::Ok));
+	let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
+	assert!(matches!(result, RunResult::Ok(_)));
 	let gas_consumed = gas_limit_0 - gas_left;
 
-	let mut instance = Virt::instantiate(program).unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
+	let execution = instance.prepare(b"counter").unwrap();
 	let mut gas_left = gas_limit_1;
 	let mut counter: u64 = 0;
-	let mut memory = instance.memory();
-	let result =
-		run_loop(&mut instance, "counter", &mut gas_left, make_handler(&mut counter, &mut memory));
-	assert!(matches!(result, RunResult::Ok));
+	let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
+	assert!(matches!(result, RunResult::Ok(_)));
 	assert_eq!(gas_consumed, gas_limit_1 - gas_left);
 }
 
 /// Make sure that globals are reset for a new instance.
 fn memory_reset_on_instantiate(program: &[u8]) {
-	let mut instance = Virt::instantiate(program).unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
+	let execution = instance.prepare(b"offset").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 0;
-	let mut memory = instance.memory();
-	let result =
-		run_loop(&mut instance, "offset", &mut gas_left, make_handler(&mut counter, &mut memory));
-	assert!(matches!(result, RunResult::Ok));
+	let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
+	assert!(matches!(result, RunResult::Ok(_)));
 	assert_eq!(counter, 3);
 
-	let mut instance = Virt::instantiate(program).unwrap();
-	let mut memory = instance.memory();
-	let result =
-		run_loop(&mut instance, "offset", &mut gas_left, make_handler(&mut counter, &mut memory));
-	assert!(matches!(result, RunResult::Ok));
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
+	let execution = instance.prepare(b"offset").unwrap();
+	let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
+	assert!(matches!(result, RunResult::Ok(_)));
 	assert_eq!(counter, 6);
 }
 
 /// Make sure globals are not reset between multiple calls into the same instance.
 fn memory_persistent(program: &[u8]) {
-	let mut instance = Virt::instantiate(program).unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
+	let execution = instance.prepare(b"offset").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 0;
-	let mut memory = instance.memory();
 
-	let result =
-		run_loop(&mut instance, "offset", &mut gas_left, make_handler(&mut counter, &mut memory));
-	assert!(matches!(result, RunResult::Ok));
+	let instance = match run_loop(execution, &mut gas_left, make_handler(&mut counter)) {
+		RunResult::Ok(instance) => instance,
+		_ => panic!("expected Ok"),
+	};
 	assert_eq!(counter, 3);
 
-	let result =
-		run_loop(&mut instance, "offset", &mut gas_left, make_handler(&mut counter, &mut memory));
-	assert!(matches!(result, RunResult::Ok));
+	let execution = instance.prepare(b"offset").unwrap();
+	let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
+	assert!(matches!(result, RunResult::Ok(_)));
 	assert_eq!(counter, 7);
 }
 
 /// Calls a function that spawns another instance where it calls the `counter` entry point.
 fn counter_in_subcall(program: &[u8]) {
-	let mut instance = Virt::instantiate(program).unwrap();
+	let instance = Module::from_bytes(program, None).unwrap().0.instantiate().unwrap();
+	let execution = instance.prepare(b"do_subcall").unwrap();
 	let mut gas_left = GAS_MAX;
 	let mut counter: u64 = 0;
-	let mut memory = instance.memory();
 	let program = program.to_vec();
-	let result = run_loop(
-		&mut instance,
-		"do_subcall",
-		&mut gas_left,
-		|syscall_no, a0, a1, a2, a3, a4, a5| {
-			match syscall_no {
-				1..=3 => {
-					make_handler(&mut counter, &mut memory)(syscall_no, a0, a1, a2, a3, a4, a5)
+	let result =
+		run_loop(execution, &mut gas_left, |execution, syscall_symbol, a0, a1, a2, a3, a4, a5| {
+			match syscall_symbol {
+				b"read_counter" | b"increment_counter" | b"exit" => {
+					make_handler(&mut counter)(execution, syscall_symbol, a0, a1, a2, a3, a4, a5)
 				},
 				// subcall: spawn a new instance and run counter in it
-				4 => {
-					let mut sub_instance = Virt::instantiate(program.as_ref()).unwrap();
+				b"subcall" => {
+					let sub_instance = Module::from_bytes(program.as_ref(), None)
+						.unwrap()
+						.0
+						.instantiate()
+						.unwrap();
+					let sub_execution = sub_instance.prepare(b"counter").unwrap();
 					let mut sub_gas = GAS_MAX;
 					let mut sub_counter: u64 = 0;
-					let mut sub_memory = sub_instance.memory();
-					let result = run_loop(
-						&mut sub_instance,
-						"counter",
-						&mut sub_gas,
-						make_handler(&mut sub_counter, &mut sub_memory),
-					);
-					assert!(matches!(result, RunResult::Ok));
+					let result =
+						run_loop(sub_execution, &mut sub_gas, make_handler(&mut sub_counter));
+					assert!(matches!(result, RunResult::Ok(_)));
 					assert_eq!(sub_counter, 8);
 					Ok(0)
 				},
-				_ => panic!("unknown syscall: {:?}", syscall_no),
+				_ => panic!("unknown syscall: {:?}", syscall_symbol),
 			}
-		},
-	);
-	assert!(matches!(result, RunResult::Ok));
+		});
+	assert!(matches!(result, RunResult::Ok(_)));
 	// sub call should not affect parent state
 	assert_eq!(counter, 0);
 }
 
-#[cfg(test)]
-#[test]
-fn tests() {
-	sp_tracing::try_init_simple();
-	run(sp_virtualization_test_fixture::binary());
+/// Storage key not in cache and no code in storage returns NotFound.
+fn from_storage_key_not_found(_program: &[u8]) {
+	let storage_key = b"::missing::";
+	assert!(matches!(Module::from_storage_key(storage_key, b""), Err(ModuleError::NotFound)));
 }

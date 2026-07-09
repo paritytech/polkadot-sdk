@@ -48,6 +48,7 @@ pin-project = { workspace = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 prost = { workspace = true }
 rand = { workspace = true, default-features = true }
+rustls = { workspace = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-network-common = { workspace = true, default-features = true }
 sc-network-types = { workspace = true, default-features = true }
@@ -59,6 +60,7 @@ smallvec = { workspace = true, default-features = true }
 sp-arithmetic = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tokio = { features = ["macros", "sync"], workspace = true, default-features = true }
@@ -70,10 +72,10 @@ zeroize = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
+multihash-codetable = { workspace = true }
 multistream-select = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }

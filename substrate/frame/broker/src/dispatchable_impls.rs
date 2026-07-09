@@ -143,6 +143,7 @@ impl<T: Config> Pallet<T> {
 			first_core: 0,
 			cores_offered: 0,
 			cores_sold: 0,
+			sale_index: 0,
 		};
 		Self::rotate_sale(&imaginary_old_sale, &sales_started.sale, &status);
 

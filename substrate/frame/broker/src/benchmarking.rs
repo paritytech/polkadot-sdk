@@ -287,6 +287,7 @@ mod benches {
 					.saturating_sub(T::MaxLeasedCores::get())
 					.try_into()
 					.unwrap(),
+				sale_index: 1u32,
 			}
 			.into(),
 		);

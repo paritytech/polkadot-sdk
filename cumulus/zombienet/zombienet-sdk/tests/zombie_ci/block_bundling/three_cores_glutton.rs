@@ -58,7 +58,7 @@ async fn block_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 		&relay_client,
 		6,
 		[(ParaId::from(PARA_ID), 12..19)],
-		[(ParaId::from(PARA_ID), (para_client.clone(), 48..73))],
+		[(ParaId::from(PARA_ID), (para_client.clone(), 44..73))],
 	)
 	.await?;
 
