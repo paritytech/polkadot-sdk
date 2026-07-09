@@ -93,6 +93,11 @@ pub const STORAGE_KEY_BYTES: u32 = 128;
 /// `Blake2_128Concat`-hashed `VersionedLocation` (16-byte hash plus the full
 /// encoded location) — stays under ~450 bytes; well-known keys such as `:code:`
 /// are only a few bytes.
+///
+/// Gated to its users (the precompile, its tests and the benchmark): the
+/// `limits` module is private, so an unused constant trips `-D dead-code` on
+/// default-feature builds.
+#[cfg(any(test, feature = "unchecked-precompiles", feature = "runtime-benchmarks"))]
 pub const UNCHECKED_RUNTIME_KEY_BYTES: u32 = 1024;
 
 /// The page size in which PolkaVM should allocate memory chunks.

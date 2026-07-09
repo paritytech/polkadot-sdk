@@ -5045,8 +5045,9 @@ fn unchecked_runtime_get_storage_return_data_boundary() {
 		// frame's return-data check).
 		let value = vec![7u8; MAX_RETURNABLE_VALUE_LEN as usize];
 		sp_io::storage::set(b"max_val", &value);
-		let result =
-			builder::bare_call(precompile_addr).data(input(b"max_val")).build_and_unwrap_result();
+		let result = builder::bare_call(precompile_addr)
+			.data(input(b"max_val"))
+			.build_and_unwrap_result();
 		assert!(!result.did_revert());
 		let decoded = Bytes::abi_decode(&result.data).expect("return should abi-decode");
 		assert_eq!(decoded.as_ref(), value.as_slice());
@@ -5055,8 +5056,9 @@ fn unchecked_runtime_get_storage_return_data_boundary() {
 		// instead of returning data the frame would reject as
 		// `ReturnDataTooLarge`.
 		sp_io::storage::set(b"over_max", &vec![7u8; MAX_RETURNABLE_VALUE_LEN as usize + 1]);
-		let result =
-			builder::bare_call(precompile_addr).data(input(b"over_max")).build_and_unwrap_result();
+		let result = builder::bare_call(precompile_addr)
+			.data(input(b"over_max"))
+			.build_and_unwrap_result();
 		assert!(result.did_revert());
 	});
 }
