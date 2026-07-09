@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783609350365,
+  "lastUpdate": 1783618507388,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "eb7f82266ce8a9201352cd0164573701bdcb5b2b",
-          "message": "[pallet-revive] improve eth-rpc tests reliability (#10281)\n\nImprove eth-rpc tests reliability by replacing substrate-node with\nrevive-dev-node, fixing nonce query in runtime_api_dry_run_addr, and\nrunning all tests in a single tokio test function\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-12T15:43:11Z",
-          "tree_id": "672a86ed41ec033722d02ed2c8a528d9b0dc50c5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eb7f82266ce8a9201352cd0164573701bdcb5b2b"
-        },
-        "date": 1762968227219,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.96799999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03432538904399999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04427702746799991,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03838041118999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "41a79e4d01bd1bbbc9cb7967bdce1a4223e1a1aa",
+          "message": "collator-protocol revamp: Increase channel size used by the background writer of `PersistentDb` (#12260)\n\nWhile testing the collator revamp on versi I've noticed a lot of\n[\"Reputation persistence channel full. Modifications kept in memory for\nnext\nretry\"](https://github.com/paritytech/polkadot-sdk/blob/2d69a9182eed3a79a9443905439a8e971d7c318d/polkadot/node/network/collator-protocol/src/validator_side_experimental/peer_manager/persistent_db.rs#L362)\nwarnings which happen during advertisement spam.\n\nThe reason is that we persist reputation slashes immediately in the DB\nso if we get two slashes in a very short time the channel is still full\nand processing is deferred. Here is an example:\n```\nWARN tokio-runtime-worker parachain::collator-protocol: Reputation persistence channel full. Modifications kept in memory for next retry.\nDEBUG tokio-runtime-worker parachain::collator-protocol: Slashing peer's reputation peer_id=PeerId(\"12D3KooWLwsXNV3gqUWuihotcVoncCXxzarUTpHhqu1BDaxAM1FJ\") para_id=1306 value=Score(10922)\nDEBUG tokio-runtime-worker parachain::collator-protocol: Slashing peer's reputation peer_id=PeerId(\"12D3KooWLwsXNV3gqUWuihotcVoncCXxzarUTpHhqu1BDaxAM1FJ\") para_id=1306 value=Score(10922)\n``` \n\nThis is not fatal since the update is not lost, just delayed. Despite\nthat I believe it's worth increasing the channel size between\n`PersistentDb` and its internal background writer from 1 to 3.\n\nAdditionally the PR introduces a separate log target for the\npersistent_db module.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-09T15:46:50Z",
+          "tree_id": "77b17ada46ee9dad1ecd640363f0f6d8796a8ce3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/41a79e4d01bd1bbbc9cb7967bdce1a4223e1a1aa"
+        },
+        "date": 1783618476965,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.112,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08318983024799995,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038688428575999995,
             "unit": "seconds"
           }
         ]
