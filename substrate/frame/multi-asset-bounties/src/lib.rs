@@ -1412,7 +1412,11 @@ pub mod pallet {
 		///   collected from the curator.
 		/// - The value can only be increased, never decreased, so the invariant that the sum of
 		///   child-bounty values never exceeds the parent value is preserved.
-		/// - Only parent bounties value can be increased via this call.
+		/// - This call does **not** check that the bounty account holds `new_value`; it only
+		///   updates the recorded value. Payouts stay bounded by the account's real balance at
+		///   settlement, so increasing the value beyond the available funds simply makes a later
+		///   payout fail — no funds are moved by this call.
+		/// - Only a parent bounty's value can be increased via this call.
 		///
 		/// ### Parameters
 		/// - `parent_bounty_id`: Index of the bounty whose value is increased.
@@ -1429,42 +1433,48 @@ pub mod pallet {
 			#[pallet::compact] amount: T::Balance,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
-
-			let (asset_kind, value, _, status, _) =
-				Self::get_bounty_details(parent_bounty_id, None)?;
-
-			// Only an `Active` bounty has a committed curator who can authorize and collateralize
-			// the increase.
-			let BountyStatus::Active { ref curator } = status else {
-				return Err(Error::<T, I>::UnexpectedStatus.into());
-			};
-			ensure!(signer == *curator, Error::<T, I>::RequireCurator);
-
 			ensure!(!amount.is_zero(), Error::<T, I>::InvalidValue);
-			// Reject an overflowing increase rather than silently saturating to a nonsensical
-			// value.
-			let new_value = value.checked_add(&amount).ok_or(Error::<T, I>::InvalidValue)?;
 
-			// Re-evaluate the curator deposit for the new value, collecting any additional hold
-			// from the curator. The deposit always exists for an `Active` parent bounty.
-			let native_amount = T::BalanceConverter::from_asset_balance(new_value, asset_kind)
-				.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
-			let curator_deposit =
-				CuratorDeposit::<T, I>::take(parent_bounty_id, None::<BountyIndex>)
-					.ok_or(Error::<T, I>::UnexpectedStatus)?;
-			let curator_deposit = curator_deposit.update(curator, native_amount)?;
-			CuratorDeposit::<T, I>::insert(parent_bounty_id, None::<BountyIndex>, curator_deposit);
+			let (old_value, new_value) = Bounties::<T, I>::try_mutate(
+				parent_bounty_id,
+				|maybe_bounty| -> Result<(T::Balance, T::Balance), DispatchError> {
+					let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
-			// Write the new value.
-			Bounties::<T, I>::try_mutate(parent_bounty_id, |maybe_bounty| -> DispatchResult {
-				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
-				bounty.value = new_value;
-				Ok(())
-			})?;
+					// Only an `Active` bounty has a committed curator who can authorize and
+					// collateralize the increase.
+					let curator = match &bounty.status {
+						BountyStatus::Active { curator } => curator.clone(),
+						_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
+					};
+					ensure!(signer == curator, Error::<T, I>::RequireCurator);
+
+					// Reject an overflowing increase rather than silently saturating to a
+					// nonsensical value.
+					let old_value = bounty.value;
+					let new_value =
+						old_value.checked_add(&amount).ok_or(Error::<T, I>::InvalidValue)?;
+
+					// Re-evaluate the curator deposit for the new value, collecting any additional
+					// hold from the curator. The deposit always exists for an `Active` bounty.
+					let native_amount = T::BalanceConverter::from_asset_balance(
+						new_value,
+						bounty.asset_kind.clone(),
+					)
+					.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+					let deposit =
+						CuratorDeposit::<T, I>::take(parent_bounty_id, None::<BountyIndex>)
+							.ok_or(Error::<T, I>::UnexpectedStatus)?;
+					let deposit = deposit.update(&curator, native_amount)?;
+					CuratorDeposit::<T, I>::insert(parent_bounty_id, None::<BountyIndex>, deposit);
+
+					bounty.value = new_value;
+					Ok((old_value, new_value))
+				},
+			)?;
 
 			Self::deposit_event(Event::<T, I>::BountyValueIncreased {
 				index: parent_bounty_id,
-				old_value: value,
+				old_value,
 				new_value,
 			});
 
