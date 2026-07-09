@@ -35,16 +35,9 @@ use sp_core::H160;
 use sp_runtime::Weight;
 use test_case::test_case;
 
-// Regression test: `deposit_event` in lib.rs must pass `data.len()` (32 bytes for
-// every ERC-20 event emitted by this precompile) — not `topics.len()` (always 3) —
-// to the `len` field of `RuntimeCosts::DepositEvent`. The two are independent
-// arguments with different per-unit weights, so swapping them silently undercharges
-// the per-byte event cost.
-//
-// A fresh bare-call `approve` charges exactly
-// `WeightInfo::allowance() + WeightInfo::approve_transfer() + DepositEvent`, so we can
-// assert the consumed weight against that sum. With the bug, the actual consumed weight
-// is lower by `DepositEvent{len:32} - DepositEvent{len:3}` and the equality fails.
+// A fresh `approve` consumes exactly `allowance() + approve_transfer() + DepositEvent{3, 32}`.
+// Asserting that sum pins the `DepositEvent` charge to `len = data.len()` (32), guarding against
+// it regressing to `topics.len()` (3), which would undercharge the per-byte event cost.
 #[test]
 fn deposit_event_charges_data_byte_length() {
 	use pallet_revive::precompiles::Token;
