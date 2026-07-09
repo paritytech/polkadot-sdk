@@ -1000,9 +1000,9 @@ mod test {
 		tree.finalize_root(&"B");
 		assert_eq!(tree.best_finalized_number, Some(20));
 
-
 		// Push a stale root with a lower number than the current `best_finalized_number`.
-		tree.roots.push(Node { hash: "STALE", number: 5, data: 0, children: Vec::new() });
+		tree.roots
+			.push(Node { hash: "STALE", number: 5, data: 0, children: Vec::new() });
 
 		tree.finalize_root(&"STALE");
 
