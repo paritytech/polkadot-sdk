@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783608043373,
+  "lastUpdate": 1783617448933,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -190271,6 +190271,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2614039325,
             "range": "± 60974451",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "41a79e4d01bd1bbbc9cb7967bdce1a4223e1a1aa",
+          "message": "collator-protocol revamp: Increase channel size used by the background writer of `PersistentDb` (#12260)\n\nWhile testing the collator revamp on versi I've noticed a lot of\n[\"Reputation persistence channel full. Modifications kept in memory for\nnext\nretry\"](https://github.com/paritytech/polkadot-sdk/blob/2d69a9182eed3a79a9443905439a8e971d7c318d/polkadot/node/network/collator-protocol/src/validator_side_experimental/peer_manager/persistent_db.rs#L362)\nwarnings which happen during advertisement spam.\n\nThe reason is that we persist reputation slashes immediately in the DB\nso if we get two slashes in a very short time the channel is still full\nand processing is deferred. Here is an example:\n```\nWARN tokio-runtime-worker parachain::collator-protocol: Reputation persistence channel full. Modifications kept in memory for next retry.\nDEBUG tokio-runtime-worker parachain::collator-protocol: Slashing peer's reputation peer_id=PeerId(\"12D3KooWLwsXNV3gqUWuihotcVoncCXxzarUTpHhqu1BDaxAM1FJ\") para_id=1306 value=Score(10922)\nDEBUG tokio-runtime-worker parachain::collator-protocol: Slashing peer's reputation peer_id=PeerId(\"12D3KooWLwsXNV3gqUWuihotcVoncCXxzarUTpHhqu1BDaxAM1FJ\") para_id=1306 value=Score(10922)\n``` \n\nThis is not fatal since the update is not lost, just delayed. Despite\nthat I believe it's worth increasing the channel size between\n`PersistentDb` and its internal background writer from 1 to 3.\n\nAdditionally the PR introduces a separate log target for the\npersistent_db module.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-09T15:46:50Z",
+          "tree_id": "77b17ada46ee9dad1ecd640363f0f6d8796a8ce3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/41a79e4d01bd1bbbc9cb7967bdce1a4223e1a1aa"
+        },
+        "date": 1783617418759,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4614166,
+            "range": "± 37453",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 303534,
+            "range": "± 9216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4791814,
+            "range": "± 103151",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 373113,
+            "range": "± 3183",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5400388,
+            "range": "± 26893",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 901430,
+            "range": "± 6325",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10698590,
+            "range": "± 53605",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4839964,
+            "range": "± 63550",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 45525949,
+            "range": "± 500357",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38833785,
+            "range": "± 390494",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 378424294,
+            "range": "± 2179204",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 307263797,
+            "range": "± 2089274",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2626735062,
+            "range": "± 9912560",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2350789917,
+            "range": "± 17678664",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3367639,
+            "range": "± 18498",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1827479,
+            "range": "± 6896",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3434622,
+            "range": "± 27804",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1894925,
+            "range": "± 8793",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3949635,
+            "range": "± 29204",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2206992,
+            "range": "± 15176",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8057385,
+            "range": "± 119505",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5219382,
+            "range": "± 56657",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 39219629,
+            "range": "± 457733",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 36518162,
+            "range": "± 409434",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 330346777,
+            "range": "± 3919497",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 285654402,
+            "range": "± 3542390",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2581876088,
+            "range": "± 32646321",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2560467297,
+            "range": "± 75403682",
             "unit": "ns/iter"
           }
         ]
