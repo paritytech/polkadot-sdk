@@ -202,6 +202,20 @@ fn bid_capped_at_current_descending_price() {
 }
 
 #[test]
+fn bid_below_reserve_fails_without_filling_bid_slot() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+
+		assert_noop!(place_bid(0, 1, 99), Error::BidTooLow);
+		assert!(crate::pallet::Bids::<Test>::get().is_empty());
+
+		// A bid at the reserve is still valid.
+		assert_ok!(place_bid(20, 1, 100));
+		assert_eq!(crate::pallet::Bids::<Test>::get().len(), 1);
+	});
+}
+
+#[test]
 fn max_bids_limit_enforced() {
 	TestExt::new().execute_with(|| {
 		// MaxBids = 100 in mock config.
@@ -859,6 +873,42 @@ fn tenant_protection_limited_to_renewal_rights_count() {
 		let refund_count =
 			actions.iter().filter(|a| matches!(a, TickAction::Refund { .. })).count();
 		assert_eq!(refund_count, 2);
+	});
+}
+
+#[test]
+fn displaced_auction_win_stops_counting_against_tenant_protection() {
+	TestExt::new().execute_with(|| {
+		// User 1 has 1 renewal right and wins 2 cores in auction. Only one of
+		// those wins is unprotected, so after one displacement the other must stay.
+		TestRenewalRights::set(1, FIRST_REGION_BEGIN, 1);
+
+		start_sales(100);
+		place_bid(0, 1, 200).unwrap();
+		place_bid(0, 1, 180).unwrap();
+		tick(20);
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Renewal));
+		let sale = SaleInfo::<Test>::get().unwrap();
+
+		assert_eq!(crate::pallet::Quotas::<Test>::get(1).auction_wins, 2);
+
+		// User 2 renews and displaces one of user 1's unprotected auction wins.
+		TestRenewalRights::set(2, sale.region_begin, 1);
+		assert_ok!(place_renewal(25, 2, 0, sale.region_begin));
+
+		// User 1 now has 1 active auction win left, matching their 1 renewal right.
+		assert_eq!(crate::pallet::Quotas::<Test>::get(1).auction_wins, 1);
+
+		// User 3 cannot displace user 1's remaining protected auction win.
+		TestRenewalRights::set(3, sale.region_begin, 1);
+		assert_noop!(place_renewal(25, 3, 0, sale.region_begin), Error::Unavailable);
+
+		let actions = tick(30);
+		let user1_sells = actions
+			.iter()
+			.filter(|a| matches!(a, TickAction::SellRegion { owner, .. } if *owner == 1))
+			.count();
+		assert_eq!(user1_sells, 1, "User 1's protected allocation should survive");
 	});
 }
 

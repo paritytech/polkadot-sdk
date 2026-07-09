@@ -241,6 +241,8 @@ pub mod pallet {
 		WrongPhase,
 		/// Bid price is above the current descending price.
 		BidTooHigh,
+		/// Bid price is below the reserve price.
+		BidTooLow,
 		/// Invalid configuration.
 		InvalidConfig,
 		/// Operation not allowed (e.g., bid withdrawal in RFC-17).
@@ -365,6 +367,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 		ensure!(sale.phase == SalePhase::Market, Error::<T>::WrongPhase);
 		ensure!(block_number >= sale.sale_start, Error::<T>::TooEarly);
+		ensure!(price_limit >= sale.reserve_price, Error::<T>::BidTooLow);
 
 		let current_price = descending_price::<T>(block_number, &sale)?;
 		let bid_price = price_limit.min(current_price);
@@ -445,6 +448,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 					.map_err(|_| Error::<T>::TooManyBids)
 			})?;
 
+			Quotas::<T>::mutate(&displaced.who, |quota| quota.auction_wins.saturating_dec());
 			Self::deposit_event(Event::BidDisplaced {
 				who: displaced.who,
 				bid_id: displaced.bid_id,
