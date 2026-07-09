@@ -145,7 +145,7 @@ impl<T: Config<I>, I: Instance + 'static> frame_support::traits::OnRuntimeUpgrad
 			Ok(())
 		};
 		if let Err(e) = res {
-			log::error!(target: TARGET, "failed to reconcile the payouts account: {:?}", e);
+			frame_support::defensive!("failed to reconcile the payouts account", e);
 		}
 
 		T::DbWeight::get().reads_writes(entries.saturating_add(2), 2)
