@@ -207,6 +207,62 @@ module tests {
       }))
   }
 
+  /// Refine a candidate for `paraId` declaring a STALE parent head — the sentinel
+  /// head the para never has (`StaleParentHead`) — as both parent and new head,
+  /// otherwise well-formed. Accumulate's parent-head check (§5.1 step 3) must
+  /// reject it, leaving the head unchanged. The new head is deliberately NOT
+  /// `current + 1`: if the check were broken and the candidate applied, the head
+  /// would jump to an obviously-invalid sentinel value, so the "head unchanged"
+  /// assertion can never pass by coincidence.
+  action applyStaleParentCandidate(
+    paraId: ParaId, codeHash: ValidationCodeHash
+  ): bool = {
+    val blockNow = now + 1
+    val pkg: WorkPackage = {
+      authorizedParas: List(paraId),
+      items: List({ validationCode: { hash: codeHash, len: FixedCodeLen }, pov: 0 })
+    }
+    val wr: WorkResult = {
+      result: WorkOk(refine(
+        svc, pkg, false, false,
+        Some(headHash(StaleParentHead)), Some(StaleParentHead), List()
+      )[0]),
+      authTrace: 0
+    }
+    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
+    val out = accumulateOnePackage(
+      afterAlwaysAccumulate.state, wr, solicitedSet, None, FixedCodeLen, blockNow, 0
+    )
+    all {
+      svc' = out.state,
+      now' = blockNow,
+      jamStagingSet' = match out.jamDesignate {
+        | Some(v) => v
+        | None => jamStagingSet
+      },
+      solicitedSet' = out.solicited,
+      prevSvc' = svc,
+      lastStepWorkResults' = List(wr),
+      lastStepBouncedTransfers' = List(),
+      lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out.jamAssigns),
+      logPrunedBelow' = logPrunedBelow
+    }
+  }
+
+  /// Parent-head check (§5.1 step 3): a candidate declaring a stale parent head
+  /// (one the para no longer has) is rejected, leaving the head unchanged — this
+  /// is what stops a candidate built on a superseded head from overwriting a
+  /// forced `parachain_set_head`. A candidate on the CURRENT head advances it
+  /// normally (first step); the stale one does not (second step).
+  run staleParentCandidateRejectedTest = {
+    val assetHubCode: ValidationCodeHash = { vchBytes: 2 }
+    init
+      .then(applyHappyPath(AssetHubParaId, assetHubCode, List()))
+      .then(expectThat(svc.paraInfo(AssetHubParaId).headData == 1))
+      .then(applyStaleParentCandidate(AssetHubParaId, assetHubCode))
+      .then(expectThat(svc.paraInfo(AssetHubParaId).headData == 1))
+  }
+
   // --- Parachain log eviction --------------------------------------------
 
   /// When over capacity, evict the oldest Refine entry first and preserve

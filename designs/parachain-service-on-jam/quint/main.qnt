@@ -63,13 +63,27 @@ module main {
 
   // --- Step (a): refine + accumulate one work-report --------------------
 
-  /// Construct one nondet work package's inputs against `svc`. Used twice
-  /// in `stepRefineAccumulate` to model 1 or 2 work packages per block,
-  /// from the same or different paras, with mixed valid/invalid outcomes.
+  /// A sentinel head value no live para ever reaches, modelling a candidate
+  /// built on a non-current (stale) head that Accumulate's parent-head check
+  /// (§5.1 step 3) must reject.
+  pure val StaleParentHead: HeadData = 9223372036854775807
+
+  /// The happy-path candidate carrying a para's active validation code.
+  pure def activeCodeCandidate(
+    s: ParachainServiceState, paraId: ParaId
+  ): ParachainCandidate =
+    { validationCode: { hash: s.paraInfo(paraId).validationCode.ref.hash, len: FixedCodeLen }, pov: 0 }
+
+  /// Construct one nondet work package's inputs against a service state `s`.
+  /// Used twice in `stepRefineAccumulate` to model 1 or 2 work packages per
+  /// block, from the same or different paras, with mixed valid/invalid outcomes.
   /// `declParent` / `declHead` model whether the PVF called
   /// `set_parent_head_hash` / `set_head`; when false the corresponding
-  /// declaration is `None`, which Refine rejects with
-  /// `MissingHeadDeclaration` (§4.2).
+  /// declaration is `None`, which Refine rejects with `MissingHeadDeclaration`
+  /// (§4.2). `staleParent` models a candidate built on a non-current (stale)
+  /// head: it declares the `StaleParentHead` sentinel as both parent and new head
+  /// and emits no upward messages, so it is well-formed but rejected by
+  /// Accumulate's parent-head check (§5.1 step 3), exercising that check.
   pure def buildPackage(
     s: ParachainServiceState,
     paraId: ParaId,
@@ -79,13 +93,17 @@ module main {
     numMsgs: int,
     itemCount: int,
     declParent: bool,
-    declHead: bool
+    declHead: bool,
+    staleParent: bool
   ): {
     pkg: WorkPackage, msgs: List[UpwardMessage],
     parentHead: Option[Hash], newHead: Option[HeadData]
   } = {
     val msgs =
-      if (numMsgs == 0) List()
+      // A stale candidate is rejected at the parent-head check, so its upward
+      // messages are never replayed (§5.1 step 7). Emit none, so a rejected
+      // candidate cannot appear to force a head via a `parachain_set_head`.
+      if (staleParent or numMsgs == 0) List()
       else if (numMsgs == 1) List(m1)
       else List(m1, m2)
     val pkg: WorkPackage =
@@ -101,8 +119,12 @@ module main {
     val curHead = if (s.isLive(paraId)) s.paraInfo(paraId).headData else 0
     {
       pkg: pkg, msgs: msgs,
-      parentHead: if (declParent) Some(headHash(curHead)) else None,
-      newHead: if (declHead) Some(curHead + 1) else None
+      parentHead:
+        if (staleParent) Some(headHash(StaleParentHead))
+        else if (declParent) Some(headHash(curHead)) else None,
+      newHead:
+        if (staleParent) Some(StaleParentHead)
+        else if (declHead) Some(curHead + 1) else None
     }
   }
 
@@ -133,9 +155,13 @@ module main {
     // false, Refine rejects with `MissingHeadDeclaration`.
     nondet wp1DeclParent = oneOf(Set(false, true))
     nondet wp1DeclHead = oneOf(Set(false, true))
+    // A stale-parent candidate (built on a non-current head) exercises the
+    // parent-head check's rejection (§5.1 step 3). Forced to active code so it
+    // is rejected on the parent, not the code, keeping `acc_error_logged` valid.
+    nondet wp1StaleParent = oneOf(Set(false, true))
     val wp1 = buildPackage(
       svc, wp1Para, wp1Candidate, wp1M1, wp1M2,
-      wp1NumMsgs, wp1ItemCount, wp1DeclParent, wp1DeclHead
+      wp1NumMsgs, wp1ItemCount, wp1DeclParent, wp1DeclHead, wp1StaleParent
     )
     val wp1Wr: WorkResult = {
       result:
@@ -165,6 +191,7 @@ module main {
     nondet wp2IsJamSkip = oneOf(Set(false, true))
     nondet wp2DeclParent = oneOf(Set(false, true))
     nondet wp2DeclHead = oneOf(Set(false, true))
+    nondet wp2StaleParent = oneOf(Set(false, true))
 
     // 0 packages models a pure always-accumulate block (the service still
     // accumulates with no work packages); 1 or 2 exercise the normal path.
@@ -199,7 +226,7 @@ module main {
     // (it fails Refine with `InvalidCodeHash` and is dropped at Accumulate).
     val wp2 = buildPackage(
       out1.state, wp2Para, wp2Candidate, wp2M1, wp2M2,
-      wp2NumMsgs, wp2ItemCount, wp2DeclParent, wp2DeclHead
+      wp2NumMsgs, wp2ItemCount, wp2DeclParent, wp2DeclHead, wp2StaleParent
     )
     val wp2Wr: WorkResult = {
       result:
