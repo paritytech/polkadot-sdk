@@ -187,8 +187,7 @@ fn transaction_fee_is_correct() {
 		let length_fee = TransactionByteFee::get() * (xt.clone().encode().len() as Balance);
 		balance_alice -= length_fee;
 
-		let mut info = default_transfer_call().get_dispatch_info();
-		info.extension_weight = xt.0.extension_weight();
+		let info = xt.get_dispatch_info();
 		let weight = info.total_weight();
 		let weight_fee = IdentityFee::<Balance>::weight_to_fee(&weight);
 
