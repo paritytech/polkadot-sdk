@@ -1432,11 +1432,6 @@ default-features = false
 optional = true
 path = "../substrate/frame/broker"
 
-[dependencies.pallet-coretime-market]
-default-features = false
-optional = true
-path = "../substrate/frame/coretime-market"
-
 [dependencies.pallet-child-bounties]
 default-features = false
 optional = true
@@ -1481,6 +1476,11 @@ path = "../substrate/frame/conviction-voting"
 default-features = false
 optional = true
 path = "../substrate/frame/core-fellowship"
+
+[dependencies.pallet-coretime-market]
+default-features = false
+optional = true
+path = "../substrate/frame/coretime-market"
 
 [dependencies.pallet-dap]
 default-features = false

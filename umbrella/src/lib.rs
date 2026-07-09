@@ -423,10 +423,6 @@ pub use pallet_bridge_relayers;
 #[cfg(feature = "pallet-broker")]
 pub use pallet_broker;
 
-/// RFC-17 market mechanism for Polkadot Coretime sales.
-#[cfg(feature = "pallet-coretime-market")]
-pub use pallet_coretime_market;
-
 /// FRAME pallet to manage child bounties.
 #[cfg(feature = "pallet-child-bounties")]
 pub use pallet_child_bounties;
@@ -467,6 +463,10 @@ pub use pallet_conviction_voting;
 /// Logic as per the description of The Fellowship for core Polkadot technology.
 #[cfg(feature = "pallet-core-fellowship")]
 pub use pallet_core_fellowship;
+
+/// RFC-17 market mechanism for Polkadot Coretime sales.
+#[cfg(feature = "pallet-coretime-market")]
+pub use pallet_coretime_market;
 
 /// FRAME pallet for Dynamic Allocation Pool (DAP).
 #[cfg(feature = "pallet-dap")]

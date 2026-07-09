@@ -16,4 +16,8 @@ doc:
 
 crates:
   - name: pallet-coretime-market
-    bump: major
+    bump: patch
+  - name: fp-coretime
+    bump: patch
+  - name: polkadot-sdk
+    bump: minor
