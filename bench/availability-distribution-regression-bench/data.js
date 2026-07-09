@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783609272751,
+  "lastUpdate": 1783618428207,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cc820273ae9325c9e2f7279e758415e8c6a1c78a",
-          "message": "pallet-revive fix prestate diff tracing (#10303)\n\nFix prestate diff-tracing, add missing storage diff for created\ncontracts\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-13T11:28:22Z",
-          "tree_id": "cebbd7ec58955654db86951a662e1e5c44846296",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cc820273ae9325c9e2f7279e758415e8c6a1c78a"
-        },
-        "date": 1763037362858,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00733532410666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02257720437333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013401719833333327,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15792338840666664,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007633518480000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "41a79e4d01bd1bbbc9cb7967bdce1a4223e1a1aa",
+          "message": "collator-protocol revamp: Increase channel size used by the background writer of `PersistentDb` (#12260)\n\nWhile testing the collator revamp on versi I've noticed a lot of\n[\"Reputation persistence channel full. Modifications kept in memory for\nnext\nretry\"](https://github.com/paritytech/polkadot-sdk/blob/2d69a9182eed3a79a9443905439a8e971d7c318d/polkadot/node/network/collator-protocol/src/validator_side_experimental/peer_manager/persistent_db.rs#L362)\nwarnings which happen during advertisement spam.\n\nThe reason is that we persist reputation slashes immediately in the DB\nso if we get two slashes in a very short time the channel is still full\nand processing is deferred. Here is an example:\n```\nWARN tokio-runtime-worker parachain::collator-protocol: Reputation persistence channel full. Modifications kept in memory for next retry.\nDEBUG tokio-runtime-worker parachain::collator-protocol: Slashing peer's reputation peer_id=PeerId(\"12D3KooWLwsXNV3gqUWuihotcVoncCXxzarUTpHhqu1BDaxAM1FJ\") para_id=1306 value=Score(10922)\nDEBUG tokio-runtime-worker parachain::collator-protocol: Slashing peer's reputation peer_id=PeerId(\"12D3KooWLwsXNV3gqUWuihotcVoncCXxzarUTpHhqu1BDaxAM1FJ\") para_id=1306 value=Score(10922)\n``` \n\nThis is not fatal since the update is not lost, just delayed. Despite\nthat I believe it's worth increasing the channel size between\n`PersistentDb` and its internal background writer from 1 to 3.\n\nAdditionally the PR introduces a separate log target for the\npersistent_db module.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-09T15:46:50Z",
+          "tree_id": "77b17ada46ee9dad1ecd640363f0f6d8796a8ce3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/41a79e4d01bd1bbbc9cb7967bdce1a4223e1a1aa"
+        },
+        "date": 1783618397703,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007730164859999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14710583553999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009984965546666632,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023520643306666665,
             "unit": "seconds"
           }
         ]
