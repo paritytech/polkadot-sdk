@@ -351,7 +351,6 @@ fn call_tracing_records_consumption_for_nested_transfer_to_eoa() {
 /// End-to-end: a real Solidity contract (compiled by solc) calls the
 /// `UncheckedRuntime` precompile's `dispatch`, and the runtime call executes as
 /// the contract's own account.
-#[cfg(feature = "unchecked-precompiles")]
 #[test]
 fn unchecked_runtime_dispatch_from_solidity() {
 	use crate::{
@@ -399,7 +398,6 @@ fn unchecked_runtime_dispatch_from_solidity() {
 
 /// End-to-end: a real Solidity contract reads raw runtime storage through the
 /// precompile and returns the value bytes.
-#[cfg(feature = "unchecked-precompiles")]
 #[test]
 fn unchecked_runtime_storage_from_solidity() {
 	use crate::precompiles::{Precompile, UncheckedRuntime};

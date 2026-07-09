@@ -4901,7 +4901,6 @@ fn precompiles_with_info_creates_contract() {
 	}
 }
 
-#[cfg(feature = "unchecked-precompiles")]
 #[test]
 fn unchecked_runtime_dispatch_executes_as_contract() {
 	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
@@ -4946,7 +4945,6 @@ fn unchecked_runtime_dispatch_executes_as_contract() {
 	});
 }
 
-#[cfg(feature = "unchecked-precompiles")]
 #[test]
 fn unchecked_runtime_storage_read_works() {
 	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
@@ -4980,7 +4978,6 @@ fn unchecked_runtime_storage_read_works() {
 	});
 }
 
-#[cfg(feature = "unchecked-precompiles")]
 #[test]
 fn unchecked_runtime_dispatch_reentrancy_guarded() {
 	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
@@ -5014,7 +5011,6 @@ fn unchecked_runtime_dispatch_reentrancy_guarded() {
 	});
 }
 
-#[cfg(feature = "unchecked-precompiles")]
 #[test]
 fn unchecked_runtime_dispatch_out_of_gas_is_clean() {
 	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
@@ -5052,7 +5048,6 @@ fn unchecked_runtime_dispatch_out_of_gas_is_clean() {
 	});
 }
 
-#[cfg(feature = "unchecked-precompiles")]
 #[test]
 fn unchecked_runtime_get_storage_out_of_gas_on_upfront_charge() {
 	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};
@@ -5082,7 +5077,6 @@ fn unchecked_runtime_get_storage_out_of_gas_on_upfront_charge() {
 	});
 }
 
-#[cfg(feature = "unchecked-precompiles")]
 #[test]
 fn unchecked_runtime_get_storage_out_of_gas_on_revert_charge() {
 	use crate::precompiles::{Precompile, UncheckedRuntime, unchecked_runtime::IUncheckedRuntime};

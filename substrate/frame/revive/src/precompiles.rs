@@ -27,7 +27,9 @@
 
 mod builtin;
 
-#[cfg(feature = "unchecked-precompiles")]
+// Also compiled under `cfg(test)` so the tests run in the default CI test job,
+// which does not enable the feature.
+#[cfg(any(test, feature = "unchecked-precompiles"))]
 pub mod unchecked_runtime;
 
 mod tests;
@@ -40,7 +42,7 @@ pub use crate::{
 };
 pub use alloy_core as alloy;
 pub use sp_core::{H160, H256, U256};
-#[cfg(feature = "unchecked-precompiles")]
+#[cfg(any(test, feature = "unchecked-precompiles"))]
 pub use unchecked_runtime::UncheckedRuntime;
 
 use crate::{
