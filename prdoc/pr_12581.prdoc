@@ -11,10 +11,10 @@ doc:
 
     `pallet_revive::Pallet::emit_contract_log` is exposed as the single EVM-log emission path.
 
-    A new `Erc20TransferLogs` callback in `pallet-assets-precompiles` mirrors those balance
+    A new `Erc20TransferLogsCallback` callback in `pallet-assets-precompiles` mirrors those balance
     changes as canonical ERC-20 `Transfer` logs at the asset's precompile address, so plain
     substrate asset activity is visible to Ethereum log consumers. The `ERC20` precompile no
-    longer emits its own `Transfer` log; wire `Erc20TransferLogs` as the instance's
+    longer emits its own `Transfer` log; wire `Erc20TransferLogsCallback` as the instance's
     `CallbackHandle` to keep precompile transfers logged.
 crates:
 - name: pallet-assets

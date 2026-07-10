@@ -85,7 +85,7 @@ impl pallet_assets::Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Currency = Balances;
-	type CallbackHandle = Erc20TransferLogs<Test, InlineIdConfig<0x0120>>;
+	type CallbackHandle = Erc20TransferLogsCallback<Test, InlineIdConfig<0x0120>>;
 }
 
 impl foreign_assets::pallet::Config for Test {

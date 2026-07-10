@@ -26,7 +26,7 @@
 use crate::{
 	foreign_assets::pallet::{Config, Pallet},
 	migration::MigrateForeignAssetPrecompileMappings,
-	Erc20TransferLogs, InlineIdConfig,
+	Erc20TransferLogsCallback, InlineIdConfig,
 };
 use frame_benchmarking::v2::*;
 use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
@@ -59,7 +59,7 @@ const TEST_TOKEN_NAME: &[u8] = b"Asset Permit";
 		T: crate::permit::Config,
 		<T as pallet_assets::Config<T::AssetsInstance>>::Balance: From<u32>,
 		<T as pallet_assets::Config<T::AssetsInstance>>::AssetIdParameter: From<<T as pallet_assets::Config<T::AssetsInstance>>::AssetId>,
-		// Erc20TransferLogs bounds
+		// Erc20TransferLogsCallback bounds
 		T: pallet_revive::Config,
 		<T as pallet_assets::Config<T::AssetsInstance>>::AssetId: Into<u32>,
 		pallet_revive::precompiles::alloy::primitives::U256:
@@ -121,7 +121,7 @@ mod benchmarks {
 		);
 	}
 
-	// ==================== Erc20TransferLogs benchmarks ====================
+	// ==================== Erc20TransferLogsCallback benchmarks ====================
 
 	/// One mirrored ERC-20 `Transfer` log: token-address derivation, log encoding and the
 	/// `ContractEmitted` event deposit. Receipt capture is a no-op outside an ethereum
@@ -137,7 +137,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			<Erc20TransferLogs<T, InlineIdConfig<0x0120>, T::AssetsInstance> as AssetsCallback<
+			<Erc20TransferLogsCallback<T, InlineIdConfig<0x0120>, T::AssetsInstance> as AssetsCallback<
 				_,
 				_,
 				_,

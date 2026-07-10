@@ -209,7 +209,7 @@ where
 
 /// `CallbackHandle` emitting an ERC-20 `Transfer` log for each pallet-assets balance change, at
 /// the asset's [`ERC20`] precompile address.
-pub struct Erc20TransferLogs<Runtime, PrecompileConfig, Instance = ()> {
+pub struct Erc20TransferLogsCallback<Runtime, PrecompileConfig, Instance = ()> {
 	_phantom: PhantomData<(Runtime, PrecompileConfig, Instance)>,
 }
 
@@ -218,7 +218,7 @@ impl<Runtime, PrecompileConfig, Instance>
 		<Runtime as Config<Instance>>::AssetId,
 		<Runtime as frame_system::Config>::AccountId,
 		<Runtime as Config<Instance>>::Balance,
-	> for Erc20TransferLogs<Runtime, PrecompileConfig, Instance>
+	> for Erc20TransferLogsCallback<Runtime, PrecompileConfig, Instance>
 where
 	PrecompileConfig: AssetPrecompileConfig<AssetIdExtractor = InlineAssetIdExtractor>,
 	Runtime: Config<Instance> + pallet_revive::Config,
@@ -268,7 +268,8 @@ where
 	}
 }
 
-impl<Runtime, PrecompileConfig, Instance> Erc20TransferLogs<Runtime, PrecompileConfig, Instance>
+impl<Runtime, PrecompileConfig, Instance>
+	Erc20TransferLogsCallback<Runtime, PrecompileConfig, Instance>
 where
 	PrecompileConfig: AssetPrecompileConfig<AssetIdExtractor = InlineAssetIdExtractor>,
 	Runtime: Config<Instance> + pallet_revive::Config,

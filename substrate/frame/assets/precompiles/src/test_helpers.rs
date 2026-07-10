@@ -46,7 +46,7 @@ pub(crate) fn set_prefix_in_address(prefix: u16) -> [u8; 20] {
 }
 
 /// Assert `event` was emitted from `contract` exactly once — duplicates (e.g. a precompile
-/// log next to the `Erc20TransferLogs`-mirrored one) are a failure, not a pass.
+/// log next to the `Erc20TransferLogsCallback`-mirrored one) are a failure, not a pass.
 pub(crate) fn assert_contract_event(contract: H160, event: IERC20Events) {
 	let (topics, data) = event.into_log_data().split();
 	let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();

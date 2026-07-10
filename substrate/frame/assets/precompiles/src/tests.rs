@@ -83,7 +83,7 @@ fn deposit_event_charges_data_byte_length() {
 	});
 }
 
-// The `Transfer` log mirrored by `Erc20TransferLogs` is not free for contract callers:
+// The `Transfer` log mirrored by `Erc20TransferLogsCallback` is not free for contract callers:
 // a bare-call `transfer` charges exactly `WeightInfo::transfer() + erc20_transfer_log()`.
 #[test]
 fn transfer_charges_mirrored_log() {
@@ -139,7 +139,7 @@ fn asset_id_extractor_works() {
 #[test]
 fn token_address_round_trips_through_extractor() {
 	for id in [0u32, 1, 1337, 0xDEAD_BEEF, u32::MAX] {
-		let address = Erc20TransferLogs::<Test, InlineIdConfig<0x0120>>::token_address(&id);
+		let address = Erc20TransferLogsCallback::<Test, InlineIdConfig<0x0120>>::token_address(&id);
 		let extracted =
 			<InlineIdConfig<0x0120> as AssetPrecompileConfig>::AssetIdExtractor::asset_id_from_address(
 				&address.0,
@@ -183,8 +183,8 @@ fn precompile_transfer_works(asset_index: u16) {
 			&ExecConfig::new_substrate_tx(),
 		);
 
-		// The log is mirrored by `Erc20TransferLogs` at the callback's token address (asset id 0,
-		// trust-backed prefix), regardless of which precompile alias was called.
+		// The log is mirrored by `Erc20TransferLogsCallback` at the callback's token address (asset
+		// id 0, trust-backed prefix), regardless of which precompile alias was called.
 		assert_contract_event(
 			H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX)),
 			IERC20Events::Transfer(IERC20::Transfer {
@@ -363,7 +363,8 @@ fn approval_works(asset_index: u16) {
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 15);
 		assert_eq!(Assets::balance(asset_id, other), 10);
 
-		// Mirrored by `Erc20TransferLogs` at the callback's token address, not `asset_addr`.
+		// Mirrored by `Erc20TransferLogsCallback` at the callback's token address, not
+		// `asset_addr`.
 		assert_contract_event(
 			H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX)),
 			IERC20Events::Transfer(IERC20::Transfer {
@@ -950,7 +951,7 @@ fn transfer_from_decrements_normally_after_max_approve(asset_index: u16) {
 	});
 }
 
-// The `Erc20TransferLogs` callback (wired as `CallbackHandle` in the mock) mirrors plain
+// The `Erc20TransferLogsCallback` callback (wired as `CallbackHandle` in the mock) mirrors plain
 // substrate asset operations — no precompile involved — as canonical ERC-20 `Transfer` logs
 // at the asset's precompile address. Mint = from 0x0, burn = to 0x0, per ERC-20 convention.
 #[test]
