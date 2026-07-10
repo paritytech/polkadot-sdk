@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783707769250,
+  "lastUpdate": 1783718289951,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -106703,6 +106703,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2608374845,
             "range": "± 37761274",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "78631234+soloking1412@users.noreply.github.com",
+            "name": "Maheswaran Velmurugan",
+            "username": "soloking1412"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5d8a63875d44e926590f741574d36c8136d60cfc",
+          "message": "pallet-revive: support finalized/safe/pending block tags in eth_getLogs (#12474)\n\n## Summary\n\n`eth_getLogs` resolves the `fromBlock`/`toBlock` fields of a filter to\nconcrete block numbers. The resolver only handled explicit block numbers\nand the `earliest` and `latest` tags, rejecting `finalized`, `safe` and\n`pending`:\n\n```rust\nBlockNumberOrTag::BlockTag(tag) => anyhow::bail!(\"Unsupported tag: {tag:?}\"),\n```\n\nThese tags are part of the standard Ethereum JSON-RPC block parameter,\nand the rest of the eth-rpc server already accepts them — e.g.\n`block_hash_for_tag` / `block_by_number_or_tag`, used by\n`eth_getBalance`, `eth_call`, `eth_getStorageAt`. So a filter that works\nfor those methods fails for `eth_getLogs`.\n\n## Fix\n\nResolve all standard block tags, consistent with the existing\n`block_hash_for_tag`:\n- `safe` / `finalized` → latest finalized block\n- `pending` → `latest`\n- `earliest` → earliest block\n\nThe tag→number mapping is extracted into a small\n`resolve_filter_block_number` helper and covered by a unit test. Making\nthe `match` exhaustive over `BlockTag` also means a future tag variant\nbecomes a compile error rather than a silent runtime rejection.\n\n## Testing\n\n- `cargo test -p pallet-revive-eth-rpc` — new\n`resolve_filter_block_number_supports_all_block_tags` passes.\n- `cargo +nightly fmt` clean.\n\n---------\n\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-10T19:51:50Z",
+          "tree_id": "5d1d2ac1d6635f20eb3e570b4fa8c93ed69536a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5d8a63875d44e926590f741574d36c8136d60cfc"
+        },
+        "date": 1783718260495,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19927249,
+            "range": "± 468388",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19935287,
+            "range": "± 141393",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21515958,
+            "range": "± 218583",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26543602,
+            "range": "± 156127",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59717419,
+            "range": "± 401626",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 377069537,
+            "range": "± 9218003",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2645079342,
+            "range": "± 137821802",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17196347,
+            "range": "± 138365",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17492745,
+            "range": "± 149105",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18044448,
+            "range": "± 159329",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22505977,
+            "range": "± 233379",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62654297,
+            "range": "± 542240",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 368143015,
+            "range": "± 7187085",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2654213444,
+            "range": "± 18164880",
             "unit": "ns/iter"
           }
         ]
