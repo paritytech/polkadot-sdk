@@ -12,6 +12,6 @@ crates:
 - name: polkadot-cli
   bump: major
 - name: staging-chain-spec-builder
-  bump: major
+  bump: patch
 - name: sc-cli
   bump: major

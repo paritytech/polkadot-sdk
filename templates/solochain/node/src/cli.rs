@@ -14,7 +14,6 @@ pub enum Subcommand {
 	#[command(subcommand)]
 	Key(sc_cli::KeySubcommand),
 
-	/// Build a chain specification.
 	/// Export the chain specification.
 	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 

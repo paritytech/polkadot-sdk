@@ -82,7 +82,6 @@ impl Display for AuthoringPolicy {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
-	/// Build a chain specification.
 	/// Export the chain specification.
 	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
