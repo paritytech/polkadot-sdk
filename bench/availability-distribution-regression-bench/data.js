@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783618428207,
+  "lastUpdate": 1783676500281,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "117115317+lrubasze@users.noreply.github.com",
-            "name": "Lukasz Rubaszewski",
-            "username": "lrubasze"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3d1295aed7ff2208021347723f1879075668bab3",
-          "message": "Reenable `interest-cache` for `tracing-log` (#10304)\n\nReenable the `interest-cache` for the `tracing-log` crate.\n\nIt was disabled in this PR\n(https://github.com/paritytech/substrate/pull/11854) due to this issue\n(https://github.com/paritytech/substrate/pull/11854/issues/11691).\nMore details\n[here](https://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3522183237).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-13T15:47:13Z",
-          "tree_id": "b4920d4c69d5460e548ab9fda9e217b0abbe17d0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3d1295aed7ff2208021347723f1879075668bab3"
-        },
-        "date": 1763053317436,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01314376461333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022946421806666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0074414727666666835,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1618804094133334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.023520643306666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "59cae94c49c817fab66a81ef7abda0668aee0473",
+          "message": "pallet-revive: bench the overlay overhead of hot storage accesses (#12599)\n\nReplace the hardcoded `HOT_STORAGE_OVERLAY_OVERHEAD` (2µs) with a\nbenchmarked value.\n- Add `overlay_probe_full`, which fills the overlay inside the measured\nblock and reads `n` stored keys, and `overlay_probe_empty`, the same\nreads without the fill\n- Price each hot storage access with the per-read difference between the\ntwo.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-10T07:21:50Z",
+          "tree_id": "6b7e60aacfaf05f63b849c875a888c877310137f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/59cae94c49c817fab66a81ef7abda0668aee0473"
+        },
+        "date": 1783676470611,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023663857513333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010053601486666642,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14766813940666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007659262713333333,
             "unit": "seconds"
           }
         ]
