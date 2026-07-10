@@ -2645,10 +2645,10 @@ impl<T: Config> Pallet<T> {
 	/// Emit an EVM log attributed to `contract`: traced, captured into the ethereum receipt
 	/// (inside an ethereum transaction), and deposited as [`Event::ContractEmitted`]. The
 	/// single emission path — used by contract execution and log-mirroring runtime components.
-	pub fn emit_contract_log(contract: H160, topics: Vec<H256>, data: Vec<u8>) {
+	pub fn emit_contract_log_outside_frame(contract: H160, topics: Vec<H256>, data: Vec<u8>) {
 		if_tracing(|tracer| {
 			let log_index = frame_system::Pallet::<T>::event_count();
-			tracer.log_event(contract, &topics, &data, log_index);
+			tracer.log_event_outside_frame(contract, &topics, &data, log_index);
 		});
 
 		evm::block_storage::capture_ethereum_log(&contract, &data, &topics);

@@ -307,7 +307,7 @@ where
 			.into_log_data()
 			.split();
 		let topics = topics.into_iter().map(|t| H256(t.0)).collect::<Vec<_>>();
-		pallet_revive::Pallet::<Runtime>::emit_contract_log(
+		pallet_revive::Pallet::<Runtime>::emit_contract_log_outside_frame(
 			Self::token_address(id),
 			topics,
 			data.to_vec(),

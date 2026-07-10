@@ -734,3 +734,51 @@ fn ext_builder_with_genesis_config_works() {
 		}
 	});
 }
+
+#[test]
+fn tracing_a_log_emitted_outside_a_call_frame_does_not_panic() {
+	use crate::{evm::CallTracer, tracing::trace};
+	use sp_core::H256;
+
+	ExtBuilder::default().build().execute_with(|| {
+		// `with_logs` is enabled by the default config, so the log path is exercised.
+		let mut tracer = CallTracer::new(Default::default());
+
+		// A runtime component (e.g. the pallet-assets ERC-20 log mirror) emits a contract log
+		// during a plain extrinsic, with no contract call frame ever entered. The call tracer
+		// must tolerate the empty stack rather than panic.
+		trace(&mut tracer, || {
+			Pallet::<Test>::emit_contract_log_outside_frame(
+				H160::from_low_u64_be(0x1234),
+				vec![H256::repeat_byte(0x11)],
+				vec![1, 2, 3],
+			);
+		});
+
+		// No frame was entered, so there is no top-level call to collect.
+		assert!(tracer.collect_trace().is_none());
+	});
+}
+
+#[test]
+fn tracing_a_log_emitted_inside_a_call_frame_attaches_to_it() {
+	use crate::{evm::CallTracer, tracing::Tracing};
+	use sp_core::H256;
+
+	let mut tracer = CallTracer::new(Default::default());
+	let contract = H160::from_low_u64_be(0x1234);
+	let topics = vec![H256::repeat_byte(0x11)];
+	let data = vec![1u8, 2, 3];
+
+	// Enter a call frame (as a contract call would), emit a `LOG` inside it, then exit.
+	tracer.enter_child_span(ALICE_ADDR, contract, None, false, U256::zero(), &[], 0);
+	tracer.log_event(contract, &topics, &data, 7);
+	tracer.exit_child_span(&ExecReturnValue::default(), 0, Weight::zero());
+
+	let trace = tracer.collect_trace().expect("a frame was entered");
+	assert_eq!(trace.logs.len(), 1, "the log must attach to the active frame exactly once");
+	assert_eq!(trace.logs[0].address, contract);
+	assert_eq!(trace.logs[0].topics, topics);
+	assert_eq!(trace.logs[0].data, data.into());
+	assert_eq!(trace.logs[0].index, 7);
+}
