@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783618547213,
+  "lastUpdate": 1783676617349,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "karol@parity.io",
-            "name": "Karol Kokoszka",
-            "username": "karolk91"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "14f0e2e3af9dbfe366151e2445f320585a3fba87",
-          "message": "pallet-xcm: API changes to use `VersionedAssetId` instead of `u32` to specify asset for fees (#10243)\n\nMultiple pallet-xcm calls use `u32` index as a way to specify which\nasset from the `assets` (also an arg of the call) is to be used for fees\npurposes. This PR brings **major API change (breaking change)** that\nproposes usage of `VersionedAssetId` instead\n\nAffected pallet-xcm calls: `teleport_assets`, `reserve_transfer_assets`,\n`limited_reserve_transfer_assets`, `limited_teleport_assets`,\n`transfer_assets`\n\nThis is follow-up change to the:\nhttps://github.com/paritytech/polkadot-sdk/pull/9842, that aims to\nremove the requirement of the client to provide sorted list of Assets to\nthe APIs (often a point failures). With the mentioned change sorting\nhappens on the runtime side and `u32` index (provided by the client) can\nbecome invalid after sorting (this PR aims that problem)\n\nRelevant\n[dicussion](https://matrix.to/#/!nYxxyvMNMUaniRIokh:parity.io/$gAcAEznmQL6LhUlvGPHSaePUV4cZtxoco2I6ap8Cn3Q?via=parity.io&via=matrix.org&via=web3.foundation)\non XCM public element channel\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>",
-          "timestamp": "2025-11-12T20:17:46Z",
-          "tree_id": "01acbdf59ddc1697fca55fd033b207fe5be1b05f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/14f0e2e3af9dbfe366151e2445f320585a3fba87"
-        },
-        "date": 1762982918522,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00267588179,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005246474169999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00878565048999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00254920184,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "59cae94c49c817fab66a81ef7abda0668aee0473",
+          "message": "pallet-revive: bench the overlay overhead of hot storage accesses (#12599)\n\nReplace the hardcoded `HOT_STORAGE_OVERLAY_OVERHEAD` (2µs) with a\nbenchmarked value.\n- Add `overlay_probe_full`, which fills the overlay inside the measured\nblock and reads `n` stored keys, and `overlay_probe_empty`, the same\nreads without the fill\n- Price each hot storage access with the per-read difference between the\ntwo.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-10T07:21:50Z",
+          "tree_id": "6b7e60aacfaf05f63b849c875a888c877310137f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/59cae94c49c817fab66a81ef7abda0668aee0473"
+        },
+        "date": 1783676587391,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025358880999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009222259039999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009701558789999993,
             "unit": "seconds"
           }
         ]
