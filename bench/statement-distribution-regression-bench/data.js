@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783676578022,
+  "lastUpdate": 1783709191562,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d30e15936393b00ae5d39d79becbda12d6940899",
-          "message": "pallet-revive: add hook for mocking origin (#10272)\n\nWhile runing some balancer v3 tests:\nhttps://github.com/paritytech/foundry-polkadot/issues/287#issuecomment-3502668161,\ndiscovered we need a way to mock up the origin as well, so add hook.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-13T07:42:18Z",
-          "tree_id": "ed3c291ed3f049ab3a07b8e5fca0dda1f6d0dfb3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d30e15936393b00ae5d39d79becbda12d6940899"
-        },
-        "date": 1763024308276,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.98199999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034658306929999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04487746605999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08675312942399996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yrong1997@gmail.com",
+            "name": "Ron",
+            "username": "yrong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "60c2964421de25eabcc70dae8408b2585258d202",
+          "message": "Snowbridge: blocks origin-spoofing in the outbound converter (#12159)\n\n### Context\n\nIt acts as a form of \"defense in depth\" against upstream XCM\nregressions, keep this explicit check as a final fail-safe protecting\nthe bridge’s primary agent account, which is derived from the AssetHub\nRoot location and holds the ERC20 assets.\n\n---------\n\nCo-authored-by: Claude Opus 4.7 <noreply@anthropic.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-10T16:55:29Z",
+          "tree_id": "5e8be4aa40d7c0be663345662e11b13ff9796e9f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/60c2964421de25eabcc70dae8408b2585258d202"
+        },
+        "date": 1783709163188,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.11199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08311480909799995,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038383536520000004,
             "unit": "seconds"
           }
         ]
