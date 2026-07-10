@@ -2497,7 +2497,7 @@ impl fp_coretime::market::TimesliceProvider for CoretimeMarketProviders {
 		None
 	}
 	fn latest_timeslice_ready_to_commit() -> Option<fp_coretime::Timeslice> {
-		None
+		cfg!(feature = "runtime-benchmarks").then_some(0)
 	}
 }
 impl pallet_coretime_market::RenewalRightsProvider<AccountId> for CoretimeMarketProviders {

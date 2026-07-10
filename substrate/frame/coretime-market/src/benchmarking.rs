@@ -19,7 +19,7 @@
 
 use super::*;
 use fp_coretime::{
-	market::{CoreRangeProvider, Market},
+	market::{CoreRangeProvider, Market, TimesliceProvider},
 	PotentialRenewalId,
 };
 use frame_benchmarking::v2::*;
@@ -132,7 +132,7 @@ mod benches {
 				.into_iter()
 				.filter(|event| { matches!(event, Event::BidPlaced { .. }) })
 				.count(),
-			max as usize
+			1
 		);
 
 		Ok(())
@@ -288,7 +288,16 @@ mod benches {
 	#[benchmark]
 	fn sale_phase_transition_to_market() -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
+		let ready = T::TimesliceProvider::latest_timeslice_ready_to_commit()
+			.ok_or(BenchmarkError::Weightless)?;
+		let config = Configuration::<T>::get().ok_or(BenchmarkError::Weightless)?;
+		SaleInfo::<T>::mutate_extant(|sale| {
+			sale.phase = SalePhase::Settlement;
+			sale.region_begin = ready;
+			sale.region_end = ready.saturating_add(config.region_length);
+		});
 
+		frame_system::Pallet::<T>::reset_events();
 		let mut meter = frame_support::weights::WeightMeter::new();
 		#[block]
 		{

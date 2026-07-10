@@ -136,7 +136,6 @@ fn start_sales_works() {
 #[test]
 fn start_sales_fails_without_config() {
 	new_test_ext().execute_with(|| {
-		TestCoreRangeProvider::set(0, 2);
 		// No configure() called — should fail.
 		let init = InitData { reserve_price: 100 };
 		assert_noop!(
@@ -149,6 +148,7 @@ fn start_sales_fails_without_config() {
 #[test]
 fn start_sales_fails_without_core_range() {
 	new_test_ext().execute_with(|| {
+		TestCoreRangeProvider::clear();
 		<CoretimeMarket as Market<u64, u64, u64>>::configure(new_config()).unwrap();
 		// CoreRangeProvider returns None — should fail.
 		let init = InitData { reserve_price: 100 };
